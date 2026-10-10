@@ -1,0 +1,18 @@
+{
+  "name": "@vt/game-echo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./logic": "./src/logic/index.ts",
+    "./guide": "./src/logic/guide.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vt/game-sdk": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}
