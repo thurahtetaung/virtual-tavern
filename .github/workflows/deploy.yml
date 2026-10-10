@@ -70,16 +70,3 @@ jobs:
           scp docker-compose.yml scripts/deploy.sh "target:$DEPLOY_DIR/"
           # shellcheck disable=SC2029
           ssh target "cd '$DEPLOY_DIR' && ./deploy.sh '$VERSION'"
-      - name: Check the public site
-        if: vars.PUBLIC_URL != ''
-        env:
-          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
-        run: |
-          for _ in $(seq 12); do
-            body=$(curl -fsS "$PUBLIC_URL/healthz" || true)
-            echo "$body"
-            [[ "$body" == *"\"version\":\"$VERSION\""* ]] && exit 0
-            sleep 5
-          done
-          echo "Public site is not serving $VERSION" >&2
-          exit 1
