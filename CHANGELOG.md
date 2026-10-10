@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.8.0...v0.9.0) (2026-10-10)
+
+
+### Features
+
+* **admin:** add the stats page ([#46](https://github.com/thurahtetaung/virtual-tavern/issues/46)) ([0b5146c](https://github.com/thurahtetaung/virtual-tavern/commit/0b5146c665712d60ce87ad38b9bc83cfe2ae1d01))
+* **admin:** define the stats API contract and game insights hook ([#42](https://github.com/thurahtetaung/virtual-tavern/issues/42)) ([0db8c35](https://github.com/thurahtetaung/virtual-tavern/commit/0db8c35fb3175ac5ae50fa6c1a5c8d0ae6f806ac))
+* **admin:** record game stats and serve them to admins ([#43](https://github.com/thurahtetaung/virtual-tavern/issues/43)) ([0a2f45b](https://github.com/thurahtetaung/virtual-tavern/commit/0a2f45b904c95aaec986a61d0e81c5e93e788b4b))
+* **games:** report game insights for the stats page ([#45](https://github.com/thurahtetaung/virtual-tavern/issues/45)) ([a8bb974](https://github.com/thurahtetaung/virtual-tavern/commit/a8bb974680cc9398989df12b4d9941ce25536a60))
+
 ## [0.8.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.7.0...v0.8.0) (2026-10-10)
 
 
