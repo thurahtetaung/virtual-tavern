@@ -47,6 +47,8 @@ export interface WordListSummary {
   updatedAt: number;
   /** Ids of the games that offer this list. */
   games: string[];
+  /** Disabled lists are hidden from hosts and rooms; only admins see them. */
+  enabled: boolean;
 }
 
 export interface WordListDetail extends WordListSummary {
@@ -65,8 +67,13 @@ export const wordListBody = z.object({
    * the ids against its registered word-list games.
    */
   games: z.array(z.string().min(1).max(40)).min(1).max(10).optional(),
+  /** Omitted means enabled for a new list, and unchanged on an update. */
+  enabled: z.boolean().optional(),
 });
 export type WordListBody = z.input<typeof wordListBody>;
+
+/** Switches a word list on or off without resending its words. */
+export const wordListEnabledBody = z.object({ enabled: z.boolean() });
 
 export const adminLoginBody = z.object({ password: z.string().min(1).max(200) });
 

@@ -140,4 +140,44 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await expect(picker).toBeHidden();
   await expect(lists.getByText('E2E Planets')).toBeVisible();
   await expect(lists.getByText('Starter')).toBeVisible();
+
+  // Switching the list off hides it from hosts at once, even in a room that had it selected.
+  const row = admin.getByRole('listitem').filter({ hasText: 'E2E Planets' });
+  const enabled = row.getByRole('switch', { name: 'Enabled' });
+  const patched = () => admin.waitForResponse((r) => r.request().method() === 'PATCH' && r.ok());
+  await expect(enabled).toHaveAttribute('aria-checked', 'true');
+  await Promise.all([patched(), enabled.click()]);
+  await expect(enabled).toHaveAttribute('aria-checked', 'false');
+  await expect(row.getByText('Disabled', { exact: true })).toBeVisible();
+  await admin.reload();
+  await expect(enabled).toHaveAttribute('aria-checked', 'false');
+
+  await host.reload();
+  await expect(lists.getByText('Starter')).toBeVisible();
+  await expect(lists.getByText('E2E Planets')).toBeHidden();
+  await expect(lists.getByText(/from this list \(\d+ words\)/)).toBeVisible();
+  await host.getByRole('button', { name: 'Change word lists' }).click();
+  await expect(picker.getByText(/^1 list ·/)).toBeVisible();
+  // Other lists still match "planets"; the disabled one doesn't show up among them.
+  await picker.getByRole('searchbox').fill('planets');
+  await expect(picker.getByRole('checkbox').first()).toBeVisible();
+  await expect(picker.getByRole('checkbox', { name: /E2E Planets/ })).toHaveCount(0);
+  await picker.getByRole('button', { name: 'Cancel' }).click();
+
+  const fresh = await player(browser, 'Fern');
+  await fresh.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await fresh.getByRole('button', { name: 'Change word lists' }).click();
+  await fresh.getByRole('dialog').getByRole('searchbox').fill('planets');
+  await expect(fresh.getByRole('dialog').getByRole('checkbox').first()).toBeVisible();
+  await expect(
+    fresh.getByRole('dialog').getByRole('checkbox', { name: /E2E Planets/ }),
+  ).toHaveCount(0);
+
+  // Switched back on, the room's saved selection includes it again.
+  await Promise.all([patched(), enabled.click()]);
+  await expect(enabled).toHaveAttribute('aria-checked', 'true');
+  await expect(row.getByText('Disabled', { exact: true })).toBeHidden();
+  await host.reload();
+  await expect(lists.getByText('E2E Planets')).toBeVisible();
+  await expect(lists.getByText(/from these lists/)).toBeVisible();
 });

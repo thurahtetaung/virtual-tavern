@@ -1,7 +1,7 @@
 import type { GameSummary, WordListDetail, WordListSummary } from '@vt/protocol';
 import { MAX_WORDS_PER_LIST } from '@vt/protocol';
-import { Button, Panel, cn } from '@vt/ui';
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Badge, Button, Panel, cn } from '@vt/ui';
+import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Layout } from '../components/Layout.tsx';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -206,6 +206,28 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
     }
   };
 
+  // Lists with a switch request in flight; further taps on them wait for it to settle.
+  const [switching, setSwitching] = useState<ReadonlySet<string>>(new Set());
+  const setEnabled = async (id: string, enabled: boolean) => {
+    if (switching.has(id)) return;
+    const flip = (on: boolean) =>
+      setLists((ls) => ls?.map((l) => (l.id === id ? { ...l, enabled: on } : l)) ?? ls);
+    flip(enabled);
+    setSwitching((s) => new Set(s).add(id));
+    try {
+      await api(`/api/admin/word-lists/${id}`, { method: 'PATCH', body: { enabled } });
+    } catch (err) {
+      flip(!enabled);
+      toast((err as Error).message);
+    } finally {
+      setSwitching((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   if (editing) {
     return (
       <Editor
@@ -235,40 +257,118 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
       </div>
       <p className="text-sm text-stone-600 dark:text-stone-400">
         Hosts choose from these lists when setting up a game. A game needs at least 25 words across
-        the chosen lists.
+        the chosen lists. Switch a list off to hide it from hosts without deleting it.
       </p>
       {lists === null && <p className="text-stone-500 dark:text-stone-400">Loading lists…</p>}
       <ul className="space-y-2">
         {lists?.map((l) => (
           <li key={l.id}>
-            <button
-              type="button"
-              onClick={() => void open(l.id)}
-              className="block w-full text-left"
+            <Panel
+              className={cn(
+                'flex items-center gap-1 p-0 pr-2 transition hover:ring-amber-400',
+                !l.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
+              )}
             >
-              <Panel className="flex items-center justify-between gap-2 transition hover:ring-amber-400">
-                <span>
-                  <span className="font-bold">{l.name}</span>
-                  {l.description && (
-                    <span className="block text-sm text-stone-500">{l.description}</span>
-                  )}
-                  <GameTags ids={l.games} games={games} />
+              <button
+                type="button"
+                onClick={() => void open(l.id)}
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+              >
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span
+                      id={`list-${l.id}`}
+                      className={cn(
+                        'font-bold',
+                        !l.enabled && 'text-stone-500 dark:text-stone-400',
+                      )}
+                    >
+                      {l.name}
+                    </span>
+                    {!l.enabled && <Badge>Disabled</Badge>}
+                  </span>
+                  <span className={cn('block', !l.enabled && 'opacity-60')}>
+                    {l.description && (
+                      <span className="block text-sm text-stone-500">{l.description}</span>
+                    )}
+                    <GameTags ids={l.games} games={games} />
+                  </span>
                 </span>
                 <span
                   className={cn(
-                    'text-sm',
-                    l.wordCount < 25 ? 'font-semibold text-rose-600' : 'text-stone-500',
+                    'shrink-0 text-sm',
+                    l.wordCount < 25 && l.enabled
+                      ? 'font-semibold text-rose-600'
+                      : 'text-stone-500',
                   )}
                 >
                   {l.wordCount} words
                 </span>
-              </Panel>
-            </button>
+              </button>
+              <Switch
+                checked={l.enabled}
+                busy={switching.has(l.id)}
+                onChange={(on) => void setEnabled(l.id, on)}
+                aria-label="Enabled"
+                aria-describedby={`list-${l.id}`}
+              />
+            </Panel>
           </li>
         ))}
         {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
       </ul>
     </div>
+  );
+}
+
+/**
+ * An on/off switch with a 44 px tap target. Name it with `aria-label`, or with a `<label>`
+ * pointing at `id`. While `busy`, taps are ignored (the switch stays focusable).
+ */
+function Switch({
+  checked,
+  onChange,
+  busy = false,
+  ...aria
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  busy?: boolean;
+  id?: string;
+  'aria-label'?: string;
+  'aria-describedby'?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-busy={busy || undefined}
+      onClick={() => {
+        if (!busy) onChange(!checked);
+      }}
+      className={cn(
+        'inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-lg',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500',
+        busy && 'cursor-wait',
+      )}
+      {...aria}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'relative h-6 w-11 rounded-full transition-colors',
+          checked ? 'bg-amber-600 dark:bg-amber-500' : 'bg-stone-300 dark:bg-stone-600',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
+            checked && 'translate-x-5',
+          )}
+        />
+      </span>
+    </button>
   );
 }
 
@@ -308,6 +408,8 @@ function Editor({
   const toggle = (id: string) =>
     setPicked(chosen.includes(id) ? chosen.filter((g) => g !== id) : [...chosen, id]);
   const [name, setName] = useState(list?.name ?? '');
+  const [enabled, setEnabled] = useState(list?.enabled ?? true);
+  const switchId = useId();
   const [description, setDescription] = useState(list?.description ?? '');
   const [text, setText] = useState(list?.words.join('\n') ?? '');
   const [saving, setSaving] = useState(false);
@@ -318,7 +420,13 @@ function Editor({
     setSaving(true);
     try {
       // Untouched tags are left to the server, which keeps them (or uses its default).
-      const body = { name, description, words: parsed.words, ...(picked ? { games: chosen } : {}) };
+      const body = {
+        name,
+        description,
+        words: parsed.words,
+        enabled,
+        ...(picked ? { games: chosen } : {}),
+      };
       if (list) await api(`/api/admin/word-lists/${list.id}`, { method: 'PUT', body });
       else await api('/api/admin/word-lists', { method: 'POST', body });
       toast('Saved', 'info');
@@ -389,6 +497,18 @@ function Editor({
               onChange={(e) => setDescription(e.target.value)}
               className="mt-1 h-11 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
             />
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch id={switchId} checked={enabled} onChange={setEnabled} />
+          <label htmlFor={switchId} className="cursor-pointer">
+            <span className="block text-sm font-semibold">Enabled</span>
+            <span className="block text-xs text-stone-500">
+              {enabled
+                ? 'Hosts can pick this list.'
+                : 'Hidden from hosts and rooms until switched back on.'}{' '}
+              Saved with the list.
+            </span>
           </label>
         </div>
         {games.length > 0 && (

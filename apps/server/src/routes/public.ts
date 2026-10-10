@@ -36,10 +36,10 @@ export function publicRoutes(
       })),
   );
 
-  // `?game=<id>` keeps only the lists that game offers.
+  // Only enabled lists; `?game=<id>` keeps only the lists that game offers.
   app.get<{ Querystring: { game?: unknown } }>('/api/word-lists', (req) => {
     const { game } = req.query;
-    return wordLists.list(typeof game === 'string' && game ? game : undefined);
+    return wordLists.listEnabled(typeof game === 'string' && game ? game : undefined);
   });
 
   app.post(

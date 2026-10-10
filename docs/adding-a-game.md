@@ -24,7 +24,7 @@ Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui
 
 ## Word content
 
-Games read word lists through `ctx.content`. Set `usesWordLists: true` on the definition: each list is tagged with the games that offer it ("Used by" in the admin editor), and a room's `ctx.content` only sees the lists tagged for its game, with lists made only for that game first. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see CLAUDE.md for the format.
+Games read word lists through `ctx.content`. Set `usesWordLists: true` on the definition: each list is tagged with the games that offer it ("Used by" in the admin editor), and a room's `ctx.content` only sees the lists tagged for its game, with lists made only for that game first; lists an admin has switched off are hidden too, so a saved selection may name lists `ctx.content` no longer returns. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see CLAUDE.md for the format.
 
 ## 4. Register it
 
