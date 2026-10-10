@@ -1,13 +1,20 @@
-import { timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 export const ADMIN_COOKIE = 'vt_admin';
 export const ADMIN_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Constant-time comparison that does not leak the password length. */
+/** Per-process salt: both sides are stretched the same way, so equal passwords give equal keys. */
+const SALT = randomBytes(16);
+
+/**
+ * Constant-time comparison that does not leak the password length. Both sides go through scrypt
+ * (a slow password hash) rather than a fast digest, so the comparison never handles a cheaply
+ * reversible hash of the admin password.
+ */
 export function passwordMatches(given: string, expected: string): boolean {
-  const a = createHash('sha256').update(given).digest();
-  const b = createHash('sha256').update(expected).digest();
+  const a = scryptSync(given, SALT, 32);
+  const b = scryptSync(expected, SALT, 32);
   return timingSafeEqual(a, b);
 }
 
