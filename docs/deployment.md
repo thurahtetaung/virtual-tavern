@@ -18,23 +18,21 @@ merge the Release PR ─▶ tag vX.Y.Z + GitHub Release
 
 ### 1. Server
 
-As a sudo user on the VPS:
+Deploys run as the server's regular login user (here `ubuntu`, which is in the `docker` group), in `~/virtual-tavern`.
 
 ```sh
-sudo adduser --disabled-password --gecos '' deploy
-sudo usermod -aG docker deploy
-sudo -u deploy mkdir -p /home/deploy/.ssh /home/deploy/virtual-tavern
+mkdir -p ~/virtual-tavern
 ```
 
-Authorise a dedicated CI key (generated with `ssh-keygen -t ed25519 -f virtual-tavern-deploy -N ""`):
+Authorise a dedicated CI key (generated with `ssh-keygen -t ed25519 -f virtual-tavern-deploy -N ""`). Limit it to tailnet addresses and switch off forwarding, so it can't be used from anywhere else:
 
 ```sh
-sudo -u deploy tee -a /home/deploy/.ssh/authorized_keys < virtual-tavern-deploy.pub
+echo "from=\"100.64.0.0/10,fd7a:115c:a1e0::/48\",restrict $(cat virtual-tavern-deploy.pub)" >> ~/.ssh/authorized_keys
 ```
 
-Create `/home/deploy/virtual-tavern/.env` (mode 600) from [`.env.example`](../.env.example). Set `ADMIN_PASSWORD`, `SESSION_SECRET` (`openssl rand -hex 32`) and `APP_PORT`, the port the tunnel's hostname points at.
+Create `~/virtual-tavern/.env` (mode 600) from [`.env.example`](../.env.example). Set `ADMIN_PASSWORD`, `SESSION_SECRET` (`openssl rand -hex 32`) and `APP_PORT`, the port the tunnel's hostname points at.
 
-Daily database backups (the `deploy` user's crontab, `crontab -e`):
+Daily database backups (`crontab -e`):
 
 ```
 15 3 * * * cd ~/virtual-tavern && docker compose exec -T app node dist/backup.js >/dev/null
@@ -75,10 +73,10 @@ In the repository settings:
   | `DEPLOY_SSH_KEY`                         | the private CI key                                               |
   | `DEPLOY_KNOWN_HOSTS`                     | `ssh-keyscan -t ed25519 <tailnet IP>` run from a tailnet machine |
 
-  | Variable     | Value                                                            |
-  | ------------ | ---------------------------------------------------------------- |
-  | `PUBLIC_URL` | the public site URL (used for the post-deploy check)             |
-  | `DEPLOY_DIR` | optional; defaults to `virtual-tavern` in the deploy user's home |
+  | Variable     | Value                                                     |
+  | ------------ | --------------------------------------------------------- |
+  | `PUBLIC_URL` | the public site URL (used for the post-deploy check)      |
+  | `DEPLOY_DIR` | optional; defaults to `virtual-tavern` in the user's home |
 
 After the first release publishes, set the `virtual-tavern` package's visibility to **Public** on GitHub, so the VPS can pull it without logging in.
 
