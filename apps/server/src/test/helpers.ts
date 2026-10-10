@@ -1,12 +1,52 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Ack, ClientToServerEvents, RoomSnapshot, ServerToClientEvents } from '@vt/protocol';
+import Fastify from 'fastify';
 import { type Socket, io } from 'socket.io-client';
 import { type AppOptions, buildApp } from '../app.ts';
+import { openDb } from '../db/index.ts';
+import { buildGames } from '../games/registry.ts';
+import { type RealtimeOptions, attachRealtime, createRoomEvents } from '../realtime.ts';
+import { RoomManager } from '../rooms/manager.ts';
+import { SqliteRoomStore } from '../rooms/store.ts';
+import { WordListRepo } from '../word-lists.ts';
 
 export const MIGRATIONS = fileURLToPath(new URL('../../drizzle', import.meta.url));
+
+/** The socket layer on its own, with no HTTP routes, for options the full app does not expose. */
+export async function bareRealtime(opts: RealtimeOptions = {}) {
+  const db = openDb(':memory:', MIGRATIONS);
+  const content = new WordListRepo(db);
+  content.seedIfEmpty();
+  const holder: { io?: ReturnType<typeof attachRealtime> } = {};
+  const rooms: RoomManager = new RoomManager({
+    store: new SqliteRoomStore(db),
+    games: buildGames(),
+    content,
+    events: createRoomEvents(
+      () => holder.io,
+      () => rooms,
+    ),
+    logger: { warn: () => {}, error: () => {} },
+  });
+  const server = createServer();
+  const gate = { isPrivateRoom: () => false, isUnlocked: () => false };
+  holder.io = attachRealtime(server, rooms, Fastify({ logger: false }).log, gate, opts);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+  return {
+    url,
+    rooms,
+    close: async () => {
+      rooms.close();
+      await holder.io!.close();
+    },
+  };
+}
 
 export function tempDb() {
   const dir = mkdtempSync(join(tmpdir(), 'vt-test-'));

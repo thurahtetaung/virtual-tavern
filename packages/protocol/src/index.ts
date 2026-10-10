@@ -101,4 +101,6 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   'room:state': (snapshot: RoomSnapshot) => void;
   'room:kicked': () => void;
+  /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
+  'room:locked': () => void;
 }

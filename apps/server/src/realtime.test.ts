@@ -2,7 +2,8 @@ import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EnigmaView } from '@vt/game-enigma/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
-import { type TestClient, connect, tempDb, testApp, token } from './test/helpers.ts';
+import { playerIdFromToken } from './rooms/ids.ts';
+import { type TestClient, bareRealtime, connect, tempDb, testApp, token } from './test/helpers.ts';
 
 const view = (s: RoomSnapshot) => s.game as CodenamesView;
 
@@ -132,6 +133,92 @@ describe('realtime rooms', () => {
     expect(renamed.players.map((p) => p.name)).toEqual(['Anabel', 'Ben']);
   });
 
+  it('keeps a socket in its room when a later join fails, and moves it when one succeeds', async () => {
+    const server = await start(':memory:');
+    cleanups.push(() => server.app.close());
+    const create = async () =>
+      (
+        await server.app.inject({
+          method: 'POST',
+          url: '/api/rooms',
+          payload: { gameId: 'codenames', token: token(0) },
+        })
+      ).json<{ roomId: string }>().roomId;
+    const roomA = await create();
+    const roomB = await create();
+    const [host, ana] = await joinAll(server.url, roomA, ['Host', 'Ana']);
+    const anaId = ana!.latest()!.you;
+
+    expect(
+      await ana!.call('room:join', { roomId: 'amber-fox-owl-0000', token: token(1), name: 'Ana' }),
+    ).toMatchObject({ ok: false, error: { code: 'no-room' } });
+    // Still a connected member of room A, and still receiving its snapshots.
+    await host!.call('game:action', { type: 'join-team', team: 'red', role: 'spymaster' });
+    const seen = view(await ana!.until((s) => view(s).seats.some((seat) => seat.team === 'red')));
+    expect(seen).toBeDefined();
+    expect(host!.latest()!.players.find((p) => p.id === anaId)).toMatchObject({ connected: true });
+    expect(
+      await ana!.call('game:action', { type: 'join-team', team: 'blue', role: 'operative' }),
+    ).toEqual({ ok: true });
+
+    expect(await ana!.call('room:join', { roomId: roomB, token: token(1), name: 'Ana' })).toEqual({
+      ok: true,
+    });
+    await ana!.until((s) => s.id === roomB);
+    await host!.until((s) => s.players.find((p) => p.id === anaId)?.connected === false);
+  });
+
+  it('sends every tab of a player the same snapshot', async () => {
+    const server = await start(':memory:');
+    cleanups.push(() => server.app.close());
+    const { roomId } = (
+      await server.app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+    const [host] = await joinAll(server.url, roomId, ['Host']);
+    const tab = await connect(server.url);
+    cleanups.push(() => void tab.close());
+    expect(await tab.call('room:join', { roomId, token: token(0), name: 'Host' })).toEqual({
+      ok: true,
+    });
+    await host!.call('game:action', { type: 'join-team', team: 'blue', role: 'spymaster' });
+    const inTab = await tab.until((s) => view(s).seats.some((seat) => seat.team === 'blue'));
+    const inHost = await host!.until((s) => view(s).seats.some((seat) => seat.team === 'blue'));
+    expect(inTab.players).toEqual(inHost.players);
+    expect(inTab.players).toHaveLength(1);
+    expect(inTab.you).toBe(inHost.you);
+  });
+
+  it('rate-limits chatty sockets and drops persistent flooders', async () => {
+    const server = await bareRealtime({ limits: { perSecond: 1, burst: 2, disconnectAfter: 3 } });
+    cleanups.push(server.close);
+    const roomId = server.rooms.create('codenames', playerIdFromToken(token(0)));
+    const c = await connect(server.url);
+    cleanups.push(() => void c.close());
+    const dropped = new Promise<string>((resolve) => c.once('disconnect', resolve));
+
+    expect(await c.call('room:join', { roomId, token: token(0), name: 'Host' })).toEqual({
+      ok: true,
+    });
+    expect(await c.call('room:rename', 'Hosty')).toEqual({ ok: true });
+    expect(await c.call('room:rename', 'Hostess')).toMatchObject({
+      ok: false,
+      error: { code: 'rate-limited' },
+    });
+    expect(await c.call('game:action', { type: 'start' })).toMatchObject({
+      ok: false,
+      error: { code: 'rate-limited' },
+    });
+    void c.call('room:kick', 'nobody');
+    expect(await dropped).toBe('io server disconnect');
+    expect(server.rooms.snapshot(roomId, playerIdFromToken(token(0)))!.players).toEqual([
+      { id: playerIdFromToken(token(0)), name: 'Hosty', connected: false },
+    ]);
+  });
+
   it('rejects joins to unknown rooms and invalid names', async () => {
     const server = await start(':memory:');
     cleanups.push(() => server.app.close());
@@ -222,7 +309,7 @@ describe('realtime Enigma', () => {
 });
 
 describe('realtime back room', () => {
-  it('keeps locked players out of private rooms and drops them when everyone is signed out', async () => {
+  async function openBackRoom() {
     const app = testApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     const addr = app.server.address();
@@ -239,12 +326,15 @@ describe('realtime back room', () => {
       headers: { cookie: adminCookie },
       payload: { password: 'speakeasy' },
     });
-    const unlock = await app.inject({
-      method: 'POST',
-      url: '/api/backroom/unlock',
-      payload: { password: 'speakeasy' },
-    });
-    const cookie = `vt_backroom=${unlock.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const unlock = async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/backroom/unlock',
+        payload: { password: 'speakeasy' },
+      });
+      return `vt_backroom=${res.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    };
+    const cookie = await unlock();
     const { roomId } = (
       await app.inject({
         method: 'POST',
@@ -253,6 +343,52 @@ describe('realtime back room', () => {
         payload: { gameId: 'reverie', token: token(0) },
       })
     ).json<{ roomId: string }>();
+    const signOutAll = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/admin/backroom/sign-out-all',
+        headers: { cookie: adminCookie },
+      });
+    return { app, url, cookie, roomId, unlock, signOutAll };
+  }
+
+  it('drops signed-out players on the next broadcast, before they act', async () => {
+    const { app, url, cookie, roomId, unlock, signOutAll } = await openBackRoom();
+    const member = await connect(url, cookie);
+    let newcomer: TestClient | undefined;
+    try {
+      expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
+        ok: true,
+      });
+      const memberId = member.latest()!.you;
+      const locked = new Promise<void>((resolve) => member.once('room:locked', () => resolve()));
+      let statesAfterSignOut = 0;
+      await signOutAll();
+      member.on('room:state', () => statesAfterSignOut++);
+
+      // Someone with a fresh unlock joins: that broadcast must not reach the stale member.
+      newcomer = await connect(url, await unlock());
+      expect(await newcomer.call('room:join', { roomId, token: token(1), name: 'New' })).toEqual({
+        ok: true,
+      });
+      await locked;
+      expect(statesAfterSignOut).toBe(0);
+      expect(member.latest()!.players).toHaveLength(1);
+      const seen = await newcomer.until((s) => s.players.length === 2);
+      expect(seen.players.find((p) => p.id === memberId)).toMatchObject({ connected: false });
+      expect(await member.call('game:action', { type: 'sit', playing: true })).toMatchObject({
+        ok: false,
+        error: { code: 'not-joined' },
+      });
+    } finally {
+      member.close();
+      newcomer?.close();
+      await app.close();
+    }
+  });
+
+  it('keeps locked players out of private rooms and drops them when everyone is signed out', async () => {
+    const { app, url, cookie, roomId, signOutAll } = await openBackRoom();
 
     const outsider = await connect(url);
     const member = await connect(url, cookie);
@@ -270,11 +406,7 @@ describe('realtime back room', () => {
         ok: true,
       });
 
-      await app.inject({
-        method: 'POST',
-        url: '/api/admin/backroom/sign-out-all',
-        headers: { cookie: adminCookie },
-      });
+      await signOutAll();
       expect(await member.call('game:action', { type: 'sit', playing: true })).toMatchObject({
         ok: false,
         error: { code: 'backroom-locked' },

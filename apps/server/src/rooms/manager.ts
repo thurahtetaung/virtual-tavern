@@ -6,11 +6,25 @@ import type { RoomRecord, RoomStore } from './store.ts';
 export const MAX_PLAYERS_PER_ROOM = 30;
 /** How long a disconnected host keeps the role before it passes to someone who is online. */
 export const HOST_AWAY_MS = 2 * 60_000;
+/** Largest game state (as JSON characters) a commit accepts; games must cap their own logs. */
+export const MAX_STATE_JSON_LENGTH = 256 * 1024;
+/** Longest delay `setTimeout` honours; anything larger fires immediately. */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+/** How long to wait before retrying a deadline whose `onDeadline` threw. */
+export const DEADLINE_RETRY_MS = 5_000;
+/** The one back-off granted to a game whose `onDeadline` did not move its deadline forward. */
+export const DEADLINE_STALL_BACKOFF_MS = 1_000;
 
 export interface RoomEvents {
   /** Room state or presence changed; every connected player needs a fresh snapshot. */
   changed(roomId: string): void;
   kicked(roomId: string, playerId: string): void;
+}
+
+/** Minimal structured logger (pino's `(obj, msg)` shape, so `app.log` fits). */
+export interface RoomLogger {
+  warn(obj: object, msg: string): void;
+  error(obj: object, msg: string): void;
 }
 
 interface LiveRoom {
@@ -20,6 +34,8 @@ interface LiveRoom {
   connections: Map<string, number>;
   deadlineTimer?: NodeJS.Timeout;
   hostAwayTimer?: NodeJS.Timeout;
+  /** Consecutive deadline firings after which the game's deadline still had not advanced. */
+  deadlineStalls: number;
 }
 
 export class RoomError extends Error {
@@ -40,6 +56,13 @@ export interface RoomManagerDeps {
   events: RoomEvents;
   now?: () => number;
   seed?: () => number;
+  /** Where timer failures and misbehaving games are reported. Defaults to the console. */
+  logger?: RoomLogger;
+}
+
+export interface JoinOptions {
+  /** Also count the joiner as connected, in the same change (saves a second snapshot round). */
+  connect?: boolean;
 }
 
 /**
@@ -51,7 +74,7 @@ export class RoomManager {
   private readonly deps: Required<RoomManagerDeps>;
 
   constructor(deps: RoomManagerDeps) {
-    this.deps = { now: Date.now, seed: randomSeed, ...deps };
+    this.deps = { now: Date.now, seed: randomSeed, logger: console, ...deps };
   }
 
   create(gameId: string, hostId: string): string {
@@ -79,22 +102,37 @@ export class RoomManager {
     return room ? { gameId: room.record.gameId } : null;
   }
 
-  join(roomId: string, playerId: string, name: string): Ack {
+  join(roomId: string, playerId: string, name: string, opts: JoinOptions = {}): Ack {
     const room = this.load(roomId);
     if (!room) return fail('no-room', 'This room does not exist or has expired.');
     const { record } = room;
     const existing = record.players.find((p) => p.id === playerId);
-    if (!existing && record.players.length >= MAX_PLAYERS_PER_ROOM) {
+    const capacity = Math.min(MAX_PLAYERS_PER_ROOM, room.game.maxPlayers);
+    if (!existing && record.players.length >= capacity) {
       return fail('room-full', 'This room is full.');
     }
-    if (existing?.name === name) return OK;
     const players = existing
       ? record.players.map((p) => (p.id === playerId ? { ...p, name } : p))
       : [...record.players, { id: playerId, name }];
-    this.commit(room, {
-      players,
-      state: room.game.playerJoined(record.state, { id: playerId, name }),
-    });
+    // A room whose creator never joined has no host among its members: the first joiner takes over.
+    const hostId = players.some((p) => p.id === record.hostId) ? record.hostId : playerId;
+    const unchanged = existing?.name === name && hostId === record.hostId;
+    if (opts.connect) this.markConnected(room, playerId, hostId);
+    if (unchanged) {
+      if (opts.connect) this.deps.events.changed(roomId);
+      return OK;
+    }
+    try {
+      this.commit(room, {
+        players,
+        hostId,
+        state: room.game.playerJoined(record.state, { id: playerId, name }),
+      });
+    } catch (err) {
+      // The caller backs its socket out of the room, so the presence must go too.
+      if (opts.connect) this.unmarkConnected(room, playerId);
+      throw err;
+    }
     return OK;
   }
 
@@ -147,28 +185,27 @@ export class RoomManager {
       isHost: room.record.hostId === playerId,
     });
     if (isGameError(result)) return fail(result.code, result.message);
-    this.commit(room, { state: result });
+    try {
+      this.commit(room, { state: result });
+    } catch (err) {
+      if (err instanceof RoomError && err.code === 'state-too-large')
+        return fail(err.code, err.message);
+      throw err;
+    }
     return OK;
   }
 
   connected(roomId: string, playerId: string): void {
     const room = this.load(roomId);
     if (!room) return;
-    room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
-    if (playerId === room.record.hostId) {
-      clearTimeout(room.hostAwayTimer);
-      room.hostAwayTimer = undefined;
-    }
+    this.markConnected(room, playerId, room.record.hostId);
     this.deps.events.changed(roomId);
   }
 
   disconnected(roomId: string, playerId: string): void {
     const room = this.rooms.get(roomId);
     if (!room) return;
-    const left = (room.connections.get(playerId) ?? 1) - 1;
-    if (left > 0) room.connections.set(playerId, left);
-    else room.connections.delete(playerId);
-    if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
+    this.unmarkConnected(room, playerId);
     this.deps.events.changed(roomId);
   }
 
@@ -212,10 +249,12 @@ export class RoomManager {
     const record = this.deps.store.get(roomId);
     const game = record && this.deps.games.get(record.gameId);
     if (!record || !game) return null;
-    const room: LiveRoom = { record, game, connections: new Map() };
+    const room: LiveRoom = { record, game, connections: new Map(), deadlineStalls: 0 };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).
     this.armDeadline(room);
+    // Nobody is connected yet, the host included: start the hand-off clock right away.
+    this.armHostAway(room);
     return room;
   }
 
@@ -227,21 +266,60 @@ export class RoomManager {
     this.rooms.delete(roomId);
   }
 
-  private commit(room: LiveRoom, patch: Partial<Pick<RoomRecord, 'players' | 'state' | 'hostId'>>) {
+  /**
+   * Persists a change and tells everyone. `rearm` is the minimum delay before the game's next
+   * deadline may fire, or null to leave the deadline timer off until the next change.
+   */
+  private commit(
+    room: LiveRoom,
+    patch: Partial<Pick<RoomRecord, 'players' | 'state' | 'hostId'>>,
+    rearm: number | null = 0,
+  ) {
     const next: RoomRecord = {
       ...room.record,
       ...patch,
       version: room.record.version + 1,
       updatedAt: this.deps.now(),
     };
+    if ('state' in patch) {
+      const size = JSON.stringify(next.state).length;
+      if (size > MAX_STATE_JSON_LENGTH) {
+        this.deps.logger.error(
+          { roomId: next.id, gameId: next.gameId, size, max: MAX_STATE_JSON_LENGTH },
+          'game state too large; change rejected',
+        );
+        throw new RoomError('state-too-large', 'The game state grew too large to save.');
+      }
+    }
     if (!this.deps.store.update(next)) {
       // Another writer got there first: drop our cached copy so the next call reloads.
       this.unload(room.record.id);
       throw new RoomError('conflict', 'The room changed elsewhere. Please retry.');
     }
     room.record = next;
-    if ('state' in patch) this.armDeadline(room);
+    if ('state' in patch) {
+      if (rearm === null) this.clearDeadline(room);
+      else this.armDeadline(room, rearm);
+    }
     this.deps.events.changed(next.id);
+  }
+
+  private markConnected(room: LiveRoom, playerId: string, hostId: string) {
+    room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    if (playerId === hostId) {
+      clearTimeout(room.hostAwayTimer);
+      room.hostAwayTimer = undefined;
+    } else if (!room.connections.has(hostId) && !room.hostAwayTimer) {
+      // The host is away and no hand-off is pending (it already fired with nobody online).
+      this.armHostAway(room);
+    }
+  }
+
+  private unmarkConnected(room: LiveRoom, playerId: string) {
+    const left = (room.connections.get(playerId) ?? 1) - 1;
+    if (left > 0) room.connections.set(playerId, left);
+    else room.connections.delete(playerId);
+    if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
   }
 
   private removePlayer(room: LiveRoom, playerId: string) {
@@ -258,24 +336,64 @@ export class RoomManager {
     });
   }
 
-  private armDeadline(room: LiveRoom) {
+  private clearDeadline(room: LiveRoom) {
     clearTimeout(room.deadlineTimer);
     room.deadlineTimer = undefined;
+  }
+
+  private armDeadline(room: LiveRoom, minDelay = 0) {
+    this.clearDeadline(room);
     const due = room.game.nextDeadline?.(room.record.state) ?? null;
     if (due === null) return;
-    room.deadlineTimer = setTimeout(
-      () => {
-        room.deadlineTimer = undefined;
-        try {
-          const state: unknown = room.game.onDeadline!(room.record.state, this.deps.now());
-          if (state !== room.record.state) this.commit(room, { state });
-          else this.armDeadline(room);
-        } catch {
-          // Conflict: the room was unloaded and the timer is re-armed on next load.
-        }
-      },
-      Math.max(0, due - this.deps.now()),
-    );
+    if (minDelay === 0) room.deadlineStalls = 0;
+    const delay = Math.min(Math.max(minDelay, due - this.deps.now(), 0), MAX_TIMEOUT_MS);
+    room.deadlineTimer = setTimeout(() => {
+      room.deadlineTimer = undefined;
+      this.fireDeadline(room, due);
+    }, delay);
+  }
+
+  private fireDeadline(room: LiveRoom, due: number) {
+    const now = this.deps.now();
+    // A deadline further out than one timer can wait for: keep waiting.
+    if (due > now) {
+      this.armDeadline(room);
+      return;
+    }
+    const log = { roomId: room.record.id, gameId: room.record.gameId };
+    let state: unknown;
+    try {
+      state = room.game.onDeadline!(room.record.state, now);
+    } catch (err) {
+      this.deps.logger.error({ ...log, err }, 'onDeadline failed; retrying later');
+      this.armDeadline(room, DEADLINE_RETRY_MS);
+      return;
+    }
+    // A game whose deadline does not move forward would re-fire at once, forever.
+    const following = room.game.nextDeadline?.(state) ?? null;
+    let rearm: number | null = 0;
+    if (following !== null && following <= now) {
+      room.deadlineStalls += 1;
+      if (room.deadlineStalls > 1) {
+        this.deps.logger.error({ ...log, due: following }, 'deadline still stuck; timer stopped');
+        rearm = null;
+      } else {
+        this.deps.logger.warn({ ...log, due: following }, 'deadline did not advance; backing off');
+        rearm = DEADLINE_STALL_BACKOFF_MS;
+      }
+    }
+    try {
+      if (state !== room.record.state) this.commit(room, { state }, rearm);
+      else if (rearm === null) this.clearDeadline(room);
+      else this.armDeadline(room, rearm);
+    } catch (err) {
+      // A conflict means the room was unloaded; the timer is re-armed on the next load.
+      if (err instanceof RoomError && err.code === 'conflict') return;
+      // An oversized state (already logged) will not shrink by retrying; wait for a player.
+      if (err instanceof RoomError && err.code === 'state-too-large') return;
+      this.deps.logger.error({ ...log, err }, 'deadline commit failed; retrying later');
+      if (this.rooms.get(room.record.id) === room) this.armDeadline(room, DEADLINE_RETRY_MS);
+    }
   }
 
   private armHostAway(room: LiveRoom) {
@@ -284,10 +402,13 @@ export class RoomManager {
       room.hostAwayTimer = undefined;
       if (room.connections.has(room.record.hostId)) return;
       const next = room.record.players.find((p) => room.connections.has(p.id));
+      if (!next) return; // Nobody online to take over; `connected()` restarts the clock.
       try {
-        if (next) this.commit(room, { hostId: next.id });
-      } catch {
-        // Conflict: nothing to do; the next load sees the latest host.
+        this.commit(room, { hostId: next.id });
+      } catch (err) {
+        if (!(err instanceof RoomError && err.code === 'conflict')) {
+          this.deps.logger.error({ roomId: room.record.id, err }, 'host hand-off failed');
+        }
       }
     }, HOST_AWAY_MS);
   }

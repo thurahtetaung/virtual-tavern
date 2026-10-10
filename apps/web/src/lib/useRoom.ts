@@ -59,6 +59,11 @@ export function useRoom(roomId: string, name: string | null) {
       setStatus('kicked');
       socket.disconnect();
     });
+    // The password changed or everyone was signed out: the server already dropped us from the room.
+    socket.on('room:locked', () => {
+      setStatus('locked');
+      socket.disconnect();
+    });
 
     return () => {
       socket.disconnect();

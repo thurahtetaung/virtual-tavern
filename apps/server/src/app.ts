@@ -107,6 +107,7 @@ export function buildApp(opts: AppOptions) {
       () => rooms,
     ),
     now,
+    logger: app.log,
   });
   const io = (realtime.io = attachRealtime(app.server, rooms, app.log, {
     isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
