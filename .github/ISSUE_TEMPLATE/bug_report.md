@@ -12,4 +12,4 @@ labels: bug
 
 1.
 
-**Environment** (browser, device, version from `/healthz`)
+**Environment** (browser, device, version from `/healthz` or the image tag; `dev` when running from source)

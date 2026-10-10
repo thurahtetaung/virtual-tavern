@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. The platform hosts multiple games: **Codenames** and **Enigma** (a team code-breaking game; only ever call it Enigma). It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists.
+Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. It hosts three games: **Codenames** and **Enigma** (a team code-breaking game; only ever call it Enigma) in `packages/games/`, and **Reverie** (a picture-clue storytelling card game whose art lives in private storage; only ever call it Reverie) in the password-gated back room, `packages/private-games/`. It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists and set the back-room password.
 
 ## Toolchain
 
@@ -38,15 +38,12 @@ To check workflow and shell edits, run `docker run --rm -v "$PWD":/repo -w /repo
 The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
 
 - **Imports use explicit `.ts`/`.tsx` extensions.** Workspace packages export TypeScript source and are never compiled on their own: Vite bundles them for the web, and tsup bundles them into `apps/server/dist` (`noExternal: /^@vt\//`, which is why they are server *dev*Dependencies).
-- **Game plugins** (`packages/games/<id>`) implement `GameDefinition` from `packages/game-sdk/src/types.ts`:
-  - Members: `actionSchema` (zod), `create`, `reduce`, `playerJoined` (upsert, also used for renames), `playerLeft`, `view`, the required `guide`, and optional `nextDeadline`/`onDeadline` for timers.
+- **Game plugins** (`packages/games/<id>`, private ones in `packages/private-games/<id>`) implement `GameDefinition` from `packages/game-sdk/src/types.ts`. The step-by-step guide, including the member list, lobby and timer hooks, is `docs/adding-a-game.md`; the invariants are:
   - Logic is pure and its state JSON-serialisable. Randomness comes only from `ctx.rng`, time from `ctx.now`, and word lists from `ctx.content`.
   - `reduce` **returns** a `GameError` rather than throwing.
   - `view` must strip hidden information per viewer. This is the security boundary.
-  - A game handles its own lobby (seats, settings) as ordinary actions, and the room host supplies `isHost`.
-  - Each game package exports `/logic` and `/ui`. The UI component takes `GameUiProps` (`packages/game-sdk/src/ui.ts`), built from the `@vt/ui` primitives.
-  - Registries: `apps/server/src/games/registry.ts` and `apps/web/src/games/registry.ts`.
-  - Steps for adding a game: `docs/adding-a-game.md`. Shared lobby widgets (`WordListPicker`, `TimerSettings`, `Modal`, `Countdown`) live in `@vt/ui`, and `wordPool` lives in `@vt/game-sdk`.
+  - Each game package exports `/logic` and `/ui`; the UI takes `GameUiProps` (`packages/game-sdk/src/ui.ts`) and is built from `@vt/ui` primitives (`WordListPicker`, `TimerSettings`, `Modal`, `Countdown`), with `wordPool` from `@vt/game-sdk`.
+  - Registries: `apps/server/src/games/registry.ts` and `apps/web/src/games/registry.ts` (private games: `apps/web/src/games/private.ts`).
   - **Enigma** (`packages/games/enigma`): votes only resolve when every eligible teammate has picked the same code and pressed Lock in. Team chat and shared notes live in game state and are filtered per team by `view()`. On phones the play screen is split into Play / Clues / Chat tabs (`EnigmaGame.tsx`); design every game screen to fit a phone viewport without long scrolling.
 - **Rules guides:** each game's `GameGuide` (`src/logic/guide.ts`) renders on `/rules/:gameId` and in the in-room rules drawer, through `apps/web/src/components/GuideView.tsx`. Update the guide in the same change as any rule change.
 - **Room host** (`apps/server/src/rooms/manager.ts`):
