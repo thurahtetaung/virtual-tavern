@@ -22,7 +22,6 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   const door = stranger.getByRole('link', { name: 'The back room' });
   await expect(door).toBeVisible();
   await expect(door).toHaveText('🚪');
-  await expect(stranger.getByText('From the back room')).toHaveCount(0);
   await expect(stranger.getByText('Peek')).toHaveCount(0);
   const games = await stranger.request.get('/api/games');
   expect(JSON.stringify(await games.json())).not.toContain('backroom-demo');
@@ -48,7 +47,12 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await expect(host.getByText("That's not the word")).toBeVisible();
   await host.getByLabel('The word').fill('speakeasy');
   await host.getByRole('button', { name: 'Knock' }).click();
-  await expect(host.getByText('From the back room')).toBeVisible();
+  // The back room is its own screen with its own game list; the home page stays unchanged.
+  await expect(host).toHaveURL(/\/backroom$/);
+  await expect(host.getByText("You're on the list")).toBeVisible();
+  await expect(
+    host.getByRole('region', { name: 'Back room games' }).getByRole('heading', { name: 'Peek' }),
+  ).toBeVisible();
   await host.getByRole('button', { name: 'Create a Peek room' }).click();
   await expect(host).toHaveURL(/\/r\//);
   const roomUrl = host.url();

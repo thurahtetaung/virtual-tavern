@@ -44,6 +44,19 @@ export async function loadPrivateGames(): Promise<ClientGame[]> {
   }
 }
 
+/**
+ * The private games to show: only those the server says it offers. The web app may know about
+ * games the server has switched off (like the Peek demo in production), and offering those would
+ * only end in "Unknown game".
+ */
+export function offeredPrivateGames(
+  offered: readonly { id: string; private?: boolean }[],
+  known: readonly ClientGame[],
+): ClientGame[] {
+  const ids = new Set(offered.filter((g) => g.private).map((g) => g.id));
+  return known.filter((g) => ids.has(g.id));
+}
+
 /** Finds a public game, or a private one when the back room is unlocked. */
 export async function loadGame(id: string): Promise<ClientGame | undefined> {
   return findGame(id) ?? (await loadPrivateGames()).find((g) => g.id === id);

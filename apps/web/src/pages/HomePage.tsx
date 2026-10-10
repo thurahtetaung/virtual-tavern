@@ -1,12 +1,11 @@
-import type { CreateRoomResponse } from '@vt/protocol';
 import { Button, Panel } from '@vt/ui';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Layout } from '../components/Layout.tsx';
-import { type ClientGame, clientGames, loadPrivateGames } from '../games/registry.ts';
-import { api } from '../lib/api.ts';
-import { playerToken, saveName, savedName } from '../lib/identity.ts';
-import { useBackroom } from '../lib/backroom.ts';
+import { GameCard } from '../components/GameCard.tsx';
+import { clientGames } from '../games/registry.ts';
+import { saveName, savedName } from '../lib/identity.ts';
+import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { useToast } from '../lib/toast.tsx';
 
 /** Accepts a full invite link or just the room code. */
@@ -18,81 +17,15 @@ function roomFromInput(input: string): string | null {
   return match?.[1] ?? null;
 }
 
-function GameCard({
-  game,
-  creating,
-  onCreate,
-}: {
-  game: ClientGame;
-  creating: string | null;
-  onCreate: (id: string) => void;
-}) {
-  return (
-    <Panel className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <span className="text-4xl" aria-hidden>
-          {game.icon}
-        </span>
-        <div>
-          <h3 className="text-xl font-bold">{game.name}</h3>
-          <p className="text-sm text-stone-500">
-            {game.guide.players} · {game.guide.duration}
-          </p>
-        </div>
-      </div>
-      <p className="flex-1 text-stone-700 dark:text-stone-300">{game.guide.tagline}</p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          size="lg"
-          aria-label={`Create ${/^[aeiou]/i.test(game.name) ? 'an' : 'a'} ${game.name} room`}
-          disabled={creating !== null}
-          onClick={() => onCreate(game.id)}
-        >
-          {creating === game.id ? 'Opening room…' : 'Create a room'}
-        </Button>
-        <Link
-          to={`/rules/${game.id}`}
-          className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800"
-        >
-          How to play
-        </Link>
-      </div>
-    </Panel>
-  );
-}
-
 export function HomePage() {
   const navigate = useNavigate();
   const toast = useToast();
   const [name, setName] = useState(savedName);
-  const [creating, setCreating] = useState<string | null>(null);
   const [invite, setInvite] = useState('');
-  const { status: backroom } = useBackroom();
-  const [privateGames, setPrivateGames] = useState<ClientGame[]>([]);
-  useEffect(() => {
-    // Back-room games (and their names) are only fetched once this browser has unlocked.
-    if (backroom?.unlocked) void loadPrivateGames().then(setPrivateGames);
-  }, [backroom?.unlocked]);
 
-  const create = async (gameId: string) => {
-    if (!name.trim()) {
-      toast('Enter your name first so friends know who you are.');
-      document.getElementById('home-name')?.focus();
-      return;
-    }
-    saveName(name);
-    setCreating(gameId);
-    try {
-      const { roomId } = await api<CreateRoomResponse>('/api/rooms', {
-        method: 'POST',
-        body: { gameId, token: playerToken() },
-      });
-      void navigate(`/r/${roomId}`);
-    } catch (err) {
-      toast((err as Error).message);
-      setCreating(null);
-    }
-  };
+  const { creating, create } = useCreateRoom(name, () =>
+    document.getElementById('home-name')?.focus(),
+  );
 
   const join = (e: FormEvent) => {
     e.preventDefault();
@@ -166,28 +99,6 @@ export function HomePage() {
           More games coming soon
         </Panel>
       </div>
-
-      {backroom?.unlocked && (
-        <section aria-label="From the back room" className="mt-10">
-          <h2 className="mb-1 text-2xl font-bold">🕯️ From the back room</h2>
-          <p className="mb-4 text-sm text-stone-500">
-            Members only. Don't share these with strangers.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {privateGames.map((game) => (
-              <GameCard
-                key={game.id}
-                game={game}
-                creating={creating}
-                onCreate={(id) => void create(id)}
-              />
-            ))}
-            {privateGames.length === 0 && (
-              <Panel className="text-center text-stone-500 italic">Nothing back here yet…</Panel>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* The only public hint of the back room: a quiet, text-free door at the end of the page. */}
       <div className="mt-10 flex justify-end">
