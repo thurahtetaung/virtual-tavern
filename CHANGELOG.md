@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.1...v0.6.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **codenames:** keep turns playable when a role leaves, lock teams mid-game and tighten clue rules ([#25](https://github.com/thurahtetaung/virtual-tavern/issues/25)) ([d9a943e](https://github.com/thurahtetaung/virtual-tavern/commit/d9a943e88e2167f261e8eafcef60e6dfb4a04d66))
+* **enigma:** unstick alternating rounds, validate clues and lock teams after secrets are seen ([#24](https://github.com/thurahtetaung/virtual-tavern/issues/24)) ([77fa270](https://github.com/thurahtetaung/virtual-tavern/commit/77fa270bcd91a35c54e22fc40a6b653b3cc8dec1))
+* **reverie:** stop turns stalling when players leave or stand up, and match the guide to the rules ([#23](https://github.com/thurahtetaung/virtual-tavern/issues/23)) ([cf2bd0a](https://github.com/thurahtetaung/virtual-tavern/commit/cf2bd0ad6e4146bf0b4be20d3323cf893716e10c))
+
 ## [0.6.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.0...v0.6.1) (2026-10-10)
 
 
