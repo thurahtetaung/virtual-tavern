@@ -69,7 +69,7 @@ In the repository settings:
   | ---------------------------------------- | ---------------------------------------------------------------- |
   | `TS_OAUTH_CLIENT_ID` / `TS_OAUTH_SECRET` | the Tailscale OAuth client                                       |
   | `DEPLOY_HOST`                            | the server's tailnet IP                                          |
-  | `DEPLOY_USER`                            | `deploy`                                                         |
+  | `DEPLOY_USER`                            | the login user, e.g. `ubuntu`                                    |
   | `DEPLOY_SSH_KEY`                         | the private CI key                                               |
   | `DEPLOY_KNOWN_HOSTS`                     | `ssh-keyscan -t ed25519 <tailnet IP>` run from a tailnet machine |
 
