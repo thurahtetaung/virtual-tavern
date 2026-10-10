@@ -1,11 +1,11 @@
 {
-  "name": "@vt/private-demo",
+  "name": "@vt/private-reverie",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     "./logic": "./src/logic/index.ts",
-    "./ui": "./src/ui/index.tsx"
+    "./ui": "./src/ui/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

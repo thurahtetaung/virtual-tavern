@@ -18,8 +18,6 @@ export interface Config {
   roomIdleDays: number;
   /** Private asset storage (Cloudflare R2); the back room works without it, just with no pictures. */
   r2: R2Config | null;
-  /** Registers the Peek demo private game (tests and dev only). */
-  demoPrivateGame: boolean;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -53,6 +51,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
             bucket: env.R2_BUCKET,
           }
         : null,
-    demoPrivateGame: env.ENABLE_DEMO_PRIVATE_GAME === '1' && !production,
   };
 }

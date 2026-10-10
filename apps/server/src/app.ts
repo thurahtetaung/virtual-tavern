@@ -31,8 +31,6 @@ export interface AppOptions {
   now?: () => number;
   /** Private asset storage; without it private games run but can't show pictures. */
   r2?: R2Config | null;
-  /** Registers the Peek demo private game (tests and dev only). */
-  demoPrivateGame?: boolean;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -43,7 +41,7 @@ export function buildApp(opts: AppOptions) {
   const app = Fastify({ logger: opts.logger ?? false, trustProxy: true });
 
   const db = openDb(opts.databasePath, opts.migrationsFolder);
-  const games = buildGames({ demoPrivateGame: opts.demoPrivateGame });
+  const games = buildGames();
   const backroom = new Backroom(db, now);
   const assets = opts.r2 ? new R2Assets(opts.r2) : null;
   const wordLists = new WordListRepo(db, now);

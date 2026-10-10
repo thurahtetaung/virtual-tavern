@@ -55,7 +55,7 @@ describe('Backroom', () => {
 
 describe('assetKey', () => {
   it('keeps keys inside the game folder', () => {
-    expect(assetKey('backroom-demo', 'cards/001.webp')).toBe('backroom-demo/cards/001.webp');
+    expect(assetKey('reverie', 'cards/001.jpg')).toBe('reverie/cards/001.jpg');
     for (const bad of [
       '../other/x.png',
       'cards/../../x',
@@ -65,7 +65,7 @@ describe('assetKey', () => {
       '',
       'x'.repeat(301),
     ]) {
-      expect(assetKey('backroom-demo', bad)).toBeNull();
+      expect(assetKey('reverie', bad)).toBeNull();
     }
     expect(assetKey('../x', 'a.png')).toBeNull();
   });

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD, TEST_SESSION_SECRET } from './e2e/credentials.ts';
 
 const PORT = 4321;
 
@@ -26,10 +27,9 @@ export default defineConfig({
       PORT: String(PORT),
       HOST: '127.0.0.1',
       DATABASE_PATH: ':memory:',
-      ADMIN_PASSWORD: 'e2e-admin',
-      SESSION_SECRET: 'e2e-secret',
+      ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
+      SESSION_SECRET: TEST_SESSION_SECRET,
       LOG_LEVEL: 'warn',
-      ENABLE_DEMO_PRIVATE_GAME: '1',
     },
   },
 });

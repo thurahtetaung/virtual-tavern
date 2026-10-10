@@ -223,7 +223,7 @@ describe('realtime Enigma', () => {
 
 describe('realtime back room', () => {
   it('keeps locked players out of private rooms and drops them when everyone is signed out', async () => {
-    const app = testApp({ demoPrivateGame: true });
+    const app = testApp();
     await app.listen({ port: 0, host: '127.0.0.1' });
     const addr = app.server.address();
     const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
@@ -250,7 +250,7 @@ describe('realtime back room', () => {
         method: 'POST',
         url: '/api/rooms',
         headers: { cookie },
-        payload: { gameId: 'backroom-demo', token: token(0) },
+        payload: { gameId: 'reverie', token: token(0) },
       })
     ).json<{ roomId: string }>();
 
@@ -266,14 +266,16 @@ describe('realtime back room', () => {
       expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
         ok: true,
       });
-      expect(await member.call('game:action', { type: 'start' })).toEqual({ ok: true });
+      expect(await member.call('game:action', { type: 'sit', playing: false })).toEqual({
+        ok: true,
+      });
 
       await app.inject({
         method: 'POST',
         url: '/api/admin/backroom/sign-out-all',
         headers: { cookie: adminCookie },
       });
-      expect(await member.call('game:action', { type: 'next' })).toMatchObject({
+      expect(await member.call('game:action', { type: 'sit', playing: true })).toMatchObject({
         ok: false,
         error: { code: 'backroom-locked' },
       });

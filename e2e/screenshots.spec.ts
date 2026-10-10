@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -155,6 +156,90 @@ for (const [label, viewport] of [
         .click();
     }
     await expect(host.getByText('The code was').first()).toBeVisible();
+    await shot(host, 'reveal');
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`reverie screenshots (${label})`, async ({ browser, request }) => {
+    test.setTimeout(90_000);
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/reverie-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
+    const admin = login
+      .headersArray()
+      .find((h) => h.name.toLowerCase() === 'set-cookie')!
+      .value.split(';')[0]!;
+    await request.put('/api/admin/backroom/password', {
+      headers: { cookie: admin },
+      data: { password: TEST_BACKROOM_WORD },
+    });
+    let ip = 1;
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+        extraHTTPHeaders: { 'cf-connecting-ip': `10.3.${label === 'phone' ? 1 : 0}.${ip++}` },
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      await p.goto('/backroom');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+      await p.getByRole('button', { name: 'Knock' }).click();
+      await p.getByText("You're on the list").waitFor();
+      return p;
+    };
+    const host = await make('Hana');
+    await host.getByRole('button', { name: 'Create a Reverie room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+    await Promise.all(others.map((p) => p.goto(url)));
+    await expect(host.getByText('Players (4/8)')).toBeVisible();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    await expect(host.getByText('You are the storyteller')).toBeVisible();
+    await shot(host, 'storyteller');
+    const hand = (p: Page) =>
+      p.getByRole('region', { name: 'Your hand' }).getByRole('button', { name: /^Card / });
+    await hand(host).first().click();
+    await shot(host, 'card-viewer');
+    await host.getByRole('button', { name: 'Tell a story with this card' }).click();
+    await host.getByPlaceholder('A word, a line, a feeling…').fill('a quiet storm');
+    await host.getByRole('button', { name: 'Tell', exact: true }).click();
+    const ana = others[0]!;
+    await expect(ana.getByText('Give a card from your hand')).toBeVisible();
+    await shot(ana, 'give');
+    for (const p of others) {
+      await hand(p).first().click();
+      await p.getByRole('button', { name: 'Give this card' }).click();
+      await p.getByRole('button', { name: 'Give this card' }).click();
+    }
+    await expect(ana.getByText(/Tap a card to vote/)).toBeVisible();
+    await shot(ana, 'vote');
+    for (const p of others) {
+      const cards = p
+        .getByRole('region', { name: 'Table' })
+        .getByRole('button', { name: /^Card / });
+      for (let i = 0; i < (await cards.count()); i++) {
+        await cards.nth(i).click();
+        const btn = p.getByRole('button', { name: `Vote for #${i + 1}` });
+        if (await btn.isVisible()) {
+          await btn.click();
+          break;
+        }
+        await p.keyboard.press('Escape');
+      }
+    }
+    await expect(host.getByText('Cards revealed!')).toBeVisible();
     await shot(host, 'reveal');
   });
 }
