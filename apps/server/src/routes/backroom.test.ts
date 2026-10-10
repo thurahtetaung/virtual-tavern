@@ -104,7 +104,7 @@ describe('back room over HTTP', () => {
     expect(await ids()).toEqual(['codenames', 'enigma', 'echo']);
     expect((await unlock(app, 'nope')).res.statusCode).toBe(401);
     const { cookie } = await unlock(app);
-    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'echo', 'reverie']);
+    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'echo', 'reverie', 'hoodwink']);
   });
 
   it('only lets unlocked players create or look up private rooms', async () => {

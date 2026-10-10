@@ -1,3 +1,4 @@
+import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { lazy } from 'react';
 import type { ClientGame } from './registry.ts';
@@ -16,6 +17,15 @@ export const privateGames: ClientGame[] = [
     icon: '🐇',
     Component: lazy(() =>
       import('@vt/private-reverie/ui').then((m) => ({ default: m.ReverieGame })),
+    ),
+  },
+  {
+    id: 'hoodwink',
+    name: 'Hoodwink',
+    guide: hoodwinkGuide,
+    icon: '🎭',
+    Component: lazy(() =>
+      import('@vt/private-hoodwink/ui').then((m) => ({ default: m.HoodwinkGame })),
     ),
   },
 ];
