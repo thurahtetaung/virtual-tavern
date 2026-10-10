@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.1.0...v0.2.0) (2026-10-10)
+
+
+### Features
+
+* **codenames:** clearer guessing, 1-9 clues, collapsible teams, soft timers ([#8](https://github.com/thurahtetaung/virtual-tavern/issues/8)) ([0e70859](https://github.com/thurahtetaung/virtual-tavern/commit/0e70859eb941a91556adee444d5402217972facf))
+
+
+### Performance Improvements
+
+* cache hashed assets for a year and revalidate HTML ([#6](https://github.com/thurahtetaung/virtual-tavern/issues/6)) ([3519592](https://github.com/thurahtetaung/virtual-tavern/commit/3519592c00df1dd9f82112683e3f601dc5ee1e47))
+
 ## 0.1.0 (2026-10-10)
 
 
