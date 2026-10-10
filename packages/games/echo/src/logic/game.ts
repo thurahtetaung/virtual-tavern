@@ -13,6 +13,7 @@ import {
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { insights } from './insights.ts';
 import {
   CARD_SIZE,
   type Card,
@@ -641,4 +642,5 @@ export const echo: GameDefinition<EchoState, EchoAction, EchoView> = {
   view,
   nextDeadline,
   onDeadline,
+  insights,
 };
