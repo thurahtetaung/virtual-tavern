@@ -103,16 +103,24 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await admin.getByRole('button', { name: 'Sign in' }).click();
 
   await admin.getByRole('button', { name: '+ New list' }).click();
-  await admin.getByLabel('Name').fill('Space');
+  await admin.getByLabel('Name').fill('E2E Planets');
   await admin.getByLabel(/^Words/).fill('Moon\nmoon\nMars, Venus\nComet');
   await expect(admin.getByText('4 unique words')).toBeVisible();
   await expect(admin.getByText('1 duplicates will be dropped')).toBeVisible();
   await admin.getByRole('button', { name: 'Save list' }).click();
-  await expect(admin.getByRole('button', { name: /Space\s*4 words/ })).toBeVisible();
+  await expect(admin.getByRole('button', { name: /E2E Planets\s*4 words/ })).toBeVisible();
 
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create a room' }).click();
-  await expect(host.getByText('Space')).toBeVisible();
-  await host.getByRole('checkbox', { name: 'Space' }).check();
-  await expect(host.getByRole('checkbox', { name: 'Space' })).toBeChecked();
+  const lists = host.getByRole('region', { name: 'Word lists' });
+  await expect(lists.getByText('Starter')).toBeVisible();
+  await host.getByRole('button', { name: 'Change word lists' }).click();
+  const picker = host.getByRole('dialog');
+  await picker.getByRole('searchbox').fill('planets');
+  await picker.getByRole('checkbox', { name: /E2E Planets/ }).check();
+  await expect(picker.getByText('2 lists')).toBeVisible();
+  await picker.getByRole('button', { name: 'Save' }).click();
+  await expect(picker).toBeHidden();
+  await expect(lists.getByText('E2E Planets')).toBeVisible();
+  await expect(lists.getByText('Starter')).toBeVisible();
 });

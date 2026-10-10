@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { ContentProvider } from '@vt/game-sdk';
 import type { WordListBody, WordListDetail, WordListSummary } from '@vt/protocol';
-import { eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
-import { wordLists } from './db/schema.ts';
+import { seededPacks, wordLists } from './db/schema.ts';
 import { STARTER_WORDS } from './db/starter-words.ts';
+import type { WordPack } from './word-packs.ts';
 
 /** Trims, drops blanks and removes case-insensitive duplicates, keeping the first spelling. */
 export function normalizeWords(words: readonly string[]): string[] {
@@ -45,6 +46,30 @@ export class WordListRepo implements ContentProvider {
       description: 'A general mix of everyday nouns.',
       words: [...STARTER_WORDS],
     });
+  }
+
+  /**
+   * Adds each built-in pack the first time it is seen. A pack is never re-added, so lists an admin
+   * edited or deleted stay that way across restarts and deploys. Returns the slugs added.
+   */
+  seedPacks(packs: readonly WordPack[]): string[] {
+    return this.db.$client.transaction(() => {
+      const seen = new Set(
+        this.db
+          .select({ slug: seededPacks.slug })
+          .from(seededPacks)
+          .all()
+          .map((r) => r.slug),
+      );
+      const added: string[] = [];
+      for (const pack of packs) {
+        if (seen.has(pack.slug)) continue;
+        this.create({ name: pack.name, description: pack.description, words: pack.words });
+        this.db.insert(seededPacks).values({ slug: pack.slug, seededAt: this.now() }).run();
+        added.push(pack.slug);
+      }
+      return added;
+    })();
   }
 
   list(): WordListSummary[] {
@@ -90,8 +115,14 @@ export class WordListRepo implements ContentProvider {
 
   // ContentProvider (used synchronously by game logic)
 
+  /** Oldest first, so games default to the original Starter list rather than whatever sorts first. */
   wordLists() {
-    return this.list().map(({ id, name, wordCount }) => ({ id, name, wordCount }));
+    return this.db
+      .select()
+      .from(wordLists)
+      .orderBy(asc(wordLists.createdAt), sql`rowid`)
+      .all()
+      .map((r) => ({ id: r.id, name: r.name, wordCount: r.words.length }));
   }
 
   words(listIds: readonly string[]): string[] {

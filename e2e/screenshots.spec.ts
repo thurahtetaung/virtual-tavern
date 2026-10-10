@@ -37,6 +37,10 @@ for (const [label, viewport] of [
     await others[2]!.getByRole('button', { name: 'Join Blue as Operative' }).click();
     await expect(host.getByText('Everyone is seated')).toBeVisible();
     await host.screenshot({ path: `test-results/shots/${label}-lobby.png`, fullPage: true });
+    await host.getByRole('button', { name: 'Change word lists' }).click();
+    await expect(host.getByRole('dialog')).toBeVisible();
+    await host.screenshot({ path: `test-results/shots/${label}-word-lists.png` });
+    await host.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
     await host.getByRole('button', { name: 'Start game' }).click();
     await expect(host.getByRole('gridcell')).toHaveCount(25);
     await host.screenshot({ path: `test-results/shots/${label}-spymaster.png`, fullPage: true });

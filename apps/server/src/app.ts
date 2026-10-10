@@ -11,11 +11,14 @@ import { SqliteRoomStore } from './rooms/store.ts';
 import { adminRoutes } from './routes/admin.ts';
 import { publicRoutes } from './routes/public.ts';
 import { WordListRepo } from './word-lists.ts';
+import { loadWordPacks } from './word-packs.ts';
 
 export interface AppOptions {
   version: string;
   databasePath: string;
   migrationsFolder: string;
+  /** Built-in word packs to add on startup; omitted in most tests. */
+  packsFolder?: string;
   sessionSecret: string;
   adminPassword?: string | null;
   /** Built web app to serve; skipped if missing (e.g. in dev, where Vite serves it). */
@@ -35,6 +38,10 @@ export function buildApp(opts: AppOptions) {
   const db = openDb(opts.databasePath, opts.migrationsFolder);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
+  if (opts.packsFolder) {
+    const added = wordLists.seedPacks(loadWordPacks(opts.packsFolder));
+    if (added.length) app.log.info({ packs: added }, 'added built-in word packs');
+  }
 
   // The manager and socket layer reference each other; break the cycle with a late-bound holder.
   const realtime: { io?: ReturnType<typeof attachRealtime> } = {};

@@ -6,6 +6,8 @@ export interface Config {
   host: string;
   databasePath: string;
   migrationsFolder: string;
+  /** Built-in word packs (`*.json`), added to the database once each. */
+  packsFolder: string;
   webDist: string;
   /** Admin area is disabled when unset. */
   adminPassword: string | null;
@@ -29,6 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     host: env.HOST ?? '0.0.0.0',
     databasePath: env.DATABASE_PATH ?? here('../data/tavern.db'),
     migrationsFolder: env.MIGRATIONS_DIR ?? here('../drizzle'),
+    packsFolder: env.WORD_PACKS_DIR ?? here('../word-packs'),
     webDist: env.WEB_DIST ?? here('../../web/dist'),
     adminPassword,
     // Dev fallback: sessions just don't survive restarts.

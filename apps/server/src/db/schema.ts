@@ -9,6 +9,12 @@ export const wordLists = sqliteTable('word_lists', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+/** Built-in word packs already added once; admins may since have edited or deleted them. */
+export const seededPacks = sqliteTable('seeded_packs', {
+  slug: text('slug').primaryKey(),
+  seededAt: integer('seeded_at').notNull(),
+});
+
 export const rooms = sqliteTable('rooms', {
   id: text('id').primaryKey(),
   gameId: text('game_id').notNull(),
