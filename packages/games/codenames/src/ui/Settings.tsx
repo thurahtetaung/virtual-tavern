@@ -74,26 +74,35 @@ export function Settings({ settings, wordLists, editable, act }: Props) {
               <li key={list.id}>
                 <label
                   className={cn(
-                    'flex items-center justify-between gap-2 rounded-lg px-3 py-2 ring-1',
+                    'flex h-full items-start justify-between gap-2 rounded-lg px-3 py-2 ring-1',
                     on
                       ? 'bg-amber-50 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40'
                       : 'ring-stone-200 dark:ring-stone-700',
                     editable && 'cursor-pointer',
                   )}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-start gap-2">
                     {editable && (
                       <input
                         type="checkbox"
-                        className="size-4 accent-amber-600"
+                        className="mt-1 size-4 shrink-0 accent-amber-600"
                         checked={on}
                         disabled={on && selected.size === 1}
                         onChange={() => toggleList(list.id)}
                       />
                     )}
-                    {list.name}
+                    <span className="min-w-0">
+                      <span className="block">{list.name}</span>
+                      {list.description && (
+                        <span className="block text-xs text-stone-500 dark:text-stone-400">
+                          {list.description}
+                        </span>
+                      )}
+                    </span>
                   </span>
-                  <span className="text-xs text-stone-500">{list.wordCount} words</span>
+                  <span className="mt-0.5 shrink-0 text-xs text-stone-500">
+                    {list.wordCount} words
+                  </span>
                 </label>
               </li>
             );

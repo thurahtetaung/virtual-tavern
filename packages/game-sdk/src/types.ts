@@ -12,6 +12,8 @@ export interface PlayerInfo {
 export interface WordListSummary {
   id: string;
   name: string;
+  /** Short blurb shown to players when choosing lists. */
+  description?: string;
   wordCount: number;
 }
 
