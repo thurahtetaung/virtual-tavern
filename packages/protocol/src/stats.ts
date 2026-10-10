@@ -52,7 +52,8 @@ export interface StatsWindow {
 export interface LiveRoom {
   id: string;
   gameId: string;
-  phase: 'lobby' | 'playing' | 'over' | string;
+  /** 'lobby' | 'playing' | 'over' for every game so far. */
+  phase: string;
   players: { id: string; name: string; connected: boolean }[];
   hostId: string;
   createdAt: number;
