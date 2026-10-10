@@ -92,6 +92,15 @@ export function statusFor(view: EnigmaView, isHost: boolean, blocker: string | n
   };
 }
 
+/** The viewer is an Encryptor whose team is still decoding: the engine refuses their chat. */
+export function chatMuted(view: EnigmaView): boolean {
+  return (
+    view.phase === 'playing' &&
+    view.stage === 'guess' &&
+    view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.settled)
+  );
+}
+
 /** Clues filed under keyword numbers 1–4, oldest first, from a team's public history. */
 export function cluesByKeyword(view: EnigmaView, team: Team): { round: number; clue: string }[][] {
   const columns: { round: number; clue: string }[][] = [[], [], [], []];

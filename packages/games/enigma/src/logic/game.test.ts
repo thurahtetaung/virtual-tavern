@@ -15,7 +15,13 @@ import {
   vote,
   wrongCode,
 } from './test-utils.ts';
-import { type EnigmaState, type Team, actionSchema } from './types.ts';
+import {
+  type EnigmaState,
+  MAX_CHAT_MESSAGES,
+  MAX_ROUNDS,
+  type Team,
+  actionSchema,
+} from './types.ts';
 
 /** Plays one full simultaneous round: both teams decode correctly unless told otherwise. */
 function playRound(
@@ -121,6 +127,45 @@ describe('encryptors and clues', () => {
     sendClues(h, 'blue');
     expect(h.state.stage).toBe('guess');
   });
+
+  it('refuses a clue that is a keyword, a bare number, or a repeat of another clue', () => {
+    const h = startedGame();
+    const keyword = h.state.teams.red.keywords[2]!;
+    const give = (clues: string[]) => h.reject({ type: 'give-clues', clues }, HOST);
+    expect(give([` ${keyword.toUpperCase()} `, 'b', 'c'])).toBe('clue-is-keyword');
+    expect(give(['a', '42', 'c'])).toBe('clue-is-number');
+    expect(give(['a', 'b', '٣'])).toBe('clue-is-number');
+    expect(give(['Salty', 'b', 'salty '])).toBe('clues-not-distinct');
+    expect(h.state.stage).toBe('clue');
+    // The other team's keywords are fair game, and a number with words around it is fine.
+    const theirs = h.state.teams.blue.keywords[0]!;
+    h.act({ type: 'give-clues', clues: [theirs, '4 legs', ' c '] }, HOST);
+    expect(tx(h, 'red').clues).toEqual([theirs, '4 legs', 'c']);
+  });
+
+  it('starts each rematch with the next Encryptor along, with chat and notes wiped', () => {
+    const h = startedGame();
+    h.act({ type: 'chat', text: 'old news' }, 'r2');
+    h.act({ type: 'set-note', slot: 'general', text: 'last game' }, 'b2');
+    playRound(h, { blueDecodes: false });
+    h.act({ type: 'next-round' });
+    playRound(h, { blueDecodes: false });
+    h.act({ type: 'next-round' });
+    expect(h.state.phase).toBe('over');
+    h.act({ type: 'start' });
+    expect(tx(h, 'red').encryptor).toBe('r2');
+    expect(tx(h, 'blue').encryptor).toBe('b2');
+    expect(h.state.teams.red).toMatchObject({ chat: [], history: [], misses: 0 });
+    expect(h.state.teams.blue.notes).toMatchObject({ general: '', editedBy: null });
+    expect(h.state.seen).toEqual({
+      host: 'red',
+      r2: 'red',
+      r3: 'red',
+      b1: 'blue',
+      b2: 'blue',
+      b3: 'blue',
+    });
+  });
 });
 
 describe('agreeing on a guess', () => {
@@ -187,7 +232,57 @@ describe('agreeing on a guess', () => {
     sendClues(h, 'blue');
     vote(h, 'red', ['r2'], tx(h, 'red').code);
     h.state = enigma.playerLeft(h.state, 'r3', NOW);
+    expect(tx(h, 'red').decodeVoters).toEqual(['r2']);
     expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
+  });
+
+  it('lets a player unlock to change their mind, until their side has agreed', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    const code = tx(h, 'red').code;
+    vote(h, 'red', ['r2'], code);
+    h.act({ type: 'unlock-guess', team: 'red' }, 'r2');
+    expect(tx(h, 'red').decode.r2).toEqual({ draft: code, locked: false });
+    vote(h, 'red', ['r3'], code);
+    expect(tx(h, 'red').decodeResult).toBeUndefined();
+    h.act({ type: 'lock-guess', team: 'red' }, 'r2');
+    expect(tx(h, 'red').decodeResult).toEqual(code);
+    expect(h.reject({ type: 'unlock-guess', team: 'red' }, 'r2')).toBe('settled');
+    expect(h.reject({ type: 'set-guess', team: 'red', draft: code }, 'r3')).toBe('settled');
+  });
+
+  it('needs a team to guess at all', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    h.state = enigma.playerJoined(h.state, { id: 'spec', name: 'Spec' });
+    expect(h.reject({ type: 'set-guess', team: 'red', draft: [1, 2, 3] }, 'spec')).toBe('no-team');
+  });
+
+  it('fixes who votes when guessing starts, so a latecomer watches until the next clues', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    h.state = enigma.playerJoined(h.state, { id: 'late', name: 'Late' });
+    h.act({ type: 'join-team', team: 'red' }, 'late');
+    expect(tx(h, 'red').decodeVoters).toEqual(['r2', 'r3']);
+    expect(h.reject({ type: 'set-guess', team: 'red', draft: [1, 2, 3] }, 'late')).toBe(
+      'not-voting',
+    );
+    const redTx = enigma.view(h.state, 'late').transmissions.find((t) => t.team === 'red')!;
+    expect(redTx).toMatchObject({ role: 'waiting', voters: ['r2', 'r3'] });
+    vote(h, 'red', ['r2', 'r3'], tx(h, 'red').code);
+    expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    h.act({ type: 'next-round' });
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    expect(tx(h, 'red').decodeVoters).toEqual([HOST, 'r3', 'late']);
+    expect(tx(h, 'blue').interceptVoters).toEqual([HOST, 'r2', 'r3', 'late']);
+    expect(enigma.view(h.state, 'late').transmissions.find((t) => t.team === 'red')!.role).toBe(
+      'decoder',
+    );
   });
 });
 
@@ -245,6 +340,61 @@ describe('alternating flow', () => {
     expect(h.state.round).toBe(2);
     expect(h.state.transmissions[0]!.team).toBe('blue');
   });
+
+  it('shows the second Encryptor their code only once their transmission is in play', () => {
+    const h = startedGame({ flow: 'alternating' });
+    const blueEnc = tx(h, 'blue').encryptor;
+    const blueTx = () => enigma.view(h.state, blueEnc).transmissions[1]!;
+    expect(blueTx().code).toBeNull();
+    sendClues(h, 'red');
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    expect(blueTx().code).toBeNull();
+    h.act({ type: 'next-round' });
+    expect(blueTx().code).toEqual(tx(h, 'blue').code);
+  });
+
+  it('applies strict timers to each transmission in turn', () => {
+    const h = startedGame({
+      flow: 'alternating',
+      clueSeconds: 30,
+      guessSeconds: 60,
+      timerMode: 'strict',
+    });
+    expect(enigma.nextDeadline!(h.state)).toBe(NOW + 30_000);
+    h.state = enigma.onDeadline!(h.state, NOW + 30_000);
+    expect(tx(h, 'red')).toMatchObject({ expired: true, revealed: true, decodeResult: null });
+    expect(tx(h, 'blue')).toMatchObject({ expired: false, revealed: false });
+    expect(h.state).toMatchObject({ stage: 'reveal', teams: { red: { misses: 1 } } });
+    h.act({ type: 'next-round' }, HOST, NOW + 40_000);
+    expect(h.state).toMatchObject({ active: [1], stage: 'clue', deadline: NOW + 70_000 });
+    sendClues(h, 'blue', NOW + 50_000);
+    expect(enigma.nextDeadline!(h.state)).toBe(NOW + 110_000);
+    h.state = enigma.onDeadline!(h.state, NOW + 110_000);
+    expect(h.state).toMatchObject({ stage: 'reveal', teams: { blue: { misses: 1 } } });
+    h.act({ type: 'next-round' });
+    expect(h.state).toMatchObject({ round: 2, active: [0], stage: 'clue' });
+  });
+
+  it('fails the turn of a team that emptied out while the other was transmitting', () => {
+    const h = startedGame({ flow: 'alternating' });
+    sendClues(h, 'red');
+    for (const id of BLUE) h.state = enigma.playerLeft(h.state, id, NOW);
+    expect(tx(h, 'blue').expired).toBe(true);
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    expect(h.state.stage).toBe('reveal');
+    // Blue's transmission is skipped straight to its reveal instead of waiting on a ghost.
+    h.act({ type: 'next-round' });
+    expect(h.state).toMatchObject({ round: 1, active: [1], stage: 'reveal' });
+    expect(h.state.teams.blue.misses).toBe(1);
+    h.act({ type: 'next-round' });
+    expect(h.state).toMatchObject({ round: 2, stage: 'reveal', teams: { blue: { misses: 2 } } });
+    expect(h.state.transmissions[0]!.team).toBe('blue');
+    h.act({ type: 'next-round' });
+    sendClues(h, 'red');
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    h.act({ type: 'next-round' });
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'red' });
+  });
 });
 
 describe('winning', () => {
@@ -292,6 +442,45 @@ describe('winning', () => {
     expect(h.state.transmissions[0]!.team).toBe('blue');
     expect(h.state.teams.red).toMatchObject({ intercepts: 0, misses: 0, history: [] });
   });
+
+  it('goes to the round-eight tiebreak when nobody has two tokens', () => {
+    const h = startedGame();
+    const quiet = Array.from({ length: MAX_ROUNDS - 1 }, (_, i) =>
+      i === 4 ? { redIntercepts: true } : {},
+    );
+    finish(h, quiet);
+    expect(h.state).toMatchObject({ phase: 'playing', round: MAX_ROUNDS });
+    finish(h, [{}]);
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'red' });
+    expect(h.state.teams.red.history).toHaveLength(MAX_ROUNDS);
+  });
+
+  it('forgets the last game when the host goes back to the lobby', () => {
+    const h = startedGame();
+    h.act({ type: 'chat', text: 'secret' }, 'r2');
+    h.act({ type: 'set-note', slot: 1, text: 'Pizza' }, 'b2');
+    playRound(h, { redDecodes: false });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state).toMatchObject({
+      phase: 'lobby',
+      round: 0,
+      seen: {},
+      transmissions: [],
+      active: [],
+    });
+    for (const team of ['red', 'blue'] as const) {
+      expect(h.state.teams[team]).toMatchObject({
+        keywords: [],
+        chat: [],
+        history: [],
+        misses: 0,
+        notes: { guesses: ['', '', '', ''], general: '', editedBy: null },
+      });
+    }
+    expect(h.state.seats.r2?.team).toBe('red');
+    expect(JSON.stringify(enigma.view(h.state, 'r2'))).not.toContain('secret');
+    h.act({ type: 'join-team', team: 'blue' }, 'r2');
+  });
 });
 
 describe('timers', () => {
@@ -330,7 +519,8 @@ describe('what each player can see', () => {
     h.act({ type: 'next-round' });
     sendClues(h, 'red');
     sendClues(h, 'blue');
-    h.act({ type: 'chat', text: 'I think 3 is space' }, 'r2');
+    // r2 is Red's Encryptor this round, so r3 does the talking.
+    h.act({ type: 'chat', text: 'I think 3 is space' }, 'r3');
     h.act({ type: 'set-note', slot: 2, text: 'Volcano?' }, 'r3');
     h.act({ type: 'set-guess', team: 'blue', draft: [4, 0, 0] }, 'r2');
     h.act({ type: 'set-guess', team: 'red', draft: [1, 2, 0] }, 'r3');
@@ -380,6 +570,24 @@ describe('what each player can see', () => {
     expect(over.teams.red.keywords).toEqual(h.state.teams.red.keywords);
     expect(over.teams.blue.keywords).toEqual(h.state.teams.blue.keywords);
   });
+
+  it('never sends who has seen which keywords', () => {
+    const h = midRound();
+    for (const viewer of [HOST, 'b1', null]) {
+      expect(enigma.view(h.state, viewer)).not.toHaveProperty('seen');
+    }
+  });
+
+  it('locks a player to their team even after leaving and rejoining the room', () => {
+    const h = startedGame();
+    h.state = enigma.playerLeft(h.state, 'r2', NOW);
+    h.state = enigma.playerJoined(h.state, { id: 'r2', name: 'R2' });
+    expect(h.state.seats.r2?.team).toBeNull();
+    expect(h.reject({ type: 'join-team', team: 'blue' }, 'r2')).toBe('team-locked');
+    expect(enigma.view(h.state, 'r2').teams.blue.keywords).toBeNull();
+    h.act({ type: 'join-team', team: 'red' }, 'r2');
+    expect(h.reject({ type: 'join-team', team: null }, 'r2')).toBe('team-locked');
+  });
 });
 
 describe('team chat and notes', () => {
@@ -401,6 +609,26 @@ describe('team chat and notes', () => {
     expect(h.reject({ type: 'chat', text: 'hi' }, 'spec')).toBe('no-team');
     expect(h.reject({ type: 'set-note', slot: 1, text: 'x' }, 'spec')).toBe('no-team');
   });
+
+  it('keeps the Encryptor out of chat while their team decodes, but not out of the notes', () => {
+    const h = startedGame();
+    h.act({ type: 'chat', text: 'writing now' }, HOST);
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    expect(h.reject({ type: 'chat', text: 'psst, 3-1-4' }, HOST)).toBe('encryptor-silent');
+    h.act({ type: 'chat', text: 'is clue 1 about food?' }, 'r2');
+    h.act({ type: 'set-note', slot: 'general', text: 'Blue 2 = sea?' }, HOST);
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    h.act({ type: 'chat', text: 'nice one' }, HOST);
+    expect(h.state.teams.red.chat.map((m) => m.by)).toEqual([HOST, 'r2', HOST]);
+  });
+
+  it('keeps only the latest messages', () => {
+    const h = startedGame();
+    for (let i = 0; i < MAX_CHAT_MESSAGES + 5; i++) h.act({ type: 'chat', text: `m${i}` }, 'r2');
+    expect(h.state.teams.red.chat).toHaveLength(MAX_CHAT_MESSAGES);
+    expect(h.state.teams.red.chat[0]?.text).toBe('m5');
+  });
 });
 
 describe('players leaving', () => {
@@ -418,12 +646,53 @@ describe('players leaving', () => {
     sendClues(h, 'blue');
     expect(tx(h, 'red')).toMatchObject({ expired: true, decodeResult: null });
   });
+
+  it('keeps a transmission going when its Encryptor leaves after sending clues', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    h.state = enigma.playerLeft(h.state, HOST, NOW);
+    expect(tx(h, 'red')).toMatchObject({
+      encryptor: HOST,
+      expired: false,
+      decodeVoters: ['r2', 'r3'],
+    });
+    vote(h, 'red', ['r2', 'r3'], tx(h, 'red').code);
+    expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
+  });
+
+  it('fails the turn of a team left with only its Encryptor, now and in later rounds', () => {
+    const h = startedGame();
+    h.state = enigma.playerLeft(h.state, 'r3', NOW);
+    expect(tx(h, 'red').expired).toBe(false);
+    h.state = enigma.playerLeft(h.state, 'r2', NOW);
+    expect(tx(h, 'red')).toMatchObject({ encryptor: HOST, expired: true });
+    expect(h.reject({ type: 'give-clues', clues: ['a', 'b', 'c'] }, HOST)).toBe('wrong-stage');
+    sendClues(h, 'blue');
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    expect(h.state).toMatchObject({ stage: 'reveal', teams: { red: { misses: 1 } } });
+    h.act({ type: 'next-round' });
+    expect(tx(h, 'red')).toMatchObject({ encryptor: HOST, expired: true });
+    expect(h.state.stage).toBe('clue');
+  });
 });
 
 describe('actionSchema', () => {
+  it('trims clues and notes', () => {
+    expect(actionSchema.parse({ type: 'give-clues', clues: [' a ', 'b', 'c'] })).toMatchObject({
+      clues: ['a', 'b', 'c'],
+    });
+    expect(actionSchema.parse({ type: 'set-note', slot: 1, text: '   ' })).toMatchObject({
+      text: '',
+    });
+  });
+
   it.each([
     { type: 'give-clues', clues: ['a', 'b'] },
     { type: 'give-clues', clues: ['a', 'b', 'x'.repeat(41)] },
+    { type: 'give-clues', clues: ['a', 'b', '   '] },
+    { type: 'give-clues', clues: ['a', 'b', 'two\nlines'] },
+    { type: 'set-note', slot: 1, text: 'x'.repeat(1001) },
     { type: 'set-guess', team: 'red', draft: [1, 2, 5] },
     { type: 'set-guess', team: 'green', draft: [1, 2, 3] },
     { type: 'set-note', slot: 5, text: 'x' },

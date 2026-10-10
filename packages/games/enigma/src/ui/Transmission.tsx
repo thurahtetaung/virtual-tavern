@@ -185,7 +185,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       </p>
       {tx.expired && (
         <p className="text-center text-sm font-semibold">
-          ⏱ No clues: the Encryptor ran out of time.
+          No clues were sent (time ran out, or nobody was left to decode them).
         </p>
       )}
       <p
@@ -252,7 +252,9 @@ export function TransmissionCard({
         </ol>
         <p className="text-sm text-stone-600 dark:text-stone-400">
           {tx.role === 'waiting'
-            ? 'Interception starts in round 2. Just watch for now.'
+            ? view.round < 2 && tx.team !== view.me?.team
+              ? 'Interception starts in round 2. Just watch for now.'
+              : 'You joined after guessing started. Watch this one; you play from the next clues.'
             : tx.role === 'encryptor'
               ? 'Your team is decoding. No hints!'
               : tx.settled && tx.voters.length > 0

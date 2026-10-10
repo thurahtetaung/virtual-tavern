@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { enigma } from '../logic/game.ts';
 import { HOST, decoders, harness, sendClues, startedGame, tx, vote } from '../logic/test-utils.ts';
-import { cluesByKeyword, startBlocker, statusFor } from './status.ts';
+import { chatMuted, cluesByKeyword, startBlocker, statusFor } from './status.ts';
 
 describe('statusFor', () => {
   it('guides players through the lobby', () => {
@@ -30,6 +30,20 @@ describe('statusFor', () => {
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
     vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
     expect(statusFor(enigma.view(h.state, HOST), true, null)).toMatchObject({ yourMove: true });
+  });
+});
+
+describe('chatMuted', () => {
+  it('mutes the Encryptor only while their own team is decoding', () => {
+    const h = startedGame();
+    const enc = tx(h, 'red').encryptor;
+    expect(chatMuted(enigma.view(h.state, enc))).toBe(false);
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
+    expect(chatMuted(enigma.view(h.state, 'r2'))).toBe(false);
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    expect(chatMuted(enigma.view(h.state, enc))).toBe(false);
   });
 });
 
