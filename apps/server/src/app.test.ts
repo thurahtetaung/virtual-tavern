@@ -265,6 +265,58 @@ describe('admin api', () => {
     expect(await names('/api/word-lists')).toEqual(['All', 'Mixed', 'Starter']);
   });
 
+  it('lets admins switch lists off and on, hiding disabled ones from players', async () => {
+    const { cookie } = await login();
+    const headers = { cookie };
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/word-lists',
+      headers,
+      payload: { name: 'Pets', words: ['Dog'] },
+    });
+    const id = created.json<{ id: string; enabled: boolean }>().id;
+    expect(created.json()).toMatchObject({ enabled: true });
+    const patch = (payload: object, h: Record<string, string> = headers, listId = id) =>
+      app.inject({ method: 'PATCH', url: `/api/admin/word-lists/${listId}`, headers: h, payload });
+    const names = async (url: string, h?: Record<string, string>) =>
+      (await app.inject({ method: 'GET', url, headers: h }))
+        .json<{ name: string; enabled: boolean }[]>()
+        .map((l) => `${l.name}${l.enabled ? '' : ' (off)'}`);
+
+    // Admin only, with the usual error shape.
+    const anon = await patch({ enabled: false }, {});
+    expect(anon.statusCode).toBe(401);
+    expect(anon.json()).toEqual({ error: { code: 'unauthorized', message: 'Please sign in.' } });
+    for (const bad of [{}, { enabled: 'no' }, { enabled: 0 }, []]) {
+      const res = await patch(bad);
+      expect(res.statusCode, JSON.stringify(bad)).toBe(400);
+      expect(res.json()).toMatchObject({ error: { code: 'bad-request' } });
+    }
+    const missing = await patch({ enabled: false }, headers, 'missing');
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toMatchObject({ error: { code: 'not-found' } });
+
+    const off = await patch({ enabled: false });
+    expect(off.statusCode).toBe(200);
+    expect(off.json()).toMatchObject({ id, name: 'Pets', enabled: false, wordCount: 1 });
+    expect(await names('/api/word-lists')).toEqual(['Starter']);
+    expect(await names('/api/word-lists?game=codenames')).toEqual(['Starter']);
+    expect(await names('/api/admin/word-lists', headers)).toEqual(['Pets (off)', 'Starter']);
+    const detail = await app.inject({ method: 'GET', url: `/api/admin/word-lists/${id}`, headers });
+    expect(detail.json()).toMatchObject({ enabled: false, words: ['Dog'] });
+
+    // A full update without `enabled` keeps the list switched off; with it, switches it.
+    const put = (payload: object) =>
+      app.inject({ method: 'PUT', url: `/api/admin/word-lists/${id}`, headers, payload });
+    expect((await put({ name: 'Pets', words: ['Cat'] })).json()).toMatchObject({ enabled: false });
+    expect((await put({ name: 'Pets', words: ['Cat'], enabled: true })).json()).toMatchObject({
+      enabled: true,
+    });
+    expect((await patch({ enabled: false })).json()).toMatchObject({ enabled: false });
+    expect((await patch({ enabled: true })).json()).toMatchObject({ enabled: true });
+    expect(await names('/api/word-lists?game=enigma')).toEqual(['Pets', 'Starter']);
+  });
+
   it('is disabled without a password', async () => {
     await app.close();
     app = testApp({ adminPassword: null });

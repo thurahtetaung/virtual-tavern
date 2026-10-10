@@ -29,6 +29,13 @@
       "when": 1791649372248,
       "tag": "0003_word_list_games",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791650357400,
+      "tag": "0004_word_list_enabled",
+      "breakpoints": true
     }
   ]
 }

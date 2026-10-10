@@ -1,4 +1,4 @@
-import { adminLoginBody, wordListBody } from '@vt/protocol';
+import { adminLoginBody, wordListBody, wordListEnabledBody } from '@vt/protocol';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type AdminAuth, clearAdminSession } from '../admin-auth.ts';
@@ -87,6 +87,15 @@ export function adminRoutes(
       if (bad) return error(reply, 400, 'bad-request', bad);
       return (
         wordLists.update(req.params.id, body.data) ??
+        error(reply, 404, 'not-found', 'Word list not found.')
+      );
+    });
+
+    scope.patch<{ Params: { id: string } }>('/api/admin/word-lists/:id', (req, reply) => {
+      const body = wordListEnabledBody.safeParse(req.body);
+      if (!body.success) return error(reply, 400, 'bad-request', 'Send { "enabled": true|false }.');
+      return (
+        wordLists.setEnabled(req.params.id, body.data.enabled) ??
         error(reply, 404, 'not-found', 'Word list not found.')
       );
     });

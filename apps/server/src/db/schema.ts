@@ -15,6 +15,8 @@ export const wordLists = sqliteTable('word_lists', {
     .$type<string[]>()
     .notNull()
     .default(sql`'["codenames","enigma","echo"]'`),
+  /** Disabled lists stay editable in the admin area but are hidden from hosts and rooms. */
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

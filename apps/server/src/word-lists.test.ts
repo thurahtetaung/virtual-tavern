@@ -69,7 +69,7 @@ describe('WordListRepo game tags', () => {
     make('Echo classic', ['echo']);
     expect(names('echo')).toEqual(['Echo classic', 'Shared A', 'Shared C']);
     expect(names('enigma')[0]).toBe('Enigma only B');
-    expect(repo.list('enigma').map((l) => l.name)).toEqual([
+    expect(repo.listEnabled('enigma').map((l) => l.name)).toEqual([
       'Enigma only B',
       'Enigma only D',
       'Shared A',
@@ -97,5 +97,63 @@ describe('WordListRepo game tags', () => {
       'retired',
     ]);
     expect(repo.update('missing', body)).toBeNull();
+  });
+});
+
+describe('WordListRepo enabled switch', () => {
+  it('enables rows that predate the column, and new and seeded lists', () => {
+    const { db, repo, make } = setup();
+    // Insert the way an older server would have, without naming the new column.
+    db.$client
+      .prepare(
+        `INSERT INTO word_lists (id, name, description, words, created_at, updated_at)
+         VALUES ('old', 'Old', '', '["x"]', 1, 1)`,
+      )
+      .run();
+    expect(db.select({ enabled: wordLists.enabled }).from(wordLists).get()?.enabled).toBe(true);
+    expect(repo.get('old')?.enabled).toBe(true);
+    expect(make('New').enabled).toBe(true);
+    expect(repo.seedPacks([{ slug: 'p', name: 'Pack', description: '', words: ['w'] }])).toEqual([
+      'p',
+    ]);
+    expect(repo.list().every((l) => l.enabled)).toBe(true);
+
+    const fresh = new WordListRepo(openDb(':memory:', MIGRATIONS), () => 1, GAMES);
+    fresh.seedIfEmpty();
+    expect(fresh.list().map((l) => l.enabled)).toEqual([true]);
+  });
+
+  it('hides disabled lists from games and players but not from admins', () => {
+    const { repo, make } = setup();
+    const on = make('On');
+    const off = make('Off');
+    expect(repo.setEnabled(off.id, false)).toMatchObject({ id: off.id, enabled: false });
+    expect(repo.setEnabled('missing', false)).toBeNull();
+
+    const content = repo.forGame('codenames');
+    expect(content.wordLists().map((l) => l.name)).toEqual(['On']);
+    // A saved selection that still names the disabled list just doesn't draw from it.
+    expect(content.words([on.id, off.id])).toEqual(['On-word']);
+    expect(content.words([off.id])).toEqual([]);
+    expect(repo.listEnabled().map((l) => l.name)).toEqual(['On']);
+    expect(repo.listEnabled('codenames').map((l) => l.name)).toEqual(['On']);
+    expect(repo.list().map((l) => [l.name, l.enabled])).toEqual([
+      ['Off', false],
+      ['On', true],
+    ]);
+    expect(repo.get(off.id)?.enabled).toBe(false);
+
+    expect(repo.setEnabled(off.id, true)?.enabled).toBe(true);
+    expect(content.words([off.id])).toEqual(['Off-word']);
+  });
+
+  it('keeps the setting on update unless given, and can create a list disabled', () => {
+    const { repo } = setup();
+    const list = repo.create({ name: 'L', description: '', words: ['a'], enabled: false });
+    expect(list.enabled).toBe(false);
+    const body = { name: 'L', description: '', words: ['b'] };
+    expect(repo.update(list.id, body)?.enabled).toBe(false);
+    expect(repo.update(list.id, { ...body, enabled: true })?.enabled).toBe(true);
+    expect(repo.update(list.id, body)?.enabled).toBe(true);
   });
 });

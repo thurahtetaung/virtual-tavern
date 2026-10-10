@@ -29,10 +29,17 @@ const summary = (r: Row): WordListSummary => ({
   wordCount: r.words.length,
   updatedAt: r.updatedAt,
   games: r.games,
+  enabled: r.enabled,
 });
 
-/** The fields a list is written with; `games` defaults to every word-list game. */
-type ListInput = Omit<Required<WordListBody>, 'games'> & { games?: readonly string[] | undefined };
+/**
+ * The fields a list is written with; `games` defaults to every word-list game, and `enabled` to
+ * true for a new list and the current setting on an update.
+ */
+type ListInput = Omit<Required<WordListBody>, 'games' | 'enabled'> & {
+  games?: readonly string[] | undefined;
+  enabled?: boolean | undefined;
+};
 
 export class WordListRepo {
   private readonly db: Db;
@@ -92,10 +99,16 @@ export class WordListRepo {
     })();
   }
 
-  /** Every list by name, or only those tagged for `gameId`. */
-  list(gameId?: string): WordListSummary[] {
-    const all = this.db.select().from(wordLists).orderBy(wordLists.name).all().map(summary);
-    return gameId === undefined ? all : all.filter((l) => l.games.includes(gameId));
+  /** Every list by name, disabled ones included (for admins). */
+  list(): WordListSummary[] {
+    return this.db.select().from(wordLists).orderBy(wordLists.name).all().map(summary);
+  }
+
+  /** The enabled lists by name, or only the enabled ones tagged for `gameId` (for players). */
+  listEnabled(gameId?: string): WordListSummary[] {
+    return this.list().filter(
+      (l) => l.enabled && (gameId === undefined || l.games.includes(gameId)),
+    );
   }
 
   get(id: string): WordListDetail | null {
@@ -111,6 +124,7 @@ export class WordListRepo {
       description: body.description,
       words: normalizeWords(body.words),
       games: this.tags(body.games),
+      enabled: body.enabled ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -140,11 +154,23 @@ export class WordListRepo {
         description: body.description,
         words: normalizeWords(body.words),
         games,
+        ...(body.enabled === undefined ? {} : { enabled: body.enabled }),
         updatedAt: this.now(),
       })
       .where(eq(wordLists.id, id))
       .run();
     return result.changes ? this.get(id) : null;
+  }
+
+  /** Switches a list on or off, leaving everything else (including `updatedAt`) alone. */
+  setEnabled(id: string, enabled: boolean): WordListSummary | null {
+    const row = this.db
+      .update(wordLists)
+      .set({ enabled })
+      .where(eq(wordLists.id, id))
+      .returning()
+      .get();
+    return row ? summary(row) : null;
   }
 
   delete(id: string): boolean {
@@ -155,7 +181,7 @@ export class WordListRepo {
    * The content a room of `gameId` may read. Lists made only for that game come first (oldest
    * first), then the other lists it is tagged in (oldest first), so a lobby that defaults to the
    * first list opens on the game's own list and otherwise on the original Starter. Lists not
-   * tagged for the game are invisible, including to `words()`.
+   * tagged for the game, and disabled lists, are invisible, including to `words()`.
    */
   forGame(gameId: string): ContentProvider {
     return {
@@ -174,7 +200,7 @@ export class WordListRepo {
       .from(wordLists)
       .orderBy(asc(wordLists.createdAt), sql`rowid`)
       .all()
-      .filter((r) => r.games.includes(gameId));
+      .filter((r) => r.enabled && r.games.includes(gameId));
     const own = (r: Row) => r.games.length === 1;
     return [...rows.filter(own), ...rows.filter((r) => !own(r))];
   }

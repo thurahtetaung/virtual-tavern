@@ -1,0 +1,1 @@
+ALTER TABLE `word_lists` ADD `enabled` integer DEFAULT true NOT NULL;

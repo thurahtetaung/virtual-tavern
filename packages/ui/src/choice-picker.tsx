@@ -39,6 +39,8 @@ interface Props {
  */
 export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }: Props) {
   const [picking, setPicking] = useState(false);
+  // Saved ids missing from `choices` (a list since deleted or switched off) are ignored
+  // everywhere: no chip, no count, and the picker starts without them.
   const chosen = choices.filter((c) => selectedIds.includes(c.id));
   const total = chosen.reduce((n, c) => n + c.count, 0);
 
@@ -80,7 +82,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
       {editable && picking && (
         <Picker
           choices={choices}
-          initial={selectedIds}
+          initial={selectedIds.filter((id) => chosen.some((c) => c.id === id))}
           labels={labels}
           onClose={() => setPicking(false)}
           onSave={async (ids) => {
