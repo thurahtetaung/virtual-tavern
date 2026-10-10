@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt as scryptCb, scryptSync, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -22,15 +22,15 @@ const scrypt = promisify(scryptCb) as (
 export class AdminAuth {
   private readonly salt = randomBytes(16);
   private readonly expected: Promise<Buffer>;
-  /** Short keyed hash of the password: identifies which password a session was issued under. */
+  /** Short stretched hash of the password: identifies which password a session was issued under. */
   private readonly fingerprint: string;
 
   constructor(password: string, sessionSecret: string) {
     this.expected = scrypt(password, this.salt, 32);
-    // Keyed with the session secret, so the cookie never carries a plain digest of the password.
-    this.fingerprint = createHmac('sha256', sessionSecret)
-      .update(password)
-      .digest('hex')
+    // Stretched once at startup, salted with the session secret so it is stable across restarts
+    // but the cookie still never carries a plain digest of the password.
+    this.fingerprint = scryptSync(password, `fingerprint:${sessionSecret}`, 16)
+      .toString('hex')
       .slice(0, 8);
   }
 
