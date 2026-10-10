@@ -1,0 +1,150 @@
+import type { CodenamesView } from '@vt/game-codenames/logic';
+import type { RoomSnapshot } from '@vt/protocol';
+import { afterEach, describe, expect, it } from 'vitest';
+import { type TestClient, connect, tempDb, testApp, token } from './test/helpers.ts';
+
+const view = (s: RoomSnapshot) => s.game as CodenamesView;
+
+describe('realtime rooms', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  async function start(databasePath: string) {
+    const app = testApp({ databasePath });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    return { app, url };
+  }
+
+  async function joinAll(url: string, roomId: string, names: string[]) {
+    const clients: TestClient[] = [];
+    for (const [i, name] of names.entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(i), name })).toEqual({ ok: true });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((s) => s.players.length === names.length)));
+    return clients;
+  }
+
+  it('plays a game across a server restart without losing state', async () => {
+    const db = tempDb();
+    cleanups.push(db.cleanup);
+    let server = await start(db.path);
+    const { roomId } = (
+      await server.app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+
+    const names = ['Host', 'Ana', 'Ben', 'Cy'];
+    let [host, ana, ben, cy] = await joinAll(server.url, roomId, names);
+    expect(host!.latest()!.hostId).toBe(host!.latest()!.you);
+    expect(host!.latest()!.players.every((p) => p.connected)).toBe(true);
+
+    expect(await ana!.call('game:action', { type: 'start' })).toMatchObject({
+      ok: false,
+      error: { code: 'not-host' },
+    });
+    expect(await host!.call('game:action', { type: 'explode' })).toMatchObject({
+      ok: false,
+      error: { code: 'bad-action' },
+    });
+
+    await host!.call('game:action', { type: 'join-team', team: 'red', role: 'spymaster' });
+    await ana!.call('game:action', { type: 'join-team', team: 'red', role: 'operative' });
+    await ben!.call('game:action', { type: 'join-team', team: 'blue', role: 'spymaster' });
+    await cy!.call('game:action', { type: 'join-team', team: 'blue', role: 'operative' });
+    expect(await host!.call('game:action', { type: 'start' })).toEqual({ ok: true });
+
+    const hostView = view(await host!.until((s) => view(s).phase === 'playing'));
+    const anaView = view(await ana!.until((s) => view(s).phase === 'playing'));
+    expect(hostView.board.every((c) => c.kind !== null)).toBe(true);
+    expect(anaView.board.every((c) => c.kind === null)).toBe(true);
+
+    const first = hostView.turn!.team;
+    const [spy, op] = first === 'red' ? [host!, ana!] : [ben!, cy!];
+    expect(await spy.call('game:action', { type: 'give-clue', word: 'hint', count: 1 })).toEqual({
+      ok: true,
+    });
+    await op.until((s) => view(s).turn?.stage === 'guess');
+
+    // Restart the server mid-turn.
+    for (const c of [host, ana, ben, cy]) c!.close();
+    await server.app.close();
+    server = await start(db.path);
+    cleanups.push(() => server.app.close());
+    [host, ana, ben, cy] = await joinAll(server.url, roomId, names);
+
+    const resumed = view(host!.latest()!);
+    expect(resumed).toMatchObject({ phase: 'playing', turn: { team: first, stage: 'guess' } });
+    expect(resumed.board.map((c) => c.word)).toEqual(hostView.board.map((c) => c.word));
+
+    const assassin = view(host!.latest()!).board.findIndex((c) => c.kind === 'assassin');
+    const opAfter = first === 'red' ? ana! : cy!;
+    expect(await opAfter.call('game:action', { type: 'guess', card: assassin })).toEqual({
+      ok: true,
+    });
+    const over = view(await ben!.until((s) => view(s).phase === 'over'));
+    expect(over.winner).toBe(first === 'red' ? 'blue' : 'red');
+  });
+
+  it('tracks presence, kicks, and hands over hosting', async () => {
+    const db = tempDb();
+    cleanups.push(db.cleanup);
+    const server = await start(db.path);
+    cleanups.push(() => server.app.close());
+    const { roomId } = (
+      await server.app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+    const [host, ana, ben] = await joinAll(server.url, roomId, ['Host', 'Ana', 'Ben']);
+    const anaId = ana!.latest()!.you;
+    const benId = ben!.latest()!.you;
+
+    ben!.close();
+    await host!.until((s) => s.players.find((p) => p.id === benId)?.connected === false);
+
+    expect(await ana!.call('room:kick', benId)).toMatchObject({
+      ok: false,
+      error: { code: 'not-host' },
+    });
+    const kicked = new Promise<void>((resolve) => host!.once('room:kicked', () => resolve()));
+    await host!.call('room:make-host', anaId);
+    await host!.until((s) => s.hostId === anaId);
+    await ana!.call('room:kick', host!.latest()!.you);
+    await kicked;
+    await ana!.until((s) => s.players.length === 2);
+
+    expect(await ana!.call('room:rename', 'Anabel')).toEqual({ ok: true });
+    const renamed = await ana!.until((s) => s.players.some((p) => p.name === 'Anabel'));
+    expect(renamed.players.map((p) => p.name)).toEqual(['Anabel', 'Ben']);
+  });
+
+  it('rejects joins to unknown rooms and invalid names', async () => {
+    const server = await start(':memory:');
+    cleanups.push(() => server.app.close());
+    const c = await connect(server.url);
+    cleanups.push(() => void c.close());
+    expect(
+      await c.call('room:join', { roomId: 'amber-fox-owl-0000', token: token(1), name: 'X' }),
+    ).toMatchObject({ ok: false, error: { code: 'no-room' } });
+    expect(
+      await c.call('room:join', { roomId: 'amber-fox-owl-0000', token: token(1), name: ' ' }),
+    ).toMatchObject({ ok: false, error: { code: 'bad-request' } });
+    expect(await c.call('game:action', { type: 'start' })).toMatchObject({
+      ok: false,
+      error: { code: 'not-joined' },
+    });
+  });
+});

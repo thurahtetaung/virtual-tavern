@@ -1,10 +1,12 @@
 import { buildApp } from './app.ts';
+import { loadConfig } from './config.ts';
 
-const port = Number(process.env.PORT ?? 3000);
-const host = process.env.HOST ?? '0.0.0.0';
-const version = process.env.APP_VERSION ?? 'dev';
+const config = loadConfig();
 
-const app = buildApp({ version, logger: { level: process.env.LOG_LEVEL ?? 'info' } });
+const app = buildApp({
+  ...config,
+  logger: { level: config.logLevel },
+});
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
@@ -12,4 +14,5 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-await app.listen({ port, host });
+await app.listen({ port: config.port, host: config.host });
+if (!config.adminPassword) app.log.warn('ADMIN_PASSWORD is not set; the admin area is disabled.');

@@ -1,4 +1,5 @@
 import type { ZodType } from 'zod';
+import type { GameGuide } from './guide.ts';
 import type { Rng } from './rng.ts';
 
 export type PlayerId = string;
@@ -55,6 +56,8 @@ export interface GameDefinition<State, Action, View> {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  /** Beginner-friendly rules; required so every game is learnable in-app. */
+  guide: GameGuide;
   actionSchema: ZodType<Action>;
   /** Initial state for a freshly opened game (typically a pre-game lobby phase). */
   create(ctx: CreateCtx, players: readonly PlayerInfo[]): State;

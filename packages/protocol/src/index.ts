@@ -1,0 +1,100 @@
+import { z } from 'zod';
+
+export const MAX_NAME_LENGTH = 24;
+export const ROOM_ID_PATTERN = /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/;
+
+export const playerName = z
+  .string()
+  .trim()
+  .min(1, 'Pick a name')
+  .max(MAX_NAME_LENGTH, `Names are at most ${MAX_NAME_LENGTH} characters`);
+
+/** Random secret that identifies a browser. The public player id is derived from it server-side. */
+export const playerToken = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
+
+export const roomId = z.string().regex(ROOM_ID_PATTERN);
+
+// ---- REST ----
+
+export interface GameSummary {
+  id: string;
+  name: string;
+  description: string;
+  minPlayers: number;
+  maxPlayers: number;
+}
+
+export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });
+export type CreateRoomBody = z.infer<typeof createRoomBody>;
+export interface CreateRoomResponse {
+  roomId: string;
+}
+
+export interface RoomInfo {
+  id: string;
+  gameId: string;
+}
+
+export interface WordListSummary {
+  id: string;
+  name: string;
+  description: string;
+  wordCount: number;
+  updatedAt: number;
+}
+
+export interface WordListDetail extends WordListSummary {
+  words: string[];
+}
+
+export const MAX_WORDS_PER_LIST = 5000;
+export const MAX_WORD_LENGTH = 40;
+
+export const wordListBody = z.object({
+  name: z.string().trim().min(1).max(60),
+  description: z.string().trim().max(200).default(''),
+  words: z.array(z.string().trim().min(1).max(MAX_WORD_LENGTH)).max(MAX_WORDS_PER_LIST),
+});
+export type WordListBody = z.input<typeof wordListBody>;
+
+export const adminLoginBody = z.object({ password: z.string().min(1).max(200) });
+
+export interface ApiError {
+  error: { code: string; message: string };
+}
+
+// ---- Socket.IO ----
+
+export interface RoomPlayer {
+  id: string;
+  name: string;
+  connected: boolean;
+}
+
+export interface RoomSnapshot<View = unknown> {
+  id: string;
+  gameId: string;
+  hostId: string;
+  you: string;
+  players: RoomPlayer[];
+  game: View;
+}
+
+export type Ack = { ok: true } | { ok: false; error: { code: string; message: string } };
+
+export const joinRoomPayload = z.object({ roomId, token: playerToken, name: playerName });
+export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
+
+export interface ClientToServerEvents {
+  'room:join': (payload: JoinRoomPayload, ack: (res: Ack) => void) => void;
+  'room:rename': (name: string, ack: (res: Ack) => void) => void;
+  'room:leave': (ack: (res: Ack) => void) => void;
+  'room:kick': (playerId: string, ack: (res: Ack) => void) => void;
+  'room:make-host': (playerId: string, ack: (res: Ack) => void) => void;
+  'game:action': (action: unknown, ack: (res: Ack) => void) => void;
+}
+
+export interface ServerToClientEvents {
+  'room:state': (snapshot: RoomSnapshot) => void;
+  'room:kicked': () => void;
+}

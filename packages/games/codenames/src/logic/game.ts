@@ -22,6 +22,7 @@ import {
   type WinReason,
   actionSchema,
 } from './types.ts';
+import { guide } from './guide.ts';
 
 type Ctx = ActionCtx;
 type Result = CodenamesState | GameError;
@@ -432,6 +433,7 @@ export const codenames: GameDefinition<CodenamesState, CodenamesAction, Codename
   description: 'Two teams race to contact their agents from one-word clues.',
   minPlayers: 4,
   maxPlayers: 20,
+  guide,
   actionSchema,
   create,
   reduce,

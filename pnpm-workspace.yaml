@@ -3,6 +3,7 @@ packages:
   - packages/*
   - packages/games/*
 allowBuilds:
+  better-sqlite3: true
   esbuild: true
 minimumReleaseAgeExclude:
   - '@types/node@24.19.2'
