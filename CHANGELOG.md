@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.3.0...v0.4.0) (2026-10-10)
+
+
+### Features
+
+* add Enigma, a team code-breaking word game ([#11](https://github.com/thurahtetaung/virtual-tavern/issues/11)) ([6e282e8](https://github.com/thurahtetaung/virtual-tavern/commit/6e282e8992f22f317d486705ae9b20161a5165d7))
+
 ## [0.3.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.2.0...v0.3.0) (2026-10-10)
 
 
