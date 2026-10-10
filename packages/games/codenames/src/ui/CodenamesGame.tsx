@@ -100,6 +100,8 @@ function InGame({
   const myTurn = turn !== null && me?.team === turn.team;
   const canGuess = myTurn && me?.role === 'operative' && turn.stage === 'guess';
   const canClue = myTurn && me?.role === 'spymaster' && turn.stage === 'clue';
+  // The engine insists on at least one guess before a pass.
+  const canPass = canGuess && turn.guessesMade > 0;
 
   // First tap marks the card for teammates and selects it; tapping it again unmarks it.
   const pick = (i: number) => {
@@ -149,7 +151,7 @@ function InGame({
 
         {canClue && (
           <Panel>
-            <ClueForm act={act} />
+            <ClueForm act={act} max={view.remaining[turn.team]} />
           </Panel>
         )}
 
@@ -160,9 +162,20 @@ function InGame({
                 ? 'Pick a card to guess'
                 : `Guess ${view.board[selected]?.word.toUpperCase()}`}
             </Button>
-            <Button variant="secondary" size="lg" onClick={() => void act({ type: 'end-turn' })}>
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={!canPass}
+              title={canPass ? undefined : 'Guess at least once first'}
+              onClick={() => void act({ type: 'end-turn' })}
+            >
               End turn
             </Button>
+            {!canPass && (
+              <span className="basis-full text-center text-xs text-stone-500">
+                Guess at least once first
+              </span>
+            )}
           </div>
         )}
 
@@ -199,18 +212,36 @@ function InGame({
         </Panel>
         <TeamsSection view={view} online={online} act={act} />
         {room.isHost && view.phase === 'playing' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            onClick={() => {
-              if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                void act({ type: 'back-to-lobby' });
-              }
-            }}
-          >
-            Abandon game
-          </Button>
+          <div className="space-y-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Skip the current turn for everyone? Use this if nobody can play it.',
+                  )
+                ) {
+                  void act({ type: 'end-turn' });
+                }
+              }}
+            >
+              Skip stuck turn
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (window.confirm('End this game for everyone and go back to the lobby?')) {
+                  void act({ type: 'back-to-lobby' });
+                }
+              }}
+            >
+              Abandon game
+            </Button>
+          </div>
         )}
       </aside>
     </div>

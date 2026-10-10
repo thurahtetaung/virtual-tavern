@@ -8,6 +8,8 @@ const END_REASON: Record<EndTurnReason, string> = {
   'wrong-guess': 'turn over (wrong guess)',
   'out-of-guesses': 'turn over (no guesses left)',
   timeout: "turn over (time's up)",
+  forfeit: 'forfeited the turn (nobody left to play it)',
+  host: 'turn ended by the host',
 };
 
 function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string }) {

@@ -38,13 +38,20 @@ function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }
   const spymaster = members.find((s) => s.role === 'spymaster');
   const operatives = members.filter((s) => s.role === 'operative');
   const me = view.me;
-  const lockedSpymaster = view.phase === 'playing' && me?.role === 'spymaster' && me.team !== null;
-  const canTakeSpymaster = !spymaster && !lockedSpymaster;
-  // Mid-game, only spectators may join a team; seated players switching sides would be confusing.
+  const playing = view.phase === 'playing';
+  // Mirrors the engine's mid-game seat lock: seated players stay put, except to fill their own
+  // team's vacant spymaster seat; newcomers may join unless they have already seen the key, in
+  // which case only their old spymaster seat will do.
+  const keyHeld = me ? view.keyHolders[me.id] : undefined;
+  const canTakeSpymaster =
+    !spymaster &&
+    me !== null &&
+    (!playing ||
+      (me.team === null ? (keyHeld ?? team) === team : me.team === team && keyHeld === undefined));
   const canJoinOps =
-    !lockedSpymaster &&
-    !(me?.team === team && me.role === 'operative') &&
-    (view.phase !== 'playing' || me?.team === null);
+    me !== null &&
+    !(me.team === team && me.role === 'operative') &&
+    (!playing || (me.team === null && keyHeld === undefined));
   const remaining = view.phase === 'lobby' ? null : view.remaining[team];
 
   return (
@@ -112,8 +119,7 @@ function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }
 export function Teams(props: Props) {
   const spectators = props.view.seats.filter((s) => s.team === null);
   const me = props.view.me;
-  const canSpectate =
-    me?.team != null && !(props.view.phase === 'playing' && me.role === 'spymaster');
+  const canSpectate = me?.team != null && props.view.phase !== 'playing';
   return (
     <div className="space-y-3">
       <div className={cn('grid gap-3', props.compact ? 'grid-cols-1' : 'sm:grid-cols-2')}>
