@@ -1,6 +1,6 @@
 import type { GameUiProps } from '@vt/game-sdk';
 import { Button, Countdown, Hint, Panel, cn } from '@vt/ui';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TeamsPicker } from './Lobby.tsx';
@@ -117,7 +117,7 @@ function TabBar({
   );
 }
 
-export function EnigmaGame({ view, room, act, showGuide }: EnigmaUiProps) {
+export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -126,6 +126,15 @@ export function EnigmaGame({ view, room, act, showGuide }: EnigmaUiProps) {
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker);
+
+  // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
+  const tabAlert = view.phase !== 'lobby' && status.yourMove;
+  useEffect(() => {
+    setYourMove?.(tabAlert);
+    return () => {
+      setYourMove?.(false);
+    };
+  }, [setYourMove, tabAlert]);
 
   if (view.phase === 'lobby') {
     return (

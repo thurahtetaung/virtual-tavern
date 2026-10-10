@@ -55,11 +55,16 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   // Whoever's team starts, its spymaster gives a clue.
   const redStarts = await host.getByText('Your turn! Give your team').isVisible();
   const [spy, op, otherOp] = redStarts ? [host, ana!, cy!] : [ben!, cy!, ana!];
+  // The tab title flags whoever has to act, so a background tab stands out.
+  await expect(spy).toHaveTitle(/^● Your turn · Codenames/);
+  await expect(op).toHaveTitle('Codenames · Virtual Tavern');
   await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
   await spy.getByRole('button', { name: '2', exact: true }).click();
   await spy.getByRole('button', { name: 'Give clue' }).click();
 
   await expect(op.getByText('Your turn to guess')).toBeVisible();
+  await expect(op).toHaveTitle(/^● Your turn · Codenames/);
+  await expect(spy).toHaveTitle('Codenames · Virtual Tavern');
   await expect(otherOp.getByText('team is guessing')).toBeVisible();
   await expect(op.locator('text=TAVERN').first()).toBeVisible();
 

@@ -1,6 +1,6 @@
 import type { GameUiProps } from '@vt/game-sdk';
 import { Button, Countdown, Hint, Panel, cn } from '@vt/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
@@ -14,13 +14,22 @@ import { Teams } from './Teams.tsx';
 
 export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
 
-export function CodenamesGame({ view, room, act, showGuide }: CodenamesUiProps) {
+export function CodenamesGame({ view, room, act, showGuide, setYourMove }: CodenamesUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker);
+
+  // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
+  const tabAlert = view.phase !== 'lobby' && status.yourMove;
+  useEffect(() => {
+    setYourMove?.(tabAlert);
+    return () => {
+      setYourMove?.(false);
+    };
+  }, [setYourMove, tabAlert]);
 
   if (view.phase === 'lobby') {
     return (

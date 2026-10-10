@@ -18,4 +18,6 @@ export interface GameUiProps<View, Action> {
   act: (action: Action) => Promise<boolean>;
   /** Opens the game's rules guide. */
   showGuide: () => void;
+  /** Tells the shell whether the viewer is expected to act now, so it can mark the tab. */
+  setYourMove?: (yes: boolean) => void;
 }
