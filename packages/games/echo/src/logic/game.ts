@@ -320,8 +320,8 @@ function pick(state: EchoState, index: number, ctx: Ctx): Result {
   return beginClues(state, index, ctx.now);
 }
 
-/** Why a clue can't be used, or null if it's fine. */
-function clueProblem(clue: string, word: string): GameError | null {
+/** Why a clue can't be used, or null if it's fine. The UI uses it to explain a refusal inline. */
+export function clueProblem(clue: string, word: string): GameError | null {
   if (!isSingleWord(clue) || !/[\p{L}\p{N}]/u.test(clue)) {
     return new GameError('not-one-word', `“${clue}” isn't a single word.`);
   }
@@ -332,6 +332,18 @@ function clueProblem(clue: string, word: string): GameError | null {
     (plainWord.length >= 3 && normaliseWord(clue).includes(plainWord))
   ) {
     return new GameError('is-the-word', `“${clue}” gives the word away.`);
+  }
+  return null;
+}
+
+/** The first problem with a player's set of clues: each clue's own, then two of the same. */
+export function cluesProblem(clues: readonly string[], word: string): GameError | null {
+  for (const clue of clues) {
+    const problem = clueProblem(clue, word);
+    if (problem) return problem;
+  }
+  if (new Set(clues.map(wordKey)).size !== clues.length) {
+    return new GameError('same-clue-twice', 'Your two clues must be different words.');
   }
   return null;
 }
@@ -349,13 +361,8 @@ function giveClues(state: EchoState, clues: string[], ctx: Ctx): Result {
     );
   }
   const word = turn.card[turn.pick!]!;
-  for (const clue of clues) {
-    const problem = clueProblem(clue, word);
-    if (problem) return problem;
-  }
-  if (new Set(clues.map(wordKey)).size !== clues.length) {
-    return new GameError('same-clue-twice', 'Your two clues must be different words.');
-  }
+  const problem = cluesProblem(clues, word);
+  if (problem) return problem;
   return maybeStartGuessing(
     withTurn(state, { clues: { ...turn.clues, [ctx.by]: clues } }),
     ctx.now,
@@ -624,6 +631,7 @@ export const echo: GameDefinition<EchoState, EchoAction, EchoView> = {
   minPlayers: MIN_PLAYERS,
   /** Room capacity: up to `MAX_PLAYERS` play, the rest watch. */
   maxPlayers: ROOM_CAPACITY,
+  usesWordLists: true,
   guide,
   actionSchema,
   create,

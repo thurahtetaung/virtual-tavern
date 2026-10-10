@@ -20,7 +20,7 @@ Every game must ship a `GameGuide` (the `guide` field is required). The same gui
 
 ## 3. UI: `src/ui`
 
-Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`, `Modal`, and the lobby's `WordListPicker` and `TimerSettings`) so the game matches the rest of the site. Design for a phone first: a player should never need to scroll through more than about one screen to act. Split dense screens into tabs, as Enigma does. Always show a `Hint` telling the viewer what to do right now.
+Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`, `Modal`, and the lobby's `WordListPicker` and `TimerSettings`) so the game matches the rest of the site. Give `WordListPicker` a `summary` that says how your game uses the words (its default describes the Codenames board). Report `statusFor(...).yourMove` through `setYourMove` in a block-bodied effect while a game is in play, so the tab title shows "● Your turn". Design for a phone first: a player should never need to scroll through more than about one screen to act. Split dense screens into tabs, as Enigma does. Always show a `Hint` telling the viewer what to do right now.
 
 ## Word content
 
@@ -29,7 +29,8 @@ Games read word lists through `ctx.content`. Set `usesWordLists: true` on the de
 ## 4. Register it
 
 - Server: `apps/server/src/games/registry.ts`
-- Web: `apps/web/src/games/registry.ts` (with a lazy import of the UI)
+- Web: `apps/web/src/games/registry.ts` (with a lazy import of the UI; keep the literal `id: '<id>',` line, which a test reads)
+- Add the package to `apps/server/package.json` (devDependencies) and `apps/web/package.json` (dependencies), run `pnpm install`, and update the tests that list every game id (`apps/server/src/app.test.ts`, `apps/server/src/routes/backroom.test.ts`).
 
 ## 5. Test it
 

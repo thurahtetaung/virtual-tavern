@@ -1,5 +1,5 @@
 import type { WordListSummary } from '@vt/game-sdk';
-import { ChoicePicker } from './choice-picker.tsx';
+import { type Choice, ChoicePicker } from './choice-picker.tsx';
 
 interface Props {
   selectedIds: string[];
@@ -7,10 +7,21 @@ interface Props {
   editable: boolean;
   /** Persist the new selection; resolve true on success to close the picker. */
   onSave: (ids: string[]) => Promise<boolean>;
+  /** The line under the heading, given the chosen lists and their word total. Defaults to the 25-word board. */
+  summary?: (chosen: Choice[], total: number) => string;
 }
 
+const boardSummary = (chosen: Choice[], total: number) =>
+  `The board draws 25 random words from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`;
+
 /** Word-list flavour of the shared ChoicePicker. */
-export function WordListPicker({ selectedIds, wordLists, editable, onSave }: Props) {
+export function WordListPicker({
+  selectedIds,
+  wordLists,
+  editable,
+  onSave,
+  summary = boardSummary,
+}: Props) {
   return (
     <ChoicePicker
       selectedIds={selectedIds}
@@ -27,8 +38,7 @@ export function WordListPicker({ selectedIds, wordLists, editable, onSave }: Pro
         unit: 'words',
         noun: 'list',
         change: 'Change word lists',
-        summary: (chosen, total) =>
-          `The board draws 25 random words from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`,
+        summary,
       }}
     />
   );

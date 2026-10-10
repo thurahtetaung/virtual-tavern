@@ -101,10 +101,10 @@ describe('back room over HTTP', () => {
       (await app.inject({ method: 'GET', url: '/api/games', headers: { cookie } }))
         .json<{ id: string }[]>()
         .map((g) => g.id);
-    expect(await ids()).toEqual(['codenames', 'enigma']);
+    expect(await ids()).toEqual(['codenames', 'enigma', 'echo']);
     expect((await unlock(app, 'nope')).res.statusCode).toBe(401);
     const { cookie } = await unlock(app);
-    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'reverie']);
+    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'echo', 'reverie']);
   });
 
   it('only lets unlocked players create or look up private rooms', async () => {

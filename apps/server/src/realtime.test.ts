@@ -1,4 +1,5 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
+import type { EchoView } from '@vt/game-echo/logic';
 import type { EnigmaView } from '@vt/game-enigma/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -305,6 +306,96 @@ describe('realtime Enigma', () => {
     const revealed = ev(await cy.until((s) => ev(s).stage === 'reveal'));
     expect(revealed.transmissions.every((t) => t.result?.decoded)).toBe(true);
     expect(revealed.teams.red.history).toHaveLength(1);
+  });
+});
+
+describe('realtime Echo', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it('plays a card over sockets without the word ever reaching the guesser early', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'echo', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+
+    const clients: TestClient[] = [];
+    const seen = new Map<TestClient, string[]>();
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      const log: string[] = [];
+      c.on('room:state', (snap) => log.push(JSON.stringify(snap)));
+      seen.set(c, log);
+      await c.call('room:join', { roomId, token: token(i), name });
+      clients.push(c);
+    }
+    const ev = (s: RoomSnapshot) => s.game as EchoView;
+    const host = clients[0]!;
+    await host.until((s) => ev(s).seats.filter((p) => p.playing).length === 4);
+    // A fresh room opens on the seeded Starter list, which is tagged for Echo.
+    const lists = (await app.inject({ method: 'GET', url: '/api/word-lists?game=echo' })).json<
+      { id: string; name: string }[]
+    >();
+    expect(lists.map((l) => l.name)).toEqual(['Starter']);
+    expect(ev(host.latest()!).settings.wordListIds).toEqual([lists[0]!.id]);
+
+    expect(await host.call('game:action', { type: 'update-settings', deckSize: 8 })).toEqual({
+      ok: true,
+    });
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    await Promise.all(clients.map((c) => c.until((s) => ev(s).turn?.stage === 'pick')));
+    const guesserId = ev(host.latest()!).turn!.guesser;
+    const guesser = clients.find((c) => c.latest()!.you === guesserId)!;
+    const givers = clients.filter((c) => c !== guesser);
+
+    expect(await guesser.call('game:action', { type: 'pick', index: 2 })).toEqual({ ok: true });
+    const word = ev(await givers[0]!.until((s) => ev(s).turn?.stage === 'clues')).turn!.word!;
+    expect(word).toBeTruthy();
+    expect(ev(await guesser.until((s) => ev(s).turn?.stage === 'clues')).turn!.word).toBeNull();
+
+    // Two clues match (and cancel); the third survives.
+    const clues = ['Qzxv', 'qzxvs', 'Wvkpj'];
+    for (const [i, c] of givers.entries()) {
+      expect(await c.call('game:action', { type: 'give-clues', clues: [clues[i]] })).toEqual({
+        ok: true,
+      });
+    }
+    const guessing = ev(await guesser.until((s) => ev(s).turn?.stage === 'guess')).turn!;
+    expect(guessing.clues).toEqual([
+      { by: null, name: null, text: 'Wvkpj', cancelled: false, sameAs: [] },
+    ]);
+    expect(guessing.cancelledCount).toBe(2);
+    const giverView = ev(givers[0]!.latest()!).turn!;
+    expect(giverView.clues.filter((c) => c.cancelled).map((c) => c.text)).toEqual([
+      'Qzxv',
+      'qzxvs',
+    ]);
+
+    // Nothing the guesser was sent before the reveal names the word or the cancelled clues.
+    const beforeReveal = seen.get(guesser)!.join('\n');
+    expect(beforeReveal).not.toContain(`"${word}"`);
+    expect(beforeReveal).not.toContain('zxv');
+
+    expect(await guesser.call('game:action', { type: 'guess', word })).toEqual({ ok: true });
+    const revealed = ev(await guesser.until((s) => ev(s).turn?.stage === 'reveal'));
+    expect(revealed.turn).toMatchObject({ word, outcome: 'right' });
+    // At the reveal everyone sees every clue with its author.
+    expect(revealed.turn!.clues.map((c) => c.text).sort()).toEqual([...clues].sort());
+    expect(revealed.turn!.clues.every((c) => c.name !== null)).toBe(true);
+    expect(revealed.score).toBe(1);
+    expect(revealed.cardsLeft).toBe(7);
   });
 });
 
