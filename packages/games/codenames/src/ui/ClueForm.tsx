@@ -4,7 +4,13 @@ import type { CodenamesAction } from '../logic/types.ts';
 
 const COUNTS = Array.from({ length: 9 }, (_, i) => i + 1);
 
-export function ClueForm({ act }: { act: (a: CodenamesAction) => Promise<boolean> }) {
+interface Props {
+  act: (a: CodenamesAction) => Promise<boolean>;
+  /** Agents the team still has to find: the engine rejects a higher number. */
+  max: number;
+}
+
+export function ClueForm({ act, max }: Props) {
   const [word, setWord] = useState('');
   const [count, setCount] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -37,9 +43,11 @@ export function ClueForm({ act }: { act: (a: CodenamesAction) => Promise<boolean
               key={c}
               type="button"
               aria-pressed={count === c}
+              disabled={c > max}
+              title={c > max ? `Only ${max} left to find` : undefined}
               onClick={() => setCount(c)}
               className={
-                'h-9 min-w-8 rounded-lg text-sm font-bold ring-1 transition ' +
+                'h-9 min-w-8 rounded-lg text-sm font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ' +
                 (count === c
                   ? 'bg-amber-500 text-stone-950 ring-amber-600'
                   : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600')
@@ -50,7 +58,7 @@ export function ClueForm({ act }: { act: (a: CodenamesAction) => Promise<boolean
           ))}
         </div>
       </fieldset>
-      <Button type="submit" size="lg" disabled={!word.trim() || busy}>
+      <Button type="submit" size="lg" disabled={!word.trim() || busy || count > max}>
         Give clue
       </Button>
     </form>

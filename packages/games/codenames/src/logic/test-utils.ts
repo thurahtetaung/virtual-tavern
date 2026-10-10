@@ -76,7 +76,7 @@ export function startedGame(
   h.act({ type: 'join-team', team: 'red', role: 'operative' }, 'p2');
   h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'p3');
   h.act({ type: 'join-team', team: 'blue', role: 'operative' }, 'p4');
-  if (opts.clueSeconds || opts.guessSeconds) {
+  if (opts.clueSeconds || opts.guessSeconds || opts.timerMode) {
     h.act({
       type: 'update-settings',
       clueSeconds: opts.clueSeconds ?? null,

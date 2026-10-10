@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { codenames, wordPool } from './game.ts';
 import { HOST, NOW, OP, SPY, cardsOf, clue, content, harness, startedGame } from './test-utils.ts';
-import { actionSchema } from './types.ts';
+import { type Team, actionSchema } from './types.ts';
 
 describe('create', () => {
   it('seats everyone as spectators and selects the first word list', () => {
@@ -64,6 +64,20 @@ describe('lobby', () => {
     expect(Object.keys(h.state.seats)).toEqual([HOST, 'a', 'b', 'c', 'd', 'e']);
   });
 
+  it('still shuffles with fewer than four players, which leaves a team short', () => {
+    const three = harness([HOST, 'a', 'b']);
+    three.act({ type: 'randomize-teams' });
+    const seats = Object.values(three.state.seats);
+    expect(seats.filter((s) => s.role === 'spymaster')).toHaveLength(2);
+    expect(seats.filter((s) => s.team === null)).toHaveLength(0);
+    expect(three.reject({ type: 'start' })).toBe('missing-operative');
+
+    const one = harness([HOST]);
+    one.act({ type: 'randomize-teams' });
+    expect(one.state.seats[HOST]).toMatchObject({ role: 'spymaster' });
+    expect(one.reject({ type: 'start' })).toBe('missing-spymaster');
+  });
+
   it('only lets the host start, and only with full teams', () => {
     const h = harness();
     expect(h.reject({ type: 'start' }, 'p2')).toBe('not-host');
@@ -121,13 +135,31 @@ describe('start', () => {
     expect(words.some((w) => w.startsWith('b'))).toBe(true);
   });
 
-  it('locks settings and spymaster seats while playing', () => {
+  it('locks settings and seats while playing', () => {
     const h = startedGame();
     expect(h.reject({ type: 'update-settings', clueSeconds: 30 })).toBe('in-progress');
     expect(h.reject({ type: 'join-team', team: 'red', role: 'operative' }, SPY.red)).toBe(
-      'spymaster-locked',
+      'team-locked',
+    );
+    expect(h.reject({ type: 'join-team', team: null, role: 'operative' }, SPY.red)).toBe(
+      'team-locked',
     );
     expect(h.reject({ type: 'start' })).toBe('in-progress');
+    expect(h.state.keyHolders).toEqual({ [SPY.red]: 'red', [SPY.blue]: 'blue' });
+  });
+
+  it('keeps operatives on their team mid-game, even via the spectator bench', () => {
+    const h = startedGame();
+    clue(h, 'red');
+    expect(h.reject({ type: 'join-team', team: 'blue', role: 'operative' }, OP.red)).toBe(
+      'team-locked',
+    );
+    expect(h.reject({ type: 'join-team', team: null, role: 'operative' }, OP.red)).toBe(
+      'team-locked',
+    );
+    // Re-picking the seat you already have is a harmless no-op.
+    expect(h.act({ type: 'join-team', team: 'red', role: 'operative' }, OP.red)).toBe(h.state);
+    expect(h.state.seats[OP.red]).toMatchObject({ team: 'red', role: 'operative' });
   });
 
   it('lets newcomers join as operatives or take a vacant spymaster seat mid-game', () => {
@@ -140,6 +172,53 @@ describe('start', () => {
     h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
     h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'late');
     expect(h.state.seats.late).toMatchObject({ team: 'blue', role: 'spymaster' });
+    expect(h.state.keyHolders).toMatchObject({ late: 'blue' });
+  });
+
+  it('lets an operative fill their own vacant spymaster seat, but not the other team’s', () => {
+    const h = startedGame();
+    h.state = codenames.playerJoined(h.state, { id: 'p5', name: 'P5' });
+    h.act({ type: 'join-team', team: 'blue', role: 'operative' }, 'p5');
+    clue(h, 'red', 2);
+    const [i] = cardsOf(h.state, 'red');
+    h.act({ type: 'toggle-suggestion', card: i! }, OP.red);
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
+    expect(h.reject({ type: 'join-team', team: 'blue', role: 'spymaster' }, OP.red)).toBe(
+      'team-locked',
+    );
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW);
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    // The forfeit already wiped the marks; put some back to check the seat change drops theirs.
+    h.state = { ...h.state, suggestions: { [i!]: [OP.red, 'p5'] } };
+    h.act({ type: 'join-team', team: 'red', role: 'spymaster' }, OP.red);
+    expect(h.state.seats[OP.red]).toMatchObject({ team: 'red', role: 'spymaster' });
+    expect(h.state.keyHolders).toMatchObject({ [OP.red]: 'red' });
+    expect(h.state.suggestions).toEqual({ [i!]: ['p5'] });
+  });
+
+  it('only lets an ex-spymaster who rejoins resume their old seat', () => {
+    const h = startedGame();
+    clue(h, 'red');
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
+    h.state = codenames.playerJoined(h.state, { id: SPY.blue, name: 'Back' });
+    expect(h.state.seats[SPY.blue]).toEqual({ name: 'Back', team: null, role: 'operative' });
+    expect(h.reject({ type: 'join-team', team: 'red', role: 'operative' }, SPY.blue)).toBe(
+      'team-locked',
+    );
+    expect(h.reject({ type: 'join-team', team: 'blue', role: 'operative' }, SPY.blue)).toBe(
+      'team-locked',
+    );
+    h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, SPY.blue);
+    expect(h.state.seats[SPY.blue]).toMatchObject({ team: 'blue', role: 'spymaster' });
+  });
+
+  it('frees every seat again once the game is over', () => {
+    const h = startedGame();
+    clue(h, 'red');
+    h.act({ type: 'guess', card: cardsOf(h.state, 'assassin')[0]! }, OP.red);
+    h.act({ type: 'join-team', team: 'blue', role: 'operative' }, SPY.red);
+    h.act({ type: 'join-team', team: 'red', role: 'spymaster' }, OP.red);
+    expect(h.state.seats[SPY.red]).toMatchObject({ team: 'blue', role: 'operative' });
   });
 });
 
@@ -172,6 +251,28 @@ describe('clues', () => {
     h.act({ type: 'guess', card: i! }, OP.red);
     h.act({ type: 'end-turn' }, OP.red);
     h.act({ type: 'give-clue', word, count: 1 }, SPY.blue);
+  });
+
+  it('rejects clues that are just a number', () => {
+    const h = startedGame();
+    expect(h.reject({ type: 'give-clue', word: '42', count: 1 }, SPY.red)).toBe('clue-is-number');
+    expect(h.reject({ type: 'give-clue', word: '٣', count: 1 }, SPY.red)).toBe('clue-is-number');
+    h.act({ type: 'give-clue', word: 'catch-22', count: 1 }, SPY.red);
+    expect(h.state.turn?.clue).toEqual({ word: 'catch-22', count: 1 });
+  });
+
+  it('caps the number at the agents the team still has to find', () => {
+    const h = startedGame();
+    const reds = cardsOf(h.state, 'red');
+    h.state = {
+      ...h.state,
+      board: h.state.board.map((c, i) =>
+        reds.slice(2).includes(i) ? { ...c, revealed: true } : c,
+      ),
+    };
+    expect(h.reject({ type: 'give-clue', word: 'hint', count: 3 }, SPY.red)).toBe('count-too-high');
+    clue(h, 'red', 2);
+    expect(h.state.turn?.clue?.count).toBe(2);
   });
 });
 
@@ -249,13 +350,49 @@ describe('guessing', () => {
     expect(h.state).toMatchObject({ phase: 'over', winner: 'blue', winReason: 'all-agents' });
   });
 
-  it('lets operatives end their turn', () => {
+  it('lets operatives end their turn once they have guessed at least once', () => {
     const h = startedGame();
     expect(h.reject({ type: 'end-turn' }, OP.red)).toBe('wrong-stage');
-    clue(h, 'red');
+    clue(h, 'red', 2);
     expect(h.reject({ type: 'end-turn' }, OP.blue)).toBe('not-your-turn');
+    expect(h.reject({ type: 'end-turn' }, OP.red)).toBe('must-guess');
+    h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
     h.act({ type: 'end-turn' }, OP.red);
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'passed' });
+  });
+
+  it('lets the host end any turn at any stage, logged as an override', () => {
+    const h = startedGame();
+    h.act({ type: 'end-turn' }, HOST);
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'host' });
+    clue(h, 'blue', 2);
+    h.act({ type: 'end-turn' }, HOST);
+    expect(h.state.turn).toMatchObject({ team: 'red', stage: 'clue' });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
+    expect(h.state.suggestions).toEqual({});
+  });
+
+  it('plays a whole game through to an all-agents win', () => {
+    const h = startedGame();
+    const per: Record<Team, number> = { red: 3, blue: 2 };
+    let turns = 0;
+    while (h.state.phase === 'playing') {
+      const team = h.state.turn!.team;
+      const count = Math.min(per[team], cardsOf(h.state, team).length);
+      clue(h, team, count);
+      for (const i of cardsOf(h.state, team).slice(0, count))
+        h.act({ type: 'guess', card: i }, OP[team]);
+      if (h.state.phase === 'playing' && h.state.turn!.team === team) {
+        h.act({ type: 'end-turn' }, OP[team]);
+      }
+      turns++;
+    }
+    expect(turns).toBe(5);
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'red', winReason: 'all-agents' });
+    expect(codenames.view(h.state, null).remaining).toEqual({ red: 0, blue: 4 });
+    expect(h.state.log.filter((e) => e.type === 'end-turn')).toHaveLength(4);
+    expect(h.state.log.filter((e) => e.type === 'guess')).toHaveLength(13);
   });
 });
 
@@ -323,8 +460,11 @@ describe('turn timer', () => {
     const h = startedGame({ clueSeconds: 60, guessSeconds: 90 });
     h.act({ type: 'give-clue', word: 'hint', count: 1 }, SPY.red, { now: NOW + 5_000 });
     expect(codenames.nextDeadline!(h.state)).toBe(NOW + 95_000);
+    // Early wake-ups are a no-op, even with no guesses made.
+    expect(codenames.onDeadline!(h.state, NOW + 94_999)).toBe(h.state);
     const after = codenames.onDeadline!(h.state, NOW + 95_000);
     expect(after.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    expect(after.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'timeout' });
   });
 
   it('can time only one stage', () => {
@@ -365,12 +505,15 @@ describe('view', () => {
     expect(codenames.view(h.state, null).board.every((c) => c.kind !== null)).toBe(true);
   });
 
-  it('describes the viewer and every seat', () => {
+  it('describes the viewer, every seat and who has seen the key', () => {
     const h = startedGame();
     const v = codenames.view(h.state, OP.red);
     expect(v.me).toEqual({ id: OP.red, name: 'P2', team: 'red', role: 'operative' });
     expect(v.seats.map((s) => s.id)).toEqual([HOST, 'p2', 'p3', 'p4']);
+    expect(v.keyHolders).toEqual({ [SPY.red]: 'red', [SPY.blue]: 'blue' });
     expect(codenames.view(h.state, 'stranger').me).toBeNull();
+    const { keyHolders: _, ...legacy } = h.state;
+    expect(codenames.view(legacy, null).keyHolders).toEqual({});
   });
 });
 
@@ -386,10 +529,64 @@ describe('players coming and going', () => {
     clue(h, 'red');
     const [i] = cardsOf(h.state, 'red');
     h.act({ type: 'toggle-suggestion', card: i! }, OP.red);
-    h.state = codenames.playerLeft(h.state, OP.red, NOW);
-    expect(h.state.seats[OP.red]).toBeUndefined();
-    expect(h.state.suggestions).toEqual({});
+    h.state = codenames.playerLeft(h.state, OP.blue, NOW);
+    expect(h.state.seats[OP.blue]).toBeUndefined();
+    expect(h.state.suggestions).toEqual({ [i!]: [OP.red] });
+    expect(h.state.turn).toMatchObject({ team: 'red', stage: 'guess' });
     expect(codenames.playerLeft(h.state, 'nobody', NOW)).toBe(h.state);
+  });
+
+  it('forfeits the turn when the acting spymaster leaves before giving a clue', () => {
+    const h = startedGame({ clueSeconds: 60, timerMode: 'soft' });
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW + 1_000);
+    expect(h.state.turn).toEqual({
+      team: 'blue',
+      stage: 'clue',
+      clue: null,
+      guessesMade: 0,
+      deadline: NOW + 61_000,
+    });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'forfeit' });
+    expect(h.state.keyHolders).toMatchObject({ [SPY.red]: 'red' });
+  });
+
+  it('forfeits the turn when the last operative leaves during the guess stage', () => {
+    const h = startedGame();
+    clue(h, 'red', 2);
+    const [i] = cardsOf(h.state, 'red');
+    h.act({ type: 'toggle-suggestion', card: i! }, OP.red);
+    h.state = codenames.playerLeft(h.state, OP.red, NOW);
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    expect(h.state.suggestions).toEqual({});
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'forfeit' });
+  });
+
+  it('keeps the turn when a team still has another operative', () => {
+    const h = startedGame();
+    h.state = codenames.playerJoined(h.state, { id: 'p5', name: 'P5' });
+    h.act({ type: 'join-team', team: 'red', role: 'operative' }, 'p5');
+    clue(h, 'red');
+    h.state = codenames.playerLeft(h.state, OP.red, NOW);
+    expect(h.state.turn).toMatchObject({ team: 'red', stage: 'guess' });
+  });
+
+  it('skips a turn that begins with no spymaster, and waits if neither team can play', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
+    expect(h.state.turn).toMatchObject({ team: 'red', stage: 'clue' });
+    clue(h, 'red');
+    h.act({ type: 'guess', card: cardsOf(h.state, 'bystander')[0]! }, OP.red);
+    // Blue's turn came and went straight back to red.
+    expect(h.state.turn).toMatchObject({ team: 'red', stage: 'clue' });
+    expect(h.state.log.slice(-2)).toEqual([
+      { type: 'end-turn', team: 'red', reason: 'wrong-guess' },
+      { type: 'end-turn', team: 'blue', reason: 'forfeit' },
+    ]);
+    // With both spymasters gone the turn stays put, until a seat is filled or the host steps in.
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW);
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'forfeit' });
+    expect(h.reject({ type: 'give-clue', word: 'hint', count: 1 }, OP.blue)).toBe('not-your-turn');
   });
 });
 
@@ -422,6 +619,17 @@ describe('after the game', () => {
     expect(h.reject({ type: 'back-to-lobby' }, OP.red)).toBe('not-host');
     h.act({ type: 'back-to-lobby' });
     expect(h.state).toMatchObject({ phase: 'lobby', board: [], turn: null, winner: null });
+  });
+
+  it('abandons a running game on back-to-lobby, log included, and unlocks the seats', () => {
+    const h = startedGame();
+    clue(h, 'red');
+    h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
+    expect(h.state.log).toHaveLength(2);
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state).toMatchObject({ phase: 'lobby', log: [], keyHolders: {}, suggestions: {} });
+    h.act({ type: 'join-team', team: 'blue', role: 'operative' }, SPY.red);
+    expect(h.state.seats[SPY.red]).toMatchObject({ team: 'blue', role: 'operative' });
   });
 });
 

@@ -57,7 +57,12 @@ export interface Turn {
   deadline: number | null;
 }
 
-export type EndTurnReason = 'passed' | 'wrong-guess' | 'out-of-guesses' | 'timeout';
+/**
+ * Why a turn ended: `forfeit` when the team lost its spymaster or last operative and
+ * `host` when the host ended a stuck turn.
+ */
+export type EndTurnReason =
+  'passed' | 'wrong-guess' | 'out-of-guesses' | 'timeout' | 'forfeit' | 'host';
 export type WinReason = 'all-agents' | 'assassin';
 
 export type LogEntry =
@@ -73,6 +78,12 @@ export interface CodenamesState {
   seats: Record<PlayerId, Seat>;
   /** Team that starts the next (or current) game. */
   startingTeam: Team;
+  /**
+   * Everyone who has seen the key this game, and for which team they were spymaster. Kept when
+   * they leave, so a returning ex-spymaster can't come back as an operative. Optional because
+   * rooms saved before it existed lack it.
+   */
+  keyHolders?: Record<PlayerId, Team>;
   board: Card[];
   turn: Turn | null;
   /** Card index -> players on the guessing team who marked it. Cleared each turn. */
@@ -143,6 +154,8 @@ export interface CodenamesView {
   seats: Array<Seat & { id: PlayerId }>;
   me: (Seat & { id: PlayerId }) | null;
   startingTeam: Team;
+  /** Players who have seen the key this game (public ids only), so the UI can hide seats they can't take. */
+  keyHolders: Record<PlayerId, Team>;
   board: ViewCard[];
   turn: Turn | null;
   remaining: Record<Team, number>;

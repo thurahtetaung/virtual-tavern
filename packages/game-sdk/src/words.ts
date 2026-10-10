@@ -4,7 +4,7 @@ export function wordPool(words: readonly string[]): string[] {
   const pool: string[] = [];
   for (const raw of words) {
     const word = raw.trim();
-    const key = word.toLocaleLowerCase();
+    const key = word.toLocaleLowerCase('en');
     if (word && !seen.has(key)) {
       seen.add(key);
       pool.push(word);

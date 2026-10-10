@@ -16,6 +16,7 @@ import {
   type CodenamesView,
   type EndTurnReason,
   OTHER_TEAM_AGENTS,
+  type Role,
   STARTING_TEAM_AGENTS,
   type Seat,
   type Team,
@@ -29,6 +30,7 @@ type Ctx = ActionCtx;
 type Result = CodenamesState | GameError;
 
 const CLUE_PATTERN = /^[\p{L}\p{N}'’-]+$/u;
+const NUMBER_PATTERN = /^\p{N}+$/u;
 
 export { wordPool };
 
@@ -52,14 +54,28 @@ function newTurn(state: CodenamesState, team: Team, now: number): Turn {
   };
 }
 
+function hasRole(state: CodenamesState, team: Team, role: Seat['role']): boolean {
+  return Object.values(state.seats).some((s) => s.team === team && s.role === role);
+}
+
+/** A team needs a spymaster to give a clue and an operative to guess. */
+function canPlay(state: CodenamesState, team: Team): boolean {
+  return hasRole(state, team, 'spymaster') && hasRole(state, team, 'operative');
+}
+
 function endTurn(state: CodenamesState, reason: EndTurnReason, now: number): CodenamesState {
   const team = state.turn!.team;
-  return {
+  const next = otherTeam(team);
+  const ended: CodenamesState = {
     ...state,
-    turn: newTurn(state, otherTeam(team), now),
+    turn: newTurn(state, next, now),
     suggestions: {},
     log: [...state.log, { type: 'end-turn', team, reason }],
   };
+  // A team that can't play (no spymaster or no operative) forfeits its turn straight away, as
+  // long as the other team can take it. If neither can, the turn waits for someone to sit down.
+  if (!canPlay(state, next) && canPlay(state, team)) return endTurn(ended, 'forfeit', now);
+  return ended;
 }
 
 function endGame(state: CodenamesState, winner: Team, reason: WinReason): CodenamesState {
@@ -135,6 +151,42 @@ function updateSettings(
   return { ...state, settings };
 }
 
+/** `suggestions` without any of `id`'s marks. */
+function withoutMarksOf(
+  suggestions: CodenamesState['suggestions'],
+  id: PlayerId,
+): CodenamesState['suggestions'] {
+  const next: Record<number, PlayerId[]> = {};
+  for (const [card, ids] of Object.entries(suggestions)) {
+    const left = ids.filter((other) => other !== id);
+    if (left.length) next[Number(card)] = left;
+  }
+  return next;
+}
+
+/**
+ * Why `seat` may not move to `team`/`role` while a game is running, or null if it may. Seated
+ * players stay put, except to fill their own team's vacant spymaster seat. Newcomers may join a
+ * team, unless they have already seen the key, in which case only their old seat will do.
+ */
+function seatLock(state: CodenamesState, by: PlayerId, seat: Seat, team: Team | null, role: Role) {
+  if (team === null) return new GameError('team-locked', 'Seats are locked during a game.');
+  const held = state.keyHolders?.[by];
+  if (seat.team !== null) {
+    if (held !== undefined || team !== seat.team) {
+      return new GameError('team-locked', 'Seats are locked during a game.');
+    }
+    return null;
+  }
+  if (held !== undefined && (team !== held || role !== 'spymaster')) {
+    return new GameError(
+      'team-locked',
+      "You've seen the key, so you can only resume as that team's spymaster.",
+    );
+  }
+  return null;
+}
+
 function joinTeam(
   state: CodenamesState,
   action: Extract<CodenamesAction, { type: 'join-team' }>,
@@ -143,8 +195,10 @@ function joinTeam(
   const seat = seatOf(state, ctx.by);
   if (seat instanceof GameError) return seat;
   const role = action.team === null ? 'operative' : action.role;
-  if (state.phase === 'playing' && seat.team !== null && seat.role === 'spymaster') {
-    return new GameError('spymaster-locked', 'Spymasters cannot switch seats mid-game.');
+  if (seat.team === action.team && seat.role === role) return state;
+  if (state.phase === 'playing') {
+    const locked = seatLock(state, ctx.by, seat, action.team, role);
+    if (locked) return locked;
   }
   if (action.team !== null && role === 'spymaster') {
     const current = spymasterOf(state, action.team);
@@ -152,7 +206,16 @@ function joinTeam(
       return new GameError('seat-taken', `${action.team} already has a spymaster.`);
     }
   }
-  return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, team: action.team, role } } };
+  const keyHolders =
+    state.phase === 'playing' && action.team !== null && role === 'spymaster'
+      ? { ...state.keyHolders, [ctx.by]: action.team }
+      : state.keyHolders;
+  return {
+    ...state,
+    seats: { ...state.seats, [ctx.by]: { ...seat, team: action.team, role } },
+    keyHolders,
+    suggestions: withoutMarksOf(state.suggestions, ctx.by),
+  };
 }
 
 function randomizeTeams(state: CodenamesState, ctx: Ctx): Result {
@@ -204,9 +267,14 @@ function start(state: CodenamesState, ctx: Ctx): Result {
   ]);
   const words = ctx.rng.shuffle(pool).slice(0, BOARD_SIZE);
   const board: Card[] = words.map((word, i) => ({ word, kind: kinds[i]!, revealed: false }));
+  const keyHolders: Record<PlayerId, Team> = {};
+  for (const [id, seat] of Object.entries(state.seats)) {
+    if (seat.team !== null && seat.role === 'spymaster') keyHolders[id] = seat.team;
+  }
   const next: CodenamesState = {
     ...state,
     phase: 'playing',
+    keyHolders,
     board,
     suggestions: {},
     log: [],
@@ -220,12 +288,15 @@ function start(state: CodenamesState, ctx: Ctx): Result {
 function backToLobby(state: CodenamesState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
+  // Abandons any game in progress: the board and its log go with it.
   return {
     ...state,
     phase: 'lobby',
+    keyHolders: {},
     board: [],
     turn: null,
     suggestions: {},
+    log: [],
     winner: null,
     winReason: null,
   };
@@ -247,9 +318,19 @@ function giveClue(
   }
   const word = action.word.trim();
   if (!CLUE_PATTERN.test(word)) return new GameError('bad-clue', 'A clue must be a single word.');
-  const lower = word.toLocaleLowerCase();
-  if (state.board.some((c) => !c.revealed && c.word.toLocaleLowerCase() === lower)) {
+  if (NUMBER_PATTERN.test(word)) {
+    return new GameError('clue-is-number', 'A clue cannot be just a number.');
+  }
+  const lower = word.toLocaleLowerCase('en');
+  if (state.board.some((c) => !c.revealed && c.word.toLocaleLowerCase('en') === lower)) {
     return new GameError('bad-clue', 'The clue cannot be a word on the board.');
+  }
+  const left = remainingAgents(state.board, turn.team);
+  if (action.count > left) {
+    return new GameError(
+      'count-too-high',
+      `Your team only has ${left} agent${left === 1 ? '' : 's'} left to find.`,
+    );
   }
   return {
     ...state,
@@ -311,6 +392,19 @@ function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
   return next;
 }
 
+/**
+ * Operatives may pass once they have guessed at least once. The host may end any turn at any
+ * stage, which is logged as an override so a stuck turn (nobody left to act) can move on.
+ */
+function endTurnAction(state: CodenamesState, ctx: Ctx): Result {
+  const turn = requireGuesser(state, ctx.by);
+  if (!(turn instanceof GameError) && turn.guessesMade > 0)
+    return endTurn(state, 'passed', ctx.now);
+  if (ctx.isHost && state.phase === 'playing' && state.turn) return endTurn(state, 'host', ctx.now);
+  if (turn instanceof GameError) return turn;
+  return new GameError('must-guess', 'Guess at least once before ending your turn.');
+}
+
 function reduce(state: CodenamesState, action: CodenamesAction, ctx: Ctx): Result {
   switch (action.type) {
     case 'update-settings':
@@ -329,10 +423,8 @@ function reduce(state: CodenamesState, action: CodenamesAction, ctx: Ctx): Resul
       return toggleSuggestion(state, action.card, ctx);
     case 'guess':
       return guess(state, action.card, ctx);
-    case 'end-turn': {
-      const turn = requireGuesser(state, ctx.by);
-      return turn instanceof GameError ? turn : endTurn(state, 'passed', ctx.now);
-    }
+    case 'end-turn':
+      return endTurnAction(state, ctx);
   }
 }
 
@@ -350,6 +442,7 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): CodenamesState 
       players.map((p) => [p.id, { name: p.name, team: null, role: 'operative' }]),
     ),
     startingTeam: ctx.rng.int(2) === 0 ? 'red' : 'blue',
+    keyHolders: {},
     board: [],
     turn: null,
     suggestions: {},
@@ -368,16 +461,16 @@ function playerJoined(state: CodenamesState, player: PlayerInfo): CodenamesState
   return { ...state, seats: { ...state.seats, [player.id]: seat } };
 }
 
-function playerLeft(state: CodenamesState, playerId: PlayerId): CodenamesState {
+function playerLeft(state: CodenamesState, playerId: PlayerId, now: number): CodenamesState {
   if (!state.seats[playerId]) return state;
   const seats = { ...state.seats };
   delete seats[playerId];
-  const suggestions: Record<number, PlayerId[]> = {};
-  for (const [card, ids] of Object.entries(state.suggestions)) {
-    const left = ids.filter((id) => id !== playerId);
-    if (left.length) suggestions[Number(card)] = left;
+  const next = { ...state, seats, suggestions: withoutMarksOf(state.suggestions, playerId) };
+  // Nobody left who can act for the current team: forfeit the turn rather than stall.
+  if (next.phase === 'playing' && next.turn && !canPlay(next, next.turn.team)) {
+    return endTurn(next, 'forfeit', now);
   }
-  return { ...state, seats, suggestions };
+  return next;
 }
 
 function view(state: CodenamesState, viewer: PlayerId | null): CodenamesView {
@@ -390,6 +483,7 @@ function view(state: CodenamesState, viewer: PlayerId | null): CodenamesView {
     seats: Object.entries(state.seats).map(([id, s]) => ({ id, ...s })),
     me: mySeat && viewer !== null ? { id: viewer, ...mySeat } : null,
     startingTeam: state.startingTeam,
+    keyHolders: state.keyHolders ?? {},
     board: state.board.map((card, i) => ({
       word: card.word,
       kind: card.revealed || seesKey ? card.kind : null,

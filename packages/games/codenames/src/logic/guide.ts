@@ -8,13 +8,14 @@ export const guide: GameGuide = {
   setup: [
     'Split into two teams: Red and Blue.',
     'Each team picks one Spymaster. Everyone else is an Operative.',
-    'The host presses Start. The team that goes first has 9 agents to find; the other team has 8.',
+    'The host presses Start, which needs a Spymaster and at least one Operative on each team. Which team goes first is random, and it alternates with every rematch.',
+    'The team that goes first has 9 agents to find; the other team has 8.',
   ],
   roles: [
     {
       name: 'Spymaster',
       summary:
-        'Sees the secret key: which words are Red agents, Blue agents, innocent bystanders, and the assassin. Gives clues to their team, and must not say anything else.',
+        'Sees the secret key: which words are Red agents, Blue agents, innocent bystanders, and the assassin. Gives clues to their team, and must not say anything else. Also sees the cards their Operatives have marked.',
     },
     {
       name: 'Operative',
@@ -37,8 +38,9 @@ export const guide: GameGuide = {
         'Example: "Ocean 2" could point at WHALE and WAVE.',
       ],
       bullets: [
-        'The clue must be a single word (hyphens are fine).',
+        'The clue must be a single word (hyphens are fine). A bare number is not a clue.',
         'It cannot be one of the words still face-down on the board.',
+        'The number is 1 to 9 and cannot be higher than the agents your team still has to find. Clues for 0 or "unlimited" are not supported.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
       ],
     },
@@ -52,7 +54,7 @@ export const guide: GameGuide = {
         'Innocent bystander: your turn ends.',
         "The other team's agent: your turn ends, and you just helped them.",
         'The assassin: your team loses immediately.',
-        'You get up to one more guess than the clue number (for "Ocean 2", up to 3 guesses). You can also end your turn early.',
+        'You get up to one more guess than the clue number (for "Ocean 2", up to 3 guesses). After at least one guess you can also end your turn early.',
       ],
     },
     {
@@ -66,7 +68,19 @@ export const guide: GameGuide = {
       title: 'Turn timer (optional)',
       paragraphs: [
         'The host can set a time limit for giving clues and for guessing. By default the timer is just a friendly nudge: it turns red when time is up, but nobody is forced to stop.',
-        'If the host picks "Strict", the turn passes to the other team the moment time runs out.',
+        'If the host picks "Strict", the turn passes to the other team the moment time runs out. A Spymaster who runs out of time passes the turn without giving a clue.',
+      ],
+    },
+    {
+      title: 'Teams, the host and people coming and going',
+      paragraphs: [
+        'Once the game starts, everyone stays on their team until it ends. Friends who arrive late can still join a team as an Operative, and an empty Spymaster seat can be taken by a newcomer or by an Operative of that team. Someone who has seen the key can only come back as that team’s Spymaster.',
+      ],
+      bullets: [
+        'Only the host can start the game, shuffle the teams, change the settings and return everyone to the lobby.',
+        'If a team’s Spymaster or last Operative leaves, that team forfeits its turn (and any turn that starts while the seat is still empty).',
+        'The host can skip a stuck turn at any point. It shows up in the game log.',
+        'Back to lobby abandons the current game: the board and the log are gone for good.',
       ],
     },
   ],
