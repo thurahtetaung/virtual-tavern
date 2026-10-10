@@ -11,6 +11,8 @@ export interface LiveDeps {
   sockets: () => number;
   /** Players with any activity since the given time. */
   recentPlayers: (since: number) => string[];
+  /** A game's display name (private games included: only admins read this). */
+  gameName?: (id: string) => string;
   now: () => number;
 }
 
@@ -64,6 +66,10 @@ export class LiveTracker {
         const ts = minute - (HOUR_POINTS - 1 - i) * MINUTE;
         return { ts, players: this.samples.get(ts) ?? 0 };
       }),
+      games: [...new Set(rooms.map((r) => r.gameId))].map((id) => ({
+        id,
+        name: this.deps.gameName?.(id) ?? id,
+      })),
     };
   }
 }

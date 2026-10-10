@@ -99,13 +99,14 @@ function dayOfPlay(day: string): StatsEvent[] {
       'echo',
       {
         outcome: 'right',
-        guessMs: 1500,
-        cancelledBy: ['cy'],
+        actMs: 1500,
         words: [{ kind: 'cancelled', word: 'sea' }],
       },
       'ana',
       'room-2',
     ),
+    ev(t(20, 1), 'insight.match', 'echo', { a: 'ben', b: 'cy', word: 'sea' }, null, 'room-2'),
+    ev(t(20, 1), 'insight.match', 'echo', { a: 'ana', b: 'cy', word: 'sea' }, null, 'room-2'),
     ev(t(20, 2), 'insight.card', 'echo', { outcome: 'pass' }, 'ben', 'room-2'),
     ev(
       t(20, 3),

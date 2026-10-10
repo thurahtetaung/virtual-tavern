@@ -16,6 +16,10 @@ const RoomPage = lazy(() => import('./pages/RoomPage.tsx').then((m) => ({ defaul
 const AdminPage = lazy(() =>
   import('./pages/AdminPage.tsx').then((m) => ({ default: m.AdminPage })),
 );
+// The stats page carries the chart library, so it gets a chunk of its own.
+const StatsPage = lazy(() =>
+  import('./pages/StatsPage.tsx').then((m) => ({ default: m.StatsPage })),
+);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -29,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/rules" element={<RulesPage />} />
               <Route path="/rules/:gameId" element={<RulesPage />} />
               <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin/stats" element={<StatsPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

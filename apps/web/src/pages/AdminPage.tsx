@@ -2,6 +2,7 @@ import type { GameSummary, WordListDetail, WordListSummary } from '@vt/protocol'
 import { MAX_WORDS_PER_LIST } from '@vt/protocol';
 import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -30,6 +31,7 @@ export function AdminPage() {
         <Login onDone={refresh} />
       ) : (
         <div className="space-y-8">
+          <AdminNav current="lists" />
           <BackroomAdmin />
           <WordLists onSignOut={refresh} />
         </div>

@@ -187,6 +187,7 @@ export function overview(agg: Agg, w: Window, ctx: ReportContext): StatsOverview
         minutes: round1(sumMetric(agg, w.from, w.to, 'minutes_played', gameId)),
       }))
       .sort((a, b) => b.games - a.games || b.minutes - a.minutes),
+    games: ctx.gameIds.map((id) => ({ id, name: ctx.gameName(id) })),
   };
 }
 

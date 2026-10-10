@@ -5,7 +5,7 @@ import type { GameFigure } from '@vt/protocol';
 // event shapes read here are the games' `insights()` output:
 //   codenames  clue {count, team}, guess {kind, correct}, outcome {winner, winReason}
 //   enigma     decode {success}, intercept {success}, outcome {winner, round}
-//   echo       card {outcome: right|wrong|pass, guessMs?}, outcome {score, deckSize}
+//   echo       card {outcome: right|wrong|pass}, match {a, b, word}, outcome {score, deckSize}
 //   reverie    story {allOrNone}, vote {found}, outcome {target}
 
 type Props = Record<string, unknown>;

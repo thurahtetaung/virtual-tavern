@@ -144,7 +144,8 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
   const credit = (player: string, metric: string, v = 1) =>
     agg.addPlayer(day, game, player, metric, v);
   if (playerId && GUESS_TYPES.has(type)) {
-    const ms = num(props.guessMs) ?? num(props.actMs);
+    // The recorder measures this: from the last step change to the guesser's action.
+    const ms = num(props.actMs);
     if (ms !== null && ms >= 0) {
       credit(playerId, 'act_ms', ms);
       credit(playerId, 'act_n');
@@ -153,10 +154,10 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
   if (game === 'codenames' && type === 'guess' && playerId && isAssassinGuess(props))
     credit(playerId, 'assassins');
   if (game === 'echo') {
-    // "The echo": whose clues most often matched someone else's (and so were cancelled).
-    const by = strings(props.cancelledBy);
-    if (by.length) for (const p of by) credit(p, 'echoes');
-    else if (type === 'clue' && playerId && props.cancelled === true) credit(playerId, 'echoes');
+    // "The echo": whose clues most often matched someone else's (and so were cancelled). Each
+    // `match` event is one pair of players whose clues cancelled; both get the credit.
+    if (type === 'match')
+      for (const p of [props.a, props.b]) if (typeof p === 'string' && p) credit(p, 'echoes');
     if (type === 'outcome' && isPerfectEcho(props))
       for (const p of strings(props.winners)) credit(p, 'perfect');
   }

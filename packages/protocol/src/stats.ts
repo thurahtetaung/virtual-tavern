@@ -47,6 +47,13 @@ export interface StatsWindow {
   previousTo: string;
 }
 
+/** A game's display name. Stats responses carry these for every game they mention, private
+ * games included, so the admin page can name them without unlocking the back room. */
+export interface StatsGameName {
+  id: string;
+  name: string;
+}
+
 // ---- Live ----
 
 export interface LiveRoom {
@@ -73,6 +80,8 @@ export interface LiveStats {
   byGame: { gameId: string; rooms: number; playing: number; players: number }[];
   /** Players online, one point per minute for the last hour. */
   lastHour: { ts: number; players: number }[];
+  /** Names of the games in `rooms`. */
+  games: StatsGameName[];
 }
 
 // ---- Overview ----
@@ -104,6 +113,8 @@ export interface StatsOverview {
   /** Games started by weekday (0 = Monday) and UTC hour. */
   weekHour: { weekday: number; hour: number; games: number }[];
   gameMix: { gameId: string; games: number; minutes: number }[];
+  /** Names of every game in `gameMix` (every registered game). */
+  games: StatsGameName[];
 }
 
 // ---- Per game ----
@@ -123,6 +134,11 @@ export interface GameStats {
   figures: GameFigure[];
 }
 
+/**
+ * A game-specific figure. Units: `percent` values are 0–100 with at most one decimal (54.2 means
+ * 54.2%); `number` values are plain numbers in `unit` (if any); `split` and `histogram` values are
+ * counts.
+ */
 export type GameFigure =
   | { id: string; label: string; kind: 'number'; value: number; unit?: string }
   | { id: string; label: string; kind: 'percent'; value: number }
@@ -228,7 +244,7 @@ export interface StatsHeatmap {
   weekHour: StatsOverview['weekHour'];
 }
 
-/** `POST /api/admin/stats/reset` must send exactly this, so a stray request can't wipe stats. */
+/** `POST /api/admin/stats/reset` must send `{ confirm: STATS_RESET_CONFIRM }`, so a stray request can't wipe stats. */
 export const STATS_RESET_CONFIRM = 'reset all stats';
 export const statsResetBody = z.object({ confirm: z.literal(STATS_RESET_CONFIRM) });
 
