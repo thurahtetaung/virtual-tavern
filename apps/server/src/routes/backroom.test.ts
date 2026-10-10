@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -10,6 +11,35 @@ const R2 = {
   secretAccessKey: 'secret',
   bucket: 'vt-private',
 };
+
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+/** A stand-in for the private bucket: signed GETs under /vt-private/<key>, with ranges. */
+async function fakeBucket() {
+  const objects = new Map([['reverie/cards/001.jpg', JPEG]]);
+  const hits: string[] = [];
+  const server = createServer((req, res) => {
+    const key = decodeURIComponent(req.url!.replace(/^\/vt-private\//, ''));
+    hits.push(
+      `${req.headers.authorization?.startsWith('AWS4-HMAC-SHA256') ? 'signed' : 'unsigned'} ${key}`,
+    );
+    const body = objects.get(key);
+    if (!body) return res.writeHead(404).end();
+    const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? '');
+    const [start, end] = range ? [Number(range[1]), Number(range[2])] : [0, body.length - 1];
+    res.writeHead(range ? 206 : 200, {
+      'content-type': 'image/jpeg',
+      'content-length': end - start + 1,
+      ...(range ? { 'content-range': `bytes ${start}-${end}/${body.length}` } : {}),
+      etag: '"abc"',
+    });
+    res.end(body.subarray(start, end + 1));
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const endpoint = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+  return { endpoint, hits, close: () => server.close() };
+}
 
 describe('back room over HTTP', () => {
   const apps: ReturnType<typeof testApp>[] = [];
@@ -102,21 +132,34 @@ describe('back room over HTTP', () => {
     });
   });
 
-  it('hands unlocked players a short-lived signed R2 link, and nobody else anything', async () => {
-    const app = make();
+  it('streams art to unlocked players, cached privately for good, and gives nobody else anything', async () => {
+    const bucket = await fakeBucket();
+    const app = make({ r2: { ...R2, endpoint: bucket.endpoint } });
     await open(app);
-    const url = '/api/backroom/assets/reverie/cards/001.webp';
+    const url = '/api/backroom/assets/reverie/cards/001.jpg';
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
+    expect(bucket.hits, 'locked requests never reach the bucket').toEqual([]);
     const { cookie } = await unlock(app);
     const res = await app.inject({ method: 'GET', url, headers: { cookie } });
-    expect(res.statusCode).toBe(302);
-    const target = new URL(res.headers.location!);
-    expect(target.host).toBe('acct123.r2.cloudflarestorage.com');
-    expect(target.pathname).toBe('/vt-private/reverie/cards/001.webp');
-    expect(target.searchParams.get('X-Amz-Expires')).toBe('600');
-    expect(target.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
-    expect(res.headers['cache-control']).toBe('private, max-age=300');
-    // Escapes and public games get nothing.
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['etag']).toBe('"abc"');
+    expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+    expect(res.rawPayload.equals(JPEG)).toBe(true);
+    // Only the server talks to the bucket, and it signs every request.
+    expect(bucket.hits).toEqual(['signed reverie/cards/001.jpg']);
+    // Partial fetches pass through.
+    const part = await app.inject({ method: 'GET', url, headers: { cookie, range: 'bytes=2-5' } });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers['content-range']).toBe(`bytes 2-5/${JPEG.length}`);
+    expect(part.rawPayload.equals(JPEG.subarray(2, 6))).toBe(true);
+    // Missing objects, escapes and public games get nothing.
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/api/backroom/assets/reverie/cards/999.jpg',
+      headers: { cookie },
+    });
+    expect(missing.statusCode).toBe(404);
     const evil = await app.inject({
       method: 'GET',
       url: '/api/backroom/assets/reverie/..%2F..%2Fx',
@@ -132,6 +175,8 @@ describe('back room over HTTP', () => {
         })
       ).statusCode,
     ).toBe(404);
+    expect(bucket.hits).toHaveLength(3);
+    bucket.close();
   });
 
   it('signs everyone out when the admin asks', async () => {

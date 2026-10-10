@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { AnyGameDefinition } from '@vt/game-sdk';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -85,8 +87,15 @@ export function backroomRoutes(
       if (!store) return reply;
       const key = assetKey(req.params.gameId, req.params['*']);
       if (!key) return error(reply, 400, 'bad-path', 'Bad asset path.');
-      void reply.header('cache-control', 'private, max-age=300');
-      return reply.redirect(await store.signedUrl(key), 302);
+      const object = await store.object(key, req.headers);
+      if (!object) return error(reply, 404, 'not-found', 'Not found.');
+      // Art never changes once published, so each browser fetches it once and keeps it. `private`
+      // keeps it out of the CDN: every fetch must pass the unlock check above.
+      void reply.code(object.status).headers(object.headers);
+      void reply.header('cache-control', 'private, max-age=31536000, immutable');
+      void reply.header('accept-ranges', 'bytes');
+      if (!object.body) return reply.send();
+      return reply.send(Readable.fromWeb(object.body as NodeReadableStream));
     },
   );
 
