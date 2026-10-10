@@ -58,6 +58,14 @@ describe('wordKey', () => {
     same('bake', 'baking', 'baker', 'baked');
   });
 
+  it('matches plurals of words with an ending', () => {
+    same('crossing', 'crossings');
+    same('Zebra crossing', 'zebra crossings');
+    same('player', 'players', 'play');
+    same('bakers', 'baker');
+    expect(wordKey('beds')).toBe('bed');
+  });
+
   it('keeps short and merely similar words apart', () => {
     apart('bus', 'busy');
     apart('cat', 'catalog');

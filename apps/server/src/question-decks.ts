@@ -8,6 +8,7 @@ import type {
 } from '@vt/protocol';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
+import { buildGames, questionDeckGameIds } from './games/registry.ts';
 import { questionDecks } from './db/schema.ts';
 
 /** What a new deck is tagged with when no games are given (matches the column's SQL default). */
@@ -79,10 +80,17 @@ export const publicDeck = (d: QuestionDeckSummary): PublicQuestionDeck => ({
 export class QuestionDeckRepo {
   private readonly db: Db;
   private readonly now: () => number;
+  /** The registered games that use question decks: the only ids a deck may be tagged with. */
+  readonly gameIds: readonly string[];
 
-  constructor(db: Db, now: () => number = Date.now) {
+  constructor(
+    db: Db,
+    now: () => number = Date.now,
+    gameIds: readonly string[] = questionDeckGameIds(buildGames()),
+  ) {
     this.db = db;
     this.now = now;
+    this.gameIds = gameIds;
   }
 
   /** Every deck by name, disabled ones included (for admins). */
@@ -110,6 +118,15 @@ export class QuestionDeckRepo {
       .orderBy(asc(questionDecks.name), asc(questionDecks.createdAt), sql`rowid`)
       .all()
       .map(detail);
+  }
+
+  /** A deck's name without loading its questions (labels on the admin stats page). */
+  name(id: string): string | undefined {
+    return this.db
+      .select({ name: questionDecks.name })
+      .from(questionDecks)
+      .where(eq(questionDecks.id, id))
+      .get()?.name;
   }
 
   get(id: string): QuestionDeckDetail | null {

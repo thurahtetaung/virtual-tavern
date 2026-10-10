@@ -91,6 +91,11 @@ describe('question decks api', () => {
     await bad(deck({ name: 'n'.repeat(61) }), /name/);
     await bad(deck({ description: 'd'.repeat(201) }), /description/);
     await bad(deck({ games: ['Not A Game'] }), /games/);
+    // Only registered games that use question decks may be tagged.
+    await bad(deck({ games: ['quiz'] }), /"quiz" is not a game that uses question decks/);
+    await bad(deck({ games: ['hoodwink', 'codenames'] }), /"codenames" is not a game/);
+    await bad(deck({ games: ['reverie'] }), /"reverie" is not a game/);
+    expect((await post(deck({ games: ['hoodwink'] }))).statusCode).toBe(201);
 
     expect((await post(question({ prompt: 'Ends with a question?' }))).statusCode).toBe(201);
     expect((await post(question({ prompt: 'One ___ blank.' }))).statusCode).toBe(201);
@@ -148,6 +153,14 @@ describe('question decks api', () => {
       payload: deck({ name: 'Renamed', questions: [{ prompt: 'Only ___.', answer: 'one' }] }),
     });
     expect(put.json()).toMatchObject({ name: 'Renamed', questionCount: 1, adult: false });
+    const badTag = await app.inject({
+      method: 'PUT',
+      url,
+      headers,
+      payload: deck({ games: ['echo'] }),
+    });
+    expect(badTag.statusCode).toBe(400);
+    expect(badTag.json()).toMatchObject({ error: { message: /"echo" is not a game/ } });
 
     const patch = await app.inject({ method: 'PATCH', url, headers, payload: { enabled: false } });
     expect(patch.json()).toMatchObject({ enabled: false });

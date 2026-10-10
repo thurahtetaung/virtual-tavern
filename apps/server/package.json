@@ -28,6 +28,7 @@
     "@vt/game-echo": "workspace:*",
     "@vt/game-enigma": "workspace:*",
     "@vt/game-sdk": "workspace:*",
+    "@vt/private-hoodwink": "workspace:*",
     "@vt/private-reverie": "workspace:*",
     "@vt/protocol": "workspace:*",
     "drizzle-kit": "^0.31.11",

@@ -8,6 +8,7 @@ import { bucketLabel, compact, duration, percent, plain } from './format.ts';
 import { columnsOption, isEmptySeries } from './options.ts';
 import { type ChartTokens, slotColor } from './palette.ts';
 import { useChartTokens } from './theme.ts';
+import { kindsWithWords, knownWordKinds, wordKindLabel } from './word-kinds.ts';
 import { ChartCard, Chip, ChipRow, EChart, EmptyState, Legend, Skeleton, StatTile } from './ui.tsx';
 
 /** Games tab: one sub-tab per game. */
@@ -32,21 +33,6 @@ export function GamesTab() {
     </div>
   );
 }
-
-/** Word kinds each public game reports; any other game offers every kind. */
-const KINDS_BY_GAME: Record<string, readonly WordKind[]> = {
-  codenames: ['clue', 'guess', 'assassin'],
-  enigma: ['clue'],
-  echo: ['clue', 'cancelled', 'guess'],
-};
-
-const KIND_LABELS: Record<WordKind, string> = {
-  clue: 'Clues',
-  guess: 'Guesses',
-  cancelled: 'Cancelled clues',
-  assassin: 'Assassin hits',
-  story: 'Story clues',
-};
 
 function GameView({ game }: { game: GameInfo }) {
   const ctx = useStats();
@@ -367,12 +353,20 @@ function SettingsUsage({ data, color }: { data?: GameStats; color: string }) {
 
 function Words({ game }: { game: GameInfo }) {
   const { query, epoch } = useStats();
-  const kinds = KINDS_BY_GAME[game.id] ?? WORD_KINDS;
-  const [kind, setKind] = useState<WordKind>(kinds[0]!);
-  const { data, loading } = useLoad(`words/${game.id}/${kind}?${query}#${epoch}`, () =>
-    statsApi.words(game.id, kind, query),
+  const known = knownWordKinds(game.id);
+  // A game this page doesn't know yet: offer the kinds that have words in the range.
+  const probe = useLoad(known ? null : `word-kinds/${game.id}?${query}#${epoch}`, async () => {
+    const found = await Promise.all(WORD_KINDS.map((k) => statsApi.words(game.id, k, query, 1)));
+    return kindsWithWords(Object.fromEntries(found.map((f) => [f.kind, f.words.length])));
+  });
+  const kinds = known ?? probe.data;
+  const [picked, setKind] = useState<WordKind | null>(null);
+  const kind = kinds ? (picked && kinds.includes(picked) ? picked : kinds[0]!) : null;
+  const { data, loading } = useLoad(kind && `words/${game.id}/${kind}?${query}#${epoch}`, () =>
+    statsApi.words(game.id, kind!, query),
   );
-  const words = data && data.kind === kind ? data.words : undefined;
+  const words = kind && data && data.kind === kind ? data.words : undefined;
+  const label = kind ? wordKindLabel(game.id, kind) : 'Words';
   const max = Math.max(0, ...(words ?? []).map((w) => w.count));
   const alphabetical = useMemo(
     () => [...(words ?? [])].sort((a, b) => a.word.localeCompare(b.word)),
@@ -390,11 +384,11 @@ function Words({ game }: { game: GameInfo }) {
           : undefined
       }
       legend={
-        kinds.length > 1 ? (
+        kinds ? (
           <ChipRow label="Word kind">
             {kinds.map((k) => (
               <Chip key={k} selected={k === kind} onClick={() => setKind(k)}>
-                {KIND_LABELS[k]}
+                {wordKindLabel(game.id, k)}
               </Chip>
             ))}
           </ChipRow>
@@ -404,14 +398,14 @@ function Words({ game }: { game: GameInfo }) {
       {!words ? (
         <Skeleton height={120} />
       ) : words.length === 0 ? (
-        <EmptyState>No {KIND_LABELS[kind].toLowerCase()} in this range yet</EmptyState>
+        <EmptyState>No {label.toLowerCase()} in this range yet</EmptyState>
       ) : (
         <ul
           className={cn(
             'flex flex-wrap items-baseline gap-x-3 gap-y-1 leading-tight',
             loading && 'opacity-60',
           )}
-          aria-label={KIND_LABELS[kind]}
+          aria-label={label}
         >
           {alphabetical.map((w) => {
             const size = cloudSize(w.count, max);

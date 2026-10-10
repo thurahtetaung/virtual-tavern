@@ -90,6 +90,26 @@ test('admins browse live, overview, games, players and fun stats', async ({ brow
   await expect(card(page, 'Wins by team')).toBeVisible();
   // Private games are named from the stats data, without unlocking the back room.
   await expect(games.getByRole('button', { name: /Reverie/ })).toBeVisible();
+  // Each game's Words card offers only the word kinds it reports, defaulting to the first.
+  const kinds = (name: string) =>
+    words.getByRole('group', { name: 'Word kind' }).getByRole('button', { name });
+  await expect(words.getByRole('group', { name: 'Word kind' }).getByRole('button')).toHaveText([
+    'Clues',
+    'Guesses',
+    'Assassin hits',
+  ]);
+  await games.getByRole('button', { name: /Reverie/ }).click();
+  await expect(words.getByRole('group', { name: 'Word kind' }).getByRole('button')).toHaveText([
+    'Story clues',
+  ]);
+  await expect(kinds('Story clues')).toHaveAttribute('aria-pressed', 'true');
+  await expect(words.getByRole('list', { name: 'Story clues' })).toBeVisible();
+  await games.getByRole('button', { name: /Hoodwink/ }).click();
+  await expect(words.getByRole('group', { name: 'Word kind' }).getByRole('button')).toHaveText([
+    'Lies',
+  ]);
+  await expect(words.getByRole('list', { name: 'Lies' })).toBeVisible();
+  await expect(page.getByRole('meter', { name: 'Votes that found the truth' })).toBeVisible();
 
   // Players: leaderboard with aliases, then a profile.
   await tab(page, 'Players').click();

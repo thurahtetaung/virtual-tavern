@@ -6,7 +6,7 @@ import { ulid } from './recorder.ts';
 import { SqliteStatsStore } from './sqlite-store.ts';
 import type { StatsEvent, Window } from './types.ts';
 
-const GAMES = ['codenames', 'enigma', 'echo', 'reverie'];
+const GAMES = ['codenames', 'enigma', 'echo', 'reverie', 'hoodwink'];
 const D1 = '2026-10-01';
 const D2 = '2026-10-02';
 const D3 = '2026-10-03';
@@ -269,7 +269,7 @@ describe('SqliteStatsStore', () => {
     ]);
     expect(o.activity[0]).toEqual({
       t: D1,
-      values: { codenames: 1, enigma: 1, echo: 1, reverie: 0, _all: 3 },
+      values: { codenames: 1, enigma: 1, echo: 1, reverie: 0, hoodwink: 0, _all: 3 },
     });
     // 2026-10-01 is a Thursday (weekday 3): a game started at 18, 20 and 23.
     const cell = (weekday: number, hour: number) =>
@@ -282,7 +282,7 @@ describe('SqliteStatsStore', () => {
     expect(hours).toHaveLength(24);
     expect(hours[18]).toEqual({
       t: `${D1}T18`,
-      values: { codenames: 1, enigma: 0, echo: 0, reverie: 0, _all: 1 },
+      values: { codenames: 1, enigma: 0, echo: 0, reverie: 0, hoodwink: 0, _all: 1 },
     });
   });
 
@@ -376,6 +376,70 @@ describe('SqliteStatsStore', () => {
     expect(facts['riskiest-word']).toMatchObject({ text: '"bomb" was the assassin 2 times' });
     expect(facts['great-minds']).toMatchObject({ text: '"sea" cancelled itself out 2 times' });
     expect(ben.facts.map((f) => f.id)).toContain('assassin-magnet');
+  });
+
+  it('reads Hoodwink lies and votes into figures, fun facts and the word cloud', () => {
+    // Shaped like Hoodwink's insights: two reveals (one lie shared by two authors), then the end.
+    const t = (m: number) => at(D3, 19, m);
+    const lie = (m: number, authors: string[], word: string, fooled: number, auto = false) =>
+      ev(
+        t(m),
+        'insight.lie',
+        'hoodwink',
+        {
+          fooled,
+          authors,
+          auto,
+          words: [{ kind: 'guess', word }],
+        },
+        authors[0],
+        'room-9',
+      );
+    const vote = (m: number, who: string, foundTruth: boolean) =>
+      ev(t(m), 'insight.vote', 'hoodwink', { foundTruth }, who, 'room-9');
+    store.append([
+      lie(1, ['ana'], 'A pickled walrus', 2),
+      lie(1, ['ben', 'cy'], 'Moon cheese', 1),
+      lie(1, ['dee'], 'Nothing at all', 0, true),
+      vote(1, 'ana', true),
+      vote(1, 'ben', false),
+      vote(1, 'cy', false),
+      vote(1, 'dee', false),
+      lie(2, ['ana'], 'a  Pickled walrus', 1),
+      lie(2, ['ben'], 'Socks', 0),
+      vote(2, 'ana', false),
+      vote(2, 'ben', true),
+      vote(2, 'cy', true),
+      vote(2, 'dee', false),
+      ev(t(3), 'insight.outcome', 'hoodwink', { rounds: 2, endReason: 'finished' }, null, 'room-9'),
+    ]);
+    const w = win(D3, D3);
+    const figures = Object.fromEntries(store.game('hoodwink', w).figures.map((f) => [f.id, f]));
+    expect(figures['truth-rate']).toMatchObject({ kind: 'percent', value: 37.5 });
+    expect(figures['fooling-rate']).toMatchObject({ kind: 'percent', value: 60 });
+    expect(figures['fooled-per-lie']).toMatchObject({ kind: 'number', value: 0.8 });
+
+    const facts = Object.fromEntries(store.fun(w).facts.map((f) => [f.id, f]));
+    expect(facts['best-liar']).toMatchObject({
+      playerId: 'ana',
+      gameId: 'hoodwink',
+      text: "Ana's lies fooled 3 players",
+    });
+    expect(facts['most-convincing-lie']).toMatchObject({
+      gameId: 'hoodwink',
+      text: '"a pickled walrus" fooled 3 players',
+    });
+    // Every lie on the board counts once in the cloud, fooling or not.
+    expect(store.words('hoodwink', 'guess', w, 10).words).toEqual([
+      { word: 'a pickled walrus', count: 2 },
+      { word: 'moon cheese', count: 1 },
+      { word: 'nothing at all', count: 1 },
+      { word: 'socks', count: 1 },
+    ]);
+    // A rolled-up day reads the same.
+    const before = JSON.stringify([store.game('hoodwink', w), store.fun(w)]);
+    store.rollupDay(D3, at(D3, 23));
+    expect(JSON.stringify([store.game('hoodwink', w), store.fun(w)])).toBe(before);
   });
 
   it('exports raw events as NDJSON in time order, across pages', () => {

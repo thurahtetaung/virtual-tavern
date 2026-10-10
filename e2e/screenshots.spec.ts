@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
-import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
@@ -348,6 +348,122 @@ for (const [label, viewport] of [
   });
 }
 
+// Hoodwink, with a made-up deck imported by the admin (the real decks are private).
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`hoodwink screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const colorScheme = label === 'phone' ? 'dark' : 'light';
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/hoodwink-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const admin = await (await browser.newContext({ viewport, colorScheme })).newPage();
+    await ownLoginLimit(admin);
+    await admin.goto('/admin');
+    await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
+    await admin.getByRole('button', { name: 'Sign in' }).click();
+    await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
+    await admin.getByRole('button', { name: /Open the back room|Change password/ }).click();
+    await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
+    const deck = await admin.request.post('/api/admin/question-decks', {
+      data: {
+        name: 'Made-up oddities',
+        description: 'Invented facts for the screenshots.',
+        questions: Array.from({ length: 5 }, (_, i) => ({
+          prompt: `In the invented hamlet of Wobbleton ${i + 1}, every newborn is given a ceremonial ___ by the oldest villager.`,
+          answer: 'Tin spoon',
+          decoys: ['Velvet hat', 'Wooden duck', 'Goose feather'],
+        })),
+      },
+    });
+    expect(deck.status()).toBe(201);
+    const deckId = ((await deck.json()) as { id: string }).id;
+    try {
+      await admin.reload();
+      const decks = admin.getByRole('region', { name: 'Question decks' });
+      await decks.scrollIntoViewIfNeeded();
+      await decks.screenshot({ path: `test-results/shots/hoodwink-${label}-admin-decks.png` });
+
+      let ip = 1;
+      const make = async (name: string) => {
+        const ctx = await browser.newContext({
+          viewport,
+          colorScheme,
+          extraHTTPHeaders: { 'cf-connecting-ip': `10.5.${label === 'phone' ? 1 : 0}.${ip++}` },
+        });
+        const p = await ctx.newPage();
+        await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+        await p.goto('/backroom');
+        await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+        await p.getByRole('button', { name: 'Knock' }).click();
+        await p.getByText("You're on the list").waitFor();
+        return p;
+      };
+      const host = await make('Hana');
+      await host.getByRole('button', { name: 'Create a Hoodwink room' }).click();
+      await expect(host).toHaveURL(/\/r\//);
+      const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+      await Promise.all(others.map((p) => p.goto(host.url())));
+      // The made-up deck has five questions, so pick five rounds before the game can start.
+      await host.getByRole('button', { name: '5 rounds' }).click();
+      await expect(host.getByRole('button', { name: '5 rounds' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      await expect(host.getByText('Everyone is in')).toBeVisible();
+      await shot(host, 'lobby');
+      await host.getByRole('button', { name: 'Start game' }).click();
+      const [ana, ben, cy] = others as [Page, Page, Page];
+      const everyone = [host, ana, ben, cy];
+
+      const lies = [
+        'A hand-knitted sock',
+        'A tiny brass bell that must be rung at every single birthday until the child turns ninety',
+        'Pickled egg',
+      ];
+      for (let round = 1; round <= 5; round++) {
+        await expect(host.getByText(`Round ${round}/5`)).toBeVisible();
+        if (round === 1) {
+          await ana.getByLabel('Your lie').fill(lies[0]!);
+          await shot(ana, 'writing');
+        }
+        for (const [i, p] of [ana, ben, cy].entries()) {
+          await p.getByLabel('Your lie').fill(`${lies[i]!} ${round > 1 ? round : ''}`.trim());
+          await p.getByRole('button', { name: 'Send lie' }).click();
+        }
+        await host.getByRole('button', { name: '🎲 Lie for me' }).click();
+        for (const p of everyone)
+          await expect(p.getByRole('list', { name: 'Answers' }).getByRole('button')).toHaveCount(5);
+        if (round === 1) await shot(host, 'vote');
+        for (const p of everyone) {
+          const options = p.getByRole('list', { name: 'Answers' }).getByRole('button');
+          for (let i = 0; i < 5; i++) {
+            if (await options.nth(i).isEnabled()) {
+              await options.nth(i).click();
+              break;
+            }
+          }
+        }
+        await expect(host.getByRole('list', { name: 'Answers revealed' })).toBeVisible();
+        if (round === 1) {
+          await host.waitForTimeout(1200); // the reveal animates in
+          await shot(host, 'reveal');
+        }
+        await host.getByRole('button', { name: round === 5 ? 'Finish' : 'Next round' }).click();
+      }
+      await expect(host.getByRole('list', { name: 'Podium' })).toBeVisible();
+      await shot(host, 'podium');
+    } finally {
+      // Tidy up even on failure, so later runs see only their own decks.
+      await admin.request.delete(`/api/admin/question-decks/${deckId}`);
+    }
+  });
+}
+
 // The admin stats page, served from the typed fixtures: phone in dark, desktop in light.
 for (const [label, viewport, colorScheme] of [
   ['desktop', { width: 1280, height: 900 }, 'light'],
@@ -384,6 +500,16 @@ for (const [label, viewport, colorScheme] of [
     if (label === 'phone') {
       await page.getByRole('region', { name: 'Words' }).scrollIntoViewIfNeeded();
       await shot('games-echo-words');
+    }
+    const words = page.getByRole('region', { name: 'Words' });
+    for (const game of ['Reverie', 'Hoodwink']) {
+      await page
+        .getByRole('group', { name: 'Game' })
+        .getByRole('button', { name: new RegExp(game) })
+        .click();
+      await expect(words.getByRole('list')).toBeVisible();
+      if (label === 'phone') await words.scrollIntoViewIfNeeded();
+      await shot(`games-${game.toLowerCase()}`);
     }
     await tab('Players');
     await expect(page.getByRole('table')).toBeVisible();
