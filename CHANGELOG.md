@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.9.0...v0.10.0) (2026-10-10)
+
+
+### Features
+
+* **content:** add private question decks for trivia games ([#47](https://github.com/thurahtetaung/virtual-tavern/issues/47)) ([b09833a](https://github.com/thurahtetaung/virtual-tavern/commit/b09833a1e24a6528bdd22129f1958b646b8c7d7a))
+* **hoodwink:** add Hoodwink, a bluffing trivia game ([#48](https://github.com/thurahtetaung/virtual-tavern/issues/48)) ([79eb471](https://github.com/thurahtetaung/virtual-tavern/commit/79eb471f40573260f7c2e6e901e6c38d37e8e807))
+
 ## [0.9.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.8.0...v0.9.0) (2026-10-10)
 
 
