@@ -39,8 +39,8 @@ export class WordListRepo {
   private readonly now: () => number;
   /**
    * The registered games that use word lists: what new and seeded lists are tagged with when no
-   * games are given. (The column's SQL default also names "echo" before that game is registered,
-   * so rows that existed when the column was added are ready for it.)
+   * games are given. (The column's SQL default names the same games, for rows that existed
+   * when the column was added.)
    */
   readonly gameIds: readonly string[];
 
@@ -120,8 +120,8 @@ export class WordListRepo {
 
   /**
    * Replaces a list's fields. Omitted `games` keeps the list's current tags. Tags for games that
-   * are not registered here (such as "echo" before it ships) can't be chosen in the editor, so
-   * they are kept rather than silently dropped.
+   * are not registered here (a game switched off on this server) can't be chosen in the editor,
+   * so they are kept rather than silently dropped.
    */
   update(id: string, body: ListInput): WordListDetail | null {
     const current = this.db

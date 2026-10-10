@@ -78,6 +78,9 @@ importers:
       '@vt/game-codenames':
         specifier: workspace:*
         version: link:../../packages/games/codenames
+      '@vt/game-echo':
+        specifier: workspace:*
+        version: link:../../packages/games/echo
       '@vt/game-enigma':
         specifier: workspace:*
         version: link:../../packages/games/enigma
@@ -108,6 +111,9 @@ importers:
       '@vt/game-codenames':
         specifier: workspace:*
         version: link:../../packages/games/codenames
+      '@vt/game-echo':
+        specifier: workspace:*
+        version: link:../../packages/games/echo
       '@vt/game-enigma':
         specifier: workspace:*
         version: link:../../packages/games/enigma
@@ -162,6 +168,25 @@ importers:
         version: 4.6.5
 
   packages/games/codenames:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/games/echo:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*

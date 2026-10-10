@@ -1,6 +1,7 @@
 import type { GameGuide, GameUiProps } from '@vt/game-sdk';
 // Guides come from their own entry point, so the landing page doesn't ship the game engines.
 import { guide as codenamesGuide } from '@vt/game-codenames/guide';
+import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { type ComponentType, lazy } from 'react';
 
@@ -31,6 +32,13 @@ export const clientGames: ClientGame[] = [
     guide: enigmaGuide,
     icon: '🔐',
     Component: lazy(() => import('@vt/game-enigma/ui').then((m) => ({ default: m.EnigmaGame }))),
+  },
+  {
+    id: 'echo',
+    name: 'Echo',
+    guide: echoGuide,
+    icon: '🔔',
+    Component: lazy(() => import('@vt/game-echo/ui').then((m) => ({ default: m.EchoGame }))),
   },
 ];
 

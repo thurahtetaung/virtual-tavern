@@ -7,9 +7,9 @@ export const wordLists = sqliteTable('word_lists', {
   description: text('description').notNull().default(''),
   words: text('words', { mode: 'json' }).$type<string[]>().notNull(),
   /**
-   * Ids of the games that offer this list. The default names "echo" ahead of that game shipping,
-   * so lists that exist when the column is added are ready for it; ids of games that are not
-   * registered are simply never matched.
+   * Ids of the games that offer this list. The default (every word-list game) tags the lists
+   * that existed when the column was added; ids of games that are not registered are simply
+   * never matched.
    */
   games: text('games', { mode: 'json' })
     .$type<string[]>()

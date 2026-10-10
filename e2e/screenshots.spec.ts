@@ -245,3 +245,104 @@ for (const [label, viewport] of [
     await shot(host, 'reveal');
   });
 }
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`echo screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/echo-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      return p;
+    };
+    const host = await make('Hana');
+    await host.goto('/');
+    await host.getByRole('button', { name: 'Create an Echo room' }).click();
+    await expect(host.getByText('Almost ready')).toBeVisible();
+    const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+    await Promise.all(others.map((p) => p.goto(host.url())));
+    const all = [host, ...others];
+    await expect(host.getByText('Everyone is in')).toBeVisible();
+    await host.getByRole('button', { name: '8 cards' }).click();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+
+    /** Plays one card: the guesser picks, everyone writes, then `finish` resolves it. */
+    const playCard = async (
+      finish: (guesser: Page, writers: Page[], word: string) => Promise<void>,
+      shots = false,
+    ) => {
+      let guesser: Page | undefined;
+      await expect
+        .poll(async () => {
+          for (const p of all)
+            if (await p.getByRole('button', { name: 'Pick word 1' }).isEnabled()) guesser = p;
+          return guesser !== undefined;
+        })
+        .toBe(true);
+      const writers = all.filter((p) => p !== guesser);
+      if (shots) await shot(guesser!, 'pick');
+      await guesser!.getByRole('button', { name: 'Pick word 2' }).click();
+      const word = await writers[0]!.getByTestId('secret-word').innerText();
+      const clues = ['Lantern', 'lanterns', 'Harbour'];
+      for (const [i, w] of writers.entries()) {
+        await w.getByLabel('Your clue').fill(clues[i]!);
+        if (shots && i === 0) await shot(w, 'clue');
+        await w.getByRole('button', { name: 'Send clue' }).click();
+        if (i < writers.length - 1) {
+          await expect(w.getByRole('button', { name: '✓ Sent' })).toBeVisible();
+        }
+      }
+      await expect(guesser!.getByLabel('Your guess')).toBeVisible();
+      if (shots) await shot(guesser!, 'guess');
+      await finish(guesser!, writers, word);
+    };
+    const nextCard = async () => {
+      await host.getByRole('button', { name: /^(Next card|Finish)$/ }).click();
+    };
+    const wrong = async (guesser: Page, writers: Page[]) => {
+      await guesser.getByLabel('Your guess').fill('Nothing');
+      await guesser.getByRole('button', { name: 'Guess', exact: true }).click();
+      await expect(writers[0]!.getByRole('button', { name: 'Count it' })).toBeVisible();
+      return writers[0]!;
+    };
+
+    await playCard(async (guesser, _w, word) => {
+      await guesser.getByLabel('Your guess').fill(word);
+      await guesser.getByRole('button', { name: 'Guess', exact: true }).click();
+      await expect(host.getByText('🎉 Got it!')).toBeVisible();
+      await shot(host, 'reveal');
+    }, true);
+    await nextCard();
+    await playCard(async (guesser, writers) => {
+      const judge = await wrong(guesser, writers);
+      await shot(judge, 'judge');
+      await judge.getByRole('button', { name: 'Continue' }).click();
+    });
+    // 5 cards left: two more misses (two cards each) and a pass end the deck.
+    for (let i = 0; i < 2; i++) {
+      await nextCard();
+      await playCard(async (guesser, writers) => {
+        await (await wrong(guesser, writers)).getByRole('button', { name: 'Continue' }).click();
+      });
+    }
+    await nextCard();
+    await playCard(async (guesser) => {
+      await guesser.getByRole('button', { name: 'Pass' }).click();
+    });
+    await nextCard();
+    await expect(host.getByText('Game over!')).toBeVisible();
+    await shot(host, 'over');
+  });
+}

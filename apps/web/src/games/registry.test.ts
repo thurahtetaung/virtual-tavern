@@ -8,7 +8,9 @@ describe('offeredPrivateGames', () => {
   ];
 
   it('hides private games the server does not offer (e.g. the demo in production)', () => {
-    expect(offeredPrivateGames([{ id: 'codenames' }, { id: 'enigma' }], known)).toEqual([]);
+    expect(
+      offeredPrivateGames([{ id: 'codenames' }, { id: 'enigma' }, { id: 'echo' }], known),
+    ).toEqual([]);
   });
 
   it('shows only private games the server lists', () => {

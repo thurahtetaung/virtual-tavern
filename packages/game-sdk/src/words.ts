@@ -12,3 +12,80 @@ export function wordPool(words: readonly string[]): string[] {
   }
   return pool;
 }
+
+const EDGE_PUNCTUATION = /^[\p{P}\p{S}]+|[\p{P}\p{S}]+$/gu;
+
+/**
+ * A word as players would read it: accents removed ("café" → "cafe"), lower case, single spaces,
+ * no punctuation at either end, curly apostrophes made straight, and a possessive "'s" dropped
+ * ("Dog's" → "dog").
+ */
+export function normaliseWord(s: string): string {
+  const plain = s
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLocaleLowerCase('en')
+    .replace(/[‘’ʼ`´]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(EDGE_PUNCTUATION, '');
+  return plain.replace(/'s$/, '').replace(EDGE_PUNCTUATION, '');
+}
+
+const MIN_STEM = 3;
+const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y']);
+
+/** Suffix rules, tried in order; the first whose result keeps at least `MIN_STEM` letters wins. */
+const SUFFIXES: { test: RegExp; replace: string }[] = [
+  { test: /ies$/, replace: 'y' }, // berries → berry
+  { test: /(?<=(?:s|x|z|ch|sh))es$/, replace: '' }, // boxes → box, buses → bus, wishes → wish
+  { test: /(?<![isu])s$/, replace: '' }, // cats → cat; not glass, bus, tennis
+  { test: /ing$/, replace: '' }, // running → runn
+  { test: /ed$/, replace: '' }, // played → play
+  { test: /er$/, replace: '' }, // runner → runn
+];
+
+function stem(word: string): string {
+  let w = word;
+  for (const { test, replace } of SUFFIXES) {
+    if (!test.test(w)) continue;
+    const cut = w.replace(test, replace);
+    if (cut.length >= MIN_STEM) {
+      w = cut;
+      break;
+    }
+  }
+  // A silent final e, so bake / baking / baker and horse / horses meet ("bak", "hors").
+  if (w.length > MIN_STEM && w.endsWith('e') && !w.endsWith('ee')) w = w.slice(0, -1);
+  // A doubled final consonant, so run / running and ball / balls meet ("run", "bal").
+  const last = w.at(-1);
+  if (w.length > MIN_STEM && last && !VOWELS.has(last) && w.at(-2) === last) w = w.slice(0, -1);
+  return w;
+}
+
+/**
+ * The key two clues are compared by: `normaliseWord` plus a deliberately light English stemmer,
+ * so "Cat", "cats" and "CAT", or "run", "runner" and "running", count as the same clue.
+ *
+ * The stemmer knows no dictionary, so it over-cancels on purpose rather than let near-identical
+ * clues through: "sing" and "singer" meet, and so do "hat", "hate" and "hated". It never
+ * shortens a word below three letters, which keeps short words like "bus" and "red" intact and
+ * apart from "busy" or "reed". Words with a shared stem but different spelling ("sing" and
+ * "song") stay apart.
+ */
+export function wordKey(s: string): string {
+  return normaliseWord(s)
+    .split(' ')
+    .map((part) => (/^[\p{L}']+$/u.test(part) ? stem(part.replace(/'/g, '')) : part))
+    .join(' ');
+}
+
+/** One word: letters (with any accents), digits, apostrophes and hyphens only. */
+export function isSingleWord(s: string): boolean {
+  return /^[\p{L}\p{M}\p{N}'’-]+$/u.test(s);
+}
+
+/** Nothing but digits, such as "42". */
+export function isNumberOnly(s: string): boolean {
+  return /^\p{N}+$/u.test(s);
+}

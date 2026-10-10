@@ -4,7 +4,7 @@ import { wordLists } from './db/schema.ts';
 import { MIGRATIONS } from './test/helpers.ts';
 import { WordListRepo } from './word-lists.ts';
 
-const GAMES = ['codenames', 'enigma'];
+const GAMES = ['codenames', 'enigma', 'echo'];
 
 function setup() {
   const db = openDb(':memory:', MIGRATIONS);
@@ -65,6 +65,10 @@ describe('WordListRepo game tags', () => {
     expect(names('enigma')).toEqual(['Enigma only B', 'Enigma only D', 'Shared A', 'Shared C']);
     expect(names('codenames')).toEqual(['Codenames only', 'Shared A', 'Shared C']);
     expect(names('chess')).toEqual([]);
+    // A list made only for Echo is where an Echo lobby opens; the others still open on shared lists.
+    make('Echo classic', ['echo']);
+    expect(names('echo')).toEqual(['Echo classic', 'Shared A', 'Shared C']);
+    expect(names('enigma')[0]).toBe('Enigma only B');
     expect(repo.list('enigma').map((l) => l.name)).toEqual([
       'Enigma only B',
       'Enigma only D',
@@ -85,10 +89,13 @@ describe('WordListRepo game tags', () => {
 
   it('keeps tags on update unless given, and keeps tags of games it does not run', () => {
     const { repo, make } = setup();
-    const list = make('List', ['codenames', 'echo']);
+    const list = make('List', ['codenames', 'retired']);
     const body = { name: 'List', description: '', words: ['y'] };
-    expect(repo.update(list.id, body)?.games).toEqual(['codenames', 'echo']);
-    expect(repo.update(list.id, { ...body, games: ['enigma'] })?.games).toEqual(['enigma', 'echo']);
+    expect(repo.update(list.id, body)?.games).toEqual(['codenames', 'retired']);
+    expect(repo.update(list.id, { ...body, games: ['enigma'] })?.games).toEqual([
+      'enigma',
+      'retired',
+    ]);
     expect(repo.update('missing', body)).toBeNull();
   });
 });

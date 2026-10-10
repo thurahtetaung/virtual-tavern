@@ -58,10 +58,15 @@ describe('http api', () => {
     expect(games.map((g) => [g.id, g.wordLists])).toEqual([
       ['codenames', true],
       ['enigma', true],
+      ['echo', true],
     ]);
     const lists = (await app.inject({ method: 'GET', url: '/api/word-lists' })).json<unknown>();
     expect(lists).toEqual([
-      expect.objectContaining({ name: 'Starter', wordCount: 451, games: ['codenames', 'enigma'] }),
+      expect.objectContaining({
+        name: 'Starter',
+        wordCount: 451,
+        games: ['codenames', 'enigma', 'echo'],
+      }),
     ]);
   });
 
@@ -219,7 +224,7 @@ describe('admin api', () => {
       (await app.inject({ method: 'GET', url })).json<{ name: string }[]>().map((l) => l.name);
 
     const all = await post({ name: 'All', words: ['a'] });
-    expect(all.json()).toMatchObject({ games: ['codenames', 'enigma'] });
+    expect(all.json()).toMatchObject({ games: ['codenames', 'enigma', 'echo'] });
     const only = await post({ name: 'Enigma only', words: ['b'], games: ['enigma'] });
     expect(only.statusCode).toBe(201);
     expect(only.json()).toMatchObject({ games: ['enigma'] });
@@ -228,6 +233,15 @@ describe('admin api', () => {
     expect(await names('/api/word-lists?game=codenames')).toEqual(['All', 'Starter']);
     expect(await names('/api/word-lists?game=chess')).toEqual([]);
     expect(await names('/api/word-lists')).toEqual(['All', 'Enigma only', 'Starter']);
+    const echoOnly = await post({ name: 'Echo only', words: ['c'], games: ['echo'] });
+    expect(echoOnly.statusCode).toBe(201);
+    expect(await names('/api/word-lists?game=echo')).toEqual(['All', 'Echo only', 'Starter']);
+    expect(await names('/api/word-lists?game=enigma')).toEqual(['All', 'Enigma only', 'Starter']);
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/word-lists/${echoOnly.json<{ id: string }>().id}`,
+      headers,
+    });
 
     const id = only.json<{ id: string }>().id;
     const put = (payload: object) =>
@@ -242,9 +256,8 @@ describe('admin api', () => {
       games: ['codenames'],
     });
 
-    // Unknown games, games without word lists (the back-room game), empty lists and "echo"
-    // (until that game is registered) are refused.
-    for (const games of [['chess'], ['codenames', 'reverie'], [], ['echo']]) {
+    // Unknown games, games without word lists (the back-room game) and empty lists are refused.
+    for (const games of [['chess'], ['codenames', 'reverie'], []]) {
       const res = await post({ name: 'Bad', words: ['x'], games });
       expect(res.statusCode, JSON.stringify(games)).toBe(400);
       expect((await put({ name: 'Bad', words: ['x'], games })).statusCode).toBe(400);

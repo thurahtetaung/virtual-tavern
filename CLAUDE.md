@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. It hosts three games: **Codenames** and **Enigma** (a team code-breaking game; only ever call it Enigma) in `packages/games/`, and **Reverie** (a picture-clue storytelling card game whose art lives in private storage; only ever call it Reverie) in the password-gated back room, `packages/private-games/`. It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists and set the back-room password.
+Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. It hosts four games: **Codenames**, **Enigma** (a team code-breaking game; only ever call it Enigma) and **Echo** (a cooperative one-word-clue game; only ever call it Echo) in `packages/games/`, and **Reverie** (a picture-clue storytelling card game whose art lives in private storage; only ever call it Reverie) in the password-gated back room, `packages/private-games/`. It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists and set the back-room password.
 
 ## Toolchain
 
@@ -45,6 +45,7 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
   - Each game package exports `/logic` and `/ui`; the UI takes `GameUiProps` (`packages/game-sdk/src/ui.ts`) and is built from `@vt/ui` primitives (`WordListPicker`, `TimerSettings`, `Modal`, `Countdown`), with `wordPool` from `@vt/game-sdk`.
   - Registries: `apps/server/src/games/registry.ts` and `apps/web/src/games/registry.ts` (private games: `apps/web/src/games/private.ts`).
   - **Enigma** (`packages/games/enigma`): votes only resolve when every eligible teammate has picked the same code and pressed Lock in. Team chat and shared notes live in game state and are filtered per team by `view()`. On phones the play screen is split into Play / Clues / Chat tabs (`EnigmaGame.tsx`); design every game screen to fit a phone viewport without long scrolling.
+  - **Echo** (`packages/games/echo`): clue and guess matching uses `normaliseWord`/`wordKey` from `packages/game-sdk/src/words.ts` (case, accents, punctuation, plurals and simple stems). `view()` hides the secret word from the guesser until the reveal and sends them only the surviving clues, without authors or the cancelled ones (just `cancelledCount`). The UI pre-checks clues with the engine's `clueProblem` so refusals show inline.
 - **Rules guides:** each game's `GameGuide` (`src/logic/guide.ts`) renders on `/rules/:gameId` and in the in-room rules drawer, through `apps/web/src/components/GuideView.tsx`. Update the guide in the same change as any rule change.
 - **Room host** (`apps/server/src/rooms/manager.ts`):
   - It is game-agnostic. better-sqlite3 is synchronous, so each call runs to completion and actions on a room are naturally serialised.
