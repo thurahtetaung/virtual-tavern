@@ -24,6 +24,8 @@ export interface GameSummary {
   maxPlayers: number;
   /** Back-room game, only listed for players who have unlocked it. */
   private?: boolean;
+  /** Whether the game draws words from word lists (and so can be picked under "Used by"). */
+  wordLists: boolean;
 }
 
 export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });
@@ -43,6 +45,8 @@ export interface WordListSummary {
   description: string;
   wordCount: number;
   updatedAt: number;
+  /** Ids of the games that offer this list. */
+  games: string[];
 }
 
 export interface WordListDetail extends WordListSummary {
@@ -56,6 +60,11 @@ export const wordListBody = z.object({
   name: z.string().trim().min(1).max(60),
   description: z.string().trim().max(200).default(''),
   words: z.array(z.string().trim().min(1).max(MAX_WORD_LENGTH)).max(MAX_WORDS_PER_LIST),
+  /**
+   * Games that offer the list. Omitted means every game that uses word lists. The server checks
+   * the ids against its registered word-list games.
+   */
+  games: z.array(z.string().min(1).max(40)).min(1).max(10).optional(),
 });
 export type WordListBody = z.input<typeof wordListBody>;
 

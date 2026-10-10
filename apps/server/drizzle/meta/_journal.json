@@ -22,6 +22,13 @@
       "when": 1791623507981,
       "tag": "0002_app_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791649372248,
+      "tag": "0003_word_list_games",
+      "breakpoints": true
     }
   ]
 }

@@ -52,7 +52,8 @@ const OK: Ack = { ok: true };
 export interface RoomManagerDeps {
   store: RoomStore;
   games: ReadonlyMap<string, AnyGameDefinition>;
-  content: ContentProvider;
+  /** Word lists, narrowed per room to the lists tagged for its game. */
+  content: { forGame(gameId: string): ContentProvider };
   events: RoomEvents;
   now?: () => number;
   seed?: () => number;
@@ -88,7 +89,7 @@ export class RoomManager {
       gameId,
       hostId,
       players: [],
-      state: game.create(this.ctx(), []),
+      state: game.create(this.ctx(gameId), []),
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -180,7 +181,7 @@ export class RoomManager {
     const parsed = room.game.actionSchema.safeParse(action);
     if (!parsed.success) return fail('bad-action', 'That move is not valid.');
     const result: unknown = room.game.reduce(room.record.state, parsed.data, {
-      ...this.ctx(),
+      ...this.ctx(room.record.gameId),
       by: playerId,
       isHost: room.record.hostId === playerId,
     });
@@ -239,8 +240,13 @@ export class RoomManager {
     for (const id of [...this.rooms.keys()]) this.unload(id);
   }
 
-  private ctx() {
-    return { now: this.deps.now(), rng: createRng(this.deps.seed()), content: this.deps.content };
+  /** A game only ever sees the word lists tagged for it. */
+  private ctx(gameId: string) {
+    return {
+      now: this.deps.now(),
+      rng: createRng(this.deps.seed()),
+      content: this.deps.content.forGame(gameId),
+    };
   }
 
   private load(roomId: string): LiveRoom | null {

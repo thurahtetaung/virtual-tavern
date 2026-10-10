@@ -307,6 +307,33 @@ describe('RoomManager', () => {
       expect(rooms.join(id, 'a', 'Anna')).toEqual({ ok: true }); // renames still pass
     });
 
+    it('only lets a room read the word lists tagged for its game', () => {
+      const stub = stubGame({
+        create: (ctx) => ({ due: null, lists: ctx.content.wordLists().map((l) => l.name) }),
+        reduce: (s: object, action: { ids?: string[] }, ctx) => ({
+          ...s,
+          words: ctx.content.words(action.ids ?? []),
+        }),
+        actionSchema: z.object({ type: z.string(), ids: z.array(z.string()).optional() }),
+      });
+      // The Starter list seeded by manager() is tagged for the real games only, not the stub.
+      const repo = new WordListRepo(db, () => now, ['stub', 'codenames']);
+      const mine = repo.create({ name: 'Mine', description: '', words: ['a'], games: ['stub'] });
+      const theirs = repo.create({
+        name: 'Theirs',
+        description: '',
+        words: ['b'],
+        games: ['codenames'],
+      });
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]), content: repo });
+      const id = rooms.create(stub.id, 'h');
+      rooms.join(id, 'h', 'H');
+      expect(rooms.snapshot(id, 'h')!.game).toMatchObject({ lists: ['Mine'] });
+      expect(rooms.act(id, 'h', { type: 'read', ids: [mine.id, theirs.id] })).toEqual({ ok: true });
+      expect(rooms.snapshot(id, 'h')!.game).toMatchObject({ words: ['a'] });
+    });
+
     it('rejects a change that makes the state too large', () => {
       const stub = stubGame({
         reduce: (s: { due: null }) => ({ ...s, blob: 'x'.repeat(MAX_STATE_JSON_LENGTH) }),

@@ -1,4 +1,4 @@
-import type { WordListDetail, WordListSummary } from '@vt/protocol';
+import type { GameSummary, WordListDetail, WordListSummary } from '@vt/protocol';
 import { MAX_WORDS_PER_LIST } from '@vt/protocol';
 import { Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -176,6 +176,13 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
   // null until the first load answers, so an empty server isn't confused with a slow one.
   const [lists, setLists] = useState<WordListSummary[] | null>(null);
   const [editing, setEditing] = useState<WordListDetail | 'new' | null>(null);
+  // The games a list can be offered in ("Used by").
+  const [games, setGames] = useState<GameSummary[]>([]);
+  useEffect(() => {
+    void api<GameSummary[]>('/api/games')
+      .then((all) => setGames(all.filter((g) => g.wordLists)))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(
     () =>
@@ -203,6 +210,7 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
     return (
       <Editor
         list={editing === 'new' ? null : editing}
+        games={games}
         onClose={() => {
           setEditing(null);
           load();
@@ -244,6 +252,7 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
                   {l.description && (
                     <span className="block text-sm text-stone-500">{l.description}</span>
                   )}
+                  <GameTags ids={l.games} games={games} />
                 </span>
                 <span
                   className={cn(
@@ -263,8 +272,41 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
   );
 }
 
-function Editor({ list, onClose }: { list: WordListDetail | null; onClose: () => void }) {
+/** The games a list is offered in, as small chips (ids of games not on this server are skipped). */
+function GameTags({ ids, games }: { ids: readonly string[]; games: readonly GameSummary[] }) {
+  const names = games.filter((g) => ids.includes(g.id)).map((g) => g.name);
+  if (!names.length) return null;
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {names.map((n) => (
+        <span
+          key={n}
+          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+        >
+          {n}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function Editor({
+  list,
+  games,
+  onClose,
+}: {
+  list: WordListDetail | null;
+  /** Games that use word lists. */
+  games: readonly GameSummary[];
+  onClose: () => void;
+}) {
   const toast = useToast();
+  // null = untouched: an existing list keeps its tags, a new one is offered in every game.
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const usedBy = picked ?? (list ? list.games : games.map((g) => g.id));
+  const chosen = games.filter((g) => usedBy.includes(g.id)).map((g) => g.id);
+  const toggle = (id: string) =>
+    setPicked(chosen.includes(id) ? chosen.filter((g) => g !== id) : [...chosen, id]);
   const [name, setName] = useState(list?.name ?? '');
   const [description, setDescription] = useState(list?.description ?? '');
   const [text, setText] = useState(list?.words.join('\n') ?? '');
@@ -275,7 +317,8 @@ function Editor({ list, onClose }: { list: WordListDetail | null; onClose: () =>
   const save = async () => {
     setSaving(true);
     try {
-      const body = { name, description, words: parsed.words };
+      // Untouched tags are left to the server, which keeps them (or uses its default).
+      const body = { name, description, words: parsed.words, ...(picked ? { games: chosen } : {}) };
       if (list) await api(`/api/admin/word-lists/${list.id}`, { method: 'PUT', body });
       else await api('/api/admin/word-lists', { method: 'POST', body });
       toast('Saved', 'info');
@@ -311,8 +354,12 @@ function Editor({ list, onClose }: { list: WordListDetail | null; onClose: () =>
     URL.revokeObjectURL(a.href);
   };
 
+  const noGames = games.length > 0 && chosen.length === 0;
   const invalid =
-    !name.trim() || parsed.words.length > MAX_WORDS_PER_LIST || parsed.tooLong.length > 0;
+    !name.trim() ||
+    parsed.words.length > MAX_WORDS_PER_LIST ||
+    parsed.tooLong.length > 0 ||
+    noGames;
 
   return (
     <div className="space-y-4">
@@ -344,6 +391,28 @@ function Editor({ list, onClose }: { list: WordListDetail | null; onClose: () =>
             />
           </label>
         </div>
+        {games.length > 0 && (
+          <fieldset>
+            <legend className="text-sm font-semibold">Used by</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {games.map((g) => (
+                <label
+                  key={g.id}
+                  className="flex h-11 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+                >
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(g.id)}
+                    onChange={() => toggle(g.id)}
+                    className="size-4 accent-amber-600"
+                  />
+                  {g.name}
+                </label>
+              ))}
+            </div>
+            {noGames && <p className="mt-1 text-sm text-rose-600">Pick at least one game.</p>}
+          </fieldset>
+        )}
         <label className="block">
           <span className="text-sm font-semibold">Words</span>
           <span className="block text-xs text-stone-500">

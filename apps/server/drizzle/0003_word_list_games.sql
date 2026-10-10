@@ -1,0 +1,1 @@
+ALTER TABLE `word_lists` ADD `games` text DEFAULT '["codenames","enigma","echo"]' NOT NULL;

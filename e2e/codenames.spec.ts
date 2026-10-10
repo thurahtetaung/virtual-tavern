@@ -104,12 +104,23 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await admin.getByRole('button', { name: 'Sign in' }).click();
 
   await admin.getByRole('button', { name: '+ New list' }).click();
-  await admin.getByLabel('Name').fill('E2E Planets');
+  await admin.getByLabel('Name', { exact: true }).fill('E2E Planets');
   await admin.getByLabel(/^Words/).fill('Moon\nmoon\nMars, Venus\nComet');
   await expect(admin.getByText('4 unique words')).toBeVisible();
   await expect(admin.getByText('1 duplicates will be dropped')).toBeVisible();
+  // A new list is offered in every word-list game; at least one must stay ticked. (It stays in
+  // both: a Codenames-only list would become the default for every later Codenames room here.)
+  const usedBy = admin.getByRole('group', { name: 'Used by' });
+  for (const game of ['Codenames', 'Enigma'])
+    await usedBy.getByRole('checkbox', { name: game }).uncheck();
+  await expect(admin.getByText('Pick at least one game.')).toBeVisible();
+  await expect(admin.getByRole('button', { name: 'Save list' })).toBeDisabled();
+  for (const game of ['Codenames', 'Enigma'])
+    await usedBy.getByRole('checkbox', { name: game }).check();
   await admin.getByRole('button', { name: 'Save list' }).click();
-  await expect(admin.getByRole('button', { name: /E2E Planets\s*4 words/ })).toBeVisible();
+  await expect(
+    admin.getByRole('button', { name: /^E2E Planets\s*Codenames\s*Enigma\s*4 words$/ }),
+  ).toBeVisible();
 
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create a Codenames room' }).click();

@@ -81,7 +81,7 @@ describe('WordListRepo.seedPacks', () => {
     ]);
     expect(r.seedPacks([pack('after-dark', 'After Dark'), pack('movies', 'Movies')])).toEqual([]);
     expect(r.list().map((l) => l.name)).toEqual(['After Dark', 'Movies', 'Starter']);
-    expect(r.wordLists()[0]?.name).toBe('Starter');
+    expect(r.forGame('codenames').wordLists()[0]?.name).toBe('Starter');
   });
 
   it('never re-adds a pack an admin deleted, and leaves edits alone', () => {
