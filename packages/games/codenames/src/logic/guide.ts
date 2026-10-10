@@ -39,7 +39,6 @@ export const guide: GameGuide = {
       bullets: [
         'The clue must be a single word (hyphens are fine).',
         'It cannot be one of the words still face-down on the board.',
-        'Choose "Unlimited" (or 0) if you want your team to keep guessing as long as they like.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
       ],
     },

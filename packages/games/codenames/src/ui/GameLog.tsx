@@ -16,7 +16,7 @@ function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string 
       return (
         <>
           <b className={TEAM_TEXT[entry.team]}>{name(entry.by)}</b> gave the clue{' '}
-          <b className="uppercase">{entry.word}</b> · {entry.count ?? '∞'}
+          <b className="uppercase">{entry.word}</b> · {entry.count}
         </>
       );
     case 'guess':

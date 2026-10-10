@@ -69,11 +69,7 @@ export function lastGuessResult(view: CodenamesView): GuessResult | null {
     else if (turnEnded)
       next = `That was the last guess for this clue. ${TEAM_LABEL[other(guess.team)]}'s turn now.`;
     else {
-      const left = guessesLeft(view);
-      next =
-        left === null
-          ? `${team} can keep guessing, or end the turn.`
-          : `${team} can guess ${left} more, or end the turn.`;
+      next = `${team} can guess ${guessesLeft(view)} more, or end the turn.`;
     }
     return { ...base, tone: 'correct', headline: `✓ Correct! It's ${describe(guess.kind)}.`, next };
   }

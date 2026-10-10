@@ -1,11 +1,10 @@
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
-/** Guesses the current team may still make; null = unlimited. */
-export function guessesLeft(view: CodenamesView): number | null {
-  const count = view.turn?.clue?.count ?? null;
-  if (count === null || count === 0) return null;
-  return Math.max(0, count + 1 - view.turn!.guessesMade);
+/** Guesses the current team may still make for this clue (the clue number plus one). */
+export function guessesLeft(view: CodenamesView): number {
+  const count = view.turn?.clue?.count ?? 1;
+  return Math.max(0, count + 1 - (view.turn?.guessesMade ?? 0));
 }
 
 /** Why the game can't start yet, or null if it can. */
@@ -77,8 +76,7 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
   }
 
   const left = guessesLeft(view);
-  const leftText =
-    left === null ? 'any number of guesses' : `${left} guess${left === 1 ? '' : 'es'} left`;
+  const leftText = `${left} guess${left === 1 ? '' : 'es'} left`;
   if (mine && me?.role === 'operative') {
     return {
       text: `Your turn to guess (${leftText}). Tap a card to suggest it to your team, then press Guess.`,

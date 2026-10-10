@@ -93,6 +93,6 @@ export function cardsOf(state: CodenamesState, kind: CardKind): number[] {
   return state.board.flatMap((c, i) => (c.kind === kind && !c.revealed ? [i] : []));
 }
 
-export function clue(h: Harness, team: Team, count: number | null = 1, word = 'hint') {
+export function clue(h: Harness, team: Team, count = 1, word = 'hint') {
   return h.act({ type: 'give-clue', word, count }, SPY[team]);
 }

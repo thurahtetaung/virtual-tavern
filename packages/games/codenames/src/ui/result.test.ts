@@ -75,7 +75,7 @@ describe('lastGuessResult', () => {
 
   it('announces a win on the last agent', () => {
     const h = startedGame();
-    clue(h, 'red', null);
+    clue(h, 'red', 9);
     for (const card of cardsOf(h.state, 'red')) h.act({ type: 'guess', card }, OP.red);
     expect(result(h)?.next).toBe("That was Red's last agent. Red wins the game!");
   });

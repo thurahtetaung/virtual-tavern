@@ -315,9 +315,8 @@ function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
     if (remainingAgents(board, team) === 0) return endGame(next, team, 'all-agents');
   }
   if (card.kind !== turn.team) return endTurn(next, 'wrong-guess', ctx.now);
-  const count = turn.clue?.count ?? null;
-  // A clue for N allows N + 1 guesses; 0 or unlimited allows any number.
-  if (count !== null && count > 0 && guessesMade >= count + 1) {
+  // A clue for N allows N + 1 guesses.
+  if (guessesMade >= (turn.clue?.count ?? 1) + 1) {
     return endTurn(next, 'out-of-guesses', ctx.now);
   }
   return next;

@@ -136,7 +136,7 @@ function InGame({
               {turn.clue.word}
             </b>
             <span className="text-stone-500"> · </span>
-            <b className="text-2xl">{turn.clue.count ?? '∞'}</b>
+            <b className="text-2xl">{turn.clue.count}</b>
           </p>
         )}
 
@@ -197,10 +197,7 @@ function InGame({
           <h3 className="mb-2 font-bold">Game log</h3>
           <GameLog view={view} />
         </Panel>
-        <Panel>
-          <h3 className="mb-2 font-bold">Teams</h3>
-          <Teams view={view} online={online} act={act} compact />
-        </Panel>
+        <TeamsSection view={view} online={online} act={act} />
         {room.isHost && view.phase === 'playing' && (
           <Button
             variant="ghost"
@@ -241,5 +238,40 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
         <Countdown deadline={view.turn?.deadline ?? null} clockOffset={clockOffset} />
       </div>
     </div>
+  );
+}
+
+/** Teams beside the board: collapsed by default on phones, where the board needs the room. */
+function TeamsSection(props: {
+  view: CodenamesView;
+  online: (id: string) => boolean;
+  act: CodenamesUiProps['act'];
+}) {
+  const { view } = props;
+  // Spectators need the join buttons, so the section starts open for them on every screen.
+  const [open, setOpen] = useState(
+    () => view.me?.team == null || window.matchMedia('(min-width: 1024px)').matches,
+  );
+  const count = (team: 'red' | 'blue') => view.seats.filter((s) => s.team === team).length;
+  const watching = view.seats.filter((s) => s.team === null).length;
+  return (
+    <Panel>
+      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <h3 className="font-bold">Teams</h3>
+          <span className="flex items-center gap-2 text-sm text-stone-500">
+            <span className={TEAM_TEXT.red}>Red {count('red')}</span>·
+            <span className={TEAM_TEXT.blue}>Blue {count('blue')}</span>
+            {watching > 0 && <span>· {watching} watching</span>}
+            <span aria-hidden className="transition-transform group-open:rotate-180">
+              ▾
+            </span>
+          </span>
+        </summary>
+        <div className="mt-3">
+          <Teams {...props} compact />
+        </div>
+      </details>
+    </Panel>
   );
 }

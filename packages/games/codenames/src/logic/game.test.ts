@@ -195,13 +195,6 @@ describe('guessing', () => {
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'out-of-guesses' });
   });
 
-  it.each([0, null])('allows unlimited guesses for a clue count of %s', (count) => {
-    const h = startedGame();
-    clue(h, 'red', count);
-    for (const i of cardsOf(h.state, 'red').slice(0, 5)) h.act({ type: 'guess', card: i }, OP.red);
-    expect(h.state.turn).toMatchObject({ team: 'red', guessesMade: 5 });
-  });
-
   it('ends the turn on a bystander', () => {
     const h = startedGame();
     clue(h, 'red', 3);
@@ -233,7 +226,7 @@ describe('guessing', () => {
 
   it('wins when the team finds all its agents', () => {
     const h = startedGame();
-    clue(h, 'red', null);
+    clue(h, 'red', 9);
     for (const i of cardsOf(h.state, 'red')) h.act({ type: 'guess', card: i }, OP.red);
     expect(h.state).toMatchObject({ phase: 'over', winner: 'red', winReason: 'all-agents' });
   });
@@ -427,12 +420,13 @@ describe('actionSchema', () => {
     expect(actionSchema.safeParse(action).success).toBe(false);
   });
 
-  it('accepts unlimited clues and disabling timers', () => {
-    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: null }).success).toBe(
-      true,
-    );
+  it('accepts disabling timers and rejects 0 or unlimited clues', () => {
     expect(actionSchema.safeParse({ type: 'update-settings', clueSeconds: null }).success).toBe(
       true,
+    );
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: 0 }).success).toBe(false);
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: null }).success).toBe(
+      false,
     );
   });
 });

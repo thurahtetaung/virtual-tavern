@@ -1,7 +1,7 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { codenames } from '../logic/game.ts';
-import { OP, SPY, clue, content, startedGame } from '../logic/test-utils.ts';
+import { OP, SPY, cardsOf, clue, content, startedGame } from '../logic/test-utils.ts';
 import { guessesLeft, startBlocker, statusFor } from './status.ts';
 
 describe('statusFor', () => {
@@ -30,10 +30,12 @@ describe('statusFor', () => {
 });
 
 describe('guessesLeft', () => {
-  it('is unlimited for 0 and unlimited clues', () => {
+  it('counts down from the clue number plus one', () => {
     const h = startedGame();
-    clue(h, 'red', 0);
-    expect(guessesLeft(codenames.view(h.state, null))).toBeNull();
+    clue(h, 'red', 2);
+    expect(guessesLeft(codenames.view(h.state, null))).toBe(3);
+    h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
+    expect(guessesLeft(codenames.view(h.state, null))).toBe(2);
   });
 });
 
