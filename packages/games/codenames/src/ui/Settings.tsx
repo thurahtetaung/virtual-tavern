@@ -66,7 +66,7 @@ export function Settings({ settings, wordLists, editable, act }: Props) {
         <p className="text-xs text-stone-500">
           {editable ? 'Mix as many as you like. ' : ''}The board draws 25 random words from these.
         </p>
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 grid gap-1 sm:grid-cols-2">
           {wordLists.map((list) => {
             const on = selected.has(list.id);
             if (!editable && !on) return null;

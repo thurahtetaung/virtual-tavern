@@ -56,6 +56,7 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
   - A host who is offline for `HOST_AWAY_MS` hands the role to an online player.
 - **Identity:** the browser keeps a secret `playerToken` in localStorage, and the server derives the public player id as `sha256(token)`, so ids shown to others can't be used to impersonate anyone.
 - **Persistence:** the Drizzle schema is in `apps/server/src/db/schema.ts`. After changing it, run `pnpm --filter @vt/server db:generate`; migrations in `apps/server/drizzle/` run at startup. Word lists are stored as a JSON array per list. The self-authored starter list (`starter-words.ts`) is seeded only when no lists exist.
+- **Built-in word packs** are `apps/server/word-packs/<slug>.json` (`{slug, name, description, words}`; file name must match the slug; entries ≤ 20 chars, ≥ 100 unique words). On startup `WordListRepo.seedPacks` adds any pack whose slug isn't in `seeded_packs` yet, exactly once, so admin edits and deletions stick. Changing a shipped pack's file does not update existing databases; add a new slug instead. `word-packs.test.ts` validates every pack file.
 - **Config:** `apps/server/src/config.ts` reads env vars, and its default paths resolve the same way from `src/` and `dist/`. Admin auth (`admin-auth.ts`) is a signed, httpOnly cookie, and login is rate-limited (keyed on `cf-connecting-ip`).
 
 ## Testing notes

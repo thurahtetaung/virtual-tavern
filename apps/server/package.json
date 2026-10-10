@@ -33,6 +33,7 @@
   },
   "files": [
     "dist",
-    "drizzle"
+    "drizzle",
+    "word-packs"
   ]
 }

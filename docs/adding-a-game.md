@@ -21,6 +21,10 @@ Every game must ship a `GameGuide` (the `guide` field is required). The same gui
 
 Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`) so the game matches the rest of the site. Always show a `Hint` telling the viewer what to do right now.
 
+## Word content
+
+Games read word lists through `ctx.content`. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see CLAUDE.md for the format.
+
 ## 4. Register it
 
 - Server: `apps/server/src/games/registry.ts`
