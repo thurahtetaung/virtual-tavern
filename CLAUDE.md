@@ -68,7 +68,7 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
 ## Releases and deploy
 
 - PRs are squash-merged, so the PR title is the commit and must follow Conventional Commits (enforced by `pr-title.yml`).
-- release-please (`release.yml`) keeps a Release PR open. Merging it tags `vX.Y.Z`, publishes a multi-arch image to GHCR, then calls `deploy.yml`, which needs approval through the `production` environment. That job SSHes through Cloudflare Access and runs `scripts/deploy.sh <version>`: back up the DB, pull, wait for health, and roll back automatically on failure.
+- release-please (`release.yml`) keeps a Release PR open. Merging it tags `vX.Y.Z`, publishes a multi-arch image to GHCR, then calls `deploy.yml`, which needs approval through the `production` environment. That job joins the tailnet (Tailscale OAuth, `tag:ci`), SSHes to the server and runs `scripts/deploy.sh <version>`: back up the DB, pull, wait for health, and roll back automatically on failure.
 - Running `deploy.yml` by hand redeploys or rolls back to any version. One-time server, Cloudflare and GitHub setup is in `docs/deployment.md`.
 
 ## Conventions

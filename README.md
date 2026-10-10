@@ -39,7 +39,7 @@ packages/games/codenames Codenames rules, guide and UI
 ```
 
 - [Adding a game](docs/adding-a-game.md)
-- [Deployment](docs/deployment.md): Docker, Cloudflare Tunnel, and automated releases
+- [Deployment](docs/deployment.md): Docker, Cloudflare Tunnel, Tailscale, and automated releases
 
 ## License
 

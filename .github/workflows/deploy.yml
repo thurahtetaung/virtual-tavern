@@ -29,19 +29,20 @@ jobs:
       url: ${{ vars.PUBLIC_URL }}
     env:
       VERSION: ${{ inputs.version }}
-      CLOUDFLARED_VERSION: 2026.9.3
     steps:
       - name: Validate version
         run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Bad version: $VERSION"; exit 1; }'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: v${{ inputs.version }}
-      - name: Install cloudflared
-        run: |
-          curl -fsSL -o /tmp/cloudflared.deb \
-            "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64.deb"
-          sudo dpkg -i /tmp/cloudflared.deb
-      - name: Configure SSH through Cloudflare Access
+      - name: Join the tailnet
+        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4.2.0
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          ping: ${{ secrets.DEPLOY_HOST }}
+      - name: Configure SSH
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
@@ -58,13 +59,9 @@ jobs:
             IdentityFile ~/.ssh/deploy
             IdentitiesOnly yes
             StrictHostKeyChecking yes
-            HostKeyAlias $DEPLOY_HOST
-            ProxyCommand cloudflared access ssh --hostname %h --service-token-id \${CF_ACCESS_CLIENT_ID} --service-token-secret \${CF_ACCESS_CLIENT_SECRET}
           CONFIG
       - name: Upload deploy files and deploy
         env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR || 'virtual-tavern' }}
         # Variables expand on the runner on purpose (SC2029).
         run: |

@@ -28,8 +28,6 @@ set_tag "$version"
 
 if up; then
   echo "==> $version is healthy"
-  # Bring up the tunnel too if it isn't running yet (no-op when it already is).
-  docker compose up -d --no-recreate
   docker image prune -f >/dev/null
   exit 0
 fi

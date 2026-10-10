@@ -1,4 +1,4 @@
-# Production: copy this file and .env to the server, then `scripts/deploy.sh <version>`.
+# Production: scripts/deploy.sh <version> runs this on the server (see docs/deployment.md).
 # Local try-out: `docker compose up --build` and open http://localhost:3000.
 services:
   app:
@@ -11,21 +11,8 @@ services:
     volumes:
       - tavern-data:/data
     ports:
-      # Loopback only: the public reaches the app through the Cloudflare tunnel.
+      # Loopback only: the public reaches the app through a Cloudflare tunnel on the host.
       - '127.0.0.1:${APP_PORT:-3000}:3000'
-
-  cloudflared:
-    image: cloudflare/cloudflared:2026.9.3
-    profiles: [tunnel]
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
-    extra_hosts:
-      # Lets the tunnel expose the host's SSH server for deploys (ssh://host.docker.internal:22).
-      - host.docker.internal:host-gateway
-    depends_on:
-      - app
 
 volumes:
   tavern-data:
