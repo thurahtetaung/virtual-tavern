@@ -41,7 +41,7 @@ const COLOR_DOT: Record<SeatColor, string> = {
 const nameOf = (view: ReverieView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
 
-export function ReverieGame({ view, room, act, showGuide }: ReverieUiProps) {
+export function ReverieGame({ view, room, act, showGuide, setYourMove }: ReverieUiProps) {
   const manifest = useManifest();
   const setNames = new Map(
     manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
@@ -61,6 +61,15 @@ export function ReverieGame({ view, room, act, showGuide }: ReverieUiProps) {
   const blocker = startBlocker(view, cardCount);
   const status = statusFor(view, room.isHost, blocker);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+
+  // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
+  const tabAlert = view.phase !== 'lobby' && status.yourMove;
+  useEffect(() => {
+    setYourMove?.(tabAlert);
+    return () => {
+      setYourMove?.(false);
+    };
+  }, [setYourMove, tabAlert]);
 
   if (view.phase === 'lobby') {
     return (

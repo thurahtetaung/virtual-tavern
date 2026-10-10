@@ -11,6 +11,7 @@ import { type ClientGame, loadGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
+import { roomTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
@@ -162,12 +163,19 @@ function Room({
     return () => window.removeEventListener('focus', load);
   }, [game.id]);
 
+  // The game reports when it's the viewer's move; the tab title says so, and phones buzz once.
+  const [yourMove, setYourMove] = useState(false);
+  const wasYourMove = useRef(false);
   useEffect(() => {
-    document.title = `${game.name} · Virtual Tavern`;
+    document.title = roomTitle(game.name, yourMove);
+    if (yourMove && !wasYourMove.current && 'vibrate' in navigator) navigator.vibrate(50);
+    wasYourMove.current = yourMove;
+  }, [game.name, yourMove]);
+  useEffect(() => {
     return () => {
       document.title = 'Virtual Tavern';
     };
-  }, [game.name]);
+  }, []);
 
   // Remember this room for "Rejoin your last room" on the landing page.
   useEffect(() => {
@@ -313,6 +321,7 @@ function Room({
             }}
             act={act}
             showGuide={() => setGuideOpen(true)}
+            setYourMove={setYourMove}
           />
         </Suspense>
       )}
