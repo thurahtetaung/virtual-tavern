@@ -69,4 +69,4 @@ jobs:
           ssh target "mkdir -p '$DEPLOY_DIR'"
           scp docker-compose.yml scripts/deploy.sh "target:$DEPLOY_DIR/"
           # shellcheck disable=SC2029
-          ssh target "cd '$DEPLOY_DIR' && ./deploy.sh '$VERSION'"
+          ssh target "cd '$DEPLOY_DIR' && bash ./deploy.sh '$VERSION'"
