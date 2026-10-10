@@ -21,7 +21,14 @@ export interface Settings {
   clueSeconds: number | null;
   /** Seconds the operatives have to guess; null disables the timer. */
   guessSeconds: number | null;
+  /**
+   * What happens when a timer runs out: `soft` only shows that time is up (the default);
+   * `strict` passes the turn automatically. Optional because older saved rooms lack it.
+   */
+  timerMode?: TimerMode;
 }
+
+export type TimerMode = 'soft' | 'strict';
 
 export interface Seat {
   name: string;
@@ -85,6 +92,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     wordListIds: z.array(z.string().min(1)).min(1).max(20).optional(),
     clueSeconds: timerSeconds.optional(),
     guessSeconds: timerSeconds.optional(),
+    timerMode: z.enum(['soft', 'strict']).optional(),
   }),
   z.object({
     type: z.literal('join-team'),

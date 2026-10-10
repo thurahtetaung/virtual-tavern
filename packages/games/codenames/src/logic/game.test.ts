@@ -11,6 +11,7 @@ describe('create', () => {
       wordListIds: ['first'],
       clueSeconds: null,
       guessSeconds: null,
+      timerMode: 'soft',
     });
     expect(state.seats).toEqual({
       a: { name: 'A', team: null, role: 'operative' },
@@ -45,7 +46,10 @@ describe('lobby', () => {
       wordListIds: ['a', 'b'],
       clueSeconds: 60,
       guessSeconds: null,
+      timerMode: 'soft',
     });
+    h.act({ type: 'update-settings', timerMode: 'strict' });
+    expect(h.state.settings.timerMode).toBe('strict');
   });
 
   it('randomizes everyone into two balanced teams with one spymaster each', () => {
@@ -284,6 +288,20 @@ describe('turn timer', () => {
   it('is off by default', () => {
     const h = startedGame();
     expect(codenames.nextDeadline!(h.state)).toBeNull();
+  });
+
+  it('only shows soft timers: the deadline is visible but the turn never passes', () => {
+    const h = startedGame({ clueSeconds: 60, timerMode: 'soft' });
+    expect(h.state.turn?.deadline).toBe(NOW + 60_000);
+    expect(codenames.view(h.state, OP.red).turn?.deadline).toBe(NOW + 60_000);
+    expect(codenames.nextDeadline!(h.state)).toBeNull();
+    expect(codenames.onDeadline!(h.state, NOW + 3_600_000)).toBe(h.state);
+  });
+
+  it('treats rooms saved before timer modes existed as soft', () => {
+    const h = startedGame({ clueSeconds: 60 });
+    const { timerMode: _, ...legacy } = h.state.settings;
+    expect(codenames.nextDeadline!({ ...h.state, settings: legacy })).toBeNull();
   });
 
   it('passes the turn when the clue timer runs out', () => {

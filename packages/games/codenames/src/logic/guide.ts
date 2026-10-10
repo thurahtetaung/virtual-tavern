@@ -65,7 +65,8 @@ export const guide: GameGuide = {
     {
       title: 'Turn timer (optional)',
       paragraphs: [
-        'The host can set a time limit for giving clues and for guessing. When time runs out, the turn passes to the other team.',
+        'The host can set a time limit for giving clues and for guessing. By default the timer is just a friendly nudge: it turns red when time is up, but nobody is forced to stop.',
+        'If the host picks "Strict", the turn passes to the other team the moment time runs out.',
       ],
     },
   ],

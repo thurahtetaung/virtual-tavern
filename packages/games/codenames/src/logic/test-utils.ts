@@ -67,7 +67,9 @@ export function harness(
  * Seats: host = red spymaster, p2 = red operative, p3 = blue spymaster, p4 = blue operative.
  * Forces red to start so tests are predictable.
  */
-export function startedGame(opts: { clueSeconds?: number; guessSeconds?: number } = {}) {
+export function startedGame(
+  opts: { clueSeconds?: number; guessSeconds?: number; timerMode?: 'soft' | 'strict' } = {},
+) {
   const h = harness();
   h.state = { ...h.state, startingTeam: 'red' };
   h.act({ type: 'join-team', team: 'red', role: 'spymaster' }, HOST);
@@ -79,6 +81,7 @@ export function startedGame(opts: { clueSeconds?: number; guessSeconds?: number 
       type: 'update-settings',
       clueSeconds: opts.clueSeconds ?? null,
       guessSeconds: opts.guessSeconds ?? null,
+      timerMode: opts.timerMode ?? 'strict',
     });
   }
   h.act({ type: 'start' });

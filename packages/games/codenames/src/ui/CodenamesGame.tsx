@@ -235,7 +235,11 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
         </div>
       ))}
       <div className="order-2">
-        <Countdown deadline={view.turn?.deadline ?? null} clockOffset={clockOffset} />
+        <Countdown
+          deadline={view.turn?.deadline ?? null}
+          clockOffset={clockOffset}
+          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+        />
       </div>
     </div>
   );

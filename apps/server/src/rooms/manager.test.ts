@@ -43,13 +43,22 @@ describe('RoomManager', () => {
   const game = (id: string) => rooms.snapshot(id, 'h')!.game as CodenamesView;
 
   it('fires turn timers on the server', () => {
-    const id = seatedGame({ clueSeconds: 30 });
+    const id = seatedGame({ clueSeconds: 30, timerMode: 'strict' });
     expect(rooms.act(id, 'h', { type: 'start' })).toEqual({ ok: true });
     const first = game(id).turn!.team;
     now += 30_000;
     vi.advanceTimersByTime(30_000);
     expect(game(id).turn!.team).not.toBe(first);
     expect(game(id).log.at(-1)).toMatchObject({ type: 'end-turn', reason: 'timeout' });
+  });
+
+  it('never ends a turn on a soft timer', () => {
+    const id = seatedGame({ clueSeconds: 30 });
+    rooms.act(id, 'h', { type: 'start' });
+    const first = game(id).turn!.team;
+    now += 120_000;
+    vi.advanceTimersByTime(120_000);
+    expect(game(id).turn).toMatchObject({ team: first, stage: 'clue' });
   });
 
   it('passes hosting to an online player when the host stays away', () => {
