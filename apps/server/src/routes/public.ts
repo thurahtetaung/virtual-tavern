@@ -25,14 +25,15 @@ export function publicRoutes(
   app.get('/api/games', (req): GameSummary[] =>
     [...games.values()]
       .filter((g) => visible(req, g.id))
-      .map(({ id, name, description, minPlayers, maxPlayers, access, usesWordLists }) => ({
-        id,
-        name,
-        description,
-        minPlayers,
-        maxPlayers,
-        private: access === 'private',
-        wordLists: usesWordLists === true,
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        description: g.description,
+        minPlayers: g.minPlayers,
+        maxPlayers: g.maxPlayers,
+        private: g.access === 'private',
+        wordLists: g.usesWordLists === true,
+        questionDecks: g.usesQuestionDecks === true,
       })),
   );
 

@@ -4,6 +4,7 @@ import type { AnyGameDefinition } from '@vt/game-sdk';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { BACKROOM_COOKIE, BACKROOM_SESSION_MS, type Backroom } from '../backroom.ts';
+import { type QuestionDeckRepo, publicDeck } from '../question-decks.ts';
 import { type R2Assets, assetKey } from '../r2.ts';
 
 const unlockBody = z.object({ password: z.string().min(1).max(200) });
@@ -25,9 +26,10 @@ export function backroomRoutes(
     backroom: Backroom;
     games: ReadonlyMap<string, AnyGameDefinition>;
     assets: R2Assets | null;
+    questionDecks: QuestionDeckRepo;
   },
 ) {
-  const { backroom, games, assets } = opts;
+  const { backroom, games, assets, questionDecks } = opts;
 
   app.get('/api/backroom/status', (req) => ({
     open: backroom.isOpen(),
@@ -98,6 +100,17 @@ export function backroomRoutes(
       return reply.send(Readable.fromWeb(object.body as NodeReadableStream));
     },
   );
+
+  // The question decks a private trivia game offers: enabled decks tagged for it, as summaries
+  // only (never questions, answers or decoys). Deck names are protected content too, so this
+  // answers only unlocked players asking about a private game that uses question decks.
+  app.get<{ Params: { gameId: string } }>('/api/backroom/question-decks/:gameId', (req, reply) => {
+    const game = games.get(req.params.gameId);
+    if (!requestUnlocked(req, backroom) || game?.access !== 'private' || !game.usesQuestionDecks)
+      return error(reply, 404, 'not-found', 'Not found.');
+    void reply.header('cache-control', 'private, no-store');
+    return questionDecks.listEnabled(game.id).map(publicDeck);
+  });
 
   app.get<{ Params: { gameId: string } }>('/api/backroom/manifest/:gameId', async (req, reply) => {
     const store = privateGame(req, reply, req.params.gameId);

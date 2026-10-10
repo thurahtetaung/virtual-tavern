@@ -1,4 +1,10 @@
-import type { GameSummary, WordListDetail, WordListSummary } from '@vt/protocol';
+import type {
+  GameSummary,
+  QuestionDeckDetail,
+  QuestionDeckSummary,
+  WordListDetail,
+  WordListSummary,
+} from '@vt/protocol';
 import { MAX_WORDS_PER_LIST } from '@vt/protocol';
 import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -6,6 +12,7 @@ import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
+import { deckBackupZip, deckFile } from '../lib/question-deck-backup.ts';
 import { backupFileName, backupZip, listFile, saveFile } from '../lib/word-list-backup.ts';
 
 interface Session {
@@ -34,6 +41,7 @@ export function AdminPage() {
           <AdminNav current="lists" />
           <BackroomAdmin />
           <WordLists onSignOut={refresh} />
+          <QuestionDecks />
         </div>
       )}
     </Layout>
@@ -359,6 +367,206 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
         {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Trivia question decks. Their questions are private, so they are only imported (with
+ * `scripts/import-question-decks.mjs`), switched on and off, downloaded and deleted here.
+ */
+function QuestionDecks() {
+  const toast = useToast();
+  const [decks, setDecks] = useState<QuestionDeckSummary[] | null>(null);
+  const [games, setGames] = useState<GameSummary[]>([]);
+  useEffect(() => {
+    void api<GameSummary[]>('/api/games')
+      .then(setGames)
+      .catch(() => {});
+  }, []);
+
+  const load = useCallback(
+    () =>
+      void api<QuestionDeckSummary[]>('/api/admin/question-decks')
+        .then(setDecks)
+        .catch((e: Error) => {
+          toast(e.message);
+          setDecks((d) => d ?? []);
+        }),
+    [toast],
+  );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const download = async (id: string) => {
+    try {
+      const { name, blob } = deckFile(
+        await api<QuestionDeckDetail>(`/api/admin/question-decks/${id}`),
+      );
+      saveFile(blob, name);
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+
+  const [zipping, setZipping] = useState(false);
+  const downloadAll = async () => {
+    setZipping(true);
+    try {
+      const all = await api<QuestionDeckDetail[]>('/api/admin/question-decks/export');
+      saveFile(await deckBackupZip(all), backupFileName(new Date(), 'question-decks'));
+    } catch (err) {
+      toast((err as Error).message);
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const remove = async (deck: QuestionDeckSummary) => {
+    if (
+      !window.confirm(
+        `Delete "${deck.name}" and its ${deck.questionCount} questions? Download it first if you might want it back.`,
+      )
+    )
+      return;
+    try {
+      await api(`/api/admin/question-decks/${deck.id}`, { method: 'DELETE' });
+      toast(`Deleted "${deck.name}".`, 'info');
+      load();
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+
+  // Decks with a switch request in flight; further taps on them wait for it to settle.
+  const [switching, setSwitching] = useState<ReadonlySet<string>>(new Set());
+  const setEnabled = async (id: string, enabled: boolean) => {
+    if (switching.has(id)) return;
+    const flip = (on: boolean) =>
+      setDecks((ds) => ds?.map((d) => (d.id === id ? { ...d, enabled: on } : d)) ?? ds);
+    flip(enabled);
+    setSwitching((s) => new Set(s).add(id));
+    try {
+      await api(`/api/admin/question-decks/${id}`, { method: 'PATCH', body: { enabled } });
+    } catch (err) {
+      flip(!enabled);
+      toast((err as Error).message);
+    } finally {
+      setSwitching((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  return (
+    <section aria-labelledby="question-decks-heading" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="question-decks-heading" className="text-xl font-bold">
+          Question decks
+        </h2>
+        <Button
+          variant="secondary"
+          onClick={() => void downloadAll()}
+          disabled={zipping || !decks?.length}
+        >
+          {zipping ? 'Zipping…' : 'Download all decks (.zip)'}
+        </Button>
+      </div>
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        Trivia games draw their questions from these decks. The questions are private: import them
+        with <code className="text-xs">scripts/import-question-decks.mjs</code>, never into the
+        repository. Switch a deck off to hide it from hosts without deleting it.
+      </p>
+      {decks === null && <p className="text-stone-500 dark:text-stone-400">Loading decks…</p>}
+      <ul className="space-y-2">
+        {decks?.map((d) => (
+          <li key={d.id}>
+            <Panel
+              className={cn(
+                'flex items-center gap-1 p-0 py-2 pr-2 pl-4',
+                !d.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
+              )}
+            >
+              <div className="min-w-0 flex-1 py-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span
+                    id={`deck-${d.id}`}
+                    className={cn(
+                      'font-bold break-words',
+                      !d.enabled && 'text-stone-500 dark:text-stone-400',
+                    )}
+                  >
+                    {d.name}
+                  </span>
+                  {d.adult && (
+                    <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
+                      Adult
+                    </span>
+                  )}
+                  {!d.enabled && <Badge>Disabled</Badge>}
+                </span>
+                <span className={cn('block', !d.enabled && 'opacity-60')}>
+                  {d.description && (
+                    <span className="block text-sm text-stone-500">{d.description}</span>
+                  )}
+                  <span className="block text-sm text-stone-500">
+                    {d.questionCount} {d.questionCount === 1 ? 'question' : 'questions'}
+                  </span>
+                  <GameTags ids={d.games} games={games} />
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Download ${d.name} as .json`}
+                title="Download .json"
+                onClick={() => void download(d.id)}
+              >
+                <DownloadIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Delete ${d.name}`}
+                title="Delete"
+                onClick={() => void remove(d)}
+              >
+                <span className="text-rose-700 dark:text-rose-400">
+                  <TrashIcon />
+                </span>
+              </Button>
+              <Switch
+                checked={d.enabled}
+                busy={switching.has(d.id)}
+                onChange={(on) => void setEnabled(d.id, on)}
+                aria-label="Enabled"
+                aria-describedby={`deck-${d.id}`}
+              />
+            </Panel>
+          </li>
+        ))}
+        {decks?.length === 0 && <li className="text-stone-500 italic">No decks yet.</li>}
+      </ul>
+    </section>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16M10 11v6m4-6v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </svg>
   );
 }
 

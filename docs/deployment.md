@@ -126,6 +126,19 @@ All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
 - **Rotate the R2 tokens:** the server's _read_ token lives in `.env` (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`); replace it and `docker compose up -d app`. The _read & write_ upload token lives only on the dev machine in `~/.config/virtual-tavern/r2-upload.env`; replace it there. Revoke the old tokens in the Cloudflare dashboard afterwards.
 - **Deploy or roll back by hand:** `bash deploy.sh X.Y.Z` (the script is copied into the deploy directory). It backs up the database, pulls the image, waits for the health check and rolls back to the previous version if that fails. `DEPLOY_SKIP_PULL=1 bash deploy.sh X.Y.Z` runs a locally built image without pulling.
 - **List or restore backups:** `docker compose exec app ls -l /data/backups`, then the restore recipe above.
+- **Import question decks** (private trivia content, never in the repository). From the dev machine, copy the script and the deck folder (`manifest.json` plus one `<slug>.json` per deck, the layout the admin page's question-deck **Download all** writes) to the host, run it there against the app's local port, then delete the copy:
+
+  ```sh
+  scp scripts/import-question-decks.mjs <server>:/tmp/ && scp -r private-assets/hoodwink/decks <server>:/tmp/decks
+  # on the server:
+  read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD
+  node /tmp/import-question-decks.mjs http://localhost:<APP_PORT> /tmp/decks --dry-run
+  node /tmp/import-question-decks.mjs http://localhost:<APP_PORT> /tmp/decks
+  rm -rf /tmp/decks /tmp/import-question-decks.mjs; unset ADMIN_PASSWORD
+  ```
+
+  Every deck is validated first and nothing is uploaded if any fails. Decks whose name already exists are skipped, so re-running is safe; `--only <glob>` / `--skip <glob>` pick decks by slug. To replace a deck, delete it in `/admin` first. Node 24 must be on the host's `PATH` (or run it with `docker run --rm --network host -v /tmp:/tmp node:24-alpine node ...`).
+
 - **Check the running version:** `curl -s localhost:$APP_PORT/healthz` (or the public `/healthz`) answers `{"status":"ok","version":"X.Y.Z"}`; `{"status":"degraded"}` with a 503 means the database is not answering, and Docker's health check turns the container unhealthy.
 
 ## Admin stats

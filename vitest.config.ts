@@ -8,6 +8,7 @@ export default defineConfig({
       'packages/*/vitest.config.ts',
       'packages/games/*/vitest.config.ts',
       'packages/private-games/*/vitest.config.ts',
+      { test: { name: 'scripts', environment: 'node', include: ['scripts/**/*.test.mjs'] } },
     ],
   },
 });

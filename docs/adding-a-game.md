@@ -27,6 +27,10 @@ Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui
 
 Games read word lists through `ctx.content`. Set `usesWordLists: true` on the definition: each list is tagged with the games that offer it ("Used by" in the admin editor), and a room's `ctx.content` only sees the lists tagged for its game, with lists made only for that game first; lists an admin has switched off are hidden too, so a saved selection may name lists `ctx.content` no longer returns. Built-in packs live in `apps/server/word-packs/` and are shared by every word game; see CLAUDE.md for the format.
 
+## Question content
+
+Trivia games read admin question decks through `ctx.content`. Set `usesQuestionDecks: true` on the definition, and the room's `ctx.content` gains `questionDecks()` (the enabled decks tagged for the game: id, name, description, question count and an `adult` flag) and `questions(deckIds)` (each `Question` has `id` `<deckId>:<index>`, `deckId`, `prompt`, `answer`, `alternates` and optional `decoys`, built-in fake answers a game may use as house lies). Both methods are optional in `ContentProvider`, so check they exist and treat a missing deck as empty: a saved selection may name decks an admin has since switched off or deleted. Each deck's `games` array says which games offer it (new decks default to `["hoodwink"]`). The decks are protected content, so only **private** (back-room) games may use them: lobbies list decks with `GET /api/backroom/question-decks/:gameId`, which answers 404 unless the browser holds a current back-room unlock and the game is private and sets `usesQuestionDecks`, and then returns summaries only. A public trivia game would need its own endpoint and a decision about exposing deck names. The decks themselves are private and never go in the repository: tests use small made-up decks.
+
 ## 4. Register it
 
 - Server: `apps/server/src/games/registry.ts`

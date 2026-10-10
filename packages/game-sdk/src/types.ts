@@ -39,6 +39,8 @@ export interface Question {
   answer: string;
   /** Other accepted forms of the answer. */
   alternates: string[];
+  /** Built-in fake answers the game may use as house lies. Never shown as such to players. */
+  decoys?: string[];
 }
 
 /** Server-provided content that games may read synchronously. */
