@@ -69,10 +69,29 @@ export function buildApp(opts: AppOptions) {
   });
 
   if (opts.webDist && existsSync(opts.webDist)) {
-    void app.register(fastifyStatic, { root: opts.webDist, wildcard: false });
-    // Client-side routes (/r/:id, /admin, ...) all load the SPA shell.
+    void app.register(fastifyStatic, {
+      root: opts.webDist,
+      wildcard: false,
+      // Cache-Control is set by the onSend hook below; the plugin's own header would conflict.
+      cacheControl: false,
+    });
+    // Vite content-hashes everything under /assets/, so those files never change once published.
+    // HTML must be revalidated so a deploy is picked up immediately.
+    app.addHook('onSend', (req, reply, payload, done) => {
+      const path = req.url.split('?', 1)[0]!;
+      if (req.method === 'GET' && !path.startsWith('/api/') && path !== '/healthz') {
+        const hashed = path.startsWith('/assets/') && reply.statusCode === 200;
+        void reply.header(
+          'cache-control',
+          hashed ? 'public, max-age=31536000, immutable' : 'no-cache',
+        );
+      }
+      done(null, payload);
+    });
+    // Client-side routes (/r/:id, /admin, ...) all load the SPA shell; a missing asset is a real 404.
     app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !req.url.startsWith('/api/')) return reply.sendFile('index.html');
+      const spaRoute = !req.url.startsWith('/api/') && !req.url.startsWith('/assets/');
+      if (req.method === 'GET' && spaRoute) return reply.sendFile('index.html');
       return reply.code(404).send({ error: { code: 'not-found', message: 'Not found.' } });
     });
   }
