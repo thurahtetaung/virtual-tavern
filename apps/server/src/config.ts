@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import type { R2Config } from './r2.ts';
 
 export interface Config {
   port: number;
@@ -15,6 +16,10 @@ export interface Config {
   version: string;
   logLevel: string;
   roomIdleDays: number;
+  /** Private asset storage (Cloudflare R2); the back room works without it, just with no pictures. */
+  r2: R2Config | null;
+  /** Registers the Peek demo private game (tests and dev only). */
+  demoPrivateGame: boolean;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -39,5 +44,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     version: env.APP_VERSION ?? 'dev',
     logLevel: env.LOG_LEVEL ?? 'info',
     roomIdleDays: Number(env.ROOM_IDLE_DAYS ?? 7),
+    r2:
+      env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET
+        ? {
+            accountId: env.R2_ACCOUNT_ID,
+            accessKeyId: env.R2_ACCESS_KEY_ID,
+            secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+            bucket: env.R2_BUCKET,
+          }
+        : null,
+    demoPrivateGame: env.ENABLE_DEMO_PRIVATE_GAME === '1' && !production,
   };
 }

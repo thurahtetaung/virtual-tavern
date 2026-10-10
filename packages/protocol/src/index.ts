@@ -22,6 +22,8 @@ export interface GameSummary {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  /** Back-room game, only listed for players who have unlocked it. */
+  private?: boolean;
 }
 
 export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });

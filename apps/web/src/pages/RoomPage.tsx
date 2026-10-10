@@ -7,7 +7,7 @@ import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
-import { type ClientGame, findGame } from '../games/registry.ts';
+import { type ClientGame, loadGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -16,21 +16,28 @@ import { NotFoundPage } from './NotFoundPage.tsx';
 
 export function RoomPage() {
   const { roomId = '' } = useParams();
+  const navigate = useNavigate();
   const [info, setInfo] = useState<RoomInfo | null | 'missing'>(null);
+  const [game, setGame] = useState<ClientGame | null | 'missing'>(null);
   const [name, setName] = useState<string | null>(() => savedName() || null);
 
   useEffect(() => {
     api<RoomInfo>(`/api/rooms/${roomId}`)
-      .then(setInfo)
-      .catch((err: unknown) =>
-        setInfo(err instanceof ApiFailure && err.status === 404 ? 'missing' : null),
-      );
-  }, [roomId]);
+      .then(async (room) => {
+        setInfo(room);
+        setGame((await loadGame(room.gameId)) ?? 'missing');
+      })
+      .catch((err: unknown) => {
+        // A back-room game: knock first, then come straight back here.
+        if (err instanceof ApiFailure && err.code === 'backroom-locked') {
+          void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`, { replace: true });
+        } else setInfo(err instanceof ApiFailure && err.status === 404 ? 'missing' : null);
+      });
+  }, [roomId, navigate]);
 
   if (info === 'missing')
     return <NotFoundPage message="This room does not exist or has expired. Ask for a new link!" />;
-  const game = info ? findGame(info.gameId) : undefined;
-  if (info && !game)
+  if (game === 'missing')
     return <NotFoundPage message="This room is for a game we don't have any more." />;
 
   if (!name) {
@@ -93,11 +100,18 @@ function Room({
   const act = useCallback(
     async (action: unknown) => {
       const res = await call('game:action', action);
-      if (!res.ok) toast(res.error.message);
+      if (!res.ok && res.error.code === 'backroom-locked') {
+        // The password changed mid-game: send the player back to the door.
+        void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
+      } else if (!res.ok) toast(res.error.message);
       return res.ok;
     },
-    [call, toast],
+    [call, toast, navigate, roomId],
   );
+
+  useEffect(() => {
+    if (status === 'locked') void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
+  }, [status, navigate, roomId]);
 
   if (status === 'kicked' || status === 'left') {
     return (

@@ -80,6 +80,15 @@ In the repository settings:
 
 After the first release publishes, set the `virtual-tavern` package's visibility to **Public** on GitHub, so the VPS can pull it without logging in.
 
+### 5. Private game assets (optional)
+
+Back-room games keep their art in a private Cloudflare R2 bucket.
+
+1. In the Cloudflare dashboard, enable **R2** and create a bucket (for example `virtual-tavern-private`). Leave public access off.
+2. **R2 → Manage API tokens → Create**: give the server an **Object Read** token scoped to that bucket, and add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` to the server's `.env`.
+3. Create a separate **Object Read & Write** token for uploads, and keep it on your own machine in `~/.config/virtual-tavern/r2-upload.env`, never on the server or in the repo.
+4. Open `/admin` → **Back room** and set the password.
+
 ## Day to day
 
 - **Ship:** merge the open Release PR, then approve the deploy when GitHub asks.

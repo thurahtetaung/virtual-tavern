@@ -50,6 +50,9 @@ importers:
       '@fastify/static':
         specifier: ^10.1.5
         version: 10.1.5
+      aws4fetch:
+        specifier: ^1.0.20
+        version: 1.0.20
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -78,6 +81,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-demo':
+        specifier: workspace:*
+        version: link:../../packages/private-games/demo
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -105,6 +111,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-demo':
+        specifier: workspace:*
+        version: link:../../packages/private-games/demo
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -169,6 +178,25 @@ importers:
         version: 19.3.0
 
   packages/games/enigma:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/demo:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*
@@ -1531,6 +1559,9 @@ packages:
 
   avvio@9.3.0:
     resolution: {integrity: sha512-g2tQ7LE7oOSqDfwEm3M+ZCMTJc7KiZCdJ4UwyZJb5ckTKyYu50OYmvv0mCFXPuYXoM4zkSt8zM9XQ9KCvxA74A==}
+
+  aws4fetch@1.0.20:
+    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
 
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
@@ -3725,6 +3756,8 @@ snapshots:
     dependencies:
       '@fastify/error': 4.2.0
       fastq: 1.20.3
+
+  aws4fetch@1.0.20: {}
 
   balanced-match@4.0.4: {}
 

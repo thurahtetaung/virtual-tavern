@@ -58,6 +58,11 @@ export interface GameDefinition<State, Action, View> {
   description: string;
   minPlayers: number;
   maxPlayers: number;
+  /**
+   * `private` games are only listed, created, joined and played by players who have unlocked
+   * the back room. Their assets live in private storage, never in the repo. Default: public.
+   */
+  access?: 'public' | 'private';
   /** Beginner-friendly rules; required so every game is learnable in-app. */
   guide: GameGuide;
   actionSchema: ZodType<Action>;

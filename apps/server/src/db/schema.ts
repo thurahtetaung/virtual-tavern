@@ -9,6 +9,12 @@ export const wordLists = sqliteTable('word_lists', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+/** Small key/value store for server-wide settings (e.g. the back-room password hash). */
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
 /** Built-in word packs already added once; admins may since have edited or deleted them. */
 export const seededPacks = sqliteTable('seeded_packs', {
   slug: text('slug').primaryKey(),

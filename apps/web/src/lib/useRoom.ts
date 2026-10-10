@@ -3,7 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Socket, io } from 'socket.io-client';
 import { playerToken } from './identity.ts';
 
-export type RoomStatus = 'connecting' | 'joined' | 'reconnecting' | 'kicked' | 'left' | 'error';
+export type RoomStatus =
+  | 'connecting'
+  | 'joined'
+  | 'reconnecting'
+  | 'kicked'
+  | 'left'
+  | 'error'
+  /** A back-room room, and this browser's unlock is missing or no longer valid. */
+  | 'locked';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -34,7 +42,7 @@ export function useRoom(roomId: string, name: string | null) {
             setStatus('joined');
             setError(null);
           } else {
-            setStatus('error');
+            setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
             setError(res.error.message);
           }
         },

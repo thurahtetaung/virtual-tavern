@@ -73,6 +73,13 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
 - release-please (`release.yml`) keeps a Release PR open. Merging it tags `vX.Y.Z`, publishes a multi-arch image to GHCR, then calls `deploy.yml`, which needs approval through the `production` environment. That job joins the tailnet (Tailscale OAuth, `tag:ci`), SSHes to the server and runs `scripts/deploy.sh <version>`: back up the DB, pull, wait for health, and roll back automatically on failure.
 - Running `deploy.yml` by hand redeploys or rolls back to any version. One-time server, Cloudflare and GitHub setup is in `docs/deployment.md`.
 
+## Back room (private games)
+
+- Games with `access: 'private'` (in `packages/private-games/`) are only listed, created, joined and played by browsers holding a current `vt_backroom` unlock. The admin sets one shared password in `/admin`; changing it, or **Sign everyone out**, bumps a version that invalidates every unlock (`apps/server/src/backroom.ts`). Sockets re-check the cookie on every action.
+- **Never commit protected assets.** The repo is public, and `*.zip` and `private-assets/` are git-ignored. Stage files by explicit path, never `git add -A`. Art and card files live in a private Cloudflare R2 bucket; the server hands unlocked players 10-minute signed links (`/api/backroom/assets/:gameId/*`) and each game's `manifest.json`. Upload with `scripts/r2-upload.mjs <gameId> <folder>`, which reads credentials from `~/.config/virtual-tavern/r2-upload.env`.
+- Private game UIs are registered in `apps/web/src/games/private.ts`. Vite builds them into `/backroom-assets/`, which the server serves only to unlocked browsers, with `Cache-Control: private, no-store`. Use `ProtectedImage` from `@vt/ui` for their art.
+- The Peek demo (`packages/private-games/demo`) is the template for new private games. It is registered only with `ENABLE_DEMO_PRIVATE_GAME=1`, as in e2e, and never in production.
+
 ## Conventions
 
 - Never mention or link existing online party-game websites in code or docs. Ship self-authored word lists, never the official Codenames card list.

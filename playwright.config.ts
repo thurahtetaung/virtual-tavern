@@ -26,6 +26,7 @@ export default defineConfig({
       ADMIN_PASSWORD: 'e2e-admin',
       SESSION_SECRET: 'e2e-secret',
       LOG_LEVEL: 'warn',
+      ENABLE_DEMO_PRIVATE_GAME: '1',
     },
   },
 });

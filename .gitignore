@@ -11,3 +11,7 @@ data/
 *.db
 *.db-*
 .DS_Store
+
+# Protected game assets: never commit (the repo is public). They live in private R2.
+*.zip
+private-assets/

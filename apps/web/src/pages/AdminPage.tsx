@@ -28,7 +28,10 @@ export function AdminPage() {
       ) : !session.signedIn ? (
         <Login onDone={refresh} />
       ) : (
-        <WordLists onSignOut={refresh} />
+        <div className="space-y-8">
+          <BackroomAdmin />
+          <WordLists onSignOut={refresh} />
+        </div>
       )}
     </Layout>
   );
@@ -84,6 +87,84 @@ function parseWords(text: string) {
     }
   }
   return { words, duplicates, tooLong: words.filter((w) => w.length > 40) };
+}
+
+/** The shared password for back-room (private) games. */
+function BackroomAdmin() {
+  const toast = useToast();
+  const [open, setOpen] = useState<boolean | null>(null);
+  const [password, setPassword] = useState('');
+  const load = useCallback(
+    () =>
+      void api<{ open: boolean }>('/api/admin/backroom')
+        .then((r) => setOpen(r.open))
+        .catch((e: Error) => toast(e.message)),
+    [toast],
+  );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await api('/api/admin/backroom/password', { method: 'PUT', body: { password } });
+      setPassword('');
+      toast(
+        open ? 'Password changed. Everyone has to knock again.' : 'The back room is open.',
+        'info',
+      );
+      load();
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+
+  const signOutAll = async () => {
+    if (!window.confirm('Sign everyone out of the back room? They will need the password again.'))
+      return;
+    await api('/api/admin/backroom/sign-out-all', { method: 'POST' });
+    toast('Everyone has been signed out of the back room.', 'info');
+  };
+
+  return (
+    <Panel className="space-y-3">
+      <div>
+        <h2 className="text-xl font-bold">🕯️ Back room</h2>
+        <p className="text-sm text-stone-600 dark:text-stone-400">
+          One shared password unlocks private games for 30 days per device.{' '}
+          {open === null
+            ? ''
+            : open
+              ? 'The back room is open.'
+              : 'No password yet, so the back room is closed.'}
+        </p>
+      </div>
+      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-2 sm:flex-row">
+        <label className="sr-only" htmlFor="backroom-password">
+          Back room password
+        </label>
+        <input
+          id="backroom-password"
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          minLength={4}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={open ? 'New password' : 'Set a password'}
+          className="h-11 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+        />
+        <Button type="submit" disabled={password.length < 4}>
+          {open ? 'Change password' : 'Open the back room'}
+        </Button>
+      </form>
+      {open && (
+        <Button variant="secondary" size="sm" onClick={() => void signOutAll()}>
+          Sign everyone out
+        </Button>
+      )}
+    </Panel>
+  );
 }
 
 function WordLists({ onSignOut }: { onSignOut: () => void }) {

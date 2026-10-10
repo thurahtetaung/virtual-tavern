@@ -72,13 +72,39 @@ function guard(log: FastifyBaseLogger, ack: unknown, run: () => Ack) {
 
 const notJoined: Ack = { ok: false, error: { code: 'not-joined', message: 'Join a room first.' } };
 
-export function attachRealtime(server: HttpServer, rooms: RoomManager, log: FastifyBaseLogger): IO {
+/** Decides who may enter private (back-room) rooms. */
+export interface RoomGate {
+  isPrivateRoom(roomId: string): boolean;
+  /** Whether a raw `Cookie` header carries a current back-room unlock. */
+  isUnlocked(cookieHeader: string | undefined): boolean;
+}
+
+const lockedOut: Ack = {
+  ok: false,
+  error: { code: 'backroom-locked', message: 'This room is in the back room. Unlock it first.' },
+};
+
+export function attachRealtime(
+  server: HttpServer,
+  rooms: RoomManager,
+  log: FastifyBaseLogger,
+  gate: RoomGate,
+): IO {
   const io: IO = new Server(server, { serveClient: false, connectionStateRecovery: undefined });
 
   io.on('connection', (socket: ClientSocket) => {
+    // The cookie is re-checked on every action, so changing the password locks out players mid-game.
+    const allowed = (roomId: string) =>
+      !gate.isPrivateRoom(roomId) || gate.isUnlocked(socket.request.headers.cookie);
+
     const inRoom = (fn: (roomId: string, playerId: string) => Ack) => () => {
       const { roomId, playerId } = socket.data;
-      return roomId && playerId ? fn(roomId, playerId) : notJoined;
+      if (!roomId || !playerId) return notJoined;
+      if (!allowed(roomId)) {
+        detach();
+        return lockedOut;
+      }
+      return fn(roomId, playerId);
     };
 
     const detach = () => {
@@ -100,6 +126,7 @@ export function attachRealtime(server: HttpServer, rooms: RoomManager, log: Fast
           };
         }
         const { roomId, token, name } = parsed.data;
+        if (!allowed(roomId)) return lockedOut;
         const playerId = playerIdFromToken(token);
         detach();
         const res = rooms.join(roomId, playerId, name);

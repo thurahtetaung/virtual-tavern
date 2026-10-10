@@ -13,6 +13,7 @@
     "@vt/game-codenames": "workspace:*",
     "@vt/game-enigma": "workspace:*",
     "@vt/game-sdk": "workspace:*",
+    "@vt/private-demo": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",
     "react": "^19.3.0",
