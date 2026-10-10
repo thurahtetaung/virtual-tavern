@@ -90,6 +90,34 @@ export interface GameDefinition<State, Action, View> {
   nextDeadline?(state: State): number | null;
   /** Called once the deadline has passed. Must always make progress (end the turn, time out…). */
   onDeadline?(state: State, now: number): State;
+  /**
+   * Stats only: what this accepted change meant, as game-agnostic events for the admin stats page
+   * (clues given, guesses, outcomes…). Pure and side-effect free like everything else; called by
+   * the room host after an action or deadline is committed. `by` is null for deadlines. Never
+   * affects play, so it can be added to a game at any time.
+   */
+  insights?(
+    before: State,
+    after: State,
+    action: Action | null,
+    by: PlayerId | null,
+  ): InsightEvent[];
+}
+
+/**
+ * A game-specific fact for the stats page. `type` is game-scoped and stable (e.g. 'clue', 'guess',
+ * 'card', 'outcome'); `words` are reported per kind so the stats store can count them; `players`
+ * credits outcomes (winners, the guesser…); everything else goes in `props` (JSON-serialisable).
+ */
+export interface InsightEvent {
+  type: string;
+  /** The player the event is about, if any (the clue giver, the guesser…). */
+  playerId?: PlayerId | null;
+  /** Words to count: clue / guess / cancelled / assassin / story. */
+  words?: { kind: 'clue' | 'guess' | 'cancelled' | 'assassin' | 'story'; word: string }[];
+  /** Players credited with a win, for leaderboards. */
+  winners?: PlayerId[];
+  props?: Record<string, string | number | boolean | null | string[] | number[]>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

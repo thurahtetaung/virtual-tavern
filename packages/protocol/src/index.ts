@@ -120,3 +120,4 @@ export interface ServerToClientEvents {
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
   'room:locked': () => void;
 }
+export * from './stats.ts';
