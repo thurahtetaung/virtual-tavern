@@ -78,6 +78,8 @@ export interface RoomSnapshot<View = unknown> {
   you: string;
   players: RoomPlayer[];
   game: View;
+  /** Server clock at send time, so clients can correct countdowns for clock skew. */
+  serverNow: number;
 }
 
 export type Ack = { ok: true } | { ok: false; error: { code: string; message: string } };

@@ -184,6 +184,7 @@ export class RoomManager {
       you: viewer,
       players: record.players.map((p) => ({ ...p, connected: room.connections.has(p.id) })),
       game: room.game.view(record.state, seated ? viewer : null),
+      serverNow: this.deps.now(),
     };
   }
 

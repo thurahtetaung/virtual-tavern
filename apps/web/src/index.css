@@ -1,1 +1,18 @@
 @import 'tailwindcss';
+
+/* Game UIs live in workspace packages; let Tailwind see their classes. */
+@source '../../../packages';
+
+@layer base {
+  html {
+    @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+  }
+  body {
+    @apply min-h-dvh;
+    background-image: radial-gradient(ellipse at top, rgb(251 191 36 / 0.12), transparent 60%);
+  }
+  h1,
+  h2 {
+    font-family: ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+  }
+}

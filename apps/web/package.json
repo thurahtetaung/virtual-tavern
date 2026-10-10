@@ -13,6 +13,7 @@
     "@vt/game-codenames": "workspace:*",
     "@vt/game-sdk": "workspace:*",
     "@vt/protocol": "workspace:*",
+    "@vt/ui": "workspace:*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
