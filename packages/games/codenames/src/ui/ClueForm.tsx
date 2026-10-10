@@ -2,15 +2,11 @@ import { Button } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import type { CodenamesAction } from '../logic/types.ts';
 
-const COUNTS: { label: string; value: number | null }[] = [
-  ...Array.from({ length: 9 }, (_, i) => ({ label: String(i + 1), value: i + 1 })),
-  { label: '0', value: 0 },
-  { label: '∞', value: null },
-];
+const COUNTS = Array.from({ length: 9 }, (_, i) => i + 1);
 
 export function ClueForm({ act }: { act: (a: CodenamesAction) => Promise<boolean> }) {
   const [word, setWord] = useState('');
-  const [count, setCount] = useState<number | null>(1);
+  const [count, setCount] = useState(1);
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
@@ -35,21 +31,21 @@ export function ClueForm({ act }: { act: (a: CodenamesAction) => Promise<boolean
       </label>
       <fieldset>
         <legend className="text-sm font-semibold">How many cards?</legend>
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div className="mt-1 grid grid-cols-9 gap-1">
           {COUNTS.map((c) => (
             <button
-              key={c.label}
+              key={c}
               type="button"
-              aria-pressed={count === c.value}
-              onClick={() => setCount(c.value)}
+              aria-pressed={count === c}
+              onClick={() => setCount(c)}
               className={
-                'size-9 rounded-lg text-sm font-bold ring-1 transition ' +
-                (count === c.value
+                'h-9 min-w-8 rounded-lg text-sm font-bold ring-1 transition ' +
+                (count === c
                   ? 'bg-amber-500 text-stone-950 ring-amber-600'
                   : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600')
               }
             >
-              {c.label}
+              {c}
             </button>
           ))}
         </div>

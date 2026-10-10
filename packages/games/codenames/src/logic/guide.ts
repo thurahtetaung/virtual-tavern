@@ -39,14 +39,13 @@ export const guide: GameGuide = {
       bullets: [
         'The clue must be a single word (hyphens are fine).',
         'It cannot be one of the words still face-down on the board.',
-        'Choose "Unlimited" (or 0) if you want your team to keep guessing as long as they like.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
       ],
     },
     {
       title: 'Guessing (Operatives)',
       paragraphs: [
-        'Discuss with your team. Tap a card to mark it as a suggestion your teammates can see. When you agree, reveal it with the Guess button.',
+        'Discuss with your team. Tap a card to mark it as a suggestion your teammates can see. When you agree, press Guess to flip the card and see what it is.',
       ],
       bullets: [
         'Your agent: great, you may keep guessing.',
@@ -60,13 +59,14 @@ export const guide: GameGuide = {
       title: 'Winning',
       bullets: [
         'A team wins as soon as all of its agents are revealed, even if the other team revealed the last one.',
-        'A team loses instantly if it reveals the assassin.',
+        'A team loses instantly if it guesses the assassin.',
       ],
     },
     {
       title: 'Turn timer (optional)',
       paragraphs: [
-        'The host can set a time limit for giving clues and for guessing. When time runs out, the turn passes to the other team.',
+        'The host can set a time limit for giving clues and for guessing. By default the timer is just a friendly nudge: it turns red when time is up, but nobody is forced to stop.',
+        'If the host picks "Strict", the turn passes to the other team the moment time runs out.',
       ],
     },
   ],
@@ -78,7 +78,7 @@ export const guide: GameGuide = {
   ],
   glossary: [
     { term: 'Agent', meaning: 'A card that belongs to a team. Find all of yours to win.' },
-    { term: 'Bystander', meaning: 'A neutral card. Revealing it ends your turn.' },
+    { term: 'Bystander', meaning: 'A neutral card. Guessing it ends your turn.' },
     { term: 'Assassin', meaning: 'The one card that makes your team lose instantly.' },
     { term: 'Key', meaning: 'The secret map of card colours that only Spymasters see.' },
   ],

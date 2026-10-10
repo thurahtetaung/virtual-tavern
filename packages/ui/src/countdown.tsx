@@ -15,17 +15,23 @@ export function useSecondsLeft(deadline: number | null, clockOffset: number): nu
 export function Countdown({
   deadline,
   clockOffset,
+  expiredLabel,
 }: {
   deadline: number | null;
   clockOffset: number;
+  /** Shown instead of 0:00 once time is up (for timers that don't end anything by themselves). */
+  expiredLabel?: string;
 }) {
   const left = useSecondsLeft(deadline, clockOffset);
   if (left === null) return null;
   const urgent = left <= 10;
-  const label = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  const label =
+    left === 0 && expiredLabel
+      ? expiredLabel
+      : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   return (
     <span
-      aria-label={`${left} seconds left`}
+      aria-label={left === 0 && expiredLabel ? expiredLabel : `${left} seconds left`}
       className={
         'inline-flex min-w-16 justify-center rounded-lg px-2 py-1 font-mono text-lg font-bold tabular-nums ' +
         (urgent

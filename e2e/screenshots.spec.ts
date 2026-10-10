@@ -47,6 +47,9 @@ for (const [label, viewport] of [
     await expect(op.getByText('Your turn to guess')).toBeVisible();
     await op.getByRole('gridcell').first().click();
     await op.screenshot({ path: `test-results/shots/${label}-operative.png`, fullPage: true });
+    await op.getByRole('button', { name: /^Guess / }).click();
+    await expect(op.getByText(/guessed/).first()).toBeVisible();
+    await op.screenshot({ path: `test-results/shots/${label}-result.png`, fullPage: true });
     await op.getByRole('button', { name: 'Rules' }).click();
     await op.screenshot({ path: `test-results/shots/${label}-rules.png` });
   });

@@ -143,6 +143,7 @@ function updateSettings(
   }
   if (action.clueSeconds !== undefined) settings.clueSeconds = action.clueSeconds;
   if (action.guessSeconds !== undefined) settings.guessSeconds = action.guessSeconds;
+  if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
   return { ...state, settings };
 }
 
@@ -315,9 +316,8 @@ function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
     if (remainingAgents(board, team) === 0) return endGame(next, team, 'all-agents');
   }
   if (card.kind !== turn.team) return endTurn(next, 'wrong-guess', ctx.now);
-  const count = turn.clue?.count ?? null;
-  // A clue for N allows N + 1 guesses; 0 or unlimited allows any number.
-  if (count !== null && count > 0 && guessesMade >= count + 1) {
+  // A clue for N allows N + 1 guesses.
+  if (guessesMade >= (turn.clue?.count ?? 1) + 1) {
     return endTurn(next, 'out-of-guesses', ctx.now);
   }
   return next;
@@ -356,6 +356,7 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): CodenamesState 
       wordListIds: firstList ? [firstList.id] : [],
       clueSeconds: null,
       guessSeconds: null,
+      timerMode: 'soft',
     },
     seats: Object.fromEntries(
       players.map((p) => [p.id, { name: p.name, team: null, role: 'operative' }]),
@@ -418,8 +419,10 @@ function view(state: CodenamesState, viewer: PlayerId | null): CodenamesView {
   };
 }
 
+/** Only strict timers are enforced; soft ones are shown to players but never end a turn. */
 function nextDeadline(state: CodenamesState): number | null {
-  return state.phase === 'playing' ? (state.turn?.deadline ?? null) : null;
+  if (state.phase !== 'playing' || state.settings.timerMode !== 'strict') return null;
+  return state.turn?.deadline ?? null;
 }
 
 function onDeadline(state: CodenamesState, now: number): CodenamesState {

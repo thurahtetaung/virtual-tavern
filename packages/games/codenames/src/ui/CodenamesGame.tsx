@@ -5,6 +5,8 @@ import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
 import { GameLog } from './GameLog.tsx';
+import { lastGuessResult } from './result.ts';
+import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
 import { startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
@@ -111,7 +113,9 @@ function InGame({
     }
   };
 
-  const reveal = async () => {
+  const result = lastGuessResult(view);
+
+  const guess = async () => {
     if (selected === null) return;
     const card = selected;
     setSelected(null);
@@ -122,6 +126,7 @@ function InGame({
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
+        {result && <ResultBanner key={view.log.length} result={result} />}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
 
         {turn?.clue && (
@@ -131,11 +136,16 @@ function InGame({
               {turn.clue.word}
             </b>
             <span className="text-stone-500"> · </span>
-            <b className="text-2xl">{turn.clue.count ?? '∞'}</b>
+            <b className="text-2xl">{turn.clue.count}</b>
           </p>
         )}
 
-        <Board view={view} selected={selected} onPick={canGuess ? pick : null} />
+        <Board
+          view={view}
+          selected={selected}
+          lastGuessed={result?.card ?? null}
+          onPick={canGuess ? pick : null}
+        />
 
         {canClue && (
           <Panel>
@@ -145,10 +155,10 @@ function InGame({
 
         {canGuess && (
           <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur dark:bg-stone-900/90 dark:ring-stone-700">
-            <Button size="lg" disabled={selected === null} onClick={() => void reveal()}>
+            <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
               {selected === null
-                ? 'Tap a card first'
-                : `Reveal ${view.board[selected]?.word.toUpperCase()}`}
+                ? 'Pick a card to guess'
+                : `Guess ${view.board[selected]?.word.toUpperCase()}`}
             </Button>
             <Button variant="secondary" size="lg" onClick={() => void act({ type: 'end-turn' })}>
               End turn
@@ -187,10 +197,7 @@ function InGame({
           <h3 className="mb-2 font-bold">Game log</h3>
           <GameLog view={view} />
         </Panel>
-        <Panel>
-          <h3 className="mb-2 font-bold">Teams</h3>
-          <Teams view={view} online={online} act={act} compact />
-        </Panel>
+        <TeamsSection view={view} online={online} act={act} />
         {room.isHost && view.phase === 'playing' && (
           <Button
             variant="ghost"
@@ -228,8 +235,47 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
         </div>
       ))}
       <div className="order-2">
-        <Countdown deadline={view.turn?.deadline ?? null} clockOffset={clockOffset} />
+        <Countdown
+          deadline={view.turn?.deadline ?? null}
+          clockOffset={clockOffset}
+          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+        />
       </div>
     </div>
+  );
+}
+
+/** Teams beside the board: collapsed by default on phones, where the board needs the room. */
+function TeamsSection(props: {
+  view: CodenamesView;
+  online: (id: string) => boolean;
+  act: CodenamesUiProps['act'];
+}) {
+  const { view } = props;
+  // Spectators need the join buttons, so the section starts open for them on every screen.
+  const [open, setOpen] = useState(
+    () => view.me?.team == null || window.matchMedia('(min-width: 1024px)').matches,
+  );
+  const count = (team: 'red' | 'blue') => view.seats.filter((s) => s.team === team).length;
+  const watching = view.seats.filter((s) => s.team === null).length;
+  return (
+    <Panel>
+      <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <h3 className="font-bold">Teams</h3>
+          <span className="flex items-center gap-2 text-sm text-stone-500">
+            <span className={TEAM_TEXT.red}>Red {count('red')}</span>·
+            <span className={TEAM_TEXT.blue}>Blue {count('blue')}</span>
+            {watching > 0 && <span>· {watching} watching</span>}
+            <span aria-hidden className="transition-transform group-open:rotate-180">
+              ▾
+            </span>
+          </span>
+        </summary>
+        <div className="mt-3">
+          <Teams {...props} compact />
+        </div>
+      </details>
+    </Panel>
   );
 }
