@@ -1,4 +1,5 @@
 import { type Browser, expect, test } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -38,9 +39,9 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   // The admin opens the back room.
   const admin = await visitor(browser);
   await admin.goto('/admin');
-  await admin.getByLabel('Admin password').fill('e2e-admin');
+  await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
-  await admin.getByLabel('Back room password').fill('speakeasy');
+  await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
   await admin.getByRole('button', { name: 'Open the back room' }).click();
   await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
 
@@ -50,7 +51,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await host.getByLabel('The word').fill('please');
   await host.getByRole('button', { name: 'Knock' }).click();
   await expect(host.getByText("That's not the word")).toBeVisible();
-  await host.getByLabel('The word').fill('speakeasy');
+  await host.getByLabel('The word').fill(TEST_BACKROOM_WORD);
   await host.getByRole('button', { name: 'Knock' }).click();
   // The back room is its own screen with its own game list; the home page stays unchanged.
   await expect(host).toHaveURL(/\/backroom$/);
@@ -77,7 +78,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   const friend = await visitor(browser, 'Ana');
   await friend.goto(roomUrl);
   await expect(friend).toHaveURL(/\/backroom\?next=/);
-  await friend.getByLabel('The word').fill('speakeasy');
+  await friend.getByLabel('The word').fill(TEST_BACKROOM_WORD);
   await friend.getByRole('button', { name: 'Knock' }).click();
   await expect(friend).toHaveURL(roomUrl);
   await expect(host.getByText('Players (2/8)')).toBeVisible();

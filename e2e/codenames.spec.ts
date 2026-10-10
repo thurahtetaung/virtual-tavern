@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -99,7 +100,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await admin.getByLabel('Admin password').fill('wrong');
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await expect(admin.getByText('Wrong password.')).toBeVisible();
-  await admin.getByLabel('Admin password').fill('e2e-admin');
+  await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
 
   await admin.getByRole('button', { name: '+ New list' }).click();

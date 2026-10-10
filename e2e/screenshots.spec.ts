@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -170,14 +171,16 @@ for (const [label, viewport] of [
         path: `test-results/shots/reverie-${label}-${name}.png`,
         fullPage: label === 'desktop',
       });
-    const login = await request.post('/api/admin/login', { data: { password: 'e2e-admin' } });
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
     const admin = login
       .headersArray()
       .find((h) => h.name.toLowerCase() === 'set-cookie')!
       .value.split(';')[0]!;
     await request.put('/api/admin/backroom/password', {
       headers: { cookie: admin },
-      data: { password: 'speakeasy' },
+      data: { password: TEST_BACKROOM_WORD },
     });
     let ip = 1;
     const make = async (name: string) => {
@@ -189,7 +192,7 @@ for (const [label, viewport] of [
       const p = await ctx.newPage();
       await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
       await p.goto('/backroom');
-      await p.getByLabel('The word').fill('speakeasy');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
       await p.getByRole('button', { name: 'Knock' }).click();
       await p.getByText("You're on the list").waitFor();
       return p;

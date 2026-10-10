@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -20,16 +21,16 @@ async function visitor(browser: Browser, name: string) {
 
 async function openBackroom(page: Page) {
   await page.goto('/admin');
-  await page.getByLabel('Admin password').fill('e2e-admin');
+  await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.getByLabel('Back room password').fill('speakeasy');
+  await page.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
   await page.getByRole('button', { name: /Open the back room|Change password/ }).click();
   await expect(page.getByRole('button', { name: 'Change password' })).toBeVisible();
 }
 
 async function unlock(page: Page, url = '/backroom') {
   await page.goto(url);
-  await page.getByLabel('The word').fill('speakeasy');
+  await page.getByLabel('The word').fill(TEST_BACKROOM_WORD);
   await page.getByRole('button', { name: 'Knock' }).click();
 }
 
