@@ -54,21 +54,25 @@ export function backupFiles(lists: readonly BackupList[]): Record<string, string
   return { 'manifest.json': `${JSON.stringify(manifest, null, 2)}\n`, ...files };
 }
 
-/** `virtual-tavern-word-lists-YYYY-MM-DD.zip`, in local time. */
-export function backupFileName(date: Date): string {
+/** `virtual-tavern-<kind>-YYYY-MM-DD.zip` (kind defaults to `word-lists`), in local time. */
+export function backupFileName(date: Date, kind = 'word-lists'): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  return `virtual-tavern-word-lists-${day}.zip`;
+  return `virtual-tavern-${kind}-${day}.zip`;
 }
 
-/** Zips the backup. fflate is loaded on first use, so it stays out of the main bundle. */
-export async function backupZip(lists: readonly BackupList[]): Promise<Blob> {
+/** Zips text files by path. fflate is loaded on first use, so it stays out of the main bundle. */
+export async function zipTextFiles(files: Record<string, string>): Promise<Blob> {
   const { strToU8, zipSync } = await import('fflate');
   const entries = Object.fromEntries(
-    Object.entries(backupFiles(lists)).map(([path, text]) => [path, strToU8(text)]),
+    Object.entries(files).map(([path, text]) => [path, strToU8(text)]),
   );
   return new Blob([zipSync(entries)], { type: 'application/zip' });
 }
+
+/** Zips the backup. */
+export const backupZip = (lists: readonly BackupList[]): Promise<Blob> =>
+  zipTextFiles(backupFiles(lists));
 
 /** A single list as `<slug>.txt`. */
 export const listFile = (list: Pick<BackupList, 'name' | 'words'>) => ({

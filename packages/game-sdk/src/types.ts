@@ -19,11 +19,39 @@ export interface WordListSummary {
   games?: string[];
 }
 
+/** A deck of trivia questions (admin-managed, private to the server's database). */
+export interface QuestionDeckSummary {
+  id: string;
+  name: string;
+  /** Short blurb shown to players when choosing decks. */
+  description?: string;
+  questionCount: number;
+  /** Whether the deck holds adult-only questions. */
+  adult?: boolean;
+}
+
+/** One trivia question. `prompt` contains exactly one `___` where the answer goes. */
+export interface Question {
+  /** Stable within its deck, e.g. `<deckId>:<index>`; used to avoid repeats. */
+  id: string;
+  deckId: string;
+  prompt: string;
+  answer: string;
+  /** Other accepted forms of the answer. */
+  alternates: string[];
+  /** Built-in fake answers the game may use as house lies. Never shown as such to players. */
+  decoys?: string[];
+}
+
 /** Server-provided content that games may read synchronously. */
 export interface ContentProvider {
   wordLists(): WordListSummary[];
   /** Words from the given lists, combined. May contain duplicates across lists. */
   words(listIds: readonly string[]): string[];
+  /** Enabled question decks offered to this game. Absent on servers without question decks. */
+  questionDecks?(): QuestionDeckSummary[];
+  /** Questions from the given decks (ignores unknown, disabled or untagged ids). */
+  questions?(deckIds: readonly string[]): Question[];
 }
 
 export interface CreateCtx {
@@ -70,6 +98,8 @@ export interface GameDefinition<State, Action, View> {
    * and `ctx.content` only offers a game the lists tagged for it. Default: false.
    */
   usesWordLists?: boolean;
+  /** Whether the game draws questions from admin question decks. Default: false. */
+  usesQuestionDecks?: boolean;
   /** Beginner-friendly rules; required so every game is learnable in-app. */
   guide: GameGuide;
   actionSchema: ZodType<Action>;

@@ -7,7 +7,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import { AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
-import { buildGames, isPrivate } from './games/registry.ts';
+import { type GameRegistry, buildGames, isPrivate } from './games/registry.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import { attachRealtime, createRoomEvents } from './realtime.ts';
 import { RoomManager } from './rooms/manager.ts';
@@ -21,6 +21,7 @@ import { LiveTracker } from './stats/live.ts';
 import { StatsRecorder } from './stats/recorder.ts';
 import { SqliteStatsStore } from './stats/sqlite-store.ts';
 import { RAW_RETENTION_DAYS } from './stats/types.ts';
+import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
 
@@ -37,6 +38,8 @@ export interface AppOptions {
   roomIdleDays?: number;
   logger?: FastifyServerOptions['logger'];
   now?: () => number;
+  /** The games to serve; defaults to every registered game (tests add stand-ins). */
+  games?: GameRegistry;
   /** Private asset storage; without it private games run but can't show pictures. */
   r2?: R2Config | null;
 }
@@ -90,7 +93,7 @@ export function buildApp(opts: AppOptions) {
   });
 
   const db = openDb(opts.databasePath, opts.migrationsFolder);
-  const games = buildGames();
+  const games = opts.games ?? buildGames();
   const backroom = new Backroom(db, now);
   const adminAuth = opts.adminPassword
     ? new AdminAuth(opts.adminPassword, opts.sessionSecret)
@@ -102,6 +105,7 @@ export function buildApp(opts: AppOptions) {
     const added = wordLists.seedPacks(loadWordPacks(opts.packsFolder));
     if (added.length) app.log.info({ packs: added }, 'added built-in word packs');
   }
+  const questionDecks = new QuestionDeckRepo(db, now);
 
   const stats = new SqliteStatsStore(db, {
     gameIds: [...games.keys()],
@@ -128,7 +132,7 @@ export function buildApp(opts: AppOptions) {
   const rooms: RoomManager = new RoomManager({
     store: new SqliteRoomStore(db),
     games,
-    content: wordLists,
+    content: roomContent(wordLists, questionDecks, games),
     events: createRoomEvents(
       () => realtime.io,
       () => rooms,
@@ -208,8 +212,8 @@ export function buildApp(opts: AppOptions) {
       games,
       unlocked: (req) => requestUnlocked(req, backroom),
     });
-    adminRoutes(scope, { auth: adminAuth, wordLists, backroom, now });
-    backroomRoutes(scope, { backroom, games, assets });
+    adminRoutes(scope, { auth: adminAuth, wordLists, questionDecks, backroom, now });
+    backroomRoutes(scope, { backroom, games, assets, questionDecks });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       statsRoutes(admin, {

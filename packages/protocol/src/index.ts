@@ -26,6 +26,8 @@ export interface GameSummary {
   private?: boolean;
   /** Whether the game draws words from word lists (and so can be picked under "Used by"). */
   wordLists: boolean;
+  /** Whether the game draws questions from question decks. */
+  questionDecks: boolean;
 }
 
 export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });
@@ -120,4 +122,5 @@ export interface ServerToClientEvents {
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
   'room:locked': () => void;
 }
+export * from './questions.ts';
 export * from './stats.ts';

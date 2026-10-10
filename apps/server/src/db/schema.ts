@@ -21,6 +21,38 @@ export const wordLists = sqliteTable('word_lists', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+/** One question in a deck; the stored shape of `questionBody` in `@vt/protocol`. */
+export interface QuestionRow {
+  prompt: string;
+  answer: string;
+  alternates: string[];
+  sources: string[];
+  adult: boolean;
+  tags: string[];
+  /** Ready-made fake answers games may use as house lies; never served over HTTP except to admins. */
+  decoys?: string[];
+}
+
+/**
+ * Trivia question decks. Private content: imported through the admin API, never committed.
+ * A question's id is `<deck id>:<index in questions>`.
+ */
+export const questionDecks = sqliteTable('question_decks', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  questions: text('questions', { mode: 'json' }).$type<QuestionRow[]>().notNull(),
+  /** Disabled decks stay in the admin area but are hidden from hosts and rooms. */
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  /** Ids of the games that offer this deck. */
+  games: text('games', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'["hoodwink"]'`),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 /** Small key/value store for server-wide settings (e.g. the back-room password hash). */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

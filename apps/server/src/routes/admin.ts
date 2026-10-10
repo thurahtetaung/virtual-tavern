@@ -1,12 +1,23 @@
-import { adminLoginBody, wordListBody, wordListEnabledBody } from '@vt/protocol';
+import {
+  adminLoginBody,
+  firstIssueMessage,
+  questionDeckBody,
+  questionDeckEnabledBody,
+  wordListBody,
+  wordListEnabledBody,
+} from '@vt/protocol';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type AdminAuth, clearAdminSession } from '../admin-auth.ts';
 import type { Backroom } from '../backroom.ts';
+import type { QuestionDeckRepo } from '../question-decks.ts';
 import type { WordListRepo } from '../word-lists.ts';
 
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
+
+/** A full deck (up to 5,000 questions with sources) can outgrow Fastify's default 1 MB body. */
+const DECK_BODY_LIMIT = 10 * 1024 * 1024;
 
 /** preHandler that lets only a signed-in admin through. */
 export function adminGuard(auth: AdminAuth | null, now: () => number) {
@@ -18,9 +29,15 @@ export function adminGuard(auth: AdminAuth | null, now: () => number) {
 
 export function adminRoutes(
   app: FastifyInstance,
-  opts: { auth: AdminAuth | null; wordLists: WordListRepo; backroom: Backroom; now: () => number },
+  opts: {
+    auth: AdminAuth | null;
+    wordLists: WordListRepo;
+    questionDecks: QuestionDeckRepo;
+    backroom: Backroom;
+    now: () => number;
+  },
 ) {
-  const { auth, wordLists, backroom, now } = opts;
+  const { auth, wordLists, questionDecks, backroom, now } = opts;
 
   /** A message naming the first id that is not a registered word-list game, or null. */
   const unknownGame = (games: readonly string[] | undefined) => {
@@ -111,6 +128,54 @@ export function adminRoutes(
     scope.delete<{ Params: { id: string } }>('/api/admin/word-lists/:id', (req, reply) => {
       if (!wordLists.delete(req.params.id))
         return error(reply, 404, 'not-found', 'Word list not found.');
+      return reply.code(204).send();
+    });
+
+    // ---- Question decks (private content: questions never reach players' browsers) ----
+
+    scope.get('/api/admin/question-decks', () => questionDecks.list());
+
+    // Every deck with its questions, for "Download all"; the zip is built in the browser.
+    scope.get('/api/admin/question-decks/export', () => questionDecks.exportAll());
+
+    scope.get<{ Params: { id: string } }>('/api/admin/question-decks/:id', (req, reply) => {
+      return (
+        questionDecks.get(req.params.id) ??
+        error(reply, 404, 'not-found', 'Question deck not found.')
+      );
+    });
+
+    scope.post('/api/admin/question-decks', { bodyLimit: DECK_BODY_LIMIT }, (req, reply) => {
+      const body = questionDeckBody.safeParse(req.body);
+      if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
+      return reply.code(201).send(questionDecks.create(body.data));
+    });
+
+    scope.put<{ Params: { id: string } }>(
+      '/api/admin/question-decks/:id',
+      { bodyLimit: DECK_BODY_LIMIT },
+      (req, reply) => {
+        const body = questionDeckBody.safeParse(req.body);
+        if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
+        return (
+          questionDecks.update(req.params.id, body.data) ??
+          error(reply, 404, 'not-found', 'Question deck not found.')
+        );
+      },
+    );
+
+    scope.patch<{ Params: { id: string } }>('/api/admin/question-decks/:id', (req, reply) => {
+      const body = questionDeckEnabledBody.safeParse(req.body);
+      if (!body.success) return error(reply, 400, 'bad-request', 'Send { "enabled": true|false }.');
+      return (
+        questionDecks.setEnabled(req.params.id, body.data.enabled) ??
+        error(reply, 404, 'not-found', 'Question deck not found.')
+      );
+    });
+
+    scope.delete<{ Params: { id: string } }>('/api/admin/question-decks/:id', (req, reply) => {
+      if (!questionDecks.delete(req.params.id))
+        return error(reply, 404, 'not-found', 'Question deck not found.');
       return reply.code(204).send();
     });
 
