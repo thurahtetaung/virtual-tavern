@@ -45,6 +45,12 @@ export function adminRoutes(
     return bad === undefined ? null : `"${bad}" is not a game that uses word lists.`;
   };
 
+  /** A message naming the first id that is not a registered question-deck game, or null. */
+  const unknownDeckGame = (games: readonly string[] | undefined) => {
+    const bad = games?.find((id) => !questionDecks.gameIds.includes(id));
+    return bad === undefined ? null : `games: "${bad}" is not a game that uses question decks.`;
+  };
+
   const requireAdmin = adminGuard(auth, now);
 
   app.post(
@@ -148,6 +154,8 @@ export function adminRoutes(
     scope.post('/api/admin/question-decks', { bodyLimit: DECK_BODY_LIMIT }, (req, reply) => {
       const body = questionDeckBody.safeParse(req.body);
       if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
+      const badGame = unknownDeckGame(body.data.games);
+      if (badGame) return error(reply, 400, 'bad-request', badGame);
       return reply.code(201).send(questionDecks.create(body.data));
     });
 
@@ -157,6 +165,8 @@ export function adminRoutes(
       (req, reply) => {
         const body = questionDeckBody.safeParse(req.body);
         if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
+        const badGame = unknownDeckGame(body.data.games);
+        if (badGame) return error(reply, 400, 'bad-request', badGame);
         return (
           questionDecks.update(req.params.id, body.data) ??
           error(reply, 404, 'not-found', 'Question deck not found.')

@@ -7,7 +7,7 @@ import Fastify, { type FastifyServerOptions } from 'fastify';
 import { AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
-import { type GameRegistry, buildGames, isPrivate } from './games/registry.ts';
+import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import { attachRealtime, createRoomEvents } from './realtime.ts';
 import { RoomManager } from './rooms/manager.ts';
@@ -105,12 +105,17 @@ export function buildApp(opts: AppOptions) {
     const added = wordLists.seedPacks(loadWordPacks(opts.packsFolder));
     if (added.length) app.log.info({ packs: added }, 'added built-in word packs');
   }
-  const questionDecks = new QuestionDeckRepo(db, now);
+  const questionDecks = new QuestionDeckRepo(db, now, questionDeckGameIds(games));
 
   const stats = new SqliteStatsStore(db, {
     gameIds: [...games.keys()],
     gameName: (id) => games.get(id)?.name ?? id,
-    label: (key, value) => (key === 'wordList' ? wordLists.get(value)?.name : undefined),
+    label: (key, value) =>
+      key === 'wordList'
+        ? wordLists.get(value)?.name
+        : key === 'questionDeck'
+          ? questionDecks.name(value)
+          : undefined,
   });
   const recorder = new StatsRecorder({ store: stats, logger: app.log });
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */

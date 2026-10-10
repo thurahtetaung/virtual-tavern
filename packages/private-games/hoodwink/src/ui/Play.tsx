@@ -125,7 +125,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           🤖 Picked for you: it scores half. Type your own to replace it.
         </p>
       )}
-      <div className={cn('grid gap-2', round.canLieForMe && 'grid-cols-[3fr_2fr]')}>
+      <div className={cn('grid gap-2', round.canLieForMe && 'grid-cols-[1fr_auto]')}>
         <Button
           type="submit"
           size="lg"
@@ -137,7 +137,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           <Button
             variant="secondary"
             size="lg"
-            className="px-3"
+            className="px-3 whitespace-nowrap max-sm:text-base"
             disabled={busy}
             onClick={() => void lieForMe()}
           >
@@ -355,10 +355,15 @@ export function GameOver({ view, act, isHost }: Props) {
   const ranked = view.scores;
   const place = ranks(ranked.map((s) => s.score));
   const podium = ranked.filter((_, i) => place[i]! <= 3);
-  // Podium order: 2nd, 1st, 3rd, like a real one.
-  const order = [1, 0, 2].flatMap((rank) =>
-    podium.filter((s) => place[ranked.indexOf(s)]! - 1 === rank),
-  );
+  // Like a real podium: winners in the middle, the rest alternating left and right (2nd, 1st, 3rd),
+  // so ties never push the winner to one side.
+  const order: typeof podium = podium.filter((s) => place[ranked.indexOf(s)] === 1);
+  podium
+    .filter((s) => place[ranked.indexOf(s)]! > 1)
+    .forEach((s, i) => {
+      if (i % 2 === 0) order.unshift(s);
+      else order.push(s);
+    });
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;

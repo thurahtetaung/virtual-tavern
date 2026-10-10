@@ -35,26 +35,30 @@ export function normaliseWord(s: string): string {
 const MIN_STEM = 3;
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y']);
 
-/** Suffix rules, tried in order; the first whose result keeps at least `MIN_STEM` letters wins. */
-const SUFFIXES: { test: RegExp; replace: string }[] = [
+/** One rule per group, tried in order; the first whose result keeps `MIN_STEM` letters wins. */
+const PLURALS: { test: RegExp; replace: string }[] = [
   { test: /ies$/, replace: 'y' }, // berries → berry
   { test: /(?<=(?:s|x|z|ch|sh))es$/, replace: '' }, // boxes → box, buses → bus, wishes → wish
   { test: /(?<![isu])s$/, replace: '' }, // cats → cat; not glass, bus, tennis
+];
+const ENDINGS: { test: RegExp; replace: string }[] = [
   { test: /ing$/, replace: '' }, // running → runn
   { test: /ed$/, replace: '' }, // played → play
   { test: /er$/, replace: '' }, // runner → runn
 ];
 
-function stem(word: string): string {
-  let w = word;
-  for (const { test, replace } of SUFFIXES) {
-    if (!test.test(w)) continue;
-    const cut = w.replace(test, replace);
-    if (cut.length >= MIN_STEM) {
-      w = cut;
-      break;
-    }
+function strip(word: string, rules: typeof PLURALS): string {
+  for (const { test, replace } of rules) {
+    if (!test.test(word)) continue;
+    const cut = word.replace(test, replace);
+    if (cut.length >= MIN_STEM) return cut;
   }
+  return word;
+}
+
+function stem(word: string): string {
+  // A plural first, then a verb ending, so crossings / crossing and players / player meet too.
+  let w = strip(strip(word, PLURALS), ENDINGS);
   // A silent final e, so bake / baking / baker and horse / horses meet ("bak", "hors").
   if (w.length > MIN_STEM && w.endsWith('e') && !w.endsWith('ee')) w = w.slice(0, -1);
   // A doubled final consonant, so run / running and ball / balls meet ("run", "bal").

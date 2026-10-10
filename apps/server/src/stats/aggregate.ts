@@ -53,6 +53,9 @@ const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
+/** Internal word kind: Hoodwink lies weighted by players fooled (read by fun facts only). */
+export const FOOLED_KIND = 'fooled';
+
 /** Insight types whose actor's time-to-act counts as a guess. */
 const GUESS_TYPES = new Set(['guess', 'card']);
 
@@ -153,6 +156,21 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
   }
   if (game === 'codenames' && type === 'guess' && playerId && isAssassinGuess(props))
     credit(playerId, 'assassins');
+  if (game === 'hoodwink' && type === 'lie') {
+    // "Best liar": every author of a lie shares the credit for everyone it fooled. "Most
+    // convincing lie": the lie's words, weighted by how many it fooled.
+    const fooled = num(props.fooled) ?? 0;
+    if (fooled > 0) {
+      for (const p of strings(props.authors)) credit(p, 'fooled', fooled);
+      for (const w of Array.isArray(props.words) ? props.words : []) {
+        const word =
+          typeof (w as { word?: unknown })?.word === 'string'
+            ? normWord((w as { word: string }).word)
+            : '';
+        if (word) agg.addWord(day, game, FOOLED_KIND, word, fooled);
+      }
+    }
+  }
   if (game === 'echo') {
     // "The echo": whose clues most often matched someone else's (and so were cancelled). Each
     // `match` event is one pair of players whose clues cancelled; both get the credit.

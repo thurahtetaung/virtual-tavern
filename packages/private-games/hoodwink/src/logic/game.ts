@@ -482,14 +482,21 @@ function nextRound(state: HoodwinkState, ctx: Ctx): Result {
   return beginRound(state, round.number + 1, ctx.now);
 }
 
-/** Keeps the deck list (and a still-empty selection) up to date between games. */
+/**
+ * Keeps the deck list up to date between games: decks an admin removed or switched off drop out
+ * of the selection, and an empty selection falls back to the defaults.
+ */
 function refreshDecks(state: HoodwinkState, ctx: Ctx): HoodwinkState {
   if (state.phase === 'playing') return state;
   const decks = offeredDecks(ctx.content);
+  const offered = new Set(decks.map((d) => d.id));
+  const kept = state.settings.deckIds.filter((id) => offered.has(id));
+  const deckIds = kept.length ? kept : defaultDeckIds(decks);
   const settings =
-    state.settings.deckIds.length === 0
-      ? { ...state.settings, deckIds: defaultDeckIds(decks) }
-      : state.settings;
+    deckIds.length === state.settings.deckIds.length &&
+    deckIds.every((id, i) => id === state.settings.deckIds[i])
+      ? state.settings
+      : { ...state.settings, deckIds };
   return { ...state, decks, settings };
 }
 

@@ -7,6 +7,7 @@ import type { GameFigure } from '@vt/protocol';
 //   enigma     decode {success}, intercept {success}, outcome {winner, round}
 //   echo       card {outcome: right|wrong|pass}, match {a, b, word}, outcome {score, deckSize}
 //   reverie    story {allOrNone}, vote {found}, outcome {target}
+//   hoodwink   lie {fooled, authors, auto}, vote {foundTruth}, round {…}, outcome {rounds}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -84,6 +85,18 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
       break;
     case 'reverie:outcome':
       out.push(['f.games', 1], ['f.target_sum', num(props.target) ?? 0]);
+      break;
+    case 'hoodwink:lie': {
+      const fooled = num(props.fooled) ?? 0;
+      out.push(['f.lies', 1], ['f.fooled_sum', fooled]);
+      if (fooled > 0) out.push(['f.lies_fooling', 1]);
+      break;
+    }
+    case 'hoodwink:vote':
+      flag('votes', props.foundTruth);
+      break;
+    case 'hoodwink:outcome':
+      out.push(['f.games', 1], ['f.round_sum', num(props.rounds) ?? 0]);
       break;
   }
   return out;
@@ -215,6 +228,27 @@ export function buildFigures(
           label: 'Average target score',
           kind: 'number',
           value: avg(get('f.target_sum'), games),
+        },
+      ];
+    case 'hoodwink':
+      return [
+        {
+          id: 'truth-rate',
+          label: 'Votes that found the truth',
+          kind: 'percent',
+          value: pct(get('f.votes_yes'), get('f.votes')),
+        },
+        {
+          id: 'fooling-rate',
+          label: 'Lies that fooled someone',
+          kind: 'percent',
+          value: pct(get('f.lies_fooling'), get('f.lies')),
+        },
+        {
+          id: 'fooled-per-lie',
+          label: 'Players fooled per lie',
+          kind: 'number',
+          value: avg(get('f.fooled_sum'), get('f.lies')),
         },
       ];
     default:

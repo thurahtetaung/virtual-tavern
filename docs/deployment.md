@@ -137,7 +137,7 @@ All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
   rm -rf /tmp/decks /tmp/import-question-decks.mjs; unset ADMIN_PASSWORD
   ```
 
-  Every deck is validated first and nothing is uploaded if any fails. Decks whose name already exists are skipped, so re-running is safe; `--only <glob>` / `--skip <glob>` pick decks by slug. To replace a deck, delete it in `/admin` first. Node 24 must be on the host's `PATH` (or run it with `docker run --rm --network host -v /tmp:/tmp node:24-alpine node ...`).
+  Every deck is validated first and nothing is uploaded if any fails. A deck's `games` (in the manifest) may only name games that use question decks (today just `hoodwink`, the default); the server refuses anything else. Decks whose name already exists are skipped, so re-running is safe; `--only <glob>` / `--skip <glob>` pick decks by slug. To replace a deck, delete it in `/admin` first. Node 24 must be on the host's `PATH` (or run it with `docker run --rm --network host -v /tmp:/tmp node:24-alpine node ...`).
 
 - **Check the running version:** `curl -s localhost:$APP_PORT/healthz` (or the public `/healthz`) answers `{"status":"ok","version":"X.Y.Z"}`; `{"status":"degraded"}` with a 503 means the database is not answering, and Docker's health check turns the container unhealthy.
 

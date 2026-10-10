@@ -21,3 +21,7 @@ export const isPrivate = (game: AnyGameDefinition | undefined) => game?.access =
 /** Ids of the registered games that draw words from word lists, in registry order. */
 export const wordListGameIds = (games: GameRegistry): string[] =>
   [...games.values()].filter((g) => g.usesWordLists).map((g) => g.id);
+
+/** Ids of the registered games that draw questions from question decks, in registry order. */
+export const questionDeckGameIds = (games: GameRegistry): string[] =>
+  [...games.values()].filter((g) => g.usesQuestionDecks).map((g) => g.id);

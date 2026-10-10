@@ -1,17 +1,24 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
-import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
+import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
 const pageErrors: string[] = [];
+/** Decks this spec imported, deleted after each test (pass or fail) so later specs see their own. */
+const cleanup: (() => Promise<unknown>)[] = [];
+test.afterEach(async () => {
+  for (const undo of cleanup.splice(0)) await undo();
+});
 test.afterEach(() => {
   const errors = pageErrors.splice(0);
   expect(errors, 'uncaught errors in the browser').toEqual([]);
 });
 
+// The back-room knock and admin sign-in are rate-limited per address, so each browser gets its
+// own (a range no other spec uses).
 let nextIp = 1;
 async function visitor(browser: Browser, name: string) {
-  // The back-room knock is rate-limited per address, so each browser gets its own.
+  const worker = Number(process.env.TEST_WORKER_INDEX ?? 0) % 200;
   const context = await browser.newContext({
-    extraHTTPHeaders: { 'cf-connecting-ip': `10.2.0.${nextIp++}` },
+    extraHTTPHeaders: { 'cf-connecting-ip': `10.6.${worker}.${(nextIp++ % 250) + 1}` },
   });
   const page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(e.message));
@@ -21,6 +28,7 @@ async function visitor(browser: Browser, name: string) {
 
 /** The admin signs in and sets the back-room password. */
 async function openBackroom(page: Page) {
+  await ownLoginLimit(page);
   await page.goto('/admin');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -38,6 +46,9 @@ async function unlock(page: Page, url = '/backroom') {
 const YOUR_TURN = /^● Your turn/;
 const TRUTH = 'Zebra crossing';
 
+/** Ready-made fakes: "Lie for me" picks one, and a small board is padded with another. */
+const DECOYS = ['Coin toss', 'Goat race', 'Snail derby', 'Pie contest'];
+
 /** A tiny made-up deck: every question has the same answer, so the test knows the truth. */
 const DECK = {
   name: 'E2E made-up facts',
@@ -46,15 +57,15 @@ const DECK = {
     prompt: `In the invented village of Plimbo ${i + 1}, the mayor is chosen by a ___.`,
     answer: TRUTH,
     alternates: ['Pedestrian crossing'],
+    decoys: DECOYS,
   })),
 };
 
-/** Imports the deck as the signed-in admin; false if this server has no question decks yet. */
-async function importDeck(admin: Page): Promise<boolean> {
+/** Imports the deck through the admin API (the import script's route); returns its id. */
+async function importDeck(admin: Page): Promise<string> {
   const res = await admin.request.post('/api/admin/question-decks', { data: DECK });
-  if (res.status() === 404) return false;
   expect(res.status(), await res.text()).toBe(201);
-  return true;
+  return ((await res.json()) as { id: string }).id;
 }
 
 async function sendLie(page: Page, lie: string) {
@@ -76,14 +87,17 @@ async function vote(page: Page, answer: string) {
   ).toBeVisible();
 }
 
-test('four players play a round of Hoodwink in the back room: a refused truth, a merged lie, votes and scores', async ({
+const scoreIs = (page: Page, score: number) =>
+  expect(page.getByRole('img', { name: `Your score ${score}` })).toBeVisible();
+
+test('four players play Hoodwink in the back room: a refused truth, merged lies, "Lie for me", house fakes and scores', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
   const admin = await visitor(browser, 'Admin');
   await openBackroom(admin);
-  // TODO: drop this skip once the question-deck admin API is merged into this branch.
-  test.skip(!(await importDeck(admin)), 'POST /api/admin/question-decks is not available yet');
+  const deckId = await importDeck(admin);
+  cleanup.push(() => admin.request.delete(`/api/admin/question-decks/${deckId}`));
 
   const host = await visitor(browser, 'Hana');
   await unlock(host);
@@ -103,13 +117,17 @@ test('four players play a round of Hoodwink in the back room: a refused truth, a
     ).toBeVisible();
   }
   const [ana, ben, cy] = joined as [Page, Page, Page];
+  const everyone = [host, ana, ben, cy];
+  // Deck names come from the server through the room (players never fetch the deck list).
   await expect(host.getByRole('region', { name: 'Question decks' })).toContainText(DECK.name);
+  await expect(ana.getByRole('region', { name: 'Question decks' })).toContainText(DECK.name);
   await host.getByRole('button', { name: '5 rounds' }).click();
   await expect(ana.getByText('5 rounds')).toBeVisible();
   await expect(host.getByText('Everyone is in')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
-  // Writing: the real answer is refused, and two players write the same lie.
+  // Round 1, writing: the real answer is refused, and two players write the same lie.
+  for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
   await expect(ana.getByTestId('prompt')).toContainText('the mayor is chosen by a');
   await expect(ana.getByTestId('prompt')).not.toContainText(TRUTH);
   await ana.getByLabel('Your lie').fill('zebra crossings');
@@ -117,12 +135,16 @@ test('four players play a round of Hoodwink in the back room: a refused truth, a
   await expect(ana.getByText('That’s the real answer — write a lie!').first()).toBeVisible();
   await sendLie(ana, 'Tiny ukulele');
   await expect(ana.getByText('1 of 4 lies in')).toBeVisible();
+  // Only players who still need to act see "Your turn" in the tab title.
+  await expect(ana).not.toHaveTitle(YOUR_TURN);
+  await expect(ben).toHaveTitle(YOUR_TURN);
   await sendLie(ben, 'tiny ukuleles');
   await sendLie(cy, 'Garden gnome');
   await sendLie(host, 'Purple llama');
 
-  // Voting: four answers (the merged lie once), and your own lie can't be picked.
-  for (const page of [host, ana, ben, cy]) {
+  // Voting: four answers (the merged lie once, no house fake needed), and your own lie can't be
+  // picked.
+  for (const page of everyone) {
     await expect(page.getByRole('list', { name: 'Answers' }).getByRole('button')).toHaveCount(4);
   }
   await expect(
@@ -130,6 +152,7 @@ test('four players play a round of Hoodwink in the back room: a refused truth, a
   ).toBeDisabled();
   await expect(ben.getByRole('button', { name: /Tiny ukulele/ })).toContainText('Your lie');
   await vote(host, 'Tiny ukulele');
+  await expect(host).not.toHaveTitle(YOUR_TURN);
   await vote(ana, TRUTH);
   await vote(ben, 'Garden gnome');
   await vote(cy, 'Purple llama');
@@ -138,13 +161,63 @@ test('four players play a round of Hoodwink in the back room: a refused truth, a
   const revealed = cy.getByRole('list', { name: 'Answers revealed' });
   await expect(revealed).toContainText('✅ The truth');
   await expect(revealed).toContainText('🎭 Lie by Ana and Ben');
+  await expect(revealed).not.toContainText('House fake');
   await expect(cy.getByTestId('prompt')).toContainText(TRUTH);
-  await expect(ana.getByRole('img', { name: 'Your score 1250' })).toBeVisible();
-  await expect(ben.getByRole('img', { name: 'Your score 250' })).toBeVisible();
-  await expect(cy.getByRole('img', { name: 'Your score 500' })).toBeVisible();
-  await expect(host.getByRole('img', { name: 'Your score 500' })).toBeVisible();
+  await scoreIs(ana, 1250);
+  await scoreIs(ben, 250);
+  await scoreIs(cy, 500);
+  await scoreIs(host, 500);
   await expect(host).toHaveTitle(YOUR_TURN); // the host moves the game on
+  await expect(ana).not.toHaveTitle(YOUR_TURN);
   await host.getByRole('button', { name: 'Next round' }).click();
+
+  // Round 2: Ana lets the game lie for her; the other three write the same lie, so the board is
+  // padded with a house fake.
   await expect(ana.getByText('Round 2/5')).toBeVisible();
-  await expect(ana).toHaveTitle(YOUR_TURN);
+  for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
+  await ana.getByRole('button', { name: '🎲 Lie for me' }).click();
+  await expect(ana.getByText('🤖 Picked for you: it scores half.')).toBeVisible();
+  const autoLie = await ana.getByLabel('Your lie').inputValue();
+  expect(DECOYS).toContain(autoLie);
+  await expect(ana).not.toHaveTitle(YOUR_TURN);
+  await expect(cy).toHaveTitle(YOUR_TURN);
+  await sendLie(ben, 'Moon cheese');
+  await sendLie(cy, 'Moon cheese');
+  await sendLie(host, 'Moon cheese');
+
+  const answers = ben.getByRole('list', { name: 'Answers' }).getByRole('button');
+  await expect(answers).toHaveCount(4);
+  const texts = (await answers.allInnerTexts()).map((t) => t.split('\n')[0]!.trim());
+  const house = texts.find((t) => ![TRUTH, 'Moon cheese', autoLie].includes(t));
+  expect(DECOYS).toContain(house);
+  await vote(host, autoLie);
+  await vote(ana, 'Moon cheese');
+  await vote(ben, house!);
+  await vote(cy, TRUTH);
+
+  // The reveal names the lie picked for Ana and the house fake; Ana's lie scores half (250).
+  const second = cy.getByRole('list', { name: 'Answers revealed' });
+  await expect(second).toContainText('🏠 House fake');
+  await expect(second).toContainText('🎭 Lie by Ana');
+  await expect(second).toContainText('🤖 lie for me / filled in');
+  await expect(cy.getByRole('list', { name: 'Points this round' })).toContainText('Ana +250');
+  // 500 shared three ways rounds down to 150 each.
+  await scoreIs(ana, 1500);
+  await scoreIs(ben, 400);
+  await scoreIs(cy, 1650);
+  await scoreIs(host, 650);
+  await host.getByRole('button', { name: 'Next round' }).click();
+  await expect(ana.getByText('Round 3/5')).toBeVisible();
+  for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
+
+  // The admin stats page shows the game: its lies in the word cloud and how often the truth won.
+  await admin.goto('/admin/stats?tab=games&game=hoodwink');
+  const words = admin.getByRole('region', { name: 'Words', exact: true });
+  await expect(words.getByRole('button', { name: 'Lies' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(words.getByRole('list', { name: 'Lies' })).toContainText('tiny ukulele');
+  await expect(words.getByRole('list', { name: 'Lies' })).toContainText('moon cheese');
+  await expect(admin.getByRole('meter', { name: 'Votes that found the truth' })).toHaveAttribute(
+    'aria-valuenow',
+    '25',
+  );
 });

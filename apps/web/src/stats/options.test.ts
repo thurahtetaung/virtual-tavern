@@ -35,13 +35,16 @@ const series = [
 type Json = any;
 
 describe('chart colours', () => {
-  it('gives public games fixed slots and hashes others into the rest, by id alone', () => {
+  it('gives known games fixed slots and hashes others into the rest, by id alone', () => {
     const slots = gameSlots(['zeta', 'echo', 'alpha']);
     expect(slots.get('codenames')).toBe(0);
     expect(slots.get('enigma')).toBe(1);
     expect(slots.get('echo')).toBe(2);
-    for (const id of ['zeta', 'alpha', 'reverie']) {
-      expect(slotFor(id)).toBeGreaterThanOrEqual(3);
+    // Reverie keeps the slot its id hashed to before the order was fixed; Hoodwink comes next.
+    expect(slots.get('reverie')).toBe(3);
+    expect(slots.get('hoodwink')).toBe(4);
+    for (const id of ['zeta', 'alpha']) {
+      expect(slotFor(id)).toBeGreaterThanOrEqual(5);
       expect(slotFor(id)).toBeLessThan(8);
     }
     // A filter that hides a game never repaints the others.

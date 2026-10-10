@@ -56,11 +56,14 @@ const DARK: ChartTokens = {
 
 export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ? DARK : LIGHT);
 
-/** Public games keep their slot whatever else is in the data, so colour follows the game. */
-const FIXED_ORDER = ['codenames', 'enigma', 'echo'];
+/**
+ * Known games keep their slot whatever else is in the data, so colour follows the game. Append new
+ * games at the end: Reverie sits where its id used to hash, so no existing game changes colour.
+ */
+const FIXED_ORDER = ['codenames', 'enigma', 'echo', 'reverie', 'hoodwink'];
 
 /**
- * Stable slot per game id: the public games have fixed slots, and any other game hashes into the
+ * Stable slot per game id: the known games have fixed slots, and any other game hashes into the
  * remaining ones. A slot depends only on the id, never on which games are in the data, so colour
  * follows the game across every chart and a filter never repaints the survivors.
  */

@@ -2,6 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_SESSION_SECRET } from './e2e/credentials.ts';
 
 const PORT = 4321;
+const SHARED_STATE = [
+  /backroom\.spec\.ts$/,
+  /reverie\.spec\.ts$/,
+  /hoodwink\.spec\.ts$/,
+  /question-decks\.spec\.ts$/,
+  /screenshots\.spec\.ts$/,
+];
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,7 +24,17 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: SHARED_STATE },
+    // These specs share server-wide state: the back-room password (setting it or signing everyone
+    // out ends every unlock) and the question decks a new Hoodwink room offers. One at a time.
+    {
+      name: 'back-room',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: SHARED_STATE,
+      workers: 1,
+    },
+  ],
   // Runs the production build: `pnpm build` first.
   webServer: {
     command: 'node apps/server/dist/index.js',

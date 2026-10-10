@@ -76,7 +76,11 @@ export function participants(record: RoomRecord): string[] {
   return record.players.map((p) => p.id);
 }
 
-const SETTING_KEYS: Record<string, string> = { wordListIds: 'wordList', sets: 'cardSet' };
+const SETTING_KEYS: Record<string, string> = {
+  wordListIds: 'wordList',
+  sets: 'cardSet',
+  deckIds: 'questionDeck',
+};
 
 /** The game's settings as `key=value` strings; lists become one entry per item. */
 export function settingsOf(state: unknown): string[] {

@@ -90,6 +90,21 @@ describe('lobby', () => {
     expect(h.state.settings.deckIds).toEqual(['fresh']);
   });
 
+  it('drops decks an admin removed or switched off from the selection', () => {
+    const decks: FakeDeck[] = [deck('odd', 12), deck('wild', 6)];
+    const h = harness(FOUR, content(decks));
+    h.act({ type: 'update-settings', deckIds: ['wild'] });
+    decks.pop();
+    h.act({ type: 'update-settings', rounds: 5 });
+    // The only chosen deck is gone, so the selection falls back to the defaults.
+    expect(h.state.settings.deckIds).toEqual(['odd']);
+    decks.push(deck('wild', 6));
+    h.act({ type: 'update-settings', deckIds: ['odd', 'wild'] });
+    decks.shift();
+    h.act({ type: 'update-settings', rounds: 7 });
+    expect(h.state.settings.deckIds).toEqual(['wild']);
+  });
+
   it('works on a server without question decks', () => {
     const h = harness(FOUR, { wordLists: () => [], words: () => [] });
     expect(h.state.decks).toEqual([]);
@@ -203,6 +218,9 @@ describe('writing lies', () => {
     h.act({ type: 'lie', text: 'Wooden fork' }, 'p2');
     expect(lieProblem('spoon', riddle.questions[0])).toBeNull();
     expect(lieProblem('wooden spoon')).toBeNull();
+    // Plurals of words with an ending count as the truth too.
+    const crossing = { answer: 'Zebra crossing', alternates: [] };
+    expect(lieProblem('zebra crossings', crossing)?.code).toBe('is-the-truth');
   });
 
   it('only lets this round’s players write', () => {

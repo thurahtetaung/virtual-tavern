@@ -16,7 +16,7 @@ import type {
   StatsWords,
   WordKind,
 } from '@vt/protocol';
-import { type Agg, split } from './aggregate.ts';
+import { type Agg, FOOLED_KIND, split } from './aggregate.ts';
 import { bucketOf, eachDay, weekday } from './days.ts';
 import { buildFigures } from './figures.ts';
 import type { Window } from './types.ts';
@@ -296,6 +296,7 @@ interface PlayerTotals {
   actN: number;
   assassins: number;
   echoes: number;
+  fooled: number;
   perfect: number;
   calendar: Map<string, number>;
 }
@@ -330,6 +331,9 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
         break;
       case 'echoes':
         t.echoes += value;
+        break;
+      case 'fooled':
+        t.fooled += value;
         break;
       case 'perfect':
         t.perfect += value;
@@ -380,6 +384,7 @@ function emptyTotals(): PlayerTotals {
     actN: 0,
     assassins: 0,
     echoes: 0,
+    fooled: 0,
     perfect: 0,
     calendar: new Map(),
   };
@@ -520,6 +525,13 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     (who, n) => `${who} found the assassin ${times(n)}`,
     'codenames',
   );
+  byPlayer(
+    'best-liar',
+    'Best liar',
+    (t) => t.fooled,
+    (who, n) => `${who}'s lies fooled ${plural(n, 'player')}`,
+    'hoodwink',
+  );
   const perfect = sumMetric(agg, w.from, w.to, 'f.perfect', 'echo');
   if (perfect > 0) {
     facts.push({
@@ -574,6 +586,13 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     'echo',
     'cancelled',
     (word, n) => `"${word}" cancelled itself out ${times(n)}`,
+  );
+  topWord(
+    'most-convincing-lie',
+    'Most convincing lie',
+    'hoodwink',
+    FOOLED_KIND,
+    (word, n) => `"${word}" fooled ${plural(n, 'player')}`,
   );
   return facts;
 }

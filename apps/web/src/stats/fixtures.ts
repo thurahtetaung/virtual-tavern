@@ -27,12 +27,13 @@ const TODAY = '2026-10-10';
 const DAY_MS = 86_400_000;
 const FIRST_DAY = '2026-04-02';
 
-export const FIXTURE_GAMES = ['codenames', 'enigma', 'echo', 'reverie'] as const;
+export const FIXTURE_GAMES = ['codenames', 'enigma', 'echo', 'reverie', 'hoodwink'] as const;
 const FIXTURE_NAMES: Record<string, string> = {
   codenames: 'Codenames',
   enigma: 'Enigma',
   echo: 'Echo',
   reverie: 'Reverie',
+  hoodwink: 'Hoodwink',
 };
 const named = (ids: readonly string[]) => ids.map((id) => ({ id, name: FIXTURE_NAMES[id] ?? id }));
 
@@ -76,7 +77,13 @@ function dayGames(day: string, game: string): number {
   const r = rng(hash(day + game))();
   const weekday = (new Date(dayMs(day)).getUTCDay() + 6) % 7;
   const weekend = weekday >= 4 ? 2.2 : 1;
-  const base: Record<string, number> = { codenames: 2.4, enigma: 1.2, echo: 1.8, reverie: 0.5 };
+  const base: Record<string, number> = {
+    codenames: 2.4,
+    enigma: 1.2,
+    echo: 1.8,
+    reverie: 0.5,
+    hoodwink: 0.7,
+  };
   if (dayMs(day) < dayMs(FIRST_DAY)) return 0;
   return Math.floor(r * (base[game] ?? 1) * weekend * 1.6);
 }
@@ -265,6 +272,11 @@ const FIGURES: Record<string, GameFigure[]> = {
     },
     { id: 'average-target', label: 'Average target score', kind: 'number', value: 30 },
   ],
+  hoodwink: [
+    { id: 'truth-rate', label: 'Votes that found the truth', kind: 'percent', value: 41.3 },
+    { id: 'fooling-rate', label: 'Lies that fooled someone', kind: 'percent', value: 58 },
+    { id: 'fooled-per-lie', label: 'Players fooled per lie', kind: 'number', value: 0.9 },
+  ],
 };
 
 export function fixtureGame(gameId: string, q: URLSearchParams): GameStats {
@@ -395,7 +407,7 @@ function summary(p: (typeof PLAYERS)[number], i: number): PlayerSummary {
   const byGame: Record<string, number> = {};
   let games = 0;
   for (const g of FIXTURE_GAMES) {
-    const n = Math.round(r() * (g === 'reverie' ? 6 : 24) * (1 - i / 16));
+    const n = Math.round(r() * (g === 'reverie' || g === 'hoodwink' ? 6 : 24) * (1 - i / 16));
     if (n) byGame[g] = n;
     games += n;
   }
@@ -513,6 +525,13 @@ export function fixtureFun(q: URLSearchParams): StatsFun {
       title: 'Favourite clue',
       text: '“Somewhere warm” was told three times.',
       gameId: 'reverie',
+    },
+    {
+      id: 'best-liar',
+      title: 'Best liar',
+      text: 'Kai’s lies fooled 17 players.',
+      gameId: 'hoodwink',
+      playerId: PLAYERS[10]!.id,
     },
   ];
   return { window: windowFor(q), facts: isEmpty(q) ? [] : facts };

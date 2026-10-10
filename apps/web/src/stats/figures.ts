@@ -83,6 +83,8 @@ const SETTING_LABELS: Record<string, string> = {
   deckSize: 'Deck size',
   flow: 'Flow',
   cardSet: 'Card sets',
+  questionDeck: 'Question decks',
+  rounds: 'Rounds',
 };
 
 /** A settings key as a heading: known keys get a friendly name, others are split from camelCase. */
