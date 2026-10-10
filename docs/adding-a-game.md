@@ -19,7 +19,7 @@ Every game must ship a `GameGuide` (the `guide` field is required). The same gui
 
 ## 3. UI: `src/ui`
 
-Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`) so the game matches the rest of the site. Always show a `Hint` telling the viewer what to do right now.
+Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`, `Modal`, and the lobby's `WordListPicker` and `TimerSettings`) so the game matches the rest of the site. Design for a phone first: a player should never need to scroll through more than about one screen to act. Split dense screens into tabs, as Enigma does. Always show a `Hint` telling the viewer what to do right now.
 
 ## Word content
 

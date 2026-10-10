@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@vt/game-codenames": "workspace:*",
+    "@vt/game-enigma": "workspace:*",
     "@vt/game-sdk": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",

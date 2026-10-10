@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. The platform hosts multiple games, and Codenames is the first one. It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists.
+Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. The platform hosts multiple games: **Codenames** and **Enigma** (a team code-breaking game; only ever call it Enigma). It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists.
 
 ## Toolchain
 
@@ -46,7 +46,8 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
   - A game handles its own lobby (seats, settings) as ordinary actions, and the room host supplies `isHost`.
   - Each game package exports `/logic` and `/ui`. The UI component takes `GameUiProps` (`packages/game-sdk/src/ui.ts`), built from the `@vt/ui` primitives.
   - Registries: `apps/server/src/games/registry.ts` and `apps/web/src/games/registry.ts`.
-  - Steps for adding a game: `docs/adding-a-game.md`.
+  - Steps for adding a game: `docs/adding-a-game.md`. Shared lobby widgets (`WordListPicker`, `TimerSettings`, `Modal`, `Countdown`) live in `@vt/ui`, and `wordPool` lives in `@vt/game-sdk`.
+  - **Enigma** (`packages/games/enigma`): votes only resolve when every eligible teammate has picked the same code and pressed Lock in. Team chat and shared notes live in game state and are filtered per team by `view()`. On phones the play screen is split into Play / Clues / Chat tabs (`EnigmaGame.tsx`); design every game screen to fit a phone viewport without long scrolling.
 - **Rules guides:** each game's `GameGuide` (`src/logic/guide.ts`) renders on `/rules/:gameId` and in the in-room rules drawer, through `apps/web/src/components/GuideView.tsx`. Update the guide in the same change as any rule change.
 - **Room host** (`apps/server/src/rooms/manager.ts`):
   - It is game-agnostic. better-sqlite3 is synchronous, so each call runs to completion and actions on a room are naturally serialised.

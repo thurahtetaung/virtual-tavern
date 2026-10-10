@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -20,7 +20,7 @@ for (const [label, viewport] of [
     const host = await make('Hana');
     await host.goto('/');
     await host.screenshot({ path: `test-results/shots/${label}-home.png`, fullPage: true });
-    await host.getByRole('button', { name: 'Create a room' }).click();
+    await host.getByRole('button', { name: 'Create a Codenames room' }).click();
     await expect(host.getByText('Pick a team below')).toBeVisible();
     const url = host.url();
     const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
@@ -56,5 +56,99 @@ for (const [label, viewport] of [
     await op.screenshot({ path: `test-results/shots/${label}-result.png`, fullPage: true });
     await op.getByRole('button', { name: 'Rules' }).click();
     await op.screenshot({ path: `test-results/shots/${label}-rules.png` });
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`enigma screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(90_000);
+    // Phones get viewport-sized shots: that is what a player actually sees without scrolling.
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/enigma-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      return p;
+    };
+    const host = await make('Hana');
+    await host.goto('/');
+    await host.getByRole('button', { name: 'Create an Enigma room' }).click();
+    await expect(host.getByText('Pick a team below')).toBeVisible();
+    const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+    await Promise.all(others.map((p) => p.goto(host.url())));
+    await host.getByRole('button', { name: 'Join Red' }).click();
+    await others[0]!.getByRole('button', { name: 'Join Red' }).click();
+    await others[1]!.getByRole('button', { name: 'Join Blue' }).click();
+    await others[2]!.getByRole('button', { name: 'Join Blue' }).click();
+    await expect(host.getByText('Everyone is in')).toBeVisible();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+
+    const tx = (p: Page, team: string) => p.locator(`[aria-label="${team}'s transmission"]`);
+    const teams = { Red: [host, others[0]!], Blue: [others[1]!, others[2]!] };
+    await expect(host.getByText(/Encryptor|Waiting for/).first()).toBeVisible();
+    const roles: Record<string, { enc: Page; dec: Page; code: number[] }> = {};
+    for (const [team, pages] of Object.entries(teams)) {
+      let enc: Page | undefined;
+      for (const p of pages)
+        if (await tx(p, team).getByText('Your secret code').isVisible()) enc = p;
+      const code = (await tx(enc!, team).locator('.font-mono').first().innerText())
+        .split('-')
+        .map(Number);
+      roles[team] = { enc: enc!, dec: pages.find((p) => p !== enc)!, code };
+    }
+    await shot(roles.Red!.enc, 'clue');
+    for (const [team, r] of Object.entries(roles)) {
+      const inputs = tx(r.enc, team).getByPlaceholder('A hint only your team will get');
+      for (let i = 0; i < 3; i++) await inputs.nth(i).fill(['salty', 'orbit', 'crust'][i]!);
+      await tx(r.enc, team).getByRole('button', { name: 'Send clues' }).click();
+    }
+    const red = roles.Red!;
+    await tx(red.dec, 'Red')
+      .getByRole('button', { name: `Clue 1 is keyword ${red.code[0]}` })
+      .click();
+    await shot(red.dec, 'guess');
+    if (label === 'phone') {
+      await red.dec
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Chat/ })
+        .click();
+      await red.dec.getByLabel('Message your team').fill('first one is obviously the sea one');
+      await red.dec.getByRole('button', { name: 'Send', exact: true }).click();
+      await shot(red.dec, 'chat');
+      await red.dec
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Clues/ })
+        .click();
+      await shot(red.dec, 'clues');
+      await red.dec
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Play/ })
+        .click();
+    }
+    for (const [team, r] of Object.entries(roles)) {
+      for (let i = 0; i < 3; i++) {
+        const b = tx(r.dec, team).getByRole('button', {
+          name: `Clue ${i + 1} is keyword ${r.code[i]}`,
+        });
+        if ((await b.getAttribute('aria-pressed')) !== 'true') await b.click();
+        await expect(b).toHaveAttribute('aria-pressed', 'true');
+      }
+      await tx(r.dec, team)
+        .getByRole('button', { name: /^Lock in/ })
+        .click();
+    }
+    await expect(host.getByText('The code was').first()).toBeVisible();
+    await shot(host, 'reveal');
   });
 }

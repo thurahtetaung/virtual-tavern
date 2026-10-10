@@ -1,4 +1,5 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
+import type { EnigmaView } from '@vt/game-enigma/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type TestClient, connect, tempDb, testApp, token } from './test/helpers.ts';
@@ -146,5 +147,76 @@ describe('realtime rooms', () => {
       ok: false,
       error: { code: 'not-joined' },
     });
+  });
+});
+
+describe('realtime Enigma', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it('plays a round over sockets with each player seeing only their own secrets', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'enigma', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      await c.call('room:join', { roomId, token: token(i), name });
+      clients.push(c);
+    }
+    const [host, ana, ben, cy] = clients as [TestClient, TestClient, TestClient, TestClient];
+    await host.call('game:action', { type: 'join-team', team: 'red' });
+    await ana.call('game:action', { type: 'join-team', team: 'red' });
+    await ben.call('game:action', { type: 'join-team', team: 'blue' });
+    await cy.call('game:action', { type: 'join-team', team: 'blue' });
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+
+    type V = EnigmaView;
+    const ev = (s: RoomSnapshot) => s.game as V;
+    const views = await Promise.all(clients.map((c) => c.until((s) => ev(s).phase === 'playing')));
+    // Red sees its keywords, Blue doesn't, and vice versa.
+    expect(ev(views[0]!).teams.red.keywords).toHaveLength(4);
+    expect(ev(views[0]!).teams.blue.keywords).toBeNull();
+    expect(ev(views[2]!).teams.red.keywords).toBeNull();
+
+    for (const team of ['red', 'blue'] as const) {
+      const members = team === 'red' ? [host, ana] : [ben, cy];
+      const me = (c: TestClient) => c.latest()!.you;
+      const encId = ev(members[0]!.latest()!).transmissions.find((t) => t.team === team)!.encryptor;
+      const enc = members.find((c) => me(c) === encId)!;
+      const decoder = members.find((c) => c !== enc)!;
+      const code = ev(enc.latest()!).transmissions.find((t) => t.team === team)!.code!;
+      expect(ev(decoder.latest()!).transmissions.find((t) => t.team === team)!.code).toBeNull();
+      expect(await enc.call('game:action', { type: 'give-clues', clues: ['a', 'b', 'c'] })).toEqual(
+        { ok: true },
+      );
+      await decoder.until((s) => ev(s).transmissions.find((t) => t.team === team)!.clues !== null);
+      (decoder as TestClient & { code?: number[] }).code = code;
+    }
+    await host.until((s) => ev(s).stage === 'guess');
+    for (const team of ['red', 'blue'] as const) {
+      const members = team === 'red' ? [host, ana] : [ben, cy];
+      const decoder = members.find((c) => (c as TestClient & { code?: number[] }).code)!;
+      const code = (decoder as TestClient & { code?: number[] }).code!;
+      await decoder.call('game:action', { type: 'set-guess', team, draft: code });
+      expect(await decoder.call('game:action', { type: 'lock-guess', team })).toEqual({ ok: true });
+    }
+    const revealed = ev(await cy.until((s) => ev(s).stage === 'reveal'));
+    expect(revealed.transmissions.every((t) => t.result?.decoded)).toBe(true);
+    expect(revealed.teams.red.history).toHaveLength(1);
   });
 });

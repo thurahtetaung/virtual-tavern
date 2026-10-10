@@ -1,17 +1,19 @@
 import type { WordListSummary } from '@vt/game-sdk';
-import { Badge, Button, Modal, cn } from '@vt/ui';
 import { useMemo, useState } from 'react';
-import type { CodenamesAction } from '../logic/types.ts';
+import { cn } from './cn.ts';
+import { Badge, Button } from './components.tsx';
+import { Modal } from './modal.tsx';
 
 interface Props {
   selectedIds: string[];
   wordLists: WordListSummary[];
   editable: boolean;
-  act: (a: CodenamesAction) => Promise<boolean>;
+  /** Persist the new selection; resolve true on success to close the picker. */
+  onSave: (ids: string[]) => Promise<boolean>;
 }
 
 /** Compact summary of the chosen lists; the host changes them in a scrollable picker. */
-export function WordLists({ selectedIds, wordLists, editable, act }: Props) {
+export function WordListPicker({ selectedIds, wordLists, editable, onSave }: Props) {
   const [picking, setPicking] = useState(false);
   const chosen = wordLists.filter((l) => selectedIds.includes(l.id));
   const total = chosen.reduce((n, l) => n + l.wordCount, 0);
@@ -58,7 +60,7 @@ export function WordLists({ selectedIds, wordLists, editable, act }: Props) {
           initial={selectedIds}
           onClose={() => setPicking(false)}
           onSave={async (ids) => {
-            if (await act({ type: 'update-settings', wordListIds: ids })) setPicking(false);
+            if (await onSave(ids)) setPicking(false);
           }}
         />
       )}

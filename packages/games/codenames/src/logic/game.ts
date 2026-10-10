@@ -1,5 +1,6 @@
 import {
   type ActionCtx,
+  wordPool,
   type CreateCtx,
   type GameDefinition,
   GameError,
@@ -29,25 +30,12 @@ type Result = CodenamesState | GameError;
 
 const CLUE_PATTERN = /^[\p{L}\p{N}'’-]+$/u;
 
+export { wordPool };
+
 export const otherTeam = (team: Team): Team => (team === 'red' ? 'blue' : 'red');
 
 export function remainingAgents(board: readonly Card[], team: Team): number {
   return board.filter((c) => c.kind === team && !c.revealed).length;
-}
-
-/** Combined, case-insensitively de-duplicated word pool. */
-export function wordPool(words: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const pool: string[] = [];
-  for (const raw of words) {
-    const word = raw.trim();
-    const key = word.toLocaleLowerCase();
-    if (word && !seen.has(key)) {
-      seen.add(key);
-      pool.push(word);
-    }
-  }
-  return pool;
 }
 
 function deadline(seconds: number | null, now: number): number | null {

@@ -254,7 +254,7 @@ export class RoomManager {
     this.commit(room, {
       players,
       hostId,
-      state: room.game.playerLeft(room.record.state, playerId),
+      state: room.game.playerLeft(room.record.state, playerId, this.deps.now()),
     });
   }
 

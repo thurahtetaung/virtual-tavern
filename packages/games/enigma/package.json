@@ -1,0 +1,25 @@
+{
+  "name": "@vt/game-enigma",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./logic": "./src/logic/index.ts",
+    "./ui": "./src/ui/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vt/game-sdk": "workspace:*",
+    "zod": "^4.6.5",
+    "@vt/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0"
+  }
+}

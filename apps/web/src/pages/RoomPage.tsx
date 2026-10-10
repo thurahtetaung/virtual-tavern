@@ -117,17 +117,29 @@ function Room({
 
   return (
     <Layout wide>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">
+      {/* One compact row on phones (icon buttons), full labels from sm up. */}
+      <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
+        <h1 className="truncate text-xl font-bold sm:text-2xl">
           <span aria-hidden>{game.icon}</span> {game.name}
         </h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 gap-1.5 sm:gap-2">
           <InviteButton />
-          <Button variant="secondary" size="sm" onClick={() => setPeopleOpen(true)}>
-            👥 Players {snapshot ? `(${snapshot.players.filter((p) => p.connected).length})` : ''}
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label={`Players (${snapshot ? snapshot.players.filter((p) => p.connected).length : 0} online)`}
+            onClick={() => setPeopleOpen(true)}
+          >
+            👥<span className="hidden sm:inline">Players</span>
+            {snapshot ? ` ${snapshot.players.filter((p) => p.connected).length}` : ''}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setGuideOpen(true)}>
-            ❓ Rules
+          <Button
+            variant="secondary"
+            size="sm"
+            aria-label="Rules"
+            onClick={() => setGuideOpen(true)}
+          >
+            ❓<span className="hidden sm:inline">Rules</span>
           </Button>
         </div>
       </div>
@@ -215,8 +227,13 @@ function InviteButton() {
     }
   };
   return (
-    <Button size="sm" onClick={() => void copy()}>
-      {copied ? '✓ Link copied' : '🔗 Invite friends'}
+    <Button
+      size="sm"
+      aria-label={copied ? 'Link copied' : 'Invite friends'}
+      onClick={() => void copy()}
+    >
+      {copied ? '✓' : '🔗'}
+      <span className="hidden sm:inline">{copied ? 'Link copied' : 'Invite friends'}</span>
     </Button>
   );
 }

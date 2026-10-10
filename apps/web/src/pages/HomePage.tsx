@@ -119,7 +119,12 @@ export function HomePage() {
             </div>
             <p className="flex-1 text-stone-700 dark:text-stone-300">{game.guide.tagline}</p>
             <div className="flex flex-wrap gap-2">
-              <Button size="lg" disabled={creating !== null} onClick={() => void create(game.id)}>
+              <Button
+                size="lg"
+                aria-label={`Create ${/^[aeiou]/i.test(game.name) ? 'an' : 'a'} ${game.name} room`}
+                disabled={creating !== null}
+                onClick={() => void create(game.id)}
+              >
                 {creating === game.id ? 'Opening room…' : 'Create a room'}
               </Button>
               <Link

@@ -67,7 +67,7 @@ export interface GameDefinition<State, Action, View> {
   /** Player joined the room, or rejoined/renamed (upsert by id). */
   playerJoined(state: State, player: PlayerInfo): State;
   /** Player left the room for good (left or was kicked). Disconnects are not reported. */
-  playerLeft(state: State, playerId: PlayerId): State;
+  playerLeft(state: State, playerId: PlayerId, now: number): State;
   /** What `viewer` may see. `null` is an observer with no seat. Must strip all hidden information. */
   view(state: State, viewer: PlayerId | null): View;
   /** Epoch ms at which `onDeadline` should run, or null if no timer is active. */

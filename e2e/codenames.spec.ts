@@ -24,7 +24,7 @@ const card = (page: Page, word: string) =>
 
 test('four friends play a game of Codenames to the end', async ({ browser }) => {
   const host = await player(browser, 'Hana');
-  await host.getByRole('button', { name: 'Create a room' }).click();
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
   await expect(host).toHaveURL(/\/r\/[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/);
   const roomUrl = host.url();
 
@@ -79,7 +79,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
 
 test('a newcomer opening a link is asked for their name first', async ({ browser }) => {
   const host = await player(browser, 'Hana');
-  await host.getByRole('button', { name: 'Create a room' }).click();
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
   await expect(host).toHaveURL(/\/r\//);
 
   const guest = await newPage(browser);
@@ -111,7 +111,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await expect(admin.getByRole('button', { name: /E2E Planets\s*4 words/ })).toBeVisible();
 
   const host = await player(browser, 'Hana');
-  await host.getByRole('button', { name: 'Create a room' }).click();
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
   const lists = host.getByRole('region', { name: 'Word lists' });
   await expect(lists.getByText('Starter')).toBeVisible();
   await host.getByRole('button', { name: 'Change word lists' }).click();
