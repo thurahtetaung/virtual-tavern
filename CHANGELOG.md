@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.10.0...v0.11.0) (2026-10-10)
+
+
+### Features
+
+* **royal-post:** add Royal Post, a courtship card game in the back room ([#50](https://github.com/thurahtetaung/virtual-tavern/issues/50)) ([cf7bdc2](https://github.com/thurahtetaung/virtual-tavern/commit/cf7bdc22c26c5a0d548999addd9078d48915d7a2))
+
 ## [0.10.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.9.0...v0.10.0) (2026-10-10)
 
 
