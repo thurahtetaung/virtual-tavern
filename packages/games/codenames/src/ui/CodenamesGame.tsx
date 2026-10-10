@@ -5,6 +5,8 @@ import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
 import { GameLog } from './GameLog.tsx';
+import { lastGuessResult } from './result.ts';
+import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
 import { startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
@@ -111,7 +113,9 @@ function InGame({
     }
   };
 
-  const reveal = async () => {
+  const result = lastGuessResult(view);
+
+  const guess = async () => {
     if (selected === null) return;
     const card = selected;
     setSelected(null);
@@ -122,6 +126,7 @@ function InGame({
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
+        {result && <ResultBanner key={view.log.length} result={result} />}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
 
         {turn?.clue && (
@@ -135,7 +140,12 @@ function InGame({
           </p>
         )}
 
-        <Board view={view} selected={selected} onPick={canGuess ? pick : null} />
+        <Board
+          view={view}
+          selected={selected}
+          lastGuessed={result?.card ?? null}
+          onPick={canGuess ? pick : null}
+        />
 
         {canClue && (
           <Panel>
@@ -145,10 +155,10 @@ function InGame({
 
         {canGuess && (
           <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur dark:bg-stone-900/90 dark:ring-stone-700">
-            <Button size="lg" disabled={selected === null} onClick={() => void reveal()}>
+            <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
               {selected === null
-                ? 'Tap a card first'
-                : `Reveal ${view.board[selected]?.word.toUpperCase()}`}
+                ? 'Pick a card to guess'
+                : `Guess ${view.board[selected]?.word.toUpperCase()}`}
             </Button>
             <Button variant="secondary" size="lg" onClick={() => void act({ type: 'end-turn' })}>
               End turn

@@ -17,7 +17,7 @@ export const REVEALED: Record<CardKind, string> = {
   red: 'bg-red-600 text-white ring-red-700',
   blue: 'bg-blue-600 text-white ring-blue-700',
   bystander:
-    'bg-amber-100 text-amber-900/70 ring-amber-300 dark:bg-stone-700 dark:text-stone-300 dark:ring-stone-600',
+    'bg-stone-300 text-stone-600 ring-stone-400 dark:bg-stone-600 dark:text-stone-200 dark:ring-stone-500',
   assassin: 'bg-stone-950 text-stone-200 ring-black',
 };
 
@@ -31,6 +31,14 @@ export const KEY_TINT: Record<CardKind, string> = {
 };
 
 export const KIND_LABEL: Record<CardKind, string> = {
+  red: 'Red agent',
+  blue: 'Blue agent',
+  bystander: 'Bystander',
+  assassin: 'Assassin',
+};
+
+/** Short caption printed on guessed cards so their outcome is readable without relying on color. */
+export const KIND_CAPTION: Record<CardKind, string> = {
   red: 'Red agent',
   blue: 'Blue agent',
   bystander: 'Bystander',

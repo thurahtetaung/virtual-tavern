@@ -68,7 +68,8 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(op.getByRole('gridcell', { name: /Assassin/ })).toHaveCount(0);
 
   await card(op, assassinWord).click();
-  await op.getByRole('button', { name: `Reveal ${assassinWord.toUpperCase()}` }).click();
+  await op.getByRole('button', { name: `Guess ${assassinWord.toUpperCase()}` }).click();
+  await expect(otherOp.getByText("☠ It's the assassin!")).toBeVisible();
 
   await expect(host.getByText('team wins!').first()).toBeVisible();
   await expect(otherOp.getByRole('gridcell', { name: /Assassin/ })).toHaveCount(1);

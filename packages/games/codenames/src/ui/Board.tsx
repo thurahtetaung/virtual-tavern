@@ -1,18 +1,20 @@
 import { cn } from '@vt/ui';
 import type { CodenamesView } from '../logic/types.ts';
-import { KEY_TINT, KIND_LABEL, REVEALED } from './theme.ts';
+import { KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
 
 interface Props {
   view: CodenamesView;
-  /** Card the viewer has picked to reveal next. */
+  /** Card the viewer has picked to guess next. */
   selected: number | null;
+  /** Card from the most recent guess, highlighted so everyone sees what was just guessed. */
+  lastGuessed: number | null;
   /** Null when the viewer cannot interact with the board right now. */
   onPick: ((index: number) => void) | null;
 }
 
 const initials = (name: string) => name.trim().slice(0, 2).toUpperCase();
 
-export function Board({ view, selected, onPick }: Props) {
+export function Board({ view, selected, lastGuessed, onPick }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
     view.me?.role === 'spymaster' && view.me.team !== null && view.phase === 'playing';
@@ -41,7 +43,9 @@ export function Board({ view, selected, onPick }: Props) {
               face,
               interactive && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
               selected === i && 'ring-4 ring-amber-500 dark:ring-amber-400',
-              card.revealed && 'opacity-90',
+              lastGuessed === i &&
+                'z-10 scale-105 ring-4 ring-amber-400 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950',
+              card.revealed && lastGuessed !== i && 'opacity-90',
               view.phase === 'over' && !card.revealed && 'opacity-70',
             )}
           >
@@ -57,6 +61,11 @@ export function Board({ view, selected, onPick }: Props) {
             >
               {card.word}
             </span>
+            {card.revealed && card.kind && (
+              <span className="absolute inset-x-0 bottom-0.5 text-center text-[0.45rem] font-semibold tracking-wide uppercase opacity-80 sm:bottom-1 sm:text-[0.65rem]">
+                {KIND_CAPTION[card.kind]}
+              </span>
+            )}
             {card.kind === 'assassin' && (showKey || card.revealed || view.phase === 'over') && (
               <span aria-hidden className="absolute top-0.5 left-1 text-xs sm:text-sm">
                 ☠

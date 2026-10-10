@@ -46,7 +46,7 @@ export const guide: GameGuide = {
     {
       title: 'Guessing (Operatives)',
       paragraphs: [
-        'Discuss with your team. Tap a card to mark it as a suggestion your teammates can see. When you agree, reveal it with the Guess button.',
+        'Discuss with your team. Tap a card to mark it as a suggestion your teammates can see. When you agree, press Guess to flip the card and see what it is.',
       ],
       bullets: [
         'Your agent: great, you may keep guessing.',
@@ -60,7 +60,7 @@ export const guide: GameGuide = {
       title: 'Winning',
       bullets: [
         'A team wins as soon as all of its agents are revealed, even if the other team revealed the last one.',
-        'A team loses instantly if it reveals the assassin.',
+        'A team loses instantly if it guesses the assassin.',
       ],
     },
     {
@@ -78,7 +78,7 @@ export const guide: GameGuide = {
   ],
   glossary: [
     { term: 'Agent', meaning: 'A card that belongs to a team. Find all of yours to win.' },
-    { term: 'Bystander', meaning: 'A neutral card. Revealing it ends your turn.' },
+    { term: 'Bystander', meaning: 'A neutral card. Guessing it ends your turn.' },
     { term: 'Assassin', meaning: 'The one card that makes your team lose instantly.' },
     { term: 'Key', meaning: 'The secret map of card colours that only Spymasters see.' },
   ],

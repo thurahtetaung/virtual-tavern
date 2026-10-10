@@ -22,7 +22,7 @@ function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string 
     case 'guess':
       return (
         <>
-          <b className={TEAM_TEXT[entry.team]}>{name(entry.by)}</b> revealed{' '}
+          <b className={TEAM_TEXT[entry.team]}>{name(entry.by)}</b> guessed{' '}
           <b className="uppercase">{entry.word}</b>:{' '}
           <span
             className={entry.kind === 'red' || entry.kind === 'blue' ? TEAM_TEXT[entry.kind] : ''}
@@ -42,7 +42,7 @@ function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string 
       return (
         <b className={TEAM_TEXT[entry.winner]}>
           {TEAM_LABEL[entry.winner]} wins
-          {entry.reason === 'assassin' ? ' (assassin revealed)' : '!'}
+          {entry.reason === 'assassin' ? ' (the other team found the assassin)' : '!'}
         </b>
       );
   }

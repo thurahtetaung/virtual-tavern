@@ -81,7 +81,7 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
     left === null ? 'any number of guesses' : `${left} guess${left === 1 ? '' : 'es'} left`;
   if (mine && me?.role === 'operative') {
     return {
-      text: `Your turn to guess (${leftText}). Tap a card to suggest it, then press Reveal.`,
+      text: `Your turn to guess (${leftText}). Tap a card to suggest it to your team, then press Guess.`,
       yourMove: true,
     };
   }
