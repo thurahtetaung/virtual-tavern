@@ -220,3 +220,67 @@ describe('realtime Enigma', () => {
     expect(revealed.teams.red.history).toHaveLength(1);
   });
 });
+
+describe('realtime back room', () => {
+  it('keeps locked players out of private rooms and drops them when everyone is signed out', async () => {
+    const app = testApp({ demoPrivateGame: true });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const admin = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { password: 'hunter2' },
+    });
+    const adminCookie = `vt_admin=${admin.cookies.find((c) => c.name === 'vt_admin')!.value}`;
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: adminCookie },
+      payload: { password: 'speakeasy' },
+    });
+    const unlock = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/unlock',
+      payload: { password: 'speakeasy' },
+    });
+    const cookie = `vt_backroom=${unlock.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        headers: { cookie },
+        payload: { gameId: 'backroom-demo', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+
+    const outsider = await connect(url);
+    const member = await connect(url, cookie);
+    try {
+      expect(
+        await outsider.call('room:join', { roomId, token: token(1), name: 'Out' }),
+      ).toMatchObject({
+        ok: false,
+        error: { code: 'backroom-locked' },
+      });
+      expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
+        ok: true,
+      });
+      expect(await member.call('game:action', { type: 'start' })).toEqual({ ok: true });
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/admin/backroom/sign-out-all',
+        headers: { cookie: adminCookie },
+      });
+      expect(await member.call('game:action', { type: 'next' })).toMatchObject({
+        ok: false,
+        error: { code: 'backroom-locked' },
+      });
+    } finally {
+      outsider.close();
+      member.close();
+      await app.close();
+    }
+  });
+});

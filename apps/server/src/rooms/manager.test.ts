@@ -1,7 +1,9 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDb } from '../db/index.ts';
-import { games } from '../games/registry.ts';
+import { buildGames } from '../games/registry.ts';
+
+const games = buildGames();
 import { MIGRATIONS } from '../test/helpers.ts';
 import { WordListRepo } from '../word-lists.ts';
 import { HOST_AWAY_MS, RoomManager } from './manager.ts';

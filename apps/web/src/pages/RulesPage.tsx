@@ -1,12 +1,21 @@
 import { Panel } from '@vt/ui';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { GuideView } from '../components/GuideView.tsx';
 import { Layout } from '../components/Layout.tsx';
-import { clientGames, findGame } from '../games/registry.ts';
+import { type ClientGame, clientGames, findGame, loadPrivateGames } from '../games/registry.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
 export function RulesPage() {
   const { gameId } = useParams();
+  // Back-room games' rules are only loadable once unlocked; anyone else just gets "not found".
+  const [privateGame, setPrivateGame] = useState<ClientGame | null | 'missing'>(null);
+  useEffect(() => {
+    if (!gameId || findGame(gameId)) return;
+    void loadPrivateGames().then((games) =>
+      setPrivateGame(games.find((g) => g.id === gameId) ?? 'missing'),
+    );
+  }, [gameId]);
   if (!gameId) {
     return (
       <Layout>
@@ -26,8 +35,9 @@ export function RulesPage() {
       </Layout>
     );
   }
-  const game = findGame(gameId);
-  if (!game) return <NotFoundPage />;
+  const game = findGame(gameId) ?? (privateGame === 'missing' ? undefined : privateGame);
+  if (privateGame === 'missing') return <NotFoundPage />;
+  if (!game) return <Layout>{null}</Layout>;
   return (
     <Layout>
       <Link to="/rules" className="text-sm text-amber-700 hover:underline dark:text-amber-400">

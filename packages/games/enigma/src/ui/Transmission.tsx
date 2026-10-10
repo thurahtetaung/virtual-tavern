@@ -58,7 +58,11 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
 function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; act: Act }) {
   const me = view.me!;
   const mine = tx.teamVotes[me.id];
-  const draft = mine?.draft ?? [0, 0, 0];
+  // Your own taps are kept locally: building each pick on the last server-confirmed draft would
+  // drop taps made faster than a round trip. Socket messages arrive in order, so the server ends
+  // up with exactly this draft.
+  const [localDraft, setLocalDraft] = useState<number[] | null>(null);
+  const draft = localDraft ?? mine?.draft ?? [0, 0, 0];
   const locked = mine?.locked ?? false;
   const decoding = tx.role === 'decoder';
   const ownKeywords = view.teams[tx.team].keywords;
@@ -68,6 +72,7 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
   const pick = (row: number, digit: number) => {
     // Each keyword number can only appear once, so picking it here clears it elsewhere.
     const next = draft.map((d, i) => (i === row ? (d === digit ? 0 : digit) : d === digit ? 0 : d));
+    setLocalDraft(next);
     void act({ type: 'set-guess', team: tx.team, draft: next });
   };
 

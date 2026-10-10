@@ -115,3 +115,48 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await expect(ben!.getByText('Your keywords')).toBeVisible();
   await expect(ben!.getByText("Red's keywords")).toBeVisible();
 });
+
+test('fast taps on a slow connection still lock in the full code', async ({ browser }) => {
+  test.setTimeout(90_000);
+  // Delay everything the server sends by 300 ms, like a real phone connection.
+  const laggy = async (name: string, url = '/') => {
+    const page = await (await browser.newContext()).newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.routeWebSocket(/socket\.io/, (ws) => {
+      const server = ws.connectToServer();
+      ws.onMessage((m) => server.send(m));
+      server.onMessage((m) => void setTimeout(() => ws.send(m), 300));
+    });
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto(url);
+    return page;
+  };
+  const host = await laggy('Hana');
+  await host.getByRole('button', { name: 'Create an Enigma room' }).click();
+  await expect(host.getByText('Pick a team below')).toBeVisible();
+  const [ana, ben, cy] = await Promise.all(['Ana', 'Ben', 'Cy'].map((n) => laggy(n, host.url())));
+  await host.getByRole('button', { name: 'Join Red' }).click();
+  await ana!.getByRole('button', { name: 'Join Red' }).click();
+  await ben!.getByRole('button', { name: 'Join Blue' }).click();
+  await cy!.getByRole('button', { name: 'Join Blue' }).click();
+  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(host.getByText('Your keywords')).toBeVisible();
+
+  const red = [host, ana!];
+  const enc = await encryptorOf(red, 'Red');
+  const code = await sendClues(enc, 'Red');
+  await sendClues(await encryptorOf([ben!, cy!], 'Blue'), 'Blue');
+  const decoder = red.find((p) => p !== enc)!;
+  const tx = transmission(decoder, 'Red');
+  await expect(tx.getByRole('button', { name: 'Clue 1 is keyword 1' })).toBeVisible();
+  // Tap all three numbers back to back, without waiting for the server.
+  for (let i = 0; i < 3; i++) {
+    await tx
+      .getByRole('button', { name: `Clue ${i + 1} is keyword ${code[i]}` })
+      .click({ delay: 0 });
+  }
+  await tx.getByRole('button', { name: `Lock in ${code.join('-')}` }).click();
+  // Red's only decoder locking in settles the vote straight away.
+  await expect(tx.getByText('Your team has locked in')).toBeVisible();
+});

@@ -1,6 +1,8 @@
 import { adminLoginBody, wordListBody } from '@vt/protocol';
+import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { clearAdminSession, isAdmin, passwordMatches, setAdminSession } from '../admin-auth.ts';
+import type { Backroom } from '../backroom.ts';
 import type { WordListRepo } from '../word-lists.ts';
 
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
@@ -8,9 +10,9 @@ const error = (reply: FastifyReply, status: number, code: string, message: strin
 
 export function adminRoutes(
   app: FastifyInstance,
-  opts: { password: string | null; wordLists: WordListRepo; now: () => number },
+  opts: { password: string | null; wordLists: WordListRepo; backroom: Backroom; now: () => number },
 ) {
-  const { password, wordLists, now } = opts;
+  const { password, wordLists, backroom, now } = opts;
 
   const requireAdmin = async (req: FastifyRequest, reply: FastifyReply) => {
     if (!password) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
@@ -46,6 +48,20 @@ export function adminRoutes(
     scope.addHook('preHandler', requireAdmin);
 
     scope.get('/api/admin/word-lists', () => wordLists.list());
+
+    scope.get('/api/admin/backroom', () => ({ open: backroom.isOpen() }));
+
+    scope.put('/api/admin/backroom/password', (req, reply) => {
+      const body = z.object({ password: z.string().min(4).max(200) }).safeParse(req.body);
+      if (!body.success) return error(reply, 400, 'bad-request', 'Use at least 4 characters.');
+      backroom.setPassword(body.data.password);
+      return { ok: true };
+    });
+
+    scope.post('/api/admin/backroom/sign-out-all', () => {
+      backroom.signOutEveryone();
+      return { ok: true };
+    });
 
     scope.get<{ Params: { id: string } }>('/api/admin/word-lists/:id', (req, reply) => {
       return wordLists.get(req.params.id) ?? error(reply, 404, 'not-found', 'Word list not found.');

@@ -36,8 +36,12 @@ export type TestClient = Socket<ServerToClientEvents, ClientToServerEvents> & {
   call: <E extends keyof ClientToServerEvents>(event: E, ...args: unknown[]) => Promise<Ack>;
 };
 
-export async function connect(url: string): Promise<TestClient> {
-  const socket = io(url, { transports: ['websocket'], forceNew: true }) as TestClient;
+export async function connect(url: string, cookie?: string): Promise<TestClient> {
+  const socket = io(url, {
+    transports: ['websocket'],
+    forceNew: true,
+    extraHeaders: cookie ? { cookie } : undefined,
+  }) as TestClient;
   let latest: RoomSnapshot | null = null;
   const waiters = new Set<{
     p: (s: RoomSnapshot) => boolean;

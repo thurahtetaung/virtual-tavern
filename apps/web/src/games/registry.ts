@@ -34,3 +34,17 @@ export const clientGames: ClientGame[] = [
 ];
 
 export const findGame = (id: string | undefined) => clientGames.find((g) => g.id === id);
+
+/** Loads the back-room registry (only fetchable once unlocked); empty if it can't be loaded. */
+export async function loadPrivateGames(): Promise<ClientGame[]> {
+  try {
+    return (await import('./private.ts')).privateGames;
+  } catch {
+    return [];
+  }
+}
+
+/** Finds a public game, or a private one when the back room is unlocked. */
+export async function loadGame(id: string): Promise<ClientGame | undefined> {
+  return findGame(id) ?? (await loadPrivateGames()).find((g) => g.id === id);
+}

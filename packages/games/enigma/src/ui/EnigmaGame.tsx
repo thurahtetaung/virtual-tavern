@@ -196,7 +196,7 @@ export function EnigmaGame({ view, room, act, showGuide }: EnigmaUiProps) {
           ) : (
             <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
               {shown.map((tx) => (
-                <TransmissionCard key={tx.team} view={view} tx={tx} act={act} />
+                <TransmissionCard key={`${view.round}-${tx.team}`} view={view} tx={tx} act={act} />
               ))}
             </div>
           )}
