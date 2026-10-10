@@ -86,11 +86,12 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await expect(ben!.getByText('Red team chat')).toHaveCount(0);
   await expect(ben!.getByText('red only: their 2 is food')).toHaveCount(0);
 
-  // Shared notes reach teammates but not the other team.
-  await ben!.getByLabel('Our guess for Red keyword 1').fill('Pizza');
+  // Shared notes reach teammates but not the other team. The note is a made-up word, so it can
+  // never also be one of the dealt keywords.
+  await ben!.getByLabel('Our guess for Red keyword 1').fill('Zorblax');
   await ben!.getByLabel('Our guess for Red keyword 1').blur();
-  await expect(cy!.getByLabel('Our guess for Red keyword 1')).toHaveValue('Pizza');
-  await expect(host.getByText('Pizza')).toHaveCount(0);
+  await expect(cy!.getByLabel('Our guess for Red keyword 1')).toHaveValue('Zorblax');
+  await expect(host.getByText('Zorblax')).toHaveCount(0);
 
   for (let round = 1; round <= 3; round++) {
     const redEnc = await encryptorOf(red, 'Red');
