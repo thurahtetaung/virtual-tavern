@@ -51,7 +51,8 @@ export function Card({ card, label, selected, dimmed, onClick, className, big }:
     'relative block aspect-[366/512] w-full overflow-hidden rounded-xl bg-stone-200 shadow-md ring-1 ring-black/10 transition dark:bg-stone-800',
     selected && 'ring-4 ring-amber-500 dark:ring-amber-400',
     dimmed && 'opacity-50',
-    onClick && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg',
+    onClick &&
+      'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-none',
     className,
   );
   return onClick ? (

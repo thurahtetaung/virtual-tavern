@@ -4,6 +4,8 @@ import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
 
+const cards = (p: Page) => p.getByRole('region', { name: 'Word cards' }).getByRole('button');
+
 for (const [label, viewport] of [
   ['desktop', { width: 1280, height: 900 }],
   ['phone', { width: 390, height: 844 }],
@@ -43,14 +45,14 @@ for (const [label, viewport] of [
     await host.screenshot({ path: `test-results/shots/${label}-word-lists.png` });
     await host.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
     await host.getByRole('button', { name: 'Start game' }).click();
-    await expect(host.getByRole('gridcell')).toHaveCount(25);
+    await expect(cards(host)).toHaveCount(25);
     await host.screenshot({ path: `test-results/shots/${label}-spymaster.png`, fullPage: true });
     const redStarts = await host.getByText('Your turn! Give your team').isVisible();
     const [spy, op] = redStarts ? [host, others[0]!] : [others[1]!, others[2]!];
     await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
     await spy.getByRole('button', { name: 'Give clue' }).click();
     await expect(op.getByText('Your turn to guess')).toBeVisible();
-    await op.getByRole('gridcell').first().click();
+    await cards(op).first().click();
     await op.screenshot({ path: `test-results/shots/${label}-operative.png`, fullPage: true });
     await op.getByRole('button', { name: /^Guess / }).click();
     await expect(op.getByText(/guessed/).first()).toBeVisible();

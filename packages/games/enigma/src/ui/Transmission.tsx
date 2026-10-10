@@ -60,7 +60,8 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
   const mine = tx.teamVotes[me.id];
   // Your own taps are kept locally: building each pick on the last server-confirmed draft would
   // drop taps made faster than a round trip. Socket messages arrive in order, so the server ends
-  // up with exactly this draft.
+  // up with exactly this draft, unless it rejects one, in which case the local copy is dropped
+  // and the picks the server really holds show again.
   const [localDraft, setLocalDraft] = useState<number[] | null>(null);
   const draft = localDraft ?? mine?.draft ?? [0, 0, 0];
   const locked = mine?.locked ?? false;
@@ -73,7 +74,9 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
     // Each keyword number can only appear once, so picking it here clears it elsewhere.
     const next = draft.map((d, i) => (i === row ? (d === digit ? 0 : digit) : d === digit ? 0 : d));
     setLocalDraft(next);
-    void act({ type: 'set-guess', team: tx.team, draft: next });
+    void act({ type: 'set-guess', team: tx.team, draft: next }).then((ok) => {
+      if (!ok) setLocalDraft(null);
+    });
   };
 
   return (

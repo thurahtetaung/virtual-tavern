@@ -10,7 +10,7 @@ import {
   TimerSettings,
   cn,
 } from '@vt/ui';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
   CARD_SETS,
   MAX_CLUE_LENGTH,
@@ -88,28 +88,34 @@ export function ReverieGame({ view, room, act, showGuide }: ReverieUiProps) {
                 `Playing with ${chosen.length === 1 ? 'this set' : 'these sets'} (${total} cards).`,
             }}
           />
-          <fieldset>
-            <legend className="text-sm font-semibold">Play to</legend>
-            <div className="mt-1 flex gap-2">
-              {TARGET_SCORES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  disabled={!room.isHost}
-                  aria-pressed={view.settings.targetScore === t}
-                  onClick={() => void act({ type: 'update-settings', targetScore: t })}
-                  className={cn(
-                    'rounded-lg px-4 py-2 font-semibold ring-1 transition disabled:cursor-default',
-                    view.settings.targetScore === t
-                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
-                      : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
-                  )}
-                >
-                  {t} points
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          {room.isHost ? (
+            <fieldset>
+              <legend className="text-sm font-semibold">Play to</legend>
+              <div className="mt-1 flex gap-2">
+                {TARGET_SCORES.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={view.settings.targetScore === t}
+                    onClick={() => void act({ type: 'update-settings', targetScore: t })}
+                    className={cn(
+                      'rounded-lg px-4 py-2 font-semibold ring-1 transition',
+                      view.settings.targetScore === t
+                        ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                        : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                    )}
+                  >
+                    {t} points
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : (
+            <p>
+              <span className="block text-sm font-semibold">Play to</span>
+              <span className="mt-1 block">{view.settings.targetScore} points</span>
+            </p>
+          )}
           <TimerSettings
             values={view.settings}
             editable={room.isHost}
@@ -145,7 +151,17 @@ export function ReverieGame({ view, room, act, showGuide }: ReverieUiProps) {
     );
   }
 
-  return <Play view={view} room={room} act={act} status={status} online={online} />;
+  // A new turn starts from a clean slate: a card picked last turn is no longer in the hand.
+  return (
+    <Play
+      key={view.turn?.round ?? 0}
+      view={view}
+      room={room}
+      act={act}
+      status={status}
+      online={online}
+    />
+  );
 }
 
 function Seats({
@@ -306,8 +322,24 @@ function Play({
   const [picked, setPicked] = useState<number[]>([]);
   const [clue, setClue] = useState('');
   const [storyPick, setStoryPick] = useState<number | null>(null);
+  // The hand bar is fixed over the page, so the page pads by the bar's measured height and
+  // nothing ends up hidden under it, whatever the screen or font size.
+  const handBar = useRef<HTMLElement>(null);
+  const [handHeight, setHandHeight] = useState(0);
+  const showHand = view.hand.length > 0 && view.phase === 'playing';
+  useEffect(() => {
+    const el = handBar.current;
+    if (!el || typeof ResizeObserver === 'undefined') {
+      setHandHeight(0);
+      return;
+    }
+    const observer = new ResizeObserver(() => setHandHeight(el.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [showHand]);
 
   const canTell = isStory && turn.phase === 'clue';
+  const canNext = room.isHost && view.phase === 'playing' && turn?.phase === 'reveal';
   const canGive =
     !!turn && turn.phase === 'pick' && !isStory && !!me?.playing && turn.myCards.length === 0;
   const canVote =
@@ -356,9 +388,19 @@ function Play({
   })();
 
   return (
-    <div className="space-y-3 pb-28">
+    <div
+      className={cn('space-y-3', showHand && 'pb-44')}
+      style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
+    >
       <Scoreboard view={view} clockOffset={room.clockOffset} />
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {canNext && (
+        <div className="flex justify-center">
+          <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
+            Next turn
+          </Button>
+        </div>
+      )}
 
       {turn?.clue && (
         <p className="text-center text-lg">
@@ -428,7 +470,7 @@ function Play({
       {turn && turn.table.length > 0 && (
         <section aria-label="Table">
           <h3 className="mb-2 font-bold">On the table</h3>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
             {turn.table.map((t, i) => (
               <li key={i} className="space-y-1">
                 <Card
@@ -493,18 +535,12 @@ function Play({
                 );
               })}
           </ul>
-          {room.isHost && view.phase === 'playing' && (
-            <div className="flex justify-center pt-2">
-              <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-                Next turn
-              </Button>
-            </div>
-          )}
         </Panel>
       )}
 
-      {view.hand.length > 0 && view.phase === 'playing' && (
+      {showHand && (
         <section
+          ref={handBar}
           aria-label="Your hand"
           className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
         >
@@ -545,6 +581,20 @@ function Play({
       )}
 
       <Seats view={view} online={online} act={act} />
+      {room.isHost && view.phase === 'playing' && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => {
+            if (window.confirm('End this game for everyone and go back to the lobby?')) {
+              void act({ type: 'back-to-lobby' });
+            }
+          }}
+        >
+          Abandon game
+        </Button>
+      )}
       <CardViewer
         card={viewing?.card ?? null}
         onClose={() => setViewing(null)}

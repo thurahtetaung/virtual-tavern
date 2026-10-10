@@ -20,7 +20,7 @@ export const guide: GameGuide = {
     {
       name: 'Operative',
       summary:
-        "Only sees the words. Talks it over with teammates and picks cards based on the Spymaster's clue.",
+        'Only sees the words. Talks it over with teammates and picks cards based on the Spymaster’s clue.',
     },
   ],
   sections: [
@@ -35,12 +35,12 @@ export const guide: GameGuide = {
       title: 'Giving a clue (Spymaster)',
       paragraphs: [
         'On your turn, give one word and one number. The word links some of your agents; the number says how many.',
-        'Example: "Ocean 2" could point at WHALE and WAVE.',
+        'Example: “Ocean 2” could point at WHALE and WAVE.',
       ],
       bullets: [
         'The clue must be a single word (hyphens are fine). A bare number is not a clue.',
         'It cannot be one of the words still face-down on the board.',
-        'The number is 1 to 9 and cannot be higher than the agents your team still has to find. Clues for 0 or "unlimited" are not supported.',
+        'The number is 1 to 9 and cannot be higher than the agents your team still has to find. Clues for 0 or “unlimited” are not supported.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
       ],
     },
@@ -52,9 +52,9 @@ export const guide: GameGuide = {
       bullets: [
         'Your agent: great, you may keep guessing.',
         'Innocent bystander: your turn ends.',
-        "The other team's agent: your turn ends, and you just helped them.",
+        'The other team’s agent: your turn ends, and you just helped them.',
         'The assassin: your team loses immediately.',
-        'You get up to one more guess than the clue number (for "Ocean 2", up to 3 guesses). After at least one guess you can also end your turn early.',
+        'You get up to one more guess than the clue number (for “Ocean 2”, up to 3 guesses). After at least one guess you can also end your turn early.',
       ],
     },
     {
@@ -65,10 +65,10 @@ export const guide: GameGuide = {
       ],
     },
     {
-      title: 'Turn timer (optional)',
+      title: 'Timers (optional)',
       paragraphs: [
         'The host can set a time limit for giving clues and for guessing. By default the timer is just a friendly nudge: it turns red when time is up, but nobody is forced to stop.',
-        'If the host picks "Strict", the turn passes to the other team the moment time runs out. A Spymaster who runs out of time passes the turn without giving a clue.',
+        'If the host picks Strict, the turn passes to the other team the moment time runs out. A Spymaster who runs out of time passes the turn without giving a clue.',
       ],
     },
     {
@@ -81,11 +81,12 @@ export const guide: GameGuide = {
         'If a team’s Spymaster or last Operative leaves, that team forfeits its turn (and any turn that starts while the seat is still empty).',
         'The host can skip a stuck turn at any point. It shows up in the game log.',
         'Back to lobby abandons the current game: the board and the log are gone for good.',
+        'Anyone without a team is watching: they see the board and the clues like an Operative, never the key, and can take a seat whenever the rules above allow it.',
       ],
     },
   ],
   tips: [
-    'Spymasters: a safe "2" beats a risky "4". Check the assassin before every clue.',
+    'Spymasters: a safe “2” beats a risky “4”. Check the assassin before every clue.',
     'Operatives: say your reasoning out loud. Your Spymaster cannot help, but your teammates can.',
     'Leftover guesses are useful: the extra guess lets you catch up on an agent you missed last turn.',
     'Use voice or video chat alongside the game for the best experience.',
