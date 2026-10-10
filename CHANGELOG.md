@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.5.1...v0.6.0) (2026-10-10)
+
+
+### Features
+
+* add Reverie, the first back-room game, and retire the Peek demo ([#18](https://github.com/thurahtetaung/virtual-tavern/issues/18)) ([bbdf085](https://github.com/thurahtetaung/virtual-tavern/commit/bbdf0850a67018ae139d4e7d3cbe907d638633ed))
+
 ## [0.5.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.5.0...v0.5.1) (2026-10-10)
 
 
