@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.4.0...v0.5.0) (2026-10-10)
+
+
+### Features
+
+* add the back room for password-gated private games ([#13](https://github.com/thurahtetaung/virtual-tavern/issues/13)) ([946dfa8](https://github.com/thurahtetaung/virtual-tavern/commit/946dfa8790d8d169b596f91710da02b20822a682))
+
 ## [0.4.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.3.0...v0.4.0) (2026-10-10)
 
 
