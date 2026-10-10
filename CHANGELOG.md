@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.3...v0.7.0) (2026-10-10)
+
+
+### Features
+
+* **web:** add a light/dark theme switch and smooth out the room shell ([#33](https://github.com/thurahtetaung/virtual-tavern/issues/33)) ([c28af03](https://github.com/thurahtetaung/virtual-tavern/commit/c28af035e9540b0df8f04cb45bffbf04a1637fb6))
+
+
+### Bug Fixes
+
+* **server:** keep locked-out tabs, timers and host hand-off from getting stuck ([#31](https://github.com/thurahtetaung/virtual-tavern/issues/31)) ([8a4f6dd](https://github.com/thurahtetaung/virtual-tavern/commit/8a4f6ddf08a853b6af730498cce70aee4d0ece6f))
+
 ## [0.6.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.2...v0.6.3) (2026-10-10)
 
 
