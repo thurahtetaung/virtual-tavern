@@ -35,3 +35,37 @@ export function playerToken(): string {
 
 export const savedName = () => read(NAME_KEY)?.trim() || '';
 export const saveName = (name: string) => write(NAME_KEY, name.trim());
+
+const LAST_ROOM_KEY = 'vt.lastRoom';
+
+export interface LastRoom {
+  id: string;
+  /** The game's display name, for "Rejoin your Codenames room". */
+  game: string;
+}
+
+/** The room this browser most recently sat in, so the landing page can offer a way back. */
+export function lastRoom(): LastRoom | null {
+  const raw = read(LAST_ROOM_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<LastRoom> | null;
+    return parsed && typeof parsed.id === 'string' && typeof parsed.game === 'string'
+      ? { id: parsed.id, game: parsed.game }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export const saveLastRoom = (room: LastRoom) => write(LAST_ROOM_KEY, JSON.stringify(room));
+
+/** Forgets the last room; with `id`, only if that is the one stored. */
+export function forgetLastRoom(id?: string) {
+  if (id !== undefined && lastRoom()?.id !== id) return;
+  try {
+    localStorage.removeItem(LAST_ROOM_KEY);
+  } catch {
+    // Nothing stored anyway.
+  }
+}

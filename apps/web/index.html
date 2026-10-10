@@ -5,7 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Virtual Tavern</title>
     <meta name="description" content="Play party games with friends in your browser." />
-    <meta name="theme-color" content="#d97706" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d97706" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0a09" />
+    <script>
+      // Pick the theme before the first paint so a saved choice never flashes the other one.
+      // Keep in step with src/lib/theme.ts.
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem('vt.theme');
+        } catch (e) {
+          /* storage blocked: follow the system */
+        }
+        var explicit = saved === 'light' || saved === 'dark';
+        var dark = explicit
+          ? saved === 'dark'
+          : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        if (explicit) {
+          var metas = document.querySelectorAll('meta[name="theme-color"]');
+          for (var i = 0; i < metas.length; i++) metas[i].content = dark ? '#0c0a09' : '#d97706';
+        }
+      })();
+    </script>
     <link
       rel="icon"
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍺</text></svg>"

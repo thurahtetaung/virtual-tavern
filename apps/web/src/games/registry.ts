@@ -1,6 +1,7 @@
 import type { GameGuide, GameUiProps } from '@vt/game-sdk';
-import { guide as codenamesGuide } from '@vt/game-codenames/logic';
-import { guide as enigmaGuide } from '@vt/game-enigma/logic';
+// Guides come from their own entry point, so the landing page doesn't ship the game engines.
+import { guide as codenamesGuide } from '@vt/game-codenames/guide';
+import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { type ComponentType, lazy } from 'react';
 
 export interface ClientGame {

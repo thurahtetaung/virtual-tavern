@@ -123,8 +123,12 @@ function BackroomAdmin() {
   const signOutAll = async () => {
     if (!window.confirm('Sign everyone out of the back room? They will need the password again.'))
       return;
-    await api('/api/admin/backroom/sign-out-all', { method: 'POST' });
-    toast('Everyone has been signed out of the back room.', 'info');
+    try {
+      await api('/api/admin/backroom/sign-out-all', { method: 'POST' });
+      toast('Everyone has been signed out of the back room.', 'info');
+    } catch (err) {
+      toast((err as Error).message);
+    }
   };
 
   return (
@@ -169,14 +173,18 @@ function BackroomAdmin() {
 
 function WordLists({ onSignOut }: { onSignOut: () => void }) {
   const toast = useToast();
-  const [lists, setLists] = useState<WordListSummary[]>([]);
+  // null until the first load answers, so an empty server isn't confused with a slow one.
+  const [lists, setLists] = useState<WordListSummary[] | null>(null);
   const [editing, setEditing] = useState<WordListDetail | 'new' | null>(null);
 
   const load = useCallback(
     () =>
       void api<WordListSummary[]>('/api/admin/word-lists')
         .then(setLists)
-        .catch((e: Error) => toast(e.message)),
+        .catch((e: Error) => {
+          toast(e.message);
+          setLists((l) => l ?? []);
+        }),
     [toast],
   );
   useEffect(() => {
@@ -221,8 +229,9 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
         Hosts choose from these lists when setting up a game. A game needs at least 25 words across
         the chosen lists.
       </p>
+      {lists === null && <p className="text-stone-500 dark:text-stone-400">Loading lists…</p>}
       <ul className="space-y-2">
-        {lists.map((l) => (
+        {lists?.map((l) => (
           <li key={l.id}>
             <button
               type="button"
@@ -248,7 +257,7 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
             </button>
           </li>
         ))}
-        {lists.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
+        {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
       </ul>
     </div>
   );

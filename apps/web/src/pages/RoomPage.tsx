@@ -1,7 +1,7 @@
 import type { WordListSummary } from '@vt/game-sdk';
 import type { RoomInfo, RoomSnapshot } from '@vt/protocol';
 import { Badge, Button, Panel, cn } from '@vt/ui';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
@@ -9,34 +9,89 @@ import { Layout } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { type ClientGame, loadGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
-import { saveName, savedName } from '../lib/identity.ts';
+import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
 import { useRoom } from '../lib/useRoom.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
+type RoomLookup =
+  | { kind: 'loading' }
+  | { kind: 'found'; room: RoomInfo }
+  | { kind: 'missing' }
+  /** The server answered with an error, or didn't answer at all. */
+  | { kind: 'failed'; message: string };
+
 export function RoomPage() {
   const { roomId = '' } = useParams();
   const navigate = useNavigate();
-  const [info, setInfo] = useState<RoomInfo | null | 'missing'>(null);
+  const [lookup, setLookup] = useState<RoomLookup>({ kind: 'loading' });
+  const [attempt, setAttempt] = useState(0);
   const [game, setGame] = useState<ClientGame | null | 'missing'>(null);
   const [name, setName] = useState<string | null>(() => savedName() || null);
 
   useEffect(() => {
+    let stale = false;
     api<RoomInfo>(`/api/rooms/${roomId}`)
       .then(async (room) => {
-        setInfo(room);
+        if (stale) return;
+        setLookup({ kind: 'found', room });
         setGame((await loadGame(room.gameId)) ?? 'missing');
       })
       .catch((err: unknown) => {
+        if (stale) return;
         // A back-room game: knock first, then come straight back here.
         if (err instanceof ApiFailure && err.code === 'backroom-locked') {
           void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`, { replace: true });
-        } else setInfo(err instanceof ApiFailure && err.status === 404 ? 'missing' : null);
+        } else if (err instanceof ApiFailure && err.status === 404) {
+          forgetLastRoom(roomId);
+          setLookup({ kind: 'missing' });
+        } else {
+          setLookup({
+            kind: 'failed',
+            message:
+              err instanceof ApiFailure
+                ? err.message
+                : "We couldn't reach the tavern. Check your connection and try again.",
+          });
+        }
       });
-  }, [roomId, navigate]);
+    return () => {
+      stale = true;
+    };
+  }, [roomId, navigate, attempt]);
 
-  if (info === 'missing')
+  if (lookup.kind === 'missing')
     return <NotFoundPage message="This room does not exist or has expired. Ask for a new link!" />;
+  if (lookup.kind === 'failed') {
+    return (
+      <Layout>
+        <Panel className="mx-auto mt-10 max-w-md space-y-4 text-center">
+          <p className="text-5xl" aria-hidden>
+            🫗
+          </p>
+          <h1 className="text-2xl font-bold">Couldn't open the room</h1>
+          <p className="text-stone-600 dark:text-stone-400">{lookup.message}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button
+              size="lg"
+              onClick={() => {
+                setLookup({ kind: 'loading' });
+                setAttempt((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+            <Link
+              to="/"
+              className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800"
+            >
+              Back to the tavern
+            </Link>
+          </div>
+        </Panel>
+      </Layout>
+    );
+  }
   if (game === 'missing')
     return <NotFoundPage message="This room is for a game we don't have any more." />;
 
@@ -69,6 +124,15 @@ export function RoomPage() {
   return <Room roomId={roomId} game={game} name={name} onRename={setName} />;
 }
 
+/** "Ana", "Ana and Ben", "Ana, Ben and Cy". */
+const listNames = (names: string[]) =>
+  names.length <= 1
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+/** How long arrivals and departures are collected before one toast reports them. */
+const PRESENCE_TOAST_DELAY_MS = 1500;
+
 function Room({
   roomId,
   game,
@@ -97,6 +161,19 @@ function Room({
     return () => window.removeEventListener('focus', load);
   }, []);
 
+  useEffect(() => {
+    document.title = `${game.name} · Virtual Tavern`;
+    return () => {
+      document.title = 'Virtual Tavern';
+    };
+  }, [game.name]);
+
+  // Remember this room for "Rejoin your last room" on the landing page.
+  useEffect(() => {
+    if (status === 'joined') saveLastRoom({ id: roomId, game: game.name });
+    if (status === 'kicked' || status === 'left') forgetLastRoom(roomId);
+  }, [status, roomId, game.name]);
+
   const act = useCallback(
     async (action: unknown) => {
       const res = await call('game:action', action);
@@ -113,6 +190,50 @@ function Room({
     if (status === 'locked') void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
   }, [status, navigate, roomId]);
 
+  const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
+
+  // Say so when the host role lands on you (the previous host went away, or handed it over).
+  const wasHost = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!snapshot) return;
+    if (wasHost.current === false && isHost) toast("You're the host now", 'info');
+    wasHost.current = isHost;
+  }, [snapshot, isHost, toast]);
+
+  // Arrivals and departures, collected briefly so a group joining at once makes one toast.
+  const knownPlayers = useRef<Map<string, string> | null>(null);
+  const presence = useRef<{ joined: string[]; left: string[]; timer: number | null }>({
+    joined: [],
+    left: [],
+    timer: null,
+  });
+  useEffect(() => {
+    if (!snapshot) return;
+    const now = new Map(snapshot.players.map((p) => [p.id, p.name]));
+    const before = knownPlayers.current;
+    knownPlayers.current = now;
+    if (!before) return; // The first snapshot: everyone already here is not "joining".
+    const p = presence.current;
+    for (const [id, playerName] of now)
+      if (!before.has(id) && id !== snapshot.you) p.joined.push(playerName);
+    for (const [id, playerName] of before)
+      if (!now.has(id) && id !== snapshot.you) p.left.push(playerName);
+    if (p.timer !== null || p.joined.length + p.left.length === 0) return;
+    p.timer = window.setTimeout(() => {
+      const parts = [];
+      if (p.joined.length) parts.push(`${listNames(p.joined)} joined`);
+      if (p.left.length) parts.push(`${listNames(p.left)} left`);
+      presence.current = { joined: [], left: [], timer: null };
+      toast(parts.join(' · '), 'info');
+    }, PRESENCE_TOAST_DELAY_MS);
+  }, [snapshot, toast]);
+  useEffect(() => {
+    const p = presence.current;
+    return () => {
+      if (p.timer !== null) clearTimeout(p.timer);
+    };
+  }, []);
+
   if (status === 'kicked' || status === 'left') {
     return (
       <NotFoundPage
@@ -126,8 +247,8 @@ function Room({
   }
   if (status === 'error') return <NotFoundPage message={error ?? 'Could not join this room.'} />;
 
-  const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
   const Game = game.Component;
+  const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
 
   return (
     <Layout wide>
@@ -141,15 +262,17 @@ function Room({
           <Button
             variant="secondary"
             size="sm"
-            aria-label={`Players (${snapshot ? snapshot.players.filter((p) => p.connected).length : 0} online)`}
+            className={HEADER_BUTTON}
+            aria-label={`Players (${online} online)`}
             onClick={() => setPeopleOpen(true)}
           >
             👥<span className="hidden sm:inline">Players</span>
-            {snapshot ? ` ${snapshot.players.filter((p) => p.connected).length}` : ''}
+            {snapshot ? ` ${online}` : ''}
           </Button>
           <Button
             variant="secondary"
             size="sm"
+            className={HEADER_BUTTON}
             aria-label="Rules"
             onClick={() => setGuideOpen(true)}
           >
@@ -159,16 +282,23 @@ function Room({
       </div>
 
       {status === 'reconnecting' && (
-        <p className="mb-3 rounded-xl bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950">
-          Connection lost. Reconnecting…
+        <p
+          role="status"
+          className="mb-3 rounded-xl bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950"
+        >
+          {snapshot ? 'Connection lost. Reconnecting…' : "Can't reach the tavern. Retrying…"}
         </p>
       )}
 
       {!snapshot ? (
-        <p className="py-16 text-center text-stone-500">Opening the door…</p>
+        <p className="py-16 text-center text-stone-500 dark:text-stone-400">Opening the door…</p>
       ) : (
         <Suspense
-          fallback={<p className="py-16 text-center text-stone-500">Setting up the table…</p>}
+          fallback={
+            <p className="py-16 text-center text-stone-500 dark:text-stone-400">
+              Setting up the table…
+            </p>
+          }
         >
           <Game
             view={snapshot.game}
@@ -204,6 +334,7 @@ function Room({
       <Drawer open={peopleOpen} onClose={() => setPeopleOpen(false)} title="Players">
         {snapshot && (
           <People
+            roomId={roomId}
             snapshot={snapshot}
             isHost={isHost}
             call={call}
@@ -214,6 +345,9 @@ function Room({
             onLeave={async () => {
               if (!window.confirm('Leave this room? You can come back with the same link.')) return;
               await leave();
+              // Done here as well as in the status effect: the navigation unmounts the room in
+              // the same render as the 'left' status, so that effect may never run.
+              forgetLastRoom(roomId);
               void navigate('/');
             }}
           />
@@ -222,6 +356,9 @@ function Room({
     </Layout>
   );
 }
+
+/** Room header buttons: compact on desktop, but a full 44 px tap target on phones. */
+const HEADER_BUTTON = 'min-h-11 sm:min-h-0';
 
 function InviteButton() {
   const toast = useToast();
@@ -236,13 +373,16 @@ function InviteButton() {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (err) {
+      // Closing the share sheet without sharing is not a failure.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       toast(`Copy this link: ${url}`, 'info');
     }
   };
   return (
     <Button
       size="sm"
+      className={HEADER_BUTTON}
       aria-label={copied ? 'Link copied' : 'Invite friends'}
       onClick={() => void copy()}
     >
@@ -252,13 +392,53 @@ function InviteButton() {
   );
 }
 
+/** The room's code, for friends who'd rather hear it than get a link. */
+function RoomCode({ roomId }: { roomId: string }) {
+  const toast = useToast();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast(`The room code is ${roomId}`, 'info');
+    }
+  };
+  return (
+    <div className="rounded-xl bg-stone-100 p-3 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
+      <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
+        Room code
+      </p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        {/* Wraps after a hyphen when it must, never inside a word. */}
+        <code className="font-mono font-bold break-words sm:text-lg">{roomId}</code>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="shrink-0"
+          aria-label={copied ? 'Room code copied' : 'Copy room code'}
+          onClick={() => void copy()}
+        >
+          {copied ? '✓ Copied' : 'Copy'}
+        </Button>
+      </div>
+      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+        Read it out: friends can type it on the home page instead of opening a link.
+      </p>
+    </div>
+  );
+}
+
 function People({
+  roomId,
   snapshot,
   isHost,
   call,
   onRename,
   onLeave,
 }: {
+  roomId: string;
   snapshot: RoomSnapshot;
   isHost: boolean;
   call: ReturnType<typeof useRoom>['call'];
@@ -277,6 +457,7 @@ function People({
 
   return (
     <div className="space-y-6">
+      <RoomCode roomId={roomId} />
       <ul className="divide-y divide-stone-200 dark:divide-stone-800">
         {snapshot.players.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
@@ -312,7 +493,7 @@ function People({
           </li>
         ))}
       </ul>
-      <p className="text-sm text-stone-500">
+      <p className="text-sm text-stone-500 dark:text-stone-400">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.
       </p>

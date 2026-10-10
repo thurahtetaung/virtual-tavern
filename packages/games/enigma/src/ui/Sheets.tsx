@@ -65,10 +65,14 @@ function ClueList({ clues }: { clues: { round: number; clue: string }[] }) {
           className="flex items-baseline justify-between gap-2 border-b border-stone-200/70 pb-0.5 dark:border-stone-700/70"
         >
           <span className="font-medium break-words">{c.clue}</span>
-          <span className="shrink-0 text-[0.65rem] text-stone-500">R{c.round}</span>
+          <span className="shrink-0 text-[0.65rem] text-stone-500 dark:text-stone-400">
+            R{c.round}
+          </span>
         </li>
       ))}
-      {clues.length === 0 && <li className="text-xs text-stone-500 italic">No clues yet</li>}
+      {clues.length === 0 && (
+        <li className="text-xs text-stone-500 dark:text-stone-400 italic">No clues yet</li>
+      )}
     </ul>
   );
 }
@@ -85,7 +89,7 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {keywords.map((word, i) => (
           <div key={i} className="rounded-xl bg-white/80 p-2 shadow-sm dark:bg-stone-900/70">
-            <p className="text-xs font-bold text-stone-500">#{i + 1}</p>
+            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">#{i + 1}</p>
             <p className="text-base font-extrabold tracking-wide break-words uppercase sm:text-lg">
               {word}
             </p>
@@ -105,13 +109,13 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
   return (
     <Panel>
       <h3 className={cn('mb-1 font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]}'s clues</h3>
-      <p className="mb-2 text-xs text-stone-500">
+      <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">
         Their keywords are secret. Use their past clues to guess them, and to intercept their codes.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {columns.map((clues, i) => (
           <div key={i} className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-            <p className="text-xs font-bold text-stone-500">#{i + 1} · ?</p>
+            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">#{i + 1} · ?</p>
             {notes && (
               <div className="mt-1">
                 <SharedText
@@ -138,7 +142,11 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
             placeholder="Shared with your team only…"
             onSave={(text) => void act({ type: 'set-note', slot: 'general', text })}
           />
-          {editor && <p className="text-[0.7rem] text-stone-500">Last edited by {editor}</p>}
+          {editor && (
+            <p className="text-[0.7rem] text-stone-500 dark:text-stone-400">
+              Last edited by {editor}
+            </p>
+          )}
         </div>
       )}
     </Panel>
