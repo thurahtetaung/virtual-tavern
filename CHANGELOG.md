@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.2.0...v0.3.0) (2026-10-10)
+
+
+### Features
+
+* built-in word packs and a word list picker ([#9](https://github.com/thurahtetaung/virtual-tavern/issues/9)) ([8c56efb](https://github.com/thurahtetaung/virtual-tavern/commit/8c56efbcb204bb59a7f6a245f7930663abadfc4f))
+
 ## [0.2.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.1.0...v0.2.0) (2026-10-10)
 
 
