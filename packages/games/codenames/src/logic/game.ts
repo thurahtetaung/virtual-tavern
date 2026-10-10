@@ -25,6 +25,7 @@ import {
   actionSchema,
 } from './types.ts';
 import { guide } from './guide.ts';
+import { insights } from './insights.ts';
 
 type Ctx = ActionCtx;
 type Result = CodenamesState | GameError;
@@ -528,4 +529,5 @@ export const codenames: GameDefinition<CodenamesState, CodenamesAction, Codename
   view,
   nextDeadline,
   onDeadline,
+  insights,
 };

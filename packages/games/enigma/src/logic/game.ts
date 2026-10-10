@@ -9,6 +9,7 @@ import {
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { insights } from './insights.ts';
 import {
   CODE_LENGTH,
   type Code,
@@ -783,4 +784,5 @@ export const enigma: GameDefinition<EnigmaState, EnigmaAction, EnigmaView> = {
   view,
   nextDeadline,
   onDeadline,
+  insights,
 };
