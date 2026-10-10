@@ -1,4 +1,6 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+import { type Browser, type Download, type Page, expect, test } from '@playwright/test';
+import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
@@ -19,6 +21,8 @@ async function player(browser: Browser, name: string, url = '/') {
   await page.goto(url);
   return page;
 }
+
+const downloaded = async (download: Download) => readFileSync(await download.path());
 
 const board = (page: Page) => page.getByRole('region', { name: 'Word cards' });
 const cards = (page: Page, name?: RegExp) =>
@@ -151,6 +155,26 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await expect(row.getByText('Disabled', { exact: true })).toBeVisible();
   await admin.reload();
   await expect(enabled).toHaveAttribute('aria-checked', 'false');
+
+  // One list as .txt, straight from its row; every list (disabled ones too) as a zip backup.
+  const [txt] = await Promise.all([
+    admin.waitForEvent('download'),
+    row.getByRole('button', { name: 'Download E2E Planets as .txt' }).click(),
+  ]);
+  expect(txt.suggestedFilename()).toBe('e2e-planets.txt');
+  expect((await downloaded(txt)).toString('utf8')).toBe('Moon\nMars\nVenus\nComet\n');
+  const [zip] = await Promise.all([
+    admin.waitForEvent('download'),
+    admin.getByRole('button', { name: 'Download all (.zip)' }).click(),
+  ]);
+  expect(zip.suggestedFilename()).toMatch(/^virtual-tavern-word-lists-\d{4}-\d{2}-\d{2}\.zip$/);
+  const files = unzipSync(new Uint8Array(await downloaded(zip)));
+  const manifest = JSON.parse(strFromU8(files['manifest.json']!)) as {
+    lists: Record<string, { name: string; enabled: boolean }>;
+  };
+  expect(manifest.lists['e2e-planets']).toMatchObject({ name: 'E2E Planets', enabled: false });
+  expect(strFromU8(files['e2e-planets.txt']!).split('\n')[0]).toBe('Moon');
+  expect(Object.values(manifest.lists).map((l) => l.name)).toContain('Starter');
 
   await host.reload();
   await expect(lists.getByText('Starter')).toBeVisible();
