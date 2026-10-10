@@ -5,6 +5,7 @@ import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useStat
 import { Layout } from '../components/Layout.tsx';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
+import { backupFileName, backupZip, listFile, saveFile } from '../lib/word-list-backup.ts';
 
 interface Session {
   enabled: boolean;
@@ -206,6 +207,28 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
     }
   };
 
+  const download = async (id: string) => {
+    try {
+      const { name, blob } = listFile(await api<WordListDetail>(`/api/admin/word-lists/${id}`));
+      saveFile(blob, name);
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+
+  const [zipping, setZipping] = useState(false);
+  const downloadAll = async () => {
+    setZipping(true);
+    try {
+      const all = await api<WordListDetail[]>('/api/admin/word-lists/export');
+      saveFile(await backupZip(all), backupFileName(new Date()));
+    } catch (err) {
+      toast((err as Error).message);
+    } finally {
+      setZipping(false);
+    }
+  };
+
   // Lists with a switch request in flight; further taps on them wait for it to settle.
   const [switching, setSwitching] = useState<ReadonlySet<string>>(new Set());
   const setEnabled = async (id: string, enabled: boolean) => {
@@ -245,8 +268,15 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold">Word lists</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => setEditing('new')}>+ New list</Button>
+          <Button
+            variant="secondary"
+            onClick={() => void downloadAll()}
+            disabled={zipping || !lists?.length}
+          >
+            {zipping ? 'Zipping…' : 'Download all (.zip)'}
+          </Button>
           <Button
             variant="ghost"
             onClick={() => void api('/api/admin/logout', { method: 'POST' }).then(onSignOut)}
@@ -305,6 +335,15 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
                   {l.wordCount} words
                 </span>
               </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Download ${l.name} as .txt`}
+                title="Download .txt"
+                onClick={() => void download(l.id)}
+              >
+                <DownloadIcon />
+              </Button>
               <Switch
                 checked={l.enabled}
                 busy={switching.has(l.id)}
@@ -318,6 +357,23 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
         {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
       </ul>
     </div>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
+    </svg>
   );
 }
 
@@ -454,12 +510,8 @@ function Editor({
   };
 
   const exportFile = () => {
-    const blob = new Blob([parsed.words.join('\n') + '\n'], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name.trim() || 'word-list'}.txt`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const file = listFile({ name: name.trim() || 'word-list', words: parsed.words });
+    saveFile(file.blob, file.name);
   };
 
   const noGames = games.length > 0 && chosen.length === 0;

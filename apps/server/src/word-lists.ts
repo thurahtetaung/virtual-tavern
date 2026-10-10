@@ -111,6 +111,16 @@ export class WordListRepo {
     );
   }
 
+  /** Every list by name with its words, disabled ones included (the admin backup). */
+  exportAll(): WordListDetail[] {
+    return this.db
+      .select()
+      .from(wordLists)
+      .orderBy(wordLists.name)
+      .all()
+      .map((r) => ({ ...summary(r), words: r.words }));
+  }
+
   get(id: string): WordListDetail | null {
     const row = this.db.select().from(wordLists).where(eq(wordLists.id, id)).get();
     return row ? { ...summary(row), words: row.words } : null;

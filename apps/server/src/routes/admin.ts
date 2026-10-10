@@ -54,6 +54,9 @@ export function adminRoutes(
 
     scope.get('/api/admin/word-lists', () => wordLists.list());
 
+    // Every list with its words, for "Download all"; the zip is built in the browser.
+    scope.get('/api/admin/word-lists/export', () => wordLists.exportAll());
+
     scope.get('/api/admin/backroom', () => ({ open: backroom.isOpen() }));
 
     scope.put('/api/admin/backroom/password', (req, reply) => {

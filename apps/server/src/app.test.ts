@@ -317,6 +317,44 @@ describe('admin api', () => {
     expect(await names('/api/word-lists?game=enigma')).toEqual(['Pets', 'Starter']);
   });
 
+  it('exports every list with its words, disabled ones included, to admins only', async () => {
+    const url = '/api/admin/word-lists/export';
+    const anon = await app.inject({ method: 'GET', url });
+    expect(anon.statusCode).toBe(401);
+    expect(anon.json()).toEqual({ error: { code: 'unauthorized', message: 'Please sign in.' } });
+
+    const { cookie } = await login();
+    const headers = { cookie };
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/word-lists',
+      headers,
+      payload: { name: 'Pets', description: 'Furry', words: ['Dog', 'Cat'], games: ['enigma'] },
+    });
+    const id = created.json<{ id: string }>().id;
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/word-lists/${id}`,
+      headers,
+      payload: { enabled: false },
+    });
+
+    const res = await app.inject({ method: 'GET', url, headers });
+    expect(res.statusCode).toBe(200);
+    const lists = res.json<{ name: string; words: string[] }[]>();
+    expect(lists.map((l) => l.name)).toEqual(['Pets', 'Starter']);
+    expect(lists[0]).toMatchObject({
+      id,
+      name: 'Pets',
+      description: 'Furry',
+      games: ['enigma'],
+      enabled: false,
+      words: ['Dog', 'Cat'],
+      wordCount: 2,
+    });
+    expect(lists[1]!.words.length).toBeGreaterThan(25);
+  });
+
   it('is disabled without a password', async () => {
     await app.close();
     app = testApp({ adminPassword: null });
