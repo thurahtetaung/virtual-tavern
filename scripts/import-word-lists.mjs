@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Imports word lists into a running Virtual Tavern through the admin API.
-// The folder holds a manifest.json ({ lists: { <slug>: { name, description } } }) and one
+// The folder holds a manifest.json ({ lists: { <slug>: { name, description, games?, enabled? } } },
+// the same shape the admin page's "Download all" backup writes) and one
 // <slug>.txt per list, one word per line. Lists whose name already exists are skipped, so the
 // script is safe to re-run. The admin password comes from ADMIN_PASSWORD (never a flag, so it
 // stays out of shell history). The lists themselves are never committed; see CLAUDE.md.
@@ -79,7 +80,14 @@ for (const [slug, meta] of wanted) {
   const words = readWords(slug);
   const { body } = await api('/api/admin/word-lists', {
     method: 'POST',
-    body: JSON.stringify({ name: meta.name, description: meta.description ?? '', words }),
+    body: JSON.stringify({
+      name: meta.name,
+      description: meta.description ?? '',
+      words,
+      // Optional: which games offer the list, and whether it starts switched on.
+      ...(meta.games ? { games: meta.games } : {}),
+      ...(meta.enabled === undefined ? {} : { enabled: meta.enabled }),
+    }),
   });
   console.log(`created  "${body.name}" (${words.length} words, id ${body.id})`);
   created++;
