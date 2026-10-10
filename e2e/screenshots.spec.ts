@@ -1,5 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
+import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -344,5 +345,54 @@ for (const [label, viewport] of [
     await nextCard();
     await expect(host.getByText('Game over!')).toBeVisible();
     await shot(host, 'over');
+  });
+}
+
+// The admin stats page, served from the typed fixtures: phone in dark, desktop in light.
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+] as const) {
+  test(`stats screenshots (${label})`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport, colorScheme });
+    const page = await ctx.newPage();
+    await mockStatsApi(page);
+    await openStatsAsAdmin(page);
+    // Charts and chips animate; let loads finish and transitions settle before each shot.
+    const shot = async (name: string) => {
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(600);
+      await page.screenshot({
+        path: `test-results/shots/stats-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    };
+    const tab = (name: string) => page.getByRole('tab', { name, exact: true }).click();
+    await shot('live');
+    await tab('Overview');
+    await expect(page.getByRole('region', { name: 'Game mix' }).locator('svg')).toBeVisible();
+    await shot('overview');
+    if (label === 'phone') {
+      await page.getByRole('region', { name: 'Game nights calendar' }).scrollIntoViewIfNeeded();
+      await shot('overview-heatmaps');
+    }
+    await tab('Games');
+    await page.getByRole('group', { name: 'Game' }).getByRole('button', { name: /Echo/ }).click();
+    await expect(page.getByRole('region', { name: 'Card outcomes' })).toBeVisible();
+    await shot('games-echo');
+    if (label === 'phone') {
+      await page.getByRole('region', { name: 'Words' }).scrollIntoViewIfNeeded();
+      await shot('games-echo-words');
+    }
+    await tab('Players');
+    await expect(page.getByRole('table')).toBeVisible();
+    await shot('players');
+    await page.getByRole('button', { name: /^Ivy/ }).click();
+    await expect(page.getByText('Also known as')).toBeVisible();
+    await shot('player');
+    await tab('Fun');
+    await expect(page.getByText('Most dramatic finish')).toBeVisible();
+    await shot('fun');
   });
 }
