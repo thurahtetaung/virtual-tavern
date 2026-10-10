@@ -6,8 +6,13 @@ test.afterEach(() => {
   expect(errors, 'uncaught errors in the browser').toEqual([]);
 });
 
+let nextIp = 1;
 async function visitor(browser: Browser, name?: string) {
-  const page = await (await browser.newContext()).newPage();
+  // The back-room knock is rate-limited per address, so each browser gets its own.
+  const context = await browser.newContext({
+    extraHTTPHeaders: { 'cf-connecting-ip': `10.2.0.${nextIp++}` },
+  });
+  const page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(e.message));
   if (name) await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
   return page;
@@ -22,9 +27,9 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   const door = stranger.getByRole('link', { name: 'The back room' });
   await expect(door).toBeVisible();
   await expect(door).toHaveText('🚪');
-  await expect(stranger.getByText('Peek')).toHaveCount(0);
+  await expect(stranger.getByText('Reverie')).toHaveCount(0);
   const games = await stranger.request.get('/api/games');
-  expect(JSON.stringify(await games.json())).not.toContain('backroom-demo');
+  expect(JSON.stringify(await games.json())).not.toContain('reverie');
 
   // Before an admin sets a password, the door stays shut.
   await door.click();
@@ -51,9 +56,9 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await expect(host).toHaveURL(/\/backroom$/);
   await expect(host.getByText("You're on the list")).toBeVisible();
   await expect(
-    host.getByRole('region', { name: 'Back room games' }).getByRole('heading', { name: 'Peek' }),
+    host.getByRole('region', { name: 'Back room games' }).getByRole('heading', { name: 'Reverie' }),
   ).toBeVisible();
-  await host.getByRole('button', { name: 'Create a Peek room' }).click();
+  await host.getByRole('button', { name: 'Create a Reverie room' }).click();
   await expect(host).toHaveURL(/\/r\//);
   const roomUrl = host.url();
 
@@ -75,18 +80,13 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await friend.getByLabel('The word').fill('speakeasy');
   await friend.getByRole('button', { name: 'Knock' }).click();
   await expect(friend).toHaveURL(roomUrl);
-  await expect(host.getByText(/2 in the back room/)).toBeVisible();
-
-  await host.getByRole('button', { name: 'Start' }).click();
-  await expect(friend.getByRole('button', { name: 'Next card' })).toBeVisible();
-  // No R2 in tests: the game says so rather than breaking.
-  await expect(friend.getByText(/not configured/)).toBeVisible();
+  await expect(host.getByText('Players (2/8)')).toBeVisible();
 
   // Signing everyone out bounces players back to the door on their next move.
   admin.on('dialog', (d) => void d.accept());
   await admin.getByRole('button', { name: 'Sign everyone out' }).click();
   await expect(admin.getByText('Everyone has been signed out')).toBeVisible();
-  await friend.getByRole('button', { name: 'Next card' }).click();
+  await friend.getByRole('button', { name: 'Just watch' }).click();
   await expect(friend).toHaveURL(/\/backroom\?next=/);
   await expect(friend.getByText("What's the word?")).toBeVisible();
 });

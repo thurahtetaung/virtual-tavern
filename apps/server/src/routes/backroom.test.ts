@@ -17,7 +17,7 @@ describe('back room over HTTP', () => {
     for (const a of apps.splice(0)) await a.close();
   });
   const make = (extra = {}) => {
-    const app = testApp({ demoPrivateGame: true, r2: R2, ...extra });
+    const app = testApp({ r2: R2, ...extra });
     apps.push(app);
     return app;
   };
@@ -73,7 +73,7 @@ describe('back room over HTTP', () => {
     expect(await ids()).toEqual(['codenames', 'enigma']);
     expect((await unlock(app, 'nope')).res.statusCode).toBe(401);
     const { cookie } = await unlock(app);
-    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'backroom-demo']);
+    expect(await ids(cookie)).toEqual(['codenames', 'enigma', 'reverie']);
   });
 
   it('only lets unlocked players create or look up private rooms', async () => {
@@ -84,42 +84,42 @@ describe('back room over HTTP', () => {
         method: 'POST',
         url: '/api/rooms',
         headers: { cookie },
-        payload: { gameId: 'backroom-demo', token: token(1) },
+        payload: { gameId: 'reverie', token: token(1) },
       });
     expect((await create()).statusCode).toBe(400);
     const { cookie } = await unlock(app);
     const { roomId } = (await create(cookie)).json<{ roomId: string }>();
     const locked = await app.inject({ method: 'GET', url: `/api/rooms/${roomId}` });
     expect(locked.statusCode).toBe(403);
-    expect(locked.body).not.toContain('backroom-demo');
+    expect(locked.body).not.toContain('reverie');
     expect(
       (
         await app.inject({ method: 'GET', url: `/api/rooms/${roomId}`, headers: { cookie } })
       ).json(),
     ).toEqual({
       id: roomId,
-      gameId: 'backroom-demo',
+      gameId: 'reverie',
     });
   });
 
   it('hands unlocked players a short-lived signed R2 link, and nobody else anything', async () => {
     const app = make();
     await open(app);
-    const url = '/api/backroom/assets/backroom-demo/cards/001.webp';
+    const url = '/api/backroom/assets/reverie/cards/001.webp';
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
     const { cookie } = await unlock(app);
     const res = await app.inject({ method: 'GET', url, headers: { cookie } });
     expect(res.statusCode).toBe(302);
     const target = new URL(res.headers.location!);
     expect(target.host).toBe('acct123.r2.cloudflarestorage.com');
-    expect(target.pathname).toBe('/vt-private/backroom-demo/cards/001.webp');
+    expect(target.pathname).toBe('/vt-private/reverie/cards/001.webp');
     expect(target.searchParams.get('X-Amz-Expires')).toBe('600');
     expect(target.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
     expect(res.headers['cache-control']).toBe('private, max-age=300');
     // Escapes and public games get nothing.
     const evil = await app.inject({
       method: 'GET',
-      url: '/api/backroom/assets/backroom-demo/..%2F..%2Fx',
+      url: '/api/backroom/assets/reverie/..%2F..%2Fx',
       headers: { cookie },
     });
     expect(evil.statusCode).toBe(400);

@@ -27,7 +27,7 @@
     "@vt/game-codenames": "workspace:*",
     "@vt/game-enigma": "workspace:*",
     "@vt/game-sdk": "workspace:*",
-    "@vt/private-demo": "workspace:*",
+    "@vt/private-reverie": "workspace:*",
     "@vt/protocol": "workspace:*",
     "drizzle-kit": "^0.31.11",
     "socket.io-client": "^4.8.4",

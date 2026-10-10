@@ -81,9 +81,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
-      '@vt/private-demo':
+      '@vt/private-reverie':
         specifier: workspace:*
-        version: link:../../packages/private-games/demo
+        version: link:../../packages/private-games/reverie
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -111,9 +111,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
-      '@vt/private-demo':
+      '@vt/private-reverie':
         specifier: workspace:*
-        version: link:../../packages/private-games/demo
+        version: link:../../packages/private-games/reverie
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -196,7 +196,7 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0
 
-  packages/private-games/demo:
+  packages/private-games/reverie:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*

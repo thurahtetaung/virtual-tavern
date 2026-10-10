@@ -88,6 +88,7 @@ Back-room games keep their art in a private Cloudflare R2 bucket.
 2. **R2 → Manage API tokens → Create**: give the server an **Object Read** token scoped to that bucket, and add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` to the server's `.env`.
 3. Create a separate **Object Read & Write** token for uploads, and keep it on your own machine in `~/.config/virtual-tavern/r2-upload.env`, never on the server or in the repo.
 4. Open `/admin` → **Back room** and set the password.
+5. Upload a game's assets from the dev machine: `node scripts/r2-upload.mjs <gameId> <folder>`. For Reverie the folder holds `cards/000.jpg…`, `back.jpg` and `manifest.json` (set names and the card back); the card-number ranges per set are fixed in the game's `CARD_SETS`.
 
 ## Day to day
 

@@ -46,7 +46,7 @@ export async function loadPrivateGames(): Promise<ClientGame[]> {
 
 /**
  * The private games to show: only those the server says it offers. The web app may know about
- * games the server has switched off (like the Peek demo in production), and offering those would
+ * games the server has switched off, and offering those would
  * only end in "Unknown game".
  */
 export function offeredPrivateGames(
