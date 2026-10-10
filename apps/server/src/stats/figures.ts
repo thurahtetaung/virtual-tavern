@@ -8,6 +8,8 @@ import type { GameFigure } from '@vt/protocol';
 //   echo       card {outcome: right|wrong|pass}, match {a, b, word}, outcome {score, deckSize}
 //   reverie    story {allOrNone}, vote {found}, outcome {target}
 //   hoodwink   lie {fooled, authors, auto}, vote {foundTruth}, round {…}, outcome {rounds}
+//   royal-post play {card}, guard {hit}, elimination {cause, lostPrincess}, spy {},
+//              outcome {edition, rounds}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -29,6 +31,23 @@ export const isPerfectEcho = (props: Props) => {
   const deck = num(props.deckSize);
   return score !== null && deck !== null && deck > 0 && score >= deck;
 };
+
+/** Royal Post's cards, in rank order: the causes a knock-out can be credited to. */
+const ROYAL_POST_CARDS = [
+  'spy',
+  'guard',
+  'priest',
+  'baron',
+  'handmaid',
+  'prince',
+  'chancellor',
+  'king',
+  'countess',
+  'princess',
+];
+
+/** A Royal Post knock-out that cost the player the Princess. */
+export const lostPrincess = (props: Props) => props.lostPrincess === true;
 
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
@@ -98,6 +117,25 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
     case 'hoodwink:outcome':
       out.push(['f.games', 1], ['f.round_sum', num(props.rounds) ?? 0]);
       break;
+    case 'royal-post:guard':
+      flag('guards', props.hit);
+      break;
+    case 'royal-post:elimination': {
+      const cause = str(props.cause);
+      out.push(['f.knockouts', 1]);
+      if (cause && ROYAL_POST_CARDS.includes(cause)) out.push([`f.kill.${cause}`, 1]);
+      break;
+    }
+    case 'royal-post:spy':
+      out.push(['f.spy_bonus', 1]);
+      break;
+    case 'royal-post:outcome': {
+      out.push(['f.games', 1], ['f.round_sum', num(props.rounds) ?? 0]);
+      const edition = str(props.edition);
+      const won = Array.isArray(props.winners) && props.winners.length > 0;
+      if (won && (edition === 'classic' || edition === '2019')) out.push([`f.win.${edition}`, 1]);
+      break;
+    }
   }
   return out;
 }
@@ -250,6 +288,42 @@ export function buildFigures(
           kind: 'number',
           value: avg(get('f.fooled_sum'), get('f.lies')),
         },
+      ];
+    case 'royal-post':
+      return [
+        {
+          id: 'wins-by-edition',
+          label: 'Wins by edition',
+          kind: 'split',
+          parts: [
+            { label: 'Classic', value: get('f.win.classic') },
+            { label: '2019', value: get('f.win.2019') },
+          ],
+        },
+        {
+          id: 'rounds-per-game',
+          label: 'Rounds per game',
+          kind: 'number',
+          value: avg(get('f.round_sum'), games),
+        },
+        {
+          id: 'knockouts-by-card',
+          label: 'Knock-outs by card (most lethal first)',
+          kind: 'split',
+          parts: ROYAL_POST_CARDS.map((card) => ({
+            label: card[0]!.toUpperCase() + card.slice(1),
+            value: get(`f.kill.${card}`),
+          }))
+            .filter((p) => p.value > 0)
+            .sort((a, b) => b.value - a.value),
+        },
+        {
+          id: 'guard-accuracy',
+          label: 'Guard guesses that were right',
+          kind: 'percent',
+          value: pct(get('f.guards_yes'), get('f.guards')),
+        },
+        { id: 'spy-bonuses', label: 'Spy bonus tokens', kind: 'number', value: get('f.spy_bonus') },
       ];
     default:
       return [];

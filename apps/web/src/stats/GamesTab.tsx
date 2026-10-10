@@ -90,7 +90,8 @@ function GameView({ game }: { game: GameInfo }) {
         {!empty &&
           charts.map((f) => <FigureChart key={f.id} fig={f} color={color} tokens={tokens} />)}
         <SettingsUsage data={data} color={color} />
-        <Words game={game} />
+        {/* A game that reports no words (Royal Post) has no Words card. */}
+        {knownWordKinds(game.id)?.length !== 0 && <Words game={game} />}
       </div>
     </div>
   );

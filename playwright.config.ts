@@ -6,6 +6,7 @@ const SHARED_STATE = [
   /backroom\.spec\.ts$/,
   /reverie\.spec\.ts$/,
   /hoodwink\.spec\.ts$/,
+  /royal-post\.spec\.ts$/,
   /question-decks\.spec\.ts$/,
   /screenshots\.spec\.ts$/,
 ];

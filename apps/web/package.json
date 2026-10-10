@@ -16,6 +16,7 @@
     "@vt/game-sdk": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",
     "@vt/private-reverie": "workspace:*",
+    "@vt/private-royal-post": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",
     "echarts": "^6.1.0",

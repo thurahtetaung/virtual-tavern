@@ -4,7 +4,9 @@ import type { EnigmaView } from '@vt/game-enigma/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
+import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import { type TestClient, bareRealtime, connect, tempDb, testApp, token } from './test/helpers.ts';
+import { playRoyalPostTurn, royalPostView } from './test/royal-post.ts';
 
 const view = (s: RoomSnapshot) => s.game as CodenamesView;
 
@@ -505,6 +507,131 @@ describe('realtime back room', () => {
     } finally {
       outsider.close();
       member.close();
+      await app.close();
+    }
+  });
+});
+
+describe('realtime Royal Post', () => {
+  it('plays rounds behind the back room, sending nobody else’s hand or notes', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const clients: TestClient[] = [];
+    try {
+      const admin = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: { password: 'hunter2' },
+      });
+      await app.inject({
+        method: 'PUT',
+        url: '/api/admin/backroom/password',
+        headers: { cookie: `vt_admin=${admin.cookies.find((c) => c.name === 'vt_admin')!.value}` },
+        payload: { password: 'speakeasy' },
+      });
+      const unlocked = await app.inject({
+        method: 'POST',
+        url: '/api/backroom/unlock',
+        payload: { password: 'speakeasy' },
+      });
+      const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'royal-post', token: token(40) },
+      });
+      expect(created.statusCode).toBe(400);
+      const { roomId } = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/rooms',
+          headers: { cookie },
+          payload: { gameId: 'royal-post', token: token(40) },
+        })
+      ).json<{ roomId: string }>();
+      const outsider = await connect(url);
+      clients.push(outsider);
+      expect(
+        await outsider.call('room:join', { roomId, token: token(49), name: 'Out' }),
+      ).toMatchObject({ ok: false, error: { code: 'backroom-locked' } });
+
+      for (const [i, name] of ['Ana', 'Ben', 'Cy'].entries()) {
+        const c = await connect(url, cookie);
+        clients.push(c);
+        expect(await c.call('room:join', { roomId, token: token(40 + i), name })).toEqual({
+          ok: true,
+        });
+      }
+      const players = clients.slice(1);
+      await Promise.all(players.map((c) => c.until((s) => s.players.length === 3)));
+      // Everything each player is sent, checked once play is done.
+      const seen = new Map<TestClient, RoyalPostView[]>(players.map((c) => [c, []]));
+      for (const c of players)
+        c.on('room:state', (s) => seen.get(c)!.push(s.game as RoyalPostView));
+
+      expect(await players[0]!.call('game:action', { type: 'start' })).toEqual({ ok: true });
+      await Promise.all(
+        players.map((c) => c.until((s) => (s.game as RoyalPostView).phase === 'playing')),
+      );
+      // Play rounds (and games) until someone has used a Priest; with two in every deck that
+      // takes a round or two.
+      let priests = 0;
+      let rounds = 0;
+      while (priests === 0 && rounds < 12) {
+        for (let turn = 0; turn < 40; turn++) {
+          const v = royalPostView(players[0]!);
+          if (v.phase !== 'playing' || v.round!.stage === 'over') break;
+          const { mover, action } = await playRoyalPostTurn(players);
+          if (action.type === 'play' && action.card === 'priest' && action.target) {
+            priests++;
+            // The peek reaches the player who played the Priest, and nobody else.
+            const note = royalPostView(mover).notes.at(-1)!;
+            expect(note).toMatchObject({ kind: 'peek', target: action.target });
+            for (const other of players.filter((c) => c !== mover)) {
+              expect(royalPostView(other).notes.map((n) => n.id)).not.toContain(note.id);
+            }
+          }
+        }
+        rounds++;
+        const v = royalPostView(players[1]!);
+        expect(v.round!.result).not.toBeNull();
+        const next = v.phase === 'over' ? 'start' : 'next-round';
+        const number = v.phase === 'over' ? 1 : v.round!.number + 1;
+        expect(await players[0]!.call('game:action', { type: next })).toEqual({ ok: true });
+        await Promise.all(
+          players.map((c) =>
+            c.until((s) => {
+              const g = s.game as RoyalPostView;
+              return g.phase === 'playing' && g.round?.number === number && !g.round.result;
+            }),
+          ),
+        );
+      }
+      expect(priests).toBeGreaterThan(0);
+
+      for (const [c, views] of seen) {
+        expect(views.length).toBeGreaterThan(5);
+        for (const v of views) {
+          const json = JSON.stringify(v);
+          expect(json).not.toContain('"deck"');
+          expect(json).not.toContain('seed');
+          if (v.round) {
+            expect(typeof v.round.setAside).toBe('boolean');
+            for (const p of v.round.players) expect(p).not.toHaveProperty('hand');
+            expect(v.hand.length).toBe(
+              v.round.players.find((p) => p.id === v.me!.id)?.handCount ?? 0,
+            );
+          }
+        }
+        // Each player's notes are theirs alone.
+        const ids = new Set(royalPostView(c).notes.map((n) => n.id));
+        for (const other of players.filter((o) => o !== c))
+          for (const n of royalPostView(other).notes) expect(ids.has(n.id)).toBe(false);
+      }
+    } finally {
+      for (const c of clients) c.close();
       await app.close();
     }
   });

@@ -298,6 +298,8 @@ interface PlayerTotals {
   echoes: number;
   fooled: number;
   perfect: number;
+  guardHits: number;
+  princessFalls: number;
   calendar: Map<string, number>;
 }
 
@@ -337,6 +339,12 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
         break;
       case 'perfect':
         t.perfect += value;
+        break;
+      case 'guard_hits':
+        t.guardHits += value;
+        break;
+      case 'princess_falls':
+        t.princessFalls += value;
         break;
     }
   }
@@ -386,6 +394,8 @@ function emptyTotals(): PlayerTotals {
     echoes: 0,
     fooled: 0,
     perfect: 0,
+    guardHits: 0,
+    princessFalls: 0,
     calendar: new Map(),
   };
 }
@@ -531,6 +541,20 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     (t) => t.fooled,
     (who, n) => `${who}'s lies fooled ${plural(n, 'player')}`,
     'hoodwink',
+  );
+  byPlayer(
+    'lucky-guesser',
+    'Lucky guesser',
+    (t) => t.guardHits,
+    (who, n) => `${who} named the right card with a Guard ${times(n)}`,
+    'royal-post',
+  );
+  byPlayer(
+    'princess-fumbler',
+    'Princess fumbler',
+    (t) => t.princessFalls,
+    (who, n) => `${who} was knocked out holding the Princess ${times(n)}`,
+    'royal-post',
   );
   const perfect = sumMetric(agg, w.from, w.to, 'f.perfect', 'echo');
   if (perfect > 0) {

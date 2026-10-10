@@ -30,6 +30,7 @@
     "@vt/game-sdk": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",
     "@vt/private-reverie": "workspace:*",
+    "@vt/private-royal-post": "workspace:*",
     "@vt/protocol": "workspace:*",
     "drizzle-kit": "^0.31.11",
     "socket.io-client": "^4.8.4",

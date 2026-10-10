@@ -21,20 +21,26 @@ const TIMER_OPTIONS: { label: string; value: number | null }[] = [
 const timerLabel = (v: number | null) =>
   TIMER_OPTIONS.find((o) => o.value === v)?.label ?? `${v} seconds`;
 
-/** Clue/guess timer pickers plus the reminder-or-strict choice, shared by every timed game. */
+/**
+ * Clue/guess timer pickers plus the reminder-or-strict choice, shared by every timed game. A game
+ * with a single timer leaves out `guessHelp` and names its timer with `clueLabel`.
+ */
 export function TimerSettings({
   values,
   editable,
   onChange,
   clueHelp,
   guessHelp,
+  clueLabel = 'Clue timer',
   strictHelp,
 }: {
   values: TimerValues;
   editable: boolean;
   onChange: (patch: Partial<TimerValues>) => void;
   clueHelp: string;
-  guessHelp: string;
+  /** Omit to show only the first timer. */
+  guessHelp?: string;
+  clueLabel?: string;
   /** What "strict" does in this game, e.g. "the turn passes to the other team". */
   strictHelp: string;
 }) {
@@ -76,8 +82,8 @@ export function TimerSettings({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        {select('clueSeconds', 'Clue timer', clueHelp)}
-        {select('guessSeconds', 'Guess timer', guessHelp)}
+        {select('clueSeconds', clueLabel, clueHelp)}
+        {guessHelp !== undefined && select('guessSeconds', 'Guess timer', guessHelp)}
       </div>
       {!editable ? (
         timed && (
@@ -91,7 +97,9 @@ export function TimerSettings({
           <legend className="text-sm font-semibold">When time runs out</legend>
           {!timed && (
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Set a clue or guess timer to choose.
+              {guessHelp === undefined
+                ? 'Set a timer to choose.'
+                : 'Set a clue or guess timer to choose.'}
             </p>
           )}
           <div className="mt-1 grid gap-2 sm:grid-cols-2">

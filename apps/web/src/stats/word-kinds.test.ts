@@ -9,6 +9,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('echo')).toEqual(['clue', 'guess', 'cancelled']);
     expect(knownWordKinds('reverie')).toEqual(['story']);
     expect(knownWordKinds('hoodwink')).toEqual(['guess']);
+    expect(knownWordKinds('royal-post')).toEqual([]);
     expect(knownWordKinds('mystery')).toBeNull();
   });
 

@@ -1,5 +1,6 @@
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
+import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { lazy } from 'react';
 import type { ClientGame } from './registry.ts';
 
@@ -26,6 +27,15 @@ export const privateGames: ClientGame[] = [
     icon: '🎭',
     Component: lazy(() =>
       import('@vt/private-hoodwink/ui').then((m) => ({ default: m.HoodwinkGame })),
+    ),
+  },
+  {
+    id: 'royal-post',
+    name: 'Royal Post',
+    guide: royalPostGuide,
+    icon: '✉️',
+    Component: lazy(() =>
+      import('@vt/private-royal-post/ui').then((m) => ({ default: m.RoyalPostGame })),
     ),
   },
 ];
