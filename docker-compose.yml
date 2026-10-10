@@ -1,0 +1,31 @@
+# Production: copy this file and .env to the server, then `scripts/deploy.sh <version>`.
+# Local try-out: `docker compose up --build` and open http://localhost:3000.
+services:
+  app:
+    image: ghcr.io/thurahtetaung/virtual-tavern:${IMAGE_TAG:-latest}
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - tavern-data:/data
+    ports:
+      # Loopback only: the public reaches the app through the Cloudflare tunnel.
+      - '127.0.0.1:${APP_PORT:-3000}:3000'
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    extra_hosts:
+      # Lets the tunnel expose the host's SSH server for deploys (ssh://host.docker.internal:22).
+      - host.docker.internal:host-gateway
+    depends_on:
+      - app
+
+volumes:
+  tavern-data:

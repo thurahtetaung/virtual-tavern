@@ -1,0 +1,32 @@
+# Adding a game
+
+Each game is a self-contained workspace package under `packages/games/<id>`. The platform (rooms, presence, persistence, timers and the web shell) needs no changes beyond two registry lines.
+
+## 1. Rules: `src/logic`
+
+Implement `GameDefinition` from `@vt/game-sdk` (see `packages/games/codenames/src/logic/game.ts`):
+
+- **State is plain JSON.** The server stores it after every move and reloads it after restarts.
+- **Logic is pure.** Use `ctx.rng` for randomness, `ctx.now` for time and `ctx.content` for word lists. Never read `Math.random`, `Date.now` or the network.
+- `reduce` **returns** a `GameError` for an illegal move; the player sees its message as a toast.
+- `view(state, playerId)` must strip anything that player may not see. The whole security model rests on this, so test it.
+- Lobby setup (teams, seats, settings) is ordinary game actions; `ctx.isHost` tells you who may change settings.
+- Timers: return the next deadline from `nextDeadline`, and the server calls `onDeadline` when it passes.
+
+## 2. Guide: `src/logic/guide.ts`
+
+Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Update it in the same PR as any rule change.
+
+## 3. UI: `src/ui`
+
+Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`) so the game matches the rest of the site. Always show a `Hint` telling the viewer what to do right now.
+
+## 4. Register it
+
+- Server: `apps/server/src/games/registry.ts`
+- Web: `apps/web/src/games/registry.ts` (with a lazy import of the UI)
+
+## 5. Test it
+
+- Unit-test the rules with a seeded harness (see `packages/games/codenames/src/logic/test-utils.ts`).
+- Add a Playwright spec in `e2e/` that plays one game with several browser contexts.

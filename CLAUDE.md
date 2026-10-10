@@ -2,59 +2,75 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. The platform hosts multiple games, and Codenames is the first one. The full design is in the approved plan; its key points are summarised under Architecture below.
+Virtual Tavern is a private, self-hosted website for playing realtime party games with friends. The platform hosts multiple games, and Codenames is the first one. It has no accounts: players join rooms through unguessable links, and only admins (who sign in with a password from the environment) can edit word lists.
 
 ## Toolchain
 
-- Node and pnpm are pinned by **Volta** in the root `package.json` (`volta` field). There is no `.nvmrc`. The `packageManager`, `engines`, the CI `setup-node` (`node-version-file: package.json`) and the Docker base image must all stay in sync with that pin.
+- Node and pnpm are pinned by **Volta** in the root `package.json` (`volta` field). There is no `.nvmrc`. The `packageManager`, `engines`, the CI `setup-node` (`node-version-file: package.json`) and the `Dockerfile` `NODE_VERSION`/`PNPM_VERSION` args must all stay in sync with that pin.
 - Shell commands need `export PATH="$HOME/.volta/bin:$PATH" VOLTA_FEATURE_PNPM=1`, or Volta can't find pnpm.
 - pnpm is held at **11.x**. pnpm 12 ships a native binary that Volta's launcher can't run.
-- TypeScript is held at **~6.0** because typescript-eslint supports `<6.1` only. Don't move to TS 7 until it does.
-- pnpm 11 blocks dependency build scripts. Any dependency that needs one (e.g. `better-sqlite3`) must be listed under `allowBuilds` in `pnpm-workspace.yaml`; `pnpm approve-builds <pkg>` adds it.
+- TypeScript is held at **~6.0** because typescript-eslint supports `<6.1` only.
+- pnpm 11 blocks dependency build scripts. Any dependency that needs one must be listed under `allowBuilds` in `pnpm-workspace.yaml`; `pnpm approve-builds <pkg>` adds it.
+- Never pass `-g` through `pnpm` (`pnpm e2e -g x`): Volta takes it as "global". Use `pnpm exec playwright test --grep x`.
 
 ## Commands
 
 ```sh
-pnpm install
 pnpm dev                 # server :3000 (tsx watch) + web :5173 (Vite proxies /api, /healthz, /socket.io)
-pnpm lint                # ESLint (typed, projectService) over the whole repo
-pnpm typecheck           # tsc --noEmit in every package
+pnpm lint                # ESLint (typed) over the whole repo, e2e included
+pnpm typecheck           # root tsconfig (configs + e2e) then tsc --noEmit in every package
 pnpm test                # Vitest across all workspace projects
 pnpm format:check        # Prettier; `pnpm format` to fix
 pnpm build               # tsup bundles the server, Vite builds the web app
+pnpm e2e                 # Playwright against the production build: run `pnpm build` first
 
-pnpm vitest run apps/server/src/app.test.ts   # one file
-pnpm vitest run -t "reports ok"               # by test name
-pnpm vitest run --project server              # one workspace project
+pnpm vitest run apps/server/src/realtime.test.ts   # one file
+pnpm vitest run -t "server restart"                 # by test name
+pnpm vitest run --project codenames                # one workspace project
+SCREENSHOTS=1 pnpm exec playwright test e2e/screenshots.spec.ts   # UI screenshots -> test-results/shots
+docker compose up --build                          # production container locally (see docs/deployment.md)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `typecheck`, `test` and `build`. Check workflow edits with `docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest`. Third-party actions are pinned to commit SHAs, with the version in a trailing comment.
+To check workflow and shell edits, run `docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest` and `docker run --rm -v "$PWD":/mnt koalaman/shellcheck:stable scripts/deploy.sh`. Third-party actions are pinned to commit SHAs, with the version in a trailing comment.
 
 ## Architecture
 
-The repo is a pnpm monorepo (`apps/*`, `packages/*`, `packages/games/*`), with ESM and strict TypeScript throughout.
+The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
 
-- **Imports use explicit `.ts` extensions** (`allowImportingTsExtensions`, with `noEmit` everywhere). Workspace packages export TypeScript source and are never compiled on their own.
-- The **server** (`apps/server`) is Fastify. `src/app.ts` `buildApp()` builds the instance and tests use `app.inject()`, while `src/index.ts` only listens. The tsup build bundles `@vt/*` workspace packages in (`noExternal`) and leaves npm deps external. This is needed because Node won't type-strip `.ts` under `node_modules`.
-- The **web** app (`apps/web`) is React 19, React Router 8 and Tailwind 4 (via `@tailwindcss/vite`). In production the server serves its build.
+- **Imports use explicit `.ts`/`.tsx` extensions.** Workspace packages export TypeScript source and are never compiled on their own: Vite bundles them for the web, and tsup bundles them into `apps/server/dist` (`noExternal: /^@vt\//`, which is why they are server *dev*Dependencies).
+- **Game plugins** (`packages/games/<id>`) implement `GameDefinition` from `packages/game-sdk/src/types.ts`:
+  - Members: `actionSchema` (zod), `create`, `reduce`, `playerJoined` (upsert, also used for renames), `playerLeft`, `view`, the required `guide`, and optional `nextDeadline`/`onDeadline` for timers.
+  - Logic is pure and its state JSON-serialisable. Randomness comes only from `ctx.rng`, time from `ctx.now`, and word lists from `ctx.content`.
+  - `reduce` **returns** a `GameError` rather than throwing.
+  - `view` must strip hidden information per viewer. This is the security boundary.
+  - A game handles its own lobby (seats, settings) as ordinary actions, and the room host supplies `isHost`.
+  - Each game package exports `/logic` and `/ui`. The UI component takes `GameUiProps` (`packages/game-sdk/src/ui.ts`), built from the `@vt/ui` primitives.
+  - Registries: `apps/server/src/games/registry.ts` and `apps/web/src/games/registry.ts`.
+  - Steps for adding a game: `docs/adding-a-game.md`.
+- **Rules guides:** each game's `GameGuide` (`src/logic/guide.ts`) renders on `/rules/:gameId` and in the in-room rules drawer, through `apps/web/src/components/GuideView.tsx`. Update the guide in the same change as any rule change.
+- **Room host** (`apps/server/src/rooms/manager.ts`):
+  - It is game-agnostic. better-sqlite3 is synchronous, so each call runs to completion and actions on a room are naturally serialised.
+  - Every accepted change goes through `commit()`, which bumps `version`, persists through `RoomStore` (an optimistic version check), re-arms the game's deadline timer, and emits `changed`.
+  - `realtime.ts` turns `changed` into a per-socket `room:state` snapshot holding that player's own `view()` plus `serverNow`, which clients use to correct countdowns for clock skew.
+  - Rooms load lazily from SQLite, and timers re-arm on load, so play survives restarts.
+  - A host who is offline for `HOST_AWAY_MS` hands the role to an online player.
+- **Identity:** the browser keeps a secret `playerToken` in localStorage, and the server derives the public player id as `sha256(token)`, so ids shown to others can't be used to impersonate anyone.
+- **Persistence:** the Drizzle schema is in `apps/server/src/db/schema.ts`. After changing it, run `pnpm --filter @vt/server db:generate`; migrations in `apps/server/drizzle/` run at startup. Word lists are stored as a JSON array per list. The self-authored starter list (`starter-words.ts`) is seeded only when no lists exist.
+- **Config:** `apps/server/src/config.ts` reads env vars, and its default paths resolve the same way from `src/` and `dist/`. Admin auth (`admin-auth.ts`) is a signed, httpOnly cookie, and login is rate-limited (keyed on `cf-connecting-ip`).
 
-- **Game plugins** implement `GameDefinition` (`packages/game-sdk/src/types.ts`): `actionSchema` (zod), `create`, `reduce`, `playerJoined` (upsert, also used for renames), `playerLeft`, `view`, and optionally `nextDeadline`/`onDeadline` for timers.
-  - Logic must be pure and its state JSON-serialisable. Randomness comes only from `ctx.rng`, time only from `ctx.now`, and data such as word lists only from `ctx.content`.
-  - `reduce` **returns** a `GameError` for a rejected action rather than throwing.
-  - Each game handles its own pre-game lobby (seats, settings) as ordinary actions. The room host only provides `isHost`.
-  - A game package exports `/logic` (pure rules, e.g. `packages/games/codenames/src/logic`) and, later, `/ui`.
-  - Codenames tests use `test-utils.ts` (`harness()`, `startedGame()`), which seeds a deterministic game with fixed seats.
-- Vitest projects are found through each package's `vitest.config.ts`. A new package needs one.
+## Testing notes
 
-Planned, being built milestone by milestone:
+- Codenames rules tests use `harness()` and `startedGame()` from `packages/games/codenames/src/logic/test-utils.ts`, which give a seeded, deterministic game with fixed seats.
+- Server tests use `testApp()` and `connect()` from `apps/server/src/test/helpers.ts`. `realtime.test.ts` plays a full game across a server restart, and `manager.test.ts` covers timers and host hand-off with fake timers.
+- e2e specs fail on any uncaught browser error (`pageErrors` in `e2e/codenames.spec.ts`).
+- React effects must use block bodies. Newer Chrome returns a Promise from `scrollIntoView()`, and an expression-bodied effect passes that to React as its "cleanup", which crashed the board.
 
-- **Registries:** server and client registries map `gameId` to a game's logic and UI.
-- **Room host** (`apps/server/src/rooms/`): game-agnostic. It processes one action at a time per room, persists state after every accepted action, and broadcasts each player's own `view()` over Socket.IO. Timers are owned by the server and re-armed after a restart.
-- **Persistence:** SQLite through Drizzle, behind a `RoomStore` interface so the store can be swapped or sharded by room ID later.
-- **Identity:** no accounts. Each browser keeps a random `playerToken` in localStorage, and rooms are reached by unguessable slug links. Admins, who are the only ones allowed to edit word lists, sign in with `ADMIN_PASSWORD` and get a signed cookie.
-- **Deploy:** one Docker container plus `cloudflared` on an Oracle ARM VPS (no inbound ports). release-please → GHCR image → deploy over SSH through Cloudflare Access, with a health-check rollback.
+## Releases and deploy
+
+- PRs are squash-merged, so the PR title is the commit and must follow Conventional Commits (enforced by `pr-title.yml`).
+- release-please (`release.yml`) keeps a Release PR open. Merging it tags `vX.Y.Z`, publishes a multi-arch image to GHCR, then calls `deploy.yml`, which needs approval through the `production` environment. That job SSHes through Cloudflare Access and runs `scripts/deploy.sh <version>`: back up the DB, pull, wait for health, and roll back automatically on failure.
+- Running `deploy.yml` by hand redeploys or rolls back to any version. One-time server, Cloudflare and GitHub setup is in `docs/deployment.md`.
 
 ## Conventions
 
-- PRs are squash-merged, so the PR title is the commit and must follow Conventional Commits (enforced by `pr-title.yml`). release-please derives SemVer versions and `CHANGELOG.md` from those titles.
 - Never mention or link existing online party-game websites in code or docs. Ship self-authored word lists, never the official Codenames card list.

@@ -50,15 +50,6 @@ importers:
       '@fastify/static':
         specifier: ^10.1.5
         version: 10.1.5
-      '@vt/game-codenames':
-        specifier: workspace:*
-        version: link:../../packages/games/codenames
-      '@vt/game-sdk':
-        specifier: workspace:*
-        version: link:../../packages/game-sdk
-      '@vt/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
       better-sqlite3:
         specifier: ^13.0.3
         version: 13.0.3
@@ -78,6 +69,15 @@ importers:
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
+      '@vt/game-codenames':
+        specifier: workspace:*
+        version: link:../../packages/games/codenames
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../packages/game-sdk
+      '@vt/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
