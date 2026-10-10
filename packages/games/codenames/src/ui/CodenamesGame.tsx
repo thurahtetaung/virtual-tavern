@@ -156,7 +156,8 @@ function InGame({
         )}
 
         {canGuess && (
-          <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur dark:bg-stone-900/90 dark:ring-stone-700">
+          // Sticky on phones, where the board scrolls; on desktop the board fits and the bar sits below it.
+          <div className="sticky bottom-2 z-10 flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/90 p-2 shadow-lg ring-1 ring-stone-200 backdrop-blur lg:static dark:bg-stone-900/90 dark:ring-stone-700">
             <Button size="lg" disabled={selected === null} onClick={() => void guess()}>
               {selected === null
                 ? 'Pick a card to guess'

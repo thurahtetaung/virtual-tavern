@@ -47,7 +47,7 @@ export function ClueForm({ act, max }: Props) {
               title={c > max ? `Only ${max} left to find` : undefined}
               onClick={() => setCount(c)}
               className={
-                'h-9 min-w-8 rounded-lg text-sm font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ' +
+                'h-11 min-w-8 rounded-lg text-sm font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ' +
                 (count === c
                   ? 'bg-amber-500 text-stone-950 ring-amber-600'
                   : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600')

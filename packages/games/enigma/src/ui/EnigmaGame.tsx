@@ -13,14 +13,19 @@ export type EnigmaUiProps = GameUiProps<EnigmaView, EnigmaAction>;
 
 const other = (t: Team): Team => (t === 'red' ? 'blue' : 'red');
 
+/** One token type as "icon n/2": the count reads in any colour scheme, and the image role names it. */
 function Tokens({ count, icon, label }: { count: number; icon: string; label: string }) {
   return (
-    <span aria-label={`${count} ${label}`} title={label} className="inline-flex">
-      {[0, 1].map((i) => (
-        <span key={i} className={cn('text-sm sm:text-lg', i >= count && 'opacity-20 grayscale')}>
-          {icon}
-        </span>
-      ))}
+    <span
+      role="img"
+      aria-label={`${count} of 2 ${label}`}
+      title={label}
+      className="inline-flex items-center gap-0.5 text-sm sm:text-base"
+    >
+      <span aria-hidden>{icon}</span>
+      <span aria-hidden className="font-bold tabular-nums">
+        {count}/2
+      </span>
     </span>
   );
 }

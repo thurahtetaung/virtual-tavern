@@ -10,6 +10,7 @@ export const guide: GameGuide = {
     'The host presses Start. Each team gets 4 secret keywords, numbered 1 to 4, that only your team can see.',
     'Use the team chat to talk privately. The other team can’t read it, so don’t say guesses out loud!',
     'Once you’ve seen a team’s keywords you belong to that team for the rest of the game, even if you leave the room and come back.',
+    'Anyone without a team is watching: they see both teams’ clues and the codes as they are revealed, but no keywords and no team chat. They can join a team at any time.',
   ],
   roles: [
     {

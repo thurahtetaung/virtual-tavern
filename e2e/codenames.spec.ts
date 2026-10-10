@@ -20,8 +20,10 @@ async function player(browser: Browser, name: string, url = '/') {
   return page;
 }
 
-const card = (page: Page, word: string) =>
-  page.getByRole('gridcell', { name: new RegExp(`^${word}(,|$)`) });
+const board = (page: Page) => page.getByRole('region', { name: 'Word cards' });
+const cards = (page: Page, name?: RegExp) =>
+  name ? board(page).getByRole('button', { name }) : board(page).getByRole('button');
+const card = (page: Page, word: string) => cards(page, new RegExp(`^${word}(,|$)`));
 
 test('four friends play a game of Codenames to the end', async ({ browser }) => {
   const host = await player(browser, 'Hana');
@@ -48,7 +50,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(host.getByText('Everyone is seated')).toBeVisible();
   await expect(ana!.getByText('Waiting for the host')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
-  await expect(host.getByRole('gridcell')).toHaveCount(25);
+  await expect(cards(host)).toHaveCount(25);
 
   // Whoever's team starts, its spymaster gives a clue.
   const redStarts = await host.getByText('Your turn! Give your team').isVisible();
@@ -62,18 +64,16 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(op.locator('text=TAVERN').first()).toBeVisible();
 
   // Operatives never see the key; the spymaster finds the assassin for us.
-  const assassinLabel = await spy
-    .getByRole('gridcell', { name: /Assassin/ })
-    .getAttribute('aria-label');
+  const assassinLabel = await cards(spy, /Assassin/).getAttribute('aria-label');
   const assassinWord = assassinLabel!.split(',')[0]!;
-  await expect(op.getByRole('gridcell', { name: /Assassin/ })).toHaveCount(0);
+  await expect(cards(op, /Assassin/)).toHaveCount(0);
 
   await card(op, assassinWord).click();
   await op.getByRole('button', { name: `Guess ${assassinWord.toUpperCase()}` }).click();
   await expect(otherOp.getByText("☠ It's the assassin!")).toBeVisible();
 
   await expect(host.getByText('team wins!').first()).toBeVisible();
-  await expect(otherOp.getByRole('gridcell', { name: /Assassin/ })).toHaveCount(1);
+  await expect(cards(otherOp, /Assassin/)).toHaveCount(1);
   await expect(host.getByRole('button', { name: 'Play again (same teams)' })).toBeVisible();
   await expect(ana!.getByText('Waiting for the host to start the next game')).toBeVisible();
 });
