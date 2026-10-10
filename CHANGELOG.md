@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.0...v0.6.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* stream private art through the server so browsers can keep it ([#21](https://github.com/thurahtetaung/virtual-tavern/issues/21)) ([4256b9c](https://github.com/thurahtetaung/virtual-tavern/commit/4256b9c07346ac1841364465fbd053762a92d908))
+
 ## [0.6.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.5.1...v0.6.0) (2026-10-10)
 
 
