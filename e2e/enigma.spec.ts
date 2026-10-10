@@ -20,11 +20,21 @@ const transmission = (page: Page, team: TeamName) =>
   page.locator(`[aria-label="${team}'s transmission"]`);
 
 /** Of a team's players, the one who currently has the clue form for that team. */
+/** Of a team's players, the one who gets the clue form. Waits for the new round to render. */
 async function encryptorOf(pages: Page[], team: TeamName) {
-  for (const p of pages) {
-    if (await transmission(p, team).getByText('Your secret code').isVisible()) return p;
-  }
-  throw new Error(`no ${team} encryptor found`);
+  let found: Page | undefined;
+  await expect
+    .poll(
+      async () => {
+        for (const p of pages) {
+          if (await transmission(p, team).getByText('Your secret code').isVisible()) found = p;
+        }
+        return found !== undefined;
+      },
+      { message: `waiting for a ${team} Encryptor`, timeout: 10_000 },
+    )
+    .toBe(true);
+  return found!;
 }
 
 async function sendClues(encryptor: Page, team: TeamName) {
