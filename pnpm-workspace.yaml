@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/games/*
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@types/node@24.19.2'
