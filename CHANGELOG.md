@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.7.0...v0.8.0) (2026-10-10)
+
+
+### Features
+
+* **admin:** download every word list as a zip backup ([#40](https://github.com/thurahtetaung/virtual-tavern/issues/40)) ([b958260](https://github.com/thurahtetaung/virtual-tavern/commit/b9582605e6ac74bf1c7ad3760f9400f552ed39b1))
+* **echo:** add Echo, a cooperative one-word-clue game ([#38](https://github.com/thurahtetaung/virtual-tavern/issues/38)) ([bff623a](https://github.com/thurahtetaung/virtual-tavern/commit/bff623a2bad1e57b7c6c9ae96bd5be606d0edc76))
+* **web:** mark the tab when it's your move ([#35](https://github.com/thurahtetaung/virtual-tavern/issues/35)) ([75e0c1a](https://github.com/thurahtetaung/virtual-tavern/commit/75e0c1aa2a07b2108167119405e7ca473ba96036))
+* **word-lists:** let admins switch word lists on and off ([#39](https://github.com/thurahtetaung/virtual-tavern/issues/39)) ([ea16ecc](https://github.com/thurahtetaung/virtual-tavern/commit/ea16eccb2da8c92b87da4164f244a2af91bb3dd0))
+* **word-lists:** let each word list choose which games offer it ([#34](https://github.com/thurahtetaung/virtual-tavern/issues/34)) ([f2f1ad9](https://github.com/thurahtetaung/virtual-tavern/commit/f2f1ad9e7440b7189cc4da9cc92a858c4a7204a9))
+
 ## [0.7.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.3...v0.7.0) (2026-10-10)
 
 
