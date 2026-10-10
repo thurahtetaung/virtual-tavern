@@ -1,3 +1,4 @@
+import type { StatsGameName } from '@vt/protocol';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useToast } from '../lib/toast.tsx';
 import type { ChartTokens } from './palette.ts';
@@ -20,6 +21,8 @@ export interface StatsContextValue {
   /** Every game the page knows about (from /api/games and from the data). */
   games: GameInfo[];
   gameInfo: (id: string) => GameInfo;
+  /** Adds game names a stats response carried (private games included). */
+  learnGames: (games: readonly StatsGameName[]) => void;
   /** Fixed categorical slot per game id. */
   slots: Map<string, number>;
 }

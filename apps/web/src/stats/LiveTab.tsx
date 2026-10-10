@@ -1,6 +1,6 @@
 import type { LiveStats } from '@vt/protocol';
 import { Badge, Panel, cn } from '@vt/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../lib/toast.tsx';
 import { statsApi } from './api.ts';
 import { gameColor, useInterval, useStats } from './context.tsx';
@@ -58,6 +58,10 @@ export function LiveTab() {
 
 function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
   const ctx = useStats();
+  const { learnGames } = ctx;
+  useEffect(() => {
+    learnGames(live.games);
+  }, [live.games, learnGames]);
   const tokens = useChartTokens();
   const playing = live.rooms.filter((r) => r.phase === 'playing').length;
   const spark = useMemo(

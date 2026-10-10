@@ -172,7 +172,24 @@ describe('admin stats', () => {
       expect.arrayContaining(['wordList', 'timerMode']),
     );
     expect(cn.settings.find((s) => s.key === 'wordList')!.label).not.toBe('');
-    expect(cn.figures.map((f) => f.id)).toContain('assassin-rate');
+    // Figures come from the real Codenames insights: one clue of 1, one guess, the assassin.
+    const loser = view.turn!.team;
+    const winner = loser === 'red' ? 'blue' : 'red';
+    const figs = Object.fromEntries(cn.figures.map((f) => [f.id, f]));
+    expect(figs.wins).toMatchObject({
+      kind: 'split',
+      parts: [
+        { label: 'Red', value: winner === 'red' ? 1 : 0 },
+        { label: 'Blue', value: winner === 'blue' ? 1 : 0 },
+      ],
+    });
+    expect(figs['assassin-rate']).toMatchObject({ kind: 'percent', value: 100 });
+    expect(figs['average-clue']).toMatchObject({ kind: 'number', value: 1 });
+    expect(figs['guess-accuracy']).toMatchObject({ kind: 'percent', value: 0 });
+    const assassinWord = view.board[assassin]!.word.toLowerCase();
+    expect((await get<StatsWords>('words?game=codenames&kind=assassin')).body.words).toEqual([
+      { word: assassinWord, count: 1 },
+    ]);
 
     const echoStats = (await get<GameStats>('games/echo')).body;
     expect(echoStats.totals).toMatchObject({ gamesStarted: 1, gamesAbandoned: 1 });
@@ -212,6 +229,16 @@ describe('admin stats', () => {
     expect(fun.facts.map((f) => f.id)).toEqual(
       expect.arrayContaining(['most-games', 'longest-game']),
     );
+    const facts = Object.fromEntries(fun.facts.map((f) => [f.id, f]));
+    const opName = op === ana ? 'Ana' : 'Cy';
+    expect(facts['assassin-magnet']).toMatchObject({
+      text: `${opName} found the assassin once`,
+      gameId: 'codenames',
+    });
+    expect(facts['top-clue']).toMatchObject({ text: '"zyzzyva" was given as a clue once' });
+    expect(facts['riskiest-word']).toMatchObject({
+      text: `"${assassinWord}" was the assassin once`,
+    });
 
     // The raw events export, then a reset.
     const exported = await get<unknown>('export');
@@ -221,6 +248,108 @@ describe('admin stats', () => {
       .split('\n')
       .map((l) => JSON.parse(l) as { type: string });
     expect(lines.filter((e) => e.type === 'game.started')).toHaveLength(2);
+  });
+
+  it('turns a whole Echo game into figures, words and fun facts', async () => {
+    const { app, url, get } = await start();
+    const { clients } = await room(app, url, 'echo', ['Dee', 'Eve', 'Fay'], 20);
+    const [host] = clients as [TestClient];
+    const names = new Map(clients.map((c, i) => [c, ['Dee', 'Eve', 'Fay'][i]!]));
+    expect(await host.call('game:action', { type: 'update-settings', deckSize: 8 })).toEqual({
+      ok: true,
+    });
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    const echoView = (c: TestClient) => c.latest()!.game as EchoView;
+    const guessers: string[] = [];
+
+    // Eight cards: seven guessed right, the last one passed. On the first card both clue
+    // writers send "qxzv", so those two clues cancel each other.
+    for (let card = 0; card < 8; card++) {
+      const at = (await host.until((s) => (s.game as EchoView).turn?.stage === 'pick'))
+        .game as EchoView;
+      const turn = at.turn!;
+      const guesser = clients.find((c) => echoView(c).me?.id === turn.guesser)!;
+      const givers = clients.filter((c) => c !== guesser);
+      guessers.push(names.get(guesser)!);
+      expect(await guesser.call('game:action', { type: 'pick', index: 0 })).toEqual({ ok: true });
+      for (const [i, giver] of givers.entries()) {
+        const clues = card === 0 ? ['qxzv', `qxzw${i}`] : [`qxa${card}${i}`, `qxb${card}${i}`];
+        expect(await giver.call('game:action', { type: 'give-clues', clues })).toEqual({
+          ok: true,
+        });
+      }
+      const word = (await givers[0]!.until((s) => (s.game as EchoView).turn?.stage === 'guess'))
+        .game as EchoView;
+      // Dee answers in 2 s, everyone else in 5 s.
+      tick(names.get(guesser) === 'Dee' ? 2000 : 5000);
+      const answer = card === 7 ? { type: 'pass' } : { type: 'guess', word: word.turn!.word! };
+      expect(await guesser.call('game:action', answer)).toEqual({ ok: true });
+      await host.until((s) => (s.game as EchoView).turn?.stage === 'reveal');
+      expect(await host.call('game:action', { type: 'next-card' })).toEqual({ ok: true });
+    }
+    await host.until((s) => (s.game as EchoView).phase === 'over');
+    expect(guessers.slice(0, 3)).toEqual(['Dee', 'Eve', 'Fay']);
+
+    const echo = (await get<GameStats>('games/echo?range=today')).body;
+    expect(echo.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(echo.figures.map((f) => [f.id, f]));
+    expect(figs['right-rate']).toEqual({
+      id: 'right-rate',
+      label: 'Cards guessed right',
+      kind: 'percent',
+      value: 87.5,
+    });
+    expect(figs['pass-rate']).toMatchObject({ kind: 'percent', value: 12.5 });
+    expect(figs['best-score']).toMatchObject({ kind: 'number', value: 7 });
+    expect(figs['average-score']).toMatchObject({ kind: 'number', value: 7 });
+    expect(figs['perfect-games']).toMatchObject({ kind: 'number', value: 0 });
+    expect(figs.scores).toMatchObject({ kind: 'histogram' });
+    expect((figs.scores as { bins: { label: string; value: number }[] }).bins.at(-1)).toEqual({
+      label: '7',
+      value: 1,
+    });
+
+    const words = (kind: string) =>
+      get<StatsWords>(`words?game=echo&kind=${kind}&range=today`).then((r) => r.body.words);
+    expect(await words('cancelled')).toEqual([{ word: 'qxzv', count: 2 }]);
+    expect((await words('clue')).map((w) => w.word)).toEqual(
+      expect.arrayContaining(['qxzv', 'qxzw0', 'qxzw1', 'qxa10']),
+    );
+    expect(await words('guess')).toHaveLength(7);
+
+    const facts = Object.fromEntries(
+      (await get<StatsFun>('fun?range=today')).body.facts.map((f) => [f.id, f]),
+    );
+    // Eve and Fay wrote the matching clues; ties go to the first name.
+    expect(facts['the-echo']).toMatchObject({
+      title: 'The echo',
+      text: "Eve's clues matched someone else's once",
+      gameId: 'echo',
+      playerId: playerIdFromToken(token(21)),
+    });
+    expect(facts['fastest-guesser']).toMatchObject({
+      text: 'Dee guessed in 2 s on average',
+      playerId: playerIdFromToken(token(20)),
+    });
+    expect(facts['great-minds']).toMatchObject({ text: '"qxzv" cancelled itself out 2 times' });
+    expect(facts['perfect-echo']).toBeUndefined();
+
+    // Winners of a finished cooperative game are everyone who played.
+    const players = (await get<StatsPlayers>('players?range=today')).body.players;
+    expect(players.map((p) => [p.name, p.games, p.wins]).sort()).toEqual([
+      ['Dee', 1, 1],
+      ['Eve', 1, 1],
+      ['Fay', 1, 1],
+    ]);
+    const overview = (await get<StatsOverview>('overview?range=today')).body;
+    expect(overview.games).toEqual(
+      expect.arrayContaining([
+        { id: 'echo', name: 'Echo' },
+        { id: 'reverie', name: 'Reverie' },
+      ]),
+    );
+    const live = (await get<LiveStats>('live')).body;
+    expect(live.games).toEqual([{ id: 'echo', name: 'Echo' }]);
   });
 
   it('requires an admin and validates parameters', async () => {

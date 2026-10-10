@@ -32,8 +32,8 @@ export function figureModel(fig: GameFigure): FigureModel {
         unit: fig.unit,
       };
     case 'percent': {
-      // The contract carries a 0–1 share.
-      const ratio = clamp01(fig.value);
+      // The contract carries a percent, 0–100.
+      const ratio = clamp01(fig.value / 100);
       return { kind: 'meter', id: fig.id, label: fig.label, value: percent(ratio), ratio };
     }
     case 'split': {

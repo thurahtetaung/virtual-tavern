@@ -1,4 +1,4 @@
-import type { GameSummary, StatsRange } from '@vt/protocol';
+import type { GameSummary, StatsGameName, StatsRange } from '@vt/protocol';
 import { STATS_RANGES } from '@vt/protocol';
 import { Button, Modal, Panel } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,6 +32,7 @@ import {
   addDays,
   apiQuery,
   bucketsFor,
+  exportQuery,
   parseParams,
   todayUtc,
   updateParams,
@@ -89,30 +90,46 @@ function Stats() {
   const query = apiQuery(params);
   const [epoch, setEpoch] = useState(0);
 
-  // Game names come from the server; private games only appear there for an unlocked browser,
-  // so ids that show up in the data are added too (named after their id).
+  // Game names: /api/games lists the public ones (private games only for an unlocked browser),
+  // and the stats responses name every game in their data, private ones included.
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   useEffect(() => {
     void api<GameSummary[]>('/api/games')
       .then(setSummaries)
       .catch(() => {});
   }, []);
-  const needsMix = params.tab === 'games';
+  const [learned, setLearned] = useState<ReadonlyMap<string, string>>(new Map());
+  const learnGames = useCallback((games: readonly StatsGameName[]) => {
+    setLearned((known) =>
+      games.every((g) => known.get(g.id) === g.name)
+        ? known
+        : new Map([...known, ...games.map((g) => [g.id, g.name] as const)]),
+    );
+  }, []);
+  const needsMix = params.tab === 'games' || params.tab === 'fun';
   const mix = useLoad(needsMix ? `overview?${query}#${epoch}` : null, () =>
     statsApi.overview(query),
   );
 
   const ctx = useMemo<StatsContextValue>(() => {
-    const ids = [...summaries.map((g) => g.id), ...(mix.data?.gameMix.map((g) => g.gameId) ?? [])];
+    const names = new Map([
+      ...learned,
+      ...(mix.data?.games.map((g) => [g.id, g.name] as const) ?? []),
+    ]);
+    const ids = [
+      ...summaries.map((g) => g.id),
+      ...names.keys(),
+      ...(mix.data?.gameMix.map((g) => g.gameId) ?? []),
+    ];
     const byId = new Map<string, GameInfo>();
-    const info = (id: string): GameInfo => {
-      const summary = summaries.find((g) => g.id === id);
-      return {
-        id,
-        name: summary?.name ?? id.charAt(0).toUpperCase() + id.slice(1),
-        icon: ICONS.get(id) ?? '🎲',
-      };
-    };
+    const info = (id: string): GameInfo => ({
+      id,
+      name:
+        names.get(id) ??
+        summaries.find((g) => g.id === id)?.name ??
+        id.charAt(0).toUpperCase() + id.slice(1),
+      icon: ICONS.get(id) ?? '🎲',
+    });
     for (const id of ids) if (!byId.has(id)) byId.set(id, info(id));
     const slots = gameSlots(ids);
     const games = [...byId.values()].sort(
@@ -126,8 +143,9 @@ function Stats() {
       games,
       slots,
       gameInfo: (id) => byId.get(id) ?? info(id),
+      learnGames,
     };
-  }, [summaries, mix.data, params, setParams, query, epoch]);
+  }, [summaries, learned, learnGames, mix.data, params, setParams, query, epoch]);
 
   return (
     <StatsContext.Provider value={ctx}>
@@ -246,11 +264,11 @@ function RangePicker() {
 /** Export and reset, at the foot of every tab. */
 function DataTools({ onReset }: { onReset: () => void }) {
   const toast = useToast();
-  const { params, query } = useStats();
+  const { params } = useStats();
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
-  const exportQuery = params.tab === 'live' ? apiQuery({ ...params, range: 'all' }) : query;
+  const exportRange = exportQuery(params.tab === 'live' ? { range: 'all' } : params);
 
   const reset = async (e: FormEvent) => {
     e.preventDefault();
@@ -280,7 +298,7 @@ function DataTools({ onReset }: { onReset: () => void }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <a
-          href={statsApi.exportUrl(exportQuery)}
+          href={statsApi.exportUrl(exportRange)}
           download="tavern-stats.ndjson"
           className="inline-flex h-11 items-center justify-center rounded-lg bg-white px-4 font-semibold text-stone-800 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600 dark:hover:bg-stone-700"
         >

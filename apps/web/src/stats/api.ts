@@ -1,12 +1,13 @@
-import type {
-  GameStats,
-  LiveStats,
-  PlayerProfile,
-  StatsFun,
-  StatsOverview,
-  StatsPlayers,
-  StatsWords,
-  WordKind,
+import {
+  type GameStats,
+  type LiveStats,
+  type PlayerProfile,
+  STATS_RESET_CONFIRM,
+  type StatsFun,
+  type StatsOverview,
+  type StatsPlayers,
+  type StatsWords,
+  type WordKind,
 } from '@vt/protocol';
 import { api } from '../lib/api.ts';
 
@@ -45,11 +46,11 @@ export const statsApi = {
     return get<StatsWords>(`${BASE}/words?${q.toString()}`);
   },
   fun: (query: string) => get<StatsFun>(withQuery(`${BASE}/fun`, query)),
-  /** A download link: the browser saves the NDJSON straight from the server. */
-  exportUrl: (query: string) => {
-    const q = new URLSearchParams(query);
-    q.delete('bucket');
-    return withQuery(`${BASE}/export`, q.toString());
-  },
-  reset: () => api<void>(`${BASE}/reset`, { method: 'POST' }),
+  /**
+   * A download link: the browser saves the NDJSON straight from the server, sending the admin
+   * cookie. Takes `exportQuery()` (from/to days), not the range query.
+   */
+  exportUrl: (query: string) => withQuery(`${BASE}/export`, query),
+  reset: () =>
+    api<{ ok: true }>(`${BASE}/reset`, { method: 'POST', body: { confirm: STATS_RESET_CONFIRM } }),
 };

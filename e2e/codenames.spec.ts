@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { type Browser, type Download, type Page, expect, test } from '@playwright/test';
 import { strFromU8, unzipSync } from 'fflate';
-import { TEST_ADMIN_PASSWORD } from './credentials.ts';
+import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -105,6 +105,8 @@ test('a newcomer opening a link is asked for their name first', async ({ browser
 
 test('admins manage word lists that hosts can pick', async ({ browser }) => {
   const admin = await newPage(browser);
+  // Two sign-ins (a wrong one first), so keep them off the shared rate-limit bucket.
+  await ownLoginLimit(admin);
   await admin.goto('/admin');
   await admin.getByLabel('Admin password').fill('wrong');
   await admin.getByRole('button', { name: 'Sign in' }).click();

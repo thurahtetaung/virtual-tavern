@@ -379,7 +379,7 @@ for (const [label, viewport, colorScheme] of [
     }
     await tab('Games');
     await page.getByRole('group', { name: 'Game' }).getByRole('button', { name: /Echo/ }).click();
-    await expect(page.getByRole('region', { name: 'Card outcomes' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Scores' })).toBeVisible();
     await shot('games-echo');
     if (label === 'phone') {
       await page.getByRole('region', { name: 'Words' }).scrollIntoViewIfNeeded();

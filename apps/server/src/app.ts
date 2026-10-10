@@ -158,6 +158,7 @@ export function buildApp(opts: AppOptions) {
     rooms: () => rooms.liveRooms(),
     sockets: () => io.engine.clientsCount,
     recentPlayers: (since) => recorder.recentPlayers(since),
+    gameName: (id) => games.get(id)?.name ?? id,
     now,
   });
   const liveSampler = setInterval(() => live.sample(), LIVE_SAMPLE_MS);

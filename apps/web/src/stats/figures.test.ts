@@ -17,15 +17,15 @@ describe('figures by kind', () => {
     expect(isTileFigure(m)).toBe(true);
   });
 
-  it('renders percents as meters, clamping a 0–1 share', () => {
-    expect(figureModel({ id: 'p', label: 'Red wins', kind: 'percent', value: 0.537 })).toEqual({
+  it('renders percents (0–100) as meters, clamping to the meter', () => {
+    expect(figureModel({ id: 'p', label: 'Red wins', kind: 'percent', value: 53.7 })).toEqual({
       kind: 'meter',
       id: 'p',
       label: 'Red wins',
       value: '54%',
       ratio: 0.537,
     });
-    expect(figureModel({ id: 'p', label: 'x', kind: 'percent', value: 3 })).toMatchObject({
+    expect(figureModel({ id: 'p', label: 'x', kind: 'percent', value: 300 })).toMatchObject({
       ratio: 1,
     });
     expect(figureModel({ id: 'p', label: 'x', kind: 'percent', value: NaN })).toMatchObject({

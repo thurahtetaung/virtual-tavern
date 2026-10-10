@@ -172,3 +172,27 @@ export function apiQuery(p: Pick<StatsParams, 'range' | 'from' | 'to' | 'bucket'
   q.set('bucket', p.bucket);
   return q.toString();
 }
+
+const RANGE_DAYS: Partial<Record<StatsRange, number>> = {
+  today: 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+  '1y': 365,
+};
+
+/**
+ * The query string `/export` takes (`statsExportQuery`): concrete UTC days, the same window the
+ * server resolves for the range. `all` leaves both out, which exports every day.
+ */
+export function exportQuery(
+  p: Pick<StatsParams, 'range' | 'from' | 'to'>,
+  today = todayUtc(),
+): string {
+  if (p.range === 'custom') {
+    return p.from && p.to ? new URLSearchParams({ from: p.from, to: p.to }).toString() : '';
+  }
+  const days = RANGE_DAYS[p.range];
+  if (days === undefined) return '';
+  return new URLSearchParams({ from: addDays(today, -(days - 1)), to: today }).toString();
+}

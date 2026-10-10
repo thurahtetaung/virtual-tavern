@@ -13,6 +13,7 @@ Implement `GameDefinition` from `@vt/game-sdk` (see `packages/games/codenames/sr
 - Lobby setup (teams, seats, settings) is ordinary game actions; `ctx.isHost` tells you who may change settings.
 - Timers: return the next deadline from `nextDeadline`, and the server calls `onDeadline` when it passes. **The timer contract:** `onDeadline` must always make progress (end the turn, mark the round timed out…), so that the returned state's `nextDeadline` is later than now, or null. If it is not, the room host logs it, allows one short back-off, then stops the timer until the next player action. An `onDeadline` that throws is logged and retried a few seconds later.
 - **State stays small.** The room host rejects any change whose state exceeds about 256 KB of JSON (`MAX_STATE_JSON_LENGTH`), with a `state-too-large` error to the player who made the move, so cap your own logs, chat and history (keep the last N entries) rather than letting them grow for the life of a room.
+- Optionally implement `insights` to feed the stats page: a pure `insights(before, after, action, by)` returning `InsightEvent`s (clues, guesses, outcomes) for each change. To show figures and fun facts from them, add readers for your event types in `apps/server/src/stats/figures.ts` and `aggregate.ts`, and test the real game through `apps/server/src/routes/stats.test.ts`.
 
 ## 2. Guide: `src/logic/guide.ts`
 

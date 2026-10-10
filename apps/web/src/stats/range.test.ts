@@ -4,6 +4,7 @@ import {
   apiQuery,
   bucketsFor,
   daysBetween,
+  exportQuery,
   parseParams,
   updateParams,
   writeParams,
@@ -89,5 +90,16 @@ describe('stats URL state', () => {
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
     expect(bucketsFor('custom', '2026-01-01', '2026-12-31')).toEqual(['week', 'month', 'day']);
     expect(bucketsFor('all')).toEqual(['month', 'week']);
+  });
+
+  it('turns a range into the from and to days the export takes', () => {
+    const today = '2026-10-10';
+    expect(exportQuery({ range: 'today' }, today)).toBe('from=2026-10-10&to=2026-10-10');
+    expect(exportQuery({ range: '7d' }, today)).toBe('from=2026-10-04&to=2026-10-10');
+    expect(exportQuery({ range: '90d' }, today)).toBe('from=2026-07-13&to=2026-10-10');
+    expect(exportQuery({ range: 'all' }, today)).toBe('');
+    expect(exportQuery({ range: 'custom', from: '2026-09-01', to: '2026-09-30' }, today)).toBe(
+      'from=2026-09-01&to=2026-09-30',
+    );
   });
 });

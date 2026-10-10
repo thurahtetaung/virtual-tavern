@@ -28,6 +28,13 @@ const DAY_MS = 86_400_000;
 const FIRST_DAY = '2026-04-02';
 
 export const FIXTURE_GAMES = ['codenames', 'enigma', 'echo', 'reverie'] as const;
+const FIXTURE_NAMES: Record<string, string> = {
+  codenames: 'Codenames',
+  enigma: 'Enigma',
+  echo: 'Echo',
+  reverie: 'Reverie',
+};
+const named = (ids: readonly string[]) => ids.map((id) => ({ id, name: FIXTURE_NAMES[id] ?? id }));
 
 function rng(seed: number) {
   let a = seed >>> 0;
@@ -187,75 +194,76 @@ export function fixtureOverview(q: URLSearchParams): StatsOverview {
       const t = totalsFor(w, [gameId], empty);
       return { gameId, games: t.gamesStarted, minutes: t.minutesPlayed };
     }),
+    games: named(FIXTURE_GAMES),
   };
 }
 
+// The same figures, ids and labels the server builds (`apps/server/src/stats/figures.ts`).
+// Percents are 0–100, as in the contract.
+const wins = (red: number, blue: number, draw?: number): GameFigure => ({
+  id: 'wins',
+  label: 'Wins by team',
+  kind: 'split',
+  parts: [
+    { label: 'Red', value: red },
+    { label: 'Blue', value: blue },
+    ...(draw === undefined ? [] : [{ label: 'Draw', value: draw }]),
+  ],
+});
+
 const FIGURES: Record<string, GameFigure[]> = {
   codenames: [
-    { id: 'red-wins', label: 'Red team wins', kind: 'percent', value: 0.54 },
-    { id: 'assassin-rate', label: 'Games ended by the assassin', kind: 'percent', value: 0.18 },
-    { id: 'clue-number', label: 'Average clue number', kind: 'number', value: 2.1 },
+    wins(30, 25),
+    { id: 'assassin-rate', label: 'Games ended by the assassin', kind: 'percent', value: 18.2 },
+    { id: 'average-clue', label: 'Average clue number', kind: 'number', value: 2.1 },
     {
-      id: 'win-reason',
-      label: 'How games end',
-      kind: 'split',
-      parts: [
-        { label: 'All agents found', value: 41 },
-        { label: 'Assassin', value: 11 },
-        { label: 'Out of time', value: 3 },
-      ],
-    },
-    {
-      id: 'clue-counts',
-      label: 'Clue numbers given',
-      kind: 'histogram',
-      bins: [
-        { label: '0', value: 4 },
-        { label: '1', value: 38 },
-        { label: '2', value: 96 },
-        { label: '3', value: 51 },
-        { label: '4', value: 12 },
-        { label: '5+', value: 3 },
-      ],
+      id: 'guess-accuracy',
+      label: 'Guesses that found their own agent',
+      kind: 'percent',
+      value: 71.4,
     },
   ],
   enigma: [
-    { id: 'decode', label: 'Codes decoded', kind: 'percent', value: 0.78 },
-    { id: 'intercept', label: 'Codes intercepted', kind: 'percent', value: 0.21 },
-    { id: 'rounds', label: 'Average rounds', kind: 'number', value: 6.4, unit: 'rounds' },
+    wins(12, 14, 2),
+    { id: 'decode-rate', label: 'Codes decoded by their own team', kind: 'percent', value: 78 },
     {
-      id: 'rounds-hist',
-      label: 'Rounds per game',
-      kind: 'histogram',
-      bins: ['4', '5', '6', '7', '8'].map((label, i) => ({ label, value: [2, 7, 11, 6, 2][i]! })),
+      id: 'intercept-rate',
+      label: 'Interception attempts that worked',
+      kind: 'percent',
+      value: 21.3,
     },
+    { id: 'rounds-per-game', label: 'Rounds per game', kind: 'number', value: 6.4 },
   ],
   echo: [
-    { id: 'pass-rate', label: 'Cards passed', kind: 'percent', value: 0.12 },
-    { id: 'best-run', label: 'Best run', kind: 'number', value: 11, unit: 'cards' },
-    {
-      id: 'outcomes',
-      label: 'Card outcomes',
-      kind: 'split',
-      parts: [
-        { label: 'Guessed', value: 212 },
-        { label: 'Wrong', value: 37 },
-        { label: 'Passed', value: 34 },
-      ],
-    },
     {
       id: 'scores',
-      label: 'Score distribution',
+      label: 'Scores',
       kind: 'histogram',
-      bins: ['0–2', '3–5', '6–8', '9–11', '12–13'].map((label, i) => ({
-        label,
-        value: [1, 5, 9, 4, 1][i]!,
+      bins: [0, 0, 1, 1, 2, 3, 5, 6, 4, 2, 1, 0, 1, 0].map((value, n) => ({
+        label: String(n),
+        value,
       })),
     },
+    { id: 'best-score', label: 'Best score', kind: 'number', value: 12 },
+    { id: 'average-score', label: 'Average score', kind: 'number', value: 7.2 },
+    { id: 'perfect-games', label: 'Perfect games', kind: 'number', value: 1 },
+    { id: 'right-rate', label: 'Cards guessed right', kind: 'percent', value: 74.9 },
+    { id: 'pass-rate', label: 'Cards passed', kind: 'percent', value: 12 },
   ],
   reverie: [
-    { id: 'all-or-none', label: 'All-or-none rounds', kind: 'percent', value: 0.27 },
-    { id: 'target', label: 'Average target score', kind: 'number', value: 30 },
+    {
+      id: 'all-or-none',
+      label: 'Stories everyone or nobody found',
+      kind: 'percent',
+      value: 27,
+    },
+    {
+      id: 'found-rate',
+      label: "Votes that found the storyteller's card",
+      kind: 'percent',
+      value: 46.5,
+    },
+    { id: 'average-target', label: 'Average target score', kind: 'number', value: 30 },
   ],
 };
 
@@ -569,6 +577,7 @@ export function fixtureLive(): LiveStats {
       { gameId: 'echo', rooms: 1, playing: 0, players: 3 },
     ],
     lastHour,
+    games: named(['codenames', 'enigma', 'echo']),
   };
 }
 

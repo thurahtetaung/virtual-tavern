@@ -1,6 +1,6 @@
 import type { StatsOverview } from '@vt/protocol';
 import { cn } from '@vt/ui';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { statsApi } from './api.ts';
 import { gameColor, useLoad, useStats } from './context.tsx';
 import { compact, delta, hours, longDay, percent, plain, pointsDelta } from './format.ts';
@@ -18,8 +18,11 @@ import { useChartTokens } from './theme.ts';
 import { ChartCard, EChart, HeatKey, Legend, StatTile } from './ui.tsx';
 
 export function OverviewTab() {
-  const { query, epoch } = useStats();
+  const { query, epoch, learnGames } = useStats();
   const { data, loading } = useLoad(`overview?${query}#${epoch}`, () => statsApi.overview(query));
+  useEffect(() => {
+    if (data) learnGames(data.games);
+  }, [data, learnGames]);
   return <OverviewView data={data} loading={loading} />;
 }
 

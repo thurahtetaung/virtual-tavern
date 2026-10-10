@@ -71,9 +71,13 @@ test('admins browse live, overview, games, players and fun stats', async ({ brow
   const games = page.getByRole('group', { name: 'Game' });
   await games.getByRole('button', { name: /Echo/ }).click();
   await expect(page).toHaveURL(/game=echo/);
-  await expect(card(page, 'Card outcomes')).toBeVisible();
-  await expect(card(page, 'Score distribution').locator('svg').first()).toBeVisible();
-  await expect(page.getByText('Best run')).toBeVisible();
+  await expect(card(page, 'Scores').locator('svg').first()).toBeVisible();
+  await expect(page.getByText('Best score')).toBeVisible();
+  // Percents arrive as 0–100.
+  await expect(page.getByRole('meter', { name: 'Cards guessed right' })).toHaveAttribute(
+    'aria-valuenow',
+    '75',
+  );
   const words = card(page, 'Words');
   await expect(
     words.getByRole('list', { name: 'Clues' }).getByRole('listitem').first(),
@@ -83,7 +87,9 @@ test('admins browse live, overview, games, players and fun stats', async ({ brow
   await words.getByRole('button', { name: 'Show as table' }).click();
   await expect(words.getByRole('columnheader', { name: 'Times' })).toBeVisible();
   await games.getByRole('button', { name: /Codenames/ }).click();
-  await expect(card(page, 'How games end')).toBeVisible();
+  await expect(card(page, 'Wins by team')).toBeVisible();
+  // Private games are named from the stats data, without unlocking the back room.
+  await expect(games.getByRole('button', { name: /Reverie/ })).toBeVisible();
 
   // Players: leaderboard with aliases, then a profile.
   await tab(page, 'Players').click();
@@ -115,7 +121,10 @@ test('admins browse live, overview, games, players and fun stats', async ({ brow
   // Export and reset go to the contract endpoints.
   // The browser saves the export straight from the server, so check where the link points.
   const exportLink = page.getByRole('link', { name: 'Export events (NDJSON)' });
-  await expect(exportLink).toHaveAttribute('href', '/api/admin/stats/export?range=90d');
+  await expect(exportLink).toHaveAttribute(
+    'href',
+    /^\/api\/admin\/stats\/export\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/,
+  );
   await expect(exportLink).toHaveAttribute('download', /\.ndjson$/);
   await page.getByRole('button', { name: 'Reset stats' }).click();
   const dialog = page.getByRole('dialog', { name: 'Reset all stats?' });
@@ -124,7 +133,7 @@ test('admins browse live, overview, games, players and fun stats', async ({ brow
   await dialog.getByLabel('Type reset to confirm').fill('reset');
   await confirm.click();
   await expect(page.getByText('Stats reset.')).toBeVisible();
-  await expect.poll(() => calls.reset).toBe(1);
+  await expect.poll(() => calls.reset).toEqual([{ confirm: 'reset all stats' }]);
   await expect(dialog).toBeHidden();
 });
 
@@ -142,4 +151,83 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
   }
+});
+
+// ---- Against the real server: no mocks ----
+
+async function player(browser: Browser, name: string, url = '/') {
+  const page = await newPage(browser);
+  await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+  await page.goto(url);
+  return page;
+}
+
+const YOUR_TURN = /^● Your turn/;
+
+/** With three players, each clue writer sends two clues. */
+async function sendClues(page: Page, clues: [string, string]) {
+  await page.getByLabel('Clue 1').fill(clues[0]);
+  await page.getByLabel('Clue 2').fill(clues[1]);
+  await page.getByRole('button', { name: 'Send clues' }).click();
+  await expect(
+    page.getByRole('button', { name: '✓ Sent' }).or(page.getByRole('list', { name: 'Clues' })),
+  ).toBeVisible();
+}
+
+test('a real Echo card shows up on the stats page', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const host = await player(browser, 'Hana');
+  await host.getByRole('button', { name: 'Create an Echo room' }).click();
+  await expect(host.getByText('Almost ready: Echo needs at least 3 players')).toBeVisible();
+  const url = host.url();
+  const writers: Page[] = [];
+  for (const name of ['Ana', 'Ben']) {
+    writers.push(await player(browser, name, url));
+    await expect(
+      host.getByRole('region', { name: 'Players' }).getByText(name, { exact: true }),
+    ).toBeVisible();
+  }
+  const [ana, ben] = writers as [Page, Page];
+  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+
+  // Hana guesses first. Made-up clues can't give the secret word away.
+  await expect(host).toHaveTitle(YOUR_TURN);
+  await host.getByRole('button', { name: 'Pick word 1' }).click();
+  const secret = ana.getByTestId('secret-word');
+  await expect(secret).toBeVisible();
+  const word = await secret.innerText();
+  await sendClues(ana, ['Aaqqxv', 'Bbqqxv']);
+  await sendClues(ben, ['Aaqqxv', 'Ccqqxv']);
+  await expect(host).toHaveTitle(YOUR_TURN);
+  await host.getByLabel('Your guess').fill(word.toLowerCase());
+  await host.getByRole('button', { name: 'Guess', exact: true }).click();
+  await expect(ana.getByText('🎉 Got it!')).toBeVisible();
+
+  const admin = await newPage(browser);
+  await openStatsAsAdmin(admin);
+
+  // Live: the room, with its players.
+  const rooms = admin.getByRole('heading', { name: 'Live rooms' }).locator('..');
+  const room = rooms.getByRole('listitem').filter({ hasText: 'Echo' }).first();
+  await expect(room).toBeVisible();
+  await expect(room.getByRole('list', { name: 'Players' })).toContainText('Hana');
+
+  // Overview: the game started.
+  const started = (page: Page) =>
+    page
+      .locator('span', { hasText: /^Games started$/ })
+      .first()
+      .locator('..');
+  await tab(admin, 'Overview').click();
+  await expect(started(admin)).toHaveText(/^Games started[1-9]/);
+
+  // Games → Echo: the game, and a clue word.
+  await tab(admin, 'Games').click();
+  await admin.getByRole('group', { name: 'Game' }).getByRole('button', { name: /Echo/ }).click();
+  await expect(started(admin)).toHaveText(/^Games started[1-9]/);
+  const words = card(admin, 'Words');
+  await expect(words.getByRole('list', { name: 'Clues' })).toContainText('bbqqxv');
+  await words.getByRole('button', { name: 'Cancelled clues' }).click();
+  await expect(words.getByRole('list', { name: 'Cancelled clues' })).toContainText('aaqqxv');
 });
