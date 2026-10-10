@@ -137,7 +137,7 @@ describe('start', () => {
     expect(h.reject({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'late')).toBe(
       'seat-taken',
     );
-    h.state = codenames.playerLeft(h.state, SPY.blue);
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
     h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'late');
     expect(h.state.seats.late).toMatchObject({ team: 'blue', role: 'spymaster' });
   });
@@ -386,10 +386,10 @@ describe('players coming and going', () => {
     clue(h, 'red');
     const [i] = cardsOf(h.state, 'red');
     h.act({ type: 'toggle-suggestion', card: i! }, OP.red);
-    h.state = codenames.playerLeft(h.state, OP.red);
+    h.state = codenames.playerLeft(h.state, OP.red, NOW);
     expect(h.state.seats[OP.red]).toBeUndefined();
     expect(h.state.suggestions).toEqual({});
-    expect(codenames.playerLeft(h.state, 'nobody')).toBe(h.state);
+    expect(codenames.playerLeft(h.state, 'nobody', NOW)).toBe(h.state);
   });
 });
 
