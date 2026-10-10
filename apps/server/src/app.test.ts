@@ -1,5 +1,7 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { testApp, token } from './test/helpers.ts';
+import { tempDb, testApp, token } from './test/helpers.ts';
 
 describe('http api', () => {
   let app = testApp();
@@ -122,5 +124,32 @@ describe('admin api', () => {
       enabled: false,
       signedIn: false,
     });
+  });
+});
+
+describe('web app caching', () => {
+  const dir = tempDb();
+  const webDist = join(dir.path, '..', 'web');
+  mkdirSync(join(webDist, 'assets'), { recursive: true });
+  writeFileSync(join(webDist, 'index.html'), '<!doctype html><title>tavern</title>');
+  writeFileSync(join(webDist, 'assets', 'index-abc123.js'), 'console.log(1)');
+  const app = testApp({ webDist });
+  afterEach(() => app.close());
+
+  it('caches hashed assets forever and revalidates HTML', async () => {
+    const asset = await app.inject({ method: 'GET', url: '/assets/index-abc123.js' });
+    expect(asset.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+
+    for (const url of ['/', '/r/amber-fox-owl-1234']) {
+      const page = await app.inject({ method: 'GET', url });
+      expect(page.statusCode).toBe(200);
+      expect(page.body).toContain('<title>tavern</title>');
+      expect(page.headers['cache-control']).toBe('no-cache');
+    }
+
+    const missing = await app.inject({ method: 'GET', url: '/assets/index-gone.js' });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.headers['cache-control']).toBe('no-cache');
+    dir.cleanup();
   });
 });
