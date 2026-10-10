@@ -1,10 +1,17 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scrypt as scryptCb, scryptSync, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { eq } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
 import { appSettings } from './db/schema.ts';
 
 export const BACKROOM_COOKIE = 'vt_backroom';
 export const BACKROOM_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+
+const scrypt = promisify(scryptCb) as (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+) => Promise<Buffer>;
 
 const HASH_KEY = 'backroom.hash';
 const VERSION_KEY = 'backroom.version';
@@ -55,12 +62,13 @@ export class Backroom {
     this.write(VERSION_KEY, String(this.version() + 1));
   }
 
-  verify(password: string): boolean {
+  /** Checks a password against the stored hash; the stretching runs off the event loop. */
+  async verify(password: string): Promise<boolean> {
     const stored = this.read(HASH_KEY);
     if (!stored) return false;
     const [saltHex, hashHex] = stored.split(':');
     const expected = Buffer.from(hashHex ?? '', 'hex');
-    const actual = scryptSync(password, Buffer.from(saltHex ?? '', 'hex'), expected.length || 32);
+    const actual = await scrypt(password, Buffer.from(saltHex ?? '', 'hex'), expected.length || 32);
     return expected.length === actual.length && timingSafeEqual(expected, actual);
   }
 

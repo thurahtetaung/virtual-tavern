@@ -5,6 +5,11 @@ services:
     image: ghcr.io/thurahtetaung/virtual-tavern:${IMAGE_TAG:-latest}
     build: .
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
     env_file:
       - path: .env
         required: false

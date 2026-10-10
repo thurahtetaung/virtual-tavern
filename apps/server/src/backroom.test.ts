@@ -11,15 +11,15 @@ function backroom() {
 }
 
 describe('Backroom', () => {
-  it('is closed until a password is set, and checks passwords exactly', () => {
+  it('is closed until a password is set, and checks passwords exactly', async () => {
     const { b } = backroom();
     expect(b.isOpen()).toBe(false);
-    expect(b.verify('anything')).toBe(false);
+    expect(await b.verify('anything')).toBe(false);
     b.setPassword('open sesame');
     expect(b.isOpen()).toBe(true);
-    expect(b.verify('open sesame')).toBe(true);
-    expect(b.verify('Open sesame')).toBe(false);
-    expect(b.verify('')).toBe(false);
+    expect(await b.verify('open sesame')).toBe(true);
+    expect(await b.verify('Open sesame')).toBe(false);
+    expect(await b.verify('')).toBe(false);
   });
 
   it('accepts its own unlocks for 30 days', () => {

@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { tempDb, testApp, token } from './test/helpers.ts';
+import { isLocalAddress } from './app.ts';
+import { dbHealthy, openDb } from './db/index.ts';
+import { MIGRATIONS, tempDb, testApp, token } from './test/helpers.ts';
 
 describe('http api', () => {
   let app = testApp();
@@ -12,7 +14,41 @@ describe('http api', () => {
 
   it('reports health with the running version', async () => {
     const res = await app.inject({ method: 'GET', url: '/healthz' });
+    expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'ok', version: 'test' });
+  });
+
+  it('reports a database that no longer answers', () => {
+    const db = openDb(':memory:', MIGRATIONS);
+    expect(dbHealthy(db)).toBe(true);
+    db.$client.close();
+    expect(dbHealthy(db)).toBe(false);
+  });
+
+  it('answers malformed JSON with the shared error shape', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/rooms',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"gameId": ',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({
+      error: { code: 'bad-request', message: expect.stringContaining('JSON') as string },
+    });
+  });
+
+  it('hides the cause of server errors from the browser', async () => {
+    const secret = 'R2 403 for reverie/cards/001.jpg';
+    app.get('/api/boom', () => {
+      throw new Error(secret);
+    });
+    const res = await app.inject({ method: 'GET', url: '/api/boom' });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({
+      error: { code: 'server-error', message: 'Something went wrong.' },
+    });
+    expect(res.body).not.toContain('R2');
   });
 
   it('lists games and the seeded starter word list', async () => {
@@ -74,7 +110,58 @@ describe('admin api', () => {
 
   it('rate-limits login attempts', async () => {
     for (let i = 0; i < 5; i++) await login('nope');
-    expect((await login()).res.statusCode).toBe(429);
+    const limited = await login();
+    expect(limited.res.statusCode).toBe(429);
+    expect(limited.res.json()).toEqual({
+      error: { code: 'rate-limited', message: expect.stringContaining('retry') as string },
+    });
+  });
+
+  it('ignores client-address headers from peers outside the local network', async () => {
+    const attempt = (remoteAddress: string, headers: Record<string, string>) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        remoteAddress,
+        headers,
+        payload: { password: 'nope' },
+      });
+    // Straight from the internet: a fresh cf-connecting-ip or x-forwarded-for on every request
+    // does not buy a fresh rate-limit bucket.
+    for (let i = 0; i < 5; i++) {
+      const res = await attempt('203.0.113.9', {
+        'cf-connecting-ip': `198.51.100.${i}`,
+        'x-forwarded-for': `198.51.100.${i + 50}`,
+      });
+      expect(res.statusCode).toBe(401);
+    }
+    expect((await attempt('203.0.113.9', { 'cf-connecting-ip': '198.51.100.99' })).statusCode).toBe(
+      429,
+    );
+    // Through the tunnel on the host (a local peer), each visitor gets their own bucket.
+    for (let i = 0; i < 7; i++) {
+      const res = await attempt('127.0.0.1', { 'cf-connecting-ip': `198.51.100.${i}` });
+      expect(res.statusCode).toBe(401);
+    }
+    expect((await login()).res.statusCode).toBe(200);
+  });
+
+  it('keeps sessions across restarts but not across a password change', async () => {
+    const { cookie } = await login();
+    const headers = { cookie };
+    const session = (a: typeof app) =>
+      a
+        .inject({ method: 'GET', url: '/api/admin/session', headers })
+        .then((r) => r.json<unknown>());
+    const restarted = testApp();
+    expect(await session(restarted)).toEqual({ enabled: true, signedIn: true });
+    await restarted.close();
+    const changed = testApp({ adminPassword: 'hunter3' });
+    expect(await session(changed)).toEqual({ enabled: true, signedIn: false });
+    expect(
+      (await changed.inject({ method: 'GET', url: '/api/admin/word-lists', headers })).statusCode,
+    ).toBe(401);
+    await changed.close();
   });
 
   it('manages word lists end to end', async () => {
@@ -151,5 +238,35 @@ describe('web app caching', () => {
     expect(missing.statusCode).toBe(404);
     expect(missing.headers['cache-control']).toBe('no-cache');
     dir.cleanup();
+  });
+});
+
+describe('isLocalAddress', () => {
+  it('recognises loopback, link-local and private ranges in both IP versions', () => {
+    for (const ip of [
+      '127.0.0.1',
+      '::ffff:127.0.0.1',
+      '10.1.2.3',
+      '172.16.0.1',
+      '172.31.255.255',
+      '192.168.1.1',
+      '169.254.1.1',
+      '::1',
+      'fd7a:115c:a1e0::1',
+      'fe80::1',
+    ]) {
+      expect(isLocalAddress(ip), ip).toBe(true);
+    }
+    for (const ip of [
+      '203.0.113.9',
+      '172.32.0.1',
+      '11.0.0.1',
+      '2606:4700::1',
+      '',
+      undefined,
+      'x',
+    ]) {
+      expect(isLocalAddress(ip), String(ip)).toBe(false);
+    }
   });
 });

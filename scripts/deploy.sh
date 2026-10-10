@@ -6,7 +6,7 @@ set -euo pipefail
 version="${1:?usage: deploy.sh <version>}"
 cd "$(dirname "$0")"
 [ -f docker-compose.yml ] || { echo "docker-compose.yml not found in $(pwd)" >&2; exit 1; }
-[ -f .env ] || { echo ".env not found in $(pwd); copy .env.example and fill it in" >&2; exit 1; }
+[ -f .env ] || { echo ".env not found in $(pwd); create .env (see docs/deployment.md)" >&2; exit 1; }
 
 current() { sed -n 's/^IMAGE_TAG=//p' .env | tail -1; }
 set_tag() {
@@ -22,9 +22,11 @@ if docker compose ps --status running --services 2>/dev/null | grep -qx app; the
   docker compose exec -T app node dist/backup.js "/data/backups/pre-deploy-$version-$(date +%Y%m%dT%H%M%S).db"
 fi
 
-set_tag "$version"
+# Pull before touching .env: if the tag was never published (or GHCR is down) the script stops here
+# and the running version stays the one recorded in .env.
 # DEPLOY_SKIP_PULL=1 is for testing with locally built images.
-[ "${DEPLOY_SKIP_PULL:-}" = 1 ] || docker compose pull app
+[ "${DEPLOY_SKIP_PULL:-}" = 1 ] || IMAGE_TAG="$version" docker compose pull app
+set_tag "$version"
 
 if up; then
   echo "==> $version is healthy"

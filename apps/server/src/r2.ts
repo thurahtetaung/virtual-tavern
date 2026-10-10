@@ -7,7 +7,11 @@ export interface R2Config {
   bucket: string;
   /** Overrides the R2 endpoint, for tests that stand in a fake bucket. */
   endpoint?: string;
+  /** How long to wait for the bucket to answer (default 15 s). */
+  timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 /** Response headers worth passing on from the bucket to the browser. */
 const PASSED_HEADERS = ['content-type', 'content-length', 'content-range', 'etag', 'last-modified'];
@@ -31,6 +35,7 @@ export function assetKey(gameId: string, path: string): string | null {
 export class R2Assets {
   private readonly client: AwsClient;
   private readonly base: string;
+  private readonly timeoutMs: number;
   private readonly manifests = new Map<string, { at: number; body: unknown }>();
 
   constructor(config: R2Config) {
@@ -42,10 +47,34 @@ export class R2Assets {
     });
     const endpoint = config.endpoint ?? `https://${config.accountId}.r2.cloudflarestorage.com`;
     this.base = `${endpoint}/${config.bucket}`;
+    this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   private url(key: string) {
     return `${this.base}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  }
+
+  /**
+   * A signed GET that gives up if the bucket does not answer in time. With `headersOnly` the
+   * deadline ends once the headers are in, so a slow browser draining a streamed body is never
+   * cut off midway; otherwise it also covers reading the body.
+   */
+  private async get(
+    key: string,
+    headers: Record<string, string>,
+    headersOnly: boolean,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new Error(`R2 timed out after ${this.timeoutMs}ms for ${key}`)),
+      this.timeoutMs,
+    );
+    timer.unref();
+    try {
+      return await this.client.fetch(this.url(key), { headers, signal: controller.signal });
+    } finally {
+      if (headersOnly) clearTimeout(timer);
+    }
   }
 
   /**
@@ -65,7 +94,7 @@ export class R2Assets {
       const value = requestHeaders[name];
       if (typeof value === 'string') headers[name] = value;
     }
-    const res = await this.client.fetch(this.url(key), { headers });
+    const res = await this.get(key, headers, true);
     if (res.status === 404) return null;
     if (!res.ok && res.status !== 304) throw new Error(`R2 ${res.status} for ${key}`);
     const passed: Record<string, string> = {};
@@ -80,7 +109,7 @@ export class R2Assets {
   async json(key: string, cacheMs = 60_000): Promise<unknown> {
     const hit = this.manifests.get(key);
     if (hit && Date.now() - hit.at < cacheMs) return hit.body;
-    const res = await this.client.fetch(this.url(key));
+    const res = await this.get(key, {}, false);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`R2 ${res.status} for ${key}`);
     const body: unknown = await res.json();

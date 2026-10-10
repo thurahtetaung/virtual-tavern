@@ -9,3 +9,11 @@ test-results
 .env
 .env.*
 *.db
+*.db-*
+# Not needed to build the image.
+docs
+e2e
+# Protected game assets must never reach the build context (they live in private R2).
+*.zip
+*.pdf
+private-assets

@@ -38,7 +38,15 @@ Daily database backups (`crontab -e`):
 15 3 * * * cd ~/virtual-tavern && docker compose exec -T app node dist/backup.js >/dev/null
 ```
 
-Backups land in the volume under `/data/backups` and the newest 14 are kept. Each deploy also takes a backup first.
+Backups land in the volume under `/data/backups` and the newest 14 are kept. Each deploy also takes a backup first, named `pre-deploy-<version>-<timestamp>.db`.
+
+**Off-site copies.** Backups never leave the Docker volume on their own, so a lost VPS means lost rooms and word lists. Copy them off the box after the nightly backup, for example by extending the cron line:
+
+```
+15 3 * * * cd ~/virtual-tavern && docker compose exec -T app node dist/backup.js >/dev/null && docker compose cp app:/data/backups ./backups && rclone sync ./backups remote:virtual-tavern-backups
+```
+
+`scp -r backups other-host:` works just as well. The app itself cannot push them anywhere: its R2 token is read-only, and a separate write token would be needed to send backups to a bucket.
 
 ### 2. Cloudflare
 
@@ -98,10 +106,27 @@ Back-room games keep their art in a private Cloudflare R2 bucket.
 - **Restore a backup:**
 
   ```sh
+  docker compose exec app ls /data/backups
   docker compose stop app
   docker compose run --rm --no-deps --entrypoint sh app -c 'cp /data/backups/<file>.db /data/tavern.db && rm -f /data/tavern.db-wal /data/tavern.db-shm'
   docker compose start app
   ```
+
+## Migrations and rollbacks
+
+The new container runs its migrations at startup, before the health check decides whether the deploy stands. A failed deploy rolls back the **image**, not the schema: the previous version then runs against the migrated database. So every migration must be backward-compatible with the previous release: add tables and nullable columns freely; rename or drop only in a later release, once nothing deployed still reads the old shape. If a release has to be undone after a destructive migration, restore the `pre-deploy-<version>-*.db` backup that deploy took (see the restore recipe above).
+
+## Runbook
+
+All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
+
+- **Change the admin password:** edit `ADMIN_PASSWORD` in `.env`, then `docker compose up -d app`. Every admin session is signed out, because sessions are bound to the password they were issued under.
+- **Rotate `SESSION_SECRET`:** set a new value in `.env` (`openssl rand -hex 32`), then `docker compose up -d app`. It signs both the admin and the back-room cookies, so everyone signs in and unlocks again.
+- **Change the back-room password, or sign everyone out of it:** open `/admin` → **Back room**. Either action invalidates every unlock at once; no restart needed.
+- **Rotate the R2 tokens:** the server's _read_ token lives in `.env` (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`); replace it and `docker compose up -d app`. The _read & write_ upload token lives only on the dev machine in `~/.config/virtual-tavern/r2-upload.env`; replace it there. Revoke the old tokens in the Cloudflare dashboard afterwards.
+- **Deploy or roll back by hand:** `bash deploy.sh X.Y.Z` (the script is copied into the deploy directory). It backs up the database, pulls the image, waits for the health check and rolls back to the previous version if that fails. `DEPLOY_SKIP_PULL=1 bash deploy.sh X.Y.Z` runs a locally built image without pulling.
+- **List or restore backups:** `docker compose exec app ls -l /data/backups`, then the restore recipe above.
+- **Check the running version:** `curl -s localhost:$APP_PORT/healthz` (or the public `/healthz`) answers `{"status":"ok","version":"X.Y.Z"}`; `{"status":"degraded"}` with a 503 means the database is not answering, and Docker's health check turns the container unhealthy.
 
 ## Trying the production build locally
 
