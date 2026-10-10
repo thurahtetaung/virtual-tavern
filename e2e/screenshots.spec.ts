@@ -100,8 +100,14 @@ for (const [label, viewport] of [
     const roles: Record<string, { enc: Page; dec: Page; code: number[] }> = {};
     for (const [team, pages] of Object.entries(teams)) {
       let enc: Page | undefined;
-      for (const p of pages)
-        if (await tx(p, team).getByText('Your secret code').isVisible()) enc = p;
+      // Wait for the round to render rather than checking once.
+      await expect
+        .poll(async () => {
+          for (const p of pages)
+            if (await tx(p, team).getByText('Your secret code').isVisible()) enc = p;
+          return enc !== undefined;
+        })
+        .toBe(true);
       const code = (await tx(enc!, team).locator('.font-mono').first().innerText())
         .split('-')
         .map(Number);
