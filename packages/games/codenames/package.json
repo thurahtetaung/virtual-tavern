@@ -1,0 +1,16 @@
+{
+  "name": "@vt/game-codenames",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./logic": "./src/logic/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vt/game-sdk": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

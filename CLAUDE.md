@@ -38,9 +38,17 @@ The repo is a pnpm monorepo (`apps/*`, `packages/*`, `packages/games/*`), with E
 - The **server** (`apps/server`) is Fastify. `src/app.ts` `buildApp()` builds the instance and tests use `app.inject()`, while `src/index.ts` only listens. The tsup build bundles `@vt/*` workspace packages in (`noExternal`) and leaves npm deps external. This is needed because Node won't type-strip `.ts` under `node_modules`.
 - The **web** app (`apps/web`) is React 19, React Router 8 and Tailwind 4 (via `@tailwindcss/vite`). In production the server serves its build.
 
-Planned structure, being built milestone by milestone:
+- **Game plugins** implement `GameDefinition` (`packages/game-sdk/src/types.ts`): `actionSchema` (zod), `create`, `reduce`, `playerJoined` (upsert, also used for renames), `playerLeft`, `view`, and optionally `nextDeadline`/`onDeadline` for timers.
+  - Logic must be pure and its state JSON-serialisable. Randomness comes only from `ctx.rng`, time only from `ctx.now`, and data such as word lists only from `ctx.content`.
+  - `reduce` **returns** a `GameError` for a rejected action rather than throwing.
+  - Each game handles its own pre-game lobby (seats, settings) as ordinary actions. The room host only provides `isHost`.
+  - A game package exports `/logic` (pure rules, e.g. `packages/games/codenames/src/logic`) and, later, `/ui`.
+  - Codenames tests use `test-utils.ts` (`harness()`, `startedGame()`), which seeds a deterministic game with fixed seats.
+- Vitest projects are found through each package's `vitest.config.ts`. A new package needs one.
 
-- **Game plugins:** each game implements a `GameDefinition` (`packages/game-sdk`): zod config and action schemas, plus `setup`, `reduce`, `view` (which removes secrets per viewer), optional `nextDeadline`/`onDeadline` for timers, and `isOver`. Game logic is pure, with no I/O. A game package such as `packages/games/codenames` exports `/logic` and `/ui` separately. Server and client registries map `gameId` to each part.
+Planned, being built milestone by milestone:
+
+- **Registries:** server and client registries map `gameId` to a game's logic and UI.
 - **Room host** (`apps/server/src/rooms/`): game-agnostic. It processes one action at a time per room, persists state after every accepted action, and broadcasts each player's own `view()` over Socket.IO. Timers are owned by the server and re-armed after a restart.
 - **Persistence:** SQLite through Drizzle, behind a `RoomStore` interface so the store can be swapped or sharded by room ID later.
 - **Identity:** no accounts. Each browser keeps a random `playerToken` in localStorage, and rooms are reached by unguessable slug links. Admins, who are the only ones allowed to edit word lists, sign in with `ADMIN_PASSWORD` and get a signed cookie.
