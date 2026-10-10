@@ -1,5 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
@@ -244,6 +245,79 @@ for (const [label, viewport] of [
     }
     await expect(host.getByText('Cards revealed!')).toBeVisible();
     await shot(host, 'reveal');
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`royal post screenshots (${label})`, async ({ browser, request }) => {
+    test.setTimeout(240_000);
+    const taken = new Set<string>();
+    const shot = async (p: Page, name: string) => {
+      taken.add(name);
+      await p.screenshot({
+        path: `test-results/shots/royal-post-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    };
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
+    const admin = login
+      .headersArray()
+      .find((h) => h.name.toLowerCase() === 'set-cookie')!
+      .value.split(';')[0]!;
+    await request.put('/api/admin/backroom/password', {
+      headers: { cookie: admin },
+      data: { password: TEST_BACKROOM_WORD },
+    });
+    let ip = 1;
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+        extraHTTPHeaders: { 'cf-connecting-ip': `10.8.${label === 'phone' ? 1 : 0}.${ip++}` },
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      await p.goto('/backroom');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+      await p.getByRole('button', { name: 'Knock' }).click();
+      await p.getByText("You're on the list").waitFor();
+      return p;
+    };
+    const host = await make('Hana');
+    await host.getByRole('button', { name: 'Create a Royal Post room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(['Ana', 'Ben'].map(make));
+    await Promise.all(others.map((p) => p.goto(url)));
+    const players = [host, ...others];
+    await host.getByRole('button', { name: /^2019 edition/ }).click();
+    await expect(host.getByText('Players (3/6)')).toBeVisible();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    const done: Exercised = { guard: false, priest: false, handmaid: false, chancellor: false };
+    // Each moment is captured the first time it comes up in play.
+    const moment: Shot = async (m, p) => {
+      if (!taken.has(m)) await shot(p, m);
+    };
+    await playUntil(
+      host,
+      players,
+      '2019',
+      done,
+      (over) =>
+        over &&
+        ['targeting', 'guard-guess', 'priest-reveal', 'chancellor'].every((m) => taken.has(m)),
+      moment,
+      async (over) => {
+        if (!over && !taken.has('round-result')) await shot(host, 'round-result');
+        if (over) await shot(host, 'podium');
+      },
+    );
   });
 }
 

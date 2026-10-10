@@ -4,6 +4,7 @@ import { echo } from '@vt/game-echo/logic';
 import { enigma } from '@vt/game-enigma/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
 import { reverie } from '@vt/private-reverie/logic';
+import { royalPost } from '@vt/private-royal-post/logic';
 
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
@@ -12,7 +13,7 @@ export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
  * `apps/web/src/games/private.ts`).
  */
 export function buildGames(): GameRegistry {
-  const list: AnyGameDefinition[] = [codenames, enigma, echo, reverie, hoodwink];
+  const list: AnyGameDefinition[] = [codenames, enigma, echo, reverie, hoodwink, royalPost];
   return new Map(list.map((g) => [g.id, g]));
 }
 

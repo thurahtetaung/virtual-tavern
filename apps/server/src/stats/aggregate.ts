@@ -1,5 +1,5 @@
 import { hourOf } from './days.ts';
-import { figureCounters, isAssassinGuess, isPerfectEcho } from './figures.ts';
+import { figureCounters, isAssassinGuess, isPerfectEcho, lostPrincess } from './figures.ts';
 import type { StatsEvent } from './types.ts';
 
 // Rollups and queries share one aggregation: a day rolled up into the daily tables holds exactly
@@ -178,5 +178,9 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       for (const p of [props.a, props.b]) if (typeof p === 'string' && p) credit(p, 'echoes');
     if (type === 'outcome' && isPerfectEcho(props))
       for (const p of strings(props.winners)) credit(p, 'perfect');
+  }
+  if (game === 'royal-post' && playerId) {
+    if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');
+    if (type === 'elimination' && lostPrincess(props)) credit(playerId, 'princess_falls');
   }
 }

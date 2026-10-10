@@ -10,6 +10,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   reverie: ['story'],
   // Every lie on the board, reported as a guess.
   hoodwink: ['guess'],
+  // A card game: no words at all, so no Words card.
+  'royal-post': [],
 };
 
 const LABELS: Record<WordKind, string> = {

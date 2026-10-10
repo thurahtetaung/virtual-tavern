@@ -1,5 +1,6 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EchoView } from '@vt/game-echo/logic';
+import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import {
   type GameStats,
   type LiveStats,
@@ -17,6 +18,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import { type TestClient, connect, testApp, token } from '../test/helpers.ts';
+import { playRoyalPostTurn, royalPostView } from '../test/royal-post.ts';
 
 const DAY = '2026-10-10';
 
@@ -350,6 +352,150 @@ describe('admin stats', () => {
     );
     const live = (await get<LiveStats>('live')).body;
     expect(live.games).toEqual([{ id: 'echo', name: 'Echo' }]);
+  });
+
+  it('turns a whole Royal Post game into figures and fun facts', async () => {
+    const { app, url, cookie: admin, get } = await start();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: admin },
+      payload: { password: 'speakeasy' },
+    });
+    const unlocked = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/unlock',
+      payload: { password: 'speakeasy' },
+    });
+    const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        headers: { cookie },
+        payload: { gameId: 'royal-post', token: token(30) },
+      })
+    ).json<{ roomId: string }>();
+    const names = ['Gil', 'Hal', 'Ida'];
+    const clients: TestClient[] = [];
+    for (const [i, name] of names.entries()) {
+      const c = await connect(url, cookie);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(30 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((s) => s.players.length === 3)));
+    const [host] = clients as [TestClient];
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    await host.until((s) => (s.game as RoyalPostView).phase === 'playing');
+
+    // Tally the public log as the game goes, to check the figures against.
+    const tally = { guards: 0, hits: 0, rounds: 0, spy: 0, kills: new Map<string, number>() };
+    const hitsBy = new Map<string, number>();
+    const princessBy = new Map<string, number>();
+    const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+    let lastId = 0;
+    const read = () => {
+      for (const e of royalPostView(host).log) {
+        if (e.id <= lastId) continue;
+        lastId = e.id;
+        if (e.kind === 'play' && e.card === 'guard' && e.guess) {
+          tally.guards++;
+          if (e.hit) {
+            tally.hits++;
+            bump(hitsBy, e.by);
+          }
+        }
+        if (e.kind === 'out' && e.cause !== 'left') {
+          bump(tally.kills, e.cause);
+          if (e.cause === 'princess' || e.cards.includes('princess')) bump(princessBy, e.player);
+        }
+        if (e.kind === 'round-end') {
+          tally.rounds++;
+          if (e.spy) tally.spy++;
+        }
+      }
+    };
+    for (let step = 0; step < 400 && royalPostView(host).phase === 'playing'; step++) {
+      const v = royalPostView(host);
+      if (v.round!.stage === 'over') {
+        read();
+        expect(await host.call('game:action', { type: 'next-round' })).toEqual({ ok: true });
+        await Promise.all(
+          clients.map((c) =>
+            c.until((s) => (s.game as RoyalPostView).round?.number === v.round!.number + 1),
+          ),
+        );
+        continue;
+      }
+      // Everyone guesses with a Guard first, so there are plenty of guesses to count.
+      await playRoyalPostTurn(clients, ['guard', 'priest', 'handmaid']);
+      read();
+    }
+    const final = royalPostView(host);
+    expect(final.phase).toBe('over');
+    expect(tally.guards).toBeGreaterThan(0);
+
+    const stats = (await get<GameStats>('games/royal-post?range=today')).body;
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    expect(figs['wins-by-edition']).toEqual({
+      id: 'wins-by-edition',
+      label: 'Wins by edition',
+      kind: 'split',
+      parts: [
+        { label: 'Classic', value: 1 },
+        { label: '2019', value: 0 },
+      ],
+    });
+    expect(figs['rounds-per-game']).toMatchObject({ kind: 'number', value: tally.rounds });
+    expect(figs['guard-accuracy']).toMatchObject({
+      kind: 'percent',
+      value: Math.round((tally.hits / tally.guards) * 1000) / 10,
+    });
+    const kills = [...tally.kills].sort(([, a], [, b]) => b - a);
+    expect(
+      (figs['knockouts-by-card'] as { parts: { label: string; value: number }[] }).parts.map(
+        (p) => [p.label.toLowerCase(), p.value],
+      ),
+    ).toEqual(expect.arrayContaining(kills));
+    expect(figs['spy-bonuses']).toMatchObject({ value: 0 });
+
+    const facts = Object.fromEntries(
+      (await get<StatsFun>('fun?range=today')).body.facts.map((f) => [f.id, f]),
+    );
+    const top = (m: Map<string, number>) => {
+      const best = Math.max(0, ...m.values());
+      const ids = [...m].filter(([, n]) => n === best).map(([id]) => id);
+      return { best, names: ids.map((id) => final.seats.find((s) => s.id === id)!.name) };
+    };
+    const lucky = top(hitsBy);
+    if (lucky.best > 0) {
+      expect(facts['lucky-guesser']).toMatchObject({
+        title: 'Lucky guesser',
+        gameId: 'royal-post',
+      });
+      expect(lucky.names).toContain(facts['lucky-guesser']!.text.split(' named')[0]);
+    } else expect(facts['lucky-guesser']).toBeUndefined();
+    const fumble = top(princessBy);
+    if (fumble.best > 0) {
+      expect(facts['princess-fumbler']).toMatchObject({
+        title: 'Princess fumbler',
+        gameId: 'royal-post',
+      });
+      expect(fumble.names).toContain(facts['princess-fumbler']!.text.split(' was')[0]);
+    } else expect(facts['princess-fumbler']).toBeUndefined();
+
+    // Only the game's winners are credited with a win, not every round winner.
+    const players = (await get<StatsPlayers>('players?range=today')).body.players;
+    expect(
+      players
+        .filter((p) => p.wins > 0)
+        .map((p) => p.name)
+        .sort(),
+    ).toEqual(final.winners.map((id) => final.seats.find((s) => s.id === id)!.name).sort());
   });
 
   it('requires an admin and validates parameters', async () => {
