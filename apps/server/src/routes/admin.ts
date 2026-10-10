@@ -14,6 +14,12 @@ export function adminRoutes(
 ) {
   const { auth, wordLists, backroom, now } = opts;
 
+  /** A message naming the first id that is not a registered word-list game, or null. */
+  const unknownGame = (games: readonly string[] | undefined) => {
+    const bad = games?.find((id) => !wordLists.gameIds.includes(id));
+    return bad === undefined ? null : `"${bad}" is not a game that uses word lists.`;
+  };
+
   const requireAdmin = async (req: FastifyRequest, reply: FastifyReply) => {
     if (!auth) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
     if (!auth.isAdmin(req, now())) return error(reply, 401, 'unauthorized', 'Please sign in.');
@@ -69,12 +75,16 @@ export function adminRoutes(
     scope.post('/api/admin/word-lists', (req, reply) => {
       const body = wordListBody.safeParse(req.body);
       if (!body.success) return error(reply, 400, 'bad-request', body.error.issues[0]!.message);
+      const bad = unknownGame(body.data.games);
+      if (bad) return error(reply, 400, 'bad-request', bad);
       return reply.code(201).send(wordLists.create(body.data));
     });
 
     scope.put<{ Params: { id: string } }>('/api/admin/word-lists/:id', (req, reply) => {
       const body = wordListBody.safeParse(req.body);
       if (!body.success) return error(reply, 400, 'bad-request', body.error.issues[0]!.message);
+      const bad = unknownGame(body.data.games);
+      if (bad) return error(reply, 400, 'bad-request', bad);
       return (
         wordLists.update(req.params.id, body.data) ??
         error(reply, 404, 'not-found', 'Word list not found.')

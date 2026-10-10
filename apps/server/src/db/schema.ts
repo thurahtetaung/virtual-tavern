@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const wordLists = sqliteTable('word_lists', {
@@ -5,6 +6,15 @@ export const wordLists = sqliteTable('word_lists', {
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   words: text('words', { mode: 'json' }).$type<string[]>().notNull(),
+  /**
+   * Ids of the games that offer this list. The default names "echo" ahead of that game shipping,
+   * so lists that exist when the column is added are ready for it; ids of games that are not
+   * registered are simply never matched.
+   */
+  games: text('games', { mode: 'json' })
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'["codenames","enigma","echo"]'`),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 });

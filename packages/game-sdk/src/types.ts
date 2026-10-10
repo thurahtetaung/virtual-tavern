@@ -15,6 +15,8 @@ export interface WordListSummary {
   /** Short blurb shown to players when choosing lists. */
   description?: string;
   wordCount: number;
+  /** Ids of the games that offer this list (set by the server; fakes in tests may omit it). */
+  games?: string[];
 }
 
 /** Server-provided content that games may read synchronously. */
@@ -63,6 +65,11 @@ export interface GameDefinition<State, Action, View> {
    * the back room. Their assets live in private storage, never in the repo. Default: public.
    */
   access?: 'public' | 'private';
+  /**
+   * Whether the game draws words from admin word lists. Lists can be tagged only for such games,
+   * and `ctx.content` only offers a game the lists tagged for it. Default: false.
+   */
+  usesWordLists?: boolean;
   /** Beginner-friendly rules; required so every game is learnable in-app. */
   guide: GameGuide;
   actionSchema: ZodType<Action>;

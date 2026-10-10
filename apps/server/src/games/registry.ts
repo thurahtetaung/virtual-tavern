@@ -15,3 +15,7 @@ export function buildGames(): GameRegistry {
 }
 
 export const isPrivate = (game: AnyGameDefinition | undefined) => game?.access === 'private';
+
+/** Ids of the registered games that draw words from word lists, in registry order. */
+export const wordListGameIds = (games: GameRegistry): string[] =>
+  [...games.values()].filter((g) => g.usesWordLists).map((g) => g.id);

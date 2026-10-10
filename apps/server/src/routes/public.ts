@@ -25,17 +25,22 @@ export function publicRoutes(
   app.get('/api/games', (req): GameSummary[] =>
     [...games.values()]
       .filter((g) => visible(req, g.id))
-      .map(({ id, name, description, minPlayers, maxPlayers, access }) => ({
+      .map(({ id, name, description, minPlayers, maxPlayers, access, usesWordLists }) => ({
         id,
         name,
         description,
         minPlayers,
         maxPlayers,
         private: access === 'private',
+        wordLists: usesWordLists === true,
       })),
   );
 
-  app.get('/api/word-lists', () => wordLists.list());
+  // `?game=<id>` keeps only the lists that game offers.
+  app.get<{ Querystring: { game?: unknown } }>('/api/word-lists', (req) => {
+    const { game } = req.query;
+    return wordLists.list(typeof game === 'string' && game ? game : undefined);
+  });
 
   app.post(
     '/api/rooms',

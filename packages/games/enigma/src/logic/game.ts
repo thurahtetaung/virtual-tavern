@@ -773,6 +773,7 @@ export const enigma: GameDefinition<EnigmaState, EnigmaAction, EnigmaView> = {
   description: 'Two teams pass secret codes with clues while trying to crack each other’s.',
   minPlayers: 4,
   maxPlayers: 16,
+  usesWordLists: true,
   guide,
   actionSchema,
   create,

@@ -3,6 +3,7 @@ import type { ContentProvider } from '@vt/game-sdk';
 import type { WordListBody, WordListDetail, WordListSummary } from '@vt/protocol';
 import { asc, eq, sql } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
+import { buildGames, wordListGameIds } from './games/registry.ts';
 import { seededPacks, wordLists } from './db/schema.ts';
 import { STARTER_WORDS } from './db/starter-words.ts';
 import type { WordPack } from './word-packs.ts';
@@ -27,15 +28,34 @@ const summary = (r: Row): WordListSummary => ({
   description: r.description,
   wordCount: r.words.length,
   updatedAt: r.updatedAt,
+  games: r.games,
 });
 
-export class WordListRepo implements ContentProvider {
+/** The fields a list is written with; `games` defaults to every word-list game. */
+type ListInput = Omit<Required<WordListBody>, 'games'> & { games?: readonly string[] | undefined };
+
+export class WordListRepo {
   private readonly db: Db;
   private readonly now: () => number;
+  /**
+   * The registered games that use word lists: what new and seeded lists are tagged with when no
+   * games are given. (The column's SQL default also names "echo" before that game is registered,
+   * so rows that existed when the column was added are ready for it.)
+   */
+  readonly gameIds: readonly string[];
 
-  constructor(db: Db, now: () => number = Date.now) {
+  constructor(
+    db: Db,
+    now: () => number = Date.now,
+    gameIds: readonly string[] = wordListGameIds(buildGames()),
+  ) {
     this.db = db;
     this.now = now;
+    this.gameIds = gameIds;
+  }
+
+  private tags(games: readonly string[] | undefined): string[] {
+    return [...new Set(games?.length ? games : this.gameIds)];
   }
 
   /** Seeds the starter list when the database has no lists at all. */
@@ -72,8 +92,10 @@ export class WordListRepo implements ContentProvider {
     })();
   }
 
-  list(): WordListSummary[] {
-    return this.db.select().from(wordLists).orderBy(wordLists.name).all().map(summary);
+  /** Every list by name, or only those tagged for `gameId`. */
+  list(gameId?: string): WordListSummary[] {
+    const all = this.db.select().from(wordLists).orderBy(wordLists.name).all().map(summary);
+    return gameId === undefined ? all : all.filter((l) => l.games.includes(gameId));
   }
 
   get(id: string): WordListDetail | null {
@@ -81,13 +103,14 @@ export class WordListRepo implements ContentProvider {
     return row ? { ...summary(row), words: row.words } : null;
   }
 
-  create(body: Required<WordListBody>): WordListDetail {
+  create(body: ListInput): WordListDetail {
     const now = this.now();
     const row: Row = {
       id: randomUUID(),
       name: body.name,
       description: body.description,
       words: normalizeWords(body.words),
+      games: this.tags(body.games),
       createdAt: now,
       updatedAt: now,
     };
@@ -95,13 +118,28 @@ export class WordListRepo implements ContentProvider {
     return { ...summary(row), words: row.words };
   }
 
-  update(id: string, body: Required<WordListBody>): WordListDetail | null {
+  /**
+   * Replaces a list's fields. Omitted `games` keeps the list's current tags. Tags for games that
+   * are not registered here (such as "echo" before it ships) can't be chosen in the editor, so
+   * they are kept rather than silently dropped.
+   */
+  update(id: string, body: ListInput): WordListDetail | null {
+    const current = this.db
+      .select({ games: wordLists.games })
+      .from(wordLists)
+      .where(eq(wordLists.id, id))
+      .get();
+    if (!current) return null;
+    const games = body.games?.length
+      ? [...this.tags(body.games), ...current.games.filter((g) => !this.gameIds.includes(g))]
+      : current.games;
     const result = this.db
       .update(wordLists)
       .set({
         name: body.name,
         description: body.description,
         words: normalizeWords(body.words),
+        games,
         updatedAt: this.now(),
       })
       .where(eq(wordLists.id, id))
@@ -113,19 +151,31 @@ export class WordListRepo implements ContentProvider {
     return this.db.delete(wordLists).where(eq(wordLists.id, id)).run().changes > 0;
   }
 
-  // ContentProvider (used synchronously by game logic)
+  /**
+   * The content a room of `gameId` may read. Lists made only for that game come first (oldest
+   * first), then the other lists it is tagged in (oldest first), so a lobby that defaults to the
+   * first list opens on the game's own list and otherwise on the original Starter. Lists not
+   * tagged for the game are invisible, including to `words()`.
+   */
+  forGame(gameId: string): ContentProvider {
+    return {
+      wordLists: () =>
+        this.tagged(gameId).map((r) => ({ id: r.id, name: r.name, wordCount: r.words.length })),
+      words: (listIds) => {
+        const rows = new Map(this.tagged(gameId).map((r) => [r.id, r.words]));
+        return listIds.flatMap((id) => rows.get(id) ?? []);
+      },
+    };
+  }
 
-  /** Oldest first, so games default to the original Starter list rather than whatever sorts first. */
-  wordLists() {
-    return this.db
+  private tagged(gameId: string): Row[] {
+    const rows = this.db
       .select()
       .from(wordLists)
       .orderBy(asc(wordLists.createdAt), sql`rowid`)
       .all()
-      .map((r) => ({ id: r.id, name: r.name, wordCount: r.words.length }));
-  }
-
-  words(listIds: readonly string[]): string[] {
-    return listIds.flatMap((id) => this.get(id)?.words ?? []);
+      .filter((r) => r.games.includes(gameId));
+    const own = (r: Row) => r.games.length === 1;
+    return [...rows.filter(own), ...rows.filter((r) => !own(r))];
   }
 }

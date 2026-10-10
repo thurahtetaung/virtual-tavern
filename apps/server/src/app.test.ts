@@ -52,10 +52,17 @@ describe('http api', () => {
   });
 
   it('lists games and the seeded starter word list', async () => {
-    const games = (await app.inject({ method: 'GET', url: '/api/games' })).json<{ id: string }[]>();
-    expect(games.map((g) => g.id)).toEqual(['codenames', 'enigma']);
+    const games = (await app.inject({ method: 'GET', url: '/api/games' })).json<
+      { id: string; wordLists: boolean }[]
+    >();
+    expect(games.map((g) => [g.id, g.wordLists])).toEqual([
+      ['codenames', true],
+      ['enigma', true],
+    ]);
     const lists = (await app.inject({ method: 'GET', url: '/api/word-lists' })).json<unknown>();
-    expect(lists).toEqual([expect.objectContaining({ name: 'Starter', wordCount: 451 })]);
+    expect(lists).toEqual([
+      expect.objectContaining({ name: 'Starter', wordCount: 451, games: ['codenames', 'enigma'] }),
+    ]);
   });
 
   it('creates rooms and looks them up', async () => {
@@ -201,6 +208,48 @@ describe('admin api', () => {
       headers,
     });
     expect(gone.statusCode).toBe(404);
+  });
+
+  it('tags word lists with the games that offer them', async () => {
+    const { cookie } = await login();
+    const headers = { cookie };
+    const post = (payload: object) =>
+      app.inject({ method: 'POST', url: '/api/admin/word-lists', headers, payload });
+    const names = async (url: string) =>
+      (await app.inject({ method: 'GET', url })).json<{ name: string }[]>().map((l) => l.name);
+
+    const all = await post({ name: 'All', words: ['a'] });
+    expect(all.json()).toMatchObject({ games: ['codenames', 'enigma'] });
+    const only = await post({ name: 'Enigma only', words: ['b'], games: ['enigma'] });
+    expect(only.statusCode).toBe(201);
+    expect(only.json()).toMatchObject({ games: ['enigma'] });
+
+    expect(await names('/api/word-lists?game=enigma')).toEqual(['All', 'Enigma only', 'Starter']);
+    expect(await names('/api/word-lists?game=codenames')).toEqual(['All', 'Starter']);
+    expect(await names('/api/word-lists?game=chess')).toEqual([]);
+    expect(await names('/api/word-lists')).toEqual(['All', 'Enigma only', 'Starter']);
+
+    const id = only.json<{ id: string }>().id;
+    const put = (payload: object) =>
+      app.inject({ method: 'PUT', url: `/api/admin/word-lists/${id}`, headers, payload });
+    expect((await put({ name: 'Mixed', words: ['b'], games: ['codenames'] })).json()).toMatchObject(
+      {
+        games: ['codenames'],
+      },
+    );
+    // Omitting games on an update keeps the list's tags.
+    expect((await put({ name: 'Mixed', words: ['c'] })).json()).toMatchObject({
+      games: ['codenames'],
+    });
+
+    // Unknown games, games without word lists (the back-room game), empty lists and "echo"
+    // (until that game is registered) are refused.
+    for (const games of [['chess'], ['codenames', 'reverie'], [], ['echo']]) {
+      const res = await post({ name: 'Bad', words: ['x'], games });
+      expect(res.statusCode, JSON.stringify(games)).toBe(400);
+      expect((await put({ name: 'Bad', words: ['x'], games })).statusCode).toBe(400);
+    }
+    expect(await names('/api/word-lists')).toEqual(['All', 'Mixed', 'Starter']);
   });
 
   it('is disabled without a password', async () => {

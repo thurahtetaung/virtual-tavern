@@ -151,15 +151,16 @@ function Room({
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [wordLists, setWordLists] = useState<WordListSummary[]>([]);
 
+  // Only the lists tagged for this game; the server enforces the same filter on play.
   useEffect(() => {
     const load = () =>
-      void api<WordListSummary[]>('/api/word-lists')
+      void api<WordListSummary[]>(`/api/word-lists?game=${encodeURIComponent(game.id)}`)
         .then(setWordLists)
         .catch(() => {});
     load();
     window.addEventListener('focus', load);
     return () => window.removeEventListener('focus', load);
-  }, []);
+  }, [game.id]);
 
   useEffect(() => {
     document.title = `${game.name} · Virtual Tavern`;
