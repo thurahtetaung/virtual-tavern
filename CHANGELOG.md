@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.2...v0.6.3) (2026-10-10)
+
+
+### Bug Fixes
+
+* **server:** harden auth, error handling, health checks and the deploy script ([#29](https://github.com/thurahtetaung/virtual-tavern/issues/29)) ([bc54453](https://github.com/thurahtetaung/virtual-tavern/commit/bc54453737d6bba236202caa92469434796c0371))
+* **ui:** make the game screens fit phones and desktops better ([#28](https://github.com/thurahtetaung/virtual-tavern/issues/28)) ([16d7f2b](https://github.com/thurahtetaung/virtual-tavern/commit/16d7f2b52b1166d354890a21cd1142d983f70c9e))
+
 ## [0.6.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.6.1...v0.6.2) (2026-10-10)
 
 
