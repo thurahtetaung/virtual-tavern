@@ -37,11 +37,11 @@ export function backroomRoutes(
   app.post(
     '/api/backroom/unlock',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
-    (req, reply) => {
+    async (req, reply) => {
       if (!backroom.isOpen())
         return error(reply, 503, 'closed', 'The back room is closed for now.');
       const body = unlockBody.safeParse(req.body);
-      if (!body.success || !backroom.verify(body.data.password)) {
+      if (!body.success || !(await backroom.verify(body.data.password))) {
         return error(
           reply,
           401,

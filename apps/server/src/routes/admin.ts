@@ -1,7 +1,7 @@
 import { adminLoginBody, wordListBody } from '@vt/protocol';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { clearAdminSession, isAdmin, passwordMatches, setAdminSession } from '../admin-auth.ts';
+import { type AdminAuth, clearAdminSession } from '../admin-auth.ts';
 import type { Backroom } from '../backroom.ts';
 import type { WordListRepo } from '../word-lists.ts';
 
@@ -10,26 +10,25 @@ const error = (reply: FastifyReply, status: number, code: string, message: strin
 
 export function adminRoutes(
   app: FastifyInstance,
-  opts: { password: string | null; wordLists: WordListRepo; backroom: Backroom; now: () => number },
+  opts: { auth: AdminAuth | null; wordLists: WordListRepo; backroom: Backroom; now: () => number },
 ) {
-  const { password, wordLists, backroom, now } = opts;
+  const { auth, wordLists, backroom, now } = opts;
 
   const requireAdmin = async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!password) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
-    if (!isAdmin(req, now())) return error(reply, 401, 'unauthorized', 'Please sign in.');
+    if (!auth) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
+    if (!auth.isAdmin(req, now())) return error(reply, 401, 'unauthorized', 'Please sign in.');
   };
 
   app.post(
     '/api/admin/login',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
-    (req, reply) => {
-      if (!password)
-        return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
+    async (req, reply) => {
+      if (!auth) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
       const body = adminLoginBody.safeParse(req.body);
-      if (!body.success || !passwordMatches(body.data.password, password)) {
+      if (!body.success || !(await auth.verify(body.data.password))) {
         return error(reply, 401, 'bad-password', 'Wrong password.');
       }
-      setAdminSession(reply, now());
+      auth.setSession(reply, now());
       return { ok: true };
     },
   );
@@ -40,8 +39,8 @@ export function adminRoutes(
   });
 
   app.get('/api/admin/session', (req) => ({
-    enabled: password !== null,
-    signedIn: password !== null && isAdmin(req, now()),
+    enabled: auth !== null,
+    signedIn: auth !== null && auth.isAdmin(req, now()),
   }));
 
   app.register((scope, _opts, done) => {

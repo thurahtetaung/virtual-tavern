@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { R2Assets } from '../r2.ts';
 import { testApp, token } from '../test/helpers.ts';
 
 const R2 = {
@@ -177,6 +178,32 @@ describe('back room over HTTP', () => {
     ).toBe(404);
     expect(bucket.hits).toHaveLength(3);
     bucket.close();
+  });
+
+  it('gives up on a bucket that never answers, without saying why', async () => {
+    const stalled = createServer(() => {
+      /* never replies */
+    });
+    await new Promise<void>((resolve) => stalled.listen(0, '127.0.0.1', resolve));
+    const addr = stalled.address();
+    const endpoint = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const r2 = { ...R2, endpoint, timeoutMs: 200 };
+    await expect(new R2Assets(r2).object('reverie/cards/001.jpg')).rejects.toThrow(/timed out/);
+
+    const app = make({ r2 });
+    await open(app);
+    const { cookie } = await unlock(app);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/backroom/manifest/reverie',
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({
+      error: { code: 'server-error', message: 'Something went wrong.' },
+    });
+    stalled.closeAllConnections();
+    await new Promise((resolve) => stalled.close(resolve));
   });
 
   it('signs everyone out when the admin asks', async () => {

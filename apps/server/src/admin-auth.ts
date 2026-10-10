@@ -1,42 +1,71 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 export const ADMIN_COOKIE = 'vt_admin';
 export const ADMIN_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Per-process salt: both sides are stretched the same way, so equal passwords give equal keys. */
-const SALT = randomBytes(16);
+const scrypt = promisify(scryptCb) as (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+) => Promise<Buffer>;
 
 /**
- * Constant-time comparison that does not leak the password length. Both sides go through scrypt
- * (a slow password hash) rather than a fast digest, so the comparison never handles a cheaply
- * reversible hash of the admin password.
+ * Checks admin logins and issues admin sessions.
+ *
+ * The configured password is stretched with scrypt once, when the server starts; each login
+ * then costs one scrypt of the submitted password (off the event loop) and a constant-time
+ * comparison, which does not leak the password length. Sessions carry a fingerprint of the
+ * password, so changing `ADMIN_PASSWORD` signs every admin out.
  */
-export function passwordMatches(given: string, expected: string): boolean {
-  const a = scryptSync(given, SALT, 32);
-  const b = scryptSync(expected, SALT, 32);
-  return timingSafeEqual(a, b);
-}
+export class AdminAuth {
+  private readonly salt = randomBytes(16);
+  private readonly expected: Promise<Buffer>;
+  /** Short keyed hash of the password: identifies which password a session was issued under. */
+  private readonly fingerprint: string;
 
-export function setAdminSession(reply: FastifyReply, now: number) {
-  void reply.setCookie(ADMIN_COOKIE, String(now), {
-    signed: true,
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: 'auto',
-    path: '/',
-    maxAge: ADMIN_SESSION_MS / 1000,
-  });
+  constructor(password: string, sessionSecret: string) {
+    this.expected = scrypt(password, this.salt, 32);
+    // Keyed with the session secret, so the cookie never carries a plain digest of the password.
+    this.fingerprint = createHmac('sha256', sessionSecret)
+      .update(password)
+      .digest('hex')
+      .slice(0, 8);
+  }
+
+  async verify(given: string): Promise<boolean> {
+    const [expected, actual] = await Promise.all([this.expected, scrypt(given, this.salt, 32)]);
+    return timingSafeEqual(expected, actual);
+  }
+
+  setSession(reply: FastifyReply, now: number) {
+    void reply.setCookie(ADMIN_COOKIE, `${now}.${this.fingerprint}`, {
+      signed: true,
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: 'auto',
+      path: '/',
+      maxAge: ADMIN_SESSION_MS / 1000,
+    });
+  }
+
+  isAdmin(request: FastifyRequest, now: number): boolean {
+    const raw = request.cookies[ADMIN_COOKIE];
+    if (!raw) return false;
+    const { valid, value } = request.unsignCookie(raw);
+    if (!valid || !value) return false;
+    const [issued, fingerprint] = value.split('.');
+    const issuedAt = Number(issued);
+    return (
+      fingerprint === this.fingerprint &&
+      Number.isFinite(issuedAt) &&
+      now - issuedAt >= 0 &&
+      now - issuedAt < ADMIN_SESSION_MS
+    );
+  }
 }
 
 export function clearAdminSession(reply: FastifyReply) {
   void reply.clearCookie(ADMIN_COOKIE, { path: '/' });
-}
-
-export function isAdmin(request: FastifyRequest, now: number): boolean {
-  const raw = request.cookies[ADMIN_COOKIE];
-  if (!raw) return false;
-  const { valid, value } = request.unsignCookie(raw);
-  const issuedAt = Number(value);
-  return valid && Number.isFinite(issuedAt) && now - issuedAt < ADMIN_SESSION_MS;
 }
