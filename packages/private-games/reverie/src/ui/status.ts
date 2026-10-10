@@ -30,11 +30,12 @@ export function statusFor(view: ReverieView, isHost: boolean, blocker: string | 
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => name(view, id));
+    const result =
+      names.length > 1
+        ? `It's a tie: ${names.join(' and ')} win!`
+        : `${names[0] ?? 'Someone'} wins!`;
     return {
-      text:
-        names.length > 1
-          ? `It's a tie: ${names.join(' and ')} win!`
-          : `${names[0] ?? 'Someone'} wins!`,
+      text: view.endReason === 'too-few' ? `Not enough players to continue. ${result}` : result,
       yourMove: false,
     };
   }

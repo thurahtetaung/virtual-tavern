@@ -11,6 +11,7 @@ import {
 import { guide } from './guide.ts';
 import {
   CARD_SETS,
+  type EndReason,
   HAND_SIZE,
   HAND_SIZE_THREE,
   MAX_PLAYERS,
@@ -41,7 +42,7 @@ export const handSize = (state: ReverieState) =>
   players(state).length === 3 ? HAND_SIZE_THREE : HAND_SIZE;
 
 /** Cards each non-storyteller gives: two with three players, so the table still has five. */
-export const cardsToGive = (state: ReverieState) => (players(state).length === 3 ? 2 : 1);
+export const cardsToGive = (playerCount: number) => (playerCount === 3 ? 2 : 1);
 
 const others = (state: ReverieState) =>
   players(state).filter((id) => id !== state.turn?.storyteller);
@@ -51,6 +52,31 @@ function nextColor(state: ReverieState) {
   const used = new Set(Object.values(state.seats).map((s) => s.color));
   return SEAT_COLORS.find((c) => !used.has(c)) ?? SEAT_COLORS[0];
 }
+
+/**
+ * The first playing seat after `from` in seating order, going round the table. If `from` has no
+ * seat any more the search starts from the first seat.
+ */
+function playingAfter(state: ReverieState, from: PlayerId): PlayerId | undefined {
+  const ids = Object.keys(state.seats);
+  const idx = ids.indexOf(from);
+  const order = idx < 0 ? ids : [...ids.slice(idx + 1), ...ids.slice(0, idx)];
+  return order.find((id) => id !== from && state.seats[id]!.playing);
+}
+
+/** Who tells next: the player noted when the turn began, or the next one still playing. */
+function nextStorytellerOf(state: ReverieState, turn: Turn): PlayerId {
+  if (state.seats[turn.nextStoryteller]?.playing) return turn.nextStoryteller;
+  return playingAfter(state, turn.nextStoryteller) ?? turn.storyteller;
+}
+
+/**
+ * Randomness for moments that come without an rng (leavers, deadlines). Mixing in the hidden seed
+ * means the public clock alone can't reproduce the shuffle.
+ */
+const hiddenRng = (state: ReverieState, now: number) => createRng((state.seed ^ now) >>> 0);
+
+const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
 // ---- Deck ----
 
@@ -86,6 +112,16 @@ function refill(state: ReverieState, rng: Rng): ReverieState {
   return next;
 }
 
+/** Every card in the game, wherever it is. */
+function cardsInPlay(state: ReverieState) {
+  return (
+    state.draw.length +
+    state.discard.length +
+    Object.values(state.seats).reduce((n, s) => n + s.hand.length, 0) +
+    (state.turn?.table.length ?? 0)
+  );
+}
+
 // ---- Turn flow ----
 
 function beginTurn(
@@ -93,11 +129,14 @@ function beginTurn(
   storyteller: PlayerId,
   round: number,
   now: number,
+  rng: Rng,
 ): ReverieState {
   const turn: Turn = {
     round,
     storyteller,
+    nextStoryteller: playingAfter(state, storyteller) ?? storyteller,
     phase: 'clue',
+    give: cardsToGive(players(state).length),
     clue: null,
     storyCard: null,
     submissions: {},
@@ -107,18 +146,17 @@ function beginTurn(
     results: null,
     allOrNone: null,
   };
-  return { ...state, turn };
+  return { ...state, seed: newSeed(rng), turn };
 }
 
-/** Lays the table once every other player has given their cards. */
-function maybeStartVoting(state: ReverieState, rng: Rng, now: number): ReverieState {
-  const turn = state.turn;
-  if (!turn || turn.phase !== 'pick') return state;
-  const need = cardsToGive(state);
-  if (!others(state).every((id) => (turn.submissions[id]?.length ?? 0) >= need)) return state;
+/** Shuffles whatever was given onto the table, face up, and opens the vote. */
+function layTable(state: ReverieState, rng: Rng, now: number): ReverieState {
+  const turn = state.turn!;
   const cards = [
     { card: turn.storyCard!, owner: turn.storyteller },
-    ...others(state).flatMap((id) => turn.submissions[id]!.map((card) => ({ card, owner: id }))),
+    ...others(state).flatMap((id) =>
+      (turn.submissions[id] ?? []).map((card) => ({ card, owner: id })),
+    ),
   ];
   return {
     ...state,
@@ -131,6 +169,14 @@ function maybeStartVoting(state: ReverieState, rng: Rng, now: number): ReverieSt
   };
 }
 
+/** Lays the table once every other player has given their cards. */
+function maybeStartVoting(state: ReverieState, rng: Rng, now: number): ReverieState {
+  const turn = state.turn;
+  if (!turn || turn.phase !== 'pick') return state;
+  if (!others(state).every((id) => id in turn.submissions)) return state;
+  return layTable(state, rng, now);
+}
+
 /** Scores the turn once every other player has voted. */
 function maybeReveal(state: ReverieState): ReverieState {
   const turn = state.turn;
@@ -140,13 +186,14 @@ function maybeReveal(state: ReverieState): ReverieState {
 }
 
 /**
- * The scoring rules: if everyone or nobody found the storyteller's card, the storyteller scores
- * nothing and the others 2 each; otherwise the storyteller and each finder score 3. Everyone but
- * the storyteller also scores 1 for every vote their own card attracted.
+ * The scoring rules: if every voter or no voter found the storyteller's card, the storyteller
+ * scores nothing and each voter 2; otherwise the storyteller and each finder score 3. Everyone but
+ * the storyteller also scores 1 for every vote their own card attracted. Someone who didn't vote
+ * (a strict timer ran out) only gets that bonus, and if nobody voted at all nobody gets the 2.
  */
 export function reveal(state: ReverieState): ReverieState {
   const turn = state.turn!;
-  const voters = others(state);
+  const voters = others(state).filter((id) => id in turn.votes);
   const storyIndex = turn.table.findIndex((t) => t.owner === turn.storyteller);
   const finders = voters.filter((id) => turn.votes[id] === storyIndex);
   const allOrNone = finders.length === 0 || finders.length === voters.length;
@@ -157,11 +204,8 @@ export function reveal(state: ReverieState): ReverieState {
       ? finders.length
       : voters.filter((v) => turn.table[turn.votes[v]!]?.owner === id).length;
     const foundIt = !isStory && finders.includes(id);
-    const points = isStory
-      ? allOrNone
-        ? 0
-        : 3
-      : (allOrNone ? 2 : foundIt ? 3 : 0) + votesReceived;
+    const forGuessing = !voters.includes(id) ? 0 : allOrNone ? 2 : foundIt ? 3 : 0;
+    const points = isStory ? (allOrNone ? 0 : 3) : forGuessing + votesReceived;
     results[id] = { points, foundIt, votesReceived };
   }
   const seats = { ...state.seats };
@@ -175,31 +219,39 @@ export function reveal(state: ReverieState): ReverieState {
   };
 }
 
+/**
+ * Ends the game: everyone on the top score wins. Scores are compared among those still playing,
+ * or among everyone at the table if nobody is left playing. The turn is left as it is, so a
+ * finished reveal stays on screen.
+ */
+function endGame(state: ReverieState, endReason: EndReason): ReverieState {
+  const seated = players(state);
+  const pool = seated.length > 0 ? seated : Object.keys(state.seats);
+  const top = Math.max(...pool.map((id) => state.seats[id]!.score));
+  return {
+    ...state,
+    phase: 'over',
+    winners: pool.filter((id) => state.seats[id]!.score === top),
+    endReason,
+  };
+}
+
 function nextTurn(state: ReverieState, ctx: Ctx): Result {
   if (!ctx.isHost) return new GameError('not-host', 'Only the host can move on.');
   const turn = state.turn;
   if (state.phase !== 'playing' || !turn || turn.phase !== 'reveal') {
     return new GameError('wrong-stage', 'Finish this turn first.');
   }
+  const seated = players(state);
+  const top = Math.max(...seated.map((id) => state.seats[id]!.score));
+  if (top >= state.settings.targetScore) return endGame(state, 'target');
+  if (seated.length < MIN_PLAYERS) return endGame(state, 'too-few');
   // Everyone's played cards go to the discard pile, then hands are refilled.
-  let next: ReverieState = {
-    ...state,
-    discard: [...state.discard, ...turn.table.map((t) => t.card)],
-  };
-  const target = state.settings.targetScore;
-  const seated = players(next);
-  const top = Math.max(...seated.map((id) => next.seats[id]!.score));
-  if (top >= target) {
-    return {
-      ...next,
-      phase: 'over',
-      turn: null,
-      winners: seated.filter((id) => next.seats[id]!.score === top),
-    };
-  }
-  next = refill(next, ctx.rng);
-  const after = seated[(seated.indexOf(turn.storyteller) + 1) % seated.length]!;
-  return beginTurn(next, after, turn.round + 1, ctx.now);
+  const next = refill(
+    { ...state, discard: [...state.discard, ...turn.table.map((t) => t.card)] },
+    ctx.rng,
+  );
+  return beginTurn(next, nextStorytellerOf(next, turn), turn.round + 1, ctx.now, ctx.rng);
 }
 
 // ---- Actions ----
@@ -224,10 +276,9 @@ function updateSettings(
   const settings = { ...state.settings };
   if (action.sets) {
     const known = new Set(CARD_SETS.map((s) => s.id));
-    const ids = [...new Set(action.sets)];
-    if (ids.some((id) => !known.has(id)))
+    if (action.sets.some((id) => !known.has(id)))
       return new GameError('unknown-set', 'That card set does not exist.');
-    settings.sets = ids;
+    settings.sets = [...action.sets];
   }
   if (action.targetScore) settings.targetScore = action.targetScore;
   if (action.clueSeconds !== undefined) settings.clueSeconds = action.clueSeconds;
@@ -245,6 +296,12 @@ function sit(state: ReverieState, playing: boolean, ctx: Ctx): Result {
   }
   if (playing && players(state).length >= MAX_PLAYERS) {
     return new GameError('full', `Only ${MAX_PLAYERS} can play at once.`);
+  }
+  // Mid-game the cards already dealt must stretch to one more full hand.
+  if (playing && state.phase === 'playing') {
+    if (cardsInPlay(state) < cardsNeeded(players(state).length + 1)) {
+      return new GameError('not-enough-cards', 'There are not enough cards left for another hand.');
+    }
   }
   // Standing up mid-game: the hand goes to the discard pile.
   const next: ReverieState = {
@@ -283,21 +340,35 @@ function start(state: ReverieState, ctx: Ctx): Result {
     ...state,
     phase: 'playing',
     seats,
+    seed: newSeed(ctx.rng),
     draw: ctx.rng.shuffle(pool),
     discard: [],
     winners: [],
+    endReason: null,
     gamesPlayed: state.gamesPlayed + 1,
   };
   next = refill(next, ctx.rng);
   // The storyteller alternates between games; within a game it goes round the table.
   const first = seated[state.gamesPlayed % seated.length]!;
-  return beginTurn(next, first, 1, ctx.now);
+  return beginTurn(next, first, 1, ctx.now, ctx.rng);
 }
 
 function backToLobby(state: ReverieState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  return { ...state, phase: 'lobby', turn: null, draw: [], discard: [], winners: [] };
+  const seats = Object.fromEntries(
+    Object.entries(state.seats).map(([id, s]) => [id, { ...s, hand: [] }]),
+  );
+  return {
+    ...state,
+    phase: 'lobby',
+    seats,
+    turn: null,
+    draw: [],
+    discard: [],
+    winners: [],
+    endReason: null,
+  };
 }
 
 function tell(state: ReverieState, card: number, clue: string, ctx: Ctx): Result {
@@ -336,7 +407,7 @@ function give(state: ReverieState, cards: number[], ctx: Ctx): Result {
   if (!seat.playing) return new GameError('watching', "You're watching this game.");
   if (turn.submissions[ctx.by])
     return new GameError('already-gave', "You've already given your card.");
-  const need = cardsToGive(state);
+  const need = turn.give;
   const unique = [...new Set(cards)];
   if (unique.length !== need)
     return new GameError('wrong-count', `Give ${need} card${need === 1 ? '' : 's'}.`);
@@ -393,7 +464,7 @@ function reduce(state: ReverieState, action: ReverieAction, ctx: Ctx): Result {
 
 // ---- Players coming and going ----
 
-function create(_ctx: CreateCtx, playersIn: readonly PlayerInfo[]): ReverieState {
+function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): ReverieState {
   let state: ReverieState = {
     phase: 'lobby',
     settings: {
@@ -403,11 +474,13 @@ function create(_ctx: CreateCtx, playersIn: readonly PlayerInfo[]): ReverieState
       guessSeconds: null,
       timerMode: 'soft',
     },
+    seed: newSeed(ctx.rng),
     seats: {},
     draw: [],
     discard: [],
     turn: null,
     winners: [],
+    endReason: null,
     gamesPlayed: 0,
   };
   for (const p of playersIn) state = playerJoined(state, p);
@@ -418,9 +491,9 @@ function playerJoined(state: ReverieState, player: PlayerInfo): ReverieState {
   const existing = state.seats[player.id];
   if (existing)
     return { ...state, seats: { ...state.seats, [player.id]: { ...existing, name: player.name } } };
-  // In the lobby newcomers take a seat straight away (if there is one); mid-game they watch
+  // Between games newcomers take a seat straight away (if there is one); mid-game they watch
   // until they sit down between turns, and then get cards at the next turn.
-  const playing = state.phase === 'lobby' && players(state).length < MAX_PLAYERS;
+  const playing = state.phase !== 'playing' && players(state).length < MAX_PLAYERS;
   const seat: Seat = { name: player.name, color: nextColor(state), playing, score: 0, hand: [] };
   return { ...state, seats: { ...state.seats, [player.id]: seat } };
 }
@@ -430,28 +503,26 @@ function playerLeft(state: ReverieState, playerId: PlayerId, now: number): Rever
   if (!seat) return state;
   const seats = { ...state.seats };
   delete seats[playerId];
-  let next: ReverieState = { ...state, seats, discard: [...state.discard, ...seat.hand] };
-  const turn = next.turn;
-  if (next.phase !== 'playing' || !turn || !seat.playing) return next;
+  let turn = state.turn;
+  // Keep the rotation on track when the player due to tell next is the one leaving.
+  if (state.phase === 'playing' && turn && turn.nextStoryteller === playerId) {
+    turn = { ...turn, nextStoryteller: playingAfter(state, playerId) ?? turn.storyteller };
+  }
+  let next: ReverieState = { ...state, seats, turn, discard: [...state.discard, ...seat.hand] };
+  // During the reveal the table and votes are already scored and stay as they are: the host's
+  // Next turn discards the table, story card included.
+  if (next.phase !== 'playing' || !turn || !seat.playing || turn.phase === 'reveal') return next;
+  const rng = hiddenRng(state, now);
 
-  if (turn.storyteller === playerId && turn.phase !== 'reveal') {
+  if (turn.storyteller === playerId) {
     // The storyteller left: give everyone their cards back and start over with the next player.
     for (const [id, cards] of Object.entries(turn.submissions)) {
       const seat = next.seats[id];
       if (seat) next.seats[id] = { ...seat, hand: [...seat.hand, ...cards] };
     }
     if (turn.storyCard !== null) next.discard = [...next.discard, turn.storyCard];
-    const remaining = players(next);
-    if (remaining.length < MIN_PLAYERS) {
-      return { ...next, phase: 'over', turn: null, winners: [] };
-    }
-    const order = players(state);
-    const idx = order.indexOf(playerId);
-    const after = order
-      .slice(idx + 1)
-      .concat(order.slice(0, idx))
-      .find((id) => remaining.includes(id))!;
-    return beginTurn(next, after, turn.round, now);
+    if (players(next).length < MIN_PLAYERS) return endGame({ ...next, turn: null }, 'too-few');
+    return beginTurn(next, nextStorytellerOf(next, turn), turn.round, now, rng);
   }
 
   // Someone else left: drop their card(s) and vote, then see whether the phase can move on.
@@ -474,11 +545,8 @@ function playerLeft(state: ReverieState, playerId: PlayerId, now: number): Rever
     discard: [...next.discard, ...given],
     turn: { ...turn, submissions, votes, table },
   };
-  if (players(next).length < MIN_PLAYERS && turn.phase !== 'reveal') {
-    return { ...next, phase: 'over', turn: null, winners: [] };
-  }
-  // No rng is handed to playerLeft; seed one from the clock so the table is still shuffled.
-  return maybeReveal(maybeStartVoting(next, createRng(now), now));
+  if (players(next).length < MIN_PLAYERS) return endGame({ ...next, turn: null }, 'too-few');
+  return maybeReveal(maybeStartVoting(next, rng, now));
 }
 
 // ---- Timers ----
@@ -488,34 +556,35 @@ function nextDeadline(state: ReverieState): number | null {
   return state.turn?.deadline ?? null;
 }
 
+/** Always moves the turn on (or clears the deadline), so the room host never re-arms a 0 ms timer. */
 function onDeadline(state: ReverieState, now: number): ReverieState {
   const due = nextDeadline(state);
   const turn = state.turn;
   if (due === null || now < due || !turn) return state;
-  const seated = players(state);
+  const rng = hiddenRng(state, now);
   if (turn.phase === 'clue') {
     // A storyteller who ran out of time is skipped.
-    const after = seated[(seated.indexOf(turn.storyteller) + 1) % seated.length]!;
-    return beginTurn(state, after, turn.round, now);
+    return beginTurn(state, nextStorytellerOf(state, turn), turn.round, now, rng);
   }
   if (turn.phase === 'pick') {
-    // Whoever hasn't given a card gives the first card(s) of their hand.
+    // Whoever hasn't given a card gives the first card(s) of their hand, then the table is laid.
     let next = state;
-    const need = cardsToGive(state);
     for (const id of others(state)) {
-      if (next.turn!.submissions[id]) continue;
+      if (id in next.turn!.submissions) continue;
       const seat = next.seats[id]!;
-      const cards = seat.hand.slice(0, need);
       next = {
         ...next,
-        seats: { ...next.seats, [id]: { ...seat, hand: seat.hand.slice(need) } },
-        turn: { ...next.turn!, submissions: { ...next.turn!.submissions, [id]: cards } },
+        seats: { ...next.seats, [id]: { ...seat, hand: seat.hand.slice(turn.give) } },
+        turn: {
+          ...next.turn!,
+          submissions: { ...next.turn!.submissions, [id]: seat.hand.slice(0, turn.give) },
+        },
       };
     }
-    return maybeStartVoting(next, createRng(now), now);
+    return layTable(next, rng, now);
   }
   if (turn.phase === 'vote') return reveal(state);
-  return state;
+  return { ...state, turn: { ...turn, deadline: null } };
 }
 
 // ---- Views ----
@@ -530,23 +599,21 @@ function view(state: ReverieState, viewer: PlayerId | null): ReverieView {
     score: s.score,
     done:
       !!turn &&
-      (turn.phase === 'clue'
-        ? id === turn.storyteller && turn.storyCard !== null
-        : turn.phase === 'pick'
-          ? id === turn.storyteller || !!turn.submissions[id]
-          : turn.phase === 'vote'
-            ? id === turn.storyteller || id in turn.votes
-            : true),
+      (turn.phase === 'pick'
+        ? id === turn.storyteller || id in turn.submissions
+        : turn.phase === 'vote'
+          ? id === turn.storyteller || id in turn.votes
+          : turn.phase === 'reveal'),
   }));
   const me = viewer === null ? null : (seatViews.find((s) => s.id === viewer) ?? null);
-  const revealed = turn?.phase === 'reveal' || state.phase === 'over';
+  const revealed = turn?.phase === 'reveal';
   return {
     phase: state.phase,
     settings: state.settings,
     seats: seatViews,
     me,
     hand: viewer === null ? [] : [...(state.seats[viewer]?.hand ?? [])],
-    cardsToGive: cardsToGive(state),
+    cardsToGive: turn?.give ?? cardsToGive(players(state).length),
     drawPile: state.draw.length,
     turn: turn
       ? {
@@ -574,6 +641,7 @@ function view(state: ReverieState, viewer: PlayerId | null): ReverieView {
         }
       : null,
     winners: state.winners,
+    endReason: state.endReason,
   };
 }
 

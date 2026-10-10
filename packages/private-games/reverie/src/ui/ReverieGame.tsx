@@ -205,8 +205,8 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 sm:text-sm">
         <span>
-          {turn ? `Turn ${turn.round}` : 'Game over'} · to {view.settings.targetScore} ·{' '}
-          {view.drawPile} in the pile
+          {turn && view.phase === 'playing' ? `Turn ${turn.round}` : 'Game over'} · to{' '}
+          {view.settings.targetScore} · {view.drawPile} in the pile
         </span>
         <Countdown
           deadline={turn && turn.phase !== 'reveal' ? turn.deadline : null}
@@ -465,9 +465,11 @@ function Play({
         <Panel className="space-y-1 text-sm">
           <p className="font-bold">
             {turn.allOrNone
-              ? turn.table.find((t) => t.isStory)?.voters.length
-                ? 'Everyone found it, so the storyteller scores nothing and everyone else gets 2.'
-                : 'Nobody found it, so the storyteller scores nothing and everyone else gets 2.'
+              ? turn.table.every((t) => t.voters.length === 0)
+                ? 'Nobody voted in time, so only the votes on cards count.'
+                : turn.table.find((t) => t.isStory)?.voters.length
+                  ? 'Everyone found it, so the storyteller scores nothing and the voters get 2.'
+                  : 'Nobody found it, so the storyteller scores nothing and the voters get 2.'
               : 'Some found it: the storyteller and the finders score 3.'}
           </p>
           <ul className="grid gap-x-4 sm:grid-cols-2">
@@ -491,7 +493,7 @@ function Play({
                 );
               })}
           </ul>
-          {room.isHost && (
+          {room.isHost && view.phase === 'playing' && (
             <div className="flex justify-center pt-2">
               <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
                 Next turn

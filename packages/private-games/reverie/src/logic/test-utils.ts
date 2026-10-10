@@ -40,8 +40,12 @@ export function harness(ids = FOUR, seed = 3): Harness {
   return h;
 }
 
-export function startedGame(ids = FOUR, settings: Partial<ReverieState['settings']> = {}) {
-  const h = harness(ids);
+export function startedGame(
+  ids = FOUR,
+  settings: Partial<ReverieState['settings']> = {},
+  seed = 3,
+) {
+  const h = harness(ids, seed);
   if (Object.keys(settings).length) h.act({ type: 'update-settings', ...settings });
   h.act({ type: 'start' });
   return h;
@@ -54,12 +58,31 @@ export const othersOf = (h: Harness) =>
     .filter(([id, s]) => s.playing && id !== storyteller(h))
     .map(([id]) => id);
 
+/** The player leaves the room for good. */
+export function leave(h: Harness, id: string, now = NOW) {
+  h.state = reverie.playerLeft(h.state, id, now);
+  return h;
+}
+
+/** Every card in the game, wherever it is: the deck never gains or loses cards. */
+export const cardsEverywhere = (h: Harness) => [
+  ...h.state.draw,
+  ...h.state.discard,
+  ...Object.values(h.state.seats).flatMap((s) => s.hand),
+  ...(h.state.turn?.table.map((t) => t.card) ?? []),
+  ...(h.state.turn?.phase === 'pick' || h.state.turn?.phase === 'clue'
+    ? [
+        ...(h.state.turn.storyCard === null ? [] : [h.state.turn.storyCard]),
+        ...Object.values(h.state.turn.submissions).flat(),
+      ]
+    : []),
+];
+
 /** Storyteller tells with their first card; everyone else gives their first card(s). */
 export function tellAndGive(h: Harness, clue = 'moonlight') {
   const st = storyteller(h);
   h.act({ type: 'tell', card: hand(h, st)[0]!, clue }, st);
-  const need =
-    h.state.seats && Object.values(h.state.seats).filter((s) => s.playing).length === 3 ? 2 : 1;
+  const need = h.state.turn!.give;
   for (const id of othersOf(h)) h.act({ type: 'give', cards: hand(h, id).slice(0, need) }, id);
   return h;
 }
@@ -78,4 +101,10 @@ export function voteAll(h: Harness, finders: string[]) {
     h.act({ type: 'vote', index: finders.includes(id) ? storyIndex(h) : decoyIndexFor(h, id) }, id);
   }
   return h;
+}
+
+/** Plays a whole turn through to the reveal, with `finders` spotting the card. */
+export function playTurn(h: Harness, finders: string[] = []) {
+  tellAndGive(h);
+  return voteAll(h, finders);
 }
