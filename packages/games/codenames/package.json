@@ -3,8 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "./logic": "./src/logic/index.ts",
+    "./guide": "./src/logic/guide.ts",
     "./ui": "./src/ui/index.ts"
   },
   "scripts": {

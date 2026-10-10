@@ -47,7 +47,9 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold">{labels.title}</h4>
-          <p className="text-xs text-stone-500">{labels.summary(chosen, total)}</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">
+            {labels.summary(chosen, total)}
+          </p>
         </div>
         {editable && (
           <Button variant="secondary" size="sm" onClick={() => setPicking(true)}>
@@ -63,7 +65,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
             className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40"
           >
             <span className="font-medium">{c.name}</span>{' '}
-            <span className="text-xs text-stone-500">· {c.count}</span>
+            <span className="text-xs text-stone-500 dark:text-stone-400">· {c.count}</span>
             {!editable && c.description && (
               <span className="block text-xs text-stone-500 dark:text-stone-400">
                 {c.description}
@@ -72,7 +74,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
           </li>
         ))}
         {chosen.length === 0 && (
-          <li className="text-sm text-stone-500 italic">Nothing chosen yet.</li>
+          <li className="text-sm text-stone-500 italic dark:text-stone-400">Nothing chosen yet.</li>
         )}
       </ul>
       {editable && picking && (
@@ -169,6 +171,7 @@ function Picker({
     >
       <input
         type="search"
+        data-autofocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search…"
@@ -210,7 +213,9 @@ function Picker({
           );
         })}
         {shown.length === 0 && (
-          <li className="text-sm text-stone-500 italic">Nothing matches “{query}”.</li>
+          <li className="text-sm text-stone-500 italic dark:text-stone-400">
+            Nothing matches “{query}”.
+          </li>
         )}
       </ul>
     </Modal>

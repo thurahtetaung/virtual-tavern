@@ -1,5 +1,5 @@
 import { Button } from '@vt/ui';
-import { type ReactNode, useEffect, useRef } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 
 /** Side sheet built on <dialog> (focus trap, Esc to close, backdrop for free). */
 export function Drawer({
@@ -14,6 +14,7 @@ export function Drawer({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -23,13 +24,16 @@ export function Drawer({
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-xl bg-stone-50 p-0 text-stone-900 backdrop:bg-black/40 dark:bg-stone-900 dark:text-stone-100"
     >
-      <div className="sticky top-0 flex items-center justify-between border-b border-stone-200 bg-stone-50/95 px-4 py-3 dark:border-stone-800 dark:bg-stone-900/95">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
+      <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-stone-200 bg-stone-50/95 px-4 py-2 dark:border-stone-800 dark:bg-stone-900/95">
+        <h2 id={titleId} className="text-xl font-bold">
+          {title}
+        </h2>
+        <Button variant="ghost" size="icon" className="-mr-2" onClick={onClose} aria-label="Close">
           ✕
         </Button>
       </div>

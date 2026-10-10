@@ -51,6 +51,11 @@ export function useRoom(roomId: string, name: string | null) {
 
     socket.on('connect', join);
     socket.on('disconnect', () => setStatus((s) => (s === 'joined' ? 'reconnecting' : s)));
+    // The server can't be reached (down, or the phone is offline). socket.io keeps retrying, so
+    // say so instead of sitting on "Opening the door…"; a successful join flips it back.
+    socket.on('connect_error', () =>
+      setStatus((s) => (s === 'connecting' || s === 'joined' ? 'reconnecting' : s)),
+    );
     socket.on('room:state', (s) => {
       setSnapshot(s);
       setClockOffset(s.serverNow - Date.now());

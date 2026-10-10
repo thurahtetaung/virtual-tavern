@@ -3,9 +3,19 @@
 /* Game UIs live in workspace packages; let Tailwind see their classes. */
 @source '../../../packages';
 
+/*
+ * Dark mode follows the `data-theme` attribute that index.html sets before first paint (from the
+ * saved choice, or the system preference), so the header switch can override the OS setting.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @layer base {
   html {
+    color-scheme: light;
     @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+  }
+  html[data-theme='dark'] {
+    color-scheme: dark;
   }
   body {
     @apply min-h-dvh;

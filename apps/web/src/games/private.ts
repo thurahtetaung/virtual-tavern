@@ -1,4 +1,4 @@
-import { guide as reverieGuide, reverie } from '@vt/private-reverie/logic';
+import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { lazy } from 'react';
 import type { ClientGame } from './registry.ts';
 
@@ -9,8 +9,9 @@ import type { ClientGame } from './registry.ts';
  */
 export const privateGames: ClientGame[] = [
   {
-    id: reverie.id,
-    name: reverie.name,
+    // Hard-coded like the public games: importing the engine for its id would bundle it here.
+    id: 'reverie',
+    name: 'Reverie',
     guide: reverieGuide,
     icon: '🐇',
     Component: lazy(() =>

@@ -35,7 +35,7 @@ export function Countdown({
       className={
         'inline-flex min-w-16 justify-center rounded-lg px-2 py-1 font-mono text-lg font-bold tabular-nums ' +
         (urgent
-          ? 'animate-pulse bg-rose-600 text-white'
+          ? 'animate-pulse bg-rose-600 text-white motion-reduce:animate-none'
           : 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-100')
       }
     >

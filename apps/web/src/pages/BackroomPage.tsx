@@ -83,6 +83,9 @@ function Lobby({ onLock }: { onLock: () => void }) {
   );
 }
 
+/** The back room is always dark, whatever the site theme: native controls should match. */
+const BACKROOM_SCHEME = { colorScheme: 'dark' } as const;
+
 /** Only allow returning to pages on this site. */
 const safeNext = (next: string | null) => (next && /^\/[\w/-]*$/.test(next) ? next : null);
 
@@ -111,21 +114,31 @@ export function BackroomPage() {
   };
 
   const lock = async () => {
-    await api('/api/backroom/lock', { method: 'POST' });
-    toast('The door clicks shut behind you.', 'info');
-    void refresh();
+    try {
+      await api('/api/backroom/lock', { method: 'POST' });
+      toast('The door clicks shut behind you.', 'info');
+      void refresh();
+    } catch (err) {
+      toast((err as Error).message);
+    }
   };
 
   if (status?.unlocked) {
     return (
-      <div className="flex min-h-dvh justify-center bg-stone-950 px-4 py-10 text-amber-100 [background-image:radial-gradient(ellipse_at_top,rgb(120_53_15/0.35),transparent_65%)]">
+      <div
+        className="flex min-h-dvh justify-center bg-stone-950 px-4 py-10 text-amber-100 [background-image:radial-gradient(ellipse_at_top,rgb(120_53_15/0.35),transparent_65%)]"
+        style={BACKROOM_SCHEME}
+      >
         <Lobby onLock={() => void lock()} />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-stone-950 p-4 text-amber-100 [background-image:radial-gradient(ellipse_at_center,rgb(120_53_15/0.35),transparent_65%)]">
+    <div
+      className="flex min-h-dvh flex-col items-center justify-center bg-stone-950 p-4 text-amber-100 [background-image:radial-gradient(ellipse_at_center,rgb(120_53_15/0.35),transparent_65%)]"
+      style={BACKROOM_SCHEME}
+    >
       <div className="w-full max-w-sm space-y-6 text-center">
         <p className="text-6xl" aria-hidden>
           🕯️

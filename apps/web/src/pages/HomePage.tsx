@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { Layout } from '../components/Layout.tsx';
 import { GameCard } from '../components/GameCard.tsx';
 import { clientGames } from '../games/registry.ts';
-import { saveName, savedName } from '../lib/identity.ts';
+import { lastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { useToast } from '../lib/toast.tsx';
 
@@ -22,6 +22,7 @@ export function HomePage() {
   const toast = useToast();
   const [name, setName] = useState(savedName);
   const [invite, setInvite] = useState('');
+  const [recent] = useState(lastRoom);
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),
@@ -46,6 +47,16 @@ export function HomePage() {
           Start a room, send the link to your friends, and play together in the browser. No
           accounts, no downloads.
         </p>
+        {recent && (
+          <p className="mt-4">
+            <Link
+              to={`/r/${recent.id}`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800"
+            >
+              <span aria-hidden>↩</span> Rejoin your {recent.game} room
+            </Link>
+          </p>
+        )}
       </section>
 
       <div className="grid gap-4 md:grid-cols-[1fr_1fr]">

@@ -2,7 +2,8 @@ import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 import { cn as join } from './cn.ts';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'red' | 'blue';
-type Size = 'sm' | 'md' | 'lg';
+/** `icon` is a square 44 px tap target for icon-only buttons (close, theme switch…). */
+type Size = 'sm' | 'md' | 'lg' | 'icon';
 
 const VARIANTS: Record<Variant, string> = {
   primary:
@@ -18,6 +19,7 @@ const SIZES: Record<Size, string> = {
   sm: 'h-8 px-3 text-sm',
   md: 'h-10 px-4',
   lg: 'h-12 px-6 text-lg',
+  icon: 'size-11 shrink-0 text-lg',
 };
 
 export function Button({
