@@ -103,7 +103,11 @@ export interface TurnResult {
 export interface Turn {
   round: number;
   storyteller: PlayerId;
+  /** Who tells next, fixed when the turn starts so leavers can't reset the rotation. */
+  nextStoryteller: PlayerId;
   phase: Phase;
+  /** Cards each other player gives, fixed when the turn starts (2 with three players, else 1). */
+  give: number;
   clue: string | null;
   /** The storyteller's card; secret until the reveal. */
   storyCard: number | null;
@@ -119,9 +123,17 @@ export interface Turn {
   allOrNone: boolean | null;
 }
 
+/** Why the game ended: the target score was reached, or too few players were left to go on. */
+export type EndReason = 'target' | 'too-few';
+
 export interface ReverieState {
   phase: 'lobby' | 'playing' | 'over';
   settings: Settings;
+  /**
+   * Hidden randomness for moments that have no rng (leavers, deadlines). Never shown to players,
+   * or a voter could replay a shuffle from the public clock.
+   */
+  seed: number;
   /** Insertion-ordered by join time: this is the seating order. */
   seats: Record<PlayerId, Seat>;
   draw: number[];
@@ -129,8 +141,12 @@ export interface ReverieState {
   turn: Turn | null;
   /** Everyone who finished on the winning score. */
   winners: PlayerId[];
+  endReason: EndReason | null;
   gamesPlayed: number;
 }
+
+/** The most cards a table can hold: one from each of 8 players, or 5 with three players. */
+export const MAX_TABLE_SIZE = MAX_PLAYERS;
 
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
 const card = z.number().int().min(0).max(LAST_CARD);
@@ -138,7 +154,12 @@ const card = z.number().int().min(0).max(LAST_CARD);
 export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('update-settings'),
-    sets: z.array(z.string().min(1)).min(1).max(CARD_SETS.length).optional(),
+    sets: z
+      .array(z.string().min(1))
+      .min(1)
+      .max(CARD_SETS.length)
+      .refine((ids) => new Set(ids).size === ids.length, 'Card sets must be unique.')
+      .optional(),
     targetScore: z.union([z.literal(15), z.literal(20), z.literal(30)]).optional(),
     clueSeconds: timerSeconds.optional(),
     guessSeconds: timerSeconds.optional(),
@@ -155,7 +176,7 @@ export const actionSchema = z.discriminatedUnion('type', [
       .number()
       .int()
       .min(0)
-      .max(MAX_PLAYERS * 2),
+      .max(MAX_TABLE_SIZE - 1),
   }),
   z.object({ type: z.literal('next-turn') }),
 ]);
@@ -212,4 +233,5 @@ export interface ReverieView {
   drawPile: number;
   turn: TurnView | null;
   winners: PlayerId[];
+  endReason: EndReason | null;
 }
