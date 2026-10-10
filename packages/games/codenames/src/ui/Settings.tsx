@@ -1,6 +1,7 @@
 import type { WordListSummary } from '@vt/game-sdk';
 import { cn } from '@vt/ui';
 import type { CodenamesAction, Settings as SettingsT } from '../logic/types.ts';
+import { WordLists } from './WordLists.tsx';
 
 const TIMER_OPTIONS: { label: string; value: number | null }[] = [
   { label: 'No limit', value: null },
@@ -23,15 +24,6 @@ interface Props {
 }
 
 export function Settings({ settings, wordLists, editable, act }: Props) {
-  const selected = new Set(settings.wordListIds);
-
-  const toggleList = (id: string) => {
-    const next = selected.has(id)
-      ? settings.wordListIds.filter((x) => x !== id)
-      : [...settings.wordListIds, id];
-    if (next.length) void act({ type: 'update-settings', wordListIds: next });
-  };
-
   const timerSelect = (key: 'clueSeconds' | 'guessSeconds', label: string, help: string) => (
     <label className="block">
       <span className="text-sm font-semibold">{label}</span>
@@ -61,54 +53,12 @@ export function Settings({ settings, wordLists, editable, act }: Props) {
 
   return (
     <div className="space-y-4">
-      <fieldset>
-        <legend className="text-sm font-semibold">Word lists</legend>
-        <p className="text-xs text-stone-500">
-          {editable ? 'Mix as many as you like. ' : ''}The board draws 25 random words from these.
-        </p>
-        <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-          {wordLists.map((list) => {
-            const on = selected.has(list.id);
-            if (!editable && !on) return null;
-            return (
-              <li key={list.id}>
-                <label
-                  className={cn(
-                    'flex h-full items-start justify-between gap-2 rounded-lg px-3 py-2 ring-1',
-                    on
-                      ? 'bg-amber-50 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40'
-                      : 'ring-stone-200 dark:ring-stone-700',
-                    editable && 'cursor-pointer',
-                  )}
-                >
-                  <span className="flex min-w-0 items-start gap-2">
-                    {editable && (
-                      <input
-                        type="checkbox"
-                        className="mt-1 size-4 shrink-0 accent-amber-600"
-                        checked={on}
-                        disabled={on && selected.size === 1}
-                        onChange={() => toggleList(list.id)}
-                      />
-                    )}
-                    <span className="min-w-0">
-                      <span className="block">{list.name}</span>
-                      {list.description && (
-                        <span className="block text-xs text-stone-500 dark:text-stone-400">
-                          {list.description}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                  <span className="mt-0.5 shrink-0 text-xs text-stone-500">
-                    {list.wordCount} words
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      </fieldset>
+      <WordLists
+        selectedIds={settings.wordListIds}
+        wordLists={wordLists}
+        editable={editable}
+        act={act}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         {timerSelect('clueSeconds', 'Clue timer', 'Time for the Spymaster to give a clue.')}
         {timerSelect('guessSeconds', 'Guess timer', 'Time for the team to make its guesses.')}

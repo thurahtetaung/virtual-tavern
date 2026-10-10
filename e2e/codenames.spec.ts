@@ -112,8 +112,15 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
 
   const host = await player(browser, 'Hana');
   await host.getByRole('button', { name: 'Create a room' }).click();
-  await expect(host.getByText('E2E Planets')).toBeVisible();
-  // The box ticks once the server confirms the change, so click and wait rather than check().
-  await host.getByRole('checkbox', { name: 'E2E Planets' }).click();
-  await expect(host.getByRole('checkbox', { name: 'E2E Planets' })).toBeChecked();
+  const lists = host.getByRole('region', { name: 'Word lists' });
+  await expect(lists.getByText('Starter')).toBeVisible();
+  await host.getByRole('button', { name: 'Change word lists' }).click();
+  const picker = host.getByRole('dialog');
+  await picker.getByRole('searchbox').fill('planets');
+  await picker.getByRole('checkbox', { name: /E2E Planets/ }).check();
+  await expect(picker.getByText('2 lists')).toBeVisible();
+  await picker.getByRole('button', { name: 'Save' }).click();
+  await expect(picker).toBeHidden();
+  await expect(lists.getByText('E2E Planets')).toBeVisible();
+  await expect(lists.getByText('Starter')).toBeVisible();
 });
