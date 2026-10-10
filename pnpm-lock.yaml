@@ -72,6 +72,9 @@ importers:
       '@vt/game-codenames':
         specifier: workspace:*
         version: link:../../packages/games/codenames
+      '@vt/game-enigma':
+        specifier: workspace:*
+        version: link:../../packages/games/enigma
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
@@ -96,6 +99,9 @@ importers:
       '@vt/game-codenames':
         specifier: workspace:*
         version: link:../../packages/games/codenames
+      '@vt/game-enigma':
+        specifier: workspace:*
+        version: link:../../packages/games/enigma
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk

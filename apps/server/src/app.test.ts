@@ -17,7 +17,7 @@ describe('http api', () => {
 
   it('lists games and the seeded starter word list', async () => {
     const games = (await app.inject({ method: 'GET', url: '/api/games' })).json<{ id: string }[]>();
-    expect(games.map((g) => g.id)).toEqual(['codenames']);
+    expect(games.map((g) => g.id)).toEqual(['codenames', 'enigma']);
     const lists = (await app.inject({ method: 'GET', url: '/api/word-lists' })).json<unknown>();
     expect(lists).toEqual([expect.objectContaining({ name: 'Starter', wordCount: 451 })]);
   });

@@ -1,5 +1,6 @@
 import type { GameGuide, GameUiProps } from '@vt/game-sdk';
 import { guide as codenamesGuide } from '@vt/game-codenames/logic';
+import { guide as enigmaGuide } from '@vt/game-enigma/logic';
 import { type ComponentType, lazy } from 'react';
 
 export interface ClientGame {
@@ -22,6 +23,13 @@ export const clientGames: ClientGame[] = [
     Component: lazy(() =>
       import('@vt/game-codenames/ui').then((m) => ({ default: m.CodenamesGame })),
     ),
+  },
+  {
+    id: 'enigma',
+    name: 'Enigma',
+    guide: enigmaGuide,
+    icon: '🔐',
+    Component: lazy(() => import('@vt/game-enigma/ui').then((m) => ({ default: m.EnigmaGame }))),
   },
 ];
 
