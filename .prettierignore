@@ -3,4 +3,7 @@ dist
 coverage
 playwright-report
 test-results
+# Written by release-please in its own style
 CHANGELOG.md
+.release-please-manifest.json
+.claude
