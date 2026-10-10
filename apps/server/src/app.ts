@@ -12,9 +12,15 @@ import { R2Assets, type R2Config } from './r2.ts';
 import { attachRealtime, createRoomEvents } from './realtime.ts';
 import { RoomManager } from './rooms/manager.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
-import { adminRoutes } from './routes/admin.ts';
+import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes, requestUnlocked } from './routes/backroom.ts';
 import { publicRoutes } from './routes/public.ts';
+import { statsRoutes } from './routes/stats.ts';
+import { addDays, dayOf } from './stats/days.ts';
+import { LiveTracker } from './stats/live.ts';
+import { StatsRecorder } from './stats/recorder.ts';
+import { SqliteStatsStore } from './stats/sqlite-store.ts';
+import { RAW_RETENTION_DAYS } from './stats/types.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
 
@@ -36,6 +42,7 @@ export interface AppOptions {
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
+const LIVE_SAMPLE_MS = 60_000;
 
 /** Short error codes for the statuses Fastify and its plugins raise on their own. */
 const ERROR_CODES: Record<number, string> = {
@@ -96,6 +103,26 @@ export function buildApp(opts: AppOptions) {
     if (added.length) app.log.info({ packs: added }, 'added built-in word packs');
   }
 
+  const stats = new SqliteStatsStore(db, {
+    gameIds: [...games.keys()],
+    gameName: (id) => games.get(id)?.name ?? id,
+    label: (key, value) => (key === 'wordList' ? wordLists.get(value)?.name : undefined),
+  });
+  const recorder = new StatsRecorder({ store: stats, logger: app.log });
+  /** Rolls up finished days and drops raw events past retention; never fails the caller. */
+  const maintainStats = () => {
+    try {
+      recorder.flush();
+      const today = dayOf(now());
+      for (const day of stats.unrolledDays(today)) stats.rollupDay(day, now());
+      const pruned = stats.prune(addDays(today, -RAW_RETENTION_DAYS));
+      if (pruned) app.log.info({ pruned }, 'pruned old stats events');
+    } catch (err) {
+      app.log.error({ err }, 'stats maintenance failed');
+    }
+  };
+  maintainStats();
+
   // The manager and socket layer reference each other; break the cycle with a late-bound holder.
   const realtime: { io?: ReturnType<typeof attachRealtime> } = {};
   const rooms: RoomManager = new RoomManager({
@@ -108,6 +135,7 @@ export function buildApp(opts: AppOptions) {
     ),
     now,
     logger: app.log,
+    observer: recorder,
   });
   const io = (realtime.io = attachRealtime(app.server, rooms, app.log, {
     isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
@@ -120,8 +148,20 @@ export function buildApp(opts: AppOptions) {
   }));
 
   const sweepMs = (opts.roomIdleDays ?? 7) * 24 * 60 * 60_000;
-  const sweeper = setInterval(() => rooms.sweep(sweepMs), SWEEP_EVERY_MS);
+  const sweeper = setInterval(() => {
+    rooms.sweep(sweepMs);
+    maintainStats();
+  }, SWEEP_EVERY_MS);
   sweeper.unref();
+
+  const live = new LiveTracker({
+    rooms: () => rooms.liveRooms(),
+    sockets: () => io.engine.clientsCount,
+    recentPlayers: (since) => recorder.recentPlayers(since),
+    now,
+  });
+  const liveSampler = setInterval(() => live.sample(), LIVE_SAMPLE_MS);
+  liveSampler.unref();
 
   void app.register(fastifyCookie, { secret: opts.sessionSecret });
   void app.register(fastifyRateLimit, {
@@ -169,6 +209,19 @@ export function buildApp(opts: AppOptions) {
     });
     adminRoutes(scope, { auth: adminAuth, wordLists, backroom, now });
     backroomRoutes(scope, { backroom, games, assets });
+    scope.register((admin, _a, ready) => {
+      admin.addHook('preHandler', adminGuard(adminAuth, now));
+      statsRoutes(admin, {
+        queries: stats,
+        store: stats,
+        live,
+        gameIds: [...games.keys()],
+        flush: () => recorder.flush(),
+        onReset: () => recorder.reset(),
+        now,
+      });
+      ready();
+    });
     done();
   });
 
@@ -221,7 +274,9 @@ export function buildApp(opts: AppOptions) {
   });
   app.addHook('onClose', (_app, done) => {
     clearInterval(sweeper);
+    clearInterval(liveSampler);
     rooms.close();
+    recorder.close();
     db.$client.close();
     done();
   });

@@ -36,6 +36,13 @@
       "when": 1791650357400,
       "tag": "0004_word_list_enabled",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791652730635,
+      "tag": "0005_stats",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,286 @@
+import type { CodenamesView } from '@vt/game-codenames/logic';
+import type { EchoView } from '@vt/game-echo/logic';
+import {
+  type GameStats,
+  type LiveStats,
+  type PlayerProfile,
+  STATS_RESET_CONFIRM,
+  type StatsFun,
+  type StatsHeatmap,
+  type StatsOverview,
+  type StatsPlayers,
+  type StatsSettings,
+  type StatsTimeseries,
+  type StatsWords,
+  type StatsGames,
+} from '@vt/protocol';
+import { afterEach, describe, expect, it } from 'vitest';
+import { playerIdFromToken } from '../rooms/ids.ts';
+import { type TestClient, connect, testApp, token } from '../test/helpers.ts';
+
+const DAY = '2026-10-10';
+
+describe('admin stats', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  let clock = Date.parse(`${DAY}T19:00:00Z`);
+  const tick = (ms: number) => {
+    clock += ms;
+  };
+
+  async function start() {
+    clock = Date.parse(`${DAY}T19:00:00Z`);
+    const app = testApp({ now: () => clock });
+    cleanups.push(() => app.close());
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { password: 'hunter2' },
+    });
+    const cookie = login.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    const get = async <T>(path: string) => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/admin/stats/${path}`,
+        headers: { cookie },
+      });
+      return {
+        status: res.statusCode,
+        headers: res.headers,
+        body: (String(res.headers['content-type']).includes('application/json')
+          ? res.json<T>()
+          : null) as T,
+        raw: res.body,
+      };
+    };
+    return { app, url, cookie, get };
+  }
+
+  async function room(
+    app: Awaited<ReturnType<typeof start>>['app'],
+    url: string,
+    gameId: string,
+    names: string[],
+    first = 0,
+  ) {
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId, token: token(first) },
+      })
+    ).json<{ roomId: string }>();
+    const clients: TestClient[] = [];
+    for (const [i, name] of names.entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(first + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((s) => s.players.length === names.length)));
+    return { roomId, clients };
+  }
+
+  it('records play over sockets and serves it to admins', async () => {
+    const { app, url, get } = await start();
+
+    // A Codenames game that the assassin ends after four minutes.
+    const { roomId, clients } = await room(app, url, 'codenames', ['Host', 'Ana', 'Ben', 'Cy']);
+    const [host, ana, ben, cy] = clients as [TestClient, TestClient, TestClient, TestClient];
+    await host.call('game:action', { type: 'join-team', team: 'red', role: 'spymaster' });
+    await ana.call('game:action', { type: 'join-team', team: 'red', role: 'operative' });
+    await ben.call('game:action', { type: 'join-team', team: 'blue', role: 'spymaster' });
+    await cy.call('game:action', { type: 'join-team', team: 'blue', role: 'operative' });
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    const view = (await host.until((s) => (s.game as CodenamesView).phase === 'playing'))
+      .game as CodenamesView;
+    const [spy, op] = view.turn!.team === 'red' ? [host, ana] : [ben, cy];
+    tick(60_000);
+    expect(await spy.call('game:action', { type: 'give-clue', word: 'zyzzyva', count: 1 })).toEqual(
+      { ok: true },
+    );
+    tick(180_000);
+    const assassin = view.board.findIndex((c) => c.kind === 'assassin');
+    expect(await op.call('game:action', { type: 'guess', card: assassin })).toEqual({ ok: true });
+    await host.until((s) => (s.game as CodenamesView).phase === 'over');
+
+    // An Echo game the host takes back to the lobby: abandoned.
+    const echo = await room(app, url, 'echo', ['Dee', 'Eve', 'Fay'], 10);
+    tick(60_000);
+    expect(await echo.clients[0]!.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    await echo.clients[0]!.until((s) => (s.game as EchoView).phase === 'playing');
+    tick(120_000);
+    expect(await echo.clients[0]!.call('game:action', { type: 'back-to-lobby' })).toEqual({
+      ok: true,
+    });
+    await echo.clients[0]!.until((s) => (s.game as EchoView).phase === 'lobby');
+
+    // Live: both rooms, everyone connected.
+    const live = await get<LiveStats>('live');
+    expect(live.status).toBe(200);
+    expect(live.headers['cache-control']).toBe('private, no-store');
+    expect(live.body.sockets).toBe(7);
+    expect(live.body.playersOnline).toBe(7);
+    expect(live.body.playersRecent).toBe(7);
+    expect(live.body.rooms.map((r) => r.id).sort()).toEqual([roomId, echo.roomId].sort());
+    expect(live.body.rooms.find((r) => r.id === roomId)).toMatchObject({
+      gameId: 'codenames',
+      phase: 'over',
+    });
+    expect(live.body.byGame).toEqual(
+      expect.arrayContaining([
+        { gameId: 'codenames', rooms: 1, playing: 0, players: 4 },
+        { gameId: 'echo', rooms: 1, playing: 0, players: 3 },
+      ]),
+    );
+    expect(live.body.lastHour).toHaveLength(60);
+    expect(live.body.lastHour.at(-1)!.players).toBe(7);
+
+    const today = 'range=today';
+    const overview = (await get<StatsOverview>(`overview?${today}`)).body;
+    expect(overview.window).toMatchObject({ from: DAY, to: DAY, bucket: 'hour' });
+    expect(overview.totals).toEqual({
+      roomsCreated: 2,
+      gamesStarted: 2,
+      gamesFinished: 1,
+      gamesAbandoned: 1,
+      uniquePlayers: 7,
+      minutesPlayed: 6,
+    });
+    expect(overview.activity).toHaveLength(24);
+    expect(overview.activity[19]!.values).toMatchObject({ codenames: 1, echo: 1, _all: 2 });
+
+    const games = (await get<StatsGames>('games')).body.games;
+    expect(games.find((g) => g.gameId === 'codenames')).toMatchObject({
+      averageMinutes: 4,
+      averagePlayers: 4,
+      totals: { gamesFinished: 1 },
+    });
+
+    const cn = (await get<GameStats>(`games/codenames?${today}`)).body;
+    expect(cn).toMatchObject({ gameId: 'codenames', playerCounts: [{ players: 4, games: 1 }] });
+    expect(cn.settings.map((s) => s.key)).toEqual(
+      expect.arrayContaining(['wordList', 'timerMode']),
+    );
+    expect(cn.settings.find((s) => s.key === 'wordList')!.label).not.toBe('');
+    expect(cn.figures.map((f) => f.id)).toContain('assassin-rate');
+
+    const echoStats = (await get<GameStats>('games/echo')).body;
+    expect(echoStats.totals).toMatchObject({ gamesStarted: 1, gamesAbandoned: 1 });
+
+    const series = (await get<StatsTimeseries>('timeseries?metric=games_started&range=7d')).body;
+    expect(series.series).toHaveLength(7);
+    expect(series.series.at(-1)!.values).toMatchObject({ codenames: 1, echo: 1, _all: 2 });
+
+    const players = (await get<StatsPlayers>('players')).body.players;
+    expect(players).toHaveLength(7);
+    const anaId = playerIdFromToken(token(1));
+    expect(players.find((p) => p.id === anaId)).toMatchObject({
+      name: 'Ana',
+      games: 1,
+      minutes: 4,
+    });
+    const profile = (await get<PlayerProfile>(`players/${anaId}`)).body;
+    expect(profile).toMatchObject({
+      name: 'Ana',
+      aliases: ['Ana'],
+      calendar: [{ day: DAY, games: 1 }],
+    });
+    expect((await get(`players/nobody`)).status).toBe(404);
+
+    expect((await get<StatsWords>('words?game=codenames&kind=clue')).body).toMatchObject({
+      gameId: 'codenames',
+      kind: 'clue',
+    });
+    expect(
+      (await get<StatsSettings>('settings?game=echo')).body.settings.map((s) => s.key),
+    ).toContain('deckSize');
+    const heat = (await get<StatsHeatmap>('heatmap')).body;
+    expect(heat.calendar.at(-1)).toEqual({ day: DAY, games: 2 });
+    // 2026-10-10 is a Saturday (5); both games started in the 19:00 UTC hour.
+    expect(heat.weekHour.find((c) => c.weekday === 5 && c.hour === 19)!.games).toBe(2);
+    const fun = (await get<StatsFun>('fun')).body;
+    expect(fun.facts.map((f) => f.id)).toEqual(
+      expect.arrayContaining(['most-games', 'longest-game']),
+    );
+
+    // The raw events export, then a reset.
+    const exported = await get<unknown>('export');
+    expect(exported.headers['content-type']).toMatch(/application\/x-ndjson/);
+    const lines = exported.raw
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l) as { type: string });
+    expect(lines.filter((e) => e.type === 'game.started')).toHaveLength(2);
+  });
+
+  it('requires an admin and validates parameters', async () => {
+    const { app, cookie, get } = await start();
+    for (const path of ['live', 'overview', 'players/x', 'export']) {
+      const res = await app.inject({ method: 'GET', url: `/api/admin/stats/${path}` });
+      expect(res.statusCode).toBe(401);
+    }
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/stats/reset',
+          payload: { confirm: STATS_RESET_CONFIRM },
+        })
+      ).statusCode,
+    ).toBe(401);
+
+    for (const bad of [
+      'overview?range=forever',
+      'overview?range=custom&from=2026-10-01',
+      'overview?range=custom&from=2026-10-05&to=2026-10-01',
+      'overview?bucket=minute',
+      'overview?game=chess',
+      'timeseries?metric=fun',
+      'words?game=codenames',
+      'words?game=codenames&kind=clue&limit=1000',
+      'settings',
+      'export?from=yesterday',
+    ]) {
+      const res = await get<{ error: { code: string } }>(bad);
+      expect([bad, res.status, res.body.error.code]).toEqual([bad, 400, 'bad-request']);
+    }
+    expect((await get('games/chess')).status).toBe(404);
+    expect((await get('overview?range=custom&from=2026-10-01&to=2026-10-05')).status).toBe(200);
+
+    const reset = (payload: Record<string, string>) =>
+      app.inject({ method: 'POST', url: '/api/admin/stats/reset', payload, headers: { cookie } });
+    expect((await reset({ confirm: 'yes' })).statusCode).toBe(400);
+    expect((await reset({ confirm: STATS_RESET_CONFIRM })).json()).toEqual({ ok: true });
+  });
+
+  it('rate-limits stats reads to 120 a minute', async () => {
+    const { get } = await start();
+    for (let i = 0; i < 120; i++) expect((await get('live')).status).toBe(200);
+    expect((await get('live')).status).toBe(429);
+  });
+
+  it('forgets everything on reset', async () => {
+    const { app, url, cookie, get } = await start();
+    await room(app, url, 'codenames', ['Host']);
+    expect((await get<StatsOverview>('overview')).body.totals.roomsCreated).toBe(1);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/admin/stats/reset',
+      payload: { confirm: STATS_RESET_CONFIRM },
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((await get<StatsOverview>('overview')).body.totals.roomsCreated).toBe(0);
+    expect((await get<StatsPlayers>('players')).body.players).toEqual([]);
+  });
+});

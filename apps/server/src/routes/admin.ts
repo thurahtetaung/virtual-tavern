@@ -8,6 +8,14 @@ import type { WordListRepo } from '../word-lists.ts';
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
 
+/** preHandler that lets only a signed-in admin through. */
+export function adminGuard(auth: AdminAuth | null, now: () => number) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    if (!auth) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
+    if (!auth.isAdmin(req, now())) return error(reply, 401, 'unauthorized', 'Please sign in.');
+  };
+}
+
 export function adminRoutes(
   app: FastifyInstance,
   opts: { auth: AdminAuth | null; wordLists: WordListRepo; backroom: Backroom; now: () => number },
@@ -20,10 +28,7 @@ export function adminRoutes(
     return bad === undefined ? null : `"${bad}" is not a game that uses word lists.`;
   };
 
-  const requireAdmin = async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!auth) return error(reply, 503, 'admin-disabled', 'The admin area is not configured.');
-    if (!auth.isAdmin(req, now())) return error(reply, 401, 'unauthorized', 'Please sign in.');
-  };
+  const requireAdmin = adminGuard(auth, now);
 
   app.post(
     '/api/admin/login',
