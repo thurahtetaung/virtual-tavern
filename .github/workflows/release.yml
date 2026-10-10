@@ -1,7 +1,10 @@
 name: Release
 
+# Runs only after CI has passed on main, so a red build can never be released or deployed.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 permissions:
@@ -13,6 +16,7 @@ concurrency:
 
 jobs:
   release-please:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
