@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.5.0...v0.5.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* give the back room its own screen and list only games the server offers ([#15](https://github.com/thurahtetaung/virtual-tavern/issues/15)) ([599ca5b](https://github.com/thurahtetaung/virtual-tavern/commit/599ca5b7d2bae48ede068556bc2b02a0a033228e))
+
 ## [0.5.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.4.0...v0.5.0) (2026-10-10)
 
 
