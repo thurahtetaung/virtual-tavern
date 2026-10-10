@@ -4,17 +4,18 @@ export const guide: GameGuide = {
   tagline: 'Pass secret codes to your team with clues, while the other team tries to crack them.',
   players: '4 or more (best with 6–8)',
   duration: '30–45 minutes',
-  goal: 'Get your codes across to your own team, and intercept the other team’s codes twice before they intercept yours.',
+  goal: 'Get your codes across to your own team without two miscommunications, and intercept the other team’s codes twice before they intercept yours. If nobody has managed either by the end of round 8, the better score wins.',
   setup: [
     'Split into two teams, Red and Blue, with at least 2 players each.',
     'The host presses Start. Each team gets 4 secret keywords, numbered 1 to 4, that only your team can see.',
     'Use the team chat to talk privately. The other team can’t read it, so don’t say guesses out loud!',
+    'Once you’ve seen a team’s keywords you belong to that team for the rest of the game, even if you leave the room and come back.',
   ],
   roles: [
     {
       name: 'Encryptor',
       summary:
-        'Changes every round. Gets a secret 3-number code (like 3-1-4) and writes one clue for each number, pointing at that keyword without making it obvious.',
+        'Changes every round, going round the team in seat order. Gets a secret 3-number code (like 3-1-4) and writes one clue for each number, pointing at that keyword without making it obvious.',
     },
     {
       name: 'Decoders',
@@ -24,7 +25,7 @@ export const guide: GameGuide = {
     {
       name: 'Interceptors',
       summary:
-        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords.',
+        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor can help with this.',
     },
   ],
   sections: [
@@ -35,12 +36,23 @@ export const guide: GameGuide = {
         'They write 3 clues in that order. For keyword 2 “Ocean”, a clue could be “salty”.',
         'Their team picks the code they think the clues mean, and the other team tries to intercept it.',
         'The real code is revealed. Every clue is filed under its keyword number for everyone to see.',
+        'The host presses Next round when everyone has had a look. Which team transmits first swaps every round, and again for each rematch.',
+      ],
+    },
+    {
+      title: 'Writing clues',
+      bullets: [
+        'A clue is a single line of up to 40 characters.',
+        'It can’t be one of your own keywords, and it can’t be just a number.',
+        'The three clues must all be different.',
+        'While your team is decoding your code, you can’t post in the team chat. Let them work it out!',
       ],
     },
     {
       title: 'Agreeing on a guess',
       paragraphs: [
         'Pick three numbers in the code slots. Your teammates see your picks live. When you’re sure, press Lock in. A guess only goes through when everyone on your side has locked in the same code; change your pick and your lock is cleared.',
+        'Whoever is on your side when guessing starts has to agree. If you join a team mid-round, you watch until the next clues are written. If someone leaves, the rest of the side carries on without them.',
       ],
     },
     {
@@ -69,13 +81,20 @@ export const guide: GameGuide = {
       title: 'Turn order (chosen by the host)',
       bullets: [
         'Simultaneous: both Encryptors write at the same time, then both teams guess at the same time. Faster.',
-        'Alternating: one team’s code is played all the way through, then the other’s. Closer to the tabletop pace.',
+        'Alternating: one team’s code is played all the way through, then the other’s. Closer to the tabletop pace. The second Encryptor only sees their code once it’s their turn.',
       ],
     },
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. If the host picks Strict, running out of time counts as a failure: no clues means a miscommunication, and no agreed guess means no decode or interception.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. If the host picks Strict, running out of time counts as a failure: no clues means a miscommunication, and no agreed guess means no decode or interception. A code that never got its clues can’t be intercepted either.',
+      ],
+    },
+    {
+      title: 'If someone leaves',
+      bullets: [
+        'An Encryptor who leaves before sending clues is replaced by the first of their teammates.',
+        'A team left with nobody to decode (only its Encryptor, or nobody at all) can’t transmit: each of its turns counts as a miscommunication until someone joins.',
       ],
     },
   ],

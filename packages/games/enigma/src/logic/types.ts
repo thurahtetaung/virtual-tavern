@@ -86,10 +86,19 @@ export interface Transmission {
   encryptor: PlayerId;
   code: Code;
   clues: string[] | null;
-  /** Clue timer ran out before the clues were sent (strict timers only). */
+  /**
+   * No clues are coming: the clue timer ran out (strict timers), or the team has nobody left
+   * who could decode them. Counts as a miscommunication.
+   */
   expired: boolean;
   decode: Record<PlayerId, Vote>;
   intercept: Record<PlayerId, Vote>;
+  /**
+   * Who must agree on each side, fixed when guessing starts so that latecomers don't stall a
+   * vote; leavers are pruned. null until then.
+   */
+  decodeVoters: PlayerId[] | null;
+  interceptVoters: PlayerId[] | null;
   /** Agreed codes once each side has resolved; undefined while still voting. */
   decodeResult?: Code | null;
   interceptResult?: Code | null;
@@ -102,6 +111,12 @@ export interface EnigmaState {
   phase: 'lobby' | 'playing' | 'over';
   settings: Settings;
   seats: Record<PlayerId, Seat>;
+  /**
+   * Which team's keywords each player has seen this game. Outlives their seat, so leaving and
+   * rejoining can't be used to peek at the other team's words. Never sent to clients.
+   * Optional only for rooms saved before the field existed.
+   */
+  seen?: Record<PlayerId, Team>;
   /** Transmits first in round 1; alternates each round and each rematch. */
   startingTeam: Team;
   round: number;
@@ -120,6 +135,13 @@ export interface EnigmaState {
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
 const team = z.enum(['red', 'blue']);
 const digit = z.number().int().min(0).max(KEYWORD_COUNT);
+/** One line of text: trimmed, non-empty, no line breaks. */
+const clue = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_CLUE_LENGTH)
+  .refine((s) => !/[\r\n]/.test(s), 'A clue is a single line.');
 
 export const actionSchema = z.discriminatedUnion('type', [
   z.object({
@@ -136,7 +158,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('back-to-lobby') }),
   z.object({
     type: z.literal('give-clues'),
-    clues: z.array(z.string().trim().min(1).max(MAX_CLUE_LENGTH)).length(CODE_LENGTH),
+    clues: z.array(clue).length(CODE_LENGTH),
   }),
   /** `team` is the sending team of the transmission being guessed. */
   z.object({ type: z.literal('set-guess'), team, draft: z.array(digit).length(CODE_LENGTH) }),
@@ -146,7 +168,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set-note'),
     slot: z.union([z.number().int().min(1).max(KEYWORD_COUNT), z.literal('general')]),
-    text: z.string().max(MAX_GENERAL_NOTE_LENGTH),
+    /** Trimmed, so a whitespace-only note clears the field. Keyword slots are capped in `reduce`. */
+    text: z.string().trim().max(MAX_GENERAL_NOTE_LENGTH),
   }),
   z.object({ type: z.literal('next-round') }),
 ]);
@@ -155,12 +178,13 @@ export type EnigmaAction = z.infer<typeof actionSchema>;
 
 // ---- What each player is allowed to see ----
 
+/** `waiting`: on a team but not voting on this transmission (round 1 interceptor, or joined mid-round). */
 export type Role = 'encryptor' | 'decoder' | 'interceptor' | 'waiting' | 'spectator';
 
 export interface TransmissionView {
   team: Team;
   encryptor: PlayerId;
-  /** Only the Encryptor sees the code before the reveal. */
+  /** Only the Encryptor sees the code before the reveal, and only while the transmission is in play. */
   code: Code | null;
   clues: string[] | null;
   expired: boolean;

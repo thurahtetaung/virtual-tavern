@@ -2,6 +2,7 @@ import { Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView } from '../logic/types.ts';
 import { MAX_CHAT_LENGTH } from '../logic/types.ts';
+import { chatMuted } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 
 export function TeamChat({
@@ -19,6 +20,7 @@ export function TeamChat({
     void end.current?.scrollIntoView({ block: 'nearest' });
   }, [view.chat.length]);
   if (!team) return null;
+  const muted = chatMuted(view);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,15 +49,23 @@ export function TeamChat({
         <input
           value={text}
           maxLength={MAX_CHAT_LENGTH}
+          disabled={muted}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Message your team…"
+          placeholder={
+            muted ? 'Encryptors stay quiet while their team decodes' : 'Message your team…'
+          }
           aria-label="Message your team"
-          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 disabled:opacity-60 dark:bg-stone-800 dark:ring-stone-600"
         />
-        <Button type="submit" disabled={!text.trim()}>
+        <Button type="submit" disabled={muted || !text.trim()}>
           Send
         </Button>
       </form>
+      {muted && (
+        <p className="mt-1 text-xs text-stone-500">
+          Encryptors stay quiet while their team decodes.
+        </p>
+      )}
     </Panel>
   );
 }
