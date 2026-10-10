@@ -75,8 +75,13 @@ export interface GameDefinition<State, Action, View> {
   playerLeft(state: State, playerId: PlayerId, now: number): State;
   /** What `viewer` may see. `null` is an observer with no seat. Must strip all hidden information. */
   view(state: State, viewer: PlayerId | null): View;
-  /** Epoch ms at which `onDeadline` should run, or null if no timer is active. */
+  /**
+   * Epoch ms at which `onDeadline` should run, or null if no timer is active. The state
+   * `onDeadline` returns must report a later deadline (or null): a deadline that stays in the
+   * past is treated as a bug and the room host stops its timer until the next player action.
+   */
   nextDeadline?(state: State): number | null;
+  /** Called once the deadline has passed. Must always make progress (end the turn, time out…). */
   onDeadline?(state: State, now: number): State;
 }
 
