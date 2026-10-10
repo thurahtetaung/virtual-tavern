@@ -27,6 +27,58 @@ export interface RoomLogger {
   error(obj: object, msg: string): void;
 }
 
+/** What a room-host observation is about. */
+export type ObservationKind =
+  | 'room.created'
+  | 'player.joined'
+  | 'player.renamed'
+  | 'player.left'
+  | 'player.kicked'
+  | 'player.connected'
+  | 'player.disconnected'
+  | 'host.changed'
+  | 'action'
+  | 'deadline'
+  | 'room.swept';
+
+/**
+ * Something the room host did, for stats. `before`/`after` are the room records around a
+ * committed change (equal when nothing was saved, e.g. presence); `by` is the player it was
+ * about, if any. Observations are reported after the change is saved and broadcast.
+ */
+export interface RoomObservation {
+  kind: ObservationKind;
+  roomId: string;
+  gameId: string;
+  now: number;
+  by: string | null;
+  /** The parsed action, for `action`. */
+  action?: unknown;
+  /** The name used, for joins and renames. */
+  name?: string;
+  before: RoomRecord | null;
+  after: RoomRecord | null;
+  game: AnyGameDefinition | null;
+}
+
+/** Receives observations. Its failures are logged and never reach players. */
+export interface RoomObserver {
+  observe(o: RoomObservation): void;
+}
+
+/** A room someone is connected to, for the admin live view. */
+export interface LiveRoomInfo {
+  id: string;
+  gameId: string;
+  phase: string;
+  players: { id: string; name: string; connected: boolean }[];
+  hostId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+type Observed = Pick<RoomObservation, 'kind' | 'by' | 'action' | 'name'>;
+
 interface LiveRoom {
   record: RoomRecord;
   game: AnyGameDefinition;
@@ -59,6 +111,8 @@ export interface RoomManagerDeps {
   seed?: () => number;
   /** Where timer failures and misbehaving games are reported. Defaults to the console. */
   logger?: RoomLogger;
+  /** Stats hook; never allowed to affect play. */
+  observer?: RoomObserver | null;
 }
 
 export interface JoinOptions {
@@ -75,7 +129,7 @@ export class RoomManager {
   private readonly deps: Required<RoomManagerDeps>;
 
   constructor(deps: RoomManagerDeps) {
-    this.deps = { now: Date.now, seed: randomSeed, logger: console, ...deps };
+    this.deps = { now: Date.now, seed: randomSeed, logger: console, observer: null, ...deps };
   }
 
   create(gameId: string, hostId: string): string {
@@ -95,6 +149,7 @@ export class RoomManager {
       updatedAt: now,
     };
     this.deps.store.insert(record);
+    this.observe(record, null, record, game, { kind: 'room.created', by: hostId });
     return id;
   }
 
@@ -124,11 +179,18 @@ export class RoomManager {
       return OK;
     }
     try {
-      this.commit(room, {
-        players,
-        hostId,
-        state: room.game.playerJoined(record.state, { id: playerId, name }),
-      });
+      this.commit(
+        room,
+        {
+          players,
+          hostId,
+          state: room.game.playerJoined(record.state, { id: playerId, name }),
+        },
+        0,
+        existing?.name === name
+          ? { kind: 'host.changed', by: hostId }
+          : { kind: existing ? 'player.renamed' : 'player.joined', by: playerId, name },
+      );
     } catch (err) {
       // The caller backs its socket out of the room, so the presence must go too.
       if (opts.connect) this.unmarkConnected(room, playerId);
@@ -147,7 +209,7 @@ export class RoomManager {
   leave(roomId: string, playerId: string): Ack {
     const room = this.load(roomId);
     if (!room?.record.players.some((p) => p.id === playerId)) return OK;
-    this.removePlayer(room, playerId);
+    this.removePlayer(room, playerId, 'player.left');
     return OK;
   }
 
@@ -158,7 +220,7 @@ export class RoomManager {
     if (target === by) return fail('bad-target', 'Use Leave to leave the room.');
     if (!room.record.players.some((p) => p.id === target))
       return fail('bad-target', 'No such player.');
-    this.removePlayer(room, target);
+    this.removePlayer(room, target, 'player.kicked');
     this.deps.events.kicked(roomId, target);
     return OK;
   }
@@ -169,7 +231,7 @@ export class RoomManager {
     if (room.record.hostId !== by) return fail('not-host', 'Only the host can hand over hosting.');
     if (!room.record.players.some((p) => p.id === target))
       return fail('bad-target', 'No such player.');
-    this.commit(room, { hostId: target });
+    this.commit(room, { hostId: target }, 0, { kind: 'host.changed', by: target });
     return OK;
   }
 
@@ -187,7 +249,11 @@ export class RoomManager {
     });
     if (isGameError(result)) return fail(result.code, result.message);
     try {
-      this.commit(room, { state: result });
+      this.commit(room, { state: result }, 0, {
+        kind: 'action',
+        by: playerId,
+        action: parsed.data,
+      });
     } catch (err) {
       if (err instanceof RoomError && err.code === 'state-too-large')
         return fail(err.code, err.message);
@@ -226,10 +292,44 @@ export class RoomManager {
     };
   }
 
+  /** Rooms with at least one connected player, for the admin live view. */
+  liveRooms(): LiveRoomInfo[] {
+    const out: LiveRoomInfo[] = [];
+    for (const room of this.rooms.values()) {
+      if (room.connections.size === 0) continue;
+      const { record } = room;
+      const phase = (record.state as { phase?: unknown } | null)?.phase;
+      out.push({
+        id: record.id,
+        gameId: record.gameId,
+        phase: typeof phase === 'string' ? phase : 'lobby',
+        players: record.players.map((p) => ({ ...p, connected: room.connections.has(p.id) })),
+        hostId: record.hostId,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      });
+    }
+    return out;
+  }
+
   /** Deletes idle rooms nobody is connected to; returns how many were removed. */
   sweep(maxIdleMs: number): number {
     const ids = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs);
-    for (const id of ids) this.unload(id);
+    for (const id of ids) {
+      const live = this.rooms.get(id);
+      this.unload(id);
+      const record = live?.record ?? null;
+      this.notify({
+        kind: 'room.swept',
+        roomId: id,
+        gameId: record?.gameId ?? '',
+        now: this.deps.now(),
+        by: null,
+        before: record,
+        after: null,
+        game: live?.game ?? null,
+      });
+    }
     for (const [id, room] of this.rooms) {
       if (room.connections.size === 0 && !room.deadlineTimer) this.unload(id);
     }
@@ -280,7 +380,9 @@ export class RoomManager {
     room: LiveRoom,
     patch: Partial<Pick<RoomRecord, 'players' | 'state' | 'hostId'>>,
     rearm: number | null = 0,
+    observed?: Observed,
   ) {
+    const before = room.record;
     const next: RoomRecord = {
       ...room.record,
       ...patch,
@@ -308,10 +410,44 @@ export class RoomManager {
       else this.armDeadline(room, rearm);
     }
     this.deps.events.changed(next.id);
+    if (observed) this.observe(next, before, next, room.game, observed);
+  }
+
+  /** Reports to the stats observer; whatever it does, play carries on. */
+  private observe(
+    record: RoomRecord,
+    before: RoomRecord | null,
+    after: RoomRecord | null,
+    game: AnyGameDefinition,
+    observed: Observed,
+  ) {
+    this.notify({
+      ...observed,
+      roomId: record.id,
+      gameId: record.gameId,
+      now: this.deps.now(),
+      before,
+      after,
+      game,
+    });
+  }
+
+  private notify(o: RoomObservation) {
+    const { observer } = this.deps;
+    if (!observer) return;
+    try {
+      observer.observe(o);
+    } catch (err) {
+      this.deps.logger.error({ roomId: o.roomId, kind: o.kind, err }, 'stats observer failed');
+    }
   }
 
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    this.observe(room.record, room.record, room.record, room.game, {
+      kind: 'player.connected',
+      by: playerId,
+    });
     if (playerId === hostId) {
       clearTimeout(room.hostAwayTimer);
       room.hostAwayTimer = undefined;
@@ -326,20 +462,29 @@ export class RoomManager {
     if (left > 0) room.connections.set(playerId, left);
     else room.connections.delete(playerId);
     if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
+    this.observe(room.record, room.record, room.record, room.game, {
+      kind: 'player.disconnected',
+      by: playerId,
+    });
   }
 
-  private removePlayer(room: LiveRoom, playerId: string) {
+  private removePlayer(room: LiveRoom, playerId: string, kind: 'player.left' | 'player.kicked') {
     const players = room.record.players.filter((p) => p.id !== playerId);
     let hostId = room.record.hostId;
     if (hostId === playerId) {
       hostId = (players.find((p) => room.connections.has(p.id)) ?? players[0])?.id ?? hostId;
     }
     room.connections.delete(playerId);
-    this.commit(room, {
-      players,
-      hostId,
-      state: room.game.playerLeft(room.record.state, playerId, this.deps.now()),
-    });
+    this.commit(
+      room,
+      {
+        players,
+        hostId,
+        state: room.game.playerLeft(room.record.state, playerId, this.deps.now()),
+      },
+      0,
+      { kind, by: playerId },
+    );
   }
 
   private clearDeadline(room: LiveRoom) {
@@ -389,7 +534,8 @@ export class RoomManager {
       }
     }
     try {
-      if (state !== room.record.state) this.commit(room, { state }, rearm);
+      if (state !== room.record.state)
+        this.commit(room, { state }, rearm, { kind: 'deadline', by: null });
       else if (rearm === null) this.clearDeadline(room);
       else this.armDeadline(room, rearm);
     } catch (err) {
@@ -410,7 +556,7 @@ export class RoomManager {
       const next = room.record.players.find((p) => room.connections.has(p.id));
       if (!next) return; // Nobody online to take over; `connected()` restarts the clock.
       try {
-        this.commit(room, { hostId: next.id });
+        this.commit(room, { hostId: next.id }, 0, { kind: 'host.changed', by: next.id });
       } catch (err) {
         if (!(err instanceof RoomError && err.code === 'conflict')) {
           this.deps.logger.error({ roomId: room.record.id, err }, 'host hand-off failed');

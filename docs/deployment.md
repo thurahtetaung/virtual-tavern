@@ -128,6 +128,16 @@ All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
 - **List or restore backups:** `docker compose exec app ls -l /data/backups`, then the restore recipe above.
 - **Check the running version:** `curl -s localhost:$APP_PORT/healthz` (or the public `/healthz`) answers `{"status":"ok","version":"X.Y.Z"}`; `{"status":"degraded"}` with a 503 means the database is not answering, and Docker's health check turns the container unhealthy.
 
+## Admin stats
+
+The admin stats API (`/api/admin/stats/*`) is served from the same SQLite database, behind the admin sign-in, and is rate-limited to 120 requests a minute.
+
+- **What is recorded:** rooms, joins and the names players used, game starts and ends with their settings, actions, and each game's own insight events (clues, guesses, outcomes). Only the public player id is stored, never the browser token. Reverie clue text is stored too, but only ever shown to admins.
+- **Retention:** raw events (`stats_events`) are kept for 90 days. The hourly maintenance job (the same timer that sweeps idle rooms, and once at startup) rolls every finished UTC day up into the `stats_daily*` tables, which are kept forever, then deletes raw events older than 90 days whose day is rolled up. Every range still reads correctly, because queries combine rollups for older days with raw events for recent ones. The stats live in `tavern.db`, so the existing backups cover them.
+- **Export the raw events** (NDJSON, one event per line), e.g. before a move to another store: `ADMIN_PASSWORD=... node scripts/stats-export.mjs https://<host> --from 2026-10-01 --to 2026-10-31 --out stats.ndjson`. Leave out `--from`/`--to` for every raw event still kept. Days older than 90 days exist only as rollups.
+- **Reset:** `POST /api/admin/stats/reset` with `{"confirm":"reset all stats"}` (the stats page's **Reset stats** button) deletes every event, rollup and player record. Take a backup or an export first; it cannot be undone.
+- **Cloudflare Access:** if an Access application protects `/admin`, make sure it also covers `/api/admin` so the stats API sits behind the same gate.
+
 ## Trying the production build locally
 
 ```sh

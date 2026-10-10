@@ -185,3 +185,52 @@ export interface StatsFun {
   window: StatsWindow;
   facts: FunFact[];
 }
+
+// ---- Timeseries, games, settings, heatmap, admin actions ----
+
+export const STATS_TIMESERIES_METRICS = [
+  'rooms_created',
+  'games_started',
+  'games_finished',
+  'games_abandoned',
+  'minutes_played',
+  'players_unique',
+  'actions',
+] as const;
+export type StatsTimeseriesMetric = (typeof STATS_TIMESERIES_METRICS)[number];
+
+/** `/timeseries` takes `metric` on top of `statsQuery`. */
+export const statsTimeseriesQuery = z.object({
+  metric: z.enum(STATS_TIMESERIES_METRICS).default('games_started'),
+});
+
+export interface StatsTimeseries {
+  window: StatsWindow;
+  metric: StatsTimeseriesMetric;
+  /** Per bucket, per game id and '_all'. */
+  series: SeriesPoint[];
+}
+
+export interface StatsGames {
+  window: StatsWindow;
+  games: { gameId: string; totals: StatsTotals; averageMinutes: number; averagePlayers: number }[];
+}
+
+export interface StatsSettings {
+  gameId: string;
+  window: StatsWindow;
+  settings: GameStats['settings'];
+}
+
+export interface StatsHeatmap {
+  window: StatsWindow;
+  calendar: StatsOverview['calendar'];
+  weekHour: StatsOverview['weekHour'];
+}
+
+/** `POST /api/admin/stats/reset` must send exactly this, so a stray request can't wipe stats. */
+export const STATS_RESET_CONFIRM = 'reset all stats';
+export const statsResetBody = z.object({ confirm: z.literal(STATS_RESET_CONFIRM) });
+
+/** `GET /api/admin/stats/export`: raw events as NDJSON, every day when `from`/`to` are left out. */
+export const statsExportQuery = z.object({ from: day.optional(), to: day.optional() });
