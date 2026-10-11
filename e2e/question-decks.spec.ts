@@ -18,7 +18,7 @@ async function signedInAdmin(browser: Browser) {
   });
   const page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(e.message));
-  await page.goto('/admin');
+  await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Question decks' })).toBeVisible();

@@ -33,7 +33,7 @@ Trivia games read admin question decks through `ctx.content`. Set `usesQuestionD
 
 ## Private games
 
-A back-room game (`access: 'private'`) never names its commercial original in the repository: it uses a code name, and the admin sets the title unlocked players see (`/admin` → Back-room titles, or `scripts/set-game-title.mjs`). Names, art and sound come from the game's private `manifest.json` in asset storage, with placeholders when there is none.
+A back-room game (`access: 'private'`) never names its commercial original in the repository: it uses a code name, and the admin sets the title unlocked players see (`/tavern-keeper` → Back-room titles, or `scripts/set-game-title.mjs`). Names, art and sound come from the game's private `manifest.json` in asset storage, with placeholders when there is none.
 
 ## 4. Register it
 

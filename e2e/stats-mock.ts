@@ -32,13 +32,13 @@ export async function mockStatsApi(page: Page) {
 /** Signs in on /admin and follows the nav to the stats page. */
 export async function openStatsAsAdmin(page: Page) {
   await ownLoginLimit(page);
-  await page.goto('/admin');
+  await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page
     .getByRole('navigation', { name: 'Admin' })
     .getByRole('link', { name: 'Stats' })
     .click();
-  await expect(page).toHaveURL(/\/admin\/stats$/);
+  await expect(page).toHaveURL(/\/tavern-keeper\/stats$/);
   await expect(page.getByRole('heading', { name: 'Live rooms' })).toBeVisible();
 }

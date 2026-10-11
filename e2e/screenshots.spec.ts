@@ -471,7 +471,7 @@ for (const [label, viewport] of [
       });
     const admin = await (await browser.newContext({ viewport, colorScheme })).newPage();
     await ownLoginLimit(admin);
-    await admin.goto('/admin');
+    await admin.goto('/tavern-keeper');
     await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
     await admin.getByRole('button', { name: 'Sign in' }).click();
     await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);

@@ -13,7 +13,7 @@ Create a room, share the link, and play together in real time. There are no acco
   - **Nightfall**: a one-night werewolf-style hidden-role game in the back room.
   - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round; a back-room edition uses the original locations and art.
 - **Beginner friendly.** Each game ships a rules guide, shown on its "How to play" page and in a rules drawer during play, and the screen always tells you what to do next.
-- **Your words.** 19 built-in word packs come with the server, admins edit word lists in `/admin`, and hosts mix and match them per game.
+- **Your words.** 19 built-in word packs come with the server, admins edit word lists in `/tavern-keeper`, and hosts mix and match them per game.
 - **Rooms by link.** Rooms are unlisted and joined through unguessable links, with optional turn timers per game.
 - **Survives restarts.** Rooms are saved after every move, so players reconnect and carry on.
 
@@ -26,7 +26,7 @@ pnpm install
 pnpm dev          # web on http://localhost:5173, server on :3000
 ```
 
-Set `ADMIN_PASSWORD=...` in the environment of `pnpm dev` to try the `/admin` area (nothing loads `.env` in development; see [`.env.example`](.env.example)).
+Set `ADMIN_PASSWORD=...` in the environment of `pnpm dev` to try the `/tavern-keeper` area (nothing loads `.env` in development; see [`.env.example`](.env.example)).
 
 | Command                                        | What it does                                            |
 | ---------------------------------------------- | ------------------------------------------------------- |
