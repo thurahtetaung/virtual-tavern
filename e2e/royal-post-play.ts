@@ -210,7 +210,11 @@ export async function takeTurn(
           .getByLabel('protected'),
       ).toBeVisible();
     }
-    await shot?.('handmaid', others[0]!);
+    if (shot) {
+      // Their own pop-up from an earlier move would cover what this shot is for.
+      await dismissReveal(others[0]!);
+      await shot('handmaid', others[0]!);
+    }
   }
   if (card === 'Baron' && target) {
     if (done.baron === false) done.baron = true;
@@ -222,8 +226,9 @@ export async function takeTurn(
     await expect(p.getByText(/played \d?Prince on [^:]+: \S+ discarded/).first()).toBeAttached();
     // What the chosen player sees of it.
     for (const other of players) {
-      if ((await nameOf(other)) === target || (target === 'Yourself' && other === p)) {
-        await shot?.('prince', other);
+      if (shot && ((await nameOf(other)) === target || (target === 'Yourself' && other === p))) {
+        await dismissReveal(other);
+        await shot('prince', other);
       }
     }
   }
@@ -234,10 +239,16 @@ export async function takeTurn(
   }
   if (card === 'Priest' && target) {
     done.priest = true;
-    // Only the player who looked sees the card.
-    await expect(reveal(p)).toBeVisible();
-    await expect(reveal(p)).toContainText(`You saw ${target}’s card:`);
-    await shot?.('priest-reveal', p);
+    // Only the player who looked sees the card: in a pop-up, or in the result if the Priest
+    // ended the round (a pop-up never covers the result).
+    const result = p.getByLabel(/^(Round|Game) result$/);
+    await expect(reveal(p).or(result)).toBeVisible();
+    if (await reveal(p).isVisible()) {
+      await expect(reveal(p)).toContainText(`You saw ${target}’s card:`);
+      await shot?.('priest-reveal', p);
+    } else {
+      await expect(result).toContainText(`You saw ${target}’s card:`);
+    }
     for (const other of players.filter((o) => o !== p)) {
       // Once they have the move (in the latest line or the folded log)…
       await expect(other.getByText(/played \d?Priest and looked at/).first()).toBeAttached();
@@ -268,18 +279,13 @@ export async function playUntil(
       const gameOver = (await hint(host, /wins? the game|Nobody won/).count()) > 0;
       const result = host.getByLabel(gameOver ? 'Game result' : 'Round result', { exact: true });
       await expect(result).toBeVisible();
-      for (const p of players) await dismissReveal(p);
+      // A private note from the last move shows inside the result, never over it.
+      for (const p of players) await expect(reveal(p)).toBeHidden();
+      if (!gameOver) await expect(result.getByTestId('tokens-to-win')).toContainText('to win');
       await onResult?.(gameOver);
       if (stop(gameOver)) return;
-      // A reveal from the last move can still open over the result; close it and retry.
-      await expect(async () => {
-        if (await result.isHidden()) return; // an earlier click landed after all
-        await dismissReveal(host);
-        await host
-          .getByRole('button', { name: gameOver ? 'Play again' : 'Next round' })
-          .click({ timeout: 1000 });
-        await expect(result).toBeHidden({ timeout: 1000 });
-      }).toPass();
+      await host.getByRole('button', { name: gameOver ? 'Play again' : 'Next round' }).click();
+      await expect(result).toBeHidden();
       continue;
     }
     await takeTurn(who, players, edition, done, shot);

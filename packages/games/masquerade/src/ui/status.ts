@@ -52,7 +52,10 @@ export function statusFor(
     const back =
       view.notice === 'too-few' ? 'Too few players were left, so you’re back in the lobby. ' : '';
     if (!me?.playing)
-      return { text: `${back}The table is full: you’re watching.`, yourMove: false };
+      return {
+        text: `${back}The table is full: you’re watching, and you’ll get a seat when one frees up.`,
+        yourMove: false,
+      };
     const blocker = startBlocker(view);
     if (blocker) return { text: `${back}Almost ready: ${blocker}`, yourMove: false };
     return isHost
@@ -81,7 +84,9 @@ export function statusFor(
     case 'talk': {
       if (role === 'watching')
         return {
-          text: 'You’re watching this round. You’ll be dealt in next round.',
+          text: me?.playing
+            ? 'You’re watching this round. You’ll be dealt in next round.'
+            : `You’re watching: all ${MAX_SEATS} seats are taken. You’ll get a seat when one frees up.`,
           yourMove: false,
         };
       const starter = round.starter === me?.id ? 'You ask' : `${nameOf(view, round.starter)} asks`;
@@ -129,8 +134,9 @@ export function statusFor(
       const plural = names.length > 1 || names[0] === 'You';
       const youGuessed =
         !!me && round.guessed.includes(me.id) ? 'You were caught and made your guess. ' : '';
+      const hidden = round.spyStillHidden ? ' The other spy is still hidden.' : '';
       return {
-        text: `${youGuessed}${listNames(names)} ${plural ? 'were' : 'was'} caught as the spy and ${plural ? 'are' : 'is'} guessing the location…`,
+        text: `${youGuessed}${namedLine(view)}${listNames(names)} ${plural ? 'were' : 'was'} caught as the spy and ${plural ? 'are' : 'is'} guessing the location…${hidden}`,
         yourMove: false,
       };
     }
@@ -139,6 +145,14 @@ export function statusFor(
         ? { text: 'Round over! Press Next round when everyone has had a look.', yourMove: false }
         : { text: `Round over! ${host('deal the next round')}`, yourMove: false };
   }
+}
+
+/** "The vote named Cy and Hana. ": who the vote named, spies or not, once it's resolved. */
+export function namedLine(view: MasqueradeView): string {
+  const named = view.round?.named ?? [];
+  if (named.length === 0) return '';
+  const names = named.map((id) => (id === view.me?.id ? 'you' : nameOf(view, id)));
+  return `The vote named ${listNames(names)}. `;
 }
 
 /** The table nudge for the moment, from the clock and the vote. */
@@ -185,7 +199,10 @@ export function pointsRule(result: Pick<RoundResult, 'spyResults'>): string {
   const caught = result.spyResults.some((s) => s.outcome === 'caught');
   const spyScored = result.spyResults.some((s) => s.outcome !== 'caught');
   const parts: string[] = [];
-  if (spyScored) parts.push('A spy who escapes the vote, or names the location, scores 2.');
+  if (spyScored)
+    parts.push(
+      'A spy who escapes the vote, or is caught and names the location, scores 2; a steal also means the votes against that spy score nothing.',
+    );
   if (caught)
     parts.push(
       'When a caught spy guesses wrong, every local scores 1, and 1 more for voting for that spy.',

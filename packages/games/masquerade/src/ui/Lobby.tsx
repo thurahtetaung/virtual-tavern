@@ -72,6 +72,14 @@ export function Players({
   );
 }
 
+/** A short list of round counts for the phone-sized dropdown, plus the current pick. */
+const ROUND_PRESETS = [1, 3, 5, 8, 10, 15, 20];
+function roundPresets(current: number | null): number[] {
+  const list = ROUND_PRESETS.filter((n) => n <= MAX_ROUNDS);
+  if (current !== null && !list.includes(current)) list.push(current);
+  return list.sort((a, b) => a - b);
+}
+
 export function Lobby({
   view,
   room,
@@ -179,8 +187,8 @@ export function Lobby({
                 })
               }
             >
-              <option value="auto">One per player ({Math.max(seated, 1)})</option>
-              {Array.from({ length: MAX_ROUNDS }, (_, i) => i + 1).map((n) => (
+              <option value="auto">As many as players ({Math.max(seated, 1)})</option>
+              {roundPresets(s.rounds).map((n) => (
                 <option key={n} value={n}>
                   {n} {n === 1 ? 'round' : 'rounds'}
                 </option>

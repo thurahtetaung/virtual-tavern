@@ -86,7 +86,8 @@ function giveMark(c: StepCtx, by: PlayerId, target: PlayerId, mark: MarkId) {
   c.r.marks[target] = {
     id: mark,
     doppel: actsAsDoppel(c.r, by) && mark !== 'vampire',
-    ...(mark === 'assassin' ? { by } : {}),
+    // Only the Apprentice Assassin's own Mark (she found no Assassin) records who placed it.
+    ...(mark === 'assassin' && c.def.role === 'apprentice-assassin' ? { by } : {}),
   };
 }
 
@@ -97,14 +98,14 @@ const markFaces = (r: GameRound, ...players: PlayerId[]) =>
 // ---- Who wakes ----
 
 /** The players acting in a step, by the role they wake as (§ "act as your original role"). */
-export function actorsFor(r: GameRound, def: StepDef): PlayerId[] {
+export function actorsFor(r: GameRound, def: StepDef, ignoreFear = false): PlayerId[] {
   const here = r.order.filter((p) => !r.players[p]!.left);
   // Marks are seen (and lovers meet) by everyone holding one, whatever their role.
   if (def.id === 'dusk') return here;
   if (def.id === 'lovers') return here.filter((p) => markOf(r, p)?.id === 'love');
   // Fear stops a player waking in the night proper; a dormant copy never wakes again.
   const present = here.filter(
-    (p) => !r.players[p]!.dormant && !(def.order >= NIGHT_ORDER && feared(r, p)),
+    (p) => !r.players[p]!.dormant && (ignoreFear || !(def.order >= NIGHT_ORDER && feared(r, p))),
   );
   const night = (p: PlayerId) => r.players[p]!.night;
   const doppel = (p: PlayerId) => actsAsDoppel(r, p);
@@ -127,9 +128,15 @@ export function actorsFor(r: GameRound, def: StepDef): PlayerId[] {
   );
 }
 
+/**
+ * Players who can show a thumb: still at the table, and not a dormant copy (a Doppelgänger who
+ * copied the Copycat doesn't know what she is, so she can't raise a thumb for it).
+ */
+const canThumb = (r: GameRound, p: PlayerId) => !r.players[p]!.left && !r.players[p]!.dormant;
+
 /** Players who show a werewolf thumb: every Werewolf, the Dream Wolf included, by night role. */
 const werewolfThumbs = (r: GameRound) =>
-  r.order.filter((p) => ROLES[r.players[p]!.night].werewolfThumb === true);
+  r.order.filter((p) => canThumb(r, p) && ROLES[r.players[p]!.night].werewolfThumb === true);
 
 // ---- Notes ----
 
@@ -286,6 +293,7 @@ function groupBegin(group: 'werewolves' | 'masons') {
       group === 'werewolves'
         ? c.r.order.filter(
             (q) =>
+              canThumb(c.r, q) &&
               ROLES[c.r.players[q]!.night].werewolfThumb === true &&
               !ROLES[c.r.players[q]!.night].wakesWithWerewolves &&
               !feared(c.r, q),
@@ -323,7 +331,9 @@ function thumbsBegin(of: 'werewolves' | 'tanner' | 'seers' | 'touched', done = t
           : of === 'seers'
             ? c.r.order.filter((q) => night(q) === 'seer' || night(q) === 'apprentice-seer')
             : [...c.r.night!.touched];
-    w.picks = players.filter((q) => q !== p);
+    // A dormant copy still knows she looked at a card, so she shows the Aura Seer her thumb.
+    const shows = (q: PlayerId) => (of === 'touched' ? !c.r.players[q]!.left : canThumb(c.r, q));
+    w.picks = players.filter((q) => q !== p && shows(q));
     note(c, p, { kind: 'thumbs', of, players: w.picks });
     if (done || w.picks.length === 0) w.done = true;
   };
@@ -362,7 +372,8 @@ const ACTIONS: Partial<Record<RoleId, RoleAction>> = {
       }
     },
     prompt: (c, p) =>
-      prompt('alpha-wolf', 'give-wolf', {
+      // The Doppelgänger's copy may hand it to any player but the Alpha Wolf, werewolves too.
+      prompt('alpha-wolf', c.def.id === 'doppelganger' ? 'give-wolf-any' : 'give-wolf', {
         players: pickPlayers(alphaTargets(c, p)),
         mandatory: true,
       }),
@@ -646,7 +657,7 @@ const ACTIONS: Partial<Record<RoleId, RoleAction>> = {
         night.work[q]!.done = true;
         const body: NoteBody = { kind: 'marked', mark: 'vampire', targets: [target] };
         if (q === p) note(c, q, body, { marks: faces });
-        else note(c, q, body, { quiet: true });
+        else note(c, q, { ...body, chosenBy: p }, { quiet: true });
       }
     },
   },
@@ -942,7 +953,7 @@ const doppelganger: RoleAction = {
     w.as = role;
     if (mode === 'immediate') {
       roleAction(role).begin?.(c, p, w);
-      if (!w.done && !roleAction(role).prompt(c, p, w)) w.done = true;
+      settle(c, p, w, roleAction(role));
       return;
     }
     // A copied Minion sees the werewolves' thumbs at the end of her step.
@@ -981,15 +992,43 @@ export function beginStep(c: StepCtx, now: number) {
   night.work = Object.fromEntries(
     night.actors.map((p) => [p, { stage: 'start', picks: [], centre: [], done: false }]),
   );
+  // Players the Mark of Fear keeps asleep learn at daybreak that they slept through their turn.
+  const asleep = actorsFor(c.r, c.def, true).filter((p) => !night.actors.includes(p));
+  for (const p of asleep) {
+    const body: NoteBody = { kind: 'feared', role: c.r.players[p]!.night };
+    (c.r.dawn[p] ??= []).push(body);
+    night.timeline.push({ step: c.step, stepId: c.def.id, by: p, note: body });
+  }
   if (night.actors.length === 0) {
-    night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'nobody' } });
+    if (!asleep.length)
+      night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'nobody' } });
     return;
   }
   for (const p of night.actors) {
     const w = night.work[p]!;
     if (w.done) continue;
     actionFor(c, p).begin?.(c, p, w);
-    if (!w.done && !actionFor(c, p).prompt(c, p, w)) w.done = true;
+    settle(c, p, w, actionFor(c, p));
+  }
+}
+
+/** A prompt that offers nothing to pick. */
+const empty = (pr: Prompt) => !pr.players && !pr.center && !pr.sides && !pr.choices;
+
+/**
+ * After an action begins: done if it has nothing left to ask, and told so plainly if it can't
+ * choose anyone at all (every card it could pick is shielded, say).
+ */
+function settle(c: StepCtx, p: PlayerId, w: StepWork, action: RoleAction) {
+  if (w.done) return;
+  const pr = action.prompt(c, p, w);
+  if (!pr) {
+    w.done = true;
+    return;
+  }
+  if (empty(pr)) {
+    note(c, p, { kind: 'blocked', reason: 'no-target', role: pr.as });
+    w.done = true;
   }
 }
 
@@ -998,10 +1037,22 @@ export function actInStep(c: StepCtx, p: PlayerId, a: NightAction): GameError | 
   const night = c.r.night!;
   const w = night.work[p];
   if (!w) return new GameError('not-your-step', 'It isn’t your turn to act.');
+  // The vampires choose together: a fellow vampire's pick may land a moment before yours. Yours
+  // simply arrives too late to count, which is no mistake on your part.
+  if (w.done && c.def.id === 'vampires' && night.vampireTarget) return null;
   if (w.done) return new GameError('done', 'You’ve already acted this step.');
   const action = actionFor(c, p);
   const pr = action.prompt(c, p, w);
   if (!pr) return new GameError('done', 'There is nothing to do now.');
+  if (a.point) {
+    // Pointing, before anyone confirms: the other vampires see who you have in mind.
+    if (c.def.id !== 'vampires') return new GameError('bad-pick', 'There is nobody to show.');
+    const target = a.players?.[0] ?? null;
+    if ((a.players?.length ?? 0) > 1 || (target && !pr.players?.ids.includes(target)))
+      return new GameError('bad-target', 'You can’t choose that card.');
+    w.picks = target ? [target] : [];
+    return null;
+  }
   const err = checkPick(pr, a);
   if (err) return err;
   if (a.pass) {

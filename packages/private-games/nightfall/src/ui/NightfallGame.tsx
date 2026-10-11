@@ -76,7 +76,11 @@ export function NightfallGame({
   );
   const props = { view, room, act, status, deck };
   return (
-    <RoleDetailsProvider deck={deck}>
+    <RoleDetailsProvider
+      deck={deck}
+      roles={view.settings.roles}
+      artifacts={view.settings.artifacts}
+    >
       {view.phase === 'lobby' ? (
         <Lobby {...props} online={online} showGuide={showGuide} />
       ) : view.phase === 'ready' ? (

@@ -54,6 +54,8 @@ const DEFLATE_THRESHOLD = 1024;
 
 /** The gate each server was attached with, so manager events can re-check it on broadcast. */
 const gates = new WeakMap<IO, RoomGate>();
+/** The last snapshot each socket was sent (minus the clock), so unchanged views aren't re-sent. */
+const lastSent = new WeakMap<ClientSocket, string>();
 
 /** Takes the socket out of its room without telling the manager (the caller already has). */
 function leaveRoom(socket: ClientSocket) {
@@ -109,7 +111,17 @@ export function createRoomEvents(
       for (const [playerId, sockets] of socketsByPlayer) {
         const snapshot = rooms.snapshot(roomId, playerId);
         if (!snapshot) break;
-        io.to(sockets).emit('room:state', snapshot);
+        // Only send what changed for this player. An unchanged view is never re-sent, so the
+        // timing of messages can't reveal that someone else acted (a hidden role at night), and
+        // nobody re-renders for changes they can't see.
+        const key = JSON.stringify({ ...snapshot, serverNow: 0 });
+        const due = sockets.filter((id) => {
+          const s = io.sockets.sockets.get(id);
+          if (!s || lastSent.get(s) === key) return false;
+          lastSent.set(s, key);
+          return true;
+        });
+        if (due.length) io.to(due).emit('room:state', snapshot);
       }
       // Their unlock expired or was revoked: this snapshot never reached them, and no later one will.
       const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId }));

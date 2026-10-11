@@ -130,6 +130,17 @@ describe('spymasterAlerts', () => {
   it('tells the team without a Spymaster why its turns are skipped, and offers the seat', () => {
     const h = startedGame();
     h.state = codenames.playerLeft(h.state, SPY.blue, 0);
+    // Blue's only Operative can't move up: nobody would be left to guess.
+    expect(spymasterAlerts(codenames.view(h.state, OP.blue))).toEqual([
+      {
+        team: 'blue',
+        mine: true,
+        canTake: false,
+        text: 'Your team has no Spymaster, so your turns are skipped. You’re its only Operative, so someone else needs to take the seat.',
+      },
+    ]);
+    h.state = codenames.playerJoined(h.state, { id: 'op2', name: 'OP2' });
+    h.act({ type: 'join-team', team: 'blue', role: 'operative' }, 'op2');
     const mine = spymasterAlerts(codenames.view(h.state, OP.blue));
     expect(mine).toEqual([
       {

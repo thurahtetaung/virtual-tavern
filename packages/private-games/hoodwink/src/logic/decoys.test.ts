@@ -37,10 +37,12 @@ describe('lie for me', () => {
     expect(GOOD).toContain(picked);
     expect(round(h).autoLies).toEqual(['p2']);
     const mine = hoodwink.view(h.state, 'p2').round!;
-    expect(mine).toMatchObject({ myLie: picked, myLieAuto: true, canLieForMe: true });
-    expect(hoodwink.view(h.state, 'p3').round!.myLieAuto).toBe(false);
-    h.act({ type: 'lie-for-me' }, 'p2');
-    expect(round(h).lies.p2).not.toBe(picked);
+    // One pick per round: the button goes once used.
+    expect(mine).toMatchObject({ myLie: picked, myLieAuto: true, canLieForMe: false });
+    expect(hoodwink.view(h.state, 'p3').round).toMatchObject({
+      myLieAuto: false,
+      canLieForMe: true,
+    });
     h.act({ type: 'lie', text: 'My own idea' }, 'p2');
     expect(round(h).autoLies).toEqual([]);
     expect(hoodwink.view(h.state, 'p2').round!.myLieAuto).toBe(false);
@@ -63,6 +65,66 @@ describe('lie for me', () => {
     }
   });
 
+  it('can’t be re-rolled to harvest the fakes, even after typing your own lie', () => {
+    const h = game();
+    h.act({ type: 'lie-for-me' }, 'p2');
+    const picked = round(h).lies.p2!;
+    expect(h.reject({ type: 'lie-for-me' }, 'p2').code).toBe('already-picked');
+    expect(round(h).lies.p2).toBe(picked);
+    h.act({ type: 'lie', text: 'My own idea' }, 'p2');
+    expect(h.reject({ type: 'lie-for-me' }, 'p2').code).toBe('already-picked');
+    // Every press across the table showed each player at most one fake.
+    expect(round(h).fakeShown).toEqual(['p2']);
+  });
+
+  it('never uses a fake a player was shown as a house fake', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const h = harness(THREE, content([lureDeck(['Brick', 'Teapot', 'Kazoo'])]), seed);
+      h.act({ type: 'update-settings', rounds: 5 });
+      h.act({ type: 'start' });
+      h.act({ type: 'lie-for-me' }, HOST);
+      const shown = round(h).lies.host!;
+      h.act({ type: 'lie', text: 'Owl' }, HOST); // replaces the fake on the board
+      h.act({ type: 'lie', text: 'Cat' }, 'p2');
+      h.act({ type: 'lie', text: 'Dog' }, 'p3');
+      expect(
+        round(h).options.map((o) => o.text),
+        `seed ${seed}`,
+      ).not.toContain(shown);
+      expect(round(h).options).toHaveLength(4);
+      expect(round(h).options.filter((o) => o.house)).toHaveLength(0);
+    }
+  });
+
+  it('offers it per player, the same whatever the others do', () => {
+    // One fake for four players: exactly one of them is offered it, from the start.
+    const h = game(['Brick']);
+    const offered = () => FOUR.filter((id) => hoodwink.view(h.state, id).round!.canLieForMe).sort();
+    const before = offered();
+    expect(before).toHaveLength(1);
+    const [lucky] = before;
+    const other = FOUR.find((id) => id !== lucky)!;
+    expect(h.reject({ type: 'lie-for-me' }, other).code).toBe('no-decoys');
+    h.act({ type: 'lie', text: 'Brick' }, other); // someone writes the very same lie
+    expect(offered()).toEqual([lucky]);
+    h.act({ type: 'lie-for-me' }, lucky);
+    // It merges, and both are told it'll be shared.
+    expect(hoodwink.view(h.state, lucky!).round!.myLieShared).toBe(true);
+    expect(hoodwink.view(h.state, other).round!.myLieShared).toBe(true);
+  });
+
+  it('warns when your lie matches someone else’s', () => {
+    const h = game();
+    h.act({ type: 'lie', text: 'Owl' }, 'p2');
+    expect(hoodwink.view(h.state, 'p2').round!.myLieShared).toBe(false);
+    h.act({ type: 'lie', text: 'owls' }, 'p3');
+    expect(hoodwink.view(h.state, 'p2').round!.myLieShared).toBe(true);
+    expect(hoodwink.view(h.state, 'p3').round!.myLieShared).toBe(true);
+    expect(hoodwink.view(h.state, 'p4').round!.myLieShared).toBe(false);
+    h.act({ type: 'lie', text: 'Cat' }, 'p3');
+    expect(hoodwink.view(h.state, 'p2').round!.myLieShared).toBe(false);
+  });
+
   it('never replaces a lie you wrote yourself', () => {
     const h = game();
     h.act({ type: 'lie', text: 'My own idea' }, 'p2');
@@ -74,11 +136,6 @@ describe('lie for me', () => {
     const none = game(null);
     expect(hoodwink.view(none.state, 'p2').round!.canLieForMe).toBe(false);
     expect(none.reject({ type: 'lie-for-me' }, 'p2').code).toBe('no-decoys');
-    const one = game(['Brick']);
-    one.act({ type: 'lie-for-me' }, 'p2');
-    expect(one.reject({ type: 'lie-for-me' }, 'p3').code).toBe('no-decoys');
-    // Asking again keeps you away from your own fake, so with none left it is refused too.
-    expect(one.reject({ type: 'lie-for-me' }, 'p2').code).toBe('no-decoys');
     const h = game();
     h.state = hoodwink.playerJoined(h.state, { id: 'late', name: 'Late' });
     expect(h.reject({ type: 'lie-for-me' }, 'late').code).toBe('not-playing-round');
@@ -89,25 +146,32 @@ describe('lie for me', () => {
     expect(liePoints(2, 1, 2, true)).toBe(1000);
     expect(liePoints(1, 2, 1, true)).toBe(100);
     const h = game(['Brick'], FOUR, { rounds: 5 });
-    h.act({ type: 'lie-for-me' }, 'p2');
-    h.act({ type: 'lie', text: 'bricks' }, 'p3'); // merges with the fake, typed by hand
-    h.act({ type: 'lie', text: 'Owl' }, HOST);
-    h.act({ type: 'lie', text: 'Cat' }, 'p4');
-    const brick = lieOf(h, 'p2');
-    expect(round(h).options[brick]).toMatchObject({ authors: ['p2', 'p3'], auto: ['p2'] });
-    h.act({ type: 'vote', option: brick }, HOST);
-    h.act({ type: 'vote', option: brick }, 'p4');
-    h.act({ type: 'vote', option: truthIndex(h) }, 'p2');
-    h.act({ type: 'vote', option: truthIndex(h) }, 'p3');
-    expect(round(h).points).toEqual({ host: 0, p2: 1250, p3: 1500, p4: 0 });
+    // The one fake goes to one player each round: whoever is offered it.
+    const lucky = () => FOUR.find((id) => hoodwink.view(h.state, id).round!.canLieForMe)!;
+    const a = lucky();
+    const [b, c, d] = FOUR.filter((id) => id !== a) as [string, string, string];
+    h.act({ type: 'lie-for-me' }, a);
+    h.act({ type: 'lie', text: 'bricks' }, b); // merges with the fake, typed by hand
+    h.act({ type: 'lie', text: 'Owl' }, c);
+    h.act({ type: 'lie', text: 'Cat' }, d);
+    const brick = lieOf(h, a);
+    expect(round(h).options[brick]).toMatchObject({ auto: [a] });
+    expect([...round(h).options[brick]!.authors].sort()).toEqual([a, b].sort());
+    h.act({ type: 'vote', option: brick }, c);
+    h.act({ type: 'vote', option: brick }, d);
+    h.act({ type: 'vote', option: truthIndex(h) }, a);
+    h.act({ type: 'vote', option: truthIndex(h) }, b);
+    expect(round(h).points).toEqual({ [a]: 1250, [b]: 1500, [c]: 0, [d]: 0 });
     h.act({ type: 'next-round' });
     for (let i = 0; i < 3; i++) playRound(h);
     expect(round(h).number).toBe(5);
-    h.act({ type: 'lie-for-me' }, 'p2');
-    for (const id of [HOST, 'p3', 'p4']) h.act({ type: 'lie', text: `lie ${id}` }, id);
-    for (const id of [HOST, 'p3', 'p4']) h.act({ type: 'vote', option: lieOf(h, 'p2') }, id);
-    h.act({ type: 'vote', option: truthIndex(h) }, 'p2');
-    expect(round(h).points.p2).toBe(2000 + 3 * 500);
+    const e = lucky();
+    const others = FOUR.filter((id) => id !== e);
+    h.act({ type: 'lie-for-me' }, e);
+    for (const id of others) h.act({ type: 'lie', text: `lie ${id}` }, id);
+    for (const id of others) h.act({ type: 'vote', option: lieOf(h, e) }, id);
+    h.act({ type: 'vote', option: truthIndex(h) }, e);
+    expect(round(h).points[e]).toBe(2000 + 3 * 500);
   });
 });
 
@@ -141,8 +205,9 @@ describe('filling missed lies', () => {
 
   it('fills as many as the fakes allow, and nothing in soft mode', () => {
     const h = game(['Brick'], FOUR, strict);
+    const owner = Object.keys(round(h).fakes!)[0]!;
     h.state = hoodwink.onDeadline!(h.state, NOW + 60_000);
-    expect(round(h).lies).toEqual({ [round(h).players[0]!]: 'Brick' });
+    expect(round(h).lies).toEqual({ [owner]: 'Brick' });
     expect(round(h).stage).toBe('vote');
     const soft = game(DECOYS, FOUR, { ...strict, timerMode: 'soft' });
     expect(hoodwink.onDeadline!(soft.state, NOW + 60_000)).toBe(soft.state);

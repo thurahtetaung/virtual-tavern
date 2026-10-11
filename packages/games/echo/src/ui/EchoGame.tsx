@@ -20,6 +20,8 @@ const CLOCK: Record<Exclude<TurnView['stage'], 'reveal'>, { label: string; atZer
 /** One line on every play screen: score, cards left, who's guessing and the timer. */
 function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number }) {
   const turn = view.turn;
+  // Cards passed or lost to a wrong guess (a wrong guess costs the next card too).
+  const missed = Math.max(0, view.settings.deckSize - view.score - view.cardsLeft);
   return (
     <div className="flex items-center justify-between gap-2 text-sm sm:text-base">
       <div className="flex min-w-0 items-center gap-3">
@@ -29,6 +31,7 @@ function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number
         {view.phase === 'playing' && (
           <span className="text-stone-600 tabular-nums dark:text-stone-400">
             {view.cardsLeft} {view.cardsLeft === 1 ? 'card' : 'cards'} left
+            {missed > 0 && ` · ${missed} missed`}
           </span>
         )}
         {turn && (

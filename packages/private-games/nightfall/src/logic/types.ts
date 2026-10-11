@@ -57,7 +57,10 @@ export interface MarkToken {
   id: MarkId;
   /** One of the Doppelgänger's own Marks (looks different; works the same). */
   doppel: boolean;
-  /** Who placed it, for the Assassin's Mark (the Apprentice Assassin's own win). */
+  /**
+   * Who placed it, on a Mark of the Assassin the Apprentice Assassin placed herself (she found no
+   * Assassin): she wins when its holder dies, wherever her card ends up.
+   */
   by?: PlayerId;
 }
 
@@ -103,11 +106,20 @@ export type NoteBody =
   | { kind: 'revealed'; target: PlayerId; role: RoleId; stayed: boolean }
   | { kind: 'artifact-placed'; target: PlayerId }
   | { kind: 'became'; role: RoleId }
-  | { kind: 'blocked'; reason: 'shielded' | 'no-target' }
+  /** `role`: the role that had nobody to choose (the Robber: no one to rob). */
+  | { kind: 'blocked'; reason: 'shielded' | 'no-target'; role?: RoleId }
+  /** The Mark of Fear kept you asleep through your turn (learned at daybreak). */
+  | { kind: 'feared'; role: RoleId }
   | { kind: 'passed' }
   | { kind: 'artifact'; artifact: ArtifactId }
   /** A Mark you gave (Vampires, Count, Diseased, Cupid, Instigator, Priest, Assassins). */
-  | { kind: 'marked'; mark: MarkId; targets: PlayerId[] }
+  | {
+      kind: 'marked';
+      mark: MarkId;
+      targets: PlayerId[];
+      /** The vampires choose together: the fellow vampire whose pick it was. */
+      chosenBy?: PlayerId;
+    }
   /** Renfield: the vampires, the player they point at, and the Bat he took. */
   | { kind: 'saw-vampires'; players: PlayerId[]; target: PlayerId | null }
   /** Your own Mark, seen at dusk. */
@@ -322,6 +334,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     choice: z.enum(['marks', 'cards']).optional(),
     /** Skip an optional action. */
     pass: z.literal(true).optional(),
+    /** The vampires: show the others who you have in mind, before anyone confirms. */
+    point: z.literal(true).optional(),
   }),
   z.object({ type: z.literal('ready-to-vote'), ready: z.boolean() }),
   /** Host: open the vote without waiting for everyone to be ready (someone dropped out). */
@@ -370,6 +384,8 @@ export interface ActingView {
   step: StepId;
   as: RoleId;
   prompt: Prompt | null;
+  /** The vampires' step: who each fellow vampire is pointing at so far. */
+  team?: { player: PlayerId; pick: PlayerId | null }[];
 }
 
 export interface NightView {

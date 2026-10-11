@@ -12,19 +12,25 @@ const END_REASON: Record<EndTurnReason, string> = {
   host: 'turn ended by the host',
 };
 
-function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string }) {
+function Entry({
+  entry,
+  name,
+}: {
+  entry: LogEntry;
+  name: (id: string, fallback?: string) => string;
+}) {
   switch (entry.type) {
     case 'clue':
       return (
         <>
-          <b className={TEAM_TEXT[entry.team]}>{name(entry.by)}</b> gave the clue{' '}
+          <b className={TEAM_TEXT[entry.team]}>{name(entry.by, entry.name)}</b> gave the clue{' '}
           <b className="uppercase">{entry.word}</b> · {entry.count}
         </>
       );
     case 'guess':
       return (
         <>
-          <b className={TEAM_TEXT[entry.team]}>{name(entry.by)}</b> guessed{' '}
+          <b className={TEAM_TEXT[entry.team]}>{name(entry.by, entry.name)}</b> guessed{' '}
           <b className="uppercase">{entry.word}</b>:{' '}
           <span
             className={entry.kind === 'red' || entry.kind === 'blue' ? TEAM_TEXT[entry.kind] : ''}
@@ -53,7 +59,9 @@ function Entry({ entry, name }: { entry: LogEntry; name: (id: string) => string 
 export function GameLog({ view }: { view: CodenamesView }) {
   const end = useRef<HTMLLIElement>(null);
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
-  const name = (id: string) => names.get(id) ?? 'Someone who left';
+  // Someone who left keeps the name they had (older logs lack it).
+  const name = (id: string, fallback?: string) =>
+    names.get(id) ?? (fallback ? `${fallback} (left)` : 'Someone who left');
   useEffect(() => {
     // Block body: newer browsers return a Promise from scrollIntoView, which React would treat as a cleanup.
     void end.current?.scrollIntoView({ block: 'nearest' });

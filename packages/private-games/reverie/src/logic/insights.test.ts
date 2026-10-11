@@ -83,7 +83,7 @@ describe('insights', () => {
         type: 'story',
         playerId: HOST,
         words: [{ kind: 'story', word: 'moonlight' }],
-        props: { clue: 'moonlight', allOrNone: true, round: 1, found: 1, voters: 1 },
+        props: { clue: 'moonlight', allOrNone: false, round: 1, found: 1, voters: 1 },
       },
       { type: 'vote', playerId: 'ana', props: { found: true } },
     ]);

@@ -7,6 +7,7 @@ import type {
   Slot,
   TeamResultId,
   TimelineEntry,
+  VoteResult,
 } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
 
@@ -306,14 +307,20 @@ export function describeNote(
     case 'blocked':
       return note.reason === 'shielded'
         ? 'Your card is shielded, so you couldn’t act.'
-        : 'There was nobody you could choose.';
+        : note.role === 'robber'
+          ? 'There was no one to rob: every other card is shielded.'
+          : 'There was nobody you could choose.';
+    case 'feared':
+      return `You held the ${deck.markName('fear')}, so you slept through your turn as the ${r(note.role)}.`;
     case 'passed':
       return 'You did nothing.';
     case 'artifact':
       return `There is an artifact on your card: ${deck.artifactName(note.artifact)}. ${deck.artifactText(note.artifact)}`;
     case 'marked': {
       const to = note.targets.map((t) => (t === me ? 'yourself' : nameOf(t)));
-      return `You gave the ${deck.markName(note.mark)} to ${listNames(to)}.`;
+      const chose = note.chosenBy ? `${nameOf(note.chosenBy)} chose for you all: ` : '';
+      const you = chose ? 'you' : 'You';
+      return `${chose}${you} gave the ${deck.markName(note.mark)} to ${listNames(to)}.`;
     }
     case 'saw-vampires': {
       const vampires = note.players.length ? who(note.players) : 'nobody';
@@ -434,13 +441,17 @@ export function describeNoteAbout(
     case 'blocked':
       return note.reason === 'shielded'
         ? `${by}’s card was shielded, so they couldn’t act.`
-        : `${by} had nobody to choose.`;
+        : note.role === 'robber'
+          ? `${by} had no one to rob.`
+          : `${by} had nobody to choose.`;
+    case 'feared':
+      return `${by} held the ${deck.markName('fear')}, and slept through their turn.`;
     case 'passed':
       return `${by} did nothing.`;
     case 'artifact':
       return `${by}’s card carried an artifact: ${deck.artifactName(note.artifact)}.`;
     case 'marked':
-      return `${by} gave the ${deck.markName(note.mark)} to ${list(note.targets)}.`;
+      return `${by} gave the ${deck.markName(note.mark)} to ${list(note.targets)}${note.chosenBy ? ` (${nameOf(note.chosenBy)}’s pick)` : ''}.`;
     case 'saw-vampires': {
       const vampires = note.players.length ? list(note.players) : 'nobody';
       const pointed = note.target ? ` They pointed at ${who(note.target)}.` : '';
@@ -464,16 +475,25 @@ export function describeEntry(
   deck: Deck,
   kinds?: readonly string[],
 ): string {
-  if (entry.note.kind === 'nobody') return 'Nobody at the table had this card.';
+  if (entry.note.kind === 'nobody') {
+    if (entry.stepId === 'lovers') return 'Nobody held a Mark of Love.';
+    if (entry.stepId.startsWith('doppelganger-'))
+      return `Nobody woke: the ${deck.name('doppelganger')} didn’t copy this card.`;
+    return 'Nobody at the table had this card.';
+  }
   const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`
     : '';
-  // Marks moved: who held what just before (a Mark given replaces one that goes back unseen).
-  const marks =
-    entry.marks?.length && entry.note.kind !== 'marked'
-      ? ` (${entry.marks.map((m) => `${nameOf(m.player)} had ${m.mark ? deck.markName(m.mark) : 'no Mark'}`).join('; ')})`
-      : '';
+  // Marks moved: who held what just before. A Mark given replaces the one there, which goes
+  // back unseen: name it, unless it was the plain Mark of Clarity everyone starts with.
+  const before =
+    entry.note.kind === 'marked'
+      ? (entry.marks ?? []).filter((m) => m.mark && m.mark !== 'clarity')
+      : (entry.marks ?? []);
+  const marks = before.length
+    ? ` (${before.map((m) => `${nameOf(m.player)} had ${m.mark ? `the ${deck.markName(m.mark)}` : 'no Mark'}`).join('; ')})`
+    : '';
   return `${text}${moved}${marks}${entry.auto ? ' (chosen when time ran out)' : ''}`;
 }
 
@@ -487,6 +507,8 @@ export function promptText(p: Prompt, deck: Deck): string {
       return 'Tap another player to put a shield on their card, or skip.';
     case 'give-wolf':
       return 'Tap a player who isn’t a werewolf: they get the centre werewolf card.';
+    case 'give-wolf-any':
+      return `Tap any other player but the ${r('alpha-wolf')} (a werewolf will do): they get the centre werewolf card.`;
     case 'view':
       if (p.players && p.center) return 'Tap one player, or two centre cards, to look at them.';
       if (p.center) return 'Tap a centre card to look at it.';
@@ -520,7 +542,7 @@ export function promptText(p: Prompt, deck: Deck): string {
     case 'copy-centre':
       return 'Tap a centre card: you become that role, and wake when it is called.';
     case 'give-vampire':
-      return 'Together, choose a player who isn’t a vampire: they get the Mark of the Vampire. The first choice counts for all of you.';
+      return 'Together, choose a player who isn’t a vampire: they get the Mark of the Vampire. The others see who you tap; the first to confirm decides for you all.';
     case 'give-fear':
       return 'Tap a player who isn’t a vampire to give them the Mark of Fear.';
     case 'give-disease':
@@ -549,3 +571,51 @@ export function promptText(p: Prompt, deck: Deck): string {
 }
 
 export const winText = (role: RoleId) => ROLES[role].win;
+
+/**
+ * Each player's Marks through the night, oldest first, from the timeline: every entry that
+ * gives or moves a Mark records who held what just before, and `final` is what they hold now.
+ * Only players whose Mark changed are listed.
+ */
+export function markHistory(
+  timeline: readonly TimelineEntry[],
+  final: Record<string, { id: MarkId } | undefined> | null,
+): Record<string, MarkId[]> {
+  if (!final) return {};
+  const seen: Record<string, (MarkId | null)[]> = {};
+  for (const e of [...timeline].sort((a, b) => a.step - b.step))
+    for (const m of e.marks ?? []) (seen[m.player] ??= []).push(m.mark);
+  const out: Record<string, MarkId[]> = {};
+  for (const [p, before] of Object.entries(seen)) {
+    const chain: MarkId[] = [];
+    for (const m of [...before, final[p]?.id ?? null]) if (m && chain.at(-1) !== m) chain.push(m);
+    if (chain.length > 1) out[p] = chain;
+  }
+  return out;
+}
+
+/** A team's line on the reveal, with who on it really won (Disease and traitors aside). */
+export interface TeamLine {
+  team: TeamResultId;
+  /** The side won and at least one of its players did. */
+  won: boolean;
+  /** The side's result before Disease and traitors. */
+  sideWon: boolean;
+  players: string[];
+  /** On a winning side, the players who still lost; on a losing side, those who won anyway. */
+  exceptions: string[];
+}
+
+export function teamLines(result: VoteResult): TeamLine[] {
+  const winners = new Set(result.winners);
+  return result.teams.map((t) => {
+    const won = t.won && t.players.some((p) => winners.has(p));
+    return {
+      team: t.team,
+      won,
+      sideWon: t.won,
+      players: t.players,
+      exceptions: t.players.filter((p) => winners.has(p) !== won),
+    };
+  });
+}

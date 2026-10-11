@@ -82,35 +82,43 @@ const newSeed = (rng: Rng) => rng.int(2 ** 32);
 // ---- Deck ----
 
 /** Draws `n` cards, shuffling the discards back in when the pile runs short. */
-function draw(state: ReverieState, n: number, rng: Rng): { cards: number[]; state: ReverieState } {
+function draw(
+  state: ReverieState,
+  n: number,
+  rng: Rng,
+): { cards: number[]; state: ReverieState; reshuffled: boolean } {
   let pile = [...state.draw];
   let discard = [...state.discard];
   const cards: number[] = [];
+  let reshuffled = false;
   while (cards.length < n) {
     if (pile.length === 0) {
       if (discard.length === 0) break;
       pile = rng.shuffle(discard);
       discard = [];
+      reshuffled = true;
     }
     cards.push(pile.shift()!);
   }
-  return { cards, state: { ...state, draw: pile, discard } };
+  return { cards, state: { ...state, draw: pile, discard }, reshuffled };
 }
 
-/** Tops every player up to a full hand. */
-function refill(state: ReverieState, rng: Rng): ReverieState {
+/** Tops every player up to a full hand; says whether the discards had to be shuffled back in. */
+function refill(state: ReverieState, rng: Rng): { state: ReverieState; reshuffled: boolean } {
   let next = state;
+  let reshuffled = false;
   const size = handSize(state);
   for (const id of players(state)) {
     const seat = next.seats[id]!;
     if (seat.hand.length >= size) continue;
     const drawn = draw(next, size - seat.hand.length, rng);
+    reshuffled ||= drawn.reshuffled;
     next = {
       ...drawn.state,
       seats: { ...drawn.state.seats, [id]: { ...seat, hand: [...seat.hand, ...drawn.cards] } },
     };
   }
-  return next;
+  return { state: next, reshuffled };
 }
 
 /** Every card in the game, wherever it is. */
@@ -132,6 +140,7 @@ function beginTurn(
   now: number,
   rng: Rng,
   skipped: PlayerId | null = null,
+  reshuffled = false,
 ): ReverieState {
   const turn: Turn = {
     round,
@@ -150,6 +159,7 @@ function beginTurn(
     skipped,
     autoGiven: [],
     missedVote: [],
+    ...(reshuffled ? { reshuffled } : {}),
   };
   return { ...state, seed: newSeed(rng), turn };
 }
@@ -191,17 +201,19 @@ function maybeReveal(state: ReverieState): ReverieState {
 }
 
 /**
- * The scoring rules: if every voter or no voter found the storyteller's card, the storyteller
- * scores nothing and each voter 2; otherwise the storyteller and each finder score 3. Everyone but
- * the storyteller also scores 1 for every vote their own card attracted. Someone who didn't vote
- * (a strict timer ran out) only gets that bonus, and if nobody voted at all nobody gets the 2.
+ * The scoring rules: if everyone or nobody found the storyteller's card, the storyteller scores
+ * nothing and each voter 2; otherwise the storyteller and each finder score 3. Everyone but the
+ * storyteller also scores 1 for every vote their own card attracted. Someone who didn't vote (a
+ * strict timer ran out) counts as not having found the card and only gets that bonus, so a lone
+ * finder among absentees still earns the storyteller 3; if nobody voted at all nobody gets the 2.
  */
 export function reveal(state: ReverieState): ReverieState {
   const turn = state.turn!;
-  const voters = others(state).filter((id) => id in turn.votes);
+  const guessers = others(state);
+  const voters = guessers.filter((id) => id in turn.votes);
   const storyIndex = turn.table.findIndex((t) => t.owner === turn.storyteller);
   const finders = voters.filter((id) => turn.votes[id] === storyIndex);
-  const allOrNone = finders.length === 0 || finders.length === voters.length;
+  const allOrNone = finders.length === 0 || finders.length === guessers.length;
   const results: Record<PlayerId, TurnResult> = {};
   for (const id of players(state)) {
     const isStory = id === turn.storyteller;
@@ -252,11 +264,19 @@ function nextTurn(state: ReverieState, ctx: Ctx): Result {
   if (top >= state.settings.targetScore) return endGame(state, 'target');
   if (seated.length < MIN_PLAYERS) return endGame(state, 'too-few');
   // Everyone's played cards go to the discard pile, then hands are refilled.
-  const next = refill(
+  const { state: next, reshuffled } = refill(
     { ...state, discard: [...state.discard, ...turn.table.map((t) => t.card)] },
     ctx.rng,
   );
-  return beginTurn(next, nextStorytellerOf(next, turn), turn.round + 1, ctx.now, ctx.rng);
+  return beginTurn(
+    next,
+    nextStorytellerOf(next, turn),
+    turn.round + 1,
+    ctx.now,
+    ctx.rng,
+    null,
+    reshuffled,
+  );
 }
 
 // ---- Actions ----
@@ -353,7 +373,7 @@ function start(state: ReverieState, ctx: Ctx): Result {
     gamesPlayed: state.gamesPlayed + 1,
     departed: {},
   };
-  next = refill(next, ctx.rng);
+  next = refill(next, ctx.rng).state;
   // The storyteller alternates between games; within a game it goes round the table.
   const first = seated[state.gamesPlayed % seated.length]!;
   return beginTurn(next, first, 1, ctx.now, ctx.rng);
@@ -668,6 +688,8 @@ function view(state: ReverieState, viewer: PlayerId | null): ReverieView {
           skipped: turn.skipped ?? null,
           autoGiven: [...(turn.autoGiven ?? [])],
           missedVote: [...(turn.missedVote ?? [])],
+          nextStoryteller: nextStorytellerOf(state, turn),
+          reshuffled: !!turn.reshuffled,
         }
       : null,
     winners: state.winners,

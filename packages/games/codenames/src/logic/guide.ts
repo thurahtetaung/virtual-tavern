@@ -46,8 +46,9 @@ export const guide: GameGuide = {
         'Example: “Ocean 2” could point at WHALE and WAVE.',
       ],
       bullets: [
-        'The clue must be a single word (hyphens are fine). A bare number is not a clue.',
-        'It cannot be one of the words still face-down on the board.',
+        'The clue must be a single word (hyphens are fine). A bare number or punctuation alone is not a clue.',
+        'It cannot be one of the words still face-down on the board, or contain one joined by a hyphen or apostrophe (not “Captain-Antenna” while CAPTAIN is face-down).',
+        'The clue must be about the words’ meaning. No clues about spelling, letters, the number of letters or where cards sit on the board (not “P” for words starting with P, or “Corner” for the corner cards).',
         'The number is 1 to 9 and cannot be higher than the agents your team still has to find. Clues for 0 or “unlimited” are not supported.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
       ],
@@ -63,6 +64,7 @@ export const guide: GameGuide = {
         'The other team’s agent: your turn ends, and you just helped them.',
         'The assassin: your team loses immediately.',
         'You get up to one more guess than the clue number (for “Ocean 2”, up to 3 guesses). After at least one guess you can also end your turn early.',
+        'Only one guess counts at a time. If a teammate’s guess ends the turn just before yours arrives, yours is refused as too late.',
       ],
     },
     {
@@ -82,13 +84,13 @@ export const guide: GameGuide = {
     {
       title: 'Teams, the host and people coming and going',
       paragraphs: [
-        'Once the game starts, everyone stays on their team until it ends. Friends who arrive late can still join a team as an Operative, and an empty Spymaster seat can be taken by a newcomer or by an Operative of that team. Someone who has seen the key can only come back as that team’s Spymaster.',
+        'Once the game starts, everyone stays on their team until it ends. Friends who arrive late can still join a team as an Operative, and an empty Spymaster seat can be taken by a newcomer or by an Operative of that team (but not its only Operative, who is needed to guess). Someone who has seen the key can only come back as that team’s Spymaster.',
       ],
       bullets: [
         'Only the host can start the game, shuffle the teams, change the settings and return everyone to the lobby.',
-        'Shuffle teams keeps anyone who already took a Spymaster seat; it picks a random Spymaster only for a team without one, then spreads everyone else evenly.',
-        'If a team’s Spymaster or last Operative leaves, that team forfeits its turn (and any turn that starts while the seat is still empty).',
-        'If the player whose turn it is goes offline, everyone is told, and the host gets a button to skip their turn. The host can also skip a stuck turn at any point. It shows up in the game log.',
+        'Shuffle teams keeps anyone who already took a Spymaster seat; it picks a random Spymaster only for a team without one, then spreads everyone else evenly (with an odd number of players, the extra one joins the team that doesn’t go first).',
+        'If a team’s last Operative leaves, that team forfeits its turn. If its Spymaster leaves before giving the clue, the turn is forfeited too; once the clue is out, the Operatives play on. Any turn that starts while a seat is still empty is forfeited.',
+        'If the player whose turn it is goes offline, everyone is told, and the host gets a button to skip their turn. The host can also skip a stuck turn at any point, except their own team’s guessing turn. It shows up in the game log.',
         'Back to lobby abandons the current game: the board and the log are gone for good.',
         'Anyone without a team is watching: they see the board and the clues like an Operative, never the key, and can take a seat whenever the rules above allow it.',
       ],

@@ -52,7 +52,7 @@ export function TeamChat({
           disabled={muted}
           onChange={(e) => setText(e.target.value)}
           placeholder={
-            muted ? 'Encryptors stay quiet while their team decodes' : 'Message your team…'
+            muted ? 'Encryptors stay quiet until their team decodes' : 'Message your team…'
           }
           aria-label="Message your team"
           className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 disabled:opacity-60 dark:bg-stone-800 dark:ring-stone-600"
@@ -63,7 +63,7 @@ export function TeamChat({
       </form>
       {muted && (
         <p className="mt-1 text-xs text-stone-500">
-          Encryptors stay quiet while their team decodes.
+          You know the code, so you stay quiet in chat and notes until your team has decoded it.
         </p>
       )}
     </Panel>

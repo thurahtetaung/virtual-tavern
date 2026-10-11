@@ -58,7 +58,7 @@ describe('latestResult', () => {
     expect(result(h)).toMatchObject({
       tone: 'wrong',
       headline: "✗ Oops! It's a Blue agent.",
-      next: "That point goes to Blue. Blue's turn now.",
+      next: "That reveals one of Blue's agents for them. Blue's turn now.",
     });
   });
 
@@ -119,3 +119,13 @@ describe('latestResult', () => {
 function lastResultFor(h: ReturnType<typeof startedGame>) {
   return latestResult(codenames.view(h.state, OP.red));
 }
+
+describe('latestResult after a correct guess', () => {
+  it('builds the line from why the turn ended', () => {
+    const h = startedGame();
+    clue(h, 'red', 2);
+    h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
+    h.act({ type: 'end-turn' }, OP.red);
+    expect(result(h)?.next).toBe("Red ended the turn. Blue's turn now.");
+  });
+});

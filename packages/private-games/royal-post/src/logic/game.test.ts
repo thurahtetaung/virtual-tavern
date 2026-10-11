@@ -505,6 +505,34 @@ describe('Chancellor (2019)', () => {
     expect(hand(h, 'ana')).toEqual(['priest', 'spy']);
     expect(h.state.round!.deck).toEqual(['handmaid', 'guard', 'king']);
     expect(logOf(h.state, 'play').at(-1)).toMatchObject({ card: 'chancellor', drew: 2 });
+    // Only the Chancellor gets a note of the cards put underneath.
+    expect(h.state.notes[HOST]!.at(-1)).toMatchObject({ kind: 'bottom', cards: ['guard', 'king'] });
+    expect(h.state.notes.ana ?? []).toEqual([]);
+    expect(royalPost.view(h.state, HOST).knownDeck).toEqual(['guard', 'king']);
+    expect(royalPost.view(h.state, 'ana').knownDeck).toEqual([]);
+  });
+
+  it('keeps the bottom cards known until they are drawn, even under later Chancellors', () => {
+    const h = rig(table('2019'), {
+      hands: { host: ['chancellor', 'guard'], ana: ['chancellor'], ben: ['baron'] },
+      deck: ['king', 'princess', 'spy', 'handmaid', 'priest', 'guard'],
+    });
+    h.act({ type: 'play', card: 'chancellor' });
+    h.act({ type: 'chancellor-keep', keep: 'princess', bottomOrder: ['guard', 'king'] });
+    // Ana drew the spy off the top.
+    expect(h.state.round!.deck).toEqual(['handmaid', 'priest', 'guard', 'guard', 'king']);
+    const known = () => royalPost.view(h.state, HOST).knownDeck;
+    expect(known()).toEqual(['guard', 'king']);
+    // Ana's Chancellor draws two off the top and puts two more underneath: still both there.
+    h.act({ type: 'play', card: 'chancellor' }, 'ana');
+    h.act({ type: 'chancellor-keep', keep: 'spy', bottomOrder: ['handmaid', 'priest'] }, 'ana');
+    expect(h.state.round!.deck).toEqual(['guard', 'king', 'handmaid', 'priest']);
+    expect(known()).toEqual(['guard', 'king']);
+    expect(royalPost.view(h.state, 'ana').knownDeck).toEqual(['handmaid', 'priest']);
+    // Once a card is drawn it drops out of what the host knows is in the deck.
+    h.act({ type: 'play', card: 'guard', target: 'ana', guess: 'princess' }, 'ben');
+    expect(hand(h, HOST)).toEqual(['princess', 'guard']);
+    expect(known()).toEqual(['king']);
   });
 
   it('draws what is left when the deck runs low, or does nothing when it is empty', () => {
@@ -671,6 +699,8 @@ describe('Spy bonus (2019)', () => {
   it('gives nothing when two survivors used a Spy', () => {
     const h = spyRound({ ana: ['spy'], ben: ['spy'] });
     expect(h.state.round!.result!.spy).toBeNull();
+    // The result names who played one, so the screen can say why nobody got the bonus.
+    expect(h.state.round!.result!.spies).toEqual(['ana', 'ben']);
     expect(h.state.seats.ben!.tokens).toBe(0);
   });
 
@@ -722,6 +752,21 @@ describe('leavers and late joiners', () => {
     expect(current(h)).toBe('ana');
     expect(hand(h, 'ana')).toHaveLength(2);
     expect(h.state.round!.stage).toBe('play');
+  });
+
+  it('puts a Chancellor’s drawn cards back under the deck, unseen, when they leave mid-choice', () => {
+    const h = rig(table('2019', FOUR), {
+      hands: { host: ['chancellor', 'priest'], ana: ['king'], ben: ['baron'], cy: ['guard'] },
+      deck: ['princess', 'countess', 'guard', 'handmaid'],
+    });
+    h.act({ type: 'play', card: 'chancellor' });
+    leave(h, HOST);
+    const out = logOf(h.state, 'out').at(-1)!;
+    expect(out).toMatchObject({ player: HOST, cause: 'left', cards: ['priest'] });
+    expect(h.state.round!.players[HOST]!.discards).toEqual(['chancellor', 'priest']);
+    // Ana drew the guard; the two drawn cards are at the bottom, in the order drawn.
+    expect(hand(h, 'ana')).toEqual(['king', 'guard']);
+    expect(h.state.round!.deck).toEqual(['handmaid', 'princess', 'countess']);
   });
 
   it('ends the round when only one player is left in it', () => {
@@ -956,8 +1001,22 @@ describe('view', () => {
     expect(notes(HOST)).toEqual(['peek']);
     expect(notes('ana')).toEqual(['compare']);
     expect(notes('ben')).toEqual(['compare']);
-    expect(notes('cy')).toEqual([]);
+    // The Priest's target is told someone knows their card.
+    expect(notes('cy')).toEqual(['seen']);
+    expect(royalPost.view(h.state, 'cy').notes[0]).toMatchObject({ by: HOST, card: 'prince' });
     expect(notes(null)).toEqual([]);
+  });
+
+  it('shows the face-down set-aside card only once the round is over', () => {
+    const h = rig(table('classic'), {
+      hands: { host: ['handmaid', 'priest'], ana: ['king'], ben: ['baron'] },
+      deck: [],
+      setAside: 'countess',
+    });
+    expect(royalPost.view(h.state, 'ana').round!.setAsideCard).toBeNull();
+    h.act({ type: 'play', card: 'handmaid' });
+    expect(h.state.round!.stage).toBe('over');
+    expect(royalPost.view(h.state, 'ana').round!.setAsideCard).toBe('countess');
   });
 
   it('caps the log', () => {

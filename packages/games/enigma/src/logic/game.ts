@@ -6,6 +6,8 @@ import {
   type PlayerId,
   type PlayerInfo,
   type Rng,
+  normaliseWord,
+  sameAnswer,
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
@@ -57,7 +59,7 @@ export function membersOf(state: EnigmaState, team: Team): PlayerId[] {
   return Object.entries(state.seats).flatMap(([id, s]) => (s.team === team ? [id] : []));
 }
 
-/** A team with no history. `encryptorTurn` is offset per game so rematches start with a new Encryptor. */
+/** A team with no history. */
 function emptyTeam(keywords: string[] = [], encryptorTurn = 0): TeamState {
   return {
     keywords,
@@ -99,15 +101,40 @@ export function votersFor(state: EnigmaState, tx: Transmission, side: Side): Pla
 }
 
 /**
- * Keeps a transmission that hasn't been sent yet playable: an Encryptor who left is replaced by
- * the first teammate, and a team too small to decode (nobody but the Encryptor) can't transmit
- * at all, so its turn fails as a miscommunication.
+ * The team's next Encryptor: whoever has encrypted least (across games, so leaving, rejoining
+ * and rematches don't skip or repeat anyone), ties broken by seat order.
  */
-function repairTransmission(state: EnigmaState, tx: Transmission): Transmission {
-  if (tx.clues || tx.revealed || tx.expired) return tx;
+export function nextEncryptorOf(state: EnigmaState, team: Team): PlayerId | null {
+  const counts = state.encryptions ?? {};
+  let best: PlayerId | null = null;
+  for (const id of membersOf(state, team)) {
+    if (best === null || (counts[id] ?? 0) < (counts[best] ?? 0)) best = id;
+  }
+  return best;
+}
+
+/** `state` with `id` counted as having encrypted once more (or once less, with `by` -1). */
+function countEncryption(state: EnigmaState, id: PlayerId, by = 1): EnigmaState {
+  const counts = state.encryptions ?? {};
+  return { ...state, encryptions: { ...counts, [id]: Math.max(0, (counts[id] ?? 0) + by) } };
+}
+
+/**
+ * Keeps a transmission that hasn't been sent yet playable: an Encryptor who left is replaced by
+ * the next teammate in the rotation. A team with nobody left can't transmit at all, so its turn
+ * fails as a miscommunication; a team down to one player keeps its turn open, so a teammate who
+ * rejoins before the clues are sent can still decode.
+ */
+function repairTransmission(state: EnigmaState, index: number): EnigmaState {
+  const tx = state.transmissions[index]!;
+  if (tx.clues || tx.revealed || tx.expired) return state;
   const members = membersOf(state, tx.team);
-  if (members.length < MIN_TEAM_SIZE) return { ...tx, expired: true };
-  return members.includes(tx.encryptor) ? tx : { ...tx, encryptor: members[0]! };
+  if (members.length === 0) return withTx(state, index, { ...tx, expired: true });
+  if (members.includes(tx.encryptor)) return state;
+  // The leaver never sent clues, so this turn doesn't count for them.
+  const next = countEncryption(state, tx.encryptor, -1);
+  const encryptor = nextEncryptorOf(next, tx.team)!;
+  return countEncryption(withTx(next, index, { ...tx, encryptor }), encryptor);
 }
 
 /**
@@ -132,26 +159,27 @@ function beginRound(
 ): EnigmaState {
   const first = round % 2 === 1 ? state.startingTeam : otherTeam(state.startingTeam);
   const teams = { ...state.teams };
+  let counted = state;
   const transmissions = [first, otherTeam(first)].map((team): Transmission => {
-    const members = membersOf(state, team);
-    const turn = teams[team].encryptorTurn;
-    teams[team] = { ...teams[team], encryptorTurn: turn + 1 };
-    return repairTransmission(state, {
+    teams[team] = { ...teams[team], encryptorTurn: teams[team].encryptorTurn + 1 };
+    const encryptor = nextEncryptorOf(state, team);
+    if (encryptor !== null) counted = countEncryption(counted, encryptor);
+    return {
       team,
-      encryptor: members.length ? members[turn % members.length]! : '',
+      encryptor: encryptor ?? '',
       code: drawCode(ctx.rng),
       clues: null,
-      expired: false,
+      expired: encryptor === null,
       decode: {},
       intercept: {},
       decodeVoters: null,
       interceptVoters: null,
       revealed: false,
-    });
+    };
   });
   return maybeStartGuessing(
     {
-      ...state,
+      ...counted,
       round,
       teams,
       transmissions,
@@ -180,9 +208,7 @@ function withTx(state: EnigmaState, index: number, tx: Transmission): EnigmaStat
 function maybeStartGuessing(state: EnigmaState, now: number): EnigmaState {
   if (state.stage !== 'clue') return state;
   let next = state;
-  for (const i of state.active) {
-    next = withTx(next, i, repairTransmission(next, next.transmissions[i]!));
-  }
+  for (const i of state.active) next = repairTransmission(next, i);
   if (!activeTx(next).every((tx) => tx.clues || tx.expired)) return next;
   next = { ...next, stage: 'guess', deadline: deadline(state.settings.guessSeconds, now) };
   for (const i of state.active) {
@@ -352,8 +378,8 @@ function start(state: EnigmaState, ctx: Ctx): Result {
     );
   }
   const words = ctx.rng.shuffle(pool);
-  // Each game's first Encryptor is the next seat along, so rematches don't always start the same.
-  const turn = state.gamesPlayed;
+  // The Encryptor rotation carries on from the last game (`encryptions`), so a rematch starts
+  // with whoever has encrypted least.
   const fresh: EnigmaState = {
     ...state,
     phase: 'playing',
@@ -363,8 +389,8 @@ function start(state: EnigmaState, ctx: Ctx): Result {
       ),
     ),
     teams: {
-      red: emptyTeam(words.slice(0, KEYWORD_COUNT), turn),
-      blue: emptyTeam(words.slice(KEYWORD_COUNT, KEYWORD_COUNT * 2), turn),
+      red: emptyTeam(words.slice(0, KEYWORD_COUNT)),
+      blue: emptyTeam(words.slice(KEYWORD_COUNT, KEYWORD_COUNT * 2)),
     },
     winner: null,
     gamesPlayed: state.gamesPlayed + 1,
@@ -390,7 +416,26 @@ function backToLobby(state: EnigmaState, ctx: Ctx): Result {
   };
 }
 
-const normalise = (s: string) => s.trim().toLowerCase();
+/** Number words and numerals that would point at a keyword number directly. */
+const NUMBER_WORDS = new Set(['one', 'two', 'three', 'four', 'ii', 'iii', 'iv']);
+
+/** Why a clue can't be used for these keywords, or null if it's fine. The UI pre-checks with it. */
+export function clueProblem(clue: string, keywords: readonly string[]): GameError | null {
+  const words = normaliseWord(clue)
+    .split(/[^\p{L}\p{N}']+/u)
+    .filter(Boolean);
+  // The keyword itself (any accent, case or plural), or the keyword as a whole word of the clue.
+  if (keywords.some((k) => sameAnswer(clue, k) || words.some((w) => sameAnswer(w, k)))) {
+    return new GameError(
+      'clue-is-keyword',
+      "A clue can't be or contain one of your team's keywords.",
+    );
+  }
+  if (/\p{N}/u.test(clue) || words.some((w) => NUMBER_WORDS.has(w))) {
+    return new GameError('clue-is-number', "A clue can't be a number or contain one.");
+  }
+  return null;
+}
 
 function giveClues(state: EnigmaState, clues: string[], ctx: Ctx): Result {
   if (state.phase !== 'playing') return new GameError('not-playing', 'No game in progress.');
@@ -402,14 +447,11 @@ function giveClues(state: EnigmaState, clues: string[], ctx: Ctx): Result {
     return new GameError('wrong-stage', 'Clues have already been sent.');
   }
   const trimmed = clues.map((c) => c.trim());
-  const keywords = new Set(state.teams[tx.team].keywords.map(normalise));
-  if (trimmed.some((c) => keywords.has(normalise(c)))) {
-    return new GameError('clue-is-keyword', "A clue can't be one of your team's keywords.");
+  for (const clue of trimmed) {
+    const problem = clueProblem(clue, state.teams[tx.team].keywords);
+    if (problem) return problem;
   }
-  if (trimmed.some((c) => /^\p{N}+$/u.test(c))) {
-    return new GameError('clue-is-number', "A clue can't be just a number.");
-  }
-  if (new Set(trimmed.map(normalise)).size !== trimmed.length) {
+  if (new Set(trimmed.map(normaliseWord)).size !== trimmed.length) {
     return new GameError('clues-not-distinct', 'Give three different clues.');
   }
   return maybeStartGuessing(withTx(state, index, { ...tx, clues: trimmed }), ctx.now);
@@ -467,24 +509,24 @@ function setVote(
   return settleVotes(next);
 }
 
-/** An Encryptor whose team is still decoding their code must not drop hints in chat. */
-function isSilenced(state: EnigmaState, id: PlayerId): boolean {
+/**
+ * An Encryptor who knows their code must not drop hints: from the deal until their team's
+ * decode resolves, they can't chat or edit the team's notes.
+ */
+export function isSilenced(state: EnigmaState, id: PlayerId): boolean {
   return (
     state.phase === 'playing' &&
-    state.stage === 'guess' &&
+    state.stage !== 'reveal' &&
     activeTx(state).some((tx) => tx.encryptor === id && tx.decodeResult === undefined)
   );
 }
 
+const SILENT = 'Encryptors stay quiet in chat and notes until their team has locked in the code.';
+
 function chat(state: EnigmaState, text: string, ctx: Ctx): Result {
   const seat = teamSeat(state, ctx.by);
   if (seat instanceof GameError) return seat;
-  if (isSilenced(state, ctx.by)) {
-    return new GameError(
-      'encryptor-silent',
-      'Encryptors stay quiet in chat until their team has locked in the code.',
-    );
-  }
+  if (isSilenced(state, ctx.by)) return new GameError('encryptor-silent', SILENT);
   const t = state.teams[seat.team];
   const messages = [...t.chat, { by: ctx.by, text, at: ctx.now }].slice(-MAX_CHAT_MESSAGES);
   return { ...state, teams: { ...state.teams, [seat.team]: { ...t, chat: messages } } };
@@ -494,8 +536,9 @@ function chat(state: EnigmaState, text: string, ctx: Ctx): Result {
  * Whether a player may change their team's notes (add, remove, or set a keyword guess). Every
  * note action goes through this one check.
  */
-export function canWriteNotes(_state: EnigmaState, _id: PlayerId): boolean {
-  return true;
+export function canWriteNotes(state: EnigmaState, id: PlayerId): boolean {
+  // An Encryptor who knows their code can't leak it in the notes either (see `isSilenced`).
+  return !isSilenced(state, id);
 }
 
 /**
@@ -577,6 +620,36 @@ function removeNote(state: EnigmaState, id: string, ctx: Ctx): Result {
   }));
 }
 
+/** Host: stop waiting for one player's vote (an offline player, say). */
+function skipVoter(state: EnigmaState, team: Team, player: PlayerId, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  if (state.phase !== 'playing' || state.stage !== 'guess') {
+    return new GameError('wrong-stage', "It's not time to guess.");
+  }
+  const index = state.active.find((i) => state.transmissions[i]!.team === team);
+  if (index === undefined) {
+    return new GameError('not-active', "That team isn't transmitting right now.");
+  }
+  const tx = state.transmissions[index]!;
+  const side: Side = state.seats[player]?.team === team ? 'decode' : 'intercept';
+  const voters = votersFor(state, tx, side);
+  const resolved = side === 'decode' ? tx.decodeResult : tx.interceptResult;
+  if (!voters.includes(player) || resolved !== undefined) {
+    return new GameError('not-voting', "That player isn't holding up a vote.");
+  }
+  const votes = { ...tx[side] };
+  delete votes[player];
+  const left = voters.filter((id) => id !== player);
+  return settleVotes(
+    withTx(state, index, {
+      ...tx,
+      [side]: votes,
+      ...(side === 'decode' ? { decodeVoters: left } : { interceptVoters: left }),
+    }),
+  );
+}
+
 function nextRound(state: EnigmaState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
@@ -646,6 +719,8 @@ function reduce(state: EnigmaState, action: EnigmaAction, ctx: Ctx): Result {
       return removeNote(state, action.id, ctx);
     case 'next-round':
       return nextRound(state, ctx);
+    case 'skip-voter':
+      return skipVoter(state, action.team, action.player, ctx);
   }
 }
 
@@ -701,16 +776,15 @@ function playerLeft(state: EnigmaState, playerId: PlayerId, now: number): Enigma
   const prune = (voters: PlayerId[] | null) => voters && voters.filter((id) => id !== playerId);
   next = {
     ...next,
-    transmissions: next.transmissions.map((tx) =>
-      repairTransmission(next, {
-        ...tx,
-        decode: without(tx.decode),
-        intercept: without(tx.intercept),
-        decodeVoters: prune(tx.decodeVoters),
-        interceptVoters: prune(tx.interceptVoters),
-      }),
-    ),
+    transmissions: next.transmissions.map((tx) => ({
+      ...tx,
+      decode: without(tx.decode),
+      intercept: without(tx.intercept),
+      decodeVoters: prune(tx.decodeVoters),
+      interceptVoters: prune(tx.interceptVoters),
+    })),
   };
+  for (let i = 0; i < next.transmissions.length; i++) next = repairTransmission(next, i);
   return settleVotes(maybeStartGuessing(next, now));
 }
 
@@ -803,6 +877,15 @@ function transmissionView(
     teamVotes: side ? { ...teamVotes } : {},
     voters,
     disagree: allLocked && resolved === undefined,
+    waitingOn:
+      state.stage === 'guess' && state.active.includes(index)
+        ? (['decode', 'intercept'] as const).flatMap((s) =>
+            (s === 'decode' ? tx.decodeResult : tx.interceptResult) === undefined
+              ? votersFor(state, tx, s).filter((id) => !tx[s][id]?.locked)
+              : [],
+          )
+        : [],
+    noDecoders: tx.decodeVoters !== null && tx.decodeVoters.length === 0,
     settled: resolved !== undefined,
     result: entry
       ? {
@@ -829,6 +912,7 @@ function view(state: EnigmaState, viewer: PlayerId | null): EnigmaView {
     misses: state.teams[t].misses,
     history: state.teams[t].history,
     members: membersOf(state, t),
+    nextEncryptor: nextEncryptorOf(state, t),
   });
   return {
     phase: state.phase,
@@ -841,6 +925,10 @@ function view(state: EnigmaState, viewer: PlayerId | null): EnigmaView {
     startingTeam: state.startingTeam,
     teams: { red: teamView('red'), blue: teamView('blue') },
     transmissions: state.transmissions.map((tx, i) => transmissionView(state, tx, i, viewer)),
+    lockedTo:
+      state.phase === 'playing' && viewer !== null
+        ? (state.seen?.[viewer] ?? mySeat?.team ?? null)
+        : null,
     chat: myTeam ? state.teams[myTeam].chat : [],
     notes: myTeam ? notesView(state.teams[myTeam].notes) : null,
     deadline: state.deadline,

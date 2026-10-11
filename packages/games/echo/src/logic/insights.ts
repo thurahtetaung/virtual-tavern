@@ -1,4 +1,4 @@
-import { type InsightEvent, type PlayerId, wordKey } from '@vt/game-sdk';
+import { type InsightEvent, type PlayerId, sameClue } from '@vt/game-sdk';
 import type { EchoAction, EchoState, ResolvedCard } from './types.ts';
 
 /** Cards this change resolved (none when a game started). */
@@ -31,16 +31,18 @@ function cardEvent(card: ResolvedCard): InsightEvent {
 
 /** One event per pair of players whose clues cancelled each other on this card. */
 function matchEvents(card: ResolvedCard): InsightEvent[] {
-  const groups = new Map<string, { word: string; by: Set<PlayerId> }>();
+  const groups: { word: string; by: Set<PlayerId> }[] = [];
   for (const clue of card.clues) {
     if (!clue.cancelled) continue;
-    const key = wordKey(clue.text);
-    const group = groups.get(key) ?? { word: clue.text, by: new Set<PlayerId>() };
+    let group = groups.find((g) => sameClue(g.word, clue.text));
+    if (!group) {
+      group = { word: clue.text, by: new Set<PlayerId>() };
+      groups.push(group);
+    }
     group.by.add(clue.by);
-    groups.set(key, group);
   }
   const events: InsightEvent[] = [];
-  for (const { word, by } of groups.values()) {
+  for (const { word, by } of groups) {
     const ids = [...by].sort();
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {

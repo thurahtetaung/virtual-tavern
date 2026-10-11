@@ -69,11 +69,11 @@ describe('insights', () => {
         type: 'clues',
         playerId: encryptor,
         words: [
-          { kind: 'clue', word: 'one' },
-          { kind: 'clue', word: 'two' },
-          { kind: 'clue', word: 'three' },
+          { kind: 'clue', word: 'alpha' },
+          { kind: 'clue', word: 'bravo' },
+          { kind: 'clue', word: 'charlie' },
         ],
-        props: { clues: ['one', 'two', 'three'], team: 'red', round: 1 },
+        props: { clues: ['alpha', 'bravo', 'charlie'], team: 'red', round: 1 },
       },
     ]);
   });

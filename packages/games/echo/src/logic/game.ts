@@ -6,10 +6,12 @@ import {
   type PlayerId,
   type PlayerInfo,
   createRng,
+  containsWord,
   isNumberOnly,
   isSingleWord,
   normaliseWord,
-  wordKey,
+  sameAnswer,
+  sameClue,
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
@@ -126,18 +128,16 @@ function beginClues(state: EchoState, pick: number, now: number): EchoState {
   });
 }
 
-/** Groups every clue by its comparison key; any key written more than once cancels. */
+/** Every clue that is the same word (`sameClue`) as another player's clue cancels. */
 function cancellations(clues: Record<PlayerId, string[]>): Record<string, 'duplicate'> {
-  const groups = new Map<string, string[]>();
-  for (const [giver, list] of Object.entries(clues)) {
-    list.forEach((text, i) => {
-      const key = wordKey(text);
-      groups.set(key, [...(groups.get(key) ?? []), clueId(giver, i)]);
-    });
-  }
+  const all = Object.entries(clues).flatMap(([giver, list]) =>
+    list.map((text, i) => ({ giver, text, id: clueId(giver, i) })),
+  );
   const cancelled: Record<string, 'duplicate'> = {};
-  for (const ids of groups.values()) {
-    if (ids.length > 1) for (const id of ids) cancelled[id] = 'duplicate';
+  for (const clue of all) {
+    if (all.some((o) => o.giver !== clue.giver && sameClue(o.text, clue.text))) {
+      cancelled[clue.id] = 'duplicate';
+    }
   }
   return cancelled;
 }
@@ -348,11 +348,7 @@ export function clueProblem(clue: string, word: string): GameError | null {
     return new GameError('not-one-word', `“${clue}” isn't a single word.`);
   }
   if (isNumberOnly(clue)) return new GameError('number-only', "A clue can't be just a number.");
-  const plainWord = normaliseWord(word);
-  if (
-    wordKey(clue) === wordKey(word) ||
-    (plainWord.length >= 3 && normaliseWord(clue).includes(plainWord))
-  ) {
+  if (containsWord(clue, word)) {
     return new GameError('is-the-word', `“${clue}” gives the word away.`);
   }
   return null;
@@ -364,7 +360,7 @@ export function cluesProblem(clues: readonly string[], word: string): GameError 
     const problem = clueProblem(clue, word);
     if (problem) return problem;
   }
-  if (new Set(clues.map(wordKey)).size !== clues.length) {
+  if (clues.some((c, i) => clues.some((o, j) => j < i && sameClue(o, c)))) {
     return new GameError('same-clue-twice', 'Your two clues must be different words.');
   }
   return null;
@@ -391,6 +387,15 @@ function giveClues(state: EchoState, clues: string[], ctx: Ctx): Result {
   );
 }
 
+function skipLateClues(state: EchoState, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  const turn = requireStage(state, 'clues');
+  if (turn instanceof GameError) return turn;
+  const next = maybeStartGuessing(state, ctx.now, true);
+  return next.turn?.missed?.length ? withTurn(next, { skipped: true }) : next;
+}
+
 function guess(state: EchoState, word: string, ctx: Ctx): Result {
   const turn = requireStage(state, 'guess');
   if (turn instanceof GameError) return turn;
@@ -401,7 +406,7 @@ function guess(state: EchoState, word: string, ctx: Ctx): Result {
 }
 
 /** Letters and digits only, so spacing, hyphens and punctuation never matter. */
-const squash = (s: string) => wordKey(s).replace(/[^\p{L}\p{N}]/gu, '');
+const squash = (s: string) => normaliseWord(s).replace(/[^\p{L}\p{N}]/gu, '');
 
 /** Whether two words are one typo apart: a letter added, dropped, changed or two swapped. */
 function oneTypoApart(a: string, b: string): boolean {
@@ -417,15 +422,15 @@ function oneTypoApart(a: string, b: string): boolean {
 }
 
 /**
- * A guess is right when it is the word in another form (plural, spacing, hyphens, a multi-word
- * answer run together) or one typo away from an answer of 5 or more letters.
+ * A guess is right when it is the word in another form (`sameAnswer`: plurals, irregular plurals,
+ * US/UK spellings, spacing, hyphens, a multi-word answer run together) or one typo away from an
+ * answer of 5 or more letters. Anything else, a longer or shorter word included, is wrong.
  */
 export function guessMatches(guess: string, answer: string): boolean {
-  if (wordKey(guess) === wordKey(answer)) return true;
+  if (sameAnswer(guess, answer)) return true;
   const g = squash(guess);
   const a = squash(answer);
   if (!g || !a) return false;
-  if (g === a) return true;
   return a.length >= 5 && oneTypoApart(g, a);
 }
 
@@ -462,9 +467,15 @@ function judge(state: EchoState, counts: boolean, ctx: Ctx): Result {
   return counts ? reveal(state, 'right', ctx.by) : reveal(state, 'wrong', null);
 }
 
-function nextCard(state: EchoState, ctx: Ctx): Result {
-  const err = requireHost(ctx);
-  if (err) return err;
+function nextCard(state: EchoState, cardsLeft: number | undefined, ctx: Ctx): Result {
+  // Anyone at the table may deal on, so nobody waits for a host who has looked away.
+  if (!ctx.isHost && !state.seats[ctx.by]?.playing) {
+    return new GameError('not-at-table', 'Only players at the table can deal the next card.');
+  }
+  // Two people tapping Next card together: the second tap finds the card already dealt.
+  if (cardsLeft !== undefined && cardsLeft === state.cardsLeft && state.turn?.stage === 'pick') {
+    return state;
+  }
   const turn = requireStage(state, 'reveal');
   if (turn instanceof GameError) return turn;
   if (state.cardsLeft <= 0) return endGame(state, 'finished');
@@ -494,8 +505,10 @@ function reduce(state: EchoState, action: EchoAction, ctx: Ctx): Result {
       return judge(state, true, ctx);
     case 'continue':
       return judge(state, false, ctx);
+    case 'skip-late-clues':
+      return skipLateClues(state, ctx);
     case 'next-card':
-      return nextCard(state, ctx);
+      return nextCard(state, action.cardsLeft, ctx);
   }
 }
 
@@ -633,11 +646,10 @@ function turnView(state: EchoState, turn: Turn, viewer: PlayerId | null): TurnVi
   );
   for (const clue of all) {
     if (!clue.cancelled) continue;
-    const key = wordKey(clue.text);
     clue.sameAs = [
       ...new Set(
         all
-          .filter((c) => c !== clue && c.by !== clue.by && wordKey(c.text) === key)
+          .filter((c) => c !== clue && c.by !== clue.by && sameClue(c.text, clue.text))
           .map((c) => c.by!),
       ),
     ];
@@ -658,6 +670,7 @@ function turnView(state: EchoState, turn: Turn, viewer: PlayerId | null): TurnVi
     cardSize: turn.card.length,
     pick: turn.pick,
     word,
+    wordCount: turn.pick === null ? null : turn.card[turn.pick]!.trim().split(/\s+/).length,
     givers: turn.givers,
     perGiver: turn.perGiver,
     submitted: Object.keys(turn.clues),
@@ -670,6 +683,7 @@ function turnView(state: EchoState, turn: Turn, viewer: PlayerId | null): TurnVi
     deadline: turn.deadline,
     autoPicked: !!turn.autoPicked,
     missed: turn.missed ?? [],
+    skipped: !!turn.skipped,
     timedOut: !!turn.timedOut,
   };
 }

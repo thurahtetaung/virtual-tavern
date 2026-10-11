@@ -1,6 +1,7 @@
 import type { ActOptions } from '@vt/game-sdk';
 import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
+import { clueProblem } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
 import { MAX_CLUE_LENGTH, TOKENS_TO_END } from '../logic/types.ts';
 import { cluesByKeyword } from './status.ts';
@@ -14,10 +15,36 @@ const CLUES_ANCHOR = 'enigma-clues';
 const nameOf = (view: EnigmaView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
 
+/** Unsent clues survive a reload or reconnect: kept per round and team for this tab. */
+const draftKey = (view: EnigmaView, tx: TransmissionView) =>
+  `enigma-clues:${view.round}:${tx.team}:${formatCode(tx.code)}`;
+
+function loadDraft(key: string): string[] {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? 'null');
+    if (Array.isArray(saved) && saved.length === 3 && saved.every((c) => typeof c === 'string')) {
+      return saved;
+    }
+  } catch {
+    // Storage blocked or unreadable: start empty.
+  }
+  return ['', '', ''];
+}
+
 function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; act: Act }) {
-  const [clues, setClues] = useState(['', '', '']);
+  const key = draftKey(view, tx);
+  const [clues, setClues] = useState(() => loadDraft(key));
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(clues));
+    } catch {
+      // Storage blocked: the draft just isn't kept.
+    }
+  }, [key, clues]);
   const keywords = view.teams[tx.team].keywords ?? [];
+  const problems = clues.map((c) => (c.trim() ? clueProblem(c.trim(), keywords)?.message : null));
+  const alone = view.teams[tx.team].members.length < 2;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -44,10 +71,20 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
             autoFocus={i === 0}
             onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="A hint only your team will get"
+            aria-invalid={!!problems[i]}
             className="mt-1 block w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
           />
+          {problems[i] && (
+            <span className="mt-1 block text-sm text-red-700 dark:text-red-400">{problems[i]}</span>
+          )}
         </label>
       ))}
+      {alone && (
+        <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+          Nobody else is on your team right now, so nobody could decode your clues. If a teammate
+          comes back before you send them, they decode as usual.
+        </p>
+      )}
       {view.settings.timerMode === 'strict' && view.settings.clueSeconds !== null && (
         <p className="text-xs text-stone-600 dark:text-stone-400">
           ⏱ Strict timer: send before it runs out. Clues that aren't sent don't count, and your team
@@ -58,7 +95,7 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
         type="submit"
         size="lg"
         className="w-full"
-        disabled={busy || clues.some((c) => !c.trim())}
+        disabled={busy || clues.some((c) => !c.trim()) || problems.some(Boolean)}
       >
         Send clues
       </Button>
@@ -67,7 +104,57 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   );
 }
 
-function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; act: Act }) {
+/** Who on your side has picked what, with an offline dot; the host can skip an offline voter. */
+function Picks({
+  view,
+  tx,
+  online,
+}: {
+  view: EnigmaView;
+  tx: TransmissionView;
+  online: (id: string) => boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
+      <p className="mb-1 text-xs font-semibold text-stone-500">Your team's picks</p>
+      <ul className="flex flex-wrap gap-1.5">
+        {tx.voters.map((id) => {
+          const v = tx.teamVotes[id];
+          return (
+            <li key={id}>
+              <Badge
+                className={cn(
+                  v?.locked &&
+                    'bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
+                )}
+              >
+                {!online(id) && (
+                  <span
+                    aria-label="offline"
+                    className="mr-1 inline-block size-2 rounded-full bg-stone-400"
+                  />
+                )}
+                {nameOf(view, id)} {v ? formatCode(v.draft) : 'picking…'} {v?.locked ? '🔒' : ''}
+              </Badge>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function CodePicker({
+  view,
+  tx,
+  act,
+  online,
+}: {
+  view: EnigmaView;
+  tx: TransmissionView;
+  act: Act;
+  online: (id: string) => boolean;
+}) {
   const me = view.me!;
   const mine = tx.teamVotes[me.id];
   // Your own taps are kept locally: building each pick on the last server-confirmed draft would
@@ -131,26 +218,7 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
         </div>
       ))}
 
-      <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-        <p className="mb-1 text-xs font-semibold text-stone-500">Your team's picks</p>
-        <ul className="flex flex-wrap gap-1.5">
-          {tx.voters.map((id) => {
-            const v = tx.teamVotes[id];
-            return (
-              <li key={id}>
-                <Badge
-                  className={cn(
-                    v?.locked &&
-                      'bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
-                  )}
-                >
-                  {nameOf(view, id)} {v ? formatCode(v.draft) : 'picking…'} {v?.locked ? '🔒' : ''}
-                </Badge>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+      <Picks view={view} tx={tx} online={online} />
 
       {tx.disagree && (
         <p
@@ -247,8 +315,22 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
         <p className="text-center text-sm font-semibold">
           {tx.timedOut
             ? `⏱ Time ran out before ${nameOf(view, tx.encryptor)} sent clues.`
-            : 'No clues were sent: nobody was left on the team to decode them.'}
+            : 'No clues were sent: nobody was left on the team.'}
         </p>
+      )}
+      {tx.clues && tx.code && (
+        // Which clue went with which keyword number: the heart of the game.
+        <ul aria-label="Clues and their numbers" className="space-y-0.5 text-center">
+          {tx.clues.map((clue, i) => {
+            const keyword = view.teams[tx.team].keywords?.[tx.code![i]! - 1];
+            return (
+              <li key={i}>
+                <b>“{clue}”</b> → <b className="font-mono">#{tx.code![i]}</b>
+                {keyword && <span className="text-sm text-stone-500 uppercase"> {keyword}</span>}
+              </li>
+            );
+          })}
+        </ul>
       )}
       <p
         className={cn(
@@ -261,11 +343,13 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
           : `✗ ${sender} ${
               tx.expired
                 ? 'had nothing to decode'
-                : r.decodeGuess
-                  ? `missed it (guessed ${formatCode(r.decodeGuess)})`
-                  : tx.guessTimedOut
-                    ? "didn't agree on a code before time ran out"
-                    : "didn't agree on a code"
+                : tx.noDecoders
+                  ? 'had nobody left to decode'
+                  : r.decodeGuess
+                    ? `missed it (guessed ${formatCode(r.decodeGuess)})`
+                    : tx.guessTimedOut
+                      ? "didn't agree on a code before time ran out"
+                      : "didn't agree on a code"
             }: miscommunication! ${sender} gets 💥 (${tokensSoFar(view, tx, 'miss')} of ${TOKENS_TO_END}).`}
       </p>
       {canIntercept && (
@@ -286,6 +370,41 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
               }.`}
         </p>
       )}
+      {view.phase === 'playing' && view.teams[tx.team].nextEncryptor && (
+        <p className="text-center text-sm text-stone-500">
+          Next {sender} Encryptor: <b>{nameOf(view, view.teams[tx.team].nextEncryptor!)}</b>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** For the host: offline players the vote is waiting on, each with a Skip button. */
+function SkipOffline({
+  view,
+  tx,
+  act,
+  online,
+}: {
+  view: EnigmaView;
+  tx: TransmissionView;
+  act: Act;
+  online: (id: string) => boolean;
+}) {
+  const offline = tx.waitingOn.filter((id) => !online(id));
+  if (offline.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm">
+      {offline.map((id) => (
+        <Button
+          key={id}
+          size="sm"
+          variant="secondary"
+          onClick={() => void act({ type: 'skip-voter', team: tx.team, player: id })}
+        >
+          Skip {nameOf(view, id)}'s vote (offline)
+        </Button>
+      ))}
     </div>
   );
 }
@@ -295,10 +414,14 @@ export function TransmissionCard({
   view,
   tx,
   act,
+  online = () => true,
+  isHost = false,
 }: {
   view: EnigmaView;
   tx: TransmissionView;
   act: Act;
+  online?: (id: string) => boolean;
+  isHost?: boolean;
 }) {
   const encryptor = nameOf(view, tx.encryptor);
   let body;
@@ -315,7 +438,7 @@ export function TransmissionCard({
         </p>
       );
   } else if ((tx.role === 'decoder' || tx.role === 'interceptor') && !tx.settled) {
-    body = <CodePicker view={view} tx={tx} act={act} />;
+    body = <CodePicker view={view} tx={tx} act={act} online={online} />;
   } else {
     body = (
       <div className="space-y-2 text-center">
@@ -332,11 +455,15 @@ export function TransmissionCard({
               ? 'Interception starts in round 2. Just watch for now.'
               : 'You joined after guessing started. Watch this one; you play from the next clues.'
             : tx.role === 'encryptor'
-              ? 'Your team is decoding. No hints!'
+              ? 'Your team is decoding. No hints, in chat or notes!'
               : tx.settled && tx.voters.length > 0
                 ? 'Your team has locked in. Waiting for everyone else…'
                 : 'Teams are guessing…'}
         </p>
+        {/* The Encryptor watches the team's picks, read-only. */}
+        {tx.role === 'encryptor' && !tx.settled && tx.voters.length > 0 && (
+          <Picks view={view} tx={tx} online={online} />
+        )}
       </div>
     );
   }
@@ -350,6 +477,9 @@ export function TransmissionCard({
         <span className="text-xs text-stone-500">Encryptor: {encryptor}</span>
       </header>
       {body}
+      {isHost && view.stage === 'guess' && !tx.revealed && (
+        <SkipOffline view={view} tx={tx} act={act} online={online} />
+      )}
     </Panel>
   );
 }

@@ -133,7 +133,13 @@ export function defineMasquerade(
     const spies = rng
       .shuffle(players)
       .slice(0, spyCountFor(state.settings.twoSpies, players.length));
-    const starter = players[(state.starterOffset + number - 1) % players.length]!;
+    // Everyone starts once before anyone starts twice: the first player along from round 1's
+    // opener who hasn't started yet, whoever has left or joined since.
+    let started = (state.started ?? []).filter((p) => players.includes(p));
+    if (started.length >= players.length) started = [];
+    const from = state.starterOffset % players.length;
+    const order = [...players.slice(from), ...players.slice(0, from)];
+    const starter = order.find((p) => !started.includes(p))!;
     const round: Round = {
       number,
       deal: state.deals + 1,
@@ -157,6 +163,7 @@ export function defineMasquerade(
       seed: newSeed(rng),
       deals: state.deals + 1,
       used: [...used, location],
+      started: [...started, starter],
       round,
     };
   }
@@ -271,6 +278,7 @@ export function defineMasquerade(
       notice: null,
       winners: [],
       starterOffset: ctx.rng.int(players.length),
+      started: [],
       gamesPlayed: state.gamesPlayed + 1,
     };
     return deal(next, 1, ctx.now, ctx.rng);
@@ -394,6 +402,21 @@ export function defineMasquerade(
     return state;
   }
 
+  /** Watchers waiting for a seat sit down, in join order, while there's room. */
+  function fillSeats(state: MasqueradeState): MasqueradeState {
+    let free = MAX_SEATS - seated(state).length;
+    if (free <= 0) return state;
+    const seats = { ...state.seats };
+    for (const [id, s] of Object.entries(seats)) {
+      if (free <= 0) break;
+      if (!s.playing) {
+        seats[id] = { ...s, playing: true };
+        free -= 1;
+      }
+    }
+    return { ...state, seats };
+  }
+
   /** Newcomers sit down while there's room; mid-game they watch until the next round. */
   function playerJoined(state: MasqueradeState, player: PlayerInfo): MasqueradeState {
     const existing = state.seats[player.id];
@@ -410,22 +433,36 @@ export function defineMasquerade(
   }
 
   /**
-   * Someone left for good. A spy leaving mid-round voids the round, which is dealt again; anyone
-   * else is dropped, with their vote and the votes cast for them. Under three players, the game
-   * goes back to the lobby.
+   * Someone left for good, and a watcher waiting for a seat takes theirs. A spy leaving before
+   * the vote resolves voids the round, which is dealt again; a caught spy leaving during their
+   * guess counts as a wrong guess. Anyone else is dropped, with their vote and the votes cast
+   * for them. Under three players, the game goes back to the lobby.
    */
   function playerLeft(state: MasqueradeState, playerId: PlayerId, now: number): MasqueradeState {
     const seat = state.seats[playerId];
     if (!seat) return state;
     const seats = { ...state.seats };
     delete seats[playerId];
-    const next: MasqueradeState = { ...state, seats };
+    const next: MasqueradeState = fillSeats({ ...state, seats });
     if (next.phase !== 'playing') return next;
     if (seated(next).length < MIN_PLAYERS) return toLobby(next, 'too-few');
     const round = next.round;
     if (!round || !round.players.includes(playerId) || round.stage === 'reveal') return next;
+    if (round.spies.includes(playerId) && round.stage === 'guess') {
+      // The vote is over: a caught spy who leaves without guessing has guessed wrong, and a
+      // hidden spy who leaves has still escaped. The locals keep what they earned.
+      if (!round.caught.includes(playerId) || playerId in round.guesses) return next;
+      const guesses = { ...round.guesses, [playerId]: null };
+      const out = withRound(next, { guesses });
+      return round.caught.every((s) => s in guesses) ? finishRound(out) : out;
+    }
     if (round.spies.includes(playerId)) {
-      const redealt = deal(next, round.number, now, hiddenRng(next, now));
+      // The voided round's opener gets to open the new deal too, unless they're the leaver.
+      const reopened = {
+        ...next,
+        started: (next.started ?? []).filter((p) => p !== round.starter),
+      };
+      const redealt = deal(reopened, round.number, now, hiddenRng(next, now));
       return withRound(redealt, { redealtAfter: round.names[playerId] ?? seat.name });
     }
     const players = round.players.filter((p) => p !== playerId);
@@ -519,6 +556,7 @@ export function defineMasquerade(
           !(viewer in round.guesses),
         result: round.stage === 'reveal' ? round.result : null,
         redealtAfter: round.redealtAfter,
+        spyStillHidden: round.stage === 'guess' && round.caught.length < round.spies.length,
       };
     }
     const playing = seatViews.filter((s) => s.playing).length;
@@ -541,6 +579,14 @@ export function defineMasquerade(
       round: roundView,
       notice: state.notice,
       winners: state.winners,
+      // The location in play stays hidden until its reveal.
+      played:
+        state.phase === 'lobby'
+          ? []
+          : state.used.filter(
+              (l) =>
+                !(state.phase === 'playing' && round?.stage !== 'reveal' && l === round?.location),
+            ),
     };
   }
 

@@ -162,7 +162,9 @@ function playingStatus(
         };
       }
       const missed = turn.missed.includes(me)
-        ? '⏱ You ran out of time, so there is no clue from you this card. '
+        ? turn.skipped
+          ? 'The host went on without your clue this card. '
+          : '⏱ You ran out of time, so there is no clue from you this card. '
         : '';
       return { text: `${missed}Waiting for ${guesser} to guess…`, yourMove: false };
     }
@@ -194,9 +196,10 @@ function playingStatus(
     case 'reveal': {
       const next = view.cardsLeft > 0 ? 'Next card' : 'Finish';
       const what = view.cardsLeft > 0 ? 'deal the next card' : 'finish the game';
-      const tail = isHost
-        ? ` Press ${next} when everyone has had a look.`
-        : ` ${people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`}`;
+      const tail =
+        isHost || view.me?.playing
+          ? ` Anyone at the table can press ${next} when everyone has had a look.`
+          : ` ${people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`}`;
       const upNext = view.cardsLeft > 0 ? nextGuesser(view, turn) : null;
       const who = upNext ? ` Next guesser: ${upNext}.` : '';
       return { text: outcomeText(view, turn) + who + tail, yourMove: isHost };

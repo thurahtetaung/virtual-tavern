@@ -37,7 +37,8 @@ export const guide: GameGuide = {
         'Players take turns round the table: draw one, play one.',
         'Cards that target a player can’t pick someone who is protected by the Handmaid or already out. If nobody can be chosen, the card is played with no effect (the Prince can always pick you).',
         'When you are knocked out, your hand is shown and you sit out the rest of the round.',
-        'The round ends when only one player is left, or when the deck is empty after a turn. Then everyone still in shows their card and the highest wins a favour token.',
+        'The round ends when only one player is left, or when the deck is empty after a turn. Then everyone still in shows their card and the highest wins a favour token. The result also shows the face-down set-aside card and how many tokens everyone has.',
+        'Private information goes to your Notes: what your Priest saw, your Baron comparison, your King trade and, in 2019, the cards your Chancellor put at the bottom. When someone’s Priest looks at your card, you get a note too, so you know they know it. Notes show the current round; earlier rounds are folded away.',
       ],
     },
     {
@@ -59,16 +60,16 @@ export const guide: GameGuide = {
         'The 2019 deck has 21 cards. It adds the Spy and the Chancellor and has one more Guard; the King, Countess and Princess move up a rank.',
       ],
       bullets: [
-        '0 · Spy (×2): no effect when played. At the end of the round, if exactly one player still in has played or discarded a Spy, they gain a bonus token, even if they didn’t win the round.',
+        '0 · Spy (×2): no effect when played. At the end of the round, if exactly one player still in has played or discarded a Spy, they gain a bonus token, even if they didn’t win the round. If two players still in have both played one, nobody gets the bonus, and the result says so. A 🕶️ badge marks every player still in who has played a Spy.',
         '1 · Guard (×6), 2 · Priest (×2), 3 · Baron (×2), 4 · Handmaid (×2), 5 · Prince (×2): as in Classic. The Guard may also name the Spy.',
-        '6 · Chancellor (×2): draw two cards, keep one of the three in your hand, and put the other two on the bottom of the deck in the order you choose.',
+        '6 · Chancellor (×2): draw two cards, keep one of the three in your hand, and put the other two on the bottom of the deck in the order you choose. Your notes remember which cards you put there, and the Card count shows them as still in the deck until they are drawn.',
         '7 · King (×1), 8 · Countess (×1), 9 · Princess (×1): as in Classic.',
       ],
     },
     {
       title: 'Ties and winning',
       bullets: [
-        'Classic: if the highest cards tie, the tied player whose discards add up to more wins. If that is a tie too, nobody wins the round.',
+        'Classic: if the highest cards tie, the tied player whose discards add up to more wins. If that is a tie too, nobody wins the round, and the result says “Still tied on discards, so nobody wins the token”.',
         '2019: every tied player wins a token.',
         'Tokens to win, Classic: 7 with 2 players, 5 with 3, 4 with 4.',
         'Tokens to win, 2019: 6 with 2 players, 5 with 3, 4 with 4, 3 with 5 or 6.',
@@ -81,7 +82,7 @@ export const guide: GameGuide = {
       bullets: [
         'Players joining during a game watch it, and are dealt in when the host starts the next one, if the edition has a seat free. When the host picks an edition with more seats, whoever was waiting for one sits down.',
         'Between games, in the lobby or on the final podium, anyone can tap Take a seat or Sit out (watch). Someone who chose to watch stays watching until they take a seat again.',
-        'Someone who leaves mid-round is knocked out and their hand is shown. With fewer than two players left the game ends, and the most tokens wins.',
+        'Someone who leaves mid-round is knocked out and their hand is shown. If they leave while choosing which card to keep after a Chancellor, the two cards they drew go back to the bottom of the deck unseen, and only the card they held before is shown. With fewer than two players left the game ends, and the most tokens wins.',
       ],
     },
     {
@@ -107,7 +108,8 @@ export const guide: GameGuide = {
     },
     {
       term: 'Notes',
-      meaning: 'What only you have learned this game, from a Priest, Baron or King.',
+      meaning:
+        'What only you have learned this round, from a Priest, Baron, King or Chancellor, or that someone’s Priest saw your card.',
     },
   ],
 };

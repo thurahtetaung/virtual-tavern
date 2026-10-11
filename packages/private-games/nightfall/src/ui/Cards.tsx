@@ -1,6 +1,13 @@
 import { Badge, Modal, ProtectedImage, cn } from '@vt/ui';
 import { type ReactNode, createContext, useContext, useState } from 'react';
-import { ARTIFACTS, type ArtifactId, type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
+import {
+  ARTIFACTS,
+  type ArtifactId,
+  type MarkId,
+  ROLES,
+  type RoleId,
+  winFor,
+} from '../logic/roles.ts';
 import type { Deck } from './assets.ts';
 import { TEAM_LABEL } from './text.ts';
 
@@ -302,28 +309,49 @@ export function Token({
 // ---- Tap any card name to read it ----
 
 const Details = createContext<(role: RoleId) => void>(() => {});
+/** The cards in this game (and the Curator's artifacts), so a role's win reads for this setup. */
+const Setup = createContext<{ roles: readonly RoleId[]; artifacts: readonly ArtifactId[] } | null>(
+  null,
+);
 const MarkSheet = createContext<(mark: MarkId, doppel?: boolean) => void>(() => {});
 
 /** Lets every `RoleChip` and `MarkChip` below open its details in one shared sheet. */
-export function RoleDetailsProvider({ deck, children }: { deck: Deck; children: ReactNode }) {
+export function RoleDetailsProvider({
+  deck,
+  roles,
+  artifacts,
+  children,
+}: {
+  deck: Deck;
+  roles?: readonly RoleId[];
+  artifacts?: readonly ArtifactId[];
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState<RoleId | null>(null);
   const [mark, setMark] = useState<{ mark: MarkId; doppel: boolean } | null>(null);
+  const setup = roles ? { roles, artifacts: artifacts ?? [] } : null;
   return (
-    <Details.Provider value={setOpen}>
-      <MarkSheet.Provider value={(m, doppel) => setMark({ mark: m, doppel: doppel === true })}>
-        {children}
-      </MarkSheet.Provider>
-      <Modal open={open !== null} onClose={() => setOpen(null)} title={open ? deck.name(open) : ''}>
-        {open && <RoleDetails role={open} deck={deck} />}
-      </Modal>
-      <Modal
-        open={mark !== null}
-        onClose={() => setMark(null)}
-        title={mark ? deck.markName(mark.mark) : ''}
-      >
-        {mark && <MarkDetails mark={mark.mark} deck={deck} doppel={mark.doppel} />}
-      </Modal>
-    </Details.Provider>
+    <Setup.Provider value={setup}>
+      <Details.Provider value={setOpen}>
+        <MarkSheet.Provider value={(m, doppel) => setMark({ mark: m, doppel: doppel === true })}>
+          {children}
+        </MarkSheet.Provider>
+        <Modal
+          open={open !== null}
+          onClose={() => setOpen(null)}
+          title={open ? deck.name(open) : ''}
+        >
+          {open && <RoleDetails role={open} deck={deck} />}
+        </Modal>
+        <Modal
+          open={mark !== null}
+          onClose={() => setMark(null)}
+          title={mark ? deck.markName(mark.mark) : ''}
+        >
+          {mark && <MarkDetails mark={mark.mark} deck={deck} doppel={mark.doppel} />}
+        </Modal>
+      </Details.Provider>
+    </Setup.Provider>
   );
 }
 
@@ -331,6 +359,7 @@ export const useRoleDetails = () => useContext(Details);
 
 export function RoleDetails({ role, deck }: { role: RoleId; deck: Deck }) {
   const def = ROLES[role];
+  const setup = useContext(Setup);
   return (
     <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:text-left">
       <CardFace role={role} deck={deck} size="lg" />
@@ -341,7 +370,9 @@ export function RoleDetails({ role, deck }: { role: RoleId; deck: Deck }) {
           {def.count > 1 && <Badge>×{def.count} in the box</Badge>}
         </div>
         <p>{deck.text(role)}</p>
-        <p className="text-sm text-stone-600 dark:text-stone-400">{def.win}</p>
+        <p className="text-sm text-stone-600 dark:text-stone-400">
+          {setup ? winFor(role, setup.roles, setup.artifacts) : def.win}
+        </p>
       </div>
     </div>
   );
@@ -353,11 +384,14 @@ export function RoleChip({
   deck,
   className,
   muted,
+  light,
 }: {
   role: RoleId;
   deck: Deck;
   className?: string;
   muted?: boolean;
+  /** On a light strip in the always-dark night: keep the light colours. */
+  light?: boolean;
 }) {
   const open = useRoleDetails();
   return (
@@ -367,9 +401,11 @@ export function RoleChip({
       data-role={role}
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1 transition hover:brightness-95',
-        muted
-          ? 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700'
-          : 'bg-amber-50 text-amber-950 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40',
+        light
+          ? 'bg-white text-stone-950 ring-stone-500'
+          : muted
+            ? 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700'
+            : 'bg-amber-50 text-amber-950 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40',
         className,
       )}
     >
@@ -499,11 +535,14 @@ export function MarkChip({
   deck,
   doppel,
   className,
+  light,
 }: {
   mark: MarkId;
   deck: Deck;
   doppel?: boolean;
   className?: string;
+  /** On a light strip in the always-dark night: keep the light colours. */
+  light?: boolean;
 }) {
   const open = useContext(MarkSheet);
   return (
@@ -512,7 +551,10 @@ export function MarkChip({
       onClick={() => open(mark, doppel)}
       data-mark={mark}
       className={cn(
-        'inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 align-middle text-sm font-semibold text-rose-950 ring-1 ring-rose-300 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
+        'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1',
+        light
+          ? 'bg-white text-rose-950 ring-rose-500'
+          : 'bg-rose-50 text-rose-950 ring-rose-300 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
         className,
       )}
     >

@@ -6,3 +6,4 @@ export * from './words.ts';
 export * from './people.ts';
 export * from './standings.ts';
 export * from './timeouts.ts';
+export * from './matching.ts';

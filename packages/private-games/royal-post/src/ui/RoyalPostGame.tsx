@@ -38,7 +38,20 @@ import {
   useCardReader,
 } from './CardChip.tsx';
 import { type Status, startBlocker, statusFor } from './status.ts';
-import { cardText, describeLog, describeNote, listNames, nameOf, unseenCounts } from './text.ts';
+import {
+  cardText,
+  describeLog,
+  describeNote,
+  listNames,
+  nameOf,
+  noteOther,
+  notesByRound,
+  roundEndingNotes,
+  spyBonusLine,
+  tiebreakLine,
+  tokensLine,
+  unseenCounts,
+} from './text.ts';
 
 export type RoyalPostUiProps = GameUiProps<RoyalPostView, RoyalPostAction>;
 type Act = RoyalPostUiProps['act'];
@@ -452,6 +465,8 @@ function PlayerTile({
   const seat = view.seats.find((s) => s.id === p.id);
   const isTurn = round.current === p.id && round.stage !== 'over' && view.phase === 'playing';
   const me = p.id === view.me?.id;
+  // Still in and has played (or discarded) a Spy: in line for the Spy bonus, if alone.
+  const spy = !p.out && p.discards.includes('spy');
   return (
     <li
       aria-label={`${p.name}${me ? ' (you)' : ''}`}
@@ -491,7 +506,7 @@ function PlayerTile({
           )}
         </span>
       </div>
-      {(isTurn || p.protected) && (
+      {(isTurn || p.protected || spy) && (
         <div className="flex flex-wrap gap-1">
           {isTurn && (
             <Badge className="bg-amber-200 px-1.5 py-0 text-[0.65rem] text-amber-950 dark:bg-amber-500/30 dark:text-amber-100">
@@ -502,6 +517,16 @@ function PlayerTile({
             <Badge className="bg-rose-100 px-1.5 py-0 text-[0.65rem] text-rose-900 dark:bg-rose-500/20 dark:text-rose-100">
               <span aria-label="protected" title="Protected by the Handmaid until their next turn">
                 🌸 protected
+              </span>
+            </Badge>
+          )}
+          {spy && (
+            <Badge className="bg-stone-200 px-1.5 py-0 text-[0.65rem] text-stone-900 dark:bg-stone-700 dark:text-stone-100">
+              <span
+                aria-label="played a Spy"
+                title="Played a Spy: gains a token if the only player still in who did"
+              >
+                🕶️ spy
               </span>
             </Badge>
           )}
@@ -639,7 +664,7 @@ function Table({
         </ul>
       )}
 
-      {round && round.faceUp.length > 0 && round.stage !== 'over' && (
+      {round && round.faceUp.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
           <span>Set aside face up (out of this round, so nobody holds these):</span>
           <ul aria-label="Set aside face up" className="flex gap-1.5">
@@ -1111,10 +1136,17 @@ function ChancellorSheet({
 
 /** The cards a note is about, each with a caption, to show with it. */
 function noteCards(view: RoyalPostView, note: Note): { role: Role; caption: string }[] {
-  const other = nameOf(view, note.kind === 'peek' ? note.target : note.other);
+  const other = nameOf(view, noteOther(note));
   switch (note.kind) {
     case 'peek':
       return [{ role: note.card, caption: other }];
+    case 'seen':
+      return [{ role: note.card, caption: `${other} knows` }];
+    case 'bottom':
+      return note.cards.map((role, i) => ({
+        role,
+        caption: i === note.cards.length - 1 ? 'Very bottom' : 'Above it',
+      }));
     case 'compare':
       return [
         { role: note.mine, caption: 'You' },
@@ -1128,13 +1160,22 @@ function noteCards(view: RoyalPostView, note: Note): { role: Role; caption: stri
   }
 }
 
-/** Pops up each new private note (a Priest peek, a Baron comparison, a King trade). */
+/**
+ * Pops up each new private note (a Priest peek, a Baron comparison, a King trade), while the
+ * round is in play. A note made by the move that ends the round shows in the round result
+ * instead, so the pop-up never covers it or Next round.
+ */
 function Reveal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   const { read } = useCardReader();
   const latest = view.notes.at(-1);
   // Notes that were already there when the page opened don't pop up again.
   const [seen, setSeen] = useState(() => latest?.id ?? 0);
-  const note = latest && latest.id > seen ? latest : null;
+  const inPlay =
+    view.phase === 'playing' &&
+    !!view.round &&
+    view.round.stage !== 'over' &&
+    latest?.round === view.round.number;
+  const note = latest && latest.id > seen && inPlay ? latest : null;
   return (
     <Modal
       open={note !== null}
@@ -1217,7 +1258,7 @@ function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
     { id: 'log', label: 'Log' },
     { id: 'count', label: 'Card count' },
     ...(view.notes.length > 0
-      ? [{ id: 'notes' as const, label: `Notes (${view.notes.length})` }]
+      ? [{ id: 'notes' as const, label: `Notes (${notesByRound(view).current.length})` }]
       : []),
   ];
   const current = tabs.some((t) => t.id === tab) ? tab : 'log';
@@ -1245,7 +1286,11 @@ function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
           </button>
         ))}
       </div>
-      <div role="tabpanel" className="max-h-56 overflow-y-auto px-3 py-2 sm:max-h-72">
+      <div
+        role="tabpanel"
+        // The card count is short and fixed, so it shows in full; the rest scroll in a box.
+        className={cn('px-3 py-2', current !== 'count' && 'max-h-56 overflow-y-auto sm:max-h-72')}
+      >
         {current === 'log' && <Log view={view} />}
         {current === 'count' && <CardCount view={view} deck={deck} />}
         {current === 'notes' && <Notes view={view} />}
@@ -1255,16 +1300,35 @@ function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
 }
 
 function Notes({ view }: { view: RoyalPostView }) {
+  const { current, earlier } = notesByRound(view);
   return (
-    <ul aria-label="Your notes" className="space-y-1 text-sm leading-7">
-      <li className="text-xs leading-normal text-stone-500">Only you see these.</li>
-      {[...view.notes].reverse().map((n) => (
-        <li key={n.id}>
-          <span className="text-stone-500">Round {n.round}: </span>
-          <Rich line={describeNote(view, n)} />
+    <div className="space-y-2">
+      <ul aria-label="Your notes" className="space-y-1 text-sm leading-7">
+        <li className="text-xs leading-normal text-stone-500">
+          Only you see these. {current.length === 0 && 'Nothing yet this round.'}
         </li>
-      ))}
-    </ul>
+        {[...current].reverse().map((n) => (
+          <li key={n.id}>
+            <Rich line={describeNote(view, n)} />
+          </li>
+        ))}
+      </ul>
+      {earlier.length > 0 && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-xs font-semibold text-stone-500">
+            Earlier rounds ({earlier.length})
+          </summary>
+          <ul aria-label="Earlier notes" className="mt-1 space-y-1 leading-7 text-stone-500">
+            {[...earlier].reverse().map((n) => (
+              <li key={n.id}>
+                <span>Round {n.round}: </span>
+                <Rich line={describeNote(view, n)} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -1306,11 +1370,19 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
         {left} card{left === 1 ? '' : 's'} you haven’t seen: in other hands, the deck (
         {view.round.deckCount}) or set aside face down. Discards and your own hand are counted out.
       </p>
+      {view.knownDeck.length > 0 && (
+        <p className="text-xs text-amber-800 dark:text-amber-300" data-testid="known-deck">
+          📜 Still in the deck, as you put them: the last {view.knownDeck.length} card
+          {view.knownDeck.length === 1 ? ' is ' : 's are '}
+          {listNames(view.knownDeck.map((r) => deck.name(r)))}
+          {view.knownDeck.length > 1 && ' (the very bottom last)'}.
+        </p>
+      )}
       <ul aria-label="Card count" className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
         {counts.map((c) => (
           <li
             key={c.role}
-            aria-label={`${deck.name(c.role)}: ${c.unseen} of ${c.total} unseen`}
+            aria-label={`${deck.name(c.role)}: ${c.unseen} of ${c.total} unseen${c.inDeck ? `, ${c.inDeck} known in the deck` : ''}`}
             className={cn('flex items-center gap-2', c.unseen === 0 && 'opacity-50')}
           >
             <span className="min-w-0 flex-1">
@@ -1332,6 +1404,9 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
             <span aria-hidden className="w-10 text-right text-xs text-stone-500 tabular-nums">
               {c.unseen}/{c.total}
             </span>
+            {c.inDeck > 0 && (
+              <span className="text-xs text-amber-800 dark:text-amber-300">{c.inDeck} in deck</span>
+            )}
           </li>
         ))}
       </ul>
@@ -1368,6 +1443,41 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   );
 }
 
+/** What the round's end uncovers: your note from its last move, and the face-down card. */
+function RoundSecrets({ view, deck }: { view: RoyalPostView; deck: Deck }) {
+  const round = view.round;
+  const ending = roundEndingNotes(view);
+  return (
+    <>
+      {ending.length > 0 && (
+        <div className="rounded-lg bg-amber-50 px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
+          <p className="text-xs font-semibold text-stone-500">Only you can see this</p>
+          {ending.map((n) => (
+            <p key={n.id}>
+              <Rich line={describeNote(view, n)} />
+            </p>
+          ))}
+        </div>
+      )}
+      {round?.setAsideCard && (
+        <div className="flex items-center justify-center gap-2 text-sm" data-testid="set-aside">
+          <span className="w-10">
+            <Card
+              role={round.setAsideCard}
+              rank={rankIn(view.settings.edition, round.setAsideCard)}
+              deck={deck}
+              size="xs"
+            />
+          </span>
+          <span>
+            The face-down card was <CardChip role={round.setAsideCard} />.
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function RoundResult({
   view,
   deck,
@@ -1384,6 +1494,8 @@ function RoundResult({
   if (!result) return null;
   const name = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
   const won = result.winners.map(name);
+  const tiebreak = tiebreakLine(view);
+  const spyLine = spyBonusLine(view);
   const headline = won.length
     ? `${listNames(won)} ${won.length > 1 || won[0] === 'You' ? 'win' : 'wins'} the round!`
     : 'Nobody wins the round.';
@@ -1394,18 +1506,19 @@ function RoundResult({
         {result.reason === 'last-standing'
           ? 'Everyone else was knocked out.'
           : 'The deck ran out, so the highest card won.'}
-        {result.discardTotals &&
-          ` Tied cards were settled on discards: ${Object.entries(result.discardTotals)
-            .map(([id, n]) => `${nameOf(view, id)} ${n}`)
-            .join(', ')}.`}
-        {result.spy && (
+        {tiebreak && ` ${tiebreak}`}
+        {spyLine && (
           <>
             {' '}
-            {name(result.spy)} gained a token for the <CardChip role="spy" />.
+            <Rich line={spyLine} />
           </>
         )}
       </p>
+      <p className="text-sm font-semibold" data-testid="tokens-to-win">
+        {tokensLine(view)}
+      </p>
       <FinalHands view={view} deck={deck} />
+      <RoundSecrets view={view} deck={deck} />
       {room.isHost ? (
         <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
           Next round
@@ -1446,6 +1559,7 @@ function Podium({
             Last round: <Rich line={describeLog(view, last)} />
           </p>
           <FinalHands view={view} deck={deck} />
+          <RoundSecrets view={view} deck={deck} />
         </div>
       )}
       {room.isHost ? (

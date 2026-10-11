@@ -235,7 +235,7 @@ function endRound(state: RoyalPostState, reason: RoundEndReason): RoyalPostState
   };
   winners.forEach(gain);
   if (spy) gain(spy);
-  const result: RoundResult = { reason, winners, hands, discardTotals, spy };
+  const result: RoundResult = { reason, winners, hands, discardTotals, spy, spies };
   let next: RoyalPostState = {
     ...state,
     seats,
@@ -283,6 +283,7 @@ function finishTurn(state: RoyalPostState, now: number): RoyalPostState {
     current: nextId,
     stage: 'play',
     deck,
+    topDrawn: (round.topDrawn ?? 0) + 1,
     deadline: deadline(state.settings.turnSeconds, now),
     players: {
       ...round.players,
@@ -367,7 +368,10 @@ function play(
     }
     case 'priest': {
       if (!target) break;
-      notes.push([by, { kind: 'peek', target, card: cur().players[target]!.hand[0]! }]);
+      const seen = cur().players[target]!.hand[0]!;
+      notes.push([by, { kind: 'peek', target, card: seen }]);
+      // The target is told too, so they know someone knows their card.
+      notes.push([target, { kind: 'seen', by, card: seen }]);
       break;
     }
     case 'baron': {
@@ -402,12 +406,13 @@ function play(
       }
       const deck = [...cur().deck];
       let drawn: Role | undefined = deck.shift();
+      const topDrawn = (cur().topDrawn ?? 0) + (drawn === undefined ? 0 : 1);
       let setAside = cur().setAside;
       if (drawn === undefined && setAside !== null) {
         drawn = setAside;
         setAside = null;
       }
-      next = withRound(next, { deck, setAside });
+      next = withRound(next, { deck, setAside, topDrawn });
       next = withPlayer(next, target, {
         hand: drawn === undefined ? [] : [drawn],
         discards: [...p.discards, discarded],
@@ -421,6 +426,7 @@ function play(
       if (drawn.length === 0) break;
       next = withRound(next, {
         deck,
+        topDrawn: (cur().topDrawn ?? 0) + drawn.length,
         stage: 'chancellor',
         deadline: deadline(state.settings.turnSeconds, now),
       });
@@ -477,6 +483,18 @@ function chancellorKeep(
     return new GameError('wrong-count', 'Keep one card and put the rest on the bottom.');
   let next = withRound(state, { deck: [...round.deck, ...action.bottomOrder], stage: 'play' });
   next = withPlayer(next, by, { hand: [action.keep] });
+  if (action.bottomOrder.length > 0) {
+    // Only the Chancellor knows what went under the deck: a private note, which the card count
+    // uses while those cards are still in the deck.
+    const note: NewNote = {
+      kind: 'bottom',
+      cards: [...action.bottomOrder],
+      from: round.deck.length,
+      at: round.topDrawn ?? 0,
+      ...(timedOut ? { timedOut: true } : {}),
+    };
+    next = addNote(next, by, note);
+  }
   if (timedOut) {
     // Say so on the Chancellor line, so nobody thinks the slow player chose.
     const at = next.log.findLastIndex((e) => e.kind === 'play' && e.by === by);
@@ -678,6 +696,14 @@ function playerLeft(state: RoyalPostState, playerId: PlayerId, now: number): Roy
   const round = next.round;
   if (next.phase !== 'playing' || !round || !seat.playing) return next;
   const inRound = round.players[playerId];
+  if (inRound && !inRound.out && round.stage === 'chancellor' && round.current === playerId) {
+    // Leaving mid-choice: the drawn cards go back under the deck, unseen, so only the card they
+    // held before the Chancellor is shown as they leave.
+    const drew = inRound.hand.length - 1;
+    const back = inRound.hand.slice(-drew);
+    next = withRound(next, { deck: [...round.deck, ...back], stage: 'play' });
+    next = withPlayer(next, playerId, { hand: inRound.hand.slice(0, -drew) });
+  }
   if (inRound && !inRound.out && round.stage !== 'over') {
     next = knockOut(next, playerId, 'left', null);
   } else if (inRound) {
@@ -751,6 +777,25 @@ function onDeadline(state: RoyalPostState, now: number): RoyalPostState {
 
 // ---- Views ----
 
+/**
+ * The cards a player's Chancellor notes say are still in the deck: each sits `from + i` places
+ * from the top when put there, and moves up one for every card since taken off the top. Cards put
+ * underneath later don't move it, so a card is still there until enough have been drawn.
+ */
+export function knownDeck(round: Round, notes: readonly Note[]): Role[] {
+  if (round.stage === 'over') return [];
+  const drawn = round.topDrawn ?? 0;
+  const known: { at: number; card: Role }[] = [];
+  for (const n of notes) {
+    if (n.kind !== 'bottom' || n.round !== round.number) continue;
+    n.cards.forEach((card, i) => {
+      const place = n.from + i - (drawn - n.at);
+      if (place >= 0) known.push({ at: place, card });
+    });
+  }
+  return known.sort((a, b) => a.at - b.at).map((k) => k.card);
+}
+
 function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
   const seatViews: SeatView[] = Object.entries(state.seats).map(([id, s]) => ({
     id,
@@ -790,6 +835,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
           stage: round.stage,
           deckCount: round.deck.length,
           setAside: round.setAside !== null,
+          setAsideCard: round.stage === 'over' ? round.setAside : null,
           faceUp: [...round.faceUp],
           deadline: round.deadline,
           result: round.result,
@@ -798,6 +844,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
     hand: viewer === null || !round ? [] : [...(round.players[viewer]?.hand ?? [])],
     log: state.log,
     notes: viewer === null ? [] : [...(state.notes[viewer] ?? [])],
+    knownDeck: viewer === null || !round ? [] : knownDeck(round, state.notes[viewer] ?? []),
     winners: state.winners,
     endReason: state.endReason,
   };

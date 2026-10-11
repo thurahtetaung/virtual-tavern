@@ -140,10 +140,10 @@ describe('the deciding reveal', () => {
 });
 
 describe('chatMuted', () => {
-  it('mutes the Encryptor only while their own team is decoding', () => {
+  it('mutes the Encryptor from the deal until their own team has decoded', () => {
     const h = startedGame();
     const enc = tx(h, 'red').encryptor;
-    expect(chatMuted(enigma.view(h.state, enc))).toBe(false);
+    expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
     sendClues(h, 'red');
     sendClues(h, 'blue');
     expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
@@ -162,8 +162,8 @@ describe('cluesByKeyword', () => {
     vote(h, 'red', decoders(h, 'red'), code);
     vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
     const columns = cluesByKeyword(enigma.view(h.state, null), 'red');
-    expect(columns[code[0]! - 1]).toEqual([{ round: 1, clue: 'one' }]);
-    expect(columns[code[2]! - 1]).toEqual([{ round: 1, clue: 'three' }]);
+    expect(columns[code[0]! - 1]).toEqual([{ round: 1, clue: 'alpha' }]);
+    expect(columns[code[2]! - 1]).toEqual([{ round: 1, clue: 'charlie' }]);
     expect(columns.flat()).toHaveLength(3);
   });
 });

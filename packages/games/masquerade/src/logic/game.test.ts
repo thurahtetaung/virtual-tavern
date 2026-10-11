@@ -420,3 +420,89 @@ describe('leavers and late joiners', () => {
     expect(round(h).players).toContain('late');
   });
 });
+
+describe('round 2 rule fixes', () => {
+  /** Plays the current round out with nobody voting, then deals the next. */
+  const nextRound = (h: ReturnType<typeof startedGame>) => {
+    allReady(h);
+    deadline(h);
+    h.act({ type: 'next-round' });
+  };
+
+  it('counts a caught spy who leaves during the guess as a wrong guess, not a redeal', () => {
+    const h = allReady(table([...FOUR, 'dee']));
+    const deal = round(h).deal;
+    votes(h, { host: 'cy', ana: 'cy', ben: 'cy', dee: 'cy', cy: 'ana' });
+    expect(round(h).stage).toBe('guess');
+    leave(h, 'cy');
+    expect(round(h)).toMatchObject({ deal, stage: 'reveal' });
+    expect(round(h).result!.spyResults).toEqual([{ id: 'cy', outcome: 'caught', guess: null }]);
+    // The locals keep their points: 1 each, plus 1 for voting for the spy.
+    expect(round(h).result!.points).toMatchObject({ host: 2, ana: 2, ben: 2, dee: 2 });
+  });
+
+  it('still redeals when a spy leaves before the vote is over', () => {
+    const h = allReady(table([...FOUR, 'dee']));
+    const deal = round(h).deal;
+    votes(h, { host: 'cy' });
+    leave(h, 'cy');
+    expect(round(h)).toMatchObject({ deal: deal + 1, stage: 'talk', redealtAfter: 'CY' });
+  });
+
+  it('finishes a two-spy round when the caught spy leaves, the hidden one escaping', () => {
+    const h = startedGame(SEVEN, { twoSpies: true });
+    rig(h, { spies: ['cy', 'dee'], location: 'swimming-pool' });
+    allReady(h);
+    votes(h, { host: 'cy', ana: 'cy', ben: 'cy', eve: 'cy', fin: 'ana', cy: 'ana', dee: 'fin' });
+    expect(round(h)).toMatchObject({ stage: 'guess', caught: ['cy'] });
+    expect(masquerade.view(h.state, 'ana').round!.spyStillHidden).toBe(true);
+    leave(h, 'cy');
+    expect(round(h).stage).toBe('reveal');
+    expect(round(h).result!.spyResults).toEqual([
+      { id: 'cy', outcome: 'caught', guess: null },
+      { id: 'dee', outcome: 'escaped', guess: null },
+    ]);
+  });
+
+  it('lets everyone start once before anyone starts twice, as people leave and join', () => {
+    const h = startedGame([...FOUR, 'dee'], { rounds: 8 });
+    const starters = [round(h).starter];
+    // Someone who hasn't started yet leaves, and a newcomer joins.
+    nextRound(h);
+    starters.push(round(h).starter);
+    const absent = [...FOUR, 'dee'].find((p) => !starters.includes(p) && round(h).spies[0] !== p)!;
+    leave(h, absent);
+    h.state = masquerade.playerJoined(h.state, { id: 'new', name: 'New' });
+    for (let i = 0; i < 3; i++) {
+      nextRound(h);
+      starters.push(round(h).starter);
+    }
+    // Five rounds, five different openers: nobody twice before everyone at the table has opened.
+    expect(new Set(starters).size).toBe(starters.length);
+    expect(starters).toContain('new');
+  });
+
+  it('seats a watcher when a seat frees up', () => {
+    const ids = [HOST, ...Array.from({ length: 12 }, (_, i) => `p${i}`)];
+    const h = startedGame(ids.slice(0, 12));
+    h.state = masquerade.playerJoined(h.state, { id: 'p11', name: 'P11' });
+    expect(h.state.seats.p11!.playing).toBe(false);
+    leave(h, 'p3');
+    expect(h.state.seats.p11!.playing).toBe(true);
+    expect(round(h).players).not.toContain('p11');
+  });
+
+  it('shows played places but never the one in play before its reveal', () => {
+    const h = startedGame();
+    const here = round(h).location;
+    expect(masquerade.view(h.state, 'cy').played).toEqual([]);
+    allReady(h);
+    deadline(h);
+    deadline(h);
+    expect(masquerade.view(h.state, 'cy').played).toEqual([here]);
+    h.act({ type: 'next-round' });
+    const view = masquerade.view(h.state, 'cy');
+    expect(view.played).toEqual([here]);
+    expect(view.played).not.toContain(round(h).location);
+  });
+});

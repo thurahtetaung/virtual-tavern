@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { royalPost } from '../logic/game.ts';
-import { HOST, NOW, rig, startedGame } from '../logic/test-utils.ts';
+import { FOUR, HOST, NOW, rig, startedGame } from '../logic/test-utils.ts';
 import { roleLabel } from './assets.ts';
-import { describeLog, describeNote, plainText, unseenCounts } from './text.ts';
+import {
+  describeLog,
+  describeNote,
+  notesByRound,
+  plainText,
+  roundEndingNotes,
+  spyBonusLine,
+  tiebreakLine,
+  tokensLine,
+  unseenCounts,
+} from './text.ts';
 
 describe('described lines', () => {
   it('keeps card names apart so they can be tapped', () => {
@@ -88,5 +98,84 @@ describe('unseenCounts', () => {
     expect(of('princess')).toMatchObject({ total: 1, unseen: 0 });
     expect(of('handmaid')).toMatchObject({ total: 2, unseen: 1 });
     expect(of('king')).toMatchObject({ total: 1, unseen: 1 });
+  });
+});
+
+describe('round results', () => {
+  it('says why nobody got the Spy bonus', () => {
+    const h = startedGame(undefined, '2019');
+    rig(h, {
+      hands: { [HOST]: ['handmaid', 'priest'], ana: ['king'], ben: ['baron'] },
+      discards: { ana: ['spy'], ben: ['spy'] },
+      deck: [],
+    });
+    h.act({ type: 'play', card: 'handmaid' });
+    const v = royalPost.view(h.state, 'ben');
+    expect(plainText(spyBonusLine(v)!, roleLabel)).toBe(
+      'Both ANA and you played a Spy, so nobody gets the bonus.',
+    );
+    expect(tokensLine(v)).toBe('5 tokens to win: ANA 1, HOST 0, You 0.');
+  });
+
+  it('says a Classic tie still tied on discards gives nobody the token', () => {
+    const h = startedGame();
+    rig(h, {
+      hands: { [HOST]: ['handmaid', 'baron'], ana: ['baron'], ben: ['guard'] },
+      discards: { ana: ['priest', 'priest'] },
+      deck: [],
+    });
+    h.act({ type: 'play', card: 'handmaid' });
+    expect(tiebreakLine(royalPost.view(h.state, 'ben'))).toBe(
+      'Tied cards were settled on discards: HOST 4, ANA 4. Still tied on discards, so nobody wins the token.',
+    );
+  });
+
+  it('shows a note from the round’s last move in the result, not as a pop-up', () => {
+    const h = startedGame();
+    rig(h, {
+      hands: { [HOST]: ['baron', 'princess'], ana: ['guard'], ben: [] },
+      out: ['ben'],
+    });
+    h.act({ type: 'play', card: 'baron', target: 'ana' });
+    expect(h.state.round!.stage).toBe('over');
+    const v = royalPost.view(h.state, HOST);
+    expect(roundEndingNotes(v).map((n) => n.kind)).toEqual(['compare']);
+    expect(roundEndingNotes(royalPost.view(h.state, 'ben'))).toEqual([]);
+  });
+});
+
+describe('notes', () => {
+  it('describes the Chancellor’s bottom cards and a Priest on you', () => {
+    const h = startedGame(FOUR, '2019');
+    rig(h, {
+      hands: { [HOST]: ['chancellor', 'guard'], ana: ['priest'], ben: ['baron'], cy: ['king'] },
+      deck: ['princess', 'king', 'spy', 'guard'],
+    });
+    h.act({ type: 'play', card: 'chancellor' });
+    h.act({ type: 'chancellor-keep', keep: 'guard', bottomOrder: ['princess', 'king'] });
+    const v = royalPost.view(h.state, HOST);
+    expect(plainText(describeNote(v, v.notes.at(-1)!), roleLabel)).toBe(
+      'You put Princess, then King (the very bottom), at the bottom of the deck.',
+    );
+    const of = (role: string) => unseenCounts(v).find((c) => c.role === role)!;
+    expect(of('princess')).toMatchObject({ unseen: 1, inDeck: 1 });
+    expect(of('countess')).toMatchObject({ inDeck: 0 });
+    h.act({ type: 'play', card: 'priest', target: HOST }, 'ana');
+    const mine = royalPost.view(h.state, HOST);
+    expect(plainText(describeNote(mine, mine.notes.at(-1)!), roleLabel)).toBe(
+      'ANA looked at your card with the Priest: they know you hold Guard.',
+    );
+  });
+
+  it('keeps earlier rounds’ notes apart from this round’s', () => {
+    const h = startedGame();
+    rig(h, { hands: { [HOST]: ['priest', 'guard'], ana: ['king'], ben: ['baron'] } });
+    h.act({ type: 'play', card: 'priest', target: 'ana' });
+    const first = royalPost.view(h.state, HOST);
+    expect(notesByRound(first).current).toHaveLength(1);
+    h.state = { ...h.state, round: { ...h.state.round!, number: 2 } };
+    const later = notesByRound(royalPost.view(h.state, HOST));
+    expect(later.current).toEqual([]);
+    expect(later.earlier).toHaveLength(1);
   });
 });

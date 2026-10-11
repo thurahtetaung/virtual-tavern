@@ -1,7 +1,7 @@
 import type { PlayerId } from '@vt/game-sdk';
-import { groupOf } from './resolve.ts';
-import type { RoleId } from './roles.ts';
-import type { Death, FinalIdentity, TeamResultId, VoteResult } from './types.ts';
+import { groupOf, isVampire } from './resolve.ts';
+import type { MarkId, RoleId } from './roles.ts';
+import type { Death, FinalIdentity, MarkToken, TeamResultId, VoteResult } from './types.ts';
 
 // Why the vote came out as it did, in plain words, from the resolution alone. Pure, so every
 // screen explains the same reveal the same way, and it's testable without a browser.
@@ -12,7 +12,15 @@ export interface ExplainNames {
   role: (role: RoleId) => string;
   /** A team's display name, plural where it reads so ("Werewolves", "Village"). */
   team: (team: TeamResultId) => string;
+  /** A Mark's display name ("Mark of Disease"). */
+  mark?: (mark: MarkId) => string;
 }
+
+/** "disease" → "Mark of Disease", when no name is given. */
+const markWords = (m: MarkId) =>
+  ['vampire', 'traitor', 'assassin'].includes(m)
+    ? `Mark of the ${m[0]!.toUpperCase()}${m.slice(1)}`
+    : `Mark of ${m[0]!.toUpperCase()}${m.slice(1)}`;
 
 /** One outcome, in words; a death carries the death it explains. */
 export interface Reason {
@@ -27,6 +35,8 @@ export interface Explanation {
   reasons: Reason[];
   /** Why the winners won (or why nobody did). */
   why: string[];
+  /** Players whose own result differs from their team's: Disease, traitors, the Assassins. */
+  personal: string[];
 }
 
 const votesWord = (n: number) => `${n} ${n === 1 ? 'vote' : 'votes'}`;
@@ -37,7 +47,11 @@ const list = (names: readonly string[]) =>
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
-export function explainResult(result: VoteResult, names: ExplainNames): Explanation {
+export function explainResult(
+  result: VoteResult,
+  names: ExplainNames,
+  marks: Record<PlayerId, MarkToken> | null = null,
+): Explanation {
   const players = Object.keys(result.tally);
   const ids = result.identities;
   const id = (p: PlayerId): FinalIdentity => ids[p]!;
@@ -55,17 +69,23 @@ export function explainResult(result: VoteResult, names: ExplainNames): Explanat
     reasons.push(death ? { text, death } : { text });
   };
 
-  // Protection, for anyone it saved from at least one vote.
+  // Protection: who was protected and why, saved from votes or not (a Bodyguard's pick shows
+  // even when nobody voted for that player).
   const saved = players.filter((p) => shielded.has(p) && tallyOf(p) > 0 && !dead.has(p));
-  for (const p of saved) {
+  for (const p of players.filter((q) => shielded.has(q) && !dead.has(q))) {
     const guards = players.filter((v) => id(v).role === 'bodyguard' && result.votes[v] === p);
     const by: string[] = guards.map((g) => `${name(g)} (${names.role('bodyguard')})`);
-    if (id(p).role === 'prince')
+    const fellows = players.filter(
+      (v) => v !== p && result.votes[v] === p && id(v).role !== 'bodyguard' && isVampire(id(v)),
+    );
+    if (tallyOf(p) === 0) {
+      if (by.length) say(`${list(by)} protected ${name(p)}, though nobody voted for them.`);
+    } else if (id(p).role === 'prince')
       say(`${name(p)} is the ${names.role('prince')}, so the vote couldn’t kill them.`);
     else if (by.length) say(`${name(p)} was protected by ${list(by)}.`);
-    else if (id(p).role === 'the-master')
+    else if (id(p).role === 'the-master' && fellows.length)
       say(
-        `${name(p)} was protected: as ${names.role('the-master')}, a vote from a fellow vampire keeps them safe.`,
+        `${name(p)} survived: as ${names.role('the-master')}, a vote from a fellow vampire (${list(fellows.map(name))}) keeps them safe.`,
       );
     else say(`${name(p)} was protected.`);
   }
@@ -77,7 +97,7 @@ export function explainResult(result: VoteResult, names: ExplainNames): Explanat
     const n = tallyOf(d.player);
     if (d.place === 2)
       say(
-        `${name(d.player)} came second (${votesWord(n)}) and died too: in an epic battle the runner-up dies as well.`,
+        `${name(d.player)} came second (${votesWord(n)}) and died too: in an epic battle everyone in second place dies as well.`,
         d,
       );
     else if (first.length > 1) say(`${name(d.player)} tied for the most votes (${n}) and died.`, d);
@@ -119,7 +139,97 @@ export function explainResult(result: VoteResult, names: ExplainNames): Explanat
     );
   }
 
-  return { tally, reasons, why: whyTheyWon(result, players, names) };
+  return {
+    tally,
+    reasons,
+    why: whyTheyWon(result, players, names),
+    personal: personalResults(result, players, names, marks),
+  };
+}
+
+/**
+ * Players whose own result isn't simply their team's: votes lost to Disease, traitors, the
+ * Assassin and the Apprentice Assassin (who wins on the Mark she placed, wherever her card went).
+ */
+function personalResults(
+  result: VoteResult,
+  players: PlayerId[],
+  names: ExplainNames,
+  marks: Record<PlayerId, MarkToken> | null,
+): string[] {
+  const ids = result.identities;
+  const dead = new Set(result.deaths.map((d) => d.player));
+  const won = new Set(result.winners);
+  const name = names.player;
+  const mark = names.mark ?? markWords;
+  const teamWon = (t: TeamResultId) => result.teams.find((x) => x.team === t)?.won ?? false;
+  const out: string[] = [];
+
+  for (const v of result.disqualified ?? []) {
+    const t = result.votes[v]!;
+    const what =
+      ids[t]?.role === 'diseased' && ids[t]?.mark !== 'disease'
+        ? `the ${names.role('diseased')}`
+        : `who held the ${mark('disease')}`;
+    out.push(`${name(v)} voted for ${name(t)}, ${what}, so ${name(v)} can’t win.`);
+  }
+
+  for (const p of players) {
+    const me = ids[p]!;
+    if (!me.traitor || !['village', 'werewolf', 'vampire'].includes(me.team)) continue;
+    const mates = players.filter((q) => q !== p && ids[q]!.team === me.team);
+    if (!mates.length) continue;
+    const deadMates = mates.filter((q) => dead.has(q));
+    if (won.has(p) && !teamWon(me.team))
+      out.push(
+        `${name(p)} was a traitor: ${list(deadMates.map(name))}, on their own side, died, so ${name(p)} won though their side lost.`,
+      );
+    else if (!won.has(p) && teamWon(me.team) && !deadMates.length)
+      out.push(
+        `${name(p)} was a traitor: nobody else on their side died, so ${name(p)} lost though their side won.`,
+      );
+  }
+
+  // The Assassins.
+  const holders = players.filter((p) => ids[p]!.mark === 'assassin');
+  const placed = players.filter((p) => marks?.[p]?.id === 'assassin' && marks[p].by);
+  for (const p of players) {
+    const role = ids[p]!.role;
+    if (ids[p]!.team === 'assassin') {
+      const died = holders.filter((h) => dead.has(h));
+      out.push(
+        died.length
+          ? `${name(p)} (${names.role('assassin')}) won: ${list(died.map(name))} held the ${mark('assassin')}, and died.`
+          : `${name(p)} (${names.role('assassin')}) lost: nobody with the ${mark('assassin')} died.`,
+      );
+    } else if (ids[p]!.team === 'apprentice-assassin') {
+      const assassins = players.filter((q) => ids[q]!.role === 'assassin');
+      const apprentice = names.role('apprentice-assassin');
+      if (placed.length) {
+        const died = placed.filter((h) => dead.has(h));
+        out.push(
+          died.length
+            ? `${name(p)} (${apprentice}) won: ${list(died.map(name))}, who held the ${mark('assassin')} she placed, died.`
+            : `${name(p)} (${apprentice}) lost: ${list(placed.map(name))}, who held the ${mark('assassin')} she placed, didn’t die.`,
+        );
+      } else if (assassins.length) {
+        const died = assassins.filter((a) => dead.has(a));
+        out.push(
+          died.length
+            ? `${name(p)} (${apprentice}) won: the ${names.role('assassin')} (${list(died.map(name))}) died.`
+            : `${name(p)} (${apprentice}) lost: no ${names.role('assassin')} died.`,
+        );
+      }
+    } else if (role !== 'apprentice-assassin') {
+      // She placed the Mark herself, then her card moved: she still wins when its holder dies.
+      const mine = placed.filter((h) => marks![h]!.by === p && dead.has(h));
+      if (mine.length)
+        out.push(
+          `${name(p)} placed the ${mark('assassin')} as the ${names.role('apprentice-assassin')}, and ${list(mine.map(name))}, who held it, died: ${name(p)} wins too.`,
+        );
+    }
+  }
+  return out;
 }
 
 function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames): string[] {
@@ -133,8 +243,16 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
   const label = (t: TeamResultId) => names.team(t);
   const why: string[] = [];
 
+  const winners = new Set(result.winners);
   for (const t of result.teams) {
     if (!t.won) continue;
+    // Disease or a traitor can leave a winning side with no winner: say so, not "won".
+    if (!t.players.some((p) => winners.has(p))) {
+      why.push(
+        `${label(t.team)} would have won, but nobody on that side can claim it (${list(t.players.map(name))}).`,
+      );
+      continue;
+    }
     switch (t.team) {
       case 'village': {
         const hostile = [...deadIn('werewolf'), ...deadIn('vampire')];
@@ -176,7 +294,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
     }
   }
 
-  if (why.length === 0) {
+  if (winners.size === 0) {
     if (deadTanners.length && players.some((p) => groupOf(ids[p]!) !== null))
       why.push(
         `Nobody won: ${list(deadTanners.map(name))} died as the ${names.role('tanner')}, which stops the evil sides winning, and no one evil died.`,

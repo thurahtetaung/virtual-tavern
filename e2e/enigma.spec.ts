@@ -41,7 +41,9 @@ async function sendClues(encryptor: Page, team: TeamName) {
   const tx = transmission(encryptor, team);
   const code = (await tx.locator('.font-mono').first().innerText()).split('-').map(Number);
   const inputs = tx.getByPlaceholder('A hint only your team will get');
-  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`clue ${code[i]}`);
+  // Clues can't contain numbers, so each one names its digit with a letter word.
+  const words = ['alpha', 'bravo', 'charlie', 'delta'];
+  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`clue ${words[code[i]! - 1]}`);
   await tx.getByRole('button', { name: 'Send clues' }).click();
   return code;
 }
@@ -86,56 +88,31 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
     cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
   ).toBeVisible();
 
-  // Team chat is private.
+  // Team chat is private. Hana is Red's first Encryptor, so she stays quiet until Red decodes.
   await expect(host.getByText('Your keywords')).toBeVisible();
-  await host.getByLabel('Message your team').fill('red only: their 2 is food');
-  await host.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(ana!.getByText('red only: their 2 is food')).toBeVisible();
+  await expect(host.getByLabel('Message your team')).toBeDisabled();
+  await ana!.getByLabel('Message your team').fill('red only: their 2 is food');
+  await ana!.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(host.getByText('red only: their 2 is food')).toBeVisible();
   await expect(ben!.getByText('Red team chat')).toHaveCount(0);
   await expect(ben!.getByText('red only: their 2 is food')).toHaveCount(0);
 
   // Shared notes reach teammates but not the other team. The note is a made-up word, so it can
   // never also be one of the dealt keywords.
-  await ben!.getByLabel('Our guess for Red keyword 1').fill('Zorblax');
-  await ben!.getByLabel('Our guess for Red keyword 1').blur();
-  await expect(cy!.getByLabel('Our guess for Red keyword 1')).toHaveValue('Zorblax');
+  // Blue's Encryptor can't edit notes yet, so the other Blue player writes it.
+  const blueEnc1 = await encryptorOf(blue, 'Blue');
+  const blueWriter = blue.find((p) => p !== blueEnc1)!;
+  await blueWriter.getByLabel('Our guess for Red keyword 1').fill('Zorblax');
+  await blueWriter.getByLabel('Our guess for Red keyword 1').blur();
+  await expect(blueEnc1.getByLabel('Our guess for Red keyword 1')).toHaveValue('Zorblax');
+  // The muted Encryptor's note fields are greyed out, with a hint saying why.
+  await expect(blueEnc1.getByLabel('Our guess for Red keyword 1')).toBeDisabled();
+  await expect(blueEnc1.getByLabel('Add a note')).toBeDisabled();
+  await expect(
+    blueEnc1.getByText('The Encryptor can’t edit notes until the decode.').first(),
+  ).toBeVisible();
+  await expect(blueWriter.getByLabel('Add a note')).toBeEnabled();
   await expect(host.getByText('Zorblax')).toHaveCount(0);
-
-  // Two teammates add notes at the same time, and both notes survive.
-  const addNote = async (page: Page, text: string) => {
-    await page.getByLabel('Add a note').fill(text);
-    await page.getByRole('button', { name: 'Add', exact: true }).click();
-  };
-  await Promise.all([addNote(ben!, 'Quuxle maybe'), addNote(cy!, 'Wibbleton surely')]);
-  for (const p of [ben!, cy!]) {
-    const notes = p.getByRole('list', { name: 'Team notes' });
-    await expect(notes.getByText('Quuxle maybe')).toBeVisible();
-    await expect(notes.getByText('Wibbleton surely')).toBeVisible();
-  }
-  await expect(host.getByText('Wibbleton')).toHaveCount(0);
-
-  // Ben starts typing a guess while Cy saves a different one: Cy's is kept, Ben is told, and his
-  // own text stays on screen to use instead.
-  const benGuess = ben!.getByLabel('Our guess for Red keyword 2');
-  await benGuess.fill('Frobnic');
-  await cy!.getByLabel('Our guess for Red keyword 2').fill('Grumple');
-  await cy!.getByLabel('Our guess for Red keyword 2').press('Enter');
-  // Cy's next action can only reach Ben once Cy's guess is saved.
-  await addNote(cy!, 'Plinth');
-  await expect(ben!.getByText('Plinth')).toBeVisible();
-  await expect(benGuess).toHaveValue('Frobnic');
-  await benGuess.press('Enter');
-  await expect(ben!.getByText('Cy just changed this')).toBeVisible();
-  await expect(benGuess).toHaveValue('Grumple');
-  await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Grumple');
-  await expect(ben!.getByText('Your version:')).toContainText('Frobnic');
-  // Using it replaces Cy's guess, on purpose this time.
-  await ben!.getByRole('button', { name: '(use it)' }).click();
-  await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Frobnic');
-  await expect(ben!.getByText('Your version:')).toHaveCount(0);
-  // Anyone on the team can remove a note.
-  await cy!.getByRole('button', { name: 'Remove note: Plinth' }).click();
-  await expect(ben!.getByText('Plinth')).toHaveCount(0);
 
   for (let round = 1; round <= 3; round++) {
     const redEnc = await encryptorOf(red, 'Red');
@@ -170,6 +147,45 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
       await expect(
         cy!.getByText(`🕵️ Red intercepted it! Red gets 🕵️ (${round - 1} of 2).`),
       ).toBeVisible();
+    }
+    if (round === 1) {
+      // Notes are tested once everyone's code is revealed: until their team decodes, an
+      // Encryptor can't edit the notes.
+      // Two teammates add notes at the same time, and both notes survive.
+      const addNote = async (page: Page, text: string) => {
+        await page.getByLabel('Add a note').fill(text);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+      };
+      await Promise.all([addNote(ben!, 'Quuxle maybe'), addNote(cy!, 'Wibbleton surely')]);
+      for (const p of [ben!, cy!]) {
+        const notes = p.getByRole('list', { name: 'Team notes' });
+        await expect(notes.getByText('Quuxle maybe')).toBeVisible();
+        await expect(notes.getByText('Wibbleton surely')).toBeVisible();
+      }
+      await expect(host.getByText('Wibbleton')).toHaveCount(0);
+
+      // Ben starts typing a guess while Cy saves a different one: Cy's is kept, Ben is told, and his
+      // own text stays on screen to use instead.
+      const benGuess = ben!.getByLabel('Our guess for Red keyword 2');
+      await benGuess.fill('Frobnic');
+      await cy!.getByLabel('Our guess for Red keyword 2').fill('Grumple');
+      await cy!.getByLabel('Our guess for Red keyword 2').press('Enter');
+      // Cy's next action can only reach Ben once Cy's guess is saved.
+      await addNote(cy!, 'Plinth');
+      await expect(ben!.getByText('Plinth')).toBeVisible();
+      await expect(benGuess).toHaveValue('Frobnic');
+      await benGuess.press('Enter');
+      await expect(ben!.getByText('Cy just changed this')).toBeVisible();
+      await expect(benGuess).toHaveValue('Grumple');
+      await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Grumple');
+      await expect(ben!.getByText('Your version:')).toContainText('Frobnic');
+      // Using it replaces Cy's guess, on purpose this time.
+      await ben!.getByRole('button', { name: '(use it)' }).click();
+      await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Frobnic');
+      await expect(ben!.getByText('Your version:')).toHaveCount(0);
+      // Anyone on the team can remove a note.
+      await cy!.getByRole('button', { name: 'Remove note: Plinth' }).click();
+      await expect(ben!.getByText('Plinth')).toHaveCount(0);
     }
     if (round < 3) await host.getByRole('button', { name: 'Next round' }).click();
   }

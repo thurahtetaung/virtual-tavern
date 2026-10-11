@@ -170,6 +170,20 @@ for (const [label, viewport] of [
         el.scrollIntoView({ block: 'center' });
       });
       await shot(red.dec, 'notes');
+      // Red's Encryptor sees the notes greyed out until Red decodes.
+      await red.enc
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Clues/ })
+        .click();
+      await expect(red.enc.getByLabel('Add a note')).toBeDisabled();
+      await red.enc.getByLabel('Add a note').evaluate((el) => {
+        el.scrollIntoView({ block: 'center' });
+      });
+      await shot(red.enc, 'notes-muted');
+      await red.enc
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Play/ })
+        .click();
       await red.dec
         .getByRole('navigation', { name: 'Game sections' })
         .getByRole('button', { name: /Play/ })
@@ -917,6 +931,8 @@ for (const [label, viewport] of [
     await lover.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await lover.getByRole('tab', { name: 'Learned' }).click();
     await shot(lover, 'day-learned');
+    await lover.getByRole('tab', { name: 'Roles' }).click();
+    await shot(lover, 'day-roles');
     await lover.getByRole('tab', { name: 'Table' }).click();
     for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
     await expect(host.getByText('🗳️ The vote')).toBeVisible();

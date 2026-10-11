@@ -3,11 +3,14 @@ import { Button, Panel, RefusalSlot, Standings, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
+  AUTO_FOOL_POINTS,
+  FOOL_POINTS,
   type HoodwinkAction,
   type HoodwinkView,
   MAX_LIE_LENGTH,
   type OptionView,
   type RoundView,
+  TRUTH_POINTS,
 } from '../logic/types.ts';
 import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
 import { toneOf } from './Table.tsx';
@@ -84,8 +87,9 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
   const unchanged = sent && trimmed === round.myLie;
   const problem = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
   const blocked = problem !== null || (refused !== null && refused === trimmed);
-  // Once you've sent a lie of your own, "Lie for me" would throw it away, so it goes.
-  const offerLieForMe = round.canLieForMe && (!sent || round.myLieAuto);
+  // One pick per round, and only before you've sent a lie: the server works out whether a
+  // ready-made lie was set aside for you.
+  const offerLieForMe = round.canLieForMe;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -123,6 +127,12 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
       {round.myLieAuto && unchanged && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
           🎲 Picked for you: it scores half. Type your own to replace it.
+        </p>
+      )}
+      {round.myLieShared && unchanged && (
+        <p data-testid="lie-shared" className="text-sm text-amber-800 dark:text-amber-300">
+          👯 Someone else wrote that too: it’ll be shared, and so will the points. Change it to keep
+          them all.
         </p>
       )}
       <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
@@ -291,6 +301,19 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
   );
 }
 
+/** What the final round's ×2 means in points. */
+function DoubleNote() {
+  return (
+    <p
+      data-testid="double-note"
+      className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300"
+    >
+      Final round ×2: the truth scores {points(TRUTH_POINTS * 2)}, each player fooled{' '}
+      {points(FOOL_POINTS * 2)} ({points(AUTO_FOOL_POINTS * 2)} for a ready-made lie).
+    </p>
+  );
+}
+
 /** Who scored this round, and why: each player's points with their reasons underneath. */
 function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) {
   const gained = Object.entries(round.points ?? {})
@@ -301,11 +324,7 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
   }
   return (
     <div className="space-y-1">
-      {round.double && (
-        <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
-          Final round: every point counts double.
-        </p>
-      )}
+      {round.double && <DoubleNote />}
       <ul aria-label="Points this round" className="grid gap-1.5 sm:grid-cols-2">
         {gained.map(([id, p]) => (
           <li
@@ -362,6 +381,7 @@ export function Stage({ view, act, isHost }: Props) {
       return (
         <div className="space-y-4">
           <Prompt prompt={round.prompt} />
+          {round.double && <DoubleNote />}
           <VoteBoard view={view} round={round} act={act} />
           <Progress done={round.voted.length} of={round.voters.length} verb="voted" />
         </div>

@@ -38,14 +38,14 @@ export const guide: GameGuide = {
         'Everyone else sees that word and writes one clue for it. With only 3 players, the two clue writers write two clues each.',
         'Once every clue is in, matching clues cancel each other out. The guesser only sees the clues that survive.',
         'The guesser has one try to say the word, or can pass.',
-        'Everyone then sees the word, every clue and who wrote it, and what was cancelled. The host deals the next card.',
+        'Everyone then sees the word, every clue and who wrote it, and what was cancelled. Anyone at the table can deal the next card.',
       ],
     },
     {
       title: 'What cancels',
       paragraphs: [
-        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, plurals and common endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, or “run” and “running”. Every copy is cancelled, not just the second one.',
-        'The matching is generous on purpose: close relatives such as “sing” and “singer” also cancel. Different words that merely look alike, such as “bus” and “busy”, do not.',
+        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, spaces, hyphens, plurals (also “mice” and “mouse”), British and American spellings (“colour” and “color”) and simple verb endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, “ice-cream” and “icecream”, or “run” and “running”. Every copy is cancelled, not just the second one.',
+        'Different words that merely start alike, such as “corn” and “corner” or “bus” and “busy”, do not cancel.',
       ],
     },
     {
@@ -53,7 +53,8 @@ export const guide: GameGuide = {
       bullets: [
         'More than one word. Hyphens and apostrophes are fine (“ice-cream”, “dog’s”).',
         'Just a number, such as “42”.',
-        'The secret word itself, any form of it, or a word containing it (for “sun”, not “sunny” or “sunflower”).',
+        'The secret word itself, any form of it, or a word built from it (for “sun”, not “sunny” or “sunflower”). It works both ways: for “sunflower”, not “sun”. A word that only hides it inside, such as “scatter” for “cat” or “police” for “ice”, is fine.',
+        'For an answer of several words, any of its words or the whole answer run together (for “ice cream”, not “ice”, “cream” or “icecream”).',
         'Your two clues (with 3 players) being the same word.',
         'If a clue is refused you can fix it and send again. You can also change your clues until the last one is in.',
       ],
@@ -64,7 +65,7 @@ export const guide: GameGuide = {
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
         'Wrong: the card is lost, and so is the next card in the deck (on the last card, only that card). A wrong guess costs more than a pass, so pass when you have no idea.',
-        'Close enough counts: plurals, spacing, hyphens and a single typo in a longer word are all right. Anything else is a miss. Nobody has to judge.',
+        'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”), British or American spelling and a single typo in a word of 5 or more letters are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
         'The game ends when the deck runs out. The list of cards played counts any card a wrong guess cost.',
       ],
     },
@@ -85,7 +86,7 @@ export const guide: GameGuide = {
       bullets: [
         'Players who join during a game wait for the next card, then join the rotation.',
         'If the guesser leaves, the next player becomes the guesser. The card goes back on top of the deck without the word that had been picked.',
-        'If a clue writer leaves while clues are being written, the others carry on without them.',
+        'If a clue writer leaves while clues are being written, the others carry on without them. If one is offline, the host can press “Go on without them”.',
         'If fewer than 3 players are left, the game ends.',
       ],
     },

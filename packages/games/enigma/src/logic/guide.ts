@@ -22,7 +22,7 @@ export const guide: GameGuide = {
     {
       name: 'Encryptor',
       summary:
-        'Changes every round, going round the team in seat order. Gets a secret 3-number code (like 3-1-4) and writes one clue for each number, pointing at that keyword without making it obvious.',
+        'Changes every round: whoever on the team has been Encryptor the fewest times goes next (ties in seat order), so leaving, rejoining or a rematch never skips anyone. The reveal names the next Encryptor. Gets a secret 3-number code (like 3-1-4) and writes one clue for each number, pointing at that keyword without making it obvious.',
     },
     {
       name: 'Decoders',
@@ -32,7 +32,7 @@ export const guide: GameGuide = {
     {
       name: 'Interceptors',
       summary:
-        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor votes on the interception too, but can only talk in the team chat once their team has locked in its own code.',
+        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor votes on the interception too, but can only use the team chat and notes once their team has locked in its own code.',
     },
   ],
   sections: [
@@ -50,16 +50,17 @@ export const guide: GameGuide = {
       title: 'Writing clues',
       bullets: [
         'A clue is a single line of up to 40 characters.',
-        'It can’t be one of your own keywords, and it can’t be just a number.',
+        'It can’t be one of your own keywords, in any form: not its plural, not without its accents (“Cafe” for CAFÉ), and not as a word inside a longer clue (“the moon” for MOON).',
+        'It can’t be a number or contain one, in any form: no digits (“3”, “#3”, “3rd”), no “one” to “four”, and no Roman numerals (“III”).',
         'The three clues must all be different.',
-        'While your team is decoding your code, you can’t post in the team chat, not even about the interception. You can still pick and lock in an interception guess, and the chat opens again once your team has locked in its own code.',
+        'From the moment you see your code until your team has locked in its decode, you can’t post in the team chat or edit the team’s notes, not even about the interception. You can still pick and lock in an interception guess, and you can watch your team’s picks. Chat and notes open again once your team has locked in its own code.',
       ],
     },
     {
       title: 'Agreeing on a guess',
       paragraphs: [
         'Pick three numbers in the code slots. Your teammates see your picks live. When you’re sure, press Lock in. A guess only goes through when everyone on your side has locked in the same code; change your pick and your lock is cleared.',
-        'Whoever is on your side when guessing starts has to agree. If you join a team mid-round, you watch until the next clues are written. If someone leaves, the rest of the side carries on without them.',
+        'Whoever is on your side when guessing starts has to agree. If you join a team mid-round, you watch until the next clues are written. If someone leaves, the rest of the side carries on without them. If someone goes offline, the host can skip their vote, and the rest of the side decides.',
       ],
     },
     {
@@ -78,6 +79,7 @@ export const guide: GameGuide = {
         'A team with 2 💥 miscommunications loses.',
         'When a round decides the game, the reveal says who won and why, and the host’s button changes to See results.',
         'If both happen at once, or after round 8, the team with the better score wins (interceptions minus miscommunications). An even score is a draw.',
+        '“Both at once” includes one team doing both in the same round: it reaches its 2nd interception and its 2nd miscommunication together. Then the score decides too, and the end screen says so.',
       ],
     },
     {
@@ -104,8 +106,8 @@ export const guide: GameGuide = {
       bullets: [
         'Once you’ve seen a team’s keywords you belong to that team for the rest of the game, even if you leave the room and come back.',
         'Anyone without a team is watching: they see both teams’ clues and the codes as they are revealed, but no keywords and no team chat. They can join a team at any time.',
-        'An Encryptor who leaves before sending clues is replaced by the first of their teammates.',
-        'A team left with nobody to decode (only its Encryptor, or nobody at all) can’t transmit: each of its turns counts as a miscommunication until someone joins.',
+        'An Encryptor who leaves before sending clues is replaced by the teammate who has encrypted least, and the turn doesn’t count as theirs.',
+        'A team down to its Encryptor keeps its turn open: a teammate who comes back before the clues are sent decodes as usual. Clues nobody is left to decode count as a miscommunication, and a team with nobody at all can’t transmit.',
       ],
     },
   ],

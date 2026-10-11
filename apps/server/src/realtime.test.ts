@@ -318,6 +318,64 @@ describe('realtime Enigma', () => {
   });
 });
 
+describe('only changed views are sent', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it("doesn't re-send a player's snapshot when nothing they can see changed", async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'enigma', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      await c.call('room:join', { roomId, token: token(i), name });
+      clients.push(c);
+    }
+    const [host, ana, ben, cy] = clients as [TestClient, TestClient, TestClient, TestClient];
+    await host.call('game:action', { type: 'join-team', team: 'red' });
+    await ana.call('game:action', { type: 'join-team', team: 'red' });
+    await ben.call('game:action', { type: 'join-team', team: 'blue' });
+    await cy.call('game:action', { type: 'join-team', team: 'blue' });
+    await host.call('game:action', { type: 'start' });
+    await Promise.all(
+      clients.map((c) => c.until((s) => (s.game as EnigmaView).phase === 'playing')),
+    );
+
+    let blueUpdates = 0;
+    ben.on('room:state', () => blueUpdates++);
+    // A Red note changes what Red sees, and nothing Blue can see.
+    // Written by whichever Red player isn't encrypting: the Encryptor can't touch the notes.
+    const redView = ana.latest()!.game as EnigmaView;
+    const redEncryptor = redView.transmissions.find((t) => t.team === 'red')?.encryptor;
+    const writer = redEncryptor === ana.latest()!.you ? host : ana;
+    const before = JSON.stringify(redView.notes);
+    const sent = await writer.call('game:action', {
+      type: 'set-note',
+      slot: 1,
+      text: 'MOON',
+      base: '',
+    });
+    expect(sent).toMatchObject({ ok: true });
+    await ana.until((s) => JSON.stringify((s.game as EnigmaView).notes) !== before);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(blueUpdates).toBe(0);
+  });
+});
+
 describe('realtime Echo', () => {
   const cleanups: (() => Promise<void> | void)[] = [];
   afterEach(async () => {

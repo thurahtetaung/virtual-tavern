@@ -26,7 +26,14 @@ import {
 } from '../logic/types.ts';
 import { useManifest } from './assets.ts';
 import { Card } from './Card.tsx';
-import { missedVoteNote, startBlocker, statusFor } from './status.ts';
+import {
+  missedVoteNote,
+  pointsBreakdown,
+  revealHeadline,
+  startBlocker,
+  statusFor,
+  targetReached,
+} from './status.ts';
 
 export type ReverieUiProps = GameUiProps<ReverieView, ReverieAction>;
 type Act = (a: ReverieAction, options?: ActOptions) => Promise<boolean>;
@@ -345,8 +352,20 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
           );
         })}
       </ul>
-      {turn && view.phase === 'playing' && turn.phase !== 'reveal' && (
-        <p className="text-xs text-stone-500">Faded names are still deciding.</p>
+      {turn && view.phase === 'playing' && (
+        <p className="text-xs text-stone-500" data-testid="next-storyteller">
+          {turn.phase !== 'reveal' && 'Faded names are still deciding. '}
+          {turn.nextStoryteller !== turn.storyteller && (
+            <>
+              Next storyteller: <b>{nameOf(view, turn.nextStoryteller)}</b>
+            </>
+          )}
+        </p>
+      )}
+      {turn?.reshuffled && view.phase === 'playing' && (
+        <p className="text-xs text-stone-500" data-testid="reshuffled">
+          🔀 The draw pile ran out, so the used cards were shuffled back in.
+        </p>
       )}
     </div>
   );
@@ -527,7 +546,7 @@ function Play({
         <div className="flex flex-wrap justify-center gap-2">
           {canNext && (
             <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-              Next turn
+              {targetReached(view) ? 'See final scores' : 'Next turn'}
             </Button>
           )}
           {canSit && (
@@ -677,14 +696,8 @@ function Play({
 
       {turn?.phase === 'reveal' && turn.results && (
         <Panel className="space-y-1 text-sm">
-          <p className="font-bold">
-            {turn.allOrNone
-              ? turn.table.every((t) => t.voters.length === 0)
-                ? 'Nobody voted in time, so only the votes on cards count.'
-                : turn.table.find((t) => t.isStory)?.voters.length
-                  ? 'Everyone found it, so the storyteller scores nothing and the voters get 2.'
-                  : 'Nobody found it, so the storyteller scores nothing and the voters get 2.'
-              : 'Some found it: the storyteller and the finders score 3.'}
+          <p className="font-bold" data-testid="reveal-headline">
+            {revealHeadline(view)}
           </p>
           {missedVoteNote(view) && (
             <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
@@ -695,15 +708,18 @@ function Play({
               .map((s) => {
                 const r = turn.results![s.id]!;
                 return (
-                  <li key={s.id} className="flex justify-between">
-                    <span>
+                  <li key={s.id} className="flex justify-between gap-2">
+                    <span className="min-w-0">
                       {s.name}
-                      {s.id === turn.storyteller ? ' (storyteller)' : r.foundIt ? ' found it' : ''}
-                      {r.votesReceived > 0 &&
-                        s.id !== turn.storyteller &&
-                        ` · ${r.votesReceived} vote${r.votesReceived === 1 ? '' : 's'}`}
+                      {s.id === turn.storyteller && ' (storyteller)'}
+                      <span className="text-stone-500"> · {pointsBreakdown(view, s.id)}</span>
                     </span>
-                    <b className={r.points > 0 ? 'text-emerald-600' : 'text-stone-500'}>
+                    <b
+                      className={cn(
+                        'shrink-0',
+                        r.points > 0 ? 'text-emerald-600' : 'text-stone-500',
+                      )}
+                    >
                       +{r.points}
                     </b>
                   </li>

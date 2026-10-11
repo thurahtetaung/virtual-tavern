@@ -68,6 +68,10 @@ export function CodenamesGame({
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         <Teams view={view} online={online} act={act} hostId={room.hostId} />
+        <p className="text-center text-sm">
+          <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
+          this game and has 9 agents to find; the other team has 8.
+        </p>
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold">Game settings</h3>
@@ -168,7 +172,7 @@ function InGame({
     if (selected === null) return;
     const card = selected;
     setSelected(null);
-    await act({ type: 'guess', card });
+    await act({ type: 'guess', card, seen: view.log.length });
   };
 
   return (
@@ -301,22 +305,25 @@ function InGame({
         <TeamsSection view={view} online={online} act={act} hostId={room.hostId} />
         {room.isHost && view.phase === 'playing' && (
           <div className="space-y-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Skip the current turn for everyone? Use this if nobody can play it.',
-                  )
-                ) {
-                  void act({ type: 'end-turn' });
-                }
-              }}
-            >
-              Skip stuck turn
-            </Button>
+            {/* Not on your own team's guessing turn: there, End turn follows the normal rule. */}
+            {!canGuess && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      'Skip the current turn for everyone? Use this if nobody can play it.',
+                    )
+                  ) {
+                    void act({ type: 'end-turn' });
+                  }
+                }}
+              >
+                Skip stuck turn
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

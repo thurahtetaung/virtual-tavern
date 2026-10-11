@@ -9,9 +9,11 @@ import {
   devicePlaysMusic,
   deviceSpeaks,
   dueCues,
+  enqueueClips,
   musicChange,
   musicPhaseFor,
   musicTarget,
+  nextClip,
   ramp,
   trackFor,
 } from './audio.ts';
@@ -142,5 +144,30 @@ describe('narration cues', () => {
       'audio/x1.ogg',
       'audio/x2.ogg',
     ]);
+  });
+});
+
+describe('the narration queue', () => {
+  it('drops the clips still waiting when a new cue comes', () => {
+    const queue = enqueueClips(['a.ogg', 'b.ogg'], 1000);
+    expect(queue).toEqual([
+      { src: 'a.ogg', at: 1000 },
+      { src: 'b.ogg', at: 1000 },
+    ]);
+    // A new cue replaces the old queue outright.
+    expect(enqueueClips(['c.ogg'], 9000)).toEqual([{ src: 'c.ogg', at: 9000 }]);
+  });
+
+  it('skips clips that would start too late', () => {
+    const queue = [
+      { src: 'old.ogg', at: 0 },
+      { src: 'new.ogg', at: 8000 },
+      { src: 'next.ogg', at: 8000 },
+    ];
+    expect(nextClip(queue, 9000)).toEqual({
+      clip: { src: 'new.ogg', at: 8000 },
+      rest: [{ src: 'next.ogg', at: 8000 }],
+    });
+    expect(nextClip(queue, 20_000)).toEqual({ clip: null, rest: [] });
   });
 });

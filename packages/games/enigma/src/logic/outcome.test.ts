@@ -24,7 +24,13 @@ describe('winnerFrom and winReason', () => {
 
   it('settles both teams reaching 2 tokens by score', () => {
     expect(winnerFrom(tallies([2, 1], [2, 0]), 4)).toBe('blue');
-    expect(winReason(tallies([2, 1], [2, 0]), 4)).toMatch(/Both teams .*Red \+1, Blue \+2/);
+    expect(winReason(tallies([2, 1], [2, 0]), 4)).toMatch(
+      /^Red intercepted 2 codes and Blue intercepted 2 codes at the same time, so the score decides .*Red \+1, Blue \+2/,
+    );
+    // One team can do both in one round: two interceptions and two miscommunications.
+    expect(winReason(tallies([2, 2], [0, 0]), 3)).toBe(
+      'Red intercepted 2 codes and Red had 2 miscommunications at the same time, and the scores (interceptions minus miscommunications) are level: Red 0, Blue 0.',
+    );
   });
 
   it('settles round 8 by score, and calls a level score a draw', () => {
