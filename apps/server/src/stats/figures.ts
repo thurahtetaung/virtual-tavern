@@ -2,19 +2,31 @@ import type { GameFigure } from '@vt/protocol';
 
 // Game insight events are reduced to additive daily counters (`f.*`, or `max.f.*` for maxima) so
 // figures survive raw-event pruning, and a rolled-up day reads exactly like its raw events. The
-// event shapes read here are the games' `insights()` output:
-//   codenames  clue {count, team}, guess {kind, correct}, outcome {winner, winReason}
-//   enigma     decode {success}, intercept {success}, outcome {winner, round}
-//   echo       card {outcome: right|wrong|pass}, match {a, b, word}, outcome {score, deckSize}
-//   reverie    story {allOrNone}, vote {found}, outcome {target}
-//   hoodwink   lie {fooled, authors, auto}, vote {foundTruth}, round {…}, outcome {rounds}
-//   royal-post play {card}, guard {hit}, elimination {cause, lostPrincess}, spy {},
-//              outcome {edition, rounds}
-//   masquerade (and masquerade-originals) round {location, spyWon}, spy {outcome, votes},
-//              vote {hit, target}, outcome {rounds}
+// event shapes read here are the games' `insights()` output (the night recap's award rules read
+// the same events, plus the props marked "recap"):
+//   codenames  clue {count, team}, guess {kind, correct; recap: clueWord, clueCount, guessNo},
+//              end-turn {reason, team; recap: stage, playerId on passes},
+//              outcome {winner, winReason; recap: startingTeam, redLeft, blueLeft, spymasters}
+//   enigma     decode {success; recap: encryptor, voters, guess},
+//              intercept {success; recap: encryptor, voters}, outcome {winner, round; recap:
+//              redIntercepts, redMisses, blueIntercepts, blueMisses, reason}
+//   echo       card {outcome: right|wrong|pass; recap: survivors, survivorWords, givers, auto},
+//              match {a, b, word}, outcome {score, deckSize}
+//   reverie    story {allOrNone}, vote {found; recap: owner}, outcome {target; recap: ranking,
+//              scores}; recap: score {round, points, votesReceived, total, storyteller}
+//   hoodwink   lie {fooled, authors, auto; recap: autoAuthors}, vote {foundTruth; recap: authors,
+//              house}, round {…; recap: double, pointsTo, points}, outcome {rounds; recap:
+//              ranking, scores, fooled, truths}
+//   royal-post play {card; recap: target, tie, auto}, guard {hit}, elimination {cause,
+//              lostPrincess; recap: cards}, spy {}, round {recap: survivors, finalCards,
+//              tokensTo}, outcome {edition, rounds; recap: ranking, tokens}
+//   masquerade (and masquerade-originals) round {location, spyWon; recap: named, starter,
+//              pointsTo, points}, spy {outcome, votes; recap: round}, vote {hit, target; recap:
+//              round}, outcome {rounds; recap: ranking, scores}
 //   nightfall  outcome {players, teams, teamsWon, ending, nightMs, dayMs, moves, chain,
 //              movedRoles, setup, epic, loveDeaths, vampireMark}, player {dealt, won, voted,
-//              votedWolf, votedRole, vampire, heartbreaks, plague, hitman, …}, look {role, right}
+//              votedWolf, votedRole, vampire, heartbreaks, plague, hitman, …; recap:
+//              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];

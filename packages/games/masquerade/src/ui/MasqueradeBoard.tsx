@@ -6,6 +6,7 @@ import {
   Panel,
   ProtectedImage,
   Standings,
+  Superlatives,
   TimeoutNote,
   cn,
   useSecondsLeft,
@@ -591,6 +592,7 @@ function Podium({ view, act, room }: { view: MasqueradeView; act: Act; room: Gam
   return (
     <Panel aria-label="Final scores" className="space-y-4">
       <Standings entries={entries} you={view.me?.id} />
+      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>

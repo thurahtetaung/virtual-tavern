@@ -4,6 +4,7 @@ import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { lazy } from 'react';
+import { nightfallLabels, originalsLabels, royalPostLabels } from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
 /**
@@ -39,6 +40,7 @@ export const privateGames: ClientGame[] = [
     Component: lazy(() =>
       import('@vt/private-royal-post/ui').then((m) => ({ default: m.RoyalPostGame })),
     ),
+    labels: royalPostLabels,
   },
   {
     id: 'masquerade-originals',
@@ -50,6 +52,7 @@ export const privateGames: ClientGame[] = [
         default: m.MasqueradeOriginalsGame,
       })),
     ),
+    labels: originalsLabels,
   },
   {
     id: 'nightfall',
@@ -59,5 +62,6 @@ export const privateGames: ClientGame[] = [
     Component: lazy(() =>
       import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
     ),
+    labels: nightfallLabels,
   },
 ];

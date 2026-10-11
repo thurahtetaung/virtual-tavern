@@ -1,5 +1,5 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/ui';
+import { Badge, Button, Countdown, Hint, Panel, Superlatives, cn, useSecondsLeft } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
@@ -1281,6 +1281,7 @@ export function Reveal({
             {line}
           </p>
         ))}
+        <Superlatives lines={room.superlatives} className="mt-2" />
       </Panel>
       <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
         {(['cards', 'night'] as const).map((t) => (

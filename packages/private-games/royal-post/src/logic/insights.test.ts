@@ -36,7 +36,14 @@ describe('insights', () => {
       {
         type: 'play',
         playerId: HOST,
-        props: { card: 'guard', edition: 'classic', noEffect: false },
+        props: {
+          card: 'guard',
+          edition: 'classic',
+          noEffect: false,
+          target: 'ana',
+          tie: false,
+          auto: false,
+        },
       },
       {
         type: 'guard',
@@ -46,7 +53,13 @@ describe('insights', () => {
       {
         type: 'elimination',
         playerId: 'ana',
-        props: { cause: 'guard', by: HOST, lostPrincess: true, edition: 'classic' },
+        props: {
+          cause: 'guard',
+          by: HOST,
+          lostPrincess: true,
+          edition: 'classic',
+          cards: ['princess'],
+        },
       },
     ]);
     // A miss is a Guard guess too; a Priest is just a card played, and its result stays private.
@@ -63,7 +76,14 @@ describe('insights', () => {
       {
         type: 'play',
         playerId: HOST,
-        props: { card: 'priest', edition: 'classic', noEffect: false },
+        props: {
+          card: 'priest',
+          edition: 'classic',
+          noEffect: false,
+          target: 'ana',
+          tie: false,
+          auto: false,
+        },
       },
     ]);
     expect(JSON.stringify(peek)).not.toContain('king');
@@ -100,13 +120,23 @@ describe('insights', () => {
           reason: 'deck-empty',
           roundWinners: ['ana'],
           spy: 'ben',
+          survivors: ['host', 'ana', 'ben'],
+          finalCards: ['priest', 'king', 'baron'],
+          tokensTo: ['ana', 'ben'],
         },
       },
       { type: 'spy', playerId: 'ben', props: { edition: '2019' } },
       {
         type: 'outcome',
         winners: ['ana'],
-        props: { edition: '2019', rounds: 1, target: 5, endReason: 'target' },
+        props: {
+          edition: '2019',
+          rounds: 1,
+          target: 5,
+          endReason: 'target',
+          ranking: ['ana', 'ben', 'host'],
+          tokens: [5, 1, 0],
+        },
       },
     ]);
     // Round winners are props, never `winners`: only the game's outcome credits a win.

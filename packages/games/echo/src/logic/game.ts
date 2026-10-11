@@ -14,6 +14,7 @@ import {
   sameClue,
   wordPool,
 } from '@vt/game-sdk';
+import { echoAwards } from './awards.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
@@ -722,4 +723,5 @@ export const echo: GameDefinition<EchoState, EchoAction, EchoView> = {
   nextDeadline,
   onDeadline,
   insights,
+  awards: echoAwards,
 };

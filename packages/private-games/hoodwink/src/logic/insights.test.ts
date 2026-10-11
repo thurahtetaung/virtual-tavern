@@ -1,6 +1,6 @@
 import type { InsightEvent } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { hoodwink } from './game.ts';
+import { hoodwink, rankedScores } from './game.ts';
 import { insights } from './insights.ts';
 import {
   FOUR,
@@ -70,27 +70,35 @@ describe('insights', () => {
           type: 'lie',
           playerId: HOST,
           words: [{ kind: 'guess', word: 'Cheese' }],
-          props: { fooled: 2, authors: [HOST, 'p2'], auto: false },
+          props: { fooled: 2, authors: [HOST, 'p2'], auto: false, autoAuthors: [] },
         },
         {
           type: 'lie',
           playerId: 'p3',
           words: [{ kind: 'guess', word: 'Goat' }],
-          props: { fooled: 1, authors: ['p3'], auto: false },
+          props: { fooled: 1, authors: ['p3'], auto: false, autoAuthors: [] },
         },
         {
           type: 'lie',
           playerId: 'p4',
           words: [{ kind: 'guess', word: 'Kite' }],
-          props: { fooled: 0, authors: ['p4'], auto: false },
+          props: { fooled: 0, authors: ['p4'], auto: false, autoAuthors: [] },
         },
       ]),
     );
     expect(events.filter((e) => e.type === 'vote')).toEqual([
-      { type: 'vote', playerId: HOST, props: { foundTruth: false } },
-      { type: 'vote', playerId: 'p2', props: { foundTruth: true } },
-      { type: 'vote', playerId: 'p3', props: { foundTruth: false } },
-      { type: 'vote', playerId: 'p4', props: { foundTruth: false } },
+      { type: 'vote', playerId: HOST, props: { foundTruth: false, authors: ['p3'], house: false } },
+      { type: 'vote', playerId: 'p2', props: { foundTruth: true, authors: [], house: false } },
+      {
+        type: 'vote',
+        playerId: 'p3',
+        props: { foundTruth: false, authors: [HOST, 'p2'], house: false },
+      },
+      {
+        type: 'vote',
+        playerId: 'p4',
+        props: { foundTruth: false, authors: [HOST, 'p2'], house: false },
+      },
     ]);
     expect(events.at(-1)).toEqual({
       type: 'round',
@@ -100,8 +108,20 @@ describe('insights', () => {
         truthFound: 1,
         liesCount: 3,
         house: 0,
+        double: false,
+        pointsTo: expect.arrayContaining([HOST, 'p2', 'p3']) as unknown,
+        points: expect.any(Array) as unknown,
       },
     });
+    const roundEv = events.at(-1)!;
+    const pts = new Map(
+      (roundEv.props!.pointsTo as string[]).map((id, i) => [
+        id,
+        (roundEv.props!.points as number[])[i],
+      ]),
+    );
+    // Each "Cheese" author gets half of 2 × 500; Goat fooled one; p2 also found the truth.
+    expect(Object.fromEntries(pts)).toEqual({ [HOST]: 500, p2: 1500, p3: 500 });
     h.act({ type: 'next-round' });
     expect(take()).toEqual([]);
   });
@@ -119,6 +139,9 @@ describe('insights', () => {
           truthFound: 0,
           liesCount: 0,
           house: 0,
+          double: false,
+          pointsTo: [],
+          points: [],
         },
       },
     ]);
@@ -134,13 +157,29 @@ describe('insights', () => {
     h.act({ type: 'next-round' });
     const events = take();
     expect(events.filter((e) => e.type === 'round')).toHaveLength(5);
+    expect(events.filter((e) => e.type === 'round').map((e) => e.props!.double)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+    ]);
+    const ranked = rankedScores(h.state);
     expect(events.filter((e) => e.type === 'outcome')).toEqual([
       {
         type: 'outcome',
         winners: ['p3'],
-        props: { rounds: 5, endReason: 'finished' },
+        props: {
+          rounds: 5,
+          endReason: 'finished',
+          ranking: ranked.map((s) => s.id),
+          scores: ranked.map((s) => s.score),
+          fooled: ranked.map((s) => s.fooled),
+          truths: ranked.map((s) => s.truths),
+        },
       },
     ]);
+    expect(ranked[0]!.id).toBe('p3');
     h.act({ type: 'start' });
     h.act({ type: 'back-to-lobby' });
     expect(take()).toEqual([]);
@@ -156,7 +195,11 @@ describe('insights', () => {
     const before = h.state;
     const after = hoodwink.playerLeft(before, 'p3', NOW);
     expect(insights(before, after, null, null)).toEqual([
-      { type: 'outcome', winners: [], props: { rounds: 1, endReason: 'too-few' } },
+      {
+        type: 'outcome',
+        winners: [],
+        props: expect.objectContaining({ rounds: 1, endReason: 'too-few' }) as unknown,
+      },
     ]);
   });
 });

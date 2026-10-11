@@ -5,7 +5,7 @@ import {
   sameClue,
   waitingForHost,
 } from '@vt/game-sdk';
-import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -508,6 +508,7 @@ export function GameOver({ view, act, room }: Props) {
         <span className="text-2xl text-stone-500"> / {deck}</span>
       </p>
       <p className="text-2xl font-bold">{rating(view.score, deck)}</p>
+      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="grid gap-2 sm:flex sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>

@@ -6,6 +6,8 @@ import type { PlayerInfo, ReportContext } from './report.ts';
 import type {
   OpenGame,
   PlayerSighting,
+  RecapSource,
+  RoomPeople,
   StatsEvent,
   StatsQueries,
   StatsStore,
@@ -66,7 +68,7 @@ interface Parts {
 }
 
 /** Stats in the app's SQLite database: raw events, daily rollups, and the queries over both. */
-export class SqliteStatsStore implements StatsStore, StatsQueries {
+export class SqliteStatsStore implements StatsStore, StatsQueries, RecapSource {
   private readonly sql: Db['$client'];
   private readonly ctx: ReportContext;
 
@@ -248,6 +250,47 @@ export class SqliteStatsStore implements StatsStore, StatsQueries {
     this.sql.transaction(() => {
       for (const table of TABLES) this.sql.prepare(`delete from ${table}`).run();
     })();
+  }
+
+  // ---- Recap reads (one room) ----
+
+  lastGameStart(roomId: string): number | null {
+    return (
+      (this.sql
+        .prepare(`select max(ts) from stats_events where room_id = ? and type = 'game.started'`)
+        .pluck()
+        .get(roomId) as number | null) ?? null
+    );
+  }
+
+  roomEvents(roomId: string, sinceTs: number): StatsEvent[] {
+    const rows = this.sql
+      .prepare('select * from stats_events where room_id = ? and ts >= ? order by ts, id')
+      .all(roomId, sinceTs) as EventRow[];
+    return rows.map(toEvent);
+  }
+
+  roomPeople(roomId: string): RoomPeople {
+    const rows = this.sql
+      .prepare(
+        `select type, player_id, props from stats_events
+         where room_id = ? and player_id is not null
+           and type in ('player.joined', 'player.renamed', 'player.kicked')
+         order by ts, id`,
+      )
+      .all(roomId) as { type: string; player_id: string; props: string }[];
+    const names = new Map<string, string>();
+    const kicked = new Set<string>();
+    for (const r of rows) {
+      if (r.type === 'player.kicked') {
+        kicked.add(r.player_id);
+        continue;
+      }
+      kicked.delete(r.player_id);
+      const name = (JSON.parse(r.props) as { name?: unknown }).name;
+      if (typeof name === 'string' && name) names.set(r.player_id, name);
+    }
+    return { names, kicked };
   }
 
   // ---- Read side ----

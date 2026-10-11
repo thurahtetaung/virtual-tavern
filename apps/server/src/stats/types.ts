@@ -26,7 +26,8 @@ export interface StatsEvent {
   day: string;
   /**
    * `room.created`, `player.joined|renamed|left|kicked`, `host.changed`, `action`,
-   * `game.started`, `game.ended`, `room.swept`, or `insight.<type>` for a game's own events.
+   * `game.started`, `game.ended`, `room.swept`, `room.wrapped`, `recap.viewed`, `recap.shared`,
+   * or `insight.<type>` for a game's own events.
    */
   type: string;
   gameId: string;
@@ -98,4 +99,23 @@ export interface StatsQueries {
   settings(gameId: string, w: Window): StatsSettings;
   heatmap(w: Window, game?: string): StatsHeatmap;
   fun(w: Window): StatsFun;
+}
+
+/** Who a room has seen: each player's latest name, and who was last removed by the host. */
+export interface RoomPeople {
+  names: Map<string, string>;
+  /** Kicked, and not back since. */
+  kicked: Set<string>;
+}
+
+/**
+ * Narrow read side for night recaps: one room's raw events. Kept apart from `StatsQueries`
+ * (window aggregates for the admin page); a column store answers it from its `(room_id, ts)` order.
+ */
+export interface RecapSource {
+  /** The latest `game.started` in the room, or null. */
+  lastGameStart(roomId: string): number | null;
+  /** The room's events from `sinceTs` on, in the order they happened. */
+  roomEvents(roomId: string, sinceTs: number): StatsEvent[];
+  roomPeople(roomId: string): RoomPeople;
 }

@@ -9,6 +9,7 @@ import {
   type Rng,
   createRng,
 } from '@vt/game-sdk';
+import { masqueradeAwards } from './awards.ts';
 import { insightsFor } from './insights.ts';
 import {
   DEFAULT_ROUND_SECONDS,
@@ -607,5 +608,6 @@ export function defineMasquerade(
     nextDeadline,
     onDeadline,
     insights: insightsFor(config.locationName ?? ((id) => id)),
+    awards: masqueradeAwards,
   };
 }

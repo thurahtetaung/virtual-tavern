@@ -15,3 +15,4 @@ export * from './presets.ts';
 export { cardRole, identityOf, resolveVote } from './resolve.ts';
 export * from './roles.ts';
 export * from './types.ts';
+export { nightfallAwards } from './awards.ts';

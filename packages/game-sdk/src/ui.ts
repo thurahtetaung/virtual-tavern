@@ -9,6 +9,18 @@ export interface GameRoomInfo {
   /** Add to Date.now() to approximate the server clock (for deadlines). */
   clockOffset: number;
   wordLists: WordListSummary[];
+  /**
+   * The finished game's superlatives (2–3 lines), already worded and named by the shell. Only
+   * set on the end screen while night recaps are on; show them with `Superlatives` from `@vt/ui`.
+   */
+  superlatives?: Superlative[];
+}
+
+/** One line of a game's end-screen strip: "💀 Assassin Magnet: Ben shook hands with the assassin". */
+export interface Superlative {
+  emoji: string;
+  title: string;
+  text: string;
 }
 
 export interface ActOptions {

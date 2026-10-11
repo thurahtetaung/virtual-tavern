@@ -158,7 +158,24 @@ export class StatsRecorder implements RoomObserver {
     }
   }
 
-  /** Players seen (any activity) since `since`. */
+  /** Records a recap usage count (`recap.viewed`, `recap.shared`): counts only, nothing else. */
+  record(
+    type: 'recap.viewed' | 'recap.shared',
+    at: { roomId: string; gameId: string; playerId: string; now: number },
+    props: Record<string, unknown> = {},
+  ): void {
+    this.push({
+      id: ulid(at.now),
+      ts: at.now,
+      day: dayOf(at.now),
+      type,
+      gameId: at.gameId,
+      roomId: at.roomId,
+      playerId: at.playerId,
+      props,
+    });
+  }
+
   /** Forgets a player everywhere stats keep them; returns how many stored rows changed. */
   forget(playerId: string): number {
     this.flush();
@@ -167,6 +184,7 @@ export class StatsRecorder implements RoomObserver {
     return this.store.forgetPlayer(playerId);
   }
 
+  /** Players seen (any activity) since `since`. */
   recentPlayers(since: number): string[] {
     const out: string[] = [];
     for (const [id, at] of this.recent) {
@@ -232,6 +250,11 @@ export class StatsRecorder implements RoomObserver {
         return;
       case 'room.swept':
         this.sweep(o);
+        return;
+      case 'room.wrapped':
+        emit('room.wrapped', by, o.props ?? {});
+        // The recap reads it straight away.
+        this.flush();
         return;
       case 'player.joined':
       case 'player.renamed':

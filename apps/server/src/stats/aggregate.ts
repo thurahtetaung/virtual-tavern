@@ -89,6 +89,18 @@ export function aggregate(events: Iterable<StatsEvent>, agg = new Agg()): Agg {
       agg.addDaily(day, game, metric, v);
       agg.addDaily(day, game, hourly(hour, metric), v);
     };
+    // Opening or sharing a recap is not play, so it never counts a player as active.
+    if (e.type === 'recap.viewed' || e.type === 'recap.shared') {
+      agg.addDaily(
+        day,
+        game,
+        e.type === 'recap.viewed'
+          ? 'recaps_viewed'
+          : `recaps_shared.${props.how === 'share' ? 'share' : 'copy'}`,
+        1,
+      );
+      continue;
+    }
     if (e.playerId) touch(e.playerId);
     switch (e.type) {
       case 'room.created':

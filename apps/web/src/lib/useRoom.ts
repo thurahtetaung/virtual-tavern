@@ -21,6 +21,8 @@ export function useRoom(roomId: string, name: string | null) {
   const [clockOffset, setClockOffset] = useState(0);
   const [status, setStatus] = useState<RoomStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
+  /** Counts the host's wrap-ups heard on this page, so the recap can open everywhere. */
+  const [wraps, setWraps] = useState(0);
   const socketRef = useRef<ClientSocket | null>(null);
   // Latest name for automatic rejoins, so a reconnect never reverts a rename.
   const nameRef = useRef(name);
@@ -64,6 +66,7 @@ export function useRoom(roomId: string, name: string | null) {
       setStatus('kicked');
       socket.disconnect();
     });
+    socket.on('room:wrapped', () => setWraps((n) => n + 1));
     // The password changed or everyone was signed out: the server already dropped us from the room.
     socket.on('room:locked', () => {
       setStatus('locked');
@@ -109,5 +112,5 @@ export function useRoom(roomId: string, name: string | null) {
     setStatus('left');
   }, [call]);
 
-  return { snapshot, clockOffset, status, error, call, leave };
+  return { snapshot, clockOffset, status, error, call, leave, wraps };
 }

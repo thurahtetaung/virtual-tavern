@@ -9,6 +9,7 @@ import {
   createRng,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { royalPostAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import {
   EDITIONS,
@@ -867,4 +868,5 @@ export const royalPost: GameDefinition<RoyalPostState, RoyalPostAction, RoyalPos
   nextDeadline,
   onDeadline,
   insights,
+  awards: royalPostAwards,
 };

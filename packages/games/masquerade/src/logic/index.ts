@@ -14,6 +14,7 @@ export {
 } from './game.ts';
 export { guide, makeGuide } from './guide.ts';
 export { insightsFor } from './insights.ts';
+export { masqueradeAwards } from './awards.ts';
 export * from './types.ts';
 
 /** The public game, with our own pack of places. */

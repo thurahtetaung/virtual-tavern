@@ -5,6 +5,7 @@ import {
   Hint,
   Panel,
   StickyBar,
+  Superlatives,
   cn,
   revealElement,
   useSpectatorPrompt,
@@ -240,6 +241,7 @@ function InGame({
               </p>
             )}
             <p className="text-sm text-stone-500">The full key is shown on the board below.</p>
+            <Superlatives lines={room.superlatives} />
             {room.isHost ? (
               <div className="flex flex-wrap justify-center gap-2">
                 <Button size="lg" onClick={() => void act({ type: 'start' })}>

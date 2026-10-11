@@ -6,6 +6,7 @@ import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
 import { type ComponentType, lazy } from 'react';
 import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
+import type { Labeler } from '../recap/resolve.ts';
 
 export interface ClientGame {
   id: string;
@@ -15,6 +16,11 @@ export interface ClientGame {
   icon: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   Component: ComponentType<GameUiProps<any, any>>;
+  /**
+   * Names the night recap's private placeholders (`{role:…}`, `{loc:…}`, `{card:…}`) from the
+   * game's manifest. Back-room games only; public games report readable words already.
+   */
+  labels?: () => Promise<Labeler>;
 }
 
 /** Every playable game's UI. Add new games here (and in the server registry). */

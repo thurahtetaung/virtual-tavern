@@ -11,6 +11,7 @@ import {
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { enigmaAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import { winnerFrom } from './outcome.ts';
 import {
@@ -953,4 +954,5 @@ export const enigma: GameDefinition<EnigmaState, EnigmaAction, EnigmaView> = {
   nextDeadline,
   onDeadline,
   insights,
+  awards: enigmaAwards,
 };

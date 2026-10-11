@@ -31,7 +31,8 @@ const slotKey = (s: Slot) => ('player' in s ? `p:${s.player}` : `c:${s.center}`)
  *   the fun facts (lone wolf survivor, Tanner's dream, identity crisis, blindsided vote, Hunter's
  *   revenge, Bodyguard save, vote on a werewolf or on a villager, voted out as a villager, cards
  *   moved, a Vampire at the end, lovers dragged along, voters lost to their Disease, an Assassin
- *   whose mark died).
+ *   whose mark died), plus votes received, how and where (epic place) they died, a conversion
+ *   by the Cursed's vote, and how many night actions the timer chose for them.
  * - `look` (one per Seer or P.I. look at a card): whether that card was still there at dawn.
  * Roles are ids; names come from the private manifest on the page.
  */
@@ -124,6 +125,7 @@ export function insights(
     const vote = result.votes[p] ?? null;
     const target = vote ? ids[vote] : undefined;
     const isGuard = id.role === 'bodyguard';
+    const death = result.deaths.find((d) => d.player === p);
     events.push({
       type: 'player',
       playerId: p,
@@ -152,6 +154,11 @@ export function insights(
         hitman:
           id.team === 'assassin' && result.deaths.some((d) => marks[d.player]?.id === 'assassin'),
         mark: marks[p]?.id ?? null,
+        votesReceived: tally[p] ?? 0,
+        deathCause: death?.cause ?? null,
+        deathPlace: death?.place ?? null,
+        converted: id.converted ?? null,
+        autoActions: timeline.filter((t) => t.by === p && t.auto === true).length,
       },
     });
   }

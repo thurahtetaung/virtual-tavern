@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type AdminAuth, clearAdminSession } from '../admin-auth.ts';
 import type { Backroom } from '../backroom.ts';
 import type { QuestionDeckRepo } from '../question-decks.ts';
+import type { RecapSettings } from '../recap/settings.ts';
 import type { WordListRepo } from '../word-lists.ts';
 
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
@@ -34,10 +35,12 @@ export function adminRoutes(
     wordLists: WordListRepo;
     questionDecks: QuestionDeckRepo;
     backroom: Backroom;
+    /** Night recaps' on/off switch (optional so older tests need not build one). */
+    recapSettings?: RecapSettings;
     now: () => number;
   },
 ) {
-  const { auth, wordLists, questionDecks, backroom, now } = opts;
+  const { auth, wordLists, questionDecks, backroom, recapSettings, now } = opts;
 
   /** A message naming the first id that is not a registered word-list game, or null. */
   const unknownGame = (games: readonly string[] | undefined) => {
@@ -92,6 +95,17 @@ export function adminRoutes(
       if (!body.success) return error(reply, 400, 'bad-request', 'Use at least 4 characters.');
       backroom.setPassword(body.data.password);
       return { ok: true };
+    });
+
+    // Night recaps: the kill switch. Off hides the chip, the strips and the wrap-up everywhere.
+    scope.get('/api/admin/recap', () => ({ enabled: recapSettings?.enabled() ?? false }));
+
+    scope.put('/api/admin/recap', (req, reply) => {
+      const body = z.object({ enabled: z.boolean() }).safeParse(req.body);
+      if (!body.success || !recapSettings)
+        return error(reply, 400, 'bad-request', 'Send { enabled: true | false }.');
+      recapSettings.setEnabled(body.data.enabled);
+      return { enabled: body.data.enabled };
     });
 
     scope.post('/api/admin/backroom/sign-out-all', () => {

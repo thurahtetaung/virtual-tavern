@@ -1,5 +1,14 @@
 import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, cn, revealElement, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  Superlatives,
+  cn,
+  revealElement,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { tokenWords, winReason } from '../logic/outcome.ts';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
@@ -291,6 +300,7 @@ export function EnigmaGame({
               <p className="text-sm text-stone-500">
                 Everyone's keywords are revealed under Clues.
               </p>
+              <Superlatives lines={room.superlatives} />
               {room.isHost ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button size="lg" onClick={() => void act({ type: 'start' })}>

@@ -54,6 +54,12 @@ You can open the link and watch. Most games let you join in at the next round.
 **Can I change my name?**
 Yes, with **Rename** in the room's player list.
 
+**What's the night recap?**
+After every game, the end screen hands out two or three tongue-in-cheek awards ("Assassin Magnet", "Ghost", "Best Liar"). The 🍻 button at the top of the room collects the whole night: a moment of the night, an MVP, an award for everyone who played, a few numbers and a round-by-round history of each game. When you're done, the host taps **Wrap up the night** and the recap opens on everyone's screen, with **Copy for chat** to paste it into your group chat. It only ever covers finished games, and only people in the room can see it.
+
+**The awards are a bit cheeky. Can we tone it down?**
+Yes. The recap teases moves, never people, but if your table prefers it gentler, the host can switch the recap from **Cheeky** to **Wholesome** in the recap itself, and every award is reworded kindly for everyone.
+
 **My friend always wins. Is it rigged?**
 The shuffles are random. Your friend is just suspiciously good. Keep an eye on them next time they're "definitely not the spy".
 

@@ -34,11 +34,29 @@ export function insights(
         voters: Object.keys(turn.votes).length,
       },
     });
-    for (const voter of Object.keys(turn.votes)) {
+    for (const [voter, index] of Object.entries(turn.votes)) {
       events.push({
         type: 'vote',
         playerId: voter,
-        props: { found: results[voter]?.foundIt ?? false },
+        props: {
+          found: results[voter]?.foundIt ?? false,
+          // Whose card the vote went to: public from the reveal on.
+          owner: turn.table[index]?.owner ?? null,
+        },
+      });
+    }
+    // Everyone's points this turn and their running total (scores are public at the reveal).
+    for (const [id, r] of Object.entries(results)) {
+      events.push({
+        type: 'score',
+        playerId: id,
+        props: {
+          round: turn.round,
+          points: r.points,
+          votesReceived: r.votesReceived,
+          total: after.seats[id]?.score ?? 0,
+          storyteller: id === turn.storyteller,
+        },
       });
     }
   }
@@ -46,8 +64,20 @@ export function insights(
     events.push({
       type: 'outcome',
       winners: after.winners,
-      props: { target: after.settings.targetScore, endReason: after.endReason },
+      props: {
+        target: after.settings.targetScore,
+        endReason: after.endReason,
+        ...rankedScores(after),
+      },
     });
   }
   return events;
+}
+
+/** Seated players by final score, highest first, with their scores. */
+function rankedScores(state: ReverieState): { ranking: string[]; scores: number[] } {
+  const seated = Object.entries(state.seats)
+    .filter(([, s]) => s.playing)
+    .sort((a, b) => b[1].score - a[1].score);
+  return { ranking: seated.map(([id]) => id), scores: seated.map(([, s]) => s.score) };
 }

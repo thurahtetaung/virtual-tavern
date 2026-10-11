@@ -10,3 +10,4 @@ export * from './people.tsx';
 export * from './refusal.tsx';
 export * from './standings.tsx';
 export * from './sticky-bar.tsx';
+export * from './superlatives.tsx';

@@ -188,3 +188,17 @@ export const statsDailySettings = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.day, t.gameId, t.key, t.value] })],
 );
+
+// ---- Night recaps ----
+
+/**
+ * Per-room recap settings the host chose. Not a stats table, so the admin stats reset leaves it
+ * alone; a swept room's row goes with it.
+ */
+export const roomRecapSettings = sqliteTable('room_recap_settings', {
+  roomId: text('room_id').primaryKey(),
+  tone: text('tone').notNull().default('cheeky'),
+  /** The host's `Date#getTimezoneOffset()`, for the card's date and late-night awards. */
+  tzOffsetMin: integer('tz_offset_min'),
+  updatedAt: integer('updated_at').notNull(),
+});

@@ -12,6 +12,7 @@ const SHARED_STATE = [
   /masquerade-originals\.spec\.ts$/,
   /question-decks\.spec\.ts$/,
   /screenshots\.spec\.ts$/,
+  /recap-backroom\.spec\.ts$/,
 ];
 
 export default defineConfig({

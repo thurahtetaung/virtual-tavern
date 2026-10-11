@@ -9,6 +9,7 @@ import {
   createRng,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { nightfallAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import { type StepCtx, actInStep, beginStep, endStep, promptFor } from './night.ts';
 import { buildNightPlan, stepDef } from './plan.ts';
@@ -656,4 +657,5 @@ export const nightfall: GameDefinition<NightfallState, NightfallAction, Nightfal
   nextDeadline,
   onDeadline,
   insights,
+  awards: nightfallAwards,
 };

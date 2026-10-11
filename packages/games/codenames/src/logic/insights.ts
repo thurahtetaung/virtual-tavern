@@ -8,7 +8,27 @@ function newEntries(before: CodenamesState, after: CodenamesState): LogEntry[] {
   return sameGame ? after.log.slice(before.log.length) : after.log;
 }
 
-function entryEvent(entry: LogEntry): InsightEvent | null {
+/** What the guessing team was working from: its latest clue, and how many guesses since. */
+function clueContext(log: readonly LogEntry[], index: number) {
+  const entry = log[index];
+  if (entry?.type !== 'guess') return null;
+  let guessNo = 0;
+  for (let i = index; i >= 0; i--) {
+    const e = log[i]!;
+    if (e.type === 'guess' && e.team === entry.team) guessNo += 1;
+    else if (e.type === 'clue' && e.team === entry.team)
+      return { clueWord: e.word, clueCount: e.count, guessNo };
+    else if (e.type === 'end-turn' || e.type === 'clue') return null;
+  }
+  return null;
+}
+
+function entryEvent(
+  entry: LogEntry,
+  index: number,
+  log: readonly LogEntry[],
+  extra: { passedBy: PlayerId | null; stage: 'clue' | 'guess' | null },
+): InsightEvent | null {
   switch (entry.type) {
     case 'clue':
       return {
@@ -30,10 +50,23 @@ function entryEvent(entry: LogEntry): InsightEvent | null {
           kind: entry.kind,
           correct: entry.kind === entry.team,
           team: entry.team,
+          ...clueContext(log, index),
         },
       };
-    case 'end-turn':
-      return { type: 'end-turn', props: { reason: entry.reason, team: entry.team } };
+    case 'end-turn': {
+      // A pass (or the host's "end turn") names who pressed it; other endings name nobody.
+      const presser = entry.reason === 'passed' || entry.reason === 'host' ? extra.passedBy : null;
+      if (presser) extra.passedBy = null;
+      return {
+        type: 'end-turn',
+        ...(presser ? { playerId: presser } : {}),
+        props: {
+          reason: entry.reason,
+          team: entry.team,
+          ...(extra.stage ? { stage: extra.stage } : {}),
+        },
+      };
+    }
     case 'game-over':
       // Reported once, as `outcome`, from the phase change.
       return null;
@@ -44,16 +77,30 @@ function entryEvent(entry: LogEntry): InsightEvent | null {
 export function insights(
   before: CodenamesState,
   after: CodenamesState,
-  _action: CodenamesAction | null,
-  _by: PlayerId | null,
+  action: CodenamesAction | null,
+  by: PlayerId | null,
 ): InsightEvent[] {
-  const events = newEntries(before, after).flatMap((e) => entryEvent(e) ?? []);
+  const added = newEntries(before, after);
+  const offset = after.log.length - added.length;
+  const extra = {
+    passedBy: action?.type === 'end-turn' ? by : null,
+    stage: before.turn?.stage ?? null,
+  };
+  const events = added.flatMap((e, i) => entryEvent(e, offset + i, after.log, extra) ?? []);
   if (before.phase !== 'over' && after.phase === 'over' && after.winner) {
     const winner = after.winner;
     events.push({
       type: 'outcome',
       winners: Object.entries(after.seats).flatMap(([id, s]) => (s.team === winner ? [id] : [])),
-      props: { winner, winReason: after.winReason },
+      props: {
+        winner,
+        winReason: after.winReason,
+        // endGame already flipped it for the rematch.
+        startingTeam: before.startingTeam,
+        redLeft: after.board.filter((c) => c.kind === 'red' && !c.revealed).length,
+        blueLeft: after.board.filter((c) => c.kind === 'blue' && !c.revealed).length,
+        spymasters: Object.keys(after.keyHolders ?? {}),
+      },
     });
   }
   return events;

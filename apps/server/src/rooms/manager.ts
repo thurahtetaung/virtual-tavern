@@ -1,5 +1,5 @@
 import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
-import type { Ack, RoomSnapshot } from '@vt/protocol';
+import type { Ack, RecapTone, RoomMeta, RoomSnapshot } from '@vt/protocol';
 import { newRoomId, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
 import type { RoomRecord, RoomStore } from './store.ts';
@@ -40,7 +40,9 @@ export type ObservationKind =
   | 'host.changed'
   | 'action'
   | 'deadline'
-  | 'room.swept';
+  | 'room.swept'
+  /** The host wrapped up the night (`props`: tone and time zone). */
+  | 'room.wrapped';
 
 /**
  * Something the room host did, for stats. `before`/`after` are the room records around a
@@ -57,6 +59,8 @@ export interface RoomObservation {
   action?: unknown;
   /** The name used, for joins and renames. */
   name?: string;
+  /** Extra facts, for `room.wrapped`. */
+  props?: Record<string, unknown>;
   before: RoomRecord | null;
   after: RoomRecord | null;
   game: AnyGameDefinition | null;
@@ -78,7 +82,7 @@ export interface LiveRoomInfo {
   updatedAt: number;
 }
 
-type Observed = Pick<RoomObservation, 'kind' | 'by' | 'action' | 'name'>;
+type Observed = Pick<RoomObservation, 'kind' | 'by' | 'action' | 'name' | 'props'>;
 
 interface LiveRoom {
   record: RoomRecord;
@@ -118,6 +122,8 @@ export interface RoomManagerDeps {
   logger?: RoomLogger;
   /** Stats hook; never allowed to affect play. */
   observer?: RoomObserver | null;
+  /** The room's recap settings for the snapshot (recaps on, tone). Default: on, cheeky. */
+  recapMeta?: (roomId: string) => { recap: boolean; tone: RecapTone };
 }
 
 export interface JoinOptions {
@@ -134,7 +140,14 @@ export class RoomManager {
   private readonly deps: Required<RoomManagerDeps>;
 
   constructor(deps: RoomManagerDeps) {
-    this.deps = { now: Date.now, seed: randomSeed, logger: console, observer: null, ...deps };
+    this.deps = {
+      now: Date.now,
+      seed: randomSeed,
+      logger: console,
+      observer: null,
+      recapMeta: () => ({ recap: true, tone: 'cheeky' }),
+      ...deps,
+    };
   }
 
   create(gameId: string, hostId: string): string {
@@ -314,7 +327,56 @@ export class RoomManager {
           : null,
       game: room.game.view(record.state, seated ? viewer : null),
       serverNow: this.deps.now(),
+      meta: this.meta(room),
     };
+  }
+
+  /** The coarse phase every game reports for stats, and the room's recap settings. */
+  private meta(room: LiveRoom): RoomMeta {
+    const state = room.record.state as { phase?: unknown; gamesPlayed?: unknown } | null;
+    const phase = state?.phase;
+    const gameNo = state?.gamesPlayed;
+    return {
+      phase: phase === 'playing' || phase === 'over' ? phase : 'lobby',
+      gameNo: typeof gameNo === 'number' ? gameNo : 0,
+      ...this.deps.recapMeta(room.record.id),
+    };
+  }
+
+  /** Who is in the room and who hosts it, for the recap (null if the room is gone). */
+  members(roomId: string): {
+    gameId: string;
+    hostId: string;
+    players: { id: string; name: string }[];
+    phase: RoomMeta['phase'];
+  } | null {
+    const room = this.load(roomId);
+    if (!room) return null;
+    return {
+      gameId: room.record.gameId,
+      hostId: room.record.hostId,
+      players: room.record.players,
+      phase: this.meta(room).phase,
+    };
+  }
+
+  /**
+   * Host only: wraps up the night. Nothing in the room changes; the stats observer records it
+   * (with `props`) and the recap opens everywhere.
+   */
+  wrap(roomId: string, by: string, props: Record<string, unknown>): Ack {
+    const room = this.load(roomId);
+    if (!room) return fail('no-room', 'Room not found.');
+    if (!room.record.players.some((p) => p.id === by)) return fail('not-in-room', 'Join first.');
+    if (room.record.hostId !== by) return fail('not-host', 'Only the host can wrap up the night.');
+    if (this.meta(room).phase === 'playing')
+      return fail('game-running', 'Finish this game first, then wrap up the night.');
+    this.observe(room.record, room.record, room.record, room.game, {
+      kind: 'room.wrapped',
+      by,
+      props,
+    });
+    return OK;
   }
 
   /** Rooms with at least one connected player, for the admin live view. */
