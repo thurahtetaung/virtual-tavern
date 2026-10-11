@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.12.0...v0.12.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **royal-post:** make every card name readable and tidy the table on phones ([#56](https://github.com/thurahtetaung/virtual-tavern/issues/56)) ([7d9e40b](https://github.com/thurahtetaung/virtual-tavern/commit/7d9e40b2743d0df93e59623046861cb57cf64914))
+
 ## [0.12.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.11.1...v0.12.0) (2026-10-11)
 
 
