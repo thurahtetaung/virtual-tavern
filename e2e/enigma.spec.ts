@@ -105,6 +105,13 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await blueWriter.getByLabel('Our guess for Red keyword 1').fill('Zorblax');
   await blueWriter.getByLabel('Our guess for Red keyword 1').blur();
   await expect(blueEnc1.getByLabel('Our guess for Red keyword 1')).toHaveValue('Zorblax');
+  // The muted Encryptor's note fields are greyed out, with a hint saying why.
+  await expect(blueEnc1.getByLabel('Our guess for Red keyword 1')).toBeDisabled();
+  await expect(blueEnc1.getByLabel('Add a note')).toBeDisabled();
+  await expect(
+    blueEnc1.getByText('The Encryptor can’t edit notes until the decode.').first(),
+  ).toBeVisible();
+  await expect(blueWriter.getByLabel('Add a note')).toBeEnabled();
   await expect(host.getByText('Zorblax')).toHaveCount(0);
 
   for (let round = 1; round <= 3; round++) {

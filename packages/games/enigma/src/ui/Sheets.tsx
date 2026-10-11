@@ -3,7 +3,7 @@ import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView, NoteItem, Team } from '../logic/types.ts';
 import { LEGACY_NOTE_ID, MAX_NOTE_ITEM_LENGTH, MAX_NOTE_LENGTH } from '../logic/types.ts';
-import { cluesByKeyword } from './status.ts';
+import { chatMuted, cluesByKeyword } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: { anchor?: string }) => Promise<boolean>;
@@ -20,12 +20,14 @@ function GuessField({
   label,
   anchor,
   act,
+  disabled,
 }: {
   slot: number;
   value: string;
   label: string;
   anchor: string;
   act: Act;
+  disabled: boolean;
 }) {
   // `draft` is non-null while you're editing; `base` is the value you started from.
   const [draft, setDraft] = useState<string | null>(null);
@@ -71,6 +73,7 @@ function GuessField({
       <input
         aria-label={label}
         value={draft ?? pending ?? value}
+        disabled={disabled}
         maxLength={MAX_NOTE_LENGTH}
         placeholder="We think it's…"
         enterKeyHint="done"
@@ -84,7 +87,7 @@ function GuessField({
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
-        className="w-full rounded-md bg-white/80 px-2 py-1 text-sm ring-1 ring-stone-300 placeholder:text-stone-400 dark:bg-stone-900/60 dark:ring-stone-600"
+        className="w-full rounded-md bg-white/80 px-2 py-1 text-sm ring-1 ring-stone-300 placeholder:text-stone-400 disabled:opacity-50 dark:bg-stone-900/60 dark:ring-stone-600"
       />
       <RefusalSlot anchor={anchor} className="mt-1 px-2 py-1 text-xs" />
       {mine !== null && mine !== value && (
@@ -92,7 +95,8 @@ function GuessField({
           Your version: <q className="font-semibold break-words">{mine}</q>{' '}
           <button
             type="button"
-            className="font-semibold text-amber-700 underline dark:text-amber-400"
+            className="font-semibold text-amber-700 underline disabled:opacity-50 dark:text-amber-400"
+            disabled={disabled}
             onClick={() => save(mine, value)}
           >
             (use it)
@@ -108,10 +112,12 @@ const NoteList = memo(function NoteList({
   items,
   names,
   onRemove,
+  disabled,
 }: {
   items: NoteItem[];
   names: ReadonlyMap<string, string>;
   onRemove: (id: string) => void;
+  disabled: boolean;
 }) {
   const end = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -138,8 +144,9 @@ const NoteList = memo(function NoteList({
             type="button"
             aria-label={`Remove note: ${n.text}`}
             title="Remove"
+            disabled={disabled}
             onClick={() => onRemove(n.id)}
-            className="-my-0.5 shrink-0 rounded px-1.5 text-stone-500 hover:bg-stone-200 hover:text-rose-700 dark:hover:bg-stone-700"
+            className="-my-0.5 shrink-0 rounded px-1.5 text-stone-500 hover:bg-stone-200 hover:text-rose-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-500 dark:hover:bg-stone-700"
           >
             ✕
           </button>
@@ -156,9 +163,10 @@ const NoteList = memo(function NoteList({
 });
 
 const ADD_NOTE_ANCHOR = 'enigma-add-note';
+const MUTED_HINT = 'The Encryptor can’t edit notes until the decode.';
 
 /** Adds one note. Its typing state stays here, so nothing else redraws per keystroke. */
-function AddNote({ act }: { act: Act }) {
+function AddNote({ act, disabled }: { act: Act; disabled: boolean }) {
   const [text, setText] = useState('');
   const add = async (e: FormEvent) => {
     e.preventDefault();
@@ -172,14 +180,15 @@ function AddNote({ act }: { act: Act }) {
       <form onSubmit={(e) => void add(e)} className="mt-2 flex gap-2">
         <input
           value={text}
+          disabled={disabled}
           maxLength={MAX_NOTE_ITEM_LENGTH}
           onChange={(e) => setText(e.target.value)}
           placeholder="Add a note"
           aria-label="Add a note"
           enterKeyHint="send"
-          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 text-sm ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 text-sm ring-1 ring-stone-300 disabled:opacity-50 dark:bg-stone-800 dark:ring-stone-600"
         />
-        <Button type="submit" disabled={!text.trim()}>
+        <Button type="submit" disabled={disabled || !text.trim()}>
           Add
         </Button>
       </form>
@@ -189,7 +198,7 @@ function AddNote({ act }: { act: Act }) {
 }
 
 /** Your team's list of notes about the other team, shared with your team only. */
-function NotesPanel({ view, act }: { view: EnigmaView; act: Act }) {
+function NotesPanel({ view, act, muted }: { view: EnigmaView; act: Act; muted: boolean }) {
   const names = useMemo(() => new Map(view.seats.map((s) => [s.id, s.name])), [view.seats]);
   const onRemove = useCallback(
     (id: string) => void act({ type: 'remove-note', id }, { anchor: ADD_NOTE_ANCHOR }),
@@ -200,10 +209,10 @@ function NotesPanel({ view, act }: { view: EnigmaView; act: Act }) {
     <section aria-label="Team notes panel" className="mt-3">
       <h4 className="text-sm font-semibold">Team notes</h4>
       <p className="mb-1 text-xs text-stone-500 dark:text-stone-400">
-        Shared with your team only. Anyone can add or remove a note.
+        {muted ? MUTED_HINT : 'Shared with your team only. Anyone can add or remove a note.'}
       </p>
-      <NoteList items={view.notes.items} names={names} onRemove={onRemove} />
-      <AddNote act={act} />
+      <NoteList items={view.notes.items} names={names} onRemove={onRemove} disabled={muted} />
+      <AddNote act={act} disabled={muted} />
     </section>
   );
 }
@@ -265,12 +274,19 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
 export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Team; act: Act }) {
   const columns = cluesByKeyword(view, team);
   const notes = view.notes;
+  // The server refuses notes from an Encryptor until their team decodes: grey the fields out.
+  const muted = notes !== null && chatMuted(view);
   return (
     <Panel>
       <h3 className={cn('mb-1 font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]}'s clues</h3>
       <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">
         Their keywords are secret. Use their past clues to guess them, and to intercept their codes.
       </p>
+      {muted && (
+        <p className="mb-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          {MUTED_HINT}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {columns.map((clues, i) => (
           <div key={i} className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
@@ -283,6 +299,7 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
                   anchor={`enigma-guess-${i + 1}`}
                   value={notes.guesses[i] ?? ''}
                   act={act}
+                  disabled={muted}
                 />
               </div>
             )}
@@ -290,7 +307,7 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
           </div>
         ))}
       </div>
-      {notes && <NotesPanel view={view} act={act} />}
+      {notes && <NotesPanel view={view} act={act} muted={muted} />}
     </Panel>
   );
 }

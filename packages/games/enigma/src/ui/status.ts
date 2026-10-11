@@ -163,7 +163,6 @@ export function statusFor(
   };
 }
 
-/** The viewer is an Encryptor whose team is still decoding: the engine refuses their chat. */
 /** Mirrors the engine: an Encryptor can't chat or edit notes from the deal until their team decodes. */
 export function chatMuted(view: EnigmaView): boolean {
   return (

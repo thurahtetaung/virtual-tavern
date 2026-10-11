@@ -170,6 +170,20 @@ for (const [label, viewport] of [
         el.scrollIntoView({ block: 'center' });
       });
       await shot(red.dec, 'notes');
+      // Red's Encryptor sees the notes greyed out until Red decodes.
+      await red.enc
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Clues/ })
+        .click();
+      await expect(red.enc.getByLabel('Add a note')).toBeDisabled();
+      await red.enc.getByLabel('Add a note').evaluate((el) => {
+        el.scrollIntoView({ block: 'center' });
+      });
+      await shot(red.enc, 'notes-muted');
+      await red.enc
+        .getByRole('navigation', { name: 'Game sections' })
+        .getByRole('button', { name: /Play/ })
+        .click();
       await red.dec
         .getByRole('navigation', { name: 'Game sections' })
         .getByRole('button', { name: /Play/ })
