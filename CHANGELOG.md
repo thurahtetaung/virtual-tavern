@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.17.0...v0.18.0) (2026-10-11)
+
+
+### Features
+
+* **recap:** add a hall of fame, saved images and linked nights ([#84](https://github.com/thurahtetaung/virtual-tavern/issues/84)) ([13999e3](https://github.com/thurahtetaung/virtual-tavern/commit/13999e34929f5ad91a3bd975a1847fc9962039ea))
+
 ## [0.17.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.4...v0.17.0) (2026-10-11)
 
 
