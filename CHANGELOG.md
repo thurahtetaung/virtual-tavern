@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.1...v0.16.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **echo:** decide guesses on their own instead of asking the table ([#76](https://github.com/thurahtetaung/virtual-tavern/issues/76)) ([f87061b](https://github.com/thurahtetaung/virtual-tavern/commit/f87061bf7ae18554a8e3c2c71dd82c13e926c2d8))
+
 ## [0.16.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.0...v0.16.1) (2026-10-11)
 
 
