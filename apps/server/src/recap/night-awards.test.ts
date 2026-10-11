@@ -30,6 +30,19 @@ const ctx = (games: GameEvents[], extra: Partial<NightContext> = {}): NightConte
 const P = ['ana', 'ben', 'cy', 'dee'];
 
 describe('night awards', () => {
+  it('Jack of All Games: three different games in a linked night', () => {
+    const kind = (n: number, gameId: string, players = P) => ({
+      ...g(n, players, []),
+      gameId,
+    });
+    const games = [kind(1, 'codenames'), kind(2, 'masquerade', ['ana', 'ben']), kind(3, 'echo')];
+    expect(rule('night-jack').compute(ctx(games))).toMatchObject([
+      { players: ['ana', 'ben'], value: 3 },
+    ]);
+    // One room playing one game all night: nobody.
+    expect(rule('night-jack').compute(ctx([g(1, P, []), g(2, P, []), g(3, P, [])]))).toEqual([]);
+  });
+
   it('MVP: most wins, with places and skill awards as tie-breakers', () => {
     const night = ctx([g(1, P, ['ana']), g(2, P, ['ana', 'ben']), g(3, P, ['ben'])], {
       glory: new Map([['ana', 2]]),

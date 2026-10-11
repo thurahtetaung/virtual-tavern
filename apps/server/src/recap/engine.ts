@@ -2,8 +2,10 @@ import type { AwardCandidate, AwardModule, AwardRule, GameEvents, Tone } from '@
 import type { GameRecap, RecapLine } from '@vt/protocol';
 import { MVP, NIGHT_RULES, type NightContext, fallbacksFor, nightPlayers } from './night-awards.ts';
 import {
+  type Freshness,
   type RuleInfo,
   type Scored,
+  freshen,
   fnv1a,
   jitterOf,
   pickNight,
@@ -25,9 +27,13 @@ export interface EngineInput {
   lastEventId: string;
   /** The night's finished games, oldest first. */
   games: readonly GameEvents[];
-  /** The room game's award rules (none: only the night awards). */
-  module: AwardModule | undefined;
+  /** Each game's award rules (none: only the night awards). */
+  modules: (gameId: string) => AwardModule | undefined;
   tone: Tone;
+  /** What the room's earlier nights awarded, so the card rotates (§1.6). */
+  history?: Freshness;
+  /** The room's records so far (`<gameId>:<nugget id>`), for "🆕 Room record". */
+  records?: ReadonlyMap<string, number>;
   tzOffsetMin: number | null;
   /** Players to leave out entirely (removed by the host, forgotten). */
   exclude: ReadonlySet<string>;
@@ -38,7 +44,22 @@ export interface EngineOutput {
   moment?: RecapLine;
   mvp?: RecapLine;
   awards: RecapLine[];
-  nuggets: { emoji: string; text: string }[];
+  nuggets: NuggetOut[];
+  /** Every record-type number of the night, shown or not (the Hall of fame keeps the best). */
+  recordables: NuggetOut[];
+}
+
+/** A nugget on the card, with what the Hall of fame needs to keep it as a record. */
+export interface NuggetOut {
+  emoji: string;
+  text: string;
+  /** Beat the room's stored record. */
+  record?: boolean;
+  /** Set for record-type nuggets: `<gameId>:<nugget id>`, its value and which way is better. */
+  recordKey?: string;
+  value?: number;
+  better?: 'max' | 'min';
+  gameId?: string;
 }
 
 /** Runs a rule without letting a bad one break the recap. */
@@ -73,7 +94,13 @@ function candidates(
       const cand = without(rule, raw, input.exclude);
       if (!cand) continue;
       const jitter = jitterOf(seed, rule.id, g.gameNo, cand.players.join());
-      out.push({ rule, cand, gameNo: g.gameNo, score: scoreOf(rule, cand, input.tone, jitter) });
+      out.push({
+        rule,
+        cand,
+        gameNo: g.gameNo,
+        gameId: g.gameId,
+        score: scoreOf(rule, cand, input.tone, jitter),
+      });
     }
   }
   return out;
@@ -81,8 +108,6 @@ function candidates(
 
 /** The whole recap of a night: each game's strip and rounds, and the night card. */
 export function runEngine(input: EngineInput): EngineOutput {
-  const rules = input.module?.rules ?? [];
-  const stripSize = input.module?.stripSize ?? 3;
   const nightSeed = fnv1a(`${input.roomId}:${input.nightKey}:${input.lastEventId}:${input.tone}`);
 
   // ---- Per game: strips stay put once shown, so their seed is the game's own. ----
@@ -90,8 +115,9 @@ export function runEngine(input: EngineInput): EngineOutput {
   const games: GameRecap[] = [];
   const recent: Set<string>[] = [];
   for (const g of input.games) {
+    const module = input.modules(g.gameId);
     const gameSeed = fnv1a(`${input.roomId}:${g.startedAt}:${g.gameNo}:${input.tone}`);
-    const scored = candidates(g, rules, input, gameSeed);
+    const scored = candidates(g, module?.rules ?? [], input, gameSeed);
     perGame.push(scored);
     // An award that headlined the last two strips takes a back seat in this one.
     const tired =
@@ -99,7 +125,7 @@ export function runEngine(input: EngineInput): EngineOutput {
     const forStrip = scored
       .filter((s) => !(s.rule as AwardRule).nightOnly)
       .map((s) => (tired.includes(s.rule.id) ? { ...s, score: s.score * 0.5 } : s));
-    const strip = pickStrip(forStrip, stripSize, input.tone);
+    const strip = pickStrip(forStrip, module?.stripSize ?? 3, input.tone);
     recent.push(new Set(strip.map((s) => s.rule.id)));
     games.push({
       gameNo: g.gameNo,
@@ -109,7 +135,7 @@ export function runEngine(input: EngineInput): EngineOutput {
       players: g.players.filter((p) => !input.exclude.has(p)),
       winners: g.winners.filter((p) => !input.exclude.has(p)),
       lines: strip.map((s) => toLine(s, input.tone, gameSeed)),
-      history: safely(() => input.module?.history?.(g) ?? []).slice(0, MAX_HISTORY),
+      history: safely(() => module?.history?.(g) ?? []).slice(0, MAX_HISTORY),
     });
   }
 
@@ -132,9 +158,9 @@ export function runEngine(input: EngineInput): EngineOutput {
   for (const rule of NIGHT_RULES)
     if (input.games.length >= rule.minGames)
       for (const c of safely(() => rule.compute(ctx))) add(rule, c);
-  for (const rule of rules)
-    if (rule.computeNight)
-      for (const c of safely(() => rule.computeNight!(input.games))) add(rule, c);
+  for (const [gameId, games] of byGame(input.games))
+    for (const rule of input.modules(gameId)?.rules ?? [])
+      if (rule.computeNight) for (const c of safely(() => rule.computeNight!(games))) add(rule, c);
 
   let mvp: RecapLine | undefined;
   const mvpPlayers = new Set<string>();
@@ -148,7 +174,10 @@ export function runEngine(input: EngineInput): EngineOutput {
     }
   }
 
-  const cardPool = [...gameScored, ...nightScored].filter((s) => !(s.rule as AwardRule).stripOnly);
+  const cardPool = freshen(
+    [...gameScored, ...nightScored].filter((s) => !(s.rule as AwardRule).stripOnly),
+    input.history,
+  );
   const members = seededOrder(
     nightPlayers(input.games).filter((p) => !input.exclude.has(p)),
     nightSeed,
@@ -169,7 +198,7 @@ export function runEngine(input: EngineInput): EngineOutput {
     ...(picked.moment && { moment: toLine(picked.moment, input.tone, nightSeed) }),
     ...(mvp && { mvp }),
     awards: picked.awards.map((s) => toLine(s, input.tone, nightSeed)),
-    nuggets: nuggetsOf(input),
+    ...nuggetsOf(input),
   };
 }
 
@@ -180,18 +209,58 @@ function seededOrder(ids: readonly string[], seed: number): string[] {
   );
 }
 
-function nuggetsOf(input: EngineInput): { emoji: string; text: string }[] {
-  const found: { emoji: string; text: string; interest: number }[] = [];
-  for (const n of input.module?.nuggets ?? []) {
-    try {
-      const out = n.compute(input.games);
-      if (out?.text) found.push({ emoji: n.emoji, text: out.text, interest: n.interest });
-    } catch {
-      // A broken nugget is simply left out.
+/** The night's games grouped by game, in the order each game was first played. */
+function byGame(games: readonly GameEvents[]): Map<string, GameEvents[]> {
+  const out = new Map<string, GameEvents[]>();
+  for (const g of games) {
+    const list = out.get(g.gameId);
+    if (list) list.push(g);
+    else out.set(g.gameId, [g]);
+  }
+  return out;
+}
+
+/** Whether `value` beats the stored record (none stored: nothing to beat yet). */
+export const beats = (value: number, stored: number | undefined, better: 'max' | 'min') =>
+  stored !== undefined && (better === 'max' ? value > stored : value < stored);
+
+/** The night's numbers: the most interesting first, and a new room record counts for more. */
+function nuggetsOf(input: EngineInput): { nuggets: NuggetOut[]; recordables: NuggetOut[] } {
+  const found: (NuggetOut & { interest: number })[] = [];
+  for (const [gameId, games] of byGame(input.games)) {
+    for (const n of input.modules(gameId)?.nuggets ?? []) {
+      try {
+        const out = n.compute(games);
+        if (!out?.text) continue;
+        const key = `${gameId}:${n.id}`;
+        const record =
+          n.record !== undefined &&
+          Number.isFinite(out.value) &&
+          beats(out.value, input.records?.get(key), n.record);
+        found.push({
+          emoji: n.emoji,
+          text: out.text,
+          interest: n.interest * (record ? 1.5 : 1),
+          ...(record && { record: true }),
+          ...(n.record !== undefined &&
+            Number.isFinite(out.value) && {
+              recordKey: key,
+              value: out.value,
+              better: n.record,
+              gameId,
+            }),
+        });
+      } catch {
+        // A broken nugget is simply left out.
+      }
     }
   }
-  return found
-    .sort((a, b) => b.interest - a.interest)
-    .slice(0, MAX_NUGGETS)
-    .map(({ emoji, text }) => ({ emoji, text }));
+  const strip = ({ interest: _interest, ...n }: NuggetOut & { interest: number }) => n;
+  return {
+    nuggets: [...found]
+      .sort((a, b) => b.interest - a.interest)
+      .slice(0, MAX_NUGGETS)
+      .map(strip),
+    recordables: found.filter((n) => n.recordKey).map(strip),
+  };
 }

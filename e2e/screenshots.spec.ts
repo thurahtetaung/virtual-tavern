@@ -997,5 +997,37 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-sheet.png` });
     await sheet.getByRole('region', { name: 'Past rounds' }).scrollIntoViewIfNeeded();
     await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-rounds.png` });
+
+    // The saved picture, drawn on the device in its own theme.
+    const download = host.waitForEvent('download');
+    await sheet.getByRole('button', { name: '🖼️ Save image' }).click();
+    await (await download).saveAs(`test-results/shots/phone-${colorScheme}-recap-image.png`);
+    for (const p of players)
+      await p
+        .getByRole('dialog', { name: /at the tavern/ })
+        .getByRole('button', { name: 'Close' })
+        .click();
+
+    // A second night, wrapped up too: the Hall of fame opens.
+    await host.getByRole('button', { name: 'Play again' }).click();
+    const dealt = await readCards(players, names);
+    await readyUp(players);
+    const [a, b, c] = dealt.locals as [Page, Page, Page];
+    await votes([
+      [a, names.get(dealt.spy)!],
+      [b, names.get(dealt.spy)!],
+      [c, names.get(dealt.spy)!],
+      [dealt.spy, names.get(a)!],
+    ]);
+    const board = dealt.spy.getByRole('region', { name: 'Locations' });
+    const wrong = dealt.location === 'Bakery' ? 'Gym' : 'Bakery';
+    await board.getByRole('button', { name: `Pick ${wrong}`, exact: true }).click();
+    await board.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
+    await expect(host.getByRole('region', { name: 'Superlatives' })).toBeVisible();
+    await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
+    await expect(sheet.getByText('Wrapped up')).toBeVisible();
+    await sheet.getByRole('tab', { name: '🏆 Hall of fame' }).click();
+    await expect(sheet.getByText(/Nights together: 2/)).toBeVisible();
+    await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-hall.png` });
   });
 }

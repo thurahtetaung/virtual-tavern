@@ -1,4 +1,6 @@
 import {
+  type RecentNight,
+  type RoomRecap,
   type GameStats,
   type LiveStats,
   type PlayerProfile,
@@ -46,6 +48,10 @@ export const statsApi = {
     return get<StatsWords>(`${BASE}/words?${q.toString()}`);
   },
   fun: (query: string) => get<StatsFun>(withQuery(`${BASE}/fun`, query)),
+  /** The latest frozen night recaps across the tavern (not tied to the range). */
+  nights: () => get<{ nights: RecentNight[] }>(`${BASE}/nights`),
+  night: (roomId: string, nightKey: string) =>
+    get<RoomRecap>(`${BASE}/nights/${encodeURIComponent(roomId)}/${encodeURIComponent(nightKey)}`),
   /**
    * A download link: the browser saves the NDJSON straight from the server, sending the admin
    * cookie. Takes `exportQuery()` (from/to days), not the range query.

@@ -96,7 +96,7 @@ export function aggregate(events: Iterable<StatsEvent>, agg = new Agg()): Agg {
         game,
         e.type === 'recap.viewed'
           ? 'recaps_viewed'
-          : `recaps_shared.${props.how === 'share' ? 'share' : 'copy'}`,
+          : `recaps_shared.${props.how === 'share' || props.how === 'image' ? props.how : 'copy'}`,
         1,
       );
       continue;

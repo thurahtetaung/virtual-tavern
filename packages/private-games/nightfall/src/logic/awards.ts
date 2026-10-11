@@ -1,19 +1,20 @@
 import {
+  tally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
+  count,
+  type GameEvents,
+  ph,
   leaders,
   mostBy,
+  type NuggetRule,
   num,
-  ph,
+  type RecapEvent,
   seconds,
   str,
   strs,
-  tally,
 } from '@vt/game-sdk';
 
 /**
@@ -556,7 +557,7 @@ const nuggets: NuggetRule[] = [
     compute: (games) => {
       const top = leaders(tally(outcomes(games), (e) => strs(e, 'teamsWon')))[0];
       if (!top || top.players.length !== 1) return null;
-      return { value: top.value, text: `Team ${top.players[0]} won ${top.value} times` };
+      return { value: top.value, text: `Team ${top.players[0]} won ${count(top.value, 'time')}` };
     },
   },
   {
@@ -565,13 +566,14 @@ const nuggets: NuggetRule[] = [
     interest: 2,
     compute: (games) => {
       const n = outcomes(games).reduce((s, e) => s + (num(e, 'deaths') ?? 0), 0);
-      return n ? { value: n, text: `${n} players met their end` } : null;
+      return n ? { value: n, text: `${count(n, 'player')} met their end` } : null;
     },
   },
   {
     id: 'nf.chain',
     emoji: '⛓️',
     interest: 3,
+    record: 'max',
     compute: (games) => {
       const n = Math.max(0, ...outcomes(games).map((e) => num(e, 'chain') ?? 0));
       return n >= 2 ? { value: n, text: `Longest card chain: ${n} moves` } : null;
@@ -592,6 +594,7 @@ const nuggets: NuggetRule[] = [
     id: 'nf.quickest-day',
     emoji: '⏱️',
     interest: 3,
+    record: 'min',
     compute: (games) => {
       const days = outcomes(games).flatMap((e) => (num(e, 'dayMs') ? [num(e, 'dayMs')!] : []));
       if (days.length < 2) return null;

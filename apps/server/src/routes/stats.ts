@@ -1,5 +1,7 @@
 import { Readable } from 'node:stream';
 import {
+  type RecentNight,
+  type RoomRecap,
   type StatsQuery,
   statsExportQuery,
   statsQuery,
@@ -16,6 +18,9 @@ import type { StatsQueries, StatsStore } from '../stats/types.ts';
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
 
+/** Frozen nights listed on the Fun tab. */
+const RECENT_NIGHTS = 10;
+
 /** Per client (admin), across every stats route. */
 const RATE_LIMIT = { rateLimit: { max: 120, timeWindow: '1 minute' } };
 
@@ -28,6 +33,11 @@ export interface StatsRouteOptions {
   flush: () => void;
   /** Called after a reset, to drop anything in progress. */
   onReset: () => void;
+  /** Frozen night recaps (not stats: the reset leaves them alone). */
+  recaps?: {
+    recent(limit: number): RecentNight[];
+    frozenCard(roomId: string, nightKey: string): RoomRecap | null;
+  };
   now: () => number;
 }
 
@@ -153,6 +163,17 @@ export function statsRoutes(app: FastifyInstance, opts: StatsRouteOptions) {
     const h = historical(req, reply);
     return h ? queries.fun(h.w) : reply;
   });
+
+  // "Recent tavern nights": the latest frozen night cards, each readable as it was frozen.
+  route('nights', () => ({ nights: opts.recaps?.recent(RECENT_NIGHTS) ?? [] }));
+  app.get<{ Params: { roomId: string; nightKey: string } }>(
+    '/api/admin/stats/nights/:roomId/:nightKey',
+    { config: RATE_LIMIT },
+    (req, reply) => {
+      const card = opts.recaps?.frozenCard(req.params.roomId, req.params.nightKey);
+      return card ?? error(reply, 404, 'no-night', 'That night is not in the hall of fame.');
+    },
+  );
 
   // Raw events as NDJSON, for backups and a later move to a column store.
   route('export', (req, reply) => {

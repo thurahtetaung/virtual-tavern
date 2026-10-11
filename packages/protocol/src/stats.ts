@@ -212,6 +212,8 @@ export interface FunFact {
 export interface StatsFun {
   window: StatsWindow;
   facts: FunFact[];
+  /** Night recaps opened, and shared (copied, shared or saved as an image), in the window. */
+  recaps: { viewed: number; shared: number };
 }
 
 // ---- Timeseries, games, settings, heatmap, admin actions ----

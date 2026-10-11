@@ -11,7 +11,17 @@ import {
 import type { RecapLine } from '@vt/protocol';
 import { describe, expect, it } from 'vitest';
 import { type EngineInput, runEngine } from './engine.ts';
-import { type Scored, cardCap, pickNight, pickStrip, scoreOf } from './select.ts';
+import {
+  HEADLINE_REPEAT,
+  PAIR_REPEAT,
+  type Scored,
+  cardCap,
+  freshen,
+  freshness,
+  pickNight,
+  pickStrip,
+  scoreOf,
+} from './select.ts';
 
 /** A rule awarding the most `type` events, with the given valence. */
 const most = (
@@ -103,7 +113,7 @@ const input = (games: GameEvents[], tone: Tone = 'cheeky', extra: Partial<Engine
   nightKey: 'night',
   lastEventId: 'last',
   games,
-  module: MODULE,
+  modules: () => MODULE,
   tone,
   tzOffsetMin: null,
   exclude: new Set<string>(),
@@ -209,7 +219,7 @@ describe('night card selection', () => {
         throw new Error('nope');
       },
     };
-    const out = runEngine(input(randomNight(3), 'cheeky', { module: broken }));
+    const out = runEngine(input(randomNight(3), 'cheeky', { modules: () => broken }));
     expect(out.games.every((g) => g.history.length === 0)).toBe(true);
   });
 });
@@ -272,5 +282,44 @@ describe('scoring and the strip', () => {
     });
     // Solo's own line is the gentle fallback; the blunder may only come on top of it.
     expect(picked.awards.map((a) => a.rule.id)).toContain('fallback');
+  });
+});
+
+describe('freshness across nights', () => {
+  const scored = (id: string, players: string[], score = 100): Scored => ({
+    rule: MODULE.rules.find((r) => r.id === id)!,
+    cand: { players, value: 3 },
+    score,
+  });
+
+  it("scores down last night's headline and the same award for the same player", () => {
+    const history = { headline: 'hits', recent: new Set(['speed|ana', 'hits|ben']) };
+    expect(freshness(scored('hits', ['cy']), history)).toBe(HEADLINE_REPEAT);
+    expect(freshness(scored('speed', ['ana']), history)).toBe(PAIR_REPEAT);
+    expect(freshness(scored('hits', ['ben']), history)).toBeCloseTo(HEADLINE_REPEAT * PAIR_REPEAT);
+    // A shared award counts as a repeat when any of its players had it.
+    expect(freshness(scored('speed', ['cy', 'ana']), history)).toBe(PAIR_REPEAT);
+    expect(freshness(scored('speed', ['cy']), history)).toBe(1);
+    expect(freshness(scored('speed', ['ana']), undefined)).toBe(1);
+    expect(freshen([scored('speed', ['ana'])], history)[0]!.score).toBe(100 * PAIR_REPEAT);
+  });
+
+  it('rotates the card: a repeat gives way to a fresh award of similar strength', () => {
+    const games = [
+      fixtureGame(
+        [
+          ...['ana', 'ana', 'ana', 'ben'].map((p) => recapEv('hit', p)),
+          ...['ana', 'ana', 'ana', 'ben'].map((p) => recapEv('fast', p)),
+        ],
+        { players: ['ana', 'ben', 'cy'] },
+      ),
+    ];
+    const pick = (history?: { headline?: string; recent: Set<string> }) =>
+      runEngine(input(games, 'cheeky', { ...(history && { history }) })).awards.find((a) =>
+        a.players.includes('ana'),
+      )!.awardId;
+    const fresh = pick();
+    const other = fresh === 'hits' ? 'speed' : 'hits';
+    expect(pick({ recent: new Set([`${fresh}|ana`]) })).toBe(other);
   });
 });

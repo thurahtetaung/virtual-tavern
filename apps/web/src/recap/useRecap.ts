@@ -1,5 +1,5 @@
 import type { Superlative } from '@vt/game-sdk';
-import type { AckWith, RoomRecap, RoomSnapshot } from '@vt/protocol';
+import type { AckWith, HallOfFame, RoomRecap, RoomSnapshot } from '@vt/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import type { useRoom } from '../lib/useRoom.ts';
@@ -100,7 +100,7 @@ export function useRecap({
   const superlatives = useMemo((): Superlative[] | undefined => {
     // Fetched for this very end screen, so a strip never shows the game before.
     if (phase !== 'over' || !shown || shown.running || fetched.for !== current) return undefined;
-    const last = shown.games.at(-1);
+    const last = shown.games.findLast((g) => !g.elsewhere);
     if (!last?.lines.length) return undefined;
     return last.lines.map((l) => ({
       emoji: l.emoji,
@@ -120,9 +120,27 @@ export function useRecap({
     viewed.current = false;
   }, []);
 
+  // The Hall of fame and earlier frozen nights, fetched when asked for.
+  const hall = useCallback(async () => {
+    const res = (await call('room:recap', { scope: 'hall' })) as unknown as AckWith<HallOfFame>;
+    return res.ok ? res.data : null;
+  }, [call]);
+  const pastNight = useCallback(
+    async (nightKey: string) => {
+      const res = (await call('room:recap', {
+        scope: 'night',
+        nightKey,
+      })) as unknown as AckWith<RoomRecap>;
+      return res.ok ? res.data : null;
+    },
+    [call],
+  );
+
   return {
     enabled,
     recap: shown,
+    hall,
+    pastNight,
     names,
     labels,
     superlatives,

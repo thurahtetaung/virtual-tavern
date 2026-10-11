@@ -1,22 +1,23 @@
 import {
+  pairTally,
+  tally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
-  leaders,
-  mostBy,
-  num,
-  pairTally,
+  count,
+  type GameEvents,
   ph,
   plain,
+  leaders,
+  mostBy,
+  type NuggetRule,
+  num,
+  nums,
+  topPair,
+  type RecapEvent,
   str,
   strs,
-  nums,
-  tally,
-  topPair,
 } from '@vt/game-sdk';
 
 /** One turn as the recap sees it: the story and the votes that followed it. */
@@ -455,7 +456,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute: (games) => {
       const n = allTurns(games).length;
-      return n ? { value: n, text: `${n} stories told` } : null;
+      return n ? { value: n, text: `${count(n, 'story', 'stories')} told` } : null;
     },
   },
   {
@@ -475,6 +476,7 @@ const nuggets: NuggetRule[] = [
     id: 'reverie.decoy-record',
     emoji: '🪤',
     interest: 3,
+    record: 'max',
     compute: (games) => {
       let best = 0;
       for (const { story, votes } of allTurns(games)) {
@@ -491,6 +493,7 @@ const nuggets: NuggetRule[] = [
     id: 'reverie.best-turn',
     emoji: '💰',
     interest: 2,
+    record: 'max',
     compute: (games) => {
       const best = Math.max(
         0,
@@ -507,7 +510,7 @@ const nuggets: NuggetRule[] = [
       const scores = nums(games.at(-1)?.of('outcome').at(-1), 'scores');
       if (scores.length < 2) return null;
       const spread = scores[0]! - scores.at(-1)!;
-      return { value: spread, text: `Final score spread: ${spread} points` };
+      return { value: spread, text: `Final score spread: ${count(spread, 'point')}` };
     },
   },
 ];

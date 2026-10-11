@@ -1,20 +1,21 @@
 import {
+  pairTally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
-  leaders,
-  mostBy,
-  num,
-  nums,
-  pairTally,
+  count as plural,
+  type GameEvents,
   ph,
   plain,
-  strs,
+  leaders,
+  mostBy,
+  type NuggetRule,
+  num,
+  nums,
   topPair,
+  type RecapEvent,
+  strs,
 } from '@vt/game-sdk';
 
 /** One revealed round: its lies and votes (reported just before it) and the round itself. */
@@ -382,7 +383,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute: (games) => {
       const n = allRounds(games).length;
-      return n ? { value: n, text: `${n} strange questions` } : null;
+      return n ? { value: n, text: plural(n, 'strange question') } : null;
     },
   },
   {
@@ -402,6 +403,7 @@ const nuggets: NuggetRule[] = [
     id: 'hoodwink.best-lie',
     emoji: '🎭',
     interest: 3,
+    record: 'max',
     compute: (games) => {
       const lies = games.flatMap((g) => g.of('lie')).filter((l) => fooled(l) >= 2 && lieText(l));
       if (!lies.length) return null;
@@ -418,7 +420,7 @@ const nuggets: NuggetRule[] = [
     interest: 2,
     compute: (games) => {
       const n = games.flatMap((g) => g.of('lie')).reduce((s, l) => s + fooled(l), 0);
-      return n ? { value: n, text: `${n} votes went to lies` } : null;
+      return n ? { value: n, text: `${plural(n, 'vote')} went to lies` } : null;
     },
   },
   {

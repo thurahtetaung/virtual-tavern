@@ -1,20 +1,21 @@
 import {
+  tally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
+  count,
+  type GameEvents,
+  ph,
+  plain,
   leaders,
   meanBy,
   mostBy,
+  type NuggetRule,
   num,
-  plain,
-  ph,
+  type RecapEvent,
   seconds,
   str,
-  tally,
 } from '@vt/game-sdk';
 
 /**
@@ -546,7 +547,10 @@ const nuggets: NuggetRule[] = [
       const clues = all(games, 'clue');
       if (!clues.length) return null;
       const mean = clues.reduce((s, e) => s + (num(e, 'count') ?? 0), 0) / clues.length;
-      return { value: clues.length, text: `${clues.length} clues, ${mean.toFixed(1)} words each` };
+      return {
+        value: clues.length,
+        text: `${count(clues.length, 'clue')}, ${mean.toFixed(1)} words each`,
+      };
     },
   },
   {
@@ -557,7 +561,7 @@ const nuggets: NuggetRule[] = [
       const gs = all(games, 'guess');
       if (gs.length < 3) return null;
       const right = pct(gs.filter(isCorrect).length, gs.length);
-      return { value: right, text: `${gs.length} guesses · ${right}% right` };
+      return { value: right, text: `${count(gs.length, 'guess', 'guesses')} · ${right}% right` };
     },
   },
   {
@@ -573,6 +577,7 @@ const nuggets: NuggetRule[] = [
     id: 'codenames.biggest-cash',
     emoji: '💰',
     interest: 4,
+    record: 'max',
     compute: (games) => {
       const best = games
         .flatMap(clueRuns)
@@ -587,6 +592,7 @@ const nuggets: NuggetRule[] = [
     id: 'codenames.fastest-guess',
     emoji: '⚡',
     interest: 2,
+    record: 'min',
     compute: (games) => {
       const times = all(games, 'guess')
         .map((e) => num(e, 'actMs'))

@@ -7,6 +7,8 @@ import type {
   PlayerSummary,
   SeriesPoint,
   StatsBucket,
+  RecentNight,
+  RoomRecap,
   StatsFun,
   StatsOverview,
   StatsPlayers,
@@ -534,7 +536,11 @@ export function fixtureFun(q: URLSearchParams): StatsFun {
       playerId: PLAYERS[10]!.id,
     },
   ];
-  return { window: windowFor(q), facts: isEmpty(q) ? [] : facts };
+  return {
+    window: windowFor(q),
+    facts: isEmpty(q) ? [] : facts,
+    recaps: isEmpty(q) ? { viewed: 0, shared: 0 } : { viewed: 42, shared: 17 },
+  };
 }
 
 export function fixtureLive(): LiveStats {
@@ -622,7 +628,80 @@ export function fixtureFor(pathWithQuery: string): unknown {
       return fixtureWords(q.get('game') ?? '', (q.get('kind') ?? 'clue') as WordKind, q);
     case 'fun':
       return fixtureFun(q);
+    case 'nights':
+      return id ? fixtureNight() : { nights: fixtureNights() };
     default:
       return undefined;
   }
+}
+
+// ---- Night recaps ----
+
+function fixtureNights(): RecentNight[] {
+  const at = Date.UTC(2026, 9, 10, 19);
+  return [
+    {
+      roomId: 'demo-room-1',
+      nightKey: '01JZ0000000000000000000001',
+      startedAt: at,
+      endedAt: at + 2 * 3600_000,
+      games: 5,
+      mix: [
+        { gameId: 'masquerade', name: 'Masquerade', count: 3 },
+        { gameId: 'codenames', name: 'Codenames', count: 2 },
+      ],
+      mvp: 'Ana',
+    },
+    {
+      roomId: 'demo-room-2',
+      nightKey: '01JY0000000000000000000002',
+      startedAt: at - 3 * DAY_MS,
+      endedAt: at - 3 * DAY_MS + 3600_000,
+      games: 2,
+      mix: [{ gameId: 'echo', name: 'Echo', count: 2 }],
+    },
+  ];
+}
+
+function fixtureNight(): RoomRecap {
+  const at = Date.UTC(2026, 9, 10, 19);
+  const line = (awardId: string, emoji: string, title: string, text: string, p: string) => ({
+    awardId,
+    emoji,
+    title,
+    text,
+    players: [p],
+    valence: 'glory' as const,
+  });
+  return {
+    nightKey: '01JZ0000000000000000000001',
+    status: 'wrapped',
+    frozen: true,
+    tone: 'cheeky',
+    startedAt: at,
+    endedAt: at + 2 * 3600_000,
+    running: 0,
+    abandoned: 0,
+    games: [
+      {
+        gameNo: 1,
+        gameId: 'masquerade',
+        name: 'Masquerade',
+        startedAt: at,
+        durationMs: 25 * 60_000,
+        players: ['a', 'b'],
+        winners: ['a'],
+        lines: [],
+        history: [],
+      },
+    ],
+    players: [
+      { id: 'a', name: 'Ana', played: 1 },
+      { id: 'b', name: 'Ben', played: 1 },
+    ],
+    audience: [],
+    mvp: line('night-mvp', '👑', 'Night MVP', '{p:a} won 1 of 1. Insufferable', 'a'),
+    awards: [line('ghost', '🫥', 'Ghost', '{p:b} was the spy and got zero votes', 'b')],
+    nuggets: [{ emoji: '🗳️', text: '31 votes cast', record: true }],
+  };
 }

@@ -186,7 +186,7 @@ describe('enigma awards', () => {
     ]);
     const texts = enigmaAwards.nuggets.map((n) => n.compute([g])?.text);
     expect(texts).toContain('2 rounds played');
-    expect(texts).toContain('1 intercepts · 2 misses');
+    expect(texts).toContain('1 intercept · 2 misses');
     expect(texts).toContain('Most used clue: "ocean" ×2');
     expect(texts).toContain('Longest clue: "lighthouse"');
     expect(enigmaAwards.history!(g)).toEqual([

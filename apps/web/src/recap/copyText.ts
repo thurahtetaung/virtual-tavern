@@ -1,6 +1,24 @@
 import type { RecapLine, RoomRecap } from '@vt/protocol';
 import { type Labeler, resolveSegments } from './resolve.ts';
 
+/** A game's name and emoji, as the recap shows them. */
+export interface GameInfo {
+  name: string;
+  icon: string;
+}
+
+/** "🎭 Masquerade ×3 · 🕵️ Codenames ×2", in the order the games were first played. */
+export function gameMix(recap: RoomRecap, info: (gameId: string) => GameInfo): string {
+  const mix = new Map<string, number>();
+  for (const g of recap.games) mix.set(g.gameId, (mix.get(g.gameId) ?? 0) + 1);
+  return [...mix]
+    .map(([id, n]) => {
+      const g = info(id);
+      return `${g.icon} ${g.name} ×${n}`;
+    })
+    .join(' · ');
+}
+
 /** Most lines "Copy for chat" produces. */
 export const MAX_CHAT_LINES = 15;
 
@@ -27,7 +45,7 @@ export const playedMs = (recap: RoomRecap) => recap.games.reduce((sum, g) => sum
 export function chatText(
   recap: RoomRecap,
   opts: {
-    game: { name: string; icon: string };
+    gameInfo: (gameId: string) => GameInfo;
     names: ReadonlyMap<string, string>;
     labels: Labeler | null;
     spoiler?: boolean;
@@ -40,7 +58,7 @@ export function chatText(
   const line = (l: RecapLine) => `${l.emoji} ${l.title}: ${bold(l.text)}`;
   const out = [
     `🍻 Tavern night · ${nightDate(recap.startedAt)} · ${duration(playedMs(recap))}`,
-    `${opts.game.icon} ${opts.game.name} ×${recap.games.length}`,
+    gameMix(recap, opts.gameInfo),
     '',
   ];
   if (recap.moment) {

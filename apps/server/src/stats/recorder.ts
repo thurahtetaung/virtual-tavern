@@ -246,7 +246,9 @@ export class StatsRecorder implements RoomObserver {
       case 'player.disconnected':
         return;
       case 'room.created':
-        emit('room.created', by);
+        emit('room.created', by, o.props ?? {});
+        // A linked room's recap reads the link at once.
+        if (o.props?.nightKey) this.flush();
         return;
       case 'room.swept':
         this.sweep(o);

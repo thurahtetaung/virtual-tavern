@@ -202,3 +202,67 @@ export const roomRecapSettings = sqliteTable('room_recap_settings', {
   tzOffsetMin: integer('tz_offset_min'),
   updatedAt: integer('updated_at').notNull(),
 });
+
+/**
+ * Frozen night cards: a night is frozen when the host wraps it up or the room's next night
+ * begins, and is never recomputed. `card` holds the cards in both tones (and, for a public room
+ * whose linked night reached the back room, a public-only variant). Not stats tables: the admin
+ * stats reset leaves them alone, and a swept room's rows go with it.
+ */
+export const recapNights = sqliteTable(
+  'recap_nights',
+  {
+    roomId: text('room_id').notNull(),
+    nightKey: text('night_key').notNull(),
+    startedAt: integer('started_at').notNull(),
+    endedAt: integer('ended_at').notNull(),
+    wrappedAt: integer('wrapped_at'),
+    games: integer('games').notNull(),
+    tone: text('tone').notNull(),
+    card: text('card').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.roomId, t.nightKey] }),
+    index('recap_nights_started').on(t.startedAt),
+  ],
+);
+
+/** Who won what on each frozen night: the Hall of fame and the freshness of later cards. */
+export const recapAwards = sqliteTable(
+  'recap_awards',
+  {
+    roomId: text('room_id').notNull(),
+    nightKey: text('night_key').notNull(),
+    awardId: text('award_id').notNull(),
+    /** Empty for a moment that names nobody. */
+    playerId: text('player_id').notNull(),
+    /** The game it came from; null for the night's own awards. */
+    gameId: text('game_id'),
+    /** `moment`, `mvp` or `award`. */
+    slot: text('slot').notNull().default('award'),
+    value: real('value'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.roomId, t.nightKey, t.awardId, t.playerId] }),
+    index('recap_awards_player').on(t.playerId, t.createdAt),
+  ],
+);
+
+/** Each room's records, from the night cards' numbers (biggest clue cashed, quickest day…). */
+export const recapRecords = sqliteTable(
+  'recap_records',
+  {
+    roomId: text('room_id').notNull(),
+    recordId: text('record_id').notNull(),
+    playerId: text('player_id'),
+    value: real('value').notNull(),
+    at: integer('at').notNull(),
+    nightKey: text('night_key').notNull(),
+    gameId: text('game_id').notNull(),
+    emoji: text('emoji').notNull(),
+    /** The nugget as the card showed it (with placeholders). */
+    text: text('text').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.recordId] })],
+);

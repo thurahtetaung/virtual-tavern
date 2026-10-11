@@ -1,21 +1,22 @@
 import {
+  tally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
+  count,
+  type GameEvents,
+  ph,
+  plain,
   leaders,
   meanBy,
   mostBy,
+  type NuggetRule,
   num,
-  plain,
-  ph,
+  type RecapEvent,
   seconds,
   str,
   strs,
-  tally,
 } from '@vt/game-sdk';
 
 /**
@@ -529,7 +530,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute: (games) => {
       const n = games.reduce((s, g) => s + rounds(g), 0);
-      return n ? { value: n, text: `${n} rounds played` } : null;
+      return n ? { value: n, text: `${count(n, 'round')} played` } : null;
     },
   },
   {
@@ -540,7 +541,10 @@ const nuggets: NuggetRule[] = [
       const ints = all(games, 'intercept').filter((e) => bool(e, 'success') === true).length;
       const misses = all(games, 'decode').filter(decodeFailed).length;
       return ints + misses
-        ? { value: ints + misses, text: `${ints} intercepts · ${misses} misses` }
+        ? {
+            value: ints + misses,
+            text: `${count(ints, 'intercept')} · ${count(misses, 'miss', 'misses')}`,
+          }
         : null;
     },
   },
@@ -550,7 +554,7 @@ const nuggets: NuggetRule[] = [
     interest: 2,
     compute: (games) => {
       const n = all(games, 'clues').reduce((s, e) => s + strs(e, 'clues').length, 0);
-      return n ? { value: n, text: `${n} clues sent` } : null;
+      return n ? { value: n, text: `${count(n, 'clue')} sent` } : null;
     },
   },
   {
@@ -571,6 +575,7 @@ const nuggets: NuggetRule[] = [
     id: 'enigma.longest-clue',
     emoji: '📏',
     interest: 2,
+    record: 'max',
     compute: (games) => {
       const words = all(games, 'clues').flatMap((e) => strs(e, 'clues'));
       const longest = words.sort((a, b) => b.length - a.length)[0];

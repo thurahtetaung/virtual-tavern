@@ -1,4 +1,10 @@
-import type { Ack, ClientToServerEvents, RoomSnapshot, ServerToClientEvents } from '@vt/protocol';
+import type {
+  Ack,
+  ClientToServerEvents,
+  NextTable,
+  RoomSnapshot,
+  ServerToClientEvents,
+} from '@vt/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Socket, io } from 'socket.io-client';
 import { playerToken } from './identity.ts';
@@ -23,6 +29,8 @@ export function useRoom(roomId: string, name: string | null) {
   const [error, setError] = useState<string | null>(null);
   /** Counts the host's wrap-ups heard on this page, so the recap can open everywhere. */
   const [wraps, setWraps] = useState(0);
+  /** "Same crew, new game": the latest table someone here opened for the night. */
+  const [next, setNext] = useState<NextTable | null>(null);
   const socketRef = useRef<ClientSocket | null>(null);
   // Latest name for automatic rejoins, so a reconnect never reverts a rename.
   const nameRef = useRef(name);
@@ -67,6 +75,7 @@ export function useRoom(roomId: string, name: string | null) {
       socket.disconnect();
     });
     socket.on('room:wrapped', () => setWraps((n) => n + 1));
+    socket.on('room:next', (table) => setNext(table));
     // The password changed or everyone was signed out: the server already dropped us from the room.
     socket.on('room:locked', () => {
       setStatus('locked');
@@ -112,5 +121,15 @@ export function useRoom(roomId: string, name: string | null) {
     setStatus('left');
   }, [call]);
 
-  return { snapshot, clockOffset, status, error, call, leave, wraps };
+  return {
+    snapshot,
+    clockOffset,
+    status,
+    error,
+    call,
+    leave,
+    wraps,
+    next,
+    dismissNext: () => setNext(null),
+  };
 }

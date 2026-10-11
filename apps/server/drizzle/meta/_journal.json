@@ -57,6 +57,13 @@
       "when": 1791735605753,
       "tag": "0007_recaps",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791750194290,
+      "tag": "0008_recap_hall_of_fame",
+      "breakpoints": true
     }
   ]
 }

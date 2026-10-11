@@ -1,21 +1,22 @@
 import {
+  pairTally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
-  leaders,
-  mostBy,
-  num,
-  pairTally,
+  count,
+  type GameEvents,
   ph,
   plain,
+  leaders,
+  mostBy,
+  type NuggetRule,
+  num,
+  topPair,
+  type RecapEvent,
   seconds,
   str,
   strs,
-  topPair,
 } from '@vt/game-sdk';
 
 /** Each card with the `match` events that followed it (insights report them together). */
@@ -413,7 +414,7 @@ const nuggets: NuggetRule[] = [
     interest: 3,
     compute(games) {
       const n = allCards(games).reduce((s, e) => s + (num(e, 'cancelledCount') ?? 0), 0);
-      return n ? { value: n, text: `${n} clues cancelled` } : null;
+      return n ? { value: n, text: `${count(n, 'clue')} cancelled` } : null;
     },
   },
   {
@@ -443,6 +444,7 @@ const nuggets: NuggetRule[] = [
     id: 'echo.streak',
     emoji: '🔥',
     interest: 3,
+    record: 'max',
     compute(games) {
       let best = 0;
       for (const g of games) {
@@ -459,6 +461,7 @@ const nuggets: NuggetRule[] = [
     id: 'echo.fastest',
     emoji: '⏱️',
     interest: 2,
+    record: 'min',
     compute(games) {
       const times = allCards(games)
         .filter((e) => outcomeOf(e) === 'right')

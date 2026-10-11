@@ -126,3 +126,36 @@ describe('nights', () => {
     expect(currentNight([ev('room.created', 0)])).toBeNull();
   });
 });
+
+describe('linked rooms', () => {
+  /** A game in another room. */
+  const elsewhere = (roomId: string, gameId: string, start: number, minutes = 20) =>
+    game(start, minutes).map((e) => ({ ...e, roomId, gameId }));
+
+  it('merges games from rooms that share a night, in the order they started', () => {
+    const night = currentNight([...game(0), ...elsewhere('r2', 'echo', 1 * H)]);
+    expect(night!.games.map((g) => g.gameId)).toEqual(['codenames', 'echo']);
+    expect(night!.gameRooms).toEqual(['r', 'r2']);
+    expect([...night!.rooms].sort()).toEqual(['r', 'r2']);
+  });
+
+  it('two tables at once: a game in one room does not close the other', () => {
+    const events = [...game(0, 120), ...elsewhere('r2', 'echo', 30 * 60_000, 20)];
+    const { games } = splitGames(events);
+    expect(games.map((g) => [g.roomId, g.finished])).toEqual([
+      ['r', true],
+      ['r2', true],
+    ]);
+    // The night runs to the later of the two ends.
+    expect(currentNight(events)!.endedAt).toBe(120 * 60_000);
+  });
+
+  it("a room's current night is its latest with a game there, else the night it continues", () => {
+    const events = [...game(0), ...elsewhere('r2', 'echo', 5 * H)];
+    expect(currentNight(events, { roomId: 'r' })!.key).toBe(events[0]!.id);
+    const key = events[0]!.id;
+    expect(currentNight(events, { roomId: 'r2' })!.key).not.toBe(key);
+    expect(currentNight(events, { roomId: 'r3', link: key })!.key).toBe(key);
+    expect(currentNight(events, { roomId: 'r3', link: null })).toBeNull();
+  });
+});

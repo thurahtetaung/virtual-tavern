@@ -28,6 +28,8 @@ export interface Scored {
   rule: RuleInfo;
   cand: AwardCandidate;
   gameNo?: number;
+  /** The game it came from (night awards have none). */
+  gameId?: string;
   score: number;
 }
 
@@ -149,6 +151,7 @@ export function toLine(s: Scored, tone: Tone, seed: number): RecapLine {
     text: renderCopy(variants[pick]!, s.cand),
     players: [...s.cand.players],
     ...(s.gameNo !== undefined && { gameNo: s.gameNo }),
+    ...(s.gameId !== undefined && { gameId: s.gameId }),
     valence: s.rule.valence,
   };
 }
@@ -238,4 +241,36 @@ export function pickNight(opts: {
     ...(moment && { moment }),
     awards: opts.tone === 'wholesome' ? kindFirst(awards) : awards,
   };
+}
+
+// ---- Freshness across nights (§1.6) ----
+
+/** What the room's earlier frozen nights awarded. */
+export interface Freshness {
+  /** The award that headlined the previous night (its moment, else its first award). */
+  headline?: string;
+  /** `awardId|playerId` for every award of the last three nights. */
+  recent: ReadonlySet<string>;
+}
+
+/** An award that headlined last night takes a step back. */
+export const HEADLINE_REPEAT = 0.7;
+/** The same award for the same player as in one of the last three nights: a bigger step. */
+export const PAIR_REPEAT = 0.4;
+
+/** How fresh a candidate is: 1, or less when the room has seen it lately. */
+export function freshness(s: Scored, history: Freshness | undefined): number {
+  if (!history) return 1;
+  let f = 1;
+  if (history.headline === s.rule.id) f *= HEADLINE_REPEAT;
+  if (s.cand.players.some((p) => history.recent.has(`${s.rule.id}|${p}`))) f *= PAIR_REPEAT;
+  return f;
+}
+
+/** The card's pool with last nights' repeats scored down, so the card rotates. */
+export function freshen(pool: readonly Scored[], history: Freshness | undefined): Scored[] {
+  return pool.map((s) => {
+    const f = freshness(s, history);
+    return f === 1 ? s : { ...s, score: s.score * f };
+  });
 }
