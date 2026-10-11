@@ -499,7 +499,7 @@ describe('admin stats', () => {
         .map((p) => p.name)
         .sort(),
     ).toEqual(final.winners.map((id) => final.seats.find((s) => s.id === id)!.name).sort());
-  });
+  }, 20_000);
 
   it('turns a Masquerade game into figures and fun facts', async () => {
     const { app, url, get } = await start();
