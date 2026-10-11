@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.0...v0.13.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **web:** pick a or an by sound in create-room labels ([#61](https://github.com/thurahtetaung/virtual-tavern/issues/61)) ([f2c47e0](https://github.com/thurahtetaung/virtual-tavern/commit/f2c47e09bd43757839c1410103618e7c518759a2))
+
 ## [0.13.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.12.1...v0.13.0) (2026-10-11)
 
 
