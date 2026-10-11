@@ -4,6 +4,9 @@ For anyone who has stumbled onto Virtual Tavern. This is the source for the site
 
 ## What is this place?
 
+**Why is there an FAQ?**
+Honestly, we don't expect anyone to wander into the tavern by accident, let alone read this. But just in case you did: welcome, stranger. Here's everything you might wonder about. And yes, it's **an** FAQ, not **a** FAQ: you say it "eff-ay-queue", not "fack". We checked.
+
 **What is Virtual Tavern?**
 A small, private website where friends play party games together in real time, on their phones or computers. It's run by one person for their friends, not by a company.
 
