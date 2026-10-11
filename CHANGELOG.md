@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.2...v0.14.0) (2026-10-11)
+
+
+### Features
+
+* **nightfall:** add the Vampire set: marks, dusk, lovers and epic battles ([#67](https://github.com/thurahtetaung/virtual-tavern/issues/67)) ([7638219](https://github.com/thurahtetaung/virtual-tavern/commit/763821942360fe36e91bb32e69a4e21582b5255f))
+* **web:** add a FAQ page for visitors ([#66](https://github.com/thurahtetaung/virtual-tavern/issues/66)) ([109d8f3](https://github.com/thurahtetaung/virtual-tavern/commit/109d8f3d582c78c05c651223c654abadcddacf0d))
+
 ## [0.13.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.1...v0.13.2) (2026-10-11)
 
 
