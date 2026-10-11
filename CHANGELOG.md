@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.18.0...v0.19.0) (2026-10-11)
+
+
+### Features
+
+* **nightfall:** add the Alien set and Bonus Pack 3 ([#86](https://github.com/thurahtetaung/virtual-tavern/issues/86)) ([9937298](https://github.com/thurahtetaung/virtual-tavern/commit/99372989dbd1eae541423efb8e34fface8ad8b04))
+
 ## [0.18.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.17.0...v0.18.0) (2026-10-11)
 
 
