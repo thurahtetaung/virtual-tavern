@@ -19,9 +19,14 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
           </Link>
           <nav className="flex items-center gap-2 text-sm font-medium text-stone-600 sm:gap-4 dark:text-stone-400">
             {!wide && (
-              <Link to="/rules" className="hover:text-amber-700 dark:hover:text-amber-400">
-                How to play
-              </Link>
+              <>
+                <Link to="/rules" className="hover:text-amber-700 dark:hover:text-amber-400">
+                  How to play
+                </Link>
+                <Link to="/faq" className="hover:text-amber-700 dark:hover:text-amber-400">
+                  FAQ
+                </Link>
+              </>
             )}
             <ThemeSwitch />
           </nav>
@@ -32,7 +37,10 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
       </main>
       {!wide && (
         <footer className="py-6 text-center text-xs text-stone-500">
-          A cosy corner of the internet for game nights with friends.
+          A cosy corner of the internet for game nights with friends.{' '}
+          <Link to="/faq" className="underline hover:text-amber-700 dark:hover:text-amber-400">
+            Questions?
+          </Link>
         </footer>
       )}
     </div>

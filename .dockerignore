@@ -12,6 +12,8 @@ test-results
 *.db-*
 # Not needed to build the image.
 docs
+# The FAQ page renders this file.
+!docs/faq.md
 e2e
 # Protected game assets must never reach the build context (they live in private R2).
 *.zip

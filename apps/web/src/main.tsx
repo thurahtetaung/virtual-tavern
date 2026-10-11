@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { Layout } from './components/Layout.tsx';
 import { ToastProvider } from './lib/toast.tsx';
 import { BackroomPage } from './pages/BackroomPage.tsx';
+import { FaqPage } from './pages/FaqPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 import { NotFoundPage } from './pages/NotFoundPage.tsx';
 import { RulesPage } from './pages/RulesPage.tsx';
@@ -31,6 +32,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/" element={<HomePage />} />
               <Route path="/r/:roomId" element={<RoomPage />} />
               <Route path="/rules" element={<RulesPage />} />
+              <Route path="/faq" element={<FaqPage />} />
               <Route path="/rules/:gameId" element={<RulesPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/admin/stats" element={<StatsPage />} />
