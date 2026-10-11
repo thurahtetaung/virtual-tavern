@@ -523,6 +523,78 @@ describe('SqliteStatsStore', () => {
     });
   });
 
+  it('reads Nightfall’s Alien set into figures and fun facts', () => {
+    // Shaped like Nightfall's insights at the reveal: an alien win after a time loop, then an
+    // alien caught after a one-minute ripple, with a player abducted twice.
+    const t = (m: number) => at(D3, 22, m);
+    const nf = (m: number, type: string, props: Record<string, unknown>, who: string | null) =>
+      ev(t(m), `insight.${type}`, 'nightfall', props, who, 'room-nfa');
+    const player = (m: number, who: string, props: Record<string, unknown>) =>
+      nf(m, 'player', { dealt: 'villager', won: false, voted: true, ...props }, who);
+    store.append([
+      player(1, 'ana', { dealt: 'alien', alien: true, won: true }),
+      player(1, 'ben', { abducted: true, alien: true, won: true }),
+      player(1, 'cy', { dealt: 'cow', cow: true, cowTipped: true }),
+      nf(
+        1,
+        'outcome',
+        {
+          players: 3,
+          teams: ['village', 'alien'],
+          teamsWon: ['alien'],
+          ending: 'aliens-survived',
+          aliens: true,
+          ripple: 'repeat-night',
+          timeLoop: true,
+          winners: ['ana', 'ben'],
+        },
+        null,
+      ),
+      player(2, 'ana', { dealt: 'alien', alien: true }),
+      player(2, 'ben', { abducted: true }),
+      player(2, 'cy', { dealt: 'seer', won: true }),
+      nf(
+        2,
+        'outcome',
+        {
+          players: 3,
+          teams: ['village', 'alien'],
+          teamsWon: ['village'],
+          ending: 'alien-caught',
+          aliens: true,
+          ripple: 'one-minute',
+          timeLoop: false,
+          winners: ['cy'],
+        },
+        null,
+      ),
+    ]);
+    const w = win(D3, D3);
+    const figures = Object.fromEntries(store.game('nightfall', w).figures.map((f) => [f.id, f]));
+    expect(figures['win-rate-alien']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(figures['time-loops']).toMatchObject({ kind: 'number', value: 1 });
+    expect(figures['alien-games']).toMatchObject({ kind: 'number', value: 2 });
+    const ripples = (figures.ripples as { parts: { label: string; value: number }[] }).parts;
+    expect(ripples).toEqual([
+      { label: 'One-minute day', value: 1 },
+      { label: 'Time loop', value: 1 },
+    ]);
+    const wins = (figures['wins-by-team'] as { parts: { label: string; value: number }[] }).parts;
+    expect(wins).toContainEqual({ label: 'Aliens', value: 1 });
+    expect(wins.map((p) => p.label)).not.toContain('Blob');
+    const endings = (figures.endings as { parts: { label: string; value: number }[] }).parts;
+    expect(endings).toContainEqual({ label: 'An alien was caught', value: 1 });
+    expect(endings).toContainEqual({ label: 'The aliens got away', value: 1 });
+    expect(endings.map((p) => p.label)).not.toContain('The Synthetic Alien died');
+
+    const facts = Object.fromEntries(store.fun(w).facts.map((f) => [f.id, f]));
+    expect(facts.abducted).toMatchObject({
+      playerId: 'ben',
+      gameId: 'nightfall',
+      text: 'Ben was taken over by the aliens 2 times',
+    });
+  });
+
   it('exports raw events as NDJSON in time order, across pages', () => {
     const many = Array.from({ length: 1500 }, (_, i) => ev(at(D3, 1) + i, 'action', 'echo'));
     store.append(many);

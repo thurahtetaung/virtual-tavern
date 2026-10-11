@@ -685,6 +685,18 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
       'hitman',
       (who, n) => `${who} saw their Assassin’s target die ${times(n)}`,
     ],
+    [
+      'abducted',
+      'Abducted',
+      'abducted',
+      (who, n) => `${who} was taken over by the aliens ${times(n)}`,
+    ],
+    [
+      'little-green',
+      'Little Green',
+      'alien',
+      (who, n) => `${who} ended ${plural(n, 'game')} as an Alien`,
+    ],
   ];
   for (const [id, title, key, text] of NIGHTFALL_FACTS)
     byPlayer(id, title, nf(key), text, 'nightfall');

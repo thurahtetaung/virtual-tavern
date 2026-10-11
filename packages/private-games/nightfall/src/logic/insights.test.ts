@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { insights } from './insights.ts';
+import { DEFAULT_WEIGHTS } from './tables.ts';
 import { table, votes } from './test-utils.ts';
 import type { NightfallState } from './types.ts';
 
@@ -200,5 +201,60 @@ describe('insights', () => {
     });
     expect(player('B')).toMatchObject({ votesReceived: 1, deathCause: null, autoActions: 0 });
     expect(player('C').autoActions).toBe(1);
+  });
+
+  it('reports the Alien set’s facts', () => {
+    const zero = (t: Record<string, number>, key: string) =>
+      Object.fromEntries(Object.keys(t).map((k) => [k, k === key ? 1 : 0]));
+    const { events } = reveal(
+      (h) => {
+        h.toStep('blob');
+        h.state.round!.blob = { left: 1, right: 0 };
+        h.vote(votes('B,C,D,E>A; A>B'));
+      },
+      {
+        players: ['alien', 'cow', 'blob', 'nostradamus', 'seer', V],
+        settings: {
+          weights: {
+            alien: zero(DEFAULT_WEIGHTS.alien, 'stare'),
+            ripple: zero(DEFAULT_WEIGHTS.ripple, 'one-minute'),
+          },
+        },
+      },
+    );
+    expect(byType(events, 'outcome')[0]!.props).toMatchObject({
+      ending: 'alien-caught',
+      aliens: true,
+      ripple: 'one-minute',
+      timeLoop: false,
+      leaderRule: false,
+      oracleRule: null,
+    });
+    const p = (id: string) => byType(events, 'player').find((e) => e.playerId === id)!.props;
+    expect(p('A')).toMatchObject({ alien: true, abducted: false });
+    expect(p('B')).toMatchObject({ cow: true, cowTipped: true });
+    // The Blob (C) and D, its member, both lived.
+    expect(p('C')).toMatchObject({ blobSquad: true });
+    expect(p('E')).toMatchObject({ alien: false, undertaker: false, synthetic: false });
+  });
+
+  it('calls a Leader vote and a time loop', () => {
+    const zero = (t: Record<string, number>, key: string) =>
+      Object.fromEntries(Object.keys(t).map((k) => [k, k === key ? 1 : 0]));
+    const { events } = reveal((h) => h.vote(votes('A,B>C; C,D,E>A')), {
+      players: ['alien', 'alien', 'leader', V, 'seer'],
+      settings: {
+        weights: {
+          alien: zero(DEFAULT_WEIGHTS.alien, 'stare'),
+          ripple: zero(DEFAULT_WEIGHTS.ripple, 'repeat-night'),
+        },
+      },
+    });
+    expect(byType(events, 'outcome')[0]!.props).toMatchObject({
+      ending: 'leader-vote',
+      leaderRule: true,
+      timeLoop: true,
+      ripple: 'repeat-night',
+    });
   });
 });

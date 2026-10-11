@@ -1,6 +1,6 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { groupOf, isVampire } from './resolve.ts';
-import type { MarkId, RoleId } from './roles.ts';
+import { HOSTILE_GROUPS, type HostileGroup, type MarkId, type RoleId } from './roles.ts';
 import type { Death, FinalIdentity, MarkToken, TeamResultId, VoteResult } from './types.ts';
 
 // Why the vote came out as it did, in plain words, from the resolution alone. Pure, so every
@@ -103,6 +103,13 @@ export function explainResult(
     else if (first.length > 1) say(`${name(d.player)} tied for the most votes (${n}) and died.`, d);
     else say(`${name(d.player)} got the most votes (${n}) and died.`, d);
   }
+  if (first.length === 0 && (result.appVotes ?? 0) > 0) {
+    const top = Math.max(0, ...players.filter((p) => !shielded.has(p)).map(tallyOf));
+    if ((result.appVotes ?? 0) >= top && top >= 2)
+      say(
+        `The app got ${votesWord(result.appVotes!)}, as many as anyone or more, so nobody was voted out.`,
+      );
+  }
   if (first.length === 0) {
     const rest = players.filter((p) => !shielded.has(p));
     const top = Math.max(0, ...rest.map(tallyOf));
@@ -127,6 +134,29 @@ export function explainResult(
     if (t && shielded.has(t) && !dead.has(t))
       say(
         `The ${names.role('hunter')} (${name(h)}) aimed at ${name(t)}, but ${name(t)} was protected.`,
+      );
+  }
+
+  // Who the night made an alien (or an alien supporter) whatever their card says.
+  for (const p of players) {
+    const how = id(p).alien;
+    if (!how) continue;
+    const by = {
+      card: `they hold the card the ${names.role('body-snatcher')} took, now an Alien card`,
+      player: 'the aliens tapped their fist: they are a New Alien, whatever their card',
+      helper: 'the aliens tapped their fist: they play for the aliens without being one',
+      oracle:
+        id(p).oracle === 'alien-card'
+          ? `the ${names.role('oracle')} joined the aliens: her card is an Alien card`
+          : `the ${names.role('oracle')} wants the aliens to win: she plays for them without being one`,
+    }[how];
+    say(`${name(p)} was on the aliens’ side: ${by}.`);
+  }
+  for (const p of players) {
+    const o = id(p).oracle;
+    if (o === 'werewolf-card' || o === 'vampire-card')
+      say(
+        `${name(p)} holds the ${names.role('oracle')}, whose answer made it a ${o === 'werewolf-card' ? 'werewolf' : 'vampire'} card.`,
       );
   }
 
@@ -176,7 +206,7 @@ function personalResults(
 
   for (const p of players) {
     const me = ids[p]!;
-    if (!me.traitor || !['village', 'werewolf', 'vampire'].includes(me.team)) continue;
+    if (!me.traitor || !['village', 'werewolf', 'vampire', 'alien'].includes(me.team)) continue;
     const mates = players.filter((q) => q !== p && ids[q]!.team === me.team);
     if (!mates.length) continue;
     const deadMates = mates.filter((q) => dead.has(q));
@@ -229,6 +259,52 @@ function personalResults(
         );
     }
   }
+
+  // The Alien set's own goals.
+  const order = players;
+  const n = order.length;
+  for (const b of result.blobs ?? []) {
+    const lost = b.members.filter((m) => dead.has(m));
+    const others = b.members.filter((m) => m !== b.player);
+    out.push(
+      lost.length
+        ? `${name(b.player)} (${names.role('blob')}) lost: ${list(lost.map(name))}, in the Blob, died.`
+        : `${name(b.player)} (${names.role('blob')}) won: nobody in the Blob died${others.length ? ` (${list(others.map(name))} and the ${names.role('blob')})` : ''}.`,
+    );
+  }
+  for (const p of players) {
+    if (ids[p]!.team !== 'mortician') continue;
+    const i = order.indexOf(p);
+    const sides = [...new Set([order[(i + 1) % n]!, order[(i - 1 + n) % n]!])].filter(
+      (q) => q !== p,
+    );
+    const died = sides.filter((q) => dead.has(q));
+    out.push(
+      died.length
+        ? `${name(p)} (${names.role('mortician')}) won: ${list(died.map(name))}, next to them, died.`
+        : `${name(p)} (${names.role('mortician')}) lost: neither neighbour died.`,
+    );
+  }
+  for (const p of players) {
+    const f = ids[p]!.foretold;
+    if (!f) continue;
+    const on = f.holder ? `the side of ${name(f.holder)}` : names.team(ids[p]!.team);
+    out.push(
+      dead.has(p)
+        ? `${name(p)} (${names.role('nostradamus')}) died, so lost, whatever happened to ${on}.`
+        : won.has(p)
+          ? `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which won, and lived.`
+          : `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which lost.`,
+    );
+  }
+  if (result.oracleRule === 'oracle')
+    out.push(
+      `The ${names.role('oracle')} failed the number question: she wins only if she lives, and everyone else only if she dies.`,
+    );
+  if (result.oracleRule === 'circle')
+    out.push(
+      `The narrator asked the ${names.role('oracle')}’s number for her card in the centre, and got it wrong: everyone wins only if nobody dies.`,
+    );
   return out;
 }
 
@@ -236,8 +312,11 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
   const ids = result.identities;
   const dead = new Set(result.deaths.map((d) => d.player));
   const name = names.player;
-  const inGroup = (g: 'werewolf' | 'vampire') => players.filter((p) => groupOf(ids[p]!) === g);
-  const deadIn = (g: 'werewolf' | 'vampire') => inGroup(g).filter((p) => dead.has(p));
+  const inGroup = (g: HostileGroup) => players.filter((p) => groupOf(ids[p]!) === g);
+  const deadIn = (g: HostileGroup) => inGroup(g).filter((p) => dead.has(p));
+  const synthetic = players.filter((p) => ids[p]!.team === 'synthetic' && dead.has(p));
+  const evil = (g: HostileGroup) =>
+    ({ werewolf: 'werewolf', vampire: 'vampire', alien: 'alien' })[g];
   const tanners = players.filter((p) => ids[p]!.role === 'tanner');
   const deadTanners = tanners.filter((p) => dead.has(p));
   const label = (t: TeamResultId) => names.team(t);
@@ -255,7 +334,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
     }
     switch (t.team) {
       case 'village': {
-        const hostile = [...deadIn('werewolf'), ...deadIn('vampire')];
+        const hostile = HOSTILE_GROUPS.flatMap(deadIn);
         if (result.epic)
           why.push(
             `${label('village')} won: both evil sides lost a player (${list(hostile.map(name))}).`,
@@ -270,20 +349,45 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
           );
         break;
       }
+      case 'alien':
       case 'werewolf':
       case 'vampire': {
         const g = t.team;
-        const other = g === 'werewolf' ? 'vampire' : 'werewolf';
+        if (g === 'alien' && result.leaderRule) {
+          why.push(
+            `${label('alien')} won: every player on their side voted for the ${names.role('leader')}${deadIn('alien').length ? ', so an alien dying didn’t matter' : ''}.`,
+          );
+          break;
+        }
+        const others = HOSTILE_GROUPS.filter((h) => h !== g).flatMap(deadIn);
         if (inGroup(g).length === 0) {
-          why.push(`${label(g)} won: there was no ${g} among the players, and someone else died.`);
+          why.push(
+            `${label(g)} won: there was no ${evil(g)} among the players, and someone else died.`,
+          );
         } else {
           const epic = result.epic
-            ? `, and ${list(deadIn(other).map(name))} (a ${other}) died`
+            ? `, and ${list(others.map(name))} (on another evil side) died`
             : '';
-          why.push(`${label(g)} won: no ${g} died${epic}.`);
+          why.push(`${label(g)} won: no ${evil(g)} died${epic}.`);
         }
         break;
       }
+      case 'synthetic':
+        why.push(`${label('synthetic')} won: ${list(synthetic.map(name))} wanted to die, and did.`);
+        break;
+      case 'groob':
+      case 'zerb': {
+        const rival = t.team === 'groob' ? 'zerb' : 'groob';
+        why.push(
+          `${label(t.team)} won: ${names.role(rival)} died, and ${names.role(t.team)} lived.`,
+        );
+        break;
+      }
+      case 'leader':
+        why.push(
+          `${label('leader')} won: ${names.role('groob')} and ${names.role('zerb')} both lived.`,
+        );
+        break;
       case 'tanner':
         why.push(`${label('tanner')} won: ${list(deadTanners.map(name))} wanted to die, and did.`);
         break;
@@ -294,6 +398,10 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
     }
   }
 
+  if (synthetic.length)
+    why.push(
+      `${list(synthetic.map(name))} died as the ${names.role('synthetic-alien')}, so the aliens and the village can’t win.`,
+    );
   if (winners.size === 0) {
     if (deadTanners.length && players.some((p) => groupOf(ids[p]!) !== null))
       why.push(

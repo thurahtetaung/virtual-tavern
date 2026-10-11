@@ -12,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { nightfallAwards } from './awards.ts';
 import { insights } from './insights.ts';
+import { DEFAULT_WEIGHTS } from './tables.ts';
 import { table, votes } from './test-utils.ts';
 import type { NightfallState } from './types.ts';
 
@@ -111,9 +112,51 @@ describe('Nightfall award rules', () => {
     expect(run('wolves-untouched', [...untouched, player('c', { votedWolf: true })])).toEqual([]);
   });
 
+  it('the Alien set’s awards name the right players', () => {
+    expect(
+      run('first-contact', [
+        player('a', { alien: true, won: true }),
+        player('b', { alien: true }),
+      ])[0],
+    ).toMatchObject({ players: ['a'], params: { role: 'alien' } });
+    expect(run('first-contact', [player('a', { alien: true })])).toEqual([]);
+    expect(run('abducted', [player('c', { abducted: true }), player('d')])[0]!.players).toEqual([
+      'c',
+    ]);
+    expect(run('abducted', [player('c')])).toEqual([]);
+    expect(run('moo-tiny', [player('b', { cow: true, cowTipped: true })])[0]).toMatchObject({
+      players: ['b'],
+      params: { role: 'cow' },
+    });
+    expect(run('moo-tiny', [player('b', { cow: true, cowTipped: false })])).toEqual([]);
+    expect(run('blob-squad', [player('a', { blobSquad: true })])[0]!.players).toEqual(['a']);
+    expect(run('blob-squad', [player('a', { blobSquad: false })])).toEqual([]);
+    expect(run('undertaker', [player('d', { undertaker: true })])[0]).toMatchObject({
+      players: ['d'],
+      params: { role: 'mortician' },
+    });
+    expect(run('undertaker', [player('d')])).toEqual([]);
+    expect(run('seen-the-future', [player('a', { foresaw: true })])[0]).toMatchObject({
+      params: { role: 'nostradamus' },
+    });
+    expect(run('seen-the-future', [player('a', { foresaw: false })])).toEqual([]);
+  });
+
   it('old events lacking the newer props give no candidate', () => {
     const old = [recapEv('player', 'a', { won: true }), recapEv('outcome', null, {})];
-    for (const id of ['sleepwalker', 'parting-shot', 'card-chain', 'love-death', 'epic-battle'])
+    for (const id of [
+      'sleepwalker',
+      'parting-shot',
+      'card-chain',
+      'love-death',
+      'epic-battle',
+      'first-contact',
+      'abducted',
+      'moo-tiny',
+      'blob-squad',
+      'undertaker',
+      'seen-the-future',
+    ])
       expect(run(id, old)).toEqual([]);
     expect(night('suspicion-magnet', [game(old)])).toEqual([]);
   });
@@ -177,5 +220,37 @@ describe('Nightfall awards on a real game', () => {
     expect(history).toContain('{p:B} died as {role:tanner}');
     const nuggets = nightfallAwards.nuggets.flatMap((n) => n.compute([g]) ?? []);
     expect(nuggets.length).toBeGreaterThan(0);
+  });
+});
+
+/** An Alien game to the reveal: the aliens stare, no ripple, and the alien dies. */
+function alienGame(): GameEvents {
+  const zero = (t: Record<string, number>, key: string) =>
+    Object.fromEntries(Object.keys(t).map((k) => [k, k === key ? 1 : 0]));
+  const h = table({
+    players: ['alien', 'cow', 'seer', 'villager', 'mortician'],
+    settings: {
+      weights: {
+        alien: zero(DEFAULT_WEIGHTS.alien, 'stare'),
+        ripple: zero(DEFAULT_WEIGHTS.ripple, 'none'),
+        mortician: zero(DEFAULT_WEIGHTS.mortician, 'pretend'),
+      },
+    },
+  });
+  const before = h.state;
+  h.vote(votes('B,C,D,E>A; A>B'));
+  const events = insights(before, h.state, null, null).map((ev, i) => recapEventOf(ev, i + 1));
+  return fixtureGame(events, { players: ['A', 'B', 'C', 'D', 'E'] });
+}
+
+describe('Nightfall awards on an Alien game', () => {
+  it('finds the tipped Cow and the Mortician’s win, and tells the game', () => {
+    const g = alienGame();
+    const found = nightfallAwards.rules.flatMap((r) => (r.compute?.(g) ?? []).map(() => r.id));
+    expect(found).toEqual(expect.arrayContaining(['nf.moo-tiny', 'nf.undertaker']));
+    expect(found).not.toContain('nf.first-contact');
+    const history = nightfallAwards.history!(g);
+    expect(history[0]).toMatch(/^Ended with an alien caught/);
+    expect(history).toContain('{p:A} died as {role:alien}');
   });
 });

@@ -1,4 +1,5 @@
 import { MARK_ROLES, ROLES, type RoleId, hostileGroupsIn, marksInUse } from './roles.ts';
+import { ripplesIn } from './tables.ts';
 
 /**
  * The night's steps. Each step is called when its role is *selected*, whether or not a player
@@ -23,6 +24,10 @@ export interface StepDef {
   when: (selected: ReadonlySet<RoleId>) => boolean;
   /** A fixed length factor (the dusk's Mark look and the lovers aren't anybody's role). */
   factor?: number;
+  /** Skipped in a time loop (the Oracle, the Blob's announcement, the ripple itself). */
+  noLoop?: boolean;
+  /** A ripple's "repeat your night action": the role's step again, after the ripple. */
+  repeat?: boolean;
 }
 
 /** Steps before this order are the dusk: a Mark of Fear doesn't stop anyone acting in them. */
@@ -77,6 +82,17 @@ const priest = own('priest', '-2', -200);
 const assassin = own('assassin', '-1', -100);
 const apprentice = own('apprentice-assassin', '-1B', -90);
 const marksman = own('marksman', '5D', 540);
+const bodySnatcher = own('body-snatcher', '1F', 160);
+const leader = own('leader', '3C', 330);
+const nostradamus = own('nostradamus', '5E', 550);
+const psychic = own('psychic', '5G', 570);
+const rascal = own('rascal', '7F', 760);
+const exposer = own('exposer', '10B', 1020);
+const empath = own('empath', '10E', 1040);
+const mortician = own('mortician', '13A', 1320);
+
+/** The roles that wake in the aliens' step (and, with any of them, the night ends in a ripple). */
+const ALIEN_ROLES: RoleId[] = ['alien', 'synthetic-alien', 'groob', 'zerb', 'body-snatcher'];
 const pickpocket = own('pickpocket', '6C', 640);
 const gremlin = own('gremlin', '7D', 740);
 
@@ -95,6 +111,7 @@ const DUSK_ROLES: RoleId[] = [
 
 export const STEPS: StepDef[] = (
   [
+    { ...own('oracle', '-9', -900), noLoop: true },
     own('copycat', '-8', -800),
     own('doppelganger', '-7', -700),
     {
@@ -121,6 +138,11 @@ export const STEPS: StepDef[] = (
     { id: 'dusk', code: '-1D', order: -50, role: 'villager', factor: 1, when: has(...DUSK_ROLES) },
     { id: 'lovers', code: '00', order: -40, role: 'cupid', factor: 1, when: has('cupid') },
     own('sentinel', '0B', 20),
+    // The Cow puts out her fist inside this step (and the Doppelgänger's copy of her).
+    { id: 'aliens', code: '1A', order: 100, role: 'alien', factor: 2, when: has(...ALIEN_ROLES) },
+    { id: 'groob-zerb', code: '1D', order: 130, role: 'groob', when: all('groob', 'zerb') },
+    bodySnatcher,
+    doppelAfter(bodySnatcher, '1Fa'),
     {
       id: 'werewolves',
       code: '2',
@@ -133,6 +155,8 @@ export const STEPS: StepDef[] = (
     own('minion', '3', 300),
     apprenticeTanner,
     doppelAfter(apprenticeTanner, '-3-Ba'),
+    leader,
+    doppelAfter(leader, '3Ca'),
     { ...own('mason', '4', 400) },
     own('thing', '4B', 420),
     own('seer', '5', 500),
@@ -140,6 +164,10 @@ export const STEPS: StepDef[] = (
     own('paranormal-investigator', '5C', 530),
     marksman,
     doppelAfter(marksman, '5Da'),
+    nostradamus,
+    doppelAfter(nostradamus, '5Ea'),
+    psychic,
+    doppelAfter(psychic, '5Ga'),
     own('robber', '6', 600),
     own('witch', '6B', 620),
     pickpocket,
@@ -150,6 +178,8 @@ export const STEPS: StepDef[] = (
     doppelAfter(auraSeer, '7Ca'),
     gremlin,
     doppelAfter(gremlin, '7Da'),
+    rascal,
+    doppelAfter(rascal, '7Fa'),
     own('drunk', '8', 800),
     insomniac,
     doppelAfter(insomniac, '9a'),
@@ -159,24 +189,74 @@ export const STEPS: StepDef[] = (
     doppelAfter(beholder, '9Za'),
     revealer,
     doppelAfter(revealer, '10a'),
+    exposer,
+    doppelAfter(exposer, '10Ba'),
+    empath,
+    doppelAfter(empath, '10Ea'),
     curator,
     doppelAfter(curator, '11a'),
+    // The Blob doesn't wake: the narrator announces its members (a Doppelgänger copy, if any,
+    // is a Blob of the same shape round her own card).
+    { ...own('blob', '13', 1300), factor: 1, noLoop: true },
+    mortician,
+    doppelAfter(mortician, '13Aa'),
+    {
+      id: 'ripple',
+      code: '20',
+      order: 2000,
+      role: 'alien',
+      factor: 2,
+      noLoop: true,
+      when: (sel) => ripplesIn([...sel]),
+    },
   ] satisfies StepDef[]
 ).sort((a, b) => a.order - b.order);
 
 export type StepId = string;
 
 const BY_ID = new Map(STEPS.map((s) => [s.id, s]));
+
+/** A ripple's "repeat your night action": `repeat:<step id>`. */
+export const REPEAT = 'repeat:';
+/** The step a role repeats in a ripple (the Alien repeats the aliens' step). */
+export const repeatStepOf = (role: RoleId): StepId => (role === 'alien' ? 'aliens' : role);
+
 export const stepDef = (id: StepId): StepDef => {
+  if (id.startsWith(REPEAT)) {
+    const base = stepDef(id.slice(REPEAT.length));
+    // Same role and time as its step (and a dusk role's repeat isn't stopped by Fear).
+    return { ...base, id, code: '20R', repeat: true, noLoop: true, when: () => false };
+  }
   const def = BY_ID.get(id);
   if (!def) throw new Error(`unknown night step ${id}`);
   return def;
 };
 
-/** The night's steps for these selected roles, in wake order. */
-export function buildNightPlan(roles: readonly RoleId[]): StepId[] {
+/**
+ * The night's steps for these selected roles, in wake order. In a time loop (`loop`), the
+ * Oracle, the Blob's announcement and the ripple don't come round again.
+ */
+export function buildNightPlan(roles: readonly RoleId[], opts: { loop?: boolean } = {}): StepId[] {
   const selected = new Set(roles);
-  return STEPS.filter((s) => s.when(selected)).map((s) => s.id);
+  return STEPS.filter((s) => s.when(selected) && !(opts.loop && s.noLoop)).map((s) => s.id);
+}
+
+/**
+ * Tonight's steps as every device can work them out: the cards' steps, then whatever the ripple
+ * added (a time loop round the night again, or one role's repeat). The engine's plan grows the
+ * same way when the ripple is announced.
+ */
+export function publicPlan(
+  roles: readonly RoleId[],
+  announcements: readonly { kind: string; ripple?: { key: string; role?: RoleId } }[] = [],
+): StepId[] {
+  const plan = buildNightPlan(roles);
+  const ripple = announcements.find((a) => a.kind === 'ripple')?.ripple;
+  if (ripple?.key === 'repeat-night' || ripple?.key === 'repeat-observer')
+    plan.push(...buildNightPlan(roles, { loop: true }));
+  if (ripple?.key === 'repeat-role' && ripple.role)
+    plan.push(`${REPEAT}${repeatStepOf(ripple.role)}`);
+  return plan;
 }
 
 /** How long a step lasts, as a multiple of the step length (complex roles get double). */
@@ -216,14 +296,19 @@ export function stepLines(
 ): StepLines {
   const selected = new Set(roles);
   const def = stepDef(id);
+  // Steps the narrator has no lines of its own for: a ripple's repeat (the ripple said it), the
+  // Blob and the ripple (their lines are announcements, made as they happen).
+  if (def.repeat || id === 'blob' || id === 'ripple') return { open: [], close: [] };
   const key =
     id === 'werewolves'
       ? 'werewolf'
       : id === 'vampires'
         ? 'vampire'
-        : def.doppel
-          ? `doppelganger:${def.role}`
-          : id;
+        : id === 'aliens'
+          ? 'alien'
+          : def.doppel
+            ? `doppelganger:${def.role}`
+            : id;
   const beholder =
     def.role !== 'beholder'
       ? ''
@@ -257,6 +342,19 @@ export function stepLines(
   if (def.role === 'renfield' && hostileGroupsIn(roles).includes('vampire')) {
     const last = selected.has('doppelganger') ? def.doppel === true : !def.doppel;
     if (last) close.push('renfield:hands-away');
+  }
+  // The Cow (and the Doppelgänger's copy of her) puts out a fist while the aliens are awake.
+  if (id === 'aliens' && selected.has('cow')) {
+    const dg = selected.has('doppelganger');
+    open.push('cow:wake', ...(dg ? ['doppelganger:cow:wake'] : []));
+    close.unshift('cow:close', ...(dg ? ['doppelganger:cow:close'] : []));
+  }
+  if (def.role === 'leader') {
+    const gz = selected.has('groob') && selected.has('zerb');
+    close.unshift(
+      'leader:thumbs-away',
+      ...(gz ? [`${key}:groob-zerb`, 'leader:groob-zerb:thumbs-away'] : []),
+    );
   }
   if (id === 'doppelganger' && selected.has('minion'))
     close.unshift('doppelganger:minion:wake', 'doppelganger:minion:thumbs-away');

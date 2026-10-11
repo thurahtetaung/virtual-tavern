@@ -26,9 +26,17 @@ const wakeOrder = STEPS.filter((s) => playable.includes(s.role)).map((s) =>
         ? 'Everyone looks at their own Mark (the end of the dusk)'
         : s.id === 'lovers'
           ? 'The lovers wake and see each other'
-          : s.doppel
-            ? `Doppelgänger, if she copied the ${roleLabel(s.role)}`
-            : roleLabel(s.role),
+          : s.id === 'aliens'
+            ? 'Aliens (together: Alien, Synthetic Alien, Groob, Zerb, Body Snatcher; the Cow puts out a fist)'
+            : s.id === 'groob-zerb'
+              ? 'Groob and Zerb, together'
+              : s.id === 'blob'
+                ? 'The Blob’s members are announced (nobody wakes)'
+                : s.id === 'ripple'
+                  ? 'A ripple, perhaps (announced to everyone)'
+                  : s.doppel
+                    ? `Doppelgänger, if she copied the ${roleLabel(s.role)}`
+                    : roleLabel(s.role),
 );
 
 export const guide: GameGuide = {
@@ -99,6 +107,39 @@ export const guide: GameGuide = {
         'A player with the Mark of the Traitor wins only if someone else on their team dies, even when their team loses; their team’s result doesn’t count for them.',
         'A player held by the Mark of Fear sleeps through their turn, and learns at daybreak that they did.',
         'Then everything is revealed: who started as what, where the cards and Marks ended up (with each Mark a player held along the way), who was protected and why, and a step-by-step replay of the night.',
+      ],
+    },
+    {
+      title: 'Aliens',
+      paragraphs: [
+        'With roles from the alien set, every player has a number: their seat, counting up to the left (the table shows each number as a token). The narrator uses the numbers: “any even player”, “a player with a number higher than yours”, “players 2, 5 or 7”. When nobody fits, the action can’t be done.',
+        'Many alien roles get their instruction at random when they wake, like the narrator choosing a card from a deck: the aliens might look at a card, show each other their cards, pass their cards round, shorten the day or tap a fist to recruit a New Alien. Only the players woken (or named) are told. In the lobby, the host can see and change how likely each instruction is under Alien options, and reset them.',
+        'An Alien is anyone holding an alien card (Alien, Synthetic Alien, Groob, Zerb, the Body Snatcher, or a card the Body Snatcher took), a New Alien the aliens tapped (whatever card they hold), or anyone with the Alien Artifact. If any alien dies, the aliens lose.',
+      ],
+      bullets: [
+        'The aliens win if at least one player is an Alien and none of them dies. The village wins if an alien (or a werewolf, or a vampire) dies.',
+        'If the Synthetic Alien dies, he wins, and the aliens and the village both lose.',
+        'With Groob and Zerb both among the players, they are rivals: each wins only if the other dies and they live (the village wins too, and the other aliens lose). The Leader then wins only if both live.',
+        'If every player on the aliens’ side votes for the Leader, the aliens win and the village loses, even if an alien dies.',
+        'The Blob doesn’t wake: the narrator announces how many neighbours are part of it (1 with 3–4 players, 2 with 5–6, 3 with 7–8, 4 with 9 or more), counted from wherever the Blob card ends up. The Blob wins if none of them dies, alongside any other team.',
+        'The Mortician wins if a neighbour of the Mortician card dies, alongside any other team.',
+        'The Oracle answers one question at the very start. Joining a team changes her side, but she doesn’t wake with it. If she fails the number question, she wins only by surviving, and everyone else only if she dies; with her card in the centre, everyone must survive to win.',
+        'Nostradamus may look at up to three players’ cards, stopping at one that isn’t village; that card’s team is announced as his. He wins only if he lives and that team wins.',
+        'The Empath watches while the players the narrator names point, eyes closed, at someone who fits its question.',
+        'With aliens in the game, aliens, werewolves and vampires make an epic battle together: the village then needs players from two different evil sides to die.',
+      ],
+    },
+    {
+      title: 'Ripples',
+      paragraphs: [
+        'When the aliens’ own cards are in the game, the night may end with a ripple in the space-time continuum, announced to everyone. Each kind has its own odds (the host can change them); about one night in five has none.',
+      ],
+      bullets: [
+        'A shorter day (one minute), voting for the app instead of a player (if the app gets the most votes, nobody dies), or voting with both hands.',
+        'Some players may only say “I am an alien”, must face away from the table, or may not speak until the vote.',
+        'A named player may look at cards, look at their own card, swap two players’ cards, rob, swap blindly, play the Witch or turn a card face up; two named players may show each other their cards and have them shuffled between them.',
+        'A time loop: the whole night runs again on the board as it is (Marks are given again, shields placed again), everyone waking as their original role; the Oracle, the Blob and the ripple don’t come round again. Sometimes one player keeps their eyes open throughout and sees who wakes and what they touch.',
+        'A repeat: one role in the game does its night action again, with fresh choices.',
       ],
     },
     {

@@ -14,6 +14,7 @@ import { insights } from './insights.ts';
 import { type StepCtx, actInStep, beginStep, endStep, promptFor } from './night.ts';
 import { buildNightPlan, stepDef } from './plan.ts';
 import { cardsNeeded, recommended } from './presets.ts';
+import { weightsProblem } from './tables.ts';
 import { resolveVote } from './resolve.ts';
 import {
   ARTIFACT_IDS,
@@ -41,6 +42,7 @@ import {
   type NightfallView,
   type SeatView,
   type Settings,
+  VOTE_APP,
   VOTE_SECONDS,
   actionSchema,
 } from './types.ts';
@@ -238,7 +240,7 @@ export function startNight(state: NightfallState, now: number): NightfallState {
 
 // ---- The night ----
 
-function stepCtx(state: NightfallState, rng: Rng): StepCtx {
+function stepCtx(state: NightfallState, rng: Rng, now?: number): StepCtx {
   const r = state.round!;
   const night = r.night!;
   return {
@@ -248,6 +250,7 @@ function stepCtx(state: NightfallState, rng: Rng): StepCtx {
     settings: state.settings,
     rng,
     nextId: () => ++state.seq,
+    ...(now !== undefined ? { now } : {}),
   };
 }
 
@@ -265,11 +268,11 @@ function nightAction(state: NightfallState, a: NightAction, ctx: Ctx): Result {
 function advanceNight(state: NightfallState, now: number, rng: Rng): NightfallState {
   const next = clone(state);
   const night = next.round!.night!;
-  if (night.index >= 0) endStep(stepCtx(next, rng));
+  if (night.index >= 0) endStep(stepCtx(next, rng, now));
   const index = night.index + 1;
   if (index >= night.plan.length) return dawn(next, now);
   night.index = index;
-  beginStep(stepCtx(next, rng), now);
+  beginStep(stepCtx(next, rng, now), now);
   return next;
 }
 
@@ -288,7 +291,8 @@ function dawn(state: NightfallState, now: number): NightfallState {
   r.dawn = {};
   r.night!.actors = [];
   r.night!.work = {};
-  r.dayDeadline = now + state.settings.daySeconds * 1000;
+  // The aliens' timer and the ripples may have shortened the day.
+  r.dayDeadline = now + (r.daySeconds ?? state.settings.daySeconds) * 1000;
   r.times.dawn = now;
   return { ...state, ...at('day') };
 }
@@ -323,17 +327,34 @@ function startVote(state: NightfallState, now: number): NightfallState {
   return { ...state, ...at('vote') };
 }
 
-function vote(state: NightfallState, target: PlayerId, ctx: Ctx): Result {
+/** A ripple made these players vote with both hands. */
+const twoHanded = (r: GameRound, p: PlayerId) => r.rules?.twoVotes?.includes(p) ?? false;
+
+/** Everyone still at the table has cast every vote they have. */
+const allVoted = (r: GameRound) =>
+  present(r).every(
+    (q) => r.players[q]!.vote != null && (!twoHanded(r, q) || r.players[q]!.vote2 != null),
+  );
+
+function vote(state: NightfallState, target: PlayerId, hand: 2 | undefined, ctx: Ctx): Result {
   const r = state.round;
   if (state.stage !== 'vote' || !r) return new GameError('wrong-phase', 'It isn’t time to vote.');
   const me = r.players[ctx.by];
   if (!me || me.left) return new GameError('not-playing', 'You’re watching this game.');
-  if (target === ctx.by) return new GameError('self-vote', 'Vote for someone else.');
-  if (!r.players[target]) return new GameError('bad-target', 'That player isn’t in the game.');
-  if (r.players[target].left) return new GameError('left', 'That player has left the game.');
+  if (hand === 2 && !twoHanded(r, ctx.by))
+    return new GameError('one-hand', 'You only have one vote.');
+  if (target === VOTE_APP) {
+    if (!r.rules?.voteApp) return new GameError('bad-target', 'You can’t vote for the app.');
+  } else {
+    if (target === ctx.by) return new GameError('self-vote', 'Vote for someone else.');
+    if (!r.players[target]) return new GameError('bad-target', 'That player isn’t in the game.');
+    if (r.players[target].left) return new GameError('left', 'That player has left the game.');
+  }
   const next = clone(state);
-  next.round!.players[ctx.by]!.vote = target;
-  if (present(next.round!).every((q) => next.round!.players[q]!.vote !== null)) return finish(next);
+  const p = next.round!.players[ctx.by]!;
+  if (hand === 2) p.vote2 = target;
+  else p.vote = target;
+  if (allVoted(next.round!)) return finish(next);
   return next;
 }
 
@@ -341,7 +362,17 @@ function vote(state: NightfallState, target: PlayerId, ctx: Ctx): Result {
 function finish(state: NightfallState): NightfallState {
   const r = state.round!;
   const votes = Object.fromEntries(r.order.map((p) => [p, r.players[p]!.vote]));
-  r.result = resolveVote(r.order, r.cards, votes, r.marks ?? null);
+  const votes2 = Object.fromEntries(
+    r.order.flatMap((p) => (twoHanded(r, p) ? [[p, r.players[p]!.vote2 ?? null]] : [])),
+  );
+  r.result = resolveVote(r.order, r.cards, votes, r.marks ?? null, {
+    ...(r.aliens ? { aliens: r.aliens } : {}),
+    ...(r.oracle ? { oracle: r.oracle } : {}),
+    ...(r.blob ? { blob: r.blob } : {}),
+    ...(Object.keys(votes2).length ? { votes2 } : {}),
+    ...(r.rules?.voteApp ? { voteApp: true } : {}),
+    center: r.center.map((c) => c.card),
+  });
   r.voteDeadline = null;
   return { ...state, ...at('reveal') };
 }
@@ -375,6 +406,11 @@ function updateSettings(
   if (a.music !== undefined) settings.music = a.music;
   if (a.loneWolf !== undefined) settings.loneWolf = a.loneWolf;
   if (a.artifacts !== undefined) settings.artifacts = [...new Set(a.artifacts)];
+  if (a.weights !== undefined) {
+    const problem = weightsProblem(a.weights);
+    if (problem) return new GameError('bad-weights', problem);
+    settings.weights = structuredClone(a.weights);
+  }
   return { ...state, settings };
 }
 
@@ -440,7 +476,7 @@ function reduce(state: NightfallState, action: NightfallAction, ctx: Ctx): Resul
     case 'start-vote':
       return startVoteNow(state, ctx);
     case 'vote':
-      return vote(state, action.target, ctx);
+      return vote(state, action.target, action.hand, ctx);
     case 'back-to-lobby':
       return backToLobby(state, ctx);
   }
@@ -503,8 +539,7 @@ function playerLeft(state: NightfallState, playerId: PlayerId, now: number): Nig
     return startNight(next, now);
   if (next.stage === 'day' && present(r).every((q) => r.players[q]!.readyToVote))
     return startVote(next, now);
-  if (next.stage === 'vote' && present(r).every((q) => r.players[q]!.vote !== null))
-    return finish(next);
+  if (next.stage === 'vote' && allVoted(r)) return finish(next);
   return next;
 }
 
@@ -557,6 +592,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
     day: null,
     vote: null,
     notes: [],
+    announcements: [],
     reveal: null,
     gamesPlayed: state.gamesPlayed,
   };
@@ -572,6 +608,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
     table,
     myRole: mine?.dealt ?? null,
     notes: viewer !== null && mine ? [...(r.notes[viewer] ?? [])] : [],
+    announcements: [...(r.announcements ?? [])],
   };
   if (state.stage === 'ready') {
     out.readyCount = all.filter((p) => r.players[p]!.ready).length;
@@ -593,15 +630,36 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
                     .filter((q) => q !== viewer)
                     .map((q) => ({ player: q, pick: night.work[q]?.picks[0] ?? null }))
                 : null;
+            // The Cow isn't told what the aliens were; everyone else in a random step is.
+            const pick = night.picks?.[night.index];
+            const cow =
+              def.id === 'aliens' &&
+              !(night.aliens ?? []).includes(viewer) &&
+              !(pick?.kind === 'alien' && pick.fists);
+            const ripple = def.id === 'ripple' ? night.ripple : undefined;
+            const me = r.players[viewer]!;
+            const closed =
+              (def.id === 'aliens' && !(night.aliens ?? []).includes(viewer)) ||
+              (def.role === 'empath' &&
+                !def.repeat &&
+                !(me.night === 'empath' && (def.doppel ? me.asDoppel === true : !me.asDoppel)));
             return {
               step: def.id,
               as: w?.as ?? r.players[viewer]!.night,
               prompt: promptFor(c, viewer),
               ...(team ? { team } : {}),
+              ...(pick && !cow ? { told: pick } : {}),
+              ...(ripple ? { ripple } : {}),
+              ...(closed ? { eyes: 'closed' as const } : {}),
             };
           })()
         : null;
-    out.night = { index: night.index, count: night.plan.length, deadline: night.deadline, acting };
+    out.night = {
+      index: night.index,
+      count: night.plan.length,
+      deadline: night.deadline,
+      acting,
+    };
   }
   if (state.stage === 'day' || state.stage === 'vote') {
     out.day = {
@@ -614,16 +672,26 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
       shields: r.order.filter((p) => r.cards[p]!.shield !== null),
       artifacts: r.order.filter((p) => r.cards[p]!.artifact !== null),
       centerKinds: r.center.map((c) => c.kind),
+      centerUp: r.center.flatMap((c, i) =>
+        c.card.faceUp ? [{ center: i, role: c.card.role }] : [],
+      ),
+      seconds: r.daySeconds ?? state.settings.daySeconds,
+      ...(r.rules ? { rules: r.rules } : {}),
     };
     out.waitingOn = all.filter((p) => !r.players[p]!.readyToVote);
   }
   if (state.stage === 'vote') {
+    const two = viewer !== null && twoHanded(r, viewer);
+    const done = (p: PlayerId) =>
+      r.players[p]!.vote != null && (!twoHanded(r, p) || r.players[p]!.vote2 != null);
     out.vote = {
       deadline: r.voteDeadline,
-      votedCount: all.filter((p) => r.players[p]!.vote !== null).length,
+      votedCount: all.filter(done).length,
       myVote: mine?.vote ?? null,
+      ...(two ? { mySecond: mine?.vote2 ?? null, hands: 2 as const } : {}),
+      ...(r.rules?.voteApp ? { app: true } : {}),
     };
-    out.waitingOn = all.filter((p) => r.players[p]!.vote === null);
+    out.waitingOn = all.filter((p) => !done(p));
   }
   if (state.stage === 'reveal' && r.result) {
     out.reveal = {

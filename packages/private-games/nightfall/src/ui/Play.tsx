@@ -2,7 +2,7 @@ import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk
 import { Badge, Button, Countdown, Hint, Panel, Superlatives, cn, useSecondsLeft } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { explainResult } from '../logic/explain.ts';
-import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
+import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
 import {
   ARTIFACTS,
@@ -14,7 +14,26 @@ import {
   marksInPlay,
   winFor,
 } from '../logic/roles.ts';
-import type { Choice, Note, NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
+import { numbersInPlay } from '../logic/tables.ts';
+import {
+  type Choice,
+  type Note,
+  type NightfallAction,
+  type NightfallView,
+  type NoteBody,
+  type Prompt,
+  type PublicNote,
+  type TimelineEntry,
+  VOTE_APP,
+} from '../logic/types.ts';
+import {
+  type Numbered,
+  alienRolesIn,
+  announcementText,
+  announcementTitle,
+  rippleText,
+  toldText,
+} from './alienText.ts';
 import type { Deck } from './assets.ts';
 import {
   ArtifactChip,
@@ -22,6 +41,7 @@ import {
   CardFace,
   MarkChip,
   MarkToken,
+  PlayerNumber,
   RoleArt,
   RoleChip,
   Token,
@@ -51,7 +71,80 @@ type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 // ---- Shared bits ----
 
 /** The roles a note names, so they can be tapped. */
-const rolesIn = (n: { kind: string; role?: RoleId }): RoleId[] => (n.role ? [n.role] : []);
+const rolesIn = (n: NoteBody | TimelineEntry['note']): RoleId[] => {
+  if (n.kind === 'nobody') return [];
+  if (n.kind === 'announced')
+    return n.announcement.kind === 'ripple' && n.announcement.ripple.key === 'repeat-role'
+      ? [n.announcement.ripple.role]
+      : [];
+  return [...('role' in n && n.role ? [n.role] : []), ...alienRolesIn(n)];
+};
+
+/** Player numbers, named: the narrator's "player 3" with the player's name. */
+export const numberedOf = (view: NightfallView): Numbered => ({
+  name: (n) =>
+    view.table?.[n - 1]?.name ?? view.seats.filter((s) => s.playing)[n - 1]?.name ?? null,
+});
+
+/** A player's number token, when the game numbers its players. */
+function Num({ view, id, deck }: { view: NightfallView; id: string; deck: Deck }) {
+  if (!numbersInPlay(view.settings.roles)) return null;
+  const n = (view.table?.findIndex((p) => p.id === id) ?? -1) + 1;
+  return n > 0 ? <PlayerNumber n={n} deck={deck} className="size-5" /> : null;
+}
+
+/**
+ * What the narrator said out loud for everyone (the Alien set: the Oracle's answers that are
+ * public, Nostradamus's team, the Blob, the ripple). The same for every viewer.
+ */
+function Announcements({
+  list,
+  view,
+  deck,
+  title,
+  light,
+}: {
+  list: readonly PublicNote[];
+  view: NightfallView;
+  deck: Deck;
+  title?: string;
+  light?: boolean;
+}) {
+  if (!list.length) return null;
+  const at = numberedOf(view);
+  return (
+    <section
+      aria-label={title ?? 'Said out loud'}
+      className="space-y-1"
+      data-testid="announcements"
+    >
+      {title && <p className="text-sm font-semibold">{title}</p>}
+      <ul className="space-y-1">
+        {list.map((a, i) => (
+          <li
+            key={`${a.step}:${i}`}
+            data-testid="announcement"
+            data-kind={a.kind}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-sm',
+              light
+                ? 'bg-emerald-950/80 text-emerald-50 ring-1 ring-emerald-400/40'
+                : 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30',
+            )}
+          >
+            <span className="font-semibold">📣 {announcementTitle(a, deck)}: </span>
+            <WithChips
+              text={announcementText(a, at, deck)}
+              roles={rolesIn({ kind: 'announced', announcement: a })}
+              deck={deck}
+              light={light}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /**
  * Text with each named role (and Mark) turned into a tappable chip (first mention of each, in
@@ -218,10 +311,16 @@ function Narration({
 /** Roles in play, in the order they wake, with how each wins. */
 export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck }) {
   const unique = [...new Set(view.settings.roles)];
-  const own = STEPS.filter((s) => s.id !== 'dusk' && s.id !== 'lovers');
+  const own = STEPS.filter((s) => !['dusk', 'lovers', 'ripple', 'aliens'].includes(s.id));
   const order = (r: RoleId) => {
     const step = own.find((s) => s.role === r && !s.doppel) ?? own.find((s) => s.role === r);
-    const group = ROLES[r].wakesWithVampires ? -600 : ROLES[r].wakesWithWerewolves ? 200 : Infinity;
+    const group = ROLES[r].wakesWithVampires
+      ? -600
+      : ROLES[r].wakesWithAliens || r === 'cow'
+        ? 100
+        : ROLES[r].wakesWithWerewolves
+          ? 200
+          : Infinity;
     return Math.min(
       step && buildNightPlan(view.settings.roles).includes(step.id) ? step.order : Infinity,
       group,
@@ -328,11 +427,21 @@ function WhereYouStand({ view, deck }: { view: NightfallView; deck: Deck }) {
 function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: string }) {
   const nameOf = nameOfView(view);
   const kinds = view.day?.centerKinds ?? centreKinds(view.settings.roles);
+  const at = numberedOf(view);
+  const said = (
+    <Announcements
+      list={view.announcements}
+      view={view}
+      deck={deck}
+      title="Said out loud tonight"
+    />
+  );
   if (!view.notes.length)
     return (
       <div className="space-y-2">
         <WhereYouStand view={view} deck={deck} />
         <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>
+        {said}
       </div>
     );
   return (
@@ -345,7 +454,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
               <span className="mr-1 text-xs text-stone-500">{n.step + 1}.</span>
             )}
             <WithChips
-              text={describeNote(n, nameOf, deck, kinds, me)}
+              text={describeNote(n, nameOf, deck, kinds, me, at)}
               roles={rolesIn(n)}
               marks={marksIn(n)}
               deck={deck}
@@ -354,6 +463,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
           </li>
         ))}
       </ol>
+      {said}
     </div>
   );
 }
@@ -458,6 +568,16 @@ export function Ready({
 
 // ---- Night ----
 
+/** What each choice button says (numbers say themselves). */
+const CHOICE_LABEL: Partial<Record<Choice, string>> = {
+  marks: 'Swap two Marks',
+  cards: 'Swap two cards',
+  yes: 'Yes',
+  no: 'No',
+  even: 'Even',
+  odd: 'Odd',
+};
+
 function PromptPanel({
   view,
   prompt,
@@ -540,8 +660,11 @@ function PromptPanel({
                     !legal && 'opacity-35',
                   )}
                 >
-                  {/* The Marksman looks at a Mark here, not a card. */}
-                  <span aria-hidden>{prompt.stage === 'view-mark' ? '🔘' : '🂠'}</span>
+                  {/* The Marksman looks at a Mark here, not a card; the Empath's players point. */}
+                  <span aria-hidden>
+                    {prompt.stage === 'view-mark' ? '🔘' : prompt.stage === 'point' ? '👉' : '🂠'}
+                  </span>
+                  <Num view={view} id={p.id} deck={deck} />
                   <span className="truncate">{p.id === me ? 'You' : p.name}</span>
                   {by.length > 0 && (
                     <span className="ml-auto truncate text-xs font-normal" data-testid="team-pick">
@@ -590,8 +713,8 @@ function PromptPanel({
       <div className="flex flex-wrap justify-center gap-2">
         {prompt.choices ? (
           prompt.choices.map((c: Choice) => (
-            <Button key={c} onClick={() => send({ choice: c })}>
-              {c === 'marks' ? 'Swap two Marks' : 'Swap two cards'}
+            <Button key={c} onClick={() => send({ choice: c })} data-choice={c}>
+              {CHOICE_LABEL[c] ?? c}
             </Button>
           ))
         ) : prompt.sides ? (
@@ -627,7 +750,7 @@ function PromptPanel({
             className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
-            Skip
+            {prompt.stage === 'point' ? 'Point at nobody' : 'Skip'}
           </button>
         )}
       </div>
@@ -728,10 +851,21 @@ export function Night({
   const night = view.night!;
   const acting = night.acting;
   const nameOf = nameOfView(view);
-  const now = view.notes.filter((n) => n.step === night.index && night.index >= 0);
+  const now = view.notes.filter(
+    (n) => n.step === night.index && night.index >= 0 && n.kind !== 'told',
+  );
   const dusk = acting?.step === 'dusk';
   const lovers = acting?.step === 'lovers';
   const duskMark = now.find((n) => n.kind === 'mark');
+  const at = numberedOf(view);
+  // Eyes closed: a fist out for the aliens (or the Cow's), or pointing for the Empath.
+  const closed = acting?.eyes === 'closed';
+  const pointing = closed && acting?.step.endsWith('empath');
+  // The Empath herself (eyes open, watching the pointing), as opposed to those pointing.
+  const watchingPoints = acting?.told?.kind === 'empath' && !closed;
+  // What was said out loud for everyone at this step (or as the last one ended).
+  const said = view.announcements.filter((a) => a.step >= night.index - 1 && night.index >= 0);
+  const eyesOpen = view.notes.filter((n) => n.kind === 'watched').at(-1);
   useDarkNight();
   return (
     <div
@@ -751,15 +885,21 @@ export function Night({
           <p className="text-4xl font-black tracking-widest" role="alert">
             YOUR TURN
           </p>
-          {dusk || lovers ? (
+          {dusk || lovers || closed ? (
             <span aria-hidden className="text-5xl">
-              {dusk ? '👁️' : '💘'}
+              {dusk ? '👁️' : lovers ? '💘' : pointing ? '👉' : '✊'}
             </span>
           ) : (
             <RoleArt role={acting.as} deck={deck} size="md" />
           )}
           <p className="text-sm font-semibold">
-            {dusk ? 'Everyone is awake' : lovers ? 'The lovers wake' : 'Open your eyes, quietly'}
+            {dusk
+              ? 'Everyone is awake'
+              : lovers
+                ? 'The lovers wake'
+                : closed
+                  ? 'Keep your eyes closed'
+                  : 'Open your eyes, quietly'}
           </p>
         </div>
       )}
@@ -814,17 +954,53 @@ export function Night({
                   </p>
                 </div>
               </div>
+            ) : closed ? (
+              <div className="flex items-center gap-3" data-testid="eyes-closed">
+                <span aria-hidden className="text-4xl">
+                  {pointing ? '👉' : '✊'}
+                </span>
+                <div>
+                  <p className="text-lg font-bold">
+                    {pointing ? 'Point, eyes closed' : 'Put out your fist, eyes closed'}
+                  </p>
+                  <p className="text-sm">
+                    {pointing
+                      ? 'The narrator named you: point at someone (or nobody).'
+                      : acting.as === 'cow' && !acting.told
+                        ? `As the ${deck.name('cow')}: if an alien sits right next to you, one of them must tap your fist.`
+                        : 'The aliens may tap your fist.'}
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="flex items-center gap-3">
                 <RoleArt role={acting.as} deck={deck} size="sm" />
                 <div>
                   <p className="text-lg font-bold">You’re awake</p>
                   <p className="text-sm">
-                    as the <RoleChip role={acting.as} deck={deck} />
-                    {acting.step.startsWith('doppelganger-') && ' (your copy)'}
+                    {acting.ripple ? (
+                      'The ripple named you'
+                    ) : (
+                      <>
+                        as the <RoleChip role={acting.as} deck={deck} />
+                        {acting.step.startsWith('doppelganger-') && ' (your copy)'}
+                        {acting.step.startsWith(REPEAT) && ' (again)'}
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
+            )}
+            {(acting.told || acting.ripple) && (
+              <p
+                className="rounded-lg bg-indigo-950/80 px-3 py-2 text-sm ring-1 ring-indigo-300/40"
+                data-testid="told"
+              >
+                <span className="font-semibold">The narrator says: </span>
+                {acting.ripple
+                  ? rippleText(acting.ripple, at, deck)
+                  : toldText(acting.told!, at, deck, { empath: watchingPoints })}
+              </p>
             )}
             {acting.prompt ? (
               <PromptPanel
@@ -849,6 +1025,7 @@ export function Night({
                         deck,
                         centreKinds(view.settings.roles),
                         view.me?.id,
+                        at,
                       )}
                       roles={rolesIn(n)}
                       marks={marksIn(n)}
@@ -860,8 +1037,13 @@ export function Night({
               </ul>
             )}
             {!acting.prompt && (
-              <p className="text-sm text-indigo-200">Close your eyes when the narrator says so.</p>
+              <p className="text-sm text-indigo-200">
+                {closed
+                  ? 'Put your hand away when the narrator says so.'
+                  : 'Close your eyes when the narrator says so.'}
+              </p>
             )}
+            <Announcements list={said} view={view} deck={deck} light />
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -878,6 +1060,25 @@ export function Night({
             </p>
             {view.myRole && <MyCardChip view={view} deck={deck} />}
             <MyMark view={view} deck={deck} />
+            {eyesOpen?.kind === 'watched' && (
+              <p
+                className="rounded-lg bg-stone-800 px-3 py-2 text-sm text-stone-100"
+                data-testid="eyes-open"
+              >
+                👁️{' '}
+                {describeNote(
+                  eyesOpen,
+                  nameOf,
+                  deck,
+                  centreKinds(view.settings.roles),
+                  view.me?.id,
+                  at,
+                )}
+              </p>
+            )}
+            <div className="w-full text-left">
+              <Announcements list={said} view={view} deck={deck} light />
+            </div>
           </div>
         )}
         <div className="flex justify-center">{sound}</div>
@@ -890,22 +1091,33 @@ export function Night({
 
 type DayTab = 'table' | 'learned' | 'roles';
 
+/** What a ripple's rule means for the players it names, for the table. */
+const RULE_BADGE = {
+  'i-am-alien': ['👽', 'may only say “I am an alien”'],
+  'face-away': ['🙈', 'faces away'],
+  'no-speak': ['🤐', 'may not speak'],
+} as const;
+
 function TableList({
   view,
   deck,
   pick,
   picked,
+  picked2,
   online,
 }: {
   view: NightfallView;
   deck: Deck;
   pick?: (id: string) => void;
   picked?: string | null;
+  /** Your second vote (a two-hand ripple). */
+  picked2?: string | null;
   online: (id: string) => boolean;
 }) {
   const me = view.me?.id;
   const day = view.day;
   const protects = votePower(view) !== 'vote';
+  const rules = day?.rules;
   return (
     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="The table">
       {view.table!.map((p) => {
@@ -914,6 +1126,7 @@ function TableList({
         const body = (
           <>
             <span className="flex items-center gap-1 truncate font-semibold">
+              <Num view={view} id={p.id} deck={deck} />
               {p.id === me ? `${p.name} (you)` : p.name}
             </span>
             <span className="flex flex-wrap items-center gap-1 text-xs">
@@ -928,6 +1141,14 @@ function TableList({
               {day?.artifacts.includes(p.id) && (
                 <Token src={null} emblem="🏺" label="Has an artifact" />
               )}
+              {rules?.restrictions
+                ?.filter((r) => r.players.includes(p.id))
+                .map((r) => (
+                  <span key={r.kind} data-testid="restriction" title={RULE_BADGE[r.kind][1]}>
+                    {RULE_BADGE[r.kind][0]} {RULE_BADGE[r.kind][1]}
+                  </span>
+                ))}
+              {rules?.twoVotes?.includes(p.id) && <span title="Votes twice">✌️ two votes</span>}
               {p.left ? (
                 <span>left</span>
               ) : (
@@ -944,12 +1165,12 @@ function TableList({
             {can ? (
               <button
                 type="button"
-                aria-pressed={picked === p.id}
+                aria-pressed={picked === p.id || picked2 === p.id}
                 aria-label={`${protects ? 'Protect' : 'Vote for'} ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
-                  picked === p.id
+                  picked === p.id || picked2 === p.id
                     ? protects
                       ? 'bg-emerald-600 text-white ring-emerald-600'
                       : 'bg-rose-600 text-white ring-rose-600'
@@ -959,7 +1180,13 @@ function TableList({
                 {body}
                 <span className="text-xs font-semibold">
                   {protects ? '🛡️ Protect' : '🗳️ Vote'}
-                  {picked === p.id ? ' · your pick' : ''}
+                  {picked === p.id && picked2 === p.id
+                    ? ' · both your votes'
+                    : picked === p.id
+                      ? ' · your pick'
+                      : picked2 === p.id
+                        ? ' · your second vote'
+                        : ''}
                 </span>
               </button>
             ) : (
@@ -1011,6 +1238,7 @@ export function Day({
   sound: ReactNode;
 }) {
   const [tab, setTab] = useState<DayTab>('table');
+  const [hand, setHand] = useState<1 | 2>(1);
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
@@ -1077,13 +1305,66 @@ export function Day({
               Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
             </p>
           )}
+          {(view.day?.centerUp?.length ?? 0) > 0 && (
+            <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
+              Face up in the centre:
+              {view.day!.centerUp!.map((c) => (
+                <span key={c.center} className="inline-flex items-center gap-1">
+                  {centreName(c.center, view.day!.centerKinds)}
+                  <RoleChip role={c.role} deck={deck} />
+                </span>
+              ))}
+            </p>
+          )}
+          {voting && playing && view.vote?.hands === 2 && (
+            <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="hands">
+              <span>✌️ You vote with both hands:</span>
+              {([1, 2] as const).map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  aria-pressed={hand === h}
+                  onClick={() => setHand(h)}
+                  className={cn(
+                    'rounded-lg px-2 py-1 font-semibold ring-1 ring-stone-300 dark:ring-stone-700',
+                    hand === h && 'bg-rose-600 text-white ring-rose-600',
+                  )}
+                >
+                  {h === 1 ? 'First hand' : 'Second hand'}
+                  {(h === 1 ? view.vote?.myVote : view.vote?.mySecond) ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+          )}
           <TableList
             view={view}
             deck={deck}
-            pick={voting && playing ? (id) => void act({ type: 'vote', target: id }) : undefined}
+            pick={
+              voting && playing
+                ? (id) => void act({ type: 'vote', target: id, ...(hand === 2 ? { hand } : {}) })
+                : undefined
+            }
             picked={view.vote?.myVote}
+            picked2={view.vote?.mySecond}
             online={online}
           />
+          {voting && playing && view.vote?.app && (
+            <Button
+              variant={
+                view.vote.myVote === VOTE_APP || view.vote.mySecond === VOTE_APP
+                  ? 'primary'
+                  : 'secondary'
+              }
+              className="w-full"
+              data-testid="vote-app"
+              onClick={() =>
+                void act({ type: 'vote', target: VOTE_APP, ...(hand === 2 ? { hand } : {}) })
+              }
+            >
+              📱 Vote for the app (if it gets the most votes, nobody dies)
+              {view.vote.myVote === VOTE_APP ? ' · your pick' : ''}
+            </Button>
+          )}
           {!voting && playing && (
             <Button
               size="lg"
@@ -1161,6 +1442,28 @@ function CentreCards({
   );
 }
 
+/** Why a player was on the aliens' side, as a badge. */
+const ALIEN_BADGE = {
+  card: '👽 Alien card',
+  player: '👽 New Alien',
+  helper: '👽 alien helper',
+  oracle: '👽 joined the aliens',
+} as const;
+
+/** "voted Ana", "voted Ana and Ben", "voted the app", "no vote". */
+function voteWords(
+  first: string | null | undefined,
+  second: string | null | undefined,
+  nameOf?: (id: string) => string,
+): string {
+  const n = (id: string) => (id === VOTE_APP ? 'the app' : (nameOf?.(id) ?? id));
+  if (!first && !second) return 'no vote';
+  return `voted ${[first, second]
+    .filter((x): x is string => !!x)
+    .map(n)
+    .join(' and ')}`;
+}
+
 export function Reveal({
   view,
   room,
@@ -1193,6 +1496,9 @@ export function Reveal({
   const seatedNow = view.seats.filter((s) => s.playing).length;
   const kinds = reveal.center.map((c) => c.kind);
   const [tab, setTab] = useState<'cards' | 'night'>('cards');
+  // Where a time loop began (the plan grows by a whole night after the ripple).
+  const base = buildNightPlan(view.settings.roles).length;
+  const loopFrom = reveal.plan.length > base + 1 ? base : -1;
   const steps = reveal.plan.map((id, i) => ({
     id,
     i,
@@ -1236,8 +1542,10 @@ export function Reveal({
         {explained.tally.length > 0 && (
           <p className="text-sm" data-testid="tally">
             🗳️ Votes: {explained.tally.map((t) => `${nameOf(t.player)} ${t.votes}`).join(' · ')}
+            {(result.appVotes ?? 0) > 0 && ` · the app ${result.appVotes}`}
           </p>
         )}
+        <Announcements list={view.announcements} view={view} deck={deck} title="Said out loud" />
         {result.deaths.length === 0 && <p className="text-sm font-semibold">Nobody died.</p>}
         <ul className="space-y-1" data-testid="reasons">
           {explained.reasons.map(({ text, death: d }, i) =>
@@ -1334,7 +1642,7 @@ export function Reveal({
                         {won && ' 🏆'}
                       </span>
                       <span className="shrink-0 text-xs text-stone-500">
-                        {result.votes[p.id] ? `voted ${nameOf(result.votes[p.id])}` : 'no vote'}
+                        {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1">
@@ -1356,6 +1664,17 @@ export function Reveal({
                       )}
                       {id.team !== ROLES[id.role].team && !id.converted && (
                         <Badge>{TEAM_LABEL[id.team]}</Badge>
+                      )}
+                      {id.alien && <Badge data-testid="alien-badge">{ALIEN_BADGE[id.alien]}</Badge>}
+                      {id.oracle &&
+                        id.oracle !== 'alien-card' &&
+                        id.oracle !== 'aliens-win-only' && (
+                          <Badge>
+                            {id.oracle === 'werewolf-card' ? 'a werewolf card' : 'a vampire card'}
+                          </Badge>
+                        )}
+                      {numbersInPlay(view.settings.roles) && (
+                        <Num view={view} id={p.id} deck={deck} />
                       )}
                     </div>
                     {history[p.id] && (
@@ -1399,17 +1718,28 @@ export function Reveal({
           <ol className="space-y-2" aria-label="The night, step by step">
             {steps.map(({ id, i, def, entries }) => (
               <li key={i} className="text-sm" data-testid="timeline-step" data-step={id}>
+                {i === loopFrom && (
+                  <p className="mt-3 font-bold" data-testid="time-loop">
+                    🔁 The time loop: the night again
+                  </p>
+                )}
                 <p className="font-semibold">
                   {i + 1}.{' '}
                   {id === 'dusk' ? (
                     'Dusk: everyone looks at their Mark'
                   ) : id === 'lovers' ? (
                     'The lovers'
+                  ) : id === 'ripple' ? (
+                    'The ripple'
                   ) : (
                     <>
                       {id === 'werewolves' && 'The werewolves: '}
                       {id === 'vampires' && 'The vampires: '}
+                      {id === 'aliens' && 'The aliens: '}
+                      {id === 'groob-zerb' && 'Groob and Zerb: '}
+                      {def.repeat && 'Again (the ripple): '}
                       <RoleChip role={def.role} deck={deck} />
+                      {id === 'groob-zerb' && <RoleChip role="zerb" deck={deck} className="ml-1" />}
                       {def.doppel && ' (the Doppelgänger’s copy)'}
                     </>
                   )}
@@ -1418,10 +1748,12 @@ export function Reveal({
                   {entries.map((e, k) => (
                     <li key={k}>
                       <WithChips
-                        text={describeEntry(e, nameOf, deck, kinds)}
+                        text={describeEntry(e, nameOf, deck, kinds, numberedOf(view))}
                         roles={[...rolesIn(e.note), ...(e.moved ?? []).map((m) => m.role)]}
                         marks={[
-                          ...(e.note.kind === 'nobody' ? [] : marksIn(e.note)),
+                          ...(e.note.kind === 'nobody' || e.note.kind === 'announced'
+                            ? []
+                            : marksIn(e.note)),
                           ...(e.marks ?? []).flatMap((m) => (m.mark ? [m.mark] : [])),
                         ]}
                         deck={deck}

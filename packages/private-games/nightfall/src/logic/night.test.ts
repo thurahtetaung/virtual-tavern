@@ -11,6 +11,7 @@ const V = 'villager';
 describe('wake order', () => {
   it('matches the narrator’s order for every step so far', () => {
     expect(STEPS.map((s) => s.code)).toEqual([
+      '-9',
       '-8',
       '-7',
       '-6',
@@ -30,12 +31,18 @@ describe('wake order', () => {
       '-1D',
       '00',
       '0B',
+      '1A',
+      '1D',
+      '1F',
+      '1Fa',
       '2',
       '2B',
       '2C',
       '3',
       '3B',
       '-3-Ba',
+      '3C',
+      '3Ca',
       '4',
       '4B',
       '5',
@@ -43,6 +50,10 @@ describe('wake order', () => {
       '5C',
       '5D',
       '5Da',
+      '5E',
+      '5Ea',
+      '5G',
+      '5Ga',
       '6',
       '6B',
       '6C',
@@ -53,6 +64,8 @@ describe('wake order', () => {
       '7Ca',
       '7D',
       '7Da',
+      '7F',
+      '7Fa',
       '8',
       '9',
       '9a',
@@ -62,8 +75,16 @@ describe('wake order', () => {
       '9Za',
       '10',
       '10a',
+      '10B',
+      '10Ba',
+      '10E',
+      '10Ea',
       '11',
       '11a',
+      '13',
+      '13A',
+      '13Aa',
+      '20',
     ]);
   });
 
@@ -256,9 +277,11 @@ describe('role steps', () => {
 });
 
 describe('the Doppelgänger copies every first-wave role', () => {
-  const immediate = ROLE_IDS.filter((r) => ROLES[r].doppel === 'immediate');
-  const later = ROLE_IDS.filter((r) => ROLES[r].doppel === 'later');
-  const passive = ROLE_IDS.filter((r) => ROLES[r].doppel === 'none' && r !== 'doppelganger');
+  // The Alien set's copies are in alien.test.ts.
+  const early = ROLE_IDS.filter((r) => !['alien', 'bonus3'].includes(ROLES[r].set));
+  const immediate = early.filter((r) => ROLES[r].doppel === 'immediate');
+  const later = early.filter((r) => ROLES[r].doppel === 'later');
+  const passive = early.filter((r) => ROLES[r].doppel === 'none' && r !== 'doppelganger');
 
   /** A table where the Doppelgänger (A) copies `role` from B; enough roles for every step. */
   const copying = (role: RoleId) => {

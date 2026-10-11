@@ -23,7 +23,15 @@ export const SET_IDS = [
 export type SetId = (typeof SET_IDS)[number];
 
 /** The sets whose roles can be picked today. */
-export const ENABLED_SETS: readonly SetId[] = ['base', 'daybreak', 'bonus1', 'bonus2', 'vampire'];
+export const ENABLED_SETS: readonly SetId[] = [
+  'base',
+  'daybreak',
+  'bonus1',
+  'bonus2',
+  'vampire',
+  'alien',
+  'bonus3',
+];
 
 /** Neutral fallback names for the sets, used when the manifest has none. */
 export const SET_LABELS: Record<SetId, string> = {
@@ -88,18 +96,45 @@ export const ROLE_IDS = [
   'marksman',
   'pickpocket',
   'gremlin',
+  // Alien
+  'oracle',
+  'alien',
+  'synthetic-alien',
+  'cow',
+  'groob',
+  'zerb',
+  'leader',
+  'psychic',
+  'rascal',
+  'exposer',
+  'blob',
+  'mortician',
+  // Bonus pack 3
+  'body-snatcher',
+  'empath',
+  'nostradamus',
 ] as const;
 export type RoleId = (typeof ROLE_IDS)[number];
 
 /**
  * The team printed on a card. Own-team roles (the Tanner and his apprentice, the Assassin and
- * hers) win on their own conditions. Later sets add alien, villain and more own teams.
+ * hers, the Synthetic Alien, the Blob and the Mortician) win on their own conditions. Later sets
+ * add villains and more own teams.
  */
 export type Team =
-  'village' | 'werewolf' | 'tanner' | 'vampire' | 'assassin' | 'apprentice-assassin';
+  | 'village'
+  | 'werewolf'
+  | 'tanner'
+  | 'vampire'
+  | 'assassin'
+  | 'apprentice-assassin'
+  | 'alien'
+  | 'synthetic'
+  | 'blob'
+  | 'mortician';
 
-/** The hostile groups a death can count against; later sets add aliens and villains. */
-export const HOSTILE_GROUPS = ['werewolf', 'vampire'] as const;
+/** The hostile groups a death can count against; later sets add villains. */
+export const HOSTILE_GROUPS = ['werewolf', 'vampire', 'alien'] as const;
 export type HostileGroup = (typeof HOSTILE_GROUPS)[number];
 
 /**
@@ -134,6 +169,10 @@ export interface RoleDef {
   vampire?: boolean;
   /** Wakes in the vampires' step. */
   wakesWithVampires?: boolean;
+  /** An Alien for every win and vote rule (the Synthetic Alien too; the Cow and Leader aren't). */
+  alien?: boolean;
+  /** Wakes in the aliens' step (and shows the Leader an alien thumb). */
+  wakesWithAliens?: boolean;
   doppel: DoppelMode;
   /** Takes longer at night: its steps last twice as long, as in the narrator. */
   complex?: boolean;
@@ -148,6 +187,8 @@ const VILLAGE_WIN =
   'Wins with the village: at least one Werewolf or Vampire dies (one of each in an epic battle), or nobody dies if no player is either.';
 const WOLF_WIN = 'Wins with the werewolves: no Werewolf dies.';
 const VAMPIRE_WIN = 'Wins with the vampires: no Vampire dies.';
+const ALIEN_WIN =
+  'Wins with the aliens: no Alien dies (and the Synthetic Alien doesn’t die either).';
 
 const role = (def: RoleDef): RoleDef => def;
 
@@ -640,9 +681,218 @@ export const ROLES: Record<RoleId, RoleDef> = {
       'May swap the Marks, or the cards, of any two players (the Gremlin included), without looking.',
     win: VILLAGE_WIN,
   }),
+  oracle: role({
+    id: 'oracle',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'none',
+    complex: true,
+    summary:
+      'Wakes first and answers one question from the narrator: join a team, look at centre cards, swap with the centre, guess a number… Her answer can change her team or the night.',
+    win: 'Wins with the village, or with the team she joined (without becoming that role). If she fails the number question, she wins only by surviving, and everyone else wins only if she dies.',
+  }),
+  alien: role({
+    id: 'alien',
+    set: 'alien',
+    count: 2,
+    team: 'alien',
+    villageCard: false,
+    alien: true,
+    wakesWithAliens: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the other aliens, then does whatever the narrator says tonight: look at a card, show cards, pass cards, recruit a new alien…',
+    win: ALIEN_WIN,
+  }),
+  'synthetic-alien': role({
+    id: 'synthetic-alien',
+    set: 'alien',
+    count: 1,
+    team: 'synthetic',
+    villageCard: false,
+    alien: true,
+    wakesWithAliens: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the aliens and counts as one for every instruction, but plays for himself.',
+    win: 'Wins only if he dies. If the Synthetic Alien dies, the aliens and the village both lose.',
+  }),
+  cow: role({
+    id: 'cow',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'with-group',
+    summary:
+      'Puts out a fist while the aliens are awake. If an alien sits right next to the Cow, one of them must tap it: the Cow learns whether it was tapped.',
+    win: VILLAGE_WIN,
+  }),
+  groob: role({
+    id: 'groob',
+    set: 'alien',
+    count: 1,
+    team: 'alien',
+    villageCard: false,
+    alien: true,
+    wakesWithAliens: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the aliens, then again with Zerb to see whether Zerb is at the table. With both at the table, they are rivals.',
+    win: 'With Zerb also among the players: wins only if Zerb dies and Groob lives (the village wins too, and the other aliens lose). Otherwise wins with the aliens.',
+  }),
+  zerb: role({
+    id: 'zerb',
+    set: 'alien',
+    count: 1,
+    team: 'alien',
+    villageCard: false,
+    alien: true,
+    wakesWithAliens: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the aliens, then again with Groob to see whether Groob is at the table. With both at the table, they are rivals.',
+    win: 'With Groob also among the players: wins only if Groob dies and Zerb lives (the village wins too, and the other aliens lose). Otherwise wins with the aliens.',
+  }),
+  leader: role({
+    id: 'leader',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary:
+      'Sees the aliens’ thumbs, and whether Groob and Zerb found each other. If every player on the alien side votes for the Leader, the aliens win.',
+    win: 'Wins with the village. With Groob and Zerb both among the players, wins only if both of them live (the Leader’s own life doesn’t matter).',
+  }),
+  psychic: role({
+    id: 'psychic',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary: 'May look at one (or two) cards of the players the narrator names: even or odd.',
+    win: VILLAGE_WIN,
+  }),
+  rascal: role({
+    id: 'rascal',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary:
+      'Moves cards the way the narrator says tonight: like the Troublemaker, the Witch, the Robber, the Drunk or the Village Idiot, among the players it names.',
+    win: VILLAGE_WIN,
+  }),
+  exposer: role({
+    id: 'exposer',
+    set: 'alien',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary:
+      'May turn exactly as many centre cards face up as the narrator says (one, two or three), or none. They stay face up for everyone to see.',
+    win: VILLAGE_WIN,
+  }),
+  blob: role({
+    id: 'blob',
+    set: 'alien',
+    count: 1,
+    team: 'blob',
+    villageCard: false,
+    doppel: 'none',
+    summary:
+      'Doesn’t wake. The narrator announces which neighbours are part of the Blob, counted from wherever the Blob card ends up.',
+    win: 'Wins if nobody in the Blob dies, the Blob included, alongside any other team.',
+  }),
+  mortician: role({
+    id: 'mortician',
+    set: 'alien',
+    count: 1,
+    team: 'mortician',
+    villageCard: false,
+    doppel: 'later',
+    summary:
+      'May look at the neighbours’ cards (or the Mortician’s own) as the narrator says, or only pretends to.',
+    win: 'Wins if at least one neighbour of the Mortician card dies, alive or not, alongside any other team.',
+  }),
+  'body-snatcher': role({
+    id: 'body-snatcher',
+    set: 'bonus3',
+    count: 1,
+    team: 'alien',
+    villageCard: false,
+    alien: true,
+    wakesWithAliens: true,
+    doppel: 'later',
+    summary:
+      'Wakes with the aliens, then again: must take a non-alien’s card (or a centre card) as the narrator says and look at it. That card is now an Alien card, wherever it goes.',
+    win: ALIEN_WIN,
+  }),
+  empath: role({
+    id: 'empath',
+    set: 'bonus3',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary:
+      'Watches while the players the narrator names point, eyes closed, at whoever fits its question (“the most suspicious player”…).',
+    win: VILLAGE_WIN,
+  }),
+  nostradamus: role({
+    id: 'nostradamus',
+    set: 'bonus3',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    complex: true,
+    summary:
+      'May look at up to three other players’ cards, one at a time, stopping at one that isn’t village. The last card seen decides his team, which the narrator announces to everyone.',
+    win: 'Wins only if he lives and the team he was announced on wins (with an own-team card, if its holder wins). He isn’t a member of that team: his death doesn’t make it lose.',
+  }),
 };
 
 export const isRoleId = (id: string): id is RoleId => id in ROLES;
+
+/**
+ * The team Nostradamus is announced on, from the last card he saw: its printed team, or for the
+ * cards whose face doesn't tell (copiers, the Oracle, the P.I.) the narrator's own team words.
+ */
+export const NOSTRA_TEAMS = [
+  'village',
+  'werewolf',
+  'vampire',
+  'alien',
+  'tanner',
+  'synthetic',
+  'blob',
+  'mortician',
+  'assassin',
+  'apprentice-assassin',
+  'doppelganger',
+  'copycat',
+  'oracle',
+  'paranormal-investigator',
+] as const;
+export type NostraTeam = (typeof NOSTRA_TEAMS)[number];
+
+export function nostraTeamOf(role: RoleId): NostraTeam {
+  if (
+    role === 'doppelganger' ||
+    role === 'copycat' ||
+    role === 'oracle' ||
+    role === 'paranormal-investigator'
+  )
+    return role;
+  return ROLES[role].team;
+}
 
 /** Roles that can be picked today, grouped by set in registry order. */
 export function rolesBySet(
@@ -736,16 +986,24 @@ export function marksInPlay(roles: readonly RoleId[]): MarkId[] {
   return MARK_IDS.filter((m) => m === 'clarity' || given.has(m));
 }
 
+/** The hostile group a role's card counts towards, if any. */
+export function groupOfRole(role: RoleId): HostileGroup | null {
+  const def = ROLES[role];
+  if (def.vampire) return 'vampire';
+  if (def.werewolf) return 'werewolf';
+  if (def.alien) return 'alien';
+  return null;
+}
+
 /** Hostile groups these roles can put in play (for the "epic battle" warning). */
 export function hostileGroupsIn(roles: readonly RoleId[]): HostileGroup[] {
-  return HOSTILE_GROUPS.filter((g) =>
-    roles.some((r) => (g === 'werewolf' ? ROLES[r].werewolf : ROLES[r].vampire) === true),
-  );
+  const groups = new Set(roles.map(groupOfRole));
+  return HOSTILE_GROUPS.filter((g) => groups.has(g));
 }
 
 /**
  * Hostile groups a setup can put among the players: by card, or by an artifact the Curator may
- * draw (the Claw makes a Werewolf, the Mist a Vampire).
+ * draw (the Claw makes a Werewolf, the Mist a Vampire, the Alien Artifact an Alien).
  */
 export function sidesIn(
   roles: readonly RoleId[],
@@ -761,15 +1019,39 @@ export function sidesIn(
   return hostileGroupsIn([...roles, ...extra]);
 }
 
+const PLURAL: Record<HostileGroup, string> = {
+  werewolf: 'werewolves',
+  vampire: 'vampires',
+  alien: 'aliens',
+};
+
+const GROUP_WORD: Record<HostileGroup, string> = {
+  werewolf: 'Werewolf',
+  vampire: 'Vampire',
+  alien: 'Alien',
+};
+
+/** "Werewolf", "Werewolf or Vampire", "Werewolf, Vampire or Alien". */
+const either = (groups: readonly HostileGroup[]) => {
+  const words = groups.map((g) => GROUP_WORD[g]);
+  return words.length <= 1
+    ? (words[0] ?? '')
+    : `${words.slice(0, -1).join(', ')} or ${words[words.length - 1]}`;
+};
+
 /** The village's win for a setup with these hostile groups. */
 export function villageWin(groups: readonly HostileGroup[]): string {
-  if (groups.length >= 2)
-    return 'Wins with the village: at least one Werewolf or Vampire dies. In an epic battle (werewolves, vampires and villagers all among the players), at least one of each must die.';
-  if (groups[0] === 'vampire')
-    return 'Wins with the village: at least one Vampire dies (or, if no player is a Vampire, nobody dies).';
-  if (groups[0] === 'werewolf')
-    return 'Wins with the village: at least one Werewolf dies (or, if no player is a Werewolf, nobody dies).';
-  return 'Wins with the village: nobody dies (no player can be a Werewolf or a Vampire).';
+  if (groups.length >= 2) {
+    const sides = groups.map((g) => PLURAL[g]).join(', ');
+    const need =
+      groups.length === 2
+        ? 'at least one of each must die'
+        : 'players from at least two different evil sides must die';
+    return `Wins with the village: at least one ${either(groups)} dies. In an epic battle (${sides} and villagers all among the players), ${need}.`;
+  }
+  if (groups.length === 1)
+    return `Wins with the village: at least one ${GROUP_WORD[groups[0]!]} dies (or, if no player is a ${GROUP_WORD[groups[0]!]}, nobody dies).`;
+  return 'Wins with the village: nobody dies (no player can be a Werewolf, Vampire or Alien).';
 }
 
 /** How a role wins, worded for the cards in this game (`roles`) and the Curator's artifacts. */
@@ -782,10 +1064,13 @@ export function winFor(
   const groups = sidesIn(roles, artifacts);
   if (def.win === VILLAGE_WIN) return villageWin(groups);
   if (groups.length < 2) return def.win;
+  const others = (g: HostileGroup) => either(groups.filter((x) => x !== g));
   if (def.win === WOLF_WIN)
-    return 'Wins with the werewolves: no Werewolf dies. In an epic battle, a Vampire must die too.';
+    return `Wins with the werewolves: no Werewolf dies. In an epic battle, a ${others('werewolf')} must die too.`;
   if (def.win === VAMPIRE_WIN)
-    return 'Wins with the vampires: no Vampire dies. In an epic battle, a Werewolf must die too.';
+    return `Wins with the vampires: no Vampire dies. In an epic battle, a ${others('vampire')} must die too.`;
+  if (def.win === ALIEN_WIN)
+    return `${ALIEN_WIN} In an epic battle, a ${others('alien')} must die too.`;
   return def.win;
 }
 
@@ -804,6 +1089,7 @@ export const ARTIFACT_IDS = [
   'sword-of-the-bodyguard',
   'mist-of-the-vampire',
   'dagger-of-the-traitor',
+  'alien-artifact',
 ] as const;
 export type ArtifactId = (typeof ARTIFACT_IDS)[number];
 
@@ -816,6 +1102,8 @@ export interface ArtifactDef {
   traitor?: boolean;
   /** Only offered when roles from this set are in the game. */
   needsSet?: SetId;
+  /** Only offered when one of the game's cards is an Alien. */
+  needsAliens?: boolean;
   summary: string;
 }
 
@@ -880,13 +1168,21 @@ export const ARTIFACTS: Record<ArtifactId, ArtifactDef> = {
     traitor: true,
     summary: 'You are a traitor: you win only if someone else on your team dies.',
   },
+  'alien-artifact': {
+    id: 'alien-artifact',
+    set: 'bonus3',
+    becomes: 'alien',
+    needsAliens: true,
+    summary: 'You are now an Alien, and win or lose with the aliens (only with alien roles).',
+  },
 };
 
 /** Artifacts the Curator may draw by default for these roles. */
 export function defaultArtifacts(roles: readonly RoleId[]): ArtifactId[] {
   const sets = new Set(roles.map((r) => ROLES[r].set));
+  const aliens = roles.some((r) => ROLES[r].alien);
   return ARTIFACT_IDS.filter((a) => {
     const def = ARTIFACTS[a];
-    return !def.needsSet || sets.has(def.needsSet);
+    return (!def.needsSet || sets.has(def.needsSet)) && (!def.needsAliens || aliens);
   });
 }

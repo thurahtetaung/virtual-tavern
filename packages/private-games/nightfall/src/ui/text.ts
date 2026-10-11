@@ -10,6 +10,18 @@ import type {
   VoteResult,
 } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
+import {
+  type Numbered,
+  announcementText,
+  nostraTeamWords,
+  oracleAbout,
+  oracleQuestion,
+  oracleReply,
+  toldText,
+} from './alienText.ts';
+
+/** No player numbers known: the narrator's numbers stand alone. */
+const NO_NUMBERS: Numbered = { name: () => null };
 
 export type NameOf = (id: string | null | undefined) => string;
 
@@ -47,11 +59,19 @@ export const TEAM_LABEL: Record<TeamResultId, string> = {
   tanner: 'Tanner',
   assassin: 'Assassin',
   'apprentice-assassin': 'Apprentice Assassin',
+  alien: 'Aliens',
+  synthetic: 'Synthetic Alien',
+  blob: 'Blob',
+  mortician: 'Mortician',
+  groob: 'Groob',
+  zerb: 'Zerb',
+  leader: 'Leader',
+  nostradamus: 'Nostradamus',
 };
 
 /** "Village wins", "Werewolves win": the verb agrees with the team's label. */
 export function teamOutcome(team: TeamResultId, won: boolean): string {
-  const plural = team === 'werewolf' || team === 'vampire';
+  const plural = team === 'werewolf' || team === 'vampire' || team === 'alien';
   return `${TEAM_LABEL[team]} ${won ? (plural ? 'win' : 'wins') : plural ? 'lose' : 'loses'}`;
 }
 
@@ -94,6 +114,16 @@ const WAKE: Partial<Record<RoleId, string>> = {
   marksman: 'you may look at one player’s Mark and another player’s card.',
   pickpocket: 'you may swap your Mark with another player’s, then look at your new Mark.',
   gremlin: 'you may swap the Marks, or the cards, of any two players.',
+  oracle: 'answer the narrator’s question.',
+  leader: 'aliens, show a thumb.',
+  psychic: 'look at the cards the narrator names.',
+  rascal: 'move cards the way the narrator says.',
+  exposer: 'turn centre cards face up, as many as the narrator says.',
+  mortician: 'look at cards the way the narrator says.',
+  'body-snatcher': 'take a card the way the narrator says: it becomes an Alien card.',
+  empath: 'watch the players the narrator names point.',
+  nostradamus:
+    'you may look at up to three cards, one at a time; stop at one that isn’t village. The last card you see is your team.',
 };
 
 const sentence = (s: string | undefined) => (s ? s[0]!.toUpperCase() + s.slice(1) : '');
@@ -155,6 +185,25 @@ export function lineText(key: string, deck: Deck): string {
       return 'WEREWOLVES, close your eyes.';
     case 'doppelganger:minion:wake':
       return `If you are now the ${deck.name('minion')}, keep your eyes open: werewolves, show your thumbs.`;
+    case 'alien:wake':
+      return 'ALIENS, wake up and look around for the other aliens.';
+    case 'alien:close':
+      return 'ALIENS, close your eyes.';
+    case 'cow:wake':
+      return `${n('cow')}, put out your fist. If an alien sits right next to you, one of them must tap it.`;
+    case 'doppelganger:cow:wake':
+      return `${n('doppelganger')}, if you copied the ${deck.name('cow')}, put out your fist too.`;
+    case 'cow:close':
+      return `${n('cow')}, put your fist away.`;
+    case 'doppelganger:cow:close':
+      return `${n('doppelganger')}, put your fist away.`;
+    case 'groob-zerb:wake':
+      return `${n('groob')} and ${n('zerb')}, wake up and look at each other.`;
+    case 'groob-zerb:close':
+      return `${n('groob')} and ${n('zerb')}, close your eyes.`;
+    case 'leader:groob-zerb':
+    case 'doppelganger:leader:groob-zerb':
+      return `${n('groob')} and ${n('zerb')}, if you saw each other, show a thumb. ${key.startsWith('doppelganger') ? n('doppelganger') : n('leader')}, if you see them both, you win only if both of them live.`;
   }
   const parts = key.split(':');
   if (parts.includes('thumbs-away')) return 'Thumbs away.';
@@ -173,6 +222,8 @@ export function lineText(key: string, deck: Deck): string {
 const GROUP_SUBJECT: Record<string, string> = {
   werewolf: 'The werewolves',
   vampire: 'The vampires',
+  alien: 'The aliens',
+  'groob-zerb': 'Groob and Zerb',
   lovers: 'The lovers',
   dusk: 'Everyone',
 };
@@ -212,6 +263,15 @@ export function narrationText(
       return 'The vampires put their hands away.';
     case 'assassin:close:with-apprentice':
       return `The ${deck.name('assassin')} and the ${deck.name('apprentice-assassin')} go back to sleep.`;
+    case 'cow:wake':
+    case 'doppelganger:cow:wake':
+      return `The ${deck.name('cow')} puts out a fist.`;
+    case 'cow:close':
+    case 'doppelganger:cow:close':
+      return 'Fists away.';
+    case 'leader:groob-zerb':
+    case 'doppelganger:leader:groob-zerb':
+      return `${deck.name('groob')} and ${deck.name('zerb')} show a thumb, if they saw each other.`;
   }
   const parts = key.split(':');
   if (parts.includes('thumbs-away')) return 'Thumbs away.';
@@ -242,6 +302,7 @@ export function describeNote(
   deck: Deck,
   kinds?: readonly string[],
   me?: string,
+  at: Numbered = NO_NUMBERS,
 ): string {
   const r = (role: RoleId) => deck.name(role);
   const who = (ids: string[]) => listNames(ids.map((id) => (id === me ? 'you' : nameOf(id))));
@@ -265,6 +326,8 @@ export function describeNote(
         lovers: ['Your love', 'Nobody else is in love: the Mark of Love does nothing.'],
         assassins: [`The ${r('assassin')}`, `No ${r('assassin')} woke up.`],
         apprentices: [`The ${r('apprentice-assassin')}`, `No ${r('apprentice-assassin')} woke up.`],
+        aliens: ['Your fellow aliens', 'No other alien woke up.'],
+        'groob-zerb': [`Awake with you`, `Nobody else woke: your rival isn’t among the players.`],
       };
       const [some, none] = GROUP[note.group];
       const base = others.length ? `${some}: ${who(others)}.` : none;
@@ -277,6 +340,9 @@ export function describeNote(
         tanner: 'The Tanner',
         seers: 'The seers',
         touched: 'Looked at or moved a card',
+        aliens: 'The aliens’ thumbs',
+        'groob-zerb': `${r('groob')} and ${r('zerb')}, who saw each other`,
+        cow: `The ${r('cow')}’s fist`,
       }[note.of];
       return `${of}: ${note.players.length ? who(note.players) : 'nobody'}.`;
     }
@@ -337,6 +403,52 @@ export function describeNote(
       return `You swapped Marks with ${nameOf(note.target)}. Your Mark is now: ${deck.markName(note.mark)}.`;
     case 'swapped-marks':
       return `You swapped the Marks of ${note.a === me ? 'yourself' : nameOf(note.a)} and ${note.b === me ? 'yourself' : nameOf(note.b)}.`;
+    case 'told':
+      return `The narrator told you: ${toldText(note.pick, at, deck, { empath: note.watching === true })}`;
+    case 'tipped':
+      return note.tipped
+        ? 'An alien tapped your fist: one of your neighbours is an alien.'
+        : 'Nobody tapped your fist: no alien woke up right next to you.';
+    case 'fist':
+      return !note.tapped
+        ? 'Nobody tapped your fist.'
+        : note.helper
+          ? 'The aliens tapped your fist: you play for them now, though you aren’t an alien.'
+          : 'The aliens tapped your fist: you are an alien now, whatever your card.';
+    case 'recruited': {
+      const chose = note.chosenBy ? `${nameOf(note.chosenBy)} chose for you all: ` : '';
+      return `${chose}${chose ? 'you' : 'You'} tapped ${nameOf(note.target)}’s fist: ${note.helper ? 'they play for the aliens now' : 'they are an alien now'}.`;
+    }
+    case 'passed-card':
+      return note.to
+        ? `You gave your card to ${nameOf(note.to)}, the next alien to your ${note.side}, without looking.`
+        : 'No other alien’s card could move: you kept yours.';
+    case 'snatched':
+      return `You took ${slotName(note.slot, nameOf, kinds, me)}: ${r(note.role)}. It is an Alien card now, and so are you.`;
+    case 'took':
+      return `You swapped your card with ${slotName(note.slot, nameOf, kinds, me)} and looked: you are now the ${r(note.role)}.`;
+    case 'gave':
+      return `You gave ${slotName(note.from, nameOf, kinds, me)} to ${note.to === me ? 'yourself' : nameOf(note.to)}.`;
+    case 'exposed':
+      return `You turned ${centreName(note.center, kinds)} face up: ${r(note.role)}. Everyone will see it.`;
+    case 'pointed':
+      return note.target ? `You pointed at ${nameOf(note.target)}.` : 'You pointed at nobody.';
+    case 'saw-point':
+      return `${nameOf(note.from)} pointed at ${note.target === me ? 'you' : note.target ? nameOf(note.target) : 'nobody'}.`;
+    case 'foretold':
+      return `Your last look puts you on the side of ${nostraTeamWords(note.team, deck)}; everyone heard it.`;
+    case 'oracle':
+      return `${oracleQuestion(note.question)} You answered ${note.answer}. ${oracleReply(note.outcome, deck)}`;
+    case 'pretended':
+      return 'You only pretended to look.';
+    case 'watched': {
+      const touched = note.touched.map((sl) => slotName(sl, nameOf, kinds, me));
+      return note.awake.length
+        ? `Eyes open: ${who(note.awake)} woke${touched.length ? `, and touched ${listNames(touched)}` : ''}${note.marks.length ? `; Marks moved: ${who(note.marks)}` : ''}.`
+        : 'Eyes open: nobody woke for that call.';
+    }
+    case 'shuffled':
+      return `You and ${nameOf(note.with)} showed each other your cards: yours, ${r(note.mine)}; theirs, ${r(note.theirs)}. Then they were shuffled between you.`;
   }
 }
 
@@ -362,6 +474,7 @@ export function describeNoteAbout(
   nameOf: NameOf,
   deck: Deck,
   kinds?: readonly string[],
+  at: Numbered = NO_NUMBERS,
 ): string {
   const r = (role: RoleId) => deck.name(role);
   const by = nameOf(byId);
@@ -399,6 +512,8 @@ export function describeNoteAbout(
           `${by} saw the ${r('apprentice-assassin')}`,
           `${by} saw no ${r('apprentice-assassin')} awake.`,
         ],
+        aliens: [`${by} saw the other aliens`, `${by} was the only alien awake.`],
+        'groob-zerb': [`${by} saw`, `${by} saw no rival awake.`],
       };
       const [some, none] = GROUP[note.group];
       const base = others.length ? `${some}: ${list(others)}.` : none;
@@ -411,6 +526,9 @@ export function describeNoteAbout(
         tanner: 'the Tanner’s thumb',
         seers: 'the seers’ thumbs',
         touched: 'who had looked at or moved a card',
+        aliens: 'the aliens’ thumbs',
+        'groob-zerb': `${r('groob')} and ${r('zerb')}’s thumbs`,
+        cow: `the ${r('cow')}’s fist`,
       }[note.of];
       return `${by} saw ${of}: ${note.players.length ? list(note.players) : 'nobody'}.`;
     }
@@ -465,6 +583,40 @@ export function describeNoteAbout(
       return `${by} swapped Marks with ${nameOf(note.target)}, and got the ${deck.markName(note.mark)}.`;
     case 'swapped-marks':
       return `${by} swapped the Marks of ${who(note.a)} and ${who(note.b)}.`;
+    case 'told':
+      return `${by} was told: ${toldText(note.pick, at, deck)}`;
+    case 'tipped':
+      return note.tipped ? `${by}’s fist was tapped by an alien.` : `Nobody tapped ${by}’s fist.`;
+    case 'fist':
+      return note.tapped
+        ? `${by}’s fist was tapped: ${note.helper ? 'they joined the aliens’ side' : 'they became an alien'}.`
+        : `${by} put out a fist; nobody tapped it.`;
+    case 'recruited':
+      return `${by} tapped ${nameOf(note.target)}’s fist${note.helper ? ', making them an alien helper' : ', making them an alien'}${note.chosenBy ? ` (${nameOf(note.chosenBy)}’s pick)` : ''}.`;
+    case 'passed-card':
+      return note.to ? `${by} passed their card to ${nameOf(note.to)}.` : `${by} kept their card.`;
+    case 'snatched':
+      return `${by} took ${slot(note.slot)}: ${r(note.role)}, an Alien card now.`;
+    case 'took':
+      return `${by} swapped with ${slot(note.slot)}, and took the ${r(note.role)}.`;
+    case 'gave':
+      return `${by} gave ${slot(note.from)} to ${who(note.to)}.`;
+    case 'exposed':
+      return `${by} turned ${centreName(note.center, kinds)} face up: ${r(note.role)}.`;
+    case 'pointed':
+      return note.target ? `${by} pointed at ${who(note.target)}.` : `${by} pointed at nobody.`;
+    case 'saw-point':
+      return `${by} saw ${nameOf(note.from)} point at ${note.target ? who(note.target) : 'nobody'}.`;
+    case 'foretold':
+      return `${by} was announced on the side of ${nostraTeamWords(note.team, deck)}.`;
+    case 'oracle':
+      return `${by}, ${oracleAbout(note.question, note.answer, note.outcome)}`;
+    case 'pretended':
+      return `${by} only pretended to look.`;
+    case 'watched':
+      return `${by} watched with eyes open: ${note.awake.length ? list(note.awake) : 'nobody'} woke.`;
+    case 'shuffled':
+      return `${by} and ${nameOf(note.with)} showed each other their cards (${r(note.mine)} and ${r(note.theirs)}), then shuffled them.`;
   }
 }
 
@@ -474,14 +626,20 @@ export function describeEntry(
   nameOf: NameOf,
   deck: Deck,
   kinds?: readonly string[],
+  at: Numbered = NO_NUMBERS,
 ): string {
+  if (entry.note.kind === 'announced')
+    return `Announced: ${announcementText(entry.note.announcement, at, deck)}`;
+  if (entry.note.kind === 'told' && entry.by === null)
+    return `The narrator said: ${toldText(entry.note.pick, at, deck, { empath: true })}`;
   if (entry.note.kind === 'nobody') {
+    if (entry.stepId === 'ripple') return 'No ripple tonight.';
     if (entry.stepId === 'lovers') return 'Nobody held a Mark of Love.';
     if (entry.stepId.startsWith('doppelganger-'))
       return `Nobody woke: the ${deck.name('doppelganger')} didn’t copy this card.`;
     return 'Nobody at the table had this card.';
   }
-  const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds);
+  const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds, at);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`
     : '';
@@ -565,6 +723,69 @@ export function promptText(p: Prompt, deck: Deck): string {
       return 'Tap two players to swap their Marks.';
     case 'swap-cards':
       return 'Tap two players to swap their cards.';
+    case 'alien-view':
+      return 'Tap a player to look at their card, or skip.';
+    case 'alien-all-view':
+      return 'Together, choose one card to look at: the first of you to confirm decides for you all.';
+    case 'new-alien':
+      return 'Tap a fist: that player becomes an alien. The first of you to confirm decides.';
+    case 'alien-helper':
+      return 'Tap a fist: that player joins your side. The first of you to confirm decides.';
+    case 'snatch':
+      return 'Tap a player who isn’t an alien to take their card.';
+    case 'snatch-centre':
+      return 'Tap a centre card to take it.';
+    case 'psychic':
+      return p.players && p.players.max > 1
+        ? `Tap up to ${p.players.max} players to look at their cards, or skip.`
+        : 'Tap a player to look at their card, or skip.';
+    case 'rascal-swap':
+      return 'Tap two players to swap their cards, or skip.';
+    case 'rascal-view':
+      return p.center
+        ? 'Tap a centre card to look at it, or skip.'
+        : 'Tap a player to look at their card, or skip.';
+    case 'rascal-give':
+    case 'ripple-give':
+      return 'Now give that card to a player.';
+    case 'rascal-rob':
+    case 'ripple-steal':
+      return p.center
+        ? 'Tap a centre card to swap with yours and look at it, or skip.'
+        : 'Tap a player to swap cards with them and look at your new card, or skip.';
+    case 'rascal-drunk':
+    case 'ripple-drunk':
+      return p.center
+        ? 'Tap a centre card to swap with yours. You won’t see it.'
+        : 'Tap a player to swap cards with them. You won’t see your new card.';
+    case 'expose':
+      return `Tap exactly ${p.center?.min ?? 1} centre card${(p.center?.min ?? 1) > 1 ? 's' : ''} to turn face up, or skip.`;
+    case 'mortician':
+      return p.players && p.players.max > 1
+        ? 'Tap your neighbours to look at their cards, or skip.'
+        : 'Tap the card to look at it, or skip.';
+    case 'point':
+      return 'Keep your eyes closed and point: tap a player, or point at nobody.';
+    case 'foresee':
+      return 'Tap a player to look at their card. If it isn’t village, you stop: that card’s team is yours.';
+    case 'foresee-again':
+      return 'That card is village: you may look at another (three at most), or stop.';
+    case 'oracle':
+      return 'Answer the question:';
+    case 'view-center':
+      return `You may look at up to ${p.center?.max ?? 1} centre card${(p.center?.max ?? 1) > 1 ? 's' : ''}.`;
+    case 'ripple-view':
+      return p.center
+        ? 'Tap centre cards to look at them, or skip.'
+        : 'Tap players to look at their cards, or skip.';
+    case 'ripple-own':
+      return 'Tap your own card to look at it, or skip.';
+    case 'ripple-swap':
+      return 'Tap both players to swap their cards, or skip.';
+    case 'ripple-witch':
+      return 'Tap a centre card to look at it, or skip.';
+    case 'ripple-reveal':
+      return 'Tap the card to turn it face up, or skip.';
     default:
       return 'Make your choice.';
   }

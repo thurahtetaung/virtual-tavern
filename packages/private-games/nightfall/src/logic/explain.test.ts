@@ -130,3 +130,92 @@ describe('explainResult', () => {
     ]);
   });
 });
+
+describe('explainResult with the Alien set', () => {
+  const STARE = {
+    alien: { view: 0, 'all-view': 0, stare: 1, show: 0, timer: 0, left: 0, right: 0 },
+    ripple: {
+      none: 1,
+      'one-minute': 0,
+      'face-away': 0,
+      'two-hand-vote': 0,
+      'no-speak': 0,
+      'view-1': 0,
+      'view-2': 0,
+      'dual-view': 0,
+      insomniac: 0,
+      troublemaker: 0,
+      steal: 0,
+      drunk: 0,
+      witch: 0,
+      reveal: 0,
+      shuffle: 0,
+      'repeat-night': 0,
+      'repeat-observer': 0,
+    },
+  };
+  const names: ExplainNames = {
+    ...NAMES,
+    team: (t) =>
+      ({ alien: 'Aliens', village: 'Village', synthetic: 'Synthetic' })[t as 'alien'] ?? t,
+  };
+  const why = (h: Harness) => explainResult(h.state.round!.result!, names);
+
+  it('says the aliens won with no alien dead', () => {
+    const h = table({ players: ['alien', 'alien', 'seer', V, V], settings: { weights: STARE } });
+    h.vote(votes('A,B,D>C; C>A; E>D'));
+    expect(why(h).why).toEqual(['Aliens won: no alien died.']);
+  });
+
+  it('explains the Leader vote', () => {
+    const h = table({
+      players: ['alien', 'alien', 'leader', V, 'seer'],
+      settings: { weights: STARE },
+    });
+    h.vote(votes('A,B>C; C,D,E>A'));
+    expect(why(h).why).toEqual([
+      'Aliens won: every player on their side voted for the Leader, so an alien dying didn’t matter.',
+    ]);
+  });
+
+  it('explains the Synthetic Alien’s death', () => {
+    const h = table({
+      players: ['alien', 'synthetic-alien', 'seer', V, V],
+      settings: { weights: STARE },
+    });
+    h.vote(votes('A,C,D,E>B; B>A'));
+    expect(why(h).why).toEqual([
+      'Synthetic won: Ben wanted to die, and did.',
+      'Ben died as the Synthetic alien, so the aliens and the village can’t win.',
+    ]);
+  });
+
+  it('names the Blob’s members, the Mortician’s neighbours and the Oracle’s failed number', () => {
+    const h = table({
+      players: ['blob', V, W, 'mortician', 'seer'],
+      settings: { weights: { mortician: { 'one-card': 0, 'both-cards': 0, pretend: 1 } } },
+    });
+    h.toStep('blob');
+    h.state.round!.blob = { left: 1, right: 0 };
+    h.vote(votes('B,D,E>C; C>B; A>B'));
+    expect(why(h).personal).toEqual([
+      'Ana (Blob) won: nobody in the Blob died (Ben and the Blob).',
+      'Dee (Mortician) won: Cy, next to them, died.',
+    ]);
+  });
+
+  it('says who was on the aliens’ side without an alien card', () => {
+    const h = table({
+      players: ['body-snatcher', 'alien', V, 'seer', V],
+      settings: { weights: { ...STARE, 'body-snatcher': { steal: 1, center: 0, pretend: 0 } } },
+    });
+    h.toStep('body-snatcher');
+    const night = h.state.round!.night!;
+    night.picks![night.index] = { kind: 'body-snatcher', action: 'steal', from: { kind: 'any' } };
+    h.night('A', { players: ['C'] });
+    h.vote(votes('A,B,D,E>C; C>A'));
+    expect(explainResult(h.state.round!.result!, names).reasons.map((r) => r.text)).toContain(
+      'Ana was on the aliens’ side: they hold the card the Body snatcher took, now an Alien card.',
+    );
+  });
+});

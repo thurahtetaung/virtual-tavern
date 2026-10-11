@@ -417,6 +417,111 @@ const rules: AwardRule[] = [
     },
     compute: (g) => mostSum(players(g), 'autoActions'),
   },
+  // ---- The Alien set ----
+  {
+    id: 'nf.first-contact',
+    emoji: '👽',
+    title: 'First Contact',
+    valence: 'glory',
+    weight: 4,
+    kind: 'award',
+    family: 'alien',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} came in peace, and won', '{who} phoned home a winner as {role}'],
+      wholesome: ['{who} made first contact and won', '{who} was out of this world tonight'],
+    },
+    compute: (g) =>
+      flagged(players(g).filter((e) => bool(e, 'alien') === true && bool(e, 'won') === true)).map(
+        (c) => ({ ...c, params: { role: 'alien' } }),
+      ),
+  },
+  {
+    id: 'nf.abducted',
+    emoji: '🛸',
+    title: 'Abducted',
+    wholesomeTitle: 'Welcomed Aboard',
+    valence: 'chaos',
+    weight: 3,
+    kind: 'award',
+    family: 'alien',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} was taken by the aliens', '{who} went to sleep human. Mostly'],
+      wholesome: ['{who} was welcomed aboard the ship', '{who} made some new friends from afar'],
+    },
+    compute: (g) => flagged(players(g).filter(flag('abducted'))),
+  },
+  {
+    id: 'nf.moo-tiny',
+    emoji: '🐄',
+    title: 'Moo-tiny',
+    wholesomeTitle: 'Gentle Giant',
+    valence: 'chaos',
+    weight: 3,
+    kind: 'award',
+    family: 'alien',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} got tipped by an alien', '{who} was the {role}. The aliens noticed'],
+      wholesome: ['{who} was a very good {role}', '{who} felt a friendly tap in the dark'],
+    },
+    compute: (g) =>
+      flagged(players(g).filter(flag('cowTipped'))).map((c) => ({ ...c, params: { role: 'cow' } })),
+  },
+  {
+    id: 'nf.blob-squad',
+    emoji: '🫧',
+    title: 'Blob Squad',
+    valence: 'glory',
+    weight: 4,
+    kind: 'award',
+    family: 'alien',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} kept the whole Blob alive', '{who} absorbed friends and kept them'],
+      wholesome: ['{who} looked after the whole Blob', '{who} kept every Blob member safe'],
+    },
+    compute: (g) => flagged(players(g).filter(flag('blobSquad'))),
+  },
+  {
+    id: 'nf.undertaker',
+    emoji: '⚱️',
+    title: 'Undertaker',
+    valence: 'glory',
+    weight: 4,
+    kind: 'award',
+    family: 'death',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} got a neighbour for business', '{who} measured the neighbours early'],
+      wholesome: ['{who} won as the {role}', '{who} saw a neighbour off with care'],
+    },
+    compute: (g) =>
+      flagged(players(g).filter(flag('undertaker'))).map((c) => ({
+        ...c,
+        params: { role: 'mortician' },
+      })),
+  },
+  {
+    id: 'nf.seen-the-future',
+    emoji: '🔭',
+    title: 'Seen the Future',
+    valence: 'glory',
+    weight: 4,
+    kind: 'award',
+    family: 'look',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} saw it coming. Of course', '{who} picked the right side in advance'],
+      wholesome: ['{who} foresaw the winning side', '{who} read the future right as {role}'],
+    },
+    compute: (g) =>
+      flagged(players(g).filter(flag('foresaw'))).map((c) => ({
+        ...c,
+        params: { role: 'nostradamus' },
+      })),
+  },
   // ---- Moments ----
   {
     id: 'nf.epic-battle',
@@ -633,6 +738,10 @@ const ENDINGS: Record<string, string> = {
   'wolves-survived': 'the wolves got away',
   'vampires-survived': 'the vampires got away',
   'wrong-player': 'the wrong player out',
+  'leader-vote': 'the aliens voting for the Leader',
+  synthetic: 'a happy synthetic alien',
+  'alien-caught': 'an alien caught',
+  'aliens-survived': 'the aliens got away',
 };
 
 /** The one round of a game: how it ended, who died as what, which team won. */
@@ -647,6 +756,11 @@ function history(g: GameEvents): string[] {
       won.length ? `; ${won.join(' & ')} won` : '; nobody won'
     }`,
   );
+  const ripple = str(o, 'ripple');
+  if (ripple)
+    lines.push(
+      `A ripple: ${ripple.replace(/-/g, ' ')}${bool(o, 'timeLoop') ? ' (a time loop)' : ''}`,
+    );
   const dead = players(g).filter(flag('died'));
   for (const e of dead.slice(0, 6)) {
     const final = str(e, 'final');

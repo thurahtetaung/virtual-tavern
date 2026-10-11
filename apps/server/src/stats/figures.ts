@@ -24,8 +24,10 @@ import type { GameFigure } from '@vt/protocol';
 //              pointsTo, points}, spy {outcome, votes; recap: round}, vote {hit, target; recap:
 //              round}, outcome {rounds; recap: ranking, scores}
 //   nightfall  outcome {players, teams, teamsWon, ending, nightMs, dayMs, moves, chain,
-//              movedRoles, setup, epic, loveDeaths, vampireMark}, player {dealt, won, voted,
-//              votedWolf, votedRole, vampire, heartbreaks, plague, hitman, …; recap:
+//              movedRoles, setup, epic, loveDeaths, vampireMark, aliens, ripple, timeLoop,
+//              leaderRule, oracleRule}, player {dealt, won, voted, votedWolf, votedRole, vampire,
+//              heartbreaks, plague, hitman, alien, abducted, cow, cowTipped, blobSquad,
+//              undertaker, foresaw, synthetic, …; recap:
 //              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
 
 type Props = Record<string, unknown>;
@@ -84,9 +86,29 @@ const NIGHTFALL_TEAMS: [string, string][] = [
   ['vampire', 'Vampires'],
   ['assassin', 'Assassin'],
   ['apprentice-assassin', 'Apprentice Assassin'],
+  ['alien', 'Aliens'],
+  ['synthetic', 'Synthetic Alien'],
+  ['groob', 'Groob'],
+  ['zerb', 'Zerb'],
+  ['leader', 'Leader'],
+  ['blob', 'Blob'],
+  ['mortician', 'Mortician'],
+  ['nostradamus', 'Nostradamus'],
 ];
 /** Teams that only show once they have played (the later sets). */
-const NIGHTFALL_LATER_TEAMS = new Set(['vampire', 'assassin', 'apprentice-assassin']);
+const NIGHTFALL_LATER_TEAMS = new Set([
+  'vampire',
+  'assassin',
+  'apprentice-assassin',
+  'alien',
+  'synthetic',
+  'groob',
+  'zerb',
+  'leader',
+  'blob',
+  'mortician',
+  'nostradamus',
+]);
 const NIGHTFALL_ENDINGS: [string, string][] = [
   ['werewolf-caught', 'A werewolf was caught'],
   ['wolves-survived', 'The werewolves got away'],
@@ -97,7 +119,40 @@ const NIGHTFALL_ENDINGS: [string, string][] = [
   ['vampire-caught', 'A vampire was caught'],
   ['vampires-survived', 'The vampires got away'],
   ['wrong-player', 'Only the innocent died'],
+  ['alien-caught', 'An alien was caught'],
+  ['aliens-survived', 'The aliens got away'],
+  ['synthetic', 'The Synthetic Alien died'],
+  ['leader-vote', 'The aliens all voted for the Leader'],
 ];
+/** Endings that only show once they have happened (the later sets). */
+const NIGHTFALL_LATER_ENDINGS = new Set([
+  'alien-caught',
+  'aliens-survived',
+  'synthetic',
+  'leader-vote',
+]);
+/** The ripples at the end of an Alien night, by key, with their labels. */
+const NIGHTFALL_RIPPLES: Record<string, string> = {
+  'one-minute': 'One-minute day',
+  'vote-for-app': 'Vote for the app',
+  'repeat-role': 'A role repeats',
+  'i-am-alien': '“I am an alien”',
+  'face-away': 'Face away',
+  'two-hand-vote': 'Two-hand vote',
+  'no-speak': 'No speaking',
+  'view-1': 'View one card',
+  'view-2': 'View two cards',
+  'dual-view': 'Two players view',
+  insomniac: 'Check your own card',
+  troublemaker: 'Swap two cards',
+  steal: 'Steal a card',
+  drunk: 'Blind swap',
+  witch: 'Give a centre card',
+  reveal: 'Turn a card over',
+  shuffle: 'Shuffle two cards',
+  'repeat-night': 'Time loop',
+  'repeat-observer': 'Time loop, one awake',
+};
 /** What became of the Mark of the Vampire. */
 const VAMPIRE_MARK_FATES = ['kept', 'moved', 'cleansed'];
 
@@ -132,6 +187,10 @@ function nightfallCounters(type: string, props: Props): Counters {
       if (love > 0) out.push(['f.love_deaths', love], ['f.love_games', 1]);
       const fate = id(props.vampireMark);
       if (fate && VAMPIRE_MARK_FATES.includes(fate)) out.push([`f.vmark.${fate}`, 1]);
+      if (props.aliens === true) out.push(['f.alien_games', 1]);
+      const ripple = id(props.ripple);
+      if (ripple && ripple in NIGHTFALL_RIPPLES) out.push([`f.ripple.${ripple}`, 1]);
+      if (props.timeLoop === true) out.push(['f.time_loop', 1]);
       break;
     }
     case 'player': {
@@ -219,7 +278,9 @@ function nightfallFigures(
       id: 'endings',
       label: 'How games end',
       kind: 'split',
-      parts: NIGHTFALL_ENDINGS.map(([e, label]) => ({ label, value: get(`f.ending.${e}`) })),
+      parts: NIGHTFALL_ENDINGS.filter(
+        ([e]) => !NIGHTFALL_LATER_ENDINGS.has(e) || get(`f.ending.${e}`) > 0,
+      ).map(([e, label]) => ({ label, value: get(`f.ending.${e}`) })),
     },
     {
       id: 'roles',
@@ -311,6 +372,26 @@ function nightfallFigures(
       label: 'Lovers who died of a broken heart',
       kind: 'number',
       value: get('f.love_deaths'),
+    },
+    {
+      id: 'ripples',
+      label: 'Ripples at the end of an alien night',
+      kind: 'split',
+      parts: Object.entries(NIGHTFALL_RIPPLES)
+        .map(([k, label]) => ({ label, value: get(`f.ripple.${k}`) }))
+        .filter((p) => p.value > 0),
+    },
+    {
+      id: 'time-loops',
+      label: 'Nights that went round again (a time loop)',
+      kind: 'number',
+      value: get('f.time_loop'),
+    },
+    {
+      id: 'alien-games',
+      label: 'Games with aliens at the table',
+      kind: 'number',
+      value: get('f.alien_games'),
     },
     {
       id: 'night-length',

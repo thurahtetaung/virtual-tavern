@@ -57,6 +57,21 @@ const EMBLEM: Record<RoleId, string> = {
   marksman: '🔭',
   pickpocket: '👛',
   gremlin: '😈',
+  oracle: '🧿',
+  alien: '👽',
+  'synthetic-alien': '🤖',
+  cow: '🐄',
+  groob: '🛸',
+  zerb: '🪐',
+  leader: '🎖️',
+  psychic: '🔆',
+  rascal: '🦝',
+  exposer: '🔦',
+  blob: '🫧',
+  mortician: '⚰️',
+  'body-snatcher': '🧬',
+  empath: '🫶',
+  nostradamus: '📜',
 };
 
 /** An emblem per Mark, for the placeholders. */
@@ -84,6 +99,13 @@ const TEAM_TONE: Record<string, string> = {
     'from-stone-200 to-zinc-300 text-zinc-950 dark:from-zinc-800 dark:to-stone-950 dark:text-zinc-100',
   'apprentice-assassin':
     'from-stone-200 to-zinc-300 text-zinc-950 dark:from-zinc-800 dark:to-stone-950 dark:text-zinc-100',
+  alien:
+    'from-lime-100 to-green-200 text-green-950 dark:from-green-950 dark:to-stone-900 dark:text-lime-100',
+  synthetic:
+    'from-slate-100 to-cyan-200 text-cyan-950 dark:from-cyan-950 dark:to-stone-900 dark:text-cyan-100',
+  blob: 'from-pink-100 to-fuchsia-200 text-fuchsia-950 dark:from-fuchsia-950 dark:to-stone-900 dark:text-pink-100',
+  mortician:
+    'from-stone-200 to-stone-400 text-stone-950 dark:from-stone-800 dark:to-stone-950 dark:text-stone-100',
 };
 
 export const emblem = (role: RoleId) => EMBLEM[role];
@@ -302,6 +324,49 @@ export function Token({
   ) : (
     <span role="img" aria-label={label} title={label} className={className}>
       {emblem}
+    </span>
+  );
+}
+
+/**
+ * A player's number token (the Alien set: numbers count up to the left from the first seat):
+ * its art from private storage, or a numbered disc.
+ */
+export function PlayerNumber({
+  n,
+  deck,
+  className,
+}: {
+  n: number;
+  deck: Deck;
+  className?: string;
+}) {
+  const art = deck.token(`player-${n}`);
+  const [failed, setFailed] = useState(false);
+  const label = `Player ${n}`;
+  return (
+    <span
+      data-testid="player-number"
+      data-number={n}
+      title={label}
+      className={cn('inline-flex size-6 shrink-0 align-middle', className)}
+    >
+      {art && !failed ? (
+        <ProtectedImage
+          src={art}
+          alt={label}
+          onError={() => setFailed(true)}
+          className="size-full rounded-full object-contain"
+        />
+      ) : (
+        <span
+          role="img"
+          aria-label={label}
+          className="inline-flex size-full items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-600"
+        >
+          {n}
+        </span>
+      )}
     </span>
   );
 }
