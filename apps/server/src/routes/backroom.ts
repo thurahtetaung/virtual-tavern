@@ -4,6 +4,7 @@ import type { AnyGameDefinition } from '@vt/game-sdk';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { BACKROOM_COOKIE, BACKROOM_SESSION_MS, type Backroom } from '../backroom.ts';
+import { type PrivateGameSettings, effectiveMusic } from '../private-games.ts';
 import { type QuestionDeckRepo, publicDeck } from '../question-decks.ts';
 import { type R2Assets, assetKey } from '../r2.ts';
 
@@ -27,9 +28,10 @@ export function backroomRoutes(
     games: ReadonlyMap<string, AnyGameDefinition>;
     assets: R2Assets | null;
     questionDecks: QuestionDeckRepo;
+    privateGames?: PrivateGameSettings;
   },
 ) {
-  const { backroom, games, assets, questionDecks } = opts;
+  const { backroom, games, assets, questionDecks, privateGames } = opts;
 
   app.get('/api/backroom/status', (req) => ({
     open: backroom.isOpen(),
@@ -118,6 +120,12 @@ export function backroomRoutes(
     const manifest = await store.json(`${req.params.gameId}/manifest.json`);
     if (manifest === null) return error(reply, 404, 'not-found', 'This game has no assets yet.');
     void reply.header('cache-control', 'private, no-store');
+    // The admin's music choices replace the manifest's defaults, phase by phase.
+    const override = privateGames?.music(req.params.gameId) ?? null;
+    if (override && typeof manifest === 'object' && !Array.isArray(manifest)) {
+      const m = manifest as { music?: unknown };
+      return { ...m, music: effectiveMusic(m.music, override) };
+    }
     return manifest;
   });
 }

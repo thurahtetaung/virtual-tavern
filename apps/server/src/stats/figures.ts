@@ -12,6 +12,9 @@ import type { GameFigure } from '@vt/protocol';
 //              outcome {edition, rounds}
 //   masquerade (and masquerade-originals) round {location, spyWon}, spy {outcome, votes},
 //              vote {hit, target}, outcome {rounds}
+//   nightfall  outcome {players, teams, teamsWon, ending, nightMs, dayMs, moves, chain,
+//              movedRoles, setup}, player {dealt, won, voted, votedWolf, votedRole, …},
+//              look {role, right}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -58,8 +61,220 @@ export const isMasquerade = (gameId: string) =>
 /** How a Masquerade round ended for one spy. */
 const SPY_OUTCOMES = ['escaped', 'stole', 'caught'];
 
+const id = (v: unknown) => (typeof v === 'string' && /^[a-z0-9-]{1,40}$/.test(v) ? v : null);
+const ids = (v: unknown) => (Array.isArray(v) ? v.map(id).filter((x) => x !== null) : []);
+
+/** Nightfall's teams and how its games end, in display order. */
+const NIGHTFALL_TEAMS: [string, string][] = [
+  ['village', 'Village'],
+  ['werewolf', 'Werewolves'],
+  ['tanner', 'Tanner'],
+  ['vampire', 'Vampires'],
+];
+const NIGHTFALL_ENDINGS: [string, string][] = [
+  ['werewolf-caught', 'A werewolf was caught'],
+  ['wolves-survived', 'The werewolves got away'],
+  ['tanner', 'The Tanner died'],
+  ['nobody-died', 'Nobody died'],
+  ['hunter', 'The Hunter took someone along'],
+  ['wrong-player', 'Only the innocent died'],
+];
+
+function nightfallCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      const n = num(props.players);
+      out.push(['f.games', 1]);
+      if (n !== null) out.push([`f.n.${n}`, 1]);
+      for (const t of ids(props.teams)) {
+        out.push([`f.team.${t}`, 1]);
+        if (n !== null) out.push([`f.team.${t}.n${n}`, 1]);
+      }
+      const won = ids(props.teamsWon);
+      for (const t of won) {
+        out.push([`f.win.${t}`, 1]);
+        if (n !== null) out.push([`f.win.${t}.n${n}`, 1]);
+      }
+      if (!won.length) out.push(['f.win.nobody', 1]);
+      const ending = id(props.ending);
+      if (ending) out.push([`f.ending.${ending}`, 1]);
+      const night = num(props.nightMs);
+      if (night !== null) out.push(['f.night_ms', night], ['f.night_n', 1]);
+      const day = num(props.dayMs);
+      if (day !== null) out.push(['f.day_ms', day], ['f.day_n', 1]);
+      out.push(['f.moves', num(props.moves) ?? 0], ['max.f.chain', num(props.chain) ?? 0]);
+      for (const r of ids(props.movedRoles)) out.push([`f.moved.${r}`, 1]);
+      for (const r of ids(props.setup)) out.push([`f.setup.${r}`, 1]);
+      break;
+    }
+    case 'player': {
+      const dealt = id(props.dealt);
+      if (dealt) {
+        out.push([`f.dealt.${dealt}`, 1]);
+        if (props.won === true) out.push([`f.dealt_win.${dealt}`, 1]);
+      }
+      if (props.voted === true) {
+        out.push(['f.votes', 1]);
+        if (props.votedWolf === true) out.push(['f.votes_wolf', 1]);
+        const role = id(props.votedRole);
+        if (role) out.push([`f.voted.${role}`, 1]);
+      }
+      break;
+    }
+    case 'look': {
+      const role = id(props.role);
+      if (role) {
+        out.push([`f.look.${role}`, 1]);
+        if (props.right === true) out.push([`f.look_right.${role}`, 1]);
+      }
+      break;
+    }
+  }
+  return out;
+}
+
+/** A role id as a label: "alpha-wolf" → "Alpha wolf" (names are private; ids are not). */
+const roleWords = (r: string) => r[0]!.toUpperCase() + r.slice(1).replace(/-/g, ' ');
+
+function nightfallFigures(
+  get: (metric: string) => number,
+  metrics: Iterable<string>,
+): GameFigure[] {
+  const list = [...metrics];
+  const suffixes = (prefix: string) =>
+    [
+      ...new Set(list.filter((m) => m.startsWith(prefix)).map((m) => m.slice(prefix.length))),
+    ].filter((s) => /^[a-z0-9-]+$/.test(s));
+  const games = get('f.games');
+  const counts = suffixes('f.n.')
+    .map(Number)
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b);
+  const teams = NIGHTFALL_TEAMS.filter(([t]) => get(`f.team.${t}`) > 0);
+  const byCount = (prefix: string) =>
+    suffixes(prefix)
+      .map((r) => ({ label: roleWords(r), value: get(`${prefix}${r}`) }))
+      .filter((p) => p.value > 0)
+      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  const setup = suffixes('f.setup.').sort(
+    (a, b) => get(`f.setup.${b}`) - get(`f.setup.${a}`) || a.localeCompare(b),
+  );
+  return [
+    {
+      id: 'wins-by-team',
+      label: 'Games won, by team',
+      kind: 'split',
+      parts: [
+        ...NIGHTFALL_TEAMS.filter(([t]) => t !== 'vampire' || get('f.win.vampire') > 0).map(
+          ([t, label]) => ({ label, value: get(`f.win.${t}`) }),
+        ),
+        { label: 'Nobody', value: get('f.win.nobody') },
+      ],
+    },
+    ...teams.map(([t, label]): GameFigure => ({
+      id: `win-rate-${t}`,
+      label: `${label} win rate (games they were in)`,
+      kind: 'percent',
+      value: pct(get(`f.win.${t}`), get(`f.team.${t}`)),
+    })),
+    {
+      id: 'win-rate-by-players',
+      label: 'Win rate by team and table size',
+      kind: 'matrix',
+      columns: counts.map((n) => `${n} players`),
+      units: counts.map(() => 'percent' as const),
+      rows: teams.map(([t, label]) => ({
+        label,
+        values: counts.map((n) => pct(get(`f.win.${t}.n${n}`), get(`f.team.${t}.n${n}`))),
+      })),
+    },
+    {
+      id: 'endings',
+      label: 'How games end',
+      kind: 'split',
+      parts: NIGHTFALL_ENDINGS.map(([e, label]) => ({ label, value: get(`f.ending.${e}`) })),
+    },
+    {
+      id: 'roles',
+      label: 'Roles: how often they’re in, and how often their holder wins',
+      kind: 'matrix',
+      columns: ['Games in the setup', 'Dealt to a player', 'Holder won'],
+      units: ['count', 'count', 'percent'],
+      rows: setup.map((r) => ({
+        label: roleWords(r),
+        values: [
+          get(`f.setup.${r}`),
+          get(`f.dealt.${r}`),
+          pct(get(`f.dealt_win.${r}`), get(`f.dealt.${r}`)),
+        ],
+      })),
+    },
+    {
+      id: 'moved-roles',
+      label: 'Cards moved most at night',
+      kind: 'split',
+      parts: byCount('f.moved.'),
+    },
+    {
+      id: 'moves-per-night',
+      label: 'Cards moved per night',
+      kind: 'number',
+      value: avg(get('f.moves'), games),
+    },
+    {
+      id: 'longest-chain',
+      label: 'Most moves of a single card in one night',
+      kind: 'number',
+      value: get('max.f.chain'),
+    },
+    {
+      id: 'seer-accuracy',
+      label: 'Seer looks still true at dawn',
+      kind: 'percent',
+      value: pct(get('f.look_right.seer'), get('f.look.seer')),
+    },
+    {
+      id: 'pi-accuracy',
+      label: 'P.I. looks still true at dawn',
+      kind: 'percent',
+      value: pct(
+        get('f.look_right.paranormal-investigator'),
+        get('f.look.paranormal-investigator'),
+      ),
+    },
+    {
+      id: 'voted-roles',
+      label: 'Who the votes landed on (role at dawn)',
+      kind: 'split',
+      parts: byCount('f.voted.'),
+    },
+    {
+      id: 'vote-accuracy',
+      label: 'Votes on a real werewolf',
+      kind: 'percent',
+      value: pct(get('f.votes_wolf'), get('f.votes')),
+    },
+    {
+      id: 'night-length',
+      label: 'Average night',
+      kind: 'number',
+      value: avg(get('f.night_ms') / 1000, get('f.night_n')),
+      unit: 's',
+    },
+    {
+      id: 'day-used',
+      label: 'Average day before the vote',
+      kind: 'number',
+      value: avg(get('f.day_ms') / 1000, get('f.day_n')),
+      unit: 's',
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
+  if (gameId === 'nightfall') return nightfallCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -225,6 +440,8 @@ export function buildFigures(
     ];
   }
   switch (gameId) {
+    case 'nightfall':
+      return nightfallFigures(get, metrics);
     case 'codenames':
       return [
         teams(false),

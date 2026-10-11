@@ -328,6 +328,64 @@ export function heatPieces(
   return pieces;
 }
 
+/**
+ * A heatmap table: rows by columns, each cell shaded by its share of its column's largest value
+ * (so counts and percents can sit side by side), with the value written in the cell.
+ */
+export function matrixOption(
+  columns: string[],
+  rows: string[],
+  shades: number[][],
+  labels: string[][],
+  t: ChartTokens,
+): EChartsCoreOption {
+  const data = rows.flatMap((_, r) => columns.map((_, c) => [c, r, (shades[r]?.[c] ?? 0) * 5]));
+  return {
+    backgroundColor: 'transparent',
+    animation: false,
+    grid: { left: 4, right: 4, top: 4, bottom: 4, containLabel: true },
+    tooltip: {
+      ...tooltip(t, 'item', 'none'),
+      formatter: (p: { value: [number, number, number] }) =>
+        tooltipHeader(
+          t,
+          `${escapeHtml(rows[p.value[1]] ?? '')} · ${escapeHtml(columns[p.value[0]] ?? '')}`,
+        ) + `<b style="color:${t.ink}">${escapeHtml(labels[p.value[1]]?.[p.value[0]] ?? '')}</b>`,
+    },
+    visualMap: { type: 'piecewise', show: false, pieces: heatPieces(5, t), dimension: 2 },
+    xAxis: {
+      type: 'category',
+      data: columns,
+      position: 'top',
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { ...baseText(t), interval: 0, overflow: 'break', width: 90 },
+    },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: rows,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: baseText(t),
+    },
+    series: [
+      {
+        type: 'heatmap',
+        data,
+        label: {
+          show: true,
+          color: t.ink,
+          fontSize: 11,
+          formatter: (p: { value: [number, number, number] }) =>
+            labels[p.value[1]]?.[p.value[0]] ?? '',
+        },
+        itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 2 },
+      },
+    ],
+  };
+}
+
 /** Calendar cell size: roomy for a month or two, compact (and scrolling) for a year. */
 export function calendarCell(weeks: number): number {
   return weeks <= 10 ? 24 : weeks <= 20 ? 18 : 14;

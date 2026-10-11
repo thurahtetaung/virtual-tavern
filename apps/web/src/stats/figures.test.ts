@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SPLIT_PARTS, cloudSize, figureModel, isTileFigure, settingLabel } from './figures.ts';
+import {
+  MAX_SPLIT_PARTS,
+  cloudSize,
+  figureModel,
+  isTileFigure,
+  matrixCell,
+  settingLabel,
+} from './figures.ts';
 import { fixtureFor, fixtureGame, fixtureOverview } from './fixtures.ts';
 import { ago, delta, duration, pointsDelta } from './format.ts';
 import { sortPlayers } from './players.ts';
@@ -156,5 +163,36 @@ describe('fixtures', () => {
       expect(fixtureFor(`/api/admin/stats/${path}`)).toBeDefined();
     }
     expect(fixtureFor('/api/admin/stats/nope')).toBeUndefined();
+  });
+});
+
+describe('matrix figures', () => {
+  it('shade each column on its own scale and keep the raw values', () => {
+    const m = figureModel({
+      id: 'roles',
+      label: 'Roles',
+      kind: 'matrix',
+      columns: ['Games', 'Won'],
+      units: ['count', 'percent'],
+      rows: [
+        { label: 'Seer', values: [4, 50] },
+        { label: 'Robber', values: [2, 100] },
+      ],
+    });
+    expect(isTileFigure(m)).toBe(false);
+    expect(m).toMatchObject({
+      kind: 'matrix',
+      rows: ['Seer', 'Robber'],
+      values: [
+        [4, 50],
+        [2, 100],
+      ],
+      shades: [
+        [1, 0.5],
+        [0.5, 1],
+      ],
+    });
+    expect(matrixCell(50, 'percent')).toBe('50%');
+    expect(matrixCell(4, 'count')).toBe('4');
   });
 });

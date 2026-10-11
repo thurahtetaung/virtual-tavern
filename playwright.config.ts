@@ -7,6 +7,7 @@ const SHARED_STATE = [
   /reverie\.spec\.ts$/,
   /hoodwink\.spec\.ts$/,
   /royal-post\.spec\.ts$/,
+  /nightfall\.spec\.ts$/,
   /masquerade-originals\.spec\.ts$/,
   /question-decks\.spec\.ts$/,
   /screenshots\.spec\.ts$/,

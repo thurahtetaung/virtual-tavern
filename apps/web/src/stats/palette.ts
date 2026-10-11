@@ -21,7 +21,7 @@ export interface ChartTokens {
   sequential: readonly string[];
   /** Heat cells with nothing in them. */
   empty: string;
-  /** For "Other" and anything past the eighth slot. */
+  /** For "Other" and anything past the last slot. */
   other: string;
 }
 
@@ -33,7 +33,17 @@ const LIGHT: ChartTokens = {
   muted: '#78716c',
   grid: '#e7e5e4',
   axis: '#d6d3d1',
-  series: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'],
+  series: [
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+    '#0e8fa3',
+  ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
   other: '#a8a29e',
@@ -47,7 +57,17 @@ const DARK: ChartTokens = {
   muted: '#8a8580',
   grid: '#292524',
   axis: '#44403c',
-  series: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
+  series: [
+    '#3987e5',
+    '#d95926',
+    '#199e70',
+    '#c98500',
+    '#d55181',
+    '#008300',
+    '#9085e9',
+    '#e66767',
+    '#22a9bd',
+  ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
   empty: '#292524',
@@ -59,8 +79,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
 /**
  * Known games keep their slot whatever else is in the data, so colour follows the game. Append new
  * games at the end: Reverie, Masquerade and Royal Post sit where their ids used to hash, so no
- * existing game changes colour. Every slot is now taken, so a game not listed here is drawn in the
- * neutral "other" colour until it is added.
+ * existing game changes colour. Nightfall took a ninth slot (a teal, kept apart from the red before it
+ * and at least 3:1 on both surfaces). Every slot is now taken, so a game not listed here is drawn in
+ * the neutral "other" colour until it is added.
  */
 const FIXED_ORDER = [
   'codenames',
@@ -71,6 +92,7 @@ const FIXED_ORDER = [
   'masquerade',
   'royal-post',
   'masquerade-originals',
+  'nightfall',
 ];
 
 /**

@@ -5,6 +5,7 @@ import { enigma } from '@vt/game-enigma/logic';
 import { masquerade } from '@vt/game-masquerade/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
+import { nightfall } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
 
@@ -24,6 +25,7 @@ export function buildGames(): GameRegistry {
     hoodwink,
     royalPost,
     masqueradeOriginals,
+    nightfall,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

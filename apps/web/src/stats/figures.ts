@@ -14,7 +14,23 @@ export type FigureModel =
       total: number;
       parts: { label: string; value: number; share: number; slot: number }[];
     }
-  | { kind: 'histogram'; id: string; label: string; labels: string[]; values: number[] };
+  | { kind: 'histogram'; id: string; label: string; labels: string[]; values: number[] }
+  | {
+      kind: 'matrix';
+      id: string;
+      label: string;
+      columns: string[];
+      rows: string[];
+      /** Raw values, row by row. */
+      values: number[][];
+      /** Each cell's value as a share of its column's largest, for the shading. */
+      shades: number[][];
+      units: ('count' | 'percent')[];
+    };
+
+/** A matrix cell's text: a count, or a percent from the 0–100 contract. */
+export const matrixCell = (value: number, unit: 'count' | 'percent') =>
+  unit === 'percent' ? percent(value / 100) : compact(value);
 
 /** Splits show at most this many parts; the rest fold into "Other" (never a generated colour). */
 export const MAX_SPLIT_PARTS = 6;
@@ -71,6 +87,20 @@ export function figureModel(fig: GameFigure): FigureModel {
         labels: fig.bins.map((b) => b.label),
         values: fig.bins.map((b) => b.value),
       };
+    case 'matrix': {
+      const values = fig.rows.map((r) => fig.columns.map((_, c) => r.values[c] ?? 0));
+      const tops = fig.columns.map((_, c) => Math.max(0, ...values.map((r) => r[c]!)));
+      return {
+        kind: 'matrix',
+        id: fig.id,
+        label: fig.label,
+        columns: fig.columns,
+        rows: fig.rows.map((r) => r.label),
+        values,
+        shades: values.map((r) => r.map((v, c) => (tops[c]! > 0 ? clamp01(v / tops[c]!) : 0))),
+        units: fig.columns.map((_, c) => fig.units[c] ?? 'count'),
+      };
+    }
   }
 }
 

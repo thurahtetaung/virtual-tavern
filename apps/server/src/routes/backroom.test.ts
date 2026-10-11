@@ -113,6 +113,7 @@ describe('back room over HTTP', () => {
       'hoodwink',
       'royal-post',
       'masquerade-originals',
+      'nightfall',
     ]);
   });
 

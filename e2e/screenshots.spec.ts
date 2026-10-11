@@ -1,6 +1,7 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
+import { getReady, playNight, setRoles } from './nightfall-play.ts';
 import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
@@ -689,5 +690,108 @@ for (const [label, viewport] of [
     await board.getByRole('button', { name: `Guess ${dealt.location}`, exact: true }).click();
     await expect(host.getByTestId('revealed-location')).toBeVisible();
     await shot(host, 'reveal');
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`nightfall screenshots (${label})`, async ({ browser, request }) => {
+    test.setTimeout(240_000);
+    const taken = new Set<string>();
+    const shot = async (p: Page, name: string) => {
+      taken.add(name);
+      await p.screenshot({
+        path: `test-results/shots/nightfall-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    };
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
+    const admin = login
+      .headersArray()
+      .find((h) => h.name.toLowerCase() === 'set-cookie')!
+      .value.split(';')[0]!;
+    await request.put('/api/admin/backroom/password', {
+      headers: { cookie: admin },
+      data: { password: TEST_BACKROOM_WORD },
+    });
+    let ip = 1;
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+        extraHTTPHeaders: { 'cf-connecting-ip': `10.10.${label === 'phone' ? 1 : 0}.${ip++}` },
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      await p.goto('/backroom');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+      await p.getByRole('button', { name: 'Knock' }).click();
+      await p.getByText("You're on the list").waitFor();
+      return p;
+    };
+    const names = ['Hana', 'Ana', 'Ben', 'Cy'];
+    const host = await make(names[0]!);
+    await host.getByRole('button', { name: 'Create a Nightfall room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(names.slice(1).map(make));
+    await Promise.all(others.map((p) => p.goto(url)));
+    const players = [host, ...others];
+    await expect(host.getByText('Players (4/10)')).toBeVisible();
+    await setRoles(host, {
+      werewolf: 2,
+      seer: 1,
+      robber: 1,
+      troublemaker: 1,
+      insomniac: 1,
+      villager: 1,
+    });
+    await host
+      .getByRole('group', { name: 'Time for each role at night' })
+      .getByRole('button', { name: '8 s', exact: true })
+      .click();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Deal the cards' }).click();
+    await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    await shot(host, 'ready-covered');
+    await host.getByRole('button', { name: 'Tap to see your card' }).click();
+    await shot(host, 'ready');
+    await host.getByRole('button', { name: 'Cover it again' }).click();
+    const roles = await getReady(players);
+    await expect(host.getByTestId(/night-/)).toBeVisible({ timeout: 15_000 });
+    let idleShot = false;
+    await playNight(players, roles, async (p) => {
+      if (!taken.has('night-acting')) await shot(p, 'night-acting');
+      if (!idleShot) {
+        idleShot = true;
+        const idle = players.find((q) => q !== p)!;
+        if (await idle.getByTestId('night-idle').count()) await shot(idle, 'night-idle');
+      }
+    });
+    await expect(host.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
+    await shot(host, 'day');
+    await host.getByRole('tab', { name: 'Learned' }).click();
+    await shot(host, 'day-learned');
+    await host.getByRole('tab', { name: 'Roles' }).click();
+    await shot(host, 'day-roles');
+    await host.getByRole('tab', { name: 'Table' }).click();
+    for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
+    await expect(host.getByText('🗳️ The vote')).toBeVisible();
+    await host.getByRole('button', { name: `Vote for ${names[1]}` }).click();
+    await shot(host, 'vote');
+    await others[0]!.getByRole('button', { name: `Vote for ${names[2]}` }).click();
+    await others[1]!.getByRole('button', { name: `Vote for ${names[1]}` }).click();
+    await others[2]!.getByRole('button', { name: `Vote for ${names[1]}` }).click();
+    await expect(host.getByTestId('teams')).toBeVisible();
+    await shot(host, 'reveal');
+    await host.getByRole('tab', { name: 'The night, step by step' }).click();
+    await shot(host, 'reveal-night');
+    await host.getByRole('tab', { name: 'Everyone’s cards' }).click();
+    await host.getByTestId('reveal-player').first().getByRole('button').first().click();
+    await shot(host, 'card-details');
   });
 }

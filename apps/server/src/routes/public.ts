@@ -13,9 +13,17 @@ export function publicRoutes(
     games: GameRegistry;
     /** Whether this request carries a current back-room unlock. */
     unlocked: (req: FastifyRequest) => boolean;
+    /** Admin-set titles for private games, sent only to unlocked browsers. */
+    titles?: { title(gameId: string): string | null };
   },
 ) {
-  const { rooms, wordLists, games, unlocked } = opts;
+  const { rooms, wordLists, games, unlocked, titles } = opts;
+  // A private game's title from the database; it only goes where the game itself is visible.
+  const titleOf = (gameId: string) => {
+    if (!isPrivate(games.get(gameId))) return {};
+    const title = titles?.title(gameId);
+    return title ? { title } : {};
+  };
   // Private games behave as if they don't exist for anyone who hasn't unlocked the back room.
   const visible = (req: FastifyRequest, gameId: string) => {
     const game = games.get(gameId);
@@ -34,6 +42,7 @@ export function publicRoutes(
         private: g.access === 'private',
         wordLists: g.usesWordLists === true,
         questionDecks: g.usesQuestionDecks === true,
+        ...titleOf(g.id),
       })),
   );
 
@@ -68,6 +77,6 @@ export function publicRoutes(
         .code(403)
         .send({ error: { code: 'backroom-locked', message: 'This room is in the back room.' } });
     }
-    return { id: req.params.id, gameId: room.gameId };
+    return { id: req.params.id, gameId: room.gameId, ...titleOf(room.gameId) };
   });
 }

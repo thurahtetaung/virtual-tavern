@@ -143,7 +143,19 @@ export type GameFigure =
   | { id: string; label: string; kind: 'number'; value: number; unit?: string }
   | { id: string; label: string; kind: 'percent'; value: number }
   | { id: string; label: string; kind: 'split'; parts: { label: string; value: number }[] }
-  | { id: string; label: string; kind: 'histogram'; bins: { label: string; value: number }[] };
+  | { id: string; label: string; kind: 'histogram'; bins: { label: string; value: number }[] }
+  /**
+   * A table of numbers drawn as a heatmap, each column shaded on its own scale (columns may mix
+   * counts and percents, as `units` says).
+   */
+  | {
+      id: string;
+      label: string;
+      kind: 'matrix';
+      columns: string[];
+      units: ('count' | 'percent')[];
+      rows: { label: string; values: number[] }[];
+    };
 
 export interface WordCount {
   word: string;

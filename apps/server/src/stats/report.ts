@@ -303,6 +303,8 @@ interface PlayerTotals {
   disguises: number;
   bloodhound: number;
   suspected: number;
+  /** Nightfall's fun-fact counters, by metric without the `nf.` prefix. */
+  nightfall: Record<string, number>;
   calendar: Map<string, number>;
 }
 
@@ -358,6 +360,9 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
       case 'suspected':
         t.suspected += value;
         break;
+      default:
+        if (metric.startsWith('nf.'))
+          t.nightfall[metric.slice(3)] = (t.nightfall[metric.slice(3)] ?? 0) + value;
     }
   }
   return out;
@@ -411,6 +416,7 @@ function emptyTotals(): PlayerTotals {
     disguises: 0,
     bloodhound: 0,
     suspected: 0,
+    nightfall: {},
     calendar: new Map(),
   };
 }
@@ -592,6 +598,72 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     (who, n) => `${who} drew ${plural(n, 'vote')} as a suspected spy`,
     'masquerade',
   );
+  const nf = (key: string) => (t: PlayerTotals) => t.nightfall[key] ?? 0;
+  const NIGHTFALL_FACTS: [string, string, string, (who: string, n: number) => string][] = [
+    [
+      'lone-wolf',
+      'Lone Wolf',
+      'lone_wolf',
+      (who, n) => `${who} survived as the only werewolf ${times(n)}`,
+    ],
+    [
+      'tanners-dream',
+      'Tanner’s Dream',
+      'tanner_dream',
+      (who, n) => `${who} won by dying as the Tanner ${times(n)}`,
+    ],
+    [
+      'identity-crisis',
+      'Identity Crisis',
+      'identity_crisis',
+      (who, n) => `${who} woke up on a different team ${times(n)}`,
+    ],
+    [
+      'didnt-see-that-coming',
+      'Didn’t See That Coming',
+      'blindsided',
+      (who, n) =>
+        `${who} was switched to the other side and voted against a new teammate ${times(n)}`,
+    ],
+    [
+      'hunters-revenge',
+      'Hunter’s Revenge',
+      'hunter_shots',
+      (who, n) => `${who} took ${plural(n, 'player')} down with them as the Hunter`,
+    ],
+    [
+      'bodyguard-hero',
+      'Bodyguard Hero',
+      'bodyguard_save',
+      (who, n) => `${who} saved the player the vote would have killed ${times(n)}`,
+    ],
+    [
+      'werewolf-whisperer',
+      'Werewolf Whisperer',
+      'wolf_votes',
+      (who, n) => `${who} voted for a real werewolf ${times(n)}`,
+    ],
+    [
+      'most-paranoid',
+      'Most Paranoid',
+      'village_votes',
+      (who, n) => `${who} voted for a villager ${times(n)}`,
+    ],
+    [
+      'village-idiot',
+      'Village Idiot',
+      'village_death',
+      (who, n) => `${who} was voted out as a villager ${times(n)}`,
+    ],
+    [
+      'master-thief',
+      'Master Thief',
+      'cards_moved',
+      (who, n) => `${who} moved ${plural(n, 'card')} at night`,
+    ],
+  ];
+  for (const [id, title, key, text] of NIGHTFALL_FACTS)
+    byPlayer(id, title, nf(key), text, 'nightfall');
   const perfect = sumMetric(agg, w.from, w.to, 'f.perfect', 'echo');
   if (perfect > 0) {
     facts.push({

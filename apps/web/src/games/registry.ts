@@ -69,12 +69,16 @@ export async function loadPrivateGames(): Promise<ClientGame[]> {
  * only end in "Unknown game".
  */
 export function offeredPrivateGames(
-  offered: readonly { id: string; private?: boolean }[],
+  offered: readonly { id: string; private?: boolean; title?: string }[],
   known: readonly ClientGame[],
 ): ClientGame[] {
-  const ids = new Set(offered.filter((g) => g.private).map((g) => g.id));
-  return known.filter((g) => ids.has(g.id));
+  const titles = new Map(offered.filter((g) => g.private).map((g) => [g.id, g.title]));
+  return known.filter((g) => titles.has(g.id)).map((g) => withTitle(g, titles.get(g.id)));
 }
+
+/** A private game shown under the title the admin set (unlocked browsers only get one). */
+export const withTitle = (game: ClientGame, title: string | undefined): ClientGame =>
+  title ? { ...game, name: title } : game;
 
 /** Finds a public game, or a private one when the back room is unlocked. */
 export async function loadGame(id: string): Promise<ClientGame | undefined> {
