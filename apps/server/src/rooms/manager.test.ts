@@ -117,6 +117,56 @@ describe('RoomManager', () => {
     expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
   });
 
+  it('tells everyone when an away host will be replaced', () => {
+    const id = seatedGame();
+    for (const p of ['h', 'a']) rooms.connected(id, p);
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBeNull();
+    rooms.disconnected(id, 'h');
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBe(now + HOST_AWAY_MS);
+    rooms.connected(id, 'h');
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBeNull();
+    rooms.disconnected(id, 'h');
+    elapse(HOST_AWAY_MS);
+    // Handed off to an online player: nobody is away any more.
+    expect(rooms.snapshot(id, 'a')).toMatchObject({ hostId: 'a', hostAwayUntil: null });
+  });
+
+  describe('names', () => {
+    it('numbers a joiner whose name is taken', () => {
+      const id = rooms.create('codenames', 'h');
+      rooms.join(id, 'h', 'Kim');
+      rooms.join(id, 'a', 'kim');
+      rooms.join(id, 'b', 'Kim');
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.name)).toEqual([
+        'Kim',
+        'kim 2',
+        'Kim 3',
+      ]);
+      // Rejoining under the saved name keeps a number rather than taking anyone's name.
+      rooms.join(id, 'a', 'Kim');
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.name)).toEqual([
+        'Kim',
+        'Kim 2',
+        'Kim 3',
+      ]);
+    });
+
+    it('refuses a rename to a name someone already has', () => {
+      const id = rooms.create('codenames', 'h');
+      rooms.join(id, 'h', 'Kim');
+      rooms.join(id, 'a', 'Ana');
+      expect(rooms.rename(id, 'a', 'KIM')).toEqual({
+        ok: false,
+        error: {
+          code: 'name-taken',
+          message: 'Someone here is already called KIM. Pick another name.',
+        },
+      });
+      expect(rooms.rename(id, 'a', 'ana')).toEqual({ ok: true });
+      expect(rooms.rename(id, 'h', 'Kim')).toEqual({ ok: true });
+    });
+  });
+
   it('keeps the host if they come back in time', () => {
     const id = seatedGame();
     rooms.connected(id, 'h');
@@ -133,6 +183,20 @@ describe('RoomManager', () => {
     rooms.connected(id, 'a');
     rooms.disconnected(id, 'a');
     expect(rooms.snapshot(id, 'h')!.players.find((p) => p.id === 'a')!.connected).toBe(true);
+  });
+
+  it('says since when an away player has been gone, and forgets it when they return', () => {
+    const id = seatedGame();
+    const player = (p: string) => rooms.snapshot(id, 'h')!.players.find((x) => x.id === p)!;
+    expect(player('a')).not.toHaveProperty('awaySince'); // never seen since the server started
+    rooms.connected(id, 'a');
+    expect(player('a')).toEqual({ id: 'a', name: 'A', connected: true });
+    const left = now;
+    rooms.disconnected(id, 'a');
+    now += 5 * 60_000;
+    expect(player('a')).toMatchObject({ connected: false, awaySince: left });
+    rooms.connected(id, 'a');
+    expect(player('a')).not.toHaveProperty('awaySince');
   });
 
   it('shows non-members the observer view', () => {
@@ -388,7 +452,9 @@ describe('RoomManager', () => {
       // No ghost presence survives the failed join: one real connection, one disconnect, offline.
       expect(rooms.join(id, 'h', 'H', { connect: true })).toEqual({ ok: true });
       rooms.disconnected(id, 'h');
-      expect(rooms.snapshot(id, 'h')!.players).toEqual([{ id: 'h', name: 'H', connected: false }]);
+      expect(rooms.snapshot(id, 'h')!.players).toEqual([
+        { id: 'h', name: 'H', connected: false, awaySince: now },
+      ]);
     });
   });
 });

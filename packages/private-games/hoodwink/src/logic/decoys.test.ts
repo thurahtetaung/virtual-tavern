@@ -63,6 +63,13 @@ describe('lie for me', () => {
     }
   });
 
+  it('never replaces a lie you wrote yourself', () => {
+    const h = game();
+    h.act({ type: 'lie', text: 'My own idea' }, 'p2');
+    expect(h.reject({ type: 'lie-for-me' }, 'p2').code).toBe('own-lie-sent');
+    expect(round(h).lies.p2).toBe('My own idea');
+  });
+
   it('refuses when the question has no fakes, or they have run out', () => {
     const none = game(null);
     expect(hoodwink.view(none.state, 'p2').round!.canLieForMe).toBe(false);
@@ -118,6 +125,18 @@ describe('filling missed lies', () => {
       expect(GOOD.filter((g) => g !== 'Teapot')).toContain(round(h).lies[id]);
     }
     expect(round(h).options).toHaveLength(5);
+    // Each player whose lie was filled in is told so; the others aren't.
+    expect(hoodwink.view(h.state, 'p3').round).toMatchObject({
+      myLieFilled: true,
+      myLieAuto: true,
+    });
+    expect(hoodwink.view(h.state, HOST).round!.myLieFilled).toBe(false);
+  });
+
+  it('marks a lie picked with Lie for me as not filled in', () => {
+    const h = game(DECOYS, FOUR, strict);
+    h.act({ type: 'lie-for-me' }, 'p2');
+    expect(hoodwink.view(h.state, 'p2').round!.myLieFilled).toBe(false);
   });
 
   it('fills as many as the fakes allow, and nothing in soft mode', () => {

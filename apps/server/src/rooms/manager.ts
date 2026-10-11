@@ -1,6 +1,7 @@
 import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
 import type { Ack, RoomSnapshot } from '@vt/protocol';
 import { newRoomId, randomSeed } from './ids.ts';
+import { nameTaken, uniqueName } from './names.ts';
 import type { RoomRecord, RoomStore } from './store.ts';
 
 export const MAX_PLAYERS_PER_ROOM = 30;
@@ -84,8 +85,12 @@ interface LiveRoom {
   game: AnyGameDefinition;
   /** Open connections per player (a player may have several tabs). */
   connections: Map<string, number>;
+  /** When each player's last connection closed (server clock), while they stay away. */
+  awaySince: Map<string, number>;
   deadlineTimer?: NodeJS.Timeout;
   hostAwayTimer?: NodeJS.Timeout;
+  /** When the pending host hand-off happens (server epoch ms), while `hostAwayTimer` runs. */
+  hostAwayDue?: number;
   /** Consecutive deadline firings after which the game's deadline still had not advanced. */
   deadlineStalls: number;
 }
@@ -158,11 +163,16 @@ export class RoomManager {
     return room ? { gameId: room.record.gameId } : null;
   }
 
-  join(roomId: string, playerId: string, name: string, opts: JoinOptions = {}): Ack {
+  join(roomId: string, playerId: string, wanted: string, opts: JoinOptions = {}): Ack {
     const room = this.load(roomId);
     if (!room) return fail('no-room', 'This room does not exist or has expired.');
     const { record } = room;
     const existing = record.players.find((p) => p.id === playerId);
+    // Two "Kim"s would be impossible to tell apart, so a taken name gets a number ("Kim 2").
+    const name = uniqueName(
+      wanted,
+      record.players.filter((p) => p.id !== playerId).map((p) => p.name),
+    );
     const capacity = Math.min(MAX_PLAYERS_PER_ROOM, room.game.maxPlayers);
     if (!existing && record.players.length >= capacity) {
       return fail('room-full', 'This room is full.');
@@ -203,6 +213,13 @@ export class RoomManager {
     const room = this.load(roomId);
     if (!room?.record.players.some((p) => p.id === playerId))
       return fail('not-in-room', 'Join first.');
+    const others = room.record.players.filter((p) => p.id !== playerId).map((p) => p.name);
+    if (nameTaken(name, others)) {
+      return fail(
+        'name-taken',
+        `Someone here is already called ${name.trim()}. Pick another name.`,
+      );
+    }
     return this.join(roomId, playerId, name);
   }
 
@@ -286,7 +303,15 @@ export class RoomManager {
       gameId: record.gameId,
       hostId: record.hostId,
       you: viewer,
-      players: record.players.map((p) => ({ ...p, connected: room.connections.has(p.id) })),
+      players: record.players.map((p) => {
+        const connected = room.connections.has(p.id);
+        const awaySince = connected ? undefined : room.awaySince.get(p.id);
+        return awaySince === undefined ? { ...p, connected } : { ...p, connected, awaySince };
+      }),
+      hostAwayUntil:
+        room.hostAwayTimer && !room.connections.has(record.hostId)
+          ? (room.hostAwayDue ?? null)
+          : null,
       game: room.game.view(record.state, seated ? viewer : null),
       serverNow: this.deps.now(),
     };
@@ -357,7 +382,13 @@ export class RoomManager {
     const record = this.deps.store.get(roomId);
     const game = record && this.deps.games.get(record.gameId);
     if (!record || !game) return null;
-    const room: LiveRoom = { record, game, connections: new Map(), deadlineStalls: 0 };
+    const room: LiveRoom = {
+      record,
+      game,
+      connections: new Map(),
+      awaySince: new Map(),
+      deadlineStalls: 0,
+    };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).
     this.armDeadline(room);
@@ -453,6 +484,7 @@ export class RoomManager {
 
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    room.awaySince.delete(playerId);
     this.touch(room);
     this.observe(room.record, room.record, room.record, room.game, {
       kind: 'player.connected',
@@ -461,6 +493,7 @@ export class RoomManager {
     if (playerId === hostId) {
       clearTimeout(room.hostAwayTimer);
       room.hostAwayTimer = undefined;
+      room.hostAwayDue = undefined;
     } else if (!room.connections.has(hostId) && !room.hostAwayTimer) {
       // The host is away and no hand-off is pending (it already fired with nobody online).
       this.armHostAway(room);
@@ -470,7 +503,10 @@ export class RoomManager {
   private unmarkConnected(room: LiveRoom, playerId: string) {
     const left = (room.connections.get(playerId) ?? 1) - 1;
     if (left > 0) room.connections.set(playerId, left);
-    else room.connections.delete(playerId);
+    else {
+      room.connections.delete(playerId);
+      room.awaySince.set(playerId, this.deps.now());
+    }
     this.touch(room);
     if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
     this.observe(room.record, room.record, room.record, room.game, {
@@ -486,6 +522,7 @@ export class RoomManager {
       hostId = (players.find((p) => room.connections.has(p.id)) ?? players[0])?.id ?? hostId;
     }
     room.connections.delete(playerId);
+    room.awaySince.delete(playerId);
     this.commit(
       room,
       {
@@ -561,8 +598,10 @@ export class RoomManager {
 
   private armHostAway(room: LiveRoom) {
     clearTimeout(room.hostAwayTimer);
+    room.hostAwayDue = this.deps.now() + HOST_AWAY_MS;
     room.hostAwayTimer = setTimeout(() => {
       room.hostAwayTimer = undefined;
+      room.hostAwayDue = undefined;
       if (room.connections.has(room.record.hostId)) return;
       const next = room.record.players.find((p) => room.connections.has(p.id));
       if (!next) return; // Nobody online to take over; `connected()` restarts the clock.

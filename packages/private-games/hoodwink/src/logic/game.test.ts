@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { awards, hoodwink, liePoints, lieProblem, playingIds, rankedScores } from './game.ts';
+import {
+  answerSize,
+  awards,
+  hoodwink,
+  liePoints,
+  lieProblem,
+  missingPlayers,
+  playingIds,
+  rankedScores,
+} from './game.ts';
 import {
   DECKS,
   FOUR,
@@ -221,6 +230,12 @@ describe('writing lies', () => {
     // Plurals of words with an ending count as the truth too.
     const crossing = { answer: 'Zebra crossing', alternates: [] };
     expect(lieProblem('zebra crossings', crossing)?.code).toBe('is-the-truth');
+    // An -ie word's plural and a leading article are near-copies of the truth too.
+    const beggar = { answer: 'Gaberlunzie', alternates: [] };
+    for (const copy of ['gaberlunzies', 'A gaberlunzie', 'the Gaberlunzies']) {
+      expect(lieProblem(copy, beggar)?.code, copy).toBe('is-the-truth');
+    }
+    expect(lieProblem('A wandering beggar', beggar)).toBeNull();
   });
 
   it('only lets this round’s players write', () => {
@@ -512,7 +527,16 @@ describe('timers', () => {
     h.state = hoodwink.onDeadline!(h.state, due + 30_000);
     expect(round(h).stage).toBe('reveal');
     expect(round(h).points).toEqual({ host: 0, p2: 0, p3: 500, p4: 0 });
+    expect(hoodwink.view(h.state, 'p4').round!.voteTimedOut).toBe(true);
     expect(hoodwink.nextDeadline!(h.state)).toBeNull();
+  });
+
+  it('does not mark the vote as timed out when everyone voted', () => {
+    const h = startedGame(FOUR, strict);
+    writeAll(h);
+    for (const id of FOUR) h.act({ type: 'vote', option: truthIndex(h) }, id);
+    expect(round(h).stage).toBe('reveal');
+    expect(hoodwink.view(h.state, HOST).round!.voteTimedOut).toBe(false);
   });
 
   it('goes straight to the reveal with no points when nobody wrote a lie', () => {
@@ -548,6 +572,52 @@ describe('timers', () => {
       expect(next === null || next > now).toBe(true);
     }
     expect(h.state.phase).toBe('over');
+  });
+});
+
+describe('continue without', () => {
+  const soft = {
+    rounds: 5 as const,
+    clueSeconds: 60,
+    guessSeconds: 30,
+    timerMode: 'soft' as const,
+  };
+
+  it('lets the host stop waiting for a missing writer, as a strict timeout would', () => {
+    const h = startedGame(FOUR, soft);
+    h.act({ type: 'lie', text: 'one' }, 'p2');
+    h.act({ type: 'lie', text: 'two' }, 'p3');
+    h.act({ type: 'lie', text: 'three' }, HOST);
+    expect(missingPlayers(round(h))).toEqual(['p4']);
+    // Only the host may, and only while someone is missing.
+    expect(h.reject({ type: 'continue-without' }, 'p2').code).toBe('not-host');
+    const strict = startedGame(FOUR, { ...soft, timerMode: 'strict' });
+    strict.act({ type: 'lie', text: 'one' }, 'p2');
+    strict.act({ type: 'lie', text: 'two' }, 'p3');
+    strict.act({ type: 'lie', text: 'three' }, HOST);
+    const timedOut = hoodwink.onDeadline!(strict.state, NOW + 60_000);
+    h.act({ type: 'continue-without' }, HOST, NOW + 60_000);
+    // The same board and stage as the strict timeout gives.
+    expect(round(h).stage).toBe('vote');
+    expect(round(h).options.map((o) => o.text)).toEqual(timedOut.round!.options.map((o) => o.text));
+    expect(round(h).voters).toEqual(FOUR);
+  });
+
+  it('reveals without the missing voters, who score nothing', () => {
+    const h = startedGame(FOUR, soft);
+    writeAll(h);
+    for (const id of [HOST, 'p2', 'p3'])
+      h.act({ type: 'vote', option: lieOf(h, id === 'p3' ? 'p2' : 'p3') }, id);
+    expect(missingPlayers(round(h))).toEqual(['p4']);
+    h.act({ type: 'continue-without' });
+    expect(round(h).stage).toBe('reveal');
+    expect(round(h).points?.p4).toBe(0);
+    expect(h.reject({ type: 'continue-without' }).code).toBe('wrong-stage');
+  });
+
+  it('refuses outside a round', () => {
+    const h = harness(FOUR);
+    expect(h.reject({ type: 'continue-without' }).code).toBe('wrong-stage');
   });
 });
 
@@ -610,6 +680,31 @@ describe('view', () => {
     expect(hoodwink.view(h.state, null).role).toBe('spectator');
     expect(hoodwink.view(h.state, null).me).toBeNull();
     expect(rankedScores(h.state)).toHaveLength(4);
+  });
+
+  it('tells writers roughly how long the real answer is, only while writing', () => {
+    expect([answerSize('Ladle'), answerSize(' Wooden  spoon '), answerSize('a b c d e f')]).toEqual(
+      ['word', 'word', 'phrase'],
+    );
+    expect(answerSize('one two three four five six seven')).toBe('sentence');
+    const h = startedGame(FOUR, { provider: content([riddle]) });
+    expect(hoodwink.view(h.state, 'p2').round!.answerSize).toBe('word');
+    writeAll(h);
+    expect(hoodwink.view(h.state, 'p2').round!.answerSize).toBeNull();
+  });
+
+  it('tells everyone when the host abandons a game, until the next start', () => {
+    const h = startedGame(FOUR);
+    h.act({ type: 'back-to-lobby' });
+    expect(hoodwink.view(h.state, 'p2')).toMatchObject({ phase: 'lobby', endReason: 'abandoned' });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state.endReason).toBe('abandoned');
+    h.act({ type: 'start' });
+    expect(h.state.endReason).toBeNull();
+    for (let i = 0; i < h.state.settings.rounds; i++) playRound(h);
+    expect(h.state).toMatchObject({ phase: 'over', endReason: 'finished' });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state.endReason).toBeNull();
   });
 
   it('lists the decks offered, never their questions', () => {

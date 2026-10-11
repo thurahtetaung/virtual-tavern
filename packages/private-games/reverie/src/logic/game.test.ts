@@ -357,6 +357,24 @@ describe('players coming and going', () => {
     expect(hand(h, 'late')).toHaveLength(6);
   });
 
+  it('gives a player who leaves and comes back during the game their score again', () => {
+    const h = startedGame();
+    playTurn(h, ['ana', 'ben']);
+    const before = score(h, 'ben');
+    expect(before).toBeGreaterThan(0);
+    leave(h, 'ben');
+    expect(h.state.seats.ben).toBeUndefined();
+    h.state = reverie.playerJoined(h.state, { id: 'ben', name: 'Ben' });
+    expect(h.state.seats.ben).toMatchObject({ score: before, playing: false });
+    expect(h.state.departed?.ben).toBeUndefined();
+    // A fresh game starts everyone, returners included, from zero.
+    leave(h, 'ben');
+    h.state = { ...h.state, phase: 'over', turn: null };
+    h.act({ type: 'start' });
+    h.state = reverie.playerJoined(h.state, { id: 'ben', name: 'Ben' });
+    expect(score(h, 'ben')).toBe(0);
+  });
+
   it('seats a newcomer straight away once the game is over', () => {
     const h = startedGame(FOUR, { targetScore: 15 });
     while (h.state.phase === 'playing') {
@@ -515,15 +533,19 @@ describe('timers', () => {
     expect(reverie.nextDeadline!(h.state)).toBe(NOW + 30_000);
     h.state = reverie.onDeadline!(h.state, NOW + 30_000);
     expect(storyteller(h)).toBe('ana');
+    expect(reverie.view(h.state, 'ben').turn?.skipped).toBe(HOST);
     const st = storyteller(h);
     h.act({ type: 'tell', card: hand(h, st)[0]!, clue: 'x' }, st, NOW + 31_000);
     h.act({ type: 'give', cards: [hand(h, 'ben')[0]!] }, 'ben');
     h.state = reverie.onDeadline!(h.state, reverie.nextDeadline!(h.state)!);
     expect(h.state.turn?.phase).toBe('vote');
     expect(h.state.turn?.table).toHaveLength(4);
+    expect(reverie.view(h.state, 'ben').turn?.autoGiven).toEqual([HOST, 'cy']);
     h.act({ type: 'vote', index: storyIndex(h) }, 'ben');
+    expect(reverie.view(h.state, 'ben').turn?.missedVote).toEqual([]);
     h.state = reverie.onDeadline!(h.state, reverie.nextDeadline!(h.state)!);
     expect(h.state.turn?.phase).toBe('reveal');
+    expect(reverie.view(h.state, null).turn?.missedVote).toEqual([HOST, 'cy']);
     // ben was the only voter and found it, so it counts as everyone finding it.
     expect(h.state.turn?.allOrNone).toBe(true);
     expect([HOST, 'ana', 'ben', 'cy'].map((id) => score(h, id))).toEqual([0, 0, 2, 0]);

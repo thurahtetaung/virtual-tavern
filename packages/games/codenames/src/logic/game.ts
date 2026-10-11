@@ -223,14 +223,31 @@ function randomizeTeams(state: CodenamesState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
   if (state.phase === 'playing') return new GameError('in-progress', 'Wait for the game to end.');
-  const order = ctx.rng.shuffle(Object.keys(state.seats));
-  const seats: Record<PlayerId, Seat> = {};
-  // Keep join order in the record; assign teams from the shuffled order.
+  // Players who chose to be a Spymaster keep that seat, so a shuffle never surprises anyone with
+  // the key; a team without one gets a random Spymaster, and everyone else is spread evenly.
   const assigned = new Map<PlayerId, Pick<Seat, 'team' | 'role'>>();
-  order.forEach((id, i) => {
-    const team: Team = i % 2 === 0 ? state.startingTeam : otherTeam(state.startingTeam);
-    assigned.set(id, { team, role: i < 2 ? 'spymaster' : 'operative' });
-  });
+  const size: Record<Team, number> = { red: 0, blue: 0 };
+  for (const [id, seat] of Object.entries(state.seats)) {
+    if (seat.team !== null && seat.role === 'spymaster') {
+      assigned.set(id, { team: seat.team, role: 'spymaster' });
+      size[seat.team] += 1;
+    }
+  }
+  const order = ctx.rng.shuffle(Object.keys(state.seats).filter((id) => !assigned.has(id)));
+  const teams: Team[] = [state.startingTeam, otherTeam(state.startingTeam)];
+  for (const team of teams) {
+    const id = size[team] === 0 ? order.shift() : undefined;
+    if (id === undefined) continue;
+    assigned.set(id, { team, role: 'spymaster' });
+    size[team] += 1;
+  }
+  for (const id of order) {
+    const team = size[teams[1]!] < size[teams[0]!] ? teams[1]! : teams[0]!;
+    assigned.set(id, { team, role: 'operative' });
+    size[team] += 1;
+  }
+  // Keep join order in the record.
+  const seats: Record<PlayerId, Seat> = {};
   for (const [id, seat] of Object.entries(state.seats)) {
     seats[id] = { ...seat, ...assigned.get(id)! };
   }

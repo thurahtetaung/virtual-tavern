@@ -6,3 +6,7 @@ export * from './timer-settings.tsx';
 export * from './word-list-picker.tsx';
 export * from './protected-image.tsx';
 export * from './choice-picker.tsx';
+export * from './people.tsx';
+export * from './refusal.tsx';
+export * from './standings.tsx';
+export * from './sticky-bar.tsx';

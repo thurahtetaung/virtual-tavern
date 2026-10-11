@@ -1,5 +1,14 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, type Choice, ChoicePicker, Hint, Panel, TimerSettings, cn } from '@vt/ui';
+import {
+  Button,
+  type Choice,
+  ChoicePicker,
+  Hint,
+  Panel,
+  StickyBar,
+  TimerSettings,
+  cn,
+} from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, ROUND_COUNTS } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { Table } from './Table.tsx';
@@ -46,7 +55,7 @@ export function Lobby({
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <Panel>
-        <Table view={view} online={online} act={act} />
+        <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -114,6 +123,8 @@ export function Lobby({
               values={view.settings}
               editable={editable}
               onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+              clueLabel="Writing timer"
+              guessLabel="Voting timer"
               clueHelp="Time for everyone to write their lie."
               guessHelp="Time for everyone to vote."
               strictHelp="anyone without a lie gets a ready-made one worth half (if the question has some), and missing votes score nothing"
@@ -121,28 +132,23 @@ export function Lobby({
           </div>
         </details>
         {editable && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-          </div>
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+            </div>
+          </StickyBar>
         )}
       </Panel>
-      <p className="text-center text-sm text-stone-500">
-        New to Hoodwink?{' '}
-        <button
-          type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
+      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
+        📖 New to Hoodwink? Read the guide
+      </Button>
     </div>
   );
 }

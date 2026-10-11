@@ -22,6 +22,7 @@ import {
   type EchoAction,
   type EchoState,
   type EchoView,
+  JUDGE_GRACE_MS,
   MAX_HISTORY,
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -152,17 +153,26 @@ function maybeStartGuessing(state: EchoState, now: number, force = false): EchoS
     state = { ...state, turn };
   }
   if (!force && !turn.givers.every((g) => turn.clues[g])) return state;
+  const missed = turn.givers.filter((g) => !turn.clues[g]);
   return withTurn(state, {
     stage: 'guess',
+    ...(missed.length > 0 && { missed }),
     cancelled: cancellations(turn.clues),
     deadline: deadline(state.settings.guessSeconds, now),
   });
 }
 
-function reveal(state: EchoState, outcome: Outcome, countedBy: PlayerId | null): EchoState {
+function reveal(
+  state: EchoState,
+  outcome: Outcome,
+  countedBy: PlayerId | null,
+  timedOut = false,
+): EchoState {
   const turn = state.turn!;
   const word = turn.card[turn.pick!]!;
   let { score, cardsLeft, deck } = state;
+  // A wrong guess on the last card has no next card to lose.
+  const burned = outcome === 'wrong' && state.cardsLeft >= 2;
   if (outcome === 'right') {
     score += 1;
     cardsLeft -= 1;
@@ -189,6 +199,10 @@ function reveal(state: EchoState, outcome: Outcome, countedBy: PlayerId | null):
         cancelled: !!turn.cancelled[clueId(by, i)],
       })),
     ),
+    ...(timedOut && { timedOut: true }),
+    ...(turn.missed &&
+      turn.missed.length > 0 && { missed: turn.missed.map(nameOf).filter(Boolean) }),
+    ...(burned ? { burned: true as const } : {}),
   };
   return {
     ...state,
@@ -196,7 +210,14 @@ function reveal(state: EchoState, outcome: Outcome, countedBy: PlayerId | null):
     cardsLeft,
     deck,
     history: [...state.history, entry].slice(-MAX_HISTORY),
-    turn: { ...turn, stage: 'reveal', outcome, countedBy, deadline: null },
+    turn: {
+      ...turn,
+      stage: 'reveal',
+      outcome,
+      countedBy,
+      deadline: null,
+      ...(timedOut && { timedOut: true }),
+    },
   };
 }
 
@@ -378,6 +399,7 @@ function guess(state: EchoState, word: string, ctx: Ctx): Result {
   if (wordKey(word) === wordKey(turn.card[turn.pick!]!)) return reveal(next, 'right', null);
   return withTurn(next, {
     stage: 'judge',
+    judgeStarted: ctx.now,
     deadline: deadline(state.settings.guessSeconds, ctx.now),
   });
 }
@@ -398,6 +420,19 @@ function judge(state: EchoState, counts: boolean, ctx: Ctx): Result {
   }
   if (!counts && !giver && !ctx.isHost) {
     return new GameError('not-giver', 'Only the clue writers or the host can move on.');
+  }
+  // The guesser doesn't judge their own guess. A host who is guessing may only settle it when
+  // nobody else can: every clue writer has gone, or they've had a fair while to decide.
+  if (
+    !counts &&
+    ctx.by === turn.guesser &&
+    turn.givers.length > 0 &&
+    ctx.now < (turn.judgeStarted ?? 0) + JUDGE_GRACE_MS
+  ) {
+    return new GameError(
+      'guesser-judging',
+      'The clue writers decide on your guess. Give them a moment first.',
+    );
   }
   return counts ? reveal(state, 'right', ctx.by) : reveal(state, 'wrong', null);
 }
@@ -532,14 +567,16 @@ function onDeadline(state: EchoState, now: number): EchoState {
       // Picks for the guesser, from the hidden seed so nobody can predict it.
       const rng = createRng(state.seed);
       const index = rng.int(turn.card.length);
-      return beginClues({ ...state, seed: rng.int(SEED_RANGE) }, index, now);
+      return withTurn(beginClues({ ...state, seed: rng.int(SEED_RANGE) }, index, now), {
+        autoPicked: true,
+      });
     }
     case 'clues':
       return maybeStartGuessing(state, now, true);
     case 'guess':
-      return reveal(state, 'pass', null);
+      return reveal(state, 'pass', null, true);
     case 'judge':
-      return reveal(state, 'wrong', null);
+      return reveal(state, 'wrong', null, true);
     case 'reveal':
       return state;
   }
@@ -606,6 +643,9 @@ function turnView(state: EchoState, turn: Turn, viewer: PlayerId | null): TurnVi
     outcome: turn.outcome,
     countedBy: turn.countedBy,
     deadline: turn.deadline,
+    autoPicked: !!turn.autoPicked,
+    missed: turn.missed ?? [],
+    timedOut: !!turn.timedOut,
   };
 }
 

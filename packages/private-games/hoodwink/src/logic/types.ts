@@ -67,6 +67,10 @@ export interface Round {
   lies: Record<PlayerId, string>;
   /** Players whose current lie the game picked for them. */
   autoLies: PlayerId[];
+  /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
+  filled?: PlayerId[];
+  /** The strict vote timer ended the vote before everyone had voted. */
+  voteTimedOut?: boolean;
   /** The shuffled board, built when voting starts. */
   options: Option[];
   /** Who votes: the round's players when voting started (leavers who hadn't voted are dropped). */
@@ -104,7 +108,8 @@ export interface HoodwinkState {
   /** Hidden seed for shuffling the voting board. Never sent to clients. */
   seed: number;
   gamesPlayed: number;
-  endReason: 'finished' | 'too-few' | null;
+  /** `abandoned`: the host ended a game early, back to the lobby (kept until the next start). */
+  endReason: 'finished' | 'too-few' | 'abandoned' | null;
 }
 
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
@@ -126,6 +131,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lie-for-me') }),
   z.object({ type: z.literal('vote'), option: z.number().int().min(0).max(20) }),
   z.object({ type: z.literal('next-round') }),
+  /** Host: stop waiting for the players still missing; the stage ends as a strict timeout would. */
+  z.object({ type: z.literal('continue-without') }),
 ]);
 
 export type HoodwinkAction = z.infer<typeof actionSchema>;
@@ -152,6 +159,8 @@ export interface OptionView {
   house: boolean | null;
 }
 
+export type AnswerSize = 'word' | 'phrase' | 'sentence';
+
 export interface RoundView {
   number: number;
   rounds: number;
@@ -163,13 +172,22 @@ export interface RoundView {
   deckId: string;
   /** The real answer: null until the reveal. */
   answer: string | null;
+  /**
+   * How long the real answer is, roughly, while lies are written (null after), so lies can match
+   * it: `word` (1–2 words), `phrase` (3–6) or `sentence` (7 or more).
+   */
+  answerSize: AnswerSize | null;
   players: PlayerId[];
   /** Players who have written their lie. */
   written: PlayerId[];
   /** The viewer's own lie, if they've written one. */
   myLie: string | null;
-  /** The viewer's lie was picked by "Lie for me". */
+  /** The viewer's lie was picked by "Lie for me" or filled in by the timer. */
   myLieAuto: boolean;
+  /** The viewer's lie was filled in because the strict timer ran out. */
+  myLieFilled: boolean;
+  /** The strict vote timer ended the vote before everyone had voted. */
+  voteTimedOut: boolean;
   /** The question has built-in fakes, so "Lie for me" is offered. */
   canLieForMe: boolean;
   /** The board: empty while lies are being written. */

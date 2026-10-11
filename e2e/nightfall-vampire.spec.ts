@@ -156,14 +156,14 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   await expect(deaths).toHaveCount(3);
   await expect(
     deaths.filter({
-      hasText: new RegExp(`\\b${names[W]} was voted out \\(4 votes, most votes\\)`),
+      hasText: new RegExp(`\\b${names[W]} got the most votes \\(4\\) and died\\.`),
     }),
   ).toHaveAttribute('data-place', '1');
   await expect(
-    deaths.filter({ hasText: new RegExp(`\\b${names[T]} was voted out`) }),
+    deaths.filter({ hasText: new RegExp(`\\b${names[T]} came second`) }),
   ).toHaveAttribute('data-place', '2');
   await expect(
-    deaths.filter({ hasText: new RegExp(`\\b${names[cupid]} died of a broken heart`) }),
+    deaths.filter({ hasText: new RegExp(`\\b${names[cupid]} died as`) }),
   ).toHaveAttribute('data-cause', 'love');
 
   // The reveal: every player's Mark, team and result.

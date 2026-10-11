@@ -66,6 +66,23 @@ describe('wordKey', () => {
     expect(wordKey('beds')).toBe('bed');
   });
 
+  it('matches -ie words with their -ies plurals', () => {
+    same('Gaberlunzie', 'gaberlunzies', 'GABERLUNZIE');
+    same('pixie', 'pixies');
+    same('movie', 'movies');
+    same('cookie', 'cookies');
+    same('pie', 'pies');
+    same('berry', 'berries');
+  });
+
+  it('drops a leading article from a phrase', () => {
+    same('Gaberlunzie', 'A gaberlunzie', 'the Gaberlunzies', 'an gaberlunzie');
+    same('The Moon', 'moon');
+    expect(wordKey('a')).toBe('a');
+    expect(wordKey('The')).toBe('the');
+    apart('a cat', 'a dog');
+  });
+
   it('keeps short and merely similar words apart', () => {
     apart('bus', 'busy');
     apart('cat', 'catalog');

@@ -76,6 +76,11 @@ test('three friends play Masquerade Originals behind the back room, with placeho
   await expect(board.getByRole('button', { name: 'Location 1', exact: true })).toBeVisible();
   await expect(board.getByRole('button', { name: 'Location 50', exact: true })).toBeVisible();
   await expect(dealt.spy.getByTestId('still-possible')).toContainText('Still possible: 50');
+  // The spy's notes: a star on one place and another crossed off, both still there for the guess.
+  const crossed = dealt.location === 'Location 1' ? 'Location 2' : 'Location 1';
+  await board.getByRole('button', { name: `Star ${dealt.location}`, exact: true }).click();
+  await board.getByRole('button', { name: crossed, exact: true }).click();
+  await expect(dealt.spy.getByTestId('still-possible')).toContainText('Still possible: 49');
 
   await readyUp(players);
   const [a, b] = dealt.locals as [Page, Page];
@@ -85,6 +90,11 @@ test('three friends play Masquerade Originals behind the back room, with placeho
     [b, spyName],
     [dealt.spy, names.get(a)!],
   ]);
+  await expect(board.getByText('You were caught! Pick your one guess.')).toBeVisible();
+  await expect(board.getByLabel('Starred')).toHaveCount(1);
+  await expect(board.getByRole('button', { name: `Pick ${crossed}`, exact: true })).toHaveClass(
+    /opacity-40/,
+  );
   await board.getByRole('button', { name: `Pick ${dealt.location}`, exact: true }).click();
   await board.getByRole('button', { name: `Guess ${dealt.location}`, exact: true }).click();
   for (const p of players)

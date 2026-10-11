@@ -2,19 +2,27 @@ import type { GameGuide } from '@vt/game-sdk';
 
 export const guide: GameGuide = {
   tagline: 'Everyone writes a one-word clue for the guesser, but matching clues cancel out.',
-  players: '3 to 7 (best with 4–7)',
+  players: '3 to 7 (best with 5 or more)',
   duration: '15–30 minutes',
   goal: 'Work together to get as many secret words as you can across the deck. Each round one player guesses a word from the one-word clues everyone else writes, but any clue that someone else also wrote is cancelled before the guesser sees it.',
+  quickStart: [
+    'Each card, one player is the guesser and picks one of 5 hidden words by number.',
+    'Everyone else sees the word and writes a one-word clue for it, without talking.',
+    'Clues that match another clue (even as plurals or close spellings) are cancelled.',
+    'The guesser sees only the clues left and gets one guess, or can pass.',
+    'Right scores a point; a pass loses that card; a wrong guess loses that card and the next.',
+    'The guesser moves round the table; score as many cards as you can together.',
+  ],
   setup: [
-    'Up to 7 players can play; anyone else in the room just watches. Use “Just watch” to sit out.',
-    'The host picks the word lists and the deck length: 8, 13 or 20 cards.',
+    'Up to 7 players can play; anyone else in the room watches until a seat frees up. Use “Sit out (watch)” to step out and “Take a seat” to come back.',
+    'The host picks the word lists and the deck length: 8 cards (quick), 13 (standard) or 20 (long).',
     'The host presses Start. You need at least 3 players.',
   ],
   roles: [
     {
       name: 'Guesser',
       summary:
-        'Changes every card, going round the table in seat order. Never sees the secret word until the end of the card.',
+        'Changes every card, going round the table in the order shown by the numbers in the Players list. Never sees the secret word until the end of the card. The reveal names the next guesser.',
     },
     {
       name: 'Clue writers',
@@ -55,9 +63,10 @@ export const guide: GameGuide = {
       bullets: [
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
-        'Wrong: the card is lost, and so is the next card in the deck. A wrong guess costs more than a pass, so pass when you have no idea.',
-        'Near misses: if a wrong guess is really the same word (a typo or a spelling the game didn’t catch), any clue writer can press “Count it” to score it. Otherwise they press Continue.',
-        'The game ends when the deck runs out.',
+        'Wrong: the card is lost, and so is the next card in the deck (on the last card, only that card). A wrong guess costs more than a pass, so pass when you have no idea.',
+        'Near misses: if a wrong guess is really the same word (a typo or a spelling the game didn’t catch), any clue writer can press “Count it” to score it. Otherwise they press “Doesn’t count”, which makes it a wrong guess. The first tap decides for the whole table.',
+        'The guesser never judges their own guess. If the host is guessing and no clue writer is around to decide, the host can move on with “Doesn’t count” after 30 seconds.',
+        'The game ends when the deck runs out. The list of cards played counts any card a wrong guess cost.',
       ],
     },
     {
@@ -69,7 +78,7 @@ export const guide: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
       ],
     },
     {

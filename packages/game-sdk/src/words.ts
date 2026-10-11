@@ -33,11 +33,12 @@ export function normaliseWord(s: string): string {
 }
 
 const MIN_STEM = 3;
+const LEADING_ARTICLES = new Set(['a', 'an', 'the']);
 const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'y']);
 
 /** One rule per group, tried in order; the first whose result keeps `MIN_STEM` letters wins. */
 const PLURALS: { test: RegExp; replace: string }[] = [
-  { test: /ies$/, replace: 'y' }, // berries → berry
+  { test: /ies$/, replace: 'y' }, // berries → berry (and pixies → pixy, which meets pixie below)
   { test: /(?<=(?:s|x|z|ch|sh))es$/, replace: '' }, // boxes → box, buses → bus, wishes → wish
   { test: /(?<![isu])s$/, replace: '' }, // cats → cat; not glass, bus, tennis
 ];
@@ -64,6 +65,8 @@ function stem(word: string): string {
   // A doubled final consonant, so run / running and ball / balls meet ("run", "bal").
   const last = w.at(-1);
   if (w.length > MIN_STEM && last && !VOWELS.has(last) && w.at(-2) === last) w = w.slice(0, -1);
+  // A final y reads as i, so berry / berries and pixie / pixies meet ("berri", "pixi").
+  if (w.length > MIN_STEM && w.endsWith('y')) w = `${w.slice(0, -1)}i`;
   return w;
 }
 
@@ -75,11 +78,13 @@ function stem(word: string): string {
  * clues through: "sing" and "singer" meet, and so do "hat", "hate" and "hated". It never
  * shortens a word below three letters, which keeps short words like "bus" and "red" intact and
  * apart from "busy" or "reed". Words with a shared stem but different spelling ("sing" and
- * "song") stay apart.
+ * "song") stay apart. A leading article is dropped from a phrase ("A pixie" and "pixie" meet),
+ * but a lone "a" or "the" stays itself.
  */
 export function wordKey(s: string): string {
-  return normaliseWord(s)
-    .split(' ')
+  const parts = normaliseWord(s).split(' ');
+  if (parts.length > 1 && LEADING_ARTICLES.has(parts[0]!)) parts.shift();
+  return parts
     .map((part) => (/^[\p{L}']+$/u.test(part) ? stem(part.replace(/'/g, '')) : part))
     .join(' ');
 }

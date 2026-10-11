@@ -197,3 +197,57 @@ test('every card name opens the card: the Guard grid, a private reveal, the log 
     8,
   );
 });
+
+test('watchers get a seat: a bigger edition seats them, and the podium offers Take a seat', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const host = await visitor(browser, 'Hana');
+  await unlock(host);
+  await host.getByRole('button', { name: 'Create a Royal Post room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const path = new URL(host.url()).pathname;
+  const friends: Page[] = [];
+  for (const n of ['Ana', 'Ben', 'Cy', 'Dee', 'Eve']) {
+    const p = await visitor(browser, n);
+    await unlock(p, `/backroom?next=${encodeURIComponent(path)}`);
+    await expect(p.getByText(/^Players \(/)).toBeVisible();
+    friends.push(p);
+  }
+  const [ana, ben, cy, dee, eve] = friends as [Page, Page, Page, Page, Page];
+
+  // Classic seats four: Dee and Eve wait, and the host is told so.
+  await expect(host.getByText('Players (4/4)')).toBeVisible();
+  await expect(eve.getByText('The table is full, so you’re watching.')).toBeVisible();
+  await expect(host.getByText('Dee and Eve are watching')).toBeVisible();
+
+  // The 2019 edition seats six: they sit down by themselves.
+  await host.getByRole('button', { name: /^2019 edition/ }).click();
+  await expect(host.getByText('Players (6/6)')).toBeVisible();
+  await expect(eve.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
+
+  // A quick two-player game; the rest choose to watch.
+  for (const p of [ben, cy, dee, eve]) {
+    await p.getByRole('button', { name: 'Sit out (watch)' }).click();
+    // The seat list and the shell's "You're watching" banner both offer the seat back.
+    await expect(p.getByRole('button', { name: 'Take a seat' })).toHaveCount(2);
+  }
+  await expect(host.getByText('Players (2/6)')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(host.getByText('Round 1')).toBeVisible();
+  const done: Exercised = { guard: true, priest: true, handmaid: true, chancellor: true };
+  await playUntil(host, [host, ana], '2019', done, (gameOver) => gameOver);
+
+  // The podium: Ben takes a seat for the next game; guests know who deals.
+  const podium = ben.getByLabel('Game result');
+  await expect(podium).toBeVisible();
+  await expect(ana.getByLabel('Game result')).toContainText(
+    'Waiting for Hana (host) to start the next game',
+  );
+  await podium.getByRole('button', { name: 'Take a seat' }).click();
+  await expect(podium.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
+  await expect(host.getByLabel('Game result')).toContainText('Next game (3/6)');
+  await host.getByRole('button', { name: 'Play again' }).click();
+  await expect(ben.getByRole('region', { name: 'Your hand' })).toBeVisible();
+});

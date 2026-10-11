@@ -40,7 +40,22 @@ export function backroomRoutes(
 
   app.post(
     '/api/backroom/unlock',
-    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 minute',
+          // In the door's own voice; the client counts down from the Retry-After header.
+          errorResponseBuilder: (_req, context) =>
+            Object.assign(
+              new Error(
+                `The bouncer's had enough knocking for now. Try again in ${context.after}.`,
+              ),
+              { statusCode: context.statusCode },
+            ),
+        },
+      },
+    },
     async (req, reply) => {
       if (!backroom.isOpen())
         return error(reply, 503, 'closed', 'The back room is closed for now.');

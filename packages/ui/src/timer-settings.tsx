@@ -23,7 +23,8 @@ const timerLabel = (v: number | null) =>
 
 /**
  * Clue/guess timer pickers plus the reminder-or-strict choice, shared by every timed game. A game
- * with a single timer leaves out `guessHelp` and names its timer with `clueLabel`.
+ * with a single timer leaves out `guessHelp` and names its timer with `clueLabel`; a game whose
+ * phases aren't clues and guesses renames both with `clueLabel` and `guessLabel`.
  */
 export function TimerSettings({
   values,
@@ -32,6 +33,7 @@ export function TimerSettings({
   clueHelp,
   guessHelp,
   clueLabel = 'Clue timer',
+  guessLabel = 'Guess timer',
   strictHelp,
 }: {
   values: TimerValues;
@@ -41,6 +43,7 @@ export function TimerSettings({
   /** Omit to show only the first timer. */
   guessHelp?: string;
   clueLabel?: string;
+  guessLabel?: string;
   /** What "strict" does in this game, e.g. "the turn passes to the other team". */
   strictHelp: string;
 }) {
@@ -61,7 +64,7 @@ export function TimerSettings({
       <span className="block text-xs text-stone-500 dark:text-stone-400">{help}</span>
       {editable ? (
         <select
-          className="mt-1 w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+          className="mt-1 min-h-11 w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
           value={values[key] ?? ''}
           onChange={(e) =>
             onChange({ [key]: e.target.value === '' ? null : Number(e.target.value) })
@@ -83,7 +86,7 @@ export function TimerSettings({
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         {select('clueSeconds', clueLabel, clueHelp)}
-        {guessHelp !== undefined && select('guessSeconds', 'Guess timer', guessHelp)}
+        {guessHelp !== undefined && select('guessSeconds', guessLabel, guessHelp)}
       </div>
       {!editable ? (
         timed && (

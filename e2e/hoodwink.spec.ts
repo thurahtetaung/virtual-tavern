@@ -130,11 +130,15 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
   await expect(ana.getByTestId('prompt')).toContainText('the mayor is chosen by a');
   await expect(ana.getByTestId('prompt')).not.toContainText(TRUTH);
-  await ana.getByLabel('Your lie').fill('zebra crossings');
+  // A near-copy (a leading article and a plural) counts as the truth too.
+  await ana.getByLabel('Your lie').fill('The zebra crossings');
   await ana.getByRole('button', { name: 'Send lie' }).click();
   await expect(ana.getByText('That’s the real answer — write a lie!').first()).toBeVisible();
   await sendLie(ana, 'Tiny ukulele');
   await expect(ana.getByText('1 of 4 lies in')).toBeVisible();
+  // "Lie for me" can't throw away a lie you wrote yourself.
+  await expect(ana.getByRole('button', { name: '🎲 Lie for me' })).toHaveCount(0);
+  await expect(ben.getByRole('button', { name: '🎲 Lie for me' })).toBeVisible();
   // Only players who still need to act see "Your turn" in the tab title.
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(ben).toHaveTitle(YOUR_TURN);
@@ -176,7 +180,7 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana.getByText('Round 2/5')).toBeVisible();
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
   await ana.getByRole('button', { name: '🎲 Lie for me' }).click();
-  await expect(ana.getByText('🤖 Picked for you: it scores half.')).toBeVisible();
+  await expect(ana.getByText('🎲 Picked for you: it scores half.')).toBeVisible();
   const autoLie = await ana.getByLabel('Your lie').inputValue();
   expect(DECOYS).toContain(autoLie);
   await expect(ana).not.toHaveTitle(YOUR_TURN);
@@ -199,8 +203,14 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   const second = cy.getByRole('list', { name: 'Answers revealed' });
   await expect(second).toContainText('🏠 House fake');
   await expect(second).toContainText('🎭 Lie by Ana');
-  await expect(second).toContainText('🤖 lie for me / filled in');
-  await expect(cy.getByRole('list', { name: 'Points this round' })).toContainText('Ana +250');
+  await expect(second).toContainText('🎲 Picked by the game (half points)');
+  // The points come with their reasons.
+  const anaPoints = cy
+    .getByRole('list', { name: 'Points this round' })
+    .getByRole('listitem')
+    .filter({ hasText: /^Ana\s*\+/ });
+  await expect(anaPoints).toContainText('+250');
+  await expect(anaPoints).toContainText('fooled Hana (half: picked for you)');
   // 500 shared three ways rounds down to 150 each.
   await scoreIs(ana, 1500);
   await scoreIs(ben, 400);

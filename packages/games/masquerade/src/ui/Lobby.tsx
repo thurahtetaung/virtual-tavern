@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Badge, Button, Hint, Panel, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, StickyBar, cn } from '@vt/ui';
 import {
   MAX_ROUNDS,
   MAX_SEATS,
@@ -26,9 +26,11 @@ const choice = (on: boolean, editable: boolean) =>
 export function Players({
   view,
   online,
+  hostId,
 }: {
   view: MasqueradeView;
   online: (id: string) => boolean;
+  hostId: string;
 }) {
   const playing = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
@@ -39,19 +41,31 @@ export function Players({
       </h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
-          <li
-            key={s.id}
-            className={cn('inline-flex items-center gap-1.5', !online(s.id) && 'opacity-50')}
-          >
+          <li key={s.id} className="inline-flex items-center gap-1.5">
             <span aria-hidden>🎭</span>
-            {s.name}
-            {s.id === view.me?.id && <Badge>you</Badge>}
+            <PlayerTag
+              name={s.name}
+              host={s.id === hostId}
+              you={s.id === view.me?.id}
+              offline={!online(s.id)}
+            />
           </li>
         ))}
       </ul>
       {watching.length > 0 && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
-          Watching: {watching.map((s) => s.name).join(', ')}
+          Watching:{' '}
+          {watching.map((s, i) => (
+            <span key={s.id}>
+              {i > 0 && ', '}
+              <PlayerTag
+                name={s.name}
+                host={s.id === hostId}
+                you={s.id === view.me?.id}
+                offline={!online(s.id)}
+              />
+            </span>
+          ))}
         </p>
       )}
     </section>
@@ -87,7 +101,7 @@ export function Lobby({
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <Panel>
-        <Players view={view} online={online} />
+        <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -191,16 +205,18 @@ export function Lobby({
           </label>
         </div>
         {editable && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-          </div>
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+            </div>
+          </StickyBar>
         )}
       </Panel>
       <p className="text-center text-sm text-stone-500">

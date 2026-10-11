@@ -1,4 +1,10 @@
-import { rating } from '../logic/game.ts';
+import {
+  type PresencePlayer,
+  namesWithPresence,
+  timedOut,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import {
   CARD_SIZE,
   type ClueView,
@@ -11,6 +17,12 @@ import {
 export interface Status {
   text: string;
   yourMove: boolean;
+}
+
+/** Who is in the room (and online), so waiting texts can name people and the host. */
+export interface People {
+  hostId: string;
+  players: readonly PresencePlayer[];
 }
 
 /** Why the game can't start yet, or null if it can. */
@@ -57,13 +69,55 @@ function outcomeText(view: EchoView, turn: TurnView): string {
       ? `Counted! ${nameOf(view, turn.countedBy)} counted the guess for ${word}.`
       : `Got it! The word was ${word}.`;
   }
-  if (turn.outcome === 'pass') return `Passed. The word was ${word}.`;
-  return `Not this time: the word was ${word}. This card and the next are lost.`;
+  if (turn.outcome === 'pass') {
+    return turn.timedOut
+      ? `⏱ Time ran out: counts as a pass. The word was ${word}.`
+      : `Passed. The word was ${word}.`;
+  }
+  const why = turn.timedOut
+    ? '⏱ Nobody decided in time, so it counts as wrong: the'
+    : 'Not this time: the';
+  // What the wrong guess cost is spelled out once, in the result banner (`lossText`).
+  return `${why} word was ${word}.`;
 }
 
-function playingStatus(view: EchoView, turn: TurnView, isHost: boolean): Status {
-  const guesser = nameOf(view, turn.guesser);
+/** What a wrong guess just cost: the next card too, unless this was the last one. */
+export function lossText(view: EchoView): string {
+  return view.history.at(-1)?.burned
+    ? 'This card and the next are lost.'
+    : 'This card is lost (it was the last one).';
+}
+
+/** Who guesses the next card: the next playing seat after the guesser, in seat order. */
+export function nextGuesser(view: EchoView, turn: TurnView): string | null {
+  const from = view.seats.findIndex((s) => s.id === turn.guesser);
+  for (let k = 1; k <= view.seats.length; k++) {
+    const seat = view.seats[(from + k) % view.seats.length]!;
+    if (seat.id !== turn.guesser && seat.playing) return seat.name;
+  }
+  return null;
+}
+
+const strictNote = (view: EchoView, turn: TurnView, text: string) =>
+  view.settings.timerMode === 'strict' && turn.deadline !== null ? ` ${text}` : '';
+
+function playingStatus(
+  view: EchoView,
+  turn: TurnView,
+  isHost: boolean,
+  people: People | undefined,
+): Status {
+  // The guesser's name, marked "(offline)" while their browser is away.
+  const guesser =
+    (people && namesWithPresence([turn.guesser], people.players)) || nameOf(view, turn.guesser);
+  /** "Ana, Ben (offline)": the clue writers still writing, named rather than counted. */
+  const writing = (): string => {
+    const ids = stillWriting(turn);
+    if (people) return waitingFor(ids, people.players, { you: view.me?.id }) || 'Almost done';
+    return `Waiting for ${ids.length} more ${ids.length === 1 ? 'player' : 'players'}`;
+  };
   const role = view.role;
+  const me = view.me?.id ?? '';
   switch (turn.stage) {
     case 'pick':
       return role === 'guesser'
@@ -74,7 +128,13 @@ function playingStatus(view: EchoView, turn: TurnView, isHost: boolean): Status 
         : { text: `Waiting for ${guesser} to pick a word…`, yourMove: false };
     case 'clues': {
       if (role === 'guesser') {
-        return { text: 'Everyone is writing a clue for you…', yourMove: false };
+        const picked = turn.autoPicked
+          ? `${timedOut('a word was picked for you at random')}. `
+          : '';
+        return {
+          text: `${picked}Everyone is writing a clue for you… ${writing()}.`,
+          yourMove: false,
+        };
       }
       if (role === 'giver' && turn.givers.includes(view.me?.id ?? '')) {
         if (!turn.myClues) {
@@ -83,68 +143,96 @@ function playingStatus(view: EchoView, turn: TurnView, isHost: boolean): Status 
             yourMove: true,
           };
         }
-        const left = stillWriting(turn).length;
         return {
-          text: `Sent! Waiting for ${left} more ${left === 1 ? 'player' : 'players'}… You can still change yours.`,
+          text: `Sent! ${writing()}. You can still change yours.`,
           yourMove: false,
         };
       }
       const waiting = role === 'waiting' ? ' You join in from the next card.' : '';
-      return { text: `Clues are being written for ${guesser}…${waiting}`, yourMove: false };
+      return {
+        text: `Clues are being written for ${guesser}. ${writing()}.${waiting}`,
+        yourMove: false,
+      };
     }
-    case 'guess':
-      return role === 'guesser'
-        ? { text: 'Your turn to guess! You get one try, or you can pass.', yourMove: true }
-        : { text: `Waiting for ${guesser} to guess…`, yourMove: false };
-    case 'judge': {
-      const giver = turn.givers.includes(view.me?.id ?? '');
+    case 'guess': {
       if (role === 'guesser') {
         return {
-          text: 'Not an exact match. The clue writers are checking your guess…',
+          text: 'Your turn to guess! One try: a wrong guess loses this card and the next. Pass loses only this one.',
+          yourMove: true,
+        };
+      }
+      const missed = turn.missed.includes(me)
+        ? '⏱ You ran out of time, so there is no clue from you this card. '
+        : '';
+      return { text: `${missed}Waiting for ${guesser} to guess…`, yourMove: false };
+    }
+    case 'judge': {
+      const giver = turn.givers.includes(me);
+      const timeout = strictNote(view, turn, 'If nobody decides in time, it counts as wrong.');
+      if (role === 'guesser') {
+        return {
+          text: `Not an exact match. The clue writers are deciding whether it counts…${timeout}`,
           yourMove: false,
         };
       }
       if (giver) {
         return {
-          text: `${guesser} guessed “${turn.guess}”. Is it really the word? Count it, or Continue.`,
+          text: `${guesser} guessed “${turn.guess}”. Is it really the word? One tap decides for the whole table.${timeout}`,
           yourMove: true,
         };
       }
       return isHost
-        ? { text: `${guesser} guessed “${turn.guess}”. Press Continue to move on.`, yourMove: true }
-        : { text: 'The clue writers are checking the guess…', yourMove: false };
+        ? {
+            text: `${guesser} guessed “${turn.guess}”. Press Doesn't count to move on.`,
+            yourMove: true,
+          }
+        : {
+            text: `The clue writers are deciding whether the guess counts…${timeout}`,
+            yourMove: false,
+          };
     }
     case 'reveal': {
       const next = view.cardsLeft > 0 ? 'Next card' : 'Finish';
-      const tail = isHost ? ` Press ${next} when everyone has had a look.` : '';
-      return { text: outcomeText(view, turn) + tail, yourMove: isHost };
+      const what = view.cardsLeft > 0 ? 'deal the next card' : 'finish the game';
+      const tail = isHost
+        ? ` Press ${next} when everyone has had a look.`
+        : ` ${people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`}`;
+      const upNext = view.cardsLeft > 0 ? nextGuesser(view, turn) : null;
+      const who = upNext ? ` Next guesser: ${upNext}.` : '';
+      return { text: outcomeText(view, turn) + who + tail, yourMove: isHost };
     }
   }
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: EchoView, isHost: boolean, blocker: string | null): Status {
+export function statusFor(
+  view: EchoView,
+  isHost: boolean,
+  blocker: string | null,
+  people?: People,
+): Status {
   if (view.phase === 'lobby') {
     if (!view.me?.playing) {
-      return { text: "You're watching. Press Play to join the table.", yourMove: false };
+      // A full table is already explained by the room's "You're watching" banner.
+      const full = view.seats.filter((s) => s.playing).length >= MAX_PLAYERS;
+      return full
+        ? { text: "You're watching. You can take a seat when one frees up.", yourMove: false }
+        : { text: "You're watching. Press Take a seat to join the table.", yourMove: false };
     }
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
     return isHost
       ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : {
+          text: `All set. ${people ? waitingForHost(people, 'start the game') : 'Waiting for the host to start the game…'}`,
+          yourMove: false,
+        };
   }
   if (view.phase === 'over') {
-    if (view.endReason === 'too-few') {
-      return {
-        text: `Game over: fewer than ${MIN_PLAYERS} players were left. You scored ${view.score}.`,
-        yourMove: false,
-      };
-    }
-    return {
-      text: `Game over! You scored ${view.score} of ${view.settings.deckSize}: ${rating(view.score, view.settings.deckSize)}.`,
-      yourMove: false,
-    };
+    // The score and its rating are shown big just below, so this line doesn't repeat them.
+    return view.endReason === 'too-few'
+      ? { text: `Game over: fewer than ${MIN_PLAYERS} players were left.`, yourMove: false }
+      : { text: 'Game over! Here’s how you did:', yourMove: false };
   }
   if (!view.turn) return { text: 'Dealing…', yourMove: false };
-  return playingStatus(view, view.turn, isHost);
+  return playingStatus(view, view.turn, isHost, people);
 }

@@ -131,6 +131,7 @@ function beginTurn(
   round: number,
   now: number,
   rng: Rng,
+  skipped: PlayerId | null = null,
 ): ReverieState {
   const turn: Turn = {
     round,
@@ -146,6 +147,9 @@ function beginTurn(
     deadline: deadline(state.settings.clueSeconds, now),
     results: null,
     allOrNone: null,
+    skipped,
+    autoGiven: [],
+    missedVote: [],
   };
   return { ...state, seed: newSeed(rng), turn };
 }
@@ -347,6 +351,7 @@ function start(state: ReverieState, ctx: Ctx): Result {
     winners: [],
     endReason: null,
     gamesPlayed: state.gamesPlayed + 1,
+    departed: {},
   };
   next = refill(next, ctx.rng);
   // The storyteller alternates between games; within a game it goes round the table.
@@ -495,8 +500,15 @@ function playerJoined(state: ReverieState, player: PlayerInfo): ReverieState {
   // Between games newcomers take a seat straight away (if there is one); mid-game they watch
   // until they sit down between turns, and then get cards at the next turn.
   const playing = state.phase !== 'playing' && players(state).length < MAX_PLAYERS;
-  const seat: Seat = { name: player.name, color: nextColor(state), playing, score: 0, hand: [] };
-  return { ...state, seats: { ...state.seats, [player.id]: seat } };
+  // Someone coming back to the game they left picks up their score again.
+  const kept = state.departed?.[player.id];
+  const score = state.phase === 'lobby' ? 0 : (kept ?? 0);
+  const seat: Seat = { name: player.name, color: nextColor(state), playing, score, hand: [] };
+  const next: ReverieState = { ...state, seats: { ...state.seats, [player.id]: seat } };
+  if (kept === undefined) return next;
+  const departed = { ...state.departed };
+  delete departed[player.id];
+  return { ...next, departed };
 }
 
 function playerLeft(state: ReverieState, playerId: PlayerId, now: number): ReverieState {
@@ -509,7 +521,16 @@ function playerLeft(state: ReverieState, playerId: PlayerId, now: number): Rever
   if (state.phase === 'playing' && turn && turn.nextStoryteller === playerId) {
     turn = { ...turn, nextStoryteller: playingAfter(state, playerId) ?? turn.storyteller };
   }
-  let next: ReverieState = { ...state, seats, turn, discard: [...state.discard, ...seat.hand] };
+  // Remember the score, so a player who comes back during this game picks it up again.
+  const departed =
+    state.phase === 'lobby' ? state.departed : { ...state.departed, [playerId]: seat.score };
+  let next: ReverieState = {
+    ...state,
+    seats,
+    turn,
+    departed,
+    discard: [...state.discard, ...seat.hand],
+  };
   // During the reveal the table and votes are already scored and stay as they are: the host's
   // Next turn discards the table, story card included.
   if (next.phase !== 'playing' || !turn || !seat.playing || turn.phase === 'reveal') return next;
@@ -564,14 +585,16 @@ function onDeadline(state: ReverieState, now: number): ReverieState {
   if (due === null || now < due || !turn) return state;
   const rng = hiddenRng(state, now);
   if (turn.phase === 'clue') {
-    // A storyteller who ran out of time is skipped.
-    return beginTurn(state, nextStorytellerOf(state, turn), turn.round, now, rng);
+    // A storyteller who ran out of time is skipped, and the new turn says so.
+    return beginTurn(state, nextStorytellerOf(state, turn), turn.round, now, rng, turn.storyteller);
   }
   if (turn.phase === 'pick') {
     // Whoever hasn't given a card gives the first card(s) of their hand, then the table is laid.
     let next = state;
+    const autoGiven: PlayerId[] = [];
     for (const id of others(state)) {
       if (id in next.turn!.submissions) continue;
+      autoGiven.push(id);
       const seat = next.seats[id]!;
       next = {
         ...next,
@@ -582,9 +605,12 @@ function onDeadline(state: ReverieState, now: number): ReverieState {
         },
       };
     }
-    return layTable(next, rng, now);
+    return layTable({ ...next, turn: { ...next.turn!, autoGiven } }, rng, now);
   }
-  if (turn.phase === 'vote') return reveal(state);
+  if (turn.phase === 'vote') {
+    const missedVote = others(state).filter((id) => !(id in turn.votes));
+    return reveal({ ...state, turn: { ...turn, missedVote } });
+  }
   return { ...state, turn: { ...turn, deadline: null } };
 }
 
@@ -639,6 +665,9 @@ function view(state: ReverieState, viewer: PlayerId | null): ReverieView {
           results: turn.results,
           allOrNone: turn.allOrNone,
           deadline: turn.deadline,
+          skipped: turn.skipped ?? null,
+          autoGiven: [...(turn.autoGiven ?? [])],
+          missedVote: [...(turn.missedVote ?? [])],
         }
       : null,
     winners: state.winners,

@@ -324,6 +324,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     pass: z.literal(true).optional(),
   }),
   z.object({ type: z.literal('ready-to-vote'), ready: z.boolean() }),
+  /** Host: open the vote without waiting for everyone to be ready (someone dropped out). */
+  z.object({ type: z.literal('start-vote') }),
   z.object({ type: z.literal('vote'), target: id }),
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),
@@ -423,6 +425,11 @@ export interface NightfallView {
   myRole: RoleId | null;
   readyCount: number;
   meReady: boolean;
+  /**
+   * Who the table is still waiting on, so the UI can name them: not Ready yet (ready), not
+   * ready to vote (day), or not voted (vote). Empty in the other stages.
+   */
+  waitingOn: PlayerId[];
   night: NightView | null;
   day: DayView | null;
   vote: VoteView | null;

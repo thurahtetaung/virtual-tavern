@@ -1,13 +1,22 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
-import { Badge, Button, Hint, Panel, cn } from '@vt/ui';
+import type { ActOptions, GameRoomInfo } from '@vt/game-sdk';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { buildNightPlan, epicPossible, stepDurations, usesMarks } from '../logic/plan.ts';
-import { cardsNeeded, recommended, SCENARIOS, scenarioRoles } from '../logic/presets.ts';
+import {
+  LEVEL_LABEL,
+  type Preset,
+  RECOMMENDED,
+  SCENARIOS,
+  cardsNeeded,
+  recommended,
+  scenarioRoles,
+} from '../logic/presets.ts';
 import {
   ARTIFACTS,
   ARTIFACT_IDS,
   ENABLED_SETS,
   ROLES,
   type RoleId,
+  type Team,
   defaultArtifacts,
   rolesBySet,
 } from '../logic/roles.ts';
@@ -22,8 +31,9 @@ import {
 import type { Deck } from './assets.ts';
 import { CardFace, MarkChip, useRoleDetails } from './Cards.tsx';
 import { type Status, startBlocker } from './status.ts';
+import { TEAM_LABEL } from './text.ts';
 
-type Act = (a: NightfallAction) => Promise<boolean>;
+type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 
 const STEP_CHOICES = [5, 8, 10, 12, 15, 20, 30];
 const DAY_CHOICES = [120, 180, 240, 300, 420, 600].filter(
@@ -34,6 +44,81 @@ const NARRATION: { id: NarrationMode; label: string }[] = [
   { id: 'host', label: 'Host’s device' },
   { id: 'all', label: 'Every device' },
 ];
+
+/** Who hears what, for each narration choice. */
+const NARRATION_HELP: Record<NarrationMode, string> = {
+  off: 'No phone speaks. Every screen still shows the narration as text, so someone can read it out.',
+  host: 'Only the host’s phone speaks the narration out loud: put it in the middle of the table. Every screen also shows it as text.',
+  all: 'Every phone speaks. Best when you play apart (on a call); in one room the voices echo, so pick Host’s device.',
+};
+
+/** A team colour (with its name, not colour alone) on each role tile. */
+const TEAM_PILL: Record<Team, string> = {
+  village: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
+  werewolf: 'bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200',
+  tanner: 'bg-orange-100 text-orange-900 dark:bg-orange-500/15 dark:text-orange-200',
+  vampire: 'bg-purple-100 text-purple-900 dark:bg-purple-500/15 dark:text-purple-200',
+  assassin: 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
+  'apprentice-assassin': 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
+};
+
+/** A ready-made setup: its name, a tag, one line, and why it can't be picked (as text). */
+function PresetCard({
+  name,
+  preset,
+  roles,
+  current,
+  minPlayers,
+  onPick,
+}: {
+  name: string;
+  preset: Pick<Preset, 'description' | 'level'>;
+  roles: RoleId[] | null;
+  current: readonly RoleId[];
+  minPlayers: number;
+  onPick: (roles: RoleId[]) => void;
+}) {
+  const on = roles !== null && [...roles].sort().join() === [...current].sort().join();
+  return (
+    <li>
+      <button
+        type="button"
+        disabled={!roles}
+        aria-pressed={on}
+        onClick={() => roles && onPick(roles)}
+        className={cn(
+          'flex h-full w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left ring-1 transition',
+          on
+            ? 'bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-500/10'
+            : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
+          !roles && 'opacity-60',
+        )}
+      >
+        <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
+          {name}
+          <span
+            className={cn(
+              'rounded-full px-1.5 text-xs font-semibold',
+              preset.level === 'beginner'
+                ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
+                : preset.level === 'chaos'
+                  ? 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200'
+                  : 'bg-stone-200 text-stone-800 dark:bg-stone-700 dark:text-stone-100',
+            )}
+          >
+            {LEVEL_LABEL[preset.level]}
+          </span>
+        </span>
+        <span className="text-xs text-stone-600 dark:text-stone-400">{preset.description}</span>
+        {!roles && (
+          <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+            Needs {minPlayers}+ players
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
 
 function Segmented<T extends string | number>({
   label,
@@ -110,6 +195,14 @@ function RoleTile({
         <CardFace role={role} deck={deck} size="sm" className={cn(count === 0 && 'opacity-60')} />
       </button>
       <span className="w-full truncate text-center text-xs font-semibold">{deck.name(role)}</span>
+      <span
+        className={cn(
+          'rounded-full px-1.5 text-[0.7rem] font-semibold',
+          TEAM_PILL[ROLES[role].team],
+        )}
+      >
+        {TEAM_LABEL[ROLES[role].team]}
+      </span>
       {editable ? (
         <div className="flex items-center gap-1">
           <button
@@ -171,6 +264,17 @@ export function Lobby({
   const offered = defaultArtifacts(s.roles);
   const presetName = (id: string, fallback: string) =>
     deck.manifest?.presets?.[id]?.name?.trim() || fallback;
+  const tableSize = Math.max(3, Math.min(MAX_PLAYERS, seated.length));
+  // The setups stay open until the host has a card list of their own.
+  const customised =
+    s.roles.length === need &&
+    ![recommended(seated.length), ...SCENARIOS.map((p) => scenarioRoles(p, seated.length))].some(
+      (r) => r && [...r].sort().join() === [...s.roles].sort().join(),
+    );
+  const sets = rolesBySet(ENABLED_SETS);
+  const advancedIn = sets
+    .filter(({ set }) => set !== 'base')
+    .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
@@ -180,13 +284,14 @@ export function Lobby({
         </h3>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {seated.map((p) => (
-            <li
-              key={p.id}
-              className={cn('inline-flex items-center gap-1', !online(p.id) && 'opacity-50')}
-            >
+            <li key={p.id} className="inline-flex items-center gap-1">
               <span aria-hidden>🕯️</span>
-              {p.name}
-              {p.id === view.me?.id && <Badge>you</Badge>}
+              <PlayerTag
+                name={p.name}
+                host={p.id === room.hostId}
+                you={p.id === view.me?.id}
+                offline={!online(p.id)}
+              />
             </li>
           ))}
         </ul>
@@ -195,8 +300,16 @@ export function Lobby({
             Watching:{' '}
             {view.seats
               .filter((x) => !x.playing)
-              .map((x) => x.name)
-              .join(', ')}
+              .map((x) => (
+                <PlayerTag
+                  key={x.id}
+                  className="mr-2"
+                  name={x.name}
+                  host={x.id === room.hostId}
+                  you={x.id === view.me?.id}
+                  offline={!online(x.id)}
+                />
+              ))}
           </p>
         )}
         {view.me && (
@@ -205,7 +318,7 @@ export function Lobby({
             variant={view.me.playing ? 'ghost' : 'primary'}
             onClick={() => void act({ type: 'sit', playing: !view.me!.playing })}
           >
-            {view.me.playing ? 'Just watch' : 'Take a seat'}
+            {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
           </Button>
         )}
       </Panel>
@@ -245,66 +358,100 @@ export function Lobby({
             two most voted players die.
           </p>
         )}
-        {editable && (
-          <div className="flex flex-wrap gap-1.5">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setRoles(recommended(seated.length))}
-            >
-              Recommended for {Math.max(3, Math.min(MAX_PLAYERS, seated.length))}
+        {editable && s.roles.length !== need && (
+          <div className="flex flex-wrap items-center gap-2" data-testid="fit-cards">
+            <Button size="sm" onClick={() => setRoles(recommended(seated.length))}>
+              Use the recommended cards for {tableSize}
             </Button>
-            {SCENARIOS.map((p) => {
-              const roles = scenarioRoles(p, seated.length);
-              return (
-                <Button
-                  key={p.id}
-                  size="sm"
-                  variant="secondary"
-                  disabled={!roles}
-                  title={roles ? undefined : `Needs at least ${p.minPlayers} players`}
-                  onClick={() => roles && setRoles(roles)}
-                >
-                  {presetName(p.id, p.name)}
-                </Button>
-              );
-            })}
+            <span className="text-xs text-stone-600 dark:text-stone-400">
+              or add and remove cards below.
+            </span>
           </div>
         )}
-        {rolesBySet(ENABLED_SETS).map(({ set, roles: all }) => {
-          // Guests see only what's in; the host sees every set, the busy ones open.
-          const roles = editable ? all : all.filter((r) => counts.has(r));
-          const inSet = all.reduce((n, r) => n + (counts.get(r) ?? 0), 0);
-          if (!roles.length) return null;
+        {editable && (
+          <details className="group space-y-1" open={!customised}>
+            <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+              <span aria-hidden className="transition group-open:rotate-90">
+                ▸
+              </span>
+              Ready-made setups
+            </summary>
+            <ul className="grid gap-1.5 sm:grid-cols-2" aria-label="Ready-made setups">
+              <PresetCard
+                name={`Recommended for ${tableSize}`}
+                preset={RECOMMENDED}
+                roles={recommended(seated.length)}
+                current={s.roles}
+                minPlayers={3}
+                onPick={setRoles}
+              />
+              {SCENARIOS.map((p) => (
+                <PresetCard
+                  key={p.id}
+                  name={presetName(p.id, p.name)}
+                  preset={p}
+                  roles={scenarioRoles(p, seated.length)}
+                  current={s.roles}
+                  minPlayers={p.minPlayers}
+                  onPick={setRoles}
+                />
+              ))}
+            </ul>
+          </details>
+        )}
+        {(() => {
+          const groups = sets.map(({ set, roles: all }) => {
+            // Guests see only what's in; the host sees every set, the busy ones open.
+            const roles = editable ? all : all.filter((r) => counts.has(r));
+            const inSet = all.reduce((n, r) => n + (counts.get(r) ?? 0), 0);
+            if (!roles.length) return null;
+            return (
+              <details
+                key={set}
+                open={!editable || set === 'base' || inSet > 0}
+                aria-label={deck.setName(set)}
+                className="group space-y-1"
+              >
+                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold text-stone-600 dark:text-stone-400">
+                  <span aria-hidden className="transition group-open:rotate-90">
+                    ▸
+                  </span>
+                  {deck.setName(set)}
+                  {inSet > 0 && <span className="font-normal">· {inSet} in</span>}
+                </summary>
+                <ul className="flex flex-wrap gap-1.5">
+                  {roles.map((role) => (
+                    <RoleTile
+                      key={role}
+                      role={role}
+                      count={counts.get(role) ?? 0}
+                      deck={deck}
+                      editable={editable}
+                      onChange={(n) => setCount(role, n)}
+                    />
+                  ))}
+                </ul>
+              </details>
+            );
+          });
+          if (!editable) return groups;
+          // The host's picker: the base set first, the rest folded away until wanted.
           return (
-            <details
-              key={set}
-              open={!editable || set === 'base' || inSet > 0}
-              aria-label={deck.setName(set)}
-              className="group space-y-1"
-            >
-              <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold text-stone-600 dark:text-stone-400">
-                <span aria-hidden className="transition group-open:rotate-90">
-                  ▸
-                </span>
-                {deck.setName(set)}
-                {inSet > 0 && <span className="font-normal">· {inSet} in</span>}
-              </summary>
-              <ul className="flex flex-wrap gap-1.5">
-                {roles.map((role) => (
-                  <RoleTile
-                    key={role}
-                    role={role}
-                    count={counts.get(role) ?? 0}
-                    deck={deck}
-                    editable={editable}
-                    onChange={(n) => setCount(role, n)}
-                  />
-                ))}
-              </ul>
-            </details>
+            <>
+              {groups[0]}
+              <details open={advancedIn > 0} className="group/more space-y-1">
+                <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+                  <span aria-hidden className="transition group-open/more:rotate-90">
+                    ▸
+                  </span>
+                  More roles (advanced)
+                  {advancedIn > 0 && <span className="font-normal">· {advancedIn} in</span>}
+                </summary>
+                <div className="space-y-1 pl-2">{groups.slice(1)}</div>
+              </details>
+            </>
           );
-        })}
+        })()}
       </Panel>
 
       <Panel className="space-y-3">
@@ -330,6 +477,9 @@ export function Lobby({
           onChange={(narration) => void act({ type: 'update-settings', narration })}
           disabled={!editable}
         />
+        <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="narration-help">
+          {NARRATION_HELP[s.narration]}
+        </p>
         <div className="flex flex-wrap gap-4">
           <label
             className={cn('flex items-center gap-2 text-sm', s.narration === 'off' && 'opacity-50')}
@@ -341,6 +491,11 @@ export function Lobby({
               onChange={(e) => void act({ type: 'update-settings', music: e.target.checked })}
             />
             Background music
+            {s.narration === 'off' && (
+              <span className="text-xs">
+                (plays on the narrating phones, so it needs narration)
+              </span>
+            )}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -396,16 +551,24 @@ export function Lobby({
         </p>
       </Panel>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {editable && (
-          <Button size="lg" disabled={blocker !== null} onClick={() => void act({ type: 'start' })}>
-            Deal the cards
+      {/* On phones the long card list pushes Deal off screen, so it floats at the bottom. */}
+      <StickyBar>
+        <div className="flex flex-wrap items-center gap-2">
+          {editable && (
+            <Button
+              size="lg"
+              disabled={blocker !== null}
+              onClick={() => void act({ type: 'start' }, { anchor: 'nightfall-deal' })}
+            >
+              Deal the cards
+            </Button>
+          )}
+          <Button variant="ghost" onClick={showGuide}>
+            How to play
           </Button>
-        )}
-        <Button variant="ghost" onClick={showGuide}>
-          How to play
-        </Button>
-      </div>
+        </div>
+        <RefusalSlot anchor="nightfall-deal" />
+      </StickyBar>
     </div>
   );
 }

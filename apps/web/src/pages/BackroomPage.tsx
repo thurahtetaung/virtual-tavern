@@ -4,9 +4,10 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { GameCard } from '../components/GameCard.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
-import { api } from '../lib/api.ts';
+import { ApiFailure, api } from '../lib/api.ts';
 import { useBackroom } from '../lib/backroom.ts';
 import { saveName, savedName } from '../lib/identity.ts';
+import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 
@@ -71,11 +72,14 @@ function Lobby({ onLock }: { onLock: () => void }) {
         <button
           type="button"
           onClick={onLock}
-          className="rounded-lg px-3 py-1.5 text-sm font-semibold text-amber-200/60 transition hover:bg-amber-950 hover:text-amber-200"
+          className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold text-amber-200/60 transition hover:bg-amber-950 hover:text-amber-200"
         >
           Lock the door on this device
         </button>
-        <Link to="/" className="text-sm text-amber-200/50 hover:text-amber-200">
+        <Link
+          to="/"
+          className="inline-flex min-h-11 items-center text-sm text-amber-200/50 hover:text-amber-200"
+        >
           ← Back to the tavern
         </Link>
       </div>
@@ -94,9 +98,19 @@ export function BackroomPage() {
   const toast = useToast();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
+  // Sent back from a room because the word changed (a new password, or everyone signed out).
+  const changed = params.has('changed');
   const { status, refresh } = useBackroom();
   const [word, setWord] = useState('');
   const [busy, setBusy] = useState(false);
+  // Seconds until the bouncer listens again, after too many wrong words.
+  const [wait, setWait] = useState(0);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const timer = window.setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [wait]);
+  usePageTitle('The Back Room');
 
   const knock = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,6 +122,7 @@ export function BackroomPage() {
       else void refresh();
     } catch (err) {
       toast((err as Error).message);
+      if (err instanceof ApiFailure && err.retryAfter) setWait(err.retryAfter);
       setWord('');
     }
     setBusy(false);
@@ -152,6 +167,17 @@ export function BackroomPage() {
           </p>
         ) : status.unlocked ? null : (
           <form onSubmit={(e) => void knock(e)} className="space-y-3">
+            {changed && (
+              <p role="status" className="text-amber-200">
+                The word has changed — ask for the new one.
+              </p>
+            )}
+            {next && (
+              <p className="text-amber-200/70" data-testid="invite-note">
+                Your friend's table is through this door. They know the word: ask them for it, then
+                knock and you'll go straight to their game.
+              </p>
+            )}
             <p className="text-amber-200/80">Members only. What's the word?</p>
             <label className="sr-only" htmlFor="backroom-word">
               The word
@@ -166,12 +192,15 @@ export function BackroomPage() {
               className="h-12 w-full rounded-lg bg-stone-900 px-4 text-center text-lg tracking-widest text-amber-50 ring-1 ring-amber-900 placeholder:text-amber-200/30 focus:ring-amber-500"
               placeholder="psst…"
             />
-            <Button type="submit" size="lg" className="w-full" disabled={!word || busy}>
-              Knock
+            <Button type="submit" size="lg" className="w-full" disabled={!word || busy || wait > 0}>
+              {wait > 0 ? `Knock again in ${wait} s` : 'Knock'}
             </Button>
           </form>
         )}
-        <Link to="/" className="inline-block text-sm text-amber-200/50 hover:text-amber-200">
+        <Link
+          to="/"
+          className="inline-flex min-h-11 items-center text-sm text-amber-200/50 hover:text-amber-200"
+        >
           ← Back to the tavern
         </Link>
       </div>

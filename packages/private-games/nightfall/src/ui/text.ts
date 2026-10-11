@@ -28,6 +28,17 @@ export function listNames(names: readonly string[]): string {
 export const centreName = (i: number, kinds?: readonly string[]) =>
   kinds?.[i] === 'wolf' ? 'the centre werewolf card' : `centre card ${i + 1}`;
 
+/**
+ * The centre slots for these cards: three centre cards, then the centre werewolf when the Alpha
+ * Wolf is in. Public: it follows from the cards the host picked.
+ */
+export const centreKinds = (roles: readonly RoleId[]): ('center' | 'wolf')[] => [
+  'center',
+  'center',
+  'center',
+  ...(roles.includes('alpha-wolf') ? (['wolf'] as const) : []),
+];
+
 export const TEAM_LABEL: Record<TeamResultId, string> = {
   village: 'Village',
   werewolf: 'Werewolves',
@@ -36,6 +47,12 @@ export const TEAM_LABEL: Record<TeamResultId, string> = {
   assassin: 'Assassin',
   'apprentice-assassin': 'Apprentice Assassin',
 };
+
+/** "Village wins", "Werewolves win": the verb agrees with the team's label. */
+export function teamOutcome(team: TeamResultId, won: boolean): string {
+  const plural = team === 'werewolf' || team === 'vampire';
+  return `${TEAM_LABEL[team]} ${won ? (plural ? 'win' : 'wins') : plural ? 'lose' : 'loses'}`;
+}
 
 // ---- Narration text ----
 
@@ -149,6 +166,65 @@ export function lineText(key: string, deck: Deck): string {
   if (!isRoleId(role)) return '';
   if (parts[1] === 'close') return `${n(role)}, close your eyes.`;
   return `${n(role)}, wake up. ${sentence(WAKE[role])}`.trim();
+}
+
+/** Groups the narrator calls together, for the third-person lines. */
+const GROUP_SUBJECT: Record<string, string> = {
+  werewolf: 'The werewolves',
+  vampire: 'The vampires',
+  lovers: 'The lovers',
+  dusk: 'Everyone',
+};
+
+/**
+ * The narration as text for a screen. The narrator's own words speak to the players who are
+ * awake, so only a player woken in this step reads them; everyone else reads who is awake, in
+ * the third person ("The Seer is awake."). When the vote opens because everyone was ready, it
+ * doesn't say time ran out.
+ */
+export function narrationText(
+  key: string,
+  deck: Deck,
+  opts: { awake: boolean; readyEarly?: boolean },
+): string {
+  if (key === FRAME_LINES.vote)
+    return opts.readyEarly ? 'Everyone’s ready. Three, two, one… vote!' : lineText(key, deck);
+  if (opts.awake) return lineText(key, deck);
+  switch (key) {
+    case FRAME_LINES.nightStart:
+    case 'dusk:close':
+      return 'Everyone closes their eyes.';
+    case FRAME_LINES.nightEnd:
+    case FRAME_LINES.nightEndMarks:
+      return 'The night is ending.';
+    case FRAME_LINES.dayStart:
+      return 'Everyone wakes up!';
+    case FRAME_LINES.epicBattle:
+    case FRAME_LINES.oneMinute:
+    case FRAME_LINES.thirtySeconds:
+      return lineText(key, deck);
+    case 'dusk:wake':
+      return 'Everyone is awake, looking at their own Mark.';
+    case 'werewolf:lone-wolf':
+      return 'A lone werewolf may look at a centre card.';
+    case 'renfield:hands-away':
+      return 'The vampires put their hands away.';
+    case 'assassin:close:with-apprentice':
+      return `The ${deck.name('assassin')} and the ${deck.name('apprentice-assassin')} go back to sleep.`;
+  }
+  const parts = key.split(':');
+  if (parts.includes('thumbs-away')) return 'Thumbs away.';
+  let subject = GROUP_SUBJECT[parts[0]!];
+  let plural = subject !== undefined && subject !== 'Everyone';
+  if (!subject && parts[0] === 'doppelganger' && parts[1] && isRoleId(parts[1])) {
+    subject = `The ${deck.name('doppelganger')} (if she copied the ${deck.name(parts[1])})`;
+    plural = false;
+  } else if (!subject && isRoleId(parts[0]!)) {
+    subject = `The ${deck.name(parts[0])}`;
+  }
+  if (!subject) return '';
+  if (parts.includes('close')) return `${subject} ${plural ? 'go' : 'goes'} back to sleep.`;
+  return `${subject} ${plural ? 'are' : 'is'} awake.`;
 }
 
 // ---- What players learn ----
@@ -272,7 +348,116 @@ export function marksIn(n: NoteBody): MarkId[] {
   }
 }
 
-/** A timeline entry, in the third person, for the reveal. */
+/** A note, in the third person, about the player `by` it belongs to (for the replay). */
+export function describeNoteAbout(
+  note: NoteBody,
+  byId: string | null,
+  nameOf: NameOf,
+  deck: Deck,
+  kinds?: readonly string[],
+): string {
+  const r = (role: RoleId) => deck.name(role);
+  const by = nameOf(byId);
+  const who = (id: string) => (id === byId ? 'themselves' : nameOf(id));
+  const list = (ids: readonly string[]) => listNames(ids.map(who));
+  const slot = (s: Slot) =>
+    'player' in s
+      ? s.player === byId
+        ? `${by}’s own card`
+        : `${nameOf(s.player)}’s card`
+      : centreName(s.center, kinds);
+  switch (note.kind) {
+    case 'copied':
+      return note.blind
+        ? `${by} looked at ${nameOf(note.target)}’s card: ${r(note.role)}. ${by} became whatever it copied, without knowing what.`
+        : `${by} looked at ${nameOf(note.target)}’s card: ${r(note.role)}, and became the ${r(note.role)}.`;
+    case 'copied-centre':
+      return `${by} looked at ${centreName(note.center, kinds)}: ${r(note.role)}, and became the ${r(note.role)}.`;
+    case 'saw':
+      return `${by} saw ${slot(note.slot)}: ${r(note.role)}.`;
+    case 'saw-own':
+      return `${by} looked at their own card: ${r(note.role)}.`;
+    case 'group': {
+      const others = note.players.filter((p) => p !== byId);
+      const GROUP: Record<typeof note.group, [string, string]> = {
+        werewolves: [`${by} saw the other werewolves`, `${by} was the only werewolf awake.`],
+        masons: [`${by} saw the other Masons`, `${by} was the only Mason awake.`],
+        vampires: [`${by} saw the other vampires`, `${by} was the only vampire awake.`],
+        lovers: [
+          `${by} saw their love`,
+          `${by} was the only one in love: the Mark of Love did nothing.`,
+        ],
+        assassins: [`${by} saw the ${r('assassin')}`, `${by} saw no ${r('assassin')} awake.`],
+        apprentices: [
+          `${by} saw the ${r('apprentice-assassin')}`,
+          `${by} saw no ${r('apprentice-assassin')} awake.`,
+        ],
+      };
+      const [some, none] = GROUP[note.group];
+      const base = others.length ? `${some}: ${list(others)}.` : none;
+      const thumbs = note.thumbs?.filter((p) => p !== byId) ?? [];
+      return thumbs.length ? `${base} Showing a werewolf thumb: ${list(thumbs)}.` : base;
+    }
+    case 'thumbs': {
+      const of = {
+        werewolves: 'the werewolves’ thumbs',
+        tanner: 'the Tanner’s thumb',
+        seers: 'the seers’ thumbs',
+        touched: 'who had looked at or moved a card',
+      }[note.of];
+      return `${by} saw ${of}: ${note.players.length ? list(note.players) : 'nobody'}.`;
+    }
+    case 'robbed':
+      return `${by} swapped cards with ${nameOf(note.target)}, and took the ${r(note.role)}.`;
+    case 'swapped':
+      return `${by} swapped ${slot(note.a)} and ${slot(note.b)}.`;
+    case 'took-center':
+      return `${by} swapped their card with ${centreName(note.center, kinds)}, without looking.`;
+    case 'witched':
+      return `${by} gave ${centreName(note.center, kinds)} to ${who(note.target)}.`;
+    case 'shielded':
+      return `${by} put a shield on ${nameOf(note.target)}’s card.`;
+    case 'tapped':
+      return `${by} tapped ${nameOf(note.target)} on the shoulder.`;
+    case 'was-tapped':
+      return `${by} was tapped on the ${note.side} shoulder.`;
+    case 'moved-all':
+      return `${by} moved everyone else’s card one seat to the ${note.side}.`;
+    case 'revealed':
+      return note.stayed
+        ? `${by} turned ${nameOf(note.target)}’s card face up: ${r(note.role)}. It stayed up.`
+        : `${by} turned ${nameOf(note.target)}’s card: ${r(note.role)}. It went back face down.`;
+    case 'artifact-placed':
+      return `${by} placed an artifact on ${note.target === byId ? 'their own' : `${nameOf(note.target)}’s`} card.`;
+    case 'became':
+      return `${by} stopped, and became the ${r(note.role)}.`;
+    case 'blocked':
+      return note.reason === 'shielded'
+        ? `${by}’s card was shielded, so they couldn’t act.`
+        : `${by} had nobody to choose.`;
+    case 'passed':
+      return `${by} did nothing.`;
+    case 'artifact':
+      return `${by}’s card carried an artifact: ${deck.artifactName(note.artifact)}.`;
+    case 'marked':
+      return `${by} gave the ${deck.markName(note.mark)} to ${list(note.targets)}.`;
+    case 'saw-vampires': {
+      const vampires = note.players.length ? list(note.players) : 'nobody';
+      const pointed = note.target ? ` They pointed at ${who(note.target)}.` : '';
+      return `${by} took the ${deck.markName('bat')}. The vampires: ${vampires}.${pointed}`;
+    }
+    case 'mark':
+      return `${by}’s Mark: ${deck.markName(note.mark)}${note.doppel ? ' (the Doppelgänger’s)' : ''}.`;
+    case 'saw-mark':
+      return `${by} saw ${nameOf(note.target)}’s Mark: ${deck.markName(note.mark)}.`;
+    case 'pickpocketed':
+      return `${by} swapped Marks with ${nameOf(note.target)}, and got the ${deck.markName(note.mark)}.`;
+    case 'swapped-marks':
+      return `${by} swapped the Marks of ${who(note.a)} and ${who(note.b)}.`;
+  }
+}
+
+/** A timeline entry, in the third person, for the reveal (everyone sees the same words). */
 export function describeEntry(
   entry: TimelineEntry,
   nameOf: NameOf,
@@ -280,16 +465,7 @@ export function describeEntry(
   kinds?: readonly string[],
 ): string {
   if (entry.note.kind === 'nobody') return 'Nobody at the table had this card.';
-  const by = nameOf(entry.by);
-  const text = describeNote(entry.note, nameOf, deck, kinds, entry.by ?? undefined)
-    .replace(/^You /, `${by} `)
-    .replace(/ your card/g, ` ${by}’s card`)
-    .replace(/^Your card/, `${by}’s card`)
-    .replace(/^Your /, `${by}’s `)
-    .replace(/\. Your /g, `. ${by}’s `)
-    .replace(/\byourself\b/g, 'themselves')
-    .replace(/ You are now/g, ` ${by} is now`)
-    .replace(/\byou\b/g, by);
+  const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`
     : '';

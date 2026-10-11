@@ -17,11 +17,20 @@ Implement `GameDefinition` from `@vt/game-sdk` (see `packages/games/codenames/sr
 
 ## 2. Guide: `src/logic/guide.ts`
 
-Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Update it in the same PR as any rule change.
+Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Also give it a `quickStart`: 5 or 6 short bullets that cover a whole game ("what do I do now?"). It renders first, both on `/rules/:id` and in the room's rules drawer, and `apps/server/src/games/guides.test.ts` checks every game has one. Update the guide in the same PR as any rule change.
 
 ## 3. UI: `src/ui`
 
 Export a React component that takes `GameUiProps<View, Action>`. Use the `@vt/ui` building blocks (`Button`, `Panel`, `Hint`, `Countdown`, `Modal`, and the lobby's `WordListPicker` and `TimerSettings`) so the game matches the rest of the site. Give `WordListPicker` a `summary` that says how your game uses the words (its default describes the Codenames board). Report `statusFor(...).yourMove` through `setYourMove` in a block-bodied effect while a game is in play, so the tab title shows "● Your turn". Design for a phone first: a player should never need to scroll through more than about one screen to act. Split dense screens into tabs, as Enigma does. Always show a `Hint` telling the viewer what to do right now.
+
+The shell and `@vt/ui` share the patterns every game needs, so use them rather than rolling your own:
+
+- **Who we're waiting for:** name people, never count them. `waitingFor(ids, room.players, { you })` from `@vt/game-sdk` gives "Waiting for: Ana, Ben (offline)", and `waitingForHost(room)` gives "Waiting for Ana (host) to start…". List players with `PlayerTag` (👑 for the host, an "offline" mark).
+- **Timers:** give `Countdown` a `label` for what it times ("to give a clue"). Strict timers add `atZero` (what happens at 0:00); reminder timers set `soft` and an `expiredHint` (what happens now that time is up). When `onDeadline` acts for someone, record it in the log and show it with `TimeoutNote` or `timedOut()` ("⏱ Time ran out: a word was picked for you").
+- **Watchers:** call `useSpectatorPrompt(setSpectator, watching ? { text, actionLabel, action } : null)` from the game root. The shell shows "You're watching" at the top of the room, and the button runs your action, usually `revealElement(id)` on your seat control or a direct "sit" action.
+- **Lobby:** wrap the Start or Deal control in `StickyBar`, so it floats at the bottom of a phone screen while its spot is out of view.
+- **Refusals:** put a `RefusalSlot anchor="…"` under a form and send its action with `act(action, { anchor: '…' })`. The server's refusal then appears there, or as a toast when the slot isn't on screen.
+- **End screens:** use `Standings` for scored games. It shows a podium, ties sharing a place, and the full final standings. Say "X wins" once, in the status line or the result panel, never both.
 
 ## Word content
 

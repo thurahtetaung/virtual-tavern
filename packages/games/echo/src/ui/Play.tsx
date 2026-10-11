@@ -1,5 +1,11 @@
-import { wordKey } from '@vt/game-sdk';
-import { Button, Panel, cn } from '@vt/ui';
+import {
+  type ActOptions,
+  type GameRoomInfo,
+  waitingFor,
+  waitingForHost,
+  wordKey,
+} from '@vt/game-sdk';
+import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -11,9 +17,9 @@ import {
   type ResolvedCard,
   type TurnView,
 } from '../logic/types.ts';
-import { cancelReason, nameOf, stillWriting } from './status.ts';
+import { cancelReason, listNames, lossText, nameOf, stillWriting } from './status.ts';
 
-type Act = (a: EchoAction) => Promise<boolean>;
+type Act = (a: EchoAction, options?: ActOptions) => Promise<boolean>;
 
 const INPUT =
   'block h-12 w-full rounded-lg bg-white px-3 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600';
@@ -33,11 +39,14 @@ function SecretWord({ word, label = 'The word' }: { word: string; label?: string
   );
 }
 
-function Progress({ turn }: { turn: TurnView }) {
-  const done = turn.givers.length - stillWriting(turn).length;
+/** "2 of 4 in · Waiting for: Ana, Ben (offline)": who the clues are waiting on, by name. */
+function Progress({ turn, room }: { turn: TurnView; room: GameRoomInfo }) {
+  const left = stillWriting(turn);
+  const done = turn.givers.length - left.length;
+  const names = waitingFor(left, room.players, { you: room.you });
   return (
     <p className="text-center text-sm text-stone-500">
-      {done} of {turn.givers.length} in
+      {done} of {turn.givers.length} clues in{names && ` · ${names}`}
     </p>
   );
 }
@@ -87,7 +96,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await act({ type: 'give-clues', clues: trimmed });
+    await act({ type: 'give-clues', clues: trimmed }, { anchor: 'echo-clues' });
     setBusy(false);
   };
   return (
@@ -129,6 +138,10 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             ? 'Send clues'
             : 'Send clue'}
       </Button>
+      <RefusalSlot anchor="echo-clues" />
+      <p className="text-center text-xs text-stone-500">
+        Keep your screen away from the guesser, and don’t discuss clues.
+      </p>
     </form>
   );
 }
@@ -201,7 +214,7 @@ function GuessForm({ act }: { act: Act }) {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await act({ type: 'guess', word: guess.trim() });
+    await act({ type: 'guess', word: guess.trim() }, { anchor: 'echo-guess' });
     setBusy(false);
   };
   return (
@@ -227,11 +240,12 @@ function GuessForm({ act }: { act: Act }) {
           variant="secondary"
           size="lg"
           disabled={busy}
-          onClick={() => void act({ type: 'pass' })}
+          onClick={() => void act({ type: 'pass' }, { anchor: 'echo-guess' })}
         >
           Pass
         </Button>
       </div>
+      <RefusalSlot anchor="echo-guess" />
     </form>
   );
 }
@@ -257,29 +271,55 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
     title: 'Not this time',
     tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
   },
+  'pass-timeout': {
+    icon: '⏱',
+    title: 'Time ran out',
+    tone: 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200',
+  },
+  'wrong-timeout': {
+    icon: '⏱',
+    title: 'Time ran out',
+    tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
+  },
 };
 
-function Reveal({ view, turn, act, isHost }: Props & { turn: TurnView }) {
-  const key = turn.outcome === 'right' && turn.countedBy ? 'counted' : (turn.outcome ?? 'wrong');
-  const o = OUTCOME[key]!;
+/** One line under the result: what happened, in plain words. */
+function outcomeLine(view: EchoView, turn: TurnView): string {
   const guesser = nameOf(view, turn.guesser);
+  if (turn.outcome === 'pass') {
+    return turn.timedOut
+      ? `${guesser} didn't answer in time: counts as a pass.`
+      : `${guesser} passed.`;
+  }
+  let line = `${guesser} guessed “${turn.guess ?? '—'}”.`;
+  if (turn.countedBy) line += ` ${nameOf(view, turn.countedBy)} counted it.`;
+  if (turn.outcome === 'wrong') {
+    if (turn.timedOut) line += ' Nobody decided in time, so it counts as wrong.';
+    line += ` ${lossText(view)}`;
+  }
+  return line;
+}
+
+function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
+  const base = turn.outcome === 'right' && turn.countedBy ? 'counted' : (turn.outcome ?? 'wrong');
+  const o = OUTCOME[turn.timedOut ? `${base}-timeout` : base] ?? OUTCOME[base]!;
+  const missed = turn.missed.map((id) => nameOf(view, id));
   return (
     <div className="space-y-3">
       <div className={cn('rounded-xl px-3 py-2 text-center', o.tone)}>
         <p className="text-xl font-bold">
           {o.icon} {o.title}
         </p>
-        <p className="text-sm">
-          {turn.outcome === 'pass'
-            ? `${guesser} passed.`
-            : `${guesser} guessed “${turn.guess ?? '—'}”.`}
-          {turn.countedBy && ` ${nameOf(view, turn.countedBy)} counted it.`}
-          {turn.outcome === 'wrong' && ' This card and the next are lost.'}
-        </p>
+        <p className="text-sm">{outcomeLine(view, turn)}</p>
       </div>
       {turn.word && <SecretWord word={turn.word} label="The word was" />}
       <ClueList view={view} clues={turn.clues} />
-      {isHost && (
+      {missed.length > 0 && (
+        <p className="text-center text-sm text-stone-500">
+          ⏱ No clue from {listNames(missed)}: time ran out.
+        </p>
+      )}
+      {room.isHost && (
         <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-card' })}>
           {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
         </Button>
@@ -288,8 +328,15 @@ function Reveal({ view, turn, act, isHost }: Props & { turn: TurnView }) {
   );
 }
 
-function Judge({ view, turn, act, isHost }: Props & { turn: TurnView }) {
+function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
+  const isHost = room.isHost;
+  const online = (id: string) => room.players.find((p) => p.id === id)?.connected !== false;
   const giver = turn.givers.includes(view.me?.id ?? '');
+  const guesser = view.role === 'guesser';
+  // The guesser doesn't judge their own guess. A host who is guessing only gets a way out when
+  // no clue writer is around to decide.
+  const nobodyToJudge = !turn.givers.some((g) => online(g));
+  const canMoveOn = giver || (isHost && (!guesser || nobodyToJudge));
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 text-center">
@@ -307,21 +354,33 @@ function Judge({ view, turn, act, isHost }: Props & { turn: TurnView }) {
           </span>
         </p>
       </div>
-      {(giver || isHost) && (
+      {canMoveOn && (
         <div className={cn('grid gap-2', giver && 'grid-cols-2')}>
           {giver && (
             <Button size="lg" onClick={() => void act({ type: 'count-it' })}>
               Count it
             </Button>
           )}
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'continue' })}>
-            Continue
+          <Button
+            variant="secondary"
+            size="lg"
+            className="whitespace-nowrap"
+            onClick={() => void act({ type: 'continue' })}
+          >
+            Doesn't count
           </Button>
         </div>
       )}
       {giver && (
         <p className="text-center text-xs text-stone-500">
-          Count it only if the guess is really the word: a typo or a different spelling.
+          Count it only if the guess is really the word: a typo or a different spelling. Doesn't
+          count loses this card and the next.
+        </p>
+      )}
+      {guesser && canMoveOn && (
+        <p className="text-center text-xs text-stone-500">
+          No clue writer is online to decide. Doesn't count moves on (this card and the next are
+          lost).
         </p>
       )}
       {view.role !== 'guesser' && <ClueList view={view} clues={turn.clues} />}
@@ -332,11 +391,11 @@ function Judge({ view, turn, act, isHost }: Props & { turn: TurnView }) {
 interface Props {
   view: EchoView;
   act: Act;
-  isHost: boolean;
+  room: GameRoomInfo;
 }
 
 /** The card in play, for whoever is looking. */
-export function Stage({ view, act, isHost }: Props) {
+export function Stage({ view, act, room }: Props) {
   const turn = view.turn!;
   const guessing = view.role === 'guesser';
   const writer = turn.givers.includes(view.me?.id ?? '');
@@ -349,7 +408,7 @@ export function Stage({ view, act, isHost }: Props) {
         <div className="space-y-3">
           {turn.word && <SecretWord word={turn.word} />}
           {writer ? <ClueForm key={cardKey} turn={turn} act={act} /> : null}
-          <Progress turn={turn} />
+          <Progress turn={turn} room={room} />
         </div>
       );
     case 'guess':
@@ -368,9 +427,9 @@ export function Stage({ view, act, isHost }: Props) {
         </div>
       );
     case 'judge':
-      return <Judge view={view} turn={turn} act={act} isHost={isHost} />;
+      return <Judge view={view} turn={turn} act={act} room={room} />;
     case 'reveal':
-      return <Reveal view={view} turn={turn} act={act} isHost={isHost} />;
+      return <Reveal view={view} turn={turn} act={act} room={room} />;
   }
 }
 
@@ -379,6 +438,8 @@ const RESULT_ICON: Record<string, string> = { right: '✅', pass: '⏭️', wron
 /** Every card played so far: compact, so it can sit under the game on a phone. */
 export function History({ history, open }: { history: ResolvedCard[]; open?: boolean }) {
   if (history.length === 0) return null;
+  // Cards a wrong guess cost without being played, so the list adds up to the deck.
+  const burned = history.filter((h) => h.burned).length;
   return (
     <details className="group" open={open}>
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
@@ -394,17 +455,28 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
             <span className="font-semibold uppercase">{h.word}</span>
             <span className="min-w-0 truncate text-stone-500">
               {h.guesserName}
-              {h.outcome === 'pass' ? ' passed' : ` guessed “${h.guess ?? '—'}”`}
+              {h.outcome === 'pass'
+                ? h.timedOut
+                  ? ' ran out of time'
+                  : ' passed'
+                : ` guessed “${h.guess ?? '—'}”`}
               {h.countedBy && ' (counted)'}
+              {h.outcome === 'wrong' && h.timedOut && ' (undecided in time)'}
             </span>
           </li>
         ))}
+        {burned > 0 && (
+          <li className="flex items-baseline gap-2 text-stone-500">
+            <span aria-hidden>🔥</span>
+            {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
+          </li>
+        )}
       </ol>
     </details>
   );
 }
 
-export function GameOver({ view, act, isHost }: Props) {
+export function GameOver({ view, act, room }: Props) {
   const deck = view.settings.deckSize;
   return (
     <Panel className="space-y-3 text-center">
@@ -412,10 +484,8 @@ export function GameOver({ view, act, isHost }: Props) {
         {view.score}
         <span className="text-2xl text-stone-500"> / {deck}</span>
       </p>
-      <p className="text-2xl font-bold">
-        {view.endReason === 'too-few' ? 'Too few players left' : rating(view.score, deck)}
-      </p>
-      {isHost ? (
+      <p className="text-2xl font-bold">{rating(view.score, deck)}</p>
+      {room.isHost ? (
         <div className="grid gap-2 sm:flex sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
@@ -425,7 +495,7 @@ export function GameOver({ view, act, isHost }: Props) {
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host to start the next game…</p>
+        <p>{waitingForHost(room, 'start the next game')}</p>
       )}
     </Panel>
   );

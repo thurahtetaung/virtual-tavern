@@ -1,11 +1,19 @@
 import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  revealElement,
+  useSecondsLeft,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect } from 'react';
-import type { HoodwinkAction, HoodwinkView } from '../logic/types.ts';
+import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, Stage } from './Play.tsx';
-import { points, startBlocker, statusFor } from './status.ts';
-import { Scores, Table } from './Table.tsx';
+import { listNames, missingIds, nameOf, points, startBlocker, statusFor } from './status.ts';
+import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 
 export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
 
@@ -13,17 +21,14 @@ export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
 function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: number }) {
   const round = view.round;
   const mine = view.scores.find((s) => s.id === view.me?.id);
+  const strict = view.settings.timerMode === 'strict';
+  const writing = round?.stage === 'write';
   return (
     <div className="flex items-center justify-between gap-2 text-sm sm:text-base">
       <div className="flex min-w-0 items-center gap-3">
         {round && (
           <span className="font-semibold tabular-nums">
             Round {round.number}/{round.rounds}
-          </span>
-        )}
-        {round?.double && (
-          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 dark:bg-rose-500/20 dark:text-rose-200">
-            ×2 points
           </span>
         )}
         {mine && (
@@ -39,16 +44,89 @@ function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: nu
       <Countdown
         deadline={round && round.stage !== 'reveal' ? round.deadline : null}
         clockOffset={clockOffset}
-        expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+        label={writing ? 'to write a lie' : 'to vote'}
+        soft={!strict}
+        expiredHint="Just a reminder: the round waits for everyone."
+        atZero={
+          writing
+            ? 'then missing lies are filled in where the question has spares'
+            : 'then missing votes score nothing'
+        }
       />
     </div>
   );
 }
 
-export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: HoodwinkUiProps) {
+/**
+ * The host's way out when the round waits on someone who isn't coming: once time is up (or
+ * straight away when everyone missing is offline), the stage ends as a strict timeout would.
+ */
+function ContinueWithout({
+  view,
+  room,
+  act,
+  online,
+}: {
+  view: HoodwinkView;
+  room: HoodwinkUiProps['room'];
+  act: HoodwinkUiProps['act'];
+  online: (id: string) => boolean;
+}) {
+  const round = view.round;
+  const left = useSecondsLeft(round?.deadline ?? null, room.clockOffset);
+  if (!room.isHost || view.phase !== 'playing' || !round || round.stage === 'reveal') return null;
+  const missing = missingIds(round);
+  if (missing.length === 0) return null;
+  const timeUp = left === 0;
+  if (!timeUp && !missing.every((id) => !online(id))) return null;
+  // Plain names here: the panel already says they're away.
+  const names =
+    missing.length > 3
+      ? `${missing.length} more players`
+      : listNames(missing.map((id) => nameOf(view, id)));
+  return (
+    <Panel className="space-y-2 text-center" data-testid="continue-without">
+      <p className="text-sm">
+        {timeUp ? '⏰ Time’s up. ' : '📴 '}
+        {round.stage === 'write'
+          ? `Still waiting for ${names}. Continue, and the game picks a lie for them if it can.`
+          : `Still waiting for ${names}. Continue, and they simply don’t vote.`}
+      </p>
+      <Button size="lg" className="w-full" onClick={() => void act({ type: 'continue-without' })}>
+        Continue without {names}
+      </Button>
+    </Panel>
+  );
+}
+
+export function HoodwinkGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const blocker = startBlocker(view);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Watchers get the shell's "You're watching" banner, leading to the Play button.
+  const seats = view.seats.filter((s) => s.playing).length;
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing
+      ? seats < MAX_PLAYERS
+        ? {
+            text:
+              view.phase === 'playing'
+                ? 'Take a seat to play from the next round.'
+                : 'Take a seat to play.',
+            action: () => revealElement(SEAT_CONTROL_ID),
+          }
+        : { text: 'The table is full for now.' }
+      : null,
+  );
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -77,21 +155,32 @@ export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: Hoodwi
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <div className="min-w-0 space-y-3">
         <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {view.phase === 'playing' && view.round?.double && (
+          <p
+            data-testid="final-round"
+            className="rounded-xl bg-rose-100 px-3 py-2 text-center text-sm font-bold text-rose-900 ring-1 ring-rose-300 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+          >
+            🔥 Final round: every point counts double!
+          </p>
+        )}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} />
+          <GameOver view={view} act={act} isHost={room.isHost} room={room} />
         ) : (
           view.round && (
-            <Panel>
-              <Stage view={view} act={act} isHost={room.isHost} />
-            </Panel>
+            <>
+              <ContinueWithout view={view} room={room} act={act} online={online} />
+              <Panel>
+                <Stage view={view} act={act} isHost={room.isHost} />
+              </Panel>
+            </>
           )
         )}
       </div>
       <aside className="space-y-3">
         <Panel className="space-y-3">
           <Scores view={view} />
-          <Table view={view} online={online} act={act} />
+          <Table view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
         {room.isHost && view.phase === 'playing' && (
           <Button

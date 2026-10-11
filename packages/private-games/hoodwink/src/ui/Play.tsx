@@ -1,6 +1,7 @@
-import { Button, Panel, cn } from '@vt/ui';
+import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { Button, Panel, RefusalSlot, Standings, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
-import { awards, displayText, lieProblem, tidyLie } from '../logic/game.ts';
+import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
   type HoodwinkAction,
   type HoodwinkView,
@@ -8,10 +9,10 @@ import {
   type OptionView,
   type RoundView,
 } from '../logic/types.ts';
-import { listNames, nameOf, points, ranks, splitPrompt } from './status.ts';
-import { Avatar } from './Table.tsx';
+import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
+import { toneOf } from './Table.tsx';
 
-type Act = (a: HoodwinkAction) => Promise<boolean>;
+type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
 
 interface Props {
   view: HoodwinkView;
@@ -19,32 +20,28 @@ interface Props {
   isHost: boolean;
 }
 
-/** On a phone, a board of many long answers scrolls inside the viewport rather than the page. */
-const BOARD_SCROLL =
-  'max-sm:max-h-[58dvh] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:p-0.5';
+/** Where the server's refusal of a lie shows: right under the lie form. */
+const LIE_ANCHOR = 'hoodwink-lie';
 
-const TRUTH_MESSAGE = 'That’s the real answer — write a lie!';
+const ANSWER_SIZE = {
+  word: 'a word or two',
+  phrase: 'a short phrase',
+  sentence: 'a whole sentence',
+} as const;
 
 const PROMPT = 'text-center text-xl leading-snug font-bold text-balance break-words sm:text-2xl';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
- * question without a blank ("…?") shows the answer underneath instead.
+ * question without a blank ("…?") stays as it is: the truth tops the board right below.
  */
 export function Prompt({ prompt, fill }: { prompt: string; fill?: string | null }) {
   const parts = splitPrompt(prompt);
   if (!parts) {
     return (
-      <div className="space-y-2 text-center">
-        <p data-testid="prompt" className={PROMPT}>
-          {prompt}
-        </p>
-        {fill && (
-          <p className="mx-auto w-fit max-w-full rounded-md bg-emerald-100 px-3 py-1 text-lg font-bold break-words text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200">
-            {displayText(fill)}
-          </p>
-        )}
-      </div>
+      <p data-testid="prompt" className={PROMPT}>
+        {prompt}
+      </p>
     );
   }
   return (
@@ -79,23 +76,26 @@ const INPUT =
 function LieForm({ round, act }: { round: RoundView; act: Act }) {
   const [text, setText] = useState(round.myLie ?? '');
   const [busy, setBusy] = useState(false);
-  // The answer never reaches the browser, so a lie that matches it is only refused by the server.
+  // The answer never reaches the browser, so a lie that matches it is only refused by the server
+  // (its message shows in the slot under the form); Send stays off until the lie changes.
   const [refused, setRefused] = useState<string | null>(null);
   const trimmed = tidyLie(text);
   const sent = round.myLie !== null;
   const unchanged = sent && trimmed === round.myLie;
-  const local = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
-  const problem = local ?? (refused !== null && refused === trimmed ? TRUTH_MESSAGE : null);
+  const problem = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
+  const blocked = problem !== null || (refused !== null && refused === trimmed);
+  // Once you've sent a lie of your own, "Lie for me" would throw it away, so it goes.
+  const offerLieForMe = round.canLieForMe && (!sent || round.myLieAuto);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const ok = await act({ type: 'lie', text: trimmed });
+    const ok = await act({ type: 'lie', text: trimmed }, { anchor: LIE_ANCHOR });
     setRefused(ok ? null : trimmed);
     setBusy(false);
   };
   const lieForMe = async () => {
     setBusy(true);
-    await act({ type: 'lie-for-me' });
+    await act({ type: 'lie-for-me' }, { anchor: LIE_ANCHOR });
     setRefused(null);
     setBusy(false);
   };
@@ -109,10 +109,10 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="send"
-          aria-invalid={problem ? true : undefined}
+          aria-invalid={blocked ? true : undefined}
           onChange={(e) => setText(e.target.value)}
           placeholder="Something believable…"
-          className={cn(INPUT, 'mt-1', problem && 'ring-2 ring-rose-500')}
+          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-rose-500')}
         />
         {problem && (
           <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
@@ -122,18 +122,14 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
       </label>
       {round.myLieAuto && unchanged && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
-          🤖 Picked for you: it scores half. Type your own to replace it.
+          🎲 Picked for you: it scores half. Type your own to replace it.
         </p>
       )}
-      <div className={cn('grid gap-2', round.canLieForMe && 'grid-cols-[1fr_auto]')}>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={busy || unchanged || !trimmed || problem !== null}
-        >
+      <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
+        <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
           {sent ? (unchanged ? '✓ Sent' : 'Change my lie') : 'Send lie'}
         </Button>
-        {round.canLieForMe && (
+        {offerLieForMe && (
           <Button
             variant="secondary"
             size="lg"
@@ -145,6 +141,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           </Button>
         )}
       </div>
+      <RefusalSlot anchor={LIE_ANCHOR} />
     </form>
   );
 }
@@ -153,11 +150,14 @@ function OptionCard({
   option,
   chosen,
   disabled,
+  filled,
   onPick,
 }: {
   option: OptionView;
   chosen: boolean;
   disabled: boolean;
+  /** The viewer's lie was filled in by the timer. */
+  filled: boolean;
   onPick: () => void;
 }) {
   return (
@@ -177,7 +177,11 @@ function OptionCard({
       )}
     >
       <span className="min-w-0 break-words">{option.text}</span>
-      {option.mine && <span className="shrink-0 text-xs font-medium">Your lie</span>}
+      {option.mine && (
+        <span className="shrink-0 text-xs font-medium">
+          {filled ? 'Filled in for you' : 'Your lie'}
+        </span>
+      )}
       {chosen && !option.mine && (
         <span className="shrink-0 text-sm" aria-hidden>
           ✓
@@ -196,13 +200,14 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
     setBusy(false);
   };
   return (
-    <ul aria-label="Answers" className={cn('grid gap-2 sm:grid-cols-2', BOARD_SCROLL)}>
+    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2">
       {round.options.map((o) => (
         <li key={o.index}>
           <OptionCard
             option={o}
             chosen={round.myVote === o.index}
             disabled={!canVote || busy}
+            filled={round.myLieFilled}
             onPick={() => void pick(o.index)}
           />
         </li>
@@ -211,17 +216,22 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
   );
 }
 
-function Avatars({ view, ids, label }: { view: HoodwinkView; ids: string[]; label: string }) {
+/** Who found the truth or fell for a lie, by name, each with their colour. */
+function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label: string }) {
   if (ids.length === 0) return null;
   return (
-    <span className="flex items-center gap-1.5">
+    <p className="flex flex-wrap items-center gap-1.5">
       <span className="text-xs text-stone-500">{label}</span>
-      <span className="flex -space-x-1.5">
-        {ids.map((id) => (
-          <Avatar key={id} id={id} name={nameOf(view, id)} />
-        ))}
-      </span>
-    </span>
+      {ids.map((id) => (
+        <span
+          key={id}
+          className="inline-flex items-center gap-1 rounded-full bg-stone-100 py-0.5 pr-2 pl-1.5 text-xs font-semibold dark:bg-stone-700/70"
+        >
+          <span aria-hidden className={cn('size-2.5 rounded-full', toneOf(view, id))} />
+          {id === view.me?.id ? 'You' : nameOf(view, id)}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -233,7 +243,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
   );
   const name = (id: string) => (id === view.me?.id ? 'you' : nameOf(view, id));
   return (
-    <ul aria-label="Answers revealed" className={cn('grid gap-2 sm:grid-cols-2', BOARD_SCROLL)}>
+    <ul aria-label="Answers revealed" className="grid gap-2 sm:grid-cols-2">
       {ordered.map((o, i) => (
         <li
           key={o.index}
@@ -264,12 +274,12 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           </p>
           {(o.auto?.length ?? 0) > 0 && (
             <p className="text-xs text-stone-500">
-              🤖 lie for me / filled in
+              🎲 Picked by the game (half points)
               {(o.authors?.length ?? 0) > 1 && `: ${listNames((o.auto ?? []).map(name))}`}
             </p>
           )}
           {(o.voters?.length ?? 0) > 0 ? (
-            <Avatars view={view} ids={o.voters ?? []} label={o.truth ? 'Found by' : 'Fooled'} />
+            <Names view={view} ids={o.voters ?? []} label={o.truth ? 'Found by' : 'Fooled'} />
           ) : (
             <p className="text-xs text-stone-500">
               {o.truth ? 'Nobody found it!' : 'Nobody fell for it.'}
@@ -281,6 +291,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
   );
 }
 
+/** Who scored this round, and why: each player's points with their reasons underneath. */
 function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) {
   const gained = Object.entries(round.points ?? {})
     .filter(([, p]) => p > 0)
@@ -289,16 +300,35 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
     return <p className="text-center text-sm text-stone-500">No points this round.</p>;
   }
   return (
-    <ul aria-label="Points this round" className="flex flex-wrap justify-center gap-1.5">
-      {gained.map(([id, p]) => (
-        <li
-          key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-semibold text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200"
-        >
-          {nameOf(view, id)} +{points(p)}
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-1">
+      {round.double && (
+        <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+          Final round: every point counts double.
+        </p>
+      )}
+      <ul aria-label="Points this round" className="grid gap-1.5 sm:grid-cols-2">
+        {gained.map(([id, p]) => (
+          <li
+            key={id}
+            className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm dark:bg-emerald-500/10"
+          >
+            <span className="flex justify-between gap-2 font-semibold text-emerald-900 dark:text-emerald-200">
+              <span className="min-w-0 truncate">{nameOf(view, id)}</span>
+              <span className="tabular-nums">+{points(p)}</span>
+            </span>
+            {pointsBreakdown(view, round, id).map((line, i) => (
+              <span
+                key={i}
+                className="flex justify-between gap-2 text-xs text-stone-600 dark:text-stone-400"
+              >
+                <span className="min-w-0">{line.reason}</span>
+                <span className="shrink-0 tabular-nums">+{points(line.points)}</span>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -312,6 +342,11 @@ export function Stage({ view, act, isHost }: Props) {
       return (
         <div className="space-y-4">
           <Prompt prompt={round.prompt} />
+          {round.answerSize && round.players.includes(me) && (
+            <p className="text-center text-sm text-stone-600 dark:text-stone-400">
+              💡 The real answer is {ANSWER_SIZE[round.answerSize]}: make your lie match.
+            </p>
+          )}
           {round.players.includes(me) && (
             <LieForm
               // A new "Lie for me" pick remounts the form, so the box shows it, ready to replace.
@@ -347,23 +382,9 @@ export function Stage({ view, act, isHost }: Props) {
   }
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'];
-const STEP_HEIGHT = ['h-24', 'h-16', 'h-10'];
-
-/** Top three on a podium (ties share a step), the awards, then Play again. */
-export function GameOver({ view, act, isHost }: Props) {
+/** The shared podium and final standings, the awards, then Play again. */
+export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomInfo }) {
   const ranked = view.scores;
-  const place = ranks(ranked.map((s) => s.score));
-  const podium = ranked.filter((_, i) => place[i]! <= 3);
-  // Like a real podium: winners in the middle, the rest alternating left and right (2nd, 1st, 3rd),
-  // so ties never push the winner to one side.
-  const order: typeof podium = podium.filter((s) => place[ranked.indexOf(s)] === 1);
-  podium
-    .filter((s) => place[ranked.indexOf(s)]! > 1)
-    .forEach((s, i) => {
-      if (i % 2 === 0) order.unshift(s);
-      else order.push(s);
-    });
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;
@@ -373,27 +394,16 @@ export function GameOver({ view, act, isHost }: Props) {
       {view.endReason === 'too-few' && (
         <p className="font-semibold">Too few players left: final scores so far.</p>
       )}
-      <ol aria-label="Podium" className="flex items-end justify-center gap-2">
-        {order.map((s) => {
-          const rank = place[ranked.indexOf(s)]! - 1;
-          return (
-            <li key={s.id} className="flex w-24 min-w-0 flex-col items-center gap-1">
-              <span className="text-2xl" aria-hidden>
-                {MEDALS[rank]}
-              </span>
-              <Avatar id={s.id} name={s.name} className="size-10 text-base" />
-              <span className="w-full truncate text-sm font-semibold">{s.name}</span>
-              <span className="text-sm tabular-nums">{points(s.score)}</span>
-              <span
-                className={cn(
-                  'w-full rounded-t-lg bg-amber-200 dark:bg-amber-500/30',
-                  STEP_HEIGHT[rank],
-                )}
-              />
-            </li>
-          );
-        })}
-      </ol>
+      <Standings
+        entries={ranked.map((s) => ({
+          id: s.id,
+          name: s.left ? `${s.name} (left)` : s.name,
+          score: s.score,
+        }))}
+        you={view.me?.id}
+        scoreLabel={(n) => `${points(n)} pts`}
+        className="text-left"
+      />
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-500/10">
           <dt className="font-semibold">🎭 Best liar</dt>
@@ -422,7 +432,7 @@ export function GameOver({ view, act, isHost }: Props) {
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host to start the next game…</p>
+        <p>{waitingForHost(room, 'start the next game')}</p>
       )}
     </Panel>
   );

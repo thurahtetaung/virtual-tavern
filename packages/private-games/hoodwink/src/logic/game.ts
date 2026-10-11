@@ -14,6 +14,7 @@ import {
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
+  type AnswerSize,
   AUTO_FOOL_POINTS,
   DEFAULT_ROUNDS,
   FOOL_POINTS,
@@ -222,6 +223,7 @@ function fillMissingLies(state: HoodwinkState): HoodwinkState {
     {
       lies: { ...round.lies, ...Object.fromEntries(filled.map((id, i) => [id, picked[i]!])) },
       autoLies: [...round.autoLies, ...filled],
+      filled,
     },
   );
 }
@@ -416,7 +418,15 @@ function start(state: HoodwinkState, ctx: Ctx): Result {
 function backToLobby(state: HoodwinkState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  return { ...state, phase: 'lobby', questions: [], round: null, scores: {}, endReason: null };
+  return {
+    ...state,
+    phase: 'lobby',
+    questions: [],
+    round: null,
+    scores: {},
+    endReason:
+      state.phase === 'playing' ? 'abandoned' : state.phase === 'lobby' ? state.endReason : null,
+  };
 }
 
 function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
@@ -442,6 +452,12 @@ function lieForMe(state: HoodwinkState, ctx: Ctx): Result {
   if (round instanceof GameError) return round;
   if (!round.players.includes(ctx.by)) {
     return new GameError('not-playing-round', "You're watching this round. You join the next one.");
+  }
+  if (round.lies[ctx.by] !== undefined && !round.autoLies.includes(ctx.by)) {
+    return new GameError(
+      'own-lie-sent',
+      'You’ve already sent your own lie. Change it in the box if you like.',
+    );
   }
   const { picked, seed } = pickDecoys(state, round, 1);
   const decoy = picked[0];
@@ -482,6 +498,36 @@ function nextRound(state: HoodwinkState, ctx: Ctx): Result {
   return beginRound(state, round.number + 1, ctx.now);
 }
 
+/** Who the round is still waiting for: players without a lie, or voters without a vote. */
+export function missingPlayers(
+  round: Pick<Round, 'stage' | 'players' | 'lies' | 'voters' | 'votes'>,
+) {
+  if (round.stage === 'write') return round.players.filter((id) => round.lies[id] === undefined);
+  if (round.stage === 'vote') return round.voters.filter((id) => round.votes[id] === undefined);
+  return [];
+}
+
+/**
+ * The host gives up on the players still missing (offline, or out of time with reminder-only
+ * timers): the stage ends exactly as a strict timeout ends it. The game can't see who is
+ * online, so it trusts the host here, as it does with removing a player; the UI only offers
+ * this once time is up or everyone missing is offline.
+ */
+function continueWithout(state: HoodwinkState, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  const round = state.round;
+  if (state.phase !== 'playing' || !round || round.stage === 'reveal') {
+    return new GameError('wrong-stage', 'Nobody is being waited for.');
+  }
+  if (missingPlayers(round).length === 0) {
+    return new GameError('nobody-missing', 'Everyone is in already.');
+  }
+  return round.stage === 'write'
+    ? maybeStartVoting(state, ctx.now, true)
+    : maybeReveal(state, true);
+}
+
 /**
  * Keeps the deck list up to date between games: decks an admin removed or switched off drop out
  * of the selection, and an empty selection falls back to the defaults.
@@ -519,6 +565,8 @@ function reduce(state: HoodwinkState, action: HoodwinkAction, ctx: Ctx): Result 
       return vote(current, action.option, ctx);
     case 'next-round':
       return nextRound(current, ctx);
+    case 'continue-without':
+      return continueWithout(current, ctx);
   }
 }
 
@@ -619,8 +667,10 @@ function onDeadline(state: HoodwinkState, now: number): HoodwinkState {
   switch (round.stage) {
     case 'write':
       return maybeStartVoting(state, now, true);
-    case 'vote':
-      return maybeReveal(state, true);
+    case 'vote': {
+      const missing = round.voters.some((id) => round.votes[id] === undefined);
+      return maybeReveal(missing ? withRound(state, { voteTimedOut: true }) : state, true);
+    }
     case 'reveal':
       return state;
   }
@@ -657,10 +707,13 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
     prompt: round.question.prompt,
     deckId: round.question.deckId,
     answer: revealed ? round.question.answer : null,
+    answerSize: round.stage === 'write' ? answerSize(round.question.answer) : null,
     players: round.players,
     written: round.players.filter((id) => round.lies[id] !== undefined),
     myLie: viewer === null ? null : (round.lies[viewer] ?? null),
     myLieAuto: viewer !== null && round.autoLies.includes(viewer),
+    myLieFilled: viewer !== null && (round.filled ?? []).includes(viewer),
+    voteTimedOut: !!round.voteTimedOut,
     canLieForMe: (round.question.decoys ?? []).length > 0,
     options,
     voters: round.voters,
@@ -669,6 +722,12 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
     points: revealed ? round.points : null,
     deadline: round.deadline,
   };
+}
+
+/** The real answer's rough length: a word or two, a short phrase, or a whole sentence. */
+export function answerSize(answer: string): AnswerSize {
+  const words = answer.trim().split(/\s+/).filter(Boolean).length;
+  return words <= 2 ? 'word' : words <= 6 ? 'phrase' : 'sentence';
 }
 
 export function rankedScores(state: HoodwinkState): ScoreView[] {

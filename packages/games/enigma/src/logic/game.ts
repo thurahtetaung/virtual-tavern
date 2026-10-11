@@ -10,6 +10,7 @@ import {
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
+import { winnerFrom } from './outcome.ts';
 import {
   CODE_LENGTH,
   type Code,
@@ -24,7 +25,6 @@ import {
   MIN_TEAM_SIZE,
   type Role,
   type Seat,
-  TOKENS_TO_END,
   type Team,
   type TeamState,
   type Transmission,
@@ -248,15 +248,7 @@ function reveal(state: EnigmaState): EnigmaState {
 
 /** End-of-round check: 2 interceptions win, 2 miscommunications lose; score settles ties and round 8. */
 export function decideWinner(state: EnigmaState): Team | 'draw' | null {
-  const qualifies = (t: Team) =>
-    state.teams[t].intercepts >= TOKENS_TO_END || state.teams[otherTeam(t)].misses >= TOKENS_TO_END;
-  const red = qualifies('red');
-  const blue = qualifies('blue');
-  if (red !== blue) return red ? 'red' : 'blue';
-  if (!red && state.round < MAX_ROUNDS) return null;
-  const score = (t: Team) => state.teams[t].intercepts - state.teams[t].misses;
-  const diff = score('red') - score('blue');
-  return diff > 0 ? 'red' : diff < 0 ? 'blue' : 'draw';
+  return winnerFrom(state.teams, state.round);
 }
 
 // ---- Actions ----
@@ -660,7 +652,7 @@ function onDeadline(state: EnigmaState, now: number): EnigmaState {
     let next = state;
     for (const i of state.active) {
       const tx = next.transmissions[i]!;
-      if (!tx.clues) next = withTx(next, i, { ...tx, expired: true });
+      if (!tx.clues) next = withTx(next, i, { ...tx, expired: true, timedOut: true });
     }
     return maybeStartGuessing(next, now);
   }
@@ -670,6 +662,7 @@ function onDeadline(state: EnigmaState, now: number): EnigmaState {
     const tx = next.transmissions[i]!;
     next = withTx(next, i, {
       ...tx,
+      guessTimedOut: true,
       decodeResult: tx.decodeResult === undefined ? null : tx.decodeResult,
       interceptResult: tx.interceptResult === undefined ? null : tx.interceptResult,
     });
@@ -721,6 +714,8 @@ function transmissionView(
     code: tx.revealed || over || mine ? tx.code : null,
     clues: tx.clues,
     expired: tx.expired,
+    timedOut: tx.timedOut ?? false,
+    guessTimedOut: tx.guessTimedOut ?? false,
     active: state.active.includes(index),
     revealed: tx.revealed,
     role,

@@ -1,3 +1,4 @@
+import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
@@ -22,21 +23,98 @@ export function startBlocker(view: CodenamesView, wordCount: number): string | n
   return null;
 }
 
+/**
+ * Whether the viewer may take `team`'s empty Spymaster seat. Mirrors the engine's mid-game seat
+ * lock: seated players stay put, except to fill their own team's vacant spymaster seat;
+ * newcomers may join unless they have already seen the key, in which case only their old
+ * spymaster seat will do.
+ */
+export function canTakeSpymaster(view: CodenamesView, team: Team): boolean {
+  const me = view.me;
+  if (!me || view.seats.some((s) => s.team === team && s.role === 'spymaster')) return false;
+  if (view.phase !== 'playing') return true;
+  const keyHeld = view.keyHolders[me.id];
+  return me.team === null ? (keyHeld ?? team) === team : me.team === team && keyHeld === undefined;
+}
+
+export interface SpymasterAlert {
+  team: Team;
+  text: string;
+  /** The viewer is on that team. */
+  mine: boolean;
+  /** The viewer can take the empty seat right now. */
+  canTake: boolean;
+}
+
+/**
+ * Mid-game, a team without a Spymaster has its turns skipped until someone takes the seat. Says
+ * so to everyone (so the table knows why), and offers the seat to whoever may take it.
+ */
+export function spymasterAlerts(view: CodenamesView): SpymasterAlert[] {
+  if (view.phase !== 'playing') return [];
+  return (['red', 'blue'] as const).flatMap((t) => {
+    if (view.seats.some((s) => s.team === t && s.role === 'spymaster')) return [];
+    const mine = view.me?.team === t;
+    const canTake = canTakeSpymaster(view, t);
+    const text = mine
+      ? `Your team has no Spymaster, so your turns are skipped.${canTake ? ' Take the seat?' : ''}`
+      : `${team(t)} has no Spymaster, so ${team(t)}'s turns are skipped.${canTake ? ' Take the seat?' : ' One of them can take the seat.'}`;
+    return [{ team: t, text, mine, canTake }];
+  });
+}
+
 export interface Status {
   text: string;
   /** True when the viewer is expected to act now. */
   yourMove: boolean;
+  /** Set when the turn waits on players who are all offline, so the host can skip it. */
+  stalled?: boolean;
+}
+
+/** The viewer's own seat in words, e.g. "Blue Operative"; null for spectators. */
+export function myRoleLabel(view: CodenamesView): string | null {
+  const me = view.me;
+  if (!me || me.team === null) return null;
+  return `${TEAM_LABEL[me.team]} ${me.role === 'spymaster' ? 'Spymaster' : 'Operative'}`;
 }
 
 const team = (t: Team) => TEAM_LABEL[t];
 
-/** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: CodenamesView, isHost: boolean, blocker: string | null): Status {
+/** Who is in the room and who hosts it, so waiting texts can name people (and flag offline ones). */
+export interface RoomPeople {
+  hostId: string;
+  players: readonly PresencePlayer[];
+}
+
+/** Why the game ended, e.g. "Blue found the assassin". */
+export function winHow(view: CodenamesView): string {
+  const winner = view.winner!;
+  return view.winReason === 'assassin'
+    ? `${team(winner === 'red' ? 'blue' : 'red')} found the assassin`
+    : `${team(winner)} found all their agents`;
+}
+
+const SKIP_TIP = ' You can skip their turn.';
+const WAIT_TIP = ' The host can skip their turn.';
+
+/**
+ * Plain-language guidance for whoever is looking at the screen. With the room it names the host,
+ * and says when the turn waits on someone who has dropped out (without it, everyone is online).
+ */
+export function statusFor(
+  view: CodenamesView,
+  isHost: boolean,
+  blocker: string | null,
+  room?: RoomPeople,
+): Status {
+  const online = (id: string) => room?.players.find((p) => p.id === id)?.connected !== false;
   const me = view.me;
+  const waitHost = (what: string) =>
+    room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     if (!me || me.team === null) {
       return {
-        text: 'Pick a team below. Each team needs one Spymaster and at least one Operative.',
+        text: 'Pick a team below. Each team needs one Spymaster and at least one Operative. First game? Start as an Operative.',
         yourMove: true,
       };
     }
@@ -46,21 +124,25 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
           text: 'Everyone is seated. Press Start game when your friends are ready!',
           yourMove: true,
         }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
   }
 
   if (view.phase === 'over') {
-    const winner = view.winner!;
-    const how =
-      view.winReason === 'assassin'
-        ? `${team(winner === 'red' ? 'blue' : 'red')} found the assassin`
-        : `${team(winner)} found all their agents`;
-    return { text: `${team(winner)} team wins! ${how}.`, yourMove: false };
+    return { text: `${team(view.winner!)} team wins! ${winHow(view)}.`, yourMove: false };
   }
 
   const turn = view.turn!;
   const mine = me?.team === turn.team;
+  const tip = isHost ? SKIP_TIP : WAIT_TIP;
   if (turn.stage === 'clue') {
+    const spymaster = view.seats.find((s) => s.team === turn.team && s.role === 'spymaster');
+    if (spymaster && spymaster.id !== me?.id && !online(spymaster.id)) {
+      return {
+        text: `${spymaster.name} (${team(turn.team)} Spymaster) seems to be offline.${tip}`,
+        yourMove: false,
+        stalled: true,
+      };
+    }
     if (mine && me?.role === 'spymaster') {
       return {
         text: 'Your turn! Give your team a one-word clue and a number of cards it relates to.',
@@ -72,6 +154,19 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
         ? 'Your Spymaster is thinking of a clue…'
         : `${team(turn.team)} Spymaster is thinking of a clue…`,
       yourMove: false,
+    };
+  }
+
+  const operatives = view.seats.filter((s) => s.team === turn.team && s.role === 'operative');
+  if (operatives.length > 0 && !operatives.some((s) => s.id === me?.id || online(s.id))) {
+    const who =
+      operatives.length === 1
+        ? `${operatives[0]!.name} (${team(turn.team)} Operative) seems`
+        : `${team(turn.team)}'s Operatives (${operatives.map((s) => s.name).join(', ')}) seem`;
+    return {
+      text: `${who} to be offline.${tip}`,
+      yourMove: false,
+      stalled: true,
     };
   }
 

@@ -93,6 +93,8 @@ export interface Settings {
   /** Seconds for each turn (and again for a Chancellor's choice); null disables the timer. */
   turnSeconds: number | null;
   timerMode: TimerMode;
+  /** A short game plays to fewer favour tokens (`shortTarget`). Missing in older rooms: full. */
+  short?: boolean;
 }
 
 export interface Seat {
@@ -100,6 +102,11 @@ export interface Seat {
   /** Seated players play; the rest watch. */
   playing: boolean;
   tokens: number;
+  /**
+   * Watching only because there was no seat (the table was full, or a game was on), not by
+   * choice: sat down automatically as soon as a seat is free between games.
+   */
+  waiting?: boolean;
 }
 
 export interface RoundPlayer {
@@ -166,6 +173,10 @@ export type LogEntry =
       drew?: number;
       /** Baron: the comparison was a tie. */
       tie?: boolean;
+      /** A strict timer played this card for a player who ran out of time. */
+      timedOut?: boolean;
+      /** Chancellor: a strict timer chose the kept card for them. */
+      autoKept?: boolean;
     }
   | {
       id: number;
@@ -188,8 +199,9 @@ export type LogEntry =
     };
 
 /** What only one player learned: never shown to anyone else. */
+/** `timedOut`: a strict timer played the card that produced this note. */
 export type Note =
-  | { id: number; round: number; kind: 'peek'; target: PlayerId; card: Role }
+  | { id: number; round: number; kind: 'peek'; target: PlayerId; card: Role; timedOut?: boolean }
   | {
       id: number;
       round: number;
@@ -198,8 +210,17 @@ export type Note =
       mine: Role;
       theirs: Role;
       result: 'win' | 'lose' | 'tie';
+      timedOut?: boolean;
     }
-  | { id: number; round: number; kind: 'trade'; other: PlayerId; gave: Role; got: Role };
+  | {
+      id: number;
+      round: number;
+      kind: 'trade';
+      other: PlayerId;
+      gave: Role;
+      got: Role;
+      timedOut?: boolean;
+    };
 
 export type EndReason = 'target' | 'too-few';
 
@@ -231,6 +252,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     edition: z.enum(EDITION_IDS).optional(),
     turnSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
+    short: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
@@ -258,6 +280,8 @@ export interface SeatView {
   name: string;
   playing: boolean;
   tokens: number;
+  /** Watching for want of a seat: dealt in at the next game if there's room. */
+  waiting?: boolean;
 }
 
 export interface RoundPlayerView {

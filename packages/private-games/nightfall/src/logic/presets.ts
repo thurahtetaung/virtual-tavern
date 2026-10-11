@@ -9,27 +9,50 @@ import { MAX_PLAYERS, MIN_PLAYERS } from './types.ts';
 export interface Preset {
   id: string;
   name: string;
+  /** One line on what the setup plays like. */
+  description: string;
+  /** How hard it is on a new player: shown as a tag. */
+  level: 'beginner' | 'advanced' | 'chaos';
   /** Fewest players the scenario suits. */
   minPlayers: number;
   roles: RoleId[];
 }
 
+/** The tag shown for each level. */
+export const LEVEL_LABEL: Record<Preset['level'], string> = {
+  beginner: 'Beginner',
+  advanced: 'Advanced',
+  chaos: 'Chaos',
+};
+
+/** The recommended table, described like a scenario. */
+export const RECOMMENDED = {
+  description: 'The best first game: the classic roles, sized for your table.',
+  level: 'beginner',
+} as const satisfies Pick<Preset, 'description' | 'level'>;
+
 export const SCENARIOS: Preset[] = [
   {
     id: 'shapeshifters',
     name: 'Shapeshifters',
+    description: 'Cards change hands all night: copies, the Alpha Wolf and the Witch.',
+    level: 'chaos',
     minPlayers: 3,
     roles: ['doppelganger', 'alpha-wolf', 'mystic-wolf', 'minion', 'robber', 'witch', 'werewolf'],
   },
   {
     id: 'no-trust',
     name: 'Trust nobody',
+    description: 'Nobody can be sure of their own card, and the Tanner wants to die.',
+    level: 'chaos',
     minPlayers: 3,
     roles: ['doppelganger', 'alpha-wolf', 'dream-wolf', 'robber', 'witch', 'tanner', 'werewolf'],
   },
   {
     id: 'careful-village',
     name: 'A careful village',
+    description: 'Plenty of village information and a Bodyguard: gentle on new players.',
+    level: 'beginner',
     minPlayers: 4,
     roles: [
       'werewolf',
@@ -44,6 +67,8 @@ export const SCENARIOS: Preset[] = [
   {
     id: 'information',
     name: 'Everybody knows something',
+    description: 'Everyone learns something; the trick is who to believe.',
+    level: 'advanced',
     minPlayers: 5,
     roles: [
       'werewolf',
@@ -59,6 +84,8 @@ export const SCENARIOS: Preset[] = [
   {
     id: 'chaos',
     name: 'Total mayhem',
+    description: 'Copies, swaps, moves and artifacts: for players who know the base roles.',
+    level: 'chaos',
     minPlayers: 5,
     roles: [
       'doppelganger',
@@ -76,12 +103,16 @@ export const SCENARIOS: Preset[] = [
   {
     id: 'lovers-night',
     name: 'Lovers’ night',
+    description: 'A small vampire game with Marks, love and disease.',
+    level: 'advanced',
     minPlayers: 3,
     roles: ['vampire', 'the-master', 'cupid', 'priest', 'diseased', 'pickpocket'],
   },
   {
     id: 'first-bite',
     name: 'First bite',
+    description: 'Vampires with Marks flying everywhere: assassins, traitors and thieves.',
+    level: 'chaos',
     minPlayers: 5,
     roles: [
       'vampire',
@@ -97,6 +128,8 @@ export const SCENARIOS: Preset[] = [
   {
     id: 'counts-court',
     name: 'The Count’s court',
+    description: 'The Count, Renfield and a Copycat: vampires for a confident table.',
+    level: 'advanced',
     minPlayers: 5,
     roles: [
       'vampire',
@@ -112,6 +145,8 @@ export const SCENARIOS: Preset[] = [
   {
     id: 'fangs-and-claws',
     name: 'Fangs and claws (epic battle)',
+    description: 'Werewolves against vampires: the two most voted players die.',
+    level: 'chaos',
     minPlayers: 5,
     roles: [
       'werewolf',

@@ -1,11 +1,12 @@
-import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, cn } from '@vt/ui';
+import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { Button, Countdown, Hint, Panel, cn, revealElement, useSpectatorPrompt } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
+import { tokenWords, winReason } from '../logic/outcome.ts';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
-import { Lobby, TeamsPicker } from './Lobby.tsx';
+import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
-import { startBlocker, statusFor } from './status.ts';
+import { revealOutcome, startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
@@ -30,8 +31,12 @@ function Tokens({ count, icon, label }: { count: number; icon: string; label: st
   );
 }
 
-/** One line on every screen: each team's tokens, the round and the timer. */
+/** On every screen: each team's tokens and the round (tap it for a legend), the timer underneath. */
 function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: number }) {
+  // Touch screens never show a title tooltip, so the legend is spelled out: shown through round 1,
+  // then on a tap of the round label.
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const legend = toggled ?? view.round <= 1;
   const side = (team: Team) => (
     <div className={cn('flex items-center gap-1 sm:gap-2', TEAM_TEXT[team])}>
       <span className="text-sm font-bold sm:text-base">{TEAM_LABEL[team]}</span>
@@ -39,21 +44,70 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
       <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 loses)" />
     </div>
   );
+  const strict = view.settings.timerMode === 'strict';
   return (
-    <div className="flex items-center justify-between gap-1">
-      {side('red')}
-      <div className="flex items-center gap-1 text-xs font-semibold text-stone-500 sm:gap-2 sm:text-sm">
-        <span>
-          R{view.round}/{view.maxRounds}
-        </span>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-1">
+        {side('red')}
+        <div className="flex flex-col items-center text-xs font-semibold text-stone-500 sm:flex-row sm:gap-2 sm:text-sm">
+          <button
+            type="button"
+            aria-expanded={legend}
+            aria-controls="enigma-legend"
+            onClick={() => setToggled(!legend)}
+            className="rounded px-1 underline decoration-dotted underline-offset-2"
+          >
+            Round {view.round} of {view.maxRounds} <span aria-hidden>ⓘ</span>
+            <span className="sr-only"> (what do the scores mean?)</span>
+          </button>
+        </div>
+        {side('blue')}
+      </div>
+      {/* Its own row, so a label or "Time's up" never squeezes the scores. */}
+      <div className="flex justify-center empty:hidden">
         <Countdown
-          deadline={view.stage === 'reveal' ? null : view.deadline}
+          deadline={view.phase === 'playing' && view.stage !== 'reveal' ? view.deadline : null}
           clockOffset={clockOffset}
-          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+          label={view.stage === 'clue' ? 'to write clues' : 'to lock in codes'}
+          soft={!strict}
+          atZero={
+            view.stage === 'clue'
+              ? 'then missing clues count as a miss'
+              : 'then teams that haven’t agreed miss'
+          }
+          expiredHint="No penalty: finish when you're ready."
         />
       </div>
-      {side('blue')}
+      <p
+        id="enigma-legend"
+        hidden={!legend}
+        className="text-center text-xs text-stone-600 dark:text-stone-400"
+      >
+        🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses
+      </p>
     </div>
+  );
+}
+
+/** Your team's four keywords in one compact line, for decoders waiting on the clues. */
+function KeywordStrip({ keywords }: { keywords: string[] }) {
+  return (
+    <section aria-label="Your keywords" className="space-y-1 text-center">
+      <p className="text-sm text-stone-500">
+        Your keywords. You’ll match each clue to one of these.
+      </p>
+      <ol className="flex flex-wrap justify-center gap-1.5">
+        {keywords.map((word, i) => (
+          <li
+            key={i}
+            className="rounded-lg bg-white px-2 py-1 text-sm font-bold uppercase ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700"
+          >
+            <span className="mr-1 text-stone-500 tabular-nums">{i + 1}</span>
+            {word}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -117,7 +171,14 @@ function TabBar({
   );
 }
 
-export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUiProps) {
+export function EnigmaGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -125,7 +186,22 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Mid-game watchers: the Join buttons sit under the Chat tab on phones, so lead them there.
+  useSpectatorPrompt(
+    setSpectator,
+    view.phase !== 'lobby' && !view.me?.team
+      ? {
+          text: 'Join a team to play from the next clues.',
+          actionLabel: 'Take a seat',
+          action: () => {
+            setTab('chat');
+            requestAnimationFrame(() => revealElement(TEAMS_ID));
+          },
+        }
+      : null,
+  );
 
   // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -164,9 +240,19 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
     .filter((t) => t.active || t.revealed)
     .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam));
   const sheetTeams: Team[] = myTeam ? [myTeam, other(myTeam)] : ['red', 'blue'];
+  // Decoders waiting for clues see their keywords right on the Play tab, not only under Clues.
+  const keywords = myTeam ? view.teams[myTeam].keywords : null;
+  const waitingKeywords =
+    view.stage === 'clue' &&
+    keywords &&
+    !view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.clues)
+      ? keywords
+      : null;
   const isLastReveal =
     view.stage === 'reveal' &&
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
+  const decided = revealOutcome(view) !== null;
+  const lastReveal = view.transmissions.filter((t) => t.revealed);
 
   return (
     <div className="grid gap-4 pb-20 lg:grid-cols-[1fr_20rem] lg:pb-0">
@@ -174,7 +260,10 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
         <Scoreboard view={view} clockOffset={room.clockOffset} />
 
         <div className={cn('space-y-4', onTab('play'))}>
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          {/* Once the game is over, the result panel says who won (once). */}
+          {view.phase !== 'over' && (
+            <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          )}
           {view.phase === 'over' ? (
             <Panel className="space-y-3 text-center">
               <p
@@ -187,6 +276,18 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
                   ? '🤝 A draw!'
                   : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
               </p>
+              {/* Why, said once here: the hint above is hidden once the game is over. */}
+              {winReason(view.teams, view.round) && (
+                <p className="font-semibold">{winReason(view.teams, view.round)}</p>
+              )}
+              <ul className="space-y-0.5 text-sm">
+                {(['red', 'blue'] as const).map((team) => (
+                  <li key={team}>
+                    <b className={TEAM_TEXT[team]}>{TEAM_LABEL[team]}</b>:{' '}
+                    {tokenWords(view.teams[team].intercepts, view.teams[team].misses)}
+                  </li>
+                ))}
+              </ul>
               <p className="text-sm text-stone-500">
                 Everyone's keywords are revealed under Clues.
               </p>
@@ -204,20 +305,41 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
                   </Button>
                 </div>
               ) : (
-                <p>Waiting for the host to start the next game…</p>
+                <p>{waitingForHost(room, 'start the next game')}</p>
               )}
             </Panel>
-          ) : (
-            <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
-              {shown.map((tx) => (
-                <TransmissionCard key={`${view.round}-${tx.team}`} view={view} tx={tx} act={act} />
-              ))}
-            </div>
+          ) : null}
+          {view.phase === 'over' && lastReveal.length > 0 && (
+            <section aria-label="The last round" className="space-y-2">
+              <h3 className="text-center text-sm font-semibold text-stone-500">
+                Round {view.round}, the last round
+              </h3>
+              <div className={cn('grid gap-4', lastReveal.length > 1 && 'md:grid-cols-2')}>
+                {lastReveal.map((tx) => (
+                  <TransmissionCard key={`last-${tx.team}`} view={view} tx={tx} act={act} />
+                ))}
+              </div>
+            </section>
+          )}
+          {view.phase !== 'over' && (
+            <>
+              {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
+              <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
+                {shown.map((tx) => (
+                  <TransmissionCard
+                    key={`${view.round}-${tx.team}`}
+                    view={view}
+                    tx={tx}
+                    act={act}
+                  />
+                ))}
+              </div>
+            </>
           )}
           {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
             <div className="flex justify-center">
               <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
-                {isLastReveal ? 'Next round' : 'Continue'}
+                {decided ? 'See results' : isLastReveal ? 'Next round' : 'Continue'}
               </Button>
             </div>
           )}
@@ -238,7 +360,7 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
         <TeamChat view={view} act={act} />
         <Panel>
           <h3 className="mb-2 font-bold">Teams</h3>
-          <TeamsPicker view={view} online={online} act={act} />
+          <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
         {room.isHost && view.phase === 'playing' && (
           <Button

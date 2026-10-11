@@ -1,8 +1,9 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/ui';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
+import { explainResult } from '../logic/explain.ts';
 import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
-import { type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
+import { ARTIFACTS, type ArtifactId, type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
 import type { Choice, Note, NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
 import {
@@ -17,20 +18,22 @@ import {
   emblem,
   useRoleDetails,
 } from './Cards.tsx';
-import { type Status, nudgeFor } from './status.ts';
+import { type Status, nudgeFor, votePower } from './status.ts';
 import {
   TEAM_LABEL,
+  centreKinds,
   centreName,
   describeEntry,
   describeNote,
-  lineText,
   marksIn,
   nameOfView,
+  narrationText,
   promptText,
+  teamOutcome,
 } from './text.ts';
 import type { DeviceSound } from './useSound.ts';
 
-type Act = (a: NightfallAction) => Promise<boolean>;
+type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 
 // ---- Shared bits ----
 
@@ -146,12 +149,42 @@ export function SoundControls({
   );
 }
 
-/** The narration in progress, as text (always shown, whatever the sound setting). */
-function Narration({ lines, deck }: { lines: string[]; deck: Deck }) {
-  const text = lines
-    .map((l) => lineText(l, deck))
-    .filter(Boolean)
-    .join(' ');
+/** How long a narration line stays on screen once it is said. */
+const NARRATION_SHOW_MS = 8000;
+
+/**
+ * The narration in progress, as text (always shown, whatever the sound setting). Players woken in
+ * this step read the narrator's words; everyone else reads who is awake. Each line clears a few
+ * seconds after it is said, so a night line never lingers into the day.
+ */
+function Narration({
+  lines,
+  deck,
+  awake,
+  readyEarly = false,
+}: {
+  lines: string[];
+  deck: Deck;
+  awake: boolean;
+  readyEarly?: boolean;
+}) {
+  const [spent, setSpent] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!lines.length) return;
+    const t = setTimeout(() => {
+      setSpent(lines);
+    }, NARRATION_SHOW_MS);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [lines]);
+  const text =
+    spent === lines
+      ? ''
+      : lines
+          .map((l) => narrationText(l, deck, { awake, readyEarly }))
+          .filter(Boolean)
+          .join(' ');
   return (
     <p
       aria-live="polite"
@@ -197,7 +230,7 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
 /** What you learned tonight. */
 function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: string }) {
   const nameOf = nameOfView(view);
-  const kinds = view.day?.centerKinds;
+  const kinds = view.day?.centerKinds ?? centreKinds(view.settings.roles);
   if (!view.notes.length)
     return <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>;
   return (
@@ -245,6 +278,10 @@ export function Ready({
   deck: Deck;
 }) {
   const [shown, setShown] = useState(false);
+  // Ready unlocks once you've looked at this deal's card (a re-deal asks again).
+  const deal = `${view.gamesPlayed}:${view.myRole}`;
+  const [seenDeal, setSeenDeal] = useState<string | null>(null);
+  const seen = seenDeal === deal;
   const role = view.myRole;
   return (
     <div className="mx-auto max-w-md space-y-4 text-center">
@@ -265,7 +302,10 @@ export function Ready({
           ) : (
             <button
               type="button"
-              onClick={() => setShown(true)}
+              onClick={() => {
+                setShown(true);
+                setSeenDeal(deal);
+              }}
               aria-label="Tap to see your card"
               className="flex flex-col items-center gap-2 font-semibold"
             >
@@ -274,9 +314,16 @@ export function Ready({
             </button>
           )}
           {!view.meReady ? (
-            <Button size="lg" onClick={() => void act({ type: 'ready' })}>
-              Ready
-            </Button>
+            <>
+              <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
+                Ready
+              </Button>
+              {!seen && (
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Look at your card first.
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm">
               Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
@@ -285,13 +332,19 @@ export function Ready({
         </Panel>
       )}
       {room.isHost && (
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
-            Start the night now
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
-            Shuffle and deal again
-          </Button>
+        <div className="space-y-1">
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
+              Start the night now
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
+              Shuffle and deal again
+            </Button>
+          </div>
+          <p className="text-xs text-stone-500">
+            Start the night now if someone can’t press Ready (they dropped out, say): their card
+            still plays.
+          </p>
         </div>
       )}
     </div>
@@ -349,7 +402,12 @@ function PromptPanel({
       centre.length <= prompt.center.max);
   const send = (extra: Partial<NightfallAction>) =>
     void act({ type: 'night', step, ...extra } as NightfallAction);
+  const kinds = centreKinds(view.settings.roles);
   const centreCount = Math.max(3, ...(prompt.center?.slots.map((i) => i + 1) ?? [0]));
+  const seat = view.table!.findIndex((p) => p.id === me);
+  const n = view.table!.length;
+  const leftName = nameOf(view.table![(seat + 1) % n]!.id);
+  const rightName = nameOf(view.table![(seat - 1 + n) % n]!.id);
   return (
     <div className="space-y-3" data-testid="prompt" data-stage={prompt.stage}>
       <p className="font-semibold">{promptText(prompt, deck)}</p>
@@ -392,19 +450,22 @@ function PromptPanel({
                   type="button"
                   disabled={!legal}
                   aria-pressed={picked}
-                  aria-label={centreName(i, i === 3 ? ['', '', '', 'wolf'] : undefined)}
+                  aria-label={centreName(i, kinds)}
                   onClick={() => toggleCentre(i)}
                   className={cn(
-                    'rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
+                    'flex flex-col items-center gap-0.5 rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
                     picked && 'ring-4 ring-amber-400',
                     !legal && 'opacity-35',
                   )}
                 >
                   <CardBack deck={deck} size="sm">
                     <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 text-xs font-bold text-white">
-                      {i === 3 ? '🐺' : i + 1}
+                      {kinds[i] === 'wolf' ? '🐺' : i + 1}
                     </span>
                   </CardBack>
+                  <span className="text-xs text-indigo-100">
+                    {kinds[i] === 'wolf' ? 'Centre werewolf' : `Centre ${i + 1}`}
+                  </span>
                 </button>
               </li>
             );
@@ -419,10 +480,24 @@ function PromptPanel({
             </Button>
           ))
         ) : prompt.sides ? (
-          <>
-            <Button onClick={() => send({ side: 'right' })}>← Right</Button>
-            <Button onClick={() => send({ side: 'left' })}>Left →</Button>
-          </>
+          // Named, since left and right follow the app's seat order, not the room.
+          prompt.stage === 'move-all' ? (
+            <>
+              <Button onClick={() => send({ side: 'left' })}>Pass left, towards {leftName}</Button>
+              <Button onClick={() => send({ side: 'right' })}>
+                Pass right, towards {rightName}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => send({ side: 'left' })}>
+                {prompt.stage === 'tap' ? 'Tap' : 'Give it to'} {leftName} (left)
+              </Button>
+              <Button onClick={() => send({ side: 'right' })}>
+                {prompt.stage === 'tap' ? 'Tap' : 'Give it to'} {rightName} (right)
+              </Button>
+            </>
+          )
         ) : (
           <Button
             disabled={!ready}
@@ -432,13 +507,13 @@ function PromptPanel({
           </Button>
         )}
         {!prompt.mandatory && (
-          <Button
-            variant="ghost"
-            className="text-indigo-100 hover:bg-indigo-800 dark:text-indigo-100"
+          <button
+            type="button"
+            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
             Skip
-          </Button>
+          </button>
         )}
       </div>
       {prompt.mandatory && (
@@ -446,24 +521,65 @@ function PromptPanel({
           You must choose: if time runs out, a choice is made for you.
         </p>
       )}
-      {prompt.sides && (
+      {prompt.stage === 'move-all' && (
         <p className="text-xs text-indigo-200/80">
-          Your left is{' '}
-          {nameOf(
-            view.table![(view.table!.findIndex((p) => p.id === me) + 1) % view.table!.length]!.id,
-          )}
-          ; your right is{' '}
-          {nameOf(
-            view.table![
-              (view.table!.findIndex((p) => p.id === me) - 1 + view.table!.length) %
-                view.table!.length
-            ]!.id,
-          )}
-          .
+          Every card but yours moves one seat that way: “left” passes each card on towards{' '}
+          {leftName}, “right” towards {rightName}.
         </p>
       )}
     </div>
   );
+}
+
+/**
+ * The night's step clock: calm and dark, with no red pulse, so it neither glows in a dark room nor
+ * reads as an alarm (every step is short and ends by itself). Like the shared countdown, it says
+ * what it counts down to and what happens at zero.
+ */
+function NightClock({
+  deadline,
+  clockOffset,
+  label,
+  atZero,
+}: {
+  deadline: number | null;
+  clockOffset: number;
+  label: string;
+  atZero: string;
+}) {
+  const left = useSecondsLeft(deadline, clockOffset);
+  if (left === null) return null;
+  return (
+    <span
+      role="timer"
+      aria-label={`${left} seconds left ${label}, ${atZero}`}
+      title={atZero}
+      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-stone-400 ring-1 ring-white/10"
+    >
+      <span className="font-mono text-lg font-bold tabular-nums">
+        ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+      </span>
+      <span aria-hidden className="text-xs">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * While the night is on, the whole page goes dark (header and margins included), whatever the
+ * chosen theme, so no light strip glows around the night screen. The theme comes back at daybreak.
+ */
+function useDarkNight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = root.dataset.theme;
+    root.dataset.theme = 'dark';
+    return () => {
+      // Leave it alone if the theme was changed during the night.
+      if (root.dataset.theme === 'dark' && before !== undefined) root.dataset.theme = before;
+    };
+  }, []);
 }
 
 export function Night({
@@ -490,100 +606,155 @@ export function Night({
   const dusk = acting?.step === 'dusk';
   const lovers = acting?.step === 'lovers';
   const duskMark = now.find((n) => n.kind === 'mark');
+  useDarkNight();
   return (
     <div
       className={cn(
-        '-mx-4 -my-4 min-h-[70dvh] space-y-3 px-4 py-4 transition-colors sm:mx-0 sm:my-0 sm:rounded-2xl',
-        acting ? 'bg-indigo-950 text-indigo-50' : 'bg-stone-950 text-stone-300',
+        acting
+          ? // Your turn takes the whole screen, lit up, so nobody sleeps through it.
+            'fixed inset-0 z-40 overflow-y-auto overscroll-contain bg-indigo-950 text-indigo-50'
+          : '-mx-4 -my-4 min-h-[70dvh] space-y-3 bg-stone-950 px-4 py-4 text-stone-300 sm:mx-0 sm:my-0 sm:rounded-2xl',
       )}
       data-testid={acting ? 'night-acting' : 'night-idle'}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold">
-          {night.index < 0 ? 'Night falls…' : `Night ${night.index + 1}/${night.count}`}
-        </span>
-        <Countdown deadline={night.deadline} clockOffset={room.clockOffset} />
-      </div>
-      <Narration lines={lines} deck={deck} />
-      {acting ? (
-        // Its own surface rather than <Panel>: the night is dark in both themes.
-        <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-indigo-500/50">
-          {dusk ? (
-            <div className="flex flex-col items-center gap-2 text-center" data-testid="dusk">
-              <p className="text-lg font-bold">Everyone is awake: look at your Mark</p>
-              {duskMark?.kind === 'mark' && (
-                <>
-                  <MarkToken mark={duskMark.mark} deck={deck} size="lg" doppel={duskMark.doppel} />
-                  <p className="text-sm">
-                    Your Mark:{' '}
-                    <MarkChip mark={duskMark.mark} deck={deck} doppel={duskMark.doppel} />
-                  </p>
-                  <p className="text-sm text-indigo-200">{deck.markText(duskMark.mark)}</p>
-                </>
-              )}
-            </div>
-          ) : lovers ? (
-            <div className="flex items-center gap-3" data-testid="lovers">
-              <MarkToken mark="love" deck={deck} size="md" />
-              <div>
-                <p className="text-lg font-bold">You’re in love</p>
-                <p className="text-sm">Look for your love: if one of you dies, so do the others.</p>
-              </div>
-            </div>
+      {acting && (
+        <div
+          className="flex flex-col items-center gap-2 bg-amber-300 px-4 pt-6 pb-4 text-center text-stone-950"
+          data-testid="your-turn"
+        >
+          <p className="text-4xl font-black tracking-widest" role="alert">
+            YOUR TURN
+          </p>
+          {dusk || lovers ? (
+            <span aria-hidden className="text-5xl">
+              {dusk ? '👁️' : '💘'}
+            </span>
           ) : (
-            <div className="flex items-center gap-3">
-              <RoleArt role={acting.as} deck={deck} size="sm" />
-              <div>
-                <p className="text-lg font-bold">You’re awake</p>
-                <p className="text-sm">
-                  as the <RoleChip role={acting.as} deck={deck} />
-                  {acting.step.startsWith('doppelganger-') && ' (your copy)'}
-                </p>
-              </div>
-            </div>
+            <RoleArt role={acting.as} deck={deck} size="md" />
           )}
-          {acting.prompt ? (
-            <PromptPanel
-              key={`${night.index}:${acting.prompt.stage}`}
-              view={view}
-              prompt={acting.prompt}
-              act={act}
-              deck={deck}
-            />
-          ) : null}
-          {now.length > 0 && !dusk && (
-            <ul className="space-y-1" data-testid="night-result">
-              {now.map((n) => (
-                <li
-                  key={n.id}
-                  className="rounded-lg bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
-                >
-                  <WithChips
-                    text={describeNote(n, nameOf, deck, undefined, view.me?.id)}
-                    roles={rolesIn(n)}
-                    marks={marksIn(n)}
-                    deck={deck}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-          {!acting.prompt && (
-            <p className="text-sm text-indigo-200">Close your eyes when the narrator says so.</p>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <span aria-hidden className="text-6xl">
-            🌕
-          </span>
-          <p className="font-serif text-2xl text-stone-100">Night has fallen…</p>
-          <p className="text-sm">{status.text}</p>
-          {view.myRole && <MyCardChip view={view} deck={deck} />}
-          <MyMark view={view} deck={deck} />
+          <p className="text-sm font-semibold">
+            {dusk ? 'Everyone is awake' : lovers ? 'The lovers wake' : 'Open your eyes, quietly'}
+          </p>
         </div>
       )}
-      <div className="flex justify-center">{sound}</div>
+      <div className={cn('space-y-3', acting && 'mx-auto max-w-xl px-4 py-4')}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold">
+            {night.index < 0 ? 'Night falls…' : `Step ${night.index + 1} of ${night.count}`}
+          </span>
+          <NightClock
+            deadline={night.deadline}
+            clockOffset={room.clockOffset}
+            label={night.index < 0 ? 'until the first call' : 'this step'}
+            atZero={
+              acting?.prompt?.mandatory
+                ? 'then a choice is made for you'
+                : night.index + 1 >= night.count
+                  ? 'then day breaks'
+                  : 'then the next step'
+            }
+          />
+        </div>
+        <Narration lines={lines} deck={deck} awake={acting !== null} />
+        {acting ? (
+          // Its own surface rather than <Panel>: the night is dark in both themes.
+          <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-indigo-500/50">
+            {dusk ? (
+              <div className="flex flex-col items-center gap-2 text-center" data-testid="dusk">
+                <p className="text-lg font-bold">Everyone is awake: look at your Mark</p>
+                {duskMark?.kind === 'mark' && (
+                  <>
+                    <MarkToken
+                      mark={duskMark.mark}
+                      deck={deck}
+                      size="lg"
+                      doppel={duskMark.doppel}
+                    />
+                    <p className="text-sm">
+                      Your Mark:{' '}
+                      <MarkChip mark={duskMark.mark} deck={deck} doppel={duskMark.doppel} />
+                    </p>
+                    <p className="text-sm text-indigo-200">{deck.markText(duskMark.mark)}</p>
+                  </>
+                )}
+              </div>
+            ) : lovers ? (
+              <div className="flex items-center gap-3" data-testid="lovers">
+                <MarkToken mark="love" deck={deck} size="md" />
+                <div>
+                  <p className="text-lg font-bold">You’re in love</p>
+                  <p className="text-sm">
+                    Look for your love: if one of you dies, so do the others.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <RoleArt role={acting.as} deck={deck} size="sm" />
+                <div>
+                  <p className="text-lg font-bold">You’re awake</p>
+                  <p className="text-sm">
+                    as the <RoleChip role={acting.as} deck={deck} />
+                    {acting.step.startsWith('doppelganger-') && ' (your copy)'}
+                  </p>
+                </div>
+              </div>
+            )}
+            {acting.prompt ? (
+              <PromptPanel
+                key={`${night.index}:${acting.prompt.stage}`}
+                view={view}
+                prompt={acting.prompt}
+                act={act}
+                deck={deck}
+              />
+            ) : null}
+            {now.length > 0 && !dusk && (
+              <ul className="space-y-1" data-testid="night-result">
+                {now.map((n) => (
+                  <li
+                    key={n.id}
+                    className="rounded-lg bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
+                  >
+                    <WithChips
+                      text={describeNote(
+                        n,
+                        nameOf,
+                        deck,
+                        centreKinds(view.settings.roles),
+                        view.me?.id,
+                      )}
+                      roles={rolesIn(n)}
+                      marks={marksIn(n)}
+                      deck={deck}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!acting.prompt && (
+              <p className="text-sm text-indigo-200">Close your eyes when the narrator says so.</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <span aria-hidden className="text-6xl">
+              {view.myRole ? '🌕' : '👀'}
+            </span>
+            <p className="font-serif text-2xl text-stone-100">
+              {view.myRole ? 'Night has fallen…' : 'You’re watching the night'}
+            </p>
+            <p className="text-sm" data-testid="idle-hint">
+              {view.myRole
+                ? 'Keep your phone face up — it lights up when it’s your turn.'
+                : status.text}
+            </p>
+            {view.myRole && <MyCardChip view={view} deck={deck} />}
+            <MyMark view={view} deck={deck} />
+          </div>
+        )}
+        <div className="flex justify-center">{sound}</div>
+      </div>
     </div>
   );
 }
@@ -597,14 +768,17 @@ function TableList({
   deck,
   pick,
   picked,
+  online,
 }: {
   view: NightfallView;
   deck: Deck;
   pick?: (id: string) => void;
   picked?: string | null;
+  online: (id: string) => boolean;
 }) {
   const me = view.me?.id;
   const day = view.day;
+  const protects = votePower(view) !== 'vote';
   return (
     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="The table">
       {view.table!.map((p) => {
@@ -627,7 +801,14 @@ function TableList({
               {day?.artifacts.includes(p.id) && (
                 <Token src={null} emblem="🏺" label="Has an artifact" />
               )}
-              {p.left && <span>left</span>}
+              {p.left ? (
+                <span>left</span>
+              ) : (
+                !online(p.id) && <span className="text-stone-500">offline</span>
+              )}
+              {view.phase === 'day' && view.waitingOn.includes(p.id) && !p.left && (
+                <span className="text-stone-500">· not ready yet</span>
+              )}
             </span>
           </>
         );
@@ -637,16 +818,22 @@ function TableList({
               <button
                 type="button"
                 aria-pressed={picked === p.id}
-                aria-label={`Vote for ${p.name}`}
+                aria-label={`${protects ? 'Protect' : 'Vote for'} ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id
-                    ? 'bg-rose-600 text-white ring-rose-600'
+                    ? protects
+                      ? 'bg-emerald-600 text-white ring-emerald-600'
+                      : 'bg-rose-600 text-white ring-rose-600'
                     : 'bg-white ring-stone-300 hover:bg-rose-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
                 )}
               >
                 {body}
+                <span className="text-xs font-semibold">
+                  {protects ? '🛡️ Protect' : '🗳️ Vote'}
+                  {picked === p.id ? ' · your pick' : ''}
+                </span>
               </button>
             ) : (
               <div className="flex min-h-12 flex-col rounded-lg bg-stone-100 px-3 py-1.5 dark:bg-stone-800/60">
@@ -702,6 +889,7 @@ export function Day({
   const playing = view.myRole !== null;
   const deadline = voting ? (view.vote?.deadline ?? null) : (view.day?.deadline ?? null);
   const myArtifact = view.notes.find((n) => n.kind === 'artifact');
+  const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const tabs: { id: DayTab; label: string }[] = [
     { id: 'table', label: voting ? 'Vote' : 'Table' },
     { id: 'learned', label: 'Learned' },
@@ -710,11 +898,27 @@ export function Day({
   return (
     <div className="mx-auto max-w-3xl space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold">{voting ? '🗳️ The vote' : '☀️ Day'}</span>
-        <Countdown deadline={deadline} clockOffset={room.clockOffset} />
+        <span className="shrink-0 text-sm font-semibold whitespace-nowrap">
+          {voting ? '🗳️ The vote' : '☀️ Day'}
+        </span>
+        <Countdown
+          deadline={deadline}
+          clockOffset={room.clockOffset}
+          label={voting ? 'to vote' : 'to talk'}
+          atZero={
+            voting
+              ? 'then the votes are counted (no vote counts for nobody)'
+              : 'then the vote starts'
+          }
+        />
       </div>
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <Narration lines={lines} deck={deck} />
+      <Narration
+        lines={lines}
+        deck={deck}
+        awake
+        readyEarly={(view.day?.readyCount ?? 0) >= (view.table?.filter((p) => !p.left).length ?? 0)}
+      />
       <Nudge view={view} room={room} />
       <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
         {tabs.map((t) => (
@@ -751,6 +955,7 @@ export function Day({
             deck={deck}
             pick={voting && playing ? (id) => void act({ type: 'vote', target: id }) : undefined}
             picked={view.vote?.myVote}
+            online={online}
           />
           {!voting && playing && (
             <Button
@@ -761,6 +966,16 @@ export function Day({
             >
               {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
             </Button>
+          )}
+          {!voting && room.isHost && (
+            <div className="space-y-1 text-center">
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-vote' })}>
+                Start the vote now
+              </Button>
+              <p className="text-xs text-stone-500">
+                Opens the vote without waiting for everyone to be ready (someone dropped out, say).
+              </p>
+            </div>
           )}
         </Panel>
       )}
@@ -780,6 +995,14 @@ export function Day({
 }
 
 // ---- The reveal ----
+
+/** What an artifact did to the player whose card it ended on, for the reveal. */
+export function artifactEffect(id: ArtifactId, deck: Deck): string {
+  const a = ARTIFACTS[id];
+  if (a.becomes) return `made them the ${deck.name(a.becomes)}`;
+  if (a.traitor) return 'made them a traitor: they win only if a teammate dies';
+  return 'no effect on the result';
+}
 
 /** The centre cards, face up at the end; tap one to read it. */
 function CentreCards({
@@ -827,6 +1050,11 @@ export function Reveal({
   const reveal = view.reveal!;
   const { result } = reveal;
   const nameOf = nameOfView(view);
+  const explained = explainResult(result, {
+    player: nameOf,
+    role: (role) => deck.name(role),
+    team: (team) => TEAM_LABEL[team],
+  });
   const kinds = reveal.center.map((c) => c.kind);
   const [tab, setTab] = useState<'cards' | 'night'>('cards');
   const steps = reveal.plan.map((id, i) => ({
@@ -849,7 +1077,7 @@ export function Reveal({
                   : 'text-rose-700 dark:text-rose-400',
               )}
             >
-              {t.won ? '🏆' : '✗'} {TEAM_LABEL[t.team]} {t.won ? 'win' : 'lose'}
+              {t.won ? '🏆' : '✗'} {teamOutcome(t.team, t.won)}
             </span>{' '}
             <span className="text-stone-600 dark:text-stone-400">
               ({t.players.map(nameOf).join(', ')})
@@ -861,40 +1089,49 @@ export function Reveal({
             ⚔️ An epic battle: the most voted and the runner-up both die.
           </p>
         )}
-        {result.deaths.length === 0 ? (
-          <p className="text-sm">Nobody died.</p>
-        ) : (
-          result.deaths.map((d) => (
-            <p
-              key={d.player}
-              className="flex items-center gap-1 text-sm"
-              data-testid="death"
-              data-cause={d.cause}
-              data-place={d.place ?? ''}
-            >
-              {d.cause === 'vote' ? (
-                <Token
-                  src={deck.token(d.place === 2 ? 'most-votes-2' : 'most-votes-1')}
-                  emblem={d.place === 2 ? '🥈' : '☠️'}
-                  label={d.place ? `Most votes #${d.place}` : 'Most votes'}
-                  className="size-7"
-                />
-              ) : d.cause === 'love' ? (
-                <span aria-hidden>💔</span>
-              ) : (
-                <span aria-hidden>🏹</span>
-              )}
-              <span>
-                {nameOf(d.player)}{' '}
-                {d.cause === 'vote'
-                  ? `was voted out (${result.tally[d.player]} ${result.tally[d.player] === 1 ? 'vote' : 'votes'}${d.place === 2 ? ', second place' : d.place === 1 ? ', most votes' : ''})`
-                  : d.cause === 'love'
-                    ? `died of a broken heart, with ${nameOf(d.by)}`
-                    : `was shot by ${nameOf(d.by)}, the Hunter`}
-              </span>
-            </p>
-          ))
+        {explained.tally.length > 0 && (
+          <p className="text-sm" data-testid="tally">
+            🗳️ Votes: {explained.tally.map((t) => `${nameOf(t.player)} ${t.votes}`).join(' · ')}
+          </p>
         )}
+        {result.deaths.length === 0 && <p className="text-sm font-semibold">Nobody died.</p>}
+        <ul className="space-y-1" data-testid="reasons">
+          {explained.reasons.map(({ text, death: d }, i) =>
+            d ? (
+              <li
+                key={i}
+                className="flex items-center gap-1 text-sm"
+                data-testid="death"
+                data-cause={d.cause}
+                data-place={d.place ?? ''}
+              >
+                {d.cause === 'vote' ? (
+                  <Token
+                    src={deck.token(d.place === 2 ? 'most-votes-2' : 'most-votes-1')}
+                    emblem={d.place === 2 ? '🥈' : '☠️'}
+                    label={d.place ? `Most votes #${d.place}` : 'Most votes'}
+                    className="size-7"
+                  />
+                ) : d.cause === 'love' ? (
+                  <span aria-hidden>💔</span>
+                ) : (
+                  <span aria-hidden>🏹</span>
+                )}
+                <span>{text}</span>
+              </li>
+            ) : (
+              <li key={i} className="flex items-center gap-1 text-sm">
+                <span aria-hidden>•</span>
+                <span>{text}</span>
+              </li>
+            ),
+          )}
+        </ul>
+        {explained.why.map((line) => (
+          <p key={line} className="text-sm font-semibold" data-testid="why">
+            {line}
+          </p>
+        ))}
         {(result.disqualified?.length ?? 0) > 0 && (
           <p className="text-sm" data-testid="disqualified">
             ☣️ {result.disqualified!.map(nameOf).join(', ')} voted for the Disease, and can’t win.
@@ -920,6 +1157,11 @@ export function Reveal({
       </div>
       {tab === 'cards' ? (
         <Panel className="space-y-2">
+          <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="reveal-legend">
+            The picture is the card in front of each player at the end. The chips read{' '}
+            <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
+            decides their team.
+          </p>
           <ul className="space-y-2" aria-label="Everyone’s cards">
             {view.table!.map((p) => {
               const card = reveal.cards[p.id]!;
@@ -959,13 +1201,25 @@ export function Reveal({
                       {card.shield && (
                         <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />
                       )}
-                      {id.converted && <Badge>turned {TEAM_LABEL[id.team].toLowerCase()}</Badge>}
+                      {id.converted && (
+                        <Badge>
+                          turned {TEAM_LABEL[id.team].toLowerCase()} by a{' '}
+                          {id.converted === 'werewolf' ? 'werewolf' : 'vampire'}’s vote
+                        </Badge>
+                      )}
                       {id.team !== ROLES[id.role].team && !id.converted && (
                         <Badge>{TEAM_LABEL[id.team]}</Badge>
                       )}
                     </div>
                     {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
-                      <p className="text-xs text-stone-500">Card: {deck.name(card.role)}</p>
+                      <p className="text-xs text-stone-500">
+                        Card at the end: {deck.name(card.role)}
+                      </p>
+                    )}
+                    {card.artifact && (
+                      <p className="text-xs text-stone-500" data-testid="artifact-effect">
+                        {deck.artifactName(card.artifact)}: {artifactEffect(card.artifact, deck)}.
+                      </p>
                     )}
                   </div>
                 </li>
@@ -1023,6 +1277,11 @@ export function Reveal({
             Change the cards
           </Button>
         </div>
+      )}
+      {!room.isHost && (
+        <p className="text-center text-sm text-stone-500" data-testid="waiting-host">
+          {waitingForHost(room, 'deal again or change the cards')}
+        </p>
       )}
     </div>
   );

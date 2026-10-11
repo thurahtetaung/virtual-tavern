@@ -159,13 +159,18 @@ export async function takeTurn(
       [...playable].sort((a, b) => ranks[a]! - ranks[b]!)[0]!);
 
   const sheet = p.getByRole('dialog', { name: `${card} (${ranks[card]})` });
-  // A private reveal can open just as the turn starts; close it and try again.
+  // A private reveal can open just as the turn starts; close it and try again. On a slow machine
+  // the sheet can open after the check gave up: then it's open, and clicking again can't land.
   await expect(async () => {
+    if (await sheet.isVisible()) return;
     await dismissReveal(p);
-    await handRegion(p)
-      .getByRole('button', { name: `${card} (${ranks[card]})` })
-      .first()
-      .click({ timeout: 1000 });
+    // A slow sheet may have opened after the last try gave up: don't click through it.
+    if (!(await sheet.isVisible())) {
+      await handRegion(p)
+        .getByRole('button', { name: `${card} (${ranks[card]})` })
+        .first()
+        .click({ timeout: 1000 });
+    }
     await expect(sheet).toBeVisible({ timeout: 1000 });
   }).toPass();
   const choose = sheet.getByRole('group', { name: 'Choose a player' });
@@ -213,6 +218,8 @@ export async function takeTurn(
   }
   if (card === 'Prince' && target) {
     if (done.prince === false) done.prince = true;
+    // The log names who discarded, not just the card.
+    await expect(p.getByText(/played \d?Prince on [^:]+: \S+ discarded/).first()).toBeAttached();
     // What the chosen player sees of it.
     for (const other of players) {
       if ((await nameOf(other)) === target || (target === 'Yourself' && other === p)) {
@@ -257,15 +264,16 @@ export async function playUntil(
   for (let turns = 0; turns < 400; turns++) {
     const who = await whoseTurn(players, host);
     if (who === 'over') {
-      // Everyone sees the result: survivors' final cards, or the podium at the end.
+      // Everyone sees the result: survivors' final cards, or the final standings at the end.
       const gameOver = (await hint(host, /wins? the game|Nobody won/).count()) > 0;
-      const result = host.getByLabel(gameOver ? 'Podium' : 'Round result');
+      const result = host.getByLabel(gameOver ? 'Game result' : 'Round result', { exact: true });
       await expect(result).toBeVisible();
       for (const p of players) await dismissReveal(p);
       await onResult?.(gameOver);
       if (stop(gameOver)) return;
       // A reveal from the last move can still open over the result; close it and retry.
       await expect(async () => {
+        if (await result.isHidden()) return; // an earlier click landed after all
         await dismissReveal(host);
         await host
           .getByRole('button', { name: gameOver ? 'Play again' : 'Next round' })

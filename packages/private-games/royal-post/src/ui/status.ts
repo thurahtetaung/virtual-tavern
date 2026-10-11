@@ -1,3 +1,4 @@
+import { type GameRoomInfo, namesWithPresence, waitingForHost } from '@vt/game-sdk';
 import { EDITIONS, type RoyalPostView } from '../logic/types.ts';
 import { listNames, nameOf } from './text.ts';
 
@@ -20,16 +21,38 @@ export function startBlocker(view: RoyalPostView): string | null {
 const mustPlayCountess = (hand: readonly string[]) =>
   hand.includes('countess') && (hand.includes('king') || hand.includes('prince'));
 
+type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players'>;
+
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: RoyalPostView, isHost: boolean): Status {
+export function statusFor(view: RoyalPostView, room: Room): Status {
+  const { isHost } = room;
   const me = view.me;
   if (view.phase === 'lobby') {
-    if (!me?.playing) return { text: 'Take a seat to play, or just watch.', yourMove: !!me };
+    if (!me?.playing) {
+      const full =
+        view.seats.filter((s) => s.playing).length >= EDITIONS[view.settings.edition].maxPlayers;
+      return {
+        text: full
+          ? 'The table is full, so you’re watching. You’ll get the next free seat.'
+          : 'Take a seat to play, or just watch.',
+        yourMove: !!me && !full,
+      };
+    }
     const blocker = startBlocker(view);
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
+    // Never "everyone is seated" while friends are left watching.
+    const watching = view.seats.filter((s) => !s.playing).map((s) => s.name);
+    const also = watching.length
+      ? ` ${listNames(watching)} ${watching.length === 1 ? 'is' : 'are'} watching.`
+      : '';
     return isHost
-      ? { text: 'Everyone is seated. Press Start when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start…', yourMove: false };
+      ? {
+          text: watching.length
+            ? `Ready to start.${also} Press Start when your friends are ready!`
+            : 'Everyone is seated. Press Start when your friends are ready!',
+          yourMove: true,
+        }
+      : { text: `All set. ${waitingForHost(room)}`, yourMove: false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));
@@ -46,10 +69,11 @@ export function statusFor(view: RoyalPostView, isHost: boolean): Status {
   if (round.stage === 'over') {
     return isHost
       ? { text: 'Round over! Press Next round when everyone has had a look.', yourMove: true }
-      : { text: 'Round over! Waiting for the host to deal the next round…', yourMove: false };
+      : { text: `Round over! ${waitingForHost(room, 'deal the next round')}`, yourMove: false };
   }
   const mine = round.players.find((p) => p.id === me?.id);
-  const turn = nameOf(view, round.current);
+  // Whose turn it is, marked "(offline)" while they're away so nobody waits in the dark.
+  const turn = namesWithPresence([round.current], room.players) || nameOf(view, round.current);
   if (round.current === me?.id) {
     if (round.stage === 'chancellor')
       return { text: 'Your turn: keep one card and put the others on the bottom.', yourMove: true };
@@ -57,7 +81,10 @@ export function statusFor(view: RoyalPostView, isHost: boolean): Status {
       return { text: 'Your turn: you must play the Countess.', yourMove: true };
     return { text: 'Your turn: tap a card to play it.', yourMove: true };
   }
-  if (!mine) return { text: `Watching: ${turn} is playing.`, yourMove: false };
+  if (!mine) {
+    // When they're dealt in is the room's "You're watching" banner's to say, so it isn't repeated.
+    return { text: `Watching: ${turn} is playing.`, yourMove: false };
+  }
   if (mine.out) return { text: `You’re out this round. ${turn} is playing…`, yourMove: false };
   return {
     text:

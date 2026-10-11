@@ -8,7 +8,10 @@ export interface LocationInfo {
   emoji: string;
   /** How a local can hint at the place without giving it away. */
   tip: string;
-  /** Questions that a local can answer easily and a spy will find awkward. */
+  /**
+   * Questions that a local can answer easily and a spy will find awkward. Everyone hears the
+   * question, so it must never name the place or its one tell; only the answers should hint.
+   */
   questions: string[];
 }
 
@@ -63,7 +66,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
     emoji: '🎳',
     tip: 'Hint at loud crashes, borrowed shoes and keeping score; never say pins or balls.',
     questions: [
-      'What do you swap when you arrive?',
+      'How long does a visit here usually last?',
       'Is this a better place for a date or for a team?',
       'What sound makes people cheer here?',
       'Are you any good at what people do here?',
@@ -124,7 +127,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
       'Who gets up first here?',
       'What’s the smell like?',
       'Is it noisy at dawn?',
-      'What would a city kid be surprised by here?',
+      'What would surprise a first-time visitor here?',
       'What do you take home from here?',
       'How does the weather change things here?',
     ],
@@ -165,10 +168,10 @@ export const LOCATIONS: readonly LocationInfo[] = [
     tip: 'Talk about blue light, glass and kids pointing; don’t say fish or tanks.',
     questions: [
       'What colour is the light here?',
-      'What do kids press their faces against here?',
+      'What do kids love most here?',
       'What’s the star attraction here?',
       'Is it calm or busy?',
-      'What time is feeding?',
+      'When is the best time to visit?',
       'Would you take a photo here?',
     ],
   },
@@ -178,13 +181,13 @@ export const LOCATIONS: readonly LocationInfo[] = [
     emoji: '🚒',
     tip: 'Hint at waiting around, sudden rushes and heavy kit; avoid fire and trucks.',
     questions: [
-      'How quickly do people move here when something happens?',
+      'Is it busy here?',
       'What do people do here when nothing is happening?',
       'Who cooks here?',
       'What kind of shoes does everyone have here?',
       'Do kids like visiting here?',
       'Is it ever quiet at night here?',
-      'What colour is everything here?',
+      'Would you like to work here?',
     ],
   },
   {
@@ -194,8 +197,8 @@ export const LOCATIONS: readonly LocationInfo[] = [
     tip: 'Talk about headphones, silence and doing it again; avoid singing and music.',
     questions: [
       'How many times do you do the same thing here?',
-      'What’s on everyone’s ears here?',
-      'Why does it have to be so quiet here?',
+      'What do people wear here?',
+      'What would ruin a day here?',
       'Who is in charge here?',
       'How late do people stay here?',
       'Would you be nervous here?',
@@ -210,7 +213,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
       'Would you go here alone?',
       'What noise makes you jump here?',
       'What time is best to visit?',
-      'Who dared you to come here?',
+      'Who would you bring here?',
       'Is it well looked after?',
       'What’s behind the locked door here?',
       'Would you spend the night here?',
@@ -267,7 +270,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
     questions: [
       'What’s the queue like here?',
       'What do you hand over here?',
-      'Who sends things from here at Christmas?',
+      'When is it busiest here?',
       'Do you have to fill anything in here?',
       'How do you pay here?',
       'What makes something cost more here?',
@@ -283,7 +286,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
       'What do you bring in your bag here?',
       'What do people stare at here?',
       'Do you go here alone or with a friend?',
-      'What do people promise to do every January?',
+      'How often do you come here?',
       'How do you feel the next day?',
       'What music do they play here?',
     ],
@@ -311,7 +314,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
       'Who drags who in here?',
       'What do you have to say no to here?',
       'When is it busiest?',
-      'What needs batteries here?',
+      'What’s the most expensive thing here?',
       'Do grown-ups enjoy it here?',
       'What’s the noisiest thing here?',
       'How do you leave here without crying?',
@@ -328,8 +331,8 @@ export const LOCATIONS: readonly LocationInfo[] = [
       'What time of day do you go?',
       'Is it a good place for a proposal?',
       'How does the weather change your plans?',
-      'Can you steer?',
-      'How do you get down?',
+      'Would you bring your grandparents here?',
+      'How does a visit here end?',
     ],
   },
   {
@@ -354,7 +357,7 @@ export const LOCATIONS: readonly LocationInfo[] = [
     questions: [
       'What do you bring with you?',
       'Who gets all the attention here?',
-      'What do people sing here?',
+      'What do people do together here?',
       'What do you take home afterwards?',
       'How do you get invited?',
       'What happens near the end?',
@@ -368,11 +371,11 @@ export const LOCATIONS: readonly LocationInfo[] = [
     tip: 'Talk about late nights, darkness and patience; don’t say stars or planets.',
     questions: [
       'What time do people work here?',
-      'Why does it have to be dark here?',
+      'Who would enjoy a visit here?',
       'What ruins a night here?',
       'Is it warm here?',
-      'What do you look through here?',
-      'How far away is what you’re interested in?',
+      'What do you need to bring here?',
+      'How do you know you’ve had a good night here?',
     ],
   },
   {

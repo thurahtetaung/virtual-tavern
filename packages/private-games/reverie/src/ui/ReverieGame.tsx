@@ -1,14 +1,18 @@
-import type { GameUiProps } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, listNames, waitingForHost } from '@vt/game-sdk';
 import {
-  Badge,
   Button,
   ChoicePicker,
   Countdown,
   Hint,
   Modal,
   Panel,
+  PlayerTag,
+  RefusalSlot,
+  Standings,
+  StickyBar,
   TimerSettings,
   cn,
+  useSpectatorPrompt,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -22,10 +26,19 @@ import {
 } from '../logic/types.ts';
 import { useManifest } from './assets.ts';
 import { Card } from './Card.tsx';
-import { startBlocker, statusFor } from './status.ts';
+import { missedVoteNote, startBlocker, statusFor } from './status.ts';
 
 export type ReverieUiProps = GameUiProps<ReverieView, ReverieAction>;
-type Act = (a: ReverieAction) => Promise<boolean>;
+type Act = (a: ReverieAction, options?: ActOptions) => Promise<boolean>;
+
+/** The Take a seat / Sit out button in the Players panel. */
+const SEAT_CONTROL_ID = 'reverie-seat';
+/** Where the server's refusal of a story shows: under the clue form. */
+const TELL_ANCHOR = 'reverie-tell';
+
+/** Seats can only change between turns (and in the lobby or at the end). */
+const seatsOpen = (view: ReverieView) =>
+  view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
 
 const COLOR_DOT: Record<SeatColor, string> = {
   red: 'bg-red-500',
@@ -38,10 +51,21 @@ const COLOR_DOT: Record<SeatColor, string> = {
   teal: 'bg-teal-500',
 };
 
+/** A set description that only lists card numbers ("Cards 000–084") means nothing to players. */
+const plainDescription = (d: string | undefined) =>
+  d && !/^cards?\s*#?\d+\s*[–—-]\s*#?\d+\.?$/i.test(d.trim()) ? d : undefined;
+
 const nameOf = (view: ReverieView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
 
-export function ReverieGame({ view, room, act, showGuide, setYourMove }: ReverieUiProps) {
+export function ReverieGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: ReverieUiProps) {
   const manifest = useManifest();
   const setNames = new Map(
     manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
@@ -51,7 +75,7 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
     name:
       setNames.get(s.id)?.name ??
       (s.id === 'base' ? 'Base set' : s.id === 'extras' ? 'Extras' : `Set ${s.id.split('-')[1]}`),
-    description: setNames.get(s.id)?.description,
+    description: plainDescription(setNames.get(s.id)?.description),
     count: s.cards.length,
   }));
   const cardCount = CARD_SETS.filter((s) => view.settings.sets.includes(s.id)).reduce(
@@ -59,8 +83,21 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
     0,
   );
   const blocker = startBlocker(view, cardCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+
+  // Watchers get the shell's "You're watching" banner, leading to Take a seat.
+  const full = view.seats.filter((s) => s.playing).length >= 8;
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing
+      ? full
+        ? { text: 'All 8 seats are taken.' }
+        : seatsOpen(view)
+          ? { text: 'Take a seat to play.', action: () => void act({ type: 'sit', playing: true }) }
+          : { text: 'You can take a seat once this turn’s cards are revealed.' }
+      : null,
+  );
 
   // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -75,7 +112,7 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
     return (
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        <Seats view={view} online={online} act={act} />
+        <Seats view={view} online={online} act={act} hostId={room.hostId} />
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold">Game settings</h3>
@@ -134,16 +171,18 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
             strictHelp="a slow storyteller is skipped, late cards are played for you and late votes are lost"
           />
           {room.isHost && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-            </div>
+            <StickyBar>
+              <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+                <Button
+                  size="lg"
+                  disabled={blocker !== null}
+                  onClick={() => void act({ type: 'start' })}
+                >
+                  Start game
+                </Button>
+                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              </div>
+            </StickyBar>
           )}
         </Panel>
         <p className="text-center text-sm text-stone-500">
@@ -177,28 +216,42 @@ function Seats({
   view,
   online,
   act,
+  hostId,
 }: {
   view: ReverieView;
   online: (id: string) => boolean;
   act: Act;
+  hostId: string;
 }) {
   const me = view.me;
   const playing = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
-  const canChange =
-    view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
+  const canChange = seatsOpen(view);
+  // Say what a tap on Take a seat / Sit out did, since the list change is easy to miss.
+  const [note, setNote] = useState<string | null>(null);
+  const sit = async (playing: boolean) => {
+    if (!(await act({ type: 'sit', playing }))) return;
+    setNote(
+      !playing
+        ? 'You’re watching now.'
+        : view.phase === 'playing'
+          ? 'You’re seated. You’ll get cards at the next turn.'
+          : 'You’re seated.',
+    );
+  };
   return (
     <Panel className="space-y-2">
       <h3 className="font-bold">Players ({playing.length}/8)</h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
-          <li
-            key={s.id}
-            className={cn('inline-flex items-center gap-1.5', !online(s.id) && 'opacity-50')}
-          >
+          <li key={s.id} className="inline-flex items-center gap-1.5">
             <span aria-hidden className={cn('size-2.5 rounded-full', COLOR_DOT[s.color])} />
-            {s.name}
-            {s.id === me?.id && <Badge>you</Badge>}
+            <PlayerTag
+              name={s.name}
+              host={s.id === hostId}
+              you={s.id === me?.id}
+              offline={!online(s.id)}
+            />
           </li>
         ))}
         {playing.length === 0 && <li className="text-stone-500 italic">Nobody seated yet</li>}
@@ -206,22 +259,41 @@ function Seats({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
-          <span key={s.id}>{s.name}</span>
+          <PlayerTag
+            key={s.id}
+            name={s.name}
+            host={s.id === hostId}
+            you={s.id === me?.id}
+            offline={!online(s.id)}
+          />
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
       {me && canChange && (
         <Button
+          id={SEAT_CONTROL_ID}
           size="sm"
           variant={me.playing ? 'ghost' : 'primary'}
-          onClick={() => void act({ type: 'sit', playing: !me.playing })}
+          onClick={() => void sit(!me.playing)}
         >
-          {me.playing ? 'Just watch' : 'Take a seat'}
+          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
         </Button>
+      )}
+      {note && (
+        <p role="status" className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+          {note}
+        </p>
       )}
     </Panel>
   );
 }
+
+/** What each timed phase's clock is for, and what a strict timer does at 0:00. */
+const PHASE_TIMER: Partial<Record<string, { label: string; atZero: string }>> = {
+  clue: { label: 'to tell a story', atZero: 'then the storyteller is skipped' },
+  pick: { label: 'to play a card', atZero: 'then a card is played for you' },
+  vote: { label: 'to vote', atZero: 'then missing votes are lost' },
+};
 
 function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: number }) {
   const turn = view.turn;
@@ -231,15 +303,18 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
       <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 sm:text-sm">
         <span>
           {turn && view.phase === 'playing' ? `Turn ${turn.round}` : 'Game over'} · to{' '}
-          {view.settings.targetScore} · {view.drawPile} in the pile
+          {view.settings.targetScore} points · {view.drawPile} cards left to draw
         </span>
         <Countdown
           deadline={turn && turn.phase !== 'reveal' ? turn.deadline : null}
           clockOffset={clockOffset}
-          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+          label={PHASE_TIMER[turn?.phase ?? 'clue']?.label}
+          soft={view.settings.timerMode !== 'strict'}
+          expiredHint="Just a reminder: the turn waits for everyone."
+          atZero={PHASE_TIMER[turn?.phase ?? 'clue']?.atZero}
         />
       </div>
-      <ul className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Scores">
+      <ul className="flex flex-wrap gap-1.5" aria-label="Scores">
         {playing.map((s) => {
           const story = turn?.storyteller === s.id;
           const gained = turn?.results?.[s.id]?.points;
@@ -247,7 +322,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
             <li
               key={s.id}
               className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-sm ring-1',
+                'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm ring-1',
                 story
                   ? 'bg-amber-100 ring-amber-400 dark:bg-amber-500/20 dark:ring-amber-500'
                   : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
@@ -257,7 +332,11 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
             >
               <span aria-hidden className={cn('size-2.5 rounded-full', COLOR_DOT[s.color])} />
               <span className="max-w-24 truncate font-medium">{s.name}</span>
-              {story && <span aria-label="storyteller">📖</span>}
+              {story && (
+                <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  📖 storyteller
+                </span>
+              )}
               <b className="tabular-nums">{s.score}</b>
               {gained !== undefined && gained > 0 && (
                 <span className="text-xs font-bold text-emerald-600">+{gained}</span>
@@ -266,6 +345,9 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
           );
         })}
       </ul>
+      {turn && view.phase === 'playing' && turn.phase !== 'reveal' && (
+        <p className="text-xs text-stone-500">Faded names are still deciding.</p>
+      )}
     </div>
   );
 }
@@ -273,10 +355,12 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
 /** Full-size card with the action that fits the moment. */
 function CardViewer({
   card,
+  title,
   onClose,
   action,
 }: {
   card: number | null;
+  title: string;
   onClose: () => void;
   action?: { label: string; onClick: () => void; disabled?: boolean };
 }) {
@@ -284,7 +368,7 @@ function CardViewer({
     <Modal
       open={card !== null}
       onClose={onClose}
-      title={card === null ? '' : `Card ${card}`}
+      title={card === null ? '' : title}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -348,16 +432,37 @@ function Play({
   }, [showHand]);
 
   const canTell = isStory && turn.phase === 'clue';
+  // The hand matters while cards are being chosen; while voting and at the reveal it folds away
+  // so it doesn't cover the table (a tap shows it again).
+  const handNeeded = turn?.phase === 'clue' || turn?.phase === 'pick';
+  const [handToggled, setHandToggled] = useState(false);
+  const handOpen = handNeeded || handToggled;
+  // A hint that the hand scrolls sideways while more cards are off to the right.
+  const handList = useRef<HTMLUListElement>(null);
+  const [handMore, setHandMore] = useState(false);
+  const measureMore = () => {
+    const el = handList.current;
+    setHandMore(!!el && el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+  useEffect(() => {
+    measureMore();
+    const el = handList.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measureMore);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handOpen, view.hand.length]);
   const canNext = room.isHost && view.phase === 'playing' && turn?.phase === 'reveal';
   const canGive =
     !!turn && turn.phase === 'pick' && !isStory && !!me?.playing && turn.myCards.length === 0;
-  const canVote =
-    !!turn && turn.phase === 'vote' && !isStory && !!me?.playing && turn.myVote === null;
+  // A vote can change until the last one is in (the reveal follows straight away).
+  const canVote = !!turn && turn.phase === 'vote' && !isStory && !!me?.playing;
+  const canSit = !!me && !me.playing && view.phase === 'playing' && turn?.phase === 'reveal';
 
   const tell = async (e: FormEvent) => {
     e.preventDefault();
     if (storyPick === null) return;
-    if (await act({ type: 'tell', card: storyPick, clue })) {
+    if (await act({ type: 'tell', card: storyPick, clue }, { anchor: TELL_ANCHOR })) {
       setClue('');
       setStoryPick(null);
     }
@@ -378,17 +483,32 @@ function Play({
       };
     }
     if (viewing.from === 'hand' && canGive) {
+      // One card to give: give it straight from the full-size view.
+      if (view.cardsToGive === 1) {
+        const card = viewing.card;
+        return {
+          label: 'Give this card',
+          onClick: () => void act({ type: 'give', cards: [card] }).then(() => setViewing(null)),
+        };
+      }
       const on = picked.includes(viewing.card);
       return {
-        label: on ? 'Put it back' : view.cardsToGive === 2 ? 'Pick this card' : 'Give this card',
+        label: on ? 'Put it back' : 'Pick this card',
         onClick: () => (togglePick(viewing.card), setViewing(null)),
       };
     }
     if (viewing.from === 'table' && canVote && viewing.index !== undefined) {
       const mine = turn.table[viewing.index]?.mine;
+      const current = turn.myVote === viewing.index;
       return {
-        label: mine ? "That's your card" : `Vote for #${viewing.index + 1}`,
-        disabled: mine,
+        label: mine
+          ? "That's your card"
+          : current
+            ? 'Your vote'
+            : turn.myVote === null
+              ? `Vote for #${viewing.index + 1}`
+              : `Change vote to #${viewing.index + 1}`,
+        disabled: mine || current,
         onClick: () =>
           void act({ type: 'vote', index: viewing.index! }).then(() => setViewing(null)),
       };
@@ -403,11 +523,22 @@ function Play({
     >
       <Scoreboard view={view} clockOffset={room.clockOffset} />
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {canNext && (
-        <div className="flex justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-            Next turn
-          </Button>
+      {(canNext || canSit) && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {canNext && (
+            <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
+              Next turn
+            </Button>
+          )}
+          {canSit && (
+            <Button
+              size="lg"
+              variant={canNext ? 'secondary' : 'primary'}
+              onClick={() => void act({ type: 'sit', playing: true })}
+            >
+              Take a seat
+            </Button>
+          )}
         </div>
       )}
 
@@ -420,10 +551,26 @@ function Play({
 
       {view.phase === 'over' && (
         <Panel className="space-y-3 text-center">
-          <p className="text-2xl font-bold">🏆 {status.text}</p>
+          {/* The status line above already says who won; this is the podium and the standings. */}
+          <Standings
+            entries={view.seats
+              .filter((s) => s.playing || s.score > 0)
+              .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+            you={me?.id}
+            className="text-left"
+          />
           {room.isHost ? (
             <div className="flex flex-wrap justify-center gap-2">
-              <Button size="lg" onClick={() => void act({ type: 'start' })}>
+              <Button
+                size="lg"
+                onClick={() => {
+                  if (
+                    window.confirm('Start a new game with the same players? Scores go back to 0.')
+                  ) {
+                    void act({ type: 'start' });
+                  }
+                }}
+              >
                 Play again
               </Button>
               <Button
@@ -435,7 +582,7 @@ function Play({
               </Button>
             </div>
           ) : (
-            <p>Waiting for the host…</p>
+            <p>{waitingForHost(room, 'start the next game')}</p>
           )}
         </Panel>
       )}
@@ -473,6 +620,7 @@ function Play({
               </Button>
             </form>
           )}
+          <RefusalSlot anchor={TELL_ANCHOR} />
         </Panel>
       )}
 
@@ -488,23 +636,38 @@ function Play({
                   selected={turn.myVote === i}
                   dimmed={canVote && t.mine}
                   onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
-                  className={cn(t.isStory && 'ring-4 ring-amber-500')}
+                  className={cn(t.isStory && 'ring-4 ring-emerald-500 dark:ring-emerald-400')}
                 />
                 {turn.phase === 'reveal' && (
-                  <div className="text-center text-xs">
-                    <p className="font-semibold">
-                      {t.isStory && '📖 '}
-                      {t.owner ? nameOf(view, t.owner) : ''}
-                    </p>
-                    {t.voters.length > 0 && (
-                      <p className="text-stone-500">
-                        {t.voters.map((v) => nameOf(view, v)).join(', ')}
+                  <div className="text-center text-xs leading-snug">
+                    {t.isStory && (
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400">
+                        📖 Story card
                       </p>
                     )}
+                    <p className="font-semibold">
+                      {t.owner ? nameOf(view, t.owner) : ''}
+                      {t.mine && ' (you)'}
+                    </p>
+                    {turn.myVote === i && (
+                      <p className="font-semibold text-amber-700 dark:text-amber-400">
+                        ✋ Your vote
+                      </p>
+                    )}
+                    <p className="text-stone-500">
+                      {t.voters.length > 0
+                        ? `Votes: ${listNames(t.voters.map((v) => nameOf(view, v)))}`
+                        : 'No votes'}
+                    </p>
                   </div>
                 )}
                 {turn.phase !== 'reveal' && t.mine && (
                   <p className="text-center text-xs text-stone-500">yours</p>
+                )}
+                {turn.phase !== 'reveal' && turn.myVote === i && (
+                  <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    ✋ your vote
+                  </p>
                 )}
               </li>
             ))}
@@ -523,6 +686,9 @@ function Play({
                   : 'Nobody found it, so the storyteller scores nothing and the voters get 2.'
               : 'Some found it: the storyteller and the finders score 3.'}
           </p>
+          {missedVoteNote(view) && (
+            <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
+          )}
           <ul className="grid gap-x-4 sm:grid-cols-2">
             {view.seats
               .filter((s) => s.playing && turn.results![s.id])
@@ -554,42 +720,72 @@ function Play({
           className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
         >
           <div className="mx-auto max-w-7xl px-3 py-2">
-            <div className="mb-1 flex items-center justify-between text-xs font-semibold text-stone-500">
-              <span>Your hand</span>
-              {canGive && (
-                <Button
-                  size="sm"
-                  disabled={picked.length !== view.cardsToGive}
-                  onClick={() =>
-                    void act({ type: 'give', cards: picked }).then((ok) => ok && setPicked([]))
-                  }
-                >
-                  {picked.length === view.cardsToGive
-                    ? view.cardsToGive === 2
-                      ? 'Give these cards'
-                      : 'Give this card'
-                    : view.cardsToGive === 2
-                      ? `Pick ${2 - picked.length} more`
-                      : 'Pick a card'}
-                </Button>
+            <div className="mb-1 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-stone-500">
+              <span>
+                Your hand
+                {handOpen && handMore && <span className="font-normal"> · swipe for more →</span>}
+              </span>
+              {canGive && view.cardsToGive === 2 ? (
+                picked.length === 2 ? (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void act({ type: 'give', cards: picked }).then((ok) => ok && setPicked([]))
+                    }
+                  >
+                    Give these cards
+                  </Button>
+                ) : (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    Pick {2 - picked.length} more
+                  </span>
+                )
+              ) : canGive ? (
+                <span className="text-amber-700 dark:text-amber-400">Tap a card to give it</span>
+              ) : (
+                !handNeeded && (
+                  <button
+                    type="button"
+                    aria-expanded={handOpen}
+                    onClick={() => setHandToggled((t) => !t)}
+                    className="-my-1 min-h-11 rounded-lg px-2 text-amber-700 dark:text-amber-400"
+                  >
+                    {handOpen ? 'Hide ▾' : `Show (${view.hand.length}) ▴`}
+                  </button>
+                )
               )}
             </div>
-            <ul className="flex gap-2 overflow-x-auto pb-1">
-              {view.hand.map((card) => (
-                <li key={card} className="w-20 shrink-0 sm:w-24">
-                  <Card
-                    card={card}
-                    selected={picked.includes(card) || storyPick === card}
-                    onClick={() => setViewing({ card, from: 'hand' })}
+            {handOpen && (
+              <div className="relative">
+                <ul
+                  ref={handList}
+                  onScroll={measureMore}
+                  className="flex gap-2 overflow-x-auto pb-1"
+                >
+                  {view.hand.map((card) => (
+                    <li key={card} className="w-20 shrink-0 sm:w-24">
+                      <Card
+                        card={card}
+                        selected={picked.includes(card) || storyPick === card}
+                        label={picked.includes(card) ? '✓' : undefined}
+                        onClick={() => setViewing({ card, from: 'hand' })}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {handMore && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-stone-950"
                   />
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      <Seats view={view} online={online} act={act} />
+      <Seats view={view} online={online} act={act} hostId={room.hostId} />
       {room.isHost && view.phase === 'playing' && (
         <Button
           variant="ghost"
@@ -606,6 +802,11 @@ function Play({
       )}
       <CardViewer
         card={viewing?.card ?? null}
+        title={
+          viewing?.from === 'table' && viewing.index !== undefined
+            ? `Card #${viewing.index + 1}`
+            : 'Your card'
+        }
         onClose={() => setViewing(null)}
         action={viewerAction}
       />

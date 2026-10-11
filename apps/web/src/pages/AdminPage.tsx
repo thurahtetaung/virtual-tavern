@@ -12,6 +12,7 @@ import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
+import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { deckBackupZip, deckFile } from '../lib/question-deck-backup.ts';
 import { backupFileName, backupZip, listFile, saveFile } from '../lib/word-list-backup.ts';
@@ -22,6 +23,7 @@ interface Session {
 }
 
 export function AdminPage() {
+  usePageTitle('Admin');
   const [session, setSession] = useState<Session | null>(null);
   const refresh = useCallback(() => void api<Session>('/api/admin/session').then(setSession), []);
   useEffect(() => {

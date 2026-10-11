@@ -64,6 +64,28 @@ describe('lobby', () => {
     expect(Object.keys(h.state.seats)).toEqual([HOST, 'a', 'b', 'c', 'd', 'e']);
   });
 
+  it('keeps chosen Spymasters in their seats when shuffling', () => {
+    const h = harness([HOST, 'a', 'b', 'c', 'd', 'e']);
+    h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'c');
+    h.act({ type: 'randomize-teams' });
+    expect(h.state.seats.c).toMatchObject({ team: 'blue', role: 'spymaster' });
+    const seats = Object.values(h.state.seats);
+    for (const team of ['red', 'blue'] as const) {
+      const members = seats.filter((s) => s.team === team);
+      expect(members).toHaveLength(3);
+      expect(members.filter((s) => s.role === 'spymaster')).toHaveLength(1);
+    }
+    for (const seed of [2, 3, 4]) {
+      const again = harness([HOST, 'a', 'b', 'c'], undefined, seed);
+      again.act({ type: 'join-team', team: 'red', role: 'spymaster' }, 'a');
+      again.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, 'b');
+      again.act({ type: 'randomize-teams' });
+      expect(again.state.seats.a).toMatchObject({ team: 'red', role: 'spymaster' });
+      expect(again.state.seats.b).toMatchObject({ team: 'blue', role: 'spymaster' });
+      expect(again.state.seats[HOST]).toMatchObject({ role: 'operative' });
+    }
+  });
+
   it('still shuffles with fewer than four players, which leaves a team short', () => {
     const three = harness([HOST, 'a', 'b']);
     three.act({ type: 'randomize-teams' });

@@ -76,7 +76,15 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await ben!.getByRole('button', { name: 'Join Blue' }).click();
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
   await expect(host.getByText('Everyone is in')).toBeVisible();
+  // The word-list summary describes Enigma, not a 25-word board.
+  await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
+
+  // The scoreboard spells out the round and, in round 1, what its icons mean.
+  await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
+  await expect(
+    cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
+  ).toBeVisible();
 
   // Team chat is private.
   await expect(host.getByText('Your keywords')).toBeVisible();
@@ -102,8 +110,14 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
     const blueDecoder = blue.find((p) => p !== blueEnc)!;
 
     if (round >= 2) {
+      // Interceptors see the other team's past clues right above the picker.
+      await expect(transmission(red[0]!, 'Blue').getByText('Their past clues')).toBeVisible();
       // Red intercepts Blue: both Red players must agree. Teammates see each other's picks live.
       await pick(red[0]!, 'Blue', blueCode);
+      if (redEnc === red[0]) {
+        // Hana has nothing left to do, so she's told who she's waiting for instead.
+        await expect(host.getByText("Locked in on Blue's code. Waiting for: Ana.")).toBeVisible();
+      }
       await expect(
         transmission(red[1]!, 'Blue').getByText(`Hana ${blueCode.join('-')} 🔒`),
       ).toBeVisible();
@@ -116,12 +130,23 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
 
     await expect(host.getByText('The code was').first()).toBeVisible();
     await expect(host.getByText('✓ Red decoded it.')).toBeVisible();
-    if (round >= 2) await expect(cy!.getByText('🕵️ Red intercepted it!')).toBeVisible();
-    await host.getByRole('button', { name: 'Next round' }).click();
+    if (round >= 2) {
+      await expect(
+        cy!.getByText(`🕵️ Red intercepted it! Red gets 🕵️ (${round - 1} of 2).`),
+      ).toBeVisible();
+    }
+    if (round < 3) await host.getByRole('button', { name: 'Next round' }).click();
   }
 
+  // The deciding reveal says so, and the host's button leads to the results.
+  await expect(ben!.getByText(/Red wins! Red intercepted 2 codes\./)).toBeVisible();
+  await host.getByRole('button', { name: 'See results' }).click();
+
   await expect(host.getByText('🏆 Red team wins!')).toBeVisible();
-  await expect(ben!.getByText('Red team wins!').first()).toBeVisible();
+  await expect(ben!.getByText('Red intercepted 2 codes.', { exact: true })).toBeVisible();
+  await expect(ben!.getByText('Red team wins!')).toHaveCount(1);
+  // The last round's reveal stays on screen.
+  await expect(ben!.getByRole('region', { name: 'The last round' })).toBeVisible();
   // Everyone's keywords are revealed at the end.
   await expect(ben!.getByText('Your keywords')).toBeVisible();
   await expect(ben!.getByText("Red's keywords")).toBeVisible();
@@ -151,7 +176,15 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
   await ben!.getByRole('button', { name: 'Join Blue' }).click();
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
   await expect(host.getByText('Everyone is in')).toBeVisible();
+  // The word-list summary describes Enigma, not a 25-word board.
+  await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
+
+  // The scoreboard spells out the round and, in round 1, what its icons mean.
+  await expect(cy!.getByRole('button', { name: /Round 1 of 8/ })).toBeVisible();
+  await expect(
+    cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
+  ).toBeVisible();
   await expect(host.getByText('Your keywords')).toBeVisible();
 
   const red = [host, ana!];

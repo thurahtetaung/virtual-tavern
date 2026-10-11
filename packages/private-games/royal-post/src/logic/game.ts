@@ -28,6 +28,7 @@ import {
   type RoyalPostAction,
   type RoyalPostState,
   type RoyalPostView,
+  type Seat,
   type SeatView,
   actionSchema,
 } from './types.ts';
@@ -50,10 +51,14 @@ export function deckOf(edition: EditionConfig): Role[] {
   return edition.cards.flatMap((c) => Array<Role>(c.count).fill(c.role));
 }
 
+/** A short game's target: two tokens fewer than the full game, but never below 2. */
+export const shortTarget = (full: number): number => Math.max(2, full - 2);
+
 /** Tokens needed to win with `players` players, clamped to the edition's range. */
-export function tokensToWin(edition: EditionConfig, players: number): number {
+export function tokensToWin(edition: EditionConfig, players: number, short = false): number {
   const n = Math.min(edition.maxPlayers, Math.max(edition.minPlayers, players));
-  return edition.tokens[n]!;
+  const full = edition.tokens[n]!;
+  return short ? shortTarget(full) : full;
 }
 
 /** Cards that need a target (the Prince may also target yourself). */
@@ -293,6 +298,7 @@ function play(
   action: Extract<RoyalPostAction, { type: 'play' }>,
   by: PlayerId,
   now: number,
+  timedOut = false,
 ): Result {
   const round = state.round;
   if (state.phase !== 'playing' || !round) return new GameError('not-playing', 'No round in play.');
@@ -346,6 +352,7 @@ function play(
     target,
     guess,
     noEffect,
+    ...(timedOut ? { timedOut: true } : {}),
   };
   const outs: [PlayerId, OutCause, PlayerId | null][] = [];
   const notes: [PlayerId, NewNote][] = [];
@@ -439,7 +446,8 @@ function play(
 
   const { id: _id, round: _round, ...logged } = entry;
   next = addLog(next, logged);
-  for (const [who, note] of notes) next = addNote(next, who, note);
+  for (const [who, note] of notes)
+    next = addNote(next, who, timedOut && who === by ? { ...note, timedOut: true } : note);
   for (const [who, cause, from] of outs) next = knockOut(next, who, cause, from);
   if (next.round!.stage === 'chancellor') return next;
   return finishTurn(next, now);
@@ -450,6 +458,7 @@ function chancellorKeep(
   action: Extract<RoyalPostAction, { type: 'chancellor-keep' }>,
   by: PlayerId,
   now: number,
+  timedOut = false,
 ): Result {
   const round = state.round;
   if (state.phase !== 'playing' || !round) return new GameError('not-playing', 'No round in play.');
@@ -468,6 +477,14 @@ function chancellorKeep(
     return new GameError('wrong-count', 'Keep one card and put the rest on the bottom.');
   let next = withRound(state, { deck: [...round.deck, ...action.bottomOrder], stage: 'play' });
   next = withPlayer(next, by, { hand: [action.keep] });
+  if (timedOut) {
+    // Say so on the Chancellor line, so nobody thinks the slow player chose.
+    const at = next.log.findLastIndex((e) => e.kind === 'play' && e.by === by);
+    const entry = next.log[at];
+    if (entry?.kind === 'play' && entry.card === 'chancellor') {
+      next = { ...next, log: next.log.with(at, { ...entry, autoKept: true }) };
+    }
+  }
   return finishTurn(next, now);
 }
 
@@ -490,25 +507,54 @@ function updateSettings(
   if (action.edition) settings.edition = action.edition;
   if (action.turnSeconds !== undefined) settings.turnSeconds = action.turnSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
-  return { ...state, settings };
+  if (action.short !== undefined) settings.short = action.short;
+  // An edition with more seats seats whoever was waiting for one, as the lobby does newcomers.
+  return seatWaiting({ ...state, settings });
+}
+
+/**
+ * Sits down, in join order, everyone who is watching only for want of a seat, while the
+ * edition has room. Players who chose to watch stay watching.
+ */
+export function seatWaiting(state: RoyalPostState): RoyalPostState {
+  let free = editionOf(state).maxPlayers - players(state).length;
+  if (free <= 0 || !Object.values(state.seats).some((s) => s.waiting)) return state;
+  const seats = { ...state.seats };
+  for (const [id, seat] of Object.entries(seats)) {
+    if (!seat.waiting || seat.playing) continue;
+    if (free <= 0) break;
+    const { waiting: _, ...rest } = seat;
+    seats[id] = { ...rest, playing: true };
+    free -= 1;
+  }
+  return { ...state, seats };
 }
 
 function sit(state: RoyalPostState, playing: boolean, ctx: Ctx): Result {
   const seat = state.seats[ctx.by];
   if (!seat) return new GameError('not-seated', 'You are not in this game.');
-  if (seat.playing === playing) return state;
+  if (seat.playing === playing) {
+    // "Just watch" from someone waiting for a seat: they'd rather keep watching.
+    if (!seat.waiting) return state;
+    const { waiting: _, ...rest } = seat;
+    return { ...state, seats: { ...state.seats, [ctx.by]: rest } };
+  }
   if (state.phase === 'playing')
     return new GameError('in-progress', 'You can sit down or stand up between games.');
   if (playing && players(state).length >= editionOf(state).maxPlayers) {
     return new GameError('full', `Only ${editionOf(state).maxPlayers} can play this edition.`);
   }
-  return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing } } };
+  // A choice either way: a player who stands up stays up until they sit down again.
+  const { waiting: _, ...rest } = seat;
+  return { ...state, seats: { ...state.seats, [ctx.by]: { ...rest, playing } } };
 }
 
 function start(state: RoyalPostState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
   if (state.phase === 'playing') return new GameError('in-progress', 'A game is already running.');
+  // Late joiners who watched the last game are dealt in, if there's a seat.
+  state = seatWaiting(state);
   const edition = editionOf(state);
   const seated = players(state);
   if (seated.length < edition.minPlayers)
@@ -522,7 +568,7 @@ function start(state: RoyalPostState, ctx: Ctx): Result {
     ...state,
     phase: 'playing',
     seats,
-    target: tokensToWin(edition, seated.length),
+    target: tokensToWin(edition, seated.length, state.settings.short),
     round: null,
     log: [],
     notes: {},
@@ -550,7 +596,7 @@ function nextRound(state: RoyalPostState, ctx: Ctx): Result {
 function backToLobby(state: RoyalPostState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  return {
+  return seatWaiting({
     ...state,
     phase: 'lobby',
     round: null,
@@ -558,7 +604,7 @@ function backToLobby(state: RoyalPostState, ctx: Ctx): Result {
     notes: {},
     winners: [],
     endReason: null,
-  };
+  });
 }
 
 function reduce(state: RoyalPostState, action: RoyalPostAction, ctx: Ctx): Result {
@@ -605,12 +651,16 @@ function playerJoined(state: RoyalPostState, player: PlayerInfo): RoyalPostState
   const existing = state.seats[player.id];
   if (existing)
     return { ...state, seats: { ...state.seats, [player.id]: { ...existing, name: player.name } } };
-  // Between games newcomers sit down if there's room; mid-game they watch until the next game.
+  // Between games newcomers sit down if there's room; otherwise they wait for a seat, and are
+  // seated at the next game (or as soon as an edition with more seats is picked).
   const playing = state.phase !== 'playing' && players(state).length < editionOf(state).maxPlayers;
-  return {
-    ...state,
-    seats: { ...state.seats, [player.id]: { name: player.name, playing, tokens: 0 } },
+  const seat: Seat = {
+    name: player.name,
+    playing,
+    tokens: 0,
+    ...(playing ? {} : { waiting: true }),
   };
+  return { ...state, seats: { ...state.seats, [player.id]: seat } };
 }
 
 /**
@@ -691,9 +741,9 @@ function onDeadline(state: RoyalPostState, now: number): RoyalPostState {
   const move = autoMove(state, rng);
   const result =
     move?.type === 'play'
-      ? play(state, move, round.current, now)
+      ? play(state, move, round.current, now, true)
       : move?.type === 'chancellor-keep'
-        ? chancellorKeep(state, move, round.current, now)
+        ? chancellorKeep(state, move, round.current, now, true)
         : null;
   if (!result || result instanceof GameError) return withRound(state, { deadline: null });
   return { ...result, seed: newSeed(rng) };
@@ -707,6 +757,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
     name: s.name,
     playing: s.playing,
     tokens: s.tokens,
+    ...(s.waiting ? { waiting: true } : {}),
   }));
   const me = viewer === null ? null : (seatViews.find((s) => s.id === viewer) ?? null);
   const round = state.round;
@@ -718,7 +769,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
     me,
     target:
       state.phase === 'lobby'
-        ? tokensToWin(edition, seatViews.filter((s) => s.playing).length)
+        ? tokensToWin(edition, seatViews.filter((s) => s.playing).length, state.settings.short)
         : state.target,
     round: round
       ? {

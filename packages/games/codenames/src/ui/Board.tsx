@@ -41,7 +41,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
             onClick={() => onPick?.(i)}
             className={cn(
               // Wide cells from lg up, so five rows plus the header fit a 900px desktop window.
-              'relative flex aspect-[4/3] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-sm transition sm:aspect-[3/2] sm:rounded-xl sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
+              'relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-sm transition sm:aspect-[3/2] sm:rounded-xl sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
               face,
               interactive &&
                 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-none',
@@ -55,19 +55,27 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
             <span
               className={cn(
                 'line-clamp-2 w-full text-center leading-tight font-bold uppercase [overflow-wrap:anywhere]',
-                // Never truncate a word players need to read; shrink long ones instead. Letter
-                // spacing waits for sm, where the cells are wide enough for it.
-                card.word.length >= 8
-                  ? 'text-[0.55rem] sm:text-xs md:text-sm'
-                  : 'text-[0.6rem] sm:text-sm sm:tracking-wide md:text-base',
-                card.revealed && card.kind !== 'bystander' && 'line-through decoration-2',
+                // Never truncate a word players need to read; shrink long ones instead, but never
+                // below about 10px on a phone. Letter spacing waits for sm, where the cells are wider.
+                card.word.length >= 9
+                  ? 'text-[0.6rem] tracking-tight sm:text-xs sm:tracking-normal md:text-sm'
+                  : card.word.length >= 8
+                    ? 'text-[0.625rem] sm:text-xs md:text-sm'
+                    : 'text-[0.7rem] sm:text-sm sm:tracking-wide md:text-base',
               )}
             >
               {card.word}
             </span>
             {captioned && (
-              <span className="absolute inset-x-0 bottom-0.5 text-center text-[0.45rem] font-semibold tracking-wide uppercase opacity-80 sm:bottom-1 sm:text-[0.65rem]">
+              <span className="absolute inset-x-0 bottom-0.5 text-center text-[0.55rem] leading-none font-semibold uppercase opacity-90 sm:bottom-1 sm:tracking-wide sm:text-[0.65rem]">
                 {KIND_CAPTION[card.kind!]}
+              </span>
+            )}
+            {card.revealed && card.kind !== 'assassin' && (
+              // Every revealed card gets the same mark, so a guessed bystander never differs from
+              // an unguessed one by shade alone.
+              <span aria-hidden className="absolute top-0.5 left-1 text-xs leading-none sm:text-sm">
+                ✓
               </span>
             )}
             {card.kind === 'assassin' && captioned && (
@@ -81,7 +89,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                   <span
                     key={id}
                     title={names.get(id)}
-                    className="rounded-full bg-amber-500 px-1 text-[0.55rem] font-bold text-stone-950 shadow sm:text-[0.65rem]"
+                    className="rounded-full bg-amber-500 px-1 text-[0.625rem] font-bold text-stone-950 shadow sm:text-[0.65rem]"
                   >
                     {initials(names.get(id) ?? '?')}
                   </span>

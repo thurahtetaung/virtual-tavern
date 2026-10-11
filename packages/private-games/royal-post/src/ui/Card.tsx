@@ -72,6 +72,18 @@ export function Card({
         </span>
       </span>
     );
+  // Card art carries its own rank, too small to read on the little cards: add a plain badge.
+  const rankBadge = art && !failed && size !== 'lg' && (
+    <span
+      aria-hidden
+      className={cn(
+        'absolute top-0 left-0 rounded-br bg-stone-950/80 px-1 font-bold text-white tabular-nums',
+        size === 'md' ? 'text-sm' : 'text-[0.65rem] leading-tight',
+      )}
+    >
+      {rank}
+    </span>
+  );
   const classes = cn(
     'relative block aspect-[5/7] w-full overflow-hidden rounded-lg bg-stone-200 shadow ring-1 ring-black/10 transition dark:bg-stone-800',
     size === 'xs' && 'rounded',
@@ -91,10 +103,12 @@ export function Card({
       className={classes}
     >
       {body}
+      {rankBadge}
     </button>
   ) : (
     <span role="img" aria-label={label} className={classes}>
       {body}
+      {rankBadge}
     </span>
   );
 }

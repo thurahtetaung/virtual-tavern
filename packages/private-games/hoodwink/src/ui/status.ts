@@ -1,9 +1,23 @@
-import { awards, displayText } from '../logic/game.ts';
-import { type HoodwinkView, MAX_PLAYERS, MIN_PLAYERS, type RoundView } from '../logic/types.ts';
+import { type PresencePlayer, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { awards, liePoints } from '../logic/game.ts';
+import {
+  type HoodwinkView,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  type RoundView,
+  TRUTH_POINTS,
+} from '../logic/types.ts';
 
 export interface Status {
   text: string;
   yourMove: boolean;
+}
+
+/** The room as the status line needs it, to name the host and who is still to act. */
+export interface StatusRoom {
+  you: string;
+  hostId: string;
+  players: readonly PresencePlayer[];
 }
 
 /** Questions in the chosen decks that are still offered. */
@@ -41,10 +55,23 @@ export function listNames(names: readonly string[]): string {
 /** "1,000" */
 export const points = (n: number) => n.toLocaleString('en');
 
-const more = (n: number) => `${n} more ${n === 1 ? 'player' : 'players'}`;
+/** Who the round still waits for: players without a lie, or voters without a vote. */
+export function missingIds(round: RoundView): string[] {
+  if (round.stage === 'write') return round.players.filter((id) => !round.written.includes(id));
+  if (round.stage === 'vote') return round.voters.filter((id) => !round.voted.includes(id));
+  return [];
+}
 
-function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Status {
+function roundStatus(
+  view: HoodwinkView,
+  round: RoundView,
+  isHost: boolean,
+  room: StatusRoom | undefined,
+): Status {
   const me = view.me?.id ?? '';
+  // Without the room (tests), name from the seats; nobody is marked offline then.
+  const stillToAct = (ids: readonly string[]) =>
+    waitingFor(ids, room?.players ?? view.seats, { you: me }) || 'Waiting';
   const waiting = view.role === 'waiting' ? ' You join in from the next round.' : '';
   switch (round.stage) {
     case 'write': {
@@ -57,9 +84,8 @@ function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Sta
           yourMove: true,
         };
       }
-      const left = round.players.length - round.written.length;
       return {
-        text: `Lie sent! Waiting for ${more(left)}… You can still change yours.`,
+        text: `Lie sent! ${stillToAct(missingIds(round))}… You can still change yours.`,
         yourMove: false,
       };
     }
@@ -67,38 +93,66 @@ function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Sta
       if (!round.voters.includes(me)) {
         return { text: `Everyone is hunting for the truth…${waiting}`, yourMove: false };
       }
+      const filled = round.myLieFilled
+        ? '⏱ Time ran out, so a ready-made lie was filled in for you (it scores half). '
+        : '';
       if (round.myVote === null) {
-        return { text: 'Which answer is the truth? Pick one.', yourMove: true };
+        return { text: `${filled}Which answer is the truth? Pick one.`, yourMove: true };
       }
-      const left = round.voters.length - round.voted.length;
       return {
-        text: `Voted! Waiting for ${more(left)}… You can still change your vote.`,
+        text: `Voted! ${stillToAct(missingIds(round))}… You can still change your vote.`,
         yourMove: false,
       };
     }
     case 'reveal': {
       const mine = round.points?.[me];
       const scored = mine === undefined ? '' : ` You scored ${points(mine)}.`;
-      const next = round.number >= round.rounds ? 'Finish' : 'Next round';
-      const tail = isHost ? ` Press ${next} when everyone has had a look.` : '';
-      return {
-        text: `The truth was “${round.answer === null ? '?' : displayText(round.answer)}”.${scored}${tail}`,
-        yourMove: isHost,
-      };
+      const last = round.number >= round.rounds;
+      const what = last ? 'finish the game' : 'start the next round';
+      const tail = isHost
+        ? ` Press ${last ? 'Finish' : 'Next round'} when everyone has had a look.`
+        : ` ${room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`}`;
+      const missing = round.voters.filter((id) => !round.voted.includes(id));
+      const late =
+        round.voteTimedOut && missing.length > 0
+          ? ` ⏱ Time ran out on the vote: ${listNames(missing.map((id) => (id === me ? 'you' : nameOf(view, id))))} didn't vote.`
+          : '';
+      // The truth itself is filled into the question and tops the board, so it isn't repeated here.
+      return { text: `Round over!${scored}${late}${tail}`, yourMove: isHost };
     }
   }
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: HoodwinkView, isHost: boolean, blocker: string | null): Status {
+export function statusFor(
+  view: HoodwinkView,
+  isHost: boolean,
+  blocker: string | null,
+  room?: StatusRoom,
+): Status {
   if (view.phase === 'lobby') {
+    const ended =
+      view.endReason === 'abandoned'
+        ? isHost
+          ? 'You ended the last game early. '
+          : 'The host ended the last game early. '
+        : '';
     if (!view.me?.playing) {
-      return { text: "You're watching. Press Play to join the table.", yourMove: false };
+      return {
+        text: `${ended}You're watching. Press Take a seat to join the table.`,
+        yourMove: false,
+      };
     }
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
+    if (blocker) return { text: `${ended}Almost ready: ${blocker}`, yourMove: false };
     return isHost
-      ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      ? {
+          text: `${ended}Everyone is in. Press Start game when your friends are ready!`,
+          yourMove: true,
+        }
+      : {
+          text: `${ended}All set. ${room ? waitingForHost(room) : 'Waiting for the host to start a game…'}`,
+          yourMove: false,
+        };
   }
   if (view.phase === 'over') {
     if (view.endReason === 'too-few') {
@@ -119,7 +173,7 @@ export function statusFor(view: HoodwinkView, isHost: boolean, blocker: string |
       : { text: `Game over! A tie at ${top} points: ${listNames(names)}.`, yourMove: false };
   }
   if (!view.round) return { text: 'Shuffling the questions…', yourMove: false };
-  return roundStatus(view, view.round, isHost);
+  return roundStatus(view, view.round, isHost, room);
 }
 
 /** The prompt split around its blank (`___`, or any run of 2+ underscores). */
@@ -132,4 +186,40 @@ export function splitPrompt(prompt: string): [string, string] | null {
 /** 1st, 2nd… with ties sharing a place: scores [9, 9, 5] rank [1, 1, 3]. */
 export function ranks(scores: readonly number[]): number[] {
   return scores.map((s) => scores.findIndex((x) => x === s) + 1);
+}
+
+/** One reason a player scored this round, e.g. "fooled Ana and Ben" worth 1,000. */
+export interface PointsLine {
+  reason: string;
+  points: number;
+}
+
+/**
+ * Where a player's points this round came from, worked out from the revealed board: finding the
+ * truth, and each lie of theirs that fooled someone (shared when merged, half when picked for
+ * them). Doubled in the final round. Empty before the reveal.
+ */
+export function pointsBreakdown(view: HoodwinkView, round: RoundView, id: string): PointsLine[] {
+  if (round.stage !== 'reveal') return [];
+  const factor = round.double ? 2 : 1;
+  const name = (p: string) => (p === view.me?.id ? 'you' : nameOf(view, p));
+  const lines: PointsLine[] = [];
+  for (const o of round.options) {
+    if (o.truth && o.voters?.includes(id)) {
+      lines.push({ reason: 'found the truth', points: TRUTH_POINTS * factor });
+    }
+    const authors = o.authors ?? [];
+    const fooled = o.voters ?? [];
+    if (o.truth || !authors.includes(id) || fooled.length === 0) continue;
+    const auto = (o.auto ?? []).includes(id);
+    const notes = [
+      authors.length > 1 && `shared with ${listNames(authors.filter((a) => a !== id).map(name))}`,
+      auto && 'half: picked for you',
+    ].filter(Boolean);
+    lines.push({
+      reason: `fooled ${listNames(fooled.map(name))}${notes.length ? ` (${notes.join(', ')})` : ''}`,
+      points: liePoints(fooled.length, authors.length, factor, auto),
+    });
+  }
+  return lines;
 }

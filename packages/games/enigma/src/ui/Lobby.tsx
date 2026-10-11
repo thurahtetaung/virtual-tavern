@@ -1,10 +1,22 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Badge, Button, Hint, Panel, TimerSettings, WordListPicker, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  TimerSettings,
+  WordListPicker,
+  cn,
+} from '@vt/ui';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 type Act = (a: EnigmaAction) => Promise<boolean>;
+
+/** The team picker, where "Take a seat" leads watchers. */
+export const TEAMS_ID = 'enigma-teams';
 
 const FLOWS: { flow: Flow; title: string; help: string }[] = [
   {
@@ -23,20 +35,26 @@ export function PlayerName({
   view,
   id,
   online,
+  hostId,
 }: {
   view: EnigmaView;
   id: string;
   online: boolean;
+  hostId?: string;
 }) {
   const seat = view.seats.find((s) => s.id === id);
   return (
-    <span className={cn('inline-flex items-center gap-1.5', !online && 'opacity-50')}>
+    <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden
         className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
       />
-      {seat?.name ?? '?'}
-      {id === view.me?.id && <Badge>you</Badge>}
+      <PlayerTag
+        name={seat?.name ?? '?'}
+        host={id === hostId}
+        you={id === view.me?.id}
+        offline={!online}
+      />
     </span>
   );
 }
@@ -45,16 +63,19 @@ export function TeamsPicker({
   view,
   online,
   act,
+  hostId,
 }: {
   view: EnigmaView;
   online: (id: string) => boolean;
   act: Act;
+  /** The room host, crowned in the lists. */
+  hostId?: string;
 }) {
   const playing = view.phase === 'playing';
   const myTeam = view.me?.team ?? null;
   const spectators = view.seats.filter((s) => s.team === null);
   return (
-    <div className="space-y-3">
+    <div id={TEAMS_ID} className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {(['red', 'blue'] as Team[]).map((team) => {
           const members = view.seats.filter((s) => s.team === team);
@@ -71,7 +92,7 @@ export function TeamsPicker({
               <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                 {members.map((s) => (
                   <li key={s.id}>
-                    <PlayerName view={view} id={s.id} online={online(s.id)} />
+                    <PlayerName view={view} id={s.id} online={online(s.id)} hostId={hostId} />
                   </li>
                 ))}
                 {members.length === 0 && <li className="text-stone-500 italic">Nobody yet</li>}
@@ -93,7 +114,7 @@ export function TeamsPicker({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
         {spectators.map((s) => (
-          <PlayerName key={s.id} view={view} id={s.id} online={online(s.id)} />
+          <PlayerName key={s.id} view={view} id={s.id} online={online(s.id)} hostId={hostId} />
         ))}
         {spectators.length === 0 && <span className="italic">nobody</span>}
         {myTeam !== null && !playing && (
@@ -102,7 +123,7 @@ export function TeamsPicker({
             variant="ghost"
             onClick={() => void act({ type: 'join-team', team: null })}
           >
-            Just watch
+            Sit out (watch)
           </Button>
         )}
       </div>
@@ -131,7 +152,7 @@ export function Lobby({
   return (
     <div className="space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <TeamsPicker view={view} online={online} act={act} />
+      <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-bold">Game settings</h3>
@@ -144,6 +165,9 @@ export function Lobby({
           wordLists={room.wordLists}
           editable={editable}
           onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
+          summary={(chosen, total) =>
+            `Each team gets 4 secret keywords from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
+          }
         />
         <fieldset>
           <legend className="text-sm font-semibold">Turn order</legend>
@@ -187,20 +211,26 @@ export function Lobby({
           guessHelp="Time for teams to agree on their guesses."
           strictHelp="missing clues or guesses count as failed"
         />
+        <p className="-mt-2 text-xs text-stone-500">
+          Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
+          tight, especially with Strict timers.
+        </p>
         {editable && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
-              🎲 Shuffle teams
-            </Button>
-            {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-          </div>
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
+                🎲 Shuffle teams
+              </Button>
+              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+            </div>
+          </StickyBar>
         )}
       </Panel>
       <p className="text-center text-sm text-stone-500">
