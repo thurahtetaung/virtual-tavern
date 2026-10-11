@@ -1,6 +1,6 @@
 import { Badge, Modal, ProtectedImage, cn } from '@vt/ui';
 import { type ReactNode, createContext, useContext, useState } from 'react';
-import { ARTIFACTS, type ArtifactId, ROLES, type RoleId } from '../logic/roles.ts';
+import { ARTIFACTS, type ArtifactId, type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
 import type { Deck } from './assets.ts';
 import { TEAM_LABEL } from './text.ts';
 
@@ -36,6 +36,32 @@ const EMBLEM: Record<RoleId, string> = {
   beholder: '👀',
   squire: '🐴',
   thing: '👻',
+  copycat: '🐱',
+  vampire: '🧛',
+  'the-master': '🦇',
+  'the-count': '🕰️',
+  renfield: '🪲',
+  diseased: '🤢',
+  cupid: '💘',
+  instigator: '🗡️',
+  priest: '✝️',
+  assassin: '🎯',
+  'apprentice-assassin': '🔪',
+  marksman: '🔭',
+  pickpocket: '👛',
+  gremlin: '😈',
+};
+
+/** An emblem per Mark, for the placeholders. */
+export const MARK_EMBLEM: Record<MarkId, string> = {
+  clarity: '💧',
+  vampire: '🧛',
+  fear: '😱',
+  bat: '🦇',
+  disease: '☣️',
+  love: '❤️',
+  traitor: '🐍',
+  assassin: '🎯',
 };
 
 const TEAM_TONE: Record<string, string> = {
@@ -45,10 +71,15 @@ const TEAM_TONE: Record<string, string> = {
     'from-rose-100 to-red-200 text-red-950 dark:from-red-950 dark:to-stone-900 dark:text-red-100',
   tanner:
     'from-amber-100 to-orange-200 text-orange-950 dark:from-orange-950 dark:to-stone-900 dark:text-orange-100',
-  vampire: 'from-fuchsia-100 to-purple-200 text-purple-950 dark:from-purple-950 dark:to-stone-900',
+  vampire:
+    'from-fuchsia-100 to-purple-200 text-purple-950 dark:from-purple-950 dark:to-stone-900 dark:text-purple-100',
+  assassin:
+    'from-stone-200 to-zinc-300 text-zinc-950 dark:from-zinc-800 dark:to-stone-950 dark:text-zinc-100',
+  'apprentice-assassin':
+    'from-stone-200 to-zinc-300 text-zinc-950 dark:from-zinc-800 dark:to-stone-950 dark:text-zinc-100',
 };
 
-export const emblem = (role: RoleId | 'vampire') => (role === 'vampire' ? '🧛' : EMBLEM[role]);
+export const emblem = (role: RoleId) => EMBLEM[role];
 
 type Size = 'xs' | 'sm' | 'md' | 'lg';
 const SIZE: Record<Size, { box: string; emoji: string; name: string }> = {
@@ -271,15 +302,26 @@ export function Token({
 // ---- Tap any card name to read it ----
 
 const Details = createContext<(role: RoleId) => void>(() => {});
+const MarkSheet = createContext<(mark: MarkId, doppel?: boolean) => void>(() => {});
 
-/** Lets every `RoleChip` below open the card's details in one shared sheet. */
+/** Lets every `RoleChip` and `MarkChip` below open its details in one shared sheet. */
 export function RoleDetailsProvider({ deck, children }: { deck: Deck; children: ReactNode }) {
   const [open, setOpen] = useState<RoleId | null>(null);
+  const [mark, setMark] = useState<{ mark: MarkId; doppel: boolean } | null>(null);
   return (
     <Details.Provider value={setOpen}>
-      {children}
+      <MarkSheet.Provider value={(m, doppel) => setMark({ mark: m, doppel: doppel === true })}>
+        {children}
+      </MarkSheet.Provider>
       <Modal open={open !== null} onClose={() => setOpen(null)} title={open ? deck.name(open) : ''}>
         {open && <RoleDetails role={open} deck={deck} />}
+      </Modal>
+      <Modal
+        open={mark !== null}
+        onClose={() => setMark(null)}
+        title={mark ? deck.markName(mark.mark) : ''}
+      >
+        {mark && <MarkDetails mark={mark.mark} deck={deck} doppel={mark.doppel} />}
       </Modal>
     </Details.Provider>
   );
@@ -312,14 +354,12 @@ export function RoleChip({
   className,
   muted,
 }: {
-  role: RoleId | 'vampire';
+  role: RoleId;
   deck: Deck;
   className?: string;
   muted?: boolean;
 }) {
   const open = useRoleDetails();
-  if (role === 'vampire')
-    return <span className={cn('font-semibold', className)}>🧛 {deck.name(role)}</span>;
   return (
     <button
       type="button"
@@ -364,5 +404,120 @@ export function ArtifactChip({ id, deck }: { id: ArtifactId; deck: Deck }) {
         )}
       </Modal>
     </>
+  );
+}
+
+// ---- Marks ----
+
+/** A Mark's round token: its art from private storage, or a styled placeholder. */
+export function MarkToken({
+  mark,
+  deck,
+  size = 'md',
+  doppel,
+  className,
+}: {
+  mark: MarkId;
+  deck: Deck;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  doppel?: boolean;
+  className?: string;
+}) {
+  const art = deck.markArt(mark);
+  const [failed, setFailed] = useState(false);
+  const box = { xs: 'size-5', sm: 'size-8', md: 'size-16', lg: 'size-36' }[size];
+  return (
+    <span
+      role="img"
+      aria-label={deck.markName(mark)}
+      data-mark={mark}
+      className={cn(
+        'relative inline-flex shrink-0 items-center justify-center rounded-full align-middle',
+        box,
+        (!art || failed) &&
+          'bg-gradient-to-b from-rose-100 to-stone-300 shadow ring-1 ring-black/10 dark:from-rose-950 dark:to-stone-800',
+        className,
+      )}
+    >
+      {art && !failed ? (
+        <ProtectedImage
+          src={art}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="size-full object-contain"
+        />
+      ) : (
+        <span
+          aria-hidden
+          className={{ xs: 'text-[0.6rem]', sm: 'text-sm', md: 'text-3xl', lg: 'text-7xl' }[size]}
+        >
+          {MARK_EMBLEM[mark]}
+        </span>
+      )}
+      {doppel && size !== 'xs' && (
+        <span
+          aria-hidden
+          title="The Doppelgänger’s"
+          className="absolute -right-1 -bottom-1 rounded-full bg-stone-900 px-1 text-[0.6rem] text-white"
+        >
+          🎭
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** What a Mark does: its token, name and text. */
+export function MarkDetails({
+  mark,
+  deck,
+  doppel,
+}: {
+  mark: MarkId;
+  deck: Deck;
+  doppel?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:text-left">
+      <MarkToken mark={mark} deck={deck} size="lg" doppel={doppel} />
+      <div className="space-y-2">
+        <p>{deck.markText(mark)}</p>
+        {doppel && (
+          <p className="text-sm text-stone-600 dark:text-stone-400">
+            One of the Doppelgänger’s own Marks: it works the same.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A Mark's name you can tap to read it. */
+export function MarkChip({
+  mark,
+  deck,
+  doppel,
+  className,
+}: {
+  mark: MarkId;
+  deck: Deck;
+  doppel?: boolean;
+  className?: string;
+}) {
+  const open = useContext(MarkSheet);
+  return (
+    <button
+      type="button"
+      onClick={() => open(mark, doppel)}
+      data-mark={mark}
+      className={cn(
+        'inline-flex max-w-full items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 align-middle text-sm font-semibold text-rose-950 ring-1 ring-rose-300 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
+        className,
+      )}
+    >
+      <MarkToken mark={mark} deck={deck} size="xs" />
+      <span className="truncate">{deck.markName(mark)}</span>
+    </button>
   );
 }

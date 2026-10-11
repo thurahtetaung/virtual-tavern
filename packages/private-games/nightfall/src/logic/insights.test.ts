@@ -119,4 +119,65 @@ describe('insights', () => {
       blindsided: true,
     });
   });
+
+  it('reports the Vampire set: epic battles, broken hearts, the Mark of the Vampire, Disease', () => {
+    // A Gremlin moves the Mark of the Vampire; Cupid links the werewolf and C; the Diseased
+    // marks F. Everyone but A votes A (4); A votes B, the vampire, who is second (1).
+    const { events } = reveal(
+      (h) => {
+        h.toStep('vampires');
+        h.night('B', { players: ['D'] });
+        h.toStep('diseased');
+        h.night('E', { side: 'left' });
+        h.toStep('cupid');
+        h.night('C', { players: ['A', 'C'] });
+        h.toStep('gremlin');
+        h.night('D', { choice: 'marks' });
+        h.night('D', { players: ['D', 'F'] });
+        h.vote(votes('B,C,D,E>A; A>B; F>A'));
+      },
+      { players: [W, 'vampire', 'cupid', 'gremlin', 'diseased', V] },
+    );
+    const outcome = byType(events, 'outcome')[0]!;
+    expect(outcome.props).toMatchObject({
+      epic: true,
+      loveDeaths: 1,
+      vampireMark: 'moved',
+      ending: 'heartbreak',
+    });
+    expect([...(outcome.props!.teams as string[])].sort()).toEqual([
+      'vampire',
+      'village',
+      'werewolf',
+    ]);
+    const player = (id: string) => byType(events, 'player').find((e) => e.playerId === id)!.props!;
+    expect(player('A')).toMatchObject({ heartbreaks: 1, vampire: false, mark: 'love' });
+    expect(player('B')).toMatchObject({ vampire: true });
+    expect(player('F')).toMatchObject({ vampire: true, mark: 'vampire' });
+    expect(player('D')).toMatchObject({ vampire: false, mark: 'disease' });
+  });
+
+  it('counts the voters lost to a Disease, and an Assassin whose mark died', () => {
+    const { events } = reveal(
+      (h) => {
+        h.toStep('diseased');
+        h.night('A', { side: 'left' });
+        h.toStep('assassin');
+        h.night('C', { players: ['E'] });
+        h.vote(votes('A,C>B; D,B>E; E>A'));
+      },
+      { players: ['diseased', W, 'assassin', V, V] },
+    );
+    const player = (id: string) => byType(events, 'player').find((e) => e.playerId === id)!.props!;
+    // B holds the Mark of Disease (A and C voted for him); A is the Diseased (E voted for her).
+    expect(player('B')).toMatchObject({ plague: 2 });
+    expect(player('A')).toMatchObject({ plague: 1 });
+    // C's mark (E) died, though voting for B cost C the win.
+    expect(player('C')).toMatchObject({ hitman: true, won: false });
+    expect(byType(events, 'outcome')[0]!.props).toMatchObject({
+      epic: false,
+      vampireMark: null,
+      disqualified: 3,
+    });
+  });
 });

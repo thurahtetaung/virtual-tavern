@@ -661,6 +661,30 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
       'cards_moved',
       (who, n) => `${who} moved ${plural(n, 'card')} at night`,
     ],
+    [
+      'fang-fan',
+      'Fang Fan',
+      'vampire',
+      (who, n) => `${who} ended ${plural(n, 'game')} as a Vampire`,
+    ],
+    [
+      'heartbreaker',
+      'Heartbreaker',
+      'heartbreaks',
+      (who, n) => `${who} dragged ${plural(n, 'lover')} to the grave`,
+    ],
+    [
+      'plague-bearer',
+      'Plague Bearer',
+      'plague',
+      (who, n) => `${plural(n, 'voter')} lost the game by voting for ${who}’s Disease`,
+    ],
+    [
+      'hitman',
+      'Hitman',
+      'hitman',
+      (who, n) => `${who} saw their Assassin’s target die ${times(n)}`,
+    ],
   ];
   for (const [id, title, key, text] of NIGHTFALL_FACTS)
     byPlayer(id, title, nf(key), text, 'nightfall');

@@ -1,4 +1,4 @@
-import { ROLES, type RoleId } from './roles.ts';
+import { MARK_ROLES, ROLES, type RoleId, hostileGroupsIn, marksInUse } from './roles.ts';
 
 /**
  * The night's steps. Each step is called when its role is *selected*, whether or not a player
@@ -7,7 +7,8 @@ import { ROLES, type RoleId } from './roles.ts';
  * out from the public settings: `view()` never needs to say which step is running.
  *
  * `order` sorts the steps; it follows the narrator's wake codes (the code is kept for reference).
- * Gaps leave room for later sets' steps (dusk, aliens, villains) to slot in between.
+ * Gaps leave room for later sets' steps (aliens, villains) to slot in between. Negative orders are
+ * the dusk (the Vampire set's evening, before anyone sees their Mark): Fear doesn't reach them.
  */
 export interface StepDef {
   id: string;
@@ -20,7 +21,12 @@ export interface StepDef {
   doppel?: boolean;
   /** Whether the step runs for this selection of roles. */
   when: (selected: ReadonlySet<RoleId>) => boolean;
+  /** A fixed length factor (the dusk's Mark look and the lovers aren't anybody's role). */
+  factor?: number;
 }
+
+/** Steps before this order are the dusk: a Mark of Fear doesn't stop anyone acting in them. */
+export const NIGHT_ORDER = 0;
 
 const has =
   (...roles: RoleId[]) =>
@@ -65,10 +71,55 @@ const beholder: StepDef = {
 };
 const revealer = own('revealer', '10', 1000);
 const curator = own('curator', '11', 1100);
+const count = own('the-count', '-6B', -580);
+const renfield = own('renfield', '-6D', -560);
+const priest = own('priest', '-2', -200);
+const assassin = own('assassin', '-1', -100);
+const apprentice = own('apprentice-assassin', '-1B', -90);
+const marksman = own('marksman', '5D', 540);
+const pickpocket = own('pickpocket', '6C', 640);
+const gremlin = own('gremlin', '7D', 740);
+
+/** The narrator's dusk plays when any of these is in: everyone then looks at their Mark. */
+const DUSK_ROLES: RoleId[] = [
+  'vampire',
+  'the-master',
+  'the-count',
+  'diseased',
+  'cupid',
+  'instigator',
+  'priest',
+  'assassin',
+  'apprentice-assassin',
+];
 
 export const STEPS: StepDef[] = (
   [
+    own('copycat', '-8', -800),
     own('doppelganger', '-7', -700),
+    {
+      id: 'vampires',
+      code: '-6',
+      order: -600,
+      role: 'vampire',
+      when: has('vampire', 'the-master', 'the-count'),
+    },
+    count,
+    doppelAfter(count, '-6Ba'),
+    renfield,
+    doppelAfter(renfield, '-6-Ca'),
+    own('diseased', '-5', -500),
+    own('cupid', '-4', -400),
+    own('instigator', '-3', -300),
+    priest,
+    doppelAfter(priest, '-2a'),
+    assassin,
+    // The app's order: Assassin, Apprentice (the Assassin still awake), her copy, then his.
+    apprentice,
+    doppelAfter(apprentice, '-1-Ba'),
+    { ...doppelAfter(assassin, '-1a'), order: -85 },
+    { id: 'dusk', code: '-1D', order: -50, role: 'villager', factor: 1, when: has(...DUSK_ROLES) },
+    { id: 'lovers', code: '00', order: -40, role: 'cupid', factor: 1, when: has('cupid') },
     own('sentinel', '0B', 20),
     {
       id: 'werewolves',
@@ -87,12 +138,18 @@ export const STEPS: StepDef[] = (
     own('seer', '5', 500),
     own('apprentice-seer', '5B', 520),
     own('paranormal-investigator', '5C', 530),
+    marksman,
+    doppelAfter(marksman, '5Da'),
     own('robber', '6', 600),
     own('witch', '6B', 620),
+    pickpocket,
+    doppelAfter(pickpocket, '6Ca'),
     own('troublemaker', '7', 700),
     own('village-idiot', '7B', 720),
     auraSeer,
     doppelAfter(auraSeer, '7Ca'),
+    gremlin,
+    doppelAfter(gremlin, '7Da'),
     own('drunk', '8', 800),
     insomniac,
     doppelAfter(insomniac, '9a'),
@@ -125,8 +182,12 @@ export function buildNightPlan(roles: readonly RoleId[]): StepId[] {
 /** How long a step lasts, as a multiple of the step length (complex roles get double). */
 export function stepFactor(id: StepId): number {
   const def = stepDef(id);
+  if (def.factor) return def.factor;
   return ROLES[def.role].complex || (def.role === 'doppelganger' && !def.doppel) ? 2 : 1;
 }
+
+/** Whether a step is in the dusk, before the Marks are seen (Fear doesn't apply). */
+export const isDusk = (id: StepId) => stepDef(id).order < NIGHT_ORDER;
 
 /** Length of every step in ms, in plan order. */
 export const stepDurations = (plan: readonly StepId[], stepSeconds: number) =>
@@ -155,7 +216,14 @@ export function stepLines(
 ): StepLines {
   const selected = new Set(roles);
   const def = stepDef(id);
-  const key = id === 'werewolves' ? 'werewolf' : def.doppel ? `doppelganger:${def.role}` : id;
+  const key =
+    id === 'werewolves'
+      ? 'werewolf'
+      : id === 'vampires'
+        ? 'vampire'
+        : def.doppel
+          ? `doppelganger:${def.role}`
+          : id;
   const beholder =
     def.role !== 'beholder'
       ? ''
@@ -173,6 +241,23 @@ export function stepLines(
     }
     if (opts.loneWolf) open.push('werewolf:lone-wolf');
   }
+  if (id === 'vampires' && selected.has('renfield')) close[0] = 'vampire:close:renfield';
+  if (def.role === 'aura-seer' && marksInUse(roles)) open[0] = `${key}:wake:marks`;
+  // The Assassin stays awake while the Apprentice Assassin (and her copy) look for him.
+  const withAssassin = selected.has('assassin');
+  if (id === 'assassin' && selected.has('apprentice-assassin')) close.length = 0;
+  if (def.role === 'apprentice-assassin' && withAssassin) {
+    open[0] = `${key}:wake:with-assassin`;
+    const last = selected.has('doppelganger') ? def.doppel === true : !def.doppel;
+    if (last) {
+      if (def.doppel) close.push('assassin:close');
+      else close[0] = 'assassin:close:with-apprentice';
+    }
+  }
+  if (def.role === 'renfield' && hostileGroupsIn(roles).includes('vampire')) {
+    const last = selected.has('doppelganger') ? def.doppel === true : !def.doppel;
+    if (last) close.push('renfield:hands-away');
+  }
   if (id === 'doppelganger' && selected.has('minion'))
     close.unshift('doppelganger:minion:wake', 'doppelganger:minion:thumbs-away');
   if (id === 'minion') close.unshift('minion:thumbs-away');
@@ -185,10 +270,20 @@ export function stepLines(
 
 /** Lines outside the steps. */
 export const FRAME_LINES = {
+  epicBattle: 'night:epic-battle',
   nightStart: 'night:start',
   nightEnd: 'night:end',
+  nightEndMarks: 'night:end:marks',
   dayStart: 'day:start',
   oneMinute: 'day:1-minute-left',
   thirtySeconds: 'day:30-seconds-left',
   vote: 'vote:start',
 } as const;
+
+/** Whether these roles make Marks part of the game (every player gets a Mark of Clarity). */
+export const usesMarks = marksInUse;
+
+/** More than one evil team can be at the table: the narrator announces an epic battle. */
+export const epicPossible = (roles: readonly RoleId[]) => hostileGroupsIn(roles).length >= 2;
+
+export { MARK_ROLES };

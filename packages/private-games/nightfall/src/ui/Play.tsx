@@ -2,13 +2,15 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
-import { ROLES, type RoleId } from '../logic/roles.ts';
-import type { NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
+import { type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
+import type { Choice, Note, NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
 import {
   ArtifactChip,
   CardBack,
   CardFace,
+  MarkChip,
+  MarkToken,
   RoleArt,
   RoleChip,
   Token,
@@ -22,6 +24,7 @@ import {
   describeEntry,
   describeNote,
   lineText,
+  marksIn,
   nameOfView,
   promptText,
 } from './text.ts';
@@ -34,23 +37,71 @@ type Act = (a: NightfallAction) => Promise<boolean>;
 /** The roles a note names, so they can be tapped. */
 const rolesIn = (n: { kind: string; role?: RoleId }): RoleId[] => (n.role ? [n.role] : []);
 
-/** Text with each named role turned into a tappable chip (first mention of each). */
-function WithChips({ text, roles, deck }: { text: string; roles: RoleId[]; deck: Deck }) {
+/**
+ * Text with each named role (and Mark) turned into a tappable chip (first mention of each, in
+ * the order they appear).
+ */
+function WithChips({
+  text,
+  roles,
+  marks = [],
+  deck,
+}: {
+  text: string;
+  roles: RoleId[];
+  marks?: MarkId[];
+  deck: Deck;
+}) {
+  const names = [
+    ...[...new Set(roles)].map((role) => ({ name: deck.name(role), role, mark: null })),
+    ...[...new Set(marks)].map((mark) => ({ name: deck.markName(mark), role: null, mark })),
+  ];
   const parts: ReactNode[] = [];
   let rest = text;
   let key = 0;
-  for (const role of [...new Set(roles)]) {
-    const name = deck.name(role);
-    const at = rest.indexOf(name);
-    if (at < 0) continue;
-    parts.push(
-      rest.slice(0, at),
-      <RoleChip key={key++} role={role} deck={deck} className="text-xs" />,
+  for (;;) {
+    const next = names
+      .map((n) => ({ ...n, at: rest.indexOf(n.name) }))
+      .filter((n) => n.at >= 0)
+      .sort((a, b) => a.at - b.at || b.name.length - a.name.length)[0];
+    if (!next) break;
+    names.splice(
+      names.findIndex((n) => n.name === next.name),
+      1,
     );
-    rest = rest.slice(at + name.length);
+    parts.push(
+      rest.slice(0, next.at),
+      next.role ? (
+        <RoleChip key={key++} role={next.role} deck={deck} className="text-xs" />
+      ) : (
+        <MarkChip key={key++} mark={next.mark} deck={deck} className="text-xs" />
+      ),
+    );
+    rest = rest.slice(next.at + next.name.length);
   }
   parts.push(rest);
   return <>{parts}</>;
+}
+
+/** The Mark you last saw (at dusk, or the Pickpocket's new one), or null. */
+export function lastSeenMark(notes: readonly Note[]): { mark: MarkId; doppel: boolean } | null {
+  for (let i = notes.length - 1; i >= 0; i--) {
+    const n = notes[i]!;
+    if (n.kind === 'mark') return { mark: n.mark, doppel: n.doppel === true };
+    if (n.kind === 'pickpocketed') return { mark: n.mark, doppel: false };
+  }
+  return null;
+}
+
+/** "Your Mark": the one you saw, tappable to read; it may have moved since. */
+function MyMark({ view, deck }: { view: NightfallView; deck: Deck }) {
+  const seen = lastSeenMark(view.notes);
+  if (!view.myRole || !seen) return null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1 text-sm" data-testid="my-mark">
+      Your Mark <MarkChip mark={seen.mark} deck={deck} doppel={seen.doppel} />
+    </span>
+  );
 }
 
 export function SoundControls({
@@ -118,12 +169,13 @@ function Narration({ lines, deck }: { lines: string[]; deck: Deck }) {
 /** Roles in play, in the order they wake, with how each wins. */
 export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck }) {
   const unique = [...new Set(view.settings.roles)];
+  const own = STEPS.filter((s) => s.id !== 'dusk' && s.id !== 'lovers');
   const order = (r: RoleId) => {
-    const step = STEPS.find((s) => s.role === r && !s.doppel) ?? STEPS.find((s) => s.role === r);
-    const wolf = ROLES[r].wakesWithWerewolves ? 200 : Infinity;
+    const step = own.find((s) => s.role === r && !s.doppel) ?? own.find((s) => s.role === r);
+    const group = ROLES[r].wakesWithVampires ? -600 : ROLES[r].wakesWithWerewolves ? 200 : Infinity;
     return Math.min(
       step && buildNightPlan(view.settings.roles).includes(step.id) ? step.order : Infinity,
-      wolf,
+      group,
     );
   };
   const sorted = unique.sort((a, b) => order(a) - order(b));
@@ -158,6 +210,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
           <WithChips
             text={describeNote(n, nameOf, deck, kinds, me)}
             roles={rolesIn(n)}
+            marks={marksIn(n)}
             deck={deck}
           />
           {n.auto && <span className="text-xs text-stone-500"> (time ran out)</span>}
@@ -232,9 +285,14 @@ export function Ready({
         </Panel>
       )}
       {room.isHost && (
-        <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
-          Start the night now
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
+            Start the night now
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
+            Shuffle and deal again
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -354,7 +412,13 @@ function PromptPanel({
         </ul>
       )}
       <div className="flex flex-wrap justify-center gap-2">
-        {prompt.sides ? (
+        {prompt.choices ? (
+          prompt.choices.map((c: Choice) => (
+            <Button key={c} onClick={() => send({ choice: c })}>
+              {c === 'marks' ? 'Swap two Marks' : 'Swap two cards'}
+            </Button>
+          ))
+        ) : prompt.sides ? (
           <>
             <Button onClick={() => send({ side: 'right' })}>← Right</Button>
             <Button onClick={() => send({ side: 'left' })}>Left →</Button>
@@ -423,6 +487,9 @@ export function Night({
   const acting = night.acting;
   const nameOf = nameOfView(view);
   const now = view.notes.filter((n) => n.step === night.index && night.index >= 0);
+  const dusk = acting?.step === 'dusk';
+  const lovers = acting?.step === 'lovers';
+  const duskMark = now.find((n) => n.kind === 'mark');
   return (
     <div
       className={cn(
@@ -441,16 +508,40 @@ export function Night({
       {acting ? (
         // Its own surface rather than <Panel>: the night is dark in both themes.
         <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-indigo-500/50">
-          <div className="flex items-center gap-3">
-            <RoleArt role={acting.as} deck={deck} size="sm" />
-            <div>
-              <p className="text-lg font-bold">You’re awake</p>
-              <p className="text-sm">
-                as the <RoleChip role={acting.as} deck={deck} />
-                {acting.step.startsWith('doppelganger-') && ' (your copy)'}
-              </p>
+          {dusk ? (
+            <div className="flex flex-col items-center gap-2 text-center" data-testid="dusk">
+              <p className="text-lg font-bold">Everyone is awake: look at your Mark</p>
+              {duskMark?.kind === 'mark' && (
+                <>
+                  <MarkToken mark={duskMark.mark} deck={deck} size="lg" doppel={duskMark.doppel} />
+                  <p className="text-sm">
+                    Your Mark:{' '}
+                    <MarkChip mark={duskMark.mark} deck={deck} doppel={duskMark.doppel} />
+                  </p>
+                  <p className="text-sm text-indigo-200">{deck.markText(duskMark.mark)}</p>
+                </>
+              )}
             </div>
-          </div>
+          ) : lovers ? (
+            <div className="flex items-center gap-3" data-testid="lovers">
+              <MarkToken mark="love" deck={deck} size="md" />
+              <div>
+                <p className="text-lg font-bold">You’re in love</p>
+                <p className="text-sm">Look for your love: if one of you dies, so do the others.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <RoleArt role={acting.as} deck={deck} size="sm" />
+              <div>
+                <p className="text-lg font-bold">You’re awake</p>
+                <p className="text-sm">
+                  as the <RoleChip role={acting.as} deck={deck} />
+                  {acting.step.startsWith('doppelganger-') && ' (your copy)'}
+                </p>
+              </div>
+            </div>
+          )}
           {acting.prompt ? (
             <PromptPanel
               key={`${night.index}:${acting.prompt.stage}`}
@@ -460,7 +551,7 @@ export function Night({
               deck={deck}
             />
           ) : null}
-          {now.length > 0 && (
+          {now.length > 0 && !dusk && (
             <ul className="space-y-1" data-testid="night-result">
               {now.map((n) => (
                 <li
@@ -470,6 +561,7 @@ export function Night({
                   <WithChips
                     text={describeNote(n, nameOf, deck, undefined, view.me?.id)}
                     roles={rolesIn(n)}
+                    marks={marksIn(n)}
                     deck={deck}
                   />
                 </li>
@@ -488,6 +580,7 @@ export function Night({
           <p className="font-serif text-2xl text-stone-100">Night has fallen…</p>
           <p className="text-sm">{status.text}</p>
           {view.myRole && <MyCardChip view={view} deck={deck} />}
+          <MyMark view={view} deck={deck} />
         </div>
       )}
       <div className="flex justify-center">{sound}</div>
@@ -642,7 +735,12 @@ export function Day({
       </div>
       {tab === 'table' && (
         <Panel className="space-y-3">
-          {playing && <MyCardChip view={view} deck={deck} />}
+          {playing && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <MyCardChip view={view} deck={deck} />
+              <MyMark view={view} deck={deck} />
+            </div>
+          )}
           {myArtifact?.kind === 'artifact' && (
             <p className="text-sm">
               Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
@@ -758,22 +856,49 @@ export function Reveal({
             </span>
           </p>
         ))}
+        {result.epic && (
+          <p className="text-sm font-semibold" data-testid="epic">
+            ⚔️ An epic battle: the most voted and the runner-up both die.
+          </p>
+        )}
         {result.deaths.length === 0 ? (
           <p className="text-sm">Nobody died.</p>
         ) : (
           result.deaths.map((d) => (
-            <p key={d.player} className="text-sm" data-testid="death">
+            <p
+              key={d.player}
+              className="flex items-center gap-1 text-sm"
+              data-testid="death"
+              data-cause={d.cause}
+              data-place={d.place ?? ''}
+            >
               {d.cause === 'vote' ? (
-                <Token src={deck.token('most-votes-1')} emblem="☠️" label="Most votes" />
+                <Token
+                  src={deck.token(d.place === 2 ? 'most-votes-2' : 'most-votes-1')}
+                  emblem={d.place === 2 ? '🥈' : '☠️'}
+                  label={d.place ? `Most votes #${d.place}` : 'Most votes'}
+                  className="size-7"
+                />
+              ) : d.cause === 'love' ? (
+                <span aria-hidden>💔</span>
               ) : (
-                '🏹'
-              )}{' '}
-              {nameOf(d.player)}{' '}
-              {d.cause === 'vote'
-                ? `was voted out (${result.tally[d.player]} votes)`
-                : `was shot by ${nameOf(d.by)}, the Hunter`}
+                <span aria-hidden>🏹</span>
+              )}
+              <span>
+                {nameOf(d.player)}{' '}
+                {d.cause === 'vote'
+                  ? `was voted out (${result.tally[d.player]} ${result.tally[d.player] === 1 ? 'vote' : 'votes'}${d.place === 2 ? ', second place' : d.place === 1 ? ', most votes' : ''})`
+                  : d.cause === 'love'
+                    ? `died of a broken heart, with ${nameOf(d.by)}`
+                    : `was shot by ${nameOf(d.by)}, the Hunter`}
+              </span>
             </p>
           ))
+        )}
+        {(result.disqualified?.length ?? 0) > 0 && (
+          <p className="text-sm" data-testid="disqualified">
+            ☣️ {result.disqualified!.map(nameOf).join(', ')} voted for the Disease, and can’t win.
+          </p>
         )}
       </Panel>
       <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
@@ -799,6 +924,7 @@ export function Reveal({
             {view.table!.map((p) => {
               const card = reveal.cards[p.id]!;
               const id = result.identities[p.id]!;
+              const pm = reveal.marks?.[p.id];
               const dead = result.deaths.some((d) => d.player === p.id);
               const won = result.winners.includes(p.id);
               return (
@@ -807,6 +933,8 @@ export function Reveal({
                   data-testid="reveal-player"
                   data-player={p.name}
                   data-final={id.role}
+                  data-team={id.team}
+                  data-mark={pm?.id ?? ''}
                   data-won={won}
                   className="flex items-start gap-2 rounded-lg bg-stone-100 px-2 py-1.5 text-sm dark:bg-stone-800/60"
                 >
@@ -826,11 +954,15 @@ export function Reveal({
                       <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
                       <span aria-hidden>→</span>
                       <RoleChip role={id.role} deck={deck} />
+                      {pm && <MarkChip mark={pm.id} deck={deck} doppel={pm.doppel} />}
                       {card.artifact && <ArtifactChip id={card.artifact} deck={deck} />}
                       {card.shield && (
                         <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />
                       )}
-                      {id.converted && <Badge>turned</Badge>}
+                      {id.converted && <Badge>turned {TEAM_LABEL[id.team].toLowerCase()}</Badge>}
+                      {id.team !== ROLES[id.role].team && !id.converted && (
+                        <Badge>{TEAM_LABEL[id.team]}</Badge>
+                      )}
                     </div>
                     {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
                       <p className="text-xs text-stone-500">Card: {deck.name(card.role)}</p>
@@ -848,9 +980,19 @@ export function Reveal({
             {steps.map(({ id, i, def, entries }) => (
               <li key={i} className="text-sm" data-testid="timeline-step" data-step={id}>
                 <p className="font-semibold">
-                  {i + 1}. {id === 'werewolves' && 'The werewolves: '}
-                  <RoleChip role={def.role} deck={deck} />
-                  {def.doppel && ' (the Doppelgänger’s copy)'}
+                  {i + 1}.{' '}
+                  {id === 'dusk' ? (
+                    'Dusk: everyone looks at their Mark'
+                  ) : id === 'lovers' ? (
+                    'The lovers'
+                  ) : (
+                    <>
+                      {id === 'werewolves' && 'The werewolves: '}
+                      {id === 'vampires' && 'The vampires: '}
+                      <RoleChip role={def.role} deck={deck} />
+                      {def.doppel && ' (the Doppelgänger’s copy)'}
+                    </>
+                  )}
                 </p>
                 <ul className="ml-4 list-disc">
                   {entries.map((e, k) => (
@@ -858,6 +1000,10 @@ export function Reveal({
                       <WithChips
                         text={describeEntry(e, nameOf, deck, kinds)}
                         roles={[...rolesIn(e.note), ...(e.moved ?? []).map((m) => m.role)]}
+                        marks={[
+                          ...(e.note.kind === 'nobody' ? [] : marksIn(e.note)),
+                          ...(e.marks ?? []).flatMap((m) => (m.mark ? [m.mark] : [])),
+                        ]}
                         deck={deck}
                       />
                     </li>

@@ -1,11 +1,22 @@
 import type { InsightEvent, PlayerId } from '@vt/game-sdk';
-import { groupOf, isWerewolf } from './resolve.ts';
+import { groupOf, isVampire, isWerewolf } from './resolve.ts';
 import { ROLES } from './roles.ts';
 import type { NightfallAction, NightfallState, Slot, TeamResultId } from './types.ts';
 
 /** How a game ended, for the stats page (the first that applies). */
 export type Ending =
-  'hunter' | 'tanner' | 'nobody-died' | 'werewolf-caught' | 'wolves-survived' | 'wrong-player';
+  | 'hunter'
+  | 'heartbreak'
+  | 'tanner'
+  | 'nobody-died'
+  | 'werewolf-caught'
+  | 'vampire-caught'
+  | 'wolves-survived'
+  | 'vampires-survived'
+  | 'wrong-player';
+
+/** What became of the Mark of the Vampire: still where the vampires put it, moved, or wiped. */
+export type VampireMarkFate = 'kept' | 'moved' | 'cleansed';
 
 const slotKey = (s: Slot) => ('player' in s ? `p:${s.player}` : `c:${s.center}`);
 
@@ -13,12 +24,14 @@ const slotKey = (s: Slot) => ('player' in s ? `p:${s.player}` : `c:${s.center}`)
  * Stats only, all reported at the reveal (nothing is sent while the game is secret):
  * - `outcome`: the teams in play and the winners, the player count, how the game ended, how
  *   long the night and the day took, how many cards moved and the longest chain of moves of a
- *   single card, the setup's roles and the roles that were moved; words are the roles dealt
- *   (`clue`) and the roles that died (`guess`).
+ *   single card, the setup's roles and the roles that were moved, whether it was an epic battle,
+ *   how many lovers died of a broken heart and what became of the Mark of the Vampire; words are
+ *   the roles dealt (`clue`) and the roles that died (`guess`).
  * - `player` (one per player): dealt and final role and team, won or not, and the facts behind
  *   the fun facts (lone wolf survivor, Tanner's dream, identity crisis, blindsided vote, Hunter's
  *   revenge, Bodyguard save, vote on a werewolf or on a villager, voted out as a villager, cards
- *   moved).
+ *   moved, a Vampire at the end, lovers dragged along, voters lost to their Disease, an Assassin
+ *   whose mark died).
  * - `look` (one per Seer or P.I. look at a card): whether that card was still there at dawn.
  * Roles are ids; names come from the private manifest on the page.
  */
@@ -70,17 +83,38 @@ export function insights(
 
   // How the game ended.
   const wolves = r.order.filter((p) => isWerewolf(ids[p]!));
+  const vampires = r.order.filter((p) => isVampire(ids[p]!));
   const ending: Ending = result.deaths.some((d) => d.cause === 'hunter')
     ? 'hunter'
-    : r.order.some((p) => dead.has(p) && ids[p]!.role === 'tanner')
-      ? 'tanner'
-      : dead.size === 0
-        ? 'nobody-died'
-        : wolves.some((p) => dead.has(p))
-          ? 'werewolf-caught'
-          : wolves.length > 0
-            ? 'wolves-survived'
-            : 'wrong-player';
+    : result.deaths.some((d) => d.cause === 'love')
+      ? 'heartbreak'
+      : r.order.some((p) => dead.has(p) && ids[p]!.role === 'tanner')
+        ? 'tanner'
+        : dead.size === 0
+          ? 'nobody-died'
+          : wolves.some((p) => dead.has(p))
+            ? 'werewolf-caught'
+            : vampires.some((p) => dead.has(p))
+              ? 'vampire-caught'
+              : wolves.length > 0
+                ? 'wolves-survived'
+                : vampires.length > 0
+                  ? 'vampires-survived'
+                  : 'wrong-player';
+
+  // The Mark of the Vampire: where the vampires put it, and where it ended up.
+  const given = timeline.find((t) => t.note.kind === 'marked' && t.note.mark === 'vampire');
+  const marks = r.marks ?? {};
+  const holder = r.order.find((p) => marks[p]?.id === 'vampire');
+  const vampireMark: VampireMarkFate | null =
+    given?.note.kind !== 'marked'
+      ? null
+      : holder === undefined
+        ? 'cleansed'
+        : holder === given.note.targets[0]
+          ? 'kept'
+          : 'moved';
+  const disqualified = new Set(result.disqualified ?? []);
 
   const tally = result.tally;
   const top = Math.max(0, ...Object.values(tally));
@@ -112,6 +146,12 @@ export function insights(
         votedRole: target && !isGuard ? String(target.role) : null,
         villageDeath: dead.has(p) && id.team === 'village',
         cardsMoved: movedBy.get(p) ?? 0,
+        vampire: isVampire(id),
+        heartbreaks: result.deaths.filter((d) => d.cause === 'love' && d.by === p).length,
+        plague: r.order.filter((v) => disqualified.has(v) && result.votes[v] === p).length,
+        hitman:
+          id.team === 'assassin' && result.deaths.some((d) => marks[d.player]?.id === 'assassin'),
+        mark: marks[p]?.id ?? null,
       },
     });
   }
@@ -137,6 +177,10 @@ export function insights(
       movedRoles,
       setup: [...new Set(after.settings.roles)],
       sets: [...new Set(after.settings.roles.map((role) => ROLES[role].set))],
+      epic: result.epic,
+      loveDeaths: result.deaths.filter((d) => d.cause === 'love').length,
+      vampireMark,
+      disqualified: disqualified.size,
     },
   });
   return events;

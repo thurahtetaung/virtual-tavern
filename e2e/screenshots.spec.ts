@@ -1,7 +1,14 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
-import { getReady, playNight, setRoles } from './nightfall-play.ts';
+import {
+  VAMPIRES,
+  getReady,
+  peek,
+  playMarkedNight,
+  playNight,
+  setRoles,
+} from './nightfall-play.ts';
 import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
@@ -793,5 +800,113 @@ for (const [label, viewport] of [
     await host.getByRole('tab', { name: 'Everyone’s cards' }).click();
     await host.getByTestId('reveal-player').first().getByRole('button').first().click();
     await shot(host, 'card-details');
+  });
+
+  test(`nightfall vampire screenshots (${label})`, async ({ browser, request }) => {
+    test.setTimeout(300_000);
+    const taken = new Set<string>();
+    const shot = async (p: Page, name: string) => {
+      taken.add(name);
+      await p.screenshot({
+        path: `test-results/shots/nightfall-${label}-vampire-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    };
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
+    const admin = login
+      .headersArray()
+      .find((h) => h.name.toLowerCase() === 'set-cookie')!
+      .value.split(';')[0]!;
+    await request.put('/api/admin/backroom/password', {
+      headers: { cookie: admin },
+      data: { password: TEST_BACKROOM_WORD },
+    });
+    let ip = 1;
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+        extraHTTPHeaders: { 'cf-connecting-ip': `10.10.${label === 'phone' ? 3 : 2}.${ip++}` },
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      await p.goto('/backroom');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+      await p.getByRole('button', { name: 'Knock' }).click();
+      await p.getByText("You're on the list").waitFor();
+      return p;
+    };
+    const names = ['Hana', 'Ana', 'Ben', 'Cy'];
+    const host = await make(names[0]!);
+    await host.getByRole('button', { name: 'Create a Nightfall room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    // Join one at a time, so the seats follow `names`.
+    const others: Page[] = [];
+    for (const n of names.slice(1)) {
+      const p = await make(n);
+      await p.goto(url);
+      await expect(host.getByText(`Players (${others.length + 2}/10)`)).toBeVisible();
+      others.push(p);
+    }
+    const players = [host, ...others];
+    await setRoles(host, {
+      vampire: 1,
+      'the-count': 1,
+      werewolf: 1,
+      cupid: 1,
+      seer: 1,
+      priest: 1,
+      pickpocket: 1,
+    });
+    await host
+      .getByRole('group', { name: 'Time for each role at night' })
+      .getByRole('button', { name: '8 s', exact: true })
+      .click();
+    await host.locator('details[aria-label="Vampire"]').scrollIntoViewIfNeeded();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Deal the cards' }).click();
+    let roles: string[] = [];
+    for (let tries = 0; tries < 40; tries++) {
+      roles = await peek(players);
+      if (
+        roles.includes('werewolf') &&
+        roles.includes('cupid') &&
+        roles.some((r) => VAMPIRES.includes(r)) &&
+        roles.some((r) => ['seer', 'pickpocket'].includes(r))
+      )
+        break;
+      await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
+      await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    }
+    const W = roles.indexOf('werewolf');
+    const T = roles.findIndex((r) => VAMPIRES.includes(r));
+    const marked = roles.findIndex((r) => ['seer', 'pickpocket'].includes(r));
+    await getReady(players);
+    await expect(host.getByTestId(/night-/)).toBeVisible({ timeout: 15_000 });
+    await playMarkedNight(players, names, roles, marked, async (p) => {
+      if (!taken.has('dusk') && (await p.getByTestId('dusk').count())) await shot(p, 'dusk');
+      if (!taken.has('lovers') && (await p.getByTestId('lovers').count())) await shot(p, 'lovers');
+      if (!taken.has('acting') && (await p.getByTestId('prompt').count())) await shot(p, 'acting');
+    });
+    const lover = players[W]!;
+    await expect(lover.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
+    await shot(lover, 'day');
+    await lover.getByTestId('my-mark').getByRole('button').click();
+    await shot(lover, 'my-mark');
+    await lover.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+    await lover.getByRole('tab', { name: 'Learned' }).click();
+    await shot(lover, 'day-learned');
+    await lover.getByRole('tab', { name: 'Table' }).click();
+    for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
+    await expect(host.getByText('🗳️ The vote')).toBeVisible();
+    for (const [i, p] of players.entries())
+      await p.getByRole('button', { name: `Vote for ${names[i === W ? T : W]}` }).click();
+    await expect(host.getByTestId('teams')).toBeVisible();
+    await shot(host, 'reveal');
+    await host.getByRole('tab', { name: 'The night, step by step' }).click();
+    await shot(host, 'reveal-night');
   });
 }

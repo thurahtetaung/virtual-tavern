@@ -1,4 +1,12 @@
-import { FRAME_LINES, type StepId, buildNightPlan, stepFactor, stepLines } from '../logic/plan.ts';
+import {
+  FRAME_LINES,
+  type StepId,
+  buildNightPlan,
+  epicPossible,
+  stepFactor,
+  stepLines,
+  usesMarks,
+} from '../logic/plan.ts';
 import {
   NIGHT_INTRO_MS,
   type NarrationMode,
@@ -125,9 +133,11 @@ export function cuesFor(view: NightfallView): Cue[] {
     const { index, deadline } = view.night;
     const plan = buildNightPlan(s.roles);
     if (index < 0) {
-      const cues: Cue[] = [
-        { id: `${game}:night`, at: deadline - NIGHT_INTRO_MS, lines: [FRAME_LINES.nightStart] },
-      ];
+      // With werewolves and vampires both in the game, the narrator warns of an epic battle.
+      const open = epicPossible(s.roles)
+        ? [FRAME_LINES.epicBattle, FRAME_LINES.nightStart]
+        : [FRAME_LINES.nightStart];
+      const cues: Cue[] = [{ id: `${game}:night`, at: deadline - NIGHT_INTRO_MS, lines: open }];
       if (plan.length) cues.push(...stepCues(game, plan, 0, deadline, s, true));
       return cues;
     }
@@ -138,7 +148,14 @@ export function cuesFor(view: NightfallView): Cue[] {
     const end = view.day.deadline;
     const dawn = end - s.daySeconds * 1000;
     const cues: Cue[] = [
-      { id: `${game}:dawn`, at: dawn, lines: [FRAME_LINES.nightEnd, FRAME_LINES.dayStart] },
+      {
+        id: `${game}:dawn`,
+        at: dawn,
+        lines: [
+          usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd,
+          FRAME_LINES.dayStart,
+        ],
+      },
     ];
     if (s.daySeconds > 90)
       cues.push({ id: `${game}:1m`, at: end - 60_000, lines: [FRAME_LINES.oneMinute] });

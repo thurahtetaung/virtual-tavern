@@ -442,6 +442,87 @@ describe('SqliteStatsStore', () => {
     expect(JSON.stringify([store.game('hoodwink', w), store.fun(w)])).toBe(before);
   });
 
+  it('reads Nightfall’s Vampire set into figures and fun facts', () => {
+    // Shaped like Nightfall's insights at the reveal: two games, one an epic battle with a
+    // lover's death, a moved Mark of the Vampire and a Disease that cost two voters the game.
+    const t = (m: number) => at(D3, 21, m);
+    const nf = (m: number, type: string, props: Record<string, unknown>, who: string | null) =>
+      ev(t(m), `insight.${type}`, 'nightfall', props, who, 'room-nf');
+    const player = (m: number, who: string, props: Record<string, unknown>) =>
+      nf(m, 'player', { dealt: 'villager', won: false, voted: true, ...props }, who);
+    store.append([
+      player(1, 'ana', { dealt: 'vampire', vampire: true, won: true }),
+      player(1, 'ben', { dealt: 'werewolf', heartbreaks: 1 }),
+      player(1, 'cy', { dealt: 'diseased', plague: 2 }),
+      player(1, 'dee', { dealt: 'assassin', hitman: true, won: true }),
+      nf(
+        1,
+        'outcome',
+        {
+          players: 4,
+          teams: ['village', 'werewolf', 'vampire', 'assassin'],
+          teamsWon: ['vampire', 'assassin'],
+          ending: 'heartbreak',
+          epic: true,
+          loveDeaths: 1,
+          vampireMark: 'moved',
+          winners: ['ana', 'dee'],
+        },
+        null,
+      ),
+      player(2, 'ana', { dealt: 'the-count', vampire: true }),
+      player(2, 'ben', { dealt: 'villager', vampire: true }),
+      player(2, 'cy', { dealt: 'priest', won: true }),
+      nf(
+        2,
+        'outcome',
+        {
+          players: 4,
+          teams: ['village', 'vampire'],
+          teamsWon: ['village'],
+          ending: 'vampire-caught',
+          epic: false,
+          loveDeaths: 0,
+          vampireMark: 'kept',
+          winners: ['cy'],
+        },
+        null,
+      ),
+    ]);
+    const w = win(D3, D3);
+    const figures = Object.fromEntries(store.game('nightfall', w).figures.map((f) => [f.id, f]));
+    expect(figures['win-rate-vampire']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(figures['vampire-mark-passed']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(figures['love-deaths']).toMatchObject({ kind: 'number', value: 1 });
+    expect(figures['epic-battles']).toMatchObject({ kind: 'number', value: 1 });
+    const wins = (figures['wins-by-team'] as { parts: { label: string; value: number }[] }).parts;
+    expect(wins).toContainEqual({ label: 'Vampires', value: 1 });
+    expect(wins).toContainEqual({ label: 'Assassin', value: 1 });
+    expect(wins.map((p) => p.label)).not.toContain('Apprentice Assassin');
+    const endings = (figures.endings as { parts: { label: string; value: number }[] }).parts;
+    expect(endings).toContainEqual({ label: 'A lover took another along', value: 1 });
+    expect(endings).toContainEqual({ label: 'A vampire was caught', value: 1 });
+
+    const facts = Object.fromEntries(store.fun(w).facts.map((f) => [f.id, f]));
+    expect(facts['fang-fan']).toMatchObject({
+      playerId: 'ana',
+      gameId: 'nightfall',
+      text: 'Ana ended 2 games as a Vampire',
+    });
+    expect(facts.heartbreaker).toMatchObject({
+      playerId: 'ben',
+      text: 'Ben dragged 1 lover to the grave',
+    });
+    expect(facts['plague-bearer']).toMatchObject({
+      playerId: 'cy',
+      text: '2 voters lost the game by voting for Cy’s Disease',
+    });
+    expect(facts.hitman).toMatchObject({
+      playerId: 'dee',
+      text: 'Dee saw their Assassin’s target die once',
+    });
+  });
+
   it('exports raw events as NDJSON in time order, across pages', () => {
     const many = Array.from({ length: 1500 }, (_, i) => ev(at(D3, 1) + i, 'action', 'echo'));
     store.append(many);

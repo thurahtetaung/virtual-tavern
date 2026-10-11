@@ -358,7 +358,7 @@ describe('vote and win cases', () => {
     const h = table({ players: ['cursed', W, V, V, 'seer'] });
     h.vote(votes('B,C,D>A; A,E>B'));
     expect(dead(h)).toBe('A');
-    expect(h.state.round!.result!.identities.A).toMatchObject({ converted: true });
+    expect(h.state.round!.result!.identities.A).toMatchObject({ converted: 'werewolf' });
     expect(winners(h)).toBe('CDE');
   });
 

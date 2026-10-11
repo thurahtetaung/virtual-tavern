@@ -9,6 +9,9 @@ export interface NightLog {
 
 /** The host builds the card list with the +/- buttons, from whatever is selected now. */
 export async function setRoles(host: Page, want: Record<string, number>) {
+  // Sets with no card in yet start folded: open them all.
+  const closed = host.locator('details:not([open]) > summary');
+  for (let i = 0; i < 12 && (await closed.count()) > 0; i++) await closed.first().click();
   for (const tile of await host.locator('[data-testid^="role-"]').all()) {
     const role = (await tile.getAttribute('data-testid'))!.slice(5);
     const target = want[role] ?? 0;
@@ -101,4 +104,108 @@ export async function vote(players: Page[], names: string[], pick: (i: number) =
     if (i < players.length - 1) await expect(button).toHaveAttribute('aria-pressed', 'true');
   }
   for (const p of players) await expect(p.getByTestId('teams')).toBeVisible({ timeout: 15_000 });
+}
+
+// ---- The Vampire set ----
+
+export const VAMPIRES = ['vampire', 'the-count'];
+export const VILLAGE = ['seer', 'cupid', 'pickpocket', 'priest', 'villager'];
+
+/** Each player uncovers their card and covers it again; returns the roles dealt. */
+export async function peek(players: Page[]): Promise<string[]> {
+  return Promise.all(
+    players.map(async (p) => {
+      await p.getByRole('button', { name: 'Tap to see your card' }).click();
+      const role = (await p.locator('[data-role]').first().getAttribute('data-role'))!;
+      await p.getByRole('button', { name: 'Cover it again' }).click();
+      return role;
+    }),
+  );
+}
+
+/** What one player saw at night. */
+export interface MarkedNight {
+  dusk: string | null;
+  lovers: string | null;
+  results: string[];
+}
+
+/**
+ * Plays the night with chosen moves: the vampires mark `marked`, Cupid links the werewolf and
+ * himself, the Priest and the Pickpocket pass, everyone else takes the first choice. Records
+ * the Mark each player saw at dusk, the lovers' screen and every result shown. `onPoll` runs on
+ * each look at a player's screen (for screenshots).
+ */
+export async function playMarkedNight(
+  players: Page[],
+  names: string[],
+  roles: string[],
+  marked: number,
+  onPoll?: (p: Page, i: number) => Promise<void>,
+): Promise<MarkedNight[]> {
+  const werewolf = roles.indexOf('werewolf');
+  const firstVampire = roles.findIndex((r) => VAMPIRES.includes(r));
+  return Promise.all(
+    players.map(async (p, i) => {
+      const log: MarkedNight = { dusk: null, lovers: null, results: [] };
+      const quick = { timeout: 2000 };
+      const deadline = Date.now() + 200_000;
+      const tap = async (prompt: ReturnType<Page['getByTestId']>, who: number[]) => {
+        const list = prompt.getByRole('list', { name: 'Players' });
+        for (const w of who)
+          await list
+            .getByRole('button', { name: w === i ? 'You' : names[w]!, exact: true })
+            .click(quick);
+        await prompt.getByRole('button', { name: 'Confirm' }).click(quick);
+      };
+      while (Date.now() < deadline) {
+        if (await p.getByRole('button', { name: 'Ready to vote' }).count()) break;
+        if (onPoll) await onPoll(p, i);
+        const dusk = p.getByTestId('dusk');
+        if (!log.dusk && (await dusk.count()))
+          log.dusk = await dusk
+            .locator('[data-mark]')
+            .first()
+            .getAttribute('data-mark', quick)
+            .catch(() => null);
+        if (!log.lovers && (await p.getByTestId('lovers').count()))
+          log.lovers = await p
+            .getByTestId('night-result')
+            .textContent(quick)
+            .catch(() => null);
+        const prompt = p.getByTestId('prompt');
+        if (await prompt.count()) {
+          const stage = (await prompt.getAttribute('data-stage', quick).catch(() => '')) ?? '';
+          try {
+            if (stage === 'give-vampire') {
+              if (i === firstVampire) await tap(prompt, [marked]);
+              else await p.waitForTimeout(300);
+            } else if (stage === 'give-love') await tap(prompt, [werewolf, i]);
+            else if (['give-clarity', 'pickpocket', 'lone-wolf'].includes(stage))
+              await prompt.getByRole('button', { name: 'Skip' }).click(quick);
+            else {
+              const first = prompt
+                .getByRole('list', { name: 'Players' })
+                .locator('button:enabled')
+                .first();
+              if (await first.count()) await first.click(quick);
+              const confirm = prompt.getByRole('button', { name: 'Confirm' });
+              if (await confirm.count()) await confirm.click(quick);
+              else await prompt.getByRole('button', { name: 'Left →' }).click(quick);
+            }
+          } catch {
+            // The step ended under the click: it's still a fair night.
+          }
+          continue;
+        }
+        const result = p.getByTestId('night-result');
+        if (await result.count()) {
+          const text = (await result.textContent(quick).catch(() => '')) ?? '';
+          if (text && !log.results.includes(text)) log.results.push(text);
+        }
+        await p.waitForTimeout(150);
+      }
+      return log;
+    }),
+  );
 }

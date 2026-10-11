@@ -14,7 +14,14 @@ import { type StepCtx, actInStep, beginStep, endStep, promptFor } from './night.
 import { buildNightPlan, stepDef } from './plan.ts';
 import { cardsNeeded, recommended } from './presets.ts';
 import { resolveVote } from './resolve.ts';
-import { ENABLED_SETS, ROLES, type RoleId, defaultArtifacts } from './roles.ts';
+import {
+  ARTIFACT_IDS,
+  ENABLED_SETS,
+  ROLES,
+  type RoleId,
+  defaultArtifacts,
+  marksInUse,
+} from './roles.ts';
 import {
   type Card,
   type CenterKind,
@@ -145,6 +152,10 @@ export function dealGame(state: NightfallState, deal: Deal, order: PlayerId[]): 
     card: card(r),
   }));
   if (deal.wolf) center.push({ kind: 'wolf', card: card(deal.wolf) });
+  // With the Vampire set's roles, everyone starts with a face-down Mark of Clarity.
+  const marks = marksInUse(state.settings.roles)
+    ? Object.fromEntries(order.map((p) => [p, { id: 'clarity' as const, doppel: false }]))
+    : null;
   const round: GameRound = {
     number: (state.round?.number ?? 0) + 1,
     order,
@@ -161,6 +172,7 @@ export function dealGame(state: NightfallState, deal: Deal, order: PlayerId[]): 
       players: Object.fromEntries(order.map((p) => [p, players[p]!.dealt])),
       center: center.map((c) => c.card.role),
     },
+    marks,
     seerLooks: [],
     loneWolf: null,
     times: { night: null, dawn: null, vote: null },
@@ -171,13 +183,19 @@ export function dealGame(state: NightfallState, deal: Deal, order: PlayerId[]): 
 function start(state: NightfallState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  if (state.stage !== 'lobby' && state.stage !== 'reveal')
+  // Before the night, the host may shuffle and deal again.
+  if (state.stage !== 'lobby' && state.stage !== 'reveal' && state.stage !== 'ready')
     return new GameError('in-progress', 'A game is already running.');
   const order = seated(state);
   const problem = setupProblem(state.settings.roles, order.length);
   if (problem) return new GameError('setup', problem);
   const deal = shuffleDeal(state.settings.roles, order.length, ctx.rng);
-  return { ...dealGame(state, deal, order), seed: newSeed(ctx.rng) };
+  const dealt = dealGame(state, deal, order);
+  // A redeal is the same game, not another one.
+  const games = state.stage === 'ready' ? state.gamesPlayed : dealt.gamesPlayed;
+  const round =
+    state.stage === 'ready' ? { ...dealt.round!, number: state.round!.number } : dealt.round;
+  return { ...dealt, round, gamesPlayed: games, seed: newSeed(ctx.rng) };
 }
 
 // ---- Getting ready ----
@@ -210,6 +228,8 @@ export function startNight(state: NightfallState, now: number): NightfallState {
     touched: [],
     knownWolves: [],
     bag: next.settings.artifacts.filter((a) => defaultArtifacts(roles).includes(a)),
+    vampires: [],
+    vampireTarget: null,
     timeline: [],
   };
   return { ...next, ...at('night') };
@@ -311,7 +331,7 @@ function vote(state: NightfallState, target: PlayerId, ctx: Ctx): Result {
 function finish(state: NightfallState): NightfallState {
   const r = state.round!;
   const votes = Object.fromEntries(r.order.map((p) => [p, r.players[p]!.vote]));
-  r.result = resolveVote(r.order, r.cards, votes);
+  r.result = resolveVote(r.order, r.cards, votes, r.marks ?? null);
   r.voteDeadline = null;
   return { ...state, ...at('reveal') };
 }
@@ -405,7 +425,8 @@ export const DEFAULT_SETTINGS: Settings = {
   narration: 'host',
   music: true,
   loneWolf: true,
-  artifacts: defaultArtifacts([]),
+  // Every artifact; the ones a setup can't use (Mist without vampires) stay out of the bag.
+  artifacts: [...ARTIFACT_IDS],
 };
 
 function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): NightfallState {
@@ -565,6 +586,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
       cards: r.cards,
       center: r.center,
       deal: r.deal,
+      marks: r.marks ?? null,
       timeline: r.night?.timeline ?? [],
       plan: r.night?.plan ?? [],
     };

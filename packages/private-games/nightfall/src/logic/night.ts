@@ -1,11 +1,12 @@
 import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
-import { type StepDef, stepFactor } from './plan.ts';
-import { ROLES, type RoleId } from './roles.ts';
+import { NIGHT_ORDER, type StepDef, stepFactor } from './plan.ts';
+import { type MarkId, ROLES, type RoleId } from './roles.ts';
 import {
   type Card,
   type GameRound,
   MAX_NOTES,
   MAX_TIMELINE,
+  type MarkToken,
   type NightAction,
   type NoteBody,
   type Prompt,
@@ -67,19 +68,62 @@ const shielded = (r: GameRound, p: PlayerId) => r.cards[p]!.shield !== null;
 const others = (r: GameRound, p: PlayerId) => r.order.filter((q) => q !== p);
 const centreSlots = (r: GameRound) => r.center.map((_, i) => i);
 
+// ---- Marks ----
+
+/** The Mark in front of a player (null in a game without Marks). */
+export const markOf = (r: GameRound, p: PlayerId): MarkToken | null => r.marks?.[p] ?? null;
+
+/** A player holding the Mark of Fear sleeps through their night action (never the dusk). */
+export const feared = (r: GameRound, p: PlayerId) => markOf(r, p)?.id === 'fear';
+
+/** Acts as the Doppelgänger: dealt her, or a Copycat who copied her card. */
+export const actsAsDoppel = (r: GameRound, p: PlayerId) =>
+  r.players[p]!.dealt === 'doppelganger' || r.players[p]!.asDoppel === true;
+
+/** Puts a Mark in front of a player; their old one goes back to the board, unseen. */
+function giveMark(c: StepCtx, by: PlayerId, target: PlayerId, mark: MarkId) {
+  if (!c.r.marks) c.r.marks = {};
+  c.r.marks[target] = {
+    id: mark,
+    doppel: actsAsDoppel(c.r, by) && mark !== 'vampire',
+    ...(mark === 'assassin' ? { by } : {}),
+  };
+}
+
+/** Who held which Mark, for the timeline. */
+const markFaces = (r: GameRound, ...players: PlayerId[]) =>
+  players.map((player) => ({ player, mark: markOf(r, player)?.id ?? null }));
+
 // ---- Who wakes ----
 
 /** The players acting in a step, by the role they wake as (§ "act as your original role"). */
 export function actorsFor(r: GameRound, def: StepDef): PlayerId[] {
-  const present = r.order.filter((p) => !r.players[p]!.left);
+  const here = r.order.filter((p) => !r.players[p]!.left);
+  // Marks are seen (and lovers meet) by everyone holding one, whatever their role.
+  if (def.id === 'dusk') return here;
+  if (def.id === 'lovers') return here.filter((p) => markOf(r, p)?.id === 'love');
+  // Fear stops a player waking in the night proper; a dormant copy never wakes again.
+  const present = here.filter(
+    (p) => !r.players[p]!.dormant && !(def.order >= NIGHT_ORDER && feared(r, p)),
+  );
   const night = (p: PlayerId) => r.players[p]!.night;
-  const dealtDoppel = (p: PlayerId) => r.players[p]!.dealt === 'doppelganger';
+  const doppel = (p: PlayerId) => actsAsDoppel(r, p);
   if (def.id === 'werewolves')
     return present.filter((p) => ROLES[night(p)].wakesWithWerewolves === true);
-  if (def.id === 'doppelganger') return present.filter(dealtDoppel);
-  if (def.doppel) return present.filter((p) => dealtDoppel(p) && night(p) === def.role);
+  if (def.id === 'vampires')
+    return present.filter((p) => ROLES[night(p)].wakesWithVampires === true);
+  if (def.id === 'doppelganger') return present.filter((p) => night(p) === 'doppelganger');
+  // The Assassin keeps his eyes open while the Apprentice Assassin (and her copy) look for him.
+  const watching =
+    def.role === 'apprentice-assassin'
+      ? present.filter((p) => night(p) === 'assassin' && !doppel(p))
+      : [];
+  if (def.doppel)
+    return present.filter((p) => (doppel(p) && night(p) === def.role) || watching.includes(p));
   return present.filter(
-    (p) => night(p) === def.role && (!dealtDoppel(p) || ROLES[def.role].doppel === 'with-group'),
+    (p) =>
+      (night(p) === def.role && (!doppel(p) || ROLES[def.role].doppel === 'with-group')) ||
+      watching.includes(p),
   );
 }
 
@@ -96,6 +140,7 @@ export function note(
   extra: {
     auto?: boolean;
     moved?: { slot: Slot; role: RoleId; card: number }[];
+    marks?: { player: PlayerId; mark: MarkId | null }[];
     quiet?: boolean;
   } = {},
 ) {
@@ -111,6 +156,7 @@ export function note(
     note: body,
     ...(extra.auto ? { auto: true } : {}),
     ...(extra.moved ? { moved: extra.moved } : {}),
+    ...(extra.marks ? { marks: extra.marks } : {}),
   });
   night.timeline = night.timeline.slice(-MAX_TIMELINE);
 }
@@ -138,6 +184,7 @@ const prompt = (as: RoleId, stage: string, p: Partial<Prompt>): Prompt => ({
   center: null,
   either: false,
   sides: false,
+  choices: null,
   mandatory: false,
   ...p,
 });
@@ -154,6 +201,12 @@ function checkPick(pr: Prompt, a: NightAction): GameError | null {
   const center = a.center ?? [];
   if (new Set(players).size !== players.length || new Set(center).size !== center.length)
     return new GameError('duplicate', 'Choose different cards.');
+  if (pr.choices) {
+    if (!a.choice || !pr.choices.includes(a.choice) || players.length || center.length || a.side)
+      return new GameError('bad-pick', 'Choose one of the options.');
+    return null;
+  }
+  if (a.choice) return new GameError('bad-pick', 'There is nothing like that to choose.');
   if (pr.sides) {
     if (!a.side || players.length || center.length)
       return new GameError('bad-pick', 'Choose left or right.');
@@ -194,6 +247,7 @@ function checkPick(pr: Prompt, a: NightAction): GameError | null {
 
 /** A random legal answer to a prompt, for a mandatory action when time runs out. */
 function randomPick(pr: Prompt, rng: Rng, step: number): NightAction | null {
+  if (pr.choices) return { type: 'night', step, choice: pr.choices[rng.int(pr.choices.length)]! };
   if (pr.sides) return { type: 'night', step, side: rng.int(2) === 0 ? 'left' : 'right' };
   if (pr.players) {
     const ids = rng.shuffle(pr.players.ids).slice(0, pr.players.min);
@@ -217,6 +271,8 @@ interface RoleAction {
   begin?: (c: StepCtx, p: PlayerId, w: StepWork) => void;
   prompt: (c: StepCtx, p: PlayerId, w: StepWork) => Prompt | null;
   act: (c: StepCtx, p: PlayerId, w: StepWork, a: NightAction) => void;
+  /** Skipping one part of a two-part action (the Marksman): moves on instead of ending. */
+  skip?: (c: StepCtx, p: PlayerId, w: StepWork) => void;
 }
 
 const nothing: RoleAction = { prompt: () => null, act: () => {} };
@@ -225,12 +281,14 @@ const nothing: RoleAction = { prompt: () => null, act: () => {} };
 function groupBegin(group: 'werewolves' | 'masons') {
   return (c: StepCtx, p: PlayerId, w: StepWork) => {
     const awake = c.r.night!.actors;
+    // A Dream Wolf shows a thumb here, unless Fear keeps even that from him.
     const thumbs =
       group === 'werewolves'
         ? c.r.order.filter(
             (q) =>
               ROLES[c.r.players[q]!.night].werewolfThumb === true &&
-              !ROLES[c.r.players[q]!.night].wakesWithWerewolves,
+              !ROLES[c.r.players[q]!.night].wakesWithWerewolves &&
+              !feared(c.r, q),
           )
         : [];
     note(
@@ -536,6 +594,212 @@ const ACTIONS: Partial<Record<RoleId, RoleAction>> = {
       w.done = true;
     },
   },
+  copycat: {
+    prompt: (c) =>
+      prompt('copycat', 'copy-centre', {
+        center: { slots: centreSlots(c.r), min: 1, max: 1 },
+        mandatory: true,
+      }),
+    act: (c, p, w, a) => {
+      const i = a.center![0]!;
+      const seen = cardAt(c.r, { center: i }).role;
+      // He becomes the card he saw, and wakes when it is called. A copied Doppelgänger acts at
+      // her own step, as her.
+      const role: RoleId = seen === 'copycat' ? 'villager' : seen;
+      cardAt(c.r, findCard(c.r, c.r.players[p]!.cardId)).copied = role;
+      c.r.players[p]!.night = role;
+      note(c, p, { kind: 'copied-centre', center: i, role: seen });
+      touch(c, p);
+      w.done = true;
+    },
+  },
+  vampire: {
+    begin: (c, p, w) => {
+      const night = c.r.night!;
+      const awake = night.actors;
+      night.vampires = [...awake];
+      note(
+        c,
+        p,
+        { kind: 'group', group: 'vampires', players: [...awake] },
+        { quiet: awake.indexOf(p) > 0 },
+      );
+      if (vampireTargets(c).length === 0) {
+        note(c, p, { kind: 'blocked', reason: 'no-target' }, { quiet: true });
+        w.done = true;
+      }
+    },
+    prompt: (c, p) =>
+      prompt(c.r.players[p]!.night, 'give-vampire', {
+        players: pickPlayers(vampireTargets(c)),
+        mandatory: true,
+      }),
+    act: (c, p, _w, a) => {
+      // One choice for them all: the first vampire to pick decides, and every one of them sees it.
+      const target = a.players![0]!;
+      const night = c.r.night!;
+      const faces = markFaces(c.r, target);
+      giveMark(c, p, target, 'vampire');
+      night.vampireTarget = target;
+      for (const q of night.actors) {
+        touch(c, q);
+        night.work[q]!.done = true;
+        const body: NoteBody = { kind: 'marked', mark: 'vampire', targets: [target] };
+        if (q === p) note(c, q, body, { marks: faces });
+        else note(c, q, body, { quiet: true });
+      }
+    },
+  },
+  'the-count': {
+    begin: (c, p, w) => {
+      if (fearTargets(c).length === 0) {
+        note(c, p, { kind: 'blocked', reason: 'no-target' });
+        w.done = true;
+      }
+    },
+    prompt: (c) =>
+      prompt('the-count', 'give-fear', { players: pickPlayers(fearTargets(c)), mandatory: true }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'fear'),
+  },
+  renfield: {
+    begin: (c, p, w) => {
+      const night = c.r.night!;
+      const faces = markFaces(c.r, p);
+      giveMark(c, p, p, 'bat');
+      note(
+        c,
+        p,
+        {
+          kind: 'saw-vampires',
+          players: [...(night.vampires ?? [])],
+          target: night.vampireTarget ?? null,
+        },
+        { marks: faces },
+      );
+      touch(c, p);
+      w.done = true;
+    },
+    ...nothing,
+  },
+  diseased: {
+    prompt: () => prompt('diseased', 'give-disease', { sides: true, mandatory: true }),
+    act: (c, p, w, a) => giveTo(c, p, w, [neighbour(c.r, p, a.side!)], 'disease'),
+  },
+  cupid: {
+    prompt: (c) => prompt('cupid', 'give-love', { players: pickPlayers(c.r.order, 2, 2) }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'love'),
+  },
+  instigator: {
+    prompt: (c) => prompt('instigator', 'give-traitor', { players: pickPlayers(c.r.order) }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'traitor'),
+  },
+  priest: {
+    // He must take Clarity himself, then may give one more.
+    begin: (c, p) => {
+      const faces = markFaces(c.r, p);
+      giveMark(c, p, p, 'clarity');
+      note(c, p, { kind: 'marked', mark: 'clarity', targets: [p] }, { marks: faces });
+      touch(c, p);
+    },
+    prompt: (c, p) => prompt('priest', 'give-clarity', { players: pickPlayers(others(c.r, p)) }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'clarity'),
+  },
+  assassin: {
+    prompt: (c) =>
+      prompt('assassin', 'give-assassin', { players: pickPlayers(c.r.order), mandatory: true }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'assassin'),
+  },
+  'apprentice-assassin': {
+    begin: (c, p, w) => {
+      const assassins = c.r.night!.actors.filter(
+        (q) => c.r.players[q]!.night === 'assassin' && !actsAsDoppel(c.r, q),
+      );
+      note(c, p, { kind: 'group', group: 'assassins', players: assassins });
+      // With an Assassin awake, she only looks; with none, she must place the Mark herself.
+      if (assassins.length) w.done = true;
+    },
+    prompt: (c) =>
+      prompt('apprentice-assassin', 'give-assassin', {
+        players: pickPlayers(c.r.order),
+        mandatory: true,
+      }),
+    act: (c, p, w, a) => giveTo(c, p, w, a.players!, 'assassin'),
+  },
+  marksman: {
+    prompt: (c, p, w) =>
+      w.stage === 'card'
+        ? prompt('marksman', 'view', {
+            players: pickPlayers(
+              others(c.r, p).filter((q) => !shielded(c.r, q) && !w.picks.includes(q)),
+            ),
+          })
+        : // A shield guards the card, never the Mark.
+          prompt('marksman', 'view-mark', { players: pickPlayers(others(c.r, p)) }),
+    act: (c, p, w, a) => {
+      const target = a.players![0]!;
+      if (w.stage === 'card') {
+        see(c, p, { player: target });
+        w.done = true;
+        return;
+      }
+      note(c, p, { kind: 'saw-mark', target, mark: markOf(c.r, target)?.id ?? 'clarity' });
+      touch(c, p);
+      w.picks = [target];
+      w.stage = 'card';
+    },
+    skip: (c, p, w) => {
+      if (w.stage === 'card') {
+        if (!w.picks.length) note(c, p, { kind: 'passed' });
+        w.done = true;
+      } else w.stage = 'card';
+    },
+  },
+  pickpocket: {
+    prompt: (c, p) => prompt('pickpocket', 'pickpocket', { players: pickPlayers(others(c.r, p)) }),
+    act: (c, p, w, a) => {
+      const target = a.players![0]!;
+      const faces = markFaces(c.r, p, target);
+      swapMarks(c.r, p, target);
+      note(
+        c,
+        p,
+        { kind: 'pickpocketed', target, mark: markOf(c.r, p)?.id ?? 'clarity' },
+        { marks: faces },
+      );
+      touch(c, p);
+      w.done = true;
+    },
+  },
+  gremlin: {
+    prompt: (c, _p, w) => {
+      const movable = c.r.order.filter((q) => !shielded(c.r, q));
+      if (w.stage === 'marks')
+        return prompt('gremlin', 'swap-marks', { players: pickPlayers(c.r.order, 2, 2) });
+      if (w.stage === 'cards')
+        return prompt('gremlin', 'swap-cards', { players: pickPlayers(movable, 2, 2) });
+      return prompt('gremlin', 'gremlin', {
+        choices: movable.length >= 2 ? ['marks', 'cards'] : ['marks'],
+      });
+    },
+    act: (c, p, w, a) => {
+      if (a.choice) {
+        w.stage = a.choice;
+        return;
+      }
+      const [x, y] = a.players! as [PlayerId, PlayerId];
+      if (w.stage === 'marks') {
+        const faces = markFaces(c.r, x, y);
+        swapMarks(c.r, x, y);
+        note(c, p, { kind: 'swapped-marks', a: x, b: y }, { marks: faces });
+      } else {
+        const faces = moved(c.r, { player: x }, { player: y });
+        swap(c.r, { player: x }, { player: y });
+        note(c, p, { kind: 'swapped', a: { player: x }, b: { player: y } }, { moved: faces });
+      }
+      touch(c, p);
+      w.done = true;
+    },
+  },
   werewolf: { begin: groupBegin('werewolves'), ...loneWolf() },
   mason: { begin: groupBegin('masons'), ...nothing },
   minion: { begin: thumbsBegin('werewolves'), ...nothing },
@@ -557,6 +821,74 @@ function loneWolf(): Pick<RoleAction, 'prompt' | 'act'> {
     },
   };
 }
+
+/** Gives a Mark to each target, noted with the Marks they had (the Count, Cupid, …). */
+function giveTo(c: StepCtx, p: PlayerId, w: StepWork, targets: PlayerId[], mark: MarkId) {
+  const faces = markFaces(c.r, ...targets);
+  for (const t of targets) giveMark(c, p, t, mark);
+  note(c, p, { kind: 'marked', mark, targets: [...targets] }, { marks: faces });
+  touch(c, p);
+  w.done = true;
+}
+
+function swapMarks(r: GameRound, a: PlayerId, b: PlayerId) {
+  const ma = r.marks?.[a];
+  const mb = r.marks?.[b];
+  if (!r.marks || !ma || !mb) return;
+  r.marks[a] = mb;
+  r.marks[b] = ma;
+}
+
+/** Who the vampires may mark: anyone who didn't wake with them. */
+const vampireTargets = (c: StepCtx) => c.r.order.filter((q) => !c.r.night!.actors.includes(q));
+
+/** Who the Count may frighten: no vampire, and not the player they just marked. */
+const fearTargets = (c: StepCtx) =>
+  c.r.order.filter(
+    (q) =>
+      !(c.r.night!.vampires ?? []).includes(q) &&
+      q !== c.r.night!.vampireTarget &&
+      markOf(c.r, q)?.id !== 'vampire',
+  );
+
+/** The Assassin watches the Apprentice Assassin (or her copy) wake: they see each other. */
+const watchApprentice: RoleAction = {
+  begin: (c, p, w) => {
+    const apprentices = c.r.night!.actors.filter(
+      (q) => c.r.players[q]!.night === 'apprentice-assassin',
+    );
+    note(c, p, { kind: 'group', group: 'apprentices', players: apprentices }, { quiet: true });
+    w.done = true;
+  },
+  ...nothing,
+};
+
+/** Dusk's end: everyone looks at their own Mark. */
+const dusk: RoleAction = {
+  begin: (c, p, w) => {
+    const m = markOf(c.r, p);
+    if (m) note(c, p, { kind: 'mark', mark: m.id, ...(m.doppel ? { doppel: true } : {}) });
+    w.as = c.r.players[p]!.dealt;
+    w.done = true;
+  },
+  ...nothing,
+};
+
+/** The lovers wake and see each other. */
+const lovers: RoleAction = {
+  begin: (c, p, w) => {
+    const awake = c.r.night!.actors;
+    note(
+      c,
+      p,
+      { kind: 'group', group: 'lovers', players: [...awake] },
+      { quiet: awake.indexOf(p) > 0 },
+    );
+    w.as = c.r.players[p]!.dealt;
+    w.done = true;
+  },
+  ...nothing,
+};
 
 const wolfSlot = (r: GameRound) => r.center.findIndex((s) => s.kind === 'wolf');
 
@@ -586,14 +918,27 @@ const doppelganger: RoleAction = {
     if (w.stage !== 'start') return roleAction(w.as!).act(c, p, w, a);
     const target = a.players![0]!;
     const card = c.r.cards[target]!;
-    // She copies what the card is: a copier's card counts as what it copied.
-    const role = card.role === 'doppelganger' ? (card.copied ?? 'villager') : card.role;
+    c.r.players[p]!.asDoppel = true;
+    // She copies what the card is: a Doppelgänger's card counts as what it copied. A Copycat's
+    // card makes her whatever the Copycat copied, though she can't see what, and she never
+    // wakes for it.
+    const blind = card.role === 'copycat';
+    let role: RoleId =
+      card.role === 'doppelganger' || blind ? (card.copied ?? 'villager') : card.role;
+    if (role === 'doppelganger' || role === 'copycat') role = 'villager';
     cardAt(c.r, findCard(c.r, c.r.players[p]!.cardId)).copied = role;
     c.r.players[p]!.night = role;
-    note(c, p, { kind: 'copied', target, role });
     touch(c, p);
-    const mode = ROLES[role].doppel;
     w.stage = 'act';
+    if (blind) {
+      note(c, p, { kind: 'copied', target, role: 'copycat', blind: true });
+      c.r.players[p]!.dormant = true;
+      w.as = 'copycat';
+      w.done = true;
+      return;
+    }
+    note(c, p, { kind: 'copied', target, role });
+    const mode = ROLES[role].doppel;
     w.as = role;
     if (mode === 'immediate') {
       roleAction(role).begin?.(c, p, w);
@@ -608,14 +953,21 @@ const doppelganger: RoleAction = {
 
 const roleAction = (role: RoleId): RoleAction => ACTIONS[role] ?? nothing;
 
-const actionFor = (c: StepCtx): RoleAction =>
-  c.def.id === 'doppelganger' ? doppelganger : roleAction(c.def.role);
+/** The action a player takes in the current step. */
+function actionFor(c: StepCtx, p: PlayerId): RoleAction {
+  if (c.def.id === 'doppelganger') return doppelganger;
+  if (c.def.id === 'dusk') return dusk;
+  if (c.def.id === 'lovers') return lovers;
+  if (c.def.role === 'apprentice-assassin' && c.r.players[p]!.night === 'assassin')
+    return watchApprentice;
+  return roleAction(c.def.role);
+}
 
 /** What a player may do in the current step, or null. */
 export function promptFor(c: StepCtx, p: PlayerId): Prompt | null {
   const w = c.r.night!.work[p];
   if (!w || w.done) return null;
-  return actionFor(c).prompt(c, p, w);
+  return actionFor(c, p).prompt(c, p, w);
 }
 
 // ---- Step flow ----
@@ -635,8 +987,9 @@ export function beginStep(c: StepCtx, now: number) {
   }
   for (const p of night.actors) {
     const w = night.work[p]!;
-    actionFor(c).begin?.(c, p, w);
-    if (!w.done && !actionFor(c).prompt(c, p, w)) w.done = true;
+    if (w.done) continue;
+    actionFor(c, p).begin?.(c, p, w);
+    if (!w.done && !actionFor(c, p).prompt(c, p, w)) w.done = true;
   }
 }
 
@@ -646,17 +999,19 @@ export function actInStep(c: StepCtx, p: PlayerId, a: NightAction): GameError | 
   const w = night.work[p];
   if (!w) return new GameError('not-your-step', 'It isn’t your turn to act.');
   if (w.done) return new GameError('done', 'You’ve already acted this step.');
-  const pr = actionFor(c).prompt(c, p, w);
+  const action = actionFor(c, p);
+  const pr = action.prompt(c, p, w);
   if (!pr) return new GameError('done', 'There is nothing to do now.');
   const err = checkPick(pr, a);
   if (err) return err;
   if (a.pass) {
-    note(c, p, { kind: 'passed' });
-    w.done = true;
-    return null;
-  }
-  actionFor(c).act(c, p, w, a);
-  if (!w.done && !actionFor(c).prompt(c, p, w)) w.done = true;
+    if (action.skip) action.skip(c, p, w);
+    else {
+      note(c, p, { kind: 'passed' });
+      w.done = true;
+    }
+  } else action.act(c, p, w, a);
+  if (!w.done && !action.prompt(c, p, w)) w.done = true;
   return null;
 }
 
@@ -667,16 +1022,18 @@ export function endStep(c: StepCtx) {
     const w = night.work[p]!;
     let guard = 0;
     while (!w.done && guard++ < 6) {
-      const pr = actionFor(c).prompt(c, p, w);
+      const pr = actionFor(c, p).prompt(c, p, w);
       if (!pr) break;
       if (!pr.mandatory) {
-        note(c, p, { kind: 'passed' }, { auto: true });
+        // Say they did nothing, unless they did something earlier in the step.
+        if (!(c.r.notes[p] ?? []).some((n) => n.step === c.step && n.kind !== 'group'))
+          note(c, p, { kind: 'passed' }, { auto: true });
         break;
       }
       const pick = randomPick(pr, c.rng, c.step);
       if (!pick) break;
       const before = (c.r.notes[p] ?? []).length;
-      actionFor(c).act(c, p, w, pick);
+      actionFor(c, p).act(c, p, w, pick);
       // Mark what the game chose for them.
       for (const n of (c.r.notes[p] ?? []).slice(before)) n.auto = true;
       for (const t of night.timeline) if (t.by === p && t.step === c.step) t.auto = true;
