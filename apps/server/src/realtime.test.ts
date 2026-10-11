@@ -666,7 +666,9 @@ describe('realtime Royal Post', () => {
         for (let turn = 0; turn < 40; turn++) {
           const v = royalPostView(players[0]!);
           if (v.phase !== 'playing' || v.round!.stage === 'over') break;
-          const { mover, action } = await playRoyalPostTurn(players);
+          const turn = await playRoyalPostTurn(players);
+          if (!turn) break;
+          const { mover, action } = turn;
           if (action.type === 'play' && action.card === 'priest' && action.target) {
             priests++;
             // The peek reaches the player who played the Priest, and nobody else.
