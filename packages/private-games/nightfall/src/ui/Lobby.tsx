@@ -354,8 +354,9 @@ export function Lobby({
         )}
         {epicPossible(s.roles) && (
           <p className="text-sm" data-testid="epic-hint">
-            ⚔️ Werewolves and vampires: if both are dealt to players, it’s an epic battle, and the
-            two most voted players die.
+            ⚔️ Werewolves and vampires: if both end up among the players with villagers, it’s an
+            epic battle. The most voted player dies if they have at least 2 votes, and so does
+            everyone tied for second; if several tie for the most votes, only they die.
           </p>
         )}
         {editable && s.roles.length !== need && (

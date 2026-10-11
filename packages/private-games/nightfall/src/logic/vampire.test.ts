@@ -431,7 +431,11 @@ describe('Vampire role steps', () => {
       expect(h.view(p).night!.acting!.prompt).toBeNull();
       expect(lastNote(h, p)).toMatchObject({ kind: 'marked', mark: 'vampire', targets: ['D'] });
     }
-    expect(h.nightReject('A', { players: ['E'] })).toBe('done');
+    // A fellow vampire's pick a moment too late is no error: it simply doesn't count.
+    h.night('A', { players: ['E'] });
+    expect(mark(h, 'D')).toBe('vampire');
+    expect(mark(h, 'E')).toBe('clarity');
+    expect(lastNote(h, 'A')).toMatchObject({ kind: 'marked', targets: ['D'], chosenBy: 'B' });
     // The Count's Fear can't go to a vampire or to the player they just marked.
     h.toStep('the-count');
     expect(h.view('C').night!.acting!.prompt!.players!.ids).toEqual(['E']);
@@ -926,7 +930,8 @@ describe('the Doppelgänger copies every Vampire role', () => {
     h.night('B', { players: ['D'] });
     h.toStep('doppelganger-assassin');
     h.night('A', { players: ['E'] });
-    expect(h.state.round!.marks!.E).toEqual({ id: 'assassin', doppel: true, by: 'A' });
+    // Only the Apprentice Assassin's own Mark records who placed it.
+    expect(h.state.round!.marks!.E).toEqual({ id: 'assassin', doppel: true });
     h.vote(votes('A,B,C,D>E; E>D'));
     expect(dead(h)).toBe('E');
     // Both Assassins win, and so do the werewolves (no Werewolf died).

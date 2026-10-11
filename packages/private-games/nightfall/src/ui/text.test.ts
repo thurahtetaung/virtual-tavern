@@ -3,7 +3,15 @@ import { FRAME_LINES, buildNightPlan, stepLines } from '../logic/plan.ts';
 import { ARTIFACTS, ROLE_IDS, type RoleId } from '../logic/roles.ts';
 import { table } from '../logic/test-utils.ts';
 import { deckFor } from './assets.ts';
-import { centreKinds, describeEntry, describeNote, narrationText } from './text.ts';
+import type { VoteResult } from '../logic/types.ts';
+import {
+  centreKinds,
+  describeEntry,
+  describeNote,
+  markHistory,
+  narrationText,
+  teamLines,
+} from './text.ts';
 
 const deck = deckFor(null, (id) => ARTIFACTS[id].summary);
 const SECOND_PERSON = /\b(you|your|yours|yourself)\b/i;
@@ -129,5 +137,98 @@ describe('narration as text', () => {
       'Everyone’s ready. Three, two, one… vote!',
     );
     expect(narrationText(FRAME_LINES.vote, deck, { awake: true })).toMatch(/^Time’s up/);
+  });
+});
+
+describe('Marks through the night', () => {
+  const nameOf = (id: string | null | undefined) =>
+    ({ A: 'Ana', B: 'Ben', C: 'Hana', D: 'Dee', E: 'Eve' })[id ?? ''] ?? 'Someone';
+
+  /** First bite: the Vampire, Traitor and Assassin Marks land on the same player in turn. */
+  function firstBite() {
+    const h = table({ players: ['vampire', 'instigator', 'villager', 'assassin', 'villager'] });
+    h.toStep('vampires');
+    h.night('A', { players: ['C'] });
+    h.toStep('instigator');
+    h.night('B', { players: ['C'] });
+    h.toStep('assassin');
+    h.night('D', { players: ['C'] });
+    h.dawn();
+    return h;
+  }
+
+  it('shows the Mark each new one replaced in the replay', () => {
+    const h = firstBite();
+    const timeline = h.state.round!.night!.timeline;
+    const line = (stepId: string) =>
+      describeEntry(
+        timeline.find((t) => t.stepId === stepId && t.note.kind === 'marked')!,
+        nameOf,
+        deck,
+      );
+    expect(line('vampires')).toBe('Ana gave the Mark of the Vampire to Hana.');
+    expect(line('instigator')).toBe(
+      'Ben gave the Mark of the Traitor to Hana. (Hana had the Mark of the Vampire)',
+    );
+    expect(line('assassin')).toBe(
+      'Dee gave the Mark of the Assassin to Hana. (Hana had the Mark of the Traitor)',
+    );
+  });
+
+  it('lists each player’s Marks, oldest first, for the reveal', () => {
+    const h = firstBite();
+    const history = markHistory(h.state.round!.night!.timeline, h.state.round!.marks!);
+    expect(history).toEqual({ C: ['clarity', 'vampire', 'traitor', 'assassin'] });
+    expect(markHistory([], null)).toEqual({});
+  });
+
+  it('names the lovers’ step for what it is, not a card', () => {
+    const entry = { step: 3, stepId: 'lovers', by: null, note: { kind: 'nobody' as const } };
+    expect(describeEntry(entry, nameOf, deck)).toBe('Nobody held a Mark of Love.');
+    expect(describeEntry({ ...entry, stepId: 'doppelganger-seer' }, nameOf, deck)).toMatch(
+      /didn’t copy this card/,
+    );
+  });
+
+  it('tells a vampire whose pick it was, a robber with no one to rob, and a feared player', () => {
+    expect(
+      describeNote(
+        { kind: 'marked', mark: 'vampire', targets: ['C'], chosenBy: 'B' },
+        nameOf,
+        deck,
+        undefined,
+        'A',
+      ),
+    ).toBe('Ben chose for you all: you gave the Mark of the Vampire to Hana.');
+    expect(
+      describeNote({ kind: 'blocked', reason: 'no-target', role: 'robber' }, nameOf, deck),
+    ).toMatch(/no one to rob/);
+    expect(describeNote({ kind: 'feared', role: 'seer' }, nameOf, deck)).toBe(
+      'You held the Mark of Fear, so you slept through your turn as the Seer.',
+    );
+  });
+});
+
+describe('the reveal’s team lines', () => {
+  const result = (teams: VoteResult['teams'], winners: string[]) =>
+    ({ teams, winners }) as unknown as VoteResult;
+
+  it('never says a side wins when Disease left nobody on it a winner', () => {
+    const [vampires] = teamLines(result([{ team: 'vampire', won: true, players: ['B'] }], []));
+    expect(vampires).toMatchObject({ won: false, sideWon: true, exceptions: [] });
+  });
+
+  it('names a traitor who lost with a winning side, and one who won with a losing side', () => {
+    const lines = teamLines(
+      result(
+        [
+          { team: 'village', won: true, players: ['A', 'B', 'C'] },
+          { team: 'werewolf', won: false, players: ['D', 'E'] },
+        ],
+        ['A', 'C', 'E'],
+      ),
+    );
+    expect(lines[0]).toMatchObject({ won: true, exceptions: ['B'] });
+    expect(lines[1]).toMatchObject({ won: false, exceptions: ['E'] });
   });
 });

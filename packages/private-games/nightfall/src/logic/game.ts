@@ -329,6 +329,7 @@ function vote(state: NightfallState, target: PlayerId, ctx: Ctx): Result {
   if (!me || me.left) return new GameError('not-playing', 'You’re watching this game.');
   if (target === ctx.by) return new GameError('self-vote', 'Vote for someone else.');
   if (!r.players[target]) return new GameError('bad-target', 'That player isn’t in the game.');
+  if (r.players[target].left) return new GameError('left', 'That player has left the game.');
   const next = clone(state);
   next.round!.players[ctx.by]!.vote = target;
   if (present(next.round!).every((q) => next.round!.players[q]!.vote !== null)) return finish(next);
@@ -585,10 +586,17 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
             const c = stepCtx(state, createRng(0));
             const w = night.work[viewer];
             const def = stepDef(night.plan[night.index]!);
+            const team =
+              def.id === 'vampires'
+                ? night.actors
+                    .filter((q) => q !== viewer)
+                    .map((q) => ({ player: q, pick: night.work[q]?.picks[0] ?? null }))
+                : null;
             return {
               step: def.id,
               as: w?.as ?? r.players[viewer]!.night,
               prompt: promptFor(c, viewer),
+              ...(team ? { team } : {}),
             };
           })()
         : null;

@@ -69,7 +69,8 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   });
   await expect(host.getByTestId('card-count')).toHaveText(/^8 of 8 cards · 5 Marks/);
   await expect(host.getByTestId('marks-setup')).toBeVisible();
-  await expect(others[0]!.getByTestId('epic-hint')).toBeVisible();
+  await expect(others[0]!.getByTestId('epic-hint')).toContainText('at least 2 votes');
+  await expect(others[0]!.getByTestId('epic-hint')).toContainText('tied for second');
   await host
     .getByRole('group', { name: 'Time for each role at night' })
     .getByRole('button', { name: '8 s', exact: true })
@@ -138,7 +139,20 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   await expect(
     players[cupid]!.getByRole('list', { name: 'What you learned tonight' }),
   ).toContainText(`Your love: ${names[W]}`);
+  // Where Cupid stands now: in love, which the recap spells out.
+  await expect(players[cupid]!.getByTestId('standing')).toContainText('You are in love');
   await players[cupid]!.getByRole('tab', { name: 'Table' }).click();
+  // The marked player's recap puts the Mark of the Vampire first.
+  await players[marked]!.getByRole('tab', { name: 'Learned' }).click();
+  await expect(players[marked]!.getByTestId('standing')).toContainText(
+    'you are a Vampire, whatever your card',
+  );
+  await players[marked]!.getByRole('tab', { name: 'Table' }).click();
+  // The Roles tab lists the Marks that can turn up, and words the village's win for both sides.
+  await host.getByRole('tab', { name: 'Roles' }).click();
+  await expect(host.getByTestId('marks-in-play').getByRole('button')).toHaveCount(4);
+  await expect(host.getByRole('list', { name: 'Roles in play' })).toContainText('epic battle');
+  await host.getByRole('tab', { name: 'Table' }).click();
 
   // Everyone votes for the werewolf, who votes for a vampire: first and second place.
   for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
@@ -151,7 +165,7 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   }
   for (const p of players) await expect(p.getByTestId('teams')).toBeVisible({ timeout: 15_000 });
 
-  await expect(host.getByTestId('epic')).toBeVisible();
+  await expect(host.getByTestId('epic')).toContainText('tied for second');
   const deaths = host.getByTestId('death');
   await expect(deaths).toHaveCount(3);
   await expect(
@@ -169,6 +183,10 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   // The reveal: every player's Mark, team and result.
   const rows = host.getByTestId('reveal-player');
   await expect(rows).toHaveCount(5);
+  // The marked player's Marks through the night: Clarity, then the Vampire's.
+  await expect(
+    host.locator(`[data-testid="reveal-player"][data-player="${names[marked]}"]`),
+  ).toContainText(/Marks:.*Mark of Clarity.*Mark of the Vampire/);
   // Rows come in seat order; line them up with `names`.
   const byName = new Map(
     await rows.evaluateAll((els) =>

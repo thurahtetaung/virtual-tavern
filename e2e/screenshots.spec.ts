@@ -917,6 +917,8 @@ for (const [label, viewport] of [
     await lover.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await lover.getByRole('tab', { name: 'Learned' }).click();
     await shot(lover, 'day-learned');
+    await lover.getByRole('tab', { name: 'Roles' }).click();
+    await shot(lover, 'day-roles');
     await lover.getByRole('tab', { name: 'Table' }).click();
     for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
     await expect(host.getByText('🗳️ The vote')).toBeVisible();

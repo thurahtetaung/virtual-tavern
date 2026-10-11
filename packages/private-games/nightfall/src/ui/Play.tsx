@@ -3,7 +3,17 @@ import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/u
 import { type ReactNode, useEffect, useState } from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
-import { ARTIFACTS, type ArtifactId, type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
+import { recommended } from '../logic/presets.ts';
+import {
+  ARTIFACTS,
+  type ArtifactId,
+  type MarkId,
+  ROLES,
+  type RoleId,
+  defaultArtifacts,
+  marksInPlay,
+  winFor,
+} from '../logic/roles.ts';
 import type { Choice, Note, NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
 import {
@@ -18,17 +28,20 @@ import {
   emblem,
   useRoleDetails,
 } from './Cards.tsx';
-import { type Status, nudgeFor, votePower } from './status.ts';
+import { standingOf } from './standing.ts';
+import { type Status, nudgeFor, startBlocker, votePower } from './status.ts';
 import {
   TEAM_LABEL,
   centreKinds,
   centreName,
   describeEntry,
   describeNote,
+  markHistory,
   marksIn,
   nameOfView,
   narrationText,
   promptText,
+  teamLines,
   teamOutcome,
 } from './text.ts';
 import type { DeviceSound } from './useSound.ts';
@@ -49,11 +62,14 @@ function WithChips({
   roles,
   marks = [],
   deck,
+  light,
 }: {
   text: string;
   roles: RoleId[];
   marks?: MarkId[];
   deck: Deck;
+  /** On a light strip in the always-dark night. */
+  light?: boolean;
 }) {
   const names = [
     ...[...new Set(roles)].map((role) => ({ name: deck.name(role), role, mark: null })),
@@ -75,9 +91,9 @@ function WithChips({
     parts.push(
       rest.slice(0, next.at),
       next.role ? (
-        <RoleChip key={key++} role={next.role} deck={deck} className="text-xs" />
+        <RoleChip key={key++} role={next.role} deck={deck} className="text-xs" light={light} />
       ) : (
-        <MarkChip key={key++} mark={next.mark} deck={deck} className="text-xs" />
+        <MarkChip key={key++} mark={next.mark} deck={deck} className="text-xs" light={light} />
       ),
     );
     rest = rest.slice(next.at + next.name.length);
@@ -212,18 +228,99 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
     );
   };
   const sorted = unique.sort((a, b) => order(a) - order(b));
+  const roles = view.settings.roles;
+  const copies = (r: RoleId) => roles.filter((x) => x === r).length;
+  const rewakes = buildNightPlan(roles).flatMap((id) => {
+    const def = stepDef(id);
+    return def.doppel ? [def.role] : [];
+  });
+  const marks = marksInPlay(roles);
+  const artifacts = roles.includes('curator')
+    ? view.settings.artifacts.filter((a) => defaultArtifacts(roles).includes(a))
+    : [];
   return (
-    <ul className="space-y-2" aria-label="Roles in play">
-      {sorted.map((r) => (
-        <li key={r} className="flex gap-2">
-          <RoleChip role={r} deck={deck} className="shrink-0" />
-          <span className="text-sm text-stone-600 dark:text-stone-400">
-            {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
-            {ROLES[r].win}
-          </span>
-        </li>
+    <div className="space-y-3">
+      <ul className="space-y-2" aria-label="Roles in play">
+        {sorted.map((r) => (
+          <li key={r} className="flex gap-2">
+            <span className="flex shrink-0 items-center gap-1">
+              <RoleChip role={r} deck={deck} />
+              {copies(r) > 1 && (
+                <span className="text-xs font-semibold" data-testid="copies">
+                  ×{copies(r)}
+                </span>
+              )}
+            </span>
+            <span className="text-sm text-stone-600 dark:text-stone-400">
+              {order(r) === Infinity ? 'Doesn’t wake. ' : ''}
+              {winFor(r, roles, view.settings.artifacts)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {rewakes.length > 0 && (
+        <p className="text-sm" data-testid="doppel-rewakes">
+          The <RoleChip role="doppelganger" deck={deck} /> wakes again later if she copied:{' '}
+          {rewakes.map((r) => (
+            <RoleChip key={r} role={r} deck={deck} className="mr-1" />
+          ))}
+        </p>
+      )}
+      {marks.length > 0 && (
+        <p className="text-sm" data-testid="marks-in-play">
+          Marks that can turn up:{' '}
+          {marks.map((m) => (
+            <MarkChip key={m} mark={m} deck={deck} className="mr-1" />
+          ))}
+        </p>
+      )}
+      {artifacts.length > 0 && (
+        <p className="text-sm" data-testid="artifacts-in-play">
+          Artifacts the {deck.name('curator')} may place:{' '}
+          {artifacts.map((a) => (
+            <span key={a} className="mr-1 inline-block">
+              <ArtifactChip id={a} deck={deck} />
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** "Where you stand now": the recap at the top of Learned. */
+function WhereYouStand({ view, deck }: { view: NightfallView; deck: Deck }) {
+  const st = standingOf(view, deck);
+  if (!st) return null;
+  return (
+    <section
+      aria-label="Where you stand now"
+      data-testid="standing"
+      className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30"
+    >
+      <p className="font-semibold">Where you stand now</p>
+      <p className="flex flex-wrap items-center gap-1">
+        Started as <RoleChip role={st.started} deck={deck} />
+        <span aria-hidden>→</span>
+        {st.now ? (
+          <>
+            now <RoleChip role={st.now} deck={deck} />
+          </>
+        ) : (
+          <span>now unknown</span>
+        )}
+        {st.mark && (
+          <>
+            · Mark <MarkChip mark={st.mark.mark} deck={deck} doppel={st.mark.doppel} />
+          </>
+        )}
+      </p>
+      {st.meaning.map((line) => (
+        <p key={line} className="text-stone-700 dark:text-stone-300">
+          {line}
+        </p>
       ))}
-    </ul>
+    </section>
   );
 }
 
@@ -232,24 +329,32 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
   const nameOf = nameOfView(view);
   const kinds = view.day?.centerKinds ?? centreKinds(view.settings.roles);
   if (!view.notes.length)
-    return <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>;
+    return (
+      <div className="space-y-2">
+        <WhereYouStand view={view} deck={deck} />
+        <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>
+      </div>
+    );
   return (
-    <ol className="space-y-1.5" aria-label="What you learned tonight">
-      {view.notes.map((n) => (
-        <li key={n.id} className="rounded-lg bg-stone-100 px-3 py-1.5 text-sm dark:bg-stone-800">
-          {n.step >= 0 && view.night === null && (
-            <span className="mr-1 text-xs text-stone-500">{n.step + 1}.</span>
-          )}
-          <WithChips
-            text={describeNote(n, nameOf, deck, kinds, me)}
-            roles={rolesIn(n)}
-            marks={marksIn(n)}
-            deck={deck}
-          />
-          {n.auto && <span className="text-xs text-stone-500"> (time ran out)</span>}
-        </li>
-      ))}
-    </ol>
+    <div className="space-y-2">
+      <WhereYouStand view={view} deck={deck} />
+      <ol className="space-y-1.5" aria-label="What you learned tonight">
+        {view.notes.map((n) => (
+          <li key={n.id} className="rounded-lg bg-stone-100 px-3 py-1.5 text-sm dark:bg-stone-800">
+            {n.step >= 0 && view.night === null && (
+              <span className="mr-1 text-xs text-stone-500">{n.step + 1}.</span>
+            )}
+            <WithChips
+              text={describeNote(n, nameOf, deck, kinds, me)}
+              roles={rolesIn(n)}
+              marks={marksIn(n)}
+              deck={deck}
+            />
+            {n.auto && <span className="text-xs text-stone-500"> (time ran out)</span>}
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -369,16 +474,19 @@ function PromptPanel({
   const step = view.night!.index;
   const nameOf = nameOfView(view);
   const me = view.me?.id;
+  // The vampires choose together: each tap shows the others who you have in mind.
+  const pointing = prompt.stage === 'give-vampire';
+  const team = view.night!.acting?.team ?? [];
   const togglePlayer = (id: string) => {
     if (!prompt.players?.ids.includes(id)) return;
     setCentre(prompt.either ? [] : centre);
-    setPlayers((cur) =>
-      cur.includes(id)
-        ? cur.filter((x) => x !== id)
-        : prompt.players!.max === 1
-          ? [id]
-          : [...cur, id].slice(-prompt.players!.max),
-    );
+    const next = players.includes(id)
+      ? players.filter((x) => x !== id)
+      : prompt.players.max === 1
+        ? [id]
+        : [...players, id].slice(-prompt.players.max);
+    setPlayers(next);
+    if (pointing) void act({ type: 'night', step, point: true, players: next });
   };
   const toggleCentre = (i: number) => {
     if (!prompt.center?.slots.includes(i)) return;
@@ -416,6 +524,7 @@ function PromptPanel({
           {view.table!.map((p) => {
             const legal = prompt.players!.ids.includes(p.id);
             const picked = players.includes(p.id);
+            const by = team.filter((t) => t.pick === p.id).map((t) => nameOf(t.player));
             return (
               <li key={p.id}>
                 <button
@@ -431,8 +540,14 @@ function PromptPanel({
                     !legal && 'opacity-35',
                   )}
                 >
-                  <span aria-hidden>🂠</span>
+                  {/* The Marksman looks at a Mark here, not a card. */}
+                  <span aria-hidden>{prompt.stage === 'view-mark' ? '🔘' : '🂠'}</span>
                   <span className="truncate">{p.id === me ? 'You' : p.name}</span>
+                  {by.length > 0 && (
+                    <span className="ml-auto truncate text-xs font-normal" data-testid="team-pick">
+                      ← {by.join(', ')}
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -516,6 +631,17 @@ function PromptPanel({
           </button>
         )}
       </div>
+      {pointing && team.length > 0 && (
+        <p className="text-xs text-indigo-100" data-testid="team-picks">
+          {team
+            .map((t) =>
+              t.pick
+                ? `${nameOf(t.player)} has ${t.pick === me ? 'you' : nameOf(t.pick)} in mind`
+                : `${nameOf(t.player)} hasn’t chosen yet`,
+            )
+            .join(' · ')}
+        </p>
+      )}
       {prompt.mandatory && (
         <p className="text-xs text-indigo-200/80">
           You must choose: if time runs out, a choice is made for you.
@@ -727,6 +853,7 @@ export function Night({
                       roles={rolesIn(n)}
                       marks={marksIn(n)}
                       deck={deck}
+                      light
                     />
                   </li>
                 ))}
@@ -1050,11 +1177,20 @@ export function Reveal({
   const reveal = view.reveal!;
   const { result } = reveal;
   const nameOf = nameOfView(view);
-  const explained = explainResult(result, {
-    player: nameOf,
-    role: (role) => deck.name(role),
-    team: (team) => TEAM_LABEL[team],
-  });
+  const explained = explainResult(
+    result,
+    {
+      player: nameOf,
+      role: (role) => deck.name(role),
+      team: (team) => TEAM_LABEL[team],
+      mark: (m) => deck.markName(m),
+    },
+    reveal.marks,
+  );
+  const history = markHistory(reveal.timeline, reveal.marks);
+  // Someone left since the deal: the picked cards may no longer fit the table.
+  const blocker = startBlocker(view);
+  const seatedNow = view.seats.filter((s) => s.playing).length;
   const kinds = reveal.center.map((c) => c.kind);
   const [tab, setTab] = useState<'cards' | 'night'>('cards');
   const steps = reveal.plan.map((id, i) => ({
@@ -1067,8 +1203,8 @@ export function Reveal({
     <div className="mx-auto max-w-3xl space-y-3">
       <Hint>{status.text}</Hint>
       <Panel className="space-y-1" data-testid="teams">
-        {result.teams.map((t) => (
-          <p key={t.team} className="text-sm">
+        {teamLines(result).map((t) => (
+          <p key={t.team} className="text-sm" data-testid="team-line" data-won={t.won}>
             <span
               className={cn(
                 'font-bold',
@@ -1077,16 +1213,24 @@ export function Reveal({
                   : 'text-rose-700 dark:text-rose-400',
               )}
             >
-              {t.won ? '🏆' : '✗'} {teamOutcome(t.team, t.won)}
+              {t.won ? '🏆' : '✗'}{' '}
+              {t.sideWon && !t.won
+                ? `${TEAM_LABEL[t.team]}: nobody on this side wins`
+                : teamOutcome(t.team, t.won)}
             </span>{' '}
             <span className="text-stone-600 dark:text-stone-400">
               ({t.players.map(nameOf).join(', ')})
+              {t.exceptions.length > 0 &&
+                (t.won
+                  ? ` · not ${t.exceptions.map(nameOf).join(', ')}`
+                  : ` · ${t.exceptions.map(nameOf).join(', ')} won anyway`)}
             </span>
           </p>
         ))}
         {result.epic && (
           <p className="text-sm font-semibold" data-testid="epic">
-            ⚔️ An epic battle: the most voted and the runner-up both die.
+            ⚔️ An epic battle: the most voted player dies (with at least 2 votes), and so does
+            everyone tied for second; if several tie for the most votes, only they die.
           </p>
         )}
         {explained.tally.length > 0 && (
@@ -1132,11 +1276,11 @@ export function Reveal({
             {line}
           </p>
         ))}
-        {(result.disqualified?.length ?? 0) > 0 && (
-          <p className="text-sm" data-testid="disqualified">
-            ☣️ {result.disqualified!.map(nameOf).join(', ')} voted for the Disease, and can’t win.
+        {explained.personal.map((line) => (
+          <p key={line} className="text-sm" data-testid="personal">
+            {line}
           </p>
-        )}
+        ))}
       </Panel>
       <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
         {(['cards', 'night'] as const).map((t) => (
@@ -1196,7 +1340,9 @@ export function Reveal({
                       <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
                       <span aria-hidden>→</span>
                       <RoleChip role={id.role} deck={deck} />
-                      {pm && <MarkChip mark={pm.id} deck={deck} doppel={pm.doppel} />}
+                      {pm && !history[p.id] && (
+                        <MarkChip mark={pm.id} deck={deck} doppel={pm.doppel} />
+                      )}
                       {card.artifact && <ArtifactChip id={card.artifact} deck={deck} />}
                       {card.shield && (
                         <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />
@@ -1211,6 +1357,25 @@ export function Reveal({
                         <Badge>{TEAM_LABEL[id.team]}</Badge>
                       )}
                     </div>
+                    {history[p.id] && (
+                      <p
+                        className="flex flex-wrap items-center gap-1 text-xs"
+                        data-testid="mark-history"
+                      >
+                        Marks:
+                        {history[p.id]!.map((m, k) => (
+                          <span key={k} className="inline-flex items-center gap-1">
+                            {k > 0 && <span aria-hidden>→</span>}
+                            <MarkChip
+                              mark={m}
+                              deck={deck}
+                              doppel={k === history[p.id]!.length - 1 && pm?.doppel}
+                              className="text-xs"
+                            />
+                          </span>
+                        ))}
+                      </p>
+                    )}
                     {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
                       <p className="text-xs text-stone-500">
                         Card at the end: {deck.name(card.role)}
@@ -1268,11 +1433,29 @@ export function Reveal({
           </ol>
         </Panel>
       )}
+      {room.isHost && blocker && seatedNow >= 3 && (
+        <p className="text-sm" data-testid="play-again-blocker">
+          {blocker} The table changed since the deal.
+        </p>
+      )}
       {room.isHost && (
         <div className="flex flex-wrap gap-2">
-          <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
-            Play again
-          </Button>
+          {blocker && seatedNow >= 3 ? (
+            <Button
+              size="lg"
+              onClick={() =>
+                void act({ type: 'update-settings', roles: recommended(seatedNow) }).then(
+                  (ok) => ok && act({ type: 'play-again' }),
+                )
+              }
+            >
+              Play again with the recommended cards for {seatedNow}
+            </Button>
+          ) : (
+            <Button size="lg" onClick={() => void act({ type: 'play-again' })}>
+              Play again
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change the cards
           </Button>

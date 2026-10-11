@@ -143,7 +143,9 @@ export interface RoleDef {
   win: string;
 }
 
-const VILLAGE_WIN = 'Wins with the village: at least one Werewolf dies.';
+/** The village's win, in general; `winFor` words it for one setup. */
+const VILLAGE_WIN =
+  'Wins with the village: at least one Werewolf or Vampire dies (one of each in an epic battle), or nobody dies if no player is either.';
 const WOLF_WIN = 'Wins with the werewolves: no Werewolf dies.';
 const VAMPIRE_WIN = 'Wins with the vampires: no Vampire dies.';
 
@@ -421,8 +423,9 @@ export const ROLES: Record<RoleId, RoleDef> = {
     team: 'village',
     villageCard: true,
     doppel: 'none',
-    summary: 'If any Werewolf votes for the Cursed, the Cursed becomes a Werewolf.',
-    win: 'Wins with the village, or with the werewolves once turned.',
+    summary:
+      'If any Werewolf votes for the Cursed, the Cursed becomes a Werewolf. With vampires in the game, a Vampire’s vote turns him too: he joins the side that cast more of those votes (a tie makes him a Werewolf).',
+    win: 'Wins with the village, or, once turned, with the side that turned him.',
   }),
   prince: role({
     id: 'prince',
@@ -603,7 +606,7 @@ export const ROLES: Record<RoleId, RoleDef> = {
     doppel: 'later',
     summary:
       'Wakes with the Assassin to see who it is. With no Assassin awake, must give the Mark of the Assassin herself.',
-    win: 'Wins if an Assassin dies; with no Assassin among the players, if the player with the Mark of the Assassin dies.',
+    win: 'Wins if an Assassin dies. If she placed the Mark of the Assassin herself (no Assassin woke), wins when its holder dies, wherever her card ends up.',
   }),
   marksman: role({
     id: 'marksman',
@@ -712,11 +715,78 @@ export const MARK_ROLES: ReadonlySet<RoleId> = new Set<RoleId>([
 
 export const marksInUse = (roles: readonly RoleId[]) => roles.some((r) => MARK_ROLES.has(r));
 
+/** The Mark each role gives or takes (the vampires' step gives the Mark of the Vampire). */
+const MARK_OF_ROLE: Partial<Record<RoleId, MarkId>> = {
+  vampire: 'vampire',
+  'the-master': 'vampire',
+  'the-count': 'fear',
+  renfield: 'bat',
+  diseased: 'disease',
+  cupid: 'love',
+  instigator: 'traitor',
+  assassin: 'assassin',
+  'apprentice-assassin': 'assassin',
+};
+
+/** The Marks that can turn up with these cards, Clarity first (everyone starts with one). */
+export function marksInPlay(roles: readonly RoleId[]): MarkId[] {
+  if (!marksInUse(roles)) return [];
+  const given = new Set(roles.flatMap((r) => (MARK_OF_ROLE[r] ? [MARK_OF_ROLE[r]] : [])));
+  if (roles.some((r) => ROLES[r].wakesWithVampires)) given.add('vampire');
+  return MARK_IDS.filter((m) => m === 'clarity' || given.has(m));
+}
+
 /** Hostile groups these roles can put in play (for the "epic battle" warning). */
 export function hostileGroupsIn(roles: readonly RoleId[]): HostileGroup[] {
   return HOSTILE_GROUPS.filter((g) =>
     roles.some((r) => (g === 'werewolf' ? ROLES[r].werewolf : ROLES[r].vampire) === true),
   );
+}
+
+/**
+ * Hostile groups a setup can put among the players: by card, or by an artifact the Curator may
+ * draw (the Claw makes a Werewolf, the Mist a Vampire).
+ */
+export function sidesIn(
+  roles: readonly RoleId[],
+  artifacts: readonly ArtifactId[] = [],
+): HostileGroup[] {
+  const drawn = roles.includes('curator')
+    ? artifacts.filter((a) => defaultArtifacts(roles).includes(a))
+    : [];
+  const extra = drawn.flatMap((a) => {
+    const becomes = ARTIFACTS[a].becomes;
+    return becomes ? [becomes] : [];
+  });
+  return hostileGroupsIn([...roles, ...extra]);
+}
+
+/** The village's win for a setup with these hostile groups. */
+export function villageWin(groups: readonly HostileGroup[]): string {
+  if (groups.length >= 2)
+    return 'Wins with the village: at least one Werewolf or Vampire dies. In an epic battle (werewolves, vampires and villagers all among the players), at least one of each must die.';
+  if (groups[0] === 'vampire')
+    return 'Wins with the village: at least one Vampire dies (or, if no player is a Vampire, nobody dies).';
+  if (groups[0] === 'werewolf')
+    return 'Wins with the village: at least one Werewolf dies (or, if no player is a Werewolf, nobody dies).';
+  return 'Wins with the village: nobody dies (no player can be a Werewolf or a Vampire).';
+}
+
+/** How a role wins, worded for the cards in this game (`roles`) and the Curator's artifacts. */
+export function winFor(
+  role: RoleId,
+  roles: readonly RoleId[],
+  artifacts: readonly ArtifactId[] = [],
+): string {
+  const def = ROLES[role];
+  const groups = sidesIn(roles, artifacts);
+  if (def.win === VILLAGE_WIN) return villageWin(groups);
+  if (groups.length < 2) return def.win;
+  if (def.win === WOLF_WIN)
+    return 'Wins with the werewolves: no Werewolf dies. In an epic battle, a Vampire must die too.';
+  if (def.win === VAMPIRE_WIN)
+    return 'Wins with the vampires: no Vampire dies. In an epic battle, a Werewolf must die too.';
+  return def.win;
 }
 
 // ---- Artifacts (placed by the Curator) ----

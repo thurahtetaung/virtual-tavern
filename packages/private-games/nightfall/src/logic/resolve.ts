@@ -62,7 +62,8 @@ export function groupOf(id: FinalIdentity): HostileGroup | null {
 
 /**
  * Teams that depend on the whole table: Renfield sides with the village when no player is a
- * Vampire, and the Assassins are plain Villagers when no Mark of the Assassin is in play.
+ * Vampire, and the Assassins are plain Villagers when no Mark of the Assassin is in play. A
+ * player with the Mark of the Vampire stays a Vampire whatever card they hold.
  */
 function settleTeams(
   players: readonly PlayerId[],
@@ -75,6 +76,7 @@ function settleTeams(
   for (const p of players) {
     const id = ids[p]!;
     if (id.role === 'renfield' && !id.vampireMark && !anyVampire) id.team = 'village';
+    if (id.vampireMark) continue;
     if (id.role === 'assassin' && !assassinMark) id.team = 'village';
     if (id.role === 'apprentice-assassin' && !assassinMark && !assassins) id.team = 'village';
   }
@@ -238,10 +240,19 @@ export function evaluateWins(
     ? hostileDead.length >= 2
     : hostileDead.length > 0 || (!anyHostile && dead.size === 0);
 
-  // The Assassins: anyone with the Mark of the Assassin dying (or, for the Apprentice, an
-  // Assassin among the players dying).
+  // The Assassins: anyone with the Mark of the Assassin dying. The Apprentice Assassin's card
+  // wins on the Mark she placed herself (with no Assassin awake) when one is in play, else on an
+  // Assassin among the players dying, else on any Mark of the Assassin.
   const markedDied = players.some((p) => marks?.[p]?.id === 'assassin' && dead.has(p));
   const assassinPlayers = players.filter((p) => id(p).role === 'assassin');
+  const placed = players.filter((p) => marks?.[p]?.id === 'assassin' && marks[p].by);
+  const apprenticeWin = placed.length
+    ? placed.some((p) => dead.has(p))
+    : assassinPlayers.length
+      ? assassinPlayers.some((a) => dead.has(a))
+      : markedDied;
+  // Ruling 14: she wins when the holder of a Mark she placed dies, even if her card moved.
+  const placedHolderDied = (p: PlayerId) => placed.some((q) => marks![q]!.by === p && dead.has(q));
 
   const result = new Map<PlayerId, boolean>();
   for (const p of players) {
@@ -256,8 +267,7 @@ export function evaluateWins(
         won = !tannerDied && [...dead].some((q) => q !== p);
       } else won = wolfWin;
     } else if (team === 'assassin') won = markedDied;
-    else if (team === 'apprentice-assassin')
-      won = assassinPlayers.length ? assassinPlayers.some((a) => dead.has(a)) : markedDied;
+    else if (team === 'apprentice-assassin') won = apprenticeWin;
     else if (me.role === 'tanner') won = dead.has(p);
     else if (me.role === 'apprentice-tanner')
       won = tanners.length > 0 ? tanners.some((t) => dead.has(t)) : dead.has(p);
@@ -267,6 +277,7 @@ export function evaluateWins(
       const mates = roster(team).filter((q) => q !== p);
       if (mates.length > 0) won = mates.some((q) => dead.has(q));
     }
+    if (placedHolderDied(p)) won = true;
     result.set(p, won);
   }
 

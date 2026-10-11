@@ -207,3 +207,32 @@ export function dueCues(
 ) {
   return cues.filter((c) => !played.has(c.id) && c.at <= now && now - c.at <= graceMs);
 }
+
+// ---- The narration queue ----
+
+/** A narration clip waiting to play, with the moment its cue was due (server clock). */
+export interface QueuedClip {
+  src: string;
+  at: number;
+}
+
+/** A clip that couldn't start within this long of its cue is dropped, not played late. */
+export const STALE_CLIP_MS = 4000;
+
+/**
+ * The queue once a new cue is due: its clips replace any that haven't started yet, so a long
+ * clip never pushes the next step's narration ever further behind.
+ */
+export function enqueueClips(clips: readonly string[], at: number): QueuedClip[] {
+  return clips.map((src) => ({ src, at }));
+}
+
+/** The next clip worth playing now, and what's left after it (stale clips are dropped). */
+export function nextClip(
+  queue: readonly QueuedClip[],
+  now: number,
+  staleMs = STALE_CLIP_MS,
+): { clip: QueuedClip | null; rest: QueuedClip[] } {
+  const fresh = queue.filter((c) => now - c.at <= staleMs);
+  return { clip: fresh[0] ?? null, rest: fresh.slice(1) };
+}

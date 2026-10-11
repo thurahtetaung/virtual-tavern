@@ -6,14 +6,17 @@ import {
   type Cue,
   DEFAULT_MUSIC_VOLUME,
   DUCK_FADE_MS,
+  type QueuedClip,
   clipsFor,
   cuesFor,
   devicePlaysMusic,
   deviceSpeaks,
   dueCues,
+  enqueueClips,
   musicChange,
   musicPhaseFor,
   musicTarget,
+  nextClip,
   ramp,
   trackFor,
 } from './audio.ts';
@@ -169,7 +172,7 @@ export function useSound({
   const [lines, setLines] = useState<string[]>([]);
   const [narrating, setNarrating] = useState(false);
   const played = useRef(new Set<string>());
-  const queue = useRef<string[]>([]);
+  const queue = useRef<QueuedClip[]>([]);
   const voice = useRef<HTMLAudioElement | null>(null);
   const mixer = useRef<Mixer | null>(null);
   const cues = cuesFor(view);
@@ -179,14 +182,16 @@ export function useSound({
   useEffect(() => {
     const list = JSON.parse(cueKey) as Cue[];
     const playNext = () => {
-      const next = queue.current.shift();
-      if (!next) {
+      // Clips whose moment has passed (a long clip ran over) are dropped, not played late.
+      const { clip, rest } = nextClip(queue.current, Date.now() + clockOffset);
+      queue.current = rest;
+      if (!clip) {
         setNarrating(false);
         return;
       }
       voice.current ??= new Audio();
       const el = voice.current;
-      el.src = assetUrl(next);
+      el.src = assetUrl(clip.src);
       el.onended = playNext;
       el.onerror = playNext;
       setNarrating(true);
@@ -199,8 +204,9 @@ export function useSound({
         setLines(cue.lines);
         if (!speaks || !unlocked) continue;
         const clips = clipsFor(manifest?.narration, cue.lines);
-        const idle = queue.current.length === 0 && (voice.current?.paused ?? true);
-        queue.current.push(...clips);
+        const idle = voice.current?.paused ?? true;
+        // A new cue replaces clips still waiting from an older one.
+        queue.current = enqueueClips(clips, cue.at);
         if (idle) playNext();
       }
     };

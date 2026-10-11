@@ -132,7 +132,8 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       if (log.role === 'robber' && log.acted.length)
         expect(log.results.join(' ')).toMatch(/You swapped cards with/);
       if (log.role === 'doppelganger') expect(log.results.join(' ')).toMatch(/You looked at/);
-      if (log.role === 'drunk') expect(log.results.join(' ')).toMatch(/centre card/);
+      if (log.role === 'drunk' && log.results.length)
+        expect(log.results.join(' ')).toMatch(/centre card/);
       if (
         ![
           'seer',
@@ -153,12 +154,24 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       await expect(
         players[seer]!.getByRole('list', { name: 'What you learned tonight' }),
       ).toContainText('You saw');
+      // Learned opens with where you stand now.
+      await expect(players[seer]!.getByTestId('standing')).toContainText('Where you stand now');
+      await expect(players[seer]!.getByTestId('standing')).toContainText('Started as');
       await players[seer]!.getByRole('tab', { name: 'Table' }).click();
     }
     await host.getByRole('tab', { name: 'Roles' }).click();
     await expect(host.getByRole('list', { name: 'Roles in play' }).getByRole('button')).toHaveCount(
       7,
     );
+    // Copies are counted, the village's win is worded for a werewolf game, and the
+    // Doppelgänger's second wake is listed.
+    await expect(host.getByTestId('copies')).toHaveText('×2');
+    await expect(host.getByRole('list', { name: 'Roles in play' })).toContainText(
+      'at least one Werewolf dies',
+    );
+    await expect(host.getByRole('list', { name: 'Roles in play' })).not.toContainText('Vampire');
+    await expect(host.getByTestId('doppel-rewakes')).toContainText('Insomniac');
+    await expect(host.getByTestId('marks-in-play')).toHaveCount(0);
     await host.getByRole('tab', { name: 'Table' }).click();
 
     // The day names who it is waiting for, and the host may open the vote early.
@@ -192,6 +205,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     // The full tally, and why the winners won.
     await expect(host.getByTestId('tally')).toContainText('Hana 4');
     await expect(host.getByTestId('why').first()).toContainText(/won|Nobody won/);
+    await expect(host.getByTestId('team-line').first()).toBeVisible();
     // Guests are told who moves the game on.
     await expect(others[0]!.getByTestId('waiting-host')).toHaveText(
       'Waiting for Hana (host) to deal again or change the cards…',
