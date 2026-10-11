@@ -3,13 +3,14 @@
 A private, self-hosted place to play party games with friends in the browser.
 Create a room, share the link, and play together in real time. There are no accounts and nothing to install.
 
-- **Five games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
+- **Seven games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
   - **Codenames**: two teams race to find their words from one-word clues.
   - **Enigma**: a team code-breaking game where you decode your own clues and intercept the other team's.
   - **Echo**: a cooperative word game where everyone writes a one-word clue for the guesser, but matching clues cancel out.
   - **Reverie**: a picture-clue storytelling card game in the password-gated **back room**; its art lives in private storage and is only served to unlocked browsers.
   - **Hoodwink**: a bluffing trivia game in the back room.
   - **Royal Post**: a courtship card game in the back room.
+  - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round; a back-room edition uses the original locations and art.
 - **Beginner friendly.** Each game ships a rules guide, shown on its "How to play" page and in a rules drawer during play, and the screen always tells you what to do next.
 - **Your words.** 19 built-in word packs come with the server, admins edit word lists in `/admin`, and hosts mix and match them per game.
 - **Rooms by link.** Rooms are unlisted and joined through unguessable links, with optional turn timers per game.
@@ -46,9 +47,11 @@ packages/ui                   Shared React building blocks
 packages/games/codenames      Codenames rules, guide and UI
 packages/games/enigma         Enigma rules, guide and UI
 packages/games/echo           Echo rules, guide and UI
+packages/games/masquerade     Masquerade rules, guide, UI and its self-written location pack
 packages/private-games/reverie Reverie (back room) rules, guide and UI; art comes from private storage
 packages/private-games/hoodwink Hoodwink (back room) rules, guide and UI; questions come from private decks
 packages/private-games/royal-post Royal Post (back room) rules, guide and UI
+packages/private-games/masquerade-originals Masquerade's back-room edition; locations come from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets) and import-question-decks.mjs (private trivia decks)
 ```

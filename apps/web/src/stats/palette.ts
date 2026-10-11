@@ -58,9 +58,20 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
 
 /**
  * Known games keep their slot whatever else is in the data, so colour follows the game. Append new
- * games at the end: Reverie sits where its id used to hash, so no existing game changes colour.
+ * games at the end: Reverie, Masquerade and Royal Post sit where their ids used to hash, so no
+ * existing game changes colour. Every slot is now taken, so a game not listed here is drawn in the
+ * neutral "other" colour until it is added.
  */
-const FIXED_ORDER = ['codenames', 'enigma', 'echo', 'reverie', 'hoodwink'];
+const FIXED_ORDER = [
+  'codenames',
+  'enigma',
+  'echo',
+  'reverie',
+  'hoodwink',
+  'masquerade',
+  'royal-post',
+  'masquerade-originals',
+];
 
 /**
  * Stable slot per game id: the known games have fixed slots, and any other game hashes into the
@@ -70,9 +81,11 @@ const FIXED_ORDER = ['codenames', 'enigma', 'echo', 'reverie', 'hoodwink'];
 export function slotFor(id: string): number {
   const fixed = FIXED_ORDER.indexOf(id);
   if (fixed >= 0) return fixed;
+  const free = LIGHT.series.length - FIXED_ORDER.length;
+  if (free <= 0) return LIGHT.series.length;
   let h = 0;
   for (const c of id) h = (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0;
-  return FIXED_ORDER.length + (h % (LIGHT.series.length - FIXED_ORDER.length));
+  return FIXED_ORDER.length + (h % free);
 }
 
 export function gameSlots(ids: Iterable<string>): Map<string, number> {

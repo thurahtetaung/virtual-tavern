@@ -101,16 +101,18 @@ describe('back room over HTTP', () => {
       (await app.inject({ method: 'GET', url: '/api/games', headers: { cookie } }))
         .json<{ id: string }[]>()
         .map((g) => g.id);
-    expect(await ids()).toEqual(['codenames', 'enigma', 'echo']);
+    expect(await ids()).toEqual(['codenames', 'enigma', 'echo', 'masquerade']);
     expect((await unlock(app, 'nope')).res.statusCode).toBe(401);
     const { cookie } = await unlock(app);
     expect(await ids(cookie)).toEqual([
       'codenames',
       'enigma',
       'echo',
+      'masquerade',
       'reverie',
       'hoodwink',
       'royal-post',
+      'masquerade-originals',
     ]);
   });
 

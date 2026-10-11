@@ -1,5 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { readCards, readyUp, votes } from './masquerade-play.ts';
 import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
@@ -594,5 +595,74 @@ for (const [label, viewport, colorScheme] of [
     await tab('Fun');
     await expect(page.getByText('Most dramatic finish')).toBeVisible();
     await shot('fun');
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`masquerade screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const phone = label === 'phone';
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/masquerade-${label}-${name}.png`,
+        fullPage: !phone,
+      });
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({ viewport, colorScheme: phone ? 'dark' : 'light' });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      return p;
+    };
+    const host = await make('Hana');
+    await host.goto('/');
+    await host.getByRole('button', { name: 'Create a Masquerade room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+    await Promise.all(others.map((p) => p.goto(url)));
+    const players = [host, ...others];
+    const names = new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben', 'Cy'][i]!]));
+    await expect(host.getByText('Players (4/12)')).toBeVisible();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    const dealt = await readCards(players, names);
+    const local = dealt.locals[0]!;
+    const tab = async (p: Page, name: string) => {
+      if (phone) await p.getByRole('navigation').getByRole('button', { name }).click();
+    };
+    await shot(local, 'card-local');
+    await shot(dealt.spy, 'card-spy');
+    await tab(dealt.spy, 'Locations');
+    const board = dealt.spy.getByRole('region', { name: 'Locations' });
+    for (const n of ['Bakery', 'Gym', 'Cinema', 'Lift'].filter((x) => x !== dealt.location))
+      await board.getByRole('button', { name: n, exact: true }).click();
+    await board.getByRole('button', { name: 'Star Aquarium' }).click();
+    await shot(dealt.spy, 'locations-spy');
+    await tab(local, 'Ideas');
+    await shot(local, 'ideas-local');
+    await tab(dealt.spy, 'Ideas');
+    await shot(dealt.spy, 'ideas-spy');
+    await tab(dealt.spy, 'Play');
+    await tab(local, 'Play');
+    await readyUp(players);
+    const [a, b, c] = dealt.locals as [Page, Page, Page];
+    await votes([[a, names.get(dealt.spy)!]]);
+    await shot(a, 'vote');
+    await votes([
+      [b, names.get(dealt.spy)!],
+      [c, names.get(dealt.spy)!],
+      [dealt.spy, names.get(a)!],
+    ]);
+    // A caught spy's screen opens on the board, ready to guess.
+    await expect(dealt.spy.getByText('Pick the location you think it is.')).toBeVisible();
+    await shot(dealt.spy, 'caught');
+    await board.getByRole('button', { name: `Pick ${dealt.location}`, exact: true }).click();
+    await shot(dealt.spy, 'guess');
+    await board.getByRole('button', { name: `Guess ${dealt.location}`, exact: true }).click();
+    await expect(host.getByTestId('revealed-location')).toBeVisible();
+    await shot(host, 'reveal');
   });
 }
