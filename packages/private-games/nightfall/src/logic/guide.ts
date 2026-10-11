@@ -27,7 +27,7 @@ const wakeOrder = STEPS.filter((s) => playable.includes(s.role)).map((s) =>
         : s.id === 'lovers'
           ? 'The lovers wake and see each other'
           : s.doppel
-            ? `Doppelganger, if she copied the ${roleLabel(s.role)}`
+            ? `Doppelgänger, if she copied the ${roleLabel(s.role)}`
             : roleLabel(s.role),
 );
 
@@ -46,7 +46,7 @@ export const guide: GameGuide = {
   ],
   setup: [
     'The host picks the cards: one per player plus three for the centre (plus one when the Alpha Wolf is in). The recommended cards for your table size are picked to start with, and follow the table as people join until the host changes them. Ready-made setups are tagged Beginner, Advanced or Chaos.',
-    'Everyone gets one card. Cover your screen, peek at your role, then press Ready.',
+    'Everyone gets one card. Cover your screen and peek at your role; Ready unlocks once you have looked.',
     'Night falls once everyone is ready (the host can start it early if someone dropped out). The app calls each role in turn.',
     'Narration: with Host’s device, only the host’s phone speaks, so put it in the middle of the table; with Every device, every phone speaks, which suits players who are apart. Every screen shows the narration as text either way.',
   ],

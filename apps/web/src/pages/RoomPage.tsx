@@ -14,13 +14,14 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
-import { Layout } from '../components/Layout.tsx';
+import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { type ClientGame, findGame, loadGame, withTitle } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
+import { awayFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
-import { roomTitle } from '../lib/title.ts';
+import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
@@ -38,6 +39,14 @@ export function RoomPage() {
   const [attempt, setAttempt] = useState(0);
   const [game, setGame] = useState<ClientGame | null | 'missing'>(null);
   const [name, setName] = useState<string | null>(() => savedName() || null);
+  // Inside the room, the room names the tab itself (and marks "Your turn").
+  usePageTitle(
+    lookup.kind === 'failed'
+      ? "Couldn't open the room"
+      : !name && game !== 'missing'
+        ? `Join ${game?.name ?? 'a game'}`
+        : null,
+  );
 
   useEffect(() => {
     let stale = false;
@@ -72,7 +81,12 @@ export function RoomPage() {
   }, [roomId, navigate, attempt]);
 
   if (lookup.kind === 'missing')
-    return <NotFoundPage message="This room does not exist or has expired. Ask for a new link!" />;
+    return (
+      <NotFoundPage
+        heading="No such room"
+        message="This room does not exist or has expired. Ask for a new link!"
+      />
+    );
   if (lookup.kind === 'failed') {
     return (
       <Layout>
@@ -131,7 +145,7 @@ export function RoomPage() {
     );
   }
 
-  if (!game) return <Layout wide>{null}</Layout>;
+  if (!game) return <PageLoading wide />;
   return (
     <RefusalProvider>
       <Room roomId={roomId} game={game} name={name} onRename={setName} />
@@ -194,15 +208,13 @@ function Room({
   }, []);
 
   // Remember this room for "Rejoin your last room" on the landing page.
+  const backroomGame = isBackroomGame(game);
   useEffect(() => {
-    if (status === 'joined')
-      saveLastRoom({
-        id: roomId,
-        game: game.name,
-        ...(findGame(game.id) ? {} : { private: true }),
-      });
+    if (status === 'joined') {
+      saveLastRoom({ id: roomId, game: game.name, ...(backroomGame && { private: true }) });
+    }
     if (status === 'kicked' || status === 'left') forgetLastRoom(roomId);
-  }, [status, roomId, game.name, game.id]);
+  }, [status, roomId, game.name, backroomGame]);
 
   const act = useCallback(
     async (action: unknown, options?: ActOptions) => {
@@ -210,7 +222,7 @@ function Room({
       if (res.ok) refusals.clear(options?.anchor);
       else if (res.error.code === 'backroom-locked') {
         // The password changed mid-game: send the player back to the door.
-        void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
+        void navigate(backToTheDoor(roomId));
       } else if (!refusals.show(options?.anchor, res.error.message)) {
         // No spot next to the control that sent it (or none on screen): say it up top.
         toast(res.error.message);
@@ -221,7 +233,7 @@ function Room({
   );
 
   useEffect(() => {
-    if (status === 'locked') void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
+    if (status === 'locked') void navigate(backToTheDoor(roomId));
   }, [status, navigate, roomId]);
 
   const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
@@ -283,18 +295,38 @@ function Room({
     };
   }, []);
 
-  if (status === 'kicked' || status === 'left') {
+  // Where "back" goes: back-room players return to the back room, not the public tavern.
+  const home = backroomGame ? { backTo: '/backroom', backLabel: 'Back to the back room' } : {};
+  if (status === 'kicked') {
     return (
       <NotFoundPage
-        message={
-          status === 'kicked'
-            ? 'The host removed you from this room.'
-            : 'You left the room. See you next time!'
-        }
+        heading="You were removed"
+        icon="🚪"
+        message="The host removed you from this room."
+        {...home}
       />
     );
   }
-  if (status === 'error') return <NotFoundPage message={error ?? 'Could not join this room.'} />;
+  if (status === 'left') {
+    return (
+      <NotFoundPage
+        heading="You left the room"
+        icon="👋"
+        message="See you next time! The same link brings you back."
+        {...home}
+      />
+    );
+  }
+  if (status === 'error') {
+    return (
+      <NotFoundPage
+        heading="Couldn't join"
+        icon="🪑"
+        message={error ?? 'Could not join this room.'}
+        {...home}
+      />
+    );
+  }
 
   const Game = game.Component;
   const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
@@ -394,6 +426,7 @@ function Room({
           <People
             roomId={roomId}
             snapshot={snapshot}
+            clockOffset={clockOffset}
             isHost={isHost}
             call={call}
             onRename={(n) => {
@@ -406,7 +439,8 @@ function Room({
               // Done here as well as in the status effect: the navigation unmounts the room in
               // the same render as the 'left' status, so that effect may never run.
               forgetLastRoom(roomId);
-              void navigate('/');
+              toast('You left the room.', 'info');
+              void navigate(backroomGame ? '/backroom' : '/');
             }}
           />
         )}
@@ -414,6 +448,13 @@ function Room({
     </Layout>
   );
 }
+
+/** Back-room games are the ones the public registry doesn't know. */
+const isBackroomGame = (game: ClientGame) => !findGame(game.id);
+
+/** The door, for a player whose unlock stopped working inside a room: they need the new word. */
+const backToTheDoor = (roomId: string) =>
+  `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&changed=1`;
 
 /**
  * Room header buttons: compact on desktop; on phones a full 44 px tap target with the icon over a
@@ -550,6 +591,7 @@ function RoomCode({ roomId }: { roomId: string }) {
 function People({
   roomId,
   snapshot,
+  clockOffset,
   isHost,
   call,
   onRename,
@@ -557,6 +599,7 @@ function People({
 }: {
   roomId: string;
   snapshot: RoomSnapshot;
+  clockOffset: number;
   isHost: boolean;
   call: ReturnType<typeof useRoom>['call'];
   onRename: (name: string) => void;
@@ -566,6 +609,12 @@ function People({
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
+  // Ticks while the drawer is open, so "away 3 min" keeps up.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const run = async (event: 'room:kick' | 'room:make-host', arg: string) => {
     const res = await call(event, arg);
@@ -590,7 +639,9 @@ function People({
               <span className="font-medium">{p.name}</span>
               {p.id === snapshot.hostId && <Badge>👑 host</Badge>}
               {p.id === snapshot.you && <Badge>you</Badge>}
-              {!p.connected && <span className="text-xs">offline</span>}
+              {!p.connected && (
+                <span className="text-xs">{awayFor(p.awaySince, now + clockOffset)}</span>
+              )}
             </span>
             {isHost && p.id !== snapshot.you && (
               <span className="flex gap-1">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  answerSize,
   awards,
   hoodwink,
   liePoints,
@@ -679,6 +680,31 @@ describe('view', () => {
     expect(hoodwink.view(h.state, null).role).toBe('spectator');
     expect(hoodwink.view(h.state, null).me).toBeNull();
     expect(rankedScores(h.state)).toHaveLength(4);
+  });
+
+  it('tells writers roughly how long the real answer is, only while writing', () => {
+    expect([answerSize('Ladle'), answerSize(' Wooden  spoon '), answerSize('a b c d e f')]).toEqual(
+      ['word', 'word', 'phrase'],
+    );
+    expect(answerSize('one two three four five six seven')).toBe('sentence');
+    const h = startedGame(FOUR, { provider: content([riddle]) });
+    expect(hoodwink.view(h.state, 'p2').round!.answerSize).toBe('word');
+    writeAll(h);
+    expect(hoodwink.view(h.state, 'p2').round!.answerSize).toBeNull();
+  });
+
+  it('tells everyone when the host abandons a game, until the next start', () => {
+    const h = startedGame(FOUR);
+    h.act({ type: 'back-to-lobby' });
+    expect(hoodwink.view(h.state, 'p2')).toMatchObject({ phase: 'lobby', endReason: 'abandoned' });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state.endReason).toBe('abandoned');
+    h.act({ type: 'start' });
+    expect(h.state.endReason).toBeNull();
+    for (let i = 0; i < h.state.settings.rounds; i++) playRound(h);
+    expect(h.state).toMatchObject({ phase: 'over', endReason: 'finished' });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state.endReason).toBeNull();
   });
 
   it('lists the decks offered, never their questions', () => {

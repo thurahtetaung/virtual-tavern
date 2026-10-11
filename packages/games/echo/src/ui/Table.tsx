@@ -4,6 +4,7 @@ import { type EchoAction, type EchoView, MAX_PLAYERS } from '../logic/types.ts';
 type Act = (a: EchoAction) => Promise<boolean>;
 
 function PlayerChip({
+  order,
   name,
   you,
   host,
@@ -11,6 +12,7 @@ function PlayerChip({
   mark,
   label,
 }: {
+  order: number;
   name: string;
   you: boolean;
   host: boolean;
@@ -28,6 +30,7 @@ function PlayerChip({
         aria-hidden
         className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
       />
+      <span className="text-xs font-bold text-stone-500 tabular-nums">{order}</span>
       <PlayerTag name={name} host={host} you={you} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
@@ -39,8 +42,8 @@ function PlayerChip({
 }
 
 /**
- * Who's playing (in guessing order) and who's watching, with the viewer's own Take a seat / Just
- * watch switch. In play each player is marked: the guesser, and who has sent their clues.
+ * Who's playing (numbered in guessing order) and who's watching, with the viewer's own
+ * Take a seat / Sit out switch. In play each player is marked: the guesser, and who has sent their clues.
  */
 export function Table({
   view,
@@ -87,7 +90,7 @@ export function Table({
                 }
               }}
             >
-              Just watch
+              Sit out (watch)
             </Button>
           ) : (
             players.length < MAX_PLAYERS && (
@@ -101,10 +104,12 @@ export function Table({
             )
           ))}
       </div>
+      {players.length > 1 && <p className="text-xs text-stone-500">Numbered in guessing order.</p>}
       <ul className="flex flex-wrap gap-1.5">
-        {players.map((s) => (
+        {players.map((s, i) => (
           <PlayerChip
             key={s.id}
+            order={i + 1}
             name={s.name}
             you={s.id === me?.id}
             host={s.id === hostId}

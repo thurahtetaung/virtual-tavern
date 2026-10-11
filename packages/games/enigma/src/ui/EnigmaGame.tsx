@@ -1,7 +1,7 @@
 import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import { Button, Countdown, Hint, Panel, cn, revealElement, useSpectatorPrompt } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
-import { tokenWords } from '../logic/outcome.ts';
+import { tokenWords, winReason } from '../logic/outcome.ts';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
@@ -86,6 +86,28 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses
       </p>
     </div>
+  );
+}
+
+/** Your team's four keywords in one compact line, for decoders waiting on the clues. */
+function KeywordStrip({ keywords }: { keywords: string[] }) {
+  return (
+    <section aria-label="Your keywords" className="space-y-1 text-center">
+      <p className="text-sm text-stone-500">
+        Your keywords. You’ll match each clue to one of these.
+      </p>
+      <ol className="flex flex-wrap justify-center gap-1.5">
+        {keywords.map((word, i) => (
+          <li
+            key={i}
+            className="rounded-lg bg-white px-2 py-1 text-sm font-bold uppercase ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700"
+          >
+            <span className="mr-1 text-stone-500 tabular-nums">{i + 1}</span>
+            {word}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -218,6 +240,14 @@ export function EnigmaGame({
     .filter((t) => t.active || t.revealed)
     .sort((a, b) => Number(b.team === myTeam) - Number(a.team === myTeam));
   const sheetTeams: Team[] = myTeam ? [myTeam, other(myTeam)] : ['red', 'blue'];
+  // Decoders waiting for clues see their keywords right on the Play tab, not only under Clues.
+  const keywords = myTeam ? view.teams[myTeam].keywords : null;
+  const waitingKeywords =
+    view.stage === 'clue' &&
+    keywords &&
+    !view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.clues)
+      ? keywords
+      : null;
   const isLastReveal =
     view.stage === 'reveal' &&
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
@@ -246,6 +276,10 @@ export function EnigmaGame({
                   ? '🤝 A draw!'
                   : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
               </p>
+              {/* Why, said once here: the hint above is hidden once the game is over. */}
+              {winReason(view.teams, view.round) && (
+                <p className="font-semibold">{winReason(view.teams, view.round)}</p>
+              )}
               <ul className="space-y-0.5 text-sm">
                 {(['red', 'blue'] as const).map((team) => (
                   <li key={team}>
@@ -288,11 +322,19 @@ export function EnigmaGame({
             </section>
           )}
           {view.phase !== 'over' && (
-            <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
-              {shown.map((tx) => (
-                <TransmissionCard key={`${view.round}-${tx.team}`} view={view} tx={tx} act={act} />
-              ))}
-            </div>
+            <>
+              {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
+              <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
+                {shown.map((tx) => (
+                  <TransmissionCard
+                    key={`${view.round}-${tx.team}`}
+                    view={view}
+                    tx={tx}
+                    act={act}
+                  />
+                ))}
+              </div>
+            </>
           )}
           {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
             <div className="flex justify-center">

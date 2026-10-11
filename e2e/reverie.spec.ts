@@ -49,7 +49,7 @@ async function tell(page: Page, clue: string) {
 }
 async function give(page: Page) {
   await hand(page).first().click();
-  await page.getByRole('button', { name: 'Give this card' }).click();
+  // With one card to give, the full-size view gives it in one tap.
   await page.getByRole('button', { name: 'Give this card' }).click();
 }
 /**

@@ -137,14 +137,15 @@ export function buildApp(opts: AppOptions) {
 
   // The manager and socket layer reference each other; break the cycle with a late-bound holder.
   const realtime: { io?: ReturnType<typeof attachRealtime> } = {};
+  const roomEvents = createRoomEvents(
+    () => realtime.io,
+    () => rooms,
+  );
   const rooms: RoomManager = new RoomManager({
     store: new SqliteRoomStore(db),
     games,
     content: roomContent(wordLists, questionDecks, games),
-    events: createRoomEvents(
-      () => realtime.io,
-      () => rooms,
-    ),
+    events: roomEvents,
     now,
     logger: app.log,
     observer: recorder,
@@ -158,6 +159,14 @@ export function buildApp(opts: AppOptions) {
       return valid && backroom.isUnlocked(value);
     },
   }));
+
+  // A new password or "Sign everyone out" sends players in back-room rooms to the door right
+  // away: the broadcast re-checks every socket's unlock and turns the stale ones away.
+  backroom.onVersionChange(() => {
+    for (const room of rooms.liveRooms()) {
+      if (isPrivate(games.get(room.gameId))) roomEvents.changed(room.id);
+    }
+  });
 
   const sweepMs = (opts.roomIdleDays ?? 7) * 24 * 60 * 60_000;
   const sweeper = setInterval(() => {

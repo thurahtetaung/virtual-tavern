@@ -14,7 +14,7 @@ export const guide: GameGuide = {
     'The last round counts double. Most points at the end wins.',
   ],
   setup: [
-    'Up to 10 players can play; anyone else in the room just watches. Use “Just watch” to sit out.',
+    'Up to 10 players can play; anyone else in the room just watches. Use “Sit out (watch)” to sit out, and “Take a seat” to play again.',
     'The host picks the question decks and the number of rounds: 5, 7 or 10.',
     'The host presses Start. You need at least 3 players.',
   ],
@@ -23,7 +23,7 @@ export const guide: GameGuide = {
       title: 'A round, step by step',
       bullets: [
         'Everyone sees the same question: a fact with a blank where the answer goes, or a question to answer.',
-        'Each player secretly writes a lie: a fake answer that sounds like it could be true. You can change it until the last lie is in.',
+        'Each player secretly writes a lie: a fake answer that sounds like it could be true. The game tells you roughly how long the real answer is (a word or two, a short phrase or a whole sentence), so you can match it. You can change your lie until the last lie is in.',
         'The real answer is shuffled in with everyone’s lies. Each player votes for the answer they think is true. You can’t vote for your own lie, and you can change your vote until everyone has voted.',
         'The reveal shows the real answer, who wrote each lie, and who fell for what. The host then moves on to the next round.',
       ],
@@ -43,8 +43,8 @@ export const guide: GameGuide = {
         'Find the real answer: 1,000 points.',
         'Every player who votes for your lie: 500 points to you. A lie written by several players shares those points between them.',
         'In small games the board is topped up to four answers with house fakes. They belong to nobody: picking one scores nothing.',
-        'A lie the game picked for you (“Lie for me”, or filled in when the strict timer runs out) scores half: 250 points per player fooled.',
-        'The final round counts double.',
+        'A lie the game picked for you (“Lie for me”, or filled in when the strict timer runs out) scores half: 250 points per player fooled. The reveal marks it “Picked by the game”.',
+        'The final round counts double: a banner says so when it starts.',
         'The reveal lists where each player’s points came from.',
         'After the last round, the highest score wins. Ties are shared. There are also awards for the Best liar (who fooled the most players) and the Truth seeker (who found the truth most often).',
       ],
@@ -52,7 +52,7 @@ export const guide: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the lie writing (the “clue timer”) and the voting (the “guess timer”). By default the timer is just a reminder. With Strict timers, running out of time moves the game on: anyone who hasn’t written a lie gets a ready-made fake (worth half) when the question has some, or has none on the board, and anyone who hasn’t voted scores nothing for finding the truth. If nobody wrote a lie, the round goes straight to the reveal with no points. The game tells you when the timer filled in your lie, and the reveal says when time ran out on the vote.',
+        'The host can time the lie writing (the “writing timer”) and the voting (the “voting timer”). By default the timer is just a reminder. With Strict timers, running out of time moves the game on: anyone who hasn’t written a lie gets a ready-made fake (worth half) when the question has some, or has none on the board, and anyone who hasn’t voted scores nothing for finding the truth. If nobody wrote a lie, the round goes straight to the reveal with no points. The game tells you when the timer filled in your lie, and the reveal says when time ran out on the vote.',
       ],
     },
     {
@@ -62,6 +62,7 @@ export const guide: GameGuide = {
         'If a player leaves while lies are being written, their lie is dropped. Once voting has started, their lie stays on the board.',
         'If the round is stuck waiting for someone (their phone went offline, or a reminder-only timer ran out), the host can press “Continue without…”. The round then moves on exactly as when a strict timer runs out.',
         'If fewer than 3 players are left, the game ends with the scores so far.',
+        'If the host abandons a game, everyone goes back to the lobby and is told the game was ended early.',
       ],
     },
   ],

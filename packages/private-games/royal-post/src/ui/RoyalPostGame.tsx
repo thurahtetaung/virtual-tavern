@@ -26,7 +26,7 @@ import {
   type RoyalPostAction,
   type RoyalPostView,
 } from '../logic/types.ts';
-import { mustPlayCountess } from '../logic/game.ts';
+import { mustPlayCountess, shortTarget, tokensToWin } from '../logic/game.ts';
 import { type Deck, deckFor, useManifest } from './assets.ts';
 import { Card, CardBack } from './Card.tsx';
 import {
@@ -167,7 +167,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Just watch
+              Sit out (watch)
             </Button>
           ) : playing.length < max ? (
             <Button size="sm" onClick={() => void act({ type: 'sit', playing: true })}>
@@ -184,7 +184,7 @@ function Seats({
               variant="ghost"
               onClick={() => void act({ type: 'sit', playing: false })}
             >
-              Just watch
+              Sit out (watch)
             </Button>
           )}
         </div>
@@ -281,13 +281,41 @@ function Lobby({
                     {deckSize(id)} cards · {e.minPlayers}–{e.maxPlayers} players
                   </span>
                   <span className="block text-xs text-stone-600 dark:text-stone-400">
-                    {e.tokens[n]} tokens to win
+                    {tokensToWin(e, n, s.short)} tokens to win
                     {id === '2019' ? ' · Spy, Chancellor' : ''}
                   </span>
                 </button>
               );
             })}
           </div>
+        </fieldset>
+        <fieldset className="flex flex-wrap items-center gap-2">
+          <legend className="sr-only">Game length</legend>
+          <span aria-hidden className="text-sm font-semibold">
+            Length
+          </span>
+          {[false, true].map((short) => {
+            const on = !!s.short === short;
+            const full = tokensToWin(EDITIONS[s.edition], seated);
+            return (
+              <button
+                key={String(short)}
+                type="button"
+                aria-pressed={on}
+                disabled={!editable}
+                onClick={() => void act({ type: 'update-settings', short })}
+                className={cn(
+                  'h-11 flex-1 rounded-lg px-3 text-sm ring-1 transition disabled:cursor-default',
+                  on
+                    ? 'bg-amber-50 font-semibold ring-2 ring-amber-500 dark:bg-amber-500/10'
+                    : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
+                  !editable && !on && 'opacity-60',
+                )}
+              >
+                {short ? 'Short' : 'Full'} · {short ? shortTarget(full) : full} tokens
+              </button>
+            );
+          })}
         </fieldset>
         <Fold title="The cards" summary={`${cards.length} kinds, tap one to read it`}>
           <ul aria-label="The cards" className="flex flex-wrap gap-x-1 gap-y-3 text-sm">
@@ -570,18 +598,21 @@ function Table({
               </span>
             </span>
           </span>
-          <Countdown
-            deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
-            clockOffset={room.clockOffset}
-            label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
-            soft={view.settings.timerMode !== 'strict'}
-            atZero={
-              round.stage === 'chancellor'
-                ? 'then a card is kept at random'
-                : 'then the lower card is played'
-            }
-            expiredHint="Just a reminder: the turn waits until a card is played."
-          />
+          {/* Kept on one line: a squeezed "Time's up!" badge would wrap. */}
+          <span className="shrink-0 whitespace-nowrap">
+            <Countdown
+              deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
+              clockOffset={room.clockOffset}
+              label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
+              soft={view.settings.timerMode !== 'strict'}
+              atZero={
+                round.stage === 'chancellor'
+                  ? 'then a card is kept at random'
+                  : 'then the lower card is played'
+              }
+              expiredHint="Just a reminder: the turn waits until a card is played."
+            />
+          </span>
         </div>
       )}
 
@@ -609,8 +640,8 @@ function Table({
       )}
 
       {round && round.faceUp.length > 0 && round.stage !== 'over' && (
-        <div className="flex items-center gap-2 text-xs text-stone-500">
-          <span>Set aside face up:</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+          <span>Set aside face up (out of this round, so nobody holds these):</span>
           <ul aria-label="Set aside face up" className="flex gap-1.5">
             {round.faceUp.map((role, i) => (
               <li key={i} className="w-11 sm:w-14">
@@ -667,7 +698,11 @@ function Table({
               <p className="font-semibold">Your hand</p>
               {me && <Tokens tokens={me.tokens} target={view.target} />}
               {myTurn && (
-                <p className="text-amber-700 dark:text-amber-400">Tap a card to play it.</p>
+                <p className="text-amber-700 dark:text-amber-400">
+                  {mustPlayCountess(view.hand)
+                    ? `You must play the ${deck.name('countess')}: tap her.`
+                    : 'Tap a card to play it.'}
+                </p>
               )}
               {chancellor && !chancellorOpen && (
                 <Button size="sm" onClick={() => setDismissed(null)}>
@@ -918,7 +953,11 @@ function PlaySheet({
               </div>
               {guess && (
                 <p className="mt-2 text-sm">
-                  <CardChip role={guess} /> {cardText(guess, edition)}
+                  {/* The guessed card's name opens it to read; its own effect isn't the point here. */}
+                  {target
+                    ? `If ${nameOf(view, target)} holds the `
+                    : 'Choose a player: if they hold the '}
+                  <CardChip role={guess} />, they are out of the round.
                 </p>
               )}
             </fieldset>
@@ -1135,7 +1174,8 @@ function Reveal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
 
 /** What happened since your last turn, so nothing done to you goes unnoticed. */
 function Recent({ view, entries }: { view: RoyalPostView; entries: LogEntry[] }) {
-  const shown = entries.slice(-3);
+  // Newest first, like the Log tab below.
+  const shown = entries.slice(-3).reverse();
   const watcher = !view.round?.players.some((p) => p.id === view.me?.id);
   return (
     <section

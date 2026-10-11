@@ -1,5 +1,5 @@
 import { type PresencePlayer, waitingFor, waitingForHost } from '@vt/game-sdk';
-import { awards, displayText, liePoints } from '../logic/game.ts';
+import { awards, liePoints } from '../logic/game.ts';
 import {
   type HoodwinkView,
   MAX_PLAYERS,
@@ -117,10 +117,8 @@ function roundStatus(
         round.voteTimedOut && missing.length > 0
           ? ` ⏱ Time ran out on the vote: ${listNames(missing.map((id) => (id === me ? 'you' : nameOf(view, id))))} didn't vote.`
           : '';
-      return {
-        text: `The truth was “${round.answer === null ? '?' : displayText(round.answer)}”.${scored}${late}${tail}`,
-        yourMove: isHost,
-      };
+      // The truth itself is filled into the question and tops the board, so it isn't repeated here.
+      return { text: `Round over!${scored}${late}${tail}`, yourMove: isHost };
     }
   }
 }
@@ -133,14 +131,26 @@ export function statusFor(
   room?: StatusRoom,
 ): Status {
   if (view.phase === 'lobby') {
+    const ended =
+      view.endReason === 'abandoned'
+        ? isHost
+          ? 'You ended the last game early. '
+          : 'The host ended the last game early. '
+        : '';
     if (!view.me?.playing) {
-      return { text: "You're watching. Press Play to join the table.", yourMove: false };
+      return {
+        text: `${ended}You're watching. Press Take a seat to join the table.`,
+        yourMove: false,
+      };
     }
-    if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
+    if (blocker) return { text: `${ended}Almost ready: ${blocker}`, yourMove: false };
     return isHost
-      ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
+      ? {
+          text: `${ended}Everyone is in. Press Start game when your friends are ready!`,
+          yourMove: true,
+        }
       : {
-          text: `All set. ${room ? waitingForHost(room) : 'Waiting for the host to start the game…'}`,
+          text: `${ended}All set. ${room ? waitingForHost(room) : 'Waiting for the host to start a game…'}`,
           yourMove: false,
         };
   }

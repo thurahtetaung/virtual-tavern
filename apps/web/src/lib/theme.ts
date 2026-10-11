@@ -45,6 +45,9 @@ const subscribeToSystem = (onChange: () => void) => {
 };
 const systemPrefersDark = () => systemQuery().matches;
 
+/** The device's own theme right now. */
+export const systemTheme = (): ResolvedTheme => (systemPrefersDark() ? 'dark' : 'light');
+
 /**
  * The colour theme: a saved light/dark choice, or the system preference. The choice is shared by
  * every tab, and the page re-themes live when the OS setting changes while on `system`.

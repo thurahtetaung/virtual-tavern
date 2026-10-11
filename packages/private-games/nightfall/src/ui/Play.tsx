@@ -29,6 +29,7 @@ import {
   nameOfView,
   narrationText,
   promptText,
+  teamOutcome,
 } from './text.ts';
 import type { DeviceSound } from './useSound.ts';
 
@@ -277,6 +278,10 @@ export function Ready({
   deck: Deck;
 }) {
   const [shown, setShown] = useState(false);
+  // Ready unlocks once you've looked at this deal's card (a re-deal asks again).
+  const deal = `${view.gamesPlayed}:${view.myRole}`;
+  const [seenDeal, setSeenDeal] = useState<string | null>(null);
+  const seen = seenDeal === deal;
   const role = view.myRole;
   return (
     <div className="mx-auto max-w-md space-y-4 text-center">
@@ -297,7 +302,10 @@ export function Ready({
           ) : (
             <button
               type="button"
-              onClick={() => setShown(true)}
+              onClick={() => {
+                setShown(true);
+                setSeenDeal(deal);
+              }}
               aria-label="Tap to see your card"
               className="flex flex-col items-center gap-2 font-semibold"
             >
@@ -306,9 +314,16 @@ export function Ready({
             </button>
           )}
           {!view.meReady ? (
-            <Button size="lg" onClick={() => void act({ type: 'ready' })}>
-              Ready
-            </Button>
+            <>
+              <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
+                Ready
+              </Button>
+              {!seen && (
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Look at your card first.
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm">
               Ready · {view.readyCount} of {view.table?.filter((p) => !p.left).length}
@@ -492,13 +507,13 @@ function PromptPanel({
           </Button>
         )}
         {!prompt.mandatory && (
-          <Button
-            variant="ghost"
-            className="text-indigo-100 hover:bg-indigo-800 dark:text-indigo-100"
+          <button
+            type="button"
+            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
             Skip
-          </Button>
+          </button>
         )}
       </div>
       {prompt.mandatory && (
@@ -514,6 +529,57 @@ function PromptPanel({
       )}
     </div>
   );
+}
+
+/**
+ * The night's step clock: calm and dark, with no red pulse, so it neither glows in a dark room nor
+ * reads as an alarm (every step is short and ends by itself). Like the shared countdown, it says
+ * what it counts down to and what happens at zero.
+ */
+function NightClock({
+  deadline,
+  clockOffset,
+  label,
+  atZero,
+}: {
+  deadline: number | null;
+  clockOffset: number;
+  label: string;
+  atZero: string;
+}) {
+  const left = useSecondsLeft(deadline, clockOffset);
+  if (left === null) return null;
+  return (
+    <span
+      role="timer"
+      aria-label={`${left} seconds left ${label}, ${atZero}`}
+      title={atZero}
+      className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-stone-400 ring-1 ring-white/10"
+    >
+      <span className="font-mono text-lg font-bold tabular-nums">
+        ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+      </span>
+      <span aria-hidden className="text-xs">
+        {label}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * While the night is on, the whole page goes dark (header and margins included), whatever the
+ * chosen theme, so no light strip glows around the night screen. The theme comes back at daybreak.
+ */
+function useDarkNight() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = root.dataset.theme;
+    root.dataset.theme = 'dark';
+    return () => {
+      // Leave it alone if the theme was changed during the night.
+      if (root.dataset.theme === 'dark' && before !== undefined) root.dataset.theme = before;
+    };
+  }, []);
 }
 
 export function Night({
@@ -540,6 +606,7 @@ export function Night({
   const dusk = acting?.step === 'dusk';
   const lovers = acting?.step === 'lovers';
   const duskMark = now.find((n) => n.kind === 'mark');
+  useDarkNight();
   return (
     <div
       className={cn(
@@ -575,7 +642,7 @@ export function Night({
           <span className="text-sm font-semibold">
             {night.index < 0 ? 'Night falls…' : `Step ${night.index + 1} of ${night.count}`}
           </span>
-          <Countdown
+          <NightClock
             deadline={night.deadline}
             clockOffset={room.clockOffset}
             label={night.index < 0 ? 'until the first call' : 'this step'}
@@ -831,7 +898,9 @@ export function Day({
   return (
     <div className="mx-auto max-w-3xl space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold">{voting ? '🗳️ The vote' : '☀️ Day'}</span>
+        <span className="shrink-0 text-sm font-semibold whitespace-nowrap">
+          {voting ? '🗳️ The vote' : '☀️ Day'}
+        </span>
         <Countdown
           deadline={deadline}
           clockOffset={room.clockOffset}
@@ -1008,7 +1077,7 @@ export function Reveal({
                   : 'text-rose-700 dark:text-rose-400',
               )}
             >
-              {t.won ? '🏆' : '✗'} {TEAM_LABEL[t.team]} {t.won ? 'win' : 'lose'}
+              {t.won ? '🏆' : '✗'} {teamOutcome(t.team, t.won)}
             </span>{' '}
             <span className="text-stone-600 dark:text-stone-400">
               ({t.players.map(nameOf).join(', ')})

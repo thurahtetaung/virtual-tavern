@@ -93,6 +93,11 @@ export interface RoomPlayer {
   id: string;
   name: string;
   connected: boolean;
+  /**
+   * Server time the player's last connection closed, while they are away. Missing when they are
+   * connected, or have not been seen since the server started.
+   */
+  awaySince?: number;
 }
 
 export interface RoomSnapshot<View = unknown> {

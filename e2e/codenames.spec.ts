@@ -63,7 +63,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   // Everyone sees their own team and role, and which score is theirs.
   await expect(host.getByTestId('my-role')).toHaveText('You: Red Spymaster');
   await expect(cy!.getByTestId('my-role')).toHaveText('You: Blue Operative');
-  await expect(cy!.getByText('Blue (you) left')).toBeVisible();
+  await expect(cy!.getByText('Blue (you) to find')).toBeVisible();
 
   // Whoever's team starts, its spymaster gives a clue.
   const redStarts = await host.getByText('Your turn! Give your team').isVisible();

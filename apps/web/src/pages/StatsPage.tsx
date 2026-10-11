@@ -7,6 +7,7 @@ import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { clientGames } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
+import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { FunTab } from '../stats/FunTab.tsx';
 import { GamesTab } from '../stats/GamesTab.tsx';
@@ -46,6 +47,7 @@ interface Session {
 }
 
 export function StatsPage() {
+  usePageTitle('Stats');
   const [session, setSession] = useState<Session | null>(null);
   useEffect(() => {
     void api<Session>('/api/admin/session').then(setSession);

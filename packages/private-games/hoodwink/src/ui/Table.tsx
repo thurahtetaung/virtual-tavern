@@ -13,16 +13,32 @@ const AVATAR_TONES = [
   'bg-fuchsia-600',
   'bg-teal-600',
   'bg-orange-600',
+  'bg-lime-600',
+  'bg-indigo-600',
 ];
 
-function toneOf(id: string): string {
-  let h = 0;
-  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return AVATAR_TONES[h % AVATAR_TONES.length]!;
+/**
+ * A player's colour: by seat order, so up to ten players at a table never share one (leavers
+ * still in the scores come after).
+ */
+export function toneOf(view: HoodwinkView, id: string): string {
+  const order = [...new Set([...view.seats.map((s) => s.id), ...view.scores.map((s) => s.id)])];
+  const i = order.indexOf(id);
+  return AVATAR_TONES[(i < 0 ? 0 : i) % AVATAR_TONES.length]!;
 }
 
 /** A small round initial badge for a player. */
-export function Avatar({ id, name, className }: { id: string; name: string; className?: string }) {
+export function Avatar({
+  view,
+  id,
+  name,
+  className,
+}: {
+  view: HoodwinkView;
+  id: string;
+  name: string;
+  className?: string;
+}) {
   return (
     <span
       role="img"
@@ -30,7 +46,7 @@ export function Avatar({ id, name, className }: { id: string; name: string; clas
       title={name}
       className={cn(
         'inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ring-2 ring-white dark:ring-stone-900',
-        toneOf(id),
+        toneOf(view, id),
         className,
       )}
     >
@@ -74,7 +90,7 @@ function PlayerChip({
 }
 
 /**
- * Who's playing and who's watching, with the viewer's own Play / Just watch switch. In play each
+ * Who's playing and who's watching, with the viewer's own Take a seat / Sit out switch. In play each
  * player is marked: still writing or voting, or done.
  */
 export function Table({
@@ -130,7 +146,7 @@ export function Table({
                 }
               }}
             >
-              Just watch
+              Sit out (watch)
             </Button>
           ) : (
             players.length < MAX_PLAYERS && (
@@ -140,7 +156,7 @@ export function Table({
                 className="h-11"
                 onClick={() => void act({ type: 'sit', playing: true })}
               >
-                Play
+                Take a seat
               </Button>
             )
           ))}
@@ -185,7 +201,7 @@ export function Scores({ view }: { view: HoodwinkView }) {
       <ol className="space-y-1 text-sm">
         {view.scores.map((s) => (
           <li key={s.id} className={cn('flex items-center gap-2', s.left && 'opacity-50')}>
-            <Avatar id={s.id} name={s.name} className="size-6" />
+            <Avatar view={view} id={s.id} name={s.name} className="size-6" />
             <span className="min-w-0 flex-1 truncate">
               {s.name}
               {s.id === view.me?.id && ' (you)'}

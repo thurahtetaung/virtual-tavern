@@ -61,6 +61,7 @@ for (const [label, viewport] of [
     const redStarts = await host.getByText('Your turn! Give your team').isVisible();
     const [spy, op] = redStarts ? [host, others[0]!] : [others[1]!, others[2]!];
     await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
+    await spy.getByRole('button', { name: '1', exact: true }).click();
     await spy.getByRole('button', { name: 'Give clue' }).click();
     await expect(op.getByText('Your turn to guess')).toBeVisible();
     await cards(op).first().click();
@@ -233,7 +234,6 @@ for (const [label, viewport] of [
     await shot(ana, 'give');
     for (const p of others) {
       await hand(p).first().click();
-      await p.getByRole('button', { name: 'Give this card' }).click();
       await p.getByRole('button', { name: 'Give this card' }).click();
     }
     await expect(ana.getByText(/Tap a card to vote/)).toBeVisible();

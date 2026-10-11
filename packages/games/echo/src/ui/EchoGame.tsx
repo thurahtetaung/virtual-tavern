@@ -24,14 +24,17 @@ function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number
     <div className="flex items-center justify-between gap-2 text-sm sm:text-base">
       <div className="flex min-w-0 items-center gap-3">
         <span role="img" aria-label={`Score ${view.score}`} className="font-bold tabular-nums">
-          ⭐ {view.score}
+          ⭐ {view.score} {view.score === 1 ? 'point' : 'points'}
         </span>
-        <span className="text-stone-600 tabular-nums dark:text-stone-400">
-          {view.cardsLeft} {view.cardsLeft === 1 ? 'card' : 'cards'} left
-        </span>
+        {view.phase === 'playing' && (
+          <span className="text-stone-600 tabular-nums dark:text-stone-400">
+            {view.cardsLeft} {view.cardsLeft === 1 ? 'card' : 'cards'} left
+          </span>
+        )}
         {turn && (
           <span className="min-w-0 truncate">
-            🎯 <b>{turn.guesser === view.me?.id ? 'You' : nameOf(view, turn.guesser)}</b>
+            <span className="text-stone-600 dark:text-stone-400">Guesser: </span>
+            <b>{turn.guesser === view.me?.id ? 'You' : nameOf(view, turn.guesser)}</b>
           </span>
         )}
       </div>

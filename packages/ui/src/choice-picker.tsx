@@ -54,7 +54,12 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
           </p>
         </div>
         {editable && (
-          <Button variant="secondary" size="sm" onClick={() => setPicking(true)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="min-h-11 sm:min-h-0"
+            onClick={() => setPicking(true)}
+          >
             {labels.change}
           </Button>
         )}
@@ -68,7 +73,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
           >
             <span className="font-medium">{c.name}</span>{' '}
             <span className="text-xs text-stone-500 dark:text-stone-400">· {c.count}</span>
-            {!editable && c.description && (
+            {c.description && (
               <span className="block text-xs text-stone-500 dark:text-stone-400">
                 {c.description}
               </span>

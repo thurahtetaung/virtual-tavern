@@ -95,6 +95,9 @@ export function CodenamesGame({
                   🎲 Shuffle teams
                 </Button>
                 {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+                <span className="basis-full text-xs text-stone-500">
+                  Shuffling keeps anyone who chose to be a Spymaster.
+                </span>
               </div>
             </StickyBar>
           )}
@@ -220,6 +223,37 @@ function InGame({
           </p>
         )}
 
+        {/* Above the board, so the result and Play again need no scroll past the key. */}
+        {view.phase === 'over' && (
+          <Panel className="space-y-3 text-center">
+            <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner!])}>
+              🏆 {TEAM_LABEL[view.winner!]} team wins!
+            </p>
+            <p>{winHow(view)}.</p>
+            {me?.team && (
+              <p className="font-semibold">
+                {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
+              </p>
+            )}
+            <p className="text-sm text-stone-500">The full key is shown on the board below.</p>
+            {room.isHost ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button size="lg" onClick={() => void act({ type: 'start' })}>
+                  Play again (same teams)
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => void act({ type: 'back-to-lobby' })}
+                >
+                  Change teams or settings
+                </Button>
+              </div>
+            ) : (
+              <p>{waitingForHost(room, 'start the next game')}</p>
+            )}
+          </Panel>
+        )}
         <Board
           view={view}
           selected={selected}
@@ -250,38 +284,12 @@ function InGame({
             >
               End turn
             </Button>
-            {!canPass && (
-              <span className="basis-full text-center text-xs text-stone-500">
-                Guess at least once first
-              </span>
-            )}
+            <span className="basis-full text-center text-xs text-stone-500">
+              {canPass
+                ? 'A guess flips the card for your whole team.'
+                : 'A guess flips the card for your whole team. Guess at least once first.'}
+            </span>
           </div>
-        )}
-
-        {view.phase === 'over' && (
-          <Panel className="space-y-3 text-center">
-            <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner!])}>
-              🏆 {TEAM_LABEL[view.winner!]} team wins!
-            </p>
-            <p>{winHow(view)}.</p>
-            <p className="text-sm text-stone-500">The full key is shown on the board.</p>
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again (same teams)
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change teams or settings
-                </Button>
-              </div>
-            ) : (
-              <p>{waitingForHost(room, 'start the next game')}</p>
-            )}
-          </Panel>
         )}
       </div>
 
@@ -348,7 +356,7 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
             <span className="text-2xl font-black tabular-nums">{view.remaining[team]}</span>
             <span className="text-sm font-semibold">
               {TEAM_LABEL[team]}
-              {myTeam === team && ' (you)'} left
+              {myTeam === team && ' (you)'} to find
             </span>
           </div>
         ))}

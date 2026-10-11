@@ -39,7 +39,7 @@ export function makeGuide(pack: string): GameGuide {
       {
         title: 'Asking questions',
         bullets: [
-          'The app names who starts. They ask anyone a question about the location, out loud.',
+          'For the first minute the app names who starts. They ask anyone a question about the location, out loud.',
           'That player answers, then asks someone else, but not the person who just asked them.',
           'The app doesn’t track the asking: just talk. Use the Ideas tab for questions to ask, and the Locations tab to cross places off.',
           'Nobody can accuse or guess during the round: the talking is the whole round.',
@@ -86,7 +86,7 @@ export function makeGuide(pack: string): GameGuide {
       'Good answers stay vague: true for this place, but true for a few others too.',
       'Locals: an answer that’s too exact hands the spy the location. Too vague, and you look like the spy.',
       'Spy: answer with feelings and opinions, and listen for answers that agree.',
-      'Keep a shortlist on the Locations board, so a caught spy can guess fast.',
+      'Keep a shortlist on the Locations board (tap a place to cross it off, ☆ to star it), so a caught spy can guess fast. With two editions in play, the board shows each one as its own list.',
       'Tap your card to cover it, so your neighbours can’t peek.',
     ],
     glossary: [

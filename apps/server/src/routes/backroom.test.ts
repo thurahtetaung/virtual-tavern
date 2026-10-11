@@ -94,6 +94,23 @@ describe('back room over HTTP', () => {
     expect(forbidden.statusCode).toBe(401);
   });
 
+  it('turns away repeated knocking in the bouncer’s voice, saying when to try again', async () => {
+    const app = make();
+    await open(app);
+    for (let i = 0; i < 5; i++) expect((await unlock(app, 'nope')).res.statusCode).toBe(401);
+    const { res } = await unlock(app);
+    expect(res.statusCode).toBe(429);
+    expect(Number(res.headers['retry-after'])).toBeGreaterThan(0);
+    expect(res.json()).toEqual({
+      error: {
+        code: 'rate-limited',
+        message: expect.stringMatching(
+          /^The bouncer's had enough knocking.*Try again in /,
+        ) as string,
+      },
+    });
+  });
+
   it('hides private games from locked players and shows them once unlocked', async () => {
     const app = make();
     await open(app);

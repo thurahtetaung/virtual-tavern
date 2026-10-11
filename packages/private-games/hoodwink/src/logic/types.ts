@@ -108,7 +108,8 @@ export interface HoodwinkState {
   /** Hidden seed for shuffling the voting board. Never sent to clients. */
   seed: number;
   gamesPlayed: number;
-  endReason: 'finished' | 'too-few' | null;
+  /** `abandoned`: the host ended a game early, back to the lobby (kept until the next start). */
+  endReason: 'finished' | 'too-few' | 'abandoned' | null;
 }
 
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
@@ -158,6 +159,8 @@ export interface OptionView {
   house: boolean | null;
 }
 
+export type AnswerSize = 'word' | 'phrase' | 'sentence';
+
 export interface RoundView {
   number: number;
   rounds: number;
@@ -169,6 +172,11 @@ export interface RoundView {
   deckId: string;
   /** The real answer: null until the reveal. */
   answer: string | null;
+  /**
+   * How long the real answer is, roughly, while lies are written (null after), so lies can match
+   * it: `word` (1–2 words), `phrase` (3–6) or `sentence` (7 or more).
+   */
+  answerSize: AnswerSize | null;
   players: PlayerId[];
   /** Players who have written their lie. */
   written: PlayerId[];

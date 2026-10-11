@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { echo } from '../logic/game.ts';
 import { FOUR, HOST, harness, secret, startedGame, toGuess, turn } from '../logic/test-utils.ts';
-import { cancelReason, listNames, startBlocker, statusFor } from './status.ts';
+import { cancelReason, listNames, lossText, startBlocker, statusFor } from './status.ts';
 
 const status = (h: { state: Parameters<typeof echo.view>[0] }, id: string | null, host = false) =>
   statusFor(echo.view(h.state, id), host, null);
@@ -26,6 +26,14 @@ describe('statusFor', () => {
     expect(statusFor(v, true, 'Not enough words.').text).toContain('Almost ready');
     h.act({ type: 'sit', playing: false }, 'p2');
     expect(status(h, 'p2').text).toContain("You're watching");
+    expect(status(h, 'p2').text).toContain('Take a seat');
+  });
+
+  it('tells a newcomer when the seats are full', () => {
+    const ids = [HOST, 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'];
+    const h = harness(ids);
+    expect(echo.view(h.state, 'p8').me?.playing).toBe(false);
+    expect(status(h, 'p8').text).toBe("You're watching. You can take a seat when one frees up.");
   });
 
   it("is only the guesser's move while picking and guessing", () => {
@@ -70,7 +78,7 @@ describe('statusFor', () => {
     const word = secret(h);
     h.act({ type: 'guess', word });
     expect(status(h, 'p2').text).toBe(
-      `Got it! The word was “${word}”. Waiting for the host to deal the next card…`,
+      `Got it! The word was “${word}”. Next guesser: P2. Waiting for the host to deal the next card…`,
     );
     // Guests are told who moves the game on.
     const players = [{ id: HOST, name: 'Hana' }];
@@ -82,6 +90,13 @@ describe('statusFor', () => {
     h.act({ type: 'pass' }, turn(h).guesser);
     expect(status(h, HOST).text).toMatch(/^Passed\./);
     expect(status(h, 'p2').text).toContain('Waiting for the host to deal the next card');
+    h.act({ type: 'next-card' });
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
+    h.act({ type: 'continue' }, 'p4');
+    const wrong = echo.view(h.state, 'p2');
+    expect(statusFor(wrong, false, null).text).toMatch(/^Not this time: the word was “.+”\. Next/);
+    expect(lossText(wrong)).toBe('This card and the next are lost.');
     h.state = { ...h.state, phase: 'over', turn: null, score: 8, endReason: 'finished' };
     expect(status(h, HOST).text).toBe('Game over! Here’s how you did:');
   });
@@ -160,6 +175,24 @@ describe('strict timeouts', () => {
     expect(status(h, HOST).text).toContain('If nobody decides in time, it counts as wrong.');
     fire(h);
     expect(status(h, 'p2').text).toContain('Nobody decided in time, so it counts as wrong');
+  });
+});
+
+describe('lossText', () => {
+  it('only mentions the next card when there was one to lose', () => {
+    const h = startedGame(FOUR, { deckSize: 8 });
+    while (h.state.cardsLeft > 1) {
+      toGuess(h);
+      h.act({ type: 'pass' }, turn(h).guesser);
+      h.act({ type: 'next-card' });
+    }
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
+    h.act({ type: 'continue' });
+    const v = echo.view(h.state, 'p2');
+    expect(lossText(v)).toBe('This card is lost (it was the last one).');
+    // No next guesser on the last card.
+    expect(statusFor(v, false, null).text).not.toContain('Next guesser');
   });
 });
 

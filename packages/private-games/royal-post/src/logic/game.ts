@@ -51,10 +51,14 @@ export function deckOf(edition: EditionConfig): Role[] {
   return edition.cards.flatMap((c) => Array<Role>(c.count).fill(c.role));
 }
 
+/** A short game's target: two tokens fewer than the full game, but never below 2. */
+export const shortTarget = (full: number): number => Math.max(2, full - 2);
+
 /** Tokens needed to win with `players` players, clamped to the edition's range. */
-export function tokensToWin(edition: EditionConfig, players: number): number {
+export function tokensToWin(edition: EditionConfig, players: number, short = false): number {
   const n = Math.min(edition.maxPlayers, Math.max(edition.minPlayers, players));
-  return edition.tokens[n]!;
+  const full = edition.tokens[n]!;
+  return short ? shortTarget(full) : full;
 }
 
 /** Cards that need a target (the Prince may also target yourself). */
@@ -503,6 +507,7 @@ function updateSettings(
   if (action.edition) settings.edition = action.edition;
   if (action.turnSeconds !== undefined) settings.turnSeconds = action.turnSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
+  if (action.short !== undefined) settings.short = action.short;
   // An edition with more seats seats whoever was waiting for one, as the lobby does newcomers.
   return seatWaiting({ ...state, settings });
 }
@@ -563,7 +568,7 @@ function start(state: RoyalPostState, ctx: Ctx): Result {
     ...state,
     phase: 'playing',
     seats,
-    target: tokensToWin(edition, seated.length),
+    target: tokensToWin(edition, seated.length, state.settings.short),
     round: null,
     log: [],
     notes: {},
@@ -764,7 +769,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
     me,
     target:
       state.phase === 'lobby'
-        ? tokensToWin(edition, seatViews.filter((s) => s.playing).length)
+        ? tokensToWin(edition, seatViews.filter((s) => s.playing).length, state.settings.short)
         : state.target,
     round: round
       ? {

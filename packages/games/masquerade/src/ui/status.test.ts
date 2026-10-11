@@ -25,9 +25,17 @@ describe('status', () => {
   it('asks for a vote, then (for a caught spy) a guess', () => {
     const h = table();
     expect(statusFor(masquerade.view(h.state, 'cy'), false)).toEqual({
-      text: 'You’re the spy! Blend in and work out the location. ANA starts: ask anyone a question about the location, out loud. Need ideas? See the Ideas tab.',
+      text: 'You’re the spy! Blend in and work out the location. ANA asks first: one question about the location, out loud. Whoever answers asks next. Need ideas? See the Ideas tab.',
       yourMove: false,
     });
+    // A minute in, the opener is old news: the status gives the asking rule instead.
+    const v = masquerade.view(h.state, 'cy');
+    expect(statusFor(v, false, undefined, v.settings.roundSeconds - 30).text).toContain(
+      'ANA asks first',
+    );
+    expect(statusFor(v, false, undefined, v.settings.roundSeconds - 60).text).toBe(
+      'You’re the spy! Blend in and work out the location. Whoever answers asks the next question. Need ideas? See the Ideas tab.',
+    );
     allReady(h);
     expect(statusFor(masquerade.view(h.state, 'ben'), false).yourMove).toBe(true);
     votes(h, { host: 'cy', ana: 'cy', ben: 'cy' });

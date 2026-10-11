@@ -85,6 +85,8 @@ interface LiveRoom {
   game: AnyGameDefinition;
   /** Open connections per player (a player may have several tabs). */
   connections: Map<string, number>;
+  /** When each player's last connection closed (server clock), while they stay away. */
+  awaySince: Map<string, number>;
   deadlineTimer?: NodeJS.Timeout;
   hostAwayTimer?: NodeJS.Timeout;
   /** When the pending host hand-off happens (server epoch ms), while `hostAwayTimer` runs. */
@@ -301,7 +303,11 @@ export class RoomManager {
       gameId: record.gameId,
       hostId: record.hostId,
       you: viewer,
-      players: record.players.map((p) => ({ ...p, connected: room.connections.has(p.id) })),
+      players: record.players.map((p) => {
+        const connected = room.connections.has(p.id);
+        const awaySince = connected ? undefined : room.awaySince.get(p.id);
+        return awaySince === undefined ? { ...p, connected } : { ...p, connected, awaySince };
+      }),
       hostAwayUntil:
         room.hostAwayTimer && !room.connections.has(record.hostId)
           ? (room.hostAwayDue ?? null)
@@ -376,7 +382,13 @@ export class RoomManager {
     const record = this.deps.store.get(roomId);
     const game = record && this.deps.games.get(record.gameId);
     if (!record || !game) return null;
-    const room: LiveRoom = { record, game, connections: new Map(), deadlineStalls: 0 };
+    const room: LiveRoom = {
+      record,
+      game,
+      connections: new Map(),
+      awaySince: new Map(),
+      deadlineStalls: 0,
+    };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).
     this.armDeadline(room);
@@ -472,6 +484,7 @@ export class RoomManager {
 
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    room.awaySince.delete(playerId);
     this.touch(room);
     this.observe(room.record, room.record, room.record, room.game, {
       kind: 'player.connected',
@@ -490,7 +503,10 @@ export class RoomManager {
   private unmarkConnected(room: LiveRoom, playerId: string) {
     const left = (room.connections.get(playerId) ?? 1) - 1;
     if (left > 0) room.connections.set(playerId, left);
-    else room.connections.delete(playerId);
+    else {
+      room.connections.delete(playerId);
+      room.awaySince.set(playerId, this.deps.now());
+    }
     this.touch(room);
     if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
     this.observe(room.record, room.record, room.record, room.game, {
@@ -506,6 +522,7 @@ export class RoomManager {
       hostId = (players.find((p) => room.connections.has(p.id)) ?? players[0])?.id ?? hostId;
     }
     room.connections.delete(playerId);
+    room.awaySince.delete(playerId);
     this.commit(
       room,
       {

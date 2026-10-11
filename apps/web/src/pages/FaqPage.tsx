@@ -4,6 +4,7 @@ import faqSource from '../../../../docs/faq.md?raw';
 import { ForgetMe } from '../components/ForgetMe.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { boldRuns, parseFaq } from '../lib/faq.ts';
+import { usePageTitle } from '../lib/title.ts';
 
 const sections = parseFaq(faqSource);
 
@@ -15,6 +16,7 @@ function Rich({ text }: { text: string }) {
 
 /** Questions people ask when they stumble onto the site; the text lives in docs/faq.md. */
 export function FaqPage() {
+  usePageTitle('Questions & answers');
   return (
     <Layout>
       <h1 className="mb-2 text-3xl font-bold">Questions & answers</h1>

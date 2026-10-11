@@ -1,7 +1,7 @@
 import { Button } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { useTheme } from '../lib/theme.ts';
+import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
 /**
  * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
@@ -47,20 +47,39 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
   );
 }
 
-/** Light/dark toggle. Tapping it saves an explicit choice, which then overrides the OS setting. */
+/**
+ * Theme switch. From the device's theme a tap flips to the other one; tapping again goes to the
+ * device's own colours as an explicit choice, and once more back to following the device. So a
+ * choice can always be undone, and every tap but that last one visibly changes the page.
+ */
 function ThemeSwitch() {
-  const { resolved, setTheme } = useTheme();
-  const dark = resolved === 'dark';
+  const { theme, resolved, setTheme } = useTheme();
+  const device: ResolvedTheme = theme === 'system' ? resolved : systemTheme();
+  const other: ResolvedTheme = resolved === 'dark' ? 'light' : 'dark';
+  // Following the device, or holding the opposite of it: flip. Holding the device's own: follow.
+  const next: Theme = theme !== 'system' && theme === device ? 'system' : other;
+  const label = next === 'system' ? "Follow your device's theme" : `Switch to ${next} theme`;
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
-      aria-pressed={dark}
-      title={dark ? 'Light theme' : 'Dark theme'}
-      onClick={() => setTheme(dark ? 'light' : 'dark')}
+      aria-label={label}
+      aria-pressed={resolved === 'dark'}
+      title={label}
+      onClick={() => setTheme(next)}
     >
-      <span aria-hidden>{dark ? '☀️' : '🌙'}</span>
+      <span aria-hidden>{next === 'system' ? '🌗' : next === 'dark' ? '🌙' : '☀️'}</span>
     </Button>
+  );
+}
+
+/** What a page shows while its code or data is on the way, instead of a blank screen. */
+export function PageLoading({ wide = false }: { wide?: boolean }) {
+  return (
+    <Layout wide={wide}>
+      <p role="status" className="py-16 text-center text-stone-500 dark:text-stone-400">
+        Opening the door…
+      </p>
+    </Layout>
   );
 }

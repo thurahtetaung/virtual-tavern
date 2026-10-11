@@ -95,6 +95,8 @@ export interface ResolvedCard {
   timedOut?: boolean;
   /** Names of clue writers who sent nothing before the clue timer ran out. */
   missed?: string[];
+  /** A wrong guess that also cost the next card (absent when there was no next card). */
+  burned?: true;
 }
 
 export interface EchoState {

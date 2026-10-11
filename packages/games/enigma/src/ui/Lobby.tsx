@@ -123,7 +123,7 @@ export function TeamsPicker({
             variant="ghost"
             onClick={() => void act({ type: 'join-team', team: null })}
           >
-            Just watch
+            Sit out (watch)
           </Button>
         )}
       </div>

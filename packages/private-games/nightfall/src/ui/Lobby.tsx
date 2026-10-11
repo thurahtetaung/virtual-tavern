@@ -318,7 +318,7 @@ export function Lobby({
             variant={view.me.playing ? 'ghost' : 'primary'}
             onClick={() => void act({ type: 'sit', playing: !view.me!.playing })}
           >
-            {view.me.playing ? 'Just watch' : 'Take a seat'}
+            {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
           </Button>
         )}
       </Panel>

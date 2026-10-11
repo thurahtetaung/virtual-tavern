@@ -2,7 +2,7 @@ import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
-import { Layout } from './components/Layout.tsx';
+import { PageLoading } from './components/Layout.tsx';
 import { ToastProvider } from './lib/toast.tsx';
 import { BackroomPage } from './pages/BackroomPage.tsx';
 import { FaqPage } from './pages/FaqPage.tsx';
@@ -27,7 +27,7 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <ToastProvider>
         <BrowserRouter>
-          <Suspense fallback={<Layout>{null}</Layout>}>
+          <Suspense fallback={<PageLoading />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
               <Route path="/r/:roomId" element={<RoomPage />} />

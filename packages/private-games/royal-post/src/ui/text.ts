@@ -98,8 +98,21 @@ export function describeLog(view: RoyalPostView, entry: LogEntry): Line {
   if (entry.kind === 'out') {
     const cards = entry.cards.length ? [', holding ', ...listCards(entry.cards)] : [];
     const are = entry.player === view.me?.id ? 'are' : 'is';
-    if (entry.cause === 'left') return [`${Who(entry.player)} left and ${are} out`, ...cards, '.'];
-    return [`${Who(entry.player)} ${are} out`, ...cards, '.'];
+    if (entry.cause === 'left')
+      return [`${Who(entry.player)} left and ${are} out of the round`, ...cards, '.'];
+    const by = entry.by && entry.by !== entry.player ? entry.by : null;
+    const whose = (id: string) => (id === view.me?.id ? 'your' : `${nameOf(view, id)}’s`);
+    const reason: Line =
+      entry.cause === 'guard' && by
+        ? line` (${whose(by)} ${c('guard')} named it)`
+        : entry.cause === 'baron' && by
+          ? line` (${who(by)} won the ${c('baron')} comparison)`
+          : entry.cause === 'prince'
+            ? line` (the ${c('prince')} made ${entry.player === view.me?.id ? 'you' : 'them'} discard the ${c('princess')})`
+            : entry.cause === 'princess'
+              ? line` (the ${c('princess')} left ${entry.player === view.me?.id ? 'your' : 'their'} hand)`
+              : [];
+    return [`${Who(entry.player)} ${are} out of the round`, ...cards, ...reason, '.'];
   }
   const timedOut = entry.timedOut
     ? [`⏱ Time ran out, so a card was played for ${who(entry.by)}: `]
@@ -165,7 +178,11 @@ function noteBody(view: RoyalPostView, note: Note): Line {
       return line`You saw ${other}’s card: ${c(note.card)}.`;
     case 'compare': {
       const outcome =
-        note.result === 'win' ? 'You win.' : note.result === 'lose' ? 'You lose.' : 'A tie.';
+        note.result === 'win'
+          ? `Yours is higher: ${other} is out of the round.`
+          : note.result === 'lose'
+            ? 'Theirs is higher: you are out of the round.'
+            : 'A tie: nobody is out.';
       return line`You compared hands with ${other}: your ${c(note.mine)} against their ${c(note.theirs)}. ${outcome}`;
     }
     case 'trade':

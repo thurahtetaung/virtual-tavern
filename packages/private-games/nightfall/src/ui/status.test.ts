@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { roleLabel } from '../logic/roles.ts';
 import { table } from '../logic/test-utils.ts';
 import type { NightfallView } from '../logic/types.ts';
-import { statusFor, votePower } from './status.ts';
+import { nudgeFor, statusFor, votePower } from './status.ts';
+import { teamOutcome } from './text.ts';
 
 const players = [
   { id: 'A', name: 'Ana', connected: true },
@@ -107,5 +109,47 @@ describe('waiting', () => {
     } as NightfallView;
     expect(statusFor(lobby, roomOf(false)).text).toMatch(/^The host is picking the cards/);
     expect(statusFor(lobby, roomOf(true)).text).toMatch(/^Almost ready/);
+  });
+});
+
+const dayView = (daySeconds: number) =>
+  ({
+    phase: 'day',
+    settings: { daySeconds },
+    table: [{ left: false }, { left: false }, { left: false }],
+    day: { readyCount: 0 },
+  }) as unknown as NightfallView;
+
+describe('nudgeFor', () => {
+  it('says "2 minutes left" briefly as a longer day passes 2:00', () => {
+    const v = dayView(300);
+    expect(nudgeFor(v, 150)).toBeNull();
+    expect(nudgeFor(v, 120)).toBe('⏳ 2 minutes left');
+    expect(nudgeFor(v, 106)).toBe('⏳ 2 minutes left');
+    expect(nudgeFor(v, 90)).toBeNull();
+    expect(nudgeFor(v, 61)).toBeNull();
+    expect(nudgeFor(v, 60)).toMatch(/Last minute/);
+  });
+
+  it('never says "2 minutes left" when the whole day is two minutes', () => {
+    const v = dayView(120);
+    expect(nudgeFor(v, 120)).toBeNull();
+    expect(nudgeFor(v, 110)).toBeNull();
+  });
+});
+
+describe('labels', () => {
+  it('agrees the verb with the team', () => {
+    expect(teamOutcome('village', true)).toBe('Village wins');
+    expect(teamOutcome('werewolf', true)).toBe('Werewolves win');
+    expect(teamOutcome('tanner', false)).toBe('Tanner loses');
+    expect(teamOutcome('vampire', false)).toBe('Vampires lose');
+  });
+
+  it('title-cases role ids like the cards', () => {
+    expect(roleLabel('alpha-wolf')).toBe('Alpha Wolf');
+    expect(roleLabel('doppelganger')).toBe('Doppelgänger');
+    expect(roleLabel('claw-of-the-werewolf')).toBe('Claw of the Werewolf');
+    expect(roleLabel('the-master')).toBe('The Master');
   });
 });

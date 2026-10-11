@@ -648,11 +648,23 @@ export function rolesBySet(
   return sets.map((set) => ({ set, roles: ROLE_IDS.filter((r) => ROLES[r].set === set) }));
 }
 
-/** The plain role id as a label: "alpha-wolf" → "Alpha wolf". The manifest supplies real names. */
-export const roleLabel = (id: string) => {
-  const words = id.replace(/-/g, ' ');
-  return words[0]!.toUpperCase() + words.slice(1);
-};
+const SMALL_WORDS = new Set(['of', 'the', 'a', 'an', 'and']);
+
+/**
+ * The plain role id as a title-cased label, matching how the cards read: "alpha-wolf" → "Alpha
+ * Wolf", "claw-of-the-werewolf" → "Claw of the Werewolf". The manifest supplies real names.
+ */
+export const roleLabel = (id: string) =>
+  id
+    .split('-')
+    .map((w, i) =>
+      w === 'doppelganger'
+        ? 'Doppelgänger'
+        : i > 0 && SMALL_WORDS.has(w)
+          ? w
+          : w[0]!.toUpperCase() + w.slice(1),
+    )
+    .join(' ');
 
 // ---- Marks (the Vampire set) ----
 

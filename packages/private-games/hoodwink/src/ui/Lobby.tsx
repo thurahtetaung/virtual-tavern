@@ -123,6 +123,8 @@ export function Lobby({
               values={view.settings}
               editable={editable}
               onChange={(patch) => void act({ type: 'update-settings', ...patch })}
+              clueLabel="Writing timer"
+              guessLabel="Voting timer"
               clueHelp="Time for everyone to write their lie."
               guessHelp="Time for everyone to vote."
               strictHelp="anyone without a lie gets a ready-made one worth half (if the question has some), and missing votes score nothing"
@@ -144,16 +146,9 @@ export function Lobby({
           </StickyBar>
         )}
       </Panel>
-      <p className="text-center text-sm text-stone-500">
-        New to Hoodwink?{' '}
-        <button
-          type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
+      <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
+        📖 New to Hoodwink? Read the guide
+      </Button>
     </div>
   );
 }

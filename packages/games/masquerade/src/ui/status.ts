@@ -32,8 +32,19 @@ export function startBlocker(view: MasqueradeView): string | null {
   return null;
 }
 
-/** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: MasqueradeView, isHost: boolean, people?: People): Status {
+/** How long the round's opener is named in the status: after that, it's old news. */
+export const STARTER_SHOWN_SECONDS = 60;
+
+/**
+ * Plain-language guidance for whoever is looking at the screen. With `secondsLeft` (the talk
+ * clock), the "X asks first" line gives way to the asking rule once the round is under way.
+ */
+export function statusFor(
+  view: MasqueradeView,
+  isHost: boolean,
+  people?: People,
+  secondsLeft: number | null = null,
+): Status {
   const me = view.me;
   const host = (what: string) =>
     people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`;
@@ -59,7 +70,6 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
   }
   const round = view.round!;
   const role = round.role;
-  const total = round.players.length;
   /** " Waiting for: Ana, Ben (offline).": for watchers, who don't see the vote panel. */
   const holdouts = (done: readonly string[]) => {
     if (!people) return '';
@@ -74,16 +84,20 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
           text: 'You’re watching this round. You’ll be dealt in next round.',
           yourMove: false,
         };
-      const starter =
-        round.starter === me?.id ? 'You start' : `${nameOf(view, round.starter)} starts`;
+      const starter = round.starter === me?.id ? 'You ask' : `${nameOf(view, round.starter)} asks`;
+      const underway =
+        secondsLeft !== null && view.settings.roundSeconds - secondsLeft >= STARTER_SHOWN_SECONDS;
+      const asking = underway
+        ? 'Whoever answers asks the next question.'
+        : `${starter} first: one question about the location, out loud. Whoever answers asks next.`;
       const lead =
         role === 'spy'
           ? 'You’re the spy! Blend in and work out the location.'
           : 'Find the spy without giving the location away.';
       return {
         text: round.meReady
-          ? `You’re ready to vote (${round.readyCount} of ${total}). Keep talking until everyone is.`
-          : `${lead} ${starter}: ask anyone a question about the location, out loud. Need ideas? See the Ideas tab.`,
+          ? 'You’re ready to vote. Keep talking until everyone is.'
+          : `${lead} ${asking} Need ideas? See the Ideas tab.`,
         yourMove: false,
       };
     }
@@ -96,7 +110,7 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
       if (!round.myVote)
         return { text: 'Vote time! Who is the spy? Your vote is secret.', yourMove: true };
       return {
-        text: `You voted for ${nameOf(view, round.myVote)}. ${round.votedCount} of ${total} have voted; tap another player to change.`,
+        text: `You voted for ${nameOf(view, round.myVote)}. Tap another player to change.`,
         yourMove: false,
       };
     case 'guess': {

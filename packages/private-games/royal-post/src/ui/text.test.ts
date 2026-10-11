@@ -18,7 +18,9 @@ describe('described lines', () => {
       { card: 'king' },
     ]);
     expect(plainText(line, roleLabel)).toBe('HOST played Guard on ANA, naming King: right!');
-    expect(plainText(describeLog(view, out), roleLabel)).toBe('ANA is out, holding King.');
+    expect(plainText(describeLog(view, out), roleLabel)).toBe(
+      'ANA is out of the round, holding King (HOST’s Guard named it).',
+    );
   });
 
   it('names both cards of a private comparison', () => {
@@ -27,7 +29,11 @@ describe('described lines', () => {
     h.act({ type: 'play', card: 'baron', target: 'ana' });
     const view = royalPost.view(h.state, HOST);
     expect(plainText(describeNote(view, view.notes.at(-1)!), roleLabel)).toBe(
-      'You compared hands with ANA: your Princess against their Guard. You win.',
+      'You compared hands with ANA: your Princess against their Guard. Yours is higher: ANA is out of the round.',
+    );
+    const lost = royalPost.view(h.state, 'ana');
+    expect(plainText(describeLog(lost, lost.log.at(-1)!), roleLabel)).toBe(
+      'You are out of the round, holding Guard (HOST won the Baron comparison).',
     );
   });
 });

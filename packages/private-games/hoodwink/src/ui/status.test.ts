@@ -64,6 +64,15 @@ describe('statusFor', () => {
     expect(status(h, 'p2').text).toContain("You're watching");
   });
 
+  it('tells everyone the host ended a game early', () => {
+    const h = startedGame();
+    h.act({ type: 'back-to-lobby' });
+    expect(status(h, 'p2').text).toBe(
+      'The host ended the last game early. All set. Waiting for the host to start a game…',
+    );
+    expect(status(h, HOST, true).text).toMatch(/^You ended the last game early\. /);
+  });
+
   it('asks everyone to write, then to vote', () => {
     const h = startedGame();
     expect(status(h, 'p2')).toMatchObject({ yourMove: true });
@@ -97,15 +106,14 @@ describe('statusFor', () => {
   it('reveals the truth and the viewer’s points, and asks the host to move on', () => {
     const h = startedGame();
     writeAll(h);
-    const truth = round(h).question.answer;
     h.act({ type: 'vote', option: truthIndex(h) }, HOST);
     for (const id of ['p2', 'p3', 'p4']) h.act({ type: 'vote', option: lieOf(h, HOST) }, id);
     expect(status(h, HOST, true)).toEqual({
-      text: `The truth was “${truth}”. You scored 2,500. Press Next round when everyone has had a look.`,
+      text: 'Round over! You scored 2,500. Press Next round when everyone has had a look.',
       yourMove: true,
     });
     expect(status(h, 'p2')).toEqual({
-      text: `The truth was “${truth}”. You scored 0. Waiting for the host to start the next round…`,
+      text: 'Round over! You scored 0. Waiting for the host to start the next round…',
       yourMove: false,
     });
     const players = [{ id: HOST, name: 'Hana' }];

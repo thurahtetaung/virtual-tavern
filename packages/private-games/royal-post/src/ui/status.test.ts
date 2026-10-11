@@ -64,9 +64,9 @@ describe('statusFor at the table', () => {
     );
   });
 
-  it('tells a late joiner they are dealt in at the next game', () => {
+  it('leaves a late joiner’s next-game note to the watching banner, saying it once', () => {
     const h = startedGame();
     h.state = royalPost.playerJoined(h.state, { id: 'dee', name: 'Dee' });
-    expect(status(h.state, 'dee').text).toContain('You’re dealt in at the next game.');
+    expect(status(h.state, 'dee').text).toMatch(/^Watching: .+ is playing\.$/);
   });
 });

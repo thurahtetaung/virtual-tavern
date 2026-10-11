@@ -15,7 +15,7 @@ export const guide: GameGuide = {
   ],
   setup: [
     'Everyone sits down; others can watch. The host picks the edition: Classic (16 cards, 2 to 4 players) or 2019 (21 cards, 2 to 6 players, with the Spy and the Chancellor).',
-    'Each round the deck is shuffled and one card is set aside face down, unseen. With two players, three more are set aside face up for everyone to see.',
+    'Each round the deck is shuffled and one card is set aside face down, unseen. With two players, three more are set aside face up for everyone to see: they are out of this round, so nobody holds them, and seeing them makes the cards in play easier to count.',
     'Everyone gets one card. Only you can see your hand.',
   ],
   roles: [
@@ -72,6 +72,7 @@ export const guide: GameGuide = {
         '2019: every tied player wins a token.',
         'Tokens to win, Classic: 7 with 2 players, 5 with 3, 4 with 4.',
         'Tokens to win, 2019: 6 with 2 players, 5 with 3, 4 with 4, 3 with 5 or 6.',
+        'Short game: the host can choose a short game in the settings, which plays to 2 tokens fewer (never fewer than 2), for about half as many rounds.',
         'The winner of a round starts the next one (one of them at random after a tie). If several players reach the target together, the most tokens wins, and an equal count shares the win.',
       ],
     },
@@ -79,7 +80,7 @@ export const guide: GameGuide = {
       title: 'Coming and going',
       bullets: [
         'Players joining during a game watch it, and are dealt in when the host starts the next one, if the edition has a seat free. When the host picks an edition with more seats, whoever was waiting for one sits down.',
-        'Between games, in the lobby or on the final podium, anyone can tap Take a seat or Just watch. Someone who chose to watch stays watching until they take a seat again.',
+        'Between games, in the lobby or on the final podium, anyone can tap Take a seat or Sit out (watch). Someone who chose to watch stays watching until they take a seat again.',
         'Someone who leaves mid-round is knocked out and their hand is shown. With fewer than two players left the game ends, and the most tokens wins.',
       ],
     },

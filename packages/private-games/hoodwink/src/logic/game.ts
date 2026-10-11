@@ -14,6 +14,7 @@ import {
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
+  type AnswerSize,
   AUTO_FOOL_POINTS,
   DEFAULT_ROUNDS,
   FOOL_POINTS,
@@ -417,7 +418,15 @@ function start(state: HoodwinkState, ctx: Ctx): Result {
 function backToLobby(state: HoodwinkState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  return { ...state, phase: 'lobby', questions: [], round: null, scores: {}, endReason: null };
+  return {
+    ...state,
+    phase: 'lobby',
+    questions: [],
+    round: null,
+    scores: {},
+    endReason:
+      state.phase === 'playing' ? 'abandoned' : state.phase === 'lobby' ? state.endReason : null,
+  };
 }
 
 function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
@@ -698,6 +707,7 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
     prompt: round.question.prompt,
     deckId: round.question.deckId,
     answer: revealed ? round.question.answer : null,
+    answerSize: round.stage === 'write' ? answerSize(round.question.answer) : null,
     players: round.players,
     written: round.players.filter((id) => round.lies[id] !== undefined),
     myLie: viewer === null ? null : (round.lies[viewer] ?? null),
@@ -712,6 +722,12 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
     points: revealed ? round.points : null,
     deadline: round.deadline,
   };
+}
+
+/** The real answer's rough length: a word or two, a short phrase, or a whole sentence. */
+export function answerSize(answer: string): AnswerSize {
+  const words = answer.trim().split(/\s+/).filter(Boolean).length;
+  return words <= 2 ? 'word' : words <= 6 ? 'phrase' : 'sentence';
 }
 
 export function rankedScores(state: HoodwinkState): ScoreView[] {

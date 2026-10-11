@@ -89,7 +89,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
 
   // Rules: members see a back-room section, and a private game's rules lead back to the back room.
   await host.goto('/rules');
-  const backRoomRules = host.getByRole('region', { name: '🕯️ Back room' });
+  const backRoomRules = host.getByRole('region', { name: 'The back room' });
   await expect(backRoomRules.getByRole('link', { name: /Reverie/ })).toBeVisible();
   await backRoomRules.getByRole('link', { name: /Reverie/ }).click();
   await expect(host.getByRole('link', { name: '← Back room' })).toHaveAttribute(
@@ -99,7 +99,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await expect(host.getByRole('link', { name: '← All games' })).toHaveCount(0);
   await stranger.goto('/rules');
   await expect(stranger.getByRole('heading', { name: 'How to play' })).toBeVisible();
-  await expect(stranger.getByRole('heading', { name: /Back room/ })).toHaveCount(0);
+  await expect(stranger.getByRole('heading', { name: /back room/i })).toHaveCount(0);
   await expect(stranger.getByText('Reverie')).toHaveCount(0);
   await host.goto(roomUrl);
   await expect(host.getByText('Players (2/8)')).toBeVisible();
@@ -108,14 +108,14 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await friend.goto('/');
   await expect(friend.getByRole('link', { name: 'Rejoin your Reverie room' })).toBeVisible();
   await friend.goto(roomUrl);
-  await expect(friend.getByRole('button', { name: 'Just watch' })).toBeVisible();
+  await expect(friend.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
 
-  // Signing everyone out bounces players back to the door on their next move.
+  // Signing everyone out bounces players back to the door straight away, saying why.
   admin.on('dialog', (d) => void d.accept());
   await admin.getByRole('button', { name: 'Sign everyone out' }).click();
   await expect(admin.getByText('Everyone has been signed out')).toBeVisible();
-  await friend.getByRole('button', { name: 'Sit out (watch)' }).click();
   await expect(friend).toHaveURL(/\/backroom\?next=/);
+  await expect(friend.getByText('The word has changed — ask for the new one.')).toBeVisible();
   await expect(friend.getByText("What's the word?")).toBeVisible();
 
   // Locked out again, the landing page no longer offers the way back into the private room.

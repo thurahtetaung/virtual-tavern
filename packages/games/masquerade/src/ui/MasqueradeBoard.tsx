@@ -139,6 +139,15 @@ function Nudge({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
 
 // ---- Play tab ----
 
+/** The status line, with the talk clock so "X asks first" fades into the asking rule. */
+function StatusHint({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
+  const round = view.round;
+  const talking = view.phase === 'playing' && round?.stage === 'talk';
+  const left = useSecondsLeft(talking ? round.deadline : null, room.clockOffset);
+  const status = statusFor(view, room.isHost, room, left);
+  return <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>;
+}
+
 /** Your card, with a cover so neighbours can't peek. */
 function MyCard({ round, display }: { round: RoundView; display: LocationDisplay }) {
   const [covered, setCovered] = useState(false);
@@ -223,7 +232,7 @@ function MyCard({ round, display }: { round: RoundView; display: LocationDisplay
 }
 
 function Coaching({ round, display }: { round: RoundView; display: LocationDisplay }) {
-  if (round.role === 'watching' || round.stage === 'reveal') return null;
+  if (round.role === 'watching' || round.stage !== 'talk') return null;
   const tip =
     round.role === 'spy'
       ? 'Answer with feelings, not facts, and listen for answers that agree. Cross places off on the Locations board.'
@@ -272,20 +281,26 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
   );
 }
 
-/** "3 of 5 ready · Waiting for: Ana, Ben (offline)": counted, and the holdouts named. */
+/**
+ * "3 of 5 ready · Waiting for: Ana, Ben (offline)": counted, and the holdouts named. Without
+ * `counted`, only the names (when the table nudge already shows the count).
+ */
 function Holdouts({
   round,
   done,
   verb,
   room,
+  counted = true,
 }: {
   round: RoundView;
   done: readonly string[];
   verb: string;
   room: GameRoomInfo;
+  counted?: boolean;
 }) {
   const left = round.players.map((p) => p.id).filter((id) => !done.includes(id));
   const names = waitingFor(left, room.players, { you: room.you });
+  if (!counted) return <>{names}</>;
   return (
     <>
       {done.length} of {round.players.length} {verb}
@@ -337,7 +352,7 @@ function VotePanel({
       <h3 className="font-bold">🗳️ Who is the spy?</h3>
       <p className="text-xs text-stone-500">
         Secret until everyone has voted.{' '}
-        <Holdouts round={round} done={round.votedIds} verb="voted" room={room} />
+        <Holdouts round={round} done={round.votedIds} verb="voted" room={room} counted={false} />
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {others.map((p) => (
@@ -521,10 +536,19 @@ function Scores({ view }: { view: MasqueradeView }) {
   const ranked = view.seats
     .filter((s) => s.playing || s.score > 0)
     .sort((a, b) => b.score - a.score);
+  // Open by default once a round is scored; folded while people talk.
+  const open = view.round?.stage === 'reveal';
   return (
-    <details className="rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800">
-      <summary className="flex h-11 cursor-pointer items-center text-sm font-semibold">
-        Scores
+    <details
+      key={open ? 'open' : 'closed'}
+      open={open}
+      className="group rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
+    >
+      <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
+        <span>🏅 Scores</span>
+        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+          ▸
+        </span>
       </summary>
       <ol aria-label="Scores" className="space-y-0.5 pb-3 text-sm">
         {ranked.map((s) => (
@@ -589,6 +613,19 @@ function LocationsBoard({
     ...possible.filter((l) => marks[l] !== 'starred'),
   ];
   const pickable = guessing && possible.length < view.locations.length && possible.length <= 12;
+  // One list per chosen edition (in pack order), so two editions read as two labelled groups.
+  const groups: { id: string; label: string; ids: string[] }[] = [];
+  let from = 0;
+  for (const e of view.editions) {
+    if (!view.settings.editions.includes(e.id)) continue;
+    const ids = view.locations.slice(from, from + e.count);
+    from += e.count;
+    groups.push({ id: e.id, label: display.editionLabel(e.id, e.label), ids });
+  }
+  if (from !== view.locations.length) {
+    groups.length = 0;
+    groups.push({ id: 'all', label: 'Locations', ids: view.locations });
+  }
   const guess = async () => {
     if (!pick) return;
     setBusy(true);
@@ -656,70 +693,98 @@ function LocationsBoard({
           )}
         </p>
       )}
-      <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
-        {view.locations.map((id) => {
-          const mark = marks[id];
-          const name = display.name(id);
-          const selected = guessing && pick === id;
-          return (
-            <li key={id} className="relative">
-              <button
-                type="button"
-                aria-label={guessing ? `Pick ${name}` : name}
-                aria-pressed={guessing ? selected : mark === 'crossed'}
-                onClick={() => (guessing ? setPick(id) : toggle(id, 'crossed'))}
-                className={cn(
-                  'flex w-full flex-col items-center gap-1 overflow-hidden rounded-xl p-1.5 pb-2 text-center ring-1 transition',
-                  selected
-                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
-                    : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
-                  mark === 'crossed' && !selected && 'opacity-40',
-                  here === id && 'ring-2 ring-emerald-500',
-                )}
-              >
-                <LocationPicture
-                  id={id}
-                  display={display}
-                  className="aspect-[2/1] w-full rounded-lg text-2xl"
-                  artClassName="aspect-[5/3] w-full rounded-lg"
-                />
-                <span
-                  className={cn(
-                    'line-clamp-2 text-xs leading-tight font-semibold',
-                    mark === 'crossed' && 'line-through',
-                  )}
-                >
-                  {name}
-                </span>
-                {here === id && <span className="sr-only">(you are here)</span>}
-              </button>
-              {guessing ? (
-                mark === 'starred' && (
-                  <span
-                    aria-label="Starred"
-                    className="pointer-events-none absolute top-0.5 right-0.5 flex size-8 items-center justify-center text-base text-amber-500"
+      {groups.map((g) => (
+        <div key={g.id} className="space-y-2">
+          {groups.length > 1 && (
+            <h4 className="flex items-center gap-2 pt-1 text-xs font-bold tracking-wide text-stone-500 uppercase after:h-px after:flex-1 after:bg-stone-300 dark:after:bg-stone-700">
+              {g.label}
+            </h4>
+          )}
+          <ul
+            aria-label={groups.length > 1 ? g.label : undefined}
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5"
+          >
+            {g.ids.map((id) => {
+              const mark = marks[id];
+              const name = display.name(id);
+              const selected = guessing && pick === id;
+              return (
+                <li key={id} className="relative">
+                  <button
+                    type="button"
+                    aria-label={guessing ? `Pick ${name}` : name}
+                    aria-pressed={guessing ? selected : mark === 'crossed'}
+                    onClick={() => (guessing ? setPick(id) : toggle(id, 'crossed'))}
+                    className={cn(
+                      'flex w-full flex-col items-center gap-1 overflow-hidden rounded-xl p-1.5 pb-2 text-center ring-1 transition',
+                      selected
+                        ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                        : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
+                      mark === 'crossed' && !selected && 'opacity-40',
+                      here === id && 'ring-2 ring-emerald-500',
+                    )}
                   >
-                    ★
-                  </span>
-                )
-              ) : (
-                <button
-                  type="button"
-                  aria-label={`Star ${name}`}
-                  aria-pressed={mark === 'starred'}
-                  onClick={() => toggle(id, 'starred')}
-                  className={cn(
-                    'absolute top-0.5 right-0.5 flex size-8 items-center justify-center rounded-full text-base',
-                    mark === 'starred' ? 'text-amber-500' : 'text-stone-400 hover:text-amber-500',
+                    <LocationPicture
+                      id={id}
+                      display={display}
+                      className="aspect-[2/1] w-full rounded-lg text-2xl"
+                      artClassName="aspect-[5/3] w-full rounded-lg"
+                    />
+                    <span
+                      className={cn(
+                        'line-clamp-2 text-xs leading-tight font-semibold',
+                        mark === 'crossed' && 'line-through',
+                      )}
+                    >
+                      {name}
+                    </span>
+                    {here === id && (
+                      <span className="absolute top-1 left-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
+                        📍 Here
+                      </span>
+                    )}
+                  </button>
+                  {guessing ? (
+                    mark === 'starred' && (
+                      <span
+                        aria-label="Starred"
+                        className="pointer-events-none absolute -top-1 -right-1 flex size-11 items-center justify-center"
+                      >
+                        <span
+                          aria-hidden
+                          className="flex size-7 items-center justify-center rounded-full bg-amber-400 text-base leading-none text-white shadow ring-1 ring-amber-500"
+                        >
+                          ★
+                        </span>
+                      </span>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Star ${name}`}
+                      aria-pressed={mark === 'starred'}
+                      onClick={() => toggle(id, 'starred')}
+                      className="absolute -top-1 -right-1 flex size-11 items-center justify-center"
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'flex size-7 items-center justify-center rounded-full text-base leading-none shadow ring-1',
+                          mark === 'starred'
+                            ? 'bg-amber-400 text-white ring-amber-500'
+                            : 'bg-white/90 text-stone-500 ring-stone-300 dark:bg-stone-800/90 dark:text-stone-300 dark:ring-stone-600',
+                        )}
+                      >
+                        {mark === 'starred' ? '★' : '☆'}
+                      </span>
+                    </button>
                   )}
-                >
-                  {mark === 'starred' ? '★' : '☆'}
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </section>
   );
 }
@@ -886,7 +951,7 @@ export function MasqueradeBoard({
       <Nudge view={view} room={room} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className={cn('min-w-0 space-y-3', onTab('play'))}>
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          <StatusHint view={view} room={room} />
           {round?.redealtAfter && round.stage === 'talk' && (
             <p className="text-center text-sm text-stone-600 dark:text-stone-400">
               {round.redealtAfter} left while a spy, so the round was dealt again.
@@ -898,12 +963,13 @@ export function MasqueradeBoard({
           )}
           {round && round.stage !== 'reveal' && view.phase === 'playing' && (
             <>
-              <MyCard key={round.deal} round={round} display={display} />
+              {/* The vote and the guess come before the card, so they're above the art on phones. */}
               <GuessPanel round={round} onOpenBoard={() => setTab('locations')} />
               <VotePanel view={view} round={round} act={act} room={room} />
+              <MyCard key={round.deal} round={round} display={display} />
+              <ReadyToggle round={round} act={act} room={room} />
               <Coaching round={round} display={display} />
               <HowItWorks view={view} round={round} />
-              <ReadyToggle round={round} act={act} room={room} />
               {round.stage === 'guess' && round.votes && (
                 <Panel className="space-y-2">
                   <h3 className="text-sm font-bold">How everyone voted</h3>

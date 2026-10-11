@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Hint, Panel, StickyBar, TimerSettings, WordListPicker, cn } from '@vt/ui';
-import { DECK_SIZES, type EchoAction, type EchoView } from '../logic/types.ts';
+import { DECK_SIZES, type DeckSize, type EchoAction, type EchoView } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { Table } from './Table.tsx';
 
@@ -18,6 +18,9 @@ function timerSummary(s: EchoView['settings']): string {
   ];
   return parts.filter(Boolean).join(', ');
 }
+
+/** How long a deck plays, under each deck-length button. */
+const DECK_PACE: Record<DeckSize, string> = { 8: 'quick', 13: 'standard', 20: 'long' };
 
 const cardsSummary = (chosen: unknown[], total: number) =>
   `Cards draw 5 words each from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`;
@@ -71,13 +74,14 @@ export function Lobby({
                   aria-pressed={view.settings.deckSize === size}
                   onClick={() => void act({ type: 'update-settings', deckSize: size })}
                   className={cn(
-                    'h-11 rounded-lg font-semibold ring-1 transition',
+                    'flex min-h-11 flex-col items-center justify-center rounded-lg py-1 font-semibold ring-1 transition',
                     view.settings.deckSize === size
                       ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
                       : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                   )}
                 >
                   {size} cards
+                  <span className="text-xs font-normal text-stone-500">{DECK_PACE[size]}</span>
                 </button>
               ))}
             </div>
@@ -122,16 +126,9 @@ export function Lobby({
           </StickyBar>
         )}
       </Panel>
-      <p className="text-center text-sm text-stone-500">
-        New to Echo?{' '}
-        <button
-          type="button"
-          className="font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          Read the guide
-        </button>
-      </p>
+      <Button variant="secondary" className="h-11 w-full" onClick={showGuide}>
+        New to Echo? Read the guide
+      </Button>
     </div>
   );
 }

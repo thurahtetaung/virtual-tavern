@@ -32,6 +32,11 @@ test('the theme switch overrides the system setting and survives a reload', asyn
   await page.getByRole('button', { name: 'Switch to light theme' }).click();
   await expect(html).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => localStorage.getItem('vt.theme'))).toBe('light');
+
+  // One more tap goes back to following the device.
+  await page.getByRole('button', { name: "Follow your device's theme" }).click();
+  await expect(page.getByRole('button', { name: 'Switch to dark theme' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('vt.theme'))).toBeNull();
 });
 
 test('with nothing saved the theme follows the system preference', async ({ browser }) => {
@@ -74,6 +79,8 @@ test('the Players drawer shows the room code, and the room announces joins and h
   await drawer.getByRole('button', { name: 'Leave room' }).click();
   await expect(ana.getByRole('status').filter({ hasText: "You're the host now" })).toBeVisible();
   await expect(hana).toHaveURL('/');
+  await expect(hana.getByRole('status').filter({ hasText: 'You left the room.' })).toBeVisible();
+  await expect(hana).toHaveTitle('Virtual Tavern');
   await expect(hana.getByRole('link', { name: /^Rejoin your/ })).toHaveCount(0);
 
   // Ana's landing page offers a way back to the room she is still in.
@@ -102,6 +109,24 @@ test('a server error on the room page shows a retry panel rather than a blank pa
   fail = false;
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByText('This room does not exist or has expired')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No such room' })).toBeVisible();
+  await expect(page).toHaveTitle('No such room · Virtual Tavern');
+});
+
+test('a rules page names the tab and ends with a way to start playing', async ({ browser }) => {
+  const page = await (await browser.newContext()).newPage();
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  await page.goto('/rules');
+  await expect(page).toHaveTitle('How to play · Virtual Tavern');
+  await page.getByRole('link', { name: /Echo/ }).click();
+  await expect(page).toHaveTitle('How to play Echo · Virtual Tavern');
+  // No name yet: the button asks for one first, then opens the room.
+  await page.getByRole('button', { name: 'Create an Echo room' }).click();
+  await expect(page.getByLabel('Your name')).toBeFocused();
+  await page.getByLabel('Your name').fill('Hana');
+  await page.getByRole('button', { name: 'Create an Echo room' }).click();
+  await expect(page).toHaveURL(/\/r\//);
+  await expect(page).toHaveTitle('Echo · Virtual Tavern');
 });
 
 test('a room code typed with spaces joins the room, and a taken name gets a number', async ({
@@ -184,7 +209,7 @@ test('on a phone the header buttons are labelled, and an away host is announced'
     await ana.screenshot({ path: 'test-results/shots/phone-host-away.png' });
 
   // Sitting out shows the shared "You're watching" banner, whose button takes the seat again.
-  await ben.getByRole('button', { name: 'Just watch' }).click();
+  await ben.getByRole('button', { name: 'Sit out (watch)' }).click();
   const watching = ben.getByRole('status', { name: "You're watching" });
   await expect(watching).toBeVisible();
   await watching.getByRole('button', { name: 'Take a seat' }).click();

@@ -159,9 +159,9 @@ export async function takeTurn(
       [...playable].sort((a, b) => ranks[a]! - ranks[b]!)[0]!);
 
   const sheet = p.getByRole('dialog', { name: `${card} (${ranks[card]})` });
-  // A private reveal can open just as the turn starts; close it and try again.
+  // A private reveal can open just as the turn starts; close it and try again. On a slow machine
+  // the sheet can open after the check gave up: then it's open, and clicking again can't land.
   await expect(async () => {
-    // A slow sheet may have opened after the last try gave up waiting for it.
     if (await sheet.isVisible()) return;
     await dismissReveal(p);
     // A slow sheet may have opened after the last try gave up: don't click through it.
@@ -273,6 +273,7 @@ export async function playUntil(
       if (stop(gameOver)) return;
       // A reveal from the last move can still open over the result; close it and retry.
       await expect(async () => {
+        if (await result.isHidden()) return; // an earlier click landed after all
         await dismissReveal(host);
         await host
           .getByRole('button', { name: gameOver ? 'Play again' : 'Next round' })

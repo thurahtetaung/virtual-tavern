@@ -93,6 +93,8 @@ export interface Settings {
   /** Seconds for each turn (and again for a Chancellor's choice); null disables the timer. */
   turnSeconds: number | null;
   timerMode: TimerMode;
+  /** A short game plays to fewer favour tokens (`shortTarget`). Missing in older rooms: full. */
+  short?: boolean;
 }
 
 export interface Seat {
@@ -250,6 +252,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     edition: z.enum(EDITION_IDS).optional(),
     turnSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
+    short: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),

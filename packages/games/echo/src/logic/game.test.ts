@@ -223,6 +223,7 @@ describe('a card', () => {
     expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
     expect(h.state).toMatchObject({ score: 0, cardsLeft: 6 });
     expect(h.state.deck).toHaveLength(6);
+    expect(h.state.history.at(-1)!.burned).toBe(true);
   });
 
   it('a clue writer can count a near miss', () => {
@@ -281,6 +282,7 @@ describe('a card', () => {
     h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
     expect(h.state.deck).toHaveLength(0);
+    expect(h.state.history.at(-1)!.burned).toBe(true);
     h.act({ type: 'next-card' });
     expect(h.state).toMatchObject({ phase: 'over', endReason: 'finished', turn: null });
   });
@@ -292,6 +294,8 @@ describe('a card', () => {
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
     h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
+    // There was no next card to lose.
+    expect(h.state.history.at(-1)!.burned).toBeUndefined();
     h.act({ type: 'next-card' });
     expect(h.state.phase).toBe('over');
     expect(h.state.history).toHaveLength(8);

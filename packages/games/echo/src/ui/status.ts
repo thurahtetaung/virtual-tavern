@@ -77,7 +77,25 @@ function outcomeText(view: EchoView, turn: TurnView): string {
   const why = turn.timedOut
     ? '⏱ Nobody decided in time, so it counts as wrong: the'
     : 'Not this time: the';
-  return `${why} word was ${word}. This card and the next are lost.`;
+  // What the wrong guess cost is spelled out once, in the result banner (`lossText`).
+  return `${why} word was ${word}.`;
+}
+
+/** What a wrong guess just cost: the next card too, unless this was the last one. */
+export function lossText(view: EchoView): string {
+  return view.history.at(-1)?.burned
+    ? 'This card and the next are lost.'
+    : 'This card is lost (it was the last one).';
+}
+
+/** Who guesses the next card: the next playing seat after the guesser, in seat order. */
+export function nextGuesser(view: EchoView, turn: TurnView): string | null {
+  const from = view.seats.findIndex((s) => s.id === turn.guesser);
+  for (let k = 1; k <= view.seats.length; k++) {
+    const seat = view.seats[(from + k) % view.seats.length]!;
+    if (seat.id !== turn.guesser && seat.playing) return seat.name;
+  }
+  return null;
 }
 
 const strictNote = (view: EchoView, turn: TurnView, text: string) =>
@@ -179,7 +197,9 @@ function playingStatus(
       const tail = isHost
         ? ` Press ${next} when everyone has had a look.`
         : ` ${people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`}`;
-      return { text: outcomeText(view, turn) + tail, yourMove: isHost };
+      const upNext = view.cardsLeft > 0 ? nextGuesser(view, turn) : null;
+      const who = upNext ? ` Next guesser: ${upNext}.` : '';
+      return { text: outcomeText(view, turn) + who + tail, yourMove: isHost };
     }
   }
 }
@@ -193,7 +213,11 @@ export function statusFor(
 ): Status {
   if (view.phase === 'lobby') {
     if (!view.me?.playing) {
-      return { text: "You're watching. Press Take a seat to join the table.", yourMove: false };
+      // A full table is already explained by the room's "You're watching" banner.
+      const full = view.seats.filter((s) => s.playing).length >= MAX_PLAYERS;
+      return full
+        ? { text: "You're watching. You can take a seat when one frees up.", yourMove: false }
+        : { text: "You're watching. Press Take a seat to join the table.", yourMove: false };
     }
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
     return isHost

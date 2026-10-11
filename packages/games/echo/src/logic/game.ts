@@ -171,6 +171,8 @@ function reveal(
   const turn = state.turn!;
   const word = turn.card[turn.pick!]!;
   let { score, cardsLeft, deck } = state;
+  // A wrong guess on the last card has no next card to lose.
+  const burned = outcome === 'wrong' && state.cardsLeft >= 2;
   if (outcome === 'right') {
     score += 1;
     cardsLeft -= 1;
@@ -200,6 +202,7 @@ function reveal(
     ...(timedOut && { timedOut: true }),
     ...(turn.missed &&
       turn.missed.length > 0 && { missed: turn.missed.map(nameOf).filter(Boolean) }),
+    ...(burned ? { burned: true as const } : {}),
   };
   return {
     ...state,

@@ -82,8 +82,8 @@ export function statusFor(view: RoyalPostView, room: Room): Status {
     return { text: 'Your turn: tap a card to play it.', yourMove: true };
   }
   if (!mine) {
-    const next = me?.waiting ? ' You’re dealt in at the next game.' : '';
-    return { text: `Watching: ${turn} is playing.${next}`, yourMove: false };
+    // When they're dealt in is the room's "You're watching" banner's to say, so it isn't repeated.
+    return { text: `Watching: ${turn} is playing.`, yourMove: false };
   }
   if (mine.out) return { text: `You’re out this round. ${turn} is playing…`, yourMove: false };
   return {

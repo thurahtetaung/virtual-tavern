@@ -1,7 +1,7 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Button, Panel, RefusalSlot, Standings, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
-import { awards, displayText, lieProblem, tidyLie } from '../logic/game.ts';
+import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
   type HoodwinkAction,
   type HoodwinkView,
@@ -10,7 +10,7 @@ import {
   type RoundView,
 } from '../logic/types.ts';
 import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
-import { Avatar } from './Table.tsx';
+import { toneOf } from './Table.tsx';
 
 type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
 
@@ -23,30 +23,25 @@ interface Props {
 /** Where the server's refusal of a lie shows: right under the lie form. */
 const LIE_ANCHOR = 'hoodwink-lie';
 
-/** On a phone, a board of many long answers scrolls inside the viewport rather than the page. */
-const BOARD_SCROLL =
-  'max-sm:max-h-[58dvh] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:p-0.5';
+const ANSWER_SIZE = {
+  word: 'a word or two',
+  phrase: 'a short phrase',
+  sentence: 'a whole sentence',
+} as const;
 
 const PROMPT = 'text-center text-xl leading-snug font-bold text-balance break-words sm:text-2xl';
 
 /**
  * The question, big, with its blank highlighted (or filled with the answer at the reveal). A
- * question without a blank ("…?") shows the answer underneath instead.
+ * question without a blank ("…?") stays as it is: the truth tops the board right below.
  */
 export function Prompt({ prompt, fill }: { prompt: string; fill?: string | null }) {
   const parts = splitPrompt(prompt);
   if (!parts) {
     return (
-      <div className="space-y-2 text-center">
-        <p data-testid="prompt" className={PROMPT}>
-          {prompt}
-        </p>
-        {fill && (
-          <p className="mx-auto w-fit max-w-full rounded-md bg-emerald-100 px-3 py-1 text-lg font-bold break-words text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200">
-            {displayText(fill)}
-          </p>
-        )}
-      </div>
+      <p data-testid="prompt" className={PROMPT}>
+        {prompt}
+      </p>
     );
   }
   return (
@@ -127,7 +122,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
       </label>
       {round.myLieAuto && unchanged && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
-          🤖 Picked for you: it scores half. Type your own to replace it.
+          🎲 Picked for you: it scores half. Type your own to replace it.
         </p>
       )}
       <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
@@ -205,7 +200,7 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
     setBusy(false);
   };
   return (
-    <ul aria-label="Answers" className={cn('grid gap-2 sm:grid-cols-2', BOARD_SCROLL)}>
+    <ul aria-label="Answers" className="grid gap-2 sm:grid-cols-2">
       {round.options.map((o) => (
         <li key={o.index}>
           <OptionCard
@@ -221,17 +216,22 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
   );
 }
 
-function Avatars({ view, ids, label }: { view: HoodwinkView; ids: string[]; label: string }) {
+/** Who found the truth or fell for a lie, by name, each with their colour. */
+function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label: string }) {
   if (ids.length === 0) return null;
   return (
-    <span className="flex items-center gap-1.5">
+    <p className="flex flex-wrap items-center gap-1.5">
       <span className="text-xs text-stone-500">{label}</span>
-      <span className="flex -space-x-1.5">
-        {ids.map((id) => (
-          <Avatar key={id} id={id} name={nameOf(view, id)} />
-        ))}
-      </span>
-    </span>
+      {ids.map((id) => (
+        <span
+          key={id}
+          className="inline-flex items-center gap-1 rounded-full bg-stone-100 py-0.5 pr-2 pl-1.5 text-xs font-semibold dark:bg-stone-700/70"
+        >
+          <span aria-hidden className={cn('size-2.5 rounded-full', toneOf(view, id))} />
+          {id === view.me?.id ? 'You' : nameOf(view, id)}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -243,7 +243,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
   );
   const name = (id: string) => (id === view.me?.id ? 'you' : nameOf(view, id));
   return (
-    <ul aria-label="Answers revealed" className={cn('grid gap-2 sm:grid-cols-2', BOARD_SCROLL)}>
+    <ul aria-label="Answers revealed" className="grid gap-2 sm:grid-cols-2">
       {ordered.map((o, i) => (
         <li
           key={o.index}
@@ -274,12 +274,12 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           </p>
           {(o.auto?.length ?? 0) > 0 && (
             <p className="text-xs text-stone-500">
-              🤖 lie for me / filled in
+              🎲 Picked by the game (half points)
               {(o.authors?.length ?? 0) > 1 && `: ${listNames((o.auto ?? []).map(name))}`}
             </p>
           )}
           {(o.voters?.length ?? 0) > 0 ? (
-            <Avatars view={view} ids={o.voters ?? []} label={o.truth ? 'Found by' : 'Fooled'} />
+            <Names view={view} ids={o.voters ?? []} label={o.truth ? 'Found by' : 'Fooled'} />
           ) : (
             <p className="text-xs text-stone-500">
               {o.truth ? 'Nobody found it!' : 'Nobody fell for it.'}
@@ -342,6 +342,11 @@ export function Stage({ view, act, isHost }: Props) {
       return (
         <div className="space-y-4">
           <Prompt prompt={round.prompt} />
+          {round.answerSize && round.players.includes(me) && (
+            <p className="text-center text-sm text-stone-600 dark:text-stone-400">
+              💡 The real answer is {ANSWER_SIZE[round.answerSize]}: make your lie match.
+            </p>
+          )}
           {round.players.includes(me) && (
             <LieForm
               // A new "Lie for me" pick remounts the form, so the box shows it, ready to replace.

@@ -24,6 +24,7 @@ const VERSION_KEY = 'backroom.version';
 export class Backroom {
   private readonly db: Db;
   private readonly now: () => number;
+  private readonly listeners = new Set<() => void>();
 
   constructor(db: Db, now: () => number = Date.now) {
     this.db = db;
@@ -60,6 +61,13 @@ export class Backroom {
 
   signOutEveryone(): void {
     this.write(VERSION_KEY, String(this.version() + 1));
+    for (const listener of this.listeners) listener();
+  }
+
+  /** Runs `listener` whenever every unlock is revalidated (a new password, or a sign-out). */
+  onVersionChange(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
   }
 
   /** Checks a password against the stored hash; the stretching runs off the event loop. */

@@ -7,6 +7,7 @@ import { clientGames } from '../games/registry.ts';
 import { useBackroom } from '../lib/backroom.ts';
 import { lastRoom, saveName, savedName } from '../lib/identity.ts';
 import { EXAMPLE_ROOM_CODE, parseRoomCode } from '../lib/room-code.ts';
+import { usePageTitle } from '../lib/title.ts';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { useToast } from '../lib/toast.tsx';
 
@@ -22,6 +23,7 @@ export function HomePage() {
   // when their game isn't a public one.
   const isPrivate = !!last && (last.private || !clientGames.some((g) => g.name === last.game));
   const recent = last && (!isPrivate || backroom?.unlocked) ? last : null;
+  usePageTitle();
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),

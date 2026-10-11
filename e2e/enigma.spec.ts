@@ -143,7 +143,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await host.getByRole('button', { name: 'See results' }).click();
 
   await expect(host.getByText('🏆 Red team wins!')).toBeVisible();
-  await expect(ben!.getByText('Game over. Red intercepted 2 codes.')).toBeVisible();
+  await expect(ben!.getByText('Red intercepted 2 codes.', { exact: true })).toBeVisible();
   await expect(ben!.getByText('Red team wins!')).toHaveCount(1);
   // The last round's reveal stays on screen.
   await expect(ben!.getByRole('region', { name: 'The last round' })).toBeVisible();

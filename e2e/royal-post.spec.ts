@@ -225,12 +225,13 @@ test('watchers get a seat: a bigger edition seats them, and the podium offers Ta
   // The 2019 edition seats six: they sit down by themselves.
   await host.getByRole('button', { name: /^2019 edition/ }).click();
   await expect(host.getByText('Players (6/6)')).toBeVisible();
-  await expect(eve.getByRole('button', { name: 'Just watch' })).toBeVisible();
+  await expect(eve.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
 
   // A quick two-player game; the rest choose to watch.
   for (const p of [ben, cy, dee, eve]) {
-    await p.getByRole('button', { name: 'Just watch' }).click();
-    await expect(p.getByRole('button', { name: 'Take a seat' })).toBeVisible();
+    await p.getByRole('button', { name: 'Sit out (watch)' }).click();
+    // The seat list and the shell's "You're watching" banner both offer the seat back.
+    await expect(p.getByRole('button', { name: 'Take a seat' })).toHaveCount(2);
   }
   await expect(host.getByText('Players (2/6)')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
@@ -245,7 +246,7 @@ test('watchers get a seat: a bigger edition seats them, and the podium offers Ta
     'Waiting for Hana (host) to start the next game',
   );
   await podium.getByRole('button', { name: 'Take a seat' }).click();
-  await expect(podium.getByRole('button', { name: 'Just watch' })).toBeVisible();
+  await expect(podium.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
   await expect(host.getByLabel('Game result')).toContainText('Next game (3/6)');
   await host.getByRole('button', { name: 'Play again' }).click();
   await expect(ben.getByRole('region', { name: 'Your hand' })).toBeVisible();

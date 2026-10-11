@@ -48,6 +48,12 @@ export const TEAM_LABEL: Record<TeamResultId, string> = {
   'apprentice-assassin': 'Apprentice Assassin',
 };
 
+/** "Village wins", "Werewolves win": the verb agrees with the team's label. */
+export function teamOutcome(team: TeamResultId, won: boolean): string {
+  const plural = team === 'werewolf' || team === 'vampire';
+  return `${TEAM_LABEL[team]} ${won ? (plural ? 'win' : 'wins') : plural ? 'lose' : 'loses'}`;
+}
+
 // ---- Narration text ----
 
 /** What each role is told when it wakes, in our own words. */

@@ -17,8 +17,6 @@ export const guide: GameGuide = {
     'Split into two teams, Red and Blue, with at least 2 players each.',
     'The host presses Start. Each team gets 4 secret keywords, numbered 1 to 4, that only your team can see.',
     'Use the team chat to talk privately. The other team can’t read it, so don’t say guesses out loud!',
-    'Once you’ve seen a team’s keywords you belong to that team for the rest of the game, even if you leave the room and come back.',
-    'Anyone without a team is watching: they see both teams’ clues and the codes as they are revealed, but no keywords and no team chat. They can join a team at any time.',
   ],
   roles: [
     {
@@ -85,14 +83,14 @@ export const guide: GameGuide = {
     {
       title: 'The clue history is everything',
       paragraphs: [
-        'Every past clue sits under its keyword number on both teams’ sheets. Your team can see what the other team said for their keyword 3 in every round, so after a few rounds you may work out what it is. Use the shared notes to write your team’s best guess for each of their keywords. When you intercept, their past clues and your notes sit right above the code picker.',
+        'Every past clue sits under its keyword number on both teams’ sheets (the Clues tab on a phone), so after a few rounds you may work out the other team’s keywords. Write your hunches in the shared notes. When you intercept, their past clues and your notes sit right above the code picker.',
       ],
     },
     {
-      title: 'Turn order (chosen by the host)',
+      title: 'Host options',
       bullets: [
-        'Simultaneous: both Encryptors write at the same time, then both teams guess at the same time. Faster.',
-        'Alternating: one team’s code is played all the way through, then the other’s. Closer to the tabletop pace. The second Encryptor only sees their code once it’s their turn.',
+        'Turn order. Simultaneous: both Encryptors write, then both teams guess, at the same time (faster). Alternating: one team’s code is played all the way through, then the other’s; the second Encryptor only sees their code once it’s their turn.',
+        'Timers. By default just a reminder. With Strict timers, running out of time counts as a failure: no clues means a miscommunication (and nothing to intercept), and no agreed guess means no decode or interception.',
       ],
     },
     {
@@ -102,8 +100,10 @@ export const guide: GameGuide = {
       ],
     },
     {
-      title: 'If someone leaves',
+      title: 'Coming and going',
       bullets: [
+        'Once you’ve seen a team’s keywords you belong to that team for the rest of the game, even if you leave the room and come back.',
+        'Anyone without a team is watching: they see both teams’ clues and the codes as they are revealed, but no keywords and no team chat. They can join a team at any time.',
         'An Encryptor who leaves before sending clues is replaced by the first of their teammates.',
         'A team left with nobody to decode (only its Encryptor, or nobody at all) can’t transmit: each of its turns counts as a miscommunication until someone joins.',
       ],
@@ -113,7 +113,6 @@ export const guide: GameGuide = {
     'Encryptors: vary your clues each round. If you say “salty” every time, the other team will crack you.',
     'Be clear enough for your team, but sneaky enough for the other team. Inside jokes are perfect.',
     'Interceptors: line up the other team’s clues per number and look for the common thread.',
-    'Write the other team’s likely keywords in the shared notes as soon as you have a hunch.',
   ],
   glossary: [
     { term: 'Keyword', meaning: 'One of your team’s 4 secret words, numbered 1–4.' },

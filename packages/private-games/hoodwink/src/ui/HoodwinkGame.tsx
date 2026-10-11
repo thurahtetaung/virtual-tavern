@@ -31,11 +31,6 @@ function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: nu
             Round {round.number}/{round.rounds}
           </span>
         )}
-        {round?.double && (
-          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800 dark:bg-rose-500/20 dark:text-rose-200">
-            ×2 points
-          </span>
-        )}
         {mine && (
           <span
             role="img"
@@ -160,6 +155,14 @@ export function HoodwinkGame({
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <div className="min-w-0 space-y-3">
         <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {view.phase === 'playing' && view.round?.double && (
+          <p
+            data-testid="final-round"
+            className="rounded-xl bg-rose-100 px-3 py-2 text-center text-sm font-bold text-rose-900 ring-1 ring-rose-300 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+          >
+            🔥 Final round: every point counts double!
+          </p>
+        )}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
           <GameOver view={view} act={act} isHost={room.isHost} room={room} />

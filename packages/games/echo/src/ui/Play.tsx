@@ -17,7 +17,7 @@ import {
   type ResolvedCard,
   type TurnView,
 } from '../logic/types.ts';
-import { cancelReason, listNames, nameOf, stillWriting } from './status.ts';
+import { cancelReason, listNames, lossText, nameOf, stillWriting } from './status.ts';
 
 type Act = (a: EchoAction, options?: ActOptions) => Promise<boolean>;
 
@@ -46,7 +46,7 @@ function Progress({ turn, room }: { turn: TurnView; room: GameRoomInfo }) {
   const names = waitingFor(left, room.players, { you: room.you });
   return (
     <p className="text-center text-sm text-stone-500">
-      {done} of {turn.givers.length} in{names && ` · ${names}`}
+      {done} of {turn.givers.length} clues in{names && ` · ${names}`}
     </p>
   );
 }
@@ -139,6 +139,9 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             : 'Send clue'}
       </Button>
       <RefusalSlot anchor="echo-clues" />
+      <p className="text-center text-xs text-stone-500">
+        Keep your screen away from the guesser, and don’t discuss clues.
+      </p>
     </form>
   );
 }
@@ -292,7 +295,7 @@ function outcomeLine(view: EchoView, turn: TurnView): string {
   if (turn.countedBy) line += ` ${nameOf(view, turn.countedBy)} counted it.`;
   if (turn.outcome === 'wrong') {
     if (turn.timedOut) line += ' Nobody decided in time, so it counts as wrong.';
-    line += ' This card and the next are lost.';
+    line += ` ${lossText(view)}`;
   }
   return line;
 }
@@ -435,6 +438,8 @@ const RESULT_ICON: Record<string, string> = { right: '✅', pass: '⏭️', wron
 /** Every card played so far: compact, so it can sit under the game on a phone. */
 export function History({ history, open }: { history: ResolvedCard[]; open?: boolean }) {
   if (history.length === 0) return null;
+  // Cards a wrong guess cost without being played, so the list adds up to the deck.
+  const burned = history.filter((h) => h.burned).length;
   return (
     <details className="group" open={open}>
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
@@ -460,6 +465,12 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
             </span>
           </li>
         ))}
+        {burned > 0 && (
+          <li className="flex items-baseline gap-2 text-stone-500">
+            <span aria-hidden>🔥</span>
+            {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
+          </li>
+        )}
       </ol>
     </details>
   );

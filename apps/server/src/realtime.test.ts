@@ -220,7 +220,12 @@ describe('realtime rooms', () => {
     void c.call('room:kick', 'nobody');
     expect(await dropped).toBe('io server disconnect');
     expect(server.rooms.snapshot(roomId, playerIdFromToken(token(0)))!.players).toEqual([
-      { id: playerIdFromToken(token(0)), name: 'Hosty', connected: false },
+      {
+        id: playerIdFromToken(token(0)),
+        name: 'Hosty',
+        connected: false,
+        awaySince: expect.any(Number) as number,
+      },
     ]);
   });
 
@@ -482,6 +487,23 @@ describe('realtime back room', () => {
     }
   });
 
+  it('sends signed-out players to the door as soon as the word changes', async () => {
+    const { app, url, cookie, roomId, signOutAll } = await openBackRoom();
+    const member = await connect(url, cookie);
+    try {
+      expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
+        ok: true,
+      });
+      const locked = new Promise<void>((resolve) => member.once('room:locked', () => resolve()));
+      // Nobody acts and nobody joins: the sign-out alone turns the member away.
+      await signOutAll();
+      await locked;
+    } finally {
+      member.close();
+      await app.close();
+    }
+  });
+
   it('keeps locked players out of private rooms and drops them when everyone is signed out', async () => {
     const { app, url, cookie, roomId, signOutAll } = await openBackRoom();
 
@@ -501,10 +523,11 @@ describe('realtime back room', () => {
         ok: true,
       });
 
+      // The sign-out drops the member from the room straight away.
       await signOutAll();
       expect(await member.call('game:action', { type: 'sit', playing: true })).toMatchObject({
         ok: false,
-        error: { code: 'backroom-locked' },
+        error: { code: 'not-joined' },
       });
     } finally {
       outsider.close();

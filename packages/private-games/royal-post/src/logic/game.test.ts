@@ -91,6 +91,20 @@ describe('editions', () => {
     h.act({ type: 'sit', playing: false }, 'cy');
     expect(royalPost.view(h.state, HOST).target).toBe(5);
   });
+
+  it('plays a short game to two tokens fewer, never below 2', () => {
+    expect([2, 3, 4].map((n) => tokensToWin(EDITIONS.classic, n, true))).toEqual([5, 3, 2]);
+    expect([2, 3, 4, 5, 6].map((n) => tokensToWin(EDITIONS['2019'], n, true))).toEqual([
+      4, 3, 2, 2, 2,
+    ]);
+    const h = harness(THREE);
+    expect(h.reject({ type: 'update-settings', short: true }, 'ana')).toBe('not-host');
+    h.act({ type: 'update-settings', short: true });
+    expect(royalPost.view(h.state, HOST).target).toBe(3);
+    h.act({ type: 'start' });
+    expect(h.state.target).toBe(3);
+    expect(h.reject({ type: 'update-settings', short: false })).toBe('in-progress');
+  });
 });
 
 describe('lobby', () => {

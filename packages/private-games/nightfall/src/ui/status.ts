@@ -119,12 +119,8 @@ export function statusFor(view: NightfallView, room: Room): Status {
       const text = names.length
         ? `${listNames(names)} ${names.length > 1 || names[0] === 'You' ? 'win' : 'wins'}!`
         : 'Nobody wins this time.';
-      return {
-        text: isHost
-          ? `${text} Play again when you’re ready.`
-          : `${text} ${waitingForHost(room, 'deal again')}`,
-        yourMove: false,
-      };
+      // Guests are told who deals again once, at the foot of the reveal (`waiting-host`).
+      return { text: isHost ? `${text} Play again when you’re ready.` : text, yourMove: false };
     }
   }
 }
@@ -138,6 +134,8 @@ export function nudgeFor(view: NightfallView, secondsLeft: number | null): strin
   const ready = n > 0 ? ` · ${n} of ${total} ready to vote` : '';
   if (secondsLeft <= 30) return `⏰ 30 seconds left!${ready}`;
   if (secondsLeft <= 60) return `🤔 Last minute: decide who you’ll vote for${ready}`;
-  if (secondsLeft <= 120) return `⏳ 2 minutes left${ready}`;
+  // A short heads-up as the clock passes 2:00, only when the day was longer than that.
+  if (secondsLeft <= 120 && secondsLeft > 105 && view.settings.daySeconds > 120)
+    return `⏳ 2 minutes left${ready}`;
   return n > 0 ? `✋ ${n} of ${total} ready to vote` : null;
 }
