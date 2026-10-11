@@ -143,6 +143,10 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(ben).toHaveTitle(YOUR_TURN);
   await sendLie(ben, 'tiny ukuleles');
+  // Both are warned that the lie will be shared; nobody else is.
+  await expect(ben.getByTestId('lie-shared')).toBeVisible();
+  await expect(ana.getByTestId('lie-shared')).toBeVisible();
+  await expect(cy.getByTestId('lie-shared')).toHaveCount(0);
   await sendLie(cy, 'Garden gnome');
   await sendLie(host, 'Purple llama');
 
@@ -183,6 +187,8 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana.getByText('🎲 Picked for you: it scores half.')).toBeVisible();
   const autoLie = await ana.getByLabel('Your lie').inputValue();
   expect(DECOYS).toContain(autoLie);
+  // One pick per round: the button goes, so it can't be pressed again to see other fakes.
+  await expect(ana.getByRole('button', { name: '🎲 Lie for me' })).toHaveCount(0);
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(cy).toHaveTitle(YOUR_TURN);
   await sendLie(ben, 'Moon cheese');

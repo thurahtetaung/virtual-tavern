@@ -123,6 +123,8 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
       if (await p.getByText('You are the storyteller').isVisible()) storyteller = p;
     }
     expect(storyteller).toBeTruthy();
+    // Everyone can see who tells next.
+    await expect(host.getByTestId('next-storyteller')).toContainText('Next storyteller:');
     await tell(storyteller!, `clue ${round}`);
     await expect(ana!.getByText(`“clue ${round}”`)).toBeVisible();
     for (const p of players) if (p !== storyteller) await give(p);
@@ -138,6 +140,9 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     await expect(host.getByText('📖 Story card')).toBeVisible();
     await expect(voters[0]!.getByText('✋ Your vote')).toBeVisible();
     await expect(host.getByText(/^Votes: /).first()).toBeVisible();
+    // The reveal names the scoring case and breaks each line down.
+    await expect(host.getByTestId('reveal-headline')).toHaveText(/found it/);
+    await expect(host.getByText(/\(storyteller\) · \d+ \(/)).toBeVisible();
     if (round === 1) {
       // The hint's button, next to the status line (the Players panel has one too).
       await late.getByRole('button', { name: 'Take a seat' }).first().click();

@@ -279,6 +279,21 @@ describe('between turns', () => {
     expect(h.state.draw).toHaveLength(3);
     const everywhere = [...h.state.draw, ...FOUR.flatMap((id) => hand(h, id))];
     expect(new Set(everywhere).size).toBe(27);
+    expect(reverie.view(h.state, 'ana').turn?.reshuffled).toBe(true);
+    // The note stays up for the whole turn; a turn that didn't reshuffle has none.
+    tellAndGive(h);
+    voteAll(h, ['ana']);
+    expect(reverie.view(h.state, 'ana').turn?.reshuffled).toBe(true);
+    const fresh = startedGame(FOUR);
+    // Everyone is told who tells next, and it follows the table round.
+    const next = reverie.view(fresh.state, null).turn!.nextStoryteller;
+    expect(next).toBe(fresh.state.turn!.nextStoryteller);
+    expect(next).not.toBe(storyteller(fresh));
+    tellAndGive(fresh);
+    voteAll(fresh, ['ana']);
+    fresh.act({ type: 'next-turn' });
+    expect(reverie.view(fresh.state, 'ana').turn?.reshuffled).toBe(false);
+    expect(storyteller(fresh)).toBe(next);
   });
 
   it('ends when someone reaches the target, sharing ties', () => {
@@ -546,9 +561,26 @@ describe('timers', () => {
     h.state = reverie.onDeadline!(h.state, reverie.nextDeadline!(h.state)!);
     expect(h.state.turn?.phase).toBe('reveal');
     expect(reverie.view(h.state, null).turn?.missedVote).toEqual([HOST, 'cy']);
-    // ben was the only voter and found it, so it counts as everyone finding it.
+    // ben was the only voter and found it; the two who missed the vote count as not finding it,
+    // so some found it: the storyteller (ana) and ben score 3.
+    expect(h.state.turn?.allOrNone).toBe(false);
+    expect([HOST, 'ana', 'ben', 'cy'].map((id) => score(h, id))).toEqual([0, 3, 3, 0]);
+  });
+
+  it('in strict mode count a missed vote as not finding the card', () => {
+    const strict = { guessSeconds: 60, timerMode: 'strict' as const };
+    // Everyone who voted missed it, and one didn't vote: still "nobody found it".
+    const h = startedGame(FOUR, strict);
+    tellAndGive(h);
+    const st = storyteller(h);
+    const [a, b, c] = othersOf(h) as [string, string, string];
+    const cardOf = (owner: string) => h.state.turn!.table.findIndex((t) => t.owner === owner);
+    h.act({ type: 'vote', index: cardOf(a) }, b);
+    h.act({ type: 'vote', index: cardOf(b) }, a);
+    h.state = reverie.onDeadline!(h.state, reverie.nextDeadline!(h.state)!);
     expect(h.state.turn?.allOrNone).toBe(true);
-    expect([HOST, 'ana', 'ben', 'cy'].map((id) => score(h, id))).toEqual([0, 0, 2, 0]);
+    expect(score(h, st)).toBe(0);
+    expect([a, b, c].map((id) => score(h, id))).toEqual([3, 3, 0]);
   });
 
   it('in strict mode score only those who voted, plus votes received, when time runs out', () => {

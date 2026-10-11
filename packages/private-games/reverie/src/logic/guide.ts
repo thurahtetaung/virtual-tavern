@@ -39,7 +39,8 @@ export const guide: GameGuide = {
         'All the cards are shuffled and laid face up, numbered.',
         'Everyone except the storyteller votes for the card they think is the storyteller’s. You can’t vote for your own card. You can change your vote (open another card and tap Change vote) until the last vote is in.',
         'The cards are revealed with their owners and votes, and points are scored.',
-        'The host presses Next turn: the table is discarded, everyone draws back up to a full hand, and the next player round the table becomes the storyteller.',
+        'The host presses Next turn: the table is discarded, everyone draws back up to a full hand, and the next player round the table becomes the storyteller. The scoreboard always names the next storyteller.',
+        'When the draw pile runs out, the used cards are shuffled back in to make a new pile, and the table is told so. The game never ends because the cards ran out.',
       ],
     },
     {
@@ -48,12 +49,13 @@ export const guide: GameGuide = {
         'If everyone found the storyteller’s card, or nobody did: the storyteller scores 0 and everyone else scores 2.',
         'Otherwise: the storyteller scores 3, and so does everyone who found the card.',
         'On top of that, each player except the storyteller scores 1 point for every vote their own card received.',
+        'The reveal shows how each player’s points add up, for example “3 (found it) + 2 (votes)”.',
       ],
     },
     {
       title: 'Winning',
       paragraphs: [
-        'When a turn ends with someone on the target score or more, the game is over and the highest score wins (ties share the win). The host chooses the target, 15, 20 or 30 points, in the settings.',
+        'When a turn ends with someone on the target score or more, the game is over and the highest score wins (ties share the win). The host’s button then reads See final scores instead of Next turn. The host chooses the target, 15, 20 or 30 points, in the settings.',
       ],
     },
     {
@@ -77,7 +79,7 @@ export const guide: GameGuide = {
       title: 'Timers (optional)',
       paragraphs: [
         'The host can set a time for the storyteller, and a time for giving cards and voting. By default the timer is just a reminder. In Strict mode, a storyteller who runs out of time is skipped, late card givers play the first card (or two) of their hand, and late voters miss the vote. The table is told each time: who was skipped, whose cards were played for them, and who missed the vote.',
-        'When a strict vote closes early, “everyone” and “nobody” are counted among those who voted. Someone who didn’t vote scores only the votes their own card received, and if nobody voted at all, nobody scores for the clue.',
+        'When a strict vote closes early, anyone who didn’t vote counts as not having found the card. So if only some of the players voted and found it, that’s “some found it”: the storyteller and the finders score 3. Someone who didn’t vote scores only the votes their own card received, and if nobody voted at all, nobody scores for the clue.',
       ],
     },
   ],

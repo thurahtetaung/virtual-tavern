@@ -13,7 +13,13 @@ import {
   storyteller,
   tellAndGive,
 } from '../logic/test-utils.ts';
-import { missedVoteNote, statusFor } from './status.ts';
+import {
+  missedVoteNote,
+  pointsBreakdown,
+  revealHeadline,
+  statusFor,
+  targetReached,
+} from './status.ts';
 
 const players = (offline: string[] = []) =>
   FOUR.map((id) => ({ id, name: id.toUpperCase(), connected: !offline.includes(id) }));
@@ -92,5 +98,57 @@ describe('statusFor during play', () => {
     expect(missedVoteNote(reverie.view(h.state, 'cy'))).toBe(
       '⏱ Time ran out before HOST, BEN and you voted.',
     );
+  });
+});
+
+describe('the reveal', () => {
+  it('breaks each line down and names the scoring case', () => {
+    const h = startedGame();
+    tellAndGive(h);
+    const st = storyteller(h);
+    const [a, b, c] = othersOf(h) as [string, string, string];
+    // a finds it; b and c vote for each other's cards.
+    const cardOf = (owner: string) => h.state.turn!.table.findIndex((t) => t.owner === owner);
+    h.act({ type: 'vote', index: storyIndex(h) }, a);
+    h.act({ type: 'vote', index: cardOf(c) }, b);
+    h.act({ type: 'vote', index: cardOf(b) }, c);
+    const v = reverie.view(h.state, a);
+    expect(revealHeadline(v)).toBe('Some found it: the storyteller and the finders score 3.');
+    expect(pointsBreakdown(v, st)).toBe('3 (some found it)');
+    expect(pointsBreakdown(v, a)).toBe('3 (found it)');
+    expect(pointsBreakdown(v, b)).toBe('1 (vote)');
+  });
+
+  it('says a lone finder among missed votes is “some found it”', () => {
+    const h = startedGame(FOUR, { guessSeconds: 60, timerMode: 'strict' });
+    tellAndGive(h);
+    const [a] = othersOf(h) as [string];
+    h.act({ type: 'vote', index: storyIndex(h) }, a);
+    h.state = reverie.onDeadline!(h.state, reverie.nextDeadline!(h.state)!);
+    const v = reverie.view(h.state, a);
+    expect(revealHeadline(v)).toMatch(/^Some found it \(a missed vote counts as not finding it\)/);
+    expect(revealHeadline(v)).not.toMatch(/Everyone/);
+  });
+
+  it('adds the bonus for an all-or-none turn to the votes', () => {
+    const h = startedGame();
+    playTurn(h, othersOf(h));
+    const v = reverie.view(h.state, null);
+    expect(revealHeadline(v)).toMatch(/^Everyone found it/);
+    expect(pointsBreakdown(v, storyteller(h))).toBe('0 (everyone or nobody found it)');
+    expect(pointsBreakdown(v, othersOf(h)[0]!)).toBe('2 (everyone found it)');
+  });
+
+  it('offers See final scores once someone reaches the target', () => {
+    const h = startedGame(FOUR, { targetScore: 15 });
+    playTurn(h, [othersOf(h)[0]!]);
+    expect(targetReached(reverie.view(h.state, HOST))).toBe(false);
+    h.state = {
+      ...h.state,
+      seats: { ...h.state.seats, ana: { ...h.state.seats.ana!, score: 15 } },
+    };
+    const v = reverie.view(h.state, HOST);
+    expect(targetReached(v)).toBe(true);
+    expect(statusFor(v, true, null).text).toContain('Press See final scores');
   });
 });

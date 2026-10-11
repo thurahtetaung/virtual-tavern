@@ -136,9 +136,59 @@ export function statusFor(
       yourMove: false,
     };
   }
+  const button = targetReached(view) ? 'See final scores' : 'Next turn';
   return isHost
-    ? { text: 'Cards revealed! Press Next turn when everyone has had a look.', yourMove: true }
+    ? { text: `Cards revealed! Press ${button} when everyone has had a look.`, yourMove: true }
     : { text: `Cards revealed! ${host('continue')}`, yourMove: false };
+}
+
+/** Someone playing has reached the target score: the host's next press ends the game. */
+export function targetReached(view: ReverieView): boolean {
+  return view.seats.some((s) => s.playing && s.score >= view.settings.targetScore);
+}
+
+/** The reveal's headline: which scoring case applied, and why. */
+export function revealHeadline(view: ReverieView): string {
+  const turn = view.turn;
+  if (!turn || turn.phase !== 'reveal') return '';
+  const missed = turn.missedVote.length > 0;
+  if (turn.table.every((t) => t.voters.length === 0)) {
+    return 'Nobody voted in time, so only the votes on cards count.';
+  }
+  const found = turn.table.find((t) => t.isStory)?.voters.length ?? 0;
+  if (!turn.allOrNone) {
+    return missed
+      ? 'Some found it (a missed vote counts as not finding it): the storyteller and the finders score 3.'
+      : 'Some found it: the storyteller and the finders score 3.';
+  }
+  if (found > 0)
+    return 'Everyone found it, so the storyteller scores nothing and the voters get 2.';
+  return missed
+    ? 'Nobody who voted found it, so the storyteller scores nothing and the voters get 2.'
+    : 'Nobody found it, so the storyteller scores nothing and the voters get 2.';
+}
+
+/**
+ * How a player's points this turn add up, e.g. "3 (found it) + 2 (votes)". Empty before the
+ * reveal or for someone not in it.
+ */
+export function pointsBreakdown(view: ReverieView, id: string): string {
+  const turn = view.turn;
+  const r = turn?.results?.[id];
+  if (!turn || !r) return '';
+  if (id === turn.storyteller) {
+    return r.points > 0 ? `${r.points} (some found it)` : '0 (everyone or nobody found it)';
+  }
+  const forClue = r.points - r.votesReceived;
+  const parts: string[] = [];
+  if (forClue > 0) {
+    const why = !turn.allOrNone ? 'found it' : r.foundIt ? 'everyone found it' : 'nobody found it';
+    parts.push(`${forClue} (${why})`);
+  }
+  if (r.votesReceived > 0) {
+    parts.push(`${r.votesReceived} (${r.votesReceived === 1 ? 'vote' : 'votes'})`);
+  }
+  return parts.join(' + ') || '0';
 }
 
 /** Names whose cards a strict timer gave for them, as a lead-in to the vote hint. */

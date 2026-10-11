@@ -127,6 +127,8 @@ export interface Turn {
   autoGiven?: PlayerId[];
   /** Players a strict timer left without a vote this turn. */
   missedVote?: PlayerId[];
+  /** The draw pile ran out before this turn, so the used cards were shuffled back in. */
+  reshuffled?: boolean;
 }
 
 /** Why the game ended: the target score was reached, or too few players were left to go on. */
@@ -236,6 +238,10 @@ export interface TurnView {
   autoGiven: PlayerId[];
   /** Players a strict timer left without a vote (filled at the reveal). */
   missedVote: PlayerId[];
+  /** Who tells the next story (as things stand now). */
+  nextStoryteller: PlayerId;
+  /** The draw pile ran out before this turn, so the used cards were shuffled back in. */
+  reshuffled: boolean;
 }
 
 export interface ReverieView {

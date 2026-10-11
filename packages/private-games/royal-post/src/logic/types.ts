@@ -132,6 +132,11 @@ export interface RoundResult {
   discardTotals: Record<PlayerId, number> | null;
   /** The one surviving player who played or discarded a Spy (2019), who gains a token. */
   spy: PlayerId | null;
+  /**
+   * Every player still in at the end who played or discarded a Spy: with more than one, nobody
+   * gets the bonus. Missing on rounds finished by older versions.
+   */
+  spies?: PlayerId[];
 }
 
 export interface Round {
@@ -145,6 +150,11 @@ export interface Round {
   setAside: Role | null;
   /** With two players, three more cards are set aside face up. */
   faceUp: Role[];
+  /**
+   * Cards taken off the top of the deck this round, so a Chancellor's note of the cards they put
+   * at the bottom can tell whether those are still in the deck. Missing in older rounds.
+   */
+  topDrawn?: number;
   current: PlayerId;
   stage: RoundStage;
   deadline: number | null;
@@ -219,6 +229,22 @@ export type Note =
       other: PlayerId;
       gave: Role;
       got: Role;
+      timedOut?: boolean;
+    }
+  /** Someone's Priest looked at the viewer's card, so they know it. */
+  | { id: number; round: number; kind: 'seen'; by: PlayerId; card: Role; timedOut?: boolean }
+  /**
+   * The Chancellor's cards put at the bottom of the deck, in deck order (the last is the very
+   * bottom). `from` is the first one's place from the top then, and `at` the round's `topDrawn`
+   * then, so the view can tell which are still in the deck.
+   */
+  | {
+      id: number;
+      round: number;
+      kind: 'bottom';
+      cards: Role[];
+      from: number;
+      at: number;
       timedOut?: boolean;
     };
 
@@ -302,8 +328,10 @@ export interface RoundView {
   current: PlayerId;
   stage: RoundStage;
   deckCount: number;
-  /** Whether the face-down set-aside card is still there (never what it is). */
+  /** Whether the face-down set-aside card is still there (never what it is until the round ends). */
   setAside: boolean;
+  /** The face-down set-aside card, shown once the round is over (null before, or if drawn). */
+  setAsideCard: Role | null;
   faceUp: Role[];
   deadline: number | null;
   result: RoundResult | null;
@@ -322,6 +350,11 @@ export interface RoyalPostView {
   log: LogEntry[];
   /** Only the viewer's own private notes. */
   notes: Note[];
+  /**
+   * Cards the viewer knows are still in the deck this round (from their Chancellor), in deck
+   * order: the last is the very bottom.
+   */
+  knownDeck: Role[];
   winners: PlayerId[];
   endReason: EndReason | null;
 }

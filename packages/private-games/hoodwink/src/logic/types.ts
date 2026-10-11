@@ -67,6 +67,13 @@ export interface Round {
   lies: Record<PlayerId, string>;
   /** Players whose current lie the game picked for them. */
   autoLies: PlayerId[];
+  /**
+   * The built-in fake set aside for each player when the round began, so whether "Lie for me" is
+   * offered never depends on what anyone else does. Missing on rounds saved by older versions.
+   */
+  fakes?: Record<PlayerId, string>;
+  /** Players who have pressed "Lie for me" this round (once each): their fake is never a house fake. */
+  fakeShown?: PlayerId[];
   /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
   filled?: PlayerId[];
   /** The strict vote timer ended the vote before everyone had voted. */
@@ -188,8 +195,13 @@ export interface RoundView {
   myLieFilled: boolean;
   /** The strict vote timer ended the vote before everyone had voted. */
   voteTimedOut: boolean;
-  /** The question has built-in fakes, so "Lie for me" is offered. */
+  /**
+   * "Lie for me" is offered to the viewer: a fake was set aside for them, and they haven't sent a
+   * lie yet (it's one pick per round).
+   */
   canLieForMe: boolean;
+  /** Another player has written the same lie as the viewer, so it will be shared. */
+  myLieShared: boolean;
   /** The board: empty while lies are being written. */
   options: OptionView[];
   voters: PlayerId[];

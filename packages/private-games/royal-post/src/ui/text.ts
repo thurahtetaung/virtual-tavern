@@ -171,33 +171,54 @@ export function describeNote(view: RoyalPostView, note: Note): Line {
   return note.timedOut ? ['⏱ Time ran out, so a card was played for you. ', ...body] : body;
 }
 
+/** The other player a note is about. */
+export function noteOther(note: Note): string | null {
+  switch (note.kind) {
+    case 'peek':
+      return note.target;
+    case 'seen':
+      return note.by;
+    case 'bottom':
+      return null;
+    default:
+      return note.other;
+  }
+}
+
 function noteBody(view: RoyalPostView, note: Note): Line {
-  const other = nameOf(view, note.kind === 'peek' ? note.target : note.other);
+  const other = nameOf(view, noteOther(note));
   switch (note.kind) {
     case 'peek':
       return line`You saw ${other}’s card: ${c(note.card)}.`;
+    case 'seen':
+      return line`${other} looked at your card with the ${c('priest')}: they know you hold ${c(note.card)}.`;
     case 'compare': {
       const outcome =
         note.result === 'win'
           ? `Yours is higher: ${other} is out of the round.`
           : note.result === 'lose'
             ? 'Theirs is higher: you are out of the round.'
-            : 'A tie: nobody is out.';
+            : `A tie: nobody is out, and ${other} knows your card too.`;
       return line`You compared hands with ${other}: your ${c(note.mine)} against their ${c(note.theirs)}. ${outcome}`;
     }
     case 'trade':
-      return line`You traded hands with ${other}: you gave ${c(note.gave)} and got ${c(note.got)}.`;
+      return line`You traded hands with ${other}: you gave ${c(note.gave)} and got ${c(note.got)}, so ${other} knows you hold ${c(note.got)}.`;
+    case 'bottom':
+      return note.cards.length === 1
+        ? line`You put ${c(note.cards[0]!)} at the bottom of the deck.`
+        : line`You put ${c(note.cards[0]!)}, then ${c(note.cards[1]!)} (the very bottom), at the bottom of the deck.`;
   }
 }
 
 /**
  * How many of each card the viewer hasn't seen yet: the edition's count less every discard (out
  * players' hands included), the face-up set-aside cards and the viewer's own hand. These are in
- * other hands, the deck or the face-down set-aside card.
+ * other hands, the deck or the face-down set-aside card. `inDeck` counts those the viewer knows
+ * are still in the deck, because their Chancellor put them at the bottom.
  */
 export function unseenCounts(
   view: RoyalPostView,
-): { role: Role; rank: number; total: number; unseen: number }[] {
+): { role: Role; rank: number; total: number; unseen: number; inDeck: number }[] {
   const round = view.round;
   const seen = new Map<Role, number>();
   const add = (r: Role) => seen.set(r, (seen.get(r) ?? 0) + 1);
@@ -206,10 +227,73 @@ export function unseenCounts(
     round.faceUp.forEach(add);
     view.hand.forEach(add);
   }
-  return EDITIONS[view.settings.edition].cards.map(({ role, rank, count }) => ({
-    role,
-    rank,
-    total: count,
-    unseen: Math.max(0, count - (seen.get(role) ?? 0)),
-  }));
+  const known = view.knownDeck ?? [];
+  return EDITIONS[view.settings.edition].cards.map(({ role, rank, count }) => {
+    const unseen = Math.max(0, count - (seen.get(role) ?? 0));
+    return {
+      role,
+      rank,
+      total: count,
+      unseen,
+      inDeck: Math.min(unseen, known.filter((r) => r === role).length),
+    };
+  });
+}
+
+/** The round result's Spy line: who gained the bonus, or why nobody did. Null if nobody played one. */
+export function spyBonusLine(view: RoyalPostView): Line | null {
+  const result = view.round?.result;
+  if (!result) return null;
+  const Who = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
+  if (result.spy) return line`${Who(result.spy)} gained a token for the ${c('spy')}.`;
+  const spies = result.spies ?? [];
+  if (spies.length < 2) return null;
+  const names = listNames(spies.map((id) => (id === view.me?.id ? 'you' : nameOf(view, id))));
+  return line`${spies.length === 2 ? 'Both ' : 'All of '}${names} played a ${c('spy')}, so nobody gets the bonus.`;
+}
+
+/** Classic ties: the discard totals, and what they settled. Null when there was no tie to settle. */
+export function tiebreakLine(view: RoyalPostView): string | null {
+  const result = view.round?.result;
+  if (!result?.discardTotals) return null;
+  const totals = Object.entries(result.discardTotals)
+    .map(([id, n]) => `${nameOf(view, id)} ${n}`)
+    .join(', ');
+  const settled =
+    result.winners.length === 0 ? ' Still tied on discards, so nobody wins the token.' : '';
+  return `Tied cards were settled on discards: ${totals}.${settled}`;
+}
+
+/** Everyone's tokens against the target, most first: "4 tokens to win: Ana 3, Ben 1". */
+export function tokensLine(view: RoyalPostView): string {
+  const ids = view.round?.players.map((p) => p.id) ?? [];
+  const tokens = (id: string) => view.seats.find((s) => s.id === id)?.tokens ?? 0;
+  const list = ids
+    .filter((id) => view.seats.some((s) => s.id === id))
+    .sort((a, b) => tokens(b) - tokens(a))
+    .map((id) => `${id === view.me?.id ? 'You' : nameOf(view, id)} ${tokens(id)}`)
+    .join(', ');
+  const n = view.target;
+  return `${n} token${n === 1 ? '' : 's'} to win${list ? `: ${list}` : ''}.`;
+}
+
+/** The viewer's notes from the round on the table, and those from earlier rounds. */
+export function notesByRound(view: RoyalPostView): { current: Note[]; earlier: Note[] } {
+  const number = view.round?.number ?? 0;
+  return {
+    current: view.notes.filter((n) => n.round === number),
+    earlier: view.notes.filter((n) => n.round !== number),
+  };
+}
+
+/**
+ * Notes made by the move that ended the round (a Baron comparison, say): shown in the round
+ * result rather than popping up over it.
+ */
+export function roundEndingNotes(view: RoyalPostView): Note[] {
+  const round = view.round;
+  if (!round || round.stage !== 'over') return [];
+  const lastPlay = view.log.findLast((e) => e.kind === 'play' && e.round === round.number);
+  if (!lastPlay) return [];
+  return view.notes.filter((n) => n.round === round.number && n.id > lastPlay.id);
 }
