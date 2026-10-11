@@ -67,6 +67,11 @@ Only people with the link. Room links are long and unguessable, and rooms aren't
 **Can I delete my data?**
 Clearing this site's data in your browser forgets your name and ID. Old rooms delete themselves.
 
+## The back room
+
+**What's the back room?**
+A password-protected corner of the site for the owner's friends. If you don't have the password, it isn't for you. Sorry!
+
 ## The games
 
 **Are these games yours?**
