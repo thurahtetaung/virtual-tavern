@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.0...v0.16.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **ux:** round 1: unstick players, name who we're waiting for, explain timeouts and polish every game ([#74](https://github.com/thurahtetaung/virtual-tavern/issues/74)) ([6520f2d](https://github.com/thurahtetaung/virtual-tavern/commit/6520f2dba64f73099fd83faf33df74c9e7ae8440))
+
 ## [0.16.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.15.0...v0.16.0) (2026-10-11)
 
 
