@@ -1,6 +1,7 @@
 import { Button, cn } from '@vt/ui';
 import { Link } from 'react-router';
 import type { ClientGame } from '../games/registry.ts';
+import { article } from '../lib/article.ts';
 
 /** A game's tile with its pitch and a "Create a room" button. `dark` suits the back room. */
 export function GameCard({
@@ -44,7 +45,7 @@ export function GameCard({
       <div className="flex flex-wrap gap-2">
         <Button
           size="lg"
-          aria-label={`Create ${/^[aeiou]/i.test(game.name) ? 'an' : 'a'} ${game.name} room`}
+          aria-label={`Create ${article(game.name)} ${game.name} room`}
           disabled={creating !== null}
           onClick={() => onCreate(game.id)}
         >
