@@ -1,6 +1,6 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { type Exercised, playUntil } from './royal-post-play.ts';
+import { type Exercised, playUntil, takeTurn, whoseTurn } from './royal-post-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -83,4 +83,47 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   await expect(host.getByText('Round 1')).toBeVisible();
   await playUntil(host, players, '2019', done, () => done.chancellor);
   expect(done).toEqual({ guard: true, priest: true, handmaid: true, chancellor: true });
+});
+
+test('cards on the table open full size: the face-up set-aside cards and the discards', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const host = await visitor(browser, 'Hana');
+  await unlock(host);
+  await host.getByRole('button', { name: 'Create a Royal Post room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const ana = await visitor(browser, 'Ana');
+  await unlock(ana, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
+  await expect(host.getByText('Players (2/4)')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(host.getByText('Round 1')).toBeVisible();
+
+  // Two players: three cards are set aside face up, and each opens to read (never to play).
+  const faceUp = ana.getByRole('list', { name: 'Set aside face up' }).getByRole('button');
+  await expect(faceUp).toHaveCount(3);
+  await faceUp.first().click();
+  const sheet = ana.getByRole('dialog');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^Play / })).toHaveCount(0);
+  await sheet.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(sheet).toBeHidden();
+
+  // After one turn, the played card sits in a discard pile and opens the same way.
+  const players = [host, ana];
+  const turn = await whoseTurn(players, host);
+  if (turn === 'over') throw new Error('the round ended before anyone played');
+  await takeTurn(turn, players, 'classic', {
+    guard: true,
+    priest: true,
+    handmaid: true,
+    chancellor: true,
+  });
+  const discard = host.getByRole('list', { name: 'Discards' }).getByRole('button').first();
+  await discard.click();
+  await expect(host.getByRole('dialog')).toBeVisible();
+  await expect(host.getByRole('dialog').getByRole('button', { name: /^Play / })).toHaveCount(0);
+  await host.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(host.getByRole('dialog')).toBeHidden();
 });
