@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.2...v0.16.3) (2026-10-11)
+
+
+### Bug Fixes
+
+* **enigma:** stop team notes overwriting each other and lagging ([#78](https://github.com/thurahtetaung/virtual-tavern/issues/78)) ([a4f69de](https://github.com/thurahtetaung/virtual-tavern/commit/a4f69de0a5e1148f4a934c29a795404d7f27d598))
+
 ## [0.16.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.1...v0.16.2) (2026-10-11)
 
 
