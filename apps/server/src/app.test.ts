@@ -423,3 +423,24 @@ describe('isLocalAddress', () => {
     }
   });
 });
+
+describe('forget me', () => {
+  const app = testApp();
+  afterEach(() => app.close());
+
+  it('forgets the player behind a token, and refuses anything that is not a token', async () => {
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/me/forget',
+      payload: { token: 'x' },
+    });
+    expect(bad.statusCode).toBe(400);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/me/forget',
+      payload: { token: token(1) },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true });
+  });
+});

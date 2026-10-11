@@ -69,3 +69,15 @@ export function forgetLastRoom(id?: string) {
     // Nothing stored anyway.
   }
 }
+
+/** After "Forget me": drop this browser's token, name and last room, so it starts afresh. */
+export function forgetIdentity() {
+  memoryToken = null;
+  for (const key of [TOKEN_KEY, NAME_KEY, LAST_ROOM_KEY]) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Nothing stored anyway.
+    }
+  }
+}

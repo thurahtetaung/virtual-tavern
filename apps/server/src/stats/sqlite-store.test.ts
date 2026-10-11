@@ -557,4 +557,27 @@ describe('SqliteStatsStore', () => {
     });
     expect(resolveWindow({ range: 'custom', from: D3, to: D1 }, D3, null)).toBeTypeOf('string');
   });
+
+  it('forgets a player: their events, names and totals go; others keep theirs, scrubbed', () => {
+    store.append([
+      ev(at(D1, 19), 'game.started', 'codenames', { players: ['ana', 'ben'] }, null),
+      ev(at(D1, 19, 5), 'insight.guess', 'codenames', { correct: true }, 'ana'),
+      ev(at(D1, 19, 6), 'insight.guess', 'codenames', { correct: false }, 'ben'),
+      ev(at(D1, 19, 30), 'game.ended', 'codenames', { players: ['ana', 'ben'], winners: ['ana'] }),
+    ]);
+    store.rollupDay(D1, at(D2, 1));
+    const bens = count("select count(*) from stats_events where player_id = 'ben'");
+    expect(store.forgetPlayer('ana')).toBeGreaterThan(0);
+    expect(count("select count(*) from stats_events where player_id = 'ana'")).toBe(0);
+    expect(count("select count(*) from stats_events where instr(props, 'ana') > 0")).toBe(0);
+    expect(count("select count(*) from stats_players where player_id = 'ana'")).toBe(0);
+    expect(count("select count(*) from stats_player_names where player_id = 'ana'")).toBe(0);
+    expect(count("select count(*) from stats_daily_players where player_id = 'ana'")).toBe(0);
+    // Ben's own record stays, and the game he played in still names a (forgotten) winner.
+    expect(count("select count(*) from stats_events where player_id = 'ben'")).toBe(bens);
+    expect(count("select count(*) from stats_players where player_id = 'ben'")).toBe(1);
+    expect(
+      count("select count(*) from stats_events where instr(props, 'forgotten') > 0"),
+    ).toBeGreaterThanOrEqual(2);
+  });
 });

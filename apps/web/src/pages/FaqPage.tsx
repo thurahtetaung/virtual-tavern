@@ -1,6 +1,7 @@
 import { Panel } from '@vt/ui';
 import { Fragment } from 'react';
 import faqSource from '../../../../docs/faq.md?raw';
+import { ForgetMe } from '../components/ForgetMe.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { boldRuns, parseFaq } from '../lib/faq.ts';
 
@@ -58,6 +59,11 @@ export function FaqPage() {
                 </details>
               ))}
             </Panel>
+            {section.title === 'Accounts and privacy' && (
+              <div className="mt-3">
+                <ForgetMe />
+              </div>
+            )}
           </section>
         ))}
       </div>
