@@ -14,6 +14,7 @@ import { RoomManager } from './rooms/manager.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes, requestUnlocked } from './routes/backroom.ts';
+import { privateGameAdminRoutes } from './routes/private-games.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { addDays, dayOf } from './stats/days.ts';
@@ -21,6 +22,7 @@ import { LiveTracker } from './stats/live.ts';
 import { StatsRecorder } from './stats/recorder.ts';
 import { SqliteStatsStore } from './stats/sqlite-store.ts';
 import { RAW_RETENTION_DAYS } from './stats/types.ts';
+import { PrivateGameSettings } from './private-games.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
@@ -99,6 +101,7 @@ export function buildApp(opts: AppOptions) {
     ? new AdminAuth(opts.adminPassword, opts.sessionSecret)
     : null;
   const assets = opts.r2 ? new R2Assets(opts.r2) : null;
+  const privateGames = new PrivateGameSettings(db);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
   if (opts.packsFolder) {
@@ -216,11 +219,13 @@ export function buildApp(opts: AppOptions) {
       wordLists,
       games,
       unlocked: (req) => requestUnlocked(req, backroom),
+      titles: privateGames,
     });
     adminRoutes(scope, { auth: adminAuth, wordLists, questionDecks, backroom, now });
-    backroomRoutes(scope, { backroom, games, assets, questionDecks });
+    backroomRoutes(scope, { backroom, games, assets, questionDecks, privateGames });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
+      privateGameAdminRoutes(admin, { games, assets, settings: privateGames });
       statsRoutes(admin, {
         queries: stats,
         store: stats,

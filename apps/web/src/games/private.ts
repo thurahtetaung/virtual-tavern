@@ -1,5 +1,6 @@
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-originals/guide';
+import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { lazy } from 'react';
@@ -48,6 +49,15 @@ export const privateGames: ClientGame[] = [
       import('@vt/private-masquerade-originals/ui').then((m) => ({
         default: m.MasqueradeOriginalsGame,
       })),
+    ),
+  },
+  {
+    id: 'nightfall',
+    name: 'Nightfall',
+    guide: nightfallGuide,
+    icon: '🐺',
+    Component: lazy(() =>
+      import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
     ),
   },
 ];

@@ -3,9 +3,16 @@ import { cn } from '@vt/ui';
 import { useMemo, useState } from 'react';
 import { statsApi } from './api.ts';
 import { type GameInfo, gameColor, useLoad, useStats } from './context.tsx';
-import { type FigureModel, cloudSize, figureModel, isTileFigure, settingLabel } from './figures.ts';
+import {
+  type FigureModel,
+  cloudSize,
+  figureModel,
+  isTileFigure,
+  matrixCell,
+  settingLabel,
+} from './figures.ts';
 import { bucketLabel, compact, duration, percent, plain } from './format.ts';
-import { columnsOption, isEmptySeries } from './options.ts';
+import { columnsOption, isEmptySeries, matrixOption } from './options.ts';
 import { type ChartTokens, slotColor } from './palette.ts';
 import { useChartTokens } from './theme.ts';
 import { kindsWithWords, knownWordKinds, wordKindLabel } from './word-kinds.ts';
@@ -250,6 +257,7 @@ export function FigureChart({
       </ChartCard>
     );
   }
+  if (fig.kind === 'matrix') return <MatrixChart fig={fig} tokens={tokens} />;
   if (fig.kind === 'histogram' && histogram) {
     return (
       <ChartCard
@@ -265,6 +273,33 @@ export function FigureChart({
     );
   }
   return null;
+}
+
+/** A heatmap table (roles by setup and wins, teams by table size), with its table view. */
+function MatrixChart({
+  fig,
+  tokens,
+}: {
+  fig: Extract<FigureModel, { kind: 'matrix' }>;
+  tokens: ChartTokens;
+}) {
+  const labels = useMemo(
+    () => fig.values.map((r) => r.map((v, c) => matrixCell(v, fig.units[c]!))),
+    [fig],
+  );
+  const option = useMemo(
+    () => matrixOption(fig.columns, fig.rows, fig.shades, labels, tokens),
+    [fig, labels, tokens],
+  );
+  return (
+    <ChartCard
+      title={fig.label}
+      empty={fig.rows.length === 0 || fig.columns.length === 0}
+      table={{ columns: ['', ...fig.columns], rows: fig.rows.map((r, i) => [r, ...labels[i]!]) }}
+    >
+      <EChart option={option} height={Math.max(120, 28 * fig.rows.length + 40)} label={fig.label} />
+    </ChartCard>
+  );
 }
 
 /** A 100% bar: one segment per part, a 2 px surface gap between them, the first and last rounded. */

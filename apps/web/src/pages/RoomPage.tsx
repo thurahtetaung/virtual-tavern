@@ -7,7 +7,7 @@ import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
-import { type ClientGame, loadGame } from '../games/registry.ts';
+import { type ClientGame, loadGame, withTitle } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -36,7 +36,8 @@ export function RoomPage() {
       .then(async (room) => {
         if (stale) return;
         setLookup({ kind: 'found', room });
-        setGame((await loadGame(room.gameId)) ?? 'missing');
+        const found = await loadGame(room.gameId);
+        setGame(found ? withTitle(found, room.title) : 'missing');
       })
       .catch((err: unknown) => {
         if (stale) return;

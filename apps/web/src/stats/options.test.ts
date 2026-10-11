@@ -47,15 +47,17 @@ describe('chart colours', () => {
     expect(slots.get('masquerade')).toBe(5);
     expect(slots.get('royal-post')).toBe(6);
     expect(slots.get('masquerade-originals')).toBe(7);
+    expect(slots.get('nightfall')).toBe(8);
     // With every slot taken, other games get the neutral colour.
     for (const id of ['zeta', 'alpha']) expect(slotColor(light, slotFor(id))).toBe(light.other);
     // A filter that hides a game never repaints the others.
     expect(gameSlots(['zeta']).get('zeta')).toBe(slots.get('zeta'));
   });
 
-  it('falls back to the neutral colour past the eighth slot', () => {
+  it('falls back to the neutral colour past the last slot', () => {
     expect(slotColor(light, 0)).toBe(light.series[0]);
-    expect(slotColor(light, 8)).toBe(light.other);
+    expect(slotColor(light, 8)).toBe(light.series[8]);
+    expect(slotColor(light, 9)).toBe(light.other);
     expect(slotColor(dark, undefined)).toBe(dark.other);
     expect(dark.series).not.toEqual(light.series);
   });

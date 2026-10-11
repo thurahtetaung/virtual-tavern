@@ -10,6 +10,7 @@ import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
+import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
 import { deckBackupZip, deckFile } from '../lib/question-deck-backup.ts';
@@ -40,6 +41,8 @@ export function AdminPage() {
         <div className="space-y-8">
           <AdminNav current="lists" />
           <BackroomAdmin />
+          <GameTitlesAdmin />
+          <NightfallMusicAdmin />
           <WordLists onSignOut={refresh} />
           <QuestionDecks />
         </div>

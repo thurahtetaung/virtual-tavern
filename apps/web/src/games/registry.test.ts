@@ -17,4 +17,9 @@ describe('offeredPrivateGames', () => {
     const offered = [{ id: 'codenames' }, { id: 'secret-game', private: true }];
     expect(offeredPrivateGames(offered, known).map((g) => g.id)).toEqual(['secret-game']);
   });
+
+  it('shows a private game under the title the server sent', () => {
+    const offered = [{ id: 'secret-game', private: true, title: 'Real Title' }];
+    expect(offeredPrivateGames(offered, known).map((g) => g.name)).toEqual(['Real Title']);
+  });
 });

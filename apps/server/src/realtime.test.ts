@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import { type TestClient, bareRealtime, connect, tempDb, testApp, token } from './test/helpers.ts';
+import { playNightfall } from './test/nightfall.ts';
 import { playRoyalPostTurn, royalPostView } from './test/royal-post.ts';
 
 const view = (s: RoomSnapshot) => s.game as CodenamesView;
@@ -511,6 +512,87 @@ describe('realtime back room', () => {
       await app.close();
     }
   });
+});
+
+describe('realtime Nightfall', () => {
+  it('plays a whole game behind the back room, keeping every card secret until the reveal', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const clients: TestClient[] = [];
+    try {
+      const admin = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: { password: 'hunter2' },
+      });
+      await app.inject({
+        method: 'PUT',
+        url: '/api/admin/backroom/password',
+        headers: { cookie: `vt_admin=${admin.cookies.find((c) => c.name === 'vt_admin')!.value}` },
+        payload: { password: 'speakeasy' },
+      });
+      const unlocked = await app.inject({
+        method: 'POST',
+        url: '/api/backroom/unlock',
+        payload: { password: 'speakeasy' },
+      });
+      const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+      const { roomId } = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/rooms',
+          headers: { cookie },
+          payload: { gameId: 'nightfall', token: token(60) },
+        })
+      ).json<{ roomId: string }>();
+      const outsider = await connect(url);
+      clients.push(outsider);
+      expect(
+        await outsider.call('room:join', { roomId, token: token(69), name: 'Out' }),
+      ).toMatchObject({ ok: false, error: { code: 'backroom-locked' } });
+      for (const [i, name] of ['Ana', 'Ben', 'Cy'].entries()) {
+        const c = await connect(url, cookie);
+        clients.push(c);
+        expect(await c.call('room:join', { roomId, token: token(60 + i), name })).toEqual({
+          ok: true,
+        });
+      }
+      const players = clients.slice(1);
+      await Promise.all(players.map((c) => c.until((s) => s.players.length === 3)));
+      const roles = ['werewolf', 'werewolf', 'seer', 'robber', 'villager', 'troublemaker'] as const;
+      // Ben and Cy vote for Ana; Ana votes for Ben.
+      const { seen, final } = await playNightfall(players, [...roles], (i) => (i === 0 ? 1 : 0));
+
+      const result = final[0]!.reveal!.result;
+      expect(result.deaths.map((d) => d.player)).toEqual([final[0]!.me!.id]);
+      for (const v of final) expect(v.reveal!.result).toEqual(result);
+      for (const [c, views] of seen) {
+        const me = final[players.indexOf(c)]!.me!.id;
+        for (const v of views) {
+          if (v.phase === 'reveal') continue;
+          const json = JSON.stringify({
+            ...v,
+            settings: null,
+            notes: null,
+            myRole: null,
+            night: v.night && { ...v.night, acting: null },
+          });
+          for (const r of roles) expect(json).not.toContain(`"${r}"`);
+          for (const key of ['"cards":', '"center":', '"timeline":', '"seed":', '"dealt":'])
+            expect(json).not.toContain(key);
+        }
+        // Notes are each player's own: no id appears in two players' notes.
+        const mine = new Set(final[players.indexOf(c)]!.notes.map((n) => n.id));
+        for (const other of final.filter((v) => v.me!.id !== me))
+          for (const n of other.notes) expect(mine.has(n.id)).toBe(false);
+      }
+    } finally {
+      for (const c of clients) c.close();
+      await app.close();
+    }
+  }, 60_000);
 });
 
 describe('realtime Royal Post', () => {

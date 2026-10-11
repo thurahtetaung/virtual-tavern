@@ -201,6 +201,24 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       if (word) agg.addWord(day, game, TRICKY_KIND, word, 1);
     }
   }
+  if (game === 'nightfall' && type === 'player' && playerId) {
+    // The fun facts: each is a per-player counter, summed across games.
+    const facts: [string, unknown][] = [
+      ['nf.lone_wolf', props.loneWolf],
+      ['nf.tanner_dream', props.tannerDream],
+      ['nf.identity_crisis', props.identityCrisis],
+      ['nf.blindsided', props.blindsided],
+      ['nf.bodyguard_save', props.bodyguardSave],
+      ['nf.wolf_votes', props.votedWolf],
+      ['nf.village_votes', props.votedVillager],
+      ['nf.village_death', props.villageDeath],
+    ];
+    for (const [metric, v] of facts) if (v === true) credit(playerId, metric);
+    const shots = num(props.hunterShots) ?? 0;
+    if (shots > 0) credit(playerId, 'nf.hunter_shots', shots);
+    const moved = num(props.cardsMoved) ?? 0;
+    if (moved > 0) credit(playerId, 'nf.cards_moved', moved);
+  }
   if (game === 'royal-post' && playerId) {
     if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');
     if (type === 'elimination' && lostPrincess(props)) credit(playerId, 'princess_falls');

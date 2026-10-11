@@ -99,6 +99,9 @@ importers:
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
+      '@vt/private-nightfall':
+        specifier: workspace:*
+        version: link:../../packages/private-games/nightfall
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -144,6 +147,9 @@ importers:
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
+      '@vt/private-nightfall':
+        specifier: workspace:*
+        version: link:../../packages/private-games/nightfall
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -306,6 +312,25 @@ importers:
       '@vt/ui':
         specifier: workspace:*
         version: link:../../ui
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/nightfall:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

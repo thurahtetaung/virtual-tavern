@@ -20,6 +20,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import { type TestClient, connect, testApp, token } from '../test/helpers.ts';
+import { playNightfall } from '../test/nightfall.ts';
 import { playRoyalPostTurn, royalPostView } from '../test/royal-post.ts';
 
 const DAY = '2026-10-10';
@@ -602,6 +603,117 @@ describe('admin stats', () => {
     const words = (await get<StatsWords>('words?game=masquerade&kind=clue&range=today')).body.words;
     expect(words.reduce((n, w) => n + w.count, 0)).toBe(2);
   });
+
+  it('turns a Nightfall game into figures, words and fun facts', async () => {
+    // The night runs on real timers, so this app keeps the real clock.
+    const app = testApp();
+    cleanups.push(() => app.close());
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { password: 'hunter2' },
+    });
+    const admin = login.cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+    const get = async <T>(path: string) =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/admin/stats/${path}`,
+          headers: { cookie: admin },
+        })
+      ).json<T>();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: admin },
+      payload: { password: 'speakeasy' },
+    });
+    const unlocked = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/unlock',
+      payload: { password: 'speakeasy' },
+    });
+    const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        headers: { cookie },
+        payload: { gameId: 'nightfall', token: token(80) },
+      })
+    ).json<{ roomId: string }>();
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Pia', 'Quin', 'Rex'].entries()) {
+      const c = await connect(url, cookie);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(80 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((s) => s.players.length === 3)));
+    const roles = ['werewolf', 'werewolf', 'seer', 'robber', 'troublemaker', 'villager'];
+    // Quin and Rex vote for Pia; Pia votes for Quin.
+    const { final, ids } = await playNightfall(clients, roles as never, (i) => (i === 0 ? 1 : 0));
+    const result = final[0]!.reveal!.result;
+    const name = (id: string) => final[0]!.table!.find((p) => p.id === id)!.name;
+
+    // Give the recorder a moment to write.
+    await new Promise((r) => setTimeout(r, 2500));
+    const stats = await get<GameStats>('games/nightfall?range=today');
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    const won = (team: string) => (result.teams.some((t) => t.team === team && t.won) ? 1 : 0);
+    const parts = (figs['wins-by-team'] as { parts: { label: string; value: number }[] }).parts;
+    expect(parts).toContainEqual({ label: 'Village', value: won('village') });
+    expect(parts).toContainEqual({ label: 'Werewolves', value: won('werewolf') });
+    expect(parts).toContainEqual({ label: 'Nobody', value: result.winners.length ? 0 : 1 });
+    const endings = figs.endings as { parts: { value: number }[] };
+    expect(endings.parts.reduce((n, p) => n + p.value, 0)).toBe(1);
+    const wolf = (id: string) => ['werewolf'].includes(String(result.identities[id]!.role));
+    const onWolves = ids.filter((v) => wolf(result.votes[v]!)).length;
+    expect(figs['vote-accuracy']).toMatchObject({
+      kind: 'percent',
+      value: Math.round((onWolves / 3) * 1000) / 10,
+    });
+    const matrix = figs.roles as { kind: string; rows: { label: string; values: number[] }[] };
+    expect(matrix.kind).toBe('matrix');
+    expect(matrix.rows.map((r) => r.label).sort()).toEqual([
+      'Robber',
+      'Seer',
+      'Troublemaker',
+      'Villager',
+      'Werewolf',
+    ]);
+    for (const row of matrix.rows) expect(row.values[0]).toBe(1);
+    expect(figs['win-rate-by-players']).toMatchObject({ kind: 'matrix', columns: ['3 players'] });
+    expect(figs['night-length']).toMatchObject({ kind: 'number', unit: 's' });
+    expect((figs['night-length'] as { value: number }).value).toBeGreaterThan(4);
+
+    const dealt = await get<StatsWords>('words?game=nightfall&kind=clue&range=today');
+    expect(dealt.words.reduce((n, w) => n + w.count, 0)).toBe(3);
+
+    const facts = Object.fromEntries(
+      (await get<StatsFun>('fun?range=today')).facts.map((f) => [f.id, f]),
+    );
+    const villagerDied = result.deaths.some((d) => result.identities[d.player]!.team === 'village');
+    if (villagerDied) {
+      expect(facts['village-idiot']).toMatchObject({ title: 'Village Idiot', gameId: 'nightfall' });
+      expect(facts['village-idiot']!.text).toContain(name(result.deaths[0]!.player));
+    } else expect(facts['village-idiot']).toBeUndefined();
+    if (onWolves > 0) expect(facts['werewolf-whisperer']).toMatchObject({ gameId: 'nightfall' });
+    else expect(facts['werewolf-whisperer']).toBeUndefined();
+    const players = (await get<StatsPlayers>('players?range=today')).players;
+    expect(
+      players
+        .filter((p) => p.wins > 0)
+        .map((p) => p.name)
+        .sort(),
+    ).toEqual(result.winners.map(name).sort());
+  }, 60_000);
 
   it('requires an admin and validates parameters', async () => {
     const { app, cookie, get } = await start();

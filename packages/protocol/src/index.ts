@@ -28,6 +28,8 @@ export interface GameSummary {
   wordLists: boolean;
   /** Whether the game draws questions from question decks. */
   questionDecks: boolean;
+  /** A private game's display title, set by the admin (only sent to unlocked browsers). */
+  title?: string;
 }
 
 export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });
@@ -39,6 +41,8 @@ export interface CreateRoomResponse {
 export interface RoomInfo {
   id: string;
   gameId: string;
+  /** A private game's display title, set by the admin (only sent to unlocked browsers). */
+  title?: string;
 }
 
 export interface WordListSummary {
