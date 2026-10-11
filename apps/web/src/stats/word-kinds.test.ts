@@ -10,11 +10,14 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('reverie')).toEqual(['story']);
     expect(knownWordKinds('hoodwink')).toEqual(['guess']);
     expect(knownWordKinds('royal-post')).toEqual([]);
+    expect(knownWordKinds('masquerade')).toEqual(['clue', 'guess']);
+    expect(knownWordKinds('masquerade-originals')).toEqual(['clue', 'guess']);
     expect(knownWordKinds('mystery')).toBeNull();
   });
 
   it('labels kinds in each game’s own words', () => {
     expect(wordKindLabel('hoodwink', 'guess')).toBe('Lies');
+    expect(wordKindLabel('masquerade', 'clue')).toBe('Locations');
     expect(wordKindLabel('codenames', 'guess')).toBe('Guesses');
     expect(wordKindLabel('reverie', 'story')).toBe('Story clues');
   });

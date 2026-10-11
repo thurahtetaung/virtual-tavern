@@ -59,6 +59,7 @@ describe('http api', () => {
       ['codenames', true],
       ['enigma', true],
       ['echo', true],
+      ['masquerade', false],
     ]);
     const lists = (await app.inject({ method: 'GET', url: '/api/word-lists' })).json<unknown>();
     expect(lists).toEqual([

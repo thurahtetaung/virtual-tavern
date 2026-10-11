@@ -1,5 +1,11 @@
 import { hourOf } from './days.ts';
-import { figureCounters, isAssassinGuess, isPerfectEcho, lostPrincess } from './figures.ts';
+import {
+  figureCounters,
+  isAssassinGuess,
+  isMasquerade,
+  isPerfectEcho,
+  lostPrincess,
+} from './figures.ts';
 import type { StatsEvent } from './types.ts';
 
 // Rollups and queries share one aggregation: a day rolled up into the daily tables holds exactly
@@ -55,6 +61,9 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : n
 
 /** Internal word kind: Hoodwink lies weighted by players fooled (read by fun facts only). */
 export const FOOLED_KIND = 'fooled';
+
+/** Internal word kind: Masquerade locations where the spy won the round (read by fun facts only). */
+export const TRICKY_KIND = 'tricky';
 
 /** Insight types whose actor's time-to-act counts as a guess. */
 const GUESS_TYPES = new Set(['guess', 'card']);
@@ -178,6 +187,19 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       for (const p of [props.a, props.b]) if (typeof p === 'string' && p) credit(p, 'echoes');
     if (type === 'outcome' && isPerfectEcho(props))
       for (const p of strings(props.winners)) credit(p, 'perfect');
+  }
+  if (isMasquerade(game)) {
+    // "Master of disguise": rounds won as the spy. "Bloodhound": votes on the real spy. "Usual
+    // suspect": votes drawn, spy or not. "Trickiest location": where the spies won.
+    if (type === 'spy' && playerId && (props.outcome === 'escaped' || props.outcome === 'stole'))
+      credit(playerId, 'disguises');
+    if (type === 'vote' && playerId && props.hit === true) credit(playerId, 'bloodhound');
+    if (type === 'vote' && typeof props.target === 'string' && props.target)
+      credit(props.target, 'suspected');
+    if (type === 'round' && props.spyWon === true && typeof props.location === 'string') {
+      const word = normWord(props.location);
+      if (word) agg.addWord(day, game, TRICKY_KIND, word, 1);
+    }
   }
   if (game === 'royal-post' && playerId) {
     if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');

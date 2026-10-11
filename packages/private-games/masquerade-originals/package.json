@@ -1,0 +1,27 @@
+{
+  "name": "@vt/private-masquerade-originals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./logic": "./src/logic/index.ts",
+    "./guide": "./src/logic/guide.ts",
+    "./ui": "./src/ui/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vt/game-masquerade": "workspace:*",
+    "@vt/game-sdk": "workspace:*",
+    "@vt/ui": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0"
+  }
+}

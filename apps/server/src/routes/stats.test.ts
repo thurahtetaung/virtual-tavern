@@ -1,5 +1,7 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EchoView } from '@vt/game-echo/logic';
+import { locationById } from '@vt/game-masquerade/content';
+import type { MasqueradeView } from '@vt/game-masquerade/logic';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import {
   type GameStats,
@@ -496,6 +498,109 @@ describe('admin stats', () => {
         .map((p) => p.name)
         .sort(),
     ).toEqual(final.winners.map((id) => final.seats.find((s) => s.id === id)!.name).sort());
+  });
+
+  it('turns a Masquerade game into figures and fun facts', async () => {
+    const { app, url, get } = await start();
+    const { clients } = await room(app, url, 'masquerade', ['Mo', 'Nia', 'Oz'], 70);
+    const [host] = clients as [TestClient];
+    const mv = (c: TestClient) => c.latest()!.game as MasqueradeView;
+    const idOf = (c: TestClient) => c.latest()!.you;
+    expect(await host.call('game:action', { type: 'update-settings', rounds: 2 })).toEqual({
+      ok: true,
+    });
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+
+    const hits = new Map<string, number>();
+    const received = new Map<string, number>();
+    const spyWins = new Map<string, number>();
+    const places: string[] = [];
+    const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
+    const vote = async (c: TestClient, target: string, spyId: string) => {
+      expect(await c.call('game:action', { type: 'vote', target })).toEqual({ ok: true });
+      bump(received, target);
+      if (target === spyId) bump(hits, idOf(c));
+    };
+    for (const number of [1, 2]) {
+      await Promise.all(
+        clients.map((c) =>
+          c.until((s) => {
+            const r = (s.game as MasqueradeView).round;
+            return r?.number === number && r.stage === 'talk';
+          }),
+        ),
+      );
+      const spy = clients.find((c) => mv(c).round!.role === 'spy')!;
+      const [a, b] = clients.filter((c) => c !== spy) as [TestClient, TestClient];
+      const location = mv(a).round!.location!;
+      places.push(locationById(location)!.name.toLowerCase());
+      for (const c of clients) await c.call('game:action', { type: 'ready-to-vote', ready: true });
+      await Promise.all(
+        clients.map((c) => c.until((s) => (s.game as MasqueradeView).round?.stage === 'vote')),
+      );
+      if (number === 1) {
+        // Caught, then steals the round with the right guess.
+        await vote(a, idOf(spy), idOf(spy));
+        await vote(b, idOf(spy), idOf(spy));
+        await vote(spy, idOf(a), idOf(spy));
+        await spy.until((s) => (s.game as MasqueradeView).round?.canGuess === true);
+        expect(await spy.call('game:action', { type: 'spy-guess', location })).toEqual({
+          ok: true,
+        });
+      } else {
+        // The table names a local: the spy escapes.
+        await vote(a, idOf(spy), idOf(spy));
+        await vote(b, idOf(a), idOf(spy));
+        await vote(spy, idOf(a), idOf(spy));
+      }
+      bump(spyWins, idOf(spy));
+      await host.until((s) => (s.game as MasqueradeView).round?.stage === 'reveal');
+      if (number === 1)
+        expect(await host.call('game:action', { type: 'next-round' })).toEqual({ ok: true });
+    }
+    await host.until((s) => (s.game as MasqueradeView).phase === 'over');
+
+    const stats = (await get<GameStats>('games/masquerade?range=today')).body;
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    expect(figs['round-outcomes']).toEqual({
+      id: 'round-outcomes',
+      label: 'How spies ended their rounds',
+      kind: 'split',
+      parts: [
+        { label: 'Escaped the vote', value: 1 },
+        { label: 'Caught, then stole it', value: 1 },
+        { label: 'Caught for good', value: 0 },
+      ],
+    });
+    expect(figs['spy-win-rate']).toMatchObject({ kind: 'percent', value: 100 });
+    expect(figs['vote-accuracy']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(figs['rounds-per-game']).toMatchObject({ kind: 'number', value: 2 });
+
+    const names = (c: string) => mv(host).seats.find((s) => s.id === c)!.name;
+    const top = (m: Map<string, number>) => {
+      const best = Math.max(...m.values());
+      return [...m].filter(([, n]) => n === best).map(([id]) => names(id));
+    };
+    const facts = Object.fromEntries(
+      (await get<StatsFun>('fun?range=today')).body.facts.map((f) => [f.id, f]),
+    );
+    expect(facts['master-of-disguise']).toMatchObject({
+      title: 'Master of disguise',
+      gameId: 'masquerade',
+    });
+    expect(top(spyWins)).toContain(facts['master-of-disguise']!.text.split(' won')[0]);
+    expect(facts.bloodhound).toMatchObject({ title: 'Bloodhound', gameId: 'masquerade' });
+    expect(top(hits)).toContain(facts.bloodhound!.text.split(' voted')[0]);
+    expect(top(received)).toContain(facts['usual-suspect']!.text.split(' drew')[0]);
+    // Both rounds went to the spy; the tie goes to the first name alphabetically.
+    expect(facts['trickiest-location']).toMatchObject({
+      title: 'Trickiest location',
+      text: `The spy won at "${[...places].sort()[0]}" once`,
+    });
+
+    const words = (await get<StatsWords>('words?game=masquerade&kind=clue&range=today')).body.words;
+    expect(words.reduce((n, w) => n + w.count, 0)).toBe(2);
   });
 
   it('requires an admin and validates parameters', async () => {

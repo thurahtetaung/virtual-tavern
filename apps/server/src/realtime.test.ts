@@ -1,6 +1,7 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EchoView } from '@vt/game-echo/logic';
 import type { EnigmaView } from '@vt/game-enigma/logic';
+import type { MasqueradeView } from '@vt/game-masquerade/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
@@ -633,6 +634,105 @@ describe('realtime Royal Post', () => {
     } finally {
       for (const c of clients) c.close();
       await app.close();
+    }
+  });
+});
+
+describe('realtime Masquerade', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it('plays a round over sockets: the spy never sees the location, votes stay secret', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'masquerade', token: token(60) },
+      })
+    ).json<{ roomId: string }>();
+
+    const clients: TestClient[] = [];
+    const seen = new Map<TestClient, MasqueradeView[]>();
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      const log: MasqueradeView[] = [];
+      c.on('room:state', (snap) => log.push(snap.game as MasqueradeView));
+      seen.set(c, log);
+      expect(await c.call('room:join', { roomId, token: token(60 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    const mv = (s: RoomSnapshot) => s.game as MasqueradeView;
+    const host = clients[0]!;
+    await host.until((s) => mv(s).seats.filter((p) => p.playing).length === 4);
+    expect(await host.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    const dealt = await Promise.all(
+      clients.map(async (c) => mv(await c.until((s) => mv(s).round?.stage === 'talk')).round!),
+    );
+    const spies = clients.filter((_, i) => dealt[i]!.role === 'spy');
+    const locals = clients.filter((_, i) => dealt[i]!.role === 'local');
+    expect(spies).toHaveLength(1);
+    expect(locals).toHaveLength(3);
+    const spy = spies[0]!;
+    const spyId = spy.latest()!.you;
+    const location = mv(locals[0]!.latest()!).round!.location!;
+    expect(locals.map((c) => mv(c.latest()!).round!.location)).toEqual([
+      location,
+      location,
+      location,
+    ]);
+    expect(mv(spy.latest()!).round!.location).toBeNull();
+
+    // Everyone is ready, so the vote starts early.
+    for (const c of clients)
+      expect(await c.call('game:action', { type: 'ready-to-vote', ready: true })).toEqual({
+        ok: true,
+      });
+    await Promise.all(clients.map((c) => c.until((s) => mv(s).round?.stage === 'vote')));
+    // The locals vote for the spy; the spy votes for a local.
+    for (const c of locals)
+      expect(await c.call('game:action', { type: 'vote', target: spyId })).toEqual({ ok: true });
+    const counted = mv(await spy.until((s) => mv(s).round?.votedCount === 3)).round!;
+    expect(counted.votes).toBeNull();
+    const spyVote = locals[0]!.latest()!.you;
+    expect(await spy.call('game:action', { type: 'vote', target: spyVote })).toEqual({ ok: true });
+    const guessing = mv(await spy.until((s) => mv(s).round?.stage === 'guess')).round!;
+    expect(guessing.canGuess).toBe(true);
+    // Only the caught spy may guess.
+    expect(
+      await locals[0]!.call('game:action', { type: 'spy-guess', location: 'bakery' }),
+    ).toMatchObject({ ok: false });
+    const wrong = location === 'bakery' ? 'gym' : 'bakery';
+    expect(await spy.call('game:action', { type: 'spy-guess', location: wrong })).toEqual({
+      ok: true,
+    });
+    const revealed = mv(await host.until((s) => mv(s).round?.stage === 'reveal')).round!;
+    expect(revealed.result).toMatchObject({ location, spies: [spyId], named: [spyId] });
+    expect(revealed.result!.spyResults).toEqual([{ id: spyId, outcome: 'caught', guess: wrong }]);
+    for (const c of locals) expect(revealed.result!.points[c.latest()!.you]).toBe(2);
+
+    // Before the reveal, the spy was never sent the location, and nobody saw another's vote.
+    for (const [c, views] of seen) {
+      const secret = views.filter((v) => v.round && v.round.stage !== 'reveal');
+      expect(secret.length).toBeGreaterThan(0);
+      for (const v of secret) {
+        const json = JSON.stringify({ ...v, locations: [] });
+        expect(json).not.toContain('"spies"');
+        expect(json).not.toContain('seed');
+        if (c === spy) expect(json).not.toContain(`"${location}"`);
+        if (v.round!.stage === 'talk' || v.round!.stage === 'vote')
+          expect(v.round!.votes).toBeNull();
+      }
     }
   });
 });

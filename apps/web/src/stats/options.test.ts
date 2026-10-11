@@ -43,10 +43,12 @@ describe('chart colours', () => {
     // Reverie keeps the slot its id hashed to before the order was fixed; Hoodwink comes next.
     expect(slots.get('reverie')).toBe(3);
     expect(slots.get('hoodwink')).toBe(4);
-    for (const id of ['zeta', 'alpha']) {
-      expect(slotFor(id)).toBeGreaterThanOrEqual(5);
-      expect(slotFor(id)).toBeLessThan(8);
-    }
+    // Masquerade and Royal Post keep the slots their ids hashed to; the originals take the last.
+    expect(slots.get('masquerade')).toBe(5);
+    expect(slots.get('royal-post')).toBe(6);
+    expect(slots.get('masquerade-originals')).toBe(7);
+    // With every slot taken, other games get the neutral colour.
+    for (const id of ['zeta', 'alpha']) expect(slotColor(light, slotFor(id))).toBe(light.other);
     // A filter that hides a game never repaints the others.
     expect(gameSlots(['zeta']).get('zeta')).toBe(slots.get('zeta'));
   });

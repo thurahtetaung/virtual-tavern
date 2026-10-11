@@ -3,6 +3,7 @@ import type { GameGuide, GameUiProps } from '@vt/game-sdk';
 import { guide as codenamesGuide } from '@vt/game-codenames/guide';
 import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
+import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
 import { type ComponentType, lazy } from 'react';
 
 export interface ClientGame {
@@ -39,6 +40,15 @@ export const clientGames: ClientGame[] = [
     guide: echoGuide,
     icon: '🔔',
     Component: lazy(() => import('@vt/game-echo/ui').then((m) => ({ default: m.EchoGame }))),
+  },
+  {
+    id: 'masquerade',
+    name: 'Masquerade',
+    guide: masqueradeGuide,
+    icon: '🎭',
+    Component: lazy(() =>
+      import('@vt/game-masquerade/ui').then((m) => ({ default: m.MasqueradeGame })),
+    ),
   },
 ];
 

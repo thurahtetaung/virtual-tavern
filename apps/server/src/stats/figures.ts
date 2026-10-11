@@ -10,6 +10,8 @@ import type { GameFigure } from '@vt/protocol';
 //   hoodwink   lie {fooled, authors, auto}, vote {foundTruth}, round {…}, outcome {rounds}
 //   royal-post play {card}, guard {hit}, elimination {cause, lostPrincess}, spy {},
 //              outcome {edition, rounds}
+//   masquerade (and masquerade-originals) round {location, spyWon}, spy {outcome, votes},
+//              vote {hit, target}, outcome {rounds}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -49,6 +51,13 @@ const ROYAL_POST_CARDS = [
 /** A Royal Post knock-out that cost the player the Princess. */
 export const lostPrincess = (props: Props) => props.lostPrincess === true;
 
+/** Both Masquerade editions report the same events. */
+export const isMasquerade = (gameId: string) =>
+  gameId === 'masquerade' || gameId === 'masquerade-originals';
+
+/** How a Masquerade round ended for one spy. */
+const SPY_OUTCOMES = ['escaped', 'stole', 'caught'];
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   const out: Counters = [];
@@ -57,6 +66,27 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
     if (v === true) out.push([`f.${metric}_yes`, 1]);
   };
   const winner = str(props.winner);
+  if (isMasquerade(gameId)) {
+    switch (type) {
+      case 'round':
+        out.push(['f.rounds', 1]);
+        if (props.spyWon === true) out.push(['f.spy_rounds', 1]);
+        break;
+      case 'spy': {
+        const outcome = str(props.outcome);
+        out.push(['f.spies', 1]);
+        if (outcome && SPY_OUTCOMES.includes(outcome)) out.push([`f.spy.${outcome}`, 1]);
+        break;
+      }
+      case 'vote':
+        flag('votes', props.hit);
+        break;
+      case 'outcome':
+        out.push(['f.games', 1], ['f.round_sum', num(props.rounds) ?? 0]);
+        break;
+    }
+    return out;
+  }
   switch (`${gameId}:${type}`) {
     case 'codenames:clue':
       out.push(['f.clues', 1], ['f.clue_sum', num(props.count) ?? 0]);
@@ -162,6 +192,38 @@ export function buildFigures(
       ...(draw ? [{ label: 'Draw', value: get('f.win.draw') }] : []),
     ],
   });
+  if (isMasquerade(gameId)) {
+    return [
+      {
+        id: 'round-outcomes',
+        label: 'How spies ended their rounds',
+        kind: 'split',
+        parts: [
+          { label: 'Escaped the vote', value: get('f.spy.escaped') },
+          { label: 'Caught, then stole it', value: get('f.spy.stole') },
+          { label: 'Caught for good', value: get('f.spy.caught') },
+        ],
+      },
+      {
+        id: 'spy-win-rate',
+        label: 'Spies who won their round',
+        kind: 'percent',
+        value: pct(get('f.spy.escaped') + get('f.spy.stole'), get('f.spies')),
+      },
+      {
+        id: 'vote-accuracy',
+        label: 'Votes that found a spy',
+        kind: 'percent',
+        value: pct(get('f.votes_yes'), get('f.votes')),
+      },
+      {
+        id: 'rounds-per-game',
+        label: 'Rounds per game',
+        kind: 'number',
+        value: avg(get('f.round_sum'), games),
+      },
+    ];
+  }
   switch (gameId) {
     case 'codenames':
       return [

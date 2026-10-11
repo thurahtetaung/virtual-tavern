@@ -16,7 +16,7 @@ import type {
   StatsWords,
   WordKind,
 } from '@vt/protocol';
-import { type Agg, FOOLED_KIND, split } from './aggregate.ts';
+import { type Agg, FOOLED_KIND, TRICKY_KIND, split } from './aggregate.ts';
 import { bucketOf, eachDay, weekday } from './days.ts';
 import { buildFigures } from './figures.ts';
 import type { Window } from './types.ts';
@@ -300,6 +300,9 @@ interface PlayerTotals {
   perfect: number;
   guardHits: number;
   princessFalls: number;
+  disguises: number;
+  bloodhound: number;
+  suspected: number;
   calendar: Map<string, number>;
 }
 
@@ -345,6 +348,15 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
         break;
       case 'princess_falls':
         t.princessFalls += value;
+        break;
+      case 'disguises':
+        t.disguises += value;
+        break;
+      case 'bloodhound':
+        t.bloodhound += value;
+        break;
+      case 'suspected':
+        t.suspected += value;
         break;
     }
   }
@@ -396,6 +408,9 @@ function emptyTotals(): PlayerTotals {
     perfect: 0,
     guardHits: 0,
     princessFalls: 0,
+    disguises: 0,
+    bloodhound: 0,
+    suspected: 0,
     calendar: new Map(),
   };
 }
@@ -556,6 +571,27 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     (who, n) => `${who} was knocked out holding the Princess ${times(n)}`,
     'royal-post',
   );
+  byPlayer(
+    'master-of-disguise',
+    'Master of disguise',
+    (t) => t.disguises,
+    (who, n) => `${who} won ${plural(n, 'round')} as the spy`,
+    'masquerade',
+  );
+  byPlayer(
+    'bloodhound',
+    'Bloodhound',
+    (t) => t.bloodhound,
+    (who, n) => `${who} voted for the real spy ${times(n)}`,
+    'masquerade',
+  );
+  byPlayer(
+    'usual-suspect',
+    'Usual suspect',
+    (t) => t.suspected,
+    (who, n) => `${who} drew ${plural(n, 'vote')} as a suspected spy`,
+    'masquerade',
+  );
   const perfect = sumMetric(agg, w.from, w.to, 'f.perfect', 'echo');
   if (perfect > 0) {
     facts.push({
@@ -617,6 +653,13 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     'hoodwink',
     FOOLED_KIND,
     (word, n) => `"${word}" fooled ${plural(n, 'player')}`,
+  );
+  topWord(
+    'trickiest-location',
+    'Trickiest location',
+    'masquerade',
+    TRICKY_KIND,
+    (word, n) => `The spy won at "${word}" ${times(n)}`,
   );
   return facts;
 }

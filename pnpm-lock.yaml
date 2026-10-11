@@ -87,12 +87,18 @@ importers:
       '@vt/game-enigma':
         specifier: workspace:*
         version: link:../../packages/games/enigma
+      '@vt/game-masquerade':
+        specifier: workspace:*
+        version: link:../../packages/games/masquerade
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
+      '@vt/private-masquerade-originals':
+        specifier: workspace:*
+        version: link:../../packages/private-games/masquerade-originals
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -126,12 +132,18 @@ importers:
       '@vt/game-enigma':
         specifier: workspace:*
         version: link:../../packages/games/enigma
+      '@vt/game-masquerade':
+        specifier: workspace:*
+        version: link:../../packages/games/masquerade
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
+      '@vt/private-masquerade-originals':
+        specifier: workspace:*
+        version: link:../../packages/private-games/masquerade-originals
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -245,6 +257,25 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0
 
+  packages/games/masquerade:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
   packages/private-games/hoodwink:
     dependencies:
       '@vt/game-sdk':
@@ -256,6 +287,25 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/masquerade-originals:
+    dependencies:
+      '@vt/game-masquerade':
+        specifier: workspace:*
+        version: link:../../games/masquerade
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

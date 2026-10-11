@@ -12,6 +12,9 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   hoodwink: ['guess'],
   // A card game: no words at all, so no Words card.
   'royal-post': [],
+  // Each round's location, and the locations caught spies guessed.
+  masquerade: ['clue', 'guess'],
+  'masquerade-originals': ['clue', 'guess'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -24,6 +27,8 @@ const LABELS: Record<WordKind, string> = {
 
 const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> = {
   hoodwink: { guess: 'Lies' },
+  masquerade: { clue: 'Locations', guess: 'Spy guesses' },
+  'masquerade-originals': { clue: 'Locations', guess: 'Spy guesses' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */
