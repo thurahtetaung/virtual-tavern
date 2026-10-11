@@ -23,7 +23,15 @@ import type { MasqueradeAction, MasqueradeView, RoundView, Stage } from '../logi
 import type { LocationDisplay } from './display.ts';
 import { Lobby, Players } from './Lobby.tsx';
 import { useMarks } from './notes.ts';
-import { listNames, nameOf, nudgeFor, statusFor } from './status.ts';
+import {
+  listNames,
+  nameOf,
+  noNameReason,
+  nudgeFor,
+  pointsRule,
+  statusFor,
+  voteTally,
+} from './status.ts';
 
 export type MasqueradeUiProps = GameUiProps<MasqueradeView, MasqueradeAction>;
 type Act = (a: MasqueradeAction) => Promise<boolean>;
@@ -185,6 +193,12 @@ function MyCard({ round, display }: { round: RoundView; display: LocationDisplay
                 : 'Everyone else knows where you are.'
               : 'Everyone knows this except the spy.'}
           </p>
+          {spy && round.stage === 'talk' && (
+            <p className="mt-1 text-xs font-semibold" data-testid="spy-guess-rule">
+              You can’t guess now. If the vote catches you, you get one guess; if it doesn’t, you
+              score anyway.
+            </p>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -226,8 +240,12 @@ function Coaching({ round, display }: { round: RoundView; display: LocationDispl
 function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView }) {
   const starter =
     round.starter === view.me?.id ? 'You start' : `${nameOf(view, round.starter)} starts`;
+  // Open in the first round's talk, so first-timers read that the game is played out loud.
   return (
-    <details className="group rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800">
+    <details
+      open={round.number === 1 && round.stage === 'talk'}
+      className="group rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
+    >
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>📋 How this round works · {starter}</span>
         <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
@@ -235,7 +253,10 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
         </span>
       </summary>
       <ol className="list-decimal space-y-1 pb-3 pl-5 text-sm">
-        <li>{starter}: ask anyone a question about the location, out loud.</li>
+        <li>
+          {starter}: ask anyone a question about the location, out loud. The app doesn’t track the
+          talking.
+        </li>
         <li>They answer, then ask someone else (not straight back).</li>
         <li>
           When the clock runs out, or everyone taps Ready to vote, you all vote once, in secret, for
@@ -243,7 +264,7 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
         </li>
         <li>
           {round.role === 'spy'
-            ? 'If the vote catches you, you get one guess at the location: right, and you steal the round.'
+            ? 'You can’t guess during the talk. If the vote catches you, you get one guess at the location: right, and you steal the round. If it doesn’t, you score anyway.'
             : 'A caught spy gets one guess at the location; right, and they steal the round.'}
         </li>
       </ol>
@@ -278,16 +299,18 @@ function ReadyToggle({ round, act, room }: { round: RoundView; act: Act; room: G
   return (
     <div className="space-y-1">
       <Button
-        size="lg"
-        variant={round.meReady ? 'secondary' : 'primary'}
+        variant="secondary"
         aria-pressed={round.meReady}
         className="w-full"
         onClick={() => void act({ type: 'ready-to-vote', ready: !round.meReady })}
       >
-        {round.meReady ? '✓ Ready to vote' : 'Ready to vote'}
+        {round.meReady ? '✓ Ready to vote' : 'Done talking? Ready to vote'}
       </Button>
       <p className="text-center text-sm text-stone-600 tabular-nums dark:text-stone-400">
         <Holdouts round={round} done={round.readyIds} verb="ready" room={room} />
+      </p>
+      <p className="text-xs text-stone-500">
+        The vote starts when everyone taps this, or when the clock runs out. Tap again to undo.
       </p>
     </div>
   );
@@ -355,19 +378,41 @@ function GuessPanel({ round, onOpenBoard }: { round: RoundView; onOpenBoard: () 
   );
 }
 
-function VotesList({ view, votes }: { view: MasqueradeView; votes: Record<string, string> }) {
+/** Everyone's vote, the tally and (once known) the spies, marked with an icon and text. */
+function VotesList({
+  view,
+  votes,
+  spies,
+}: {
+  view: MasqueradeView;
+  votes: Record<string, string>;
+  spies: readonly string[];
+}) {
   const round = view.round!;
+  const label = (id: string) => {
+    const name = id === view.me?.id ? `${nameOf(view, id)} (you)` : nameOf(view, id);
+    return spies.includes(id) ? `${name} 🎭 spy` : name;
+  };
+  const tally = voteTally(votes, round.players);
   return (
-    <ul aria-label="Votes" className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-sm sm:grid-cols-2">
-      {round.players.map((p) => (
-        <li key={p.id} className="flex justify-between gap-2">
-          <span className="truncate">{p.name}</span>
-          <span className="truncate text-stone-600 dark:text-stone-400">
-            {votes[p.id] ? `→ ${nameOf(view, votes[p.id])}` : 'abstained'}
-          </span>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-1">
+      {tally.length > 0 && (
+        <p className="text-sm" data-testid="vote-tally">
+          <b>Votes: </b>
+          {tally.map((t) => `${label(t.id)} ${t.votes}`).join(' · ')}
+        </p>
+      )}
+      <ul aria-label="Votes" className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-sm sm:grid-cols-2">
+        {round.players.map((p) => (
+          <li key={p.id} className="flex justify-between gap-2">
+            <span className="truncate">{label(p.id)}</span>
+            <span className="truncate text-stone-600 dark:text-stone-400">
+              {votes[p.id] ? `→ ${label(votes[p.id]!)}` : 'abstained'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -397,7 +442,23 @@ function Reveal({
   };
   const scored = Object.entries(result.points).filter(([, n]) => n > 0);
   // The vote only ends early once everyone has voted, so a missing vote means the clock ran out.
-  const noVote = round.players.filter((p) => !result.votes[p.id]).map((p) => who(p.id));
+  // When nobody voted at all, the no-name reason above already says so.
+  const noVote = Object.keys(result.votes).length
+    ? round.players.filter((p) => !result.votes[p.id]).map((p) => who(p.id))
+    : [];
+  const meSpy = !!view.me && result.spies.includes(view.me.id);
+  const spyLine =
+    meSpy && result.spies.length === 1 ? (
+      <b>You were the spy</b>
+    ) : (
+      <>
+        {result.spies.length > 1 ? 'The spies were' : 'The spy was'}{' '}
+        <b>
+          {listNames(result.spies.map((id) => (id === view.me?.id ? 'you' : nameOf(view, id))))}
+        </b>
+      </>
+    );
+  const noName = noNameReason(result);
   return (
     <Panel aria-label="Round result" className="space-y-3">
       <div className="flex items-center gap-3">
@@ -412,10 +473,7 @@ function Reveal({
           <p className="text-xl font-bold" data-testid="revealed-location">
             {display.name(result.location)}
           </p>
-          <p className="text-sm">
-            🎭 {result.spies.length > 1 ? 'The spies were' : 'The spy was'}{' '}
-            <b>{listNames(result.spies.map(who))}</b>
-          </p>
+          <p className="text-sm">🎭 {spyLine}</p>
         </div>
       </div>
       <ul className="space-y-1 text-sm font-semibold">
@@ -423,23 +481,28 @@ function Reveal({
           <li key={s.id}>{line(s)}</li>
         ))}
       </ul>
-      {result.named.length === 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          The vote didn’t settle on anyone, so nobody was named.
+      {noName && (
+        <p className="text-sm text-stone-600 dark:text-stone-400" data-testid="no-name-reason">
+          {noName}
         </p>
       )}
-      <VotesList view={view} votes={result.votes} />
+      <VotesList view={view} votes={result.votes} spies={result.spies} />
       {noVote.length > 0 && (
         <TimeoutNote>
           {`${listNames(noVote)} didn’t vote, so ${noVote.length === 1 ? 'that counts' : 'those count'} as abstaining.`}
         </TimeoutNote>
       )}
-      <p className="text-sm">
-        <b>Points: </b>
-        {scored.length
-          ? scored.map(([id, n]) => `${who(id)} +${n}`).join(', ')
-          : 'nobody scored this round.'}
-      </p>
+      <div className="space-y-0.5 text-sm">
+        <p>
+          <b>Points: </b>
+          {scored.length
+            ? scored.map(([id, n]) => `${who(id)} +${n}`).join(', ')
+            : 'nobody scored this round.'}
+        </p>
+        <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="points-rule">
+          {pointsRule(result)}
+        </p>
+      </div>
       {view.phase === 'playing' &&
         (room.isHost ? (
           <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-round' })}>
@@ -525,6 +588,7 @@ function LocationsBoard({
     ...possible.filter((l) => marks[l] === 'starred'),
     ...possible.filter((l) => marks[l] !== 'starred'),
   ];
+  const pickable = guessing && possible.length < view.locations.length && possible.length <= 12;
   const guess = async () => {
     if (!pick) return;
     setBusy(true);
@@ -541,12 +605,44 @@ function LocationsBoard({
       </div>
       {guessing && (
         <div className="sticky top-0 z-10 flex items-center gap-2 rounded-xl bg-amber-100 p-2 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:ring-amber-500/40">
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {pick ? `Your guess: ${display.name(pick)}` : 'Pick the location you think it is.'}
+          <span className="min-w-0 flex-1 text-sm font-semibold">
+            {pick
+              ? `Your guess: ${display.name(pick)}`
+              : '🎯 You were caught! Pick your one guess.'}
           </span>
           <Button disabled={!pick || busy} onClick={() => void guess()}>
             {pick ? `Guess ${display.name(pick)}` : 'Guess'}
           </Button>
+        </div>
+      )}
+      {spy && !guessing && round?.stage === 'talk' && (
+        <p className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
+          You can’t guess yet. Cross places off as you listen: if the vote catches you, you get one
+          guess.
+        </p>
+      )}
+      {pickable && (
+        <div className="space-y-1" data-testid="guess-shortlist">
+          <p className="text-sm font-semibold">Your shortlist</p>
+          <div className="flex flex-wrap gap-2">
+            {shortlist.map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={pick === l}
+                onClick={() => setPick(l)}
+                className={cn(
+                  'min-h-11 rounded-full px-3 text-sm font-semibold ring-1',
+                  pick === l
+                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                    : 'bg-white ring-stone-300 dark:bg-stone-900 dark:ring-stone-700',
+                )}
+              >
+                {marks[l] === 'starred' && '★ '}
+                {display.name(l)}
+              </button>
+            ))}
+          </div>
         </div>
       )}
       {spy && !guessing && (
@@ -577,7 +673,7 @@ function LocationsBoard({
                   selected
                     ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
                     : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
-                  mark === 'crossed' && !guessing && 'opacity-40',
+                  mark === 'crossed' && !selected && 'opacity-40',
                   here === id && 'ring-2 ring-emerald-500',
                 )}
               >
@@ -597,7 +693,16 @@ function LocationsBoard({
                 </span>
                 {here === id && <span className="sr-only">(you are here)</span>}
               </button>
-              {!guessing && (
+              {guessing ? (
+                mark === 'starred' && (
+                  <span
+                    aria-label="Starred"
+                    className="pointer-events-none absolute top-0.5 right-0.5 flex size-8 items-center justify-center text-base text-amber-500"
+                  >
+                    ★
+                  </span>
+                )
+              ) : (
                 <button
                   type="button"
                   aria-label={`Star ${name}`}
@@ -796,13 +901,13 @@ export function MasqueradeBoard({
               <MyCard key={round.deal} round={round} display={display} />
               <GuessPanel round={round} onOpenBoard={() => setTab('locations')} />
               <VotePanel view={view} round={round} act={act} room={room} />
-              <ReadyToggle round={round} act={act} room={room} />
               <Coaching round={round} display={display} />
               <HowItWorks view={view} round={round} />
+              <ReadyToggle round={round} act={act} room={room} />
               {round.stage === 'guess' && round.votes && (
                 <Panel className="space-y-2">
                   <h3 className="text-sm font-bold">How everyone voted</h3>
-                  <VotesList view={view} votes={round.votes} />
+                  <VotesList view={view} votes={round.votes} spies={round.caught ?? []} />
                 </Panel>
               )}
             </>

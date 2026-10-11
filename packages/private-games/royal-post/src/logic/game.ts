@@ -294,6 +294,7 @@ function play(
   action: Extract<RoyalPostAction, { type: 'play' }>,
   by: PlayerId,
   now: number,
+  timedOut = false,
 ): Result {
   const round = state.round;
   if (state.phase !== 'playing' || !round) return new GameError('not-playing', 'No round in play.');
@@ -347,6 +348,7 @@ function play(
     target,
     guess,
     noEffect,
+    ...(timedOut ? { timedOut: true } : {}),
   };
   const outs: [PlayerId, OutCause, PlayerId | null][] = [];
   const notes: [PlayerId, NewNote][] = [];
@@ -440,7 +442,8 @@ function play(
 
   const { id: _id, round: _round, ...logged } = entry;
   next = addLog(next, logged);
-  for (const [who, note] of notes) next = addNote(next, who, note);
+  for (const [who, note] of notes)
+    next = addNote(next, who, timedOut && who === by ? { ...note, timedOut: true } : note);
   for (const [who, cause, from] of outs) next = knockOut(next, who, cause, from);
   if (next.round!.stage === 'chancellor') return next;
   return finishTurn(next, now);
@@ -451,6 +454,7 @@ function chancellorKeep(
   action: Extract<RoyalPostAction, { type: 'chancellor-keep' }>,
   by: PlayerId,
   now: number,
+  timedOut = false,
 ): Result {
   const round = state.round;
   if (state.phase !== 'playing' || !round) return new GameError('not-playing', 'No round in play.');
@@ -469,6 +473,14 @@ function chancellorKeep(
     return new GameError('wrong-count', 'Keep one card and put the rest on the bottom.');
   let next = withRound(state, { deck: [...round.deck, ...action.bottomOrder], stage: 'play' });
   next = withPlayer(next, by, { hand: [action.keep] });
+  if (timedOut) {
+    // Say so on the Chancellor line, so nobody thinks the slow player chose.
+    const at = next.log.findLastIndex((e) => e.kind === 'play' && e.by === by);
+    const entry = next.log[at];
+    if (entry?.kind === 'play' && entry.card === 'chancellor') {
+      next = { ...next, log: next.log.with(at, { ...entry, autoKept: true }) };
+    }
+  }
   return finishTurn(next, now);
 }
 
@@ -724,9 +736,9 @@ function onDeadline(state: RoyalPostState, now: number): RoyalPostState {
   const move = autoMove(state, rng);
   const result =
     move?.type === 'play'
-      ? play(state, move, round.current, now)
+      ? play(state, move, round.current, now, true)
       : move?.type === 'chancellor-keep'
-        ? chancellorKeep(state, move, round.current, now)
+        ? chancellorKeep(state, move, round.current, now, true)
         : null;
   if (!result || result instanceof GameError) return withRound(state, { deadline: null });
   return { ...result, seed: newSeed(rng) };

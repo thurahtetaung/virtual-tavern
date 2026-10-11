@@ -1,4 +1,5 @@
-import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, listNames, namesWithPresence, waitingForHost } from '@vt/game-sdk';
+import { winReason, winnerFrom } from '../logic/outcome.ts';
 import type { EnigmaView, Team, TransmissionView } from '../logic/types.ts';
 import { TEAM_LABEL, formatCode } from './theme.ts';
 
@@ -45,34 +46,60 @@ function myTask(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): Stat
     return null;
   }
   if (view.stage !== 'guess' || tx.settled) return null;
-  // Locked in: no longer your move, but say who the team is waiting on.
-  const me = view.me?.id;
-  if ((tx.role === 'decoder' || tx.role === 'interceptor') && me && tx.teamVotes[me]?.locked) {
-    const left = holdouts(tx);
-    return left.length > 0
-      ? {
-          text: `Locked in! ${waitingFor(left, people(view, room), { you: me })}.`,
-          yourMove: false,
-        }
-      : {
-          text: 'Everyone locked in, but on different codes. Compare picks and agree!',
-          yourMove: true,
-        };
+  if (tx.role !== 'decoder' && tx.role !== 'interceptor') return null;
+  const mine = view.me ? tx.teamVotes[view.me.id] : undefined;
+  if (mine?.locked && !tx.disagree) {
+    // Locked in: nothing more to do here, so it is no longer "your move". Name who is holding out.
+    const what = tx.role === 'decoder' ? 'your code' : `${sender}'s code`;
+    const holdouts = waitingOn(view, tx, room);
+    return {
+      text: holdouts.length
+        ? `Locked in on ${what}. Waiting for: ${listNames(holdouts)}.`
+        : `Locked in on ${what}.`,
+      yourMove: false,
+    };
   }
   if (tx.role === 'decoder') {
     return {
-      text: `Decode your team's code: match each clue to a keyword, then Lock in.`,
+      text: tx.disagree
+        ? 'Your team locked in different codes. Compare picks and agree on one.'
+        : `Decode your team's code: match each clue to a keyword, then Lock in.`,
       yourMove: true,
     };
   }
-  if (tx.role === 'interceptor') {
-    return {
-      text: `Intercept ${sender}'s code: use their clue history, then Lock in.`,
-      yourMove: true,
-    };
-  }
-  return null;
+  return {
+    text: tx.disagree
+      ? `Your team locked in different guesses for ${sender}'s code. Compare picks and agree on one.`
+      : `Intercept ${sender}'s code: their past clues are under each number. Pick, then Lock in.`,
+    yourMove: true,
+  };
 }
+
+/**
+ * Teammates who still have to lock in on this transmission, marked "(offline)" while away, with
+ * what they've picked so far.
+ */
+export function waitingOn(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): string[] {
+  return holdouts(tx).map((id) => {
+    const draft = tx.teamVotes[id]?.draft;
+    const picked = draft?.every((d) => d > 0) ? ` (has ${formatCode(draft)} picked)` : '';
+    return `${namesWithPresence([id], people(view, room)) || 'Someone'}${picked}`;
+  });
+}
+
+/** At the end of a round's reveal: the winner and why, if this round decides the game. */
+export function revealOutcome(view: EnigmaView): { winner: Team | 'draw'; reason: string } | null {
+  if (view.phase !== 'playing' || view.stage !== 'reveal') return null;
+  const roundOver =
+    view.settings.flow === 'simultaneous' || view.transmissions[1]?.revealed === true;
+  if (!roundOver) return null;
+  const winner = winnerFrom(view.teams, view.round);
+  const reason = winReason(view.teams, view.round);
+  return winner && reason ? { winner, reason } : null;
+}
+
+const winsLine = (winner: Team | 'draw') =>
+  winner === 'draw' ? "It's a draw!" : `${TEAM_LABEL[winner]} wins!`;
 
 /** Plain-language guidance for whoever is looking at the screen. */
 export function statusFor(
@@ -93,17 +120,18 @@ export function statusFor(
       : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
   }
   if (view.phase === 'over') {
-    return {
-      text:
-        view.winner === 'draw' ? "It's a draw!" : `${TEAM_LABEL[view.winner as Team]} team wins!`,
-      yourMove: false,
-    };
+    // The result panel names the winner; the hint says why, so the two never repeat each other.
+    const reason = winReason(view.teams, view.round);
+    return { text: `Game over. ${reason ?? ''}`.trim(), yourMove: false };
   }
   const active = view.transmissions.filter((t) => t.active);
+  let waiting: Status | null = null;
   for (const tx of active) {
     const task = myTask(view, tx, room);
-    if (task) return task;
+    if (task?.yourMove) return task;
+    waiting ??= task;
   }
+  if (waiting) return waiting;
   if (view.stage === 'clue') {
     const writers = active.filter((t) => !t.clues && !t.expired).map((t) => t.encryptor);
     return {
@@ -116,6 +144,15 @@ export function statusFor(
     return {
       text: mine ? 'Locked in! Waiting for the other team…' : 'Teams are working out the codes…',
       yourMove: false,
+    };
+  }
+  const outcome = revealOutcome(view);
+  if (outcome) {
+    return {
+      text: `${winsLine(outcome.winner)} ${outcome.reason} ${
+        isHost ? 'Press See results.' : waitHost('show the results')
+      }`,
+      yourMove: isHost,
     };
   }
   return {

@@ -42,6 +42,9 @@ export async function getReady(players: Page[]): Promise<string[]> {
   );
 }
 
+/** A left-or-right choice, named by the player on that side ("Pass left, towards Ben"). */
+const LEFT = /^(Pass left|Tap .+ \(left\)|Give it to .+ \(left\))/;
+
 /** Answers whatever the night asks, with the first legal choice. */
 async function answer(p: Page) {
   // A step can end under any click, so none of them waits long.
@@ -49,8 +52,8 @@ async function answer(p: Page) {
   const prompt = p.getByTestId('prompt');
   const stage = (await prompt.getAttribute('data-stage', quick)) ?? '';
   const confirm = prompt.getByRole('button', { name: 'Confirm' });
-  if (await prompt.getByRole('button', { name: 'Left →' }).count()) {
-    await prompt.getByRole('button', { name: 'Left →' }).click(quick);
+  if (await prompt.getByRole('button', { name: LEFT }).count()) {
+    await prompt.getByRole('button', { name: LEFT }).click(quick);
     return stage;
   }
   const players = prompt.getByRole('list', { name: 'Players' }).locator('button:enabled');
@@ -104,10 +107,17 @@ export async function playNight(
 
 /** Ready to vote, then everyone votes as `pick` says (by seat index); waits for the reveal. */
 export async function vote(players: Page[], names: string[], pick: (i: number) => number) {
-  for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
+  for (const p of players) {
+    // Someone may have pressed it already.
+    const ready = p.getByRole('button', { name: 'Ready to vote' });
+    if (await ready.count()) await ready.click();
+  }
   for (const p of players) await expect(p.getByText('🗳️ The vote')).toBeVisible();
   for (const [i, p] of players.entries()) {
-    const button = p.getByRole('button', { name: `Vote for ${names[pick(i)]}` });
+    // A Bodyguard's buttons protect instead of voting.
+    const button = p.getByRole('button', {
+      name: new RegExp(`^(Vote for|Protect) ${names[pick(i)]}$`),
+    });
     await button.click();
     // The last vote ends the vote, so only the others can see theirs pressed.
     if (i < players.length - 1) await expect(button).toHaveAttribute('aria-pressed', 'true');
@@ -200,7 +210,7 @@ export async function playMarkedNight(
               if (await first.count()) await first.click(quick);
               const confirm = prompt.getByRole('button', { name: 'Confirm' });
               if (await confirm.count()) await confirm.click(quick);
-              else await prompt.getByRole('button', { name: 'Left →' }).click(quick);
+              else await prompt.getByRole('button', { name: LEFT }).click(quick);
             }
           } catch {
             // The step ended under the click: it's still a fair night.

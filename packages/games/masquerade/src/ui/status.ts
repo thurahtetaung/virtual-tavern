@@ -1,5 +1,5 @@
 import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
-import { MAX_SEATS, MIN_PLAYERS, type MasqueradeView } from '../logic/types.ts';
+import { MAX_SEATS, MIN_PLAYERS, type MasqueradeView, type RoundResult } from '../logic/types.ts';
 
 export interface Status {
   text: string;
@@ -74,7 +74,8 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
           text: 'You’re watching this round. You’ll be dealt in next round.',
           yourMove: false,
         };
-      const starter = round.starter === me?.id ? 'You ask' : `${nameOf(view, round.starter)} asks`;
+      const starter =
+        round.starter === me?.id ? 'You start' : `${nameOf(view, round.starter)} starts`;
       const lead =
         role === 'spy'
           ? 'You’re the spy! Blend in and work out the location.'
@@ -82,7 +83,7 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
       return {
         text: round.meReady
           ? `You’re ready to vote (${round.readyCount} of ${total}). Keep talking until everyone is.`
-          : `${lead} ${starter} first.`,
+          : `${lead} ${starter}: ask anyone a question about the location, out loud. Need ideas? See the Ideas tab.`,
         yourMove: false,
       };
     }
@@ -105,11 +106,17 @@ export function statusFor(view: MasqueradeView, isHost: boolean, people?: People
           yourMove: true,
         };
       const guessing = (round.caught ?? []).filter((id) => !round.guessed.includes(id));
-      const names = people
-        ? namesWithPresence(guessing, people.players)
-        : listNames(guessing.map((id) => nameOf(view, id)));
+      // Each caught spy, marked "(offline)" while away so nobody waits in the dark.
+      const names = guessing.map((id) =>
+        id === me?.id
+          ? 'You'
+          : (people && namesWithPresence([id], people.players)) || nameOf(view, id),
+      );
+      const plural = names.length > 1 || names[0] === 'You';
+      const youGuessed =
+        !!me && round.guessed.includes(me.id) ? 'You were caught and made your guess. ' : '';
       return {
-        text: `${names || listNames(guessing.map((id) => nameOf(view, id)))} ${guessing.length > 1 ? 'were' : 'was'} caught as the spy and ${guessing.length > 1 ? 'are' : 'is'} guessing the location…`,
+        text: `${youGuessed}${listNames(names)} ${plural ? 'were' : 'was'} caught as the spy and ${plural ? 'are' : 'is'} guessing the location…`,
         yourMove: false,
       };
     }
@@ -126,11 +133,48 @@ export function nudgeFor(view: MasqueradeView, secondsLeft: number | null): stri
   if (view.phase !== 'playing' || !round) return null;
   const total = round.players.length;
   if (round.stage === 'vote') return `🗳️ ${round.votedCount} of ${total} voted`;
-  if (round.stage === 'guess') return '🎯 The caught spy is guessing the location';
+  if (round.stage === 'guess')
+    return round.canGuess
+      ? '🎯 You were caught! One guess at the location'
+      : '🎯 The caught spy is guessing the location';
   if (round.stage !== 'talk' || secondsLeft === null) return null;
   const ready = round.readyCount > 0 ? ` · ${round.readyCount} of ${total} ready to vote` : '';
   if (secondsLeft <= 30) return `⏰ 30 seconds left!${ready}`;
   if (secondsLeft <= 60) return `🤔 Last minute: think about who you’ll vote for${ready}`;
   if (secondsLeft <= 120) return `⏳ 2 minutes left${ready}`;
   return ready ? `✋ ${round.readyCount} of ${total} ready to vote` : null;
+}
+
+/** Votes per player, most first (ties keep seat order); players nobody voted for are left out. */
+export function voteTally(
+  votes: Record<string, string>,
+  players: readonly { id: string }[],
+): { id: string; votes: number }[] {
+  const counts = new Map<string, number>();
+  for (const target of Object.values(votes)) counts.set(target, (counts.get(target) ?? 0) + 1);
+  return players
+    .map((p) => ({ id: p.id, votes: counts.get(p.id) ?? 0 }))
+    .filter((t) => t.votes > 0)
+    .sort((a, b) => b.votes - a.votes);
+}
+
+/** Why the vote named nobody, or null when it named someone. */
+export function noNameReason(result: Pick<RoundResult, 'votes' | 'named'>): string | null {
+  if (result.named.length > 0) return null;
+  return Object.keys(result.votes).length === 0
+    ? 'Nobody voted, so nobody was named and the spy escapes.'
+    : 'A tie at the top, so nobody was named and the spy escapes.';
+}
+
+/** How this round's points came about, one line per spy outcome. */
+export function pointsRule(result: Pick<RoundResult, 'spyResults'>): string {
+  const caught = result.spyResults.some((s) => s.outcome === 'caught');
+  const spyScored = result.spyResults.some((s) => s.outcome !== 'caught');
+  const parts: string[] = [];
+  if (spyScored) parts.push('A spy who escapes the vote, or names the location, scores 2.');
+  if (caught)
+    parts.push(
+      'When a caught spy guesses wrong, every local scores 1, and 1 more for voting for that spy.',
+    );
+  return parts.join(' ');
 }

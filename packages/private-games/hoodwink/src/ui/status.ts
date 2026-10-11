@@ -1,6 +1,12 @@
 import { type PresencePlayer, waitingFor, waitingForHost } from '@vt/game-sdk';
-import { awards, displayText } from '../logic/game.ts';
-import { type HoodwinkView, MAX_PLAYERS, MIN_PLAYERS, type RoundView } from '../logic/types.ts';
+import { awards, displayText, liePoints } from '../logic/game.ts';
+import {
+  type HoodwinkView,
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  type RoundView,
+  TRUTH_POINTS,
+} from '../logic/types.ts';
 
 export interface Status {
   text: string;
@@ -87,8 +93,11 @@ function roundStatus(
       if (!round.voters.includes(me)) {
         return { text: `Everyone is hunting for the truth…${waiting}`, yourMove: false };
       }
+      const filled = round.myLieFilled
+        ? '⏱ Time ran out, so a ready-made lie was filled in for you (it scores half). '
+        : '';
       if (round.myVote === null) {
-        return { text: 'Which answer is the truth? Pick one.', yourMove: true };
+        return { text: `${filled}Which answer is the truth? Pick one.`, yourMove: true };
       }
       return {
         text: `Voted! ${stillToAct(missingIds(round))}… You can still change your vote.`,
@@ -103,8 +112,13 @@ function roundStatus(
       const tail = isHost
         ? ` Press ${last ? 'Finish' : 'Next round'} when everyone has had a look.`
         : ` ${room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`}`;
+      const missing = round.voters.filter((id) => !round.voted.includes(id));
+      const late =
+        round.voteTimedOut && missing.length > 0
+          ? ` ⏱ Time ran out on the vote: ${listNames(missing.map((id) => (id === me ? 'you' : nameOf(view, id))))} didn't vote.`
+          : '';
       return {
-        text: `The truth was “${round.answer === null ? '?' : displayText(round.answer)}”.${scored}${tail}`,
+        text: `The truth was “${round.answer === null ? '?' : displayText(round.answer)}”.${scored}${late}${tail}`,
         yourMove: isHost,
       };
     }
@@ -162,4 +176,40 @@ export function splitPrompt(prompt: string): [string, string] | null {
 /** 1st, 2nd… with ties sharing a place: scores [9, 9, 5] rank [1, 1, 3]. */
 export function ranks(scores: readonly number[]): number[] {
   return scores.map((s) => scores.findIndex((x) => x === s) + 1);
+}
+
+/** One reason a player scored this round, e.g. "fooled Ana and Ben" worth 1,000. */
+export interface PointsLine {
+  reason: string;
+  points: number;
+}
+
+/**
+ * Where a player's points this round came from, worked out from the revealed board: finding the
+ * truth, and each lie of theirs that fooled someone (shared when merged, half when picked for
+ * them). Doubled in the final round. Empty before the reveal.
+ */
+export function pointsBreakdown(view: HoodwinkView, round: RoundView, id: string): PointsLine[] {
+  if (round.stage !== 'reveal') return [];
+  const factor = round.double ? 2 : 1;
+  const name = (p: string) => (p === view.me?.id ? 'you' : nameOf(view, p));
+  const lines: PointsLine[] = [];
+  for (const o of round.options) {
+    if (o.truth && o.voters?.includes(id)) {
+      lines.push({ reason: 'found the truth', points: TRUTH_POINTS * factor });
+    }
+    const authors = o.authors ?? [];
+    const fooled = o.voters ?? [];
+    if (o.truth || !authors.includes(id) || fooled.length === 0) continue;
+    const auto = (o.auto ?? []).includes(id);
+    const notes = [
+      authors.length > 1 && `shared with ${listNames(authors.filter((a) => a !== id).map(name))}`,
+      auto && 'half: picked for you',
+    ].filter(Boolean);
+    lines.push({
+      reason: `fooled ${listNames(fooled.map(name))}${notes.length ? ` (${notes.join(', ')})` : ''}`,
+      points: liePoints(fooled.length, authors.length, factor, auto),
+    });
+  }
+  return lines;
 }

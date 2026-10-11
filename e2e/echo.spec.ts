@@ -68,6 +68,8 @@ test('four players play Echo: a hit with cancelled clues, a pass and a counted n
   await sendClue(ben, plural);
   await sendClue(cy, 'Zzyzx');
   await expect(host).toHaveTitle(YOUR_TURN);
+  // The guesser is warned that a wrong guess costs two cards before guessing.
+  await expect(host.getByText('a wrong guess loses this card and the next')).toBeVisible();
   const shown = host.getByRole('list', { name: 'Your clues' });
   await expect(shown.getByRole('listitem')).toHaveText(['Zzyzx']);
   await expect(host.getByText('2 clues were cancelled.')).toBeVisible();
@@ -78,6 +80,7 @@ test('four players play Echo: a hit with cancelled clues, a pass and a counted n
   await expect(cy.getByText('Ana · same as Ben’s')).toBeVisible();
   await expect(host.getByRole('img', { name: 'Score 1' })).toBeVisible();
   await expect(host).toHaveTitle(YOUR_TURN); // the host moves the game on
+  await expect(ana.getByText('Waiting for Hana (host) to deal the next card…')).toBeVisible();
   await host.getByRole('button', { name: 'Next card' }).click();
 
   // Card 2: Ana guesses, and passes.
@@ -98,7 +101,12 @@ test('four players play Echo: a hit with cancelled clues, a pass and a counted n
   await sendClue(cy, 'Pjmq');
   await ben.getByLabel('Your guess').fill('Qqqqq');
   await ben.getByRole('button', { name: 'Guess', exact: true }).click();
-  await expect(ben.getByText('The clue writers are checking your guess')).toBeVisible();
+  await expect(ben.getByText('The clue writers are deciding whether it counts')).toBeVisible();
+  // The guesser never judges their own guess; every clue writer can, and one tap decides.
+  await expect(cy.getByRole('button', { name: "Doesn't count" })).toBeVisible();
+  await expect(cy.getByText('One tap decides for the whole table.').first()).toBeVisible();
+  await expect(ben.getByRole('button', { name: "Doesn't count" })).toHaveCount(0);
+  await expect(ben.getByRole('button', { name: 'Count it' })).toHaveCount(0);
   await expect(host).toHaveTitle(YOUR_TURN);
   await host.getByRole('button', { name: 'Count it' }).click();
   await expect(ben.getByText('🤝 Counted!')).toBeVisible();

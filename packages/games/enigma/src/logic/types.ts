@@ -91,6 +91,10 @@ export interface Transmission {
    * who could decode them. Counts as a miscommunication.
    */
   expired: boolean;
+  /** The clues never came because the strict clue timer ran out. Absent in rooms saved before it existed. */
+  timedOut?: boolean;
+  /** The strict guess timer ran out before every side had agreed. */
+  guessTimedOut?: boolean;
   decode: Record<PlayerId, Vote>;
   intercept: Record<PlayerId, Vote>;
   /**
@@ -188,6 +192,10 @@ export interface TransmissionView {
   code: Code | null;
   clues: string[] | null;
   expired: boolean;
+  /** No clues because the strict clue timer ran out (rather than nobody being left to decode). */
+  timedOut: boolean;
+  /** The strict guess timer ended the guessing; any side that hadn't agreed failed. */
+  guessTimedOut: boolean;
   active: boolean;
   revealed: boolean;
   /** The viewer's part in this transmission right now. */

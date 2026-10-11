@@ -1,9 +1,9 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/ui';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
-import { type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
+import { ARTIFACTS, type ArtifactId, type MarkId, ROLES, type RoleId } from '../logic/roles.ts';
 import type { Choice, Note, NightfallAction, NightfallView, Prompt } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
 import {
@@ -18,15 +18,16 @@ import {
   emblem,
   useRoleDetails,
 } from './Cards.tsx';
-import { type Status, nudgeFor } from './status.ts';
+import { type Status, nudgeFor, votePower } from './status.ts';
 import {
   TEAM_LABEL,
+  centreKinds,
   centreName,
   describeEntry,
   describeNote,
-  lineText,
   marksIn,
   nameOfView,
+  narrationText,
   promptText,
 } from './text.ts';
 import type { DeviceSound } from './useSound.ts';
@@ -147,12 +148,42 @@ export function SoundControls({
   );
 }
 
-/** The narration in progress, as text (always shown, whatever the sound setting). */
-function Narration({ lines, deck }: { lines: string[]; deck: Deck }) {
-  const text = lines
-    .map((l) => lineText(l, deck))
-    .filter(Boolean)
-    .join(' ');
+/** How long a narration line stays on screen once it is said. */
+const NARRATION_SHOW_MS = 8000;
+
+/**
+ * The narration in progress, as text (always shown, whatever the sound setting). Players woken in
+ * this step read the narrator's words; everyone else reads who is awake. Each line clears a few
+ * seconds after it is said, so a night line never lingers into the day.
+ */
+function Narration({
+  lines,
+  deck,
+  awake,
+  readyEarly = false,
+}: {
+  lines: string[];
+  deck: Deck;
+  awake: boolean;
+  readyEarly?: boolean;
+}) {
+  const [spent, setSpent] = useState<string[] | null>(null);
+  useEffect(() => {
+    if (!lines.length) return;
+    const t = setTimeout(() => {
+      setSpent(lines);
+    }, NARRATION_SHOW_MS);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [lines]);
+  const text =
+    spent === lines
+      ? ''
+      : lines
+          .map((l) => narrationText(l, deck, { awake, readyEarly }))
+          .filter(Boolean)
+          .join(' ');
   return (
     <p
       aria-live="polite"
@@ -198,7 +229,7 @@ export function RolesInPlay({ view, deck }: { view: NightfallView; deck: Deck })
 /** What you learned tonight. */
 function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: string }) {
   const nameOf = nameOfView(view);
-  const kinds = view.day?.centerKinds;
+  const kinds = view.day?.centerKinds ?? centreKinds(view.settings.roles);
   if (!view.notes.length)
     return <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>;
   return (
@@ -286,13 +317,19 @@ export function Ready({
         </Panel>
       )}
       {room.isHost && (
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
-            Start the night now
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
-            Shuffle and deal again
-          </Button>
+        <div className="space-y-1">
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-night' })}>
+              Start the night now
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start' })}>
+              Shuffle and deal again
+            </Button>
+          </div>
+          <p className="text-xs text-stone-500">
+            Start the night now if someone can’t press Ready (they dropped out, say): their card
+            still plays.
+          </p>
         </div>
       )}
     </div>
@@ -350,7 +387,12 @@ function PromptPanel({
       centre.length <= prompt.center.max);
   const send = (extra: Partial<NightfallAction>) =>
     void act({ type: 'night', step, ...extra } as NightfallAction);
+  const kinds = centreKinds(view.settings.roles);
   const centreCount = Math.max(3, ...(prompt.center?.slots.map((i) => i + 1) ?? [0]));
+  const seat = view.table!.findIndex((p) => p.id === me);
+  const n = view.table!.length;
+  const leftName = nameOf(view.table![(seat + 1) % n]!.id);
+  const rightName = nameOf(view.table![(seat - 1 + n) % n]!.id);
   return (
     <div className="space-y-3" data-testid="prompt" data-stage={prompt.stage}>
       <p className="font-semibold">{promptText(prompt, deck)}</p>
@@ -393,19 +435,22 @@ function PromptPanel({
                   type="button"
                   disabled={!legal}
                   aria-pressed={picked}
-                  aria-label={centreName(i, i === 3 ? ['', '', '', 'wolf'] : undefined)}
+                  aria-label={centreName(i, kinds)}
                   onClick={() => toggleCentre(i)}
                   className={cn(
-                    'rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
+                    'flex flex-col items-center gap-0.5 rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
                     picked && 'ring-4 ring-amber-400',
                     !legal && 'opacity-35',
                   )}
                 >
                   <CardBack deck={deck} size="sm">
                     <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 text-xs font-bold text-white">
-                      {i === 3 ? '🐺' : i + 1}
+                      {kinds[i] === 'wolf' ? '🐺' : i + 1}
                     </span>
                   </CardBack>
+                  <span className="text-xs text-indigo-100">
+                    {kinds[i] === 'wolf' ? 'Centre werewolf' : `Centre ${i + 1}`}
+                  </span>
                 </button>
               </li>
             );
@@ -420,10 +465,24 @@ function PromptPanel({
             </Button>
           ))
         ) : prompt.sides ? (
-          <>
-            <Button onClick={() => send({ side: 'right' })}>← Right</Button>
-            <Button onClick={() => send({ side: 'left' })}>Left →</Button>
-          </>
+          // Named, since left and right follow the app's seat order, not the room.
+          prompt.stage === 'move-all' ? (
+            <>
+              <Button onClick={() => send({ side: 'left' })}>Pass left, towards {leftName}</Button>
+              <Button onClick={() => send({ side: 'right' })}>
+                Pass right, towards {rightName}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => send({ side: 'left' })}>
+                {prompt.stage === 'tap' ? 'Tap' : 'Give it to'} {leftName} (left)
+              </Button>
+              <Button onClick={() => send({ side: 'right' })}>
+                {prompt.stage === 'tap' ? 'Tap' : 'Give it to'} {rightName} (right)
+              </Button>
+            </>
+          )
         ) : (
           <Button
             disabled={!ready}
@@ -447,20 +506,10 @@ function PromptPanel({
           You must choose: if time runs out, a choice is made for you.
         </p>
       )}
-      {prompt.sides && (
+      {prompt.stage === 'move-all' && (
         <p className="text-xs text-indigo-200/80">
-          Your left is{' '}
-          {nameOf(
-            view.table![(view.table!.findIndex((p) => p.id === me) + 1) % view.table!.length]!.id,
-          )}
-          ; your right is{' '}
-          {nameOf(
-            view.table![
-              (view.table!.findIndex((p) => p.id === me) - 1 + view.table!.length) %
-                view.table!.length
-            ]!.id,
-          )}
-          .
+          Every card but yours moves one seat that way: “left” passes each card on towards{' '}
+          {leftName}, “right” towards {rightName}.
         </p>
       )}
     </div>
@@ -524,7 +573,7 @@ export function Night({
       <div className={cn('space-y-3', acting && 'mx-auto max-w-xl px-4 py-4')}>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-semibold">
-            {night.index < 0 ? 'Night falls…' : `Night ${night.index + 1}/${night.count}`}
+            {night.index < 0 ? 'Night falls…' : `Step ${night.index + 1} of ${night.count}`}
           </span>
           <Countdown
             deadline={night.deadline}
@@ -539,7 +588,7 @@ export function Night({
             }
           />
         </div>
-        <Narration lines={lines} deck={deck} />
+        <Narration lines={lines} deck={deck} awake={acting !== null} />
         {acting ? (
           // Its own surface rather than <Panel>: the night is dark in both themes.
           <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-indigo-500/50">
@@ -601,7 +650,13 @@ export function Night({
                     className="rounded-lg bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
                   >
                     <WithChips
-                      text={describeNote(n, nameOf, deck, undefined, view.me?.id)}
+                      text={describeNote(
+                        n,
+                        nameOf,
+                        deck,
+                        centreKinds(view.settings.roles),
+                        view.me?.id,
+                      )}
                       roles={rolesIn(n)}
                       marks={marksIn(n)}
                       deck={deck}
@@ -617,9 +672,11 @@ export function Night({
         ) : (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <span aria-hidden className="text-6xl">
-              🌕
+              {view.myRole ? '🌕' : '👀'}
             </span>
-            <p className="font-serif text-2xl text-stone-100">Night has fallen…</p>
+            <p className="font-serif text-2xl text-stone-100">
+              {view.myRole ? 'Night has fallen…' : 'You’re watching the night'}
+            </p>
             <p className="text-sm" data-testid="idle-hint">
               {view.myRole
                 ? 'Keep your phone face up — it lights up when it’s your turn.'
@@ -644,14 +701,17 @@ function TableList({
   deck,
   pick,
   picked,
+  online,
 }: {
   view: NightfallView;
   deck: Deck;
   pick?: (id: string) => void;
   picked?: string | null;
+  online: (id: string) => boolean;
 }) {
   const me = view.me?.id;
   const day = view.day;
+  const protects = votePower(view) !== 'vote';
   return (
     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="The table">
       {view.table!.map((p) => {
@@ -674,7 +734,14 @@ function TableList({
               {day?.artifacts.includes(p.id) && (
                 <Token src={null} emblem="🏺" label="Has an artifact" />
               )}
-              {p.left && <span>left</span>}
+              {p.left ? (
+                <span>left</span>
+              ) : (
+                !online(p.id) && <span className="text-stone-500">offline</span>
+              )}
+              {view.phase === 'day' && view.waitingOn.includes(p.id) && !p.left && (
+                <span className="text-stone-500">· not ready yet</span>
+              )}
             </span>
           </>
         );
@@ -684,16 +751,22 @@ function TableList({
               <button
                 type="button"
                 aria-pressed={picked === p.id}
-                aria-label={`Vote for ${p.name}`}
+                aria-label={`${protects ? 'Protect' : 'Vote for'} ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id
-                    ? 'bg-rose-600 text-white ring-rose-600'
+                    ? protects
+                      ? 'bg-emerald-600 text-white ring-emerald-600'
+                      : 'bg-rose-600 text-white ring-rose-600'
                     : 'bg-white ring-stone-300 hover:bg-rose-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
                 )}
               >
                 {body}
+                <span className="text-xs font-semibold">
+                  {protects ? '🛡️ Protect' : '🗳️ Vote'}
+                  {picked === p.id ? ' · your pick' : ''}
+                </span>
               </button>
             ) : (
               <div className="flex min-h-12 flex-col rounded-lg bg-stone-100 px-3 py-1.5 dark:bg-stone-800/60">
@@ -749,6 +822,7 @@ export function Day({
   const playing = view.myRole !== null;
   const deadline = voting ? (view.vote?.deadline ?? null) : (view.day?.deadline ?? null);
   const myArtifact = view.notes.find((n) => n.kind === 'artifact');
+  const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const tabs: { id: DayTab; label: string }[] = [
     { id: 'table', label: voting ? 'Vote' : 'Table' },
     { id: 'learned', label: 'Learned' },
@@ -770,7 +844,12 @@ export function Day({
         />
       </div>
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <Narration lines={lines} deck={deck} />
+      <Narration
+        lines={lines}
+        deck={deck}
+        awake
+        readyEarly={(view.day?.readyCount ?? 0) >= (view.table?.filter((p) => !p.left).length ?? 0)}
+      />
       <Nudge view={view} room={room} />
       <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
         {tabs.map((t) => (
@@ -807,6 +886,7 @@ export function Day({
             deck={deck}
             pick={voting && playing ? (id) => void act({ type: 'vote', target: id }) : undefined}
             picked={view.vote?.myVote}
+            online={online}
           />
           {!voting && playing && (
             <Button
@@ -817,6 +897,16 @@ export function Day({
             >
               {view.day?.meReady ? 'Not ready yet' : 'Ready to vote'}
             </Button>
+          )}
+          {!voting && room.isHost && (
+            <div className="space-y-1 text-center">
+              <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-vote' })}>
+                Start the vote now
+              </Button>
+              <p className="text-xs text-stone-500">
+                Opens the vote without waiting for everyone to be ready (someone dropped out, say).
+              </p>
+            </div>
           )}
         </Panel>
       )}
@@ -836,6 +926,14 @@ export function Day({
 }
 
 // ---- The reveal ----
+
+/** What an artifact did to the player whose card it ended on, for the reveal. */
+export function artifactEffect(id: ArtifactId, deck: Deck): string {
+  const a = ARTIFACTS[id];
+  if (a.becomes) return `made them the ${deck.name(a.becomes)}`;
+  if (a.traitor) return 'made them a traitor: they win only if a teammate dies';
+  return 'no effect on the result';
+}
 
 /** The centre cards, face up at the end; tap one to read it. */
 function CentreCards({
@@ -990,6 +1088,11 @@ export function Reveal({
       </div>
       {tab === 'cards' ? (
         <Panel className="space-y-2">
+          <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="reveal-legend">
+            The picture is the card in front of each player at the end. The chips read{' '}
+            <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
+            decides their team.
+          </p>
           <ul className="space-y-2" aria-label="Everyone’s cards">
             {view.table!.map((p) => {
               const card = reveal.cards[p.id]!;
@@ -1029,13 +1132,25 @@ export function Reveal({
                       {card.shield && (
                         <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />
                       )}
-                      {id.converted && <Badge>turned {TEAM_LABEL[id.team].toLowerCase()}</Badge>}
+                      {id.converted && (
+                        <Badge>
+                          turned {TEAM_LABEL[id.team].toLowerCase()} by a{' '}
+                          {id.converted === 'werewolf' ? 'werewolf' : 'vampire'}’s vote
+                        </Badge>
+                      )}
                       {id.team !== ROLES[id.role].team && !id.converted && (
                         <Badge>{TEAM_LABEL[id.team]}</Badge>
                       )}
                     </div>
                     {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
-                      <p className="text-xs text-stone-500">Card: {deck.name(card.role)}</p>
+                      <p className="text-xs text-stone-500">
+                        Card at the end: {deck.name(card.role)}
+                      </p>
+                    )}
+                    {card.artifact && (
+                      <p className="text-xs text-stone-500" data-testid="artifact-effect">
+                        {deck.artifactName(card.artifact)}: {artifactEffect(card.artifact, deck)}.
+                      </p>
                     )}
                   </div>
                 </li>

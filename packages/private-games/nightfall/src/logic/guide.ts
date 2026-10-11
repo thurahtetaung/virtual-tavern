@@ -45,16 +45,18 @@ export const guide: GameGuide = {
     'Usually the village wins if a werewolf dies and the werewolves win if none does; some roles bring goals of their own.',
   ],
   setup: [
-    'The host picks the cards: one per player plus three for the centre (plus one when the Alpha Wolf is in). Presets cover proven setups for every table size.',
+    'The host picks the cards: one per player plus three for the centre (plus one when the Alpha Wolf is in). The recommended cards for your table size are picked to start with, and follow the table as people join until the host changes them. Ready-made setups are tagged Beginner, Advanced or Chaos.',
     'Everyone gets one card. Cover your screen, peek at your role, then press Ready.',
-    'Night falls once everyone is ready. The app calls each role in turn.',
+    'Night falls once everyone is ready (the host can start it early if someone dropped out). The app calls each role in turn.',
+    'Narration: with Host’s device, only the host’s phone speaks, so put it in the middle of the table; with Every device, every phone speaks, which suits players who are apart. Every screen shows the narration as text either way.',
   ],
   sections: [
     {
       title: 'The night',
       paragraphs: [
         'Every role in the game is called in a fixed order, even when its card is in the centre, and every call lasts the same time. So nobody can tell from the clock which roles are really at the table.',
-        'When your role is called, your screen lights up: tap players or centre cards to act, and see what you learn. Everyone else just sees the night. If you don’t choose in time, optional actions are skipped and required ones are made for you at random.',
+        'When your role is called, your screen lights up: tap players or centre cards to act, and see what you learn. Everyone else just sees which role is awake. If you don’t choose in time, optional actions are skipped and required ones are made for you at random.',
+        'Left and right follow the seat order in the app, not where you sit, so the buttons name the player on each side.',
         'You always act as the role you were dealt, even if your card has been swapped since. At the end of the night you are whatever card is in front of you, and you don’t get to look again.',
       ],
       bullets: wakeOrder.map((s, i) => `${i + 1}. ${s}`),
@@ -63,10 +65,10 @@ export const guide: GameGuide = {
       title: 'The day and the vote',
       bullets: [
         'Talk it over. Say anything you like (lies included), but never show your screen.',
-        'Press Ready to vote when you’re done; the vote opens when everyone is ready or the clock runs out.',
+        'Press Ready to vote when you’re done; the vote opens when everyone is ready or the clock runs out. The host can open it early (when someone has dropped out, say).',
         'Everyone secretly votes for another player, then all votes show at once.',
         'The player with the most votes dies; on a tie, everyone tied dies. If nobody gets more than one vote, nobody dies.',
-        'Votes for a Prince don’t count, and the Bodyguard’s pick protects instead of voting.',
+        'Votes for a Prince don’t count, and the Bodyguard’s pick protects instead of voting: a Bodyguard’s buttons read Protect.',
         'If another Vampire votes for The Master, he can’t die in the vote; the next most voted (with more than one vote) dies instead.',
         'When a player with a Mark of Love dies, every other lover dies too, even a protected one.',
         'Anyone who votes for the player with the Mark of Disease, or for the Diseased, can’t win.',

@@ -1,4 +1,10 @@
-import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  type PresencePlayer,
+  namesWithPresence,
+  timedOut,
+  waitingFor,
+  waitingForHost,
+} from '@vt/game-sdk';
 import {
   CARD_SIZE,
   type ClueView,
@@ -63,9 +69,19 @@ function outcomeText(view: EchoView, turn: TurnView): string {
       ? `Counted! ${nameOf(view, turn.countedBy)} counted the guess for ${word}.`
       : `Got it! The word was ${word}.`;
   }
-  if (turn.outcome === 'pass') return `Passed. The word was ${word}.`;
-  return `Not this time: the word was ${word}. This card and the next are lost.`;
+  if (turn.outcome === 'pass') {
+    return turn.timedOut
+      ? `⏱ Time ran out: counts as a pass. The word was ${word}.`
+      : `Passed. The word was ${word}.`;
+  }
+  const why = turn.timedOut
+    ? '⏱ Nobody decided in time, so it counts as wrong: the'
+    : 'Not this time: the';
+  return `${why} word was ${word}. This card and the next are lost.`;
 }
+
+const strictNote = (view: EchoView, turn: TurnView, text: string) =>
+  view.settings.timerMode === 'strict' && turn.deadline !== null ? ` ${text}` : '';
 
 function playingStatus(
   view: EchoView,
@@ -83,6 +99,7 @@ function playingStatus(
     return `Waiting for ${ids.length} more ${ids.length === 1 ? 'player' : 'players'}`;
   };
   const role = view.role;
+  const me = view.me?.id ?? '';
   switch (turn.stage) {
     case 'pick':
       return role === 'guesser'
@@ -93,7 +110,13 @@ function playingStatus(
         : { text: `Waiting for ${guesser} to pick a word…`, yourMove: false };
     case 'clues': {
       if (role === 'guesser') {
-        return { text: `Everyone is writing a clue for you… ${writing()}.`, yourMove: false };
+        const picked = turn.autoPicked
+          ? `${timedOut('a word was picked for you at random')}. `
+          : '';
+        return {
+          text: `${picked}Everyone is writing a clue for you… ${writing()}.`,
+          yourMove: false,
+        };
       }
       if (role === 'giver' && turn.givers.includes(view.me?.id ?? '')) {
         if (!turn.myClues) {
@@ -113,27 +136,42 @@ function playingStatus(
         yourMove: false,
       };
     }
-    case 'guess':
-      return role === 'guesser'
-        ? { text: 'Your turn to guess! You get one try, or you can pass.', yourMove: true }
-        : { text: `Waiting for ${guesser} to guess…`, yourMove: false };
-    case 'judge': {
-      const giver = turn.givers.includes(view.me?.id ?? '');
+    case 'guess': {
       if (role === 'guesser') {
         return {
-          text: 'Not an exact match. The clue writers are checking your guess…',
+          text: 'Your turn to guess! One try: a wrong guess loses this card and the next. Pass loses only this one.',
+          yourMove: true,
+        };
+      }
+      const missed = turn.missed.includes(me)
+        ? '⏱ You ran out of time, so there is no clue from you this card. '
+        : '';
+      return { text: `${missed}Waiting for ${guesser} to guess…`, yourMove: false };
+    }
+    case 'judge': {
+      const giver = turn.givers.includes(me);
+      const timeout = strictNote(view, turn, 'If nobody decides in time, it counts as wrong.');
+      if (role === 'guesser') {
+        return {
+          text: `Not an exact match. The clue writers are deciding whether it counts…${timeout}`,
           yourMove: false,
         };
       }
       if (giver) {
         return {
-          text: `${guesser} guessed “${turn.guess}”. Is it really the word? Count it, or Continue.`,
+          text: `${guesser} guessed “${turn.guess}”. Is it really the word? One tap decides for the whole table.${timeout}`,
           yourMove: true,
         };
       }
       return isHost
-        ? { text: `${guesser} guessed “${turn.guess}”. Press Continue to move on.`, yourMove: true }
-        : { text: 'The clue writers are checking the guess…', yourMove: false };
+        ? {
+            text: `${guesser} guessed “${turn.guess}”. Press Doesn't count to move on.`,
+            yourMove: true,
+          }
+        : {
+            text: `The clue writers are deciding whether the guess counts…${timeout}`,
+            yourMove: false,
+          };
     }
     case 'reveal': {
       const next = view.cardsLeft > 0 ? 'Next card' : 'Finish';

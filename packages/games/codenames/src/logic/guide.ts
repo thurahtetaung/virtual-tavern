@@ -15,7 +15,7 @@ export const guide: GameGuide = {
   ],
   setup: [
     'Split into two teams: Red and Blue.',
-    'Each team picks one Spymaster. Everyone else is an Operative.',
+    'Each team picks one Spymaster. Everyone else is an Operative. First game? Start as an Operative: the Spymaster has the harder job.',
     'The host presses Start, which needs a Spymaster and at least one Operative on each team. Which team goes first is random, and it alternates with every rematch.',
     'The team that goes first has 9 agents to find; the other team has 8.',
   ],
@@ -87,7 +87,7 @@ export const guide: GameGuide = {
       bullets: [
         'Only the host can start the game, shuffle the teams, change the settings and return everyone to the lobby.',
         'If a team’s Spymaster or last Operative leaves, that team forfeits its turn (and any turn that starts while the seat is still empty).',
-        'The host can skip a stuck turn at any point. It shows up in the game log.',
+        'If the player whose turn it is goes offline, everyone is told, and the host gets a button to skip their turn. The host can also skip a stuck turn at any point. It shows up in the game log.',
         'Back to lobby abandons the current game: the board and the log are gone for good.',
         'Anyone without a team is watching: they see the board and the clues like an Operative, never the key, and can take a seat whenever the rules above allow it.',
       ],

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { codenames } from '../logic/game.ts';
-import { OP, cardsOf, clue, startedGame } from '../logic/test-utils.ts';
-import { lastGuessResult } from './result.ts';
+import { HOST, NOW, OP, SPY, cardsOf, clue, startedGame } from '../logic/test-utils.ts';
+import { latestResult } from './result.ts';
 
 const result = (h: ReturnType<typeof startedGame>) =>
-  lastGuessResult(codenames.view(h.state, OP.blue));
+  latestResult(codenames.view(h.state, OP.blue));
 
-describe('lastGuessResult', () => {
+describe('latestResult', () => {
   it('is empty before any guess, and again once the next clue is given', () => {
     const h = startedGame();
     clue(h, 'red', 2);
@@ -79,4 +79,43 @@ describe('lastGuessResult', () => {
     for (const card of cardsOf(h.state, 'red')) h.act({ type: 'guess', card }, OP.red);
     expect(result(h)?.next).toBe("That was Red's last agent. Red wins the game!");
   });
+
+  it('replaces the last guess with a timeout banner when the next team runs out of time', () => {
+    const h = startedGame({ clueSeconds: 30, timerMode: 'strict' });
+    clue(h, 'red', 2);
+    h.act({ type: 'guess', card: cardsOf(h.state, 'bystander')[0]! }, OP.red);
+    h.state = codenames.onDeadline!(h.state, NOW + 3_600_000);
+    expect(result(h)).toEqual({
+      tone: 'skipped',
+      who: '',
+      headline: "⏱ Time ran out: Blue's turn ended.",
+      next: "Red's turn now.",
+      card: null,
+    });
+  });
+
+  it('announces a forfeit and a host skip', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW);
+    expect(result(h)).toMatchObject({
+      tone: 'skipped',
+      headline: 'Red has nobody to play the turn, so it was skipped.',
+      next: "Blue's turn now.",
+    });
+    const g = startedGame();
+    g.act({ type: 'end-turn' }, HOST);
+    expect(lastResultFor(g)?.headline).toBe("The host skipped Red's turn.");
+  });
+
+  it('says when the team ended its turn after a guess', () => {
+    const h = startedGame();
+    clue(h, 'red', 2);
+    h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
+    h.act({ type: 'end-turn' }, OP.red);
+    expect(result(h)?.next).toBe("Red ended the turn. Blue's turn now.");
+  });
 });
+
+function lastResultFor(h: ReturnType<typeof startedGame>) {
+  return latestResult(codenames.view(h.state, OP.red));
+}

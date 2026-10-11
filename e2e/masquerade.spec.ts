@@ -45,6 +45,9 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   const localIdeas = locals[0]!.getByRole('region', { name: 'Question ideas' });
   await expect(localIdeas.getByText(`📍 For ${location}`)).toBeVisible();
   await expect(locals[0]!.getByText('💡 Coaching:')).toBeVisible();
+  // The first round says up front that the asking is out loud, and that the spy guesses only if caught.
+  await expect(locals[0]!.getByText('The app doesn’t track the talking.')).toBeVisible();
+  await expect(spy.getByTestId('spy-guess-rule')).toContainText('If the vote catches you');
   // Crossing a place off is the player's own note.
   const board = spy.getByRole('region', { name: 'Locations' });
   const other = location === 'Bakery' ? 'Gym' : 'Bakery';
@@ -67,6 +70,10 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   for (const p of players) await expect(p.getByTestId('revealed-location')).toHaveText(location);
   await expect(host.getByRole('list', { name: 'Votes' })).toContainText(`→ ${n(l1)}`);
   await expect(host.getByText('escaped the vote: +2 for the spy.')).toBeVisible();
+  await expect(host.getByTestId('vote-tally')).toContainText(`${n(l1)}`);
+  await expect(host.getByTestId('vote-tally')).toContainText(' 3');
+  await expect(host.getByTestId('points-rule')).toContainText('escapes the vote');
+  await expect(spy.getByText('You were the spy')).toBeVisible();
   await host.getByRole('button', { name: 'Next round' }).click();
 
   // Round 2: the spy is caught, then names the location and steals the round.
@@ -85,6 +92,11 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
     await expect(dealt.spy).toHaveTitle(YOUR_TURN);
     await expect(a).not.toHaveTitle(YOUR_TURN);
     await expect(a.getByText(`${spyName} was caught as the spy and is guessing`)).toBeVisible();
+    // The caught spy is spoken to as "you", and the table sees who it was in the votes.
+    await expect(dealt.spy.getByTestId('nudge')).toHaveText(
+      '🎯 You were caught! One guess at the location',
+    );
+    await expect(a.getByRole('list', { name: 'Votes' })).toContainText(`${spyName} 🎭 spy`);
     const guess = dealt.spy.getByRole('region', { name: 'Locations' });
     await guess.getByRole('button', { name: `Pick ${dealt.location}`, exact: true }).click();
     await guess.getByRole('button', { name: `Guess ${dealt.location}`, exact: true }).click();
@@ -110,6 +122,7 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
     await guess.getByRole('button', { name: `Pick ${wrong}`, exact: true }).click();
     await guess.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
     await expect(a.getByText(`guessed ${wrong}: the locals win the round.`)).toBeVisible();
+    await expect(a.getByTestId('points-rule')).toContainText('every local scores 1');
   }
   // The game is over: a podium for everyone.
   for (const p of players) await expect(p.getByLabel('Podium')).toBeVisible();

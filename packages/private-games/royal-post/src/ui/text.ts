@@ -101,7 +101,13 @@ export function describeLog(view: RoyalPostView, entry: LogEntry): Line {
     if (entry.cause === 'left') return [`${Who(entry.player)} left and ${are} out`, ...cards, '.'];
     return [`${Who(entry.player)} ${are} out`, ...cards, '.'];
   }
-  const played = line`${Who(entry.by)} played ${c(entry.card)}`;
+  const timedOut = entry.timedOut
+    ? [`⏱ Time ran out, so a card was played for ${who(entry.by)}: `]
+    : [];
+  const played = [
+    ...timedOut,
+    ...line`${entry.timedOut ? who(entry.by) : Who(entry.by)} played ${c(entry.card)}`,
+  ];
   if (entry.noEffect) return [...played, ', with nobody to choose.'];
   const target =
     entry.target === entry.by
@@ -122,10 +128,22 @@ export function describeLog(view: RoyalPostView, entry: LogEntry): Line {
     case 'handmaid':
       return [...played, ` and ${entry.by === view.me?.id ? 'are' : 'is'} protected.`];
     case 'prince':
-      return [...played, ...line` on ${target}, discarding ${c(entry.discarded!)}.`];
+      // Name who discarded, so it can't be read as the Prince's player discarding.
+      return [
+        ...played,
+        ...line` on ${target}: ${entry.target === view.me?.id ? 'you' : nameOf(view, entry.target)} discarded ${c(entry.discarded!)}${entry.discarded === 'princess' ? '.' : ' and drew a new card.'}`,
+      ];
     case 'chancellor':
       return entry.drew
-        ? [...played, ` and drew ${entry.drew}.`]
+        ? [
+            ...played,
+            ` and drew ${entry.drew}.`,
+            ...(entry.autoKept
+              ? [
+                  ` ⏱ Time ran out, so a card was kept for ${entry.by === view.me?.id ? 'you' : 'them'}.`,
+                ]
+              : []),
+          ]
         : [...played, '; the deck was empty.'];
     case 'king':
       return [...played, ` and traded hands with ${target}.`];
@@ -136,6 +154,11 @@ export function describeLog(view: RoyalPostView, entry: LogEntry): Line {
 
 /** One private note, for its owner. */
 export function describeNote(view: RoyalPostView, note: Note): Line {
+  const body = noteBody(view, note);
+  return note.timedOut ? ['⏱ Time ran out, so a card was played for you. ', ...body] : body;
+}
+
+function noteBody(view: RoyalPostView, note: Note): Line {
   const other = nameOf(view, note.kind === 'peek' ? note.target : note.other);
   switch (note.kind) {
     case 'peek':

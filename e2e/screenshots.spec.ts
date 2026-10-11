@@ -437,13 +437,17 @@ for (const [label, viewport] of [
     await playCard(async (guesser, writers) => {
       const judge = await wrong(guesser, writers);
       await shot(judge, 'judge');
-      await judge.getByRole('button', { name: 'Continue' }).click();
+      await judge.getByRole('button', { name: "Doesn't count" }).click();
     });
     // 5 cards left: two more misses (two cards each) and a pass end the deck.
     for (let i = 0; i < 2; i++) {
       await nextCard();
       await playCard(async (guesser, writers) => {
-        await (await wrong(guesser, writers)).getByRole('button', { name: 'Continue' }).click();
+        await (
+          await wrong(guesser, writers)
+        )
+          .getByRole('button', { name: "Doesn't count" })
+          .click();
       });
     }
     await nextCard();
@@ -690,7 +694,7 @@ for (const [label, viewport] of [
       [dealt.spy, names.get(a)!],
     ]);
     // A caught spy's screen opens on the board, ready to guess.
-    await expect(dealt.spy.getByText('Pick the location you think it is.')).toBeVisible();
+    await expect(dealt.spy.getByText('🎯 You were caught! Pick your one guess.')).toBeVisible();
     await shot(dealt.spy, 'caught');
     await board.getByRole('button', { name: `Pick ${dealt.location}`, exact: true }).click();
     await shot(dealt.spy, 'guess');

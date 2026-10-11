@@ -32,9 +32,9 @@ export const guide: GameGuide = {
       title: 'Writing a lie',
       bullets: [
         'Keep it to one line: at most 160 characters. Match the length and style of what the real answer might be.',
-        'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one. Capitals, accents and plurals are ignored when checking.',
+        'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one. Capitals, accents, plurals and a leading “a”, “an” or “the” are ignored when checking.',
         'If two players write the same lie, it appears once on the board and counts for both of them.',
-        'Stuck? Press “Lie for me” and the game hands you a ready-made fake, when the question has some. It counts as your lie but scores half. You can still type your own to replace it.',
+        'Stuck? Press “Lie for me” and the game hands you a ready-made fake, when the question has some. It counts as your lie but scores half. You can still type your own to replace it. Once you’ve sent a lie of your own, “Lie for me” goes away, so it can’t replace yours by accident.',
       ],
     },
     {
@@ -45,13 +45,14 @@ export const guide: GameGuide = {
         'In small games the board is topped up to four answers with house fakes. They belong to nobody: picking one scores nothing.',
         'A lie the game picked for you (“Lie for me”, or filled in when the strict timer runs out) scores half: 250 points per player fooled.',
         'The final round counts double.',
+        'The reveal lists where each player’s points came from.',
         'After the last round, the highest score wins. Ties are shared. There are also awards for the Best liar (who fooled the most players) and the Truth seeker (who found the truth most often).',
       ],
     },
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the lie writing (the “clue timer”) and the voting (the “guess timer”). By default the timer is just a reminder. With Strict timers, running out of time moves the game on: anyone who hasn’t written a lie gets a ready-made fake (worth half) when the question has some, or has none on the board, and anyone who hasn’t voted scores nothing for finding the truth. If nobody wrote a lie, the round goes straight to the reveal with no points.',
+        'The host can time the lie writing (the “clue timer”) and the voting (the “guess timer”). By default the timer is just a reminder. With Strict timers, running out of time moves the game on: anyone who hasn’t written a lie gets a ready-made fake (worth half) when the question has some, or has none on the board, and anyone who hasn’t voted scores nothing for finding the truth. If nobody wrote a lie, the round goes straight to the reveal with no points. The game tells you when the timer filled in your lie, and the reveal says when time ran out on the vote.',
       ],
     },
     {

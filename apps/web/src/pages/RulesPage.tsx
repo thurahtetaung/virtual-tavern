@@ -10,6 +10,7 @@ import {
   findGame,
   loadPrivateGames,
   offeredPrivateGames,
+  withTitle,
 } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
@@ -73,9 +74,13 @@ export function RulesPage() {
   const [privateGame, setPrivateGame] = useState<ClientGame | null | 'missing'>(null);
   useEffect(() => {
     if (!gameId || findGame(gameId)) return;
-    void loadPrivateGames().then((games) =>
-      setPrivateGame(games.find((g) => g.id === gameId) ?? 'missing'),
-    );
+    // The admin may have given a private game its own title (unlocked browsers only get it).
+    const titles = api<GameSummary[]>('/api/games').catch(() => [] as GameSummary[]);
+    void Promise.all([loadPrivateGames(), titles]).then(([games, offered]) => {
+      const found = games.find((g) => g.id === gameId);
+      const title = offered.find((g) => g.id === gameId)?.title;
+      setPrivateGame(found ? withTitle(found, title) : 'missing');
+    });
   }, [gameId]);
   if (!gameId) return <RulesIndex />;
   const game = findGame(gameId) ?? (privateGame === 'missing' ? undefined : privateGame);

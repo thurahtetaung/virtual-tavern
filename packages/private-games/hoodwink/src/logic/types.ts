@@ -67,6 +67,10 @@ export interface Round {
   lies: Record<PlayerId, string>;
   /** Players whose current lie the game picked for them. */
   autoLies: PlayerId[];
+  /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
+  filled?: PlayerId[];
+  /** The strict vote timer ended the vote before everyone had voted. */
+  voteTimedOut?: boolean;
   /** The shuffled board, built when voting starts. */
   options: Option[];
   /** Who votes: the round's players when voting started (leavers who hadn't voted are dropped). */
@@ -170,8 +174,12 @@ export interface RoundView {
   written: PlayerId[];
   /** The viewer's own lie, if they've written one. */
   myLie: string | null;
-  /** The viewer's lie was picked by "Lie for me". */
+  /** The viewer's lie was picked by "Lie for me" or filled in by the timer. */
   myLieAuto: boolean;
+  /** The viewer's lie was filled in because the strict timer ran out. */
+  myLieFilled: boolean;
+  /** The strict vote timer ended the vote before everyone had voted. */
+  voteTimedOut: boolean;
   /** The question has built-in fakes, so "Lie for me" is offered. */
   canLieForMe: boolean;
   /** The board: empty while lies are being written. */

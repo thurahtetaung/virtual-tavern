@@ -9,7 +9,7 @@ import {
   type OptionView,
   type RoundView,
 } from '../logic/types.ts';
-import { listNames, nameOf, points, splitPrompt } from './status.ts';
+import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
 import { Avatar } from './Table.tsx';
 
 type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
@@ -89,6 +89,8 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
   const unchanged = sent && trimmed === round.myLie;
   const problem = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
   const blocked = problem !== null || (refused !== null && refused === trimmed);
+  // Once you've sent a lie of your own, "Lie for me" would throw it away, so it goes.
+  const offerLieForMe = round.canLieForMe && (!sent || round.myLieAuto);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -128,11 +130,11 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           🤖 Picked for you: it scores half. Type your own to replace it.
         </p>
       )}
-      <div className={cn('grid gap-2', round.canLieForMe && 'grid-cols-[1fr_auto]')}>
+      <div className={cn('grid gap-2', offerLieForMe && 'grid-cols-[1fr_auto]')}>
         <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
           {sent ? (unchanged ? '✓ Sent' : 'Change my lie') : 'Send lie'}
         </Button>
-        {round.canLieForMe && (
+        {offerLieForMe && (
           <Button
             variant="secondary"
             size="lg"
@@ -153,11 +155,14 @@ function OptionCard({
   option,
   chosen,
   disabled,
+  filled,
   onPick,
 }: {
   option: OptionView;
   chosen: boolean;
   disabled: boolean;
+  /** The viewer's lie was filled in by the timer. */
+  filled: boolean;
   onPick: () => void;
 }) {
   return (
@@ -177,7 +182,11 @@ function OptionCard({
       )}
     >
       <span className="min-w-0 break-words">{option.text}</span>
-      {option.mine && <span className="shrink-0 text-xs font-medium">Your lie</span>}
+      {option.mine && (
+        <span className="shrink-0 text-xs font-medium">
+          {filled ? 'Filled in for you' : 'Your lie'}
+        </span>
+      )}
       {chosen && !option.mine && (
         <span className="shrink-0 text-sm" aria-hidden>
           ✓
@@ -203,6 +212,7 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
             option={o}
             chosen={round.myVote === o.index}
             disabled={!canVote || busy}
+            filled={round.myLieFilled}
             onPick={() => void pick(o.index)}
           />
         </li>
@@ -281,6 +291,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
   );
 }
 
+/** Who scored this round, and why: each player's points with their reasons underneath. */
 function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) {
   const gained = Object.entries(round.points ?? {})
     .filter(([, p]) => p > 0)
@@ -289,16 +300,35 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
     return <p className="text-center text-sm text-stone-500">No points this round.</p>;
   }
   return (
-    <ul aria-label="Points this round" className="flex flex-wrap justify-center gap-1.5">
-      {gained.map(([id, p]) => (
-        <li
-          key={id}
-          className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-semibold text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200"
-        >
-          {nameOf(view, id)} +{points(p)}
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-1">
+      {round.double && (
+        <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+          Final round: every point counts double.
+        </p>
+      )}
+      <ul aria-label="Points this round" className="grid gap-1.5 sm:grid-cols-2">
+        {gained.map(([id, p]) => (
+          <li
+            key={id}
+            className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm dark:bg-emerald-500/10"
+          >
+            <span className="flex justify-between gap-2 font-semibold text-emerald-900 dark:text-emerald-200">
+              <span className="min-w-0 truncate">{nameOf(view, id)}</span>
+              <span className="tabular-nums">+{points(p)}</span>
+            </span>
+            {pointsBreakdown(view, round, id).map((line, i) => (
+              <span
+                key={i}
+                className="flex justify-between gap-2 text-xs text-stone-600 dark:text-stone-400"
+              >
+                <span className="min-w-0">{line.reason}</span>
+                <span className="shrink-0 tabular-nums">+{points(line.points)}</span>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

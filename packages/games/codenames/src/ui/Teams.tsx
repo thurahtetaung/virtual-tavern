@@ -67,6 +67,11 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
       <div className="space-y-2 text-sm">
         <div>
           <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Spymaster</p>
+          {!compact && (
+            <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
+              Sees the secret key and gives one-word clues.
+            </p>
+          )}
           {spymaster ? (
             <Name
               id={spymaster.id}
@@ -90,6 +95,11 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
         </div>
         <div>
           <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Operatives</p>
+          {!compact && (
+            <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
+              Guess the words from the clues. Best for a first game.
+            </p>
+          )}
           <ul className={cn('flex flex-wrap gap-x-3 gap-y-1', compact && 'text-sm')}>
             {operatives.map((s) => (
               <li key={s.id}>

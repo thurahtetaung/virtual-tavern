@@ -52,18 +52,27 @@ async function give(page: Page) {
   await page.getByRole('button', { name: 'Give this card' }).click();
   await page.getByRole('button', { name: 'Give this card' }).click();
 }
-/** Votes for the first table card that isn't the voter's own. */
-async function vote(page: Page) {
+/**
+ * Votes for the first table card that isn't the voter's own (or, with `change`, isn't their
+ * current vote either), waiting for the card view to open before reading its button.
+ */
+async function vote(page: Page, change = false) {
   const cards = table(page);
   const n = await cards.count();
   for (let i = 0; i < n; i++) {
     await cards.nth(i).click();
-    const btn = page.getByRole('button', { name: `Vote for #${i + 1}` });
-    if (await btn.isVisible()) {
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    const btn = dialog.getByRole('button', {
+      name: change ? `Change vote to #${i + 1}` : `Vote for #${i + 1}`,
+    });
+    if ((await btn.count()) > 0) {
       await btn.click();
-      return;
+      await expect(dialog).toBeHidden();
+      return i + 1;
     }
-    await page.keyboard.press('Escape');
+    await dialog.getByRole('button', { name: 'Close' }).first().click();
+    await expect(dialog).toBeHidden();
   }
   throw new Error('no card to vote for');
 }
@@ -92,12 +101,21 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     }),
   );
   const players = [host, ana!, ben!, cy!];
+  const late = await visitor(browser, 'Eve');
   await expect(host.getByText('Players (4/8)')).toBeVisible();
   await expect(host.getByText('Everyone is seated')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
   for (let round = 1; round <= 2; round++) {
     await expect(host.getByText(`Turn ${round}`)).toBeVisible();
+    if (round === 1) {
+      // A late joiner is told they are watching, and when they can sit down.
+      await unlock(late, `/backroom?next=${encodeURIComponent(new URL(url).pathname)}`);
+      await expect(late).toHaveURL(url);
+      await expect(
+        late.getByText(/You’re watching this turn\..*take a seat at the reveal/),
+      ).toBeVisible();
+    }
     // Everyone holds six cards; the storyteller is whoever sees the prompt.
     for (const p of players) await expect(hand(p)).toHaveCount(6);
     let storyteller: Page | undefined;
@@ -108,11 +126,24 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     await tell(storyteller!, `clue ${round}`);
     await expect(ana!.getByText(`“clue ${round}”`)).toBeVisible();
     for (const p of players) if (p !== storyteller) await give(p);
-    await expect(table(host)).toHaveCount(4);
-    for (const p of players) if (p !== storyteller) await vote(p);
+    await expect(table(host)).toHaveCount(players.length);
+    const voters = players.filter((p) => p !== storyteller);
+    // The first voter changes their mind before the last vote is in.
+    await vote(voters[0]!);
+    const changed = await vote(voters[0]!, true);
+    await expect(voters[0]!.getByText(`You voted for #${changed}.`)).toBeVisible();
+    for (const p of voters.slice(1)) await vote(p);
     await expect(host.getByText('Cards revealed!')).toBeVisible();
-    // The storyteller's card is marked and every table card now shows its owner.
-    await expect(host.getByText('📖', { exact: false }).first()).toBeVisible();
+    // The storyteller's card is marked in words and every voter is named.
+    await expect(host.getByText('📖 Story card')).toBeVisible();
+    await expect(voters[0]!.getByText('✋ Your vote')).toBeVisible();
+    await expect(host.getByText(/^Votes: /).first()).toBeVisible();
+    if (round === 1) {
+      // The hint's button, next to the status line (the Players panel has one too).
+      await late.getByRole('button', { name: 'Take a seat' }).first().click();
+      await expect(host.getByText('Players (5/8)')).toBeVisible();
+      players.push(late);
+    }
     await host.getByRole('button', { name: 'Next turn' }).click();
   }
   await expect(host.getByText('Turn 3')).toBeVisible();

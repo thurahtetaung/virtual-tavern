@@ -17,7 +17,7 @@ import {
   type ResolvedCard,
   type TurnView,
 } from '../logic/types.ts';
-import { cancelReason, nameOf, stillWriting } from './status.ts';
+import { cancelReason, listNames, nameOf, stillWriting } from './status.ts';
 
 type Act = (a: EchoAction, options?: ActOptions) => Promise<boolean>;
 
@@ -268,28 +268,54 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
     title: 'Not this time',
     tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
   },
+  'pass-timeout': {
+    icon: '⏱',
+    title: 'Time ran out',
+    tone: 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200',
+  },
+  'wrong-timeout': {
+    icon: '⏱',
+    title: 'Time ran out',
+    tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
+  },
 };
 
-function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
-  const key = turn.outcome === 'right' && turn.countedBy ? 'counted' : (turn.outcome ?? 'wrong');
-  const o = OUTCOME[key]!;
+/** One line under the result: what happened, in plain words. */
+function outcomeLine(view: EchoView, turn: TurnView): string {
   const guesser = nameOf(view, turn.guesser);
+  if (turn.outcome === 'pass') {
+    return turn.timedOut
+      ? `${guesser} didn't answer in time: counts as a pass.`
+      : `${guesser} passed.`;
+  }
+  let line = `${guesser} guessed “${turn.guess ?? '—'}”.`;
+  if (turn.countedBy) line += ` ${nameOf(view, turn.countedBy)} counted it.`;
+  if (turn.outcome === 'wrong') {
+    if (turn.timedOut) line += ' Nobody decided in time, so it counts as wrong.';
+    line += ' This card and the next are lost.';
+  }
+  return line;
+}
+
+function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
+  const base = turn.outcome === 'right' && turn.countedBy ? 'counted' : (turn.outcome ?? 'wrong');
+  const o = OUTCOME[turn.timedOut ? `${base}-timeout` : base] ?? OUTCOME[base]!;
+  const missed = turn.missed.map((id) => nameOf(view, id));
   return (
     <div className="space-y-3">
       <div className={cn('rounded-xl px-3 py-2 text-center', o.tone)}>
         <p className="text-xl font-bold">
           {o.icon} {o.title}
         </p>
-        <p className="text-sm">
-          {turn.outcome === 'pass'
-            ? `${guesser} passed.`
-            : `${guesser} guessed “${turn.guess ?? '—'}”.`}
-          {turn.countedBy && ` ${nameOf(view, turn.countedBy)} counted it.`}
-          {turn.outcome === 'wrong' && ' This card and the next are lost.'}
-        </p>
+        <p className="text-sm">{outcomeLine(view, turn)}</p>
       </div>
       {turn.word && <SecretWord word={turn.word} label="The word was" />}
       <ClueList view={view} clues={turn.clues} />
+      {missed.length > 0 && (
+        <p className="text-center text-sm text-stone-500">
+          ⏱ No clue from {listNames(missed)}: time ran out.
+        </p>
+      )}
       {room.isHost && (
         <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-card' })}>
           {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
@@ -301,7 +327,13 @@ function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
 
 function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
   const isHost = room.isHost;
+  const online = (id: string) => room.players.find((p) => p.id === id)?.connected !== false;
   const giver = turn.givers.includes(view.me?.id ?? '');
+  const guesser = view.role === 'guesser';
+  // The guesser doesn't judge their own guess. A host who is guessing only gets a way out when
+  // no clue writer is around to decide.
+  const nobodyToJudge = !turn.givers.some((g) => online(g));
+  const canMoveOn = giver || (isHost && (!guesser || nobodyToJudge));
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 text-center">
@@ -319,21 +351,33 @@ function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
           </span>
         </p>
       </div>
-      {(giver || isHost) && (
+      {canMoveOn && (
         <div className={cn('grid gap-2', giver && 'grid-cols-2')}>
           {giver && (
             <Button size="lg" onClick={() => void act({ type: 'count-it' })}>
               Count it
             </Button>
           )}
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'continue' })}>
-            Continue
+          <Button
+            variant="secondary"
+            size="lg"
+            className="whitespace-nowrap"
+            onClick={() => void act({ type: 'continue' })}
+          >
+            Doesn't count
           </Button>
         </div>
       )}
       {giver && (
         <p className="text-center text-xs text-stone-500">
-          Count it only if the guess is really the word: a typo or a different spelling.
+          Count it only if the guess is really the word: a typo or a different spelling. Doesn't
+          count loses this card and the next.
+        </p>
+      )}
+      {guesser && canMoveOn && (
+        <p className="text-center text-xs text-stone-500">
+          No clue writer is online to decide. Doesn't count moves on (this card and the next are
+          lost).
         </p>
       )}
       {view.role !== 'guesser' && <ClueList view={view} clues={turn.clues} />}
@@ -406,8 +450,13 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
             <span className="font-semibold uppercase">{h.word}</span>
             <span className="min-w-0 truncate text-stone-500">
               {h.guesserName}
-              {h.outcome === 'pass' ? ' passed' : ` guessed “${h.guess ?? '—'}”`}
+              {h.outcome === 'pass'
+                ? h.timedOut
+                  ? ' ran out of time'
+                  : ' passed'
+                : ` guessed “${h.guess ?? '—'}”`}
               {h.countedBy && ' (counted)'}
+              {h.outcome === 'wrong' && h.timedOut && ' (undecided in time)'}
             </span>
           </li>
         ))}

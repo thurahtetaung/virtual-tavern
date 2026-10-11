@@ -13,6 +13,11 @@ export const MAX_GUESS_LENGTH = 32;
 export const MAX_HISTORY = 20;
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
+/**
+ * How long the clue writers get to judge a near miss before a host who is also the guesser may
+ * settle it themselves (for when no clue writer is around to do it).
+ */
+export const JUDGE_GRACE_MS = 30_000;
 
 export type DeckSize = (typeof DECK_SIZES)[number];
 export type TimerMode = 'soft' | 'strict';
@@ -61,6 +66,14 @@ export interface Turn {
   countedBy: PlayerId | null;
   /** Epoch ms when the current stage times out, or null if untimed. */
   deadline: number | null;
+  /** The strict timer picked the word because the guesser ran out of time. */
+  autoPicked?: boolean;
+  /** Clue writers who had sent nothing when the strict clue timer ran out. */
+  missed?: PlayerId[];
+  /** The strict timer decided the outcome (no guess, or an undecided near miss). */
+  timedOut?: boolean;
+  /** Epoch ms when judging a near miss began. */
+  judgeStarted?: number;
 }
 
 export interface ResolvedClue {
@@ -78,6 +91,10 @@ export interface ResolvedCard {
   outcome: Outcome;
   countedBy: PlayerId | null;
   clues: ResolvedClue[];
+  /** The strict timer decided the outcome. */
+  timedOut?: boolean;
+  /** Names of clue writers who sent nothing before the clue timer ran out. */
+  missed?: string[];
 }
 
 export interface EchoState {
@@ -176,6 +193,12 @@ export interface TurnView {
   outcome: Outcome | null;
   countedBy: PlayerId | null;
   deadline: number | null;
+  /** The strict timer picked the word for the guesser. */
+  autoPicked: boolean;
+  /** Clue writers who sent nothing before the strict clue timer ran out. */
+  missed: PlayerId[];
+  /** The strict timer decided the outcome. */
+  timedOut: boolean;
 }
 
 export interface EchoView {

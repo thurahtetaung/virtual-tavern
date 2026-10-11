@@ -34,7 +34,7 @@ export const guide: GameGuide = {
     {
       name: 'Interceptors',
       summary:
-        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor can help with this.',
+        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor votes on the interception too, but can only talk in the team chat once their team has locked in its own code.',
     },
   ],
   sections: [
@@ -54,7 +54,7 @@ export const guide: GameGuide = {
         'A clue is a single line of up to 40 characters.',
         'It can’t be one of your own keywords, and it can’t be just a number.',
         'The three clues must all be different.',
-        'While your team is decoding your code, you can’t post in the team chat. Let them work it out!',
+        'While your team is decoding your code, you can’t post in the team chat, not even about the interception. You can still pick and lock in an interception guess, and the chat opens again once your team has locked in its own code.',
       ],
     },
     {
@@ -67,23 +67,25 @@ export const guide: GameGuide = {
     {
       title: 'Tokens',
       bullets: [
-        'Your team guesses its own code wrong: you get a miscommunication (black) token.',
-        'You guess the other team’s code right: you get an interception (white) token.',
+        'Your team guesses its own code wrong (or doesn’t agree on one): you get a 💥 miscommunication token.',
+        'You guess the other team’s code right: you get a 🕵️ interception token.',
+        'The scoreboard shows each team’s tokens as 🕵️ 0/2 and 💥 0/2, with the round number (“Round 1 of 8”) in the middle. Tap the round to show or hide this legend.',
         'Nobody can intercept in round 1, because there is no clue history yet.',
       ],
     },
     {
       title: 'Winning',
       bullets: [
-        'At the end of a round, a team with 2 interceptions wins.',
-        'A team with 2 miscommunications loses.',
+        'At the end of a round, a team with 2 🕵️ interceptions wins.',
+        'A team with 2 💥 miscommunications loses.',
+        'When a round decides the game, the reveal says who won and why, and the host’s button changes to See results.',
         'If both happen at once, or after round 8, the team with the better score wins (interceptions minus miscommunications). An even score is a draw.',
       ],
     },
     {
       title: 'The clue history is everything',
       paragraphs: [
-        'Every past clue sits under its keyword number on both teams’ sheets. Your team can see what the other team said for their keyword 3 in every round, so after a few rounds you may work out what it is. Use the shared notes to write your team’s best guess for each of their keywords.',
+        'Every past clue sits under its keyword number on both teams’ sheets. Your team can see what the other team said for their keyword 3 in every round, so after a few rounds you may work out what it is. Use the shared notes to write your team’s best guess for each of their keywords. When you intercept, their past clues and your notes sit right above the code picker.',
       ],
     },
     {
@@ -96,7 +98,7 @@ export const guide: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. If the host picks Strict, running out of time counts as a failure: no clues means a miscommunication, and no agreed guess means no decode or interception. A code that never got its clues can’t be intercepted either.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. If the host picks Strict, running out of time counts as a failure: clues typed but not sent don’t count, so no clues means a miscommunication, and no agreed guess means no decode or interception. A code that never got its clues can’t be intercepted either. The reveal says when the timer was the reason. Give Encryptors 2–3 minutes: three careful clues take a while.',
       ],
     },
     {
@@ -121,11 +123,11 @@ export const guide: GameGuide = {
         'Three different numbers from 1–4, such as 3-1-4, that the Encryptor must get across.',
     },
     {
-      term: 'Interception',
+      term: 'Interception 🕵️',
       meaning: 'Correctly guessing the other team’s code. Two wins the game.',
     },
     {
-      term: 'Miscommunication',
+      term: 'Miscommunication 💥',
       meaning: 'Your team failing to guess its own code. Two loses the game.',
     },
   ],

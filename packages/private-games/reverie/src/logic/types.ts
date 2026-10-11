@@ -121,6 +121,12 @@ export interface Turn {
   results: Record<PlayerId, TurnResult> | null;
   /** Everyone found it, or nobody did (the storyteller scores nothing). */
   allOrNone: boolean | null;
+  /** A strict timer skipped this storyteller just before this turn began. */
+  skipped?: PlayerId | null;
+  /** Players whose cards a strict timer gave for them this turn. */
+  autoGiven?: PlayerId[];
+  /** Players a strict timer left without a vote this turn. */
+  missedVote?: PlayerId[];
 }
 
 /** Why the game ended: the target score was reached, or too few players were left to go on. */
@@ -143,6 +149,11 @@ export interface ReverieState {
   winners: PlayerId[];
   endReason: EndReason | null;
   gamesPlayed: number;
+  /**
+   * Scores of players who left the room during this game, so someone who comes back picks theirs
+   * up again. Cleared when a new game starts. Absent in rooms saved before it existed.
+   */
+  departed?: Record<PlayerId, number>;
 }
 
 /** The most cards a table can hold: one from each of 8 players, or 5 with three players. */
@@ -219,6 +230,12 @@ export interface TurnView {
   results: Record<PlayerId, TurnResult> | null;
   allOrNone: boolean | null;
   deadline: number | null;
+  /** The storyteller a strict timer skipped just before this turn, if any. */
+  skipped: PlayerId | null;
+  /** Players a strict timer gave cards for this turn. */
+  autoGiven: PlayerId[];
+  /** Players a strict timer left without a vote (filled at the reveal). */
+  missedVote: PlayerId[];
 }
 
 export interface ReverieView {

@@ -86,7 +86,7 @@ export const guide: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can set a time for each turn. By default it is just a reminder. In Strict mode, a player who runs out of time plays their lower card (the Countess if they must) at a random player, and a Guard names a random card. A Chancellor who runs out of time keeps a random card.',
+        'The host can set a time for each turn. By default it is just a reminder. In Strict mode, a player who runs out of time plays their lower card (the Countess if they must) at a random player, and a Guard names a random card. A Chancellor who runs out of time keeps a random card. The log marks every card the timer played with ⏱, so nobody mistakes it for a choice.',
       ],
     },
   ],

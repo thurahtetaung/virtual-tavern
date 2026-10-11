@@ -64,7 +64,8 @@ export const guide: GameGuide = {
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
         'Wrong: the card is lost, and so is the next card in the deck. A wrong guess costs more than a pass, so pass when you have no idea.',
-        'Near misses: if a wrong guess is really the same word (a typo or a spelling the game didn’t catch), any clue writer can press “Count it” to score it. Otherwise they press Continue.',
+        'Near misses: if a wrong guess is really the same word (a typo or a spelling the game didn’t catch), any clue writer can press “Count it” to score it. Otherwise they press “Doesn’t count”, which makes it a wrong guess. The first tap decides for the whole table.',
+        'The guesser never judges their own guess. If the host is guessing and no clue writer is around to decide, the host can move on with “Doesn’t count” after 30 seconds.',
         'The game ends when the deck runs out.',
       ],
     },
@@ -77,7 +78,7 @@ export const guide: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
       ],
     },
     {

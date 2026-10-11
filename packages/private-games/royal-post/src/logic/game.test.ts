@@ -835,7 +835,7 @@ describe('timers', () => {
     rig(h, { hands: { host: ['king', 'guard'], ana: ['priest'], ben: ['baron'] } });
     const next = royalPost.onDeadline!(h.state, NOW + 30_000);
     const play = next.log.find((e) => e.kind === 'play')!;
-    expect(play).toMatchObject({ by: HOST, card: 'guard' });
+    expect(play).toMatchObject({ by: HOST, card: 'guard', timedOut: true });
     expect(['ana', 'ben']).toContain((play as { target: string }).target);
     expect((play as { guess: string }).guess).not.toBe('guard');
     expect(next.round!.current).toBe('ana');
@@ -858,6 +858,11 @@ describe('timers', () => {
     expect(kept.round!.players.host!.hand).toHaveLength(1);
     expect(kept.round!.current).toBe('ana');
     expect(kept.round!.deck).toHaveLength(2);
+    expect(kept.log.findLast((e) => e.kind === 'play')).toMatchObject({
+      card: 'chancellor',
+      autoKept: true,
+    });
+    expect(h.state.log.findLast((e) => e.kind === 'play')).not.toHaveProperty('timedOut');
   });
 
   it('always makes progress: a game left to the timer runs to the end', () => {

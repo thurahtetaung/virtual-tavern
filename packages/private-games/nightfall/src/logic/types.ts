@@ -324,6 +324,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     pass: z.literal(true).optional(),
   }),
   z.object({ type: z.literal('ready-to-vote'), ready: z.boolean() }),
+  /** Host: open the vote without waiting for everyone to be ready (someone dropped out). */
+  z.object({ type: z.literal('start-vote') }),
   z.object({ type: z.literal('vote'), target: id }),
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),

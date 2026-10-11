@@ -306,6 +306,14 @@ function readyToVote(state: NightfallState, ready: boolean, ctx: Ctx): Result {
   return next;
 }
 
+/** Host: open the vote now, without waiting for everyone (someone dropped out, say). */
+function startVoteNow(state: NightfallState, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  if (state.stage !== 'day' || !state.round) return new GameError('wrong-phase', 'Not now.');
+  return startVote(clone(state), ctx.now);
+}
+
 function startVote(state: NightfallState, now: number): NightfallState {
   const r = state.round!;
   r.voteDeadline = now + VOTE_SECONDS * 1000;
@@ -368,6 +376,21 @@ function updateSettings(
   return { ...state, settings };
 }
 
+const sameCards = (a: readonly RoleId[], b: readonly RoleId[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
+
+/**
+ * Between games, while the host keeps the recommended cards for the table, the cards follow the
+ * table as players sit down or leave. Once the host picks other cards, they stay as picked.
+ */
+export function followTable(before: NightfallState, after: NightfallState): NightfallState {
+  if (after.stage !== 'lobby' && after.stage !== 'reveal') return after;
+  const was = seated(before).length;
+  const now = seated(after).length;
+  if (was === now || !sameCards(before.settings.roles, recommended(was))) return after;
+  return { ...after, settings: { ...after.settings, roles: recommended(now) } };
+}
+
 function sit(state: NightfallState, playing: boolean, ctx: Ctx): Result {
   const seat = state.seats[ctx.by];
   if (!seat) return new GameError('not-seated', 'You are not in this game.');
@@ -376,7 +399,10 @@ function sit(state: NightfallState, playing: boolean, ctx: Ctx): Result {
     return new GameError('in-progress', 'You can sit down or stand up between games.');
   if (playing && seated(state).length >= MAX_PLAYERS)
     return new GameError('full', `Only ${MAX_PLAYERS} can play.`);
-  return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing } } };
+  return followTable(state, {
+    ...state,
+    seats: { ...state.seats, [ctx.by]: { ...seat, playing } },
+  });
 }
 
 function backToLobby(state: NightfallState, ctx: Ctx): Result {
@@ -409,6 +435,8 @@ function reduce(state: NightfallState, action: NightfallAction, ctx: Ctx): Resul
       return nightAction(state, action, ctx);
     case 'ready-to-vote':
       return readyToVote(state, action.ready, ctx);
+    case 'start-vote':
+      return startVoteNow(state, ctx);
     case 'vote':
       return vote(state, action.target, ctx);
     case 'back-to-lobby':
@@ -449,7 +477,10 @@ function playerJoined(state: NightfallState, player: PlayerInfo): NightfallState
     return { ...state, seats: { ...state.seats, [player.id]: { ...existing, name: player.name } } };
   const between = state.stage === 'lobby' || state.stage === 'reveal';
   const playing = between && seated(state).length < MAX_PLAYERS;
-  return { ...state, seats: { ...state.seats, [player.id]: { name: player.name, playing } } };
+  return followTable(state, {
+    ...state,
+    seats: { ...state.seats, [player.id]: { name: player.name, playing } },
+  });
 }
 
 /**
@@ -462,7 +493,8 @@ function playerLeft(state: NightfallState, playerId: PlayerId, now: number): Nig
   delete next.seats[playerId];
   const r = next.round;
   const p = r?.players[playerId];
-  if (!r || !p || next.stage === 'lobby' || next.stage === 'reveal') return next;
+  if (!r || !p || next.stage === 'lobby' || next.stage === 'reveal')
+    return followTable(state, next);
   p.left = true;
   if (present(r).length === 0) return { ...next, ...at('lobby'), round: null };
   if (next.stage === 'ready' && present(r).every((q) => r.players[q]!.ready))

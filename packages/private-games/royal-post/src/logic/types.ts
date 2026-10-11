@@ -171,6 +171,10 @@ export type LogEntry =
       drew?: number;
       /** Baron: the comparison was a tie. */
       tie?: boolean;
+      /** A strict timer played this card for a player who ran out of time. */
+      timedOut?: boolean;
+      /** Chancellor: a strict timer chose the kept card for them. */
+      autoKept?: boolean;
     }
   | {
       id: number;
@@ -193,8 +197,9 @@ export type LogEntry =
     };
 
 /** What only one player learned: never shown to anyone else. */
+/** `timedOut`: a strict timer played the card that produced this note. */
 export type Note =
-  | { id: number; round: number; kind: 'peek'; target: PlayerId; card: Role }
+  | { id: number; round: number; kind: 'peek'; target: PlayerId; card: Role; timedOut?: boolean }
   | {
       id: number;
       round: number;
@@ -203,8 +208,17 @@ export type Note =
       mine: Role;
       theirs: Role;
       result: 'win' | 'lose' | 'tie';
+      timedOut?: boolean;
     }
-  | { id: number; round: number; kind: 'trade'; other: PlayerId; gave: Role; got: Role };
+  | {
+      id: number;
+      round: number;
+      kind: 'trade';
+      other: PlayerId;
+      gave: Role;
+      got: Role;
+      timedOut?: boolean;
+    };
 
 export type EndReason = 'target' | 'too-few';
 

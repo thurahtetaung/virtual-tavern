@@ -161,6 +161,8 @@ export async function takeTurn(
   const sheet = p.getByRole('dialog', { name: `${card} (${ranks[card]})` });
   // A private reveal can open just as the turn starts; close it and try again.
   await expect(async () => {
+    // A slow sheet may have opened after the last try gave up waiting for it.
+    if (await sheet.isVisible()) return;
     await dismissReveal(p);
     // A slow sheet may have opened after the last try gave up: don't click through it.
     if (!(await sheet.isVisible())) {
@@ -216,6 +218,8 @@ export async function takeTurn(
   }
   if (card === 'Prince' && target) {
     if (done.prince === false) done.prince = true;
+    // The log names who discarded, not just the card.
+    await expect(p.getByText(/played \d?Prince on [^:]+: \S+ discarded/).first()).toBeAttached();
     // What the chosen player sees of it.
     for (const other of players) {
       if ((await nameOf(other)) === target || (target === 'Yourself' && other === p)) {

@@ -14,7 +14,7 @@ import {
   turn,
   words,
 } from './test-utils.ts';
-import { CARD_SIZE, type EchoState, MAX_PLAYERS, actionSchema } from './types.ts';
+import { CARD_SIZE, type EchoState, JUDGE_GRACE_MS, MAX_PLAYERS, actionSchema } from './types.ts';
 
 const join = (h: { state: EchoState }, id: string) => {
   h.state = echo.playerJoined(h.state, { id, name: id.toUpperCase() });
@@ -216,8 +216,10 @@ describe('a card', () => {
     expect(turn(h)).toMatchObject({ stage: 'judge', guess: 'nothing' });
     expect(h.reject({ type: 'continue' }, 'stranger')).toBe('not-giver');
     expect(h.reject({ type: 'count-it' }, HOST)).toBe('not-giver');
-    // The host may move on even as the guesser.
-    h.act({ type: 'continue' });
+    // The guesser doesn't judge their own guess, even as the host…
+    expect(h.reject({ type: 'continue' }, HOST)).toBe('guesser-judging');
+    // …until the clue writers have had a fair while.
+    h.act({ type: 'continue' }, HOST, NOW + JUDGE_GRACE_MS);
     expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
     expect(h.state).toMatchObject({ score: 0, cardsLeft: 6 });
     expect(h.state.deck).toHaveLength(6);
@@ -231,6 +233,16 @@ describe('a card', () => {
     expect(turn(h)).toMatchObject({ outcome: 'right', countedBy: 'p3' });
     expect(h.state).toMatchObject({ score: 1, cardsLeft: 7 });
     expect(h.state.history[0]!.countedBy).toBe('p3');
+  });
+
+  it('a host who guesses may settle a near miss once every clue writer has gone', () => {
+    const h = startedGame();
+    toGuess(h);
+    h.act({ type: 'guess', word: 'typo' });
+    // As if every clue writer had left (with enough players still seated to carry on).
+    h.state = { ...h.state, turn: { ...turn(h), givers: [] } };
+    h.act({ type: 'continue' }, HOST);
+    expect(turn(h).outcome).toBe('wrong');
   });
 
   it('a non-host clue writer can also continue', () => {
@@ -266,7 +278,7 @@ describe('a card', () => {
     const h = playTo(2);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    h.act({ type: 'continue' });
+    h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
     expect(h.state.deck).toHaveLength(0);
     h.act({ type: 'next-card' });
@@ -278,7 +290,7 @@ describe('a card', () => {
     expect(h.state.deck).toHaveLength(0);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    h.act({ type: 'continue' });
+    h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
     h.act({ type: 'next-card' });
     expect(h.state.phase).toBe('over');
@@ -404,7 +416,7 @@ describe('players leaving', () => {
         h.act({ type: 'give-clues', clues: ['gamma', 'delta'] }, 'p3');
       }
       if (stage === 'judge' || stage === 'reveal') h.act({ type: 'guess', word: 'nope' });
-      if (stage === 'reveal') h.act({ type: 'continue' });
+      if (stage === 'reveal') h.act({ type: 'continue' }, givers(h)[0]);
       expect(turn(h).stage).toBe(stage);
       leave(h, 'p3');
       expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few', turn: null });
@@ -512,8 +524,10 @@ describe('timers', () => {
   it('picks a word for a guesser who runs out of time', () => {
     const h = strict();
     const seed = h.state.seed;
+    expect(echo.view(h.state, HOST).turn!.autoPicked).toBe(false);
     fire(h);
     expect(turn(h).stage).toBe('clues');
+    expect(echo.view(h.state, HOST).turn!.autoPicked).toBe(true);
     expect(turn(h).pick).toBeGreaterThanOrEqual(0);
     expect(turn(h).pick).toBeLessThan(CARD_SIZE);
     // The seed moves on, so the next timed-out pick isn't predictable from this one.
@@ -529,6 +543,18 @@ describe('timers', () => {
     expect(turn(h).stage).toBe('guess');
     expect(turn(h).clues.p4).toBeUndefined();
     expect(Object.keys(turn(h).cancelled)).toHaveLength(2);
+    // The writer who ran out of time is remembered, for them and for the reveal.
+    expect(echo.view(h.state, 'p4').turn!.missed).toEqual(['p4']);
+    h.act({ type: 'pass' });
+    expect(h.state.history.at(-1)!.missed).toEqual(['P4']);
+    expect(h.state.history.at(-1)!.timedOut).toBeUndefined();
+  });
+
+  it('sends nobody as missed when every clue is in', () => {
+    const h = strict();
+    toGuess(h);
+    expect(echo.view(h.state, 'p2').turn!.missed).toEqual([]);
+    expect(turn(h).missed).toBeUndefined();
   });
 
   it('passes for a guesser who runs out of time', () => {
@@ -536,7 +562,16 @@ describe('timers', () => {
     toGuess(h);
     fire(h);
     expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'pass' });
+    expect(echo.view(h.state, 'p2').turn!.timedOut).toBe(true);
+    expect(h.state.history.at(-1)!.timedOut).toBe(true);
     expect(echo.nextDeadline!(h.state)).toBeNull();
+  });
+
+  it('a pass by hand is not marked as timed out', () => {
+    const h = strict();
+    toGuess(h);
+    h.act({ type: 'pass' });
+    expect(echo.view(h.state, 'p2').turn!.timedOut).toBe(false);
   });
 
   it('treats an undecided near miss as wrong', () => {
@@ -544,7 +579,8 @@ describe('timers', () => {
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' });
     fire(h);
-    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
+    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong', timedOut: true });
+    expect(h.state.history.at(-1)!.timedOut).toBe(true);
   });
 
   it('runs a whole game on the timer alone', () => {
@@ -568,7 +604,7 @@ describe('timers', () => {
       () => soft.act({ type: 'pick', index: 0 }),
       () => toGuess2(soft),
       () => soft.act({ type: 'guess', word: 'nope' }),
-      () => soft.act({ type: 'continue' }),
+      () => soft.act({ type: 'continue' }, givers(soft)[0]),
     ]) {
       expect(echo.nextDeadline!(soft.state)).toBeNull();
       expect(echo.onDeadline!(soft.state, NOW + 10_000_000)).toBe(soft.state);
@@ -620,7 +656,7 @@ describe('view', () => {
     h.act({ type: 'guess', word: 'nope' });
     expectNoSecrets(h, HOST);
     expect(json(h, HOST)).not.toContain('ebra');
-    h.act({ type: 'continue' });
+    h.act({ type: 'continue' }, givers(h)[0]);
     const revealed = echo.view(h.state, HOST);
     expect(revealed.turn!.word).toBe(secret(h));
     expect(revealed.turn!.clues.map((c) => [c.by, c.text, c.cancelled, c.sameAs])).toEqual([

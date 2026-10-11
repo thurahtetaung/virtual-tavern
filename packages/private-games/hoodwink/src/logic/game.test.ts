@@ -229,6 +229,12 @@ describe('writing lies', () => {
     // Plurals of words with an ending count as the truth too.
     const crossing = { answer: 'Zebra crossing', alternates: [] };
     expect(lieProblem('zebra crossings', crossing)?.code).toBe('is-the-truth');
+    // An -ie word's plural and a leading article are near-copies of the truth too.
+    const beggar = { answer: 'Gaberlunzie', alternates: [] };
+    for (const copy of ['gaberlunzies', 'A gaberlunzie', 'the Gaberlunzies']) {
+      expect(lieProblem(copy, beggar)?.code, copy).toBe('is-the-truth');
+    }
+    expect(lieProblem('A wandering beggar', beggar)).toBeNull();
   });
 
   it('only lets this round’s players write', () => {
@@ -520,7 +526,16 @@ describe('timers', () => {
     h.state = hoodwink.onDeadline!(h.state, due + 30_000);
     expect(round(h).stage).toBe('reveal');
     expect(round(h).points).toEqual({ host: 0, p2: 0, p3: 500, p4: 0 });
+    expect(hoodwink.view(h.state, 'p4').round!.voteTimedOut).toBe(true);
     expect(hoodwink.nextDeadline!(h.state)).toBeNull();
+  });
+
+  it('does not mark the vote as timed out when everyone voted', () => {
+    const h = startedGame(FOUR, strict);
+    writeAll(h);
+    for (const id of FOUR) h.act({ type: 'vote', option: truthIndex(h) }, id);
+    expect(round(h).stage).toBe('reveal');
+    expect(hoodwink.view(h.state, HOST).round!.voteTimedOut).toBe(false);
   });
 
   it('goes straight to the reveal with no points when nobody wrote a lie', () => {

@@ -222,6 +222,7 @@ function fillMissingLies(state: HoodwinkState): HoodwinkState {
     {
       lies: { ...round.lies, ...Object.fromEntries(filled.map((id, i) => [id, picked[i]!])) },
       autoLies: [...round.autoLies, ...filled],
+      filled,
     },
   );
 }
@@ -443,6 +444,12 @@ function lieForMe(state: HoodwinkState, ctx: Ctx): Result {
   if (!round.players.includes(ctx.by)) {
     return new GameError('not-playing-round', "You're watching this round. You join the next one.");
   }
+  if (round.lies[ctx.by] !== undefined && !round.autoLies.includes(ctx.by)) {
+    return new GameError(
+      'own-lie-sent',
+      'You’ve already sent your own lie. Change it in the box if you like.',
+    );
+  }
   const { picked, seed } = pickDecoys(state, round, 1);
   const decoy = picked[0];
   if (!decoy)
@@ -651,8 +658,10 @@ function onDeadline(state: HoodwinkState, now: number): HoodwinkState {
   switch (round.stage) {
     case 'write':
       return maybeStartVoting(state, now, true);
-    case 'vote':
-      return maybeReveal(state, true);
+    case 'vote': {
+      const missing = round.voters.some((id) => round.votes[id] === undefined);
+      return maybeReveal(missing ? withRound(state, { voteTimedOut: true }) : state, true);
+    }
     case 'reveal':
       return state;
   }
@@ -693,6 +702,8 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
     written: round.players.filter((id) => round.lies[id] !== undefined),
     myLie: viewer === null ? null : (round.lies[viewer] ?? null),
     myLieAuto: viewer !== null && round.autoLies.includes(viewer),
+    myLieFilled: viewer !== null && (round.filled ?? []).includes(viewer),
+    voteTimedOut: !!round.voteTimedOut,
     canLieForMe: (round.question.decoys ?? []).length > 0,
     options,
     voters: round.voters,

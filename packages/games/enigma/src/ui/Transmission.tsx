@@ -2,7 +2,8 @@ import type { ActOptions } from '@vt/game-sdk';
 import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
-import { MAX_CLUE_LENGTH } from '../logic/types.ts';
+import { MAX_CLUE_LENGTH, TOKENS_TO_END } from '../logic/types.ts';
+import { cluesByKeyword } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT, formatCode } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: ActOptions) => Promise<boolean>;
@@ -47,6 +48,12 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
           />
         </label>
       ))}
+      {view.settings.timerMode === 'strict' && view.settings.clueSeconds !== null && (
+        <p className="text-xs text-stone-600 dark:text-stone-400">
+          ⏱ Strict timer: send before it runs out. Clues that aren't sent don't count, and your team
+          gets a miscommunication 💥.
+        </p>
+      )}
       <Button
         type="submit"
         size="lg"
@@ -84,8 +91,10 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
     });
   };
 
+  const history = decoding ? null : cluesByKeyword(view, tx.team);
   return (
     <div className="space-y-3">
+      {history && <PastClues columns={history} guesses={ourGuesses} />}
       {tx.clues?.map((clue, row) => (
         <div key={row}>
           <p className="text-sm">
@@ -177,6 +186,49 @@ function CodePicker({ view, tx, act }: { view: EnigmaView; tx: TransmissionView;
   );
 }
 
+/**
+ * The other team's clue history, filed under keyword numbers, right above the picker, so an
+ * interceptor doesn't have to flip to the Clues tab for every clue.
+ */
+function PastClues({
+  columns,
+  guesses,
+}: {
+  columns: { round: number; clue: string }[][];
+  guesses: string[];
+}) {
+  return (
+    <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
+      <p className="mb-1 text-xs font-semibold text-stone-500">Their past clues</p>
+      <div className="grid grid-cols-4 gap-1">
+        {columns.map((clues, i) => (
+          <div key={i} className="min-w-0" aria-label={`Their past clues for keyword ${i + 1}`}>
+            <p className="truncate text-xs font-black">
+              {i + 1}
+              {guesses[i] && (
+                <span className="ml-1 font-semibold text-stone-500 uppercase">{guesses[i]}</span>
+              )}
+            </p>
+            <ul className="text-xs leading-snug break-words">
+              {clues.map((c) => (
+                <li key={`${c.round}-${c.clue}`}>{c.clue}</li>
+              ))}
+              {clues.length === 0 && <li className="text-stone-400">–</li>}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** "(1 of 2)": a team's token count up to and including this round, read from the clue history. */
+function tokensSoFar(view: EnigmaView, tx: TransmissionView, kind: 'miss' | 'intercept'): number {
+  return view.teams[tx.team].history.filter(
+    (h) => h.round <= view.round && (kind === 'miss' ? !h.decoded : h.intercepted),
+  ).length;
+}
+
 function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView }) {
   const r = tx.result;
   if (!r) return null;
@@ -193,7 +245,9 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       </p>
       {tx.expired && (
         <p className="text-center text-sm font-semibold">
-          No clues were sent (time ran out, or nobody was left to decode them).
+          {tx.timedOut
+            ? `⏱ Time ran out before ${nameOf(view, tx.encryptor)} sent clues.`
+            : 'No clues were sent: nobody was left on the team to decode them.'}
         </p>
       )}
       <p
@@ -204,7 +258,15 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       >
         {r.decoded
           ? `✓ ${sender} decoded it.`
-          : `✗ ${sender} missed it${r.decodeGuess ? ` (guessed ${formatCode(r.decodeGuess)})` : ''}: miscommunication!`}
+          : `✗ ${sender} ${
+              tx.expired
+                ? 'had nothing to decode'
+                : r.decodeGuess
+                  ? `missed it (guessed ${formatCode(r.decodeGuess)})`
+                  : tx.guessTimedOut
+                    ? "didn't agree on a code before time ran out"
+                    : "didn't agree on a code"
+            }: miscommunication! ${sender} gets 💥 (${tokensSoFar(view, tx, 'miss')} of ${TOKENS_TO_END}).`}
       </p>
       {canIntercept && (
         <p
@@ -214,8 +276,14 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
           )}
         >
           {r.intercepted
-            ? `🕵️ ${receiver} intercepted it!`
-            : `${receiver} didn't intercept${r.interceptGuess ? ` (guessed ${formatCode(r.interceptGuess)})` : ''}.`}
+            ? `🕵️ ${receiver} intercepted it! ${receiver} gets 🕵️ (${tokensSoFar(view, tx, 'intercept')} of ${TOKENS_TO_END}).`
+            : `${receiver} didn't intercept${
+                r.interceptGuess
+                  ? ` (guessed ${formatCode(r.interceptGuess)})`
+                  : tx.guessTimedOut && !tx.expired
+                    ? ' (no agreed guess before time ran out)'
+                    : ''
+              }.`}
         </p>
       )}
     </div>

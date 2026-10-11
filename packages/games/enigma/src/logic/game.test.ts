@@ -495,7 +495,17 @@ describe('timers', () => {
     const h = startedGame({ clueSeconds: 30, timerMode: 'strict' });
     sendClues(h, 'red');
     h.state = enigma.onDeadline!(h.state, NOW + 30_000);
-    expect(tx(h, 'blue')).toMatchObject({ expired: true, clues: null, decodeResult: null });
+    expect(tx(h, 'blue')).toMatchObject({
+      expired: true,
+      timedOut: true,
+      clues: null,
+      decodeResult: null,
+    });
+    expect(tx(h, 'red').timedOut).toBeUndefined();
+    expect(enigma.view(h.state, 'r2').transmissions.find((t) => t.team === 'blue')).toMatchObject({
+      expired: true,
+      timedOut: true,
+    });
     expect(h.state.stage).toBe('guess');
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
     expect(h.state.teams.blue.misses).toBe(1);
@@ -509,6 +519,14 @@ describe('timers', () => {
     h.state = enigma.onDeadline!(h.state, enigma.nextDeadline!(h.state)!);
     expect(h.state.stage).toBe('reveal');
     expect(h.state.teams).toMatchObject({ red: { misses: 0 }, blue: { misses: 1 } });
+    expect(enigma.view(h.state, 'b2').transmissions.every((t) => t.guessTimedOut)).toBe(true);
+  });
+
+  it('a team left without decoders expires without blaming the timer', () => {
+    const h = startedGame();
+    for (const id of decoders(h, 'red')) h.state = enigma.playerLeft(h.state, id, NOW);
+    expect(tx(h, 'red')).toMatchObject({ expired: true });
+    expect(enigma.view(h.state, 'b1').transmissions[0]).toMatchObject({ timedOut: false });
   });
 });
 

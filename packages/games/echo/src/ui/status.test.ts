@@ -57,7 +57,7 @@ describe('statusFor', () => {
     h.act({ type: 'guess', word: 'nothing-like-it' });
     expect(status(h, HOST).text).toContain('Not an exact match');
     expect(status(h, 'p2')).toMatchObject({ yourMove: true });
-    expect(status(h, 'p2').text).toContain('Count it');
+    expect(status(h, 'p2').text).toContain('One tap decides for the whole table');
     h.act({ type: 'count-it' }, 'p3');
     expect(status(h, 'p2').text).toContain('P3 counted the guess');
     expect(status(h, HOST, true)).toMatchObject({ yourMove: true });
@@ -81,6 +81,7 @@ describe('statusFor', () => {
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);
     expect(status(h, HOST).text).toMatch(/^Passed\./);
+    expect(status(h, 'p2').text).toContain('Waiting for the host to deal the next card');
     h.state = { ...h.state, phase: 'over', turn: null, score: 8, endReason: 'finished' };
     expect(status(h, HOST).text).toBe('Game over! Here’s how you did:');
   });
@@ -119,6 +120,46 @@ describe('statusFor with the room', () => {
     expect(statusFor(echo.view(h.state, other), false, null, people()).text).toMatch(
       /Waiting for HOST \(host\) to deal the next card…$/,
     );
+  });
+});
+
+describe('strict timeouts', () => {
+  const strict = () =>
+    startedGame(FOUR, { clueSeconds: 30, guessSeconds: 20, timerMode: 'strict' });
+  const fire = (h: ReturnType<typeof startedGame>) => {
+    h.state = echo.onDeadline!(h.state, echo.nextDeadline!(h.state)!);
+  };
+
+  it('tells the guesser the timer picked their word', () => {
+    const h = strict();
+    fire(h);
+    expect(status(h, HOST).text).toContain('a word was picked for you at random');
+  });
+
+  it('tells a clue writer who ran out of time that their clue was not sent', () => {
+    const h = strict();
+    h.act({ type: 'pick', index: 0 });
+    h.act({ type: 'give-clues', clues: ['apple'] }, 'p2');
+    fire(h);
+    expect(status(h, 'p4').text).toContain('You ran out of time');
+    expect(status(h, 'p2').text).not.toContain('ran out of time');
+  });
+
+  it('says the timer, not the guesser, passed', () => {
+    const h = strict();
+    toGuess(h);
+    expect(status(h, HOST).text).toContain('a wrong guess loses this card and the next');
+    fire(h);
+    expect(status(h, 'p2').text).toContain('⏱ Time ran out: counts as a pass.');
+  });
+
+  it('says an undecided near miss timed out', () => {
+    const h = strict();
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nope' });
+    expect(status(h, HOST).text).toContain('If nobody decides in time, it counts as wrong.');
+    fire(h);
+    expect(status(h, 'p2').text).toContain('Nobody decided in time, so it counts as wrong');
   });
 });
 

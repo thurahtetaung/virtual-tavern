@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { royalPost } from '../logic/game.ts';
-import { HOST, rig, startedGame } from '../logic/test-utils.ts';
+import { HOST, NOW, rig, startedGame } from '../logic/test-utils.ts';
 import { roleLabel } from './assets.ts';
 import { describeLog, describeNote, plainText, unseenCounts } from './text.ts';
 
@@ -28,6 +28,43 @@ describe('described lines', () => {
     const view = royalPost.view(h.state, HOST);
     expect(plainText(describeNote(view, view.notes.at(-1)!), roleLabel)).toBe(
       'You compared hands with ANA: your Princess against their Guard. You win.',
+    );
+  });
+});
+
+describe('timed-out and Prince lines', () => {
+  it('says when the timer played a card, in the log and in the private note', () => {
+    const h = startedGame(undefined, 'classic', { turnSeconds: 30, timerMode: 'strict' });
+    rig(h, { hands: { [HOST]: ['king', 'baron'], ana: ['guard'], ben: ['guard'] } });
+    h.state = royalPost.onDeadline!(h.state, NOW + 30_000);
+    const mine = royalPost.view(h.state, HOST);
+    const play = mine.log.find((e) => e.kind === 'play')!;
+    expect(plainText(describeLog(mine, play), roleLabel)).toMatch(
+      /^⏱ Time ran out, so a card was played for you: you played Baron to compare hands with (ANA|BEN)\.$/,
+    );
+    expect(plainText(describeNote(mine, mine.notes.at(-1)!), roleLabel)).toMatch(
+      /^⏱ Time ran out, so a card was played for you\. You compared hands/,
+    );
+    const theirs = royalPost.view(h.state, 'ben');
+    expect(plainText(describeLog(theirs, play), roleLabel)).toMatch(
+      /^⏱ Time ran out, so a card was played for HOST: HOST played Baron/,
+    );
+  });
+
+  it('names who discarded to a Prince', () => {
+    const h = startedGame();
+    rig(h, {
+      hands: { [HOST]: ['prince', 'priest'], ana: ['guard'], ben: ['baron'] },
+      deck: ['king', 'spy', 'handmaid'],
+    });
+    h.act({ type: 'play', card: 'prince', target: 'ana' });
+    const view = royalPost.view(h.state, 'ben');
+    expect(plainText(describeLog(view, view.log.at(-1)!), roleLabel)).toBe(
+      'HOST played Prince on ANA: ANA discarded Guard and drew a new card.',
+    );
+    const ana = royalPost.view(h.state, 'ana');
+    expect(plainText(describeLog(ana, ana.log.at(-1)!), roleLabel)).toBe(
+      'HOST played Prince on you: you discarded Guard and drew a new card.',
     );
   });
 });

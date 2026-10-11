@@ -32,7 +32,7 @@ export function makeGuide(pack: string): GameGuide {
       {
         name: 'The spy',
         summary:
-          'You don’t know the location. Listen, bluff and blend in. If the vote catches you, you get one guess at the location to steal the round.',
+          'You don’t know the location. Listen, bluff and blend in. You can’t guess during the talk: only if the vote catches you do you get one guess at the location, to steal the round. Escape the vote and you score anyway.',
       },
     ],
     sections: [
@@ -48,10 +48,10 @@ export function makeGuide(pack: string): GameGuide {
       {
         title: 'The vote',
         bullets: [
-          'When the clock runs out, or once everyone has tapped “Ready to vote”, there is one secret vote.',
+          'When the clock runs out, or once everyone has tapped “Done talking? Ready to vote”, there is one secret vote. Tap it again to take it back.',
           'Everyone votes for who they think the spy is, the spy too. Only how many have voted shows until the vote is complete; then everyone’s votes are shown together.',
           'The vote lasts at most 45 seconds. Anyone who hasn’t voted by then abstains.',
-          'The spy is caught only if they alone have the most votes. A tie at the top, or anyone else on top, and the spy escapes.',
+          'The spy is caught only if they alone have the most votes. A tie at the top, or anyone else on top, and the spy escapes. The result shows each player’s vote count.',
           'With two spies, the top two are named. A tie for first between two players names both; a tie for second names only the leader; a three-way tie at the top names nobody. Each named spy is caught.',
         ],
       },

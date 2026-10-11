@@ -72,6 +72,15 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     );
     const players = [host, ...others];
     await expect(host.getByText('Players (5/10)')).toBeVisible();
+    // The recommended cards follow the table as friends sit down.
+    await expect(host.getByTestId('card-count')).toHaveText(/^8 of 8 cards/);
+    const setups = host.getByRole('list', { name: 'Ready-made setups' });
+    await expect(
+      setups.getByRole('button', { name: /^Recommended for 5 Beginner/ }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await expect(setups.getByRole('button', { name: /^Total mayhem Chaos/ })).toBeVisible();
+    await expect(others[0]!.getByRole('list', { name: 'Ready-made setups' })).toHaveCount(0);
+    await expect(host.getByTestId('narration-help')).toContainText('host’s phone');
 
     await setRoles(host, {
       doppelganger: 1,
@@ -97,7 +106,16 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     const roles = await getReady(players);
     expect(roles.length).toBe(5);
     await expect(host.getByTestId(/night-(idle|acting)/)).toBeVisible({ timeout: 15_000 });
+    // The night counts steps, not nights (checked while everyone plays it).
+    const stepShown = expect(host.getByText(/^Step \d of 8$/).first())
+      .toBeVisible({ timeout: 15_000 })
+      .then(
+        () => null,
+        (e: unknown) => (e instanceof Error ? e : new Error(String(e))),
+      );
     const nights = await playNight(players, roles);
+    const stepError = await stepShown;
+    if (stepError) throw stepError;
 
     // Every card in this game wakes, so every phone lit up with YOUR TURN at least once, roles
     // that only learn something included, and the idle screen asked for phones face up.
@@ -108,7 +126,9 @@ test('five friends play a night, a day and a vote, and see the whole night repla
 
     // Each player who acted saw their own results, and only theirs.
     for (const [i, log] of nights.entries()) {
-      if (log.role === 'seer' && log.acted.length) expect(log.results.join(' ')).toMatch(/You saw/);
+      // A Confirm can land just as a 5 s step closes, so only a look that landed is checked.
+      if (log.role === 'seer' && log.results.length)
+        expect(log.results.join(' ')).toMatch(/You saw/);
       if (log.role === 'robber' && log.acted.length)
         expect(log.results.join(' ')).toMatch(/You swapped cards with/);
       if (log.role === 'doppelganger') expect(log.results.join(' ')).toMatch(/You looked at/);
@@ -128,7 +148,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     }
     // The day shows what you learned.
     const seer = roles.indexOf('seer');
-    if (seer >= 0) {
+    if (seer >= 0 && nights[seer]!.results.length) {
       await players[seer]!.getByRole('tab', { name: 'Learned' }).click();
       await expect(
         players[seer]!.getByRole('list', { name: 'What you learned tonight' }),
@@ -140,6 +160,14 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       7,
     );
     await host.getByRole('tab', { name: 'Table' }).click();
+
+    // The day names who it is waiting for, and the host may open the vote early.
+    await host.getByRole('button', { name: 'Ready to vote' }).click();
+    // Names come in seat order, which the shuffle decides.
+    const waiting = host.getByRole('status').filter({ hasText: /Waiting for: / });
+    for (const name of ['Ana', 'Ben', 'Cy', 'Dee']) await expect(waiting).toContainText(name);
+    await expect(host.getByRole('button', { name: 'Start the vote now' })).toBeVisible();
+    await expect(others[0]!.getByRole('button', { name: 'Start the vote now' })).toHaveCount(0);
 
     // Everyone but Hana votes for Hana; Hana votes for Ana. Hana dies.
     await vote(players, names, (i) => (i === 0 ? 1 : 0));
@@ -169,6 +197,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       'Waiting for Hana (host) to deal again or change the cards…',
     );
     for (const p of players) await expect(p.getByTestId('reveal-player')).toHaveCount(5);
+    await expect(host.getByTestId('reveal-legend')).toContainText('dealt → ended as');
 
     // The night, step by step: every step of the plan, in wake order.
     await host.getByRole('tab', { name: 'The night, step by step' }).click();
@@ -186,6 +215,10 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       'insomniac',
       'doppelganger-insomniac',
     ]);
+    // The replay is the same for everyone, in the third person.
+    await expect(host.getByRole('list', { name: 'The night, step by step' })).not.toContainText(
+      /\b(you|your)\b/i,
+    );
     // A step for a card in the centre still ran, and says so.
     await expect(host.getByTestId('timeline-step').first()).toContainText(
       roles.includes('doppelganger') ? 'looked at' : 'Nobody at the table had this card',
@@ -200,6 +233,12 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await host.getByRole('button', { name: 'Play again' }).click();
     for (const p of players)
       await expect(p.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+
+    // The rules page uses the title the admin set, for unlocked browsers.
+    await others[0]!.goto('/rules/nightfall');
+    await expect(others[0]!.getByRole('heading', { level: 1 })).toContainText(
+      `How to play ${TITLE}`,
+    );
   } finally {
     await admin.goto('/tavern-keeper');
     const field = admin.getByLabel('Nightfall', { exact: true });

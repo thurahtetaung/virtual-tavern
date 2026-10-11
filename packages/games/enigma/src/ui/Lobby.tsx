@@ -165,6 +165,9 @@ export function Lobby({
           wordLists={room.wordLists}
           editable={editable}
           onSave={(ids) => act({ type: 'update-settings', wordListIds: ids })}
+          summary={(chosen, total) =>
+            `Each team gets 4 secret keywords from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`
+          }
         />
         <fieldset>
           <legend className="text-sm font-semibold">Turn order</legend>
@@ -208,6 +211,10 @@ export function Lobby({
           guessHelp="Time for teams to agree on their guesses."
           strictHelp="missing clues or guesses count as failed"
         />
+        <p className="-mt-2 text-xs text-stone-500">
+          Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
+          tight, especially with Strict timers.
+        </p>
         {editable && (
           <StickyBar>
             <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">

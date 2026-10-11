@@ -3,10 +3,12 @@ import { hoodwink } from '../logic/game.ts';
 import {
   FOUR,
   HOST,
+  NOW,
   content,
   deck,
   harness,
   lieOf,
+  lureDeck,
   playRound,
   round,
   startedGame,
@@ -14,7 +16,15 @@ import {
   writeAll,
 } from '../logic/test-utils.ts';
 import type { HoodwinkState } from '../logic/types.ts';
-import { listNames, nameOf, ranks, splitPrompt, startBlocker, statusFor } from './status.ts';
+import {
+  listNames,
+  nameOf,
+  pointsBreakdown,
+  ranks,
+  splitPrompt,
+  startBlocker,
+  statusFor,
+} from './status.ts';
 
 const status = (h: { state: HoodwinkState }, id: string | null, host = false) =>
   statusFor(hoodwink.view(h.state, id), host, null);
@@ -138,5 +148,53 @@ describe('helpers', () => {
     const v = hoodwink.view(h.state, HOST);
     expect(nameOf(v, 'p4')).toBe('P4');
     expect(nameOf(v, 'ghost')).toBe('Someone');
+  });
+});
+
+describe('timeouts', () => {
+  const strict = {
+    rounds: 5 as const,
+    clueSeconds: 60,
+    guessSeconds: 30,
+    timerMode: 'strict' as const,
+  };
+
+  it('tells a player the timer filled in their lie, and says who missed the vote', () => {
+    const h = startedGame(FOUR, { ...strict, provider: content([lureDeck(['Brick', 'Kazoo'])]) });
+    h.act({ type: 'lie', text: 'Teacup' }, HOST);
+    h.act({ type: 'lie', text: 'Teapot' }, 'p2');
+    h.state = hoodwink.onDeadline!(h.state, NOW + 60_000);
+    expect(status(h, 'p3').text).toContain('a ready-made lie was filled in for you');
+    expect(status(h, HOST).text).not.toContain('filled in');
+    for (const id of [HOST, 'p2', 'p3']) h.act({ type: 'vote', option: truthIndex(h) }, id);
+    h.state = hoodwink.onDeadline!(h.state, NOW + 90_000);
+    expect(status(h, HOST).text).toContain("⏱ Time ran out on the vote: P4 didn't vote.");
+    expect(status(h, 'p4').text).toContain("you didn't vote");
+  });
+});
+
+describe('pointsBreakdown', () => {
+  it('lists the truth and each lie that fooled someone, doubled in the final round', () => {
+    const h = startedGame(FOUR, { rounds: 5 });
+    for (let i = 0; i < 4; i++) playRound(h);
+    expect(round(h).number).toBe(5);
+    h.act({ type: 'lie', text: 'Same lie' }, HOST);
+    h.act({ type: 'lie', text: 'same lie' }, 'p2');
+    h.act({ type: 'lie', text: 'Other' }, 'p3');
+    h.act({ type: 'lie', text: 'Another' }, 'p4');
+    h.act({ type: 'vote', option: lieOf(h, HOST) }, 'p3');
+    h.act({ type: 'vote', option: lieOf(h, HOST) }, 'p4');
+    h.act({ type: 'vote', option: truthIndex(h) }, HOST);
+    h.act({ type: 'vote', option: lieOf(h, 'p3') }, 'p2');
+    const v = hoodwink.view(h.state, HOST);
+    expect(pointsBreakdown(v, v.round!, HOST)).toEqual([
+      { reason: 'found the truth', points: 2000 },
+      { reason: 'fooled P3 and P4 (shared with P2)', points: 1000 },
+    ]);
+    expect(pointsBreakdown(v, v.round!, 'p3')).toEqual([{ reason: 'fooled P2', points: 1000 }]);
+    expect(pointsBreakdown(v, v.round!, 'p4')).toEqual([]);
+    const sum = (id: string) =>
+      pointsBreakdown(v, v.round!, id).reduce((n, line) => n + line.points, 0);
+    for (const id of FOUR) expect(sum(id), id).toBe(v.round!.points![id]);
   });
 });

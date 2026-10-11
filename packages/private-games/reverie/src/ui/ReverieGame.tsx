@@ -1,4 +1,4 @@
-import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, listNames, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   ChoicePicker,
@@ -27,7 +27,7 @@ import {
 } from '../logic/types.ts';
 import { useManifest } from './assets.ts';
 import { Card } from './Card.tsx';
-import { startBlocker, statusFor } from './status.ts';
+import { missedVoteNote, startBlocker, statusFor } from './status.ts';
 
 export type ReverieUiProps = GameUiProps<ReverieView, ReverieAction>;
 type Act = (a: ReverieAction, options?: ActOptions) => Promise<boolean>;
@@ -406,8 +406,9 @@ function Play({
   const canNext = room.isHost && view.phase === 'playing' && turn?.phase === 'reveal';
   const canGive =
     !!turn && turn.phase === 'pick' && !isStory && !!me?.playing && turn.myCards.length === 0;
-  const canVote =
-    !!turn && turn.phase === 'vote' && !isStory && !!me?.playing && turn.myVote === null;
+  // A vote can change until the last one is in (the reveal follows straight away).
+  const canVote = !!turn && turn.phase === 'vote' && !isStory && !!me?.playing;
+  const canSit = !!me && !me.playing && view.phase === 'playing' && turn?.phase === 'reveal';
 
   const tell = async (e: FormEvent) => {
     e.preventDefault();
@@ -441,9 +442,16 @@ function Play({
     }
     if (viewing.from === 'table' && canVote && viewing.index !== undefined) {
       const mine = turn.table[viewing.index]?.mine;
+      const current = turn.myVote === viewing.index;
       return {
-        label: mine ? "That's your card" : `Vote for #${viewing.index + 1}`,
-        disabled: mine,
+        label: mine
+          ? "That's your card"
+          : current
+            ? 'Your vote'
+            : turn.myVote === null
+              ? `Vote for #${viewing.index + 1}`
+              : `Change vote to #${viewing.index + 1}`,
+        disabled: mine || current,
         onClick: () =>
           void act({ type: 'vote', index: viewing.index! }).then(() => setViewing(null)),
       };
@@ -458,11 +466,22 @@ function Play({
     >
       <Scoreboard view={view} clockOffset={room.clockOffset} />
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {canNext && (
-        <div className="flex justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
-            Next turn
-          </Button>
+      {(canNext || canSit) && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {canNext && (
+            <Button size="lg" onClick={() => void act({ type: 'next-turn' })}>
+              Next turn
+            </Button>
+          )}
+          {canSit && (
+            <Button
+              size="lg"
+              variant={canNext ? 'secondary' : 'primary'}
+              onClick={() => void act({ type: 'sit', playing: true })}
+            >
+              Take a seat
+            </Button>
+          )}
         </div>
       )}
 
@@ -551,23 +570,38 @@ function Play({
                   selected={turn.myVote === i}
                   dimmed={canVote && t.mine}
                   onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
-                  className={cn(t.isStory && 'ring-4 ring-amber-500')}
+                  className={cn(t.isStory && 'ring-4 ring-emerald-500 dark:ring-emerald-400')}
                 />
                 {turn.phase === 'reveal' && (
-                  <div className="text-center text-xs">
-                    <p className="font-semibold">
-                      {t.isStory && '📖 '}
-                      {t.owner ? nameOf(view, t.owner) : ''}
-                    </p>
-                    {t.voters.length > 0 && (
-                      <p className="text-stone-500">
-                        {t.voters.map((v) => nameOf(view, v)).join(', ')}
+                  <div className="text-center text-xs leading-snug">
+                    {t.isStory && (
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400">
+                        📖 Story card
                       </p>
                     )}
+                    <p className="font-semibold">
+                      {t.owner ? nameOf(view, t.owner) : ''}
+                      {t.mine && ' (you)'}
+                    </p>
+                    {turn.myVote === i && (
+                      <p className="font-semibold text-amber-700 dark:text-amber-400">
+                        ✋ Your vote
+                      </p>
+                    )}
+                    <p className="text-stone-500">
+                      {t.voters.length > 0
+                        ? `Votes: ${listNames(t.voters.map((v) => nameOf(view, v)))}`
+                        : 'No votes'}
+                    </p>
                   </div>
                 )}
                 {turn.phase !== 'reveal' && t.mine && (
                   <p className="text-center text-xs text-stone-500">yours</p>
+                )}
+                {turn.phase !== 'reveal' && turn.myVote === i && (
+                  <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
+                    ✋ your vote
+                  </p>
                 )}
               </li>
             ))}
@@ -586,6 +620,9 @@ function Play({
                   : 'Nobody found it, so the storyteller scores nothing and the voters get 2.'
               : 'Some found it: the storyteller and the finders score 3.'}
           </p>
+          {missedVoteNote(view) && (
+            <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
+          )}
           <ul className="grid gap-x-4 sm:grid-cols-2">
             {view.seats
               .filter((s) => s.playing && turn.results![s.id])

@@ -5,7 +5,6 @@ import {
   Hint,
   Panel,
   StickyBar,
-  TimeoutNote,
   cn,
   revealElement,
   useSpectatorPrompt,
@@ -15,11 +14,11 @@ import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
 import { GameLog } from './GameLog.tsx';
-import { lastGuessResult } from './result.ts';
+import { latestResult } from './result.ts';
 import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
-import { spymasterAlerts, startBlocker, statusFor, winHow } from './status.ts';
-import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
+import { myRoleLabel, spymasterAlerts, startBlocker, statusFor, winHow } from './status.ts';
+import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 import { Teams } from './Teams.tsx';
 
 export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
@@ -159,10 +158,8 @@ function InGame({
     }
   };
 
-  const result = lastGuessResult(view);
-  // The timer just ended a turn: say so, instead of leaving players to work it out.
-  const last = view.log.at(-1);
-  const timedOutTeam = last?.type === 'end-turn' && last.reason === 'timeout' ? last.team : null;
+  const result = latestResult(view);
+  // The banner also says when the timer, a forfeit or the host ended a turn.
 
   const guess = async () => {
     if (selected === null) return;
@@ -200,14 +197,16 @@ function InGame({
             )}
           </div>
         ))}
-        {timedOutTeam && (
-          <TimeoutNote>
-            {`${TEAM_LABEL[timedOutTeam]}'s turn ended, so it's ${TEAM_LABEL[timedOutTeam === 'red' ? 'blue' : 'red']}'s turn.`}
-          </TimeoutNote>
-        )}
         {/* Once the game is over, the result panel says who won (once). */}
         {view.phase !== 'over' && (
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        )}
+        {status.stalled && room.isHost && turn && (
+          <div className="flex justify-center">
+            <Button variant="secondary" onClick={() => void act({ type: 'end-turn' })}>
+              Skip {TEAM_LABEL[turn.team]}'s turn
+            </Button>
+          </div>
         )}
 
         {turn?.clue && (
@@ -330,32 +329,54 @@ function InGame({
 }
 
 function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: number }) {
+  const myTeam = view.me?.team ?? null;
+  const role = myRoleLabel(view);
   return (
-    <div className="flex items-center justify-between gap-2">
-      {(['red', 'blue'] as const).map((team, i) => (
-        <div
-          key={team}
-          className={cn(
-            'flex items-baseline gap-2 rounded-xl px-3 py-1.5',
-            i === 1 && 'order-3',
-            view.turn?.team === team && 'bg-white shadow-sm ring-2 ring-current dark:bg-stone-900',
-            TEAM_TEXT[team],
-          )}
-        >
-          <span className="text-2xl font-black tabular-nums">{view.remaining[team]}</span>
-          <span className="text-sm font-semibold">{TEAM_LABEL[team]} left</span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        {(['red', 'blue'] as const).map((team, i) => (
+          <div
+            key={team}
+            className={cn(
+              'flex items-baseline gap-2 rounded-xl px-3 py-1.5',
+              i === 1 && 'order-3',
+              view.turn?.team === team &&
+                'bg-white shadow-sm ring-2 ring-current dark:bg-stone-900',
+              TEAM_TEXT[team],
+            )}
+          >
+            <span className="text-2xl font-black tabular-nums">{view.remaining[team]}</span>
+            <span className="text-sm font-semibold">
+              {TEAM_LABEL[team]}
+              {myTeam === team && ' (you)'} left
+            </span>
+          </div>
+        ))}
+        <div className="order-2">
+          <Countdown
+            deadline={view.turn?.deadline ?? null}
+            clockOffset={clockOffset}
+            label={view.turn?.stage === 'clue' ? 'to give a clue' : 'to guess'}
+            soft={view.settings.timerMode !== 'strict'}
+            atZero="then the turn ends"
+            expiredHint="The turn goes on until the team finishes."
+          />
         </div>
-      ))}
-      <div className="order-2">
-        <Countdown
-          deadline={view.turn?.deadline ?? null}
-          clockOffset={clockOffset}
-          label={view.turn?.stage === 'clue' ? 'to give a clue' : 'to guess'}
-          soft={view.settings.timerMode !== 'strict'}
-          atZero="then the turn ends"
-          expiredHint="The turn goes on until the team finishes."
-        />
       </div>
+      {role && myTeam && (
+        <p className="text-center text-sm">
+          <span
+            data-testid="my-role"
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-3 py-0.5 font-semibold ring-1',
+              TEAM_PANEL[myTeam],
+              TEAM_TEXT[myTeam],
+            )}
+          >
+            You: {role}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

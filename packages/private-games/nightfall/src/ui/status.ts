@@ -1,6 +1,6 @@
 import { type GameRoomInfo, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { setupProblem } from '../logic/game.ts';
-import { hostileGroupsIn } from '../logic/roles.ts';
+import { ARTIFACTS, hostileGroupsIn } from '../logic/roles.ts';
 import type { NightfallView } from '../logic/types.ts';
 import { listNames, nameOfView } from './text.ts';
 
@@ -12,6 +12,20 @@ export interface Status {
 
 export function startBlocker(view: NightfallView): string | null {
   return setupProblem(view.settings.roles, view.seats.filter((s) => s.playing).length);
+}
+
+/**
+ * What the viewer's pick does in the vote: a Bodyguard's pick protects instead of voting.
+ * `protect`: an artifact made them the Bodyguard (it travels with their final card, so it holds).
+ * `protect-if-kept`: they were dealt the Bodyguard, so it holds unless their card was moved.
+ */
+export type VotePower = 'vote' | 'protect' | 'protect-if-kept';
+
+export function votePower(view: NightfallView): VotePower {
+  const artifact = view.notes.find((n) => n.kind === 'artifact');
+  const becomes = artifact?.kind === 'artifact' ? ARTIFACTS[artifact.artifact].becomes : undefined;
+  if (becomes) return becomes === 'bodyguard' ? 'protect' : 'vote';
+  return view.myRole === 'bodyguard' ? 'protect-if-kept' : 'vote';
 }
 
 type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players' | 'you'>;
@@ -27,7 +41,13 @@ export function statusFor(view: NightfallView, room: Room): Status {
     case 'lobby': {
       if (!view.me?.playing) return { text: 'You’re watching this game.', yourMove: false };
       const blocker = startBlocker(view);
-      if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
+      if (blocker)
+        return {
+          text: isHost
+            ? `Almost ready: ${blocker}`
+            : `The host is picking the cards. Almost ready: ${blocker}`,
+          yourMove: false,
+        };
       return isHost
         ? { text: 'Everyone is in. Press Deal the cards when you’re ready!', yourMove: true }
         : { text: `All set. ${waitingForHost(room, 'deal')}`, yourMove: false };
@@ -50,7 +70,10 @@ export function statusFor(view: NightfallView, room: Room): Status {
             text: 'Eyes closed. Keep your phone face up — it lights up when it’s your turn.',
             yourMove: false,
           }
-        : { text: 'You’re watching. The players’ phones light up in turn.', yourMove: false };
+        : {
+            text: 'You’re watching: the players have their eyes closed while the roles are called.',
+            yourMove: false,
+          };
     }
     case 'day':
       if (!playing) return { text: 'The village is talking it over.', yourMove: false };
@@ -66,13 +89,26 @@ export function statusFor(view: NightfallView, room: Room): Status {
     case 'vote': {
       if (!playing) return { text: `Everyone is voting…${tail}`, yourMove: false };
       const nameOf = nameOfView(view);
-      return view.vote?.myVote
+      const power = votePower(view);
+      const caveat =
+        power === 'protect-if-kept'
+          ? ' (You were dealt the Bodyguard: if your card was moved in the night, this counts as a vote instead.)'
+          : '';
+      if (view.vote?.myVote)
+        return {
+          text:
+            power === 'vote'
+              ? `You voted for ${nameOf(view.vote.myVote)}. Tap someone else to change.${tail}`
+              : `You’re protecting ${nameOf(view.vote.myVote)}. Tap someone else to change.${caveat}${tail}`,
+          yourMove: false,
+        };
+      return power === 'vote'
         ? {
-            text: `You voted for ${nameOf(view.vote.myVote)}. Tap someone else to change.${tail}`,
-            yourMove: false,
+            text: 'Vote! Tap the player you want to die. Nobody sees it until everyone has voted.',
+            yourMove: true,
           }
         : {
-            text: 'Vote! Tap the player you want to die. Nobody sees it until everyone has voted.',
+            text: `Your vote PROTECTS: tap the player who must not die. It isn’t a vote against them.${caveat}`,
             yourMove: true,
           };
     }

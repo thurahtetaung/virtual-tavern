@@ -1,4 +1,4 @@
-import { type PresencePlayer, namesWithPresence, waitingForHost } from '@vt/game-sdk';
+import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
@@ -67,6 +67,15 @@ export interface Status {
   text: string;
   /** True when the viewer is expected to act now. */
   yourMove: boolean;
+  /** Set when the turn waits on players who are all offline, so the host can skip it. */
+  stalled?: boolean;
+}
+
+/** The viewer's own seat in words, e.g. "Blue Operative"; null for spectators. */
+export function myRoleLabel(view: CodenamesView): string | null {
+  const me = view.me;
+  if (!me || me.team === null) return null;
+  return `${TEAM_LABEL[me.team]} ${me.role === 'spymaster' ? 'Spymaster' : 'Operative'}`;
 }
 
 const team = (t: Team) => TEAM_LABEL[t];
@@ -85,20 +94,27 @@ export function winHow(view: CodenamesView): string {
     : `${team(winner)} found all their agents`;
 }
 
-/** Plain-language guidance for whoever is looking at the screen. */
+const SKIP_TIP = ' You can skip their turn.';
+const WAIT_TIP = ' The host can skip their turn.';
+
+/**
+ * Plain-language guidance for whoever is looking at the screen. With the room it names the host,
+ * and says when the turn waits on someone who has dropped out (without it, everyone is online).
+ */
 export function statusFor(
   view: CodenamesView,
   isHost: boolean,
   blocker: string | null,
   room?: RoomPeople,
 ): Status {
+  const online = (id: string) => room?.players.find((p) => p.id === id)?.connected !== false;
   const me = view.me;
   const waitHost = (what: string) =>
     room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     if (!me || me.team === null) {
       return {
-        text: 'Pick a team below. Each team needs one Spymaster and at least one Operative.',
+        text: 'Pick a team below. Each team needs one Spymaster and at least one Operative. First game? Start as an Operative.',
         yourMove: true,
       };
     }
@@ -117,20 +133,20 @@ export function statusFor(
 
   const turn = view.turn!;
   const mine = me?.team === turn.team;
+  const tip = isHost ? SKIP_TIP : WAIT_TIP;
   if (turn.stage === 'clue') {
+    const spymaster = view.seats.find((s) => s.team === turn.team && s.role === 'spymaster');
+    if (spymaster && spymaster.id !== me?.id && !online(spymaster.id)) {
+      return {
+        text: `${spymaster.name} (${team(turn.team)} Spymaster) seems to be offline.${tip}`,
+        yourMove: false,
+        stalled: true,
+      };
+    }
     if (mine && me?.role === 'spymaster') {
       return {
         text: 'Your turn! Give your team a one-word clue and a number of cards it relates to.',
         yourMove: true,
-      };
-    }
-    // Name an offline Spymaster, so nobody waits on someone who has gone.
-    const spymaster = view.seats.find((s) => s.team === turn.team && s.role === 'spymaster');
-    const away = spymaster && room?.players.find((p) => p.id === spymaster.id)?.connected === false;
-    if (spymaster && room && away) {
-      return {
-        text: `Waiting for ${namesWithPresence([spymaster.id], room.players)}, ${team(turn.team)}'s Spymaster, to give a clue.`,
-        yourMove: false,
       };
     }
     return {
@@ -138,6 +154,19 @@ export function statusFor(
         ? 'Your Spymaster is thinking of a clue…'
         : `${team(turn.team)} Spymaster is thinking of a clue…`,
       yourMove: false,
+    };
+  }
+
+  const operatives = view.seats.filter((s) => s.team === turn.team && s.role === 'operative');
+  if (operatives.length > 0 && !operatives.some((s) => s.id === me?.id || online(s.id))) {
+    const who =
+      operatives.length === 1
+        ? `${operatives[0]!.name} (${team(turn.team)} Operative) seems`
+        : `${team(turn.team)}'s Operatives (${operatives.map((s) => s.name).join(', ')}) seem`;
+    return {
+      text: `${who} to be offline.${tip}`,
+      yourMove: false,
+      stalled: true,
     };
   }
 

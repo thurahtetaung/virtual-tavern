@@ -11,7 +11,17 @@ import {
   harness,
   startedGame,
 } from '../logic/test-utils.ts';
-import { guessesLeft, spymasterAlerts, startBlocker, statusFor } from './status.ts';
+import { guessesLeft, myRoleLabel, spymasterAlerts, startBlocker, statusFor } from './status.ts';
+
+/** The room, with the given players offline. */
+const room = (offline: string[] = []) => ({
+  hostId: HOST,
+  players: [HOST, 'p2', 'p3', 'p4'].map((id) => ({
+    id,
+    name: id.toUpperCase(),
+    connected: !offline.includes(id),
+  })),
+});
 
 describe('statusFor', () => {
   it('guides spectators in the lobby to pick a team', () => {
@@ -39,15 +49,6 @@ describe('statusFor', () => {
 });
 
 describe('statusFor names people', () => {
-  const room = (offline: string[] = []) => ({
-    hostId: HOST,
-    players: [HOST, 'p2', 'p3', 'p4'].map((id) => ({
-      id,
-      name: id.toUpperCase(),
-      connected: !offline.includes(id),
-    })),
-  });
-
   it('names the host in waiting texts', () => {
     const h = startedGame();
     const lobby = { ...codenames.view(h.state, OP.red), phase: 'lobby' as const };
@@ -61,8 +62,42 @@ describe('statusFor names people', () => {
     const view = codenames.view(h.state, OP.red);
     expect(statusFor(view, false, null, room()).text).toContain('is thinking of a clue');
     expect(statusFor(view, false, null, room([SPY.red])).text).toBe(
-      "Waiting for HOST (offline), Red's Spymaster, to give a clue.",
+      'HOST (Red Spymaster) seems to be offline. The host can skip their turn.',
     );
+  });
+});
+
+describe('statusFor with someone offline', () => {
+  it('names an offline Spymaster and offers the host a skip', () => {
+    const h = startedGame();
+    const forOp = statusFor(codenames.view(h.state, OP.red), false, null, room([SPY.red]));
+    expect(forOp).toMatchObject({
+      text: 'HOST (Red Spymaster) seems to be offline. The host can skip their turn.',
+      stalled: true,
+      yourMove: false,
+    });
+    const forHost = statusFor(codenames.view(h.state, OP.blue), true, null, room([SPY.red]));
+    expect(forHost.text).toContain('You can skip their turn.');
+  });
+
+  it('names offline Operatives during the guess', () => {
+    const h = startedGame();
+    clue(h, 'red', 1);
+    const s = statusFor(codenames.view(h.state, OP.blue), true, null, room([OP.red]));
+    expect(s).toMatchObject({
+      text: 'P2 (Red Operative) seems to be offline. You can skip their turn.',
+      stalled: true,
+    });
+    expect(statusFor(codenames.view(h.state, OP.blue), true, null).stalled).toBeUndefined();
+  });
+});
+
+describe('myRoleLabel', () => {
+  it('names the viewer team and role, and nothing for spectators', () => {
+    const h = startedGame();
+    expect(myRoleLabel(codenames.view(h.state, OP.blue))).toBe('Blue Operative');
+    expect(myRoleLabel(codenames.view(h.state, SPY.red))).toBe('Red Spymaster');
+    expect(myRoleLabel(codenames.view(h.state, null))).toBeNull();
   });
 });
 
