@@ -1,7 +1,24 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
-import { ARTIFACT_IDS, type ArtifactId, type MarkId, ROLE_IDS, type RoleId } from './roles.ts';
+import {
+  ARTIFACT_IDS,
+  type ArtifactId,
+  type HostileGroup,
+  type MarkId,
+  type NostraTeam,
+  ROLE_IDS,
+  type RoleId,
+} from './roles.ts';
 import type { StepId } from './plan.ts';
+import {
+  type BlobShape,
+  MAX_WEIGHT,
+  type OracleQuestion,
+  type Ripple,
+  type StepPick,
+  WEIGHT_TABLES,
+  type Weights,
+} from './tables.ts';
 
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 10;
@@ -35,7 +52,12 @@ export interface Settings {
   loneWolf: boolean;
   /** Artifacts the Curator may draw. */
   artifacts: ArtifactId[];
+  /** The host's changes to the narrator's random tables (Alien options); missing = defaults. */
+  weights?: Weights;
 }
+
+/** The vote target that means "the app" (a ripple may allow it): nobody dies if it wins. */
+export const VOTE_APP = '@app';
 
 export interface Seat {
   name: string;
@@ -76,6 +98,68 @@ export interface Card {
   copied: RoleId | null;
   /** On the P.I.'s card (or a Doppelgänger's copy of it): the role it stopped on. */
   became: RoleId | null;
+  /** Snatched by the Body Snatcher: an Alien card wherever it goes. */
+  alienCard?: boolean;
+  /** On a Nostradamus card (or a copy of it): the team announced for it. */
+  foretold?: Foretold | null;
+}
+
+/**
+ * The team announced for a Nostradamus card: the printed team of the last card he saw, and that
+ * card (whose final role or holder decides it for copier and own-team cards).
+ */
+export interface Foretold {
+  team: NostraTeam;
+  card: number | null;
+}
+
+/** What the Oracle's answer did to her card. */
+export type OracleMod = 'werewolf-card' | 'vampire-card' | 'alien-card' | 'aliens-win-only';
+
+/** The Oracle's question, her answer and what came of it. */
+export interface OracleState {
+  question: OracleQuestion;
+  /** The Oracle who answered (null: the narrator answered for her). */
+  player?: PlayerId | null;
+  /** Her answer ("yes", "even", "7"…), or the narrator's when her card is in the centre. */
+  answer: string | null;
+  /** The narrator's reply, as its narration key: "werewolf-team:yes", "number:wrong"… */
+  outcome: string | null;
+  mod: OracleMod | null;
+  /** She failed the number question: she wins only by surviving, everyone else if she dies. */
+  numberFail: boolean;
+  /** Her card was in the centre, so the narrator answered for her. */
+  centre: boolean;
+  /** The aliens must swap cards tonight. */
+  exchange: boolean;
+  /** A ripple is guaranteed at the end of the night. */
+  ripple: boolean;
+}
+
+/** Something the narrator says out loud for everyone (ruled public, like the app's lines). */
+export type Announcement =
+  | { kind: 'oracle-parity'; parity: 'even' | 'odd' }
+  | { kind: 'oracle-view'; number: number; swapped: boolean }
+  | { kind: 'oracle-number'; right: boolean }
+  | { kind: 'nostradamus'; doppel: boolean; team: NostraTeam }
+  | { kind: 'blob'; shape: BlobShape }
+  | { kind: 'ripple'; ripple: Ripple };
+
+/** An announcement, with the step it was made at (shown from that step on). */
+export type PublicNote = Announcement & {
+  step: number;
+  /** When it was said (server clock), so every device can speak it at the same moment. */
+  at: number;
+};
+
+/** What the ripples did to the day and the vote. */
+export interface DayRules {
+  /** Players may vote for the app: if it gets the most votes, nobody dies. */
+  voteApp?: boolean;
+  /** These players vote with both hands: two votes each. */
+  twoVotes?: PlayerId[];
+  /** Players who may only say "I am an alien", must face away, or may not speak. */
+  restrictions?: { kind: 'i-am-alien' | 'face-away' | 'no-speak'; players: PlayerId[] }[];
 }
 
 /**
@@ -90,11 +174,23 @@ export type NoteBody =
   | { kind: 'saw-own'; role: RoleId }
   | {
       kind: 'group';
-      group: 'werewolves' | 'masons' | 'vampires' | 'lovers' | 'assassins' | 'apprentices';
+      group:
+        | 'werewolves'
+        | 'masons'
+        | 'vampires'
+        | 'lovers'
+        | 'assassins'
+        | 'apprentices'
+        | 'aliens'
+        | 'groob-zerb';
       players: PlayerId[];
       thumbs?: PlayerId[];
     }
-  | { kind: 'thumbs'; of: 'werewolves' | 'tanner' | 'seers' | 'touched'; players: PlayerId[] }
+  | {
+      kind: 'thumbs';
+      of: 'werewolves' | 'tanner' | 'seers' | 'touched' | 'aliens' | 'groob-zerb' | 'cow';
+      players: PlayerId[];
+    }
   | { kind: 'robbed'; target: PlayerId; role: RoleId }
   | { kind: 'swapped'; a: Slot; b: Slot }
   | { kind: 'took-center'; center: number }
@@ -129,7 +225,39 @@ export type NoteBody =
   /** The Pickpocket's swap, and the Mark he got. */
   | { kind: 'pickpocketed'; target: PlayerId; mark: MarkId }
   /** The Gremlin's swap of two players' Marks, unseen. */
-  | { kind: 'swapped-marks'; a: PlayerId; b: PlayerId };
+  | { kind: 'swapped-marks'; a: PlayerId; b: PlayerId }
+  /** What the narrator told you to do this step (the Alien set's random instructions). */
+  | { kind: 'told'; pick: StepPick; watching?: boolean }
+  /** The Cow: whether an alien tipped your fist. */
+  | { kind: 'tipped'; tipped: boolean }
+  /** You put out a fist for the aliens: tapped (now an alien, or their helper) or not. */
+  | { kind: 'fist'; tapped: boolean; helper: boolean }
+  /** The aliens tapped a fist: that player is now an alien (or their helper). */
+  | { kind: 'recruited'; target: PlayerId; helper: boolean; chosenBy?: PlayerId }
+  /** The aliens passed their cards round, unseen. */
+  | { kind: 'passed-card'; side: 'left' | 'right'; to: PlayerId | null }
+  /** You swapped your card with another and looked at your new one (a Rascal, a ripple). */
+  | { kind: 'took'; slot: Slot; role: RoleId }
+  /** The Body Snatcher's new card (now an Alien card). */
+  | { kind: 'snatched'; slot: Slot; role: RoleId }
+  /** A card you looked at and then gave to a player (the Rascal, a ripple's Witch). */
+  | { kind: 'gave'; from: Slot; to: PlayerId }
+  /** The Exposer's centre card, turned face up. */
+  | { kind: 'exposed'; center: number; role: RoleId }
+  /** The Empath's question: where you pointed (null: at nobody). */
+  | { kind: 'pointed'; target: PlayerId | null }
+  /** The Empath: where a player pointed. */
+  | { kind: 'saw-point'; from: PlayerId; target: PlayerId | null }
+  /** Nostradamus: the team your last look put you on. */
+  | { kind: 'foretold'; team: NostraTeam }
+  /** The Oracle's question, her answer and the narrator's reply. */
+  | { kind: 'oracle'; question: OracleQuestion; answer: string; outcome: string }
+  /** Only pretending to look (the Mortician, the Body Snatcher). */
+  | { kind: 'pretended' }
+  /** Eyes open (the Oracle's number, a time loop): who woke in a step and what they touched. */
+  | { kind: 'watched'; stepId: StepId; awake: PlayerId[]; touched: Slot[]; marks: PlayerId[] }
+  /** A ripple's shuffle: both cards seen, then shuffled between the two of you. */
+  | { kind: 'shuffled'; with: PlayerId; mine: RoleId; theirs: RoleId };
 
 export type Note = NoteBody & {
   id: number;
@@ -146,7 +274,7 @@ export interface TimelineEntry {
   /** Who did it; null for a step nobody acted in. */
   by: PlayerId | null;
   /** What happened, as the actor's note (with the faces of every card involved). */
-  note: NoteBody | { kind: 'nobody' };
+  note: NoteBody | { kind: 'nobody' } | { kind: 'announced'; announcement: Announcement };
   auto?: boolean;
   /** Cards moved in this entry, with their faces, for the timeline. */
   moved?: { slot: Slot; role: RoleId; card: number }[];
@@ -165,6 +293,8 @@ export interface GamePlayer {
   ready: boolean;
   readyToVote: boolean;
   vote: PlayerId | null;
+  /** The second hand, for a player a ripple lets vote twice. */
+  vote2?: PlayerId | null;
   /** Left the room mid-game: their card stays, but they no longer vote. */
   left: boolean;
   /** Acts as the Doppelgänger (dealt it, or a Copycat who copied it). */
@@ -185,7 +315,28 @@ export interface StepWork {
   as?: RoleId;
 }
 
-export type Choice = 'marks' | 'cards';
+export const CHOICES = [
+  'marks',
+  'cards',
+  'yes',
+  'no',
+  'even',
+  'odd',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '10',
+  '11',
+  '12',
+] as const;
+/** A choice: Marks or cards (the Gremlin), the Oracle's yes, no, even, odd or a number. */
+export type Choice = (typeof CHOICES)[number];
 
 export interface NightState {
   plan: StepId[];
@@ -204,6 +355,18 @@ export interface NightState {
   /** The players who woke in the vampires' step, and who they gave the Mark of the Vampire. */
   vampires?: PlayerId[];
   vampireTarget?: PlayerId | null;
+  /** The players who woke in the aliens' step (the Body Snatcher's known aliens). */
+  aliens?: PlayerId[];
+  /** Groob and Zerb, when they saw each other (they show the Leader a thumb). */
+  groobZerb?: PlayerId[];
+  /** Each step's random instruction, by plan index. */
+  picks?: Record<number, StepPick>;
+  /** Where the time loop starts in the plan (a ripple sent the night round again). */
+  loopFrom?: number;
+  /** Tonight's ripple, once announced. */
+  ripple?: Ripple;
+  /** The aliens' joint pick this step (all-view, a New Alien), once made. */
+  alienTarget?: PlayerId | null;
   timeline: TimelineEntry[];
 }
 
@@ -219,7 +382,20 @@ export interface Death {
 }
 
 export type TeamResultId =
-  'village' | 'werewolf' | 'vampire' | 'tanner' | 'assassin' | 'apprentice-assassin';
+  | 'village'
+  | 'werewolf'
+  | 'vampire'
+  | 'tanner'
+  | 'assassin'
+  | 'apprentice-assassin'
+  | 'alien'
+  | 'synthetic'
+  | 'blob'
+  | 'mortician'
+  | 'groob'
+  | 'zerb'
+  | 'leader'
+  | 'nostradamus';
 
 export interface TeamResult {
   team: TeamResultId;
@@ -241,6 +417,17 @@ export interface FinalIdentity {
   mark?: MarkId;
   /** A Vampire through the Mark of the Vampire. */
   vampireMark?: boolean;
+  /**
+   * The hostile group the player counts towards when it isn't their role's own: an Alien card,
+   * a New Alien, the Oracle's answer, the Mark of the Vampire (null: none at all).
+   */
+  group?: HostileGroup | null;
+  /** Why the player is on the alien side, when the role alone doesn't say. */
+  alien?: 'card' | 'player' | 'helper' | 'oracle';
+  /** The Oracle's answer made her card this. */
+  oracle?: OracleMod;
+  /** Nostradamus: the team announced, and the player holding the card that decides it. */
+  foretold?: { team: NostraTeam; holder?: PlayerId };
 }
 
 export interface VoteResult {
@@ -256,6 +443,19 @@ export interface VoteResult {
   epic: boolean;
   /** Voters who can't win: they voted for the Mark of Disease or the Diseased. */
   disqualified?: PlayerId[];
+  /** Second-hand votes (a ripple's two-hand vote). */
+  votes2?: Record<PlayerId, PlayerId | null>;
+  /** Votes for the app (a ripple allowed it): if it ties for most, nobody dies. */
+  appVotes?: number;
+  /** Every player on the alien side voted for the Leader: the aliens win, the village loses. */
+  leaderRule?: boolean;
+  /**
+   * The Oracle failed the number question: `oracle` (she wins by surviving, the rest if she dies)
+   * or `circle` (her card was in the centre: everyone wins only if nobody dies).
+   */
+  oracleRule?: 'oracle' | 'circle';
+  /** Each Blob at the end, with its members (the Blob included) and whether it won. */
+  blobs?: { player: PlayerId; members: PlayerId[] }[];
 }
 
 export interface GameRound {
@@ -281,6 +481,20 @@ export interface GameRound {
   loneWolf: PlayerId | null;
   /** When the night began, the day broke and the vote opened (for the stats). */
   times: { night: number | null; dawn: number | null; vote: number | null };
+  /** Players a New Alien tap made aliens, or alien helpers (it stays with the player). */
+  aliens?: { players: PlayerId[]; helpers: PlayerId[] };
+  /** The Oracle's question and answer, when she is in the game. */
+  oracle?: OracleState | null;
+  /** The Blob's members, as announced. */
+  blob?: BlobShape | null;
+  /** What the narrator said out loud for everyone, in order. */
+  announcements?: PublicNote[];
+  /** Players with their eyes open for the rest of the night (they watch every step). */
+  observers?: PlayerId[];
+  /** The day's length in seconds, after the aliens' timer and the ripples. */
+  daySeconds?: number;
+  /** The ripples' rules for the day and the vote. */
+  rules?: DayRules;
 }
 
 export type Phase = 'lobby' | 'ready' | 'night' | 'day' | 'vote' | 'reveal';
@@ -317,6 +531,13 @@ export const actionSchema = z.discriminatedUnion('type', [
     music: z.boolean().optional(),
     loneWolf: z.boolean().optional(),
     artifacts: z.array(z.enum(ARTIFACT_IDS)).max(ARTIFACT_IDS.length).optional(),
+    /** The Alien options: per table, per entry. `{}` resets every table to the defaults. */
+    weights: z
+      .partialRecord(
+        z.enum(WEIGHT_TABLES),
+        z.record(z.string().max(40), z.number().min(0).max(MAX_WEIGHT)),
+      )
+      .optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
@@ -330,8 +551,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     players: z.array(id).max(4).optional(),
     center: z.array(z.number().int().min(0).max(4)).max(3).optional(),
     side: z.enum(['left', 'right']).optional(),
-    /** The Gremlin's choice: swap Marks or cards. */
-    choice: z.enum(['marks', 'cards']).optional(),
+    /** A choice: the Gremlin's (swap Marks or cards), the Oracle's answer. */
+    choice: z.enum(CHOICES).optional(),
     /** Skip an optional action. */
     pass: z.literal(true).optional(),
     /** The vampires: show the others who you have in mind, before anyone confirms. */
@@ -340,7 +561,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready-to-vote'), ready: z.boolean() }),
   /** Host: open the vote without waiting for everyone to be ready (someone dropped out). */
   z.object({ type: z.literal('start-vote') }),
-  z.object({ type: z.literal('vote'), target: id }),
+  /** `hand: 2` is the second vote of a player a ripple lets vote with both hands. */
+  z.object({ type: z.literal('vote'), target: id, hand: z.literal(2).optional() }),
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),
 ]);
@@ -386,6 +608,12 @@ export interface ActingView {
   prompt: Prompt | null;
   /** The vampires' step: who each fellow vampire is pointing at so far. */
   team?: { player: PlayerId; pick: PlayerId | null }[];
+  /** What the narrator told you to do this step (the Alien set's random instructions). */
+  told?: StepPick;
+  /** A ripple you were named in. */
+  ripple?: Ripple;
+  /** You act with your eyes closed: a fist out for the aliens (or the Cow's), or pointing. */
+  eyes?: 'closed';
 }
 
 export interface NightView {
@@ -409,12 +637,24 @@ export interface DayView {
   artifacts: PlayerId[];
   /** Whether the centre werewolf slot exists. */
   centerKinds: CenterKind[];
+  /** Centre cards turned face up in the night (the Exposer). */
+  centerUp?: { center: number; role: RoleId }[];
+  /** The day's length in seconds (the aliens' timer and the ripples can shorten it). */
+  seconds?: number;
+  /** The ripples' rules for the day and the vote. */
+  rules?: DayRules;
 }
 
 export interface VoteView {
   deadline: number | null;
   votedCount: number;
   myVote: PlayerId | null;
+  /** Your second vote, when a ripple lets you vote with both hands. */
+  mySecond?: PlayerId | null;
+  /** How many votes you cast: 2 with a two-hand ripple. */
+  hands?: 1 | 2;
+  /** You may vote for the app. */
+  app?: boolean;
 }
 
 export interface RevealView {
@@ -451,6 +691,8 @@ export interface NightfallView {
   vote: VoteView | null;
   /** Your private notes from the night. */
   notes: Note[];
+  /** What the narrator said out loud for everyone tonight (the same for every viewer). */
+  announcements: PublicNote[];
   reveal: RevealView | null;
   gamesPlayed: number;
 }

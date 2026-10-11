@@ -977,7 +977,12 @@ describe('the Copycat copies every role', () => {
   const wakeStep = (role: RoleId, selected: RoleId[]): string | null => {
     if (ROLES[role].wakesWithWerewolves) return 'werewolves';
     if (ROLES[role].wakesWithVampires) return 'vampires';
+    // The Cow's fist is out in the aliens' step; a Copycat-Oracle never wakes (the Oracle's step
+    // is over), and the Blob never wakes at all.
     const plan = buildNightPlan(selected);
+    if (ROLES[role].wakesWithAliens || role === 'cow')
+      return plan.includes('aliens') ? 'aliens' : null;
+    if (role === 'oracle' || role === 'blob') return null;
     return plan.includes(role) ? role : null;
   };
   const copyable = ROLE_IDS.filter((r) => r !== 'copycat' && r !== 'alpha-wolf');
@@ -1210,7 +1215,7 @@ describe('presets', () => {
   });
 
   it('offers Vampire setups with two vampires, and an epic battle', () => {
-    const vampire = SCENARIOS.filter((p) => p.roles.some((r) => ROLES[r].set === 'vampire'));
+    const vampire = SCENARIOS.filter((p) => p.roles.some((r) => ROLES[r].vampire));
     expect(vampire.length).toBeGreaterThanOrEqual(3);
     for (const p of vampire)
       expect(p.roles.filter((r) => ROLES[r].vampire).length, p.id).toBeGreaterThanOrEqual(2);

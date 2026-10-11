@@ -1,7 +1,7 @@
 import { type GameRoomInfo, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { setupProblem } from '../logic/game.ts';
 import { ARTIFACTS, hostileGroupsIn } from '../logic/roles.ts';
-import type { NightfallView } from '../logic/types.ts';
+import { type NightfallView, VOTE_APP } from '../logic/types.ts';
 import { listNames, nameOfView } from './text.ts';
 
 export interface Status {
@@ -29,6 +29,13 @@ export function votePower(view: NightfallView): VotePower {
 }
 
 type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players' | 'you'>;
+
+/** "a werewolf", "a werewolf, who is a vampire", "an alien"… for the day's prompt. */
+function evilWords(groups: readonly string[]): string {
+  const words = groups.map((g) => (g === 'alien' ? 'an alien' : `a ${g}`));
+  if (!words.length) return 'a werewolf';
+  return words.join(', who is ');
+}
 
 /** Plain-language guidance for whoever is looking at the screen. */
 export function statusFor(view: NightfallView, room: Room): Status {
@@ -83,7 +90,7 @@ export function statusFor(view: NightfallView, room: Room): Status {
             yourMove: false,
           }
         : {
-            text: `Daybreak! Talk it over: who is a ${hostileGroupsIn(view.settings.roles).includes('vampire') ? 'werewolf, who is a vampire' : 'werewolf'}? Press Ready to vote when you’re done.`,
+            text: `Daybreak! Talk it over: who is ${evilWords(hostileGroupsIn(view.settings.roles))}? Press Ready to vote when you’re done.`,
             yourMove: false,
           };
     case 'vote': {
@@ -94,11 +101,16 @@ export function statusFor(view: NightfallView, room: Room): Status {
         power === 'protect-if-kept'
           ? ' (You were dealt the Bodyguard: if your card was moved in the night, this counts as a vote instead.)'
           : '';
+      if (view.vote?.hands === 2 && view.vote.myVote && !view.vote.mySecond)
+        return {
+          text: 'You vote with both hands: choose your second vote too (it may be the same player).',
+          yourMove: true,
+        };
       if (view.vote?.myVote)
         return {
           text:
             power === 'vote'
-              ? `You voted for ${nameOf(view.vote.myVote)}. Tap someone else to change.${tail}`
+              ? `You voted for ${view.vote.myVote === VOTE_APP ? 'the app' : nameOf(view.vote.myVote)}${view.vote.mySecond ? ` and ${view.vote.mySecond === VOTE_APP ? 'the app' : nameOf(view.vote.mySecond)}` : ''}. Tap someone else to change.${tail}`
               : `You’re protecting ${nameOf(view.vote.myVote)}. Tap someone else to change.${caveat}${tail}`,
           yourMove: false,
         };

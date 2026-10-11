@@ -943,6 +943,156 @@ for (const [label, viewport] of [
     await host.getByRole('tab', { name: 'The night, step by step' }).click();
     await shot(host, 'reveal-night');
   });
+
+  test(`nightfall alien screenshots (${label})`, async ({ browser, request }) => {
+    test.setTimeout(300_000);
+    const taken = new Set<string>();
+    const shot = async (p: Page, name: string) => {
+      taken.add(name);
+      await p.screenshot({
+        path: `test-results/shots/nightfall-${label}-alien-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    };
+    const login = await request.post('/api/admin/login', {
+      data: { password: TEST_ADMIN_PASSWORD },
+    });
+    const admin = login
+      .headersArray()
+      .find((h) => h.name.toLowerCase() === 'set-cookie')!
+      .value.split(';')[0]!;
+    await request.put('/api/admin/backroom/password', {
+      headers: { cookie: admin },
+      data: { password: TEST_BACKROOM_WORD },
+    });
+    let ip = 1;
+    const make = async (name: string) => {
+      const ctx = await browser.newContext({
+        viewport,
+        colorScheme: label === 'phone' ? 'dark' : 'light',
+        extraHTTPHeaders: { 'cf-connecting-ip': `10.10.${label === 'phone' ? 5 : 4}.${ip++}` },
+      });
+      const p = await ctx.newPage();
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      await p.goto('/backroom');
+      await p.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+      await p.getByRole('button', { name: 'Knock' }).click();
+      await p.getByText("You're on the list").waitFor();
+      return p;
+    };
+    const names = ['Hana', 'Ana', 'Ben', 'Cy'];
+    const host = await make(names[0]!);
+    await host.getByRole('button', { name: 'Create a Nightfall room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others: Page[] = [];
+    for (const n of names.slice(1)) {
+      const p = await make(n);
+      await p.goto(url);
+      await expect(host.getByText(`Players (${others.length + 2}/10)`)).toBeVisible();
+      others.push(p);
+    }
+    const players = [host, ...others];
+    await setRoles(host, {
+      alien: 2,
+      werewolf: 1,
+      cow: 1,
+      psychic: 1,
+      rascal: 1,
+      exposer: 1,
+    });
+    await host
+      .getByRole('group', { name: 'Time for each role at night' })
+      .getByRole('button', { name: '8 s', exact: true })
+      .click();
+    // The Alien options: each alien looks at a card; the night ends with a ripple for all.
+    const only = async (table: string, entry: string) => {
+      const panel = host.getByTestId(`weights-${table}`);
+      if (!(await panel.getAttribute('open'))) await panel.locator('summary').click();
+      for (const row of await panel.getByRole('listitem').all()) {
+        const label = (await row.locator('span').first().textContent())!.trim();
+        const weight = row.getByTestId('weight');
+        const want = label === entry ? 5 : 0;
+        for (let i = 0; i < 30; i++) {
+          const now = Number(await weight.textContent());
+          if (now === want) break;
+          await row
+            .getByRole('button', { name: now > want ? /^Less likely/ : /^More likely/ })
+            .click();
+          await expect(weight).not.toHaveText(String(now));
+        }
+      }
+    };
+    await only('ripple', 'Face away');
+    await host.getByTestId('weights-ripple').locator('summary').click();
+    await only('alien', 'Each looks at a card');
+    await host.getByTestId('alien-options').scrollIntoViewIfNeeded();
+    await shot(host, 'lobby-options');
+    await host.getByTestId('numbers-hint').scrollIntoViewIfNeeded();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Deal the cards' }).click();
+    let roles: string[] = [];
+    for (let tries = 0; tries < 40; tries++) {
+      roles = await peek(players);
+      if (roles.includes('alien') && roles.includes('cow')) break;
+      await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
+      await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    }
+    await getReady(players);
+    await expect(host.getByTestId(/night-/)).toBeVisible();
+    // Each player answers with the first legal choice (or skips), and the screens are captured.
+    await Promise.all(
+      players.map(async (p) => {
+        const quick = { timeout: 2000 };
+        const deadline = Date.now() + 150_000;
+        while (Date.now() < deadline) {
+          if (await p.getByRole('button', { name: 'Ready to vote' }).count()) break;
+          if (!taken.has('cow') && (await p.getByTestId('eyes-closed').count()))
+            await shot(p, 'cow');
+          if (
+            !taken.has('ripple') &&
+            (await p.getByTestId('night-idle').count()) &&
+            (await p.getByTestId('announcement').count())
+          )
+            await shot(p, 'ripple');
+          const prompt = p.getByTestId('prompt');
+          if (await prompt.count()) {
+            try {
+              const stage = (await prompt.getAttribute('data-stage', quick)) ?? '';
+              if (stage === 'alien-view' && !taken.has('alien-step')) await shot(p, 'alien-step');
+              const confirm = prompt.getByRole('button', { name: 'Confirm' });
+              const pool = prompt.locator('ul button:enabled');
+              if (['alien-view', 'psychic', 'expose'].includes(stage)) {
+                for (let i = 0; i < 3 && !(await confirm.isEnabled(quick)); i++)
+                  await pool.nth(i).click(quick);
+                await confirm.click(quick);
+              } else await prompt.getByRole('button', { name: 'Skip' }).click(quick);
+            } catch {
+              // The step ended under the click.
+            }
+            continue;
+          }
+          await p.waitForTimeout(150);
+        }
+      }),
+    );
+    await expect(host.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
+    await shot(host, 'day');
+    await host.getByRole('tab', { name: 'Learned' }).click();
+    await shot(host, 'day-learned');
+    await host.getByRole('tab', { name: 'Roles' }).click();
+    await shot(host, 'day-roles');
+    await host.getByRole('tab', { name: 'Table' }).click();
+    const W = roles.indexOf('werewolf') >= 0 ? roles.indexOf('werewolf') : 0;
+    for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
+    await expect(host.getByText('🗳️ The vote')).toBeVisible();
+    for (const [i, p] of players.entries())
+      await p.getByRole('button', { name: `Vote for ${names[i === W ? (W + 1) % 4 : W]}` }).click();
+    await expect(host.getByTestId('teams')).toBeVisible();
+    await shot(host, 'reveal');
+    await host.getByRole('tab', { name: 'The night, step by step' }).click();
+    await shot(host, 'reveal-night');
+  });
 }
 
 for (const colorScheme of ['light', 'dark'] as const) {

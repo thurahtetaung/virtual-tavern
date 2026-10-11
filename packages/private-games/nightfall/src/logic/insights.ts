@@ -1,5 +1,5 @@
 import type { InsightEvent, PlayerId } from '@vt/game-sdk';
-import { groupOf, isVampire, isWerewolf } from './resolve.ts';
+import { groupOf, isAlien, isVampire, isWerewolf } from './resolve.ts';
 import { ROLES } from './roles.ts';
 import type { NightfallAction, NightfallState, Slot, TeamResultId } from './types.ts';
 
@@ -7,12 +7,16 @@ import type { NightfallAction, NightfallState, Slot, TeamResultId } from './type
 export type Ending =
   | 'hunter'
   | 'heartbreak'
+  | 'leader-vote'
   | 'tanner'
+  | 'synthetic'
   | 'nobody-died'
   | 'werewolf-caught'
   | 'vampire-caught'
+  | 'alien-caught'
   | 'wolves-survived'
   | 'vampires-survived'
+  | 'aliens-survived'
   | 'wrong-player';
 
 /** What became of the Mark of the Vampire: still where the vampires put it, moved, or wiped. */
@@ -33,6 +37,10 @@ const slotKey = (s: Slot) => ('player' in s ? `p:${s.player}` : `c:${s.center}`)
  *   moved, a Vampire at the end, lovers dragged along, voters lost to their Disease, an Assassin
  *   whose mark died), plus votes received, how and where (epic place) they died, a conversion
  *   by the Cursed's vote, and how many night actions the timer chose for them.
+ *   With the Alien set: whether aliens were in play, the ripple (and a time loop), the Leader's
+ *   vote and the Oracle's failed number; per player, an Alien at the end, abducted (a New Alien
+ *   or helper tap, or a snatched card), the Cow (tipped or not), a Blob that kept its members,
+ *   a Mortician's or Synthetic Alien's win and a Nostradamus who foresaw right.
  * - `look` (one per Seer or P.I. look at a card): whether that card was still there at dawn.
  * Roles are ids; names come from the private manifest on the page.
  */
@@ -85,23 +93,34 @@ export function insights(
   // How the game ended.
   const wolves = r.order.filter((p) => isWerewolf(ids[p]!));
   const vampires = r.order.filter((p) => isVampire(ids[p]!));
+  const aliens = r.order.filter((p) => isAlien(ids[p]!));
   const ending: Ending = result.deaths.some((d) => d.cause === 'hunter')
     ? 'hunter'
     : result.deaths.some((d) => d.cause === 'love')
       ? 'heartbreak'
-      : r.order.some((p) => dead.has(p) && ids[p]!.role === 'tanner')
-        ? 'tanner'
-        : dead.size === 0
-          ? 'nobody-died'
-          : wolves.some((p) => dead.has(p))
-            ? 'werewolf-caught'
-            : vampires.some((p) => dead.has(p))
-              ? 'vampire-caught'
-              : wolves.length > 0
-                ? 'wolves-survived'
-                : vampires.length > 0
-                  ? 'vampires-survived'
-                  : 'wrong-player';
+      : result.leaderRule
+        ? 'leader-vote'
+        : r.order.some((p) => dead.has(p) && ids[p]!.role === 'tanner')
+          ? 'tanner'
+          : r.order.some((p) => dead.has(p) && ids[p]!.team === 'synthetic')
+            ? 'synthetic'
+            : dead.size === 0
+              ? 'nobody-died'
+              : wolves.some((p) => dead.has(p))
+                ? 'werewolf-caught'
+                : vampires.some((p) => dead.has(p))
+                  ? 'vampire-caught'
+                  : aliens.some((p) => dead.has(p))
+                    ? 'alien-caught'
+                    : wolves.length > 0
+                      ? 'wolves-survived'
+                      : vampires.length > 0
+                        ? 'vampires-survived'
+                        : aliens.length > 0
+                          ? 'aliens-survived'
+                          : 'wrong-player';
+  const converted = new Set([...(r.aliens?.players ?? []), ...(r.aliens?.helpers ?? [])]);
+  const ripple = r.night?.ripple?.key;
 
   // The Mark of the Vampire: where the vampires put it, and where it ended up.
   const given = timeline.find((t) => t.note.kind === 'marked' && t.note.mark === 'vampire');
@@ -159,6 +178,16 @@ export function insights(
         deathPlace: death?.place ?? null,
         converted: id.converted ?? null,
         autoActions: timeline.filter((t) => t.by === p && t.auto === true).length,
+        alien: isAlien(id),
+        abducted: converted.has(p) || (id.alien === 'card' && dealtTeam !== 'alien'),
+        cow: r.deal.players[p] === 'cow',
+        cowTipped: (r.notes[p] ?? []).some((n) => n.kind === 'tipped' && n.tipped),
+        blobSquad:
+          won.has(p) &&
+          (result.blobs ?? []).some((b) => b.player === p && b.members.some((m) => m !== p)),
+        undertaker: id.team === 'mortician' && won.has(p),
+        foresaw: !!id.foretold && won.has(p),
+        synthetic: id.team === 'synthetic' && won.has(p),
       },
     });
   }
@@ -188,6 +217,13 @@ export function insights(
       loveDeaths: result.deaths.filter((d) => d.cause === 'love').length,
       vampireMark,
       disqualified: disqualified.size,
+      aliens:
+        aliens.length > 0 ||
+        r.order.some((p) => ['alien', 'synthetic', 'groob', 'zerb'].includes(ids[p]!.team)),
+      ripple: ripple && ripple !== 'none' ? ripple : null,
+      timeLoop: r.night?.loopFrom !== undefined,
+      leaderRule: result.leaderRule === true,
+      oracleRule: result.oracleRule ?? null,
     },
   });
   return events;

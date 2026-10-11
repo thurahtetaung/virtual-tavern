@@ -18,8 +18,17 @@ import {
   type RoleId,
   type Team,
   defaultArtifacts,
+  hostileGroupsIn,
   rolesBySet,
 } from '../logic/roles.ts';
+import {
+  MAX_WEIGHT,
+  type WeightTable,
+  type Weights,
+  numbersInPlay,
+  tablesFor,
+  weightsOf,
+} from '../logic/tables.ts';
 import {
   MAX_DAY_SECONDS,
   MAX_PLAYERS,
@@ -29,7 +38,8 @@ import {
   type NightfallView,
 } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
-import { CardFace, MarkChip, useRoleDetails } from './Cards.tsx';
+import { ENTRY_LABEL, tableTitle } from './alienText.ts';
+import { CardFace, MarkChip, PlayerNumber, useRoleDetails } from './Cards.tsx';
 import { type Status, startBlocker } from './status.ts';
 import { TEAM_LABEL } from './text.ts';
 
@@ -60,6 +70,10 @@ const TEAM_PILL: Record<Team, string> = {
   vampire: 'bg-purple-100 text-purple-900 dark:bg-purple-500/15 dark:text-purple-200',
   assassin: 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
   'apprentice-assassin': 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
+  alien: 'bg-lime-100 text-lime-900 dark:bg-lime-500/15 dark:text-lime-200',
+  synthetic: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-500/15 dark:text-cyan-200',
+  blob: 'bg-pink-100 text-pink-900 dark:bg-pink-500/15 dark:text-pink-200',
+  mortician: 'bg-stone-200 text-stone-900 dark:bg-stone-500/20 dark:text-stone-100',
 };
 
 /** A ready-made setup: its name, a tag, one line, and why it can't be picked (as text). */
@@ -232,6 +246,110 @@ function RoleTile({
   );
 }
 
+/** How a weight moves with each tap. */
+const WEIGHT_STEP = 5;
+
+/**
+ * The Alien options: the narrator's random tables for the cards in play, with each entry's odds.
+ * The host can change any weight (in steps of 5) and reset them all; everyone else can read them.
+ */
+function AlienOptions({
+  view,
+  act,
+  deck,
+  editable,
+}: {
+  view: NightfallView;
+  act: Act;
+  deck: Deck;
+  editable: boolean;
+}) {
+  const roles = view.settings.roles;
+  const tables = tablesFor(roles);
+  if (!tables.length) return null;
+  const w: Weights = view.settings.weights ?? {};
+  const changed = Object.values(w).some((t) => t && Object.keys(t).length > 0);
+  const set = (t: WeightTable, key: string, value: number) =>
+    void act({
+      type: 'update-settings',
+      weights: { ...w, [t]: { ...w[t], [key]: Math.max(0, Math.min(MAX_WEIGHT, value)) } },
+    });
+  return (
+    <Panel className="space-y-2" data-testid="alien-options">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-bold">Alien options</h3>
+        {editable && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!changed}
+            onClick={() => void act({ type: 'update-settings', weights: {} })}
+          >
+            Reset to the defaults
+          </Button>
+        )}
+      </div>
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        With these cards the narrator draws some instructions at random, like a hidden deck. These
+        are the odds of each{editable ? '; tap − or + to change them' : ''}. Only the players it
+        wakes are told what came up, but ripples are announced to everyone.
+      </p>
+      {tables.map((t) => {
+        const entries = weightsOf(t, w);
+        const total = entries.reduce((n, [, v]) => n + v, 0);
+        return (
+          <details key={t} className="group space-y-1" data-testid={`weights-${t}`}>
+            <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+              <span aria-hidden className="transition group-open:rotate-90">
+                ▸
+              </span>
+              {tableTitle(t, deck)}
+            </summary>
+            <ul className="grid gap-1 sm:grid-cols-2">
+              {entries.map(([key, value]) => (
+                <li
+                  key={key}
+                  className="flex items-center gap-2 rounded-lg bg-stone-100 px-2 py-1 text-sm dark:bg-stone-800/60"
+                >
+                  <span className="min-w-0 flex-1 truncate">{ENTRY_LABEL[t][key] ?? key}</span>
+                  {editable && (
+                    <button
+                      type="button"
+                      aria-label={`Less likely: ${ENTRY_LABEL[t][key] ?? key}`}
+                      disabled={value <= 0}
+                      onClick={() => set(t, key, value - WEIGHT_STEP)}
+                      className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                    >
+                      −
+                    </button>
+                  )}
+                  <span className="w-8 text-right tabular-nums" data-testid="weight">
+                    {Math.round(value * 10) / 10}
+                  </span>
+                  {editable && (
+                    <button
+                      type="button"
+                      aria-label={`More likely: ${ENTRY_LABEL[t][key] ?? key}`}
+                      disabled={value >= MAX_WEIGHT}
+                      onClick={() => set(t, key, value + WEIGHT_STEP)}
+                      className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                    >
+                      +
+                    </button>
+                  )}
+                  <span className="w-10 text-right text-xs text-stone-500 tabular-nums">
+                    {total > 0 ? `${Math.round((value / total) * 100)}%` : '—'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
+    </Panel>
+  );
+}
+
 export function Lobby({
   view,
   room,
@@ -272,6 +390,9 @@ export function Lobby({
       (r) => r && [...r].sort().join() === [...s.roles].sort().join(),
     );
   const sets = rolesBySet(ENABLED_SETS);
+  // With alien roles, players are numbered in seat order (the order they joined).
+  const numbers = numbersInPlay(s.roles);
+  const sides = hostileGroupsIn(s.roles);
   const advancedIn = sets
     .filter(({ set }) => set !== 'base')
     .reduce((n, { roles: all }) => n + all.reduce((m, r) => m + (counts.get(r) ?? 0), 0), 0);
@@ -283,9 +404,9 @@ export function Lobby({
           Players ({seated.length}/{MAX_PLAYERS})
         </h3>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {seated.map((p) => (
+          {seated.map((p, i) => (
             <li key={p.id} className="inline-flex items-center gap-1">
-              <span aria-hidden>🕯️</span>
+              {numbers ? <PlayerNumber n={i + 1} deck={deck} /> : <span aria-hidden>🕯️</span>}
               <PlayerTag
                 name={p.name}
                 host={p.id === room.hostId}
@@ -354,9 +475,23 @@ export function Lobby({
         )}
         {epicPossible(s.roles) && (
           <p className="text-sm" data-testid="epic-hint">
-            ⚔️ Werewolves and vampires: if both end up among the players with villagers, it’s an
-            epic battle. The most voted player dies if they have at least 2 votes, and so does
-            everyone tied for second; if several tie for the most votes, only they die.
+            ⚔️{' '}
+            {sides.length === 3
+              ? 'Werewolves, vampires and aliens'
+              : sides.includes('alien')
+                ? sides.includes('vampire')
+                  ? 'Vampires and aliens'
+                  : 'Werewolves and aliens'
+                : 'Werewolves and vampires'}
+            : if two evil sides end up among the players with villagers, it’s an epic battle. The
+            most voted player dies if they have at least 2 votes, and so does everyone tied for
+            second; if several tie for the most votes, only they die.
+          </p>
+        )}
+        {numbers && (
+          <p className="text-sm" data-testid="numbers-hint">
+            Players are numbered in seat order (the numbers above): the narrator names players by
+            number, and the numbers go up to the left.
           </p>
         )}
         {editable && s.roles.length !== need && (
@@ -454,6 +589,8 @@ export function Lobby({
           );
         })()}
       </Panel>
+
+      <AlienOptions view={view} act={act} deck={deck} editable={editable} />
 
       <Panel className="space-y-3">
         <h3 className="font-bold">Settings</h3>

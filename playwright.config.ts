@@ -9,6 +9,7 @@ const SHARED_STATE = [
   /royal-post\.spec\.ts$/,
   /nightfall\.spec\.ts$/,
   /nightfall-vampire\.spec\.ts$/,
+  /nightfall-alien\.spec\.ts$/,
   /masquerade-originals\.spec\.ts$/,
   /question-decks\.spec\.ts$/,
   /screenshots\.spec\.ts$/,

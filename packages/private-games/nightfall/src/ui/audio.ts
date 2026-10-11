@@ -1,17 +1,20 @@
 import {
   FRAME_LINES,
   type StepId,
-  buildNightPlan,
   epicPossible,
+  publicPlan,
   stepFactor,
   stepLines,
   usesMarks,
 } from '../logic/plan.ts';
+import { type PlayerSet, blobKey } from '../logic/tables.ts';
 import {
+  type Announcement,
   NIGHT_INTRO_MS,
   type NarrationMode,
   type NightfallView,
   type Phase,
+  type PublicNote,
 } from '../logic/types.ts';
 
 // The pure half of the sound: which clips play when, which music track each phase plays, and
@@ -108,6 +111,142 @@ export interface Cue {
   lines: string[];
 }
 
+// ---- What the narrator says out loud for everyone ----
+
+/** Player numbers, spoken: "player:3", joined by `and` or `or`. */
+const spoken = (ns: readonly number[], joiner: 'and' | 'or') =>
+  ns.flatMap((n, i) => (i ? [`fragment:${joiner}`, `player:${n}`] : [`player:${n}`]));
+
+/** A set of players, as the narrator's fragments ("Any even player", "the centre"…). */
+function setLines(set: PlayerSet, group: boolean): string[] {
+  switch (set.kind) {
+    case 'everyone':
+      return ['fragment:everyone'];
+    case 'any':
+      return ['fragment:any-player'];
+    case 'even':
+      return [group ? 'fragment:even-players' : 'fragment:any-even-player'];
+    case 'odd':
+      return [group ? 'fragment:odd-players' : 'fragment:any-odd-player'];
+    case 'numbers':
+      return spoken(set.numbers, group ? 'and' : 'or');
+    case 'center':
+      return ['fragment:center'];
+    default:
+      return [];
+  }
+}
+
+/** The narration keys for an announcement, in the order they are said. */
+export function announcementLines(a: Announcement): string[] {
+  switch (a.kind) {
+    case 'oracle-parity':
+      return [`oracle:answer:${a.parity}`];
+    case 'oracle-view':
+      return [`oracle:answer:view-player:${a.swapped ? 'other' : 'yes'}`, `player:${a.number}`];
+    case 'oracle-number':
+      return [`oracle:answer:number:${a.right ? 'right' : 'wrong'}`];
+    case 'nostradamus':
+      return [
+        a.doppel ? 'doppelganger:nostradamus:announce' : 'nostradamus:announce',
+        `nostradamus:team:${a.team}`,
+      ];
+    case 'blob':
+      return [
+        `blob:members:${blobKey(a.shape)}`,
+        a.shape.left + a.shape.right === 1 ? 'blob:end:one' : 'blob:end:many',
+      ];
+    case 'ripple': {
+      const rp = a.ripple;
+      const intro = 'ripple:intro';
+      switch (rp.key) {
+        case 'none':
+          return [];
+        case 'one-minute':
+          return [intro, 'ripple:event:one-minute'];
+        case 'vote-for-app':
+          return [intro, 'ripple:event:vote-for-app'];
+        case 'repeat-role':
+          return [intro, `name:${rp.role}`, 'ripple:event:repeat-role'];
+        case 'i-am-alien':
+        case 'face-away':
+        case 'two-hand-vote':
+        case 'no-speak':
+          return [intro, ...setLines(rp.who, true), `ripple:event:${rp.key}`];
+        case 'view-1':
+        case 'view-2':
+          return [
+            intro,
+            `player:${rp.actor}`,
+            `ripple:event:${rp.key}`,
+            ...setLines(rp.from, false),
+          ];
+        case 'dual-view':
+          return [
+            intro,
+            ...spoken(rp.actors, 'and'),
+            'ripple:event:view-2',
+            ...setLines(rp.from, false),
+          ];
+        case 'insomniac':
+          return [intro, ...spoken(rp.actors, 'and'), 'ripple:event:insomniac'];
+        case 'troublemaker':
+          return [
+            intro,
+            `player:${rp.actor}`,
+            'ripple:event:troublemaker',
+            ...spoken(rp.between, 'and'),
+            'ripple:event:troublemaker:end',
+          ];
+        case 'steal':
+        case 'drunk':
+          return [
+            intro,
+            `player:${rp.actor}`,
+            `ripple:event:${rp.key}`,
+            ...setLines(rp.from, false),
+            `ripple:event:${rp.key}:end`,
+          ];
+        case 'witch':
+          return [intro, `player:${rp.actor}`, 'ripple:event:witch', ...setLines(rp.from, false)];
+        case 'reveal':
+          return [
+            intro,
+            `player:${rp.actor}`,
+            'ripple:event:reveal',
+            rp.target === 'yourself' ? 'fragment:yourself' : `fragment:${rp.target}-neighbor`,
+            'ripple:event:reveal:end',
+          ];
+        case 'shuffle': {
+          const other = rp.players.find((n) => n !== rp.giver) ?? rp.giver;
+          return [
+            intro,
+            ...spoken(rp.players, 'and'),
+            'ripple:event:shuffle:1',
+            `player:${rp.giver}`,
+            'ripple:event:shuffle:2',
+            `player:${other}`,
+            'ripple:event:shuffle:3',
+          ];
+        }
+        case 'repeat-night':
+          return [intro, 'ripple:event:repeat-night'];
+        case 'repeat-observer':
+          return [
+            intro,
+            'ripple:event:repeat-night',
+            `player:${rp.observer}`,
+            'ripple:event:repeat-night:observer-end',
+          ];
+      }
+    }
+  }
+}
+
+/** The lines of the announcements made at `at` (a step's start, or the dawn), in order. */
+const saidAt = (announcements: readonly PublicNote[], at: number) =>
+  announcements.filter((a) => Math.abs(a.at - at) < 500).flatMap(announcementLines);
+
 /** When each step of tonight's plan starts, from the current step's deadline. */
 function stepStarts(plan: readonly StepId[], stepSeconds: number, index: number, deadline: number) {
   const len = (i: number) => stepFactor(plan[i]!) * stepSeconds * 1000;
@@ -131,7 +270,7 @@ export function cuesFor(view: NightfallView): Cue[] {
   const s = view.settings;
   if (view.phase === 'night' && view.night) {
     const { index, deadline } = view.night;
-    const plan = buildNightPlan(s.roles);
+    const plan = publicPlan(s.roles, view.announcements);
     if (index < 0) {
       // With werewolves and vampires both in the game, the narrator warns of an epic battle.
       const open = epicPossible(s.roles)
@@ -142,24 +281,31 @@ export function cuesFor(view: NightfallView): Cue[] {
       return cues;
     }
     const starts = stepStarts(plan, s.stepSeconds, index, deadline);
-    return stepCues(game, plan, index, starts[index]!, s, false);
+    const cues = stepCues(game, plan, index, starts[index]!, s, false);
+    // What the narrator announces as this step begins (or as the last one ended) comes first.
+    const said = saidAt(view.announcements, starts[index]!);
+    if (said.length) cues[0] = { ...cues[0]!, lines: [...said, ...cues[0]!.lines] };
+    return cues;
   }
   if (view.phase === 'day' && view.day?.deadline) {
     const end = view.day.deadline;
-    const dawn = end - s.daySeconds * 1000;
+    // The aliens' timer and the ripples can shorten the day.
+    const seconds = view.day.seconds ?? s.daySeconds;
+    const dawn = end - seconds * 1000;
     const cues: Cue[] = [
       {
         id: `${game}:dawn`,
         at: dawn,
         lines: [
+          ...saidAt(view.announcements, dawn),
           usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd,
           FRAME_LINES.dayStart,
         ],
       },
     ];
-    if (s.daySeconds > 90)
+    if (seconds > 90)
       cues.push({ id: `${game}:1m`, at: end - 60_000, lines: [FRAME_LINES.oneMinute] });
-    if (s.daySeconds > 45)
+    if (seconds > 45)
       cues.push({ id: `${game}:30s`, at: end - 30_000, lines: [FRAME_LINES.thirtySeconds] });
     return cues;
   }

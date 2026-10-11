@@ -226,6 +226,8 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       ['nf.village_death', props.villageDeath],
       ['nf.vampire', props.vampire],
       ['nf.hitman', props.hitman],
+      ['nf.abducted', props.abducted],
+      ['nf.alien', props.alien],
     ];
     for (const [metric, v] of facts) if (v === true) credit(playerId, metric);
     const shots = num(props.hunterShots) ?? 0;
