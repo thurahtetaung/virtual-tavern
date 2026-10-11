@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.3...v0.16.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **games:** round 2: fix rule bugs and fill in missing info across every game ([#80](https://github.com/thurahtetaung/virtual-tavern/issues/80)) ([dbb8a84](https://github.com/thurahtetaung/virtual-tavern/commit/dbb8a84fccfa4b945788e4f5ff91880e9f79a189))
+
 ## [0.16.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.2...v0.16.3) (2026-10-11)
 
 
