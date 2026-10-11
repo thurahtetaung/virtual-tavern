@@ -82,7 +82,8 @@ export const guide: GameGuide = {
     },
   ],
   tips: [
-    'Count the discards: the deck holds a known number of each card, so what’s been played tells you what’s left.',
+    'Count the discards: the deck holds a known number of each card, so what’s been played tells you what’s left. The Card count tab does the sum for you.',
+    'Tap any card name, in the log, your notes or a result, to read the card in full.',
     'Keeping the Princess makes you a target. A Prince or a lucky Guard can knock you out.',
     'The Priest and the Baron tell you something nobody else knows. Use it before a King swaps it away.',
     'Playing the Countess doesn’t always mean you hold the King or a Prince; sometimes it’s a bluff.',
@@ -95,7 +96,7 @@ export const guide: GameGuide = {
       meaning: 'The card removed face down at the start, so nobody can count every card.',
     },
     {
-      term: 'Your notes',
+      term: 'Notes',
       meaning: 'What only you have learned this game, from a Priest, Baron or King.',
     },
   ],

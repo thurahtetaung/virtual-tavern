@@ -1,34 +1,45 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Modal, Panel, TimerSettings, cn } from '@vt/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   EDITIONS,
   EDITION_IDS,
   type Edition,
+  type LogEntry,
   type Note,
   type Role,
   type RoundPlayerView,
   type RoyalPostAction,
   type RoyalPostView,
 } from '../logic/types.ts';
+import { mustPlayCountess } from '../logic/game.ts';
 import { type Deck, deckFor, useManifest } from './assets.ts';
 import { Card, CardBack } from './Card.tsx';
+import {
+  CardChip,
+  type CardReader,
+  CardReaderProvider,
+  Rich,
+  rankIn,
+  useCardReader,
+} from './CardChip.tsx';
 import { type Status, startBlocker, statusFor } from './status.ts';
-import { cardText, describeLog, describeNote, listNames, nameOf } from './text.ts';
+import { cardText, describeLog, describeNote, listNames, nameOf, unseenCounts } from './text.ts';
 
 export type RoyalPostUiProps = GameUiProps<RoyalPostView, RoyalPostAction>;
 type Act = (a: RoyalPostAction) => Promise<boolean>;
-
-const rankIn = (edition: Edition, role: Role) =>
-  EDITIONS[edition].cards.find((c) => c.role === role)?.rank ?? 0;
 
 const deckSize = (edition: Edition) => EDITIONS[edition].cards.reduce((n, c) => n + c.count, 0);
 
 export function RoyalPostGame({ view, room, act, showGuide, setYourMove }: RoyalPostUiProps) {
   const manifest = useManifest();
-  const deck = deckFor(manifest, view.settings.edition);
+  const edition = view.settings.edition;
+  const deck = useMemo(() => deckFor(manifest, edition), [manifest, edition]);
   const status = statusFor(view, room.isHost);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+  // Any card named anywhere opens here, read-only.
+  const [reading, setReading] = useState<Role | null>(null);
+  const reader = useMemo<CardReader>(() => ({ deck, edition, read: setReading }), [deck, edition]);
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -39,19 +50,31 @@ export function RoyalPostGame({ view, room, act, showGuide, setYourMove }: Royal
     };
   }, [setYourMove, tabAlert]);
 
-  if (view.phase === 'lobby') {
-    return (
-      <Lobby
+  return (
+    <CardReaderProvider value={reader}>
+      {view.phase === 'lobby' ? (
+        <Lobby
+          view={view}
+          room={room}
+          act={act}
+          status={status}
+          online={online}
+          showGuide={showGuide}
+        />
+      ) : (
+        <Table view={view} room={room} act={act} status={status} deck={deck} online={online} />
+      )}
+      <PlaySheet
+        key={`read-${reading ?? ''}`}
+        role={reading}
         view={view}
-        room={room}
+        deck={deck}
+        canPlay={false}
+        onClose={() => setReading(null)}
         act={act}
-        status={status}
-        online={online}
-        showGuide={showGuide}
       />
-    );
-  }
-  return <Table view={view} room={room} act={act} status={status} deck={deck} online={online} />;
+    </CardReaderProvider>
+  );
 }
 
 // ---- Lobby ----
@@ -109,6 +132,32 @@ function Seats({
   );
 }
 
+/** A folded lobby section: a 44 px summary line, so Start stays on a phone's first screen. */
+function Fold({
+  title,
+  summary,
+  children,
+}: {
+  title: string;
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group">
+      <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="font-semibold">{title}</span>
+          <span className="text-stone-500"> · {summary}</span>
+        </span>
+        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+          ▸
+        </span>
+      </summary>
+      <div className="pt-2">{children}</div>
+    </details>
+  );
+}
+
 function Lobby({
   view,
   room,
@@ -132,6 +181,7 @@ function Lobby({
       ? 'no time limit'
       : `${seconds(s.turnSeconds)} a turn, ${s.timerMode === 'strict' ? 'strict' : 'reminder only'}`;
   const seated = view.seats.filter((x) => x.playing).length;
+  const cards = EDITIONS[s.edition].cards;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
@@ -180,34 +230,32 @@ function Lobby({
             })}
           </div>
         </fieldset>
-        {/* Folded away so the Start button stays on a phone's first screen. */}
-        <details className="group">
-          <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
-            <span>
-              <span className="font-semibold">Timer</span>
-              <span className="text-stone-500"> · {timers}</span>
-            </span>
-            <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
-              ▸
-            </span>
-          </summary>
-          <div className="pt-2">
-            <TimerSettings
-              values={{ clueSeconds: s.turnSeconds, guessSeconds: null, timerMode: s.timerMode }}
-              editable={editable}
-              clueLabel="Turn timer"
-              onChange={(patch) =>
-                void act({
-                  type: 'update-settings',
-                  ...(patch.clueSeconds !== undefined ? { turnSeconds: patch.clueSeconds } : {}),
-                  ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
-                })
-              }
-              clueHelp="Time to play a card (and again for a Chancellor’s choice)."
-              strictHelp="the lower card is played for you at a random player"
-            />
-          </div>
-        </details>
+        <Fold title="The cards" summary={`${cards.length} kinds, tap one to read it`}>
+          <ul aria-label="The cards" className="flex flex-wrap gap-x-1 gap-y-3 text-sm">
+            {cards.map((c) => (
+              <li key={c.role}>
+                <CardChip role={c.role} />
+                <span className="text-xs text-stone-500"> ×{c.count}</span>
+              </li>
+            ))}
+          </ul>
+        </Fold>
+        <Fold title="Timer" summary={timers}>
+          <TimerSettings
+            values={{ clueSeconds: s.turnSeconds, guessSeconds: null, timerMode: s.timerMode }}
+            editable={editable}
+            clueLabel="Turn timer"
+            onChange={(patch) =>
+              void act({
+                type: 'update-settings',
+                ...(patch.clueSeconds !== undefined ? { turnSeconds: patch.clueSeconds } : {}),
+                ...(patch.timerMode !== undefined ? { timerMode: patch.timerMode } : {}),
+              })
+            }
+            clueHelp="Time to play a card (and again for a Chancellor’s choice)."
+            strictHelp="the lower card is played for you at a random player"
+          />
+        </Fold>
         {editable && (
           <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
             <Button
@@ -237,7 +285,7 @@ function Lobby({
 
 // ---- Table ----
 
-/** Favour tokens as pips out of the target. */
+/** Favour tokens as pips out of the target, with the count spelled out. */
 function Tokens({ tokens, target }: { tokens: number; target: number }) {
   return (
     <span
@@ -254,36 +302,46 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
           )}
         />
       ))}
+      <span aria-hidden className="ml-1 text-[0.65rem] font-semibold text-stone-500 tabular-nums">
+        {tokens}/{target}
+      </span>
     </span>
   );
 }
 
+/** A player's discard pile in miniature: one tap target that opens the pile. */
 function Discards({
-  cards,
+  p,
   edition,
   deck,
-  onView,
+  onOpen,
 }: {
-  cards: Role[];
+  p: RoundPlayerView;
   edition: Edition;
   deck: Deck;
-  onView: (role: Role) => void;
+  onOpen: () => void;
 }) {
-  if (cards.length === 0) return <span className="text-xs text-stone-400 italic">no discards</span>;
+  if (p.discards.length === 0)
+    return <span className="text-xs text-stone-400 italic">no discards</span>;
   return (
-    <ul aria-label="Discards" className="flex">
-      {cards.map((role, i) => (
-        <li key={i} className={cn('w-8 shrink-0 sm:w-10', i > 0 && '-ml-2')}>
-          <Card
-            role={role}
-            rank={rankIn(edition, role)}
-            deck={deck}
-            size="xs"
-            onClick={() => onView(role)}
-          />
-        </li>
-      ))}
-    </ul>
+    <button
+      type="button"
+      aria-label={`${p.name}’s discards: ${p.discards.map(deck.name).join(', ')}`}
+      onClick={onOpen}
+      className="-my-1 flex min-h-11 max-w-full min-w-11 items-center rounded-lg px-1 transition hover:bg-stone-100 dark:hover:bg-stone-800"
+    >
+      <ul aria-label="Discards" className="flex min-w-0">
+        {/* The newest cards matter most: show the last few, newest on top. */}
+        {p.discards.slice(-5).map((role, i) => (
+          <li key={i} className={cn('w-7 shrink-0 sm:w-9', i > 0 && '-ml-3 sm:-ml-2')}>
+            <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
+          </li>
+        ))}
+      </ul>
+      {p.discards.length > 5 && (
+        <span className="ml-1 text-xs font-semibold text-stone-500">+{p.discards.length - 5}</span>
+      )}
+    </button>
   );
 }
 
@@ -292,17 +350,17 @@ function PlayerTile({
   p,
   deck,
   online,
-  onView,
+  onPile,
 }: {
   view: RoyalPostView;
   p: RoundPlayerView;
   deck: Deck;
   online: boolean;
-  onView: (role: Role) => void;
+  onPile: () => void;
 }) {
   const round = view.round!;
   const seat = view.seats.find((s) => s.id === p.id);
-  const isTurn = round.current === p.id && round.stage !== 'over';
+  const isTurn = round.current === p.id && round.stage !== 'over' && view.phase === 'playing';
   const me = p.id === view.me?.id;
   return (
     <li
@@ -326,13 +384,13 @@ function PlayerTile({
           {p.name}
         </span>
         {me && <span className="text-xs text-stone-500">(you)</span>}
-        {p.protected && (
-          <span title="Protected" aria-label="protected" className="text-xs">
-            🌸
-          </span>
-        )}
-        {isTurn && <span className="sr-only">(their turn)</span>}
-        <span className="ml-auto flex shrink-0 items-center gap-0.5">
+        <span
+          className="ml-auto flex shrink-0 items-center gap-0.5"
+          aria-label={
+            p.out ? undefined : `${p.handCount} card${p.handCount === 1 ? '' : 's'} in hand`
+          }
+          role={p.out ? undefined : 'img'}
+        >
           {p.out ? (
             <Badge className="px-1.5 py-0 text-[0.65rem]">{p.left ? 'left' : 'out'}</Badge>
           ) : (
@@ -342,12 +400,46 @@ function PlayerTile({
           )}
         </span>
       </div>
+      {(isTurn || p.protected) && (
+        <div className="flex flex-wrap gap-1">
+          {isTurn && (
+            <Badge className="bg-amber-200 px-1.5 py-0 text-[0.65rem] text-amber-950 dark:bg-amber-500/30 dark:text-amber-100">
+              {me ? 'your turn' : 'their turn'}
+            </Badge>
+          )}
+          {p.protected && (
+            <Badge className="bg-rose-100 px-1.5 py-0 text-[0.65rem] text-rose-900 dark:bg-rose-500/20 dark:text-rose-100">
+              <span aria-label="protected" title="Protected by the Handmaid until their next turn">
+                🌸 protected
+              </span>
+            </Badge>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <Tokens tokens={seat?.tokens ?? 0} target={view.target} />
-        <Discards cards={p.discards} edition={view.settings.edition} deck={deck} onView={onView} />
+        <Discards p={p} edition={view.settings.edition} deck={deck} onOpen={onPile} />
       </div>
     </li>
   );
+}
+
+/** The log entries of the round on the table (the log runs across rounds and games). */
+function roundEntries(view: RoyalPostView): LogEntry[] {
+  const log = view.log;
+  // A finished round ends with its round-end line; a running one starts after the last one.
+  const end = view.round?.stage === 'over' ? log.length - 1 : log.length;
+  let start = end;
+  while (start > 0 && log[start - 1]!.kind !== 'round-end') start--;
+  return log.slice(start, end);
+}
+
+/** What happened in this round since the viewer last played (all of it for a watcher). */
+function sinceMyTurn(view: RoyalPostView): LogEntry[] {
+  const entries = roundEntries(view);
+  const me = view.me?.id;
+  const last = entries.findLastIndex((e) => e.kind === 'play' && e.by === me);
+  return entries.slice(last + 1);
 }
 
 function Table({
@@ -370,12 +462,12 @@ function Table({
   const me = view.me;
   const myTurn = !!round && round.current === me?.id && round.stage === 'play';
   const [viewing, setViewing] = useState<Role | null>(null);
-  // A card on the table (a discard or a face-up set-aside card), opened to read, never to play.
-  const [peeking, setPeeking] = useState<Role | null>(null);
+  const [pileOf, setPileOf] = useState<string | null>(null);
   // The hand bar is fixed over the page, so the page pads by its measured height.
   const handBar = useRef<HTMLElement>(null);
   const [handHeight, setHandHeight] = useState(0);
-  const showHand = view.hand.length > 0 && view.phase === 'playing';
+  // Once the round is over the result shows everyone's last card, yours included.
+  const showHand = view.hand.length > 0 && view.phase === 'playing' && round?.stage !== 'over';
   useEffect(() => {
     const el = handBar.current;
     if (!el || typeof ResizeObserver === 'undefined') {
@@ -387,14 +479,15 @@ function Table({
     return () => observer.disconnect();
   }, [showHand]);
 
-  const latest = view.log.at(-1);
-  const name = (role: Role) => deck.name(role);
   const chancellor =
     !!round && round.stage === 'chancellor' && round.current === me?.id && view.phase === 'playing';
   // The keep-one sheet opens by itself for each new Chancellor draw; "Later" folds it away.
   const handKey = view.hand.join();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const chancellorOpen = dismissed !== handKey;
+  const recent = view.phase === 'playing' && round?.stage !== 'over' ? sinceMyTurn(view) : [];
+  const pile = round?.players.find((p) => p.id === pileOf) ?? null;
+  const { read } = useCardReader();
 
   return (
     <div
@@ -403,22 +496,16 @@ function Table({
     >
       {round && (
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 sm:text-sm">
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-x-2">
             <span>
               Round {round.number} · {view.target} to win
             </span>
-            <span
-              className="inline-flex items-center gap-1"
-              aria-label={`${round.deckCount} cards in the deck`}
-            >
-              <CardBack deck={deck} className="w-4 rounded-sm" />
-              <b className="tabular-nums">{round.deckCount}</b>
-            </span>
-            {round.setAside && (
-              <span title="One card is set aside face down" className="hidden sm:inline">
-                · 1 set aside
+            <span className="inline-flex items-center gap-1">
+              <CardBack deck={deck} className="w-3.5 rounded-sm" />
+              <span>
+                <b className="tabular-nums">{round.deckCount}</b> left in the deck
               </span>
-            )}
+            </span>
           </span>
           <Countdown
             deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
@@ -426,6 +513,16 @@ function Table({
             expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
           />
         </div>
+      )}
+
+      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+
+      {view.phase === 'over' ? (
+        <Podium view={view} deck={deck} act={act} isHost={room.isHost} status={status} />
+      ) : (
+        round?.stage === 'over' && (
+          <RoundResult view={view} deck={deck} act={act} isHost={room.isHost} />
+        )
       )}
 
       {round && (
@@ -437,26 +534,25 @@ function Table({
               p={p}
               deck={deck}
               online={online(p.id)}
-              onView={setPeeking}
+              onPile={() => setPileOf(p.id)}
             />
           ))}
         </ul>
       )}
 
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-
-      {round && round.faceUp.length > 0 && (
+      {round && round.faceUp.length > 0 && round.stage !== 'over' && (
         <div className="flex items-center gap-2 text-xs text-stone-500">
           <span>Set aside face up:</span>
           <ul aria-label="Set aside face up" className="flex gap-1.5">
             {round.faceUp.map((role, i) => (
-              <li key={i} className="w-12 sm:w-16">
+              <li key={i} className="w-11 sm:w-14">
                 <Card
                   role={role}
                   rank={rankIn(edition, role)}
                   deck={deck}
                   size="sm"
-                  onClick={() => setPeeking(role)}
+                  reads
+                  onClick={() => read(role)}
                 />
               </li>
             ))}
@@ -464,22 +560,9 @@ function Table({
         </div>
       )}
 
-      {latest && round?.stage !== 'over' && view.phase === 'playing' && (
-        <p aria-live="polite" className="text-center text-sm text-stone-700 dark:text-stone-300">
-          {describeLog(view, latest, name)}
-        </p>
-      )}
+      {recent.length > 0 && <Recent view={view} entries={recent} />}
 
-      {view.phase === 'over' ? (
-        <Podium view={view} act={act} isHost={room.isHost} status={status} />
-      ) : (
-        round?.stage === 'over' && (
-          <RoundResult view={view} deck={deck} act={act} isHost={room.isHost} />
-        )
-      )}
-
-      <Notes view={view} deck={deck} />
-      <Log view={view} deck={deck} />
+      <Journal view={view} deck={deck} />
 
       {view.seats.some((s) => !s.playing) && (
         <p className="text-xs text-stone-500">
@@ -532,6 +615,13 @@ function Table({
                     rank={rankIn(edition, role)}
                     deck={deck}
                     size="md"
+                    // A forced Countess: the card that forces her can't be played.
+                    dimmed={myTurn && role !== 'countess' && mustPlayCountess(view.hand)}
+                    hint={
+                      myTurn && role !== 'countess' && mustPlayCountess(view.hand)
+                        ? 'can’t be played now'
+                        : undefined
+                    }
                     onClick={() => setViewing(role)}
                   />
                 </li>
@@ -551,15 +641,7 @@ function Table({
         onClose={() => setViewing(null)}
         act={act}
       />
-      <PlaySheet
-        key={`peek-${peeking ?? ''}`}
-        role={peeking}
-        view={view}
-        deck={deck}
-        canPlay={false}
-        onClose={() => setPeeking(null)}
-        act={act}
-      />
+      <PileSheet pile={pile} view={view} deck={deck} onClose={() => setPileOf(null)} />
       {chancellor && (
         <ChancellorSheet
           key={view.hand.join()}
@@ -576,6 +658,8 @@ function Table({
 }
 
 // ---- Playing a card ----
+
+const TARGETED: readonly Role[] = ['guard', 'priest', 'baron', 'prince', 'king'];
 
 function PlaySheet({
   role,
@@ -598,7 +682,7 @@ function PlaySheet({
   const round = view.round;
   const edition = view.settings.edition;
   const me = view.me?.id;
-  const targeted = !!role && ['guard', 'priest', 'baron', 'prince', 'king'].includes(role);
+  const targeted = !!role && TARGETED.includes(role);
   const targets =
     round && targeted
       ? round.players.filter(
@@ -607,10 +691,9 @@ function PlaySheet({
             (role === 'prince' ? p.id === me || !p.protected : p.id !== me && !p.protected),
         )
       : [];
-  const countessLock =
-    role !== 'countess' &&
-    view.hand.includes('countess') &&
-    (view.hand.includes('king') || view.hand.includes('prince'));
+  const forcing = view.hand.find((r) => r === 'king' || r === 'prince');
+  const mustCountess = view.hand.includes('countess') && !!forcing;
+  const countessLock = role !== 'countess' && mustCountess;
   const needsGuess = role === 'guard' && targets.length > 0;
   const ready =
     canPlay &&
@@ -630,6 +713,9 @@ function PlaySheet({
     if (ok) onClose();
   };
   const cardName = role ? deck.name(role) : '';
+  const inRound = !!round && round.stage !== 'over' && view.phase === 'playing';
+  const counts = inRound ? unseenCounts(view) : [];
+  const count = counts.find((c) => c.role === role);
   return (
     <Modal
       open={role !== null}
@@ -659,11 +745,24 @@ function PlaySheet({
                 size={canPlay && targeted ? 'md' : 'lg'}
               />
             </div>
-            <p className="text-sm">{cardText(role, edition)}</p>
+            <div className="space-y-2 text-sm">
+              <p>{cardText(role, edition)}</p>
+              {!canPlay && (
+                <p className="text-xs text-stone-500">
+                  {EDITIONS[edition].cards.find((c) => c.role === role)?.count ?? 0} in the deck
+                  {count ? ` · ${count.unseen} not seen by you yet` : ''}
+                </p>
+              )}
+            </div>
           </div>
+          {canPlay && role === 'countess' && mustCountess && (
+            <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950 dark:bg-amber-500/15 dark:text-amber-100">
+              You must play her: your other card is the {deck.name(forcing)}.
+            </p>
+          )}
           {canPlay && countessLock && (
             <p className="rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
-              You hold the Countess with the King or a Prince, so you must play the Countess.
+              You hold the Countess with the {deck.name(forcing)}, so you must play the Countess.
             </p>
           )}
           {canPlay && role === 'princess' && (
@@ -712,29 +811,88 @@ function PlaySheet({
           {canPlay && !countessLock && needsGuess && (
             <fieldset>
               <legend className="text-sm font-semibold">Name a card</legend>
+              <p className="text-xs text-stone-500">
+                Each shows how many you haven’t seen yet (not in any discard or your hand).
+              </p>
               <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-                {EDITIONS[edition].cards
+                {counts
                   .filter((c) => c.role !== 'guard')
                   .map((c) => (
                     <button
                       key={c.role}
                       type="button"
                       aria-pressed={guess === c.role}
+                      aria-label={`${deck.name(c.role)} (${c.rank}), ${c.unseen} unseen`}
                       onClick={() => setGuess(c.role)}
                       className={cn(
-                        'flex h-11 items-center gap-1 truncate rounded-lg px-2 text-left text-sm ring-1 transition',
+                        'flex h-12 flex-col justify-center rounded-lg px-2 text-left text-sm ring-1 transition',
                         guess === c.role
                           ? 'bg-amber-50 font-semibold ring-2 ring-amber-500 dark:bg-amber-500/10'
                           : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                        c.unseen === 0 && guess !== c.role && 'opacity-50',
                       )}
                     >
-                      <b className="tabular-nums">{c.rank}</b>
-                      <span className="truncate">{deck.name(c.role)}</span>
+                      <span className="flex w-full items-center gap-1">
+                        <b className="tabular-nums">{c.rank}</b>
+                        <span className="truncate">{deck.name(c.role)}</span>
+                      </span>
+                      <span className="text-[0.65rem] font-normal text-stone-500">
+                        {c.unseen === 0 ? 'all seen' : `${c.unseen} unseen`}
+                      </span>
                     </button>
                   ))}
               </div>
+              {guess && (
+                <p className="mt-2 text-sm">
+                  <CardChip role={guess} /> {cardText(guess, edition)}
+                </p>
+              )}
             </fieldset>
           )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** One player's discard pile, oldest first, each card big enough to read. */
+function PileSheet({
+  pile,
+  view,
+  deck,
+  onClose,
+}: {
+  pile: RoundPlayerView | null;
+  view: RoyalPostView;
+  deck: Deck;
+  onClose: () => void;
+}) {
+  const { read } = useCardReader();
+  const edition = view.settings.edition;
+  const mine = pile?.id === view.me?.id;
+  return (
+    <Modal
+      open={pile !== null}
+      onClose={onClose}
+      title={pile ? `${mine ? 'Your' : `${pile.name}’s`} discards` : ''}
+    >
+      {pile && (
+        <div className="space-y-2">
+          <p className="text-sm text-stone-500">Oldest first. Tap a card to read it.</p>
+          <ol aria-label="Discard pile" className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+            {pile.discards.map((role, i) => (
+              <li key={i}>
+                <Card
+                  role={role}
+                  rank={rankIn(edition, role)}
+                  deck={deck}
+                  size="sm"
+                  reads
+                  onClick={() => read(role)}
+                />
+              </li>
+            ))}
+          </ol>
         </div>
       )}
     </Modal>
@@ -804,16 +962,21 @@ function ChancellorSheet({
             </li>
           ))}
         </ul>
+        {keep && (
+          <p className="text-sm">
+            <CardChip role={keep} /> {cardText(keep, edition)}
+          </p>
+        )}
         {keep && bottom.length > 0 && (
           <div className="space-y-1">
             <p className="text-sm font-semibold">Bottom of the deck, in this order</p>
-            <ol className="space-y-1 text-sm">
+            <ol className="space-y-2 text-sm">
               {bottom.map((c, n) => (
                 <li key={c.i} className="flex items-center gap-2">
                   <span className="text-stone-500">
                     {n === bottom.length - 1 ? 'Very bottom:' : 'Then:'}
                   </span>
-                  <b>{deck.name(c.role)}</b>
+                  <CardChip role={c.role} />
                 </li>
               ))}
             </ol>
@@ -831,12 +994,28 @@ function ChancellorSheet({
 
 // ---- What only you know ----
 
-/** The card a note is about, to show with it. */
-const noteCard = (note: Note): Role =>
-  note.kind === 'peek' ? note.card : note.kind === 'compare' ? note.theirs : note.got;
+/** The cards a note is about, each with a caption, to show with it. */
+function noteCards(view: RoyalPostView, note: Note): { role: Role; caption: string }[] {
+  const other = nameOf(view, note.kind === 'peek' ? note.target : note.other);
+  switch (note.kind) {
+    case 'peek':
+      return [{ role: note.card, caption: other }];
+    case 'compare':
+      return [
+        { role: note.mine, caption: 'You' },
+        { role: note.theirs, caption: other },
+      ];
+    case 'trade':
+      return [
+        { role: note.gave, caption: 'You gave' },
+        { role: note.got, caption: 'You got' },
+      ];
+  }
+}
 
 /** Pops up each new private note (a Priest peek, a Baron comparison, a King trade). */
 function Reveal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
+  const { read } = useCardReader();
   const latest = view.notes.at(-1);
   // Notes that were already there when the page opened don't pop up again.
   const [seen, setSeen] = useState(() => latest?.id ?? 0);
@@ -853,60 +1032,225 @@ function Reveal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
       }
     >
       {note && (
-        <div className="flex items-center gap-3">
-          <div className="w-24 shrink-0">
-            <Card
-              role={noteCard(note)}
-              rank={rankIn(view.settings.edition, noteCard(note))}
-              deck={deck}
-              size="md"
-            />
-          </div>
-          <p className="text-base font-semibold">{describeNote(view, note, deck.name)}</p>
+        <div className="space-y-3">
+          <ul className="flex justify-center gap-3">
+            {noteCards(view, note).map((c, i) => (
+              <li key={i} className="w-24 space-y-1 text-center text-xs font-semibold">
+                <Card
+                  role={c.role}
+                  rank={rankIn(view.settings.edition, c.role)}
+                  deck={deck}
+                  size="md"
+                  reads
+                  onClick={() => read(c.role)}
+                />
+                <p className="truncate">{c.caption}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="text-base leading-7 font-semibold">
+            <Rich line={describeNote(view, note)} />
+          </p>
         </div>
       )}
     </Modal>
   );
 }
 
-function Notes({ view, deck }: { view: RoyalPostView; deck: Deck }) {
-  if (view.notes.length === 0) return null;
+/** What happened since your last turn, so nothing done to you goes unnoticed. */
+function Recent({ view, entries }: { view: RoyalPostView; entries: LogEntry[] }) {
+  const shown = entries.slice(-3);
+  const watcher = !view.round?.players.some((p) => p.id === view.me?.id);
   return (
-    <details className="rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800">
-      <summary className="flex h-11 cursor-pointer items-center text-sm font-semibold">
-        Your notes ({view.notes.length}) · only you see these
-      </summary>
-      <ul aria-label="Your notes" className="space-y-1 pb-3 text-sm">
-        {[...view.notes].reverse().map((n) => (
-          <li key={n.id}>
-            <span className="text-stone-500">Round {n.round}: </span>
-            {describeNote(view, n, deck.name)}
+    <section
+      aria-label={watcher ? 'Latest moves' : 'Since your turn'}
+      aria-live="polite"
+      className="space-y-1 text-sm leading-7 text-stone-700 dark:text-stone-300"
+    >
+      <h3 className="text-xs font-semibold text-stone-500">
+        {watcher ? 'Latest moves' : 'Since your turn'}
+        {entries.length > shown.length && ` (${entries.length - shown.length} more below)`}
+      </h3>
+      <ul className="space-y-0.5">
+        {shown.map((e) => (
+          <li
+            key={e.id}
+            className={cn(touches(view, e) && 'font-semibold text-rose-800 dark:text-rose-200')}
+          >
+            <Rich line={describeLog(view, e)} />
           </li>
         ))}
       </ul>
-    </details>
+    </section>
   );
 }
 
-function Log({ view, deck }: { view: RoyalPostView; deck: Deck }) {
-  if (view.log.length === 0) return null;
+/** Whether a log entry did something to the viewer. */
+const touches = (view: RoyalPostView, e: LogEntry) =>
+  !!view.me &&
+  ((e.kind === 'play' && e.target === view.me.id && e.by !== view.me.id) ||
+    (e.kind === 'out' && e.player === view.me.id));
+
+type JournalTab = 'log' | 'count' | 'notes';
+
+/** The log, the card count and your notes, as tabs so a phone screen doesn't grow. */
+function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
+  const [tab, setTab] = useState<JournalTab>('log');
+  if (view.log.length === 0 && !view.round) return null;
+  const tabs: { id: JournalTab; label: string }[] = [
+    { id: 'log', label: 'Log' },
+    { id: 'count', label: 'Card count' },
+    ...(view.notes.length > 0
+      ? [{ id: 'notes' as const, label: `Notes (${view.notes.length})` }]
+      : []),
+  ];
+  const current = tabs.some((t) => t.id === tab) ? tab : 'log';
   return (
-    <details className="rounded-xl bg-white/80 px-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800">
-      <summary className="flex h-11 cursor-pointer items-center text-sm font-semibold">
-        What happened
-      </summary>
-      <ol aria-label="What happened" className="space-y-1 pb-3 text-sm">
-        {[...view.log].reverse().map((e) => (
-          <li key={e.id} className={cn(e.kind === 'round-end' && 'font-semibold')}>
-            {describeLog(view, e, deck.name)}
+    <section
+      aria-label="Table records"
+      className="rounded-xl bg-white/80 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
+    >
+      <div role="tablist" className="flex border-b border-stone-200 dark:border-stone-800">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={current === t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              'h-11 flex-1 truncate px-2 text-sm font-semibold transition',
+              current === t.id
+                ? 'border-b-2 border-amber-500 text-stone-900 dark:text-stone-100'
+                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" className="max-h-56 overflow-y-auto px-3 py-2 sm:max-h-72">
+        {current === 'log' && <Log view={view} />}
+        {current === 'count' && <CardCount view={view} deck={deck} />}
+        {current === 'notes' && <Notes view={view} />}
+      </div>
+    </section>
+  );
+}
+
+function Notes({ view }: { view: RoyalPostView }) {
+  return (
+    <ul aria-label="Your notes" className="space-y-1 text-sm leading-7">
+      <li className="text-xs leading-normal text-stone-500">Only you see these.</li>
+      {[...view.notes].reverse().map((n) => (
+        <li key={n.id}>
+          <span className="text-stone-500">Round {n.round}: </span>
+          <Rich line={describeNote(view, n)} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Log({ view }: { view: RoyalPostView }) {
+  if (view.log.length === 0) return <p className="text-sm text-stone-500">Nothing yet.</p>;
+  const fresh = new Set(
+    view.phase === 'playing' && view.round?.stage !== 'over'
+      ? sinceMyTurn(view).map((e) => e.id)
+      : [],
+  );
+  return (
+    <ol aria-label="What happened" className="space-y-0.5 text-sm leading-7">
+      {[...view.log].reverse().map((e) => (
+        <li
+          key={e.id}
+          className={cn(
+            'border-l-2 pl-2',
+            fresh.has(e.id) ? 'border-amber-500' : 'border-transparent',
+            e.kind === 'round-end' && 'font-semibold',
+            touches(view, e) && 'text-rose-800 dark:text-rose-200',
+          )}
+        >
+          <span className="mr-1 text-xs text-stone-400 tabular-nums">R{e.round}</span>
+          <Rich line={describeLog(view, e)} />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** How many of each card you haven't seen: what the others, the deck and the set-aside hold. */
+function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
+  if (!view.round) return null;
+  const counts = unseenCounts(view);
+  const left = counts.reduce((n, c) => n + c.unseen, 0);
+  return (
+    <div className="space-y-2 text-sm">
+      <p className="text-xs text-stone-500">
+        {left} card{left === 1 ? '' : 's'} you haven’t seen: in other hands, the deck (
+        {view.round.deckCount}) or set aside face down. Discards and your own hand are counted out.
+      </p>
+      <ul aria-label="Card count" className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+        {counts.map((c) => (
+          <li
+            key={c.role}
+            aria-label={`${deck.name(c.role)}: ${c.unseen} of ${c.total} unseen`}
+            className={cn('flex items-center gap-2', c.unseen === 0 && 'opacity-50')}
+          >
+            <span className="min-w-0 flex-1">
+              <CardChip role={c.role} />
+            </span>
+            <span aria-hidden className="flex gap-0.5">
+              {Array.from({ length: c.total }, (_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    'h-3 w-2 rounded-sm',
+                    i < c.unseen
+                      ? 'bg-rose-500 dark:bg-rose-400'
+                      : 'bg-stone-300 dark:bg-stone-700',
+                  )}
+                />
+              ))}
+            </span>
+            <span aria-hidden className="w-10 text-right text-xs text-stone-500 tabular-nums">
+              {c.unseen}/{c.total}
+            </span>
           </li>
         ))}
-      </ol>
-    </details>
+      </ul>
+    </div>
   );
 }
 
 // ---- Results ----
+
+/** Everyone's last card at the end of a round, each one readable. */
+function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
+  const { read } = useCardReader();
+  const result = view.round?.result;
+  if (!result || Object.keys(result.hands).length === 0) return null;
+  const edition = view.settings.edition;
+  return (
+    <ul aria-label="Final hands" className="flex flex-wrap justify-center gap-3">
+      {Object.entries(result.hands).map(([id, role]) => (
+        <li key={id} className="w-16 space-y-1 text-xs">
+          <Card
+            role={role}
+            rank={rankIn(edition, role)}
+            deck={deck}
+            size="sm"
+            reads
+            onClick={() => read(role)}
+          />
+          <p className={cn('truncate', result.winners.includes(id) && 'font-bold')}>
+            {id === view.me?.id ? 'You' : nameOf(view, id)}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function RoundResult({
   view,
@@ -927,11 +1271,10 @@ function RoundResult({
   const headline = won.length
     ? `${listNames(won)} ${won.length > 1 || won[0] === 'You' ? 'win' : 'wins'} the round!`
     : 'Nobody wins the round.';
-  const edition = view.settings.edition;
   return (
     <Panel aria-label="Round result" className="space-y-3 text-center">
       <p className="text-xl font-bold">💌 {headline}</p>
-      <p className="text-sm text-stone-600 dark:text-stone-400">
+      <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
         {result.reason === 'last-standing'
           ? 'Everyone else was knocked out.'
           : 'The deck ran out, so the highest card won.'}
@@ -939,20 +1282,14 @@ function RoundResult({
           ` Tied cards were settled on discards: ${Object.entries(result.discardTotals)
             .map(([id, n]) => `${nameOf(view, id)} ${n}`)
             .join(', ')}.`}
-        {result.spy && ` ${name(result.spy)} gained a token for the Spy.`}
+        {result.spy && (
+          <>
+            {' '}
+            {name(result.spy)} gained a token for the <CardChip role="spy" />.
+          </>
+        )}
       </p>
-      {Object.keys(result.hands).length > 0 && (
-        <ul className="flex flex-wrap justify-center gap-3">
-          {Object.entries(result.hands).map(([id, role]) => (
-            <li key={id} className="w-16 space-y-1 text-xs">
-              <Card role={role} rank={rankIn(edition, role)} deck={deck} size="sm" />
-              <p className={cn('truncate', result.winners.includes(id) && 'font-bold')}>
-                {nameOf(view, id)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <FinalHands view={view} deck={deck} />
       {isHost ? (
         <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
           Next round
@@ -966,11 +1303,13 @@ function RoundResult({
 
 function Podium({
   view,
+  deck,
   act,
   isHost,
   status,
 }: {
   view: RoyalPostView;
+  deck: Deck;
   act: Act;
   isHost: boolean;
   status: Status;
@@ -982,6 +1321,7 @@ function Podium({
   // Second, first, third, like a real podium.
   const steps = [top[1], top[0], top[2]];
   const heights = ['h-16', 'h-24', 'h-12'];
+  const last = view.log.findLast((e) => e.kind === 'round-end');
   return (
     <Panel aria-label="Podium" className="space-y-4 text-center">
       <p className="text-2xl font-bold">🏆 {status.text}</p>
@@ -1019,6 +1359,14 @@ function Podium({
             </li>
           ))}
         </ul>
+      )}
+      {last && view.round?.result && (
+        <div className="space-y-2">
+          <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
+            Last round: <Rich line={describeLog(view, last)} />
+          </p>
+          <FinalHands view={view} deck={deck} />
+        </div>
       )}
       {isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
