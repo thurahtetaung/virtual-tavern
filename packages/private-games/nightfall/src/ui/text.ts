@@ -1,5 +1,5 @@
 import { FRAME_LINES } from '../logic/plan.ts';
-import { ROLES, type RoleId, isRoleId } from '../logic/roles.ts';
+import { type MarkId, ROLES, type RoleId, isRoleId } from '../logic/roles.ts';
 import type {
   NightfallView,
   NoteBody,
@@ -33,6 +33,8 @@ export const TEAM_LABEL: Record<TeamResultId, string> = {
   werewolf: 'Werewolves',
   vampire: 'Vampires',
   tanner: 'Tanner',
+  assassin: 'Assassin',
+  'apprentice-assassin': 'Apprentice Assassin',
 };
 
 // ---- Narration text ----
@@ -62,6 +64,18 @@ const WAKE: Partial<Record<RoleId, string>> = {
   beholder: 'seers, show your thumbs; Beholder, you may look at their cards.',
   revealer: 'you may turn another player’s card face up. If it isn’t village, turn it back.',
   curator: 'you may place an artifact on any player’s card.',
+  copycat: 'look at one of the centre cards. You are now that role: wake up when it is called.',
+  'the-count': 'give the Mark of Fear to a player who isn’t a vampire.',
+  renfield: 'look for the vampires and the player they point at, then take the Mark of the Bat.',
+  diseased: 'give the Mark of Disease to the player on your left or your right.',
+  cupid: 'you may give the Mark of Love to any two players.',
+  instigator: 'you may give the Mark of the Traitor to any player.',
+  priest: 'take a Mark of Clarity. You may also give one to another player.',
+  assassin: 'give the Mark of the Assassin to any player.',
+  'apprentice-assassin': 'if no Assassin is awake, give the Mark of the Assassin to any player.',
+  marksman: 'you may look at one player’s Mark and another player’s card.',
+  pickpocket: 'you may swap your Mark with another player’s, then look at your new Mark.',
+  gremlin: 'you may swap the Marks, or the cards, of any two players.',
 };
 
 const sentence = (s: string | undefined) => (s ? s[0]!.toUpperCase() + s.slice(1) : '');
@@ -74,6 +88,36 @@ export function lineText(key: string, deck: Deck): string {
       return 'Everyone, close your eyes.';
     case FRAME_LINES.nightEnd:
       return 'Everyone, keep your eyes closed and touch your card.';
+    case FRAME_LINES.nightEndMarks:
+      return 'Everyone, keep your eyes closed and touch your card and your Mark.';
+    case FRAME_LINES.epicBattle:
+      return 'Werewolves and vampires tonight: prepare for an epic battle!';
+    case 'vampire:wake':
+      return 'VAMPIRES, wake up and look for each other. Give the Mark of the Vampire to a player who isn’t one.';
+    case 'vampire:close':
+      return 'VAMPIRES, close your eyes.';
+    case 'vampire:close:renfield':
+      return 'VAMPIRES, point at the player with the Mark of the Vampire, and close your eyes.';
+    case 'renfield:hands-away':
+      return 'VAMPIRES, put your hands away.';
+    case 'assassin:close:with-apprentice':
+      return `${deck.name('assassin').toUpperCase()} and ${deck.name('apprentice-assassin').toUpperCase()}, close your eyes.`;
+    case 'apprentice-assassin:wake:with-assassin':
+      return `${deck.name('apprentice-assassin').toUpperCase()}, wake up and look for the ${deck.name('assassin')}. If there is none, give the Mark of the Assassin to any player.`;
+    case 'doppelganger:apprentice-assassin:wake:with-assassin':
+      return `${deck.name('doppelganger').toUpperCase()}, if you copied the ${deck.name('apprentice-assassin')}, wake up and look for the ${deck.name('assassin')}. If there is none, give the Mark of the Assassin to any player.`;
+    case 'dusk:wake':
+      return 'EVERYONE, wake up and secretly look at your Mark.';
+    case 'dusk:close':
+      return 'Everyone, close your eyes.';
+    case 'lovers:wake':
+      return 'If you are in love, wake up and look for your love.';
+    case 'lovers:close':
+      return 'LOVERS, close your eyes.';
+    case 'aura-seer:wake:marks':
+      return `${deck.name('aura-seer').toUpperCase()}, wake up. Anyone who has moved or looked at a card or a Mark, show your thumb.`;
+    case 'doppelganger:aura-seer:wake:marks':
+      return `${deck.name('doppelganger').toUpperCase()}, if you copied the ${deck.name('aura-seer')}, wake up. Anyone who has moved or looked at a card or a Mark, show your thumb.`;
     case FRAME_LINES.dayStart:
       return 'Everyone, wake up!';
     case FRAME_LINES.oneMinute:
@@ -126,21 +170,27 @@ export function describeNote(
   const who = (ids: string[]) => listNames(ids.map((id) => (id === me ? 'you' : nameOf(id))));
   switch (note.kind) {
     case 'copied':
-      return `You looked at ${nameOf(note.target)}’s card: ${r(note.role)}. You are now the ${r(note.role)}.`;
+      return note.blind
+        ? `You looked at ${nameOf(note.target)}’s card: ${r(note.role)}. You are now whatever it copied, without knowing what, and won’t wake for it.`
+        : `You looked at ${nameOf(note.target)}’s card: ${r(note.role)}. You are now the ${r(note.role)}.`;
+    case 'copied-centre':
+      return `You looked at ${centreName(note.center, kinds)}: ${r(note.role)}. You are now the ${r(note.role)}.`;
     case 'saw':
       return `You saw ${slotName(note.slot, nameOf, kinds, me)}: ${r(note.role)}.`;
     case 'saw-own':
       return `Your card is now: ${r(note.role)}.`;
     case 'group': {
       const others = note.players.filter((p) => p !== me);
-      const base =
-        note.group === 'werewolves'
-          ? others.length
-            ? `Your fellow werewolves: ${who(others)}.`
-            : 'No other werewolf woke up.'
-          : others.length
-            ? `The other Masons: ${who(others)}.`
-            : 'No other Mason woke up.';
+      const GROUP: Record<typeof note.group, [string, string]> = {
+        werewolves: ['Your fellow werewolves', 'No other werewolf woke up.'],
+        masons: ['The other Masons', 'No other Mason woke up.'],
+        vampires: ['Your fellow vampires', 'No other vampire woke up.'],
+        lovers: ['Your love', 'Nobody else is in love: the Mark of Love does nothing.'],
+        assassins: [`The ${r('assassin')}`, `No ${r('assassin')} woke up.`],
+        apprentices: [`The ${r('apprentice-assassin')}`, `No ${r('apprentice-assassin')} woke up.`],
+      };
+      const [some, none] = GROUP[note.group];
+      const base = others.length ? `${some}: ${who(others)}.` : none;
       const thumbs = note.thumbs?.filter((p) => p !== me) ?? [];
       return thumbs.length ? `${base} Showing a werewolf thumb: ${who(thumbs)}.` : base;
     }
@@ -185,6 +235,40 @@ export function describeNote(
       return 'You did nothing.';
     case 'artifact':
       return `There is an artifact on your card: ${deck.artifactName(note.artifact)}. ${deck.artifactText(note.artifact)}`;
+    case 'marked': {
+      const to = note.targets.map((t) => (t === me ? 'yourself' : nameOf(t)));
+      return `You gave the ${deck.markName(note.mark)} to ${listNames(to)}.`;
+    }
+    case 'saw-vampires': {
+      const vampires = note.players.length ? who(note.players) : 'nobody';
+      const pointed = note.target
+        ? ` They point at ${note.target === me ? 'you' : nameOf(note.target)}.`
+        : '';
+      return `You took the ${deck.markName('bat')}. The vampires: ${vampires}.${pointed}`;
+    }
+    case 'mark':
+      return `Your Mark: ${deck.markName(note.mark)}${note.doppel ? ' (the Doppelgänger’s)' : ''}.`;
+    case 'saw-mark':
+      return `You saw ${nameOf(note.target)}’s Mark: ${deck.markName(note.mark)}.`;
+    case 'pickpocketed':
+      return `You swapped Marks with ${nameOf(note.target)}. Your Mark is now: ${deck.markName(note.mark)}.`;
+    case 'swapped-marks':
+      return `You swapped the Marks of ${note.a === me ? 'yourself' : nameOf(note.a)} and ${note.b === me ? 'yourself' : nameOf(note.b)}.`;
+  }
+}
+
+/** The Marks a note names, so they can be tapped. */
+export function marksIn(n: NoteBody): MarkId[] {
+  switch (n.kind) {
+    case 'marked':
+    case 'mark':
+    case 'saw-mark':
+    case 'pickpocketed':
+      return [n.mark];
+    case 'saw-vampires':
+      return ['bat'];
+    default:
+      return [];
   }
 }
 
@@ -201,12 +285,20 @@ export function describeEntry(
     .replace(/^You /, `${by} `)
     .replace(/ your card/g, ` ${by}’s card`)
     .replace(/^Your card/, `${by}’s card`)
+    .replace(/^Your /, `${by}’s `)
+    .replace(/\. Your /g, `. ${by}’s `)
+    .replace(/\byourself\b/g, 'themselves')
     .replace(/ You are now/g, ` ${by} is now`)
     .replace(/\byou\b/g, by);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`
     : '';
-  return `${text}${moved}${entry.auto ? ' (chosen when time ran out)' : ''}`;
+  // Marks moved: who held what just before (a Mark given replaces one that goes back unseen).
+  const marks =
+    entry.marks?.length && entry.note.kind !== 'marked'
+      ? ` (${entry.marks.map((m) => `${nameOf(m.player)} had ${m.mark ? deck.markName(m.mark) : 'no Mark'}`).join('; ')})`
+      : '';
+  return `${text}${moved}${marks}${entry.auto ? ' (chosen when time ran out)' : ''}`;
 }
 
 /** What to do now, for the acting player. */
@@ -224,7 +316,9 @@ export function promptText(p: Prompt, deck: Deck): string {
       if (p.center) return 'Tap a centre card to look at it.';
       return p.as === 'paranormal-investigator'
         ? 'Tap a player to look at their card.'
-        : 'Tap another player to look at their card.';
+        : p.as === 'marksman'
+          ? 'Now tap another player to look at their card, or skip.'
+          : 'Tap another player to look at their card.';
     case 'view-again':
       return 'That card is village: you may look at one more.';
     case 'rob':
@@ -247,6 +341,32 @@ export function promptText(p: Prompt, deck: Deck): string {
       return 'You are the only werewolf: you may look at one centre card.';
     case 'view-thumbs':
       return `You may look at the cards of the players who showed a thumb (${r(p.as)}).`;
+    case 'copy-centre':
+      return 'Tap a centre card: you become that role, and wake when it is called.';
+    case 'give-vampire':
+      return 'Together, choose a player who isn’t a vampire: they get the Mark of the Vampire. The first choice counts for all of you.';
+    case 'give-fear':
+      return 'Tap a player who isn’t a vampire to give them the Mark of Fear.';
+    case 'give-disease':
+      return 'Give the Mark of Disease to your left or right neighbour.';
+    case 'give-love':
+      return 'Tap two players (you may be one) to give them the Mark of Love, or skip.';
+    case 'give-traitor':
+      return 'Tap a player (you may choose yourself) to give them the Mark of the Traitor, or skip.';
+    case 'give-clarity':
+      return 'You took a Mark of Clarity. Tap another player to give them one too, or skip.';
+    case 'give-assassin':
+      return 'Tap a player (you may choose yourself) to give them the Mark of the Assassin.';
+    case 'view-mark':
+      return 'Tap another player to look at their Mark, or skip to look at a card.';
+    case 'pickpocket':
+      return 'Tap a player to swap Marks with them, or skip.';
+    case 'gremlin':
+      return 'Swap the Marks or the cards of two players (you may be one), or skip.';
+    case 'swap-marks':
+      return 'Tap two players to swap their Marks.';
+    case 'swap-cards':
+      return 'Tap two players to swap their cards.';
     default:
       return 'Make your choice.';
   }

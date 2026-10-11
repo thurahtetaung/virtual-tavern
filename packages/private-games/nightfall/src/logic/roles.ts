@@ -23,7 +23,7 @@ export const SET_IDS = [
 export type SetId = (typeof SET_IDS)[number];
 
 /** The sets whose roles can be picked today. */
-export const ENABLED_SETS: readonly SetId[] = ['base', 'daybreak', 'bonus1', 'bonus2'];
+export const ENABLED_SETS: readonly SetId[] = ['base', 'daybreak', 'bonus1', 'bonus2', 'vampire'];
 
 /** Neutral fallback names for the sets, used when the manifest has none. */
 export const SET_LABELS: Record<SetId, string> = {
@@ -73,14 +73,30 @@ export const ROLE_IDS = [
   'beholder',
   'squire',
   'thing',
+  // Vampire
+  'copycat',
+  'vampire',
+  'the-master',
+  'the-count',
+  'renfield',
+  'diseased',
+  'cupid',
+  'instigator',
+  'priest',
+  'assassin',
+  'apprentice-assassin',
+  'marksman',
+  'pickpocket',
+  'gremlin',
 ] as const;
 export type RoleId = (typeof ROLE_IDS)[number];
 
 /**
- * The team printed on a card. Own-team roles (the Tanner and his apprentice) win on their own
- * conditions. Later sets add vampire, alien, villain and more own teams.
+ * The team printed on a card. Own-team roles (the Tanner and his apprentice, the Assassin and
+ * hers) win on their own conditions. Later sets add alien, villain and more own teams.
  */
-export type Team = 'village' | 'werewolf' | 'tanner' | 'vampire';
+export type Team =
+  'village' | 'werewolf' | 'tanner' | 'vampire' | 'assassin' | 'apprentice-assassin';
 
 /** The hostile groups a death can count against; later sets add aliens and villains. */
 export const HOSTILE_GROUPS = ['werewolf', 'vampire'] as const;
@@ -92,9 +108,10 @@ export type HostileGroup = (typeof HOSTILE_GROUPS)[number];
  * - `later`: she wakes again in her own step right after the original's;
  * - `with-group`: she wakes with the group (werewolves, masons) when it is called;
  * - `minion`: she learns the werewolves at the end of her own step;
+ * - `copycat`: she becomes whatever the Copycat copied, without learning it, and never wakes again;
  * - `none`: the role has no night action.
  */
-export type DoppelMode = 'immediate' | 'later' | 'with-group' | 'minion' | 'none';
+export type DoppelMode = 'immediate' | 'later' | 'with-group' | 'minion' | 'copycat' | 'none';
 
 export interface RoleDef {
   id: RoleId;
@@ -113,6 +130,10 @@ export interface RoleDef {
   wakesWithWerewolves?: boolean;
   /** Shows a werewolf thumb to the Minion and Squire (every Werewolf, the Dream Wolf included). */
   werewolfThumb?: boolean;
+  /** A Vampire for every win and vote rule (Renfield is on the team but isn't). */
+  vampire?: boolean;
+  /** Wakes in the vampires' step. */
+  wakesWithVampires?: boolean;
   doppel: DoppelMode;
   /** Takes longer at night: its steps last twice as long, as in the narrator. */
   complex?: boolean;
@@ -124,6 +145,7 @@ export interface RoleDef {
 
 const VILLAGE_WIN = 'Wins with the village: at least one Werewolf dies.';
 const WOLF_WIN = 'Wins with the werewolves: no Werewolf dies.';
+const VAMPIRE_WIN = 'Wins with the vampires: no Vampire dies.';
 
 const role = (def: RoleDef): RoleDef => def;
 
@@ -455,6 +477,166 @@ export const ROLES: Record<RoleId, RoleDef> = {
       'May tap the neighbour on the left or the right; that player learns which side the tap came from.',
     win: VILLAGE_WIN,
   }),
+  copycat: role({
+    id: 'copycat',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'copycat',
+    summary:
+      'Wakes first and must look at a centre card, then becomes that role: wakes when it is called and plays it.',
+    win: 'Wins as the role copied. A Copycat card that never woke is a plain Villager.',
+  }),
+  vampire: role({
+    id: 'vampire',
+    set: 'vampire',
+    count: 1,
+    team: 'vampire',
+    villageCard: false,
+    vampire: true,
+    wakesWithVampires: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the other vampires; together they must give the Mark of the Vampire to a player who isn’t one.',
+    win: VAMPIRE_WIN,
+  }),
+  'the-master': role({
+    id: 'the-master',
+    set: 'vampire',
+    count: 1,
+    team: 'vampire',
+    villageCard: false,
+    vampire: true,
+    wakesWithVampires: true,
+    doppel: 'with-group',
+    summary:
+      'Wakes with the vampires. If another Vampire votes for The Master, The Master can’t be killed by the vote.',
+    win: VAMPIRE_WIN,
+  }),
+  'the-count': role({
+    id: 'the-count',
+    set: 'vampire',
+    count: 1,
+    team: 'vampire',
+    villageCard: false,
+    vampire: true,
+    wakesWithVampires: true,
+    doppel: 'later',
+    summary:
+      'Wakes with the vampires, then again to give the Mark of Fear to a player who isn’t a vampire.',
+    win: VAMPIRE_WIN,
+  }),
+  renfield: role({
+    id: 'renfield',
+    set: 'vampire',
+    count: 1,
+    team: 'vampire',
+    villageCard: false,
+    doppel: 'later',
+    summary:
+      'Sees the vampires and the player they marked, then takes the Mark of the Bat. On their team, but not a Vampire.',
+    win: 'Wins with the vampires, even if Renfield dies. With no Vampire among the players, wins with the village.',
+  }),
+  diseased: role({
+    id: 'diseased',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'immediate',
+    summary:
+      'Must give the Mark of Disease to the neighbour on the left or right. Anyone who votes for that player, or for the Diseased, can’t win.',
+    win: VILLAGE_WIN,
+  }),
+  cupid: role({
+    id: 'cupid',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'immediate',
+    complex: true,
+    summary:
+      'May give the Mark of Love to two players (Cupid included). If one lover dies, the other dies too.',
+    win: VILLAGE_WIN,
+  }),
+  instigator: role({
+    id: 'instigator',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'immediate',
+    summary:
+      'May give the Mark of the Traitor to any player: they win only if someone else on their team dies.',
+    win: VILLAGE_WIN,
+  }),
+  priest: role({
+    id: 'priest',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    complex: true,
+    summary:
+      'Must take a Mark of Clarity, and may give one to another player, wiping out the Mark they had.',
+    win: VILLAGE_WIN,
+  }),
+  assassin: role({
+    id: 'assassin',
+    set: 'vampire',
+    count: 1,
+    team: 'assassin',
+    villageCard: false,
+    doppel: 'later',
+    summary: 'Must give the Mark of the Assassin to any player (the Assassin included).',
+    win: 'Wins if a player with the Mark of the Assassin dies, alive or not, alongside any team. With no such Mark in play, a plain Villager.',
+  }),
+  'apprentice-assassin': role({
+    id: 'apprentice-assassin',
+    set: 'vampire',
+    count: 1,
+    team: 'apprentice-assassin',
+    villageCard: false,
+    doppel: 'later',
+    summary:
+      'Wakes with the Assassin to see who it is. With no Assassin awake, must give the Mark of the Assassin herself.',
+    win: 'Wins if an Assassin dies; with no Assassin among the players, if the player with the Mark of the Assassin dies.',
+  }),
+  marksman: role({
+    id: 'marksman',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    complex: true,
+    summary: 'May look at one player’s Mark and a different player’s card.',
+    win: VILLAGE_WIN,
+  }),
+  pickpocket: role({
+    id: 'pickpocket',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary: 'May swap Marks with another player, then looks at the new Mark.',
+    win: VILLAGE_WIN,
+  }),
+  gremlin: role({
+    id: 'gremlin',
+    set: 'vampire',
+    count: 1,
+    team: 'village',
+    villageCard: true,
+    doppel: 'later',
+    summary:
+      'May swap the Marks, or the cards, of any two players (the Gremlin included), without looking.',
+    win: VILLAGE_WIN,
+  }),
 };
 
 export const isRoleId = (id: string): id is RoleId => id in ROLES;
@@ -471,6 +653,59 @@ export const roleLabel = (id: string) => {
   const words = id.replace(/-/g, ' ');
   return words[0]!.toUpperCase() + words.slice(1);
 };
+
+// ---- Marks (the Vampire set) ----
+
+/** Mark ids, as in the private manifest. */
+export const MARK_IDS = [
+  'clarity',
+  'vampire',
+  'fear',
+  'bat',
+  'disease',
+  'love',
+  'traitor',
+  'assassin',
+] as const;
+export type MarkId = (typeof MARK_IDS)[number];
+
+/** A neutral description of each Mark, for placeholders and the guide. */
+export const MARKS: Record<MarkId, string> = {
+  clarity: 'No effect: your card says who you are.',
+  vampire: 'You are a Vampire, on the vampire team, and keep your own night action and vote power.',
+  fear: 'You may not do any part of your night action, not even open your eyes.',
+  bat: 'No effect.',
+  disease: 'Anyone who votes for you can’t win (you still can).',
+  love: 'If another player with a Mark of Love dies, you die too, even if protected.',
+  traitor: 'You win only if someone else on your team dies.',
+  assassin: 'If you die, the Assassin wins.',
+};
+
+/** Roles whose game hands every player a Mark (of Clarity) and runs Marks. */
+export const MARK_ROLES: ReadonlySet<RoleId> = new Set<RoleId>([
+  'vampire',
+  'the-master',
+  'the-count',
+  'renfield',
+  'diseased',
+  'cupid',
+  'instigator',
+  'priest',
+  'assassin',
+  'apprentice-assassin',
+  'marksman',
+  'pickpocket',
+  'gremlin',
+]);
+
+export const marksInUse = (roles: readonly RoleId[]) => roles.some((r) => MARK_ROLES.has(r));
+
+/** Hostile groups these roles can put in play (for the "epic battle" warning). */
+export function hostileGroupsIn(roles: readonly RoleId[]): HostileGroup[] {
+  return HOSTILE_GROUPS.filter((g) =>
+    roles.some((r) => (g === 'werewolf' ? ROLES[r].werewolf : ROLES[r].vampire) === true),
+  );
+}
 
 // ---- Artifacts (placed by the Curator) ----
 
@@ -494,7 +729,7 @@ export interface ArtifactDef {
   id: ArtifactId;
   set: SetId;
   /** A role-changing artifact replaces the holder's role, team and abilities. */
-  becomes?: RoleId | 'vampire';
+  becomes?: RoleId;
   /** The holder wins only if another member of their own team dies. */
   traitor?: boolean;
   /** Only offered when roles from this set are in the game. */

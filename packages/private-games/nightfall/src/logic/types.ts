@@ -1,6 +1,6 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
-import { ARTIFACT_IDS, type ArtifactId, ROLE_IDS, type RoleId } from './roles.ts';
+import { ARTIFACT_IDS, type ArtifactId, type MarkId, ROLE_IDS, type RoleId } from './roles.ts';
 import type { StepId } from './plan.ts';
 
 export const MIN_PLAYERS = 3;
@@ -49,6 +49,18 @@ export type CenterKind = 'center' | 'wolf';
 /** Where a card is: in front of a player, or a centre slot by index. */
 export type Slot = { player: PlayerId } | { center: number };
 
+/**
+ * A Mark in front of a player (Vampire set). Marks belong to players, not cards: a card that moves
+ * leaves its holder's Mark behind. Giving a Mark sends the old one back to the board, unseen.
+ */
+export interface MarkToken {
+  id: MarkId;
+  /** One of the Doppelgänger's own Marks (looks different; works the same). */
+  doppel: boolean;
+  /** Who placed it, for the Assassin's Mark (the Apprentice Assassin's own win). */
+  by?: PlayerId;
+}
+
 /** One physical card. Tokens on it (shield, artifact) and what it became travel with it. */
 export interface Card {
   /** Physical card number, stable for the game. */
@@ -57,7 +69,7 @@ export interface Card {
   faceUp: boolean;
   shield: 'normal' | 'doppel' | null;
   artifact: ArtifactId | null;
-  /** On the Doppelgänger's card: the role she copied. */
+  /** On the Doppelgänger's or Copycat's card: the role it copied. */
   copied: RoleId | null;
   /** On the P.I.'s card (or a Doppelgänger's copy of it): the role it stopped on. */
   became: RoleId | null;
@@ -68,10 +80,17 @@ export interface Card {
  * it, and the timeline shows all of them at the reveal.
  */
 export type NoteBody =
-  | { kind: 'copied'; target: PlayerId; role: RoleId }
+  /** `blind`: she copied a Copycat, so she is now whatever it copied, without knowing what. */
+  | { kind: 'copied'; target: PlayerId; role: RoleId; blind?: boolean }
+  | { kind: 'copied-centre'; center: number; role: RoleId }
   | { kind: 'saw'; slot: Slot; role: RoleId }
   | { kind: 'saw-own'; role: RoleId }
-  | { kind: 'group'; group: 'werewolves' | 'masons'; players: PlayerId[]; thumbs?: PlayerId[] }
+  | {
+      kind: 'group';
+      group: 'werewolves' | 'masons' | 'vampires' | 'lovers' | 'assassins' | 'apprentices';
+      players: PlayerId[];
+      thumbs?: PlayerId[];
+    }
   | { kind: 'thumbs'; of: 'werewolves' | 'tanner' | 'seers' | 'touched'; players: PlayerId[] }
   | { kind: 'robbed'; target: PlayerId; role: RoleId }
   | { kind: 'swapped'; a: Slot; b: Slot }
@@ -86,7 +105,19 @@ export type NoteBody =
   | { kind: 'became'; role: RoleId }
   | { kind: 'blocked'; reason: 'shielded' | 'no-target' }
   | { kind: 'passed' }
-  | { kind: 'artifact'; artifact: ArtifactId };
+  | { kind: 'artifact'; artifact: ArtifactId }
+  /** A Mark you gave (Vampires, Count, Diseased, Cupid, Instigator, Priest, Assassins). */
+  | { kind: 'marked'; mark: MarkId; targets: PlayerId[] }
+  /** Renfield: the vampires, the player they point at, and the Bat he took. */
+  | { kind: 'saw-vampires'; players: PlayerId[]; target: PlayerId | null }
+  /** Your own Mark, seen at dusk. */
+  | { kind: 'mark'; mark: MarkId; doppel?: boolean }
+  /** The Marksman's look at another player's Mark. */
+  | { kind: 'saw-mark'; target: PlayerId; mark: MarkId }
+  /** The Pickpocket's swap, and the Mark he got. */
+  | { kind: 'pickpocketed'; target: PlayerId; mark: MarkId }
+  /** The Gremlin's swap of two players' Marks, unseen. */
+  | { kind: 'swapped-marks'; a: PlayerId; b: PlayerId };
 
 export type Note = NoteBody & {
   id: number;
@@ -107,6 +138,8 @@ export interface TimelineEntry {
   auto?: boolean;
   /** Cards moved in this entry, with their faces, for the timeline. */
   moved?: { slot: Slot; role: RoleId; card: number }[];
+  /** Marks given or moved in this entry: who held which Mark just before. */
+  marks?: { player: PlayerId; mark: MarkId | null }[];
 }
 
 export interface GamePlayer {
@@ -122,6 +155,10 @@ export interface GamePlayer {
   vote: PlayerId | null;
   /** Left the room mid-game: their card stays, but they no longer vote. */
   left: boolean;
+  /** Acts as the Doppelgänger (dealt it, or a Copycat who copied it). */
+  asDoppel?: boolean;
+  /** Never wakes for a role again (a Doppelgänger who copied the Copycat). */
+  dormant?: boolean;
 }
 
 /** Working memory of the step in progress, per actor. Never sent to anyone else. */
@@ -135,6 +172,8 @@ export interface StepWork {
   /** For a Doppelgänger: the role she acts as now. */
   as?: RoleId;
 }
+
+export type Choice = 'marks' | 'cards';
 
 export interface NightState {
   plan: StepId[];
@@ -150,19 +189,25 @@ export interface NightState {
   knownWolves: PlayerId[];
   /** Artifacts still in the Curator's bag. */
   bag: ArtifactId[];
+  /** The players who woke in the vampires' step, and who they gave the Mark of the Vampire. */
+  vampires?: PlayerId[];
+  vampireTarget?: PlayerId | null;
   timeline: TimelineEntry[];
 }
 
-export type DeathCause = 'vote' | 'hunter';
+export type DeathCause = 'vote' | 'hunter' | 'love';
 
 export interface Death {
   player: PlayerId;
   cause: DeathCause;
-  /** The Hunter whose shot it was. */
+  /** The Hunter whose shot it was, or the lover whose death took this one along. */
   by?: PlayerId;
+  /** In an epic battle: first or second most votes (the Most Votes tokens). */
+  place?: 1 | 2;
 }
 
-export type TeamResultId = 'village' | 'werewolf' | 'vampire' | 'tanner';
+export type TeamResultId =
+  'village' | 'werewolf' | 'vampire' | 'tanner' | 'assassin' | 'apprentice-assassin';
 
 export interface TeamResult {
   team: TeamResultId;
@@ -173,13 +218,17 @@ export interface TeamResult {
 
 /** Who each player was at the end, after copies, investigations, artifacts and conversions. */
 export interface FinalIdentity {
-  role: RoleId | 'vampire';
+  role: RoleId;
   team: TeamResultId;
   /** The artifact that changed the role, if any. */
   artifact?: ArtifactId;
-  /** Turned by a Werewolf's vote (the Cursed). */
-  converted?: boolean;
+  /** Turned by a Werewolf's (or a Vampire's) vote: the Cursed. */
+  converted?: 'werewolf' | 'vampire';
   traitor?: boolean;
+  /** The Mark in front of the player at the end. */
+  mark?: MarkId;
+  /** A Vampire through the Mark of the Vampire. */
+  vampireMark?: boolean;
 }
 
 export interface VoteResult {
@@ -193,6 +242,8 @@ export interface VoteResult {
   winners: PlayerId[];
   /** Three or more sides in play: the two-place vote. */
   epic: boolean;
+  /** Voters who can't win: they voted for the Mark of Disease or the Diseased. */
+  disqualified?: PlayerId[];
 }
 
 export interface GameRound {
@@ -211,6 +262,8 @@ export interface GameRound {
   result: VoteResult | null;
   /** What everyone was dealt, kept for the reveal. */
   deal: { players: Record<PlayerId, RoleId>; center: RoleId[] };
+  /** Each player's Mark, when the game uses Marks (Vampire set); null otherwise. */
+  marks?: Record<PlayerId, MarkToken> | null;
   /** A Seer's (or copy's) look at a player's card, checked at the end for the stats. */
   seerLooks: { by: PlayerId; target: PlayerId; cardId: number }[];
   loneWolf: PlayerId | null;
@@ -265,6 +318,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     players: z.array(id).max(4).optional(),
     center: z.array(z.number().int().min(0).max(4)).max(3).optional(),
     side: z.enum(['left', 'right']).optional(),
+    /** The Gremlin's choice: swap Marks or cards. */
+    choice: z.enum(['marks', 'cards']).optional(),
     /** Skip an optional action. */
     pass: z.literal(true).optional(),
   }),
@@ -302,6 +357,8 @@ export interface Prompt {
   /** Players or centre cards, not both (the Seer). */
   either: boolean;
   sides: boolean;
+  /** Pick one of these (the Gremlin: Marks or cards). */
+  choices: Choice[] | null;
   /** If time runs out, the game chooses at random. */
   mandatory: boolean;
 }
@@ -348,6 +405,8 @@ export interface RevealView {
   cards: Record<PlayerId, Card>;
   center: { kind: CenterKind; card: Card }[];
   deal: GameRound['deal'];
+  /** Every player's Mark at the end (null without Marks). */
+  marks: Record<PlayerId, MarkToken> | null;
   timeline: TimelineEntry[];
   plan: StepId[];
 }

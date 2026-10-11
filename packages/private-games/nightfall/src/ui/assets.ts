@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
+  MARKS,
   ROLES,
   SET_LABELS,
   type ArtifactId,
+  type MarkId,
   type RoleId,
   type SetId,
   roleLabel,
@@ -22,6 +24,7 @@ export const GAME_ID = 'nightfall';
  *   "roles":     { "<role id>": { "name": "…", "text": "<card text>", "art": "roles/<id>.webp",
  *                                 "card": "cards/<id>.webp" } },        // card: the full face, 5:7
  *   "artifacts": { "<artifact id>": { "name": "…", "text": "…", "art": "artifacts/<id>.webp" } },
+ *   "marks":     { "<mark id>": { "name": "…", "text": "…", "art": "marks/<id>.webp" } },
  *   "tokens":    { "shield" | "most-votes-1" | …: { "name": "…", "art": "tokens/<id>.webp" } },
  *   "backs":     { "werewolf": "backs/werewolf.webp" },              // the card back
  *   "narration": { "<line key>": ["audio/<clip>.ogg", …] },   // see `stepLines` in plan.ts
@@ -37,6 +40,7 @@ export interface Manifest {
   tokens?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;
   backs?: Partial<Record<string, string>>;
   artifacts?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;
+  marks?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;
   narration?: Record<string, string[]>;
   music?: Partial<Record<MusicPhase, string[]>>;
   musicTracks?: Record<string, { name?: string; file: string; duration?: number }>;
@@ -73,7 +77,7 @@ export function useManifest(): ManifestState {
 
 /** Display names, card text and art, from the manifest or the role words. */
 export interface Deck {
-  name: (role: RoleId | 'vampire') => string;
+  name: (role: RoleId) => string;
   text: (role: RoleId) => string;
   /** The portrait (for chips and small tiles). */
   art: (role: RoleId) => string | null;
@@ -85,8 +89,17 @@ export interface Deck {
   setName: (set: SetId) => string;
   artifactName: (id: ArtifactId) => string;
   artifactText: (id: ArtifactId) => string;
+  markName: (id: MarkId) => string;
+  markText: (id: MarkId) => string;
+  markArt: (id: MarkId) => string | null;
   manifest: Manifest | null;
 }
+
+/** "fear" → "Mark of Fear", "vampire" → "Mark of the Vampire": the placeholder Mark names. */
+export const markLabel = (id: MarkId) =>
+  ['vampire', 'traitor', 'assassin'].includes(id)
+    ? `Mark of the ${id[0]!.toUpperCase()}${id.slice(1)}`
+    : `Mark of ${id[0]!.toUpperCase()}${id.slice(1)}`;
 
 export function deckFor(state: ManifestState, artifactSummary: (id: ArtifactId) => string): Deck {
   const m = state && state !== 'unavailable' ? state : null;
@@ -102,5 +115,8 @@ export function deckFor(state: ManifestState, artifactSummary: (id: ArtifactId) 
     setName: (set) => m?.sets?.[set]?.name?.trim() || SET_LABELS[set],
     artifactName: (id) => m?.artifacts?.[id]?.name?.trim() || roleLabel(id),
     artifactText: (id) => m?.artifacts?.[id]?.text?.trim() || artifactSummary(id),
+    markName: (id) => m?.marks?.[id]?.name?.trim() || markLabel(id),
+    markText: (id) => m?.marks?.[id]?.text?.trim() || MARKS[id],
+    markArt: (id) => (m?.marks?.[id]?.art ? assetUrl(m.marks[id].art) : null),
   };
 }

@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Badge, Button, Hint, Panel, cn } from '@vt/ui';
-import { buildNightPlan, stepDurations } from '../logic/plan.ts';
+import { buildNightPlan, epicPossible, stepDurations, usesMarks } from '../logic/plan.ts';
 import { cardsNeeded, recommended, SCENARIOS, scenarioRoles } from '../logic/presets.ts';
 import {
   ARTIFACTS,
@@ -20,7 +20,7 @@ import {
   type NightfallView,
 } from '../logic/types.ts';
 import type { Deck } from './assets.ts';
-import { CardFace, useRoleDetails } from './Cards.tsx';
+import { CardFace, MarkChip, useRoleDetails } from './Cards.tsx';
 import { type Status, startBlocker } from './status.ts';
 
 type Act = (a: NightfallAction) => Promise<boolean>;
@@ -224,6 +224,7 @@ export function Lobby({
           >
             {s.roles.length} of {need} cards
             {s.roles.includes('alpha-wolf') ? ' (with the centre werewolf)' : ''}
+            {usesMarks(s.roles) ? ` · ${seated.length} Marks` : ''}
           </span>
         </div>
         <p className="text-sm text-stone-600 dark:text-stone-400">
@@ -231,6 +232,19 @@ export function Lobby({
           {s.roles.includes('alpha-wolf') ? ', and one more for the centre werewolf' : ''}. Tap a
           card to read it.
         </p>
+        {usesMarks(s.roles) && (
+          <p className="text-sm" data-testid="marks-setup">
+            Marks are in play: every player starts with a face-down{' '}
+            <MarkChip mark="clarity" deck={deck} />
+            {buildNightPlan(s.roles).includes('dusk') ? ', and looks at their Mark at dusk.' : '.'}
+          </p>
+        )}
+        {epicPossible(s.roles) && (
+          <p className="text-sm" data-testid="epic-hint">
+            ⚔️ Werewolves and vampires: if both are dealt to players, it’s an epic battle, and the
+            two most voted players die.
+          </p>
+        )}
         {editable && (
           <div className="flex flex-wrap gap-1.5">
             <Button

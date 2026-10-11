@@ -1,4 +1,5 @@
 import { setupProblem } from '../logic/game.ts';
+import { hostileGroupsIn } from '../logic/roles.ts';
 import type { NightfallView } from '../logic/types.ts';
 import { listNames, nameOfView } from './text.ts';
 
@@ -47,7 +48,7 @@ export function statusFor(view: NightfallView, isHost: boolean): Status {
             yourMove: false,
           }
         : {
-            text: 'Daybreak! Talk it over: who is a werewolf? Press Ready to vote when you’re done.',
+            text: `Daybreak! Talk it over: who is a ${hostileGroupsIn(view.settings.roles).includes('vampire') ? 'werewolf, who is a vampire' : 'werewolf'}? Press Ready to vote when you’re done.`,
             yourMove: false,
           };
     case 'vote': {

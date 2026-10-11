@@ -111,6 +111,25 @@ describe('narration cues', () => {
     ]);
   });
 
+  it('warns of an epic battle, and has everyone touch their Mark at the end of the night', () => {
+    const h = table({
+      players: ['werewolf', 'vampire', 'cupid', 'villager'],
+      settings: { stepSeconds: 10 },
+    });
+    expect(cuesFor(nightfall.view(h.state, 'A'))[0]!.lines).toEqual([
+      'night:epic-battle',
+      'night:start',
+    ]);
+    h.tick();
+    // Every device hears the dusk's group steps, acting or not.
+    expect(cuesFor(nightfall.view(h.state, 'D'))[0]!.lines).toEqual(['vampire:wake']);
+    h.dawn();
+    expect(cuesFor(nightfall.view(h.state, 'A'))[0]!.lines).toEqual([
+      'night:end:marks',
+      'day:start',
+    ]);
+  });
+
   it('plays due cues once, and never replays old ones', () => {
     const cues = [
       { id: 'a', at: 1000, lines: ['x'] },

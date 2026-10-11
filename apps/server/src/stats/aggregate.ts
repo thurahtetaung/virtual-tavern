@@ -212,12 +212,18 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       ['nf.wolf_votes', props.votedWolf],
       ['nf.village_votes', props.votedVillager],
       ['nf.village_death', props.villageDeath],
+      ['nf.vampire', props.vampire],
+      ['nf.hitman', props.hitman],
     ];
     for (const [metric, v] of facts) if (v === true) credit(playerId, metric);
     const shots = num(props.hunterShots) ?? 0;
     if (shots > 0) credit(playerId, 'nf.hunter_shots', shots);
     const moved = num(props.cardsMoved) ?? 0;
     if (moved > 0) credit(playerId, 'nf.cards_moved', moved);
+    const hearts = num(props.heartbreaks) ?? 0;
+    if (hearts > 0) credit(playerId, 'nf.heartbreaks', hearts);
+    const plague = num(props.plague) ?? 0;
+    if (plague > 0) credit(playerId, 'nf.plague', plague);
   }
   if (game === 'royal-post' && playerId) {
     if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');

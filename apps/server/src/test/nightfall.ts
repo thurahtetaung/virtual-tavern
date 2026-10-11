@@ -26,6 +26,7 @@ export function nightMove(v: NightfallView): NightfallAction | null {
   const night = v.night;
   const pr = night?.acting?.prompt;
   if (!night || !pr) return null;
+  if (pr.choices) return { type: 'night', step: night.index, choice: pr.choices[0]! };
   if (pr.sides) return { type: 'night', step: night.index, side: 'left' };
   if (pr.players)
     return { type: 'night', step: night.index, players: pr.players.ids.slice(0, pr.players.min) };

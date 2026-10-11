@@ -72,6 +72,58 @@ export const SCENARIOS: Preset[] = [
       'mystic-wolf',
     ],
   },
+  // The Vampire set: two vampires each, as its rules recommend.
+  {
+    id: 'lovers-night',
+    name: 'Lovers’ night',
+    minPlayers: 3,
+    roles: ['vampire', 'the-master', 'cupid', 'priest', 'diseased', 'pickpocket'],
+  },
+  {
+    id: 'first-bite',
+    name: 'First bite',
+    minPlayers: 5,
+    roles: [
+      'vampire',
+      'the-master',
+      'diseased',
+      'instigator',
+      'assassin',
+      'marksman',
+      'pickpocket',
+      'gremlin',
+    ],
+  },
+  {
+    id: 'counts-court',
+    name: 'The Count’s court',
+    minPlayers: 5,
+    roles: [
+      'vampire',
+      'the-count',
+      'renfield',
+      'copycat',
+      'cupid',
+      'priest',
+      'marksman',
+      'gremlin',
+    ],
+  },
+  {
+    id: 'fangs-and-claws',
+    name: 'Fangs and claws (epic battle)',
+    minPlayers: 5,
+    roles: [
+      'werewolf',
+      'werewolf',
+      'vampire',
+      'the-count',
+      'seer',
+      'cupid',
+      'priest',
+      'pickpocket',
+    ],
+  },
 ];
 
 /** A balanced table for each player count (the first game, growing with the table). */

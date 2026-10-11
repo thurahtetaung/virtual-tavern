@@ -13,8 +13,8 @@ import type { GameFigure } from '@vt/protocol';
 //   masquerade (and masquerade-originals) round {location, spyWon}, spy {outcome, votes},
 //              vote {hit, target}, outcome {rounds}
 //   nightfall  outcome {players, teams, teamsWon, ending, nightMs, dayMs, moves, chain,
-//              movedRoles, setup}, player {dealt, won, voted, votedWolf, votedRole, …},
-//              look {role, right}
+//              movedRoles, setup, epic, loveDeaths, vampireMark}, player {dealt, won, voted,
+//              votedWolf, votedRole, vampire, heartbreaks, plague, hitman, …}, look {role, right}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -70,15 +70,24 @@ const NIGHTFALL_TEAMS: [string, string][] = [
   ['werewolf', 'Werewolves'],
   ['tanner', 'Tanner'],
   ['vampire', 'Vampires'],
+  ['assassin', 'Assassin'],
+  ['apprentice-assassin', 'Apprentice Assassin'],
 ];
+/** Teams that only show once they have played (the later sets). */
+const NIGHTFALL_LATER_TEAMS = new Set(['vampire', 'assassin', 'apprentice-assassin']);
 const NIGHTFALL_ENDINGS: [string, string][] = [
   ['werewolf-caught', 'A werewolf was caught'],
   ['wolves-survived', 'The werewolves got away'],
   ['tanner', 'The Tanner died'],
   ['nobody-died', 'Nobody died'],
   ['hunter', 'The Hunter took someone along'],
+  ['heartbreak', 'A lover took another along'],
+  ['vampire-caught', 'A vampire was caught'],
+  ['vampires-survived', 'The vampires got away'],
   ['wrong-player', 'Only the innocent died'],
 ];
+/** What became of the Mark of the Vampire. */
+const VAMPIRE_MARK_FATES = ['kept', 'moved', 'cleansed'];
 
 function nightfallCounters(type: string, props: Props): Counters {
   const out: Counters = [];
@@ -106,6 +115,11 @@ function nightfallCounters(type: string, props: Props): Counters {
       out.push(['f.moves', num(props.moves) ?? 0], ['max.f.chain', num(props.chain) ?? 0]);
       for (const r of ids(props.movedRoles)) out.push([`f.moved.${r}`, 1]);
       for (const r of ids(props.setup)) out.push([`f.setup.${r}`, 1]);
+      if (props.epic === true) out.push(['f.epic', 1]);
+      const love = num(props.loveDeaths) ?? 0;
+      if (love > 0) out.push(['f.love_deaths', love], ['f.love_games', 1]);
+      const fate = id(props.vampireMark);
+      if (fate && VAMPIRE_MARK_FATES.includes(fate)) out.push([`f.vmark.${fate}`, 1]);
       break;
     }
     case 'player': {
@@ -166,9 +180,9 @@ function nightfallFigures(
       label: 'Games won, by team',
       kind: 'split',
       parts: [
-        ...NIGHTFALL_TEAMS.filter(([t]) => t !== 'vampire' || get('f.win.vampire') > 0).map(
-          ([t, label]) => ({ label, value: get(`f.win.${t}`) }),
-        ),
+        ...NIGHTFALL_TEAMS.filter(
+          ([t]) => !NIGHTFALL_LATER_TEAMS.has(t) || get(`f.win.${t}`) > 0,
+        ).map(([t, label]) => ({ label, value: get(`f.win.${t}`) })),
         { label: 'Nobody', value: get('f.win.nobody') },
       ],
     },
@@ -254,6 +268,37 @@ function nightfallFigures(
       label: 'Votes on a real werewolf',
       kind: 'percent',
       value: pct(get('f.votes_wolf'), get('f.votes')),
+    },
+    {
+      id: 'epic-battles',
+      label: 'Epic battles (werewolves and vampires at the same table)',
+      kind: 'number',
+      value: get('f.epic'),
+    },
+    {
+      id: 'vampire-mark-passed',
+      label: 'Mark of the Vampire passed on to someone else at night',
+      kind: 'percent',
+      value: pct(
+        get('f.vmark.moved'),
+        VAMPIRE_MARK_FATES.reduce((n, f) => n + get(`f.vmark.${f}`), 0),
+      ),
+    },
+    {
+      id: 'vampire-mark-fate',
+      label: 'What became of the Mark of the Vampire',
+      kind: 'split',
+      parts: [
+        { label: 'Stayed where the vampires put it', value: get('f.vmark.kept') },
+        { label: 'Moved by the Pickpocket or Gremlin', value: get('f.vmark.moved') },
+        { label: 'Wiped out (Priest or Renfield)', value: get('f.vmark.cleansed') },
+      ],
+    },
+    {
+      id: 'love-deaths',
+      label: 'Lovers who died of a broken heart',
+      kind: 'number',
+      value: get('f.love_deaths'),
     },
     {
       id: 'night-length',
