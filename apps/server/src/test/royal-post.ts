@@ -48,10 +48,19 @@ export const royalPostView = (c: TestClient) => c.latest()!.game as RoyalPostVie
 
 /** Has whoever's turn it is make `royalPostMove`; returns who moved and what they did. */
 export async function playRoyalPostTurn(clients: TestClient[], prefer?: Role[]) {
-  const mover = clients.find((c) => {
-    const v = royalPostView(c);
-    return v.round && v.round.stage !== 'over' && v.round.current === v.me?.id;
-  });
+  const findMover = () =>
+    clients.find((c) => {
+      const v = royalPostView(c);
+      return v.round && v.round.stage !== 'over' && v.round.current === v.me?.id;
+    });
+  // The turn can pass (or the round end) in a later update than the one the last move waited
+  // for, so give the clients a moment to catch up before deciding nobody can move.
+  let mover = findMover();
+  for (let i = 0; !mover && i < 100; i++) {
+    if (clients.some((c) => royalPostView(c).round?.stage === 'over')) return null;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    mover = findMover();
+  }
   if (!mover) throw new Error('nobody to move');
   const view = royalPostView(mover);
   const action = royalPostMove(view, prefer);

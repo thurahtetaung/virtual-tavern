@@ -26,6 +26,9 @@ const TYPES = {
   '.jpeg': 'image/jpeg',
   '.json': 'application/json',
   '.svg': 'image/svg+xml',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
 };
 const files = (dir) =>
   readdirSync(dir).flatMap((f) =>
