@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.11.0...v0.11.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **royal-post:** let players open set-aside and discarded cards full size ([#52](https://github.com/thurahtetaung/virtual-tavern/issues/52)) ([75ae6f2](https://github.com/thurahtetaung/virtual-tavern/commit/75ae6f253d15a68662b2e3bd9cf845be3bec9bcf))
+
 ## [0.11.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.10.0...v0.11.0) (2026-10-10)
 
 
