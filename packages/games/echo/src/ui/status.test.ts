@@ -64,18 +64,18 @@ describe('statusFor', () => {
     const word = secret(h);
     h.act({ type: 'guess', word });
     expect(status(h, 'p2').text).toBe(
-      `Got it! The word was “${word}”. Next guesser: P2. Waiting for the host to deal the next card…`,
+      `Got it! The word was “${word}”. Next guesser: P2. Anyone at the table can press Next card when everyone has had a look.`,
     );
-    // Guests are told who moves the game on.
+    // Watchers are told who moves the game on.
     const players = [{ id: HOST, name: 'Hana' }];
     expect(
-      statusFor(echo.view(h.state, 'p2'), false, null, { hostId: HOST, players }).text,
+      statusFor(echo.view(h.state, 'watcher'), false, null, { hostId: HOST, players }).text,
     ).toContain('Waiting for Hana (host) to deal the next card…');
     h.act({ type: 'next-card' });
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);
     expect(status(h, HOST).text).toMatch(/^Passed\./);
-    expect(status(h, 'p2').text).toContain('Waiting for the host to deal the next card');
+    expect(status(h, 'p2').text).toContain('Anyone at the table can press Next card');
     h.act({ type: 'next-card' });
     toGuess(h);
     h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
@@ -112,12 +112,15 @@ describe('statusFor with the room', () => {
     );
   });
 
-  it('tells everyone but the host who will move on after the reveal', () => {
+  it('tells players they can deal on, and watchers who will', () => {
     const h = startedGame(FOUR, { deckSize: 8 });
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);
     const other = FOUR.find((id) => id !== HOST && id !== turn(h).guesser)!;
     expect(statusFor(echo.view(h.state, other), false, null, people()).text).toMatch(
+      /Anyone at the table can press Next card when everyone has had a look\.$/,
+    );
+    expect(statusFor(echo.view(h.state, 'watcher'), false, null, people()).text).toMatch(
       /Waiting for HOST \(host\) to deal the next card…$/,
     );
   });

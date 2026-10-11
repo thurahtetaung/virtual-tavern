@@ -1,6 +1,6 @@
 import { GameError, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { canWriteNotes, decideWinner, enigma } from './game.ts';
+import { canWriteNotes, decideWinner, enigma, membersOf } from './game.ts';
 import {
   BLUE,
   HOST,
@@ -140,13 +140,13 @@ describe('encryptors and clues', () => {
     expect(give(['a', 'b', '٣'])).toBe('clue-is-number');
     expect(give(['Salty', 'b', 'salty '])).toBe('clues-not-distinct');
     expect(h.state.stage).toBe('clue');
-    // The other team's keywords are fair game, and a number with words around it is fine.
+    // The other team's keywords are fair game.
     const theirs = h.state.teams.blue.keywords[0]!;
-    h.act({ type: 'give-clues', clues: [theirs, '4 legs', ' c '] }, HOST);
-    expect(tx(h, 'red').clues).toEqual([theirs, '4 legs', 'c']);
+    h.act({ type: 'give-clues', clues: [theirs, 'legs', ' c '] }, HOST);
+    expect(tx(h, 'red').clues).toEqual([theirs, 'legs', 'c']);
   });
 
-  it('starts each rematch with the next Encryptor along, with chat and notes wiped', () => {
+  it('carries the Encryptor rotation into a rematch, with chat and notes wiped', () => {
     const h = startedGame();
     h.act({ type: 'chat', text: 'old news' }, 'r2');
     h.act({ type: 'add-note', text: 'last game' }, 'b2');
@@ -157,8 +157,9 @@ describe('encryptors and clues', () => {
     h.act({ type: 'next-round' });
     expect(h.state.phase).toBe('over');
     h.act({ type: 'start' });
-    expect(tx(h, 'red').encryptor).toBe('r2');
-    expect(tx(h, 'blue').encryptor).toBe('b2');
+    // Host and r2 encrypted last game, so r3 goes first; likewise b3.
+    expect(tx(h, 'red').encryptor).toBe('r3');
+    expect(tx(h, 'blue').encryptor).toBe('b3');
     expect(h.state.teams.red).toMatchObject({ chat: [], history: [], misses: 0 });
     expect(h.state.teams.blue.notes).toMatchObject({ items: [], guesses: ['', '', '', ''] });
     expect(h.state.seen).toEqual({
@@ -303,7 +304,7 @@ describe('reveal and tokens', () => {
     expect(h.state.teams.red).toMatchObject({ misses: 1, intercepts: 0 });
     expect(h.state.teams.red.history[0]).toMatchObject({
       round: 1,
-      clues: ['one', 'two', 'three'],
+      clues: ['alpha', 'bravo', 'charlie'],
       decoded: false,
     });
     h.act({ type: 'next-round' });
@@ -527,9 +528,9 @@ describe('timers', () => {
     expect(enigma.view(h.state, 'b2').transmissions.every((t) => t.guessTimedOut)).toBe(true);
   });
 
-  it('a team left without decoders expires without blaming the timer', () => {
+  it('a team left with nobody expires without blaming the timer', () => {
     const h = startedGame();
-    for (const id of decoders(h, 'red')) h.state = enigma.playerLeft(h.state, id, NOW);
+    for (const id of RED) h.state = enigma.playerLeft(h.state, id, NOW);
     expect(tx(h, 'red')).toMatchObject({ expired: true });
     expect(enigma.view(h.state, 'b1').transmissions[0]).toMatchObject({ timedOut: false });
   });
@@ -545,7 +546,7 @@ describe('what each player can see', () => {
     // r2 is Red's Encryptor this round, so r3 does the talking.
     h.act({ type: 'chat', text: 'I think 3 is space' }, 'r3');
     h.act({ type: 'set-note', slot: 2, text: 'Volcano?', base: '' }, 'r3');
-    h.act({ type: 'add-note', text: 'Blue clues are all Glimmerwick' }, 'r2');
+    h.act({ type: 'add-note', text: 'Blue clues are all Glimmerwick' }, 'r3');
     h.act({ type: 'set-guess', team: 'blue', draft: [4, 0, 0] }, 'r2');
     h.act({ type: 'set-guess', team: 'red', draft: [1, 2, 0] }, 'r3');
     return h;
@@ -622,9 +623,9 @@ describe('what each player can see', () => {
 describe('team chat and notes', () => {
   it('shares notes between teammates and caps note lengths', () => {
     const h = startedGame();
-    h.act({ type: 'add-note', text: 'Their 1 is probably food' }, BLUE[0]);
+    h.act({ type: 'add-note', text: 'Their 1 is probably food' }, BLUE[1]);
     expect(enigma.view(h.state, BLUE[2]!).notes?.items).toEqual([
-      { id: 'n1', by: BLUE[0], text: 'Their 1 is probably food', at: NOW },
+      { id: 'n1', by: BLUE[1], text: 'Their 1 is probably food', at: NOW },
     ]);
     expect(
       actionSchema.safeParse({ type: 'set-note', slot: 1, text: 'x'.repeat(41), base: '' }).success,
@@ -633,7 +634,7 @@ describe('team chat and notes', () => {
 
   it('lets any teammate remove any note, and nobody else', () => {
     const h = startedGame();
-    h.act({ type: 'add-note', text: 'one' }, 'b1');
+    h.act({ type: 'add-note', text: 'one' }, 'b3');
     h.act({ type: 'add-note', text: 'two' }, 'b2');
     // A Red player removing "n1" only touches Red's own (empty) list.
     h.act({ type: 'remove-note', id: 'n1' }, 'r2');
@@ -644,24 +645,24 @@ describe('team chat and notes', () => {
     h.act({ type: 'remove-note', id: 'n1' }, 'b2');
     expect(h.state.teams.blue.notes.items?.map((n) => n.text)).toEqual(['two']);
     // Ids are never reused.
-    h.act({ type: 'add-note', text: 'three' }, 'b1');
+    h.act({ type: 'add-note', text: 'three' }, 'b3');
     expect(h.state.teams.blue.notes.items?.map((n) => n.id)).toEqual(['n2', 'n3']);
   });
 
   it('keeps both of two notes added at nearly the same time', () => {
     const h = startedGame();
     // Both teammates send from the same starting state; actions run one after the other.
-    h.act({ type: 'add-note', text: 'from b1' }, 'b1', NOW);
+    h.act({ type: 'add-note', text: 'from b3' }, 'b3', NOW);
     h.act({ type: 'add-note', text: 'from b2' }, 'b2', NOW + 1);
     expect(enigma.view(h.state, 'b3').notes?.items.map((n) => [n.by, n.text])).toEqual([
-      ['b1', 'from b1'],
+      ['b3', 'from b3'],
       ['b2', 'from b2'],
     ]);
   });
 
   it('caps a team at MAX_NOTE_ITEMS notes and each note at 200 characters', () => {
     const h = startedGame();
-    for (let i = 0; i < MAX_NOTE_ITEMS; i++) h.act({ type: 'add-note', text: `note ${i}` }, 'b1');
+    for (let i = 0; i < MAX_NOTE_ITEMS; i++) h.act({ type: 'add-note', text: `note ${i}` }, 'b3');
     expect(h.reject({ type: 'add-note', text: 'one too many' }, 'b2')).toBe('notes-full');
     // The other team's list is separate.
     h.act({ type: 'add-note', text: 'red has room' }, 'r2');
@@ -675,24 +676,24 @@ describe('team chat and notes', () => {
 
   it('refuses a keyword guess made over a teammate’s newer one, and keeps theirs', () => {
     const h = startedGame();
-    // b1 and b2 both start editing guess 1 while it's empty; b2 saves first.
+    // b3 and b2 both start editing guess 1 while it's empty; b2 saves first.
     h.act({ type: 'set-note', slot: 1, text: 'Pizza', base: '' }, 'b2');
     const before = h.state;
     const result = enigma.reduce(
       h.state,
       { type: 'set-note', slot: 1, text: 'Lasagne', base: '' },
-      { by: 'b1', isHost: false, now: NOW, rng: createRng(1), content: content() },
+      { by: 'b3', isHost: false, now: NOW, rng: createRng(1), content: content() },
     );
     expect(result).toBeInstanceOf(GameError);
     expect(result).toMatchObject({ code: 'note-conflict', message: 'B2 just changed this' });
     expect(h.state).toBe(before);
     expect(h.state.teams.blue.notes.guesses[0]).toBe('Pizza');
     // Starting from the current value works, and so does clearing it.
-    h.act({ type: 'set-note', slot: 1, text: 'Lasagne', base: 'Pizza' }, 'b1');
+    h.act({ type: 'set-note', slot: 1, text: 'Lasagne', base: 'Pizza' }, 'b3');
     h.act({ type: 'set-note', slot: 1, text: '', base: 'Lasagne' }, 'b2');
     expect(h.state.teams.blue.notes.guesses).toEqual(['', '', '', '']);
     // Saving what's already there is not a conflict.
-    h.act({ type: 'set-note', slot: 2, text: 'Sea', base: '' }, 'b1');
+    h.act({ type: 'set-note', slot: 2, text: 'Sea', base: '' }, 'b3');
     h.act({ type: 'set-note', slot: 2, text: 'Sea', base: '' }, 'b2');
   });
 
@@ -713,16 +714,16 @@ describe('team chat and notes', () => {
       };
     };
     h.state = legacy(null);
-    expect(enigma.view(h.state, 'b1').notes).toEqual({
+    expect(enigma.view(h.state, 'b3').notes).toEqual({
       guesses: ['Pizza', '', '', ''],
       items: [{ id: LEGACY_NOTE_ID, by: '', text: 'old hunches', at: 0 }],
     });
     expect(enigma.view(h.state, 'r2').notes?.items).toEqual([]);
     h.state = legacy('b2');
-    expect(enigma.view(h.state, 'b1').notes?.items[0]?.by).toBe('b2');
+    expect(enigma.view(h.state, 'b3').notes?.items[0]?.by).toBe('b2');
 
     // The next change moves it into the list; nothing is lost.
-    h.act({ type: 'add-note', text: 'new hunch' }, 'b1');
+    h.act({ type: 'add-note', text: 'new hunch' }, 'b3');
     expect(h.state.teams.blue.notes).toMatchObject({ general: '', guesses: ['Pizza', '', '', ''] });
     expect(enigma.view(h.state, 'b3').notes?.items.map((n) => [n.id, n.text])).toEqual([
       [LEGACY_NOTE_ID, 'old hunches'],
@@ -730,12 +731,12 @@ describe('team chat and notes', () => {
     ]);
     h.act({ type: 'set-note', slot: 1, text: 'Pasta', base: 'Pizza' }, 'b3');
     h.act({ type: 'remove-note', id: LEGACY_NOTE_ID }, 'b3');
-    expect(enigma.view(h.state, 'b1').notes?.items.map((n) => n.text)).toEqual(['new hunch']);
+    expect(enigma.view(h.state, 'b3').notes?.items.map((n) => n.text)).toEqual(['new hunch']);
 
     // Removing it straight away works too, and an old room still plays on.
     h.state = legacy(null);
     h.act({ type: 'remove-note', id: LEGACY_NOTE_ID }, 'b2');
-    expect(enigma.view(h.state, 'b1').notes?.items).toEqual([]);
+    expect(enigma.view(h.state, 'b3').notes?.items).toEqual([]);
     playRound(h);
     h.act({ type: 'next-round' });
     expect(h.state.round).toBe(2);
@@ -748,20 +749,43 @@ describe('team chat and notes', () => {
     expect(h.reject({ type: 'set-note', slot: 1, text: 'x', base: '' }, 'spec')).toBe('no-team');
     expect(h.reject({ type: 'add-note', text: 'x' }, 'spec')).toBe('no-team');
     expect(h.reject({ type: 'remove-note', id: 'n1' }, 'spec')).toBe('no-team');
-    expect(canWriteNotes(h.state, 'b1')).toBe(true);
+    // b1 is Blue's Encryptor this round, so only b2 may write notes.
+    expect(canWriteNotes(h.state, 'b2')).toBe(true);
+    expect(canWriteNotes(h.state, 'b1')).toBe(false);
   });
 
-  it('keeps the Encryptor out of chat while their team decodes, but not out of the notes', () => {
+  it('mutes the Encryptor in chat and notes from the deal until their team decodes', () => {
     const h = startedGame();
-    h.act({ type: 'chat', text: 'writing now' }, HOST);
+    // The code is dealt: no chat or notes while writing clues…
+    expect(h.reject({ type: 'chat', text: 'psst: the code is 4-3-1' }, HOST)).toBe(
+      'encryptor-silent',
+    );
+    expect(h.reject({ type: 'add-note', text: '4-3-1' }, HOST)).toBe('notes-muted');
+    expect(canWriteNotes(h.state, HOST)).toBe(false);
     sendClues(h, 'red');
     sendClues(h, 'blue');
+    // …nor while the team decodes.
     expect(h.reject({ type: 'chat', text: 'psst, 3-1-4' }, HOST)).toBe('encryptor-silent');
+    expect(h.reject({ type: 'set-note', slot: 2, text: 'sea', base: '' }, HOST)).toBe(
+      'notes-muted',
+    );
+    h.act({ type: 'add-note', text: 'Blue 2 = sea?' }, 'r2');
+    expect(h.reject({ type: 'remove-note', id: 'n1' }, HOST)).toBe('notes-muted');
     h.act({ type: 'chat', text: 'is clue 1 about food?' }, 'r2');
-    h.act({ type: 'add-note', text: 'Blue 2 = sea?' }, HOST);
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
     h.act({ type: 'chat', text: 'nice one' }, HOST);
-    expect(h.state.teams.red.chat.map((m) => m.by)).toEqual([HOST, 'r2', HOST]);
+    h.act({ type: 'set-note', slot: 2, text: 'sea', base: '' }, HOST);
+    h.act({ type: 'remove-note', id: 'n1' }, HOST);
+    expect(h.state.teams.red.chat.map((m) => m.by)).toEqual(['r2', HOST]);
+  });
+
+  it('mutes the second Encryptor in alternating flow only once their code is dealt', () => {
+    const h = startedGame({ flow: 'alternating' });
+    h.act({ type: 'chat', text: 'go red' }, 'b1');
+    sendClues(h, 'red');
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    h.act({ type: 'next-round' });
+    expect(h.reject({ type: 'chat', text: 'hm' }, 'b1')).toBe('encryptor-silent');
   });
 
   it('keeps only the latest messages', () => {
@@ -802,19 +826,31 @@ describe('players leaving', () => {
     expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
   });
 
-  it('fails the turn of a team left with only its Encryptor, now and in later rounds', () => {
+  it('keeps the clue stage open for a team down to its Encryptor, so a rejoiner can decode', () => {
     const h = startedGame();
     h.state = enigma.playerLeft(h.state, 'r3', NOW);
-    expect(tx(h, 'red').expired).toBe(false);
     h.state = enigma.playerLeft(h.state, 'r2', NOW);
-    expect(tx(h, 'red')).toMatchObject({ encryptor: HOST, expired: true });
-    expect(h.reject({ type: 'give-clues', clues: ['a', 'b', 'c'] }, HOST)).toBe('wrong-stage');
+    expect(tx(h, 'red')).toMatchObject({ encryptor: HOST, expired: false });
+    // r2 comes back before the clues go out and decodes as usual.
+    h.state = enigma.playerJoined(h.state, { id: 'r2', name: 'R2' });
+    h.act({ type: 'join-team', team: 'red' }, 'r2');
+    sendClues(h, 'red');
     sendClues(h, 'blue');
+    expect(tx(h, 'red').decodeVoters).toEqual(['r2']);
+    vote(h, 'red', ['r2'], tx(h, 'red').code);
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    expect(h.state).toMatchObject({ stage: 'reveal', teams: { red: { misses: 0 } } });
+  });
+
+  it('counts clues nobody could decode as a miscommunication', () => {
+    const h = startedGame();
+    h.state = enigma.playerLeft(h.state, 'r3', NOW);
+    h.state = enigma.playerLeft(h.state, 'r2', NOW);
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    expect(enigma.view(h.state, 'b2').transmissions[0]).toMatchObject({ noDecoders: true });
     vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
     expect(h.state).toMatchObject({ stage: 'reveal', teams: { red: { misses: 1 } } });
-    h.act({ type: 'next-round' });
-    expect(tx(h, 'red')).toMatchObject({ encryptor: HOST, expired: true });
-    expect(h.state.stage).toBe('clue');
   });
 });
 
@@ -847,5 +883,89 @@ describe('actionSchema', () => {
     { type: 'update-settings', flow: 'sideways' },
   ])('rejects %j', (action) => {
     expect(actionSchema.safeParse(action).success).toBe(false);
+  });
+});
+
+describe('round 2 rule fixes', () => {
+  it('checks clues against accents, plurals, whole words and numbers', () => {
+    const h = harness(
+      undefined,
+      content(['Café', 'moon', 'shell', 'night', 'apple', 'river', 'tiger', 'bread']),
+      1,
+    );
+    h.state = { ...h.state, startingTeam: 'red' };
+    for (const id of RED) h.act({ type: 'join-team', team: 'red' }, id);
+    for (const id of BLUE) h.act({ type: 'join-team', team: 'blue' }, id);
+    h.act({ type: 'start' });
+    const keywords = h.state.teams.red.keywords;
+    const enc = tx(h, 'red').encryptor;
+    const give = (clue: string) =>
+      h.reject({ type: 'give-clues', clues: [clue, 'zebra', 'yonder'] }, enc);
+    for (const k of keywords) {
+      expect(give(`${k}s`), `${k}s`).toBe('clue-is-keyword');
+      expect(give(`the ${k}`), `the ${k}`).toBe('clue-is-keyword');
+    }
+    if (keywords.includes('Café')) expect(give('Cafe')).toBe('clue-is-keyword');
+    for (const clue of ['three', 'Four', '#3', '3rd', 'III', 'iv']) {
+      expect(give(clue), clue).toBe('clue-is-number');
+    }
+  });
+
+  it('rotates fairly when players leave and rejoin', () => {
+    const h = startedGame();
+    const seen: string[] = [];
+    const live = (team: Team) => membersOf(h.state, team);
+    const round = () => {
+      seen.push(tx(h, 'red').encryptor);
+      sendClues(h, 'red');
+      sendClues(h, 'blue');
+      for (const team of ['red', 'blue'] as const) {
+        const code = tx(h, team).code;
+        vote(
+          h,
+          team,
+          live(team).filter((id) => id !== tx(h, team).encryptor),
+          code,
+        );
+        if (h.state.round >= 2)
+          vote(h, team, live(team === 'red' ? 'blue' : 'red'), wrongCode(code));
+      }
+      h.act({ type: 'next-round' });
+    };
+    round(); // host
+    // Round 2 is r2's, but r2 drops out before writing clues and comes straight back.
+    expect(tx(h, 'red').encryptor).toBe('r2');
+    h.state = enigma.playerLeft(h.state, 'r2', NOW);
+    h.state = enigma.playerJoined(h.state, { id: 'r2', name: 'R2' });
+    h.act({ type: 'join-team', team: 'red' }, 'r2');
+    round(); // r3 stepped in
+    round(); // r2 has encrypted least, so the rejoiner goes next
+    round(); // everyone has gone once: back to the host
+    expect(seen).toEqual([HOST, 'r3', 'r2', HOST]);
+    // Round 5 went to r3 (seat order breaks the tie), so r2 is up after that.
+    expect(tx(h, 'red').encryptor).toBe('r3');
+    expect(enigma.view(h.state, 'r2').teams.red.nextEncryptor).toBe('r2');
+  });
+
+  it('replaces an Encryptor who leaves with the teammate who has encrypted least', () => {
+    const h = startedGame();
+    playRound(h);
+    h.act({ type: 'next-round' });
+    expect(tx(h, 'red').encryptor).toBe('r2');
+    h.state = enigma.playerLeft(h.state, 'r2', NOW);
+    expect(tx(h, 'red').encryptor).toBe('r3');
+  });
+
+  it('lets the host skip an offline voter', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    const [a, b] = decoders(h, 'red');
+    vote(h, 'red', [a!], tx(h, 'red').code);
+    expect(enigma.view(h.state, HOST).transmissions[0]!.waitingOn).toContain(b);
+    expect(h.reject({ type: 'skip-voter', team: 'red', player: b! }, a)).toBe('not-host');
+    h.act({ type: 'skip-voter', team: 'red', player: b! });
+    expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
+    expect(h.reject({ type: 'skip-voter', team: 'red', player: b! })).toBe('not-voting');
   });
 });

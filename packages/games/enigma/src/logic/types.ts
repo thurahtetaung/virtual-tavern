@@ -108,7 +108,7 @@ export interface TeamState {
   history: HistoryEntry[];
   chat: ChatMessage[];
   notes: TeamNotes;
-  /** Rounds this team has played, used to rotate the Encryptor. */
+  /** Rounds this team has played (kept for older saves; the rotation uses `encryptions`). */
   encryptorTurn: number;
 }
 
@@ -165,6 +165,12 @@ export interface EnigmaState {
   deadline: number | null;
   winner: Team | 'draw' | null;
   gamesPlayed: number;
+  /**
+   * How many times each player has been the Encryptor, across games, so the next one is whoever
+   * has encrypted least (ties by seat order) even after people leave, rejoin or a rematch starts.
+   * Optional because older saved rooms lack it.
+   */
+  encryptions?: Record<PlayerId, number>;
 }
 
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
@@ -218,6 +224,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('remove-note'), id: z.string().min(1).max(20) }),
   z.object({ type: z.literal('next-round') }),
+  /** Host: stop waiting for `player`'s vote on `team`'s transmission (an offline player, say). */
+  z.object({ type: z.literal('skip-voter'), team, player: z.string().min(1).max(100) }),
 ]);
 
 export type EnigmaAction = z.infer<typeof actionSchema>;
@@ -248,6 +256,10 @@ export interface TransmissionView {
   voters: PlayerId[];
   /** Everyone on the viewer's side locked in, but not on the same code. */
   disagree: boolean;
+  /** While guessing: everyone, on either side, who still has to lock in (the host may skip them). */
+  waitingOn: PlayerId[];
+  /** Nobody on the sending team could decode (it was down to its Encryptor). */
+  noDecoders: boolean;
   /** The viewer's side has already agreed. */
   settled: boolean;
   /** After the reveal: what each side guessed and how it went. */
@@ -261,6 +273,8 @@ export interface TeamView {
   misses: number;
   history: HistoryEntry[];
   members: PlayerId[];
+  /** Who encrypts for this team next round (whoever has encrypted least, then seat order). */
+  nextEncryptor: PlayerId | null;
 }
 
 export interface EnigmaView {
@@ -274,6 +288,8 @@ export interface EnigmaView {
   startingTeam: Team;
   teams: Record<Team, TeamView>;
   transmissions: TransmissionView[];
+  /** Mid-game, the team whose keywords the viewer has seen: the only one they may rejoin. */
+  lockedTo: Team | null;
   /** Own team's private chat; empty for spectators. */
   chat: ChatMessage[];
   /** Own team's shared notes about the opponent; null for spectators. */

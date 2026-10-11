@@ -184,7 +184,10 @@ describe('a card', () => {
   it.each([
     ['case and plurals', ['Cat', 'cats', 'dog']],
     ['accents', ['Café', 'cafe', 'dog']],
-    ['stems', ['running', 'runner', 'dog']],
+    ['verb endings', ['running', 'run', 'dog']],
+    ['spellings', ['colour', 'color', 'dog']],
+    ['irregular plurals', ['mice', 'mouse', 'dog']],
+    ['hyphens', ['ice-cream', 'icecream', 'dog']],
     ['possessives', ["Bird's", 'birds', 'dog']],
   ])('cancels matching clues across %s', (_label, clues) => {
     const h = startedGame();
@@ -230,14 +233,19 @@ describe('a card', () => {
     expect(h.state.score).toBe(1);
   });
 
-  it('next card: host only, rotates the guesser', () => {
+  it('next card: anyone at the table deals, and it rotates the guesser', () => {
     const h = startedGame();
     expect(h.reject({ type: 'next-card' })).toBe('wrong-stage');
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);
-    expect(h.reject({ type: 'next-card' }, 'p2')).toBe('not-host');
-    h.act({ type: 'next-card' });
+    expect(h.reject({ type: 'next-card' }, 'stranger')).toBe('not-at-table');
+    const { cardsLeft } = h.state;
+    h.act({ type: 'next-card', cardsLeft }, 'p3');
     expect(turn(h)).toMatchObject({ guesser: 'p2', stage: 'pick', pick: null, clues: {} });
+    expect(h.state.deck).toHaveLength(6);
+    // A second tap from someone else who saw the same reveal does nothing.
+    h.act({ type: 'next-card', cardsLeft }, 'p2');
+    expect(turn(h)).toMatchObject({ guesser: 'p2', stage: 'pick' });
     expect(h.state.deck).toHaveLength(6);
   });
 
@@ -728,10 +736,106 @@ describe('guessMatches', () => {
     ['spiderman', 'Spider-Man', true],
     ['ice cream', 'Ice-cream', true],
     ['cats', 'cat', true],
+    ['mice', 'MOUSE', true],
+    ['color', 'COLOUR', true],
+    ['MONSTERSINC', 'Monsters Inc', true],
+    ['numb', 'NUMBER', false],
+    ['corn', 'CORNER', false],
+    ['monsters', 'Monsters Inc', false],
+    ['hat', 'hate', false],
     ['cot', 'cat', false],
     ['dog', 'elephant', false],
     ['elephantine', 'elephant', false],
   ])('%s for %s: %s', (guess, answer, right) => {
     expect(guessMatches(guess, answer)).toBe(right);
+  });
+});
+
+describe('word matching in play', () => {
+  /** A started game whose guesser has picked `word`. */
+  function onCard(word: string) {
+    const h = startedGame();
+    h.state = { ...h.state, turn: { ...turn(h), card: [word, ...turn(h).card.slice(1)] } };
+    h.act({ type: 'pick', index: 0 });
+    return h;
+  }
+  /** The refusal code for `text` as a clue for `word`, or null if it is accepted. */
+  const refused = (word: string, text: string) => {
+    const h = onCard(word);
+    try {
+      return h.reject({ type: 'give-clues', clues: [text] }, 'p2');
+    } catch {
+      return null;
+    }
+  };
+  const guessed = (word: string, guess: string) => {
+    const h = onCard(word);
+    givers(h).forEach((g, i) => h.act({ type: 'give-clues', clues: [`clue${'x'.repeat(i)}`] }, g));
+    h.act({ type: 'guess', word: guess });
+    return turn(h).stage === 'reveal' ? turn(h).outcome : turn(h).stage;
+  };
+
+  it('scores only a strict match (or a typo) as right, and anything else as wrong', () => {
+    expect(guessed('NUMBER', 'numb')).toBe('wrong');
+    expect(guessed('CORNER', 'corn')).toBe('wrong');
+    expect(guessed('BOXER', 'box')).toBe('wrong');
+    expect(guessed('Spider-Man', 'spiderman')).toBe('right');
+    expect(guessed('MONSTERS INC', 'MONSTERSINC')).toBe('right');
+    expect(guessed('MONSTERS INC', 'monsters')).toBe('wrong');
+    expect(guessed('MOUSE', 'mice')).toBe('right');
+    expect(guessed('COLOUR', 'color')).toBe('right');
+  });
+
+  it('allows words that only hide the word inside them', () => {
+    expect(refused('CAT', 'scatter')).toBeNull();
+    expect(refused('ICE', 'police')).toBeNull();
+    expect(refused('ONE', 'phone')).toBeNull();
+    expect(refused('ART', 'party')).toBeNull();
+  });
+
+  it('refuses forms of the word both ways, and parts of a multi-word answer', () => {
+    expect(refused('SUN', 'sunflower')).toBe('is-the-word');
+    expect(refused('SUNFLOWER', 'sun')).toBe('is-the-word');
+    expect(refused('MOUSE', 'mice')).toBe('is-the-word');
+    expect(refused('COLOUR', 'color')).toBe('is-the-word');
+    for (const text of ['Monsters', 'Inc', 'MonstersInc', 'Monsters-Inc']) {
+      expect(refused('MONSTERS INC', text), text).toBe('is-the-word');
+    }
+  });
+
+  it('does not cancel words that merely start alike', () => {
+    const h = onCard('COLOUR');
+    const [a, b, c] = givers(h);
+    h.act({ type: 'give-clues', clues: ['corn'] }, a);
+    h.act({ type: 'give-clues', clues: ['corner'] }, b);
+    h.act({ type: 'give-clues', clues: ['numb'] }, c);
+    expect(turn(h).cancelled).toEqual({});
+  });
+
+  it('tells the guesser when no clues arrived rather than that all were cancelled', () => {
+    const h = startedGame(FOUR, { clueSeconds: 30, timerMode: 'strict' });
+    h.act({ type: 'pick', index: 0 });
+    h.state = echo.onDeadline!(h.state, echo.nextDeadline!(h.state)!);
+    const v = echo.view(h.state, HOST).turn!;
+    expect(v).toMatchObject({ stage: 'guess', clues: [], cancelledCount: 0 });
+  });
+
+  it('tells everyone how many words the answer has', () => {
+    const h = onCard('MONSTERS INC');
+    expect(echo.view(h.state, HOST).turn!.wordCount).toBe(2);
+  });
+});
+
+describe('skipping late clue writers', () => {
+  it('lets the host go on without writers who have not sent a clue', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    const [a, b, c] = givers(h);
+    h.act({ type: 'give-clues', clues: ['alpha'] }, a);
+    expect(h.reject({ type: 'skip-late-clues' }, b)).toBe('not-host');
+    h.act({ type: 'skip-late-clues' });
+    expect(turn(h)).toMatchObject({ stage: 'guess', missed: [b, c], skipped: true });
+    expect(echo.view(h.state, HOST).turn!.clues.map((x) => x.text)).toEqual(['alpha']);
+    expect(h.reject({ type: 'skip-late-clues' })).toBe('wrong-stage');
   });
 });

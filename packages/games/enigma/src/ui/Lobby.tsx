@@ -79,7 +79,9 @@ export function TeamsPicker({
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {(['red', 'blue'] as Team[]).map((team) => {
           const members = view.seats.filter((s) => s.team === team);
-          const canJoin = myTeam !== team && (!playing || myTeam === null);
+          // Mid-game, someone who has seen a team's keywords may only rejoin that team.
+          const canJoin =
+            myTeam !== team && (!playing || (myTeam === null && (view.lockedTo ?? team) === team));
           return (
             <section
               key={team}
@@ -104,7 +106,7 @@ export function TeamsPicker({
                   className="mt-3"
                   onClick={() => void act({ type: 'join-team', team })}
                 >
-                  Join {TEAM_LABEL[team]}
+                  {playing && view.lockedTo === team ? 'Rejoin' : 'Join'} {TEAM_LABEL[team]}
                 </Button>
               )}
             </section>

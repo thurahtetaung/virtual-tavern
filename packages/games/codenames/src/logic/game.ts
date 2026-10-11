@@ -6,6 +6,7 @@ import {
   GameError,
   type PlayerId,
   type PlayerInfo,
+  normaliseWord,
 } from '@vt/game-sdk';
 import {
   ASSASSINS,
@@ -31,6 +32,7 @@ type Ctx = ActionCtx;
 type Result = CodenamesState | GameError;
 
 const CLUE_PATTERN = /^[\p{L}\p{N}'’-]+$/u;
+const HAS_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 const NUMBER_PATTERN = /^\p{N}+$/u;
 
 export { wordPool };
@@ -62,6 +64,16 @@ function hasRole(state: CodenamesState, team: Team, role: Seat['role']): boolean
 /** A team needs a spymaster to give a clue and an operative to guess. */
 function canPlay(state: CodenamesState, team: Team): boolean {
   return hasRole(state, team, 'spymaster') && hasRole(state, team, 'operative');
+}
+
+/**
+ * Can the current turn go on? Before the clue the team needs both roles; once the clue is out
+ * the Spymaster has nothing left to do, so only an Operative is needed.
+ */
+function canFinishTurn(state: CodenamesState, turn: Turn): boolean {
+  return turn.stage === 'guess'
+    ? hasRole(state, turn.team, 'operative')
+    : canPlay(state, turn.team);
 }
 
 function endTurn(state: CodenamesState, reason: EndTurnReason, now: number): CodenamesState {
@@ -177,6 +189,16 @@ function seatLock(state: CodenamesState, by: PlayerId, seat: Seat, team: Team | 
     if (held !== undefined || team !== seat.team) {
       return new GameError('team-locked', 'Seats are locked during a game.');
     }
+    // The team's only Operative moving to Spymaster would leave nobody to guess.
+    const operatives = Object.values(state.seats).filter(
+      (s) => s.team === team && s.role === 'operative',
+    );
+    if (seat.role === 'operative' && role === 'spymaster' && operatives.length <= 1) {
+      return new GameError(
+        'last-operative',
+        "You're your team's only Operative, so nobody would be left to guess. Someone else needs to take the Spymaster seat.",
+      );
+    }
     return null;
   }
   if (held !== undefined && (team !== held || role !== 'spymaster')) {
@@ -241,8 +263,10 @@ function randomizeTeams(state: CodenamesState, ctx: Ctx): Result {
     assigned.set(id, { team, role: 'spymaster' });
     size[team] += 1;
   }
+  // The starting team already has the first move and an extra agent, so with an odd number of
+  // players the other team gets the extra player.
   for (const id of order) {
-    const team = size[teams[1]!] < size[teams[0]!] ? teams[1]! : teams[0]!;
+    const team = size[teams[0]!] < size[teams[1]!] ? teams[0]! : teams[1]!;
     assigned.set(id, { team, role: 'operative' });
     size[team] += 1;
   }
@@ -335,16 +359,26 @@ function giveClue(
     return new GameError('not-your-turn', "Only the current team's spymaster can give a clue.");
   }
   const word = action.word.trim();
-  if (!CLUE_PATTERN.test(word)) return new GameError('bad-clue', 'A clue must be a single word.');
+  if (!CLUE_PATTERN.test(word) || !HAS_LETTER_OR_DIGIT.test(word)) {
+    return new GameError('bad-clue', 'A clue must be a single word.');
+  }
   if (NUMBER_PATTERN.test(word)) {
     return new GameError('clue-is-number', 'A clue cannot be just a number.');
   }
-  const lower = word.toLocaleLowerCase('en');
-  if (state.board.some((c) => !c.revealed && c.word.toLocaleLowerCase('en') === lower)) {
-    return new GameError('bad-clue', 'The clue cannot be a word on the board.');
+  // The whole clue, and each part of a hyphen- or apostrophe-joined one, against the face-down words.
+  const parts = new Set([word, ...word.split(/['’-]+/)].map(normaliseWord).filter(Boolean));
+  const onBoard = state.board.find((c) => !c.revealed && parts.has(normaliseWord(c.word)));
+  if (onBoard) {
+    return new GameError(
+      'bad-clue',
+      normaliseWord(onBoard.word) === normaliseWord(word)
+        ? 'The clue cannot be a word on the board.'
+        : `The clue cannot contain ${onBoard.word.toUpperCase()}, a word on the board.`,
+    );
   }
+  const count = action.count;
   const left = remainingAgents(state.board, turn.team);
-  if (action.count > left) {
+  if (count > left) {
     return new GameError(
       'count-too-high',
       `Your team only has ${left} agent${left === 1 ? '' : 's'} left to find.`,
@@ -355,11 +389,21 @@ function giveClue(
     turn: {
       ...turn,
       stage: 'guess',
-      clue: { word, count: action.count },
+      clue: { word, count },
       guessesMade: 0,
       deadline: deadline(state.settings.guessSeconds, ctx.now),
     },
-    log: [...state.log, { type: 'clue', team: turn.team, by: ctx.by, word, count: action.count }],
+    log: [
+      ...state.log,
+      {
+        type: 'clue',
+        team: turn.team,
+        by: ctx.by,
+        name: seat.name,
+        word,
+        count,
+      },
+    ],
   };
 }
 
@@ -377,7 +421,22 @@ function toggleSuggestion(state: CodenamesState, index: number, ctx: Ctx): Resul
   return { ...state, suggestions };
 }
 
-function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
+/** A guess sent before the sender saw another guess end the turn (or the game). */
+function tooLate(state: CodenamesState, seen: number | undefined, by: PlayerId): GameError | null {
+  if (seen === undefined || seen >= state.log.length) return null;
+  const since = state.log.slice(seen);
+  if (!since.some((e) => e.type === 'end-turn' || e.type === 'game-over')) return null;
+  const last = since.findLast((e) => e.type === 'guess');
+  if (!last || last.type !== 'guess') return null;
+  const who =
+    last.by === by ? 'Your last' : `${state.seats[last.by]?.name ?? last.name ?? 'Someone'}’s`;
+  const what = since.some((e) => e.type === 'game-over') ? 'the game' : 'your turn';
+  return new GameError('too-late', `Too late: ${who} guess ended ${what}.`);
+}
+
+function guess(state: CodenamesState, index: number, seen: number | undefined, ctx: Ctx): Result {
+  const late = tooLate(state, seen, ctx.by);
+  if (late) return late;
   const turn = requireGuesser(state, ctx.by);
   if (turn instanceof GameError) return turn;
   const card = requireUnrevealed(state, index);
@@ -394,7 +453,14 @@ function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
     turn: { ...turn, guessesMade },
     log: [
       ...state.log,
-      { type: 'guess', team: turn.team, by: ctx.by, word: card.word, kind: card.kind },
+      {
+        type: 'guess',
+        team: turn.team,
+        by: ctx.by,
+        name: state.seats[ctx.by]?.name,
+        word: card.word,
+        kind: card.kind,
+      },
     ],
   };
 
@@ -412,13 +478,16 @@ function guess(state: CodenamesState, index: number, ctx: Ctx): Result {
 
 /**
  * Operatives may pass once they have guessed at least once. The host may end any turn at any
- * stage, which is logged as an override so a stuck turn (nobody left to act) can move on.
+ * stage, which is logged as an override so a stuck turn (nobody left to act) can move on, except
+ * their own team's guessing turn, where the normal rule applies to them too.
  */
 function endTurnAction(state: CodenamesState, ctx: Ctx): Result {
   const turn = requireGuesser(state, ctx.by);
   if (!(turn instanceof GameError) && turn.guessesMade > 0)
     return endTurn(state, 'passed', ctx.now);
-  if (ctx.isHost && state.phase === 'playing' && state.turn) return endTurn(state, 'host', ctx.now);
+  if (ctx.isHost && turn instanceof GameError && state.phase === 'playing' && state.turn) {
+    return endTurn(state, 'host', ctx.now);
+  }
   if (turn instanceof GameError) return turn;
   return new GameError('must-guess', 'Guess at least once before ending your turn.');
 }
@@ -440,7 +509,7 @@ function reduce(state: CodenamesState, action: CodenamesAction, ctx: Ctx): Resul
     case 'toggle-suggestion':
       return toggleSuggestion(state, action.card, ctx);
     case 'guess':
-      return guess(state, action.card, ctx);
+      return guess(state, action.card, action.seen, ctx);
     case 'end-turn':
       return endTurnAction(state, ctx);
   }
@@ -484,8 +553,9 @@ function playerLeft(state: CodenamesState, playerId: PlayerId, now: number): Cod
   const seats = { ...state.seats };
   delete seats[playerId];
   const next = { ...state, seats, suggestions: withoutMarksOf(state.suggestions, playerId) };
-  // Nobody left who can act for the current team: forfeit the turn rather than stall.
-  if (next.phase === 'playing' && next.turn && !canPlay(next, next.turn.team)) {
+  // Nobody left who can act for the current team: forfeit the turn rather than stall. A
+  // Spymaster leaving after the clue doesn't stop the Operatives guessing.
+  if (next.phase === 'playing' && next.turn && !canFinishTurn(next, next.turn)) {
     return endTurn(next, 'forfeit', now);
   }
   return next;

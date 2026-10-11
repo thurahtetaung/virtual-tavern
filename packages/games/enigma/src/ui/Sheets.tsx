@@ -1,3 +1,4 @@
+import { sameAnswer } from '@vt/game-sdk';
 import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView, NoteItem, Team } from '../logic/types.ts';
@@ -232,6 +233,8 @@ function ClueList({ clues }: { clues: { round: number; clue: string }[] }) {
 export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
   const keywords = view.teams[team].keywords ?? [];
   const columns = cluesByKeyword(view, team);
+  // At the end, the other team's keywords are shown beside what your team guessed they were.
+  const guesses = view.me?.team && view.me.team !== team ? (view.notes?.guesses ?? []) : [];
   return (
     <Panel className={cn('ring-1', TEAM_PANEL[team])}>
       <h3 className={cn('mb-2 font-bold', TEAM_TEXT[team])}>
@@ -244,6 +247,12 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
             <p className="text-base font-extrabold tracking-wide break-words uppercase sm:text-lg">
               {word}
             </p>
+            {guesses[i]?.trim() && (
+              <p className="text-xs text-stone-600 dark:text-stone-400">
+                You guessed <b className="uppercase">{guesses[i]}</b>{' '}
+                {sameAnswer(guesses[i], word) ? '✓' : '✗'}
+              </p>
+            )}
             <ClueList clues={columns[i]!} />
           </div>
         ))}

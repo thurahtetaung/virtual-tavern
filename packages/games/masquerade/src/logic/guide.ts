@@ -20,7 +20,7 @@ export function makeGuide(pack: string): GameGuide {
     ],
     setup: [
       'Everyone sits round a table or gets on a call: the questions are asked out loud.',
-      `The host picks the round length (4, 5 or 6 minutes), the number of rounds (one per player by default) and, with 7 or more players, whether to play with two spies. ${pack}`,
+      `The host picks the round length (4, 5 or 6 minutes), the number of rounds (as many as there are players by default) and, with 7 or more players, whether to play with two spies. ${pack}`,
       'Each round, everyone gets a card. The locals all see the same location. The spy sees “You’re the spy” and nothing else.',
     ],
     roles: [
@@ -39,7 +39,7 @@ export function makeGuide(pack: string): GameGuide {
       {
         title: 'Asking questions',
         bullets: [
-          'For the first minute the app names who starts. They ask anyone a question about the location, out loud.',
+          'For the first minute the app names who starts. They ask anyone a question about the location, out loud. Everyone starts one round before anyone starts a second, even as people come and go.',
           'That player answers, then asks someone else, but not the person who just asked them.',
           'The app doesn’t track the asking: just talk. Use the Ideas tab for questions to ask, and the Locations tab to cross places off.',
           'Nobody can accuse or guess during the round: the talking is the whole round.',
@@ -49,10 +49,10 @@ export function makeGuide(pack: string): GameGuide {
         title: 'The vote',
         bullets: [
           'When the clock runs out, or once everyone has tapped “Done talking? Ready to vote”, there is one secret vote. Tap it again to take it back.',
-          'Everyone votes for who they think the spy is, the spy too. Only how many have voted shows until the vote is complete; then everyone’s votes are shown together.',
-          'The vote lasts at most 45 seconds. Anyone who hasn’t voted by then abstains.',
+          'Everyone votes for who they think the spy is, the spy too. The spy’s vote counts like any other, so a spy can vote to force a tie at the top and escape. Only how many have voted shows until the vote is complete; then everyone’s votes are shown together.',
+          'The vote lasts at most 45 seconds. Anyone who hasn’t voted by then abstains, and only the votes cast count: if few vote, one vote can decide it.',
           'The spy is caught only if they alone have the most votes. A tie at the top, or anyone else on top, and the spy escapes. The result shows each player’s vote count.',
-          'With two spies, the top two are named. A tie for first between two players names both; a tie for second names only the leader; a three-way tie at the top names nobody. Each named spy is caught.',
+          'With two spies, the top two are named. A tie for first between two players names both; a tie for second names only the leader; a three-way tie at the top names nobody. Each named spy is caught. The result says who the vote named, and, while a caught spy guesses, whether the other spy is still hidden.',
         ],
       },
       {
@@ -60,24 +60,27 @@ export function makeGuide(pack: string): GameGuide {
         bullets: [
           'A caught spy, and only a caught spy, then picks the location from the board. They have 30 seconds; no pick counts as wrong.',
           'Right: the spy steals the round. Wrong: the locals win it.',
+          'If a caught spy leaves before guessing, it counts as a wrong guess.',
         ],
       },
       {
         title: 'Scoring',
         bullets: [
           'The spy escapes the vote: the spy scores 2.',
-          'The spy is caught, then names the location: the spy scores 2.',
+          'The spy is caught, then names the location: the spy scores 2, and nobody else scores for that spy, not even the locals who voted for them.',
           'The spy is caught and guesses wrong: every local scores 1, and locals who voted for that spy score 1 more.',
-          'With two spies, each spy is scored on their own.',
+          'With two spies, each spy is scored on their own: one can escape or steal while the locals still score for catching the other.',
+          'A location that has been played won’t come up again in the same game until every place has been played. The board marks played places.',
           'After the last round, the most points wins.',
         ],
       },
       {
         title: 'Coming and going',
         bullets: [
-          'If a spy leaves during a round, the round is void and dealt again.',
+          'If a spy leaves before the vote is over, the round is void and dealt again. Once the vote is over, the round finishes: a caught spy who leaves counts as a wrong guess.',
           'If anyone else leaves, the round carries on without them (votes for them are dropped).',
-          'Players who join during a game watch until the next round.',
+          'Players who join during a game watch until the next round. When all 12 seats are taken, newcomers watch and take a seat as soon as one frees up.',
+          'With two spies on, a round with fewer than 7 players gets one spy; the round says so.',
           'With fewer than 3 players, the game goes back to the lobby.',
         ],
       },

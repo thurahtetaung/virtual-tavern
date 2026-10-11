@@ -2,8 +2,8 @@ import {
   type ActOptions,
   type GameRoomInfo,
   waitingFor,
+  sameClue,
   waitingForHost,
-  wordKey,
 } from '@vt/game-sdk';
 import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
@@ -40,14 +40,23 @@ function SecretWord({ word, label = 'The word' }: { word: string; label?: string
 }
 
 /** "2 of 4 in · Waiting for: Ana, Ben (offline)": who the clues are waiting on, by name. */
-function Progress({ turn, room }: { turn: TurnView; room: GameRoomInfo }) {
+function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act: Act }) {
   const left = stillWriting(turn);
   const done = turn.givers.length - left.length;
   const names = waitingFor(left, room.players, { you: room.you });
+  // The host can stop waiting for a writer whose browser has gone away.
+  const offline = left.some((id) => room.players.find((p) => p.id === id)?.connected === false);
   return (
-    <p className="text-center text-sm text-stone-500">
-      {done} of {turn.givers.length} clues in{names && ` · ${names}`}
-    </p>
+    <div className="space-y-2 text-center">
+      <p className="text-sm text-stone-500">
+        {done} of {turn.givers.length} clues in{names && ` · ${names}`}
+      </p>
+      {room.isHost && offline && (
+        <Button variant="secondary" onClick={() => void act({ type: 'skip-late-clues' })}>
+          Go on without them
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -88,7 +97,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
     if (!c) return null;
     const own = clueProblem(c, word)?.message;
     if (own) return own;
-    const same = trimmed.findIndex((other, j) => j < i && other && wordKey(other) === wordKey(c));
+    const same = trimmed.findIndex((other, j) => j < i && other && sameClue(other, c));
     return same >= 0 ? 'Your two clues must be different words.' : null;
   });
   const sent = turn.myClues !== null;
@@ -196,8 +205,10 @@ function GuesserClues({ turn }: { turn: TurnView }) {
             </li>
           ))}
         </ul>
-      ) : (
+      ) : turn.cancelledCount > 0 ? (
         <p className="text-center font-semibold">Every clue was cancelled!</p>
+      ) : (
+        <p className="text-center font-semibold">No clues arrived in time.</p>
       )}
       {turn.cancelledCount > 0 && (
         <p className="text-center text-sm text-stone-500">
@@ -208,7 +219,7 @@ function GuesserClues({ turn }: { turn: TurnView }) {
   );
 }
 
-function GuessForm({ act }: { act: Act }) {
+function GuessForm({ act, wordCount }: { act: Act; wordCount: number | null }) {
   const [guess, setGuess] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e: FormEvent) => {
@@ -220,7 +231,12 @@ function GuessForm({ act }: { act: Act }) {
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-2">
       <label className="block">
-        <span className="text-sm font-semibold">Your guess</span>
+        <span className="text-sm font-semibold">
+          Your guess
+          {wordCount !== null && wordCount > 1 && (
+            <span className="font-normal text-stone-500"> ({wordCount} words)</span>
+          )}
+        </span>
         <input
           value={guess}
           maxLength={MAX_GUESS_LENGTH}
@@ -316,11 +332,17 @@ function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
       <ClueList view={view} clues={turn.clues} />
       {missed.length > 0 && (
         <p className="text-center text-sm text-stone-500">
-          ⏱ No clue from {listNames(missed)}: time ran out.
+          {turn.skipped
+            ? `No clue from ${listNames(missed)}: the host went on without it.`
+            : `⏱ No clue from ${listNames(missed)}: time ran out.`}
         </p>
       )}
-      {room.isHost && (
-        <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-card' })}>
+      {(room.isHost || view.me?.playing) && (
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={() => void act({ type: 'next-card', cardsLeft: view.cardsLeft })}
+        >
           {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
         </Button>
       )}
@@ -373,8 +395,9 @@ function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
       )}
       {giver && (
         <p className="text-center text-xs text-stone-500">
-          Count it only if the guess is really the word: a typo or a different spelling. Doesn't
-          count loses this card and the next.
+          Count it only if the guess is really the word: a typo or a different spelling. For an
+          answer of several words, only the whole answer counts (“Monsters” isn’t “Monsters Inc”).
+          Doesn't count loses this card and the next.
         </p>
       )}
       {guesser && canMoveOn && (
@@ -408,7 +431,7 @@ export function Stage({ view, act, room }: Props) {
         <div className="space-y-3">
           {turn.word && <SecretWord word={turn.word} />}
           {writer ? <ClueForm key={cardKey} turn={turn} act={act} /> : null}
-          <Progress turn={turn} room={room} />
+          <Progress turn={turn} room={room} act={act} />
         </div>
       );
     case 'guess':
@@ -416,7 +439,7 @@ export function Stage({ view, act, room }: Props) {
         return (
           <div className="space-y-4">
             <GuesserClues turn={turn} />
-            <GuessForm key={cardKey} act={act} />
+            <GuessForm key={cardKey} act={act} wordCount={turn.wordCount} />
           </div>
         );
       }

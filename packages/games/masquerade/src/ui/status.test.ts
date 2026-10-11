@@ -49,7 +49,7 @@ describe('status', () => {
       '🎯 The caught spy is guessing the location',
     );
     expect(statusFor(masquerade.view(h.state, 'ben'), false)).toEqual({
-      text: 'CY was caught as the spy and is guessing the location…',
+      text: 'The vote named CY. CY was caught as the spy and is guessing the location…',
       yourMove: false,
     });
   });
@@ -66,7 +66,7 @@ describe('status with the room', () => {
     allReady(h);
     votes(h, { host: 'cy', ana: 'cy', ben: 'cy', cy: 'ben' });
     expect(statusFor(masquerade.view(h.state, 'ben'), false, people(['cy'])).text).toBe(
-      'CY (offline) was caught as the spy and is guessing the location…',
+      'The vote named CY. CY (offline) was caught as the spy and is guessing the location…',
     );
     h.act({ type: 'spy-guess', location: 'gym' }, 'cy');
     expect(statusFor(masquerade.view(h.state, 'ben'), false, people()).text).toBe(
@@ -111,7 +111,7 @@ describe('the result', () => {
 
   it('explains the points for each outcome', () => {
     expect(pointsRule({ spyResults: [{ id: 'cy', outcome: 'escaped', guess: null }] })).toBe(
-      'A spy who escapes the vote, or names the location, scores 2.',
+      'A spy who escapes the vote, or is caught and names the location, scores 2; a steal also means the votes against that spy score nothing.',
     );
     expect(pointsRule({ spyResults: [{ id: 'cy', outcome: 'caught', guess: 'gym' }] })).toBe(
       'When a caught spy guesses wrong, every local scores 1, and 1 more for voting for that spy.',
@@ -131,7 +131,7 @@ describe('the result', () => {
     votes(h, { host: 'cy', ana: 'cy', ben: 'dee', cy: 'dee', dee: 'ben', eve: 'cy', fin: 'dee' });
     h.act({ type: 'spy-guess', location: 'bakery' }, 'cy');
     expect(statusFor(masquerade.view(h.state, 'cy'), false).text).toBe(
-      'You were caught and made your guess. DEE was caught as the spy and is guessing the location…',
+      'You were caught and made your guess. The vote named you and DEE. DEE was caught as the spy and is guessing the location…',
     );
   });
 });

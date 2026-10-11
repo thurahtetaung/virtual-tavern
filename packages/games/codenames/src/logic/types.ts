@@ -66,8 +66,16 @@ export type EndTurnReason =
 export type WinReason = 'all-agents' | 'assassin';
 
 export type LogEntry =
-  | { type: 'clue'; team: Team; by: PlayerId; word: string; count: ClueCount }
-  | { type: 'guess'; team: Team; by: PlayerId; word: string; kind: CardKind }
+  | {
+      type: 'clue';
+      team: Team;
+      by: PlayerId;
+      /** The player's name when they acted, so the log still names someone who left. */
+      name?: string;
+      word: string;
+      count: ClueCount;
+    }
+  | { type: 'guess'; team: Team; by: PlayerId; name?: string; word: string; kind: CardKind }
   | { type: 'end-turn'; team: Team; reason: EndTurnReason }
   | { type: 'game-over'; winner: Team; reason: WinReason };
 
@@ -133,6 +141,8 @@ export const actionSchema = z.discriminatedUnion('type', [
       .int()
       .min(0)
       .max(BOARD_SIZE - 1),
+    /** The log length the guesser saw, so a guess that raced a turn-ending one is "too late". */
+    seen: z.number().int().min(0).optional(),
   }),
   z.object({ type: z.literal('end-turn') }),
 ]);

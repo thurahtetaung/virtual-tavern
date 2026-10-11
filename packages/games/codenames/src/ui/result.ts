@@ -56,15 +56,14 @@ function skipped(view: CodenamesView, entry: { team: Team; reason: EndTurnReason
 export function latestResult(view: CodenamesView): GuessResult | null {
   const log = view.log;
   let i = log.length - 1;
-  let passed = false;
   while (i >= 0 && log[i]!.type !== 'guess') {
     const entry = log[i]!;
     if (entry.type === 'clue') return null;
-    if (entry.type === 'end-turn') {
-      if (entry.reason === 'timeout' || entry.reason === 'forfeit' || entry.reason === 'host') {
-        return skipped(view, entry);
-      }
-      if (entry.reason === 'passed') passed = true;
+    if (
+      entry.type === 'end-turn' &&
+      (entry.reason === 'timeout' || entry.reason === 'forfeit' || entry.reason === 'host')
+    ) {
+      return skipped(view, entry);
     }
     i--;
   }
@@ -73,8 +72,10 @@ export function latestResult(view: CodenamesView): GuessResult | null {
 
   const after = log.slice(i + 1);
   const over = after.find((e) => e.type === 'game-over');
-  const turnEnded = after.some((e) => e.type === 'end-turn');
-  const name = view.seats.find((s) => s.id === guess.by)?.name ?? 'Someone';
+  // Why the guessing team's turn ended after this guess, if it did.
+  const ended = after.find((e) => e.type === 'end-turn' && e.team === guess.team);
+  const reason = ended?.type === 'end-turn' ? ended.reason : null;
+  const name = view.seats.find((s) => s.id === guess.by)?.name ?? guess.name ?? 'Someone';
   const word = guess.word.toUpperCase();
   const card = view.board.findIndex((c) => c.word === guess.word);
   const team = TEAM_LABEL[guess.team];
@@ -93,10 +94,11 @@ export function latestResult(view: CodenamesView): GuessResult | null {
   if (guess.kind === guess.team) {
     let next: string;
     if (over?.type === 'game-over') next = `That was ${team}'s last agent. ${team} wins the game!`;
-    else if (passed) next = `${team} ended the turn. ${nextTurn(view, guess.team)}`;
-    else if (turnEnded)
+    else if (reason === 'out-of-guesses') {
       next = `That was the last guess for this clue. ${nextTurn(view, guess.team)}`;
-    else {
+    } else if (reason !== null) {
+      next = `${team} ended the turn. ${nextTurn(view, guess.team)}`;
+    } else {
       next = `${team} can guess ${guessesLeft(view)} more, or end the turn.`;
     }
     return { ...base, tone: 'correct', headline: `✓ Correct! It's ${describe(guess.kind)}.`, next };
@@ -120,6 +122,6 @@ export function latestResult(view: CodenamesView): GuessResult | null {
     next:
       over?.type === 'game-over'
         ? `That was ${beneficiary}'s last agent, so ${beneficiary} wins the game!`
-        : `That point goes to ${beneficiary}. ${turnTo}`,
+        : `That reveals one of ${beneficiary}'s agents for them. ${turnTo}`,
   };
 }

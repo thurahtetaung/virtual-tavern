@@ -7,7 +7,14 @@ export const HOST = 'host';
 export const RED = [HOST, 'r2', 'r3'];
 export const BLUE = ['b1', 'b2', 'b3'];
 
-export function content(words = Array.from({ length: 40 }, (_, i) => `word${i}`)): ContentProvider {
+/** Made-up keywords without digits, so they never trip the number check on clues. */
+const LETTERS = 'bcdfghjklmnpqrstvwxz';
+const WORDS = Array.from(
+  { length: 40 },
+  (_, i) => `k${LETTERS[i % 20]}${LETTERS[Math.floor(i / 20)]}u`,
+);
+
+export function content(words = WORDS): ContentProvider {
   return {
     wordLists: () => [{ id: 'default', name: 'Default', wordCount: words.length }],
     words: (ids) => (ids.includes('default') ? words : []),
@@ -75,7 +82,11 @@ export const members = (team: Team) => (team === 'red' ? RED : BLUE);
 
 /** The active Encryptor for `team` sends three clues. */
 export function sendClues(h: Harness, team: Team, now = NOW) {
-  return h.act({ type: 'give-clues', clues: ['one', 'two', 'three'] }, tx(h, team).encryptor, now);
+  return h.act(
+    { type: 'give-clues', clues: ['alpha', 'bravo', 'charlie'] },
+    tx(h, team).encryptor,
+    now,
+  );
 }
 
 /** Every listed player picks `code` and locks it in for the transmission sent by `team`. */

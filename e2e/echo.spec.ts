@@ -80,7 +80,9 @@ test('four players play Echo: a hit with cancelled clues, a pass and a miss deci
   await expect(cy.getByText('Ana · same as Ben’s')).toBeVisible();
   await expect(host.getByRole('img', { name: 'Score 1' })).toBeVisible();
   await expect(host).toHaveTitle(YOUR_TURN); // the host moves the game on
-  await expect(ana.getByText('Waiting for Hana (host) to deal the next card…')).toBeVisible();
+  // Anyone at the table can deal on, not just the host.
+  await expect(ana.getByText('Anyone at the table can press Next card')).toBeVisible();
+  await expect(ana.getByRole('button', { name: 'Next card' })).toBeVisible();
   await host.getByRole('button', { name: 'Next card' }).click();
 
   // Card 2: Ana guesses, and passes.

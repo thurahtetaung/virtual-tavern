@@ -38,9 +38,18 @@ export function winReason(tallies: Tallies, round: number): string | null {
       : `${LABEL[loser]} had ${TOKENS_TO_END} miscommunications.`;
   }
   const scores = `Red ${signed(score(tallies, 'red'))}, Blue ${signed(score(tallies, 'blue'))}`;
+  // Both ends can come from one team: it intercepts twice and miscommunicates twice in one round.
+  const events = (['red', 'blue'] as const).flatMap((t) => [
+    ...(tallies[t].intercepts >= TOKENS_TO_END
+      ? [`${LABEL[t]} intercepted ${TOKENS_TO_END} codes`]
+      : []),
+    ...(tallies[t].misses >= TOKENS_TO_END
+      ? [`${LABEL[t]} had ${TOKENS_TO_END} miscommunications`]
+      : []),
+  ]);
   const why =
     qualifies(tallies, 'red') && qualifies(tallies, 'blue')
-      ? 'Both teams reached 2 tokens at once'
+      ? `${events.join(' and ')} at the same time`
       : `After round ${MAX_ROUNDS} nobody had reached 2 tokens`;
   return winner === 'draw'
     ? `${why}, and the scores (interceptions minus miscommunications) are level: ${scores}.`

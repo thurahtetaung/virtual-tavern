@@ -8,6 +8,12 @@ export function guessesLeft(view: CodenamesView): number {
   return Math.max(0, count + 1 - (view.turn?.guessesMade ?? 0));
 }
 
+/** "2 guesses left". */
+export function guessesLeftText(view: CodenamesView): string {
+  const left = guessesLeft(view);
+  return `${left} guess${left === 1 ? '' : 'es'} left`;
+}
+
 /** Why the game can't start yet, or null if it can. */
 export function startBlocker(view: CodenamesView, wordCount: number): string | null {
   for (const team of ['red', 'blue'] as const) {
@@ -34,7 +40,10 @@ export function canTakeSpymaster(view: CodenamesView, team: Team): boolean {
   if (!me || view.seats.some((s) => s.team === team && s.role === 'spymaster')) return false;
   if (view.phase !== 'playing') return true;
   const keyHeld = view.keyHolders[me.id];
-  return me.team === null ? (keyHeld ?? team) === team : me.team === team && keyHeld === undefined;
+  if (me.team === null) return (keyHeld ?? team) === team;
+  // The team's only Operative can't move up: nobody would be left to guess.
+  const operatives = view.seats.filter((s) => s.team === team && s.role === 'operative');
+  return me.team === team && keyHeld === undefined && operatives.length > 1;
 }
 
 export interface SpymasterAlert {
@@ -57,7 +66,7 @@ export function spymasterAlerts(view: CodenamesView): SpymasterAlert[] {
     const mine = view.me?.team === t;
     const canTake = canTakeSpymaster(view, t);
     const text = mine
-      ? `Your team has no Spymaster, so your turns are skipped.${canTake ? ' Take the seat?' : ''}`
+      ? `Your team has no Spymaster, so your turns are skipped.${canTake ? ' Take the seat?' : view.me?.role === 'operative' ? ' You’re its only Operative, so someone else needs to take the seat.' : ''}`
       : `${team(t)} has no Spymaster, so ${team(t)}'s turns are skipped.${canTake ? ' Take the seat?' : ' One of them can take the seat.'}`;
     return [{ team: t, text, mine, canTake }];
   });
@@ -170,14 +179,15 @@ export function statusFor(
     };
   }
 
-  const left = guessesLeft(view);
-  const leftText = `${left} guess${left === 1 ? '' : 'es'} left`;
+  const leftText = guessesLeftText(view);
   if (mine && me?.role === 'operative') {
     return {
       text: `Your turn to guess (${leftText}). Tap a card to suggest it to your team, then press Guess.`,
       yourMove: true,
     };
   }
-  if (mine) return { text: 'Your team is guessing. Stay poker-faced!', yourMove: false };
+  if (mine) {
+    return { text: `Your team is guessing (${leftText}). Stay poker-faced!`, yourMove: false };
+  }
   return { text: `${team(turn.team)} team is guessing (${leftText}).`, yourMove: false };
 }

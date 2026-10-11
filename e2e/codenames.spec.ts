@@ -310,15 +310,19 @@ test('a team that loses its Spymaster is told why its turns are skipped, and can
     .getByRole('button', { name: 'Leave room' })
     .click();
 
-  // Blue's operative is told, with the seat right there; Red knows why Blue never plays.
-  const alert = cy!.getByTestId('no-spymaster');
-  await expect(alert).toContainText(
-    'Your team has no Spymaster, so your turns are skipped. Take the seat?',
+  // Blue's only operative is told, but can't move up: nobody would be left to guess. Red knows
+  // why Blue never plays.
+  await expect(cy!.getByTestId('no-spymaster')).toContainText(
+    'Your team has no Spymaster, so your turns are skipped. You’re its only Operative, so someone else needs to take the seat.',
   );
+  await expect(cy!.getByTestId('no-spymaster').getByRole('button')).toHaveCount(0);
   await expect(host.getByTestId('no-spymaster')).toContainText(
     "Blue has no Spymaster, so Blue's turns are skipped.",
   );
   await expect(host.getByTestId('no-spymaster').getByRole('button')).toHaveCount(0);
+  // A newcomer is offered the seat, and takes it.
+  const dee = await player(browser, 'Dee', roomUrl);
+  const alert = dee.getByTestId('no-spymaster');
   await alert.getByRole('button', { name: 'Be the Blue Spymaster' }).click();
   await expect(cy!.getByTestId('no-spymaster')).toHaveCount(0);
   await expect(host.getByTestId('no-spymaster')).toHaveCount(0);

@@ -107,6 +107,12 @@ function TopBar({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
           {chip.text}
         </span>
         {round.spyCount > 1 && <span className="text-xs">2 spies</span>}
+        {round.spyCount === 1 && view.settings.twoSpies && (
+          // Two spies is on, but too few are playing for it this round: say so.
+          <span className="text-xs" data-testid="one-spy-note">
+            1 spy ({round.players.length} playing)
+          </span>
+        )}
       </div>
       <Countdown
         deadline={live ? round.deadline : null}
@@ -446,15 +452,22 @@ function Reveal({
   const result = round.result;
   if (!result) return null;
   const who = (id: string) => (id === view.me?.id ? 'You' : nameOf(view, id));
+  // With two spies each is scored on their own, so each line speaks for that spy only.
+  const two = result.spies.length > 1;
   const line = (s: (typeof result.spyResults)[number]) => {
     const name = who(s.id);
     const was = name === 'You' ? 'were' : 'was';
-    if (s.outcome === 'escaped') return `${name} escaped the vote: +2 for the spy.`;
+    const plus = name === 'You' ? 'you score 2' : `${name} scores 2`;
+    if (s.outcome === 'escaped') return `${name} escaped the vote: ${plus}.`;
+    const them = name === 'You' ? 'you' : name;
     if (s.outcome === 'stole')
-      return `${name} ${was} caught, then named the location: the spy steals the round, +2.`;
-    const guessed = s.guess ? `guessed ${display.name(s.guess)}` : 'didn’t guess in time';
-    return `${name} ${was} caught and ${guessed}: the locals win the round.`;
+      return `${name} ${was} caught, then named the location${two ? '' : ' and stole the round'}: ${plus}, and votes against ${them} score nothing.`;
+    const guessed = s.guess ? `guessed ${display.name(s.guess)}` : 'didn’t guess';
+    return two
+      ? `${name} ${was} caught and ${guessed}: the locals score for catching ${them}.`
+      : `${name} ${was} caught and ${guessed}: the locals win the round.`;
   };
+  const namedNames = result.named.map((id) => (id === view.me?.id ? 'you' : nameOf(view, id)));
   const scored = Object.entries(result.points).filter(([, n]) => n > 0);
   // The vote only ends early once everyone has voted, so a missing vote means the clock ran out.
   // When nobody voted at all, the no-name reason above already says so.
@@ -491,6 +504,11 @@ function Reveal({
           <p className="text-sm">🎭 {spyLine}</p>
         </div>
       </div>
+      {namedNames.length > 0 && (
+        <p className="text-sm" data-testid="named-line">
+          The vote named <b>{listNames(namedNames)}</b>.
+        </p>
+      )}
       <ul className="space-y-1 text-sm font-semibold">
         {result.spyResults.map((s) => (
           <li key={s.id}>{line(s)}</li>
@@ -652,6 +670,12 @@ function LocationsBoard({
           </Button>
         </div>
       )}
+      {view.played.length > 0 && (
+        <p className="text-xs text-stone-500" data-testid="played-note">
+          Places marked “Played” came up earlier this game and won’t come up again until every place
+          has been played.
+        </p>
+      )}
       {spy && !guessing && round?.stage === 'talk' && (
         <p className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
           You can’t guess yet. Cross places off as you listen: if the vote catches you, you get one
@@ -741,6 +765,11 @@ function LocationsBoard({
                     {here === id && (
                       <span className="absolute top-1 left-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
                         📍 Here
+                      </span>
+                    )}
+                    {here !== id && view.played.includes(id) && (
+                      <span className="absolute top-1 left-1 rounded-full bg-stone-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
+                        Played
                       </span>
                     )}
                   </button>

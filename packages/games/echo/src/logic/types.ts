@@ -68,8 +68,10 @@ export interface Turn {
   deadline: number | null;
   /** The strict timer picked the word because the guesser ran out of time. */
   autoPicked?: boolean;
-  /** Clue writers who had sent nothing when the strict clue timer ran out. */
+  /** Clue writers who had sent nothing when the strict clue timer ran out (or the host moved on). */
   missed?: PlayerId[];
+  /** The host moved on without the missing clues, rather than the timer. */
+  skipped?: boolean;
   /** The strict timer decided the outcome (no guess, or an undecided near miss). */
   timedOut?: boolean;
   /** Epoch ms when judging a near miss began. */
@@ -151,7 +153,10 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pass') }),
   z.object({ type: z.literal('count-it') }),
   z.object({ type: z.literal('continue') }),
-  z.object({ type: z.literal('next-card') }),
+  /** Host: stop waiting for clue writers who haven't sent theirs (an offline player, say). */
+  z.object({ type: z.literal('skip-late-clues') }),
+  /** `cardsLeft` as the sender saw it, so a second tap from someone else doesn't skip a card. */
+  z.object({ type: z.literal('next-card'), cardsLeft: z.number().int().min(0).optional() }),
 ]);
 
 export type EchoAction = z.infer<typeof actionSchema>;
@@ -179,6 +184,8 @@ export interface TurnView {
   pick: number | null;
   /** The secret word: hidden from the guesser until the reveal. */
   word: string | null;
+  /** How many words the secret has ("Monsters Inc" is 2), once one is picked. Shown to all. */
+  wordCount: number | null;
   givers: PlayerId[];
   perGiver: number;
   /** Givers who have sent their clues. */
@@ -197,8 +204,10 @@ export interface TurnView {
   deadline: number | null;
   /** The strict timer picked the word for the guesser. */
   autoPicked: boolean;
-  /** Clue writers who sent nothing before the strict clue timer ran out. */
+  /** Clue writers who sent nothing before the strict clue timer ran out, or the host moved on. */
   missed: PlayerId[];
+  /** The host moved on without them (so it wasn't the timer). */
+  skipped: boolean;
   /** The strict timer decided the outcome. */
   timedOut: boolean;
 }

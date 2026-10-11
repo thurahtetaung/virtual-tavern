@@ -104,6 +104,11 @@ export interface MasqueradeState {
   deals: number;
   /** Where the asking starts in round 1; it moves one seat on each round. */
   starterOffset: number;
+  /**
+   * Who has started the asking this game, so everyone starts once before anyone starts twice,
+   * even as players leave and join. Optional because older saved rooms lack it.
+   */
+  started?: PlayerId[];
   /** Why the game went back to the lobby. */
   notice: 'too-few' | null;
   winners: PlayerId[];
@@ -174,6 +179,8 @@ export interface RoundView {
   canGuess: boolean;
   result: RoundResult | null;
   redealtAfter: string | null;
+  /** The vote named a spy, but another spy is still hidden (two spies, one caught). */
+  spyStillHidden: boolean;
 }
 
 export interface EditionView {
@@ -195,4 +202,6 @@ export interface MasqueradeView {
   round: RoundView | null;
   notice: MasqueradeState['notice'];
   winners: PlayerId[];
+  /** Locations already revealed this game (they don't come up again until the pack runs out). */
+  played: string[];
 }

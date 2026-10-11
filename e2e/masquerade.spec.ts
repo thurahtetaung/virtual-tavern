@@ -69,7 +69,7 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   ]);
   for (const p of players) await expect(p.getByTestId('revealed-location')).toHaveText(location);
   await expect(host.getByRole('list', { name: 'Votes' })).toContainText(`→ ${n(l1)}`);
-  await expect(host.getByText('escaped the vote: +2 for the spy.')).toBeVisible();
+  await expect(host.getByText(/escaped the vote: (.+ scores|you score) 2\./)).toBeVisible();
   await expect(host.getByTestId('vote-tally')).toContainText(`${n(l1)}`);
   await expect(host.getByTestId('vote-tally')).toContainText(' 3');
   await expect(host.getByTestId('points-rule')).toContainText('escapes the vote');
@@ -100,7 +100,10 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
     const guess = dealt.spy.getByRole('region', { name: 'Locations' });
     await guess.getByRole('button', { name: `Pick ${dealt.location}`, exact: true }).click();
     await guess.getByRole('button', { name: `Guess ${dealt.location}`, exact: true }).click();
-    await expect(a.getByText('named the location: the spy steals the round, +2.')).toBeVisible();
+    await expect(
+      a.getByText(`named the location and stole the round: ${spyName} scores 2`),
+    ).toBeVisible();
+    await expect(a.getByTestId('named-line')).toHaveText(`The vote named ${spyName}.`);
   }
   await host.getByRole('button', { name: 'Next round' }).click();
 

@@ -331,6 +331,8 @@ export function EnigmaGame({
                     view={view}
                     tx={tx}
                     act={act}
+                    online={online}
+                    isHost={room.isHost}
                   />
                 ))}
               </div>
