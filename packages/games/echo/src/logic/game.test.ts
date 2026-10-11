@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { echo, playingIds, rating } from './game.ts';
+import { echo, guessMatches, playingIds, rating } from './game.ts';
 import {
   FOUR,
   HOST,
@@ -14,7 +14,7 @@ import {
   turn,
   words,
 } from './test-utils.ts';
-import { CARD_SIZE, type EchoState, JUDGE_GRACE_MS, MAX_PLAYERS, actionSchema } from './types.ts';
+import { CARD_SIZE, type EchoState, MAX_PLAYERS, actionSchema } from './types.ts';
 
 const join = (h: { state: EchoState }, id: string) => {
   h.state = echo.playerJoined(h.state, { id, name: id.toUpperCase() });
@@ -209,49 +209,25 @@ describe('a card', () => {
     expect(h.state.deck).toHaveLength(7);
   });
 
-  it('a wrong guess goes to judging; continue loses this card and the next', () => {
+  it('a wrong guess is decided at once: this card and the next are lost', () => {
     const h = startedGame();
     toGuess(h);
     h.act({ type: 'guess', word: 'nothing' });
-    expect(turn(h)).toMatchObject({ stage: 'judge', guess: 'nothing' });
-    expect(h.reject({ type: 'continue' }, 'stranger')).toBe('not-giver');
-    expect(h.reject({ type: 'count-it' }, HOST)).toBe('not-giver');
-    // The guesser doesn't judge their own guess, even as the host…
-    expect(h.reject({ type: 'continue' }, HOST)).toBe('guesser-judging');
-    // …until the clue writers have had a fair while.
-    h.act({ type: 'continue' }, HOST, NOW + JUDGE_GRACE_MS);
-    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
+    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong', guess: 'nothing' });
     expect(h.state).toMatchObject({ score: 0, cardsLeft: 6 });
     expect(h.state.deck).toHaveLength(6);
     expect(h.state.history.at(-1)!.burned).toBe(true);
   });
 
-  it('a clue writer can count a near miss', () => {
+  it('close enough counts on its own: another form or a single typo', () => {
     const h = startedGame();
     toGuess(h);
-    h.act({ type: 'guess', word: 'typo' });
-    h.act({ type: 'count-it' }, 'p3');
-    expect(turn(h)).toMatchObject({ outcome: 'right', countedBy: 'p3' });
-    expect(h.state).toMatchObject({ score: 1, cardsLeft: 7 });
-    expect(h.state.history[0]!.countedBy).toBe('p3');
-  });
-
-  it('a host who guesses may settle a near miss once every clue writer has gone', () => {
-    const h = startedGame();
-    toGuess(h);
-    h.act({ type: 'guess', word: 'typo' });
-    // As if every clue writer had left (with enough players still seated to carry on).
-    h.state = { ...h.state, turn: { ...turn(h), givers: [] } };
-    h.act({ type: 'continue' }, HOST);
-    expect(turn(h).outcome).toBe('wrong');
-  });
-
-  it('a non-host clue writer can also continue', () => {
-    const h = startedGame();
-    toGuess(h);
-    h.act({ type: 'guess', word: 'typo' });
-    h.act({ type: 'continue' }, 'p2');
-    expect(turn(h).outcome).toBe('wrong');
+    const word = secret(h);
+    // One letter swapped counts for longer words; nobody is asked to judge.
+    const typo = word.length >= 5 ? word[1]! + word[0]! + word.slice(2) : word;
+    h.act({ type: 'guess', word: typo.toUpperCase() });
+    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'right' });
+    expect(h.state.score).toBe(1);
   });
 
   it('next card: host only, rotates the guesser', () => {
@@ -279,7 +255,6 @@ describe('a card', () => {
     const h = playTo(2);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
     expect(h.state.deck).toHaveLength(0);
     expect(h.state.history.at(-1)!.burned).toBe(true);
@@ -292,7 +267,6 @@ describe('a card', () => {
     expect(h.state.deck).toHaveLength(0);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    h.act({ type: 'continue' }, givers(h)[0]);
     expect(h.state.cardsLeft).toBe(0);
     // There was no next card to lose.
     expect(h.state.history.at(-1)!.burned).toBeUndefined();
@@ -327,7 +301,7 @@ describe('players leaving', () => {
     expect(h.state.cardsLeft).toBe(8);
   });
 
-  it.each(['clues', 'guess', 'judge'] as const)(
+  it.each(['clues', 'guess'] as const)(
     'guesser leaves during %s: the card returns without the picked word',
     (stage) => {
       const h = startedGame();
@@ -335,7 +309,6 @@ describe('players leaving', () => {
       const card = turn(h).card;
       const picked = secret(h);
       if (stage !== 'clues') toGuess2(h);
-      if (stage === 'judge') h.act({ type: 'guess', word: 'nope' });
       expect(turn(h).stage).toBe(stage);
       leave(h, HOST);
       expect(turn(h)).toMatchObject({ guesser: 'p2', stage: 'pick', pick: null, clues: {} });
@@ -403,24 +376,19 @@ describe('players leaving', () => {
     expect(turn(h).clues.p2).toBeDefined();
     expect(turn(h).givers).toEqual(['p3', 'p4', 'p5']);
     h.act({ type: 'guess', word: 'nope' });
-    expect(turn(h).stage).toBe('judge');
-    leave(h, 'p3');
-    expect(h.reject({ type: 'count-it' }, 'p3')).toBe('not-giver');
-    h.act({ type: 'count-it' }, 'p4');
-    expect(turn(h).outcome).toBe('right');
+    expect(turn(h).outcome).toBe('wrong');
   });
 
-  it.each(['pick', 'clues', 'guess', 'judge', 'reveal'] as const)(
+  it.each(['pick', 'clues', 'guess', 'reveal'] as const)(
     'drops below three players during %s: the game ends',
     (stage) => {
       const h = startedGame(THREE);
       if (stage !== 'pick') h.act({ type: 'pick', index: 0 });
-      if (stage === 'guess' || stage === 'judge' || stage === 'reveal') {
+      if (stage === 'guess' || stage === 'reveal') {
         h.act({ type: 'give-clues', clues: ['alpha', 'beta'] }, 'p2');
         h.act({ type: 'give-clues', clues: ['gamma', 'delta'] }, 'p3');
       }
-      if (stage === 'judge' || stage === 'reveal') h.act({ type: 'guess', word: 'nope' });
-      if (stage === 'reveal') h.act({ type: 'continue' }, givers(h)[0]);
+      if (stage === 'reveal') h.act({ type: 'guess', word: 'nope' });
       expect(turn(h).stage).toBe(stage);
       leave(h, 'p3');
       expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few', turn: null });
@@ -578,15 +546,6 @@ describe('timers', () => {
     expect(echo.view(h.state, 'p2').turn!.timedOut).toBe(false);
   });
 
-  it('treats an undecided near miss as wrong', () => {
-    const h = strict();
-    toGuess(h);
-    h.act({ type: 'guess', word: 'nope' });
-    fire(h);
-    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong', timedOut: true });
-    expect(h.state.history.at(-1)!.timedOut).toBe(true);
-  });
-
   it('runs a whole game on the timer alone', () => {
     const h = strict();
     let fired = 0;
@@ -608,7 +567,6 @@ describe('timers', () => {
       () => soft.act({ type: 'pick', index: 0 }),
       () => toGuess2(soft),
       () => soft.act({ type: 'guess', word: 'nope' }),
-      () => soft.act({ type: 'continue' }, givers(soft)[0]),
     ]) {
       expect(echo.nextDeadline!(soft.state)).toBeNull();
       expect(echo.onDeadline!(soft.state, NOW + 10_000_000)).toBe(soft.state);
@@ -658,9 +616,6 @@ describe('view', () => {
     expect(guessing.turn!.cancelledCount).toBe(2);
     expect(json(h, HOST)).not.toContain('ebra');
     h.act({ type: 'guess', word: 'nope' });
-    expectNoSecrets(h, HOST);
-    expect(json(h, HOST)).not.toContain('ebra');
-    h.act({ type: 'continue' }, givers(h)[0]);
     const revealed = echo.view(h.state, HOST);
     expect(revealed.turn!.word).toBe(secret(h));
     expect(revealed.turn!.clues.map((c) => [c.by, c.text, c.cancelled, c.sameAs])).toEqual([
@@ -762,5 +717,21 @@ describe('actions and ratings', () => {
     expect(bands[13]).toBe('Perfect');
     expect(rating(8, 8)).toBe('Perfect');
     expect(rating(0, 20)).toBe('Try again');
+  });
+});
+
+describe('guessMatches', () => {
+  it.each([
+    ['Elephant', 'elephant', true],
+    ['elephnat', 'elephant', true],
+    ['elepant', 'elephant', true],
+    ['spiderman', 'Spider-Man', true],
+    ['ice cream', 'Ice-cream', true],
+    ['cats', 'cat', true],
+    ['cot', 'cat', false],
+    ['dog', 'elephant', false],
+    ['elephantine', 'elephant', false],
+  ])('%s for %s: %s', (guess, answer, right) => {
+    expect(guessMatches(guess, answer)).toBe(right);
   });
 });

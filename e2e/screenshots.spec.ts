@@ -423,7 +423,8 @@ for (const [label, viewport] of [
     const wrong = async (guesser: Page, writers: Page[]) => {
       await guesser.getByLabel('Your guess').fill('Nothing');
       await guesser.getByRole('button', { name: 'Guess', exact: true }).click();
-      await expect(writers[0]!.getByRole('button', { name: 'Count it' })).toBeVisible();
+      // The game decides a miss on its own; the host can move on straight away.
+      await expect(host.getByRole('button', { name: /^(Next card|Finish)$/ })).toBeVisible();
       return writers[0]!;
     };
 
@@ -435,19 +436,14 @@ for (const [label, viewport] of [
     }, true);
     await nextCard();
     await playCard(async (guesser, writers) => {
-      const judge = await wrong(guesser, writers);
-      await shot(judge, 'judge');
-      await judge.getByRole('button', { name: "Doesn't count" }).click();
+      const writer = await wrong(guesser, writers);
+      await shot(writer, 'wrong');
     });
     // 5 cards left: two more misses (two cards each) and a pass end the deck.
     for (let i = 0; i < 2; i++) {
       await nextCard();
       await playCard(async (guesser, writers) => {
-        await (
-          await wrong(guesser, writers)
-        )
-          .getByRole('button', { name: "Doesn't count" })
-          .click();
+        await wrong(guesser, writers);
       });
     }
     await nextCard();

@@ -35,7 +35,7 @@ async function sendClue(page: Page, clue: string) {
   ).toBeVisible();
 }
 
-test('four players play Echo: a hit with cancelled clues, a pass and a counted near miss', async ({
+test('four players play Echo: a hit with cancelled clues, a pass and a miss decided on its own', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -94,22 +94,14 @@ test('four players play Echo: a hit with cancelled clues, a pass and a counted n
   await expect(host.getByText('6 cards left')).toBeVisible();
   await host.getByRole('button', { name: 'Next card' }).click();
 
-  // Card 3: Ben's guess is a near miss, and Hana counts it.
+  // Card 3: Ben's guess is wrong, and the game decides it on its own: nobody has to judge.
   await pickWord(ben, cy, 5);
   await sendClue(host, 'Qwvx');
   await sendClue(ana, 'Xkzj');
   await sendClue(cy, 'Pjmq');
   await ben.getByLabel('Your guess').fill('Qqqqq');
   await ben.getByRole('button', { name: 'Guess', exact: true }).click();
-  await expect(ben.getByText('The clue writers are deciding whether it counts')).toBeVisible();
-  // The guesser never judges their own guess; every clue writer can, and one tap decides.
-  await expect(cy.getByRole('button', { name: "Doesn't count" })).toBeVisible();
-  await expect(cy.getByText('One tap decides for the whole table.').first()).toBeVisible();
-  await expect(ben.getByRole('button', { name: "Doesn't count" })).toHaveCount(0);
-  await expect(ben.getByRole('button', { name: 'Count it' })).toHaveCount(0);
-  await expect(host).toHaveTitle(YOUR_TURN);
-  await host.getByRole('button', { name: 'Count it' }).click();
-  await expect(ben.getByText('🤝 Counted!')).toBeVisible();
-  await expect(cy.getByText('Hana counted it.')).toBeVisible();
-  await expect(host.getByRole('img', { name: 'Score 2' })).toBeVisible();
+  await expect(ben.getByText(/Not this time/).first()).toBeVisible();
+  await expect(cy.getByRole('button', { name: 'Count it' })).toHaveCount(0);
+  await expect(host.getByRole('img', { name: 'Score 1' })).toBeVisible();
 });

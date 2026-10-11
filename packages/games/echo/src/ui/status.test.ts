@@ -58,20 +58,6 @@ describe('statusFor', () => {
     expect(status(h, 'p3').yourMove).toBe(false);
   });
 
-  it('asks the clue writers to judge a near miss, then the host to move on', () => {
-    const h = startedGame();
-    h.act({ type: 'pick', index: 0 });
-    toGuessFromPick(h);
-    h.act({ type: 'guess', word: 'nothing-like-it' });
-    expect(status(h, HOST).text).toContain('Not an exact match');
-    expect(status(h, 'p2')).toMatchObject({ yourMove: true });
-    expect(status(h, 'p2').text).toContain('One tap decides for the whole table');
-    h.act({ type: 'count-it' }, 'p3');
-    expect(status(h, 'p2').text).toContain('P3 counted the guess');
-    expect(status(h, HOST, true)).toMatchObject({ yourMove: true });
-    expect(status(h, HOST, true).text).toContain('Next card');
-  });
-
   it('reports each outcome at the reveal, and the rating at the end', () => {
     const h = startedGame(FOUR, { deckSize: 8 });
     toGuess(h);
@@ -93,7 +79,6 @@ describe('statusFor', () => {
     h.act({ type: 'next-card' });
     toGuess(h);
     h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
-    h.act({ type: 'continue' }, 'p4');
     const wrong = echo.view(h.state, 'p2');
     expect(statusFor(wrong, false, null).text).toMatch(/^Not this time: the word was “.+”\. Next/);
     expect(lossText(wrong)).toBe('This card and the next are lost.');
@@ -167,15 +152,6 @@ describe('strict timeouts', () => {
     fire(h);
     expect(status(h, 'p2').text).toContain('⏱ Time ran out: counts as a pass.');
   });
-
-  it('says an undecided near miss timed out', () => {
-    const h = strict();
-    toGuess(h);
-    h.act({ type: 'guess', word: 'nope' });
-    expect(status(h, HOST).text).toContain('If nobody decides in time, it counts as wrong.');
-    fire(h);
-    expect(status(h, 'p2').text).toContain('Nobody decided in time, so it counts as wrong');
-  });
 });
 
 describe('lossText', () => {
@@ -188,7 +164,6 @@ describe('lossText', () => {
     }
     toGuess(h);
     h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
-    h.act({ type: 'continue' });
     const v = echo.view(h.state, 'p2');
     expect(lossText(v)).toBe('This card is lost (it was the last one).');
     // No next guesser on the last card.
@@ -209,10 +184,3 @@ describe('cancelReason', () => {
     expect(cancelReason(v, moon)).toBe('same as P3’s');
   });
 });
-
-/** From the clue stage, every giver sends a distinct clue. */
-function toGuessFromPick(h: ReturnType<typeof startedGame>) {
-  turn(h).givers.forEach((g, i) =>
-    h.act({ type: 'give-clues', clues: [`clue${'x'.repeat(i)}`] }, g),
-  );
-}

@@ -109,27 +109,6 @@ describe('insights', () => {
     ]);
   });
 
-  it('reports a near miss counted by a clue writer, and a wrong guess', () => {
-    const h = startedGame();
-    const { take } = record(h);
-    toGuess(h);
-    h.act({ type: 'guess', word: 'close' });
-    expect(take()).toEqual([]);
-    h.act({ type: 'count-it' }, 'p3');
-    const counted = take()[0]!;
-    expect(counted).toMatchObject({ type: 'card', props: { outcome: 'right', countedBy: 'p3' } });
-    expect(counted.words?.at(-1)).toEqual({ kind: 'guess', word: 'close' });
-    h.act({ type: 'next-card' });
-    toGuess(h);
-    h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    h.act({ type: 'continue' }, HOST);
-    expect(take()[0]).toMatchObject({
-      type: 'card',
-      playerId: 'p2',
-      props: { outcome: 'wrong', countedBy: null },
-    });
-  });
-
   it('reports a timed-out pass from the deadline', () => {
     const h = startedGame(FOUR, { guessSeconds: 30, clueSeconds: 30, timerMode: 'strict' });
     const { take, fire } = record(h);
