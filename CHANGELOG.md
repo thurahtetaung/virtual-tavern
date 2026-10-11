@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.4...v0.17.0) (2026-10-11)
+
+
+### Features
+
+* **recap:** add the tavern night recap: awards, superlatives and a shareable night card ([#82](https://github.com/thurahtetaung/virtual-tavern/issues/82)) ([bd4836c](https://github.com/thurahtetaung/virtual-tavern/commit/bd4836c15b02038b733ca243b86ba35528a983f7))
+
 ## [0.16.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.16.3...v0.16.4) (2026-10-11)
 
 
