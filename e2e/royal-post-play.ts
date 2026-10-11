@@ -162,10 +162,12 @@ export async function takeTurn(
   // A private reveal can open just as the turn starts; close it and try again.
   await expect(async () => {
     await dismissReveal(p);
-    await handRegion(p)
-      .getByRole('button', { name: `${card} (${ranks[card]})` })
-      .first()
-      .click({ timeout: 1000 });
+    // Under load the sheet can open after the check below gave up: don't click through it.
+    if (!(await sheet.isVisible()))
+      await handRegion(p)
+        .getByRole('button', { name: `${card} (${ranks[card]})` })
+        .first()
+        .click({ timeout: 1000 });
     await expect(sheet).toBeVisible({ timeout: 1000 });
   }).toPass();
   const choose = sheet.getByRole('group', { name: 'Choose a player' });

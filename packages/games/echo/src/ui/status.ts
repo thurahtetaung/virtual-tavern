@@ -61,7 +61,7 @@ function outcomeText(view: EchoView, turn: TurnView): string {
   return `Not this time: the word was ${word}. This card and the next are lost.`;
 }
 
-function playingStatus(view: EchoView, turn: TurnView, isHost: boolean): Status {
+function playingStatus(view: EchoView, turn: TurnView, isHost: boolean, hostName: string): Status {
   const guesser = nameOf(view, turn.guesser);
   const role = view.role;
   switch (turn.stage) {
@@ -116,14 +116,22 @@ function playingStatus(view: EchoView, turn: TurnView, isHost: boolean): Status 
     }
     case 'reveal': {
       const next = view.cardsLeft > 0 ? 'Next card' : 'Finish';
-      const tail = isHost ? ` Press ${next} when everyone has had a look.` : '';
+      const tail = isHost
+        ? ` Press ${next} when everyone has had a look.`
+        : ` Waiting for ${hostName} to ${view.cardsLeft > 0 ? 'deal the next card' : 'finish the game'}…`;
       return { text: outcomeText(view, turn) + tail, yourMove: isHost };
     }
   }
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: EchoView, isHost: boolean, blocker: string | null): Status {
+/** `hostName` names who moves the game on, for everyone else's "waiting for…" lines. */
+export function statusFor(
+  view: EchoView,
+  isHost: boolean,
+  blocker: string | null,
+  hostName = 'the host',
+): Status {
   if (view.phase === 'lobby') {
     if (!view.me?.playing) {
       return { text: "You're watching. Press Play to join the table.", yourMove: false };
@@ -131,7 +139,7 @@ export function statusFor(view: EchoView, isHost: boolean, blocker: string | nul
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
     return isHost
       ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : { text: `All set. Waiting for ${hostName} to start the game…`, yourMove: false };
   }
   if (view.phase === 'over') {
     if (view.endReason === 'too-few') {
@@ -146,5 +154,5 @@ export function statusFor(view: EchoView, isHost: boolean, blocker: string | nul
     };
   }
   if (!view.turn) return { text: 'Dealing…', yourMove: false };
-  return playingStatus(view, view.turn, isHost);
+  return playingStatus(view, view.turn, isHost, hostName);
 }

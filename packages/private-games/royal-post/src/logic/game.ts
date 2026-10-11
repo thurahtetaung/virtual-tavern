@@ -28,6 +28,7 @@ import {
   type RoyalPostAction,
   type RoyalPostState,
   type RoyalPostView,
+  type Seat,
   type SeatView,
   actionSchema,
 } from './types.ts';
@@ -490,25 +491,53 @@ function updateSettings(
   if (action.edition) settings.edition = action.edition;
   if (action.turnSeconds !== undefined) settings.turnSeconds = action.turnSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
-  return { ...state, settings };
+  // An edition with more seats seats whoever was waiting for one, as the lobby does newcomers.
+  return seatWaiting({ ...state, settings });
+}
+
+/**
+ * Sits down, in join order, everyone who is watching only for want of a seat, while the
+ * edition has room. Players who chose to watch stay watching.
+ */
+export function seatWaiting(state: RoyalPostState): RoyalPostState {
+  let free = editionOf(state).maxPlayers - players(state).length;
+  if (free <= 0 || !Object.values(state.seats).some((s) => s.waiting)) return state;
+  const seats = { ...state.seats };
+  for (const [id, seat] of Object.entries(seats)) {
+    if (!seat.waiting || seat.playing) continue;
+    if (free <= 0) break;
+    const { waiting: _, ...rest } = seat;
+    seats[id] = { ...rest, playing: true };
+    free -= 1;
+  }
+  return { ...state, seats };
 }
 
 function sit(state: RoyalPostState, playing: boolean, ctx: Ctx): Result {
   const seat = state.seats[ctx.by];
   if (!seat) return new GameError('not-seated', 'You are not in this game.');
-  if (seat.playing === playing) return state;
+  if (seat.playing === playing) {
+    // "Just watch" from someone waiting for a seat: they'd rather keep watching.
+    if (!seat.waiting) return state;
+    const { waiting: _, ...rest } = seat;
+    return { ...state, seats: { ...state.seats, [ctx.by]: rest } };
+  }
   if (state.phase === 'playing')
     return new GameError('in-progress', 'You can sit down or stand up between games.');
   if (playing && players(state).length >= editionOf(state).maxPlayers) {
     return new GameError('full', `Only ${editionOf(state).maxPlayers} can play this edition.`);
   }
-  return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing } } };
+  // A choice either way: a player who stands up stays up until they sit down again.
+  const { waiting: _, ...rest } = seat;
+  return { ...state, seats: { ...state.seats, [ctx.by]: { ...rest, playing } } };
 }
 
 function start(state: RoyalPostState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
   if (state.phase === 'playing') return new GameError('in-progress', 'A game is already running.');
+  // Late joiners who watched the last game are dealt in, if there's a seat.
+  state = seatWaiting(state);
   const edition = editionOf(state);
   const seated = players(state);
   if (seated.length < edition.minPlayers)
@@ -550,7 +579,7 @@ function nextRound(state: RoyalPostState, ctx: Ctx): Result {
 function backToLobby(state: RoyalPostState, ctx: Ctx): Result {
   const err = requireHost(ctx);
   if (err) return err;
-  return {
+  return seatWaiting({
     ...state,
     phase: 'lobby',
     round: null,
@@ -558,7 +587,7 @@ function backToLobby(state: RoyalPostState, ctx: Ctx): Result {
     notes: {},
     winners: [],
     endReason: null,
-  };
+  });
 }
 
 function reduce(state: RoyalPostState, action: RoyalPostAction, ctx: Ctx): Result {
@@ -605,12 +634,16 @@ function playerJoined(state: RoyalPostState, player: PlayerInfo): RoyalPostState
   const existing = state.seats[player.id];
   if (existing)
     return { ...state, seats: { ...state.seats, [player.id]: { ...existing, name: player.name } } };
-  // Between games newcomers sit down if there's room; mid-game they watch until the next game.
+  // Between games newcomers sit down if there's room; otherwise they wait for a seat, and are
+  // seated at the next game (or as soon as an edition with more seats is picked).
   const playing = state.phase !== 'playing' && players(state).length < editionOf(state).maxPlayers;
-  return {
-    ...state,
-    seats: { ...state.seats, [player.id]: { name: player.name, playing, tokens: 0 } },
+  const seat: Seat = {
+    name: player.name,
+    playing,
+    tokens: 0,
+    ...(playing ? {} : { waiting: true }),
   };
+  return { ...state, seats: { ...state.seats, [player.id]: seat } };
 }
 
 /**
@@ -707,6 +740,7 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
     name: s.name,
     playing: s.playing,
     tokens: s.tokens,
+    ...(s.waiting ? { waiting: true } : {}),
   }));
   const me = viewer === null ? null : (seatViews.find((s) => s.id === viewer) ?? null);
   const round = state.round;

@@ -1,10 +1,10 @@
-import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel } from '@vt/ui';
+import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
+import { Button, Countdown, Hint, Panel, useSecondsLeft } from '@vt/ui';
 import { useEffect } from 'react';
 import type { HoodwinkAction, HoodwinkView } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, Stage } from './Play.tsx';
-import { points, startBlocker, statusFor } from './status.ts';
+import { missingIds, missingText, points, startBlocker, statusFor } from './status.ts';
 import { Scores, Table } from './Table.tsx';
 
 export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
@@ -45,10 +45,49 @@ function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: nu
   );
 }
 
+/**
+ * The host's way out when the round waits on someone who isn't coming: once time is up (or
+ * straight away when everyone missing is offline), the stage ends as a strict timeout would.
+ */
+function ContinueWithout({
+  view,
+  room,
+  act,
+  online,
+}: {
+  view: HoodwinkView;
+  room: HoodwinkUiProps['room'];
+  act: HoodwinkUiProps['act'];
+  online: (id: string) => boolean;
+}) {
+  const round = view.round;
+  const left = useSecondsLeft(round?.deadline ?? null, room.clockOffset);
+  if (!room.isHost || view.phase !== 'playing' || !round || round.stage === 'reveal') return null;
+  const missing = missingIds(round);
+  if (missing.length === 0) return null;
+  const timeUp = left === 0;
+  if (!timeUp && !missing.every((id) => !online(id))) return null;
+  const names = missingText(view, missing);
+  return (
+    <Panel className="space-y-2 text-center" data-testid="continue-without">
+      <p className="text-sm">
+        {timeUp ? '⏰ Time’s up. ' : '📴 '}
+        {round.stage === 'write'
+          ? `Still waiting for ${names}. Continue, and the game picks a lie for them if it can.`
+          : `Still waiting for ${names}. Continue, and they simply don’t vote.`}
+      </p>
+      <Button size="lg" className="w-full" onClick={() => void act({ type: 'continue-without' })}>
+        Continue without {names}
+      </Button>
+    </Panel>
+  );
+}
+
 export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const blocker = startBlocker(view);
-  const status = statusFor(view, room.isHost, blocker);
+  const hostName = hostNameOf(room);
+  const status = statusFor(view, room.isHost, blocker, { hostName, online });
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -79,12 +118,15 @@ export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: Hoodwi
         <Scoreboard view={view} clockOffset={room.clockOffset} />
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} />
+          <GameOver view={view} act={act} isHost={room.isHost} hostName={hostName} />
         ) : (
           view.round && (
-            <Panel>
-              <Stage view={view} act={act} isHost={room.isHost} />
-            </Panel>
+            <>
+              <ContinueWithout view={view} room={room} act={act} online={online} />
+              <Panel>
+                <Stage view={view} act={act} isHost={room.isHost} />
+              </Panel>
+            </>
           )
         )}
       </div>

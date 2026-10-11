@@ -99,6 +99,13 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByTestId(/night-(idle|acting)/)).toBeVisible({ timeout: 15_000 });
     const nights = await playNight(players, roles);
 
+    // Every card in this game wakes, so every phone lit up with YOUR TURN at least once, roles
+    // that only learn something included, and the idle screen asked for phones face up.
+    for (const [i, log] of nights.entries()) {
+      expect(log.woke, `${names[i]} (${log.role}) saw YOUR TURN`).toBe(true);
+      expect(log.faceUp, `${names[i]} saw the face-up hint`).toBe(true);
+    }
+
     // Each player who acted saw their own results, and only theirs.
     for (const [i, log] of nights.entries()) {
       if (log.role === 'seer' && log.acted.length) expect(log.results.join(' ')).toMatch(/You saw/);
@@ -153,7 +160,14 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       return false;
     });
     expect(finals.map((f) => f.won === 'true')).toEqual(expected);
-    await expect(host.getByTestId('death')).toContainText('Hana was voted out (4 votes)');
+    await expect(host.getByTestId('death')).toContainText('Hana got the most votes (4) and died.');
+    // The full tally, and why the winners won.
+    await expect(host.getByTestId('tally')).toContainText('Hana 4');
+    await expect(host.getByTestId('why').first()).toContainText(/won|Nobody won/);
+    // Guests are told who moves the game on.
+    await expect(others[0]!.getByTestId('waiting-host')).toHaveText(
+      'Waiting for Hana to deal again or change the cards…',
+    );
     for (const p of players) await expect(p.getByTestId('reveal-player')).toHaveCount(5);
 
     // The night, step by step: every step of the plan, in wake order.

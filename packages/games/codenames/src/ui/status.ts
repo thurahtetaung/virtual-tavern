@@ -22,6 +22,46 @@ export function startBlocker(view: CodenamesView, wordCount: number): string | n
   return null;
 }
 
+/**
+ * Whether the viewer may take `team`'s empty Spymaster seat. Mirrors the engine's mid-game seat
+ * lock: seated players stay put, except to fill their own team's vacant spymaster seat;
+ * newcomers may join unless they have already seen the key, in which case only their old
+ * spymaster seat will do.
+ */
+export function canTakeSpymaster(view: CodenamesView, team: Team): boolean {
+  const me = view.me;
+  if (!me || view.seats.some((s) => s.team === team && s.role === 'spymaster')) return false;
+  if (view.phase !== 'playing') return true;
+  const keyHeld = view.keyHolders[me.id];
+  return me.team === null ? (keyHeld ?? team) === team : me.team === team && keyHeld === undefined;
+}
+
+export interface SpymasterAlert {
+  team: Team;
+  text: string;
+  /** The viewer is on that team. */
+  mine: boolean;
+  /** The viewer can take the empty seat right now. */
+  canTake: boolean;
+}
+
+/**
+ * Mid-game, a team without a Spymaster has its turns skipped until someone takes the seat. Says
+ * so to everyone (so the table knows why), and offers the seat to whoever may take it.
+ */
+export function spymasterAlerts(view: CodenamesView): SpymasterAlert[] {
+  if (view.phase !== 'playing') return [];
+  return (['red', 'blue'] as const).flatMap((t) => {
+    if (view.seats.some((s) => s.team === t && s.role === 'spymaster')) return [];
+    const mine = view.me?.team === t;
+    const canTake = canTakeSpymaster(view, t);
+    const text = mine
+      ? `Your team has no Spymaster, so your turns are skipped.${canTake ? ' Take the seat?' : ''}`
+      : `${team(t)} has no Spymaster, so ${team(t)}'s turns are skipped.${canTake ? ' Take the seat?' : ' One of them can take the seat.'}`;
+    return [{ team: t, text, mine, canTake }];
+  });
+}
+
 export interface Status {
   text: string;
   /** True when the viewer is expected to act now. */

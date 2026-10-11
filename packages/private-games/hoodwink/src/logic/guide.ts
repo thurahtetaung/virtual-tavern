@@ -51,6 +51,7 @@ export const guide: GameGuide = {
       bullets: [
         'Players who join during a game watch until the next round, then play.',
         'If a player leaves while lies are being written, their lie is dropped. Once voting has started, their lie stays on the board.',
+        'If the round is stuck waiting for someone (their phone went offline, or a reminder-only timer ran out), the host can press “Continue without…”. The round then moves on exactly as when a strict timer runs out.',
         'If fewer than 3 players are left, the game ends with the scores so far.',
       ],
     },

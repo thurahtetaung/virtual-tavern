@@ -14,7 +14,7 @@ export function startBlocker(view: NightfallView): string | null {
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: NightfallView, isHost: boolean): Status {
+export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the host'): Status {
   const playing = view.myRole !== null;
   const total = view.table?.filter((p) => !p.left).length ?? 0;
   switch (view.phase) {
@@ -24,7 +24,7 @@ export function statusFor(view: NightfallView, isHost: boolean): Status {
       if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
       return isHost
         ? { text: 'Everyone is in. Press Deal the cards when you’re ready!', yourMove: true }
-        : { text: 'All set. Waiting for the host to deal…', yourMove: false };
+        : { text: `All set. Waiting for ${hostName} to deal…`, yourMove: false };
     }
     case 'ready':
       if (!playing) return { text: 'The players are looking at their cards…', yourMove: false };
@@ -38,7 +38,12 @@ export function statusFor(view: NightfallView, isHost: boolean): Status {
       const acting = view.night?.acting;
       if (acting?.prompt) return { text: 'Your turn: you’re awake!', yourMove: true };
       if (acting) return { text: 'You’re awake: see what you learned.', yourMove: false };
-      return { text: 'Night has fallen. Keep your eyes closed…', yourMove: false };
+      return playing
+        ? {
+            text: 'Eyes closed. Keep your phone face up — it lights up when it’s your turn.',
+            yourMove: false,
+          }
+        : { text: 'You’re watching. The players’ phones light up in turn.', yourMove: false };
     }
     case 'day':
       if (!playing) return { text: 'The village is talking it over.', yourMove: false };
@@ -71,7 +76,12 @@ export function statusFor(view: NightfallView, isHost: boolean): Status {
       const text = names.length
         ? `${listNames(names)} ${names.length > 1 || names[0] === 'You' ? 'win' : 'wins'}!`
         : 'Nobody wins this time.';
-      return { text: isHost ? `${text} Play again when you’re ready.` : text, yourMove: false };
+      return {
+        text: isHost
+          ? `${text} Play again when you’re ready.`
+          : `${text} Waiting for ${hostName} to deal again…`,
+        yourMove: false,
+      };
     }
   }
 }

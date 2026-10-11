@@ -404,7 +404,7 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   );
 }
 
-export function GameOver({ view, act, isHost }: Props) {
+export function GameOver({ view, act, isHost, hostName }: Props & { hostName: string }) {
   const deck = view.settings.deckSize;
   return (
     <Panel className="space-y-3 text-center">
@@ -425,7 +425,7 @@ export function GameOver({ view, act, isHost }: Props) {
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host to start the next game…</p>
+        <p>Waiting for {hostName} to start the next game…</p>
       )}
     </Panel>
   );

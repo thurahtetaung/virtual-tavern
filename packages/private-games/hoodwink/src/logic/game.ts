@@ -482,6 +482,36 @@ function nextRound(state: HoodwinkState, ctx: Ctx): Result {
   return beginRound(state, round.number + 1, ctx.now);
 }
 
+/** Who the round is still waiting for: players without a lie, or voters without a vote. */
+export function missingPlayers(
+  round: Pick<Round, 'stage' | 'players' | 'lies' | 'voters' | 'votes'>,
+) {
+  if (round.stage === 'write') return round.players.filter((id) => round.lies[id] === undefined);
+  if (round.stage === 'vote') return round.voters.filter((id) => round.votes[id] === undefined);
+  return [];
+}
+
+/**
+ * The host gives up on the players still missing (offline, or out of time with reminder-only
+ * timers): the stage ends exactly as a strict timeout ends it. The game can't see who is
+ * online, so it trusts the host here, as it does with removing a player; the UI only offers
+ * this once time is up or everyone missing is offline.
+ */
+function continueWithout(state: HoodwinkState, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  const round = state.round;
+  if (state.phase !== 'playing' || !round || round.stage === 'reveal') {
+    return new GameError('wrong-stage', 'Nobody is being waited for.');
+  }
+  if (missingPlayers(round).length === 0) {
+    return new GameError('nobody-missing', 'Everyone is in already.');
+  }
+  return round.stage === 'write'
+    ? maybeStartVoting(state, ctx.now, true)
+    : maybeReveal(state, true);
+}
+
 /**
  * Keeps the deck list up to date between games: decks an admin removed or switched off drop out
  * of the selection, and an empty selection falls back to the defaults.
@@ -519,6 +549,8 @@ function reduce(state: HoodwinkState, action: HoodwinkAction, ctx: Ctx): Result 
       return vote(current, action.option, ctx);
     case 'next-round':
       return nextRound(current, ctx);
+    case 'continue-without':
+      return continueWithout(current, ctx);
   }
 }
 

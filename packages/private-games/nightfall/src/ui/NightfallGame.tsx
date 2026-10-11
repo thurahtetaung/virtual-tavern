@@ -1,4 +1,4 @@
-import type { GameUiProps } from '@vt/game-sdk';
+import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
 import { useEffect } from 'react';
 import { ARTIFACTS } from '../logic/roles.ts';
 import type { NightfallAction, NightfallView } from '../logic/types.ts';
@@ -8,13 +8,14 @@ import { Lobby } from './Lobby.tsx';
 import { Day, Night, Ready, Reveal, SoundControls } from './Play.tsx';
 import { statusFor } from './status.ts';
 import { useDeviceSound, useSound } from './useSound.ts';
+import { useWakeAlert, useWakeLock } from './wake.ts';
 
 export type NightfallUiProps = GameUiProps<NightfallView, NightfallAction>;
 
 export function NightfallGame({ view, room, act, showGuide, setYourMove }: NightfallUiProps) {
   const manifest = useManifest();
   const deck = deckFor(manifest, (id) => ARTIFACTS[id].summary);
-  const status = statusFor(view, room.isHost);
+  const status = statusFor(view, room.isHost, hostNameOf(room));
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const [device, setDevice] = useDeviceSound();
   const { lines } = useSound({
@@ -24,6 +25,12 @@ export function NightfallGame({ view, room, act, showGuide, setYourMove }: Night
     clockOffset: room.clockOffset,
     device,
   });
+
+  // Every wake buzzes (never a sound, which would give the player away), even for roles that only learn
+  // something; the screen stays on from the deal to the reveal, so nobody sleeps through a turn.
+  const night = view.phase === 'night' ? view.night : null;
+  useWakeAlert(night?.acting ? `${view.round}:${night.index}` : null);
+  useWakeLock(view.myRole !== null && ['ready', 'night', 'day', 'vote'].includes(view.phase));
 
   // Mark the tab when you must act or vote (the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -55,7 +62,7 @@ export function NightfallGame({ view, room, act, showGuide, setYourMove }: Night
       ) : view.phase === 'day' || view.phase === 'vote' ? (
         <Day {...props} lines={lines} sound={sound} />
       ) : (
-        <Reveal {...props} />
+        <Reveal {...props} hostName={hostNameOf(room)} />
       )}
     </RoleDetailsProvider>
   );

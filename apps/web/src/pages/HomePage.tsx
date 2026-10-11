@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { Layout } from '../components/Layout.tsx';
 import { GameCard } from '../components/GameCard.tsx';
 import { clientGames } from '../games/registry.ts';
+import { useBackroom } from '../lib/backroom.ts';
 import { lastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -22,7 +23,13 @@ export function HomePage() {
   const toast = useToast();
   const [name, setName] = useState(savedName);
   const [invite, setInvite] = useState('');
-  const [recent] = useState(lastRoom);
+  const [last] = useState(lastRoom);
+  const { status: backroom } = useBackroom();
+  // A back-room room is only offered while this browser can get in: a locked door would only
+  // bounce the player to the password prompt. Rooms saved before the flag existed are private
+  // when their game isn't a public one.
+  const isPrivate = !!last && (last.private || !clientGames.some((g) => g.name === last.game));
+  const recent = last && (!isPrivate || backroom?.unlocked) ? last : null;
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),

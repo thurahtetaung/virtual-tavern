@@ -351,7 +351,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 const STEP_HEIGHT = ['h-24', 'h-16', 'h-10'];
 
 /** Top three on a podium (ties share a step), the awards, then Play again. */
-export function GameOver({ view, act, isHost }: Props) {
+export function GameOver({ view, act, isHost, hostName }: Props & { hostName: string }) {
   const ranked = view.scores;
   const place = ranks(ranked.map((s) => s.score));
   const podium = ranked.filter((_, i) => place[i]! <= 3);
@@ -422,7 +422,7 @@ export function GameOver({ view, act, isHost }: Props) {
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host to start the next game…</p>
+        <p>Waiting for {hostName} to start the next game…</p>
       )}
     </Panel>
   );

@@ -207,3 +207,50 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await expect(lists.getByText('E2E Planets')).toBeVisible();
   await expect(lists.getByText(/from these lists/)).toBeVisible();
 });
+
+test('a team that loses its Spymaster is told why its turns are skipped, and can fill the seat', async ({
+  browser,
+}) => {
+  const host = await player(browser, 'Hana');
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const roomUrl = host.url();
+  const [ana, ben, cy] = await Promise.all(
+    ['Ana', 'Ben', 'Cy'].map((n) => player(browser, n, roomUrl)),
+  );
+  await host
+    .getByRole('region', { name: 'Red team' })
+    .getByRole('button', { name: 'Be the Spymaster' })
+    .click();
+  await ana!.getByRole('button', { name: 'Join Red as Operative' }).click();
+  await ben!
+    .getByRole('region', { name: 'Blue team' })
+    .getByRole('button', { name: 'Be the Spymaster' })
+    .click();
+  await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
+  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(cards(cy!)).toHaveCount(25);
+  await expect(cy!.getByTestId('no-spymaster')).toHaveCount(0);
+
+  // Blue's Spymaster leaves.
+  ben!.on('dialog', (d) => void d.accept());
+  await ben!.getByRole('button', { name: /^Players/ }).click();
+  await ben!
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('button', { name: 'Leave room' })
+    .click();
+
+  // Blue's operative is told, with the seat right there; Red knows why Blue never plays.
+  const alert = cy!.getByTestId('no-spymaster');
+  await expect(alert).toContainText(
+    'Your team has no Spymaster, so your turns are skipped. Take the seat?',
+  );
+  await expect(host.getByTestId('no-spymaster')).toContainText(
+    "Blue has no Spymaster, so Blue's turns are skipped.",
+  );
+  await expect(host.getByTestId('no-spymaster').getByRole('button')).toHaveCount(0);
+  await alert.getByRole('button', { name: 'Be the Blue Spymaster' }).click();
+  await expect(cy!.getByTestId('no-spymaster')).toHaveCount(0);
+  await expect(host.getByTestId('no-spymaster')).toHaveCount(0);
+});

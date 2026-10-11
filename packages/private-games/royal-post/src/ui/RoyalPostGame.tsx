@@ -1,4 +1,4 @@
-import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
+import { type GameRoomInfo, type GameUiProps, hostNameOf } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Modal, Panel, TimerSettings, cn } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -35,7 +35,7 @@ export function RoyalPostGame({ view, room, act, showGuide, setYourMove }: Royal
   const manifest = useManifest();
   const edition = view.settings.edition;
   const deck = useMemo(() => deckFor(manifest, edition), [manifest, edition]);
-  const status = statusFor(view, room.isHost);
+  const status = statusFor(view, room.isHost, hostNameOf(room));
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   // Any card named anywhere opens here, read-only.
   const [reading, setReading] = useState<Role | null>(null);
@@ -85,10 +85,12 @@ function Seats({
   view,
   online,
   act,
+  title = 'Players',
 }: {
   view: RoyalPostView;
   online: (id: string) => boolean;
   act: Act;
+  title?: string;
 }) {
   const me = view.me;
   const max = EDITIONS[view.settings.edition].maxPlayers;
@@ -97,7 +99,7 @@ function Seats({
   return (
     <Panel className="space-y-2">
       <h3 className="font-bold">
-        Players ({playing.length}/{max})
+        {title} ({playing.length}/{max})
       </h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
@@ -120,13 +122,34 @@ function Seats({
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
       {me && view.phase !== 'playing' && (
-        <Button
-          size="sm"
-          variant={me.playing ? 'ghost' : 'primary'}
-          onClick={() => void act({ type: 'sit', playing: !me.playing })}
-        >
-          {me.playing ? 'Just watch' : 'Take a seat'}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {me.playing ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void act({ type: 'sit', playing: false })}
+            >
+              Just watch
+            </Button>
+          ) : playing.length < max ? (
+            <Button size="sm" onClick={() => void act({ type: 'sit', playing: true })}>
+              Take a seat
+            </Button>
+          ) : (
+            <span className="text-sm text-stone-500">
+              The table is full{me.waiting ? ': you’ll get the next free seat' : ''}.
+            </span>
+          )}
+          {!me.playing && me.waiting && playing.length >= max && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void act({ type: 'sit', playing: false })}
+            >
+              Just watch
+            </Button>
+          )}
+        </div>
       )}
     </Panel>
   );
@@ -518,10 +541,24 @@ function Table({
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
 
       {view.phase === 'over' ? (
-        <Podium view={view} deck={deck} act={act} isHost={room.isHost} status={status} />
+        <Podium
+          view={view}
+          deck={deck}
+          act={act}
+          isHost={room.isHost}
+          hostName={hostNameOf(room)}
+          status={status}
+          online={online}
+        />
       ) : (
         round?.stage === 'over' && (
-          <RoundResult view={view} deck={deck} act={act} isHost={room.isHost} />
+          <RoundResult
+            view={view}
+            deck={deck}
+            act={act}
+            isHost={room.isHost}
+            hostName={hostNameOf(room)}
+          />
         )
       )}
 
@@ -1257,11 +1294,13 @@ function RoundResult({
   deck,
   act,
   isHost,
+  hostName,
 }: {
   view: RoyalPostView;
   deck: Deck;
   act: Act;
   isHost: boolean;
+  hostName: string;
 }) {
   const round = view.round!;
   const result = round.result;
@@ -1295,7 +1334,7 @@ function RoundResult({
           Next round
         </Button>
       ) : (
-        <p className="text-sm text-stone-500">Waiting for the host…</p>
+        <p className="text-sm text-stone-500">Waiting for {hostName} to deal the next round…</p>
       )}
     </Panel>
   );
@@ -1306,13 +1345,17 @@ function Podium({
   deck,
   act,
   isHost,
+  hostName,
   status,
+  online,
 }: {
   view: RoyalPostView;
   deck: Deck;
   act: Act;
   isHost: boolean;
+  hostName: string;
   status: Status;
+  online: (id: string) => boolean;
 }) {
   const ranked = view.seats
     .filter((s) => s.playing || s.tokens > 0)
@@ -1378,8 +1421,12 @@ function Podium({
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host…</p>
+        <p>Waiting for {hostName} to start the next game…</p>
       )}
+      {/* Watchers and late joiners pick their seat for the next game right here. */}
+      <div className="text-left">
+        <Seats view={view} online={online} act={act} title="Next game" />
+      </div>
     </Panel>
   );
 }

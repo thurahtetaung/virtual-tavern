@@ -100,6 +100,11 @@ export interface Seat {
   /** Seated players play; the rest watch. */
   playing: boolean;
   tokens: number;
+  /**
+   * Watching only because there was no seat (the table was full, or a game was on), not by
+   * choice: sat down automatically as soon as a seat is free between games.
+   */
+  waiting?: boolean;
 }
 
 export interface RoundPlayer {
@@ -258,6 +263,8 @@ export interface SeatView {
   name: string;
   playing: boolean;
   tokens: number;
+  /** Watching for want of a seat: dealt in at the next game if there's room. */
+  waiting?: boolean;
 }
 
 export interface RoundPlayerView {

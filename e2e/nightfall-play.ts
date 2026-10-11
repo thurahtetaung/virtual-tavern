@@ -5,6 +5,10 @@ export interface NightLog {
   role: string;
   acted: string[];
   results: string[];
+  /** The full-screen "YOUR TURN" came up at least once. */
+  woke: boolean;
+  /** The idle screen showed its hint (keep the phone face up). */
+  faceUp: boolean;
 }
 
 /** The host builds the card list with the +/- buttons, from whatever is selected now. */
@@ -68,11 +72,15 @@ export async function playNight(
 ) {
   return Promise.all(
     players.map(async (p, i) => {
-      const log: NightLog = { role: roles[i]!, acted: [], results: [] };
+      const log: NightLog = { role: roles[i]!, acted: [], results: [], woke: false, faceUp: false };
       const deadline = Date.now() + 150_000;
       while (Date.now() < deadline) {
         if (await p.getByRole('button', { name: 'Ready to vote' }).count()) break;
+        if (!log.faceUp)
+          log.faceUp =
+            (await p.getByTestId('idle-hint').filter({ hasText: 'face up' }).count()) > 0;
         if (await p.getByTestId('prompt').count()) {
+          if (!log.woke) log.woke = (await p.getByTestId('your-turn').count()) > 0;
           if (onActing) await onActing(p);
           try {
             log.acted.push(await answer(p));
@@ -83,6 +91,7 @@ export async function playNight(
         }
         const result = p.getByTestId('night-result');
         if (await result.count()) {
+          if (!log.woke) log.woke = (await p.getByTestId('your-turn').count()) > 0;
           const text = (await result.textContent({ timeout: 1000 }).catch(() => '')) ?? '';
           if (text && !log.results.includes(text)) log.results.push(text);
         }

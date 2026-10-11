@@ -8,7 +8,7 @@ import { GameLog } from './GameLog.tsx';
 import { lastGuessResult } from './result.ts';
 import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
-import { startBlocker, statusFor } from './status.ts';
+import { spymasterAlerts, startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { Teams } from './Teams.tsx';
 
@@ -138,6 +138,30 @@ function InGame({
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
+        {spymasterAlerts(view).map((alert) => (
+          <div
+            key={alert.team}
+            role="alert"
+            data-testid="no-spymaster"
+            className={cn(
+              'flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl px-4 py-3 text-center text-sm ring-2 sm:text-base',
+              alert.mine || alert.canTake
+                ? 'bg-amber-100 font-semibold text-amber-950 ring-amber-400 dark:bg-amber-500/15 dark:text-amber-100'
+                : 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800/70 dark:text-stone-300 dark:ring-stone-600',
+            )}
+          >
+            <span>⚠️ {alert.text}</span>
+            {alert.canTake && (
+              <Button
+                size="sm"
+                variant={alert.team}
+                onClick={() => void act({ type: 'join-team', team: alert.team, role: 'spymaster' })}
+              >
+                Be the {TEAM_LABEL[alert.team]} Spymaster
+              </Button>
+            )}
+          </div>
+        ))}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
 
         {turn?.clue && (

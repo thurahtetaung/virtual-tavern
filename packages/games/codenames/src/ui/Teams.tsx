@@ -1,5 +1,6 @@
 import { Badge, Button, cn } from '@vt/ui';
 import type { CodenamesAction, CodenamesView, Team } from '../logic/types.ts';
+import { canTakeSpymaster as canTakeSeat } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
 interface Props {
@@ -39,15 +40,8 @@ function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }
   const operatives = members.filter((s) => s.role === 'operative');
   const me = view.me;
   const playing = view.phase === 'playing';
-  // Mirrors the engine's mid-game seat lock: seated players stay put, except to fill their own
-  // team's vacant spymaster seat; newcomers may join unless they have already seen the key, in
-  // which case only their old spymaster seat will do.
   const keyHeld = me ? view.keyHolders[me.id] : undefined;
-  const canTakeSpymaster =
-    !spymaster &&
-    me !== null &&
-    (!playing ||
-      (me.team === null ? (keyHeld ?? team) === team : me.team === team && keyHeld === undefined));
+  const canTakeSpymaster = canTakeSeat(view, team);
   const canJoinOps =
     me !== null &&
     !(me.team === team && me.role === 'operative') &&

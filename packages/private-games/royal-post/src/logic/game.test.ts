@@ -764,6 +764,61 @@ describe('leavers and late joiners', () => {
   });
 });
 
+describe('seats between games', () => {
+  const seated = (h: { state: RoyalPostState }) =>
+    Object.entries(h.state.seats).flatMap(([id, s]) => (s.playing ? [id] : []));
+
+  it('seats the watchers who were waiting when the host picks an edition with more seats', () => {
+    const h = harness(['host', 'a', 'b', 'c', 'd', 'e']);
+    expect(seated(h)).toEqual(['host', 'a', 'b', 'c']);
+    h.act({ type: 'update-settings', edition: '2019' });
+    expect(seated(h)).toEqual(['host', 'a', 'b', 'c', 'd', 'e']);
+    expect(h.state.seats.d!.waiting).toBeUndefined();
+  });
+
+  it('leaves players who chose to watch alone', () => {
+    const h = harness(['host', 'a', 'b', 'c', 'd', 'e']);
+    h.act({ type: 'sit', playing: false }, 'a');
+    h.act({ type: 'update-settings', edition: '2019' });
+    expect(seated(h)).toEqual(['host', 'b', 'c', 'd', 'e']);
+    expect(h.state.seats.a).toMatchObject({ playing: false });
+  });
+
+  it('seats only as many as the edition has room for, in join order', () => {
+    const h = harness(['host', 'a', 'b', 'c', 'd', 'e', 'f']);
+    h.act({ type: 'update-settings', edition: '2019' });
+    expect(seated(h)).toEqual(['host', 'a', 'b', 'c', 'd', 'e']);
+    expect(h.state.seats.f).toMatchObject({ playing: false, waiting: true });
+  });
+
+  it('deals late joiners into the next game, and lets watchers sit down on the podium', () => {
+    const h = startedGame(THREE, '2019');
+    h.state = royalPost.playerJoined(h.state, { id: 'dee', name: 'Dee' });
+    h.state = royalPost.playerJoined(h.state, { id: 'eve', name: 'Eve' });
+    expect(h.state.seats.dee).toMatchObject({ playing: false, waiting: true });
+    // The game ends: Dee stands by her choice to watch, Eve waits for a seat.
+    h.state = { ...h.state, phase: 'over', round: null };
+    h.act({ type: 'sit', playing: false }, 'dee');
+    expect(h.state.seats.dee).toEqual({ name: 'Dee', playing: false, tokens: 0 });
+    // Play again: Eve is dealt in; Dee keeps watching until she taps Take a seat.
+    h.act({ type: 'start' });
+    expect(h.state.round!.order).toContain('eve');
+    expect(h.state.round!.order).not.toContain('dee');
+    h.state = { ...h.state, phase: 'over', round: null };
+    h.act({ type: 'sit', playing: true }, 'dee');
+    h.act({ type: 'start' });
+    expect(h.state.round!.order).toHaveLength(5);
+    expect(h.state.round!.order).toContain('dee');
+  });
+
+  it('seats waiting players when the host goes back to the lobby', () => {
+    const h = startedGame(THREE);
+    h.state = royalPost.playerJoined(h.state, { id: 'dee', name: 'Dee' });
+    h.act({ type: 'back-to-lobby' });
+    expect(h.state.seats.dee).toEqual({ name: 'Dee', playing: true, tokens: 0 });
+  });
+});
+
 describe('timers', () => {
   it('only runs a deadline in strict mode with a turn time', () => {
     expect(royalPost.nextDeadline!(startedGame().state)).toBeNull();

@@ -1,8 +1,17 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { codenames } from '../logic/game.ts';
-import { OP, SPY, cardsOf, clue, content, startedGame } from '../logic/test-utils.ts';
-import { guessesLeft, startBlocker, statusFor } from './status.ts';
+import {
+  HOST,
+  OP,
+  SPY,
+  cardsOf,
+  clue,
+  content,
+  harness,
+  startedGame,
+} from '../logic/test-utils.ts';
+import { guessesLeft, spymasterAlerts, startBlocker, statusFor } from './status.ts';
 
 describe('statusFor', () => {
   it('guides spectators in the lobby to pick a team', () => {
@@ -46,5 +55,45 @@ describe('startBlocker', () => {
     expect(startBlocker(view, 30)).toBeNull();
     expect(startBlocker(view, 10)).toContain('25 are needed');
     expect(startBlocker({ ...view, seats: [] }, 30)).toBe('Red needs a Spymaster.');
+  });
+});
+
+describe('spymasterAlerts', () => {
+  it('says nothing while both teams have a Spymaster', () => {
+    const h = startedGame();
+    expect(spymasterAlerts(codenames.view(h.state, OP.red))).toEqual([]);
+  });
+
+  it('tells the team without a Spymaster why its turns are skipped, and offers the seat', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.blue, 0);
+    const mine = spymasterAlerts(codenames.view(h.state, OP.blue));
+    expect(mine).toEqual([
+      {
+        team: 'blue',
+        mine: true,
+        canTake: true,
+        text: 'Your team has no Spymaster, so your turns are skipped. Take the seat?',
+      },
+    ]);
+    // The other team is told too, so the table knows why Blue never plays; it can't take it.
+    const other = spymasterAlerts(codenames.view(h.state, OP.red));
+    expect(other).toMatchObject([{ team: 'blue', mine: false, canTake: false }]);
+    expect(other[0]!.text).toBe(
+      "Blue has no Spymaster, so Blue's turns are skipped. One of them can take the seat.",
+    );
+    // A newcomer who never saw the key may sit down in the empty seat.
+    h.state = codenames.playerJoined(h.state, { id: 'new', name: 'NEW' });
+    expect(spymasterAlerts(codenames.view(h.state, 'new'))).toMatchObject([
+      { team: 'blue', canTake: true },
+    ]);
+    // Once someone takes it, the alert is gone.
+    h.act({ type: 'join-team', team: 'blue', role: 'spymaster' }, OP.blue);
+    expect(spymasterAlerts(codenames.view(h.state, OP.red))).toEqual([]);
+  });
+
+  it('never alerts in the lobby', () => {
+    const h = harness();
+    expect(spymasterAlerts(codenames.view(h.state, HOST))).toEqual([]);
   });
 });

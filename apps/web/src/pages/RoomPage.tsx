@@ -7,7 +7,7 @@ import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
-import { type ClientGame, loadGame, withTitle } from '../games/registry.ts';
+import { type ClientGame, findGame, loadGame, withTitle } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -180,9 +180,14 @@ function Room({
 
   // Remember this room for "Rejoin your last room" on the landing page.
   useEffect(() => {
-    if (status === 'joined') saveLastRoom({ id: roomId, game: game.name });
+    if (status === 'joined')
+      saveLastRoom({
+        id: roomId,
+        game: game.name,
+        ...(findGame(game.id) ? {} : { private: true }),
+      });
     if (status === 'kicked' || status === 'left') forgetLastRoom(roomId);
-  }, [status, roomId, game.name]);
+  }, [status, roomId, game.name, game.id]);
 
   const act = useCallback(
     async (action: unknown) => {

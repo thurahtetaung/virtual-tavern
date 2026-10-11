@@ -152,6 +152,12 @@ export function BackroomPage() {
           </p>
         ) : status.unlocked ? null : (
           <form onSubmit={(e) => void knock(e)} className="space-y-3">
+            {next && (
+              <p className="text-amber-200/70" data-testid="invite-note">
+                Your friend's table is through this door. They know the word: ask them for it, then
+                knock and you'll go straight to their game.
+              </p>
+            )}
             <p className="text-amber-200/80">Members only. What's the word?</p>
             <label className="sr-only" htmlFor="backroom-word">
               The word

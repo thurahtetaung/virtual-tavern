@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { awards, hoodwink, liePoints, lieProblem, playingIds, rankedScores } from './game.ts';
+import {
+  awards,
+  hoodwink,
+  liePoints,
+  lieProblem,
+  missingPlayers,
+  playingIds,
+  rankedScores,
+} from './game.ts';
 import {
   DECKS,
   FOUR,
@@ -548,6 +556,52 @@ describe('timers', () => {
       expect(next === null || next > now).toBe(true);
     }
     expect(h.state.phase).toBe('over');
+  });
+});
+
+describe('continue without', () => {
+  const soft = {
+    rounds: 5 as const,
+    clueSeconds: 60,
+    guessSeconds: 30,
+    timerMode: 'soft' as const,
+  };
+
+  it('lets the host stop waiting for a missing writer, as a strict timeout would', () => {
+    const h = startedGame(FOUR, soft);
+    h.act({ type: 'lie', text: 'one' }, 'p2');
+    h.act({ type: 'lie', text: 'two' }, 'p3');
+    h.act({ type: 'lie', text: 'three' }, HOST);
+    expect(missingPlayers(round(h))).toEqual(['p4']);
+    // Only the host may, and only while someone is missing.
+    expect(h.reject({ type: 'continue-without' }, 'p2').code).toBe('not-host');
+    const strict = startedGame(FOUR, { ...soft, timerMode: 'strict' });
+    strict.act({ type: 'lie', text: 'one' }, 'p2');
+    strict.act({ type: 'lie', text: 'two' }, 'p3');
+    strict.act({ type: 'lie', text: 'three' }, HOST);
+    const timedOut = hoodwink.onDeadline!(strict.state, NOW + 60_000);
+    h.act({ type: 'continue-without' }, HOST, NOW + 60_000);
+    // The same board and stage as the strict timeout gives.
+    expect(round(h).stage).toBe('vote');
+    expect(round(h).options.map((o) => o.text)).toEqual(timedOut.round!.options.map((o) => o.text));
+    expect(round(h).voters).toEqual(FOUR);
+  });
+
+  it('reveals without the missing voters, who score nothing', () => {
+    const h = startedGame(FOUR, soft);
+    writeAll(h);
+    for (const id of [HOST, 'p2', 'p3'])
+      h.act({ type: 'vote', option: lieOf(h, id === 'p3' ? 'p2' : 'p3') }, id);
+    expect(missingPlayers(round(h))).toEqual(['p4']);
+    h.act({ type: 'continue-without' });
+    expect(round(h).stage).toBe('reveal');
+    expect(round(h).points?.p4).toBe(0);
+    expect(h.reject({ type: 'continue-without' }).code).toBe('wrong-stage');
+  });
+
+  it('refuses outside a round', () => {
+    const h = harness(FOUR);
+    expect(h.reject({ type: 'continue-without' }).code).toBe('wrong-stage');
   });
 });
 

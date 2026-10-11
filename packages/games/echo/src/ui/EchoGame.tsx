@@ -1,4 +1,4 @@
-import type { GameUiProps } from '@vt/game-sdk';
+import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
 import { Button, Countdown, Hint, Panel } from '@vt/ui';
 import { useEffect } from 'react';
 import type { EchoAction, EchoView } from '../logic/types.ts';
@@ -42,7 +42,8 @@ export function EchoGame({ view, room, act, showGuide, setYourMove }: EchoUiProp
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const host = hostNameOf(room);
+  const status = statusFor(view, room.isHost, blocker, host);
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -73,7 +74,7 @@ export function EchoGame({ view, room, act, showGuide, setYourMove }: EchoUiProp
         <Scoreboard view={view} clockOffset={room.clockOffset} />
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} />
+          <GameOver view={view} act={act} isHost={room.isHost} hostName={host} />
         ) : (
           view.turn && (
             <Panel>

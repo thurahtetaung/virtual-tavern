@@ -11,6 +11,10 @@ export interface GameRoomInfo {
   wordLists: WordListSummary[];
 }
 
+/** The host's name, for guests' "Waiting for Hana to…" lines. */
+export const hostNameOf = (room: Pick<GameRoomInfo, 'hostId' | 'players'>): string =>
+  room.players.find((p) => p.id === room.hostId)?.name ?? 'the host';
+
 export interface GameUiProps<View, Action> {
   view: View;
   room: GameRoomInfo;

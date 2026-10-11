@@ -55,7 +55,7 @@ describe('statusFor', () => {
     expect(status(h, 'p2').text).toContain('lie that sounds true');
     h.act({ type: 'lie', text: 'Ferrets' }, 'p2');
     expect(status(h, 'p2')).toEqual({
-      text: 'Lie sent! Waiting for 3 more players… You can still change yours.',
+      text: 'Lie sent! Waiting for HOST, P3 and P4… You can still change yours.',
       yourMove: false,
     });
     expect(status(h, null).text).toBe('Everyone is writing a lie…');
@@ -69,9 +69,11 @@ describe('statusFor', () => {
     h.act({ type: 'vote', option: truthIndex(h) }, 'p2');
     h.act({ type: 'vote', option: truthIndex(h) }, 'p3');
     h.act({ type: 'vote', option: truthIndex(h) }, 'p4');
-    expect(status(h, 'p2').text).toBe(
-      'Voted! Waiting for 1 more player… You can still change your vote.',
-    );
+    expect(status(h, 'p2').text).toBe('Voted! Waiting for HOST… You can still change your vote.');
+    // Offline players are marked, so the host knows to continue without them.
+    expect(
+      statusFor(hoodwink.view(h.state, 'p2'), false, null, { online: (id) => id !== HOST }).text,
+    ).toBe('Voted! Waiting for HOST (offline)… You can still change your vote.');
     expect(status(h, 'late').text).toContain('hunting for the truth');
   });
 
@@ -86,9 +88,12 @@ describe('statusFor', () => {
       yourMove: true,
     });
     expect(status(h, 'p2')).toEqual({
-      text: `The truth was “${truth}”. You scored 0.`,
+      text: `The truth was “${truth}”. You scored 0. Waiting for the host to start the next round…`,
       yourMove: false,
     });
+    expect(
+      statusFor(hoodwink.view(h.state, 'p2'), false, null, { hostName: 'Hana' }).text,
+    ).toContain('Waiting for Hana to start the next round…');
   });
 
   it('names the winner, a tie, or a game cut short', () => {

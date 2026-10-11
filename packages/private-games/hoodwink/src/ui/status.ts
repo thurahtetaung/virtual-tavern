@@ -41,9 +41,34 @@ export function listNames(names: readonly string[]): string {
 /** "1,000" */
 export const points = (n: number) => n.toLocaleString('en');
 
-const more = (n: number) => `${n} more ${n === 1 ? 'player' : 'players'}`;
+export interface StatusContext {
+  /** The host's name, for guests' "Waiting for Hana to…" lines. */
+  hostName?: string;
+  /** Whether a player is connected, so the missing can be marked offline. */
+  online?: (id: string) => boolean;
+}
 
-function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Status {
+/** Who the round still waits for: players without a lie, or voters without a vote. */
+export function missingIds(round: RoundView): string[] {
+  if (round.stage === 'write') return round.players.filter((id) => !round.written.includes(id));
+  if (round.stage === 'vote') return round.voters.filter((id) => !round.voted.includes(id));
+  return [];
+}
+
+/** "Dee (offline) and Eve", or "4 more players" when the list would be long. */
+export function missingText(view: HoodwinkView, ids: readonly string[], ctx: StatusContext = {}) {
+  if (ids.length > 3) return `${ids.length} more players`;
+  return listNames(
+    ids.map((id) => `${nameOf(view, id)}${ctx.online && !ctx.online(id) ? ' (offline)' : ''}`),
+  );
+}
+
+function roundStatus(
+  view: HoodwinkView,
+  round: RoundView,
+  isHost: boolean,
+  ctx: StatusContext,
+): Status {
   const me = view.me?.id ?? '';
   const waiting = view.role === 'waiting' ? ' You join in from the next round.' : '';
   switch (round.stage) {
@@ -57,9 +82,8 @@ function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Sta
           yourMove: true,
         };
       }
-      const left = round.players.length - round.written.length;
       return {
-        text: `Lie sent! Waiting for ${more(left)}… You can still change yours.`,
+        text: `Lie sent! Waiting for ${missingText(view, missingIds(round), ctx)}… You can still change yours.`,
         yourMove: false,
       };
     }
@@ -70,17 +94,18 @@ function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Sta
       if (round.myVote === null) {
         return { text: 'Which answer is the truth? Pick one.', yourMove: true };
       }
-      const left = round.voters.length - round.voted.length;
       return {
-        text: `Voted! Waiting for ${more(left)}… You can still change your vote.`,
+        text: `Voted! Waiting for ${missingText(view, missingIds(round), ctx)}… You can still change your vote.`,
         yourMove: false,
       };
     }
     case 'reveal': {
       const mine = round.points?.[me];
       const scored = mine === undefined ? '' : ` You scored ${points(mine)}.`;
-      const next = round.number >= round.rounds ? 'Finish' : 'Next round';
-      const tail = isHost ? ` Press ${next} when everyone has had a look.` : '';
+      const last = round.number >= round.rounds;
+      const tail = isHost
+        ? ` Press ${last ? 'Finish' : 'Next round'} when everyone has had a look.`
+        : ` Waiting for ${ctx.hostName ?? 'the host'} to ${last ? 'finish the game' : 'start the next round'}…`;
       return {
         text: `The truth was “${round.answer === null ? '?' : displayText(round.answer)}”.${scored}${tail}`,
         yourMove: isHost,
@@ -90,7 +115,12 @@ function roundStatus(view: HoodwinkView, round: RoundView, isHost: boolean): Sta
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: HoodwinkView, isHost: boolean, blocker: string | null): Status {
+export function statusFor(
+  view: HoodwinkView,
+  isHost: boolean,
+  blocker: string | null,
+  ctx: StatusContext = {},
+): Status {
   if (view.phase === 'lobby') {
     if (!view.me?.playing) {
       return { text: "You're watching. Press Play to join the table.", yourMove: false };
@@ -98,7 +128,10 @@ export function statusFor(view: HoodwinkView, isHost: boolean, blocker: string |
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
     return isHost
       ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : {
+          text: `All set. Waiting for ${ctx.hostName ?? 'the host'} to start the game…`,
+          yourMove: false,
+        };
   }
   if (view.phase === 'over') {
     if (view.endReason === 'too-few') {
@@ -119,7 +152,7 @@ export function statusFor(view: HoodwinkView, isHost: boolean, blocker: string |
       : { text: `Game over! A tie at ${top} points: ${listNames(names)}.`, yourMove: false };
   }
   if (!view.round) return { text: 'Shuffling the questions…', yourMove: false };
-  return roundStatus(view, view.round, isHost);
+  return roundStatus(view, view.round, isHost, ctx);
 }
 
 /** The prompt split around its blank (`___`, or any run of 2+ underscores). */

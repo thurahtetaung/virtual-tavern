@@ -69,7 +69,13 @@ describe('statusFor', () => {
     toGuess(h);
     const word = secret(h);
     h.act({ type: 'guess', word });
-    expect(status(h, 'p2').text).toBe(`Got it! The word was “${word}”.`);
+    expect(status(h, 'p2').text).toBe(
+      `Got it! The word was “${word}”. Waiting for the host to deal the next card…`,
+    );
+    // Guests are told who moves the game on.
+    expect(statusFor(echo.view(h.state, 'p2'), false, null, 'Hana').text).toContain(
+      'Waiting for Hana to deal the next card…',
+    );
     h.act({ type: 'next-card' });
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);

@@ -126,6 +126,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lie-for-me') }),
   z.object({ type: z.literal('vote'), option: z.number().int().min(0).max(20) }),
   z.object({ type: z.literal('next-round') }),
+  /** Host: stop waiting for the players still missing; the stage ends as a strict timeout would. */
+  z.object({ type: z.literal('continue-without') }),
 ]);
 
 export type HoodwinkAction = z.infer<typeof actionSchema>;

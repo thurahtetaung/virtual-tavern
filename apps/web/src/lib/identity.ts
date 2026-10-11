@@ -42,6 +42,8 @@ export interface LastRoom {
   id: string;
   /** The game's display name, for "Rejoin your Codenames room". */
   game: string;
+  /** A back-room game: only offered while this browser holds the unlock. */
+  private?: boolean;
 }
 
 /** The room this browser most recently sat in, so the landing page can offer a way back. */
@@ -51,7 +53,7 @@ export function lastRoom(): LastRoom | null {
   try {
     const parsed = JSON.parse(raw) as Partial<LastRoom> | null;
     return parsed && typeof parsed.id === 'string' && typeof parsed.game === 'string'
-      ? { id: parsed.id, game: parsed.game }
+      ? { id: parsed.id, game: parsed.game, ...(parsed.private ? { private: true } : {}) }
       : null;
   } catch {
     return null;
