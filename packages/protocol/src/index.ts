@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AckWith, GameRecap, RecapQuery, RecapTone, RoomMeta, RoomRecap } from './recap.ts';
 
 export const MAX_NAME_LENGTH = 24;
 export const ROOM_ID_PATTERN = /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/;
@@ -114,6 +115,8 @@ export interface RoomSnapshot<View = unknown> {
   game: View;
   /** Server clock at send time, so clients can correct countdowns for clock skew. */
   serverNow: number;
+  /** The game's coarse phase and the room's recap settings. */
+  meta?: RoomMeta;
 }
 
 export type Ack = { ok: true } | { ok: false; error: { code: string; message: string } };
@@ -128,6 +131,17 @@ export interface ClientToServerEvents {
   'room:kick': (playerId: string, ack: (res: Ack) => void) => void;
   'room:make-host': (playerId: string, ack: (res: Ack) => void) => void;
   'game:action': (action: unknown, ack: (res: Ack) => void) => void;
+  /** The night recap (members only). */
+  'room:recap': (
+    query: RecapQuery,
+    ack: (res: AckWith<GameRecap | RoomRecap | null>) => void,
+  ) => void;
+  /** Host only: freezes the night and opens the recap on every device. `tz` as getTimezoneOffset. */
+  'room:wrap': (tz: number, ack: (res: Ack) => void) => void;
+  /** Host only: the room's recap tone. */
+  'room:recap-tone': (tone: RecapTone, tz: number, ack: (res: Ack) => void) => void;
+  /** The viewer copied or shared the recap (counted, nothing else). */
+  'room:recap-shared': (how: 'copy' | 'share', ack: (res: Ack) => void) => void;
 }
 
 export interface ServerToClientEvents {
@@ -135,6 +149,9 @@ export interface ServerToClientEvents {
   'room:kicked': () => void;
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
   'room:locked': () => void;
+  /** The host wrapped up the night: every device opens the recap. */
+  'room:wrapped': (nightKey: string) => void;
 }
 export * from './questions.ts';
+export * from './recap.ts';
 export * from './stats.ts';

@@ -1,5 +1,6 @@
 import {
   type Ack,
+  type AckWith,
   type ClientToServerEvents,
   type ServerToClientEvents,
   joinRoomPayload,
@@ -9,6 +10,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { playerIdFromToken } from './rooms/ids.ts';
+import type { RecapService } from './recap/service.ts';
 import { RoomError, type RoomEvents, type RoomManager } from './rooms/manager.ts';
 
 interface SocketData {
@@ -47,6 +49,8 @@ export const DEFAULT_RATE_LIMITS: RateLimits = { perSecond: 20, burst: 40, disco
 
 export interface RealtimeOptions {
   limits?: Partial<RateLimits>;
+  /** Night recaps; without it the recap events answer `recap-off`. */
+  recap?: RecapService;
 }
 
 /** Broadcast messages at least this big are compressed. */
@@ -189,6 +193,11 @@ function guard(log: FastifyBaseLogger, ack: unknown, run: () => Ack) {
   }
 }
 
+const recapOff: Ack = {
+  ok: false,
+  error: { code: 'recap-off', message: 'Night recaps are switched off.' },
+};
+
 const notJoined: Ack = { ok: false, error: { code: 'not-joined', message: 'Join a room first.' } };
 
 const lockedOut: Ack = {
@@ -329,6 +338,61 @@ export function attachRealtime(
       guarded(
         ack,
         inRoom((roomId, playerId) => rooms.act(roomId, playerId, action)),
+      ),
+    );
+
+    // ---- Night recaps (members only; the back-room unlock is re-checked like any action) ----
+    const recap = opts.recap;
+
+    socket.on('room:recap', (query, ack) => {
+      let data: unknown = null;
+      guarded(
+        typeof ack === 'function'
+          ? (res: Ack) => (ack as (r: AckWith<unknown>) => void)(res.ok ? { ok: true, data } : res)
+          : undefined,
+        inRoom((roomId, playerId) => {
+          if (!recap) return recapOff;
+          const q = (query !== null && typeof query === 'object' ? query : {}) as {
+            scope?: unknown;
+            opened?: unknown;
+          };
+          const res = recap.recap(roomId, playerId, {
+            scope: q.scope === 'game' ? 'game' : 'night',
+            opened: q.opened === true,
+          });
+          if (!res.ok) return res;
+          data = res.data;
+          return { ok: true };
+        }),
+      );
+    });
+
+    socket.on('room:wrap', (tz, ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) => {
+          if (!recap) return recapOff;
+          const res = recap.wrap(roomId, playerId, tz);
+          if (!res.ok) return res;
+          io.to(channel(roomId)).emit('room:wrapped', res.data);
+          return { ok: true };
+        }),
+      ),
+    );
+
+    socket.on('room:recap-tone', (tone, tz, ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) =>
+          recap ? recap.setTone(roomId, playerId, tone, tz) : recapOff,
+        ),
+      ),
+    );
+
+    socket.on('room:recap-shared', (how, ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) => (recap ? recap.shared(roomId, playerId, how) : recapOff)),
       ),
     );
 

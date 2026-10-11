@@ -7,6 +7,10 @@ import type { MasqueradeAction, MasqueradeState } from './types.ts';
  * - `spy`: each spy's outcome (escaped, stole, caught) and the votes they drew, with their guess;
  * - `vote`: each vote, whether it found a spy, and who it was for;
  * - `outcome`: the game's winners and rounds, when the last round ends.
+ *
+ * For the night recap, `round` also names who the vote named, who started the asking and the
+ * points it scored (`pointsTo`/`points`, aligned); `spy` and `vote` carry the round number; and
+ * `outcome` carries the final standings (`ranking` by score, with `scores` aligned).
  */
 export function insightsFor(locationName: (id: string) => string) {
   return function insights(
@@ -37,6 +41,10 @@ export function insightsFor(locationName: (id: string) => string) {
           spies: result.spies.length,
           players: round.players.length,
           round: round.number,
+          named: [...result.named],
+          starter: round.starter,
+          pointsTo: Object.keys(result.points),
+          points: Object.values(result.points),
         },
       });
       for (const s of result.spyResults) {
@@ -48,6 +56,7 @@ export function insightsFor(locationName: (id: string) => string) {
             outcome: s.outcome,
             votes: received.get(s.id) ?? 0,
             location,
+            round: round.number,
           },
         });
       }
@@ -55,15 +64,23 @@ export function insightsFor(locationName: (id: string) => string) {
         events.push({
           type: 'vote',
           playerId: voter,
-          props: { hit: result.spies.includes(target), target },
+          props: { hit: result.spies.includes(target), target, round: round.number },
         });
       }
     }
     if (before.phase !== 'over' && after.phase === 'over') {
+      // Everyone who played, best score first (seat order breaks ties).
+      const ranked = Object.entries(after.seats)
+        .filter(([id, s]) => s.playing || after.winners.includes(id))
+        .sort(([, a], [, b]) => b.score - a.score);
       events.push({
         type: 'outcome',
         winners: after.winners,
-        props: { rounds: after.round?.number ?? 0 },
+        props: {
+          rounds: after.round?.number ?? 0,
+          ranking: ranked.map(([id]) => id),
+          scores: ranked.map(([, s]) => s.score),
+        },
       });
     }
     return events;

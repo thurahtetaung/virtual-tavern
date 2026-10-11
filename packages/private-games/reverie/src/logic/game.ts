@@ -9,6 +9,7 @@ import {
   createRng,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { reverieAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import {
   CARD_SETS,
@@ -714,4 +715,5 @@ export const reverie: GameDefinition<ReverieState, ReverieAction, ReverieView> =
   nextDeadline,
   onDeadline,
   insights,
+  awards: reverieAwards,
 };

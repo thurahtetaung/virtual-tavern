@@ -1,5 +1,5 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Panel, RefusalSlot, Standings, cn } from '@vt/ui';
+import { Button, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
@@ -402,7 +402,11 @@ export function Stage({ view, act, isHost }: Props) {
   }
 }
 
-/** The shared podium and final standings, the awards, then Play again. */
+/**
+ * The shared podium and final standings, the awards, then Play again. The night recap's
+ * superlatives replace the built-in Best liar / Truth seeker cards (they are award rules there);
+ * with recaps off, the cards stay.
+ */
 export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomInfo }) {
   const ranked = view.scores;
   const { bestLiar, truthSeeker } = awards(ranked);
@@ -424,24 +428,28 @@ export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomIn
         scoreLabel={(n) => `${points(n)} pts`}
         className="text-left"
       />
-      <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <div className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-500/10">
-          <dt className="font-semibold">🎭 Best liar</dt>
-          <dd>
-            {bestLiar.length > 0
-              ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
-              : 'Nobody fooled anyone!'}
-          </dd>
-        </div>
-        <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
-          <dt className="font-semibold">🔎 Truth seeker</dt>
-          <dd>
-            {truthSeeker.length > 0
-              ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
-              : 'Nobody found the truth!'}
-          </dd>
-        </div>
-      </dl>
+      {room.superlatives?.length ? (
+        <Superlatives lines={room.superlatives} />
+      ) : (
+        <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-500/10">
+            <dt className="font-semibold">🎭 Best liar</dt>
+            <dd>
+              {bestLiar.length > 0
+                ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
+                : 'Nobody fooled anyone!'}
+            </dd>
+          </div>
+          <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
+            <dt className="font-semibold">🔎 Truth seeker</dt>
+            <dd>
+              {truthSeeker.length > 0
+                ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
+                : 'Nobody found the truth!'}
+            </dd>
+          </div>
+        </dl>
+      )}
       {isHost ? (
         <div className="grid gap-2 sm:flex sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>

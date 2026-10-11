@@ -801,7 +801,7 @@ for (const [label, viewport] of [
     await shot(host, 'ready');
     await host.getByRole('button', { name: 'Cover it again' }).click();
     const roles = await getReady(players);
-    await expect(host.getByTestId(/night-/)).toBeVisible({ timeout: 15_000 });
+    await expect(host.getByTestId(/night-/)).toBeVisible();
     let idleShot = false;
     await playNight(players, roles, async (p) => {
       if (!taken.has('night-acting')) await shot(p, 'night-acting');
@@ -917,7 +917,7 @@ for (const [label, viewport] of [
     const T = roles.findIndex((r) => VAMPIRES.includes(r));
     const marked = roles.findIndex((r) => ['seer', 'pickpocket'].includes(r));
     await getReady(players);
-    await expect(host.getByTestId(/night-/)).toBeVisible({ timeout: 15_000 });
+    await expect(host.getByTestId(/night-/)).toBeVisible();
     await playMarkedNight(players, names, roles, marked, async (p) => {
       if (!taken.has('dusk') && (await p.getByTestId('dusk').count())) await shot(p, 'dusk');
       if (!taken.has('lovers') && (await p.getByTestId('lovers').count())) await shot(p, 'lovers');
@@ -942,5 +942,60 @@ for (const [label, viewport] of [
     await shot(host, 'reveal');
     await host.getByRole('tab', { name: 'The night, step by step' }).click();
     await shot(host, 'reveal-night');
+  });
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`recap screenshots (phone, ${colorScheme})`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const viewport = { width: 390, height: 844 };
+    const make = async (name: string) => {
+      const p = await (await browser.newContext({ viewport, colorScheme })).newPage();
+      p.on('dialog', (d) => void d.accept());
+      await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+      return p;
+    };
+    const host = await make('Hana');
+    await host.goto('/');
+    await host.getByRole('button', { name: 'Create a Masquerade room' }).click();
+    await expect(host).toHaveURL(/\/r\//);
+    const url = host.url();
+    const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
+    await Promise.all(others.map((p) => p.goto(url)));
+    const players = [host, ...others];
+    const names = new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben', 'Cy'][i]!]));
+    await expect(host.getByText('Players (4/12)')).toBeVisible();
+    await host.getByLabel('Rounds').selectOption('1');
+    for (let game = 1; game <= 2; game++) {
+      if (game === 2) await host.getByRole('button', { name: 'Play again' }).click();
+      else await host.getByRole('button', { name: 'Start game' }).click();
+      const dealt = await readCards(players, names);
+      await readyUp(players);
+      const [a, b, c] = dealt.locals as [Page, Page, Page];
+      // Game 1 the spy escapes untouched; game 2 the table catches them.
+      const target = game === 1 ? names.get(a)! : names.get(dealt.spy)!;
+      await votes([
+        [a, game === 1 ? names.get(b)! : target],
+        [b, target],
+        [c, target],
+        [dealt.spy, names.get(a)!],
+      ]);
+      if (game === 2) {
+        const board = dealt.spy.getByRole('region', { name: 'Locations' });
+        const wrong = dealt.location === 'Bakery' ? 'Gym' : 'Bakery';
+        await board.getByRole('button', { name: `Pick ${wrong}`, exact: true }).click();
+        await board.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
+      }
+      await expect(host.getByRole('region', { name: 'Superlatives' })).toBeVisible();
+    }
+    const strip = host.getByRole('region', { name: 'Superlatives' });
+    await strip.scrollIntoViewIfNeeded();
+    await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-strip.png` });
+    await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
+    const sheet = host.getByRole('dialog', { name: /at the tavern/ });
+    await expect(sheet.getByText('Wrapped up')).toBeVisible();
+    await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-sheet.png` });
+    await sheet.getByRole('region', { name: 'Past rounds' }).scrollIntoViewIfNeeded();
+    await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-rounds.png` });
   });
 }

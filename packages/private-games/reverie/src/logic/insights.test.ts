@@ -51,16 +51,40 @@ describe('insights', () => {
     h.act({ type: 'vote', index: storyIndex(h) }, 'ana');
     h.act({ type: 'vote', index: anaCard }, 'ben');
     h.act({ type: 'vote', index: anaCard }, 'cy');
-    expect(take()).toEqual([
+    const events = take();
+    expect(events.filter((e) => e.type !== 'score')).toEqual([
       {
         type: 'story',
         playerId: HOST,
         words: [{ kind: 'story', word: 'a quiet harbour' }],
         props: { clue: 'a quiet harbour', allOrNone: false, round: 1, found: 1, voters: 3 },
       },
-      { type: 'vote', playerId: 'ana', props: { found: true } },
-      { type: 'vote', playerId: 'ben', props: { found: false } },
-      { type: 'vote', playerId: 'cy', props: { found: false } },
+      { type: 'vote', playerId: 'ana', props: { found: true, owner: HOST } },
+      { type: 'vote', playerId: 'ben', props: { found: false, owner: 'ana' } },
+      { type: 'vote', playerId: 'cy', props: { found: false, owner: 'ana' } },
+    ]);
+    // Storyteller and Ana's finder score 3; Ana's card drew two votes (+2).
+    expect(events.filter((e) => e.type === 'score')).toEqual([
+      {
+        type: 'score',
+        playerId: HOST,
+        props: { round: 1, points: 3, votesReceived: 1, total: 3, storyteller: true },
+      },
+      {
+        type: 'score',
+        playerId: 'ana',
+        props: { round: 1, points: 5, votesReceived: 2, total: 5, storyteller: false },
+      },
+      {
+        type: 'score',
+        playerId: 'ben',
+        props: { round: 1, points: 0, votesReceived: 0, total: 0, storyteller: false },
+      },
+      {
+        type: 'score',
+        playerId: 'cy',
+        props: { round: 1, points: 0, votesReceived: 0, total: 0, storyteller: false },
+      },
     ]);
   });
 
@@ -78,14 +102,14 @@ describe('insights', () => {
     h.act({ type: 'vote', index: storyIndex(h) }, 'ana');
     const before = h.state;
     const after = reverie.onDeadline!(before, reverie.nextDeadline!(before)!);
-    expect(insights(before, after, null, null)).toEqual([
+    expect(insights(before, after, null, null).filter((e) => e.type !== 'score')).toEqual([
       {
         type: 'story',
         playerId: HOST,
         words: [{ kind: 'story', word: 'moonlight' }],
         props: { clue: 'moonlight', allOrNone: false, round: 1, found: 1, voters: 1 },
       },
-      { type: 'vote', playerId: 'ana', props: { found: true } },
+      { type: 'vote', playerId: 'ana', props: { found: true, owner: HOST } },
     ]);
     // Moving the timer on from the reveal reports it no second time.
     expect(insights(after, reverie.onDeadline!(after, NOW + 10 ** 9), null, null)).toEqual([]);
@@ -103,13 +127,27 @@ describe('insights', () => {
     const turns = h.state.turn!.round;
     expect(events.filter((e) => e.type === 'story')).toHaveLength(turns);
     expect(events.filter((e) => e.type === 'vote')).toHaveLength(turns * 3);
+    expect(events.filter((e) => e.type === 'score')).toHaveLength(turns * 4);
+    const ranking = Object.entries(h.state.seats)
+      .sort((a, b) => b[1].score - a[1].score)
+      .map(([id]) => id);
     expect(events.filter((e) => e.type === 'outcome')).toEqual([
       {
         type: 'outcome',
         winners: h.state.winners,
-        props: { target: 15, endReason: 'target' },
+        props: {
+          target: 15,
+          endReason: 'target',
+          ranking,
+          scores: ranking.map((id) => h.state.seats[id]!.score),
+        },
       },
     ]);
+    // The last score event of each player carries their final total.
+    const last = new Map(
+      events.filter((e) => e.type === 'score').map((e) => [e.playerId, e.props!.total]),
+    );
+    for (const id of ranking) expect(last.get(id)).toBe(h.state.seats[id]!.score);
     expect(h.state.winners.length).toBeGreaterThan(0);
     h.act({ type: 'start' });
     h.act({ type: 'back-to-lobby' });
@@ -128,7 +166,11 @@ describe('insights', () => {
     const { take } = record(h);
     h.act({ type: 'next-turn' });
     expect(take()).toEqual([
-      { type: 'outcome', winners: ['ana'], props: { target: 30, endReason: 'too-few' } },
+      {
+        type: 'outcome',
+        winners: ['ana'],
+        props: { target: 30, endReason: 'too-few', ranking: ['ana', HOST], scores: [2, 0] },
+      },
     ]);
   });
 });

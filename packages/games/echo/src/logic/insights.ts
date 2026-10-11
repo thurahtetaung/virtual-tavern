@@ -9,8 +9,9 @@ function newCards(before: EchoState, after: EchoState): ResolvedCard[] {
     : [];
 }
 
-function cardEvent(card: ResolvedCard): InsightEvent {
+function cardEvent(card: ResolvedCard, auto: boolean): InsightEvent {
   const cancelled = card.clues.filter((c) => c.cancelled);
+  const survivors = card.clues.filter((c) => !c.cancelled);
   return {
     type: 'card',
     playerId: card.guesser,
@@ -25,6 +26,12 @@ function cardEvent(card: ResolvedCard): InsightEvent {
       countedBy: card.countedBy,
       clueCount: card.clues.length,
       cancelledCount: cancelled.length,
+      // For the night recap: whose clues survived (aligned with their words), and who wrote any.
+      survivors: survivors.map((c) => c.by),
+      survivorWords: survivors.map((c) => c.text),
+      givers: [...new Set(card.clues.map((c) => c.by))],
+      // Resolved by the timer rather than a player.
+      auto,
     },
   };
 }
@@ -61,9 +68,12 @@ export function insights(
   before: EchoState,
   after: EchoState,
   _action: EchoAction | null,
-  _by: PlayerId | null,
+  by: PlayerId | null,
 ): InsightEvent[] {
-  const events = newCards(before, after).flatMap((card) => [cardEvent(card), ...matchEvents(card)]);
+  const events = newCards(before, after).flatMap((card) => [
+    cardEvent(card, by === null),
+    ...matchEvents(card),
+  ]);
   if (before.phase !== 'over' && after.phase === 'over') {
     events.push({
       type: 'outcome',

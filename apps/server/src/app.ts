@@ -10,6 +10,8 @@ import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import { attachRealtime, createRoomEvents } from './realtime.ts';
+import { RecapService } from './recap/service.ts';
+import { RecapSettings } from './recap/settings.ts';
 import { RoomManager } from './rooms/manager.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
@@ -121,6 +123,7 @@ export function buildApp(opts: AppOptions) {
           : undefined,
   });
   const recorder = new StatsRecorder({ store: stats, logger: app.log });
+  const recapSettings = new RecapSettings(db, now);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
   const maintainStats = () => {
     try {
@@ -148,17 +151,43 @@ export function buildApp(opts: AppOptions) {
     events: roomEvents,
     now,
     logger: app.log,
-    observer: recorder,
-  });
-  const io = (realtime.io = attachRealtime(app.server, rooms, app.log, {
-    isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
-    isUnlocked: (header) => {
-      const raw = header ? app.parseCookie(header)[BACKROOM_COOKIE] : undefined;
-      if (!raw) return false;
-      const { valid, value } = app.unsignCookie(raw);
-      return valid && backroom.isUnlocked(value);
+    observer: {
+      observe(o) {
+        recorder.observe(o);
+        if (o.kind === 'room.swept') {
+          recapSettings.forget(o.roomId);
+          recap.forget(o.roomId);
+        }
+      },
     },
-  }));
+    recapMeta: (roomId) => recap.meta(roomId),
+  });
+  const recap: RecapService = new RecapService({
+    source: stats,
+    games,
+    rooms,
+    settings: recapSettings,
+    flush: () => recorder.flush(),
+    record: (type, at, props) => recorder.record(type, at, props),
+    changed: (roomId) => roomEvents.changed(roomId),
+    logger: app.log,
+    now,
+  });
+  const io = (realtime.io = attachRealtime(
+    app.server,
+    rooms,
+    app.log,
+    {
+      isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
+      isUnlocked: (header) => {
+        const raw = header ? app.parseCookie(header)[BACKROOM_COOKIE] : undefined;
+        if (!raw) return false;
+        const { valid, value } = app.unsignCookie(raw);
+        return valid && backroom.isUnlocked(value);
+      },
+    },
+    { recap },
+  ));
 
   // A new password or "Sign everyone out" sends players in back-room rooms to the door right
   // away: the broadcast re-checks every socket's unlock and turns the stale ones away.
@@ -231,7 +260,14 @@ export function buildApp(opts: AppOptions) {
       titles: privateGames,
       forget: (playerId) => recorder.forget(playerId),
     });
-    adminRoutes(scope, { auth: adminAuth, wordLists, questionDecks, backroom, now });
+    adminRoutes(scope, {
+      auth: adminAuth,
+      wordLists,
+      questionDecks,
+      backroom,
+      recapSettings,
+      now,
+    });
     backroomRoutes(scope, { backroom, games, assets, questionDecks, privateGames });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));

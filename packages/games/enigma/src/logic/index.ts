@@ -2,3 +2,4 @@ export { enigma, isCompleteCode, membersOf, otherTeam, TEAMS, decideWinner } fro
 export { guide } from './guide.ts';
 export * from './types.ts';
 export { insights } from './insights.ts';
+export { enigmaAwards } from './awards.ts';

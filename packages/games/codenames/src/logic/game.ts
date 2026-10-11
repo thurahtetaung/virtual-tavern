@@ -26,6 +26,7 @@ import {
   actionSchema,
 } from './types.ts';
 import { guide } from './guide.ts';
+import { codenamesAwards } from './awards.ts';
 import { insights } from './insights.ts';
 
 type Ctx = ActionCtx;
@@ -617,4 +618,5 @@ export const codenames: GameDefinition<CodenamesState, CodenamesAction, Codename
   nextDeadline,
   onDeadline,
   insights,
+  awards: codenamesAwards,
 };

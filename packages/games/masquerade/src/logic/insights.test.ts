@@ -39,18 +39,28 @@ describe('insights', () => {
       {
         type: 'round',
         words: [{ kind: 'clue', word: 'Bakery' }],
-        props: { location: 'Bakery', spyWon: false, spies: 1, players: 4, round: 1 },
+        props: {
+          location: 'Bakery',
+          spyWon: false,
+          spies: 1,
+          players: 4,
+          round: 1,
+          named: ['cy'],
+          starter: 'cy',
+          pointsTo: [HOST, 'ana', 'ben', 'cy'],
+          points: [2, 2, 1, 0],
+        },
       },
       {
         type: 'spy',
         playerId: 'cy',
         words: [{ kind: 'guess', word: 'Gym' }],
-        props: { outcome: 'caught', votes: 2, location: 'Bakery' },
+        props: { outcome: 'caught', votes: 2, location: 'Bakery', round: 1 },
       },
-      { type: 'vote', playerId: HOST, props: { hit: true, target: 'cy' } },
-      { type: 'vote', playerId: 'ana', props: { hit: true, target: 'cy' } },
-      { type: 'vote', playerId: 'ben', props: { hit: false, target: 'ana' } },
-      { type: 'vote', playerId: 'cy', props: { hit: false, target: 'ben' } },
+      { type: 'vote', playerId: HOST, props: { hit: true, target: 'cy', round: 1 } },
+      { type: 'vote', playerId: 'ana', props: { hit: true, target: 'cy', round: 1 } },
+      { type: 'vote', playerId: 'ben', props: { hit: false, target: 'ana', round: 1 } },
+      { type: 'vote', playerId: 'cy', props: { hit: false, target: 'ben', round: 1 } },
     ]);
   });
 
@@ -64,8 +74,12 @@ describe('insights', () => {
     expect(events[1]).toEqual({
       type: 'spy',
       playerId: 'cy',
-      props: { outcome: 'escaped', votes: 0, location: 'Bakery' },
+      props: { outcome: 'escaped', votes: 0, location: 'Bakery', round: 1 },
     });
-    expect(events.at(-1)).toEqual({ type: 'outcome', winners: ['cy'], props: { rounds: 1 } });
+    expect(events.at(-1)).toEqual({
+      type: 'outcome',
+      winners: ['cy'],
+      props: { rounds: 1, ranking: ['cy', HOST, 'ana', 'ben'], scores: [2, 0, 0, 0] },
+    });
   });
 });

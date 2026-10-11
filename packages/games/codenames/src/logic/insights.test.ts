@@ -34,7 +34,15 @@ describe('insights', () => {
         type: 'guess',
         playerId: OP.red,
         words: [{ kind: 'guess', word }],
-        props: { word, kind: 'red', correct: true, team: 'red' },
+        props: {
+          word,
+          kind: 'red',
+          correct: true,
+          team: 'red',
+          clueWord: 'ocean',
+          clueCount: 2,
+          guessNo: 1,
+        },
       },
     ]);
   });
@@ -49,9 +57,17 @@ describe('insights', () => {
         type: 'guess',
         playerId: OP.red,
         words: [{ kind: 'guess', word }],
-        props: { word, kind: 'bystander', correct: false, team: 'red' },
+        props: {
+          word,
+          kind: 'bystander',
+          correct: false,
+          team: 'red',
+          clueWord: 'ocean',
+          clueCount: 2,
+          guessNo: 1,
+        },
       },
-      { type: 'end-turn', props: { reason: 'wrong-guess', team: 'red' } },
+      { type: 'end-turn', props: { reason: 'wrong-guess', team: 'red', stage: 'guess' } },
     ]);
   });
 
@@ -68,12 +84,27 @@ describe('insights', () => {
           { kind: 'guess', word },
           { kind: 'assassin', word },
         ],
-        props: { word, kind: 'assassin', correct: false, team: 'red' },
+        props: {
+          word,
+          kind: 'assassin',
+          correct: false,
+          team: 'red',
+          clueWord: 'ocean',
+          clueCount: 1,
+          guessNo: 1,
+        },
       },
       {
         type: 'outcome',
         winners: [SPY.blue, OP.blue],
-        props: { winner: 'blue', winReason: 'assassin' },
+        props: {
+          winner: 'blue',
+          winReason: 'assassin',
+          startingTeam: 'red',
+          redLeft: 9,
+          blueLeft: 8,
+          spymasters: [SPY.red, SPY.blue],
+        },
       },
     ]);
   });
@@ -83,7 +114,11 @@ describe('insights', () => {
     step(h, { type: 'give-clue', word: 'ocean', count: 2 }, SPY.red);
     step(h, { type: 'guess', card: cardsOf(h.state, 'red')[0]! }, OP.red);
     expect(step(h, { type: 'end-turn' }, OP.red)).toEqual([
-      { type: 'end-turn', props: { reason: 'passed', team: 'red' } },
+      {
+        type: 'end-turn',
+        playerId: OP.red,
+        props: { reason: 'passed', team: 'red', stage: 'guess' },
+      },
     ]);
   });
 
@@ -92,7 +127,7 @@ describe('insights', () => {
     const before = h.state;
     const after = codenames.onDeadline!(before, NOW + 30_000);
     expect(insights(before, after, null, null)).toEqual([
-      { type: 'end-turn', props: { reason: 'timeout', team: 'red' } },
+      { type: 'end-turn', props: { reason: 'timeout', team: 'red', stage: 'clue' } },
     ]);
   });
 
@@ -111,9 +146,22 @@ describe('insights', () => {
       {
         type: 'outcome',
         winners: [SPY.red, OP.red],
-        props: { winner: 'red', winReason: 'all-agents' },
+        props: {
+          winner: 'red',
+          winReason: 'all-agents',
+          startingTeam: 'red',
+          redLeft: 0,
+          blueLeft: expect.any(Number) as number,
+          spymasters: [SPY.red, SPY.blue],
+        },
       },
     ]);
+    // Every guess knows the clue it followed and its place in the turn.
+    for (const g of events.filter((e) => e.type === 'guess')) {
+      expect(typeof g.props?.clueWord).toBe('string');
+      expect(typeof g.props?.guessNo).toBe('number');
+    }
+    expect(events.filter((e) => e.type === 'end-turn' && e.playerId)).not.toHaveLength(0);
     expect(events.filter((e) => e.type === 'clue')).toHaveLength(5);
     expect(events.filter((e) => e.type === 'guess')).toHaveLength(13);
     expect(events.filter((e) => e.type === 'end-turn')).toHaveLength(4);

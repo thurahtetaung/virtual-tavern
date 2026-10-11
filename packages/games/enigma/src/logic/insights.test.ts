@@ -86,7 +86,7 @@ describe('insights', () => {
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
     expect(take()).toEqual([]);
     vote(h, 'blue', decoders(h, 'blue'), wrongCode(tx(h, 'blue').code));
-    expect(take()).toEqual([
+    expect(take()).toMatchObject([
       { type: 'decode', props: { success: true, team: 'red', round: 1, expired: false } },
       { type: 'decode', props: { success: false, team: 'blue', round: 1, expired: false } },
     ]);
@@ -100,7 +100,7 @@ describe('insights', () => {
     sendClues(h, 'blue');
     const { take } = record(h);
     playRoundVotes(h, { redIntercepts: true });
-    expect(take()).toEqual([
+    expect(take()).toMatchObject([
       { type: 'decode', props: { success: true, team: 'red', round: 2, expired: false } },
       { type: 'intercept', props: { success: false, team: 'blue', round: 2 } },
       { type: 'decode', props: { success: true, team: 'blue', round: 2, expired: false } },
@@ -116,7 +116,7 @@ describe('insights', () => {
     expect(insights(before, h.state, null, null)).toEqual([]);
     const { take } = record(h);
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
-    expect(take()).toEqual([
+    expect(take()).toMatchObject([
       { type: 'decode', props: { success: true, team: 'red', round: 1, expired: false } },
       { type: 'decode', props: { success: false, team: 'blue', round: 1, expired: true } },
     ]);
@@ -130,7 +130,9 @@ describe('insights', () => {
     playRound(h, { blueDecodes: false });
     take();
     h.act({ type: 'next-round' });
-    expect(take()).toEqual([{ type: 'outcome', winners: RED, props: { winner: 'red', round: 2 } }]);
+    expect(take()).toMatchObject([
+      { type: 'outcome', winners: RED, props: { winner: 'red', round: 2 } },
+    ]);
   });
 
   it('reports a draw with no winners', () => {
@@ -138,9 +140,57 @@ describe('insights', () => {
     const base = h.state;
     const before: EnigmaState = { ...base, stage: 'reveal', round: 8 };
     const after = enigma.reduce(before, { type: 'next-round' }, ctx());
-    expect(insights(before, after as EnigmaState, { type: 'next-round' }, HOST)).toEqual([
-      { type: 'outcome', winners: [], props: { winner: 'draw', round: 8 } },
+    expect(insights(before, after as EnigmaState, { type: 'next-round' }, HOST)).toMatchObject([
+      { type: 'outcome', winners: [], props: { winner: 'draw', round: 8, reason: 'draw' } },
     ]);
+  });
+
+  it('names the Encryptor and voters behind each decode and interception', () => {
+    const h = startedGame();
+    playRound(h);
+    h.act({ type: 'next-round' });
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    const red = tx(h, 'red');
+    const blue = tx(h, 'blue');
+    const { take } = record(h);
+    playRoundVotes(h, { redIntercepts: true });
+    const events = take();
+    expect(events.find((e) => e.type === 'decode' && e.props?.team === 'red')?.props).toEqual({
+      success: true,
+      team: 'red',
+      round: 2,
+      expired: false,
+      encryptor: red.encryptor,
+      voters: decoders(h, 'red'),
+      guess: red.code,
+    });
+    expect(events.find((e) => e.type === 'intercept' && e.props?.team === 'red')?.props).toEqual({
+      success: true,
+      team: 'red',
+      round: 2,
+      encryptor: blue.encryptor,
+      voters: members('red'),
+    });
+  });
+
+  it('reports token tallies and why the game ended', () => {
+    const h = startedGame();
+    const { take } = record(h);
+    playRound(h, { blueDecodes: false });
+    h.act({ type: 'next-round' });
+    playRound(h, { blueDecodes: false });
+    take();
+    h.act({ type: 'next-round' });
+    expect(take()[0]!.props).toEqual({
+      winner: 'red',
+      round: 2,
+      redIntercepts: 0,
+      redMisses: 0,
+      blueIntercepts: 0,
+      blueMisses: 2,
+      reason: 'misses',
+    });
   });
 
   it('never reports chat, notes or votes', () => {
@@ -165,7 +215,7 @@ describe('insights', () => {
       playRound(h, { redIntercepts: true });
       h.act({ type: 'next-round' });
     }
-    expect(take().filter((e) => e.type === 'outcome')).toEqual([
+    expect(take().filter((e) => e.type === 'outcome')).toMatchObject([
       { type: 'outcome', winners: RED, props: { winner: 'red', round: 3 } },
     ]);
     h.act({ type: 'start' });

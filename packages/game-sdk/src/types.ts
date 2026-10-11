@@ -1,4 +1,5 @@
 import type { ZodType } from 'zod';
+import type { AwardModule } from './awards.ts';
 import type { GameGuide } from './guide.ts';
 import type { Rng } from './rng.ts';
 
@@ -132,6 +133,11 @@ export interface GameDefinition<State, Action, View> {
     action: Action | null,
     by: PlayerId | null,
   ): InsightEvent[];
+  /**
+   * Tavern night recap: award rules over this game's own `insights` events (see `awards.ts`).
+   * Like `insights`, it never affects play.
+   */
+  awards?: AwardModule;
 }
 
 /**

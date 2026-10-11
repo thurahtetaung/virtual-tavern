@@ -12,6 +12,7 @@ import {
   wordKey,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
+import { hoodwinkAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import {
   type AnswerSize,
@@ -868,4 +869,5 @@ export const hoodwink: GameDefinition<HoodwinkState, HoodwinkAction, HoodwinkVie
   nextDeadline,
   onDeadline,
   insights,
+  awards: hoodwinkAwards,
 };

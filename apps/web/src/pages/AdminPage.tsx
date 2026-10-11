@@ -43,6 +43,7 @@ export function AdminPage() {
         <div className="space-y-8">
           <AdminNav current="lists" />
           <BackroomAdmin />
+          <RecapAdmin />
           <GameTitlesAdmin />
           <NightfallMusicAdmin />
           <WordLists onSignOut={refresh} />
@@ -182,6 +183,53 @@ function BackroomAdmin() {
         <Button variant="secondary" size="sm" onClick={() => void signOutAll()}>
           Sign everyone out
         </Button>
+      )}
+    </Panel>
+  );
+}
+
+/** Night recaps' on/off switch: off hides the recap chip, the end-screen strips and the wrap-up. */
+function RecapAdmin() {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void api<{ enabled: boolean }>('/api/admin/recap')
+      .then((r) => setEnabled(r.enabled))
+      .catch((e: Error) => toast(e.message));
+  }, [toast]);
+  const change = async (on: boolean) => {
+    setBusy(true);
+    try {
+      const r = await api<{ enabled: boolean }>('/api/admin/recap', {
+        method: 'PUT',
+        body: { enabled: on },
+      });
+      setEnabled(r.enabled);
+      toast(r.enabled ? 'Night recaps are on.' : 'Night recaps are off.', 'info');
+    } catch (err) {
+      toast((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Panel className="flex items-start justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-bold">🍻 Night recaps</h2>
+        <p id="recap-switch-help" className="text-sm text-stone-600 dark:text-stone-400">
+          Awards on every end screen, and a shareable recap of each room's night. Switching them off
+          hides the recap everywhere straight away; nothing is deleted.
+        </p>
+      </div>
+      {enabled !== null && (
+        <Switch
+          checked={enabled}
+          busy={busy}
+          onChange={(on) => void change(on)}
+          aria-label="Night recaps"
+          aria-describedby="recap-switch-help"
+        />
       )}
     </Panel>
   );

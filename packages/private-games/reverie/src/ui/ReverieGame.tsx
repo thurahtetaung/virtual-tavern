@@ -10,6 +10,7 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  Superlatives,
   TimerSettings,
   cn,
   useSpectatorPrompt,
@@ -578,6 +579,7 @@ function Play({
             you={me?.id}
             className="text-left"
           />
+          <Superlatives lines={room.superlatives} />
           {room.isHost ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Button

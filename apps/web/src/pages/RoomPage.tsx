@@ -1,5 +1,5 @@
 import type { ActOptions, SpectatorPrompt, WordListSummary } from '@vt/game-sdk';
-import type { RoomInfo, RoomSnapshot } from '@vt/protocol';
+import type { RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
 import {
   Badge,
   Button,
@@ -23,6 +23,8 @@ import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identi
 import { useToast } from '../lib/toast.tsx';
 import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
+import { RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
+import { useRecap } from '../recap/useRecap.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
 type RoomLookup =
@@ -176,10 +178,25 @@ function Room({
   const navigate = useNavigate();
   const toast = useToast();
   const refusals = useRefusals();
-  const { snapshot, clockOffset, status, error, call, leave } = useRoom(roomId, name);
+  const { snapshot, clockOffset, status, error, call, leave, wraps } = useRoom(roomId, name);
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
+  const night = useRecap({ call, snapshot, game, wraps });
+
+  // The host wrapped up the night: the recap opens on every device (anyone can close it).
+  const [wrapsSeen, setWrapsSeen] = useState(0);
+  const recapShown = recapOpen || wraps > wrapsSeen;
+  const closeRecap = () => {
+    setRecapOpen(false);
+    setWrapsSeen(wraps);
+  };
+  const { opened: recapOpened, closed: recapClosed } = night;
+  useEffect(() => {
+    if (recapShown) recapOpened();
+    else recapClosed();
+  }, [recapShown, recapOpened, recapClosed]);
   const [wordLists, setWordLists] = useState<WordListSummary[]>([]);
 
   // Only the lists tagged for this game; the server enforces the same filter on play.
@@ -237,6 +254,25 @@ function Room({
   }, [status, navigate, roomId]);
 
   const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
+
+  const tz = () => new Date().getTimezoneOffset();
+  const wrapUp = async () => {
+    if (!window.confirm('Wrap up the night? Everyone sees the night recap.')) return;
+    const res = await call('room:wrap', tz());
+    if (!res.ok) toast(res.error.message);
+  };
+  const setTone = async (tone: RecapTone) => {
+    const res = await call('room:recap-tone', tone, tz());
+    if (!res.ok) toast(res.error.message);
+  };
+  const nightGames = night.recap?.games.length ?? 0;
+  const canWrap =
+    isHost &&
+    night.enabled &&
+    snapshot?.meta?.phase !== 'playing' &&
+    night.recap?.status === 'live' &&
+    nightGames > 0 &&
+    !night.recap.running;
 
   // Tell everyone who hosts now when the role moves (the host went away, left or handed it over).
   const lastHost = useRef<string | null>(null);
@@ -353,6 +389,18 @@ function Room({
             <span className={HEADER_LABEL}>Players</span>
             {snapshot ? <span className="-ml-1 hidden sm:inline">{online}</span> : null}
           </Button>
+          {night.enabled && nightGames > 0 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className={HEADER_BUTTON}
+              aria-label={`Night recap (${nightGames} ${nightGames === 1 ? 'game' : 'games'})`}
+              onClick={() => setRecapOpen(true)}
+            >
+              <span aria-hidden>🍻 {nightGames}</span>
+              <span className={HEADER_LABEL}>Night</span>
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -397,6 +445,7 @@ function Room({
               players: snapshot.players,
               clockOffset,
               wordLists,
+              ...(night.superlatives && { superlatives: night.superlatives }),
             }}
             act={act}
             showGuide={() => setGuideOpen(true)}
@@ -405,6 +454,28 @@ function Room({
           />
         </Suspense>
       )}
+
+      {canWrap && snapshot?.meta?.phase === 'over' && (
+        // Room below on phones, so a game's fixed bottom tabs never cover it.
+        <div className="mt-3 mb-20 flex scroll-mb-24 justify-center lg:mb-0">
+          <Button variant="secondary" size="sm" className="min-h-11" onClick={() => void wrapUp()}>
+            🍻 Wrap up the night
+          </Button>
+        </div>
+      )}
+
+      <Drawer open={recapShown} onClose={closeRecap} title={`🍻 ${recapHeading(night.recap)}`}>
+        <RecapSheet
+          recap={night.recap}
+          game={game}
+          names={night.names}
+          labels={night.labels}
+          isHost={isHost}
+          onTone={(t) => void setTone(t)}
+          onWrap={() => void wrapUp()}
+          onShared={(how) => void call('room:recap-shared', how)}
+        />
+      </Drawer>
 
       <Drawer
         open={guideOpen}
@@ -429,6 +500,7 @@ function Room({
             clockOffset={clockOffset}
             isHost={isHost}
             call={call}
+            onWrap={canWrap ? () => void wrapUp() : undefined}
             onRename={(n) => {
               saveName(n);
               onRename(n);
@@ -596,6 +668,7 @@ function People({
   call,
   onRename,
   onLeave,
+  onWrap,
 }: {
   roomId: string;
   snapshot: RoomSnapshot;
@@ -604,6 +677,8 @@ function People({
   call: ReturnType<typeof useRoom>['call'];
   onRename: (name: string) => void;
   onLeave: () => Promise<void>;
+  /** The host's "Wrap up the night", when there is a night to wrap. */
+  onWrap?: () => void;
 }) {
   const toast = useToast();
   const [renaming, setRenaming] = useState(false);
@@ -662,6 +737,11 @@ function People({
           </li>
         ))}
       </ul>
+      {onWrap && (
+        <Button variant="secondary" className="min-h-11" onClick={onWrap}>
+          🍻 Wrap up the night
+        </Button>
+      )}
       <p className="text-sm text-stone-500 dark:text-stone-400">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.

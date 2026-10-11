@@ -65,7 +65,17 @@ describe('insights', () => {
           { kind: 'clue', word: 'plum' },
           { kind: 'guess', word },
         ],
-        props: { word, outcome: 'right', countedBy: null, clueCount: 3, cancelledCount: 0 },
+        props: {
+          word,
+          outcome: 'right',
+          countedBy: null,
+          clueCount: 3,
+          cancelledCount: 0,
+          survivors: ['p2', 'p3', 'p4'],
+          survivorWords: ['apple', 'pear', 'plum'],
+          givers: ['p2', 'p3', 'p4'],
+          auto: false,
+        },
       },
     ]);
   });
@@ -90,7 +100,17 @@ describe('insights', () => {
           { kind: 'cancelled', word: 'Moon' },
           { kind: 'cancelled', word: 'moons' },
         ],
-        props: { word, outcome: 'pass', countedBy: null, clueCount: 3, cancelledCount: 2 },
+        props: {
+          word,
+          outcome: 'pass',
+          countedBy: null,
+          clueCount: 3,
+          cancelledCount: 2,
+          survivors: ['p3'],
+          survivorWords: ['tide'],
+          givers: ['p2', 'p3', 'p4'],
+          auto: false,
+        },
       },
       { type: 'match', props: { a: 'p2', b: 'p4', word: 'Moon' } },
     ]);
@@ -114,7 +134,7 @@ describe('insights', () => {
     const { take, fire } = record(h);
     toGuess(h);
     fire(turn(h).deadline!);
-    expect(take()[0]).toMatchObject({ type: 'card', props: { outcome: 'pass' } });
+    expect(take()[0]).toMatchObject({ type: 'card', props: { outcome: 'pass', auto: true } });
   });
 
   it('reports a finished game, crediting everyone playing', () => {

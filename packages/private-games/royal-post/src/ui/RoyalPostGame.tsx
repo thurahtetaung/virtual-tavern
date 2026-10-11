@@ -10,6 +10,7 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  Superlatives,
   TimerSettings,
   cn,
   useSpectatorPrompt,
@@ -1562,6 +1563,7 @@ function Podium({
           <RoundSecrets view={view} deck={deck} />
         </div>
       )}
+      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>

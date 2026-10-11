@@ -180,4 +180,25 @@ describe('insights', () => {
       disqualified: 3,
     });
   });
+
+  it('reports votes received, how players died and the night actions the timer chose', () => {
+    const { events } = reveal(
+      (h) => {
+        // The Seer sleeps through her step, so the timer looks for her.
+        h.toStep('seer');
+        h.tick();
+        h.vote(votes('A>B; B,C,D>A'));
+      },
+      { players: [W, V, 'seer', V] },
+    );
+    const player = (id: string) => byType(events, 'player').find((e) => e.playerId === id)!.props!;
+    expect(player('A')).toMatchObject({
+      votesReceived: 3,
+      deathCause: 'vote',
+      deathPlace: null,
+      converted: null,
+    });
+    expect(player('B')).toMatchObject({ votesReceived: 1, deathCause: null, autoActions: 0 });
+    expect(player('C').autoActions).toBe(1);
+  });
 });
