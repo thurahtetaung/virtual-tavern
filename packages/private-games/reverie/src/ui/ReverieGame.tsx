@@ -1,14 +1,19 @@
-import type { GameUiProps } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
-  Badge,
   Button,
   ChoicePicker,
   Countdown,
   Hint,
   Modal,
   Panel,
+  PlayerTag,
+  RefusalSlot,
+  Standings,
+  StickyBar,
   TimerSettings,
   cn,
+  revealElement,
+  useSpectatorPrompt,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -25,7 +30,16 @@ import { Card } from './Card.tsx';
 import { startBlocker, statusFor } from './status.ts';
 
 export type ReverieUiProps = GameUiProps<ReverieView, ReverieAction>;
-type Act = (a: ReverieAction) => Promise<boolean>;
+type Act = (a: ReverieAction, options?: ActOptions) => Promise<boolean>;
+
+/** The Take a seat / Sit out button, which the shell's "You're watching" banner leads to. */
+const SEAT_CONTROL_ID = 'reverie-seat';
+/** Where the server's refusal of a story shows: under the clue form. */
+const TELL_ANCHOR = 'reverie-tell';
+
+/** Seats can only change between turns (and in the lobby or at the end). */
+const seatsOpen = (view: ReverieView) =>
+  view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
 
 const COLOR_DOT: Record<SeatColor, string> = {
   red: 'bg-red-500',
@@ -41,7 +55,14 @@ const COLOR_DOT: Record<SeatColor, string> = {
 const nameOf = (view: ReverieView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
 
-export function ReverieGame({ view, room, act, showGuide, setYourMove }: ReverieUiProps) {
+export function ReverieGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: ReverieUiProps) {
   const manifest = useManifest();
   const setNames = new Map(
     manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
@@ -59,8 +80,21 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
     0,
   );
   const blocker = startBlocker(view, cardCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+
+  // Watchers get the shell's "You're watching" banner, leading to Take a seat.
+  const full = view.seats.filter((s) => s.playing).length >= 8;
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing
+      ? full
+        ? { text: 'All 8 seats are taken.' }
+        : seatsOpen(view)
+          ? { text: 'Take a seat to play.', action: () => revealElement(SEAT_CONTROL_ID) }
+          : { text: 'You can take a seat once this turn’s cards are revealed.' }
+      : null,
+  );
 
   // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -75,7 +109,7 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
     return (
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        <Seats view={view} online={online} act={act} />
+        <Seats view={view} online={online} act={act} hostId={room.hostId} />
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold">Game settings</h3>
@@ -134,16 +168,18 @@ export function ReverieGame({ view, room, act, showGuide, setYourMove }: Reverie
             strictHelp="a slow storyteller is skipped, late cards are played for you and late votes are lost"
           />
           {room.isHost && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-            </div>
+            <StickyBar>
+              <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+                <Button
+                  size="lg"
+                  disabled={blocker !== null}
+                  onClick={() => void act({ type: 'start' })}
+                >
+                  Start game
+                </Button>
+                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              </div>
+            </StickyBar>
           )}
         </Panel>
         <p className="text-center text-sm text-stone-500">
@@ -177,28 +213,30 @@ function Seats({
   view,
   online,
   act,
+  hostId,
 }: {
   view: ReverieView;
   online: (id: string) => boolean;
   act: Act;
+  hostId: string;
 }) {
   const me = view.me;
   const playing = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
-  const canChange =
-    view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
+  const canChange = seatsOpen(view);
   return (
     <Panel className="space-y-2">
       <h3 className="font-bold">Players ({playing.length}/8)</h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
-          <li
-            key={s.id}
-            className={cn('inline-flex items-center gap-1.5', !online(s.id) && 'opacity-50')}
-          >
+          <li key={s.id} className="inline-flex items-center gap-1.5">
             <span aria-hidden className={cn('size-2.5 rounded-full', COLOR_DOT[s.color])} />
-            {s.name}
-            {s.id === me?.id && <Badge>you</Badge>}
+            <PlayerTag
+              name={s.name}
+              host={s.id === hostId}
+              you={s.id === me?.id}
+              offline={!online(s.id)}
+            />
           </li>
         ))}
         {playing.length === 0 && <li className="text-stone-500 italic">Nobody seated yet</li>}
@@ -206,22 +244,36 @@ function Seats({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
-          <span key={s.id}>{s.name}</span>
+          <PlayerTag
+            key={s.id}
+            name={s.name}
+            host={s.id === hostId}
+            you={s.id === me?.id}
+            offline={!online(s.id)}
+          />
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
       {me && canChange && (
         <Button
+          id={SEAT_CONTROL_ID}
           size="sm"
           variant={me.playing ? 'ghost' : 'primary'}
           onClick={() => void act({ type: 'sit', playing: !me.playing })}
         >
-          {me.playing ? 'Just watch' : 'Take a seat'}
+          {me.playing ? 'Sit out (watch)' : 'Take a seat'}
         </Button>
       )}
     </Panel>
   );
 }
+
+/** What each timed phase's clock is for, and what a strict timer does at 0:00. */
+const PHASE_TIMER: Partial<Record<string, { label: string; atZero: string }>> = {
+  clue: { label: 'to tell a story', atZero: 'then the storyteller is skipped' },
+  pick: { label: 'to play a card', atZero: 'then a card is played for you' },
+  vote: { label: 'to vote', atZero: 'then missing votes are lost' },
+};
 
 function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: number }) {
   const turn = view.turn;
@@ -236,7 +288,10 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
         <Countdown
           deadline={turn && turn.phase !== 'reveal' ? turn.deadline : null}
           clockOffset={clockOffset}
-          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+          label={PHASE_TIMER[turn?.phase ?? 'clue']?.label}
+          soft={view.settings.timerMode !== 'strict'}
+          expiredHint="Just a reminder: the turn waits for everyone."
+          atZero={PHASE_TIMER[turn?.phase ?? 'clue']?.atZero}
         />
       </div>
       <ul className="flex gap-1.5 overflow-x-auto pb-1" aria-label="Scores">
@@ -357,7 +412,7 @@ function Play({
   const tell = async (e: FormEvent) => {
     e.preventDefault();
     if (storyPick === null) return;
-    if (await act({ type: 'tell', card: storyPick, clue })) {
+    if (await act({ type: 'tell', card: storyPick, clue }, { anchor: TELL_ANCHOR })) {
       setClue('');
       setStoryPick(null);
     }
@@ -420,7 +475,14 @@ function Play({
 
       {view.phase === 'over' && (
         <Panel className="space-y-3 text-center">
-          <p className="text-2xl font-bold">🏆 {status.text}</p>
+          {/* The status line above already says who won; this is the podium and the standings. */}
+          <Standings
+            entries={view.seats
+              .filter((s) => s.playing || s.score > 0)
+              .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+            you={me?.id}
+            className="text-left"
+          />
           {room.isHost ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Button size="lg" onClick={() => void act({ type: 'start' })}>
@@ -435,7 +497,7 @@ function Play({
               </Button>
             </div>
           ) : (
-            <p>Waiting for the host…</p>
+            <p>{waitingForHost(room, 'start the next game')}</p>
           )}
         </Panel>
       )}
@@ -473,6 +535,7 @@ function Play({
               </Button>
             </form>
           )}
+          <RefusalSlot anchor={TELL_ANCHOR} />
         </Panel>
       )}
 
@@ -589,7 +652,7 @@ function Play({
         </section>
       )}
 
-      <Seats view={view} online={online} act={act} />
+      <Seats view={view} online={online} act={act} hostId={room.hostId} />
       {room.isHost && view.phase === 'playing' && (
         <Button
           variant="ghost"

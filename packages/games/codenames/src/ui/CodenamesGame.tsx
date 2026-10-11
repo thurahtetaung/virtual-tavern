@@ -1,5 +1,15 @@
-import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, cn } from '@vt/ui';
+import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  StickyBar,
+  TimeoutNote,
+  cn,
+  revealElement,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
@@ -8,19 +18,42 @@ import { GameLog } from './GameLog.tsx';
 import { lastGuessResult } from './result.ts';
 import { ResultBanner } from './ResultBanner.tsx';
 import { Settings } from './Settings.tsx';
-import { spymasterAlerts, startBlocker, statusFor } from './status.ts';
+import { spymasterAlerts, startBlocker, statusFor, winHow } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { Teams } from './Teams.tsx';
 
 export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
 
-export function CodenamesGame({ view, room, act, showGuide, setYourMove }: CodenamesUiProps) {
+/** The seat controls a "Take a seat" link leads to. */
+const TEAMS_ID = 'codenames-teams';
+
+export function CodenamesGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: CodenamesUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Mid-game watchers are told so at the top of the room, with a link to the join buttons
+  // (the lobby's own hint already says "Pick a team below").
+  useSpectatorPrompt(
+    setSpectator,
+    view.phase !== 'lobby' && view.me?.team == null
+      ? {
+          text: 'Join a team below to play.',
+          actionLabel: 'Take a seat',
+          action: () => revealElement(TEAMS_ID),
+        }
+      : null,
+  );
 
   // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -35,7 +68,7 @@ export function CodenamesGame({ view, room, act, showGuide, setYourMove }: Coden
     return (
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        <Teams view={view} online={online} act={act} />
+        <Teams view={view} online={online} act={act} hostId={room.hostId} />
         <Panel className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold">Game settings</h3>
@@ -50,19 +83,21 @@ export function CodenamesGame({ view, room, act, showGuide, setYourMove }: Coden
             act={act}
           />
           {room.isHost && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
-                🎲 Shuffle teams
-              </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-            </div>
+            <StickyBar>
+              <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+                <Button
+                  size="lg"
+                  disabled={blocker !== null}
+                  onClick={() => void act({ type: 'start' })}
+                >
+                  Start game
+                </Button>
+                <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
+                  🎲 Shuffle teams
+                </Button>
+                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              </div>
+            </StickyBar>
           )}
         </Panel>
         <p className="text-center text-sm text-stone-500">
@@ -125,6 +160,9 @@ function InGame({
   };
 
   const result = lastGuessResult(view);
+  // The timer just ended a turn: say so, instead of leaving players to work it out.
+  const last = view.log.at(-1);
+  const timedOutTeam = last?.type === 'end-turn' && last.reason === 'timeout' ? last.team : null;
 
   const guess = async () => {
     if (selected === null) return;
@@ -162,7 +200,15 @@ function InGame({
             )}
           </div>
         ))}
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        {timedOutTeam && (
+          <TimeoutNote>
+            {`${TEAM_LABEL[timedOutTeam]}'s turn ended, so it's ${TEAM_LABEL[timedOutTeam === 'red' ? 'blue' : 'red']}'s turn.`}
+          </TimeoutNote>
+        )}
+        {/* Once the game is over, the result panel says who won (once). */}
+        {view.phase !== 'over' && (
+          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        )}
 
         {turn?.clue && (
           <p className="text-center text-lg">
@@ -218,6 +264,7 @@ function InGame({
             <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner!])}>
               🏆 {TEAM_LABEL[view.winner!]} team wins!
             </p>
+            <p>{winHow(view)}.</p>
             <p className="text-sm text-stone-500">The full key is shown on the board.</p>
             {room.isHost ? (
               <div className="flex flex-wrap justify-center gap-2">
@@ -233,7 +280,7 @@ function InGame({
                 </Button>
               </div>
             ) : (
-              <p>Waiting for the host to start the next game…</p>
+              <p>{waitingForHost(room, 'start the next game')}</p>
             )}
           </Panel>
         )}
@@ -244,7 +291,7 @@ function InGame({
           <h3 className="mb-2 font-bold">Game log</h3>
           <GameLog view={view} />
         </Panel>
-        <TeamsSection view={view} online={online} act={act} />
+        <TeamsSection view={view} online={online} act={act} hostId={room.hostId} />
         {room.isHost && view.phase === 'playing' && (
           <div className="space-y-1">
             <Button
@@ -303,7 +350,10 @@ function ScoreBar({ view, clockOffset }: { view: CodenamesView; clockOffset: num
         <Countdown
           deadline={view.turn?.deadline ?? null}
           clockOffset={clockOffset}
-          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+          label={view.turn?.stage === 'clue' ? 'to give a clue' : 'to guess'}
+          soft={view.settings.timerMode !== 'strict'}
+          atZero="then the turn ends"
+          expiredHint="The turn goes on until the team finishes."
         />
       </div>
     </div>
@@ -315,6 +365,7 @@ function TeamsSection(props: {
   view: CodenamesView;
   online: (id: string) => boolean;
   act: CodenamesUiProps['act'];
+  hostId: string;
 }) {
   const { view } = props;
   // Spectators need the join buttons, so the section starts open for them on every screen.
@@ -337,7 +388,7 @@ function TeamsSection(props: {
             </span>
           </span>
         </summary>
-        <div className="mt-3">
+        <div id={TEAMS_ID} className="mt-3">
           <Teams {...props} compact />
         </div>
       </details>

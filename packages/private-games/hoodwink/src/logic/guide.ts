@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '3 to 10 (best with 4–8)',
   duration: '15–30 minutes',
   goal: 'Score the most points. Each round everyone sees a strange but true fact with a word missing. Make up a believable fake answer to fool the others, then try to spot the real one among everybody’s lies.',
+  quickStart: [
+    'Everyone sees the same strange but true fact with one word or phrase missing.',
+    'Write a fake answer that sounds true. Stuck? “Lie for me” picks one, worth half points.',
+    'All the lies are shuffled in with the real answer.',
+    'Vote for the answer you think is true (never your own lie).',
+    'Score for finding the truth, and for every player your lie fools.',
+    'The last round counts double. Most points at the end wins.',
+  ],
   setup: [
     'Up to 10 players can play; anyone else in the room just watches. Use “Just watch” to sit out.',
     'The host picks the question decks and the number of rounds: 5, 7 or 10.',

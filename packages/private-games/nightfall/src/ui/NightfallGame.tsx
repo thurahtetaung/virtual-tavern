@@ -1,4 +1,5 @@
-import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
+import type { GameUiProps } from '@vt/game-sdk';
+import { useSpectatorPrompt } from '@vt/ui';
 import { useEffect } from 'react';
 import { ARTIFACTS } from '../logic/roles.ts';
 import type { NightfallAction, NightfallView } from '../logic/types.ts';
@@ -12,10 +13,17 @@ import { useWakeAlert, useWakeLock } from './wake.ts';
 
 export type NightfallUiProps = GameUiProps<NightfallView, NightfallAction>;
 
-export function NightfallGame({ view, room, act, showGuide, setYourMove }: NightfallUiProps) {
+export function NightfallGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: NightfallUiProps) {
   const manifest = useManifest();
   const deck = deckFor(manifest, (id) => ARTIFACTS[id].summary);
-  const status = statusFor(view, room.isHost, hostNameOf(room));
+  const status = statusFor(view, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const [device, setDevice] = useDeviceSound();
   const { lines } = useSound({
@@ -41,6 +49,22 @@ export function NightfallGame({ view, room, act, showGuide, setYourMove }: Night
     };
   }, [setYourMove, tabAlert]);
 
+  // Watchers can take a seat between games; mid-game they join from the next one.
+  const watching = !!view.me && !view.me.playing;
+  const between = view.phase === 'lobby' || view.phase === 'reveal';
+  useSpectatorPrompt(
+    setSpectator,
+    watching
+      ? between
+        ? {
+            text: 'Take a seat to play in the next game.',
+            actionLabel: 'Take a seat',
+            action: () => void act({ type: 'sit', playing: true }),
+          }
+        : { text: 'You join in from the next game.' }
+      : null,
+  );
+
   const sound = (
     <SoundControls
       view={view}
@@ -62,7 +86,7 @@ export function NightfallGame({ view, room, act, showGuide, setYourMove }: Night
       ) : view.phase === 'day' || view.phase === 'vote' ? (
         <Day {...props} lines={lines} sound={sound} />
       ) : (
-        <Reveal {...props} hostName={hostNameOf(room)} />
+        <Reveal {...props} />
       )}
     </RoleDetailsProvider>
   );

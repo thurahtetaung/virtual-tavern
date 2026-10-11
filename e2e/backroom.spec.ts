@@ -114,7 +114,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   admin.on('dialog', (d) => void d.accept());
   await admin.getByRole('button', { name: 'Sign everyone out' }).click();
   await expect(admin.getByText('Everyone has been signed out')).toBeVisible();
-  await friend.getByRole('button', { name: 'Just watch' }).click();
+  await friend.getByRole('button', { name: 'Sit out (watch)' }).click();
   await expect(friend).toHaveURL(/\/backroom\?next=/);
   await expect(friend.getByText("What's the word?")).toBeVisible();
 

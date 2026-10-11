@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '4 or more (best with 6–8)',
   duration: '30–45 minutes',
   goal: 'Get your codes across to your own team without two miscommunications, and intercept the other team’s codes twice before they intercept yours. If nobody has managed either by the end of round 8, the better score wins.',
+  quickStart: [
+    'Join Red or Blue (at least 2 each). Your team gets 4 secret keywords, numbered 1 to 4.',
+    'Each round, one player is the Encryptor and gets a 3-number code, like 3-1-4.',
+    'The Encryptor writes one clue per number, pointing at those keywords without making it obvious.',
+    'Teammates pick a number for each clue and press Lock in. A guess only counts once everyone agrees.',
+    'From round 2 the other team tries to crack your code too, using your past clues.',
+    'Two interceptions win; two miscommunications lose. After round 8 the better score wins.',
+  ],
   setup: [
     'Split into two teams, Red and Blue, with at least 2 players each.',
     'The host presses Start. Each team gets 4 secret keywords, numbered 1 to 4, that only your team can see.',

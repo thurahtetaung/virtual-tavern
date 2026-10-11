@@ -1,4 +1,4 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Badge, Button, Countdown, Hint, Panel, cn, useSecondsLeft } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import { explainResult } from '../logic/explain.ts';
@@ -31,7 +31,7 @@ import {
 } from './text.ts';
 import type { DeviceSound } from './useSound.ts';
 
-type Act = (a: NightfallAction) => Promise<boolean>;
+type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 
 // ---- Shared bits ----
 
@@ -526,7 +526,18 @@ export function Night({
           <span className="text-sm font-semibold">
             {night.index < 0 ? 'Night falls…' : `Night ${night.index + 1}/${night.count}`}
           </span>
-          <Countdown deadline={night.deadline} clockOffset={room.clockOffset} />
+          <Countdown
+            deadline={night.deadline}
+            clockOffset={room.clockOffset}
+            label={night.index < 0 ? 'until the first call' : 'this step'}
+            atZero={
+              acting?.prompt?.mandatory
+                ? 'then a choice is made for you'
+                : night.index + 1 >= night.count
+                  ? 'then day breaks'
+                  : 'then the next step'
+            }
+          />
         </div>
         <Narration lines={lines} deck={deck} />
         {acting ? (
@@ -747,7 +758,16 @@ export function Day({
     <div className="mx-auto max-w-3xl space-y-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold">{voting ? '🗳️ The vote' : '☀️ Day'}</span>
-        <Countdown deadline={deadline} clockOffset={room.clockOffset} />
+        <Countdown
+          deadline={deadline}
+          clockOffset={room.clockOffset}
+          label={voting ? 'to vote' : 'to talk'}
+          atZero={
+            voting
+              ? 'then the votes are counted (no vote counts for nobody)'
+              : 'then the vote starts'
+          }
+        />
       </div>
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <Narration lines={lines} deck={deck} />
@@ -853,14 +873,12 @@ export function Reveal({
   act,
   status,
   deck,
-  hostName,
 }: {
   view: NightfallView;
   room: GameRoomInfo;
   act: Act;
   status: Status;
   deck: Deck;
-  hostName: string;
 }) {
   const reveal = view.reveal!;
   const { result } = reveal;
@@ -1078,7 +1096,7 @@ export function Reveal({
       )}
       {!room.isHost && (
         <p className="text-center text-sm text-stone-500" data-testid="waiting-host">
-          Waiting for {hostName} to deal again or change the cards…
+          {waitingForHost(room, 'deal again or change the cards')}
         </p>
       )}
     </div>

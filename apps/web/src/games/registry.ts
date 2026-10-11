@@ -5,6 +5,7 @@ import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
 import { type ComponentType, lazy } from 'react';
+import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 
 export interface ClientGame {
   id: string;
@@ -54,11 +55,16 @@ export const clientGames: ClientGame[] = [
 
 export const findGame = (id: string | undefined) => clientGames.find((g) => g.id === id);
 
-/** Loads the back-room registry (only fetchable once unlocked); empty if it can't be loaded. */
-export async function loadPrivateGames(): Promise<ClientGame[]> {
+/**
+ * Loads the back-room registry (only fetchable once unlocked); empty if it can't be loaded.
+ * `known` says the browser is unlocked, so a failure means a deploy replaced the chunk: the page
+ * reloads once instead of calling the game missing.
+ */
+export async function loadPrivateGames({ known = false } = {}): Promise<ClientGame[]> {
   try {
     return (await import('./private.ts')).privateGames;
-  } catch {
+  } catch (err) {
+    if (known && isChunkLoadError(err)) reloadOnce();
     return [];
   }
 }
@@ -82,5 +88,6 @@ export const withTitle = (game: ClientGame, title: string | undefined): ClientGa
 
 /** Finds a public game, or a private one when the back room is unlocked. */
 export async function loadGame(id: string): Promise<ClientGame | undefined> {
-  return findGame(id) ?? (await loadPrivateGames()).find((g) => g.id === id);
+  // Only called once the server has let this browser into the room, so the back room is open.
+  return findGame(id) ?? (await loadPrivateGames({ known: true })).find((g) => g.id === id);
 }

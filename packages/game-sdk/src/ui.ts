@@ -11,17 +11,37 @@ export interface GameRoomInfo {
   wordLists: WordListSummary[];
 }
 
-/** The host's name, for guests' "Waiting for Hana to…" lines. */
-export const hostNameOf = (room: Pick<GameRoomInfo, 'hostId' | 'players'>): string =>
-  room.players.find((p) => p.id === room.hostId)?.name ?? 'the host';
+export interface ActOptions {
+  /**
+   * Where a refusal belongs: the id of a `RefusalSlot` (from `@vt/ui`) next to the control that
+   * sent the action. The shell shows the server's message there, or as a toast when no such slot
+   * is on screen.
+   */
+  anchor?: string;
+}
+
+/**
+ * Tells the shell the viewer is only watching, so it can show "You're watching" at the top of
+ * the room with a button that leads to the game's own seat control.
+ */
+export interface SpectatorPrompt {
+  /** What to do, e.g. "Join a team below." Default: "Take a seat to play." */
+  text?: string;
+  /** The button's label. Default: "Take a seat". */
+  actionLabel?: string;
+  /** Takes the seat, or scrolls to the game's seat control. No action: no button. */
+  action?: () => void;
+}
 
 export interface GameUiProps<View, Action> {
   view: View;
   room: GameRoomInfo;
   /** Sends an action; resolves false if it was rejected (the shell already showed the error). */
-  act: (action: Action) => Promise<boolean>;
+  act: (action: Action, options?: ActOptions) => Promise<boolean>;
   /** Opens the game's rules guide. */
   showGuide: () => void;
   /** Tells the shell whether the viewer is expected to act now, so it can mark the tab. */
   setYourMove?: (yes: boolean) => void;
+  /** Tells the shell the viewer is watching (with how to join), or null once they play. */
+  setSpectator?: (prompt: SpectatorPrompt | null) => void;
 }

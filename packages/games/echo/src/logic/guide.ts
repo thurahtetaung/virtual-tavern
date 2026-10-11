@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '3 to 7 (best with 4–7)',
   duration: '15–30 minutes',
   goal: 'Work together to get as many secret words as you can across the deck. Each round one player guesses a word from the one-word clues everyone else writes, but any clue that someone else also wrote is cancelled before the guesser sees it.',
+  quickStart: [
+    'Each card, one player is the guesser and picks one of 5 hidden words by number.',
+    'Everyone else sees the word and writes a one-word clue for it, without talking.',
+    'Clues that match another clue (even as plurals or close spellings) are cancelled.',
+    'The guesser sees only the clues left and gets one guess, or can pass.',
+    'Right scores a point; a pass loses that card; a wrong guess loses that card and the next.',
+    'The guesser moves round the table; score as many cards as you can together.',
+  ],
   setup: [
     'Up to 7 players can play; anyone else in the room just watches. Use “Just watch” to sit out.',
     'The host picks the word lists and the deck length: 8, 13 or 20 cards.',

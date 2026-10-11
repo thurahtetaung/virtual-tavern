@@ -52,7 +52,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
 
   await expect(host.getByText('Everyone is seated')).toBeVisible();
-  await expect(ana!.getByText('Waiting for the host')).toBeVisible();
+  await expect(ana!.getByText('Waiting for Hana (host) to start the game')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(cards(host)).toHaveCount(25);
 
@@ -84,7 +84,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(host.getByText('team wins!').first()).toBeVisible();
   await expect(cards(otherOp, /Assassin/)).toHaveCount(1);
   await expect(host.getByRole('button', { name: 'Play again (same teams)' })).toBeVisible();
-  await expect(ana!.getByText('Waiting for the host to start the next game')).toBeVisible();
+  await expect(ana!.getByText('Waiting for Hana (host) to start the next game')).toBeVisible();
 });
 
 test('a newcomer opening a link is asked for their name first', async ({ browser }) => {

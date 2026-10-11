@@ -10,6 +10,14 @@ export function makeGuide(pack: string): GameGuide {
     players: '3 to 12',
     duration: '5 minutes a round',
     goal: 'If you know the location, find the spy without giving the place away. If you’re the spy, blend in, escape the vote, or name the location if you’re caught.',
+    quickStart: [
+      'Everyone gets a card: the locals see the same location, the spy sees only “You’re the spy”.',
+      'The app names who asks first. Ask anyone a question about the location, out loud.',
+      'They answer, then ask someone else. Keep answers vague enough that the spy can’t guess.',
+      'When the clock runs out or everyone is Ready to vote, vote in secret for the spy.',
+      'A caught spy gets one guess at the location: right, and the spy steals the round.',
+      'Points go to the spy or the locals each round; the most points after the last round wins.',
+    ],
     setup: [
       'Everyone sits round a table or gets on a call: the questions are asked out loud.',
       `The host picks the round length (4, 5 or 6 minutes), the number of rounds (one per player by default) and, with 7 or more players, whether to play with two spies. ${pack}`,

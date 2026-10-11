@@ -1,10 +1,14 @@
-import { Badge, Button, Panel, cn } from '@vt/ui';
+import type { ActOptions } from '@vt/game-sdk';
+import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
 import { MAX_CLUE_LENGTH } from '../logic/types.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT, formatCode } from './theme.ts';
 
-type Act = (a: EnigmaAction) => Promise<boolean>;
+type Act = (a: EnigmaAction, options?: ActOptions) => Promise<boolean>;
+
+/** Where the server's refusal of a set of clues shows, right under the form. */
+const CLUES_ANCHOR = 'enigma-clues';
 
 const nameOf = (view: EnigmaView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
@@ -16,7 +20,7 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await act({ type: 'give-clues', clues: clues.map((c) => c.trim()) });
+    await act({ type: 'give-clues', clues: clues.map((c) => c.trim()) }, { anchor: CLUES_ANCHOR });
     setBusy(false);
   };
   return (
@@ -51,6 +55,7 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
       >
         Send clues
       </Button>
+      <RefusalSlot anchor={CLUES_ANCHOR} />
     </form>
   );
 }

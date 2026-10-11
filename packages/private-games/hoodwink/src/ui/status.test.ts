@@ -42,6 +42,11 @@ describe('statusFor', () => {
     const h = harness(FOUR);
     expect(status(h, HOST, true)).toMatchObject({ yourMove: true });
     expect(status(h, 'p2').text).toContain('Waiting for the host');
+    const players = FOUR.map((id) => ({ id, name: id.toUpperCase(), connected: true }));
+    expect(
+      statusFor(hoodwink.view(h.state, 'p2'), false, null, { you: 'p2', hostId: HOST, players })
+        .text,
+    ).toBe('All set. Waiting for HOST (host) to start…');
     expect(statusFor(hoodwink.view(h.state, HOST), true, 'No decks.').text).toBe(
       'Almost ready: No decks.',
     );
@@ -55,7 +60,7 @@ describe('statusFor', () => {
     expect(status(h, 'p2').text).toContain('lie that sounds true');
     h.act({ type: 'lie', text: 'Ferrets' }, 'p2');
     expect(status(h, 'p2')).toEqual({
-      text: 'Lie sent! Waiting for HOST, P3 and P4… You can still change yours.',
+      text: 'Lie sent! Waiting for: HOST, P3 and P4… You can still change yours.',
       yourMove: false,
     });
     expect(status(h, null).text).toBe('Everyone is writing a lie…');
@@ -69,11 +74,13 @@ describe('statusFor', () => {
     h.act({ type: 'vote', option: truthIndex(h) }, 'p2');
     h.act({ type: 'vote', option: truthIndex(h) }, 'p3');
     h.act({ type: 'vote', option: truthIndex(h) }, 'p4');
-    expect(status(h, 'p2').text).toBe('Voted! Waiting for HOST… You can still change your vote.');
-    // Offline players are marked, so the host knows to continue without them.
+    expect(status(h, 'p2').text).toBe('Voted! Waiting for: HOST… You can still change your vote.');
+    // With the room, offline players are marked so nobody waits on them unawares.
+    const players = FOUR.map((id) => ({ id, name: id.toUpperCase(), connected: id !== HOST }));
     expect(
-      statusFor(hoodwink.view(h.state, 'p2'), false, null, { online: (id) => id !== HOST }).text,
-    ).toBe('Voted! Waiting for HOST (offline)… You can still change your vote.');
+      statusFor(hoodwink.view(h.state, 'p2'), false, null, { you: 'p2', hostId: HOST, players })
+        .text,
+    ).toBe('Voted! Waiting for: HOST (offline)… You can still change your vote.');
     expect(status(h, 'late').text).toContain('hunting for the truth');
   });
 
@@ -91,9 +98,11 @@ describe('statusFor', () => {
       text: `The truth was “${truth}”. You scored 0. Waiting for the host to start the next round…`,
       yourMove: false,
     });
+    const players = [{ id: HOST, name: 'Hana' }];
     expect(
-      statusFor(hoodwink.view(h.state, 'p2'), false, null, { hostName: 'Hana' }).text,
-    ).toContain('Waiting for Hana to start the next round…');
+      statusFor(hoodwink.view(h.state, 'p2'), false, null, { you: 'p2', hostId: HOST, players })
+        .text,
+    ).toContain('Waiting for Hana (host) to start the next round…');
   });
 
   it('names the winner, a tie, or a game cut short', () => {

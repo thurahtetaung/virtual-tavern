@@ -38,6 +38,34 @@ describe('statusFor', () => {
   });
 });
 
+describe('statusFor names people', () => {
+  const room = (offline: string[] = []) => ({
+    hostId: HOST,
+    players: [HOST, 'p2', 'p3', 'p4'].map((id) => ({
+      id,
+      name: id.toUpperCase(),
+      connected: !offline.includes(id),
+    })),
+  });
+
+  it('names the host in waiting texts', () => {
+    const h = startedGame();
+    const lobby = { ...codenames.view(h.state, OP.red), phase: 'lobby' as const };
+    expect(statusFor(lobby, false, null, room()).text).toBe(
+      'All set. Waiting for HOST (host) to start the game…',
+    );
+  });
+
+  it('names an offline Spymaster instead of "thinking…"', () => {
+    const h = startedGame();
+    const view = codenames.view(h.state, OP.red);
+    expect(statusFor(view, false, null, room()).text).toContain('is thinking of a clue');
+    expect(statusFor(view, false, null, room([SPY.red])).text).toBe(
+      "Waiting for HOST (offline), Red's Spymaster, to give a clue.",
+    );
+  });
+});
+
 describe('guessesLeft', () => {
   it('counts down from the clue number plus one', () => {
     const h = startedGame();

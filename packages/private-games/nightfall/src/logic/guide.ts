@@ -36,6 +36,14 @@ export const guide: GameGuide = {
   players: '3 to 10',
   duration: '10 minutes a game',
   goal: 'Everyone gets a secret role. The village wins if at least one Werewolf (or Vampire) dies in the vote; the werewolves and vampires win if none of theirs does. Some roles have goals of their own.',
+  quickStart: [
+    'Everyone gets one secret role card: look at it, then press Ready.',
+    'At night, keep your eyes closed until your role is called. When you wake, follow the prompt on your screen.',
+    'Cards can be swapped in the night, so the role you end with may not be the one you were dealt.',
+    'At daybreak, talk it over: claim, bluff and work out who the werewolves are.',
+    'Then everyone votes at once. The player with the most votes dies.',
+    'Usually the village wins if a werewolf dies and the werewolves win if none does; some roles bring goals of their own.',
+  ],
   setup: [
     'The host picks the cards: one per player plus three for the centre (plus one when the Alpha Wolf is in). Presets cover proven setups for every table size.',
     'Everyone gets one card. Cover your screen, peek at your role, then press Ready.',

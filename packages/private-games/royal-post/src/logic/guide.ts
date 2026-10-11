@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '2 to 4 (Classic) or 2 to 6 (2019 edition)',
   duration: '20 minutes',
   goal: 'Win rounds to collect favour tokens. You win a round by being the last player standing, or by holding the highest card when the deck runs out. The first to the token target wins the game.',
+  quickStart: [
+    'You hold one secret card. On your turn, draw a second, then play one of the two face up.',
+    'Do what the played card says: guess a hand, peek at one, compare, swap or protect yourself.',
+    'If a card knocks you out, you sit out the rest of the round.',
+    'The last player standing, or the highest card when the deck runs out, wins the round and a favour token.',
+    'Watch the discards: every card played tells you what is left.',
+    'The first to the token target wins the game.',
+  ],
   setup: [
     'Everyone sits down; others can watch. The host picks the edition: Classic (16 cards, 2 to 4 players) or 2019 (21 cards, 2 to 6 players, with the Spy and the Chancellor).',
     'Each round the deck is shuffled and one card is set aside face down, unseen. With two players, three more are set aside face up for everyone to see.',

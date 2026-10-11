@@ -1,4 +1,4 @@
-import { Badge, Button, cn } from '@vt/ui';
+import { Button, PlayerTag, cn } from '@vt/ui';
 import type { CodenamesAction, CodenamesView, Team } from '../logic/types.ts';
 import { canTakeSpymaster as canTakeSeat } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
@@ -7,6 +7,8 @@ interface Props {
   view: CodenamesView;
   online: (id: string) => boolean;
   act: (a: CodenamesAction) => Promise<boolean>;
+  /** The room host, crowned in the lists. */
+  hostId?: string;
   /** Compact layout for use beside the board mid-game. */
   compact?: boolean;
 }
@@ -16,25 +18,26 @@ function Name({
   name,
   me,
   online,
+  hostId,
 }: {
   id: string;
   name: string;
   me: string | undefined;
   online: boolean;
+  hostId?: string;
 }) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5', !online && 'opacity-50')}>
+    <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden
         className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
       />
-      {name}
-      {id === me && <Badge>you</Badge>}
+      <PlayerTag name={name} host={id === hostId} you={id === me} offline={!online} />
     </span>
   );
 }
 
-function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }) {
+function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team: Team }) {
   const members = view.seats.filter((s) => s.team === team);
   const spymaster = members.find((s) => s.role === 'spymaster');
   const operatives = members.filter((s) => s.role === 'operative');
@@ -70,6 +73,7 @@ function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }
               name={spymaster.name}
               me={me?.id}
               online={online(spymaster.id)}
+              hostId={hostId}
             />
           ) : canTakeSpymaster ? (
             <Button
@@ -89,7 +93,7 @@ function TeamColumn({ team, view, online, act, compact }: Props & { team: Team }
           <ul className={cn('flex flex-wrap gap-x-3 gap-y-1', compact && 'text-sm')}>
             {operatives.map((s) => (
               <li key={s.id}>
-                <Name id={s.id} name={s.name} me={me?.id} online={online(s.id)} />
+                <Name id={s.id} name={s.name} me={me?.id} online={online(s.id)} hostId={hostId} />
               </li>
             ))}
             {operatives.length === 0 && <li className="text-stone-500 italic">Nobody yet</li>}
@@ -124,7 +128,14 @@ export function Teams(props: Props) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
           <span className="font-semibold">Watching:</span>
           {spectators.map((s) => (
-            <Name key={s.id} id={s.id} name={s.name} me={me?.id} online={props.online(s.id)} />
+            <Name
+              key={s.id}
+              id={s.id}
+              name={s.name}
+              me={me?.id}
+              online={props.online(s.id)}
+              hostId={props.hostId}
+            />
           ))}
           {spectators.length === 0 && <span className="italic">nobody</span>}
           {canSpectate && (

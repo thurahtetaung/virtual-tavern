@@ -9,6 +9,11 @@ export interface GameGuide {
   duration: string;
   /** What you are trying to do, in one or two sentences. */
   goal: string;
+  /**
+   * The whole game in 5 or 6 short bullets ("what do I do now?"), shown first on the rules page
+   * and in the in-room drawer, before the full rules.
+   */
+  quickStart?: string[];
   /** Short numbered steps to get a game going. */
   setup: string[];
   /** The rules, in reading order. */

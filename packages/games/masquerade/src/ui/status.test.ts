@@ -40,3 +40,36 @@ describe('status', () => {
     });
   });
 });
+
+describe('status with the room', () => {
+  const people = (offline: string[] = []) => ({
+    hostId: HOST,
+    players: FOUR.map((id) => ({ id, name: id.toUpperCase(), connected: !offline.includes(id) })),
+  });
+
+  it('names the host, and a caught spy who is offline', () => {
+    const h = table();
+    allReady(h);
+    votes(h, { host: 'cy', ana: 'cy', ben: 'cy', cy: 'ben' });
+    expect(statusFor(masquerade.view(h.state, 'ben'), false, people(['cy'])).text).toBe(
+      'CY (offline) was caught as the spy and is guessing the location…',
+    );
+    h.act({ type: 'spy-guess', location: 'gym' }, 'cy');
+    expect(statusFor(masquerade.view(h.state, 'ben'), false, people()).text).toBe(
+      'Round over! Waiting for HOST (host) to deal the next round…',
+    );
+  });
+
+  it('names who watchers are still waiting on to vote', () => {
+    const h = table();
+    allReady(h);
+    votes(h, { host: 'cy', ana: 'cy' });
+    const watcherView = {
+      ...masquerade.view(h.state, 'ben'),
+      round: { ...masquerade.view(h.state, 'ben').round!, role: 'watching' as const },
+    };
+    expect(statusFor(watcherView, false, people(['cy'])).text).toBe(
+      'The table is voting for the spy… Waiting for: CY (offline) and you.',
+    );
+  });
+});

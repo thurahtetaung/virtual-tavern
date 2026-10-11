@@ -1,5 +1,16 @@
-import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, ProtectedImage, cn, useSecondsLeft } from '@vt/ui';
+import { type GameRoomInfo, type GameUiProps, waitingFor, waitingForHost } from '@vt/game-sdk';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  ProtectedImage,
+  Standings,
+  TimeoutNote,
+  cn,
+  useSecondsLeft,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
   ANSWER_TIP,
@@ -8,11 +19,11 @@ import {
   SPY_FISHING_QUESTIONS,
   SPY_SAFE_QUESTIONS,
 } from '../content/questions.ts';
-import type { MasqueradeAction, MasqueradeView, RoundView } from '../logic/types.ts';
+import type { MasqueradeAction, MasqueradeView, RoundView, Stage } from '../logic/types.ts';
 import type { LocationDisplay } from './display.ts';
 import { Lobby, Players } from './Lobby.tsx';
 import { useMarks } from './notes.ts';
-import { type Status, listNames, nameOf, nudgeFor, statusFor } from './status.ts';
+import { listNames, nameOf, nudgeFor, statusFor } from './status.ts';
 
 export type MasqueradeUiProps = GameUiProps<MasqueradeView, MasqueradeAction>;
 type Act = (a: MasqueradeAction) => Promise<boolean>;
@@ -61,6 +72,13 @@ function LocationPicture({
 
 // ---- Top of the screen ----
 
+/** What the round clock times, and what happens at 0:00 (Masquerade's timers always act). */
+const CLOCK: Partial<Record<Stage, { label: string; atZero: string }>> = {
+  talk: { label: 'to talk', atZero: 'then everyone votes' },
+  vote: { label: 'to vote', atZero: 'no vote = abstain' },
+  guess: { label: 'to guess the place', atZero: 'no guess = wrong' },
+};
+
 function TopBar({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
   const round = view.round;
   if (!round) return null;
@@ -82,7 +100,12 @@ function TopBar({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
         </span>
         {round.spyCount > 1 && <span className="text-xs">2 spies</span>}
       </div>
-      <Countdown deadline={live ? round.deadline : null} clockOffset={room.clockOffset} />
+      <Countdown
+        deadline={live ? round.deadline : null}
+        clockOffset={room.clockOffset}
+        label={CLOCK[round.stage]?.label}
+        atZero={CLOCK[round.stage]?.atZero}
+      />
     </div>
   );
 }
@@ -228,27 +251,59 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
   );
 }
 
-function ReadyToggle({ round, act }: { round: RoundView; act: Act }) {
+/** "3 of 5 ready · Waiting for: Ana, Ben (offline)": counted, and the holdouts named. */
+function Holdouts({
+  round,
+  done,
+  verb,
+  room,
+}: {
+  round: RoundView;
+  done: readonly string[];
+  verb: string;
+  room: GameRoomInfo;
+}) {
+  const left = round.players.map((p) => p.id).filter((id) => !done.includes(id));
+  const names = waitingFor(left, room.players, { you: room.you });
+  return (
+    <>
+      {done.length} of {round.players.length} {verb}
+      {names && ` · ${names}`}
+    </>
+  );
+}
+
+function ReadyToggle({ round, act, room }: { round: RoundView; act: Act; room: GameRoomInfo }) {
   if (round.stage !== 'talk' || round.role === 'watching') return null;
   return (
-    <div className="flex items-center gap-3">
+    <div className="space-y-1">
       <Button
         size="lg"
         variant={round.meReady ? 'secondary' : 'primary'}
         aria-pressed={round.meReady}
-        className="flex-1"
+        className="w-full"
         onClick={() => void act({ type: 'ready-to-vote', ready: !round.meReady })}
       >
         {round.meReady ? '✓ Ready to vote' : 'Ready to vote'}
       </Button>
-      <span className="text-sm text-stone-600 tabular-nums dark:text-stone-400">
-        {round.readyCount} of {round.players.length} ready
-      </span>
+      <p className="text-center text-sm text-stone-600 tabular-nums dark:text-stone-400">
+        <Holdouts round={round} done={round.readyIds} verb="ready" room={room} />
+      </p>
     </div>
   );
 }
 
-function VotePanel({ view, round, act }: { view: MasqueradeView; round: RoundView; act: Act }) {
+function VotePanel({
+  view,
+  round,
+  act,
+  room,
+}: {
+  view: MasqueradeView;
+  round: RoundView;
+  act: Act;
+  room: GameRoomInfo;
+}) {
   if (round.stage !== 'vote' || round.role === 'watching') return null;
   const others = round.players.filter((p) => p.id !== view.me?.id);
   return (
@@ -258,7 +313,8 @@ function VotePanel({ view, round, act }: { view: MasqueradeView; round: RoundVie
     >
       <h3 className="font-bold">🗳️ Who is the spy?</h3>
       <p className="text-xs text-stone-500">
-        Secret until everyone has voted. {round.votedCount} of {round.players.length} voted.
+        Secret until everyone has voted.{' '}
+        <Holdouts round={round} done={round.votedIds} verb="voted" room={room} />
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {others.map((p) => (
@@ -319,12 +375,12 @@ function Reveal({
   view,
   display,
   act,
-  isHost,
+  room,
 }: {
   view: MasqueradeView;
   display: LocationDisplay;
   act: Act;
-  isHost: boolean;
+  room: GameRoomInfo;
 }) {
   const round = view.round!;
   const result = round.result;
@@ -340,6 +396,8 @@ function Reveal({
     return `${name} ${was} caught and ${guessed}: the locals win the round.`;
   };
   const scored = Object.entries(result.points).filter(([, n]) => n > 0);
+  // The vote only ends early once everyone has voted, so a missing vote means the clock ran out.
+  const noVote = round.players.filter((p) => !result.votes[p.id]).map((p) => who(p.id));
   return (
     <Panel aria-label="Round result" className="space-y-3">
       <div className="flex items-center gap-3">
@@ -371,6 +429,11 @@ function Reveal({
         </p>
       )}
       <VotesList view={view} votes={result.votes} />
+      {noVote.length > 0 && (
+        <TimeoutNote>
+          {`${listNames(noVote)} didn’t vote, so ${noVote.length === 1 ? 'that counts' : 'those count'} as abstaining.`}
+        </TimeoutNote>
+      )}
       <p className="text-sm">
         <b>Points: </b>
         {scored.length
@@ -378,12 +441,14 @@ function Reveal({
           : 'nobody scored this round.'}
       </p>
       {view.phase === 'playing' &&
-        (isHost ? (
+        (room.isHost ? (
           <Button size="lg" className="w-full" onClick={() => void act({ type: 'next-round' })}>
             Next round
           </Button>
         ) : (
-          <p className="text-center text-sm text-stone-500">Waiting for the host…</p>
+          <p className="text-center text-sm text-stone-500">
+            {waitingForHost(room, 'deal the next round')}
+          </p>
         ))}
     </Panel>
   );
@@ -413,62 +478,15 @@ function Scores({ view }: { view: MasqueradeView }) {
   );
 }
 
-function Podium({
-  view,
-  act,
-  isHost,
-  status,
-}: {
-  view: MasqueradeView;
-  act: Act;
-  isHost: boolean;
-  status: Status;
-}) {
-  const ranked = view.seats
+/** The end screen: the shared podium and full standings (the winner line is the status above). */
+function Podium({ view, act, room }: { view: MasqueradeView; act: Act; room: GameRoomInfo }) {
+  const entries = view.seats
     .filter((s) => s.playing || s.score > 0)
-    .sort((a, b) => b.score - a.score);
-  const top = ranked.slice(0, 3);
-  const steps = [top[1], top[0], top[2]];
-  const heights = ['h-16', 'h-24', 'h-12'];
+    .map((s) => ({ id: s.id, name: s.name, score: s.score }));
   return (
-    <Panel aria-label="Podium" className="space-y-4 text-center">
-      <p className="text-2xl font-bold">🏆 {status.text}</p>
-      <ol className="flex items-end justify-center gap-2">
-        {steps.map((s, i) =>
-          s ? (
-            <li key={s.id} className="flex w-24 flex-col items-center gap-1">
-              <span className="max-w-full truncate text-sm font-semibold">
-                {view.winners.includes(s.id) && '👑 '}
-                {s.name}
-              </span>
-              <span className="text-xs text-stone-500">
-                {s.score} point{s.score === 1 ? '' : 's'}
-              </span>
-              <span
-                className={cn(
-                  'flex w-full items-start justify-center rounded-t-lg pt-1 text-lg font-bold',
-                  heights[i],
-                  i === 1
-                    ? 'bg-amber-300 text-amber-950 dark:bg-amber-500'
-                    : 'bg-stone-200 dark:bg-stone-700',
-                )}
-              >
-                {i === 1 ? 1 : i === 0 ? 2 : 3}
-              </span>
-            </li>
-          ) : null,
-        )}
-      </ol>
-      {ranked.length > 3 && (
-        <ul className="text-sm text-stone-600 dark:text-stone-400">
-          {ranked.slice(3).map((s) => (
-            <li key={s.id}>
-              {s.name}: {s.score}
-            </li>
-          ))}
-        </ul>
-      )}
-      {isHost ? (
+    <Panel aria-label="Final scores" className="space-y-4">
+      <Standings entries={entries} you={view.me?.id} />
+      {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
@@ -478,7 +496,7 @@ function Podium({
           </Button>
         </div>
       ) : (
-        <p>Waiting for the host…</p>
+        <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
       )}
     </Panel>
   );
@@ -714,6 +732,7 @@ export function MasqueradeBoard({
   act,
   showGuide,
   setYourMove,
+  setSpectator,
   display,
 }: MasqueradeUiProps & { display: LocationDisplay }) {
   // Each new step of the round opens on the tab it needs: Play, or the board for a caught spy.
@@ -722,7 +741,12 @@ export function MasqueradeBoard({
   const tab: Tab =
     picked.key === stepKey ? picked.tab : view.round?.canGuess ? 'locations' : 'play';
   const setTab = (t: Tab) => setPicked({ tab: t, key: stepKey });
-  const status = statusFor(view, room.isHost);
+  const status = statusFor(view, room.isHost, room);
+  // A full table: watchers get the shell's banner (there is no seat to take until a new game).
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing ? { text: 'The table is full, so you’re watching.' } : null,
+  );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -763,18 +787,16 @@ export function MasqueradeBoard({
               {round.redealtAfter} left while a spy, so the round was dealt again.
             </p>
           )}
-          {view.phase === 'over' && (
-            <Podium view={view} act={act} isHost={room.isHost} status={status} />
-          )}
+          {view.phase === 'over' && <Podium view={view} act={act} room={room} />}
           {round && round.stage === 'reveal' && (
-            <Reveal view={view} display={display} act={act} isHost={room.isHost} />
+            <Reveal view={view} display={display} act={act} room={room} />
           )}
           {round && round.stage !== 'reveal' && view.phase === 'playing' && (
             <>
               <MyCard key={round.deal} round={round} display={display} />
               <GuessPanel round={round} onOpenBoard={() => setTab('locations')} />
-              <VotePanel view={view} round={round} act={act} />
-              <ReadyToggle round={round} act={act} />
+              <VotePanel view={view} round={round} act={act} room={room} />
+              <ReadyToggle round={round} act={act} room={room} />
               <Coaching round={round} display={display} />
               <HowItWorks view={view} round={round} />
               {round.stage === 'guess' && round.votes && (
@@ -787,7 +809,7 @@ export function MasqueradeBoard({
           )}
           <Scores view={view} />
           <Panel>
-            <Players view={view} online={online} />
+            <Players view={view} online={online} hostId={room.hostId} />
           </Panel>
           {room.isHost && view.phase === 'playing' && (
             <Button

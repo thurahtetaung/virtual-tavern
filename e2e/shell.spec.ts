@@ -103,3 +103,90 @@ test('a server error on the room page shows a retry panel rather than a blank pa
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByText('This room does not exist or has expired')).toBeVisible();
 });
+
+test('a room code typed with spaces joins the room, and a taken name gets a number', async ({
+  browser,
+}) => {
+  const player = async (name: string) => {
+    const page = await (await browser.newContext()).newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto('/');
+    return page;
+  };
+  const host = await player('Kim');
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const code = host.url().split('/r/')[1]!;
+
+  const friend = await player('Kim');
+  const invite = friend.getByLabel('Got an invite link or room code?');
+  await invite.fill('not a code');
+  await friend.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(friend.getByRole('alert')).toContainText('like "');
+
+  // Read out loud and typed with spaces, in capitals.
+  await invite.fill(code.replaceAll('-', ' ').toUpperCase());
+  await friend.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect(friend).toHaveURL(`/r/${code}`);
+  await expect(
+    friend
+      .getByRole('status')
+      .filter({ hasText: "Someone here is already called Kim, so you're Kim 2" }),
+  ).toBeVisible();
+
+  // Renaming to a name that's taken is refused next to the form.
+  await friend.getByRole('button', { name: /^Players/ }).click();
+  const drawer = friend.getByRole('dialog', { name: 'Players' });
+  await expect(drawer.getByText('Kim 2', { exact: true })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Change my name' }).click();
+  await drawer.getByRole('textbox').fill('kim');
+  await drawer.getByRole('button', { name: 'Save' }).click();
+  await expect(drawer.getByRole('alert')).toHaveText(
+    'Someone here is already called kim. Pick another name.',
+  );
+});
+
+test('on a phone the header buttons are labelled, and an away host is announced', async ({
+  browser,
+}) => {
+  const player = async (name: string, url = '/') => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto(url);
+    return page;
+  };
+  const hana = await player('Hana');
+  await hana.getByRole('button', { name: 'Create an Echo room' }).click();
+  await expect(hana).toHaveURL(/\/r\//);
+  for (const label of ['Invite', 'Players', 'Rules']) {
+    await expect(hana.getByRole('button').getByText(label, { exact: true })).toBeVisible();
+  }
+  await hana.getByRole('button', { name: 'Invite friends' }).click();
+  await expect(hana.getByRole('status').filter({ hasText: 'Link copied' })).toBeVisible();
+
+  const ana = await player('Ana', hana.url());
+  const ben = await player('Ben', hana.url());
+  await expect(ana.getByText('Hana (host) to start')).toBeVisible();
+  await expect(ana.getByRole('button', { name: /^Players/ })).toHaveAccessibleName(
+    'Players (3 online)',
+  );
+
+  // The host's browser goes away: everyone sees who and how long until someone takes over.
+  await hana.context().close();
+  const away = ana.getByRole('status').filter({ hasText: 'Hana (host) is away' });
+  await expect(away).toContainText(/takes over in 1:\d\d/);
+  await expect(ben.getByText('Hana', { exact: true }).first()).toBeVisible();
+  if (process.env.SCREENSHOTS)
+    await ana.screenshot({ path: 'test-results/shots/phone-host-away.png' });
+
+  // Sitting out shows the shared "You're watching" banner, whose button takes the seat again.
+  await ben.getByRole('button', { name: 'Just watch' }).click();
+  const watching = ben.getByRole('status', { name: "You're watching" });
+  await expect(watching).toBeVisible();
+  await watching.getByRole('button', { name: 'Take a seat' }).click();
+  await expect(watching).toHaveCount(0);
+});

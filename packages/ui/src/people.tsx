@@ -1,0 +1,88 @@
+import type { SpectatorPrompt } from '@vt/game-sdk';
+import { useEffect, useRef } from 'react';
+import { cn } from './cn.ts';
+
+/** The 👑 every player list puts after the host's name. */
+export function HostCrown() {
+  return (
+    <span role="img" aria-label="host">
+      👑
+    </span>
+  );
+}
+
+/**
+ * A player's name as every list shows it: 👑 for the host, "(you)", and a muted "offline" while
+ * their browser is away, so nobody waits on someone who has gone.
+ */
+export function PlayerTag({
+  name,
+  host = false,
+  you = false,
+  offline = false,
+  className,
+}: {
+  name: string;
+  host?: boolean;
+  you?: boolean;
+  offline?: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
+      <span className={cn('truncate', offline && 'opacity-60')}>{name}</span>
+      {host && <HostCrown />}
+      {you && <span className="text-xs text-stone-500 dark:text-stone-400">(you)</span>}
+      {offline && (
+        <span className="rounded-full bg-stone-200 px-1.5 text-[11px] font-medium text-stone-600 dark:bg-stone-700 dark:text-stone-300">
+          offline
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Scrolls a seat control into view and focuses it (for "Take a seat" links). */
+export function revealElement(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  // A folded section (details) opens first, so the control is actually there to press.
+  const details = el.closest('details');
+  if (details && !details.open) details.open = true;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const focusable = el.matches('button, a, input, select, textarea')
+    ? el
+    : el.querySelector<HTMLElement>('button, a, input, select, textarea');
+  focusable?.focus({ preventScroll: true });
+}
+
+/**
+ * Reports to the room shell whether the viewer is watching, so it can show the shared
+ * "You're watching" banner with the game's own seat action. Pass `null` while they play.
+ * The action may change on every render; only the text and label re-report.
+ */
+export function useSpectatorPrompt(
+  setSpectator: ((prompt: SpectatorPrompt | null) => void) | undefined,
+  prompt: SpectatorPrompt | null,
+) {
+  const action = useRef(prompt?.action);
+  useEffect(() => {
+    action.current = prompt?.action;
+  });
+  const watching = prompt !== null;
+  const hasAction = prompt?.action !== undefined;
+  const text = prompt?.text;
+  const actionLabel = prompt?.actionLabel;
+  useEffect(() => {
+    setSpectator?.(
+      watching
+        ? { text, actionLabel, action: hasAction ? () => action.current?.() : undefined }
+        : null,
+    );
+  }, [setSpectator, watching, hasAction, text, actionLabel]);
+  useEffect(() => {
+    return () => {
+      setSpectator?.(null);
+    };
+  }, [setSpectator]);
+}

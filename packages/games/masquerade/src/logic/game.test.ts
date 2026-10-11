@@ -137,10 +137,14 @@ describe('what each player sees', () => {
       const v = masquerade.view(h.state, viewer);
       const json = secretJson(v);
       expect(v.round!.votedCount).toBe(2);
+      // Who has voted is public (so the table can name the holdouts); whom they chose is not.
+      expect(v.round!.votedIds).toEqual(['host', 'ana']);
       expect(v.round!.votes).toBeNull();
       expect(v.round!.myVote).toBe(viewer === 'host' || viewer === 'ana' ? 'cy' : null);
       // Nobody's vote but your own appears anywhere.
       expect(json).not.toMatch(/"(host|ana|ben|cy)":"cy"/);
+      if (viewer !== 'host' && viewer !== 'ana') expect(json).not.toContain('"myVote":"cy"');
+      expect(JSON.stringify(v.round!.votedIds)).not.toContain('cy');
     }
     votes(h, { ben: 'cy', cy: 'ana' });
     const v = masquerade.view(h.state, 'ben');
@@ -172,6 +176,7 @@ describe('the vote', () => {
     h.act({ type: 'ready-to-vote', ready: true }, 'ben');
     h.act({ type: 'ready-to-vote', ready: false }, 'ben');
     expect(masquerade.view(h.state, HOST).round!.readyCount).toBe(1);
+    expect(masquerade.view(h.state, 'cy').round!.readyIds).toEqual(['ana']);
     expect(round(h).stage).toBe('talk');
     expect(h.reject({ type: 'vote', target: 'cy' })).toBe('wrong-stage');
     allReady(h);

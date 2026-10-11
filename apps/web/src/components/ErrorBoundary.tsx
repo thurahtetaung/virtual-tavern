@@ -1,5 +1,6 @@
 import { Button } from '@vt/ui';
 import { Component, type ReactNode } from 'react';
+import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 
 /** Last line of defence: a friendly message instead of a blank page. */
 export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -10,6 +11,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
   }
 
   override componentDidCatch(error: unknown) {
+    // A new release replaced the code this page was about to load: fetch it once, quietly.
+    if (isChunkLoadError(error) && reloadOnce()) return;
     console.error(error);
   }
 

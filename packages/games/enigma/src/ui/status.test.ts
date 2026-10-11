@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { enigma } from '../logic/game.ts';
-import { HOST, decoders, harness, sendClues, startedGame, tx, vote } from '../logic/test-utils.ts';
+import {
+  BLUE,
+  HOST,
+  RED,
+  decoders,
+  harness,
+  sendClues,
+  startedGame,
+  tx,
+  vote,
+} from '../logic/test-utils.ts';
 import { chatMuted, cluesByKeyword, startBlocker, statusFor } from './status.ts';
 
 describe('statusFor', () => {
@@ -30,6 +40,39 @@ describe('statusFor', () => {
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
     vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
     expect(statusFor(enigma.view(h.state, HOST), true, null)).toMatchObject({ yourMove: true });
+  });
+});
+
+describe('statusFor names people', () => {
+  const room = (offline: string[] = []) => ({
+    hostId: HOST,
+    players: [...RED, ...BLUE].map((id) => ({
+      id,
+      name: id.toUpperCase(),
+      connected: !offline.includes(id),
+    })),
+  });
+
+  it('tells a locked-in player who the team is still waiting for', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    const [first, ...rest] = decoders(h, 'red');
+    vote(h, 'red', [first!], tx(h, 'red').code);
+    const status = statusFor(enigma.view(h.state, first!), false, null, room(rest));
+    expect(status.yourMove).toBe(false);
+    expect(status.text).toBe(
+      `Locked in! Waiting for: ${rest.map((id) => `${id.toUpperCase()} (offline)`).join(' and ')}.`,
+    );
+  });
+
+  it('names the host when waiting for them', () => {
+    const h = harness();
+    for (const id of RED) h.act({ type: 'join-team', team: 'red' }, id);
+    for (const id of BLUE) h.act({ type: 'join-team', team: 'blue' }, id);
+    expect(statusFor(enigma.view(h.state, 'r2'), false, null, room()).text).toBe(
+      'All set. Waiting for HOST (host) to start the game…',
+    );
   });
 });
 

@@ -491,18 +491,26 @@ describe('a whole game', () => {
   it('runs lobby → ready → night → day → vote → reveal → again', () => {
     const h: Harness = table({ players: [W, 'seer', V], center: ['robber', V, 'drunk'] });
     expect(h.state.stage).toBe('night');
+    expect(h.view('B').waitingOn).toEqual([]);
     h.dawn();
     expect(h.state.stage).toBe('day');
+    h.act({ type: 'ready-to-vote', ready: true }, 'C');
+    expect(h.view('B').waitingOn).toEqual(['A', 'B']);
     h.tick();
     expect(h.state.stage).toBe('vote');
     expect(h.reject({ type: 'vote', target: 'A' }, 'A')).toBe('self-vote');
     h.act({ type: 'vote', target: 'B' }, 'A');
     expect(h.view('B').vote).toMatchObject({ votedCount: 1, myVote: null });
+    // Who still has to vote is named (not how they voted).
+    expect(h.view('B').waitingOn).toEqual(['B', 'C']);
     h.tick();
     expect(h.state.stage).toBe('reveal');
+    expect(h.view('B').waitingOn).toEqual([]);
     h.act({ type: 'play-again' });
     expect(h.state.stage).toBe('ready');
-    for (const p of h.ids) h.act({ type: 'ready' }, p);
+    h.act({ type: 'ready' }, 'B');
+    expect(h.view('A').waitingOn).toEqual(['A', 'C']);
+    for (const p of h.ids) if (p !== 'B') h.act({ type: 'ready' }, p);
     expect(h.state.stage).toBe('night');
     expect(h.state.round!.number).toBe(2);
   });

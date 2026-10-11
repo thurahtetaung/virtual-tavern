@@ -1,6 +1,15 @@
-import type { WordListSummary } from '@vt/game-sdk';
+import type { ActOptions, SpectatorPrompt, WordListSummary } from '@vt/game-sdk';
 import type { RoomInfo, RoomSnapshot } from '@vt/protocol';
-import { Badge, Button, Panel, cn } from '@vt/ui';
+import {
+  Badge,
+  Button,
+  Panel,
+  RefusalProvider,
+  clock,
+  cn,
+  useRefusals,
+  useSecondsLeft,
+} from '@vt/ui';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
@@ -123,7 +132,11 @@ export function RoomPage() {
   }
 
   if (!game) return <Layout wide>{null}</Layout>;
-  return <Room roomId={roomId} game={game} name={name} onRename={setName} />;
+  return (
+    <RefusalProvider>
+      <Room roomId={roomId} game={game} name={name} onRename={setName} />
+    </RefusalProvider>
+  );
 }
 
 /** "Ana", "Ana and Ben", "Ana, Ben and Cy". */
@@ -148,7 +161,9 @@ function Room({
 }) {
   const navigate = useNavigate();
   const toast = useToast();
+  const refusals = useRefusals();
   const { snapshot, clockOffset, status, error, call, leave } = useRoom(roomId, name);
+  const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [wordLists, setWordLists] = useState<WordListSummary[]>([]);
@@ -190,15 +205,19 @@ function Room({
   }, [status, roomId, game.name, game.id]);
 
   const act = useCallback(
-    async (action: unknown) => {
+    async (action: unknown, options?: ActOptions) => {
       const res = await call('game:action', action);
-      if (!res.ok && res.error.code === 'backroom-locked') {
+      if (res.ok) refusals.clear(options?.anchor);
+      else if (res.error.code === 'backroom-locked') {
         // The password changed mid-game: send the player back to the door.
         void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`);
-      } else if (!res.ok) toast(res.error.message);
+      } else if (!refusals.show(options?.anchor, res.error.message)) {
+        // No spot next to the control that sent it (or none on screen): say it up top.
+        toast(res.error.message);
+      }
       return res.ok;
     },
-    [call, toast, navigate, roomId],
+    [call, toast, navigate, roomId, refusals],
   );
 
   useEffect(() => {
@@ -207,13 +226,28 @@ function Room({
 
   const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
 
-  // Say so when the host role lands on you (the previous host went away, or handed it over).
-  const wasHost = useRef<boolean | null>(null);
+  // Tell everyone who hosts now when the role moves (the host went away, left or handed it over).
+  const lastHost = useRef<string | null>(null);
   useEffect(() => {
     if (!snapshot) return;
-    if (wasHost.current === false && isHost) toast("You're the host now", 'info');
-    wasHost.current = isHost;
+    const before = lastHost.current;
+    lastHost.current = snapshot.hostId;
+    if (before === null || before === snapshot.hostId) return;
+    if (isHost) toast("You're the host now", 'info');
+    else {
+      const host = snapshot.players.find((p) => p.id === snapshot.hostId);
+      if (host) toast(`${host.name} is the host now`, 'info');
+    }
   }, [snapshot, isHost, toast]);
+
+  // Someone in the room already had this name, so the server numbered it ("Kim 2"). Say so once.
+  const myName = snapshot?.players.find((p) => p.id === snapshot.you)?.name;
+  const toldName = useRef<string | null>(null);
+  useEffect(() => {
+    if (!myName || myName === name || toldName.current === myName) return;
+    toldName.current = myName;
+    toast(`Someone here is already called ${name}, so you're ${myName} in this room.`, 'info');
+  }, [myName, name, toast]);
 
   // Arrivals and departures, collected briefly so a group joining at once makes one toast.
   const knownPlayers = useRef<Map<string, string> | null>(null);
@@ -267,7 +301,7 @@ function Room({
 
   return (
     <Layout wide>
-      {/* One compact row on phones (icon buttons), full labels from sm up. */}
+      {/* One compact row: on phones each button is an icon over a one-word label. */}
       <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
         <h1 className="truncate text-xl font-bold sm:text-2xl">
           <span aria-hidden>{game.icon}</span> {game.name}
@@ -281,8 +315,11 @@ function Room({
             aria-label={`Players (${online} online)`}
             onClick={() => setPeopleOpen(true)}
           >
-            👥<span className="hidden sm:inline">Players</span>
-            {snapshot ? ` ${online}` : ''}
+            <span aria-hidden>
+              👥{snapshot ? <span className="sm:hidden"> {online}</span> : null}
+            </span>
+            <span className={HEADER_LABEL}>Players</span>
+            {snapshot ? <span className="-ml-1 hidden sm:inline">{online}</span> : null}
           </Button>
           <Button
             variant="secondary"
@@ -291,7 +328,8 @@ function Room({
             aria-label="Rules"
             onClick={() => setGuideOpen(true)}
           >
-            ❓<span className="hidden sm:inline">Rules</span>
+            <span aria-hidden>❓</span>
+            <span className={HEADER_LABEL}>Rules</span>
           </Button>
         </div>
       </div>
@@ -304,6 +342,9 @@ function Room({
           {snapshot ? 'Connection lost. Reconnecting…' : "Can't reach the tavern. Retrying…"}
         </p>
       )}
+
+      {snapshot && <HostAway snapshot={snapshot} clockOffset={clockOffset} />}
+      {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
 
       {!snapshot ? (
         <p className="py-16 text-center text-stone-500 dark:text-stone-400">Opening the door…</p>
@@ -328,6 +369,7 @@ function Room({
             act={act}
             showGuide={() => setGuideOpen(true)}
             setYourMove={setYourMove}
+            setSpectator={setSpectator}
           />
         </Suspense>
       )}
@@ -373,8 +415,13 @@ function Room({
   );
 }
 
-/** Room header buttons: compact on desktop, but a full 44 px tap target on phones. */
-const HEADER_BUTTON = 'min-h-11 sm:min-h-0';
+/**
+ * Room header buttons: compact on desktop; on phones a full 44 px tap target with the icon over a
+ * one-word label, so nobody has to guess what 🔗, 👥 and ❓ do.
+ */
+const HEADER_BUTTON =
+  'min-h-11 flex-col gap-0 px-2 leading-none sm:min-h-0 sm:flex-row sm:gap-2 sm:px-3';
+const HEADER_LABEL = 'text-[11px] font-semibold sm:text-sm';
 
 function InviteButton() {
   const toast = useToast();
@@ -388,6 +435,7 @@ function InviteButton() {
       }
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      toast('Link copied. Send it to your friends!', 'info');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       // Closing the share sheet without sharing is not a failure.
@@ -402,9 +450,62 @@ function InviteButton() {
       aria-label={copied ? 'Link copied' : 'Invite friends'}
       onClick={() => void copy()}
     >
-      {copied ? '✓' : '🔗'}
-      <span className="hidden sm:inline">{copied ? 'Link copied' : 'Invite friends'}</span>
+      <span aria-hidden>{copied ? '✓' : '🔗'}</span>
+      <span className={HEADER_LABEL}>
+        <span className="sm:hidden">{copied ? 'Copied' : 'Invite'}</span>
+        <span className="hidden sm:inline">{copied ? 'Link copied' : 'Invite friends'}</span>
+      </span>
     </Button>
+  );
+}
+
+/** "Ana (host) is away. Someone takes over in 1:45", for everyone while the host is offline. */
+function HostAway({ snapshot, clockOffset }: { snapshot: RoomSnapshot; clockOffset: number }) {
+  const until = snapshot.hostAwayUntil ?? null;
+  const left = useSecondsLeft(until, clockOffset);
+  const host = snapshot.players.find((p) => p.id === snapshot.hostId);
+  if (until === null || left === null || !host || host.connected) return null;
+  return (
+    <p
+      role="status"
+      className="mb-3 rounded-xl bg-stone-100 px-4 py-2 text-center text-sm text-stone-700 ring-1 ring-stone-200 dark:bg-stone-800/70 dark:text-stone-200 dark:ring-stone-700"
+    >
+      <span aria-hidden>💤 </span>
+      <b>{host.name}</b> (host) is away.{' '}
+      {left > 0 ? (
+        <>
+          Someone else takes over in <span className="font-mono tabular-nums">{clock(left)}</span>.
+        </>
+      ) : (
+        'Handing the host role to someone who is here…'
+      )}
+    </p>
+  );
+}
+
+/** "You're watching" for members without a seat, with the game's own way to take one. */
+function SpectatorBanner({ prompt }: { prompt: SpectatorPrompt }) {
+  return (
+    <div
+      role="status"
+      aria-label="You're watching"
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sky-50 px-4 py-2 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+    >
+      <p>
+        <span aria-hidden>👀 </span>
+        <b>You're watching.</b> {prompt.text ?? 'Take a seat to play.'}
+      </p>
+      {prompt.action && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="min-h-11 sm:min-h-0"
+          onClick={prompt.action}
+        >
+          {prompt.actionLabel ?? 'Take a seat'}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -463,9 +564,10 @@ function People({
 }) {
   const toast = useToast();
   const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
 
-  const run = async (event: 'room:kick' | 'room:make-host' | 'room:rename', arg: string) => {
+  const run = async (event: 'room:kick' | 'room:make-host', arg: string) => {
     const res = await call(event, arg);
     if (!res.ok) toast(res.error.message);
     return res.ok;
@@ -488,7 +590,7 @@ function People({
               <span className="font-medium">{p.name}</span>
               {p.id === snapshot.hostId && <Badge>👑 host</Badge>}
               {p.id === snapshot.you && <Badge>you</Badge>}
-              {!p.connected && <span className="text-xs">away</span>}
+              {!p.connected && <span className="text-xs">offline</span>}
             </span>
             {isHost && p.id !== snapshot.you && (
               <span className="flex gap-1">
@@ -515,21 +617,35 @@ function People({
       </p>
       <div className="space-y-2">
         {renaming ? (
-          <NameForm
-            initial={me?.name}
-            submitLabel="Save"
-            onSubmit={(n) =>
-              void run('room:rename', n).then((ok) => {
-                if (ok) {
-                  onRename(n);
-                  setRenaming(false);
-                }
-              })
-            }
-          />
+          <>
+            <NameForm
+              initial={me?.name}
+              submitLabel="Save"
+              onSubmit={(n) =>
+                void call('room:rename', n).then((res) => {
+                  if (res.ok) {
+                    onRename(n);
+                    setRenaming(false);
+                    setRenameError(null);
+                  } else setRenameError(res.error.message);
+                })
+              }
+            />
+            {renameError && (
+              <p role="alert" className="text-sm font-medium text-rose-700 dark:text-rose-300">
+                {renameError}
+              </p>
+            )}
+          </>
         ) : (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setRenaming(true)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRenameError(null);
+                setRenaming(true);
+              }}
+            >
               Change my name
             </Button>
             <Button variant="danger" onClick={() => void onLeave()}>

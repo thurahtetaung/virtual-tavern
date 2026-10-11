@@ -1,4 +1,5 @@
-import { Button, Panel, cn } from '@vt/ui';
+import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { Button, Panel, RefusalSlot, Standings, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { awards, displayText, lieProblem, tidyLie } from '../logic/game.ts';
 import {
@@ -8,10 +9,10 @@ import {
   type OptionView,
   type RoundView,
 } from '../logic/types.ts';
-import { listNames, nameOf, points, ranks, splitPrompt } from './status.ts';
+import { listNames, nameOf, points, splitPrompt } from './status.ts';
 import { Avatar } from './Table.tsx';
 
-type Act = (a: HoodwinkAction) => Promise<boolean>;
+type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
 
 interface Props {
   view: HoodwinkView;
@@ -19,11 +20,12 @@ interface Props {
   isHost: boolean;
 }
 
+/** Where the server's refusal of a lie shows: right under the lie form. */
+const LIE_ANCHOR = 'hoodwink-lie';
+
 /** On a phone, a board of many long answers scrolls inside the viewport rather than the page. */
 const BOARD_SCROLL =
   'max-sm:max-h-[58dvh] max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:p-0.5';
-
-const TRUTH_MESSAGE = 'That’s the real answer — write a lie!';
 
 const PROMPT = 'text-center text-xl leading-snug font-bold text-balance break-words sm:text-2xl';
 
@@ -79,23 +81,24 @@ const INPUT =
 function LieForm({ round, act }: { round: RoundView; act: Act }) {
   const [text, setText] = useState(round.myLie ?? '');
   const [busy, setBusy] = useState(false);
-  // The answer never reaches the browser, so a lie that matches it is only refused by the server.
+  // The answer never reaches the browser, so a lie that matches it is only refused by the server
+  // (its message shows in the slot under the form); Send stays off until the lie changes.
   const [refused, setRefused] = useState<string | null>(null);
   const trimmed = tidyLie(text);
   const sent = round.myLie !== null;
   const unchanged = sent && trimmed === round.myLie;
-  const local = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
-  const problem = local ?? (refused !== null && refused === trimmed ? TRUTH_MESSAGE : null);
+  const problem = trimmed ? (lieProblem(trimmed)?.message ?? null) : null;
+  const blocked = problem !== null || (refused !== null && refused === trimmed);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const ok = await act({ type: 'lie', text: trimmed });
+    const ok = await act({ type: 'lie', text: trimmed }, { anchor: LIE_ANCHOR });
     setRefused(ok ? null : trimmed);
     setBusy(false);
   };
   const lieForMe = async () => {
     setBusy(true);
-    await act({ type: 'lie-for-me' });
+    await act({ type: 'lie-for-me' }, { anchor: LIE_ANCHOR });
     setRefused(null);
     setBusy(false);
   };
@@ -109,10 +112,10 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           autoComplete="off"
           spellCheck={false}
           enterKeyHint="send"
-          aria-invalid={problem ? true : undefined}
+          aria-invalid={blocked ? true : undefined}
           onChange={(e) => setText(e.target.value)}
           placeholder="Something believable…"
-          className={cn(INPUT, 'mt-1', problem && 'ring-2 ring-rose-500')}
+          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-rose-500')}
         />
         {problem && (
           <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
@@ -126,11 +129,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
         </p>
       )}
       <div className={cn('grid gap-2', round.canLieForMe && 'grid-cols-[1fr_auto]')}>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={busy || unchanged || !trimmed || problem !== null}
-        >
+        <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
           {sent ? (unchanged ? '✓ Sent' : 'Change my lie') : 'Send lie'}
         </Button>
         {round.canLieForMe && (
@@ -145,6 +144,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           </Button>
         )}
       </div>
+      <RefusalSlot anchor={LIE_ANCHOR} />
     </form>
   );
 }
@@ -347,23 +347,9 @@ export function Stage({ view, act, isHost }: Props) {
   }
 }
 
-const MEDALS = ['🥇', '🥈', '🥉'];
-const STEP_HEIGHT = ['h-24', 'h-16', 'h-10'];
-
-/** Top three on a podium (ties share a step), the awards, then Play again. */
-export function GameOver({ view, act, isHost, hostName }: Props & { hostName: string }) {
+/** The shared podium and final standings, the awards, then Play again. */
+export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomInfo }) {
   const ranked = view.scores;
-  const place = ranks(ranked.map((s) => s.score));
-  const podium = ranked.filter((_, i) => place[i]! <= 3);
-  // Like a real podium: winners in the middle, the rest alternating left and right (2nd, 1st, 3rd),
-  // so ties never push the winner to one side.
-  const order: typeof podium = podium.filter((s) => place[ranked.indexOf(s)] === 1);
-  podium
-    .filter((s) => place[ranked.indexOf(s)]! > 1)
-    .forEach((s, i) => {
-      if (i % 2 === 0) order.unshift(s);
-      else order.push(s);
-    });
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;
@@ -373,27 +359,16 @@ export function GameOver({ view, act, isHost, hostName }: Props & { hostName: st
       {view.endReason === 'too-few' && (
         <p className="font-semibold">Too few players left: final scores so far.</p>
       )}
-      <ol aria-label="Podium" className="flex items-end justify-center gap-2">
-        {order.map((s) => {
-          const rank = place[ranked.indexOf(s)]! - 1;
-          return (
-            <li key={s.id} className="flex w-24 min-w-0 flex-col items-center gap-1">
-              <span className="text-2xl" aria-hidden>
-                {MEDALS[rank]}
-              </span>
-              <Avatar id={s.id} name={s.name} className="size-10 text-base" />
-              <span className="w-full truncate text-sm font-semibold">{s.name}</span>
-              <span className="text-sm tabular-nums">{points(s.score)}</span>
-              <span
-                className={cn(
-                  'w-full rounded-t-lg bg-amber-200 dark:bg-amber-500/30',
-                  STEP_HEIGHT[rank],
-                )}
-              />
-            </li>
-          );
-        })}
-      </ol>
+      <Standings
+        entries={ranked.map((s) => ({
+          id: s.id,
+          name: s.left ? `${s.name} (left)` : s.name,
+          score: s.score,
+        }))}
+        you={view.me?.id}
+        scoreLabel={(n) => `${points(n)} pts`}
+        className="text-left"
+      />
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
         <div className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-500/10">
           <dt className="font-semibold">🎭 Best liar</dt>
@@ -422,7 +397,7 @@ export function GameOver({ view, act, isHost, hostName }: Props & { hostName: st
           </Button>
         </div>
       ) : (
-        <p>Waiting for {hostName} to start the next game…</p>
+        <p>{waitingForHost(room, 'start the next game')}</p>
       )}
     </Panel>
   );

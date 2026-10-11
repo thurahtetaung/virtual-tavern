@@ -239,12 +239,14 @@ test('watchers get a seat: a bigger edition seats them, and the podium offers Ta
   await playUntil(host, [host, ana], '2019', done, (gameOver) => gameOver);
 
   // The podium: Ben takes a seat for the next game; guests know who deals.
-  const podium = ben.getByLabel('Podium');
+  const podium = ben.getByLabel('Game result');
   await expect(podium).toBeVisible();
-  await expect(ana.getByLabel('Podium')).toContainText('Waiting for Hana to start the next game');
+  await expect(ana.getByLabel('Game result')).toContainText(
+    'Waiting for Hana (host) to start the next game',
+  );
   await podium.getByRole('button', { name: 'Take a seat' }).click();
   await expect(podium.getByRole('button', { name: 'Just watch' })).toBeVisible();
-  await expect(host.getByLabel('Podium')).toContainText('Next game (3/6)');
+  await expect(host.getByLabel('Game result')).toContainText('Next game (3/6)');
   await host.getByRole('button', { name: 'Play again' }).click();
   await expect(ben.getByRole('region', { name: 'Your hand' })).toBeVisible();
 });

@@ -1,3 +1,4 @@
+import { type GameRoomInfo, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { setupProblem } from '../logic/game.ts';
 import { hostileGroupsIn } from '../logic/roles.ts';
 import type { NightfallView } from '../logic/types.ts';
@@ -13,10 +14,15 @@ export function startBlocker(view: NightfallView): string | null {
   return setupProblem(view.settings.roles, view.seats.filter((s) => s.playing).length);
 }
 
+type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players' | 'you'>;
+
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the host'): Status {
+export function statusFor(view: NightfallView, room: Room): Status {
+  const { isHost } = room;
   const playing = view.myRole !== null;
-  const total = view.table?.filter((p) => !p.left).length ?? 0;
+  // Who the table still waits on, by name (offline marked), e.g. "Waiting for: Ana, Ben (offline)".
+  const waiting = waitingFor(view.waitingOn, room.players, { you: room.you });
+  const tail = waiting ? ` ${waiting}.` : '';
   switch (view.phase) {
     case 'lobby': {
       if (!view.me?.playing) return { text: 'You’re watching this game.', yourMove: false };
@@ -24,13 +30,14 @@ export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the 
       if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
       return isHost
         ? { text: 'Everyone is in. Press Deal the cards when you’re ready!', yourMove: true }
-        : { text: `All set. Waiting for ${hostName} to deal…`, yourMove: false };
+        : { text: `All set. ${waitingForHost(room, 'deal')}`, yourMove: false };
     }
     case 'ready':
-      if (!playing) return { text: 'The players are looking at their cards…', yourMove: false };
+      if (!playing)
+        return { text: `The players are looking at their cards…${tail}`, yourMove: false };
       return view.meReady
         ? {
-            text: `Ready (${view.readyCount} of ${total}). The night starts when everyone is.`,
+            text: `You’re ready. The night starts when everyone is.${tail}`,
             yourMove: false,
           }
         : { text: 'Cover your screen, look at your card, then press Ready.', yourMove: true };
@@ -49,7 +56,7 @@ export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the 
       if (!playing) return { text: 'The village is talking it over.', yourMove: false };
       return view.day?.meReady
         ? {
-            text: `You’re ready to vote (${view.day.readyCount} of ${total}). Keep talking until everyone is.`,
+            text: `You’re ready to vote. Keep talking until everyone is.${tail}`,
             yourMove: false,
           }
         : {
@@ -57,11 +64,11 @@ export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the 
             yourMove: false,
           };
     case 'vote': {
-      if (!playing) return { text: 'Everyone is voting…', yourMove: false };
+      if (!playing) return { text: `Everyone is voting…${tail}`, yourMove: false };
       const nameOf = nameOfView(view);
       return view.vote?.myVote
         ? {
-            text: `You voted for ${nameOf(view.vote.myVote)} (${view.vote.votedCount} of ${total} in). Tap someone else to change.`,
+            text: `You voted for ${nameOf(view.vote.myVote)}. Tap someone else to change.${tail}`,
             yourMove: false,
           }
         : {
@@ -79,7 +86,7 @@ export function statusFor(view: NightfallView, isHost: boolean, hostName = 'the 
       return {
         text: isHost
           ? `${text} Play again when you’re ready.`
-          : `${text} Waiting for ${hostName} to deal again…`,
+          : `${text} ${waitingForHost(room, 'deal again')}`,
         yourMove: false,
       };
     }

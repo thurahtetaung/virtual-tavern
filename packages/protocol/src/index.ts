@@ -101,6 +101,11 @@ export interface RoomSnapshot<View = unknown> {
   hostId: string;
   you: string;
   players: RoomPlayer[];
+  /**
+   * While the host is offline: when the role passes to someone online (server epoch ms), so
+   * everyone can see "Ana (host) is away. Someone takes over in 1:45". Null otherwise.
+   */
+  hostAwayUntil?: number | null;
   game: View;
   /** Server clock at send time, so clients can correct countdowns for clock skew. */
   serverNow: number;

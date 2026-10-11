@@ -1,8 +1,15 @@
+import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
 import { MAX_SEATS, MIN_PLAYERS, type MasqueradeView } from '../logic/types.ts';
 
 export interface Status {
   text: string;
   yourMove: boolean;
+}
+
+/** Who is in the room (and online), so waiting texts can name people and the host. */
+export interface People {
+  hostId: string;
+  players: readonly PresencePlayer[];
 }
 
 export const nameOf = (view: MasqueradeView, id: string | null | undefined) =>
@@ -26,8 +33,10 @@ export function startBlocker(view: MasqueradeView): string | null {
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: MasqueradeView, isHost: boolean): Status {
+export function statusFor(view: MasqueradeView, isHost: boolean, people?: People): Status {
   const me = view.me;
+  const host = (what: string) =>
+    people ? waitingForHost(people, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     const back =
       view.notice === 'too-few' ? 'Too few players were left, so you’re back in the lobby. ' : '';
@@ -37,7 +46,7 @@ export function statusFor(view: MasqueradeView, isHost: boolean): Status {
     if (blocker) return { text: `${back}Almost ready: ${blocker}`, yourMove: false };
     return isHost
       ? { text: `${back}Everyone is in. Press Start game when you’re ready!`, yourMove: true }
-      : { text: `${back}All set. Waiting for the host to start…`, yourMove: false };
+      : { text: `${back}All set. ${host('start')}`, yourMove: false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));
@@ -51,6 +60,13 @@ export function statusFor(view: MasqueradeView, isHost: boolean): Status {
   const round = view.round!;
   const role = round.role;
   const total = round.players.length;
+  /** " Waiting for: Ana, Ben (offline).": for watchers, who don't see the vote panel. */
+  const holdouts = (done: readonly string[]) => {
+    if (!people) return '';
+    const left = round.players.map((p) => p.id).filter((id) => !done.includes(id));
+    const names = waitingFor(left, people.players, { you: me?.id });
+    return names ? ` ${names}.` : '';
+  };
   switch (round.stage) {
     case 'talk': {
       if (role === 'watching')
@@ -71,7 +87,11 @@ export function statusFor(view: MasqueradeView, isHost: boolean): Status {
       };
     }
     case 'vote':
-      if (role === 'watching') return { text: 'The table is voting for the spy…', yourMove: false };
+      if (role === 'watching')
+        return {
+          text: `The table is voting for the spy…${holdouts(round.votedIds)}`,
+          yourMove: false,
+        };
       if (!round.myVote)
         return { text: 'Vote time! Who is the spy? Your vote is secret.', yourMove: true };
       return {
@@ -85,15 +105,18 @@ export function statusFor(view: MasqueradeView, isHost: boolean): Status {
           yourMove: true,
         };
       const guessing = (round.caught ?? []).filter((id) => !round.guessed.includes(id));
+      const names = people
+        ? namesWithPresence(guessing, people.players)
+        : listNames(guessing.map((id) => nameOf(view, id)));
       return {
-        text: `${listNames(guessing.map((id) => nameOf(view, id)))} ${guessing.length > 1 ? 'were' : 'was'} caught as the spy and ${guessing.length > 1 ? 'are' : 'is'} guessing the location…`,
+        text: `${names || listNames(guessing.map((id) => nameOf(view, id)))} ${guessing.length > 1 ? 'were' : 'was'} caught as the spy and ${guessing.length > 1 ? 'are' : 'is'} guessing the location…`,
         yourMove: false,
       };
     }
     case 'reveal':
       return isHost
         ? { text: 'Round over! Press Next round when everyone has had a look.', yourMove: false }
-        : { text: 'Round over! Waiting for the host to deal the next round…', yourMove: false };
+        : { text: `Round over! ${host('deal the next round')}`, yourMove: false };
   }
 }
 

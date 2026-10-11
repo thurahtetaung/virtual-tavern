@@ -1,9 +1,19 @@
-import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 interface Toast {
   id: number;
   text: string;
   tone: 'error' | 'info';
+  /** How many times this same message was shown while it was up ("×2"). */
+  count: number;
 }
 
 const ToastContext = createContext<(text: string, tone?: Toast['tone']) => void>(() => {});
@@ -17,14 +27,37 @@ const DURATION_MS: Record<Toast['tone'], number> = { error: 6000, info: 4000 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const shown = useRef<Toast[]>([]);
+  const timers = useRef(new Map<number, number>());
+  const update = useCallback((next: Toast[]) => {
+    shown.current = next;
+    setToasts(next);
+  }, []);
+  const dismiss = useCallback(
+    (id: number) => {
+      window.clearTimeout(timers.current.get(id));
+      timers.current.delete(id);
+      update(shown.current.filter((x) => x.id !== id));
+    },
+    [update],
+  );
   const show = useCallback(
     (text: string, tone: Toast['tone'] = 'error') => {
-      const id = nextId++;
-      setToasts((t) => [...t.slice(-2), { id, text, tone }]);
-      setTimeout(() => dismiss(id), DURATION_MS[tone]);
+      // The same message again (a double tap, a repeated refusal) refreshes the one on screen.
+      const same = shown.current.find((x) => x.text === text && x.tone === tone);
+      const id = same?.id ?? nextId++;
+      if (same) {
+        update(shown.current.map((x) => (x.id === id ? { ...x, count: x.count + 1 } : x)));
+      } else {
+        update([...shown.current.slice(-2), { id, text, tone, count: 1 }]);
+      }
+      window.clearTimeout(timers.current.get(id));
+      timers.current.set(
+        id,
+        window.setTimeout(() => dismiss(id), DURATION_MS[tone]),
+      );
     },
-    [dismiss],
+    [dismiss, update],
   );
   const value = useMemo(() => show, [show]);
   return (
@@ -46,6 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             }
           >
             {t.text}
+            {t.count > 1 && <span className="ml-2 opacity-75">×{t.count}</span>}
           </div>
         ))}
       </div>

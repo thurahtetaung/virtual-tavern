@@ -1,5 +1,5 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
-import { Badge, Button, Hint, Panel, cn } from '@vt/ui';
+import type { ActOptions, GameRoomInfo } from '@vt/game-sdk';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { buildNightPlan, epicPossible, stepDurations, usesMarks } from '../logic/plan.ts';
 import { cardsNeeded, recommended, SCENARIOS, scenarioRoles } from '../logic/presets.ts';
 import {
@@ -23,7 +23,7 @@ import type { Deck } from './assets.ts';
 import { CardFace, MarkChip, useRoleDetails } from './Cards.tsx';
 import { type Status, startBlocker } from './status.ts';
 
-type Act = (a: NightfallAction) => Promise<boolean>;
+type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 
 const STEP_CHOICES = [5, 8, 10, 12, 15, 20, 30];
 const DAY_CHOICES = [120, 180, 240, 300, 420, 600].filter(
@@ -180,13 +180,14 @@ export function Lobby({
         </h3>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {seated.map((p) => (
-            <li
-              key={p.id}
-              className={cn('inline-flex items-center gap-1', !online(p.id) && 'opacity-50')}
-            >
+            <li key={p.id} className="inline-flex items-center gap-1">
               <span aria-hidden>🕯️</span>
-              {p.name}
-              {p.id === view.me?.id && <Badge>you</Badge>}
+              <PlayerTag
+                name={p.name}
+                host={p.id === room.hostId}
+                you={p.id === view.me?.id}
+                offline={!online(p.id)}
+              />
             </li>
           ))}
         </ul>
@@ -195,8 +196,16 @@ export function Lobby({
             Watching:{' '}
             {view.seats
               .filter((x) => !x.playing)
-              .map((x) => x.name)
-              .join(', ')}
+              .map((x) => (
+                <PlayerTag
+                  key={x.id}
+                  className="mr-2"
+                  name={x.name}
+                  host={x.id === room.hostId}
+                  you={x.id === view.me?.id}
+                  offline={!online(x.id)}
+                />
+              ))}
           </p>
         )}
         {view.me && (
@@ -396,16 +405,24 @@ export function Lobby({
         </p>
       </Panel>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {editable && (
-          <Button size="lg" disabled={blocker !== null} onClick={() => void act({ type: 'start' })}>
-            Deal the cards
+      {/* On phones the long card list pushes Deal off screen, so it floats at the bottom. */}
+      <StickyBar>
+        <div className="flex flex-wrap items-center gap-2">
+          {editable && (
+            <Button
+              size="lg"
+              disabled={blocker !== null}
+              onClick={() => void act({ type: 'start' }, { anchor: 'nightfall-deal' })}
+            >
+              Deal the cards
+            </Button>
+          )}
+          <Button variant="ghost" onClick={showGuide}>
+            How to play
           </Button>
-        )}
-        <Button variant="ghost" onClick={showGuide}>
-          How to play
-        </Button>
-      </div>
+        </div>
+        <RefusalSlot anchor="nightfall-deal" />
+      </StickyBar>
     </div>
   );
 }

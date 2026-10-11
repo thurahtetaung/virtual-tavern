@@ -1,11 +1,19 @@
-import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, useSecondsLeft } from '@vt/ui';
+import type { GameUiProps } from '@vt/game-sdk';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  revealElement,
+  useSecondsLeft,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect } from 'react';
-import type { HoodwinkAction, HoodwinkView } from '../logic/types.ts';
+import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, Stage } from './Play.tsx';
-import { missingIds, missingText, points, startBlocker, statusFor } from './status.ts';
-import { Scores, Table } from './Table.tsx';
+import { listNames, missingIds, nameOf, points, startBlocker, statusFor } from './status.ts';
+import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 
 export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
 
@@ -13,6 +21,8 @@ export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
 function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: number }) {
   const round = view.round;
   const mine = view.scores.find((s) => s.id === view.me?.id);
+  const strict = view.settings.timerMode === 'strict';
+  const writing = round?.stage === 'write';
   return (
     <div className="flex items-center justify-between gap-2 text-sm sm:text-base">
       <div className="flex min-w-0 items-center gap-3">
@@ -39,7 +49,14 @@ function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: nu
       <Countdown
         deadline={round && round.stage !== 'reveal' ? round.deadline : null}
         clockOffset={clockOffset}
-        expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+        label={writing ? 'to write a lie' : 'to vote'}
+        soft={!strict}
+        expiredHint="Just a reminder: the round waits for everyone."
+        atZero={
+          writing
+            ? 'then missing lies are filled in where the question has spares'
+            : 'then missing votes score nothing'
+        }
       />
     </div>
   );
@@ -67,7 +84,11 @@ function ContinueWithout({
   if (missing.length === 0) return null;
   const timeUp = left === 0;
   if (!timeUp && !missing.every((id) => !online(id))) return null;
-  const names = missingText(view, missing);
+  // Plain names here: the panel already says they're away.
+  const names =
+    missing.length > 3
+      ? `${missing.length} more players`
+      : listNames(missing.map((id) => nameOf(view, id)));
   return (
     <Panel className="space-y-2 text-center" data-testid="continue-without">
       <p className="text-sm">
@@ -83,11 +104,34 @@ function ContinueWithout({
   );
 }
 
-export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: HoodwinkUiProps) {
+export function HoodwinkGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const blocker = startBlocker(view);
-  const hostName = hostNameOf(room);
-  const status = statusFor(view, room.isHost, blocker, { hostName, online });
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Watchers get the shell's "You're watching" banner, leading to the Play button.
+  const seats = view.seats.filter((s) => s.playing).length;
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing
+      ? seats < MAX_PLAYERS
+        ? {
+            text:
+              view.phase === 'playing'
+                ? 'Take a seat to play from the next round.'
+                : 'Take a seat to play.',
+            action: () => revealElement(SEAT_CONTROL_ID),
+          }
+        : { text: 'The table is full for now.' }
+      : null,
+  );
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -118,7 +162,7 @@ export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: Hoodwi
         <Scoreboard view={view} clockOffset={room.clockOffset} />
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} hostName={hostName} />
+          <GameOver view={view} act={act} isHost={room.isHost} room={room} />
         ) : (
           view.round && (
             <>
@@ -133,7 +177,7 @@ export function HoodwinkGame({ view, room, act, showGuide, setYourMove }: Hoodwi
       <aside className="space-y-3">
         <Panel className="space-y-3">
           <Scores view={view} />
-          <Table view={view} online={online} act={act} />
+          <Table view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
         {room.isHost && view.phase === 'playing' && (
           <Button

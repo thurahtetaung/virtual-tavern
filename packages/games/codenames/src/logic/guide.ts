@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '4 or more (best with 6–10)',
   duration: '15–20 minutes',
   goal: 'Be the first team to find all of your agents on the board, and never touch the assassin.',
+  quickStart: [
+    'Join Red or Blue. Each team needs one Spymaster; everyone else is an Operative.',
+    'Only Spymasters see which of the 25 words are their agents, bystanders or the assassin.',
+    'On your turn, the Spymaster gives one word and a number, like "Ocean 2".',
+    'Operatives talk it over, tap a card to suggest it, then press Guess. Keep going while you hit your own agents.',
+    'A bystander or the other team’s agent ends your turn. The assassin loses the game at once.',
+    'The first team to find all its agents wins.',
+  ],
   setup: [
     'Split into two teams: Red and Blue.',
     'Each team picks one Spymaster. Everyone else is an Operative.',

@@ -1,3 +1,4 @@
+import { type PresencePlayer, namesWithPresence, waitingFor, waitingForHost } from '@vt/game-sdk';
 import type { EnigmaView, Team, TransmissionView } from '../logic/types.ts';
 import { TEAM_LABEL, formatCode } from './theme.ts';
 
@@ -18,10 +19,21 @@ export interface Status {
   yourMove: boolean;
 }
 
-const name = (view: EnigmaView, id: string) =>
-  view.seats.find((s) => s.id === id)?.name ?? 'Someone';
+/** Who is in the room and who hosts it, so waiting texts can name people (and flag offline ones). */
+export interface RoomPeople {
+  hostId: string;
+  players: readonly PresencePlayer[];
+}
 
-function myTask(view: EnigmaView, tx: TransmissionView): Status | null {
+/** Players as named in waiting texts: the room's list when we have it, else the seats. */
+const people = (view: EnigmaView, room?: RoomPeople): readonly PresencePlayer[] =>
+  room?.players ?? view.seats;
+
+/** Teammates who still have to lock in on this transmission. */
+export const holdouts = (tx: TransmissionView) =>
+  tx.voters.filter((id) => !tx.teamVotes[id]?.locked);
+
+function myTask(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): Status | null {
   const sender = TEAM_LABEL[tx.team];
   if (view.stage === 'clue') {
     if (tx.role === 'encryptor' && !tx.clues) {
@@ -33,6 +45,20 @@ function myTask(view: EnigmaView, tx: TransmissionView): Status | null {
     return null;
   }
   if (view.stage !== 'guess' || tx.settled) return null;
+  // Locked in: no longer your move, but say who the team is waiting on.
+  const me = view.me?.id;
+  if ((tx.role === 'decoder' || tx.role === 'interceptor') && me && tx.teamVotes[me]?.locked) {
+    const left = holdouts(tx);
+    return left.length > 0
+      ? {
+          text: `Locked in! ${waitingFor(left, people(view, room), { you: me })}.`,
+          yourMove: false,
+        }
+      : {
+          text: 'Everyone locked in, but on different codes. Compare picks and agree!',
+          yourMove: true,
+        };
+  }
   if (tx.role === 'decoder') {
     return {
       text: `Decode your team's code: match each clue to a keyword, then Lock in.`,
@@ -49,15 +75,22 @@ function myTask(view: EnigmaView, tx: TransmissionView): Status | null {
 }
 
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: EnigmaView, isHost: boolean, blocker: string | null): Status {
+export function statusFor(
+  view: EnigmaView,
+  isHost: boolean,
+  blocker: string | null,
+  room?: RoomPeople,
+): Status {
   const me = view.me;
+  const waitHost = (what: string) =>
+    room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     if (!me?.team)
       return { text: 'Pick a team below. Each team needs at least 2 players.', yourMove: true };
     if (blocker) return { text: `Almost ready: ${blocker}`, yourMove: false };
     return isHost
       ? { text: 'Everyone is in. Press Start game when your friends are ready!', yourMove: true }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
   }
   if (view.phase === 'over') {
     return {
@@ -68,14 +101,15 @@ export function statusFor(view: EnigmaView, isHost: boolean, blocker: string | n
   }
   const active = view.transmissions.filter((t) => t.active);
   for (const tx of active) {
-    const task = myTask(view, tx);
+    const task = myTask(view, tx, room);
     if (task) return task;
   }
   if (view.stage === 'clue') {
-    const writers = active
-      .filter((t) => !t.clues && !t.expired)
-      .map((t) => name(view, t.encryptor));
-    return { text: `Waiting for ${writers.join(' and ')} to write clues…`, yourMove: false };
+    const writers = active.filter((t) => !t.clues && !t.expired).map((t) => t.encryptor);
+    return {
+      text: `Waiting for ${namesWithPresence(writers, people(view, room)) || 'the Encryptors'} to write clues…`,
+      yourMove: false,
+    };
   }
   if (view.stage === 'guess') {
     const mine = active.find((t) => t.settled && t.voters.length > 0);
@@ -87,7 +121,7 @@ export function statusFor(view: EnigmaView, isHost: boolean, blocker: string | n
   return {
     text: isHost
       ? 'Codes revealed! Press Next when everyone has had a look.'
-      : 'Codes revealed! Waiting for the host…',
+      : `Codes revealed! ${waitHost('continue')}`,
     yourMove: isHost,
   };
 }

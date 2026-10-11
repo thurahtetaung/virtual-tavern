@@ -1,5 +1,19 @@
-import { type GameRoomInfo, type GameUiProps, hostNameOf } from '@vt/game-sdk';
-import { Badge, Button, Countdown, Hint, Modal, Panel, TimerSettings, cn } from '@vt/ui';
+import { type GameRoomInfo, type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import {
+  Badge,
+  Button,
+  Countdown,
+  Hint,
+  Modal,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  Standings,
+  StickyBar,
+  TimerSettings,
+  cn,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   EDITIONS,
@@ -27,15 +41,22 @@ import { type Status, startBlocker, statusFor } from './status.ts';
 import { cardText, describeLog, describeNote, listNames, nameOf, unseenCounts } from './text.ts';
 
 export type RoyalPostUiProps = GameUiProps<RoyalPostView, RoyalPostAction>;
-type Act = (a: RoyalPostAction) => Promise<boolean>;
+type Act = RoyalPostUiProps['act'];
 
 const deckSize = (edition: Edition) => EDITIONS[edition].cards.reduce((n, c) => n + c.count, 0);
 
-export function RoyalPostGame({ view, room, act, showGuide, setYourMove }: RoyalPostUiProps) {
+export function RoyalPostGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: RoyalPostUiProps) {
   const manifest = useManifest();
   const edition = view.settings.edition;
   const deck = useMemo(() => deckFor(manifest, edition), [manifest, edition]);
-  const status = statusFor(view, room.isHost, hostNameOf(room));
+  const status = statusFor(view, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   // Any card named anywhere opens here, read-only.
   const [reading, setReading] = useState<Role | null>(null);
@@ -50,17 +71,26 @@ export function RoyalPostGame({ view, room, act, showGuide, setYourMove }: Royal
     };
   }, [setYourMove, tabAlert]);
 
+  // Watchers see the shared "You're watching" banner: a seat in the lobby, or wait for the next game.
+  const watching = !!view.me && !view.me.playing;
+  const inLobby = view.phase !== 'playing';
+  useSpectatorPrompt(
+    setSpectator,
+    watching
+      ? inLobby
+        ? {
+            text: 'Take a seat to play in the next game.',
+            actionLabel: 'Take a seat',
+            action: () => void act({ type: 'sit', playing: true }),
+          }
+        : { text: 'You join in from the next game.' }
+      : null,
+  );
+
   return (
     <CardReaderProvider value={reader}>
       {view.phase === 'lobby' ? (
-        <Lobby
-          view={view}
-          room={room}
-          act={act}
-          status={status}
-          online={online}
-          showGuide={showGuide}
-        />
+        <Lobby view={view} room={room} act={act} status={status} showGuide={showGuide} />
       ) : (
         <Table view={view} room={room} act={act} status={status} deck={deck} online={online} />
       )}
@@ -83,15 +113,16 @@ const seconds = (s: number) => (s % 60 === 0 ? `${s / 60} min` : `${s} s`);
 
 function Seats({
   view,
-  online,
+  room,
   act,
   title = 'Players',
 }: {
   view: RoyalPostView;
-  online: (id: string) => boolean;
+  room: GameRoomInfo;
   act: Act;
   title?: string;
 }) {
+  const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const me = view.me;
   const max = EDITIONS[view.settings.edition].maxPlayers;
   const playing = view.seats.filter((s) => s.playing);
@@ -103,13 +134,14 @@ function Seats({
       </h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
-          <li
-            key={s.id}
-            className={cn('inline-flex items-center gap-1.5', !online(s.id) && 'opacity-50')}
-          >
+          <li key={s.id} className="inline-flex items-center gap-1.5">
             <span aria-hidden>💌</span>
-            {s.name}
-            {s.id === me?.id && <Badge>you</Badge>}
+            <PlayerTag
+              name={s.name}
+              host={s.id === room.hostId}
+              you={s.id === me?.id}
+              offline={offline(s.id)}
+            />
           </li>
         ))}
         {playing.length === 0 && <li className="text-stone-500 italic">Nobody seated yet</li>}
@@ -117,7 +149,13 @@ function Seats({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
-          <span key={s.id}>{s.name}</span>
+          <PlayerTag
+            key={s.id}
+            name={s.name}
+            host={s.id === room.hostId}
+            you={s.id === me?.id}
+            offline={offline(s.id)}
+          />
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
@@ -186,14 +224,12 @@ function Lobby({
   room,
   act,
   status,
-  online,
   showGuide,
 }: {
   view: RoyalPostView;
   room: GameRoomInfo;
   act: Act;
   status: Status;
-  online: (id: string) => boolean;
   showGuide: () => void;
 }) {
   const editable = room.isHost;
@@ -208,7 +244,7 @@ function Lobby({
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <Seats view={view} online={online} act={act} />
+      <Seats view={view} room={room} act={act} />
       <Panel className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-bold">Game settings</h3>
@@ -280,16 +316,19 @@ function Lobby({
           />
         </Fold>
         {editable && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-            <Button
-              size="lg"
-              disabled={blocker !== null}
-              onClick={() => void act({ type: 'start' })}
-            >
-              Start game
-            </Button>
-            {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-          </div>
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' }, { anchor: 'royal-post-start' })}
+              >
+                Start game
+              </Button>
+              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+            </div>
+            <RefusalSlot anchor="royal-post-start" />
+          </StickyBar>
         )}
       </Panel>
       <p className="text-center text-sm text-stone-500">
@@ -407,6 +446,7 @@ function PlayerTile({
           {p.name}
         </span>
         {me && <span className="text-xs text-stone-500">(you)</span>}
+        {!online && !p.left && <Badge className="px-1.5 py-0 text-[0.65rem]">offline</Badge>}
         <span
           className="ml-auto flex shrink-0 items-center gap-0.5"
           aria-label={
@@ -533,7 +573,14 @@ function Table({
           <Countdown
             deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
             clockOffset={room.clockOffset}
-            expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+            label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
+            soft={view.settings.timerMode !== 'strict'}
+            atZero={
+              round.stage === 'chancellor'
+                ? 'then a card is kept at random'
+                : 'then the lower card is played'
+            }
+            expiredHint="Just a reminder: the turn waits until a card is played."
           />
         </div>
       )}
@@ -541,25 +588,9 @@ function Table({
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
 
       {view.phase === 'over' ? (
-        <Podium
-          view={view}
-          deck={deck}
-          act={act}
-          isHost={room.isHost}
-          hostName={hostNameOf(room)}
-          status={status}
-          online={online}
-        />
+        <Podium view={view} deck={deck} act={act} room={room} />
       ) : (
-        round?.stage === 'over' && (
-          <RoundResult
-            view={view}
-            deck={deck}
-            act={act}
-            isHost={room.isHost}
-            hostName={hostNameOf(room)}
-          />
-        )
+        round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
       )}
 
       {round && (
@@ -740,12 +771,15 @@ function PlaySheet({
   const play = async () => {
     if (!role) return;
     setBusy(true);
-    const ok = await act({
-      type: 'play',
-      card: role,
-      ...(target ? { target } : {}),
-      ...(needsGuess && guess ? { guess } : {}),
-    });
+    const ok = await act(
+      {
+        type: 'play',
+        card: role,
+        ...(target ? { target } : {}),
+        ...(needsGuess && guess ? { guess } : {}),
+      },
+      { anchor: 'royal-post-play' },
+    );
     setBusy(false);
     if (ok) onClose();
   };
@@ -759,15 +793,18 @@ function PlaySheet({
       onClose={onClose}
       title={role ? `${cardName} (${rankIn(edition, role)})` : ''}
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-          {canPlay && (
-            <Button onClick={() => void play()} disabled={!ready || busy}>
-              Play {cardName}
+        <div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Close
             </Button>
-          )}
+            {canPlay && (
+              <Button onClick={() => void play()} disabled={!ready || busy}>
+                Play {cardName}
+              </Button>
+            )}
+          </div>
+          {canPlay && <RefusalSlot anchor="royal-post-play" />}
         </div>
       }
     >
@@ -961,23 +998,25 @@ function ChancellorSheet({
       onClose={onClose}
       title="Keep one card"
       footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Later
-          </Button>
-          <Button
-            disabled={keep === null}
-            onClick={() =>
-              keep &&
-              void act({
-                type: 'chancellor-keep',
-                keep,
-                bottomOrder: bottom.map((c) => c.role),
-              })
-            }
-          >
-            {keep ? `Keep ${deck.name(keep)}` : 'Pick a card'}
-          </Button>
+        <div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={onClose}>
+              Later
+            </Button>
+            <Button
+              disabled={keep === null}
+              onClick={() =>
+                keep &&
+                void act(
+                  { type: 'chancellor-keep', keep, bottomOrder: bottom.map((c) => c.role) },
+                  { anchor: 'royal-post-keep' },
+                )
+              }
+            >
+              {keep ? `Keep ${deck.name(keep)}` : 'Pick a card'}
+            </Button>
+          </div>
+          <RefusalSlot anchor="royal-post-keep" />
         </div>
       }
     >
@@ -1293,14 +1332,12 @@ function RoundResult({
   view,
   deck,
   act,
-  isHost,
-  hostName,
+  room,
 }: {
   view: RoyalPostView;
   deck: Deck;
   act: Act;
-  isHost: boolean;
-  hostName: string;
+  room: GameRoomInfo;
 }) {
   const round = view.round!;
   const result = round.result;
@@ -1329,12 +1366,12 @@ function RoundResult({
         )}
       </p>
       <FinalHands view={view} deck={deck} />
-      {isHost ? (
+      {room.isHost ? (
         <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
           Next round
         </Button>
       ) : (
-        <p className="text-sm text-stone-500">Waiting for {hostName} to deal the next round…</p>
+        <p className="text-sm text-stone-500">{waitingForHost(room, 'deal the next round')}</p>
       )}
     </Panel>
   );
@@ -1344,65 +1381,25 @@ function Podium({
   view,
   deck,
   act,
-  isHost,
-  hostName,
-  status,
-  online,
+  room,
 }: {
   view: RoyalPostView;
   deck: Deck;
   act: Act;
-  isHost: boolean;
-  hostName: string;
-  status: Status;
-  online: (id: string) => boolean;
+  room: GameRoomInfo;
 }) {
-  const ranked = view.seats
+  // Everyone who played (or scored before leaving); the status line above names the winner.
+  const entries = view.seats
     .filter((s) => s.playing || s.tokens > 0)
-    .sort((a, b) => b.tokens - a.tokens);
-  const top = ranked.slice(0, 3);
-  // Second, first, third, like a real podium.
-  const steps = [top[1], top[0], top[2]];
-  const heights = ['h-16', 'h-24', 'h-12'];
+    .map((s) => ({ id: s.id, name: s.name, score: s.tokens }));
   const last = view.log.findLast((e) => e.kind === 'round-end');
   return (
-    <Panel aria-label="Podium" className="space-y-4 text-center">
-      <p className="text-2xl font-bold">🏆 {status.text}</p>
-      <ol className="flex items-end justify-center gap-2">
-        {steps.map((s, i) =>
-          s ? (
-            <li key={s.id} className="flex w-24 flex-col items-center gap-1">
-              <span className="max-w-full truncate text-sm font-semibold">
-                {view.winners.includes(s.id) && '👑 '}
-                {s.name}
-              </span>
-              <span className="text-xs text-stone-500">
-                {s.tokens} token{s.tokens === 1 ? '' : 's'}
-              </span>
-              <span
-                className={cn(
-                  'flex w-full items-start justify-center rounded-t-lg pt-1 text-lg font-bold',
-                  heights[i],
-                  i === 1
-                    ? 'bg-amber-300 text-amber-950 dark:bg-amber-500'
-                    : 'bg-stone-200 dark:bg-stone-700',
-                )}
-              >
-                {i === 1 ? 1 : i === 0 ? 2 : 3}
-              </span>
-            </li>
-          ) : null,
-        )}
-      </ol>
-      {ranked.length > 3 && (
-        <ul className="text-sm text-stone-600 dark:text-stone-400">
-          {ranked.slice(3).map((s) => (
-            <li key={s.id}>
-              {s.name}: {s.tokens}
-            </li>
-          ))}
-        </ul>
-      )}
+    <Panel aria-label="Game result" className="space-y-4">
+      <Standings
+        entries={entries}
+        you={view.me?.id}
+        scoreLabel={(n) => `${n} token${n === 1 ? '' : 's'}`}
+      />
       {last && view.round?.result && (
         <div className="space-y-2">
           <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
@@ -1411,7 +1408,7 @@ function Podium({
           <FinalHands view={view} deck={deck} />
         </div>
       )}
-      {isHost ? (
+      {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
@@ -1421,11 +1418,11 @@ function Podium({
           </Button>
         </div>
       ) : (
-        <p>Waiting for {hostName} to start the next game…</p>
+        <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
       )}
       {/* Watchers and late joiners pick their seat for the next game right here. */}
       <div className="text-left">
-        <Seats view={view} online={online} act={act} title="Next game" />
+        <Seats view={view} room={room} act={act} title="Next game" />
       </div>
     </Panel>
   );

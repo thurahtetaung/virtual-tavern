@@ -5,6 +5,31 @@ export function GuideView({ guide, compact = false }: { guide: GameGuide; compac
   const h = compact ? 'text-base' : 'text-xl';
   return (
     <article className="space-y-6 leading-relaxed">
+      {guide.quickStart && guide.quickStart.length > 0 && (
+        <section
+          aria-label="Quick start"
+          className="rounded-2xl bg-white p-4 ring-2 ring-amber-400 dark:bg-stone-900 dark:ring-amber-500/60"
+        >
+          <h3 className={`${h} mb-2 font-bold`}>
+            <span aria-hidden>⚡ </span>Quick start
+          </h3>
+          <ul className="space-y-1.5">
+            {guide.quickStart.map((line) => (
+              <li key={line} className="flex gap-2">
+                <span aria-hidden className="text-amber-600 dark:text-amber-400">
+                  ▸
+                </span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+          {compact && (
+            <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">
+              That's enough to start. The full rules follow below.
+            </p>
+          )}
+        </section>
+      )}
       <div className="rounded-2xl bg-amber-100/70 p-4 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30">
         <p className="text-sm font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-300">
           Goal

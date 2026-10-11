@@ -1,9 +1,9 @@
-import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, cn } from '@vt/ui';
+import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
+import { Button, Countdown, Hint, Panel, cn, revealElement, useSpectatorPrompt } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
-import { Lobby, TeamsPicker } from './Lobby.tsx';
+import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
 import { startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
@@ -30,7 +30,7 @@ function Tokens({ count, icon, label }: { count: number; icon: string; label: st
   );
 }
 
-/** One line on every screen: each team's tokens, the round and the timer. */
+/** One line on every screen: each team's tokens and the round, with the timer underneath. */
 function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: number }) {
   const side = (team: Team) => (
     <div className={cn('flex items-center gap-1 sm:gap-2', TEAM_TEXT[team])}>
@@ -39,20 +39,31 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
       <Tokens count={view.teams[team].misses} icon="💥" label="miscommunications (2 loses)" />
     </div>
   );
+  const strict = view.settings.timerMode === 'strict';
   return (
-    <div className="flex items-center justify-between gap-1">
-      {side('red')}
-      <div className="flex items-center gap-1 text-xs font-semibold text-stone-500 sm:gap-2 sm:text-sm">
-        <span>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-1">
+        {side('red')}
+        <span className="text-xs font-semibold text-stone-500 sm:text-sm">
           R{view.round}/{view.maxRounds}
         </span>
+        {side('blue')}
+      </div>
+      {/* Its own row, so a label or "Time's up" never squeezes the scores. */}
+      <div className="flex justify-center empty:hidden">
         <Countdown
-          deadline={view.stage === 'reveal' ? null : view.deadline}
+          deadline={view.phase === 'playing' && view.stage !== 'reveal' ? view.deadline : null}
           clockOffset={clockOffset}
-          expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
+          label={view.stage === 'clue' ? 'to write clues' : 'to lock in codes'}
+          soft={!strict}
+          atZero={
+            view.stage === 'clue'
+              ? 'then missing clues count as a miss'
+              : 'then teams that haven’t agreed miss'
+          }
+          expiredHint="No penalty: finish when you're ready."
         />
       </div>
-      {side('blue')}
     </div>
   );
 }
@@ -117,7 +128,14 @@ function TabBar({
   );
 }
 
-export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUiProps) {
+export function EnigmaGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+}: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -125,7 +143,22 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
-  const status = statusFor(view, room.isHost, blocker);
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Mid-game watchers: the Join buttons sit under the Chat tab on phones, so lead them there.
+  useSpectatorPrompt(
+    setSpectator,
+    view.phase !== 'lobby' && !view.me?.team
+      ? {
+          text: 'Join a team to play from the next clues.',
+          actionLabel: 'Take a seat',
+          action: () => {
+            setTab('chat');
+            requestAnimationFrame(() => revealElement(TEAMS_ID));
+          },
+        }
+      : null,
+  );
 
   // Mark the tab when it's your turn in play (picking seats in the lobby doesn't count).
   const tabAlert = view.phase !== 'lobby' && status.yourMove;
@@ -174,7 +207,10 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
         <Scoreboard view={view} clockOffset={room.clockOffset} />
 
         <div className={cn('space-y-4', onTab('play'))}>
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          {/* Once the game is over, the result panel says who won (once). */}
+          {view.phase !== 'over' && (
+            <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          )}
           {view.phase === 'over' ? (
             <Panel className="space-y-3 text-center">
               <p
@@ -204,7 +240,7 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
                   </Button>
                 </div>
               ) : (
-                <p>Waiting for the host to start the next game…</p>
+                <p>{waitingForHost(room, 'start the next game')}</p>
               )}
             </Panel>
           ) : (
@@ -238,7 +274,7 @@ export function EnigmaGame({ view, room, act, showGuide, setYourMove }: EnigmaUi
         <TeamChat view={view} act={act} />
         <Panel>
           <h3 className="mb-2 font-bold">Teams</h3>
-          <TeamsPicker view={view} online={online} act={act} />
+          <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
         {room.isHost && view.phase === 'playing' && (
           <Button

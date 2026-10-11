@@ -73,15 +73,52 @@ describe('statusFor', () => {
       `Got it! The word was “${word}”. Waiting for the host to deal the next card…`,
     );
     // Guests are told who moves the game on.
-    expect(statusFor(echo.view(h.state, 'p2'), false, null, 'Hana').text).toContain(
-      'Waiting for Hana to deal the next card…',
-    );
+    const players = [{ id: HOST, name: 'Hana' }];
+    expect(
+      statusFor(echo.view(h.state, 'p2'), false, null, { hostId: HOST, players }).text,
+    ).toContain('Waiting for Hana (host) to deal the next card…');
     h.act({ type: 'next-card' });
     toGuess(h);
     h.act({ type: 'pass' }, turn(h).guesser);
     expect(status(h, HOST).text).toMatch(/^Passed\./);
     h.state = { ...h.state, phase: 'over', turn: null, score: 8, endReason: 'finished' };
-    expect(status(h, HOST).text).toBe('Game over! You scored 8 of 8: Perfect.');
+    expect(status(h, HOST).text).toBe('Game over! Here’s how you did:');
+  });
+});
+
+describe('statusFor with the room', () => {
+  const people = (offline: string[] = []) => ({
+    hostId: HOST,
+    players: FOUR.map((id) => ({ id, name: id.toUpperCase(), connected: !offline.includes(id) })),
+  });
+
+  it('names the host in the lobby', () => {
+    const h = harness(FOUR);
+    expect(statusFor(echo.view(h.state, 'p2'), false, null, people()).text).toBe(
+      'All set. Waiting for HOST (host) to start the game…',
+    );
+  });
+
+  it('names the clue writers still writing, and marks who is offline', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    h.act({ type: 'give-clues', clues: ['zebra'] }, 'p2');
+    expect(statusFor(echo.view(h.state, 'p2'), false, null, people(['p4'])).text).toBe(
+      'Sent! Waiting for: P3 and P4 (offline). You can still change yours.',
+    );
+    expect(statusFor(echo.view(h.state, HOST), true, null, people()).text).toBe(
+      'Everyone is writing a clue for you… Waiting for: P3 and P4.',
+    );
+  });
+
+  it('tells everyone but the host who will move on after the reveal', () => {
+    const h = startedGame(FOUR, { deckSize: 8 });
+    toGuess(h);
+    h.act({ type: 'pass' }, turn(h).guesser);
+    const other = FOUR.find((id) => id !== HOST && id !== turn(h).guesser)!;
+    expect(statusFor(echo.view(h.state, other), false, null, people()).text).toMatch(
+      /Waiting for HOST \(host\) to deal the next card…$/,
+    );
   });
 });
 

@@ -1,3 +1,4 @@
+import { type GameRoomInfo, namesWithPresence, waitingForHost } from '@vt/game-sdk';
 import { EDITIONS, type RoyalPostView } from '../logic/types.ts';
 import { listNames, nameOf } from './text.ts';
 
@@ -20,8 +21,11 @@ export function startBlocker(view: RoyalPostView): string | null {
 const mustPlayCountess = (hand: readonly string[]) =>
   hand.includes('countess') && (hand.includes('king') || hand.includes('prince'));
 
+type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players'>;
+
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: RoyalPostView, isHost: boolean, hostName = 'the host'): Status {
+export function statusFor(view: RoyalPostView, room: Room): Status {
+  const { isHost } = room;
   const me = view.me;
   if (view.phase === 'lobby') {
     if (!me?.playing) {
@@ -48,7 +52,7 @@ export function statusFor(view: RoyalPostView, isHost: boolean, hostName = 'the 
             : 'Everyone is seated. Press Start when your friends are ready!',
           yourMove: true,
         }
-      : { text: `All set. Waiting for ${hostName} to start…`, yourMove: false };
+      : { text: `All set. ${waitingForHost(room)}`, yourMove: false };
   }
   if (view.phase === 'over') {
     const names = view.winners.map((id) => (id === me?.id ? 'You' : nameOf(view, id)));
@@ -65,10 +69,11 @@ export function statusFor(view: RoyalPostView, isHost: boolean, hostName = 'the 
   if (round.stage === 'over') {
     return isHost
       ? { text: 'Round over! Press Next round when everyone has had a look.', yourMove: true }
-      : { text: `Round over! Waiting for ${hostName} to deal the next round…`, yourMove: false };
+      : { text: `Round over! ${waitingForHost(room, 'deal the next round')}`, yourMove: false };
   }
   const mine = round.players.find((p) => p.id === me?.id);
-  const turn = nameOf(view, round.current);
+  // Whose turn it is, marked "(offline)" while they're away so nobody waits in the dark.
+  const turn = namesWithPresence([round.current], room.players) || nameOf(view, round.current);
   if (round.current === me?.id) {
     if (round.stage === 'chancellor')
       return { text: 'Your turn: keep one card and put the others on the bottom.', yourMove: true };

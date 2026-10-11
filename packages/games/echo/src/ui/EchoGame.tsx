@@ -1,13 +1,21 @@
-import { type GameUiProps, hostNameOf } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel } from '@vt/ui';
+import type { GameUiProps } from '@vt/game-sdk';
+import { Button, Countdown, Hint, Panel, useSpectatorPrompt } from '@vt/ui';
 import { useEffect } from 'react';
-import type { EchoAction, EchoView } from '../logic/types.ts';
+import { type EchoAction, type EchoView, MAX_PLAYERS, type TurnView } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, History, Stage } from './Play.tsx';
 import { nameOf, startBlocker, statusFor } from './status.ts';
 import { Table } from './Table.tsx';
 
 export type EchoUiProps = GameUiProps<EchoView, EchoAction>;
+
+/** What the clock times, and what a strict timer does at 0:00. */
+const CLOCK: Record<Exclude<TurnView['stage'], 'reveal'>, { label: string; atZero: string }> = {
+  pick: { label: 'to pick a word', atZero: 'then a word is picked at random' },
+  clues: { label: 'to write clues', atZero: 'then late clues are skipped' },
+  guess: { label: 'to guess', atZero: 'then it counts as a pass' },
+  judge: { label: 'to judge the guess', atZero: 'then it counts as a miss' },
+};
 
 /** One line on every play screen: score, cards left, who's guessing and the timer. */
 function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number }) {
@@ -27,23 +35,45 @@ function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number
           </span>
         )}
       </div>
-      <Countdown
-        deadline={turn && turn.stage !== 'reveal' ? turn.deadline : null}
-        clockOffset={clockOffset}
-        expiredLabel={view.settings.timerMode === 'strict' ? undefined : "Time's up!"}
-      />
+      {turn && turn.stage !== 'reveal' && (
+        <Countdown
+          deadline={turn.deadline}
+          clockOffset={clockOffset}
+          label={CLOCK[turn.stage].label}
+          soft={view.settings.timerMode !== 'strict'}
+          atZero={CLOCK[turn.stage].atZero}
+          expiredHint="Only a reminder: nothing is skipped."
+        />
+      )}
     </div>
   );
 }
 
-export function EchoGame({ view, room, act, showGuide, setYourMove }: EchoUiProps) {
+export function EchoGame({ view, room, act, showGuide, setYourMove, setSpectator }: EchoUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
-  const host = hostNameOf(room);
-  const status = statusFor(view, room.isHost, blocker, host);
+  const status = statusFor(view, room.isHost, blocker, room);
+
+  // Watchers get the shell's "You're watching" banner, with a seat when there's one free.
+  const seatFree = view.seats.filter((s) => s.playing).length < MAX_PLAYERS;
+  useSpectatorPrompt(
+    setSpectator,
+    view.me && !view.me.playing
+      ? seatFree
+        ? {
+            text:
+              view.phase === 'playing'
+                ? 'Take a seat to play from the next card.'
+                : 'Take a seat to play.',
+            actionLabel: 'Take a seat',
+            action: () => void act({ type: 'sit', playing: true }),
+          }
+        : { text: `The table is full (${MAX_PLAYERS} players).` }
+      : null,
+  );
 
   // Mark the tab when it's your move in a game (the lobby doesn't count).
   const tabAlert = view.phase === 'playing' && status.yourMove;
@@ -74,18 +104,18 @@ export function EchoGame({ view, room, act, showGuide, setYourMove }: EchoUiProp
         <Scoreboard view={view} clockOffset={room.clockOffset} />
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} hostName={host} />
+          <GameOver view={view} act={act} room={room} />
         ) : (
           view.turn && (
             <Panel>
-              <Stage view={view} act={act} isHost={room.isHost} />
+              <Stage view={view} act={act} room={room} />
             </Panel>
           )
         )}
       </div>
       <aside className="space-y-3">
         <Panel className="space-y-1">
-          <Table view={view} online={online} act={act} />
+          <Table view={view} online={online} act={act} hostId={room.hostId} />
           <History key={view.phase} history={view.history} open={view.phase === 'over'} />
         </Panel>
         {room.isHost && view.phase === 'playing' && (

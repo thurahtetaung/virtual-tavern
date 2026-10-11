@@ -1,3 +1,4 @@
+import { type PresencePlayer, namesWithPresence, waitingForHost } from '@vt/game-sdk';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
@@ -70,9 +71,30 @@ export interface Status {
 
 const team = (t: Team) => TEAM_LABEL[t];
 
+/** Who is in the room and who hosts it, so waiting texts can name people (and flag offline ones). */
+export interface RoomPeople {
+  hostId: string;
+  players: readonly PresencePlayer[];
+}
+
+/** Why the game ended, e.g. "Blue found the assassin". */
+export function winHow(view: CodenamesView): string {
+  const winner = view.winner!;
+  return view.winReason === 'assassin'
+    ? `${team(winner === 'red' ? 'blue' : 'red')} found the assassin`
+    : `${team(winner)} found all their agents`;
+}
+
 /** Plain-language guidance for whoever is looking at the screen. */
-export function statusFor(view: CodenamesView, isHost: boolean, blocker: string | null): Status {
+export function statusFor(
+  view: CodenamesView,
+  isHost: boolean,
+  blocker: string | null,
+  room?: RoomPeople,
+): Status {
   const me = view.me;
+  const waitHost = (what: string) =>
+    room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`;
   if (view.phase === 'lobby') {
     if (!me || me.team === null) {
       return {
@@ -86,16 +108,11 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
           text: 'Everyone is seated. Press Start game when your friends are ready!',
           yourMove: true,
         }
-      : { text: 'All set. Waiting for the host to start the game…', yourMove: false };
+      : { text: `All set. ${waitHost('start the game')}`, yourMove: false };
   }
 
   if (view.phase === 'over') {
-    const winner = view.winner!;
-    const how =
-      view.winReason === 'assassin'
-        ? `${team(winner === 'red' ? 'blue' : 'red')} found the assassin`
-        : `${team(winner)} found all their agents`;
-    return { text: `${team(winner)} team wins! ${how}.`, yourMove: false };
+    return { text: `${team(view.winner!)} team wins! ${winHow(view)}.`, yourMove: false };
   }
 
   const turn = view.turn!;
@@ -105,6 +122,15 @@ export function statusFor(view: CodenamesView, isHost: boolean, blocker: string 
       return {
         text: 'Your turn! Give your team a one-word clue and a number of cards it relates to.',
         yourMove: true,
+      };
+    }
+    // Name an offline Spymaster, so nobody waits on someone who has gone.
+    const spymaster = view.seats.find((s) => s.team === turn.team && s.role === 'spymaster');
+    const away = spymaster && room?.players.find((p) => p.id === spymaster.id)?.connected === false;
+    if (spymaster && room && away) {
+      return {
+        text: `Waiting for ${namesWithPresence([spymaster.id], room.players)}, ${team(turn.team)}'s Spymaster, to give a clue.`,
+        yourMove: false,
       };
     }
     return {

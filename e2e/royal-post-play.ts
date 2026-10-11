@@ -162,12 +162,13 @@ export async function takeTurn(
   // A private reveal can open just as the turn starts; close it and try again.
   await expect(async () => {
     await dismissReveal(p);
-    // Under load the sheet can open after the check below gave up: don't click through it.
-    if (!(await sheet.isVisible()))
+    // A slow sheet may have opened after the last try gave up: don't click through it.
+    if (!(await sheet.isVisible())) {
       await handRegion(p)
         .getByRole('button', { name: `${card} (${ranks[card]})` })
         .first()
         .click({ timeout: 1000 });
+    }
     await expect(sheet).toBeVisible({ timeout: 1000 });
   }).toPass();
   const choose = sheet.getByRole('group', { name: 'Choose a player' });
@@ -259,9 +260,9 @@ export async function playUntil(
   for (let turns = 0; turns < 400; turns++) {
     const who = await whoseTurn(players, host);
     if (who === 'over') {
-      // Everyone sees the result: survivors' final cards, or the podium at the end.
+      // Everyone sees the result: survivors' final cards, or the final standings at the end.
       const gameOver = (await hint(host, /wins? the game|Nobody won/).count()) > 0;
-      const result = host.getByLabel(gameOver ? 'Podium' : 'Round result');
+      const result = host.getByLabel(gameOver ? 'Game result' : 'Round result', { exact: true });
       await expect(result).toBeVisible();
       for (const p of players) await dismissReveal(p);
       await onResult?.(gameOver);

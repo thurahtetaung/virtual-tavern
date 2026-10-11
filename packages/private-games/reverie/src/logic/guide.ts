@@ -5,6 +5,14 @@ export const guide: GameGuide = {
   players: '3 to 8',
   duration: '30 minutes',
   goal: 'Be the first to the target score (15, 20 or 30 points, chosen by the host) by giving clues that are neither too obvious nor too obscure, and by spotting other players’ clues.',
+  quickStart: [
+    'Each turn one player is the storyteller: they pick a picture card from their hand and give a clue for it.',
+    'Everyone else gives the card from their own hand that best fits the clue.',
+    'All the cards are shuffled and laid out. Vote for the one you think is the storyteller’s.',
+    'If some, but not all, find it, the storyteller and the finders score.',
+    'If everyone or nobody finds it, the storyteller scores nothing and the others score.',
+    'You also score for each vote your card gets. Once someone reaches the target, the highest score wins.',
+  ],
   setup: [
     'Everyone sits down (up to 8 players; others can watch).',
     'The host picks which card sets to play with and the score to play to, then presses Start. Everyone gets 6 picture cards (7 with three players).',

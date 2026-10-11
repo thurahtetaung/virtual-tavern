@@ -518,6 +518,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
     myRole: null,
     readyCount: 0,
     meReady: false,
+    waitingOn: [],
     night: null,
     day: null,
     vote: null,
@@ -541,6 +542,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
   if (state.stage === 'ready') {
     out.readyCount = all.filter((p) => r.players[p]!.ready).length;
     out.meReady = mine?.ready ?? false;
+    out.waitingOn = all.filter((p) => !r.players[p]!.ready);
   }
   if (state.stage === 'night' && r.night) {
     const night = r.night;
@@ -572,6 +574,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
       artifacts: r.order.filter((p) => r.cards[p]!.artifact !== null),
       centerKinds: r.center.map((c) => c.kind),
     };
+    out.waitingOn = all.filter((p) => !r.players[p]!.readyToVote);
   }
   if (state.stage === 'vote') {
     out.vote = {
@@ -579,6 +582,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
       votedCount: all.filter((p) => r.players[p]!.vote !== null).length,
       myVote: mine?.vote ?? null,
     };
+    out.waitingOn = all.filter((p) => r.players[p]!.vote === null);
   }
   if (state.stage === 'reveal' && r.result) {
     out.reveal = {

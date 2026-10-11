@@ -1,4 +1,4 @@
-import { Badge, Button, cn } from '@vt/ui';
+import { Button, PlayerTag, cn } from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { points } from './status.ts';
 
@@ -39,32 +39,31 @@ export function Avatar({ id, name, className }: { id: string; name: string; clas
   );
 }
 
+/** The Play / Just watch button, which the shell's "You're watching" banner leads to. */
+export const SEAT_CONTROL_ID = 'hoodwink-seat';
+
 function PlayerChip({
   name,
   you,
+  host,
   online,
   mark,
   label,
 }: {
   name: string;
   you: boolean;
+  host: boolean;
   online: boolean;
   mark?: string;
   label?: string;
 }) {
   return (
-    <li
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800',
-        !online && 'opacity-50',
-      )}
-    >
+    <li className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800">
       <span
         aria-hidden
         className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
       />
-      {name}
-      {you && <Badge>you</Badge>}
+      <PlayerTag name={name} you={you} host={host} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
           {mark}
@@ -82,10 +81,12 @@ export function Table({
   view,
   online,
   act,
+  hostId,
 }: {
   view: HoodwinkView;
   online: (id: string) => boolean;
   act: Act;
+  hostId: string;
 }) {
   const round = view.round;
   const players = view.seats.filter((s) => s.playing);
@@ -117,6 +118,7 @@ export function Table({
         {me &&
           (me.playing ? (
             <Button
+              id={SEAT_CONTROL_ID}
               variant="ghost"
               className="h-11"
               onClick={() => {
@@ -133,6 +135,7 @@ export function Table({
           ) : (
             players.length < MAX_PLAYERS && (
               <Button
+                id={SEAT_CONTROL_ID}
                 variant="secondary"
                 className="h-11"
                 onClick={() => void act({ type: 'sit', playing: true })}
@@ -148,6 +151,7 @@ export function Table({
             key={s.id}
             name={s.name}
             you={s.id === me?.id}
+            host={s.id === hostId}
             online={online(s.id)}
             {...mark(s.id)}
           />
@@ -156,7 +160,15 @@ export function Table({
       {watching.length > 0 && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
           <span className="font-semibold">Watching:</span>{' '}
-          {watching.map((s) => s.name + (s.id === me?.id ? ' (you)' : '')).join(', ')}
+          {watching
+            .map(
+              (s) =>
+                s.name +
+                (s.id === hostId ? ' 👑' : '') +
+                (s.id === me?.id ? ' (you)' : '') +
+                (online(s.id) ? '' : ' (offline)'),
+            )
+            .join(', ')}
         </p>
       )}
     </section>

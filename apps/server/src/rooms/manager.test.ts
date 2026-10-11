@@ -117,6 +117,56 @@ describe('RoomManager', () => {
     expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
   });
 
+  it('tells everyone when an away host will be replaced', () => {
+    const id = seatedGame();
+    for (const p of ['h', 'a']) rooms.connected(id, p);
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBeNull();
+    rooms.disconnected(id, 'h');
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBe(now + HOST_AWAY_MS);
+    rooms.connected(id, 'h');
+    expect(rooms.snapshot(id, 'a')!.hostAwayUntil).toBeNull();
+    rooms.disconnected(id, 'h');
+    elapse(HOST_AWAY_MS);
+    // Handed off to an online player: nobody is away any more.
+    expect(rooms.snapshot(id, 'a')).toMatchObject({ hostId: 'a', hostAwayUntil: null });
+  });
+
+  describe('names', () => {
+    it('numbers a joiner whose name is taken', () => {
+      const id = rooms.create('codenames', 'h');
+      rooms.join(id, 'h', 'Kim');
+      rooms.join(id, 'a', 'kim');
+      rooms.join(id, 'b', 'Kim');
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.name)).toEqual([
+        'Kim',
+        'kim 2',
+        'Kim 3',
+      ]);
+      // Rejoining under the saved name keeps a number rather than taking anyone's name.
+      rooms.join(id, 'a', 'Kim');
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.name)).toEqual([
+        'Kim',
+        'Kim 2',
+        'Kim 3',
+      ]);
+    });
+
+    it('refuses a rename to a name someone already has', () => {
+      const id = rooms.create('codenames', 'h');
+      rooms.join(id, 'h', 'Kim');
+      rooms.join(id, 'a', 'Ana');
+      expect(rooms.rename(id, 'a', 'KIM')).toEqual({
+        ok: false,
+        error: {
+          code: 'name-taken',
+          message: 'Someone here is already called KIM. Pick another name.',
+        },
+      });
+      expect(rooms.rename(id, 'a', 'ana')).toEqual({ ok: true });
+      expect(rooms.rename(id, 'h', 'Kim')).toEqual({ ok: true });
+    });
+  });
+
   it('keeps the host if they come back in time', () => {
     const id = seatedGame();
     rooms.connected(id, 'h');

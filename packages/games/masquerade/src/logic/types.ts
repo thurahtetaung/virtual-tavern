@@ -155,8 +155,12 @@ export interface RoundView {
   /** How many spies there are (public: it's a lobby setting). */
   spyCount: number;
   readyCount: number;
+  /** Who has tapped Ready to vote (public: only votes are secret, not who has acted). */
+  readyIds: PlayerId[];
   meReady: boolean;
   votedCount: number;
+  /** Who has voted so far; never whom they voted for until the vote resolves. */
+  votedIds: PlayerId[];
   /** Only the viewer's own vote, until the vote resolves. */
   myVote: PlayerId | null;
   /** After the vote: everyone's votes and who was named. */
