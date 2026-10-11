@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.15.0...v0.16.0) (2026-10-11)
+
+
+### Features
+
+* **web:** move the admin pages to /tavern-keeper ([#72](https://github.com/thurahtetaung/virtual-tavern/issues/72)) ([c723473](https://github.com/thurahtetaung/virtual-tavern/commit/c723473e5f26d28d6876f1726bf1413497d1a8db))
+
 ## [0.15.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.14.0...v0.15.0) (2026-10-11)
 
 
