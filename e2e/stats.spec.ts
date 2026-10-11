@@ -18,10 +18,10 @@ const card = (page: Page, name: string) => page.getByRole('region', { name, exac
 
 test('the stats page asks visitors to sign in first', async ({ browser }) => {
   const page = await newPage(browser);
-  await page.goto('/admin/stats');
+  await page.goto('/tavern-keeper/stats');
   await expect(page.getByText('The stats are for the tavern keeper')).toBeVisible();
   await page.getByRole('link', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/tavern-keeper$/);
   await expect(page.getByLabel('Admin password')).toBeVisible();
 });
 

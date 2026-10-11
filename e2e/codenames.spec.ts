@@ -107,7 +107,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   const admin = await newPage(browser);
   // Two sign-ins (a wrong one first), so keep them off the shared rate-limit bucket.
   await ownLoginLimit(admin);
-  await admin.goto('/admin');
+  await admin.goto('/tavern-keeper');
   await admin.getByLabel('Admin password').fill('wrong');
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await expect(admin.getByText('Wrong password.')).toBeVisible();

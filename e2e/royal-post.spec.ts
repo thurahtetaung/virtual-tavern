@@ -35,7 +35,7 @@ async function visitor(browser: Browser, name: string) {
 /** The admin signs in and sets the back-room password. */
 async function openBackroom(page: Page) {
   await ownLoginLimit(page);
-  await page.goto('/admin');
+  await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);

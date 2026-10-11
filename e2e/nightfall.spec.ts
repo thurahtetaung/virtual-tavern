@@ -38,7 +38,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
   test.setTimeout(300_000);
   const admin = await visitor(browser, 'Admin');
   await ownLoginLimit(admin);
-  await admin.goto('/admin');
+  await admin.goto('/tavern-keeper');
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
@@ -187,7 +187,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     for (const p of players)
       await expect(p.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
   } finally {
-    await admin.goto('/admin');
+    await admin.goto('/tavern-keeper');
     const field = admin.getByLabel('Nightfall', { exact: true });
     await field.fill('');
     await admin

@@ -60,7 +60,7 @@ export function StatsPage() {
         <Panel className="mx-auto max-w-sm space-y-3 text-center">
           <p>The stats are for the tavern keeper. Sign in first.</p>
           <Link
-            to="/admin"
+            to="/tavern-keeper"
             className="inline-flex h-11 items-center justify-center rounded-lg bg-amber-600 px-4 font-semibold text-white hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
           >
             Sign in

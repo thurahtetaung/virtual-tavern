@@ -38,7 +38,7 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
 
   // The admin opens the back room.
   const admin = await visitor(browser);
-  await admin.goto('/admin');
+  await admin.goto('/tavern-keeper');
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);

@@ -34,8 +34,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/rules" element={<RulesPage />} />
               <Route path="/faq" element={<FaqPage />} />
               <Route path="/rules/:gameId" element={<RulesPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/admin/stats" element={<StatsPage />} />
+              <Route path="/tavern-keeper" element={<AdminPage />} />
+              <Route path="/tavern-keeper/stats" element={<StatsPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

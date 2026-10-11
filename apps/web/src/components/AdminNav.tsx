@@ -10,8 +10,8 @@ export function AdminNav({
   className?: string;
 }) {
   const items = [
-    { id: 'lists', to: '/admin', label: 'Word lists & back room' },
-    { id: 'stats', to: '/admin/stats', label: 'Stats' },
+    { id: 'lists', to: '/tavern-keeper', label: 'Word lists & back room' },
+    { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
   ] as const;
   return (
     <nav

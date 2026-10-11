@@ -29,7 +29,7 @@ async function visitor(browser: Browser, name: string) {
 /** The admin signs in and sets the back-room password. */
 async function openBackroom(page: Page) {
   await ownLoginLimit(page);
-  await page.goto('/admin');
+  await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
@@ -211,7 +211,7 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
 
   // The admin stats page shows the game: its lies in the word cloud and how often the truth won.
-  await admin.goto('/admin/stats?tab=games&game=hoodwink');
+  await admin.goto('/tavern-keeper/stats?tab=games&game=hoodwink');
   const words = admin.getByRole('region', { name: 'Words', exact: true });
   await expect(words.getByRole('button', { name: 'Lies' })).toHaveAttribute('aria-pressed', 'true');
   await expect(words.getByRole('list', { name: 'Lies' })).toContainText('tiny ukulele');
