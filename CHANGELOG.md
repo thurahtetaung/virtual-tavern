@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.11.1...v0.12.0) (2026-10-11)
+
+
+### Features
+
+* **masquerade:** add Masquerade, a hidden-spy location game ([#54](https://github.com/thurahtetaung/virtual-tavern/issues/54)) ([1af1951](https://github.com/thurahtetaung/virtual-tavern/commit/1af1951265c57e8cb96bbd172db6ba2be0803536))
+
 ## [0.11.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.11.0...v0.11.1) (2026-10-11)
 
 
