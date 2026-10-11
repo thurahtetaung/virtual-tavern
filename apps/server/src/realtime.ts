@@ -2,6 +2,7 @@ import {
   type Ack,
   type AckWith,
   type ClientToServerEvents,
+  type NextTable,
   type ServerToClientEvents,
   joinRoomPayload,
   playerName,
@@ -73,6 +74,26 @@ function detach(socket: ClientSocket, rooms: RoomManager) {
   const { roomId, playerId } = socket.data;
   leaveRoom(socket);
   if (roomId && playerId) rooms.disconnected(roomId, playerId);
+}
+
+/**
+ * "Same crew, new game": tells everyone in `roomId` about the new table, so they can follow. A
+ * back-room table is only announced to sockets holding a current unlock.
+ */
+export function announceNextTable(
+  io: IO,
+  roomId: string,
+  next: NextTable,
+  privateTable: boolean,
+): void {
+  const ids = io.of('/').adapter.rooms.get(channel(roomId));
+  const gate = gates.get(io);
+  for (const id of ids ?? []) {
+    const s = io.sockets.sockets.get(id);
+    if (!s || s.data.playerId === next.by) continue;
+    if (privateTable && !gate?.isUnlocked(s.request.headers.cookie)) continue;
+    s.emit('room:next', next);
+  }
 }
 
 /** Routes manager events to sockets. Created before the manager so the two can reference each other. */
@@ -355,11 +376,18 @@ export function attachRealtime(
           const q = (query !== null && typeof query === 'object' ? query : {}) as {
             scope?: unknown;
             opened?: unknown;
+            nightKey?: unknown;
           };
-          const res = recap.recap(roomId, playerId, {
-            scope: q.scope === 'game' ? 'game' : 'night',
-            opened: q.opened === true,
-          });
+          const res = recap.recap(
+            roomId,
+            playerId,
+            {
+              scope: q.scope === 'game' || q.scope === 'hall' ? q.scope : 'night',
+              opened: q.opened === true,
+              ...(typeof q.nightKey === 'string' && q.nightKey && { nightKey: q.nightKey }),
+            },
+            { unlocked: gate.isUnlocked(socket.request.headers.cookie) },
+          );
           if (!res.ok) return res;
           data = res.data;
           return { ok: true };

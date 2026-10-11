@@ -331,6 +331,34 @@ const LAST_ORDERS: NightRule = {
   },
 };
 
+/** A linked night ("Same crew, new game"): who tried the most different games. */
+const JACK: NightRule = {
+  id: 'night-jack',
+  emoji: '🎲',
+  title: 'Jack of All Games',
+  valence: 'glory',
+  weight: 3,
+  kind: 'award',
+  family: 'night-variety',
+  minGames: 3,
+  copy: {
+    cheeky: [
+      '{who} played {n} different games. Commitment issues',
+      '{who} tried {n} different games in one night. Restless',
+    ],
+    wholesome: [
+      '{who} tried everything: {n} different games',
+      '{who} played all {n} games on offer',
+    ],
+  },
+  compute(ctx) {
+    const kinds = new Map<string, number>();
+    for (const p of nightPlayers(ctx.games))
+      kinds.set(p, new Set(played(ctx, p).map((g) => g.gameId)).size);
+    return leaders(kinds, { min: 3 });
+  },
+};
+
 /** Fallback: most games, fewest wins. Only ever someone's guaranteed award. */
 export const GOOD_SPORT: NightRule = {
   id: 'night-good-sport',
@@ -383,6 +411,7 @@ export const NIGHT_RULES: readonly NightRule[] = [
   DUO,
   RIVALS,
   LAST_ORDERS,
+  JACK,
 ];
 
 /** Every night rule's copy, for the copy lint. */

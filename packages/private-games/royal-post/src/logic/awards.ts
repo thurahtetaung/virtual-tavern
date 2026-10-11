@@ -1,18 +1,19 @@
 import {
+  tally,
   type AwardCandidate,
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
+  count,
+  type GameEvents,
+  ph,
   leaders,
   mostBy,
+  type NuggetRule,
   num,
-  ph,
+  type RecapEvent,
   str,
   strs,
-  tally,
 } from '@vt/game-sdk';
 
 /**
@@ -459,7 +460,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute: (games) => {
       const n = allGames(games, 'round').length;
-      return n ? { value: n, text: `${n} rounds of courtship` } : null;
+      return n ? { value: n, text: `${count(n, 'round')} of courtship` } : null;
     },
   },
   {
@@ -472,7 +473,7 @@ const nuggets: NuggetRule[] = [
       if (!outs.length || !top || top.players.length !== 1) return null;
       return {
         value: outs.length,
-        text: `${outs.length} knock-outs, most by ${ph.role(top.players[0]!)}`,
+        text: `${count(outs.length, 'knock-out')}, most by ${ph.role(top.players[0]!)}`,
       };
     },
   },
@@ -495,7 +496,10 @@ const nuggets: NuggetRule[] = [
     compute: (games) => {
       const top = leaders(tally(allGames(games, 'play'), (e) => str(e, 'card') ?? null))[0];
       if (!top || top.players.length !== 1) return null;
-      return { value: top.value, text: `${ph.role(top.players[0]!)} played ${top.value} times` };
+      return {
+        value: top.value,
+        text: `${ph.role(top.players[0]!)} played ${count(top.value, 'time')}`,
+      };
     },
   },
   {

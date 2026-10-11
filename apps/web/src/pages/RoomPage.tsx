@@ -10,7 +10,7 @@ import {
   useRefusals,
   useSecondsLeft,
 } from '@vt/ui';
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
@@ -23,7 +23,8 @@ import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identi
 import { useToast } from '../lib/toast.tsx';
 import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
-import { RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
+import { type CardContext, RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
+import { NextTableBanner, SameCrewPicker } from '../recap/SameCrew.tsx';
 import { useRecap } from '../recap/useRecap.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
@@ -36,6 +37,11 @@ type RoomLookup =
 
 export function RoomPage() {
   const { roomId = '' } = useParams();
+  // A fresh page per room: "Same crew, new game" moves straight from one room to the next.
+  return <RoomLookupPage key={roomId} roomId={roomId} />;
+}
+
+function RoomLookupPage({ roomId }: { roomId: string }) {
   const navigate = useNavigate();
   const [lookup, setLookup] = useState<RoomLookup>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -178,12 +184,27 @@ function Room({
   const navigate = useNavigate();
   const toast = useToast();
   const refusals = useRefusals();
-  const { snapshot, clockOffset, status, error, call, leave, wraps } = useRoom(roomId, name);
+  const { snapshot, clockOffset, status, error, call, leave, wraps, next, dismissNext } = useRoom(
+    roomId,
+    name,
+  );
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const night = useRecap({ call, snapshot, game, wraps });
+  const [sameCrewOpen, setSameCrewOpen] = useState(false);
+  // Games on the card: this room's, a linked table's (public, or named by the server).
+  const nightGameNames = night.recap?.games;
+  const cardCtx = useMemo((): CardContext => {
+    const gameInfo = (id: string) => {
+      if (id === game.id) return game;
+      const known = findGame(id);
+      if (known) return known;
+      return { name: nightGameNames?.find((g) => g.gameId === id)?.name ?? 'A game', icon: '🎲' };
+    };
+    return { gameInfo, names: night.names, labels: night.labels };
+  }, [game, nightGameNames, night.names, night.labels]);
 
   // The host wrapped up the night: the recap opens on every device (anyone can close it).
   const [wrapsSeen, setWrapsSeen] = useState(0);
@@ -273,6 +294,12 @@ function Room({
     night.recap?.status === 'live' &&
     nightGames > 0 &&
     !night.recap.running;
+  const canSameCrew =
+    isHost &&
+    night.enabled &&
+    snapshot?.meta?.phase !== 'playing' &&
+    nightGames > 0 &&
+    !!night.recap?.nightKey;
 
   // Tell everyone who hosts now when the role moves (the host went away, left or handed it over).
   const lastHost = useRef<string | null>(null);
@@ -423,6 +450,13 @@ function Room({
         </p>
       )}
 
+      {snapshot && next && (
+        <NextTableBanner
+          next={next}
+          who={snapshot.players.find((p) => p.id === next.by)?.name ?? 'Someone'}
+          onDismiss={dismissNext}
+        />
+      )}
       {snapshot && <HostAway snapshot={snapshot} clockOffset={clockOffset} />}
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
 
@@ -455,27 +489,53 @@ function Room({
         </Suspense>
       )}
 
-      {canWrap && snapshot?.meta?.phase === 'over' && (
+      {(canWrap || canSameCrew) && snapshot?.meta?.phase === 'over' && (
         // Room below on phones, so a game's fixed bottom tabs never cover it.
-        <div className="mt-3 mb-20 flex scroll-mb-24 justify-center lg:mb-0">
-          <Button variant="secondary" size="sm" className="min-h-11" onClick={() => void wrapUp()}>
-            🍻 Wrap up the night
-          </Button>
+        <div className="mt-3 mb-20 flex scroll-mb-24 flex-wrap justify-center gap-2 lg:mb-0">
+          {canWrap && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="min-h-11"
+              onClick={() => void wrapUp()}
+            >
+              🍻 Wrap up the night
+            </Button>
+          )}
+          {canSameCrew && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="min-h-11"
+              onClick={() => setSameCrewOpen(true)}
+            >
+              🎲 Same crew, new game
+            </Button>
+          )}
         </div>
       )}
 
       <Drawer open={recapShown} onClose={closeRecap} title={`🍻 ${recapHeading(night.recap)}`}>
         <RecapSheet
+          open={recapShown}
           recap={night.recap}
-          game={game}
-          names={night.names}
-          labels={night.labels}
+          ctx={cardCtx}
           isHost={isHost}
           onTone={(t) => void setTone(t)}
           onWrap={() => void wrapUp()}
           onShared={(how) => void call('room:recap-shared', how)}
+          {...(canSameCrew && { onSameCrew: () => setSameCrewOpen(true) })}
+          hall={night.hall}
+          pastNight={night.pastNight}
         />
       </Drawer>
+      {night.recap?.nightKey && (
+        <SameCrewPicker
+          open={sameCrewOpen}
+          onClose={() => setSameCrewOpen(false)}
+          nightKey={night.recap.nightKey}
+        />
+      )}
 
       <Drawer
         open={guideOpen}

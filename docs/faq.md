@@ -57,6 +57,15 @@ Yes, with **Rename** in the room's player list.
 **What's the night recap?**
 After every game, the end screen hands out two or three tongue-in-cheek awards ("Assassin Magnet", "Ghost", "Best Liar"). The 🍻 button at the top of the room collects the whole night: a moment of the night, an MVP, an award for everyone who played, a few numbers and a round-by-round history of each game. When you're done, the host taps **Wrap up the night** and the recap opens on everyone's screen, with **Copy for chat** to paste it into your group chat. It only ever covers finished games, and only people in the room can see it.
 
+**Can I save the recap as a picture?**
+Yes! Tap **🖼️ Save image** in the recap and the whole night lands on one tidy card, ready for the group chat. On a phone it opens your share sheet (pick "Save Image", or send it straight to your friends); on a computer it downloads. It's drawn right there on your device, follows your light or dark mode, and has no links in it, so it's safe to post anywhere. Back-room art never goes on it, only words and emoji.
+
+**What's the Hall of fame?**
+Once your room has wrapped up a night or two, the recap grows a **🏆 Hall of fame** tab: who has been MVP the most, everyone's signature award, the room's records (with the night they fell) and every previous night, ready to reopen exactly as it was. A wrapped-up night is frozen for good, no rewriting history.
+
+**We switched games halfway through. Is that a new night?**
+Not if the host taps **🎲 Same crew, new game** at the end of a game. It opens the next table, nudges everyone to follow, and both tables share one night recap (play three different games and someone may just become Jack of All Games). Without the button, a new room starts its own night.
+
 **The awards are a bit cheeky. Can we tone it down?**
 Yes. The recap teases moves, never people, but if your table prefers it gentler, the host can switch the recap from **Cheeky** to **Wholesome** in the recap itself, and every award is reworded kindly for everyone.
 

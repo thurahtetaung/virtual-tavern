@@ -254,13 +254,58 @@ export class SqliteStatsStore implements StatsStore, StatsQueries, RecapSource {
 
   // ---- Recap reads (one room) ----
 
-  lastGameStart(roomId: string): number | null {
+  lastGameStart(roomId: string, before = Number.MAX_SAFE_INTEGER): number | null {
     return (
       (this.sql
-        .prepare(`select max(ts) from stats_events where room_id = ? and type = 'game.started'`)
+        .prepare(
+          `select max(ts) from stats_events
+           where room_id = ? and type = 'game.started' and ts < ?`,
+        )
         .pluck()
-        .get(roomId) as number | null) ?? null
+        .get(roomId, before) as number | null) ?? null
     );
+  }
+
+  roomLink(roomId: string): string | null {
+    const key = this.sql
+      .prepare(
+        `select json_extract(props, '$.nightKey') from stats_events
+         where room_id = ? and type = 'room.created' order by ts desc, id desc limit 1`,
+      )
+      .pluck()
+      .get(roomId);
+    return typeof key === 'string' && key ? key : null;
+  }
+
+  nightRooms(keys: readonly string[]): string[] {
+    if (!keys.length) return [];
+    const out = new Set<string>();
+    // Bounded by the caller (one room's night starts in a window), but keep each query small.
+    for (let i = 0; i < keys.length; i += 200) {
+      const chunk = keys.slice(i, i + 200);
+      const marks = chunk.map(() => '?').join(',');
+      const rows = this.sql
+        .prepare(
+          `select room_id from stats_events where type = 'game.started' and id in (${marks})
+           union
+           select room_id from stats_events
+           where type = 'room.created' and json_extract(props, '$.nightKey') in (${marks})`,
+        )
+        .pluck()
+        .all(...chunk, ...chunk) as string[];
+      for (const r of rows) out.add(r);
+    }
+    return [...out];
+  }
+
+  gameStarts(roomId: string, sinceTs: number): string[] {
+    return this.sql
+      .prepare(
+        `select id from stats_events where room_id = ? and type = 'game.started' and ts >= ?
+         order by ts, id`,
+      )
+      .pluck()
+      .all(roomId, sinceTs) as string[];
   }
 
   roomEvents(roomId: string, sinceTs: number): StatsEvent[] {

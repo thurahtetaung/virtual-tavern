@@ -15,13 +15,26 @@ export interface RecapLine {
   text: string;
   players: string[];
   gameNo?: number;
+  /** The game it came from (night awards have none). */
+  gameId?: string;
   valence: RecapValence;
+}
+
+/** A "by the numbers" fact. `record`: it beat the room's stored record ("🆕 Room record"). */
+export interface RecapNugget {
+  emoji: string;
+  text: string;
+  record?: boolean;
 }
 
 /** One finished game of the night: its strip, who won, and its rounds ("Past rounds"). */
 export interface GameRecap {
   gameNo: number;
   gameId: string;
+  /** The game's name (a back-room game's code name). */
+  name?: string;
+  /** Played at a linked table ("Same crew, new game"), not in this room. */
+  elsewhere?: boolean;
   startedAt: number;
   durationMs: number;
   players: string[];
@@ -51,9 +64,58 @@ export interface RoomRecap {
   moment?: RecapLine;
   mvp?: RecapLine;
   awards: RecapLine[];
-  nuggets: { emoji: string; text: string }[];
+  nuggets: RecapNugget[];
   /** The host's clock offset (minutes, as `Date#getTimezoneOffset`), for the card's date. */
   tzOffsetMin?: number;
+  /** Frozen when the night was wrapped up or the next one began: it never changes again. */
+  frozen?: boolean;
+  /** The room's earlier frozen nights, newest first (for "Previous nights"). */
+  previous?: NightSummary[];
+}
+
+/** One frozen night, as listed in the Hall of fame. */
+export interface NightSummary {
+  nightKey: string;
+  startedAt: number;
+  endedAt: number;
+  games: number;
+  /** Each game played and how often, most played first. */
+  mix: { gameId: string; name: string; count: number }[];
+  /** The night's MVP, by name. */
+  mvp?: string;
+}
+
+/** A frozen night anywhere in the tavern, for the admin's "Recent tavern nights". */
+export interface RecentNight extends NightSummary {
+  roomId: string;
+}
+
+/** The room's Hall of fame, built from its frozen nights. */
+export interface HallOfFame {
+  /** Nights the room has had, tonight included once it has a finished game. */
+  nights: number;
+  /** Most nights as MVP, best first. */
+  mvps: { playerId: string; name: string; count: number }[];
+  /** Each player's most-won award (at least twice). */
+  favourites: {
+    playerId: string;
+    name: string;
+    awardId: string;
+    emoji: string;
+    title: string;
+    count: number;
+  }[];
+  /** Room records from the night cards' numbers, with when they were set. */
+  records: { id: string; emoji: string; text: string; at: number }[];
+  previous: NightSummary[];
+}
+
+/** "Same crew, new game": a new table someone here opened for the same night. */
+export interface NextTable {
+  roomId: string;
+  gameId: string;
+  /** Who opened it (a player id in this room). */
+  by: string;
 }
 
 /** A successful reply carrying data, or the usual error. */
@@ -61,8 +123,12 @@ export type AckWith<T> =
   { ok: true; data: T } | { ok: false; error: { code: string; message: string } };
 
 export interface RecapQuery {
-  /** `game`: the latest finished game's strip only. `night`: the whole card. */
-  scope: 'game' | 'night';
+  /**
+   * `game`: the latest finished game's strip only. `night`: the whole card (with `nightKey`, an
+   * earlier frozen night, read-only). `hall`: the room's Hall of fame.
+   */
+  scope: 'game' | 'night' | 'hall';
+  nightKey?: string;
   /** The viewer opened the recap sheet (counted as a view). */
   opened?: boolean;
 }

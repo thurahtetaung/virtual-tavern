@@ -59,7 +59,7 @@ export interface RoomObservation {
   action?: unknown;
   /** The name used, for joins and renames. */
   name?: string;
-  /** Extra facts, for `room.wrapped`. */
+  /** Extra facts, for `room.wrapped` and `room.created` (a linked night's key). */
   props?: Record<string, unknown>;
   before: RoomRecord | null;
   after: RoomRecord | null;
@@ -150,7 +150,8 @@ export class RoomManager {
     };
   }
 
-  create(gameId: string, hostId: string): string {
+  /** Opens a room. `nightKey`: it continues that night ("Same crew, new game"), for the recap. */
+  create(gameId: string, hostId: string, opts: { nightKey?: string } = {}): string {
     const game = this.deps.games.get(gameId);
     if (!game) throw new RoomError('unknown-game', 'That game does not exist.');
     const now = this.deps.now();
@@ -167,7 +168,11 @@ export class RoomManager {
       updatedAt: now,
     };
     this.deps.store.insert(record);
-    this.observe(record, null, record, game, { kind: 'room.created', by: hostId });
+    this.observe(record, null, record, game, {
+      kind: 'room.created',
+      by: hostId,
+      ...(opts.nightKey && { props: { nightKey: opts.nightKey } }),
+    });
     return id;
   }
 

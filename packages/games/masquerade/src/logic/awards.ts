@@ -1,15 +1,16 @@
 import {
   type AwardModule,
   type AwardRule,
-  type GameEvents,
-  type NuggetRule,
-  type RecapEvent,
   bool,
+  count,
+  type GameEvents,
+  ph,
   leaders,
   mostBy,
+  type NuggetRule,
   num,
   nums,
-  ph,
+  type RecapEvent,
   str,
   strs,
 } from '@vt/game-sdk';
@@ -517,7 +518,7 @@ const nuggets: NuggetRule[] = [
     interest: 2,
     compute(games) {
       const n = allOf(games, 'round').length;
-      return n ? { value: n, text: `${n} rounds played` } : null;
+      return n ? { value: n, text: `${count(n, 'round')} played` } : null;
     },
   },
   {
@@ -548,7 +549,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute(games) {
       const n = allOf(games, 'vote').length;
-      return n ? { value: n, text: `${n} votes cast` } : null;
+      return n ? { value: n, text: `${count(n, 'vote')} cast` } : null;
     },
   },
   {
@@ -571,6 +572,7 @@ const nuggets: NuggetRule[] = [
     id: 'masquerade.quickest',
     emoji: '⏱️',
     interest: 2,
+    record: 'min',
     compute(games) {
       const lengths = games.flatMap((g) => roundLengths(g).map((l) => l.ms)).filter((ms) => ms > 0);
       if (lengths.length < 2) return null;

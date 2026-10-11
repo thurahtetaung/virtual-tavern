@@ -91,6 +91,11 @@ export interface NuggetRule {
   emoji: string;
   /** How interesting it is, 1–5. */
   interest: number;
+  /**
+   * A room record: the Hall of fame keeps the best `value` ever seen in the room (`max`: the
+   * highest, `min`: the lowest), and a card that beats it shows "🆕 Room record".
+   */
+  record?: 'max' | 'min';
   /** `text` may carry placeholders. Null when there is nothing to say. */
   compute(games: readonly GameEvents[]): { value: number; text: string } | null;
 }
@@ -396,3 +401,6 @@ export function fixtureGame(
     events: list,
   });
 }
+
+/** "1 round", "3 rounds": a count with its noun in the right number. */
+export const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

@@ -761,7 +761,15 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
 }
 
 export function fun(agg: Agg, w: Window, ctx: ReportContext): StatsFun {
-  return { window: w, facts: funFacts(agg, w, ctx) };
+  const shared = ['copy', 'share', 'image'].reduce(
+    (sum, how) => sum + sumMetric(agg, w.from, w.to, `recaps_shared.${how}`),
+    0,
+  );
+  return {
+    window: w,
+    facts: funFacts(agg, w, ctx),
+    recaps: { viewed: sumMetric(agg, w.from, w.to, 'recaps_viewed'), shared },
+  };
 }
 
 export function timeseries(

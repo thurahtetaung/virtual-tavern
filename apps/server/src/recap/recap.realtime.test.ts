@@ -157,6 +157,62 @@ describe('night recap over the socket', () => {
     expect(card.tzOffsetMin).toBe(-60);
   });
 
+  it('"Same crew, new game" links a new room into the night; strangers cannot', async () => {
+    const { app, url, clients, admin } = await room();
+    const [host, ana] = clients;
+    await playToAssassin(clients);
+    const card = (
+      (await host!.call('room:recap', { scope: 'night' })) as unknown as { data: RoomRecap }
+    ).data;
+    const create = (tok: string, nightKey: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'echo', token: tok, nightKey },
+      });
+    // Someone who wasn't there can't attach a room to the night.
+    const stranger = await create(token(9), card.nightKey);
+    expect(stranger.statusCode).toBe(400);
+    expect(stranger.json()).toMatchObject({ error: { code: 'bad-night' } });
+    expect((await create(token(1), 'not a night')).statusCode).toBe(400);
+
+    // Ana opens the next table: everyone else in the room hears about it.
+    const told = new Promise<unknown>((resolve) => host!.once('room:next', resolve));
+    const res = await create(token(1), card.nightKey);
+    expect(res.statusCode).toBe(200);
+    const { roomId: next } = res.json<{ roomId: string }>();
+    expect(await told).toEqual({ roomId: next, gameId: 'echo', by: ana!.latest()!.you });
+
+    // The new table's recap is the same night, the first game played elsewhere.
+    const there = await connect(url);
+    cleanups.push(() => void there.close());
+    expect(await there.call('room:join', { roomId: next, token: token(1), name: 'Ana' })).toEqual({
+      ok: true,
+    });
+    const linked = (
+      (await there.call('room:recap', { scope: 'night' })) as unknown as { data: RoomRecap }
+    ).data;
+    expect(linked.nightKey).toBe(card.nightKey);
+    expect(linked.games.map((g) => [g.gameId, g.elsewhere])).toEqual([['codenames', true]]);
+
+    // Wrapped up, the night shows on the admin's "Recent tavern nights" once (not per room).
+    expect(await host!.call('room:wrap', 0)).toEqual({ ok: true });
+    const cookie = await admin();
+    const recent = (
+      await app.inject({ method: 'GET', url: '/api/admin/stats/nights', headers: { cookie } })
+    ).json<{ nights: { roomId: string; nightKey: string; games: number }[] }>();
+    expect(recent.nights).toMatchObject([{ nightKey: card.nightKey, games: 1 }]);
+    const frozen = await app.inject({
+      method: 'GET',
+      url: `/api/admin/stats/nights/${recent.nights[0]!.roomId}/${card.nightKey}`,
+      headers: { cookie },
+    });
+    expect(frozen.json()).toMatchObject({ nightKey: card.nightKey, frozen: true });
+    expect((await app.inject({ method: 'GET', url: '/api/admin/stats/nights' })).statusCode).toBe(
+      401,
+    );
+  });
+
   it('the admin switch turns recaps off everywhere', async () => {
     const { app, clients, admin } = await room();
     const [host] = clients;

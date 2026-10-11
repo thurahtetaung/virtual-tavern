@@ -1,4 +1,10 @@
-import { type GameSummary, createRoomBody, playerToken, roomId } from '@vt/protocol';
+import {
+  type GameSummary,
+  type NextTable,
+  createRoomBody,
+  playerToken,
+  roomId,
+} from '@vt/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
@@ -21,9 +27,16 @@ export function publicRoutes(
     titles?: { title(gameId: string): string | null };
     /** Deletes what stats keep about a player; returns how many rows changed. */
     forget?: (playerId: string) => number;
+    /**
+     * "Same crew, new game": the rooms of `nightKey` the player is in (they may continue it),
+     * or null when they may not.
+     */
+    linkable?: (nightKey: string, playerId: string) => string[] | null;
+    /** A linked room was opened: tell the rooms it continues. */
+    linked?: (from: string[], next: NextTable) => void;
   },
 ) {
-  const { rooms, wordLists, games, unlocked, titles, forget } = opts;
+  const { rooms, wordLists, games, unlocked, titles, forget, linkable, linked } = opts;
   // A private game's title from the database; it only goes where the game itself is visible.
   const titleOf = (gameId: string) => {
     if (!isPrivate(games.get(gameId))) return {};
@@ -66,7 +79,18 @@ export function publicRoutes(
       if (!body.success || !visible(req, body.data.gameId)) {
         return reply.code(400).send({ error: { code: 'bad-request', message: 'Unknown game.' } });
       }
-      return { roomId: rooms.create(body.data.gameId, playerIdFromToken(body.data.token)) };
+      const { gameId, token, nightKey } = body.data;
+      const playerId = playerIdFromToken(token);
+      // Only someone who was there may continue a night (it merges the two rooms' recaps).
+      const from = nightKey ? (linkable?.(nightKey, playerId) ?? null) : [];
+      if (!from) {
+        return reply.code(400).send({
+          error: { code: 'bad-night', message: "That night can't be continued from here." },
+        });
+      }
+      const id = rooms.create(gameId, playerId, nightKey ? { nightKey } : {});
+      if (from.length) linked?.(from, { roomId: id, gameId, by: playerId });
+      return { roomId: id };
     },
   );
 

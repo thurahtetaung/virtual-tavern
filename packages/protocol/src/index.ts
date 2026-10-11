@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import type { AckWith, GameRecap, RecapQuery, RecapTone, RoomMeta, RoomRecap } from './recap.ts';
+import type {
+  AckWith,
+  GameRecap,
+  HallOfFame,
+  NextTable,
+  RecapQuery,
+  RecapTone,
+  RoomMeta,
+  RoomRecap,
+} from './recap.ts';
 
 export const MAX_NAME_LENGTH = 24;
 export const ROOM_ID_PATTERN = /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/;
@@ -33,7 +42,15 @@ export interface GameSummary {
   title?: string;
 }
 
-export const createRoomBody = z.object({ gameId: z.string(), token: playerToken });
+/** A night recap's key (the ULID of the night's first game start). */
+export const nightKey = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, 'Not a night.');
+
+export const createRoomBody = z.object({
+  gameId: z.string(),
+  token: playerToken,
+  /** "Same crew, new game": the night this room continues (its recap merges with it). */
+  nightKey: nightKey.optional(),
+});
 export type CreateRoomBody = z.infer<typeof createRoomBody>;
 export interface CreateRoomResponse {
   roomId: string;
@@ -134,14 +151,14 @@ export interface ClientToServerEvents {
   /** The night recap (members only). */
   'room:recap': (
     query: RecapQuery,
-    ack: (res: AckWith<GameRecap | RoomRecap | null>) => void,
+    ack: (res: AckWith<GameRecap | RoomRecap | HallOfFame | null>) => void,
   ) => void;
   /** Host only: freezes the night and opens the recap on every device. `tz` as getTimezoneOffset. */
   'room:wrap': (tz: number, ack: (res: Ack) => void) => void;
   /** Host only: the room's recap tone. */
   'room:recap-tone': (tone: RecapTone, tz: number, ack: (res: Ack) => void) => void;
   /** The viewer copied or shared the recap (counted, nothing else). */
-  'room:recap-shared': (how: 'copy' | 'share', ack: (res: Ack) => void) => void;
+  'room:recap-shared': (how: 'copy' | 'share' | 'image', ack: (res: Ack) => void) => void;
 }
 
 export interface ServerToClientEvents {
@@ -151,6 +168,8 @@ export interface ServerToClientEvents {
   'room:locked': () => void;
   /** The host wrapped up the night: every device opens the recap. */
   'room:wrapped': (nightKey: string) => void;
+  /** Someone here opened a new table for the same night ("Same crew, new game"). */
+  'room:next': (next: NextTable) => void;
 }
 export * from './questions.ts';
 export * from './recap.ts';

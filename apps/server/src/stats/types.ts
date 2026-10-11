@@ -113,8 +113,14 @@ export interface RoomPeople {
  * (window aggregates for the admin page); a column store answers it from its `(room_id, ts)` order.
  */
 export interface RecapSource {
-  /** The latest `game.started` in the room, or null. */
-  lastGameStart(roomId: string): number | null;
+  /** The latest `game.started` in the room (before `before`, if given), or null. */
+  lastGameStart(roomId: string, before?: number): number | null;
+  /** The night this room was opened to continue ("Same crew, new game"), from `room.created`. */
+  roomLink(roomId: string): string | null;
+  /** Rooms in these nights: where each first game started, and rooms opened to continue them. */
+  nightRooms(keys: readonly string[]): string[];
+  /** Ids of the room's game starts from `sinceTs` on (possible night keys). */
+  gameStarts(roomId: string, sinceTs: number): string[];
   /** The room's events from `sinceTs` on, in the order they happened. */
   roomEvents(roomId: string, sinceTs: number): StatsEvent[];
   roomPeople(roomId: string): RoomPeople;

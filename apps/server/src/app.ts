@@ -9,7 +9,8 @@ import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { R2Assets, type R2Config } from './r2.ts';
-import { attachRealtime, createRoomEvents } from './realtime.ts';
+import { announceNextTable, attachRealtime, createRoomEvents } from './realtime.ts';
+import { RecapStore } from './recap/hall.ts';
 import { RecapService } from './recap/service.ts';
 import { RecapSettings } from './recap/settings.ts';
 import { RoomManager } from './rooms/manager.ts';
@@ -124,6 +125,7 @@ export function buildApp(opts: AppOptions) {
   });
   const recorder = new StatsRecorder({ store: stats, logger: app.log });
   const recapSettings = new RecapSettings(db, now);
+  const recapStore = new RecapStore(db);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
   const maintainStats = () => {
     try {
@@ -154,16 +156,15 @@ export function buildApp(opts: AppOptions) {
     observer: {
       observe(o) {
         recorder.observe(o);
-        if (o.kind === 'room.swept') {
-          recapSettings.forget(o.roomId);
-          recap.forget(o.roomId);
-        }
+        if (o.kind === 'room.swept') recapSettings.forget(o.roomId);
+        recap.observe(o);
       },
     },
     recapMeta: (roomId) => recap.meta(roomId),
   });
   const recap: RecapService = new RecapService({
     source: stats,
+    store: recapStore,
     games,
     rooms,
     settings: recapSettings,
@@ -258,7 +259,12 @@ export function buildApp(opts: AppOptions) {
       games,
       unlocked: (req) => requestUnlocked(req, backroom),
       titles: privateGames,
-      forget: (playerId) => recorder.forget(playerId),
+      forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
+      linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
+      linked: (from, next) => {
+        const privateTable = isPrivate(games.get(next.gameId));
+        for (const roomId of from) announceNextTable(io, roomId, next, privateTable);
+      },
     });
     adminRoutes(scope, {
       auth: adminAuth,
@@ -279,6 +285,7 @@ export function buildApp(opts: AppOptions) {
         gameIds: [...games.keys()],
         flush: () => recorder.flush(),
         onReset: () => recorder.reset(),
+        recaps: recap,
         now,
       });
       ready();
