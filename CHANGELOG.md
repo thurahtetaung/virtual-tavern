@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.14.0...v0.15.0) (2026-10-11)
+
+
+### Features
+
+* **privacy:** let players ask the server to forget them ([#69](https://github.com/thurahtetaung/virtual-tavern/issues/69)) ([3025e88](https://github.com/thurahtetaung/virtual-tavern/commit/3025e8801bc39c2e93ce303a2bac875cdb2ebd71))
+
 ## [0.14.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.2...v0.14.0) (2026-10-11)
 
 
