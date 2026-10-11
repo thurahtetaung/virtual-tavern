@@ -314,7 +314,9 @@ export class RoomManager {
 
   /** Deletes idle rooms nobody is connected to; returns how many were removed. */
   sweep(maxIdleMs: number): number {
-    const ids = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs);
+    // A room with someone in it right now is never idle, however long since its last change.
+    const occupied = [...this.rooms].filter(([, r]) => r.connections.size > 0).map(([id]) => id);
+    const ids = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs, occupied);
     for (const id of ids) {
       const live = this.rooms.get(id);
       this.unload(id);
@@ -442,8 +444,16 @@ export class RoomManager {
     }
   }
 
+  /** Arriving or leaving counts as activity, so the idle clock runs from the last visit. */
+  private touch(room: LiveRoom) {
+    const now = this.deps.now();
+    room.record = { ...room.record, updatedAt: now };
+    this.deps.store.touch(room.record.id, now);
+  }
+
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
+    this.touch(room);
     this.observe(room.record, room.record, room.record, room.game, {
       kind: 'player.connected',
       by: playerId,
@@ -461,6 +471,7 @@ export class RoomManager {
     const left = (room.connections.get(playerId) ?? 1) - 1;
     if (left > 0) room.connections.set(playerId, left);
     else room.connections.delete(playerId);
+    this.touch(room);
     if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
     this.observe(room.record, room.record, room.record, room.game, {
       kind: 'player.disconnected',

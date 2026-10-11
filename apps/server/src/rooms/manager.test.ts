@@ -150,6 +150,27 @@ describe('RoomManager', () => {
     expect(rooms.exists(id)).toBeNull();
   });
 
+  it('never sweeps a room someone is in, however long since its last change', () => {
+    const id = seatedGame();
+    rooms.connected(id, 'a');
+    now += 30 * DAY;
+    expect(rooms.sweep(7 * DAY)).toBe(0);
+    expect(rooms.exists(id)).not.toBeNull();
+  });
+
+  it('counts visits as activity: the idle clock runs from when the last player left', () => {
+    const id = seatedGame();
+    now += 6 * DAY;
+    rooms.connected(id, 'a');
+    now += 2 * DAY;
+    rooms.disconnected(id, 'a');
+    now += 6 * DAY; // 14 days since the last change, 6 since anyone was here
+    expect(rooms.sweep(7 * DAY)).toBe(0);
+    now += 2 * DAY;
+    expect(rooms.sweep(7 * DAY)).toBe(1);
+    expect(rooms.exists(id)).toBeNull();
+  });
+
   describe('host hand-off', () => {
     it('starts the hand-off clock when a room is loaded with its host offline', () => {
       const id = seatedGame();
