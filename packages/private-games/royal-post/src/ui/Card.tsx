@@ -17,6 +17,8 @@ interface Props {
   className?: string;
   /** Extra words for screen readers, e.g. "keep". */
   hint?: string;
+  /** The click opens the card to read: labelled "Read Guard (1)". */
+  reads?: boolean;
 }
 
 const TEXT: Record<Size, { rank: string; emoji: string; name: string }> = {
@@ -40,6 +42,7 @@ export function Card({
   onClick,
   className,
   hint,
+  reads,
 }: Props) {
   const art = deck.art(role);
   const [failed, setFailed] = useState(false);
@@ -78,7 +81,7 @@ export function Card({
       'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-none',
     className,
   );
-  const label = `${name} (${rank})${hint ? `, ${hint}` : ''}`;
+  const label = `${reads ? 'Read ' : ''}${name} (${rank})${hint ? `, ${hint}` : ''}`;
   return onClick ? (
     <button
       type="button"

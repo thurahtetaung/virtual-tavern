@@ -1,6 +1,14 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { type Exercised, playUntil, takeTurn, whoseTurn } from './royal-post-play.ts';
+import {
+  type Exercised,
+  dismissReveal,
+  playUntil,
+  readFirstCard,
+  reveal,
+  takeTurn,
+  whoseTurn,
+} from './royal-post-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -120,10 +128,72 @@ test('cards on the table open full size: the face-up set-aside cards and the dis
     handmaid: true,
     chancellor: true,
   });
-  const discard = host.getByRole('list', { name: 'Discards' }).getByRole('button').first();
-  await discard.click();
-  await expect(host.getByRole('dialog')).toBeVisible();
-  await expect(host.getByRole('dialog').getByRole('button', { name: /^Play / })).toHaveCount(0);
-  await host.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click();
-  await expect(host.getByRole('dialog')).toBeHidden();
+  const pile = host.getByRole('dialog', { name: /discards$/ });
+  // A Baron or King reveal from that turn can open over the table; close it and retry.
+  await expect(async () => {
+    await dismissReveal(host);
+    await host
+      .getByRole('button', { name: /’s discards: / })
+      .first()
+      .click({ timeout: 1000 });
+    await expect(pile).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await readFirstCard(host, pile.getByRole('list', { name: 'Discard pile' }));
+  await pile.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(pile).toBeHidden();
+});
+
+test('every card name opens the card: the Guard grid, a private reveal, the log and notes', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const host = await visitor(browser, 'Hana');
+  await unlock(host);
+  await host.getByRole('button', { name: 'Create a Royal Post room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const ana = await visitor(browser, 'Ana');
+  await unlock(ana, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
+  await expect(host.getByText('Players (2/4)')).toBeVisible();
+
+  // The lobby lists the edition's cards, each one readable before the game starts.
+  await host.locator('summary', { hasText: 'The cards' }).click();
+  await readFirstCard(host, host.getByRole('list', { name: 'The cards' }));
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(host.getByText('Round 1')).toBeVisible();
+
+  const players = [host, ana];
+  const done: Exercised = { guard: false, priest: false, handmaid: true, chancellor: true };
+  let peeker: Page | null = null;
+  await playUntil(
+    host,
+    players,
+    'classic',
+    done,
+    () => done.guard && peeker !== null,
+    async (moment, p) => {
+      // The Guard's guess: the named card reads in full before it's played.
+      if (moment === 'guard-guess') {
+        const grid = p.getByRole('group', { name: 'Name a card' });
+        await readFirstCard(p, grid);
+        await expect(grid.getByRole('button', { name: /unseen$/ }).first()).toBeVisible();
+      }
+      // The Priest's peek: the card seen opens from the private reveal.
+      if (moment === 'priest-reveal' && !peeker) {
+        await readFirstCard(p, reveal(p));
+        peeker = p;
+      }
+    },
+  );
+
+  // The log and the private notes name cards that open too.
+  const records = peeker!.getByRole('region', { name: 'Table records' });
+  await records.getByRole('tab', { name: 'Log' }).click();
+  await readFirstCard(peeker!, records.getByRole('list', { name: 'What happened' }));
+  await records.getByRole('tab', { name: /^Notes/ }).click();
+  await readFirstCard(peeker!, records.getByRole('list', { name: 'Your notes' }));
+  await records.getByRole('tab', { name: 'Card count' }).click();
+  await expect(records.getByRole('list', { name: 'Card count' }).getByRole('listitem')).toHaveCount(
+    8,
+  );
 });

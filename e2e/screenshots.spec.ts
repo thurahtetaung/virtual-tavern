@@ -249,12 +249,13 @@ for (const [label, viewport] of [
   });
 }
 
-for (const [label, viewport] of [
-  ['desktop', { width: 1280, height: 900 }],
-  ['phone', { width: 390, height: 844 }],
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+  ['phone-light', { width: 390, height: 844 }, 'light'],
 ] as const) {
   test(`royal post screenshots (${label})`, async ({ browser, request }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(480_000);
     const taken = new Set<string>();
     const shot = async (p: Page, name: string) => {
       taken.add(name);
@@ -278,8 +279,10 @@ for (const [label, viewport] of [
     const make = async (name: string) => {
       const ctx = await browser.newContext({
         viewport,
-        colorScheme: label === 'phone' ? 'dark' : 'light',
-        extraHTTPHeaders: { 'cf-connecting-ip': `10.8.${label === 'phone' ? 1 : 0}.${ip++}` },
+        colorScheme,
+        extraHTTPHeaders: {
+          'cf-connecting-ip': `10.8.${['desktop', 'phone', 'phone-light'].indexOf(label)}.${ip++}`,
+        },
       });
       const p = await ctx.newPage();
       await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
@@ -300,19 +303,41 @@ for (const [label, viewport] of [
     await expect(host.getByText('Players (3/6)')).toBeVisible();
     await shot(host, 'lobby');
     await host.getByRole('button', { name: 'Start game' }).click();
-    const done: Exercised = { guard: false, priest: false, handmaid: false, chancellor: false };
+    // Someone who joins mid-game watches.
+    const watcher = await make('Wes');
+    await watcher.goto(url);
+    await expect(watcher.getByText(/^Watching:/).first()).toBeVisible();
+    const done: Exercised = {
+      guard: false,
+      priest: false,
+      handmaid: false,
+      chancellor: false,
+      baron: false,
+      prince: false,
+    };
+    const wanted = [
+      'my-turn',
+      'targeting',
+      'guard-guess',
+      'priest-reveal',
+      'baron-reveal',
+      'handmaid',
+      'prince',
+      'chancellor',
+      'elimination',
+    ];
     // Each moment is captured the first time it comes up in play.
+    let moments = 0;
     const moment: Shot = async (m, p) => {
       if (!taken.has(m)) await shot(p, m);
+      if (++moments === 6) await shot(watcher, 'spectating');
     };
     await playUntil(
       host,
       players,
       '2019',
       done,
-      (over) =>
-        over &&
-        ['targeting', 'guard-guess', 'priest-reveal', 'chancellor'].every((m) => taken.has(m)),
+      (over) => over && wanted.every((m) => taken.has(m)),
       moment,
       async (over) => {
         if (!over && !taken.has('round-result')) await shot(host, 'round-result');
