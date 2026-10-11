@@ -83,7 +83,7 @@ export const guide: GameGuide = {
     {
       title: 'The clue history is everything',
       paragraphs: [
-        'Every past clue sits under its keyword number on both teams’ sheets (the Clues tab on a phone), so after a few rounds you may work out the other team’s keywords. Write your hunches in the shared notes. When you intercept, their past clues and your notes sit right above the code picker.',
+        'Every past clue sits under its keyword number on both teams’ sheets (the Clues tab on a phone), so after a few rounds you may work out the other team’s keywords. Under each of their keyword numbers your team can fill in one shared guess, and below them is a list of team notes that anyone on your team can add to or remove from (the other team never sees either). If a teammate changes a guess while you’re typing yours, theirs is kept and yours stays on screen so you can use it instead. When you intercept, their past clues and your guesses sit right above the code picker.',
       ],
     },
     {

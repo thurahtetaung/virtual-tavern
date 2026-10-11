@@ -101,6 +101,42 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await expect(cy!.getByLabel('Our guess for Red keyword 1')).toHaveValue('Zorblax');
   await expect(host.getByText('Zorblax')).toHaveCount(0);
 
+  // Two teammates add notes at the same time, and both notes survive.
+  const addNote = async (page: Page, text: string) => {
+    await page.getByLabel('Add a note').fill(text);
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+  };
+  await Promise.all([addNote(ben!, 'Quuxle maybe'), addNote(cy!, 'Wibbleton surely')]);
+  for (const p of [ben!, cy!]) {
+    const notes = p.getByRole('list', { name: 'Team notes' });
+    await expect(notes.getByText('Quuxle maybe')).toBeVisible();
+    await expect(notes.getByText('Wibbleton surely')).toBeVisible();
+  }
+  await expect(host.getByText('Wibbleton')).toHaveCount(0);
+
+  // Ben starts typing a guess while Cy saves a different one: Cy's is kept, Ben is told, and his
+  // own text stays on screen to use instead.
+  const benGuess = ben!.getByLabel('Our guess for Red keyword 2');
+  await benGuess.fill('Frobnic');
+  await cy!.getByLabel('Our guess for Red keyword 2').fill('Grumple');
+  await cy!.getByLabel('Our guess for Red keyword 2').press('Enter');
+  // Cy's next action can only reach Ben once Cy's guess is saved.
+  await addNote(cy!, 'Plinth');
+  await expect(ben!.getByText('Plinth')).toBeVisible();
+  await expect(benGuess).toHaveValue('Frobnic');
+  await benGuess.press('Enter');
+  await expect(ben!.getByText('Cy just changed this')).toBeVisible();
+  await expect(benGuess).toHaveValue('Grumple');
+  await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Grumple');
+  await expect(ben!.getByText('Your version:')).toContainText('Frobnic');
+  // Using it replaces Cy's guess, on purpose this time.
+  await ben!.getByRole('button', { name: '(use it)' }).click();
+  await expect(cy!.getByLabel('Our guess for Red keyword 2')).toHaveValue('Frobnic');
+  await expect(ben!.getByText('Your version:')).toHaveCount(0);
+  // Anyone on the team can remove a note.
+  await cy!.getByRole('button', { name: 'Remove note: Plinth' }).click();
+  await expect(ben!.getByText('Plinth')).toHaveCount(0);
+
   for (let round = 1; round <= 3; round++) {
     const redEnc = await encryptorOf(red, 'Red');
     const blueEnc = await encryptorOf(blue, 'Blue');

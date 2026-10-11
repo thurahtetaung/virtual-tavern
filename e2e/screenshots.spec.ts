@@ -152,6 +152,24 @@ for (const [label, viewport] of [
         .getByRole('button', { name: /Clues/ })
         .click();
       await shot(red.dec, 'clues');
+      // The team notes, with enough of them to scroll inside their box.
+      for (const note of [
+        'Their 2 keeps coming up as weather',
+        'Clue "tide" could be their 1 or their 3',
+        'They like puns, watch out',
+        'Blue 4 is probably an animal',
+        'Remember to vary our clues for keyword 2',
+        'Last note, so the list has to scroll',
+      ]) {
+        await red.dec.getByLabel('Add a note').fill(note);
+        await red.dec.getByLabel('Add a note').press('Enter');
+        await expect(red.dec.getByRole('list', { name: 'Team notes' })).toContainText(note);
+      }
+      // Centred, so the fixed tab bar doesn't cover it.
+      await red.dec.getByLabel('Add a note').evaluate((el) => {
+        el.scrollIntoView({ block: 'center' });
+      });
+      await shot(red.dec, 'notes');
       await red.dec
         .getByRole('navigation', { name: 'Game sections' })
         .getByRole('button', { name: /Play/ })
