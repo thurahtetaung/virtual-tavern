@@ -27,7 +27,7 @@ export interface Settings {
   deckSize: DeckSize;
   /** Time to write clues. */
   clueSeconds: number | null;
-  /** Time to pick a word, to guess, and to judge a near miss. */
+  /** Time to pick a word and to guess. */
   guessSeconds: number | null;
   timerMode: TimerMode;
 }

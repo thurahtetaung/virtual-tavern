@@ -396,12 +396,37 @@ function guess(state: EchoState, word: string, ctx: Ctx): Result {
   if (turn instanceof GameError) return turn;
   if (turn.guesser !== ctx.by) return new GameError('not-guesser', 'Only the guesser guesses.');
   const next = withTurn(state, { guess: word });
-  if (wordKey(word) === wordKey(turn.card[turn.pick!]!)) return reveal(next, 'right', null);
-  return withTurn(next, {
-    stage: 'judge',
-    judgeStarted: ctx.now,
-    deadline: deadline(state.settings.guessSeconds, ctx.now),
-  });
+  // The game decides on its own: nobody is asked to judge a near miss any more.
+  return reveal(next, guessMatches(word, turn.card[turn.pick!]!) ? 'right' : 'wrong', null);
+}
+
+/** Letters and digits only, so spacing, hyphens and punctuation never matter. */
+const squash = (s: string) => wordKey(s).replace(/[^\p{L}\p{N}]/gu, '');
+
+/** Whether two words are one typo apart: a letter added, dropped, changed or two swapped. */
+function oneTypoApart(a: string, b: string): boolean {
+  if (a === b || Math.abs(a.length - b.length) > 1) return a === b;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) {
+    if (a.slice(i + 1) === b.slice(i + 1)) return true;
+    return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
+  }
+  const [long, short] = a.length > b.length ? [a, b] : [b, a];
+  return long.slice(i + 1) === short.slice(i);
+}
+
+/**
+ * A guess is right when it is the word in another form (plural, spacing, hyphens, a multi-word
+ * answer run together) or one typo away from an answer of 5 or more letters.
+ */
+export function guessMatches(guess: string, answer: string): boolean {
+  if (wordKey(guess) === wordKey(answer)) return true;
+  const g = squash(guess);
+  const a = squash(answer);
+  if (!g || !a) return false;
+  if (g === a) return true;
+  return a.length >= 5 && oneTypoApart(g, a);
 }
 
 function pass(state: EchoState, ctx: Ctx): Result {

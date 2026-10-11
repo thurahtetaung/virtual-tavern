@@ -106,7 +106,7 @@ export function Lobby({
               editable={editable}
               onChange={(patch) => void act({ type: 'update-settings', ...patch })}
               clueHelp="Time for everyone to write their clues."
-              guessHelp="Time to pick a word, to guess, and to judge a near miss."
+              guessHelp="Time to pick a word and to guess."
               strictHelp="the guesser gets a random word, late clues are skipped, an unanswered guess passes and an undecided near miss counts as wrong"
             />
           </div>
