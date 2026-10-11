@@ -258,13 +258,29 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
   );
 }
 
-function Discards({ cards, edition, deck }: { cards: Role[]; edition: Edition; deck: Deck }) {
+function Discards({
+  cards,
+  edition,
+  deck,
+  onView,
+}: {
+  cards: Role[];
+  edition: Edition;
+  deck: Deck;
+  onView: (role: Role) => void;
+}) {
   if (cards.length === 0) return <span className="text-xs text-stone-400 italic">no discards</span>;
   return (
     <ul aria-label="Discards" className="flex">
       {cards.map((role, i) => (
-        <li key={i} className={cn('w-6 shrink-0', i > 0 && '-ml-1.5')}>
-          <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
+        <li key={i} className={cn('w-8 shrink-0 sm:w-10', i > 0 && '-ml-2')}>
+          <Card
+            role={role}
+            rank={rankIn(edition, role)}
+            deck={deck}
+            size="xs"
+            onClick={() => onView(role)}
+          />
         </li>
       ))}
     </ul>
@@ -276,11 +292,13 @@ function PlayerTile({
   p,
   deck,
   online,
+  onView,
 }: {
   view: RoyalPostView;
   p: RoundPlayerView;
   deck: Deck;
   online: boolean;
+  onView: (role: Role) => void;
 }) {
   const round = view.round!;
   const seat = view.seats.find((s) => s.id === p.id);
@@ -326,7 +344,7 @@ function PlayerTile({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <Tokens tokens={seat?.tokens ?? 0} target={view.target} />
-        <Discards cards={p.discards} edition={view.settings.edition} deck={deck} />
+        <Discards cards={p.discards} edition={view.settings.edition} deck={deck} onView={onView} />
       </div>
     </li>
   );
@@ -352,6 +370,8 @@ function Table({
   const me = view.me;
   const myTurn = !!round && round.current === me?.id && round.stage === 'play';
   const [viewing, setViewing] = useState<Role | null>(null);
+  // A card on the table (a discard or a face-up set-aside card), opened to read, never to play.
+  const [peeking, setPeeking] = useState<Role | null>(null);
   // The hand bar is fixed over the page, so the page pads by its measured height.
   const handBar = useRef<HTMLElement>(null);
   const [handHeight, setHandHeight] = useState(0);
@@ -411,7 +431,14 @@ function Table({
       {round && (
         <ul aria-label="Players" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {round.players.map((p) => (
-            <PlayerTile key={p.id} view={view} p={p} deck={deck} online={online(p.id)} />
+            <PlayerTile
+              key={p.id}
+              view={view}
+              p={p}
+              deck={deck}
+              online={online(p.id)}
+              onView={setPeeking}
+            />
           ))}
         </ul>
       )}
@@ -421,10 +448,16 @@ function Table({
       {round && round.faceUp.length > 0 && (
         <div className="flex items-center gap-2 text-xs text-stone-500">
           <span>Set aside face up:</span>
-          <ul className="flex gap-1">
+          <ul aria-label="Set aside face up" className="flex gap-1.5">
             {round.faceUp.map((role, i) => (
-              <li key={i} className="w-7">
-                <Card role={role} rank={rankIn(edition, role)} deck={deck} size="xs" />
+              <li key={i} className="w-12 sm:w-16">
+                <Card
+                  role={role}
+                  rank={rankIn(edition, role)}
+                  deck={deck}
+                  size="sm"
+                  onClick={() => setPeeking(role)}
+                />
               </li>
             ))}
           </ul>
@@ -516,6 +549,15 @@ function Table({
         deck={deck}
         canPlay={myTurn}
         onClose={() => setViewing(null)}
+        act={act}
+      />
+      <PlaySheet
+        key={`peek-${peeking ?? ''}`}
+        role={peeking}
+        view={view}
+        deck={deck}
+        canPlay={false}
+        onClose={() => setPeeking(null)}
         act={act}
       />
       {chancellor && (
