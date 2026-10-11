@@ -1,4 +1,4 @@
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lt, notInArray } from 'drizzle-orm';
 import type { Db } from '../db/index.ts';
 import { rooms } from '../db/schema.ts';
 
@@ -20,8 +20,10 @@ export interface RoomStore {
   insert(room: RoomRecord): void;
   /** Writes `room` if the stored version is `room.version - 1`; returns false on conflict. */
   update(room: RoomRecord): boolean;
-  /** Deletes rooms untouched since `before`; returns their ids. */
-  deleteIdle(before: number): string[];
+  /** Marks the room as active at `at` without changing its version (presence, not a change). */
+  touch(id: string, at: number): void;
+  /** Deletes rooms untouched since `before`, except those in `keep`; returns their ids. */
+  deleteIdle(before: number, keep?: readonly string[]): string[];
 }
 
 export class SqliteRoomStore implements RoomStore {
@@ -50,10 +52,15 @@ export class SqliteRoomStore implements RoomStore {
     );
   }
 
-  deleteIdle(before: number): string[] {
+  touch(id: string, at: number): void {
+    this.db.update(rooms).set({ updatedAt: at }).where(eq(rooms.id, id)).run();
+  }
+
+  deleteIdle(before: number, keep: readonly string[] = []): string[] {
+    const idle = lt(rooms.updatedAt, before);
     return this.db
       .delete(rooms)
-      .where(lt(rooms.updatedAt, before))
+      .where(keep.length ? and(idle, notInArray(rooms.id, [...keep])) : idle)
       .returning({ id: rooms.id })
       .all()
       .map((r) => r.id);
