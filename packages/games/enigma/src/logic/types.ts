@@ -12,8 +12,13 @@ export const MIN_TEAM_SIZE = 2;
 export const MAX_CLUE_LENGTH = 40;
 export const MAX_CHAT_LENGTH = 300;
 export const MAX_CHAT_MESSAGES = 200;
+/** A keyword guess on the other team's sheet. */
 export const MAX_NOTE_LENGTH = 40;
-export const MAX_GENERAL_NOTE_LENGTH = 1000;
+/** One item in the team's list of notes. */
+export const MAX_NOTE_ITEM_LENGTH = 200;
+export const MAX_NOTE_ITEMS = 40;
+/** The id of the item that shows a room's old single notes field (see `TeamNotes.general`). */
+export const LEGACY_NOTE_ID = 'earlier';
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
 
@@ -49,11 +54,37 @@ export interface ChatMessage {
   at: number;
 }
 
+export interface NoteItem {
+  id: string;
+  /** Who wrote it; '' for the old notes field when nobody is on record. */
+  by: PlayerId;
+  text: string;
+  at: number;
+}
+
 export interface TeamNotes {
   /** The team's guesses at the opponent's keywords 1–4. */
   guesses: string[];
+  /** Who last changed each guess. Absent in rooms saved before it existed. */
+  guessedBy?: (PlayerId | null)[];
+  /**
+   * The old single free-text field, which teammates kept overwriting. Never written any more:
+   * a room saved with one shows it as the first item (`LEGACY_NOTE_ID`), and the next change to
+   * the notes moves it into `items` and clears it.
+   */
   general: string;
+  /** Who last edited `general`. */
   editedBy: PlayerId | null;
+  /** The team's notes, oldest first. Absent in rooms saved before notes became a list. */
+  items?: NoteItem[];
+  /** Makes note ids (`n1`, `n2`, …). Absent in rooms saved before notes became a list. */
+  nextNoteId?: number;
+}
+
+/** What a player sees of their own team's notes. */
+export interface NotesView {
+  guesses: string[];
+  items: NoteItem[];
 }
 
 /** A finished transmission, filed in the sending team's public clue history. */
@@ -169,12 +200,23 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('lock-guess'), team }),
   z.object({ type: z.literal('unlock-guess'), team }),
   z.object({ type: z.literal('chat'), text: z.string().trim().min(1).max(MAX_CHAT_LENGTH) }),
+  /**
+   * Sets the team's guess at one of the other team's keywords. `base` is the value the editor
+   * started from: if a teammate has changed it since, the change is refused instead of
+   * overwriting theirs.
+   */
   z.object({
     type: z.literal('set-note'),
-    slot: z.union([z.number().int().min(1).max(KEYWORD_COUNT), z.literal('general')]),
-    /** Trimmed, so a whitespace-only note clears the field. Keyword slots are capped in `reduce`. */
-    text: z.string().trim().max(MAX_GENERAL_NOTE_LENGTH),
+    slot: z.number().int().min(1).max(KEYWORD_COUNT),
+    /** Trimmed, so a whitespace-only guess clears the field. */
+    text: z.string().trim().max(MAX_NOTE_LENGTH),
+    base: z.string().max(MAX_NOTE_LENGTH),
   }),
+  z.object({
+    type: z.literal('add-note'),
+    text: z.string().trim().min(1).max(MAX_NOTE_ITEM_LENGTH),
+  }),
+  z.object({ type: z.literal('remove-note'), id: z.string().min(1).max(20) }),
   z.object({ type: z.literal('next-round') }),
 ]);
 
@@ -235,7 +277,7 @@ export interface EnigmaView {
   /** Own team's private chat; empty for spectators. */
   chat: ChatMessage[];
   /** Own team's shared notes about the opponent; null for spectators. */
-  notes: TeamNotes | null;
+  notes: NotesView | null;
   deadline: number | null;
   winner: Team | 'draw' | null;
 }

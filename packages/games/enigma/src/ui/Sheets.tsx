@@ -1,58 +1,209 @@
-import { Panel, cn } from '@vt/ui';
-import { useRef, useState } from 'react';
-import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
-import { MAX_GENERAL_NOTE_LENGTH, MAX_NOTE_LENGTH } from '../logic/types.ts';
+import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { EnigmaAction, EnigmaView, NoteItem, Team } from '../logic/types.ts';
+import { LEGACY_NOTE_ID, MAX_NOTE_ITEM_LENGTH, MAX_NOTE_LENGTH } from '../logic/types.ts';
 import { cluesByKeyword } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT } from './theme.ts';
 
-type Act = (a: EnigmaAction) => Promise<boolean>;
+type Act = (a: EnigmaAction, options?: { anchor?: string }) => Promise<boolean>;
 
 /**
- * A shared text field: shows the team's saved value, but while you're typing it shows your own
- * text (sent after a short pause) so teammates' updates never yank the cursor.
+ * One of the team's keyword guesses. While you're in the field it keeps your own text, so a
+ * teammate's update never yanks the cursor; it's saved when you leave the field or press Enter,
+ * never per keystroke. If a teammate changed it meanwhile, the server refuses (it never
+ * overwrites their guess): the field shows theirs and yours stays one tap away.
  */
-function SharedText({
+function GuessField({
+  slot,
   value,
-  onSave,
-  multiline,
-  maxLength,
-  placeholder,
   label,
+  anchor,
+  act,
 }: {
+  slot: number;
   value: string;
-  onSave: (text: string) => void;
-  multiline?: boolean;
-  maxLength: number;
-  placeholder: string;
   label: string;
+  anchor: string;
+  act: Act;
 }) {
+  // `draft` is non-null while you're editing; `base` is the value you started from.
   const [draft, setDraft] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const shown = draft ?? value;
-  const change = (text: string) => {
-    setDraft(text);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => onSave(text), 400);
-  };
+  const [base, setBase] = useState('');
+  // Your text, sent but not yet shown back by the server: it applies only while the server still
+  // holds the value it was saved over, so any change from the server supersedes it.
+  const [sent, setSent] = useState<{ text: string; over: string } | null>(null);
+  const pending = sent && sent.over === value ? sent.text : null;
+  // Your text that lost to a teammate's.
+  const [mine, setMine] = useState<string | null>(null);
+
+  const save = useCallback(
+    (text: string, from: string) => {
+      setSent({ text, over: from });
+      void act({ type: 'set-note', slot, text, base: from }, { anchor }).then((ok) => {
+        // The server sends the new state before it answers, so it is already on screen.
+        setSent(null);
+        setMine(ok ? null : text);
+      });
+    },
+    [act, slot, anchor],
+  );
+
+  // Leaving the screen mid-edit still saves it.
+  const unsaved = useRef<{ draft: string | null; base: string; save: typeof save }>(null);
+  useEffect(() => {
+    unsaved.current = { draft, base, save };
+  });
+  useEffect(() => {
+    return () => {
+      const u = unsaved.current;
+      if (u && u.draft !== null && u.draft.trim() !== u.base) u.save(u.draft.trim(), u.base);
+    };
+  }, []);
+
   const commit = () => {
-    clearTimeout(timer.current);
-    if (draft !== null && draft !== value) onSave(draft);
+    if (draft !== null && draft.trim() !== base) save(draft.trim(), base);
     setDraft(null);
   };
-  const common = {
-    'aria-label': label,
-    value: shown,
-    maxLength,
-    placeholder,
-    onFocus: () => setDraft(value),
-    onBlur: commit,
-    className:
-      'w-full rounded-md bg-white/80 px-2 py-1 text-sm ring-1 ring-stone-300 placeholder:text-stone-400 dark:bg-stone-900/60 dark:ring-stone-600',
+
+  return (
+    <div>
+      <input
+        aria-label={label}
+        value={draft ?? pending ?? value}
+        maxLength={MAX_NOTE_LENGTH}
+        placeholder="We think it's…"
+        enterKeyHint="done"
+        onFocus={() => {
+          // Mid-save, start from what you sent: that's what the server will hold.
+          setDraft(pending ?? value);
+          setBase(pending ?? value);
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        className="w-full rounded-md bg-white/80 px-2 py-1 text-sm ring-1 ring-stone-300 placeholder:text-stone-400 dark:bg-stone-900/60 dark:ring-stone-600"
+      />
+      <RefusalSlot anchor={anchor} className="mt-1 px-2 py-1 text-xs" />
+      {mine !== null && mine !== value && (
+        <p className="mt-1 text-xs text-stone-600 dark:text-stone-300">
+          Your version: <q className="font-semibold break-words">{mine}</q>{' '}
+          <button
+            type="button"
+            className="font-semibold text-amber-700 underline dark:text-amber-400"
+            onClick={() => save(mine, value)}
+          >
+            (use it)
+          </button>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The team's notes, each with who wrote it and a ✕. Memoised: typing a new note doesn't redraw it. */
+const NoteList = memo(function NoteList({
+  items,
+  names,
+  onRemove,
+}: {
+  items: NoteItem[];
+  names: ReadonlyMap<string, string>;
+  onRemove: (id: string) => void;
+}) {
+  const end = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    // Block body: scrollIntoView may return a Promise, which React must not treat as a cleanup.
+    void end.current?.scrollIntoView({ block: 'nearest' });
+  }, [items.length]);
+  return (
+    <ul
+      aria-label="Team notes"
+      className="max-h-48 space-y-1 overflow-y-auto rounded-md bg-white/60 p-1 text-sm ring-1 ring-stone-200 dark:bg-stone-900/40 dark:ring-stone-700"
+    >
+      {items.map((n) => (
+        <li
+          key={n.id}
+          className="flex items-start gap-2 rounded px-1.5 py-1 odd:bg-stone-100/70 dark:odd:bg-stone-800/50"
+        >
+          <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
+            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+              {names.get(n.by) ?? (n.id === LEGACY_NOTE_ID ? 'Earlier notes' : 'Someone who left')}:
+            </span>{' '}
+            {n.text}
+          </p>
+          <button
+            type="button"
+            aria-label={`Remove note: ${n.text}`}
+            title="Remove"
+            onClick={() => onRemove(n.id)}
+            className="-my-0.5 shrink-0 rounded px-1.5 text-stone-500 hover:bg-stone-200 hover:text-rose-700 dark:hover:bg-stone-700"
+          >
+            ✕
+          </button>
+        </li>
+      ))}
+      {items.length === 0 && (
+        <li className="px-1.5 py-1 text-xs text-stone-500 italic dark:text-stone-400">
+          No notes yet. Jot down hunches about their keywords.
+        </li>
+      )}
+      <li ref={end} aria-hidden />
+    </ul>
+  );
+});
+
+const ADD_NOTE_ANCHOR = 'enigma-add-note';
+
+/** Adds one note. Its typing state stays here, so nothing else redraws per keystroke. */
+function AddNote({ act }: { act: Act }) {
+  const [text, setText] = useState('');
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    const note = text.trim();
+    if (!note) return;
+    setText('');
+    if (!(await act({ type: 'add-note', text: note }, { anchor: ADD_NOTE_ANCHOR }))) setText(note);
   };
-  return multiline ? (
-    <textarea {...common} rows={3} onChange={(e) => change(e.target.value)} />
-  ) : (
-    <input {...common} onChange={(e) => change(e.target.value)} />
+  return (
+    <>
+      <form onSubmit={(e) => void add(e)} className="mt-2 flex gap-2">
+        <input
+          value={text}
+          maxLength={MAX_NOTE_ITEM_LENGTH}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Add a note"
+          aria-label="Add a note"
+          enterKeyHint="send"
+          className="h-10 min-w-0 flex-1 rounded-lg bg-white px-3 text-sm ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+        />
+        <Button type="submit" disabled={!text.trim()}>
+          Add
+        </Button>
+      </form>
+      <RefusalSlot anchor={ADD_NOTE_ANCHOR} />
+    </>
+  );
+}
+
+/** Your team's list of notes about the other team, shared with your team only. */
+function NotesPanel({ view, act }: { view: EnigmaView; act: Act }) {
+  const names = useMemo(() => new Map(view.seats.map((s) => [s.id, s.name])), [view.seats]);
+  const onRemove = useCallback(
+    (id: string) => void act({ type: 'remove-note', id }, { anchor: ADD_NOTE_ANCHOR }),
+    [act],
+  );
+  if (!view.notes) return null;
+  return (
+    <section aria-label="Team notes panel" className="mt-3">
+      <h4 className="text-sm font-semibold">Team notes</h4>
+      <p className="mb-1 text-xs text-stone-500 dark:text-stone-400">
+        Shared with your team only. Anyone can add or remove a note.
+      </p>
+      <NoteList items={view.notes.items} names={names} onRemove={onRemove} />
+      <AddNote act={act} />
+    </section>
   );
 }
 
@@ -105,7 +256,6 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
 export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Team; act: Act }) {
   const columns = cluesByKeyword(view, team);
   const notes = view.notes;
-  const editor = notes?.editedBy ? view.seats.find((s) => s.id === notes.editedBy)?.name : null;
   return (
     <Panel>
       <h3 className={cn('mb-1 font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]}'s clues</h3>
@@ -118,12 +268,12 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
             <p className="text-xs font-bold text-stone-500 dark:text-stone-400">#{i + 1} · ?</p>
             {notes && (
               <div className="mt-1">
-                <SharedText
+                <GuessField
+                  slot={i + 1}
                   label={`Our guess for ${TEAM_LABEL[team]} keyword ${i + 1}`}
+                  anchor={`enigma-guess-${i + 1}`}
                   value={notes.guesses[i] ?? ''}
-                  maxLength={MAX_NOTE_LENGTH}
-                  placeholder="We think it's…"
-                  onSave={(text) => void act({ type: 'set-note', slot: i + 1, text })}
+                  act={act}
                 />
               </div>
             )}
@@ -131,24 +281,7 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
           </div>
         ))}
       </div>
-      {notes && (
-        <div className="mt-3">
-          <label className="text-sm font-semibold">Team notes</label>
-          <SharedText
-            label="Team notes"
-            multiline
-            value={notes.general}
-            maxLength={MAX_GENERAL_NOTE_LENGTH}
-            placeholder="Shared with your team only…"
-            onSave={(text) => void act({ type: 'set-note', slot: 'general', text })}
-          />
-          {editor && (
-            <p className="text-[0.7rem] text-stone-500 dark:text-stone-400">
-              Last edited by {editor}
-            </p>
-          )}
-        </div>
-      )}
+      {notes && <NotesPanel view={view} act={act} />}
     </Panel>
   );
 }

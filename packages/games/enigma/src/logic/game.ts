@@ -19,13 +19,17 @@ import {
   type EnigmaView,
   FIRST_INTERCEPT_ROUND,
   KEYWORD_COUNT,
+  LEGACY_NOTE_ID,
   MAX_CHAT_MESSAGES,
-  MAX_NOTE_LENGTH,
+  MAX_NOTE_ITEMS,
   MAX_ROUNDS,
   MIN_TEAM_SIZE,
+  type NoteItem,
+  type NotesView,
   type Role,
   type Seat,
   type Team,
+  type TeamNotes,
   type TeamState,
   type Transmission,
   type TransmissionView,
@@ -61,7 +65,14 @@ function emptyTeam(keywords: string[] = [], encryptorTurn = 0): TeamState {
     misses: 0,
     history: [],
     chat: [],
-    notes: { guesses: Array<string>(KEYWORD_COUNT).fill(''), general: '', editedBy: null },
+    notes: {
+      guesses: Array<string>(KEYWORD_COUNT).fill(''),
+      guessedBy: Array<PlayerId | null>(KEYWORD_COUNT).fill(null),
+      general: '',
+      editedBy: null,
+      items: [],
+      nextNoteId: 1,
+    },
     encryptorTurn,
   };
 }
@@ -479,25 +490,91 @@ function chat(state: EnigmaState, text: string, ctx: Ctx): Result {
   return { ...state, teams: { ...state.teams, [seat.team]: { ...t, chat: messages } } };
 }
 
-function setNote(state: EnigmaState, slot: number | 'general', text: string, ctx: Ctx): Result {
+/**
+ * Whether a player may change their team's notes (add, remove, or set a keyword guess). Every
+ * note action goes through this one check.
+ */
+export function canWriteNotes(_state: EnigmaState, _id: PlayerId): boolean {
+  return true;
+}
+
+/**
+ * A team's notes as a list, with a room's old single notes field (from before notes became a
+ * list) shown as its first item so it can still be read and removed.
+ */
+function noteItems(notes: TeamNotes): NoteItem[] {
+  const items = notes.items ?? [];
+  if (!notes.general.trim()) return items;
+  const legacy = { id: LEGACY_NOTE_ID, by: notes.editedBy ?? '', text: notes.general, at: 0 };
+  return [legacy, ...items];
+}
+
+/** Moves a team's notes onto the current shape, before any change. */
+function currentNotes(notes: TeamNotes): Required<TeamNotes> {
+  return {
+    guesses: notes.guesses,
+    guessedBy: notes.guessedBy ?? Array<PlayerId | null>(KEYWORD_COUNT).fill(null),
+    general: '',
+    editedBy: notes.general.trim() ? null : notes.editedBy,
+    items: noteItems(notes),
+    nextNoteId: notes.nextNoteId ?? 1,
+  };
+}
+
+/** Applies `change` to the acting player's team's notes, if they may write them. */
+function updateNotes(
+  state: EnigmaState,
+  ctx: Ctx,
+  change: (notes: Required<TeamNotes>) => Required<TeamNotes> | GameError,
+): Result {
   const seat = teamSeat(state, ctx.by);
   if (seat instanceof GameError) return seat;
-  if (slot !== 'general' && text.length > MAX_NOTE_LENGTH) {
-    return new GameError(
-      'note-too-long',
-      `Keyword guesses are at most ${MAX_NOTE_LENGTH} characters.`,
-    );
+  if (!canWriteNotes(state, ctx.by)) {
+    return new GameError('notes-muted', 'You can’t change the notes right now.');
   }
   const t = state.teams[seat.team];
-  const notes =
-    slot === 'general'
-      ? { ...t.notes, general: text, editedBy: ctx.by }
-      : {
-          ...t.notes,
-          guesses: t.notes.guesses.map((g, i) => (i === slot - 1 ? text : g)),
-          editedBy: ctx.by,
-        };
+  const notes = change(currentNotes(t.notes));
+  if (notes instanceof GameError) return notes;
   return { ...state, teams: { ...state.teams, [seat.team]: { ...t, notes } } };
+}
+
+function setGuess(state: EnigmaState, slot: number, text: string, base: string, ctx: Ctx): Result {
+  return updateNotes(state, ctx, (notes) => {
+    const i = slot - 1;
+    const stored = notes.guesses[i] ?? '';
+    if (stored === text) return notes;
+    if (stored !== base) {
+      const by = notes.guessedBy[i];
+      const name = (by && state.seats[by]?.name) || 'A teammate';
+      return new GameError('note-conflict', `${name} just changed this`);
+    }
+    return {
+      ...notes,
+      guesses: notes.guesses.map((g, j) => (j === i ? text : g)),
+      guessedBy: notes.guessedBy.map((b, j) => (j === i ? ctx.by : b)),
+    };
+  });
+}
+
+function addNote(state: EnigmaState, text: string, ctx: Ctx): Result {
+  return updateNotes(state, ctx, (notes) => {
+    if (notes.items.length >= MAX_NOTE_ITEMS) {
+      return new GameError(
+        'notes-full',
+        `Your team has ${MAX_NOTE_ITEMS} notes, the most it can keep. Remove one to add another.`,
+      );
+    }
+    const item = { id: `n${notes.nextNoteId}`, by: ctx.by, text, at: ctx.now };
+    return { ...notes, items: [...notes.items, item], nextNoteId: notes.nextNoteId + 1 };
+  });
+}
+
+/** Any teammate may remove any note. A note that is already gone is fine: someone beat you to it. */
+function removeNote(state: EnigmaState, id: string, ctx: Ctx): Result {
+  return updateNotes(state, ctx, (notes) => ({
+    ...notes,
+    items: notes.items.filter((n) => n.id !== id),
+  }));
 }
 
 function nextRound(state: EnigmaState, ctx: Ctx): Result {
@@ -562,7 +639,11 @@ function reduce(state: EnigmaState, action: EnigmaAction, ctx: Ctx): Result {
     case 'chat':
       return chat(state, action.text, ctx);
     case 'set-note':
-      return setNote(state, action.slot, action.text, ctx);
+      return setGuess(state, action.slot, action.text, action.base, ctx);
+    case 'add-note':
+      return addNote(state, action.text, ctx);
+    case 'remove-note':
+      return removeNote(state, action.id, ctx);
     case 'next-round':
       return nextRound(state, ctx);
   }
@@ -734,6 +815,10 @@ function transmissionView(
   };
 }
 
+function notesView(notes: TeamNotes): NotesView {
+  return { guesses: notes.guesses, items: noteItems(notes) };
+}
+
 function view(state: EnigmaState, viewer: PlayerId | null): EnigmaView {
   const mySeat = viewer === null ? undefined : state.seats[viewer];
   const myTeam = mySeat?.team ?? null;
@@ -757,7 +842,7 @@ function view(state: EnigmaState, viewer: PlayerId | null): EnigmaView {
     teams: { red: teamView('red'), blue: teamView('blue') },
     transmissions: state.transmissions.map((tx, i) => transmissionView(state, tx, i, viewer)),
     chat: myTeam ? state.teams[myTeam].chat : [],
-    notes: myTeam ? state.teams[myTeam].notes : null,
+    notes: myTeam ? notesView(state.teams[myTeam].notes) : null,
     deadline: state.deadline,
     winner: state.winner,
   };

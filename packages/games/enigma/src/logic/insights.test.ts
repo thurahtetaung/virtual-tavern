@@ -147,7 +147,8 @@ describe('insights', () => {
     const h = startedGame();
     const { take } = record(h);
     h.act({ type: 'chat', text: 'secret plan' }, 'r2');
-    h.act({ type: 'set-note', slot: 1, text: 'maybe ocean' }, 'b2');
+    h.act({ type: 'set-note', slot: 1, text: 'maybe ocean', base: '' }, 'b2');
+    h.act({ type: 'add-note', text: 'their 2 is weather' }, 'b2');
     sendClues(h, 'red');
     sendClues(h, 'blue');
     take();
