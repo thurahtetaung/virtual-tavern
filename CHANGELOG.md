@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.1...v0.13.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **server:** never sweep rooms people are in, and count visits as activity ([#63](https://github.com/thurahtetaung/virtual-tavern/issues/63)) ([c5347b4](https://github.com/thurahtetaung/virtual-tavern/commit/c5347b4b8eaab5a4cbac8ee9a0c7e726356a2db9))
+
 ## [0.13.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.13.0...v0.13.1) (2026-10-11)
 
 
