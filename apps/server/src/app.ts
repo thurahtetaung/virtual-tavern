@@ -220,6 +220,7 @@ export function buildApp(opts: AppOptions) {
       games,
       unlocked: (req) => requestUnlocked(req, backroom),
       titles: privateGames,
+      forget: (playerId) => recorder.forget(playerId),
     });
     adminRoutes(scope, { auth: adminAuth, wordLists, questionDecks, backroom, now });
     backroomRoutes(scope, { backroom, games, assets, questionDecks, privateGames });

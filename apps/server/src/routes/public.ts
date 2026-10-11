@@ -1,9 +1,13 @@
-import { type GameSummary, createRoomBody, roomId } from '@vt/protocol';
+import { type GameSummary, createRoomBody, playerToken, roomId } from '@vt/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import type { RoomManager } from '../rooms/manager.ts';
 import type { WordListRepo } from '../word-lists.ts';
+import { z } from 'zod';
+
+/** The browser's secret token; the server only ever keeps the id derived from it. */
+const forgetBody = z.object({ token: playerToken });
 
 export function publicRoutes(
   app: FastifyInstance,
@@ -15,9 +19,11 @@ export function publicRoutes(
     unlocked: (req: FastifyRequest) => boolean;
     /** Admin-set titles for private games, sent only to unlocked browsers. */
     titles?: { title(gameId: string): string | null };
+    /** Deletes what stats keep about a player; returns how many rows changed. */
+    forget?: (playerId: string) => number;
   },
 ) {
-  const { rooms, wordLists, games, unlocked, titles } = opts;
+  const { rooms, wordLists, games, unlocked, titles, forget } = opts;
   // A private game's title from the database; it only goes where the game itself is visible.
   const titleOf = (gameId: string) => {
     if (!isPrivate(games.get(gameId))) return {};
@@ -61,6 +67,21 @@ export function publicRoutes(
         return reply.code(400).send({ error: { code: 'bad-request', message: 'Unknown game.' } });
       }
       return { roomId: rooms.create(body.data.gameId, playerIdFromToken(body.data.token)) };
+    },
+  );
+
+  // "Forget me": the browser proves who it is with its own token, so nobody can erase someone else.
+  app.post(
+    '/api/me/forget',
+    { config: { rateLimit: { max: 3, timeWindow: '1 minute' } } },
+    (req, reply) => {
+      const body = forgetBody.safeParse(req.body);
+      if (!body.success || !forget) {
+        return reply
+          .code(400)
+          .send({ error: { code: 'bad-request', message: 'Nothing to forget.' } });
+      }
+      return { ok: true, removed: forget(playerIdFromToken(body.data.token)) };
     },
   );
 

@@ -53,7 +53,10 @@ No. You just pick a name. There are no sign-ups, emails or passwords.
 **What do you store about me?**
 
 - **In your browser:** your chosen name and a random ID, so you can rejoin your seat.
-- **On the server:** the rooms and games you play, plus anonymous play statistics, such as which games were played and how they ended. These are tied to that random ID, never to who you are.
+- **On the server:** the rooms and games you play, the names you've played under, and play statistics, such as which games you played and how they ended.
+
+**Is that anonymous?**
+Anonymous, but recognisable. Everything is tied to a random ID your browser made up, not to who you are: no email, no real name, no IP address in the tavern's records. But that ID stays the same every time you play from the same browser, so the tavern can tell it's "you again" (that's how the stats know who keeps getting caught as the spy). Different phone, different ID.
 
 **Do you use cookies or trackers?**
 No advertising or tracking cookies.
@@ -65,7 +68,9 @@ A room is deleted about a week after the last time anyone was in it.
 Only people with the link. Room links are long and unguessable, and rooms aren't listed anywhere.
 
 **Can I delete my data?**
-Clearing this site's data in your browser forgets your name and ID. Old rooms delete themselves.
+Yes. Scroll to the bottom of this section, open **🧹 Forget me**, type "forget me", and press **Delete my data**. The server deletes your play history and the names it keeps for that browser, your part in past games becomes "forgotten", and your browser starts afresh. It's tucked away on purpose, so nobody does it by accident. Each device is its own player, so do it on every phone you've played on.
+
+Just clearing this site's data in your browser makes it forget you on that device, but it doesn't delete anything on the server. Rooms delete themselves about a week after anyone was last in them.
 
 ## The back room
 
@@ -75,4 +80,10 @@ A password-protected corner of the site for the owner's friends. If you don't ha
 ## The games
 
 **Are these games yours?**
-No. They're fairly faithful versions of popular, well-loved party games, made so a group of friends can play together. They're for friends only, not for sale or wider use. All intellectual property, including the original games, names, rules, artwork and content, belongs to the original creators.
+No. They're fairly faithful versions of popular, well-loved party games, made so a group of friends can play together. They're for friends only, not for sale or wider use. All intellectual property, including the original games, names, rules, artwork and content, belongs to the original creators. No copyright infringement is intended.
+
+**Should I buy the real games?**
+Yes, please! If you enjoy a game here, the original is better: real cards in your hands, the full box, and the clever people who made it get paid for their work. Buy the physical games, the expansions and the official apps, and support the designers and artists behind them. The tavern is just a way to play with friends who are far away.
+
+**How can I give back?**
+That's sweet of you. Just send some BTC to bc1q-tavern-tip-jar… sike! Please don't, that's not even a real address. Donate to your favourite charity instead, and if you want to, tell them the tavern sent you. 🍻

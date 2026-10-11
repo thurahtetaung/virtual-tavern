@@ -44,6 +44,9 @@ const toEvent = (r: EventRow): StatsEvent => ({
 
 const EXPORT_PAGE = 1000;
 
+/** What a forgotten player's id becomes in other players' events. */
+export const FORGOTTEN = 'forgotten';
+
 const TABLES = [
   'stats_events',
   'stats_players',
@@ -199,6 +202,28 @@ export class SqliteStatsStore implements StatsStore, StatsQueries {
     return this.sql
       .prepare('delete from stats_events where day < ? and day in (select day from stats_rollups)')
       .run(beforeDay).changes;
+  }
+
+  forgetPlayer(playerId: string): number {
+    return this.sql.transaction(() => {
+      let changes = 0;
+      for (const table of [
+        'stats_events',
+        'stats_players',
+        'stats_player_names',
+        'stats_daily_players',
+      ])
+        changes += this.sql
+          .prepare(`delete from ${table} where player_id = ?`)
+          .run(playerId).changes;
+      // Ids are long random hex, so a plain replace can't touch anything else.
+      changes += this.sql
+        .prepare(
+          `update stats_events set props = replace(props, ?, '${FORGOTTEN}') where instr(props, ?) > 0`,
+        )
+        .run(playerId, playerId).changes;
+      return changes;
+    })();
   }
 
   *exportNdjson(from: string, to: string): Iterable<string> {

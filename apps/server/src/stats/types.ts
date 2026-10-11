@@ -69,6 +69,12 @@ export interface StatsStore {
   unrolledDays(today: string): string[];
   /** Deletes raw events of rolled-up days before `beforeDay`; returns how many. */
   prune(beforeDay: string): number;
+  /**
+   * Forgets a player: deletes their events, names and per-player totals, and replaces their id
+   * wherever other events mention it (a co-winner, a vote target). Anonymous day totals stay.
+   * Returns how many rows were removed or scrubbed.
+   */
+  forgetPlayer(playerId: string): number;
   /** Raw events with `from <= day <= to`, in time order. */
   exportNdjson(from: string, to: string): Iterable<string>;
   /** Forgets every stat (events, rollups, players). */

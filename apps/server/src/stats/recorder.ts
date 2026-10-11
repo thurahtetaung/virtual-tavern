@@ -159,6 +159,14 @@ export class StatsRecorder implements RoomObserver {
   }
 
   /** Players seen (any activity) since `since`. */
+  /** Forgets a player everywhere stats keep them; returns how many stored rows changed. */
+  forget(playerId: string): number {
+    this.flush();
+    this.gamesPlayed.delete(playerId);
+    this.recent.delete(playerId);
+    return this.store.forgetPlayer(playerId);
+  }
+
   recentPlayers(since: number): string[] {
     const out: string[] = [];
     for (const [id, at] of this.recent) {
