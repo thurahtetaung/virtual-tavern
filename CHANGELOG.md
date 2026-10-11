@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.12.1...v0.13.0) (2026-10-11)
+
+
+### Features
+
+* **nightfall:** add Nightfall, a one-night werewolf game in the back room ([#58](https://github.com/thurahtetaung/virtual-tavern/issues/58)) ([3a37f58](https://github.com/thurahtetaung/virtual-tavern/commit/3a37f58f19c42508f89972ef2d492cf4f0ca6c92))
+
+
+### Bug Fixes
+
+* **scripts:** upload audio assets and steady the Royal Post test turns ([#59](https://github.com/thurahtetaung/virtual-tavern/issues/59)) ([b545712](https://github.com/thurahtetaung/virtual-tavern/commit/b5457122f65050552b738eb7458a679ab43969b6))
+
 ## [0.12.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.12.0...v0.12.1) (2026-10-11)
 
 
