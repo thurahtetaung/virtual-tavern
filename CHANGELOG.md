@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.25.0...v0.26.0) (2026-10-12)
+
+
+### Features
+
+* **playtest:** add bots ([#104](https://github.com/thurahtetaung/virtual-tavern/issues/104)) ([d0c7777](https://github.com/thurahtetaung/virtual-tavern/commit/d0c77772c700ad08f6834d88cf11524a1d206acb))
+
 ## [0.25.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.24.1...v0.25.0) (2026-10-12)
 
 
