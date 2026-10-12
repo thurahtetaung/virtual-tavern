@@ -161,8 +161,13 @@ export function Seats({
       : deck.includes('merlin')
         ? 'Merlin'
         : 'Morgana';
+  // Big tables get a third column on phones, so every seat stays above the pinned action panel.
+  const compact = g.players.length > 6;
   return (
-    <ul aria-label="Seats" className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+    <ul
+      aria-label="Seats"
+      className={cn('grid gap-1.5 sm:grid-cols-3', compact ? 'grid-cols-3' : 'grid-cols-2')}
+    >
       {g.players.map((p) => {
         const me = p.id === view.me?.id;
         const onTeam = team.includes(p.id);
@@ -180,7 +185,10 @@ export function Seats({
               aria-label={pick ? pick.label(p.name) : p.name}
               onClick={() => pick?.onPick(p.id)}
               className={cn(
-                'flex min-h-12 w-full flex-col items-start justify-center rounded-xl py-1 pr-9 pl-2.5 text-left',
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left',
+                compact
+                  ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
+                  : 'min-h-12 pr-9 pl-2.5',
                 selected
                   ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
                   : waiting.includes(p.id)
@@ -192,7 +200,16 @@ export function Seats({
             >
               <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
-                {me && <span className="text-xs font-normal text-stone-500">(you)</span>}
+                {me && (
+                  <span
+                    className={cn(
+                      'text-xs font-normal text-stone-500',
+                      compact && 'hidden sm:inline',
+                    )}
+                  >
+                    (you)
+                  </span>
+                )}
                 {g.leader === p.id && view.phase === 'playing' && (
                   <span title="Leader: picks the team" aria-label="leader">
                     👑
@@ -216,6 +233,7 @@ export function Seats({
                 )}
               </span>
               <span className="flex flex-wrap items-center gap-1 text-[0.7rem] leading-tight">
+                {me && compact && <span className="text-stone-500 sm:hidden">you</span>}
                 {k === 'evil' && (
                   <span className="rounded-full bg-red-600 px-1.5 font-bold text-white">Evil</span>
                 )}
@@ -242,12 +260,16 @@ export function Seats({
               onClick={() => onMark(p.id)}
               aria-label={`Your private mark on ${p.name}: ${mark === 'trust' ? 'trusted' : mark === 'doubt' ? 'suspected' : 'none'}`}
               title="Your private note: ⭐ trust, ✕ suspect (only you see it)"
-              className="absolute top-0 right-0 flex size-11 items-center justify-center text-base"
+              className={cn(
+                'absolute top-0 right-0 flex items-center justify-center text-base',
+                compact ? 'size-9 sm:size-11' : 'size-11',
+              )}
             >
               <span
                 aria-hidden
                 className={cn(
-                  'flex size-6 items-center justify-center rounded-full text-sm ring-1',
+                  'flex items-center justify-center rounded-full ring-1',
+                  compact ? 'size-5 text-xs sm:size-6 sm:text-sm' : 'size-6 text-sm',
                   mark === 'trust' && 'bg-amber-300 text-amber-950 ring-amber-500',
                   mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
                   !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
