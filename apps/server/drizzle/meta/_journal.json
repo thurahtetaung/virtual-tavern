@@ -71,6 +71,13 @@
       "when": 1791778987106,
       "tag": "0009_room_test",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791800662945,
+      "tag": "0010_room_playtest",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,12 @@
 import type { Superlative } from '@vt/game-sdk';
+import { createContext, useContext } from 'react';
 import { cn } from './cn.ts';
+
+/**
+ * A caption the room shell puts over every game's superlatives, e.g. "Playtest preview: not
+ * saved" in an admin playtest. Null (the default) shows none.
+ */
+export const SuperlativesNote = createContext<string | null>(null);
 
 /**
  * The finished game's superlatives: two or three award lines on every end screen, from the night
@@ -12,6 +19,7 @@ export function Superlatives({
   lines: readonly Superlative[] | undefined;
   className?: string;
 }) {
+  const note = useContext(SuperlativesNote);
   if (!lines?.length) return null;
   return (
     <section
@@ -21,6 +29,11 @@ export function Superlatives({
         className,
       )}
     >
+      {note && (
+        <p className="pt-1 text-xs font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-300/80">
+          {note}
+        </p>
+      )}
       <dl className="divide-y divide-amber-200/70 dark:divide-amber-500/20">
         {lines.map((line) => (
           <div key={`${line.title}:${line.text}`} className="py-1.5">

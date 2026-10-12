@@ -1503,3 +1503,47 @@ for (const [label, viewport, colorScheme] of [
     expect(errors).toEqual([]);
   });
 }
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`playtest screenshots (${label})`, async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport,
+      colorScheme: label === 'phone' ? 'dark' : 'light',
+    });
+    const admin = await context.newPage();
+    await ownLoginLimit(admin);
+    await admin.goto('/tavern-keeper');
+    await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
+    await admin.getByRole('button', { name: 'Sign in' }).click();
+    await admin.getByRole('link', { name: '🧪 Playtest' }).click();
+    await admin.getByRole('radio', { name: /^Round Table/ }).click();
+    await admin.screenshot({
+      path: `test-results/shots/${label}-playtest-setup.png`,
+      fullPage: true,
+    });
+    const opened = context.waitForEvent('page');
+    await admin.getByRole('button', { name: 'Start playtest' }).click();
+    const ana = await opened;
+    await expect(ana.getByTestId('playtest-seat')).toHaveText('Ana');
+    await expect(admin.getByRole('link', { name: 'Open Ben' })).toBeVisible();
+    await admin.screenshot({
+      path: `test-results/shots/${label}-playtest-running.png`,
+      fullPage: true,
+    });
+    const next = context.waitForEvent('page');
+    await admin.getByRole('link', { name: 'Open Ben' }).click();
+    const ben = await next;
+    await expect(ben.getByTestId('playtest-seat')).toHaveText('Ben');
+    await ana.bringToFront();
+    await ana.screenshot({ path: `test-results/shots/${label}-playtest-bar-host.png` });
+    await ben.bringToFront();
+    await ben.screenshot({ path: `test-results/shots/${label}-playtest-bar-seat.png` });
+    ana.on('dialog', (d) => void d.accept());
+    await ana.getByRole('button', { name: 'End playtest' }).click();
+    await expect(ben.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
+    await context.close();
+  });
+}

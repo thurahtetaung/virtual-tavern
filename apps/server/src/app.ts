@@ -3,20 +3,28 @@ import { isIP } from 'node:net';
 import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyServerOptions } from 'fastify';
-import { AdminAuth } from './admin-auth.ts';
+import Fastify, { type FastifyRequest, type FastifyServerOptions } from 'fastify';
+import { ADMIN_COOKIE, AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { R2Assets, type R2Config } from './r2.ts';
-import { announceNextTable, attachRealtime, createRoomEvents } from './realtime.ts';
+import {
+  announceNextTable,
+  attachRealtime,
+  countSockets,
+  createRoomEvents,
+  sendPlaytestAwards,
+} from './realtime.ts';
 import { RecapStore } from './recap/hall.ts';
 import { RecapService } from './recap/service.ts';
 import { RecapSettings } from './recap/settings.ts';
 import { RoomManager } from './rooms/manager.ts';
+import { PlaytestPreview } from './rooms/preview.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes, requestUnlocked } from './routes/backroom.ts';
+import { playtestRoutes } from './routes/playtest.ts';
 import { privateGameAdminRoutes } from './routes/private-games.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
@@ -56,6 +64,10 @@ export interface AppOptions {
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
+/** How often ended playtests are looked for. */
+const PLAYTEST_SWEEP_EVERY_MS = 5 * 60_000;
+/** A playtest with no seat connected for this long is deleted. */
+export const PLAYTEST_IDLE_MS = 15 * 60_000;
 const LIVE_SAMPLE_MS = 60_000;
 
 /** Short error codes for the statuses Fastify and its plugins raise on their own. */
@@ -134,6 +146,8 @@ export function buildApp(opts: AppOptions) {
   const isTestRoom = (roomId: string) => rooms.isTest(roomId);
   const recorder = new StatsRecorder({ store: stats, logger: app.log, isTestRoom });
   const recapSettings = new RecapSettings(db, now);
+  /** Whether a request carries a current admin session. */
+  const isAdminRequest = (req: FastifyRequest) => adminAuth?.isAdmin(req, now()) ?? false;
   const recapStore = new RecapStore(db);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
   const maintainStats = () => {
@@ -164,6 +178,8 @@ export function buildApp(opts: AppOptions) {
     logger: app.log,
     observer: {
       observe(o) {
+        // A playtest's awards are worked out in memory, never recorded (it is a test room too).
+        if (o.kind === 'room.swept' || rooms.isPlaytest(o.roomId)) preview.observe(o);
         recorder.observe(o);
         if (o.kind === 'room.swept') recapSettings.forget(o.roomId);
         // A test room never freezes a night; a sweep still clears up after it.
@@ -185,6 +201,14 @@ export function buildApp(opts: AppOptions) {
     now,
     isTestRoom,
   });
+  const preview = new PlaytestPreview({
+    games,
+    tone: (roomId) => recapSettings.room(roomId).tone,
+    send: (roomId, lines) => {
+      if (realtime.io) sendPlaytestAwards(realtime.io, roomId, lines);
+    },
+    logger: app.log,
+  });
   const io = (realtime.io = attachRealtime(
     app.server,
     rooms,
@@ -197,14 +221,21 @@ export function buildApp(opts: AppOptions) {
         const { valid, value } = app.unsignCookie(raw);
         return valid && backroom.isUnlocked(value);
       },
+      isPlaytest: (roomId) => rooms.isPlaytest(roomId),
+      isAdmin: (header) => {
+        const raw = header ? app.parseCookie(header)[ADMIN_COOKIE] : undefined;
+        if (!raw || !adminAuth) return false;
+        const { valid, value } = app.unsignCookie(raw);
+        return valid && adminAuth.isAdminValue(value, now());
+      },
     },
-    { recap, isTestTraffic },
+    { recap, isTestTraffic, playtestAwards: (roomId) => preview.latest(roomId) },
   ));
 
   // A new password or "Sign everyone out" sends players in back-room rooms to the door right
   // away: the broadcast re-checks every socket's unlock and turns the stale ones away.
   backroom.onVersionChange(() => {
-    for (const room of rooms.liveRooms()) {
+    for (const room of rooms.occupiedRooms()) {
       if (isPrivate(games.get(room.gameId))) roomEvents.changed(room.id);
     }
   });
@@ -215,10 +246,17 @@ export function buildApp(opts: AppOptions) {
     maintainStats();
   }, SWEEP_EVERY_MS);
   sweeper.unref();
+  const playtestSweeper = setInterval(() => {
+    const removed = rooms.sweepPlaytests(PLAYTEST_IDLE_MS);
+    if (removed) app.log.info({ removed }, 'swept idle playtests');
+  }, PLAYTEST_SWEEP_EVERY_MS);
+  playtestSweeper.unref();
 
   const live = new LiveTracker({
     rooms: () => rooms.liveRooms(),
-    sockets: () => io.engine.clientsCount,
+    // Seat tabs of a playtest (and test traffic) are not real visitors.
+    sockets: () => countSockets(io, (roomId) => rooms.isTest(roomId)),
+    playtests: () => rooms.playtestsRunning(),
     recentPlayers: (since) => recorder.recentPlayers(since),
     gameName: (id) => games.get(id)?.name ?? id,
     now,
@@ -274,6 +312,7 @@ export function buildApp(opts: AppOptions) {
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
       isTestTraffic: (req) => isTestTraffic(req.headers),
       roomCreateLimit: opts.roomCreateLimit ?? 20,
+      isAdmin: isAdminRequest,
       linked: (from, next) => {
         const privateTable = isPrivate(games.get(next.gameId));
         for (const roomId of from) announceNextTable(io, roomId, next, privateTable);
@@ -287,10 +326,18 @@ export function buildApp(opts: AppOptions) {
       recapSettings,
       now,
     });
-    backroomRoutes(scope, { backroom, games, assets, questionDecks, privateGames });
+    backroomRoutes(scope, {
+      backroom,
+      games,
+      assets,
+      questionDecks,
+      privateGames,
+      isAdmin: isAdminRequest,
+    });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       privateGameAdminRoutes(admin, { games, assets, settings: privateGames });
+      playtestRoutes(admin, { rooms, games, titles: privateGames, now });
       statsRoutes(admin, {
         queries: stats,
         store: stats,
@@ -318,7 +365,12 @@ export function buildApp(opts: AppOptions) {
   if (opts.webDist && existsSync(opts.webDist)) {
     // Private games' code is built into /backroom-assets/ and only served to unlocked players.
     app.addHook('onRequest', (req, reply, done) => {
-      if (req.url.startsWith('/backroom-assets/') && !requestUnlocked(req, backroom)) {
+      // The admin may load them too, to play-test any game.
+      if (
+        req.url.startsWith('/backroom-assets/') &&
+        !requestUnlocked(req, backroom) &&
+        !isAdminRequest(req)
+      ) {
         void reply.code(404).send({ error: { code: 'not-found', message: 'Not found.' } });
         return;
       }
@@ -364,6 +416,7 @@ export function buildApp(opts: AppOptions) {
   });
   app.addHook('onClose', (_app, done) => {
     clearInterval(sweeper);
+    clearInterval(playtestSweeper);
     clearInterval(liveSampler);
     rooms.close();
     recorder.close();

@@ -7,8 +7,10 @@ const HOUR_POINTS = 60;
 
 export interface LiveDeps {
   rooms: () => LiveRoomInfo[];
-  /** Open socket connections. */
+  /** Open socket connections (never those in test rooms). */
   sockets: () => number;
+  /** Admin playtests with someone in them (never counted as rooms). */
+  playtests?: () => number;
   /** Players with any activity since the given time. */
   recentPlayers: (since: number) => string[];
   /** A game's display name (private games included: only admins read this). */
@@ -58,6 +60,7 @@ export class LiveTracker {
     return {
       now,
       sockets: this.deps.sockets(),
+      playtests: this.deps.playtests?.() ?? 0,
       playersOnline: online.size,
       playersRecent: recent.size,
       rooms,

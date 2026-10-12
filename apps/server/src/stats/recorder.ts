@@ -100,7 +100,7 @@ export function settingsOf(state: unknown): string[] {
 }
 
 /** Changes whenever play moves to a new step, which restarts the time-to-act clock. */
-function stageKey(state: unknown): string {
+export function stageKey(state: unknown): string {
   const s = shape(state);
   const t = s.turn ?? {};
   return JSON.stringify([

@@ -1,13 +1,15 @@
+import { storageKey } from '@vt/game-sdk';
 import { useCallback, useEffect, useState } from 'react';
 
 export type Mark = 'crossed' | 'starred';
 export type Marks = Record<string, Mark>;
 
-const PREFIX = 'vt.masquerade.board.';
+/** Per seat in a playtest, so each seat tab keeps its own board. */
+const prefix = () => `${storageKey('vt.masquerade.board')}.`;
 
 function load(key: string): Marks {
   try {
-    const raw = localStorage.getItem(PREFIX + key);
+    const raw = localStorage.getItem(prefix() + key);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
     if (!parsed || typeof parsed !== 'object') return {};
     return Object.fromEntries(
@@ -23,6 +25,7 @@ function load(key: string): Marks {
 function save(key: string, marks: Marks) {
   try {
     // Only the current deal's notes are worth keeping.
+    const PREFIX = prefix();
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
       if (k?.startsWith(PREFIX) && k !== PREFIX + key) localStorage.removeItem(k);

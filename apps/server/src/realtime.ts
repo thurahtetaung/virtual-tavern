@@ -3,6 +3,7 @@ import {
   type AckWith,
   type ClientToServerEvents,
   type NextTable,
+  type RecapLine,
   type ServerToClientEvents,
   joinRoomPayload,
   playerName,
@@ -29,11 +30,40 @@ type ClientSocket = Socket<
 
 const channel = (roomId: string) => `room:${roomId}`;
 
-/** Decides who may enter private (back-room) rooms. */
+/** Decides who may enter private (back-room) rooms and admin playtests. */
 export interface RoomGate {
   isPrivateRoom(roomId: string): boolean;
   /** Whether a raw `Cookie` header carries a current back-room unlock. */
   isUnlocked(cookieHeader: string | undefined): boolean;
+  /** Whether the room is an admin playtest (only admins may be in it). Default: never. */
+  isPlaytest?(roomId: string): boolean;
+  /** Whether a raw `Cookie` header carries a current admin session. Default: never. */
+  isAdmin?(cookieHeader: string | undefined): boolean;
+}
+
+/**
+ * Who may be in a room. A playtest takes an admin session instead of the back-room unlock (only
+ * for playtests); every other room needs the unlock when it is private, as always.
+ */
+function roomAccess(gate: RoomGate | undefined, roomId: string) {
+  if (gate?.isPlaytest?.(roomId)) return (cookie: string | undefined) => !!gate.isAdmin?.(cookie);
+  if (gate?.isPrivateRoom(roomId)) return (cookie: string | undefined) => gate.isUnlocked(cookie);
+  return null;
+}
+
+/** Sends a playtest's award preview to everyone in the room. */
+export function sendPlaytestAwards(io: IO, roomId: string, lines: RecapLine[]): void {
+  io.to(channel(roomId)).emit('room:playtestAwards', lines);
+}
+
+/** Open sockets that are not in a test room (playtests and test traffic are never counted). */
+export function countSockets(io: IO, isTestRoom: (roomId: string) => boolean): number {
+  let n = 0;
+  for (const s of io.sockets.sockets.values()) {
+    const { roomId } = s.data;
+    if (!roomId || !isTestRoom(roomId)) n += 1;
+  }
+  return n;
 }
 
 /** Per-socket budget for client events (token bucket). */
@@ -54,6 +84,8 @@ export interface RealtimeOptions {
   recap?: RecapService;
   /** Whether a handshake is test traffic (`x-vt-test`); rooms it joins record no stats. */
   isTestTraffic?: (headers: IncomingHttpHeaders) => boolean;
+  /** A playtest's award preview to send a seat that (re)joins, if its game just ended. */
+  playtestAwards?: (roomId: string) => RecapLine[] | null;
 }
 
 /** Broadcast messages at least this big are compressed. */
@@ -108,8 +140,7 @@ export function createRoomEvents(
       const io = getIo();
       const ids = io?.of('/').adapter.rooms.get(channel(roomId));
       if (!io || !ids) return;
-      const gate = gates.get(io);
-      const isPrivate = gate?.isPrivateRoom(roomId) ?? false;
+      const access = roomAccess(gates.get(io), roomId);
       // One gate check per distinct cookie, one view per player, one encode per player.
       const unlockedByCookie = new Map<string | undefined, boolean>();
       const socketsByPlayer = new Map<string, string[]>();
@@ -118,11 +149,11 @@ export function createRoomEvents(
         const s = io.sockets.sockets.get(id);
         const playerId = s?.data.playerId;
         if (!s || !playerId) continue;
-        if (isPrivate && gate) {
+        if (access) {
           const cookie = s.request.headers.cookie;
           let unlocked = unlockedByCookie.get(cookie);
           if (unlocked === undefined) {
-            unlocked = gate.isUnlocked(cookie);
+            unlocked = access(cookie);
             unlockedByCookie.set(cookie, unlocked);
           }
           if (!unlocked) {
@@ -150,13 +181,24 @@ export function createRoomEvents(
         });
         if (due.length) io.to(due).emit('room:state', snapshot);
       }
-      // Their unlock expired or was revoked: this snapshot never reached them, and no later one will.
+      // Their unlock (or admin session) expired or was revoked: this snapshot never reached them,
+      // and no later one will.
       const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId }));
       for (const { s } of stale) {
         leaveRoom(s);
         s.emit('room:locked');
       }
       for (const { playerId } of stale) if (playerId) rooms.disconnected(roomId, playerId);
+    },
+    closed(roomId) {
+      const io = getIo();
+      if (!io) return;
+      for (const id of [...(io.of('/').adapter.rooms.get(channel(roomId)) ?? [])]) {
+        const s = io.sockets.sockets.get(id);
+        if (!s) continue;
+        s.emit('room:closed');
+        leaveRoom(s);
+      }
     },
     kicked(roomId, playerId) {
       const io = getIo();
@@ -228,6 +270,11 @@ const lockedOut: Ack = {
   error: { code: 'backroom-locked', message: 'This room is in the back room. Unlock it first.' },
 };
 
+const noRoom: Ack = {
+  ok: false,
+  error: { code: 'no-room', message: 'This room does not exist or has expired.' },
+};
+
 const rateLimited: Ack = {
   ok: false,
   error: { code: 'rate-limited', message: 'Too many requests. Slow down a little.' },
@@ -253,8 +300,11 @@ export function attachRealtime(
     // Read once, from the handshake: the header travels on the first polling or upgrade request.
     const test = opts.isTestTraffic?.(socket.request.headers) ?? false;
     // The cookie is re-checked on every action, so changing the password locks out players mid-game.
-    const allowed = (roomId: string) =>
-      !gate.isPrivateRoom(roomId) || gate.isUnlocked(socket.request.headers.cookie);
+    const allowed = (roomId: string) => {
+      const access = roomAccess(gate, roomId);
+      return !access || access(socket.request.headers.cookie);
+    };
+    const isAdmin = () => !!gate.isAdmin?.(socket.request.headers.cookie);
 
     /** Every client event goes through here: budget first, then the usual error handling. */
     const guarded = (ack: unknown, run: () => Ack) => {
@@ -289,6 +339,8 @@ export function attachRealtime(
           };
         }
         const { roomId, token, name } = parsed.data;
+        // A playtest looks like a dead link to anyone but an admin.
+        if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
         if (!allowed(roomId)) return lockedOut;
         const playerId = playerIdFromToken(token);
         // Enter the channel first so the join's own snapshot reaches this socket; back out if it
@@ -302,7 +354,11 @@ export function attachRealtime(
         void socket.join(channel(roomId));
         let res: Ack;
         try {
-          res = rooms.join(roomId, playerId, name, { connect: true, ...(test && { test }) });
+          res = rooms.join(roomId, playerId, name, {
+            connect: true,
+            ...(test && { test }),
+            ...(isAdmin() && { admin: true }),
+          });
         } catch (err) {
           rollback();
           throw err;
@@ -315,6 +371,9 @@ export function attachRealtime(
           if (prev.roomId !== roomId) void socket.leave(channel(prev.roomId));
           rooms.disconnected(prev.roomId, prev.playerId);
         }
+        // A seat that reopens on a finished playtest game still sees its award preview.
+        const preview = opts.playtestAwards?.(roomId);
+        if (preview) socket.emit('room:playtestAwards', preview);
         return res;
       }),
     );

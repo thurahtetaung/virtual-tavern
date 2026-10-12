@@ -38,6 +38,8 @@ export function publicRoutes(
     isTestTraffic?: (req: FastifyRequest) => boolean;
     /** Rooms one address may create a minute. */
     roomCreateLimit?: number;
+    /** Whether this request carries a current admin session (playtest rooms are theirs only). */
+    isAdmin?: (req: FastifyRequest) => boolean;
   },
 ) {
   const { rooms, wordLists, games, unlocked, titles, forget, linkable, linked } = opts;
@@ -119,10 +121,17 @@ export function publicRoutes(
 
   app.get<{ Params: { id: string } }>('/api/rooms/:id', (req, reply) => {
     const room = roomId.safeParse(req.params.id).success ? rooms.exists(req.params.id) : null;
-    if (!room || !games.has(room.gameId)) {
+    const playtest = !!room && rooms.isPlaytest(req.params.id);
+    // A playtest is the admin's alone: to anyone else it looks like a dead link.
+    if (!room || !games.has(room.gameId) || (playtest && !opts.isAdmin?.(req))) {
       return reply
         .code(404)
         .send({ error: { code: 'no-room', message: 'This room does not exist or has expired.' } });
+    }
+    // The admin plays any game in a playtest, back-room ones too, with no unlock needed.
+    if (playtest) {
+      void reply.header('cache-control', 'no-store');
+      return { id: req.params.id, gameId: room.gameId, ...titleOf(room.gameId), playtest: true };
     }
     // A locked player learns only that the room is private, never which game it is.
     if (!visible(req, room.gameId)) {

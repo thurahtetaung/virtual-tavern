@@ -42,6 +42,7 @@ The shell and `@vt/ui` share the patterns every game needs, so use them rather t
 - **Watchers:** call `useSpectatorPrompt(setSpectator, watching ? { text, actionLabel, action } : null)` from the game root. The shell shows "You're watching" at the top of the room, and the button runs your action, usually `revealElement(id)` on your seat control or a direct "sit" action.
 - **Lobby:** wrap the Start or Deal control in `StickyBar`, so it floats at the bottom of a phone screen while its spot is out of view.
 - **Refusals:** put a `RefusalSlot anchor="…"` under a form and send its action with `act(action, { anchor: '…' })`. The server's refusal then appears there, or as a toast when the slot isn't on screen.
+- **Browser storage:** build every localStorage key with `storageKey(base)` from `@vt/game-sdk`. It returns `base` unchanged, except in an admin playtest, where every tab of one browser is a different seat and the key gets the seat's id, so each seat keeps its own marks, notes and tips.
 - **End screens:** use `Standings` for scored games. It shows a podium, ties sharing a place, and the full final standings. Say "X wins" once, in the status line or the result panel, never both.
 
 ## Word content

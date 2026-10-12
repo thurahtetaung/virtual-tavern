@@ -142,4 +142,18 @@ export interface RoomMeta {
   recap: boolean;
   /** The room's recap tone, as the host set it. */
   tone: RecapTone;
+  /** An admin playtest room (never recorded): its bot settings, for the TEST bar. */
+  playtest?: PlaytestMeta;
+}
+
+export type PlaytestSpeed = 'fast' | 'normal' | 'slow';
+
+/** What every seat of a playtest sees about it. */
+export interface PlaytestMeta {
+  /** How fast the bots play. */
+  speed: PlaytestSpeed;
+  /** The bots are paused. */
+  paused: boolean;
+  /** How many seats are bots. */
+  bots: number;
 }

@@ -1,10 +1,12 @@
+import { storageKey } from '@vt/game-sdk';
 import { useCallback, useState } from 'react';
 
-const PREFIX = 'vt.inquest.tip.';
+/** Per seat in a playtest, so each seat tab learns the tips once. */
+const prefix = () => `${storageKey('vt.inquest.tip')}.`;
 
 function seen(id: string): boolean {
   try {
-    return localStorage.getItem(PREFIX + id) === '1';
+    return localStorage.getItem(prefix() + id) === '1';
   } catch {
     return false;
   }
@@ -19,7 +21,7 @@ export function useTip(id: string): [boolean, () => void] {
   const dismiss = useCallback(() => {
     setOpen(false);
     try {
-      localStorage.setItem(PREFIX + id, '1');
+      localStorage.setItem(prefix() + id, '1');
     } catch {
       // Storage blocked: it'll show again next time.
     }

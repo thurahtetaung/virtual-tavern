@@ -1,10 +1,17 @@
-import type { ActOptions, SpectatorPrompt, WordListSummary } from '@vt/game-sdk';
+import {
+  type ActOptions,
+  type SpectatorPrompt,
+  type Superlative,
+  type WordListSummary,
+  setStorageSeat,
+} from '@vt/game-sdk';
 import type { RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
 import {
   Badge,
   Button,
   Panel,
   RefusalProvider,
+  SuperlativesNote,
   clock,
   cn,
   useRefusals,
@@ -16,21 +23,25 @@ import { Drawer } from '../components/Drawer.tsx';
 import { GuideView } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
+import { PlaytestBar } from '../components/PlaytestBar.tsx';
 import { type ClientGame, findGame, loadGame, withTitle } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { awayFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
+import { type Seat, adoptSeat, clearSeat, confirmSeat, seatFor } from '../lib/seat.ts';
 import { useToast } from '../lib/toast.tsx';
 import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
 import { type CardContext, RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
+import { resolveText } from '../recap/resolve.ts';
 import { NextTableBanner, SameCrewPicker } from '../recap/SameCrew.tsx';
 import { useRecap } from '../recap/useRecap.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 
 type RoomLookup =
   | { kind: 'loading' }
-  | { kind: 'found'; room: RoomInfo }
+  /** `seat`: this tab's playtest seat (only ever set in a playtest room). */
+  | { kind: 'found'; room: RoomInfo; seat: Seat | null }
   | { kind: 'missing' }
   /** The server answered with an error, or didn't answer at all. */
   | { kind: 'failed'; message: string };
@@ -46,12 +57,20 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
   const [lookup, setLookup] = useState<RoomLookup>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [game, setGame] = useState<ClientGame | null | 'missing'>(null);
-  const [name, setName] = useState<string | null>(() => savedName() || null);
+  // A playtest seat link's fragment is taken off the address bar at once (see `seat.ts`).
+  const [seatLink] = useState(() => {
+    adoptSeat(roomId);
+    return seatFor(roomId) !== null;
+  });
+  const [savedAs, setName] = useState<string | null>(() => savedName() || null);
+  const seat = lookup.kind === 'found' ? lookup.seat : null;
+  // A seat tab plays under the seat's name and never asks for one.
+  const name = seat?.name ?? savedAs;
   // Inside the room, the room names the tab itself (and marks "Your turn").
   usePageTitle(
     lookup.kind === 'failed'
       ? "Couldn't open the room"
-      : !name && game !== 'missing'
+      : !name && !seatLink && game !== 'missing'
         ? `Join ${game?.name ?? 'a game'}`
         : null,
   );
@@ -61,7 +80,8 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
     api<RoomInfo>(`/api/rooms/${roomId}`)
       .then(async (room) => {
         if (stale) return;
-        setLookup({ kind: 'found', room });
+        // Only a playtest honours a seat; anywhere else a stored one is wiped.
+        setLookup({ kind: 'found', room, seat: confirmSeat(roomId, room.playtest === true) });
         const found = await loadGame(room.gameId);
         setGame(found ? withTitle(found, room.title) : 'missing');
       })
@@ -72,6 +92,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
           void navigate(`/backroom?next=${encodeURIComponent(`/r/${roomId}`)}`, { replace: true });
         } else if (err instanceof ApiFailure && err.status === 404) {
           forgetLastRoom(roomId);
+          clearSeat(roomId);
           setLookup({ kind: 'missing' });
         } else {
           setLookup({
@@ -129,6 +150,8 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
     return <NotFoundPage message="This room is for a game we don't have any more." />;
 
   if (!name) {
+    // A seat tab waits for the room (and its seat) instead of asking for a name.
+    if (seatLink && lookup.kind === 'loading') return <PageLoading wide />;
     return (
       <Layout>
         <Panel className="mx-auto mt-10 max-w-md space-y-4 text-center">
@@ -156,7 +179,14 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
   if (!game) return <PageLoading wide />;
   return (
     <RefusalProvider>
-      <Room roomId={roomId} game={game} name={name} onRename={setName} />
+      <Room
+        roomId={roomId}
+        game={game}
+        name={name}
+        onRename={setName}
+        seat={seat}
+        playtest={lookup.kind === 'found' && lookup.room.playtest === true}
+      />
     </RefusalProvider>
   );
 }
@@ -175,19 +205,42 @@ function Room({
   game,
   name,
   onRename,
+  seat,
+  playtest,
 }: {
   roomId: string;
   game: ClientGame;
   name: string;
   onRename: (n: string) => void;
+  /** This tab's playtest seat; null plays as the browser's own player, as always. */
+  seat: Seat | null;
+  /** An admin playtest room: nothing is recorded, and nobody can be invited. */
+  playtest: boolean;
 }) {
   const navigate = useNavigate();
   const toast = useToast();
   const refusals = useRefusals();
-  const { snapshot, clockOffset, status, error, call, leave, wraps, next, dismissNext } = useRoom(
-    roomId,
-    name,
-  );
+  const {
+    snapshot,
+    clockOffset,
+    status,
+    error,
+    call,
+    leave,
+    wraps,
+    next,
+    dismissNext,
+    playtestAwards,
+  } = useRoom(roomId, name, seat?.token);
+  // A playtest seat keeps its own marks, notes and tips (set before the game reads them).
+  setStorageSeat(playtest ? (snapshot?.you ?? null) : null);
+  useEffect(() => {
+    return () => {
+      setStorageSeat(null);
+    };
+  }, []);
+  /** The admin session ran out mid-playtest: the seat can't play until they sign in again. */
+  const [adminLost, setAdminLost] = useState(false);
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
@@ -234,11 +287,13 @@ function Room({
   // The game reports when it's the viewer's move; the tab title says so, and phones buzz once.
   const [yourMove, setYourMove] = useState(false);
   const wasYourMove = useRef(false);
+  // In a playtest the seat's name goes in too, so the tab strip shows whose move it is.
+  const seatName = playtest ? snapshot?.players.find((p) => p.id === snapshot.you)?.name : null;
   useEffect(() => {
-    document.title = roomTitle(game.name, yourMove);
+    document.title = roomTitle(seatName ? `${seatName} · ${game.name}` : game.name, yourMove);
     if (yourMove && !wasYourMove.current && 'vibrate' in navigator) navigator.vibrate(50);
     wasYourMove.current = yourMove;
-  }, [game.name, yourMove]);
+  }, [game.name, yourMove, seatName]);
   useEffect(() => {
     return () => {
       document.title = 'Virtual Tavern';
@@ -247,32 +302,39 @@ function Room({
 
   // Remember this room for "Rejoin your last room" on the landing page.
   const backroomGame = isBackroomGame(game);
+  // Not a playtest: it is no room to come back to.
   useEffect(() => {
+    if (playtest) {
+      if (status === 'kicked' || status === 'left' || status === 'closed') clearSeat(roomId);
+      return;
+    }
     if (status === 'joined') {
       saveLastRoom({ id: roomId, game: game.name, ...(backroomGame && { private: true }) });
     }
     if (status === 'kicked' || status === 'left') forgetLastRoom(roomId);
-  }, [status, roomId, game.name, backroomGame]);
+  }, [status, roomId, game.name, backroomGame, playtest]);
 
   const act = useCallback(
     async (action: unknown, options?: ActOptions) => {
       const res = await call('game:action', action);
       if (res.ok) refusals.clear(options?.anchor);
       else if (res.error.code === 'backroom-locked') {
-        // The password changed mid-game: send the player back to the door.
-        void navigate(backToTheDoor(roomId));
+        // The password changed mid-game: send the player back to the door. In a playtest it was
+        // the admin session that ran out.
+        if (playtest) setAdminLost(true);
+        else void navigate(backToTheDoor(roomId));
       } else if (!refusals.show(options?.anchor, res.error.message)) {
         // No spot next to the control that sent it (or none on screen): say it up top.
         toast(res.error.message);
       }
       return res.ok;
     },
-    [call, toast, navigate, roomId, refusals],
+    [call, toast, navigate, roomId, refusals, playtest],
   );
 
   useEffect(() => {
-    if (status === 'locked') void navigate(backToTheDoor(roomId));
-  }, [status, navigate, roomId]);
+    if (status === 'locked' && !playtest) void navigate(backToTheDoor(roomId));
+  }, [status, navigate, roomId, playtest]);
 
   const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
 
@@ -358,8 +420,45 @@ function Room({
     };
   }, []);
 
+  // A playtest's award strip is worked out in memory for its end screen, and never saved.
+  const { names: nightNames, labels: nightLabels } = night;
+  const previewLines = useMemo((): Superlative[] | undefined => {
+    if (!playtest || snapshot?.meta?.phase !== 'over' || !playtestAwards?.length) return undefined;
+    return playtestAwards.map((l) => ({
+      emoji: l.emoji,
+      title: l.title,
+      text: resolveText(l.text, nightNames, nightLabels),
+    }));
+  }, [playtest, snapshot?.meta?.phase, playtestAwards, nightNames, nightLabels]);
+  const superlatives = playtest ? previewLines : night.superlatives;
+
   // Where "back" goes: back-room players return to the back room, not the public tavern.
-  const home = backroomGame ? { backTo: '/backroom', backLabel: 'Back to the back room' } : {};
+  const home = playtest
+    ? { backTo: '/tavern-keeper/playtest', backLabel: 'Back to Playtest' }
+    : backroomGame
+      ? { backTo: '/backroom', backLabel: 'Back to the back room' }
+      : {};
+  if (status === 'closed') {
+    return (
+      <NotFoundPage
+        heading="This playtest has ended"
+        icon="🧪"
+        message="The room is gone, and nothing it did was recorded."
+        {...home}
+      />
+    );
+  }
+  if (playtest && (status === 'locked' || adminLost)) {
+    return (
+      <NotFoundPage
+        heading="Sign in to keep playing"
+        icon="🔑"
+        message="Playtests are for the tavern keeper. Sign in again, then reopen this seat."
+        backTo="/tavern-keeper"
+        backLabel="Sign in"
+      />
+    );
+  }
   if (status === 'kicked') {
     return (
       <NotFoundPage
@@ -402,7 +501,8 @@ function Room({
           <span aria-hidden>{game.icon}</span> {game.name}
         </h1>
         <div className="flex shrink-0 gap-1.5 sm:gap-2">
-          <InviteButton />
+          {/* Nobody can be invited to a playtest: it is the admin's alone. */}
+          {!playtest && <InviteButton />}
           <Button
             variant="secondary"
             size="sm"
@@ -441,6 +541,8 @@ function Room({
         </div>
       </div>
 
+      {playtest && snapshot && <PlaytestBar roomId={roomId} snapshot={snapshot} />}
+
       {status === 'reconnecting' && (
         <p
           role="status"
@@ -470,22 +572,24 @@ function Room({
             </p>
           }
         >
-          <Game
-            view={snapshot.game}
-            room={{
-              you: snapshot.you,
-              hostId: snapshot.hostId,
-              isHost,
-              players: snapshot.players,
-              clockOffset,
-              wordLists,
-              ...(night.superlatives && { superlatives: night.superlatives }),
-            }}
-            act={act}
-            showGuide={() => setGuideOpen(true)}
-            setYourMove={setYourMove}
-            setSpectator={setSpectator}
-          />
+          <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
+            <Game
+              view={snapshot.game}
+              room={{
+                you: snapshot.you,
+                hostId: snapshot.hostId,
+                isHost,
+                players: snapshot.players,
+                clockOffset,
+                wordLists,
+                ...(superlatives && { superlatives }),
+              }}
+              act={act}
+              showGuide={() => setGuideOpen(true)}
+              setYourMove={setYourMove}
+              setSpectator={setSpectator}
+            />
+          </SuperlativesNote.Provider>
         </Suspense>
       )}
 
@@ -560,6 +664,7 @@ function Room({
             clockOffset={clockOffset}
             isHost={isHost}
             call={call}
+            playtest={playtest}
             onWrap={canWrap ? () => void wrapUp() : undefined}
             onRename={(n) => {
               saveName(n);
@@ -570,9 +675,12 @@ function Room({
               await leave();
               // Done here as well as in the status effect: the navigation unmounts the room in
               // the same render as the 'left' status, so that effect may never run.
-              forgetLastRoom(roomId);
+              if (playtest) clearSeat(roomId);
+              else forgetLastRoom(roomId);
               toast('You left the room.', 'info');
-              void navigate(backroomGame ? '/backroom' : '/');
+              void navigate(
+                playtest ? '/tavern-keeper/playtest' : backroomGame ? '/backroom' : '/',
+              );
             }}
           />
         )}
@@ -726,6 +834,7 @@ function People({
   clockOffset,
   isHost,
   call,
+  playtest,
   onRename,
   onLeave,
   onWrap,
@@ -735,6 +844,8 @@ function People({
   clockOffset: number;
   isHost: boolean;
   call: ReturnType<typeof useRoom>['call'];
+  /** A playtest: no room code to share, and seats keep their names. */
+  playtest: boolean;
   onRename: (name: string) => void;
   onLeave: () => Promise<void>;
   /** The host's "Wrap up the night", when there is a night to wrap. */
@@ -759,7 +870,7 @@ function People({
 
   return (
     <div className="space-y-6">
-      <RoomCode roomId={roomId} />
+      {!playtest && <RoomCode roomId={roomId} />}
       <ul className="divide-y divide-stone-200 dark:divide-stone-800">
         {snapshot.players.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
@@ -830,15 +941,17 @@ function People({
           </>
         ) : (
           <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setRenameError(null);
-                setRenaming(true);
-              }}
-            >
-              Change my name
-            </Button>
+            {!playtest && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRenameError(null);
+                  setRenaming(true);
+                }}
+              >
+                Change my name
+              </Button>
+            )}
             <Button variant="danger" onClick={() => void onLeave()}>
               Leave room
             </Button>
