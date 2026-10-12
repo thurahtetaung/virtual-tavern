@@ -85,6 +85,7 @@ The repo is a pnpm monorepo, with ESM and strict TypeScript throughout.
 ## Releases and deploy
 
 - PRs are squash-merged, so the PR title is the commit and must follow Conventional Commits (enforced by `pr-title.yml`).
+- CI runs the e2e suite as 4 parallel shards (`playwright test --shard=N/4`), each with its own server and in-memory database. The required check `Lint, typecheck, test, build, e2e` is a gate job that passes only when the static checks and every shard pass, so keep that job name.
 - CI fails on flaky e2e tests (`failOnFlakyTests`): a test that only passes on retry is a bug to fix. Wait for UI state with `expect.poll` or web-first assertions rather than one-off `isVisible()` checks.
 - release-please (`release.yml`) runs only after CI succeeds on `main` (`workflow_run`), and keeps a Release PR open. Merging it tags `vX.Y.Z`, publishes a multi-arch image to GHCR, then calls `deploy.yml`, which needs approval through the `production` environment. That job joins the tailnet (Tailscale OAuth, `tag:ci`), SSHes to the server and runs `scripts/deploy.sh <version>`: back up the DB, pull, wait for health, and roll back automatically on failure.
 - Running `deploy.yml` by hand redeploys or rolls back to any version. One-time server, Cloudflare and GitHub setup is in `docs/deployment.md`.
