@@ -21,6 +21,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   nightfall: ['clue', 'guess'],
   // Cards, not words: no Words card.
   inquest: [],
+  // Picture cards, not words: no Words card.
+  seance: [],
 };
 
 const LABELS: Record<WordKind, string> = {

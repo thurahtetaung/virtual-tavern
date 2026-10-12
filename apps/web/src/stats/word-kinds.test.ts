@@ -15,6 +15,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('masquerade-originals')).toEqual(['clue', 'guess']);
     expect(knownWordKinds('nightfall')).toEqual(['clue', 'guess']);
     expect(knownWordKinds('inquest')).toEqual([]);
+    expect(knownWordKinds('seance')).toEqual([]);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });

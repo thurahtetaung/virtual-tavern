@@ -23,6 +23,7 @@ import {
   setRoles,
 } from './nightfall-play.ts';
 import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
+import { seanceScreenshots } from './seance-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
@@ -1545,5 +1546,18 @@ for (const [label, viewport] of [
     await ana.getByRole('button', { name: 'End playtest' }).click();
     await expect(ben.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
     await context.close();
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+] as const) {
+  test(`seance screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    await openInquestBackroom(
+      await inquestVisitor(browser, 'Admin', [], { viewport, colorScheme }),
+    );
+    await seanceScreenshots(browser, label, { viewport, colorScheme });
   });
 }

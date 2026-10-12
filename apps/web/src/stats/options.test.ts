@@ -50,6 +50,8 @@ describe('chart colours', () => {
     expect(slots.get('nightfall')).toBe(8);
     expect(slots.get('round-table')).toBe(9);
     expect(slots.get('inquest')).toBe(10);
+    expect(slots.get('hydra')).toBe(11);
+    expect(slots.get('seance')).toBe(12);
     // With every slot taken, other games get the neutral colour.
     for (const id of ['zeta', 'alpha']) expect(slotColor(light, slotFor(id))).toBe(light.other);
     // A filter that hides a game never repaints the others.
@@ -58,8 +60,8 @@ describe('chart colours', () => {
 
   it('falls back to the neutral colour past the last slot', () => {
     expect(slotColor(light, 0)).toBe(light.series[0]);
-    expect(slotColor(light, 10)).toBe(light.series[10]);
-    expect(slotColor(light, 11)).toBe(light.other);
+    expect(slotColor(light, 12)).toBe(light.series[12]);
+    expect(slotColor(light, 13)).toBe(light.other);
     expect(slotColor(dark, undefined)).toBe(dark.other);
     expect(dark.series).not.toEqual(light.series);
   });

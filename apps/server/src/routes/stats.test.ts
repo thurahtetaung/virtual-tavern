@@ -4,6 +4,7 @@ import { locationById } from '@vt/game-masquerade/content';
 import type { MasqueradeView } from '@vt/game-masquerade/logic';
 import type { InquestView } from '@vt/private-inquest/logic';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
+import type { SeanceView } from '@vt/private-seance/logic';
 import {
   type GameStats,
   type LiveStats,
@@ -465,6 +466,97 @@ describe('admin stats', () => {
       gameId: 'inquest',
       text: `${iv(solver).me!.name} named the killer’s exact cards once`,
     });
+  });
+
+  it('plays Séance behind the back room, hiding the answers, and reports its figures', async () => {
+    const { app, url, cookie: admin, get } = await start();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: admin },
+      payload: { password: 'speakeasy' },
+    });
+    const unlocked = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/unlock',
+      payload: { password: 'speakeasy' },
+    });
+    const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        headers: { cookie },
+        payload: { gameId: 'seance', token: token(70) },
+      })
+    ).json<{ roomId: string }>();
+    const names = ['Gil', 'Ida', 'Jun'];
+    const clients: TestClient[] = [];
+    const seen = new Map<TestClient, string[]>();
+    for (const [i, name] of names.entries()) {
+      const c = await connect(url, cookie);
+      cleanups.push(() => void c.close());
+      seen.set(c, []);
+      c.on('room:state', (snap) => seen.get(c)!.push(JSON.stringify(snap.game)));
+      expect(await c.call('room:join', { roomId, token: token(70 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((snap) => snap.players.length === 3)));
+    const [ghost, ...psychics] = clients as [TestClient, TestClient, TestClient];
+    const sv = (c: TestClient) => c.latest()!.game as SeanceView;
+    const act = async (c: TestClient, action: Record<string, unknown>) =>
+      expect(await c.call('game:action', action)).toEqual({ ok: true });
+    await act(ghost, {
+      type: 'update-settings',
+      ghostMode: 'host',
+      ghostPick: playerIdFromToken(token(70)),
+    });
+    await act(ghost, { type: 'start' });
+    for (let hour = 1; hour <= 3; hour++) {
+      await ghost.until((snap) => (snap.game as SeanceView).game?.stage === 'visions');
+      for (const p of sv(ghost).game!.psychics)
+        await act(ghost, { type: 'send', to: p.color, cards: [sv(ghost).game!.hand![0]] });
+      for (const c of psychics) {
+        const me = sv(ghost).game!.psychics.find((p) => p.id === sv(c).me!.id)!;
+        await act(c, { type: 'intuition', card: me.targets![me.step] });
+        await act(c, { type: 'ready', on: true });
+      }
+      await ghost.until((snap) => (snap.game as SeanceView).game?.stage === 'reveal');
+      await act(ghost, { type: 'continue' });
+    }
+    await ghost.until((snap) => (snap.game as SeanceView).game?.stage === 'shared');
+    await act(ghost, { type: 'shared', group: 1, cards: sv(ghost).game!.hand!.slice(0, 3) });
+    for (const c of psychics) await act(c, { type: 'vote', group: 1 });
+    await Promise.all(
+      clients.map((c) => c.until((snap) => (snap.game as SeanceView).phase === 'over')),
+    );
+    expect(sv(ghost).game!.result).toMatchObject({ win: true, how: 'culprit' });
+
+    // Until the end, only the ghost was ever sent the targets, the hand or the culprit.
+    for (const c of psychics) {
+      const before = seen.get(c)!.filter((g) => !g.includes('"phase":"over"'));
+      expect(before.length).toBeGreaterThan(0);
+      for (const g of before) {
+        expect(g).not.toContain('"targets":[');
+        expect(g).not.toContain('"hand":[');
+        expect(g).not.toContain('"deck"');
+      }
+    }
+
+    const stats = (await get<GameStats>('games/seance?range=today')).body;
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    expect(figs['win-rate']).toMatchObject({ kind: 'percent', value: 100 });
+    expect(figs['guess-accuracy']).toMatchObject({ value: 100 });
+    expect(figs['first-try']).toMatchObject({ value: 100 });
+    expect(figs['cards-per-vision']).toMatchObject({ value: 1 });
+    const parts = (id: string) => (figs[id] as { parts: { label: string; value: number }[] }).parts;
+    expect(parts('endings')).toContainEqual({ label: 'Culprit found', value: 1 });
+    expect(parts('win-hour')).toContainEqual({ label: 'Hour III', value: 1 });
+    const facts = (await get<StatsFun>('fun?range=today')).body.facts;
+    expect(facts.find((f) => f.id === 'first-sight')).toMatchObject({ gameId: 'seance' });
   });
 
   it('turns a whole Royal Post game into figures and fun facts', async () => {

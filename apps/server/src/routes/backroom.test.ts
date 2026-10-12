@@ -133,6 +133,7 @@ describe('back room over HTTP', () => {
       'masquerade-originals',
       'nightfall',
       'inquest',
+      'seance',
     ]);
   });
 

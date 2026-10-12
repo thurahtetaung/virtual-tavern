@@ -246,6 +246,14 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
   }
   if (game === 'inquest' && type === 'solve' && playerId && props.correct === true)
     credit(playerId, 'cases_solved');
+  if (
+    game === 'seance' &&
+    type === 'guess' &&
+    playerId &&
+    props.correct === true &&
+    props.tries === 1
+  )
+    credit(playerId, 'first_sight');
   if (game === 'royal-post' && playerId) {
     if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');
     if (type === 'elimination' && lostPrincess(props)) credit(playerId, 'princess_falls');
