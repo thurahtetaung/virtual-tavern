@@ -8,7 +8,7 @@ import {
   playerName,
 } from '@vt/protocol';
 import type { FastifyBaseLogger } from 'fastify';
-import type { Server as HttpServer } from 'node:http';
+import type { IncomingHttpHeaders, Server as HttpServer } from 'node:http';
 import { Server, type Socket } from 'socket.io';
 import { playerIdFromToken } from './rooms/ids.ts';
 import type { RecapService } from './recap/service.ts';
@@ -52,6 +52,8 @@ export interface RealtimeOptions {
   limits?: Partial<RateLimits>;
   /** Night recaps; without it the recap events answer `recap-off`. */
   recap?: RecapService;
+  /** Whether a handshake is test traffic (`x-vt-test`); rooms it joins record no stats. */
+  isTestTraffic?: (headers: IncomingHttpHeaders) => boolean;
 }
 
 /** Broadcast messages at least this big are compressed. */
@@ -248,6 +250,8 @@ export function attachRealtime(
 
   io.on('connection', (socket: ClientSocket) => {
     const bucket = new TokenBucket(limits);
+    // Read once, from the handshake: the header travels on the first polling or upgrade request.
+    const test = opts.isTestTraffic?.(socket.request.headers) ?? false;
     // The cookie is re-checked on every action, so changing the password locks out players mid-game.
     const allowed = (roomId: string) =>
       !gate.isPrivateRoom(roomId) || gate.isUnlocked(socket.request.headers.cookie);
@@ -298,7 +302,7 @@ export function attachRealtime(
         void socket.join(channel(roomId));
         let res: Ack;
         try {
-          res = rooms.join(roomId, playerId, name, { connect: true });
+          res = rooms.join(roomId, playerId, name, { connect: true, ...(test && { test }) });
         } catch (err) {
           rollback();
           throw err;

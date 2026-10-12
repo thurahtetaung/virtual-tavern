@@ -53,6 +53,8 @@ export interface RecapServiceDeps {
   changed: (roomId: string) => void;
   logger: RoomLogger;
   now: () => number;
+  /** Test rooms (`x-vt-test`) never freeze a night. */
+  isTestRoom?: (roomId: string) => boolean;
 }
 
 /** Who is asking: back-room games only count for a viewer with a current unlock. */
@@ -436,6 +438,7 @@ export class RecapService {
   }
 
   private freeze(roomId: string, room: Members, loaded: Loaded, night: Night): void {
+    if (this.deps.isTestRoom?.(roomId)) return;
     // A public room whose night reached the back room keeps a public-only card as well.
     const open = this.visible(night, loaded, false)!;
     const split = !this.private(room.gameId) && open.games.length !== night.games.length;

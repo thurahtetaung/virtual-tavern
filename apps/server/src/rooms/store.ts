@@ -12,6 +12,8 @@ export interface RoomRecord {
   version: number;
   createdAt: number;
   updatedAt: number;
+  /** Test traffic opened or joined it: the stats record nothing about it. */
+  test?: boolean | null;
 }
 
 /** Persistence boundary for rooms; swap the implementation to move off SQLite. */
@@ -22,8 +24,10 @@ export interface RoomStore {
   update(room: RoomRecord): boolean;
   /** Marks the room as active at `at` without changing its version (presence, not a change). */
   touch(id: string, at: number): void;
-  /** Deletes rooms untouched since `before`, except those in `keep`; returns their ids. */
-  deleteIdle(before: number, keep?: readonly string[]): string[];
+  /** Marks the room as test traffic for good (without changing its version). */
+  markTest(id: string): void;
+  /** Deletes rooms untouched since `before`, except those in `keep`; returns them. */
+  deleteIdle(before: number, keep?: readonly string[]): { id: string; test: boolean }[];
 }
 
 export class SqliteRoomStore implements RoomStore {
@@ -56,13 +60,17 @@ export class SqliteRoomStore implements RoomStore {
     this.db.update(rooms).set({ updatedAt: at }).where(eq(rooms.id, id)).run();
   }
 
-  deleteIdle(before: number, keep: readonly string[] = []): string[] {
+  markTest(id: string): void {
+    this.db.update(rooms).set({ test: true }).where(eq(rooms.id, id)).run();
+  }
+
+  deleteIdle(before: number, keep: readonly string[] = []): { id: string; test: boolean }[] {
     const idle = lt(rooms.updatedAt, before);
     return this.db
       .delete(rooms)
       .where(keep.length ? and(idle, notInArray(rooms.id, [...keep])) : idle)
-      .returning({ id: rooms.id })
+      .returning({ id: rooms.id, test: rooms.test })
       .all()
-      .map((r) => r.id);
+      .map((r) => ({ id: r.id, test: r.test === true }));
   }
 }

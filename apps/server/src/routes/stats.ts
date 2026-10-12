@@ -3,6 +3,7 @@ import {
   type RecentNight,
   type RoomRecap,
   type StatsQuery,
+  roomId as roomIdSchema,
   statsExportQuery,
   statsQuery,
   statsResetBody,
@@ -12,6 +13,7 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 import { dayOf, resolveWindow } from '../stats/days.ts';
+import { type ForgottenRoom, PrunedDaysError } from '../stats/forget-room.ts';
 import type { LiveTracker } from '../stats/live.ts';
 import type { StatsQueries, StatsStore } from '../stats/types.ts';
 
@@ -38,6 +40,8 @@ export interface StatsRouteOptions {
     recent(limit: number): RecentNight[];
     frozenCard(roomId: string, nightKey: string): RoomRecap | null;
   };
+  /** Deletes one room's stats (or, dry, reports what that would delete). */
+  forgetRoom?: (roomId: string, dryRun: boolean) => ForgottenRoom;
   now: () => number;
 }
 
@@ -189,6 +193,27 @@ export function statsRoutes(app: FastifyInstance, opts: StatsRouteOptions) {
       .header('content-disposition', `attachment; filename="${name}"`)
       .send(Readable.from(opts.store.exportNdjson(from, to)));
   });
+
+  // One room's stats (e.g. a live check's): its events, recap nights and its own players, with the
+  // rollups of the days it touched rebuilt. `?dryRun=1` only reports what would go.
+  app.delete<{ Params: { roomId: string }; Querystring: { dryRun?: unknown } }>(
+    '/api/admin/stats/rooms/:roomId',
+    { config: RATE_LIMIT },
+    (req, reply) => {
+      if (!roomIdSchema.safeParse(req.params.roomId).success)
+        return error(reply, 400, 'bad-request', 'That is not a room id.');
+      if (!opts.forgetRoom) return error(reply, 404, 'not-found', 'Not found.');
+      const dry = req.query.dryRun;
+      const dryRun = dry === '1' || dry === 'true';
+      opts.flush();
+      try {
+        return opts.forgetRoom(req.params.roomId, dryRun);
+      } catch (err) {
+        if (err instanceof PrunedDaysError) return error(reply, 409, 'stats-pruned', err.message);
+        throw err;
+      }
+    },
+  );
 
   app.post('/api/admin/stats/reset', { config: RATE_LIMIT }, (req, reply) => {
     const body = parse(statsResetBody, req.body, reply);

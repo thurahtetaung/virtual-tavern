@@ -64,6 +64,8 @@ export interface RoomObservation {
   before: RoomRecord | null;
   after: RoomRecord | null;
   game: AnyGameDefinition | null;
+  /** The room is test traffic: stats must record nothing about it. */
+  test?: boolean;
 }
 
 /** Receives observations. Its failures are logged and never reach players. */
@@ -129,6 +131,8 @@ export interface RoomManagerDeps {
 export interface JoinOptions {
   /** Also count the joiner as connected, in the same change (saves a second snapshot round). */
   connect?: boolean;
+  /** The joiner is test traffic: the room is marked as a test room, for good. */
+  test?: boolean;
 }
 
 /**
@@ -150,8 +154,11 @@ export class RoomManager {
     };
   }
 
-  /** Opens a room. `nightKey`: it continues that night ("Same crew, new game"), for the recap. */
-  create(gameId: string, hostId: string, opts: { nightKey?: string } = {}): string {
+  /**
+   * Opens a room. `nightKey`: it continues that night ("Same crew, new game"), for the recap.
+   * `test`: test traffic opened it, so the stats record nothing about it.
+   */
+  create(gameId: string, hostId: string, opts: { nightKey?: string; test?: boolean } = {}): string {
     const game = this.deps.games.get(gameId);
     if (!game) throw new RoomError('unknown-game', 'That game does not exist.');
     const now = this.deps.now();
@@ -166,6 +173,7 @@ export class RoomManager {
       version: 1,
       createdAt: now,
       updatedAt: now,
+      ...(opts.test && { test: true }),
     };
     this.deps.store.insert(record);
     this.observe(record, null, record, game, {
@@ -181,9 +189,20 @@ export class RoomManager {
     return room ? { gameId: room.record.gameId } : null;
   }
 
+  /** Whether test traffic opened or joined the room (its stats are not recorded). */
+  isTest(roomId: string): boolean {
+    const record = this.rooms.get(roomId)?.record ?? this.deps.store.get(roomId);
+    return record?.test === true;
+  }
+
   join(roomId: string, playerId: string, wanted: string, opts: JoinOptions = {}): Ack {
     const room = this.load(roomId);
     if (!room) return fail('no-room', 'This room does not exist or has expired.');
+    if (opts.test && !room.record.test) {
+      // Marked before the join, so not even the test player's arrival is recorded.
+      this.deps.store.markTest(roomId);
+      room.record = { ...room.record, test: true };
+    }
     const { record } = room;
     const existing = record.players.find((p) => p.id === playerId);
     // Two "Kim"s would be impossible to tell apart, so a taken name gets a number ("Kim 2").
@@ -408,12 +427,13 @@ export class RoomManager {
   sweep(maxIdleMs: number): number {
     // A room with someone in it right now is never idle, however long since its last change.
     const occupied = [...this.rooms].filter(([, r]) => r.connections.size > 0).map(([id]) => id);
-    const ids = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs, occupied);
-    for (const id of ids) {
+    const deleted = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs, occupied);
+    for (const { id, test } of deleted) {
       const live = this.rooms.get(id);
       this.unload(id);
       const record = live?.record ?? null;
       this.notify({
+        ...((test || record?.test) && { test: true }),
         kind: 'room.swept',
         roomId: id,
         gameId: record?.gameId ?? '',
@@ -427,7 +447,7 @@ export class RoomManager {
     for (const [id, room] of this.rooms) {
       if (room.connections.size === 0 && !room.deadlineTimer) this.unload(id);
     }
-    return ids.length;
+    return deleted.length;
   }
 
   close(): void {
@@ -523,6 +543,7 @@ export class RoomManager {
   ) {
     this.notify({
       ...observed,
+      ...(record.test && { test: true }),
       roomId: record.id,
       gameId: record.gameId,
       now: this.deps.now(),

@@ -75,6 +75,8 @@ export const rooms = sqliteTable('rooms', {
   version: integer('version').notNull(),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
+  /** Opened or joined by test traffic (`x-vt-test`): nothing it does is recorded in the stats. */
+  test: integer('test', { mode: 'boolean' }),
 });
 
 // ---- Stats (admin only) ----

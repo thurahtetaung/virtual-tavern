@@ -34,9 +34,12 @@ export function publicRoutes(
     linkable?: (nightKey: string, playerId: string) => string[] | null;
     /** A linked room was opened: tell the rooms it continues. */
     linked?: (from: string[], next: NextTable) => void;
+    /** Whether the request is test traffic (`x-vt-test`), whose rooms record no stats. */
+    isTestTraffic?: (req: FastifyRequest) => boolean;
   },
 ) {
   const { rooms, wordLists, games, unlocked, titles, forget, linkable, linked } = opts;
+  const isTestTraffic = opts.isTestTraffic ?? (() => false);
   // A private game's title from the database; it only goes where the game itself is visible.
   const titleOf = (gameId: string) => {
     if (!isPrivate(games.get(gameId))) return {};
@@ -88,7 +91,10 @@ export function publicRoutes(
           error: { code: 'bad-night', message: "That night can't be continued from here." },
         });
       }
-      const id = rooms.create(gameId, playerId, nightKey ? { nightKey } : {});
+      const id = rooms.create(gameId, playerId, {
+        ...(nightKey && { nightKey }),
+        ...(isTestTraffic(req) && { test: true }),
+      });
       if (from.length) linked?.(from, { roomId: id, gameId, by: playerId });
       return { roomId: id };
     },
