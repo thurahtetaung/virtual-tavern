@@ -1,4 +1,5 @@
 import type { GameFigure } from '@vt/protocol';
+import { type Labeler, resolveText } from '../recap/resolve.ts';
 import { compact, percent } from './format.ts';
 
 // Games report their own figures (`GameStats.figures`); the page renders them by kind without
@@ -27,6 +28,39 @@ export type FigureModel =
       shades: number[][];
       units: ('count' | 'percent')[];
     };
+
+const NO_PLAYERS = new Map<string, string>();
+
+/**
+ * Names the private placeholders a back-room game puts in its figure labels (`{card:means-4}`),
+ * through the game's manifest labeler; without one (a locked browser) they read as plain ids
+ * ("Means 4"), so private names only ever come from the manifest.
+ */
+export function nameFigure(fig: GameFigure, labels: Labeler | null): GameFigure {
+  const name = (t: string) => (t.includes('{') ? resolveText(t, NO_PLAYERS, labels) : t);
+  switch (fig.kind) {
+    case 'split':
+      return {
+        ...fig,
+        label: name(fig.label),
+        parts: fig.parts.map((p) => ({ ...p, label: name(p.label) })),
+      };
+    case 'histogram':
+      return {
+        ...fig,
+        label: name(fig.label),
+        bins: fig.bins.map((b) => ({ ...b, label: name(b.label) })),
+      };
+    case 'matrix':
+      return {
+        ...fig,
+        label: name(fig.label),
+        rows: fig.rows.map((r) => ({ ...r, label: name(r.label) })),
+      };
+    default:
+      return { ...fig, label: name(fig.label) };
+  }
+}
 
 /** A matrix cell's text: a count, or a percent from the 0–100 contract. */
 export const matrixCell = (value: number, unit: 'count' | 'percent') =>

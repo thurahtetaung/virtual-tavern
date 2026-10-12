@@ -1,10 +1,16 @@
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
+import { guide as inquestGuide } from '@vt/private-inquest/guide';
 import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-originals/guide';
 import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { lazy } from 'react';
-import { nightfallLabels, originalsLabels, royalPostLabels } from './private-labels.ts';
+import {
+  inquestLabels,
+  nightfallLabels,
+  originalsLabels,
+  royalPostLabels,
+} from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
 /**
@@ -63,5 +69,15 @@ export const privateGames: ClientGame[] = [
       import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
     ),
     labels: nightfallLabels,
+  },
+  {
+    id: 'inquest',
+    name: 'Inquest',
+    guide: inquestGuide,
+    icon: '🔎',
+    Component: lazy(() =>
+      import('@vt/private-inquest/ui').then((m) => ({ default: m.InquestGame })),
+    ),
+    labels: inquestLabels,
   },
 ];

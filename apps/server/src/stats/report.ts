@@ -300,6 +300,8 @@ interface PlayerTotals {
   perfect: number;
   guardHits: number;
   princessFalls: number;
+  /** Inquest: cases this player solved. */
+  casesSolved: number;
   disguises: number;
   bloodhound: number;
   suspected: number;
@@ -352,6 +354,9 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
         break;
       case 'princess_falls':
         t.princessFalls += value;
+        break;
+      case 'cases_solved':
+        t.casesSolved += value;
         break;
       case 'disguises':
         t.disguises += value;
@@ -417,6 +422,7 @@ function emptyTotals(): PlayerTotals {
     perfect: 0,
     guardHits: 0,
     princessFalls: 0,
+    casesSolved: 0,
     disguises: 0,
     bloodhound: 0,
     suspected: 0,
@@ -581,6 +587,13 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
     (t) => t.princessFalls,
     (who, n) => `${who} was knocked out holding the Princess ${times(n)}`,
     'royal-post',
+  );
+  byPlayer(
+    'case-closer',
+    'Case closer',
+    (t) => t.casesSolved,
+    (who, n) => `${who} named the killer’s exact cards ${times(n)}`,
+    'inquest',
   );
   byPlayer(
     'master-of-disguise',

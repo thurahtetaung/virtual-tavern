@@ -57,3 +57,18 @@ export async function royalPostLabels(): Promise<Labeler> {
       ? cards.map((c) => name(c[id])).find((n) => n !== undefined)
       : undefined;
 }
+
+/** Inquest names its cards `clue-17` / `means-4`; the manifest keys them by number per deck. */
+export async function inquestLabels(): Promise<Labeler> {
+  const m = await manifest('inquest');
+  const decks = { clue: obj(m?.clue), means: obj(m?.means) };
+  const roles = obj(m?.roles);
+  return (kind, id) => {
+    if (kind === 'role') return name(roles[id]);
+    if (kind !== 'card') return undefined;
+    const match = /^(clue|means)-(\d+)$/.exec(id);
+    if (!match) return undefined;
+    const n = decks[match[1] as 'clue' | 'means'][match[2]!];
+    return typeof n === 'string' && n.trim() ? n.trim() : undefined;
+  };
+}

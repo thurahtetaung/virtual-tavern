@@ -2,6 +2,7 @@ import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EchoView } from '@vt/game-echo/logic';
 import { locationById } from '@vt/game-masquerade/content';
 import type { MasqueradeView } from '@vt/game-masquerade/logic';
+import type { InquestView } from '@vt/private-inquest/logic';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import {
   type GameStats,
@@ -356,6 +357,114 @@ describe('admin stats', () => {
     );
     const live = (await get<LiveStats>('live')).body;
     expect(live.games).toEqual([{ id: 'echo', name: 'Echo' }]);
+  });
+
+  it('plays Inquest behind the back room, hiding the crime, and reports its figures', async () => {
+    const { app, url, cookie: admin, get } = await start();
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: admin },
+      payload: { password: 'speakeasy' },
+    });
+    const unlocked = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/unlock',
+      payload: { password: 'speakeasy' },
+    });
+    const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+    const locked = await app.inject({
+      method: 'POST',
+      url: '/api/rooms',
+      payload: { gameId: 'inquest', token: token(60) },
+    });
+    expect(locked.statusCode).toBe(400);
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        headers: { cookie },
+        payload: { gameId: 'inquest', token: token(60) },
+      })
+    ).json<{ roomId: string }>();
+    const names = ['Kit', 'Lee', 'Mo', 'Ned'];
+    const clients: TestClient[] = [];
+    const seen = new Map<TestClient, string[]>();
+    for (const [i, name] of names.entries()) {
+      const c = await connect(url, cookie);
+      cleanups.push(() => void c.close());
+      seen.set(c, []);
+      c.on('room:state', (snap) => seen.get(c)!.push(JSON.stringify(snap.game)));
+      expect(await c.call('room:join', { roomId, token: token(60 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await Promise.all(clients.map((c) => c.until((snap) => snap.players.length === 4)));
+    const [host] = clients as [TestClient];
+    const iv = (c: TestClient) => c.latest()!.game as InquestView;
+    const act = async (c: TestClient, action: Record<string, unknown>) =>
+      expect(await c.call('game:action', action)).toEqual({ ok: true });
+    await act(host, {
+      type: 'update-settings',
+      fsMode: 'host',
+      fsPick: playerIdFromToken(token(60)),
+    });
+    await act(host, { type: 'start' });
+    await Promise.all(
+      clients.map((c) => c.until((snap) => (snap.game as InquestView).phase === 'playing')),
+    );
+    const murderer = clients.find((c) => iv(c).game!.myRole === 'murderer')!;
+    const me = iv(murderer).game!.players.find((p) => p.id === iv(murderer).me!.id)!;
+    await act(murderer, { type: 'commit-crime', clue: me.clue[2], means: me.means[1] });
+    await host.until((snap) => (snap.game as InquestView).game!.stage === 'collect');
+    await act(host, { type: 'pick-location', tile: 3 });
+    for (let slot = 0; slot < 6; slot++) {
+      tick(3000);
+      await act(host, { type: 'place-bullet', slot, item: slot });
+    }
+    const solver = clients.find((c) => c !== host && c !== murderer)!;
+    await solver.until((snap) => (snap.game as InquestView).game!.stage === 'present');
+    await act(solver, { type: 'solve', target: me.id, clue: me.clue[2], means: me.means[1] });
+    await Promise.all(
+      clients.map((c) => c.until((snap) => (snap.game as InquestView).phase === 'over')),
+    );
+    expect(iv(host).game!.result).toMatchObject({ winner: 'investigators', how: 'solved' });
+
+    // Until the end, only the Forensic Scientist and the Murderer were ever sent the crime.
+    for (const c of clients) {
+      const before = seen.get(c)!.filter((g) => !g.includes('"phase":"over"'));
+      for (const g of before) expect(g).not.toContain('"pile"');
+      const sawCrime = before.some((g) => g.includes('"solution":{'));
+      expect(sawCrime, iv(c).me!.name).toBe(c === host || c === murderer);
+    }
+
+    const stats = (await get<GameStats>('games/inquest?range=today')).body;
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    expect(figs['solve-rate']).toMatchObject({ kind: 'percent', value: 100 });
+    expect(figs['murderer-win-rate']).toMatchObject({ value: 0 });
+    expect(figs['solves-by-round']).toMatchObject({
+      parts: [
+        { label: 'Round 1', value: 1 },
+        { label: 'Round 2', value: 0 },
+        { label: 'Round 3', value: 0 },
+      ],
+    });
+    expect(figs['bullets-before-solve']).toMatchObject({ value: 6 });
+    expect(figs['top-means']).toMatchObject({
+      parts: [{ label: `{card:means-${me.means[1]}}`, value: 1 }],
+    });
+    expect(figs['top-clues']).toMatchObject({
+      parts: [{ label: `{card:clue-${me.clue[2]}}`, value: 1 }],
+    });
+    // Card names never reach stats storage: only ids.
+    expect(JSON.stringify(stats)).not.toMatch(/"name":"[^"]*(Knife|Rope)/);
+    const facts = (await get<StatsFun>('fun?range=today')).body.facts;
+    expect(facts.find((f) => f.id === 'case-closer')).toMatchObject({
+      gameId: 'inquest',
+      text: `${iv(solver).me!.name} named the killer’s exact cards once`,
+    });
   });
 
   it('turns a whole Royal Post game into figures and fun facts', async () => {

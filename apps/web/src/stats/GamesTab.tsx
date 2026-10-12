@@ -1,6 +1,8 @@
 import { type GameStats, WORD_KINDS, type WordKind } from '@vt/protocol';
 import { cn } from '@vt/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { loadPrivateGames } from '../games/registry.ts';
+import type { Labeler } from '../recap/resolve.ts';
 import { statsApi } from './api.ts';
 import { type GameInfo, gameColor, useLoad, useStats } from './context.tsx';
 import {
@@ -9,6 +11,7 @@ import {
   figureModel,
   isTileFigure,
   matrixCell,
+  nameFigure,
   settingLabel,
 } from './figures.ts';
 import { bucketLabel, compact, duration, percent, plain } from './format.ts';
@@ -41,6 +44,29 @@ export function GamesTab() {
   );
 }
 
+/**
+ * A back-room game's manifest labeler, once this browser has the back room unlocked (the private
+ * bundle only loads then); null otherwise, so placeholders read as plain ids.
+ */
+function useGameLabels(gameId: string): Labeler | null {
+  const [labels, setLabels] = useState<{ id: string; labels: Labeler } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadPrivateGames()
+      .then((games) => games.find((g) => g.id === gameId)?.labels?.())
+      .then((l) => {
+        if (live && l) setLabels({ id: gameId, labels: l });
+      })
+      .catch(() => {
+        // Locked, or no asset storage: ids stay as they are.
+      });
+    return () => {
+      live = false;
+    };
+  }, [gameId]);
+  return labels?.id === gameId ? labels.labels : null;
+}
+
 function GameView({ game }: { game: GameInfo }) {
   const ctx = useStats();
   const tokens = useChartTokens();
@@ -51,7 +77,11 @@ function GameView({ game }: { game: GameInfo }) {
   const color = gameColor(ctx, tokens, game.id);
   const first = !data;
   const empty = !!data && data.totals.gamesStarted === 0;
-  const figures = useMemo(() => (data ? data.figures.map(figureModel) : []), [data]);
+  const labels = useGameLabels(game.id);
+  const figures = useMemo(
+    () => (data ? data.figures.map((f) => figureModel(nameFigure(f, labels))) : []),
+    [data, labels],
+  );
   const tiles = figures.filter(isTileFigure);
   const charts = figures.filter((f) => !isTileFigure(f));
 

@@ -44,6 +44,7 @@ const LIGHT: ChartTokens = {
     '#e34948',
     '#0e8fa3',
     '#9a6a2f',
+    '#56708f',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -69,6 +70,7 @@ const DARK: ChartTokens = {
     '#e66767',
     '#22a9bd',
     '#c08a4a',
+    '#8fa3bf',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -82,8 +84,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * Known games keep their slot whatever else is in the data, so colour follows the game. Append new
  * games at the end: Reverie, Masquerade and Royal Post sit where their ids used to hash, so no
  * existing game changes colour. Nightfall took a ninth slot (a teal, kept apart from the red before it
- * and at least 3:1 on both surfaces), and Round Table a tenth (a bronze, 4.7:1 on white and 5.8:1 on
- * stone-900, kept apart from the teal before it). Every slot is now taken, so a game not listed here is drawn in
+ * and at least 3:1 on both surfaces), Round Table a tenth (a bronze, 4.7:1 on white and 5.8:1 on
+ * stone-900, kept apart from the teal before it) and Inquest an eleventh (a slate blue-grey, kept
+ * apart from the bronze before it). Every slot is now taken, so a game not listed here is drawn in
  * the neutral "other" colour until it is added.
  */
 const FIXED_ORDER = [
@@ -97,6 +100,7 @@ const FIXED_ORDER = [
   'masquerade-originals',
   'nightfall',
   'round-table',
+  'inquest',
 ];
 
 /**

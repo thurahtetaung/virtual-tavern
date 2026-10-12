@@ -19,6 +19,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   'round-table': [],
   // Role ids: the roles dealt, and the roles that died.
   nightfall: ['clue', 'guess'],
+  // Cards, not words: no Words card.
+  inquest: [],
 };
 
 const LABELS: Record<WordKind, string> = {

@@ -1,5 +1,17 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import {
+  dismissEvent,
+  openBackroom as openInquestBackroom,
+  placeBullets,
+  presentAll as presentInquest,
+  replaceTile,
+  table as inquestTable,
+  unlock as unlockInquest,
+  visitor as inquestVisitor,
+  whoShows,
+  withRole,
+} from './inquest-play.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
 import * as rt from './round-table-play.ts';
 import {
@@ -1306,5 +1318,188 @@ for (const [label, viewport] of [
     await assassin!.getByRole('button', { name: /^Yes, it’s/ }).click();
     await expect(host.getByTestId('winner')).toBeVisible();
     await shot(host, 'end');
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+] as const) {
+  test(`inquest screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const errors: string[] = [];
+    const opts = { viewport, colorScheme };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/inquest-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const tab = async (p: Page, name: string) => {
+      if (label === 'phone')
+        await p
+          .getByRole('navigation', { name: 'Game sections' })
+          .getByRole('button', { name })
+          .click();
+    };
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const players = await inquestTable(
+      browser,
+      ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eve'],
+      errors,
+      opts,
+    );
+    const host = players[0]!.page;
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Host picks', exact: true }).click();
+    await host
+      .getByLabel('Pick the Forensic Scientist')
+      .getByRole('button', { name: 'Hana', exact: true })
+      .click();
+    await host.getByRole('button', { name: 'Start the investigation' }).click();
+
+    const murderer = await whoShows(
+      players,
+      'Murderer: pick 1 Clue + 1 Means from your own cards.',
+    );
+    const night = murderer.page.getByRole('region', { name: 'Choose your crime' });
+    await night
+      .getByRole('button', { name: /^Clue:/ })
+      .first()
+      .click();
+    await night
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await shot(murderer.page, 'night-murderer');
+    const others = players.filter((p) => p.page !== host && p !== murderer);
+    await shot(others[0]!.page, 'night');
+    await night.getByRole('button', { name: /^Commit:/ }).click();
+
+    await expect(host.getByText('Pick the Location tile for this crime.')).toBeVisible();
+    await host.locator('button[data-tile]:visible').first().click();
+    await shot(host, 'fs-location');
+    await host.getByRole('button', { name: /^Use “/ }).click();
+    await placeBullets(host, 3);
+    await host.locator('button[data-item]:visible').first().click();
+    await shot(host, 'fs-bullet');
+    await host.getByRole('button', { name: /^Place bullet on/ }).click();
+    await placeBullets(host, 2);
+
+    const accomplice = await withRole(others, 'Accomplice');
+    const witness = await withRole(others, 'Witness');
+    const inv = others.find((p) => p !== accomplice && p !== witness)!;
+    await tab(inv.page, 'Suspects');
+    await shot(inv.page, 'suspects');
+    if (label === 'phone') {
+      await inv.page.getByRole('button', { name: '▦ Grid' }).click();
+      await shot(inv.page, 'suspects-grid');
+      await inv.page.getByRole('button', { name: '▦ Grid' }).click();
+    }
+    await tab(inv.page, 'Scene');
+    await shot(inv.page, 'scene');
+    await tab(inv.page, 'Me');
+    await inv.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await shot(inv.page, 'me');
+    await tab(witness.page, 'Me');
+    await witness.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await shot(witness.page, 'me-witness');
+    const speaker = await whoShows(players, /^Your turn to present/);
+    if (label === 'desktop') {
+      // A watcher puts the public table on a shared screen.
+      const tv = await inquestVisitor(browser, 'Tv', errors, {
+        viewport: { width: 1920, height: 1080 },
+        colorScheme: 'dark',
+      });
+      await unlockInquest(tv, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
+      await tv.getByRole('button', { name: '📺 Table screen' }).click();
+      await expect(tv.getByLabel('Table screen')).toBeVisible();
+      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-table-screen.png` });
+      await tv.context().close();
+    }
+    await tab(speaker.page, 'Suspects');
+    await shot(speaker.page, 'presenting');
+
+    await inv.page
+      .getByRole('button', { name: /🔎 Solve/ })
+      .first()
+      .click();
+    const sheet = inv.page.getByRole('dialog', { name: /^Solve/ });
+    await shot(inv.page, 'solve-1');
+    await sheet.getByRole('button', { name: murderer.name, exact: true }).click();
+    await sheet
+      .getByRole('button', { name: /^Clue:/ })
+      .nth(1)
+      .click();
+    await sheet
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await shot(inv.page, 'solve-confirm');
+    await inv.page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+
+    await presentInquest(players, 5);
+    await expect(inv.page.getByRole('dialog', { name: /Event: Cleared Evidence/ })).toBeVisible();
+    await shot(inv.page, 'event-card');
+    await dismissEvent(players, /Event: Cleared Evidence/);
+    for (let i = 0; i < 5; i++) {
+      const flipper = await whoShows(
+        players,
+        'Your turn: flip one of your own Clue cards face down.',
+      );
+      const panel = flipper.page.getByRole('region', { name: 'Flip a Clue card' });
+      await panel
+        .getByRole('button', { name: /^Clue:/ })
+        .and(panel.locator(':enabled'))
+        .first()
+        .click();
+      if (i === 0) await shot(flipper.page, 'flip');
+      await panel.getByRole('button', { name: /^Flip / }).click();
+      await expect(panel.getByRole('button', { name: /^Flip / })).toHaveCount(0);
+    }
+    await dismissEvent(players, /Event: Shifted Bullet/);
+    await host.locator('button[data-item][data-marked="false"]:visible').first().click();
+    await shot(host, 'fs-move');
+    await host.getByRole('button', { name: /^Move the bullet to/ }).click();
+    await dismissEvent(players, /Event: Last Call/);
+    await host.locator('button[data-slot]:visible').first().click();
+    await shot(host, 'fs-replace');
+    await host.getByRole('button', { name: /^Replace “/ }).click();
+    await replaceTile(host);
+    await placeBullets(host, 2);
+    await replaceTile(host);
+    await placeBullets(host, 1);
+    await tab(inv.page, 'Suspects');
+    await shot(inv.page, 'last-call');
+
+    const right = others.find((p) => p !== accomplice && p !== witness && p !== inv)!;
+    await right.page
+      .getByRole('button', { name: /🔎 Solve/ })
+      .first()
+      .click();
+    const d = right.page.getByRole('dialog', { name: /^Solve/ });
+    await d.getByRole('button', { name: murderer.name, exact: true }).click();
+    await d
+      .getByRole('button', { name: /^Clue:/ })
+      .first()
+      .click();
+    await d
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await d.getByRole('button', { name: '🔎 Solve the crime' }).click();
+    const rev = murderer.page.getByRole('region', { name: 'The Reversal' });
+    await accomplice.page
+      .getByRole('region', { name: 'The Reversal' })
+      .getByRole('button', { name: new RegExp(`^${inv.name}`) })
+      .click();
+    await rev.getByRole('button', { name: new RegExp(`^${inv.name}`) }).click();
+    await shot(murderer.page, 'reversal');
+    await shot(inv.page, 'reversal-waiting');
+    await rev.getByRole('button', { name: `Final answer: ${inv.name}` }).click();
+    await expect(host.getByRole('heading', { name: 'Who was who' })).toBeVisible();
+    await shot(host, 'over');
+    await shot(inv.page, 'over-investigator');
+    expect(errors).toEqual([]);
   });
 }

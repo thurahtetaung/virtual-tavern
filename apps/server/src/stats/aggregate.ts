@@ -244,6 +244,8 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
     const plague = num(props.plague) ?? 0;
     if (plague > 0) credit(playerId, 'nf.plague', plague);
   }
+  if (game === 'inquest' && type === 'solve' && playerId && props.correct === true)
+    credit(playerId, 'cases_solved');
   if (game === 'royal-post' && playerId) {
     if (type === 'guard' && props.hit === true) credit(playerId, 'guard_hits');
     if (type === 'elimination' && lostPrincess(props)) credit(playerId, 'princess_falls');

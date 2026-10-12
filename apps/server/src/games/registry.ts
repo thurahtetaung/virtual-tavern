@@ -5,10 +5,20 @@ import { enigma } from '@vt/game-enigma/logic';
 import { masquerade } from '@vt/game-masquerade/logic';
 import { roundTable } from '@vt/game-round-table/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
+import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { nightfall } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
+
+// Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
+// list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.INQUEST_TEST_EVENTS) {
+  const kinds = process.env.INQUEST_TEST_EVENTS.split(',').map((k) => k.trim());
+  setTestEventOrder(
+    kinds.filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
+  );
+}
 
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
@@ -28,6 +38,7 @@ export function buildGames(): GameRegistry {
     royalPost,
     masqueradeOriginals,
     nightfall,
+    inquest,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
