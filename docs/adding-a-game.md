@@ -27,6 +27,17 @@ The tavern night recap (the strip of awards on every end screen and the shareabl
 - **End screen:** render `<Superlatives lines={room.superlatives} />` from `@vt/ui` under the result, above the host buttons. It shows nothing while recaps are off.
 - **Tests** (`awards.test.ts`): each rule's hit, no hit, ties, minimums and old events without the new props, using `fixtureGame` and `recapEv`; plus one real game played through your harness with its real `insights()` (convert with `recapEventOf`), so insights and awards never drift apart.
 
+## 1c. Bots: `src/logic/bot.ts`
+
+Admin playtests can fill seats with bots. Add `bot: <id>Bot` to the definition: `bot(view, ctx)` returns the one move the bot in seat `ctx.me` makes now, or null when it has nothing to do. The runner (`apps/server/src/rooms/bots.ts`) calls it after a human-like pause, from fresh state, and sends the move through the room's normal `act`, so a bot can do nothing a player couldn't.
+
+- **View only.** The hook gets the seat's own `view()`, never the state, and `BotCtx` (`me`, `now`, a seeded `rng`, and `words(listIds)` for word lists, never questions, answers or decoys). Its type makes cheating impossible; keep it that way.
+- **Pure and idempotent.** Return null once the bot has done its part (readied, voted, played), so it never repeats itself. A refused move waits for the next change before the bot tries again.
+- **Lobby:** a bot may only seat itself (`sit`). Starting, next round, play again and every host-only step belong to the human host; bots never host.
+- **Never chat, never gamble the table's chances** (solve attempts, badges). Pass wherever passing is legal. Use `pickOne`, `pickN`, `chance` and `cannedText` from `@vt/game-sdk` for random picks and filler text.
+- **Roles bots can't play:** set `botInfo.note` (shown in the playtest setup) and `botInfo.setup(hostId)` (host actions the playtest runs first, e.g. giving that role to the host). Inquest does this for the Forensic Scientist.
+- **Tests** (`bot.test.ts`): `playWithBots(def, seats, { seed, host, humans })` plays a whole game with a bot in every seat, on a fake clock, firing deadlines when nobody acts. Check it reaches `over` with no refused moves for a few seeds and every table size, and add a type test that the hook's first parameter is your `View`.
+
 ## 2. Guide: `src/logic/guide.ts`
 
 Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Also give it a `quickStart`: 5 or 6 short bullets that cover a whole game ("what do I do now?"). It renders first, both on `/rules/:id` and in the room's rules drawer, and `apps/server/src/games/guides.test.ts` checks every game has one. Update the guide in the same PR as any rule change. Each `roles` entry gets an anchor (`roleAnchor` in `apps/web/src/components/GuideView.tsx`: "Merlin (Good)" → `guide-role-merlin`), so a role card can open the rules drawer at its role.

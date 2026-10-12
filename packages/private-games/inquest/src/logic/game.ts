@@ -1,3 +1,4 @@
+import { inquestBot, inquestBotInfo } from './bot.ts';
 import {
   type ActionCtx,
   type CreateCtx,
@@ -1259,4 +1260,6 @@ export const inquest: GameDefinition<InquestState, InquestAction, InquestView> =
   onDeadline,
   insights,
   awards: inquestAwards,
+  bot: inquestBot,
+  botInfo: inquestBotInfo,
 };

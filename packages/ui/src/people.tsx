@@ -1,5 +1,5 @@
 import type { SpectatorPrompt } from '@vt/game-sdk';
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 import { cn } from './cn.ts';
 
 /** The 👑 every player list puts after the host's name. */
@@ -10,6 +10,12 @@ export function HostCrown() {
     </span>
   );
 }
+
+/**
+ * The names of a playtest's bot seats, from the room shell (names are unique in a room), so
+ * every player list marks them with 🤖 without any game knowing about bots.
+ */
+export const BotNames = createContext<ReadonlySet<string>>(new Set());
 
 /**
  * A player's name as every list shows it: 👑 for the host, "(you)", and a muted "offline" while
@@ -28,9 +34,15 @@ export function PlayerTag({
   offline?: boolean;
   className?: string;
 }) {
+  const bot = useContext(BotNames).has(name);
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
       <span className={cn('truncate', offline && 'opacity-60')}>{name}</span>
+      {bot && (
+        <span role="img" aria-label="bot">
+          🤖
+        </span>
+      )}
       {host && <HostCrown />}
       {you && <span className="text-xs text-stone-500 dark:text-stone-400">(you)</span>}
       {offline && (

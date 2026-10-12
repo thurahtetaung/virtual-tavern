@@ -25,6 +25,8 @@ export interface PlaytestRecord {
   bots: { id: string; name: string }[];
   speed: PlaytestSpeed;
   paused: boolean;
+  /** Paused by the bot runner because the bots got stuck. */
+  stuck?: boolean;
   createdAt: number;
 }
 

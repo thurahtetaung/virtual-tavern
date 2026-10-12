@@ -1,5 +1,6 @@
 import type { ZodType } from 'zod';
 import type { AwardModule } from './awards.ts';
+import type { BotCtx, BotInfo } from './bots.ts';
 import type { GameGuide } from './guide.ts';
 import type { Rng } from './rng.ts';
 
@@ -138,6 +139,15 @@ export interface GameDefinition<State, Action, View> {
    * Like `insights`, it never affects play.
    */
   awards?: AwardModule;
+  /**
+   * Admin playtests: the move a bot in seat `ctx.me` makes now, from that seat's own `view`
+   * only (never the state), or null when it has nothing to do. Pure and idempotent: one legal
+   * action at a time, null once it has done its part. In the lobby it may only seat itself;
+   * starting and every host-only step belong to the human host. See `docs/adding-a-game.md` §1c.
+   */
+  bot?(view: View, ctx: BotCtx): Action | null;
+  /** How the bots fit a playtest (roles they can't play, setup). */
+  botInfo?: BotInfo;
 }
 
 /**

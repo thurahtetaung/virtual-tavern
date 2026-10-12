@@ -11,6 +11,7 @@ import {
 } from '../lib/playtests.ts';
 import { seatLink } from '../lib/seat.ts';
 import { useToast } from '../lib/toast.tsx';
+import { BotControls } from './BotControls.tsx';
 
 /** Ready-made seat names (self-written, short, easy to tell apart in a tab strip). */
 const SEAT_NAMES = [
@@ -32,8 +33,30 @@ const SEAT_NAMES = [
   'Pia',
 ];
 
-const seatNames = (n: number, from: readonly string[] = []) =>
-  Array.from({ length: n }, (_, i) => from[i] ?? SEAT_NAMES[i] ?? `Seat ${i + 1}`);
+interface SeatDraft {
+  name: string;
+  bot: boolean;
+}
+
+/**
+ * `n` seats, keeping the ones already set up. New seats are bots where the game has them; seat 1
+ * is always you, the host.
+ */
+const seatDrafts = (n: number, game: PlaytestGame, from: readonly SeatDraft[] = []) =>
+  Array.from(
+    { length: n },
+    (_, i): SeatDraft =>
+      from[i] ?? {
+        name: SEAT_NAMES[i] ?? `Seat ${i + 1}`,
+        bot: i > 0 && game.bots !== 'none',
+      },
+  ).map((s, i) => (i === 0 ? { ...s, bot: false } : s));
+
+const BOTS_LABEL: Record<PlaytestGame['bots'], string> = {
+  all: '🤖 Bots',
+  some: '🤖 Some roles',
+  none: 'No bots yet',
+};
 
 /** Opens a seat in a new tab; links stay on the page for when a popup blocker says no. */
 const openSeat = (url: string) => {
@@ -48,7 +71,7 @@ export function PlaytestAdmin() {
     () => new Map(clientGames.map((g) => [g.id, g.icon])),
   );
   const [gameId, setGameId] = useState<string | null>(null);
-  const [names, setNames] = useState<string[]>([]);
+  const [seats, setSeatList] = useState<SeatDraft[]>([]);
   const [starting, setStarting] = useState(false);
   const [running, setRunning] = useState<SavedPlaytest[]>(savedPlaytests);
 
@@ -65,9 +88,19 @@ export function PlaytestAdmin() {
   const game = games?.find((g) => g.id === gameId) ?? null;
   const pick = (g: PlaytestGame) => {
     setGameId(g.id);
-    setNames((prev) => seatNames(g.minPlayers, prev));
+    setSeatList((prev) =>
+      seatDrafts(
+        g.minPlayers,
+        g,
+        prev.map((s) => ({ ...s, bot: s.bot && g.bots !== 'none' })),
+      ),
+    );
   };
-  const setSeats = (n: number) => setNames((prev) => seatNames(n, prev));
+  const setSeats = (n: number) => {
+    if (game) setSeatList((prev) => seatDrafts(n, game, prev));
+  };
+  const editSeat = (i: number, patch: Partial<SeatDraft>) =>
+    setSeatList((prev) => prev.map((s, j) => (j === i ? { ...s, ...patch } : s)));
 
   const start = async () => {
     if (!game) return;
@@ -75,12 +108,15 @@ export function PlaytestAdmin() {
     try {
       const made = await api<PlaytestCreated>('/api/admin/playtests', {
         method: 'POST',
-        body: { gameId: game.id, seats: names.map((name) => ({ name: name.trim() })) },
+        body: {
+          gameId: game.id,
+          seats: seats.map((s) => ({ name: s.name.trim(), bot: s.bot })),
+        },
       });
       setRunning(savePlaytest({ ...made, gameName: game.name, startedAt: Date.now() }));
       // Your own seat (the host) opens straight away; the others are a click each below.
       const first = made.seats[0];
-      if (first) openSeat(seatLink(made.roomId, first));
+      if (first?.token) openSeat(seatLink(made.roomId, { name: first.name, token: first.token }));
     } catch (err) {
       toast((err as Error).message);
     } finally {
@@ -133,6 +169,16 @@ export function PlaytestAdmin() {
                     {g.private && <span aria-label="back room">🕯️ </span>}
                     {g.minPlayers}–{g.maxSeats} seats
                   </span>
+                  <span
+                    className={cn(
+                      'mt-0.5 inline-block rounded-full px-1.5 text-[11px] font-semibold',
+                      g.bots === 'none'
+                        ? 'bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300'
+                        : 'bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-100',
+                    )}
+                  >
+                    {BOTS_LABEL[g.bots]}
+                  </span>
                 </span>
               </button>
             ))}
@@ -155,45 +201,65 @@ export function PlaytestAdmin() {
                   size="sm"
                   className="size-11 text-lg"
                   aria-label="One seat fewer"
-                  disabled={names.length <= game.minPlayers}
-                  onClick={() => setSeats(names.length - 1)}
+                  disabled={seats.length <= game.minPlayers}
+                  onClick={() => setSeats(seats.length - 1)}
                 >
                   −
                 </Button>
                 <span className="w-8 text-center text-lg font-bold tabular-nums" aria-live="polite">
-                  {names.length}
+                  {seats.length}
                 </span>
                 <Button
                   variant="secondary"
                   size="sm"
                   className="size-11 text-lg"
                   aria-label="One seat more"
-                  disabled={names.length >= game.maxSeats}
-                  onClick={() => setSeats(names.length + 1)}
+                  disabled={seats.length >= game.maxSeats}
+                  onClick={() => setSeats(seats.length + 1)}
                 >
                   +
                 </Button>
               </div>
             </div>
+            {game.botNote && (
+              <p className="text-sm text-stone-600 dark:text-stone-400">
+                <span aria-hidden>🤖 </span>
+                {game.botNote}
+              </p>
+            )}
             <ol className="grid gap-2 sm:grid-cols-2">
-              {names.map((name, i) => (
-                <li key={i} className="flex items-center gap-2">
+              {seats.map((seat, i) => (
+                <li key={i} className="flex min-w-0 items-center gap-2">
                   <span className="w-6 text-right text-sm text-stone-500 tabular-nums">
                     {i + 1}
                   </span>
                   <input
                     aria-label={`Seat ${i + 1} name`}
-                    value={name}
+                    value={seat.name}
                     maxLength={24}
-                    onChange={(e) =>
-                      setNames((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))
-                    }
-                    className="h-11 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+                    onChange={(e) => editSeat(i, { name: e.target.value })}
+                    className="h-11 w-0 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
                   />
-                  {i === 0 && (
-                    <span className="text-xs whitespace-nowrap text-stone-500 dark:text-stone-400">
-                      👑 host
+                  {i === 0 ? (
+                    <span className="w-22 shrink-0 text-center text-xs whitespace-nowrap text-stone-500 dark:text-stone-400">
+                      👑 you, host
                     </span>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Seat ${i + 1}: ${seat.bot ? 'bot' : 'human'}`}
+                      aria-pressed={seat.bot}
+                      disabled={game.bots === 'none'}
+                      onClick={() => editSeat(i, { bot: !seat.bot })}
+                      className={cn(
+                        'h-11 w-22 shrink-0 rounded-lg text-sm font-semibold ring-1 disabled:opacity-50',
+                        seat.bot
+                          ? 'bg-sky-100 text-sky-900 ring-sky-300 dark:bg-sky-500/20 dark:text-sky-100 dark:ring-sky-500/40'
+                          : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
+                      )}
+                    >
+                      {seat.bot ? '🤖 Bot' : '🧑 Human'}
+                    </button>
                   )}
                 </li>
               ))}
@@ -201,7 +267,7 @@ export function PlaytestAdmin() {
             <Button
               size="lg"
               className="w-full sm:w-auto"
-              disabled={starting || names.some((n) => !n.trim())}
+              disabled={starting || seats.some((s) => !s.name.trim())}
               onClick={() => void start()}
             >
               Start playtest
@@ -223,6 +289,7 @@ export function PlaytestAdmin() {
                 key={p.roomId}
                 playtest={p}
                 icon={icons.get(p.gameId) ?? '🎲'}
+                canAddBots={games?.find((g) => g.id === p.gameId)?.bots !== 'none'}
                 onEnded={ended}
               />
             ))}
@@ -236,15 +303,34 @@ export function PlaytestAdmin() {
 function RunningPlaytest({
   playtest,
   icon,
+  canAddBots,
   onEnded,
 }: {
   playtest: SavedPlaytest;
   icon: string;
+  canAddBots: boolean;
   onEnded: (roomId: string) => void;
 }) {
   const toast = useToast();
   const { roomId } = playtest;
   const [status, setStatus] = useState<PlaytestStatus | null>(null);
+  // Only the human seats have links; bots play on the server.
+  const humans = playtest.seats.flatMap((s) => (s.token ? [{ ...s, token: s.token }] : []));
+  const bots = status?.players.filter((p) => p.bot) ?? [];
+  const lobby = status?.phase === 'lobby';
+  const patch = async (body: { addBot?: string; removeBot?: string }) => {
+    try {
+      setStatus(
+        await api<PlaytestStatus>(`/api/admin/playtests/${roomId}`, { method: 'PATCH', body }),
+      );
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+  const nextBotName = () => {
+    const taken = new Set(status?.players.map((p) => p.name.toLowerCase()));
+    return SEAT_NAMES.find((n) => !taken.has(n.toLowerCase())) ?? `Bot ${bots.length + 1}`;
+  };
 
   // Who is in, refreshed when the admin comes back to this tab.
   useEffect(() => {
@@ -296,7 +382,7 @@ function RunningPlaytest({
           {playtest.gameName}
           <span className="font-normal text-stone-500 dark:text-stone-400">
             {' '}
-            · {playtest.seats.length} seats
+            · {status?.players.length ?? playtest.seats.length} seats
             {status ? ` · ${status.phase === 'lobby' ? 'in the lobby' : status.phase}` : ''}
           </span>
         </p>
@@ -306,7 +392,7 @@ function RunningPlaytest({
             size="sm"
             className="min-h-11 sm:min-h-0"
             onClick={() => {
-              for (const seat of playtest.seats) openSeat(seatLink(roomId, seat));
+              for (const seat of humans) openSeat(seatLink(roomId, seat));
             }}
           >
             Open all
@@ -321,8 +407,11 @@ function RunningPlaytest({
           </Button>
         </div>
       </div>
+      {status && status.playtest.bots > 0 && (
+        <BotControls roomId={roomId} playtest={status.playtest} onChange={setStatus} />
+      )}
       <ul className="flex flex-wrap gap-2" aria-label="Seats">
-        {playtest.seats.map((seat) => (
+        {humans.map((seat) => (
           <li key={seat.playerId}>
             <a
               href={seatLink(roomId, seat)}
@@ -341,6 +430,36 @@ function RunningPlaytest({
             </a>
           </li>
         ))}
+        {bots.map((b) => (
+          <li
+            key={b.id}
+            className="inline-flex min-h-11 items-center gap-1 rounded-full bg-sky-50 pr-1 pl-3 text-sm font-semibold text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+          >
+            <span aria-hidden>🤖</span> {b.name}
+            {lobby && (
+              <button
+                type="button"
+                aria-label={`Remove bot ${b.name}`}
+                className="ml-1 size-9 rounded-full hover:bg-sky-100 dark:hover:bg-sky-500/20"
+                onClick={() => void patch({ removeBot: b.id })}
+              >
+                ✕
+              </button>
+            )}
+          </li>
+        ))}
+        {lobby && canAddBots && (
+          <li>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="min-h-11 rounded-full"
+              onClick={() => void patch({ addBot: nextBotName() })}
+            >
+              ＋ Bot
+            </Button>
+          </li>
+        )}
       </ul>
     </li>
   );

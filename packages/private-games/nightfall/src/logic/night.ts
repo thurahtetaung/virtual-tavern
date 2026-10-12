@@ -320,7 +320,7 @@ function checkPick(pr: Prompt, a: NightAction): GameError | null {
 }
 
 /** A random legal answer to a prompt, for a mandatory action when time runs out. */
-function randomPick(pr: Prompt, rng: Rng, step: number): NightAction | null {
+export function randomPick(pr: Prompt, rng: Rng, step: number): NightAction | null {
   if (pr.choices) return { type: 'night', step, choice: pr.choices[rng.int(pr.choices.length)]! };
   if (pr.sides) return { type: 'night', step, side: rng.int(2) === 0 ? 'left' : 'right' };
   if (pr.players) {

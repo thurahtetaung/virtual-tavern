@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   Panel,
+  BotNames,
   RefusalProvider,
   SuperlativesNote,
   clock,
@@ -431,6 +432,12 @@ function Room({
     }));
   }, [playtest, snapshot?.meta?.phase, playtestAwards, nightNames, nightLabels]);
   const superlatives = playtest ? previewLines : night.superlatives;
+  // Playtest bots get a 🤖 in every player list (names are unique in a room).
+  const botKey = snapshot?.players
+    .filter((p) => p.bot)
+    .map((p) => p.name)
+    .join('\n');
+  const botNames = useMemo(() => new Set(botKey ? botKey.split('\n') : []), [botKey]);
 
   // Where "back" goes: back-room players return to the back room, not the public tavern.
   const home = playtest
@@ -578,24 +585,26 @@ function Room({
             </p>
           }
         >
-          <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
-            <Game
-              view={snapshot.game}
-              room={{
-                you: snapshot.you,
-                hostId: snapshot.hostId,
-                isHost,
-                players: snapshot.players,
-                clockOffset,
-                wordLists,
-                ...(superlatives && { superlatives }),
-              }}
-              act={act}
-              showGuide={() => setGuideOpen(true)}
-              setYourMove={setYourMove}
-              setSpectator={setSpectator}
-            />
-          </SuperlativesNote.Provider>
+          <BotNames.Provider value={botNames}>
+            <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
+              <Game
+                view={snapshot.game}
+                room={{
+                  you: snapshot.you,
+                  hostId: snapshot.hostId,
+                  isHost,
+                  players: snapshot.players,
+                  clockOffset,
+                  wordLists,
+                  ...(superlatives && { superlatives }),
+                }}
+                act={act}
+                showGuide={() => setGuideOpen(true)}
+                setYourMove={setYourMove}
+                setSpectator={setSpectator}
+              />
+            </SuperlativesNote.Provider>
+          </BotNames.Provider>
         </Suspense>
       )}
 
@@ -891,15 +900,22 @@ function People({
               <span className="font-medium">{p.name}</span>
               {p.id === snapshot.hostId && <Badge>👑 host</Badge>}
               {p.id === snapshot.you && <Badge>you</Badge>}
+              {p.bot && <Badge>🤖 bot</Badge>}
               {!p.connected && (
                 <span className="text-xs">{awayFor(p.awaySince, now + clockOffset)}</span>
               )}
             </span>
             {isHost && p.id !== snapshot.you && (
               <span className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => void run('room:make-host', p.id)}>
-                  Make host
-                </Button>
+                {!p.bot && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void run('room:make-host', p.id)}
+                  >
+                    Make host
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"

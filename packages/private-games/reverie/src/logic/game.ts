@@ -1,3 +1,4 @@
+import { reverieBot } from './bot.ts';
 import {
   type ActionCtx,
   type CreateCtx,
@@ -716,4 +717,5 @@ export const reverie: GameDefinition<ReverieState, ReverieAction, ReverieView> =
   onDeadline,
   insights,
   awards: reverieAwards,
+  bot: reverieBot,
 };

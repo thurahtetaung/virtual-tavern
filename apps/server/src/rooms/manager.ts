@@ -1,6 +1,7 @@
 import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
 import type { Ack, PlaytestStatus, RecapTone, RoomMeta, RoomSnapshot } from '@vt/protocol';
-import { newRoomId, randomSeed } from './ids.ts';
+import { randomBytes } from 'node:crypto';
+import { newRoomId, playerIdFromToken, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
 import type { PlaytestRecord, RoomRecord, RoomStore } from './store.ts';
 
@@ -104,6 +105,9 @@ interface LiveRoom {
   /** Since when nobody has been connected (server clock); undefined while someone is. */
   emptySince?: number;
 }
+
+/** A playtest's bot seats. */
+const botIds = (record: RoomRecord) => new Set(record.playtest?.bots.map((b) => b.id));
 
 export class RoomError extends Error {
   readonly code: string;
@@ -305,6 +309,7 @@ export class RoomManager {
     if (room.record.hostId !== by) return fail('not-host', 'Only the host can hand over hosting.');
     if (!room.record.players.some((p) => p.id === target))
       return fail('bad-target', 'No such player.');
+    if (botIds(room.record).has(target)) return fail('bad-target', 'A bot can’t host.');
     this.commit(room, { hostId: target }, 0, { kind: 'host.changed', by: target });
     return OK;
   }
@@ -355,12 +360,15 @@ export class RoomManager {
     if (!room) return null;
     const { record } = room;
     const seated = record.players.some((p) => p.id === viewer);
+    const bots = botIds(record);
     return {
       id: record.id,
       gameId: record.gameId,
       hostId: record.hostId,
       you: viewer,
       players: record.players.map((p) => {
+        // A playtest bot is always there.
+        if (bots.has(p.id)) return { ...p, connected: true, bot: true as const };
         const connected = room.connections.has(p.id);
         const awaySince = connected ? undefined : room.awaySince.get(p.id);
         return awaySince === undefined ? { ...p, connected } : { ...p, connected, awaySince };
@@ -388,7 +396,12 @@ export class RoomManager {
       // A playtest records no night, so it has no recap to show.
       ...(playtest && {
         recap: false,
-        playtest: { speed: playtest.speed, paused: playtest.paused, bots: playtest.bots.length },
+        playtest: {
+          speed: playtest.speed,
+          paused: playtest.paused,
+          bots: playtest.bots.length,
+          ...(playtest.stuck && { stuck: true as const }),
+        },
       }),
     };
   }
@@ -403,11 +416,95 @@ export class RoomManager {
       gameId: room.record.gameId,
       phase: meta.phase,
       playtest: meta.playtest!,
-      players: room.record.players.map((p) => ({
-        ...p,
-        connected: room.connections.has(p.id),
-      })),
+      players: room.record.players.map((p) =>
+        botIds(room.record).has(p.id)
+          ? { ...p, connected: true, bot: true as const }
+          : { ...p, connected: room.connections.has(p.id) },
+      ),
     };
+  }
+
+  /**
+   * Changes a playtest's bot settings (speed, pause; `stuck` when the bot runner paused it).
+   * Presence-style: the room's version doesn't move, but every seat hears of it.
+   */
+  setPlaytest(
+    roomId: string,
+    patch: Partial<Pick<PlaytestRecord, 'speed' | 'paused' | 'stuck'>>,
+  ): boolean {
+    const room = this.load(roomId);
+    const current = room?.record.playtest;
+    if (!room || !current) return false;
+    const playtest = { ...current, ...patch };
+    // Pausing or resuming by hand clears the "stuck" note.
+    if (patch.paused !== undefined && patch.stuck === undefined) delete playtest.stuck;
+    this.savePlaytest(room, playtest);
+    this.deps.events.changed(roomId);
+    return true;
+  }
+
+  /** Adds a bot seat to a playtest, in the lobby only. Its id comes from a token nobody keeps. */
+  addBot(roomId: string, wanted: string): Ack {
+    const room = this.load(roomId);
+    if (!room?.record.playtest) return fail('no-room', 'This playtest has ended.');
+    if (!room.game.bot) return fail('no-bots', `${room.game.name} has no bots yet.`);
+    if (this.meta(room).phase !== 'lobby')
+      return fail('game-running', 'Add bots in the lobby, between games.');
+    const id = playerIdFromToken(randomBytes(32).toString('base64url'));
+    const name = uniqueName(
+      wanted,
+      room.record.players.map((p) => p.name),
+    );
+    const playtest = room.record.playtest;
+    this.savePlaytest(room, { ...playtest, bots: [...playtest.bots, { id, name }] });
+    const res = this.join(roomId, id, name, { admin: true });
+    if (!res.ok) this.savePlaytest(room, playtest);
+    return res;
+  }
+
+  /** Takes a bot seat out of a playtest (as if it left). */
+  removeBot(roomId: string, botId: string): Ack {
+    const room = this.load(roomId);
+    if (!room?.record.playtest) return fail('no-room', 'This playtest has ended.');
+    if (!botIds(room.record).has(botId)) return fail('bad-target', 'No such bot.');
+    return this.leave(roomId, botId);
+  }
+
+  /**
+   * What the bot runner needs to know about a playtest: its bots and settings, whether a human
+   * seat is there, and the version its moves are based on. Null when it isn't a live playtest.
+   */
+  botTable(roomId: string): {
+    game: AnyGameDefinition;
+    bots: string[];
+    paused: boolean;
+    speed: PlaytestRecord['speed'];
+    humans: number;
+    version: number;
+  } | null {
+    const room = this.rooms.get(roomId);
+    const playtest = room?.record.playtest;
+    if (!room || !playtest) return null;
+    return {
+      game: room.game,
+      bots: playtest.bots.map((b) => b.id),
+      paused: playtest.paused,
+      speed: playtest.speed,
+      humans: room.connections.size,
+      version: room.record.version,
+    };
+  }
+
+  /** A bot seat's own view (and nothing else), as any player of that seat would see it. */
+  botView(roomId: string, botId: string): { view: unknown; version: number } | null {
+    const room = this.rooms.get(roomId);
+    if (!room || !botIds(room.record).has(botId)) return null;
+    return { view: room.game.view(room.record.state, botId), version: room.record.version };
+  }
+
+  private savePlaytest(room: LiveRoom, playtest: PlaytestRecord) {
+    this.deps.store.setPlaytest(room.record.id, playtest);
+    room.record = { ...room.record, playtest };
   }
 
   /** Ends a playtest at once: everyone in it is told, and the room and its timers are gone. */
@@ -718,10 +815,20 @@ export class RoomManager {
 
   private removePlayer(room: LiveRoom, playerId: string, kind: 'player.left' | 'player.kicked') {
     const players = room.record.players.filter((p) => p.id !== playerId);
+    const bots = botIds(room.record);
     let hostId = room.record.hostId;
     if (hostId === playerId) {
-      hostId = (players.find((p) => room.connections.has(p.id)) ?? players[0])?.id ?? hostId;
+      // A playtest bot never hosts: the role goes to a human seat.
+      hostId =
+        (players.find((p) => room.connections.has(p.id)) ?? players.find((p) => !bots.has(p.id)))
+          ?.id ?? hostId;
     }
+    const playtest = room.record.playtest;
+    if (playtest && bots.has(playerId))
+      this.savePlaytest(room, {
+        ...playtest,
+        bots: playtest.bots.filter((b) => b.id !== playerId),
+      });
     room.connections.delete(playerId);
     room.awaySince.delete(playerId);
     if (room.connections.size === 0) room.emptySince ??= this.deps.now();

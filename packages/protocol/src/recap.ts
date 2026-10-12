@@ -154,6 +154,8 @@ export interface PlaytestMeta {
   speed: PlaytestSpeed;
   /** The bots are paused. */
   paused: boolean;
+  /** The bot runner paused them itself: they kept making moves without getting anywhere. */
+  stuck?: true;
   /** How many seats are bots. */
   bots: number;
 }

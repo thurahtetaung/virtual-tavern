@@ -8,6 +8,7 @@ import {
   type Rng,
   createRng,
 } from '@vt/game-sdk';
+import { roundTableBot } from './bot.ts';
 import { roundTableAwards } from './awards.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
@@ -845,4 +846,5 @@ export const roundTable: GameDefinition<RoundTableState, RoundTableAction, Round
   onDeadline,
   insights,
   awards: roundTableAwards,
+  bot: roundTableBot,
 };

@@ -19,6 +19,7 @@ import {
 import { RecapStore } from './recap/hall.ts';
 import { RecapService } from './recap/service.ts';
 import { RecapSettings } from './recap/settings.ts';
+import { BotRunner } from './rooms/bots.ts';
 import { RoomManager } from './rooms/manager.ts';
 import { PlaytestPreview } from './rooms/preview.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
@@ -61,6 +62,8 @@ export interface AppOptions {
   statsIgnoreToken?: string | null;
   /** Rooms one address may create a minute; 20 by default. */
   roomCreateLimit?: number;
+  /** How long a playtest bot thinks before a move (ms, before the speed factor); tests only. */
+  botDelay?: (trivial: boolean) => number;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -173,7 +176,18 @@ export function buildApp(opts: AppOptions) {
     store: new SqliteRoomStore(db),
     games,
     content: roomContent(wordLists, questionDecks, games),
-    events: roomEvents,
+    // Every change also wakes the playtest bots (they move only in playtests with a human in).
+    events: {
+      changed: (roomId) => {
+        roomEvents.changed(roomId);
+        bots.poke(roomId);
+      },
+      kicked: (roomId, playerId) => roomEvents.kicked(roomId, playerId),
+      closed: (roomId) => {
+        bots.stop(roomId);
+        roomEvents.closed?.(roomId);
+      },
+    },
     now,
     logger: app.log,
     observer: {
@@ -200,6 +214,14 @@ export function buildApp(opts: AppOptions) {
     logger: app.log,
     now,
     isTestRoom,
+  });
+  const bots: BotRunner = new BotRunner({
+    rooms,
+    // Bots get word lists only; never questions, answers or decoys.
+    words: (gameId, ids) => wordLists.forGame(gameId).words(ids),
+    logger: app.log,
+    now,
+    ...(opts.botDelay && { delay: opts.botDelay }),
   });
   const preview = new PlaytestPreview({
     games,
@@ -417,6 +439,7 @@ export function buildApp(opts: AppOptions) {
   app.addHook('onClose', (_app, done) => {
     clearInterval(sweeper);
     clearInterval(playtestSweeper);
+    bots.close();
     clearInterval(liveSampler);
     rooms.close();
     recorder.close();

@@ -1,3 +1,4 @@
+import { masqueradeBot } from './bot.ts';
 import {
   type ActionCtx,
   type CreateCtx,
@@ -609,5 +610,6 @@ export function defineMasquerade(
     onDeadline,
     insights: insightsFor(config.locationName ?? ((id) => id)),
     awards: masqueradeAwards,
+    bot: masqueradeBot,
   };
 }

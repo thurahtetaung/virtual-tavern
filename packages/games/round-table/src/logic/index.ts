@@ -17,3 +17,4 @@ export { roundTableAwards } from './awards.ts';
 export * from './roles.ts';
 export * from './setup.ts';
 export * from './types.ts';
+export { roundTableBot } from './bot.ts';

@@ -1,3 +1,4 @@
+import { nightfallBot } from './bot.ts';
 import {
   type ActionCtx,
   type CreateCtx,
@@ -726,4 +727,5 @@ export const nightfall: GameDefinition<NightfallState, NightfallAction, Nightfal
   onDeadline,
   insights,
   awards: nightfallAwards,
+  bot: nightfallBot,
 };

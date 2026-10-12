@@ -2,6 +2,7 @@ export {
   royalPost,
   alive,
   autoMove,
+  royalPostBot,
   deckOf,
   editionOf,
   guardGuesses,

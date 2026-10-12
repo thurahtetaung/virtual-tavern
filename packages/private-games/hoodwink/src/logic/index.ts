@@ -14,3 +14,4 @@ export { guide } from './guide.ts';
 export * from './types.ts';
 export { insights } from './insights.ts';
 export { hoodwinkAwards } from './awards.ts';
+export { hoodwinkBot } from './bot.ts';
