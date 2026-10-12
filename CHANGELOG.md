@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.19.0...v0.20.0) (2026-10-12)
+
+
+### Features
+
+* **stats:** skip test traffic and let admins delete a room's stats ([#88](https://github.com/thurahtetaung/virtual-tavern/issues/88)) ([f014c53](https://github.com/thurahtetaung/virtual-tavern/commit/f014c532ddb85f1409bb66f2d174cf3865c3e5c7))
+
+
+### Bug Fixes
+
+* **enigma:** keep a team's code open until every team has agreed, and warn when the game ends after the round ([#89](https://github.com/thurahtetaung/virtual-tavern/issues/89)) ([ea89710](https://github.com/thurahtetaung/virtual-tavern/commit/ea89710b9d0887f72a778a36038b7cff9b637f9c))
+
 ## [0.19.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.18.0...v0.19.0) (2026-10-11)
 
 
