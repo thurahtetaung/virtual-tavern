@@ -32,7 +32,7 @@ export const guide: GameGuide = {
     {
       name: 'Interceptors',
       summary:
-        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor votes on the interception too, but can only use the team chat and notes once their team has locked in its own code.',
+        'The other team, from round 2. Study the clue history and try to crack the code too, without knowing the keywords. Their own Encryptor votes on the interception too, but can only use the team chat and notes once their own code is revealed.',
     },
   ],
   sections: [
@@ -53,13 +53,14 @@ export const guide: GameGuide = {
         'It can’t be one of your own keywords, in any form: not its plural, not without its accents (“Cafe” for CAFÉ), and not as a word inside a longer clue (“the moon” for MOON).',
         'It can’t be a number or contain one, in any form: no digits (“3”, “#3”, “3rd”), no “one” to “four”, and no Roman numerals (“III”).',
         'The three clues must all be different.',
-        'From the moment you see your code until your team has locked in its decode, you can’t post in the team chat or edit the team’s notes, not even about the interception. You can still pick and lock in an interception guess, and you can watch your team’s picks. Chat and notes open again once your team has locked in its own code.',
+        'From the moment you see your code until it is revealed, you can’t post in the team chat or edit the team’s notes, not even about the interception. You can still pick and lock in an interception guess, and you can watch your team’s picks. Chat and notes open again at the reveal.',
       ],
     },
     {
       title: 'Agreeing on a guess',
       paragraphs: [
         'Pick three numbers in the code slots. Your teammates see your picks live. When you’re sure, press Lock in. A guess only goes through when everyone on your side has locked in the same code; change your pick and your lock is cleared.',
+        'Nothing is final until every side has agreed at the same time: your team’s decode and the interception, on both teams’ codes when they are played together. Until then the screen shows which code your team is locked on, and anyone can press Change my pick to reopen it. Only a strict timer running out, or a code that never got its clues, settles a side early.',
         'Whoever is on your side when guessing starts has to agree. If you join a team mid-round, you watch until the next clues are written. If someone leaves, the rest of the side carries on without them. If someone goes offline, the host can skip their vote, and the rest of the side decides.',
       ],
     },
@@ -77,6 +78,7 @@ export const guide: GameGuide = {
       bullets: [
         'At the end of a round, a team with 2 🕵️ interceptions wins.',
         'A team with 2 💥 miscommunications loses.',
+        'The game ends at the end of the round in which a team reaches 2 of either token, so both teams always finish the round. When that happens mid-round, a banner says the game ends after this round.',
         'When a round decides the game, the reveal says who won and why, and the host’s button changes to See results.',
         'If both happen at once, or after round 8, the team with the better score wins (interceptions minus miscommunications). An even score is a draw.',
         '“Both at once” includes one team doing both in the same round: it reaches its 2nd interception and its 2nd miscommunication together. Then the score decides too, and the end screen says so.',

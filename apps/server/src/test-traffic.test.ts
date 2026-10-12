@@ -24,5 +24,7 @@ describe('testTrafficCheck', () => {
     expect(loadConfig({}).statsIgnoreToken).toBeNull();
     expect(loadConfig({ STATS_IGNORE_TOKEN: '  ' }).statsIgnoreToken).toBeNull();
     expect(loadConfig({ STATS_IGNORE_TOKEN: ' abc ' }).statsIgnoreToken).toBe('abc');
+    expect(loadConfig({}).roomCreateLimit).toBe(20);
+    expect(loadConfig({ ROOM_CREATE_LIMIT: '1000' }).roomCreateLimit).toBe(1000);
   });
 });

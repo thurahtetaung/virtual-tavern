@@ -25,6 +25,22 @@ describe('http api', () => {
     expect(dbHealthy(db)).toBe(false);
   });
 
+  it('limits how many rooms one address can create a minute', async () => {
+    await app.close();
+    app = testApp({ roomCreateLimit: 2 });
+    const create = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(1) },
+      });
+    expect((await create()).statusCode).toBe(200);
+    expect((await create()).statusCode).toBe(200);
+    const limited = await create();
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toMatchObject({ error: { code: 'rate-limited' } });
+  });
+
   it('answers malformed JSON with the shared error shape', async () => {
     const res = await app.inject({
       method: 'POST',

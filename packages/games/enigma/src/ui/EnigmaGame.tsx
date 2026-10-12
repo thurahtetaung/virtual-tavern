@@ -15,7 +15,7 @@ import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
-import { revealOutcome, startBlocker, statusFor } from './status.ts';
+import { endOfRoundWarnings, revealOutcome, startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
@@ -262,11 +262,24 @@ export function EnigmaGame({
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
   const decided = revealOutcome(view) !== null;
   const lastReveal = view.transmissions.filter((t) => t.revealed);
+  const endWarnings = endOfRoundWarnings(view);
 
   return (
     <div className="grid gap-4 pb-20 lg:grid-cols-[1fr_20rem] lg:pb-0">
       <div className="min-w-0 space-y-4">
         <Scoreboard view={view} clockOffset={room.clockOffset} />
+        {/* The game only ends at the end of a round, so both teams always finish it. */}
+        {endWarnings.length > 0 && (
+          <div
+            role="status"
+            aria-label="Last round"
+            className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-semibold text-amber-950 dark:bg-amber-950 dark:text-amber-100"
+          >
+            {endWarnings.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        )}
 
         <div className={cn('space-y-4', onTab('play'))}>
           {/* Once the game is over, the result panel says who won (once). */}

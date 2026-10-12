@@ -51,6 +51,8 @@ export interface AppOptions {
   r2?: R2Config | null;
   /** `x-vt-test: <token>` marks test traffic, whose rooms record no stats. Unset: ignored. */
   statsIgnoreToken?: string | null;
+  /** Rooms one address may create a minute; 20 by default. */
+  roomCreateLimit?: number;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -271,6 +273,7 @@ export function buildApp(opts: AppOptions) {
       forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
       isTestTraffic: (req) => isTestTraffic(req.headers),
+      roomCreateLimit: opts.roomCreateLimit ?? 20,
       linked: (from, next) => {
         const privateTable = isPrivate(games.get(next.gameId));
         for (const roomId of from) announceNextTable(io, roomId, next, privateTable);

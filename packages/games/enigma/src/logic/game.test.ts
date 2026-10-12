@@ -241,7 +241,7 @@ describe('agreeing on a guess', () => {
     expect(tx(h, 'red').decodeResult).toEqual(tx(h, 'red').code);
   });
 
-  it('lets a player unlock to change their mind, until their side has agreed', () => {
+  it('lets a player unlock to change their mind, even after their side has agreed', () => {
     const h = startedGame();
     sendClues(h, 'red');
     sendClues(h, 'blue');
@@ -253,8 +253,11 @@ describe('agreeing on a guess', () => {
     expect(tx(h, 'red').decodeResult).toBeUndefined();
     h.act({ type: 'lock-guess', team: 'red' }, 'r2');
     expect(tx(h, 'red').decodeResult).toEqual(code);
-    expect(h.reject({ type: 'unlock-guess', team: 'red' }, 'r2')).toBe('settled');
-    expect(h.reject({ type: 'set-guess', team: 'red', draft: code }, 'r3')).toBe('settled');
+    // Blue is still decoding, so Red's agreement isn't final yet.
+    h.act({ type: 'unlock-guess', team: 'red' }, 'r2');
+    expect(tx(h, 'red').decodeResult).toBeUndefined();
+    h.act({ type: 'set-guess', team: 'red', draft: wrongCode(code) }, 'r3');
+    expect(tx(h, 'red').decode.r3).toEqual({ draft: wrongCode(code), locked: false });
   });
 
   it('needs a team to guess at all', () => {
@@ -754,7 +757,7 @@ describe('team chat and notes', () => {
     expect(canWriteNotes(h.state, 'b1')).toBe(false);
   });
 
-  it('mutes the Encryptor in chat and notes from the deal until their team decodes', () => {
+  it('mutes the Encryptor in chat and notes from the deal until the reveal', () => {
     const h = startedGame();
     // The code is dealt: no chat or notes while writing clues…
     expect(h.reject({ type: 'chat', text: 'psst: the code is 4-3-1' }, HOST)).toBe(
@@ -773,6 +776,10 @@ describe('team chat and notes', () => {
     expect(h.reject({ type: 'remove-note', id: 'n1' }, HOST)).toBe('notes-muted');
     h.act({ type: 'chat', text: 'is clue 1 about food?' }, 'r2');
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    // Agreeing isn't enough (the team could still reopen): only the reveal lifts it.
+    expect(h.reject({ type: 'chat', text: 'nice one' }, HOST)).toBe('encryptor-silent');
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    expect(h.state.stage).toBe('reveal');
     h.act({ type: 'chat', text: 'nice one' }, HOST);
     h.act({ type: 'set-note', slot: 2, text: 'sea', base: '' }, HOST);
     h.act({ type: 'remove-note', id: 'n1' }, HOST);
@@ -969,3 +976,128 @@ describe('round 2 rule fixes', () => {
     expect(h.reject({ type: 'skip-voter', team: 'red', player: b! })).toBe('not-voting');
   });
 });
+
+describe('nothing is final until every side agrees at once', () => {
+  /** Round 2, simultaneous, clues sent: Red decodes Blue's interception on both codes. */
+  function roundTwo() {
+    const h = startedGame();
+    playRound(h);
+    h.act({ type: 'next-round' });
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    return h;
+  }
+
+  it('scores the code a team changed to, not the one it agreed on first', () => {
+    // Red's interceptors briefly all lock in Blue's real code, then change to a wrong one.
+    const h = roundTwo();
+    const real = tx(h, 'blue').code;
+    vote(h, 'blue', RED, real);
+    expect(tx(h, 'blue').interceptResult).toEqual(real);
+    expect(h.state.stage).toBe('guess');
+    const [first] = RED;
+    h.act({ type: 'unlock-guess', team: 'blue' }, first);
+    expect(tx(h, 'blue').interceptResult).toBeUndefined();
+    vote(h, 'blue', RED, wrongCode(real));
+    expect(tx(h, 'blue').interceptResult).toEqual(wrongCode(real));
+    // Everyone else agrees, and the reveal scores the changed guess.
+    vote(h, 'blue', decoders(h, 'blue'), real);
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    vote(h, 'red', BLUE, wrongCode(tx(h, 'red').code));
+    expect(h.state.stage).toBe('reveal');
+    expect(h.state.teams.red.intercepts).toBe(0);
+    expect(h.state.teams.blue.history.at(-1)).toMatchObject({
+      interceptGuess: wrongCode(real),
+      intercepted: false,
+      decoded: true,
+    });
+  });
+
+  it('keeps a decode that has agreed open while the interception is still voting', () => {
+    const h = startedGame({ flow: 'alternating' });
+    playRound2Alternating(h);
+    const code = tx(h, 'red').code;
+    vote(h, 'red', decoders(h, 'red'), code);
+    expect(tx(h, 'red').decodeResult).toEqual(code);
+    expect(h.state.stage).toBe('guess');
+    const redTx = (id: string) =>
+      enigma.view(h.state, id).transmissions.find((t) => t.team === 'red');
+    expect(redTx(decoders(h, 'red')[0]!)).toMatchObject({
+      settled: true,
+      agreed: code,
+      otherSideSettled: false,
+    });
+    // Blue sees only its own side: no Red code leaks through `agreed`.
+    expect(redTx('b1')).toMatchObject({
+      settled: false,
+      agreed: null,
+      otherSideSettled: true,
+    });
+    // Red reopens, and the reveal waits for it again.
+    h.act({ type: 'unlock-guess', team: 'red' }, decoders(h, 'red')[0]);
+    vote(h, 'red', BLUE, wrongCode(code));
+    expect(h.state.stage).toBe('guess');
+    vote(h, 'red', [decoders(h, 'red')[0]!], code);
+    expect(h.state.stage).toBe('reveal');
+    expect(h.state.teams.red.history.at(-1)).toMatchObject({ decoded: true, intercepted: false });
+  });
+
+  it('keeps the Encryptor muted after their team agrees, since it can still reopen', () => {
+    const h = roundTwo();
+    const enc = tx(h, 'red').encryptor;
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    expect(h.state.stage).toBe('guess');
+    expect(canWriteNotes(h.state, enc)).toBe(false);
+    expect(h.reject({ type: 'chat', text: 'hint' }, enc)).toBe('encryptor-silent');
+  });
+
+  it('keeps a strict timer expiry final', () => {
+    const h = startedGame({ clueSeconds: 30, guessSeconds: 60, timerMode: 'strict' });
+    sendClues(h, 'red');
+    h.state = enigma.onDeadline!(h.state, NOW + 30_000);
+    // Blue never sent clues: its result is fixed, and nobody can vote it open again.
+    expect(tx(h, 'blue')).toMatchObject({ expired: true, decodeResult: null });
+    expect(h.reject({ type: 'set-guess', team: 'blue', draft: [1, 2, 3] }, 'b2')).toBe('settled');
+    vote(h, 'red', ['r2'], tx(h, 'red').code);
+    expect(tx(h, 'blue')).toMatchObject({ decodeResult: null, interceptResult: null });
+    // The guess timer then settles Red's undecided side for good.
+    h.state = enigma.onDeadline!(h.state, enigma.nextDeadline!(h.state)!);
+    expect(h.state.stage).toBe('reveal');
+    expect(h.state.teams).toMatchObject({ red: { misses: 1 }, blue: { misses: 1 } });
+    expect(h.reject({ type: 'unlock-guess', team: 'red' }, 'r2')).toBe('wrong-stage');
+  });
+
+  it('lets the host skip a voter after the other side has agreed, which reveals', () => {
+    const h = roundTwo();
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    vote(h, 'blue', RED, wrongCode(tx(h, 'blue').code));
+    const [b1, b2, b3] = BLUE;
+    vote(h, 'red', [b1!, b2!], wrongCode(tx(h, 'red').code));
+    // Everything has agreed except b3: an agreed side has nobody to skip.
+    expect(h.reject({ type: 'skip-voter', team: 'red', player: decoders(h, 'red')[0]! })).toBe(
+      'not-voting',
+    );
+    h.act({ type: 'skip-voter', team: 'red', player: b3! });
+    expect(h.state.stage).toBe('reveal');
+    expect(h.state.teams.red.history.at(-1)).toMatchObject({
+      interceptGuess: wrongCode(tx(h, 'red').code),
+      decoded: true,
+    });
+  });
+});
+
+/** Alternating flow: plays round 1 for both teams, then sends Red's round-2 clues. */
+function playRound2Alternating(h: ReturnType<typeof startedGame>) {
+  for (const team of ['red', 'blue'] as const) {
+    sendClues(h, team);
+    vote(h, team, decoders(h, team), tx(h, team).code);
+    h.act({ type: 'next-round' });
+  }
+  // Round 2 opens with Blue in alternating flow; play it through to Red's turn.
+  sendClues(h, 'blue');
+  vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+  vote(h, 'blue', RED, wrongCode(tx(h, 'blue').code));
+  h.act({ type: 'next-round' });
+  sendClues(h, 'red');
+}
