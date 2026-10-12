@@ -28,6 +28,7 @@ import { rolesFor, startProblem } from './setup.ts';
 import { insights } from './insights.ts';
 import { eventName } from './names.ts';
 import {
+  DEFAULT_DISCUSS_SECONDS,
   DEFAULT_HAND,
   DEFAULT_PRESENT_SECONDS,
   EVENT_TURN_SECONDS,
@@ -52,6 +53,7 @@ import {
   type Slot,
   USEFUL_CLUE_OPTIONS,
   actionSchema,
+  discussSecondsOf,
 } from './types.ts';
 
 type Ctx = ActionCtx;
@@ -151,6 +153,7 @@ function updateSettings(
   if (action.hand !== undefined) s.hand = action.hand;
   if (action.presentSeconds !== undefined) s.presentSeconds = action.presentSeconds;
   if (action.presentMode !== undefined) s.presentMode = action.presentMode;
+  if (action.discussSeconds !== undefined) s.discussSeconds = action.discussSeconds;
   return { ...state, settings: s };
 }
 
@@ -390,7 +393,7 @@ function replaceTile(state: InquestState, slot: number, ctx: Ctx): Result {
 
 /**
  * Moves the collection on: waits for missing bullets or an open event; otherwise draws this
- * round's tile (rounds 2 and 3, resolving any events it turns up), then starts the presentations.
+ * round's tile (rounds 2 and 3, resolving any events it turns up), then opens the discussion.
  */
 function advance(state: InquestState, now: number, rng: Rng): InquestState {
   let s = state;
@@ -400,7 +403,7 @@ function advance(state: InquestState, now: number, rng: Rng): InquestState {
     if (g.step?.kind === 'pick-location' || g.step?.kind === 'replace') return s;
     if (g.slots.some((slot) => slot.bullet === null))
       return withGame(s, { ...g, step: { kind: 'bullets' } });
-    if (g.round === 1 || g.roundTileDone) return startPresent(s, now);
+    if (g.round === 1 || g.roundTileDone) return startDiscuss(s, now);
     let pile = g.pile;
     let eventsIn = g.eventsIn;
     if (!eventsIn) {
@@ -617,16 +620,42 @@ function testify(state: InquestState, by: PlayerId, slot: number, now: number, r
   );
 }
 
-// ---- Presentations ----
+// ---- Discussion and presentations ----
+
+/**
+ * After the round's last bullet the table talks the evidence over, then the Forensic Scientist
+ * starts the presentations. Its clock is soft: at 0 nothing happens by itself.
+ */
+function startDiscuss(state: InquestState, now: number): InquestState {
+  const g = state.game!;
+  if (!speakingOrder(g).length) return startPresent(state, now);
+  const secs = discussSecondsOf(state.settings);
+  return withGame(state, {
+    ...g,
+    stage: 'discuss',
+    step: null,
+    deadline: secs ? now + secs * 1000 : null,
+  });
+}
+
+function startPresentations(state: InquestState, ctx: Ctx): Result {
+  const g = state.game;
+  if (!g || g.stage !== 'discuss') return err('wrong-stage', 'There is no discussion to end.');
+  // The host can step in when the Forensic Scientist is away.
+  if (ctx.by !== g.fs && !ctx.isHost)
+    return err('not-fs', 'The Forensic Scientist starts the presentations.');
+  return startPresent(state, ctx.now);
+}
 
 function startPresent(state: InquestState, now: number): InquestState {
   const g = state.game!;
   const order = speakingOrder(g);
-  if (!order.length) return endOfRound(state, now);
+  if (!order.length) return endOfRound(withGame(state, { ...g, deadline: null }), now);
   return withGame(state, {
     ...g,
     stage: 'present',
     step: null,
+    deadline: null,
     present: { order, index: 0, deadline: now + state.settings.presentSeconds * 1000 },
   });
 }
@@ -681,7 +710,10 @@ function solve(
 ): Result {
   const g = state.game;
   if (!g || state.phase !== 'playing') return err('not-playing', 'No game in progress.');
-  const open = (g.stage === 'collect' && g.bullets.length > 0) || g.stage === 'present';
+  const open =
+    (g.stage === 'collect' && g.bullets.length > 0) ||
+    g.stage === 'discuss' ||
+    g.stage === 'present';
   if (!open)
     return err(
       'not-now',
@@ -900,6 +932,8 @@ function reduce(state: InquestState, action: InquestAction, ctx: Ctx): Result {
     case 'testify':
       if (!state.game) return err('not-playing', 'No game in progress.');
       return testify(state, ctx.by, action.slot, ctx.now, ctx.rng);
+    case 'start-presentations':
+      return startPresentations(state, ctx);
     case 'done-presenting':
       return donePresenting(state, ctx, false);
     case 'skip-speaker':
@@ -932,6 +966,7 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): InquestState {
       hand: DEFAULT_HAND,
       presentSeconds: DEFAULT_PRESENT_SECONDS,
       presentMode: 'soft',
+      discussSeconds: DEFAULT_DISCUSS_SECONDS,
     },
     seed: newSeed(ctx.rng),
     table: ctx.rng.int(2 ** 31),

@@ -3,8 +3,10 @@ import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem } from '../logic/setup.ts';
 import {
+  DISCUSS_SECONDS_OPTIONS,
   type FsMode,
   HAND_SIZES,
+  discussSecondsOf,
   type InquestAction,
   type InquestView,
   MAX_PLAYERS,
@@ -250,6 +252,25 @@ export function Lobby({
               </Choice>
             ))}
           </div>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-sm font-semibold">Discussion time before presentations</h4>
+          <div className="flex flex-wrap gap-2" aria-label="Discussion time before presentations">
+            {DISCUSS_SECONDS_OPTIONS.map((n) => (
+              <Choice
+                key={n}
+                on={discussSecondsOf(s) === n}
+                disabled={!host}
+                onClick={() => set({ discussSeconds: n })}
+              >
+                {n ? `${n / 60} min` : 'Off'}
+              </Choice>
+            ))}
+          </div>
+          <p className="text-xs text-stone-500 dark:text-stone-400">
+            Every round, after the last bullet. A reminder: the Forensic Scientist starts the
+            presentations whenever the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
+          </p>
         </section>
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Presentation time</h4>

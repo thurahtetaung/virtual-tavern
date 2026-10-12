@@ -6,6 +6,7 @@ import {
   placeBullets,
   presentAll as presentInquest,
   replaceTile,
+  startPresentations as startInquestPresentations,
   table as inquestTable,
   unlock as unlockInquest,
   visitor as inquestVisitor,
@@ -1379,7 +1380,7 @@ for (const [label, viewport, colorScheme] of [
     await expect(host.getByText('Pick the Location tile for this crime.')).toBeVisible();
     await host.locator('button[data-tile]:visible').first().click();
     await shot(host, 'fs-location');
-    await host.getByRole('button', { name: /^Use “/ }).click();
+    await host.getByRole('button', { name: /^Use Location [A-D] / }).click();
     await placeBullets(host, 3);
     await host.locator('button[data-item]:visible').first().click();
     await shot(host, 'fs-bullet');
@@ -1404,6 +1405,12 @@ for (const [label, viewport, colorScheme] of [
     await tab(witness.page, 'Me');
     await witness.page.getByRole('button', { name: 'Reveal your role card' }).click();
     await shot(witness.page, 'me-witness');
+    // The discussion before the presentations.
+    await tab(inv.page, 'Scene');
+    await shot(inv.page, 'discussion');
+    await tab(host, 'Scene');
+    await shot(host, 'discussion-fs');
+    await startInquestPresentations(players);
     const speaker = await whoShows(players, /^Your turn to present/);
     if (label === 'desktop') {
       // A watcher puts the public table on a shared screen.
@@ -1439,7 +1446,7 @@ for (const [label, viewport, colorScheme] of [
     await inv.page.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
 
-    await presentInquest(players, 5);
+    await presentInquest(players, 5, false);
     await expect(inv.page.getByRole('dialog', { name: /Event: Cleared Evidence/ })).toBeVisible();
     await shot(inv.page, 'event-card');
     await dismissEvent(players, /Event: Cleared Evidence/);

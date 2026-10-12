@@ -48,12 +48,38 @@ describe('statusFor', () => {
     expect(say(h, HOST).text).toBe('Pick the Location tile for this crime.');
     h.act({ type: 'pick-location', tile: 2 }, HOST);
     h.act({ type: 'place-bullet', slot: 0, item: 0 }, HOST);
-    expect(say(h, HOST)).toEqual({ text: 'Place bullet 2 of 6.', yourMove: true });
+    expect(say(h, HOST)).toEqual({
+      text: 'Place the next bullet (2 of 6) when you’re ready. Take your time; let the table talk.',
+      yourMove: true,
+    });
     // The line is on screen all the time, so every hidden role reads the same thing.
-    for (const id of ['ana', 'ben', 'cy', 'dee']) {
-      expect(say(h, id).text).toBe('Listen, study the suspects, and tap Solve when you’re sure.');
-    }
     expect(waitingOn(inquest.view(h.state, 'dee'))).toEqual({ ids: [HOST] });
+    // The Forensic Scientist is public, so it names them.
+    const fsName = inquest.view(h.state, 'dee').game!.players.find((p) => p.isFs)!.name;
+    for (const id of ['ana', 'ben', 'cy', 'dee']) {
+      expect(say(h, id).text).toBe(
+        `Talk it over as the bullets land: the order can be a clue. Forensic Scientist ${fsName} is placing bullet 2 of 6.`,
+      );
+    }
+    // Watchers have a "you're watching" banner already, so their line skips that lead.
+    expect(statusFor(inquest.view(h.state, null), false).text).toBe(
+      `Talk it over as the bullets land: the order can be a clue. Forensic Scientist ${fsName} is placing bullet 2 of 6.`,
+    );
+    // After the last bullet: the discussion, with a nudge for the Forensic Scientist at 0.
+    for (let slot = 1; slot < 6; slot++) h.act({ type: 'place-bullet', slot, item: 0 }, HOST);
+    expect(say(h, HOST, 30)).toEqual({
+      text: 'The table is discussing the evidence. Start the presentations when they’re ready.',
+      yourMove: true,
+    });
+    expect(say(h, HOST, 0)).toEqual({
+      text: 'Time’s up: start the presentations.',
+      yourMove: true,
+    });
+    expect(say(h, 'dee', 0)).toEqual({
+      text: `Discuss the evidence: this round’s new bullets are highlighted. Forensic Scientist ${fsName} starts the presentations.`,
+      yourMove: false,
+    });
+    expect(waitingOn(inquest.view(h.state, 'dee'))).toBeNull();
   });
 
   it('presentations: your turn with the clock, else who is up next', () => {

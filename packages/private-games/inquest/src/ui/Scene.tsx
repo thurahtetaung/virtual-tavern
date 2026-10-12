@@ -1,8 +1,9 @@
 import { Button, Hint, RefusalSlot, cn } from '@vt/ui';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS } from '../logic/content.ts';
 import type { Bullet, GameView, InquestAction, InquestView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
+import { type BulletNo, bulletNumbers } from './bullets.ts';
 import { BulletIcon, Tile } from './Tile.tsx';
 import { useTip } from './tips.ts';
 
@@ -14,21 +15,25 @@ const ordinal = (n: number) => {
   return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 };
 
-/** A pause worth noticing: hesitation is a clue. */
-const LONG_PAUSE_MS = 15_000;
-
-export const gapText = (ms: number) => {
-  const s = Math.round(ms / 1000);
-  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s} s`;
-};
-
-/** "3rd · Location: Kitchen · after 14 s" */
-export function bulletLine(b: Bullet, content: Content) {
-  const moved = b.movedFrom !== undefined ? ' (moved)' : '';
-  return `${ordinal(b.seq)} · ${content.tileTitle(b.tile)}: ${content.tileItem(b.tile, b.item)}${moved} · after ${gapText(b.gapMs)}`;
+/**
+ * "3rd · Location: Kitchen"; a moved bullet keeps its number: "3rd moved · Location: Kitchen →
+ * Hall". Order only, never timings: the table talks between bullets, so a gap measures the talk.
+ */
+export function bulletLine(b: Bullet, content: Content, no: BulletNo) {
+  const title = content.tileTitle(b.tile);
+  const item = content.tileItem(b.tile, b.item);
+  const what =
+    b.movedFrom !== undefined
+      ? `${ordinal(no.no)} moved · ${title}: ${content.tileItem(b.tile, b.movedFrom)} → ${item}`
+      : `${ordinal(no.no)} · ${title}: ${item}`;
+  return `${what}${no.movedLater ? ' (moved later)' : ''}`;
 }
 
-/** The bullets in the order they went down, with the pauses between them. */
+/** Location tiles look alike (one title), so the picker letters them: "Location A". */
+export const locationLabel = (tile: number) =>
+  `Location ${String.fromCharCode(65 + Math.max(0, LOCATION_TILES.indexOf(tile)))}`;
+
+/** The bullets in the order they went down. During a discussion, this round's are highlighted. */
 export function Timeline({
   g,
   content,
@@ -39,47 +44,56 @@ export function Timeline({
   full?: boolean;
 }) {
   if (!g.bullets.length) return null;
+  const nos = bulletNumbers(g.bullets);
+  const fresh = (b: Bullet) => g.stage === 'discuss' && b.round === g.round;
   if (full)
     return (
       <ol className="space-y-1 text-sm" aria-label="Bullet timeline">
-        {g.bullets.map((b) => (
-          <li key={b.seq} className="flex items-center gap-2">
-            <BulletIcon />
-            <span
-              className={cn(
-                b.gapMs >= LONG_PAUSE_MS && 'font-semibold text-amber-700 dark:text-amber-300',
-              )}
-            >
-              {bulletLine(b, content)}
-              {b.gapMs >= LONG_PAUSE_MS ? ' 🐢' : ''}
-            </span>
-          </li>
-        ))}
+        {g.bullets.map((b) => {
+          const no = nos.get(b.seq)!;
+          return (
+            <li key={b.seq} className={cn('flex items-center gap-2', no.moved && 'pl-4')}>
+              {no.moved ? <span aria-hidden>↪</span> : <BulletIcon />}
+              <span
+                className={cn(
+                  fresh(b) && 'font-semibold text-amber-700 dark:text-amber-300',
+                  no.movedLater && 'text-stone-500 dark:text-stone-400',
+                )}
+              >
+                {bulletLine(b, content, no)}
+                {fresh(b) ? ' · new' : ''}
+              </span>
+            </li>
+          );
+        })}
       </ol>
     );
   return (
     <ol
       aria-label="Bullet order"
-      className="flex gap-1.5 overflow-x-auto pb-1 text-xs [scrollbar-width:thin]"
+      className="-mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 py-1 text-xs [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:thin] after:shrink-0 after:basis-4 after:content-['']"
     >
-      {g.bullets.map((b, i) => (
-        <li
-          key={b.seq}
-          title={bulletLine(b, content)}
-          className={cn(
-            'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
-            i === g.bullets.length - 1 && 'ring-2 ring-amber-400',
-            b.gapMs >= LONG_PAUSE_MS && 'bg-amber-100 dark:bg-amber-500/20',
-          )}
-        >
-          <b>{b.seq}</b>
-          <span className="max-w-28 truncate">{content.tileItem(b.tile, b.item)}</span>
-          <span className="text-stone-500 dark:text-stone-400">
-            {b.gapMs >= LONG_PAUSE_MS ? '🐢 ' : '+'}
-            {gapText(b.gapMs)}
-          </span>
-        </li>
-      ))}
+      {g.bullets.map((b, i) => {
+        const no = nos.get(b.seq)!;
+        return (
+          <li
+            key={b.seq}
+            title={bulletLine(b, content, no)}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
+              (fresh(b) || (g.stage !== 'discuss' && i === g.bullets.length - 1)) &&
+                'ring-2 ring-amber-400',
+              no.movedLater && 'opacity-60',
+            )}
+          >
+            <b>
+              {no.no}
+              {no.moved ? ' ↪' : ''}
+            </b>
+            <span className="max-w-28 truncate">{content.tileItem(b.tile, b.item)}</span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -90,7 +104,7 @@ export function Timeline({
  */
 export function LatestBullets({ g, content }: { g: GameView; content: Content }) {
   const current = g.slots
-    .map((s, slot) => ({ s, seq: orderOf(g, slot) }))
+    .map((s, slot) => ({ s, seq: seqOf(g, slot) }))
     .filter((x): x is { s: (typeof g.slots)[number]; seq: number } => x.seq !== null)
     .sort((a, b) => b.seq - a.seq);
   if (!current.length) return null;
@@ -98,7 +112,7 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
   return (
     <ol
       aria-label="Bullets on the table"
-      className="flex gap-1 overflow-x-auto text-[11px] [scrollbar-width:none]"
+      className="flex gap-1 overflow-x-auto py-0.5 text-[11px] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']"
     >
       {current.map(({ s, seq }) => (
         <li
@@ -117,11 +131,17 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
   );
 }
 
-/** Which bullet number sits on a slot's current bullet. */
-function orderOf(g: GameView, slot: number) {
+/** Which bullet (by `seq`) sits on a slot right now. */
+function seqOf(g: GameView, slot: number) {
   const s = g.slots[slot];
   if (!s || s.bullet === null) return null;
   return g.bullets.findLast((b) => b.slot === slot && b.tile === s.tile)?.seq ?? null;
+}
+
+/** The order number players see on a slot's bullet (a moved bullet keeps its number). */
+export function orderOf(g: GameView, slot: number) {
+  const seq = seqOf(g, slot);
+  return seq === null ? null : (bulletNumbers(g.bullets).get(seq)?.no ?? null);
 }
 
 interface Pending {
@@ -145,7 +165,18 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
   const pick = (p: Pending | null) => setPending({ key: stepKey, p });
   const [tipOpen, dismissTip] = useTip('scene');
   const [fsTipOpen, dismissFsTip] = useTip('fs-picker');
+  const [paceTipOpen, dismissPaceTip] = useTip('fs-pacing');
   const fresh = g.bullets.at(-1);
+  // Keep the picked tile in sight above the confirm sheet (and the tab bar on phones).
+  const grid = useRef<HTMLDivElement>(null);
+  const pickedSlot = cur && cur.slot >= 0 ? cur.slot : null;
+  useEffect(() => {
+    if (pickedSlot === null) return;
+    const el = grid.current?.querySelector<HTMLElement>(`[data-slot="${pickedSlot}"]`);
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [pickedSlot]);
 
   // What a tap on an item or a tile does, by step.
   const mode: 'bullet' | 'move' | 'replace' | 'testify' | 'useful' | 'location' | null = (() => {
@@ -228,7 +259,10 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
       tile: slot.tile,
       bullet: slot.bullet,
       content,
-      fresh: fresh?.slot === i && fresh.tile === slot.tile,
+      fresh: g.stage !== 'discuss' && fresh?.slot === i && fresh.tile === slot.tile,
+      isNew:
+        g.stage === 'discuss' &&
+        g.bullets.findLast((b) => b.slot === i && b.tile === slot.tile)?.round === g.round,
       order: orderOf(g, i),
     };
     switch (mode) {
@@ -270,8 +304,14 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
     <div className="space-y-2">
       {tipOpen && g.slots.length > 0 && (
         <TipBox onClose={dismissTip}>
-          The 6 tiles describe the crime. Each bullet marks the item that fits best, and the order
-          and pauses between bullets are clues too.
+          The 6 tiles describe the crime. Each bullet marks the item that fits best. Talk it over as
+          they land: the order bullets land in can be a clue.
+        </TipBox>
+      )}
+      {mode === 'bullet' && paceTipOpen && (
+        <TipBox onClose={dismissPaceTip}>
+          No rush: the table talks while your bullets land, and you may let that talk guide the next
+          one. Place each bullet when you’re ready, but never speak, nod or point.
         </TipBox>
       )}
       {mode === 'location' && (
@@ -288,6 +328,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
               <Tile
                 key={t}
                 tile={t}
+                label={locationLabel(t)}
                 bullet={null}
                 content={content}
                 selected={cur?.tile === t}
@@ -296,7 +337,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
             ))}
           </div>
           <Button
-            className="w-full"
+            className="h-auto! min-h-12 w-full py-2 leading-tight"
             size="lg"
             disabled={cur?.tile === undefined}
             onClick={() =>
@@ -304,7 +345,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
             }
           >
             {cur?.tile !== undefined
-              ? `Use “${content.tileTitle(cur.tile)}”`
+              ? `Use ${locationLabel(cur.tile)} (${content.tileItem(cur.tile, 0)}…)`
               : 'Tap a Location tile'}
           </Button>
         </div>
@@ -341,23 +382,38 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </div>
       )}
       {g.slots.length > 0 && (
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        <div ref={grid} className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {g.slots.map((_, i) => (
-            <Tile key={`${i}-${g.slots[i]!.tile}`} slot={i} {...tileProps(i)} />
+            <Tile
+              key={`${i}-${g.slots[i]!.tile}`}
+              slot={i}
+              className="scroll-mt-20 scroll-mb-[calc(8.5rem+env(safe-area-inset-bottom))] lg:scroll-mb-24"
+              {...tileProps(i)}
+            />
           ))}
         </div>
       )}
       {confirm && (
-        <div className="sticky bottom-20 z-10 space-y-1 rounded-xl bg-white/95 p-2 shadow-lg ring-1 ring-amber-400 lg:bottom-2 dark:bg-stone-900/95">
-          <Button size="lg" className="w-full" onClick={confirm.run}>
-            {confirm.label}
-          </Button>
-          <div className="flex items-center justify-between gap-2 text-xs text-stone-500">
-            <span>{confirm.note}</span>
+        <div
+          role="group"
+          aria-label="Confirm"
+          className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-amber-400 lg:bottom-2 dark:bg-stone-900/95"
+        >
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="md"
+              className="h-auto! min-h-10 min-w-0 flex-1 py-1.5 text-[15px] leading-tight text-balance"
+              onClick={confirm.run}
+            >
+              {confirm.label}
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => pick(null)}>
               Cancel
             </Button>
           </div>
+          {confirm.note && (
+            <p className="px-1 pt-0.5 text-[11px] leading-tight text-stone-500">{confirm.note}</p>
+          )}
         </div>
       )}
       <RefusalSlot anchor="inquest-scene" />

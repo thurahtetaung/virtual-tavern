@@ -5,6 +5,7 @@ import {
   fixtureGame,
   recapEv,
   recapEventOf,
+  renderCopy,
 } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { INQUEST_RULES, inquestAwards } from './awards.ts';
@@ -78,6 +79,52 @@ describe('Inquest awards', () => {
     expect(hit(rule('last-second-save'), countdown)[0]!.players).toEqual(['i1']);
   });
 
+  it('Called It: a right solve before the round’s bullets were all in', () => {
+    const early = game(
+      recapEv('solve', 'i1', {
+        correct: true,
+        round: 1,
+        bulletsDownAtSolve: 3,
+        allBulletsIn: false,
+      }),
+      outcome({ winner: 'investigators', how: 'solved', solvedRound: 1 }),
+    );
+    const [c] = hit(rule('called-it'), early);
+    expect(c).toMatchObject({ players: ['i1'], value: 3 });
+    expect(renderCopy(rule('called-it').copy.cheeky[0]!, c!)).toBe(
+      '{p:i1} called it with only 3 bullets on the table',
+    );
+    const one = hit(
+      rule('called-it'),
+      game(
+        recapEv('solve', 'i1', {
+          correct: true,
+          round: 1,
+          bulletsDownAtSolve: 1,
+          allBulletsIn: false,
+        }),
+      ),
+    )[0]!;
+    expect(renderCopy(rule('called-it').copy.wholesome[0]!, one)).toBe(
+      '{p:i1} solved it with just 1 bullet down',
+    );
+    // After every bullet is in (the discussion or the presentations): no award.
+    const after = game(
+      recapEv('solve', 'i1', {
+        correct: true,
+        round: 1,
+        bulletsDownAtSolve: 6,
+        allBulletsIn: true,
+      }),
+    );
+    expect(hit(rule('called-it'), after)).toEqual([]);
+    // Wrong solves and old events without the props don't count.
+    expect(
+      hit(rule('called-it'), game(recapEv('solve', 'i1', { correct: false, allBulletsIn: false }))),
+    ).toEqual([]);
+    expect(hit(rule('called-it'), game(solveEv('i1', true)))).toEqual([]);
+  });
+
   it('Got Away With It and Silent Partner', () => {
     const time = game(outcome({ winner: 'murderer', how: 'time', round: 3 }));
     expect(hit(rule('got-away'), time)[0]!.players).toEqual(['m']);
@@ -95,15 +142,14 @@ describe('Inquest awards', () => {
     expect(hit(rule('found-the-witness'), safe)).toEqual([]);
   });
 
-  it('Master Forensic and Hesitant Hand', () => {
+  it('Master Forensic, and no award for pauses (the table talks between bullets)', () => {
     const g = game(
       outcome({ winner: 'investigators', how: 'solved', bulletsBeforeSolve: 7, maxGapS: 31.4 }),
     );
     expect(hit(rule('master-forensic'), g)[0]).toMatchObject({ players: ['fs'], value: 7 });
-    expect(hit(rule('hesitant-hand'), g)[0]).toMatchObject({ players: ['fs'], value: 31 });
+    expect(INQUEST_RULES.map((r) => r.id)).not.toContain('inquest.hesitant-hand');
     const quick = game(outcome({ winner: 'murderer', how: 'time', maxGapS: 8 }));
     expect(hit(rule('master-forensic'), quick)).toEqual([]);
-    expect(hit(rule('hesitant-hand'), quick)).toEqual([]);
     const night = rule('master-forensic').computeNight!([
       fixtureGame([outcome({ winner: 'investigators', how: 'solved', bulletsBeforeSolve: 9 })], {
         players: PLAYERS,
@@ -133,7 +179,7 @@ describe('Inquest awards', () => {
     expect(inquestAwards.history!(g)).toEqual(['The Murderer got away']);
   });
 
-  it('nuggets: cases, fastest solve, cards and the longest pause', () => {
+  it('nuggets: cases, fastest solve and cards, and no pause record', () => {
     const games = [
       fixtureGame(
         [
@@ -143,6 +189,7 @@ describe('Inquest awards', () => {
             how: 'solved',
             solvedRound: 2,
             solveS: 300,
+            bulletsDownAtSolve: 5,
             means: 'means-4',
             clue: 'clue-9',
             maxGapS: 12,
@@ -169,17 +216,21 @@ describe('Inquest awards', () => {
     const text = (id: string) =>
       inquestAwards.nuggets.find((n) => n.id === `inquest.${id}`)!.compute(games);
     expect(text('solved')!.text).toBe('Cases solved: 1 of 2');
-    expect(text('fastest')).toEqual({ value: 200300, text: 'Fastest solve: round 2, 5m 0s in' });
+    expect(text('fewest-bullets')).toEqual({
+      value: 5,
+      text: 'Fewest bullets to crack a case: 5 bullets',
+    });
     expect(text('top-means')!.text).toBe('{card:means-4} killed 2 times');
     expect(text('top-clue')!.text).toBe('{card:clue-9} was the key 2 times');
     expect(text('events')!.text).toBe('1 event turned up');
-    expect(text('longest-pause')).toEqual({
-      value: 40.2,
-      text: 'Longest pause between bullets: 40 s',
-    });
     expect(text('badges')!.text).toBe('3 badges spent on wrong guesses');
-    expect(inquestAwards.nuggets.find((n) => n.id === 'inquest.fastest')!.record).toBe('min');
-    expect(inquestAwards.nuggets.find((n) => n.id === 'inquest.longest-pause')!.record).toBe('max');
+    // Fewer is better, and the old time-based record is gone.
+    expect(inquestAwards.nuggets.find((n) => n.id === 'inquest.fewest-bullets')!.record).toBe(
+      'min',
+    );
+    expect(inquestAwards.nuggets.some((n) => n.id === 'inquest.fastest')).toBe(false);
+    // Old events still carry `maxGapS`; it is simply ignored.
+    expect(inquestAwards.nuggets.some((n) => n.id === 'inquest.longest-pause')).toBe(false);
   });
 
   it('history says who solved it, or that the Murderer got away', () => {
@@ -233,6 +284,8 @@ describe('a real game through insights and awards', () => {
       'ben',
     );
     rec.act({ type: 'solve', target: 'ana', clue: m.clue[1]!, means: m.means[0]! }, 'eve');
+    // Both solves came during the discussion; then the presentations.
+    rec.act({ type: 'start-presentations' }, HOST);
     while (h.game().stage === 'present') {
       const p = h.game().present!;
       rec.act({ type: 'done-presenting' }, p.order[p.index]);
@@ -301,6 +354,7 @@ describe('a real game through insights and awards', () => {
         rec.act({ type: 'replace-tile', slot: 2 }, HOST);
         rec.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
       }
+      if (h.game().stage === 'discuss') rec.act({ type: 'start-presentations' }, HOST);
       while (h.state.phase === 'playing' && h.game().stage === 'present') {
         const p = h.game().present!;
         rec.act({ type: 'done-presenting' }, p.order[p.index]);

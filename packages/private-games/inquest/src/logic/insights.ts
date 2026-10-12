@@ -6,10 +6,13 @@ import type { Game, InquestAction, InquestState } from './types.ts';
  * Stats only. Nothing secret is reported while it is still secret: bullets, events and solve
  * attempts are public the moment they happen, and the crime, the roles and the Reversal are only
  * reported in `outcome`, once the game is over.
- * - `bullet` (by the Forensic Scientist): tile, item, its place in the order, the pause before it
- *   (`gapS`), the round, and whether an event moved it;
+ * - `bullet` (by the Forensic Scientist): tile, item, its place in the order, the round, and
+ *   whether an event moved it (no timings: the table talks between bullets, so they measure that);
  * - `event`: which event came up (`kind`, `tile`), and the round;
- * - `solve`: who tried, on whose cards (`target`, `clue`/`means` as card ids), right or wrong;
+ * - `solve`: who tried, on whose cards (`target`, `clue`/`means` as card ids), right or wrong,
+ *   how many bullets had been placed (`bulletsDownAtSolve`, moves not counted) and whether the
+ *   round's bullets were all in (`allBulletsIn`: false while the Forensic Scientist is still
+ *   placing them, or before the new tile's bullet in rounds 2 and 3);
  * - `outcome`: the winning side and how (`solved`, `time`, `badges`, `reversal`), the round, who
  *   solved and how fast, the Forensic Scientist(s), Murderer, Accomplice and Witness, whether the
  *   Reversal found the Witness, the crime (`clue`/`means` card ids), and a few counts.
@@ -33,7 +36,6 @@ export function insights(
         tile: b.tile,
         item: b.item,
         seq: b.seq,
-        gapS: Math.round(b.gapMs / 100) / 10,
         round: b.round,
         moved: b.movedFrom !== undefined,
       },
@@ -47,6 +49,8 @@ export function insights(
       type: 'solve',
       playerId: a.by,
       props: {
+        bulletsDownAtSolve: placedBy(g, a.at),
+        allBulletsIn: (was ?? g).stage !== 'collect',
         target: a.target,
         clue: clueKey(a.clue),
         means: meansKey(a.means),
@@ -59,14 +63,15 @@ export function insights(
   return events;
 }
 
+/** Bullets placed (not moved) up to `at`. */
+const placedBy = (g: Game, at: number) =>
+  g.bullets.filter((b) => b.at <= at && b.movedFrom === undefined).length;
+
 function outcome(g: Game): InsightEvent {
   const r = g.result!;
   const holder = (role: string) => g.players.find((p) => p.role === role)?.id ?? null;
   const right = g.attempts.find((a) => a.correct);
   const wrong = g.attempts.filter((a) => !a.correct);
-  // Pauses between bullets in the same collection (the first bullet of a round waits on talk).
-  const gaps = g.bullets.filter((b, i) => i > 0 && g.bullets[i - 1]!.round === b.round);
-  const maxGapMs = gaps.length ? Math.max(...gaps.map((b) => b.gapMs)) : 0;
   const murderer = holder('murderer');
   const murderSide = g.players
     .filter((p) => p.role === 'murderer' || p.role === 'accomplice')
@@ -95,13 +100,13 @@ function outcome(g: Game): InsightEvent {
       means: g.solution ? meansKey(g.solution.means) : null,
       bullets: g.bullets.length,
       bulletsBeforeSolve: right ? g.bullets.filter((b) => b.at <= right.at).length : null,
+      bulletsDownAtSolve: right ? placedBy(g, right.at) : null,
       wrong: wrong.length,
       wrongBeforeSolve: right ? wrong.filter((a) => a.at <= right.at).length : null,
       // Wrong attempts on the Murderer's own cards ("barking up the right tree, wrong branch").
       nearMisses: wrong.filter((a) => a.target === murderer).map((a) => a.by),
       bluffers: [...new Set(wrong.filter((a) => murderSide.includes(a.by)).map((a) => a.by))],
       events: g.events.length,
-      maxGapS: Math.round(maxGapMs / 100) / 10,
       countdown: g.countdown,
     },
   };

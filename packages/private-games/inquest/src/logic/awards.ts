@@ -72,6 +72,31 @@ const caseClosedEarly: AwardRule = {
   },
 };
 
+/** A right solve before the round's bullets were all in. */
+const calledIt: AwardRule = {
+  id: 'inquest.called-it',
+  emoji: '🔮',
+  title: 'Called It',
+  valence: 'glory',
+  weight: 5,
+  kind: 'moment',
+  family: 'solving',
+  minPlayers: 4,
+  copy: {
+    cheeky: [
+      '{who} called it with only {bullets} on the table',
+      '{who} didn’t even wait for the evidence',
+    ],
+    wholesome: ['{who} solved it with just {bullets} down', '{who} saw it early'],
+  },
+  compute(g) {
+    const right = g.of('solve').find((s) => bool(s, 'correct'));
+    const n = num(right, 'bulletsDownAtSolve');
+    if (!right?.playerId || bool(right, 'allBulletsIn') !== false || n === undefined) return [];
+    return one(right.playerId, n, { bullets: count(n, 'bullet') });
+  },
+};
+
 const gotAwayWithIt: AwardRule = {
   id: 'inquest.got-away',
   emoji: '🩸',
@@ -197,33 +222,6 @@ const masterForensic: AwardRule = {
   },
 };
 
-const hesitantHand: AwardRule = {
-  id: 'inquest.hesitant-hand',
-  emoji: '🐢',
-  title: 'Hesitant Hand',
-  wholesomeTitle: 'Careful Hand',
-  valence: 'gentle',
-  weight: 2,
-  kind: 'award',
-  family: 'forensic',
-  minPlayers: 4,
-  copy: {
-    cheeky: [
-      '{who} held a bullet for {n} seconds. We all saw',
-      '{who} paused {n} s over one bullet',
-    ],
-    wholesome: [
-      '{who} took {n} seconds to place one perfect bullet',
-      '{who} thought hard: {n} s on a bullet',
-    ],
-  },
-  compute(g) {
-    const o = outcomeOf(g);
-    const gap = num(o, 'maxGapS') ?? 0;
-    return gap >= 20 ? one(str(o, 'fs'), Math.round(gap)) : [];
-  },
-};
-
 const boldBluffer: AwardRule = {
   id: 'inquest.bold-bluffer',
   emoji: '🎭',
@@ -299,12 +297,12 @@ const lastSecondSave: AwardRule = {
 export const INQUEST_RULES: AwardRule[] = [
   sharpEye,
   caseClosedEarly,
+  calledIt,
   gotAwayWithIt,
   silentPartner,
   starWitness,
   foundTheWitness,
   masterForensic,
-  hesitantHand,
   boldBluffer,
   wrongTree,
   lastSecondSave,
@@ -327,8 +325,6 @@ function topOf(list: readonly RecapEvent[], key: string): [string, number] | nul
   return top && top[1] >= 2 ? top : null;
 }
 
-const span = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`);
-
 const nuggets: NuggetRule[] = [
   {
     id: 'inquest.solved',
@@ -342,24 +338,20 @@ const nuggets: NuggetRule[] = [
     },
   },
   {
-    // Lower is better: the round first, then the time (round × 100000 + seconds).
-    id: 'inquest.fastest',
+    // Lower is better. No seconds: the table talks between bullets, so time measures the talk.
+    // A new id, so records kept under the old time-based one never mix with these.
+    id: 'inquest.fewest-bullets',
     emoji: '⚡',
     interest: 3,
     record: 'min',
     compute(games) {
-      const best = outcomes(games)
+      const counts = outcomes(games)
         .filter(solved)
-        .map((o) => ({ round: num(o, 'solvedRound'), s: num(o, 'solveS') }))
-        .filter(
-          (x): x is { round: number; s: number } => x.round !== undefined && x.s !== undefined,
-        )
-        .sort((a, b) => a.round - b.round || a.s - b.s)[0];
-      if (!best) return null;
-      return {
-        value: best.round * 100000 + best.s,
-        text: `Fastest solve: round ${best.round}, ${span(best.s)} in`,
-      };
+        .map((o) => num(o, 'bulletsDownAtSolve'))
+        .filter((n): n is number => n !== undefined);
+      if (!counts.length) return null;
+      const best = Math.min(...counts);
+      return { value: best, text: `Fewest bullets to crack a case: ${count(best, 'bullet')}` };
     },
   },
   {
@@ -407,19 +399,6 @@ const nuggets: NuggetRule[] = [
     compute(games) {
       const n = games.reduce((sum, g) => sum + g.of('event').length, 0);
       return n ? { value: n, text: `${count(n, 'event')} turned up` } : null;
-    },
-  },
-  {
-    id: 'inquest.longest-pause',
-    emoji: '🐢',
-    interest: 2,
-    record: 'max',
-    compute(games) {
-      const gaps = outcomes(games).map((o) => num(o, 'maxGapS') ?? 0);
-      const best = gaps.length ? Math.max(...gaps) : 0;
-      return best >= 5
-        ? { value: best, text: `Longest pause between bullets: ${Math.round(best)} s` }
-        : null;
     },
   },
 ];

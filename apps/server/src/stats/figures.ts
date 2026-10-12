@@ -37,8 +37,9 @@ import type { GameFigure } from '@vt/protocol';
 //              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
 //   inquest    outcome {winner, how, players, solvedRound, bulletsBeforeSolve, clue, means; recap:
 //              solvedBy, solveS, firstTry, fs, murderer, accomplice, witness, witnessFound,
-//              bluffers, nearMisses, maxGapS…}, event {kind}, solve {correct; recap: target,
-//              clue, means, round}, bullet {recap: tile, item, seq, gapS, round, moved}
+//              bluffers, nearMisses…}, event {kind}, solve {correct; recap: target,
+//              clue, means, round}, bullet {recap: tile, item, seq, round, moved} (older events
+//              may also carry maxGapS/gapS, which nothing reads any more)
 //   seance     outcome {win, how, hour, difficulty, ravens; recap: ghost, players, visions,
 //              topLevel…}, vision {cards; recap: to, pillar, hour}, guess {correct, tries; recap:
 //              pillar, hour, visions, card}, clairvoyance {hit; recap: target, kind},

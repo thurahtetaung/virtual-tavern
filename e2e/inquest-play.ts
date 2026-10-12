@@ -124,7 +124,7 @@ export async function placeBullets(fs: Page, n: number) {
 export async function firstRound(fs: Page) {
   await expect(fs.getByText('Pick the Location tile for this crime.')).toBeVisible();
   await fs.locator('button[data-tile]:visible').first().click();
-  await fs.getByRole('button', { name: /^Use “/ }).click();
+  await fs.getByRole('button', { name: /^Use Location [A-D] / }).click();
   await placeBullets(fs, 6);
 }
 
@@ -136,8 +136,17 @@ export async function replaceTile(fs: Page) {
   await expect(confirm).toHaveCount(0);
 }
 
-/** Every speaker taps Done, in turn, `count` times. */
-export async function presentAll(players: Player[], count: number) {
+/** The discussion after the last bullet: the Forensic Scientist taps Start presentations. */
+export async function startPresentations(players: Player[]) {
+  const fs = await whoShows(players, 'The table is discussing the evidence.');
+  const start = fs.page.getByRole('button', { name: 'Start presentations' });
+  await start.click();
+  await expect(start).toHaveCount(0);
+}
+
+/** Ends the discussion (unless it already ended), then every speaker taps Done, `count` times. */
+export async function presentAll(players: Player[], count: number, discussing = true) {
+  if (discussing) await startPresentations(players);
   for (let i = 0; i < count; i++) {
     const speaker = await whoShows(players, /^Your turn to present/);
     const done = speaker.page.getByRole('button', { name: 'Done', exact: true });
@@ -181,7 +190,14 @@ export async function withRole(players: Player[], role: string): Promise<Player>
   for (const p of players) {
     const nav = p.page.getByRole('navigation', { name: 'Game sections' });
     if (await nav.isVisible()) await nav.getByRole('button', { name: 'Me' }).click();
+    // The Forensic Scientist's card lies face up; the hidden roles are tapped to reveal.
     const card = p.page.getByRole('button', { name: 'Reveal your role card' });
+    const faceUp = p.page.getByRole('img', { name: /^Your role card: / });
+    await expect(card.or(faceUp)).toBeVisible();
+    if (await faceUp.isVisible()) {
+      if ((await faceUp.getAttribute('aria-label')) === `Your role card: ${role}`) return p;
+      continue;
+    }
     await card.click();
     const heading = p.page.getByRole('heading', { level: 3 }).filter({
       hasText:

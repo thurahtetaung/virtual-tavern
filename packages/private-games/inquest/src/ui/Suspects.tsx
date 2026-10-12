@@ -100,6 +100,18 @@ export function Suspects(props: Common) {
           aria-label="Suspects"
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]"
         >
+          {/* The Forensic Scientist holds no cards, but everyone should see who it is. */}
+          {g.players
+            .filter((s) => (s.isFs || s.formerFs) && s.clue.length === 0)
+            .map((s) => (
+              <span
+                key={s.id}
+                aria-label={`${s.name}${s.formerFs ? ' was' : ' is'} the Forensic Scientist`}
+                className="flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900 ring-1 ring-sky-300 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40"
+              >
+                {chipLabel(s, view)} 🔬
+              </span>
+            ))}
           {list.map((s, k) => (
             <button
               key={s.id}

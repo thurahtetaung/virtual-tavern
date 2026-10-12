@@ -1,5 +1,14 @@
 import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game-sdk';
-import { Button, Countdown, Hint, cn, useSecondsLeft, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  RefusalSlot,
+  clock,
+  cn,
+  useSecondsLeft,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { EventKind } from '../logic/content.ts';
 import type { InquestAction, InquestView } from '../logic/types.ts';
@@ -8,6 +17,7 @@ import { Lobby } from './Lobby.tsx';
 import { useMarks } from './marks.ts';
 import {
   FlipPanel,
+  ForensicLine,
   MeTab,
   NightPanel,
   OverScreen,
@@ -100,38 +110,121 @@ function PresentBar({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-xl px-2 py-1.5 ring-1',
+        'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-1.5 ring-1',
         mine
           ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-500/20'
           : 'bg-white/90 ring-stone-200 dark:bg-stone-900/90 dark:ring-stone-700',
       )}
     >
-      <div className="min-w-0 flex-1 leading-tight">
+      <div className="min-w-0 flex-[1_1_9rem] leading-tight">
         <p className="truncate text-sm font-bold">
           🎙️{' '}
           {mine ? 'Your turn to present' : `${nameOf(view, speaker)}${offline ? ' (offline)' : ''}`}
         </p>
-        <p className="truncate text-xs text-stone-600 dark:text-stone-400">
+        <p className="text-xs text-stone-600 dark:text-stone-400">
           {g.round >= g.finalRound ? 'Last chance · ' : `Round ${g.round} · `}
           {next ? `Up next: ${next === view.me?.id ? 'you' : nameOf(view, next)}` : 'Last speaker'}
         </p>
       </div>
-      <Countdown
-        deadline={p.deadline}
-        clockOffset={room.clockOffset}
-        soft={soft}
-        expiredHint={soft ? (mine ? 'Wrap up and tap Done' : 'The host can skip') : undefined}
-      />
-      {mine ? (
-        <Button size="md" onClick={() => void act({ type: 'done-presenting' })}>
-          Done
-        </Button>
-      ) : canSkip ? (
-        <Button size="sm" variant="secondary" onClick={() => void act({ type: 'skip-speaker' })}>
-          Skip
-        </Button>
-      ) : null}
-      {!mine && <SolveButton view={view} onSolve={onSolve} compact />}
+      {/* The clock and buttons stay together, and drop under the name when space runs out. */}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <Countdown
+          deadline={p.deadline}
+          clockOffset={room.clockOffset}
+          soft={soft}
+          expiredHint={soft ? (mine ? 'Wrap up and tap Done' : 'The host can skip') : undefined}
+        />
+        {mine ? (
+          <Button size="md" onClick={() => void act({ type: 'done-presenting' })}>
+            Done
+          </Button>
+        ) : canSkip ? (
+          <Button size="sm" variant="secondary" onClick={() => void act({ type: 'skip-speaker' })}>
+            Skip
+          </Button>
+        ) : null}
+        {!mine && <SolveButton view={view} onSolve={onSolve} compact />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The discussion before the presentations: a soft clock everyone sees (red at 0, nothing happens
+ * by itself), and the Forensic Scientist's Start button. The host gets it too when they're away.
+ */
+function DiscussBar({
+  view,
+  room,
+  act,
+  onSolve,
+}: {
+  view: InquestView;
+  room: GameRoomInfo;
+  act: Act;
+  onSolve: () => void;
+}) {
+  const g = view.game!;
+  const left = useSecondsLeft(g.stage === 'discuss' ? g.deadline : null, room.clockOffset);
+  if (g.stage !== 'discuss') return null;
+  const fs = g.fs === view.me?.id;
+  const fsAway = room.players.find((p) => p.id === g.fs)?.connected === false;
+  const canStart = fs || (room.isHost && fsAway);
+  const late = left === 0;
+  return (
+    <div
+      role="region"
+      aria-label="Discussion"
+      className={cn(
+        'space-y-1 rounded-xl px-2 py-1.5 ring-1',
+        fs && late
+          ? 'bg-rose-50 ring-2 ring-rose-500 dark:bg-rose-500/15'
+          : 'bg-white/90 ring-amber-400 dark:bg-stone-900/90',
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="min-w-0 flex-[1_1_9rem] leading-tight">
+          <p className="text-sm font-bold">💬 Discuss the evidence</p>
+          <p className="text-xs text-stone-600 dark:text-stone-400">
+            {g.round >= g.finalRound ? 'Last round' : `Round ${g.round}`} · new bullets highlighted
+          </p>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {left !== null && (
+            <span
+              role="timer"
+              aria-label={late ? 'Discussion time is up' : `${left} seconds of discussion left`}
+              className={cn(
+                'rounded-lg px-2 py-1 font-bold tabular-nums',
+                late
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-stone-200 font-mono text-lg text-stone-800 dark:bg-stone-800 dark:text-stone-100',
+              )}
+            >
+              ⏱ {late ? 'Time’s up' : clock(left)}
+            </span>
+          )}
+          {canStart ? (
+            <Button
+              size="md"
+              className={cn(late && 'animate-pulse motion-reduce:animate-none')}
+              onClick={() =>
+                void act({ type: 'start-presentations' }, { anchor: 'inquest-discuss' })
+              }
+            >
+              Start presentations
+            </Button>
+          ) : (
+            <SolveButton view={view} onSolve={onSolve} compact />
+          )}
+        </div>
+      </div>
+      {!fs && canStart && (
+        <p className="text-xs text-stone-500">
+          The Forensic Scientist is away, so you can start them as the host.
+        </p>
+      )}
+      <RefusalSlot anchor="inquest-discuss" />
     </div>
   );
 }
@@ -250,7 +343,11 @@ export function InquestGame({
   const content = useMemo(() => contentFor(manifest), [manifest]);
   const g = view.game;
   const secondsLeft = useSecondsLeft(
-    g?.stage === 'present' ? (g.present?.deadline ?? null) : null,
+    g?.stage === 'present'
+      ? (g.present?.deadline ?? null)
+      : g?.stage === 'discuss'
+        ? g.deadline
+        : null,
     room.clockOffset,
   );
   const status = statusFor(view, room.isHost, room, secondsLeft);
@@ -265,7 +362,7 @@ export function InquestGame({
   const defaultTab: Tab =
     !g || g.stage === 'night' || g.stage === 'reversal' || g.stage === 'done'
       ? 'me'
-      : g.myRole === 'forensic' || g.stage === 'collect'
+      : g.myRole === 'forensic' || g.stage === 'collect' || g.stage === 'discuss'
         ? 'scene'
         : 'suspects';
   const [picked, setPicked] = useState<{ tab: Tab; key: string }>({
@@ -325,7 +422,7 @@ export function InquestGame({
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
   const common = { view, content, marks, setMark, onOpen: setOpen };
   const alert: Tab | null =
-    status.yourMove && g.stage !== 'present'
+    status.yourMove && g.stage !== 'present' && g.stage !== 'discuss'
       ? g.stage === 'collect' && g.event?.kind !== 'ruled-out'
         ? 'scene'
         : 'me'
@@ -362,7 +459,7 @@ export function InquestGame({
   );
 
   return (
-    <div className="space-y-2 pb-16 lg:pb-0">
+    <div className="space-y-2 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {!inGame && (
         <Button
@@ -374,9 +471,13 @@ export function InquestGame({
           📺 Table screen
         </Button>
       )}
+      <ForensicLine view={view} />
       <Banners view={view} room={room} act={act} content={content} yourMove={status.yourMove} />
+      <DiscussBar view={view} room={room} act={act} onSolve={() => setSolving(true)} />
       <PresentBar view={view} room={room} act={act} onSolve={() => setSolving(true)} />
-      {g.stage === 'present' && <LatestBullets g={g} content={content} />}
+      {(g.stage === 'present' || g.stage === 'discuss') && (
+        <LatestBullets g={g} content={content} />
+      )}
       {(g.myRole === 'forensic' || g.myRole === 'former-forensic') && (
         <SolutionPin view={view} content={content} />
       )}

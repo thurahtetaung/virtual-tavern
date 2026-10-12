@@ -58,41 +58,62 @@ export function RoleCard({
   showGuide: () => void;
 }) {
   const g = view.game!;
-  const [shown, setShown] = useState(false);
+  const [revealed, setShown] = useState(false);
   const role = g.myRole;
   if (!role) return null;
+  // The Forensic Scientist is public (everyone knows who it is), so that card lies face up. The
+  // hidden roles stay face down until tapped.
+  const open = role === 'forensic' || role === 'former-forensic';
+  const shown = open || revealed;
   const dealt: RoleId = role === 'former-forensic' ? 'forensic' : role;
   const art = content.roleArt(dealt);
   const info = GOALS[role];
+  const cardClass =
+    'relative aspect-[429/699] w-24 shrink-0 self-start overflow-hidden rounded-lg bg-stone-800 shadow ring-1 ring-black/20';
+  const face = (
+    <>
+      {shown ? (
+        art ? (
+          <ProtectedImage src={art} alt="" className="size-full object-contain" />
+        ) : (
+          <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 p-1 text-center text-xs font-bold text-white">
+            {content.roleName(dealt)}
+          </span>
+        )
+      ) : content.roleBack ? (
+        <ProtectedImage src={content.roleBack} alt="" className="size-full object-contain" />
+      ) : (
+        <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 text-3xl">
+          ❓
+        </span>
+      )}
+      {!shown && (
+        <span className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 text-center text-[10px] font-semibold text-white">
+          Tap to reveal
+        </span>
+      )}
+    </>
+  );
   return (
     <Panel className="flex gap-3">
-      <button
-        type="button"
-        onClick={() => setShown(!shown)}
-        aria-label={shown ? 'Hide your role card' : 'Reveal your role card'}
-        className="relative aspect-[429/699] w-24 shrink-0 overflow-hidden rounded-lg bg-stone-800 shadow ring-1 ring-black/20"
-      >
-        {shown ? (
-          art ? (
-            <ProtectedImage src={art} alt="" className="size-full object-cover" />
-          ) : (
-            <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 p-1 text-center text-xs font-bold text-white">
-              {content.roleName(dealt)}
-            </span>
-          )
-        ) : content.roleBack ? (
-          <ProtectedImage src={content.roleBack} alt="" className="size-full object-cover" />
-        ) : (
-          <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 text-3xl">
-            ❓
-          </span>
-        )}
-        {!shown && (
-          <span className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 text-center text-[10px] font-semibold text-white">
-            Tap to reveal
-          </span>
-        )}
-      </button>
+      {open ? (
+        <div
+          role="img"
+          aria-label={`Your role card: ${content.roleName(dealt)}`}
+          className={cardClass}
+        >
+          {face}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShown(!revealed)}
+          aria-label={shown ? 'Hide your role card' : 'Reveal your role card'}
+          className={cardClass}
+        >
+          {face}
+        </button>
+      )}
       <div className="min-w-0 space-y-1 text-sm">
         <h3 className="text-base font-bold">
           {shown
@@ -103,6 +124,12 @@ export function RoleCard({
         </h3>
         {shown ? (
           <>
+            {open && (
+              <p className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+                🔬 Everyone knows you{role === 'former-forensic' ? ' were' : '’re'} the Forensic
+                Scientist.
+              </p>
+            )}
             <p>{info.goal}</p>
             <p className="text-stone-600 dark:text-stone-400">{info.win}</p>
             <Knowledge view={view} content={content} />
@@ -144,6 +171,27 @@ function Knowledge({ view, content }: { view: InquestView; content: Content }) {
         <li key={l}>🤫 {l}</li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Who the Forensic Scientist is: a public role, so everyone else sees it at all times (and who
+ * handed over, after a handover).
+ */
+export function ForensicLine({ view }: { view: InquestView }) {
+  const g = view.game!;
+  if (g.myRole === 'forensic') return null;
+  const former = g.formerFs.map((id) => (id === view.me?.id ? 'you' : nameOf(view, id)));
+  return (
+    <p
+      aria-label="Forensic Scientist"
+      className="flex flex-wrap items-center gap-x-1.5 text-xs text-stone-600 dark:text-stone-400"
+    >
+      <span className="rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+        🔬 Forensic Scientist: {nameOf(view, g.fs)}
+      </span>
+      {former.length > 0 && <span>took over from {former.join(', ')}</span>}
+    </p>
   );
 }
 
@@ -250,6 +298,9 @@ export function Attempts({ view, content }: { view: InquestView; content: Conten
   );
 }
 
+/** A hand of cards to pick from: full width on phones, capped so 8 cards fit a desktop screen. */
+const HAND = 'mx-auto grid w-full max-w-lg gap-2';
+
 /** Night: the Murderer picks the crime from their own cards, with a confirm step. */
 export function NightPanel({
   view,
@@ -288,13 +339,13 @@ export function NightPanel({
   return (
     <Panel role="region" aria-label="Choose your crime" className="space-y-2 ring-2 ring-rose-500">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-bold">🔪 Choose your crime</h3>
+        <h3 className="shrink-0 font-bold whitespace-nowrap">🔪 Choose your crime</h3>
         {clock}
       </div>
       <p className="text-sm">
         Pick 1 Clue card (the Key Evidence) and 1 Means card from your own cards.
       </p>
-      <div className={cn('grid gap-1.5', me.clue.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
+      <div className={cn(HAND, me.clue.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
         {me.clue.map((n) => (
           <ArtCard
             key={n}
@@ -306,7 +357,7 @@ export function NightPanel({
           />
         ))}
       </div>
-      <div className={cn('grid gap-1.5', me.means.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
+      <div className={cn(HAND, me.means.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
         {me.means.map((n) => (
           <ArtCard
             key={n}
@@ -365,7 +416,7 @@ export function FlipPanel({
       className={cn('space-y-2', mine && 'ring-2 ring-amber-500')}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-bold">🃏 {content.eventName('ruled-out')}</h3>
+        <h3 className="min-w-0 font-bold">🃏 {content.eventName('ruled-out')}</h3>
         <Countdown
           deadline={ev.deadline}
           clockOffset={room.clockOffset}
@@ -392,7 +443,7 @@ export function FlipPanel({
           <p className="text-sm">
             Your turn: flip one of your own Clue cards. It can no longer be the answer.
           </p>
-          <div className={cn('grid gap-1.5', me.clue.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
+          <div className={cn(HAND, me.clue.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
             {me.clue.map((n) => (
               <ArtCard
                 key={n}
@@ -449,7 +500,7 @@ export function ReversalPanel({
   return (
     <Panel role="region" aria-label="The Reversal" className="space-y-2 ring-2 ring-rose-500">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-bold">⚖️ The Reversal</h3>
+        <h3 className="shrink-0 font-bold whitespace-nowrap">⚖️ The Reversal</h3>
         <Countdown
           deadline={r.deadline}
           clockOffset={room.clockOffset}
@@ -539,11 +590,11 @@ export function OverScreen({
         <p className="text-3xl">{r.winner === 'investigators' ? '🕵️' : '🩸'}</p>
         <p className="font-semibold">{resultLine(view)}</p>
         {s && (
-          <div className="mx-auto flex max-w-xs items-center justify-center gap-2">
-            <div className="w-20">
+          <div className="mx-auto flex max-w-xs items-center justify-center gap-3">
+            <div className="w-28">
               <ArtCard deck="clue" n={s.clue} content={content} key_ />
             </div>
-            <div className="w-20">
+            <div className="w-28">
               <ArtCard deck="means" n={s.means} content={content} key_ />
             </div>
           </div>
@@ -577,7 +628,7 @@ export function OverScreen({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             size="lg"
-            className="flex-1"
+            className="sm:flex-1"
             onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
           >
             Play again (same settings)

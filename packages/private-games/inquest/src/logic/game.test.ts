@@ -11,7 +11,9 @@ import {
   player,
   presentAll,
   stackPile,
+  startPresentations,
   startedGame,
+  toDiscussion,
   toPresentations,
 } from './test-utils.ts';
 
@@ -187,6 +189,9 @@ describe('collecting evidence', () => {
     h.now += 9_000;
     h.act({ type: 'place-bullet', slot: 5, item: 5 }, HOST);
     expect(h.game().bullets.at(-1)!.gapMs).toBe(9_000);
+    // The table talks the evidence over first; the Forensic Scientist starts the presentations.
+    expect(h.game().stage).toBe('discuss');
+    h.act({ type: 'start-presentations' }, HOST);
     expect(h.game().stage).toBe('present');
     // Speakers start left of the Forensic Scientist and leave them out.
     expect(h.game().present!.order).toEqual(['ana', 'ben', 'cy']);
@@ -206,7 +211,7 @@ describe('collecting evidence', () => {
     expect(h.game().slots[4]).toEqual({ tile: drawn, bullet: null });
     expect(h.game().removed).toEqual([old]);
     h.act({ type: 'place-bullet', slot: 4, item: 1 }, HOST);
-    expect(h.game().stage).toBe('present');
+    expect(h.game().stage).toBe('discuss');
   });
 
   it('ends with the Murderer winning after round 3’s last presentation', () => {
@@ -222,6 +227,75 @@ describe('collecting evidence', () => {
     expect(h.state.phase).toBe('over');
     expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'time' });
     expect(h.game().result!.winners).toEqual(['ana']);
+  });
+});
+
+describe('the discussion before presentations', () => {
+  it('comes after the last bullet in every round, with a soft 2-minute clock by default', () => {
+    const h = startedGame(4, {}, { events: false });
+    expect(h.state.settings.discussSeconds).toBe(120);
+    for (let round = 1; round <= 3; round++) {
+      if (round === 1) toDiscussion(h);
+      else {
+        h.act({ type: 'replace-tile', slot: 2 }, HOST);
+        h.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
+      }
+      expect(h.game()).toMatchObject({ stage: 'discuss', round, deadline: h.now + 120_000 });
+      expect(h.game().present).toBeNull();
+      // Soft: nothing happens by itself at 0.
+      expect(inquest.nextDeadline!(h.state)).toBeNull();
+      h.tick(10 * 60_000);
+      expect(h.game().stage).toBe('discuss');
+      presentAll(h);
+    }
+    expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'time' });
+  });
+
+  it('the Forensic Scientist starts the presentations, early or late; the host can too', () => {
+    const h = startedGame(4);
+    toDiscussion(h);
+    expect(h.reject({ type: 'start-presentations' }, 'ben')).toBe('not-fs');
+    expect(h.reject({ type: 'done-presenting' }, 'ana')).toBe('wrong-stage');
+    h.act({ type: 'start-presentations' }, HOST);
+    expect(h.game()).toMatchObject({ stage: 'present', deadline: null });
+    expect(h.reject({ type: 'start-presentations' }, HOST)).toBe('wrong-stage');
+
+    // After a handover, the new Forensic Scientist starts them, or the host when they're away.
+    const t = startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' });
+    toDiscussion(t);
+    t.act({ type: 'hand-over' }, HOST);
+    const fs = t.game().fs;
+    expect(t.game().stage).toBe('discuss');
+    expect(t.reject({ type: 'start-presentations' }, 'ben')).toBe('not-fs');
+    t.act({ type: 'start-presentations' }, fs);
+    expect(t.game().present!.order).not.toContain(fs);
+    const away = startedGame(5);
+    toDiscussion(away);
+    away.state = inquest.playerLeft(away.state, HOST, away.now);
+    expect(away.game().stage).toBe('discuss');
+    away.act({ type: 'start-presentations' }, away.game().fs);
+    expect(away.game().stage).toBe('present');
+  });
+
+  it('can be switched off (no clock), and solving stays open during it', () => {
+    const h = startedGame(4, {}, { discussSeconds: 0 });
+    const crime = toDiscussion(h);
+    expect(h.game()).toMatchObject({ stage: 'discuss', deadline: null });
+    h.act({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'ben');
+    expect(h.game().result).toMatchObject({ winner: 'investigators', how: 'solved' });
+    const five = startedGame(4, {}, { discussSeconds: 300 });
+    toDiscussion(five);
+    expect(five.game().deadline).toBe(five.now + 300_000);
+  });
+
+  it('rooms saved before the setting existed get the 2-minute default', () => {
+    const h = startedGame(4);
+    const { discussSeconds: _, ...old } = h.state.settings;
+    h.state = { ...h.state, settings: old };
+    toDiscussion(h);
+    expect(h.game().deadline).toBe(h.now + 120_000);
+    startPresentations(h);
+    expect(h.game().stage).toBe('present');
   });
 });
 
@@ -447,7 +521,7 @@ describe('events', () => {
     // Then the round's own tile.
     h.act({ type: 'replace-tile', slot: 3 }, HOST);
     h.act({ type: 'place-bullet', slot: 3, item: 0 }, HOST);
-    expect(h.game().stage).toBe('present');
+    expect(h.game().stage).toBe('discuss');
     presentAll(h);
     expect(h.state.phase).toBe('over');
     expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'time' });

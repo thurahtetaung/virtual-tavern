@@ -8,6 +8,7 @@ import {
   placeBullets,
   presentAll,
   replaceTile,
+  startPresentations,
   solve,
   table,
   visitor,
@@ -64,11 +65,38 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   ).toBeVisible();
   for (const p of investigators) await expect(p.page.getByText('The answer:')).toHaveCount(0);
   await expect(host.page.getByText('🤫 The answer:')).toBeVisible();
+  // The Forensic Scientist is public: their card lies face up, and everyone else sees who it is.
+  const nav = host.page.getByRole('navigation', { name: 'Game sections' });
+  if (await nav.isVisible()) await nav.getByRole('button', { name: 'Me' }).click();
+  await expect(
+    host.page.getByRole('img', { name: 'Your role card: Forensic Scientist' }),
+  ).toBeVisible();
+  await expect(host.page.getByText('Everyone knows you’re the Forensic Scientist.')).toBeVisible();
+  await expect(host.page.getByRole('button', { name: 'Reveal your role card' })).toHaveCount(0);
+  if (await nav.isVisible()) await nav.getByRole('button', { name: 'Scene' }).click();
+  for (const p of rest) await expect(p.page.getByText('🔬 Forensic Scientist: Hana')).toBeVisible();
+  // The four Location tiles look alike, so the picker letters them.
+  for (const letter of ['A', 'B', 'C', 'D'])
+    await expect(
+      host.page.getByRole('button', { name: `Tile: Location ${letter}`, exact: true }),
+    ).toBeVisible();
 
   await firstRound(host.page);
   await expect(
     host.page.getByRole('list', { name: 'Bullet order' }).getByRole('listitem'),
   ).toHaveCount(6);
+  // The table discusses the evidence before anyone presents: a soft clock for everyone, and only
+  // the Forensic Scientist can start the presentations.
+  for (const p of players) {
+    const bar = p.page.getByRole('region', { name: 'Discussion' });
+    await expect(bar.getByText('💬 Discuss the evidence')).toBeVisible();
+    await expect(bar.getByRole('timer')).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Start presentations' })).toHaveCount(
+      p === host ? 1 : 0,
+    );
+  }
+  // Timings never show: the bullet timeline is order only.
+  await expect(host.page.getByText(/after \d+ s/)).toHaveCount(0);
 
   // A wrong guess on the Murderer's cards spends the badge.
   const [wrong, right] = investigators as [Player, Player];
@@ -167,12 +195,13 @@ test('four players: events come up in round 2, through the last call that ends i
     await expect(
       p.page.getByText(/⏳ Last Call: this is the last round of presentations/),
     ).toBeVisible();
-  // Then the round's own tile.
+  // Then the round's own tile, and the discussion.
   await replaceTile(host.page);
   await placeBullets(host.page, 1);
+  await startPresentations(players);
   const speaker = await whoShows(players, /^Your turn to present.*Last chance!/);
   expect(speaker).toBeTruthy();
-  await presentAll(players, 3);
+  await presentAll(players, 3, false);
   for (const p of players)
     await expect(
       p.page.getByText('Time’s up: nobody named the crime, so the Murderer’s side wins.'),
