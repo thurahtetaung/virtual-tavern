@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.24.0...v0.24.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **inquest:** add the discussion time before presentations, and polish the role card, location picker, end screen, table screen and phone layouts ([#99](https://github.com/thurahtetaung/virtual-tavern/issues/99)) ([d6ee6fb](https://github.com/thurahtetaung/virtual-tavern/commit/d6ee6fbfdcea0e448de0d72f1db0c1f8711f53b6))
+
 ## [0.24.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.23.0...v0.24.0) (2026-10-12)
 
 
