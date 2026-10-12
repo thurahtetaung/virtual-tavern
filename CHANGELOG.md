@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.24.1...v0.25.0) (2026-10-12)
+
+
+### Features
+
+* **hydra:** add Hydra, a hidden-role election game in the back room ([#102](https://github.com/thurahtetaung/virtual-tavern/issues/102)) ([cbe597b](https://github.com/thurahtetaung/virtual-tavern/commit/cbe597b1ad01aba7b60af45f571dabdbd08ba6fe))
+
 ## [0.24.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.24.0...v0.24.1) (2026-10-12)
 
 
