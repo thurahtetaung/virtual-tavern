@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.21.0...v0.22.0) (2026-10-12)
+
+
+### Features
+
+* **inquest:** add Inquest, a murder-deduction game in the back room ([#93](https://github.com/thurahtetaung/virtual-tavern/issues/93)) ([3971334](https://github.com/thurahtetaung/virtual-tavern/commit/39713344e9e38355750fd5c999a1b958d8c13d95))
+
 ## [0.21.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.20.0...v0.21.0) (2026-10-12)
 
 
