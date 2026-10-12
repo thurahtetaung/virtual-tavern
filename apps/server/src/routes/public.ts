@@ -36,6 +36,8 @@ export function publicRoutes(
     linked?: (from: string[], next: NextTable) => void;
     /** Whether the request is test traffic (`x-vt-test`), whose rooms record no stats. */
     isTestTraffic?: (req: FastifyRequest) => boolean;
+    /** Rooms one address may create a minute. */
+    roomCreateLimit?: number;
   },
 ) {
   const { rooms, wordLists, games, unlocked, titles, forget, linkable, linked } = opts;
@@ -76,7 +78,7 @@ export function publicRoutes(
 
   app.post(
     '/api/rooms',
-    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    { config: { rateLimit: { max: opts.roomCreateLimit ?? 20, timeWindow: '1 minute' } } },
     (req, reply) => {
       const body = createRoomBody.safeParse(req.body);
       if (!body.success || !visible(req, body.data.gameId)) {

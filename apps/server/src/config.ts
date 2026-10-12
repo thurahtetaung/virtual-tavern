@@ -23,6 +23,8 @@ export interface Config {
    * Unset: the header means nothing.
    */
   statsIgnoreToken: string | null;
+  /** Rooms one address may create a minute (the e2e suite, all on one address, raises it). */
+  roomCreateLimit: number;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -57,5 +59,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           }
         : null,
     statsIgnoreToken: env.STATS_IGNORE_TOKEN?.trim() || null,
+    roomCreateLimit: Number(env.ROOM_CREATE_LIMIT ?? 20),
   };
 }

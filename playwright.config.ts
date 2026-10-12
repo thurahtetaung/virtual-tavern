@@ -57,6 +57,8 @@ export default defineConfig({
       ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
       SESSION_SECRET: TEST_SESSION_SECRET,
       STATS_IGNORE_TOKEN: TEST_STATS_IGNORE_TOKEN,
+      // Every browser shares one address, so the suite would trip the per-address room limit.
+      ROOM_CREATE_LIMIT: '1000',
       LOG_LEVEL: 'warn',
     },
   },
