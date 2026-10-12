@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.22.0...v0.23.0) (2026-10-12)
+
+
+### Features
+
+* **admin:** play-test any game from the tavern-keeper page ([#95](https://github.com/thurahtetaung/virtual-tavern/issues/95)) ([3683c5f](https://github.com/thurahtetaung/virtual-tavern/commit/3683c5f81d9b5e3730a103e9695bd7ad19df0a44))
+
 ## [0.22.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.21.0...v0.22.0) (2026-10-12)
 
 
