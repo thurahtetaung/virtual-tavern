@@ -4,6 +4,8 @@ import type {
   GameRecap,
   HallOfFame,
   NextTable,
+  PlaytestMeta,
+  RecapLine,
   RecapQuery,
   RecapTone,
   RoomMeta,
@@ -61,6 +63,54 @@ export interface RoomInfo {
   gameId: string;
   /** A private game's display title, set by the admin (only sent to unlocked browsers). */
   title?: string;
+  /** An admin playtest room (only ever sent to a signed-in admin). */
+  playtest?: true;
+}
+
+// ---- Playtests (admin only) ----
+
+export const MAX_PLAYTEST_SEATS = 16;
+
+/** A game the admin can play-test, with what its bots can do. */
+export interface PlaytestGame {
+  id: string;
+  /** The game's name, or a private game's admin-set title. */
+  name: string;
+  private: boolean;
+  minPlayers: number;
+  /** Most seats a playtest may have (the game's own maximum, capped). */
+  maxSeats: number;
+}
+
+export const playtestSeat = z.object({ name: playerName });
+
+export const createPlaytestBody = z.object({
+  gameId: z.string().min(1).max(60),
+  seats: z.array(playtestSeat).min(1).max(MAX_PLAYTEST_SEATS),
+});
+export type CreatePlaytestBody = z.input<typeof createPlaytestBody>;
+
+/** One seat of a new playtest. `token` is the seat's secret: it only goes in the seat link. */
+export interface PlaytestSeatInfo {
+  name: string;
+  playerId: string;
+  /** The seat's secret token. */
+  token: string;
+}
+
+export interface PlaytestCreated {
+  roomId: string;
+  gameId: string;
+  seats: PlaytestSeatInfo[];
+}
+
+/** A running playtest, as the admin page and the TEST bar see it. */
+export interface PlaytestStatus {
+  roomId: string;
+  gameId: string;
+  phase: RoomMeta['phase'];
+  playtest: PlaytestMeta;
+  players: { id: string; name: string; connected: boolean }[];
 }
 
 export interface WordListSummary {
@@ -170,6 +220,10 @@ export interface ServerToClientEvents {
   'room:wrapped': (nightKey: string) => void;
   /** Someone here opened a new table for the same night ("Same crew, new game"). */
   'room:next': (next: NextTable) => void;
+  /** The admin ended this playtest: the room is gone. */
+  'room:closed': () => void;
+  /** A playtest's finished game: its award strip, computed in memory and never saved. */
+  'room:playtestAwards': (lines: RecapLine[]) => void;
 }
 export * from './questions.ts';
 export * from './recap.ts';

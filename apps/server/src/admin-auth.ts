@@ -24,6 +24,11 @@ export class AdminAuth {
   private readonly expected: Promise<Buffer>;
   /** Short stretched hash of the password: identifies which password a session was issued under. */
   private readonly fingerprint: string;
+  /**
+   * Sessions signed out on this server, until they would have expired anyway. A browser drops
+   * its cookie on sign-out, but a socket keeps the handshake's copy: this is what locks it out.
+   */
+  private readonly revoked = new Map<string, number>();
 
   constructor(password: string, sessionSecret: string) {
     this.expected = scrypt(password, this.salt, 32);
@@ -54,7 +59,21 @@ export class AdminAuth {
     const raw = request.cookies[ADMIN_COOKIE];
     if (!raw) return false;
     const { valid, value } = request.unsignCookie(raw);
-    if (!valid || !value) return false;
+    return valid && this.isAdminValue(value, now);
+  }
+
+  /** Signs out the request's session for good, here (open sockets included). */
+  revoke(request: FastifyRequest, now: number) {
+    for (const [value, until] of this.revoked) if (until <= now) this.revoked.delete(value);
+    const raw = request.cookies[ADMIN_COOKIE];
+    if (!raw) return;
+    const { valid, value } = request.unsignCookie(raw);
+    if (valid && value) this.revoked.set(value, Number(value.split('.')[0]) + ADMIN_SESSION_MS);
+  }
+
+  /** Whether an unsigned `vt_admin` cookie value is a current session (for sockets). */
+  isAdminValue(value: string | null | undefined, now: number): boolean {
+    if (!value || this.revoked.has(value)) return false;
     const [issued, fingerprint] = value.split('.');
     const issuedAt = Number(issued);
     return (

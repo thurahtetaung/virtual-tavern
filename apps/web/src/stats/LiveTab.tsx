@@ -98,6 +98,13 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
         <StatTile label="Games in progress" value={compact(playing)} />
         <StatTile label="Open tabs" value={compact(live.sockets)} />
       </div>
+      {(live.playtests ?? 0) > 0 && (
+        <p className="text-sm text-stone-600 dark:text-stone-400">
+          <span aria-hidden>🧪 </span>
+          {live.playtests} {live.playtests === 1 ? 'playtest' : 'playtests'} running (not counted
+          above)
+        </p>
+      )}
 
       {live.byGame.length > 0 && (
         <ul className="flex flex-wrap gap-2" aria-label="Rooms per game">

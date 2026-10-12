@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { PlaytestRecord } from '../rooms/store.ts';
 
 export const wordLists = sqliteTable('word_lists', {
   id: text('id').primaryKey(),
@@ -77,6 +78,11 @@ export const rooms = sqliteTable('rooms', {
   updatedAt: integer('updated_at').notNull(),
   /** Opened or joined by test traffic (`x-vt-test`): nothing it does is recorded in the stats. */
   test: integer('test', { mode: 'boolean' }),
+  /**
+   * An admin playtest (`PlaytestRecord` in `rooms/store.ts`: bots, speed, paused, createdAt) as
+   * JSON; null for normal rooms. A playtest room is also a test room.
+   */
+  playtest: text('playtest', { mode: 'json' }).$type<PlaytestRecord>(),
 });
 
 // ---- Stats (admin only) ----

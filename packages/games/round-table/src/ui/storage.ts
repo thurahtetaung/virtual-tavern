@@ -1,3 +1,4 @@
+import { storageKey } from '@vt/game-sdk';
 import { useCallback, useEffect, useState } from 'react';
 
 // Per-browser conveniences only: private suspicion marks and dismissed tips. Storage can be
@@ -6,8 +7,9 @@ import { useCallback, useEffect, useState } from 'react';
 export type Suspicion = 'trust' | 'doubt';
 export type Suspicions = Record<string, Suspicion>;
 
-const MARKS = 'vt.round-table.marks.';
-const TIPS = 'vt.round-table.tips';
+// Per seat in a playtest, so each seat tab keeps its own marks and tips.
+const marksPrefix = () => `${storageKey('vt.round-table.marks')}.`;
+const tipsKey = () => storageKey('vt.round-table.tips');
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -27,7 +29,7 @@ function write(key: string, value: unknown) {
 }
 
 function loadMarks(key: string): Suspicions {
-  const raw = read<unknown>(MARKS + key, {});
+  const raw = read<unknown>(marksPrefix() + key, {});
   if (!raw || typeof raw !== 'object') return {};
   return Object.fromEntries(
     Object.entries(raw as Record<string, unknown>).filter(
@@ -37,6 +39,7 @@ function loadMarks(key: string): Suspicions {
 }
 
 function saveMarks(key: string, marks: Suspicions) {
+  const MARKS = marksPrefix();
   try {
     // Only this game's marks are worth keeping.
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -76,13 +79,13 @@ export function useSuspicions(key: string): [Suspicions, (id: string) => void] {
 /** First-time tips: shown until the viewer dismisses them, once per browser. */
 export function useTips(): [(id: string) => boolean, (id: string) => void] {
   const [seen, setSeen] = useState<string[]>(() => {
-    const list = read<unknown>(TIPS, []);
+    const list = read<unknown>(tipsKey(), []);
     return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
   });
   const dismiss = useCallback((id: string) => {
     setSeen((s) => {
       const next = s.includes(id) ? s : [...s, id];
-      write(TIPS, next);
+      write(tipsKey(), next);
       return next;
     });
   }, []);

@@ -69,8 +69,10 @@ export interface LiveRoom {
 
 export interface LiveStats {
   now: number;
-  /** Open browser connections (tabs), whether or not they are in a room. */
+  /** Open browser connections (tabs), whether or not they are in a room; never test rooms'. */
   sockets: number;
+  /** Admin playtests someone is in; they never count as rooms, players or tabs. */
+  playtests?: number;
   /** Distinct players connected to a room right now. */
   playersOnline: number;
   /** Distinct players seen in the last 5 minutes. */

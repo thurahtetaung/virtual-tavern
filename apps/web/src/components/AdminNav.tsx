@@ -6,12 +6,13 @@ export function AdminNav({
   current,
   className,
 }: {
-  current: 'lists' | 'stats';
+  current: 'lists' | 'stats' | 'playtest';
   className?: string;
 }) {
   const items = [
-    { id: 'lists', to: '/tavern-keeper', label: 'Word lists & back room' },
+    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room' },
     { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
+    { id: 'playtest', to: '/tavern-keeper/playtest', label: '🧪 Playtest' },
   ] as const;
   return (
     <nav

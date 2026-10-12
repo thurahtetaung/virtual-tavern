@@ -70,7 +70,9 @@ export function adminRoutes(
     },
   );
 
-  app.post('/api/admin/logout', (_req, reply) => {
+  app.post('/api/admin/logout', (req, reply) => {
+    // Revoked as well as cleared, so seat tabs of a playtest lose the room at the next change.
+    auth?.revoke(req, now());
     clearAdminSession(reply);
     return { ok: true };
   });

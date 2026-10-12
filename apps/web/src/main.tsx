@@ -17,6 +17,9 @@ const RoomPage = lazy(() => import('./pages/RoomPage.tsx').then((m) => ({ defaul
 const AdminPage = lazy(() =>
   import('./pages/AdminPage.tsx').then((m) => ({ default: m.AdminPage })),
 );
+const PlaytestPage = lazy(() =>
+  import('./pages/PlaytestPage.tsx').then((m) => ({ default: m.PlaytestPage })),
+);
 // The stats page carries the chart library, so it gets a chunk of its own.
 const StatsPage = lazy(() =>
   import('./pages/StatsPage.tsx').then((m) => ({ default: m.StatsPage })),
@@ -36,6 +39,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/rules/:gameId" element={<RulesPage />} />
               <Route path="/tavern-keeper" element={<AdminPage />} />
               <Route path="/tavern-keeper/stats" element={<StatsPage />} />
+              <Route path="/tavern-keeper/playtest" element={<PlaytestPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

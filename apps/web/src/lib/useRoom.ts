@@ -2,6 +2,7 @@ import type {
   Ack,
   ClientToServerEvents,
   NextTable,
+  RecapLine,
   RoomSnapshot,
   ServerToClientEvents,
 } from '@vt/protocol';
@@ -17,12 +18,17 @@ export type RoomStatus =
   | 'left'
   | 'error'
   /** A back-room room, and this browser's unlock is missing or no longer valid. */
-  | 'locked';
+  | 'locked'
+  /** The admin ended this playtest: the room is gone. */
+  | 'closed';
 
 type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-/** Live connection to one room. Rejoins automatically after network drops or server restarts. */
-export function useRoom(roomId: string, name: string | null) {
+/**
+ * Live connection to one room. Rejoins automatically after network drops or server restarts.
+ * `token`: the identity to join as (a playtest seat); by default the browser's own player.
+ */
+export function useRoom(roomId: string, name: string | null, token?: string) {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const [status, setStatus] = useState<RoomStatus>('connecting');
@@ -31,12 +37,16 @@ export function useRoom(roomId: string, name: string | null) {
   const [wraps, setWraps] = useState(0);
   /** "Same crew, new game": the latest table someone here opened for the night. */
   const [next, setNext] = useState<NextTable | null>(null);
+  /** A playtest's award preview for its finished game (never saved anywhere). */
+  const [playtestAwards, setPlaytestAwards] = useState<RecapLine[] | null>(null);
   const socketRef = useRef<ClientSocket | null>(null);
   // Latest name for automatic rejoins, so a reconnect never reverts a rename.
   const nameRef = useRef(name);
   useEffect(() => {
     nameRef.current = name;
   }, [name]);
+  // The seat this page joins as, kept for every automatic rejoin (the same seat after a drop).
+  const tokenRef = useRef(token);
 
   useEffect(() => {
     if (!name) return;
@@ -46,7 +56,7 @@ export function useRoom(roomId: string, name: string | null) {
     const join = () => {
       socket.emit(
         'room:join',
-        { roomId, token: playerToken(), name: nameRef.current ?? name },
+        { roomId, token: tokenRef.current ?? playerToken(), name: nameRef.current ?? name },
         (res) => {
           if (res.ok) {
             setStatus('joined');
@@ -69,6 +79,8 @@ export function useRoom(roomId: string, name: string | null) {
     socket.on('room:state', (s) => {
       setSnapshot(s);
       setClockOffset(s.serverNow - Date.now());
+      // A new game drops the last one's preview.
+      if (s.meta?.phase === 'playing') setPlaytestAwards(null);
     });
     socket.on('room:kicked', () => {
       setStatus('kicked');
@@ -76,6 +88,11 @@ export function useRoom(roomId: string, name: string | null) {
     });
     socket.on('room:wrapped', () => setWraps((n) => n + 1));
     socket.on('room:next', (table) => setNext(table));
+    socket.on('room:playtestAwards', (lines) => setPlaytestAwards(lines));
+    socket.on('room:closed', () => {
+      setStatus('closed');
+      socket.disconnect();
+    });
     // The password changed or everyone was signed out: the server already dropped us from the room.
     socket.on('room:locked', () => {
       setStatus('locked');
@@ -131,5 +148,6 @@ export function useRoom(roomId: string, name: string | null) {
     wraps,
     next,
     dismissNext: () => setNext(null),
+    playtestAwards,
   };
 }

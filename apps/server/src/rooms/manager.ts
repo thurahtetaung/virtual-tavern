@@ -1,8 +1,8 @@
 import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
-import type { Ack, RecapTone, RoomMeta, RoomSnapshot } from '@vt/protocol';
+import type { Ack, PlaytestStatus, RecapTone, RoomMeta, RoomSnapshot } from '@vt/protocol';
 import { newRoomId, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
-import type { RoomRecord, RoomStore } from './store.ts';
+import type { PlaytestRecord, RoomRecord, RoomStore } from './store.ts';
 
 export const MAX_PLAYERS_PER_ROOM = 30;
 /** How long a disconnected host keeps the role before it passes to someone who is online. */
@@ -20,6 +20,8 @@ export interface RoomEvents {
   /** Room state or presence changed; every connected player needs a fresh snapshot. */
   changed(roomId: string): void;
   kicked(roomId: string, playerId: string): void;
+  /** The room was deleted on purpose (an ended playtest): everyone in it must go. */
+  closed?(roomId: string): void;
 }
 
 /** Minimal structured logger (pino's `(obj, msg)` shape, so `app.log` fits). */
@@ -99,6 +101,8 @@ interface LiveRoom {
   hostAwayDue?: number;
   /** Consecutive deadline firings after which the game's deadline still had not advanced. */
   deadlineStalls: number;
+  /** Since when nobody has been connected (server clock); undefined while someone is. */
+  emptySince?: number;
 }
 
 export class RoomError extends Error {
@@ -133,6 +137,8 @@ export interface JoinOptions {
   connect?: boolean;
   /** The joiner is test traffic: the room is marked as a test room, for good. */
   test?: boolean;
+  /** The joiner holds a current admin session: the only people a playtest room lets in. */
+  admin?: boolean;
 }
 
 /**
@@ -156,9 +162,14 @@ export class RoomManager {
 
   /**
    * Opens a room. `nightKey`: it continues that night ("Same crew, new game"), for the recap.
-   * `test`: test traffic opened it, so the stats record nothing about it.
+   * `test`: test traffic opened it, so the stats record nothing about it. `playtest`: an admin
+   * playtest (always a test room too), which only admins may join.
    */
-  create(gameId: string, hostId: string, opts: { nightKey?: string; test?: boolean } = {}): string {
+  create(
+    gameId: string,
+    hostId: string,
+    opts: { nightKey?: string; test?: boolean; playtest?: PlaytestRecord } = {},
+  ): string {
     const game = this.deps.games.get(gameId);
     if (!game) throw new RoomError('unknown-game', 'That game does not exist.');
     const now = this.deps.now();
@@ -173,7 +184,8 @@ export class RoomManager {
       version: 1,
       createdAt: now,
       updatedAt: now,
-      ...(opts.test && { test: true }),
+      ...((opts.test || opts.playtest) && { test: true }),
+      ...(opts.playtest && { playtest: opts.playtest }),
     };
     this.deps.store.insert(record);
     this.observe(record, null, record, game, {
@@ -195,9 +207,17 @@ export class RoomManager {
     return record?.test === true;
   }
 
+  /** Whether the room is an admin playtest. */
+  isPlaytest(roomId: string): boolean {
+    const record = this.rooms.get(roomId)?.record ?? this.deps.store.get(roomId);
+    return !!record?.playtest;
+  }
+
   join(roomId: string, playerId: string, wanted: string, opts: JoinOptions = {}): Ack {
     const room = this.load(roomId);
-    if (!room) return fail('no-room', 'This room does not exist or has expired.');
+    // A playtest room looks like a dead link to anyone but an admin.
+    if (!room || (room.record.playtest && !opts.admin))
+      return fail('no-room', 'This room does not exist or has expired.');
     if (opts.test && !room.record.test) {
       // Marked before the join, so not even the test player's arrival is recorded.
       this.deps.store.markTest(roomId);
@@ -360,11 +380,94 @@ export class RoomManager {
     const state = room.record.state as { phase?: unknown; gamesPlayed?: unknown } | null;
     const phase = state?.phase;
     const gameNo = state?.gamesPlayed;
+    const { playtest } = room.record;
     return {
       phase: phase === 'playing' || phase === 'over' ? phase : 'lobby',
       gameNo: typeof gameNo === 'number' ? gameNo : 0,
       ...this.deps.recapMeta(room.record.id),
+      // A playtest records no night, so it has no recap to show.
+      ...(playtest && {
+        recap: false,
+        playtest: { speed: playtest.speed, paused: playtest.paused, bots: playtest.bots.length },
+      }),
     };
+  }
+
+  /** A playtest's settings and seats, for the admin (null if it is not a live playtest). */
+  playtestStatus(roomId: string): PlaytestStatus | null {
+    const room = this.load(roomId);
+    if (!room?.record.playtest) return null;
+    const meta = this.meta(room);
+    return {
+      roomId,
+      gameId: room.record.gameId,
+      phase: meta.phase,
+      playtest: meta.playtest!,
+      players: room.record.players.map((p) => ({
+        ...p,
+        connected: room.connections.has(p.id),
+      })),
+    };
+  }
+
+  /** Ends a playtest at once: everyone in it is told, and the room and its timers are gone. */
+  removePlaytest(roomId: string): boolean {
+    const room = this.load(roomId);
+    if (!room?.record.playtest) return false;
+    this.drop(roomId, room);
+    return true;
+  }
+
+  /**
+   * Deletes playtests nobody has been connected to for `maxIdleMs` (loaded ones by when the
+   * last person left, the rest by their last change); returns how many were removed.
+   */
+  sweepPlaytests(maxIdleMs: number): number {
+    const before = this.deps.now() - maxIdleMs;
+    let removed = 0;
+    for (const [id, room] of [...this.rooms]) {
+      if (!room.record.playtest || room.emptySince === undefined || room.emptySince > before)
+        continue;
+      this.drop(id, room);
+      removed += 1;
+    }
+    for (const id of this.deps.store.deleteIdlePlaytests(before, [...this.rooms.keys()])) {
+      this.deps.events.closed?.(id);
+      this.notifySwept(id, null, null);
+      removed += 1;
+    }
+    return removed;
+  }
+
+  /** Playtests someone is connected to (they are never counted as rooms anywhere else). */
+  playtestsRunning(): number {
+    let n = 0;
+    for (const room of this.rooms.values())
+      if (room.record.playtest && room.connections.size > 0) n += 1;
+    return n;
+  }
+
+  /** Deletes a loaded room for good, telling its sockets first. */
+  private drop(roomId: string, room: LiveRoom) {
+    this.deps.events.closed?.(roomId);
+    this.unload(roomId);
+    this.deps.store.delete(roomId);
+    this.notifySwept(roomId, room.record, room.game);
+  }
+
+  /** Lets the observers clean up after a room that is gone (as a sweep does). */
+  private notifySwept(roomId: string, record: RoomRecord | null, game: AnyGameDefinition | null) {
+    this.notify({
+      test: true,
+      kind: 'room.swept',
+      roomId,
+      gameId: record?.gameId ?? '',
+      now: this.deps.now(),
+      by: null,
+      before: record,
+      after: null,
+      game,
+    });
   }
 
   /** Who is in the room and who hosts it, for the recap (null if the room is gone). */
@@ -403,11 +506,18 @@ export class RoomManager {
     return OK;
   }
 
-  /** Rooms with at least one connected player, for the admin live view. */
+  /** Every loaded room someone is connected to, test rooms included (for re-checking gates). */
+  occupiedRooms(): { id: string; gameId: string }[] {
+    return [...this.rooms.values()]
+      .filter((r) => r.connections.size > 0)
+      .map((r) => ({ id: r.record.id, gameId: r.record.gameId }));
+  }
+
+  /** Rooms with at least one connected player, for the admin live view (never test rooms). */
   liveRooms(): LiveRoomInfo[] {
     const out: LiveRoomInfo[] = [];
     for (const room of this.rooms.values()) {
-      if (room.connections.size === 0) continue;
+      if (room.connections.size === 0 || room.record.test) continue;
       const { record } = room;
       const phase = (record.state as { phase?: unknown } | null)?.phase;
       out.push({
@@ -475,6 +585,7 @@ export class RoomManager {
       connections: new Map(),
       awaySince: new Map(),
       deadlineStalls: 0,
+      emptySince: this.deps.now(),
     };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).
@@ -573,6 +684,7 @@ export class RoomManager {
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
     room.awaySince.delete(playerId);
+    room.emptySince = undefined;
     this.touch(room);
     this.observe(room.record, room.record, room.record, room.game, {
       kind: 'player.connected',
@@ -594,6 +706,7 @@ export class RoomManager {
     else {
       room.connections.delete(playerId);
       room.awaySince.set(playerId, this.deps.now());
+      if (room.connections.size === 0) room.emptySince = this.deps.now();
     }
     this.touch(room);
     if (left <= 0 && playerId === room.record.hostId) this.armHostAway(room);
@@ -611,6 +724,7 @@ export class RoomManager {
     }
     room.connections.delete(playerId);
     room.awaySince.delete(playerId);
+    if (room.connections.size === 0) room.emptySince ??= this.deps.now();
     this.commit(
       room,
       {

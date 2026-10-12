@@ -1,17 +1,19 @@
+import { storageKey } from '@vt/game-sdk';
 import { useCallback, useEffect, useState } from 'react';
 
 /** A private deduction mark on a card: ⭐ suspicious or ✕ ruled out in your own head. */
 export type Mark = 'star' | 'cross';
 export type Marks = Record<string, Mark>;
 
-const PREFIX = 'vt.inquest.marks.';
+/** Per seat in a playtest, so each seat tab keeps its own marks. */
+const prefix = () => `${storageKey('vt.inquest.marks')}.`;
 
 /** `clue-17` / `means-4`, per suspect so the same card number never collides across decks. */
 export const markKey = (deck: 'clue' | 'means', n: number) => `${deck}-${n}`;
 
 function load(key: string): Marks {
   try {
-    const raw = localStorage.getItem(PREFIX + key);
+    const raw = localStorage.getItem(prefix() + key);
     const parsed: unknown = raw ? JSON.parse(raw) : {};
     if (!parsed || typeof parsed !== 'object') return {};
     return Object.fromEntries(
@@ -27,6 +29,7 @@ function load(key: string): Marks {
 function save(key: string, marks: Marks) {
   try {
     // Only this game's marks are worth keeping: a new game starts clean.
+    const PREFIX = prefix();
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
       if (k?.startsWith(PREFIX) && k !== PREFIX + key) localStorage.removeItem(k);

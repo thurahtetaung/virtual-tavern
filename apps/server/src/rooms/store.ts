@@ -1,4 +1,5 @@
-import { and, eq, lt, notInArray } from 'drizzle-orm';
+import { and, eq, isNotNull, lt, notInArray } from 'drizzle-orm';
+import type { PlaytestSpeed } from '@vt/protocol';
 import type { Db } from '../db/index.ts';
 import { rooms } from '../db/schema.ts';
 
@@ -14,6 +15,17 @@ export interface RoomRecord {
   updatedAt: number;
   /** Test traffic opened or joined it: the stats record nothing about it. */
   test?: boolean | null;
+  /** An admin playtest (always a test room too); null or missing for normal rooms. */
+  playtest?: PlaytestRecord | null;
+}
+
+/** A playtest room's own settings, kept with the room. */
+export interface PlaytestRecord {
+  /** Seats played by the server (their ids come from tokens nobody kept). */
+  bots: { id: string; name: string }[];
+  speed: PlaytestSpeed;
+  paused: boolean;
+  createdAt: number;
 }
 
 /** Persistence boundary for rooms; swap the implementation to move off SQLite. */
@@ -28,6 +40,12 @@ export interface RoomStore {
   markTest(id: string): void;
   /** Deletes rooms untouched since `before`, except those in `keep`; returns them. */
   deleteIdle(before: number, keep?: readonly string[]): { id: string; test: boolean }[];
+  /** Saves a playtest room's settings (without changing its version). */
+  setPlaytest(id: string, playtest: PlaytestRecord): void;
+  /** Deletes one room; returns whether it existed. */
+  delete(id: string): boolean;
+  /** Like `deleteIdle`, but only playtest rooms; returns their ids. */
+  deleteIdlePlaytests(before: number, keep?: readonly string[]): string[];
 }
 
 export class SqliteRoomStore implements RoomStore {
@@ -72,5 +90,23 @@ export class SqliteRoomStore implements RoomStore {
       .returning({ id: rooms.id, test: rooms.test })
       .all()
       .map((r) => ({ id: r.id, test: r.test === true }));
+  }
+
+  setPlaytest(id: string, playtest: PlaytestRecord): void {
+    this.db.update(rooms).set({ playtest }).where(eq(rooms.id, id)).run();
+  }
+
+  delete(id: string): boolean {
+    return this.db.delete(rooms).where(eq(rooms.id, id)).run().changes === 1;
+  }
+
+  deleteIdlePlaytests(before: number, keep: readonly string[] = []): string[] {
+    const idle = and(isNotNull(rooms.playtest), lt(rooms.updatedAt, before));
+    return this.db
+      .delete(rooms)
+      .where(keep.length ? and(idle, notInArray(rooms.id, [...keep])) : idle)
+      .returning({ id: rooms.id })
+      .all()
+      .map((r) => r.id);
   }
 }

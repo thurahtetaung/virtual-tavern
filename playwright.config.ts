@@ -19,6 +19,7 @@ const SHARED_STATE = [
   /screenshots\.spec\.ts$/,
   /recap-backroom\.spec\.ts$/,
   /inquest\.spec\.ts$/,
+  /playtest\.spec\.ts$/,
 ];
 
 export default defineConfig({
