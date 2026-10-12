@@ -4,6 +4,7 @@ import { guide as codenamesGuide } from '@vt/game-codenames/guide';
 import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
+import { guide as roundTableGuide } from '@vt/game-round-table/guide';
 import { type ComponentType, lazy } from 'react';
 import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 import type { Labeler } from '../recap/resolve.ts';
@@ -55,6 +56,15 @@ export const clientGames: ClientGame[] = [
     icon: '🎭',
     Component: lazy(() =>
       import('@vt/game-masquerade/ui').then((m) => ({ default: m.MasqueradeGame })),
+    ),
+  },
+  {
+    id: 'round-table',
+    name: 'Round Table',
+    guide: roundTableGuide,
+    icon: '⚔️',
+    Component: lazy(() =>
+      import('@vt/game-round-table/ui').then((m) => ({ default: m.RoundTableGame })),
     ),
   },
 ];

@@ -1,6 +1,7 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
+import * as rt from './round-table-play.ts';
 import {
   VAMPIRES,
   getReady,
@@ -1179,5 +1180,131 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await sheet.getByRole('tab', { name: '🏆 Hall of fame' }).click();
     await expect(sheet.getByText(/Nights together: 2/)).toBeVisible();
     await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-hall.png` });
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`round-table screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(240_000);
+    const phone = label === 'phone';
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/round-table-${label}-${name}.png`,
+        fullPage: !phone,
+      });
+    const t = await rt.openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eli', 'Fay'], {
+      viewport,
+      colorScheme: phone ? 'dark' : 'light',
+    });
+    const { host } = t;
+    await host.getByRole('button', { name: /^Classic\+/ }).click();
+    await expect(host.getByTestId('balance')).toContainText('4 Good vs 3 Evil');
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start game' }).click();
+    await expect(host.getByRole('button', { name: '👁️ Show my role' })).toBeVisible();
+    await shot(host, 'card-covered');
+    await rt.readRoles(t);
+    const merlin = rt.withRole(t, 'Merlin');
+    const percival = rt.withRole(t, 'Percival');
+    await merlin.getByRole('button', { name: 'My role' }).click();
+    await shot(merlin, 'role-merlin');
+    await merlin.keyboard.press('Escape');
+    await percival.getByRole('button', { name: 'My role' }).click();
+    await shot(percival, 'role-percival');
+    await percival.keyboard.press('Escape');
+    const good = rt.goodPages(t);
+    const evil = rt.evilPages(t);
+    const lead = await rt.leader(t);
+    await lead.getByRole('button', { name: `Pick ${t.names.get(good[0]!)} for the team` }).click();
+    await shot(lead, 'propose-leader');
+    await shot(
+      t.players.find((p) => p !== lead)!,
+      'propose-watching',
+    );
+    await lead.getByRole('button', { name: `Pick ${t.names.get(good[1]!)} for the team` }).click();
+    await lead.getByRole('button', { name: 'Send this team to the vote' }).click();
+    await expect(host.getByRole('region', { name: 'Vote' })).toBeVisible();
+    await shot(host, 'vote');
+    await rt.vote(t, t.players.slice(0, 4));
+    await expect(host.getByTestId('vote-result')).toBeVisible();
+    await shot(host, 'vote-rejected');
+    await rt.quest(t, good.slice(0, 2));
+    const size = await rt.teamSize(t);
+    const team = [evil[0]!, ...good.slice(0, size - 1)];
+    await rt.propose(t, team);
+    await rt.vote(t);
+    await expect(evil[0]!.getByRole('button', { name: '✕ Fail' })).toBeVisible();
+    await shot(evil[0]!, 'quest-evil');
+    await rt.play(t, team, [evil[0]!]);
+    let holder: Page | undefined;
+    await expect
+      .poll(async () => {
+        for (const p of t.players)
+          if (await p.getByText(/^You hold the Lady of the Lake/).isVisible()) {
+            holder = p;
+            return true;
+          }
+        return false;
+      })
+      .toBe(true);
+    const choice = holder!
+      .getByRole('button', { name: /^Check / })
+      .and(holder!.locator(':enabled'));
+    await choice.first().click();
+    await shot(holder!, 'lady');
+    await holder!.getByRole('button', { name: /’s loyalty$/ }).click();
+    await expect(holder!.getByTestId('lady-result')).toBeVisible();
+    await shot(holder!, 'lady-result');
+    if (phone) {
+      await host.getByRole('navigation').getByRole('button', { name: 'History' }).click();
+      await shot(host, 'history');
+      await host.getByRole('navigation').getByRole('button', { name: 'Table' }).click();
+    }
+    await rt.quest(t, good.slice(0, await rt.teamSize(t)));
+    let assassin: Page | undefined;
+    // Lady again after quest 3, then quest 4 to reach the assassination.
+    await expect
+      .poll(async () => {
+        for (const p of t.players)
+          if (await p.getByText(/^You hold the Lady of the Lake/).isVisible()) {
+            holder = p;
+            return true;
+          }
+        return false;
+      })
+      .toBe(true);
+    const again = holder!.getByRole('button', { name: /^Check / }).and(holder!.locator(':enabled'));
+    await again.first().click();
+    await holder!.getByRole('button', { name: /’s loyalty$/ }).click();
+    await rt.quest(t, good.slice(0, await rt.teamSize(t)));
+    await expect
+      .poll(async () => {
+        for (const p of evil)
+          if (await p.getByText(/^Good won three quests, but you get one shot/).isVisible()) {
+            assassin = p;
+            return true;
+          }
+        return false;
+      })
+      .toBe(true);
+    const target = t.names.get(good[2]!)!;
+    await assassin!
+      .getByRole('button', { name: `Name ${target} as Merlin` })
+      .first()
+      .click();
+    await shot(assassin!, 'assassin');
+    await shot(merlin, 'assassin-waiting');
+    await assassin!
+      .getByRole('button', { name: `Name ${target} as Merlin` })
+      .last()
+      .click();
+    await expect(assassin!.getByRole('dialog')).toBeVisible();
+    await shot(assassin!, 'assassin-confirm');
+    await assassin!.getByRole('button', { name: /^Yes, it’s/ }).click();
+    await expect(host.getByTestId('winner')).toBeVisible();
+    await shot(host, 'end');
   });
 }

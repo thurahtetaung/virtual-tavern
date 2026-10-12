@@ -1,5 +1,13 @@
 import type { GameGuide } from '@vt/game-sdk';
 
+/** A role entry's anchor, so a game can open the guide at it: "Merlin (Good)" → "guide-role-merlin". */
+export const roleAnchor = (name: string) =>
+  `guide-role-${name
+    .replace(/\s*\(.*\)$/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}`;
+
 /** Renders any game's guide with the same structure, so every game reads alike. */
 export function GuideView({ guide, compact = false }: { guide: GameGuide; compact?: boolean }) {
   const h = compact ? 'text-base' : 'text-xl';
@@ -57,7 +65,8 @@ export function GuideView({ guide, compact = false }: { guide: GameGuide; compac
             {guide.roles.map((r) => (
               <div
                 key={r.name}
-                className="rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
+                id={roleAnchor(r.name)}
+                className="scroll-mt-4 rounded-xl bg-white p-3 ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
               >
                 <dt className="font-bold">{r.name}</dt>
                 <dd className="mt-1 text-sm text-stone-700 dark:text-stone-300">{r.summary}</dd>

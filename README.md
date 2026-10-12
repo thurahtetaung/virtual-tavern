@@ -3,7 +3,7 @@
 A private, self-hosted place to play party games with friends in the browser.
 Create a room, share the link, and play together in real time. There are no accounts and nothing to install.
 
-- **Eight games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
+- **Nine games, one platform.** Every game plugs into the same rooms, presence, timers and persistence:
   - **Codenames**: two teams race to find their words from one-word clues.
   - **Enigma**: a team code-breaking game where you decode your own clues and intercept the other team's.
   - **Echo**: a cooperative word game where everyone writes a one-word clue for the guesser, but matching clues cancel out.
@@ -12,6 +12,7 @@ Create a room, share the link, and play together in real time. There are no acco
   - **Royal Post**: a courtship card game in the back room.
   - **Nightfall**: a one-night werewolf-style hidden-role game in the back room.
   - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round; a back-room edition uses the original locations and art.
+  - **Round Table**: a hidden-loyalty quest game where loyal knights and hidden traitors pick teams, vote and protect Merlin.
 - **Beginner friendly.** Each game ships a rules guide, shown on its "How to play" page and in a rules drawer during play, and the screen always tells you what to do next.
 - **Your words.** 19 built-in word packs come with the server, admins edit word lists in `/tavern-keeper`, and hosts mix and match them per game.
 - **Rooms by link.** Rooms are unlisted and joined through unguessable links, with optional turn timers per game.
@@ -49,6 +50,7 @@ packages/games/codenames      Codenames rules, guide and UI
 packages/games/enigma         Enigma rules, guide and UI
 packages/games/echo           Echo rules, guide and UI
 packages/games/masquerade     Masquerade rules, guide, UI and its self-written location pack
+packages/games/round-table    Round Table rules engine (role registry, presets), guide and UI with our own emblems
 packages/private-games/reverie Reverie (back room) rules, guide and UI; art comes from private storage
 packages/private-games/hoodwink Hoodwink (back room) rules, guide and UI; questions come from private decks
 packages/private-games/royal-post Royal Post (back room) rules, guide and UI

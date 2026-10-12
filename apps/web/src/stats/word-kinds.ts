@@ -15,6 +15,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   // Each round's location, and the locations caught spies guessed.
   masquerade: ['clue', 'guess'],
   'masquerade-originals': ['clue', 'guess'],
+  // Hidden roles and votes: no words at all, so no Words card.
+  'round-table': [],
   // Role ids: the roles dealt, and the roles that died.
   nightfall: ['clue', 'guess'],
 };

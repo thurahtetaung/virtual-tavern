@@ -23,6 +23,12 @@ import type { GameFigure } from '@vt/protocol';
 //   masquerade (and masquerade-originals) round {location, spyWon; recap: named, starter,
 //              pointsTo, points}, spy {outcome, votes; recap: round}, vote {hit, target; recap:
 //              round}, outcome {rounds; recap: ranking, scores}
+//   round-table proposal {approved, approves, rejects, attempt, team; recap: approvers, rejecters,
+//              autoVoters, round, slot, size, auto}, quest {fails, success; recap: team, slot,
+//              round, size}, lady {target; recap: round}, assassination {target, hit},
+//              player {role, side, won}, outcome {winner, reason, players, merlin, proposals,
+//              rejected, streak; recap: seats, roles, sides, successes, failures, ladyHolders,
+//              ladyTargets, ladyEvil}
 //   nightfall  outcome {players, teams, teamsWon, ending, nightMs, dayMs, moves, chain,
 //              movedRoles, setup, epic, loveDeaths, vampireMark, aliens, ripple, timeLoop,
 //              leaderRule, oracleRule}, player {dealt, won, voted, votedWolf, votedRole, vampire,
@@ -410,9 +416,150 @@ function nightfallFigures(
   ];
 }
 
+/** Round Table's roles, in lobby order, with their labels (public role names). */
+const ROUND_TABLE_ROLES: [string, string][] = [
+  ['merlin', 'Merlin'],
+  ['percival', 'Percival'],
+  ['servant', 'Loyal Servant'],
+  ['assassin', 'Assassin'],
+  ['morgana', 'Morgana'],
+  ['mordred', 'Mordred'],
+  ['oberon', 'Oberon'],
+  ['minion', 'Minion of Mordred'],
+];
+const ROUND_TABLE_REASONS = ['quests', 'assassin-missed', 'assassin-hit', 'fails', 'rejections'];
+
+function roundTableCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      const n = num(props.players);
+      const side = props.winner === 'good' || props.winner === 'evil' ? props.winner : null;
+      out.push(['f.games', 1]);
+      if (n !== null) out.push([`f.n.${n}`, 1]);
+      if (side) {
+        out.push([`f.win.${side}`, 1]);
+        if (n !== null) out.push([`f.win.${side}.n${n}`, 1]);
+      }
+      const reason = id(props.reason);
+      if (reason && ROUND_TABLE_REASONS.includes(reason)) out.push([`f.reason.${reason}`, 1]);
+      if (typeof props.merlin === 'string' && props.merlin) {
+        out.push(['f.merlin_games', 1]);
+        if (reason !== 'assassin-hit') out.push(['f.merlin_safe', 1]);
+      }
+      out.push(['max.f.streak', num(props.streak) ?? 0]);
+      break;
+    }
+    case 'player': {
+      const role = id(props.role);
+      if (role && ROUND_TABLE_ROLES.some(([r]) => r === role)) {
+        out.push([`f.role.${role}`, 1]);
+        if (props.won === true) out.push([`f.role_win.${role}`, 1]);
+      }
+      break;
+    }
+    case 'proposal':
+      out.push(['f.proposals', 1]);
+      if (props.approved === true) out.push(['f.proposals_yes', 1]);
+      break;
+    case 'quest':
+      out.push(['f.quests', 1], ['f.fail_sum', num(props.fails) ?? 0]);
+      if (props.success === true) out.push(['f.quests_yes', 1]);
+      break;
+  }
+  return out;
+}
+
+function roundTableFigures(
+  get: (metric: string) => number,
+  metrics: Iterable<string>,
+): GameFigure[] {
+  const games = get('f.games');
+  const counts = [
+    ...new Set([...metrics].filter((m) => /^f\.n\.\d+$/.test(m)).map((m) => Number(m.slice(4)))),
+  ].sort((a, b) => a - b);
+  const roles = ROUND_TABLE_ROLES.filter(([r]) => get(`f.role.${r}`) > 0).sort(
+    (a, b) => get(`f.role.${b[0]}`) - get(`f.role.${a[0]}`),
+  );
+  return [
+    {
+      id: 'wins-by-side',
+      label: 'Games won, by side',
+      kind: 'split',
+      parts: [
+        { label: 'Good', value: get('f.win.good') },
+        { label: 'Evil', value: get('f.win.evil') },
+      ],
+    },
+    {
+      id: 'good-win-rate',
+      label: 'Good win rate',
+      kind: 'percent',
+      value: pct(get('f.win.good'), games),
+    },
+    {
+      id: 'win-rate-by-players',
+      label: 'Win rate by side and table size',
+      kind: 'matrix',
+      columns: counts.map((n) => `${n} players`),
+      units: counts.map(() => 'percent' as const),
+      rows: (['good', 'evil'] as const).map((side) => ({
+        label: side === 'good' ? 'Good' : 'Evil',
+        values: counts.map((n) => pct(get(`f.win.${side}.n${n}`), get(`f.n.${n}`))),
+      })),
+    },
+    {
+      id: 'evil-wins',
+      label: 'How Evil wins',
+      kind: 'split',
+      parts: [
+        { label: 'Three quests sunk', value: get('f.reason.fails') },
+        { label: 'Five rejections', value: get('f.reason.rejections') },
+        { label: 'Merlin assassinated', value: get('f.reason.assassin-hit') },
+      ],
+    },
+    {
+      id: 'merlin-survival',
+      label: 'Merlin survived (games with Merlin)',
+      kind: 'percent',
+      value: pct(get('f.merlin_safe'), get('f.merlin_games')),
+    },
+    {
+      id: 'roles',
+      label: 'Roles: how often they’re played, and how often their holder wins',
+      kind: 'matrix',
+      columns: ['Played', 'Holder won'],
+      units: ['count', 'percent'],
+      rows: roles.map(([r, label]) => ({
+        label,
+        values: [get(`f.role.${r}`), pct(get(`f.role_win.${r}`), get(`f.role.${r}`))],
+      })),
+    },
+    {
+      id: 'approval-rate',
+      label: 'Teams approved',
+      kind: 'percent',
+      value: pct(get('f.proposals_yes'), get('f.proposals')),
+    },
+    {
+      id: 'quest-success',
+      label: 'Quests that succeeded',
+      kind: 'percent',
+      value: pct(get('f.quests_yes'), get('f.quests')),
+    },
+    {
+      id: 'fails-per-quest',
+      label: 'Fail cards per quest',
+      kind: 'number',
+      value: avg(get('f.fail_sum'), get('f.quests')),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
+  if (gameId === 'round-table') return roundTableCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -580,6 +727,8 @@ export function buildFigures(
   switch (gameId) {
     case 'nightfall':
       return nightfallFigures(get, metrics);
+    case 'round-table':
+      return roundTableFigures(get, metrics);
     case 'codenames':
       return [
         teams(false),
