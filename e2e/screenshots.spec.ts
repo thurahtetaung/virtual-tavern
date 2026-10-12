@@ -1529,6 +1529,8 @@ for (const [label, viewport] of [
     await admin.getByRole('button', { name: 'Sign in' }).click();
     await admin.getByRole('link', { name: '🧪 Playtest' }).click();
     await admin.getByRole('radio', { name: /^Round Table/ }).click();
+    // Ben is a second human seat; the other three are bots.
+    await admin.getByRole('button', { name: 'Seat 2: bot' }).click();
     await admin.screenshot({
       path: `test-results/shots/${label}-playtest-setup.png`,
       fullPage: true,

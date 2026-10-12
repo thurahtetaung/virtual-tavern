@@ -3,3 +3,4 @@ export { guide } from './guide.ts';
 export * from './types.ts';
 export { insights } from './insights.ts';
 export { reverieAwards } from './awards.ts';
+export { reverieBot } from './bot.ts';

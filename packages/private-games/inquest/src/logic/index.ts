@@ -6,3 +6,4 @@ export * from './content.ts';
 export * from './names.ts';
 export { insights } from './insights.ts';
 export { inquestAwards } from './awards.ts';
+export { inquestBot, inquestBotInfo } from './bot.ts';

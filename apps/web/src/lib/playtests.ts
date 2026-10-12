@@ -30,7 +30,7 @@ const valid = (p: unknown): p is SavedPlaytest => {
       (s) =>
         typeof s?.name === 'string' &&
         typeof s.playerId === 'string' &&
-        typeof s.token === 'string',
+        (s.token === undefined || typeof s.token === 'string'),
     )
   );
 };

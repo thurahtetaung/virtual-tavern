@@ -9,3 +9,5 @@ export * from './timeouts.ts';
 export * from './matching.ts';
 export * from './awards.ts';
 export * from './storage.ts';
+export * from './bots.ts';
+export * from './bot-harness.ts';

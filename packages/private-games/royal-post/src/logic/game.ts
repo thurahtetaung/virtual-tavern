@@ -1,5 +1,6 @@
 import {
   type ActionCtx,
+  type BotCtx,
   type CreateCtx,
   type GameDefinition,
   GameError,
@@ -26,6 +27,7 @@ import {
   type RoundPlayer,
   type RoundEndReason,
   type RoundResult,
+  type RoundStage,
   type RoyalPostAction,
   type RoyalPostState,
   type RoyalPostView,
@@ -727,12 +729,21 @@ function nextDeadline(state: RoyalPostState): number | null {
   return round.deadline;
 }
 
-/** The move a strict timer makes for a player who ran out of time. */
-export function autoMove(state: RoyalPostState, rng: Rng): RoyalPostAction | null {
-  const round = state.round;
-  if (!round || round.stage === 'over') return null;
-  const hand = round.players[round.current]!.hand;
-  if (round.stage === 'chancellor') {
+/**
+ * The move made for a player: on the Chancellor, keep a random card; otherwise the lower card
+ * (unless the Countess must go), at a random valid target, with a random Guard guess. Shared by
+ * the strict timer (from the state) and playtest bots (from their own view).
+ */
+function pickMove(
+  edition: EditionConfig,
+  hand: readonly Role[],
+  stage: RoundStage,
+  me: PlayerId,
+  targetsFor: (card: Role) => PlayerId[],
+  rng: Rng,
+): RoyalPostAction | null {
+  if (hand.length === 0) return null;
+  if (stage === 'chancellor') {
     const keepAt = rng.int(hand.length);
     return {
       type: 'chancellor-keep',
@@ -740,13 +751,12 @@ export function autoMove(state: RoyalPostState, rng: Rng): RoyalPostAction | nul
       bottomOrder: hand.filter((_, i) => i !== keepAt),
     };
   }
-  const edition = editionOf(state);
   // The lower card, unless the Countess must be played.
   const card = mustPlayCountess(hand)
     ? 'countess'
     : [...hand].sort((a, b) => rankOf(edition, a) - rankOf(edition, b))[0]!;
-  const targets = validTargets(round, round.current, card);
-  const others = targets.filter((id) => id !== round.current);
+  const targets = targetsFor(card);
+  const others = targets.filter((id) => id !== me);
   const pool = others.length > 0 ? others : targets;
   const target = pool.length > 0 ? pool[rng.int(pool.length)] : undefined;
   const guesses = guardGuesses(edition);
@@ -757,6 +767,42 @@ export function autoMove(state: RoyalPostState, rng: Rng): RoyalPostAction | nul
     ...(target ? { target } : {}),
     ...(guess ? { guess } : {}),
   };
+}
+
+/** The move a strict timer makes for a player who ran out of time. */
+export function autoMove(state: RoyalPostState, rng: Rng): RoyalPostAction | null {
+  const round = state.round;
+  if (!round || round.stage === 'over') return null;
+  const me = round.current;
+  return pickMove(
+    editionOf(state),
+    round.players[me]!.hand,
+    round.stage,
+    me,
+    (card) => validTargets(round, me, card),
+    rng,
+  );
+}
+
+/** A playtest bot's move, from its own view only: the strict timer's move, on its own turn. */
+export function royalPostBot(view: RoyalPostView, ctx: BotCtx): RoyalPostAction | null {
+  const round = view.round;
+  if (view.phase !== 'playing' || !round || round.stage === 'over') return null;
+  if (round.current !== ctx.me) return null;
+  const alive = round.players.filter((p) => !p.out);
+  const targetsFor = (card: Role) => {
+    if (!needsTarget(card)) return [];
+    const others = alive.filter((p) => p.id !== ctx.me && !p.protected).map((p) => p.id);
+    return card === 'prince' ? [...others, ctx.me] : others;
+  };
+  return pickMove(
+    EDITIONS[view.settings.edition],
+    view.hand,
+    round.stage,
+    ctx.me,
+    targetsFor,
+    ctx.rng,
+  );
 }
 
 /** A strict timer plays for the slow player, so the round always moves on. */
@@ -869,4 +915,5 @@ export const royalPost: GameDefinition<RoyalPostState, RoyalPostAction, RoyalPos
   onDeadline,
   insights,
   awards: royalPostAwards,
+  bot: royalPostBot,
 };

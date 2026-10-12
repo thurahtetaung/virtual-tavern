@@ -80,9 +80,13 @@ export interface PlaytestGame {
   minPlayers: number;
   /** Most seats a playtest may have (the game's own maximum, capped). */
   maxSeats: number;
+  /** Which seats bots can take: every seat, all but some roles, or none. */
+  bots: 'all' | 'some' | 'none';
+  /** What the setup should know, e.g. "The Forensic Scientist must be human". */
+  botNote?: string;
 }
 
-export const playtestSeat = z.object({ name: playerName });
+export const playtestSeat = z.object({ name: playerName, bot: z.boolean().default(false) });
 
 export const createPlaytestBody = z.object({
   gameId: z.string().min(1).max(60),
@@ -94,8 +98,9 @@ export type CreatePlaytestBody = z.input<typeof createPlaytestBody>;
 export interface PlaytestSeatInfo {
   name: string;
   playerId: string;
-  /** The seat's secret token. */
-  token: string;
+  /** The seat's secret token (human seats only). */
+  token?: string;
+  bot?: true;
 }
 
 export interface PlaytestCreated {
@@ -110,8 +115,20 @@ export interface PlaytestStatus {
   gameId: string;
   phase: RoomMeta['phase'];
   playtest: PlaytestMeta;
-  players: { id: string; name: string; connected: boolean }[];
+  players: { id: string; name: string; connected: boolean; bot?: true }[];
 }
+
+export const updatePlaytestBody = z
+  .object({
+    paused: z.boolean(),
+    speed: z.enum(['fast', 'normal', 'slow']),
+    /** A new bot seat, in the lobby. */
+    addBot: playerName,
+    /** A bot seat to remove (its player id). */
+    removeBot: z.string().min(1).max(64),
+  })
+  .partial();
+export type UpdatePlaytestBody = z.input<typeof updatePlaytestBody>;
 
 export interface WordListSummary {
   id: string;
@@ -166,6 +183,8 @@ export interface RoomPlayer {
    * connected, or have not been seen since the server started.
    */
   awaySince?: number;
+  /** A playtest bot (always shown as connected). */
+  bot?: true;
 }
 
 export interface RoomSnapshot<View = unknown> {

@@ -3,8 +3,10 @@ import {
   MAX_PLAYTEST_SEATS,
   type PlaytestCreated,
   type PlaytestGame,
+  type PlaytestSeatInfo,
   createPlaytestBody,
   firstIssueMessage,
+  updatePlaytestBody,
 } from '@vt/protocol';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
@@ -44,6 +46,8 @@ export function playtestRoutes(
       private: isPrivate(g),
       minPlayers: g.minPlayers,
       maxSeats: maxSeats(g.maxPlayers),
+      bots: !g.bot ? 'none' : g.botInfo?.note ? 'some' : 'all',
+      ...(g.bot && g.botInfo?.note && { botNote: g.botInfo.note }),
     })),
   );
 
@@ -71,22 +75,42 @@ export function playtestRoutes(
           return error(reply, 400, 'bad-seats', `Two seats are called ${seat.name}.`);
         names.push(seat.name);
       }
-      const made = seats.map((s) => {
+      if (seats.some((s) => s.bot) && !game.bot)
+        return error(reply, 400, 'no-bots', `${game.name} has no bots yet: every seat is a tab.`);
+      // The host is a person: the first human seat.
+      const firstHuman = seats.findIndex((s) => !s.bot);
+      if (firstHuman < 0)
+        return error(reply, 400, 'bad-seats', 'At least one seat must be you, in a tab.');
+      // Bots get ids from tokens thrown away at once, so nobody can ever join as one.
+      const made: PlaytestSeatInfo[] = seats.map((s) => {
         const token = seatToken();
-        return { name: s.name, token, playerId: playerIdFromToken(token) };
+        return {
+          name: s.name,
+          playerId: playerIdFromToken(token),
+          ...(s.bot ? { bot: true as const } : { token }),
+        };
       });
-      const host = made[0]!;
+      const host = made[firstHuman]!;
       const roomId = rooms.create(gameId, host.playerId, {
-        playtest: { bots: [], speed: 'normal', paused: false, createdAt: now() },
+        playtest: {
+          bots: made.filter((s) => s.bot).map((s) => ({ id: s.playerId, name: s.name })),
+          speed: 'normal',
+          paused: false,
+          createdAt: now(),
+        },
       });
-      // Seated now, in order, so names, join order and the host are fixed before any tab opens.
-      for (const seat of made) {
+      // Seated now, host first, so names, join order and the host are fixed before any tab opens.
+      for (const seat of [host, ...made.filter((s) => s !== host)]) {
         const res = rooms.join(roomId, seat.playerId, seat.name, { admin: true });
         if (!res.ok) {
           rooms.removePlaytest(roomId);
           return error(reply, 400, res.error.code, res.error.message);
         }
       }
+      // The game's own playtest setup (a human-only role goes to the host), as the host.
+      if (made.some((s) => s.bot))
+        for (const action of game.botInfo?.setup?.(host.playerId) ?? [])
+          rooms.act(roomId, host.playerId, action);
       void reply.header('cache-control', 'no-store');
       return { roomId, gameId, seats: made } satisfies PlaytestCreated;
     },
@@ -95,6 +119,28 @@ export function playtestRoutes(
   app.get<{ Params: { roomId: string } }>('/api/admin/playtests/:roomId', (req, reply) => {
     const status = rooms.playtestStatus(req.params.roomId);
     return status ?? error(reply, 404, 'no-room', 'This playtest has ended.');
+  });
+
+  // Bot speed and pause, and bot seats in the lobby.
+  app.patch<{ Params: { roomId: string } }>('/api/admin/playtests/:roomId', (req, reply) => {
+    const body = updatePlaytestBody.safeParse(req.body);
+    if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
+    const { roomId } = req.params;
+    if (!rooms.playtestStatus(roomId))
+      return error(reply, 404, 'no-room', 'This playtest has ended.');
+    const { paused, speed, addBot, removeBot } = body.data;
+    if (paused !== undefined || speed !== undefined)
+      rooms.setPlaytest(roomId, {
+        ...(paused !== undefined && { paused }),
+        ...(speed !== undefined && { speed }),
+      });
+    for (const res of [
+      addBot !== undefined ? rooms.addBot(roomId, addBot) : null,
+      removeBot !== undefined ? rooms.removeBot(roomId, removeBot) : null,
+    ]) {
+      if (res && !res.ok) return error(reply, 400, res.error.code, res.error.message);
+    }
+    return rooms.playtestStatus(roomId);
   });
 
   app.delete<{ Params: { roomId: string } }>('/api/admin/playtests/:roomId', (req, reply) =>

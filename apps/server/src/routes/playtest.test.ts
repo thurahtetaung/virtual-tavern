@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { CodenamesView } from '@vt/game-codenames/logic';
-import type { RoundTableView } from '@vt/game-round-table/logic';
+import { type RoundTableView, roundTableBot } from '@vt/game-round-table/logic';
+import { createRng } from '@vt/game-sdk';
 import type {
   LiveStats,
   PlaytestCreated,
@@ -45,12 +46,18 @@ describe('admin playtests', () => {
     const admin = await login();
     const as = (cookie?: string) => (cookie ? { cookie } : {});
     /** `cookie: null` sends no admin session. */
+    /** A name ending in "*" is a bot seat. */
     const create = (gameId: string, names: string[], cookie: string | null = admin) =>
       app.inject({
         method: 'POST',
         url: '/api/admin/playtests',
         headers: as(cookie ?? undefined),
-        payload: { gameId, seats: names.map((name) => ({ name })) },
+        payload: {
+          gameId,
+          seats: names.map((name) =>
+            name.endsWith('*') ? { name: name.slice(0, -1), bot: true } : { name },
+          ),
+        },
       });
     const made = async (gameId: string, names: string[]) => {
       const res = await create(gameId, names);
@@ -60,12 +67,12 @@ describe('admin playtests', () => {
     /** Opens a seat tab: a socket with the admin's cookie, joined with the seat's token. */
     const seat = async (
       roomId: string,
-      s: { token: string; name: string },
+      s: { token?: string; name: string },
       cookie: string | undefined = admin,
     ) => {
       const c = await connect(url, cookie);
       cleanups.push(() => void c.close());
-      const res = await c.call('room:join', { roomId, token: s.token, name: s.name });
+      const res = await c.call('room:join', { roomId, token: s.token!, name: s.name });
       return { c, res };
     };
     const tick = (ms: number) => {
@@ -97,7 +104,12 @@ describe('admin playtests', () => {
       private: false,
       minPlayers: 4,
       maxSeats: 16,
+      bots: 'none',
     });
+    expect(games.find((g) => g.id === 'round-table')).toMatchObject({ bots: 'all' });
+    const inquest = games.find((g) => g.id === 'inquest')!;
+    expect(inquest.bots).toBe('some');
+    expect(inquest.botNote).toMatch(/Forensic Scientist must be human/);
     expect(games.find((g) => g.id === 'royal-post')).toMatchObject({ private: true });
     expect(games.length).toBeGreaterThanOrEqual(11);
   });
@@ -127,7 +139,7 @@ describe('admin playtests', () => {
     expect(pt.seats.map((s) => s.name)).toEqual(names);
     for (const s of pt.seats) {
       expect(s.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      expect(s.playerId).toBe(playerIdFromToken(s.token));
+      expect(s.playerId).toBe(playerIdFromToken(s.token!));
     }
     const status = (
       await app.inject({ url: `/api/admin/playtests/${pt.roomId}`, headers: { cookie: admin } })
@@ -164,6 +176,65 @@ describe('admin playtests', () => {
     expect(views.map((v) => v.you)).toEqual(pt.seats.map((s) => s.playerId));
     // Every seat sees its own card only: Good and Evil both dealt, never the same card to all.
     expect(new Set(views.map((v) => v.role?.loyalty)).size).toBe(2);
+  });
+
+  it('seats bots with ids nobody can join as, never as host, only for games that have them', async () => {
+    const { app, admin, create, made, seat, as } = await start();
+    const bad = async (gameId: string, names: string[], code: string) => {
+      const res = await create(gameId, names);
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ error: { code: string } }>().error.code).toBe(code);
+    };
+    await bad('codenames', ['Ana', 'Ben*', 'Cy*', 'Dee*'], 'no-bots');
+    await bad('round-table', ['Ana*', 'Ben*', 'Cy*', 'Dee*', 'Eli*'], 'bad-seats');
+
+    // The first human seat hosts, even when a bot is listed first.
+    const pt = await made('round-table', ['Ben*', 'Ana', 'Cy*', 'Dee*', 'Eli*']);
+    const bots = pt.seats.filter((s) => s.bot);
+    expect(bots.map((s) => s.name)).toEqual(['Ben', 'Cy', 'Dee', 'Eli']);
+    expect(bots.every((s) => s.token === undefined)).toBe(true);
+    const ana = pt.seats.find((s) => s.name === 'Ana')!;
+    const tab = await seat(pt.roomId, ana);
+    const snap = await tab.c.until((s) => s.players.length === 5);
+    expect(snap.hostId).toBe(ana.playerId);
+    expect(snap.players.filter((p) => p.bot).map((p) => [p.name, p.connected])).toEqual(
+      bots.map((b) => [b.name, true]),
+    );
+    expect(snap.meta?.playtest).toMatchObject({ bots: 4, paused: false, speed: 'normal' });
+
+    // Speed, pause, and bot seats in the lobby.
+    const patch = (body: object) =>
+      app.inject({
+        method: 'PATCH',
+        url: `/api/admin/playtests/${pt.roomId}`,
+        headers: as(admin),
+        payload: body,
+      });
+    expect((await patch({ speed: 'fast', paused: true })).statusCode).toBe(200);
+    await tab.c.until((s) => s.meta?.playtest?.speed === 'fast' && s.meta.playtest.paused);
+    const added = (await patch({ addBot: 'Fay' })).json<PlaytestStatus>();
+    const fay = added.players.find((p) => p.name === 'Fay')!;
+    expect(fay).toMatchObject({ bot: true, connected: true });
+    expect((await patch({ removeBot: fay.id })).json<PlaytestStatus>().players).toHaveLength(5);
+    expect((await patch({ removeBot: ana.playerId })).statusCode).toBe(400);
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/admin/playtests/amber-otter-lantern-7k3q',
+          headers: as(admin),
+          payload: { paused: false },
+        })
+      ).statusCode,
+    ).toBe(404);
+
+    // Inquest keeps the Forensic Scientist with the human host.
+    const iq = await made('inquest', ['Ana', 'Ben*', 'Cy*', 'Dee*']);
+    const host = await seat(iq.roomId, iq.seats[0]!);
+    const view = (await host.c.until((s) => s.players.length === 4)).game as {
+      settings: { fsMode: string; fsPick: string | null };
+    };
+    expect(view.settings).toMatchObject({ fsMode: 'host', fsPick: iq.seats[0]!.playerId });
   });
 
   it('looks like a dead link to anyone but the admin, link and all', async () => {
@@ -453,4 +524,86 @@ describe('admin playtests', () => {
     expect(Object.values(dry.deleted).every((n) => n === 0)).toBe(true);
     expect(dry.playersRemoved).toEqual([]);
   });
+});
+
+describe('a playtest with bots', () => {
+  const cleanups: (() => Promise<unknown> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it('plays a whole Round Table game with four bots, and the stats never hear of it', async () => {
+    const app = testApp({ botDelay: () => 5 });
+    cleanups.push(() => app.close());
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { password: 'hunter2' },
+    });
+    const cookie = `vt_admin=${login.cookies.find((c) => c.name === 'vt_admin')!.value}`;
+    const get = async <T>(path: string) =>
+      (await app.inject({ url: `/api/admin/stats/${path}`, headers: { cookie } })).json<T>();
+    const snapshot = async () => ({
+      overview: await get('overview?range=today'),
+      players: await get('players'),
+      nights: await get('nights'),
+      live: (({ rooms, playersOnline, byGame }) => ({ rooms, playersOnline, byGame }))(
+        await get<LiveStats>('live'),
+      ),
+    });
+    const before = await snapshot();
+
+    const pt = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/admin/playtests',
+        headers: { cookie },
+        payload: {
+          gameId: 'round-table',
+          seats: [
+            { name: 'Ana' },
+            ...['Ben', 'Cy', 'Dee', 'Eli'].map((name) => ({ name, bot: true })),
+          ],
+        },
+      })
+    ).json<PlaytestCreated>();
+    const me = pt.seats[0]!;
+    const tab = await connect(url, cookie);
+    cleanups.push(() => void tab.close());
+    const awards = new Promise<RecapLine[]>((resolve) => tab.once('room:playtestAwards', resolve));
+    expect(
+      await tab.call('room:join', { roomId: pt.roomId, token: me.token, name: 'Ana' }),
+    ).toEqual({ ok: true });
+    // The human seat: starts the game, then plays its own turns as a bot would.
+    expect(await tab.call('game:action', { type: 'start' })).toEqual({ ok: true });
+    const rng = createRng(3);
+    const done = (s: RoomSnapshot) => (s.game as RoundTableView).phase === 'over';
+    // The bots' pace is capped at three moves a second, so a game takes a while.
+    const until = Date.now() + 50_000;
+    while (Date.now() < until && !done(tab.latest()!)) {
+      const move = roundTableBot(tab.latest()!.game as RoundTableView, {
+        me: me.playerId,
+        now: Date.now(),
+        rng,
+        words: () => [],
+      });
+      if (move) await tab.call('game:action', move);
+      else await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(done(tab.latest()!)).toBe(true);
+    expect((await awards).length).toBeGreaterThan(0);
+    expect(await snapshot()).toEqual(before);
+    const dry = (
+      await app.inject({
+        method: 'DELETE',
+        url: `/api/admin/stats/rooms/${pt.roomId}?dryRun=1`,
+        headers: { cookie },
+      })
+    ).json<ForgottenRoom>();
+    expect(Object.values(dry.deleted).every((n) => n === 0)).toBe(true);
+  }, 60_000);
 });

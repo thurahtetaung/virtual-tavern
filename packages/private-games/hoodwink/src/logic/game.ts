@@ -1,3 +1,4 @@
+import { hoodwinkBot } from './bot.ts';
 import {
   type ActionCtx,
   type ContentProvider,
@@ -870,4 +871,5 @@ export const hoodwink: GameDefinition<HoodwinkState, HoodwinkAction, HoodwinkVie
   onDeadline,
   insights,
   awards: hoodwinkAwards,
+  bot: hoodwinkBot,
 };
