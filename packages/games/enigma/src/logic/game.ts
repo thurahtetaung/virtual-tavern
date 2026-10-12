@@ -225,16 +225,19 @@ function maybeStartGuessing(state: EnigmaState, now: number): EnigmaState {
   return settleVotes(next);
 }
 
-/** Resolves any side that has reached agreement; reveals once every active transmission is settled. */
+/**
+ * Works out where each side of the active transmissions stands, and reveals once every side
+ * agrees at the same time. A side's result is its current consensus, worked out afresh on every
+ * call, so a team that agreed can still change its mind until the reveal. Only a transmission
+ * that never got clues has a result fixed in advance (null for both sides).
+ */
 function settleVotes(state: EnigmaState): EnigmaState {
   if (state.stage !== 'guess') return state;
   let next = state;
   for (const i of state.active) {
     const tx = next.transmissions[i]!;
-    const decodeResult =
-      tx.decodeResult !== undefined ? tx.decodeResult : consensus(next, tx, 'decode');
-    const interceptResult =
-      tx.interceptResult !== undefined ? tx.interceptResult : consensus(next, tx, 'intercept');
+    const decodeResult = tx.expired ? null : consensus(next, tx, 'decode');
+    const interceptResult = tx.expired ? null : consensus(next, tx, 'intercept');
     next = withTx(next, i, { ...tx, decodeResult, interceptResult });
   }
   const done = activeTx(next).every(
@@ -487,8 +490,9 @@ function voteTarget(
       'You joined after guessing started, so you sit this one out until the next clues.',
     );
   }
-  const resolved = side === 'decode' ? tx.decodeResult : tx.interceptResult;
-  if (resolved !== undefined) return new GameError('settled', 'Your team has already agreed.');
+  // Nothing is final before the reveal: a side that has agreed can still change its pick.
+  if (tx.expired)
+    return new GameError('settled', 'No clues were sent, so there is nothing to guess.');
   return { index, side };
 }
 
@@ -511,18 +515,19 @@ function setVote(
 }
 
 /**
- * An Encryptor who knows their code must not drop hints: from the deal until their team's
- * decode resolves, they can't chat or edit the team's notes.
+ * An Encryptor who knows their code must not drop hints: from the deal until their code is
+ * revealed, they can't chat or edit the team's notes. (Not just until their team agrees: a team
+ * can reopen its pick before the reveal, so a hint dropped in between would still count.)
  */
 export function isSilenced(state: EnigmaState, id: PlayerId): boolean {
   return (
     state.phase === 'playing' &&
     state.stage !== 'reveal' &&
-    activeTx(state).some((tx) => tx.encryptor === id && tx.decodeResult === undefined)
+    activeTx(state).some((tx) => tx.encryptor === id && !tx.expired)
   );
 }
 
-const SILENT = 'Encryptors stay quiet in chat and notes until their team has locked in the code.';
+const SILENT = 'Encryptors stay quiet in chat and notes until their code is revealed.';
 
 function chat(state: EnigmaState, text: string, ctx: Ctx): Result {
   const seat = teamSeat(state, ctx.by);
@@ -888,6 +893,13 @@ function transmissionView(
         : [],
     noDecoders: tx.decodeVoters !== null && tx.decodeVoters.length === 0,
     settled: resolved !== undefined,
+    agreed: resolved ?? null,
+    otherSideSettled:
+      side === 'decode'
+        ? tx.interceptResult !== undefined
+        : side === 'intercept'
+          ? tx.decodeResult !== undefined
+          : false,
     result: entry
       ? {
           decodeGuess: entry.decodeGuess,

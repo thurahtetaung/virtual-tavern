@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
 import { MAX_CLUE_LENGTH, TOKENS_TO_END } from '../logic/types.ts';
-import { cluesByKeyword } from './status.ts';
+import { cluesByKeyword, lockedOnText } from './status.ts';
 import { TEAM_LABEL, TEAM_PANEL, TEAM_TEXT, formatCode } from './theme.ts';
 
 type Act = (a: EnigmaAction, options?: ActOptions) => Promise<boolean>;
@@ -219,6 +219,15 @@ function CodePicker({
       ))}
 
       <Picks view={view} tx={tx} online={online} />
+
+      {lockedOnText(tx) && (
+        <p
+          role="status"
+          className="rounded-lg bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
+        >
+          🔒 {lockedOnText(tx)}
+        </p>
+      )}
 
       {tx.disagree && (
         <p
@@ -437,7 +446,8 @@ export function TransmissionCard({
             : `${encryptor} is writing clues…`}
         </p>
       );
-  } else if ((tx.role === 'decoder' || tx.role === 'interceptor') && !tx.settled) {
+  } else if ((tx.role === 'decoder' || tx.role === 'interceptor') && tx.clues) {
+    // The picker stays up after the side agrees: nothing is final until every side agrees at once.
     body = <CodePicker view={view} tx={tx} act={act} online={online} />;
   } else {
     body = (
@@ -455,13 +465,15 @@ export function TransmissionCard({
               ? 'Interception starts in round 2. Just watch for now.'
               : 'You joined after guessing started. Watch this one; you play from the next clues.'
             : tx.role === 'encryptor'
-              ? 'Your team is decoding. No hints, in chat or notes!'
-              : tx.settled && tx.voters.length > 0
-                ? 'Your team has locked in. Waiting for everyone else…'
+              ? tx.agreed
+                ? `Your team is locked on ${formatCode(tx.agreed)}. They can still change it until the reveal, so no hints!`
+                : 'Your team is decoding. No hints, in chat or notes!'
+              : tx.expired
+                ? 'No clues were sent, so there is nothing to guess.'
                 : 'Teams are guessing…'}
         </p>
         {/* The Encryptor watches the team's picks, read-only. */}
-        {tx.role === 'encryptor' && !tx.settled && tx.voters.length > 0 && (
+        {tx.role === 'encryptor' && tx.voters.length > 0 && (
           <Picks view={view} tx={tx} online={online} />
         )}
       </div>

@@ -163,7 +163,7 @@ const NoteList = memo(function NoteList({
 });
 
 const ADD_NOTE_ANCHOR = 'enigma-add-note';
-const MUTED_HINT = 'The Encryptor can’t edit notes until the decode.';
+const MUTED_HINT = 'The Encryptor can’t edit notes until the codes are revealed.';
 
 /** Adds one note. Its typing state stays here, so nothing else redraws per keystroke. */
 function AddNote({ act, disabled }: { act: Act; disabled: boolean }) {
@@ -274,7 +274,7 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
 export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Team; act: Act }) {
   const columns = cluesByKeyword(view, team);
   const notes = view.notes;
-  // The server refuses notes from an Encryptor until their team decodes: grey the fields out.
+  // The server refuses notes from an Encryptor until their code is revealed: grey the fields out.
   const muted = notes !== null && chatMuted(view);
   return (
     <Panel>

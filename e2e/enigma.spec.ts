@@ -88,7 +88,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
     cy!.getByText('🕵️ interceptions: 2 wins · 💥 miscommunications: 2 loses'),
   ).toBeVisible();
 
-  // Team chat is private. Hana is Red's first Encryptor, so she stays quiet until Red decodes.
+  // Team chat is private. Hana is Red's first Encryptor, so she stays quiet until the codes are revealed.
   await expect(host.getByText('Your keywords')).toBeVisible();
   await expect(host.getByLabel('Message your team')).toBeDisabled();
   await ana!.getByLabel('Message your team').fill('red only: their 2 is food');
@@ -109,7 +109,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await expect(blueEnc1.getByLabel('Our guess for Red keyword 1')).toBeDisabled();
   await expect(blueEnc1.getByLabel('Add a note')).toBeDisabled();
   await expect(
-    blueEnc1.getByText('The Encryptor can’t edit notes until the decode.').first(),
+    blueEnc1.getByText('The Encryptor can’t edit notes until the codes are revealed.').first(),
   ).toBeVisible();
   await expect(blueWriter.getByLabel('Add a note')).toBeEnabled();
   await expect(host.getByText('Zorblax')).toHaveCount(0);
@@ -149,7 +149,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
       ).toBeVisible();
     }
     if (round === 1) {
-      // Notes are tested once everyone's code is revealed: until their team decodes, an
+      // Notes are tested once everyone's code is revealed: until it is revealed, an
       // Encryptor can't edit the notes.
       // Two teammates add notes at the same time, and both notes survive.
       const addNote = async (page: Page, text: string) => {
@@ -254,5 +254,110 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
   }
   await tx.getByRole('button', { name: `Lock in ${code.join('-')}` }).click();
   // Red's only decoder locking in settles the vote straight away.
-  await expect(tx.getByText('Your team has locked in')).toBeVisible();
+  await expect(tx.getByText(`Your team is locked on ${code.join('-')}`)).toBeVisible();
+});
+
+test('a team can reopen an agreed code, and a mid-round end waits for the round', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const phone = async (name: string, url = '/') => {
+    const page = await (
+      await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' })
+    ).newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto(url);
+    return page;
+  };
+  const shot = async (page: Page, name: string) => {
+    if (process.env.SCREENSHOTS) {
+      await page.screenshot({ path: `test-results/shots/enigma-phone-${name}.png` });
+    }
+  };
+  const host = await phone('Hana');
+  await host.getByRole('button', { name: 'Create an Enigma room' }).click();
+  await expect(host.getByText('Pick a team below')).toBeVisible();
+  const [ana, ben, cy] = await Promise.all(['Ana', 'Ben', 'Cy'].map((n) => phone(n, host.url())));
+  await host.getByRole('button', { name: 'Join Red' }).click();
+  await ana!.getByRole('button', { name: 'Join Red' }).click();
+  await ben!.getByRole('button', { name: 'Join Blue' }).click();
+  await cy!.getByRole('button', { name: 'Join Blue' }).click();
+  await host.getByRole('button', { name: /^Alternating/ }).click();
+  await expect(host.getByRole('button', { name: /^Alternating/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+
+  const teams: Record<TeamName, Page[]> = { Red: [host, ana!], Blue: [ben!, cy!] };
+  const other = (t: TeamName): TeamName => (t === 'Red' ? 'Blue' : 'Red');
+  // Whichever team opens round 1 goes second in round 2.
+  let first: TeamName | undefined;
+  await expect
+    .poll(async () => {
+      for (const t of ['Red', 'Blue'] as const) {
+        for (const p of teams[t]) {
+          if (await transmission(p, t).getByText('Your secret code').isVisible()) first = t;
+        }
+      }
+      return first !== undefined;
+    })
+    .toBeTruthy();
+  const second = other(first!);
+
+  /** `team` transmits; its decoder guesses right or wrong; the other team intercepts wrongly. */
+  const turn = async (team: TeamName, decodes: boolean, intercept = true) => {
+    const enc = await encryptorOf(teams[team], team);
+    const code = await sendClues(enc, team);
+    if (intercept) for (const p of teams[other(team)]) await pick(p, team, wrong(code));
+    const decoder = teams[team].find((p) => p !== enc)!;
+    await pick(decoder, team, decodes ? code : wrong(code));
+    await expect(host.getByText('The code was').first()).toBeVisible();
+  };
+
+  // Round 1: the first team decodes, the second miscommunicates.
+  await turn(first!, true, false);
+  await host.getByRole('button', { name: 'Continue' }).click();
+  await turn(second, false, false);
+  await host.getByRole('button', { name: 'Next round' }).click();
+
+  // Round 2: the second team goes first. The first team's interceptors agree on the real code...
+  const enc = await encryptorOf(teams[second], second);
+  const code = await sendClues(enc, second);
+  const [i1, i2] = teams[first!];
+  await pick(i1!, second, code);
+  await pick(i2!, second, code);
+  const lockedOn = transmission(i1!, second).getByText(
+    `Your team is locked on ${code.join('-')} (waiting for the other team). Change your pick to reopen.`,
+  );
+  await expect(lockedOn).toBeVisible();
+  await shot(i1!, 'locked-on');
+  // ...then change their minds. Nothing was final, so the new pick is the one that counts.
+  for (const p of [i1!, i2!]) {
+    await transmission(p, second).getByRole('button', { name: 'Change my pick' }).click();
+    await pick(p, second, wrong(code));
+  }
+  await expect(
+    transmission(i1!, second).getByText(`Your team is locked on ${wrong(code).join('-')}`),
+  ).toBeVisible();
+  const decoder = teams[second].find((p) => p !== enc)!;
+  await pick(decoder, second, wrong(code));
+  await expect(
+    host.getByText(`${first!} didn't intercept (guessed ${wrong(code).join('-')}).`),
+  ).toBeVisible();
+
+  // The second team now has 2 miscommunications, but the first team still plays its turn.
+  const banner = `💥 ${second} has 2 miscommunications: the game ends after this round.`;
+  for (const p of [host, ana!, ben!, cy!]) await expect(p.getByText(banner)).toBeVisible();
+  await shot(i1!, 'ends-after-round');
+  await host.getByRole('button', { name: 'Continue' }).click();
+  await expect(ben!.getByText(banner)).toBeVisible();
+  await turn(first!, true);
+  await expect(ben!.getByText(banner)).toHaveCount(0);
+  await expect(
+    ben!.getByText(`${first!} wins! ${second} had 2 miscommunications.`, { exact: false }),
+  ).toBeVisible();
+  await expect(host.getByRole('button', { name: 'See results' })).toBeVisible();
 });

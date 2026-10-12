@@ -12,7 +12,15 @@ import {
   vote,
   wrongCode,
 } from '../logic/test-utils.ts';
-import { chatMuted, cluesByKeyword, revealOutcome, startBlocker, statusFor } from './status.ts';
+import {
+  chatMuted,
+  cluesByKeyword,
+  endOfRoundWarnings,
+  lockedOnText,
+  revealOutcome,
+  startBlocker,
+  statusFor,
+} from './status.ts';
 
 describe('statusFor', () => {
   it('guides players through the lobby', () => {
@@ -109,6 +117,99 @@ describe('after locking in', () => {
   });
 });
 
+describe('once your side agrees', () => {
+  it('says which code it is locked on and that a change reopens it', () => {
+    const h = startedGame();
+    sendClues(h, 'red');
+    sendClues(h, 'blue');
+    const code = tx(h, 'red').code;
+    const [a] = decoders(h, 'red');
+    vote(h, 'red', decoders(h, 'red'), code);
+    const redTx = enigma.view(h.state, a!).transmissions.find((t) => t.team === 'red')!;
+    // Round 1 has no interceptors, so Red is waiting on Blue's code, not on an interception.
+    const locked = `Your team is locked on ${code.join('-')} (waiting for everyone else). Change your pick to reopen.`;
+    expect(lockedOnText(redTx)).toBe(locked);
+    expect(statusFor(enigma.view(h.state, a!), false, null)).toEqual({
+      text: locked,
+      yourMove: false,
+    });
+    // The Encryptor is told the agreed code too.
+    expect(statusFor(enigma.view(h.state, HOST), false, null).text).toBe(
+      `Your team is locked on ${code.join('-')}. Waiting for the other team…`,
+    );
+    // Blue still has to decode, so it is still their move.
+    expect(statusFor(enigma.view(h.state, 'b2'), false, null).yourMove).toBe(true);
+  });
+
+  it('waits for the other team while it is still intercepting', () => {
+    const h = startedGame({ flow: 'alternating' });
+    for (const team of ['red', 'blue'] as const) {
+      sendClues(h, team);
+      vote(h, team, decoders(h, team), tx(h, team).code);
+      h.act({ type: 'next-round' });
+    }
+    sendClues(h, 'blue');
+    const code = tx(h, 'blue').code;
+    vote(h, 'blue', RED, code);
+    const view = enigma.view(h.state, 'r2').transmissions.find((t) => t.team === 'blue')!;
+    expect(lockedOnText(view)).toBe(
+      `Your team is locked on ${code.join('-')} (waiting for the other team). Change your pick to reopen.`,
+    );
+  });
+});
+
+describe('endOfRoundWarnings', () => {
+  it('warns mid-round that the game ends after this round, then hands over to the outcome', () => {
+    // Alternating: Red goes first in round 1, Blue first in round 2.
+    const h = startedGame({ flow: 'alternating' });
+    const play = (team: 'red' | 'blue', decodes: boolean) => {
+      sendClues(h, team);
+      const code = tx(h, team).code;
+      vote(h, team, decoders(h, team), decodes ? code : wrongCode(code));
+      if (h.state.round >= 2) vote(h, team, team === 'red' ? BLUE : RED, wrongCode(code));
+    };
+    play('red', true);
+    h.act({ type: 'next-round' });
+    play('blue', false);
+    h.act({ type: 'next-round' });
+    play('blue', false);
+    // Blue's second miscommunication comes mid-round: Red still gets its turn.
+    const warning = ['💥 Blue has 2 miscommunications: the game ends after this round.'];
+    expect(endOfRoundWarnings(enigma.view(h.state, 'r2'))).toEqual(warning);
+    expect(revealOutcome(enigma.view(h.state, 'r2'))).toBeNull();
+    h.act({ type: 'next-round' });
+    expect(h.state).toMatchObject({ phase: 'playing', stage: 'clue', round: 2 });
+    expect(endOfRoundWarnings(enigma.view(h.state, null))).toEqual(warning);
+    play('red', true);
+    // The round's last reveal: the outcome takes over from the warning.
+    expect(endOfRoundWarnings(enigma.view(h.state, 'b1'))).toEqual([]);
+    expect(revealOutcome(enigma.view(h.state, 'b1'))?.winner).toBe('red');
+  });
+
+  it('warns everyone when a team hits 2 tokens before the round is over', () => {
+    const h = startedGame({ flow: 'alternating' });
+    const view = enigma.view(h.state, null);
+    const midRound = {
+      ...view,
+      stage: 'reveal' as const,
+      teams: { ...view.teams, blue: { ...view.teams.blue, misses: 2, intercepts: 2 } },
+    };
+    expect(endOfRoundWarnings(midRound)).toEqual([
+      '🕵️ Blue has 2 interceptions: the game ends after this round.',
+      '💥 Blue has 2 miscommunications: the game ends after this round.',
+    ]);
+    // Once the round's last code is revealed there is nothing left to warn about.
+    const done = {
+      ...midRound,
+      transmissions: midRound.transmissions.map((t) => ({ ...t, revealed: true })),
+    };
+    expect(endOfRoundWarnings(done)).toEqual([]);
+    expect(
+      endOfRoundWarnings({ ...midRound, settings: { ...midRound.settings, flow: 'simultaneous' } }),
+    ).toEqual([]);
+  });
+});
+
 describe('the deciding reveal', () => {
   it('says who won and why, and the game-over hint keeps the reason without repeating it', () => {
     const h = startedGame();
@@ -140,7 +241,7 @@ describe('the deciding reveal', () => {
 });
 
 describe('chatMuted', () => {
-  it('mutes the Encryptor from the deal until their own team has decoded', () => {
+  it('mutes the Encryptor from the deal until the reveal, even once their team agrees', () => {
     const h = startedGame();
     const enc = tx(h, 'red').encryptor;
     expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
@@ -149,6 +250,8 @@ describe('chatMuted', () => {
     expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
     expect(chatMuted(enigma.view(h.state, 'r2'))).toBe(false);
     vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    expect(chatMuted(enigma.view(h.state, enc))).toBe(true);
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
     expect(chatMuted(enigma.view(h.state, enc))).toBe(false);
   });
 });

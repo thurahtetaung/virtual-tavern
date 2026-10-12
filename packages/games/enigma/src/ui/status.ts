@@ -1,6 +1,11 @@
 import { type PresencePlayer, listNames, namesWithPresence, waitingForHost } from '@vt/game-sdk';
 import { winReason, winnerFrom } from '../logic/outcome.ts';
-import type { EnigmaView, Team, TransmissionView } from '../logic/types.ts';
+import {
+  type EnigmaView,
+  type Team,
+  TOKENS_TO_END,
+  type TransmissionView,
+} from '../logic/types.ts';
 import { TEAM_LABEL, formatCode } from './theme.ts';
 
 const MIN_TEAM_SIZE = 2;
@@ -34,6 +39,39 @@ const people = (view: EnigmaView, room?: RoomPeople): readonly PresencePlayer[] 
 export const holdouts = (tx: TransmissionView) =>
   tx.voters.filter((id) => !tx.teamVotes[id]?.locked);
 
+/**
+ * Your side agrees on a code, but nothing is final until every side agrees at once: says which
+ * code, who the stage is waiting on, and that a change reopens it. null while still deciding.
+ */
+export function lockedOnText(tx: TransmissionView): string | null {
+  if (!tx.agreed || tx.revealed) return null;
+  const waiting = tx.otherSideSettled ? 'waiting for everyone else' : 'waiting for the other team';
+  return `Your team is locked on ${formatCode(tx.agreed)} (${waiting}). Change your pick to reopen.`;
+}
+
+/**
+ * Mid-round, a team that has reached 2 of either token: the game ends once the round is over,
+ * so both teams finish it. One line per team and token; empty when there is nothing to warn about.
+ */
+export function endOfRoundWarnings(view: EnigmaView): string[] {
+  if (view.phase !== 'playing') return [];
+  const roundOver =
+    view.stage === 'reveal' &&
+    (view.settings.flow === 'simultaneous' || view.transmissions[1]?.revealed === true);
+  if (roundOver) return [];
+  return (['red', 'blue'] as const).flatMap((team) => {
+    const t = view.teams[team];
+    return [
+      ...(t.intercepts >= TOKENS_TO_END
+        ? [`🕵️ ${TEAM_LABEL[team]} has ${TOKENS_TO_END} interceptions`]
+        : []),
+      ...(t.misses >= TOKENS_TO_END
+        ? [`💥 ${TEAM_LABEL[team]} has ${TOKENS_TO_END} miscommunications`]
+        : []),
+    ].map((what) => `${what}: the game ends after this round.`);
+  });
+}
+
 function myTask(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): Status | null {
   const sender = TEAM_LABEL[tx.team];
   if (view.stage === 'clue') {
@@ -45,8 +83,12 @@ function myTask(view: EnigmaView, tx: TransmissionView, room?: RoomPeople): Stat
     }
     return null;
   }
-  if (view.stage !== 'guess' || tx.settled) return null;
+  if (view.stage !== 'guess') return null;
   if (tx.role !== 'decoder' && tx.role !== 'interceptor') return null;
+  if (tx.settled) {
+    const locked = lockedOnText(tx);
+    return locked ? { text: locked, yourMove: false } : null;
+  }
   const mine = view.me ? tx.teamVotes[view.me.id] : undefined;
   if (mine?.locked && !tx.disagree) {
     // Locked in: nothing more to do here, so it is no longer "your move". Name who is holding out.
@@ -140,9 +182,11 @@ export function statusFor(
     };
   }
   if (view.stage === 'guess') {
-    const mine = active.find((t) => t.settled && t.voters.length > 0);
+    const mine = active.find((t) => t.agreed && t.voters.length > 0);
     return {
-      text: mine ? 'Locked in! Waiting for the other team…' : 'Teams are working out the codes…',
+      text: mine?.agreed
+        ? `Your team is locked on ${formatCode(mine.agreed)}. Waiting for the other team…`
+        : 'Teams are working out the codes…',
       yourMove: false,
     };
   }
@@ -163,12 +207,12 @@ export function statusFor(
   };
 }
 
-/** Mirrors the engine: an Encryptor can't chat or edit notes from the deal until their team decodes. */
+/** Mirrors the engine: an Encryptor can't chat or edit notes from the deal until their code is revealed. */
 export function chatMuted(view: EnigmaView): boolean {
   return (
     view.phase === 'playing' &&
     view.stage !== 'reveal' &&
-    view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.settled)
+    view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.expired)
   );
 }
 

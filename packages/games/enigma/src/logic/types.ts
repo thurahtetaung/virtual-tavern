@@ -134,7 +134,11 @@ export interface Transmission {
    */
   decodeVoters: PlayerId[] | null;
   interceptVoters: PlayerId[] | null;
-  /** Agreed codes once each side has resolved; undefined while still voting. */
+  /**
+   * Each side's current agreed code (null if it has nobody to vote, or no clues came); undefined
+   * while it is still deciding. Worked out afresh from the votes until the reveal, so a side that
+   * agreed can still reopen; only a strict timer or missing clues fix it early.
+   */
   decodeResult?: Code | null;
   interceptResult?: Code | null;
   revealed: boolean;
@@ -260,8 +264,12 @@ export interface TransmissionView {
   waitingOn: PlayerId[];
   /** Nobody on the sending team could decode (it was down to its Encryptor). */
   noDecoders: boolean;
-  /** The viewer's side has already agreed. */
+  /** The viewer's side currently agrees (it can still reopen until the reveal). */
   settled: boolean;
+  /** The code the viewer's side currently agrees on; null if it hasn't agreed (or can't vote). */
+  agreed: Code | null;
+  /** While guessing: whether the other side of this transmission currently agrees. */
+  otherSideSettled: boolean;
   /** After the reveal: what each side guessed and how it went. */
   result: Pick<HistoryEntry, 'decodeGuess' | 'interceptGuess' | 'decoded' | 'intercepted'> | null;
 }
