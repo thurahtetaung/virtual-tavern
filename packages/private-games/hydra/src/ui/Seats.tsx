@@ -1,0 +1,242 @@
+import type { GameRoomInfo } from '@vt/game-sdk';
+import { cn } from '@vt/ui';
+import type { HydraView, Ineligible } from '../logic/types.ts';
+import type { Content } from './assets.ts';
+import type { Suspicions } from './storage.ts';
+import { waitingOn } from './status.ts';
+
+export interface SeatPick {
+  /** What tapping a seat does right now ("Nominate Ana"). */
+  label: (name: string) => string;
+  selected: (id: string) => boolean;
+  /** Why a seat can't be picked, or null. */
+  why: (id: string) => string | null;
+  onPick: (id: string) => void;
+}
+
+export const WHY: Record<Ineligible, string> = {
+  self: 'That’s you.',
+  dead: 'executed',
+  'term-limit-chancellor': 'was the last elected Chancellor (term-limited)',
+  'term-limit-president': 'was the last elected President (term-limited)',
+  investigated: 'has already been investigated',
+};
+
+/** Everyone at the table: placards, votes, what's known about them, and your private marks. */
+export function Seats({
+  view,
+  room,
+  c,
+  pick,
+  marks,
+  onMark,
+  onOpen,
+  onWhy,
+  ids,
+  columns,
+}: {
+  view: HydraView;
+  room: GameRoomInfo;
+  c: Content;
+  pick: SeatPick | null;
+  marks: Suspicions;
+  onMark: (id: string) => void;
+  /** Opens a player's record (voting history, notes). */
+  onOpen: (id: string) => void;
+  /** Tapped a seat that can't be picked: say why. */
+  onWhy: (text: string) => void;
+  /** A subset (the desktop splits the table in two rows); all players by default. */
+  ids?: string[];
+  columns?: number;
+}) {
+  const g = view.game!;
+  const known = new Map((view.role?.known ?? []).map((k) => [k.id, k.role]));
+  const waiting = waitingOn(view);
+  const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+  const players = ids ? g.players.filter((p) => ids.includes(p.id)) : g.players;
+  // Big tables get a third column on phones, so every seat stays above the action dock.
+  const compact = g.players.length > 6;
+  const last = g.rounds.at(-1);
+  const showVotes =
+    view.stage === 'nominate' &&
+    last &&
+    last.elected !== null &&
+    Object.keys(last.votes).length > 0;
+  const nominee = view.stage === 'vote' || view.stage === 'leader-check' ? g.chancellor : null;
+  const inGov =
+    view.stage === 'legislate-president' ||
+    view.stage === 'legislate-chancellor' ||
+    view.stage === 'veto-response' ||
+    view.stage === 'claim' ||
+    view.stage === 'power';
+  return (
+    <ul
+      aria-label="Seats"
+      className={cn(
+        'grid gap-1.5',
+        !columns && (compact ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-3'),
+      )}
+      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+    >
+      {players.map((p) => {
+        const me = p.id === view.me?.id;
+        const k = known.get(p.id);
+        const mark = marks[p.id];
+        const why = pick?.why(p.id) ?? null;
+        const selected = pick?.selected(p.id) ?? false;
+        const president = g.president === p.id && view.phase === 'playing';
+        const chancellor = g.chancellor === p.id && (inGov || nominee === p.id);
+        const vote = showVotes ? last.votes[p.id] : undefined;
+        const cleared = g.cleared.includes(p.id);
+        const investigated = g.investigated.includes(p.id);
+        const ballotDone = view.stage === 'vote' && g.voted.includes(p.id);
+        const offline = !online(p.id) && !p.left;
+        return (
+          <li key={p.id} className="relative">
+            <button
+              type="button"
+              aria-pressed={pick ? selected : undefined}
+              aria-disabled={pick ? why !== null : undefined}
+              aria-label={
+                pick
+                  ? why
+                    ? `${p.name}: ${why}`
+                    : pick.label(p.name)
+                  : `${p.name}${me ? ' (you)' : ''}: voting record and notes`
+              }
+              onClick={() => {
+                if (!pick) return onOpen(p.id);
+                if (why) return onWhy(`${p.name} ${why}`);
+                pick.onPick(p.id);
+              }}
+              className={cn(
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left transition',
+                compact ? 'min-h-[2.9rem] pr-7 pl-2' : 'min-h-[3.4rem] pr-9 pl-2.5',
+                p.dead
+                  ? 'bg-stone-200 opacity-60 grayscale ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700'
+                  : selected
+                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                    : president || chancellor
+                      ? 'bg-amber-50/70 ring-2 ring-amber-400/80 dark:bg-amber-500/10'
+                      : waiting.includes(p.id)
+                        ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-900 dark:ring-sky-500'
+                        : 'bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
+                pick && !why && !selected && 'hover:bg-stone-50 dark:hover:bg-stone-800',
+                pick && why && 'opacity-45',
+              )}
+            >
+              <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
+                {p.dead && <span aria-label="executed">✝</span>}
+                <span className={cn('truncate', offline && 'opacity-60')}>{p.name}</span>
+                {me && (
+                  <span
+                    className={cn(
+                      'text-xs font-normal text-stone-500',
+                      compact && 'hidden sm:inline',
+                    )}
+                  >
+                    (you)
+                  </span>
+                )}
+              </span>
+              <span className="flex min-h-4 flex-wrap items-center gap-0.5 text-[0.62rem] leading-tight font-bold">
+                {president && <Placard kind="president" c={c} special={g.special} />}
+                {chancellor && <Placard kind="chancellor" c={c} drop={nominee === p.id} />}
+                {k && (
+                  <span
+                    className="rounded bg-red-700 px-1 text-white"
+                    title="Your teammate (only you see this)"
+                  >
+                    {c.roleName(k)}
+                  </span>
+                )}
+                {vote && (
+                  <span
+                    className={cn(
+                      'rounded px-1',
+                      vote === 'yes'
+                        ? 'bg-white text-stone-900 ring-1 ring-stone-400'
+                        : 'bg-stone-800 text-white',
+                    )}
+                  >
+                    {c.ballotName(vote)}
+                  </span>
+                )}
+                {ballotDone && (
+                  <span className="text-emerald-700 dark:text-emerald-400">✓ voted</span>
+                )}
+                {cleared && !p.dead && (
+                  <span
+                    className="rounded bg-emerald-600 px-1 text-white"
+                    title={c.t('Confirmed: not {leader}')}
+                  >
+                    Not {c.roleName('leader')} ✓
+                  </span>
+                )}
+                {investigated && <span title="Investigated">🔍</span>}
+                {p.left ? (
+                  <span className="font-normal text-stone-500">left</span>
+                ) : (
+                  offline && <span className="font-normal text-stone-500">offline</span>
+                )}
+                {pick && why && !compact && <span className="font-normal text-stone-500">🔒</span>}
+              </span>
+            </button>
+            {!p.dead && (
+              <button
+                type="button"
+                onClick={() => onMark(p.id)}
+                aria-label={`Your private mark on ${p.name}: ${mark === 'trust' ? 'trusted' : mark === 'doubt' ? 'suspected' : 'none'}`}
+                title="Your private note: ⭐ trust, ✕ suspect (only you see it)"
+                className={cn(
+                  'absolute top-0 right-0 flex items-center justify-center',
+                  compact ? 'size-8' : 'size-10',
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    'flex items-center justify-center rounded-full ring-1',
+                    compact ? 'size-5 text-[0.65rem]' : 'size-6 text-xs',
+                    mark === 'trust' && 'bg-amber-300 text-amber-950 ring-amber-500',
+                    mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
+                    !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
+                  )}
+                >
+                  {mark === 'trust' ? '⭐' : mark === 'doubt' ? '✕' : '☆'}
+                </span>
+              </button>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** The President / Chancellor placard on a seat (art when there is some). */
+export function Placard({
+  kind,
+  drop,
+  special,
+}: {
+  kind: 'president' | 'chancellor';
+  c?: Content;
+  drop?: boolean;
+  special?: boolean;
+}) {
+  const label =
+    kind === 'president' ? (special ? 'President (special)' : 'President') : 'Chancellor';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded px-1 text-[0.58rem] tracking-wide uppercase',
+        kind === 'president' ? 'bg-teal-800 text-teal-50' : 'bg-orange-800 text-orange-50',
+        drop && 'hy-drop',
+      )}
+      title={label}
+    >
+      {kind === 'president' ? (special ? 'Pres ★' : 'Pres') : 'Chanc'}
+    </span>
+  );
+}

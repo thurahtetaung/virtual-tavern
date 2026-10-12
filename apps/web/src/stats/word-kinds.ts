@@ -23,6 +23,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   inquest: [],
   // Picture cards, not words: no Words card.
   seance: [],
+  // Policies and votes, not words: no Words card.
+  hydra: [],
 };
 
 const LABELS: Record<WordKind, string> = {

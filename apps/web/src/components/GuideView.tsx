@@ -1,4 +1,31 @@
 import type { GameGuide } from '@vt/game-sdk';
+import { useEffect, useState } from 'react';
+import type { ClientGame } from '../games/registry.ts';
+
+/**
+ * A game's guide, named from its private manifest once that has loaded (back-room games that
+ * offer `namedGuide`); the plain guide until then, or when it can't load.
+ */
+export function GameGuideView({ game, compact = false }: { game: ClientGame; compact?: boolean }) {
+  const [named, setNamed] = useState<{ id: string; guide: GameGuide } | null>(null);
+  useEffect(() => {
+    if (!game.namedGuide) return;
+    let live = true;
+    game
+      .namedGuide()
+      .then((guide) => {
+        if (live) setNamed({ id: game.id, guide });
+      })
+      .catch(() => {
+        // No manifest: the plain guide stays.
+      });
+    return () => {
+      live = false;
+    };
+  }, [game]);
+  const guide = named?.id === game.id ? named.guide : game.guide;
+  return <GuideView guide={guide} compact={compact} />;
+}
 
 /** A role entry's anchor, so a game can open the guide at it: "Merlin (Good)" → "guide-role-merlin". */
 export const roleAnchor = (name: string) =>
@@ -115,6 +142,35 @@ export function GuideView({ guide, compact = false }: { guide: GameGuide; compac
             ))}
           </dl>
         </section>
+      )}
+
+      {guide.footer && (
+        <footer
+          aria-label={guide.footer.title}
+          className="rounded-2xl bg-stone-100 p-4 text-sm text-stone-700 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-800"
+        >
+          <h3 className="mb-1 font-bold">{guide.footer.title}</h3>
+          {guide.footer.paragraphs.map((p) => (
+            <p key={p} className="mb-1">
+              {p}
+            </p>
+          ))}
+          {guide.footer.links && guide.footer.links.length > 0 && (
+            <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {guide.footer.links.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-amber-700 underline dark:text-amber-400"
+                >
+                  {l.label}
+                </a>
+              ))}
+            </p>
+          )}
+        </footer>
       )}
     </article>
   );

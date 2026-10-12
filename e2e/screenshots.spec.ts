@@ -14,6 +14,7 @@ import {
   withRole,
 } from './inquest-play.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
+import * as hy from './hydra-play.ts';
 import * as rt from './round-table-play.ts';
 import {
   VAMPIRES,
@@ -1566,5 +1567,184 @@ for (const [label, viewport, colorScheme] of [
       await inquestVisitor(browser, 'Admin', [], { viewport, colorScheme }),
     );
     await seanceScreenshots(browser, label, { viewport, colorScheme });
+  });
+}
+
+for (const [label, viewport] of [
+  ['desktop', { width: 1280, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
+] as const) {
+  test(`hydra screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(600_000);
+    const phone = label === 'phone';
+    const errors: string[] = [];
+    const opts = {
+      viewport,
+      colorScheme: phone ? ('dark' as const) : ('light' as const),
+      moments: true,
+    };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({ path: `test-results/shots/hydra-${label}-${name}.png`, fullPage: !phone });
+    const tab = async (p: Page, name: string) => {
+      if (phone)
+        await p
+          .getByRole('navigation', { name: 'Game sections' })
+          .getByRole('button', { name })
+          .click();
+    };
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const players = await hy.hydraTable(
+      browser,
+      ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eve', 'Fin', 'Gus', 'Hal', 'Ivy'],
+      errors,
+      opts,
+    );
+    const host = players[0]!.page;
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start with 10 players' }).click();
+    const card = host.getByRole('region', { name: 'Your role card' });
+    await card.getByRole('button', { name: '👁️ Show my role' }).click();
+    await host.waitForTimeout(700);
+    await shot(host, 'reveal');
+    await card.getByRole('button', { name: '🙈 Hide my role' }).click();
+    await hy.readRoles(players);
+    const notLeader = (p: hy.Player) => p.role === 'leader';
+
+    // Nomination at ten players: every seat, the header and the dock fit a phone.
+    const pres = await hy.president(players);
+    const chan = await hy.eligible(pres, players, notLeader);
+    await pres.page.getByRole('button', { name: `Nominate ${chan.name} as Chancellor` }).click();
+    await shot(pres.page, 'nominate');
+    await pres.page
+      .getByTestId('dock')
+      .getByRole('button', { name: `Nominate ${chan.name}` })
+      .click();
+    const voter = players.find((p) => p !== pres && p !== chan)!;
+    await voter.page.getByRole('button', { name: 'Vote Yes' }).click();
+    await shot(voter.page, 'vote');
+    await hy.voteAll(players.filter((p) => p !== players.at(-1)));
+    const last = players.at(-1)!;
+    await last.page.getByRole('button', { name: 'Vote No' }).click();
+    await expect(host.getByTestId('moment')).toBeVisible();
+    await host.waitForTimeout(2200);
+    await shot(host, 'vote-reveal');
+
+    // The session behind the privacy shield, then the claims.
+    const sheet = pres.page.getByRole('dialog', { name: 'You’re the President' });
+    await sheet.getByRole('button', { name: 'Show cards' }).click();
+    await sheet
+      .getByRole('button', { name: /^Discard: / })
+      .first()
+      .click();
+    await pres.page.waitForTimeout(600);
+    await shot(pres.page, 'president-sheet');
+    await sheet.getByRole('button', { name: /^Discard this/ }).click();
+    const two = chan.page.getByRole('dialog', { name: 'You’re the Chancellor' });
+    await chan.page.waitForTimeout(250);
+    await shot(chan.page, 'chancellor-shuffle');
+    await two.getByRole('button', { name: 'Show cards' }).click();
+    await two
+      .getByRole('button', { name: /^Enact: / })
+      .first()
+      .click();
+    await chan.page.waitForTimeout(600);
+    await shot(chan.page, 'chancellor-sheet');
+    await two.getByRole('button', { name: /^Enact this/ }).click();
+    await expect(host.getByTestId('moment')).toBeVisible();
+    await host.waitForTimeout(1800);
+    await shot(host, 'enact-moment');
+    const form = pres.page.getByTestId('claim-form');
+    await form.getByRole('button', { name: '2 Conspirator, 1 Loyalist' }).click();
+    await form.getByRole('button', { name: 'Make this claim' }).click();
+    await shot(pres.page, 'claim');
+    await form.getByRole('button', { name: 'Confirm claim' }).click();
+    await shot(host, 'claims-waiting');
+    await hy.claim(chan, { blues: 0 });
+
+    // Red #1 at ten players: investigate.
+    const target = players.find((p) => p !== pres)!;
+    await pres.page.getByRole('button', { name: `Investigate loyalty: ${target.name}` }).click();
+    await shot(pres.page, 'power');
+    await pres.page
+      .getByTestId('dock')
+      .getByRole('button', { name: `Investigate ${target.name}` })
+      .click();
+    await pres.page.waitForTimeout(1200);
+    await shot(pres.page, 'investigate-claim');
+    await hy.claim(pres, { team: 'red' });
+    await tab(host, 'Log');
+    await shot(host, 'log');
+    await tab(host, 'Me');
+    await shot(host, 'me');
+    await tab(host, 'Table');
+
+    // More governments until the danger zone, the Leader check, and an execution.
+    let red = 1;
+    let checked = false;
+    for (let round = 0; round < 14 && (await host.getByTestId('winner').count()) === 0; round++) {
+      const p = await hy.whoShows(players, /You’re the Presidential Candidate|Use your power/);
+      if ((await p.page.getByText(/Use your power/).count()) > 0) {
+        const power = (await p.page.getByTestId('dock').textContent()) ?? '';
+        const leader = players.find((x) => x.role === 'leader')!;
+        const victim =
+          p !== leader && !leader.dead
+            ? leader
+            : players.find((x) => x !== p && !x.dead && x.role !== 'leader')!;
+        const verb = /Execution/.test(power)
+          ? 'Execution'
+          : /Special election/.test(power)
+            ? 'Special election'
+            : 'Investigate loyalty';
+        const pick =
+          verb === 'Investigate loyalty'
+            ? players.find((x) => x !== p && !x.dead && x !== target)!
+            : victim;
+        await p.page.getByRole('button', { name: `${verb}: ${pick.name}` }).click();
+        if (verb === 'Execution') {
+          await shot(p.page, 'execute');
+          await p.page
+            .getByTestId('dock')
+            .getByRole('button', { name: `Execute ${pick.name}…` })
+            .click();
+          await p.page
+            .getByTestId('dock')
+            .getByRole('button', { name: `Yes, execute ${pick.name}` })
+            .click();
+          pick.dead = true;
+        } else {
+          await p.page
+            .getByTestId('dock')
+            .getByRole('button', {
+              name:
+                verb === 'Special election'
+                  ? `Make ${pick.name} the next candidate`
+                  : `Investigate ${pick.name}`,
+            })
+            .click();
+          if (verb === 'Investigate loyalty') await hy.claim(p, { team: 'blue' });
+        }
+        continue;
+      }
+      const alive = players.filter((x) => !x.dead);
+      const c = await hy.eligible(p, alive, notLeader);
+      await hy.nominate(p, c.name);
+      await hy.voteAll(alive);
+      if (red >= 3 && !checked) {
+        await expect(host.getByTestId('leader-check')).toBeVisible();
+        await shot(host, 'leader-check');
+        checked = true;
+      }
+      const gov = await hy.legislate(alive, 'red');
+      red++;
+      await hy.claimSession(gov);
+    }
+    await expect(host.getByTestId('winner')).toBeVisible();
+    await host.waitForTimeout(3500);
+    await shot(host, 'end');
+    if (phone) {
+      await host.getByRole('region', { name: 'The truth' }).scrollIntoViewIfNeeded();
+      await shot(host, 'end-truth');
+    }
+    expect(errors).toEqual([]);
   });
 }

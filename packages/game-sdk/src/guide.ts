@@ -21,6 +21,14 @@ export interface GameGuide {
   roles?: { name: string; summary: string }[];
   tips: string[];
   glossary?: { term: string; meaning: string }[];
+  /** Shown last: credits for an adapted game (back-room games fill it from private storage). */
+  footer?: GuideFooter;
+}
+
+export interface GuideFooter {
+  title: string;
+  paragraphs: string[];
+  links?: { label: string; href: string }[];
 }
 
 export interface GuideSection {

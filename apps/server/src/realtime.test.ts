@@ -5,6 +5,7 @@ import type { MasqueradeView } from '@vt/game-masquerade/logic';
 import type { RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
+import type { HydraView } from '@vt/private-hydra/logic';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import { type TestClient, bareRealtime, connect, tempDb, testApp, token } from './test/helpers.ts';
 import { playRoundTable } from './test/round-table.ts';
@@ -956,4 +957,142 @@ describe('realtime Round Table', () => {
       }
     }
   }, 30_000);
+});
+
+describe('realtime Hydra', () => {
+  it('plays a five-player game behind the back room without leaking a role, hand or vote', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const clients: TestClient[] = [];
+    try {
+      const admin = await app.inject({
+        method: 'POST',
+        url: '/api/admin/login',
+        payload: { password: 'hunter2' },
+      });
+      await app.inject({
+        method: 'PUT',
+        url: '/api/admin/backroom/password',
+        headers: { cookie: `vt_admin=${admin.cookies.find((c) => c.name === 'vt_admin')!.value}` },
+        payload: { password: 'speakeasy' },
+      });
+      const unlocked = await app.inject({
+        method: 'POST',
+        url: '/api/backroom/unlock',
+        payload: { password: 'speakeasy' },
+      });
+      const cookie = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
+      const { roomId } = (
+        await app.inject({
+          method: 'POST',
+          url: '/api/rooms',
+          headers: { cookie },
+          payload: { gameId: 'hydra', token: token(80) },
+        })
+      ).json<{ roomId: string }>();
+      const outsider = await connect(url);
+      clients.push(outsider);
+      expect(
+        await outsider.call('room:join', { roomId, token: token(89), name: 'Out' }),
+      ).toMatchObject({ ok: false, error: { code: 'backroom-locked' } });
+      for (const [i, name] of ['Ana', 'Ben', 'Cy', 'Dee', 'Eve'].entries()) {
+        const c = await connect(url, cookie);
+        clients.push(c);
+        expect(await c.call('room:join', { roomId, token: token(80 + i), name })).toEqual({
+          ok: true,
+        });
+      }
+      const players = clients.slice(1);
+      await Promise.all(players.map((c) => c.until((s) => s.players.length === 5)));
+      const seen = new Map<TestClient, HydraView[]>(players.map((c) => [c, []]));
+      for (const c of players) c.on('room:state', (s) => seen.get(c)!.push(s.game as HydraView));
+      const hv = (c: TestClient) => c.latest()!.game as HydraView;
+      expect(
+        await players[0]!.call('game:action', { type: 'update-settings', quick: true }),
+      ).toEqual({ ok: true });
+      expect(await players[0]!.call('game:action', { type: 'start' })).toEqual({ ok: true });
+      await Promise.all(
+        players.map((c) => c.until((s) => (s.game as HydraView).stage === 'reveal')),
+      );
+      for (const c of players)
+        expect(await c.call('game:action', { type: 'ready' })).toEqual({ ok: true });
+      await Promise.all(
+        players.map((c) => c.until((s) => (s.game as HydraView).stage === 'nominate')),
+      );
+      // Three governments: everyone votes yes, the President discards the first card, the
+      // Chancellor enacts the first, both claim one blue.
+      let sessions = 0;
+      for (let step = 0; step < 80 && sessions < 3; step++) {
+        const v = hv(players[0]!);
+        if (v.phase !== 'playing') break;
+        const g = v.game!;
+        const byId = (id: string) => players.find((c) => hv(c).me?.id === id)!;
+        const before = JSON.stringify(g.rounds.length) + v.stage + g.needs.length + g.voted.length;
+        if (v.stage === 'nominate') {
+          const p = byId(g.president);
+          const pick = g.players.find((x) => !g.ineligible[x.id])!.id;
+          expect(await p.call('game:action', { type: 'nominate', player: pick })).toEqual({
+            ok: true,
+          });
+        } else if (v.stage === 'vote') {
+          for (const c of players)
+            if (!hv(c).game!.voted.includes(hv(c).me!.id))
+              await c.call('game:action', { type: 'vote', ballot: 'yes' });
+        } else if (v.stage === 'legislate-president') {
+          const p = byId(g.president);
+          expect(hv(p).game!.hand).toHaveLength(3);
+          for (const o of players.filter((c) => c !== p)) expect(hv(o).game!.hand).toBeNull();
+          await p.call('game:action', { type: 'discard', index: 0 });
+        } else if (v.stage === 'legislate-chancellor') {
+          await byId(g.chancellor!).call('game:action', { type: 'enact', index: 0 });
+          sessions++;
+        } else if (v.stage === 'claim') {
+          for (const n of g.needs)
+            await byId(n.by).call(
+              'game:action',
+              n.kind === 'peek'
+                ? { type: 'claim', cards: ['red', 'red', 'red'] }
+                : n.kind === 'investigate'
+                  ? { type: 'claim', team: 'blue' }
+                  : { type: 'claim', blues: 1 },
+            );
+        } else if (v.stage === 'power') {
+          const p = byId(g.president);
+          if (g.power === 'peek') await p.call('game:action', { type: 'peek-done' });
+          else {
+            const t = g.players.find((x) => x.id !== g.president && !x.dead)!.id;
+            await p.call('game:action', { type: g.power!, player: t });
+          }
+        }
+        await players[0]!.until((s) => {
+          const x = s.game as HydraView;
+          return (
+            x.phase !== 'playing' ||
+            JSON.stringify(x.game!.rounds.length) +
+              x.stage +
+              x.game!.needs.length +
+              x.game!.voted.length !==
+              before
+          );
+        });
+      }
+      expect(sessions).toBeGreaterThan(0);
+      for (const [c, views] of seen) {
+        const me = hv(c).me!.id;
+        for (const v of views) {
+          if (v.phase === 'over') continue;
+          const json = JSON.stringify(v);
+          for (const key of ['"deck":', '"discard":', '"roles"', '"truth"', '"seed"'])
+            expect(json).not.toContain(key);
+          if (v.stage === 'vote') expect(v.game!.rounds.at(-1)!.votes).toEqual({});
+          expect(v.role === null || v.me?.id === me).toBe(true);
+        }
+      }
+    } finally {
+      for (const c of clients) c.close();
+      await app.close();
+    }
+  }, 60_000);
 });

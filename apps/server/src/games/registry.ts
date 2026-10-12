@@ -5,6 +5,7 @@ import { enigma } from '@vt/game-enigma/logic';
 import { masquerade } from '@vt/game-masquerade/logic';
 import { roundTable } from '@vt/game-round-table/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
+import { hydra, setTestDeck } from '@vt/private-hydra/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { nightfall } from '@vt/private-nightfall/logic';
@@ -18,6 +19,16 @@ if (process.env.NODE_ENV !== 'production' && process.env.INQUEST_TEST_EVENTS) {
   const kinds = process.env.INQUEST_TEST_EVENTS.split(',').map((k) => k.trim());
   setTestEventOrder(
     kinds.filter((k): k is EventKind => (EVENT_KINDS as readonly string[]).includes(k)),
+  );
+}
+
+// Browser tests only: Hydra policies to put on top of every new deck (a string of `b`/`r`, top
+// first), so a spec can reach the powers. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.HYDRA_TEST_DECK) {
+  setTestDeck(
+    [...process.env.HYDRA_TEST_DECK.toLowerCase()].flatMap((c) =>
+      c === 'b' ? ['blue' as const] : c === 'r' ? ['red' as const] : [],
+    ),
   );
 }
 
@@ -41,6 +52,7 @@ export function buildGames(): GameRegistry {
     nightfall,
     inquest,
     seance,
+    hydra,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

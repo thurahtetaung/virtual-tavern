@@ -22,6 +22,8 @@ export interface ClientGame {
    * game's manifest. Back-room games only; public games report readable words already.
    */
   labels?: () => Promise<Labeler>;
+  /** The guide with the game's real names and credits from its manifest (back-room games only). */
+  namedGuide?: () => Promise<GameGuide>;
 }
 
 /** Every playable game's UI. Add new games here (and in the server registry). */

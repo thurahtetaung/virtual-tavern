@@ -21,6 +21,7 @@ const SHARED_STATE = [
   /inquest\.spec\.ts$/,
   /playtest\.spec\.ts$/,
   /seance\.spec\.ts$/,
+  /hydra\.spec\.ts$/,
 ];
 
 export default defineConfig({
@@ -65,6 +66,8 @@ export default defineConfig({
       LOG_LEVEL: 'warn',
       // Inquest's events spec needs these events first when the pile gets its events.
       INQUEST_TEST_EVENTS: 'ruled-out,erroneous,countdown',
+      // Hydra's specs reach the powers with red policies on top of every deck.
+      HYDRA_TEST_DECK: 'rrrrrrrrrrr',
     },
   },
 });
