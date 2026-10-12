@@ -64,6 +64,13 @@
       "when": 1791750194290,
       "tag": "0008_recap_hall_of_fame",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791778987106,
+      "tag": "0009_room_test",
+      "breakpoints": true
     }
   ]
 }

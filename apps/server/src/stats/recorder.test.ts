@@ -300,4 +300,42 @@ describe('StatsRecorder', () => {
       'stats observer failed',
     );
   });
+
+  it('records nothing for a test room, from opening to sweep', () => {
+    const players = () =>
+      db.$client.prepare('select count(*) from stats_players').pluck().get() as number;
+    rooms.close();
+    recorder = new StatsRecorder({ store, logger, isTestRoom: (r) => rooms.isTest(r) });
+    rooms = manager(recorder);
+    const id = rooms.create('quiz', 'ana', { test: true });
+    rooms.join(id, 'ana', 'Ana');
+    rooms.join(id, 'ben', 'Ben');
+    act(id, 'ana', { type: 'start' });
+    act(id, 'ana', { type: 'clue', word: 'Ocean' });
+    act(id, 'ana', { type: 'finish' });
+    recorder.record('recap.viewed', { roomId: id, gameId: 'quiz', playerId: 'ana', now });
+    now += 8 * 24 * 60 * 60_000;
+    expect(rooms.sweep(7 * 24 * 60 * 60_000)).toBe(1);
+    recorder.flush();
+    expect(events()).toEqual([]);
+    expect(players()).toBe(0);
+  });
+
+  it('stops recording once a test player joins, even mid-game and after a restart', () => {
+    const id = room();
+    act(id, 'ana', { type: 'start' });
+    recorder.flush();
+    const before = events().length;
+    rooms.join(id, 'bot', 'Bot', { test: true });
+    act(id, 'ana', { type: 'finish' });
+    // A fresh manager reads the mark back from the database.
+    rooms.close();
+    rooms = manager(recorder);
+    expect(rooms.isTest(id)).toBe(true);
+    now += 8 * 24 * 60 * 60_000;
+    expect(rooms.sweep(7 * 24 * 60 * 60_000)).toBe(1);
+    recorder.flush();
+    expect(events()).toHaveLength(before);
+    expect(events().some((e) => e.playerId === 'bot')).toBe(false);
+  });
 });

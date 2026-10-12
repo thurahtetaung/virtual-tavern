@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
-import { TEST_ADMIN_PASSWORD, TEST_SESSION_SECRET } from './e2e/credentials.ts';
+import {
+  TEST_ADMIN_PASSWORD,
+  TEST_SESSION_SECRET,
+  TEST_STATS_IGNORE_TOKEN,
+} from './e2e/credentials.ts';
 
 const PORT = 4321;
 const SHARED_STATE = [
@@ -52,6 +56,7 @@ export default defineConfig({
       DATABASE_PATH: ':memory:',
       ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
       SESSION_SECRET: TEST_SESSION_SECRET,
+      STATS_IGNORE_TOKEN: TEST_STATS_IGNORE_TOKEN,
       LOG_LEVEL: 'warn',
     },
   },

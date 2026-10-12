@@ -18,6 +18,11 @@ export interface Config {
   roomIdleDays: number;
   /** Private asset storage (Cloudflare R2); the back room works without it, just with no pictures. */
   r2: R2Config | null;
+  /**
+   * Requests carrying `x-vt-test: <this token>` are test traffic: their rooms record no stats.
+   * Unset: the header means nothing.
+   */
+  statsIgnoreToken: string | null;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -51,5 +56,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
             bucket: env.R2_BUCKET,
           }
         : null,
+    statsIgnoreToken: env.STATS_IGNORE_TOKEN?.trim() || null,
   };
 }

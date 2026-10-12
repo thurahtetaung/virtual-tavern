@@ -76,11 +76,16 @@ export type TestClient = Socket<ServerToClientEvents, ClientToServerEvents> & {
   call: <E extends keyof ClientToServerEvents>(event: E, ...args: unknown[]) => Promise<Ack>;
 };
 
-export async function connect(url: string, cookie?: string): Promise<TestClient> {
+export async function connect(
+  url: string,
+  cookie?: string,
+  headers: Record<string, string> = {},
+): Promise<TestClient> {
+  const extraHeaders = { ...headers, ...(cookie && { cookie }) };
   const socket = io(url, {
     transports: ['websocket'],
     forceNew: true,
-    extraHeaders: cookie ? { cookie } : undefined,
+    extraHeaders: Object.keys(extraHeaders).length ? extraHeaders : undefined,
   }) as TestClient;
   let latest: RoomSnapshot | null = null;
   const waiters = new Set<{

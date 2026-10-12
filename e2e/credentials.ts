@@ -5,6 +5,7 @@
 export const TEST_ADMIN_PASSWORD = 'e2e-admin'; // ggignore
 export const TEST_SESSION_SECRET = 'e2e-secret'; // ggignore
 export const TEST_BACKROOM_WORD = 'speakeasy'; // ggignore
+export const TEST_STATS_IGNORE_TOKEN = 'e2e-live-check'; // ggignore
 
 let nextClient = 0;
 

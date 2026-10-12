@@ -125,6 +125,8 @@ export interface StatsRecorderOptions {
   store: StatsStore;
   logger: RoomLogger;
   flushEveryMs?: number;
+  /** Whether test traffic opened or joined the room; its recap usage counts are not recorded. */
+  isTestRoom?: (roomId: string) => boolean;
 }
 
 /**
@@ -135,6 +137,7 @@ export class StatsRecorder implements RoomObserver {
   private readonly store: StatsStore;
   private readonly logger: RoomLogger;
   private readonly flushEveryMs: number;
+  private readonly isTestRoom: (roomId: string) => boolean;
   private events: StatsEvent[] = [];
   private sightings: PlayerSighting[] = [];
   private gamesPlayed = new Map<string, number>();
@@ -148,9 +151,15 @@ export class StatsRecorder implements RoomObserver {
     this.store = opts.store;
     this.logger = opts.logger;
     this.flushEveryMs = opts.flushEveryMs ?? FLUSH_EVERY_MS;
+    this.isTestRoom = opts.isTestRoom ?? (() => false);
   }
 
   observe(o: RoomObservation): void {
+    // Test traffic leaves nothing behind: no events, no players, no recap nights.
+    if (o.test) {
+      this.forgetRoom(o.roomId);
+      return;
+    }
     try {
       this.handle(o);
     } catch (err) {
@@ -164,6 +173,7 @@ export class StatsRecorder implements RoomObserver {
     at: { roomId: string; gameId: string; playerId: string; now: number },
     props: Record<string, unknown> = {},
   ): void {
+    if (this.isTestRoom(at.roomId)) return;
     this.push({
       id: ulid(at.now),
       ts: at.now,
@@ -182,6 +192,12 @@ export class StatsRecorder implements RoomObserver {
     this.gamesPlayed.delete(playerId);
     this.recent.delete(playerId);
     return this.store.forgetPlayer(playerId);
+  }
+
+  /** Drops what is in progress for a room (a test room, or one whose stats an admin deleted). */
+  forgetRoom(roomId: string): void {
+    this.active.delete(roomId);
+    this.anchors.delete(roomId);
   }
 
   /** Players seen (any activity) since `since`. */

@@ -25,6 +25,8 @@ import { LiveTracker } from './stats/live.ts';
 import { StatsRecorder } from './stats/recorder.ts';
 import { SqliteStatsStore } from './stats/sqlite-store.ts';
 import { RAW_RETENTION_DAYS } from './stats/types.ts';
+import { forgetRoomStats } from './stats/forget-room.ts';
+import { testTrafficCheck } from './test-traffic.ts';
 import { PrivateGameSettings } from './private-games.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
@@ -47,6 +49,8 @@ export interface AppOptions {
   games?: GameRegistry;
   /** Private asset storage; without it private games run but can't show pictures. */
   r2?: R2Config | null;
+  /** `x-vt-test: <token>` marks test traffic, whose rooms record no stats. Unset: ignored. */
+  statsIgnoreToken?: string | null;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -123,7 +127,10 @@ export function buildApp(opts: AppOptions) {
           ? questionDecks.name(value)
           : undefined,
   });
-  const recorder = new StatsRecorder({ store: stats, logger: app.log });
+  const isTestTraffic = testTrafficCheck(opts.statsIgnoreToken);
+  // Test rooms record nothing; `rooms` is assigned below, before any room can exist.
+  const isTestRoom = (roomId: string) => rooms.isTest(roomId);
+  const recorder = new StatsRecorder({ store: stats, logger: app.log, isTestRoom });
   const recapSettings = new RecapSettings(db, now);
   const recapStore = new RecapStore(db);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
@@ -157,7 +164,8 @@ export function buildApp(opts: AppOptions) {
       observe(o) {
         recorder.observe(o);
         if (o.kind === 'room.swept') recapSettings.forget(o.roomId);
-        recap.observe(o);
+        // A test room never freezes a night; a sweep still clears up after it.
+        if (!o.test || o.kind === 'room.swept') recap.observe(o);
       },
     },
     recapMeta: (roomId) => recap.meta(roomId),
@@ -173,6 +181,7 @@ export function buildApp(opts: AppOptions) {
     changed: (roomId) => roomEvents.changed(roomId),
     logger: app.log,
     now,
+    isTestRoom,
   });
   const io = (realtime.io = attachRealtime(
     app.server,
@@ -187,7 +196,7 @@ export function buildApp(opts: AppOptions) {
         return valid && backroom.isUnlocked(value);
       },
     },
-    { recap },
+    { recap, isTestTraffic },
   ));
 
   // A new password or "Sign everyone out" sends players in back-room rooms to the door right
@@ -261,6 +270,7 @@ export function buildApp(opts: AppOptions) {
       titles: privateGames,
       forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
+      isTestTraffic: (req) => isTestTraffic(req.headers),
       linked: (from, next) => {
         const privateTable = isPrivate(games.get(next.gameId));
         for (const roomId of from) announceNextTable(io, roomId, next, privateTable);
@@ -286,6 +296,15 @@ export function buildApp(opts: AppOptions) {
         flush: () => recorder.flush(),
         onReset: () => recorder.reset(),
         recaps: recap,
+        forgetRoom: (roomId, dryRun) => {
+          const res = forgetRoomStats(db, stats, roomId, { dryRun, now: now() });
+          if (!dryRun) {
+            recorder.forgetRoom(roomId);
+            // Drops the room's cached cards (its frozen nights are already gone).
+            recap.forget(roomId);
+          }
+          return res;
+        },
         now,
       });
       ready();
