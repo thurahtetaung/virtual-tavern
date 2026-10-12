@@ -17,6 +17,7 @@
     "@vt/game-round-table": "workspace:*",
     "@vt/game-sdk": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",
+    "@vt/private-hydra": "workspace:*",
     "@vt/private-inquest": "workspace:*",
     "@vt/private-masquerade-originals": "workspace:*",
     "@vt/private-nightfall": "workspace:*",

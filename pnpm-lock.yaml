@@ -99,6 +99,9 @@ importers:
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
+      '@vt/private-hydra':
+        specifier: workspace:*
+        version: link:../../packages/private-games/hydra
       '@vt/private-inquest':
         specifier: workspace:*
         version: link:../../packages/private-games/inquest
@@ -156,6 +159,9 @@ importers:
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
+      '@vt/private-hydra':
+        specifier: workspace:*
+        version: link:../../packages/private-games/hydra
       '@vt/private-inquest':
         specifier: workspace:*
         version: link:../../packages/private-games/inquest
@@ -320,6 +326,25 @@ importers:
         version: 19.3.0
 
   packages/private-games/hoodwink:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/hydra:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*

@@ -1,0 +1,285 @@
+import { Button, RefusalSlot, cn } from '@vt/ui';
+import { useEffect, useState } from 'react';
+import type {
+  Claim,
+  ClaimNeed,
+  HydraAction,
+  HydraView,
+  Memory,
+  Policy,
+  Team,
+} from '../logic/types.ts';
+import type { Content } from './assets.ts';
+import { FlipCard, PartyBack, PartyFace, Pips, bluesCards } from './Cards.tsx';
+import { nameOf } from './status.ts';
+
+type Act = (a: HydraAction, o?: { anchor?: string }) => Promise<boolean>;
+
+/** What the viewer privately saw that this claim is about (their own memory), if any. */
+function seen(view: HydraView, need: ClaimNeed): Memory | undefined {
+  const g = view.game!;
+  const round = g.rounds.at(-1)?.n;
+  return [...g.memories]
+    .reverse()
+    .find(
+      (m) =>
+        m.round === round &&
+        (need.kind === 'investigate'
+          ? m.kind === 'investigate'
+          : need.kind === 'peek'
+            ? m.kind === 'peek'
+            : m.kind === 'hand' && m.as === need.kind),
+    );
+}
+
+/** The investigated party card, flipping over once. */
+function PartyReveal({ team, c }: { team: Team; c: Content }) {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setUp(true), 350);
+    return () => {
+      window.clearTimeout(t);
+    };
+  }, []);
+  return (
+    <div className="mx-auto mt-2 w-28">
+      <FlipCard up={up} front={<PartyFace team={team} c={c} />} back={<PartyBack c={c} />} />
+    </div>
+  );
+}
+
+/** The claim form: pick what you say you saw, then confirm (claims are final). */
+export function ClaimForm({
+  view,
+  c,
+  need,
+  act,
+}: {
+  view: HydraView;
+  c: Content;
+  need: ClaimNeed;
+  act: Act;
+}) {
+  const [blues, setBlues] = useState<number | null>(null);
+  const [cards, setCards] = useState<(Policy | null)[]>([null, null, null]);
+  const [team, setTeam] = useState<Team | null>(null);
+  const [sure, setSure] = useState(false);
+  const memory = seen(view, need);
+  const n = need.kind === 'president' ? 3 : 2;
+  const ready =
+    need.kind === 'peek'
+      ? cards.every((x) => x !== null)
+      : need.kind === 'investigate'
+        ? team !== null
+        : blues !== null;
+  const send = () => {
+    const action: HydraAction =
+      need.kind === 'peek'
+        ? { type: 'claim', cards: cards as Policy[] }
+        : need.kind === 'investigate'
+          ? { type: 'claim', team: team! }
+          : { type: 'claim', blues: blues! };
+    void act(action, { anchor: 'claim' });
+  };
+  const summary =
+    need.kind === 'peek' && ready ? (
+      <Pips cards={cards as Policy[]} c={c} size="md" />
+    ) : need.kind === 'investigate' && team ? (
+      <b>{c.teamName(team)}</b>
+    ) : blues !== null ? (
+      <Pips cards={bluesCards(blues, n)} c={c} size="md" />
+    ) : null;
+  return (
+    <div className="space-y-4" data-testid="claim-form">
+      {memory && (
+        <div className="rounded-xl bg-stone-100 p-3 text-sm dark:bg-stone-800">
+          <p className="font-semibold">Only you know what you really saw:</p>
+          <p className="mt-1 flex items-center gap-2">
+            {memory.kind === 'hand' && (
+              <>
+                {memory.as === 'president' ? 'You drew' : 'You got'}{' '}
+                <Pips cards={[...memory.cards].sort().reverse()} c={c} size="md" />
+              </>
+            )}
+            {memory.kind === 'peek' && (
+              <>
+                The top three, in order: <Pips cards={memory.cards} c={c} size="md" />
+              </>
+            )}
+            {memory.kind === 'investigate' && (
+              <>
+                {nameOf(view, memory.target)}’s party card is <b>{c.teamName(memory.team)}</b>
+              </>
+            )}
+          </p>
+          {memory.kind === 'investigate' && <PartyReveal team={memory.team} c={c} />}
+        </div>
+      )}
+      {(need.kind === 'president' || need.kind === 'chancellor') && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">
+            {need.kind === 'president'
+              ? 'Say the three cards you drew'
+              : 'Say the two cards you were handed'}
+          </legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {Array.from({ length: n + 1 }, (_, b) => (
+              <button
+                key={b}
+                type="button"
+                aria-pressed={blues === b}
+                aria-label={`${n - b} ${c.teamName('red')}, ${b} ${c.teamName('blue')}`}
+                onClick={() => {
+                  setBlues(b);
+                  setSure(false);
+                }}
+                className={cn(
+                  'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
+                  blues === b
+                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                    : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
+                )}
+              >
+                <Pips cards={bluesCards(b, n)} c={c} size="md" />
+                <span className="text-[0.65rem] text-stone-600 dark:text-stone-400">
+                  {b} {c.teamName('blue')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {need.kind === 'peek' && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">Say the top three cards, top first</legend>
+          <div className="grid grid-cols-3 gap-2">
+            {cards.map((x, i) => (
+              <div key={i} className="space-y-1 text-center">
+                <span className="text-xs text-stone-500">
+                  {i === 0 ? 'Top' : i === 1 ? '2nd' : '3rd'}
+                </span>
+                {(['blue', 'red'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    aria-pressed={x === p}
+                    aria-label={`Card ${i + 1}: ${c.teamName(p)}`}
+                    onClick={() => {
+                      setCards(cards.map((y, k) => (k === i ? p : y)));
+                      setSure(false);
+                    }}
+                    className={cn(
+                      'block w-full rounded-lg py-2 text-xs font-bold ring-1',
+                      x === p
+                        ? p === 'blue'
+                          ? 'bg-sky-600 text-white ring-sky-800'
+                          : 'bg-red-600 text-white ring-red-800'
+                        : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
+                    )}
+                  >
+                    {c.teamName(p)}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {need.kind === 'investigate' && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">
+            Say what {nameOf(view, need.target)}’s party card showed
+          </legend>
+          <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
+            {(['blue', 'red'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={team === p}
+                aria-label={`Claim ${c.teamName(p)}`}
+                onClick={() => {
+                  setTeam(p);
+                  setSure(false);
+                }}
+                className={cn(
+                  'rounded-xl p-1 transition',
+                  team === p ? 'ring-4 ring-amber-400' : 'opacity-80',
+                )}
+              >
+                <PartyFace team={p} c={c} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      <div className="space-y-2">
+        {!sure ? (
+          <Button size="lg" className="w-full" disabled={!ready} onClick={() => setSure(true)}>
+            Make this claim
+          </Button>
+        ) : (
+          <div className="hy-rise space-y-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-300 dark:bg-amber-500/10">
+            <p className="flex flex-wrap items-center justify-center gap-2 text-sm font-semibold">
+              Claim {summary}? Claims are final.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setSure(false)}>
+                Change
+              </Button>
+              <Button className="flex-1" onClick={send}>
+                Confirm claim
+              </Button>
+            </div>
+          </div>
+        )}
+        <RefusalSlot anchor="claim" />
+        <p className="text-center text-xs text-stone-500">
+          Anyone may lie. Everyone sees your claim at once.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** One claim as the log shows it: "Ana (President) claimed 🟥🟥🟦". */
+export function ClaimLine({ view, c, claim }: { view: HydraView; c: Content; claim: Claim }) {
+  const role =
+    claim.kind === 'president'
+      ? 'President'
+      : claim.kind === 'chancellor'
+        ? 'Chancellor'
+        : 'President';
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <b>{nameOf(view, claim.by)}</b>
+      <span className="text-stone-500">({role})</span>
+      {claim.skipped ? (
+        <span className="text-stone-500 italic">
+          (no claim, {claim.skipped === 'host' ? 'skipped by host' : 'left the game'})
+        </span>
+      ) : claim.kind === 'investigate' ? (
+        <>
+          says {nameOf(view, claim.target)} is{' '}
+          <b
+            className={
+              claim.team === 'blue'
+                ? 'text-sky-700 dark:text-sky-300'
+                : 'text-red-700 dark:text-red-400'
+            }
+          >
+            {c.teamName(claim.team!)}
+          </b>
+        </>
+      ) : claim.kind === 'peek' ? (
+        <>
+          peeked <Pips cards={claim.cards!} c={c} />
+        </>
+      ) : (
+        <>
+          claimed{' '}
+          <Pips cards={bluesCards(claim.blues!, claim.kind === 'president' ? 3 : 2)} c={c} />
+        </>
+      )}
+    </span>
+  );
+}

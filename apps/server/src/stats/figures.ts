@@ -44,6 +44,12 @@ import type { GameFigure } from '@vt/protocol';
 //              topLevel…}, vision {cards; recap: to, pillar, hour}, guess {correct, tries; recap:
 //              pillar, hour, visions, card}, clairvoyance {hit; recap: target, kind},
 //              raven {recap: hour}, finish {recap: hour, level}, vote {recap: group, right}
+//   hydra      outcome {winner, how, players, rounds, chaos, vetoes, claimsBlue, liesBlue,
+//              claimsRed, liesRed; recap: blue, red, leader, liars, honest, rrrBlue, redBlue,
+//              firewall, bloodhound, friendlyFire, executor, ghost, lies, …}, election {passed,
+//              tracker; recap: president, chancellor, yes, no, missing, special, zone},
+//              session {enacted, vetoed, chaos}, power {kind; recap: target}, claim {kind;
+//              recap: blues, cards, team, skipped}, cleared {}, execution {recap: by}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -798,12 +804,143 @@ function seanceFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+const HYDRA_HOWS: [string, string][] = [
+  ['blue-policies', '5 {role:blue} policies'],
+  ['leader-executed', '{role:leader} executed'],
+  ['red-policies', '6 {role:red} policies'],
+  ['leader-elected', '{role:leader} elected'],
+];
+const HYDRA_POWERS: [string, string][] = [
+  ['investigate', 'Investigate'],
+  ['special', 'Special election'],
+  ['peek', 'Policy peek'],
+  ['execute', 'Execution'],
+];
+
+function hydraCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      const n = num(props.players);
+      out.push(['f.games', 1]);
+      if (n !== null) out.push([`f.n.${n}`, 1]);
+      if (props.winner === 'blue') {
+        out.push(['f.bluewin', 1]);
+        if (n !== null) out.push([`f.bluewin.n${n}`, 1]);
+      }
+      const how = str(props.how);
+      if (how && HYDRA_HOWS.some(([k]) => k === how)) out.push([`f.how.${how}`, 1]);
+      for (const [key, metric] of [
+        ['rounds', 'f.round_sum'],
+        ['chaos', 'f.chaos'],
+        ['vetoes', 'f.vetoes'],
+        ['claimsBlue', 'f.claims_blue'],
+        ['liesBlue', 'f.lies_blue'],
+        ['claimsRed', 'f.claims_red'],
+        ['liesRed', 'f.lies_red'],
+      ] as const) {
+        const v = num(props[key]);
+        if (v) out.push([metric, v]);
+      }
+      break;
+    }
+    case 'election':
+      out.push(['f.elections', 1]);
+      if (props.passed === true) out.push(['f.elections_yes', 1]);
+      break;
+    case 'power': {
+      const kind = str(props.kind);
+      if (kind && HYDRA_POWERS.some(([k]) => k === kind)) out.push([`f.power.${kind}`, 1]);
+      break;
+    }
+  }
+  return out;
+}
+
+function hydraFigures(get: (metric: string) => number, metrics: Iterable<string>): GameFigure[] {
+  const games = get('f.games');
+  const counts = [...metrics]
+    .filter((m) => m.startsWith('f.n.'))
+    .map((m) => Number(m.slice(4)))
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b);
+  // Team and Leader names go out as `{role:…}` placeholders: the stats page names them.
+  return [
+    {
+      id: 'sides',
+      label: 'Wins by side',
+      kind: 'split',
+      parts: [
+        { label: '{role:blue}', value: get('f.bluewin') },
+        { label: '{role:red}', value: games - get('f.bluewin') },
+      ],
+    },
+    {
+      id: 'win-paths',
+      label: 'How games were won',
+      kind: 'split',
+      parts: HYDRA_HOWS.map(([k, label]) => ({ label, value: get(`f.how.${k}`) })),
+    },
+    {
+      id: 'blue-by-players',
+      label: 'Win rate by table size',
+      kind: 'matrix',
+      columns: counts.map((n) => `${n} players`),
+      units: counts.map(() => 'percent' as const),
+      rows: [
+        {
+          label: '{role:blue}',
+          values: counts.map((n) => pct(get(`f.bluewin.n${n}`), get(`f.n.${n}`))),
+        },
+      ],
+    },
+    {
+      id: 'rounds',
+      label: 'Governments per game',
+      kind: 'number',
+      value: avg(get('f.round_sum'), games),
+    },
+    {
+      id: 'elected',
+      label: 'Governments elected',
+      kind: 'percent',
+      value: pct(get('f.elections_yes'), get('f.elections')),
+    },
+    {
+      id: 'powers',
+      label: 'Powers used',
+      kind: 'split',
+      parts: HYDRA_POWERS.map(([k, label]) => ({ label, value: get(`f.power.${k}`) })),
+    },
+    {
+      id: 'honest-blue',
+      label: '{role:blue} claims that were true',
+      kind: 'percent',
+      value: pct(get('f.claims_blue') - get('f.lies_blue'), get('f.claims_blue')),
+    },
+    {
+      id: 'honest-red',
+      label: '{role:red} claims that were true',
+      kind: 'percent',
+      value: pct(get('f.claims_red') - get('f.lies_red'), get('f.claims_red')),
+    },
+    {
+      id: 'topdecks',
+      label: 'Chaos top-decks per game',
+      kind: 'number',
+      value: avg(get('f.chaos'), games),
+    },
+    { id: 'vetoes', label: 'Vetoes', kind: 'number', value: get('f.vetoes') },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
   if (gameId === 'round-table') return roundTableCounters(type, props);
   if (gameId === 'inquest') return inquestCounters(type, props);
   if (gameId === 'seance') return seanceCounters(type, props);
+  if (gameId === 'hydra') return hydraCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -977,6 +1114,8 @@ export function buildFigures(
       return inquestFigures(get, metrics);
     case 'seance':
       return seanceFigures(get);
+    case 'hydra':
+      return hydraFigures(get, metrics);
     case 'codenames':
       return [
         teams(false),

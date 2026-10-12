@@ -1,4 +1,5 @@
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
+import { guide as hydraGuide } from '@vt/private-hydra/guide';
 import { guide as inquestGuide } from '@vt/private-inquest/guide';
 import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-originals/guide';
 import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
@@ -11,6 +12,8 @@ import {
   nightfallLabels,
   originalsLabels,
   royalPostLabels,
+  hydraGuide as hydraNamedGuide,
+  hydraLabels,
 } from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
@@ -87,5 +90,14 @@ export const privateGames: ClientGame[] = [
     guide: seanceGuide,
     icon: '🕯️',
     Component: lazy(() => import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame }))),
+  },
+  {
+    id: 'hydra',
+    name: 'Hydra',
+    guide: hydraGuide,
+    icon: '🐍',
+    Component: lazy(() => import('@vt/private-hydra/ui').then((m) => ({ default: m.HydraGame }))),
+    labels: hydraLabels,
+    namedGuide: hydraNamedGuide,
   },
 ];

@@ -1,3 +1,5 @@
+import type { GameGuide } from '@vt/game-sdk';
+import { creditOf, footerOf, nameGuide, namesOf } from '@vt/private-hydra/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -71,4 +73,29 @@ export async function inquestLabels(): Promise<Labeler> {
     const n = decks[match[1] as 'clue' | 'means'][match[2]!];
     return typeof n === 'string' && n.trim() ? n.trim() : undefined;
   };
+}
+
+/** Hydra's teams and Leader (`{role:blue}`, `{role:red}`, `{role:leader}`) from its manifest names. */
+export async function hydraLabels(): Promise<Labeler> {
+  const names = obj((await manifest('hydra'))?.names);
+  const word = (k: string) => {
+    const v = names[k];
+    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
+  };
+  return (kind, id) => {
+    if (kind !== 'role') return undefined;
+    if (id === 'leader') return word('leader');
+    return id === 'blue' || id === 'red' ? word(id) : undefined;
+  };
+}
+
+/** Hydra's guide with the manifest's names, and the original game's credit as its footer. */
+export async function hydraGuide(): Promise<GameGuide> {
+  const m = await manifest('hydra');
+  const man = m as Parameters<typeof namesOf>[0];
+  const guide = nameGuide(namesOf(man), footerOf(creditOf(man)));
+  const tagline = obj(m?.guide).tagline;
+  return typeof tagline === 'string' && tagline.trim()
+    ? { ...guide, tagline: tagline.trim() }
+    : guide;
 }

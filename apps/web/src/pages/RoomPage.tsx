@@ -20,7 +20,7 @@ import {
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
-import { GuideView } from '../components/GuideView.tsx';
+import { GameGuideView } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
@@ -652,7 +652,7 @@ function Room({
         onClose={() => setGuideOpen(false)}
         title={`How to play ${game.name}`}
       >
-        <GuideView guide={game.guide} compact />
+        <GameGuideView game={game} compact />
         <Link
           to={`/rules/${game.id}`}
           target="_blank"

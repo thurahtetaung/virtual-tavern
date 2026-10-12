@@ -2,7 +2,7 @@ import type { GameSummary } from '@vt/protocol';
 import { Button, Panel } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { GuideView } from '../components/GuideView.tsx';
+import { GameGuideView } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import {
   type ClientGame,
@@ -141,7 +141,7 @@ export function RulesPage() {
         {game.icon} How to play {game.name}
       </h1>
       <p className="mb-6 text-lg text-stone-600 dark:text-stone-400">{game.guide.tagline}</p>
-      <GuideView guide={game.guide} />
+      <GameGuideView game={game} />
       <CreateRoom game={game} />
     </Layout>
   );

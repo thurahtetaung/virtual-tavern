@@ -1,0 +1,8 @@
+Hydra is an adaptation of a board game released under the Creative Commons
+Attribution-NonCommercial-ShareAlike 4.0 International licence
+(https://creativecommons.org/licenses/by-nc-sa/4.0/). This package (its rules engine, guide
+and interface) is shared under the same licence, unlike the rest of this repository.
+
+The full credit for the original game (its designers, its publisher, a link back to them and a
+list of what this adaptation changed) is shown in the game itself, to the players it is shared
+with. No card art or other material from the original is kept in this repository.
