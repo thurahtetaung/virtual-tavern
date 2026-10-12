@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.20.0...v0.21.0) (2026-10-12)
+
+
+### Features
+
+* **round-table:** add Round Table, a hidden-loyalty quest game ([#91](https://github.com/thurahtetaung/virtual-tavern/issues/91)) ([4cf36f3](https://github.com/thurahtetaung/virtual-tavern/commit/4cf36f33110eeda09052e2c19dd0ed15a1aac0e8))
+
 ## [0.20.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.19.0...v0.20.0) (2026-10-12)
 
 
