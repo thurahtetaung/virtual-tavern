@@ -425,7 +425,7 @@ describe('admin stats', () => {
       await act(host, { type: 'place-bullet', slot, item: slot });
     }
     const solver = clients.find((c) => c !== host && c !== murderer)!;
-    await solver.until((snap) => (snap.game as InquestView).game!.stage === 'present');
+    await solver.until((snap) => (snap.game as InquestView).game!.stage === 'discuss');
     await act(solver, { type: 'solve', target: me.id, clue: me.clue[2], means: me.means[1] });
     await Promise.all(
       clients.map((c) => c.until((snap) => (snap.game as InquestView).phase === 'over')),

@@ -18,12 +18,22 @@ export interface Manifest {
   clue?: Record<string, string>;
   means?: Record<string, string>;
   tiles?: Record<string, { title?: string; items?: string[]; text?: string; art?: string }>;
+  /** Bumped when art is re-uploaded under the same names (see `ART_VERSION`). */
+  artVersion?: number;
 }
 
 export type ManifestState = Manifest | null | 'unavailable';
 
-export const assetUrl = (path: string) =>
-  `/api/backroom/assets/${GAME_ID}/${path.replace(/^\/+/, '')}`;
+/**
+ * Which cut of the art the URLs ask for. Art is served `immutable`, so a browser keeps a file for a
+ * year; re-uploading changed art under the same names needs a new `?v=` to reach players who have
+ * it already. The manifest's `artVersion` wins, so a later re-cut needs no release.
+ * 2: the re-cut cards of Oct 2026 (no scan edges, one card size).
+ */
+export const ART_VERSION = 2;
+
+export const assetUrlFor = (path: string, version = ART_VERSION) =>
+  `/api/backroom/assets/${GAME_ID}/${path.replace(/^\/+/, '')}?v=${version}`;
 
 export function useManifest(): ManifestState {
   const [manifest, setManifest] = useState<ManifestState>(null);
@@ -75,6 +85,11 @@ export const placeholderTileTitle = (tile: number) =>
 
 export function contentFor(state: ManifestState): Content {
   const man = m(state);
+  const v =
+    typeof man?.artVersion === 'number' && Number.isInteger(man.artVersion) && man.artVersion > 0
+      ? man.artVersion
+      : ART_VERSION;
+  const assetUrl = (path: string) => assetUrlFor(path, v);
   return {
     art: !!man,
     cardName: (deck, n) =>

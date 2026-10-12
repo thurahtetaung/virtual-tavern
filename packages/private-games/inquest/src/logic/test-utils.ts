@@ -108,8 +108,8 @@ export function commit(h: Harness) {
   return { murderer: m.id, clue: m.clue[0]!, means: m.means[0]! };
 }
 
-/** Night, location and the six round-1 bullets: the game is then at the first presentation. */
-export function toPresentations(h: Harness, step = 5000) {
+/** Night, location and the six round-1 bullets: the game is then at the discussion. */
+export function toDiscussion(h: Harness, step = 5000) {
   const crime = commit(h);
   h.act({ type: 'pick-location', tile: 2 }, h.game().fs);
   for (let slot = 0; slot < 6; slot++) {
@@ -119,8 +119,22 @@ export function toPresentations(h: Harness, step = 5000) {
   return crime;
 }
 
-/** Everyone presents in turn until the round's presentations end. */
+/** The Forensic Scientist ends the discussion, when there is one. */
+export function startPresentations(h: Harness) {
+  if (h.state.phase === 'playing' && h.game().stage === 'discuss')
+    h.act({ type: 'start-presentations' }, h.game().fs);
+}
+
+/** Night, location, the six round-1 bullets and the discussion: then the first presentation. */
+export function toPresentations(h: Harness, step = 5000) {
+  const crime = toDiscussion(h, step);
+  startPresentations(h);
+  return crime;
+}
+
+/** Ends any discussion, then everyone presents in turn until the round's presentations end. */
 export function presentAll(h: Harness) {
+  startPresentations(h);
   const round = h.game().round;
   while (h.state.phase === 'playing' && h.game().stage === 'present' && h.game().round === round) {
     const p = h.game().present!;

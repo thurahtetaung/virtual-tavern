@@ -119,10 +119,18 @@ export function ArtCard({
         <span
           className={cn(
             'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent px-1 pt-3 pb-1 text-center leading-tight font-semibold text-white',
-            size === 'big' ? 'text-lg' : 'line-clamp-2 text-[11px]',
+            size === 'big' ? 'text-lg' : 'text-[11px]',
           )}
         >
-          {name}
+          {/* The crime's tag sits with the caption: at the top it would cover the printed name. */}
+          {key_ && (
+            <span className="mb-0.5 block">
+              <span className="rounded-full bg-rose-600 px-1.5 text-[10px] font-bold tracking-wide shadow">
+                {deck === 'clue' ? 'KEY' : 'MEANS'}
+              </span>
+            </span>
+          )}
+          <span className={cn('block', size !== 'big' && 'line-clamp-2')}>{name}</span>
         </span>
       )}
       {ruledOut && (
@@ -133,20 +141,32 @@ export function ArtCard({
           Ruled out
         </span>
       )}
-      {key_ && (
-        <span className="absolute top-1 left-1 rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white shadow">
+      {key_ && size === 'thumb' && (
+        <span className="absolute inset-x-0 bottom-0 bg-rose-600 text-center text-[8px] font-bold text-white">
           {deck === 'clue' ? 'KEY' : 'MEANS'}
+        </span>
+      )}
+      {selected && !mark && (
+        <span
+          aria-hidden
+          className="absolute top-1/2 left-1/2 flex size-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-amber-500 text-lg font-black text-stone-950 shadow-lg ring-2 ring-white"
+        >
+          ✓
         </span>
       )}
       <MarkBadge mark={mark} className="absolute top-1 right-1" />
     </>
   );
+  // One ring at a time: ring utilities don't override each other by class order.
   const classes = cn(
-    'relative block aspect-[315/510] w-full overflow-hidden rounded-lg bg-stone-800 shadow ring-1 ring-black/20 select-none [-webkit-touch-callout:none]',
+    'relative block aspect-[315/510] w-full overflow-hidden rounded-lg bg-stone-800 shadow select-none [-webkit-touch-callout:none]',
     ruledOut && 'opacity-55 grayscale',
     mark === 'cross' && !ruledOut && 'opacity-60',
-    selected && 'ring-4 ring-amber-500 dark:ring-amber-400',
-    key_ && 'ring-2 ring-rose-500',
+    selected
+      ? 'ring-4 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-amber-400 dark:ring-offset-stone-900'
+      : key_
+        ? 'ring-2 ring-rose-500'
+        : 'ring-1 ring-black/20',
     className,
   );
   if (!onTap && !onLongPress)

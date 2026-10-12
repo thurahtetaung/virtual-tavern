@@ -6,7 +6,9 @@ import {
   type Harness,
   presentAll,
   stackPile,
+  startPresentations,
   startedGame,
+  toDiscussion,
   toPresentations,
 } from './test-utils.ts';
 import type { RoleId } from './types.ts';
@@ -37,6 +39,13 @@ function checkViews(h: Harness, label: string) {
     // The draw pile's order never leaves the server.
     expect(json, at).not.toContain('"pile"');
     expect(json, at).not.toContain('"seed"');
+    // The Forensic Scientist is public: everyone, spectators included, sees who it is.
+    expect(v.game!.fs, at).toBe(g.fs);
+    expect(v.game!.formerFs, at).toEqual(g.formerFs);
+    expect(
+      v.game!.players.filter((p) => p.isFs).map((p) => p.id),
+      at,
+    ).toEqual([g.fs]);
     // Roles: your own, or everyone's at the end.
     for (const [id, role] of Object.entries(ROLES)) {
       const p = v.game!.players.find((x) => x.id === id)!;
@@ -83,7 +92,17 @@ describe('view() redaction, every viewer at every phase', () => {
   it('night, collection, presentations, an event, the Reversal and the end', () => {
     const h = six();
     checkViews(h, 'night');
-    const crime = toPresentations(h);
+    const crime = toDiscussion(h);
+    checkViews(h, 'discussion round 1');
+    // The discussion is the same for everyone: stage and soft clock, nothing more.
+    for (const viewer of VIEWERS)
+      expect(inquest.view(h.state, viewer).game, `${viewer}`).toMatchObject({
+        stage: 'discuss',
+        deadline: h.game().deadline,
+        present: null,
+        step: null,
+      });
+    startPresentations(h);
     checkViews(h, 'present round 1');
     stackPile(h, [EVENT_TILES['useful-clue']]);
     presentAll(h);
@@ -133,5 +152,26 @@ describe('view() redaction, every viewer at every phase', () => {
     expect(inquest.view(h.state, fs).game!.solution).not.toBeNull();
     for (const other of ['cy', 'dee', 'eve'].filter((id) => id !== fs))
       expect(inquest.view(h.state, other).game!.solution).toBeNull();
+  });
+
+  it('after a handover everyone sees the new and former Forensic Scientist, but no hidden role', () => {
+    const h = six();
+    toPresentations(h);
+    h.act({ type: 'hand-over' }, HOST);
+    const fs = h.game().fs;
+    expect(fs).not.toBe(HOST);
+    for (const viewer of VIEWERS) {
+      const g = inquest.view(h.state, viewer).game!;
+      const at = viewer ?? 'spectator';
+      expect(g.fs, at).toBe(fs);
+      expect(g.formerFs, at).toEqual([HOST]);
+      expect(g.players.find((p) => p.id === HOST)!.formerFs, at).toBe(true);
+      expect(g.players.find((p) => p.id === fs)!.isFs, at).toBe(true);
+      // The new Forensic Scientist's dealt role stays theirs alone.
+      if (viewer !== fs) expect(g.players.find((p) => p.id === fs)!.role, at).toBeNull();
+      expect(g.roles, at).toBeNull();
+    }
+    expect(inquest.view(h.state, fs).game!.myRole).toBe('forensic');
+    expect(inquest.view(h.state, HOST).game!.myRole).toBe('former-forensic');
   });
 });

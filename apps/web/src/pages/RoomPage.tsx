@@ -495,12 +495,18 @@ function Room({
 
   return (
     <Layout wide>
-      {/* One compact row: on phones each button is an icon over a one-word label. */}
-      <div className="mb-3 flex items-center justify-between gap-2 sm:mb-4">
-        <h1 className="truncate text-xl font-bold sm:text-2xl">
+      {/* One compact row: on phones each button is an icon over a one-word label. On phones a long
+          title gets its own line, and buttons that leave a title too little room wrap below it. */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+        <h1
+          className={cn(
+            'line-clamp-2 min-w-0 flex-[1_1_9.5rem] text-xl leading-tight font-bold [overflow-wrap:anywhere] sm:text-2xl',
+            game.name.length > 16 && 'max-sm:basis-full',
+          )}
+        >
           <span aria-hidden>{game.icon}</span> {game.name}
         </h1>
-        <div className="flex shrink-0 gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 gap-1.5 sm:gap-2">
           {/* Nobody can be invited to a playtest: it is the admin's alone. */}
           {!playtest && <InviteButton />}
           <Button

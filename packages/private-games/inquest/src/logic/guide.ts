@@ -11,8 +11,8 @@ export const guide: GameGuide = {
   quickStart: [
     'Everyone but the Forensic Scientist holds Clue and Means cards, face up for all to see. One of you is the secret Murderer.',
     'At night the Murderer picks one of their own Clue cards and one of their own Means cards: that pair is the crime.',
-    'The Forensic Scientist knows the crime but may only hint by placing bullets on the scene tiles. Watch the order and the pauses.',
-    'After the bullets, everyone presents their theory in turn (about 30 seconds each). Talk freely between turns.',
+    'The Forensic Scientist knows the crime but may only hint with bullets on the scene tiles. Talk it over as they land: their order can be a clue.',
+    'Then the heart of the game: the whole table discusses the evidence together, before the Forensic Scientist starts the presentations.',
     'Think you know? Tap Solve and name one suspect’s Clue + Means. You get one attempt (your badge).',
     'Three rounds, each with a new tile and bullet. Nobody right by the end of round 3: the Murderer wins.',
   ],
@@ -25,7 +25,7 @@ export const guide: GameGuide = {
     {
       name: 'Forensic Scientist',
       summary:
-        'Knows the answer and guides the table only with bullets on the scene tiles: never with words, faces or gestures. Wins with the Investigators.',
+        'Not a secret: everyone knows who the Forensic Scientist is, and their card is shown face up. Knows the answer and guides the table only with bullets on the scene tiles: never with words, faces or gestures. Wins with the Investigators.',
     },
     {
       name: 'Murderer',
@@ -59,14 +59,24 @@ export const guide: GameGuide = {
       bullets: [
         'Round 1: the Forensic Scientist picks a Location tile. With the Cause of Death tile and 4 scene tiles, that makes 6 tiles, each listing 6 items.',
         'They place one bullet on each tile, one at a time, marking the item that best fits the crime. Bullets never move once placed.',
-        'Everyone sees the order and the time between bullets. Hesitation is a clue too.',
-        'Rounds 2 and 3: a new tile is drawn and replaces one of the scene tiles (never the Location or Cause of Death), and gets its own bullet.',
+        'From the first bullet on, everyone but the Forensic Scientist talks freely, and the Forensic Scientist places the next bullets at their own pace, guided by what they hear. Everyone sees the order bullets land in: it can be a clue.',
+        'Rounds 2 and 3: any events come first, then a new tile is drawn and replaces one of the scene tiles (never the Location or Cause of Death), and gets its own bullet.',
+      ],
+    },
+    {
+      title: 'Discussion (the heart of the game)',
+      bullets: [
+        'This is where cases are cracked: argue over what each bullet means, compare suspects’ cards, test theories out loud and watch who pushes which story. The Murderer is in the conversation too.',
+        'Every round, once the last bullet is down, the table discusses the evidence before anyone presents. The round’s new bullets are highlighted.',
+        'The host sets the discussion time in the lobby: 1, 2, 3 or 5 minutes (2 by default), or off. It is a reminder: nothing happens by itself at 0, the clock just turns red and nudges the Forensic Scientist.',
+        'The Forensic Scientist taps Start presentations whenever the table is ready, early or late. If they are away, the host can start them.',
+        'You can solve during the discussion.',
       ],
     },
     {
       title: 'Presentations',
       bullets: [
-        'After the bullets, players present in turn, starting left of the Forensic Scientist: say which cards you suspect and why.',
+        'After the discussion, players present in turn, starting left of the Forensic Scientist: say which cards you suspect and why.',
         'Nobody interrupts a speaker, except to solve. Between presentations, talk as much as you like.',
         'The host picks the time per speaker and whether it is a reminder (the speaker taps Done, or the host skips) or strict (the turn passes by itself).',
       ],
@@ -102,8 +112,9 @@ export const guide: GameGuide = {
     },
   ],
   tips: [
+    'Use the discussion: say your reading of every bullet out loud and challenge other people’s. A quiet table helps the Murderer.',
     'Long-press a card to mark it ⭐ suspicious or ✕ ruled out. Only you see your marks.',
-    'The first bullets are usually the surest: a bullet placed after a long pause may be a compromise.',
+    'The first bullets are usually the surest: a later bullet may be a compromise, after the table’s talk pulled the Forensic Scientist somewhere less clear.',
     'Murderer: present a confident theory about someone else, and don’t defend your own cards too hard.',
     'Witness: steer the table gently, or the culprits will name you in the Reversal.',
   ],
@@ -112,5 +123,10 @@ export const guide: GameGuide = {
     { term: 'Means', meaning: 'The Means card the Murderer chose: how it was done.' },
     { term: 'Badge', meaning: 'Your one attempt to solve.' },
     { term: 'Bullet', meaning: 'The Forensic Scientist’s marker on one item of a tile.' },
+    {
+      term: 'Discussion',
+      meaning:
+        'The open talk after each round’s bullets, before the presentations: where the table works the case out together.',
+    },
   ],
 };

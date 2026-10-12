@@ -260,19 +260,23 @@ export function EventCard({
       title={kind ? `Event: ${content.eventName(kind)}` : ''}
     >
       {kind && (
-        <div className="flex gap-3">
-          {art && (
-            <ProtectedImage
-              src={art}
-              alt=""
-              className="h-48 w-auto shrink-0 rounded-lg object-contain"
-            />
-          )}
-          <div className="space-y-2">
-            <p>{EVENT_TEXT[kind]}</p>
-            {pending && <p className="font-semibold">{pending}</p>}
-            <Button onClick={onClose}>Got it</Button>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            {/* The tile's own print is too small to read, so only its heading shows, as a badge. */}
+            {art && (
+              <ProtectedImage
+                src={art}
+                alt=""
+                aria-hidden
+                className="size-16 shrink-0 rounded-lg object-cover object-top shadow ring-1 ring-black/20"
+              />
+            )}
+            <p className="text-base leading-snug">{EVENT_TEXT[kind]}</p>
           </div>
+          {pending && <p className="font-semibold">{pending}</p>}
+          <Button className="w-full sm:w-auto" onClick={onClose}>
+            Got it
+          </Button>
         </div>
       )}
     </Modal>

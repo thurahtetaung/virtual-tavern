@@ -18,6 +18,13 @@ export const EVENT_TURN_SECONDS = 30;
 export const PRESENT_SECONDS_OPTIONS = [20, 30, 45, 60, 90] as const;
 export type PresentSeconds = (typeof PRESENT_SECONDS_OPTIONS)[number];
 export const DEFAULT_PRESENT_SECONDS: PresentSeconds = 30;
+/**
+ * The talk between the last bullet and the presentations, every round: a soft timer (nothing
+ * happens at 0; the Forensic Scientist starts the presentations), or 0 for none.
+ */
+export const DISCUSS_SECONDS_OPTIONS = [0, 60, 120, 180, 300] as const;
+export type DiscussSeconds = (typeof DISCUSS_SECONDS_OPTIONS)[number];
+export const DEFAULT_DISCUSS_SECONDS: DiscussSeconds = 120;
 export const ROUNDS = 3;
 /** Bullets in the first round: one per tile. */
 export const FIRST_ROUND_BULLETS = SLOT_COUNT;
@@ -52,7 +59,12 @@ export interface Settings {
   hand: HandSize;
   presentSeconds: PresentSeconds;
   presentMode: TimerMode;
+  /** Rooms saved before the discussion step have none: read it with `discussSecondsOf`. */
+  discussSeconds?: DiscussSeconds;
 }
+
+export const discussSecondsOf = (s: Settings): DiscussSeconds =>
+  s.discussSeconds ?? DEFAULT_DISCUSS_SECONDS;
 
 export interface Seat {
   name: string;
@@ -91,7 +103,10 @@ export interface Bullet {
   item: number;
   round: number;
   at: number;
-  /** Milliseconds since the previous bullet (or since the round's tiles were laid). */
+  /**
+   * Milliseconds since the previous bullet (or since the round's tiles were laid). Kept for old
+   * records, but never shown: the table talks between bullets, so the gaps measure the talk.
+   */
   gapMs: number;
   /** Erroneous Information moved this bullet from another item. */
   movedFrom?: number;
@@ -168,7 +183,8 @@ export interface Game {
   fs: PlayerId;
   /** Forensic Scientists who were replaced: they watch, knowing the answer. */
   formerFs: PlayerId[];
-  stage: 'night' | 'collect' | 'present' | 'reversal' | 'done';
+  /** `discuss`: the table talks the evidence over before the presentations, every round. */
+  stage: 'night' | 'collect' | 'discuss' | 'present' | 'reversal' | 'done';
   round: number;
   /** The last presentation round: 3, or the round a Countdown came up in. */
   finalRound: number;
@@ -188,7 +204,7 @@ export interface Game {
   /** Whether the events have been shuffled in (after round 1). */
   eventsIn: boolean;
   bullets: Bullet[];
-  /** When the last bullet (or the round's tiles) went down, for the pauses between bullets. */
+  /** When the last bullet (or the round’s tiles) went down: the stored gaps (never shown). */
   lastMark: number;
   step: CollectStep | null;
   /** Whether this round's new tile has been drawn and placed (rounds 2 and 3). */
@@ -248,6 +264,9 @@ export const actionSchema = z.discriminatedUnion('type', [
       .union([z.literal(20), z.literal(30), z.literal(45), z.literal(60), z.literal(90)])
       .optional(),
     presentMode: z.enum(['soft', 'hard']).optional(),
+    discussSeconds: z
+      .union([z.literal(0), z.literal(60), z.literal(120), z.literal(180), z.literal(300)])
+      .optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('volunteer'), on: z.boolean() }),
@@ -262,6 +281,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('rule-out'), clue: card }),
   z.object({ type: z.literal('move-bullet'), slot, item }),
   z.object({ type: z.literal('testify'), slot }),
+  z.object({ type: z.literal('start-presentations') }),
   z.object({ type: z.literal('done-presenting') }),
   z.object({ type: z.literal('skip-speaker') }),
   z.object({ type: z.literal('solve'), target: id, clue: card, means: card }),

@@ -34,6 +34,9 @@ export function waitingOn(view: InquestView): Waiting | null {
       return { ids: [], label: 'the Murderer and the Accomplice' };
     case 'present':
       return g.present ? { ids: [g.present.order[g.present.index]!] } : null;
+    case 'discuss':
+      // Everyone talks; the Forensic Scientist's button ends it.
+      return null;
     case 'collect': {
       const ev = g.event;
       if (ev?.kind === 'ruled-out') return ev.current ? { ids: [ev.current] } : null;
@@ -94,12 +97,15 @@ export function statusFor(
   const role = g.myRole;
   const fs = role === 'forensic';
   const lead = roleLine(role, g, view);
-  const fsName = nameOf(view, g.fs);
+  // Watchers already see a "you're watching" banner, so their status skips the lead.
+  const withLead = (text: string) => (role === null ? text : `${lead} ${text}`);
+  // The Forensic Scientist is no secret, so the status names them by their role.
+  const fsName = `Forensic Scientist ${nameOf(view, g.fs)}`;
   switch (g.stage) {
     case 'night':
       return role === 'murderer'
         ? { text: 'Murderer: pick 1 Clue + 1 Means from your own cards.', yourMove: true }
-        : { text: `${lead} Night falls: the Murderer is choosing the crime…`, yourMove: false };
+        : { text: withLead('Night falls: the Murderer is choosing the crime…'), yourMove: false };
     case 'reversal':
       if (role === 'murderer')
         return {
@@ -115,6 +121,20 @@ export function statusFor(
         text: 'Solved! But the culprits get one last chance: if they find the Witness, they win.',
         yourMove: false,
       };
+    case 'discuss': {
+      const late = g.deadline !== null && secondsLeft === 0;
+      if (fs)
+        return late
+          ? { text: 'Time’s up: start the presentations.', yourMove: true }
+          : {
+              text: 'The table is discussing the evidence. Start the presentations when they’re ready.',
+              yourMove: true,
+            };
+      return {
+        text: `Discuss the evidence: this round’s new bullets are highlighted. ${fsName} starts the presentations.`,
+        yourMove: false,
+      };
+    }
     case 'present': {
       const p = g.present!;
       const speaker = p.order[p.index]!;
@@ -126,7 +146,7 @@ export function statusFor(
       const up = next ? ` Up next: ${next === me?.id ? 'you' : nameOf(view, next)}.` : '';
       const tail = g.round >= g.finalRound ? ` ${left} speaker${left === 1 ? '' : 's'} left.` : '';
       return {
-        text: `${nameOf(view, speaker)} is presenting.${up}${tail}${fs ? '' : ` ${lead}`}`,
+        text: `${nameOf(view, speaker)} is presenting.${up}${tail}${fs || role === null ? '' : ` ${lead}`}`,
         yourMove: false,
       };
     }
@@ -166,19 +186,24 @@ export function statusFor(
       if (step === 'pick-location')
         return fs
           ? { text: 'Pick the Location tile for this crime.', yourMove: true }
-          : { text: `${lead} ${fsName} is picking the Location…`, yourMove: false };
+          : { text: withLead(`${fsName} is picking the Location…`), yourMove: false };
       if (step === 'replace')
         return fs
           ? { text: 'A new tile: tap the scene tile it replaces.', yourMove: true }
-          : { text: `${lead} ${fsName} is swapping in a new tile…`, yourMove: false };
-      if (fs) {
-        const missing = g.slots.filter((s) => s.bullet === null).length;
-        const placed = g.slots.length - missing;
-        return g.round === 1
-          ? { text: `Place bullet ${placed + 1} of ${g.slots.length}.`, yourMove: true }
-          : { text: 'Place a bullet on the new tile.', yourMove: true };
-      }
-      return { text: lead, yourMove: false };
+          : { text: withLead(`${fsName} is swapping in a new tile…`), yourMove: false };
+      // The table talks while the bullets land; the Forensic Scientist takes their time.
+      const missing = g.slots.filter((s) => s.bullet === null).length;
+      const count = `${g.slots.length - missing + 1} of ${g.slots.length}`;
+      const which = g.round === 1 ? `bullet ${count}` : 'the new tile’s bullet';
+      if (fs)
+        return {
+          text: `Place ${g.round === 1 ? `the next bullet (${count})` : 'the new tile’s bullet'} when you’re ready. Take your time; let the table talk.`,
+          yourMove: true,
+        };
+      return {
+        text: `Talk it over as the bullets land: the order can be a clue. ${fsName} is placing ${which}.`,
+        yourMove: false,
+      };
     }
     default:
       return { text: lead, yourMove: false };

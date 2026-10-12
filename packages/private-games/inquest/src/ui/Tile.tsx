@@ -26,6 +26,10 @@ const accent = (tile: number) =>
 
 interface Props {
   tile: number;
+  /** Shown instead of the tile's title (the Location picker letters its look-alike tiles). */
+  label?: string;
+  /** Let a long title wrap instead of truncating (the big table screen). */
+  wrapTitle?: boolean;
   bullet: number | null;
   content: Content;
   /** Tapping an item (placing or moving a bullet). */
@@ -34,6 +38,8 @@ interface Props {
   pending?: number | null;
   /** The newest bullet: it pulses. */
   fresh?: boolean;
+  /** Its bullet is new this round (highlighted during the discussion). */
+  isNew?: boolean;
   /** Tapping the whole tile (choosing which tile to replace, or a Location). */
   onTile?: () => void;
   selected?: boolean;
@@ -49,11 +55,14 @@ interface Props {
 /** A scene tile in our own style: its title and six items, with the bullet on one of them. */
 export function Tile({
   tile,
+  label,
+  wrapTitle,
   bullet,
   content,
   onItem,
   pending,
   fresh,
+  isNew,
   onTile,
   selected,
   dim,
@@ -61,13 +70,14 @@ export function Tile({
   slot,
   className,
 }: Props) {
-  const title = content.tileTitle(tile);
+  const title = label ?? content.tileTitle(tile);
   const items = Array.from({ length: 6 }, (_, i) => i);
   const body = (
     <>
       <h4
         className={cn(
-          'truncate px-1 text-center text-[11px] font-black tracking-wide uppercase',
+          'px-1 text-center text-[11px] font-black tracking-wide uppercase',
+          wrapTitle ? 'leading-tight text-balance' : 'truncate',
           accent(tile),
         )}
       >
@@ -88,8 +98,13 @@ export function Tile({
                     fresh && 'animate-pulse motion-reduce:animate-none',
                   )}
                 >
+                  {isNew && (
+                    <span className="rounded bg-amber-400 px-0.5 text-[0.7em] font-black text-amber-950 uppercase">
+                      new
+                    </span>
+                  )}
                   {order ? (
-                    <span className="text-[9px] font-bold text-amber-200">{order}</span>
+                    <span className="text-[0.75em] font-bold text-amber-200">{order}</span>
                   ) : null}
                   <BulletIcon />
                 </span>
@@ -128,10 +143,14 @@ export function Tile({
       </ol>
     </>
   );
+  // One ring at a time: utilities of the same kind don't override each other by class order.
   const cls = cn(
-    'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow ring-1 ring-stone-700 dark:bg-stone-950',
-    fresh && 'ring-2 ring-amber-400',
-    selected && 'ring-4 ring-sky-400',
+    'block w-full rounded-xl bg-stone-900 p-1.5 text-left shadow dark:bg-stone-950',
+    selected
+      ? 'ring-4 ring-sky-400'
+      : fresh || isNew
+        ? 'ring-2 ring-amber-400'
+        : 'ring-1 ring-stone-700',
     dim && 'opacity-50',
     className,
   );
@@ -140,7 +159,7 @@ export function Tile({
       type="button"
       data-tile={tile}
       data-slot={slot}
-      className={cn(cls, 'cursor-pointer hover:ring-sky-400')}
+      className={cn(cls, 'cursor-pointer', !selected && !fresh && !isNew && 'hover:ring-sky-400')}
       onClick={onTile}
       aria-pressed={selected}
       aria-label={`Tile: ${title}`}
@@ -148,7 +167,7 @@ export function Tile({
       {body}
     </button>
   ) : (
-    <section aria-label={`Tile: ${title}`} className={cls}>
+    <section aria-label={`Tile: ${title}`} data-slot={slot} className={cls}>
       {body}
     </section>
   );
