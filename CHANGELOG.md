@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.23.0...v0.24.0) (2026-10-12)
+
+
+### Features
+
+* **seance:** add Séance, a ghost-and-psychics vision game in the back room ([#97](https://github.com/thurahtetaung/virtual-tavern/issues/97)) ([d608a99](https://github.com/thurahtetaung/virtual-tavern/commit/d608a997290cb0b77519658cb3f2f3f85dfca6da))
+
 ## [0.23.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.22.0...v0.23.0) (2026-10-12)
 
 
