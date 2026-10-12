@@ -4,6 +4,7 @@ import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-origin
 import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
+import { guide as seanceGuide } from '@vt/private-seance/guide';
 import { lazy } from 'react';
 import {
   inquestLabels,
@@ -79,5 +80,12 @@ export const privateGames: ClientGame[] = [
       import('@vt/private-inquest/ui').then((m) => ({ default: m.InquestGame })),
     ),
     labels: inquestLabels,
+  },
+  {
+    id: 'seance',
+    name: 'Séance',
+    guide: seanceGuide,
+    icon: '🕯️',
+    Component: lazy(() => import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame }))),
   },
 ];

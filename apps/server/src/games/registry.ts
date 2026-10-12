@@ -10,6 +10,7 @@ import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { nightfall } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
+import { seance } from '@vt/private-seance/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -39,6 +40,7 @@ export function buildGames(): GameRegistry {
     masqueradeOriginals,
     nightfall,
     inquest,
+    seance,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

@@ -22,6 +22,7 @@
     "@vt/private-nightfall": "workspace:*",
     "@vt/private-reverie": "workspace:*",
     "@vt/private-royal-post": "workspace:*",
+    "@vt/private-seance": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",
     "echarts": "^6.1.0",

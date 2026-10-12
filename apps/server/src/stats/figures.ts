@@ -39,6 +39,10 @@ import type { GameFigure } from '@vt/protocol';
 //              solvedBy, solveS, firstTry, fs, murderer, accomplice, witness, witnessFound,
 //              bluffers, nearMisses, maxGapS…}, event {kind}, solve {correct; recap: target,
 //              clue, means, round}, bullet {recap: tile, item, seq, gapS, round, moved}
+//   seance     outcome {win, how, hour, difficulty, ravens; recap: ghost, players, visions,
+//              topLevel…}, vision {cards; recap: to, pillar, hour}, guess {correct, tries; recap:
+//              pillar, hour, visions, card}, clairvoyance {hit; recap: target, kind},
+//              raven {recap: hour}, finish {recap: hour, level}, vote {recap: group, right}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -681,11 +685,124 @@ function inquestFigures(get: (metric: string) => number, metrics: Iterable<strin
   ];
 }
 
+const SEANCE_ENDINGS: [string, string][] = [
+  ['culprit', 'Culprit found'],
+  ['wrong', 'Wrong group'],
+  ['no-votes', 'No votes'],
+  ['clock', 'Clock ran out'],
+];
+const SEANCE_LEVELS = ['easy', 'medium', 'hard'] as const;
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+
+function seanceCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const how = str(props.how);
+      if (how && SEANCE_ENDINGS.some(([k]) => k === how)) out.push([`f.how.${how}`, 1]);
+      const level = str(props.difficulty);
+      const known = SEANCE_LEVELS.find((l) => l === level);
+      if (known) out.push([`f.d.${known}`, 1]);
+      if (props.win === true) {
+        out.push(['f.win', 1]);
+        if (known) out.push([`f.win.${known}`, 1]);
+      }
+      const hour = num(props.hour);
+      if (props.win === true && hour !== null && hour >= 1 && hour <= 7)
+        out.push([`f.win_hour.${hour}`, 1]);
+      out.push(['f.ravens', num(props.ravens) ?? 0]);
+      break;
+    }
+    case 'guess':
+      out.push(['f.guesses', 1]);
+      if (props.correct === true) {
+        out.push(['f.guesses_yes', 1]);
+        if (props.tries === 1) out.push(['f.first_try', 1]);
+      }
+      break;
+    case 'vision':
+      out.push(['f.sends', 1], ['f.send_cards', num(props.cards) ?? 0]);
+      break;
+    case 'clairvoyance':
+      out.push(['f.tokens', 1]);
+      if (props.hit === true) out.push(['f.tokens_hit', 1]);
+      break;
+  }
+  return out;
+}
+
+function seanceFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'win-rate',
+      label: 'Ghosts laid to rest',
+      kind: 'percent',
+      value: pct(get('f.win'), games),
+    },
+    {
+      id: 'win-by-difficulty',
+      label: 'Win rate by difficulty',
+      kind: 'matrix',
+      columns: ['Easy', 'Medium', 'Hard'],
+      units: ['percent', 'percent', 'percent'],
+      rows: [
+        {
+          label: 'Won',
+          values: SEANCE_LEVELS.map((l) => pct(get(`f.win.${l}`), get(`f.d.${l}`))),
+        },
+      ],
+    },
+    {
+      id: 'endings',
+      label: 'How séances ended',
+      kind: 'split',
+      parts: SEANCE_ENDINGS.map(([k, label]) => ({ label, value: get(`f.how.${k}`) })),
+    },
+    {
+      id: 'win-hour',
+      label: 'Wins, by the hour the last card was found',
+      kind: 'split',
+      parts: ROMAN.map((label, i) => ({
+        label: `Hour ${label}`,
+        value: get(`f.win_hour.${i + 1}`),
+      })),
+    },
+    {
+      id: 'guess-accuracy',
+      label: 'Guesses that were right',
+      kind: 'percent',
+      value: pct(get('f.guesses_yes'), get('f.guesses')),
+    },
+    {
+      id: 'first-try',
+      label: 'Cards found on the first try',
+      kind: 'percent',
+      value: pct(get('f.first_try'), get('f.guesses_yes')),
+    },
+    {
+      id: 'clairvoyance-accuracy',
+      label: 'Clairvoyance tokens that scored',
+      kind: 'percent',
+      value: pct(get('f.tokens_hit'), get('f.tokens')),
+    },
+    {
+      id: 'cards-per-vision',
+      label: 'Cards per vision',
+      kind: 'number',
+      value: avg(get('f.send_cards'), get('f.sends')),
+    },
+    { id: 'ravens', label: 'Ravens per game', kind: 'number', value: avg(get('f.ravens'), games) },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
   if (gameId === 'round-table') return roundTableCounters(type, props);
   if (gameId === 'inquest') return inquestCounters(type, props);
+  if (gameId === 'seance') return seanceCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -857,6 +974,8 @@ export function buildFigures(
       return roundTableFigures(get, metrics);
     case 'inquest':
       return inquestFigures(get, metrics);
+    case 'seance':
+      return seanceFigures(get);
     case 'codenames':
       return [
         teams(false),
