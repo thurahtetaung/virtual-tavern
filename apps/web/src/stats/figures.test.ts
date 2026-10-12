@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  nameFigure,
   MAX_SPLIT_PARTS,
   cloudSize,
   figureModel,
@@ -194,5 +195,30 @@ describe('matrix figures', () => {
     });
     expect(matrixCell(50, 'percent')).toBe('50%');
     expect(matrixCell(4, 'count')).toBe('4');
+  });
+});
+
+describe('private placeholders in figure labels', () => {
+  const fig = {
+    id: 'top-means',
+    label: 'Means used most',
+    kind: 'split' as const,
+    parts: [
+      { label: '{card:means-4}', value: 3 },
+      { label: 'Round 1', value: 1 },
+    ],
+  };
+
+  it('names them through the game’s labeler', () => {
+    const named = nameFigure(fig, (kind, id) =>
+      kind === 'card' && id === 'means-4' ? 'Rope' : undefined,
+    );
+    expect(named).toMatchObject({ parts: [{ label: 'Rope' }, { label: 'Round 1' }] });
+  });
+
+  it('falls back to readable ids without one', () => {
+    expect(nameFigure(fig, null)).toMatchObject({
+      parts: [{ label: 'Means 4' }, { label: 'Round 1' }],
+    });
   });
 });

@@ -35,6 +35,10 @@ import type { GameFigure } from '@vt/protocol';
 //              heartbreaks, plague, hitman, alien, abducted, cow, cowTipped, blobSquad,
 //              undertaker, foresaw, synthetic, …; recap:
 //              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
+//   inquest    outcome {winner, how, players, solvedRound, bulletsBeforeSolve, clue, means; recap:
+//              solvedBy, solveS, firstTry, fs, murderer, accomplice, witness, witnessFound,
+//              bluffers, nearMisses, maxGapS…}, event {kind}, solve {correct; recap: target,
+//              clue, means, round}, bullet {recap: tile, item, seq, gapS, round, moved}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -556,10 +560,132 @@ function roundTableFigures(
   ];
 }
 
+/** Inquest's events, in pile order, with our own names (the tile titles are private). */
+const INQUEST_EVENTS: [string, string][] = [
+  ['useful-clue', 'Fresh Lead'],
+  ['good-twist', 'Second Chance'],
+  ['ruled-out', 'Cleared Evidence'],
+  ['erroneous', 'Shifted Bullet'],
+  ['countdown', 'Last Call'],
+  ['testimony', 'Secret Tip'],
+];
+/** A card id as Inquest reports it: `clue-17`, `means-4`. */
+const inquestCard = (v: unknown, kind: 'clue' | 'means') =>
+  typeof v === 'string' && new RegExp(`^${kind}-\\d{1,3}$`).test(v) ? v : null;
+
+function inquestCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      const n = num(props.players);
+      out.push(['f.games', 1]);
+      if (n !== null) out.push([`f.n.${n}`, 1]);
+      if (props.winner === 'murderer') {
+        out.push(['f.mwin', 1]);
+        if (n !== null) out.push([`f.mwin.n${n}`, 1]);
+      }
+      const round = num(props.solvedRound);
+      if (round !== null) {
+        out.push(['f.solved', 1], [`f.solved_round.${round}`, 1]);
+        out.push(['f.bullets_before', num(props.bulletsBeforeSolve) ?? 0]);
+      }
+      const clue = inquestCard(props.clue, 'clue');
+      if (clue) out.push([`f.card.${clue}`, 1]);
+      const means = inquestCard(props.means, 'means');
+      if (means) out.push([`f.card.${means}`, 1]);
+      break;
+    }
+    case 'event': {
+      const kind = str(props.kind);
+      if (kind && INQUEST_EVENTS.some(([k]) => k === kind)) out.push([`f.event.${kind}`, 1]);
+      break;
+    }
+    case 'solve':
+      out.push(['f.solves', 1]);
+      if (props.correct === true) out.push(['f.solves_yes', 1]);
+      break;
+  }
+  return out;
+}
+
+function inquestFigures(get: (metric: string) => number, metrics: Iterable<string>): GameFigure[] {
+  const list = [...metrics];
+  const games = get('f.games');
+  const counts = list
+    .filter((m) => m.startsWith('f.n.'))
+    .map((m) => Number(m.slice(4)))
+    .filter((n) => Number.isInteger(n))
+    .sort((a, b) => a - b);
+  // Cards go out as `{card:means-4}` placeholders: the stats page names them from the manifest.
+  const topCards = (kind: 'clue' | 'means') =>
+    list
+      .filter((m) => m.startsWith(`f.card.${kind}-`))
+      .map((m) => ({ id: m.slice(7), value: get(m) }))
+      .filter((c) => c.value > 0)
+      .sort((a, b) => b.value - a.value || a.id.localeCompare(b.id))
+      .slice(0, 8)
+      .map((c) => ({ label: `{card:${c.id}}`, value: c.value }));
+  const rounds = [1, 2, 3];
+  return [
+    {
+      id: 'solve-rate',
+      label: 'Cases solved',
+      kind: 'percent',
+      value: pct(get('f.solved'), games),
+    },
+    {
+      id: 'murderer-win-rate',
+      label: 'Games the Murderer’s side won',
+      kind: 'percent',
+      value: pct(get('f.mwin'), games),
+    },
+    {
+      id: 'solves-by-round',
+      label: 'Cases solved, by round',
+      kind: 'split',
+      parts: rounds.map((r) => ({ label: `Round ${r}`, value: get(`f.solved_round.${r}`) })),
+    },
+    {
+      id: 'murderer-by-players',
+      label: 'Murderer’s side win rate by table size',
+      kind: 'matrix',
+      columns: counts.map((n) => `${n} players`),
+      units: counts.map(() => 'percent' as const),
+      rows: [
+        {
+          label: 'Murderer’s side',
+          values: counts.map((n) => pct(get(`f.mwin.n${n}`), get(`f.n.${n}`))),
+        },
+      ],
+    },
+    {
+      id: 'solve-accuracy',
+      label: 'Solve attempts that were right',
+      kind: 'percent',
+      value: pct(get('f.solves_yes'), get('f.solves')),
+    },
+    {
+      id: 'bullets-before-solve',
+      label: 'Bullets placed before the solve',
+      kind: 'number',
+      value: avg(get('f.bullets_before'), get('f.solved')),
+    },
+    { id: 'top-means', label: 'Means used most', kind: 'split', parts: topCards('means') },
+    { id: 'top-clues', label: 'Key Evidence chosen most', kind: 'split', parts: topCards('clue') },
+    {
+      id: 'events',
+      label: 'Events that came up',
+      kind: 'split',
+      parts: INQUEST_EVENTS.map(([k, label]) => ({ label, value: get(`f.event.${k}`) })),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
   if (gameId === 'round-table') return roundTableCounters(type, props);
+  if (gameId === 'inquest') return inquestCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -729,6 +855,8 @@ export function buildFigures(
       return nightfallFigures(get, metrics);
     case 'round-table':
       return roundTableFigures(get, metrics);
+    case 'inquest':
+      return inquestFigures(get, metrics);
     case 'codenames':
       return [
         teams(false),

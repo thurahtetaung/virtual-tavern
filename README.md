@@ -11,6 +11,7 @@ Create a room, share the link, and play together in real time. There are no acco
   - **Hoodwink**: a bluffing trivia game in the back room.
   - **Royal Post**: a courtship card game in the back room.
   - **Nightfall**: a one-night werewolf-style hidden-role game in the back room.
+  - **Inquest**: a murder-deduction game in the back room, where one player knows the answer and can only hint.
   - **Masquerade**: a hidden-spy location game where everyone talks out loud and one vote decides each round; a back-room edition uses the original locations and art.
   - **Round Table**: a hidden-loyalty quest game where loyal knights and hidden traitors pick teams, vote and protect Merlin.
 - **Beginner friendly.** Each game ships a rules guide, shown on its "How to play" page and in a rules drawer during play, and the screen always tells you what to do next.
@@ -56,6 +57,7 @@ packages/private-games/hoodwink Hoodwink (back room) rules, guide and UI; questi
 packages/private-games/royal-post Royal Post (back room) rules, guide and UI
 packages/private-games/masquerade-originals Masquerade's back-room edition; locations come from private storage
 packages/private-games/nightfall Nightfall (back room) rules engine, guide and UI; names, art and sound come from private storage
+packages/private-games/inquest Inquest (back room) rules, guide and UI; card names, tile text and art come from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private trivia decks) and set-game-title.mjs (back-room titles)
 ```

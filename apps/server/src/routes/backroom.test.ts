@@ -132,6 +132,7 @@ describe('back room over HTTP', () => {
       'royal-post',
       'masquerade-originals',
       'nightfall',
+      'inquest',
     ]);
   });
 

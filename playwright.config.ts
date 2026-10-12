@@ -18,6 +18,7 @@ const SHARED_STATE = [
   /question-decks\.spec\.ts$/,
   /screenshots\.spec\.ts$/,
   /recap-backroom\.spec\.ts$/,
+  /inquest\.spec\.ts$/,
 ];
 
 export default defineConfig({
@@ -60,6 +61,8 @@ export default defineConfig({
       // Every browser shares one address, so the suite would trip the per-address room limit.
       ROOM_CREATE_LIMIT: '1000',
       LOG_LEVEL: 'warn',
+      // Inquest's events spec needs these events first when the pile gets its events.
+      INQUEST_TEST_EVENTS: 'ruled-out,erroneous,countdown',
     },
   },
 });
