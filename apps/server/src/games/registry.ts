@@ -3,6 +3,7 @@ import { codenames } from '@vt/game-codenames/logic';
 import { echo } from '@vt/game-echo/logic';
 import { enigma } from '@vt/game-enigma/logic';
 import { masquerade } from '@vt/game-masquerade/logic';
+import { roundTable } from '@vt/game-round-table/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { nightfall } from '@vt/private-nightfall/logic';
@@ -21,6 +22,7 @@ export function buildGames(): GameRegistry {
     enigma,
     echo,
     masquerade,
+    roundTable,
     reverie,
     hoodwink,
     royalPost,

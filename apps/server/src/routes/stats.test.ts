@@ -21,6 +21,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import { type TestClient, connect, testApp, token } from '../test/helpers.ts';
 import { playNightfall } from '../test/nightfall.ts';
+import { playRoundTable } from '../test/round-table.ts';
 import { playRoyalPostTurn, royalPostView } from '../test/royal-post.ts';
 
 const DAY = '2026-10-10';
@@ -713,6 +714,62 @@ describe('admin stats', () => {
         .map((p) => p.name)
         .sort(),
     ).toEqual(result.winners.map(name).sort());
+  }, 60_000);
+
+  it('turns a Round Table game into figures and fun facts', async () => {
+    const { app, url, get } = await start();
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'round-table', token: token(110) },
+      })
+    ).json<{ roomId: string }>();
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Ula', 'Vic', 'Wes', 'Xan', 'Yul'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(110 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await clients[0]!.until((s) => s.players.length === 5);
+    const { assassin } = await playRoundTable(clients, true);
+    await new Promise((r) => setTimeout(r, 2500));
+    const stats = (await get<GameStats>('games/round-table?range=today')).body;
+    expect(stats.totals).toMatchObject({ gamesStarted: 1, gamesFinished: 1 });
+    const figs = Object.fromEntries(stats.figures.map((f) => [f.id, f]));
+    expect(figs['wins-by-side']).toMatchObject({
+      kind: 'split',
+      parts: [
+        { label: 'Good', value: 0 },
+        { label: 'Evil', value: 1 },
+      ],
+    });
+    expect(figs['evil-wins']).toMatchObject({
+      parts: [
+        { label: 'Three quests sunk', value: 0 },
+        { label: 'Five rejections', value: 0 },
+        { label: 'Merlin assassinated', value: 1 },
+      ],
+    });
+    expect(figs['merlin-survival']).toMatchObject({ kind: 'percent', value: 0 });
+    // One rejected team, then three approved ones.
+    expect(figs['approval-rate']).toMatchObject({ kind: 'percent', value: 75 });
+    expect(figs['quest-success']).toMatchObject({ value: 100 });
+    expect(figs['win-rate-by-players']).toMatchObject({ kind: 'matrix', columns: ['5 players'] });
+    const roles = figs.roles as { rows: { label: string; values: number[] }[] };
+    expect(roles.rows.map((r) => r.label).sort()).toEqual(
+      ['Assassin', 'Loyal Servant', 'Merlin', 'Morgana', 'Percival'].sort(),
+    );
+    const facts = Object.fromEntries(
+      (await get<StatsFun>('fun?range=today')).body.facts.map((f) => [f.id, f]),
+    );
+    expect(facts['most-suspected']).toMatchObject({ gameId: 'round-table' });
+    const players = (await get<StatsPlayers>('players?range=today')).body.players;
+    expect(players.filter((p) => p.wins > 0)).toHaveLength(2);
+    expect(players.find((p) => p.id === assassin)?.wins).toBe(1);
   }, 60_000);
 
   it('requires an admin and validates parameters', async () => {

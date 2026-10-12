@@ -213,6 +213,11 @@ function insight(agg: Agg, e: StatsEvent, type: string) {
       if (word) agg.addWord(day, game, TRICKY_KIND, word, 1);
     }
   }
+  if (game === 'round-table' && type === 'proposal') {
+    // "Most suspected": Reject votes drawn while on a proposed team.
+    const rejects = num(props.rejects) ?? 0;
+    if (rejects > 0) for (const p of strings(props.team)) credit(p, 'rt.suspected', rejects);
+  }
   if (game === 'nightfall' && type === 'player' && playerId) {
     // The fun facts: each is a per-player counter, summed across games.
     const facts: [string, unknown][] = [

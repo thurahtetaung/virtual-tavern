@@ -11,6 +11,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('hoodwink')).toEqual(['guess']);
     expect(knownWordKinds('royal-post')).toEqual([]);
     expect(knownWordKinds('masquerade')).toEqual(['clue', 'guess']);
+    expect(knownWordKinds('round-table')).toEqual([]);
     expect(knownWordKinds('masquerade-originals')).toEqual(['clue', 'guess']);
     expect(knownWordKinds('nightfall')).toEqual(['clue', 'guess']);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');

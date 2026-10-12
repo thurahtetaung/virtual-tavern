@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
 import type { RoyalPostView } from '@vt/private-royal-post/logic';
 import { type TestClient, bareRealtime, connect, tempDb, testApp, token } from './test/helpers.ts';
+import { playRoundTable } from './test/round-table.ts';
 import { playNightfall } from './test/nightfall.ts';
 import { playRoyalPostTurn, royalPostView } from './test/royal-post.ts';
 
@@ -901,4 +902,58 @@ describe('realtime Masquerade', () => {
       }
     }
   });
+});
+
+describe('realtime Round Table', () => {
+  const cleanups: (() => Promise<void> | void)[] = [];
+  afterEach(async () => {
+    for (const fn of cleanups.reverse()) await fn();
+    cleanups.length = 0;
+  });
+
+  it('plays a five-player game to the assassination without leaking a role, vote or card', async () => {
+    const app = testApp();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+    const addr = app.server.address();
+    const url = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'round-table', token: token(90) },
+      })
+    ).json<{ roomId: string }>();
+    const clients: TestClient[] = [];
+    for (const [i, name] of ['Host', 'Ana', 'Ben', 'Cy', 'Dee'].entries()) {
+      const c = await connect(url);
+      cleanups.push(() => void c.close());
+      expect(await c.call('room:join', { roomId, token: token(90 + i), name })).toEqual({
+        ok: true,
+      });
+      clients.push(c);
+    }
+    await clients[0]!.until((s) => s.players.length === 5);
+    const { seen, final, merlin } = await playRoundTable(clients, false);
+    for (const v of final) {
+      expect(v.game!.end).toMatchObject({ winner: 'good', reason: 'assassin-missed' });
+      expect(v.game!.end!.roles[merlin]).toBe('merlin');
+    }
+    const ids = clients.map((c) => c.latest()!.you).join('|');
+    for (const [c, views] of seen) {
+      const me = c.latest()!.you;
+      for (const v of views.filter((x) => x.phase === 'playing')) {
+        const json = JSON.stringify(v);
+        expect(json).not.toContain('seed');
+        expect(json).not.toMatch(
+          new RegExp(`"(${ids})":"(merlin|percival|servant|assassin|morgana)"`),
+        );
+        expect(json).not.toMatch(new RegExp(`"(${ids})":"(success|fail)"`));
+        expect(v.game!.end).toBeNull();
+        if (v.stage === 'vote')
+          expect(JSON.stringify({ ...v.game!.vote, myVote: null })).not.toMatch(/true|false/);
+        for (const k of v.role?.known ?? []) expect(k.id).not.toBe(me);
+      }
+    }
+  }, 30_000);
 });

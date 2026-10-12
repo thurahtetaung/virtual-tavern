@@ -90,6 +90,9 @@ importers:
       '@vt/game-masquerade':
         specifier: workspace:*
         version: link:../../packages/games/masquerade
+      '@vt/game-round-table':
+        specifier: workspace:*
+        version: link:../../packages/games/round-table
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
@@ -138,6 +141,9 @@ importers:
       '@vt/game-masquerade':
         specifier: workspace:*
         version: link:../../packages/games/masquerade
+      '@vt/game-round-table':
+        specifier: workspace:*
+        version: link:../../packages/games/round-table
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
@@ -264,6 +270,25 @@ importers:
         version: 19.3.0
 
   packages/games/masquerade:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/games/round-table:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*

@@ -29,7 +29,7 @@ The tavern night recap (the strip of awards on every end screen and the shareabl
 
 ## 2. Guide: `src/logic/guide.ts`
 
-Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Also give it a `quickStart`: 5 or 6 short bullets that cover a whole game ("what do I do now?"). It renders first, both on `/rules/:id` and in the room's rules drawer, and `apps/server/src/games/guides.test.ts` checks every game has one. Update the guide in the same PR as any rule change.
+Every game must ship a `GameGuide` (the `guide` field is required). The same guide renders on the "How to play" page and in the in-game rules drawer, so all games read alike. Write it for someone who has never played: say the goal first, then short setup steps, then the rules in play order, and finish with tips. Also give it a `quickStart`: 5 or 6 short bullets that cover a whole game ("what do I do now?"). It renders first, both on `/rules/:id` and in the room's rules drawer, and `apps/server/src/games/guides.test.ts` checks every game has one. Update the guide in the same PR as any rule change. Each `roles` entry gets an anchor (`roleAnchor` in `apps/web/src/components/GuideView.tsx`: "Merlin (Good)" → `guide-role-merlin`), so a role card can open the rules drawer at its role.
 
 ## 3. UI: `src/ui`
 

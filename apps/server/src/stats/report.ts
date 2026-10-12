@@ -305,6 +305,8 @@ interface PlayerTotals {
   suspected: number;
   /** Nightfall's fun-fact counters, by metric without the `nf.` prefix. */
   nightfall: Record<string, number>;
+  /** Round Table's fun-fact counters, by metric without the `rt.` prefix. */
+  roundTable: Record<string, number>;
   calendar: Map<string, number>;
 }
 
@@ -363,6 +365,8 @@ function playerTotals(agg: Agg, from: string, to: string, only?: string) {
       default:
         if (metric.startsWith('nf.'))
           t.nightfall[metric.slice(3)] = (t.nightfall[metric.slice(3)] ?? 0) + value;
+        else if (metric.startsWith('rt.'))
+          t.roundTable[metric.slice(3)] = (t.roundTable[metric.slice(3)] ?? 0) + value;
     }
   }
   return out;
@@ -417,6 +421,7 @@ function emptyTotals(): PlayerTotals {
     bloodhound: 0,
     suspected: 0,
     nightfall: {},
+    roundTable: {},
     calendar: new Map(),
   };
 }
@@ -700,6 +705,25 @@ export function funFacts(agg: Agg, w: Window, ctx: ReportContext): FunFact[] {
   ];
   for (const [id, title, key, text] of NIGHTFALL_FACTS)
     byPlayer(id, title, nf(key), text, 'nightfall');
+  byPlayer(
+    'most-suspected',
+    'Most suspected',
+    (t) => t.roundTable.suspected ?? 0,
+    (who, n) => `${who} drew ${plural(n, 'Reject vote')} on Round Table teams`,
+    'round-table',
+  );
+  let streak = 0;
+  for (const { parts, value } of rows(agg.daily, w.from, w.to))
+    if (parts[1] === 'round-table' && parts[2] === 'max.f.streak' && value > streak) streak = value;
+  if (streak >= 2) {
+    facts.push({
+      id: 'longest-hammer-streak',
+      title: 'Longest hammer streak',
+      text: `${plural(streak, 'Round Table team')} rejected in a row`,
+      gameId: 'round-table',
+      value: streak,
+    });
+  }
   const perfect = sumMetric(agg, w.from, w.to, 'f.perfect', 'echo');
   if (perfect > 0) {
     facts.push({

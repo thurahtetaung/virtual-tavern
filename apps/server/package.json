@@ -28,6 +28,7 @@
     "@vt/game-echo": "workspace:*",
     "@vt/game-enigma": "workspace:*",
     "@vt/game-masquerade": "workspace:*",
+    "@vt/game-round-table": "workspace:*",
     "@vt/game-sdk": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",
     "@vt/private-masquerade-originals": "workspace:*",
