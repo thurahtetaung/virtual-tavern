@@ -24,6 +24,7 @@ export const SHARED_STATE = [
   /seance\.spec\.ts$/,
   /hydra\.spec\.ts$/,
   /hogwarts\.spec\.ts$/,
+  /tavern-brawl[\w-]*\.spec\.ts$/,
 ];
 
 export default defineConfig({
@@ -74,6 +75,10 @@ export default defineConfig({
       INQUEST_TEST_EVENTS: 'perfect-crime,ruled-out,erroneous,countdown',
       // Hydra's specs reach the powers with red policies on top of every deck.
       HYDRA_TEST_DECK: 'rrrrrrrrrrr',
+      // Tavern Brawl's spec scripts its first two turns: these cards start the druid's and the
+      // mage's decks, and the first seat goes first.
+      TAVERN_BRAWL_TEST_DECK:
+        'druid:druid.09,druid.05,druid.02,druid.08;mage:mage.06,mage.02,mage.10,mage.01',
     },
   },
 });

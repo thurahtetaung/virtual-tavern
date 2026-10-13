@@ -39,6 +39,7 @@
     "@vt/private-reverie": "workspace:*",
     "@vt/private-royal-post": "workspace:*",
     "@vt/private-seance": "workspace:*",
+    "@vt/private-tavern-brawl": "workspace:*",
     "@vt/protocol": "workspace:*",
     "drizzle-kit": "^0.31.11",
     "socket.io-client": "^4.8.4",

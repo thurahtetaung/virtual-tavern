@@ -25,6 +25,7 @@
     "@vt/private-reverie": "workspace:*",
     "@vt/private-royal-post": "workspace:*",
     "@vt/private-seance": "workspace:*",
+    "@vt/private-tavern-brawl": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",
     "echarts": "^6.1.0",
