@@ -105,23 +105,37 @@ export function Seats({
                 pick.onPick(p.id);
               }}
               className={cn(
-                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left transition',
+                // A card that looks like something to tap: its own surface, an edge and a shadow.
+                'flex w-full flex-col items-start justify-center rounded-xl py-1 text-left shadow transition active:scale-[0.98]',
                 compact ? 'min-h-[2.9rem] pr-7 pl-2' : 'min-h-[3.4rem] pr-9 pl-2.5',
                 p.dead
                   ? 'bg-stone-200 opacity-60 grayscale ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700'
                   : selected
                     ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
-                    : president || chancellor
-                      ? 'bg-amber-50/70 ring-2 ring-amber-400/80 dark:bg-amber-500/10'
-                      : waiting.includes(p.id)
-                        ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-900 dark:ring-sky-500'
-                        : 'bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
-                pick && !why && !selected && 'hover:bg-stone-50 dark:hover:bg-stone-800',
+                    : pick && !why
+                      ? // Yours to pick: an accent ring that pulses gently (still under reduced motion).
+                        'hy-pickable bg-white ring-2 ring-amber-500 dark:bg-stone-800 dark:ring-amber-400'
+                      : president || chancellor
+                        ? 'bg-amber-50/70 ring-2 ring-amber-400/80 dark:bg-amber-500/10'
+                        : waiting.includes(p.id)
+                          ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-800 dark:ring-sky-500'
+                          : 'bg-white ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
+                pick && !why && !selected && 'hover:bg-amber-50 dark:hover:bg-stone-700',
                 pick && why && 'opacity-45',
               )}
             >
               <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
                 {p.dead && <span aria-label="executed">✝</span>}
+                {/* An initial, so every card reads as a person's seat. */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'size-5 shrink-0 items-center justify-center rounded-full bg-stone-700 text-[0.6rem] font-black text-white uppercase dark:bg-stone-300 dark:text-stone-900',
+                    compact ? 'hidden sm:flex' : 'flex',
+                  )}
+                >
+                  {[...p.name][0] ?? '?'}
+                </span>
                 <span className={cn('truncate', offline && 'opacity-60')}>{p.name}</span>
                 {me && (
                   <span

@@ -53,6 +53,8 @@ const VARS = {
   power: 'Scry',
   ballot: 'Bright',
   n: 1,
+  of: 5,
+  zone: 3,
   from: 1,
   to: 2,
   leaderName: 'Archon',

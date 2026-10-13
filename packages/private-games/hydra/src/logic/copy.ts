@@ -66,6 +66,10 @@ export const COPY = {
   'why.term-limit-president': 'was the last elected {president} (term-limited)',
   'why.investigated': 'has already been investigated',
 
+  // The seats (phones show them as one panel).
+  'seats.heading': 'The table',
+  'seats.pick': 'Tap a seat',
+
   // The action dock's prompts.
   'dock.nominate': '👆 Tap a seat to nominate your {chancellor}',
   'dock.pick': '👆 Tap a seat to choose',
@@ -143,6 +147,10 @@ export const COPY = {
   'notice.auto': '{timeout}{what} for {player} by {by}.',
 
   // First-time tips.
+  'tip.scoreboard':
+    'The strip at the top is the scoreboard: {policies} passed by each side, and failed votes. Tap it to see what it means.',
+  'tip.nominate':
+    'You choose the next {chancellor}: tap a player’s seat in the table, then confirm. Greyed seats can’t be picked right now.',
   'tip.marks':
     'Tap the ☆ on a seat to mark ⭐ trust or ✕ suspect, and tap a name for their voting record and your notes. Only you see these.',
   'tip.term':
@@ -157,6 +165,17 @@ export const COPY = {
   // The timeline.
   'log.vetoed': '✂️ Vetoed: both {policies} discarded',
   'log.vetoedShort': 'vetoed',
+
+  // The header strip's legend (tap the strip).
+  'legend.title': 'The scoreboard',
+  'legend.button': 'The scoreboard: tap to see what it means',
+  'legend.blue': '{blues}: {n} of {of} {bluePolicy} {policies} passed. {of} wins it for them.',
+  'legend.red':
+    '{reds}: {n} of {of} {redPolicy} {policies} passed. {of} wins it for them; from {zone}, electing {leader} as {chancellor} does too.',
+  'legend.next': 'The next {redPolicy} {policy} gives the {president} a power: {power}.',
+  'legend.nextNone': 'The next {redPolicy} {policy} gives no power.',
+  'legend.tracker':
+    'Failed votes in a row: {n} of {of}. The third enacts the top {policy} by itself.',
 
   // The board.
   'ribbon.veto': '{Veto} unlocked',

@@ -61,22 +61,23 @@ function SessionTruth({ t, c }: { t: Truth; c: Content }) {
   if (!t.drawn) return null;
   return (
     <p className="flex flex-wrap items-center gap-1 text-xs">
-      <span className="font-semibold">Really:</span> drew <Pips cards={t.drawn} c={c} />
+      <span className="font-semibold">Really:</span> drew{' '}
+      <Pips cards={t.drawn} c={c} text="counts" />
       {t.presidentDiscard && (
         <>
-          → discarded <Pips cards={[t.presidentDiscard]} c={c} />
+          → discarded <Pips cards={[t.presidentDiscard]} c={c} text="order" />
         </>
       )}
       {t.chancellorHand && (
         <>
-          → passed <Pips cards={t.chancellorHand} c={c} />
+          → passed <Pips cards={t.chancellorHand} c={c} text="counts" />
         </>
       )}
       {t.vetoed ? (
         <> → {c.copy('log.vetoedShort')}</>
       ) : t.chancellorDiscard ? (
         <>
-          → discarded <Pips cards={[t.chancellorDiscard]} c={c} />
+          → discarded <Pips cards={[t.chancellorDiscard]} c={c} text="order" />
         </>
       ) : null}
     </p>
@@ -105,7 +106,7 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
                 {r.session?.enacted && (
                   <>
                     {' '}
-                    · enacted <Pips cards={[r.session.enacted]} c={c} />
+                    · enacted <Pips cards={[r.session.enacted]} c={c} text="order" />
                   </>
                 )}
               </p>
@@ -113,7 +114,7 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
               {t?.peek && (
                 <p className="flex items-center gap-1 text-xs">
                   <span className="font-semibold">Peek really showed:</span>{' '}
-                  <Pips cards={t.peek} c={c} />
+                  <Pips cards={t.peek} c={c} text="order" />
                 </p>
               )}
               {t?.investigate && (

@@ -25,6 +25,7 @@ const CSS = `
 @keyframes hy-slide-out { from { transform: translateY(0) } to { transform: translateY(-58%) } }
 @keyframes hy-breathe { 0%,100% { transform: scale(1) } 50% { transform: scale(1.035) } }
 @keyframes hy-ribbon { from { opacity: 0; transform: translateX(-30%) skewX(-12deg) } to { opacity: 1; transform: skewX(-12deg) } }
+@keyframes hy-pickable { 0%,100% { outline-color: rgb(245 158 11 / 0) } 50% { outline-color: rgb(245 158 11 / .5) } }
 @keyframes hy-lamp { 0%,100% { box-shadow: 0 0 0 0 rgb(244 63 94 / .0) } 50% { box-shadow: 0 0 10px 3px rgb(244 63 94 / .8) } }
 
 .hy-fade { animation: hy-fade .35s ease-out both; }
@@ -43,13 +44,14 @@ const CSS = `
 .hy-breathe { animation: hy-breathe 2.4s ease-in-out infinite; }
 .hy-ribbon { animation: hy-ribbon .5s ease-out both; }
 .hy-lamp { animation: hy-lamp 1.4s ease-in-out infinite; }
+.hy-pickable { outline: 3px solid transparent; outline-offset: 2px; animation: hy-pickable 1.8s ease-in-out infinite; }
 .hy-art { image-rendering: auto; }
 .hy-display { font-family: var(--hy-display, inherit); }
 
 @media (prefers-reduced-motion: reduce) {
   .hy-flipper { transition: none; }
   .hy-rise, .hy-pop, .hy-stamp, .hy-drop, .hy-ignite, .hy-ribbon { animation: hy-fade .25s ease-out both; }
-  .hy-shake, .hy-glow, .hy-swap-a, .hy-swap-b, .hy-breathe, .hy-lamp, .hy-flap, .hy-slide-out { animation: none; }
+  .hy-shake, .hy-glow, .hy-swap-a, .hy-swap-b, .hy-breathe, .hy-lamp, .hy-pickable, .hy-flap, .hy-slide-out { animation: none; }
   .hy-slide-out { transform: translateY(-58%); }
   .hy-flap { transform: rotateX(178deg); }
   .hy-spot { animation: none; box-shadow: 0 0 0 9999px rgb(0 0 0 / .75); }
