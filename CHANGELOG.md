@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.0...v0.28.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **hydra:** make the scoreboard, seats and claim cards self-explanatory ([#118](https://github.com/thurahtetaung/virtual-tavern/issues/118)) ([4601dc6](https://github.com/thurahtetaung/virtual-tavern/commit/4601dc6a098636b2b68bf5d053fc7208f13dbbce))
+
 ## [0.28.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.27.1...v0.28.0) (2026-10-13)
 
 
