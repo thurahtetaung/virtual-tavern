@@ -295,6 +295,90 @@ const lastSecondSave: AwardRule = {
   },
 };
 
+// ---- The Allies expansion ----
+
+const labResult: AwardRule = {
+  id: 'inquest.lab-result',
+  emoji: '🧪',
+  title: 'Lab Result',
+  valence: 'glory',
+  weight: 3,
+  kind: 'award',
+  family: 'allies',
+  minPlayers: 6,
+  copy: {
+    cheeky: ['{who} tested one card and hit the crime', '{who} ran one test. Bingo'],
+    wholesome: ['{who} found part of the crime in the lab', '{who} picked the right card to test'],
+  },
+  compute(g) {
+    const o = outcomeOf(g);
+    return bool(o, 'labHit') === true ? one(str(o, 'labTech')) : [];
+  },
+};
+
+const insideJob: AwardRule = {
+  id: 'inquest.inside-job',
+  emoji: '🕴️',
+  title: 'Inside Job',
+  valence: 'glory',
+  weight: 4,
+  kind: 'award',
+  family: 'allies',
+  minPlayers: 6,
+  copy: {
+    cheeky: ['{who} pinched a badge and the case went cold', '{who} took a badge. Nobody knew who'],
+    wholesome: ['{who} quietly took a badge for their side', '{who} worked from the inside'],
+  },
+  compute(g) {
+    const o = outcomeOf(g);
+    return won(o, 'murderer') && bool(o, 'lostBadgeInvestigator') === true
+      ? one(str(o, 'insideMan'))
+      : [];
+  },
+};
+
+const bodyguard: AwardRule = {
+  id: 'inquest.bodyguard',
+  emoji: '🛡️',
+  title: 'Bodyguard',
+  valence: 'glory',
+  weight: 3,
+  kind: 'award',
+  family: 'allies',
+  minPlayers: 6,
+  copy: {
+    cheeky: ['{who} kept the Witness alive. Pay rise', '{who} guarded the Witness, unseen'],
+    wholesome: ['{who} kept the Witness safe to the end', '{who} protected the Witness well'],
+  },
+  compute(g) {
+    const o = outcomeOf(g);
+    return str(o, 'how') === 'reversal' && bool(o, 'witnessFound') === false
+      ? one(str(o, 'protective'))
+      : [];
+  },
+};
+
+const changeOfHeart: AwardRule = {
+  id: 'inquest.change-of-heart',
+  emoji: '🎭',
+  title: 'Change of Heart',
+  valence: 'glory',
+  weight: 4,
+  kind: 'moment',
+  family: 'allies',
+  minPlayers: 4,
+  copy: {
+    cheeky: ['{who} switched sides and led them astray', '{who} turned. Only the bullets knew'],
+    wholesome: ['{who} switched sides and won anyway', '{who} played both sides of the case'],
+  },
+  compute(g) {
+    const o = outcomeOf(g);
+    if (!won(o, 'murderer')) return [];
+    const ids = strs(o, 'switchedFs');
+    return ids.length ? [{ players: ids.slice(0, 1), value: 1 }] : [];
+  },
+};
+
 export const INQUEST_RULES: AwardRule[] = [
   sharpEye,
   caseClosedEarly,
@@ -307,6 +391,10 @@ export const INQUEST_RULES: AwardRule[] = [
   boldBluffer,
   wrongTree,
   lastSecondSave,
+  labResult,
+  insideJob,
+  bodyguard,
+  changeOfHeart,
 ];
 
 const outcomes = (games: readonly GameEvents[]) =>

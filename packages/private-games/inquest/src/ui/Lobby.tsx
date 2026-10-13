@@ -1,7 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
-import { rolesFor, startProblem } from '../logic/setup.ts';
+import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
 import {
   DISCUSS_SECONDS_OPTIONS,
   type FsMode,
@@ -11,8 +11,9 @@ import {
   presentationsOf,
   type InquestAction,
   type InquestView,
-  MAX_PLAYERS,
   PRESENT_SECONDS_OPTIONS,
+  alliesOf,
+  maxPlayersOf,
   type RoleId,
 } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -65,7 +66,17 @@ export function rolesSummary(count: number, view: InquestView, content: Content)
   if (count < 4) return '';
   const roles = rolesFor(count, view.settings);
   const inv = roles.filter((r) => r === 'investigator').length;
-  const named = (['forensic', 'murderer', 'accomplice', 'witness'] as RoleId[])
+  const named = (
+    [
+      'forensic',
+      'murderer',
+      'accomplice',
+      'witness',
+      'lab-technician',
+      'inside-man',
+      'protective-detail',
+    ] as RoleId[]
+  )
     .filter((r) => roles.includes(r))
     .map((r) => content.roleName(r));
   const invText = inv
@@ -99,6 +110,8 @@ export function Lobby({
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected !== false;
   const pickable = s.fsMode === 'host-volunteers' ? seated.filter((x) => x.volunteer) : seated;
   const extras = seated.length >= 6;
+  const allies = alliesOf(s);
+  const max = maxPlayersOf(s);
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
@@ -108,7 +121,7 @@ export function Lobby({
           <h3 className="font-bold">
             At the table{' '}
             <span className="text-sm font-normal text-stone-500">
-              ({seated.length}/{MAX_PLAYERS})
+              ({seated.length}/{max})
             </span>
           </h3>
           <Button variant="ghost" size="sm" onClick={showGuide}>
@@ -116,7 +129,7 @@ export function Lobby({
           </Button>
         </div>
         <p className="text-sm text-stone-600 dark:text-stone-400">
-          {rolesSummary(seated.length, view, content) || 'Inquest needs 4 to 12 players.'}
+          {rolesSummary(seated.length, view, content) || `Inquest needs 4 to ${max} players.`}
         </p>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (
@@ -243,6 +256,71 @@ export function Lobby({
             {extras ? '' : 'With fewer than 6 players there is no Accomplice or Witness. '}
             The Witness needs the Accomplice. Events are shuffled in after round 1.
           </p>
+        </section>
+        <section className="space-y-1.5" aria-label="Allies expansion">
+          <h4 className="text-sm font-semibold">
+            Allies expansion{' '}
+            <span className="font-normal text-stone-500">(more cards, roles and up to 14)</span>
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            <Choice on={allies.on} disabled={!host} onClick={() => set({ allies: !allies.on })}>
+              {allies.on ? '✓ ' : ''}Allies expansion
+            </Choice>
+            {allies.on && (
+              <Choice
+                on={allies.unknownLocation}
+                disabled={!host}
+                onClick={() => set({ unknownLocation: !allies.unknownLocation })}
+              >
+                {allies.unknownLocation ? '✓ ' : ''}Unknown Location
+              </Choice>
+            )}
+          </div>
+          {allies.on && (
+            <>
+              <div className="flex flex-wrap gap-2" aria-label="Allies roles">
+                <Choice
+                  on={allies.labTech}
+                  disabled={!host}
+                  onClick={() => set({ labTech: !allies.labTech })}
+                >
+                  {allies.labTech ? '✓ ' : ''}
+                  {content.roleName('lab-technician')}
+                </Choice>
+                <Choice
+                  on={allies.insideMan}
+                  disabled={!host}
+                  onClick={() => set({ insideMan: !allies.insideMan })}
+                >
+                  {allies.insideMan ? '✓ ' : ''}
+                  {content.roleName('inside-man')}
+                </Choice>
+                <Choice
+                  on={allies.protective}
+                  disabled={!host || !s.witness}
+                  onClick={() => set({ protective: !allies.protective })}
+                >
+                  {allies.protective ? '✓ ' : ''}
+                  {content.roleName('protective-detail')}
+                </Choice>
+              </div>
+              {host && seated.length >= 6 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => set(suggestedRoles(seated.length))}
+                >
+                  Use the suggested roles for {Math.min(seated.length, 8)}
+                  {seated.length > 8 ? '+' : ''} players
+                </Button>
+              )}
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Suggested: the Lab Technician from 7 players, the Inside Man from 8. The Protective
+                Detail needs the Witness. Unknown Location replaces the four Location tiles with
+                one.
+              </p>
+            </>
+          )}
         </section>
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Cards each (difficulty)</h4>

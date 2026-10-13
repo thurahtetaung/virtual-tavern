@@ -35,7 +35,8 @@ import type { GameFigure } from '@vt/protocol';
 //              heartbreaks, plague, hitman, alien, abducted, cow, cowTipped, blobSquad,
 //              undertaker, foresaw, synthetic, …; recap:
 //              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
-//   inquest    outcome {winner, how, players, solvedRound, solvedFinal, bulletsBeforeSolve, clue, means; recap:
+//   inquest    outcome {winner, how, players, solvedRound, solvedFinal, bulletsBeforeSolve, clue, means,
+//              allies, labTech, insideMan, protective, perfectCrimes, fsSwitched; recap:
 //              solvedBy, solveS, firstTry, fs, murderer, accomplice, witness, witnessFound,
 //              bluffers, nearMisses, finalAccusations…}, event {kind}, solve {correct; recap:
 //              target, clue, means, round, final}, bullet {recap: tile, item, seq, round, moved} (older events
@@ -579,6 +580,14 @@ const INQUEST_EVENTS: [string, string][] = [
   ['erroneous', 'Shifted Bullet'],
   ['countdown', 'Last Call'],
   ['testimony', 'Secret Tip'],
+  // The Allies expansion's event: only listed once it has come up.
+  ['perfect-crime', 'Change of Heart'],
+];
+/** The Allies expansion's roles, with the side each wins with. */
+const INQUEST_ALLIES: [string, string, string][] = [
+  ['labTech', 'Lab Technician', 'investigators'],
+  ['insideMan', 'Inside Man', 'murderer'],
+  ['protective', 'Protective Detail', 'investigators'],
 ];
 /** A card id as Inquest reports it: `clue-17`, `means-4`. */
 const inquestCard = (v: unknown, kind: 'clue' | 'means') =>
@@ -601,6 +610,17 @@ function inquestCounters(type: string, props: Props): Counters {
         const bucket = props.solvedFinal === true ? 'final' : round;
         out.push(['f.solved', 1], [`f.solved_round.${bucket}`, 1]);
         out.push(['f.bullets_before', num(props.bulletsBeforeSolve) ?? 0]);
+      }
+      if (props.allies === true) {
+        out.push(['f.allies', 1]);
+        for (const [key, , side] of INQUEST_ALLIES) {
+          if (typeof props[key] !== 'string') continue;
+          out.push([`f.ally.${key}`, 1]);
+          if (props.winner === side) out.push([`f.ally.${key}.win`, 1]);
+        }
+        const peeks = num(props.perfectCrimes) ?? 0;
+        if (peeks) out.push(['f.perfect', peeks]);
+        if (props.fsSwitched === true) out.push(['f.perfect.switch', 1]);
       }
       const clue = inquestCard(props.clue, 'clue');
       if (clue) out.push([`f.card.${clue}`, 1]);
@@ -692,8 +712,36 @@ function inquestFigures(get: (metric: string) => number, metrics: Iterable<strin
       id: 'events',
       label: 'Events that came up',
       kind: 'split',
-      parts: INQUEST_EVENTS.map(([k, label]) => ({ label, value: get(`f.event.${k}`) })),
+      parts: INQUEST_EVENTS.filter(([k]) => k !== 'perfect-crime' || get(`f.event.${k}`) > 0).map(
+        ([k, label]) => ({ label, value: get(`f.event.${k}`) }),
+      ),
     },
+    // The Allies expansion: only once a game has used it.
+    ...(get('f.allies') > 0
+      ? ([
+          {
+            id: 'allies-sides',
+            label: 'Allies expansion: how often each role’s side won',
+            kind: 'matrix',
+            columns: INQUEST_ALLIES.map(([, label]) => label),
+            units: INQUEST_ALLIES.map(() => 'percent' as const),
+            rows: [
+              {
+                label: 'Their side won',
+                values: INQUEST_ALLIES.map(([key]) =>
+                  pct(get(`f.ally.${key}.win`), get(`f.ally.${key}`)),
+                ),
+              },
+            ],
+          },
+          {
+            id: 'perfect-crime-switch',
+            label: 'Change of Heart peeks that switched the Forensic Scientist',
+            kind: 'percent',
+            value: pct(get('f.perfect.switch'), get('f.perfect')),
+          },
+        ] satisfies GameFigure[])
+      : []),
   ];
 }
 

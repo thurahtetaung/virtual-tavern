@@ -1,9 +1,11 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
-import { type EventKind, ITEMS_PER_TILE, SLOT_COUNT } from './content.ts';
+import { type EventKind, ITEMS_PER_TILE, MAX_CARD, MAX_TILE, SLOT_COUNT } from './content.ts';
 
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 12;
+/** With the Allies expansion on. */
+export const ALLIES_MAX_PLAYERS = 14;
 /** The Accomplice and the Witness can join from this many players. */
 export const EXTRA_ROLES_MIN = 6;
 export const HAND_SIZES = [3, 4, 5] as const;
@@ -13,6 +15,8 @@ export const DEFAULT_HAND = 4;
 export const NIGHT_SECONDS = 60;
 /** The Reversal: the Murderer and Accomplice have 60 s to name the Witness. */
 export const REVERSAL_SECONDS = 60;
+/** Each step of the Allies Phase (the Lab Technician's check, the Inside Man's pick). */
+export const ALLIES_STEP_SECONDS = 45;
 /** A player's turn in an event (flipping a Clue card, the Witness's pick). */
 export const EVENT_TURN_SECONDS = 30;
 export const PRESENT_SECONDS_OPTIONS = [20, 30, 45, 60, 90] as const;
@@ -32,13 +36,30 @@ export const FIRST_ROUND_BULLETS = SLOT_COUNT;
 export const USEFUL_CLUE_OPTIONS = 5;
 export const MAX_NOTICES = 12;
 
-export type RoleId = 'forensic' | 'murderer' | 'accomplice' | 'witness' | 'investigator';
+export type RoleId =
+  | 'forensic'
+  | 'murderer'
+  | 'accomplice'
+  | 'witness'
+  | 'investigator'
+  | 'lab-technician'
+  | 'inside-man'
+  | 'protective-detail';
 export const ROLE_IDS: readonly RoleId[] = [
   'forensic',
   'murderer',
   'accomplice',
   'witness',
   'investigator',
+  'lab-technician',
+  'inside-man',
+  'protective-detail',
+];
+/** The Allies expansion's roles. */
+export const ALLIES_ROLES: readonly RoleId[] = [
+  'lab-technician',
+  'inside-man',
+  'protective-detail',
 ];
 
 /** How the Forensic Scientist is chosen. */
@@ -71,7 +92,45 @@ export interface Settings {
    * default; off is the printed ending (the Murderer's side wins). Read it with `finalOf`.
    */
   finalAccusations?: boolean;
+  /**
+   * The Allies expansion: its cards, tiles and event, up to 14 players, and the roles switched on
+   * below. Off by default; older rooms have none of these. Read them with `alliesOf`.
+   */
+  allies?: boolean;
+  labTech?: boolean;
+  insideMan?: boolean;
+  /** Needs the Witness. */
+  protective?: boolean;
+  /** The Allies expansion's single Location tile replaces the four. */
+  unknownLocation?: boolean;
 }
+
+export interface AlliesSettings {
+  on: boolean;
+  labTech: boolean;
+  insideMan: boolean;
+  protective: boolean;
+  unknownLocation: boolean;
+}
+
+type AlliesInput = Pick<
+  Settings,
+  'accomplice' | 'witness' | 'allies' | 'labTech' | 'insideMan' | 'protective' | 'unknownLocation'
+>;
+
+/** The Allies settings in force: everything is off without the expansion. */
+export const alliesOf = (s: AlliesInput): AlliesSettings => {
+  const on = s.allies ?? false;
+  return {
+    on,
+    labTech: on && (s.labTech ?? false),
+    insideMan: on && (s.insideMan ?? false),
+    protective: on && (s.protective ?? false) && s.accomplice && s.witness,
+    unknownLocation: on && (s.unknownLocation ?? false),
+  };
+};
+
+export const maxPlayersOf = (s: AlliesInput) => (alliesOf(s).on ? ALLIES_MAX_PLAYERS : MAX_PLAYERS);
 
 export const discussSecondsOf = (s: Settings): DiscussSeconds =>
   s.discussSeconds ?? DEFAULT_DISCUSS_SECONDS;
@@ -175,6 +234,42 @@ export interface FinalAccusations {
 }
 
 export type Side = 'investigators' | 'murderer';
+
+export type AlliesStep = 'lab' | 'inside';
+
+/** The Lab Technician's check: one card on the table, and whether it is part of the crime. */
+export interface LabCheck {
+  owner: PlayerId;
+  deck: 'clue' | 'means';
+  n: number;
+  hit: boolean;
+}
+
+/**
+ * The Allies Phase, once, between rounds 1 and 2: the Lab Technician checks a card, then the
+ * Inside Man takes a badge. Kept after the phase for the end screen and the stats.
+ */
+export interface AlliesPhase {
+  steps: AlliesStep[];
+  /** The step now, or null once the phase is over. */
+  step: AlliesStep | null;
+  deadline: number;
+  labDone: boolean;
+  /** Secret: the Lab Technician's alone until the end. Null when skipped. */
+  lab: LabCheck | null;
+  /** Public: who lost a badge (never who took it). */
+  lostBadge: PlayerId | null;
+}
+
+/** A Change of Heart: the Forensic Scientist peeked at `tile` and set it aside. Secret until the end. */
+export interface PerfectCrime {
+  by: PlayerId;
+  /** The set-aside tile, or null when even the reshuffled discards had none. */
+  tile: number | null;
+  /** It was an event, so `by` now wins with the Murderer's side. */
+  switched: boolean;
+  round: number;
+}
 /** `final`: every final accusation was wrong. */
 export type EndHow = 'solved' | 'time' | 'badges' | 'reversal' | 'final';
 
@@ -202,6 +297,8 @@ export interface Reversal {
   accompliceTap: PlayerId | null;
   /** Who named the right pair. */
   solvedBy: PlayerId;
+  /** The Inside Man's tap (Allies expansion; older rooms have none). */
+  insideTap?: PlayerId | null;
 }
 
 export interface Game {
@@ -215,7 +312,7 @@ export interface Game {
    * `discuss`: the table talks the evidence over, every round (then the presentations, if on).
    * `final`: the final accusations after the last round, when the host left them on.
    */
-  stage: 'night' | 'collect' | 'discuss' | 'present' | 'final' | 'reversal' | 'done';
+  stage: 'night' | 'collect' | 'discuss' | 'present' | 'allies' | 'final' | 'reversal' | 'done';
   round: number;
   /** The last round: 3, or the round a Countdown came up in. */
   finalRound: number;
@@ -244,6 +341,10 @@ export interface Game {
   present: Presentation | null;
   /** Older rooms have none. */
   final?: FinalAccusations | null;
+  /** The Allies Phase, once it has begun (Allies expansion). */
+  allies?: AlliesPhase | null;
+  /** Every Change of Heart peek so far (Allies expansion). */
+  perfect?: PerfectCrime[];
   attempts: Attempt[];
   reversal: Reversal | null;
   result: Result | null;
@@ -282,7 +383,8 @@ const item = z
   .int()
   .min(0)
   .max(ITEMS_PER_TILE - 1);
-const card = z.number().int().min(1).max(200);
+const card = z.number().int().min(1).max(MAX_CARD);
+const tile = z.number().int().min(1).max(MAX_TILE);
 
 export const actionSchema = z.discriminatedUnion('type', [
   z.object({
@@ -302,6 +404,11 @@ export const actionSchema = z.discriminatedUnion('type', [
       .optional(),
     presentations: z.boolean().optional(),
     finalAccusations: z.boolean().optional(),
+    allies: z.boolean().optional(),
+    labTech: z.boolean().optional(),
+    insideMan: z.boolean().optional(),
+    protective: z.boolean().optional(),
+    unknownLocation: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('volunteer'), on: z.boolean() }),
@@ -309,10 +416,10 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),
   z.object({ type: z.literal('commit-crime'), clue: card, means: card }),
-  z.object({ type: z.literal('pick-location'), tile: z.number().int().min(1).max(40) }),
+  z.object({ type: z.literal('pick-location'), tile }),
   z.object({ type: z.literal('place-bullet'), slot, item }),
   z.object({ type: z.literal('replace-tile'), slot }),
-  z.object({ type: z.literal('useful-pick'), tile: z.number().int().min(1).max(40), slot }),
+  z.object({ type: z.literal('useful-pick'), tile, slot }),
   z.object({ type: z.literal('rule-out'), clue: card }),
   z.object({ type: z.literal('move-bullet'), slot, item }),
   z.object({ type: z.literal('testify'), slot }),
@@ -323,6 +430,16 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('skip-speaker') }),
   z.object({ type: z.literal('solve'), target: id, clue: card, means: card }),
   z.object({ type: z.literal('reversal-tap'), target: id }),
+  /** The Lab Technician checks one card on the table (or skips the check). */
+  z.object({
+    type: z.literal('lab-check'),
+    owner: id,
+    deck: z.enum(['clue', 'means']),
+    n: card,
+  }),
+  z.object({ type: z.literal('lab-skip') }),
+  /** The Inside Man takes one badge. */
+  z.object({ type: z.literal('inside-pick'), target: id }),
   z.object({ type: z.literal('reversal-confirm') }),
   z.object({ type: z.literal('hand-over') }),
 ]);
@@ -406,11 +523,23 @@ export interface GameView {
   present: Presentation | null;
   final: FinalAccusations | null;
   attempts: Attempt[];
-  /** Taps only reach the Murderer and the Accomplice. */
+  /** The Allies Phase: public, but `lab` only reaches the Lab Technician (everyone at the end). */
+  allies: AlliesPhase | null;
+  /** Change of Heart peeks: only the Forensic Scientist who peeked sees theirs (everyone at the end). */
+  perfect: PerfectCrime[];
+  /** The Protective Detail knows the Witness. */
+  protectedWitness: PlayerId | null;
+  /**
+   * The Murderer's side, revealed to itself in the Reversal (the Inside Man joins it there):
+   * the Murderer, the Accomplice and the Inside Man see each other. Everyone at the end.
+   */
+  team: { id: PlayerId; role: RoleId }[] | null;
+  /** Taps only reach the Murderer's side. */
   reversal: {
     deadline: number;
     murdererTap: PlayerId | null;
     accompliceTap: PlayerId | null;
+    insideTap: PlayerId | null;
   } | null;
   result: Result | null;
   notices: Notice[];

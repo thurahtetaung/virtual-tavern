@@ -16,7 +16,13 @@ import type { Game, InquestAction, InquestState } from './types.ts';
  *   accusation (`final`);
  * - `outcome`: the winning side and how (`solved`, `time`, `badges`, `reversal`, `final`), the
  *   round, who solved, how fast and whether in the final accusations (`solvedFinal`), the Forensic Scientist(s), Murderer, Accomplice and Witness, whether the
- *   Reversal found the Witness, the crime (`clue`/`means` card ids), and a few counts.
+ *   Reversal found the Witness, the crime (`clue`/`means` card ids), and a few counts; with the
+ *   Allies expansion (`allies`) also its role holders (`labTech`, `insideMan`, `protective`), the
+ *   Lab Technician's check (`labCard`, `labHit`), who lost a badge (`lostBadge`, and whether they
+ *   were on the Investigators' side), the Change of Heart peeks (`perfectCrimes`) and whether one
+ *   switched the Forensic Scientist (`fsSwitched`, `switchedFs`);
+ * - `allies` and `perfect-crime` at the end only (they hold secrets until then): the check and the
+ *   lost badge, and each peek with whether it switched.
  * Card ids are `clue-<n>`/`means-<n>`, which the browser names from the private manifest.
  */
 export function insights(
@@ -61,22 +67,41 @@ export function insights(
       },
     });
   }
-  if (before.phase !== 'over' && after.phase === 'over' && g.result) events.push(outcome(g));
+  if (before.phase !== 'over' && after.phase === 'over' && g.result) {
+    if (g.allies)
+      events.push({
+        type: 'allies',
+        props: {
+          labCard: g.allies.lab ? cardKey(g.allies.lab.deck, g.allies.lab.n) : null,
+          labHit: g.allies.lab?.hit ?? null,
+          lostBadge: g.allies.lostBadge,
+        },
+      });
+    for (const p of g.perfect ?? [])
+      events.push({
+        type: 'perfect-crime',
+        playerId: p.by,
+        props: { switched: p.switched, round: p.round },
+      });
+    events.push(outcome(g, after));
+  }
   return events;
 }
+
+const cardKey = (deck: 'clue' | 'means', n: number) => (deck === 'clue' ? clueKey(n) : meansKey(n));
 
 /** Bullets placed (not moved) up to `at`. */
 const placedBy = (g: Game, at: number) =>
   g.bullets.filter((b) => b.at <= at && b.movedFrom === undefined).length;
 
-function outcome(g: Game): InsightEvent {
+function outcome(g: Game, after: InquestState): InsightEvent {
   const r = g.result!;
   const holder = (role: string) => g.players.find((p) => p.role === role)?.id ?? null;
   const right = g.attempts.find((a) => a.correct);
   const wrong = g.attempts.filter((a) => !a.correct);
   const murderer = holder('murderer');
   const murderSide = g.players
-    .filter((p) => p.role === 'murderer' || p.role === 'accomplice')
+    .filter((p) => p.role === 'murderer' || p.role === 'accomplice' || p.role === 'inside-man')
     .map((p) => p.id);
   return {
     type: 'outcome',
@@ -115,6 +140,32 @@ function outcome(g: Game): InsightEvent {
       finalAccusations: g.attempts.filter((a) => a.final).length,
       events: g.events.length,
       countdown: g.countdown,
+      ...alliesProps(g, after),
     },
+  };
+}
+
+/** The Allies expansion's part of the outcome (nothing for a game without it). */
+function alliesProps(g: Game, state: InquestState): NonNullable<InsightEvent['props']> {
+  if (!state.settings.allies) return {};
+  const holder = (role: string) => g.players.find((p) => p.role === role)?.id ?? null;
+  const lost = g.allies?.lostBadge ?? null;
+  const lostRole = g.players.find((p) => p.id === lost)?.role;
+  const switched = (g.perfect ?? []).filter((p) => p.switched).map((p) => p.by);
+  return {
+    allies: true,
+    labTech: holder('lab-technician'),
+    insideMan: holder('inside-man'),
+    protective: holder('protective-detail'),
+    labCard: g.allies?.lab ? cardKey(g.allies.lab.deck, g.allies.lab.n) : null,
+    labHit: g.allies?.lab?.hit ?? null,
+    lostBadge: lost,
+    lostBadgeInvestigator:
+      lostRole === undefined
+        ? null
+        : lostRole !== 'murderer' && lostRole !== 'accomplice' && lostRole !== 'inside-man',
+    perfectCrimes: (g.perfect ?? []).length,
+    fsSwitched: switched.length > 0,
+    switchedFs: switched,
   };
 }

@@ -172,4 +172,32 @@ describe('statusFor', () => {
       'Every final accusation missed: the Murderer’s side wins.',
     );
   });
+
+  it('the Allies Phase: only the acting ally has a move; nobody else learns who it is', () => {
+    const h = startedGame(
+      9,
+      { 'lab-technician': 'dee', 'inside-man': 'eve' },
+      { allies: true, labTech: true, insideMan: true, presentations: false, events: false },
+    );
+    toDiscussion(h);
+    h.act({ type: 'end-discussion' }, HOST);
+    expect(say(h, 'dee').yourMove).toBe(true);
+    for (const id of ['ana', 'eve', 'gus', HOST]) {
+      const s = say(h, id);
+      expect(s.yourMove, id).toBe(false);
+      expect(s.text, id).toMatch(/the Lab Technician is checking a card/);
+      expect(s.text, id).not.toMatch(/Dee/);
+    }
+    expect(waitingOn(inquest.view(h.state, 'gus'))).toEqual({
+      ids: [],
+      label: 'the Lab Technician',
+    });
+    expect(solveBlocker(inquest.view(h.state, 'gus'))).toBe('You can’t solve right now.');
+    h.act({ type: 'lab-skip' }, 'dee');
+    expect(say(h, 'eve')).toEqual({
+      text: 'Allies Phase: take one player’s badge.',
+      yourMove: true,
+    });
+    expect(say(h, 'dee').yourMove).toBe(false);
+  });
 });

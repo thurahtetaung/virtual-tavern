@@ -443,4 +443,82 @@ describe('a real game through insights and awards', () => {
     expect(hit(rule('got-away'), l)[0]!.players).toEqual(['ana']);
     expect(hit(rule('bold-bluffer'), l)).toEqual([]);
   });
+
+  it('the Allies expansion: a lab hit, an inside job and a Change of Heart', () => {
+    const h = startedGame(
+      9,
+      {
+        murderer: 'ana',
+        accomplice: 'ben',
+        witness: 'cy',
+        'lab-technician': 'dee',
+        'inside-man': 'eve',
+        'protective-detail': 'fay',
+      },
+      {
+        allies: true,
+        labTech: true,
+        insideMan: true,
+        protective: true,
+        presentations: false,
+        finalAccusations: false,
+      },
+    );
+    const rec = recording(h);
+    const crime = toDiscussion(h);
+    rec.events.length = 0;
+    rec.act({ type: 'end-discussion' }, HOST);
+    rec.act({ type: 'lab-check', owner: 'ana', deck: 'clue', n: crime.clue }, 'dee');
+    // Round 2's draw: a Change of Heart that peeks at an event.
+    stackPile(h, [EVENT_TILES['perfect-crime'], EVENT_TILES.erroneous]);
+    rec.act({ type: 'inside-pick', target: 'gus' }, 'eve');
+    // Nothing secret is reported before the end.
+    expect(JSON.stringify(rec.events)).not.toMatch(/switched|labHit|"eve"/);
+    for (let round = 2; round <= 3; round++) {
+      rec.act({ type: 'replace-tile', slot: 2 }, HOST);
+      rec.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
+      rec.act({ type: 'end-discussion' }, HOST);
+    }
+    expect(h.state.phase).toBe('over');
+    const out = rec.events.find((e) => e.type === 'outcome')!;
+    expect(out.props).toMatchObject({
+      winner: 'murderer',
+      allies: true,
+      labTech: 'dee',
+      insideMan: 'eve',
+      protective: 'fay',
+      labHit: true,
+      lostBadge: 'gus',
+      lostBadgeInvestigator: true,
+      perfectCrimes: 1,
+      fsSwitched: true,
+      switchedFs: [HOST],
+    });
+    expect(out.winners!.sort()).toEqual(['ana', 'ben', 'eve', HOST]);
+    expect(rec.events.find((e) => e.type === 'allies')!.props).toMatchObject({ labHit: true });
+    expect(rec.events.find((e) => e.type === 'perfect-crime')).toMatchObject({
+      playerId: HOST,
+      props: { switched: true },
+    });
+    const g = fixtureGame(
+      rec.events.map((e, i) => recapEventOf(e, i + 1)),
+      { players: h.game().players.map((p) => p.id) },
+    );
+    const got = (id: string) => hit(rule(id), g).flatMap((c) => c.players);
+    expect(got('lab-result')).toEqual(['dee']);
+    expect(got('inside-job')).toEqual(['eve']);
+    expect(got('change-of-heart')).toEqual([HOST]);
+    expect(got('got-away')).toEqual(['ana']);
+  });
+
+  it('Bodyguard: the Witness survives the Reversal', () => {
+    const safe = game(
+      outcome({ how: 'reversal', winner: 'investigators', witnessFound: false, protective: 'i1' }),
+    );
+    expect(hit(rule('bodyguard'), safe)[0]!.players).toEqual(['i1']);
+    const found = game(
+      outcome({ how: 'reversal', winner: 'murderer', witnessFound: true, protective: 'i1' }),
+    );
+    expect(hit(rule('bodyguard'), found)).toEqual([]);
+  });
 });

@@ -1,5 +1,5 @@
 import { cn } from '@vt/ui';
-import { CAUSE_TILE, LOCATION_TILES } from '../logic/content.ts';
+import { CAUSE_TILE, LOCATION_TILES, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import type { Content } from './assets.ts';
 
 /** The bullet marker: a small brass round, drawn here rather than taken from the art. */
@@ -20,7 +20,7 @@ export function BulletIcon({ className }: { className?: string }) {
 const accent = (tile: number) =>
   tile === CAUSE_TILE
     ? 'text-fuchsia-300'
-    : LOCATION_TILES.includes(tile)
+    : LOCATION_TILES.includes(tile) || tile === UNKNOWN_LOCATION_TILE
       ? 'text-emerald-300'
       : 'text-amber-300';
 

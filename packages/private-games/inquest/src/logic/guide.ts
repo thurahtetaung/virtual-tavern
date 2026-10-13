@@ -47,6 +47,21 @@ export const guide: GameGuide = {
       name: 'Investigator',
       summary: 'Reads the bullets, studies the suspects’ cards and names the exact pair.',
     },
+    {
+      name: 'Lab Technician',
+      summary:
+        '(Allies expansion, suggested from 7 players) In the Allies Phase, checks one card on the table and alone learns whether it is part of the crime. Wins with the Investigators.',
+    },
+    {
+      name: 'Inside Man',
+      summary:
+        '(Allies expansion, suggested from 8 players) In the Allies Phase, takes one player’s badge (his own allowed). Knows nobody and nobody knows him, not even the Witness. Wins with the Murderer’s side and joins the Reversal.',
+    },
+    {
+      name: 'Protective Detail',
+      summary:
+        '(Allies expansion, only with the Witness) Knows who the Witness is; the Witness doesn’t know them. Wins with the Investigators.',
+    },
   ],
   sections: [
     {
@@ -117,6 +132,20 @@ export const guide: GameGuide = {
       bullets: EVENT_KINDS.map((k) => `${EVENT_NAMES[k]}: ${EVENT_TEXT[k]}`),
     },
     {
+      title: 'Allies expansion',
+      paragraphs: [
+        'An optional expansion the host switches on in the lobby. It shuffles in 89 more Clue cards, 54 more Means cards, 7 more scene tiles and one more event, raises the table to 14 players, and offers three new roles, each with its own switch. “Use the suggested roles” sets the rulebook’s line-ups: the Accomplice and the Witness at 6, plus the Lab Technician at 7, plus the Inside Man at 8 or more. At least one plain Investigator must be left.',
+      ],
+      bullets: [
+        'The Allies Phase comes once, after round 1’s discussion (and presentations, if on). Everyone waits while the Lab Technician checks one card (45 seconds; they may skip), then the Inside Man takes a badge (45 seconds; at 0 one is taken at random). The table hears who lost a badge, never who took it. Nobody can solve during it.',
+        'A badge the Inside Man takes is gone: that player can’t solve, and doesn’t make a final accusation. If it was the last badge at the table, the Murderer’s side wins at once.',
+        'The Murderer’s side can never name the real pair, and that includes the Inside Man, who doesn’t know it.',
+        'In the Reversal the Inside Man joins the Murderer and the Accomplice: the three see each other and each other’s taps, and the Murderer decides.',
+        'Change of Heart (the new event): the Forensic Scientist peeks at the next tile and sets it aside, face down. If it is an event, they now secretly win with the Murderer’s side: still truthful and silent, but free to mislead with bullets. Another tile is drawn for the round, and the set-aside tile is shown at the end. If the pile is empty, the discarded scene tiles are shuffled into a new one first.',
+        'Unknown Location (a variant): its single Location tile replaces the four.',
+      ],
+    },
+    {
       title: 'If someone drops out',
       bullets: [
         'A player who leaves keeps their cards on the table (a departed Murderer can still be caught) and their presentations are skipped.',
@@ -146,6 +175,11 @@ export const guide: GameGuide = {
       term: 'Presentations',
       meaning:
         'Optional (off by default): after each discussion, everyone in turn says which cards they suspect and why.',
+    },
+    {
+      term: 'Allies Phase',
+      meaning:
+        'Allies expansion: the secret step after round 1 where the Lab Technician checks a card and the Inside Man takes a badge.',
     },
     {
       term: 'Final accusations',

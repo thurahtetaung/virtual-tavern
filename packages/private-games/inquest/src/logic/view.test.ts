@@ -77,6 +77,7 @@ function checkViews(h: Harness, label: string) {
         deadline: g.reversal.deadline,
         murdererTap: null,
         accompliceTap: null,
+        insideTap: null,
       });
     }
     // The Forensic Scientist's private choices.

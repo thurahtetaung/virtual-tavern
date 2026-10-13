@@ -8,12 +8,15 @@ export const ROLE_NAMES: Readonly<Record<RoleId, string>> = {
   accomplice: 'Accomplice',
   witness: 'Witness',
   investigator: 'Investigator',
+  'lab-technician': 'Lab Technician',
+  'inside-man': 'Inside Man',
+  'protective-detail': 'Protective Detail',
 };
 
 export const roleName = (role: RoleId) => ROLE_NAMES[role];
 
 /**
- * Our own names for the six events. The UI prefers the event tile's title from the private
+ * Our own names for the events (six in the base game, one in the Allies expansion). The UI prefers the event tile's title from the private
  * manifest when there is one.
  */
 export const EVENT_NAMES: Readonly<Record<EventKind, string>> = {
@@ -23,6 +26,7 @@ export const EVENT_NAMES: Readonly<Record<EventKind, string>> = {
   erroneous: 'Shifted Bullet',
   countdown: 'Last Call',
   testimony: 'Secret Tip',
+  'perfect-crime': 'Change of Heart',
 };
 
 export const eventName = (kind: EventKind) => EVENT_NAMES[kind];
@@ -40,6 +44,8 @@ export const EVENT_TEXT: Readonly<Record<EventKind, string>> = {
     'Two scene tiles are swapped for new ones, and this is the last round: the game ends after it, or the final accusations follow when they’re on.',
   testimony:
     'The Witness secretly points at a scene tile, and a new tile replaces it. Nobody learns who pointed.',
+  'perfect-crime':
+    'The Forensic Scientist peeks at the next tile and sets it aside, face down. If it is an event, they now secretly win with the Murderer’s side (still answering truthfully, but free to mislead with bullets). The tile is shown at the end. Another tile is drawn for the round.',
 };
 
 /** What ends the last round, in the room's mode: its discussion or its presentations. */

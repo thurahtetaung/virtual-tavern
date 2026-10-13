@@ -18,6 +18,7 @@ import { nameOf, resultLine, solveBlocker } from './status.ts';
 import { useTip } from './tips.ts';
 import { TipBox } from './Scene.tsx';
 import { FinalList } from './Final.tsx';
+import { AlliesReveal } from './Allies.tsx';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -45,6 +46,18 @@ const GOALS: Record<RoleId | 'former-forensic', { goal: string; win: string }> =
   investigator: {
     goal: 'Read the bullets and name the Murderer’s exact Clue + Means.',
     win: 'You win when anyone on your side names the crime.',
+  },
+  'lab-technician': {
+    goal: 'In the Allies Phase after round 1, check one card on the table: only you learn whether it is part of the crime.',
+    win: 'You win with the Investigators.',
+  },
+  'inside-man': {
+    goal: 'In the Allies Phase after round 1, take one player’s badge (yours too, if it helps your cover). You know nobody, and nobody knows you.',
+    win: 'You win with the Murderer’s side, and join the Reversal.',
+  },
+  'protective-detail': {
+    goal: 'You know who the Witness is (they don’t know you). Keep them hidden from the culprits.',
+    win: 'You win with the Investigators.',
   },
 };
 
@@ -165,6 +178,21 @@ function Knowledge({ view, content }: { view: InquestView; content: Content }) {
     );
   if (g.autoCrime && g.myRole === 'murderer')
     lines.push('⏱ Time ran out at night, so this pair was picked for you.');
+  if (g.protectedWitness)
+    lines.push(`The Witness is ${nameOf(view, g.protectedWitness)}. They don’t know you.`);
+  const lab = g.allies?.lab;
+  if (lab && g.myRole === 'lab-technician')
+    lines.push(
+      `Your check: ${nameOf(view, lab.owner)}’s ${content.cardName(lab.deck, lab.n)} ${lab.hit ? 'IS part of the crime 👍' : 'is not part of the crime 👎'}.`,
+    );
+  if (g.team && g.stage === 'reversal')
+    lines.push(
+      `The Murderer’s side: ${g.team.map((t) => (t.id === view.me?.id ? 'you' : nameOf(view, t.id))).join(', ')}.`,
+    );
+  if (g.perfect.some((p) => p.switched))
+    lines.push(
+      'You switched sides: you now win with the Murderer’s side. Still answer truthfully.',
+    );
   if (!lines.length) return null;
   return (
     <ul className="space-y-0.5 rounded-lg bg-rose-50 p-2 text-rose-950 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30">
@@ -503,10 +531,30 @@ export function ReversalPanel({
   const g = view.game!;
   const r = g.reversal;
   if (g.stage !== 'reversal' || !r) return null;
-  const culprit = g.myRole === 'murderer' || g.myRole === 'accomplice';
+  // The Murderer's side: the Murderer, the Accomplice and (Allies) the Inside Man, who join here.
+  // Without the Inside Man there is no team list: the Murderer and Accomplice know each other.
+  const team =
+    g.team ??
+    (g.partner && view.me && (g.myRole === 'murderer' || g.myRole === 'accomplice')
+      ? [
+          { id: view.me.id, role: g.myRole },
+          { id: g.partner, role: g.myRole === 'murderer' ? 'accomplice' : 'murderer' },
+        ]
+      : []);
+  const culprit = g.myRole === 'murderer' || g.myRole === 'accomplice' || g.myRole === 'inside-man';
   const candidates = g.players.filter(
-    (p) => !p.isFs && !p.formerFs && p.id !== view.me?.id && p.id !== g.partner,
+    (p) => !p.isFs && !p.formerFs && p.id !== view.me?.id && !team.some((t) => t.id === p.id),
   );
+  const KEYS = {
+    murderer: 'murdererTap',
+    accomplice: 'accompliceTap',
+    'inside-man': 'insideTap',
+  } as const;
+  const keyOf = (role: string) => KEYS[role as keyof typeof KEYS];
+  const mineTap = culprit ? r[keyOf(g.myRole!)] : null;
+  /** The teammates (not you) who tapped this player. */
+  const tappedBy = (id: string) =>
+    team.filter((t) => t.id !== view.me?.id && keyOf(t.role) && r[keyOf(t.role)] === id);
   return (
     <Panel role="region" aria-label="The Reversal" className="space-y-2 ring-2 ring-rose-500">
       <div className="flex items-start justify-between gap-2">
@@ -524,11 +572,15 @@ export function ReversalPanel({
             {g.myRole === 'murderer'
               ? 'Tap who you think the Witness is, then confirm. Your choice is final.'
               : 'Tap who you think the Witness is: the Murderer sees your tap and decides.'}
+            {team.length > 2 &&
+              ` Your side: ${team
+                .filter((t) => t.id !== view.me?.id)
+                .map((t) => nameOf(view, t.id))
+                .join(', ')}.`}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {candidates.map((p) => {
-              const mineTap = g.myRole === 'murderer' ? r.murdererTap : r.accompliceTap;
-              const theirs = g.myRole === 'murderer' ? r.accompliceTap : r.murdererTap;
+              const theirs = tappedBy(p.id);
               return (
                 <Button
                   key={p.id}
@@ -539,7 +591,11 @@ export function ReversalPanel({
                   }
                 >
                   {p.name}
-                  {theirs === p.id && <span className="text-xs">👈 {nameOf(view, g.partner)}</span>}
+                  {theirs.length > 0 && (
+                    <span className="text-xs">
+                      👈 {theirs.map((t) => nameOf(view, t.id)).join(', ')}
+                    </span>
+                  )}
                 </Button>
               );
             })}
@@ -624,12 +680,14 @@ export function OverScreen({
               <PlayerTag name={p.name} you={p.id === view.me?.id} /> ·{' '}
               {content.roleName(roles[p.id]!)}
               {p.formerFs || (p.isFs && roles[p.id] !== 'forensic') ? ' (took over as FS)' : ''}
+              {g.perfect.some((x) => x.switched && x.by === p.id) ? ' (switched sides)' : ''}
               {r.winners.includes(p.id) ? ' 🏆' : ''}
             </li>
           ))}
         </ul>
       </Panel>
       <Attempts view={view} content={content} />
+      <AlliesReveal view={view} content={content} />
       {g.final && (
         <Panel className="space-y-1">
           <h3 className="text-sm font-bold">Final accusations</h3>

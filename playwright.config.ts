@@ -19,6 +19,7 @@ export const SHARED_STATE = [
   /screenshots\.spec\.ts$/,
   /recap-backroom\.spec\.ts$/,
   /inquest\.spec\.ts$/,
+  /inquest-allies\.spec\.ts$/,
   /playtest\.spec\.ts$/,
   /seance\.spec\.ts$/,
   /hydra\.spec\.ts$/,
@@ -68,8 +69,9 @@ export default defineConfig({
       // Every browser shares one address, so the suite would trip the per-address room limit.
       ROOM_CREATE_LIMIT: '1000',
       LOG_LEVEL: 'warn',
-      // Inquest's events spec needs these events first when the pile gets its events.
-      INQUEST_TEST_EVENTS: 'ruled-out,erroneous,countdown',
+      // Inquest's events specs need these events first when the pile gets its events (the
+      // Allies expansion's perfect-crime only counts in games with the expansion on).
+      INQUEST_TEST_EVENTS: 'perfect-crime,ruled-out,erroneous,countdown',
       // Hydra's specs reach the powers with red policies on top of every deck.
       HYDRA_TEST_DECK: 'rrrrrrrrrrr',
     },

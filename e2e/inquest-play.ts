@@ -1,4 +1,6 @@
-import { type Browser, type Page, expect } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
 // Helpers to play Inquest through the UI. Tiles are found by their `data-` hooks, so the helpers
@@ -10,6 +12,40 @@ export interface Player {
 }
 
 let nextIp = 1;
+
+/**
+ * Screenshots only: with `INQUEST_ART` set to folders of Inquest art (colon-separated, each with
+ * a `manifest.json` or `manifest-additions.json`, later ones adding to earlier ones), the browser is served that art in place
+ * of asset storage. The art is private and never committed; without the variable nothing changes.
+ */
+async function previewArt(context: BrowserContext) {
+  const dirs = (process.env.INQUEST_ART ?? '').split(':').filter(Boolean);
+  if (!dirs.length) return;
+  type Section = Record<string, unknown>;
+  const manifest: Record<string, unknown> = {};
+  for (const dir of dirs) {
+    const file = ['manifest.json', 'manifest-additions.json']
+      .map((f) => join(dir, f))
+      .find((f) => existsSync(f));
+    if (!file) continue;
+    const m = JSON.parse(readFileSync(file, 'utf8')) as Section;
+    for (const [k, v] of Object.entries(m))
+      manifest[k] =
+        v && typeof v === 'object' && !Array.isArray(v)
+          ? { ...(manifest[k] as Section | undefined), ...(v as Section) }
+          : v;
+  }
+  await context.route('**/api/backroom/manifest/inquest', (r) => r.fulfill({ json: manifest }));
+  await context.route('**/api/backroom/assets/inquest/**', (r) => {
+    const path = decodeURIComponent(
+      new URL(r.request().url()).pathname.replace(/^\/api\/backroom\/assets\/inquest\//, ''),
+    );
+    const file = dirs.map((d) => join(d, path)).find((f) => !path.includes('..') && existsSync(f));
+    return file
+      ? r.fulfill({ body: readFileSync(file), contentType: 'image/webp' })
+      : r.fulfill({ status: 404 });
+  });
+}
 
 /** A browser with its own rate-limit address and name. */
 export async function visitor(
@@ -23,6 +59,7 @@ export async function visitor(
     ...opts,
     extraHTTPHeaders: { 'cf-connecting-ip': `10.9.${worker}.${(nextIp++ % 250) + 1}` },
   });
+  await previewArt(context);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
   // Hand over and Abandon ask first.
@@ -74,7 +111,11 @@ export async function table(
 }
 
 /** The player whose page shows `text` (polling until one does). */
-export async function whoShows(players: Player[], text: RegExp | string): Promise<Player> {
+export async function whoShows(
+  players: Player[],
+  text: RegExp | string,
+  timeout = 15_000,
+): Promise<Player> {
   let found: Player | undefined;
   await expect
     .poll(
@@ -87,7 +128,7 @@ export async function whoShows(players: Player[], text: RegExp | string): Promis
         }
         return false;
       },
-      { timeout: 15_000 },
+      { timeout },
     )
     .toBe(true);
   return found!;
@@ -174,6 +215,22 @@ export async function dismissEvent(players: Player[], name: RegExp) {
 }
 
 /**
+ * Closes whichever event card is up on every screen, whatever it is called (the art's manifest may
+ * rename the events), and returns its title.
+ */
+export async function dismissAnyEvent(players: Player[]): Promise<string> {
+  let title = '';
+  for (const p of players) {
+    const dialog = p.page.getByRole('dialog', { name: /^Event: / });
+    await expect(dialog).toBeVisible();
+    title = (await dialog.getByRole('heading', { level: 2 }).textContent()) ?? '';
+    await dialog.getByRole('button', { name: 'Got it' }).click();
+    await expect(p.page.getByRole('dialog', { name: title, exact: true })).toBeHidden();
+  }
+  return title;
+}
+
+/**
  * Opens Solve (or Accuse, in the final accusations) and names `suspect`'s `clue`-th Clue and
  * `means`-th Means card (0-based).
  */
@@ -213,7 +270,7 @@ export async function withRole(players: Player[], role: string): Promise<Player>
     await card.click();
     const heading = p.page.getByRole('heading', { level: 3 }).filter({
       hasText:
-        /^(Forensic Scientist|Murderer|Accomplice|Witness|Investigator|Former Forensic Scientist)$/,
+        /^(Forensic Scientist|Murderer|Accomplice|Witness|Investigator|Former Forensic Scientist|Lab Technician|Inside Man|Protective Detail)$/,
     });
     await expect(heading).toBeVisible();
     const found = (await heading.textContent()) === role;

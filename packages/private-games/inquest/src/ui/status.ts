@@ -36,6 +36,11 @@ export function waitingOn(view: InquestView): Waiting | null {
   switch (g.stage) {
     case 'night':
       return { ids: [], label: 'the Murderer' };
+    case 'allies':
+      return {
+        ids: [],
+        label: g.allies?.step === 'inside' ? 'the Inside Man' : 'the Lab Technician',
+      };
     case 'reversal':
       return { ids: [], label: 'the Murderer and the Accomplice' };
     case 'present':
@@ -127,13 +132,31 @@ export function statusFor(
       return role === 'murderer'
         ? { text: 'Murderer: pick 1 Clue + 1 Means from your own cards.', yourMove: true }
         : { text: withLead('Night falls: the Murderer is choosing the crime…'), yourMove: false };
+    case 'allies': {
+      const step = g.allies?.step;
+      if (step === 'lab' && role === 'lab-technician')
+        return {
+          text: 'Allies Phase: check one card on the table (only you learn the result), or skip.',
+          yourMove: true,
+        };
+      if (step === 'inside' && role === 'inside-man')
+        return { text: 'Allies Phase: take one player’s badge.', yourMove: true };
+      return {
+        text: withLead(
+          step === 'inside'
+            ? 'The allies are at work: the Inside Man is taking a badge…'
+            : 'The allies are at work: the Lab Technician is checking a card…',
+        ),
+        yourMove: false,
+      };
+    }
     case 'reversal':
       if (role === 'murderer')
         return {
           text: 'Caught! Name the Witness: tap who it is, then confirm. Your Accomplice sees your taps.',
           yourMove: true,
         };
-      if (role === 'accomplice')
+      if (role === 'accomplice' || role === 'inside-man')
         return {
           text: 'Caught! Help the Murderer name the Witness: your taps show on their screen.',
           yourMove: true,
@@ -287,7 +310,8 @@ export function solveBlocker(view: InquestView): string | null {
   const me = g.players.find((p) => p.id === view.me?.id);
   if (!me || me.isFs || me.formerFs) return 'Only players at the table can solve.';
   if (me.badges <= 0) return 'You’ve used your attempt.';
-  if (g.stage === 'night' || g.stage === 'reversal') return 'You can’t solve right now.';
+  if (g.stage === 'night' || g.stage === 'allies' || g.stage === 'reversal')
+    return 'You can’t solve right now.';
   if (g.stage === 'collect' && g.bullets.length === 0)
     return 'You can solve once the first bullet is down.';
   const accuser = accuserOf(g);

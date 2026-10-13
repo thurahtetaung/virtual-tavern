@@ -149,6 +149,18 @@ export class BotRunner {
     if (!move) return;
     run.moves.push(now);
     const res = rooms.act(roomId, botId, move);
+    if (!res.ok && table.game.botInfo?.retry?.(res.error.code)) {
+      // A refusal the game says is worth another go: try again after the usual pause.
+      const wait = this.deps.delay(false) * SPEED[table.speed];
+      run.timers.set(
+        botId,
+        setTimeout(() => {
+          run.timers.delete(botId);
+          this.fire(roomId, botId);
+        }, wait),
+      );
+      return;
+    }
     if (!res.ok) {
       run.refusedAt.set(botId, table.version);
       logger.debug?.(
