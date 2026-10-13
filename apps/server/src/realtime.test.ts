@@ -1056,7 +1056,7 @@ describe('realtime Hydra', () => {
                 ? { type: 'claim', cards: ['red', 'red', 'red'] }
                 : n.kind === 'investigate'
                   ? { type: 'claim', team: 'blue' }
-                  : { type: 'claim', blues: 1 },
+                  : { type: 'claim', blues: 1, discarded: 'red' },
             );
         } else if (v.stage === 'power') {
           const p = byId(g.president);

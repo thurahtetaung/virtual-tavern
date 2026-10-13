@@ -84,9 +84,9 @@ const RAW: GameGuide = {
     {
       title: '4. Claims',
       paragraphs: [
-        'After every session the President claims the 3 cards they drew and the Chancellor the 2 they got, and after an investigation or a peek the President claims what they saw. Claims are final, and anyone may lie.',
+        'After every session the President claims the 3 cards they drew and which colour they discarded, and the Chancellor the 2 they got (their discard follows from the policy that came out, so the log works it out). After an investigation or a peek the President claims what they saw. Claims are final, and anyone may lie, about the draw or the discard.',
         'Play waits for both claims. A claim timer counts down; once it runs out, the host may skip a missing claim (it’s logged).',
-        'The claim log marks claims that can’t all be true from what everyone saw (for example, a President who claims three {red} cards when a {blue} policy came out). It never uses secret information.',
+        'The claim log marks claims that can’t all be true from what everyone saw (for example, a President who claims three {red} cards when a {blue} policy came out, or who says they passed two {red} cards to a Chancellor who says they got a {blue} one). It never uses secret information.',
       ],
     },
     {

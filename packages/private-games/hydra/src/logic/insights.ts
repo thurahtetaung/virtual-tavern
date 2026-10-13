@@ -11,7 +11,7 @@ import type { Game, HydraAction, HydraState, Round } from './types.ts';
  *   special, `zone` (3+ red policies were down);
  * - `cleared`: the Chancellor was confirmed not to be the Leader;
  * - `session`: president, chancellor, enacted colour (null when vetoed), vetoed, `chaos`;
- * - `claim`: who, kind, `blues` / `cards` / `team` / `target`, skipped;
+ * - `claim`: who, kind, `blues` (+ `discarded`) / `cards` / `team` / `target`, skipped;
  * - `power`: kind, president, target; `execution`: who was executed, by whom;
  * - `outcome`: winner, `how`, rounds, the teams and the Leader, and what the truth showed.
  */
@@ -84,6 +84,7 @@ export function insights(
           round: r.n,
           kind: c.kind,
           blues: c.blues ?? null,
+          discarded: c.discarded ?? null,
           cards: c.cards ? [...c.cards] : null,
           team: c.team ?? null,
           target: c.target ?? null,

@@ -195,8 +195,11 @@ function randomMove(h: Harness, rng: Rng): { action: HydraAction; by: string } |
       if (rng.int(10) === 0) return { action: { type: 'skip-claim', player: by }, by: HOST };
       const c: Policy[] = ['blue', 'red'];
       switch (need.kind) {
-        case 'president':
-          return { action: { type: 'claim', blues: rng.int(4) }, by };
+        case 'president': {
+          const blues = rng.int(4);
+          const discarded = blues === 0 ? 'red' : blues === 3 ? 'blue' : pick(c);
+          return { action: { type: 'claim', blues, discarded }, by };
+        }
         case 'chancellor':
           return { action: { type: 'claim', blues: rng.int(3) }, by };
         case 'peek':

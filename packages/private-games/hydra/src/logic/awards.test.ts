@@ -1,6 +1,7 @@
 import { type AwardRule, type GameEvents, fixtureGame, recapEv } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { HYDRA_RULES, hydraAwards } from './awards.ts';
+import { claimLied, presidentLies } from './claims.ts';
 import { HOST, claimAll, legislate, recording, rigged } from './test-utils.ts';
 import type { Role } from './types.ts';
 
@@ -157,5 +158,59 @@ describe('a real game through insights and awards', () => {
     const o = rec.events.at(-1)!.props!;
     expect(o.liars).toEqual(expect.arrayContaining([HOST]));
     expect(o.rrrBlue).toEqual([HOST]);
+  });
+});
+
+describe('a false discard', () => {
+  /** Ana's government: the President drew 🟦🟥🟥 and threw the blue away; `discarded` is claimed. */
+  function played(discarded: 'blue' | 'red' | undefined) {
+    const roles: Role[] = ['blue', 'blue', 'red', 'leader', 'blue'];
+    const h = rigged(roles, { deck: ['blue', 'red', 'red'], settings: { quick: true } });
+    const rec = recording(h);
+    h.state = { ...h.state, game: { ...h.game(), enacted: { blue: 0, red: 3 } } };
+    h.act({ type: 'nominate', player: 'ana' }, HOST);
+    for (const p of ['host', 'ana', 'ben', 'cy', 'dee']) h.act({ type: 'vote', ballot: 'yes' }, p);
+    legislate(h, 'red');
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
+    h.act({ type: 'claim', blues: 0 }, 'ana');
+    if (discarded !== 'red') {
+      // Rewrite the stored claim: a lie about the discard, or an old claim without one.
+      const g = h.game();
+      const [r] = g.rounds;
+      const claims = r!.claims.map((c) => (c.kind === 'president' ? { ...c, discarded } : c));
+      if (discarded === undefined) delete claims[0]!.discarded;
+      h.state = { ...h.state, game: { ...g, rounds: [{ ...r!, claims }] } };
+    }
+    h.act({ type: 'execute', player: 'cy' }, HOST);
+    expect(h.state.phase).toBe('over');
+    return { h, rec, outcome: rec.events.at(-1)!.props! };
+  }
+
+  it('is a lie on the truth screen and in the lie counts, even with a true draw', () => {
+    const { h, rec, outcome } = played('red');
+    const g = h.game();
+    const claim = g.rounds[0]!.claims[0]!;
+    expect(g.truth[0]).toMatchObject({ drawn: ['blue', 'red', 'red'], presidentDiscard: 'blue' });
+    expect(presidentLies(claim, g.truth[0])).toEqual(['discard']);
+    expect(claimLied(claim, g.truth[0])).toBe(true);
+    expect(outcome.liars).toEqual([HOST]);
+    expect(outcome.lies).toBe(1);
+    expect(outcome.honest).toEqual(['ana']);
+    // The claim event carries the stated discard.
+    const ev = rec.events.find((e) => e.type === 'claim' && e.playerId === HOST);
+    expect(ev?.props).toMatchObject({ kind: 'president', blues: 1, discarded: 'red' });
+    // Pinocchio needs two lies; Straight Shooter leaves the liar out.
+    const fg = fixtureGame(rec.events, { players: g.players });
+    expect(hit(rule('straight-shooter'), fg).flatMap((x) => x.players)).not.toContain(HOST);
+  });
+
+  it('a true discard is no lie, and an old claim without one judges the draw only', () => {
+    for (const discarded of ['blue', undefined] as const) {
+      const { h, outcome } = played(discarded);
+      const g = h.game();
+      expect(presidentLies(g.rounds[0]!.claims[0]!, g.truth[0])).toEqual([]);
+      expect(outcome.liars).toEqual([]);
+      expect(outcome.lies).toBe(0);
+    }
   });
 });

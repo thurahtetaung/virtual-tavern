@@ -471,11 +471,11 @@ describe('claims', () => {
     legislate(h, 'blue');
     expect(h.state.stage).toBe('claim');
     expect(h.reject({ type: 'nominate', player: 'ben' }, 'ana')).toBe('wrong-stage');
-    h.act({ type: 'claim', blues: 1 }, HOST);
-    expect(h.reject({ type: 'claim', blues: 0 }, HOST)).toBe('claimed');
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
+    expect(h.reject({ type: 'claim', blues: 0, discarded: 'red' }, HOST)).toBe('claimed');
     expect(h.reject({ type: 'claim', blues: 3 }, 'ana')).toBe('bad-claim');
     expect(h.view('ben').game!.rounds[0]!.claims).toEqual([
-      { by: HOST, kind: 'president', blues: 1, at: NOW },
+      { by: HOST, kind: 'president', blues: 1, discarded: 'red', at: NOW },
     ]);
     h.act({ type: 'claim', blues: 1 }, 'ana');
     expect(h.state.stage).toBe('nominate');
@@ -486,7 +486,7 @@ describe('claims', () => {
     stack(h, ['blue', 'red', 'red']);
     elect(h, 'ana');
     legislate(h, 'blue');
-    h.act({ type: 'claim', blues: 1 }, HOST);
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
     expect(h.reject({ type: 'skip-claim', player: 'ana' })).toBe('too-soon');
     h.now += 45_000;
     expect(h.reject({ type: 'skip-claim', player: 'ana' }, 'ben')).toBe('not-host');
@@ -502,10 +502,66 @@ describe('claims', () => {
     stack(h, ['blue', 'red', 'red']);
     elect(h, 'ana');
     legislate(h, 'blue');
-    h.act({ type: 'claim', blues: 0 }, HOST); // three red, but blue came out
+    h.act({ type: 'claim', blues: 0, discarded: 'red' }, HOST); // three red, but blue came out
     h.act({ type: 'claim', blues: 2 }, 'ana'); // can't get two blue from none
     const kinds = claimFlags(h.game().rounds).map((f) => f.kind);
     expect(kinds).toEqual(['government-mismatch', 'president-vs-enacted']);
+  });
+
+  it('the President says which colour they discarded, consistent with their three', () => {
+    const h = rigged(FIVE);
+    stack(h, ['blue', 'red', 'red']);
+    elect(h, 'ana');
+    legislate(h, 'blue');
+    // Required for a President's claim, and only a colour they say they drew.
+    expect(h.reject({ type: 'claim', blues: 1 }, HOST)).toBe('bad-claim');
+    expect(h.reject({ type: 'claim', blues: 0, discarded: 'blue' }, HOST)).toBe('bad-claim');
+    expect(h.reject({ type: 'claim', blues: 3, discarded: 'red' }, HOST)).toBe('bad-claim');
+    expect(h.game().rounds[0]!.claims).toEqual([]);
+    // A lie is fine: they really discarded red.
+    h.act({ type: 'claim', blues: 1, discarded: 'blue' }, HOST);
+    // The Chancellor's claim has no discard to state.
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, 'ana');
+    expect(h.game().rounds[0]!.claims[1]).not.toHaveProperty('discarded');
+    expect(h.state.stage).toBe('nominate');
+  });
+
+  it('flags a President who says they passed other cards than the Chancellor says they got', () => {
+    const h = rigged(FIVE);
+    stack(h, ['blue', 'red', 'red']);
+    elect(h, 'ana');
+    legislate(h, 'blue');
+    // 1 blue, discarded blue: they say they passed two red, but the Chancellor says one blue.
+    h.act({ type: 'claim', blues: 1, discarded: 'blue' }, HOST);
+    h.act({ type: 'claim', blues: 1 }, 'ana');
+    expect(claimFlags(h.game().rounds)).toEqual([
+      { round: 1, kind: 'passed-mismatch', who: [HOST, 'ana'], passed: 0, received: 1 },
+      // Two red passed can't make a blue policy either.
+      { round: 1, kind: 'president-vs-enacted', who: [HOST] },
+    ]);
+  });
+
+  it('an honest pair raises no flag, and an old claim without a discard still reads', () => {
+    const h = rigged(FIVE);
+    stack(h, ['blue', 'red', 'red']);
+    elect(h, 'ana');
+    legislate(h, 'blue');
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
+    h.act({ type: 'claim', blues: 1 }, 'ana');
+    expect(claimFlags(h.game().rounds)).toEqual([]);
+    // A claim stored before discards were stated (a game live during the deploy).
+    const rounds = h.game().rounds.map((r) => ({
+      ...r,
+      claims: r.claims.map(({ discarded: _, ...c }) => c),
+    }));
+    expect(claimFlags(rounds)).toEqual([]);
+    h.state = { ...h.state, game: { ...h.game(), rounds } };
+    expect(h.view('ben').game!.rounds[0]!.claims[0]).toEqual({
+      by: HOST,
+      kind: 'president',
+      blues: 1,
+      at: NOW,
+    });
   });
 
   it('a player who left has their claim skipped', () => {
@@ -517,7 +573,7 @@ describe('claims', () => {
     expect(h.game().rounds[0]!.claims).toEqual([
       expect.objectContaining({ by: 'ana', skipped: 'left' }),
     ]);
-    h.act({ type: 'claim', blues: 1 }, HOST);
+    h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
     // Ana is the next candidate, so the table nominates for her too.
     expect(h.state.stage).toBe('vote');
     expect(h.game().rounds[1]!.autos).toContainEqual({ who: 'ana', what: 'nomination' });

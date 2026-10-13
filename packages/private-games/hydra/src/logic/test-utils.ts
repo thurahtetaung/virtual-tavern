@@ -127,7 +127,7 @@ export function legislate(h: Harness, enact: Policy) {
 /** Everyone the table waits on claims honestly-looking defaults. */
 export function claimAll(h: Harness) {
   for (const n of [...h.game().needs]) {
-    if (n.kind === 'president') h.act({ type: 'claim', blues: 1 }, n.by);
+    if (n.kind === 'president') h.act({ type: 'claim', blues: 1, discarded: 'red' }, n.by);
     else if (n.kind === 'chancellor') h.act({ type: 'claim', blues: 1 }, n.by);
     else if (n.kind === 'peek') h.act({ type: 'claim', cards: ['red', 'red', 'blue'] }, n.by);
     else h.act({ type: 'claim', team: 'blue' }, n.by);

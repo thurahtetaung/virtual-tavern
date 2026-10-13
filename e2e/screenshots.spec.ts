@@ -1656,7 +1656,9 @@ for (const [label, viewport] of [
     await host.waitForTimeout(1800);
     await shot(host, 'enact-moment');
     const form = pres.page.getByTestId('claim-form');
-    await form.getByRole('button', { name: '2 Conspirator, 1 Loyalist' }).click();
+    await form
+      .getByRole('button', { name: '2 Conspirator, 1 Loyalist, discarded Conspirator' })
+      .click();
     await form.getByRole('button', { name: 'Make this claim' }).click();
     await shot(pres.page, 'claim');
     await form.getByRole('button', { name: 'Confirm claim' }).click();

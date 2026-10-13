@@ -1,7 +1,7 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import { Button, Superlatives, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { claimLied } from '../logic/claims.ts';
+import { claimLied, presidentLies } from '../logic/claims.ts';
 import type { HydraAction, HydraView, Truth } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { FlipCard, Pips, RoleBack, RoleFace, TEAM_SOFT, TEAM_TEXT } from './Cards.tsx';
@@ -125,15 +125,17 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
               <ul className="mt-1 space-y-0.5">
                 {r.claims.map((cl) => {
                   const lied = claimLied(cl, t);
+                  // Which part of a President's claim was false: the draw, the discard or both.
+                  const part = presidentLies(cl, t)?.join(' + ');
                   return (
                     <li
                       key={`${cl.by}:${cl.kind}`}
                       className={cn('rounded px-1', lied && 'bg-rose-100 dark:bg-rose-500/20')}
                     >
-                      <ClaimLine view={view} c={c} claim={cl} />{' '}
+                      <ClaimLine view={view} c={c} claim={cl} round={r} />{' '}
                       {lied === true && (
                         <span className="rounded bg-rose-600 px-1 text-[0.6rem] font-black text-white">
-                          LIE
+                          LIE{part && ` (${part})`}
                         </span>
                       )}
                       {lied === false && (
