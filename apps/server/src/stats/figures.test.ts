@@ -61,3 +61,52 @@ describe('Inquest figures', () => {
     expect(JSON.stringify(events)).not.toContain('Change of Heart');
   });
 });
+
+describe('Short Fuse figures', () => {
+  it('count explosions, defuses, Nopes, card plays and hiding spots', () => {
+    const m = new Map<string, number>();
+    const events: [string, Record<string, unknown>][] = [
+      [
+        'outcome',
+        { players: 4, turns: 30, preset: 'classic', x1: true, longestChain: 3, maxOwed: 4 },
+      ],
+      ['outcome', { players: 3, turns: 20, preset: 'party', longestChain: 1, maxOwed: 2 }],
+      ['play', { cards: ['attack'], kind: 'card' }],
+      ['play', { cards: ['cat1', 'cat1'], kind: 'pair' }],
+      ['noped', { chain: 1, kind: 'card', card: 'attack' }],
+      ['bomb', { kind: 'bomb', saved: 'defuse' }],
+      ['bomb', { kind: 'bomb', saved: 'none' }],
+      ['explode', { kind: 'bomb', turn: 9, left: 4 }],
+      ['placement', { kind: 'bomb', position: 0, of: 20 }],
+      ['placement', { kind: 'bomb', position: 19, of: 20 }],
+      ['placement', { kind: 'void', position: 3, of: 20 }],
+    ];
+    for (const [type, props] of events)
+      for (const [k, v] of figureCounters('short-fuse', type, props))
+        m.set(k, k.startsWith('max.') ? Math.max(m.get(k) ?? 0, v) : (m.get(k) ?? 0) + v);
+    const figs = buildFigures('short-fuse', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('explosions')).toMatchObject({ kind: 'number', value: 0.5 });
+    expect(by('defused')).toMatchObject({ kind: 'percent', value: 50 });
+    expect(by('noped')).toMatchObject({ kind: 'percent', value: 50 });
+    expect(by('chain')).toMatchObject({ value: 3 });
+    expect(by('owed')).toMatchObject({ value: 4 });
+    expect(by('decks')).toMatchObject({
+      parts: [
+        { label: 'Classic deck', value: 1 },
+        { label: 'Adult deck', value: 0 },
+        { label: 'Party deck', value: 1 },
+      ],
+    });
+    expect(by('cards')).toMatchObject({ parts: [{ label: '{card:attack}', value: 1 }] });
+    expect(by('spots')).toMatchObject({
+      bins: [
+        { label: 'On top', value: 1 },
+        { label: '2nd', value: 0 },
+        { label: '3rd', value: 0 },
+        { label: 'Further down', value: 0 },
+        { label: 'At the bottom', value: 1 },
+      ],
+    });
+  });
+});

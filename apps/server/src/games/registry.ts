@@ -14,6 +14,7 @@ import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
 import { seance } from '@vt/private-seance/logic';
 import { setTestRig, tavernBrawl } from '@vt/private-tavern-brawl/logic';
+import { enableTestRig, shortFuse } from '@vt/private-short-fuse/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -47,6 +48,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.TAVERN_BRAWL_TEST_DECK)
   setTestRig({ decks, firstSeat: true });
 }
 
+// Browser tests only: let the host fix Short Fuse's hands and the top of the pile (the `rig`
+// action), so a spec can reach a given card. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.SHORT_FUSE_TEST_RIG === '1') {
+  enableTestRig();
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -70,6 +77,7 @@ export function buildGames(): GameRegistry {
     hydra,
     hogwarts,
     tavernBrawl,
+    shortFuse,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

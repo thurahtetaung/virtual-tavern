@@ -25,6 +25,7 @@ export const SHARED_STATE = [
   /hydra\.spec\.ts$/,
   /hogwarts\.spec\.ts$/,
   /tavern-brawl[\w-]*\.spec\.ts$/,
+  /short-fuse(-\w+)?\.spec\.ts$/,
 ];
 
 export default defineConfig({
@@ -79,6 +80,8 @@ export default defineConfig({
       // mage's decks, and the first seat goes first.
       TAVERN_BRAWL_TEST_DECK:
         'druid:druid.09,druid.05,druid.02,druid.08;mage:mage.06,mage.02,mage.10,mage.01',
+      // Short Fuse's specs fix hands and the top of the pile from the lobby (`rig`).
+      SHORT_FUSE_TEST_RIG: '1',
     },
   },
 });

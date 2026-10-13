@@ -142,6 +142,7 @@ describe('back room over HTTP', () => {
       'hydra',
       'hogwarts',
       'tavern-brawl',
+      'short-fuse',
     ]);
   });
 

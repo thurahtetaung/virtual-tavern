@@ -8,6 +8,7 @@ import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { guide as seanceGuide } from '@vt/private-seance/guide';
 import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
+import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
 import { lazy } from 'react';
 import {
   inquestLabels,
@@ -18,6 +19,8 @@ import {
   hydraLabels,
   tavernBrawlGuide as tavernBrawlNamedGuide,
   tavernBrawlLabels,
+  shortFuseGuide as shortFuseNamedGuide,
+  shortFuseLabels,
 } from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
@@ -126,5 +129,16 @@ export const privateGames: ClientGame[] = [
     ),
     labels: tavernBrawlLabels,
     namedGuide: tavernBrawlNamedGuide,
+  },
+  {
+    id: 'short-fuse',
+    name: 'Short Fuse',
+    guide: shortFuseGuide,
+    icon: '💣',
+    Component: lazy(() =>
+      import('@vt/private-short-fuse/ui').then((m) => ({ default: m.ShortFuseGame })),
+    ),
+    labels: shortFuseLabels,
+    namedGuide: shortFuseNamedGuide,
   },
 ];
