@@ -4,6 +4,14 @@ import { cn } from './cn.ts';
 /** Seconds left until `deadline` (server epoch ms), corrected by the client/server clock offset. */
 export function useSecondsLeft(deadline: number | null, clockOffset: number): number | null {
   const [now, setNow] = useState(() => Date.now());
+  // `now` only ticks while a deadline runs, so it can be long stale when a new one arrives (a 2:00
+  // timer showed 2:03 until the first tick): restart the clock with the deadline.
+  const [ticking, setTicking] = useState(deadline);
+  if (ticking !== deadline) {
+    setTicking(deadline);
+    // eslint-disable-next-line react-hooks/purity -- a fresh reading for the new deadline's first render
+    setNow(Date.now());
+  }
   useEffect(() => {
     if (deadline === null) return;
     const id = setInterval(() => setNow(Date.now()), 250);
