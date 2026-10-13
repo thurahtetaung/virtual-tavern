@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.2...v0.29.0) (2026-10-13)
+
+
+### Features
+
+* **tavern-brawl:** add Tavern Brawl, a card brawler in the back room ([#122](https://github.com/thurahtetaung/virtual-tavern/issues/122)) ([36b71e6](https://github.com/thurahtetaung/virtual-tavern/commit/36b71e63d4febbfc5bdbe157b97269604197e73b))
+
 ## [0.28.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.1...v0.28.2) (2026-10-13)
 
 
