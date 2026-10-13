@@ -2,18 +2,24 @@ import type { GameGuide } from '@vt/game-sdk';
 import { useEffect, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 
+/** Named guides already loaded this page, so a card or page mounted later shows them at once. */
+const namedGuides = new Map<string, GameGuide>();
+
 /**
  * A game's guide, named from its private manifest once that has loaded (back-room games that
- * offer `namedGuide`); the plain guide until then, or when it can't load.
+ * offer `namedGuide`); the plain guide until then, or when it can't load. Cards, rules pages and
+ * the rules drawer all read it, so a back-room game never shows its placeholder words to players
+ * who can see the real ones.
  */
-export function GameGuideView({ game, compact = false }: { game: ClientGame; compact?: boolean }) {
+export function useGameGuide(game: ClientGame): GameGuide {
   const [named, setNamed] = useState<{ id: string; guide: GameGuide } | null>(null);
   useEffect(() => {
-    if (!game.namedGuide) return;
+    if (!game.namedGuide || namedGuides.has(game.id)) return;
     let live = true;
     game
       .namedGuide()
       .then((guide) => {
+        namedGuides.set(game.id, guide);
         if (live) setNamed({ id: game.id, guide });
       })
       .catch(() => {
@@ -23,8 +29,16 @@ export function GameGuideView({ game, compact = false }: { game: ClientGame; com
       live = false;
     };
   }, [game]);
-  const guide = named?.id === game.id ? named.guide : game.guide;
-  return <GuideView guide={guide} compact={compact} />;
+  return (
+    (named?.id === game.id ? named.guide : undefined) ??
+    (game.namedGuide && namedGuides.get(game.id)) ??
+    game.guide
+  );
+}
+
+/** A game's guide (see `useGameGuide`). */
+export function GameGuideView({ game, compact = false }: { game: ClientGame; compact?: boolean }) {
+  return <GuideView guide={useGameGuide(game)} compact={compact} />;
 }
 
 /** A role entry's anchor, so a game can open the guide at it: "Merlin (Good)" → "guide-role-merlin". */

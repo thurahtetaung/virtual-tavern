@@ -29,6 +29,22 @@ const name = (v: unknown): string | undefined => {
   return typeof n === 'string' && n.trim() ? n.trim() : undefined;
 };
 
+/** The guide with the manifest's own tagline (`guide.tagline`), when it has one. */
+function withTagline(m: unknown, guide: GameGuide): GameGuide {
+  const tagline = obj(obj(m).guide).tagline;
+  return typeof tagline === 'string' && tagline.trim()
+    ? { ...guide, tagline: tagline.trim() }
+    : guide;
+}
+
+/**
+ * A back-room game's plain guide under its manifest's tagline, for games whose rules need no
+ * other names (their cards show the real names in play).
+ */
+export function taggedGuide(gameId: string, guide: GameGuide): () => Promise<GameGuide> {
+  return async () => withTagline(await manifest(gameId), guide);
+}
+
 /** Fetches a manifest once per page; null without asset storage. */
 const manifests = new Map<string, Promise<Json | null>>();
 function manifest(gameId: string): Promise<Json | null> {
@@ -107,11 +123,7 @@ export function hydraGuide(gameId: string): () => Promise<GameGuide> {
   return async () => {
     const m = await manifest(gameId);
     const man = m as HydraManifest;
-    const guide = nameGuide(namesOf(man), footerOf(creditOf(man)), powerNamesOf(man));
-    const tagline = obj(m?.guide).tagline;
-    return typeof tagline === 'string' && tagline.trim()
-      ? { ...guide, tagline: tagline.trim() }
-      : guide;
+    return withTagline(m, nameGuide(namesOf(man), footerOf(creditOf(man)), powerNamesOf(man)));
   };
 }
 
@@ -133,11 +145,14 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
   const paragraphs = Array.isArray(credit.paragraphs)
     ? credit.paragraphs.filter((p): p is string => typeof p === 'string')
     : [];
-  return makeGuide(
-    { hero: (id) => name(heroes[id]), card: (id) => name(cards[id]) },
-    typeof credit.title === 'string' && paragraphs.length
-      ? { title: credit.title, paragraphs }
-      : undefined,
+  return withTagline(
+    m,
+    makeGuide(
+      { hero: (id) => name(heroes[id]), card: (id) => name(cards[id]) },
+      typeof credit.title === 'string' && paragraphs.length
+        ? { title: credit.title, paragraphs }
+        : undefined,
+    ),
   );
 }
 
@@ -150,5 +165,5 @@ export async function shortFuseLabels(): Promise<Labeler> {
 /** Short Fuse's guide in its manifest's names, with the credits as its footer. */
 export async function shortFuseGuide(): Promise<GameGuide> {
   const m = (await manifest('short-fuse')) as ShortFuseManifest | null;
-  return nameShortFuseGuide(shortFuseNames(m), shortFuseFooter(m));
+  return withTagline(m, nameShortFuseGuide(shortFuseNames(m), shortFuseFooter(m)));
 }

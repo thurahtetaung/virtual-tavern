@@ -13,7 +13,7 @@ import {
   voteAll,
 } from './hydra-play.ts';
 import { MANIFEST, WORDS } from './hogwarts-manifest.ts';
-import { openBackroom } from './inquest-play.ts';
+import { openBackroom, unlock } from './inquest-play.ts';
 
 // Hydra's themed edition, played with a made-up manifest: every name, a few copy lines and the
 // team colours come from it, as the real (private) one does. Nothing of Hydra's own words may
@@ -47,6 +47,18 @@ async function government(players: Player[]) {
 async function gameText(player: Player) {
   return player.page.locator('main').innerText();
 }
+
+test("the back room's card and rules page use the edition's words", async ({ browser }) => {
+  await openBackroom(await hydraVisitor(browser, 'Admin', pageErrors));
+  const page = await hydraVisitor(browser, 'Hana', pageErrors, opts);
+  await unlock(page);
+  const tagline = /pass laws in secret, and find the Archon/;
+  await expect(page.getByText(tagline)).toBeVisible();
+  await expect(page.getByText(/Hydra’s hidden-role/)).toHaveCount(0);
+  await page.goto('/rules/hogwarts');
+  await expect(page.getByText(tagline).first()).toBeVisible();
+  await expect(page.locator('main')).not.toContainText(HYDRA);
+});
 
 test('the themed edition: five players, a peek, claims with a discard and an execution', async ({
   browser,
