@@ -55,7 +55,7 @@ export function chatText(
     resolveSegments(text, opts.names, opts.labels)
       .map((s) => (s.name ? `**${s.text}**` : s.text))
       .join('');
-  const line = (l: RecapLine) => `${l.emoji} ${l.title}: ${bold(l.text)}`;
+  const line = (l: RecapLine) => `${l.emoji} ${bold(l.title)}: ${bold(l.text)}`;
   const out = [
     `🍻 Tavern night · ${nightDate(recap.startedAt)} · ${duration(playedMs(recap))}`,
     gameMix(recap, opts.gameInfo),

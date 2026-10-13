@@ -1,0 +1,8 @@
+This package is a themed edition of Hydra (`packages/private-games/hydra`), itself an adaptation
+of a board game released under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International licence (https://creativecommons.org/licenses/by-nc-sa/4.0/). It is shared under the
+same licence, unlike the rest of this repository.
+
+It holds no names, wording, art or fonts of its own: all of them come from private storage at run
+time, along with the full credits for the original game and for the edition's art, which are
+shown in the game itself to the players it is shared with.

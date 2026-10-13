@@ -14,22 +14,25 @@ type Filter = 'all' | 'claims' | 'votes';
 
 const FLAG_TEXT: Record<FlagKind, string> = {
   'government-mismatch':
-    'The two claims can’t both be true: the President’s three can’t leave the Chancellor these two.',
-  'passed-mismatch': 'The President and the Chancellor don’t agree on the two cards passed.',
-  'chancellor-vs-enacted': 'The Chancellor’s claim doesn’t match the policy that came out.',
-  'president-vs-enacted': 'The President’s claim doesn’t match the policy that came out.',
+    'The two claims can’t both be true: the {president}’s three can’t leave the {chancellor} these two.',
+  'passed-mismatch': 'The {president} and the {chancellor} don’t agree on the two cards passed.',
+  'chancellor-vs-enacted': 'The {chancellor}’s claim doesn’t match the {policy} that came out.',
+  'president-vs-enacted': 'The {president}’s claim doesn’t match the {policy} that came out.',
   'peek-mismatch': 'This draw doesn’t match the earlier peek claim.',
 };
+
+/** What the timer, the host or the autopilot played for someone (the round's `autos`). */
+const AUTO_TEXT: Record<string, string> = { 'veto answer': '{veto} answer' };
 
 /** "the President says they passed 🟥🟦, the Chancellor says they got 🟥🟥". */
 function PassedMismatch({ f, c }: { f: Flag; c: Content }) {
   return (
     <span>
-      the President says they passed{' '}
+      {c.t('the {president} says they passed')}{' '}
       <span className="whitespace-nowrap">
         <Pips cards={bluesCards(f.passed!, 2)} c={c} />,
       </span>{' '}
-      the Chancellor says they got{' '}
+      {c.t('the {chancellor} says they got')}{' '}
       <span className="whitespace-nowrap">
         <Pips cards={bluesCards(f.received!, 2)} c={c} />.
       </span>
@@ -142,7 +145,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                 )}
                 {r.cleared && (
                   <span className="rounded bg-emerald-100 px-1 text-[0.65rem] font-bold text-emerald-900">
-                    Not {c.roleName('leader')} ✓
+                    {c.copy('moment.cleared.stamp')}
                   </span>
                 )}
               </p>
@@ -158,12 +161,12 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   {r.session && (
                     <li>
                       {r.session.vetoed ? (
-                        <span>✂️ Vetoed: both policies discarded</span>
+                        <span>{c.copy('log.vetoed')}</span>
                       ) : (
                         <span className="inline-flex items-center gap-1">
                           Enacted <Pips cards={[r.session.enacted!]} c={c} />
                           <span className="text-xs text-stone-500">
-                            (the Chancellor’s two were shuffled)
+                            {c.t('(the {chancellor}’s two were shuffled)')}
                           </span>
                         </span>
                       )}
@@ -181,8 +184,9 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   ))}
                   {pending.map((n) => (
                     <li key={`${n.by}:${n.kind}`} className="text-stone-500 italic">
-                      {nameOf(view, n.by)} ({n.kind === 'chancellor' ? 'Chancellor' : 'President'})
-                      is choosing a claim…
+                      {nameOf(view, n.by)} (
+                      {n.kind === 'chancellor' ? c.names.chancellor : c.names.president}) is
+                      choosing a claim…
                     </li>
                   ))}
                   {flagsAt(r.n).map((f) => (
@@ -194,7 +198,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                       {f.kind === 'passed-mismatch' ? (
                         <PassedMismatch f={f} c={c} />
                       ) : (
-                        FLAG_TEXT[f.kind]
+                        c.t(FLAG_TEXT[f.kind])
                       )}
                     </li>
                   ))}
@@ -215,7 +219,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   )}
                   {r.autos.map((a, i) => (
                     <li key={i} className="text-xs text-stone-500">
-                      ⏱ {a.what} played for {nameOf(view, a.who)}
+                      ⏱ {c.t(AUTO_TEXT[a.what] ?? a.what)} played for {nameOf(view, a.who)}
                     </li>
                   ))}
                 </ul>
@@ -301,7 +305,7 @@ export function PlayerRecord({
                       {r.elected === false ? (
                         'rejected'
                       ) : r.session?.vetoed ? (
-                        'vetoed'
+                        c.copy('log.vetoedShort')
                       ) : r.session?.enacted ? (
                         <Pips cards={[r.session.enacted]} c={c} />
                       ) : (

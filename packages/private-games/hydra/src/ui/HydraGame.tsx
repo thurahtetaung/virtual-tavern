@@ -1,8 +1,15 @@
 import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game-sdk';
-import { Button, Countdown, Hint, cn, useSpectatorPrompt } from '@vt/ui';
+import { Button, Countdown, Hint, cn, useRefusalWording, useSpectatorPrompt } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { LEADER_ZONE, NUDGE_MS, type HydraAction, type HydraView } from '../logic/types.ts';
-import { type Content, contentFor, useManifest } from './assets.ts';
+import { COPY, type CopyKey } from '../logic/copy.ts';
+import {
+  LEADER_ZONE,
+  NUDGE_MS,
+  type HydraAction,
+  type HydraView,
+  type Notice,
+} from '../logic/types.ts';
+import { type Content, GAME_ID, contentFor, useManifest } from './assets.ts';
 import { Board, DeckChip, MiniTracks } from './Boards.tsx';
 import { PolicyBack } from './Cards.tsx';
 import { Dock, TaskSheet, secretTask } from './Dock.tsx';
@@ -12,12 +19,23 @@ import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab } from './Me.tsx';
 import { Chaos, LeaderCheck, MomentView, useMoments } from './Moments.tsx';
-import { type SeatPick, Seats, WHY } from './Seats.tsx';
-import { useMomentsSetting, useNotes, useSoundSetting, useSuspicions, useTips } from './storage.ts';
+import { type SeatPick, Seats, whyText } from './Seats.tsx';
+import {
+  useMomentsSetting,
+  useNotes,
+  usePlainHeadings,
+  useSoundSetting,
+  useSuspicions,
+  useTips,
+} from './storage.ts';
 import { HydraStyles } from './styles.tsx';
 import { amAlive, nameOf, statusFor, waitingOn } from './status.ts';
+import { ThemeRoot } from './theme.tsx';
 
-export type HydraUiProps = GameUiProps<HydraView, HydraAction>;
+export type HydraUiProps = GameUiProps<HydraView, HydraAction> & {
+  /** The edition's game id (its manifest and art); Hydra's own by default. */
+  edition?: string;
+};
 type Act = HydraUiProps['act'];
 type Tab = 'table' | 'log' | 'me';
 
@@ -95,7 +113,7 @@ function HeaderStrip({
         {view.phase === 'playing' && (
           <>
             <span className="hidden sm:inline">Next </span>
-            <span aria-label="Next President">🎩</span>{' '}
+            <span aria-label={c.t('Next {president}')}>🎩</span>{' '}
             <b className="text-white">{nameOf(view, g.nextPresident)}</b>
           </>
         )}
@@ -233,37 +251,15 @@ function tipFor(
 ): [string, string] | null {
   const g = view.game;
   if (!g || view.phase !== 'playing' || !view.role) return null;
-  const tips: [string, string, boolean][] = [
-    [
-      'marks',
-      'Tap the ☆ on a seat to mark ⭐ trust or ✕ suspect, and tap a name for their voting record and your notes. Only you see these.',
-      view.stage === 'nominate',
-    ],
-    [
-      'term',
-      'Greyed seats are term-limited: the last elected President and Chancellor can’t be the next Chancellor. Tap one to see why.',
-      view.stage === 'nominate' && g.president === view.me?.id,
-    ],
-    [
-      'tracker',
-      'The election tracker (the dots up top) moves on every failed vote. On the third, the people enact the top policy.',
-      g.tracker > 0,
-    ],
-    [
-      'claims',
-      'Claims are how this game is played: compare them with the votes and the deck chip. The log flags claims that can’t all be true.',
-      view.stage === 'claim',
-    ],
-    [
-      'danger',
-      c.t(
-        'Danger zone: with 3 {red} policies down, electing {leader} as Chancellor wins it for the {reds}.',
-      ),
-      g.enacted.red >= LEADER_ZONE,
-    ],
+  const tips: ['marks' | 'term' | 'tracker' | 'claims' | 'danger', boolean][] = [
+    ['marks', view.stage === 'nominate'],
+    ['term', view.stage === 'nominate' && g.president === view.me?.id],
+    ['tracker', g.tracker > 0],
+    ['claims', view.stage === 'claim'],
+    ['danger', g.enacted.red >= LEADER_ZONE],
   ];
-  const tip = tips.find(([id, , when]) => when && fresh(id));
-  return tip ? [tip[0], tip[1]] : null;
+  const tip = tips.find(([id, when]) => when && fresh(id));
+  return tip ? [tip[0], c.copy(`tip.${tip[0]}`)] : null;
 }
 
 /** Phones show one board at a time (swipe), jumping to the one that just changed. */
@@ -367,9 +363,20 @@ function Pile({ label, count, c }: { label: string; count: number; c: Content })
   );
 }
 
-export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectator }: HydraUiProps) {
-  const manifest = useManifest();
-  const c = useMemo(() => contentFor(manifest), [manifest]);
+export function HydraGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+  edition = GAME_ID,
+}: HydraUiProps) {
+  const manifest = useManifest(edition);
+  const c = useMemo(() => contentFor(manifest, edition), [manifest, edition]);
+  const [plain, setPlain] = usePlainHeadings();
+  // The server words its refusals with name tokens ("Only the {president} discards now.").
+  useRefusalWording(c.t);
   const g = view.game;
   const status = statusFor(view, c);
   const [sound, setSound] = useSoundSetting();
@@ -420,7 +427,7 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
           }
         : null
       : !inGame
-        ? { text: 'You’re watching this game. You can play in the next one.' }
+        ? { text: c.copy('spectator') }
         : null,
   );
 
@@ -441,10 +448,18 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
 
   if (view.phase === 'lobby' || !g)
     return (
-      <>
+      <ThemeRoot c={c} plain={plain}>
         <HydraStyles />
-        <Lobby view={view} room={room} c={c} act={act} showGuide={showGuide} />
-      </>
+        <Lobby
+          view={view}
+          room={room}
+          c={c}
+          act={act}
+          showGuide={showGuide}
+          plain={plain}
+          setPlain={setPlain}
+        />
+      </ThemeRoot>
     );
 
   const me = view.me?.id;
@@ -452,9 +467,9 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
   if (view.phase === 'playing' && amAlive(view)) {
     if (view.stage === 'nominate' && g.president === me) {
       pick = {
-        label: (n) => `Nominate ${n} as Chancellor`,
+        label: (n) => c.t(`Nominate ${n} as {chancellor}`),
         selected: (id) => target === id,
-        why: (id) => (g.ineligible[id] ? WHY[g.ineligible[id]] : null),
+        why: (id) => (g.ineligible[id] ? whyText(c, g.ineligible[id]) : null),
         onPick: (id) => setPicked({ key: stageKey, id }),
       };
     } else if (view.stage === 'power' && g.president === me && g.power && g.power !== 'peek') {
@@ -464,9 +479,10 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
         selected: (id) => target === id,
         why: (id) => {
           const p = g.players.find((x) => x.id === id)!;
-          if (id === me) return WHY.self;
-          if (p.dead) return WHY.dead;
-          if (power === 'investigate' && g.investigated.includes(id)) return WHY.investigated;
+          if (id === me) return whyText(c, 'self');
+          if (p.dead) return whyText(c, 'dead');
+          if (power === 'investigate' && g.investigated.includes(id))
+            return whyText(c, 'investigated');
           return null;
         },
         onPick: (id) => setPicked({ key: stageKey, id }),
@@ -496,10 +512,10 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
     view.phase !== 'playing'
       ? null
       : view.stage === 'vote'
-        ? 'Discuss this government out loud. Votes stay hidden, and can change, until the last one is in.'
+        ? c.copy('talk.vote')
         : view.stage === 'claim' ||
             (view.stage === 'nominate' && (g.rounds.at(-1)?.claims.length ?? 0) > 0)
-          ? 'Question the government out loud before the next nomination.'
+          ? c.copy('talk.claims')
           : null;
   const latest = g.notices.at(-1);
   const showWhy = why && now - why.at < 6000;
@@ -513,19 +529,19 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
 
   if (view.phase === 'over') {
     return (
-      <div className="space-y-3 pb-4">
+      <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
         <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <End view={view} room={room} c={c} act={act} />
           <Timeline view={view} c={c} />
         </div>
         <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
-      </div>
+      </ThemeRoot>
     );
   }
 
   return (
-    <div className="space-y-2 pb-20 lg:pb-4">
+    <ThemeRoot c={c} plain={plain} className="space-y-2 pb-20 lg:pb-4">
       <HydraStyles />
       <HeaderStrip
         view={view}
@@ -546,12 +562,12 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
           className="rounded-xl bg-stone-100 px-3 py-1 text-center text-sm dark:bg-stone-800"
           role="status"
         >
-          📣 {latest.text}
+          📣 {noticeText(c, latest)}
         </p>
       )}
       {nudged !== null && now - nudged < NUDGE_MS && status.yourMove && (
         <p className="hy-pop rounded-xl bg-amber-400 px-3 py-1 text-center text-sm font-bold text-stone-950">
-          👋 The table is waiting for you!
+          👋 {c.copy('nudged')}
         </p>
       )}
       <WaitingChips view={view} room={room} act={act} now={now} />
@@ -574,6 +590,8 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
                 big
                 moments={momentsOn}
                 setMoments={setMomentsOn}
+                plain={plain}
+                setPlain={setPlain}
               />
             </div>
           ) : (
@@ -596,6 +614,8 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
                   showGuide={showGuide}
                   moments={momentsOn}
                   setMoments={setMomentsOn}
+                  plain={plain}
+                  setPlain={setPlain}
                 />
               </div>
             </>
@@ -631,6 +651,8 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
                 showGuide={showGuide}
                 moments={momentsOn}
                 setMoments={setMomentsOn}
+                plain={plain}
+                setPlain={setPlain}
               />
             </div>
           )}
@@ -671,6 +693,12 @@ export function HydraGame({ view, room, act, showGuide, setYourMove, setSpectato
       {view.stage === 'leader-check' && <LeaderCheck view={view} c={c} />}
       {view.stage === 'chaos' && <Chaos c={c} />}
       <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
-    </div>
+    </ThemeRoot>
   );
+}
+
+/** A notice in the edition's words (older notices without a key keep their own text). */
+function noticeText(c: Content, n: Notice): string {
+  const key = n.key && n.key in COPY ? (n.key as CopyKey) : null;
+  return key ? c.copy(key, n.vars ?? {}) : c.t(n.text);
 }

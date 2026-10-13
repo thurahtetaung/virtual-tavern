@@ -3,12 +3,14 @@ import {
   type CreateCtx,
   type GameDefinition,
   GameError,
+  type GameGuide,
   type PlayerId,
   type PlayerInfo,
   type Rng,
   createRng,
 } from '@vt/game-sdk';
 import { hydraAwards } from './awards.ts';
+import { COPY, type CopyKey, fillVars } from './copy.ts';
 import { countBlue, newDeck, topUp } from './deck.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
@@ -172,12 +174,19 @@ function patchTruth(state: HydraState, p: Partial<Truth>): HydraState {
   });
 }
 
-function notice(state: HydraState, text: string, now: number): HydraState {
+/** Tells the table what just happened: a copy line (`notice.*`) the browser words and names. */
+function notice(
+  state: HydraState,
+  key: CopyKey,
+  now: number,
+  vars: Record<string, string> = {},
+): HydraState {
   const g = state.game!;
   const id = g.noticeSeq + 1;
+  const text = fillVars(COPY[key], vars);
   return patch(state, {
     noticeSeq: id,
-    notices: [...g.notices, { id, text, at: now }].slice(-MAX_NOTICES),
+    notices: [...g.notices, { id, text, key, vars, at: now }].slice(-MAX_NOTICES),
   });
 }
 
@@ -280,7 +289,7 @@ function resolveChaos(state: HydraState, now: number, rng: Rng): HydraState {
     lastElected: null,
   });
   s = patchRound(s, { chaos: card, tracker: 0 });
-  if (top.reshuffled) s = notice(s, 'The discard pile was shuffled back into the deck.', now);
+  if (top.reshuffled) s = notice(s, 'notice.reshuffled', now);
   return boardWin(s) ?? nextRound(s, now);
 }
 
@@ -388,7 +397,7 @@ function enactPolicy(state: HydraState, index: number, now: number, rng: Rng): H
   let s = patch(state, { deck: top.deck, discard: top.discard, enacted, tracker: 0, hand: [] });
   s = patchTruth(s, { chancellorDiscard: other, enacted: card });
   s = patchRound(s, { session: { enacted: card, vetoed: false, shuffled: true }, tracker: 0 });
-  if (top.reshuffled) s = notice(s, 'The discard pile was shuffled back into the deck.', now);
+  if (top.reshuffled) s = notice(s, 'notice.reshuffled', now);
   const won = boardWin(s);
   if (won) return won;
   const power = card === 'red' ? powerAt(g.players.length, enacted.red) : null;
@@ -425,11 +434,12 @@ function actFor(
   };
   const by = why === 'timer' ? 'the timer' : why === 'host' ? 'the host' : 'the table';
   const say = (s: HydraState, what: string) =>
-    notice(
-      s,
-      `${why === 'timer' ? '⏱ Time ran out: ' : ''}${what} for ${nameOf(g, player)} by ${by}.`,
-      now,
-    );
+    notice(s, 'notice.auto', now, {
+      timeout: why === 'timer' ? '⏱ Time ran out: ' : '',
+      what,
+      player: nameOf(g, player),
+      by,
+    });
   switch (state.stage) {
     case 'reveal': {
       const next = patch(state, { ready: [...g.ready, player] });
@@ -438,7 +448,7 @@ function actFor(
     case 'nominate': {
       const options = eligible(g);
       const pick = options[rng.int(options.length)]!;
-      return nominate(say(state, 'a Chancellor was nominated'), pick, now, 'nomination');
+      return nominate(say(state, 'a {chancellor} was nominated'), pick, now, 'nomination');
     }
     case 'vote': {
       const s = record(say(state, 'the vote was left uncounted'), 'vote not counted');
@@ -448,10 +458,15 @@ function actFor(
     case 'legislate-president':
       return discard(record(say(state, 'a card was discarded'), 'discard'), rng.int(3), now, rng);
     case 'legislate-chancellor':
-      return enactPolicy(record(say(state, 'a policy was enacted'), 'enact'), rng.int(2), now, rng);
+      return enactPolicy(
+        record(say(state, 'a {policy} was enacted'), 'enact'),
+        rng.int(2),
+        now,
+        rng,
+      );
     case 'veto-response':
       return answerVeto(
-        record(say(state, 'the veto was answered'), 'veto answer'),
+        record(say(state, 'the {veto} was answered'), 'veto answer'),
         rng.int(2) === 0,
         now,
         rng,
@@ -543,7 +558,7 @@ function start(state: HydraState, ctx: Ctx): Result {
   const s = state.settings;
   const setup = setupFor(n, s.rebalance);
   const first = players[rng.int(n)]!;
-  const game: Game = {
+  const game: Omit<Game, 'artSeed'> = {
     players,
     names: Object.fromEntries(players.map((p) => [p, state.seats[p]!.name])),
     roles,
@@ -594,7 +609,8 @@ function start(state: HydraState, ctx: Ctx): Result {
     stage: 'reveal',
     seed: newSeed(rng),
     gamesPlayed: state.gamesPlayed + 1,
-    game,
+    // Drawn last, so the deal and the deck stay as they were before portraits had a seed.
+    game: { ...game, artSeed: newSeed(rng) },
   };
 }
 
@@ -609,12 +625,12 @@ function gameAt(state: HydraState, by: PlayerId, stage: Stage): Game | GameError
   if (state.stage !== stage) {
     const msg: Record<Stage, string> = {
       reveal: 'Everyone has already seen their role.',
-      nominate: 'It isn’t time to nominate a Chancellor.',
+      nominate: 'It isn’t time to nominate a {chancellor}.',
       vote: 'There’s no government to vote on right now.',
       'leader-check': 'Wait a moment.',
-      'legislate-president': 'The President isn’t choosing a card right now.',
-      'legislate-chancellor': 'The Chancellor isn’t choosing a card right now.',
-      'veto-response': 'Nobody has asked for a veto.',
+      'legislate-president': 'The {president} isn’t choosing a card right now.',
+      'legislate-chancellor': 'The {chancellor} isn’t choosing a card right now.',
+      'veto-response': 'Nobody has asked for a {veto}.',
       claim: 'Nobody is claiming right now.',
       power: 'There’s no power to use right now.',
       chaos: 'Wait a moment.',
@@ -640,9 +656,10 @@ function ready(state: HydraState, ctx: Ctx): Result {
 const REASON_TEXT: Record<Ineligible, (name: string) => string> = {
   self: () => 'You can’t nominate yourself.',
   dead: (n) => `${n} has been executed.`,
-  'term-limit-chancellor': (n) => `${n} was the last elected Chancellor, so they’re term-limited.`,
+  'term-limit-chancellor': (n) =>
+    `${n} was the last elected {chancellor}, so they’re term-limited.`,
   'term-limit-president': (n) =>
-    `${n} was the last elected President, so they’re term-limited (until only five are left).`,
+    `${n} was the last elected {president}, so they’re term-limited (until only five are left).`,
   investigated: (n) => `${n} has already been investigated.`,
 };
 
@@ -675,7 +692,7 @@ function nominateAction(state: HydraState, player: PlayerId, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'nominate');
   if (g instanceof GameError) return g;
   if (g.president !== ctx.by)
-    return err('not-president', 'Only the Presidential Candidate nominates a Chancellor.');
+    return err('not-president', 'Only the {candidate} nominates a {chancellor}.');
   if (!g.players.includes(player)) return err('bad-player', 'That player isn’t in this game.');
   const why = ineligibility(g)[player];
   if (why) return err(why, REASON_TEXT[why](nameOf(g, player)));
@@ -716,7 +733,7 @@ function discard(state: HydraState, index: number, now: number, rng: Rng): Hydra
 function discardAction(state: HydraState, index: number, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'legislate-president');
   if (g instanceof GameError) return g;
-  if (g.president !== ctx.by) return err('not-president', 'Only the President discards now.');
+  if (g.president !== ctx.by) return err('not-president', 'Only the {president} discards now.');
   if (!g.hand[index]) return err('bad-card', 'Pick one of your three cards.');
   return discard(state, index, ctx.now, ctx.rng);
 }
@@ -724,7 +741,8 @@ function discardAction(state: HydraState, index: number, ctx: Ctx): Result {
 function enactAction(state: HydraState, index: number, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'legislate-chancellor');
   if (g instanceof GameError) return g;
-  if (g.chancellor !== ctx.by) return err('not-chancellor', 'Only the Chancellor enacts a policy.');
+  if (g.chancellor !== ctx.by)
+    return err('not-chancellor', 'Only the {chancellor} enacts a {policy}.');
   if (!g.hand[index]) return err('bad-card', 'Pick one of your two cards.');
   return enactPolicy(state, index, ctx.now, ctx.rng);
 }
@@ -733,14 +751,17 @@ function vetoAction(state: HydraState, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'legislate-chancellor');
   if (g instanceof GameError) return g;
   if (g.chancellor !== ctx.by)
-    return err('not-chancellor', 'Only the Chancellor can ask for a veto.');
+    return err('not-chancellor', 'Only the {chancellor} can ask for a {veto}.');
   if (!vetoUnlocked(g))
-    return err('veto-locked', `The veto unlocks once ${VETO_ZONE} red policies are on the board.`);
+    return err(
+      'veto-locked',
+      `The {veto} unlocks once ${VETO_ZONE} {redPolicy} {policies} are on the board.`,
+    );
   if (g.vetoRequested)
     return err(
       'veto-asked',
       g.vetoRefused
-        ? 'The President refused the veto: you must enact one.'
+        ? 'The {president} refused the {veto}: you must enact one.'
         : 'You’ve already asked.',
     );
   return atStage(patch(state, { vetoRequested: true }), 'veto-response', ctx.now);
@@ -750,7 +771,7 @@ function answerVeto(state: HydraState, agree: boolean, now: number, rng: Rng): H
   const g = state.game!;
   if (!agree)
     return atStage(
-      notice(patch(state, { vetoRefused: true }), 'The President refused the veto.', now),
+      notice(patch(state, { vetoRefused: true }), 'notice.vetoRefused', now),
       'legislate-chancellor',
       now,
     );
@@ -759,8 +780,8 @@ function answerVeto(state: HydraState, agree: boolean, now: number, rng: Rng): H
   let s = patch(state, { deck: top.deck, discard: top.discard, hand: [], tracker });
   s = patchTruth(s, { vetoed: true });
   s = patchRound(s, { session: { enacted: null, vetoed: true, shuffled: true }, tracker });
-  s = notice(s, 'The agenda was vetoed: both policies were discarded.', now);
-  if (top.reshuffled) s = notice(s, 'The discard pile was shuffled back into the deck.', now);
+  s = notice(s, 'notice.vetoed', now);
+  if (top.reshuffled) s = notice(s, 'notice.reshuffled', now);
   return beginClaims(
     s,
     [
@@ -775,7 +796,7 @@ function answerVeto(state: HydraState, agree: boolean, now: number, rng: Rng): H
 function vetoAnswerAction(state: HydraState, agree: boolean, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'veto-response');
   if (g instanceof GameError) return g;
-  if (g.president !== ctx.by) return err('not-president', 'Only the President answers a veto.');
+  if (g.president !== ctx.by) return err('not-president', 'Only the {president} answers a {veto}.');
   return answerVeto(state, agree, ctx.now, ctx.rng);
 }
 
@@ -805,15 +826,14 @@ function usePower(
       return beginClaims(s, [{ by: g.president, kind: 'investigate', target }], 'next', now);
     }
     case 'special':
-      s = notice(
-        patch(s, { specialNext: target, rotation: g.president }),
-        `${nameOf(g, g.president)} called a special election: ${nameOf(g, target)} is the next Presidential Candidate.`,
-        now,
-      );
+      s = notice(patch(s, { specialNext: target, rotation: g.president }), 'notice.special', now, {
+        P: nameOf(g, g.president),
+        player: nameOf(g, target),
+      });
       return nextRound(s, now);
     case 'execute': {
       s = patch(s, { dead: [...g.dead, target] });
-      s = notice(s, `${nameOf(g, target)} has been executed and can no longer speak or vote.`, now);
+      s = notice(s, 'notice.executed', now, { player: nameOf(g, target) });
       if (g.roles[target] === 'leader') return finish(s, 'blue', 'leader-executed');
       return nextRound(s, now);
     }
@@ -847,7 +867,7 @@ function powerAction(
 ): Result {
   const g = gameAt(state, ctx.by, 'power');
   if (g instanceof GameError) return g;
-  if (g.president !== ctx.by) return err('not-president', 'Only the President uses the power.');
+  if (g.president !== ctx.by) return err('not-president', 'Only the {president} uses the power.');
   if (g.power !== power) return err('wrong-power', 'That isn’t the power on the board right now.');
   if (target === ctx.by) return err('self', 'Pick someone else.');
   if (!g.players.includes(target)) return err('bad-player', 'That player isn’t in this game.');
@@ -863,7 +883,7 @@ function powerAction(
 function peekAction(state: HydraState, ctx: Ctx): Result {
   const g = gameAt(state, ctx.by, 'power');
   if (g instanceof GameError) return g;
-  if (g.president !== ctx.by) return err('not-president', 'Only the President uses the power.');
+  if (g.president !== ctx.by) return err('not-president', 'Only the {president} uses the power.');
   if (g.power !== 'peek') return err('wrong-power', 'That isn’t the power on the board right now.');
   return peekDone(state, ctx.now);
 }
@@ -936,7 +956,7 @@ function skipClaim(
     skipped: why,
     at: now,
   });
-  if (why === 'host') s = notice(s, `The host skipped ${nameOf(g, player)}’s claim.`, now);
+  if (why === 'host') s = notice(s, 'notice.skipped', now, { player: nameOf(g, player) });
   return settleNeed(s, player, now);
 }
 
@@ -1211,6 +1231,7 @@ function gameView(state: HydraState, g: Game, viewer: PlayerId | null): GameView
     rebalance: g.rebalance,
     quick: g.quick,
     flags: g.flags,
+    artSeed: g.artSeed ?? 0,
     end:
       over && g.winner && g.reason
         ? {
@@ -1246,23 +1267,43 @@ function view(state: HydraState, viewer: PlayerId | null): HydraView {
 
 export { countBlue };
 
-export const hydra: GameDefinition<HydraState, HydraAction, HydraView> = {
+export interface Edition {
+  id: string;
+  name: string;
+  description: string;
+  guide: GameGuide;
+}
+
+/**
+ * One engine, several editions: the same rules under another id, so each edition has its own
+ * lobby entry, title, stats and recap, and its own names and art from its private manifest.
+ */
+export function defineHydra(edition: Edition): GameDefinition<HydraState, HydraAction, HydraView> {
+  return {
+    id: edition.id,
+    name: edition.name,
+    description: edition.description,
+    minPlayers: MIN_PLAYERS,
+    maxPlayers: 30,
+    access: 'private',
+    guide: edition.guide,
+    actionSchema,
+    create,
+    reduce,
+    playerJoined,
+    playerLeft,
+    view,
+    nextDeadline,
+    onDeadline,
+    insights,
+    awards: hydraAwards,
+  };
+}
+
+export const hydra = defineHydra({
   id: 'hydra',
   name: 'Hydra',
   description:
     'A hidden-role election game: elect governments, pass policies, and unmask the Leader before it’s too late.',
-  minPlayers: MIN_PLAYERS,
-  maxPlayers: 30,
-  access: 'private',
   guide,
-  actionSchema,
-  create,
-  reduce,
-  playerJoined,
-  playerLeft,
-  view,
-  nextDeadline,
-  onDeadline,
-  insights,
-  awards: hydraAwards,
-};
+});

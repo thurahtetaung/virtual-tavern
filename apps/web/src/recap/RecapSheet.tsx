@@ -510,7 +510,7 @@ function AwardRow({
     >
       <p className="text-sm font-bold">
         <span aria-hidden>{line.emoji} </span>
-        {line.title}
+        {rich(line.title)}
       </p>
       <p className="text-sm text-stone-700 dark:text-stone-300">{rich(line.text)}</p>
     </div>
@@ -563,7 +563,7 @@ function PastGames({
                         {g.lines.map((l) => (
                           <li key={l.awardId}>
                             <span aria-hidden>{l.emoji} </span>
-                            <b>{l.title}:</b> {rich(l.text)}
+                            <b>{rich(l.title)}:</b> {rich(l.text)}
                           </li>
                         ))}
                       </ul>
@@ -638,7 +638,7 @@ function HallView({
               <li key={f.playerId} className="px-3 py-2">
                 <b className="text-amber-800 dark:text-amber-300">{name(f.playerId, f.name)}</b>:{' '}
                 <span aria-hidden>{f.emoji} </span>
-                {f.title} ×{f.count} nights
+                {text(f.title)} ×{f.count} nights
               </li>
             ))}
           </ul>

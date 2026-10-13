@@ -945,7 +945,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'round-table') return roundTableCounters(type, props);
   if (gameId === 'inquest') return inquestCounters(type, props);
   if (gameId === 'seance') return seanceCounters(type, props);
-  if (gameId === 'hydra') return hydraCounters(type, props);
+  if (gameId === 'hydra' || gameId === 'hogwarts') return hydraCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1120,6 +1120,7 @@ export function buildFigures(
     case 'seance':
       return seanceFigures(get);
     case 'hydra':
+    case 'hogwarts':
       return hydraFigures(get, metrics);
     case 'codenames':
       return [

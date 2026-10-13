@@ -7,6 +7,7 @@ import { POWER_EMOJI } from './Boards.tsx';
 import { BallotBack, BallotFace, FlipCard, PolicyBack, PolicyFace } from './Cards.tsx';
 import { playSfx, prefersReducedMotion } from './fx.ts';
 import { nameOf } from './status.ts';
+import { DISPLAY } from './text.tsx';
 
 /** The table's big moments, played as overlays as they happen (never on a reload). */
 export type Moment =
@@ -138,6 +139,7 @@ function Stamp({
     <span
       className={cn(
         'hy-stamp inline-block rounded-lg border-4 px-4 py-1 text-3xl font-black tracking-widest uppercase sm:text-5xl',
+        DISPLAY,
         tone === 'good' && 'border-emerald-400 text-emerald-300',
         tone === 'bad' && 'border-rose-400 text-rose-300',
         tone === 'gold' && 'border-amber-300 text-amber-200',
@@ -188,7 +190,10 @@ function VoteMoment({
   return (
     <>
       <p className="text-center text-sm text-white/80">
-        President {nameOf(view, r?.president)} with Chancellor {nameOf(view, r?.chancellor)}
+        {c.copy('moment.vote.title', {
+          P: nameOf(view, r?.president),
+          C: nameOf(view, r?.chancellor),
+        })}
       </p>
       <ul className="grid max-w-md grid-cols-5 gap-2 sm:gap-3">
         {m.votes.map(([id, b], i) => (
@@ -209,7 +214,7 @@ function VoteMoment({
       </p>
       {shown === m.votes.length && (
         <Stamp
-          text={m.elected ? 'Elected' : 'Rejected'}
+          text={c.copy(m.elected ? 'moment.vote.elected' : 'moment.vote.rejected')}
           tone={m.elected ? 'good' : 'bad'}
           delay={150}
         />
@@ -219,10 +224,12 @@ function VoteMoment({
           className="hy-rise text-center text-sm font-semibold text-rose-200"
           style={{ ['--d' as string]: '400ms' }}
         >
-          One more failed government and the people take over!
+          {c.copy('moment.vote.lastChance')}
         </p>
       )}
-      {m.missing > 0 && <p className="text-xs text-white/60">{m.missing} vote(s) not counted</p>}
+      {m.missing > 0 && (
+        <p className="text-xs text-white/60">{c.copy('moment.vote.missing', { n: m.missing })}</p>
+      )}
     </>
   );
 }
@@ -239,7 +246,7 @@ function EnactMoment({ c, m }: { c: Content; m: Extract<Moment, { kind: 'enact' 
   return (
     <>
       <p className="text-center text-sm font-semibold tracking-widest text-white/80 uppercase">
-        {m.chaos ? 'The people have spoken' : 'A policy is enacted'}
+        {c.copy(m.chaos ? 'moment.enact.chaos.heading' : 'moment.enact.heading')}
       </p>
       <div className={cn('w-32 sm:w-40', m.chaos && !up && 'hy-shake')}>
         <FlipCard
@@ -249,8 +256,9 @@ function EnactMoment({ c, m }: { c: Content; m: Extract<Moment, { kind: 'enact' 
         />
       </div>
       {up && (
-        <p className="hy-rise text-xl font-black">
-          A {c.teamName(m.policy)} policy{m.chaos ? ' from the top of the deck' : ''}
+        <p className="hy-rise text-center text-xl font-black">
+          {c.copy(m.policy === 'blue' ? 'moment.enact.blue' : 'moment.enact.red')}
+          {m.chaos ? ` ${c.copy('moment.enact.chaos.from')}` : ''}
         </p>
       )}
       {up && m.chaos && (
@@ -258,7 +266,7 @@ function EnactMoment({ c, m }: { c: Content; m: Extract<Moment, { kind: 'enact' 
           className="hy-rise text-center text-sm text-white/80"
           style={{ ['--d' as string]: '200ms' }}
         >
-          Any power is ignored, the tracker resets and term limits are forgotten.
+          {c.copy('moment.enact.chaos.note')}
         </p>
       )}
       {up && m.power && (
@@ -280,7 +288,7 @@ function EnactMoment({ c, m }: { c: Content; m: Extract<Moment, { kind: 'enact' 
           )}
           <span>
             <span className="block text-xs tracking-widest text-amber-200 uppercase">
-              Power unlocked
+              {c.copy('moment.enact.powerUnlocked')}
             </span>
             <span className="block font-bold">{c.powerName(m.power)}</span>
           </span>
@@ -317,7 +325,7 @@ export function MomentView({
       );
     case 'enact':
       return (
-        <Overlay onSkip={onSkip} label={`${c.teamName(moment.policy)} policy enacted`}>
+        <Overlay onSkip={onSkip} label={c.t(`${c.policyName(moment.policy)} {policy} enacted`)}>
           <EnactMoment key={moment.key} c={c} m={moment} />
         </Overlay>
       );
@@ -327,14 +335,14 @@ export function MomentView({
           <span className="hy-pop text-6xl" aria-hidden>
             ✝
           </span>
-          <p className="hy-rise text-center text-2xl font-black">
-            {nameOf(view, moment.target)} has been executed
+          <p className={cn('hy-rise text-center text-2xl font-black', DISPLAY)}>
+            {c.copy('moment.execute.title', { player: nameOf(view, moment.target) })}
           </p>
           <p
             className="hy-rise max-w-xs text-center text-sm text-white/80"
             style={{ ['--d' as string]: '300ms' }}
           >
-            They can no longer speak, vote or run for office. Their role stays secret.
+            {c.copy('moment.execute.note')}
           </p>
         </Overlay>
       );
@@ -345,10 +353,8 @@ export function MomentView({
           label={`${nameOf(view, moment.id)} is not ${c.roleName('leader')}`}
         >
           <p className="text-center text-xl font-bold">{nameOf(view, moment.id)}</p>
-          <Stamp text={`Not ${c.roleName('leader')} ✓`} tone="good" delay={0} />
-          <p className="text-center text-sm text-white/80">
-            The government stands. The session begins.
-          </p>
+          <Stamp text={c.copy('moment.cleared.stamp')} tone="good" delay={0} />
+          <p className="text-center text-sm text-white/80">{c.copy('moment.cleared.note')}</p>
         </Overlay>
       );
   }
@@ -365,10 +371,12 @@ export function LeaderCheck({ view, c }: { view: HydraView; c: Content }) {
     >
       <div className="hy-spot flex flex-col items-center gap-2 rounded-3xl bg-stone-900 px-8 py-6 text-center text-white">
         <span className="text-xs font-bold tracking-[0.3em] text-amber-300 uppercase">
-          The danger zone
+          {c.copy('moment.leaderCheck.kicker')}
         </span>
         <span className="text-2xl font-black">{nameOf(view, g.chancellor)}</span>
-        <span className="hy-breathe text-lg">Is the new Chancellor {c.names.leader}?</span>
+        <span className={cn('hy-breathe text-xl', DISPLAY)}>
+          {c.copy('moment.leaderCheck.question')}
+        </span>
       </div>
     </div>
   );
@@ -385,10 +393,8 @@ export function Chaos({ c }: { c: Content }) {
       <div className="hy-shake w-28">
         <PolicyBack c={c} />
       </div>
-      <p className="text-2xl font-black">Chaos!</p>
-      <p className="max-w-xs text-center text-sm text-white/80">
-        Three failed governments in a row: the people enact the top policy themselves.
-      </p>
+      <p className={cn('text-2xl font-black', DISPLAY)}>{c.copy('moment.chaos.title')}</p>
+      <p className="max-w-xs text-center text-sm text-white/80">{c.copy('moment.chaos.note')}</p>
     </div>
   );
 }

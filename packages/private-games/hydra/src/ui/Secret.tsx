@@ -119,7 +119,7 @@ export function SecretHand({
     <div className="space-y-3" data-testid={testId}>
       {shuffleKey && (
         <p className="text-center text-xs font-semibold text-stone-600 dark:text-stone-400">
-          🔀 Shuffled: the order says nothing about what the President did.
+          {c.copy('hand.shuffled')}
         </p>
       )}
       <div
@@ -142,7 +142,7 @@ export function SecretHand({
               aria-pressed={onSelect ? isSel : undefined}
               aria-label={
                 visible
-                  ? `${verb ? `${verb}: ` : ''}${c.teamName(card)} policy (card ${i + 1})`
+                  ? `${verb ? `${verb}: ` : ''}${c.t(`${c.policyName(card)} {policy}`)} (card ${i + 1})`
                   : `Card ${i + 1} (face down)`
               }
               className={cn(

@@ -129,3 +129,13 @@ export function useMomentsSetting(): [boolean, (on: boolean) => void] {
   }, []);
   return [on, set];
 }
+
+/** "Plain headings": the edition's display font off, for this viewer. Off unless they switch it on. */
+export function usePlainHeadings(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => read<boolean>(keyOf('plain-headings'), false) === true);
+  const set = useCallback((v: boolean) => {
+    setOn(v);
+    write(keyOf('plain-headings'), v);
+  }, []);
+  return [on, set];
+}

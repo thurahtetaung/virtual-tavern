@@ -7,6 +7,7 @@ import { BallotFace } from './Cards.tsx';
 import { ClaimForm } from './Claims.tsx';
 import { SecretHand, Sheet } from './Secret.tsx';
 import { amAlive, nameOf } from './status.ts';
+import { Rich } from './text.tsx';
 
 type Act = (a: HydraAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -36,7 +37,7 @@ export function secretTask(view: HydraView): SecretTask {
 const TASK_BUTTON: Record<Exclude<SecretTask, null>, string> = {
   president: '🗂️ Your three cards',
   chancellor: '🗂️ Your two cards',
-  veto: '✂️ Answer the veto',
+  veto: '✂️ Answer the {veto}',
   peek: '👁️ Peek at the top three',
   claim: '📣 Make your claim',
 };
@@ -81,7 +82,7 @@ export function Dock({
   } else if (task) {
     body = (
       <Button size="lg" className="hy-breathe w-full" onClick={onOpenTask}>
-        {TASK_BUTTON[task]}
+        {c.t(TASK_BUTTON[task])}
       </Button>
     );
   } else if (view.stage === 'nominate' && g.president === me) {
@@ -103,9 +104,7 @@ export function Dock({
         </Button>
       </div>
     ) : (
-      <p className="py-2 text-center text-sm font-semibold">
-        👆 Tap a seat to nominate your Chancellor
-      </p>
+      <p className="py-2 text-center text-sm font-semibold">{c.copy('dock.nominate')}</p>
     );
   } else if (view.stage === 'vote' && alive) {
     body = (
@@ -184,7 +183,7 @@ export function Dock({
             </Button>
           )
         ) : (
-          <p className="text-center text-sm font-semibold">👆 Tap a seat to choose</p>
+          <p className="text-center text-sm font-semibold">{c.copy('dock.pick')}</p>
         )}
       </div>
     );
@@ -225,13 +224,14 @@ export function TaskSheet({
   const hand = g.hand ?? [];
   const P = nameOf(view, g.president);
   const C = nameOf(view, g.chancellor);
+  const vars = { P, C, from: g.tracker, to: g.tracker + 1 };
   if (task === 'president') {
     const card = picked !== null ? hand[picked] : undefined;
     return (
       <Sheet
         open={open}
         onClose={onClose}
-        title="You’re the President"
+        title={c.copy('sheet.president.title')}
         footer={
           <div className="space-y-1">
             <Button
@@ -240,15 +240,14 @@ export function TaskSheet({
               disabled={picked === null}
               onClick={() => void act({ type: 'discard', index: picked! }, { anchor: 'sheet' })}
             >
-              {card ? `Discard this ${c.teamName(card)} policy` : 'Pick a card to discard'}
+              {card ? c.t(`Discard this ${c.policyName(card)} {policy}`) : 'Pick a card to discard'}
             </Button>
             <RefusalSlot anchor="sheet" />
           </div>
         }
       >
         <p className="mb-3 text-center text-sm">
-          Discard one. The other two are <b>shuffled</b> and handed to {C}. No talking until the
-          policy is out!
+          <Rich text={c.copy('sheet.president.text', vars)} />
         </p>
         <SecretHand
           cards={hand}
@@ -268,7 +267,7 @@ export function TaskSheet({
       <Sheet
         open={open}
         onClose={onClose}
-        title="You’re the Chancellor"
+        title={c.copy('sheet.chancellor.title')}
         footer={
           <div className="space-y-2">
             <Button
@@ -277,7 +276,7 @@ export function TaskSheet({
               disabled={picked === null}
               onClick={() => void act({ type: 'enact', index: picked! }, { anchor: 'sheet' })}
             >
-              {card ? `Enact this ${c.teamName(card)} policy` : 'Pick a card to enact'}
+              {card ? c.t(`Enact this ${c.policyName(card)} {policy}`) : 'Pick a card to enact'}
             </Button>
             {canVeto && (
               <Button
@@ -285,7 +284,7 @@ export function TaskSheet({
                 className="w-full"
                 onClick={() => void act({ type: 'veto' }, { anchor: 'sheet' })}
               >
-                ✂️ Ask {P} for a veto (tracker {g.tracker} → {g.tracker + 1})
+                {c.t(`✂️ Ask ${P} for a {veto} (tracker ${g.tracker} → ${g.tracker + 1})`)}
               </Button>
             )}
             <RefusalSlot anchor="sheet" />
@@ -294,12 +293,10 @@ export function TaskSheet({
       >
         {g.vetoRefused && (
           <p className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100">
-            {P} refused the veto: you must enact one.
+            {c.copy('sheet.chancellor.refused', vars)}
           </p>
         )}
-        <p className="mb-3 text-center text-sm">
-          Enact one policy; the other is discarded face down.
-        </p>
+        <p className="mb-3 text-center text-sm">{c.copy('sheet.chancellor.text', vars)}</p>
         <SecretHand
           cards={hand}
           c={c}
@@ -317,7 +314,7 @@ export function TaskSheet({
       <Sheet
         open={open}
         onClose={onClose}
-        title="A veto request"
+        title={c.copy('sheet.veto.title')}
         footer={
           <div className="space-y-2">
             <div className="flex gap-2">
@@ -334,7 +331,7 @@ export function TaskSheet({
                 className="flex-1"
                 onClick={() => void act({ type: 'veto-answer', agree: true }, { anchor: 'sheet' })}
               >
-                Agree to veto
+                {c.t('Agree to {veto}')}
               </Button>
             </div>
             <RefusalSlot anchor="sheet" />
@@ -342,10 +339,7 @@ export function TaskSheet({
         }
       >
         <p className="mb-3 text-center text-sm">
-          {C} wants to veto this agenda. If you agree, both cards are discarded and the election
-          tracker moves on ({g.tracker} → {g.tracker + 1}
-          {g.tracker + 1 >= 3 ? ': the people will enact the top policy' : ''}). If you refuse, {C}{' '}
-          must enact one.
+          {c.copy(g.tracker + 1 >= 3 ? 'sheet.veto.textChaos' : 'sheet.veto.text', vars)}
         </p>
         <SecretHand cards={hand} c={c} testId="veto-hand" />
       </Sheet>
@@ -363,9 +357,7 @@ export function TaskSheet({
           </Button>
         }
       >
-        <p className="mb-3 text-center text-sm">
-          The top three cards of the deck, top first. They stay in this order.
-        </p>
+        <p className="mb-3 text-center text-sm">{c.copy('sheet.peek.text')}</p>
         <SecretHand cards={g.peek ?? []} c={c} testId="peek-hand" />
       </Sheet>
     );

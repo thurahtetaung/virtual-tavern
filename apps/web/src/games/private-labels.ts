@@ -1,5 +1,5 @@
 import type { GameGuide } from '@vt/game-sdk';
-import { creditOf, footerOf, nameGuide, namesOf } from '@vt/private-hydra/guide';
+import { creditOf, footerOf, nameGuide, namesOf, powerNamesOf } from '@vt/private-hydra/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -75,27 +75,42 @@ export async function inquestLabels(): Promise<Labeler> {
   };
 }
 
-/** Hydra's teams and Leader (`{role:blue}`, `{role:red}`, `{role:leader}`) from its manifest names. */
-export async function hydraLabels(): Promise<Labeler> {
-  const names = obj((await manifest('hydra'))?.names);
-  const word = (k: string) => {
-    const v = names[k];
-    return typeof v === 'string' && v.trim() ? v.trim() : undefined;
-  };
-  return (kind, id) => {
-    if (kind !== 'role') return undefined;
-    if (id === 'leader') return word('leader');
-    return id === 'blue' || id === 'red' ? word(id) : undefined;
+type HydraManifest = Parameters<typeof namesOf>[0];
+
+/**
+ * A Hydra edition's words for the recap's and the stats page's placeholders, from its manifest:
+ * the teams and the Leader (`{role:blue}`, `{role:red}`, `{role:leader}`), the offices
+ * (`{role:chancellor}`), the veto (`{role:Veto}` capitalised) and the boards' policies
+ * (`{role:blue-policies}`). Hydra's own words stand in for anything the manifest leaves out.
+ */
+export function hydraLabels(gameId: string): () => Promise<Labeler> {
+  return async () => {
+    const names = namesOf(await manifest(gameId));
+    const words: Record<string, string> = {
+      ...names,
+      leader: names.leader,
+      'blue-policies': `${names.bluePolicy} ${names.policies}`,
+      'red-policies': `${names.redPolicy} ${names.policies}`,
+    };
+    return (kind, id) => {
+      if (kind !== 'role') return undefined;
+      const lower = id[0] ? id[0].toLowerCase() + id.slice(1) : id;
+      const word = words[lower];
+      if (word === undefined || id === 'title') return undefined;
+      return id === lower ? word : word[0]!.toUpperCase() + word.slice(1);
+    };
   };
 }
 
-/** Hydra's guide with the manifest's names, and the original game's credit as its footer. */
-export async function hydraGuide(): Promise<GameGuide> {
-  const m = await manifest('hydra');
-  const man = m as Parameters<typeof namesOf>[0];
-  const guide = nameGuide(namesOf(man), footerOf(creditOf(man)));
-  const tagline = obj(m?.guide).tagline;
-  return typeof tagline === 'string' && tagline.trim()
-    ? { ...guide, tagline: tagline.trim() }
-    : guide;
+/** A Hydra edition's guide with its manifest's names, and the credits as its footer. */
+export function hydraGuide(gameId: string): () => Promise<GameGuide> {
+  return async () => {
+    const m = await manifest(gameId);
+    const man = m as HydraManifest;
+    const guide = nameGuide(namesOf(man), footerOf(creditOf(man)), powerNamesOf(man));
+    const tagline = obj(m?.guide).tagline;
+    return typeof tagline === 'string' && tagline.trim()
+      ? { ...guide, tagline: tagline.trim() }
+      : guide;
+  };
 }

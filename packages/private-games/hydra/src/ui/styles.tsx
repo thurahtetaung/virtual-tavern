@@ -44,6 +44,7 @@ const CSS = `
 .hy-ribbon { animation: hy-ribbon .5s ease-out both; }
 .hy-lamp { animation: hy-lamp 1.4s ease-in-out infinite; }
 .hy-art { image-rendering: auto; }
+.hy-display { font-family: var(--hy-display, inherit); }
 
 @media (prefers-reduced-motion: reduce) {
   .hy-flipper { transition: none; }

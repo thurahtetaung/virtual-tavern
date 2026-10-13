@@ -15,6 +15,9 @@ const SHOW_MS = 8000;
 interface RefusalApi {
   /** Shows `message` in the slot named `anchor`; false when no such slot is on screen. */
   show: (anchor: string, message: string) => boolean;
+  /** The game's wording for a server message (see `useRefusalWording`). */
+  format: (message: string) => string;
+  setFormat: (format: ((message: string) => string) | null) => void;
   clear: (anchor: string) => void;
   register: (anchor: string) => () => void;
   messages: ReadonlyMap<string, string>;
@@ -25,6 +28,11 @@ const RefusalContext = createContext<RefusalApi | null>(null);
 /** Wraps a game so its `RefusalSlot`s can receive the server's refusals (the room shell does this). */
 export function RefusalProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(new Map<string, number>());
+  const wording = useRef<((message: string) => string) | null>(null);
+  const format = useCallback((message: string) => wording.current?.(message) ?? message, []);
+  const setFormat = useCallback((f: ((message: string) => string) | null) => {
+    wording.current = f;
+  }, []);
   const timers = useRef(new Map<string, number>());
   const [messages, setMessages] = useState<ReadonlyMap<string, string>>(new Map());
 
@@ -41,7 +49,7 @@ export function RefusalProvider({ children }: { children: ReactNode }) {
   const show = useCallback(
     (anchor: string, message: string) => {
       if (!mounted.current.get(anchor)) return false;
-      setMessages((m) => new Map(m).set(anchor, message));
+      setMessages((m) => new Map(m).set(anchor, format(message)));
       window.clearTimeout(timers.current.get(anchor));
       timers.current.set(
         anchor,
@@ -49,7 +57,7 @@ export function RefusalProvider({ children }: { children: ReactNode }) {
       );
       return true;
     },
-    [clear],
+    [clear, format],
   );
   const register = useCallback(
     (anchor: string) => {
@@ -72,8 +80,8 @@ export function RefusalProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   const api = useMemo(
-    () => ({ show, clear, register, messages }),
-    [show, clear, register, messages],
+    () => ({ show, clear, register, messages, format, setFormat }),
+    [show, clear, register, messages, format, setFormat],
   );
   return <RefusalContext.Provider value={api}>{children}</RefusalContext.Provider>;
 }
@@ -88,9 +96,23 @@ export function useRefusals() {
       clear: (anchor: string | undefined) => {
         if (anchor !== undefined) api?.clear(anchor);
       },
+      /** The game's wording for a message the shell shows as a toast. */
+      format: (message: string) => api?.format(message) ?? message,
     }),
     [api],
   );
+}
+
+/**
+ * Lets a game reword the server's refusals before they're shown, next to a control or as a toast
+ * (a back-room edition naming its offices from a private manifest, say).
+ */
+export function useRefusalWording(format: (message: string) => string) {
+  const setFormat = useContext(RefusalContext)?.setFormat;
+  useEffect(() => {
+    setFormat?.(format);
+    return () => setFormat?.(null);
+  }, [setFormat, format]);
 }
 
 /**

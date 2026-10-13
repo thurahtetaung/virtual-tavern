@@ -20,31 +20,6 @@ export const POWER_EMOJI: Record<Power, string> = {
   execute: '🗡️',
 };
 
-/**
- * Where the policy slots sit on the board art, in fractions of the cropped board image (measured
- * against the crop boxes in `private-assets/tools/hydra-cut.py`: change one, change both).
- */
-const GEOMETRY = {
-  red: {
-    x0: 0.0694,
-    pitch: 0.1437,
-    top: 0.214,
-    bottom: 0.788,
-    slots: RED_TO_WIN,
-    ratio: 3940 / 1310,
-  },
-  blue: {
-    x0: 0.1385,
-    pitch: 0.1446,
-    top: 0.203,
-    bottom: 0.792,
-    slots: BLUE_TO_WIN,
-    ratio: 3902 / 1277,
-  },
-};
-/** The election tracker's circles on the blue board. */
-const LAMPS = { xs: [0.3456, 0.4437, 0.5412, 0.6387], y: 0.885, size: 0.036 };
-
 /** One board, art first (with enacted policies laid in their slots), or a drawn board without art. */
 export function Board({
   team,
@@ -63,14 +38,15 @@ export function Board({
   const n = g.players.length;
   const kind = team === 'blue' ? 'blue' : boardFor(n);
   const src = c.board(kind);
-  const geo = GEOMETRY[team];
+  // Where the slots and lamps sit on this edition's art (Hydra's own measurements by default).
+  const geo = c.geometry[team];
+  const lamps = team === 'blue' ? geo.lamps : undefined;
   const count = g.enacted[team];
   const track = trackFor(n);
   const danger = team === 'red' && g.enacted.red >= LEADER_ZONE;
-  const label =
-    team === 'blue'
-      ? `${c.teamName('blue')} board: ${count} of ${BLUE_TO_WIN} policies`
-      : `${c.teamName('red')} board: ${count} of ${RED_TO_WIN} policies`;
+  const label = c.t(
+    `${c.teamName(team)} board: ${count} of ${team === 'blue' ? BLUE_TO_WIN : RED_TO_WIN} {policies}`,
+  );
   if (!src) return <DrawnBoard team={team} g={g} c={c} fresh={fresh} compact={compact} />;
   return (
     <figure
@@ -107,8 +83,8 @@ export function Board({
           </span>
         );
       })}
-      {team === 'blue' &&
-        LAMPS.xs.map((x, i) =>
+      {lamps &&
+        lamps.xs.map((x, i) =>
           i === g.tracker ? (
             <span
               key={i}
@@ -118,23 +94,23 @@ export function Board({
                 g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-rose-500',
               )}
               style={{
-                left: `${(x - LAMPS.size / 2) * 100}%`,
-                top: `calc(${LAMPS.y * 100}% - ${(LAMPS.size / 2) * geo.ratio * 100}%)`,
-                width: `${LAMPS.size * 100}%`,
+                left: `${(x - lamps.size / 2) * 100}%`,
+                top: `calc(${lamps.y * 100}% - ${(lamps.size / 2) * geo.ratio * 100}%)`,
+                width: `${lamps.size * 100}%`,
                 aspectRatio: '1',
               }}
             />
           ) : null,
         )}
-      {team === 'red' && g.vetoUnlocked && <VetoRibbon />}
+      {team === 'red' && g.vetoUnlocked && <VetoRibbon c={c} />}
     </figure>
   );
 }
 
-function VetoRibbon() {
+function VetoRibbon({ c }: { c: Content }) {
   return (
     <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-amber-400 px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-stone-950 uppercase shadow sm:text-xs">
-      Veto unlocked
+      {c.copy('ribbon.veto')}
     </span>
   );
 }
@@ -159,7 +135,7 @@ function DrawnBoard({
   const track = trackFor(n);
   return (
     <figure
-      aria-label={`${c.teamName(team)} board: ${count} of ${slots} policies`}
+      aria-label={c.t(`${c.teamName(team)} board: ${count} of ${slots} {policies}`)}
       className={cn(
         'relative rounded-xl p-1.5 shadow-md ring-2',
         team === 'blue'
@@ -217,7 +193,7 @@ function DrawnBoard({
           );
         })}
       </ol>
-      {team === 'red' && g.vetoUnlocked && <VetoRibbon />}
+      {team === 'red' && g.vetoUnlocked && <VetoRibbon c={c} />}
     </figure>
   );
 }
@@ -252,7 +228,7 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
   const track = trackFor(g.players.length);
   const next = g.enacted.red < RED_TO_WIN ? track[g.enacted.red] : null;
   return (
-    <div className="flex min-w-0 items-center gap-2" aria-label="Policies on the boards">
+    <div className="flex min-w-0 items-center gap-2" aria-label={c.t('{Policies} on the boards')}>
       <span
         className="flex items-center gap-0.5"
         role="img"
@@ -290,7 +266,7 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
           <span
             className="ml-0.5 text-xs"
             aria-hidden
-            title={`Next red policy: ${c.powerName(next)}`}
+            title={c.t(`Next {redPolicy} {policy}: ${c.powerName(next)}`)}
           >
             {POWER_EMOJI[next]}
           </span>
@@ -320,11 +296,11 @@ export function DeckChip({ g, c, className }: { g: GameView; c: Content; classNa
       <span>
         Unplayed:{' '}
         <span className="text-sky-700 dark:text-sky-300">
-          {blue} {c.teamName('blue')}
+          {blue} {c.policyName('blue')}
         </span>{' '}
         /{' '}
         <span className="text-red-700 dark:text-red-400">
-          {red} {c.teamName('red')}
+          {red} {c.policyName('red')}
         </span>
       </span>
     </p>

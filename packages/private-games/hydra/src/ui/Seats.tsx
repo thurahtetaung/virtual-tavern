@@ -14,13 +14,8 @@ export interface SeatPick {
   onPick: (id: string) => void;
 }
 
-export const WHY: Record<Ineligible, string> = {
-  self: 'That’s you.',
-  dead: 'executed',
-  'term-limit-chancellor': 'was the last elected Chancellor (term-limited)',
-  'term-limit-president': 'was the last elected President (term-limited)',
-  investigated: 'has already been investigated',
-};
+/** Why a seat can't be picked ("was the last elected Chancellor…"), worded by the edition. */
+export const whyText = (c: Content, why: Ineligible) => c.copy(`why.${why}`);
 
 /** Everyone at the table: placards, votes, what's known about them, and your private marks. */
 export function Seats({
@@ -170,7 +165,7 @@ export function Seats({
                     className="rounded bg-emerald-600 px-1 text-white"
                     title={c.t('Confirmed: not {leader}')}
                   >
-                    Not {c.roleName('leader')} ✓
+                    {c.copy('moment.cleared.stamp')}
                   </span>
                 )}
                 {investigated && <span title="Investigated">🔍</span>}
@@ -214,19 +209,22 @@ export function Seats({
   );
 }
 
-/** The President / Chancellor placard on a seat (art when there is some). */
+/** The President / Chancellor placard on a seat. */
 export function Placard({
   kind,
+  c,
   drop,
   special,
 }: {
   kind: 'president' | 'chancellor';
-  c?: Content;
+  c: Content;
   drop?: boolean;
   special?: boolean;
 }) {
   const label =
-    kind === 'president' ? (special ? 'President (special)' : 'President') : 'Chancellor';
+    kind === 'president'
+      ? c.t(special ? '{President} (special)' : '{President}')
+      : c.t('{Chancellor}');
   return (
     <span
       className={cn(
@@ -236,7 +234,9 @@ export function Placard({
       )}
       title={label}
     >
-      {kind === 'president' ? (special ? 'Pres ★' : 'Pres') : 'Chanc'}
+      {kind === 'president'
+        ? `${c.names.presidentShort}${special ? ' ★' : ''}`
+        : c.names.chancellorShort}
     </span>
   );
 }

@@ -96,6 +96,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-hogwarts':
+        specifier: workspace:*
+        version: link:../../packages/private-games/hogwarts
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
@@ -156,6 +159,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-hogwarts':
+        specifier: workspace:*
+        version: link:../../packages/private-games/hogwarts
       '@vt/private-hoodwink':
         specifier: workspace:*
         version: link:../../packages/private-games/hoodwink
@@ -317,6 +323,25 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/hogwarts:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/private-hydra':
+        specifier: workspace:*
+        version: link:../hydra
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
     devDependencies:
       '@types/react':
         specifier: ^19.3.0

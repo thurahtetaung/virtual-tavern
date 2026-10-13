@@ -22,6 +22,7 @@ export const SHARED_STATE = [
   /playtest\.spec\.ts$/,
   /seance\.spec\.ts$/,
   /hydra\.spec\.ts$/,
+  /hogwarts\.spec\.ts$/,
 ];
 
 export default defineConfig({

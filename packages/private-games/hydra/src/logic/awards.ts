@@ -260,7 +260,7 @@ const chaosAgent: AwardRule = {
 const vetoRoyale: AwardRule = {
   id: 'hydra.veto-royale',
   emoji: '✂️',
-  title: 'Veto Royale',
+  title: `${ph.role('Veto')} Royale`,
   valence: 'glory',
   weight: 3,
   kind: 'pair',
@@ -348,7 +348,7 @@ const notHimClub: AwardRule = {
     cheeky: ['{who} is officially not {role}, {n|time}', '{who} got cleared {n|time}. Suspicious?'],
     wholesome: [
       '{who} earned the table’s trust {n|time}',
-      '{who} was cleared {n|time} as Chancellor',
+      `{who} was cleared {n|time} as ${ph.role('chancellor')}`,
     ],
   },
   compute(g) {
@@ -474,7 +474,7 @@ const nuggets: NuggetRule[] = [
   },
 ];
 
-/** "Loyalist policies, 5–3", "the Usurper elected in round 7". */
+/** "Loyalist policies, 5–3", "the Usurper elected in round 7" (named by the browser). */
 function history(g: GameEvents): string[] {
   const o = outcomeOf(g);
   if (!o) return [];
@@ -483,9 +483,9 @@ function history(g: GameEvents): string[] {
   const rounds = num(o, 'rounds') ?? 0;
   switch (str(o, 'how')) {
     case 'blue-policies':
-      return [`${ph.role('blue')} policies, ${b}–${r}`];
+      return [`${ph.role('blue-policies')}, ${b}–${r}`];
     case 'red-policies':
-      return [`${ph.role('red')} policies, ${r}–${b}`];
+      return [`${ph.role('red-policies')}, ${r}–${b}`];
     case 'leader-executed':
       return [`${ph.role('leader')} executed in round ${rounds}`];
     case 'leader-elected':

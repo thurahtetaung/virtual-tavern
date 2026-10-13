@@ -135,6 +135,7 @@ describe('back room over HTTP', () => {
       'inquest',
       'seance',
       'hydra',
+      'hogwarts',
     ]);
   });
 

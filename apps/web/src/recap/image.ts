@@ -1,6 +1,6 @@
 import type { RecapLine, RoomRecap } from '@vt/protocol';
 import { type GameInfo, duration, gameMix, nightDate, playedMs } from './copyText.ts';
-import { type Labeler, resolveSegments } from './resolve.ts';
+import { type Labeler, resolveSegments, resolveText } from './resolve.ts';
 
 /**
  * "Save image": the night card drawn by hand on a 1080×1350 (4:5) canvas, which suits group
@@ -147,7 +147,7 @@ export function imageCard(
     );
   const award = (l: RecapLine): ImageAward => ({
     emoji: l.emoji,
-    title: l.title,
+    title: resolveText(l.title, opts.names, opts.labels),
     runs: runs(l.text),
   });
   const n = recap.games.length;
