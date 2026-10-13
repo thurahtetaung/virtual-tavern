@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.1...v0.28.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **ui:** calm, warm light mode across the site and every game ([#120](https://github.com/thurahtetaung/virtual-tavern/issues/120)) ([a46245d](https://github.com/thurahtetaung/virtual-tavern/commit/a46245dac81f5283112453ce655836df257589ef))
+
 ## [0.28.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.0...v0.28.1) (2026-10-13)
 
 
