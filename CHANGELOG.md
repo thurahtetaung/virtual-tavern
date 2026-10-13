@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.29.0...v0.30.0) (2026-10-13)
+
+
+### Features
+
+* **short-fuse:** add Short Fuse, a card game in the back room ([#124](https://github.com/thurahtetaung/virtual-tavern/issues/124)) ([0494543](https://github.com/thurahtetaung/virtual-tavern/commit/0494543c900dad39af1f91129ddcbfb1e94a8552))
+
 ## [0.29.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.28.2...v0.29.0) (2026-10-13)
 
 
