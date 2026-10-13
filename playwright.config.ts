@@ -6,7 +6,7 @@ import {
 } from './e2e/credentials.ts';
 
 const PORT = 4321;
-const SHARED_STATE = [
+export const SHARED_STATE = [
   /backroom\.spec\.ts$/,
   /reverie\.spec\.ts$/,
   /hoodwink\.spec\.ts$/,
@@ -32,7 +32,10 @@ export default defineConfig({
   // flaky tests must be fixed, not hidden.
   retries: process.env.CI ? 1 : 0,
   failOnFlakyTests: !!process.env.CI,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // CI keeps a JSON report too: its timings rebalance the shards (`node e2e/shards.ts --update`).
+  reporter: process.env.CI
+    ? [['github'], ['html', { open: 'never' }], ['json', { outputFile: 'e2e-timings.json' }]]
+    : 'list',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',

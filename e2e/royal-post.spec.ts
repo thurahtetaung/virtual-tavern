@@ -234,6 +234,10 @@ test('watchers get a seat: a bigger edition seats them, and the podium offers Ta
     await expect(p.getByRole('button', { name: 'Take a seat' })).toHaveCount(2);
   }
   await expect(host.getByText('Players (2/6)')).toBeVisible();
+  // Only the podium matters here, so a short game gets there in fewer rounds.
+  const short = host.getByRole('button', { name: 'Short · 4 tokens' });
+  await short.click();
+  await expect(short).toHaveAttribute('aria-pressed', 'true');
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(host.getByText('Round 1')).toBeVisible();
   const done: Exercised = { guard: true, priest: true, handmaid: true, chancellor: true };

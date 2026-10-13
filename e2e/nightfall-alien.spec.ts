@@ -1,6 +1,6 @@
 import { type Browser, type Locator, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { getReady, peek, setRoles } from './nightfall-play.ts';
+import { getReady, learned, merge, peek, setRoles } from './nightfall-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -52,6 +52,8 @@ interface AlienNight {
   results: string[];
   closed: boolean;
   stages: string[];
+  /** The Psychic's Confirm went through before the step ended. */
+  looked: boolean;
 }
 
 /**
@@ -61,7 +63,7 @@ interface AlienNight {
 async function playAlienNight(players: Page[]): Promise<AlienNight[]> {
   return Promise.all(
     players.map(async (p) => {
-      const log: AlienNight = { told: [], results: [], closed: false, stages: [] };
+      const log: AlienNight = { told: [], results: [], closed: false, stages: [], looked: false };
       const quick = { timeout: 2000 };
       const deadline = Date.now() + 150_000;
       const add = async (list: string[], loc: Locator) => {
@@ -91,6 +93,7 @@ async function playAlienNight(players: Page[]): Promise<AlienNight[]> {
                 .first()
                 .click(quick);
               await confirm.click(quick);
+              log.looked = true;
             } else if (stage === 'expose') {
               const cards = prompt
                 .getByRole('list', { name: 'Centre cards' })
@@ -107,6 +110,7 @@ async function playAlienNight(players: Page[]): Promise<AlienNight[]> {
         await p.waitForTimeout(150);
       }
       await add(log.results, p.getByTestId('night-result'));
+      merge(log.results, await learned(p));
       return log;
     }),
   );
@@ -220,7 +224,8 @@ test('aliens among werewolves: instructions, the Cow, numbers, a ripple and an e
       expect(nights[i]!.told.join(' ')).toMatch(
         /may look at one card of any (even|odd)-numbered player/,
       );
-      expect(nights[i]!.results.join(' ')).toMatch(/You saw .+’s card/);
+      // A Confirm can land just as the step closes, so only a look that landed is checked.
+      if (nights[i]!.looked) expect(nights[i]!.results.join(' ')).toMatch(/You saw .+’s card/);
     }
     if (r === 'villager') expect(nights[i]!.told).toEqual([]);
   }

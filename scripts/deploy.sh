@@ -17,15 +17,25 @@ up() { docker compose up -d --no-deps --wait --wait-timeout 90 app; }
 previous="$(current)"
 echo "==> Deploying $version (currently ${previous:-none})"
 
+# Pull before touching .env: if the tag was never published (or GHCR is down) the script stops
+# before set_tag and the running version stays the one recorded in .env. The pull runs while the
+# backup is taken; both must succeed before anything changes.
+# DEPLOY_SKIP_PULL=1 is for testing with locally built images.
+pull=
+if [ "${DEPLOY_SKIP_PULL:-}" != 1 ]; then
+  IMAGE_TAG="$version" docker compose pull --quiet app &
+  pull=$!
+fi
+
 if docker compose ps --status running --services 2>/dev/null | grep -qx app; then
   echo "==> Backing up the database"
   docker compose exec -T app node dist/backup.js "/data/backups/pre-deploy-$version-$(date +%Y%m%dT%H%M%S).db"
 fi
 
-# Pull before touching .env: if the tag was never published (or GHCR is down) the script stops here
-# and the running version stays the one recorded in .env.
-# DEPLOY_SKIP_PULL=1 is for testing with locally built images.
-[ "${DEPLOY_SKIP_PULL:-}" = 1 ] || IMAGE_TAG="$version" docker compose pull app
+if [ -n "$pull" ]; then
+  echo "==> Pulling $version"
+  wait "$pull" || { echo "==> Pulling $version failed; nothing changed" >&2; exit 1; }
+fi
 set_tag "$version"
 
 if up; then

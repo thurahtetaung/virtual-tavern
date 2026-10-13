@@ -100,9 +100,33 @@ export async function playNight(
         }
         await p.waitForTimeout(150);
       }
+      merge(log.results, await learned(p));
       return log;
     }),
   );
+}
+
+/**
+ * Everything the day's Learned tab lists. A night result shows only until its step ends, so a
+ * busy machine can miss it on screen; the Learned list keeps every one.
+ */
+export async function learned(p: Page): Promise<string[]> {
+  await p.getByRole('tab', { name: 'Learned' }).click();
+  // The tab always opens with where you stand; an empty list isn't exposed as a list at all, so
+  // it reads as nothing learned.
+  await expect(p.getByRole('region', { name: 'Where you stand now' })).toBeVisible();
+  const items = await p
+    .getByRole('list', { name: 'What you learned tonight' })
+    .getByRole('listitem')
+    .allTextContents();
+  await p.getByRole('tab', { name: 'Table' }).click();
+  return items;
+}
+
+/** Adds `more` to `list`, skipping the ones it already has. */
+export function merge(list: string[], more: string[]) {
+  for (const text of more)
+    if (!list.some((t) => t.includes(text) || text.includes(t))) list.push(text);
 }
 
 /** Ready to vote, then everyone votes as `pick` says (by seat index); waits for the reveal. */
@@ -224,6 +248,7 @@ export async function playMarkedNight(
         }
         await p.waitForTimeout(150);
       }
+      merge(log.results, await learned(p));
       return log;
     }),
   );
