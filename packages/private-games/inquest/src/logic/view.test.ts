@@ -9,6 +9,7 @@ import {
   startPresentations,
   startedGame,
   toDiscussion,
+  toFinal,
   toPresentations,
 } from './test-utils.ts';
 import type { RoleId } from './types.ts';
@@ -126,6 +127,38 @@ describe('view() redaction, every viewer at every phase', () => {
     h.act({ type: 'reversal-confirm' }, 'ana');
     checkViews(h, 'over');
     expect(inquest.view(h.state, 'dee').game!.reversal!.murdererTap).toBe('dee');
+  });
+
+  it('the final accusations: public turns, and a culprit’s blocked pair leaks nowhere', () => {
+    const h = startedGame(
+      6,
+      { murderer: 'ana', accomplice: 'ben', witness: 'cy' },
+      { presentations: false, finalAccusations: true, events: false },
+    );
+    const crime = toFinal(h);
+    checkViews(h, 'final');
+    // The turn order is the same for everyone, spectators included.
+    for (const viewer of VIEWERS)
+      expect(inquest.view(h.state, viewer).game!.final, `${viewer}`).toEqual(h.game().final);
+    const d = h.game().players.find((p) => p.id === 'dee')!;
+    h.act({ type: 'solve', target: 'dee', clue: d.clue[0]!, means: d.means[0]! }, 'ana');
+    checkViews(h, 'final after a bluff');
+    // Ben (the Accomplice) tries the real pair: refused, and no view changes at all.
+    const before = VIEWERS.map((v) => JSON.stringify(inquest.view(h.state, v)));
+    expect(
+      h.reject({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'ben'),
+    ).toBe('own-crime');
+    expect(VIEWERS.map((v) => JSON.stringify(inquest.view(h.state, v)))).toEqual(before);
+    const a = h.game().players.find((p) => p.id === 'ana')!;
+    h.act({ type: 'solve', target: 'ana', clue: a.clue[1]!, means: a.means[1]! }, 'ben');
+    h.act({ type: 'skip-speaker' }, HOST);
+    checkViews(h, 'final after a skip');
+    h.act({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'dee');
+    checkViews(h, 'reversal after the final accusations');
+    h.act({ type: 'reversal-tap', target: 'eve' }, 'ana');
+    h.act({ type: 'reversal-confirm' }, 'ana');
+    checkViews(h, 'over after the final accusations');
+    expect(inquest.view(h.state, 'eve').game!.final).toMatchObject({ skipped: ['cy'] });
   });
 
   it('countdown and testimony steps', () => {

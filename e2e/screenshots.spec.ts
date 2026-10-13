@@ -5,6 +5,8 @@ import {
   openBackroom as openInquestBackroom,
   placeBullets,
   presentAll as presentInquest,
+  endDiscussion as endInquestDiscussion,
+  solve as inquestSolve,
   replaceTile,
   startPresentations as startInquestPresentations,
   table as inquestTable,
@@ -1358,6 +1360,9 @@ for (const [label, viewport, colorScheme] of [
       .getByLabel('Pick the Forensic Scientist')
       .getByRole('button', { name: 'Hana', exact: true })
       .click();
+    // This tour shows the presentations too (off by default).
+    await host.getByRole('button', { name: 'Presentations', exact: true }).click();
+    await expect(host.getByRole('button', { name: '✓ Presentations' })).toBeVisible();
     await host.getByRole('button', { name: 'Start the investigation' }).click();
 
     const murderer = await whoShows(
@@ -1556,6 +1561,93 @@ for (const [label, viewport] of [
     await ana.getByRole('button', { name: 'End playtest' }).click();
     await expect(ben.getByRole('heading', { name: 'This playtest has ended' })).toBeVisible();
     await context.close();
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+] as const) {
+  test(`inquest final accusations screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const errors: string[] = [];
+    const opts = { viewport, colorScheme };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/inquest-${label}-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const players = await inquestTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], errors, opts);
+    const host = players[0]!.page;
+    await host.getByRole('button', { name: 'Host picks', exact: true }).click();
+    await host
+      .getByLabel('Pick the Forensic Scientist')
+      .getByRole('button', { name: 'Hana', exact: true })
+      .click();
+    await host.getByRole('button', { name: '✓ Event tiles' }).click();
+    const settings = host.getByRole('heading', { name: 'How rounds end' });
+    await settings.scrollIntoViewIfNeeded();
+    await shot(host, 'lobby-round-settings');
+    await host.getByRole('button', { name: 'Start the investigation' }).click();
+    const murderer = await whoShows(
+      players,
+      'Murderer: pick 1 Clue + 1 Means from your own cards.',
+    );
+    const night = murderer.page.getByRole('region', { name: 'Choose your crime' });
+    await night
+      .getByRole('button', { name: /^Clue:/ })
+      .first()
+      .click();
+    await night
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await night.getByRole('button', { name: /^Commit:/ }).click();
+    await expect(host.getByText('Pick the Location tile for this crime.')).toBeVisible();
+    await host.locator('button[data-tile]:visible').first().click();
+    await host.getByRole('button', { name: /^Use Location [A-D] / }).click();
+    await placeBullets(host, 6);
+    await shot(host, 'discussion-next-round');
+    await endInquestDiscussion(players, 'Next round');
+    for (const round of [2, 3]) {
+      await replaceTile(host);
+      await placeBullets(host, 1);
+      if (round === 3) await shot(host, 'discussion-start-final');
+      await endInquestDiscussion(players, round === 2 ? 'Next round' : 'Start final accusations');
+    }
+    // The first accuser (left of the Forensic Scientist) names a wrong pair.
+    const seats = players.slice(1);
+    const first = await whoShows(seats, /^Final accusations: your turn/);
+    await shot(first.page, 'final-your-turn');
+    const target = seats.find((p) => p !== murderer && p !== first)!;
+    await inquestSolve(first.page, target.name, 1, 1);
+    await expect(first.page.getByText(/^Final accusations: your turn/)).toHaveCount(0);
+    const second = await whoShows(seats, /^Final accusations: your turn/);
+    const watcher = seats.find((p) => p !== first && p !== second)!;
+    await shot(watcher.page, 'final-watching');
+    await shot(host, 'final-fs');
+    if (label === 'desktop') {
+      const tv = await inquestVisitor(browser, 'Tv', errors, {
+        viewport: { width: 1920, height: 1080 },
+        colorScheme: 'dark',
+      });
+      await unlockInquest(tv, `/backroom?next=${encodeURIComponent(new URL(host.url()).pathname)}`);
+      await tv.getByRole('button', { name: '📺 Table screen' }).click();
+      await expect(tv.getByLabel('Table screen')).toBeVisible();
+      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-final-accusations.png` });
+      await tv.context().close();
+    }
+    // The host skips everyone else's turn: every final accusation missed.
+    for (let i = 0; i < 3; i++) {
+      await host.getByRole('button', { name: 'Skip', exact: true }).click();
+      if (i < 2) await expect(host.getByText(/turn skipped/).nth(i)).toBeVisible();
+    }
+    await expect(
+      host.getByText('Every final accusation missed: the Murderer’s side wins.'),
+    ).toBeVisible();
+    await shot(host, 'final-end');
+    expect(errors).toEqual([]);
   });
 }
 

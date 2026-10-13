@@ -1,7 +1,7 @@
 import { Button, Modal, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
 import { EVENT_TILES, type EventKind } from '../logic/content.ts';
-import { EVENT_TEXT } from '../logic/names.ts';
+import { eventText } from '../logic/names.ts';
 import type { InquestAction, InquestView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
 import type { Content } from './assets.ts';
@@ -75,7 +75,7 @@ export function CardView({
   );
 }
 
-/** Solving: suspect → Clue → Means, then a summary to confirm. */
+/** Solving: another player → Clue → Means, then a summary to confirm. Never your own cards. */
 export function SolveSheet({
   open,
   view,
@@ -107,6 +107,7 @@ export function SolveSheet({
   const suspect = g.players.find((p) => p.id === target);
   const step = !suspect ? 1 : clue === null ? 2 : means === null ? 3 : 4;
   const badges = me?.badges ?? 0;
+  const final = g.stage === 'final';
   const title = [
     'Who did it?',
     'Which Clue is the Key Evidence?',
@@ -123,11 +124,13 @@ export function SolveSheet({
           {step === 4 && suspect && clue !== null && means !== null && (
             <>
               <p className="text-center font-semibold">
-                Solve with {suspect.id === view.me?.id ? 'your' : `${suspect.name}’s`}{' '}
-                {content.cardName('clue', clue)} + {content.cardName('means', means)}?{' '}
-                {badges > 1
-                  ? `This uses 1 of your ${badges} attempts.`
-                  : 'This uses your only badge.'}
+                {final ? 'Accuse' : 'Solve with'} {suspect.name}’s {content.cardName('clue', clue)}{' '}
+                + {content.cardName('means', means)}?{' '}
+                {final
+                  ? 'Everyone sees your accusation and whether it’s right.'
+                  : badges > 1
+                    ? `This uses 1 of your ${badges} attempts.`
+                    : 'This uses your only badge.'}
               </p>
               <Button
                 size="lg"
@@ -141,7 +144,7 @@ export function SolveSheet({
                   })
                 }
               >
-                🔎 Solve the crime
+                {final ? '⚖️ Make my accusation' : '🔎 Solve the crime'}
               </Button>
             </>
           )}
@@ -164,17 +167,19 @@ export function SolveSheet({
     >
       {step === 1 && (
         <div className="grid grid-cols-2 gap-2">
-          {suspectsOf(g).map((p) => (
-            <Button
-              key={p.id}
-              variant="secondary"
-              className="min-h-12"
-              disabled={p.isFs}
-              onClick={() => setTarget(p.id)}
-            >
-              {p.id === view.me?.id ? `${p.name} (you)` : p.name}
-            </Button>
-          ))}
+          {suspectsOf(g)
+            .filter((p) => p.id !== view.me?.id)
+            .map((p) => (
+              <Button
+                key={p.id}
+                variant="secondary"
+                className="min-h-12"
+                disabled={p.isFs}
+                onClick={() => setTarget(p.id)}
+              >
+                {p.name}
+              </Button>
+            ))}
         </div>
       )}
       {(step === 2 || step === 3 || step === 4) && suspect && (
@@ -271,7 +276,7 @@ export function EventCard({
                 className="size-16 shrink-0 rounded-lg object-cover object-top shadow ring-1 ring-black/20"
               />
             )}
-            <p className="text-base leading-snug">{EVENT_TEXT[kind]}</p>
+            <p className="text-base leading-snug">{eventText(kind, view.settings)}</p>
           </div>
           {pending && <p className="font-semibold">{pending}</p>}
           <Button className="w-full sm:w-auto" onClick={onClose}>

@@ -14,6 +14,7 @@ import {
   startPresentations,
   startedGame,
   toDiscussion,
+  toFinal,
   toPresentations,
 } from './test-utils.ts';
 
@@ -191,7 +192,7 @@ describe('collecting evidence', () => {
     expect(h.game().bullets.at(-1)!.gapMs).toBe(9_000);
     // The table talks the evidence over first; the Forensic Scientist starts the presentations.
     expect(h.game().stage).toBe('discuss');
-    h.act({ type: 'start-presentations' }, HOST);
+    h.act({ type: 'end-discussion' }, HOST);
     expect(h.game().stage).toBe('present');
     // Speakers start left of the Forensic Scientist and leave them out.
     expect(h.game().present!.order).toEqual(['ana', 'ben', 'cy']);
@@ -254,11 +255,11 @@ describe('the discussion before presentations', () => {
   it('the Forensic Scientist starts the presentations, early or late; the host can too', () => {
     const h = startedGame(4);
     toDiscussion(h);
-    expect(h.reject({ type: 'start-presentations' }, 'ben')).toBe('not-fs');
+    expect(h.reject({ type: 'end-discussion' }, 'ben')).toBe('not-fs');
     expect(h.reject({ type: 'done-presenting' }, 'ana')).toBe('wrong-stage');
-    h.act({ type: 'start-presentations' }, HOST);
+    h.act({ type: 'end-discussion' }, HOST);
     expect(h.game()).toMatchObject({ stage: 'present', deadline: null });
-    expect(h.reject({ type: 'start-presentations' }, HOST)).toBe('wrong-stage');
+    expect(h.reject({ type: 'end-discussion' }, HOST)).toBe('wrong-stage');
 
     // After a handover, the new Forensic Scientist starts them, or the host when they're away.
     const t = startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' });
@@ -266,14 +267,14 @@ describe('the discussion before presentations', () => {
     t.act({ type: 'hand-over' }, HOST);
     const fs = t.game().fs;
     expect(t.game().stage).toBe('discuss');
-    expect(t.reject({ type: 'start-presentations' }, 'ben')).toBe('not-fs');
-    t.act({ type: 'start-presentations' }, fs);
+    expect(t.reject({ type: 'end-discussion' }, 'ben')).toBe('not-fs');
+    t.act({ type: 'end-discussion' }, fs);
     expect(t.game().present!.order).not.toContain(fs);
     const away = startedGame(5);
     toDiscussion(away);
     away.state = inquest.playerLeft(away.state, HOST, away.now);
     expect(away.game().stage).toBe('discuss');
-    away.act({ type: 'start-presentations' }, away.game().fs);
+    away.act({ type: 'end-discussion' }, away.game().fs);
     expect(away.game().stage).toBe('present');
   });
 
@@ -351,8 +352,9 @@ describe('solving', () => {
     expect(player(h, 'ben').badges).toBe(0);
     expect(h.game().attempts.at(-1)).toMatchObject({ by: 'ben', correct: false });
     expect(h.reject(wrong, 'ben')).toBe('no-badge');
-    // The Murderer may bluff.
-    h.act(wrong, 'ana');
+    // The Murderer may bluff (on someone else's cards).
+    const b = player(h, 'ben');
+    h.act({ type: 'solve', target: 'ben', clue: b.clue[0]!, means: b.means[0]! }, 'ana');
     expect(h.state.phase).toBe('playing');
     h.act(wrong, 'cy');
     expect(h.state.phase).toBe('over');
@@ -610,5 +612,236 @@ describe('the test event order', () => {
     } finally {
       setTestEventOrder([]);
     }
+  });
+});
+
+describe('nobody accuses themself', () => {
+  it('refuses a self-target, even for the Murderer naming their own crime', () => {
+    const h = startedGame(4);
+    const crime = toPresentations(h);
+    const b = player(h, 'ben');
+    expect(
+      h.refusal({ type: 'solve', target: 'ben', clue: b.clue[0]!, means: b.means[0]! }, 'ben'),
+    ).toBe('Pick another player’s cards — you can’t accuse yourself.');
+    expect(
+      h.reject({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'ana'),
+    ).toBe('self');
+    expect(h.game().attempts).toEqual([]);
+    expect(player(h, 'ana').badges).toBe(1);
+    expect(h.state.phase).toBe('playing');
+  });
+
+  it('privately stops the Accomplice naming the true pair, recording nothing', () => {
+    const h = startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' });
+    const crime = toPresentations(h);
+    const before = h.state;
+    expect(
+      h.refusal({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'ben'),
+    ).toBe('That’s your own team’s crime — pick a different pair.');
+    // A refusal goes to the sender only; the state (and so every view) is untouched.
+    expect(h.state).toBe(before);
+    // A bluff on the Murderer's other cards is still fine.
+    const a = player(h, 'ana');
+    h.act({ type: 'solve', target: 'ana', clue: a.clue[1]!, means: crime.means }, 'ben');
+    expect(h.game().attempts).toHaveLength(1);
+    expect(player(h, 'ben').badges).toBe(0);
+  });
+});
+
+describe('presentations off', () => {
+  it('the discussion carries each round: Next round goes straight to the next collection', () => {
+    const h = startedGame(4, {}, { presentations: false, events: false });
+    toDiscussion(h);
+    expect(h.reject({ type: 'end-discussion' }, 'ben')).toBe('not-fs');
+    h.act({ type: 'end-discussion' }, HOST);
+    expect(h.game()).toMatchObject({ stage: 'collect', round: 2, present: null, deadline: null });
+    expect(h.game().step).toMatchObject({ kind: 'replace' });
+  });
+
+  it('the host ends the discussion when the Forensic Scientist is away', () => {
+    const h = startedGame(5, {}, { presentations: false, events: false });
+    toDiscussion(h);
+    h.act({ type: 'end-discussion' }, HOST);
+    expect(h.game().round).toBe(2);
+  });
+
+  it('without final accusations, the last round’s discussion ends the game (printed rules)', () => {
+    const h = startedGame(4, {}, { presentations: false, finalAccusations: false, events: false });
+    toFinal(h);
+    expect(h.state.phase).toBe('over');
+    expect(h.game().round).toBe(3);
+    expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'time' });
+  });
+
+  it('Last Call makes the current round the last: final accusations follow its discussion', () => {
+    const h = startedGame(4, {}, { presentations: false, finalAccusations: true });
+    toDiscussion(h);
+    stackPile(h, [EVENT_TILES.countdown]);
+    h.act({ type: 'end-discussion' }, HOST);
+    expect(h.game()).toMatchObject({ countdown: true, finalRound: 2 });
+    h.act({ type: 'replace-tile', slot: 2 }, HOST);
+    h.act({ type: 'replace-tile', slot: 5 }, HOST);
+    h.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
+    h.act({ type: 'place-bullet', slot: 5, item: 0 }, HOST);
+    h.act({ type: 'replace-tile', slot: 3 }, HOST);
+    h.act({ type: 'place-bullet', slot: 3, item: 0 }, HOST);
+    expect(h.game().stage).toBe('discuss');
+    h.act({ type: 'end-discussion' }, HOST);
+    expect(h.game()).toMatchObject({ stage: 'final', round: 2 });
+  });
+});
+
+describe('final accusations', () => {
+  const opts = { presentations: false, finalAccusations: true, events: false } as const;
+
+  it('are on by default, with presentations off', () => {
+    const h = harness(4);
+    expect(h.state.settings).toMatchObject({ presentations: false, finalAccusations: true });
+  });
+
+  it('follow the last round, in seat order from the left of the Forensic Scientist', () => {
+    const h = startedGame(5, { murderer: 'cy' }, opts);
+    toFinal(h);
+    expect(h.game().stage).toBe('final');
+    expect(h.game().final).toMatchObject({ order: ['ana', 'ben', 'cy', 'dee'], index: 0 });
+    // Only the current accuser may solve.
+    const d = player(h, 'dee');
+    expect(
+      h.refusal({ type: 'solve', target: 'dee', clue: d.clue[0]!, means: d.means[0]! }, 'ben'),
+    ).toBe('Wait for your turn: Ana is accusing.');
+  });
+
+  it('a wrong accusation passes the turn; the first right one wins for the Investigators', () => {
+    const h = startedGame(5, { murderer: 'cy' }, opts);
+    const crime = toFinal(h);
+    const d = player(h, 'dee');
+    h.act({ type: 'solve', target: 'dee', clue: d.clue[0]!, means: d.means[0]! }, 'ana');
+    expect(h.game().attempts.at(-1)).toMatchObject({ by: 'ana', correct: false, final: true });
+    expect(player(h, 'ana').badges).toBe(0);
+    expect(h.game().final!.index).toBe(1);
+    h.act({ type: 'solve', target: 'cy', clue: crime.clue, means: crime.means }, 'ben');
+    expect(h.state.phase).toBe('over');
+    expect(h.game().result).toMatchObject({
+      winner: 'investigators',
+      how: 'solved',
+      solvedBy: 'ben',
+    });
+    expect(h.game().attempts.at(-1)).toMatchObject({ correct: true, final: true, round: 3 });
+  });
+
+  it('the Murderer must bluff in turn, and nobody right means the Murderer’s side wins', () => {
+    const h = startedGame(5, { murderer: 'cy' }, opts);
+    const crime = toFinal(h);
+    const c = player(h, 'cy');
+    const wrong = (target: string) => {
+      const p = player(h, target);
+      return { type: 'solve' as const, target, clue: p.clue[1]!, means: p.means[1]! };
+    };
+    h.act(wrong('dee'), 'ana');
+    h.act(wrong('cy'), 'ben');
+    expect(
+      h.reject({ type: 'solve', target: 'cy', clue: crime.clue, means: crime.means }, 'cy'),
+    ).toBe('self');
+    h.act({ ...wrong('ana') }, 'cy');
+    expect(c.badges).toBe(1);
+    expect(h.state.phase).toBe('playing');
+    h.act(wrong('ana'), 'dee');
+    expect(h.state.phase).toBe('over');
+    expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'final' });
+    expect(h.game().final!.skipped).toEqual([]);
+  });
+
+  it('a right final accusation opens the Reversal when a Witness is in play', () => {
+    const h = startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' }, opts);
+    const crime = toFinal(h);
+    expect(h.game().final!.order).toEqual(['ana', 'ben', 'cy', 'dee', 'eve']);
+    // The Accomplice is privately stopped from naming the real pair here too.
+    const a = player(h, 'ana');
+    h.act(
+      {
+        type: 'solve',
+        target: 'dee',
+        clue: player(h, 'dee').clue[0]!,
+        means: player(h, 'dee').means[0]!,
+      },
+      'ana',
+    );
+    expect(
+      h.reject({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'ben'),
+    ).toBe('own-crime');
+    h.act({ type: 'solve', target: 'ana', clue: a.clue[1]!, means: a.means[1]! }, 'ben');
+    h.act({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'cy');
+    expect(h.game().stage).toBe('reversal');
+    h.act({ type: 'reversal-tap', target: 'dee' }, 'ana');
+    h.act({ type: 'reversal-confirm' }, 'ana');
+    expect(h.game().result).toMatchObject({ winner: 'investigators', how: 'reversal' });
+  });
+
+  it('skip players without a badge and players who left; the host can skip a stuck turn', () => {
+    const h = startedGame(6, { murderer: 'cy' }, { ...opts, accomplice: false, witness: false });
+    toDiscussion(h);
+    // Ben spends his badge early; Dee leaves for good.
+    const e = player(h, 'eve');
+    h.act({ type: 'solve', target: 'eve', clue: e.clue[0]!, means: e.means[0]! }, 'ben');
+    h.state = inquest.playerLeft(h.state, 'dee', h.now);
+    h.act({ type: 'end-discussion' }, HOST);
+    // Finish rounds 2 and 3 without solving.
+    for (let r = 0; r < 2; r++) {
+      h.act({ type: 'replace-tile', slot: 2 }, HOST);
+      h.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
+      h.act({ type: 'end-discussion' }, HOST);
+    }
+    expect(h.game().final!.order).toEqual(['ana', 'cy', 'eve']);
+    expect(h.reject({ type: 'skip-speaker' }, 'cy')).toBe('not-host');
+    h.act({ type: 'skip-speaker' }, HOST);
+    expect(h.game().final).toMatchObject({ index: 1, skipped: ['ana'] });
+    expect(player(h, 'ana').badges).toBe(1);
+    expect(h.game().notices.at(-1)!.text).toBe('Ana’s final accusation was skipped.');
+    // The current accuser leaving passes the turn too.
+    h.state = inquest.playerLeft(h.state, 'cy', h.now);
+    expect(h.game().final).toMatchObject({ index: 2, skipped: ['ana', 'cy'] });
+    h.act({ type: 'skip-speaker' }, HOST);
+    expect(h.game().result).toMatchObject({ winner: 'murderer', how: 'final' });
+  });
+
+  it('soft timers wait; strict timers skip a silent accuser (never a random accusation)', () => {
+    const soft = startedGame(4, {}, opts);
+    toFinal(soft);
+    soft.tick(10 * 60_000);
+    expect(soft.game().final!.index).toBe(0);
+    expect(inquest.nextDeadline!(soft.state)).toBeNull();
+
+    const hard = startedGame(4, {}, { ...opts, presentMode: 'hard', presentSeconds: 20 });
+    toFinal(hard);
+    expect(hard.game().final!.deadline).toBe(hard.now + 20_000);
+    hard.tick(20_000);
+    expect(hard.game().final).toMatchObject({ index: 1, skipped: ['ana'] });
+    expect(hard.game().attempts).toEqual([]);
+  });
+
+  it('end at once in favour of the Murderer when nobody has a badge left to accuse', () => {
+    const h = startedGame(4, {}, { ...opts, finalAccusations: true });
+    toFinal(h);
+    expect(h.game().stage).toBe('final');
+    const n = startedGame(4, {}, opts);
+    toDiscussion(n);
+    const a = player(n, 'ana');
+    // Ben and Cy spend their badges; Ana keeps hers, so the game goes on to the final round.
+    n.act({ type: 'solve', target: 'ana', clue: a.clue[1]!, means: a.means[1]! }, 'ben');
+    expect(n.state.phase).toBe('playing');
+  });
+
+  it('with presentations on, follow the last round’s presentations', () => {
+    const h = startedGame(4, {}, { ...opts, presentations: true });
+    toFinal(h);
+    expect(h.game()).toMatchObject({ stage: 'final', round: 3, present: null });
+  });
+
+  it('a handover skips a new Forensic Scientist who was due to accuse', () => {
+    const h = startedGame(5, { murderer: 'cy' }, opts);
+    toFinal(h);
+    h.act({ type: 'hand-over' }, HOST);
+    const fs = h.game().fs;
+    expect(h.game().final!.order[h.game().final!.index]).not.toBe(fs);
   });
 });

@@ -7,7 +7,9 @@ import type { InquestAction, InquestView } from './types.ts';
  * (whose bullets would decide the game): the Murderer picks a random crime from their own cards,
  * Ruled Out Evidence flips a random face-up Clue (never the Murderer's own crime), the Witness
  * points at a random scene tile, a speaker finishes presenting, and the Reversal taps a random
- * candidate before confirming. It never solves, so it never spends a badge.
+ * candidate before confirming. It never solves on its own; in the final accusations it accuses
+ * in its turn with a random pair from someone else's cards (the Murderer's side never names its
+ * own crime, so it bluffs).
  */
 export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null {
   const { me, rng } = ctx;
@@ -42,6 +44,27 @@ export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null
     case 'present': {
       const p = g.present;
       return p && p.order[p.index] === me ? { type: 'done-presenting' } : null;
+    }
+    case 'final': {
+      const f = g.final;
+      if (!f || f.order[f.index] !== me || mine.badges <= 0) return null;
+      const crime = g.myRole === 'murderer' || g.myRole === 'accomplice' ? g.solution : null;
+      const pairs = g.players
+        .filter((p) => p.id !== me && p.id !== g.fs && p.clue.length > 0)
+        .flatMap((p) =>
+          p.clue
+            .filter((c) => !p.ruledOut.includes(c))
+            .flatMap((clue) => p.means.map((means) => ({ target: p.id, clue, means }))),
+        )
+        .filter(
+          (x) =>
+            !crime ||
+            x.target !== crime.murderer ||
+            x.clue !== crime.clue ||
+            x.means !== crime.means,
+        );
+      const pick = pickOne(rng, pairs);
+      return pick ? { type: 'solve', ...pick } : null;
     }
     case 'reversal': {
       const rev = g.reversal;

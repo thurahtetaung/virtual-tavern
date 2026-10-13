@@ -72,7 +72,7 @@ const caseClosedEarly: AwardRule = {
   },
 };
 
-/** A right solve before the round's bullets were all in. */
+/** A right solve before the round's bullets were all in (never a final accusation). */
 const calledIt: AwardRule = {
   id: 'inquest.called-it',
   emoji: '🔮',
@@ -284,6 +284,7 @@ const lastSecondSave: AwardRule = {
     cheeky: ['{who} solved it in the last round. Nerves of steel', '{who} left it late, round {n}'],
     wholesome: ['{who} cracked it in the final round', '{who} saved the case in round {n}'],
   },
+  // A right final accusation counts: it comes in the last round, after its discussion.
   compute(g) {
     const o = outcomeOf(g);
     const r = num(o, 'solvedRound');
@@ -409,7 +410,8 @@ function history(g: GameEvents): string[] {
   if (!o) return [];
   const by = str(o, 'solvedBy');
   const round = num(o, 'solvedRound');
-  const solvedLine = `Solved in round ${round ?? '?'}${by ? ` by ${ph.p(by)}` : ''}`;
+  const when = bool(o, 'solvedFinal') ? 'in the final accusations' : `in round ${round ?? '?'}`;
+  const solvedLine = `Solved ${when}${by ? ` by ${ph.p(by)}` : ''}`;
   switch (str(o, 'how')) {
     case 'solved':
       return [solvedLine];
@@ -419,6 +421,8 @@ function history(g: GameEvents): string[] {
         : [`${solvedLine}, and the Witness stayed safe`];
     case 'badges':
       return ['Every badge was spent: the Murderer got away'];
+    case 'final':
+      return ['Every final accusation missed: the Murderer got away'];
     default:
       return ['The Murderer got away'];
   }

@@ -35,10 +35,10 @@ import type { GameFigure } from '@vt/protocol';
 //              heartbreaks, plague, hitman, alien, abducted, cow, cowTipped, blobSquad,
 //              undertaker, foresaw, synthetic, …; recap:
 //              votesReceived, deathCause, deathPlace, converted, autoActions}, look {role, right}
-//   inquest    outcome {winner, how, players, solvedRound, bulletsBeforeSolve, clue, means; recap:
+//   inquest    outcome {winner, how, players, solvedRound, solvedFinal, bulletsBeforeSolve, clue, means; recap:
 //              solvedBy, solveS, firstTry, fs, murderer, accomplice, witness, witnessFound,
-//              bluffers, nearMisses…}, event {kind}, solve {correct; recap: target,
-//              clue, means, round}, bullet {recap: tile, item, seq, round, moved} (older events
+//              bluffers, nearMisses, finalAccusations…}, event {kind}, solve {correct; recap:
+//              target, clue, means, round, final}, bullet {recap: tile, item, seq, round, moved} (older events
 //              may also carry maxGapS/gapS, which nothing reads any more)
 //   seance     outcome {win, how, hour, difficulty, ravens; recap: ghost, players, visions,
 //              topLevel…}, vision {cards; recap: to, pillar, hour}, guess {correct, tries; recap:
@@ -597,7 +597,9 @@ function inquestCounters(type: string, props: Props): Counters {
       }
       const round = num(props.solvedRound);
       if (round !== null) {
-        out.push(['f.solved', 1], [`f.solved_round.${round}`, 1]);
+        // A right final accusation (the table rule after the last round) has its own bucket.
+        const bucket = props.solvedFinal === true ? 'final' : round;
+        out.push(['f.solved', 1], [`f.solved_round.${bucket}`, 1]);
         out.push(['f.bullets_before', num(props.bulletsBeforeSolve) ?? 0]);
       }
       const clue = inquestCard(props.clue, 'clue');
@@ -654,7 +656,10 @@ function inquestFigures(get: (metric: string) => number, metrics: Iterable<strin
       id: 'solves-by-round',
       label: 'Cases solved, by round',
       kind: 'split',
-      parts: rounds.map((r) => ({ label: `Round ${r}`, value: get(`f.solved_round.${r}`) })),
+      parts: [
+        ...rounds.map((r) => ({ label: `Round ${r}`, value: get(`f.solved_round.${r}`) })),
+        { label: 'Final accusations', value: get('f.solved_round.final') },
+      ],
     },
     {
       id: 'murderer-by-players',

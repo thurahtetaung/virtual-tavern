@@ -3,6 +3,7 @@ import {
   type Player,
   commitCrime,
   dismissEvent,
+  endDiscussion,
   firstRound,
   openBackroom,
   placeBullets,
@@ -22,14 +23,18 @@ test.afterEach(() => {
   expect(errors, 'uncaught errors in the browser').toEqual([]);
 });
 
-/** The host makes `fs` the Forensic Scientist (host picks) and sets any toggles off. */
-async function setUp(host: Page, fs: string, off: string[] = []) {
+/** The host makes `fs` the Forensic Scientist (host picks) and sets toggles off and on. */
+async function setUp(host: Page, fs: string, off: string[] = [], on: string[] = []) {
   await host.getByRole('button', { name: 'Host picks', exact: true }).click();
   await host
     .getByLabel('Pick the Forensic Scientist')
     .getByRole('button', { name: fs, exact: true })
     .click();
   for (const name of off) await host.getByRole('button', { name: `✓ ${name}` }).click();
+  for (const name of on) {
+    await host.getByRole('button', { name, exact: true }).click();
+    await expect(host.getByRole('button', { name: `✓ ${name}` })).toBeVisible();
+  }
   await host.getByRole('button', { name: 'Start the investigation' }).click();
 }
 
@@ -45,7 +50,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   await expect(
     host.page.getByText(/6 players: .*Accomplice, Witness and 2 Investigators/),
   ).toBeVisible();
-  await setUp(host.page, 'Hana', ['Event tiles']);
+  await setUp(host.page, 'Hana', ['Event tiles'], ['Presentations']);
 
   const murderer = await commitCrime(players);
   await expect(host.page.getByText('Pick the Location tile for this crime.')).toBeVisible();
@@ -152,7 +157,8 @@ test('four players: events come up in round 2, through the last call that ends i
   await openBackroom(await visitor(browser, 'Admin', pageErrors));
   const players = await table(browser, ['Hal', 'Ida', 'Jon', 'Kim'], pageErrors);
   const host = players[0]!;
-  await setUp(host.page, 'Hal');
+  // The printed rules: presentations, and no final accusations.
+  await setUp(host.page, 'Hal', ['Final accusations'], ['Presentations']);
   const murderer = await commitCrime(players);
   await firstRound(host.page);
   await presentAll(players, 3);
@@ -193,7 +199,9 @@ test('four players: events come up in round 2, through the last call that ends i
   await placeBullets(host.page, 2);
   for (const p of players)
     await expect(
-      p.page.getByText(/⏳ Last Call: this is the last round of presentations/),
+      p.page.getByText(
+        '⏳ Last Call: this is the last round. After its presentations, the game ends.',
+      ),
     ).toBeVisible();
   // Then the round's own tile, and the discussion.
   await replaceTile(host.page);
@@ -238,4 +246,86 @@ test('the host hands the case over when the Forensic Scientist drops out', async
   await expect(
     next.page.getByRole('list', { name: 'Bullet order' }).getByRole('listitem'),
   ).toHaveCount(6);
+});
+
+test('presentations off and final accusations: rounds move on, then everyone accuses in turn', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  await openBackroom(await visitor(browser, 'Admin', pageErrors));
+  const players = await table(browser, ['Pia', 'Quin', 'Rae', 'Sol'], pageErrors);
+  const host = players[0]!;
+  // The defaults: no presentations, final accusations on.
+  await expect(host.page.getByRole('button', { name: 'Presentations', exact: true })).toBeVisible();
+  await expect(host.page.getByRole('button', { name: '✓ Final accusations' })).toBeVisible();
+  await setUp(host.page, 'Pia', ['Event tiles']);
+  const murderer = await commitCrime(players);
+  await firstRound(host.page);
+
+  // The Forensic Scientist moves the rounds on from the discussion.
+  for (const p of players)
+    await expect(
+      p.page
+        .getByRole('region', { name: 'Discussion' })
+        .getByRole('button', { name: 'Next round' }),
+    ).toHaveCount(p === host ? 1 : 0);
+  await endDiscussion(players, 'Next round');
+  for (const round of [2, 3]) {
+    await replaceTile(host.page);
+    await placeBullets(host.page, 1);
+    await endDiscussion(players, round === 2 ? 'Next round' : 'Start final accusations');
+  }
+  await expect(host.page.getByRole('button', { name: /^Your turn to present/ })).toHaveCount(0);
+
+  // Final accusations, one by one in seat order from the left of the Forensic Scientist.
+  const order = players.slice(1);
+  const innocent = order.filter((p) => p !== murderer);
+  let solver: Player | undefined;
+  let wrongDone = false;
+  for (let i = 0; i < order.length && !solver; i++) {
+    const accuser = await whoShows(order, /^Final accusations: your turn/);
+    for (const p of players.filter((x) => x !== accuser))
+      await expect(
+        p.page.getByText(`Final accusations: ${accuser.name} is accusing…`).first(),
+      ).toBeVisible();
+    if (i === 0) {
+      // Nobody else can accuse out of turn, and nobody is offered their own cards.
+      const other = order.find((p) => p !== accuser)!;
+      await expect(other.page.getByRole('button', { name: /🔎 Solve/ }).first()).toBeDisabled();
+      await accuser.page.getByRole('button', { name: '⚖️ Accuse' }).click();
+      const sheet = accuser.page.getByRole('dialog', { name: /^Solve/ });
+      await expect(sheet.getByRole('button', { name: other.name, exact: true })).toBeVisible();
+      await expect(sheet.getByRole('button', { name: accuser.name, exact: true })).toHaveCount(0);
+      await accuser.page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+    }
+    if (accuser === murderer) {
+      // The Murderer bluffs on someone else's cards.
+      await solve(accuser.page, innocent[0]!.name, 0, 0);
+    } else if (!wrongDone) {
+      // A wrong pair on the Murderer's cards, public at once.
+      wrongDone = true;
+      await solve(accuser.page, murderer.name, 1, 1);
+      for (const p of players)
+        await expect(
+          p.page.getByText(new RegExp(`❌ (${accuser.name}|You) accused ${murderer.name}`)).first(),
+        ).toBeVisible();
+    } else {
+      await solve(accuser.page, murderer.name, 0, 0);
+      solver = accuser;
+      break;
+    }
+    await expect(accuser.page.getByText(/^Final accusations: your turn/)).toHaveCount(0);
+  }
+  expect(solver).toBeDefined();
+  for (const p of players)
+    await expect(
+      p.page.getByText(
+        `Case closed! ${solver!.name} named the crime in the final accusations: the Investigators win.`,
+      ),
+    ).toBeVisible();
+  await expect(host.page.getByRole('heading', { name: 'Final accusations' })).toBeVisible();
+  await expect(
+    host.page.getByRole('list', { name: 'Final accusations' }).getByText(/✅/),
+  ).toHaveCount(1);
 });
