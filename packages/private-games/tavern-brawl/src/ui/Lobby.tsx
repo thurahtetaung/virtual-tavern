@@ -22,6 +22,24 @@ import { type Art, heroVars } from './assets.ts';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
+/** Portrait width as a multiple of the circle: enough to fill it with the face. */
+const ZOOM = 2.4;
+/** Portraits keep the printed card's shape. */
+const PORTRAIT_RATIO = 630 / 400;
+
+/** Places the portrait so its face sits in the middle of the circle, never leaving a gap. */
+export function faceCrop([fx, fy]: [number, number], size: number): React.CSSProperties {
+  const width = size * ZOOM;
+  const height = width * PORTRAIT_RATIO;
+  const clamp = (v: number, min: number) => Math.min(0, Math.max(min, v));
+  return {
+    width,
+    height,
+    left: clamp(size / 2 - fx * width, size - width),
+    top: clamp(size / 2 - fy * height, size - height),
+  };
+}
+
 /** A hero's face: the portrait from the manifest, or a disc in the hero's colour. */
 export function Portrait({
   hero,
@@ -44,12 +62,12 @@ export function Portrait({
       )}
       aria-hidden
     >
-      {src ? (
+      {src && hero ? (
         <ProtectedImage
           src={src}
           alt=""
-          className="absolute inset-0 size-full object-cover object-[55%_78%]"
-          style={{ transform: 'scale(1.9)', transformOrigin: '55% 78%' }}
+          className="absolute max-w-none"
+          style={faceCrop(art.focus(hero), size)}
         />
       ) : (
         <span style={{ fontSize: size * 0.42 }}>{hero ? HEROES[hero].label[0] : '?'}</span>
