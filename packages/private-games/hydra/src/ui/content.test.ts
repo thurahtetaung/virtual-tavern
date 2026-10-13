@@ -8,6 +8,7 @@ import {
   geometryOf,
   portraitIndex,
 } from './assets.ts';
+import { cardsText } from './Cards.tsx';
 
 describe('portraits', () => {
   it('never repeat within a team while the pool is big enough, and are stable per game', () => {
@@ -116,5 +117,19 @@ describe('content', () => {
       url: '/api/backroom/assets/edition/fonts/display.woff2',
       family: 'Display',
     });
+  });
+});
+
+describe('cards in words', () => {
+  it('count each colour in the edition’s words, or list a peek in order', () => {
+    const hydra = contentFor(null);
+    expect(cardsText(hydra, ['red', 'blue', 'red'])).toBe('2 Conspirator · 1 Loyalist');
+    expect(cardsText(hydra, ['red', 'red'])).toBe('2 Conspirator');
+    expect(cardsText(hydra, ['blue'])).toBe('Loyalist');
+    expect(cardsText(hydra, ['blue', 'red', 'red'], true)).toBe(
+      'Loyalist, Conspirator, Conspirator',
+    );
+    const edition = contentFor({ names: { bluePolicy: 'Sunlit', redPolicy: 'Shadowed' } }, 'x');
+    expect(cardsText(edition, ['blue', 'red', 'blue'])).toBe('1 Shadowed · 2 Sunlit');
   });
 });

@@ -56,6 +56,7 @@ export function Dock({
   target,
   onClearTarget,
   onOpenTask,
+  onShowSeats,
 }: {
   view: HydraView;
   c: Content;
@@ -64,6 +65,8 @@ export function Dock({
   target: string | null;
   onClearTarget: () => void;
   onOpenTask: () => void;
+  /** Brings the seats into view (a phone may have scrolled past them). */
+  onShowSeats: () => void;
 }) {
   const g = view.game!;
   const me = view.me?.id;
@@ -104,7 +107,7 @@ export function Dock({
         </Button>
       </div>
     ) : (
-      <p className="py-2 text-center text-sm font-semibold">{c.copy('dock.nominate')}</p>
+      <SeatsPrompt text={c.copy('dock.nominate')} onClick={onShowSeats} />
     );
   } else if (view.stage === 'vote' && alive) {
     body = (
@@ -183,7 +186,7 @@ export function Dock({
             </Button>
           )
         ) : (
-          <p className="text-center text-sm font-semibold">{c.copy('dock.pick')}</p>
+          <SeatsPrompt text={c.copy('dock.pick')} onClick={onShowSeats} />
         )}
       </div>
     );
@@ -197,6 +200,20 @@ export function Dock({
       {body}
       <RefusalSlot anchor="dock" />
     </div>
+  );
+}
+
+/** "Tap a seat…", pointing up at the seats; tapping it scrolls them into view. */
+function SeatsPrompt({ text, onClick }: { text: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-center gap-2 rounded-xl py-2 text-center text-sm font-semibold text-amber-800 dark:text-amber-300"
+      data-testid="seats-prompt"
+    >
+      <span className="hy-breathe inline-block">{text}</span>
+    </button>
   );
 }
 

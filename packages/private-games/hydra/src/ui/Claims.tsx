@@ -12,7 +12,16 @@ import type {
   Team,
 } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { FlipCard, PartyBack, PartyFace, Pips, TEAM_TEXT, bluesCards } from './Cards.tsx';
+import {
+  FlipCard,
+  PartyBack,
+  PartyFace,
+  Pips,
+  PipsLegend,
+  TEAM_TEXT,
+  bluesCards,
+  cardsText,
+} from './Cards.tsx';
 import { nameOf } from './status.ts';
 
 type Act = (a: HydraAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -100,19 +109,20 @@ export function ClaimForm({
   };
   const summary =
     need.kind === 'peek' && ready ? (
-      <Pips cards={cards as Policy[]} c={c} size="md" />
+      <Pips cards={cards as Policy[]} c={c} size="md" text="order" />
     ) : need.kind === 'investigate' && team ? (
       <b>{c.teamName(team)}</b>
     ) : need.kind === 'president' && blues !== null && discarded ? (
       <span>
-        <Pips cards={bluesCards(blues, n)} c={c} size="md" />, discarded{' '}
-        <Pips cards={[discarded]} c={c} size="md" />
+        <Pips cards={bluesCards(blues, n)} c={c} size="md" text="counts" />, discarded{' '}
+        <Pips cards={[discarded]} c={c} size="md" text="order" />
       </span>
     ) : blues !== null ? (
-      <Pips cards={bluesCards(blues, n)} c={c} size="md" />
+      <Pips cards={bluesCards(blues, n)} c={c} size="md" text="counts" />
     ) : null;
   return (
     <div className="space-y-4" data-testid="claim-form">
+      {need.kind !== 'investigate' && <PipsLegend c={c} />}
       {memory && (
         <div className="rounded-xl bg-stone-100 p-3 text-sm dark:bg-stone-800">
           <p className="font-semibold">Only you know what you really saw:</p>
@@ -120,12 +130,12 @@ export function ClaimForm({
             {memory.kind === 'hand' && (
               <>
                 {memory.as === 'president' ? 'You drew' : 'You got'}{' '}
-                <Pips cards={[...memory.cards].sort().reverse()} c={c} size="md" />
+                <Pips cards={[...memory.cards].sort().reverse()} c={c} size="md" text="counts" />
               </>
             )}
             {memory.kind === 'peek' && (
               <>
-                The top three, in order: <Pips cards={memory.cards} c={c} size="md" />
+                The top three, in order: <Pips cards={memory.cards} c={c} size="md" text="order" />
               </>
             )}
             {memory.kind === 'investigate' && (
@@ -165,6 +175,9 @@ export function ClaimForm({
                   )}
                 >
                   <Pips cards={bluesCards(b, n)} c={c} size="md" />
+                  <span className="text-[0.7rem] leading-tight font-semibold text-stone-800 dark:text-stone-200">
+                    {cardsText(c, bluesCards(b, n))}
+                  </span>
                   <span className="flex items-center gap-1 text-[0.65rem] text-stone-600 dark:text-stone-400">
                     discarded <Pips cards={[d]} c={c} />
                     <span className={TEAM_TEXT[d]}>{c.policyName(d)}</span>
@@ -197,8 +210,8 @@ export function ClaimForm({
                 )}
               >
                 <Pips cards={bluesCards(b, n)} c={c} size="md" />
-                <span className="text-[0.65rem] text-stone-600 dark:text-stone-400">
-                  {b} {c.policyName('blue')}
+                <span className="text-[0.7rem] leading-tight font-semibold text-stone-800 dark:text-stone-200">
+                  {cardsText(c, bluesCards(b, n))}
                 </span>
               </button>
             ))}
@@ -333,11 +346,11 @@ export function ClaimLine({
         </>
       ) : claim.kind === 'peek' ? (
         <>
-          peeked <Pips cards={claim.cards!} c={c} />
+          peeked <Pips cards={claim.cards!} c={c} text="order" />
         </>
       ) : claim.kind === 'president' ? (
         <>
-          drew <Pips cards={bluesCards(claim.blues!, 3)} c={c} />
+          drew <Pips cards={bluesCards(claim.blues!, 3)} c={c} text="counts" />
           {claim.discarded && (
             <>
               ,{' '}
@@ -349,7 +362,7 @@ export function ClaimLine({
         </>
       ) : (
         <>
-          got <Pips cards={bluesCards(claim.blues!, 2)} c={c} />
+          got <Pips cards={bluesCards(claim.blues!, 2)} c={c} text="counts" />
           {derived && (
             <span className="whitespace-nowrap text-stone-500">
               {' '}

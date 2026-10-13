@@ -11,7 +11,7 @@ import {
 } from '../logic/types.ts';
 import type { GameView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { PolicyFace } from './Cards.tsx';
+import { PolicyFace, TEAM_ICON } from './Cards.tsx';
 
 export const POWER_EMOJI: Record<Power, string> = {
   investigate: '🔍',
@@ -228,17 +228,18 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
   const track = trackFor(g.players.length);
   const next = g.enacted.red < RED_TO_WIN ? track[g.enacted.red] : null;
   return (
-    <div className="flex min-w-0 items-center gap-2" aria-label={c.t('{Policies} on the boards')}>
+    <div className="flex min-w-0 items-center gap-1.5" aria-label={c.t('{Policies} on the boards')}>
       <span
         className="flex items-center gap-0.5"
         role="img"
         aria-label={`${c.teamName('blue')}: ${g.enacted.blue} of ${BLUE_TO_WIN}`}
       >
+        <Glyph>{TEAM_ICON.blue}</Glyph>
         {Array.from({ length: BLUE_TO_WIN }, (_, i) => (
           <span
             key={i}
             className={cn(
-              'h-4 w-2.5 rounded-[2px] ring-1',
+              'h-4 w-2 rounded-[2px] ring-1',
               i < g.enacted.blue ? 'bg-sky-500 ring-sky-300' : 'bg-sky-950/40 ring-sky-400/40',
             )}
           />
@@ -249,11 +250,12 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
         role="img"
         aria-label={`${c.teamName('red')}: ${g.enacted.red} of ${RED_TO_WIN}${next ? `, next: ${c.powerName(next)}` : ''}`}
       >
+        <Glyph>{TEAM_ICON.red}</Glyph>
         {Array.from({ length: RED_TO_WIN }, (_, i) => (
           <span
             key={i}
             className={cn(
-              'flex h-4 w-2.5 items-center justify-center rounded-[2px] text-[0.5rem] ring-1',
+              'flex h-4 w-2 items-center justify-center rounded-[2px] text-[0.5rem] ring-1',
               i < g.enacted.red
                 ? 'bg-red-500 ring-red-300'
                 : i >= LEADER_ZONE
@@ -272,8 +274,64 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
           </span>
         )}
       </span>
-      <TrackerLamps tracker={g.tracker} />
+      <span className="flex items-center gap-0.5">
+        <Glyph>🗳️</Glyph>
+        <TrackerLamps tracker={g.tracker} />
+      </span>
     </div>
+  );
+}
+
+/** A tiny mark before each group on the header strip, so it reads at a glance. */
+function Glyph({ children }: { children: string }) {
+  return (
+    <span aria-hidden className="mr-px text-[0.65rem] leading-none">
+      {children}
+    </span>
+  );
+}
+
+/** What the header strip means, with this game's counts: opened by tapping the strip. */
+export function ScoreLegend({ g, c, onClose }: { g: GameView; c: Content; onClose: () => void }) {
+  const track = trackFor(g.players.length);
+  const next = g.enacted.red < RED_TO_WIN ? track[g.enacted.red] : null;
+  const row = (glyph: string, text: string) => (
+    <li className="flex gap-2">
+      <span aria-hidden className="w-5 shrink-0 text-center">
+        {glyph}
+      </span>
+      <span>{text}</span>
+    </li>
+  );
+  return (
+    <section
+      aria-label={c.copy('legend.title')}
+      className="hy-rise rounded-2xl bg-white p-3 text-sm shadow-md ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700"
+      data-testid="score-legend"
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <h3 className="font-bold">{c.copy('legend.title')}</h3>
+        <button
+          type="button"
+          className="min-h-8 rounded-full px-2 text-xs font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+      <ul className="space-y-1">
+        {row(TEAM_ICON.blue, c.copy('legend.blue', { n: g.enacted.blue, of: BLUE_TO_WIN }))}
+        {row(
+          TEAM_ICON.red,
+          c.copy('legend.red', { n: g.enacted.red, of: RED_TO_WIN, zone: LEADER_ZONE }),
+        )}
+        {row(
+          next ? POWER_EMOJI[next] : '·',
+          next ? c.copy('legend.next', { power: c.powerName(next) }) : c.copy('legend.nextNone'),
+        )}
+        {row('🗳️', c.copy('legend.tracker', { n: g.tracker, of: TRACKER_MAX }))}
+      </ul>
+    </section>
   );
 }
 

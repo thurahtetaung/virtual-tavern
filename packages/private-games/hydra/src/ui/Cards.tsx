@@ -1,5 +1,5 @@
 import { ProtectedImage, cn } from '@vt/ui';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import type { Ballot, Policy, Role, Team } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 
@@ -297,21 +297,52 @@ export function PartyBack({ c, className }: { c: Content; className?: string }) 
   );
 }
 
-/** Small coloured pips for a set of cards (claims, logs): colour plus symbol. */
+/**
+ * Cards in words: "2 Conspirator · 1 Loyalist" (red first, like the pips), or each card in
+ * order ("Conspirator, Conspirator, Loyalist") for a peek.
+ */
+export function cardsText(c: Content, cards: readonly Policy[], ordered = false): string {
+  if (ordered || cards.length === 1) return cards.map((x) => c.policyName(x)).join(', ');
+  const red = cards.filter((x) => x === 'red').length;
+  const blue = cards.length - red;
+  return [red && `${red} ${c.policyName('red')}`, blue && `${blue} ${c.policyName('blue')}`]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Small coloured pips for a set of cards (claims, logs): colour plus a symbol, and with `text` the
+ * cards in words beside them, so nobody has to tell the colours apart. A tap shows their names.
+ */
 export function Pips({
   cards,
   c,
   size = 'sm',
+  text,
 }: {
   cards: readonly Policy[];
   c: Content;
   size?: 'sm' | 'md';
+  /** Words beside the pips: counts ("2 Conspirator · 1 Loyalist") or each card in order. */
+  text?: 'counts' | 'order';
 }) {
-  return (
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!shown) return;
+    const t = window.setTimeout(() => setShown(false), 2200);
+    return () => {
+      window.clearTimeout(t);
+    };
+  }, [shown]);
+  const names = cards.map((x) => c.policyName(x)).join(', ');
+  const pips = (
     <span
-      className="inline-flex gap-0.5 align-middle"
+      className="relative inline-flex gap-0.5 align-middle"
       role="img"
-      aria-label={cards.map((x) => c.policyName(x)).join(', ')}
+      aria-label={names}
+      aria-hidden={text ? true : undefined}
+      title={names}
+      onClick={() => setShown(true)}
     >
       {cards.map((x, i) => (
         <span
@@ -325,7 +356,43 @@ export function Pips({
           {x === 'blue' ? '✦' : '✕'}
         </span>
       ))}
+      {shown && (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded bg-stone-900 px-1.5 py-0.5 text-[0.65rem] font-semibold whitespace-nowrap text-white shadow"
+        >
+          {names}
+        </span>
+      )}
     </span>
+  );
+  if (!text) return pips;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1 align-middle">
+      {pips}
+      <span className="text-[0.75em] font-semibold text-stone-600 dark:text-stone-300">
+        {cardsText(c, cards, text === 'order')}
+      </span>
+    </span>
+  );
+}
+
+/** "✦ = Loyalist policy · ✕ = Conspirator policy": what the pips stand for. */
+export function PipsLegend({ c, className }: { c: Content; className?: string }) {
+  return (
+    <p
+      className={cn(
+        'flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-stone-600 dark:text-stone-400',
+        className,
+      )}
+      data-testid="pips-legend"
+    >
+      {(['blue', 'red'] as const).map((p) => (
+        <span key={p} className="inline-flex items-center gap-1">
+          <Pips cards={[p]} c={c} size="md" /> = {c.t(`${c.policyName(p)} {policy}`)}
+        </span>
+      ))}
+    </p>
   );
 }
 

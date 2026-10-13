@@ -104,7 +104,7 @@ function MemoryLine({ view, c, m }: { view: HydraView; c: Content; m: Memory }) 
         <span className="inline-flex items-center gap-1">
           #{m.round}:{' '}
           {c.t(m.as === 'president' ? 'as {president} you drew' : 'as {chancellor} you got')}{' '}
-          <Pips cards={m.cards} c={c} />
+          <Pips cards={m.cards} c={c} text="counts" />
         </span>
       );
     case 'investigate':
@@ -117,7 +117,7 @@ function MemoryLine({ view, c, m }: { view: HydraView; c: Content; m: Memory }) 
     case 'peek':
       return (
         <span className="inline-flex items-center gap-1">
-          #{m.round}: you peeked <Pips cards={m.cards} c={c} />
+          #{m.round}: you peeked <Pips cards={m.cards} c={c} text="order" />
         </span>
       );
   }

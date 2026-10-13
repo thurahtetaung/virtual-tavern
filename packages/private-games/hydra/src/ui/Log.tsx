@@ -30,11 +30,11 @@ function PassedMismatch({ f, c }: { f: Flag; c: Content }) {
     <span>
       {c.t('the {president} says they passed')}{' '}
       <span className="whitespace-nowrap">
-        <Pips cards={bluesCards(f.passed!, 2)} c={c} />,
+        <Pips cards={bluesCards(f.passed!, 2)} c={c} text="counts" />,
       </span>{' '}
       {c.t('the {chancellor} says they got')}{' '}
       <span className="whitespace-nowrap">
-        <Pips cards={bluesCards(f.received!, 2)} c={c} />.
+        <Pips cards={bluesCards(f.received!, 2)} c={c} text="counts" />.
       </span>
     </span>
   );
@@ -164,7 +164,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                         <span>{c.copy('log.vetoed')}</span>
                       ) : (
                         <span className="inline-flex items-center gap-1">
-                          Enacted <Pips cards={[r.session.enacted!]} c={c} />
+                          Enacted <Pips cards={[r.session.enacted!]} c={c} text="order" />
                           <span className="text-xs text-stone-500">
                             {c.t('(the {chancellor}’s two were shuffled)')}
                           </span>
@@ -174,7 +174,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   )}
                   {r.chaos && (
                     <li className="inline-flex items-center gap-1">
-                      🌪️ Chaos: the people enacted <Pips cards={[r.chaos]} c={c} />
+                      🌪️ Chaos: the people enacted <Pips cards={[r.chaos]} c={c} text="order" />
                     </li>
                   )}
                   {r.claims.map((cl) => (
@@ -307,7 +307,7 @@ export function PlayerRecord({
                       ) : r.session?.vetoed ? (
                         c.copy('log.vetoedShort')
                       ) : r.session?.enacted ? (
-                        <Pips cards={[r.session.enacted]} c={c} />
+                        <Pips cards={[r.session.enacted]} c={c} text="order" />
                       ) : (
                         '…'
                       )}

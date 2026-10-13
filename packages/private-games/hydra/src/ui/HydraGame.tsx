@@ -1,6 +1,6 @@
 import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game-sdk';
 import { Button, Countdown, Hint, cn, useRefusalWording, useSpectatorPrompt } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
 import {
   LEADER_ZONE,
@@ -10,11 +10,11 @@ import {
   type Notice,
 } from '../logic/types.ts';
 import { type Content, GAME_ID, contentFor, useManifest } from './assets.ts';
-import { Board, DeckChip, MiniTracks } from './Boards.tsx';
+import { Board, DeckChip, MiniTracks, ScoreLegend } from './Boards.tsx';
 import { PolicyBack } from './Cards.tsx';
 import { Dock, TaskSheet, secretTask } from './Dock.tsx';
 import { End } from './End.tsx';
-import { playSfx, useBuzz } from './fx.ts';
+import { playSfx, prefersReducedMotion, useBuzz } from './fx.ts';
 import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab } from './Me.tsx';
@@ -90,6 +90,8 @@ function HeaderStrip({
   sound,
   setSound,
   onRole,
+  legend,
+  onLegend,
 }: {
   view: HydraView;
   room: GameRoomInfo;
@@ -97,6 +99,9 @@ function HeaderStrip({
   sound: boolean;
   setSound: (on: boolean) => void;
   onRole: () => void;
+  /** The scoreboard's legend is open. */
+  legend: boolean;
+  onLegend: () => void;
 }) {
   const g = view.game!;
   const strict = view.settings.timerMode === 'strict';
@@ -105,7 +110,16 @@ function HeaderStrip({
   const timed = deadline !== null && view.stage !== 'leader-check' && view.stage !== 'chaos';
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-950 via-stone-900 to-red-950 px-2.5 py-1.5 text-white shadow-md">
-      <MiniTracks g={g} c={c} />
+      <button
+        type="button"
+        className="-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10"
+        aria-expanded={legend}
+        aria-label={c.copy('legend.button')}
+        onClick={onLegend}
+        data-testid="scoreboard"
+      >
+        <MiniTracks g={g} c={c} />
+      </button>
       <span
         className="min-w-0 flex-1 truncate text-right text-[0.7rem] leading-tight text-white/80"
         data-testid="next-president"
@@ -251,9 +265,15 @@ function tipFor(
 ): [string, string] | null {
   const g = view.game;
   if (!g || view.phase !== 'playing' || !view.role) return null;
-  const tips: ['marks' | 'term' | 'tracker' | 'claims' | 'danger', boolean][] = [
+  const mine = view.stage === 'nominate' && g.president === view.me?.id;
+  const tips: [
+    'nominate' | 'scoreboard' | 'marks' | 'term' | 'tracker' | 'claims' | 'danger',
+    boolean,
+  ][] = [
+    ['nominate', mine],
+    ['scoreboard', view.stage === 'nominate'],
     ['marks', view.stage === 'nominate'],
-    ['term', view.stage === 'nominate' && g.president === view.me?.id],
+    ['term', mine],
     ['tracker', g.tracker > 0],
     ['claims', view.stage === 'claim'],
     ['danger', g.enacted.red >= LEADER_ZONE],
@@ -339,6 +359,47 @@ function TableRing({
   );
 }
 
+/**
+ * The players' seats as their own bounded, tinted surface with a "The table" heading, so they read
+ * as seats at a glance; when it's your pick, it says so and the edge lights up.
+ */
+function SeatsPanel({
+  c,
+  picking,
+  panelRef,
+  className,
+  children,
+}: {
+  c: Content;
+  picking: boolean;
+  panelRef: React.Ref<HTMLElement>;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      ref={panelRef}
+      aria-label={c.copy('seats.heading')}
+      className={cn(
+        'scroll-mt-20 rounded-2xl bg-stone-200/70 p-2 shadow-inner ring-1 ring-stone-300 lg:p-3 dark:bg-stone-900 dark:ring-stone-700',
+        picking && 'ring-2 ring-amber-400 dark:ring-amber-500/70',
+        className,
+      )}
+      data-testid="seats-panel"
+    >
+      <h3 className="mb-1.5 flex items-center justify-between px-0.5 text-xs font-bold tracking-wide text-stone-600 uppercase lg:mb-2 lg:text-sm dark:text-stone-400">
+        <span>👥 {c.copy('seats.heading')}</span>
+        {picking && (
+          <span className="hy-breathe text-amber-700 normal-case dark:text-amber-400">
+            {c.copy('seats.pick')} 👇
+          </span>
+        )}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 function Pile({ label, count, c }: { label: string; count: number; c: Content }) {
   return (
     <div className="flex flex-col items-center gap-1 text-center text-xs font-semibold text-white/80">
@@ -375,6 +436,9 @@ export function HydraGame({
   const manifest = useManifest(edition);
   const c = useMemo(() => contentFor(manifest, edition), [manifest, edition]);
   const [plain, setPlain] = usePlainHeadings();
+  const [legend, setLegend] = useState(false);
+  const seatsRef = useRef<HTMLElement>(null);
+  const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
   useRefusalWording(c.t);
   const g = view.game;
@@ -411,6 +475,31 @@ export function HydraGame({
   const setTab = (t: Tab) => setTabPick({ tab: t, key: stageKey });
 
   const task = g ? secretTask(view) : null;
+
+  // Your turn to pick a seat (nominate, or a power on a player): bring the seats into view.
+  const myPick =
+    !!g &&
+    view.phase === 'playing' &&
+    amAlive(view) &&
+    g.president === view.me?.id &&
+    (view.stage === 'nominate' || (view.stage === 'power' && !!g.power && g.power !== 'peek'));
+  const pickKey = myPick ? stageKey : null;
+  // The seats panel on screen: the phone's, or the desktop's around the board.
+  const seatsOnScreen = useCallback(
+    () => [seatsRef.current, deskSeatsRef.current].find((el) => el && el.offsetParent !== null),
+    [],
+  );
+  const showSeats = useCallback(() => {
+    const el = seatsOnScreen();
+    if (!el) return;
+    el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }, [seatsOnScreen]);
+  useEffect(() => {
+    const el = seatsOnScreen();
+    if (!pickKey || !el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.55) showSeats();
+  }, [pickKey, showSeats, seatsOnScreen]);
   const taskKey = `${stageKey}:${g?.needs.length ?? 0}:${g?.vetoRefused ?? ''}`;
   const [closedTask, setClosedTask] = useState('');
   const sheetOpen = !!task && !moment && closedTask !== taskKey;
@@ -550,7 +639,13 @@ export function HydraGame({
         sound={sound}
         setSound={setSound}
         onRole={() => setTab('me')}
+        legend={legend}
+        onLegend={() => {
+          setLegend(!legend);
+          dismissTip('scoreboard');
+        }}
       />
+      {legend && <ScoreLegend g={g} c={c} onClose={() => setLegend(false)} />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {talkNow && (
         <p className="hy-rise rounded-xl bg-violet-100 px-3 py-1.5 text-center text-sm font-semibold text-violet-950 ring-1 ring-violet-300 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40">
@@ -601,9 +696,13 @@ export function HydraGame({
                   <BoardCarousel view={view} c={c} />
                   <DeckChip g={g} c={c} className="mt-1" />
                 </div>
-                <div className="lg:hidden">{seatGrid()}</div>
+                <SeatsPanel c={c} picking={!!pick} panelRef={seatsRef} className="lg:hidden">
+                  {seatGrid()}
+                </SeatsPanel>
                 <div className="hidden lg:block">
-                  <TableRing view={view} c={c} seats={(ids, cols) => seatGrid(ids, cols)} />
+                  <SeatsPanel c={c} picking={!!pick} panelRef={deskSeatsRef}>
+                    <TableRing view={view} c={c} seats={(ids, cols) => seatGrid(ids, cols)} />
+                  </SeatsPanel>
                   <DeckChip g={g} c={c} className="mt-2" />
                 </div>
               </div>
@@ -640,6 +739,7 @@ export function HydraGame({
             target={target}
             onClearTarget={() => setPicked({ key: stageKey, id: null })}
             onOpenTask={() => setClosedTask('')}
+            onShowSeats={showSeats}
           />
         </div>
         <aside className={cn('min-w-0 space-y-3', onTab('log'))}>

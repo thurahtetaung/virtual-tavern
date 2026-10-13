@@ -118,6 +118,12 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
   await readRoles(players);
   expect(players.filter((p) => p.role === 'leader')).toHaveLength(1);
+  // The scoreboard explains itself in the edition's words.
+  await host.getByTestId('scoreboard').click();
+  await expect(host.getByTestId('score-legend')).toContainText('Glows: 0 of 5 Sunlit edicts');
+  await expect(host.getByTestId('score-legend')).toContainText('electing the Archon as Keeper');
+  await host.getByTestId('scoreboard').click();
+  await expect(host.getByTestId('score-legend')).toBeHidden();
 
   // Two sessions with their claims; the President names their discard.
   for (let i = 0; i < 2; i++) {
