@@ -12,12 +12,15 @@ import {
 } from '@vt/game-sdk';
 import { inquestAwards } from './awards.ts';
 import {
+  ALLIES_CLUE_CARDS,
+  ALLIES_EVENTS,
+  ALLIES_MEANS_CARDS,
+  ALLIES_SCENE_TILES,
   CAUSE_TILE,
   CLUE_CARDS,
   EVENT_KINDS,
   EVENT_TILES,
   type EventKind,
-  LOCATION_TILES,
   MEANS_CARDS,
   SCENE_SLOTS,
   SCENE_TILES,
@@ -25,10 +28,13 @@ import {
   isSceneTile,
 } from './content.ts';
 import { guide } from './guide.ts';
-import { rolesFor, startProblem } from './setup.ts';
+import { locationTiles, rolesFor, startProblem } from './setup.ts';
 import { insights } from './insights.ts';
 import { eventName } from './names.ts';
 import {
+  ALLIES_STEP_SECONDS,
+  type AlliesPhase,
+  type AlliesStep,
   DEFAULT_DISCUSS_SECONDS,
   DEFAULT_HAND,
   DEFAULT_PRESENT_SECONDS,
@@ -41,7 +47,6 @@ import {
   type InquestState,
   type InquestView,
   MAX_NOTICES,
-  MAX_PLAYERS,
   MIN_PLAYERS,
   type MyRole,
   NIGHT_SECONDS,
@@ -55,8 +60,10 @@ import {
   type Slot,
   USEFUL_CLUE_OPTIONS,
   actionSchema,
+  alliesOf,
   discussSecondsOf,
   finalOf,
+  maxPlayersOf,
   presentationsOf,
 } from './types.ts';
 
@@ -119,7 +126,17 @@ function notice(state: InquestState, text: string, now: number): InquestState {
 }
 
 const sideOf = (role: RoleId): Side =>
-  role === 'murderer' || role === 'accomplice' ? 'murderer' : 'investigators';
+  role === 'murderer' || role === 'accomplice' || role === 'inside-man'
+    ? 'murderer'
+    : 'investigators';
+
+/** Forensic Scientists a Change of Heart switched to the Murderer's side. */
+const switchedFs = (g: Game) =>
+  new Set((g.perfect ?? []).filter((p) => p.switched).map((p) => p.by));
+
+/** A player's side at the end: their role's, or the Murderer's for a switched Forensic Scientist. */
+const sideAtEnd = (g: Game, p: Player): Side =>
+  switchedFs(g).has(p.id) ? 'murderer' : sideOf(p.role);
 
 // ---- Lobby ----
 
@@ -160,6 +177,17 @@ function updateSettings(
   if (action.discussSeconds !== undefined) s.discussSeconds = action.discussSeconds;
   if (action.presentations !== undefined) s.presentations = action.presentations;
   if (action.finalAccusations !== undefined) s.finalAccusations = action.finalAccusations;
+  if (action.allies !== undefined) s.allies = action.allies;
+  if (action.labTech !== undefined) s.labTech = action.labTech;
+  if (action.insideMan !== undefined) s.insideMan = action.insideMan;
+  if (action.protective !== undefined) {
+    if (action.protective && !s.witness)
+      return err('needs-witness', 'The Protective Detail needs the Witness in the game.');
+    s.protective = action.protective;
+  }
+  if (action.unknownLocation !== undefined) s.unknownLocation = action.unknownLocation;
+  // The Protective Detail only plays alongside the Witness.
+  if (!s.witness) s.protective = false;
   return { ...state, settings: s };
 }
 
@@ -168,8 +196,8 @@ function sit(state: InquestState, playing: boolean, ctx: Ctx): Result {
   if (!seat) return err('not-seated', 'You are not in this room.');
   if (state.phase === 'playing') return err('in-progress', 'You can sit down between games.');
   if (seat.playing === playing) return state;
-  if (playing && seated(state).length >= MAX_PLAYERS)
-    return err('full', `At most ${MAX_PLAYERS} can play.`);
+  const max = maxPlayersOf(state.settings);
+  if (playing && seated(state).length >= max) return err('full', `At most ${max} can play.`);
   const settings =
     !playing && state.settings.fsPick === ctx.by
       ? { ...state.settings, fsPick: null }
@@ -213,8 +241,9 @@ function start(state: InquestState, ctx: Ctx): Result {
   const roles = rolesFor(ids.length, s).slice(1);
   const roleById = new Map<PlayerId, RoleId>([[fs, 'forensic']]);
   others.forEach((id, i) => roleById.set(id, roles[i]!));
-  const clue = rng.shuffle(CLUE_CARDS);
-  const means = rng.shuffle(MEANS_CARDS);
+  const allies = alliesOf(s).on;
+  const clue = rng.shuffle(allies ? [...CLUE_CARDS, ...ALLIES_CLUE_CARDS] : CLUE_CARDS);
+  const means = rng.shuffle(allies ? [...MEANS_CARDS, ...ALLIES_MEANS_CARDS] : MEANS_CARDS);
   const players: Player[] = ids.map((id) => {
     const role = roleById.get(id)!;
     const dealt = role !== 'forensic';
@@ -242,7 +271,7 @@ function start(state: InquestState, ctx: Ctx): Result {
     autoCrime: false,
     slots: [],
     removed: [],
-    pile: rng.shuffle(SCENE_TILES),
+    pile: rng.shuffle(allies ? [...SCENE_TILES, ...ALLIES_SCENE_TILES] : SCENE_TILES),
     events: [],
     eventsIn: false,
     bullets: [],
@@ -252,6 +281,8 @@ function start(state: InquestState, ctx: Ctx): Result {
     event: null,
     present: null,
     final: null,
+    allies: null,
+    perfect: [],
     attempts: [],
     reversal: null,
     result: null,
@@ -311,7 +342,8 @@ function pickLocation(state: InquestState, tile: number, ctx: Ctx): Result {
   if (e) return e;
   if (g!.stage !== 'collect' || g!.step?.kind !== 'pick-location')
     return err('wrong-stage', 'The Location tile is already chosen.');
-  if (!LOCATION_TILES.includes(tile)) return err('bad-tile', 'Pick one of the Location tiles.');
+  if (!locationTiles(state.settings).includes(tile))
+    return err('bad-tile', 'Pick one of the Location tiles.');
   const pile = [...g!.pile];
   const scenes = pile.splice(0, 4);
   const slots: Slot[] = [CAUSE_TILE, tile, ...scenes].map((t) => ({ tile: t, bullet: null }));
@@ -417,7 +449,10 @@ function advance(state: InquestState, now: number, rng: Rng): InquestState {
       eventsIn = true;
       if (s.settings.events) {
         const witness = !!roleHolder(g, 'witness');
-        const kinds = EVENT_KINDS.filter((k) => k !== 'testimony' || witness);
+        const allies = alliesOf(s.settings).on;
+        const kinds = EVENT_KINDS.filter(
+          (k) => (k !== 'testimony' || witness) && (allies || !ALLIES_EVENTS.includes(k)),
+        );
         const top = testEventOrder.filter((k) => kinds.includes(k));
         // With a test order set, only the events it names come up.
         const rest = testEventOrder.length
@@ -435,14 +470,14 @@ function advance(state: InquestState, now: number, rng: Rng): InquestState {
     const kind = eventOfTile(tile);
     const drawn: Game = { ...g, pile: rest, eventsIn };
     if (!kind) return withGame(s, { ...drawn, step: { kind: 'replace', drawn: tile } });
-    s = startEvent(withGame(s, { ...drawn, events: [...g.events, kind] }), kind, now);
+    s = startEvent(withGame(s, { ...drawn, events: [...g.events, kind] }), kind, now, rng);
   }
   return s;
 }
 
 // ---- Events ----
 
-function startEvent(state: InquestState, kind: EventKind, now: number): InquestState {
+function startEvent(state: InquestState, kind: EventKind, now: number, rng: Rng): InquestState {
   const g = state.game!;
   const tile = EVENT_TILES[kind];
   const s = notice(state, `Event: ${eventName(kind)}.`, now);
@@ -501,6 +536,46 @@ function startEvent(state: InquestState, kind: EventKind, now: number): InquestS
       const marked = { ...base, pile, countdown: true, finalRound: base.round };
       if (!drawn.length) return withGame(s, marked);
       return withGame(s, { ...marked, step, event: { kind, tile, drawn } });
+    }
+    case 'perfect-crime': {
+      // Peek at the next tile and set it aside. With an empty pile, the discarded scene tiles are
+      // shuffled into a new one first. An event means the Forensic Scientist switches sides.
+      let pile = base.pile;
+      let removed = base.removed;
+      let next = s;
+      if (!pile.length) {
+        const onTable = new Set(base.slots.map((x) => x.tile));
+        const discards = [...new Set(base.removed.map((x) => x.tile))].filter(
+          (t) => isSceneTile(t) && !onTable.has(t),
+        );
+        pile = rng.shuffle(discards);
+        removed = base.removed.filter((x) => !discards.includes(x.tile));
+        if (pile.length)
+          next = notice(
+            s,
+            'The pile was empty, so the discarded scene tiles were reshuffled.',
+            now,
+          );
+      }
+      const [top, ...rest] = pile;
+      const peek = {
+        by: base.fs,
+        tile: top ?? null,
+        switched: top !== undefined && eventOfTile(top) !== null,
+        round: base.round,
+      };
+      return notice(
+        withGame(next, {
+          ...next.game!,
+          pile: rest,
+          removed,
+          perfect: [...(base.perfect ?? []), peek],
+        }),
+        top === undefined
+          ? 'No tile was left to peek at.'
+          : 'The Forensic Scientist peeked at the next tile and set it aside, face down.',
+        now,
+      );
     }
     case 'testimony':
       if (!roleHolder(g, 'witness')) return s;
@@ -690,6 +765,12 @@ function endOfRound(state: InquestState, now: number): InquestState {
     return finalOf(state.settings)
       ? startFinal(state, now)
       : finish(state, 'murderer', 'time', now);
+  if (g.round === 1 && !g.allies && alliesSteps(g).length) return startAllies(state, now);
+  return nextRound(state, now);
+}
+
+function nextRound(state: InquestState, now: number): InquestState {
+  const g = state.game!;
   return withGame(state, {
     ...g,
     stage: 'collect',
@@ -772,6 +853,142 @@ function skipAccuser(state: InquestState, ctx: Ctx): Result {
 const currentAccuser = (g: Game) =>
   g.stage === 'final' ? (g.final?.order[g.final.index] ?? null) : null;
 
+// ---- The Allies Phase ----
+
+/** The Allies Phase's steps for the roles in play: the Lab Technician, then the Inside Man. */
+function alliesSteps(g: Game): AlliesStep[] {
+  const steps: AlliesStep[] = [];
+  if (roleHolder(g, 'lab-technician')) steps.push('lab');
+  if (roleHolder(g, 'inside-man')) steps.push('inside');
+  return steps;
+}
+
+/**
+ * Once, after round 1: a secret night-style step for each Allies role in play. Each step has a
+ * fixed clock, even for a player who has left, so its length never gives anyone away.
+ */
+function startAllies(state: InquestState, now: number): InquestState {
+  const g = state.game!;
+  const steps = alliesSteps(g);
+  const allies: AlliesPhase = {
+    steps,
+    step: steps[0]!,
+    deadline: now + ALLIES_STEP_SECONDS * 1000,
+    labDone: false,
+    lab: null,
+    lostBadge: null,
+  };
+  return withGame(state, {
+    ...g,
+    stage: 'allies',
+    present: null,
+    step: null,
+    deadline: allies.deadline,
+    allies,
+  });
+}
+
+/** The next step of the Allies Phase, or round 2 once it's over. */
+function nextAlliesStep(state: InquestState, phase: AlliesPhase, now: number, rng: Rng) {
+  const g = state.game!;
+  const i = phase.steps.indexOf(phase.step!);
+  const step = phase.steps[i + 1] ?? null;
+  if (step) {
+    const deadline = now + ALLIES_STEP_SECONDS * 1000;
+    return withGame(state, { ...g, deadline, allies: { ...phase, step, deadline } });
+  }
+  const done = withGame(state, { ...g, deadline: null, allies: { ...phase, step: null } });
+  return checkBadges(advance(nextRound(done, now), now, rng), now);
+}
+
+function requireAllies(g: Game | null, by: PlayerId, step: AlliesStep): GameError | null {
+  if (!g || g.stage !== 'allies' || g.allies?.step !== step)
+    return err('wrong-stage', 'It isn’t time for that.');
+  const role = step === 'lab' ? 'lab-technician' : 'inside-man';
+  if (playerOf(g, by)?.role !== role)
+    return err(
+      'not-yours',
+      `Only the ${step === 'lab' ? 'Lab Technician' : 'Inside Man'} does that.`,
+    );
+  return null;
+}
+
+function labCheck(
+  state: InquestState,
+  action: Extract<InquestAction, { type: 'lab-check' }>,
+  ctx: Ctx,
+): Result {
+  const g = state.game;
+  const e = requireAllies(g, ctx.by, 'lab');
+  if (e) return e;
+  const owner = playerOf(g!, action.owner);
+  if (!owner || !owner[action.deck].includes(action.n))
+    return err('bad-card', 'Pick one of the cards on the table.');
+  const murderer = roleHolder(g!, 'murderer');
+  const hit =
+    owner.id === murderer?.id &&
+    (action.deck === 'clue' ? g!.solution?.clue : g!.solution?.means) === action.n;
+  const lab = { owner: owner.id, deck: action.deck, n: action.n, hit };
+  return nextAlliesStep(
+    notice(state, 'The Lab Technician has checked a card.', ctx.now),
+    { ...g!.allies!, labDone: true, lab },
+    ctx.now,
+    ctx.rng,
+  );
+}
+
+function labSkip(state: InquestState, ctx: Ctx): Result {
+  const g = state.game;
+  const e = requireAllies(g, ctx.by, 'lab');
+  if (e) return e;
+  return nextAlliesStep(
+    notice(state, 'The Lab Technician has checked a card.', ctx.now),
+    { ...g!.allies!, labDone: true },
+    ctx.now,
+    ctx.rng,
+  );
+}
+
+/** Who the Inside Man may pick: anyone at the table with a badge, himself included. */
+const badgeHolders = (g: Game) => solvers(g).filter((p) => p.badges > 0);
+
+function takeBadge(state: InquestState, target: PlayerId, now: number, rng: Rng): InquestState {
+  const g = state.game!;
+  const players = g.players.map((p) => (p.id === target ? { ...p, badges: p.badges - 1 } : p));
+  const s = notice(
+    withGame(state, { ...g, players }),
+    `${playerOf(g, target)?.name ?? 'Someone'} lost their badge.`,
+    now,
+  );
+  return nextAlliesStep(s, { ...g.allies!, lostBadge: target }, now, rng);
+}
+
+function insidePick(state: InquestState, target: PlayerId, ctx: Ctx): Result {
+  const g = state.game;
+  const e = requireAllies(g, ctx.by, 'inside');
+  if (e) return e;
+  if (!badgeHolders(g!).some((p) => p.id === target))
+    return err('no-badge', 'Pick a player who still has a badge.');
+  return takeBadge(state, target, ctx.now, ctx.rng);
+}
+
+/** A step's clock ran out: no check for the Lab Technician, a random badge for the Inside Man. */
+function alliesTimeout(state: InquestState, now: number, rng: Rng): InquestState {
+  const g = state.game!;
+  const phase = g.allies!;
+  if (phase.step === 'lab')
+    return nextAlliesStep(
+      notice(state, timedOut('the Lab Technician made no check'), now),
+      { ...phase, labDone: true },
+      now,
+      rng,
+    );
+  const holders = badgeHolders(g);
+  const s = notice(state, timedOut('a badge was taken at random'), now);
+  if (!holders.length) return nextAlliesStep(s, phase, now, rng);
+  return takeBadge(s, holders[rng.int(holders.length)]!.id, now, rng);
+}
+
 // ---- Solving ----
 
 function solve(
@@ -819,7 +1036,10 @@ function solve(
     g.solution.means === action.means;
   // The culprits can't hand the case over: a refusal only they see, with nothing recorded.
   if (correct && sideOf(me.role) === 'murderer')
-    return err('own-crime', 'That’s your own team’s crime — pick a different pair.');
+    // The Inside Man doesn't know the crime, so his refusal mustn't tell him it.
+    return me.role === 'inside-man'
+      ? err('no-accusation', 'You can’t make that accusation — pick a different pair.')
+      : err('own-crime', 'That’s your own team’s crime — pick a different pair.');
   const attempt: Attempt = {
     by: ctx.by,
     target: target.id,
@@ -872,22 +1092,23 @@ function checkBadges(state: InquestState, now: number): InquestState {
 
 const reversalCandidates = (g: Game) =>
   g.players.filter(
-    (p) =>
-      p.id !== g.fs &&
-      !g.formerFs.includes(p.id) &&
-      p.role !== 'murderer' &&
-      p.role !== 'accomplice',
+    (p) => p.id !== g.fs && !g.formerFs.includes(p.id) && sideOf(p.role) !== 'murderer',
   );
 
 function reversalTap(state: InquestState, target: PlayerId, ctx: Ctx): Result {
   const g = state.game;
   if (!g || g.stage !== 'reversal' || !g.reversal) return err('wrong-stage', 'No Reversal now.');
   const me = playerOf(g, ctx.by);
-  if (me?.role !== 'murderer' && me?.role !== 'accomplice')
-    return err('not-yours', 'Only the Murderer and the Accomplice choose here.');
+  if (!me || sideOf(me.role) !== 'murderer')
+    return err('not-yours', 'Only the Murderer’s side chooses here.');
   if (!reversalCandidates(g).some((p) => p.id === target))
     return err('bad-target', 'Pick one of the other players.');
-  const key = me.role === 'murderer' ? 'murdererTap' : 'accompliceTap';
+  const key =
+    me.role === 'murderer'
+      ? 'murdererTap'
+      : me.role === 'accomplice'
+        ? 'accompliceTap'
+        : 'insideTap';
   return withGame(state, { ...g, reversal: { ...g.reversal, [key]: target } });
 }
 
@@ -924,7 +1145,7 @@ function finish(
   reversalPick: PlayerId | null = null,
 ): InquestState {
   const g = state.game!;
-  const winners = g.players.filter((p) => sideOf(p.role) === winner).map((p) => p.id);
+  const winners = g.players.filter((p) => sideAtEnd(g, p) === winner).map((p) => p.id);
   const witnessFound = how === 'reversal' ? playerOf(g, reversalPick)?.role === 'witness' : null;
   return {
     ...state,
@@ -1032,6 +1253,12 @@ function reduce(state: InquestState, action: InquestAction, ctx: Ctx): Result {
       return reversalTap(state, action.target, ctx);
     case 'reversal-confirm':
       return reversalConfirm(state, ctx);
+    case 'lab-check':
+      return labCheck(state, action, ctx);
+    case 'lab-skip':
+      return labSkip(state, ctx);
+    case 'inside-pick':
+      return insidePick(state, action.target, ctx);
     case 'hand-over': {
       const e = requireHost(ctx);
       if (e) return e;
@@ -1087,7 +1314,9 @@ function playerJoined(state: InquestState, player: PlayerInfo): InquestState {
   }
   // Someone who left mid-game and comes back finds their cards again.
   const inGame = state.game?.players.find((p) => p.id === player.id);
-  const playing = inGame ? true : state.phase !== 'playing' && seated(state).length < MAX_PLAYERS;
+  const playing = inGame
+    ? true
+    : state.phase !== 'playing' && seated(state).length < maxPlayersOf(state.settings);
   const seat: Seat = { name: player.name, playing, volunteer: false };
   const game = inGame
     ? {
@@ -1153,7 +1382,7 @@ function autoCrime(state: InquestState, now: number, rng: Rng): InquestState {
 function nextDeadline(state: InquestState): number | null {
   const g = state.game;
   if (state.phase !== 'playing' || !g) return null;
-  if (g.stage === 'night' || g.stage === 'reversal') return g.deadline;
+  if (g.stage === 'night' || g.stage === 'reversal' || g.stage === 'allies') return g.deadline;
   if (g.event?.kind === 'ruled-out' || g.event?.kind === 'testimony') return g.event.deadline;
   if (g.stage === 'present' && state.settings.presentMode === 'hard')
     return g.present?.deadline ?? null;
@@ -1168,6 +1397,7 @@ function onDeadline(state: InquestState, now: number): InquestState {
   if (due === null || now < due || !g) return state;
   const rng = hiddenRng(state, now);
   if (g.stage === 'night') return autoCrime(state, now, rng);
+  if (g.stage === 'allies') return alliesTimeout(state, now, rng);
   if (g.stage === 'reversal') {
     const r = g.reversal!;
     const options = reversalCandidates(g);
@@ -1269,7 +1499,20 @@ function gameView(state: InquestState, g: Game, viewer: PlayerId | null): GameVi
     : g.step.kind === 'replace'
       ? { kind: 'replace', drawn: isFs ? g.step.drawn : null }
       : { ...g.step };
-  const sideKnows = myRole === 'murderer' || myRole === 'accomplice';
+  const viewerRole = playerOf(g, viewer)?.role ?? null;
+  // The Murderer's side (the Inside Man included) sees itself and its taps in the Reversal.
+  const sideKnows =
+    myRole === 'murderer' ||
+    myRole === 'accomplice' ||
+    (myRole === 'inside-man' && g.stage === 'reversal');
+  const witness = roleHolder(g, 'witness');
+  // Only needed with the Inside Man: the Murderer and Accomplice know each other already.
+  const team =
+    over || (sideKnows && g.stage === 'reversal' && roleHolder(g, 'inside-man'))
+      ? g.players
+          .filter((p) => sideOf(p.role) === 'murderer')
+          .map((p) => ({ id: p.id, role: p.role }))
+      : null;
   return {
     stage: g.stage,
     round: g.round,
@@ -1306,12 +1549,24 @@ function gameView(state: InquestState, g: Game, viewer: PlayerId | null): GameVi
     final: g.final
       ? { ...g.final, order: [...g.final.order], skipped: [...g.final.skipped] }
       : null,
+    allies: g.allies
+      ? {
+          ...g.allies,
+          steps: [...g.allies.steps],
+          lab:
+            (over || viewerRole === 'lab-technician') && g.allies.lab ? { ...g.allies.lab } : null,
+        }
+      : null,
+    perfect: (g.perfect ?? []).filter((p) => over || p.by === viewer).map((p) => ({ ...p })),
+    protectedWitness: viewerRole === 'protective-detail' && witness ? witness.id : null,
+    team,
     attempts: g.attempts.map((a) => ({ ...a })),
     reversal: g.reversal
       ? {
           deadline: g.reversal.deadline,
           murdererTap: sideKnows || over ? g.reversal.murdererTap : null,
           accompliceTap: sideKnows || over ? g.reversal.accompliceTap : null,
+          insideTap: sideKnows || over ? (g.reversal.insideTap ?? null) : null,
         }
       : null,
     result: g.result ? { ...g.result, winners: [...g.result.winners] } : null,

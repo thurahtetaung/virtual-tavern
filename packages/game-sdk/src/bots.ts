@@ -28,6 +28,12 @@ export interface BotInfo {
    * human-only role with the host, say). Refused ones are ignored.
    */
   setup?(hostId: PlayerId): unknown[];
+  /**
+   * Refusals (by error code) a bot should retry after its usual pause instead of waiting for the
+   * room to change: for a move whose outcome the bot can't foresee from its view, where the next
+   * try (with fresh randomness) may well be accepted.
+   */
+  retry?(code: string): boolean;
 }
 
 /** One random item, or undefined from an empty list. */

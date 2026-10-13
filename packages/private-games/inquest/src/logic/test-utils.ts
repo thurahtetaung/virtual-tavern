@@ -17,6 +17,8 @@ export const IDS = [
   'ivy',
   'jo',
   'kai',
+  'lee',
+  'mo',
 ];
 
 const content: ContentProvider = { wordLists: () => [], words: () => [] };
@@ -92,10 +94,13 @@ export function startedGame(
     finalAccusations: false,
     ...settings,
   });
+  // With the Allies expansion up to 14 play: seat anyone the 12-player cap left watching.
+  for (const [id, seat] of Object.entries(h.state.seats))
+    if (!seat.playing) h.act({ type: 'sit', playing: true }, id);
   h.act({ type: 'start' });
   const want: Record<string, RoleId> = { [roles.murderer ?? 'ana']: 'murderer' };
-  if (roles.accomplice) want[roles.accomplice] = 'accomplice';
-  if (roles.witness) want[roles.witness] = 'witness';
+  for (const [role, id] of Object.entries(roles))
+    if (id && role !== 'murderer') want[id] = role as RoleId;
   // Re-deal the hidden roles to the fixed seats (the cards stay where they were dealt).
   const g = h.game();
   const players = g.players.map((p) => ({

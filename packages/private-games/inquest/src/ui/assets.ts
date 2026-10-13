@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { type EventKind, EVENT_TILES, CAUSE_TILE, LOCATION_TILES } from '../logic/content.ts';
+import {
+  type EventKind,
+  EVENT_TILES,
+  CAUSE_TILE,
+  LOCATION_TILES,
+  UNKNOWN_LOCATION_TILE,
+} from '../logic/content.ts';
 import { EVENT_NAMES, ROLE_NAMES } from '../logic/names.ts';
 import type { RoleId } from '../logic/types.ts';
 
@@ -79,7 +85,7 @@ const clean = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : un
 export const placeholderTileTitle = (tile: number) =>
   tile === CAUSE_TILE
     ? 'Cause of Death'
-    : LOCATION_TILES.includes(tile)
+    : LOCATION_TILES.includes(tile) || tile === UNKNOWN_LOCATION_TILE
       ? 'Location'
       : `Tile ${tile}`;
 

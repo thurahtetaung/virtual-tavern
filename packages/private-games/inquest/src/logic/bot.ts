@@ -9,7 +9,11 @@ import type { InquestAction, InquestView } from './types.ts';
  * points at a random scene tile, a speaker finishes presenting, and the Reversal taps a random
  * candidate before confirming. It never solves on its own; in the final accusations it accuses
  * in its turn with a random pair from someone else's cards (the Murderer's side never names its
- * own crime, so it bluffs).
+ * own crime, so it bluffs). With the Allies expansion the Lab Technician checks a random card on
+ * the table (now and then it skips), the Inside Man takes a random badge (his own allowed) and
+ * joins the Reversal, and the Protective Detail just watches. The Inside Man doesn't know the
+ * crime, so his final accusation can name it by chance: that is refused privately, and the
+ * runner lets him guess again (`retry`).
  */
 export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null {
   const { me, rng } = ctx;
@@ -66,11 +70,41 @@ export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null
       const pick = pickOne(rng, pairs);
       return pick ? { type: 'solve', ...pick } : null;
     }
+    case 'allies': {
+      const step = g.allies?.step;
+      if (step === 'lab' && g.myRole === 'lab-technician') {
+        if (rng.int(5) === 0) return { type: 'lab-skip' };
+        const cards = g.players.flatMap((p) => [
+          ...p.clue.map((n) => ({ owner: p.id, deck: 'clue' as const, n })),
+          ...p.means.map((n) => ({ owner: p.id, deck: 'means' as const, n })),
+        ]);
+        const card = pickOne(rng, cards);
+        return card ? { type: 'lab-check', ...card } : { type: 'lab-skip' };
+      }
+      if (step === 'inside' && g.myRole === 'inside-man') {
+        const target = pickOne(
+          rng,
+          g.players
+            .filter((p) => !p.isFs && !p.formerFs && !p.gone && p.badges > 0)
+            .map((p) => p.id),
+        );
+        return target ? { type: 'inside-pick', target } : null;
+      }
+      return null;
+    }
     case 'reversal': {
       const rev = g.reversal;
-      if (!rev || (g.myRole !== 'murderer' && g.myRole !== 'accomplice')) return null;
-      const tapped = g.myRole === 'murderer' ? rev.murdererTap : rev.accompliceTap;
-      if (tapped) return g.myRole === 'murderer' ? { type: 'reversal-confirm' } : null;
+      const role = g.myRole;
+      if (!rev || (role !== 'murderer' && role !== 'accomplice' && role !== 'inside-man'))
+        return null;
+      const tapped =
+        role === 'murderer'
+          ? rev.murdererTap
+          : role === 'accomplice'
+            ? rev.accompliceTap
+            : rev.insideTap;
+      if (tapped) return role === 'murderer' ? { type: 'reversal-confirm' } : null;
+      const team = (g.team ?? []).map((t) => t.id);
       const target = pickOne(
         rng,
         g.players
@@ -78,6 +112,7 @@ export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null
             (p) =>
               p.id !== me &&
               p.id !== g.partner &&
+              !team.includes(p.id) &&
               p.id !== g.fs &&
               !g.formerFs.includes(p.id) &&
               !p.gone,
@@ -95,4 +130,6 @@ export function inquestBot(view: InquestView, ctx: BotCtx): InquestAction | null
 export const inquestBotInfo: BotInfo = {
   note: 'The Forensic Scientist must be human: it goes to the host.',
   setup: (hostId) => [{ type: 'update-settings', fsMode: 'host', fsPick: hostId }],
+  // The Inside Man's accusation can hit the crime he doesn't know: he just picks again.
+  retry: (code) => code === 'no-accusation',
 };

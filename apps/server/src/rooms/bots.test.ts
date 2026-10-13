@@ -186,6 +186,20 @@ describe('the playtest bot runner', () => {
     expect(logger.debug).toHaveBeenCalledTimes(2);
   });
 
+  it('retries a refusal the game marks as worth another go, after its pause', () => {
+    let calls = 0;
+    const game = counter(() => {
+      calls += 1;
+      // Refused twice, then a move that is accepted.
+      return { type: calls <= 2 ? 'nope' : 'bump' };
+    });
+    const t = setup({ ...game, botInfo: { retry: (code) => code === 'nope' } });
+    t.rooms.connected(t.roomId, HOST);
+    t.elapse(30 * SECOND);
+    expect(logger.debug).not.toHaveBeenCalled();
+    expect(t.state()).toBeGreaterThanOrEqual(1);
+  });
+
   it('logs a hook that throws once per version, and skips that bot', () => {
     const t = setup(
       counter(() => {

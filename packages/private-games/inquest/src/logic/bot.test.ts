@@ -2,6 +2,7 @@ import { type BotCtx, type Rng, createRng, playWithBots } from '@vt/game-sdk';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { inquestBot, inquestBotInfo } from './bot.ts';
 import { SCENE_SLOTS } from './content.ts';
+import { locationTiles } from './setup.ts';
 import { inquest } from './game.ts';
 import { EVENT_TILES } from './content.ts';
 import {
@@ -11,6 +12,7 @@ import {
   presentAll,
   stackPile,
   startedGame,
+  toDiscussion,
   toFinal,
   toPresentations,
 } from './test-utils.ts';
@@ -49,13 +51,28 @@ const forensic =
     if (g.stage !== 'collect') return null;
     switch (g.step?.kind) {
       case 'pick-location':
-        return { type: 'pick-location', tile: 2 };
+        return { type: 'pick-location', tile: locationTiles(view.settings)[0]! };
       case 'bullets': {
         const slot = g.slots.findIndex((s) => s.bullet === null);
         return slot < 0 ? null : { type: 'place-bullet', slot, item: rng.int(6) };
       }
       case 'replace':
         return { type: 'replace-tile', slot: SCENE_SLOTS[rng.int(SCENE_SLOTS.length)]! };
+      case 'event': {
+        // The Forensic Scientist's own event steps, so bot games can run with events on.
+        const ev = g.event;
+        if (ev?.kind === 'useful-clue' && ev.options)
+          return { type: 'useful-pick', tile: ev.options[0]!, slot: 2 };
+        if (ev?.kind === 'erroneous') {
+          const slot = SCENE_SLOTS.find((i) => g.slots[i]?.bullet !== null)!;
+          return { type: 'move-bullet', slot, item: (g.slots[slot]!.bullet! + 1) % 6 };
+        }
+        if (ev?.kind === 'countdown') {
+          const slot = SCENE_SLOTS.find((i) => g.slots[i]?.bullet !== null);
+          return slot === undefined ? null : { type: 'replace-tile', slot };
+        }
+        return null;
+      }
       default:
         return null;
     }
@@ -79,12 +96,24 @@ describe('Inquest bots', () => {
   it('play every other role through whole games with no refused move, in every mode', () => {
     const modes: Partial<Settings>[] = [
       {},
+      // The Allies expansion: every role (from 8 players), and its event with every other one.
+      // Strict timing stands in for the host's Skip when the Inside Man's guess is refused.
+      { allies: true, labTech: true, insideMan: true, protective: true, presentMode: 'hard' },
+      {
+        allies: true,
+        labTech: true,
+        insideMan: true,
+        presentations: true,
+        unknownLocation: true,
+        presentMode: 'hard',
+      },
+      { allies: true, events: true },
       { presentations: true, finalAccusations: false },
       { presentations: true, finalAccusations: true },
       { presentations: false, finalAccusations: false },
     ];
     for (const mode of modes) {
-      for (let n = 4; n <= 10; n++) {
+      for (let n = mode.labTech ? 8 : 4; n <= (mode.allies ? 14 : 10); n++) {
         for (const seed of [1, 2, 3]) {
           const r = playWithBots(inquest, seats(n), {
             seed,
@@ -92,7 +121,14 @@ describe('Inquest bots', () => {
             humans: { ids: ['p0'], play: forensic(mode) },
           });
           const at = `${JSON.stringify(mode)} / ${n} / ${seed}`;
-          expect(r.refused, at).toEqual([]);
+          // The Inside Man doesn't know the crime, so a final accusation can hit it by chance:
+          // that private refusal is the only one allowed (the runner lets him guess again).
+          const g0 = r.state.game!;
+          const inside = g0.players.find((p) => p.role === 'inside-man')?.id;
+          expect(
+            r.refused.filter((x) => !(x.code === 'no-accusation' && x.by === inside)),
+            at,
+          ).toEqual([]);
           expect(r.over, at).toBe(true);
           const g = r.state.game!;
           // Bots only ever accuse in the final accusations, never themselves.
@@ -210,6 +246,29 @@ describe('Inquest bots', () => {
       h.act(move!, id);
     }
     expect(h.state.phase).toBe('over');
+  });
+
+  it('play the Allies Phase: the Lab Technician checks or skips, the Inside Man takes a badge', () => {
+    const kinds = new Set<string>();
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const h = startedGame(
+        9,
+        { 'lab-technician': 'dee', 'inside-man': 'eve' },
+        { allies: true, labTech: true, insideMan: true, presentations: false, events: false },
+      );
+      toDiscussion(h);
+      h.act({ type: 'end-discussion' }, HOST);
+      for (const id of ['ana', 'gus', 'eve'])
+        expect(inquestBot(inquest.view(h.state, id), ctx(id, seed))).toBeNull();
+      const lab = inquestBot(inquest.view(h.state, 'dee'), ctx('dee', seed))!;
+      kinds.add(lab.type);
+      h.act(lab, 'dee');
+      const pick = inquestBot(inquest.view(h.state, 'eve'), ctx('eve', seed))!;
+      expect(pick.type).toBe('inside-pick');
+      h.act(pick, 'eve');
+      expect(h.game().stage).toBe('collect');
+    }
+    expect(kinds).toEqual(new Set(['lab-check', 'lab-skip']));
   });
 
   it('never solve outside the final accusations, so never spend a badge early', () => {

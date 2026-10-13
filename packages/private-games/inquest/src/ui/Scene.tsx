@@ -1,6 +1,7 @@
 import { Button, Hint, RefusalSlot, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { LOCATION_TILES, SCENE_SLOTS } from '../logic/content.ts';
+import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
+import { locationTiles } from '../logic/setup.ts';
 import type { Bullet, GameView, InquestAction, InquestView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { type BulletNo, bulletNumbers } from './bullets.ts';
@@ -31,7 +32,9 @@ export function bulletLine(b: Bullet, content: Content, no: BulletNo) {
 
 /** Location tiles look alike (one title), so the picker letters them: "Location A". */
 export const locationLabel = (tile: number) =>
-  `Location ${String.fromCharCode(65 + Math.max(0, LOCATION_TILES.indexOf(tile)))}`;
+  tile === UNKNOWN_LOCATION_TILE
+    ? 'Unknown Location'
+    : `Location ${String.fromCharCode(65 + Math.max(0, LOCATION_TILES.indexOf(tile)))}`;
 
 /** The bullets in the order they went down. During a discussion, this round's are highlighted. */
 export function Timeline({
@@ -324,7 +327,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
           )}
           <p className="text-sm font-semibold">Pick the Location tile:</p>
           <div className="grid grid-cols-2 gap-2">
-            {LOCATION_TILES.map((t) => (
+            {locationTiles(view.settings).map((t) => (
               <Tile
                 key={t}
                 tile={t}

@@ -27,6 +27,7 @@ import {
   SolutionPin,
   SolveButton,
 } from './Panels.tsx';
+import { AlliesPanel } from './Allies.tsx';
 import { FinalList } from './Final.tsx';
 import { LatestBullets, Scene } from './Scene.tsx';
 import { TableScreen } from './TableScreen.tsx';
@@ -339,6 +340,15 @@ function Banners({
             {lastRoundText(view.settings).replace(/^a/, 'A')}.
           </p>
         )}
+      {playing && g.myRole === 'forensic' && g.perfect.some((p) => p.switched) && (
+        <p
+          role="status"
+          className="rounded-xl bg-rose-950 px-3 py-1.5 text-center text-sm font-semibold text-rose-50 ring-1 ring-rose-500"
+        >
+          🎭 Secret: you peeked at an event, so you now win with the Murderer’s side. Keep answering
+          truthfully, but your bullets may mislead.
+        </p>
+      )}
       {playing && fsAway && (
         <div
           role="alert"
@@ -433,13 +443,22 @@ export function InquestGame({
   const [marks, setMark] = useMarks(`${view.table}.${view.gameNo}`);
   const [open, setOpen] = useState<OpenCard | null>(null);
   const [solving, setSolving] = useState(false);
-  const [eventSeen, setEventSeen] = useState('');
+  // Events this screen has shown a card for, per game (it starts at whatever has already happened,
+  // so a reload doesn't replay old ones). Several events can land in one change: one card each.
+  const [eventsSeen, setEventsSeen] = useState({
+    game: view.gameNo,
+    n: view.game?.events.length ?? 0,
+  });
   const [tableScreen, setTableScreen] = useState(false);
 
   // The tab: each new step opens where it's needed, but the player's own choice sticks within it.
   const stepKey = `${view.gameNo}-${g?.stage}-${g?.round}-${g?.step?.kind}-${g?.event?.kind}`;
   const defaultTab: Tab =
-    !g || g.stage === 'night' || g.stage === 'reversal' || g.stage === 'done'
+    !g ||
+    g.stage === 'night' ||
+    g.stage === 'allies' ||
+    g.stage === 'reversal' ||
+    g.stage === 'done'
       ? 'me'
       : g.myRole === 'forensic' || g.stage === 'collect' || g.stage === 'discuss'
         ? 'scene'
@@ -479,11 +498,9 @@ export function InquestGame({
   );
 
   // A plain-language card for each event as it comes up.
-  const eventKey = g?.events.length ? `${view.gameNo}:${g.events.length}` : '';
+  const seen = eventsSeen.game === view.gameNo ? eventsSeen.n : 0;
   const eventKind: EventKind | null =
-    g && eventKey && eventKey !== eventSeen && g.stage !== 'done'
-      ? (g.events.at(-1) ?? null)
-      : null;
+    g && g.stage !== 'done' && seen < g.events.length ? (g.events[seen] ?? null) : null;
 
   if (view.phase === 'lobby' || !g) {
     return (
@@ -532,6 +549,7 @@ export function InquestGame({
   const solvePanel = (
     <>
       {g.stage === 'night' && <NightPanel view={view} content={content} act={act} room={room} />}
+      <AlliesPanel view={view} content={content} act={act} room={room} />
       <FlipPanel view={view} content={content} act={act} room={room} />
       <ReversalPanel view={view} act={act} room={room} />
     </>
@@ -624,7 +642,10 @@ export function InquestGame({
         kind={eventKind}
         view={view}
         content={content}
-        onClose={() => setEventSeen(eventKey)}
+        onClose={() => {
+          // The dialog's own close event fires again once it hides: only count a shown card.
+          if (eventKind) setEventsSeen({ game: view.gameNo, n: seen + 1 });
+        }}
       />
     </div>
   );

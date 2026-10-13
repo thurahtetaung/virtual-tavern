@@ -1,6 +1,7 @@
 import { type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import {
+  dismissAnyEvent,
   dismissEvent,
   openBackroom as openInquestBackroom,
   placeBullets,
@@ -1647,6 +1648,218 @@ for (const [label, viewport, colorScheme] of [
       host.getByText('Every final accusation missed: the Murderer’s side wins.'),
     ).toBeVisible();
     await shot(host, 'final-end');
+    expect(errors).toEqual([]);
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+] as const) {
+  // The Allies expansion at 14 players (13 suspects). Set INQUEST_ART to preview the real art.
+  test(`inquest allies screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(600_000);
+    const errors: string[] = [];
+    const opts = { viewport, colorScheme };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/inquest-${label}-allies-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    const tab = async (p: Page, name: string) => {
+      if (label === 'phone')
+        await p
+          .getByRole('navigation', { name: 'Game sections' })
+          .getByRole('button', { name })
+          .click();
+    };
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const names = [
+      'Hana',
+      'Ana',
+      'Ben',
+      'Cy',
+      'Dee',
+      'Eve',
+      'Fay',
+      'Gus',
+      'Hal',
+      'Ivy',
+      'Jo',
+      'Kai',
+    ];
+    const players = await inquestTable(browser, names, errors, opts);
+    const host = players[0]!.page;
+    await host.getByRole('button', { name: 'Allies expansion', exact: true }).click();
+    await expect(host.getByRole('button', { name: '✓ Allies expansion' })).toBeVisible();
+    // Two more join (and are seated) once the cap is 14.
+    const path = new URL(host.url()).pathname;
+    for (const n of ['Lee', 'Mo']) {
+      const page = await inquestVisitor(browser, n, errors, opts);
+      await unlockInquest(page, `/backroom?next=${encodeURIComponent(path)}`);
+      await expect(page).toHaveURL(host.url());
+      players.push({ name: n, page });
+    }
+    await expect(host.getByText('(14/14)')).toBeVisible();
+    await host.getByRole('button', { name: 'Host picks', exact: true }).click();
+    await host
+      .getByLabel('Pick the Forensic Scientist')
+      .getByRole('button', { name: 'Hana', exact: true })
+      .click();
+    await host.getByRole('button', { name: /^Use the suggested roles/ }).click();
+    await host.getByRole('button', { name: 'Protective Detail', exact: true }).click();
+    await host.getByRole('button', { name: '✓ Event tiles' }).click();
+    await host.getByRole('heading', { name: /^Allies expansion/ }).scrollIntoViewIfNeeded();
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start the investigation' }).click();
+
+    const murderer = await whoShows(
+      players,
+      'Murderer: pick 1 Clue + 1 Means from your own cards.',
+      45_000,
+    );
+    const night = murderer.page.getByRole('region', { name: 'Choose your crime' });
+    await night
+      .getByRole('button', { name: /^Clue:/ })
+      .first()
+      .click();
+    await night
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await night.getByRole('button', { name: /^Commit:/ }).click();
+    await expect(host.getByText('Pick the Location tile for this crime.')).toBeVisible();
+    await host.locator('button[data-tile]:visible').first().click();
+    await host.getByRole('button', { name: /^Use Location [A-D] / }).click();
+    await placeBullets(host, 6);
+    const others = players.filter((p) => p.page !== host && p !== murderer);
+    const guard = await withRole(others, 'Protective Detail');
+    await tab(guard.page, 'Me');
+    await guard.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await shot(guard.page, 'me-protective');
+    await guard.page.getByRole('button', { name: 'Hide your role card' }).click();
+    const inv = others.find((p) => p !== guard)!;
+    await tab(inv.page, 'Suspects');
+    if (label === 'phone') await inv.page.getByRole('button', { name: '▦ Grid' }).click();
+    // The card images load lazily as they scroll in.
+    await inv.page.waitForTimeout(1500);
+    await shot(inv.page, 'suspects-13');
+    if (label === 'phone') await inv.page.getByRole('button', { name: '▦ Grid' }).click();
+
+    // The Allies Phase.
+    await endInquestDiscussion(players, 'Next round');
+    const lab = await whoShows(players, /^Allies Phase: check one card/, 45_000);
+    const check = lab.page.getByRole('region', { name: 'Check a card' });
+    await check.getByLabel('Whose card').getByRole('button', { name: murderer.name }).click();
+    await check
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await shot(lab.page, 'lab-check');
+    const waiting = players.find((p) => p !== lab && p.page !== host)!;
+    await shot(waiting.page, 'waiting');
+    await check.getByRole('button', { name: /^Check / }).click();
+    await expect(lab.page.getByText(/🤫 Your check:/)).toBeVisible();
+    await shot(lab.page, 'lab-result');
+    const inside = await whoShows(players, 'Allies Phase: take one player’s badge.', 45_000);
+    const take = inside.page.getByRole('region', { name: 'Take a badge' });
+    const victim = players.find((p) => p !== inside && p.page !== host && p !== murderer)!;
+    await take.getByRole('button', { name: victim.name, exact: true }).click();
+    await shot(inside.page, 'inside-pick');
+    await take.getByRole('button', { name: /^Take / }).click();
+    await expect(host.getByText(`📣 ${victim.name} lost their badge.`)).toBeVisible();
+    await shot(host, 'badge-lost');
+    if (label === 'desktop') {
+      const tv = await inquestVisitor(browser, 'Tv', errors, {
+        viewport: { width: 1920, height: 1080 },
+        colorScheme: 'dark',
+      });
+      await unlockInquest(tv, `/backroom?next=${encodeURIComponent(path)}`);
+      await tv.getByRole('button', { name: '📺 Table screen' }).click();
+      await expect(tv.getByLabel('Table screen')).toBeVisible();
+      await tv.waitForTimeout(1500);
+      await tv.screenshot({ path: `test-results/shots/inquest${''}-tv-allies-13-suspects.png` });
+      await tv.context().close();
+    }
+
+    // Round 2, a right solve, and the Reversal with the Inside Man.
+    await replaceTile(host);
+    await placeBullets(host, 1);
+    const solver = await withRole(
+      players.filter((p) => p !== victim && p !== inside && p.page !== host && p !== murderer),
+      'Investigator',
+    );
+    await inquestSolve(solver.page, murderer.name, 0, 0);
+    const insidePanel = inside.page.getByRole('region', { name: 'The Reversal' });
+    await expect(insidePanel.getByText(/Your side: /)).toBeVisible();
+    await insidePanel.getByRole('button').filter({ hasNotText: 'Final answer' }).first().click();
+    await shot(inside.page, 'reversal-inside');
+    const murPanel = murderer.page.getByRole('region', { name: 'The Reversal' });
+    await murPanel.getByRole('button').filter({ hasText: '👈' }).first().click();
+    await murPanel.getByRole('button', { name: /^Final answer/ }).click();
+    await expect(host.getByRole('heading', { name: 'Who was who' })).toBeVisible();
+    await shot(host, 'end');
+    expect(errors).toEqual([]);
+  });
+
+  test(`inquest change of heart screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const errors: string[] = [];
+    const opts = { viewport, colorScheme };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/shots/inquest-${label}-allies-${name}.png`,
+        fullPage: label === 'desktop',
+      });
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const players = await inquestTable(browser, ['Hal', 'Ida', 'Jon', 'Kim'], errors, opts);
+    const host = players[0]!.page;
+    await host.getByRole('button', { name: 'Host picks', exact: true }).click();
+    await host
+      .getByLabel('Pick the Forensic Scientist')
+      .getByRole('button', { name: 'Hal', exact: true })
+      .click();
+    await host.getByRole('button', { name: 'Allies expansion', exact: true }).click();
+    await host.getByRole('button', { name: 'Start the investigation' }).click();
+    const murderer = await whoShows(
+      players,
+      'Murderer: pick 1 Clue + 1 Means from your own cards.',
+    );
+    const night = murderer.page.getByRole('region', { name: 'Choose your crime' });
+    await night
+      .getByRole('button', { name: /^Clue:/ })
+      .first()
+      .click();
+    await night
+      .getByRole('button', { name: /^Means:/ })
+      .first()
+      .click();
+    await night.getByRole('button', { name: /^Commit:/ }).click();
+    await expect(host.getByText('Pick the Location tile for this crime.')).toBeVisible();
+    await host.locator('button[data-tile]:visible').first().click();
+    await host.getByRole('button', { name: /^Use Location [A-D] / }).click();
+    await placeBullets(host, 6);
+    await endInquestDiscussion(players, 'Next round');
+    // The event cards, in order: the Change of Heart (renamed by the art's manifest, if any),
+    // then the events after it.
+    await expect(host.getByRole('dialog', { name: /^Event: / })).toBeVisible();
+    await shot(host, 'change-of-heart-card');
+    await dismissAnyEvent(players);
+    await dismissAnyEvent(players);
+    await expect(host.getByText(/🎭 Secret: you peeked at an event/)).toBeVisible();
+    await shot(host, 'fs-switched');
+    await host.locator('button[data-item][data-marked="false"]:visible').first().click();
+    await host.getByRole('button', { name: /^Move the bullet to/ }).click();
+    await dismissAnyEvent(players);
+    await replaceTile(host);
+    await replaceTile(host);
+    await placeBullets(host, 2);
+    await replaceTile(host);
+    await placeBullets(host, 1);
+    const solver = players.find((p) => p.page !== host && p !== murderer)!;
+    await inquestSolve(solver.page, murderer.name, 0, 0);
+    await expect(host.getByText(/an event, and switched to the Murderer’s side/)).toBeVisible();
+    await shot(host, 'change-of-heart-end');
     expect(errors).toEqual([]);
   });
 }
