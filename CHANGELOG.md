@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.26.0...v0.26.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **hydra:** let the President claim which card they discarded ([#106](https://github.com/thurahtetaung/virtual-tavern/issues/106)) ([1e06a70](https://github.com/thurahtetaung/virtual-tavern/commit/1e06a707a5b4ce4b8c2ff49e5dce52430232c2b2))
+
 ## [0.26.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.25.0...v0.26.0) (2026-10-12)
 
 
