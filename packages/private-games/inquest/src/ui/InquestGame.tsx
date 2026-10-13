@@ -80,7 +80,7 @@ function TabBar({
           <span className="flex items-center gap-1 text-lg leading-none">
             {it.icon}
             {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-amber-500" />
+              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
             )}
           </span>
           {it.label}
@@ -116,7 +116,7 @@ function PresentBar({
       className={cn(
         'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-1.5 ring-1',
         mine
-          ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-500/20'
+          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
           : 'bg-white/90 ring-stone-200 dark:bg-stone-900/90 dark:ring-stone-700',
       )}
     >
@@ -182,7 +182,9 @@ export function FinalBar({
       aria-label="Final accusations"
       className={cn(
         'space-y-1.5 px-2 py-1.5',
-        mine ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-500/20' : 'ring-1 ring-rose-400',
+        mine
+          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
+          : 'ring-1 ring-danger dark:ring-rose-400',
       )}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -256,8 +258,8 @@ function DiscussBar({
       className={cn(
         'space-y-1 rounded-xl px-2 py-1.5 ring-1',
         fs && late
-          ? 'bg-rose-50 ring-2 ring-rose-500 dark:bg-rose-500/15'
-          : 'bg-white/90 ring-amber-400 dark:bg-stone-900/90',
+          ? 'bg-danger-soft ring-2 ring-danger dark:ring-rose-500 dark:bg-rose-500/15'
+          : 'bg-white/90 ring-accent dark:ring-amber-400 dark:bg-stone-900/90',
       )}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -275,7 +277,7 @@ function DiscussBar({
               className={cn(
                 'rounded-lg px-2 py-1 font-bold tabular-nums',
                 late
-                  ? 'bg-rose-600 text-white'
+                  ? 'bg-danger dark:bg-rose-600 text-white'
                   : 'bg-stone-200 font-mono text-lg text-stone-800 dark:bg-stone-800 dark:text-stone-100',
               )}
             >
@@ -334,7 +336,7 @@ function Banners({
         (g.stage === 'collect' || g.stage === 'discuss' || g.stage === 'present') && (
           <p
             role="status"
-            className="rounded-xl bg-rose-600 px-3 py-1.5 text-center text-sm font-semibold text-white"
+            className="rounded-xl bg-danger dark:bg-rose-600 px-3 py-1.5 text-center text-sm font-semibold text-white"
           >
             ⏳ {content.eventName('countdown')}: this is the last round.{' '}
             {lastRoundText(view.settings).replace(/^a/, 'A')}.
@@ -343,7 +345,7 @@ function Banners({
       {playing && g.myRole === 'forensic' && g.perfect.some((p) => p.switched) && (
         <p
           role="status"
-          className="rounded-xl bg-rose-950 px-3 py-1.5 text-center text-sm font-semibold text-rose-50 ring-1 ring-rose-500"
+          className="rounded-xl bg-rose-950 px-3 py-1.5 text-center text-sm font-semibold text-rose-50 ring-1 ring-danger dark:ring-rose-500"
         >
           🎭 Secret: you peeked at an event, so you now win with the Murderer’s side. Keep answering
           truthfully, but your bullets may mislead.
@@ -352,7 +354,7 @@ function Banners({
       {playing && fsAway && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-2 rounded-xl bg-amber-100 px-3 py-1.5 text-sm ring-1 ring-amber-400 dark:bg-amber-500/15"
+          className="flex flex-wrap items-center gap-2 rounded-xl bg-accent-soft px-3 py-1.5 text-sm ring-1 ring-accent dark:ring-amber-400 dark:bg-amber-500/15"
         >
           <span className="flex-1">
             ⏸ Waiting for the Forensic Scientist ({nameOf(view, g.fs)}, offline).
@@ -375,7 +377,7 @@ function Banners({
         </div>
       )}
       {handover && g.stage !== 'done' && (
-        <p className="rounded-xl bg-sky-50 px-3 py-1.5 text-sm ring-1 ring-sky-200 dark:bg-sky-500/10 dark:ring-sky-500/30">
+        <p className="rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/30">
           🔁 {handover.text}
         </p>
       )}

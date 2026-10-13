@@ -31,11 +31,14 @@ export function QuestTrack({
             <span
               className={cn(
                 'flex aspect-square w-full max-w-16 items-center justify-center rounded-full text-lg font-bold ring-2 sm:text-xl',
-                result?.success && 'bg-blue-600 text-white ring-blue-700 dark:bg-blue-500',
-                result && !result.success && 'bg-red-600 text-white ring-red-700 dark:bg-red-500',
+                result?.success &&
+                  'bg-team-b text-white ring-team-b dark:ring-blue-700 dark:bg-blue-500',
+                result &&
+                  !result.success &&
+                  'bg-team-a text-white ring-team-a dark:ring-red-700 dark:bg-red-500',
                 !result &&
                   (current
-                    ? 'bg-amber-100 text-amber-950 ring-4 ring-amber-500 dark:bg-amber-500/20 dark:text-amber-100'
+                    ? 'bg-accent-soft text-amber-950 ring-4 ring-accent dark:ring-amber-500 dark:bg-amber-500/20 dark:text-amber-100'
                     : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-900 dark:text-stone-200 dark:ring-stone-700'),
                 locked && 'opacity-50',
               )}
@@ -92,9 +95,9 @@ export function VoteTrack({ view }: { view: RoundTableView }) {
             className={cn(
               'size-3 rounded-full ring-1',
               i < n
-                ? 'bg-red-500 ring-red-600'
+                ? 'bg-team-a dark:bg-red-500 ring-team-a dark:ring-red-600'
                 : i === MAX_REJECTIONS - 1
-                  ? 'bg-red-100 ring-red-400 dark:bg-red-950'
+                  ? 'bg-team-a-soft ring-team-a dark:ring-red-400 dark:bg-red-950'
                   : 'bg-stone-200 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700',
             )}
           />
@@ -190,9 +193,9 @@ export function Seats({
                   ? 'min-h-11 pr-7 pl-2 sm:min-h-12 sm:pr-9 sm:pl-2.5'
                   : 'min-h-12 pr-9 pl-2.5',
                 selected
-                  ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                  ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
                   : waiting.includes(p.id)
-                    ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-900 dark:ring-sky-500'
+                    ? 'bg-white ring-2 ring-team-b dark:bg-stone-900 dark:ring-sky-500'
                     : 'bg-white ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
                 selectable && !selected && 'hover:bg-stone-50 dark:hover:bg-stone-800',
                 pick && !selectable && 'opacity-60',
@@ -235,15 +238,17 @@ export function Seats({
               <span className="flex flex-wrap items-center gap-1 text-[0.7rem] leading-tight">
                 {me && compact && <span className="text-stone-500 sm:hidden">you</span>}
                 {k === 'evil' && (
-                  <span className="rounded-full bg-red-600 px-1.5 font-bold text-white">Evil</span>
+                  <span className="rounded-full bg-team-a dark:bg-red-600 px-1.5 font-bold text-white">
+                    Evil
+                  </span>
                 )}
                 {k === 'magic' && (
-                  <span className="rounded-full bg-violet-600 px-1.5 font-bold text-white">
+                  <span className="rounded-full bg-special dark:bg-violet-600 px-1.5 font-bold text-white">
                     {magic}
                   </span>
                 )}
                 {onTeam && view.stage !== 'propose' && (
-                  <span className="rounded-full bg-amber-200 px-1.5 font-semibold text-amber-950">
+                  <span className="rounded-full bg-accent-soft dark:bg-amber-200 px-1.5 font-semibold text-amber-950">
                     on team
                   </span>
                 )}
@@ -270,7 +275,8 @@ export function Seats({
                 className={cn(
                   'flex items-center justify-center rounded-full ring-1',
                   compact ? 'size-5 text-xs sm:size-6 sm:text-sm' : 'size-6 text-sm',
-                  mark === 'trust' && 'bg-amber-300 text-amber-950 ring-amber-500',
+                  mark === 'trust' &&
+                    'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
                   mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
                   !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
                 )}
@@ -307,7 +313,7 @@ export function WaitingChips({
         return (
           <span
             key={id}
-            className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100"
+            className="inline-flex items-center gap-1 rounded-full bg-team-b-soft px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100"
           >
             {id === view.me?.id ? 'you' : nameOf(view, id)}
             {!online && !left && <span className="font-normal opacity-70">(offline)</span>}

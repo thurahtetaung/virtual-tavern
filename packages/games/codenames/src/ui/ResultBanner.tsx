@@ -2,10 +2,11 @@ import { cn } from '@vt/ui';
 import type { GuessResult, ResultTone } from './result.ts';
 
 const TONE: Record<ResultTone, string> = {
-  correct: 'bg-emerald-600 text-white ring-emerald-700',
-  wrong: 'bg-rose-600 text-white ring-rose-700',
+  correct: 'bg-success dark:bg-emerald-600 text-white ring-success dark:ring-emerald-700',
+  wrong: 'bg-team-a dark:bg-rose-600 text-white ring-team-a dark:ring-rose-700',
   assassin: 'bg-stone-950 text-stone-100 ring-black dark:ring-stone-600',
-  skipped: 'bg-amber-500 text-stone-950 ring-amber-600',
+  skipped:
+    'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600',
 };
 
 /** Big, unmissable outcome of the latest guess or skipped turn, announced to screen readers too. */

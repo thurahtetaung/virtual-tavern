@@ -40,7 +40,7 @@ function useBackroomGames() {
 function GameLink({ game }: { game: ClientGame }) {
   return (
     <Link to={`/rules/${game.id}`}>
-      <Panel className="h-full transition hover:ring-amber-400">
+      <Panel className="h-full transition hover:ring-accent dark:hover:ring-amber-400">
         <p className="text-xl font-bold">
           {game.icon} {game.name}
         </p>

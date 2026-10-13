@@ -87,7 +87,7 @@ export function EndScreen({
         className={cn(
           'space-y-2 text-center',
           r.win
-            ? 'bg-violet-50 ring-violet-300 dark:bg-violet-500/10'
+            ? 'bg-special-soft ring-special-line dark:ring-violet-300 dark:bg-violet-500/10'
             : 'bg-stone-100 dark:bg-stone-900',
         )}
       >

@@ -63,7 +63,7 @@ export function StatsPage() {
           <p>The stats are for the tavern keeper. Sign in first.</p>
           <Link
             to="/tavern-keeper"
-            className="inline-flex h-11 items-center justify-center rounded-lg bg-amber-600 px-4 font-semibold text-white hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-accent px-4 font-semibold text-white hover:bg-accent-hover dark:hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
           >
             Sign in
           </Link>

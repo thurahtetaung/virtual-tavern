@@ -56,7 +56,7 @@ function TabBar({
           <span className="flex items-center gap-1 text-lg leading-none">
             {it.icon}
             {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-amber-500" />
+              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
             )}
           </span>
           {it.label}
@@ -84,7 +84,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       {playing && (g.ghost === null || ghostAway) && (
         <div
           role="alert"
-          className="space-y-1.5 rounded-xl bg-amber-100 px-3 py-2 text-sm ring-1 ring-amber-400 dark:bg-amber-500/15"
+          className="space-y-1.5 rounded-xl bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent dark:ring-amber-400 dark:bg-amber-500/15"
         >
           <p>
             ⏸{' '}
@@ -122,7 +122,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
         </div>
       )}
       {playing && !inGame && view.me && gone.length > 0 && g.myRole !== 'former-ghost' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-sky-50 px-3 py-1.5 text-sm ring-1 ring-sky-200 dark:bg-sky-500/10 dark:ring-sky-500/30">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/30">
           <span className="flex-1">A psychic’s seat is free.</span>
           {gone.map((p) => (
             <Button
@@ -180,7 +180,7 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
               className={cn(
                 'rounded-full px-2 py-0.5',
                 s.id === step.id
-                  ? 'bg-violet-700 text-white'
+                  ? 'bg-special dark:bg-violet-700 text-white'
                   : 'bg-stone-100 text-stone-500 dark:bg-stone-800',
               )}
             >
@@ -228,7 +228,7 @@ function RevealPanel({
   return (
     <Panel
       role="region"
-      className="space-y-2 p-3 ring-2 ring-violet-400"
+      className="space-y-2 p-3 ring-2 ring-special dark:ring-violet-400"
       aria-label="The ghost answers"
     >
       <Verdicts view={view} content={content} />

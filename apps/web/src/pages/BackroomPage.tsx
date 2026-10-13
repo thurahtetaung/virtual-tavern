@@ -48,7 +48,7 @@ function Lobby({ onLock }: { onLock: () => void }) {
           onBlur={() => name.trim() && saveName(name)}
           placeholder="What should we call you?"
           autoComplete="nickname"
-          className="mt-1 h-11 w-full rounded-lg bg-stone-900 px-4 text-amber-50 ring-1 ring-amber-900 placeholder:text-amber-200/30 focus:ring-amber-500"
+          className="mt-1 h-11 w-full rounded-lg bg-stone-900 px-4 text-amber-50 ring-1 ring-amber-900 placeholder:text-amber-200/30 focus:ring-accent dark:focus:ring-amber-500"
         />
       </label>
       <section aria-label="Back room games" className="grid gap-4 sm:grid-cols-2">
@@ -189,7 +189,7 @@ export function BackroomPage() {
               autoComplete="current-password"
               value={word}
               onChange={(e) => setWord(e.target.value)}
-              className="h-12 w-full rounded-lg bg-stone-900 px-4 text-center text-lg tracking-widest text-amber-50 ring-1 ring-amber-900 placeholder:text-amber-200/30 focus:ring-amber-500"
+              className="h-12 w-full rounded-lg bg-stone-900 px-4 text-center text-lg tracking-widest text-amber-50 ring-1 ring-amber-900 placeholder:text-amber-200/30 focus:ring-accent dark:focus:ring-amber-500"
               placeholder="psst…"
             />
             <Button type="submit" size="lg" className="w-full" disabled={!word || busy || wait > 0}>

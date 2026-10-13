@@ -43,7 +43,7 @@ export function GuideView({ guide, compact = false }: { guide: GameGuide; compac
       {guide.quickStart && guide.quickStart.length > 0 && (
         <section
           aria-label="Quick start"
-          className="rounded-2xl bg-white p-4 ring-2 ring-amber-400 dark:bg-stone-900 dark:ring-amber-500/60"
+          className="rounded-2xl bg-card p-4 ring-1 ring-accent-line dark:ring-2 dark:bg-stone-900 dark:ring-amber-500/60"
         >
           <h3 className={`${h} mb-2 font-bold`}>
             <span aria-hidden>⚡ </span>Quick start
@@ -65,7 +65,7 @@ export function GuideView({ guide, compact = false }: { guide: GameGuide; compac
           )}
         </section>
       )}
-      <div className="rounded-2xl bg-amber-100/70 p-4 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30">
+      <div className="rounded-2xl bg-accent-soft/70 p-4 ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30">
         <p className="text-sm font-semibold tracking-wide text-amber-800 uppercase dark:text-amber-300">
           Goal
         </p>

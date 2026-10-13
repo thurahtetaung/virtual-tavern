@@ -90,8 +90,8 @@ export function Board({
               key={i}
               aria-hidden
               className={cn(
-                'absolute rounded-full bg-amber-300 ring-2 ring-white',
-                g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-rose-500',
+                'absolute rounded-full bg-accent-line dark:bg-amber-300 ring-2 ring-white',
+                g.tracker === TRACKER_MAX - 1 && 'hy-lamp bg-danger dark:bg-rose-500',
               )}
               style={{
                 left: `${(x - lamps.size / 2) * 100}%`,
@@ -109,7 +109,7 @@ export function Board({
 
 function VetoRibbon({ c }: { c: Content }) {
   return (
-    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-amber-400 px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-stone-950 uppercase shadow sm:text-xs">
+    <span className="hy-ribbon pointer-events-none absolute top-[6%] right-[3%] rounded bg-accent-line dark:bg-amber-400 px-2 py-0.5 text-[0.6rem] font-black tracking-widest text-stone-950 uppercase shadow sm:text-xs">
       {c.copy('ribbon.veto')}
     </span>
   );
@@ -161,7 +161,9 @@ function DrawnBoard({
               className={cn(
                 'relative flex items-center justify-center rounded-md bg-black/25 p-0.5 text-center',
                 compact ? 'h-12 sm:h-14' : 'h-20 xl:h-24',
-                team === 'red' && i >= LEADER_ZONE && 'ring-1 ring-amber-300/40',
+                team === 'red' &&
+                  i >= LEADER_ZONE &&
+                  'ring-1 ring-accent-line/40 dark:ring-amber-300/40',
               )}
             >
               {i < count ? (
@@ -213,8 +215,8 @@ export function TrackerLamps({ tracker, className }: { tracker: number; classNam
             'size-2.5 rounded-full ring-1',
             i < tracker
               ? tracker === TRACKER_MAX - 1
-                ? 'hy-lamp bg-rose-500 ring-rose-300'
-                : 'bg-amber-400 ring-amber-200'
+                ? 'hy-lamp bg-danger dark:bg-rose-500 ring-danger-line dark:ring-rose-300'
+                : 'bg-accent-line dark:bg-amber-400 ring-accent-line dark:ring-amber-200'
               : 'bg-white/20 ring-white/50',
           )}
         />
@@ -259,7 +261,7 @@ export function MiniTracks({ g, c }: { g: GameView; c: Content }) {
               i < g.enacted.red
                 ? 'bg-red-500 ring-red-300'
                 : i >= LEADER_ZONE
-                  ? 'bg-red-950/50 ring-amber-400/60'
+                  ? 'bg-red-950/50 ring-accent/60 dark:ring-amber-400/60'
                   : 'bg-red-950/40 ring-red-400/40',
             )}
           />

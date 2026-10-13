@@ -24,12 +24,12 @@ export function openRoleGuide(showGuide: () => void, role: RoleId) {
 /** How a known player is labelled, given which of Merlin and Morgana are in the deck. */
 function knownLabel(k: Known, deck: readonly RoleId[]): { text: string; cls: string } {
   if (k.as === 'evil')
-    return { text: 'Evil', cls: 'bg-red-600 text-white dark:bg-red-500 dark:text-red-950' };
+    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-500 dark:text-red-950' };
   const merlin = deck.includes('merlin');
   const morgana = deck.includes('morgana');
   return {
     text: merlin && morgana ? 'Merlin or Morgana' : merlin ? 'Merlin' : 'Morgana',
-    cls: 'bg-violet-600 text-white dark:bg-violet-400 dark:text-violet-950',
+    cls: 'bg-special text-white dark:bg-violet-400 dark:text-violet-950',
   };
 }
 
@@ -86,7 +86,7 @@ export function RoleDetails({ view, showGuide }: { view: RoundTableView; showGui
       </p>
       <p className="text-sm">{def.detail}</p>
       {role.assassin && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-900 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30">
+        <p className="rounded-lg bg-team-a-soft px-3 py-2 text-sm text-red-900 ring-1 ring-team-a-line dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30">
           🗡️{' '}
           {role.designated
             ? 'There’s no Assassin card this game: you name Merlin if Good wins three quests. Nobody else is told.'

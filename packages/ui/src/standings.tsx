@@ -67,7 +67,7 @@ export function Standings({
                     'flex w-full items-start justify-center rounded-t-lg pt-1 text-sm font-bold tabular-nums',
                     STEP[step],
                     step === 0
-                      ? 'bg-amber-300 text-amber-950 dark:bg-amber-500/70'
+                      ? 'bg-accent-soft text-accent-text ring-1 ring-accent-line dark:bg-amber-500/70 dark:text-amber-950 dark:ring-0'
                       : 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-100',
                   )}
                 >
@@ -86,7 +86,7 @@ export function Standings({
               key={r.entry.id}
               className={cn(
                 'flex items-center gap-3 px-3 py-2',
-                r.entry.id === you && 'bg-amber-50 dark:bg-amber-500/10',
+                r.entry.id === you && 'bg-accent-soft dark:bg-amber-500/10',
               )}
             >
               <span className="w-10 shrink-0 text-sm font-bold text-stone-500 tabular-nums dark:text-stone-400">

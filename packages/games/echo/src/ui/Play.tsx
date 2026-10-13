@@ -75,7 +75,7 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
             'flex aspect-[3/4] min-h-11 items-center justify-center rounded-xl text-3xl font-black ring-1 transition',
             'bg-gradient-to-br from-amber-500 to-amber-700 text-white ring-amber-800/40',
             mine
-              ? 'hover:scale-105 hover:from-amber-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500'
+              ? 'hover:scale-105 hover:from-amber-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500'
               : 'cursor-default opacity-60',
           )}
         >
@@ -124,7 +124,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             aria-invalid={problems[i] ? true : undefined}
             onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="One word"
-            className={cn(INPUT, 'mt-1', problems[i] && 'ring-2 ring-rose-500')}
+            className={cn(INPUT, 'mt-1', problems[i] && 'ring-2 ring-danger dark:ring-rose-500')}
           />
           {problems[i] && (
             <span className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
@@ -169,7 +169,7 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
             'min-w-0 rounded-xl px-3 py-2 ring-1',
             c.cancelled
               ? 'bg-stone-100 ring-stone-200 dark:bg-stone-800/60 dark:ring-stone-700'
-              : 'bg-amber-50 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40',
+              : 'bg-accent-soft ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40',
           )}
         >
           <span
@@ -199,7 +199,7 @@ function GuesserClues({ turn }: { turn: TurnView }) {
           {turn.clues.map((c, i) => (
             <li
               key={i}
-              className="rounded-xl bg-amber-50 px-4 py-2 text-2xl font-bold ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40"
+              className="rounded-xl bg-accent-soft px-4 py-2 text-2xl font-bold ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40"
             >
               {c.text}
             </li>
@@ -270,12 +270,12 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
   right: {
     icon: '🎉',
     title: 'Got it!',
-    tone: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
+    tone: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
   },
   counted: {
     icon: '🤝',
     title: 'Counted!',
-    tone: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
+    tone: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
   },
   pass: {
     icon: '⏭️',
@@ -285,7 +285,7 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
   wrong: {
     icon: '💥',
     title: 'Not this time',
-    tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
+    tone: 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
   },
   'pass-timeout': {
     icon: '⏱',
@@ -295,7 +295,7 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
   'wrong-timeout': {
     icon: '⏱',
     title: 'Time ran out',
-    tone: 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
+    tone: 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
   },
 };
 
@@ -366,7 +366,7 @@ function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
           <span className="block text-sm text-stone-500">{nameOf(view, turn.guesser)} guessed</span>
           <span className="block text-2xl font-bold break-words">{turn.guess}</span>
         </p>
-        <p className="rounded-xl bg-amber-50 px-2 py-3 ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40">
+        <p className="rounded-xl bg-accent-soft px-2 py-3 ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40">
           <span className="block text-sm text-stone-500">The word</span>
           <span
             data-testid="secret-word"

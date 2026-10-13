@@ -61,7 +61,7 @@ export function Card({
       <span className="flex size-full flex-col items-center justify-center bg-gradient-to-b from-rose-50 via-amber-50 to-amber-100 p-1 text-rose-950 dark:from-rose-950 dark:via-stone-900 dark:to-amber-950 dark:text-amber-100">
         <span
           aria-hidden
-          className="absolute inset-1 rounded-[0.4rem] border border-rose-300/70 dark:border-amber-400/30"
+          className="absolute inset-1 rounded-[0.4rem] border border-danger-line/70 dark:border-amber-400/30"
         />
         <span className={cn('absolute font-serif font-bold', t.rank)}>{rank}</span>
         <span aria-hidden className={t.emoji}>
@@ -87,7 +87,7 @@ export function Card({
   const classes = cn(
     'relative block aspect-[5/7] w-full overflow-hidden rounded-lg bg-stone-200 shadow ring-1 ring-black/10 transition dark:bg-stone-800',
     size === 'xs' && 'rounded',
-    selected && 'ring-4 ring-amber-500 dark:ring-amber-400',
+    selected && 'ring-4 ring-accent dark:ring-amber-400',
     dimmed && 'opacity-50',
     onClick &&
       'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-none',

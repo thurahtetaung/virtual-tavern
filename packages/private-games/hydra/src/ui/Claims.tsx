@@ -170,7 +170,7 @@ export function ClaimForm({
                   className={cn(
                     'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
                     on
-                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
                       : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
                   )}
                 >
@@ -205,7 +205,7 @@ export function ClaimForm({
                 className={cn(
                   'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
                   blues === b
-                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
                     : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
                 )}
               >
@@ -272,7 +272,7 @@ export function ClaimForm({
                 }}
                 className={cn(
                   'rounded-xl p-1 transition',
-                  team === p ? 'ring-4 ring-amber-400' : 'opacity-80',
+                  team === p ? 'ring-4 ring-accent dark:ring-amber-400' : 'opacity-80',
                 )}
               >
                 <PartyFace team={p} c={c} />
@@ -287,7 +287,7 @@ export function ClaimForm({
             Make this claim
           </Button>
         ) : (
-          <div className="hy-rise space-y-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-300 dark:bg-amber-500/10">
+          <div className="hy-rise space-y-2 rounded-xl bg-accent-soft p-3 ring-1 ring-accent-line dark:ring-amber-300 dark:bg-amber-500/10">
             <p className="text-center text-sm leading-7 font-semibold">
               Claim {summary}? Claims are final.
             </p>

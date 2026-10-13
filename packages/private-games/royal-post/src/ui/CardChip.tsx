@@ -42,7 +42,7 @@ export function CardChip({ role, className }: { role: Role; className?: string }
       }}
       className={cn(
         // The visible chip stays inline-sized; the ::before pad makes a 44 px tall tap target.
-        'relative inline-flex items-baseline gap-0.5 rounded px-0.5 font-semibold whitespace-nowrap text-rose-800 underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition before:absolute before:inset-x-0 before:-inset-y-3 hover:bg-rose-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500 dark:text-rose-200 dark:hover:bg-rose-500/20',
+        'relative inline-flex items-baseline gap-0.5 rounded px-0.5 font-semibold whitespace-nowrap text-rose-800 underline decoration-rose-400/70 decoration-dotted underline-offset-2 transition before:absolute before:inset-x-0 before:-inset-y-3 hover:bg-danger-soft focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent dark:focus-visible:outline-amber-500 dark:text-rose-200 dark:hover:bg-rose-500/20',
         className,
       )}
     >

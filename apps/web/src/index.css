@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './light-palette.css';
 
 /* Game UIs live in workspace packages; let Tailwind see their classes. */
 @source '../../../packages';
@@ -9,10 +10,158 @@
  */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
+/*
+ * Semantic colours, shared by the shell, `@vt/ui` and every game (`bg-card`, `ring-line`,
+ * `bg-warn-soft text-warn-ink ring-warn-line`, `bg-accent text-accent-fg`…). Light mode is warm
+ * and muted: a parchment page, slightly tinted panels and cards with soft borders, one deep amber
+ * accent for the main action, and soft tints with coloured text for notices. Dark mode maps the
+ * same names to the stock dark values the site already used, so it looks exactly as before.
+ *
+ * Layering: page < panel < card. Notices: info (sky), warn (amber), danger (rose), success
+ * (emerald), special (violet). Teams: team-a (red), team-b (blue).
+ */
+@theme inline {
+  --color-page: var(--vt-page);
+  --color-panel: var(--vt-panel);
+  --color-card: var(--vt-card);
+  --color-line: var(--vt-line);
+  --color-line-strong: var(--vt-line-strong);
+  --color-ink: var(--vt-ink);
+  --color-ink-muted: var(--vt-ink-muted);
+  --color-accent: var(--vt-accent);
+  --color-accent-hover: var(--vt-accent-hover);
+  --color-accent-fg: var(--vt-accent-fg);
+  --color-accent-soft: var(--vt-accent-soft);
+  --color-accent-line: var(--vt-accent-line);
+  --color-accent-text: var(--vt-accent-text);
+  --color-info: var(--vt-info);
+  --color-info-soft: var(--vt-info-soft);
+  --color-info-line: var(--vt-info-line);
+  --color-info-ink: var(--vt-info-ink);
+  --color-warn: var(--vt-warn);
+  --color-warn-soft: var(--vt-warn-soft);
+  --color-warn-line: var(--vt-warn-line);
+  --color-warn-ink: var(--vt-warn-ink);
+  --color-danger: var(--vt-danger);
+  --color-danger-soft: var(--vt-danger-soft);
+  --color-danger-line: var(--vt-danger-line);
+  --color-danger-ink: var(--vt-danger-ink);
+  --color-success: var(--vt-success);
+  --color-success-soft: var(--vt-success-soft);
+  --color-success-line: var(--vt-success-line);
+  --color-success-ink: var(--vt-success-ink);
+  --color-special: var(--vt-special);
+  --color-special-soft: var(--vt-special-soft);
+  --color-special-line: var(--vt-special-line);
+  --color-special-ink: var(--vt-special-ink);
+  --color-team-a: var(--vt-team-a);
+  --color-team-a-soft: var(--vt-team-a-soft);
+  --color-team-a-line: var(--vt-team-a-line);
+  --color-team-a-ink: var(--vt-team-a-ink);
+  --color-team-b: var(--vt-team-b);
+  --color-team-b-soft: var(--vt-team-b-soft);
+  --color-team-b-line: var(--vt-team-b-line);
+  --color-team-b-ink: var(--vt-team-b-ink);
+}
+
+:root {
+  --vt-page: oklch(94.6% 0.014 80);
+  --vt-panel: oklch(97.4% 0.009 82);
+  --vt-card: oklch(99.2% 0.005 85);
+  --vt-line: oklch(88.5% 0.018 75);
+  --vt-line-strong: oklch(80% 0.026 70);
+  --vt-ink: oklch(23% 0.008 60);
+  --vt-ink-muted: oklch(46% 0.02 60);
+  --vt-accent: oklch(55% 0.11 58);
+  --vt-accent-hover: oklch(50% 0.105 55);
+  --vt-accent-fg: oklch(99% 0.008 85);
+  --vt-accent-soft: oklch(95.5% 0.026 80);
+  --vt-accent-line: oklch(84% 0.06 75);
+  --vt-accent-text: oklch(45% 0.1 55);
+  --vt-info: oklch(50% 0.1 240);
+  --vt-info-soft: oklch(96.5% 0.014 235);
+  --vt-info-line: oklch(86% 0.04 235);
+  --vt-info-ink: oklch(39% 0.08 245);
+  --vt-warn: oklch(62% 0.12 70);
+  --vt-warn-soft: oklch(96% 0.026 85);
+  --vt-warn-line: oklch(85% 0.06 80);
+  --vt-warn-ink: oklch(41% 0.085 60);
+  --vt-danger: oklch(52% 0.15 20);
+  --vt-danger-soft: oklch(96% 0.018 15);
+  --vt-danger-line: oklch(85% 0.05 15);
+  --vt-danger-ink: oklch(42% 0.12 20);
+  --vt-success: oklch(51% 0.1 158);
+  --vt-success-soft: oklch(96% 0.02 160);
+  --vt-success-line: oklch(85% 0.05 160);
+  --vt-success-ink: oklch(39% 0.08 160);
+  --vt-special: oklch(50% 0.13 295);
+  --vt-special-soft: oklch(96% 0.016 295);
+  --vt-special-line: oklch(86% 0.04 295);
+  --vt-special-ink: oklch(40% 0.1 295);
+  --vt-team-a: oklch(52% 0.14 27);
+  --vt-team-a-soft: oklch(95.5% 0.02 25);
+  --vt-team-a-line: oklch(84% 0.06 25);
+  --vt-team-a-ink: oklch(43% 0.12 27);
+  --vt-team-b: oklch(49% 0.12 255);
+  --vt-team-b-soft: oklch(95.5% 0.018 245);
+  --vt-team-b-line: oklch(84% 0.05 245);
+  --vt-team-b-ink: oklch(40% 0.1 255);
+}
+
+/* Plain white surfaces become a faint ivory in light mode, so cards never glare on the page. */
+:root:not([data-theme='dark']) {
+  --color-white: oklch(99.4% 0.004 85);
+}
+
+/* The same names, at the stock dark values the site used before the tokens existed. */
+:root[data-theme='dark'] {
+  --vt-page: var(--color-stone-950);
+  --vt-panel: color-mix(in oklab, var(--color-stone-900) 80%, transparent);
+  --vt-card: var(--color-stone-900);
+  --vt-line: var(--color-stone-800);
+  --vt-line-strong: var(--color-stone-700);
+  --vt-ink: var(--color-stone-100);
+  --vt-ink-muted: var(--color-stone-400);
+  --vt-accent: var(--color-amber-500);
+  --vt-accent-hover: var(--color-amber-400);
+  --vt-accent-fg: var(--color-stone-950);
+  --vt-accent-soft: color-mix(in oklab, var(--color-amber-500) 15%, transparent);
+  --vt-accent-line: color-mix(in oklab, var(--color-amber-500) 40%, transparent);
+  --vt-accent-text: var(--color-amber-300);
+  --vt-info: var(--color-sky-600);
+  --vt-info-soft: color-mix(in oklab, var(--color-sky-500) 10%, transparent);
+  --vt-info-line: color-mix(in oklab, var(--color-sky-500) 30%, transparent);
+  --vt-info-ink: var(--color-sky-100);
+  --vt-warn: var(--color-amber-500);
+  --vt-warn-soft: color-mix(in oklab, var(--color-amber-500) 15%, transparent);
+  --vt-warn-line: color-mix(in oklab, var(--color-amber-500) 40%, transparent);
+  --vt-warn-ink: var(--color-amber-100);
+  --vt-danger: var(--color-rose-600);
+  --vt-danger-soft: color-mix(in oklab, var(--color-rose-500) 10%, transparent);
+  --vt-danger-line: color-mix(in oklab, var(--color-rose-500) 30%, transparent);
+  --vt-danger-ink: var(--color-rose-100);
+  --vt-success: var(--color-emerald-600);
+  --vt-success-soft: color-mix(in oklab, var(--color-emerald-500) 10%, transparent);
+  --vt-success-line: color-mix(in oklab, var(--color-emerald-500) 30%, transparent);
+  --vt-success-ink: var(--color-emerald-100);
+  --vt-special: var(--color-violet-600);
+  --vt-special-soft: color-mix(in oklab, var(--color-violet-500) 10%, transparent);
+  --vt-special-line: color-mix(in oklab, var(--color-violet-500) 30%, transparent);
+  --vt-special-ink: var(--color-violet-100);
+  --vt-team-a: var(--color-red-600);
+  --vt-team-a-soft: color-mix(in oklab, var(--color-red-500) 10%, transparent);
+  --vt-team-a-line: color-mix(in oklab, var(--color-red-500) 30%, transparent);
+  --vt-team-a-ink: var(--color-red-200);
+  --vt-team-b: var(--color-blue-600);
+  --vt-team-b-soft: color-mix(in oklab, var(--color-blue-500) 10%, transparent);
+  --vt-team-b-line: color-mix(in oklab, var(--color-blue-500) 30%, transparent);
+  --vt-team-b-ink: var(--color-blue-200);
+}
+
 @layer base {
   html {
     color-scheme: light;
-    @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+    @apply bg-page text-ink antialiased dark:bg-stone-950 dark:text-stone-100;
   }
   html[data-theme='dark'] {
     color-scheme: dark;
@@ -20,6 +169,9 @@
   body {
     @apply min-h-dvh;
     background-image: radial-gradient(ellipse at top, rgb(251 191 36 / 0.12), transparent 60%);
+  }
+  html:not([data-theme='dark']) body {
+    background-image: radial-gradient(ellipse at top, rgb(217 160 70 / 0.1), transparent 60%);
   }
   h1,
   h2 {

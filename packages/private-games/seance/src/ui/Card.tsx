@@ -90,7 +90,7 @@ export function Card({
       : kind === 'vision'
         ? 'aspect-[700/1024] w-full'
         : 'aspect-[1024/700] w-full',
-    selected && 'ring-4 ring-amber-400',
+    selected && 'ring-4 ring-accent dark:ring-amber-400',
     dimmed && 'opacity-45 grayscale',
     className,
   );

@@ -40,9 +40,9 @@ export function Modal({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto max-h-[85dvh] w-[min(44rem,calc(100vw-2rem))] flex-col rounded-2xl bg-stone-50 p-0 text-stone-900 shadow-2xl backdrop:bg-black/50 open:flex dark:bg-stone-900 dark:text-stone-100"
+      className="m-auto max-h-[85dvh] w-[min(44rem,calc(100vw-2rem))] flex-col rounded-2xl bg-panel p-0 text-stone-900 shadow-2xl backdrop:bg-black/50 open:flex dark:bg-stone-900 dark:text-stone-100"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-stone-200 px-4 py-2 dark:border-stone-800">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2 dark:border-stone-800">
         <h2 id={titleId} className="text-lg font-bold">
           {title}
         </h2>
@@ -52,7 +52,7 @@ export function Modal({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
       {footer && (
-        <div className="border-t border-stone-200 px-4 py-3 dark:border-stone-800">{footer}</div>
+        <div className="border-t border-line px-4 py-3 dark:border-stone-800">{footer}</div>
       )}
     </dialog>
   );

@@ -97,8 +97,8 @@ export function Lineup({
             <div
               className={cn(
                 'rounded-xl p-2 ring-1 ring-stone-200 dark:ring-stone-800',
-                (selected || culprit) && 'ring-2 ring-violet-500 bg-violet-500/10',
-                chosen && !culprit && 'ring-2 ring-rose-500',
+                (selected || culprit) && 'ring-2 ring-special bg-special/10 dark:bg-violet-500/10',
+                chosen && !culprit && 'ring-2 ring-danger',
               )}
               aria-label={`Group ${i + 1}`}
             >
@@ -307,7 +307,7 @@ export function VoteBar({ view, room, act }: { view: SeanceView; room: GameRoomI
   const now = votersNow(g);
   const strict = view.settings.timerMode === 'strict';
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-violet-50 px-3 py-1.5 text-sm ring-1 ring-violet-200 dark:bg-violet-500/10 dark:ring-violet-500/30">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft px-3 py-1.5 text-sm ring-1 ring-special-line dark:bg-violet-500/10 dark:ring-violet-500/30">
       <p className="min-w-0 flex-1">
         🗳️ Card {f.revealed} of 3 is up.{' '}
         {now.length

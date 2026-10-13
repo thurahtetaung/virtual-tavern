@@ -122,7 +122,7 @@ export function Dock({
             className={cn(
               'flex items-center justify-center gap-2 rounded-xl p-1 ring-1 transition',
               g.myVote === b
-                ? 'bg-amber-100 ring-4 ring-amber-500 dark:bg-amber-500/20'
+                ? 'bg-accent-soft ring-4 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
                 : g.myVote
                   ? 'opacity-55 ring-stone-300 dark:ring-stone-700'
                   : 'bg-white ring-stone-300 hover:scale-[1.02] dark:bg-stone-800 dark:ring-stone-600',
@@ -309,7 +309,7 @@ export function TaskSheet({
         }
       >
         {g.vetoRefused && (
-          <p className="mb-2 rounded-lg bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100">
+          <p className="mb-2 rounded-lg bg-danger-soft px-3 py-2 text-center text-sm font-semibold text-rose-900 ring-1 ring-danger-line dark:ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100">
             {c.copy('sheet.chancellor.refused', vars)}
           </p>
         )}

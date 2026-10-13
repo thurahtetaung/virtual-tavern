@@ -362,7 +362,7 @@ export function PlayerNumber({
         <span
           role="img"
           aria-label={label}
-          className="inline-flex size-full items-center justify-center rounded-full bg-emerald-700 text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-600"
+          className="inline-flex size-full items-center justify-center rounded-full bg-success text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-600"
         >
           {n}
         </span>
@@ -470,7 +470,7 @@ export function RoleChip({
           ? 'bg-white text-stone-950 ring-stone-500'
           : muted
             ? 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:ring-stone-700'
-            : 'bg-amber-50 text-amber-950 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40',
+            : 'bg-accent-soft text-amber-950 ring-accent-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/40',
         className,
       )}
     >
@@ -488,7 +488,7 @@ export function ArtifactChip({ id, deck }: { id: ArtifactId; deck: Deck }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-sm font-semibold text-violet-900 ring-1 ring-violet-300 dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/40"
+        className="inline-flex items-center gap-1 rounded-full bg-special-soft px-2 py-0.5 text-sm font-semibold text-violet-900 ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/40"
       >
         <Token src={deck.artifactArt(id)} emblem="🏺" label="" className="size-5" />
         {deck.artifactName(id)}
@@ -618,8 +618,8 @@ export function MarkChip({
       className={cn(
         'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 align-middle text-sm font-semibold ring-1',
         light
-          ? 'bg-white text-rose-950 ring-rose-500'
-          : 'bg-rose-50 text-rose-950 ring-rose-300 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
+          ? 'bg-white text-rose-950 ring-danger dark:ring-rose-500'
+          : 'bg-danger-soft text-rose-950 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/40',
         className,
       )}
     >

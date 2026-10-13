@@ -138,7 +138,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
             </Button>
             <Link
               to="/"
-              className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800"
+              className="inline-flex h-12 items-center rounded-lg px-4 font-semibold text-amber-700 hover:bg-accent-soft dark:text-amber-400 dark:hover:bg-stone-800"
             >
               Back to the tavern
             </Link>
@@ -559,7 +559,7 @@ function Room({
       {status === 'reconnecting' && (
         <p
           role="status"
-          className="mb-3 rounded-xl bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950"
+          className="mb-3 rounded-xl bg-accent-soft dark:bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950"
         >
           {snapshot ? 'Connection lost. Reconnecting…' : "Can't reach the tavern. Retrying…"}
         </p>
@@ -742,6 +742,7 @@ function InviteButton() {
   return (
     <Button
       size="sm"
+      variant="soft"
       className={HEADER_BUTTON}
       aria-label={copied ? 'Link copied' : 'Invite friends'}
       onClick={() => void copy()}
@@ -785,7 +786,7 @@ function SpectatorBanner({ prompt }: { prompt: SpectatorPrompt }) {
     <div
       role="status"
       aria-label="You're watching"
-      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sky-50 px-4 py-2 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-info-soft px-4 py-2 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
     >
       <p>
         <span aria-hidden>👀 </span>
@@ -894,7 +895,7 @@ function People({
                 aria-hidden
                 className={cn(
                   'size-2.5 rounded-full',
-                  p.connected ? 'bg-emerald-500' : 'bg-stone-400',
+                  p.connected ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
                 )}
               />
               <span className="font-medium">{p.name}</span>

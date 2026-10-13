@@ -8,14 +8,14 @@ export const TEAM_TEXT: Record<Team, string> = {
 };
 
 export const TEAM_PANEL: Record<Team, string> = {
-  red: 'bg-red-50 ring-red-200 dark:bg-red-950/40 dark:ring-red-900',
-  blue: 'bg-blue-50 ring-blue-200 dark:bg-blue-950/40 dark:ring-blue-900',
+  red: 'bg-team-a-soft ring-team-a-line dark:bg-red-950/40 dark:ring-red-900',
+  blue: 'bg-team-b-soft ring-team-b-line dark:bg-blue-950/40 dark:ring-blue-900',
 };
 
 /** Revealed card faces. */
 export const REVEALED: Record<CardKind, string> = {
-  red: 'bg-red-600 text-white ring-red-700',
-  blue: 'bg-blue-600 text-white ring-blue-700',
+  red: 'bg-team-a dark:bg-red-600 text-white ring-team-a dark:ring-red-700',
+  blue: 'bg-team-b dark:bg-blue-600 text-white ring-team-b dark:ring-blue-700',
   bystander:
     'bg-stone-300 text-stone-600 ring-stone-400 dark:bg-stone-600 dark:text-stone-200 dark:ring-stone-500',
   assassin: 'bg-stone-950 text-stone-200 ring-black',
@@ -23,10 +23,10 @@ export const REVEALED: Record<CardKind, string> = {
 
 /** Spymaster's key overlay on face-down cards. */
 export const KEY_TINT: Record<CardKind, string> = {
-  red: 'bg-red-100 text-red-900 ring-2 ring-red-400 dark:bg-red-950 dark:text-red-100 dark:ring-red-700',
-  blue: 'bg-blue-100 text-blue-900 ring-2 ring-blue-400 dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-700',
+  red: 'bg-team-a-soft text-red-900 ring-2 ring-team-a dark:bg-red-950 dark:text-red-100 dark:ring-red-700',
+  blue: 'bg-team-b-soft text-blue-900 ring-2 ring-team-b dark:bg-blue-950 dark:text-blue-100 dark:ring-blue-700',
   bystander:
-    'bg-amber-50 text-stone-800 ring-1 ring-amber-200 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700',
+    'bg-accent-soft text-stone-800 ring-1 ring-accent-line dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-700',
   assassin: 'bg-stone-800 text-white ring-2 ring-stone-950 dark:bg-black dark:ring-stone-500',
 };
 

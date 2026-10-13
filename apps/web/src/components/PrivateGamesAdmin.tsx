@@ -199,7 +199,8 @@ export function NightfallMusicAdmin() {
                   aria-pressed={playing === t.file}
                   className={cn(
                     'inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm ring-1 ring-stone-300 dark:ring-stone-700',
-                    playing === t.file && 'bg-amber-500 text-stone-950 ring-amber-500',
+                    playing === t.file &&
+                      'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent',
                   )}
                 >
                   {playing === t.file ? '■' : '▶'} {t.name ?? t.file}{' '}

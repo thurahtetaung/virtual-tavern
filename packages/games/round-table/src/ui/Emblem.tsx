@@ -78,8 +78,8 @@ const GLYPH: Record<RoleId, ReactNode> = {
 };
 
 const DISC: Record<Loyalty, string> = {
-  good: 'bg-blue-100 text-blue-700 ring-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:ring-blue-700 [--emblem-bg:var(--color-blue-100)] dark:[--emblem-bg:var(--color-blue-950)]',
-  evil: 'bg-red-100 text-red-700 ring-red-300 dark:bg-red-950 dark:text-red-300 dark:ring-red-700 [--emblem-bg:var(--color-red-100)] dark:[--emblem-bg:var(--color-red-950)]',
+  good: 'bg-team-b-soft text-blue-700 ring-team-b-line dark:bg-blue-950 dark:text-blue-300 dark:ring-blue-700 [--emblem-bg:var(--color-blue-100)] dark:[--emblem-bg:var(--color-blue-950)]',
+  evil: 'bg-team-a-soft text-red-700 ring-team-a-line dark:bg-red-950 dark:text-red-300 dark:ring-red-700 [--emblem-bg:var(--color-red-100)] dark:[--emblem-bg:var(--color-red-950)]',
 };
 
 export function Emblem({ role, className }: { role: RoleId; className?: string }) {

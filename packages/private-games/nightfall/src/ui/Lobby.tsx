@@ -64,15 +64,15 @@ const NARRATION_HELP: Record<NarrationMode, string> = {
 
 /** A team colour (with its name, not colour alone) on each role tile. */
 const TEAM_PILL: Record<Team, string> = {
-  village: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
-  werewolf: 'bg-red-100 text-red-900 dark:bg-red-500/15 dark:text-red-200',
-  tanner: 'bg-orange-100 text-orange-900 dark:bg-orange-500/15 dark:text-orange-200',
-  vampire: 'bg-purple-100 text-purple-900 dark:bg-purple-500/15 dark:text-purple-200',
+  village: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
+  werewolf: 'bg-danger-soft text-red-900 dark:bg-red-500/15 dark:text-red-200',
+  tanner: 'bg-warn-soft text-orange-900 dark:bg-orange-500/15 dark:text-orange-200',
+  vampire: 'bg-special-soft text-purple-900 dark:bg-purple-500/15 dark:text-purple-200',
   assassin: 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
   'apprentice-assassin': 'bg-zinc-200 text-zinc-900 dark:bg-zinc-500/20 dark:text-zinc-100',
-  alien: 'bg-lime-100 text-lime-900 dark:bg-lime-500/15 dark:text-lime-200',
-  synthetic: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-500/15 dark:text-cyan-200',
-  blob: 'bg-pink-100 text-pink-900 dark:bg-pink-500/15 dark:text-pink-200',
+  alien: 'bg-success-soft text-lime-900 dark:bg-lime-500/15 dark:text-lime-200',
+  synthetic: 'bg-info-soft text-cyan-900 dark:bg-cyan-500/15 dark:text-cyan-200',
+  blob: 'bg-danger-soft text-pink-900 dark:bg-pink-500/15 dark:text-pink-200',
   mortician: 'bg-stone-200 text-stone-900 dark:bg-stone-500/20 dark:text-stone-100',
 };
 
@@ -103,7 +103,7 @@ function PresetCard({
         className={cn(
           'flex h-full w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left ring-1 transition',
           on
-            ? 'bg-indigo-50 ring-2 ring-indigo-500 dark:bg-indigo-500/10'
+            ? 'bg-special-soft ring-2 ring-special dark:ring-indigo-500 dark:bg-indigo-500/10'
             : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
           !roles && 'opacity-60',
         )}
@@ -114,9 +114,9 @@ function PresetCard({
             className={cn(
               'rounded-full px-1.5 text-xs font-semibold',
               preset.level === 'beginner'
-                ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
+                ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200'
                 : preset.level === 'chaos'
-                  ? 'bg-rose-100 text-rose-900 dark:bg-rose-500/15 dark:text-rose-200'
+                  ? 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200'
                   : 'bg-stone-200 text-stone-800 dark:bg-stone-700 dark:text-stone-100',
             )}
           >
@@ -161,7 +161,7 @@ function Segmented<T extends string | number>({
             className={cn(
               'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-stone-300 transition dark:ring-stone-700',
               o.id === value
-                ? 'bg-indigo-700 text-white ring-indigo-700 dark:bg-indigo-500 dark:ring-indigo-500'
+                ? 'bg-special text-white ring-special dark:bg-indigo-500 dark:ring-indigo-500'
                 : 'bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-800',
               disabled && o.id !== value && 'opacity-50',
             )}
@@ -196,7 +196,7 @@ function RoleTile({
       className={cn(
         'flex w-[6.5rem] flex-col items-center gap-1 rounded-xl p-1.5 ring-1',
         count > 0
-          ? 'bg-indigo-50 ring-indigo-400 dark:bg-indigo-500/10 dark:ring-indigo-400/60'
+          ? 'bg-special-soft ring-special dark:bg-indigo-500/10 dark:ring-indigo-400/60'
           : 'ring-stone-200 dark:ring-stone-800',
       )}
     >
@@ -667,7 +667,7 @@ export function Lobby({
                     className={cn(
                       'rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                       on
-                        ? 'bg-violet-600 text-white ring-violet-600'
+                        ? 'bg-special dark:bg-violet-600 text-white ring-special dark:ring-violet-600'
                         : 'ring-stone-300 dark:ring-stone-700',
                     )}
                   >

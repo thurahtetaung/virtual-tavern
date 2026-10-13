@@ -19,9 +19,9 @@ export function Clock({ g }: { g: GameView }) {
             h < g.hour
               ? 'bg-stone-300 text-stone-500 dark:bg-stone-700 dark:text-stone-400'
               : h === g.hour
-                ? 'bg-violet-700 text-white ring-2 ring-violet-300 dark:ring-violet-500'
+                ? 'bg-special dark:bg-violet-700 text-white ring-2 ring-special-line dark:ring-violet-500'
                 : 'bg-stone-100 text-stone-500 dark:bg-stone-800',
-            h === HOURS && h !== g.hour && 'ring-1 ring-rose-400/60',
+            h === HOURS && h !== g.hour && 'ring-1 ring-danger/60 dark:ring-rose-400/60',
           )}
         >
           {roman(h)}
@@ -66,7 +66,7 @@ export function Progress({
                   onTap={onOpen ? () => onOpen(pillar, card) : undefined}
                 >
                   {found !== undefined && (
-                    <span className="absolute right-0.5 bottom-0.5 rounded bg-emerald-600 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-600 px-1 text-[10px] font-bold text-white">
                       ✓
                     </span>
                   )}
@@ -78,7 +78,7 @@ export function Progress({
                   className={cn(
                     'flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed text-lg',
                     i === p.step
-                      ? 'border-violet-400 bg-violet-500/10'
+                      ? 'border-special dark:border-violet-400 bg-special/10 dark:bg-violet-500/10'
                       : 'border-stone-300 opacity-60 dark:border-stone-700',
                   )}
                 >

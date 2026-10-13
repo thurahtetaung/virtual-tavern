@@ -18,7 +18,7 @@ const choice = (on: boolean, editable: boolean) =>
   cn(
     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
     on
-      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
       : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
     !editable && !on && 'opacity-60',
   );

@@ -29,7 +29,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
           ? REVEALED[card.kind!]
           : card.kind && (showKey || view.phase === 'over')
             ? KEY_TINT[card.kind]
-            : 'bg-amber-50 text-stone-900 ring-1 ring-amber-200/80 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-700';
+            : 'bg-accent-soft text-stone-900 ring-1 ring-accent-line/80 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-700';
         const label = `${card.word}${card.kind ? `, ${KIND_LABEL[card.kind]}` : ''}${card.revealed ? ', revealed' : ''}`;
         return (
           <button
@@ -45,9 +45,9 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
               face,
               interactive &&
                 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-none',
-              selected === i && 'ring-4 ring-amber-500 dark:ring-amber-400',
+              selected === i && 'ring-4 ring-accent dark:ring-amber-400',
               lastGuessed === i &&
-                'z-10 scale-105 ring-4 ring-amber-400 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950',
+                'z-10 scale-105 ring-4 ring-accent dark:ring-amber-400 ring-offset-2 ring-offset-stone-100 dark:ring-offset-stone-950',
               card.revealed && lastGuessed !== i && 'opacity-90',
               view.phase === 'over' && !card.revealed && 'opacity-70',
             )}
@@ -89,7 +89,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                   <span
                     key={id}
                     title={names.get(id)}
-                    className="rounded-full bg-amber-500 px-1 text-[0.625rem] font-bold text-stone-950 shadow sm:text-[0.65rem]"
+                    className="rounded-full bg-accent dark:bg-amber-500 px-1 text-[0.625rem] font-bold text-accent-fg dark:text-stone-950 shadow sm:text-[0.65rem]"
                   >
                     {initials(names.get(id) ?? '?')}
                   </span>

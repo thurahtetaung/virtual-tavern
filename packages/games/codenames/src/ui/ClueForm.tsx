@@ -80,7 +80,7 @@ export function ClueForm({ act, max }: Props) {
                 className={
                   'h-11 min-w-8 rounded-lg text-sm font-bold ring-1 transition disabled:cursor-not-allowed disabled:opacity-40 ' +
                   (count === c
-                    ? 'bg-amber-500 text-stone-950 ring-amber-600'
+                    ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
                     : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600')
                 }
               >

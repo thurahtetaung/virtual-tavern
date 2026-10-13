@@ -1,19 +1,25 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 import { cn as join } from './cn.ts';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'red' | 'blue';
+/**
+ * `primary` is the one main action on a screen. `soft` is for actions that repeat down a list (one
+ * per card): a quiet accent tint in light mode so the page isn't a wall of filled buttons, and the
+ * primary look in dark mode.
+ */
+type Variant = 'primary' | 'soft' | 'secondary' | 'ghost' | 'danger' | 'red' | 'blue';
 /** `icon` is a square 44 px tap target for icon-only buttons (close, theme switch…). */
 type Size = 'sm' | 'md' | 'lg' | 'icon';
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-amber-600 text-white hover:bg-amber-500 shadow-sm shadow-amber-900/20 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400',
+    'bg-accent text-accent-fg hover:bg-accent-hover shadow-sm shadow-amber-900/15 dark:bg-amber-500 dark:text-stone-950 dark:shadow-amber-900/20 dark:hover:bg-amber-400',
+  soft: 'bg-accent-soft text-accent-text ring-1 ring-accent-line hover:bg-accent-soft dark:bg-amber-500 dark:text-stone-950 dark:ring-0 dark:shadow-sm dark:shadow-amber-900/20 dark:hover:bg-amber-400',
   secondary:
-    'bg-white text-stone-800 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600 dark:hover:bg-stone-700',
-  ghost: 'text-stone-700 hover:bg-stone-200/70 dark:text-stone-300 dark:hover:bg-stone-800',
-  danger: 'bg-rose-600 text-white hover:bg-rose-500',
-  red: 'bg-red-600 text-white hover:bg-red-500',
-  blue: 'bg-blue-600 text-white hover:bg-blue-500',
+    'bg-card text-stone-800 ring-1 ring-line-strong hover:bg-panel dark:bg-stone-800 dark:text-stone-100 dark:ring-stone-600 dark:hover:bg-stone-700',
+  ghost: 'text-stone-700 hover:bg-line/60 dark:text-stone-300 dark:hover:bg-stone-800',
+  danger: 'bg-danger text-white hover:bg-danger dark:bg-rose-600 dark:hover:bg-rose-500',
+  red: 'bg-team-a text-white hover:bg-danger dark:bg-red-600 dark:hover:bg-red-500',
+  blue: 'bg-team-b text-white hover:bg-info dark:bg-blue-600 dark:hover:bg-blue-500',
 };
 const SIZES: Record<Size, string> = {
   sm: 'h-8 px-3 text-sm',
@@ -33,7 +39,7 @@ export function Button({
       type="button"
       className={join(
         'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
         'disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
         SIZES[size],
@@ -48,7 +54,7 @@ export function Panel({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={join(
-        'rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800',
+        'rounded-2xl bg-card/85 p-4 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
         className,
       )}
       {...props}
@@ -83,8 +89,8 @@ export function Hint({
       className={join(
         'rounded-xl px-4 py-3 text-center text-sm sm:text-base',
         tone === 'action'
-          ? 'bg-amber-100 font-semibold text-amber-950 ring-1 ring-amber-300 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
-          : 'bg-stone-100 text-stone-700 dark:bg-stone-800/70 dark:text-stone-300',
+          ? 'bg-warn-soft font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
+          : 'bg-panel text-stone-700 ring-1 ring-line dark:bg-stone-800/70 dark:text-stone-300 dark:ring-0',
       )}
     >
       {children}

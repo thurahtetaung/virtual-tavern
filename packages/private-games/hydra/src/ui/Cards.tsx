@@ -163,7 +163,7 @@ export function BallotBack({ c, className }: { c: Content; className?: string })
       {src ? (
         <Art src={src} alt="" />
       ) : (
-        <span className="flex h-full w-full items-center justify-center rounded-[8%] bg-emerald-500 text-xs font-black text-emerald-950 shadow ring-2 ring-emerald-800">
+        <span className="flex h-full w-full items-center justify-center rounded-[8%] bg-success dark:bg-emerald-500 text-xs font-black text-emerald-950 shadow ring-2 ring-emerald-800">
           ✉
         </span>
       )}
@@ -202,7 +202,7 @@ export function RoleFace({
           className={cn(
             'flex h-full w-full flex-col items-center justify-center gap-[3cqw] rounded-[7%] p-[6cqw] text-center text-white shadow-lg ring-2',
             role === 'leader'
-              ? 'bg-gradient-to-b from-red-700 to-stone-900 ring-amber-400'
+              ? 'bg-gradient-to-b from-red-700 to-stone-900 ring-accent dark:ring-amber-400'
               : TEAM_BG[team],
           )}
         >
@@ -253,7 +253,7 @@ export function PartyFace({ team, c, className }: { team: Team; c: Content; clas
       ) : (
         <span
           className={cn(
-            'flex h-full w-full flex-col items-center justify-center gap-1 rounded-[7%] bg-amber-300 text-center shadow ring-2 ring-amber-600',
+            'flex h-full w-full flex-col items-center justify-center gap-1 rounded-[7%] bg-accent-line dark:bg-amber-300 text-center shadow ring-2 ring-accent dark:ring-amber-600',
           )}
         >
           <span className="text-[0.55rem] font-bold tracking-widest text-stone-800 uppercase">

@@ -23,8 +23,8 @@ export function End({ view, room, act }: { view: RoundTableView; room: GameRoomI
         className={cn(
           'rounded-xl px-4 py-3 text-center ring-1',
           good
-            ? 'bg-blue-50 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/30'
-            : 'bg-red-50 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30',
+            ? 'bg-team-b-soft ring-team-b-line dark:bg-blue-500/10 dark:ring-blue-500/30'
+            : 'bg-team-a-soft ring-team-a-line dark:bg-red-500/10 dark:ring-red-500/30',
         )}
         data-testid="winner"
       >

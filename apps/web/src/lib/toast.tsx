@@ -74,7 +74,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             className={
               'pointer-events-auto max-w-md cursor-pointer rounded-xl px-4 py-2 text-sm font-medium shadow-lg ' +
               (t.tone === 'error'
-                ? 'bg-rose-600 text-white'
+                ? 'bg-danger dark:bg-rose-600 text-white'
                 : 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900')
             }
           >

@@ -54,7 +54,7 @@ export function HomePage() {
           <p className="mt-4">
             <Link
               to={`/r/${recent.id}`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 font-semibold text-amber-700 hover:bg-accent-soft dark:text-amber-400 dark:hover:bg-stone-800"
             >
               <span aria-hidden>↩</span> Rejoin your {recent.game} room
             </Link>

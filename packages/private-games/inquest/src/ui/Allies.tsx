@@ -87,7 +87,11 @@ function LabPick({
   const [card, setCard] = useState<{ deck: Deck; n: number } | null>(null);
   const who = suspects.find((p) => p.id === owner);
   return (
-    <Panel role="region" aria-label="Check a card" className="space-y-2 ring-2 ring-sky-500">
+    <Panel
+      role="region"
+      aria-label="Check a card"
+      className="space-y-2 ring-2 ring-info dark:ring-sky-500"
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">🧪 Check one card</h3>
         {clock}
@@ -108,7 +112,7 @@ function LabPick({
             className={cn(
               'min-h-9 rounded-full px-3 text-sm font-semibold ring-1',
               owner === p.id
-                ? 'bg-sky-600 text-white ring-sky-700'
+                ? 'bg-info dark:bg-sky-600 text-white ring-info dark:ring-sky-700'
                 : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
             )}
           >
@@ -178,7 +182,11 @@ function InsidePick({ view, act, clock }: { view: InquestView; act: Act; clock: 
   const [target, setTarget] = useState<string | null>(null);
   const holders = g.players.filter((p) => !p.isFs && !p.formerFs && !p.gone && p.badges > 0);
   return (
-    <Panel role="region" aria-label="Take a badge" className="space-y-2 ring-2 ring-rose-500">
+    <Panel
+      role="region"
+      aria-label="Take a badge"
+      className="space-y-2 ring-2 ring-danger dark:ring-rose-500"
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">🕴️ Take a badge</h3>
         {clock}

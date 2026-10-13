@@ -283,7 +283,7 @@ function Lobby({
                   className={cn(
                     'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
                     on
-                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                       : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
                     !editable && !on && 'opacity-60',
                   )}
@@ -321,7 +321,7 @@ function Lobby({
                 className={cn(
                   'h-11 flex-1 rounded-lg px-3 text-sm ring-1 transition disabled:cursor-default',
                   on
-                    ? 'bg-amber-50 font-semibold ring-2 ring-amber-500 dark:bg-amber-500/10'
+                    ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                     : 'ring-stone-200 enabled:hover:bg-stone-100 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
                   !editable && !on && 'opacity-60',
                 )}
@@ -402,7 +402,7 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
           key={i}
           className={cn(
             'size-2 rounded-full',
-            i < tokens ? 'bg-rose-500 dark:bg-rose-400' : 'bg-stone-300 dark:bg-stone-700',
+            i < tokens ? 'bg-danger dark:bg-rose-400' : 'bg-stone-300 dark:bg-stone-700',
           )}
         />
       ))}
@@ -474,7 +474,7 @@ function PlayerTile({
       className={cn(
         'min-w-0 space-y-1 rounded-xl px-2 py-1.5 ring-1',
         isTurn
-          ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
           : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
         p.out && 'opacity-60',
       )}
@@ -510,12 +510,12 @@ function PlayerTile({
       {(isTurn || p.protected || spy) && (
         <div className="flex flex-wrap gap-1">
           {isTurn && (
-            <Badge className="bg-amber-200 px-1.5 py-0 text-[0.65rem] text-amber-950 dark:bg-amber-500/30 dark:text-amber-100">
+            <Badge className="bg-accent-soft px-1.5 py-0 text-[0.65rem] text-amber-950 dark:bg-amber-500/30 dark:text-amber-100">
               {me ? 'your turn' : 'their turn'}
             </Badge>
           )}
           {p.protected && (
-            <Badge className="bg-rose-100 px-1.5 py-0 text-[0.65rem] text-rose-900 dark:bg-rose-500/20 dark:text-rose-100">
+            <Badge className="bg-danger-soft px-1.5 py-0 text-[0.65rem] text-rose-900 dark:bg-rose-500/20 dark:text-rose-100">
               <span aria-label="protected" title="Protected by the Handmaid until their next turn">
                 🌸 protected
               </span>
@@ -891,17 +891,17 @@ function PlaySheet({
             </div>
           </div>
           {canPlay && role === 'countess' && mustCountess && (
-            <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950 dark:bg-amber-500/15 dark:text-amber-100">
+            <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-amber-950 dark:bg-amber-500/15 dark:text-amber-100">
               You must play her: your other card is the {deck.name(forcing)}.
             </p>
           )}
           {canPlay && countessLock && (
-            <p className="rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
               You hold the Countess with the {deck.name(forcing)}, so you must play the Countess.
             </p>
           )}
           {canPlay && role === 'princess' && (
-            <p className="rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
+            <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-rose-900 dark:bg-rose-500/15 dark:text-rose-200">
               Playing her knocks you out of the round!
             </p>
           )}
@@ -923,7 +923,7 @@ function PlaySheet({
                       className={cn(
                         'h-11 truncate rounded-lg px-3 font-semibold ring-1 transition',
                         target === p.id
-                          ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                           : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                       )}
                     >
@@ -962,7 +962,7 @@ function PlaySheet({
                       className={cn(
                         'flex h-12 flex-col justify-center rounded-lg px-2 text-left text-sm ring-1 transition',
                         guess === c.role
-                          ? 'bg-amber-50 font-semibold ring-2 ring-amber-500 dark:bg-amber-500/10'
+                          ? 'bg-accent-soft font-semibold ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                           : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                         c.unseen === 0 && guess !== c.role && 'opacity-50',
                       )}
@@ -1279,7 +1279,7 @@ function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
             className={cn(
               'h-11 flex-1 truncate px-2 text-sm font-semibold transition',
               current === t.id
-                ? 'border-b-2 border-amber-500 text-stone-900 dark:text-stone-100'
+                ? 'border-b-2 border-accent dark:border-amber-500 text-stone-900 dark:text-stone-100'
                 : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
             )}
           >
@@ -1347,7 +1347,7 @@ function Log({ view }: { view: RoyalPostView }) {
           key={e.id}
           className={cn(
             'border-l-2 pl-2',
-            fresh.has(e.id) ? 'border-amber-500' : 'border-transparent',
+            fresh.has(e.id) ? 'border-accent dark:border-amber-500' : 'border-transparent',
             e.kind === 'round-end' && 'font-semibold',
             touches(view, e) && 'text-rose-800 dark:text-rose-200',
           )}
@@ -1395,9 +1395,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
                   key={i}
                   className={cn(
                     'h-3 w-2 rounded-sm',
-                    i < c.unseen
-                      ? 'bg-rose-500 dark:bg-rose-400'
-                      : 'bg-stone-300 dark:bg-stone-700',
+                    i < c.unseen ? 'bg-danger dark:bg-rose-400' : 'bg-stone-300 dark:bg-stone-700',
                   )}
                 />
               ))}
@@ -1451,7 +1449,7 @@ function RoundSecrets({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   return (
     <>
       {ending.length > 0 && (
-        <div className="rounded-lg bg-amber-50 px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
+        <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
           <p className="text-xs font-semibold text-stone-500">Only you can see this</p>
           {ending.map((n) => (
             <p key={n.id}>

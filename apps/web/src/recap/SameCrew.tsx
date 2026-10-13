@@ -126,7 +126,7 @@ export function NextTableBanner({
   return (
     <div
       role="status"
-      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-100 px-4 py-2 text-sm text-amber-950 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+      className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-accent-soft px-4 py-2 text-sm text-amber-950 ring-1 ring-accent-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
     >
       <span>
         🎲 <b>{who}</b> opened a new table
@@ -140,7 +140,7 @@ export function NextTableBanner({
       <span className="flex gap-2">
         <Link
           to={`/r/${next.roomId}`}
-          className="inline-flex min-h-9 items-center rounded-lg bg-amber-600 px-3 font-semibold text-white hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
+          className="inline-flex min-h-9 items-center rounded-lg bg-accent px-3 font-semibold text-white hover:bg-accent-hover dark:hover:bg-amber-500 dark:bg-amber-500 dark:text-stone-950"
         >
           Join them
         </Link>

@@ -107,7 +107,7 @@ export function Suspects(props: Common) {
               <span
                 key={s.id}
                 aria-label={`${s.name}${s.formerFs ? ' was' : ' is'} the Forensic Scientist`}
-                className="flex shrink-0 items-center gap-1 rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900 ring-1 ring-sky-300 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40"
+                className="flex shrink-0 items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-xs font-semibold text-sky-900 ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40"
               >
                 {chipLabel(s, view)} 🔬
               </span>
@@ -125,7 +125,7 @@ export function Suspects(props: Common) {
               className={cn(
                 'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
                 !grid && k === i
-                  ? 'bg-amber-500 text-stone-950 ring-amber-600'
+                  ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
                   : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
                 s.gone && 'opacity-60',
               )}
@@ -142,7 +142,7 @@ export function Suspects(props: Common) {
           className={cn(
             'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
             grid
-              ? 'bg-amber-500 text-stone-950 ring-amber-600'
+              ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
               : 'ring-stone-300 dark:ring-stone-600',
           )}
         >

@@ -30,7 +30,10 @@ function Name({
     <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden
-        className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
+        className={cn(
+          'size-2 rounded-full',
+          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
+        )}
       />
       <PlayerTag name={name} host={id === hostId} you={id === me} offline={!online} />
     </span>

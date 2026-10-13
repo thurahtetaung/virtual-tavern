@@ -111,16 +111,16 @@ export function Seats({
                 p.dead
                   ? 'bg-stone-200 opacity-60 grayscale ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-700'
                   : selected
-                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
                     : pick && !why
                       ? // Yours to pick: an accent ring that pulses gently (still under reduced motion).
-                        'hy-pickable bg-white ring-2 ring-amber-500 dark:bg-stone-800 dark:ring-amber-400'
+                        'hy-pickable bg-white ring-2 ring-accent dark:bg-stone-800 dark:ring-amber-400'
                       : president || chancellor
-                        ? 'bg-amber-50/70 ring-2 ring-amber-400/80 dark:bg-amber-500/10'
+                        ? 'bg-accent-soft/70 ring-2 ring-accent/80 dark:ring-amber-400/80 dark:bg-amber-500/10'
                         : waiting.includes(p.id)
                           ? 'bg-white ring-2 ring-sky-400 dark:bg-stone-800 dark:ring-sky-500'
                           : 'bg-white ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
-                pick && !why && !selected && 'hover:bg-amber-50 dark:hover:bg-stone-700',
+                pick && !why && !selected && 'hover:bg-accent-soft dark:hover:bg-stone-700',
                 pick && why && 'opacity-45',
               )}
             >
@@ -176,7 +176,7 @@ export function Seats({
                 )}
                 {cleared && !p.dead && (
                   <span
-                    className="rounded bg-emerald-600 px-1 text-white"
+                    className="rounded bg-success dark:bg-emerald-600 px-1 text-white"
                     title={c.t('Confirmed: not {leader}')}
                   >
                     {c.copy('moment.cleared.stamp')}
@@ -207,7 +207,8 @@ export function Seats({
                   className={cn(
                     'flex items-center justify-center rounded-full ring-1',
                     compact ? 'size-5 text-[0.65rem]' : 'size-6 text-xs',
-                    mark === 'trust' && 'bg-amber-300 text-amber-950 ring-amber-500',
+                    mark === 'trust' &&
+                      'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
                     mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
                     !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
                   )}

@@ -17,7 +17,7 @@ const choice = (on: boolean, editable: boolean) =>
   cn(
     'rounded-xl px-3 py-2 text-left ring-1 transition disabled:cursor-default',
     on
-      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
       : 'bg-white ring-stone-200 enabled:hover:bg-stone-100 dark:bg-stone-900 dark:ring-stone-700 dark:enabled:hover:bg-stone-800',
     !editable && !on && 'opacity-60',
   );
@@ -199,8 +199,8 @@ export function Lobby({
           className={cn(
             'rounded-lg px-3 py-1.5 text-center text-sm font-semibold',
             balanced
-              ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200'
-              : 'bg-rose-50 text-rose-900 dark:bg-rose-500/10 dark:text-rose-200',
+              ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200'
+              : 'bg-team-a-soft text-rose-900 dark:bg-rose-500/10 dark:text-rose-200',
           )}
           data-testid="balance"
         >

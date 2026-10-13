@@ -126,7 +126,7 @@ export function TableScreen({
               : `Round ${g.round} of ${g.finalRound}${g.countdown && g.stage !== 'done' ? ' · last round' : ''}`}
           </span>
         </p>
-        <span className="rounded-full bg-sky-500/20 px-3 py-1 text-base font-semibold text-sky-100">
+        <span className="rounded-full bg-info/20 dark:bg-sky-500/20 px-3 py-1 text-base font-semibold text-sky-100">
           🔬 Forensic Scientist: {nameOf(view, g.fs)}
         </span>
         {g.stage === 'discuss' && g.deadline !== null && (
@@ -201,7 +201,7 @@ export function TableScreen({
           {f && (
             <section
               aria-label="Final accusations"
-              className="space-y-1 rounded-xl bg-white/70 p-3 ring-2 ring-rose-400 dark:bg-stone-900/70"
+              className="space-y-1 rounded-xl bg-white/70 p-3 ring-2 ring-danger dark:ring-rose-400 dark:bg-stone-900/70"
             >
               <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">
                 Final accusations
@@ -226,7 +226,9 @@ export function TableScreen({
                     key={`${i}-${k}`}
                     className={cn(
                       'rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
-                      ev?.kind === k && i === g.events.length - 1 && 'ring-2 ring-amber-400',
+                      ev?.kind === k &&
+                        i === g.events.length - 1 &&
+                        'ring-2 ring-accent dark:ring-amber-400',
                     )}
                   >
                     {content.eventName(k)}
@@ -295,7 +297,7 @@ function SuspectHand({
       className={cn(
         'rounded-xl bg-white/70 p-2 dark:bg-stone-900/70',
         speaking || accusing
-          ? 'ring-4 ring-amber-400'
+          ? 'ring-4 ring-accent dark:ring-amber-400'
           : 'ring-1 ring-stone-200 dark:ring-stone-800',
       )}
     >

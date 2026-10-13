@@ -85,7 +85,7 @@ export function Timeline({
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
               (fresh(b) || (g.stage !== 'discuss' && i === g.bullets.length - 1)) &&
-                'ring-2 ring-amber-400',
+                'ring-2 ring-accent dark:ring-amber-400',
               no.movedLater && 'opacity-60',
             )}
           >
@@ -122,7 +122,7 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
           key={seq}
           className={cn(
             'flex shrink-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 dark:bg-stone-800',
-            seq === newest && 'ring-2 ring-amber-400',
+            seq === newest && 'ring-2 ring-accent dark:ring-amber-400',
           )}
         >
           <BulletIcon className="h-3" />
@@ -354,7 +354,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </div>
       )}
       {incoming !== null && mode !== 'useful' && (
-        <div className="rounded-xl bg-sky-50 p-2 ring-1 ring-sky-300 dark:bg-sky-500/10 dark:ring-sky-500/40">
+        <div className="rounded-xl bg-info-soft p-2 ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/40">
           <div className="grid grid-cols-2 items-center gap-2">
             <Tile tile={incoming} bullet={null} content={content} />
             <p className="text-sm font-semibold">
@@ -364,7 +364,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         </div>
       )}
       {mode === 'useful' && ev?.kind === 'useful-clue' && ev.options && (
-        <div className="space-y-1 rounded-xl bg-sky-50 p-2 ring-1 ring-sky-300 dark:bg-sky-500/10 dark:ring-sky-500/40">
+        <div className="space-y-1 rounded-xl bg-info-soft p-2 ring-1 ring-info-line dark:bg-sky-500/10 dark:ring-sky-500/40">
           <p className="text-sm font-semibold">
             {cur?.tile === undefined
               ? 'Pick one of these tiles:'
@@ -400,7 +400,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
         <div
           role="group"
           aria-label="Confirm"
-          className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-amber-400 lg:bottom-2 dark:bg-stone-900/95"
+          className="sticky bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-white/95 p-1.5 shadow-lg ring-1 ring-accent dark:ring-amber-400 lg:bottom-2 dark:bg-stone-900/95"
         >
           <div className="flex items-center gap-1.5">
             <Button
@@ -452,7 +452,7 @@ export function TipBox({ children, onClose }: { children: ReactNode; onClose: ()
   return (
     <div
       role="note"
-      className="flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
     >
       <span aria-hidden>💡</span>
       <span className="flex-1">{children}</span>

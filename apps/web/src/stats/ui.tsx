@@ -185,7 +185,7 @@ export function ChartCard({
             type="button"
             aria-pressed={asTable}
             onClick={() => setAsTable((v) => !v)}
-            className="-my-2 -mr-2 h-11 shrink-0 rounded-lg px-3 text-xs font-semibold text-stone-600 hover:bg-stone-200/70 focus-visible:outline-2 focus-visible:outline-amber-500 dark:text-stone-300 dark:hover:bg-stone-800"
+            className="-my-2 -mr-2 h-11 shrink-0 rounded-lg px-3 text-xs font-semibold text-stone-600 hover:bg-stone-200/70 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500 dark:text-stone-300 dark:hover:bg-stone-800"
           >
             {asTable ? 'Show as chart' : 'Show as table'}
           </button>
@@ -323,7 +323,7 @@ export function Chip({
       onClick={onClick}
       className={cn(
         'h-11 shrink-0 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
         selected
           ? 'bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900'
           : 'bg-white text-stone-700 ring-1 ring-stone-300 hover:bg-stone-50 dark:bg-stone-900 dark:text-stone-300 dark:ring-stone-700 dark:hover:bg-stone-800',
