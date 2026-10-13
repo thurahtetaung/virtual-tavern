@@ -23,7 +23,7 @@ export function GameCard({
         'flex flex-col gap-3 rounded-2xl p-4 shadow-sm ring-1',
         dark
           ? 'bg-stone-900/90 text-amber-50 ring-amber-900/60'
-          : 'bg-white/80 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800',
+          : 'bg-card/85 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
       )}
     >
       <div className="flex items-center gap-3">
@@ -45,6 +45,7 @@ export function GameCard({
       <div className="flex flex-wrap gap-2">
         <Button
           size="lg"
+          variant={dark ? 'primary' : 'soft'}
           aria-label={`Create ${article(game.name)} ${game.name} room`}
           disabled={creating !== null}
           onClick={() => onCreate(game.id)}
@@ -57,7 +58,7 @@ export function GameCard({
             'inline-flex h-12 items-center rounded-lg px-4 font-semibold',
             dark
               ? 'text-amber-300 hover:bg-amber-950'
-              : 'text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-stone-800',
+              : 'text-amber-700 hover:bg-accent-soft dark:text-amber-400 dark:hover:bg-stone-800',
           )}
         >
           How to play

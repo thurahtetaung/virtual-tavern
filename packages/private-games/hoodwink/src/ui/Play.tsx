@@ -54,8 +54,8 @@ export function Prompt({ prompt, fill }: { prompt: string; fill?: string | null 
         className={cn(
           'mx-0.5 inline-block min-w-[4ch] rounded-md px-1.5 align-baseline',
           fill
-            ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
-            : 'border-b-4 border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+            ? 'bg-success-soft text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200'
+            : 'border-b-4 border-accent dark:border-amber-500 bg-accent-soft text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
         )}
       >
         {fill ?? '\u00a0?\u00a0'}
@@ -116,7 +116,7 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           aria-invalid={blocked ? true : undefined}
           onChange={(e) => setText(e.target.value)}
           placeholder="Something believable…"
-          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-rose-500')}
+          className={cn(INPUT, 'mt-1', blocked && 'ring-2 ring-danger dark:ring-rose-500')}
         />
         {problem && (
           <span role="alert" className="mt-1 block text-sm text-rose-700 dark:text-rose-400">
@@ -178,12 +178,12 @@ function OptionCard({
       onClick={onPick}
       className={cn(
         'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 transition',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
         option.mine
           ? 'cursor-not-allowed bg-stone-100 text-stone-500 ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
           : chosen
-            ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-500/20'
-            : 'bg-white ring-stone-300 hover:bg-amber-50 dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
+            ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
+            : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
       )}
     >
       <span className="min-w-0 break-words">{option.text}</span>
@@ -261,7 +261,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           className={cn(
             'space-y-1 rounded-xl px-4 py-2 ring-1 motion-safe:transition motion-safe:duration-500 motion-safe:starting:translate-y-2 motion-safe:starting:opacity-0',
             o.truth
-              ? 'bg-emerald-50 ring-2 ring-emerald-500 sm:col-span-2 dark:bg-emerald-500/10'
+              ? 'bg-success-soft ring-2 ring-success dark:ring-emerald-500 sm:col-span-2 dark:bg-emerald-500/10'
               : 'bg-white ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700',
           )}
         >
@@ -329,7 +329,7 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
         {gained.map(([id, p]) => (
           <li
             key={id}
-            className="rounded-lg bg-emerald-50 px-3 py-1.5 text-sm dark:bg-emerald-500/10"
+            className="rounded-lg bg-success-soft px-3 py-1.5 text-sm dark:bg-emerald-500/10"
           >
             <span className="flex justify-between gap-2 font-semibold text-emerald-900 dark:text-emerald-200">
               <span className="min-w-0 truncate">{nameOf(view, id)}</span>
@@ -432,7 +432,7 @@ export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomIn
         <Superlatives lines={room.superlatives} />
       ) : (
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-xl bg-rose-50 px-3 py-2 dark:bg-rose-500/10">
+          <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
             <dt className="font-semibold">🎭 Best liar</dt>
             <dd>
               {bestLiar.length > 0
@@ -440,7 +440,7 @@ export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomIn
                 : 'Nobody fooled anyone!'}
             </dd>
           </div>
-          <div className="rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-500/10">
+          <div className="rounded-xl bg-success-soft px-3 py-2 dark:bg-emerald-500/10">
             <dt className="font-semibold">🔎 Truth seeker</dt>
             <dd>
               {truthSeeker.length > 0

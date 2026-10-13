@@ -139,7 +139,7 @@ function TabBar({
       id: 'play',
       icon: '🎯',
       label: 'Play',
-      badge: playAlert && <span className="size-2.5 rounded-full bg-amber-500" />,
+      badge: playAlert && <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />,
     },
     { id: 'clues', icon: '📜', label: 'Clues' },
     {
@@ -147,7 +147,7 @@ function TabBar({
       icon: '💬',
       label: 'Chat',
       badge: unread > 0 && (
-        <span className="rounded-full bg-rose-600 px-1.5 text-[0.65rem] font-bold text-white">
+        <span className="rounded-full bg-team-a dark:bg-rose-600 px-1.5 text-[0.65rem] font-bold text-white">
           {unread}
         </span>
       ),
@@ -273,7 +273,7 @@ export function EnigmaGame({
           <div
             role="status"
             aria-label="Last round"
-            className="rounded-lg bg-amber-100 px-3 py-2 text-center text-sm font-semibold text-amber-950 dark:bg-amber-950 dark:text-amber-100"
+            className="rounded-lg bg-accent-soft px-3 py-2 text-center text-sm font-semibold text-amber-950 dark:bg-amber-950 dark:text-amber-100"
           >
             {endWarnings.map((line) => (
               <p key={line}>{line}</p>

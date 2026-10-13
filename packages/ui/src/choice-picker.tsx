@@ -69,7 +69,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
           <li
             key={c.id}
             title={c.description}
-            className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm ring-1 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40"
+            className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40"
           >
             <span className="font-medium">{c.name}</span>{' '}
             <span className="text-xs text-stone-500 dark:text-stone-400">· {c.count}</span>
@@ -183,7 +183,7 @@ function Picker({
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search…"
         aria-label={`Search ${labels.title.toLowerCase()}`}
-        className="mb-3 h-10 w-full rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+        className="mb-3 h-10 w-full rounded-lg bg-card px-3 ring-1 ring-line-strong dark:bg-stone-800 dark:ring-stone-600"
       />
       <ul className="grid gap-1.5 sm:grid-cols-2">
         {shown.map((c) => {
@@ -194,8 +194,8 @@ function Picker({
                 className={cn(
                   'flex h-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2 ring-1 transition',
                   on
-                    ? 'bg-amber-50 ring-amber-300 dark:bg-amber-500/10 dark:ring-amber-500/40'
-                    : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                    ? 'bg-accent-soft ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40'
+                    : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
                 )}
               >
                 <input

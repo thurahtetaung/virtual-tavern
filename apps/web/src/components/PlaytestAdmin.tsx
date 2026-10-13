@@ -156,7 +156,7 @@ export function PlaytestAdmin() {
                 className={cn(
                   'flex min-h-14 items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold ring-1 transition-colors',
                   g.id === gameId
-                    ? 'bg-amber-100 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/15'
                     : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-700 dark:hover:bg-stone-700/70',
                 )}
               >
@@ -174,7 +174,7 @@ export function PlaytestAdmin() {
                       'mt-0.5 inline-block rounded-full px-1.5 text-[11px] font-semibold',
                       g.bots === 'none'
                         ? 'bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300'
-                        : 'bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-100',
+                        : 'bg-info-soft text-sky-900 dark:bg-sky-500/20 dark:text-sky-100',
                     )}
                   >
                     {BOTS_LABEL[g.bots]}
@@ -254,7 +254,7 @@ export function PlaytestAdmin() {
                       className={cn(
                         'h-11 w-22 shrink-0 rounded-lg text-sm font-semibold ring-1 disabled:opacity-50',
                         seat.bot
-                          ? 'bg-sky-100 text-sky-900 ring-sky-300 dark:bg-sky-500/20 dark:text-sky-100 dark:ring-sky-500/40'
+                          ? 'bg-info-soft text-sky-900 ring-info-line dark:bg-sky-500/20 dark:text-sky-100 dark:ring-sky-500/40'
                           : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
                       )}
                     >
@@ -417,13 +417,13 @@ function RunningPlaytest({
               href={seatLink(roomId, seat)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-amber-800 ring-1 ring-stone-300 hover:bg-amber-50 dark:bg-stone-900 dark:text-amber-300 dark:ring-stone-600 dark:hover:bg-stone-800"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-amber-800 ring-1 ring-stone-300 hover:bg-accent-soft dark:bg-stone-900 dark:text-amber-300 dark:ring-stone-600 dark:hover:bg-stone-800"
             >
               <span
                 aria-hidden
                 className={cn(
                   'size-2 rounded-full',
-                  online.has(seat.playerId) ? 'bg-emerald-500' : 'bg-stone-400',
+                  online.has(seat.playerId) ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
                 )}
               />
               Open {seat.name}
@@ -433,14 +433,14 @@ function RunningPlaytest({
         {bots.map((b) => (
           <li
             key={b.id}
-            className="inline-flex min-h-11 items-center gap-1 rounded-full bg-sky-50 pr-1 pl-3 text-sm font-semibold text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+            className="inline-flex min-h-11 items-center gap-1 rounded-full bg-info-soft pr-1 pl-3 text-sm font-semibold text-sky-900 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
           >
             <span aria-hidden>🤖</span> {b.name}
             {lobby && (
               <button
                 type="button"
                 aria-label={`Remove bot ${b.name}`}
-                className="ml-1 size-9 rounded-full hover:bg-sky-100 dark:hover:bg-sky-500/20"
+                className="ml-1 size-9 rounded-full hover:bg-info-soft dark:hover:bg-sky-500/20"
                 onClick={() => void patch({ removeBot: b.id })}
               >
                 ✕

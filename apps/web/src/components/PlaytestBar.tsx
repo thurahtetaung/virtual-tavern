@@ -7,14 +7,14 @@ import { useToast } from '../lib/toast.tsx';
 
 /** One colour per seat (by join order), so seat tabs look different at a glance. */
 const SEAT_COLOURS = [
-  'bg-violet-100 text-violet-950 ring-violet-300 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40',
-  'bg-sky-100 text-sky-950 ring-sky-300 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
-  'bg-emerald-100 text-emerald-950 ring-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-500/40',
-  'bg-rose-100 text-rose-950 ring-rose-300 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40',
-  'bg-amber-100 text-amber-950 ring-amber-300 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40',
-  'bg-teal-100 text-teal-950 ring-teal-300 dark:bg-teal-500/15 dark:text-teal-100 dark:ring-teal-500/40',
-  'bg-fuchsia-100 text-fuchsia-950 ring-fuchsia-300 dark:bg-fuchsia-500/15 dark:text-fuchsia-100 dark:ring-fuchsia-500/40',
-  'bg-lime-100 text-lime-950 ring-lime-300 dark:bg-lime-500/15 dark:text-lime-100 dark:ring-lime-500/40',
+  'bg-special-soft text-violet-950 ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40',
+  'bg-info-soft text-sky-950 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
+  'bg-success-soft text-emerald-950 ring-success-line dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-500/40',
+  'bg-danger-soft text-rose-950 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40',
+  'bg-accent-soft text-amber-950 ring-accent-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40',
+  'bg-success-soft text-teal-950 ring-success-line dark:bg-teal-500/15 dark:text-teal-100 dark:ring-teal-500/40',
+  'bg-special-soft text-fuchsia-950 ring-special-line dark:bg-fuchsia-500/15 dark:text-fuchsia-100 dark:ring-fuchsia-500/40',
+  'bg-success-soft text-lime-950 ring-success-line dark:bg-lime-500/15 dark:text-lime-100 dark:ring-lime-500/40',
 ];
 
 /**

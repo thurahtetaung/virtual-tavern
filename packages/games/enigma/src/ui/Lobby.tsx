@@ -47,7 +47,10 @@ export function PlayerName({
     <span className="inline-flex items-center gap-1.5">
       <span
         aria-hidden
-        className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
+        className={cn(
+          'size-2 rounded-full',
+          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
+        )}
       />
       <PlayerTag
         name={seat?.name ?? '?'}
@@ -184,7 +187,7 @@ export function Lobby({
                   className={cn(
                     'rounded-lg px-3 py-2 text-left ring-1 transition',
                     view.settings.flow === f.flow
-                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                       : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                   )}
                 >

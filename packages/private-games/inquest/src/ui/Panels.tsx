@@ -139,7 +139,7 @@ export function RoleCard({
         {shown ? (
           <>
             {open && (
-              <p className="inline-block rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+              <p className="inline-block rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
                 🔬 Everyone knows you{role === 'former-forensic' ? ' were' : '’re'} the Forensic
                 Scientist.
               </p>
@@ -195,7 +195,7 @@ function Knowledge({ view, content }: { view: InquestView; content: Content }) {
     );
   if (!lines.length) return null;
   return (
-    <ul className="space-y-0.5 rounded-lg bg-rose-50 p-2 text-rose-950 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30">
+    <ul className="space-y-0.5 rounded-lg bg-danger-soft p-2 text-rose-950 ring-1 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30">
       {lines.map((l) => (
         <li key={l}>🤫 {l}</li>
       ))}
@@ -216,7 +216,7 @@ export function ForensicLine({ view }: { view: InquestView }) {
       aria-label="Forensic Scientist"
       className="flex flex-wrap items-center gap-x-1.5 text-xs text-stone-600 dark:text-stone-400"
     >
-      <span className="rounded-full bg-sky-100 px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+      <span className="rounded-full bg-info-soft px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
         🔬 Forensic Scientist: {nameOf(view, g.fs)}
       </span>
       {former.length > 0 && <span>took over from {former.join(', ')}</span>}
@@ -230,7 +230,7 @@ export function SolutionPin({ view, content }: { view: InquestView; content: Con
   const s = g.solution;
   if (!s || g.stage === 'done') return null;
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-rose-950/90 p-1.5 text-rose-50 ring-1 ring-rose-500">
+    <div className="flex items-center gap-2 rounded-xl bg-rose-950/90 p-1.5 text-rose-50 ring-1 ring-danger dark:ring-rose-500">
       <div className="w-10 shrink-0">
         <ArtCard deck="clue" n={s.clue} content={content} size="thumb" />
       </div>
@@ -375,7 +375,11 @@ export function NightPanel({
       </Panel>
     );
   return (
-    <Panel role="region" aria-label="Choose your crime" className="space-y-2 ring-2 ring-rose-500">
+    <Panel
+      role="region"
+      aria-label="Choose your crime"
+      className="space-y-2 ring-2 ring-danger dark:ring-rose-500"
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">🔪 Choose your crime</h3>
         {clock}
@@ -451,7 +455,7 @@ export function FlipPanel({
     <Panel
       role="region"
       aria-label="Flip a Clue card"
-      className={cn('space-y-2', mine && 'ring-2 ring-amber-500')}
+      className={cn('space-y-2', mine && 'ring-2 ring-accent dark:ring-amber-500')}
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="min-w-0 font-bold">🃏 {content.eventName('ruled-out')}</h3>
@@ -469,7 +473,8 @@ export function FlipPanel({
             className={cn(
               'rounded-full px-2 py-0.5 ring-1 ring-stone-300 dark:ring-stone-600',
               i < ev.index && 'line-through opacity-60',
-              i === ev.index && 'bg-amber-500 font-bold text-stone-950 ring-amber-600',
+              i === ev.index &&
+                'bg-accent dark:bg-amber-500 font-bold text-accent-fg dark:text-stone-950 ring-accent',
             )}
           >
             {id === me?.id ? 'you' : nameOf(view, id)}
@@ -556,7 +561,11 @@ export function ReversalPanel({
   const tappedBy = (id: string) =>
     team.filter((t) => t.id !== view.me?.id && keyOf(t.role) && r[keyOf(t.role)] === id);
   return (
-    <Panel role="region" aria-label="The Reversal" className="space-y-2 ring-2 ring-rose-500">
+    <Panel
+      role="region"
+      aria-label="The Reversal"
+      className="space-y-2 ring-2 ring-danger dark:ring-rose-500"
+    >
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">⚖️ The Reversal</h3>
         <Countdown
@@ -650,7 +659,9 @@ export function OverScreen({
       <Panel
         className={cn(
           'space-y-2 text-center',
-          r.winner === 'investigators' ? 'ring-2 ring-emerald-500' : 'ring-2 ring-rose-500',
+          r.winner === 'investigators'
+            ? 'ring-2 ring-success dark:ring-emerald-500'
+            : 'ring-2 ring-danger dark:ring-rose-500',
         )}
       >
         <p className="text-3xl">{r.winner === 'investigators' ? '🕵️' : '🩸'}</p>

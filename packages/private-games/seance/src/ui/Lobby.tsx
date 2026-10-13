@@ -51,7 +51,7 @@ function Choice({
       className={cn(
         'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
-          ? 'bg-amber-500 text-stone-950 ring-amber-600'
+          ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
           : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50 disabled:opacity-60 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600 dark:hover:bg-stone-700',
       )}
     >
@@ -141,7 +141,9 @@ export function Lobby({
                 </span>
               )}
               {s.ghostMode === 'host' && s.ghostPick === p.id && (
-                <span className="rounded bg-violet-500/20 px-1 text-xs font-bold">ghost</span>
+                <span className="rounded bg-special/20 dark:bg-violet-500/20 px-1 text-xs font-bold">
+                  ghost
+                </span>
               )}
               {!p.playing && <span className="text-xs">watching</span>}
             </li>
@@ -192,7 +194,7 @@ export function Lobby({
                     className={cn(
                       'rounded-full p-0.5 transition disabled:opacity-35',
                       mine
-                        ? 'ring-4 ring-amber-500'
+                        ? 'ring-4 ring-accent dark:ring-amber-500'
                         : 'ring-1 ring-transparent hover:ring-stone-400',
                     )}
                   >

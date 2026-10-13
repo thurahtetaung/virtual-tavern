@@ -128,8 +128,8 @@ function Announcements({
             className={cn(
               'rounded-lg px-3 py-1.5 text-sm',
               light
-                ? 'bg-emerald-950/80 text-emerald-50 ring-1 ring-emerald-400/40'
-                : 'bg-emerald-50 text-emerald-950 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30',
+                ? 'bg-emerald-950/80 text-emerald-50 ring-1 ring-success/40 dark:ring-emerald-400/40'
+                : 'bg-success-soft text-emerald-950 ring-1 ring-success-line dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30',
             )}
           >
             <span className="font-semibold">📣 {announcementTitle(a, deck)}: </span>
@@ -395,7 +395,7 @@ function WhereYouStand({ view, deck }: { view: NightfallView; deck: Deck }) {
     <section
       aria-label="Where you stand now"
       data-testid="standing"
-      className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30"
+      className="space-y-1 rounded-lg bg-accent-soft px-3 py-2 text-sm ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30"
     >
       <p className="font-semibold">Where you stand now</p>
       <p className="flex flex-wrap items-center gap-1">
@@ -655,8 +655,8 @@ function PromptPanel({
                   className={cn(
                     'flex h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold ring-1 transition',
                     picked
-                      ? 'bg-amber-400 text-stone-950 ring-amber-500'
-                      : 'bg-indigo-900/60 text-indigo-50 ring-indigo-400/40 hover:bg-indigo-800',
+                      ? 'bg-accent-line dark:bg-amber-400 text-stone-950 ring-accent dark:ring-amber-500'
+                      : 'bg-indigo-900/60 text-indigo-50 ring-special/40 dark:ring-indigo-400/40 hover:bg-indigo-800',
                     !legal && 'opacity-35',
                   )}
                 >
@@ -692,7 +692,7 @@ function PromptPanel({
                   onClick={() => toggleCentre(i)}
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-lg ring-offset-2 ring-offset-indigo-950 transition',
-                    picked && 'ring-4 ring-amber-400',
+                    picked && 'ring-4 ring-accent dark:ring-amber-400',
                     !legal && 'opacity-35',
                   )}
                 >
@@ -747,7 +747,7 @@ function PromptPanel({
         {!prompt.mandatory && (
           <button
             type="button"
-            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
+            className="inline-flex h-11 items-center justify-center rounded-xl px-4 font-semibold text-indigo-50 ring-1 ring-special-line/60 dark:ring-indigo-300/60 transition hover:bg-indigo-800 focus-visible:ring-2 focus-visible:ring-accent dark:focus-visible:ring-amber-400 focus-visible:outline-none"
             onClick={() => send({ pass: true })}
           >
             {prompt.stage === 'point' ? 'Point at nobody' : 'Skip'}
@@ -879,7 +879,7 @@ export function Night({
     >
       {acting && (
         <div
-          className="flex flex-col items-center gap-2 bg-amber-300 px-4 pt-6 pb-4 text-center text-stone-950"
+          className="flex flex-col items-center gap-2 bg-accent-line dark:bg-amber-300 px-4 pt-6 pb-4 text-center text-stone-950"
           data-testid="your-turn"
         >
           <p className="text-4xl font-black tracking-widest" role="alert">
@@ -924,7 +924,7 @@ export function Night({
         <Narration lines={lines} deck={deck} awake={acting !== null} />
         {acting ? (
           // Its own surface rather than <Panel>: the night is dark in both themes.
-          <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-indigo-500/50">
+          <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-special/50 dark:ring-indigo-500/50">
             {dusk ? (
               <div className="flex flex-col items-center gap-2 text-center" data-testid="dusk">
                 <p className="text-lg font-bold">Everyone is awake: look at your Mark</p>
@@ -993,7 +993,7 @@ export function Night({
             )}
             {(acting.told || acting.ripple) && (
               <p
-                className="rounded-lg bg-indigo-950/80 px-3 py-2 text-sm ring-1 ring-indigo-300/40"
+                className="rounded-lg bg-indigo-950/80 px-3 py-2 text-sm ring-1 ring-special-line/40 dark:ring-indigo-300/40"
                 data-testid="told"
               >
                 <span className="font-semibold">The narrator says: </span>
@@ -1016,7 +1016,7 @@ export function Night({
                 {now.map((n) => (
                   <li
                     key={n.id}
-                    className="rounded-lg bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
+                    className="rounded-lg bg-accent-line dark:bg-amber-300 px-3 py-2 text-sm font-semibold text-stone-950"
                   >
                     <WithChips
                       text={describeNote(
@@ -1172,9 +1172,9 @@ function TableList({
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id || picked2 === p.id
                     ? protects
-                      ? 'bg-emerald-600 text-white ring-emerald-600'
-                      : 'bg-rose-600 text-white ring-rose-600'
-                    : 'bg-white ring-stone-300 hover:bg-rose-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
+                      ? 'bg-success dark:bg-emerald-600 text-white ring-success dark:ring-emerald-600'
+                      : 'bg-danger dark:bg-rose-600 text-white ring-danger dark:ring-rose-600'
+                    : 'bg-white ring-stone-300 hover:bg-danger-soft dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
                 )}
               >
                 {body}
@@ -1211,7 +1211,7 @@ function Nudge({ view, room }: { view: NightfallView; room: GameRoomInfo }) {
       aria-live="polite"
       data-testid="nudge"
       className={cn(
-        'rounded-lg bg-indigo-50 px-3 py-1.5 text-center text-sm font-medium text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200',
+        'rounded-lg bg-special-soft px-3 py-1.5 text-center text-sm font-medium text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-200',
         !text && 'hidden',
       )}
     >
@@ -1327,7 +1327,7 @@ export function Day({
                   onClick={() => setHand(h)}
                   className={cn(
                     'rounded-lg px-2 py-1 font-semibold ring-1 ring-stone-300 dark:ring-stone-700',
-                    hand === h && 'bg-rose-600 text-white ring-rose-600',
+                    hand === h && 'bg-danger dark:bg-rose-600 text-white ring-danger',
                   )}
                 >
                   {h === 1 ? 'First hand' : 'Second hand'}

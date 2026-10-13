@@ -49,14 +49,14 @@ const seatsOpen = (view: ReverieView) =>
   view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
 
 const COLOR_DOT: Record<SeatColor, string> = {
-  red: 'bg-red-500',
-  blue: 'bg-blue-500',
-  green: 'bg-emerald-500',
-  yellow: 'bg-yellow-400',
-  purple: 'bg-purple-500',
-  orange: 'bg-orange-500',
-  pink: 'bg-pink-400',
-  teal: 'bg-teal-500',
+  red: 'bg-danger dark:bg-red-500',
+  blue: 'bg-info dark:bg-blue-500',
+  green: 'bg-success dark:bg-emerald-500',
+  yellow: 'bg-warn-line dark:bg-yellow-400',
+  purple: 'bg-special dark:bg-purple-500',
+  orange: 'bg-warn dark:bg-orange-500',
+  pink: 'bg-danger-line dark:bg-pink-400',
+  teal: 'bg-success dark:bg-teal-500',
 };
 
 /** A set description that only lists card numbers ("Cards 000–084") means nothing to players. */
@@ -155,7 +155,7 @@ export function ReverieGame({
                     className={cn(
                       'rounded-lg px-4 py-2 font-semibold ring-1 transition',
                       view.settings.targetScore === t
-                        ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                        ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                         : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                     )}
                   >
@@ -332,7 +332,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
               className={cn(
                 'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm ring-1',
                 story
-                  ? 'bg-amber-100 ring-amber-400 dark:bg-amber-500/20 dark:ring-amber-500'
+                  ? 'bg-accent-soft ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
                   : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
                 turn && turn.phase !== 'reveal' && !s.done && !story && 'opacity-60',
               )}
@@ -657,7 +657,7 @@ function Play({
                   selected={turn.myVote === i}
                   dimmed={canVote && t.mine}
                   onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
-                  className={cn(t.isStory && 'ring-4 ring-emerald-500 dark:ring-emerald-400')}
+                  className={cn(t.isStory && 'ring-4 ring-success dark:ring-emerald-400')}
                 />
                 {turn.phase === 'reveal' && (
                   <div className="text-center text-xs leading-snug">

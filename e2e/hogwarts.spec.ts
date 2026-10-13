@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
   type Player,
-  type Words,
   claim,
   claimSession,
   eligible,
@@ -13,61 +12,12 @@ import {
   readRoles,
   voteAll,
 } from './hydra-play.ts';
+import { MANIFEST, WORDS } from './hogwarts-manifest.ts';
 import { openBackroom } from './inquest-play.ts';
 
 // Hydra's themed edition, played with a made-up manifest: every name, a few copy lines and the
 // team colours come from it, as the real (private) one does. Nothing of Hydra's own words may
 // show. The server stacks red policies on top of every deck (`HYDRA_TEST_DECK`).
-
-const MANIFEST = {
-  title: 'Lantern',
-  names: {
-    blue: 'Glow',
-    blues: 'Glows',
-    red: 'Dusk',
-    reds: 'Dusks',
-    leader: 'the Archon',
-    yes: 'Bright',
-    no: 'Dim',
-    president: 'Warden',
-    chancellor: 'Keeper',
-    candidate: 'Warden-elect',
-    presidentShort: 'Ward',
-    chancellorShort: 'Keep',
-    policy: 'edict',
-    policies: 'edicts',
-    party: 'sigil',
-    veto: 'quench',
-    bluePolicy: 'Sunlit',
-    redPolicy: 'Shadowed',
-  },
-  powers: {
-    investigate: { name: 'Scry' },
-    special: { name: 'Beckon' },
-    peek: { name: 'Glimpse' },
-    execute: { name: 'Snuff' },
-  },
-  copy: {
-    'talk.claims': 'Grill the {president} and the {chancellor} before the next nomination.',
-    'moment.cleared.stamp': 'Cleared: not {leaderName}',
-  },
-  colors: { blue: '#9b2335', red: '#6b3fa0' },
-};
-
-const WORDS: Words = {
-  create: /Create an? Hydra: Wands room/,
-  team: { blue: 'Glow', red: 'Dusk' },
-  blue: 'Sunlit',
-  red: 'Shadowed',
-  leader: 'Archon',
-  yes: 'Bright',
-  no: 'Dim',
-  president: 'Warden',
-  chancellor: 'Keeper',
-  candidate: 'Warden-elect',
-  policy: 'edict',
-  policies: 'edicts',
-};
 
 /**
  * Hydra's own words, which the edition replaces everywhere. (The room's header shows the game's

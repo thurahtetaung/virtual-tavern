@@ -82,7 +82,7 @@ export function VotePanel({ view, act }: { view: RoundTableView; act: Act }) {
       className={cn(
         BIG,
         vote.myVote !== null && vote.myVote !== approve && 'opacity-40',
-        vote.myVote === approve && 'ring-4 ring-amber-400',
+        vote.myVote === approve && 'ring-4 ring-accent dark:ring-amber-400',
       )}
       onClick={() => void act({ type: 'vote', approve })}
     >
@@ -180,7 +180,7 @@ export function LadyResult({ view }: { view: RoundTableView }) {
   return (
     <p
       role="status"
-      className="rounded-xl bg-sky-50 px-3 py-2 text-center text-sm ring-1 ring-sky-200 dark:bg-sky-500/10 dark:ring-sky-500/30"
+      className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-sm ring-1 ring-team-b-line dark:bg-sky-500/10 dark:ring-sky-500/30"
       data-testid="lady-result"
     >
       🌊 The Lady shows you: <b>{nameOf(view, last.target)}</b> is{' '}
@@ -297,8 +297,8 @@ export function QuestResultBanner({ result }: { result: QuestResult }) {
       className={cn(
         'rounded-xl px-3 py-2 text-center font-semibold ring-1',
         result.success
-          ? 'bg-blue-50 text-blue-900 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-100 dark:ring-blue-500/30'
-          : 'bg-red-50 text-red-900 ring-red-200 dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30',
+          ? 'bg-team-b-soft text-blue-900 ring-team-b-line dark:bg-blue-500/10 dark:text-blue-100 dark:ring-blue-500/30'
+          : 'bg-team-a-soft text-red-900 ring-team-a-line dark:bg-red-500/10 dark:text-red-100 dark:ring-red-500/30',
       )}
     >
       Quest {result.slot + 1} {result.success ? 'succeeded' : 'was sunk'}: {result.fails} Fail{' '}
@@ -329,7 +329,7 @@ export function LatestNews({ view }: { view: RoundTableView }) {
 /** A dismissible first-time tip. */
 export function Tip({ children, onDismiss }: { children: string; onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-950 ring-1 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
+    <div className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-violet-950 ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
       <span aria-hidden>💡</span>
       <span className="flex-1">{children}</span>
       <button type="button" className="shrink-0 font-semibold underline" onClick={onDismiss}>

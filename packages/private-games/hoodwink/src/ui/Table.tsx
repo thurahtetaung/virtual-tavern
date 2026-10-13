@@ -5,16 +5,16 @@ import { points } from './status.ts';
 type Act = (a: HoodwinkAction) => Promise<boolean>;
 
 const AVATAR_TONES = [
-  'bg-rose-500',
-  'bg-amber-500',
-  'bg-emerald-600',
-  'bg-sky-600',
-  'bg-violet-600',
-  'bg-fuchsia-600',
-  'bg-teal-600',
-  'bg-orange-600',
-  'bg-lime-600',
-  'bg-indigo-600',
+  'bg-danger dark:bg-rose-500',
+  'bg-accent dark:bg-amber-500',
+  'bg-success dark:bg-emerald-600',
+  'bg-info dark:bg-sky-600',
+  'bg-special dark:bg-violet-600',
+  'bg-special dark:bg-fuchsia-600',
+  'bg-success dark:bg-teal-600',
+  'bg-warn dark:bg-orange-600',
+  'bg-success dark:bg-lime-600',
+  'bg-special dark:bg-indigo-600',
 ];
 
 /**
@@ -77,7 +77,10 @@ function PlayerChip({
     <li className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800">
       <span
         aria-hidden
-        className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
+        className={cn(
+          'size-2 rounded-full',
+          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
+        )}
       />
       <PlayerTag name={name} you={you} host={host} offline={!online} />
       {mark && (

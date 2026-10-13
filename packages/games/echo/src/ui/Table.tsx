@@ -28,7 +28,10 @@ function PlayerChip({
     >
       <span
         aria-hidden
-        className={cn('size-2 rounded-full', online ? 'bg-emerald-500' : 'bg-stone-400')}
+        className={cn(
+          'size-2 rounded-full',
+          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
+        )}
       />
       <span className="text-xs font-bold text-stone-500 tabular-nums">{order}</span>
       <PlayerTag name={name} host={host} you={you} offline={!online} />

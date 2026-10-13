@@ -358,14 +358,14 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
           <li key={l.id}>
             <Panel
               className={cn(
-                'flex items-center gap-1 p-0 pr-2 transition hover:ring-amber-400',
+                'flex items-center gap-1 p-0 pr-2 transition hover:ring-accent dark:hover:ring-amber-400',
                 !l.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
               )}
             >
               <button
                 type="button"
                 onClick={() => void open(l.id)}
-                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
               >
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2">
@@ -554,7 +554,7 @@ function QuestionDecks() {
                     {d.name}
                   </span>
                   {d.adult && (
-                    <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
+                    <span className="inline-flex items-center rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-200">
                       Adult
                     </span>
                   )}
@@ -668,7 +668,7 @@ function Switch({
       }}
       className={cn(
         'inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-lg',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
         busy && 'cursor-wait',
       )}
       {...aria}
@@ -677,7 +677,7 @@ function Switch({
         aria-hidden="true"
         className={cn(
           'relative h-6 w-11 rounded-full transition-colors',
-          checked ? 'bg-amber-600 dark:bg-amber-500' : 'bg-stone-300 dark:bg-stone-600',
+          checked ? 'bg-accent dark:bg-amber-500' : 'bg-stone-300 dark:bg-stone-600',
         )}
       >
         <span
@@ -700,7 +700,7 @@ function GameTags({ ids, games }: { ids: readonly string[]; games: readonly Game
       {names.map((n) => (
         <span
           key={n}
-          className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
+          className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
         >
           {n}
         </span>

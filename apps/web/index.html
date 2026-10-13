@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Virtual Tavern</title>
     <meta name="description" content="Play party games with friends in your browser." />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#d97706" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2ece2" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c0a09" />
     <script>
       // Pick the theme before the first paint so a saved choice never flashes the other one.
@@ -24,7 +24,7 @@
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
         if (explicit) {
           var metas = document.querySelectorAll('meta[name="theme-color"]');
-          for (var i = 0; i < metas.length; i++) metas[i].content = dark ? '#0c0a09' : '#d97706';
+          for (var i = 0; i < metas.length; i++) metas[i].content = dark ? '#0c0a09' : '#f2ece2';
         }
       })();
     </script>

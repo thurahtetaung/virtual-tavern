@@ -12,7 +12,7 @@ type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 /** The silent reminder on every ghost screen. */
 export function SilentNote() {
   return (
-    <p className="rounded-xl bg-violet-950 px-3 py-1.5 text-center text-sm text-violet-100 ring-1 ring-violet-700">
+    <p className="rounded-xl bg-violet-950 px-3 py-1.5 text-center text-sm text-violet-100 ring-1 ring-special dark:ring-violet-700">
       🤫 You’re the ghost: not a word, a nod or a sigh. Your pictures do the talking.
     </p>
   );
@@ -71,7 +71,7 @@ export function GhostPsychics({
             <li key={p.color}>
               <Panel
                 role="region"
-                className={cn('p-2', needs && 'ring-2 ring-amber-400')}
+                className={cn('p-2', needs && 'ring-2 ring-accent dark:ring-amber-400')}
                 aria-label={`${p.name} (ghost view)`}
               >
                 <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -88,7 +88,7 @@ export function GhostPsychics({
                       </span>
                     </Card>
                   ) : (
-                    <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-emerald-600/15 text-2xl">
+                    <div className="flex aspect-[1024/700] items-center justify-center rounded-lg bg-success/15 dark:bg-emerald-600/15 text-2xl">
                       ✅
                     </div>
                   )}
@@ -104,7 +104,7 @@ export function GhostPsychics({
                         </span>
                       </p>
                       {needs ? (
-                        <span className="rounded-full bg-amber-400 px-2 text-[11px] font-bold text-stone-950">
+                        <span className="rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[11px] font-bold text-stone-950">
                           needs a vision
                         </span>
                       ) : pillar && sending ? (
@@ -132,8 +132,8 @@ export function GhostPsychics({
                               note={`${p.name}’s guess`}
                               className={cn(
                                 p.intuition === target
-                                  ? 'ring-2 ring-emerald-500'
-                                  : 'ring-2 ring-rose-500',
+                                  ? 'ring-2 ring-success dark:ring-emerald-500'
+                                  : 'ring-2 ring-danger dark:ring-rose-500',
                               )}
                             />
                           </div>

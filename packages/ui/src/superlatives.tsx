@@ -25,7 +25,7 @@ export function Superlatives({
     <section
       aria-label="Superlatives"
       className={cn(
-        'rounded-xl bg-amber-50 px-3 py-2 text-left ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30',
+        'rounded-xl bg-accent-soft px-3 py-2 text-left ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30',
         className,
       )}
     >

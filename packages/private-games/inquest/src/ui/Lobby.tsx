@@ -52,7 +52,7 @@ function Choice({
       className={cn(
         'min-h-10 rounded-lg px-3 py-1.5 text-sm font-semibold ring-1 transition-colors disabled:cursor-not-allowed',
         on
-          ? 'bg-amber-500 text-stone-950 ring-amber-600'
+          ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
           : 'bg-white text-stone-700 ring-stone-300 hover:bg-stone-50 disabled:opacity-60 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600 dark:hover:bg-stone-700',
       )}
     >
@@ -154,7 +154,9 @@ export function Lobby({
                 </span>
               )}
               {s.fsPick === p.id && (s.fsMode === 'host' || s.fsMode === 'host-volunteers') && (
-                <span className="rounded bg-amber-500/20 px-1 text-xs font-bold">FS</span>
+                <span className="rounded bg-accent/20 dark:bg-amber-500/20 px-1 text-xs font-bold">
+                  FS
+                </span>
               )}
               {!p.playing && <span className="text-xs">watching</span>}
             </li>

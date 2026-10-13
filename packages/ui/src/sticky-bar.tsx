@@ -43,7 +43,7 @@ export function StickyBar({ children }: { children: ReactNode }) {
         {!floating && children}
       </div>
       {floating && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95">
           {children}
         </div>
       )}

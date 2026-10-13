@@ -83,7 +83,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
           aria-hidden
           className={cn(
             'mr-1 inline-block size-2 rounded-full',
-            stale ? 'bg-stone-400' : 'animate-pulse bg-green-600',
+            stale ? 'bg-stone-400' : 'animate-pulse bg-success dark:bg-green-600',
           )}
         />
         {stale ? 'Reconnecting… showing the last answer.' : 'Live · refreshes every 5 seconds'}
@@ -181,7 +181,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                         <Badge
                           className={
                             room.phase === 'playing'
-                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
+                              ? 'bg-accent-soft text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
                               : undefined
                           }
                         >

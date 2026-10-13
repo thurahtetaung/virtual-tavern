@@ -158,7 +158,7 @@ export function HoodwinkGame({
         {view.phase === 'playing' && view.round?.double && (
           <p
             data-testid="final-round"
-            className="rounded-xl bg-rose-100 px-3 py-2 text-center text-sm font-bold text-rose-900 ring-1 ring-rose-300 dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+            className="rounded-xl bg-danger-soft px-3 py-2 text-center text-sm font-bold text-rose-900 ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
           >
             🔥 Final round: every point counts double!
           </p>

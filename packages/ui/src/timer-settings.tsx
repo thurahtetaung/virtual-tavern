@@ -115,8 +115,8 @@ export function TimerSettings({
                 className={cn(
                   'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-not-allowed',
                   current === m.mode
-                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
-                    : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
+                    ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
+                    : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
                 )}
               >
                 <span className="block font-semibold">{m.title}</span>

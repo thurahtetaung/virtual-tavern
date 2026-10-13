@@ -131,7 +131,7 @@ export function RefusalSlot({ anchor, className }: { anchor: string; className?:
     <p
       role="alert"
       className={
-        'mt-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30 ' +
+        'mt-2 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/10 dark:text-rose-100 dark:ring-rose-500/30 ' +
         (className ?? '')
       }
     >

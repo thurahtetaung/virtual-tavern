@@ -86,7 +86,7 @@ export function VisionStrip({
             onTap={() => onOpen(i)}
           >
             {v.hour === g.hour && g.stage !== 'done' && (
-              <span className="absolute top-1 right-1 size-2.5 rounded-full bg-amber-400 ring-2 ring-stone-900" />
+              <span className="absolute top-1 right-1 size-2.5 rounded-full bg-accent-line dark:bg-amber-400 ring-2 ring-stone-900" />
             )}
           </Card>
         </li>
@@ -222,7 +222,7 @@ export function ReadyBar({
   const waiting = notReady(g).filter((p) => p.color !== me.color);
   return (
     <div className="sticky bottom-16 z-10 space-y-1 lg:static">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-violet-50 shadow-lg lg:shadow-none px-2 py-1.5 ring-1 ring-violet-200 dark:bg-violet-950 dark:ring-violet-500/30">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft shadow-lg lg:shadow-none px-2 py-1.5 ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30">
         <p className="min-w-0 flex-1 text-sm">
           {pillar
             ? me.intuition !== null
@@ -303,7 +303,7 @@ export function OthersTab({
                     </span>
                   </p>
                   {p.ready && g.stage === 'visions' && (
-                    <span className="rounded-full bg-emerald-600 px-2 text-xs font-bold text-white">
+                    <span className="rounded-full bg-success dark:bg-emerald-600 px-2 text-xs font-bold text-white">
                       ready
                     </span>
                   )}

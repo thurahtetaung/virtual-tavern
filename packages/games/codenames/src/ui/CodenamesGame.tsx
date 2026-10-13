@@ -189,7 +189,7 @@ function InGame({
             className={cn(
               'flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-xl px-4 py-3 text-center text-sm ring-2 sm:text-base',
               alert.mine || alert.canTake
-                ? 'bg-amber-100 font-semibold text-amber-950 ring-amber-400 dark:bg-amber-500/15 dark:text-amber-100'
+                ? 'bg-accent-soft font-semibold text-amber-950 ring-accent dark:ring-amber-400 dark:bg-amber-500/15 dark:text-amber-100'
                 : 'bg-stone-100 text-stone-700 ring-stone-300 dark:bg-stone-800/70 dark:text-stone-300 dark:ring-stone-600',
             )}
           >

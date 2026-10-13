@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import {
   dismissAnyEvent,
@@ -18,6 +18,7 @@ import {
 } from './inquest-play.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
 import * as hy from './hydra-play.ts';
+import { MANIFEST as HOGWARTS, WORDS as HOGWARTS_WORDS } from './hogwarts-manifest.ts';
 import * as rt from './round-table-play.ts';
 import {
   VAMPIRES,
@@ -33,6 +34,16 @@ import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
+
+// SHOT_SCHEME=light (or dark) takes every screenshot in that colour scheme, phones included.
+const forcedScheme = process.env.SHOT_SCHEME as 'light' | 'dark' | undefined;
+const forced = new WeakSet<Browser>();
+test.beforeEach(({ browser }) => {
+  if (!forcedScheme || forced.has(browser)) return;
+  forced.add(browser);
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = (options) => newContext({ ...options, colorScheme: forcedScheme });
+});
 
 const cards = (p: Page) => p.getByRole('region', { name: 'Word cards' }).getByRole('button');
 
@@ -2054,6 +2065,47 @@ for (const [label, viewport] of [
       await host.getByRole('region', { name: 'The truth' }).scrollIntoViewIfNeeded();
       await shot(host, 'end-truth');
     }
+    expect(errors).toEqual([]);
+  });
+  // Hydra's themed edition with a made-up manifest: its own names and team colours.
+  test(`hogwarts screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const phone = label === 'phone';
+    const errors: string[] = [];
+    const opts = {
+      viewport,
+      colorScheme: phone ? ('dark' as const) : ('light' as const),
+      moments: true,
+      manifest: { gameId: 'hogwarts', body: HOGWARTS },
+    };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({ path: `test-results/shots/hogwarts-${label}-${name}.png`, fullPage: !phone });
+    await openInquestBackroom(await inquestVisitor(browser, 'Admin', errors, opts));
+    const players = await hy.hydraTable(
+      browser,
+      ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'],
+      errors,
+      opts,
+      HOGWARTS_WORDS,
+    );
+    const host = players[0]!.page;
+    await shot(host, 'lobby');
+    await host.getByRole('button', { name: 'Start with 5 players' }).click();
+    await hy.readRoles(players);
+    const pres = await hy.president(players);
+    const chan = await hy.eligible(pres, players, (p) => p.role === 'leader');
+    await hy.nominate(pres, chan.name);
+    await hy.voteAll(players);
+    await expect(host.getByTestId('moment')).toBeVisible();
+    await host.waitForTimeout(2200);
+    await shot(host, 'vote-reveal');
+    const gov = await hy.legislate(players, 'red');
+    await expect(host.getByTestId('moment')).toBeVisible();
+    await host.waitForTimeout(1800);
+    await shot(host, 'enact-moment');
+    await hy.claimSession(gov);
+    await host.waitForTimeout(600);
+    await shot(host, 'table');
     expect(errors).toEqual([]);
   });
 }

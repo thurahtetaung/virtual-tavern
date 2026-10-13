@@ -79,7 +79,7 @@ function Leaderboard() {
                 <button
                   type="button"
                   onClick={() => ctx.setParams({ player: p.id })}
-                  className="flex min-h-11 w-full min-w-0 flex-col justify-center rounded-lg text-left hover:text-amber-700 focus-visible:outline-2 focus-visible:outline-amber-500 dark:hover:text-amber-400"
+                  className="flex min-h-11 w-full min-w-0 flex-col justify-center rounded-lg text-left hover:text-amber-700 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500 dark:hover:text-amber-400"
                 >
                   <span className="truncate font-semibold">{p.name}</span>
                   {p.aliases.length > 1 && (

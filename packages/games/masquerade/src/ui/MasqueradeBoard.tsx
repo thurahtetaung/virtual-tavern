@@ -94,9 +94,9 @@ function TopBar({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
   const live = view.phase === 'playing' && round.stage !== 'reveal';
   const chip =
     round.role === 'spy'
-      ? { text: '🎭 Spy', cls: 'bg-violet-600 text-white' }
+      ? { text: '🎭 Spy', cls: 'bg-special dark:bg-violet-600 text-white' }
       : round.role === 'local'
-        ? { text: '📍 Local', cls: 'bg-emerald-600 text-white' }
+        ? { text: '📍 Local', cls: 'bg-success dark:bg-emerald-600 text-white' }
         : { text: '👀 Watching', cls: 'bg-stone-200 dark:bg-stone-800' };
   return (
     <div className="flex items-center justify-between gap-2">
@@ -135,7 +135,7 @@ function Nudge({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
       aria-live="polite"
       data-testid="nudge"
       className={cn(
-        'rounded-lg bg-violet-50 px-3 py-1.5 text-center text-sm font-medium text-violet-900 dark:bg-violet-500/10 dark:text-violet-200',
+        'rounded-lg bg-special-soft px-3 py-1.5 text-center text-sm font-medium text-violet-900 dark:bg-violet-500/10 dark:text-violet-200',
         !text && 'hidden',
       )}
     >
@@ -246,7 +246,7 @@ function Coaching({ round, display }: { round: RoundView; display: LocationDispl
       : (round.location && display.tip(round.location)) ||
         'Hint that you know the place, but keep it vague enough that the spy can’t work it out.';
   return (
-    <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30">
+    <p className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-amber-950 ring-1 ring-accent-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30">
       <b>💡 Coaching: </b>
       {tip}
     </p>
@@ -372,7 +372,7 @@ function VotePanel({
             className={cn(
               'h-12 truncate rounded-lg px-3 font-semibold ring-1 transition',
               round.myVote === p.id
-                ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                 : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
             )}
           >
@@ -661,7 +661,7 @@ function LocationsBoard({
         </span>
       </div>
       {guessing && (
-        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-xl bg-amber-100 p-2 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:ring-amber-500/40">
+        <div className="sticky top-0 z-10 flex items-center gap-2 rounded-xl bg-accent-soft p-2 ring-1 ring-accent-line dark:bg-amber-500/20 dark:ring-amber-500/40">
           <span className="min-w-0 flex-1 text-sm font-semibold">
             {pick
               ? `Your guess: ${display.name(pick)}`
@@ -679,7 +679,7 @@ function LocationsBoard({
         </p>
       )}
       {spy && !guessing && round?.stage === 'talk' && (
-        <p className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
+        <p className="rounded-lg bg-special-soft px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
           You can’t guess yet. Cross places off as you listen: if the vote catches you, you get one
           guess.
         </p>
@@ -697,7 +697,7 @@ function LocationsBoard({
                 className={cn(
                   'min-h-11 rounded-full px-3 text-sm font-semibold ring-1',
                   pick === l
-                    ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                    ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                     : 'bg-white ring-stone-300 dark:bg-stone-900 dark:ring-stone-700',
                 )}
               >
@@ -744,10 +744,10 @@ function LocationsBoard({
                     className={cn(
                       'flex w-full flex-col items-center gap-1 overflow-hidden rounded-xl p-1.5 pb-2 text-center ring-1 transition',
                       selected
-                        ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                        ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                         : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
                       mark === 'crossed' && !selected && 'opacity-40',
-                      here === id && 'ring-2 ring-emerald-500',
+                      here === id && 'ring-2 ring-success dark:ring-emerald-500',
                     )}
                   >
                     <LocationPicture
@@ -765,7 +765,7 @@ function LocationsBoard({
                       {name}
                     </span>
                     {here === id && (
-                      <span className="absolute top-1 left-1 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
+                      <span className="absolute top-1 left-1 rounded-full bg-success dark:bg-emerald-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
                         📍 Here
                       </span>
                     )}
@@ -783,7 +783,7 @@ function LocationsBoard({
                       >
                         <span
                           aria-hidden
-                          className="flex size-7 items-center justify-center rounded-full bg-amber-400 text-base leading-none text-white shadow ring-1 ring-amber-500"
+                          className="flex size-7 items-center justify-center rounded-full bg-accent dark:bg-amber-400 text-base leading-none text-white shadow ring-1 ring-accent dark:ring-amber-500"
                         >
                           ★
                         </span>
@@ -802,7 +802,7 @@ function LocationsBoard({
                         className={cn(
                           'flex size-7 items-center justify-center rounded-full text-base leading-none shadow ring-1',
                           mark === 'starred'
-                            ? 'bg-amber-400 text-white ring-amber-500'
+                            ? 'bg-accent dark:bg-amber-400 text-white ring-accent dark:ring-amber-500'
                             : 'bg-white/90 text-stone-500 ring-stone-300 dark:bg-stone-800/90 dark:text-stone-300 dark:ring-stone-600',
                         )}
                       >
@@ -915,7 +915,7 @@ function TabBar({
           <span className="flex items-center gap-1 text-lg leading-none">
             {it.icon}
             {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-amber-500" />
+              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
             )}
           </span>
           {it.label}

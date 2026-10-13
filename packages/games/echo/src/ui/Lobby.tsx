@@ -76,7 +76,7 @@ export function Lobby({
                   className={cn(
                     'flex min-h-11 flex-col items-center justify-center rounded-lg py-1 font-semibold ring-1 transition',
                     view.settings.deckSize === size
-                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+                      ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                       : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                   )}
                 >

@@ -72,7 +72,7 @@ function TabBar({
           <span className="flex items-center gap-1 text-lg leading-none">
             {it.icon}
             {alert === it.id && tab !== it.id && (
-              <span className="size-2.5 rounded-full bg-amber-500" />
+              <span className="size-2.5 rounded-full bg-accent dark:bg-amber-500" />
             )}
           </span>
           {it.label}
@@ -319,7 +319,7 @@ function BoardCarousel({ view, c }: { view: HydraView; c: Content }) {
             key={i}
             className={cn(
               'h-1.5 rounded-full transition-all',
-              at === i ? 'w-4 bg-amber-500' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
+              at === i ? 'w-4 bg-accent dark:bg-amber-500' : 'w-1.5 bg-stone-300 dark:bg-stone-700',
             )}
           />
         ))}
@@ -382,7 +382,7 @@ function SeatsPanel({
       aria-label={c.copy('seats.heading')}
       className={cn(
         'scroll-mt-20 rounded-2xl bg-stone-200/70 p-2 shadow-inner ring-1 ring-stone-300 lg:p-3 dark:bg-stone-900 dark:ring-stone-700',
-        picking && 'ring-2 ring-amber-400 dark:ring-amber-500/70',
+        picking && 'ring-2 ring-accent dark:ring-amber-500/70',
         className,
       )}
       data-testid="seats-panel"
@@ -648,7 +648,7 @@ export function HydraGame({
       {legend && <ScoreLegend g={g} c={c} onClose={() => setLegend(false)} />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {talkNow && (
-        <p className="hy-rise rounded-xl bg-violet-100 px-3 py-1.5 text-center text-sm font-semibold text-violet-950 ring-1 ring-violet-300 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40">
+        <p className="hy-rise rounded-xl bg-special-soft px-3 py-1.5 text-center text-sm font-semibold text-violet-950 ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40">
           🗣️ {talkNow}
         </p>
       )}
@@ -661,7 +661,7 @@ export function HydraGame({
         </p>
       )}
       {nudged !== null && now - nudged < NUDGE_MS && status.yourMove && (
-        <p className="hy-pop rounded-xl bg-amber-400 px-3 py-1 text-center text-sm font-bold text-stone-950">
+        <p className="hy-pop rounded-xl bg-accent-line dark:bg-amber-400 px-3 py-1 text-center text-sm font-bold text-stone-950">
           👋 {c.copy('nudged')}
         </p>
       )}
@@ -669,7 +669,7 @@ export function HydraGame({
       {showWhy && (
         <p
           role="alert"
-          className="rounded-xl bg-rose-50 px-3 py-1.5 text-center text-sm text-rose-900 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100"
+          className="rounded-xl bg-danger-soft px-3 py-1.5 text-center text-sm text-rose-900 ring-1 ring-danger-line dark:ring-rose-200 dark:bg-rose-500/10 dark:text-rose-100"
         >
           🔒 {why.text}
         </p>

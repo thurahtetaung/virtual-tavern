@@ -41,7 +41,7 @@ function Toggle({
       className={cn(
         'flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left ring-1 transition disabled:cursor-default',
         on
-          ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/10'
+          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
           : 'bg-white ring-stone-200 enabled:hover:bg-stone-100 dark:bg-stone-900 dark:ring-stone-700',
       )}
     >
@@ -49,7 +49,9 @@ function Toggle({
         aria-hidden
         className={cn(
           'mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition',
-          on ? 'justify-end bg-amber-500' : 'justify-start bg-stone-300 dark:bg-stone-700',
+          on
+            ? 'justify-end bg-accent dark:bg-amber-500'
+            : 'justify-start bg-stone-300 dark:bg-stone-700',
         )}
       >
         <span className="size-4 rounded-full bg-white shadow" />
@@ -58,7 +60,7 @@ function Toggle({
         <span className="block font-semibold">
           {title}
           {tag && (
-            <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[0.6rem] font-bold tracking-wide text-violet-800 uppercase dark:bg-violet-500/20 dark:text-violet-200">
+            <span className="ml-1.5 rounded bg-special-soft px-1.5 py-0.5 text-[0.6rem] font-bold tracking-wide text-violet-800 uppercase dark:bg-violet-500/20 dark:text-violet-200">
               {tag}
             </span>
           )}

@@ -182,7 +182,7 @@ export function Compare({
                   className="min-h-0 flex-1"
                 >
                   {selected.includes(n) && (
-                    <span className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-amber-400 font-black text-stone-950 shadow">
+                    <span className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full bg-accent-line dark:bg-amber-400 font-black text-stone-950 shadow">
                       ✓
                     </span>
                   )}

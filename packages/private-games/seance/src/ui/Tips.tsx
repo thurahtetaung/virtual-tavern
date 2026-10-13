@@ -34,7 +34,7 @@ export function Tip({ id, children }: { id: string; children: ReactNode }) {
   const [open, dismiss] = useTip(id);
   if (!open) return null;
   return (
-    <p className="flex items-start gap-2 rounded-xl bg-sky-50 px-3 py-1.5 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+    <p className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
       <span className="flex-1">💡 {children}</span>
       <button type="button" className="text-xs font-bold" onClick={dismiss}>
         Got it

@@ -72,10 +72,10 @@ export function Countdown({
         className={cn(
           'inline-flex min-w-16 flex-wrap items-baseline justify-center gap-x-1.5 rounded-lg px-2 py-1',
           urgent
-            ? 'animate-pulse bg-rose-600 text-white motion-reduce:animate-none'
+            ? 'animate-pulse bg-danger text-white motion-reduce:animate-none dark:bg-rose-600'
             : expired
-              ? 'bg-amber-100 text-amber-900 ring-1 ring-amber-300 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
-              : 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-100',
+              ? 'bg-warn-soft text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
+              : 'bg-panel text-stone-800 ring-1 ring-line dark:bg-stone-800 dark:ring-0 dark:text-stone-100',
         )}
       >
         <span className={cn('font-bold tabular-nums', expired ? 'text-base' : 'font-mono text-lg')}>
@@ -101,7 +101,7 @@ export function TimeoutNote({ children, className }: { children: string; classNa
     <p
       role="status"
       className={cn(
-        'rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-950 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
+        'rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
         className,
       )}
     >

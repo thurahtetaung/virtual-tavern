@@ -63,7 +63,7 @@ export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content
         <span
           aria-hidden
           className={cn(
-            'absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-amber-600/50 transition-opacity duration-500 motion-reduce:transition-none dark:from-amber-700 dark:to-amber-900',
+            'absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:ring-amber-600/50 transition-opacity duration-500 motion-reduce:transition-none dark:from-amber-700 dark:to-amber-900',
             shown && 'opacity-30',
           )}
         />

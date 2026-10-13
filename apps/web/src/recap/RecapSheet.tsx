@@ -372,7 +372,7 @@ export function NightCard({
           {recap.moment && (
             <section aria-label="Moment of the night">
               <h3 className={SECTION}>🎬 Moment of the night</h3>
-              <p className="rounded-xl border-l-4 border-amber-400 bg-amber-100 px-4 py-3 font-medium text-amber-950 dark:bg-stone-800 dark:text-stone-100">
+              <p className="rounded-xl border-l-4 border-accent dark:border-amber-400 bg-accent-soft px-4 py-3 font-medium text-amber-950 dark:bg-stone-800 dark:text-stone-100">
                 <span aria-hidden>{recap.moment.emoji} </span>
                 {rich(recap.moment.text)}
               </p>
@@ -451,7 +451,7 @@ export function NightCard({
 }
 
 const RecordBadge = () => (
-  <span className="ml-1.5 rounded-full bg-amber-200 px-1.5 py-0.5 text-xs font-bold text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
+  <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-xs font-bold text-amber-900 dark:bg-amber-500/25 dark:text-amber-200">
     🆕 Room record
   </span>
 );
@@ -505,7 +505,7 @@ function AwardRow({
       className={cn(
         'px-3 py-2',
         highlight &&
-          'rounded-xl bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-500/30',
+          'rounded-xl bg-accent-soft ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/30',
       )}
     >
       <p className="text-sm font-bold">
@@ -611,7 +611,7 @@ function HallView({
   const text = (t: string) => resolveText(t, ctx.names, ctx.labels);
   return (
     <section aria-label="Hall of fame" className="space-y-4">
-      <p className="rounded-xl bg-amber-100 px-4 py-3 text-center font-semibold text-amber-950 dark:bg-stone-800 dark:text-stone-100">
+      <p className="rounded-xl bg-accent-soft px-4 py-3 text-center font-semibold text-amber-950 dark:bg-stone-800 dark:text-stone-100">
         🍻 Nights together: {data.nights}
       </p>
       {data.mvps.length > 0 && (

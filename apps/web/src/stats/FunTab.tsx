@@ -173,7 +173,7 @@ export function FactCard({ fact }: { fact: FunFact }) {
         <button
           type="button"
           onClick={() => ctx.setParams({ tab: 'players', player: fact.playerId })}
-          className="-mb-2 -ml-2 h-11 self-start rounded-lg px-2 text-sm font-semibold text-amber-700 hover:bg-amber-100/60 dark:text-amber-400 dark:hover:bg-amber-500/10"
+          className="-mb-2 -ml-2 h-11 self-start rounded-lg px-2 text-sm font-semibold text-amber-700 hover:bg-accent-soft/60 dark:text-amber-400 dark:hover:bg-amber-500/10"
         >
           See player →
         </button>

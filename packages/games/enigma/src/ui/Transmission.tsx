@@ -80,7 +80,7 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
         </label>
       ))}
       {alone && (
-        <p className="rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+        <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-amber-950 dark:bg-amber-950 dark:text-amber-100">
           Nobody else is on your team right now, so nobody could decode your clues. If a teammate
           comes back before you send them, they decode as usual.
         </p>
@@ -125,7 +125,7 @@ function Picks({
               <Badge
                 className={cn(
                   v?.locked &&
-                    'bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
+                    'bg-success-soft text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
                 )}
               >
                 {!online(id) && (
@@ -201,7 +201,7 @@ function CodePicker({
                   className={cn(
                     'min-w-0 rounded-lg px-1 py-1.5 text-center ring-1 transition disabled:cursor-not-allowed',
                     draft[row] === digit
-                      ? 'bg-amber-500 font-bold text-stone-950 ring-amber-600'
+                      ? 'bg-accent dark:bg-amber-500 font-bold text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
                       : 'bg-white ring-stone-300 hover:bg-stone-100 dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
                   )}
                 >
@@ -223,7 +223,7 @@ function CodePicker({
       {lockedOnText(tx) && (
         <p
           role="status"
-          className="rounded-lg bg-emerald-100 px-3 py-2 text-sm font-semibold text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
+          className="rounded-lg bg-success-soft px-3 py-2 text-sm font-semibold text-emerald-950 dark:bg-emerald-950 dark:text-emerald-100"
         >
           🔒 {lockedOnText(tx)}
         </p>
@@ -232,7 +232,7 @@ function CodePicker({
       {tx.disagree && (
         <p
           role="alert"
-          className="rounded-lg bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-900 dark:bg-rose-950 dark:text-rose-100"
+          className="rounded-lg bg-team-a-soft px-3 py-2 text-sm font-semibold text-rose-900 dark:bg-rose-950 dark:text-rose-100"
         >
           Your team disagrees: everyone locked in, but not on the same code. Compare picks!
         </p>
@@ -344,7 +344,9 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
       <p
         className={cn(
           'rounded-lg px-3 py-2 font-semibold',
-          r.decoded ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white',
+          r.decoded
+            ? 'bg-success dark:bg-emerald-600 text-white'
+            : 'bg-team-a dark:bg-rose-600 text-white',
         )}
       >
         {r.decoded

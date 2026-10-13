@@ -100,7 +100,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
               className={cn(
                 'min-h-8 rounded-full px-2.5 text-xs font-semibold ring-1',
                 filter === f
-                  ? 'bg-amber-500 text-white ring-amber-600 dark:text-stone-950'
+                  ? 'bg-accent dark:bg-amber-500 text-white ring-accent dark:ring-amber-600 dark:text-stone-950'
                   : 'ring-stone-300 dark:ring-stone-700',
               )}
             >
@@ -127,7 +127,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                 <span className="text-xs font-bold text-stone-500">#{r.n}</span>
                 <b>{nameOf(view, r.president)}</b>
                 {r.special && (
-                  <span className="rounded bg-violet-600 px-1 text-[0.6rem] font-bold text-white">
+                  <span className="rounded bg-special dark:bg-violet-600 px-1 text-[0.6rem] font-bold text-white">
                     SPECIAL
                   </span>
                 )}
@@ -137,14 +137,16 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   <span
                     className={cn(
                       'rounded px-1.5 text-[0.65rem] font-black tracking-wide',
-                      r.elected ? 'bg-emerald-600 text-white' : 'bg-stone-700 text-white',
+                      r.elected
+                        ? 'bg-success dark:bg-emerald-600 text-white'
+                        : 'bg-stone-700 text-white',
                     )}
                   >
                     {r.elected ? 'ELECTED' : 'REJECTED'} {yes}–{no}
                   </span>
                 )}
                 {r.cleared && (
-                  <span className="rounded bg-emerald-100 px-1 text-[0.65rem] font-bold text-emerald-900">
+                  <span className="rounded bg-success-soft dark:bg-emerald-100 px-1 text-[0.65rem] font-bold text-emerald-900">
                     {c.copy('moment.cleared.stamp')}
                   </span>
                 )}
@@ -192,7 +194,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   {flagsAt(r.n).map((f) => (
                     <li
                       key={f.kind}
-                      className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-950 ring-1 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100"
+                      className="rounded-lg bg-accent-soft px-2 py-1 text-xs text-amber-950 ring-1 ring-accent-line dark:ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100"
                     >
                       ⚠ Doesn’t add up:{' '}
                       {f.kind === 'passed-mismatch' ? (
