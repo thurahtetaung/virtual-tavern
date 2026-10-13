@@ -130,7 +130,8 @@ export function ClaimForm({
             )}
             {memory.kind === 'investigate' && (
               <>
-                {nameOf(view, memory.target)}’s party card is <b>{c.teamName(memory.team)}</b>
+                {c.t(`${nameOf(view, memory.target)}’s {party} card is`)}{' '}
+                <b>{c.teamName(memory.team)}</b>
               </>
             )}
           </p>
@@ -150,7 +151,7 @@ export function ClaimForm({
                   key={`${b}${d}`}
                   type="button"
                   aria-pressed={on}
-                  aria-label={`${n - b} ${c.teamName('red')}, ${b} ${c.teamName('blue')}, discarded ${c.teamName(d)}`}
+                  aria-label={`${n - b} ${c.policyName('red')}, ${b} ${c.policyName('blue')}, discarded ${c.policyName(d)}`}
                   onClick={() => {
                     setBlues(b);
                     setDiscarded(d);
@@ -166,7 +167,7 @@ export function ClaimForm({
                   <Pips cards={bluesCards(b, n)} c={c} size="md" />
                   <span className="flex items-center gap-1 text-[0.65rem] text-stone-600 dark:text-stone-400">
                     discarded <Pips cards={[d]} c={c} />
-                    <span className={TEAM_TEXT[d]}>{c.teamName(d)}</span>
+                    <span className={TEAM_TEXT[d]}>{c.policyName(d)}</span>
                   </span>
                 </button>
               );
@@ -183,7 +184,7 @@ export function ClaimForm({
                 key={b}
                 type="button"
                 aria-pressed={blues === b}
-                aria-label={`${n - b} ${c.teamName('red')}, ${b} ${c.teamName('blue')}`}
+                aria-label={`${n - b} ${c.policyName('red')}, ${b} ${c.policyName('blue')}`}
                 onClick={() => {
                   setBlues(b);
                   setSure(false);
@@ -197,7 +198,7 @@ export function ClaimForm({
               >
                 <Pips cards={bluesCards(b, n)} c={c} size="md" />
                 <span className="text-[0.65rem] text-stone-600 dark:text-stone-400">
-                  {b} {c.teamName('blue')}
+                  {b} {c.policyName('blue')}
                 </span>
               </button>
             ))}
@@ -218,7 +219,7 @@ export function ClaimForm({
                     key={p}
                     type="button"
                     aria-pressed={x === p}
-                    aria-label={`Card ${i + 1}: ${c.teamName(p)}`}
+                    aria-label={`Card ${i + 1}: ${c.policyName(p)}`}
                     onClick={() => {
                       setCards(cards.map((y, k) => (k === i ? p : y)));
                       setSure(false);
@@ -232,7 +233,7 @@ export function ClaimForm({
                         : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
                     )}
                   >
-                    {c.teamName(p)}
+                    {c.policyName(p)}
                   </button>
                 ))}
               </div>
@@ -243,7 +244,7 @@ export function ClaimForm({
       {need.kind === 'investigate' && (
         <fieldset>
           <legend className="mb-2 text-sm font-semibold">
-            Say what {nameOf(view, need.target)}’s party card showed
+            {c.t(`Say what ${nameOf(view, need.target)}’s {party} card showed`)}
           </legend>
           <div className="mx-auto grid max-w-xs grid-cols-2 gap-3">
             {(['blue', 'red'] as const).map((p) => (
@@ -296,9 +297,9 @@ export function ClaimForm({
   );
 }
 
-/** A colour named in its colour: "Red". */
+/** A card's colour named in its colour: "Red". */
 function Colour({ p, c }: { p: Policy; c: Content }) {
-  return <b className={TEAM_TEXT[p]}>{c.teamName(p)}</b>;
+  return <b className={TEAM_TEXT[p]}>{c.policyName(p)}</b>;
 }
 
 /**
@@ -316,7 +317,7 @@ export function ClaimLine({
   claim: Claim;
   round?: Round;
 }) {
-  const role = claim.kind === 'chancellor' ? 'Chancellor' : 'President';
+  const role = claim.kind === 'chancellor' ? c.names.chancellor : c.names.president;
   const derived = round && chancellorDiscard(claim, round);
   return (
     <span>
@@ -327,7 +328,8 @@ export function ClaimLine({
         </span>
       ) : claim.kind === 'investigate' ? (
         <>
-          says {nameOf(view, claim.target)} is <Colour p={claim.team!} c={c} />
+          says {nameOf(view, claim.target)} is{' '}
+          <b className={TEAM_TEXT[claim.team!]}>{c.teamName(claim.team!)}</b>
         </>
       ) : claim.kind === 'peek' ? (
         <>

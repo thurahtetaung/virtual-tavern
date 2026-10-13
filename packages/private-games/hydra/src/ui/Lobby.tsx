@@ -12,6 +12,7 @@ import type { Content } from './assets.ts';
 import { POWER_EMOJI } from './Boards.tsx';
 import { RoleBack } from './Cards.tsx';
 import { CreditBlock } from './Me.tsx';
+import { DISPLAY } from './text.tsx';
 
 type Act = (a: HydraAction) => Promise<boolean>;
 
@@ -74,12 +75,17 @@ export function Lobby({
   c,
   act,
   showGuide,
+  plain,
+  setPlain,
 }: {
   view: HydraView;
   room: GameRoomInfo;
   c: Content;
   act: Act;
   showGuide: () => void;
+  /** The edition's display font switched off ("Plain headings"), for this viewer only. */
+  plain: boolean;
+  setPlain: (on: boolean) => void;
 }) {
   const s = view.settings;
   const host = room.isHost;
@@ -100,7 +106,9 @@ export function Lobby({
             <RoleBack c={c} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-2xl font-black tracking-wide sm:text-3xl">{c.names.title}</h2>
+            <h2 className={cn('text-2xl font-black tracking-wide sm:text-3xl', DISPLAY)}>
+              {c.names.title}
+            </h2>
             <p className="text-sm text-white/80">
               {c.t(
                 '{blues} against {reds}. Elect governments, pass laws in secret, and find {leader} before it’s too late.',
@@ -113,6 +121,17 @@ export function Lobby({
             >
               How to play →
             </button>
+            {c.font && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plain}
+                onClick={() => setPlain(!plain)}
+                className="mt-1 ml-3 text-xs font-semibold text-white/70 underline"
+              >
+                Plain headings: {plain ? 'on' : 'off'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -186,10 +205,13 @@ export function Lobby({
                 : c.t('The {reds} know each other and {leader}; {leader} knows nobody.')}
             </p>
             <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-              Deck: {setup.blue} {c.names.blue} and {setup.red} {c.names.red} policies
-              {setup.redEnacted
-                ? `, with ${setup.redEnacted} ${c.names.red} policy on the board at the start`
-                : ''}
+              {c.t(
+                `Deck: ${setup.blue} {bluePolicy} and ${setup.red} {redPolicy} {policies}${
+                  setup.redEnacted
+                    ? `, with ${setup.redEnacted} {redPolicy} {policy} on the board at the start`
+                    : ''
+                }`,
+              )}
               . Powers:{' '}
               {trackFor(n)
                 .slice(0, 5)
@@ -212,7 +234,7 @@ export function Lobby({
           title="Rebalance for 6, 7 and 9 players"
           tag="community"
           help={c.t(
-            'Not in the official rules. At 6 a {red} policy starts on the board; at 7 and 9 the deck has one {red} policy fewer.',
+            'Not in the official rules. At 6 a {redPolicy} {policy} starts on the board; at 7 and 9 the deck has one {redPolicy} {policy} fewer.',
           )}
           onChange={(v) => set({ rebalance: v })}
         />
@@ -221,7 +243,7 @@ export function Lobby({
           editable={host}
           title="Quick mode"
           help={c.t(
-            'Skip the dramatic pause before the table learns whether the Chancellor is {leader}.',
+            'Skip the dramatic pause before the table learns whether the {chancellor} is {leader}.',
           )}
           onChange={(v) => set({ quick: v })}
         />
@@ -262,7 +284,7 @@ export function Lobby({
           }}
           editable={host}
           clueLabel="Turn timer"
-          clueHelp="Nominating, discarding, the veto answer and powers."
+          clueHelp={c.t('Nominating, discarding, the {veto} answer and powers.')}
           guessLabel="Vote timer"
           guessHelp="Everyone’s vote."
           strictHelp="a missing vote isn’t counted and other turns are played at random (claims never are)"

@@ -50,8 +50,9 @@ describe('award copy', () => {
   });
 
   it('rule ids are unique', () => {
+    // Editions share their game's award module (and so its rule ids).
     const ids = everyRule
-      .filter(({ owner }) => owner !== 'masquerade-originals')
+      .filter(({ owner }) => owner !== 'masquerade-originals' && owner !== 'hogwarts')
       .map(({ rule }) => rule.id);
     expect(ids.length).toBe(new Set(ids).size);
   });

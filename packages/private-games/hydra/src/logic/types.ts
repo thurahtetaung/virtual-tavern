@@ -170,7 +170,10 @@ export type Memory =
 
 export interface Notice {
   id: number;
+  /** Hydra's wording with name tokens; `key` and `vars` let the browser reword it (`copy.ts`). */
   text: string;
+  key?: string;
+  vars?: Record<string, string>;
   at: number;
 }
 
@@ -241,6 +244,8 @@ export interface Game {
   winner: Team | null;
   reason: EndReason | null;
   startedAt: number;
+  /** Shuffles each team's portrait pool in the browser, so a game's portraits are its own. */
+  artSeed?: number;
 }
 
 export interface HydraState {
@@ -383,6 +388,8 @@ export interface GameView {
   rebalance: boolean;
   quick: boolean;
   flags: boolean;
+  /** Which way this game's portrait pools are shuffled (public: it says nothing on its own). */
+  artSeed: number;
   /** Only at the end. */
   end: {
     winner: Team;

@@ -4,6 +4,7 @@ import { echo } from '@vt/game-echo/logic';
 import { enigma } from '@vt/game-enigma/logic';
 import { masquerade } from '@vt/game-masquerade/logic';
 import { roundTable } from '@vt/game-round-table/logic';
+import { hogwarts } from '@vt/private-hogwarts/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
 import { hydra, setTestDeck } from '@vt/private-hydra/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
@@ -53,6 +54,7 @@ export function buildGames(): GameRegistry {
     inquest,
     seance,
     hydra,
+    hogwarts,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

@@ -1,3 +1,4 @@
+import type { CopyKey, CopyVars } from '../logic/copy.ts';
 import type { HydraView, Policy } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 
@@ -60,116 +61,73 @@ export function statusFor(view: HydraView, c: Content): Status {
   const g = view.game;
   const me = view.me?.id;
   if (view.phase === 'lobby' || !g) return { text: '', yourMove: false };
-  if (view.phase === 'over' && g.end) {
-    const team = c.t(g.end.winner === 'blue' ? '{blues}' : '{reds}');
-    return { text: `The ${team} win!`, yourMove: false };
-  }
-  const inGame = g.players.some((p) => p.id === me);
-  const alive = amAlive(view);
-  const P = who(view, g.president);
-  const C = who(view, g.chancellor);
-  const n = g.players.filter((p) => !p.dead).length;
-  if (inGame && !alive && view.stage !== 'reveal')
+  if (view.phase === 'over' && g.end)
     return {
-      text: 'You’ve been executed: you can watch, but you can’t talk, vote or give anything away.',
+      text: c.copy(g.end.winner === 'blue' ? 'status.over.blue' : 'status.over.red'),
       yourMove: false,
     };
+  const inGame = g.players.some((p) => p.id === me);
+  const alive = amAlive(view);
+  const n = g.players.filter((p) => !p.dead).length;
+  const vars = {
+    P: who(view, g.president),
+    C: who(view, g.chancellor),
+    voted: g.voted.length,
+    alive: n,
+    ready: g.ready.length,
+    total: g.players.length,
+  };
+  const say = (key: CopyKey, yourMove: boolean, more: CopyVars = {}): Status => ({
+    text: c.copy(key, { ...vars, ...more }),
+    yourMove,
+  });
+  if (inGame && !alive && view.stage !== 'reveal') return say('status.dead', false);
   switch (view.stage) {
     case 'reveal':
       return inGame && !g.ready.includes(me!)
-        ? {
-            text: 'Read your secret role (slide the card up, or hold it), then tap Ready. Keep it hidden from your neighbours.',
-            yourMove: true,
-          }
-        : {
-            text: `Waiting for everyone to read their role (${g.ready.length} of ${g.players.length}).`,
-            yourMove: false,
-          };
+        ? say('status.reveal.you', true)
+        : say('status.reveal.waiting', false);
     case 'nominate':
       return g.president === me
-        ? {
-            text: 'You’re the Presidential Candidate: nominate a Chancellor. Greyed seats can’t be picked (tap one to see why).',
-            yourMove: true,
-          }
-        : { text: `${P} is choosing a Chancellor. Say out loud who you’d trust!`, yourMove: false };
-    case 'vote': {
-      const k = `${g.voted.length} of ${n} voted`;
-      if (inGame && g.myVote === null)
-        return {
-          text: c.t(`Vote {yes} or {no} on President ${P} with Chancellor ${C}. ${k}.`),
-          yourMove: true,
-        };
-      if (g.myVote)
-        return {
-          text: `You voted ${c.ballotName(g.myVote)}: you can change it until the last vote is in. ${k}.`,
-          yourMove: false,
-        };
-      return {
-        text: `Everyone votes on President ${P} with Chancellor ${C}. ${k}.`,
-        yourMove: false,
-      };
-    }
+        ? say('status.nominate.you', true)
+        : say('status.nominate.other', false);
+    case 'vote':
+      if (inGame && g.myVote === null) return say('status.vote.you', true);
+      if (g.myVote) return say('status.vote.voted', false, { ballot: c.ballotName(g.myVote) });
+      return say('status.vote.other', false);
     case 'leader-check':
-      return { text: c.t(`The moment of truth: is ${C} {leader}?`), yourMove: false };
+      // A question about the Chancellor by name, even to the Chancellor ("is you…" reads badly).
+      return say('status.leaderCheck', false, { C: nameOf(view, g.chancellor) });
     case 'legislate-president':
       return g.president === me
-        ? {
-            text: 'You’re the President: discard one of your three policies. No talking until it’s done!',
-            yourMove: true,
-          }
-        : {
-            text: `The government is in session: ${P} is discarding a policy. Silence, please.`,
-            yourMove: false,
-          };
+        ? say('status.legislate.president.you', true)
+        : say('status.legislate.president.other', false);
     case 'legislate-chancellor':
       return g.chancellor === me
-        ? {
-            text:
-              g.vetoUnlocked && !g.vetoRequested
-                ? 'You’re the Chancellor: enact one policy, or ask the President for a veto.'
-                : 'You’re the Chancellor: enact one policy. The other is discarded.',
-            yourMove: true,
-          }
-        : {
-            text: `The government is in session: ${C} is choosing which policy to enact.`,
-            yourMove: false,
-          };
+        ? say(
+            g.vetoUnlocked && !g.vetoRequested
+              ? 'status.legislate.chancellor.veto.you'
+              : 'status.legislate.chancellor.you',
+            true,
+          )
+        : say('status.legislate.chancellor.other', false);
     case 'veto-response':
-      return g.president === me
-        ? {
-            text: `${C} asks to veto this agenda. Agree (both cards are discarded) or refuse?`,
-            yourMove: true,
-          }
-        : { text: `${C} asked for a veto; ${P} is deciding.`, yourMove: false };
+      return g.president === me ? say('status.veto.you', true) : say('status.veto.other', false);
     case 'claim': {
       const mine = g.needs.find((x) => x.by === me);
       if (mine)
-        return {
-          text:
-            mine.kind === 'investigate'
-              ? `Tell the table what you saw on ${nameOf(view, mine.target)}’s party card. Claims are final, and you may lie.`
-              : mine.kind === 'peek'
-                ? 'Tell the table the top three cards you saw. Claims are final, and you may lie.'
-                : `Claim the ${mine.kind === 'president' ? 'three cards you drew' : 'two cards you got'}. Claims are final, and you may lie.`,
-          yourMove: true,
-        };
-      return {
-        text: 'Claims are coming in. Question them out loud before the next nomination!',
-        yourMove: false,
-      };
+        return say(`status.claim.${mine.kind}.you`, true, { target: nameOf(view, mine.target) });
+      return say('status.claim.other', false);
     }
     case 'power': {
       if (!g.power) return { text: '', yourMove: false };
-      const name = c.powerName(g.power);
+      const power = c.powerName(g.power);
       return g.president === me
-        ? { text: `Use your power: ${name}. Talk it over first if you like.`, yourMove: true }
-        : { text: `${P} must use a power: ${name}.`, yourMove: false };
+        ? say(`status.power.${g.power}.you`, true, { power })
+        : say('status.power.other', false, { power });
     }
     case 'chaos':
-      return {
-        text: 'Three failed governments: the people take over and enact the top policy!',
-        yourMove: false,
-      };
+      return say('status.chaos', false);
     default:
       return { text: '', yourMove: false };
   }

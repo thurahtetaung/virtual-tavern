@@ -326,7 +326,7 @@ function Room({
         else void navigate(backToTheDoor(roomId));
       } else if (!refusals.show(options?.anchor, res.error.message)) {
         // No spot next to the control that sent it (or none on screen): say it up top.
-        toast(res.error.message);
+        toast(refusals.format(res.error.message));
       }
       return res.ok;
     },

@@ -41,7 +41,7 @@ export function PolicyFace({
   className?: string;
 }) {
   const src = c.policy(policy);
-  const label = `${c.teamName(policy)} policy`;
+  const label = c.t(`${c.policyName(policy)} {policy}`);
   return (
     <span
       className={cn('@container relative block aspect-[2/3] select-none', className)}
@@ -67,7 +67,7 @@ export function PolicyFace({
                 policy === 'blue' ? 'text-sky-700' : 'text-red-700',
               )}
             >
-              {c.teamName(policy)}
+              {c.policyName(policy)}
             </span>
           </span>
         </span>
@@ -134,7 +134,12 @@ export function BallotFace({
       aria-label={label}
     >
       {src ? (
-        <Art src={src} alt={label} />
+        // A thin light edge, so a dark ballot still stands out on the dark theme.
+        <Art
+          src={src}
+          alt={label}
+          className="rounded-[8%] ring-1 ring-stone-900/25 dark:ring-white/45"
+        />
       ) : (
         <span
           className={cn(
@@ -170,15 +175,18 @@ export function BallotBack({ c, className }: { c: Content; className?: string })
 export function RoleFace({
   role,
   art,
+  seed,
   c,
   className,
 }: {
   role: Role;
   art: number;
+  /** The game's portrait seed (`GameView.artSeed`). */
+  seed?: number;
   c: Content;
   className?: string;
 }) {
-  const src = c.roleArt(role, art);
+  const src = c.roleArt(role, art, seed);
   const team: Team = role === 'blue' ? 'blue' : 'red';
   const label = c.roleName(role);
   return (
@@ -233,7 +241,7 @@ export function RoleBack({ c, className }: { c: Content; className?: string }) {
 
 export function PartyFace({ team, c, className }: { team: Team; c: Content; className?: string }) {
   const src = c.party(team);
-  const label = `${c.teamName(team)} party card`;
+  const label = c.t(`${c.teamName(team)} {party} card`);
   return (
     <span
       className={cn('relative block aspect-[5/7] select-none', className)}
@@ -249,7 +257,7 @@ export function PartyFace({ team, c, className }: { team: Team; c: Content; clas
           )}
         >
           <span className="text-[0.55rem] font-bold tracking-widest text-stone-800 uppercase">
-            Party
+            {c.t('{Party}')}
           </span>
           <span
             className={cn(
@@ -303,7 +311,7 @@ export function Pips({
     <span
       className="inline-flex gap-0.5 align-middle"
       role="img"
-      aria-label={cards.map((x) => c.teamName(x)).join(', ')}
+      aria-label={cards.map((x) => c.policyName(x)).join(', ')}
     >
       {cards.map((x, i) => (
         <span

@@ -1,3 +1,4 @@
+import { guide as hogwartsGuide } from '@vt/private-hogwarts/guide';
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
 import { guide as inquestGuide } from '@vt/private-inquest/guide';
@@ -97,7 +98,19 @@ export const privateGames: ClientGame[] = [
     guide: hydraGuide,
     icon: '🐍',
     Component: lazy(() => import('@vt/private-hydra/ui').then((m) => ({ default: m.HydraGame }))),
-    labels: hydraLabels,
-    namedGuide: hydraNamedGuide,
+    labels: hydraLabels('hydra'),
+    namedGuide: hydraNamedGuide('hydra'),
+  },
+  {
+    // Hydra's themed edition: every name, line, art and font comes from its private manifest.
+    id: 'hogwarts',
+    name: 'Hydra: Wands',
+    guide: hogwartsGuide,
+    icon: '🪄',
+    Component: lazy(() =>
+      import('@vt/private-hogwarts/ui').then((m) => ({ default: m.HogwartsGame })),
+    ),
+    labels: hydraLabels('hogwarts'),
+    namedGuide: hydraNamedGuide('hogwarts'),
   },
 ];

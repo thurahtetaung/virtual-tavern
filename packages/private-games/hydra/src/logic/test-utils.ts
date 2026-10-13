@@ -1,4 +1,10 @@
-import { type ContentProvider, GameError, type InsightEvent, createRng } from '@vt/game-sdk';
+import {
+  type ContentProvider,
+  type GameDefinition,
+  GameError,
+  type InsightEvent,
+  createRng,
+} from '@vt/game-sdk';
 import { hydra } from './game.ts';
 import { insights } from './insights.ts';
 import type { Game, HydraAction, HydraState, HydraView, Policy, Role } from './types.ts';
@@ -10,7 +16,11 @@ export const ids = (n: number) =>
 
 const content: ContentProvider = { wordLists: () => [], words: () => [] };
 
+export type HydraDefinition = GameDefinition<HydraState, HydraAction, HydraView>;
+
 export interface Harness {
+  /** The edition being played (Hydra itself by default). */
+  def: HydraDefinition;
   state: HydraState;
   now: number;
   act(action: HydraAction, by?: string): HydraState;
@@ -19,13 +29,14 @@ export interface Harness {
   game(): Game;
 }
 
-export function harness(players = ids(5), seed = 7): Harness {
+export function harness(players = ids(5), seed = 7, def: HydraDefinition = hydra): Harness {
   const rng = createRng(seed);
   const run = (state: HydraState, action: HydraAction, by: string, now: number) =>
-    hydra.reduce(state, action, { by, isHost: by === HOST, now, rng, content });
+    def.reduce(state, action, { by, isHost: by === HOST, now, rng, content });
   const h: Harness = {
+    def,
     now: NOW,
-    state: hydra.create(
+    state: def.create(
       { now: NOW, rng, content },
       players.map((id) => ({ id, name: id.toUpperCase() })),
     ),
@@ -42,7 +53,7 @@ export function harness(players = ids(5), seed = 7): Harness {
         throw new Error(`expected ${action.type} by ${by} to be rejected`);
       return r.code;
     },
-    view: (viewer) => hydra.view(h.state, viewer),
+    view: (viewer) => def.view(h.state, viewer),
     game: () => h.state.game!,
   };
   return h;
@@ -60,10 +71,11 @@ export function rigged(
     ready?: boolean;
     settings?: Omit<Extract<HydraAction, { type: 'update-settings' }>, 'type'>;
     seed?: number;
+    def?: HydraDefinition;
   } = {},
 ): Harness {
   const players = ids(roles.length);
-  const h = harness(players, opts.seed ?? 7);
+  const h = harness(players, opts.seed ?? 7, opts.def);
   if (opts.settings) h.act({ type: 'update-settings', ...opts.settings });
   h.act({ type: 'start' });
   const g = h.game();

@@ -1,9 +1,11 @@
 import { type Rng, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { awaited, eligible, hydra, powerTargets, vetoUnlocked } from './game.ts';
+import { awaited, defineHydra, eligible, hydra, powerTargets, vetoUnlocked } from './game.ts';
+import { guide } from './guide.ts';
 import {
   HOST,
   type Harness,
+  type HydraDefinition,
   claimAll,
   deadline,
   elect,
@@ -28,7 +30,7 @@ function checkViews(h: Harness, label: string, only?: (string | null)[]) {
   const problems: string[] = [];
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   for (const viewer of only ?? [...g.players, null]) {
-    const v = hydra.view(s, viewer);
+    const v = h.def.view(s, viewer);
     const json = JSON.stringify(v);
     const bad = (what: string) => problems.push(`${label} / ${viewer ?? 'watcher'}: ${what}`);
     // The deck, the discard pile and the seed never leave the server.
@@ -84,9 +86,15 @@ function checkViews(h: Harness, label: string, only?: (string | null)[]) {
 const FIVE: Role[] = ['blue', 'blue', 'red', 'leader', 'blue'];
 const SEVEN: Role[] = ['blue', 'blue', 'red', 'leader', 'blue', 'red', 'blue'];
 
-describe('view() redaction, every viewer at every phase', () => {
+/** Every edition runs the same engine: each is checked as its own game. */
+const EDITIONS: HydraDefinition[] = [
+  hydra,
+  defineHydra({ id: 'edition', name: 'Edition', description: 'A themed edition.', guide }),
+];
+
+describe.each(EDITIONS)('view() redaction, every viewer at every phase ($id)', (def) => {
   it('a 5-player game: reveal, vote, both sessions, claims, peek, execution, the end', () => {
-    const h = rigged(FIVE, { ready: false });
+    const h = rigged(FIVE, { ready: false, def });
     checkViews(h, 'reveal');
     for (const p of ids(5)) h.act({ type: 'ready' }, p);
     checkViews(h, 'nominate');
@@ -124,7 +132,7 @@ describe('view() redaction, every viewer at every phase', () => {
   });
 
   it('a 7-player game: investigation, a veto request and chaos', () => {
-    const h = rigged(SEVEN, { deck: ['red', 'red', 'red'] });
+    const h = rigged(SEVEN, { deck: ['red', 'red', 'red'], def });
     h.state = { ...h.state, game: { ...h.game(), enacted: { blue: 0, red: 1 } } };
     elect(h, 'ana');
     legislate(h, 'red');
@@ -153,7 +161,7 @@ describe('view() redaction, every viewer at every phase', () => {
   });
 
   it('a player who left keeps their secrets', () => {
-    const h = rigged(FIVE);
+    const h = rigged(FIVE, { def });
     leave(h, 'ben');
     checkViews(h, 'after leaving');
   });

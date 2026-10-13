@@ -9,6 +9,7 @@ import { ClaimLine } from './Claims.tsx';
 import { prefersReducedMotion } from './fx.ts';
 import { CreditBlock } from './Me.tsx';
 import { nameOf } from './status.ts';
+import { DISPLAY, Rich } from './text.tsx';
 
 type Act = (a: HydraAction) => Promise<boolean>;
 
@@ -33,7 +34,7 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
             <FlipCard
               up={i < up}
               back={<RoleBack c={c} />}
-              front={<RoleFace role={role} art={end.art[p.id] ?? 0} c={c} />}
+              front={<RoleFace role={role} art={end.art[p.id] ?? 0} seed={g.artSeed} c={c} />}
               className={cn('w-full', p.dead && 'grayscale')}
             />
             <span className="w-full truncate text-xs font-semibold">
@@ -72,7 +73,7 @@ function SessionTruth({ t, c }: { t: Truth; c: Content }) {
         </>
       )}
       {t.vetoed ? (
-        <> → vetoed</>
+        <> → {c.copy('log.vetoedShort')}</>
       ) : t.chancellorDiscard ? (
         <>
           → discarded <Pips cards={[t.chancellorDiscard]} c={c} />
@@ -155,13 +156,6 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
   );
 }
 
-const REASON: Record<string, string> = {
-  'blue-policies': 'Five {blue} policies passed.',
-  'red-policies': 'Six {red} policies passed.',
-  'leader-executed': '{Leader} was executed.',
-  'leader-elected': '{Leader} was elected Chancellor in the danger zone.',
-};
-
 /** The end: who won and how, every role flipped in seat order, the truth, awards, Play again. */
 export function End({
   view,
@@ -184,22 +178,16 @@ export function End({
         className={cn('hy-pop rounded-2xl px-4 py-4 text-center ring-1', TEAM_SOFT[end.winner])}
         data-testid="winner"
       >
-        <p className={cn('text-3xl font-black', TEAM_TEXT[end.winner])}>
+        <p className={cn('text-3xl font-black', TEAM_TEXT[end.winner], DISPLAY)}>
           {end.winner === 'blue' ? '🕊️' : '☠️'}{' '}
-          {c.t(end.winner === 'blue' ? 'The {blues} win!' : 'The {reds} win!')}
+          {c.copy(end.winner === 'blue' ? 'end.win.blue' : 'end.win.red')}
         </p>
         <p className="mt-1 text-sm">
-          {c.t(REASON[end.reason]!)}{' '}
-          {leader && (
-            <>
-              {c.names.leader.replace(/^the /, 'The ')} was <b>{nameOf(view, leader)}</b>.
-            </>
-          )}
+          {c.copy(`end.reason.${end.reason}`)}{' '}
+          {leader && <Rich text={c.copy('end.leaderWas', { player: nameOf(view, leader) })} />}
         </p>
         {won !== null && (
-          <p className="mt-1 text-sm font-semibold">
-            {won ? 'Your team won. 🎉' : 'Your team lost this one.'}
-          </p>
+          <p className="mt-1 text-sm font-semibold">{c.copy(won ? 'end.won' : 'end.lost')}</p>
         )}
       </div>
       <RoleReveal view={view} c={c} />
@@ -216,9 +204,7 @@ export function End({
       ) : (
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
-      <p className="text-center text-xs text-stone-500">
-        Play again keeps the seats and settings, with a new first President.
-      </p>
+      <p className="text-center text-xs text-stone-500">{c.copy('end.playAgain')}</p>
       <TruthLog view={view} c={c} />
       <CreditBlock c={c} />
     </div>

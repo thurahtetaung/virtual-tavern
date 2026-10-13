@@ -1,19 +1,12 @@
 import { Button, cn } from '@vt/ui';
 import { type PointerEvent, useRef, useState } from 'react';
 import { leaderKnowsTeam, trackFor } from '../logic/tables.ts';
-import type { HydraView, Memory, Role } from '../logic/types.ts';
+import type { HydraView, Memory } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { POWER_EMOJI } from './Boards.tsx';
 import { FlipCard, Pips, RoleBack, RoleFace, TEAM_TEXT } from './Cards.tsx';
 import { playSfx, useLyingFlat } from './fx.ts';
 import { nameOf } from './status.ts';
-
-export const GOAL: Record<Role, string> = {
-  blue: 'Pass 5 {blue} policies, or find {leader} and execute them. Trust carefully: watch the votes and the claims.',
-  red: 'Pass 6 {red} policies, or get {leader} elected Chancellor once 3 {red} policies are down. Blend in and protect {leader}.',
-  leader:
-    'Get elected Chancellor once 3 {red} policies are down, or let your team pass 6. Look like the most trustworthy {blue} at the table.',
-};
 
 function knowledge(view: HydraView, c: Content): string {
   const r = view.role!;
@@ -77,7 +70,7 @@ export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content
         <FlipCard
           up={shown}
           back={<RoleBack c={c} />}
-          front={<RoleFace role={r.role} art={r.art} c={c} />}
+          front={<RoleFace role={r.role} art={r.art} seed={view.game?.artSeed} c={c} />}
           className="relative"
         />
         {!shown && (
@@ -97,7 +90,7 @@ export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content
           className={cn('text-center text-lg font-black', TEAM_TEXT[r.team])}
           data-testid="role-name"
         >
-          You are {r.role === 'leader' ? c.names.leader : `a ${c.roleName(r.role)}`}
+          {c.copy(`me.youAre.${r.role}`)}
         </p>
       )}
     </section>
@@ -109,7 +102,8 @@ function MemoryLine({ view, c, m }: { view: HydraView; c: Content; m: Memory }) 
     case 'hand':
       return (
         <span className="inline-flex items-center gap-1">
-          #{m.round}: as {m.as === 'president' ? 'President you drew' : 'Chancellor you got'}{' '}
+          #{m.round}:{' '}
+          {c.t(m.as === 'president' ? 'as {president} you drew' : 'as {chancellor} you got')}{' '}
           <Pips cards={m.cards} c={c} />
         </span>
       );
@@ -137,6 +131,8 @@ export function MeTab({
   big = false,
   moments,
   setMoments,
+  plain,
+  setPlain,
 }: {
   view: HydraView;
   c: Content;
@@ -145,6 +141,9 @@ export function MeTab({
   big?: boolean;
   moments: boolean;
   setMoments: (on: boolean) => void;
+  /** The edition's display font switched off ("Plain headings"). */
+  plain: boolean;
+  setPlain: (on: boolean) => void;
 }) {
   const g = view.game!;
   const r = view.role;
@@ -157,7 +156,7 @@ export function MeTab({
           <div className="space-y-2 text-sm" data-testid="role-details">
             <p className="rounded-lg bg-stone-100 px-3 py-2 dark:bg-stone-800">
               <b>How you win: </b>
-              {c.t(GOAL[r.role])}
+              {c.copy(`me.goal.${r.role}`)}
             </p>
             <p className="font-semibold">{knowledge(view, c)}</p>
             {r.known.length > 0 && (
@@ -195,7 +194,7 @@ export function MeTab({
         <ol className="space-y-0.5">
           {track.map((p, i) => (
             <li key={i} className={cn(i < g.enacted.red && 'text-stone-400 line-through')}>
-              {c.teamName('red')} #{i + 1}:{' '}
+              {c.policyName('red')} #{i + 1}:{' '}
               {i === 5
                 ? c.t('the {reds} win')
                 : p
@@ -205,7 +204,9 @@ export function MeTab({
                 <span className="text-amber-700 dark:text-amber-400"> · danger zone starts</span>
               )}
               {i === 4 && (
-                <span className="text-amber-700 dark:text-amber-400"> · veto unlocks</span>
+                <span className="text-amber-700 dark:text-amber-400">
+                  {c.t(' · {veto} unlocks')}
+                </span>
               )}
             </li>
           ))}
@@ -228,6 +229,17 @@ export function MeTab({
           >
             Big moments: {moments ? 'on' : 'off'}
           </button>
+          {c.font && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={plain}
+              onClick={() => setPlain(!plain)}
+              className="min-h-9 rounded-full px-3 text-xs font-semibold ring-1 ring-stone-300 dark:ring-stone-600"
+            >
+              Plain headings: {plain ? 'on' : 'off'}
+            </button>
+          )}
         </div>
       </section>
       <CreditBlock c={c} />

@@ -104,7 +104,7 @@ export function useRecap({
     if (!last?.lines.length) return undefined;
     return last.lines.map((l) => ({
       emoji: l.emoji,
-      title: l.title,
+      title: resolveText(l.title, names, labels),
       text: resolveText(l.text, names, labels),
     }));
   }, [phase, shown, names, labels, fetched.for, current]);
