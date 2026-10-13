@@ -13,6 +13,7 @@ import { nightfall } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
 import { seance } from '@vt/private-seance/logic';
+import { setTestRig, tavernBrawl } from '@vt/private-tavern-brawl/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -31,6 +32,19 @@ if (process.env.NODE_ENV !== 'production' && process.env.HYDRA_TEST_DECK) {
       c === 'b' ? ['blue' as const] : c === 'r' ? ['red' as const] : [],
     ),
   );
+}
+
+// Browser tests only: Tavern Brawl cards to put on top of a hero's deck (`mage:mage.04,mage.02;
+// thief:thief.07`), and the first seat always starting, so a spec can reach the powers. Never read
+// in production.
+if (process.env.NODE_ENV !== 'production' && process.env.TAVERN_BRAWL_TEST_DECK) {
+  const decks = Object.fromEntries(
+    process.env.TAVERN_BRAWL_TEST_DECK.split(';').flatMap((part) => {
+      const [hero, cards] = part.split(':');
+      return hero && cards ? [[hero.trim(), cards.split(',').map((c) => c.trim())]] : [];
+    }),
+  );
+  setTestRig({ decks, firstSeat: true });
 }
 
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
@@ -55,6 +69,7 @@ export function buildGames(): GameRegistry {
     seance,
     hydra,
     hogwarts,
+    tavernBrawl,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

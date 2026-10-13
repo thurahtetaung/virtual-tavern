@@ -7,6 +7,7 @@ import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
 import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
 import { guide as seanceGuide } from '@vt/private-seance/guide';
+import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { lazy } from 'react';
 import {
   inquestLabels,
@@ -15,6 +16,8 @@ import {
   royalPostLabels,
   hydraGuide as hydraNamedGuide,
   hydraLabels,
+  tavernBrawlGuide as tavernBrawlNamedGuide,
+  tavernBrawlLabels,
 } from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
@@ -112,5 +115,16 @@ export const privateGames: ClientGame[] = [
     ),
     labels: hydraLabels('hogwarts'),
     namedGuide: hydraNamedGuide('hogwarts'),
+  },
+  {
+    id: 'tavern-brawl',
+    name: 'Tavern Brawl',
+    guide: tavernBrawlGuide,
+    icon: '🍺',
+    Component: lazy(() =>
+      import('@vt/private-tavern-brawl/ui').then((m) => ({ default: m.TavernBrawlGame })),
+    ),
+    labels: tavernBrawlLabels,
+    namedGuide: tavernBrawlNamedGuide,
   },
 ];

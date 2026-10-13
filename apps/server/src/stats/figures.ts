@@ -51,6 +51,11 @@ import type { GameFigure } from '@vt/protocol';
 //              tracker; recap: president, chancellor, yes, no, missing, special, zone},
 //              session {enacted, vetoed, chaos}, power {kind; recap: target}, claim {kind;
 //              recap: blues, cards, team, skipped}, cleared {}, execution {recap: by}
+//   tavern-brawl outcome {heroes, winnerHeroes, count, turns, tie, firstWon, dealt, healed;
+//              recap: players, knockouts, absorbed, biggestHit, longestChain, finalHp},
+//              ko {self, removed; recap: by, card, hero, turn}, play {card, hero; recap: stolen,
+//              free, auto}, hit {hp, shield, power; recap: target, self}, heal {amount}, shield,
+//              swap, rotate, social {done}, steal {count}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -994,6 +999,103 @@ function hydraFigures(get: (metric: string) => number, metrics: Iterable<string>
   ];
 }
 
+const TAVERN_BRAWL_HEROES = ['brute', 'mage', 'knight', 'thief', 'ranger', 'druid'] as const;
+
+function tavernBrawlCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.count);
+      if (n !== null && n >= 2 && n <= 6) out.push([`f.n.${n}`, 1]);
+      if (props.tie === true) out.push(['f.ties', 1]);
+      if (props.firstWon === true) out.push(['f.first_won', 1]);
+      const turns = num(props.turns);
+      if (turns) out.push(['f.turn_sum', turns]);
+      const heroes = Array.isArray(props.heroes) ? props.heroes : [];
+      const dealt = Array.isArray(props.dealt) ? props.dealt : [];
+      const healed = Array.isArray(props.healed) ? props.healed : [];
+      heroes.forEach((h, i) => {
+        const hero = TAVERN_BRAWL_HEROES.find((x) => x === h);
+        if (!hero) return;
+        out.push([`f.played.${hero}`, 1]);
+        out.push(
+          [`f.dealt.${hero}`, num(dealt[i]) ?? 0],
+          [`f.healed.${hero}`, num(healed[i]) ?? 0],
+        );
+      });
+      for (const h of Array.isArray(props.winnerHeroes) ? props.winnerHeroes : []) {
+        const hero = TAVERN_BRAWL_HEROES.find((x) => x === h);
+        if (hero) out.push([`f.win.${hero}`, 1]);
+      }
+      break;
+    }
+    case 'ko':
+      if (props.removed === true) break;
+      out.push(['f.kos', 1]);
+      if (props.self === true) out.push(['f.self_kos', 1]);
+      break;
+  }
+  return out;
+}
+
+function tavernBrawlFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'wins-by-hero',
+      label: 'Wins by hero',
+      kind: 'split',
+      parts: TAVERN_BRAWL_HEROES.map((h) => ({ label: `{role:${h}}`, value: get(`f.win.${h}`) })),
+    },
+    {
+      id: 'hero-win-rate',
+      label: 'Hero win rate, damage and healing per game',
+      kind: 'matrix',
+      columns: ['Won', 'Damage', 'Healed'],
+      units: ['percent', 'count', 'count'],
+      rows: TAVERN_BRAWL_HEROES.map((h) => ({
+        label: `{role:${h}}`,
+        values: [
+          pct(get(`f.win.${h}`), get(`f.played.${h}`)),
+          avg(get(`f.dealt.${h}`), get(`f.played.${h}`)),
+          avg(get(`f.healed.${h}`), get(`f.played.${h}`)),
+        ],
+      })),
+    },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [2, 3, 4].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+    {
+      id: 'turns-per-game',
+      label: 'Turns per game',
+      kind: 'number',
+      value: avg(get('f.turn_sum'), games),
+    },
+    {
+      id: 'first-player-wins',
+      label: 'Games won by whoever went first',
+      kind: 'percent',
+      value: pct(get('f.first_won'), games),
+    },
+    {
+      id: 'self-kos',
+      label: 'Heroes who knocked themselves out',
+      kind: 'number',
+      value: get('f.self_kos'),
+    },
+    {
+      id: 'ties',
+      label: 'Games where everyone was knocked out',
+      kind: 'number',
+      value: get('f.ties'),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1001,6 +1103,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'inquest') return inquestCounters(type, props);
   if (gameId === 'seance') return seanceCounters(type, props);
   if (gameId === 'hydra' || gameId === 'hogwarts') return hydraCounters(type, props);
+  if (gameId === 'tavern-brawl') return tavernBrawlCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1174,6 +1277,8 @@ export function buildFigures(
       return inquestFigures(get, metrics);
     case 'seance':
       return seanceFigures(get);
+    case 'tavern-brawl':
+      return tavernBrawlFigures(get);
     case 'hydra':
     case 'hogwarts':
       return hydraFigures(get, metrics);

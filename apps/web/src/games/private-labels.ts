@@ -7,6 +7,7 @@ import {
   placeholderWord,
   powerNamesOf,
 } from '@vt/private-hydra/guide';
+import { makeGuide } from '@vt/private-tavern-brawl/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -106,4 +107,30 @@ export function hydraGuide(gameId: string): () => Promise<GameGuide> {
       ? { ...guide, tagline: tagline.trim() }
       : guide;
   };
+}
+
+/** Tavern Brawl names heroes (`{role:mage}`) and cards (`{card:mage.04}`) from its manifest. */
+export async function tavernBrawlLabels(): Promise<Labeler> {
+  const m = await manifest('tavern-brawl');
+  const heroes = obj(m?.heroes);
+  const cards = obj(m?.cards);
+  return (kind, id) =>
+    kind === 'role' ? name(heroes[id]) : kind === 'card' ? name(cards[id]) : undefined;
+}
+
+/** Tavern Brawl's guide with the real hero and card names, and the credits as its footer. */
+export async function tavernBrawlGuide(): Promise<GameGuide> {
+  const m = await manifest('tavern-brawl');
+  const heroes = obj(m?.heroes);
+  const cards = obj(m?.cards);
+  const credit = obj(m?.credit);
+  const paragraphs = Array.isArray(credit.paragraphs)
+    ? credit.paragraphs.filter((p): p is string => typeof p === 'string')
+    : [];
+  return makeGuide(
+    { hero: (id) => name(heroes[id]), card: (id) => name(cards[id]) },
+    typeof credit.title === 'string' && paragraphs.length
+      ? { title: credit.title, paragraphs }
+      : undefined,
+  );
 }
