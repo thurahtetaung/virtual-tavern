@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.1...v0.30.2) (2026-10-13)
+
+
+### Bug Fixes
+
+* **backroom:** show each game's real names on its card and rules page ([#128](https://github.com/thurahtetaung/virtual-tavern/issues/128)) ([55dcf2f](https://github.com/thurahtetaung/virtual-tavern/commit/55dcf2f9c70e487c661cb0df07fb90662fa24a5d))
+
 ## [0.30.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.0...v0.30.1) (2026-10-13)
 
 
