@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.0...v0.30.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **tavern-brawl:** crop hero portraits around the face ([#126](https://github.com/thurahtetaung/virtual-tavern/issues/126)) ([5506449](https://github.com/thurahtetaung/virtual-tavern/commit/550644938bcaddd85d369a9c01274ff7dc900155))
+
 ## [0.30.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.29.0...v0.30.0) (2026-10-13)
 
 
