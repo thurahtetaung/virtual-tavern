@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.27.1...v0.28.0) (2026-10-13)
+
+
+### Features
+
+* **inquest:** add the Allies expansion ([#116](https://github.com/thurahtetaung/virtual-tavern/issues/116)) ([0bc09c4](https://github.com/thurahtetaung/virtual-tavern/commit/0bc09c488441eabc146731f3138f96cecafaae19))
+
 ## [0.27.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.27.0...v0.27.1) (2026-10-13)
 
 
