@@ -136,12 +136,20 @@ export async function replaceTile(fs: Page) {
   await expect(confirm).toHaveCount(0);
 }
 
-/** The discussion after the last bullet: the Forensic Scientist taps Start presentations. */
-export async function startPresentations(players: Player[]) {
+/**
+ * The discussion after the last bullet: the Forensic Scientist taps its button (`Start
+ * presentations`, `Next round`, `Start final accusations` or `Close the case`).
+ */
+export async function endDiscussion(players: Player[], label: string) {
   const fs = await whoShows(players, 'The table is discussing the evidence.');
-  const start = fs.page.getByRole('button', { name: 'Start presentations' });
-  await start.click();
-  await expect(start).toHaveCount(0);
+  const button = fs.page.getByRole('button', { name: label, exact: true });
+  await button.click();
+  await expect(button).toHaveCount(0);
+}
+
+/** The discussion after the last bullet, with presentations on: Start presentations. */
+export async function startPresentations(players: Player[]) {
+  await endDiscussion(players, 'Start presentations');
 }
 
 /** Ends the discussion (unless it already ended), then every speaker taps Done, `count` times. */
@@ -165,10 +173,14 @@ export async function dismissEvent(players: Player[], name: RegExp) {
   }
 }
 
-/** Opens Solve and names `suspect`'s `clue`-th Clue and `means`-th Means card (0-based). */
+/**
+ * Opens Solve (or Accuse, in the final accusations) and names `suspect`'s `clue`-th Clue and
+ * `means`-th Means card (0-based).
+ */
 export async function solve(p: Page, suspect: string, clue: number, means: number) {
   await p
-    .getByRole('button', { name: /🔎 Solve/ })
+    .getByRole('button', { name: /🔎 Solve|⚖️ Accuse/ })
+    .and(p.locator(':visible'))
     .first()
     .click();
   const d = p.getByRole('dialog', { name: /^Solve/ });
@@ -181,7 +193,7 @@ export async function solve(p: Page, suspect: string, clue: number, means: numbe
     .getByRole('button', { name: /^Means:/ })
     .nth(means)
     .click();
-  await d.getByRole('button', { name: '🔎 Solve the crime' }).click();
+  await d.getByRole('button', { name: /^(🔎 Solve the crime|⚖️ Make my accusation)$/ }).click();
   await expect(d).toBeHidden();
 }
 

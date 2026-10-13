@@ -74,7 +74,8 @@ export function harness(count = 4, seed = 7): Harness {
 
 /**
  * A started game with fixed roles: `host` is the Forensic Scientist, then the roles given (by
- * default ana is the Murderer), everyone else an Investigator.
+ * default ana is the Murderer), everyone else an Investigator. It plays the printed rules
+ * (presentations on, no final accusations) unless `settings` says otherwise.
  */
 export function startedGame(
   count = 4,
@@ -83,7 +84,14 @@ export function startedGame(
   seed = 7,
 ) {
   const h = harness(count, seed);
-  h.act({ type: 'update-settings', fsMode: 'host', fsPick: HOST, ...settings });
+  h.act({
+    type: 'update-settings',
+    fsMode: 'host',
+    fsPick: HOST,
+    presentations: true,
+    finalAccusations: false,
+    ...settings,
+  });
   h.act({ type: 'start' });
   const want: Record<string, RoleId> = { [roles.murderer ?? 'ana']: 'murderer' };
   if (roles.accomplice) want[roles.accomplice] = 'accomplice';
@@ -119,10 +127,10 @@ export function toDiscussion(h: Harness, step = 5000) {
   return crime;
 }
 
-/** The Forensic Scientist ends the discussion, when there is one. */
+/** The Forensic Scientist ends the discussion, when there is one (the presentations, if on). */
 export function startPresentations(h: Harness) {
   if (h.state.phase === 'playing' && h.game().stage === 'discuss')
-    h.act({ type: 'start-presentations' }, h.game().fs);
+    h.act({ type: 'end-discussion' }, h.game().fs);
 }
 
 /** Night, location, the six round-1 bullets and the discussion: then the first presentation. */
@@ -151,4 +159,34 @@ export function stackPile(h: Harness, tiles: number[]) {
   const used = new Set([...g.slots, ...g.removed].map((s) => s.tile));
   const rest = g.pile.filter((t) => !tiles.includes(t) && !used.has(t) && t < 27);
   h.state = { ...h.state, game: { ...g, eventsIn: true, pile: [...tiles, ...rest] } };
+}
+
+/** Ends the discussion, then the round's presentations if they're on, until the round moves on. */
+export function endRound(h: Harness) {
+  const round = h.game().round;
+  presentAll(h);
+  while (h.state.phase === 'playing' && h.game().stage === 'discuss' && h.game().round === round)
+    h.act({ type: 'end-discussion' }, h.game().fs);
+}
+
+/** Places any missing bullets and puts down a drawn tile, until the round's discussion. */
+export function collectRound(h: Harness) {
+  for (let i = 0; i < 20 && h.state.phase === 'playing' && h.game().stage === 'collect'; i++) {
+    const g = h.game();
+    if (g.step?.kind === 'replace') h.act({ type: 'replace-tile', slot: 2 }, g.fs);
+    else if (g.step?.kind === 'bullets') {
+      const slot = g.slots.findIndex((s) => s.bullet === null);
+      h.act({ type: 'place-bullet', slot, item: 0 }, g.fs);
+    } else break;
+  }
+}
+
+/** Plays every round through (no solves) until the final accusations or the end. */
+export function toFinal(h: Harness) {
+  const crime = toDiscussion(h);
+  for (let i = 0; i < 10 && h.state.phase === 'playing' && h.game().stage !== 'final'; i++) {
+    endRound(h);
+    collectRound(h);
+  }
+  return crime;
 }

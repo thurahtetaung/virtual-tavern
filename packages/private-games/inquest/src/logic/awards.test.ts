@@ -17,6 +17,7 @@ import {
   presentAll,
   stackPile,
   startedGame,
+  toDiscussion,
   toPresentations,
 } from './test-utils.ts';
 import type { InquestAction, InquestState } from './types.ts';
@@ -245,6 +246,14 @@ describe('Inquest awards', () => {
     expect(inquestAwards.history!(game(outcome({ how: 'badges' })))).toEqual([
       'Every badge was spent: the Murderer got away',
     ]);
+    expect(inquestAwards.history!(game(outcome({ how: 'final' })))).toEqual([
+      'Every final accusation missed: the Murderer got away',
+    ]);
+    expect(
+      inquestAwards.history!(
+        game(outcome({ how: 'solved', solvedRound: 3, solvedFinal: true, solvedBy: 'i2' })),
+      ),
+    ).toEqual(['Solved in the final accusations by {p:i2}']);
   });
 });
 
@@ -285,7 +294,7 @@ describe('a real game through insights and awards', () => {
     );
     rec.act({ type: 'solve', target: 'ana', clue: m.clue[1]!, means: m.means[0]! }, 'eve');
     // Both solves came during the discussion; then the presentations.
-    rec.act({ type: 'start-presentations' }, HOST);
+    rec.act({ type: 'end-discussion' }, HOST);
     while (h.game().stage === 'present') {
       const p = h.game().present!;
       rec.act({ type: 'done-presenting' }, p.order[p.index]);
@@ -354,7 +363,7 @@ describe('a real game through insights and awards', () => {
         rec.act({ type: 'replace-tile', slot: 2 }, HOST);
         rec.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
       }
-      if (h.game().stage === 'discuss') rec.act({ type: 'start-presentations' }, HOST);
+      if (h.game().stage === 'discuss') rec.act({ type: 'end-discussion' }, HOST);
       while (h.state.phase === 'playing' && h.game().stage === 'present') {
         const p = h.game().present!;
         rec.act({ type: 'done-presenting' }, p.order[p.index]);
@@ -369,5 +378,69 @@ describe('a real game through insights and awards', () => {
     );
     expect(hit(rule('got-away'), g)[0]!.players).toEqual(['ana']);
     expect(hit(rule('silent-partner'), g)[0]!.players).toEqual(['ben']);
+  });
+
+  it('final accusations: a right one is a Last-Second Save; forced bluffs aren’t bold', () => {
+    const run = (solve: boolean) => {
+      const h = startedGame(
+        6,
+        { murderer: 'ana', accomplice: 'ben' },
+        { events: false, presentations: false, finalAccusations: true, witness: false },
+      );
+      const rec = recording(h);
+      const crime = toDiscussion(h);
+      rec.events.length = 0;
+      rec.act({ type: 'end-discussion' }, HOST);
+      for (let round = 2; round <= 3; round++) {
+        rec.act({ type: 'replace-tile', slot: 2 }, HOST);
+        rec.act({ type: 'place-bullet', slot: 2, item: 0 }, HOST);
+        rec.act({ type: 'end-discussion' }, HOST);
+      }
+      expect(h.game().stage).toBe('final');
+      const cards = (id: string, i = 1) => {
+        const p = h.game().players.find((x) => x.id === id)!;
+        return { target: id, clue: p.clue[i]!, means: p.means[i]! };
+      };
+      rec.act({ type: 'solve', ...cards('dee') }, 'ana');
+      rec.act({ type: 'solve', ...cards('dee') }, 'ben');
+      rec.act({ type: 'solve', ...cards('ana') }, 'cy');
+      if (solve)
+        rec.act({ type: 'solve', target: 'ana', clue: crime.clue, means: crime.means }, 'dee');
+      else {
+        rec.act({ type: 'solve', ...cards('ana', 2) }, 'dee');
+        rec.act({ type: 'solve', ...cards('ana', 3) }, 'eve');
+      }
+      expect(h.state.phase).toBe('over');
+      return rec.events;
+    };
+    const won = run(true);
+    const out = won.find((e) => e.type === 'outcome')!;
+    expect(out.props).toMatchObject({
+      how: 'solved',
+      solvedRound: 3,
+      solvedFinal: true,
+      finalAccusations: 4,
+      bluffers: [],
+    });
+    expect(won.filter((e) => e.type === 'solve').every((e) => e.props!.final === true)).toBe(true);
+    const g = fixtureGame(
+      won.map((e, i) => recapEventOf(e, i + 1)),
+      { players: PLAYERS },
+    );
+    expect(hit(rule('last-second-save'), g)[0]!.players).toEqual(['dee']);
+    expect(hit(rule('called-it'), g)).toEqual([]);
+    expect(inquestAwards.history!(g)).toEqual(['Solved in the final accusations by {p:dee}']);
+
+    const lost = run(false);
+    const l = fixtureGame(
+      lost.map((e, i) => recapEventOf(e, i + 1)),
+      { players: PLAYERS },
+    );
+    expect(lost.find((e) => e.type === 'outcome')!.props).toMatchObject({
+      winner: 'murderer',
+      how: 'final',
+    });
+    expect(hit(rule('got-away'), l)[0]!.players).toEqual(['ana']);
+    expect(hit(rule('bold-bluffer'), l)).toEqual([]);
   });
 });

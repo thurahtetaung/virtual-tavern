@@ -10,13 +10,14 @@ import {
   cn,
 } from '@vt/ui';
 import { useState } from 'react';
-import type { InquestAction, InquestView, RoleId } from '../logic/types.ts';
+import { type InquestAction, type InquestView, type RoleId, finalOf } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
 import type { Content } from './assets.ts';
 import { Timeline } from './Scene.tsx';
 import { nameOf, resultLine, solveBlocker } from './status.ts';
 import { useTip } from './tips.ts';
 import { TipBox } from './Scene.tsx';
+import { FinalList } from './Final.tsx';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -31,7 +32,7 @@ const GOALS: Record<RoleId | 'former-forensic', { goal: string; win: string }> =
   },
   murderer: {
     goal: 'Keep anyone from naming your Key Evidence and Means.',
-    win: 'You win if nobody names your pair by the end of round 3, or every attempt is spent.',
+    win: 'You win if nobody names your pair by the end, or every attempt is spent.',
   },
   accomplice: {
     goal: 'Help the Murderer stay hidden, and point the table elsewhere.',
@@ -221,10 +222,12 @@ export function SolveButton({
   view,
   onSolve,
   compact = false,
+  label = '🔎 Solve',
 }: {
   view: InquestView;
   onSolve: () => void;
   compact?: boolean;
+  label?: string;
 }) {
   const blocker = solveBlocker(view);
   const me = view.game?.players.find((p) => p.id === view.me?.id);
@@ -238,7 +241,8 @@ export function SolveButton({
       onClick={onSolve}
       className={cn(!compact && 'w-full')}
     >
-      🔎 Solve{me.badges > 1 ? ` (${me.badges})` : ''}
+      {label}
+      {me.badges > 1 ? ` (${me.badges})` : ''}
       {me.badges <= 0 ? ' · used' : ''}
     </Button>
   );
@@ -266,8 +270,11 @@ export function MeTab({
         <>
           {tipOpen && !blocker && (
             <TipBox onClose={dismissTip}>
-              Solve names one suspect’s Clue + Means. You get one attempt, so be sure, but don’t
-              wait too long: the game ends after round 3.
+              Solve names another player’s Clue + Means. You get one attempt, so be sure, but don’t
+              wait too long:{' '}
+              {finalOf(view.settings)
+                ? 'after round 3 comes one last accusation each, in turn.'
+                : 'the game ends after round 3.'}
             </TipBox>
           )}
           <SolveButton view={view} onSolve={onSolve} />
@@ -290,7 +297,10 @@ export function Attempts({ view, content }: { view: InquestView; content: Conten
           <li key={`${a.by}-${a.at}`}>
             {a.correct ? '✅' : '❌'} <b>{nameOf(view, a.by)}</b> named {nameOf(view, a.target)}’s{' '}
             {content.cardName('clue', a.clue)} + {content.cardName('means', a.means)}
-            <span className="text-stone-500"> · round {a.round}</span>
+            <span className="text-stone-500">
+              {' '}
+              · {a.final ? 'final accusation' : `round ${a.round}`}
+            </span>
           </li>
         ))}
       </ul>
@@ -620,6 +630,12 @@ export function OverScreen({
         </ul>
       </Panel>
       <Attempts view={view} content={content} />
+      {g.final && (
+        <Panel className="space-y-1">
+          <h3 className="text-sm font-bold">Final accusations</h3>
+          <FinalList view={view} content={content} />
+        </Panel>
+      )}
       <Panel className="space-y-1">
         <h3 className="text-sm font-bold">How the bullets fell</h3>
         <Timeline g={g} content={content} full />

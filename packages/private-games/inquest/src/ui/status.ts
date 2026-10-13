@@ -1,6 +1,12 @@
 import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
 import { startProblem } from '../logic/setup.ts';
-import type { GameView, InquestView, MyRole } from '../logic/types.ts';
+import {
+  type GameView,
+  type InquestView,
+  type MyRole,
+  finalOf,
+  presentationsOf,
+} from '../logic/types.ts';
 
 export interface Status {
   text: string;
@@ -34,6 +40,8 @@ export function waitingOn(view: InquestView): Waiting | null {
       return { ids: [], label: 'the Murderer and the Accomplice' };
     case 'present':
       return g.present ? { ids: [g.present.order[g.present.index]!] } : null;
+    case 'final':
+      return g.final ? { ids: [g.final.order[g.final.index]!] } : null;
     case 'discuss':
       // Everyone talks; the Forensic Scientist's button ends it.
       return null;
@@ -64,11 +72,24 @@ export function roleLine(role: MyRole, g: GameView, view: InquestView): string {
     default: {
       const me = g.players.find((p) => p.id === view.me?.id);
       return me && me.badges <= 0
-        ? 'You’ve used your attempt: keep listening and presenting.'
+        ? 'You’ve used your attempt: keep listening and talking it through.'
         : 'Listen, study the suspects, and tap Solve when you’re sure.';
     }
   }
 }
+
+/** The discussion's button, in the room's mode. */
+export function endDiscussionLabel(view: InquestView): string {
+  const g = view.game;
+  if (presentationsOf(view.settings)) return 'Start presentations';
+  if (g && g.round >= g.finalRound)
+    return finalOf(view.settings) ? 'Start final accusations' : 'Close the case';
+  return 'Next round';
+}
+
+/** The current final accuser, if any. */
+export const accuserOf = (g: GameView | null | undefined) =>
+  g?.stage === 'final' && g.final ? (g.final.order[g.final.index] ?? null) : null;
 
 const clockText = (s: number | null) =>
   s === null ? '' : ` (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`;
@@ -123,15 +144,38 @@ export function statusFor(
       };
     case 'discuss': {
       const late = g.deadline !== null && secondsLeft === 0;
+      const label = endDiscussionLabel(view);
       if (fs)
         return late
-          ? { text: 'Time’s up: start the presentations.', yourMove: true }
+          ? { text: `Time’s up: tap ${label}.`, yourMove: true }
           : {
-              text: 'The table is discussing the evidence. Start the presentations when they’re ready.',
+              text: `The table is discussing the evidence. Tap ${label} when they’re ready.`,
               yourMove: true,
             };
+      const next = presentationsOf(view.settings)
+        ? 'starts the presentations'
+        : g.round < g.finalRound
+          ? 'starts the next round'
+          : finalOf(view.settings)
+            ? 'starts the final accusations'
+            : 'closes the case';
       return {
-        text: `Discuss the evidence: this round’s new bullets are highlighted. ${fsName} starts the presentations.`,
+        text: `Discuss the evidence: this round’s new bullets are highlighted. ${fsName} ${next}.`,
+        yourMove: false,
+      };
+    }
+    case 'final': {
+      const f = g.final!;
+      const accuser = f.order[f.index]!;
+      const next = f.order.slice(f.index + 1)[0];
+      if (accuser === me?.id)
+        return {
+          text: `Final accusations: your turn${clockText(secondsLeft)}. Tap Accuse and name another player’s Clue + Means.`,
+          yourMove: true,
+        };
+      const up = next ? ` Up next: ${next === me?.id ? 'you' : nameOf(view, next)}.` : '';
+      return {
+        text: `Final accusations: ${nameOf(view, accuser)} is accusing…${up}`,
         yourMove: false,
       };
     }
@@ -140,11 +184,13 @@ export function statusFor(
       const speaker = p.order[p.index]!;
       const next = p.order.slice(p.index + 1)[0];
       const left = p.order.length - p.index - 1;
-      const last = g.round >= g.finalRound ? ' Last chance!' : '';
+      // With final accusations on, there is one more chance after these.
+      const lastRound = g.round >= g.finalRound && !finalOf(view.settings);
+      const last = lastRound ? ' Last chance!' : '';
       if (speaker === me?.id)
         return { text: `Your turn to present${clockText(secondsLeft)}.${last}`, yourMove: true };
       const up = next ? ` Up next: ${next === me?.id ? 'you' : nameOf(view, next)}.` : '';
-      const tail = g.round >= g.finalRound ? ` ${left} speaker${left === 1 ? '' : 's'} left.` : '';
+      const tail = lastRound ? ` ${left} speaker${left === 1 ? '' : 's'} left.` : '';
       return {
         text: `${nameOf(view, speaker)} is presenting.${up}${tail}${fs || role === null ? '' : ` ${lead}`}`,
         yourMove: false,
@@ -215,9 +261,12 @@ export function resultLine(view: InquestView): string {
   const r = view.game?.result;
   if (!r) return 'Game over.';
   const solver = r.solvedBy ? nameOf(view, r.solvedBy) : 'Someone';
+  const inFinal = view.game!.attempts.some((a) => a.correct && a.final)
+    ? ' in the final accusations'
+    : '';
   switch (r.how) {
     case 'solved':
-      return `Case closed! ${solver} named the crime: the Investigators win.`;
+      return `Case closed! ${solver} named the crime${inFinal}: the Investigators win.`;
     case 'reversal':
       return r.witnessFound
         ? `${solver} solved it, but the culprits found the Witness (${nameOf(view, r.reversalPick)}): the Murderer’s side wins.`
@@ -226,6 +275,8 @@ export function resultLine(view: InquestView): string {
       return 'Every attempt is spent: the Murderer’s side wins.';
     case 'time':
       return 'Time’s up: nobody named the crime, so the Murderer’s side wins.';
+    case 'final':
+      return 'Every final accusation missed: the Murderer’s side wins.';
   }
 }
 
@@ -239,5 +290,8 @@ export function solveBlocker(view: InquestView): string | null {
   if (g.stage === 'night' || g.stage === 'reversal') return 'You can’t solve right now.';
   if (g.stage === 'collect' && g.bullets.length === 0)
     return 'You can solve once the first bullet is down.';
+  const accuser = accuserOf(g);
+  if (accuser && accuser !== me.id)
+    return `Wait for your turn: ${nameOf(view, accuser)} is accusing.`;
   return null;
 }

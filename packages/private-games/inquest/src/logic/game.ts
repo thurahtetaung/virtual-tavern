@@ -33,6 +33,7 @@ import {
   DEFAULT_HAND,
   DEFAULT_PRESENT_SECONDS,
   EVENT_TURN_SECONDS,
+  type Attempt,
   type EndHow,
   type Game,
   type GameView,
@@ -55,6 +56,8 @@ import {
   USEFUL_CLUE_OPTIONS,
   actionSchema,
   discussSecondsOf,
+  finalOf,
+  presentationsOf,
 } from './types.ts';
 
 type Ctx = ActionCtx;
@@ -155,6 +158,8 @@ function updateSettings(
   if (action.presentSeconds !== undefined) s.presentSeconds = action.presentSeconds;
   if (action.presentMode !== undefined) s.presentMode = action.presentMode;
   if (action.discussSeconds !== undefined) s.discussSeconds = action.discussSeconds;
+  if (action.presentations !== undefined) s.presentations = action.presentations;
+  if (action.finalAccusations !== undefined) s.finalAccusations = action.finalAccusations;
   return { ...state, settings: s };
 }
 
@@ -246,6 +251,7 @@ function start(state: InquestState, ctx: Ctx): Result {
     roundTileDone: false,
     event: null,
     present: null,
+    final: null,
     attempts: [],
     reversal: null,
     result: null,
@@ -621,11 +627,11 @@ function testify(state: InquestState, by: PlayerId, slot: number, now: number, r
   );
 }
 
-// ---- Discussion and presentations ----
+// ---- Discussion, presentations and the final accusations ----
 
 /**
  * After the round's last bullet the table talks the evidence over, then the Forensic Scientist
- * starts the presentations. Its clock is soft: at 0 nothing happens by itself.
+ * ends the discussion. Its clock is soft: at 0 nothing happens by itself.
  */
 function startDiscuss(state: InquestState, now: number): InquestState {
   const g = state.game!;
@@ -639,13 +645,15 @@ function startDiscuss(state: InquestState, now: number): InquestState {
   });
 }
 
-function startPresentations(state: InquestState, ctx: Ctx): Result {
+/** The presentations when they're on; otherwise the next round, or the final accusations. */
+function endDiscussion(state: InquestState, ctx: Ctx): Result {
   const g = state.game;
   if (!g || g.stage !== 'discuss') return err('wrong-stage', 'There is no discussion to end.');
   // The host can step in when the Forensic Scientist is away.
   if (ctx.by !== g.fs && !ctx.isHost)
-    return err('not-fs', 'The Forensic Scientist starts the presentations.');
-  return startPresent(state, ctx.now);
+    return err('not-fs', 'The Forensic Scientist ends the discussion.');
+  if (presentationsOf(state.settings)) return startPresent(state, ctx.now);
+  return advance(endOfRound(state, ctx.now), ctx.now, ctx.rng);
 }
 
 function startPresent(state: InquestState, now: number): InquestState {
@@ -678,13 +686,17 @@ function nextSpeaker(state: InquestState, now: number): InquestState {
 
 function endOfRound(state: InquestState, now: number): InquestState {
   const g = state.game!;
-  if (g.round >= g.finalRound) return finish(state, 'murderer', 'time', now);
+  if (g.round >= g.finalRound)
+    return finalOf(state.settings)
+      ? startFinal(state, now)
+      : finish(state, 'murderer', 'time', now);
   return withGame(state, {
     ...g,
     stage: 'collect',
     round: g.round + 1,
     present: null,
     step: null,
+    deadline: null,
     roundTileDone: false,
     lastMark: now,
   });
@@ -692,6 +704,7 @@ function endOfRound(state: InquestState, now: number): InquestState {
 
 function donePresenting(state: InquestState, ctx: Ctx, skip: boolean): Result {
   const g = state.game;
+  if (skip && g?.stage === 'final') return skipAccuser(state, ctx);
   if (!g || g.stage !== 'present' || !g.present)
     return err('wrong-stage', 'Nobody is presenting now.');
   const speaker = g.present.order[g.present.index];
@@ -701,6 +714,63 @@ function donePresenting(state: InquestState, ctx: Ctx, skip: boolean): Result {
   } else if (speaker !== ctx.by) return err('not-speaker', "It isn't your turn to present.");
   return advance(nextSpeaker(state, ctx.now), ctx.now, ctx.rng);
 }
+
+/** Who may still accuse at the end: at the table, not a Forensic Scientist, with a badge left. */
+const canAccuse = (g: Game, id: PlayerId) => solvers(g).some((p) => p.id === id && p.badges > 0);
+
+/**
+ * After the last round (with the table rule on): everyone with a badge accuses once, one by one,
+ * in seat order from the left of the Forensic Scientist. Nobody left to accuse: the Murderer's
+ * side wins.
+ */
+function startFinal(state: InquestState, now: number): InquestState {
+  const g = state.game!;
+  const order = speakingOrder(g).filter((id) => canAccuse(g, id));
+  const base: Game = { ...g, present: null, step: null, deadline: null };
+  if (!order.length) return finish(withGame(state, base), 'murderer', 'final', now);
+  return withGame(state, {
+    ...base,
+    stage: 'final',
+    final: { order, index: 0, deadline: now + state.settings.presentSeconds * 1000, skipped: [] },
+  });
+}
+
+/** The next accuser who still can, or the Murderer's side wins when everyone has had a turn. */
+function nextAccuser(state: InquestState, now: number): InquestState {
+  const g = state.game!;
+  const f = g.final!;
+  for (let i = f.index + 1; i < f.order.length; i++) {
+    if (canAccuse(g, f.order[i]!))
+      return withGame(state, {
+        ...g,
+        final: { ...f, index: i, deadline: now + state.settings.presentSeconds * 1000 },
+      });
+  }
+  return finish(state, 'murderer', 'final', now);
+}
+
+/** The accuser's turn passes without an accusation (they keep their badge, but the turn is gone). */
+function passAccuser(state: InquestState, now: number, why: string): InquestState {
+  const g = state.game!;
+  const f = g.final!;
+  const id = f.order[f.index]!;
+  const s = notice(
+    withGame(state, { ...g, final: { ...f, skipped: [...f.skipped, id] } }),
+    why.replace('{name}', playerOf(g, id)?.name ?? 'Someone'),
+    now,
+  );
+  return nextAccuser(s, now);
+}
+
+function skipAccuser(state: InquestState, ctx: Ctx): Result {
+  const g = state.game!;
+  if (!ctx.isHost && ctx.by !== g.fs)
+    return err('not-host', 'Only the host or the Forensic Scientist can skip a turn.');
+  return passAccuser(state, ctx.now, '{name}’s final accusation was skipped.');
+}
+
+const currentAccuser = (g: Game) =>
+  g.stage === 'final' ? (g.final?.order[g.final.index] ?? null) : null;
 
 // ---- Solving ----
 
@@ -714,7 +784,8 @@ function solve(
   const open =
     (g.stage === 'collect' && g.bullets.length > 0) ||
     g.stage === 'discuss' ||
-    g.stage === 'present';
+    g.stage === 'present' ||
+    g.stage === 'final';
   if (!open)
     return err(
       'not-now',
@@ -726,6 +797,14 @@ function solve(
   if (!me || !solvers(g).includes(me))
     return err('cannot-solve', 'Only players at the table (not the Forensic Scientist) can solve.');
   if (me.badges <= 0) return err('no-badge', 'You have already used your attempt.');
+  const accuser = currentAccuser(g);
+  if (g.stage === 'final' && accuser !== me.id)
+    return err(
+      'not-your-turn',
+      `Wait for your turn: ${playerOf(g, accuser)?.name ?? 'someone else'} is accusing.`,
+    );
+  if (action.target === me.id)
+    return err('self', 'Pick another player’s cards — you can’t accuse yourself.');
   const target = playerOf(g, action.target);
   if (!target || target.id === g.fs || !target.clue.length)
     return err('bad-target', "Pick a suspect's cards.");
@@ -738,7 +817,10 @@ function solve(
     target.id === murderer.id &&
     g.solution?.clue === action.clue &&
     g.solution.means === action.means;
-  const attempt = {
+  // The culprits can't hand the case over: a refusal only they see, with nothing recorded.
+  if (correct && sideOf(me.role) === 'murderer')
+    return err('own-crime', 'That’s your own team’s crime — pick a different pair.');
+  const attempt: Attempt = {
     by: ctx.by,
     target: target.id,
     clue: action.clue,
@@ -746,6 +828,7 @@ function solve(
     correct,
     round: g.round,
     at: ctx.now,
+    ...(g.stage === 'final' ? { final: true } : {}),
   };
   const players = correct
     ? g.players
@@ -770,6 +853,7 @@ function solve(
       });
     return finish(withGame(solved, next), 'investigators', 'solved', ctx.now, ctx.by);
   }
+  if (g.stage === 'final') return nextAccuser(withGame(state, next), ctx.now);
   return checkBadges(withGame(state, next), ctx.now);
 }
 
@@ -777,6 +861,8 @@ function solve(
 function checkBadges(state: InquestState, now: number): InquestState {
   const g = state.game!;
   if (state.phase !== 'playing' || g.stage === 'reversal' || g.stage === 'done') return state;
+  // The final accusations end by themselves once every turn is taken.
+  if (g.stage === 'final') return state;
   if (g.stage === 'night') return state;
   if (solvers(g).some((p) => p.badges > 0)) return state;
   return finish(state, 'murderer', 'badges', now);
@@ -872,6 +958,7 @@ function handOver(state: InquestState, rng: Rng, now: number, auto: boolean): Re
   const after = s.game!;
   if (after.present && after.present.order[after.present.index] === next.id)
     s = advance(nextSpeaker(s, now), now, rng);
+  if (currentAccuser(s.game!) === next.id) s = nextAccuser(s, now);
   const ev = s.game!.event;
   if (ev?.kind === 'ruled-out' && ev.order[ev.index] === next.id) {
     const i = nextFlipper(s.game!, ev.index + 1);
@@ -933,8 +1020,8 @@ function reduce(state: InquestState, action: InquestAction, ctx: Ctx): Result {
     case 'testify':
       if (!state.game) return err('not-playing', 'No game in progress.');
       return testify(state, ctx.by, action.slot, ctx.now, ctx.rng);
-    case 'start-presentations':
-      return startPresentations(state, ctx);
+    case 'end-discussion':
+      return endDiscussion(state, ctx);
     case 'done-presenting':
       return donePresenting(state, ctx, false);
     case 'skip-speaker':
@@ -968,6 +1055,8 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): InquestState {
       presentSeconds: DEFAULT_PRESENT_SECONDS,
       presentMode: 'soft',
       discussSeconds: DEFAULT_DISCUSS_SECONDS,
+      presentations: false,
+      finalAccusations: true,
     },
     seed: newSeed(ctx.rng),
     table: ctx.rng.int(2 ** 31),
@@ -1035,6 +1124,8 @@ function playerLeft(state: InquestState, playerId: PlayerId, now: number): Inque
   const after = s.game!;
   if (after.stage === 'present' && after.present?.order[after.present.index] === playerId)
     s = advance(nextSpeaker(s, now), now, rng);
+  if (currentAccuser(s.game!) === playerId)
+    s = passAccuser(s, now, '{name} left, so their final accusation was skipped.');
   const ev = s.game!.event;
   if (ev?.kind === 'ruled-out' && ev.order[ev.index] === playerId) {
     const i = nextFlipper(s.game!, ev.index + 1);
@@ -1066,6 +1157,8 @@ function nextDeadline(state: InquestState): number | null {
   if (g.event?.kind === 'ruled-out' || g.event?.kind === 'testimony') return g.event.deadline;
   if (g.stage === 'present' && state.settings.presentMode === 'hard')
     return g.present?.deadline ?? null;
+  if (g.stage === 'final' && state.settings.presentMode === 'hard')
+    return g.final?.deadline ?? null;
   return null;
 }
 
@@ -1115,6 +1208,9 @@ function onDeadline(state: InquestState, now: number): InquestState {
     const s = notice(state, timedOut(`${speaker?.name ?? 'the speaker'}’s turn passed`), now);
     return advance(nextSpeaker(s, now), now, rng);
   }
+  // Strict timing: a silent accuser loses the turn (never a random accusation).
+  if (g.stage === 'final' && g.final)
+    return passAccuser(state, now, timedOut('{name}’s final accusation was skipped'));
   return state;
 }
 
@@ -1207,6 +1303,9 @@ function gameView(state: InquestState, g: Game, viewer: PlayerId | null): GameVi
     event,
     events: [...g.events],
     present: g.present ? { ...g.present, order: [...g.present.order] } : null,
+    final: g.final
+      ? { ...g.final, order: [...g.final.order], skipped: [...g.final.skipped] }
+      : null,
     attempts: g.attempts.map((a) => ({ ...a })),
     reversal: g.reversal
       ? {

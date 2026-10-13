@@ -1,12 +1,13 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
-import { EVENT_TEXT } from '../logic/names.ts';
+import { eventText } from '../logic/names.ts';
 import type { InquestView, PlayerView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
 import type { Content } from './assets.ts';
 import { Timeline, orderOf } from './Scene.tsx';
-import { nameOf, statusFor } from './status.ts';
+import { FinalList } from './Final.tsx';
+import { accuserOf, nameOf, statusFor } from './status.ts';
 import { suspectsOf } from './Suspects.tsx';
 import { Tile } from './Tile.tsx';
 
@@ -85,6 +86,8 @@ export function TableScreen({
   const g = view.game!;
   const p = g.present;
   const speaker = g.stage === 'present' && p ? p.order[p.index] : null;
+  const f = g.final;
+  const accuser = accuserOf(g);
   const newest = g.bullets.at(-1);
   const suspects = suspectsOf(g);
   const hand = Math.max(8, ...suspects.map((s) => s.clue.length + s.means.length));
@@ -112,12 +115,15 @@ export function TableScreen({
         <p className="min-w-0 flex-1 text-xl font-semibold">
           {speaker
             ? `🎙️ ${nameOf(view, speaker)} is presenting`
-            : g.stage === 'discuss'
-              ? '💬 Discussion: talk over the new bullets'
-              : statusFor(view, false, room).text}
+            : accuser
+              ? `⚖️ Final accusations: ${nameOf(view, accuser)} is accusing…`
+              : g.stage === 'discuss'
+                ? '💬 Discussion: talk over the new bullets'
+                : statusFor(view, false, room).text}
           <span className="ml-3 text-base font-normal text-stone-400">
-            Round {g.round} of {g.finalRound}
-            {g.countdown && g.stage !== 'done' ? ' · last round' : ''}
+            {accuser && f
+              ? `${f.index + 1} of ${f.order.length}`
+              : `Round ${g.round} of ${g.finalRound}${g.countdown && g.stage !== 'done' ? ' · last round' : ''}`}
           </span>
         </p>
         <span className="rounded-full bg-sky-500/20 px-3 py-1 text-base font-semibold text-sky-100">
@@ -128,7 +134,14 @@ export function TableScreen({
             deadline={g.deadline}
             clockOffset={room.clockOffset}
             soft
-            expiredHint="The Forensic Scientist starts the presentations"
+            expiredHint="The Forensic Scientist moves on when the table is ready"
+          />
+        )}
+        {accuser && f && (
+          <Countdown
+            deadline={f.deadline}
+            clockOffset={room.clockOffset}
+            soft={view.settings.presentMode === 'soft'}
           />
         )}
         {speaker && p && (
@@ -185,6 +198,17 @@ export function TableScreen({
               ))}
             </div>
           )}
+          {f && (
+            <section
+              aria-label="Final accusations"
+              className="space-y-1 rounded-xl bg-white/70 p-3 ring-2 ring-rose-400 dark:bg-stone-900/70"
+            >
+              <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">
+                Final accusations
+              </h3>
+              <FinalList view={view} content={content} big />
+            </section>
+          )}
           {(ev || g.events.length > 0) && (
             <section
               aria-label="Events"
@@ -193,7 +217,7 @@ export function TableScreen({
               <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">Events</h3>
               {ev && (
                 <p className="text-base">
-                  <b>⚡ {content.eventName(ev.kind)}:</b> {EVENT_TEXT[ev.kind]}
+                  <b>⚡ {content.eventName(ev.kind)}:</b> {eventText(ev.kind, view.settings)}
                 </p>
               )}
               <ol className="flex flex-wrap gap-1.5 text-sm">
@@ -234,6 +258,7 @@ export function TableScreen({
                 key={s.id}
                 s={s}
                 speaking={s.id === speaker}
+                accusing={s.id === accuser}
                 content={content}
                 perRow={fit?.perRow ?? 4}
                 card={fit?.card ?? 96}
@@ -249,12 +274,14 @@ export function TableScreen({
 function SuspectHand({
   s,
   speaking,
+  accusing,
   content,
   perRow,
   card,
 }: {
   s: PlayerView;
   speaking: boolean;
+  accusing: boolean;
   content: Content;
   perRow: number;
   card: number;
@@ -267,7 +294,9 @@ function SuspectHand({
     <li
       className={cn(
         'rounded-xl bg-white/70 p-2 dark:bg-stone-900/70',
-        speaking ? 'ring-4 ring-amber-400' : 'ring-1 ring-stone-200 dark:ring-stone-800',
+        speaking || accusing
+          ? 'ring-4 ring-amber-400'
+          : 'ring-1 ring-stone-200 dark:ring-stone-800',
       )}
     >
       <h4 className="mb-1 truncate text-lg leading-tight font-bold">
@@ -275,6 +304,7 @@ function SuspectHand({
         {speaking && (
           <span className="ml-2 text-sm font-semibold text-amber-500">🎙️ presenting</span>
         )}
+        {accusing && <span className="ml-2 text-sm font-semibold text-amber-500">⚖️ accusing</span>}
         {s.badges <= 0 && (
           <span className="ml-2 text-sm font-normal text-stone-500">attempt used</span>
         )}

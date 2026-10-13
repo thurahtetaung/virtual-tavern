@@ -7,6 +7,8 @@ import {
   type FsMode,
   HAND_SIZES,
   discussSecondsOf,
+  finalOf,
+  presentationsOf,
   type InquestAction,
   type InquestView,
   MAX_PLAYERS,
@@ -254,8 +256,35 @@ export function Lobby({
           </div>
         </section>
         <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Discussion time before presentations</h4>
-          <div className="flex flex-wrap gap-2" aria-label="Discussion time before presentations">
+          <h4 className="text-sm font-semibold">How rounds end</h4>
+          <div className="flex flex-wrap gap-2">
+            <Choice
+              on={presentationsOf(s)}
+              disabled={!host}
+              onClick={() => set({ presentations: !presentationsOf(s) })}
+            >
+              {presentationsOf(s) ? '✓ ' : ''}Presentations
+            </Choice>
+            <Choice
+              on={finalOf(s)}
+              disabled={!host}
+              onClick={() => set({ finalAccusations: !finalOf(s) })}
+            >
+              {finalOf(s) ? '✓ ' : ''}Final accusations
+            </Choice>
+          </div>
+          <p className="text-xs text-stone-500 dark:text-stone-400">
+            {presentationsOf(s)
+              ? 'After each discussion, everyone presents in turn. '
+              : 'The discussion carries each round (no presentations). '}
+            {finalOf(s)
+              ? 'After round 3, everyone with a badge accuses once, in turn (our table rule).'
+              : 'After round 3 the Murderer wins, as printed.'}
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-sm font-semibold">Discussion time</h4>
+          <div className="flex flex-wrap gap-2" aria-label="Discussion time">
             {DISCUSS_SECONDS_OPTIONS.map((n) => (
               <Choice
                 key={n}
@@ -268,12 +297,21 @@ export function Lobby({
             ))}
           </div>
           <p className="text-xs text-stone-500 dark:text-stone-400">
-            Every round, after the last bullet. A reminder: the Forensic Scientist starts the
-            presentations whenever the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
+            Every round, after the last bullet. A reminder: the Forensic Scientist moves on whenever
+            the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
           </p>
         </section>
         <section className="space-y-1.5">
-          <h4 className="text-sm font-semibold">Presentation time</h4>
+          <h4 className="text-sm font-semibold">
+            Turn time{' '}
+            <span className="font-normal text-stone-500">
+              (
+              {[presentationsOf(s) && 'presentations', finalOf(s) && 'final accusations']
+                .filter(Boolean)
+                .join(' and ') || 'not used'}
+              )
+            </span>
+          </h4>
           <div className="flex flex-wrap gap-2">
             {PRESENT_SECONDS_OPTIONS.map((n) => (
               <Choice
@@ -304,8 +342,8 @@ export function Lobby({
           </div>
           <p className="text-xs text-stone-500 dark:text-stone-400">
             {s.presentMode === 'soft'
-              ? 'Reminder: the clock turns red at 0:00; the speaker taps Done or the host skips.'
-              : 'Strict: the turn passes by itself at 0:00.'}
+              ? 'Reminder: the clock turns red at 0:00; the player finishes or the host skips.'
+              : 'Strict: the turn passes by itself at 0:00 (a final accusation is skipped).'}
           </p>
         </section>
         <RefusalSlot anchor="inquest-settings" />

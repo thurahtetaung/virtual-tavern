@@ -8,9 +8,11 @@ import {
   presentAll,
   stackPile,
   startedGame,
+  toDiscussion,
+  toFinal,
   toPresentations,
 } from '../logic/test-utils.ts';
-import { resultLine, solveBlocker, statusFor, waitingOn } from './status.ts';
+import { endDiscussionLabel, resultLine, solveBlocker, statusFor, waitingOn } from './status.ts';
 
 const six = () => startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' });
 const say = (h: ReturnType<typeof six>, id: string, secs: number | null = null) =>
@@ -68,11 +70,11 @@ describe('statusFor', () => {
     // After the last bullet: the discussion, with a nudge for the Forensic Scientist at 0.
     for (let slot = 1; slot < 6; slot++) h.act({ type: 'place-bullet', slot, item: 0 }, HOST);
     expect(say(h, HOST, 30)).toEqual({
-      text: 'The table is discussing the evidence. Start the presentations when they’re ready.',
+      text: 'The table is discussing the evidence. Tap Start presentations when they’re ready.',
       yourMove: true,
     });
     expect(say(h, HOST, 0)).toEqual({
-      text: 'Time’s up: start the presentations.',
+      text: 'Time’s up: tap Start presentations.',
       yourMove: true,
     });
     expect(say(h, 'dee', 0)).toEqual({
@@ -119,6 +121,55 @@ describe('statusFor', () => {
     h.act({ type: 'reversal-confirm' }, 'ana');
     expect(resultLine(inquest.view(h.state, 'eve'))).toBe(
       'Dee solved it, but the culprits found the Witness (Cy): the Murderer’s side wins.',
+    );
+  });
+
+  it('presentations off: the discussion’s button names what comes next', () => {
+    const opts = { presentations: false, finalAccusations: true, events: false } as const;
+    const h = startedGame(4, {}, opts);
+    toDiscussion(h);
+    expect(endDiscussionLabel(inquest.view(h.state, HOST))).toBe('Next round');
+    expect(say(h, HOST, 30).text).toBe(
+      'The table is discussing the evidence. Tap Next round when they’re ready.',
+    );
+    expect(say(h, 'ben').text).toMatch(/starts the next round\.$/);
+    const f = startedGame(4, {}, opts);
+    toFinal(f);
+    f.state = { ...f.state, game: { ...f.game(), stage: 'discuss', final: null } };
+    expect(endDiscussionLabel(inquest.view(f.state, HOST))).toBe('Start final accusations');
+    const off = startedGame(4, {}, { ...opts, finalAccusations: false });
+    toDiscussion(off);
+    off.state = { ...off.state, game: { ...off.game(), round: 3 } };
+    expect(endDiscussionLabel(inquest.view(off.state, HOST))).toBe('Close the case');
+  });
+
+  it('final accusations: whose turn it is, for everyone; others wait to solve', () => {
+    const h = startedGame(
+      6,
+      { murderer: 'ana', accomplice: 'ben', witness: 'cy' },
+      { presentations: false, finalAccusations: true, events: false },
+    );
+    toFinal(h);
+    expect(say(h, 'ana', 25)).toEqual({
+      text: 'Final accusations: your turn (0:25). Tap Accuse and name another player’s Clue + Means.',
+      yourMove: true,
+    });
+    for (const id of ['ben', 'dee', HOST])
+      expect(say(h, id).text).toBe(
+        `Final accusations: Ana is accusing… Up next: ${id === 'ben' ? 'you' : 'Ben'}.`,
+      );
+    expect(waitingOn(inquest.view(h.state, 'dee'))).toEqual({ ids: ['ana'] });
+    expect(solveBlocker(inquest.view(h.state, 'ana'))).toBeNull();
+    expect(solveBlocker(inquest.view(h.state, 'dee'))).toBe('Wait for your turn: Ana is accusing.');
+    // Everyone misses: the Murderer's side wins.
+    for (let i = 0; i < 5 && h.state.phase === 'playing'; i++) {
+      const f = h.game().final!;
+      const by = f.order[f.index]!;
+      const t = h.game().players.find((p) => p.id !== by && p.id !== HOST && p.id !== 'ana')!;
+      h.act({ type: 'solve', target: t.id, clue: t.clue[1]!, means: t.means[1]! }, by);
+    }
+    expect(resultLine(inquest.view(h.state, 'dee'))).toBe(
+      'Every final accusation missed: the Murderer’s side wins.',
     );
   });
 });

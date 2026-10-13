@@ -1,5 +1,5 @@
 import type { EventKind } from './content.ts';
-import type { RoleId } from './types.ts';
+import { type RoleId, type Settings, finalOf, presentationsOf } from './types.ts';
 
 /** Plain role names. The private manifest may carry art for each. */
 export const ROLE_NAMES: Readonly<Record<RoleId, string>> = {
@@ -37,7 +37,20 @@ export const EVENT_TEXT: Readonly<Record<EventKind, string>> = {
     'One by one, going the other way round from the Forensic Scientist, everyone flips one of their own Clue cards. A flipped card can’t be the answer.',
   erroneous: 'The Forensic Scientist moves one bullet to a different item on the same scene tile.',
   countdown:
-    'Two scene tiles are swapped for new ones, and this round’s presentations are the last: the game ends when everyone has presented.',
+    'Two scene tiles are swapped for new ones, and this is the last round: the game ends after it, or the final accusations follow when they’re on.',
   testimony:
     'The Witness secretly points at a scene tile, and a new tile replaces it. Nobody learns who pointed.',
 };
+
+/** What ends the last round, in the room's mode: its discussion or its presentations. */
+export function lastRoundText(s: Settings): string {
+  const after = presentationsOf(s) ? 'its presentations' : 'its discussion';
+  return `after ${after}, ${finalOf(s) ? 'the final accusations follow' : 'the game ends'}`;
+}
+
+/** An event's text for the room's mode (Last Call names what comes after the last round). */
+export function eventText(kind: EventKind, s: Settings): string {
+  return kind === 'countdown'
+    ? `Two scene tiles are swapped for new ones, and this is the last round: ${lastRoundText(s)}.`
+    : EVENT_TEXT[kind];
+}

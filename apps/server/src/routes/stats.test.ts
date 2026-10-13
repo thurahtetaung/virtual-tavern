@@ -450,6 +450,7 @@ describe('admin stats', () => {
         { label: 'Round 1', value: 1 },
         { label: 'Round 2', value: 0 },
         { label: 'Round 3', value: 0 },
+        { label: 'Final accusations', value: 0 },
       ],
     });
     expect(figs['bullets-before-solve']).toMatchObject({ value: 6 });

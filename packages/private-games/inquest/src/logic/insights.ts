@@ -12,9 +12,10 @@ import type { Game, InquestAction, InquestState } from './types.ts';
  * - `solve`: who tried, on whose cards (`target`, `clue`/`means` as card ids), right or wrong,
  *   how many bullets had been placed (`bulletsDownAtSolve`, moves not counted) and whether the
  *   round's bullets were all in (`allBulletsIn`: false while the Forensic Scientist is still
- *   placing them, or before the new tile's bullet in rounds 2 and 3);
- * - `outcome`: the winning side and how (`solved`, `time`, `badges`, `reversal`), the round, who
- *   solved and how fast, the Forensic Scientist(s), Murderer, Accomplice and Witness, whether the
+ *   placing them, or before the new tile's bullet in rounds 2 and 3), and whether it was a final
+ *   accusation (`final`);
+ * - `outcome`: the winning side and how (`solved`, `time`, `badges`, `reversal`, `final`), the
+ *   round, who solved, how fast and whether in the final accusations (`solvedFinal`), the Forensic Scientist(s), Murderer, Accomplice and Witness, whether the
  *   Reversal found the Witness, the crime (`clue`/`means` card ids), and a few counts.
  * Card ids are `clue-<n>`/`means-<n>`, which the browser names from the private manifest.
  */
@@ -56,6 +57,7 @@ export function insights(
         means: meansKey(a.means),
         correct: a.correct,
         round: a.round,
+        final: a.final === true,
       },
     });
   }
@@ -87,6 +89,7 @@ function outcome(g: Game): InsightEvent {
       players: g.players.length,
       solvedBy: r.solvedBy,
       solvedRound: right?.round ?? null,
+      solvedFinal: right?.final === true,
       solveS: right ? Math.round((right.at - g.startedAt) / 1000) : null,
       firstTry: right ? g.attempts.filter((a) => a.by === right.by).length === 1 : false,
       fs: g.fs,
@@ -105,7 +108,11 @@ function outcome(g: Game): InsightEvent {
       wrongBeforeSolve: right ? wrong.filter((a) => a.at <= right.at).length : null,
       // Wrong attempts on the Murderer's own cards ("barking up the right tree, wrong branch").
       nearMisses: wrong.filter((a) => a.target === murderer).map((a) => a.by),
-      bluffers: [...new Set(wrong.filter((a) => murderSide.includes(a.by)).map((a) => a.by))],
+      // A final accusation is everyone's duty, so a culprit's one there isn't a bold bluff.
+      bluffers: [
+        ...new Set(wrong.filter((a) => murderSide.includes(a.by) && !a.final).map((a) => a.by)),
+      ],
+      finalAccusations: g.attempts.filter((a) => a.final).length,
       events: g.events.length,
       countdown: g.countdown,
     },

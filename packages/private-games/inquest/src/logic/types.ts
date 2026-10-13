@@ -61,10 +61,22 @@ export interface Settings {
   presentMode: TimerMode;
   /** Rooms saved before the discussion step have none: read it with `discussSecondsOf`. */
   discussSeconds?: DiscussSeconds;
+  /**
+   * Presentations after each round's discussion (the printed rules). Off by default: the
+   * discussion carries the round. Older rooms have none: read it with `presentationsOf`.
+   */
+  presentations?: boolean;
+  /**
+   * The table rule: after the last round everyone with a badge accuses in turn, in public. On by
+   * default; off is the printed ending (the Murderer's side wins). Read it with `finalOf`.
+   */
+  finalAccusations?: boolean;
 }
 
 export const discussSecondsOf = (s: Settings): DiscussSeconds =>
   s.discussSeconds ?? DEFAULT_DISCUSS_SECONDS;
+export const presentationsOf = (s: Settings): boolean => s.presentations ?? false;
+export const finalOf = (s: Settings): boolean => s.finalAccusations ?? true;
 
 export interface Seat {
   name: string;
@@ -145,10 +157,26 @@ export interface Attempt {
   correct: boolean;
   round: number;
   at: number;
+  /** Made in turn during the final accusations. */
+  final?: boolean;
+}
+
+/**
+ * The final accusations: everyone with a badge accuses once, one by one, in seat order from the
+ * left of the Forensic Scientist. Public, and kept after the end for the timeline.
+ */
+export interface FinalAccusations {
+  order: PlayerId[];
+  index: number;
+  /** When the accuser's time is up (soft: a reminder; hard: the turn is skipped). */
+  deadline: number;
+  /** Turns that passed without an accusation (offline, skipped by the host, or timed out). */
+  skipped: PlayerId[];
 }
 
 export type Side = 'investigators' | 'murderer';
-export type EndHow = 'solved' | 'time' | 'badges' | 'reversal';
+/** `final`: every final accusation was wrong. */
+export type EndHow = 'solved' | 'time' | 'badges' | 'reversal' | 'final';
 
 export interface Result {
   winner: Side;
@@ -183,10 +211,13 @@ export interface Game {
   fs: PlayerId;
   /** Forensic Scientists who were replaced: they watch, knowing the answer. */
   formerFs: PlayerId[];
-  /** `discuss`: the table talks the evidence over before the presentations, every round. */
-  stage: 'night' | 'collect' | 'discuss' | 'present' | 'reversal' | 'done';
+  /**
+   * `discuss`: the table talks the evidence over, every round (then the presentations, if on).
+   * `final`: the final accusations after the last round, when the host left them on.
+   */
+  stage: 'night' | 'collect' | 'discuss' | 'present' | 'final' | 'reversal' | 'done';
   round: number;
-  /** The last presentation round: 3, or the round a Countdown came up in. */
+  /** The last round: 3, or the round a Countdown came up in. */
   finalRound: number;
   countdown: boolean;
   deadline: number | null;
@@ -211,6 +242,8 @@ export interface Game {
   roundTileDone: boolean;
   event: ActiveEvent | null;
   present: Presentation | null;
+  /** Older rooms have none. */
+  final?: FinalAccusations | null;
   attempts: Attempt[];
   reversal: Reversal | null;
   result: Result | null;
@@ -267,6 +300,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     discussSeconds: z
       .union([z.literal(0), z.literal(60), z.literal(120), z.literal(180), z.literal(300)])
       .optional(),
+    presentations: z.boolean().optional(),
+    finalAccusations: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('volunteer'), on: z.boolean() }),
@@ -281,8 +316,10 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('rule-out'), clue: card }),
   z.object({ type: z.literal('move-bullet'), slot, item }),
   z.object({ type: z.literal('testify'), slot }),
-  z.object({ type: z.literal('start-presentations') }),
+  /** Ends the discussion: the presentations, the next round or the final accusations follow. */
+  z.object({ type: z.literal('end-discussion') }),
   z.object({ type: z.literal('done-presenting') }),
+  /** Skips the current speaker, or the current accuser in the final accusations. */
   z.object({ type: z.literal('skip-speaker') }),
   z.object({ type: z.literal('solve'), target: id, clue: card, means: card }),
   z.object({ type: z.literal('reversal-tap'), target: id }),
@@ -367,6 +404,7 @@ export interface GameView {
   event: EventView | null;
   events: EventKind[];
   present: Presentation | null;
+  final: FinalAccusations | null;
   attempts: Attempt[];
   /** Taps only reach the Murderer and the Accomplice. */
   reversal: {
