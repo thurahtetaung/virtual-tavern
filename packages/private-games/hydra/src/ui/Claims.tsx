@@ -1,5 +1,6 @@
 import { Button, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
+import { chancellorDiscard } from '../logic/claims.ts';
 import type {
   Claim,
   ClaimNeed,
@@ -7,13 +8,24 @@ import type {
   HydraView,
   Memory,
   Policy,
+  Round,
   Team,
 } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { FlipCard, PartyBack, PartyFace, Pips, bluesCards } from './Cards.tsx';
+import { FlipCard, PartyBack, PartyFace, Pips, TEAM_TEXT, bluesCards } from './Cards.tsx';
 import { nameOf } from './status.ts';
 
 type Act = (a: HydraAction, o?: { anchor?: string }) => Promise<boolean>;
+
+/** Every draw a President can claim, with each colour they could have discarded from it. */
+const PRESIDENT_CLAIMS: readonly (readonly [number, Policy])[] = [
+  [0, 'red'],
+  [1, 'blue'],
+  [1, 'red'],
+  [2, 'blue'],
+  [2, 'red'],
+  [3, 'blue'],
+];
 
 /** What the viewer privately saw that this claim is about (their own memory), if any. */
 function seen(view: HydraView, need: ClaimNeed): Memory | undefined {
@@ -61,6 +73,7 @@ export function ClaimForm({
   act: Act;
 }) {
   const [blues, setBlues] = useState<number | null>(null);
+  const [discarded, setDiscarded] = useState<Policy | null>(null);
   const [cards, setCards] = useState<(Policy | null)[]>([null, null, null]);
   const [team, setTeam] = useState<Team | null>(null);
   const [sure, setSure] = useState(false);
@@ -71,14 +84,18 @@ export function ClaimForm({
       ? cards.every((x) => x !== null)
       : need.kind === 'investigate'
         ? team !== null
-        : blues !== null;
+        : need.kind === 'president'
+          ? blues !== null && discarded !== null
+          : blues !== null;
   const send = () => {
     const action: HydraAction =
       need.kind === 'peek'
         ? { type: 'claim', cards: cards as Policy[] }
         : need.kind === 'investigate'
           ? { type: 'claim', team: team! }
-          : { type: 'claim', blues: blues! };
+          : need.kind === 'president'
+            ? { type: 'claim', blues: blues!, discarded: discarded! }
+            : { type: 'claim', blues: blues! };
     void act(action, { anchor: 'claim' });
   };
   const summary =
@@ -86,6 +103,11 @@ export function ClaimForm({
       <Pips cards={cards as Policy[]} c={c} size="md" />
     ) : need.kind === 'investigate' && team ? (
       <b>{c.teamName(team)}</b>
+    ) : need.kind === 'president' && blues !== null && discarded ? (
+      <span>
+        <Pips cards={bluesCards(blues, n)} c={c} size="md" />, discarded{' '}
+        <Pips cards={[discarded]} c={c} size="md" />
+      </span>
     ) : blues !== null ? (
       <Pips cards={bluesCards(blues, n)} c={c} size="md" />
     ) : null;
@@ -115,14 +137,47 @@ export function ClaimForm({
           {memory.kind === 'investigate' && <PartyReveal team={memory.team} c={c} />}
         </div>
       )}
-      {(need.kind === 'president' || need.kind === 'chancellor') && (
+      {need.kind === 'president' && (
         <fieldset>
           <legend className="mb-2 text-sm font-semibold">
-            {need.kind === 'president'
-              ? 'Say the three cards you drew'
-              : 'Say the two cards you were handed'}
+            Say the three cards you drew, and the one you discarded
           </legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {PRESIDENT_CLAIMS.map(([b, d]) => {
+              const on = blues === b && discarded === d;
+              return (
+                <button
+                  key={`${b}${d}`}
+                  type="button"
+                  aria-pressed={on}
+                  aria-label={`${n - b} ${c.teamName('red')}, ${b} ${c.teamName('blue')}, discarded ${c.teamName(d)}`}
+                  onClick={() => {
+                    setBlues(b);
+                    setDiscarded(d);
+                    setSure(false);
+                  }}
+                  className={cn(
+                    'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 ring-1 transition',
+                    on
+                      ? 'bg-amber-50 ring-2 ring-amber-500 dark:bg-amber-500/15'
+                      : 'bg-white ring-stone-300 hover:bg-stone-50 dark:bg-stone-800 dark:ring-stone-600',
+                  )}
+                >
+                  <Pips cards={bluesCards(b, n)} c={c} size="md" />
+                  <span className="flex items-center gap-1 text-[0.65rem] text-stone-600 dark:text-stone-400">
+                    discarded <Pips cards={[d]} c={c} />
+                    <span className={TEAM_TEXT[d]}>{c.teamName(d)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+      {need.kind === 'chancellor' && (
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold">Say the two cards you were handed</legend>
+          <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: n + 1 }, (_, b) => (
               <button
                 key={b}
@@ -219,7 +274,7 @@ export function ClaimForm({
           </Button>
         ) : (
           <div className="hy-rise space-y-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-300 dark:bg-amber-500/10">
-            <p className="flex flex-wrap items-center justify-center gap-2 text-sm font-semibold">
+            <p className="text-center text-sm leading-7 font-semibold">
               Claim {summary}? Claims are final.
             </p>
             <div className="flex gap-2">
@@ -241,43 +296,64 @@ export function ClaimForm({
   );
 }
 
-/** One claim as the log shows it: "Ana (President) claimed 🟥🟥🟦". */
-export function ClaimLine({ view, c, claim }: { view: HydraView; c: Content; claim: Claim }) {
-  const role =
-    claim.kind === 'president'
-      ? 'President'
-      : claim.kind === 'chancellor'
-        ? 'Chancellor'
-        : 'President';
+/** A colour named in its colour: "Red". */
+function Colour({ p, c }: { p: Policy; c: Content }) {
+  return <b className={TEAM_TEXT[p]}>{c.teamName(p)}</b>;
+}
+
+/**
+ * One claim as the log shows it: "Ana (President) drew 🟥🟥🟦, discarded Red". Given the round,
+ * a Chancellor's discard is worked out from the enacted policy.
+ */
+export function ClaimLine({
+  view,
+  c,
+  claim,
+  round,
+}: {
+  view: HydraView;
+  c: Content;
+  claim: Claim;
+  round?: Round;
+}) {
+  const role = claim.kind === 'chancellor' ? 'Chancellor' : 'President';
+  const derived = round && chancellorDiscard(claim, round);
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      <b>{nameOf(view, claim.by)}</b>
-      <span className="text-stone-500">({role})</span>
+    <span>
+      <b>{nameOf(view, claim.by)}</b> <span className="text-stone-500">({role})</span>{' '}
       {claim.skipped ? (
         <span className="text-stone-500 italic">
           (no claim, {claim.skipped === 'host' ? 'skipped by host' : 'left the game'})
         </span>
       ) : claim.kind === 'investigate' ? (
         <>
-          says {nameOf(view, claim.target)} is{' '}
-          <b
-            className={
-              claim.team === 'blue'
-                ? 'text-sky-700 dark:text-sky-300'
-                : 'text-red-700 dark:text-red-400'
-            }
-          >
-            {c.teamName(claim.team!)}
-          </b>
+          says {nameOf(view, claim.target)} is <Colour p={claim.team!} c={c} />
         </>
       ) : claim.kind === 'peek' ? (
         <>
           peeked <Pips cards={claim.cards!} c={c} />
         </>
+      ) : claim.kind === 'president' ? (
+        <>
+          drew <Pips cards={bluesCards(claim.blues!, 3)} c={c} />
+          {claim.discarded && (
+            <>
+              ,{' '}
+              <span className="whitespace-nowrap">
+                discarded <Colour p={claim.discarded} c={c} />
+              </span>
+            </>
+          )}
+        </>
       ) : (
         <>
-          claimed{' '}
-          <Pips cards={bluesCards(claim.blues!, claim.kind === 'president' ? 3 : 2)} c={c} />
+          got <Pips cards={bluesCards(claim.blues!, 2)} c={c} />
+          {derived && (
+            <span className="whitespace-nowrap text-stone-500">
+              {' '}
+              → discarded 1 <Colour p={derived} c={c} />
+            </span>
+          )}
         </>
       )}
     </span>

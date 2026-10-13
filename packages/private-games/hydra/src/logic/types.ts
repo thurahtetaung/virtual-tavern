@@ -95,6 +95,11 @@ export interface Claim {
   kind: ClaimKind;
   /** President and Chancellor: how many blue cards (of 3 or 2). */
   blues?: number;
+  /**
+   * President: the colour they say they discarded. Required for new claims; claims made before it
+   * existed have none ("not stated").
+   */
+  discarded?: Policy;
   /** Peek: the top three in order. */
   cards?: Policy[];
   /** Investigation: who, and the colour claimed. */
@@ -287,6 +292,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('claim'),
     blues: z.number().int().min(0).max(3).optional(),
+    /** President: the colour discarded. */
+    discarded: policy.optional(),
     cards: z.array(policy).length(3).optional(),
     team: policy.optional(),
   }),

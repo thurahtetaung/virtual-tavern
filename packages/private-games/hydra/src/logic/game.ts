@@ -891,6 +891,13 @@ function claimAction(
       if (action.blues === undefined || action.blues > max)
         return err('bad-claim', `Say how many of your ${max} cards were blue.`);
       claim.blues = action.blues;
+      if (need.kind === 'president') {
+        const d = action.discarded;
+        if (!d) return err('bad-claim', 'Say which colour you discarded.');
+        if ((d === 'blue' && action.blues === 0) || (d === 'red' && action.blues === 3))
+          return err('bad-claim', 'You can only discard a colour you say you drew.');
+        claim.discarded = d;
+      }
       break;
     }
     case 'peek':

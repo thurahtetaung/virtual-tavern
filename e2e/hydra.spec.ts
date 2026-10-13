@@ -57,6 +57,11 @@ test('five players: peek, mandatory claims, a skipped claim and an execution to 
     await claim(gov.pres, { blues: i === 0 ? 1 : 0 });
     await claim(gov.chan, { blues: 0 });
   }
+  // The log names the President's stated discard and works out the Chancellor's.
+  const second = host.getByTestId('round').filter({ hasText: '#2' }).first();
+  await expect(second).toContainText('drew');
+  await expect(second).toContainText(`discarded ${NAMES.red}`);
+  await expect(second).toContainText(`→ discarded 1 ${NAMES.red}`);
   // The third red policy: the President peeks, then claims what they saw.
   const third = await government(players);
   await claimSession(third);

@@ -4,7 +4,7 @@ import { type Flag, type FlagKind, claimFlags } from '../logic/claims.ts';
 import type { HydraView, Round } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { POWER_EMOJI } from './Boards.tsx';
-import { Pips } from './Cards.tsx';
+import { Pips, bluesCards } from './Cards.tsx';
 import { ClaimLine } from './Claims.tsx';
 import { Sheet } from './Secret.tsx';
 import type { Notes, Suspicions } from './storage.ts';
@@ -15,10 +15,27 @@ type Filter = 'all' | 'claims' | 'votes';
 const FLAG_TEXT: Record<FlagKind, string> = {
   'government-mismatch':
     'The two claims can’t both be true: the President’s three can’t leave the Chancellor these two.',
+  'passed-mismatch': 'The President and the Chancellor don’t agree on the two cards passed.',
   'chancellor-vs-enacted': 'The Chancellor’s claim doesn’t match the policy that came out.',
   'president-vs-enacted': 'The President’s claim doesn’t match the policy that came out.',
   'peek-mismatch': 'This draw doesn’t match the earlier peek claim.',
 };
+
+/** "the President says they passed 🟥🟦, the Chancellor says they got 🟥🟥". */
+function PassedMismatch({ f, c }: { f: Flag; c: Content }) {
+  return (
+    <span>
+      the President says they passed{' '}
+      <span className="whitespace-nowrap">
+        <Pips cards={bluesCards(f.passed!, 2)} c={c} />,
+      </span>{' '}
+      the Chancellor says they got{' '}
+      <span className="whitespace-nowrap">
+        <Pips cards={bluesCards(f.received!, 2)} c={c} />.
+      </span>
+    </span>
+  );
+}
 
 function VoteLine({ view, c, r }: { view: HydraView; c: Content; r: Round }) {
   const ids = Object.keys(r.votes);
@@ -159,7 +176,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                   )}
                   {r.claims.map((cl) => (
                     <li key={`${cl.by}:${cl.kind}`}>
-                      <ClaimLine view={view} c={c} claim={cl} />
+                      <ClaimLine view={view} c={c} claim={cl} round={r} />
                     </li>
                   ))}
                   {pending.map((n) => (
@@ -173,7 +190,12 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                       key={f.kind}
                       className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-950 ring-1 ring-amber-300 dark:bg-amber-500/10 dark:text-amber-100"
                     >
-                      ⚠ Doesn’t add up: {FLAG_TEXT[f.kind]}
+                      ⚠ Doesn’t add up:{' '}
+                      {f.kind === 'passed-mismatch' ? (
+                        <PassedMismatch f={f} c={c} />
+                      ) : (
+                        FLAG_TEXT[f.kind]
+                      )}
                     </li>
                   ))}
                   {r.power && (

@@ -152,7 +152,13 @@ export async function legislate(players: Player[], color: 'blue' | 'red' = 'red'
 /** `p` makes the claim their sheet asks for: blue count, peek cards or a colour. */
 export async function claim(
   p: Player,
-  what: { blues?: number; cards?: ('blue' | 'red')[]; team?: 'blue' | 'red' } = {},
+  what: {
+    blues?: number;
+    /** President: the colour they say they discarded (red unless they claim three blue). */
+    discarded?: 'blue' | 'red';
+    cards?: ('blue' | 'red')[];
+    team?: 'blue' | 'red';
+  } = {},
 ) {
   const form = p.page.getByTestId('claim-form');
   await expect(form).toBeVisible({ timeout: 15_000 });
@@ -164,8 +170,13 @@ export async function claim(
   } else {
     const blues = what.blues ?? 0;
     const n = (await form.getByText('Say the three cards you drew').count()) > 0 ? 3 : 2;
+    const drew = `${n - blues} ${NAMES.red}, ${blues} ${NAMES.blue}`;
+    const discarded = what.discarded ?? (blues === 3 ? 'blue' : 'red');
     await form
-      .getByRole('button', { name: `${n - blues} ${NAMES.red}, ${blues} ${NAMES.blue}` })
+      .getByRole('button', {
+        name: n === 3 ? `${drew}, discarded ${NAMES[discarded]}` : drew,
+        exact: true,
+      })
       .click();
   }
   await form.getByRole('button', { name: 'Make this claim' }).click();
