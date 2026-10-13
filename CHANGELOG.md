@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.27.0...v0.27.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **hogwarts:** theme the stats page and recap wording ([#114](https://github.com/thurahtetaung/virtual-tavern/issues/114)) ([a993985](https://github.com/thurahtetaung/virtual-tavern/commit/a993985310edf61ad61adcde42d4ec0903d06304))
+
 ## [0.27.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.26.2...v0.27.0) (2026-10-13)
 
 
