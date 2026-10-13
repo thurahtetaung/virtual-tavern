@@ -56,6 +56,12 @@ import type { GameFigure } from '@vt/protocol';
 //              ko {self, removed; recap: by, card, hero, turn}, play {card, hero; recap: stolen,
 //              free, auto}, hit {hp, shield, power; recap: target, self}, heal {amount}, shield,
 //              swap, rotate, social {done}, steal {count}
+//   short-fuse outcome {players, turns, preset, x1, draws, longestChain, maxOwed; recap:
+//              eliminated, maxOwedBy}, play {cards, kind; recap: target}, nope {n},
+//              noped {chain, kind, card}, yup {chain}, bomb {kind, saved}, explode {kind, turn,
+//              left; recap: placedBy}, placement {kind, position, of; recap: drawnBy, killed},
+//              steal {how, hit; recap: victim, named}, attack {owed; recap: victim}, draw {from},
+//              timeout {did, host}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -862,6 +868,131 @@ function seanceFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+// Short Fuse names its cards in its manifest, so card labels are `{card:…}` placeholders.
+const SHORT_FUSE_CARDS = [
+  'attack',
+  'skip',
+  'favor',
+  'shuffle',
+  'peek3',
+  'nope',
+  'aim',
+  'reverse',
+  'bottom',
+  'alter3',
+] as const;
+const SHORT_FUSE_PRESETS: [string, string][] = [
+  ['classic', 'Classic deck'],
+  ['adult', 'Adult deck'],
+  ['party', 'Party deck'],
+];
+const SHORT_FUSE_SPOTS: [string, string][] = [
+  ['top', 'On top'],
+  ['2', '2nd'],
+  ['3', '3rd'],
+  ['mid', 'Further down'],
+  ['bottom', 'At the bottom'],
+];
+
+function shortFuseCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const preset = str(props.preset);
+      if (preset && SHORT_FUSE_PRESETS.some(([k]) => k === preset))
+        out.push([`f.preset.${preset}`, 1]);
+      if (props.x1 === true) out.push(['f.x1', 1]);
+      out.push(
+        ['f.turn_sum', num(props.turns) ?? 0],
+        ['max.f.chain', num(props.longestChain) ?? 0],
+      );
+      out.push(['max.f.owed', num(props.maxOwed) ?? 0]);
+      break;
+    }
+    case 'play': {
+      out.push(['f.plays', 1]);
+      const cards = Array.isArray(props.cards) ? props.cards : [];
+      const card = str(cards[0]);
+      if (props.kind === 'card' && card && (SHORT_FUSE_CARDS as readonly string[]).includes(card))
+        out.push([`f.card.${card}`, 1]);
+      if (props.kind === 'pair' || props.kind === 'triple') out.push(['f.combos', 1]);
+      break;
+    }
+    case 'noped':
+      out.push(['f.noped', 1]);
+      break;
+    case 'nope':
+      out.push(['f.nopes', 1]);
+      break;
+    case 'bomb':
+      if (props.saved === 'defuse') out.push(['f.defused', 1]);
+      if (props.kind === 'bomb') out.push(['f.bomb_draws', 1]);
+      break;
+    case 'explode':
+      out.push(['f.explosions', 1]);
+      break;
+    case 'placement': {
+      const pos = num(props.position);
+      const of = num(props.of);
+      if (pos === null || of === null || props.kind !== 'bomb') break;
+      const spot =
+        pos === 0 ? 'top' : pos === of - 1 ? 'bottom' : pos === 1 ? '2' : pos === 2 ? '3' : 'mid';
+      out.push([`f.spot.${spot}`, 1]);
+      break;
+    }
+  }
+  return out;
+}
+
+function shortFuseFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'decks',
+      label: 'Decks played',
+      kind: 'split',
+      parts: SHORT_FUSE_PRESETS.map(([k, label]) => ({ label, value: get(`f.preset.${k}`) })),
+    },
+    {
+      id: 'explosions',
+      label: 'Explosions per game',
+      kind: 'number',
+      value: avg(get('f.explosions'), games),
+    },
+    {
+      id: 'defused',
+      label: 'Drawn {card:bomb} cards that were defused',
+      kind: 'percent',
+      value: pct(get('f.defused'), get('f.bomb_draws')),
+    },
+    {
+      id: 'noped',
+      label: 'Plays cancelled by {card:nope}',
+      kind: 'percent',
+      value: pct(get('f.noped'), get('f.plays')),
+    },
+    {
+      id: 'cards',
+      label: 'Most-played cards',
+      kind: 'split',
+      parts: SHORT_FUSE_CARDS.map((c) => ({
+        label: `{card:${c}}`,
+        value: get(`f.card.${c}`),
+      })).filter((p) => p.value > 0),
+    },
+    {
+      id: 'spots',
+      label: 'Where defused {card:bomb} cards were hidden',
+      kind: 'histogram',
+      bins: SHORT_FUSE_SPOTS.map(([k, label]) => ({ label, value: get(`f.spot.${k}`) })),
+    },
+    { id: 'turns', label: 'Turns per game', kind: 'number', value: avg(get('f.turn_sum'), games) },
+    { id: 'chain', label: 'Longest {card:nope} chain', kind: 'number', value: get('max.f.chain') },
+    { id: 'owed', label: 'Most turns owed at once', kind: 'number', value: get('max.f.owed') },
+  ];
+}
+
 // Hydra and its editions name their cards, offices and powers in their manifests, so these labels
 // are `{role:…}` placeholders the stats page fills in from the edition's own words.
 const HYDRA_HOWS: [string, string][] = [
@@ -1104,6 +1235,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'seance') return seanceCounters(type, props);
   if (gameId === 'hydra' || gameId === 'hogwarts') return hydraCounters(type, props);
   if (gameId === 'tavern-brawl') return tavernBrawlCounters(type, props);
+  if (gameId === 'short-fuse') return shortFuseCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1282,6 +1414,8 @@ export function buildFigures(
     case 'hydra':
     case 'hogwarts':
       return hydraFigures(get, metrics);
+    case 'short-fuse':
+      return shortFuseFigures(get);
     case 'codenames':
       return [
         teams(false),

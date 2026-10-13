@@ -8,6 +8,12 @@ import {
   powerNamesOf,
 } from '@vt/private-hydra/guide';
 import { makeGuide } from '@vt/private-tavern-brawl/guide';
+import {
+  type Manifest as ShortFuseManifest,
+  footerOf as shortFuseFooter,
+  nameGuide as nameShortFuseGuide,
+  namesOf as shortFuseNames,
+} from '@vt/private-short-fuse/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -133,4 +139,16 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
       ? { title: credit.title, paragraphs }
       : undefined,
   );
+}
+
+/** Short Fuse's card names (`{card:bomb}`), from its manifest, with its placeholders otherwise. */
+export async function shortFuseLabels(): Promise<Labeler> {
+  const names = shortFuseNames(await manifest('short-fuse'));
+  return (kind, id) => (kind === 'card' ? names.cards[id as keyof typeof names.cards] : undefined);
+}
+
+/** Short Fuse's guide in its manifest's names, with the credits as its footer. */
+export async function shortFuseGuide(): Promise<GameGuide> {
+  const m = (await manifest('short-fuse')) as ShortFuseManifest | null;
+  return nameShortFuseGuide(shortFuseNames(m), shortFuseFooter(m));
 }

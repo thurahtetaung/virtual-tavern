@@ -1,0 +1,81 @@
+import { type BotCtx, createRng, playWithBots } from '@vt/game-sdk';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { shortFuseBot } from './bot.ts';
+import { shortFuse } from './game.ts';
+import { rigged } from './test-utils.ts';
+import type { Settings, ShortFuseAction, ShortFuseView } from './types.ts';
+
+const seats = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}` }));
+const ctx = (me: string, seed = 1): BotCtx => ({
+  me,
+  now: 0,
+  rng: createRng(seed),
+  words: () => [],
+});
+
+/** The human host's buttons: pick the deck, then start. */
+const host =
+  (settings: Partial<Settings>) =>
+  (view: ShortFuseView): ShortFuseAction | null => {
+    if (view.phase !== 'lobby') return null;
+    const ready = Object.entries(settings).every(
+      ([k, v]) => view.settings[k as keyof Settings] === v,
+    );
+    return ready ? { type: 'start' } : { type: 'update-settings', ...settings };
+  };
+
+const PRESETS: Record<string, Partial<Settings>> = {
+  classic: { core: 'classic', art: 'classic', x1: false },
+  adult: { core: 'classic', art: 'adult', x1: false },
+  party: { core: 'party', art: 'classic', x1: false },
+  'classic+x1': { core: 'classic', art: 'classic', x1: true },
+  'party+x1': { core: 'party', art: 'classic', x1: true, faster: true },
+};
+
+describe('bots', () => {
+  it('take the view, never the state', () => {
+    expectTypeOf(shortFuseBot).parameter(0).toEqualTypeOf<ShortFuseView>();
+  });
+
+  for (const [name, settings] of Object.entries(PRESETS))
+    for (const n of [2, 3, 5, 7, 10])
+      it(`finish a ${name} game at ${n} players with no refused moves`, () => {
+        for (const seed of [1, 2, 3]) {
+          const r = playWithBots(shortFuse, seats(n), {
+            seed,
+            host: host(settings),
+            maxSteps: 4000,
+          });
+          expect(r.refused, `${name} ${n}p seed ${seed}`).toEqual([]);
+          expect(r.over, `${name} ${n}p seed ${seed}`).toBe(true);
+        }
+      });
+
+  it('dodges a Bomb it saw on top', () => {
+    const h = rigged([['peek3', 'skip'], []], ['bomb', 'cat1', 'cat2']);
+    h.play('host', ['peek3']);
+    expect(shortFuseBot(h.view('host'), ctx('host'))).toMatchObject({ type: 'play' });
+    const move = shortFuseBot(h.view('host'), ctx('host')) as Extract<
+      ShortFuseAction,
+      { type: 'play' }
+    >;
+    expect(h.game().cards[move.cards[0]!]!.t).toBe('skip');
+  });
+
+  it('defuses, and moves danger to the back when rearranging', () => {
+    const h = rigged([['defuse', 'alter3'], []], ['bomb', 'cat1', 'cat2'], {
+      settings: { x1: true },
+    });
+    h.play('host', ['alter3']);
+    expect(shortFuseBot(h.view('host'), ctx('host'))).toEqual({ type: 'order', order: [1, 2, 0] });
+    h.act({ type: 'order', order: [0, 1, 2] }, 'host');
+    h.act({ type: 'draw' }, 'host');
+    expect(shortFuseBot(h.view('host'), ctx('host'))).toEqual({ type: 'defuse' });
+  });
+
+  it('only sits down in the lobby and leaves starting to the host', () => {
+    const h = rigged([[], []], []);
+    h.act({ type: 'draw' }, 'host');
+    expect(shortFuseBot(h.view('host'), ctx('host'))).toBeNull();
+  });
+});
