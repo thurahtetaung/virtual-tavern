@@ -65,3 +65,36 @@ describe('no hard-coded offices or cards', () => {
     expect(found).toEqual([]);
   });
 });
+
+/**
+ * The recap's and the stats page's copy names cards, colours and powers only through `{role:…}`
+ * placeholders (`{role:red-policies}`, `{role:power-peek}`), which each edition fills in.
+ */
+const COLOURS = /\b(red|blue)\b/i;
+const POWER_WORDS = /\b(Investigate|Special election|peek|Execution)\b/;
+
+describe('recap and stats copy', () => {
+  it.each(['logic/awards.ts', 'logic/insights.ts'])('%s', (name) => {
+    const found = texts(join(SRC, name))
+      .map((t) => t.replace(/\{[^{}]*\}/g, ''))
+      .filter((t) => COLOURS.test(t) || TERMS.test(t));
+    expect(found).toEqual([]);
+  });
+
+  it('the stats figures for Hydra and its editions', () => {
+    const file = join(SRC, '../../../../apps/server/src/stats/figures.ts');
+    const source = readFileSync(file, 'utf8');
+    const start = source.indexOf('const HYDRA_HOWS');
+    const end = source.indexOf('/** Daily counters for one insight event. */');
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const block = source.slice(start, end);
+    const strings = [...block.matchAll(/'([^'\n]*)'/g)]
+      .map((m) => m[1]!)
+      .filter((t) => /\s/.test(t));
+    const found = strings
+      .map((t) => t.replace(/\{[^{}]*\}/g, ''))
+      .filter((t) => COLOURS.test(t) || TERMS.test(t) || POWER_WORDS.test(t));
+    expect(found).toEqual([]);
+  });
+});

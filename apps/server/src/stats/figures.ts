@@ -809,17 +809,19 @@ function seanceFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+// Hydra and its editions name their cards, offices and powers in their manifests, so these labels
+// are `{role:…}` placeholders the stats page fills in from the edition's own words.
 const HYDRA_HOWS: [string, string][] = [
-  ['blue-policies', '5 {role:blue} policies'],
+  ['blue-policies', '5 {role:blue-policies}'],
   ['leader-executed', '{role:leader} executed'],
-  ['red-policies', '6 {role:red} policies'],
+  ['red-policies', '6 {role:red-policies}'],
   ['leader-elected', '{role:leader} elected'],
 ];
 const HYDRA_POWERS: [string, string][] = [
-  ['investigate', 'Investigate'],
-  ['special', 'Special election'],
-  ['peek', 'Policy peek'],
-  ['execute', 'Execution'],
+  ['investigate', '{role:power-investigate}'],
+  ['special', '{role:power-special}'],
+  ['peek', '{role:power-peek}'],
+  ['execute', '{role:power-execute}'],
 ];
 
 function hydraCounters(type: string, props: Props): Counters {
@@ -935,7 +937,12 @@ function hydraFigures(get: (metric: string) => number, metrics: Iterable<string>
       kind: 'number',
       value: avg(get('f.chaos'), games),
     },
-    { id: 'vetoes', label: 'Vetoes', kind: 'number', value: get('f.vetoes') },
+    {
+      id: 'vetoes',
+      label: 'Agendas thrown out ({role:veto})',
+      kind: 'number',
+      value: get('f.vetoes'),
+    },
   ];
 }
 
