@@ -16,6 +16,16 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 /** Response headers worth passing on from the bucket to the browser. */
 const PASSED_HEADERS = ['content-type', 'content-length', 'content-range', 'etag', 'last-modified'];
 
+/**
+ * Types to serve by file extension when the bucket stored none or a generic one (a file uploaded
+ * by hand, say), so browsers load fonts as fonts.
+ */
+const TYPES_BY_EXTENSION: Record<string, string> = {
+  woff2: 'font/woff2',
+  woff: 'font/woff',
+  webp: 'image/webp',
+};
+
 /** Headers from the browser that the bucket should see, so partial fetches work. */
 const FORWARDED_HEADERS = ['range', 'if-none-match'];
 
@@ -102,6 +112,10 @@ export class R2Assets {
       const value = res.headers.get(name);
       if (value) passed[name] = value;
     }
+    const byExtension = TYPES_BY_EXTENSION[key.split('.').pop()?.toLowerCase() ?? ''];
+    const stored = passed['content-type'];
+    if (byExtension && (!stored || /octet-stream|binary/i.test(stored)))
+      passed['content-type'] = byExtension;
     return { status: res.status, headers: passed, body: res.body };
   }
 

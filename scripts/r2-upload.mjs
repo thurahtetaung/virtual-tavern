@@ -29,6 +29,9 @@ const TYPES = {
   '.ogg': 'audio/ogg',
   '.opus': 'audio/ogg',
   '.mp3': 'audio/mpeg',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.txt': 'text/plain; charset=utf-8',
 };
 const files = (dir) =>
   readdirSync(dir).flatMap((f) =>

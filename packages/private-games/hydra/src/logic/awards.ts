@@ -124,10 +124,13 @@ const cursedHands: AwardRule = {
   family: 'luck',
   minPlayers: 5,
   copy: {
-    cheeky: ['The deck has a grudge against {who}', '{who} drew three red cards {n|time}'],
+    cheeky: [
+      'The deck has a grudge against {who}',
+      `{who} drew three ${ph.role('red-policies')} {n|time}`,
+    ],
     wholesome: [
       '{who} kept cool through rotten luck',
-      '{who} drew all red {n|time} and stayed calm',
+      `{who} drew only ${ph.role('red-policies')} {n|time} and stayed calm`,
     ],
   },
   compute(g) {
@@ -147,8 +150,8 @@ const snake: AwardRule = {
   minPlayers: 5,
   copy: {
     cheeky: [
-      '{who} passed blue {n|time} with a red heart',
-      '{who} enacted blue {n|time} to look innocent',
+      `{who} passed ${ph.role('blue-policies')} {n|time} with a ${ph.role('red')} heart`,
+      `{who} enacted ${ph.role('blue-policies')} {n|time} to look innocent`,
     ],
     wholesome: ['{who}’s disguise was flawless', '{who} played the long con perfectly'],
   },
@@ -169,9 +172,12 @@ const firewall: AwardRule = {
   copy: {
     cheeky: [
       '{who} wouldn’t be bullied by the deck',
-      '{who} picked blue from a mixed hand {n|time}',
+      `{who} picked ${ph.role('bluePolicy')} from a mixed hand {n|time}`,
     ],
-    wholesome: ['{who} held the line {n|time}', '{who} chose blue every time it counted'],
+    wholesome: [
+      '{who} held the line {n|time}',
+      `{who} chose ${ph.role('bluePolicy')} every time it counted`,
+    ],
   },
   compute(g) {
     return leaders(listTally(strs(outcomeOf(g), 'firewall')), { min: 2 });
@@ -288,8 +294,11 @@ const bloodhound: AwardRule = {
   family: 'power',
   minPlayers: 7,
   copy: {
-    cheeky: ['{who} sniffed out a red card', '{who} caught one and told the truth'],
-    wholesome: ['{who} found a red card and said so', '{who} investigated well and honestly'],
+    cheeky: [`{who} sniffed out a ${ph.role('red')}`, '{who} caught one and told the truth'],
+    wholesome: [
+      `{who} found a ${ph.role('red')} and said so`,
+      '{who} investigated well and honestly',
+    ],
   },
   compute(g) {
     return leaders(listTally(strs(outcomeOf(g), 'bloodhound')));
@@ -460,7 +469,7 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute(games) {
       const n = outcomes(games).reduce((s, o) => s + (num(o, 'vetoes') ?? 0), 0);
-      return n ? { value: n, text: `${count(n, 'agenda')} vetoed` } : null;
+      return n ? { value: n, text: `${ph.role('Veto')}: ${count(n, 'agenda')} thrown out` } : null;
     },
   },
   {
@@ -469,7 +478,9 @@ const nuggets: NuggetRule[] = [
     interest: 1,
     compute(games) {
       const n = outcomes(games).reduce((s, o) => s + strs(o, 'rrrBlue').length, 0);
-      return n ? { value: n, text: `${count(n, 'all-red draw')} for a ${ph.role('blue')}` } : null;
+      return n
+        ? { value: n, text: `Three ${ph.role('red-policies')} drawn by ${ph.role('blues')}: ${n}` }
+        : null;
     },
   },
 ];

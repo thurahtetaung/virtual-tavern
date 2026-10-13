@@ -191,3 +191,4 @@ export function nameGuide(
 export const guide: GameGuide = nameGuide(PLACEHOLDER_NAMES);
 
 export { creditOf, footerOf, namesOf, powerNamesOf } from './manifest.ts';
+export { placeholderWord } from './labels.ts';

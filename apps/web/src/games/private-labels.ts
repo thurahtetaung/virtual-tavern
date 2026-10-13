@@ -1,5 +1,12 @@
 import type { GameGuide } from '@vt/game-sdk';
-import { creditOf, footerOf, nameGuide, namesOf, powerNamesOf } from '@vt/private-hydra/guide';
+import {
+  creditOf,
+  footerOf,
+  nameGuide,
+  namesOf,
+  placeholderWord,
+  powerNamesOf,
+} from '@vt/private-hydra/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -78,27 +85,13 @@ export async function inquestLabels(): Promise<Labeler> {
 type HydraManifest = Parameters<typeof namesOf>[0];
 
 /**
- * A Hydra edition's words for the recap's and the stats page's placeholders, from its manifest:
- * the teams and the Leader (`{role:blue}`, `{role:red}`, `{role:leader}`), the offices
- * (`{role:chancellor}`), the veto (`{role:Veto}` capitalised) and the boards' policies
- * (`{role:blue-policies}`). Hydra's own words stand in for anything the manifest leaves out.
+ * A Hydra edition's words for the recap's and the stats page's `{role:…}` placeholders (teams,
+ * offices, cards and powers), from its manifest, with Hydra's own words as the fallback.
  */
 export function hydraLabels(gameId: string): () => Promise<Labeler> {
   return async () => {
-    const names = namesOf(await manifest(gameId));
-    const words: Record<string, string> = {
-      ...names,
-      leader: names.leader,
-      'blue-policies': `${names.bluePolicy} ${names.policies}`,
-      'red-policies': `${names.redPolicy} ${names.policies}`,
-    };
-    return (kind, id) => {
-      if (kind !== 'role') return undefined;
-      const lower = id[0] ? id[0].toLowerCase() + id.slice(1) : id;
-      const word = words[lower];
-      if (word === undefined || id === 'title') return undefined;
-      return id === lower ? word : word[0]!.toUpperCase() + word.slice(1);
-    };
+    const word = placeholderWord(await manifest(gameId));
+    return (kind, id) => (kind === 'role' ? word(id) : undefined);
   };
 }
 

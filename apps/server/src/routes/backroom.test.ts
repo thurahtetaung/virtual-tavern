@@ -17,19 +17,24 @@ const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4, 5, 6, 7, 8]);
 
 /** A stand-in for the private bucket: signed GETs under /vt-private/<key>, with ranges. */
 async function fakeBucket() {
-  const objects = new Map([['reverie/cards/001.jpg', JPEG]]);
+  const objects = new Map([
+    ['reverie/cards/001.jpg', { body: JPEG, type: 'image/jpeg' }],
+    // A font uploaded by hand, without a proper type.
+    ['reverie/fonts/display.woff2', { body: JPEG, type: 'application/octet-stream' }],
+  ]);
   const hits: string[] = [];
   const server = createServer((req, res) => {
     const key = decodeURIComponent(req.url!.replace(/^\/vt-private\//, ''));
     hits.push(
       `${req.headers.authorization?.startsWith('AWS4-HMAC-SHA256') ? 'signed' : 'unsigned'} ${key}`,
     );
-    const body = objects.get(key);
-    if (!body) return res.writeHead(404).end();
+    const object = objects.get(key);
+    if (!object) return res.writeHead(404).end();
+    const body = object.body;
     const range = /^bytes=(\d+)-(\d+)$/.exec(req.headers.range ?? '');
     const [start, end] = range ? [Number(range[1]), Number(range[2])] : [0, body.length - 1];
     res.writeHead(range ? 206 : 200, {
-      'content-type': 'image/jpeg',
+      'content-type': object.type,
       'content-length': end - start + 1,
       ...(range ? { 'content-range': `bytes ${start}-${end}/${body.length}` } : {}),
       etag: '"abc"',
@@ -209,6 +214,15 @@ describe('back room over HTTP', () => {
       ).statusCode,
     ).toBe(404);
     expect(bucket.hits).toHaveLength(3);
+    // A display font stored without a type still goes out as a font.
+    const font = await app.inject({
+      method: 'GET',
+      url: '/api/backroom/assets/reverie/fonts/display.woff2',
+      headers: { cookie },
+    });
+    expect(font.statusCode).toBe(200);
+    expect(font.headers['content-type']).toBe('font/woff2');
+    expect(font.headers['cache-control']).toBe('private, max-age=31536000, immutable');
     bucket.close();
   });
 
