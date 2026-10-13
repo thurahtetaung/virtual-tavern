@@ -2,7 +2,7 @@ import type { GameSummary } from '@vt/protocol';
 import { Button, Panel } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { GameGuideView } from '../components/GuideView.tsx';
+import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import {
   type ClientGame,
@@ -38,16 +38,22 @@ function useBackroomGames() {
 }
 
 function GameLink({ game }: { game: ClientGame }) {
+  const { tagline } = useGameGuide(game);
   return (
     <Link to={`/rules/${game.id}`}>
       <Panel className="h-full transition hover:ring-accent dark:hover:ring-amber-400">
         <p className="text-xl font-bold">
           {game.icon} {game.name}
         </p>
-        <p className="mt-1 text-stone-600 dark:text-stone-400">{game.guide.tagline}</p>
+        <p className="mt-1 text-stone-600 dark:text-stone-400">{tagline}</p>
       </Panel>
     </Link>
   );
+}
+
+function Tagline({ game }: { game: ClientGame }) {
+  const { tagline } = useGameGuide(game);
+  return <p className="mb-6 text-lg text-stone-600 dark:text-stone-400">{tagline}</p>;
 }
 
 /** The end of a rules page: read enough, now play. */
@@ -140,7 +146,7 @@ export function RulesPage() {
       <h1 className="mt-2 mb-1 text-3xl font-bold">
         {game.icon} How to play {game.name}
       </h1>
-      <p className="mb-6 text-lg text-stone-600 dark:text-stone-400">{game.guide.tagline}</p>
+      <Tagline game={game} />
       <GameGuideView game={game} />
       <CreateRoom game={game} />
     </Layout>

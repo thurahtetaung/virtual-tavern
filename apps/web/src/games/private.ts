@@ -21,6 +21,7 @@ import {
   tavernBrawlLabels,
   shortFuseGuide as shortFuseNamedGuide,
   shortFuseLabels,
+  taggedGuide,
 } from './private-labels.ts';
 import type { ClientGame } from './registry.ts';
 
@@ -35,6 +36,7 @@ export const privateGames: ClientGame[] = [
     id: 'reverie',
     name: 'Reverie',
     guide: reverieGuide,
+    namedGuide: taggedGuide('reverie', reverieGuide),
     icon: '🐇',
     Component: lazy(() =>
       import('@vt/private-reverie/ui').then((m) => ({ default: m.ReverieGame })),
@@ -53,6 +55,7 @@ export const privateGames: ClientGame[] = [
     id: 'royal-post',
     name: 'Royal Post',
     guide: royalPostGuide,
+    namedGuide: taggedGuide('royal-post', royalPostGuide),
     icon: '✉️',
     Component: lazy(() =>
       import('@vt/private-royal-post/ui').then((m) => ({ default: m.RoyalPostGame })),
@@ -63,6 +66,7 @@ export const privateGames: ClientGame[] = [
     id: 'masquerade-originals',
     name: 'Masquerade Originals',
     guide: masqueradeOriginalsGuide,
+    namedGuide: taggedGuide('masquerade-originals', masqueradeOriginalsGuide),
     icon: '🗺️',
     Component: lazy(() =>
       import('@vt/private-masquerade-originals/ui').then((m) => ({
@@ -75,6 +79,7 @@ export const privateGames: ClientGame[] = [
     id: 'nightfall',
     name: 'Nightfall',
     guide: nightfallGuide,
+    namedGuide: taggedGuide('nightfall', nightfallGuide),
     icon: '🐺',
     Component: lazy(() =>
       import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
@@ -85,6 +90,7 @@ export const privateGames: ClientGame[] = [
     id: 'inquest',
     name: 'Inquest',
     guide: inquestGuide,
+    namedGuide: taggedGuide('inquest', inquestGuide),
     icon: '🔎',
     Component: lazy(() =>
       import('@vt/private-inquest/ui').then((m) => ({ default: m.InquestGame })),
@@ -95,6 +101,7 @@ export const privateGames: ClientGame[] = [
     id: 'seance',
     name: 'Séance',
     guide: seanceGuide,
+    namedGuide: taggedGuide('seance', seanceGuide),
     icon: '🕯️',
     Component: lazy(() => import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame }))),
   },

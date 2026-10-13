@@ -188,7 +188,15 @@ export function nameGuide(
   };
 }
 
-export const guide: GameGuide = nameGuide(PLACEHOLDER_NAMES);
+/**
+ * The plain guide, which only stands in until the manifest has loaded. Its tagline (on the back
+ * room's game card) is written without a placeholder role name.
+ */
+export const guide: GameGuide = {
+  ...nameGuide(PLACEHOLDER_NAMES),
+  tagline:
+    'Elect a government, pass laws in secret, and unmask the hidden leader before it’s too late.',
+};
 
 export { creditOf, footerOf, namesOf, powerNamesOf } from './manifest.ts';
 export { placeholderWord } from './labels.ts';
