@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.26.2...v0.27.0) (2026-10-13)
+
+
+### Features
+
+* **hogwarts:** add a themed edition of Hydra to the back room ([#111](https://github.com/thurahtetaung/virtual-tavern/issues/111)) ([9e2c30f](https://github.com/thurahtetaung/virtual-tavern/commit/9e2c30fe310f4ecd64ce1a38f0d76f80a42c5b3f))
+
 ## [0.26.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.26.1...v0.26.2) (2026-10-13)
 
 
