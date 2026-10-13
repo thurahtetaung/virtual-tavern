@@ -22,6 +22,8 @@ export interface Manifest {
         tagline?: string;
         portrait?: string;
         portraitThumb?: string;
+        /** Where the face is on the portrait, as fractions of its width and height. */
+        portraitFocus?: [number, number];
         hp?: string;
         ref?: string;
         back?: string;
@@ -65,6 +67,8 @@ export interface Art {
   hero(id: HeroId): string;
   heroClass(id: HeroId): string | null;
   portrait(id: HeroId, size?: 'thumb' | 'full'): string | null;
+  /** The face's spot on the portrait (fractions), for the round crop. */
+  focus(id: HeroId): [number, number];
   heroCard(id: HeroId, which: 'hp' | 'ref' | 'back'): string | null;
   card(id: CardId): string;
   face(id: CardId, size?: 'thumb' | 'full'): string | null;
@@ -75,6 +79,9 @@ export interface Art {
   /** Whether real art is loaded. */
   real: boolean;
 }
+
+/** Portraits are the back of a hero card: the face usually sits right of centre, mid-height. */
+const DEFAULT_FOCUS: [number, number] = [0.66, 0.55];
 
 const clean = (s: string | undefined) => (s && s.trim() ? s.trim() : null);
 
@@ -88,6 +95,11 @@ export function artFor(manifest: ManifestState): Art {
       const h = m?.heroes?.[id];
       const path = size === 'thumb' ? (h?.portraitThumb ?? h?.portrait) : h?.portrait;
       return path ? assetUrl(path) : null;
+    },
+    focus: (id) => {
+      const f = m?.heroes?.[id]?.portraitFocus;
+      const ok = (n: unknown) => typeof n === 'number' && n >= 0 && n <= 1;
+      return Array.isArray(f) && ok(f[0]) && ok(f[1]) ? [f[0], f[1]] : DEFAULT_FOCUS;
     },
     heroCard: (id, which) => {
       const path = m?.heroes?.[id]?.[which];
