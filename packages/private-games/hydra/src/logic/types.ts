@@ -129,6 +129,8 @@ export interface Round {
   votes: Record<PlayerId, Ballot>;
   missing: PlayerId[];
   elected: boolean | null;
+  /** The {candidate} didn't nominate (left, timed out or acted for), so the tracker moved. */
+  skipped?: boolean;
   /** The election tracker after this round's vote or veto. */
   tracker: number;
   /** The session, once it has happened. */

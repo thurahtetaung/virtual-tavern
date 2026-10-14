@@ -574,9 +574,17 @@ describe('claims', () => {
       expect.objectContaining({ by: 'ana', skipped: 'left' }),
     ]);
     h.act({ type: 'claim', blues: 1, discarded: 'red' }, HOST);
-    // Ana is the next candidate, so the table nominates for her too.
-    expect(h.state.stage).toBe('vote');
-    expect(h.game().rounds[1]!.autos).toContainEqual({ who: 'ana', what: 'nomination' });
+    // Ana is the next candidate: she's passed over (never a random nomination).
+    expect(h.state.stage).toBe('nominate');
+    expect(h.game().president).toBe('ben');
+    expect(h.game().tracker).toBe(1);
+    expect(h.game().rounds[1]).toMatchObject({
+      president: 'ana',
+      chancellor: null,
+      elected: null,
+      skipped: true,
+      tracker: 1,
+    });
   });
 });
 
@@ -585,12 +593,18 @@ describe('act for and timers', () => {
     const h = rigged(FIVE);
     expect(h.reject({ type: 'act-for', player: 'ana' })).toBe('not-waiting');
     h.act({ type: 'act-for', player: HOST });
-    expect(h.state.stage).toBe('vote');
+    // A missing nomination passes the candidacy on rather than picking at random.
+    expect(h.state.stage).toBe('nominate');
+    expect(h.game().president).toBe('ana');
+    expect(h.game().notices.at(-1)!.key).toBe('notice.passedOver');
+    h.act({ type: 'nominate', player: 'ben' }, 'ana');
+    h.act({ type: 'act-for', player: 'cy' });
     expect(h.game().notices.at(-1)!.text).toContain('by the host');
+    expect(h.game().abstain).toEqual(['cy']);
     h.act({ type: 'act-for', player: 'ana' });
-    expect(h.game().abstain).toEqual(['ana']);
+    expect(h.game().abstain).toEqual(['cy', 'ana']);
     h.act({ type: 'vote', ballot: 'yes' }, 'ana'); // changed their mind: counted after all
-    expect(h.game().abstain).toEqual([]);
+    expect(h.game().abstain).toEqual(['cy']);
   });
 
   it('never claims for anyone', () => {
@@ -601,11 +615,14 @@ describe('act for and timers', () => {
     expect(h.reject({ type: 'act-for', player: 'ana' })).toBe('use-skip');
   });
 
-  it('strict timers play the turn at random', () => {
+  it('strict timers pass over a candidate and play other turns at random', () => {
     const h = rigged(FIVE, { settings: { pickSeconds: 20, timerMode: 'strict' } });
     deadline(h);
-    expect(h.state.stage).toBe('vote');
-    expect(h.game().rounds[0]!.autos).toEqual([{ who: HOST, what: 'nomination' }]);
+    expect(h.state.stage).toBe('nominate');
+    expect(h.game().president).toBe('ana');
+    expect(h.game().rounds[0]).toMatchObject({ president: HOST, skipped: true, tracker: 1 });
+    expect(h.game().notices.at(-1)!.text).toMatch(/^⏱ Time ran out: /);
+    h.act({ type: 'nominate', player: 'ben' }, 'ana');
     voteAll(h);
     deadline(h);
     expect(h.state.stage).toBe('legislate-chancellor');
@@ -622,9 +639,23 @@ describe('act for and timers', () => {
     expect(h.reject({ type: 'nudge', player: HOST }, HOST)).toBe('self');
   });
 
-  it('plays a departed player’s turns', () => {
+  it('passes over a departed candidate', () => {
     const h = rigged(FIVE);
     leave(h, HOST);
-    expect(h.state.stage).toBe('vote');
+    expect(h.state.stage).toBe('nominate');
+    expect(h.game().president).toBe('ana');
+    expect(h.game().tracker).toBe(1);
+  });
+
+  it('three candidates passed over in a row bring chaos, and the order goes on', () => {
+    const h = rigged(FIVE);
+    for (const p of [HOST, 'ana', 'ben']) h.act({ type: 'act-for', player: p });
+    expect(h.state.stage).toBe('chaos');
+    expect(h.game().rounds.map((r) => r.skipped)).toEqual([true, true, true]);
+    deadline(h);
+    expect(h.game().tracker).toBe(0);
+    expect(h.game().rounds.at(-1)!.chaos).not.toBeNull();
+    expect(h.state.stage).toBe('nominate');
+    expect(h.game().president).toBe('cy');
   });
 });

@@ -144,6 +144,8 @@ export const COPY = {
   'notice.special': '{P} called a special election: {player} is the next {candidate}.',
   'notice.executed': '{player} has been executed and can no longer speak or vote.',
   'notice.skipped': 'The host skipped {player}’s claim.',
+  'notice.passedOver':
+    '{timeout}{player} didn’t nominate a {chancellor}, so the candidacy passes on and the election tracker moves.',
   'notice.auto': '{timeout}{what} for {player} by {by}.',
 
   // First-time tips.

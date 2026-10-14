@@ -176,7 +176,7 @@ function MemoryLine({ view, c, m }: { view: HydraView; c: Content; m: Memory }) 
   }
 }
 
-/** The Me tab: your role, what you know, your secrets, the board's powers and the credits. */
+/** The Me tab: your role, what you know, your secrets and the board's powers. */
 export function MeTab({
   view,
   c,
@@ -304,12 +304,11 @@ export function MeTab({
           )}
         </div>
       </section>
-      <CreditBlock c={c} />
     </div>
   );
 }
 
-/** The original game's credit, from the private manifest. */
+/** The original game's credit, from the private manifest: on the end screen only (the guide has it as its footer). */
 export function CreditBlock({ c }: { c: Content }) {
   const cr = c.credit;
   if (!cr) return null;

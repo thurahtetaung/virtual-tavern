@@ -249,8 +249,15 @@ export async function claim(
   await expect(form).toBeHidden();
 }
 
-/** The government's claims after a session: the President's three, then the Chancellor's two. */
+/**
+ * The government's claims after a session: the President's three, then the Chancellor's two.
+ * A policy that wins the game asks for no claims, so this returns as soon as a winner shows.
+ */
 export async function claimSession(gov: { pres: Player; chan: Player }) {
+  const form = gov.pres.page.getByTestId('claim-form');
+  const over = gov.pres.page.getByTestId('winner');
+  await expect(form.or(over).first()).toBeVisible({ timeout: 15_000 });
+  if ((await over.count()) > 0) return;
   await claim(gov.pres, { blues: 0 });
   await claim(gov.chan, { blues: 0 });
 }
