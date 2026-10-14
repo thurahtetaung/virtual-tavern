@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.2...v0.37.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ui:** one back-room refusal, two-line phone toasts, and touch bands capped at 44 px ([#184](https://github.com/thurahtetaung/virtual-tavern/issues/184)) ([9b1c623](https://github.com/thurahtetaung/virtual-tavern/commit/9b1c623db49d54e0efa8215f4210ec77b51fe50c))
+
 ## [0.37.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.1...v0.37.2) (2026-10-14)
 
 
