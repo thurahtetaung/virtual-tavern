@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.2...v0.36.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **codenames:** break phrases between words before hyphenating, and keep every card's text inside the card ([#172](https://github.com/thurahtetaung/virtual-tavern/issues/172)) ([87a46f4](https://github.com/thurahtetaung/virtual-tavern/commit/87a46f4e3a9219559a3639da4defd46867dddf34))
+
 ## [0.36.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.1...v0.36.2) (2026-10-14)
 
 
