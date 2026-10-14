@@ -50,10 +50,17 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
   );
 }
 
+const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
+  light: { icon: '☀️', text: 'Light' },
+  dark: { icon: '🌙', text: 'Dark' },
+  system: { icon: '🌗', text: 'Auto' },
+};
+
 /**
  * Theme switch. From the device's theme a tap flips to the other one; tapping again goes to the
  * device's own colours as an explicit choice, and once more back to following the device. So a
- * choice can always be undone, and every tap but that last one visibly changes the page.
+ * choice can always be undone, and every tap but that last one visibly changes the page. It shows
+ * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
 function ThemeSwitch() {
   const { theme, resolved, setTheme } = useTheme();
@@ -62,15 +69,18 @@ function ThemeSwitch() {
   // Following the device, or holding the opposite of it: flip. Holding the device's own: follow.
   const next: Theme = theme !== 'system' && theme === device ? 'system' : other;
   const label = next === 'system' ? "Follow your device's theme" : `Switch to ${next} theme`;
+  const state = THEME_STATE[theme];
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={label}
+      className="sm:w-auto sm:px-3"
+      aria-label={`Theme: ${state.text}. ${label}`}
       title={label}
       onClick={() => setTheme(next)}
     >
-      <span aria-hidden>{next === 'system' ? '🌗' : next === 'dark' ? '🌙' : '☀️'}</span>
+      <span aria-hidden>{state.icon}</span>
+      <span className="hidden text-sm sm:inline">{state.text}</span>
     </Button>
   );
 }
