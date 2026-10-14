@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.31.0...v0.32.0) (2026-10-14)
+
+
+### Features
+
+* **short-fuse:** add the second and third expansions ([#132](https://github.com/thurahtetaung/virtual-tavern/issues/132)) ([fe06202](https://github.com/thurahtetaung/virtual-tavern/commit/fe06202833a7bb14298b4c28010f4484481931be))
+
 ## [0.31.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.2...v0.31.0) (2026-10-14)
 
 
