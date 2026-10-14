@@ -81,7 +81,7 @@ export async function sfTable(
 /** The host fixes the next game's hands (by seat) and the top of the pile, then starts. */
 export async function riggedStart(
   host: Page,
-  rig: { hands: string[][]; top: string[]; first?: number },
+  rig: { hands: string[][]; top: string[]; first?: number; size?: number },
 ) {
   await host.getByTestId('rig').locator('summary').click();
   await host.getByLabel('Rig').fill(JSON.stringify({ first: 0, ...rig }));

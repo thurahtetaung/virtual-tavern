@@ -425,6 +425,8 @@ export interface Rig {
   hands: CardType[][];
   top: CardType[];
   first: number;
+  /** Cuts the pile to this many cards (at least the top ones); the rest go out of the game. */
+  size?: number;
 }
 
 export interface ShortFuseState {
@@ -469,6 +471,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     hands: z.array(z.array(cardType).max(12)).max(10),
     top: z.array(cardType).max(20),
     first: z.number().int().min(0).max(9),
+    size: z.number().int().min(1).max(200).optional(),
   }),
   /** One card, or a combo (two or three of a kind, five different). */
   z.object({

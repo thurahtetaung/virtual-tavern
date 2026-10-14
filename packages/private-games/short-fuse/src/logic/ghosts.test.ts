@@ -516,6 +516,66 @@ describe('Look Twice', () => {
   });
 });
 
+describe("a Copy of Look Twice in a room's second game", () => {
+  /** Game 1 ends at once (two bombs, no savers), then the rig deals game 2 with a pile of `size`. */
+  function secondGame(size: number) {
+    const h = harness([H, A, B], 7, X4);
+    h.act({ type: 'rig', hands: [[], [], []], top: ['bomb', 'bomb'], first: 0 });
+    h.act({ type: 'start' });
+    h.act({ type: 'draw' }, H);
+    h.fire(); // the explosion's beat
+    h.act({ type: 'draw' }, A);
+    expect(h.state.phase).toBe('over');
+    h.act({ type: 'back-to-lobby' });
+    h.act({
+      type: 'rig',
+      hands: [['dig'], ['copy'], ['nope']],
+      top: (['cat1', 'cat2', 'cat3', 'cat4'] as CardType[]).slice(0, size + 1),
+      first: 0,
+      size: size + 1,
+    });
+    h.act({ type: 'start' });
+    expect(h.state.gamesPlayed).toBe(1);
+    // Hana's Look Twice keeps her top card, so Ana's pile is `size` cards with Look Twice on top.
+    h.play(H, ['dig']);
+    h.act({ type: 'dig', keep: true }, H);
+    expect(h.game().pile).toHaveLength(size);
+    expect(h.view(A).game!.copyAs).toBe('dig');
+    return h;
+  }
+
+  it('with one card left is a plain draw, as Look Twice is', () => {
+    const h = secondGame(1);
+    h.play(A, ['copy']);
+    expect(h.view(A).game!.prompt).toBeNull();
+    expect(h.hand(A)).toEqual(['cat2']);
+    expect(h.game().turn.player).toBe(B);
+  });
+
+  for (const size of [2, 3]) {
+    it(`with ${size} cards shows the copier the top card`, () => {
+      const h = secondGame(size);
+      h.play(A, ['copy']);
+      expect(h.state.stage).toBe('dig');
+      expect(h.view(A).game!.prompt).toMatchObject({ kind: 'dig', card: { t: 'cat2' } });
+      expect(h.view(H).game!.prompt).toBeNull();
+      h.act({ type: 'dig', keep: false }, A);
+      expect(h.hand(A)).toEqual(['cat3']);
+    });
+  }
+
+  it("Noped, opens nothing and it is still the copier's turn", () => {
+    const h = secondGame(3);
+    h.act({ type: 'play', cards: [h.card(A, 'copy')] }, A);
+    h.act({ type: 'nope', window: h.game().window!.id }, B);
+    h.settle();
+    expect(h.state.stage).toBe('turn');
+    expect(h.view(A).game!.prompt).toMatchObject({ kind: 'turn' });
+    expect(h.hand(A)).toEqual([]);
+    expect(h.game().turn.player).toBe(A);
+  });
+});
+
 describe('Ghost Attack, Feed the Ghosts, Restless Spirits', () => {
   it('Ghost Attack needs a ghost and sends 3 turns a ghost (stacking)', () => {
     const r = rigged([['ghostattack'], ['cat1']], [], { settings: X4 });

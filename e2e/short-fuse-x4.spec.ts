@@ -187,3 +187,60 @@ test('Look Twice and Foresight open their sheets game after game', async ({ brow
     }
   }
 });
+
+test('a Copy of Look Twice opens its sheet in a second game, and a Noped one opens nothing', async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  await openBackroom(await sfVisitor(browser, 'Admin', pageErrors));
+  const [hana, ana, ben] = await sfTable(browser, ['Hana', 'Ana', 'Ben'], pageErrors);
+  const host = hana!.page;
+  const A = ana!.page;
+  const B = ben!.page;
+  await host.getByTestId('toggle-x4').click();
+
+  // Game 1 ends at once: Hana and Ana draw bombs with nothing to save them.
+  await riggedStart(host, { hands: [[], [], []], top: ['bomb', 'bomb'] });
+  await draw(host);
+  await expect(A.getByTestId('draw')).toBeVisible();
+  await draw(A);
+  await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
+
+  for (const noped of [false, true]) {
+    await host.getByRole('button', { name: 'Change the deck' }).click();
+    // A short pile: three cats, then the two bombs that end the game.
+    await riggedStart(host, {
+      hands: [['dig'], ['copy'], ['nope']],
+      top: ['cat1', 'cat2', 'cat3', 'bomb', 'bomb'],
+      size: 5,
+    });
+    // Hana keeps the top card; Ana copies the Look Twice on the discard pile.
+    await play(host, ['dig']);
+    await host.getByTestId('dig-keep').click();
+    await expect(A.getByTestId('draw')).toBeVisible();
+    await select(A, ['copy']);
+    await expect(A.getByTestId('play')).toHaveText(/ as /);
+    await A.getByTestId('play').click();
+    if (noped) {
+      await B.getByTestId('nope-button').click();
+      await settle(A);
+      await expect(A.getByRole('dialog')).toHaveCount(0);
+      expect(await handTypes(A)).toEqual([]);
+      await draw(A);
+    } else {
+      await settle(A);
+      await expect(A.getByRole('dialog')).toContainText('the top card');
+      await A.getByTestId('dig-next').click();
+      await expect(A.getByRole('dialog')).toHaveCount(0);
+      expect(await handTypes(A)).toEqual(['cat3']);
+    }
+    // Ben takes the last cat; Hana and Ana draw the bombs and Ben wins.
+    await expect(B.getByTestId('draw')).toBeVisible();
+    await draw(B);
+    await expect(host.getByTestId('draw')).toBeVisible();
+    await draw(host);
+    await expect(A.getByTestId('draw')).toBeVisible({ timeout: 10_000 });
+    await draw(A);
+    await expect(host.getByTestId('winner')).toContainText('Ben', { timeout: 10_000 });
+  }
+});
