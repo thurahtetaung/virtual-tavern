@@ -33,7 +33,7 @@ import { LatestBullets, Scene } from './Scene.tsx';
 import { TableScreen } from './TableScreen.tsx';
 import { CardView, EventCard, SolveSheet } from './Sheets.tsx';
 import { endDiscussionLabel, nameOf, statusFor, waitingOn } from './status.ts';
-import { AllSuspects, type OpenCard, Suspects } from './Suspects.tsx';
+import { AllSuspects, CrimePeek, type OpenCard, Suspects } from './Suspects.tsx';
 
 export type InquestUiProps = GameUiProps<InquestView, InquestAction>;
 type Act = InquestUiProps['act'];
@@ -445,6 +445,7 @@ export function InquestGame({
   const [marks, setMark] = useMarks(`${view.table}.${view.gameNo}`);
   const [open, setOpen] = useState<OpenCard | null>(null);
   const [solving, setSolving] = useState(false);
+  const [crimeShown, setCrimeShown] = useState(false);
   // Events this screen has shown a card for, per game (it starts at whatever has already happened,
   // so a reload doesn't replay old ones). Several events can land in one change: one card each.
   const [eventsSeen, setEventsSeen] = useState({
@@ -518,7 +519,8 @@ export function InquestGame({
   }
 
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
-  const common = { view, content, marks, setMark, onOpen: setOpen };
+  const fs = g.myRole === 'forensic' || g.myRole === 'former-forensic';
+  const common = { view, content, marks, setMark, onOpen: setOpen, showCrime: fs || crimeShown };
   const alert: Tab | null =
     status.yourMove && g.stage !== 'present' && g.stage !== 'discuss' && g.stage !== 'final'
       ? g.stage === 'collect' && g.event?.kind !== 'ruled-out'
@@ -602,7 +604,8 @@ export function InquestGame({
             />
           </div>
         </div>
-        <div className={cn('min-w-0', onTab('suspects'))}>
+        <div className={cn('min-w-0 space-y-2', onTab('suspects'))}>
+          {!fs && g.solution && <CrimePeek onShownChange={setCrimeShown} />}
           <div className="lg:hidden">
             <Suspects {...common} />
           </div>
