@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.10...v0.36.0) (2026-10-14)
+
+
+### Features
+
+* **enigma:** review-round fixes: refuse repeated clues, settle a level score with a keyword showdown, clearer picks ([#169](https://github.com/thurahtetaung/virtual-tavern/issues/169)) ([a9f6b7f](https://github.com/thurahtetaung/virtual-tavern/commit/a9f6b7fd8c4c77f03f9e3f1fde03f6ff49645d5e))
+
 ## [0.35.10](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.9...v0.35.10) (2026-10-14)
 
 
