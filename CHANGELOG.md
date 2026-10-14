@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.1...v0.33.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **backroom:** follow the light theme like the rest of the site ([#138](https://github.com/thurahtetaung/virtual-tavern/issues/138)) ([a8d63a7](https://github.com/thurahtetaung/virtual-tavern/commit/a8d63a7541b1d79d140f7938a53f5da1600a99a4))
+
 ## [0.33.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.0...v0.33.1) (2026-10-14)
 
 
