@@ -32,6 +32,7 @@ import {
 import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { seanceScreenshots } from './seance-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
+import { openAdminSection } from './admin-sections.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -555,6 +556,7 @@ for (const [label, viewport] of [
     const deckId = ((await deck.json()) as { id: string }).id;
     try {
       await admin.reload();
+      await openAdminSection(admin, 'Question decks');
       const decks = admin.getByRole('region', { name: 'Question decks' });
       await decks.scrollIntoViewIfNeeded();
       await decks.screenshot({ path: `test-results/shots/hoodwink-${label}-admin-decks.png` });

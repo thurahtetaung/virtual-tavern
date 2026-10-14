@@ -1,6 +1,7 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { getReady, playNight, setRoles, vote } from './nightfall-play.ts';
+import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -45,8 +46,13 @@ test('five friends play a night, a day and a vote, and see the whole night repla
   await admin.getByRole('button', { name: /Open the back room|Change password/ }).click();
   await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
   // Without asset storage there's no music to pick yet.
+  await openAdminSection(admin, 'Nightfall music');
+  await expect(
+    admin.getByRole('region', { name: 'Nightfall music' }).getByText('No tracks uploaded yet'),
+  ).toBeVisible();
   await expect(admin.getByText('Upload the Nightfall assets to choose music')).toBeVisible();
   // The real title lives in the database and reaches unlocked browsers only.
+  await openAdminSection(admin, 'Back-room titles');
   await admin.getByLabel('Nightfall', { exact: true }).fill(TITLE);
   const titles = admin
     .getByRole('listitem')
@@ -255,6 +261,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     );
   } finally {
     await admin.goto('/tavern-keeper');
+    await openAdminSection(admin, 'Back-room titles');
     const field = admin.getByLabel('Nightfall', { exact: true });
     await field.fill('');
     await admin

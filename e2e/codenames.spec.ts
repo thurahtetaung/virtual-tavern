@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { type Browser, type Download, type Page, expect, test } from '@playwright/test';
 import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
+import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -202,6 +203,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await expect(admin.getByText('Wrong password.')).toBeVisible();
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
+  await openAdminSection(admin, 'Word lists');
   await expect(admin.getByRole('button', { name: '+ New list' })).toBeVisible();
   // Deleted again at the end, so the shared server doesn't collect lists.
   const removeList = async () => {

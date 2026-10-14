@@ -152,11 +152,7 @@ function Stats() {
   return (
     <StatsContext.Provider value={ctx}>
       <div className="space-y-4">
-        <div
-          role="tablist"
-          aria-label="Stats sections"
-          className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]"
-        >
+        <div role="tablist" aria-label="Stats sections" className="flex flex-wrap gap-1.5">
           {STATS_TABS.map((tab) => (
             <Chip
               key={tab}
