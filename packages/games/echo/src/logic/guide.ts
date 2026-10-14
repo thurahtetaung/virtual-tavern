@@ -64,7 +64,7 @@ const text: GameGuide = {
       bullets: [
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
-        'Wrong: the card is lost, and so is the next card in the deck (on the last card, only that card). A wrong guess costs more than a pass, so pass when you have no idea.',
+        'Wrong: the card is lost, and so is the next card in the deck. On the last card there is no next card, so you give back a card you had already won instead (one point less, never below 0). A wrong guess costs more than a pass, so pass when you have no idea.',
         'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”) and British or American spelling are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including a typo, a word one letter away (“house” for “horse”), part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
         'The game ends when the deck runs out. The list of cards played counts any card a wrong guess cost.',
       ],
@@ -129,7 +129,7 @@ export const guide: GameGuide = shapeGuide(text, {
       rows: [
         ['Right', 'Scores a point', '—'],
         ['Pass', 'Set aside, no point', '—'],
-        ['Wrong', 'Lost', 'The next card is lost too'],
+        ['Wrong', 'Lost', 'The next card is lost too (on the last card, a won card)'],
       ],
     },
     {

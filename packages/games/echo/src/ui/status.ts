@@ -76,10 +76,12 @@ function outcomeText(view: EchoView, turn: TurnView): string {
   return `Not this time: the word was ${word}.`;
 }
 
-/** What a wrong guess just cost: the next card too, unless this was the last one. */
+/** What a wrong guess just cost: the next card too, or on the last card a card already won. */
 export function lossText(view: EchoView): string {
-  return view.history.at(-1)?.burned
-    ? 'This card and the next are lost.'
+  const last = view.history.at(-1);
+  if (last?.burned) return 'This card and the next are lost.';
+  return last?.forfeit
+    ? 'This was the last card, so it costs a card you had won: one point less.'
     : 'This card is lost (it was the last one).';
 }
 

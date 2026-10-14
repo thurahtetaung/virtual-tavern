@@ -275,17 +275,35 @@ describe('a card', () => {
     expect(h.state).toMatchObject({ phase: 'over', endReason: 'finished', turn: null });
   });
 
-  it('a wrong guess on the last card clamps at zero', () => {
+  it('a wrong guess on the last card with nothing won clamps at zero', () => {
     const h = playTo(1);
     expect(h.state.deck).toHaveLength(0);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    expect(h.state.cardsLeft).toBe(0);
-    // There was no next card to lose.
+    expect(h.state).toMatchObject({ cardsLeft: 0, score: 0 });
+    // There was no next card to lose, and no won card to give back.
     expect(h.state.history.at(-1)!.burned).toBeUndefined();
+    expect(h.state.history.at(-1)!.forfeit).toBeUndefined();
     h.act({ type: 'next-card' });
     expect(h.state.phase).toBe('over');
     expect(h.state.history).toHaveLength(8);
+  });
+
+  it('a wrong guess on the last card gives back a card already won', () => {
+    const h = startedGame();
+    while (h.state.cardsLeft > 1) {
+      toGuess(h);
+      h.act({ type: 'guess', word: secret(h) }, turn(h).guesser);
+      h.act({ type: 'next-card' });
+    }
+    expect(h.state.score).toBe(7);
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
+    expect(h.state).toMatchObject({ cardsLeft: 0, score: 6 });
+    expect(h.state.history.at(-1)).toMatchObject({ outcome: 'wrong', forfeit: true });
+    expect(h.state.history.at(-1)!.burned).toBeUndefined();
+    h.act({ type: 'next-card' });
+    expect(h.state).toMatchObject({ phase: 'over', score: 6 });
   });
 
   it('plays a whole game, then a rematch', () => {

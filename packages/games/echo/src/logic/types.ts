@@ -92,6 +92,8 @@ export interface ResolvedCard {
   missed?: string[];
   /** A wrong guess that also cost the next card (absent when there was no next card). */
   burned?: true;
+  /** A wrong guess on the last card that gave back a card already won (one point less). */
+  forfeit?: true;
 }
 
 export interface EchoState {

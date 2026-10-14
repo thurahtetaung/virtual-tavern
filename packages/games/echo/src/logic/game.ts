@@ -170,8 +170,10 @@ function reveal(
   const turn = state.turn!;
   const word = turn.card[turn.pick!]!;
   let { score, cardsLeft, deck } = state;
-  // A wrong guess on the last card has no next card to lose.
+  // A wrong guess on the last card has no next card to lose, so it gives back a card already
+  // won instead (if there is one).
   const burned = outcome === 'wrong' && state.cardsLeft >= 2;
+  const forfeit = outcome === 'wrong' && !burned && state.score > 0;
   if (outcome === 'right') {
     score += 1;
     cardsLeft -= 1;
@@ -181,6 +183,7 @@ function reveal(
     // A wrong guess costs this card and the next one.
     cardsLeft = Math.max(0, cardsLeft - 2);
     deck = deck.slice(1);
+    if (forfeit) score -= 1;
   }
   const nameOf = (id: PlayerId) => state.seats[id]?.name ?? '';
   const entry = {
@@ -202,6 +205,7 @@ function reveal(
     ...(turn.missed &&
       turn.missed.length > 0 && { missed: turn.missed.map(nameOf).filter(Boolean) }),
     ...(burned ? { burned: true as const } : {}),
+    ...(forfeit ? { forfeit: true as const } : {}),
   };
   return {
     ...state,

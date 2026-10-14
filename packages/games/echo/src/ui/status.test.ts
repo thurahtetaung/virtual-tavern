@@ -172,6 +172,20 @@ describe('lossText', () => {
     // No next guesser on the last card.
     expect(statusFor(v, false, null).text).not.toContain('Next guesser');
   });
+
+  it('says when the last card cost a card already won', () => {
+    const h = startedGame(FOUR, { deckSize: 8 });
+    while (h.state.cardsLeft > 1) {
+      toGuess(h);
+      h.act({ type: 'guess', word: secret(h) }, turn(h).guesser);
+      h.act({ type: 'next-card' });
+    }
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nothing-like-it' }, turn(h).guesser);
+    expect(lossText(echo.view(h.state, 'p2'))).toBe(
+      'This was the last card, so it costs a card you had won: one point less.',
+    );
+  });
 });
 
 describe('cancelReason', () => {

@@ -386,6 +386,7 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   if (history.length === 0) return null;
   // Cards a wrong guess cost without being played, so the list adds up to the deck.
   const burned = history.filter((h) => h.burned).length;
+  const forfeits = history.filter((h) => h.forfeit).length;
   return (
     <details className="group" open={open}>
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
@@ -413,6 +414,13 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
           <li className="flex items-baseline gap-2 text-stone-500">
             <span aria-hidden>🔥</span>
             {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
+          </li>
+        )}
+        {forfeits > 0 && (
+          <li className="flex items-baseline gap-2 text-stone-500">
+            <span aria-hidden>↩️</span>
+            {forfeits === 1 ? 'A won card was' : `${forfeits} won cards were`} given back for a
+            wrong guess on the last card
           </li>
         )}
       </ol>
