@@ -49,7 +49,15 @@ import {
   useRoleDetails,
 } from './Cards.tsx';
 import { standingOf } from './standing.ts';
-import { type Status, nudgeFor, startBlocker, votePower } from './status.ts';
+import { Peek } from './peek.tsx';
+import {
+  type Status,
+  nudgeFor,
+  protectPossible,
+  startBlocker,
+  votePower,
+  votePowerText,
+} from './status.ts';
 import {
   TEAM_LABEL,
   centreKinds,
@@ -1116,7 +1124,7 @@ function TableList({
 }) {
   const me = view.me?.id;
   const day = view.day;
-  const protects = votePower(view) !== 'vote';
+  // The buttons read the same for every role: a Bodyguard's pick is told only behind the peek.
   const rules = day?.rules;
   return (
     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="The table">
@@ -1166,20 +1174,18 @@ function TableList({
               <button
                 type="button"
                 aria-pressed={picked === p.id || picked2 === p.id}
-                aria-label={`${protects ? 'Protect' : 'Vote for'} ${p.name}`}
+                aria-label={`Vote for ${p.name}`}
                 onClick={() => pick(p.id)}
                 className={cn(
                   'flex min-h-12 w-full flex-col items-start rounded-lg px-3 py-1.5 text-left ring-1 transition',
                   picked === p.id || picked2 === p.id
-                    ? protects
-                      ? 'bg-success dark:bg-emerald-600 text-white ring-success dark:ring-emerald-600'
-                      : 'bg-danger dark:bg-rose-600 text-white ring-danger dark:ring-rose-600'
+                    ? 'bg-danger dark:bg-rose-600 text-white ring-danger dark:ring-rose-600'
                     : 'bg-white ring-stone-300 hover:bg-danger-soft dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-rose-950',
                 )}
               >
                 {body}
                 <span className="text-xs font-semibold">
-                  {protects ? '🛡️ Protect' : '🗳️ Vote'}
+                  🗳️ Vote
                   {picked === p.id && picked2 === p.id
                     ? ' · both your votes'
                     : picked === p.id
@@ -1335,6 +1341,23 @@ export function Day({
                 </button>
               ))}
             </div>
+          )}
+          {voting && playing && protectPossible(view) && (
+            <Peek
+              what="what your pick does"
+              cover={
+                <span className="flex min-h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+                  <span aria-hidden>🙈</span> Hold to see what your pick does
+                </span>
+              }
+            >
+              <p
+                className="rounded-xl bg-stone-100 px-3 py-2 text-sm font-semibold dark:bg-stone-800"
+                data-testid="vote-power"
+              >
+                {votePowerText(votePower(view))}
+              </p>
+            </Peek>
           )}
           <TableList
             view={view}

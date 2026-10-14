@@ -379,7 +379,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           'Press Ready to vote when you’re done; the vote opens when everyone is ready or the clock runs out. The host can open it early (when someone has dropped out, say).',
           'Everyone secretly votes for another player, then all votes show at once.',
           'The player with the most votes dies; on a tie, everyone tied dies. If nobody gets more than one vote, nobody dies.',
-          `Votes for a ${roleName('prince')} don’t count, and the ${roleName('bodyguard')}’s pick protects instead of voting: a ${roleName('bodyguard')}’s buttons read Protect.`,
+          `Votes for a ${roleName('prince')} don’t count, and the ${roleName('bodyguard')}’s pick protects instead of voting. Everyone’s buttons read Vote, so nobody can tell from a screen: peek at “what your pick does” to check yours.`,
           'You can’t vote for a player who has left the game.',
         ],
       },

@@ -10,13 +10,21 @@ export interface Dealt {
   names: Map<Page, string>;
 }
 
-/** Reads each page's card: exactly one spy, and every local holds the same location. */
+/**
+ * Reads each page's card through its peek (Show, read, Hide): exactly one spy, and every local holds
+ * the same location. The cards are left covered, as they are dealt.
+ */
 export async function readCards(players: Page[], names: Map<Page, string>): Promise<Dealt> {
   const titles: string[] = [];
   for (const p of players) {
     const title = p.getByTestId('card-title');
+    await expect(p.getByTestId('card-cover')).toBeVisible();
+    await expect(title).toHaveCount(0);
+    await p.getByRole('button', { name: 'Show your card' }).click();
     await expect(title).toBeVisible();
     titles.push(await title.innerText());
+    await p.getByRole('button', { name: 'Hide your card' }).click();
+    await expect(title).toHaveCount(0);
   }
   const spies = players.filter((_, i) => titles[i] === SPY);
   expect(spies).toHaveLength(1);

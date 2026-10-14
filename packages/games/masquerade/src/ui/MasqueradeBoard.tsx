@@ -22,6 +22,7 @@ import {
 } from '../content/questions.ts';
 import type { MasqueradeAction, MasqueradeView, RoundView, Stage } from '../logic/types.ts';
 import type { LocationDisplay } from './display.ts';
+import { Peek } from './peek.tsx';
 import { Lobby, Players } from './Lobby.tsx';
 import { useMarks } from './notes.ts';
 import {
@@ -92,21 +93,18 @@ function TopBar({ view, room }: { view: MasqueradeView; room: GameRoomInfo }) {
   const round = view.round;
   if (!round) return null;
   const live = view.phase === 'playing' && round.stage !== 'reveal';
-  const chip =
-    round.role === 'spy'
-      ? { text: '🎭 Spy', cls: 'bg-special dark:bg-violet-600 text-white' }
-      : round.role === 'local'
-        ? { text: '📍 Local', cls: 'bg-success dark:bg-emerald-600 text-white' }
-        : { text: '👀 Watching', cls: 'bg-stone-200 dark:bg-stone-800' };
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-400">
         <span>
           Round {round.number}/{view.totalRounds}
         </span>
-        <span className={cn('rounded-full px-2 py-0.5 text-xs font-bold', chip.cls)}>
-          {chip.text}
-        </span>
+        {/* Only watching is said up here: a player's card stays behind its peek. */}
+        {round.role === 'watching' && (
+          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-xs font-bold dark:bg-stone-800">
+            👀 Watching
+          </span>
+        )}
         {round.spyCount > 1 && <span className="text-xs">2 spies</span>}
         {round.spyCount === 1 && view.settings.twoSpies && (
           // Two spies is on, but too few are playing for it this round: say so.
@@ -155,14 +153,44 @@ function StatusHint({ view, room }: { view: MasqueradeView; room: GameRoomInfo }
   return <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>;
 }
 
-/** Your card, with a cover so neighbours can't peek. */
+/**
+ * Your card and its coaching, behind a peek: covered, it looks the same for the spy and the locals,
+ * and nothing of it is in the page until you look.
+ */
 function MyCard({ round, display }: { round: RoundView; display: LocationDisplay }) {
-  const [covered, setCovered] = useState(false);
   if (round.role === 'watching') return null;
+  return (
+    <section aria-label="Your card">
+      <Peek
+        what="your card"
+        cover={
+          <span
+            data-testid="card-cover"
+            className="flex min-h-24 items-center gap-3 rounded-2xl bg-gradient-to-br from-stone-700 to-stone-900 p-3 text-stone-100 shadow-sm ring-1 ring-stone-800"
+          >
+            <span aria-hidden className="text-4xl">
+              🎴
+            </span>
+            <span className="min-w-0">
+              <span className="block font-bold">Hold to see your card</span>
+              <span className="block text-xs text-stone-300">
+                Or tap Show. Keep it hidden from your neighbours.
+              </span>
+            </span>
+          </span>
+        }
+      >
+        <CardFace round={round} display={display} />
+      </Peek>
+    </section>
+  );
+}
+
+function CardFace({ round, display }: { round: RoundView; display: LocationDisplay }) {
   const spy = round.role === 'spy';
   const location = round.location;
   return (
-    <section aria-label="Your card" className="relative">
+    <div className="space-y-2">
       <div
         data-testid="my-card"
         className={cn(
@@ -170,7 +198,6 @@ function MyCard({ round, display }: { round: RoundView; display: LocationDisplay
           spy
             ? 'bg-gradient-to-br from-violet-700 to-stone-900 text-white ring-violet-900'
             : 'bg-white ring-stone-200 dark:bg-stone-900 dark:ring-stone-700',
-          covered && 'invisible',
         )}
       >
         {spy ? (
@@ -216,25 +243,9 @@ function MyCard({ round, display }: { round: RoundView; display: LocationDisplay
             </p>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn('shrink-0', spy && 'text-white hover:bg-white/10')}
-          onClick={() => setCovered(true)}
-        >
-          🙈 Cover
-        </Button>
       </div>
-      {covered && (
-        <button
-          type="button"
-          onClick={() => setCovered(false)}
-          className="absolute inset-0 flex items-center justify-center rounded-2xl bg-stone-800 text-sm font-semibold text-stone-100 ring-1 ring-stone-700"
-        >
-          🛡️ Card covered · tap to show
-        </button>
-      )}
-    </section>
+      <Coaching round={round} display={display} />
+    </div>
   );
 }
 
@@ -279,9 +290,8 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
           the spy.
         </li>
         <li>
-          {round.role === 'spy'
-            ? 'You can’t guess during the talk. If the vote catches you, you get one guess at the location: right, and you steal the round. If it doesn’t, you score anyway.'
-            : 'A caught spy gets one guess at the location; right, and they steal the round.'}
+          Nobody guesses during the talk. A spy the vote catches gets one guess at the location:
+          right, and they steal the round. A spy who isn’t caught scores anyway.
         </li>
       </ol>
     </details>
@@ -625,8 +635,9 @@ function LocationsBoard({
   const [pick, setPick] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const guessing = !!round?.canGuess;
-  const spy = round?.role === 'spy';
-  const here = round?.location ?? null;
+  // The board never marks the real location: every player's board looks alike, and the marks on it
+  // are the player's own guesses (kept in this browser only).
+  const seated = !!round && round.role !== 'watching';
   const possible = view.locations.filter((l) => marks[l] !== 'crossed');
   const shortlist = [
     ...possible.filter((l) => marks[l] === 'starred'),
@@ -678,10 +689,9 @@ function LocationsBoard({
           has been played.
         </p>
       )}
-      {spy && !guessing && round?.stage === 'talk' && (
-        <p className="rounded-lg bg-special-soft px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
-          You can’t guess yet. Cross places off as you listen: if the vote catches you, you get one
-          guess.
+      {seated && !guessing && round?.stage === 'talk' && (
+        <p className="rounded-lg bg-stone-100 px-3 py-1.5 text-xs text-stone-700 dark:bg-stone-800/70 dark:text-stone-300">
+          Cross places off as you listen. Nobody guesses yet: a spy the vote catches gets one guess.
         </p>
       )}
       {pickable && (
@@ -708,7 +718,7 @@ function LocationsBoard({
           </div>
         </div>
       )}
-      {spy && !guessing && (
+      {seated && !guessing && (
         <p className="text-sm" data-testid="still-possible">
           <b>Still possible: {possible.length}</b>
           {possible.length <= 12 && possible.length < view.locations.length && (
@@ -747,7 +757,6 @@ function LocationsBoard({
                         ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                         : 'bg-white ring-stone-200 hover:bg-stone-50 dark:bg-stone-900 dark:ring-stone-700 dark:hover:bg-stone-800',
                       mark === 'crossed' && !selected && 'opacity-40',
-                      here === id && 'ring-2 ring-success dark:ring-emerald-500',
                     )}
                   >
                     <LocationPicture
@@ -764,12 +773,7 @@ function LocationsBoard({
                     >
                       {name}
                     </span>
-                    {here === id && (
-                      <span className="absolute top-1 left-1 rounded-full bg-success dark:bg-emerald-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
-                        📍 Here
-                      </span>
-                    )}
-                    {here !== id && view.played.includes(id) && (
+                    {view.played.includes(id) && (
                       <span className="absolute top-1 left-1 rounded-full bg-stone-600 px-1.5 py-0.5 text-[0.65rem] font-bold text-white shadow">
                         Played
                       </span>
@@ -853,9 +857,7 @@ function IdeaList({
 
 function IdeasBoard({ view, display }: { view: MasqueradeView; display: LocationDisplay }) {
   const round = view.round;
-  const spy = round?.role === 'spy';
-  const here = round?.role === 'local' ? round.location : null;
-  const pointed = here ? display.questions(here) : [];
+  const seated = view.phase === 'playing' && !!round && round.role !== 'watching';
   return (
     <section aria-label="Question ideas" className="space-y-2">
       <h3 className="font-bold">💬 Question ideas</h3>
@@ -863,21 +865,49 @@ function IdeasBoard({ view, display }: { view: MasqueradeView; display: Location
         <b>Answering? </b>
         {ANSWER_TIP}
       </p>
-      {spy && (
-        <>
-          <IdeaList title="🛡️ Safe questions (fit anywhere)" items={SPY_SAFE_QUESTIONS} open />
-          <IdeaList title="🎣 Fishing questions (narrow it down)" items={SPY_FISHING_QUESTIONS} />
-          <IdeaList title="🎭 Bluff tips" items={SPY_BLUFF_TIPS} />
-        </>
-      )}
-      {here && pointed.length > 0 && (
-        <IdeaList title={`📍 For ${display.name(here)}`} items={pointed} open />
+      {seated && (
+        // The ideas for your card name the location (or show you're the spy), so they're peeked too.
+        <Peek
+          what="ideas for your card"
+          cover={
+            <span
+              data-testid="ideas-cover"
+              className="flex h-11 items-center gap-2 rounded-xl bg-stone-800 px-3 text-sm font-semibold text-stone-100 ring-1 ring-stone-700"
+            >
+              <span aria-hidden>🙈</span> Hold to see ideas for your card
+            </span>
+          }
+        >
+          <div className="w-full space-y-2" data-testid="card-ideas">
+            <CardIdeas round={round} display={display} />
+          </div>
+        </Peek>
       )}
       {GENERIC_QUESTIONS.map((c) => (
         <IdeaList key={c.id} title={`${c.emoji} ${c.label}`} items={c.questions} />
       ))}
     </section>
   );
+}
+
+function CardIdeas({ round, display }: { round: RoundView; display: LocationDisplay }) {
+  if (round.role === 'spy')
+    return (
+      <>
+        <IdeaList title="🛡️ Safe questions (fit anywhere)" items={SPY_SAFE_QUESTIONS} open />
+        <IdeaList title="🎣 Fishing questions (narrow it down)" items={SPY_FISHING_QUESTIONS} />
+        <IdeaList title="🎭 Bluff tips" items={SPY_BLUFF_TIPS} />
+      </>
+    );
+  const here = round.location;
+  const pointed = here ? display.questions(here) : [];
+  if (!here || pointed.length === 0)
+    return (
+      <p className="rounded-xl bg-white/80 px-3 py-2 text-sm ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800">
+        No ideas for this place: try the general ones below.
+      </p>
+    );
+  return <IdeaList title={`📍 For ${display.name(here)}`} items={pointed} open />;
 }
 
 // ---- Phone tabs ----
@@ -999,7 +1029,6 @@ export function MasqueradeBoard({
               <VotePanel view={view} round={round} act={act} room={room} />
               <MyCard key={round.deal} round={round} display={display} />
               <ReadyToggle round={round} act={act} room={room} />
-              <Coaching round={round} display={display} />
               <HowItWorks view={view} round={round} />
               {round.stage === 'guess' && round.votes && (
                 <Panel className="space-y-2">

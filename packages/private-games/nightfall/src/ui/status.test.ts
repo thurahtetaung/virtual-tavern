@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { roleLabel } from '../logic/roles.ts';
 import { table } from '../logic/test-utils.ts';
 import type { NightfallView } from '../logic/types.ts';
-import { nudgeFor, statusFor, votePower } from './status.ts';
+import { nudgeFor, protectPossible, statusFor, votePower, votePowerText } from './status.ts';
 import { teamOutcome } from './text.ts';
 
 const players = [
@@ -37,7 +37,7 @@ describe('statusFor', () => {
       waitingOn: ['B', 'C'],
     } as unknown as NightfallView;
     expect(statusFor(view, room).text).toBe(
-      'You voted for Cy. Tap someone else to change. Waiting for: Ben (offline) and Cy.',
+      'You picked Cy. Tap someone else to change. Waiting for: Ben (offline) and Cy.',
     );
   });
 
@@ -59,15 +59,21 @@ const W = 'werewolf';
 const V = 'villager';
 
 describe('the vote, for a Bodyguard', () => {
-  it('tells a dealt Bodyguard their pick protects, unless the card moved', () => {
+  it('tells a dealt Bodyguard their pick protects only behind the peek, unless the card moved', () => {
     const h = table({ players: ['bodyguard', W, V] });
     h.dawn();
     h.tick();
     const v = h.view('A');
     expect(votePower(v)).toBe('protect-if-kept');
-    expect(statusFor(v, roomOf(false)).text).toMatch(/^Your vote PROTECTS/);
-    expect(statusFor(h.view('B'), roomOf(false)).text).toMatch(
-      /^Vote! Tap the player you want to die/,
+    expect(protectPossible(v)).toBe(true);
+    // The status line is the same for the Bodyguard and everyone else.
+    expect(statusFor(v, roomOf(false)).text).toBe(
+      'Vote! Tap a player. Nobody sees it until everyone has voted. Peek below at what your pick does.',
+    );
+    expect(statusFor(h.view('B'), roomOf(false)).text).toBe(statusFor(v, roomOf(false)).text);
+    expect(votePowerText(votePower(v))).toMatch(/^🛡️ Your pick PROTECTS.*card was moved/);
+    expect(votePowerText(votePower(h.view('B')))).toBe(
+      '🗳️ Your pick is a vote against that player.',
     );
   });
 
