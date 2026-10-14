@@ -784,6 +784,7 @@ function Play({
                     <li key={card} className="w-20 shrink-0 sm:w-24">
                       <Card
                         card={card}
+                        eager
                         selected={picked.includes(card) || storyPick === card}
                         label={picked.includes(card) ? '✓' : undefined}
                         onClick={() => setViewing({ card, from: 'hand' })}
