@@ -19,6 +19,7 @@ import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab, useRoleReveal } from './Me.tsx';
 import { Chaos, LeaderCheck, MomentView, useMoments } from './Moments.tsx';
+import { phoneTabPanel, tabPanel, type Tab } from './panels.ts';
 import { type SeatPick, Seats, whyText } from './Seats.tsx';
 import {
   useMomentsSetting,
@@ -37,8 +38,6 @@ export type HydraUiProps = GameUiProps<HydraView, HydraAction> & {
   edition?: string;
 };
 type Act = HydraUiProps['act'];
-type Tab = 'table' | 'log' | 'me';
-
 function TabBar({
   tab,
   onChange,
@@ -603,7 +602,7 @@ export function HydraGame({
       showKnown={reveal.shown}
     />
   );
-  const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
+  const onTab = (t: Tab) => tabPanel(tab, t);
   // The rulebook's discussion windows: before the vote, and after a session (claims) until the
   // next nomination. Each one is prompted explicitly.
   const talkNow =
@@ -716,7 +715,7 @@ export function HydraGame({
                   <DeckChip g={g} c={c} className="mt-2" />
                 </div>
               </div>
-              <div className={cn('lg:hidden', onTab('me'))}>
+              <div className={phoneTabPanel(tab, 'me')}>
                 <MeTab
                   view={view}
                   c={c}

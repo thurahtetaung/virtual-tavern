@@ -82,6 +82,8 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
   await readRoles(players);
   expect(players.filter((p) => p.role === 'leader')).toHaveLength(1);
+  // On desktop the Me content shows once, in the sidebar (never again under the table).
+  await expect(host.getByRole('region', { name: 'Your role card' })).toHaveCount(1);
   // The scoreboard explains itself in the edition's words.
   await host.getByTestId('scoreboard').click();
   await expect(host.getByTestId('score-legend')).toContainText('Glows: 0 of 5 Sunlit edicts');

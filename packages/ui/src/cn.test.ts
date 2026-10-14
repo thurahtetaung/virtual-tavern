@@ -17,4 +17,12 @@ describe('cn', () => {
     expect(cn('ring-2 ring-accent-line')).toBe('ring-2 ring-accent-line');
     expect(cn('bg-white dark:bg-stone-900', 'bg-panel')).toBe('dark:bg-stone-900 bg-panel');
   });
+
+  it('keeps a line height before a font size, which wins over it in Tailwind v4', () => {
+    expect(cn('leading-tight font-bold', 'text-[11px]')).toBe(
+      'leading-tight font-bold text-[11px]',
+    );
+    expect(cn('leading-none', 'text-lg')).toBe('leading-none text-lg');
+    expect(cn('leading-tight', 'text-sm/6')).toBe('text-sm/6');
+  });
 });
