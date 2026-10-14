@@ -51,8 +51,18 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await host.goto('/backroom');
   await host.getByLabel('The word').fill('please');
   await host.getByRole('button', { name: 'Knock' }).click();
-  await expect(host.getByText("That's not the word")).toBeVisible();
-  await host.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+  // Said under the field too (until the next keystroke), and the word stays, selected, to retype.
+  const field = host.getByLabel('The word');
+  await expect(field).toHaveAccessibleDescription(/That's not the word/);
+  await expect(field).toHaveValue('please');
+  expect(
+    await field.evaluate(
+      (el: HTMLInputElement) => (el.selectionEnd ?? 0) - (el.selectionStart ?? 0),
+    ),
+  ).toBe(6);
+  await field.press('Backspace');
+  await expect(field).not.toHaveAccessibleDescription(/not the word/);
+  await field.fill(TEST_BACKROOM_WORD);
   await host.getByRole('button', { name: 'Knock' }).click();
   // The back room is its own screen with its own game list; the home page stays unchanged.
   await expect(host).toHaveURL(/\/backroom$/);

@@ -1,6 +1,6 @@
 import type { GameSummary } from '@vt/protocol';
 import { Button, cn } from '@vt/ui';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { GameCard } from '../components/GameCard.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
@@ -109,6 +109,9 @@ export function BackroomPage() {
   const changed = params.has('changed');
   const { status, refresh } = useBackroom();
   const [word, setWord] = useState('');
+  // Why the last knock failed, shown under the field until the next keystroke.
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   // Seconds until the bouncer listens again, after too many wrong words.
   const [wait, setWait] = useState(0);
@@ -129,8 +132,11 @@ export function BackroomPage() {
       else void refresh();
     } catch (err) {
       toast((err as Error).message);
+      setRefusal((err as Error).message);
       if (err instanceof ApiFailure && err.retryAfter) setWait(err.retryAfter);
-      setWord('');
+      // Keep the word, selected, so a typo can be fixed and a wrong word typed over.
+      input.current?.focus();
+      input.current?.select();
     }
     setBusy(false);
   };
@@ -197,14 +203,29 @@ export function BackroomPage() {
             </label>
             <input
               id="backroom-word"
+              ref={input}
               type="password"
               autoFocus
               autoComplete="current-password"
               value={word}
-              onChange={(e) => setWord(e.target.value)}
+              onChange={(e) => {
+                setWord(e.target.value);
+                setRefusal(null);
+              }}
+              aria-invalid={refusal !== null}
+              aria-describedby={refusal ? 'backroom-refusal' : undefined}
               className="h-12 w-full rounded-lg bg-card px-4 text-center text-lg tracking-widest text-ink ring-1 ring-line-strong placeholder:text-ink-muted/60 focus:ring-accent dark:bg-stone-900 dark:text-amber-50 dark:ring-amber-900 dark:placeholder:text-amber-200/30 dark:focus:ring-amber-500"
               placeholder="psst…"
             />
+            {refusal && (
+              <p
+                id="backroom-refusal"
+                role="alert"
+                className="text-sm font-semibold text-danger-ink dark:text-rose-300"
+              >
+                {refusal}
+              </p>
+            )}
             <Button type="submit" size="lg" className="w-full" disabled={!word || busy || wait > 0}>
               {wait > 0 ? `Knock again in ${wait} s` : 'Knock'}
             </Button>
