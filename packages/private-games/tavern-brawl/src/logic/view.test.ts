@@ -153,7 +153,8 @@ describe('view', () => {
       step(t);
     }
     for (const v of [...t.players, null]) checkView(t.state, v);
-  });
+    // About 1.5 s alone: a busy machine pushed it past the default 5 s.
+  }, 60_000);
 
   it('shows the chooser their options and only a waiting note to others', () => {
     const h = started(['mage', 'brute', 'knight']);
@@ -190,31 +191,47 @@ describe('view', () => {
   });
 });
 
+// 1,000 seeded games in chunks of 100, each with its own time budget: as one test, a busy machine
+// (the whole suite in parallel) pushed it past its timeout.
+const GAMES = 1000;
+const CHUNK = 100;
+
 describe('fuzz', () => {
-  it('plays 1,000 seeded games to the end with every invariant held', () => {
-    let ties = 0;
-    for (let seed = 1; seed <= 1000; seed++) {
-      const t = randomGame(seed);
-      let steps = 0;
-      try {
-        while (t.state.phase === 'playing') {
-          step(t);
-          invariants(t.state);
-          if (seed % 50 === 0 && steps % 7 === 0)
-            for (const v of [...t.players, null]) checkView(t.state, v);
-          if (++steps > 5000) throw new Error('game never ended');
-        }
-      } catch (e) {
-        throw new Error(`seed ${seed}, step ${steps}: ${(e as Error).message}`, { cause: e });
-      }
-      const g = t.state.game!;
-      expect(JSON.stringify(t.state).length).toBeLessThan(MAX_STATE);
-      expect(t.state.phase).toBe('over');
-      expect(g.winners.length).toBeLessThanOrEqual(1);
-      if (g.endReason === 'last-standing') expect(g.winners).toHaveLength(1);
-      if (g.winners.length === 0) ties += 1;
-      expect(tavernBrawl.nextDeadline!(t.state)).toBeNull();
-    }
-    expect(ties).toBeLessThan(200);
-  }, 120_000);
+  const ties = new Map<number, number>();
+  for (let from = 1; from <= GAMES; from += CHUNK)
+    it(`plays seeded games ${from}–${from + CHUNK - 1} to the end with every invariant held`, () => {
+      ties.set(from, playChunk(from, from + CHUNK - 1));
+    }, 120_000);
+  it('ends fewer than 1 in 5 of the 1,000 games in a tie', () => {
+    // Only meaningful once every chunk has run (not under a -t filter that picks one chunk).
+    if (ties.size < GAMES / CHUNK) return;
+    expect([...ties.values()].reduce((a, b) => a + b, 0)).toBeLessThan(GAMES / 5);
+  });
 });
+
+function playChunk(first: number, last: number): number {
+  let ties = 0;
+  for (let seed = first; seed <= last; seed++) {
+    const t = randomGame(seed);
+    let steps = 0;
+    try {
+      while (t.state.phase === 'playing') {
+        step(t);
+        invariants(t.state);
+        if (seed % 50 === 0 && steps % 7 === 0)
+          for (const v of [...t.players, null]) checkView(t.state, v);
+        if (++steps > 5000) throw new Error('game never ended');
+      }
+    } catch (e) {
+      throw new Error(`seed ${seed}, step ${steps}: ${(e as Error).message}`, { cause: e });
+    }
+    const g = t.state.game!;
+    expect(JSON.stringify(t.state).length).toBeLessThan(MAX_STATE);
+    expect(t.state.phase).toBe('over');
+    expect(g.winners.length).toBeLessThanOrEqual(1);
+    if (g.endReason === 'last-standing') expect(g.winners).toHaveLength(1);
+    if (g.winners.length === 0) ties += 1;
+    expect(tavernBrawl.nextDeadline!(t.state)).toBeNull();
+  }
+  return ties;
+}
