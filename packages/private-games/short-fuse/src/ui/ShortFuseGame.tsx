@@ -403,6 +403,28 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     };
   }, [shuffling, shuffle.v]);
 
+  // Your hand's full-size faces (and the discard's top) first, so the deal shows its art at once;
+  // the rest of the deck only ahead of time as small copies, which phones can afford.
+  const firstFaces =
+    g && c.ready
+      ? [...new Set([...(g.hand ?? []), ...g.discard.slice(-1)].map((card) => c.face(card, g.art)))]
+          .filter((src): src is string => !!src)
+          .join('\n')
+      : '';
+  useEffect(() => {
+    if (!firstFaces) return;
+    const imgs = firstFaces.split('\n').map((src) => {
+      const img = new Image();
+      img.fetchPriority = 'high';
+      img.decoding = 'async';
+      img.src = src;
+      return img;
+    });
+    return () => {
+      imgs.length = 0;
+    };
+  }, [firstFaces]);
+
   // Load every face in this game ahead of time, so a play (in the Nope panel) shows its art at once.
   const preloadKey = g && c.ready ? `${g.art}:${g.types.join(',')}` : '';
   useEffect(() => {
@@ -411,6 +433,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       .flatMap((t) => c.thumbs(t, g.art))
       .map((src) => {
         const img = new Image();
+        img.fetchPriority = 'low';
         img.decoding = 'async';
         img.src = src;
         return img;

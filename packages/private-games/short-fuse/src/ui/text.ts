@@ -14,7 +14,14 @@ export function who(view: ShortFuseView, id: string | null | undefined, you = tr
   );
 }
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** "your" for the viewer, else "Ana’s" (from a name `who` gave). */
+const whose = (name: string) => (name === 'you' ? 'your' : name === 'You' ? 'Your' : `${name}’s`);
+
+/** The verb that agrees with a name `who` gave: "you draw", "Ana draws". */
+const agree = (name: string, you: string, other: string) =>
+  name.toLowerCase() === 'you' ? you : other;
 
 /** "a Bomb", "an Ace": the article for a name. */
 export const an = (name: string) => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
@@ -60,9 +67,9 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
         ? `${by}: ${c.name('nope')}! (${e.n})`
         : `${by} said ${c.name('nope')} to the ${c.name('nope')} (${e.n}).`;
     case 'cancelled':
-      return `${by === 'You' ? 'Your' : `${by}’s`} play was cancelled.`;
+      return `${whose(by)} play was cancelled.`;
     case 'resolved':
-      return `${by === 'You' ? 'Your' : `${by}’s`} play goes ahead after ${e.n} × ${c.name('nope')}.`;
+      return `${whose(by)} play goes ahead after ${e.n} × ${c.name('nope')}.`;
     case 'draw':
       return `${by} drew a card${e.from === 'bottom' ? ' from the bottom' : ''}.`;
     case 'drew-bomb':
@@ -80,17 +87,17 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'favor':
       return e.n
         ? e.from === 'stash'
-          ? `${by}’s ${c.name('vault')} Stash gave ${target} a card.`
+          ? `${whose(by)} ${c.name('vault')} Stash gave ${target} a card.`
           : `${by} gave ${target} a card.`
         : `${by} had nothing to give.`;
     case 'steal':
       return e.n
-        ? `${by} stole a card from ${target}${e.from === 'stash' ? `’s ${c.name('vault')} Stash` : ''}.`
+        ? `${by} stole a card from ${e.from === 'stash' ? `${whose(target)} ${c.name('vault')} Stash` : target}.`
         : `${by} found nothing to steal.`;
     case 'ask':
       return e.hit
-        ? `${target} handed over ${card(e.named)}.`
-        : `${target} had no ${card(e.named)}.`;
+        ? `${cap(target)} handed over ${card(e.named)}.`
+        : `${cap(target)} had no ${card(e.named)}.`;
     case 'salvage':
       return `${by} took ${card(e.cards?.[0])} from the discard pile.`;
     case 'shuffle':
@@ -100,7 +107,7 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'attacked':
       return `${cap(target)} must take ${e.n} turns.`;
     case 'empty':
-      return `The pile is empty: ${who(view, e.by)} draws nothing.`;
+      return `The pile is empty: ${who(view, e.by)} ${agree(by, 'draw', 'draws')} nothing.`;
     case 'left':
       return `${by} left the game.`;
     case 'timeout':
@@ -114,7 +121,7 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'stack':
       return `${by} put every ${c.names.bomb} on top: ${e.n} of them!`;
     case 'mark':
-      return `${by} marked ${card(e.cards?.[0])} in ${target === 'you' ? 'your' : `${target}’s`} hand.`;
+      return `${by} marked ${card(e.cards?.[0])} in ${whose(target)} hand.`;
     case 'blind':
       return `${by} blindfolded ${target}.`;
     case 'cured':
@@ -128,15 +135,15 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
         ? `${by} set both ${card('twin')} cards on ${target}!`
         : `${by} played ${an(card('twin'))}: ${target} had the other one!`;
     case 'twin-wait':
-      return `${by} played ${an(card('twin'))}: nobody has the other yet. It waits in front of them.`;
+      return `${by} played ${an(card('twin'))}: nobody has the other yet. It waits in front of ${agree(by, 'you', 'them')}.`;
     case 'vault':
       return `${by} put on the ${card('vault')}, with a Stash of ${e.n}.`;
     case 'mine':
       return `${by} put ${an(card('mine'))} in front of ${target}.`;
     case 'mine-took':
       return e.cards?.length
-        ? `${by} took ${target === 'you' ? 'your' : `${target}’s`} draw: ${an(card(e.cards[0]))}!`
-        : `${by} took ${target === 'you' ? 'your' : `${target}’s`} draw.`;
+        ? `${by} took ${whose(target)} draw: ${an(card(e.cards[0]))}!`
+        : `${by} took ${whose(target)} draw.`;
     case 'bury':
       return `${by} drew a card to bury it back in the pile.`;
     case 'pooled':
@@ -262,30 +269,30 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
   const busy = g.busy;
   if (busy) {
     const name = cap(who(view, busy.who));
+    const is = agree(name, 'are', 'is');
     const lines = {
-      give: `${name} is choosing a card to give ${who(view, g.turn.player)}…`,
-      alter: `${name} is rearranging the top of the pile…`,
-      salvage: `${name} is picking a card from the discard pile…`,
+      give: `${name} ${is} choosing a card to give ${who(view, g.turn.player)}…`,
+      alter: `${name} ${is} rearranging the top of the pile…`,
+      salvage: `${name} ${is} picking a card from the discard pile…`,
       bomb:
         g.drawnKind === 'twin'
           ? `${name} must answer the ${c.name('twin')}!`
-          : `${name} has ${an(c.name('bomb'))} to deal with!`,
-      search: `${name} is blindfolded with ${an(c.name(g.drawnKind === 'twin' ? 'twin' : 'bomb'))}: turning cards over…`,
-      target: `${name} is choosing who the blind card is for…`,
+          : `${name} ${agree(name, 'have', 'has')} ${an(c.name('bomb'))} to deal with!`,
+      search: `${name} ${is} blindfolded with ${an(c.name(g.drawnKind === 'twin' ? 'twin' : 'bomb'))}: turning cards over…`,
+      target: `${name} ${is} choosing who the blind card is for…`,
       each: `Everyone with cards is choosing one (${(g.each?.waiting ?? []).map((id) => who(view, id)).join(', ') || 'done'})…`,
       place:
         g.drawnKind === 'bury'
-          ? `${name} is burying a card back in the pile…`
+          ? `${name} ${is} burying a card back in the pile…`
           : g.drawnKind === 'void'
-            ? c.t(`${name} is putting {c:void} back face up…`)
-            : c.t(`${name} is hiding {c:bomb} back in the pile…`),
+            ? c.t(`${name} ${is} putting {c:void} back face up…`)
+            : c.t(`${name} ${is} hiding {c:bomb} back in the pile…`),
     };
     return { text: lines[busy.what], yourMove: false };
   }
   const turn = g.turn;
   const owed = turn.owed > 1 ? ` (${turn.owed} turns to go)` : '';
-  if (!mine) return { text: `${cap(who(view, turn.player))}’s turn${owed}.`, yourMove: false };
-  return { text: `${cap(who(view, turn.player))}’s turn${owed}.`, yourMove: false };
+  return { text: `${whose(cap(who(view, turn.player)))} turn${owed}.`, yourMove: false };
 }
 
 /** Whether the viewer is still in the game (seated and not exploded). */

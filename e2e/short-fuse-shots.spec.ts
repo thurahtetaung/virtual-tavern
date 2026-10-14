@@ -259,3 +259,45 @@ for (const device of ['phone', 'desktop'] as const)
       await shot(B, '33-blind-turn');
       await shot(B, '34-blind-turn-full', true);
     });
+
+for (const device of ['phone', 'desktop'] as const)
+  for (const scheme of ['light', 'dark'] as const)
+    test(`Short Fuse screenshots: log lines per viewer (${device}, ${scheme})`, async ({
+      browser,
+    }) => {
+      test.setTimeout(240_000);
+      const opts = { viewport: VIEWPORTS[device], colorScheme: scheme };
+      await openBackroom(await sfVisitor(browser, 'Admin', pageErrors));
+      const [hana, ana, ben] = await sfTable(browser, ['Hana', 'Ana', 'Ben'], pageErrors, opts);
+      const host = hana!.page;
+      const A = ana!.page;
+      const B = ben!.page;
+      await host.getByTestId('toggle-x3').click();
+      await riggedStart(host, {
+        hands: [['vault', 'twin', 'cat1'], ['cat2', 'cat2', 'cat3'], ['cat4']],
+        top: ['cat5', 'skip', 'cat3'],
+      });
+      await play(host, ['vault']);
+      await settle(host);
+      await play(host, ['twin']);
+      await draw(host);
+      await play(A, ['cat2', 'cat2'], 'Hana');
+      await settle(A);
+      const lines = {
+        host: ['It waits in front of you.', 'Ana stole a card from your'],
+        A: ['It waits in front of them.', 'You stole a card from Hana’s'],
+        B: ['It waits in front of them.', 'Ana stole a card from Hana’s'],
+      };
+      for (const [key, p] of [
+        ['host', host],
+        ['A', A],
+        ['B', B],
+      ] as const) {
+        if (device === 'phone') await p.getByRole('tab', { name: /Log/ }).click();
+        const log = p.locator('[data-testid="log"]:visible');
+        for (const text of lines[key]) await expect(log).toContainText(text);
+        await p.screenshot({
+          path: `test-results/shots/short-fuse-${device}-${scheme}-30-log-${key}.png`,
+        });
+      }
+    });

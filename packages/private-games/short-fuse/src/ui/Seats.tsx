@@ -49,6 +49,7 @@ export function Seats({
           const turn = p.id === current && view.phase === 'playing';
           const out = p.dead || p.left;
           const pickable = targets?.includes(p.id) ?? false;
+          const self = p.id === view.me?.id;
           const body = (
             <>
               <span className="flex min-w-0 items-center gap-1 text-sm font-semibold">
@@ -98,7 +99,7 @@ export function Seats({
                 {p.mine && (
                   <span
                     title={c.t(
-                      `{c:mine} from ${who(view, p.mine, false)}: their next draw goes there`,
+                      `{c:mine} from ${who(view, p.mine, false)}: ${self ? 'your' : 'their'} next draw goes there`,
                     )}
                     aria-label={`${c.name('mine')} from ${who(view, p.mine, false)}`}
                     data-testid="mine"
@@ -130,7 +131,10 @@ export function Seats({
                   )}
                   {!p.dead &&
                     p.front.map((card) => (
-                      <span key={card.id} title={c.t(`{c:${card.t}} waits in front of them`)}>
+                      <span
+                        key={card.id}
+                        title={c.t(`{c:${card.t}} waits in front of ${self ? 'you' : 'them'}`)}
+                      >
                         <CardFace card={card} art={g.art} c={c} size="xxs" />
                       </span>
                     ))}

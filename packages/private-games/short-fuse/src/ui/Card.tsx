@@ -36,6 +36,7 @@ export function CardFace({
   selected = false,
   label = true,
   thumb = false,
+  eager = false,
   className,
 }: {
   card: Card;
@@ -47,6 +48,8 @@ export function CardFace({
   label?: boolean;
   /** Use the small copy of the art. */
   thumb?: boolean;
+  /** Load the art at once, even off screen (a hand scrolled sideways). */
+  eager?: boolean;
   className?: string;
 }) {
   const tiny = size === 'xxs' || size === 'xs';
@@ -68,7 +71,7 @@ export function CardFace({
           src={src}
           alt={name}
           className="absolute inset-0 size-full object-cover"
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
         />
       ) : (
         <span
