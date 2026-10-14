@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.34.0...v0.35.0) (2026-10-14)
+
+
+### Features
+
+* **short-fuse:** add the fourth expansion and the Chaos preset ([#144](https://github.com/thurahtetaung/virtual-tavern/issues/144)) ([cd42ab1](https://github.com/thurahtetaung/virtual-tavern/commit/cd42ab1a6ad3ab0f6fb013122b8d6c8e34379805))
+
 ## [0.34.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.2...v0.34.0) (2026-10-14)
 
 
