@@ -1,5 +1,7 @@
 import { cn } from '@vt/ui';
+import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import type { CodenamesView } from '../logic/types.ts';
+import { type Measure, canvasMeasure, estimate, fitSize } from './fit.ts';
 import { KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
 
 interface Props {
@@ -18,9 +20,16 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
   const names = new Map(view.seats.map((s) => [s.id, s.name]));
   const showKey =
     view.me?.role === 'spymaster' && view.me.team !== null && view.phase === 'playing';
+  // Word widths in the board's own font, so each word can be sized to fit its card.
+  const section = useRef<HTMLElement>(null);
+  const [measure, setMeasure] = useState<Measure>(() => estimate);
+  useLayoutEffect(() => {
+    if (section.current)
+      setMeasure(() => canvasMeasure(getComputedStyle(section.current!).fontFamily));
+  }, []);
 
   return (
-    <section className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Word cards">
+    <section ref={section} className="grid grid-cols-5 gap-1.5 sm:gap-2" aria-label="Word cards">
       {view.board.map((card, i) => {
         const interactive = onPick !== null && !card.revealed;
         // The kind is printed, not just tinted, whenever the viewer may know it.
@@ -41,7 +50,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
             onClick={() => onPick?.(i)}
             className={cn(
               // Wide cells from lg up, so five rows plus the header fit a 900px desktop window.
-              'relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-sm transition sm:aspect-[3/2] sm:rounded-xl sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
+              '@container relative flex aspect-[5/4] min-w-0 items-center justify-center rounded-lg px-0.5 py-1 shadow-sm transition sm:aspect-[3/2] sm:rounded-xl sm:p-1 lg:aspect-[2/1] motion-reduce:transition-none',
               face,
               interactive &&
                 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-none',
@@ -53,15 +62,17 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
             )}
           >
             <span
+              style={{ '--fit': fitSize(card.word, measure) } as CSSProperties}
               className={cn(
-                'line-clamp-2 w-full text-center leading-tight font-bold uppercase [overflow-wrap:anywhere]',
-                // Never truncate a word players need to read; shrink long ones instead, but never
-                // below about 10px on a phone. Letter spacing waits for sm, where the cells are wider.
+                'line-clamp-2 w-full text-center leading-tight font-bold [overflow-wrap:break-word] hyphens-auto uppercase',
+                // Never break or truncate a word players need to read: each size tier is capped at
+                // the size that fits the card (`--fit`), so long words shrink instead, and a phrase
+                // wraps only between its words.
                 card.word.length >= 9
-                  ? 'text-[0.6rem] tracking-tight sm:text-xs sm:tracking-normal md:text-sm'
+                  ? 'text-[length:min(0.6rem,var(--fit))] tracking-tight sm:text-[length:min(0.75rem,var(--fit))] sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
                   : card.word.length >= 8
-                    ? 'text-[0.625rem] sm:text-xs md:text-sm'
-                    : 'text-[0.7rem] sm:text-sm sm:tracking-wide md:text-base',
+                    ? 'text-[length:min(0.625rem,var(--fit))] sm:text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
+                    : 'text-[length:min(0.7rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
               )}
             >
               {card.word}
