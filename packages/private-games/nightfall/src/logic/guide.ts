@@ -473,7 +473,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           'Some players may only say “I am an alien”, must face away from the table, or may not speak until the vote.',
           `A named player may look at cards, look at their own card, swap two players’ cards, rob, swap blindly, play the ${roleName('witch')} or turn a card face up; two named players may show each other their cards and have them shuffled between them.`,
           `A time loop: the whole night runs again on the board as it is (Marks are given again, shields placed again), everyone waking as their original role; the ${roleName('oracle')}, the ${roleName('blob')} and the ripple don’t come round again. Sometimes one player keeps their eyes open throughout and sees who wakes and what they touch.`,
-          'A repeat: one role in the game does its night action again, with fresh choices.',
+          'A repeat: one role in the game does its night action again, with fresh choices (a role the narrator gives instructions to is told the same thing again).',
         ],
       },
     ],

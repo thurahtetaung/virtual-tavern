@@ -1528,6 +1528,24 @@ describe('ripples', () => {
     expect(told(h, 'B')).toMatchObject({ kind: 'psychic' });
   });
 
+  it('repeat-role: the role is told the same instruction again (only the choices are fresh)', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const h = table({
+        seed,
+        players: ['rascal', 'psychic', W, V, V],
+        center: ['synthetic-alien', V, V],
+        settings: { weights: ws(STARE, only('ripple', 'repeat-role')) },
+      });
+      h.toStep('ripple');
+      const rp = h.state.round!.night!.ripple!;
+      if (rp.key !== 'repeat-role') throw new Error(rp.key);
+      h.tick();
+      const { plan, picks } = h.state.round!.night!;
+      expect(h.step()).toBe(`repeat:${rp.role}`);
+      expect(picks![h.state.round!.night!.index]).toEqual(picks![plan.indexOf(rp.role)]);
+    }
+  });
+
   it('repeat-role never names the Copycat or The Master', () => {
     for (let i = 0; i < 50; i++) {
       const rp = pickRipple({

@@ -1956,13 +1956,20 @@ function drawPick(c: StepCtx) {
   const role =
     c.def.id === 'aliens' || (c.def.repeat && c.def.role === 'alien') ? 'alien' : c.def.role;
   if (!TABLE_OF[role] || (role === 'oracle' && c.def.doppel)) return;
-  const pick = pickFor(role, {
-    rng: c.rng,
-    n: c.r.order.length,
-    weights: c.settings.weights,
-    roles: c.settings.roles,
-    oracleExchange: role === 'alien' && c.r.oracle?.exchange === true,
-  });
+  // A repeat does again what the role was told before ("whatever you did, do it again"), with
+  // fresh choices: it reuses the original step's instruction.
+  const before = c.def.repeat
+    ? night.picks?.[night.plan.indexOf(c.def.id.slice(REPEAT.length))]
+    : null;
+  const pick =
+    (before ? structuredClone(before) : null) ??
+    pickFor(role, {
+      rng: c.rng,
+      n: c.r.order.length,
+      weights: c.settings.weights,
+      roles: c.settings.roles,
+      oracleExchange: role === 'alien' && c.r.oracle?.exchange === true,
+    });
   if (!pick) return;
   (night.picks ??= {})[c.step] = pick;
   night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'told', pick } });
