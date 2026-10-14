@@ -11,7 +11,6 @@ import {
 import type { Content } from './assets.ts';
 import { POWER_EMOJI } from './Boards.tsx';
 import { RoleBack } from './Cards.tsx';
-import { CreditBlock } from './Me.tsx';
 import { DISPLAY } from './text.tsx';
 
 type Act = (a: HydraAction) => Promise<boolean>;
@@ -312,7 +311,6 @@ export function Lobby({
           </Button>
         </StickyBar>
       )}
-      <CreditBlock c={c} />
     </div>
   );
 }
