@@ -95,10 +95,9 @@ export function statusFor(
       const asking = underway
         ? 'Whoever answers asks the next question.'
         : `${starter} first: one question about the location, out loud. Whoever answers asks next.`;
+      // The same words for the spy and the locals: the card itself is behind its peek.
       const lead =
-        role === 'spy'
-          ? 'You’re the spy! Blend in and work out the location.'
-          : 'Find the spy without giving the location away.';
+        'Peek at your card. Locals: find the spy without giving the location away. Spy: blend in and work it out.';
       return {
         text: round.meReady
           ? 'You’re ready to vote. Keep talking until everyone is.'

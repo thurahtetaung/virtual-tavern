@@ -693,20 +693,22 @@ for (const [label, viewport, colorScheme] of [
   });
 }
 
-for (const [label, viewport] of [
-  ['desktop', { width: 1280, height: 900 }],
-  ['phone', { width: 390, height: 844 }],
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+  ['desktop-dark', { width: 1280, height: 900 }, 'dark'],
+  ['phone-light', { width: 390, height: 844 }, 'light'],
 ] as const) {
   test(`masquerade screenshots (${label})`, async ({ browser }) => {
     test.setTimeout(120_000);
-    const phone = label === 'phone';
+    const phone = viewport.width < 600;
     const shot = (p: Page, name: string) =>
       p.screenshot({
         path: `test-results/shots/masquerade-${label}-${name}.png`,
         fullPage: !phone,
       });
     const make = async (name: string) => {
-      const ctx = await browser.newContext({ viewport, colorScheme: phone ? 'dark' : 'light' });
+      const ctx = await browser.newContext({ viewport, colorScheme });
       const p = await ctx.newPage();
       await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
       return p;
@@ -728,8 +730,14 @@ for (const [label, viewport] of [
     const tab = async (p: Page, name: string) => {
       if (phone) await p.getByRole('navigation').getByRole('button', { name }).click();
     };
+    // Covered, the spy's and a local's screens are the same; then each peeks with Show.
+    await shot(local, 'card-hidden');
+    for (const p of [local, dealt.spy])
+      await p.getByRole('button', { name: 'Show your card' }).click();
     await shot(local, 'card-local');
     await shot(dealt.spy, 'card-spy');
+    for (const p of [local, dealt.spy])
+      await p.getByRole('button', { name: 'Hide your card' }).click();
     await tab(dealt.spy, 'Locations');
     const board = dealt.spy.getByRole('region', { name: 'Locations' });
     for (const n of ['Bakery', 'Gym', 'Cinema', 'Lift'].filter((x) => x !== dealt.location))
@@ -737,8 +745,16 @@ for (const [label, viewport] of [
     await board.getByRole('button', { name: 'Star Aquarium' }).click();
     await shot(dealt.spy, 'locations-spy');
     await tab(local, 'Ideas');
+    await shot(local, 'ideas-hidden');
+    const showIdeas = (p: Page) =>
+      p
+        .getByRole('region', { name: 'Question ideas' })
+        .getByRole('button', { name: 'Show ideas for your card' })
+        .click();
+    await showIdeas(local);
     await shot(local, 'ideas-local');
     await tab(dealt.spy, 'Ideas');
+    await showIdeas(dealt.spy);
     await shot(dealt.spy, 'ideas-spy');
     await tab(dealt.spy, 'Play');
     await tab(local, 'Play');

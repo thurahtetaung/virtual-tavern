@@ -132,7 +132,7 @@ function text(pack: string): GameGuide {
       'Locals: an answer that’s too exact hands the spy the location. Too vague, and you look like the spy.',
       'Spy: answer with feelings and opinions, and listen for answers that agree.',
       'Keep a shortlist on the Locations board (tap a place to cross it off, ☆ to star it), so a caught spy can guess fast. With two editions in play, the board shows each one as its own list.',
-      'Tap your card to cover it, so your neighbours can’t peek.',
+      'Your card stays covered: hold it to look, or tap Show (and Hide again), so your neighbours can’t peek. Ideas for your card are covered the same way.',
     ],
     glossary: [
       { term: 'Local', meaning: 'Anyone who knows the location this round.' },

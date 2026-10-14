@@ -36,18 +36,42 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   // Round 1: the table names a local, so the spy escapes.
   let dealt = await readCards(players, names);
   const { spy, locals, location } = dealt;
+  // Covered, the spy's and a local's screens say the same: no role chip, no card, no coaching,
+  // no ideas for the card and no mark on the real location, and none of it in the page.
+  for (const p of [spy, locals[0]!]) {
+    await expect(p.getByTestId('card-cover')).toBeVisible();
+    await expect(p.getByText('You’re the spy')).toHaveCount(0);
+    await expect(p.getByText('💡 Coaching:')).toHaveCount(0);
+    await expect(p.getByText('Safe questions (fit anywhere)')).toHaveCount(0);
+    await expect(p.getByText(`📍 For ${location}`)).toHaveCount(0);
+    await expect(p.getByText('📍 Here')).toHaveCount(0);
+    await expect(p.getByText(/^(🎭 Spy|📍 Local)$/)).toHaveCount(0);
+    await expect(p.getByText('Peek at your card. Locals: find the spy')).toBeVisible();
+  }
   // Only the locals see the location: not on the spy's card, nor in the spy's ideas.
+  await spy.getByRole('button', { name: 'Show your card' }).click();
   await expect(spy.getByTestId('my-card')).not.toContainText(location);
-  await expect(spy.getByText(`📍 For ${location}`)).toHaveCount(0);
+  await expect(spy.getByTestId('spy-guess-rule')).toContainText('If the vote catches you');
+  await spy.getByRole('button', { name: 'Hide your card' }).click();
+  await expect(spy.getByTestId('my-card')).toHaveCount(0);
   await expect(spy.getByTestId('still-possible')).toContainText('Still possible: 30');
   const spyIdeas = spy.getByRole('region', { name: 'Question ideas' });
+  await spyIdeas.getByRole('button', { name: 'Show ideas for your card' }).click();
   await expect(spyIdeas.getByText('Safe questions (fit anywhere)')).toBeVisible();
+  await expect(spy.getByText(`📍 For ${location}`)).toHaveCount(0);
   const localIdeas = locals[0]!.getByRole('region', { name: 'Question ideas' });
+  await localIdeas.getByRole('button', { name: 'Show ideas for your card' }).click();
   await expect(localIdeas.getByText(`📍 For ${location}`)).toBeVisible();
+  // Holding the cover shows the card only while held.
+  const cover = locals[0]!.getByRole('button', { name: 'Hold to see your card' });
+  await cover.hover();
+  await locals[0]!.mouse.down();
+  await expect(locals[0]!.getByTestId('card-title')).toHaveText(location);
   await expect(locals[0]!.getByText('💡 Coaching:')).toBeVisible();
+  await locals[0]!.mouse.up();
+  await expect(locals[0]!.getByTestId('card-title')).toHaveCount(0);
   // The first round says up front that the asking is out loud, and that the spy guesses only if caught.
   await expect(locals[0]!.getByText('The app doesn’t track the talking.')).toBeVisible();
-  await expect(spy.getByTestId('spy-guess-rule')).toContainText('If the vote catches you');
   // Crossing a place off is the player's own note.
   const board = spy.getByRole('region', { name: 'Locations' });
   const other = location === 'Bakery' ? 'Gym' : 'Bakery';
@@ -130,4 +154,55 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   // The game is over: a podium for everyone.
   for (const p of players) await expect(p.getByLabel('Podium')).toBeVisible();
   await expect(host.getByText(/wins? the game!/).first()).toBeVisible();
+});
+
+test('on a phone the card stays covered until you peek, and the board marks nothing', async ({
+  browser,
+}) => {
+  const phone = async (name: string, url = '/') => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto(url);
+    return page;
+  };
+  const host = await phone('Hana');
+  await host.getByRole('button', { name: 'Create a Masquerade room' }).click();
+  await expect(host).toHaveURL(/\/r\//);
+  const others = await Promise.all(['Ana', 'Ben'].map((n) => phone(n, host.url())));
+  const players = [host, ...others];
+  await expect(host.getByText('Players (3/12)')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  const { spy, locals, location } = await readCards(
+    players,
+    new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben'][i]!])),
+  );
+  const local = locals[0]!;
+  for (const p of [spy, local]) {
+    await expect(p.getByRole('button', { name: 'Hold to see your card' })).toBeVisible();
+    await expect(p.getByTestId('card-title')).toHaveCount(0);
+    await expect(p.getByText(/^(🎭 Spy|📍 Local)$/)).toHaveCount(0);
+  }
+  // Hold: the card shows while the finger is down, and goes as soon as it lifts.
+  await local.getByRole('button', { name: 'Hold to see your card' }).hover();
+  await local.mouse.down();
+  await expect(local.getByTestId('card-title')).toHaveText(location);
+  await local.mouse.up();
+  await expect(local.getByTestId('card-title')).toHaveCount(0);
+  // The Locations tab rings nothing for a local, and the Ideas tab keeps the card's ideas peeked.
+  await local.getByRole('navigation', { name: 'Game sections' }).getByText('Locations').click();
+  const board = local.getByRole('region', { name: 'Locations' });
+  await expect(board.getByRole('button', { name: location, exact: true })).toBeVisible();
+  await expect(board.getByText('📍 Here')).toHaveCount(0);
+  await local.getByRole('navigation', { name: 'Game sections' }).getByText('Ideas').click();
+  const ideas = local.getByRole('region', { name: 'Question ideas' });
+  await expect(ideas.getByText(`📍 For ${location}`)).toHaveCount(0);
+  await ideas.getByRole('button', { name: 'Show ideas for your card' }).click();
+  await expect(ideas.getByText(`📍 For ${location}`)).toBeVisible();
+  await ideas.getByRole('button', { name: 'Hide ideas for your card' }).click();
+  await expect(ideas.getByText(`📍 For ${location}`)).toHaveCount(0);
 });
