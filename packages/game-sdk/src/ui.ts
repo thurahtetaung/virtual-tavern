@@ -50,8 +50,11 @@ export interface GameUiProps<View, Action> {
   room: GameRoomInfo;
   /** Sends an action; resolves false if it was rejected (the shell already showed the error). */
   act: (action: Action, options?: ActOptions) => Promise<boolean>;
-  /** Opens the game's rules guide. */
-  showGuide: () => void;
+  /**
+   * Opens the game's rules guide; with a topic (a tile id or role anchor, as a string), at that
+   * card. Anything else is ignored, so it can still be an `onClick` handler.
+   */
+  showGuide: (topic?: unknown) => void;
   /** Tells the shell whether the viewer is expected to act now, so it can mark the tab. */
   setYourMove?: (yes: boolean) => void;
   /** Tells the shell the viewer is watching (with how to join), or null once they play. */

@@ -934,6 +934,12 @@ export const MARK_IDS = [
 ] as const;
 export type MarkId = (typeof MARK_IDS)[number];
 
+/** A Mark's plain name, when the manifest has none: "Mark of Clarity", "Mark of the Vampire". */
+export const markLabel = (id: MarkId) =>
+  ['vampire', 'traitor', 'assassin'].includes(id)
+    ? `Mark of the ${id[0]!.toUpperCase()}${id.slice(1)}`
+    : `Mark of ${id[0]!.toUpperCase()}${id.slice(1)}`;
+
 /** A neutral description of each Mark, for placeholders and the guide. */
 export const MARKS: Record<MarkId, string> = {
   clarity: 'No effect: your card says who you are.',

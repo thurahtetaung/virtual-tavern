@@ -25,7 +25,8 @@ export function Drawer({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // A dialog opened inside this one (a card sheet) closes too, and React bubbles its event.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => e.target === ref.current && onClose()}
       className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-xl bg-stone-50 p-0 text-stone-900 backdrop:bg-black/40 dark:bg-stone-900 dark:text-stone-100"
     >

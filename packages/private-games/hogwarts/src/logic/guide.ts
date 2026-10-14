@@ -1,7 +1,14 @@
 import type { GameGuide } from '@vt/game-sdk';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
 
-export { creditOf, footerOf, nameGuide, namesOf, powerNamesOf } from '@vt/private-hydra/guide';
+export {
+  creditOf,
+  footerOf,
+  guideArtOf,
+  nameGuide,
+  namesOf,
+  powerNamesOf,
+} from '@vt/private-hydra/guide';
 
 /**
  * The edition's rules are Hydra's: unlocked players see them named from its manifest

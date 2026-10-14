@@ -1,5 +1,7 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, type GuideContext, type GuideOption, shapeGuide } from '@vt/game-sdk';
 import { ROLES, ROLE_ORDER } from './roles.ts';
+import { PRESETS, TEAM_SIZE, presetDeck } from './setup.ts';
+import type { RoundTableView } from './types.ts';
 
 /** Each role's one-line goal, for the role card (and the guide). */
 export const ROLE_GOAL: Record<string, string> = {
@@ -7,7 +9,7 @@ export const ROLE_GOAL: Record<string, string> = {
   evil: 'Sink three quests, get five teams rejected in a row, or have the Assassin find Merlin.',
 };
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Loyal knights against hidden traitors: pick teams, vote, and protect Merlin.',
   players: '5–10 players (more can watch)',
   duration: '30–45 minutes',
@@ -121,3 +123,109 @@ export const guide: GameGuide = {
     { term: 'Lady 🌊', meaning: 'Her holder checks one player’s loyalty after quests 2, 3 and 4.' },
   ],
 };
+
+const LADY: GuideOption = { key: 'lady', label: 'Lady of the Lake' };
+const TARGETING: GuideOption = { key: 'targeting', label: 'Targeting' };
+const OBERON: GuideOption = { key: 'role:oberon', label: 'Oberon' };
+
+function room(raw: unknown, you: string): GuideContext | undefined {
+  const v = raw as RoundTableView;
+  if (!v?.settings || !Array.isArray(v.deck)) return undefined;
+  const counts: Record<string, number> = {};
+  for (const r of v.deck) counts[r] = (counts[r] ?? 0) + 1;
+  const ctx: GuideContext = {
+    summary: [
+      `${v.deck.length} players`,
+      ...(v.settings.lady ? ['Lady of the Lake'] : []),
+      ...(v.settings.targeting ? ['Targeting'] : []),
+    ].join(' · '),
+    options: [
+      ...(v.settings.lady ? [LADY.key] : []),
+      ...(v.settings.targeting ? [TARGETING.key] : []),
+      ...Object.keys(counts).map((r) => `role:${r}`),
+    ],
+    inGame: counts,
+  };
+  if (v.role && v.me?.id === you) {
+    const r = ROLES[v.role.role];
+    ctx.you = {
+      name: r.name,
+      text: ROLE_GOAL[v.role.loyalty] ?? r.detail,
+      tile: v.role.role,
+      icon: v.role.loyalty === 'good' ? '🛡️' : '🗡️',
+    };
+  }
+  return ctx;
+}
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['Read your secret role', '🎴'],
+    ['The leader picks a team', '👑'],
+    ['Everyone votes', '🗳️'],
+    ['The quest', '⚔️'],
+    ['Three quests decide it', '🗡️'],
+  ],
+  levels: {
+    'Two hidden sides': 'basics',
+    'Building a team': 'basics',
+    'The vote': 'basics',
+    'The quest': 'basics',
+    'The end': 'basics',
+    'Lady of the Lake (option)': 'details',
+    'Targeting (option)': 'details',
+    'Oberon: two readings': 'details',
+  },
+  options: {
+    'Lady of the Lake (option)': LADY,
+    'Targeting (option)': TARGETING,
+    'Oberon: two readings': OBERON,
+  },
+  tiles: {
+    label: 'Roles',
+    blurb: '3 Good · 5 Evil',
+    intro: 'Every role, Good and Evil. Tap one to read what it knows and does.',
+    items: ROLE_ORDER.map((id) => {
+      const r = ROLES[id];
+      const good = r.loyalty === 'good';
+      return {
+        id,
+        name: r.name,
+        text: r.detail,
+        win: ROLE_GOAL[r.loyalty]!,
+        group: good ? 'Good' : 'Evil',
+        tone: good ? 'good' : 'evil',
+        icon: good ? '🛡️' : '🗡️',
+        meta: good ? 'Good' : 'Evil',
+      };
+    }),
+  },
+  reference: [
+    {
+      title: 'Team sizes per quest',
+      head: ['Players', '1', '2', '3', '4', '5'],
+      rows: [5, 6, 7, 8, 9, 10].map((n) => [
+        String(n),
+        ...TEAM_SIZE[n]!.map((k, i) => (i === 3 && n >= 7 ? `${k}*` : String(k))),
+      ]),
+      note: '* The fourth quest needs two Fail cards at 7 or more players.',
+    },
+  ],
+  // The ready-made line-ups, at 7 players (where the Lady of the Lake first suits them).
+  presets: PRESETS.map((p) => {
+    const deck = presetDeck(p.id, 7);
+    const counts: Record<string, number> = {};
+    for (const r of deck) counts[r] = (counts[r] ?? 0) + 1;
+    const lady = p.lady?.(7) ?? false;
+    return {
+      id: p.id,
+      label: p.name,
+      context: {
+        summary: `${p.blurb} At 7 players: ${[...new Set(deck)].map((r) => `${ROLES[r].name}${counts[r]! > 1 ? ` ×${counts[r]}` : ''}`).join(', ')}.`,
+        options: [...(lady ? [LADY.key] : []), ...Object.keys(counts).map((r) => `role:${r}`)],
+        inGame: counts,
+      },
+    };
+  }),
+  room,
+});

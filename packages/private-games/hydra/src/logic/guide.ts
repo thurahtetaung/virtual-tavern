@@ -1,6 +1,7 @@
-import type { GameGuide, GuideFooter } from '@vt/game-sdk';
-import { type Names, PLACEHOLDER_NAMES, POWER_NAMES, fillNames } from './names.ts';
-import type { Power } from './types.ts';
+import type { GameGuide, GuideContext, GuideFooter, GuideTile } from '@vt/game-sdk';
+import type { Manifest } from './manifest.ts';
+import { type Names, PLACEHOLDER_NAMES, POWER_NAMES, POWER_TEXT, fillNames } from './names.ts';
+import type { HydraView, Power, Role } from './types.ts';
 import { RED_COUNT, type Track, trackFor } from './tables.ts';
 
 /**
@@ -33,7 +34,7 @@ const RAW: GameGuide = {
     'Each round the {candidate} nominates a {chancellor}, and everyone votes {yes} or {no}.',
     'Elected? The {president} draws 3 {policies} and discards 1; the {chancellor} discards 1 and enacts the other.',
     'Then both say what they saw. Anyone can lie, so question them out loud.',
-    '{RedPolicy} {policies} give the {president} powers: investigate, peek, call a special election, execute.',
+    `{RedPolicy} {policies} give the {president} powers: ${P('investigate')}, ${P('peek')}, ${P('special')}, ${P('execute')}.`,
     'Three failed governments in a row and the people enact the top {policy} by themselves.',
   ],
   setup: [
@@ -154,14 +155,38 @@ const RAW: GameGuide = {
   ],
 };
 
+/** An edition's art for the guide, as URLs. */
+export interface GuideArt {
+  roles?: Partial<Record<Role | 'back', string>>;
+  ballot?: string;
+  policy?: string;
+  powers?: Partial<Record<Power, string>>;
+  /** The edition's own power texts (with name tokens or plain). */
+  powerText?: Partial<Record<Power, string>>;
+}
+
+const POWERS: Power[] = ['investigate', 'special', 'peek', 'execute'];
+const ROLES: Role[] = ['blue', 'red', 'leader'];
+const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
+  Teams: 'basics',
+  '1. Nomination': 'basics',
+  '2. The vote': 'basics',
+  '3. The legislative session': 'basics',
+  '4. Claims': 'basics',
+  '5. Powers': 'details',
+  'The election tracker and chaos': 'details',
+  Options: 'edge',
+};
+
 /**
  * The guide with the table's names and power names, plus an optional footer (the original
- * game's credit and any other).
+ * game's credit and any other) and the edition's art.
  */
 export function nameGuide(
   names: Names,
   footer?: GuideFooter,
   powers: Partial<Record<Power, string>> = {},
+  art: GuideArt = {},
 ): GameGuide {
   const f = (t: string) =>
     fillNames(
@@ -169,6 +194,69 @@ export function nameGuide(
       names,
     );
   const fillList = (list: readonly string[]) => list.map(f);
+  const quick = fillList(RAW.quickStart!);
+  const tiles: GuideTile[] = [
+    ...ROLES.map((r, i): GuideTile => {
+      const a = art.roles?.[r];
+      return {
+        id: r,
+        name: f(RAW.roles![i]!.name),
+        text: f(RAW.roles![i]!.summary),
+        group: 'Roles',
+        tone: r === 'blue' ? 'good' : 'evil',
+        icon: r === 'leader' ? '👑' : r === 'blue' ? '🕊️' : '🐍',
+        ...(a && { art: a }),
+      };
+    }),
+    ...POWERS.map((p): GuideTile => {
+      const a = art.powers?.[p];
+      return {
+        id: `power-${p}`,
+        name: f(P(p)),
+        text: f(art.powerText?.[p] ?? POWER_TEXT[p]),
+        group: 'Powers',
+        icon: '⚡',
+        meta: f('A {redPolicy} power for the {president}'),
+        ...(a && { art: a }),
+      };
+    }),
+  ];
+  const room = (raw: unknown, you: string): GuideContext | undefined => {
+    const v = raw as HydraView;
+    if (!v?.settings) return undefined;
+    const n = v.seats.filter((x) => x.playing).length;
+    const size = n <= 6 ? 5 : n <= 8 ? 7 : 9;
+    const used = new Set(trackFor(Math.max(5, Math.min(10, n))).filter(Boolean) as Power[]);
+    const ctx: GuideContext = {
+      summary: [
+        `${n} ${n === 1 ? 'player' : 'players'}`,
+        ...(n >= 5 ? [f(`the ${size}–${size + 1} player {red} board`)] : []),
+        ...(v.settings.rebalance ? ['community rebalance'] : []),
+      ].join(' · '),
+      inGame: Object.fromEntries([
+        ...ROLES.map((r): [string, number] => [
+          r,
+          r === 'red'
+            ? Math.max(1, (RED_COUNT[n] ?? 2) - 1)
+            : r === 'blue'
+              ? Math.max(1, n - (RED_COUNT[n] ?? 2))
+              : 1,
+        ]),
+        ...[...used].map((p): [string, number] => [`power-${p}`, 1]),
+      ]),
+    };
+    if (v.role && v.me?.id === you) {
+      const t = tiles.find((x) => x.id === v.role!.role)!;
+      ctx.you = { name: t.name, text: t.text, tile: t.id, ...(t.art && { art: t.art }) };
+    }
+    return ctx;
+  };
+  const step = (title: string, i: number, icon: string, a?: string) => ({
+    title: f(title),
+    text: quick[i]!,
+    icon,
+    ...(a && { art: a }),
+  });
   return {
     tagline: f(RAW.tagline),
     players: RAW.players,
@@ -177,14 +265,89 @@ export function nameGuide(
     quickStart: fillList(RAW.quickStart!),
     setup: fillList(RAW.setup),
     roles: RAW.roles!.map((r) => ({ name: f(r.name), summary: f(r.summary) })),
-    sections: RAW.sections.map((s) => ({
-      title: f(s.title),
-      ...(s.paragraphs && { paragraphs: fillList(s.paragraphs) }),
-      ...(s.bullets && { bullets: fillList(s.bullets) }),
-    })),
+    sections: RAW.sections
+      .filter((s) => !s.title.startsWith('Quick reference'))
+      .map((s) => ({
+        title: f(s.title),
+        level: LEVELS[s.title] ?? 'details',
+        ...(s.paragraphs && { paragraphs: fillList(s.paragraphs) }),
+        ...(s.bullets && {
+          bullets: fillList(
+            s.title === '5. Powers'
+              ? [
+                  ...s.bullets,
+                  RAW.sections.find((x) => x.title.startsWith('Quick reference'))!.bullets!.at(-1)!,
+                ]
+              : s.bullets,
+          ),
+        }),
+      })),
     tips: fillList(RAW.tips),
     glossary: RAW.glossary!.map((g) => ({ term: f(g.term), meaning: f(g.meaning) })),
+    steps: [
+      step('Read your secret role', 0, '🎭', art.roles?.back),
+      step('Nominate and vote', 1, '🗳️', art.ballot),
+      step('Pass a {policy} in secret', 2, '📜', art.policy),
+      step('Claim what you saw', 3, '🗣️'),
+      step('Powers', 4, '⚡', art.powers?.execute),
+      step('Chaos after 3 failures', 5, '🌀'),
+    ],
+    tiles: {
+      label: 'Roles & powers',
+      blurb: '3 roles · 4 powers',
+      intro: f('The three roles, and the powers a {redPolicy} {policy} can give the {president}.'),
+      items: tiles,
+    },
+    reference: [
+      {
+        title: f('The {red} board'),
+        head: ['Players', '1', '2', '3', '4', '5'],
+        rows: ([5, 7, 9] as const).map((n) => [
+          `${n}–${n + 1}`,
+          ...trackFor(n)
+            .slice(0, 5)
+            .map((p) => (p ? f(P(p)) : '—')),
+        ]),
+        note: f(
+          'The 6th {redPolicy} {policy} wins it for the {reds}; 5 {bluePolicy} ones win it for the {blues}.',
+        ),
+      },
+      {
+        title: 'Teams',
+        head: ['Players', f('{blues}'), f('{reds}'), f('{Leader}')],
+        rows: [5, 6, 7, 8, 9, 10].map((n) => [
+          String(n),
+          String(n - RED_COUNT[n]!),
+          String(RED_COUNT[n]! - 1),
+          '1',
+        ]),
+      },
+    ],
+    room,
     ...(footer && { footer }),
+  };
+}
+
+/** The guide's art for an edition (`gameId`'s folder), from its manifest. */
+export function guideArtOf(man: Manifest | null, gameId: string): GuideArt {
+  const url = (p: string | undefined) =>
+    p && p.trim() ? `/api/backroom/assets/${gameId}/${p.trim().replace(/^\/+/, '')}` : undefined;
+  const a = man?.art;
+  const pick = <K extends string>(entries: [K, string | undefined][]) =>
+    Object.fromEntries(entries.filter((e): e is [K, string] => !!e[1])) as Partial<
+      Record<K, string>
+    >;
+  return {
+    roles: pick<Role | 'back'>([
+      ['blue', url(a?.roles?.blue?.[0])],
+      ['red', url(a?.roles?.red?.[0])],
+      ['leader', url(a?.roles?.leader?.[0])],
+      ['back', url(a?.roles?.back)],
+    ]),
+    ...(url(a?.ballot?.yes) && { ballot: url(a?.ballot?.yes)! }),
+    ...(url(a?.policy?.back) && { policy: url(a?.policy?.back)! }),
+    powers: pick<Power>(POWERS.map((p) => [p, url(a?.powers?.[p])])),
+    powerText: pick<Power>(POWERS.map((p) => [p, man?.powers?.[p]?.text?.trim() || undefined])),
   };
 }
 
@@ -199,4 +362,5 @@ export const guide: GameGuide = {
 };
 
 export { creditOf, footerOf, namesOf, powerNamesOf } from './manifest.ts';
+export type { Manifest } from './manifest.ts';
 export { placeholderWord } from './labels.ts';
