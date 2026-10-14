@@ -156,84 +156,132 @@ async function check(page: Page, name: string) {
   await page.evaluate(() => document.getElementById('vt-text-size')?.remove());
 }
 
-test('long phrases fit their cards at every width and text size', async ({ browser }) => {
-  test.setTimeout(120_000);
+// One list for every test, created once and deleted in afterAll with its own request context,
+// so a test that runs out of time can't make the cleanup throw.
+const NAME = `Zz E2E long phrases ${Math.random().toString(36).slice(2, 7)}`;
+let listId: string | undefined;
+
+async function adminContext(browser: Browser) {
   const admin = await browser.newContext();
   await ownLoginLimit(admin);
   const login = await admin.request.post('/api/admin/login', {
     data: { password: TEST_ADMIN_PASSWORD },
   });
   expect(login.ok()).toBe(true);
-  // Named to sort last, so other specs' new rooms never default to it; deleted at the end.
-  const NAME = `Zz E2E long phrases ${Math.random().toString(36).slice(2, 7)}`;
+  return admin;
+}
+
+test.beforeAll(async ({ browser }) => {
+  const admin = await adminContext(browser);
+  // Named to sort last, so other specs' new rooms never default to it.
   const created = await admin.request.post('/api/admin/word-lists', {
     data: { name: NAME, words: PHRASES },
   });
   expect(created.ok()).toBe(true);
-  const { id } = (await created.json()) as { id: string };
+  listId = ((await created.json()) as { id: string }).id;
+  await admin.close();
+});
+
+test.afterAll(async ({ browser }) => {
+  if (!listId) return;
+  const admin = await adminContext(browser);
   try {
-    const host = await player(browser, 'Hana');
-    await host.getByRole('button', { name: 'Create a Codenames room' }).click();
-    await expect(host.getByText('Pick a team below')).toBeVisible();
-    const url = host.url();
-    const [ana, ben, cy] = await Promise.all(
-      ['Ana', 'Ben', 'Cy'].map((n) => player(browser, n, url)),
-    );
-    await host.getByRole('button', { name: 'Change word lists' }).click();
-    const picker = host.getByRole('dialog');
-    for (const box of await picker.getByRole('checkbox', { checked: true }).all())
-      await box.uncheck();
-    await picker.getByRole('searchbox').fill(NAME);
-    await picker.getByRole('checkbox', { name: NAME }).check();
-    await picker.getByRole('button', { name: 'Save' }).click();
-    await expect(picker).toBeHidden();
-    await expect(host.getByRole('region', { name: 'Word lists' }).getByText(NAME)).toBeVisible();
+    await admin.request.delete(`/api/admin/word-lists/${listId}`);
+  } finally {
+    await admin.close();
+  }
+});
 
-    await host
-      .getByRole('region', { name: 'Red team' })
-      .getByRole('button', { name: 'Be the Spymaster' })
-      .click();
-    await ana!.getByRole('button', { name: 'Join Red as Operative' }).click();
-    await ben!
-      .getByRole('region', { name: 'Blue team' })
-      .getByRole('button', { name: 'Be the Spymaster' })
-      .click();
-    await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
-    await expect(host.getByText('Everyone is seated')).toBeVisible();
-    await host.getByRole('button', { name: 'Start game' }).click();
-    await expect(board(host).getByRole('button')).toHaveCount(25);
-    const labels = await board(host)
-      .getByRole('button')
-      .evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')!));
-    expect(labels.map(wordOf).sort()).toEqual([...PHRASES].sort());
+/** A started game on the long-phrase list, with the starting team's spymaster and operative. */
+async function startedGame(browser: Browser) {
+  const host = await player(browser, 'Hana');
+  await host.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(host.getByText('Pick a team below')).toBeVisible();
+  const url = host.url();
+  const [ana, ben, cy] = await Promise.all(
+    ['Ana', 'Ben', 'Cy'].map((n) => player(browser, n, url)),
+  );
+  await host.getByRole('button', { name: 'Change word lists' }).click();
+  const picker = host.getByRole('dialog');
+  for (const box of await picker.getByRole('checkbox', { checked: true }).all())
+    await box.uncheck();
+  await picker.getByRole('searchbox').fill(NAME);
+  await picker.getByRole('checkbox', { name: NAME }).check();
+  await picker.getByRole('button', { name: 'Save' }).click();
+  await expect(picker).toBeHidden();
+  await expect(host.getByRole('region', { name: 'Word lists' }).getByText(NAME)).toBeVisible();
 
-    const redStarts = await host.getByText('Your turn! Give your team').isVisible();
-    const [spy, op] = redStarts ? [host, ana!] : [ben!, cy!];
-    // The spymaster's key: every card captioned, the assassin with its ☠.
-    await check(spy, 'spymaster');
+  await host
+    .getByRole('region', { name: 'Red team' })
+    .getByRole('button', { name: 'Be the Spymaster' })
+    .click();
+  await ana!.getByRole('button', { name: 'Join Red as Operative' }).click();
+  await ben!
+    .getByRole('region', { name: 'Blue team' })
+    .getByRole('button', { name: 'Be the Spymaster' })
+    .click();
+  await cy!.getByRole('button', { name: 'Join Blue as Operative' }).click();
+  await expect(host.getByText('Everyone is seated')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+  await expect(board(host).getByRole('button')).toHaveCount(25);
+  const labels = await board(host)
+    .getByRole('button')
+    .evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')!));
+  expect(labels.map(wordOf).sort()).toEqual([...PHRASES].sort());
 
-    // Two of the team's own cards guessed (✓ and a caption), then the operative's board.
-    await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
-    await spy.getByRole('button', { name: '∞ · unlimited' }).click();
-    await spy.getByRole('button', { name: 'Give clue' }).click();
-    await expect(op.getByText('Your turn to guess (no guess limit)')).toBeVisible();
-    const team = redStarts ? 'Red' : 'Blue';
-    const ours = await board(spy)
+  const redStarts = await host.getByText('Your turn! Give your team').isVisible();
+  const [spy, op] = redStarts ? [host, ana!] : [ben!, cy!];
+  return { spy, op, team: redStarts ? 'Red' : 'Blue' };
+}
+
+/** Two of the team's own cards guessed (✓ and a caption), the longest phrases first. */
+async function guessTwo({ spy, op, team }: Awaited<ReturnType<typeof startedGame>>) {
+  await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
+  await spy.getByRole('button', { name: '3', exact: true }).click();
+  await spy.getByRole('button', { name: 'Give clue' }).click();
+  await expect(op.getByText('Your turn to guess')).toBeVisible();
+  const ours = (
+    await board(spy)
       .getByRole('button', { name: new RegExp(`, ${team} agent`) })
-      .evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')!));
-    ours.forEach((label, i) => (ours[i] = wordOf(label)));
-    // The longest phrases first, so revealed cards include some of the hardest.
-    ours.sort((a, b) => b.length - a.length);
-    for (const word of ours.slice(0, 2)) {
-      await card(op, word).click();
-      await op.getByRole('button', { name: `Guess ${word.toUpperCase()}` }).click();
-      await expect(card(op, word)).toHaveAttribute('aria-label', /revealed/);
-    }
-    await check(op, 'operative');
-    // The spymaster's cards gain their ✓ in place, so they are fitted again too.
-    await check(spy, 'spymaster-guessed');
+      .evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')!))
+  ).map(wordOf);
+  // The longest phrases first, so revealed cards include some of the hardest.
+  ours.sort((a, b) => b.length - a.length);
+  for (const word of ours.slice(0, 2)) {
+    await card(op, word).click();
+    await op.getByRole('button', { name: `Guess ${word.toUpperCase()}` }).click();
+    await expect(card(op, word)).toHaveAttribute('aria-label', /revealed/);
+  }
+}
 
-    // The end of the game: every card captioned, the guessed assassin with its ☠.
+// Each board state sets up its own room, so every test stays well inside the default timeout.
+test.describe('long phrases fit their cards at every width and text size', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  test("the spymaster's key", async ({ browser }) => {
+    // Every card captioned, the assassin with its ☠.
+    const { spy } = await startedGame(browser);
+    await check(spy, 'spymaster');
+  });
+
+  test("the operative's board after two guesses", async ({ browser }) => {
+    const game = await startedGame(browser);
+    await guessTwo(game);
+    await check(game.op, 'operative');
+  });
+
+  test("the spymaster's key after two guesses", async ({ browser }) => {
+    // The spymaster's cards gain their ✓ in place, so they are fitted again too.
+    const game = await startedGame(browser);
+    await guessTwo(game);
+    await check(game.spy, 'spymaster-guessed');
+  });
+
+  test('the end of the game', async ({ browser }) => {
+    // Every card captioned, the guessed assassin with its ☠.
+    const game = await startedGame(browser);
+    const { spy, op } = game;
+    await guessTwo(game);
     const assassin = wordOf(
       (await board(spy)
         .getByRole('button', { name: /Assassin/ })
@@ -243,7 +291,5 @@ test('long phrases fit their cards at every width and text size', async ({ brows
     await op.getByRole('button', { name: `Guess ${assassin.toUpperCase()}` }).click();
     await expect(op.getByText('team wins!').first()).toBeVisible();
     await check(op, 'over');
-  } finally {
-    expect((await admin.request.delete(`/api/admin/word-lists/${id}`)).ok()).toBe(true);
-  }
+  });
 });
