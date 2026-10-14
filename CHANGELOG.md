@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.0...v0.35.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **hydra:** hide your side and teammates while your role card is face down ([#146](https://github.com/thurahtetaung/virtual-tavern/issues/146)) ([1627c74](https://github.com/thurahtetaung/virtual-tavern/commit/1627c742dbe2f1b850287afa9fe89beac0778a3e))
+
 ## [0.35.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.34.0...v0.35.0) (2026-10-14)
 
 
