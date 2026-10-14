@@ -131,8 +131,16 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                     SPECIAL
                   </span>
                 )}
-                <span aria-hidden>➜</span>
-                <b>{nameOf(view, r.chancellor)}</b>
+                {r.skipped ? (
+                  <span className="rounded bg-stone-700 px-1.5 text-[0.65rem] font-black tracking-wide text-white">
+                    PASSED OVER
+                  </span>
+                ) : (
+                  <>
+                    <span aria-hidden>➜</span>
+                    <b>{nameOf(view, r.chancellor)}</b>
+                  </>
+                )}
                 {r.elected !== null && (
                   <span
                     className={cn(

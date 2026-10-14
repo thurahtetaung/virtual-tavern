@@ -241,7 +241,9 @@ function WaitingChips({
                 onClick={() => {
                   if (
                     window.confirm(
-                      `Act for ${nameOf(view, id)}? A random legal move is played (a vote isn’t counted), and everyone is told.`,
+                      view.stage === 'nominate'
+                        ? `Act for ${nameOf(view, id)}? Their nomination is skipped: the election tracker moves and the next player nominates. Everyone is told.`
+                        : `Act for ${nameOf(view, id)}? A random legal move is played (a vote isn’t counted), and everyone is told.`,
                     )
                   )
                     void act({ type: 'act-for', player: id });

@@ -445,11 +445,15 @@ function actFor(
       const next = patch(state, { ready: [...g.ready, player] });
       return next.game!.ready.length >= g.players.length ? nextRoundFromReveal(next, now) : next;
     }
-    case 'nominate': {
-      const options = eligible(g);
-      const pick = options[rng.int(options.length)]!;
-      return nominate(say(state, 'a {chancellor} was nominated'), pick, now, 'nomination');
-    }
+    case 'nominate':
+      // Never a random pick: it could hand the government to the Leader by accident.
+      return skipPresident(
+        notice(state, 'notice.passedOver', now, {
+          timeout: why === 'timer' ? '⏱ Time ran out: ' : '',
+          player: nameOf(g, player),
+        }),
+        now,
+      );
     case 'vote': {
       const s = record(say(state, 'the vote was left uncounted'), 'vote not counted');
       const next = patch(s, { abstain: [...g.abstain, player] });
@@ -485,6 +489,34 @@ function actFor(
     default:
       return state;
   }
+}
+
+/**
+ * A {candidate} who doesn't nominate (left, timed out or acted for) is passed over: the round
+ * counts as a failed election, so the tracker moves and the candidacy passes on.
+ */
+function skipPresident(state: HydraState, now: number): HydraState {
+  const g = state.game!;
+  const tracker = g.tracker + 1;
+  const round: Round = {
+    n: g.rounds.length + 1,
+    president: g.president,
+    chancellor: null,
+    special: g.special,
+    votes: {},
+    missing: [],
+    elected: null,
+    skipped: true,
+    tracker,
+    session: null,
+    chaos: null,
+    power: null,
+    claims: [],
+    cleared: false,
+    autos: [],
+  };
+  const s = patch(state, { tracker, rounds: [...g.rounds, round] });
+  return tracker >= TRACKER_MAX ? beginChaos(s, now) : nextRound(s, now);
 }
 
 /** Plays every turn the table is waiting on from players who have left for good. */

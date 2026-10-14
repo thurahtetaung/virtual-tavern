@@ -118,7 +118,7 @@ const RAW: GameGuide = {
     {
       title: 'The election tracker and chaos',
       paragraphs: [
-        'Each failed vote or {veto} moves the tracker. On the third, the people enact the top {policy}: its power is ignored, the tracker resets and every term limit is forgotten. Enacting any {policy} also resets the tracker.',
+        'Each failed vote, {veto} or passed-over {candidate} moves the tracker. On the third, the people enact the top {policy}: its power is ignored, the tracker resets and every term limit is forgotten. Enacting any {policy} also resets the tracker.',
         'When fewer than three cards are left after a session, the discard pile is shuffled back into the deck.',
       ],
     },
@@ -127,8 +127,8 @@ const RAW: GameGuide = {
       bullets: [
         'Community rebalance (off by default): at 6 players a {redPolicy} {policy} starts on the board; at 7 and 9 the deck has one {redPolicy} {policy} fewer.',
         'Quick mode skips the dramatic pause before the table learns whether the {chancellor} is {leader}.',
-        'Timers are off by default. With strict timers a missing vote isn’t counted, and other turns are played at random. Claims are never made for anyone.',
-        'An absent player’s turn can be played by the host (“Act for”), and everyone is told.',
+        'Timers are off by default. With strict timers a missing vote isn’t counted, a {candidate} who doesn’t nominate is passed over (the tracker moves and the candidacy passes on), and other turns are played at random. Claims are never made for anyone.',
+        'An absent player’s turn can be played by the host (“Act for”), the same way, and everyone is told. A {candidate} who has left the game is passed over at once.',
       ],
     },
   ],
