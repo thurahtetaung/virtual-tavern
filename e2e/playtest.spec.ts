@@ -201,9 +201,10 @@ async function roundTableTurn(p: Page, names: string[]) {
         picked += 1;
       }
     }
-    await tap('Send this team to the vote');
+    await tap('Announce this team');
     return;
   }
+  if (await tap('Call the vote')) return;
   const approve = p.getByRole('button', { name: 'Approve', exact: true });
   if ((await approve.isVisible()) && (await approve.getAttribute('aria-pressed')) !== 'true') {
     await approve.click(quick).catch(() => {});

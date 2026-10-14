@@ -80,12 +80,15 @@ export async function leader(t: Table): Promise<Page> {
   return found!;
 }
 
-/** The leader taps the team and sends it to the vote. */
+/** The leader taps the team, announces it and, once everyone sees it, calls the vote. */
 export async function propose(t: Table, team: Page[]) {
   const lead = await leader(t);
   for (const m of team)
     await lead.getByRole('button', { name: `Pick ${t.names.get(m)} for the team` }).click();
-  await lead.getByRole('button', { name: 'Send this team to the vote' }).click();
+  await lead.getByRole('button', { name: 'Announce this team' }).click();
+  for (const p of t.players)
+    await expect(p.getByRole('region', { name: 'Announced team' })).toBeVisible();
+  await lead.getByRole('button', { name: 'Call the vote' }).click();
   for (const p of t.players) await expect(p.getByRole('region', { name: 'Vote' })).toBeVisible();
 }
 

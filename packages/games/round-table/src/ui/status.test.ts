@@ -37,11 +37,25 @@ describe('status', () => {
   it('tells the leader what to pick and everyone else who is choosing', () => {
     const h = rigged(BASE5);
     expect(statusFor(h.view(HOST), true)).toEqual({
-      text: 'You lead! Tap 2 players for quest 1 (you may pick yourself), then send the team to the vote.',
+      text: 'You lead! Tap 2 players for quest 1 (you may pick yourself), then announce the team.',
       yourMove: true,
     });
     expect(statusFor(h.view('ana'), false)).toEqual({
       text: 'HOST is choosing a team of 2 for quest 1. Say out loud who you trust.',
+      yourMove: false,
+    });
+    expect(waitingOn(h.view('ana'))).toEqual([HOST]);
+  });
+
+  it('asks the table to talk over an announced team until the leader calls the vote', () => {
+    const h = rigged(BASE5);
+    h.act({ type: 'propose', team: [HOST, 'ana'] });
+    expect(statusFor(h.view(HOST), true)).toEqual({
+      text: 'Your team is announced. Let the table talk it over, then call the vote (or change the team).',
+      yourMove: true,
+    });
+    expect(statusFor(h.view('ana'), false)).toEqual({
+      text: 'HOST has announced a team for quest 1. Talk it over: say who you trust. HOST calls the vote.',
       yourMove: false,
     });
     expect(waitingOn(h.view('ana'))).toEqual([HOST]);

@@ -48,6 +48,7 @@ export async function playRoundTable(clients: TestClient[], hit: boolean) {
   expect(
     await leaderOf().call('game:action', { type: 'propose', team: good.slice(0, size) }),
   ).toEqual(ok);
+  expect(await leaderOf().call('game:action', { type: 'call-vote' })).toEqual(ok);
   for (const c of clients)
     expect(await c.call('game:action', { type: 'vote', approve: false })).toEqual(ok);
   await settled('propose', 1);
@@ -56,6 +57,7 @@ export async function playRoundTable(clients: TestClient[], hit: boolean) {
     const g = roundTableView(host).game!;
     const team = good.slice(0, g.quests[g.slot!]!.size);
     expect(await leaderOf().call('game:action', { type: 'propose', team })).toEqual(ok);
+    expect(await leaderOf().call('game:action', { type: 'call-vote' })).toEqual(ok);
     for (const c of clients)
       expect(await c.call('game:action', { type: 'vote', approve: true })).toEqual(ok);
     await settled('quest', g.proposals.length + 1);

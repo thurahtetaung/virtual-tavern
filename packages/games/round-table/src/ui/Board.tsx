@@ -147,7 +147,7 @@ export function Seats({
 }) {
   const g = view.game!;
   const team =
-    view.stage === 'propose'
+    view.stage === 'propose' || view.stage === 'discuss'
       ? g.draft
       : view.stage === 'vote'
         ? g.vote!.team
@@ -219,7 +219,7 @@ export function Seats({
                   </span>
                 )}
                 {g.hammer === p.id &&
-                  (view.stage === 'propose' || view.stage === 'vote') &&
+                  (view.stage === 'propose' || view.stage === 'discuss' || view.stage === 'vote') &&
                   g.leader !== p.id && (
                     <span title="5th proposal: if rejected, Evil wins" aria-label="fifth proposal">
                       🔨

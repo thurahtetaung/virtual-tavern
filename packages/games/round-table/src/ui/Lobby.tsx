@@ -280,10 +280,10 @@ export function Lobby({
             })
           }
           clueLabel="Leader timer"
-          clueHelp="Choosing a team, the Lady’s check and the assassination."
+          clueHelp="Choosing a team, the talk before the vote, the Lady’s check and the assassination."
           guessLabel="Vote and quest timer"
           guessHelp="Voting on a team, and playing quest cards."
-          strictHelp="a missing vote approves, a missing card is Success, and picks are made at random"
+          strictHelp="the vote opens on an announced team, a missing vote approves, a missing card is Success, and picks are made at random"
         />
         <details className="group rounded-xl ring-1 ring-stone-200 dark:ring-stone-800">
           <summary className="flex h-11 cursor-pointer list-none items-center justify-between px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">

@@ -228,7 +228,7 @@ describe('reading role cards', () => {
 });
 
 describe('proposals and votes', () => {
-  it('builds a team live, then sends it to the vote', () => {
+  it('builds a team live, announces it, then the leader calls the vote', () => {
     const h = rigged(BASE5);
     expect(h.reject({ type: 'pick', player: 'ana' }, 'ana')).toBe('not-leader');
     h.act({ type: 'pick', player: 'ana' });
@@ -239,9 +239,26 @@ describe('proposals and votes', () => {
     expect(game(h).draft).toEqual(['ana']);
     expect(h.reject({ type: 'propose' })).toBe('team-size');
     h.act({ type: 'pick', player: HOST });
+    expect(h.reject({ type: 'call-vote' })).toBe('wrong-stage');
     h.act({ type: 'propose' });
+    // Announced: the table talks it over, and the team stays on show.
+    expect(h.state.stage).toBe('discuss');
+    expect(h.view('cy').game!.draft).toEqual(['ana', HOST]);
+    expect(h.view('cy').game!.vote).toBeNull();
+    expect(h.reject({ type: 'vote', approve: true }, 'cy')).toBe('wrong-stage');
+    expect(h.reject({ type: 'pick', player: 'cy' })).toBe('wrong-stage');
+    expect(h.reject({ type: 'call-vote' }, 'ana')).toBe('not-leader');
+    expect(h.reject({ type: 'edit-team' }, 'ana')).toBe('not-leader');
+    // The leader can take it back and change it.
+    h.act({ type: 'edit-team' });
+    expect(h.state.stage).toBe('propose');
+    expect(game(h).draft).toEqual(['ana', HOST]);
+    h.act({ type: 'pick', player: HOST });
+    h.act({ type: 'pick', player: 'cy' });
+    h.act({ type: 'propose' });
+    h.act({ type: 'call-vote' });
     expect(h.state.stage).toBe('vote');
-    expect(game(h).team).toEqual(['ana', HOST]);
+    expect(game(h).team).toEqual(['ana', 'cy']);
   });
 
   it('refuses a wrong-size or duplicate team (spec 16)', () => {
@@ -518,10 +535,14 @@ describe('timers', () => {
     expect(game(h).deadline).toBe(NOW + 60_000);
     h.act({ type: 'pick', player: 'dee' });
     deadline(h);
-    expect(h.state.stage).toBe('vote');
+    expect(h.state.stage).toBe('discuss');
     expect(game(h).team).toContain('dee');
     expect(game(h).team).toHaveLength(2);
     expect(game(h).autoTeam).toBe(true);
+    // The talk has the leader's clock too; then the vote opens on its own.
+    expect(game(h).deadline).toBe(NOW + 120_000);
+    deadline(h);
+    expect(h.state.stage).toBe('vote');
     h.act({ type: 'vote', approve: false }, 'ana');
     deadline(h);
     const p = game(h).proposals[0]!;
@@ -531,6 +552,30 @@ describe('timers', () => {
     deadline(h);
     expect(game(h).results[0]).toMatchObject({ fails: 0, success: true });
     expect(game(h).results[0]!.autoPlayed).toHaveLength(2);
+    // Players see only how many were automatic: an auto card is always Success.
+    const seen = h.view('ana').game!;
+    expect(seen.proposals[0]).toMatchObject({ autoVoteCount: 4, autoVotes: null });
+    expect(seen.results[0]).toMatchObject({ autoPlayedCount: 2, autoPlayed: null });
+  });
+
+  it('names who the timer played for only at the end', () => {
+    const h = timed('strict');
+    propose(h, ['ana', 'ben']);
+    voteAll(h);
+    h.act({ type: 'play', card: 'success' }, 'ana');
+    deadline(h);
+    expect(game(h).results[0]!.autoPlayed).toEqual(['ben']);
+    for (const viewer of [...ids(5), null])
+      expect(h.view(viewer).game!.results[0], String(viewer)).toMatchObject({
+        autoPlayedCount: 1,
+        autoPlayed: null,
+      });
+    questRound(h, [HOST, 'ana', 'ben']);
+    questRound(h, [HOST, 'ana']);
+    const assassin = game(h).assassin!;
+    h.act({ type: 'assassinate', target: game(h).players.find((p) => p !== assassin)! }, assassin);
+    expect(h.state.phase).toBe('over');
+    expect(h.view('cy').game!.results[0]!.autoPlayed).toEqual(['ben']);
   });
 
   it('strict: the assassination is picked at random', () => {
@@ -687,6 +732,8 @@ describe('view() never leaks (the security boundary)', () => {
     h.act({ type: 'pick', player: 'fin' });
     h.act({ type: 'pick', player: 'ben' });
     h.act({ type: 'propose' });
+    check('discuss');
+    h.act({ type: 'call-vote' });
     h.act({ type: 'vote', approve: false }, 'gus');
     h.act({ type: 'vote', approve: true }, 'ana');
     check('vote');

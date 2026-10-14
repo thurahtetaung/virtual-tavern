@@ -38,6 +38,7 @@ export function waitingOn(view: RoundTableView): string[] {
     case 'reveal':
       return g.players.map((p) => p.id).filter((id) => !g.ready.includes(id));
     case 'propose':
+    case 'discuss':
       return [g.leader];
     case 'vote':
       return g.players.map((p) => p.id).filter((id) => !g.vote!.voted.includes(id));
@@ -109,12 +110,23 @@ export function statusFor(view: RoundTableView, isHost: boolean, people?: People
       if (g.leader === me?.id && role)
         return {
           text: g.targeting
-            ? `You lead! Pick a quest, then tap ${q?.size ?? ''} players for it (you may pick yourself). Send the team to the vote when the table has talked.`
-            : `You lead! Tap ${q?.size} players for quest ${q?.number} (you may pick yourself), then send the team to the vote.`,
+            ? `You lead! Pick a quest, then tap ${q?.size ?? ''} players for it (you may pick yourself) and announce the team.`
+            : `You lead! Tap ${q?.size} players for quest ${q?.number} (you may pick yourself), then announce the team.`,
           yourMove: true,
         };
       return {
         text: `${leader} is choosing a team of ${q?.size} for quest ${q?.number}. Say out loud who you trust.`,
+        yourMove: false,
+      };
+    }
+    case 'discuss': {
+      if (g.leader === me?.id && role)
+        return {
+          text: 'Your team is announced. Let the table talk it over, then call the vote (or change the team).',
+          yourMove: true,
+        };
+      return {
+        text: `${leader} has announced a team for quest ${q?.number}. Talk it over: say who you trust. ${leader} calls the vote.`,
         yourMove: false,
       };
     }

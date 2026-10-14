@@ -16,7 +16,7 @@ const text: GameGuide = {
   goal: 'Good wins by completing three of five quests and keeping Merlin hidden. Evil wins by sinking three quests, by getting five teams rejected in a row, or by naming Merlin at the end.',
   quickStart: [
     'Read your secret role card: it says your side and who you know. Never show it to anyone.',
-    'The leader (👑) picks a team for the next quest; everyone talks it over out loud.',
+    'The leader (👑) picks and announces a team for the next quest; everyone talks it over out loud, then the leader calls the vote.',
     'Everyone votes Approve or Reject at once. Five rejected teams in a row and Evil wins.',
     'An approved team plays secret cards: Good must play Success, Evil may play Fail.',
     'Three quests decide the game. If Good gets three, the Assassin has one guess at Merlin.',
@@ -44,7 +44,8 @@ const text: GameGuide = {
       bullets: [
         'The leader (👑) picks exactly as many players as the quest needs (shown in its circle). Leaders may pick themselves.',
         'Everyone sees the team change as the leader taps names, so argue while it’s forming.',
-        'When ready, the leader sends the team to the vote.',
+        'The leader then announces the team, and the table talks it over. The leader may still take it back and change it.',
+        'When the talk is done, the leader calls the vote.',
       ],
     },
     {
@@ -101,7 +102,7 @@ const text: GameGuide = {
       title: 'Timers and absent players',
       bullets: [
         'Timers are off unless the host sets them. A reminder timer only turns red; a strict one acts.',
-        'When a strict timer runs out: a missing vote counts as Approve, a missing quest card is Success, and the leader’s team, the Lady’s check and the assassination are picked at random.',
+        'When a strict timer runs out: an announced team goes to the vote, a missing vote counts as Approve, a missing quest card is Success, and the leader’s team, the Lady’s check and the assassination are picked at random.',
         'The host can do the same for a player who has gone quiet (Skip). Players who leave keep their seat, and the game plays their turns that way.',
       ],
     },
@@ -162,7 +163,7 @@ function room(raw: unknown, you: string): GuideContext | undefined {
 export const guide: GameGuide = shapeGuide(text, {
   steps: [
     ['Read your secret role', '🎴'],
-    ['The leader picks a team', '👑'],
+    ['The leader picks a team, the table talks', '👑'],
     ['Everyone votes', '🗳️'],
     ['The quest', '⚔️'],
     ['Three quests decide it', '🗡️'],

@@ -1,7 +1,12 @@
 import { Button, Modal, Panel, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
 import type { ActOptions } from '@vt/game-sdk';
-import type { Proposal, QuestResult, RoundTableAction, RoundTableView } from '../logic/types.ts';
+import type {
+  ProposalView,
+  QuestResultView,
+  RoundTableAction,
+  RoundTableView,
+} from '../logic/types.ts';
 import { RoleReveal } from './RoleCard.tsx';
 import { SIDE_LABEL, SIDE_TEXT } from './Emblem.tsx';
 import { currentQuest, nameOf, namesFor, who } from './status.ts';
@@ -62,10 +67,51 @@ export function ProposePanel({ view, act }: { view: RoundTableView; act: Act }) 
             disabled={!full}
             onClick={() => void act({ type: 'propose' }, { anchor: 'propose' })}
           >
-            {full ? 'Send this team to the vote' : `Tap ${q.size - g.draft.length} more`}
+            {full ? 'Announce this team' : `Tap ${q.size - g.draft.length} more`}
           </Button>
           <RefusalSlot anchor="propose" />
         </>
+      )}
+    </Panel>
+  );
+}
+
+/** The announced team: the table talks, then the leader calls the vote (or changes the team). */
+export function DiscussPanel({ view, act }: { view: RoundTableView; act: Act }) {
+  const g = view.game!;
+  const q = currentQuest(view);
+  if (!q) return null;
+  const mine = g.leader === view.me?.id && !!view.role;
+  return (
+    <Panel role="region" className="space-y-2" aria-label="Announced team">
+      <p className="text-sm">
+        <b>
+          {mine ? 'Your team' : `${nameOf(view, g.leader)}’s team`} for quest {q.number}:
+        </b>{' '}
+        {namesFor(view, g.draft)}
+      </p>
+      {mine ? (
+        <>
+          <Button
+            size="lg"
+            className={BIG}
+            onClick={() => void act({ type: 'call-vote' }, { anchor: 'discuss' })}
+          >
+            Call the vote
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => void act({ type: 'edit-team' }, { anchor: 'discuss' })}
+          >
+            Change the team
+          </Button>
+          <RefusalSlot anchor="discuss" />
+        </>
+      ) : (
+        <p className="text-xs text-stone-500">
+          Talk it over. The vote opens when the leader calls it.
+        </p>
       )}
     </Panel>
   );
@@ -245,7 +291,7 @@ export function AssassinPanel({
 }
 
 /** For and Against, once a vote is in. */
-export function VoteResult({ view, proposal }: { view: RoundTableView; proposal: Proposal }) {
+export function VoteResult({ view, proposal }: { view: RoundTableView; proposal: ProposalView }) {
   const ids = Object.keys(proposal.votes);
   const yes = ids.filter((id) => proposal.votes[id]);
   const no = ids.filter((id) => !proposal.votes[id]);
@@ -258,7 +304,7 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
         {list.map((id) => (
           <li key={id}>
             {who(view, id, 'You')}
-            {proposal.autoVotes.includes(id) && (
+            {proposal.autoVotes?.includes(id) && (
               <span className="font-normal text-stone-500"> ⏱</span>
             )}
           </li>
@@ -279,9 +325,11 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
         {column('For', yes, 'text-blue-700 dark:text-blue-300')}
         {column('Against', no, 'text-red-700 dark:text-red-300')}
       </div>
-      {proposal.autoVotes.length > 0 && (
+      {proposal.autoVoteCount > 0 && (
         <p className="text-center text-xs text-stone-500">
-          ⏱ voted Approve for them (timer or host)
+          {proposal.autoVotes
+            ? '⏱ voted Approve for them (timer or host)'
+            : `⏱ ${proposal.autoVoteCount === 1 ? '1 Approve was' : `${proposal.autoVoteCount} Approves were`} cast by the timer or host`}
         </p>
       )}
     </Panel>
@@ -289,7 +337,7 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
 }
 
 /** A quest's result: how many Fails, never whose. */
-export function QuestResultBanner({ result }: { result: QuestResult }) {
+export function QuestResultBanner({ result }: { result: QuestResultView }) {
   return (
     <p
       role="status"
