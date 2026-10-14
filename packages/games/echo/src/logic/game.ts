@@ -24,7 +24,6 @@ import {
   type EchoAction,
   type EchoState,
   type EchoView,
-  JUDGE_GRACE_MS,
   MAX_HISTORY,
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -421,32 +420,6 @@ function pass(state: EchoState, ctx: Ctx): Result {
   return reveal(state, 'pass', null);
 }
 
-function judge(state: EchoState, counts: boolean, ctx: Ctx): Result {
-  const turn = requireStage(state, 'judge');
-  if (turn instanceof GameError) return turn;
-  const giver = turn.givers.includes(ctx.by);
-  if (counts && !giver) {
-    return new GameError('not-giver', 'Only the clue writers can count a near miss.');
-  }
-  if (!counts && !giver && !ctx.isHost) {
-    return new GameError('not-giver', 'Only the clue writers or the host can move on.');
-  }
-  // The guesser doesn't judge their own guess. A host who is guessing may only settle it when
-  // nobody else can: every clue writer has gone, or they've had a fair while to decide.
-  if (
-    !counts &&
-    ctx.by === turn.guesser &&
-    turn.givers.length > 0 &&
-    ctx.now < (turn.judgeStarted ?? 0) + JUDGE_GRACE_MS
-  ) {
-    return new GameError(
-      'guesser-judging',
-      'The clue writers decide on your guess. Give them a moment first.',
-    );
-  }
-  return counts ? reveal(state, 'right', ctx.by) : reveal(state, 'wrong', null);
-}
-
 function nextCard(state: EchoState, cardsLeft: number | undefined, ctx: Ctx): Result {
   // Anyone at the table may deal on, so nobody waits for a host who has looked away.
   if (!ctx.isHost && !state.seats[ctx.by]?.playing) {
@@ -481,10 +454,6 @@ function reduce(state: EchoState, action: EchoAction, ctx: Ctx): Result {
       return guess(state, action.word, ctx);
     case 'pass':
       return pass(state, ctx);
-    case 'count-it':
-      return judge(state, true, ctx);
-    case 'continue':
-      return judge(state, false, ctx);
     case 'skip-late-clues':
       return skipLateClues(state, ctx);
     case 'next-card':
@@ -553,7 +522,7 @@ function withdraw(state: EchoState, id: PlayerId, now: number): EchoState {
   if (!turn.givers.includes(id)) return state;
   const givers = turn.givers.filter((g) => g !== id);
   if (turn.stage !== 'clues') {
-    // Clues already given stay in play; the leaver just can't judge any more.
+    // Clues already given stay in play.
     return withTurn(state, { givers });
   }
   const clues = { ...turn.clues };
@@ -593,8 +562,6 @@ function onDeadline(state: EchoState, now: number): EchoState {
       return maybeStartGuessing(state, now, true);
     case 'guess':
       return reveal(state, 'pass', null, true);
-    case 'judge':
-      return reveal(state, 'wrong', null, true);
     case 'reveal':
       return state;
   }

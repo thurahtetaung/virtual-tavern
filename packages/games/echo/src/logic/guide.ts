@@ -78,7 +78,7 @@ const text: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, and a guesser who hasn’t answered passes. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
       ],
     },
     {

@@ -14,7 +14,6 @@ const CLOCK: Record<Exclude<TurnView['stage'], 'reveal'>, { label: string; atZer
   pick: { label: 'to pick a word', atZero: 'then a word is picked at random' },
   clues: { label: 'to write clues', atZero: 'then late clues are skipped' },
   guess: { label: 'to guess', atZero: 'then it counts as a pass' },
-  judge: { label: 'to judge the guess', atZero: 'then it counts as a miss' },
 };
 
 /** One line on every play screen: score, cards left, who's guessing and the timer. */
