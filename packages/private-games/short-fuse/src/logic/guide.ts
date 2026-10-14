@@ -1,5 +1,5 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
-import { CARD_TYPES, type CardType } from './cards.ts';
+import { CARDS, CARD_TYPES, type CardType, type SetId } from './cards.ts';
 import { GLYPHS, type Names, PLACEHOLDER_NAMES, RULES, fillNames } from './names.ts';
 import type { ShortFuseView } from './types.ts';
 
@@ -50,6 +50,9 @@ const cardLine = (t: CardType) =>
     : `{c:${t}}: ${RULES[t]}`;
 
 const X1: GuideOption = { key: 'x1', label: 'Expansion 1' };
+const X2: GuideOption = { key: 'x2', label: 'Expansion 2' };
+const X3: GuideOption = { key: 'x3', label: 'Expansion 3' };
+const EXPANSIONS = { x1: X1, x2: X2, x3: X3 } as const;
 const PARTY: GuideOption = { key: 'party', label: 'Party deck' };
 const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: GuideOption }> = {
   'Your turn': { level: 'basics' },
@@ -59,6 +62,8 @@ const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: Gu
   Combos: { level: 'details' },
   'The cards': { level: 'details' },
   'When Expansion 1 is on': { level: 'details', option: X1 },
+  'When Expansion 2 is on': { level: 'details', option: X2 },
+  'When Expansion 3 is on': { level: 'details', option: X3 },
   'Party deck and big tables': { level: 'edge' },
   'House and legacy rules': { level: 'edge' },
 };
@@ -209,17 +214,20 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
   const card = (t: CardType) => names.cards[t];
   const face = (t: CardType) => art.face?.(t);
   const tiles: GuideTile[] = CARD_TYPES.map((t) => {
-    const x1 = X1_CARDS.includes(t);
+    const set: SetId = CARDS[t].set;
+    const exp = set === 'core' ? undefined : set;
     const f = face(t);
     return {
       id: t,
       name: card(t),
       text: fill(RULES[t]),
-      group: x1 ? (names.sets.x1 ?? 'Expansion 1') : 'Core',
+      group: exp ? (names.sets[exp] ?? EXPANSIONS[exp].label) : 'Core',
       icon: GLYPHS[t],
       tone: t === 'bomb' || t === 'void' ? 'evil' : t === 'defuse' ? 'good' : 'neutral',
       ...(art.text?.(t) && { meta: `On the card: “${art.text(t)}”` }),
-      ...(x1 && { option: X1 }),
+      ...(exp && {
+        option: { ...EXPANSIONS[exp], label: names.sets[exp] ?? EXPANSIONS[exp].label },
+      }),
       ...(f && { art: f }),
     };
   });
@@ -228,15 +236,19 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
     if (!v?.settings) return undefined;
     const s = v.settings;
     const players = v.seats.filter((x) => x.playing).length;
-    const types = CARD_TYPES.filter((t) => !X1_CARDS.includes(t) || s.x1);
+    const on = (['x1', 'x2', 'x3'] as const).filter((x) => s[x]);
+    const types = CARD_TYPES.filter((t) => {
+      const set = CARDS[t].set;
+      return set === 'core' || on.some((x) => x === set);
+    });
     return {
       summary: [
         names.sets[s.core === 'party' ? 'party' : s.art === 'adult' ? 'adult' : 'classic'],
-        ...(s.x1 ? [names.sets.x1 ?? 'Expansion 1'] : []),
+        ...on.map((x) => names.sets[x] ?? EXPANSIONS[x].label),
         `${players} ${players === 1 ? 'player' : 'players'}`,
         `${s.nopeSeconds} s ${card('nope')} countdown`,
       ].join(' · '),
-      options: [...(s.x1 ? [X1.key] : []), ...(s.core === 'party' ? [PARTY.key] : [])],
+      options: [...on, ...(s.core === 'party' ? [PARTY.key] : [])],
       inGame: Object.fromEntries(types.map((t) => [t, 1])),
     };
   };
