@@ -52,6 +52,9 @@ export interface NightfallNames {
 }
 
 const playable = ROLE_IDS.filter((r) => ENABLED_SETS.includes(ROLES[r].set));
+/** Team words, which the rules use as words rather than as card names. */
+const GENERIC = new Set<RoleId>(['werewolf', 'vampire', 'alien']);
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Whether a role is ever woken at night (its own step, or with its team). */
 const wakes = (r: RoleId) =>
@@ -79,7 +82,6 @@ const SET: Record<'vampire' | 'alien', GuideOption> = {
 };
 const MARKS_ON: GuideOption = { key: 'marks', label: 'Vampire set' };
 const EPIC: GuideOption = { key: 'epic', label: 'Two evil teams' };
-const CURATOR: GuideOption = { key: 'role:curator', label: 'Curator' };
 
 /** The options a selection of cards turns on (sections and tiles say which they need). */
 function optionsFor(roles: readonly RoleId[]): string[] {
@@ -98,6 +100,20 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
   const setName = (s: SetId) => names.set?.(s) ?? SET_LABELS[s];
   const markName = (m: MarkId) => names.mark?.(m)?.name ?? markLabel(m);
   const artifactName = (a: ArtifactId) => names.artifact?.(a)?.name ?? roleLabel(a);
+  const CURATOR: GuideOption = { key: 'role:curator', label: roleName('curator') };
+  /** The registry's plain text (summaries, win lines) with every card and Mark named. */
+  const LABELS = new Map<string, string>([
+    ...MARK_IDS.map((m) => [markLabel(m), markName(m)] as const),
+    ...playable.filter((r) => !GENERIC.has(r)).map((r) => [roleLabel(r), roleName(r)] as const),
+  ]);
+  const LABEL_RE = new RegExp(
+    `(?<![\\w-])(${[...LABELS.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map(escapeRe)
+      .join('|')})(?![\\w-])`,
+    'g',
+  );
+  const named = (text: string) => text.replace(LABEL_RE, (l) => LABELS.get(l) ?? l);
 
   /** A night step as the narrator says it. */
   const stepLabel = (s: StepDef) =>
@@ -134,8 +150,8 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
     return {
       id: r,
       name: roleName(r),
-      text: c?.text ?? ROLES[r].summary,
-      win: ROLES[r].win,
+      text: c?.text ?? named(ROLES[r].summary),
+      win: named(ROLES[r].win),
       group: TEAM_GROUP[t],
       tone: t,
       icon: t === 'evil' ? '🐺' : t === 'alien' ? '👽' : t === 'good' ? '🏡' : '🎭',
@@ -150,7 +166,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
     return {
       id: `mark-${m}`,
       name: markName(m),
-      text: c?.text ?? MARKS[m],
+      text: c?.text ?? named(MARKS[m]),
       group: 'Marks',
       icon: '🔖',
       meta: `A Mark (${setName('vampire')})`,
@@ -163,7 +179,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
     return {
       id: `artifact-${a}`,
       name: artifactName(a),
-      text: c?.text ?? ARTIFACTS[a].summary,
+      text: c?.text ?? named(ARTIFACTS[a].summary),
       group: 'Artifacts',
       icon: '🏺',
       meta: `An artifact (the ${roleName('curator')} places it)`,
@@ -262,7 +278,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
                   : undefined;
       ctx.you = {
         name: roleName(mine),
-        text: c?.text ?? ROLES[mine].summary,
+        text: c?.text ?? named(ROLES[mine].summary),
         tile: mine,
         ...(c?.art && { art: c.art }),
         ...(now && { now }),
@@ -281,7 +297,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
   };
 
   const art = (r: RoleId) => role(r)?.art;
-  return {
+  const text: GameGuide = {
     tagline: 'One night, hidden roles, one vote: find a werewolf before sunrise, or be one.',
     players: '3 to 10',
     duration: '10 minutes a game',
@@ -343,7 +359,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         title: 'The night',
         level: 'basics',
         paragraphs: [
-          'Every role in the game is called in a fixed order, even when its card is in the centre, and every call lasts the same time. So nobody can tell from the clock which roles are really at the table.',
+          'Every role in the game is called in a fixed order, even when its card is in the centre, and every call lasts the same time, so the clock never tells anyone which roles are really at the table.',
           'When your role is called, your screen lights up: tap players or centre cards to act, and see what you learn. Everyone else just sees which role is awake. If you don’t choose in time, optional actions are skipped and required ones are made for you at random.',
           'Left and right follow the seat order in the app, not where you sit, so the buttons name the player on each side.',
           'You always act as the role you were dealt, even if your card has been swapped since. At the end of the night you are whatever card is in front of you, and you don’t get to look again.',
@@ -382,14 +398,14 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         level: 'basics',
         bullets: [
           'The Learned tab starts with where you stand now: what you started as, your card and Mark as far as you know, and what that means for your side. Someone may still have moved them without you knowing.',
-          'The Roles tab lists the cards in play in wake order (with copies, like ×2), the roles the Doppelgänger wakes again for, and the Marks and artifacts that can turn up.',
+          `The Roles tab lists the cards in play in wake order (with copies, like ×2), the roles the ${roleName('doppelganger')} wakes again for, and the Marks and artifacts that can turn up.`,
         ],
       },
       {
         title: 'Epic battles',
         option: EPIC,
         paragraphs: [
-          'When the players include werewolves, vampires and villagers all at once (a Mark of the Vampire counts), it’s an epic battle, and the vote changes.',
+          `When the players include werewolves, vampires and villagers all at once (a ${markName('vampire')} counts), it’s an epic battle, and the vote changes.`,
         ],
         bullets: [
           'Protected players are left out, then the most voted player dies, as long as they have at least two votes, and so does the second most voted, even with one vote. Everyone tied for second dies. Most Votes tokens #1 and #2 mark them.',
@@ -402,11 +418,11 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         title: 'Vampires and Marks',
         option: SET.vampire,
         paragraphs: [
-          'With roles from the vampire set, every player starts with a face-down Mark of Clarity in front of them. At dusk, before the night proper, some roles give, take or swap Marks; then everyone wakes to look at their own Mark (never anyone else’s), and the lovers wake to see each other.',
-          'A Mark belongs to the player, not the card: swapping cards leaves the Marks where they are. A player only ever holds one Mark; giving a new one sends the old one back unseen. A shield protects a card, never its Mark. An artifact that changes your role beats your card and the Mark of the Vampire.',
+          `With roles from the vampire set, every player starts with a face-down ${markName('clarity')} in front of them. At dusk, before the night proper, some roles give, take or swap Marks; then everyone wakes to look at their own Mark (never anyone else’s), and the lovers wake to see each other.`,
+          `A Mark belongs to the player, not the card: swapping cards leaves the Marks where they are. A player only ever holds one Mark; giving a new one sends the old one back unseen. A shield protects a card, never its Mark. An artifact that changes your role beats your card and the ${markName('vampire')}.`,
         ],
         bullets: [
-          ...MARK_IDS.map((m) => `${markName(m)}: ${MARKS[m]}`),
+          ...MARK_IDS.map((m) => `${markName(m)}: ${named(MARKS[m])}`),
           `The vampires win if at least one player is a Vampire (by card or by Mark) and no Vampire dies. ${roleName('renfield')} wins with them, even if he dies. A ${markName('vampire')} keeps its holder a Vampire whatever card they end with, the Assassins’ cards included.`,
           `If another Vampire votes for ${roleName('the-master')}, he can’t die in the vote; the next most voted (with more than one vote) dies instead.`,
           `When a player with a ${markName('love')} dies, every other lover dies too, even a protected one.`,
@@ -422,7 +438,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         paragraphs: [
           `The ${roleName('curator')} places a random artifact on a card. Whoever ends up with it sees it at daybreak, and must follow it.`,
         ],
-        bullets: ARTIFACT_IDS.map((a) => `${artifactName(a)}: ${ARTIFACTS[a].summary}`),
+        bullets: ARTIFACT_IDS.map((a) => `${artifactName(a)}: ${named(ARTIFACTS[a].summary)}`),
       },
       {
         title: 'Aliens',
@@ -486,6 +502,18 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
       `Listen to who knows what: the ${roleName('seer')}, ${roleName('robber')} and ${roleName('insomniac')} learned real cards.`,
       `Your Mark may have moved since you saw it at dusk: the ${roleName('pickpocket')} and the ${roleName('gremlin')} work in the dark.`,
     ],
+  };
+  // Plain card names written into the rules (the setup's Alpha Wolf…) take the manifest's names.
+  const list = (l: string[] | undefined) => l?.map(named);
+  return {
+    ...text,
+    setup: text.setup.map(named),
+    tips: text.tips.map(named),
+    sections: text.sections.map((sec) => ({
+      ...sec,
+      ...(sec.paragraphs && { paragraphs: list(sec.paragraphs)! }),
+      ...(sec.bullets && { bullets: list(sec.bullets)! }),
+    })),
   };
 }
 

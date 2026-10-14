@@ -195,7 +195,7 @@ function base(): GameGuide {
       {
         title: 'An hour: visions',
         bullets: [
-          'The ghost picks a psychic who is still searching, chooses one or more cards from their hand, and sends them. The hand fills back up to 7.',
+          'The ghost picks a psychic still searching, chooses one or more cards from their hand and sends them. The hand fills back up to 7.',
           'Each psychic gets exactly one vision per hour; the ghost works round the table until everyone still searching has one.',
           'Psychics may start guessing as soon as their own vision arrives. Several psychics may pick the same card, but each card belongs to at most one of them.',
           'Once every vision is out, the timer starts (2 minutes by default). Talk freely; the ghost may listen but never react. Tap Ready when you are happy; the hour ends early when everyone still searching is ready. Psychics who have found all three can still play tokens until then.',

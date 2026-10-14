@@ -208,3 +208,36 @@ export function stepsOf(guide: GameGuide): GuideStep[] {
 export function isOn(option: GuideOption | undefined, ctx: GuideContext | undefined): boolean {
   return !option || !ctx?.options || ctx.options.includes(option.key);
 }
+
+/** What `shapeGuide` adds to a guide written as plain text. */
+export interface GuideShape extends Partial<Omit<GameGuide, 'steps'>> {
+  /** Each section's level by title (the rest default as `levelOf` says). */
+  levels?: Record<string, GuideLevel>;
+  /** Sections that depend on a setting, by title. */
+  options?: Record<string, GuideOption>;
+  /** The stepper: a title and an emoji per quick-start line, in order. */
+  steps?: [title: string, icon: string][];
+  /** An emoji per role, in order (Who's who). */
+  roleIcons?: string[];
+}
+
+/** A plain-text guide with levels, options, a stepper built from its quick start, and extras. */
+export function shapeGuide(guide: GameGuide, shape: GuideShape): GameGuide {
+  const { levels = {}, options = {}, steps, roleIcons, ...rest } = shape;
+  return {
+    ...guide,
+    ...rest,
+    sections: guide.sections.map((s) => ({
+      ...s,
+      ...(levels[s.title] && { level: levels[s.title] }),
+      ...(options[s.title] && { option: options[s.title] }),
+    })),
+    ...(guide.roles &&
+      roleIcons && {
+        roles: guide.roles.map((r, i) => (roleIcons[i] ? { ...r, icon: roleIcons[i] } : r)),
+      }),
+    ...(steps && {
+      steps: steps.map(([title, icon], i) => ({ title, icon, text: guide.quickStart?.[i] ?? '' })),
+    }),
+  };
+}

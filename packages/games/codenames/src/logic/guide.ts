@@ -1,6 +1,6 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Two teams race to find their secret agents using one-word clues.',
   players: '4 or more (best with 6–10)',
   duration: '15–20 minutes',
@@ -109,3 +109,70 @@ export const guide: GameGuide = {
     { term: 'Key', meaning: 'The secret map of card colours that only Spymasters see.' },
   ],
 };
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['Pick a team and a Spymaster', '🔴🔵'],
+    ['Only Spymasters see the key', '🗝️'],
+    ['One word, one number', '💬'],
+    ['Operatives guess', '👆'],
+    ['Avoid the assassin', '☠️'],
+    ['Find all your agents', '🏆'],
+  ],
+  levels: {
+    'The board': 'basics',
+    'Giving a clue (Spymaster)': 'basics',
+    'Guessing (Operatives)': 'basics',
+    Winning: 'basics',
+    'Teams, the host and people coming and going': 'edge',
+  },
+  roleIcons: ['🗝️', '👆'],
+  tiles: {
+    label: 'The board',
+    blurb: '25 cards: agents, bystanders, the assassin',
+    intro: 'The 25 words hide four kinds of card. Only the Spymasters see which is which.',
+    shape: 'wide',
+    items: [
+      {
+        id: 'red',
+        name: 'Red agent',
+        icon: '🟥',
+        tone: 'evil',
+        text: '9 for the team that starts, 8 for the other. Red finds them all to win.',
+      },
+      {
+        id: 'blue',
+        name: 'Blue agent',
+        icon: '🟦',
+        tone: 'good',
+        text: '9 for the team that starts, 8 for the other. Blue finds them all to win.',
+      },
+      {
+        id: 'bystander',
+        name: 'Bystander',
+        icon: '⬜',
+        tone: 'neutral',
+        text: '7 on the board. Guessing one ends your turn.',
+      },
+      {
+        id: 'assassin',
+        name: 'Assassin',
+        icon: '☠️',
+        tone: 'own',
+        text: '1 on the board. Guess it and your team loses at once.',
+      },
+    ],
+  },
+  reference: [
+    {
+      title: 'The 25 cards',
+      head: ['Card', 'How many', 'If guessed'],
+      rows: [
+        ['Starting team’s agent', '9', 'Keep guessing'],
+        ['Other team’s agent', '8', 'Turn ends (it counts for them)'],
+        ['Bystander', '7', 'Turn ends'],
+        ['Assassin', '1', 'Your team loses'],
+      ],
+    },
+  ],
+});

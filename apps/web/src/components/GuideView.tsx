@@ -238,7 +238,7 @@ export function GuideView({
         )}
         {tab === 'tiles' && guide.tiles && (
           <Tiles
-            key={`${preset}-${!ctx?.inGame}`}
+            key={`${preset}-${Object.keys(ctx?.inGame ?? {}).length > 0}`}
             guide={guide}
             ctx={ctx}
             open={(t) => setSheet(t)}
@@ -653,7 +653,8 @@ function Tiles({
   open: (t: GuideTile) => void;
 }) {
   const { items, intro, shape = 'square' } = guide.tiles!;
-  const inGame = ctx?.inGame;
+  // Nothing in play yet (no heroes picked): there is nothing to filter to.
+  const inGame = ctx?.inGame && Object.keys(ctx.inGame).length ? ctx.inGame : undefined;
   const groups = useMemo(
     () => [...new Set(items.map((t) => t.group).filter((g): g is string => !!g))],
     [items],

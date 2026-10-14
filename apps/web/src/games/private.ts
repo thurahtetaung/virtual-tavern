@@ -2,7 +2,10 @@ import { guide as hogwartsGuide } from '@vt/private-hogwarts/guide';
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
 import { guide as inquestGuide, nameGuide as nameInquestGuide } from '@vt/private-inquest/guide';
-import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-originals/guide';
+import {
+  guide as masqueradeOriginalsGuide,
+  nameGuide as nameOriginalsGuide,
+} from '@vt/private-masquerade-originals/guide';
 import {
   guide as nightfallGuide,
   nameGuide as nameNightfallGuide,
@@ -73,7 +76,7 @@ export const privateGames: ClientGame[] = [
     id: 'masquerade-originals',
     name: 'Masquerade Originals',
     guide: masqueradeOriginalsGuide,
-    namedGuide: taggedGuide('masquerade-originals', masqueradeOriginalsGuide),
+    namedGuide: manifestGuide('masquerade-originals', nameOriginalsGuide),
     icon: '🗺️',
     Component: lazy(() =>
       import('@vt/private-masquerade-originals/ui').then((m) => ({

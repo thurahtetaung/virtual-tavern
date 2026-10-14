@@ -1,6 +1,6 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Everyone writes a one-word clue for the guesser, but matching clues cancel out.',
   players: '3 to 7 (best with 5 or more)',
   duration: '15–30 minutes',
@@ -104,3 +104,45 @@ export const guide: GameGuide = {
     },
   ],
 };
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['One guesser, a hidden word', '🙈'],
+    ['Everyone else writes a clue', '✍️'],
+    ['Matching clues cancel', '💥'],
+    ['One guess (or pass)', '🤔'],
+    ['Score as a team', '🧮'],
+    ['Next guesser', '🔁'],
+  ],
+  levels: {
+    'A card, step by step': 'basics',
+    'What cancels': 'basics',
+    'Guessing and scoring': 'basics',
+    'Clues that aren’t allowed': 'details',
+    'How did you do?': 'details',
+  },
+  roleIcons: ['🙈', '✍️'],
+  reference: [
+    {
+      title: 'A guess',
+      head: ['Result', 'The card', 'The deck'],
+      rows: [
+        ['Right', 'Scores a point', '—'],
+        ['Pass', 'Set aside, no point', '—'],
+        ['Wrong', 'Lost', 'The next card is lost too'],
+      ],
+    },
+    {
+      title: 'How did you do? (13 cards)',
+      head: ['Score', 'Rating'],
+      rows: [
+        ['13', 'Perfect'],
+        ['12', 'Amazing'],
+        ['10–11', 'Great'],
+        ['7–9', 'Good'],
+        ['4–6', 'A good start'],
+        ['0–3', 'Try again'],
+      ],
+    },
+  ],
+});

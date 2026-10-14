@@ -1,6 +1,6 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Write fake answers to bizarre true questions, fool your friends, and find the truth.',
   players: '3 to 10 (best with 4–8)',
   duration: '15–30 minutes',
@@ -77,3 +77,28 @@ export const guide: GameGuide = {
     { term: 'Truth', meaning: 'The real answer, hidden among the lies.' },
   ],
 };
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['A strange true fact', '🧐'],
+    ['Write a fake answer', '🤥'],
+    ['Lies and truth, shuffled', '🔀'],
+    ['Vote for the truth', '🗳️'],
+    ['Score twice', '🧮'],
+    ['The last round doubles', '✖️2'],
+  ],
+  levels: { 'A round, step by step': 'basics', 'Writing a lie': 'basics', Scoring: 'basics' },
+  reference: [
+    {
+      title: 'Scoring',
+      head: ['You…', 'Points', 'Last round'],
+      rows: [
+        ['find the real answer', '1,000', '2,000'],
+        ['fool a player with your lie', '500 each', '1,000 each'],
+        ['fool one with a ready-made lie', '250 each', '500 each'],
+        ['pick a house fake', '0', '0'],
+      ],
+      note: 'A lie several players wrote shares its points.',
+    },
+  ],
+});

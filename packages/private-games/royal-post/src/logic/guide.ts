@@ -94,6 +94,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   'The cards (Classic)': 'basics',
   'The cards (2019 edition)': 'details',
   'Ties and winning': 'details',
+  'Your notes': 'details',
 };
 
 export function makeGuide(names: RoyalPostNames = {}): GameGuide {
@@ -225,7 +226,6 @@ function base(): GameGuide {
           'Cards that target a player can’t pick someone who is protected by the Handmaid or already out. If nobody can be chosen, the card is played with no effect (the Prince can always pick you).',
           'When you are knocked out, your hand is shown and you sit out the rest of the round.',
           'The round ends when only one player is left, or when the deck is empty after a turn. Then everyone still in shows their card and the highest wins a favour token. The result also shows the face-down set-aside card and how many tokens everyone has.',
-          'Private information goes to your Notes: what your Priest saw, your Baron comparison, your King trade and, in 2019, the cards your Chancellor put at the bottom. When someone’s Priest looks at your card, you get a note too, so you know they know it. Notes show the current round; earlier rounds are folded away.',
         ],
       },
       {

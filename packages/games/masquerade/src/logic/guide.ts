@@ -1,10 +1,52 @@
-import type { GameGuide } from '@vt/game-sdk';
+import type { GameGuide, GuideStep } from '@vt/game-sdk';
+
+const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
+  'Asking questions': 'basics',
+  'The vote': 'basics',
+  'The spy’s last chance': 'basics',
+  Scoring: 'details',
+  'Coming and going': 'edge',
+};
+const STEPS: [string, string][] = [
+  ['Everyone gets a card', '🗺️'],
+  ['Ask a question out loud', '❓'],
+  ['Answer, then ask the next', '🤫'],
+  ['Vote for the spy', '🗳️'],
+  ['The spy’s last guess', '🎯'],
+  ['Points each round', '🏆'],
+];
+
+/** The stepper for a quick start (Masquerade's, or an edition's own). */
+export const stepsFor = (quickStart: readonly string[]): GuideStep[] =>
+  STEPS.map(([title, icon], i) => ({ title, icon, text: quickStart[i] ?? '' }));
 
 /**
  * The rules guide. Any other edition shares it, with its own sentence about its locations (kept
  * in that edition's package, so it never ships with the public game).
  */
 export function makeGuide(pack: string): GameGuide {
+  const guide = text(pack);
+  return {
+    ...guide,
+    sections: guide.sections.map((sec) => ({ ...sec, level: LEVELS[sec.title] ?? 'details' })),
+    roles: guide.roles!.map((r, i) => ({ ...r, icon: i === 0 ? '🏠' : '🕶️' })),
+    steps: stepsFor(guide.quickStart!),
+    reference: [
+      {
+        title: 'Scoring',
+        head: ['What happened', 'Spy', 'Locals'],
+        rows: [
+          ['The spy escapes the vote', '2', '0'],
+          ['Caught, names the location', '2', '0'],
+          ['Caught, guesses wrong', '0', '1 each, +1 for voting for them'],
+        ],
+        note: 'With two spies, each spy is scored on their own.',
+      },
+    ],
+  };
+}
+
+function text(pack: string): GameGuide {
   return {
     tagline: 'Everyone knows where you are, except the spy. Talk, bluff, then vote the spy out.',
     players: '3 to 12',

@@ -2,6 +2,7 @@ import type { GameGuide } from '@vt/game-sdk';
 import {
   creditOf,
   footerOf,
+  guideArtOf,
   nameGuide,
   namesOf,
   placeholderWord,
@@ -138,7 +139,10 @@ export function hydraGuide(gameId: string): () => Promise<GameGuide> {
   return async () => {
     const m = await manifest(gameId);
     const man = m as HydraManifest;
-    return withTagline(m, nameGuide(namesOf(man), footerOf(creditOf(man)), powerNamesOf(man)));
+    return withTagline(
+      m,
+      nameGuide(namesOf(man), footerOf(creditOf(man)), powerNamesOf(man), guideArtOf(man, gameId)),
+    );
   };
 }
 

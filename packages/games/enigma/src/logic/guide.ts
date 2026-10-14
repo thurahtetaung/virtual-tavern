@@ -1,6 +1,6 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, shapeGuide } from '@vt/game-sdk';
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Pass secret codes to your team with clues, while the other team tries to crack them.',
   players: '4 or more (best with 6–8)',
   duration: '30–45 minutes',
@@ -135,3 +135,34 @@ export const guide: GameGuide = {
     },
   ],
 };
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['Your team’s 4 keywords', '🔑'],
+    ['The Encryptor gets a code', '🎲'],
+    ['Three clues', '✍️'],
+    ['Agree and lock in', '🔒'],
+    ['The other team listens', '🕵️'],
+    ['Two tokens decide it', '🏆'],
+  ],
+  levels: {
+    'A round, step by step': 'basics',
+    'Writing clues': 'basics',
+    'Agreeing on a guess': 'basics',
+    Tokens: 'basics',
+    Winning: 'details',
+    'The clue history is everything': 'details',
+  },
+  roleIcons: ['✍️', '🧩', '🕵️'],
+  reference: [
+    {
+      title: 'Tokens and winning',
+      head: ['Token', 'You get it when', 'Two of them'],
+      rows: [
+        ['🕵️ Interception', 'You guess the other team’s code', 'Your team wins'],
+        ['💥 Miscommunication', 'Your team misses its own code', 'Your team loses'],
+      ],
+      note: 'Both at once, or no decision after round 8: interceptions minus miscommunications decides; an even score is a draw.',
+    },
+  ],
+});

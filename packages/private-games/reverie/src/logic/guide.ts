@@ -1,6 +1,7 @@
-import type { GameGuide } from '@vt/game-sdk';
+import { type GameGuide, shapeGuide } from '@vt/game-sdk';
+import type { ReverieView } from './types.ts';
 
-export const guide: GameGuide = {
+const text: GameGuide = {
   tagline: 'Give a dreamy clue for one of your picture cards, and let some, but not all, find it.',
   players: '3 to 8',
   duration: '30 minutes',
@@ -39,6 +40,11 @@ export const guide: GameGuide = {
         'All the cards are shuffled and laid face up, numbered.',
         'Everyone except the storyteller votes for the card they think is the storyteller’s. You can’t vote for your own card. You can change your vote (open another card and tap Change vote) until the last vote is in.',
         'The cards are revealed with their owners and votes, and points are scored.',
+      ],
+    },
+    {
+      title: 'Between turns',
+      bullets: [
         'The host presses Next turn: the table is discarded, everyone draws back up to a full hand, and the next player round the table becomes the storyteller. The scoreboard always names the next storyteller.',
         'When the draw pile runs out, the used cards are shuffled back in to make a new pile, and the table is told so. The game never ends because the cards ran out.',
       ],
@@ -98,3 +104,42 @@ export const guide: GameGuide = {
     },
   ],
 };
+
+export const guide: GameGuide = shapeGuide(text, {
+  steps: [
+    ['The storyteller gives a clue', '📖'],
+    ['Everyone matches it', '🃏'],
+    ['Shuffle, then vote', '🗳️'],
+    ['Some, not all, should find it', '⚖️'],
+    ['Everyone or nobody: no points', '🙅'],
+    ['Votes count too', '🏆'],
+  ],
+  levels: {
+    'A turn': 'basics',
+    Scoring: 'basics',
+    Winning: 'basics',
+    'With three players': 'details',
+  },
+  options: { 'With three players': { key: 'three', label: '3 players' } },
+  roleIcons: ['📖', '🃏'],
+  room: (raw) => {
+    const v = raw as ReverieView;
+    if (!Array.isArray(v?.seats)) return undefined;
+    const n = v.seats.filter((x) => x.playing).length;
+    return {
+      summary: `${n} ${n === 1 ? 'player' : 'players'} · first to ${v.settings.targetScore} points`,
+      options: n === 3 ? ['three'] : [],
+    };
+  },
+  reference: [
+    {
+      title: 'Scoring',
+      head: ['What happened', 'Storyteller', 'Everyone else'],
+      rows: [
+        ['Everyone or nobody found it', '0', '2 each'],
+        ['Some found it', '3', '3 for each finder'],
+        ['Each vote your own card got', '—', '+1'],
+      ],
+    },
+  ],
+});
