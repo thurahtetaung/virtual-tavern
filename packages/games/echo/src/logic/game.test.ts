@@ -222,15 +222,20 @@ describe('a card', () => {
     expect(h.state.history.at(-1)!.burned).toBe(true);
   });
 
-  it('close enough counts on its own: another form or a single typo', () => {
+  it('close enough counts on its own, but a typo is a miss', () => {
     const h = startedGame();
     toGuess(h);
     const word = secret(h);
-    // One letter swapped counts for longer words; nobody is asked to judge.
-    const typo = word.length >= 5 ? word[1]! + word[0]! + word.slice(2) : word;
-    h.act({ type: 'guess', word: typo.toUpperCase() });
+    // Capitals and spacing never matter; nobody is asked to judge.
+    h.act({ type: 'guess', word: ` ${word.toUpperCase()} ` });
     expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'right' });
     expect(h.state.score).toBe(1);
+    h.act({ type: 'next-card' });
+    toGuess(h);
+    // One letter swapped is another word as far as the game knows.
+    const other = secret(h);
+    h.act({ type: 'guess', word: other[1]! + other[0]! + other.slice(2) }, turn(h).guesser);
+    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
   });
 
   it('next card: anyone at the table deals, and it rotates the guesser', () => {
@@ -731,8 +736,13 @@ describe('actions and ratings', () => {
 describe('guessMatches', () => {
   it.each([
     ['Elephant', 'elephant', true],
-    ['elephnat', 'elephant', true],
-    ['elepant', 'elephant', true],
+    ['elephnat', 'elephant', false],
+    ['elepant', 'elephant', false],
+    ['house', 'HORSE', false],
+    ['night', 'LIGHT', false],
+    ['watch', 'MATCH', false],
+    ['plant', 'PLANE', false],
+    ['beach', 'BENCH', false],
     ['spiderman', 'Spider-Man', true],
     ['ice cream', 'Ice-cream', true],
     ['cats', 'cat', true],
@@ -775,7 +785,7 @@ describe('word matching in play', () => {
     return turn(h).stage === 'reveal' ? turn(h).outcome : turn(h).stage;
   };
 
-  it('scores only a strict match (or a typo) as right, and anything else as wrong', () => {
+  it('scores only a strict match as right, and anything else as wrong', () => {
     expect(guessed('NUMBER', 'numb')).toBe('wrong');
     expect(guessed('CORNER', 'corn')).toBe('wrong');
     expect(guessed('BOXER', 'box')).toBe('wrong');

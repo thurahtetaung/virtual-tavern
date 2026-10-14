@@ -65,7 +65,7 @@ const text: GameGuide = {
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
         'Wrong: the card is lost, and so is the next card in the deck (on the last card, only that card). A wrong guess costs more than a pass, so pass when you have no idea.',
-        'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”), British or American spelling and a single typo in a word of 5 or more letters are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
+        'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”) and British or American spelling are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including a typo, a word one letter away (“house” for “horse”), part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
         'The game ends when the deck runs out. The list of cards played counts any card a wrong guess cost.',
       ],
     },
