@@ -1,7 +1,7 @@
 import { cn } from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import type { CodenamesView } from '../logic/types.ts';
-import { type Measure, canvasMeasure, estimate, fitSize } from './fit.ts';
+import { type Measure, canvasMeasure, estimate, fitSize, softBreaks } from './fit.ts';
 import { KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
 
 interface Props {
@@ -64,10 +64,11 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
             <span
               style={{ '--fit': fitSize(card.word, measure) } as CSSProperties}
               className={cn(
-                'line-clamp-2 w-full text-center leading-tight font-bold [overflow-wrap:break-word] hyphens-auto uppercase',
+                'line-clamp-2 w-full text-center leading-tight font-bold break-normal hyphens-manual uppercase',
                 // Never break or truncate a word players need to read: each size tier is capped at
                 // the size that fits the card (`--fit`), so long words shrink instead, and a phrase
-                // wraps only between its words.
+                // wraps only between its words. Only a word of 11+ letters that is too long even at
+                // the smallest size breaks, at its one soft hyphen (`softBreaks`).
                 card.word.length >= 9
                   ? 'text-[length:min(0.6rem,var(--fit))] tracking-tight sm:text-[length:min(0.75rem,var(--fit))] sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
                   : card.word.length >= 8
@@ -75,7 +76,7 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
                     : 'text-[length:min(0.7rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
               )}
             >
-              {card.word}
+              {softBreaks(card.word)}
             </span>
             {captioned && (
               <span className="absolute inset-x-0 bottom-0.5 text-center text-[0.55rem] leading-none font-semibold uppercase opacity-90 sm:bottom-1 sm:tracking-wide sm:text-[0.65rem]">

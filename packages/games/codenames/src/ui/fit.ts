@@ -23,8 +23,8 @@ export function longerLine(word: string, measure: Measure): number {
 
 /**
  * A CSS font size at which `word` fits its card (a size container) on two lines, with 6% to spare
- * for letter spacing and rounding. It never goes below 7px: the very longest words on the
- * narrowest phones wrap there instead.
+ * for letter spacing and rounding. It never goes below 7px: a word still too long there (11+
+ * letters on the narrowest phones) breaks at its soft hyphen instead (`softBreaks`).
  */
 export const fitSize = (word: string, measure: Measure) =>
   `max(0.4375rem, ${(94 / longerLine(word, measure)).toFixed(2)}cqw)`;
@@ -47,4 +47,65 @@ export function canvasMeasure(fontFamily: string): Measure {
     }
     return width;
   };
+}
+
+/** Words this long may break, at one soft hyphen; shorter words never break. */
+export const BREAKABLE = 11;
+const SOFT_HYPHEN = '­';
+const VOWEL = /[aeiouy]/i;
+const LETTER = /\p{L}/u;
+/** Letter pairs that sound as one, never split. */
+const DIGRAPH = /^(?:ch|sh|th|ph|wh|ck|gh|qu)$/i;
+const consonant = (c: string | undefined) => c !== undefined && LETTER.test(c) && !VOWEL.test(c);
+
+/**
+ * The best place to split a long word (an index into it), or -1. A rough syllable rule, at least
+ * four letters from either end and as near the middle as possible: before a capital in a joined
+ * name ("PLAY|STATION"), between two consonants ("STORM|TROOPER", not inside the clusters that
+ * start a syllable: tr, bl, st, ch…), or after a vowel before one consonant ("SKATE|BOARDING");
+ * failing those, the looser `relaxed` rules.
+ */
+export function breakPoint(word: string, relaxed = false): number {
+  const mid = word.length / 2;
+  let best = -1;
+  let bestScore = Infinity;
+  for (let i = 4; i <= word.length - 4; i++) {
+    const a = word[i - 1]!;
+    const b = word[i]!;
+    if (!LETTER.test(a) || !LETTER.test(b) || DIGRAPH.test(a + b)) continue;
+    // Keep tr, bl, …, the end of a "gh", and s + consonant together (but "cheer|leader").
+    if (consonant(a) && !/[lmnr]/i.test(a) && /[rl]/i.test(b)) continue;
+    if (/h/i.test(a) && /g/i.test(word[i - 2] ?? '')) continue;
+    if (!relaxed && /s/i.test(a) && consonant(b) && !/s/i.test(b)) continue;
+    const capital = b !== b.toLowerCase() && a === a.toLowerCase();
+    const consonants = consonant(a) && consonant(b);
+    const syllable = VOWEL.test(a) && consonant(b) && (relaxed || VOWEL.test(word[i + 1] ?? ''));
+    if (!capital && !consonants && !syllable) continue;
+    const score =
+      Math.abs(i - mid) +
+      (capital ? -3 : consonants ? 0 : 1.5) -
+      (VOWEL.test(word[i + 1] ?? '') ? 0.5 : 0);
+    if (score < bestScore) {
+      best = i;
+      bestScore = score;
+    }
+  }
+  // No clean split: take a looser one rather than let the word break anywhere.
+  return best < 0 && !relaxed ? breakPoint(word, true) : best;
+}
+
+/**
+ * `text` with a soft hyphen in each word of `BREAKABLE` letters or more, so a word too long for
+ * its card even at the smallest size breaks there (with a hyphen) instead of anywhere. Words
+ * already joined by a hyphen break at it, so they are left alone.
+ */
+export function softBreaks(text: string): string {
+  return text
+    .split(/(\s+)/)
+    .map((part) => {
+      if (part.length < BREAKABLE || /[-\s]/.test(part)) return part;
+      const at = breakPoint(part);
+      return at < 0 ? part : part.slice(0, at) + SOFT_HYPHEN + part.slice(at);
+    })
+    .join('');
 }
