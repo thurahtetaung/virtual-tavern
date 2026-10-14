@@ -197,8 +197,15 @@ for (const scheme of ['light', 'dark'] as const)
     await host.getByRole('button', { name: 'Tap to see your card' }).click();
     await host.getByRole('button', { name: 'Rules', exact: true }).click();
     const drawer = host.getByRole('dialog');
+    // The role is hidden until the viewer holds the peek.
+    const hidden = drawer.getByLabel('Your role, hidden');
+    await expect(hidden).toBeVisible();
+    await hidden.hover();
+    await host.mouse.down();
     await expect(drawer.getByRole('region', { name: 'You are' })).toBeVisible();
     await host.waitForTimeout(500);
+    await host.screenshot({ path: `${OUT}/nightfall-room-phone-${scheme}-you.png` });
+    await host.mouse.up();
     await tabs(host, `nightfall-room-phone-${scheme}`, drawer);
     await drawer.getByRole('tab', { name: 'Rules' }).click();
     await drawer.getByText('Wake order in this game').scrollIntoViewIfNeeded();
