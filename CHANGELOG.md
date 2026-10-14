@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.32.0...v0.33.0) (2026-10-14)
+
+
+### Features
+
+* **guides:** approachable, interactive guides for every game ([#134](https://github.com/thurahtetaung/virtual-tavern/issues/134)) ([41345fe](https://github.com/thurahtetaung/virtual-tavern/commit/41345fed878df0564990113644658bd407bfdeb7))
+
 ## [0.32.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.31.0...v0.32.0) (2026-10-14)
 
 
