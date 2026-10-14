@@ -325,6 +325,7 @@ export class RoomManager {
       ...this.ctx(room.record.gameId),
       by: playerId,
       isHost: room.record.hostId === playerId,
+      connected: (id) => room.connections.has(id) || botIds(room.record).has(id),
     });
     if (isGameError(result)) return fail(result.code, result.message);
     try {

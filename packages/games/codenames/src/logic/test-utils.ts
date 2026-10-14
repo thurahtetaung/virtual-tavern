@@ -17,12 +17,18 @@ export function content(
 export const HOST = 'host';
 export const NOW = 1_000_000;
 
+/** `connected` lists who is online; without it everyone is, as in the room host's absence. */
+export interface CtxOpts {
+  now?: number;
+  connected?: readonly string[];
+}
+
 export interface Harness {
   state: CodenamesState;
   /** Applies an action and returns the new state; throws on GameError. */
-  act(action: CodenamesAction, by?: string, opts?: { now?: number }): CodenamesState;
+  act(action: CodenamesAction, by?: string, opts?: CtxOpts): CodenamesState;
   /** Applies an action expecting rejection; returns the error code. */
-  reject(action: CodenamesAction, by?: string): string;
+  reject(action: CodenamesAction, by?: string, opts?: CtxOpts): string;
 }
 
 export function harness(
@@ -43,18 +49,20 @@ export function harness(
         now: opts.now ?? NOW,
         rng,
         content: provider,
+        ...(opts.connected && { connected: (id) => opts.connected!.includes(id) }),
       });
       if (result instanceof GameError) throw new Error(`${result.code}: ${result.message}`);
       h.state = result;
       return result;
     },
-    reject(action, by = HOST) {
+    reject(action, by = HOST, opts = {}) {
       const result = codenames.reduce(h.state, action, {
         by,
         isHost: by === HOST,
-        now: NOW,
+        now: opts.now ?? NOW,
         rng,
         content: provider,
+        ...(opts.connected && { connected: (id) => opts.connected!.includes(id) }),
       });
       if (!(result instanceof GameError)) throw new Error(`expected ${action.type} to be rejected`);
       return result.code;

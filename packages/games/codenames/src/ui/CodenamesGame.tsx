@@ -4,6 +4,7 @@ import {
   Countdown,
   Hint,
   Panel,
+  RefusalSlot,
   StickyBar,
   Superlatives,
   cn,
@@ -26,6 +27,8 @@ export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
 
 /** The seat controls a "Take a seat" link leads to. */
 const TEAMS_ID = 'codenames-teams';
+/** Where the engine's refusal of the host's skip shows (the turn isn't stuck yet). */
+const SKIP_ANCHOR = 'codenames-skip';
 
 export function CodenamesGame({
   view,
@@ -319,13 +322,14 @@ function InGame({
                       'Skip the current turn for everyone? Use this if nobody can play it.',
                     )
                   ) {
-                    void act({ type: 'end-turn' });
+                    void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
                   }
                 }}
               >
                 Skip stuck turn
               </Button>
             )}
+            <RefusalSlot anchor={SKIP_ANCHOR} />
             <Button
               variant="ghost"
               size="sm"

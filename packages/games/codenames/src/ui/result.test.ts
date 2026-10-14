@@ -103,7 +103,7 @@ describe('latestResult', () => {
       next: "Blue's turn now.",
     });
     const g = startedGame();
-    g.act({ type: 'end-turn' }, HOST);
+    g.act({ type: 'end-turn' }, HOST, { connected: [OP.red, OP.blue] });
     expect(lastResultFor(g)?.headline).toBe("The host skipped Red's turn.");
   });
 

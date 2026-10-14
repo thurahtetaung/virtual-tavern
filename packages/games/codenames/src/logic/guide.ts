@@ -91,7 +91,7 @@ const text: GameGuide = {
         'Only the host can start the game, shuffle the teams, change the settings and return everyone to the lobby.',
         'Shuffle teams keeps anyone who already took a Spymaster seat; it picks a random Spymaster only for a team without one, then spreads everyone else evenly (with an odd number of players, the extra one joins the team that doesn’t go first).',
         'If a team’s last Operative leaves, that team forfeits its turn. If its Spymaster leaves before giving the clue, the turn is forfeited too; once the clue is out, the Operatives play on. Any turn that starts while a seat is still empty is forfeited.',
-        'If the player whose turn it is goes offline, everyone is told, and the host gets a button to skip their turn. The host can also skip a stuck turn at any point, except their own team’s guessing turn. It shows up in the game log.',
+        'If the player whose turn it is goes offline, everyone is told, and the host gets a button to skip their turn. The host can skip a turn only when it’s stuck: nobody on that team is seated in the role the turn needs, they’re all offline, or the turn’s timer has run out (never their own team’s guessing turn). A skip shows up in the game log.',
         'Back to lobby abandons the current game: the board and the log are gone for good.',
         'Anyone without a team is watching: they see the board and the clues like an Operative, never the key, and can take a seat whenever the rules above allow it.',
       ],

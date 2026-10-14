@@ -386,16 +386,47 @@ describe('guessing', () => {
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'passed' });
   });
 
-  it('lets the host end any turn at any stage, logged as an override', () => {
+  it('lets the host end a stuck turn at any stage, logged as an override', () => {
     const h = startedGame();
-    h.act({ type: 'end-turn' }, HOST);
+    const everyone = [HOST, OP.red, SPY.blue, OP.blue];
+    const without = (id: string) => ({ connected: everyone.filter((p) => p !== id) });
+    // The host is red's spymaster and online, so red's clue turn isn't stuck.
+    expect(h.reject({ type: 'end-turn' }, HOST, { connected: everyone })).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, SPY.blue, OP.blue] });
     expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'host' });
+    expect(h.reject({ type: 'end-turn' }, HOST, without(OP.blue))).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, without(SPY.blue));
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, SPY.blue, OP.blue] });
     clue(h, 'blue', 2);
-    h.act({ type: 'end-turn' }, HOST);
+    // Blue's operative is online: the guessing turn is theirs to play.
+    expect(h.reject({ type: 'end-turn' }, HOST, without(SPY.blue))).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, without(OP.blue));
     expect(h.state.turn).toMatchObject({ team: 'red', stage: 'clue' });
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
     expect(h.state.suggestions).toEqual({});
+  });
+
+  it('lets the host skip a turn once its timer has run out, even with everyone online', () => {
+    const h = startedGame({ clueSeconds: 60, timerMode: 'soft' });
+    const everyone = { connected: [HOST, OP.red, SPY.blue, OP.blue] };
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red] });
+    const { deadline } = h.state.turn!;
+    expect(h.reject({ type: 'end-turn' }, HOST, { ...everyone, now: deadline! - 1 })).toBe(
+      'not-stuck',
+    );
+    h.act({ type: 'end-turn' }, HOST, { ...everyone, now: deadline! });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
+  });
+
+  it('lets the host skip a turn when the team has nobody in the role it needs', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW);
+    // Neither team can give a clue, so the turn waits; the host may move it on.
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, OP.blue] });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
   });
 
   it('plays a whole game through to an all-agents win', () => {
@@ -841,7 +872,7 @@ describe('round 2 rule fixes', () => {
     h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, HOST);
     h.act({ type: 'end-turn' }, HOST);
     // On the other team's turn the host can still skip a stuck turn.
-    h.act({ type: 'end-turn' }, HOST);
+    h.act({ type: 'end-turn' }, HOST, { connected: [HOST, 'p2', 'p4'] });
     expect(h.state.log.at(-1)).toMatchObject({ type: 'end-turn', team: 'blue', reason: 'host' });
   });
 });

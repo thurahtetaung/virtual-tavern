@@ -510,15 +510,34 @@ function guess(state: CodenamesState, index: number, seen: number | undefined, c
 }
 
 /**
- * Operatives may pass once they have guessed at least once. The host may end any turn at any
- * stage, which is logged as an override so a stuck turn (nobody left to act) can move on, except
- * their own team's guessing turn, where the normal rule applies to them too.
+ * Whether nobody can play the current turn: the team has nobody seated in the role this stage
+ * needs, or nobody in it is connected, or the stage's timer has run out.
+ */
+function isStuck(state: CodenamesState, turn: Turn, ctx: Ctx): boolean {
+  if (turn.deadline !== null && ctx.now >= turn.deadline) return true;
+  const role = turn.stage === 'clue' ? 'spymaster' : 'operative';
+  const connected = ctx.connected ?? (() => true);
+  return !Object.entries(state.seats).some(
+    ([id, s]) => s.team === turn.team && s.role === role && connected(id),
+  );
+}
+
+/**
+ * Operatives may pass once they have guessed at least once. The host may end a stuck turn (see
+ * `isStuck`) at any stage, logged as an override, except their own team's guessing turn, where
+ * the normal rule applies to them too.
  */
 function endTurnAction(state: CodenamesState, ctx: Ctx): Result {
   const turn = requireGuesser(state, ctx.by);
   if (!(turn instanceof GameError) && turn.guessesMade > 0)
     return endTurn(state, 'passed', ctx.now);
   if (ctx.isHost && turn instanceof GameError && state.phase === 'playing' && state.turn) {
+    if (!isStuck(state, state.turn, ctx)) {
+      return new GameError(
+        'not-stuck',
+        'Someone on that team can still play this turn, so it can’t be skipped yet.',
+      );
+    }
     return endTurn(state, 'host', ctx.now);
   }
   if (turn instanceof GameError) return turn;
