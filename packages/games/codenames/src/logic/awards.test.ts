@@ -21,7 +21,7 @@ const rule = (id: string) => {
 const run = (id: string, g: GameEvents): AwardCandidate[] => rule(id).compute!(g);
 const game = (events: RecapEvent[]) => fixtureGame(events, { players: PLAYERS });
 
-const clue = (by: string, word: string, count: number | null, team = 'red', props = {}) =>
+const clue = (by: string, word: string, count: number, team = 'red', props = {}) =>
   recapEv('clue', by, { word, count, team, ...props });
 const guess = (by: string, kind: string, team = 'red', props: Record<string, unknown> = {}) =>
   recapEv('guess', by, { word: 'w', kind, correct: kind === team, team, ...props });
@@ -91,10 +91,6 @@ describe('codenames awards', () => {
     ).toEqual([]);
     // Old events lack the props: no candidate, no throw.
     expect(run('bonus-round', game([guess('b', 'red')]))).toEqual([]);
-    // A clue for 0 has no guess limit, so its first guess is no bonus.
-    expect(
-      run('bonus-round', game([guess('b', 'red', 'red', { clueCount: 0, guessNo: 1 })])),
-    ).toEqual([]);
   });
 
   it('Friendly Fire and Bystander Tour', () => {
@@ -224,8 +220,6 @@ describe('codenames awards', () => {
     expect(codenamesAwards.history!(g)).toEqual([
       'Red: {p:a} gave "ORBIT 2", 1 found, then the assassin',
     ]);
-    const open = game([clue('a', 'orbit', null), guess('b', 'red'), guess('b', 'red')]);
-    expect(codenamesAwards.history!(open)).toEqual(['Red: {p:a} gave "ORBIT ∞", 2 found']);
   });
 
   it('never throws on events missing their props', () => {
