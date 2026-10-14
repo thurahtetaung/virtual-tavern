@@ -219,9 +219,6 @@ describe('writing lies', () => {
 
   it('rejects the real answer in any case, plural, punctuation or accepted alternate', () => {
     const h = startedGame(FOUR, { provider: content([riddle]) });
-    // The first try is remembered rather than refused (see the next test); every later one is.
-    h.act({ type: 'lie', text: 'Wooden spoon' }, 'p2');
-    expect(round(h).lies.p2).toBeUndefined();
     const texts = ['wooden spoon', 'WOODEN SPOONS', ' Wooden  spoon! ', 'ladles', 'Ládle'];
     for (const text of [
       ...texts,
@@ -232,9 +229,7 @@ describe('writing lies', () => {
     ]) {
       const err = h.reject({ type: 'lie', text }, 'p2');
       expect(err.code, text).toBe('is-the-truth');
-      expect(err.message).toBe(
-        'That’s the real answer — write a lie! And your vote for it won’t score this round.',
-      );
+      expect(err.message).toBe('That’s the real answer — write a lie!');
     }
     h.act({ type: 'lie', text: 'Wooden fork' }, 'p2');
     expect(lieProblem('spoon', riddle.questions[0])).toBeNull();
@@ -257,16 +252,14 @@ describe('writing lies', () => {
     expect(lieProblem('Woodenspoon', riddle.questions[0])).toBeNull();
   });
 
-  it('remembers a player who typed the real answer: their vote for it scores nothing', () => {
+  it('refuses the real answer every time, with no penalty for finding it', () => {
     const h = startedGame(FOUR, { provider: content([riddle]) });
     const before = JSON.stringify(hoodwink.view(h.state, 'p3'));
-    h.act({ type: 'lie', text: 'wooden-spoon' }, 'p2');
-    expect(round(h).typedTruth).toEqual(['p2']);
+    expect(h.reject({ type: 'lie', text: 'wooden-spoon' }, 'p2').code).toBe('is-the-truth');
+    expect(h.reject({ type: 'lie', text: 'wooden-spoon' }, 'p2').code).toBe('is-the-truth');
     expect(round(h).lies.p2).toBeUndefined();
-    expect(hoodwink.view(h.state, 'p2').round!.typedTruth).toBe(true);
     // Nobody else learns anything.
     expect(JSON.stringify(hoodwink.view(h.state, 'p3'))).toBe(before);
-    expect(hoodwink.view(h.state, 'p2').round!.noTruthPoints).toBeNull();
     for (const [id, text] of [
       ['p2', 'Wooden fork'],
       ['p3', 'Socks'],
@@ -277,9 +270,8 @@ describe('writing lies', () => {
     }
     for (const id of round(h).voters) h.act({ type: 'vote', option: truthIndex(h) }, id);
     expect(round(h).stage).toBe('reveal');
-    expect(round(h).points).toMatchObject({ p2: 0, p3: 1000, p4: 1000, [HOST]: 1000 });
-    expect(h.state.scores.p2).toMatchObject({ score: 0, truths: 0 });
-    expect(hoodwink.view(h.state, 'p3').round!.noTruthPoints).toEqual(['p2']);
+    expect(round(h).points).toMatchObject({ p2: 1000, p3: 1000, p4: 1000, [HOST]: 1000 });
+    expect(h.state.scores.p2).toMatchObject({ score: 1000, truths: 1 });
   });
 
   it('only lets this round’s players write', () => {

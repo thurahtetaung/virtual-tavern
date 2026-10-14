@@ -76,8 +76,6 @@ export interface Round {
   fakeShown?: PlayerId[];
   /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
   filled?: PlayerId[];
-  /** Players who typed the real answer as a lie this round: finding the truth scores them nothing. */
-  typedTruth?: PlayerId[];
   /** The strict vote timer ended the vote before everyone had voted. */
   voteTimedOut?: boolean;
   /** The shuffled board, built when voting starts. */
@@ -204,10 +202,6 @@ export interface RoundView {
   canLieForMe: boolean;
   /** Another player has written the same lie as the viewer, so it will be shared. */
   myLieShared: boolean;
-  /** The viewer typed the real answer as a lie this round, so their vote for it won't score. */
-  typedTruth: boolean;
-  /** At the reveal: who typed the real answer this round (their truth vote scored nothing). */
-  noTruthPoints: PlayerId[] | null;
   /** The board: empty while lies are being written. */
   options: OptionView[];
   voters: PlayerId[];

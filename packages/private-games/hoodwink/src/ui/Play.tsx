@@ -124,11 +124,6 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           </span>
         )}
       </label>
-      {round.typedTruth && (
-        <p data-testid="typed-truth" className="text-sm text-amber-800 dark:text-amber-300">
-          🤫 You typed the real answer, so your vote for it won’t score this round. Write a lie!
-        </p>
-      )}
       {round.myLieAuto && unchanged && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
           🎲 Picked for you: it scores half. Type your own to replace it.
