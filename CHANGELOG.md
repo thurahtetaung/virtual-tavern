@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.7...v0.35.8) (2026-10-14)
+
+
+### Bug Fixes
+
+* **masquerade,nightfall,inquest:** keep secrets behind a peek and make the default screen role-neutral ([#162](https://github.com/thurahtetaung/virtual-tavern/issues/162)) ([68f170e](https://github.com/thurahtetaung/virtual-tavern/commit/68f170ef98683637d07a28cc486671a78bb61abf))
+
 ## [0.35.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.6...v0.35.7) (2026-10-14)
 
 
