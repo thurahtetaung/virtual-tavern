@@ -1,5 +1,23 @@
 import { type Page, expect } from '@playwright/test';
 
+/**
+ * Opens a section of the day. On a phone it's a tab; from `lg` up every section shows at once,
+ * with what you learned behind its Show button (hidden again on the way back to the table).
+ */
+export async function dayTab(p: Page, name: 'Table' | 'Learned' | 'Roles') {
+  if ((p.viewportSize()?.width ?? 0) < 1024) {
+    await p.getByRole('tab', { name }).click();
+    return;
+  }
+  if (name === 'Roles') return;
+  const show = name === 'Learned';
+  const toggle = p.getByRole('button', { name: `${show ? 'Show' : 'Hide'} what you learned` });
+  if (await toggle.count()) await toggle.click();
+  await expect(
+    p.getByRole('button', { name: `${show ? 'Hide' : 'Show'} what you learned` }),
+  ).toBeVisible();
+}
+
 /** What one player did and learned at night. */
 export interface NightLog {
   role: string;
@@ -111,7 +129,7 @@ export async function playNight(
  * busy machine can miss it on screen; the Learned list keeps every one.
  */
 export async function learned(p: Page): Promise<string[]> {
-  await p.getByRole('tab', { name: 'Learned' }).click();
+  await dayTab(p, 'Learned');
   // The tab always opens with where you stand; an empty list isn't exposed as a list at all, so
   // it reads as nothing learned.
   await expect(p.getByRole('region', { name: 'Where you stand now' })).toBeVisible();
@@ -119,7 +137,7 @@ export async function learned(p: Page): Promise<string[]> {
     .getByRole('list', { name: 'What you learned tonight' })
     .getByRole('listitem')
     .allTextContents();
-  await p.getByRole('tab', { name: 'Table' }).click();
+  await dayTab(p, 'Table');
   return items;
 }
 

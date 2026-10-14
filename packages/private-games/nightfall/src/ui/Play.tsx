@@ -1,6 +1,16 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Badge, Button, Countdown, Hint, Panel, Superlatives, cn, useSecondsLeft } from '@vt/ui';
-import { type ReactNode, useEffect, useState } from 'react';
+import {
+  Badge,
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  Peek as SharedPeek,
+  Superlatives,
+  cn,
+  useSecondsLeft,
+} from '@vt/ui';
+import { type ReactNode, useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { explainResult } from '../logic/explain.ts';
 import { REPEAT, STEPS, buildNightPlan, stepDef } from '../logic/plan.ts';
 import { recommended } from '../logic/presets.ts';
@@ -1099,6 +1109,67 @@ export function Night({
 
 type DayTab = 'table' | 'learned' | 'roles';
 
+const WIDE = '(min-width: 1024px)';
+
+/** Whether the screen is `lg` or wider, where the day shows every section at once. */
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (changed) => {
+      if (typeof window.matchMedia !== 'function') return () => {};
+      const query = window.matchMedia(WIDE);
+      query.addEventListener('change', changed);
+      return () => query.removeEventListener('change', changed);
+    },
+    () => typeof window.matchMedia === 'function' && window.matchMedia(WIDE).matches,
+    () => false,
+  );
+}
+
+/**
+ * The day's sections on a phone: a bottom tab bar like the other games'. From `lg` up every
+ * section shows at once, so the bar hides.
+ */
+function DayTabBar({
+  tabs,
+  tab,
+  onChange,
+  idOf,
+}: {
+  tabs: { id: DayTab; icon: string; label: string }[];
+  tab: DayTab;
+  onChange: (t: DayTab) => void;
+  idOf: (t: DayTab) => string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="The day"
+      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden dark:border-stone-800 dark:bg-stone-950/95"
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          id={idOf(t.id)}
+          aria-selected={tab === t.id}
+          aria-controls={`${idOf(t.id)}-panel`}
+          onClick={() => onChange(t.id)}
+          className={cn(
+            'flex min-h-11 flex-col items-center justify-center gap-0.5 py-1.5 text-xs font-semibold',
+            tab === t.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+          )}
+        >
+          <span aria-hidden className="text-lg leading-none">
+            {t.icon}
+          </span>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** What a ripple's rule means for the players it names, for the table. */
 const RULE_BADGE = {
   'i-am-alien': ['👽', 'may only say “I am an alien”'],
@@ -1245,60 +1316,60 @@ export function Day({
 }) {
   const [tab, setTab] = useState<DayTab>('table');
   const [hand, setHand] = useState<1 | 2>(1);
+  const wide = useWide();
   const voting = view.phase === 'vote';
   const me = view.me?.id ?? '';
   const playing = view.myRole !== null;
   const deadline = voting ? (view.vote?.deadline ?? null) : (view.day?.deadline ?? null);
   const myArtifact = view.notes.find((n) => n.kind === 'artifact');
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const tabs: { id: DayTab; label: string }[] = [
-    { id: 'table', label: voting ? 'Vote' : 'Table' },
-    { id: 'learned', label: 'Learned' },
-    { id: 'roles', label: 'Roles' },
+  const tabs: { id: DayTab; icon: string; label: string }[] = [
+    voting
+      ? { id: 'table', icon: '🗳️', label: 'Vote' }
+      : { id: 'table', icon: '🪑', label: 'Table' },
+    { id: 'learned', icon: '📝', label: 'Learned' },
+    { id: 'roles', icon: '🃏', label: 'Roles' },
   ];
+  const tabsId = useId();
+  const idOf = (t: DayTab) => `${tabsId}-${t}`;
+  // On a phone only the chosen tab's panel shows; from `lg` up they all do.
+  const panel = (t: DayTab) => ({
+    role: 'tabpanel',
+    id: `${idOf(t)}-panel`,
+    'aria-labelledby': idOf(t),
+    className: tab === t ? undefined : 'hidden lg:block',
+  });
   return (
-    <div className="mx-auto max-w-3xl space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="shrink-0 text-sm font-semibold whitespace-nowrap">
-          {voting ? '🗳️ The vote' : '☀️ Day'}
-        </span>
-        <Countdown
-          deadline={deadline}
-          clockOffset={room.clockOffset}
-          label={voting ? 'to vote' : 'to talk'}
-          atZero={
-            voting
-              ? 'then the votes are counted (no vote counts for nobody)'
-              : 'then the vote starts'
+    <div className="mx-auto max-w-3xl space-y-3 pb-20 lg:grid lg:max-w-6xl lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0 lg:pb-0">
+      <div className="space-y-3 lg:col-span-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0 text-sm font-semibold whitespace-nowrap">
+            {voting ? '🗳️ The vote' : '☀️ Day'}
+          </span>
+          <Countdown
+            deadline={deadline}
+            clockOffset={room.clockOffset}
+            label={voting ? 'to vote' : 'to talk'}
+            atZero={
+              voting
+                ? 'then the votes are counted (no vote counts for nobody)'
+                : 'then the vote starts'
+            }
+          />
+        </div>
+        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+        <Narration
+          lines={lines}
+          deck={deck}
+          awake
+          readyEarly={
+            (view.day?.readyCount ?? 0) >= (view.table?.filter((p) => !p.left).length ?? 0)
           }
         />
+        <Nudge view={view} room={room} />
       </div>
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <Narration
-        lines={lines}
-        deck={deck}
-        awake
-        readyEarly={(view.day?.readyCount ?? 0) >= (view.table?.filter((p) => !p.left).length ?? 0)}
-      />
-      <Nudge view={view} room={room} />
-      <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            type="button"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'h-9 flex-1 rounded-lg text-sm font-semibold',
-              tab === t.id && 'bg-white shadow dark:bg-stone-950',
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {tab === 'table' && (
+      <DayTabBar tabs={tabs} tab={tab} onChange={setTab} idOf={idOf} />
+      <div {...panel('table')}>
         <Panel className="space-y-3">
           {playing && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -1409,18 +1480,34 @@ export function Day({
             </div>
           )}
         </Panel>
-      )}
-      {tab === 'learned' && (
-        <Panel>
-          <Learned view={view} deck={deck} me={me} />
-        </Panel>
-      )}
-      {tab === 'roles' && (
-        <Panel>
-          <RolesInPlay view={view} deck={deck} />
-        </Panel>
-      )}
-      <div className="flex justify-center">{sound}</div>
+      </div>
+      <div className="space-y-3">
+        <div {...panel('learned')}>
+          {/* What you learned is a secret: on a phone it's only rendered with its tab open; from
+              `lg` up it sits beside the table behind a peek, so the default screen stays neutral. */}
+          {wide ? (
+            <Panel>
+              <SharedPeek what="what you learned">
+                <Learned view={view} deck={deck} me={me} />
+              </SharedPeek>
+            </Panel>
+          ) : (
+            tab === 'learned' && (
+              <Panel>
+                <Learned view={view} deck={deck} me={me} />
+              </Panel>
+            )
+          )}
+        </div>
+        <div {...panel('roles')}>
+          <Panel>
+            {/* On a phone the tab names it; beside the table it needs a heading. */}
+            <h3 className="mb-2 hidden text-sm font-semibold lg:block">🃏 Roles in play</h3>
+            <RolesInPlay view={view} deck={deck} />
+          </Panel>
+        </div>
+      </div>
+      <div className="flex justify-center lg:col-span-2">{sound}</div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { getReady, playNight, setRoles, vote } from './nightfall-play.ts';
+import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
 import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
@@ -156,16 +156,16 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     // The day shows what you learned.
     const seer = roles.indexOf('seer');
     if (seer >= 0 && nights[seer]!.results.length) {
-      await players[seer]!.getByRole('tab', { name: 'Learned' }).click();
+      await dayTab(players[seer]!, 'Learned');
       await expect(
         players[seer]!.getByRole('list', { name: 'What you learned tonight' }),
       ).toContainText('You saw');
       // Learned opens with where you stand now.
       await expect(players[seer]!.getByTestId('standing')).toContainText('Where you stand now');
       await expect(players[seer]!.getByTestId('standing')).toContainText('Started as');
-      await players[seer]!.getByRole('tab', { name: 'Table' }).click();
+      await dayTab(players[seer]!, 'Table');
     }
-    await host.getByRole('tab', { name: 'Roles' }).click();
+    await dayTab(host, 'Roles');
     await expect(host.getByRole('list', { name: 'Roles in play' }).getByRole('button')).toHaveCount(
       7,
     );
@@ -178,7 +178,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByRole('list', { name: 'Roles in play' })).not.toContainText('Vampire');
     await expect(host.getByTestId('doppel-rewakes')).toContainText('Insomniac');
     await expect(host.getByTestId('marks-in-play')).toHaveCount(0);
-    await host.getByRole('tab', { name: 'Table' }).click();
+    await dayTab(host, 'Table');
 
     // The day names who it is waiting for, and the host may open the vote early.
     await host.getByRole('button', { name: 'Ready to vote' }).click();

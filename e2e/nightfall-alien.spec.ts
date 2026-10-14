@@ -1,6 +1,6 @@
 import { type Browser, type Locator, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { getReady, learned, merge, peek, setRoles } from './nightfall-play.ts';
+import { dayTab, getReady, learned, merge, peek, setRoles } from './nightfall-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -236,10 +236,10 @@ test('aliens among werewolves: instructions, the Cow, numbers, a ripple and an e
     await expect(p.getByTestId('player-number')).toHaveCount(5);
   }
   for (const p of players) {
-    await p.getByRole('tab', { name: 'Learned' }).click();
+    await dayTab(p, 'Learned');
     await expect(p.getByTestId('announcement')).toHaveCount(1);
     await expect(p.getByTestId('announcement')).toContainText('one minute before the vote');
-    await p.getByRole('tab', { name: 'Table' }).click();
+    await dayTab(p, 'Table');
   }
   // Centre cards the Exposer turned face up are there for everyone.
   const exposer = roles.indexOf('exposer');

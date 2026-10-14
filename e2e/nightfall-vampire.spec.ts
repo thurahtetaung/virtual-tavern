@@ -1,6 +1,14 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
-import { VAMPIRES, VILLAGE, getReady, peek, playMarkedNight, setRoles } from './nightfall-play.ts';
+import {
+  VAMPIRES,
+  VILLAGE,
+  dayTab,
+  getReady,
+  peek,
+  playMarkedNight,
+  setRoles,
+} from './nightfall-play.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -139,24 +147,24 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   await players[marked]!.getByTestId('my-mark').getByRole('button').click();
   await expect(players[marked]!.getByRole('dialog')).toContainText('Vampire');
   await players[marked]!.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
-  await players[cupid]!.getByRole('tab', { name: 'Learned' }).click();
+  await dayTab(players[cupid]!, 'Learned');
   await expect(
     players[cupid]!.getByRole('list', { name: 'What you learned tonight' }),
   ).toContainText(`Your love: ${names[W]}`);
   // Where Cupid stands now: in love, which the recap spells out.
   await expect(players[cupid]!.getByTestId('standing')).toContainText('You are in love');
-  await players[cupid]!.getByRole('tab', { name: 'Table' }).click();
+  await dayTab(players[cupid]!, 'Table');
   // The marked player's recap puts the Mark of the Vampire first.
-  await players[marked]!.getByRole('tab', { name: 'Learned' }).click();
+  await dayTab(players[marked]!, 'Learned');
   await expect(players[marked]!.getByTestId('standing')).toContainText(
     'you are a Vampire, whatever your card',
   );
-  await players[marked]!.getByRole('tab', { name: 'Table' }).click();
+  await dayTab(players[marked]!, 'Table');
   // The Roles tab lists the Marks that can turn up, and words the village's win for both sides.
-  await host.getByRole('tab', { name: 'Roles' }).click();
+  await dayTab(host, 'Roles');
   await expect(host.getByTestId('marks-in-play').getByRole('button')).toHaveCount(4);
   await expect(host.getByRole('list', { name: 'Roles in play' })).toContainText('epic battle');
-  await host.getByRole('tab', { name: 'Table' }).click();
+  await dayTab(host, 'Table');
 
   // Everyone votes for the werewolf, who votes for a vampire: first and second place.
   for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
