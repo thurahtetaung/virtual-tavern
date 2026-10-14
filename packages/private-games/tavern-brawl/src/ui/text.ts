@@ -1,6 +1,5 @@
 import { CARDS } from '../logic/cards.ts';
-import { POWER_TEXT } from '../logic/guide.ts';
-import type { CardDef, ChoiceView, GameView, LogEntry, TavernBrawlView } from '../logic/types.ts';
+import type { ChoiceView, GameView, LogEntry, TavernBrawlView } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 
 export type NameOf = (id: string) => string;
@@ -150,38 +149,6 @@ export function describe(e: LogEntry, name: NameOf, art: Art): string | null {
       if (e.winners.length === 0) return 'Everyone is out: a tie!';
       return `🏆 ${e.winners.map(name).join(' & ')} ${e.winners.length === 1 && name(e.winners[0]!) !== 'You' ? 'wins' : 'win'}!`;
   }
-}
-
-/** What a card does, in our own words, for the zoom view. */
-export function rulesLine(def: CardDef): string {
-  const parts: string[] = [];
-  for (const step of def.steps) {
-    switch (step.k) {
-      case 'atk':
-        parts.push(`deal ${step.n} damage to one opponent`);
-        break;
-      case 'heal':
-        parts.push(`heal ${step.n}`);
-        break;
-      case 'play':
-        parts.push(step.n > 1 ? `play ${step.n} more cards` : 'play another card');
-        break;
-      case 'draw':
-        parts.push(`draw ${plural(step.n, 'card')}`);
-        break;
-      case 'paw':
-        parts.push('in a Form: heal 1 more (bear) or deal 1 more damage (wolf)');
-        break;
-      case 'power':
-        parts.push(
-          POWER_TEXT[def.effect!].replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase()),
-        );
-        break;
-    }
-  }
-  if (def.shield > 0) parts.push(`then it stays in front of you as a ${def.shield}-point shield`);
-  const line = parts.join(', then ');
-  return line ? line[0]!.toUpperCase() + line.slice(1) + '.' : 'No effect.';
 }
 
 /** The question the open choice asks the chooser. */

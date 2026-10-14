@@ -45,4 +45,17 @@ describe('game guides', () => {
     for (const preset of game.guide.presets ?? [])
       for (const id of Object.keys(preset.context.inGame ?? {})) expect(tiles, id).toContain(id);
   });
+
+  it.each(games)('%s links its tiles to catalog groups that exist', (_id, game) => {
+    const groups = game.guide.catalog?.groups.map((g) => g.id) ?? [];
+    expect(new Set(groups).size).toBe(groups.length);
+    for (const g of game.guide.catalog?.groups ?? []) {
+      expect(g.items.length, g.id).toBeGreaterThan(0);
+      const cards = g.items.map((c) => c.id);
+      expect(new Set(cards).size, g.id).toBe(cards.length);
+      for (const c of g.items) expect(c.text, c.id).toMatch(/\.$/);
+    }
+    for (const t of game.guide.tiles?.items ?? [])
+      if (t.catalog) expect(groups, t.id).toContain(t.catalog);
+  });
 });

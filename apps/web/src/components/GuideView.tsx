@@ -1,5 +1,7 @@
 import {
   type GameGuide,
+  type GuideCard,
+  type GuideCatalogGroup,
   type GuideContext,
   type GuideLevel,
   type GuideList,
@@ -115,7 +117,7 @@ export interface GuideFocus {
   n: number;
 }
 
-type Tab = 'learn' | 'tiles' | 'rules' | 'ref';
+type Tab = 'learn' | 'tiles' | 'cards' | 'rules' | 'ref';
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 const sectionWords = (s: GuideSection) =>
@@ -149,6 +151,9 @@ export function GuideView({
 }) {
   const [tab, setTab] = useState<Tab>('learn');
   const [sheet, setSheet] = useState<GuideTile | null>(null);
+  const [card, setCard] = useState<GuideCard | null>(null);
+  // A tile's sheet asked for its cards: the catalog opens at that group.
+  const [jump, setJump] = useState<{ id: string; n: number } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
   const ctx = context ?? guide.presets?.find((p) => p.id === preset)?.context;
   const tabsId = useId();
@@ -172,6 +177,7 @@ export function GuideView({
   const tabs: [Tab, string][] = [
     ['learn', 'Learn'],
     ...(guide.tiles?.items.length ? [['tiles', guide.tiles.label] as [Tab, string]] : []),
+    ...(guide.catalog?.groups.length ? [['cards', guide.catalog.label] as [Tab, string]] : []),
     ['rules', 'Rules'],
     ['ref', 'Cheat sheet'],
   ];
@@ -218,7 +224,7 @@ export function GuideView({
         {!context &&
           guide.presets &&
           guide.presets.length > 0 &&
-          (tab === 'tiles' || tab === 'rules') && (
+          (tab === 'tiles' || tab === 'cards' || tab === 'rules') && (
             <PresetPicker
               presets={guide.presets}
               value={preset}
@@ -244,12 +250,38 @@ export function GuideView({
             open={(t) => setSheet(t)}
           />
         )}
+        {tab === 'cards' && guide.catalog && (
+          <Catalog
+            key={`${preset}-${Object.keys(ctx?.inGame ?? {}).length > 0}-${jump?.n ?? 0}`}
+            guide={guide}
+            ctx={ctx}
+            jump={jump?.id}
+            open={setCard}
+          />
+        )}
         {tab === 'rules' && <Rules guide={guide} ctx={ctx} inRoom={inRoom} />}
         {tab === 'ref' && <Reference guide={guide} />}
       </div>
 
       <Modal open={sheet !== null} onClose={() => setSheet(null)} title={sheet?.name ?? ''}>
-        {sheet && <TileSheet tile={sheet} ctx={ctx} />}
+        {sheet && (
+          <TileSheet
+            tile={sheet}
+            ctx={ctx}
+            cards={
+              sheet.catalog && guide.catalog?.groups.some((g) => g.id === sheet.catalog)
+                ? () => {
+                    setJump({ id: sheet.catalog!, n: (jump?.n ?? 0) + 1 });
+                    setSheet(null);
+                    setTab('cards');
+                  }
+                : undefined
+            }
+          />
+        )}
+      </Modal>
+      <Modal open={card !== null} onClose={() => setCard(null)} title={card?.name ?? ''}>
+        {card && <CardSheet card={card} />}
       </Modal>
     </article>
   );
@@ -370,13 +402,27 @@ function Learn({
   const more = (
     <nav
       aria-label="More of the guide"
-      className={cn('grid gap-2 sm:grid-cols-3', !compact && 'lg:grid-cols-1')}
+      className={cn(
+        'grid gap-2',
+        guide.catalog?.groups.length ? 'sm:grid-cols-2' : 'sm:grid-cols-3',
+        !compact && 'lg:grid-cols-1',
+      )}
     >
       {tiles && tiles.items.length > 0 && (
         <MoreButton
           title={tiles.label}
           sub={tiles.blurb ?? `${tiles.items.length} to browse`}
           onClick={() => go('tiles')}
+        />
+      )}
+      {guide.catalog && guide.catalog.groups.length > 0 && (
+        <MoreButton
+          title={guide.catalog.label}
+          sub={
+            guide.catalog.blurb ??
+            `${guide.catalog.groups.reduce((n, g) => n + g.items.length, 0)} to browse`
+          }
+          onClick={() => go('cards')}
         />
       )}
       <MoreButton
@@ -770,7 +816,16 @@ function TileIcon({ icon }: { icon: string | undefined }) {
   );
 }
 
-function TileSheet({ tile, ctx }: { tile: GuideTile; ctx: GuideContext | undefined }) {
+function TileSheet({
+  tile,
+  ctx,
+  cards,
+}: {
+  tile: GuideTile;
+  ctx: GuideContext | undefined;
+  /** Opens the catalog at this tile's cards. */
+  cards: (() => void) | undefined;
+}) {
   const art = tile.card ?? tile.art;
   const off = !isOn(tile.option, ctx);
   return (
@@ -778,7 +833,11 @@ function TileSheet({ tile, ctx }: { tile: GuideTile; ctx: GuideContext | undefin
       {art ? (
         <Art
           src={art}
-          className="mx-auto max-h-[46dvh] w-auto max-w-full rounded-xl bg-page object-contain"
+          className={cn(
+            'mx-auto w-auto max-w-full rounded-xl bg-page object-contain',
+            // Abilities to read: a smaller picture keeps them in view on a phone.
+            tile.highlights ? 'max-h-[26dvh]' : 'max-h-[46dvh]',
+          )}
           fallback={
             <p aria-hidden className="text-center text-6xl">
               {tile.icon ?? '🎴'}
@@ -802,6 +861,35 @@ function TileSheet({ tile, ctx }: { tile: GuideTile; ctx: GuideContext | undefin
       )}
       <p>{tile.text}</p>
       {tile.win && <p className="rounded-xl bg-accent-soft px-3 py-2">🏆 {tile.win}</p>}
+      {tile.highlights && tile.highlights.items.length > 0 && (
+        <section
+          aria-label={tile.highlights.title}
+          className="rounded-xl bg-accent-soft/60 p-3 ring-1 ring-accent-line"
+        >
+          <p className={EYEBROW}>{tile.highlights.title}</p>
+          <ul className="mt-1 space-y-2">
+            {tile.highlights.items.map((h) => (
+              <li key={h.name} className="flex gap-2">
+                {h.art && (
+                  <Art
+                    src={h.art}
+                    className="aspect-[400/630] w-12 shrink-0 rounded-md bg-page object-cover"
+                  />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-bold">{h.name}</span>
+                  <span className="block text-sm">{h.text}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {cards && (
+        <Button variant="secondary" size="sm" className="min-h-11 w-full" onClick={cards}>
+          See every card, with what it does →
+        </Button>
+      )}
       {tile.more && (
         <div>
           <p className="font-semibold">{tile.more.title}</p>
@@ -812,6 +900,241 @@ function TileSheet({ tile, ctx }: { tile: GuideTile; ctx: GuideContext | undefin
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The catalog: cards grouped under their hero (or faction), each group folding away, with chips
+ * to jump to a group and the same filters as the tiles.
+ */
+function Catalog({
+  guide,
+  ctx,
+  jump,
+  open,
+}: {
+  guide: GameGuide;
+  ctx: GuideContext | undefined;
+  jump: string | undefined;
+  open: (c: GuideCard) => void;
+}) {
+  const { groups, intro } = guide.catalog!;
+  const inGame = ctx?.inGame && Object.keys(ctx.inGame).length ? ctx.inGame : undefined;
+  const sets = useMemo(
+    () => [...new Set(groups.map((g) => g.group).filter((g): g is string => !!g))],
+    [groups],
+  );
+  const [filter, setFilter] = useState<string>(
+    inGame && (!jump || inGame[jump] !== undefined) ? 'in-game' : 'all',
+  );
+  const [term, setTerm] = useState('');
+  const shown = groups.filter(
+    (g) =>
+      filter === 'all' ||
+      (filter === 'in-game' && inGame?.[g.id] !== undefined) ||
+      g.group === filter,
+  );
+  const first = jump ?? ctx?.you?.tile ?? shown[0]?.id;
+  const [opened, setOpened] = useState<Set<string>>(() => new Set(first ? [first] : []));
+  const anchor = (id: string) => `guide-cards-${id}`;
+  // Opened from a tile: start at its group.
+  useEffect(() => {
+    if (jump) document.getElementById(anchor(jump))?.scrollIntoView({ block: 'start' });
+  }, [jump]);
+  const goTo = (id: string) => {
+    setOpened((o) => new Set(o).add(id));
+    requestAnimationFrame(() => {
+      document.getElementById(anchor(id))?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+  };
+  const needle = term.trim().toLowerCase();
+  const matches = (c: GuideCard) => !needle || `${c.name} ${c.text}`.toLowerCase().includes(needle);
+  const total = groups.reduce((n, g) => n + g.items.length, 0);
+  return (
+    <div>
+      {intro && <p className="mb-2 text-sm text-ink-muted">{intro}</p>}
+      <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter">
+        {inGame && (
+          <Chip on={filter === 'in-game'} onClick={() => setFilter('in-game')}>
+            In this game
+          </Chip>
+        )}
+        <Chip on={filter === 'all'} onClick={() => setFilter('all')}>
+          All {groups.length}
+        </Chip>
+        {sets.length > 1 &&
+          sets.map((g) => (
+            <Chip key={g} on={filter === g} onClick={() => setFilter(g)}>
+              {g}
+            </Chip>
+          ))}
+        {total > 20 && (
+          <input
+            type="search"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Search cards…"
+            aria-label="Search cards"
+            className="min-h-11 min-w-36 flex-1 rounded-full bg-card px-3 text-sm ring-1 ring-line"
+          />
+        )}
+      </div>
+      {shown.length > 1 && (
+        <nav
+          aria-label="Jump to"
+          className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
+        >
+          {shown.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              onClick={() => goTo(g.id)}
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-card py-1 pr-3 pl-1 text-sm font-semibold ring-1 ring-line hover:ring-accent"
+            >
+              <GroupFace group={g} size="size-8" />
+              <span className="max-w-32 truncate">{g.name}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+      {shown.length === 0 && <p className="text-sm text-ink-muted">Nothing matches.</p>}
+      <div className="space-y-2">
+        {shown.map((g) => {
+          const items = g.items.filter(matches);
+          if (needle && !items.length) return null;
+          const isOpen = !!needle || opened.has(g.id);
+          return (
+            <details
+              key={g.id}
+              id={anchor(g.id)}
+              open={isOpen}
+              onToggle={(e) => {
+                const now = e.currentTarget.open;
+                if (now === isOpen || needle) return;
+                setOpened((o) => {
+                  const next = new Set(o);
+                  if (now) next.add(g.id);
+                  else next.delete(g.id);
+                  return next;
+                });
+              }}
+              className="group scroll-mt-28 rounded-2xl bg-card ring-1 ring-line"
+              data-testid="guide-card-group"
+            >
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 px-3 py-2 [&::-webkit-details-marker]:hidden">
+                <GroupFace group={g} size="size-11" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold">{g.name}</span>
+                  {g.meta && <span className="block text-xs text-ink-muted">{g.meta}</span>}
+                </span>
+                <span
+                  aria-hidden
+                  className="text-ink-muted transition-transform group-open:rotate-90"
+                >
+                  ▸
+                </span>
+              </summary>
+              <ul className="grid gap-1.5 px-2 pb-2 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => open(c)}
+                      aria-label={`${c.name}: ${c.text}`}
+                      className={cn(
+                        'flex h-full w-full gap-2.5 rounded-xl bg-page p-1.5 text-left ring-1 ring-line hover:ring-accent',
+                        c.mark && 'ring-accent-line',
+                      )}
+                    >
+                      <span className="flex aspect-[400/630] w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-panel">
+                        {c.art ? (
+                          <Art
+                            src={c.art}
+                            className="h-full w-full object-cover"
+                            fallback={<CardIcon card={c} />}
+                          />
+                        ) : (
+                          <CardIcon card={c} />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1 py-0.5">
+                        <span className="block text-sm leading-tight font-bold">
+                          {c.name}
+                          {c.count !== undefined && (
+                            <span className="font-semibold text-ink-muted"> ×{c.count}</span>
+                          )}
+                        </span>
+                        {c.mark && (
+                          <span className="mt-0.5 inline-block rounded-full bg-accent-soft px-2 text-xs font-bold text-accent-text ring-1 ring-accent-line">
+                            {c.mark.label}
+                          </span>
+                        )}
+                        <span className="mt-0.5 block text-sm leading-snug">{c.text}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GroupFace({ group, size }: { group: GuideCatalogGroup; size: string }) {
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-page ring-1 ring-line',
+        size,
+      )}
+    >
+      {group.art ? (
+        <Art
+          src={group.art}
+          focus={group.focus}
+          className="h-full w-full object-cover"
+          fallback={<span aria-hidden>{group.icon ?? '🎴'}</span>}
+        />
+      ) : (
+        <span aria-hidden>{group.icon ?? '🎴'}</span>
+      )}
+    </span>
+  );
+}
+
+function CardIcon({ card }: { card: GuideCard }) {
+  return (
+    <span aria-hidden className="px-0.5 text-center text-xs leading-tight font-bold">
+      {card.symbols || '🎴'}
+    </span>
+  );
+}
+
+function CardSheet({ card }: { card: GuideCard }) {
+  const art = card.card ?? card.art;
+  return (
+    <div className="space-y-2" data-testid="guide-card-sheet">
+      {art && (
+        <Art
+          src={art}
+          className="mx-auto max-h-[52dvh] w-auto max-w-full rounded-xl bg-page object-contain"
+        />
+      )}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+        {card.count !== undefined && <span>×{card.count} in the deck</span>}
+        {card.symbols && <span className="font-semibold text-ink">{card.symbols}</span>}
+        {card.mark && (
+          <span className="rounded-full bg-accent-soft px-2 font-bold text-accent-text ring-1 ring-accent-line">
+            {card.mark.label}
+          </span>
+        )}
+      </p>
+      <p className="text-lg">{card.text}</p>
+      {card.mark?.text && <p className="text-sm text-ink-muted">{card.mark.text}</p>}
     </div>
   );
 }

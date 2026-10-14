@@ -10,7 +10,9 @@ import {
   TimerSettings,
   cn,
 } from '@vt/ui';
+import { useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
+import { powersOf } from '../logic/guide.ts';
 import {
   type HeroId,
   MAX_PLAYERS,
@@ -22,6 +24,7 @@ import {
   type TavernBrawlView,
 } from '../logic/types.ts';
 import { type Art, heroVars } from './assets.ts';
+import { HeroSheet } from './HeroSheet.tsx';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -156,6 +159,8 @@ export function Lobby({
   const canPick = !!me?.playing;
   const pick = (hero: HeroId | 'random' | null) =>
     void act({ type: 'pick-hero', hero }, { anchor: 'tb-heroes' });
+  const [details, setDetails] = useState<HeroId | null>(null);
+  const detailsTaker = details ? takenBy.get(details) : undefined;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-3">
@@ -264,7 +269,14 @@ export function Lobby({
             const free = !taker;
             const box = art.heroClass(h);
             return (
-              <li key={h}>
+              <li
+                key={h}
+                style={heroVars(h)}
+                className={cn(
+                  'flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+                  mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
+                )}
+              >
                 <button
                   type="button"
                   disabled={!canPick || (!free && !mine)}
@@ -272,10 +284,8 @@ export function Lobby({
                   aria-pressed={mine}
                   data-hero={h}
                   aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}`}
-                  style={heroVars(h)}
                   className={cn(
-                    'flex h-full w-full flex-col gap-1.5 rounded-xl bg-card p-2 text-left ring-1 ring-line transition dark:bg-stone-800 dark:ring-stone-700',
-                    mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
+                    'flex w-full flex-1 flex-col gap-1.5 p-2 text-left transition',
                     !free && !mine && 'opacity-55',
                     canPick && (free || mine) && 'hover:bg-panel dark:hover:bg-stone-700',
                   )}
@@ -299,11 +309,51 @@ export function Lobby({
                     <span className="line-clamp-2 hidden text-xs sm:block">{HEROES[h].style}</span>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setDetails(h)}
+                  aria-label={`Mighty powers and deck: ${art.hero(h)}`}
+                  className="flex min-h-9 w-full items-center gap-1 border-t border-line px-2 py-1 text-left text-xs hover:bg-panel dark:border-stone-700 dark:hover:bg-stone-700"
+                  data-powers={h}
+                >
+                  <span className="line-clamp-2 min-w-0 flex-1">
+                    <span aria-hidden className="text-accent-text dark:text-amber-300">
+                      ✦{' '}
+                    </span>
+                    {powersOf(h)
+                      .map((c) => art.card(c.id))
+                      .join(' · ')}
+                  </span>
+                  <span aria-hidden className="shrink-0 text-ink-muted">
+                    ›
+                  </span>
+                </button>
               </li>
             );
           })}
         </ul>
       </Panel>
+
+      <HeroSheet
+        hero={details}
+        art={art}
+        who={detailsTaker ? (detailsTaker.id === room.you ? 'you' : detailsTaker.name) : undefined}
+        onClose={() => setDetails(null)}
+        footer={
+          details && canPick && (!detailsTaker || detailsTaker.id === room.you) ? (
+            <Button
+              className="w-full"
+              variant={detailsTaker ? 'secondary' : 'primary'}
+              onClick={() => {
+                pick(detailsTaker ? null : details);
+                setDetails(null);
+              }}
+            >
+              {detailsTaker ? 'Pick another hero' : `Pick ${art.hero(details)}`}
+            </Button>
+          ) : undefined
+        }
+      />
 
       <details className="rounded-2xl bg-card/85 p-4 ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
         <summary className="cursor-pointer font-bold">More options</summary>

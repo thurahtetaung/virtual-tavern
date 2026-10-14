@@ -13,6 +13,7 @@ import type {
 } from '../logic/types.ts';
 import { type Art, heroVars } from './assets.ts';
 import { Card, Zoom } from './Card.tsx';
+import { HeroSheet, PowersPanel } from './HeroSheet.tsx';
 import { Portrait } from './Lobby.tsx';
 import {
   type NameOf,
@@ -204,6 +205,7 @@ function PlayerRow({
   onZoom,
   compact,
   near,
+  onHero,
 }: {
   p: PlayerView;
   g: GameView;
@@ -215,6 +217,8 @@ function PlayerRow({
   compact?: boolean;
   /** With five or more players: which side of you this neighbour sits on. */
   near?: 'left' | 'right';
+  /** Opens this player's hero sheet (a tap on the seat when there's nothing to pick). */
+  onHero: () => void;
 }) {
   const turn = g.turn.player === p.id && !p.out;
   const waiting = g.clock?.who === p.id;
@@ -238,9 +242,14 @@ function PlayerRow({
         >
           {name(p.id)}
         </span>
-        <span className="min-w-0 truncate text-xs">
+        <button
+          type="button"
+          onClick={onHero}
+          className="min-w-0 truncate text-left text-xs underline decoration-dotted underline-offset-2"
+          aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${haunting ? 'ghost' : 'out'}: their hero`}
+        >
           {art.hero(p.hero)} · {haunting ? 'ghost: attacks once a turn, never a knockout' : 'out'}
-        </span>
+        </button>
         {waiting && <span aria-label="their move">⏳</span>}
       </li>
     );
@@ -257,13 +266,12 @@ function PlayerRow({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          disabled={!pickable}
-          onClick={() => picking?.pick(p.id)}
-          className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 text-left',
-            pickable && 'cursor-pointer',
-          )}
+          // Picking a target: the seat is the pick. Otherwise it shows their hero.
+          disabled={!!picking && !pickable}
+          onClick={() => (pickable ? picking?.pick(p.id) : onHero())}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
           aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${p.hp} hit points${pickable ? ', tap to pick' : ''}`}
+          data-seat-hero={p.hero}
         >
           <span className="relative">
             <Portrait hero={p.hero} art={art} size={compact ? 36 : 40} />
@@ -812,7 +820,7 @@ function Log({ view, art, name }: { view: TavernBrawlView; art: Art; name: NameO
   );
 }
 
-type Tab = 'table' | 'log' | 'discards';
+type Tab = 'table' | 'log' | 'discards' | 'powers';
 
 export function Table({
   view,
@@ -835,6 +843,7 @@ export function Table({
   const [selected, setSelected] = useState<string | null>(null);
   const [zoom, setZoom] = useState<{ ref: CardRef; play?: boolean } | null>(null);
   const [tab, setTab] = useState<Tab>('table');
+  const [heroOf, setHeroOf] = useState<PlayerView | null>(null);
   const c = g.choice;
   const mine = c && c.chooser === you ? c : null;
   const canPlay =
@@ -899,6 +908,7 @@ export function Table({
           ['table', 'Table'],
           ['log', 'Log'],
           ['discards', 'Discards'],
+          ['powers', '✦ Powers'],
         ] as const
       ).map(([id, label]) => (
         <button
@@ -1018,6 +1028,7 @@ export function Table({
           onZoom={(r) => setZoom({ ref: r })}
           compact={order.length >= 3}
           near={near.get(p.id)}
+          onHero={() => setHeroOf(p)}
         />
       ))}
     </ul>
@@ -1033,9 +1044,17 @@ export function Table({
         room={room}
         picking={picking}
         onZoom={(r) => setZoom({ ref: r })}
+        onHero={() => setHeroOf(me)}
       />
     </ul>
   );
+
+  // Every hero at the table, yours first, then in seat order (knocked-out ones too).
+  const heroes = (me ? [me, ...order] : order).map((p) => ({
+    hero: p.hero,
+    who: name(p.id),
+    out: p.out,
+  }));
 
   const playArea = (
     <>
@@ -1114,13 +1133,46 @@ export function Table({
             <Discards g={g} art={art} name={name} onZoom={(r) => setZoom({ ref: r })} />
           </div>
         )}
+        {tab === 'powers' && (
+          <div className="lg:hidden">
+            <p className="mb-2 text-sm text-ink-muted dark:text-stone-400">
+              Every hero’s mighty powers. Tap Deck for the whole deck, or tap a seat on the table.
+            </p>
+            <PowersPanel heroes={heroes} art={art} />
+          </div>
+        )}
       </div>
       <aside className="hidden max-h-[calc(100dvh-8rem)] flex-col gap-3 overflow-y-auto rounded-2xl bg-card/85 p-3 ring-1 ring-line lg:sticky lg:top-4 lg:flex dark:bg-stone-900/80 dark:ring-stone-800">
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center gap-1 font-bold [&::-webkit-details-marker]:hidden">
+            <h2 className="font-bold">✦ Mighty powers</h2>
+            <span className="flex -space-x-1.5 pl-1" aria-hidden>
+              {heroes.map((h) => (
+                <Portrait key={`${h.hero}-${h.who}`} hero={h.hero} art={art} size={22} />
+              ))}
+            </span>
+            <span
+              aria-hidden
+              className="ml-auto text-ink-muted transition-transform group-open:rotate-90"
+            >
+              ▸
+            </span>
+          </summary>
+          <div className="mt-2">
+            <PowersPanel heroes={heroes} art={art} />
+          </div>
+        </details>
         <h2 className="font-bold">Log</h2>
         <Log view={view} art={art} name={name} />
         <h2 className="font-bold">Discard piles</h2>
         <Discards g={g} art={art} name={name} onZoom={(r) => setZoom({ ref: r })} />
       </aside>
+      <HeroSheet
+        hero={heroOf?.hero ?? null}
+        who={heroOf ? name(heroOf.id) : undefined}
+        art={art}
+        onClose={() => setHeroOf(null)}
+      />
       <Zoom
         card={zoomRef?.card ?? null}
         art={art}
