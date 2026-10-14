@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.5...v0.35.6) (2026-10-14)
+
+
+### Bug Fixes
+
+* **codenames:** break only very long board words, at a hyphen between syllables ([#156](https://github.com/thurahtetaung/virtual-tavern/issues/156)) ([8343c6c](https://github.com/thurahtetaung/virtual-tavern/commit/8343c6c53496e2f430529984211b6e9d60aa0283))
+
 ## [0.35.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.4...v0.35.5) (2026-10-14)
 
 
