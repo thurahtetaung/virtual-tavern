@@ -670,15 +670,24 @@ function Table({
           <span>Set aside face up (out of this round, so nobody holds these):</span>
           <ul aria-label="Set aside face up" className="flex gap-1.5">
             {round.faceUp.map((role, i) => (
-              <li key={i} className="w-11 sm:w-14">
-                <Card
-                  role={role}
-                  rank={rankIn(edition, role)}
-                  deck={deck}
-                  size="sm"
-                  reads
-                  onClick={() => read(role)}
-                />
+              // The thumbnail is too small for a name, so it sits underneath, wrapping if long.
+              <li key={i} className="flex w-16 flex-col items-center gap-0.5">
+                <span className="w-11 sm:w-14">
+                  <Card
+                    role={role}
+                    rank={rankIn(edition, role)}
+                    deck={deck}
+                    size="xs"
+                    reads
+                    onClick={() => read(role)}
+                  />
+                </span>
+                <span
+                  aria-hidden
+                  className="w-full text-center text-[0.7rem] leading-tight font-semibold break-words hyphens-auto text-stone-700 dark:text-stone-300"
+                >
+                  {deck.name(role)}
+                </span>
               </li>
             ))}
           </ul>
