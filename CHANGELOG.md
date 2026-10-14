@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.2...v0.35.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **codenames:** review-round fixes: clue forms, stuck-turn skip, word fit, clues for 0 and unlimited ([#151](https://github.com/thurahtetaung/virtual-tavern/issues/151)) ([6daa417](https://github.com/thurahtetaung/virtual-tavern/commit/6daa41730ec332f7f0e8d674951109c28c55ee49))
+
 ## [0.35.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.1...v0.35.2) (2026-10-14)
 
 
