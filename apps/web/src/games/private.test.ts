@@ -133,9 +133,10 @@ describe('named guides use only the manifest’s words', () => {
     const { HEROES, SETS } = await import('@vt/private-tavern-brawl/logic');
     const ids = Object.keys(HEROES) as (keyof typeof HEROES)[];
     const text = await named('tavern-brawl', {
-      heroes: all(ids, (h) => ({ name: `«${h}»` })),
+      heroes: all(ids, (h) => ({ name: `«${h}»`, class: `«class ${h}»` })),
       sets: all(Object.keys(SETS), (id) => ({ name: `«set ${id}»` })),
     });
+    expect(text).toContain('"subtitle":"«class mage»"');
     for (const h of ids) {
       expect(text, h).not.toMatch(word(HEROES[h].label));
       expect(text, h).not.toMatch(new RegExp(`the ${escapeRegExp(h)}\\b`, 'i'));

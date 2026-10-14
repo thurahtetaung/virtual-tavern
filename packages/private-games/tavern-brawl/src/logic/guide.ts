@@ -183,6 +183,8 @@ export function placeholderCardName(def: CardDef): string {
 /** Names the guide uses; the web app fills them from the private manifest. */
 export interface GuideNames {
   hero?: (id: HeroId) => string | undefined;
+  /** A hero's class ("Barbarian"), shown under their name; nothing without a manifest. */
+  heroClass?: (id: HeroId) => string | undefined;
   card?: (id: string) => string | undefined;
   /** A hero's portrait (a URL) and full hero card. */
   heroArt?: (
@@ -229,6 +231,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
 export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGuide {
   const heroName = (h: HeroId) => names.hero?.(h) ?? HEROES[h].label;
   const cardName = (def: CardDef) => names.card?.(def.id) ?? placeholderCardName(def);
+  const heroClass = (h: HeroId) => names.heroClass?.(h) || undefined;
   const druid = heroName('druid');
   const portrait = (h: HeroId) => names.heroArt?.(h)?.portrait;
   const setName = (id: SetId) => names.set?.(id) ?? SETS[id].label;
@@ -262,6 +265,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
       const art = portrait(mine);
       ctx.you = {
         name: heroName(mine),
+        ...(heroClass(mine) && { subtitle: heroClass(mine) }),
         text: HEROES[mine].style,
         tile: mine,
         ...(art && { art }),
@@ -300,6 +304,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
         return {
           id: h,
           name: heroName(h),
+          ...(heroClass(h) && { subtitle: heroClass(h) }),
           text: HEROES[h].style,
           icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
           group: setName(HEROES[h].set),
@@ -340,6 +345,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
         return {
           id: h,
           name: heroName(h),
+          ...(heroClass(h) && { subtitle: heroClass(h) }),
           group: setName(HEROES[h].set),
           meta: `${setName(HEROES[h].set)} · ${deckSize(h)} cards · ${powers.length} mighty ${powers.length === 1 ? 'power' : 'powers'}`,
           icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
@@ -389,7 +395,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
         head: ['Hero', 'Mighty power'],
         rows: ENABLED_HEROES.flatMap((h) =>
           powersOf(h).map((c, i) => [
-            i === 0 ? heroName(h) : '',
+            i === 0 ? [heroName(h), heroClass(h)].filter(Boolean).join('\n') : '',
             `${cardName(c)}: ${POWER_TEXT[c.effect!]}`,
           ]),
         ),
