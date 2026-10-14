@@ -1,7 +1,7 @@
 import { cn } from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
 import type { CodenamesView } from '../logic/types.ts';
-import { type Measure, canvasMeasure, estimate, fitSize, softBreaks } from './fit.ts';
+import { type Measure, canvasMeasure, estimate, fitSize, fitsAlone, softBreaks } from './fit.ts';
 import { KEY_TINT, KIND_CAPTION, KIND_LABEL, REVEALED } from './theme.ts';
 
 interface Props {
@@ -26,6 +26,19 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
   useLayoutEffect(() => {
     if (section.current)
       setMeasure(() => canvasMeasure(getComputedStyle(section.current!).fontFamily));
+  }, []);
+  // The board's width, so each card re-checks which words fit a line once the cards resize.
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = section.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWidth(entry!.contentRect.width);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   return (
@@ -61,37 +74,28 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
               view.phase === 'over' && !card.revealed && 'opacity-70',
             )}
           >
-            <span
-              style={{ '--fit': fitSize(card.word, measure) } as CSSProperties}
-              className={cn(
-                'line-clamp-2 w-full text-center leading-tight font-bold break-normal hyphens-manual uppercase',
-                // Never break or truncate a word players need to read: each size tier is capped at
-                // the size that fits the card (`--fit`), so long words shrink instead, and a phrase
-                // wraps only between its words. Only a word of 11+ letters that is too long even at
-                // the smallest size breaks, at its one soft hyphen (`softBreaks`).
-                card.word.length >= 9
-                  ? 'text-[length:min(0.6rem,var(--fit))] tracking-tight sm:text-[length:min(0.75rem,var(--fit))] sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
-                  : card.word.length >= 8
-                    ? 'text-[length:min(0.625rem,var(--fit))] sm:text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
-                    : 'text-[length:min(0.7rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
-              )}
-            >
-              {softBreaks(card.word)}
-            </span>
+            <CardWord word={card.word} measure={measure} boardWidth={width} captioned={captioned} />
             {captioned && (
-              <span className="absolute inset-x-0 bottom-0.5 text-center text-[0.55rem] leading-none font-semibold uppercase opacity-90 sm:bottom-1 sm:tracking-wide sm:text-[0.65rem]">
+              // Capped by the card's width too, so larger browser text can't make it run into the word.
+              <span className="absolute inset-x-0 bottom-0.5 text-center text-[length:min(0.55rem,15cqw)] leading-none font-semibold uppercase opacity-90 sm:bottom-1 sm:tracking-wide sm:text-[length:min(0.65rem,9cqw)] lg:text-[length:min(0.65rem,7cqw)]">
                 {KIND_CAPTION[card.kind!]}
               </span>
             )}
             {card.revealed && card.kind !== 'assassin' && (
               // Every revealed card gets the same mark, so a guessed bystander never differs from
               // an unguessed one by shade alone.
-              <span aria-hidden className="absolute top-0.5 left-1 text-xs leading-none sm:text-sm">
+              <span
+                aria-hidden
+                className="absolute top-0.5 left-1 text-[length:min(0.75rem,20cqw)] leading-none sm:text-[length:min(0.875rem,13cqw)] lg:text-[length:min(0.875rem,9.5cqw)]"
+              >
                 ✓
               </span>
             )}
             {card.kind === 'assassin' && captioned && (
-              <span aria-hidden className="absolute top-0.5 left-1 text-xs sm:text-sm">
+              <span
+                aria-hidden
+                className="absolute top-0.5 left-1 text-[length:min(0.75rem,20cqw)] sm:text-[length:min(0.875rem,13cqw)] lg:text-[length:min(0.875rem,9.5cqw)]"
+              >
                 ☠
               </span>
             )}
@@ -112,5 +116,69 @@ export function Board({ view, selected, lastGuessed, onPick }: Props) {
         );
       })}
     </section>
+  );
+}
+
+/**
+ * A card's word, sized to fit its card. In a phrase, a long word only gets its soft hyphen when it
+ * can't fit on a line by itself at the size it is shown at, read from the rendered line.
+ */
+function CardWord({
+  word,
+  measure,
+  boardWidth,
+  captioned,
+}: {
+  word: string;
+  measure: Measure;
+  boardWidth: number;
+  /** A caption sits under the word, so the word keeps clear of it (`--cap`). */
+  captioned: boolean;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [text, setText] = useState(() => softBreaks(word));
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const style = getComputedStyle(el);
+    const fits = fitsAlone(
+      measure,
+      parseFloat(style.fontSize),
+      el.clientWidth,
+      parseFloat(style.letterSpacing) || 0,
+    );
+    setText(softBreaks(word, el.clientWidth > 0 ? fits : undefined));
+  }, [word, measure, boardWidth, captioned]);
+
+  return (
+    <span
+      ref={ref}
+      style={
+        {
+          '--fit': captioned
+            ? `min(${fitSize(word, measure)}, var(--cap))`
+            : fitSize(word, measure),
+        } as CSSProperties
+      }
+      className={cn(
+        // Two lines centred in the card stay above its caption at each breakpoint's card shape,
+        // even with larger browser text.
+        captioned &&
+          '[--cap:calc(20cqw_-_2.4px)] sm:[--cap:calc(19cqw_-_2.4px)] lg:[--cap:calc(14cqw_-_2.4px)]',
+        'line-clamp-3 w-full text-center leading-tight font-bold break-normal hyphens-manual uppercase',
+        // Never break or truncate a word players need to read: each size tier is capped at the
+        // size that fits the card (`--fit`), so long words shrink instead, and a phrase wraps
+        // between its words. Only a word of 11+ letters that is too long for a line of its own
+        // even at the smallest size breaks, at its one soft hyphen (`softBreaks`); in a phrase that
+        // takes a third line, which only happens at that smallest size, so it fits the card.
+        word.length >= 9
+          ? 'text-[length:min(0.6rem,var(--fit))] tracking-tight sm:text-[length:min(0.75rem,var(--fit))] sm:tracking-normal md:text-[length:min(0.875rem,var(--fit))]'
+          : word.length >= 8
+            ? 'text-[length:min(0.625rem,var(--fit))] sm:text-[length:min(0.75rem,var(--fit))] md:text-[length:min(0.875rem,var(--fit))]'
+            : 'text-[length:min(0.7rem,var(--fit))] sm:text-[length:min(0.875rem,var(--fit))] sm:tracking-wide md:text-[length:min(1rem,var(--fit))]',
+      )}
+    >
+      {word === text.replaceAll('\u00ad', '') ? text : softBreaks(word)}
+    </span>
   );
 }
