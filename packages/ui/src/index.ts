@@ -2,6 +2,7 @@ export * from './cn.ts';
 export * from './components.tsx';
 export * from './confirm.tsx';
 export * from './countdown.tsx';
+export * from './lobby-settings.tsx';
 export * from './modal.tsx';
 export * from './peek.tsx';
 export * from './timer-settings.tsx';
