@@ -89,7 +89,8 @@ describe('named guides use only the manifest’s words', () => {
   };
   const all = <K extends string>(ids: readonly K[], value: (id: K) => unknown) =>
     Object.fromEntries(ids.map((id) => [id, value(id)]));
-  const word = (w: string) => new RegExp(`(?<![\\w«-])${w.replace(/[()]/g, '\\$&')}(?![\\w»])`);
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const word = (w: string) => new RegExp(`(?<![\\w«-])${escapeRe(w)}(?![\\w»])`);
 
   it('Nightfall: roles, sets, Marks and artifacts', async () => {
     const nf = await import('@vt/private-nightfall/logic');
@@ -137,7 +138,7 @@ describe('named guides use only the manifest’s words', () => {
     });
     for (const h of ids) {
       expect(text, h).not.toMatch(word(HEROES[h].label));
-      expect(text, h).not.toMatch(new RegExp(`the ${h}\\b`, 'i'));
+      expect(text, h).not.toMatch(new RegExp(`the ${escapeRe(h)}\\b`, 'i'));
     }
     for (const { label } of Object.values(SETS)) expect(text, label).not.toContain(label);
     expect(text).toContain('«set x2»');
