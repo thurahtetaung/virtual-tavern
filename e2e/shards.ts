@@ -4,6 +4,7 @@
 //
 //   node e2e/shards.ts 2 4                      # the spec files for shard 2 of 4
 //   node e2e/shards.ts --plan 4                 # the split and each shard's estimated seconds
+//   node e2e/shards.ts --check                  # fails when a spec has no time in timings.json
 //   node e2e/shards.ts --update r1.json r2.json # refresh timings.json from JSON reports (CI
 //                                               # uploads one per shard as e2e-timings-N)
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -38,20 +39,33 @@ function estimate(s: Shard): number {
   return Math.max(s.serial, (s.serial + s.parallel) / WORKERS, s.longest);
 }
 
-function specs(): Spec[] {
+/** Spec files with no measured time in timings.json. */
+function unmeasured(): string[] {
   const timings = JSON.parse(readFileSync(TIMINGS, 'utf8')) as Record<string, number>;
-  const known = Object.values(timings).sort((a, b) => a - b);
-  // A new spec counts as a longer-than-typical one (the 75th percentile) until timings.json is
-  // refreshed, so a slow new spec is less likely to pile onto an already full shard.
-  const fallback = known[Math.floor(known.length * 0.75)] ?? 30;
+  return specFiles().filter((file) => !(file in timings));
+}
+
+function specFiles(): string[] {
   return readdirSync(DIR)
     .filter((f) => f.endsWith('.spec.ts'))
-    .sort()
-    .map((file) => ({
-      file,
-      seconds: timings[file] ?? fallback,
-      serial: SHARED_STATE.some((re) => re.test(file)),
-    }));
+    .sort();
+}
+
+function specs(): Spec[] {
+  const timings = JSON.parse(readFileSync(TIMINGS, 'utf8')) as Record<string, number>;
+  // A guessed time once put a 4-minute spec on a full shard and timed its neighbours out: every
+  // spec needs a measured one.
+  const missing = unmeasured();
+  if (missing.length) throw new Error(missingMessage(missing));
+  return specFiles().map((file) => ({
+    file,
+    seconds: timings[file]!,
+    serial: SHARED_STATE.some((re) => re.test(file)),
+  }));
+}
+
+function missingMessage(missing: string[]): string {
+  return `no time in e2e/timings.json for ${missing.join(', ')}: run each and add its seconds (or refresh from CI's e2e-timings-* artifacts with --update)`;
 }
 
 /** Longest spec first, each to the shard it finishes soonest: deterministic for a given input. */
@@ -114,6 +128,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [a, b, ...rest] = process.argv.slice(2);
   if (a === '--update' && b) {
     update([b, ...rest]);
+  } else if (a === '--check') {
+    const missing = unmeasured();
+    if (missing.length) {
+      console.error(missingMessage(missing));
+      process.exit(1);
+    }
   } else if (a === '--plan') {
     for (const [i, s] of shards(Number(b ?? 4)).entries())
       console.log(`${i + 1}: ~${Math.round(estimate(s))}s  ${s.files.join(' ')}`);
@@ -122,7 +142,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const total = Number(b);
     if (!Number.isInteger(index) || !Number.isInteger(total) || index < 1 || index > total) {
       console.error(
-        'usage: node e2e/shards.ts <index> <total> | --plan [total] | --update <report.json>…',
+        'usage: node e2e/shards.ts <index> <total> | --plan [total] | --check | --update <report.json>…',
       );
       process.exit(2);
     }

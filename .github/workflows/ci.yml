@@ -35,6 +35,8 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm format:check
       - run: pnpm lint
+      # Every e2e spec needs a measured time, or the shards are balanced on a guess.
+      - run: node e2e/shards.ts --check
 
   typecheck:
     name: Typecheck and build
@@ -71,7 +73,9 @@ jobs:
       # Headless runs only need the headless shell, not the full browser.
       - run: pnpm exec playwright install --with-deps --only-shell chromium
       - run: |
-          read -ra specs <<< "$(node e2e/shards.ts "$SHARD" 4)"
+          # A separate assignment, so a failing split fails the step instead of running everything.
+          list=$(node e2e/shards.ts "$SHARD" 4)
+          read -ra specs <<< "$list"
           pnpm exec playwright test "${specs[@]}"
         env:
           SHARD: ${{ matrix.shard }}

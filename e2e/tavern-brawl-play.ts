@@ -165,7 +165,7 @@ export const playToEnd = (pages: Page[], maxMoves = 600) =>
  * play until the end. With five or more the zone is on, and the knocked out haunt as ghosts.
  */
 export async function fullBrawl(browser: Browser, heroes: string[], names: string[]) {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = await table(browser, names);
   for (const [i, p] of pages.entries()) await pickHero(p, heroes[i]!);
@@ -173,8 +173,18 @@ export async function fullBrawl(browser: Browser, heroes: string[], names: strin
   if (zone) await expect(pages[0]!.getByText(/Five or more players/)).toBeVisible();
   await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
   await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
-  await playToEnd(pages);
-  for (const p of pages) await expect.poll(() => isOver(p)).toBe(true);
+  // A ghost haunts only when a knocked-out seat's turn comes round before the end, and on the test
+  // hit points about one game in ten knocks everyone out within a round. Such a game says nothing
+  // about ghosts, so the table plays again (at most five games: all five missing is below 1 in
+  // 10,000).
+  for (let game = 1; ; game++) {
+    await playToEnd(pages);
+    for (const p of pages) await expect.poll(() => isOver(p)).toBe(true);
+    const log = (await pages[0]!.getByRole('log').first().textContent()) ?? '';
+    if (!zone || /ghost/.test(log) || game === 5) break;
+    await pages[0]!.getByRole('button', { name: 'Play again' }).click();
+    await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
+  }
   // Everyone knocked out stayed at the table as a ghost (and had turns to haunt).
   if (zone) {
     await expect

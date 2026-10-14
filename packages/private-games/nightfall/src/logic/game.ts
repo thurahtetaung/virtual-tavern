@@ -270,6 +270,7 @@ function advanceNight(state: NightfallState, now: number, rng: Rng): NightfallSt
   const next = clone(state);
   const night = next.round!.night!;
   if (night.index >= 0) endStep(stepCtx(next, rng, now));
+  delete night.heldFrom;
   const index = night.index + 1;
   if (index >= night.plan.length) return dawn(next, now);
   night.index = index;
@@ -555,10 +556,40 @@ function nextDeadline(state: NightfallState): number | null {
   return null;
 }
 
+// Browser tests only (see `setTestHold`): how long past its clock a step may wait for an answer.
+let testHoldMs = 0;
+
+/**
+ * Browser tests only: a step whose players still have a choice to make waits for them, a second
+ * at a time, up to `ms` past its clock, so a busy test machine's clicks aren't beaten by the
+ * night's timer (which would pick for them at random). Never set in production.
+ */
+export function setTestHold(ms: number) {
+  testHoldMs = ms;
+}
+
+/** Under the test hold: the step's new deadline while someone still has a choice to make. */
+function heldDeadline(state: NightfallState, now: number, due: number): NightfallState | null {
+  const night = state.round!.night!;
+  if (testHoldMs <= 0 || night.index < 0) return null;
+  const from = night.heldFrom ?? due;
+  if (now - from >= testHoldMs) return null;
+  const next = clone(state);
+  const c = stepCtx(next, hiddenRng(state, now), now);
+  if (!next.round!.night!.actors.some((p) => promptFor(c, p))) return null;
+  next.round!.night!.heldFrom = from;
+  next.round!.night!.deadline = now + 1000;
+  return next;
+}
+
 /** Steps never wait for anyone: each ends on its clock, then the day turns to the vote. */
 function onDeadline(state: NightfallState, now: number): NightfallState {
   const due = nextDeadline(state);
   if (due === null || now < due) return state;
+  if (state.stage === 'night') {
+    const held = heldDeadline(state, now, due);
+    if (held) return held;
+  }
   const rng = hiddenRng(state, now);
   let next: NightfallState;
   if (state.stage === 'night') next = advanceNight(state, now, rng);

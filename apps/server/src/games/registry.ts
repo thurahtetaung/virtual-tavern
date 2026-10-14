@@ -9,7 +9,7 @@ import { hoodwink } from '@vt/private-hoodwink/logic';
 import { hydra, setTestDeck } from '@vt/private-hydra/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
-import { nightfall } from '@vt/private-nightfall/logic';
+import { nightfall, setTestHold } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
 import { seance } from '@vt/private-seance/logic';
@@ -66,6 +66,13 @@ function testHp(spec: string | undefined): Partial<Record<number, number>> {
 // action), so a spec can reach a given card. Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.SHORT_FUSE_TEST_RIG === '1') {
   enableTestRig();
+}
+
+// Browser tests only: a Nightfall step waits up to this many seconds past its clock for players
+// who still have a choice to make, so a busy machine's clicks aren't beaten by the night's timer.
+// Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.NIGHTFALL_TEST_HOLD) {
+  setTestHold(Number(process.env.NIGHTFALL_TEST_HOLD) * 1000 || 0);
 }
 
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
