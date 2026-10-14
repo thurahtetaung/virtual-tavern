@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.10](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.9...v0.35.10) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ui:** review-round fixes to the shared UI kit and room shell, plus Peek and LobbySettings ([#164](https://github.com/thurahtetaung/virtual-tavern/issues/164)) ([9f1ac51](https://github.com/thurahtetaung/virtual-tavern/commit/9f1ac5182c53cb43e9ebb093a80b64b78a0e69ac))
+
 ## [0.35.9](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.8...v0.35.9) (2026-10-14)
 
 
