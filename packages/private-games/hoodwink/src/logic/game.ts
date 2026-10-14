@@ -84,6 +84,20 @@ export const displayText = (text: string) => {
   return tidy.charAt(0).toLocaleUpperCase('en') + tidy.slice(1);
 };
 
+/**
+ * `wordKey` with hyphens and other punctuation inside an answer read as spaces (and thousands
+ * separators dropped), so "Wooden-spoon" and "St. Ives" meet "Wooden spoon" and "St Ives".
+ */
+export const looseKey = (text: string) =>
+  wordKey(text.replace(/(?<=\d),(?=\d{3})/g, '').replace(/[^\p{L}\p{M}\p{N}\s'‘’ʼ`´]/gu, ' '));
+
+/** The same answer as far as Hoodwink is concerned: equal under `wordKey` or `looseKey`. */
+const sameAnswer = (a: string, b: string) =>
+  wordKey(a) === wordKey(b) || looseKey(a) === looseKey(b);
+
+const TRUTH_MESSAGE =
+  'That’s the real answer — write a lie! And your vote for it won’t score this round.';
+
 /** Why a lie can't be used, or null if it's fine. */
 export function lieProblem(text: string, question?: Pick<Question, 'answer' | 'alternates'>) {
   if (/[\r\n]/.test(text.trim())) return new GameError('lie-lines', 'Keep your lie to one line.');
@@ -93,9 +107,8 @@ export function lieProblem(text: string, question?: Pick<Question, 'answer' | 'a
     return new GameError('lie-too-long', `Keep your lie to ${MAX_LIE_LENGTH} characters.`);
   }
   if (question) {
-    const key = wordKey(lie);
-    if ([question.answer, ...question.alternates].some((a) => wordKey(a) === key)) {
-      return new GameError('is-the-truth', 'That’s the real answer — write a lie!');
+    if ([question.answer, ...question.alternates].some((a) => sameAnswer(a, lie))) {
+      return new GameError('is-the-truth', TRUTH_MESSAGE);
     }
   }
   return null;
@@ -163,11 +176,13 @@ function takenKeys(round: Pick<Round, 'question' | 'lies'>): Set<string> {
 /** The question's usable built-in fakes, tidied, distinct, and matching none of `taken`. */
 function decoyPool(question: Question, taken: ReadonlySet<string>): string[] {
   const keys = new Set(taken);
+  const truths = new Set([question.answer, ...question.alternates].map(looseKey));
   const pool: string[] = [];
   for (const raw of question.decoys ?? []) {
     const decoy = tidyLie(raw);
     const key = wordKey(decoy);
     if (!decoy || decoy.length > MAX_LIE_LENGTH || keys.has(key)) continue;
+    if (truths.has(looseKey(decoy))) continue;
     keys.add(key);
     pool.push(decoy);
   }
@@ -313,8 +328,12 @@ function reveal(state: HoodwinkState): HoodwinkState {
   for (const [voter, pick] of Object.entries(round.votes)) {
     const option = round.options[pick];
     if (!option) continue;
-    if (option.truth) add(voter, { score: TRUTH_POINTS * factor, truths: 1 });
-    else fooledBy[pick]! += 1;
+    if (option.truth) {
+      // Typing the answer as a lie this round gave it away: finding it scores nothing.
+      if (!(round.typedTruth ?? []).includes(voter)) {
+        add(voter, { score: TRUTH_POINTS * factor, truths: 1 });
+      }
+    } else fooledBy[pick]! += 1;
   }
   // House fakes have no authors, so whoever picks one simply scores nothing.
   round.options.forEach((option, i) => {
@@ -479,11 +498,22 @@ function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
     return new GameError('not-playing-round', "You're watching this round. You join the next one.");
   }
   const problem = lieProblem(text, round.question);
+  // The first time a player types the real answer it's remembered (their vote for it won't score),
+  // which is a change of state, so it can't come back as a refusal; the view tells them instead.
+  if (problem?.code === 'is-the-truth' && !(round.typedTruth ?? []).includes(ctx.by)) {
+    return withRound(state, { typedTruth: [...(round.typedTruth ?? []), ctx.by] });
+  }
   if (problem) return problem;
+  // Typing out the ready-made lie you were shown still counts as picked for you: half points.
+  const fake = round.fakes?.[ctx.by];
+  const isFake =
+    fake !== undefined && (round.fakeShown ?? []).includes(ctx.by) && sameAnswer(fake, text);
   return maybeStartVoting(
     withRound(state, {
       lies: { ...round.lies, [ctx.by]: tidyLie(text) },
-      autoLies: round.autoLies.filter((id) => id !== ctx.by),
+      autoLies: isFake
+        ? [...new Set([...round.autoLies, ctx.by])]
+        : round.autoLies.filter((id) => id !== ctx.by),
     }),
     ctx.now,
   );
@@ -788,6 +818,8 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
       !(round.fakeShown ?? []).includes(viewer) &&
       round.fakes?.[viewer] !== undefined,
     myLieShared: viewer !== null && lieShared(round, viewer),
+    typedTruth: viewer !== null && (round.typedTruth ?? []).includes(viewer),
+    noTruthPoints: revealed ? (round.typedTruth ?? []) : null,
     options,
     voters: round.voters,
     voted: round.voters.filter((id) => round.votes[id] !== undefined),

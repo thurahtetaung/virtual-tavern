@@ -130,10 +130,6 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
   await expect(ana.getByTestId('prompt')).toContainText('the mayor is chosen by a');
   await expect(ana.getByTestId('prompt')).not.toContainText(TRUTH);
-  // A near-copy (a leading article and a plural) counts as the truth too.
-  await ana.getByLabel('Your lie').fill('The zebra crossings');
-  await ana.getByRole('button', { name: 'Send lie' }).click();
-  await expect(ana.getByText('That’s the real answer — write a lie!').first()).toBeVisible();
   await sendLie(ana, 'Tiny ukulele');
   await expect(ana.getByText('1 of 4 lies in')).toBeVisible();
   // "Lie for me" can't throw away a lie you wrote yourself.
@@ -142,6 +138,15 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   // Only players who still need to act see "Your turn" in the tab title.
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(ben).toHaveTitle(YOUR_TURN);
+  // A near-copy (a leading article, a plural, a hyphen) counts as the truth too. The first try is
+  // remembered (Ben's vote for the truth won't score this round); a second one is refused.
+  await ben.getByLabel('Your lie').fill('The zebra-crossings');
+  await ben.getByRole('button', { name: 'Send lie' }).click();
+  await expect(ben.getByTestId('typed-truth')).toContainText('won’t score this round');
+  await expect(ana.getByTestId('typed-truth')).toHaveCount(0);
+  await ben.getByLabel('Your lie').fill('Zebra crossing');
+  await ben.getByRole('button', { name: 'Send lie' }).click();
+  await expect(ben.getByText('That’s the real answer — write a lie!').first()).toBeVisible();
   await sendLie(ben, 'tiny ukuleles');
   // Both are warned that the lie will be shared; nobody else is.
   await expect(ben.getByTestId('lie-shared')).toBeVisible();
