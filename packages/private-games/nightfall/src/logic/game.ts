@@ -350,7 +350,6 @@ function vote(state: NightfallState, target: PlayerId, hand: 2 | undefined, ctx:
   } else {
     if (target === ctx.by) return new GameError('self-vote', 'Vote for someone else.');
     if (!r.players[target]) return new GameError('bad-target', 'That player isn’t in the game.');
-    if (r.players[target].left) return new GameError('left', 'That player has left the game.');
   }
   const next = clone(state);
   const p = next.round!.players[ctx.by]!;
@@ -525,7 +524,8 @@ function playerJoined(state: NightfallState, player: PlayerInfo): NightfallState
 
 /**
  * Someone left for good. Between games they simply go. Mid-game their card stays on the table
- * (the night still runs every step), but they no longer act, get ready or vote.
+ * (the night still runs every step), but they no longer act, get ready or vote. Players may still
+ * vote for their seat, and they win or lose as their card.
  */
 function playerLeft(state: NightfallState, playerId: PlayerId, now: number): NightfallState {
   if (!state.seats[playerId]) return state;

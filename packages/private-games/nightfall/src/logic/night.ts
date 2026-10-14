@@ -1,12 +1,5 @@
 import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
-import {
-  NIGHT_ORDER,
-  REPEAT,
-  type StepDef,
-  buildNightPlan,
-  repeatStepOf,
-  stepFactor,
-} from './plan.ts';
+import { NIGHT_ORDER, REPEAT, type StepDef, buildNightPlan, repeatStepOf, stepMs } from './plan.ts';
 import { type MarkId, type NostraTeam, ROLES, type RoleId, nostraTeamOf } from './roles.ts';
 import {
   TABLE_OF,
@@ -137,10 +130,16 @@ export function actorsFor(r: GameRound, def: StepDef, ignoreFear = false): Playe
     const named = rippleActors(nightState?.ripple);
     return here.filter((p) => named.includes(numberOf(r.order, p)));
   }
-  // Fear stops a player waking in the night proper; a dormant copy never wakes again.
-  const present = here.filter(
-    (p) => !r.players[p]!.dormant && (ignoreFear || !(def.order >= NIGHT_ORDER && feared(r, p))),
-  );
+  // Fear stops a player waking in the night proper; a dormant copy never wakes again. The dusk is
+  // exempt only because the Mark is unseen until it ends: a ripple's repeat, and a time loop's
+  // dusk for a player who already held Fear when the loop began, are stopped too.
+  const inLoop = nightState?.loopFrom !== undefined && nightState.index >= nightState.loopFrom;
+  const fearStops = (p: PlayerId) =>
+    feared(r, p) &&
+    (def.order >= NIGHT_ORDER ||
+      def.repeat === true ||
+      (inLoop && (nightState.loopFeared ?? []).includes(p)));
+  const present = here.filter((p) => !r.players[p]!.dormant && (ignoreFear || !fearStops(p)));
   const night = (p: PlayerId) => r.players[p]!.night;
   const doppel = (p: PlayerId) => actsAsDoppel(r, p);
   if (def.id === 'werewolves')
@@ -428,7 +427,7 @@ const ACTIONS: Partial<Record<RoleId, RoleAction>> = {
       }),
     act: (c, p, w, a) => {
       const target = a.players![0]!;
-      c.r.cards[target]!.shield = c.r.players[p]!.dealt === 'doppelganger' ? 'doppel' : 'normal';
+      c.r.cards[target]!.shield = actsAsDoppel(c.r, p) ? 'doppel' : 'normal';
       note(c, p, { kind: 'shielded', target });
       w.done = true;
     },
@@ -1291,8 +1290,9 @@ const bodySnatcher: RoleAction = {
         center: { slots: centreSlots(c.r), min: 1, max: 1 },
         mandatory: true,
       });
-    // A non-alien's card: not one of the aliens he saw awake.
-    const from = fromSet(c, p, pick.from, (q) => !awakeAliens(c).includes(q));
+    // A non-alien's card: not one of the aliens he saw awake, nor a New Alien tapped then.
+    const known = [...awakeAliens(c), ...(c.r.aliens?.players ?? [])];
+    const from = fromSet(c, p, pick.from, (q) => !known.includes(q));
     return setPrompt(c.r.players[p]!.night, 'snatch', from, 1, 1, true);
   },
   act: (c, p, w, a) => {
@@ -1519,7 +1519,7 @@ const nostradamus: RoleAction = {
 };
 
 /** The team Nostradamus is on: the last card he saw, or the narrator's pick when he saw none. */
-function foretell(c: StepCtx, p: PlayerId | null) {
+function foretell(c: StepCtx, p: PlayerId | null, owners: PlayerId[] = []) {
   const looked = p ? (c.r.notes[p] ?? []).filter((n) => n.step === c.step && n.kind === 'saw') : [];
   const last = looked.at(-1);
   let team: NostraTeam;
@@ -1533,15 +1533,19 @@ function foretell(c: StepCtx, p: PlayerId | null) {
     const all = [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)];
     cardId = all.find((card) => nostraTeamOf(card.role) === team)?.id ?? null;
   }
-  // The team goes on his own card (a copy's card for a copy), wherever it is now.
+  // The team goes on his own card (a copy's card for a copy), wherever it is now. When nobody
+  // acted, it goes on the cards of those who should have (a Feared copy), else on the card itself.
+  const cardOf = (q: PlayerId) => cardAt(c.r, findCard(c.r, c.r.players[q]!.cardId));
   const own = p
-    ? cardAt(c.r, findCard(c.r, c.r.players[p]!.cardId))
-    : c.def.doppel
-      ? undefined
-      : [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)].find(
-          (card) => card.role === 'nostradamus',
-        );
-  if (own) own.foretold = { team, card: cardId };
+    ? [cardOf(p)]
+    : owners.length
+      ? owners.map(cardOf)
+      : c.def.doppel
+        ? []
+        : [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)]
+            .filter((card) => card.role === 'nostradamus')
+            .slice(0, 1);
+  for (const card of own) card.foretold = { team, card: cardId };
   if (p) note(c, p, { kind: 'foretold', team });
   announce(c, { kind: 'nostradamus', doppel: c.def.doppel === true, team });
 }
@@ -1856,6 +1860,7 @@ function startRipple(c: StepCtx) {
     case 'repeat-night':
     case 'repeat-observer': {
       night.loopFrom = night.plan.length;
+      night.loopFeared = r.order.filter((p) => feared(r, p));
       night.plan.push(...buildNightPlan(c.settings.roles, { loop: true }));
       if (rp.key === 'repeat-observer') {
         const who = playerNumbered(r.order, rp.observer);
@@ -1945,13 +1950,20 @@ function drawPick(c: StepCtx) {
   const role =
     c.def.id === 'aliens' || (c.def.repeat && c.def.role === 'alien') ? 'alien' : c.def.role;
   if (!TABLE_OF[role] || (role === 'oracle' && c.def.doppel)) return;
-  const pick = pickFor(role, {
-    rng: c.rng,
-    n: c.r.order.length,
-    weights: c.settings.weights,
-    roles: c.settings.roles,
-    oracleExchange: role === 'alien' && c.r.oracle?.exchange === true,
-  });
+  // A repeat does again what the role was told before ("whatever you did, do it again"), with
+  // fresh choices: it reuses the original step's instruction.
+  const before = c.def.repeat
+    ? night.picks?.[night.plan.indexOf(c.def.id.slice(REPEAT.length))]
+    : null;
+  const pick =
+    (before ? structuredClone(before) : null) ??
+    pickFor(role, {
+      rng: c.rng,
+      n: c.r.order.length,
+      weights: c.settings.weights,
+      roles: c.settings.roles,
+      oracleExchange: role === 'alien' && c.r.oracle?.exchange === true,
+    });
   if (!pick) return;
   (night.picks ??= {})[c.step] = pick;
   night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'told', pick } });
@@ -1993,7 +2005,12 @@ function finishStep(c: StepCtx) {
   if (c.def.role === 'nostradamus' && !c.def.repeat) {
     const actors = night.actors.filter((q) => c.r.players[q]!.night === 'nostradamus');
     if (actors.length) for (const p of actors) foretell(c, p);
-    else foretell(c, null);
+    else
+      foretell(
+        c,
+        null,
+        actorsFor(c.r, c.def, true).filter((q) => c.r.players[q]!.night === 'nostradamus'),
+      );
   }
   if (c.def.id === 'oracle') endOracle(c);
   // Fists nobody tapped learn so as the aliens close their eyes.
@@ -2110,7 +2127,7 @@ export function promptFor(c: StepCtx, p: PlayerId): Prompt | null {
 export function beginStep(c: StepCtx, now: number) {
   const night = c.r.night!;
   night.index = c.step;
-  night.deadline = now + stepFactor(c.def.id) * c.settings.stepSeconds * 1000;
+  night.deadline = now + stepMs(c.def.id, c.settings.stepSeconds);
   prepareStep(c);
   night.actors = actorsFor(c.r, c.def);
   night.work = Object.fromEntries(

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { RoleId } from './roles.ts';
+import { resolveVote } from './resolve.ts';
 import { dead, table, votes, winners } from './test-utils.ts';
 
 // The wave-1 cases from the rules spec (§5): base, Daybreak and bonus packs 1 and 2. Seats are
@@ -112,6 +114,31 @@ describe('vote and win cases', () => {
     expect(dead(h)).toBe('AB');
     expect(h.state.round!.result!.deaths).toContainEqual({ player: 'A', cause: 'hunter', by: 'B' });
     expect(winners(h)).toBe('BCDE');
+  });
+
+  it('a two-handed Hunter takes both players they voted for', () => {
+    const roles: RoleId[] = ['hunter', W, W, V, V];
+    const seats = ['A', 'B', 'C', 'D', 'E'];
+    const cards = Object.fromEntries(
+      seats.map((p, i) => [
+        p,
+        {
+          id: i,
+          role: roles[i]!,
+          faceUp: false,
+          shield: null,
+          artifact: null,
+          copied: null,
+          became: null,
+        },
+      ]),
+    );
+    const result = resolveVote(seats, cards, { A: 'B', B: 'A', C: 'A', D: 'A', E: 'B' }, null, {
+      votes2: { A: 'C' },
+    });
+    expect(result.deaths.map((d) => d.player).sort()).toEqual(['A', 'B', 'C']);
+    expect(result.deaths).toContainEqual({ player: 'C', cause: 'hunter', by: 'A' });
+    expect(result.winners).toEqual(['A', 'D', 'E']);
   });
 
   it('T16: the Bow makes a Hunter, and Hunters chain', () => {

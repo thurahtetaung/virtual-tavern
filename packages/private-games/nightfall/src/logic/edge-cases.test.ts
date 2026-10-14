@@ -178,13 +178,18 @@ describe('rule mismatches', () => {
     ]);
   });
 
-  it('refuses a vote for a player who has left', () => {
-    const h = table({ players: [W, V, V, V] });
+  it('lets players vote for a leaver’s seat, whose card is still on the table (D12)', () => {
+    const h = table({ players: [V, V, V, W] });
     h.dawn();
     leave(h, 'D');
     for (const p of ['A', 'B', 'C']) h.act({ type: 'ready-to-vote', ready: true }, p);
     expect(h.state.stage).toBe('vote');
-    expect(h.reject({ type: 'vote', target: 'D' }, 'B')).toBe('left');
+    h.act({ type: 'vote', target: 'D' }, 'A');
+    h.act({ type: 'vote', target: 'D' }, 'B');
+    h.act({ type: 'vote', target: 'A' }, 'C');
+    expect(h.state.stage).toBe('reveal');
+    expect(dead(h)).toBe('D');
+    expect(winners(h)).toBe('ABC');
   });
 
   it('tells a Robber with no one to rob so, instead of an empty prompt', () => {

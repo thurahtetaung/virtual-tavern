@@ -380,7 +380,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           'Everyone secretly votes for another player, then all votes show at once.',
           'The player with the most votes dies; on a tie, everyone tied dies. If nobody gets more than one vote, nobody dies.',
           `Votes for a ${roleName('prince')} don’t count, and the ${roleName('bodyguard')}’s pick protects instead of voting. Everyone’s buttons read Vote, so nobody can tell from a screen: peek at “what your pick does” to check yours.`,
-          'You can’t vote for a player who has left the game.',
+          'A player who leaves keeps their card on the table: you can still vote for their seat, and they win or lose as their card.',
         ],
       },
       {
@@ -430,7 +430,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           `Anyone who votes for the player with the ${markName('disease')}, or for the ${roleName('diseased')}, can’t win.`,
           `The ${roleName('assassin')} wins if a player with the ${markName('assassin')} dies, alongside any team. The ${roleName('apprentice-assassin')} wins if an ${roleName('assassin')} dies; if she found no ${roleName('assassin')} and placed the Mark herself, she wins when its holder dies, even if her card moves later.`,
           `A player with the ${markName('traitor')} wins only if someone else on their team dies, even when their team loses; their team’s result doesn’t count for them.`,
-          `A player held by the ${markName('fear')} sleeps through their turn, and learns at daybreak that they did.`,
+          `A player held by the ${markName('fear')} sleeps through their turn, and learns at daybreak that they did. Its first dusk is spared (the Mark is unseen until it ends), but not a time loop’s dusk or a repeat.`,
         ],
       },
       {
@@ -469,11 +469,11 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           'When the aliens’ own cards are in the game, the night may end with a ripple in the space-time continuum, announced to everyone. Each kind has its own odds (the host can change them); about one night in five has none.',
         ],
         bullets: [
-          'A shorter day (one minute), voting for the app instead of a player (if the app gets the most votes, nobody dies), or voting with both hands.',
+          `A shorter day (one minute), voting for the app instead of a player (if the app gets the most votes, nobody dies), or voting with both hands (a ${roleName('hunter')} who dies takes both picks with them).`,
           'Some players may only say “I am an alien”, must face away from the table, or may not speak until the vote.',
           `A named player may look at cards, look at their own card, swap two players’ cards, rob, swap blindly, play the ${roleName('witch')} or turn a card face up; two named players may show each other their cards and have them shuffled between them.`,
           `A time loop: the whole night runs again on the board as it is (Marks are given again, shields placed again), everyone waking as their original role; the ${roleName('oracle')}, the ${roleName('blob')} and the ripple don’t come round again. Sometimes one player keeps their eyes open throughout and sees who wakes and what they touch.`,
-          'A repeat: one role in the game does its night action again, with fresh choices.',
+          'A repeat: one role in the game does its night action again, with fresh choices (a role the narrator gives instructions to is told the same thing again).',
         ],
       },
     ],

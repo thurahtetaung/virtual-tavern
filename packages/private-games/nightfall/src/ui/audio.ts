@@ -3,7 +3,7 @@ import {
   type StepId,
   epicPossible,
   publicPlan,
-  stepFactor,
+  stepMs,
   stepLines,
   usesMarks,
 } from '../logic/plan.ts';
@@ -249,7 +249,7 @@ const saidAt = (announcements: readonly PublicNote[], at: number) =>
 
 /** When each step of tonight's plan starts, from the current step's deadline. */
 function stepStarts(plan: readonly StepId[], stepSeconds: number, index: number, deadline: number) {
-  const len = (i: number) => stepFactor(plan[i]!) * stepSeconds * 1000;
+  const len = (i: number) => stepMs(plan[i]!, stepSeconds);
   const starts: number[] = [];
   let at = deadline - len(index);
   starts[index] = at;
@@ -325,7 +325,7 @@ function stepCues(
 ): Cue[] {
   const id = plan[index]!;
   const lines = stepLines(id, s.roles, { loneWolf: s.loneWolf });
-  const end = start + stepFactor(id) * s.stepSeconds * 1000;
+  const end = start + stepMs(id, s.stepSeconds);
   const cues: Cue[] = [{ id: `${game}:${index}:open`, at: start, lines: lines.open }];
   if (!upcoming)
     cues.push({

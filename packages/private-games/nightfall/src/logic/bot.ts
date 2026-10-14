@@ -29,7 +29,7 @@ export function nightfallBot(view: NightfallView, ctx: BotCtx): NightfallAction 
     case 'vote': {
       const vote = view.vote;
       if (!vote) return null;
-      const others = (view.table ?? []).filter((p) => p.id !== me && !p.left).map((p) => p.id);
+      const others = (view.table ?? []).filter((p) => p.id !== me).map((p) => p.id);
       if (vote.myVote === null) {
         const target = pickOne(rng, others);
         return target ? { type: 'vote', target } : null;

@@ -23,6 +23,7 @@ import * as rt from './round-table-play.ts';
 import { confirmWrap } from './recap-play.ts';
 import {
   VAMPIRES,
+  dayTab,
   getReady,
   peek,
   playMarkedNight,
@@ -865,11 +866,11 @@ for (const [label, viewport] of [
     });
     await expect(host.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
     await shot(host, 'day');
-    await host.getByRole('tab', { name: 'Learned' }).click();
+    await dayTab(host, 'Learned');
     await shot(host, 'day-learned');
-    await host.getByRole('tab', { name: 'Roles' }).click();
+    await dayTab(host, 'Roles');
     await shot(host, 'day-roles');
-    await host.getByRole('tab', { name: 'Table' }).click();
+    await dayTab(host, 'Table');
     for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
     await expect(host.getByText('🗳️ The vote')).toBeVisible();
     await host.getByRole('button', { name: `Vote for ${names[1]}` }).click();
@@ -981,11 +982,11 @@ for (const [label, viewport] of [
     await lover.getByTestId('my-mark').getByRole('button').click();
     await shot(lover, 'my-mark');
     await lover.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
-    await lover.getByRole('tab', { name: 'Learned' }).click();
+    await dayTab(lover, 'Learned');
     await shot(lover, 'day-learned');
-    await lover.getByRole('tab', { name: 'Roles' }).click();
+    await dayTab(lover, 'Roles');
     await shot(lover, 'day-roles');
-    await lover.getByRole('tab', { name: 'Table' }).click();
+    await dayTab(lover, 'Table');
     for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
     await expect(host.getByText('🗳️ The vote')).toBeVisible();
     for (const [i, p] of players.entries())
@@ -1130,11 +1131,11 @@ for (const [label, viewport] of [
     );
     await expect(host.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
     await shot(host, 'day');
-    await host.getByRole('tab', { name: 'Learned' }).click();
+    await dayTab(host, 'Learned');
     await shot(host, 'day-learned');
-    await host.getByRole('tab', { name: 'Roles' }).click();
+    await dayTab(host, 'Roles');
     await shot(host, 'day-roles');
-    await host.getByRole('tab', { name: 'Table' }).click();
+    await dayTab(host, 'Table');
     const W = roles.indexOf('werewolf') >= 0 ? roles.indexOf('werewolf') : 0;
     for (const p of players) await p.getByRole('button', { name: 'Ready to vote' }).click();
     await expect(host.getByText('🗳️ The vote')).toBeVisible();

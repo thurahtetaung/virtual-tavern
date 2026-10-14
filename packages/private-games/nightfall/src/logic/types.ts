@@ -365,6 +365,8 @@ export interface NightState {
   picks?: Record<number, StepPick>;
   /** Where the time loop starts in the plan (a ripple sent the night round again). */
   loopFrom?: number;
+  /** Who held the Mark of Fear when the time loop began (they've seen it: Fear stops their dusk). */
+  loopFeared?: PlayerId[];
   /** Tonight's ripple, once announced. */
   ripple?: Ripple;
   /** The aliens' joint pick this step (all-view, a New Alien), once made. */

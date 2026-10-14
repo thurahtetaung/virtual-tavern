@@ -1,6 +1,7 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { buildNightPlan, publicPlan, stepFactor } from './plan.ts';
+import { actorsFor } from './night.ts';
+import { buildNightPlan, publicPlan, stepDef, stepFactor } from './plan.ts';
 import { SCENARIOS, scenarioRoles } from './presets.ts';
 import { ROLES, ROLE_IDS, type RoleId, hostileGroupsIn } from './roles.ts';
 import {
@@ -611,6 +612,25 @@ describe('the other Alien roles', () => {
     expect(winners(h)).toContain('B');
   });
 
+  it('the Body Snatcher can’t snatch a New Alien tapped at the aliens’ step', () => {
+    const h = table({
+      players: ['body-snatcher', 'alien', V, 'seer', V],
+      settings: { weights: ws(STARE, NO_RIPPLE, only('body-snatcher', 'steal')) },
+    });
+    h.toStep('aliens');
+    h.state.round!.aliens = { players: ['C'], helpers: [] };
+    h.toStep('body-snatcher');
+    h.state.round!.night!.picks![h.state.round!.night!.index] = {
+      kind: 'body-snatcher',
+      action: 'steal',
+      from: { kind: 'any' },
+    };
+    const ids = h.view('A').night!.acting!.prompt!.players!.ids;
+    expect(ids).not.toContain('B');
+    expect(ids).not.toContain('C');
+    expect(ids).toContain('D');
+  });
+
   it('the Body Snatcher may be told to take a centre card, or only to pretend', () => {
     const h = table({
       players: ['body-snatcher', W, V, 'seer'],
@@ -677,6 +697,23 @@ describe('the other Alien roles', () => {
     h.tick();
     expect(h.view('A').announcements.at(-1)).toMatchObject({ kind: 'nostradamus' });
     expect(h.state.round!.center[0]!.card.foretold).toBeTruthy();
+  });
+
+  it('a Feared Doppelgänger-Nostradamus still gets the announced team on her card', () => {
+    const h = table({ players: ['doppelganger', 'nostradamus', 'the-count', 'vampire', V] });
+    h.toStep('doppelganger');
+    h.night('A', { players: ['B'] });
+    h.toStep('vampires');
+    h.night('D', { players: ['E'] });
+    h.toStep('the-count');
+    h.night('C', { players: ['A'] });
+    h.toStep('doppelganger-nostradamus');
+    expect(actors(h)).toEqual([]);
+    h.tick();
+    const a = h.view('E').announcements.at(-1);
+    expect(a).toMatchObject({ kind: 'nostradamus', doppel: true });
+    const team = a?.kind === 'nostradamus' ? a.team : null;
+    expect(h.state.round!.cards.A!.foretold?.team).toBe(team);
   });
 
   it('Nostradamus on an own-team card wins only if its holder does', () => {
@@ -1432,6 +1469,54 @@ describe('ripples', () => {
     expect(h.state.round!.cards.D!.shield).not.toBeNull();
   });
 
+  it('Fear stops a player in the time loop’s dusk once they have seen it', () => {
+    const h = table({
+      players: ['the-count', 'vampire', 'cupid', V, V],
+      center: ['alien', V, V],
+      settings: { weights: ws(STARE, only('ripple', 'repeat-night')) },
+    });
+    h.toStep('vampires');
+    h.night('B', { players: ['D'] });
+    h.toStep('the-count');
+    h.night('A', { players: ['C'] });
+    h.toStep('cupid');
+    expect(actors(h)).toEqual(['C']);
+    h.toStep('ripple');
+    h.tick();
+    expect(h.state.round!.night!.loopFeared).toEqual(['C']);
+    while (h.step() !== 'cupid') h.tick();
+    expect(actors(h)).toEqual([]);
+  });
+
+  it('Fear stops a Doppelgänger’s immediate copy from acting again in the loop', () => {
+    const h = table({
+      players: ['doppelganger', 'robber', 'the-count', 'vampire', V],
+      center: ['alien', V, V],
+      settings: { weights: ws(STARE, only('ripple', 'repeat-night')) },
+    });
+    h.toStep('doppelganger');
+    h.night('A', { players: ['B'] });
+    h.night('A', { players: ['E'] });
+    h.toStep('vampires');
+    h.night('D', { players: ['E'] });
+    h.toStep('the-count');
+    h.night('C', { players: ['A'] });
+    h.toStep('ripple');
+    h.tick();
+    while (h.step() !== 'doppelganger') h.tick();
+    expect(actors(h)).toEqual([]);
+  });
+
+  it('Fear stops a ripple’s repeat of a dusk role', () => {
+    const h = table({ players: ['the-count', 'vampire', 'cupid', V, V] });
+    h.toStep('vampires');
+    h.night('B', { players: ['D'] });
+    h.toStep('the-count');
+    h.night('A', { players: ['C'] });
+    expect(actorsFor(h.state.round!, stepDef('repeat:cupid'))).toEqual([]);
+    expect(actorsFor(h.state.round!, stepDef('repeat:the-count'))).toEqual(['A']);
+  });
+
   it('repeat-observer: the named player keeps their eyes open through the loop', () => {
     const h = rippling('repeat-observer', ['seer', V, W, 'robber', V]);
     const rp = h.state.round!.night!.ripple!;
@@ -1460,6 +1545,24 @@ describe('ripples', () => {
     expect(h.step()).toBe('repeat:psychic');
     expect(actors(h)).toEqual(['A', 'B']);
     expect(told(h, 'B')).toMatchObject({ kind: 'psychic' });
+  });
+
+  it('repeat-role: the role is told the same instruction again (only the choices are fresh)', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const h = table({
+        seed,
+        players: ['rascal', 'psychic', W, V, V],
+        center: ['synthetic-alien', V, V],
+        settings: { weights: ws(STARE, only('ripple', 'repeat-role')) },
+      });
+      h.toStep('ripple');
+      const rp = h.state.round!.night!.ripple!;
+      if (rp.key !== 'repeat-role') throw new Error(rp.key);
+      h.tick();
+      const { plan, picks } = h.state.round!.night!;
+      expect(h.step()).toBe(`repeat:${rp.role}`);
+      expect(picks![h.state.round!.night!.index]).toEqual(picks![plan.indexOf(rp.role)]);
+    }
   });
 
   it('repeat-role never names the Copycat or The Master', () => {
