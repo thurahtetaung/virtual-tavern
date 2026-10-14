@@ -213,7 +213,7 @@ function base(): GameGuide {
       'You hold one secret card. On your turn, draw a second, then play one of the two face up.',
       'Do what the played card says: guess a hand, peek at one, compare, swap or protect yourself.',
       'If a card knocks you out, you sit out the rest of the round.',
-      'The last player standing, or the highest card when the deck runs out, wins the round and a favour token. A tie the discards can’t break gives every tied player one.',
+      'The last one standing, or the highest card when the deck runs out, wins a favour token. A tie the discards can’t break gives every tied player one.',
       'Watch the discards: every card played tells you what is left.',
       'The first to the token target wins the game.',
     ],
