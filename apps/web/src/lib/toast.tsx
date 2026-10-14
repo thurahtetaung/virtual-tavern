@@ -25,6 +25,9 @@ let nextId = 1;
 /** Errors stay a little longer than notices; any toast goes away when tapped. */
 const DURATION_MS: Record<Toast['tone'], number> = { error: 6000, info: 4000 };
 
+/** At most two at once, so the stack never reaches far into the page; a new one pushes out the oldest. */
+const MAX_TOASTS = 2;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const shown = useRef<Toast[]>([]);
@@ -49,7 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       if (same) {
         update(shown.current.map((x) => (x.id === id ? { ...x, count: x.count + 1 } : x)));
       } else {
-        update([...shown.current.slice(-2), { id, text, tone, count: 1 }]);
+        update([...shown.current.slice(1 - MAX_TOASTS), { id, text, tone, count: 1 }]);
       }
       window.clearTimeout(timers.current.get(id));
       timers.current.set(
@@ -63,7 +66,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex flex-col items-center gap-2 px-4">
+      {/* On phones only the newest shows: over the site's title bar it stays clear of the room's
+          Invite / Players / Rules row (y 81), which a second toast below it would cover. */}
+      <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex flex-col items-center gap-2 px-4 max-sm:[&>*:not(:last-child)]:hidden">
         {toasts.map((t) => (
           <div
             key={t.id}

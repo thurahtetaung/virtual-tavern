@@ -397,7 +397,8 @@ function Room({
     toast(`Someone here is already called ${name}, so you're ${myName} in this room.`, 'info');
   }, [myName, name, toast]);
 
-  // Arrivals and departures, collected briefly so a group joining at once makes one toast.
+  // Arrivals and departures, collected briefly so a group joining at once makes one toast. Only in
+  // the lobby: during a game the Players count shows them, and a toast would cover the board.
   const knownPlayers = useRef<Map<string, string> | null>(null);
   const presence = useRef<{ joined: string[]; left: string[]; timer: number | null }>({
     joined: [],
@@ -410,6 +411,7 @@ function Room({
     const before = knownPlayers.current;
     knownPlayers.current = now;
     if (!before) return; // The first snapshot: everyone already here is not "joining".
+    if (snapshot.meta && snapshot.meta.phase !== 'lobby') return;
     const p = presence.current;
     for (const [id, playerName] of now)
       if (!before.has(id) && id !== snapshot.you) p.joined.push(playerName);
