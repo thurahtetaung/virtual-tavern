@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.0...v0.37.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **admin:** review-round fixes to the stats and admin pages for phones, keyboard and reduced motion ([#175](https://github.com/thurahtetaung/virtual-tavern/issues/175)) ([09f1153](https://github.com/thurahtetaung/virtual-tavern/commit/09f11533e55d3fd9471578d51eb5d857142601b2))
+* **echo:** review-round fixes: drop the typo rule, the rulebook's last-card penalty, and a better clue matcher ([#180](https://github.com/thurahtetaung/virtual-tavern/issues/180)) ([4e89afb](https://github.com/thurahtetaung/virtual-tavern/commit/4e89afb70d70757f13d78a103f4d40e8bb352c22))
+
 ## [0.37.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.4...v0.37.0) (2026-10-14)
 
 
