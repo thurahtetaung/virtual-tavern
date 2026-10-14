@@ -10,12 +10,13 @@ import {
   useSpectatorPrompt,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
-import { tokenWords, winReason } from '../logic/outcome.ts';
+import { tokenWords } from '../logic/outcome.ts';
 import type { EnigmaAction, EnigmaView, Team } from '../logic/types.ts';
 import { TeamChat } from './Chat.tsx';
 import { Lobby, TEAMS_ID, TeamsPicker } from './Lobby.tsx';
 import { OpponentSheet, OwnSheet } from './Sheets.tsx';
-import { endOfRoundWarnings, revealOutcome, startBlocker, statusFor } from './status.ts';
+import { ShowdownPanel } from './Showdown.tsx';
+import { endOfRoundWarnings, endReason, revealOutcome, startBlocker, statusFor } from './status.ts';
 import { TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 import { TransmissionCard } from './Transmission.tsx';
 
@@ -77,12 +78,20 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
         <Countdown
           deadline={view.phase === 'playing' && view.stage !== 'reveal' ? view.deadline : null}
           clockOffset={clockOffset}
-          label={view.stage === 'clue' ? 'to write clues' : 'to lock in codes'}
+          label={
+            view.stage === 'clue'
+              ? 'to write clues'
+              : view.stage === 'showdown'
+                ? 'to hand in guesses'
+                : 'to lock in codes'
+          }
           soft={!strict}
           atZero={
             view.stage === 'clue'
               ? 'then missing clues count as a miss'
-              : 'then teams that haven’t agreed miss'
+              : view.stage === 'showdown'
+                ? 'then each team’s guesses under Clues count'
+                : 'then teams that haven’t agreed miss'
           }
           expiredHint="No penalty: finish when you're ready."
         />
@@ -260,7 +269,8 @@ export function EnigmaGame({
   const isLastReveal =
     view.stage === 'reveal' &&
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.active === true);
-  const decided = revealOutcome(view) !== null;
+  const outcome = revealOutcome(view);
+  const reason = endReason(view);
   const lastReveal = view.transmissions.filter((t) => t.revealed);
   const endWarnings = endOfRoundWarnings(view);
 
@@ -295,13 +305,14 @@ export function EnigmaGame({
                 )}
               >
                 {view.winner === 'draw'
-                  ? '🤝 A draw!'
+                  ? view.showdown
+                    ? '🤝 A shared win!'
+                    : '🤝 A draw!'
                   : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
               </p>
               {/* Why, said once here: the hint above is hidden once the game is over. */}
-              {winReason(view.teams, view.round) && (
-                <p className="font-semibold">{winReason(view.teams, view.round)}</p>
-              )}
+              {reason && <p className="font-semibold">{reason}</p>}
+              <ShowdownPanel view={view} act={act} />
               <ul className="space-y-0.5 text-sm">
                 {(['red', 'blue'] as const).map((team) => (
                   <li key={team}>
@@ -344,7 +355,10 @@ export function EnigmaGame({
               </div>
             </section>
           )}
-          {view.phase !== 'over' && (
+          {view.stage === 'showdown' && view.phase === 'playing' && (
+            <ShowdownPanel view={view} act={act} />
+          )}
+          {view.phase !== 'over' && view.stage !== 'showdown' && (
             <>
               {waitingKeywords && <KeywordStrip keywords={waitingKeywords} />}
               <div className={cn('grid gap-4', shown.length > 1 && 'md:grid-cols-2')}>
@@ -364,7 +378,13 @@ export function EnigmaGame({
           {view.phase === 'playing' && view.stage === 'reveal' && room.isHost && (
             <div className="flex justify-center">
               <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
-                {decided ? 'See results' : isLastReveal ? 'Next round' : 'Continue'}
+                {outcome?.winner === 'draw'
+                  ? 'Start the showdown'
+                  : outcome
+                    ? 'See results'
+                    : isLastReveal
+                      ? 'Next round'
+                      : 'Continue'}
               </Button>
             </div>
           )}

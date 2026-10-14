@@ -29,13 +29,22 @@ describe('winnerFrom and winReason', () => {
     );
     // One team can do both in one round: two interceptions and two miscommunications.
     expect(winReason(tallies([2, 2], [0, 0]), 3)).toBe(
-      'Red intercepted 2 codes and Red had 2 miscommunications at the same time, and the scores (interceptions minus miscommunications) are level: Red 0, Blue 0.',
+      'Red intercepted 2 codes and Red had 2 miscommunications at the same time, and the scores (interceptions minus miscommunications) are level: Red 0, Blue 0, so it goes to a showdown.',
     );
   });
 
   it('settles round 8 by score, and calls a level score a draw', () => {
     expect(winnerFrom(tallies([1, 1], [1, 1]), 8)).toBe('draw');
     expect(winReason(tallies([1, 1], [1, 1]), 8)).toMatch(/After round 8 .*level/);
+  });
+
+  it('names the showdown result after a level score', () => {
+    expect(winReason(tallies([0, 0], [0, 0]), 8, { red: 2, blue: 1 })).toBe(
+      'After round 8 nobody had reached 2 tokens, and the scores (interceptions minus miscommunications) are level: Red 0, Blue 0. In the showdown Red named 2 keywords right and Blue 1.',
+    );
+    expect(winReason(tallies([0, 0], [0, 0]), 8, { red: 1, blue: 1 })).toMatch(
+      /In the showdown both teams named 1 keyword right, so they share the win\.$/,
+    );
   });
 
   it('spells out tokens in words', () => {

@@ -1,5 +1,5 @@
 import { type PresencePlayer, listNames, namesWithPresence, waitingForHost } from '@vt/game-sdk';
-import { winReason, winnerFrom } from '../logic/outcome.ts';
+import { type ShowdownScore, winReason, winnerFrom } from '../logic/outcome.ts';
 import {
   type EnigmaView,
   type Team,
@@ -54,7 +54,7 @@ export function lockedOnText(tx: TransmissionView): string | null {
  * so both teams finish it. One line per team and token; empty when there is nothing to warn about.
  */
 export function endOfRoundWarnings(view: EnigmaView): string[] {
-  if (view.phase !== 'playing') return [];
+  if (view.phase !== 'playing' || view.stage === 'showdown') return [];
   const roundOver =
     view.stage === 'reveal' &&
     (view.settings.flow === 'simultaneous' || view.transmissions[1]?.revealed === true);
@@ -141,7 +141,36 @@ export function revealOutcome(view: EnigmaView): { winner: Team | 'draw'; reason
 }
 
 const winsLine = (winner: Team | 'draw') =>
-  winner === 'draw' ? "It's a draw!" : `${TEAM_LABEL[winner]} wins!`;
+  winner === 'draw' ? 'Dead level!' : `${TEAM_LABEL[winner]} wins!`;
+
+/** Keywords each team named right in the showdown, once the game is over. */
+export function showdownScore(view: EnigmaView): ShowdownScore | null {
+  const right = view.showdown?.right;
+  if (!right) return null;
+  const count = (t: Team) => right[t].filter(Boolean).length;
+  return { red: count('red'), blue: count('blue') };
+}
+
+/** The game's end reason, with the showdown result when there was one. */
+export const endReason = (view: EnigmaView) =>
+  winReason(view.teams, view.round, showdownScore(view));
+
+function showdownStatus(view: EnigmaView): Status {
+  const team = view.me?.team;
+  if (!team) {
+    return {
+      text: 'Showdown! The score is level, so each team is naming the other team’s keywords.',
+      yourMove: false,
+    };
+  }
+  const them = TEAM_LABEL[team === 'red' ? 'blue' : 'red'];
+  return view.showdown?.done[team]
+    ? { text: `Your team has handed in its guesses. Waiting for ${them}…`, yourMove: false }
+    : {
+        text: `Showdown! The score is level: agree with your team on ${them}'s four keywords, then hand them in.`,
+        yourMove: true,
+      };
+}
 
 /** Plain-language guidance for whoever is looking at the screen. */
 export function statusFor(
@@ -163,9 +192,10 @@ export function statusFor(
   }
   if (view.phase === 'over') {
     // The result panel names the winner; the hint says why, so the two never repeat each other.
-    const reason = winReason(view.teams, view.round);
+    const reason = endReason(view);
     return { text: `Game over. ${reason ?? ''}`.trim(), yourMove: false };
   }
+  if (view.stage === 'showdown') return showdownStatus(view);
   const active = view.transmissions.filter((t) => t.active);
   let waiting: Status | null = null;
   for (const tx of active) {
@@ -194,7 +224,13 @@ export function statusFor(
   if (outcome) {
     return {
       text: `${winsLine(outcome.winner)} ${outcome.reason} ${
-        isHost ? 'Press See results.' : waitHost('show the results')
+        outcome.winner === 'draw'
+          ? isHost
+            ? 'Press Start the showdown.'
+            : waitHost('start the showdown')
+          : isHost
+            ? 'Press See results.'
+            : waitHost('show the results')
       }`,
       yourMove: isHost,
     };
@@ -211,7 +247,7 @@ export function statusFor(
 export function chatMuted(view: EnigmaView): boolean {
   return (
     view.phase === 'playing' &&
-    view.stage !== 'reveal' &&
+    (view.stage === 'clue' || view.stage === 'guess') &&
     view.transmissions.some((t) => t.active && t.role === 'encryptor' && !t.expired)
   );
 }

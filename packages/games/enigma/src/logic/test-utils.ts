@@ -80,13 +80,16 @@ export function startedGame(
 export const tx = (h: Harness, team: Team) => h.state.transmissions.find((t) => t.team === team)!;
 export const members = (team: Team) => (team === 'red' ? RED : BLUE);
 
+/** Three fresh clues per round (a team may only give a clue once per game). */
+const NATO =
+  'alpha bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey xray'.split(
+    ' ',
+  );
+export const cluesFor = (round: number) => NATO.slice((round - 1) * 3, round * 3);
+
 /** The active Encryptor for `team` sends three clues. */
 export function sendClues(h: Harness, team: Team, now = NOW) {
-  return h.act(
-    { type: 'give-clues', clues: ['alpha', 'bravo', 'charlie'] },
-    tx(h, team).encryptor,
-    now,
-  );
+  return h.act({ type: 'give-clues', clues: cluesFor(h.state.round) }, tx(h, team).encryptor, now);
 }
 
 /** Every listed player picks `code` and locks it in for the transmission sent by `team`. */

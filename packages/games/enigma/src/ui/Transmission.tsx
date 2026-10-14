@@ -1,7 +1,7 @@
 import type { ActOptions } from '@vt/game-sdk';
 import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
-import { clueProblem } from '../logic/game.ts';
+import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
 import { MAX_CLUE_LENGTH, TOKENS_TO_END } from '../logic/types.ts';
 import { cluesByKeyword, lockedOnText } from './status.ts';
@@ -43,7 +43,10 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
     }
   }, [key, clues]);
   const keywords = view.teams[tx.team].keywords ?? [];
-  const problems = clues.map((c) => (c.trim() ? clueProblem(c.trim(), keywords)?.message : null));
+  const used = usedClues(view.teams[tx.team].history);
+  const problems = clues.map((c) =>
+    c.trim() ? clueProblem(c.trim(), keywords, used)?.message : null,
+  );
   const alone = view.teams[tx.team].members.length < 2;
   const submit = async (e: FormEvent) => {
     e.preventDefault();

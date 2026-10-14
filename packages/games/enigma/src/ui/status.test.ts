@@ -240,6 +240,29 @@ describe('the deciding reveal', () => {
   });
 });
 
+describe('the showdown', () => {
+  it('leads a level score to the showdown, then names its result', () => {
+    const h = startedGame();
+    h.state = { ...h.state, stage: 'reveal', round: 8 };
+    const reveal = statusFor(enigma.view(h.state, HOST), true, null);
+    expect(reveal.text).toContain('Dead level!');
+    expect(reveal.text).toContain('so it goes to a showdown');
+    expect(reveal.text).toContain('Press Start the showdown.');
+    h.act({ type: 'next-round' });
+    expect(endOfRoundWarnings(enigma.view(h.state, 'r2'))).toEqual([]);
+    expect(statusFor(enigma.view(h.state, 'r2'), false, null)).toMatchObject({ yourMove: true });
+    expect(statusFor(enigma.view(h.state, null), false, null).yourMove).toBe(false);
+    h.act({ type: 'showdown-guesses', guesses: [...h.state.teams.blue.keywords] }, 'r2');
+    expect(statusFor(enigma.view(h.state, 'r3'), false, null).text).toBe(
+      'Your team has handed in its guesses. Waiting for Blue…',
+    );
+    h.act({ type: 'showdown-guesses', guesses: ['', '', '', ''] }, 'b1');
+    expect(statusFor(enigma.view(h.state, 'b1'), false, null).text).toMatch(
+      /In the showdown Red named 4 keywords right and Blue 0\.$/,
+    );
+  });
+});
+
 describe('chatMuted', () => {
   it('mutes the Encryptor from the deal until the reveal, even once their team agrees', () => {
     const h = startedGame();

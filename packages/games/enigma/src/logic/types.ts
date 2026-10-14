@@ -144,7 +144,19 @@ export interface Transmission {
   revealed: boolean;
 }
 
-export type Stage = 'clue' | 'guess' | 'reveal';
+/**
+ * `showdown`: the score was level at the end, so each team guesses the other team's four
+ * keywords; the most right wins, still level is a draw.
+ */
+export type Stage = 'clue' | 'guess' | 'reveal' | 'showdown';
+
+/** The tiebreak after a level score: each team's guesses at the other team's keywords. */
+export interface Showdown {
+  /** null until the team hands its guesses in (once, for the whole team). */
+  guesses: Record<Team, string[] | null>;
+  /** Who handed each team's guesses in; null if the timer or an empty team did. */
+  by: Record<Team, PlayerId | null>;
+}
 
 export interface EnigmaState {
   phase: 'lobby' | 'playing' | 'over';
@@ -168,6 +180,8 @@ export interface EnigmaState {
   /** Epoch ms when the current stage times out, or null if untimed. */
   deadline: number | null;
   winner: Team | 'draw' | null;
+  /** The tiebreak, while it runs and once it has decided the game; null otherwise. */
+  showdown?: Showdown | null;
   gamesPlayed: number;
   /**
    * How many times each player has been the Encryptor, across games, so the next one is whoever
@@ -228,6 +242,11 @@ export const actionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('remove-note'), id: z.string().min(1).max(20) }),
   z.object({ type: z.literal('next-round') }),
+  /** Showdown: the team's final guesses at the other team's keywords 1–4 (blank = no guess). */
+  z.object({
+    type: z.literal('showdown-guesses'),
+    guesses: z.array(z.string().trim().max(MAX_NOTE_LENGTH)).length(KEYWORD_COUNT),
+  }),
   /** Host: stop waiting for `player`'s vote on `team`'s transmission (an offline player, say). */
   z.object({ type: z.literal('skip-voter'), team, player: z.string().min(1).max(100) }),
 ]);
@@ -304,4 +323,16 @@ export interface EnigmaView {
   notes: NotesView | null;
   deadline: number | null;
   winner: Team | 'draw' | null;
+  showdown: ShowdownView | null;
+}
+
+/** The tiebreak as one player sees it: other teams' guesses only once the game is over. */
+export interface ShowdownView {
+  /** Whether each team has handed its guesses in. */
+  done: Record<Team, boolean>;
+  /** Each team's guesses: the viewer's own team's once handed in, everyone's at the end. */
+  guesses: Record<Team, string[] | null>;
+  by: Record<Team, PlayerId | null>;
+  /** Which guesses were right, per team (at the end only). */
+  right: Record<Team, boolean[]> | null;
 }

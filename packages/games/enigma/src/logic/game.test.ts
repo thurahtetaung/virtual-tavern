@@ -146,6 +146,23 @@ describe('encryptors and clues', () => {
     expect(tx(h, 'red').clues).toEqual([theirs, 'legs', 'c']);
   });
 
+  it('refuses a clue the team already gave this game, in any form', () => {
+    const h = startedGame();
+    h.act({ type: 'give-clues', clues: ['Salty', 'running', 'moon'] }, HOST);
+    sendClues(h, 'blue');
+    vote(h, 'red', decoders(h, 'red'), tx(h, 'red').code);
+    vote(h, 'blue', decoders(h, 'blue'), tx(h, 'blue').code);
+    h.act({ type: 'next-round' });
+    const enc = tx(h, 'red').encryptor;
+    const give = (clues: string[]) => h.reject({ type: 'give-clues', clues }, enc);
+    expect(give(['salty', 'b', 'c'])).toBe('clue-used');
+    expect(give(['a', 'RUNS', 'c'])).toBe('clue-used');
+    expect(give(['a', 'b', 'the moons'])).toBe('clue-used');
+    // The other team's old clues are fair game, and so is a clue that only contains an old one.
+    h.act({ type: 'give-clues', clues: ['alpha', 'salty sea', 'c'] }, enc);
+    expect(tx(h, 'red').clues).toEqual(['alpha', 'salty sea', 'c']);
+  });
+
   it('carries the Encryptor rotation into a rematch, with chat and notes wiped', () => {
     const h = startedGame();
     h.act({ type: 'chat', text: 'old news' }, 'r2');
@@ -489,6 +506,104 @@ describe('winning', () => {
     expect(h.state.seats.r2?.team).toBe('red');
     expect(JSON.stringify(enigma.view(h.state, 'r2'))).not.toContain('secret');
     h.act({ type: 'join-team', team: 'blue' }, 'r2');
+  });
+});
+
+describe('the showdown after a level score', () => {
+  /** Plays to the end of round 8 with nobody scoring, then opens the showdown. */
+  function levelGame(opts: Parameters<typeof startedGame>[0] = {}) {
+    const h = startedGame(opts);
+    for (let r = 1; r <= MAX_ROUNDS; r++) {
+      playRound(h);
+      h.act({ type: 'next-round' });
+    }
+    return h;
+  }
+  const blank = ['', '', '', ''];
+
+  it('opens instead of a draw, and the team with more keywords right wins', () => {
+    const h = levelGame();
+    expect(h.state).toMatchObject({ phase: 'playing', stage: 'showdown', winner: null });
+    const blue = h.state.teams.blue.keywords;
+    const red = h.state.teams.red.keywords;
+    // Case doesn’t matter; the right word in the wrong slot doesn’t count.
+    h.act({ type: 'showdown-guesses', guesses: [blue[0]!.toUpperCase(), blue[2]!, '', 'x'] }, 'r2');
+    expect(h.reject({ type: 'showdown-guesses', guesses: blank }, 'r3')).toBe('showdown-done');
+    expect(h.state.phase).toBe('playing');
+    h.act({ type: 'showdown-guesses', guesses: [red[0]!, red[1]!, 'x', 'y'] }, 'b1');
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'blue', startingTeam: 'blue' });
+    expect(enigma.view(h.state, null).showdown).toMatchObject({
+      right: { red: [true, false, false, false], blue: [true, true, false, false] },
+      by: { red: 'r2', blue: 'b1' },
+    });
+  });
+
+  it('is a shared win when the teams get as many right', () => {
+    const h = levelGame();
+    h.act({ type: 'showdown-guesses', guesses: blank }, 'r2');
+    h.act({ type: 'showdown-guesses', guesses: blank }, 'b2');
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'draw' });
+  });
+
+  it('only opens on a level score', () => {
+    const h = startedGame();
+    const quiet = Array.from({ length: MAX_ROUNDS }, (_, i) =>
+      i === 4 ? { redIntercepts: true } : {},
+    );
+    for (const r of quiet) {
+      playRound(h, r);
+      h.act({ type: 'next-round' });
+    }
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'red', showdown: null });
+  });
+
+  it('hides a team’s guesses from the other team and watchers until the end', () => {
+    const h = levelGame();
+    h.act({ type: 'showdown-guesses', guesses: ['Zorblax', '', '', ''] }, 'r2');
+    for (const viewer of ['b1', null]) {
+      const v = enigma.view(h.state, viewer);
+      expect(v.showdown).toMatchObject({ done: { red: true, blue: false }, right: null });
+      expect(JSON.stringify(v)).not.toContain('Zorblax');
+    }
+    expect(enigma.view(h.state, 'r3').showdown?.guesses.red).toEqual(['Zorblax', '', '', '']);
+  });
+
+  it('lets the Encryptor talk again, and only the host-free paths end it', () => {
+    const h = levelGame();
+    for (const id of [...RED, ...BLUE]) expect(canWriteNotes(h.state, id)).toBe(true);
+    expect(h.reject({ type: 'next-round' })).toBe('wrong-stage');
+  });
+
+  it('uses the team’s notes when the strict timer runs out or the team has left', () => {
+    const h = levelGame({ guessSeconds: 60, timerMode: 'strict' });
+    expect(h.state.deadline).not.toBeNull();
+    h.state = {
+      ...h.state,
+      teams: {
+        ...h.state.teams,
+        red: {
+          ...h.state.teams.red,
+          notes: { ...h.state.teams.red.notes, guesses: [...h.state.teams.blue.keywords] },
+        },
+      },
+    };
+    h.act({ type: 'showdown-guesses', guesses: blank }, 'b1');
+    h.state = enigma.onDeadline!(h.state, enigma.nextDeadline!(h.state)!);
+    expect(h.state).toMatchObject({ phase: 'over', winner: 'red' });
+
+    const left = levelGame();
+    left.act({ type: 'showdown-guesses', guesses: blank }, 'r2');
+    for (const id of BLUE) left.state = enigma.playerLeft(left.state, id, NOW);
+    expect(left.state).toMatchObject({ phase: 'over', winner: 'draw' });
+  });
+
+  it('forgets the showdown on a rematch', () => {
+    const h = levelGame();
+    h.act({ type: 'showdown-guesses', guesses: blank }, 'r2');
+    h.act({ type: 'showdown-guesses', guesses: blank }, 'b2');
+    h.act({ type: 'start' });
+    expect(h.state.showdown).toBeNull();
+    expect(enigma.view(h.state, 'r2').showdown).toBeNull();
   });
 });
 

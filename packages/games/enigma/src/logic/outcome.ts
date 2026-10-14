@@ -22,8 +22,18 @@ export function winnerFrom(tallies: Tallies, round: number): Team | 'draw' | nul
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
-/** One sentence saying why the game ended the way it did, or null while it's still undecided. */
-export function winReason(tallies: Tallies, round: number): string | null {
+/** Keywords each team got right in the showdown, once it is over. */
+export type ShowdownScore = Record<Team, number>;
+
+/**
+ * Why the game ended the way it did, or null while it's still undecided. A level score goes to
+ * the showdown: pass its result once it's over, else the reason says one is coming.
+ */
+export function winReason(
+  tallies: Tallies,
+  round: number,
+  showdown: ShowdownScore | null = null,
+): string | null {
   const winner = winnerFrom(tallies, round);
   if (!winner) return null;
   if (winner !== 'draw' && !qualifies(tallies, other(winner))) {
@@ -51,9 +61,15 @@ export function winReason(tallies: Tallies, round: number): string | null {
     qualifies(tallies, 'red') && qualifies(tallies, 'blue')
       ? `${events.join(' and ')} at the same time`
       : `After round ${MAX_ROUNDS} nobody had reached 2 tokens`;
-  return winner === 'draw'
-    ? `${why}, and the scores (interceptions minus miscommunications) are level: ${scores}.`
-    : `${why}, so the score decides (interceptions minus miscommunications): ${scores}.`;
+  if (winner !== 'draw') {
+    return `${why}, so the score decides (interceptions minus miscommunications): ${scores}.`;
+  }
+  const level = `${why}, and the scores (interceptions minus miscommunications) are level: ${scores}`;
+  if (!showdown) return `${level}, so it goes to a showdown.`;
+  const { red, blue } = showdown;
+  return red === blue
+    ? `${level}. In the showdown both teams named ${plural(red, 'keyword')} right, so they share the win.`
+    : `${level}. In the showdown Red named ${plural(red, 'keyword')} right and Blue ${blue}.`;
 }
 
 /** "1 interception" / "2 miscommunications", for the token tallies on the end screen. */

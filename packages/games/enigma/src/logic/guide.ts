@@ -4,7 +4,7 @@ const text: GameGuide = {
   tagline: 'Pass secret codes to your team with clues, while the other team tries to crack them.',
   players: '4 or more (best with 6–8)',
   duration: '30–45 minutes',
-  goal: 'Get your codes across to your own team without two miscommunications, and intercept the other team’s codes twice before they intercept yours. If nobody has managed either by the end of round 8, the better score wins.',
+  goal: 'Get your codes across to your own team without two miscommunications, and intercept the other team’s codes twice before they intercept yours. If nobody has managed either by the end of round 8, the better score wins, and a level score goes to a showdown.',
   quickStart: [
     'Join Red or Blue (at least 2 each). Your team gets 4 secret keywords, numbered 1 to 4.',
     'Each round, one player is the Encryptor and gets a 3-number code, like 3-1-4.',
@@ -53,6 +53,7 @@ const text: GameGuide = {
         'It can’t be one of your own keywords, in any form: not its plural, not without its accents (“Cafe” for CAFÉ), and not as a word inside a longer clue (“the moon” for MOON).',
         'It can’t be a number or contain one, in any form: no digits (“3”, “#3”, “3rd”), no “one” to “four”, and no Roman numerals (“III”).',
         'The three clues must all be different.',
+        'Your team can give each clue only once per game, in any form: once you’ve said “salty”, “Salty” and “salt” are gone too (a longer clue like “salty sea” is still fine). The other team’s old clues are fair game.',
         'From the moment you see your code until it is revealed, you can’t post in the team chat or edit the team’s notes, not even about the interception. You can still pick and lock in an interception guess, and you can watch your team’s picks. Chat and notes open again at the reveal.',
       ],
     },
@@ -80,8 +81,9 @@ const text: GameGuide = {
         'A team with 2 💥 miscommunications loses.',
         'The game ends at the end of the round in which a team reaches 2 of either token, so both teams always finish the round. When that happens mid-round, a banner says the game ends after this round.',
         'When a round decides the game, the reveal says who won and why, and the host’s button changes to See results.',
-        'If both happen at once, or after round 8, the team with the better score wins (interceptions minus miscommunications). An even score is a draw.',
-        '“Both at once” includes one team doing both in the same round: it reaches its 2nd interception and its 2nd miscommunication together. Then the score decides too, and the end screen says so.',
+        'If both happen at once, or after round 8, the team with the better score wins (interceptions minus miscommunications).',
+        'A level score goes to a showdown: each team names the other team’s four keywords, one per number, and hands them in once for the whole team (the shared guesses under Clues fill the form). The team with more right wins; the same number right is a shared win. With strict timers, a team that hasn’t handed in when time runs out is judged on its guesses under Clues.',
+        '“Both at once” includes one team doing both in the same round: it reaches its 2nd interception and its 2nd miscommunication together. Then the score decides too (a level score goes to the showdown), and the end screen says so.',
       ],
     },
     {
@@ -162,7 +164,7 @@ export const guide: GameGuide = shapeGuide(text, {
         ['🕵️ Interception', 'You guess the other team’s code', 'Your team wins'],
         ['💥 Miscommunication', 'Your team misses its own code', 'Your team loses'],
       ],
-      note: 'Both at once, or no decision after round 8: interceptions minus miscommunications decides; an even score is a draw.',
+      note: 'Both at once, or no decision after round 8: interceptions minus miscommunications decides; a level score goes to a showdown (most of the other team’s keywords named right wins, else a shared win).',
     },
   ],
 });
