@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
@@ -48,6 +50,7 @@ export async function unlock(page: Page, url = '/backroom') {
   await page.goto(url);
   await page.getByLabel('The word').fill(TEST_BACKROOM_WORD);
   await page.getByRole('button', { name: 'Knock' }).click();
+  await expect(page.getByLabel('The word')).toHaveCount(0);
 }
 
 /** The host opens a room; everyone else follows the link in. */
@@ -175,4 +178,34 @@ export async function fullBrawl(browser: Browser, heroes: string[], names: strin
       .toBeGreaterThanOrEqual(pages.length - 1);
     await expect(pages[0]!.getByRole('log').first()).toContainText(/ghost/);
   }
+}
+
+const ART = process.env.TAVERN_BRAWL_ART;
+const TYPES: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+
+/**
+ * With TAVERN_BRAWL_ART=<folder holding manifest.json and the art>, pages get that manifest and art
+ * from disk, to preview the real cards locally; without it, cards show as placeholders.
+ */
+export async function localArt(page: Page) {
+  if (!ART) return;
+  await page.route('**/api/backroom/manifest/tavern-brawl', async (route) =>
+    route.fulfill({
+      json: JSON.parse(await readFile(join(ART, 'manifest.json'), 'utf8')) as unknown,
+    }),
+  );
+  await page.route('**/api/backroom/assets/tavern-brawl/**', async (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(
+      /^\/api\/backroom\/assets\/tavern-brawl\//,
+      '',
+    );
+    try {
+      await route.fulfill({
+        body: await readFile(join(ART, path)),
+        contentType: TYPES[path.split('.').pop() ?? ''] ?? 'application/octet-stream',
+      });
+    } catch {
+      await route.fulfill({ status: 404 });
+    }
+  });
 }

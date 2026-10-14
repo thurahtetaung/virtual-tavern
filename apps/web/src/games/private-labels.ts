@@ -161,6 +161,8 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
   const heroes = obj(m?.heroes);
   const cards = obj(m?.cards);
   const credit = obj(m?.credit);
+  const url = (p: unknown) =>
+    typeof p === 'string' && p ? `/api/backroom/assets/tavern-brawl/${p}` : undefined;
   const paragraphs = Array.isArray(credit.paragraphs)
     ? credit.paragraphs.filter((p): p is string => typeof p === 'string')
     : [];
@@ -173,8 +175,6 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
         set: (id) => name(obj(m?.sets)[id]),
         heroArt: (id) => {
           const h = obj(heroes[id]);
-          const url = (p: unknown) =>
-            typeof p === 'string' && p ? `/api/backroom/assets/tavern-brawl/${p}` : undefined;
           const portrait = url(h.portrait);
           const f = h.portraitFocus;
           const focus =
@@ -182,6 +182,12 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
               ? (f as [number, number])
               : undefined;
           return portrait ? { portrait, ...(focus && { focus }) } : undefined;
+        },
+        cardArt: (id) => {
+          const c = obj(cards[id]);
+          const face = url(c.face);
+          const thumb = url(c.thumb) ?? face;
+          return face || thumb ? { ...(face && { face }), ...(thumb && { thumb }) } : undefined;
         },
       },
       typeof credit.title === 'string' && paragraphs.length

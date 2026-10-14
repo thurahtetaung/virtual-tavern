@@ -34,6 +34,11 @@ export interface GameGuide {
   stepsDone?: string;
   /** The things to browse (roles, cards, heroes, locations), as tiles that open a card sheet. */
   tiles?: GuideTiles;
+  /**
+   * A second browse tab after the tiles: cards grouped under the tile they belong to (each hero's
+   * deck), each with what it does in plain words.
+   */
+  catalog?: GuideCatalog;
   /** Small tables for the cheat sheet (scoring, the board, who wins). */
   reference?: GuideTable[];
   /**
@@ -130,6 +135,10 @@ export interface GuideTile {
   badge?: string;
   /** Extra detail for the sheet (a deck list, question ideas). */
   more?: { title: string; items: string[] };
+  /** Named abilities for the sheet, each with what it does ("Mighty powers"). */
+  highlights?: { title: string; items: GuideHighlight[] };
+  /** The catalog group with this tile's cards, linked from the sheet. */
+  catalog?: string;
   /** The setting it needs, when it isn't always in the box. */
   option?: GuideOption;
 }
@@ -143,6 +152,52 @@ export interface GuideTiles {
   /** Square portraits (default), wide landscapes or tall cards. */
   shape?: 'square' | 'wide' | 'card';
   items: GuideTile[];
+}
+
+export interface GuideHighlight {
+  name: string;
+  text: string;
+  art?: string;
+}
+
+/** Cards in groups (one per hero, faction or set), shown on their own tab. */
+export interface GuideCatalog {
+  /** The tab's name ("Cards"). */
+  label: string;
+  /** The Learn tab's line ("12 decks · 147 kinds of card"). */
+  blurb?: string;
+  intro?: string;
+  groups: GuideCatalogGroup[];
+}
+
+export interface GuideCatalogGroup {
+  /** Matches `GuideContext.inGame` (and the tile it belongs to), for "In this game". */
+  id: string;
+  name: string;
+  /** Its filter chip ("Core heroes"). */
+  group?: string;
+  /** One line under the name ("Core heroes · 28 cards"). */
+  meta?: string;
+  art?: string;
+  focus?: [number, number];
+  icon?: string;
+  items: GuideCard[];
+}
+
+export interface GuideCard {
+  id: string;
+  name: string;
+  /** What it does, in plain words. */
+  text: string;
+  /** Copies in the deck. */
+  count?: number;
+  /** A short symbol line ("⚔2 ⚡1"). */
+  symbols?: string;
+  /** A small picture for the list; `card` is the full card for the sheet. */
+  art?: string;
+  card?: string;
+  /** A marked card ("✦ Mighty power"), with what it means for the sheet. */
+  mark?: { label: string; text?: string };
 }
 
 export interface GuideTable {

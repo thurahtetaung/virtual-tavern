@@ -1,9 +1,9 @@
 import { Button, Modal, ProtectedImage, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { CARDS, symbolCount } from '../logic/cards.ts';
+import { cardText } from '../logic/guide.ts';
 import type { CardDef, CardId, HeroId } from '../logic/types.ts';
 import { type Art, heroVars } from './assets.ts';
-import { rulesLine } from './text.ts';
 
 const ICONS = { atk: '⚔', shd: '🛡', heal: '❤', play: '⚡', draw: '🃏' } as const;
 const WORDS = { atk: 'damage', shd: 'shield', heal: 'heal', play: 'play again', draw: 'draw' };
@@ -212,7 +212,7 @@ export function Zoom({
               .join('  ')}
           </p>
           {text && <p className="text-center text-sm italic">{printed(text)}</p>}
-          <p className="text-center text-sm text-ink-muted dark:text-stone-400">{rulesLine(def)}</p>
+          <p className="text-center text-sm text-ink-muted dark:text-stone-400">{cardText(def)}</p>
           {note && <p className="text-center text-sm font-medium">{note}</p>}
         </div>
       )}

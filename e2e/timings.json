@@ -34,6 +34,8 @@
   "short-fuse.spec.ts": 23,
   "stats-test-traffic.spec.ts": 3,
   "stats.spec.ts": 17,
+  "tavern-brawl-powers-shots.spec.ts": 1,
+  "tavern-brawl-powers.spec.ts": 21,
   "tavern-brawl-shots.spec.ts": 1,
   "tavern-brawl-zone.spec.ts": 50,
   "tavern-brawl.spec.ts": 35

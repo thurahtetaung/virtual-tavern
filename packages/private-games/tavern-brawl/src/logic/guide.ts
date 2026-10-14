@@ -1,11 +1,18 @@
-import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
+import type {
+  GameGuide,
+  GuideCatalogGroup,
+  GuideContext,
+  GuideFooter,
+  GuideOption,
+  GuideTile,
+} from '@vt/game-sdk';
 import { ENABLED_HEROES, HEROES, SETS, cardsOf, symbolCount } from './cards.ts';
 import type { CardDef, Effect, HeroId, SetId, TavernBrawlView } from './types.ts';
 
 /** Our own one-line summary of every power ("you" is whoever plays the card). */
 export const POWER_TEXT: Record<Effect, string> = {
   healPerOppThenHitEach: 'Heal 1 for each opponent, then deal 1 damage to each opponent.',
-  allDiscardDraw3: 'Everyone, you included, discards their hand and draws 3. Then play again.',
+  allDiscardDraw3: 'Everyone, you included, discards their hand and draws 3.',
   destroyOneShield: 'Destroy one shield in play (yours if it is the only one).',
   damageAll3: 'Every player, you included, takes 3 damage.',
   stealShield: 'Take a shield an opponent has in play, damage and all: it protects you now.',
@@ -32,14 +39,14 @@ export const POWER_TEXT: Record<Effect, string> = {
     'Destroy a shield in play, then deal as much damage as it had printed shield points to an opponent.',
   danceDraw:
     'Everyone may do a little dance out loud: each dancer draws 1, and you draw 1 more for every dancer.',
-  hitAllOpps: 'Until your next turn, your attacks hit every opponent. Then this card attacks.',
+  hitAllOpps: 'Until your next turn, your attacks hit every opponent, this card’s included.',
   swapHands: 'Swap your hand with an opponent’s.',
   takeTopDiscards: 'Take the top card of each opponent’s discard pile into your hand.',
   hitPerHandCard: 'Deal an opponent 1 damage for each card in their hand (up to 5).',
   destroyThenHealPerShield: 'Destroy a shield in play, then heal its printed shield points.',
   ignoreShields: 'This turn your attack cards ignore shields, this one included.',
   bonesOnDestroy:
-    'A shield that strikes back: when it is destroyed, whoever holds it deals two separate 1-damage attacks.',
+    'It strikes back: when it is destroyed, whoever holds it deals two separate 1-damage attacks.',
   praiseOrHit: 'Each opponent may praise you out loud; those who refuse take 2 damage.',
   controlAttacks:
     'Until your next turn, you choose the target of every attack card anyone else plays.',
@@ -51,6 +58,62 @@ export const POWER_TEXT: Record<Effect, string> = {
     'Use the first power of the hero to your left or right (the nearest still in the game).',
   copyHp: 'Make one player’s hit points equal to another player’s (you may be either).',
 };
+
+/**
+ * What a card does, in our own words, each symbol spelled out in printed order ("Deal 2 damage to
+ * one opponent, then play another card."): the guide, the hero sheets and the zoom view.
+ */
+export function cardText(def: CardDef): string {
+  const whom = def.effect === 'hitAllOpps' ? 'each opponent' : 'one opponent';
+  const through = def.effect === 'ignoreShields' ? ', straight through shields' : '';
+  const parts: string[] = [];
+  if (def.shield > 0)
+    parts.push(
+      def.steps.length
+        ? `put up a ${def.shield}-point shield`
+        : `put up a ${def.shield}-point shield: it stays in front of you and takes damage before you do, until it breaks`,
+    );
+  let paw = false;
+  for (const step of def.steps) {
+    switch (step.k) {
+      case 'atk':
+        parts.push(`deal ${step.n} damage to ${whom}${through}`);
+        break;
+      case 'heal':
+        parts.push(`heal ${step.n}`);
+        break;
+      case 'play':
+        parts.push(step.n > 1 ? `play ${step.n} more cards` : 'play another card');
+        break;
+      case 'draw':
+        parts.push(`draw ${step.n === 1 ? '1 card' : `${step.n} cards`}`);
+        break;
+      case 'paw':
+        paw = true;
+        break;
+      case 'power':
+        parts.push(
+          POWER_TEXT[def.effect!].replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase()),
+        );
+        break;
+    }
+  }
+  const sentence = (line: string) => line[0]!.toUpperCase() + line.slice(1) + '.';
+  // A shield with a power: the power says what the shield does, so it gets its own sentence.
+  const lines =
+    def.shield > 0 && def.effect && parts.length > 1
+      ? [sentence(parts[0]!), sentence(parts.slice(1).join(', then '))]
+      : parts.length
+        ? [sentence(parts.join(', then '))]
+        : [];
+  if (paw) {
+    const wolf = def.steps.some((st) => st.k === 'atk')
+      ? 'deal 1 more damage as the wolf'
+      : 'deal 1 damage to one opponent as the wolf';
+    lines.push(`Form bonus: heal 1 as the bear, or ${wolf}.`);
+  }
+  return lines.join(' ') || 'No effect.';
+}
 
 /** "⚔3", "🛡2 + 🃏1"… for a card's printed symbols. */
 export function symbolLine(def: CardDef): string {
@@ -127,7 +190,15 @@ export interface GuideNames {
   ) => { portrait?: string; card?: string; focus?: [number, number] } | undefined;
   /** A hero set's name ("core", "x1", "x2"). */
   set?: (id: SetId) => string | undefined;
+  /** A card's face: a small picture and the full card (URLs). */
+  cardArt?: (id: string) => { thumb?: string; face?: string } | undefined;
 }
+
+/** A hero's mighty powers: the cards in their deck with a power (✦), in deck order. */
+export const powersOf = (hero: HeroId): CardDef[] => cardsOf(hero).filter((c) => !!c.effect);
+
+/** What the guide calls a card with a power. */
+export const MIGHTY = 'Mighty power';
 
 const BIG_TABLE: GuideOption = { key: 'big', label: '5 or 6 players' };
 
@@ -138,7 +209,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   Knockouts: 'basics',
   'Stealing and borrowing': 'details',
   Forms: 'details',
-  Powers: 'details',
+  'Mighty powers': 'details',
   'When five or six play': 'details',
   'Out-of-turn questions': 'details',
   'Table rulings': 'edge',
@@ -213,7 +284,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
       label: 'Heroes',
       blurb: `${ENABLED_HEROES.length} heroes, each with their own deck`,
       intro:
-        'Each hero plays differently. Tap one for their style and their whole deck; filter by set.',
+        'Each hero plays differently. Tap one for their mighty powers, their style and their whole deck; filter by set.',
       items: ENABLED_HEROES.map((h): GuideTile => {
         const art = names.heroArt?.(h);
         return {
@@ -223,13 +294,63 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
           group: setName(HEROES[h].set),
           meta: setName(HEROES[h].set),
+          highlights: {
+            title: 'Mighty powers',
+            items: powersOf(h).map((c) => {
+              const thumb = names.cardArt?.(c.id)?.thumb;
+              return {
+                name: `${cardName(c)} ×${c.count}`,
+                text: cardText(c),
+                ...(thumb && { art: thumb }),
+              };
+            }),
+          },
           more: {
             title: `The deck (${deckSize(h)} cards)`,
             items: cardsOf(h).map((c) => `${cardName(c)} ×${c.count} (${symbolLine(c)})`),
           },
+          catalog: h,
           ...(art?.portrait && { art: art.portrait }),
           ...(art?.focus && { focus: art.focus }),
           ...(art?.card && { card: art.card }),
+        };
+      }),
+    },
+    catalog: {
+      label: 'Cards',
+      blurb: `${ENABLED_HEROES.length} decks, ${ENABLED_HEROES.reduce((n, h) => n + powersOf(h).length, 0)} mighty powers`,
+      intro:
+        'Every hero’s deck, card by card, with what each card does. ✦ marks a mighty power. Tap a card to see it big.',
+      groups: ENABLED_HEROES.map((h): GuideCatalogGroup => {
+        const art = names.heroArt?.(h);
+        const powers = powersOf(h);
+        return {
+          id: h,
+          name: heroName(h),
+          group: setName(HEROES[h].set),
+          meta: `${setName(HEROES[h].set)} · ${deckSize(h)} cards · ${powers.length} mighty ${powers.length === 1 ? 'power' : 'powers'}`,
+          icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
+          ...(art?.portrait && { art: art.portrait }),
+          ...(art?.focus && { focus: art.focus }),
+          // Mighty powers first, then the rest in deck order.
+          items: [...powers, ...cardsOf(h).filter((c) => !c.effect)].map((c) => {
+            const face = names.cardArt?.(c.id);
+            return {
+              id: c.id,
+              name: cardName(c),
+              text: cardText(c),
+              count: c.count,
+              symbols: symbolLine(c),
+              ...(face?.thumb && { art: face.thumb }),
+              ...(face?.face && { card: face.face }),
+              ...(c.effect && {
+                mark: {
+                  label: `✦ ${MIGHTY}`,
+                  text: 'A mighty power: the card does what it says, in the order printed.',
+                },
+              }),
+            };
+          }),
         };
       }),
     },
@@ -244,8 +365,19 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           ['⚡', 'Play one more card this turn'],
           ['🃏', 'Draw that many cards'],
           ['🐾', `A bonus in ${druid}’s Form`],
-          ['✦', 'A power: do what the card says'],
+          ['✦', 'A mighty power: do what the card says'],
         ],
+      },
+      {
+        title: 'Mighty powers',
+        head: ['Hero', 'Mighty power'],
+        rows: ENABLED_HEROES.flatMap((h) =>
+          powersOf(h).map((c, i) => [
+            i === 0 ? heroName(h) : '',
+            `${cardName(c)}: ${POWER_TEXT[c.effect!]}`,
+          ]),
+        ),
+        note: 'Tap a hero on the Heroes tab, or open Cards, for the whole card.',
       },
     ],
     presets: (Object.keys(SETS) as SetId[]).map((set) => ({
@@ -334,7 +466,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           title: 'Forms',
           bullets: [
             'Playing a Form card puts you in that Form; a new Form replaces the old one.',
-            '🐾 cards get a bonus in a Form: 1 more heal in the bear Form, 1 more damage in the wolf Form. Without a Form, 🐾 does nothing.',
+            '🐾 cards get a bonus in a Form: heal 1 in the bear Form; in the wolf Form, 1 more damage (or 1 damage to an opponent on a card without ⚔). Without a Form, 🐾 does nothing.',
           ],
         },
         {
@@ -382,11 +514,9 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           ],
         },
         {
-          title: 'Powers',
+          title: 'Mighty powers',
           bullets: ENABLED_HEROES.flatMap((h) =>
-            cardsOf(h)
-              .filter((c) => c.effect)
-              .map((c) => `${heroName(h)}, ${cardName(c)}: ${POWER_TEXT[c.effect!]}`),
+            powersOf(h).map((c) => `${heroName(h)}, ${cardName(c)}: ${cardText(c)}`),
           ),
         },
       ],
