@@ -518,10 +518,7 @@ describe('Targeting', () => {
         .map((slot, i) => ({ slot, success: i % 2 === 0 }));
       const ok = results.filter((r) => r.success).length;
       if (ok >= 3 || results.length - ok >= 3 || results.length === 5) continue;
-      expect(
-        legalSlots({ targeting: true, results: results as never }).length,
-        String(mask),
-      ).toBeGreaterThan(0);
+      expect(legalSlots({ targeting: true, results }).length, String(mask)).toBeGreaterThan(0);
     }
   });
 });
