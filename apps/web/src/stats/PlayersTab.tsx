@@ -22,6 +22,9 @@ const SORTS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'lastSeen', label: 'Last seen', className: 'hidden sm:table-cell' },
 ];
 
+/** Rows the table shows at first, and how many more each "Show more" adds. */
+const PAGE = 25;
+
 function Leaderboard() {
   const ctx = useStats();
   const { query, epoch } = ctx;
@@ -29,6 +32,9 @@ function Leaderboard() {
   const [sort, setSort] = useState<SortKey>('games');
   const rows = useMemo(() => sortPlayers(data?.players ?? [], sort), [data, sort]);
   const [now] = useState(() => Date.now());
+  // How many rows show; a new range starts again from the first page.
+  const [page, setPage] = useState({ query, limit: PAGE });
+  const limit = page.query === query ? page.limit : PAGE;
 
   if (!data) return <Skeleton height={320} />;
   if (rows.length === 0) return <EmptyState>No players in this range yet</EmptyState>;
@@ -69,7 +75,7 @@ function Leaderboard() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((p, i) => (
+          {rows.slice(0, limit).map((p, i) => (
             <tr
               key={p.id}
               className="border-t border-stone-100 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/40"
@@ -101,6 +107,20 @@ function Leaderboard() {
           ))}
         </tbody>
       </table>
+      {rows.length > limit && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-100 px-3 py-2 dark:border-stone-800">
+          <span className="text-xs text-ink-muted">
+            Showing {plain(limit)} of {plain(rows.length)} players
+          </span>
+          <Button
+            variant="secondary"
+            className="h-11"
+            onClick={() => setPage({ query, limit: limit + PAGE })}
+          >
+            Show {plain(Math.min(PAGE, rows.length - limit))} more
+          </Button>
+        </div>
+      )}
     </Panel>
   );
 }

@@ -83,7 +83,9 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
           aria-hidden
           className={cn(
             'mr-1 inline-block size-2 rounded-full',
-            stale ? 'bg-stone-400' : 'animate-pulse bg-success dark:bg-green-600',
+            stale
+              ? 'bg-stone-400'
+              : 'animate-pulse bg-success motion-reduce:animate-none dark:bg-green-600',
           )}
         />
         {stale ? 'Reconnecting… showing the last answer.' : 'Live · refreshes every 5 seconds'}

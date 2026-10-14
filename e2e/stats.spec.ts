@@ -1,4 +1,6 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
+import type { PlayerSummary } from '../packages/protocol/src/stats.ts';
+import { fixturePlayers } from '../apps/web/src/stats/fixtures.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 const pageErrors: string[] = [];
@@ -165,12 +167,60 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
   await mockStatsApi(page);
   await openStatsAsAdmin(page);
   for (const name of ['Live', 'Overview', 'Games', 'Players', 'Fun']) {
+    // Every tab shows in full: the strip wraps rather than hiding the last one off the edge.
+    const box = (await tab(page, name).boundingBox())!;
+    expect(box.x + box.width, `${name} tab`).toBeLessThanOrEqual(390 - 16);
     await tab(page, name).click();
     await expect(page.getByRole('tabpanel', { name })).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(390);
   }
+  // The wide calendar scrolls sideways, and keyboard users can reach it to scroll it.
+  await tab(page, 'Overview').click();
+  await expect(page.getByRole('region', { name: /, scrolls sideways$/ }).first()).toHaveAttribute(
+    'tabindex',
+    '0',
+  );
+});
+
+test('the players table shows 25 rows at a time', async ({ browser }) => {
+  const page = await newPage(browser);
+  await mockStatsApi(page);
+  // A busier tavern than the fixtures: 60 players, most games first.
+  const players = Array.from({ length: 60 }, (_, i): PlayerSummary => ({
+    id: `p-${i}`,
+    name: `Player ${i + 1}`,
+    aliases: [`Player ${i + 1}`],
+    firstSeen: Date.UTC(2026, 0, 1),
+    lastSeen: Date.UTC(2026, 9, 1),
+    games: 100 - i,
+    wins: 10,
+    minutes: 600,
+    byGame: { codenames: 100 - i },
+  }));
+  await page.route('**/api/admin/stats/players?*', (route) =>
+    route.fulfill({
+      json: { ...fixturePlayers(new URL(route.request().url()).searchParams), players },
+    }),
+  );
+  await openStatsAsAdmin(page);
+  await tab(page, 'Players').click();
+  const rows = page.getByRole('tabpanel', { name: 'Players' }).locator('tbody tr');
+  await expect(rows).toHaveCount(25);
+  await expect(page.getByText('Showing 25 of 60 players')).toBeVisible();
+  await page.getByRole('button', { name: 'Show 25 more' }).click();
+  await expect(rows).toHaveCount(50);
+  await page.getByRole('button', { name: 'Show 10 more' }).click();
+  await expect(rows).toHaveCount(60);
+  await expect(rows.last()).toContainText('Player 60');
+  await expect(page.getByRole('button', { name: /^Show \d+ more$/ })).toHaveCount(0);
+  // A new range starts from the first page again.
+  await page
+    .getByRole('group', { name: 'Time range' })
+    .getByRole('button', { name: '7 days' })
+    .click();
+  await expect(rows).toHaveCount(25);
 });
 
 // ---- Against the real server: no mocks ----

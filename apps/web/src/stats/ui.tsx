@@ -43,7 +43,19 @@ export function EChart({
   }, [option]);
 
   const plot = <div ref={ref} role="img" aria-label={label} style={{ height, width }} />;
-  return width ? <div className="-mx-1 overflow-x-auto px-1 pb-1">{plot}</div> : plot;
+  // The scroller takes focus so keyboard users can scroll it too.
+  return width ? (
+    <div
+      role="region"
+      aria-label={`${label}, scrolls sideways`}
+      tabIndex={0}
+      className="-mx-1 overflow-x-auto rounded-lg px-1 pb-1 focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+    >
+      {plot}
+    </div>
+  ) : (
+    plot
+  );
 }
 
 export function DataTable({ table, caption }: { table: TableData; caption: string }) {
@@ -90,7 +102,10 @@ export function Skeleton({ height = 160, className }: { height?: number; classNa
   return (
     <div
       aria-hidden
-      className={cn('animate-pulse rounded-xl bg-stone-200/70 dark:bg-stone-800/70', className)}
+      className={cn(
+        'animate-pulse rounded-xl bg-stone-200/70 motion-reduce:animate-none dark:bg-stone-800/70',
+        className,
+      )}
       style={{ height }}
     />
   );
@@ -290,7 +305,8 @@ export function ChipRow({
       role="group"
       aria-label={label}
       className={cn(
-        'flex gap-1.5 overflow-x-auto [scrollbar-width:none]',
+        // The fade and the end spacer show there is more to scroll to, and let the last chip clear it.
+        "flex gap-1.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']",
         bleed && '-mx-4 px-4',
         className,
       )}
