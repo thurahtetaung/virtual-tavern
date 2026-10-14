@@ -35,6 +35,8 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   const key = draftKey(view, tx);
   const [clues, setClues] = useState(() => loadDraft(key));
   const [busy, setBusy] = useState(false);
+  // The code is covered until the Encryptor shows it, so a teammate's glance can't read it.
+  const [shown, setShown] = useState(false);
   useEffect(() => {
     try {
       sessionStorage.setItem(key, JSON.stringify(clues));
@@ -56,17 +58,39 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   };
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
-      <p className="text-center">
+      <div className="text-center">
         <span className="text-sm text-stone-500">Your secret code</span>
-        <span className="block font-mono text-3xl font-black tracking-widest">
-          {formatCode(tx.code)}
-        </span>
-      </p>
+        {shown ? (
+          <span className="block font-mono text-3xl font-black tracking-widest">
+            {formatCode(tx.code)}
+          </span>
+        ) : (
+          <span className="block text-sm text-stone-500">
+            Covered so your teammates can’t read it over your shoulder.
+          </span>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="mt-1"
+          aria-pressed={shown}
+          onClick={() => setShown(!shown)}
+        >
+          {shown ? '🙈 Cover code' : '👁️ Show code'}
+        </Button>
+      </div>
       {tx.code?.map((digit, i) => (
         <label key={i} className="block">
           <span className="text-sm">
-            Clue {i + 1} points to <b>#{digit}</b>{' '}
-            <span className="font-bold uppercase">{keywords[digit - 1]}</span>
+            Clue {i + 1}
+            {shown && (
+              <>
+                {' '}
+                points to <b>#{digit}</b>{' '}
+                <span className="font-bold uppercase">{keywords[digit - 1]}</span>
+              </>
+            )}
           </span>
           <input
             value={clues[i]}

@@ -486,6 +486,31 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
   );
 }
 
+/**
+ * Your starting card, Mark and artifact: covered until you tap, like the card at the deal, so a
+ * phone left face up on the table says nothing about you.
+ */
+function MySecrets({ children }: { children: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  if (!shown)
+    return (
+      <Button variant="secondary" size="sm" data-testid="my-secrets" onClick={() => setShown(true)}>
+        🂠 Your card: tap to see
+      </Button>
+    );
+  return (
+    <div
+      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
+      data-testid="my-secrets"
+    >
+      {children}
+      <Button variant="ghost" size="sm" onClick={() => setShown(false)}>
+        Cover
+      </Button>
+    </div>
+  );
+}
+
 function MyCardChip({ view, deck }: { view: NightfallView; deck: Deck }) {
   if (!view.myRole) return null;
   return (
@@ -1076,8 +1101,12 @@ export function Night({
                 ? 'Keep your phone face up — it lights up when it’s your turn.'
                 : status.text}
             </p>
-            {view.myRole && <MyCardChip view={view} deck={deck} />}
-            <MyMark view={view} deck={deck} />
+            {view.myRole && (
+              <MySecrets>
+                <MyCardChip view={view} deck={deck} />
+                <MyMark view={view} deck={deck} />
+              </MySecrets>
+            )}
             {eyesOpen?.kind === 'watched' && (
               <p
                 className="rounded-lg bg-stone-800 px-3 py-2 text-sm text-stone-100"
@@ -1371,16 +1400,16 @@ export function Day({
       <DayTabBar tabs={tabs} tab={tab} onChange={setTab} idOf={idOf} />
       <div {...panel('table')}>
         <Panel className="space-y-3">
-          {playing && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {playing && view.myRole && (
+            <MySecrets>
               <MyCardChip view={view} deck={deck} />
               <MyMark view={view} deck={deck} />
-            </div>
-          )}
-          {myArtifact?.kind === 'artifact' && (
-            <p className="text-sm">
-              Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-            </p>
+              {myArtifact?.kind === 'artifact' && (
+                <span className="text-sm">
+                  Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+                </span>
+              )}
+            </MySecrets>
           )}
           {(view.day?.centerUp?.length ?? 0) > 0 && (
             <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">

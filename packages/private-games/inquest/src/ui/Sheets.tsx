@@ -254,9 +254,8 @@ export function EventCard({
           ? 'You’re up: flip one of your own Clue cards.'
           : `Now: ${nameOf(view, ev.current)}.`;
       case 'testimony':
-        return g.myRole === 'witness'
-          ? 'You’re the Witness: pick a tile in secret.'
-          : 'Waiting for the Witness.';
+        // The same words for everyone: a glance must not tell who the Witness is.
+        return 'The Witness picks a tile in secret.';
       default:
         return g.myRole === 'forensic'
           ? 'Your move, Forensic Scientist.'

@@ -46,7 +46,10 @@ function CardGrid({
   size = 'grid',
 }: Common & { p: PlayerView; size?: 'grid' | 'thumb' }) {
   const g = view.game!;
-  const sol = g.solution && g.solution.murderer === p.id ? g.solution : null;
+  // Marked only for the Forensic Scientist (a public role): on the Murderer's or Accomplice's
+  // phone, highlighted cards would tell a glance that they know the answer.
+  const fs = g.myRole === 'forensic' || g.myRole === 'former-forensic';
+  const sol = fs && g.solution && g.solution.murderer === p.id ? g.solution : null;
   const row = (deck: Deck, cards: number[]) => (
     <div className={cn('grid gap-1.5', cards.length <= 4 ? 'grid-cols-4' : 'grid-cols-5')}>
       {cards.map((n) => {

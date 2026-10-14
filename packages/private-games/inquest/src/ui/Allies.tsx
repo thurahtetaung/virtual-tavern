@@ -61,12 +61,27 @@ export function AlliesPanel({
       </p>
       <div className="flex justify-center">{clock}</div>
       {lab && (
-        <p className="rounded-lg bg-stone-800 px-2 py-1 text-sm">
+        <LabResult>
           🤫 Your check: {nameOf(view, lab.owner)}’s {content.cardName(lab.deck, lab.n)}{' '}
           {lab.hit ? <b>is part of the crime 👍</b> : <b>is not part of the crime 👎</b>}
-        </p>
+        </LabResult>
       )}
     </Panel>
+  );
+}
+
+/** The Lab Technician's answer on the shared waiting screen: covered until they tap. */
+function LabResult({ children }: { children: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => setShown(!shown)}
+      className="w-full rounded-lg bg-stone-800 px-2 py-1 text-sm"
+      data-testid="lab-result"
+    >
+      {shown ? children : '🤫 Your check is in: tap to read it'}
+    </button>
   );
 }
 
