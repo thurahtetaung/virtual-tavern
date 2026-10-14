@@ -36,16 +36,30 @@ if (process.env.NODE_ENV !== 'production' && process.env.HYDRA_TEST_DECK) {
 }
 
 // Browser tests only: Tavern Brawl cards to put on top of a hero's deck (`mage:mage.04,mage.02;
-// thief:thief.07`), and the first seat always starting, so a spec can reach the powers. Never read
-// in production.
-if (process.env.NODE_ENV !== 'production' && process.env.TAVERN_BRAWL_TEST_DECK) {
+// thief:thief.07`), the first seat always starting, and fewer starting hit points by player count
+// (`TAVERN_BRAWL_TEST_HP=3:4,6:5`), so a spec can reach the powers and finish its games quickly.
+// Never read in production.
+if (
+  process.env.NODE_ENV !== 'production' &&
+  (process.env.TAVERN_BRAWL_TEST_DECK || process.env.TAVERN_BRAWL_TEST_HP)
+) {
   const decks = Object.fromEntries(
-    process.env.TAVERN_BRAWL_TEST_DECK.split(';').flatMap((part) => {
+    (process.env.TAVERN_BRAWL_TEST_DECK ?? '').split(';').flatMap((part) => {
       const [hero, cards] = part.split(':');
       return hero && cards ? [[hero.trim(), cards.split(',').map((c) => c.trim())]] : [];
     }),
   );
-  setTestRig({ decks, firstSeat: true });
+  setTestRig({ decks, firstSeat: true, hp: testHp(process.env.TAVERN_BRAWL_TEST_HP) });
+}
+
+/** `3:4,5:5`: starting hit points by player count. */
+function testHp(spec: string | undefined): Partial<Record<number, number>> {
+  return Object.fromEntries(
+    (spec ?? '').split(',').flatMap((part) => {
+      const [count, hp] = part.split(':').map(Number);
+      return count && hp ? [[count, hp]] : [];
+    }),
+  );
 }
 
 // Browser tests only: let the host fix Short Fuse's hands and the top of the pile (the `rig`

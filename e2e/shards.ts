@@ -41,8 +41,9 @@ function estimate(s: Shard): number {
 function specs(): Spec[] {
   const timings = JSON.parse(readFileSync(TIMINGS, 'utf8')) as Record<string, number>;
   const known = Object.values(timings).sort((a, b) => a - b);
-  // A new spec counts as a typical one until timings.json is refreshed.
-  const fallback = known[Math.floor(known.length / 2)] ?? 30;
+  // A new spec counts as a longer-than-typical one (the 75th percentile) until timings.json is
+  // refreshed, so a slow new spec is less likely to pile onto an already full shard.
+  const fallback = known[Math.floor(known.length * 0.75)] ?? 30;
   return readdirSync(DIR)
     .filter((f) => f.endsWith('.spec.ts'))
     .sort()
