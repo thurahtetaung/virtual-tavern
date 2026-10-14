@@ -6,7 +6,7 @@ import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
 import type { CardRow } from './Compare.tsx';
-import { myPsychic, notReady, roman } from './status.ts';
+import { atTable, myPsychic, notReady, roman } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -75,7 +75,11 @@ export function VisionStrip({
   if (!p.visions.length)
     return <p className="text-sm text-stone-500 dark:text-stone-400">No vision yet.</p>;
   return (
-    <ul className="flex gap-1.5 overflow-x-auto pb-1" aria-label={`${p.name}’s visions`}>
+    <ul
+      tabIndex={0}
+      className="flex gap-1.5 overflow-x-auto pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+      aria-label={`${p.name}’s visions`}
+    >
       {p.visions.map((v, i) => (
         <li key={`${v.card}-${i}`} className={cn('shrink-0', small ? 'w-14' : 'w-20 sm:w-24')}>
           <Card
@@ -271,7 +275,7 @@ export function OthersTab({
 }) {
   const g = view.game!;
   const me = myPsychic(view);
-  const others = g.psychics.filter((p) => p.color !== me?.color);
+  const others = atTable(g).filter((p) => p.color !== me?.color);
   const canMark = !!me && g.clairvoyance && g.stage === 'visions';
   return (
     <div className="space-y-2">

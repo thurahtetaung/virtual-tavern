@@ -80,6 +80,11 @@ export interface Psychic {
   finishedHour: number | null;
   /** Left the room for good: anyone watching may take the seat. */
   gone: boolean;
+  /**
+   * The host retired the empty seat: it is out of the game (no visions, verdicts, line-up or
+   * vote), and its found cards went back on the table. Optional so older games still load.
+   */
+  retired?: boolean;
 }
 
 /** A clairvoyance token on another psychic's intuition: ✓ agrees, ✗ disagrees. */
@@ -251,6 +256,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), on: z.boolean() }),
   z.object({ type: z.literal('vote'), group: z.number().int().min(0).max(5) }),
   z.object({ type: z.literal('take-seat'), color }),
+  z.object({ type: z.literal('retire-seat'), color }),
   // The host (and spectators taking the empty ghost seat).
   z.object({ type: z.literal('lock-now') }),
   z.object({ type: z.literal('hand-ghost'), to: id }),
@@ -282,6 +288,8 @@ export interface PsychicView {
   level: number;
   finishedHour: number | null;
   gone: boolean;
+  /** The host retired the seat: out of the game. */
+  retired: boolean;
   /** Their three cards: only to the ghost, and to everyone at the end. */
   targets: number[] | null;
   /** When they vote in the final (1–3 shared cards seen). */

@@ -234,7 +234,8 @@ function base(): GameGuide {
       {
         title: 'If someone drops out',
         bullets: [
-          'If a psychic leaves, their seat stays: anyone watching can take it over and carry on with the same cards.',
+          'If a psychic leaves, their seat stays: anyone watching can take it over and carry on with the same cards. While it is empty, the ghost needn’t send it visions and its guess isn’t judged.',
+          'If nobody will take the seat, the host can retire it before the line-up: its found cards go back on the table, and the others play on without it (no visions, no group in the line-up, no vote). The line-up waits for every seat still in the game, so retire it before the clock runs out.',
           'If the ghost goes away, the game simply waits for them. The host can hand the ghost’s seat to someone watching (or a new joiner), never to a psychic, who would then see the answers. If the ghost leaves the room for good, anyone watching can take the seat.',
         ],
       },

@@ -148,3 +148,49 @@ test('when the ghost goes away, the host hands the seat to a new joiner, never a
     lou!.page.getByText('Your vision is here: which place does it point to?'),
   ).toBeVisible();
 });
+
+test('the host retires a departed psychic’s seat and the others play on to the line-up', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  await openBackroom(await visitor(browser, 'Admin', pageErrors));
+  const players = await seanceTable(browser, ['Gwen', 'Ana', 'Ben', 'Cy'], pageErrors);
+  const [ghost, ana, ben, cy] = players as [(typeof players)[0], ...typeof players];
+  await begin(ghost.page, 'Gwen');
+  await expect(ghost.page.getByText(/You’re the ghost: not a word/)).toBeVisible();
+
+  // Cy leaves for good: the ghost needn't send them a vision, and the host may retire the seat.
+  await cy!.page.getByRole('button', { name: /^Players/ }).click();
+  await cy!.page
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('button', { name: 'Leave room' })
+    .click();
+  await cy!.page
+    .getByRole('dialog', { name: 'Leave this room?' })
+    .getByRole('button', { name: 'Leave', exact: true })
+    .click();
+  await expect(ana!.page.getByText(/Cy left\. Someone watching can take over/)).toBeVisible();
+  await sendVisions(ghost.page);
+  await expect(ghost.page.getByRole('button', { name: /^🔍 Choose Cy’s vision$/ })).toHaveCount(0);
+  await ghost.page.getByRole('button', { name: 'Retire Cy’s seat' }).click();
+  await expect(ben!.page.getByText(/The host retired Cy’s seat/)).toBeVisible();
+  await expect(ghost.page.getByRole('region', { name: 'Cy (ghost view)' })).toHaveCount(0);
+
+  // Ana and Ben find everything; the line-up has their two groups only.
+  const psychics = [ana!, ben!];
+  for (const p of psychics) await guess(p.page, (await targetOf(ghost.page, p.name))!, true);
+  await nextHour(ghost.page);
+  const final = ghost.page.getByText(/Everyone found their cards! Pick the culprit/);
+  const choose = ghost.page.getByRole('button', { name: /^🔍 Choose/ });
+  for (;;) {
+    await expect(final.or(choose.first())).toBeVisible();
+    if (await final.isVisible()) break;
+    await playHour(ghost.page, psychics);
+  }
+  await expect(
+    ghost.page.getByRole('button', { name: 'This is the culprit (group 2)' }),
+  ).toBeVisible();
+  await expect(
+    ghost.page.getByRole('button', { name: 'This is the culprit (group 3)' }),
+  ).toHaveCount(0);
+});

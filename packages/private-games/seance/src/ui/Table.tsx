@@ -4,7 +4,7 @@ import { levelThresholds } from '../logic/setup.ts';
 import { HOURS, type GameView, type SeanceView } from '../logic/types.ts';
 import { type Content, PILLAR_ICONS } from './assets.ts';
 import { Avatar, Card } from './Card.tsx';
-import { psychicByColor, roman } from './status.ts';
+import { atTable, psychicByColor, roman } from './status.ts';
 
 /** The seven hours, with the current one lit. */
 export function Clock({ g }: { g: GameView }) {
@@ -46,7 +46,7 @@ export function Progress({
 }) {
   return (
     <ul className="space-y-2" aria-label="Progress">
-      {g.psychics.map((p) => (
+      {atTable(g).map((p) => (
         <li key={p.color} className="flex items-center gap-2">
           <Avatar color={p.color} content={content} name={p.name} size="sm" />
           <span className="w-16 truncate text-sm font-semibold sm:w-24">{p.name}</span>
@@ -109,7 +109,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
             title={`Level ${t}`}
           />
         ))}
-        {g.psychics.map((p, i) => (
+        {atTable(g).map((p, i) => (
           <span
             key={p.color}
             title={`${p.name}: ${p.level}`}
@@ -129,7 +129,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
         </span>
       </p>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-        {g.psychics.map((p) => (
+        {atTable(g).map((p) => (
           <li key={p.color} className="flex items-center gap-1">
             <span
               className="size-2.5 rounded-full"

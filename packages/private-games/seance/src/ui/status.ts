@@ -78,20 +78,23 @@ export const psychicByColor = (g: GameView, c: PsychicColor | null | undefined) 
 export const myPsychic = (view: SeanceView): PsychicView | null =>
   view.game ? psychicByColor(view.game, view.game.me) : null;
 
-/** Psychics still searching who haven't had this hour's vision. */
+/** Psychics still in the game: a seat the host retired is out. */
+export const atTable = (g: GameView) => g.psychics.filter((p) => !p.retired);
+
+/** Psychics still searching (and in their seat) who haven't had this hour's vision. */
 export const waitingForVision = (g: GameView) =>
-  g.psychics.filter((p) => p.step < 3 && !g.sent.includes(p.color));
+  atTable(g).filter((p) => !p.gone && p.step < 3 && !g.sent.includes(p.color));
 
 /** Psychics the hour still waits on (not ready yet). */
 export function notReady(g: GameView): PsychicView[] {
-  return g.psychics.filter((p) => !p.gone && !p.ready && p.step < 3);
+  return atTable(g).filter((p) => !p.gone && !p.ready && p.step < 3);
 }
 
 /** Psychics who vote now but haven't. */
 export function votersNow(g: GameView): PsychicView[] {
   const f = g.final;
   if (g.stage !== 'vote' || !f) return [];
-  return g.psychics.filter(
+  return atTable(g).filter(
     (p) => !p.gone && p.voteStage === f.revealed && !f.voted.includes(p.color),
   );
 }

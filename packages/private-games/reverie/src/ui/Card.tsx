@@ -12,33 +12,36 @@ interface Props {
   className?: string;
   /** Larger text for the full-size view. */
   big?: boolean;
+  /** Load the art at once instead of when it scrolls into view (the hand). */
+  eager?: boolean;
 }
 
 /**
- * One picture card. The image comes from private storage; when it can't load (no storage in
- * tests, or a missing file) the card still renders as a numbered placeholder so play goes on.
+ * One picture card. The image comes from private storage and lies over a numbered placeholder,
+ * so a card still loading (or one that can't load: no storage in tests, or a missing file) shows
+ * its number rather than a blank rectangle, and play goes on.
  */
-export function Card({ card, label, selected, dimmed, onClick, className, big }: Props) {
+export function Card({ card, label, selected, dimmed, onClick, className, big, eager }: Props) {
   const [failed, setFailed] = useState(false);
   const body = (
     <>
-      {!failed ? (
+      <span
+        aria-hidden={!failed}
+        className={cn(
+          'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-amber-950 dark:from-amber-900 dark:to-orange-950 dark:text-amber-100',
+          big ? 'text-6xl' : 'text-2xl',
+        )}
+      >
+        {card}
+      </span>
+      {!failed && (
         <ProtectedImage
           src={cardUrl(card)}
           alt={`Card ${card}`}
-          loading="lazy"
+          loading={eager ? 'eager' : 'lazy'}
           onError={() => setFailed(true)}
-          className="size-full object-cover"
+          className="absolute inset-0 size-full object-cover"
         />
-      ) : (
-        <span
-          className={cn(
-            'flex size-full items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-amber-950 dark:from-amber-900 dark:to-orange-950 dark:text-amber-100',
-            big ? 'text-6xl' : 'text-2xl',
-          )}
-        >
-          {card}
-        </span>
       )}
       {label !== undefined && (
         <span className="absolute top-1 left-1 rounded-full bg-stone-950/80 px-2 py-0.5 text-xs font-bold text-white shadow">
