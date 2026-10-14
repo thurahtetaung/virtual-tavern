@@ -23,11 +23,12 @@ export function longerLine(word: string, measure: Measure): number {
 
 /**
  * A CSS font size at which `word` fits its card (a size container) on two lines, with 6% to spare
- * for letter spacing and rounding. It never goes below 7px: a word still too long there (11+
- * letters on the narrowest phones) breaks at its soft hyphen instead (`softBreaks`).
+ * for letter spacing and rounding. It never goes below 7px (in px, so larger browser text can't
+ * push it past the card): a word still too long there (11+ letters on the narrowest phones)
+ * breaks at its soft hyphen instead (`softBreaks`), which can put a phrase on a third line.
  */
 export const fitSize = (word: string, measure: Measure) =>
-  `max(0.4375rem, ${(94 / longerLine(word, measure)).toFixed(2)}cqw)`;
+  `max(7px, ${(94 / longerLine(word, measure)).toFixed(2)}cqw)`;
 
 /**
  * Measures bold text in `fontFamily` with a canvas, or falls back to `estimate` where there is no
@@ -95,15 +96,28 @@ export function breakPoint(word: string, relaxed = false): number {
 }
 
 /**
+ * Whether a word fits on a line by itself in a card line `width` px wide, set at `fontSize` px
+ * with `letterSpacing` px between letters, with 2% to spare for rounding.
+ */
+export const fitsAlone =
+  (measure: Measure, fontSize: number, width: number, letterSpacing = 0) =>
+  (word: string) =>
+    measure(word.toUpperCase()) * fontSize + letterSpacing * [...word].length <= width * 0.98;
+
+/**
  * `text` with a soft hyphen in each word of `BREAKABLE` letters or more, so a word too long for
  * its card even at the smallest size breaks there (with a hyphen) instead of anywhere. Words
- * already joined by a hyphen break at it, so they are left alone.
+ * already joined by a hyphen break at it, so they are left alone. In a phrase, a long word that
+ * `fits` on a line by itself gets no hyphen, so the phrase breaks between its words instead
+ * ("THE / FLINTSTONES", not "THE FLINT- / STONES").
  */
-export function softBreaks(text: string): string {
+export function softBreaks(text: string, fits?: (word: string) => boolean): string {
+  const phrase = text.trim().includes(' ');
   return text
     .split(/(\s+)/)
     .map((part) => {
       if (part.length < BREAKABLE || /[-\s]/.test(part)) return part;
+      if (phrase && fits?.(part)) return part;
       const at = breakPoint(part);
       return at < 0 ? part : part.slice(0, at) + SOFT_HYPHEN + part.slice(at);
     })
