@@ -379,6 +379,16 @@ describe('leavers and late joiners', () => {
     expect(round(h).stage).toBe('talk');
   });
 
+  it('puts a voided round’s location back in the pool, but not into the new deal', () => {
+    const h = startedGame([...FOUR, 'dee']);
+    const voided = round(h).location;
+    expect(h.state.used).toEqual([voided]);
+    leave(h, round(h).spies[0]!);
+    expect(round(h).location).not.toBe(voided);
+    expect(h.state.used).toEqual([round(h).location]);
+    expect(masquerade.view(h.state, 'ana').played).not.toContain(voided);
+  });
+
   it('drops a local, their vote and the votes for them', () => {
     const h = allReady(table([...FOUR, 'dee']));
     votes(h, { host: 'dee', ana: 'cy', dee: 'cy' });
