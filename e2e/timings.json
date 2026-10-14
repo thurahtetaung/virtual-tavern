@@ -1,6 +1,6 @@
 {
   "backroom.spec.ts": 6,
-  "codenames-cards.spec.ts": 20,
+  "codenames-cards.spec.ts": 32,
   "codenames.spec.ts": 21,
   "echo.spec.ts": 7,
   "enigma.spec.ts": 35,
