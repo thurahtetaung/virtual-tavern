@@ -301,3 +301,97 @@ for (const device of ['phone', 'desktop'] as const)
         });
       }
     });
+
+for (const device of ['phone', 'desktop'] as const)
+  for (const scheme of ['light', 'dark'] as const)
+    test(`Short Fuse screenshots: expansion 4 and Chaos (${device}, ${scheme})`, async ({
+      browser,
+    }) => {
+      test.setTimeout(600_000);
+      const opts = { viewport: VIEWPORTS[device], colorScheme: scheme };
+      const shot = (p: Page, name: string, full = false) =>
+        p.screenshot({
+          path: `test-results/shots/short-fuse-${device}-${scheme}-${name}.png`,
+          fullPage: full,
+        });
+      await openBackroom(await sfVisitor(browser, 'Admin', pageErrors));
+      const [hana, ana, ben] = await sfTable(browser, ['Hana', 'Ana', 'Ben'], pageErrors, opts);
+      const host = hana!.page;
+      const A = ana!.page;
+      const B = ben!.page;
+      await host.getByTestId('preset-chaos').click();
+      await expect(A.getByTestId('preset-chaos')).toHaveAttribute('aria-checked', 'true');
+      await shot(A, '41-lobby-chaos', true);
+      await host.getByTestId('preset-zombie').click();
+      await expect(A.getByTestId('readout')).toContainText('each');
+      await shot(A, '42-lobby-ghosts');
+
+      await riggedStart(host, {
+        hands: [
+          ['skip', 'revive', 'cat1', 'nope', 'shufflenow'],
+          ['feed', 'cat2', 'nope', 'alter3now'],
+          ['dig', 'seer', 'cat3', 'ghostattack', 'copy'],
+        ],
+        top: ['bomb', 'bomb', 'cat4', 'cat5', 'skip'],
+      });
+      await play(host, ['skip']);
+      await settle(host);
+      await draw(A);
+      await expect(A.getByTestId('explosion')).toBeVisible();
+      await shot(B, '43-ghost-moment');
+      await expect(B.getByTestId('draw')).toBeVisible();
+      await shot(A, '44-ghost-view');
+      await A.getByRole('button', { name: 'Got it' }).click();
+      await shot(B, '45-ghost-seat');
+
+      await play(B, ['dig']);
+      await settle(B);
+      await expect(B.getByRole('dialog')).toBeVisible();
+      await B.waitForTimeout(600);
+      await shot(B, '46-dig-sheet');
+      await B.getByTestId('dig-next').click();
+
+      await expect(host.getByTestId('draw')).toBeVisible();
+      await select(A, ['feed']);
+      await shot(A, '47-feed-now-dock');
+      await A.getByTestId('now-dock')
+        .getByRole('button', { name: /yourself/ })
+        .click();
+      await settle(A);
+      await host.getByRole('dialog').locator('[data-card="cat1"]').click();
+      await shot(host, '48-feed-sheet');
+      await host.getByTestId('pick-confirm').click();
+      await B.getByRole('dialog').locator('[data-card="cat3"]').click();
+      await B.getByTestId('pick-confirm').click();
+
+      await draw(host);
+      await expect(host.getByTestId('revive')).toBeVisible();
+      await shot(host, '49-revive-strip');
+      await host.getByTestId('revive-button').click();
+      await expect(B.getByTestId('seer-button')).toBeVisible();
+      await shot(B, '50-revive-window-seer');
+      await shot(A, '51-revive-window-ghost');
+      await B.getByTestId('seer-button').click();
+      await expect(A.getByTestId('nope-button')).toBeVisible();
+      await shot(A, '52-nope-the-seer');
+      await settle(B);
+      await host.getByTestId('place-top').click();
+      await host.getByTestId('place-confirm').click();
+      await expect(host.getByRole('dialog')).toBeVisible();
+      await shot(host, '53-place-second-bomb');
+      await host.getByTestId('place-top').click();
+      await host.getByTestId('place-confirm').click();
+      await expect(A.getByTestId('draw')).toBeVisible();
+      await shot(A, '54-back-from-the-dead');
+      await expect(B.getByTestId('watch-sheet')).toBeVisible();
+      await shot(B, '55-watched-sheet');
+      await B.getByTestId('watch-close').click();
+      await draw(A);
+      await expect(B.getByTestId('draw')).toBeVisible();
+      await select(B, ['copy']);
+      await shot(B, '56-copy-hint');
+      // Both bombs went back on top: Ben draws the second and Hana is the last one alive.
+      await draw(B);
+      await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
+      await shot(A, '57-end-ghost', true);
+    });

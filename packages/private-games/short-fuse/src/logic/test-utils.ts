@@ -126,6 +126,7 @@ export function everyCard(g: Game): CardId[] {
     ...(g.stash ?? []),
     ...Object.values(g.mine ?? {}).flatMap((m) => (m ? [m.card] : [])),
     ...(g.limbo ? [g.limbo] : []),
+    ...(g.toPlace ?? []).map((p) => p.card),
   ];
 }
 
@@ -151,10 +152,17 @@ export function leaks(state: ShortFuseState, viewer: string | null): string[] {
   const found: string[] = [];
   const over = state.phase === 'over';
   if (over) return found;
+  // Ghosts keep (and see) their own hand.
+  const ghost = (p: string) => (g.ghosts ?? []).includes(p) && !g.left.includes(p);
   for (const p of g.players)
-    if (p !== viewer || g.dead.some((d) => d.id === p) || g.blind?.[p])
+    if (p !== viewer || (g.dead.some((d) => d.id === p) && !ghost(p)) || g.blind?.[p])
       for (const id of g.hands[p]!) if (has(id)) found.push(`hand ${p} ${id}`);
-  const altering = state.stage === 'alter' && g.alter?.by === viewer ? g.alter.cards : [];
+  const altering =
+    state.stage === 'alter' && g.alter?.by === viewer
+      ? g.alter.cards
+      : state.stage === 'dig' && g.dig?.by === viewer
+        ? [g.dig.card]
+        : [];
   for (const id of g.pile) if (!altering.includes(id) && has(id)) found.push(`pile ${id}`);
   const dealing =
     ((state.stage === 'bomb' || state.stage === 'search') && g.drawn?.by === viewer) ||
@@ -164,6 +172,7 @@ export function leaks(state: ShortFuseState, viewer: string | null): string[] {
   for (const m of Object.values(g.mine ?? {})) if (m && has(m.card)) found.push(`mine ${m.card}`);
   if (g.limbo && !dealing && has(g.limbo)) found.push(`limbo ${g.limbo}`);
   for (const id of g.out) if (has(id)) found.push(`out ${id}`);
+  for (const pl of g.toPlace ?? []) if (has(pl.card)) found.push(`to place ${pl.card}`);
   if (/"seed"|"truth"|"limbo"|"cards":\{/.test(json)) found.push('internals');
   const mine = viewer ? (g.memory[viewer] ?? []).map((m) => m.id) : [];
   for (const m of v.game?.memory ?? []) if (!mine.includes(m.id)) found.push(`memory ${m.id}`);

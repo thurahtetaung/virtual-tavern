@@ -44,6 +44,14 @@ export const PLACEHOLDER_CARDS: Record<CardType, string> = {
   potluck: 'Potluck',
   share3: 'Share (3)',
   alter3now: 'Rearrange (3) NOW',
+  revive: 'Second Life',
+  dig: 'Look Twice',
+  ghostattack: 'Ghost Attack',
+  feed: 'Feed the Ghosts NOW',
+  copy: 'Copy',
+  seer: 'Foresight NOW',
+  robber: 'Restless Spirits',
+  shufflenow: 'Shuffle NOW',
 };
 
 /** A simple glyph per card, for placeholder cards and small chips. */
@@ -84,6 +92,14 @@ export const GLYPHS: Record<CardType, string> = {
   potluck: '🍲',
   share3: '🤝',
   alter3now: '⚡',
+  revive: '🧟',
+  dig: '🕵️',
+  ghostattack: '👻',
+  feed: '🍖',
+  copy: '🪞',
+  seer: '🔮',
+  robber: '⚰️',
+  shufflenow: '🌪️',
 };
 
 /** Our own short rules text per card (the inspector and the glossary). */
@@ -133,6 +149,17 @@ export const RULES: Record<CardType, string> = {
   share3: 'Look at the top 3 cards and put them back in any order; the next player sees them too.',
   alter3now:
     'Any time between actions, even off your turn: look at the top 3 cards and put them back in any order.',
+  revive:
+    'Saves you from a {bomb} like a {c:defuse} (you may explode anyway). If anyone is a ghost you must bring one back: hide your {bomb} and theirs back in the pile, separately and in secret. Can’t be Noped; never against a face-up {c:void}.',
+  dig: 'Look at the top card. Keep it (that’s your draw, and your turn ends) or put it back and draw the next card instead.',
+  ghostattack:
+    'End your turn without drawing. The next player takes 3 turns for every ghost (stacks like an {c:attack}). Needs a ghost at the table.',
+  feed: 'Any time, even by a ghost: pick a ghost (yourself too). Every living player but you gives them a card of their choice, never a {bomb}.',
+  copy: 'Becomes the card on top of the discard pile, on your own turn while alive. Not another {c:copy}; a cat only to pair with one you played this turn. Copies {c:revive} to save you from a {bomb}.',
+  seer: 'Play it in the countdown after someone’s {c:revive}: you watch where the {bombs} go back. It can be Noped.',
+  robber:
+    'Every ghost with cards puts one into the pile, then it’s shuffled. Needs a ghost at the table.',
+  shufflenow: 'Any time between actions, even off your turn or as a ghost: shuffle the draw pile.',
 };
 
 export const PLACEHOLDER_SETS: Record<Core | SetId | 'adult', string> = {
@@ -143,6 +170,7 @@ export const PLACEHOLDER_SETS: Record<Core | SetId | 'adult', string> = {
   x1: 'Expansion 1',
   x2: 'Expansion 2',
   x3: 'Expansion 3',
+  x4: 'Expansion 4',
 };
 
 export interface Names {

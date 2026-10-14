@@ -37,7 +37,22 @@ export function playName(c: Content, kind: PlayKind, t: CardType | null): string
 /** "Ana plays Attack", "Ana plays Favor on Ben", "Ana asks Ben for a Defuse (three of a kind)". */
 export function pendingLine(view: ShortFuseView, c: Content, p: PendingView): string {
   const by = cap(who(view, p.by));
-  const on = p.target ? who(view, p.target) : null;
+  // A ghost may play Feed the Ghosts on themself.
+  const on = p.target
+    ? p.target === p.by
+      ? by === 'You'
+        ? 'yourself'
+        : 'themself'
+      : who(view, p.target)
+    : null;
+  if (p.kind === 'card' && p.t === 'revive') {
+    const uses = `${by} ${by === 'You' ? 'use' : 'uses'} ${c.name(p.copied ? 'copy' : 'revive')}`;
+    return on ? `${uses} and ${by === 'You' ? 'bring' : 'brings'} ${on} back` : uses;
+  }
+  if (p.copied && p.kind === 'card' && p.t) {
+    const verb = by === 'You' ? 'play' : 'plays';
+    return `${by} ${verb} ${c.name('copy')} as ${c.name(p.t)}${on ? ` on ${on}` : ''}`;
+  }
   if (p.kind === 'triple' && p.named)
     return `${by} ${by === 'You' ? 'ask' : 'asks'} ${on} for ${c.name(p.named)} (three of a kind)`;
   if (p.kind === 'pair')
@@ -49,7 +64,8 @@ export function pendingLine(view: ShortFuseView, c: Content, p: PendingView): st
 /** One line of the public log. */
 export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
   const by = cap(who(view, e.by));
-  const target = who(view, e.target);
+  const target =
+    e.target && e.target === e.by ? (by === 'You' ? 'yourself' : 'themself') : who(view, e.target);
   const card = (t: CardType | undefined) => (t ? c.name(t) : 'a card');
   switch (e.kind) {
     case 'start':
@@ -60,6 +76,10 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
         return `${by} asked ${target} for ${card(e.named)} with three of a kind.`;
       if (kind === 'pair') return `${by} played a pair on ${target}.`;
       if (kind === 'five') return `${by} played five different cards.`;
+      if (e.as === 'revive' || e.cards?.[0] === 'revive')
+        return `${by} used ${card(e.cards?.[0])}${e.target ? ` on ${target}` : ''}.`;
+      if (e.as)
+        return `${by} played ${card('copy')} as ${card(e.as)}${e.target ? ` on ${target}` : ''}.`;
       return `${by} played ${card(e.cards?.[0])}${e.target ? ` on ${target}` : ''}.`;
     }
     case 'nope':
@@ -83,6 +103,10 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'void-up':
       return `${by} drew ${card('void')}: it goes back in face up.`;
     case 'explode':
+      if (e.ghost)
+        return e.cards?.[0] === 'void'
+          ? `👻 ${by} fell into ${card('void')} and ${by === 'You' ? 'are' : 'is'} a ghost now.`
+          : `👻 ${by} exploded and ${by === 'You' ? 'are' : 'is'} a ghost now.`;
       return e.cards?.[0] === 'void' ? `🕳️ ${by} fell into ${card('void')}.` : `💥 ${by} exploded!`;
     case 'favor':
       return e.n
@@ -149,7 +173,9 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'pooled':
       return e.cards?.[0] === 'potluck'
         ? `${e.n} cards went face down on top of the pile.`
-        : `${e.n} cards went into the pile, and it was shuffled.`;
+        : e.cards?.[0] === 'robber'
+          ? `The ghosts put ${e.n} ${e.n === 1 ? 'card' : 'cards'} into the pile, and it was shuffled.`
+          : `${e.n} cards went into the pile, and it was shuffled.`;
     case 'shared':
       return `${by} showed the top ${e.n} cards to ${target}.`;
     case 'received-bomb':
@@ -160,6 +186,16 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
       return `${by} now ${by === 'You' ? 'owe' : 'owes'} ${e.n} turns.`;
     case 'superskip':
       return `${by} skipped every turn ${by === 'You' ? 'you' : 'they'} owed.`;
+    case 'revive':
+      return `🧟 ${by} brought ${target} back to life!${e.cards?.length ? ` The ${card('twin')} cards go back into the pile, shuffled.` : ''}`;
+    case 'seer':
+      return `🔮 ${by} played ${card('seer')}: ${by === 'You' ? 'you' : 'they'}’ll watch the hiding.`;
+    case 'dig':
+      return `${by} looked at the top card (${card('dig')}).`;
+    case 'fed':
+      return e.n
+        ? `👻 ${by} fed ${target} ${e.n} ${e.n === 1 ? 'card' : 'cards'}.`
+        : `${by} played ${card('feed')}, but nobody had a card to give.`;
   }
 }
 
@@ -176,16 +212,37 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
       yourMove: false,
     };
   }
+  const ghostBeat = g.players.find((p) => p.id === g.beat?.who)?.ghost;
   if (view.stage === 'beat' && g.beat)
     return {
-      text: g.beat.who === me ? '💥 You exploded!' : `💥 ${cap(who(view, g.beat.who))} exploded!`,
+      text: ghostBeat
+        ? g.beat.who === me
+          ? '👻 You exploded: you’re a ghost now.'
+          : `👻 ${cap(who(view, g.beat.who))} exploded and is a ghost now.`
+        : g.beat.who === me
+          ? '💥 You exploded!'
+          : `💥 ${cap(who(view, g.beat.who))} exploded!`,
       yourMove: false,
     };
-  if (mine?.dead)
+  if (mine?.dead && !mine.ghost)
     return {
       text: 'You’re out: you can watch the rest, seeing only what the table sees.',
       yourMove: false,
     };
+  if (view.stage === 'window' && g.pending?.kind === 'card' && g.pending.t === 'revive') {
+    const line = pendingLine(view, c, g.pending);
+    if (g.canSeer)
+      return {
+        text: `${line}. Play ${c.name('seer')} to watch where the ${c.names.bombs} go?`,
+        yourMove: false,
+      };
+    if (g.canNope)
+      return { text: `${line}. ${c.name('nope')} the ${c.name('seer')}?`, yourMove: false };
+    return {
+      text: `${line}: no ${c.name('nope')} can stop it. The hiding starts after the countdown…`,
+      yourMove: false,
+    };
+  }
   if (view.stage === 'window' && g.pending) {
     const line = pendingLine(view, c, g.pending);
     if (g.canNope) return { text: `${line}. ${c.name('nope')} it?`, yourMove: false };
@@ -231,9 +288,20 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
               text:
                 p.what === 'potluck'
                   ? 'Choose a card to put face down on top of the pile.'
-                  : 'Choose a card to put into the pile (it gets shuffled).',
+                  : p.what === 'feed'
+                    ? c.t(
+                        `Choose a card to give ${who(view, p.to, false)} the ghost (never a {bomb}).`,
+                      )
+                    : p.what === 'robber'
+                      ? 'You’re a ghost: choose a card from your hand to put into the pile (it gets shuffled).'
+                      : 'Choose a card to put into the pile (it gets shuffled).',
               yourMove: true,
             };
+      case 'dig':
+        return {
+          text: `The top card is ${an(c.name(p.card.t))}: keep it (that’s your draw) or put it back and draw the next one.`,
+          yourMove: true,
+        };
       case 'target':
         return {
           text: `You turned over ${an(c.name(p.card.t))}: choose who it’s for.`,
@@ -247,6 +315,17 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
       case 'salvage':
         return { text: 'Take any card from the discard pile.', yourMove: true };
       case 'bomb':
+        if (p.revive && !p.canDefuse)
+          return {
+            text: p.revive.ghosts.length
+              ? c.t(
+                  `${p.twin ? '{c:twin} barked at you!' : `${cap(an(c.names.bomb))}!`} Use {c:revive} to survive: you must bring back a ghost, then hide both {bombs}.`,
+                )
+              : c.t(
+                  `${p.twin ? '{c:twin} barked at you!' : `${cap(an(c.names.bomb))}!`} Use {c:revive} to survive, or explode and become a ghost.`,
+                ),
+            yourMove: true,
+          };
         return {
           text: p.twin
             ? `${cap(an(c.name('twin')))} barked at you! Play ${an(c.name('defuse'))} to survive.`
@@ -278,9 +357,10 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
         g.drawnKind === 'twin'
           ? `${name} must answer the ${c.name('twin')}!`
           : `${name} ${agree(name, 'have', 'has')} ${an(c.name('bomb'))} to deal with!`,
+      dig: `${name} ${is} looking at the top card (${c.name('dig')})…`,
       search: `${name} ${is} blindfolded with ${an(c.name(g.drawnKind === 'twin' ? 'twin' : 'bomb'))}: turning cards over…`,
       target: `${name} ${is} choosing who the blind card is for…`,
-      each: `Everyone with cards is choosing one (${(g.each?.waiting ?? []).map((id) => who(view, id)).join(', ') || 'done'})…`,
+      each: `${g.each?.what === 'feed' ? `Feeding ${who(view, g.each.to)}: everyone alive is choosing a card` : g.each?.what === 'robber' ? 'The ghosts are choosing a card for the pile' : 'Everyone with cards is choosing one'} (${(g.each?.waiting ?? []).map((id) => who(view, id)).join(', ') || 'done'})…`,
       place:
         g.drawnKind === 'bury'
           ? `${name} ${is} burying a card back in the pile…`
@@ -292,6 +372,11 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
   }
   const turn = g.turn;
   const owed = turn.owed > 1 ? ` (${turn.owed} turns to go)` : '';
+  if (mine?.ghost)
+    return {
+      text: `👻 You’re a ghost: no turns, but you keep your hand and can play ${c.name('nope')} and NOW cards. ${whose(cap(who(view, turn.player)))} turn${owed}.`,
+      yourMove: false,
+    };
   return { text: `${whose(cap(who(view, turn.player)))} turn${owed}.`, yourMove: false };
 }
 
@@ -300,5 +385,9 @@ export const amIn = (view: ShortFuseView) => {
   const me = view.game?.players.find((p) => p.id === view.me?.id);
   return !!me && !me.dead && !me.left;
 };
+
+/** Whether the viewer is a ghost (Expansion 4): dead, but still holding cards they can play. */
+export const amGhost = (view: ShortFuseView) =>
+  !!view.game?.players.find((p) => p.id === view.me?.id)?.ghost;
 
 export const playersIn = (g: GameView) => g.players.filter((p) => !p.dead && !p.left);

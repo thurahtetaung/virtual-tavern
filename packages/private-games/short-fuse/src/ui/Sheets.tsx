@@ -439,13 +439,18 @@ export function Inspector({
   );
 }
 
-/** You drew a Bomb: the big red moment, with the way out you have. */
+/**
+ * You drew a Bomb: the big red moment, with the ways out you have. With the fourth expansion a
+ * Second Life (or a Copy of one) saves you too, bringing back a ghost you pick; with only that, you
+ * may explode instead and become a ghost.
+ */
 export function BombStrip({
   prompt,
   c,
   art,
   act,
   drew = false,
+  name,
 }: {
   prompt: Extract<Prompt, { kind: 'bomb' }>;
   /** You drew it yourself (rather than receiving it). */
@@ -453,10 +458,23 @@ export function BombStrip({
   c: Content;
   art: Art;
   act: Act;
+  /** A player's name. */
+  name: (id: string) => string;
 }) {
+  const r = prompt.revive;
+  const [ghost, setGhost] = useState<string | null>(() =>
+    r?.ghosts.length === 1 ? r.ghosts[0]! : null,
+  );
+  const [dying, setDying] = useState(false);
+  const needGhost = !!r?.ghosts.length;
+  const revive = (copy: boolean) =>
+    void act(
+      { type: 'revive', ...(ghost && needGhost ? { ghost } : {}), ...(copy ? { copy } : {}) },
+      { anchor: 'defuse' },
+    );
   return (
     <section
-      className="sf-shake flex items-center gap-3 rounded-2xl bg-danger-soft p-3 ring-2 ring-danger-line"
+      className="sf-shake flex items-start gap-3 rounded-2xl bg-danger-soft p-3 ring-2 ring-danger-line"
       aria-live="assertive"
       data-testid="bomb-strip"
     >
@@ -464,28 +482,180 @@ export function BombStrip({
       <div className="min-w-0 flex-1 space-y-2">
         <p className="font-bold text-danger-ink">
           {prompt.twin
-            ? c.t(`{c:twin} barked at you! Play {c:defuse} to survive (it hides nothing).`)
+            ? prompt.canDefuse
+              ? c.t(`{c:twin} barked at you! Play {c:defuse} to survive (it hides nothing).`)
+              : c.t(`{c:twin} barked at you!`)
             : drew
               ? `You drew ${an(c.name(prompt.card.t))}!`
               : `${cap(an(c.name(prompt.card.t)))} is yours!`}
         </p>
-        <Button
-          variant="danger"
-          size="lg"
-          className="w-full"
-          onClick={() => void act({ type: 'defuse' }, { anchor: 'defuse' })}
-          data-testid="defuse-button"
-        >
-          ✂️ {c.t('Play {c:defuse}')}
-        </Button>
+        {prompt.canDefuse && (
+          <Button
+            variant="danger"
+            size="lg"
+            className="w-full"
+            onClick={() => void act({ type: 'defuse' }, { anchor: 'defuse' })}
+            data-testid="defuse-button"
+          >
+            ✂️ {c.t('Play {c:defuse}')}
+          </Button>
+        )}
+        {r && (
+          <div className="space-y-2" data-testid="revive">
+            {needGhost && (
+              <div className="space-y-1">
+                <p className="text-sm text-danger-ink">
+                  {c.t(
+                    'A ghost is at the table: your {c:revive} must bring one back. Pick who (you’ll hide their {bomb} too):',
+                  )}
+                </p>
+                <div
+                  className="flex flex-wrap gap-1.5"
+                  role="radiogroup"
+                  aria-label="Who to bring back"
+                >
+                  {r.ghosts.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={ghost === id}
+                      onClick={() => setGhost(id)}
+                      data-testid="revive-ghost"
+                      className={cn(
+                        'min-h-10 rounded-full px-3 text-sm font-semibold ring-1',
+                        ghost === id
+                          ? 'bg-special text-white ring-special'
+                          : 'bg-card text-ink ring-special-line',
+                      )}
+                    >
+                      👻 {name(id)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {r.card && (
+              <Button
+                variant={prompt.canDefuse ? 'secondary' : 'danger'}
+                size="lg"
+                className="w-full"
+                disabled={needGhost && !ghost}
+                onClick={() => revive(false)}
+                data-testid="revive-button"
+              >
+                {c.glyph('revive')} {c.t('Use {c:revive}')}
+                {needGhost && ghost ? ` (bring back ${name(ghost)})` : ''}
+              </Button>
+            )}
+            {r.copy && (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                disabled={needGhost && !ghost}
+                onClick={() => revive(true)}
+                data-testid="revive-copy"
+              >
+                {c.glyph('copy')} {c.t('{c:copy} the {c:revive} on the discard pile')}
+              </Button>
+            )}
+            {needGhost && !ghost && <p className="text-xs text-danger-ink">Pick a ghost first.</p>}
+            {!prompt.canDefuse &&
+              (dying ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-danger-ink">Explode and become a ghost?</span>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => void act({ type: 'die' }, { anchor: 'defuse' })}
+                    data-testid="die-confirm"
+                  >
+                    Yes, explode
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setDying(false)}>
+                    No
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-danger-ink underline underline-offset-2"
+                  onClick={() => setDying(true)}
+                  data-testid="die"
+                >
+                  {c.t('Keep the {c:revive} and explode instead')}
+                </button>
+              ))}
+          </div>
+        )}
         <RefusalSlot anchor="defuse" />
       </div>
     </section>
   );
 }
 
+/** Look Twice: the top card, seen only by you. Keep it as your draw, or put it back and draw the next. */
+export function DigSheet({
+  prompt,
+  c,
+  art,
+  act,
+  onDone,
+}: {
+  prompt: Extract<Prompt, { kind: 'dig' }>;
+  c: Content;
+  art: Art;
+  act: Act;
+  onDone: () => void;
+}) {
+  const go = (keep: boolean) => {
+    onDone();
+    void act({ type: 'dig', keep }, { anchor: 'dig' });
+  };
+  const bad = prompt.card.t === 'bomb' || prompt.card.t === 'void';
+  return (
+    <Sheet
+      title={c.t('{c:dig}: the top card')}
+      footer={
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              size="lg"
+              variant={bad ? 'secondary' : 'primary'}
+              onClick={() => go(true)}
+              data-testid="dig-keep"
+            >
+              Keep it
+            </Button>
+            <Button
+              size="lg"
+              variant={bad ? 'primary' : 'secondary'}
+              onClick={() => go(false)}
+              data-testid="dig-next"
+            >
+              Draw the next one
+            </Button>
+          </div>
+          <RefusalSlot anchor="dig" />
+        </div>
+      }
+    >
+      <div className="flex items-start gap-3">
+        <CardFace card={prompt.card} art={art} c={c} size="lg" className="sf-flip" />
+        <p className="text-sm text-ink">
+          Only you see this. Keep it and it’s your draw (that ends a turn). Or put it back on top
+          and draw the card under it instead, whatever it is: the next player will find this one
+          waiting.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
 /** Whether a card is worth a second thought before giving it away. */
-export const precious = (card: CardView) => card.t === 'defuse' || card.t === 'nope';
+export const precious = (card: CardView) =>
+  card.t === 'defuse' || card.t === 'nope' || card.t === 'revive';
 
 export const cardHint = (card: CardView, c: Content, myTurn: boolean): string | null => {
   const info = CARDS[card.t];
@@ -494,6 +664,10 @@ export const cardHint = (card: CardView, c: Content, myTurn: boolean): string | 
   if (card.t === 'defuse') return c.t('Used for you when you draw {c:bomb}: keep it!');
   if (isCat(card.t) || card.t === 'wild')
     return 'Pick two with the same name to steal a random card.';
+  if (card.t === 'revive') return c.t('Used when you draw {c:bomb}, like {c:defuse}: keep it!');
+  if (card.t === 'seer')
+    return c.t('Play it during the countdown after someone’s {c:revive}, even as a ghost.');
+  if (info.now) return c.t('Play it any time between actions, even off your turn or as a ghost.');
   if (!info.playable) return null;
   return myTurn ? 'Tap it, then Play.' : 'You can play it on your turn.';
 };

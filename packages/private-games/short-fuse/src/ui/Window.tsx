@@ -39,8 +39,11 @@ export function NopePanel({
   const p = g.pending!;
   const left = useMsLeft(w.endsAt, clockOffset);
   const total = w.seconds * 1000;
-  const n = w.chain.length;
-  // A stamp for each new Nope: NOPE on odd links, YUP on even ones.
+  // A Second Life's window: the Foresight plays and their Nopes count as the links.
+  const revive = p.kind === 'card' && p.t === 'revive';
+  const seer = w.seers.at(-1);
+  const n = revive ? w.seers.reduce((k, x) => k + 1 + x.chain.length, 0) : w.chain.length;
+  // A stamp for each new Nope: NOPE on odd links, YUP on even ones (Foresight: an eye).
   const [stampState, setStampState] = useState({ n, on: false });
   if (stampState.n !== n) setStampState({ n, on: n > 0 });
   const stamp = stampState.on ? { n: stampState.n, at: stampState.n } : null;
@@ -52,6 +55,9 @@ export function NopePanel({
     };
   }, [stampState.on, stampState.n]);
   const nope = c.name('nope');
+  // What the latest link was: a Nope, a Nope of a Nope, or (a Second Life's window) a Foresight.
+  const links = revive ? (seer?.chain.length ?? 0) : n;
+  const stampKind = revive && links === 0 ? 'seer' : links % 2 === 1 ? 'nope' : 'yup';
   return (
     <section
       aria-label={`${nope} countdown`}
@@ -70,9 +76,15 @@ export function NopePanel({
             {pendingLine(view, c, p)}
           </p>
           <p className="mt-0.5 text-xs text-warn-ink" data-testid="nope-state">
-            {n === 0
-              ? `Going ahead in ${Math.ceil(left / 1000)}…`
-              : `${nope} ×${n}: ${w.cancelled ? 'cancelled' : 'going ahead'} (${Math.ceil(left / 1000)}…)`}
+            {revive
+              ? w.seers.length
+                ? `${c.name('seer')}: ${w.seers
+                    .map((x) => `${who(view, x.by, false)}${x.cancelled ? ` (${nope}d)` : ''}`)
+                    .join(', ')} · hiding in ${Math.ceil(left / 1000)}…`
+                : `Can’t be ${nope}d. Hiding in ${Math.ceil(left / 1000)}…`
+              : n === 0
+                ? `Going ahead in ${Math.ceil(left / 1000)}…`
+                : `${nope} ×${n}: ${w.cancelled ? 'cancelled' : 'going ahead'} (${Math.ceil(left / 1000)}…)`}
           </p>
         </div>
       </div>
@@ -85,7 +97,50 @@ export function NopePanel({
           style={{ width: `${Math.min(100, (left / total) * 100)}%` }}
         />
       </div>
-      {g.canNope && (
+      {g.canSeer && (
+        <>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="mt-2 min-h-14 w-full text-lg"
+            disabled={stampState.on}
+            onClick={() => void act({ type: 'seer', window: w.id }, { anchor: 'seer' })}
+            data-testid="seer-button"
+          >
+            {c.glyph('seer')} {c.name('seer')}: watch the hiding
+          </Button>
+          <RefusalSlot anchor="seer" />
+        </>
+      )}
+      {g.canNope && revive && (
+        <>
+          {/* One button per Foresight you could stop: each has its own chain. */}
+          {w.seers
+            .filter((x) => g.nopeSeers.includes(x.by))
+            .map((x) => (
+              <Button
+                key={x.by}
+                variant="danger"
+                size="lg"
+                className="mt-2 min-h-14 w-full text-xl tracking-wide"
+                disabled={stampState.on}
+                onClick={() =>
+                  void act({ type: 'nope', window: w.id, seer: x.by }, { anchor: 'nope' })
+                }
+                data-testid="nope-button"
+              >
+                ✋ {nope.toUpperCase()}
+                <span className="text-sm font-medium normal-case">
+                  {x.cancelled
+                    ? `(let ${who(view, x.by, false)} watch after all)`
+                    : `(stop ${who(view, x.by, false)} watching)`}
+                </span>
+              </Button>
+            ))}
+          <RefusalSlot anchor="nope" />
+        </>
+      )}
+      {g.canNope && !revive && (
         <>
           <Button
             variant="danger"
@@ -112,10 +167,14 @@ export function NopePanel({
           aria-hidden
           className={cn(
             'sf-stamp pointer-events-none absolute inset-0 m-auto flex h-14 w-44 items-center justify-center rounded-xl border-4 text-3xl font-black tracking-widest',
-            stamp.n % 2 === 1 ? 'border-danger text-danger' : 'border-success text-success',
+            stampKind === 'nope'
+              ? 'border-danger text-danger'
+              : stampKind === 'yup'
+                ? 'border-success text-success'
+                : 'border-special text-special-ink',
           )}
         >
-          {stamp.n % 2 === 1 ? `${nope.toUpperCase()}!` : 'YUP!'}
+          {stampKind === 'nope' ? `${nope.toUpperCase()}!` : stampKind === 'yup' ? 'YUP!' : '🔮'}
         </span>
       )}
       {n > 0 && (

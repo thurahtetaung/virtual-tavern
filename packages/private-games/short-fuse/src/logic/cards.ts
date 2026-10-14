@@ -43,11 +43,20 @@ export const CARD_TYPES = [
   'potluck',
   'share3',
   'alter3now',
+  // Expansion 4
+  'revive',
+  'dig',
+  'ghostattack',
+  'feed',
+  'copy',
+  'seer',
+  'robber',
+  'shufflenow',
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
 /** The sets a card can come from: the core decks and the expansions. */
-export type SetId = 'core' | 'x1' | 'x2' | 'x3';
+export type SetId = 'core' | 'x1' | 'x2' | 'x3' | 'x4';
 
 export interface CardInfo {
   set: SetId;
@@ -61,6 +70,8 @@ export interface CardInfo {
   now?: boolean;
   /** Its target must have cards to take (Favor, Mark…), not just be in the game. */
   needsCards?: boolean;
+  /** Only playable while somebody is a ghost (Expansion 4). */
+  ghosts?: boolean;
 }
 
 export const CARDS: Record<CardType, CardInfo> = {
@@ -100,6 +111,14 @@ export const CARDS: Record<CardType, CardInfo> = {
   potluck: { set: 'x3', playable: true },
   share3: { set: 'x3', playable: true },
   alter3now: { set: 'x3', playable: true, now: true },
+  revive: { set: 'x4', playable: false },
+  dig: { set: 'x4', playable: true },
+  ghostattack: { set: 'x4', playable: true, ghosts: true },
+  feed: { set: 'x4', targeted: true, playable: true, now: true, ghosts: true },
+  copy: { set: 'x4', playable: true },
+  seer: { set: 'x4', playable: false },
+  robber: { set: 'x4', playable: true, ghosts: true },
+  shufflenow: { set: 'x4', playable: true, now: true },
 };
 
 export const isBombCard = (t: CardType) => CARDS[t].bombLike === true;
@@ -202,6 +221,27 @@ export const X3_POOL: Partial<Record<CardType, number>> = {
   alter3now: 2,
   superskip: 1,
 };
+/** Expansion 4's cards besides its Second Life cards (which are dealt as savers). */
+export const X4_POOL: Partial<Record<CardType, number>> = {
+  dig: 4,
+  ghostattack: 3,
+  feed: 2,
+  copy: 2,
+  seer: 2,
+  superskip: 2,
+  robber: 1,
+  shufflenow: 1,
+};
+/** Expansion 4 cards that leave the box at two players (nobody to haunt). */
+export const X4_TWO_PLAYER_OUT: Partial<Record<CardType, number>> = {
+  ghostattack: 3,
+  robber: 1,
+  feed: 2,
+  superskip: 2,
+};
+/** Second Life cards in the box: one per player up to this many, Defuses after that. */
+export const REVIVES = 5;
+
 /** Cards dealt face down into the Vault's Stash. */
 export const STASH_SIZE = 6;
 

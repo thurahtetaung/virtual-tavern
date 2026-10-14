@@ -18,7 +18,7 @@ const WIDTH: Record<CardSize, string> = {
 function tint(t: CardType): string {
   if (t === 'bomb') return 'bg-danger-soft text-danger-ink ring-danger-line';
   if (t === 'void') return 'bg-special-soft text-special-ink ring-special-line';
-  if (t === 'defuse') return 'bg-success-soft text-success-ink ring-success-line';
+  if (t === 'defuse' || t === 'revive') return 'bg-success-soft text-success-ink ring-success-line';
   if (t === 'nope') return 'bg-warn-soft text-warn-ink ring-warn-line';
   if (/^cat|wild/.test(t)) return 'bg-info-soft text-info-ink ring-info-line';
   return 'bg-card text-ink ring-line-strong';

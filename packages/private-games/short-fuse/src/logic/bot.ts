@@ -13,6 +13,8 @@ const ESCAPES: CardType[] = [
   'superskip',
   'skip',
   'attack',
+  'ghostattack',
+  'dig',
   'aim',
   'reverse',
   'bottom',
@@ -47,9 +49,10 @@ function turnMove(g: GameView, me: string): ShortFuseAction {
   const hand = g.hand ?? [];
   const has = (t: CardType) => hand.find((c) => c.t === t);
   if (dangerOnTop(g)) {
+    const ghosts = g.players.some((p) => p.ghost);
     for (const t of ESCAPES) {
       const c = has(t);
-      if (!c) continue;
+      if (!c || (t === 'ghostattack' && !ghosts)) continue;
       if (t === 'aim') {
         const target = richest(g, me);
         if (target) return { type: 'play', cards: [c.id], target };
@@ -71,7 +74,9 @@ function turnMove(g: GameView, me: string): ShortFuseAction {
 }
 
 /**
- * A playtest bot, from its own seat's view only. On its turn it sometimes (30%) plays one useful
+ * A playtest bot, from its own seat's view only. With the fourth expansion it uses a Second Life
+ * like a Defuse (bringing back a random ghost), keeps a Look Twice card unless it's a bomb, and as
+ * a ghost only answers what it's asked (it never plays NOW cards or Foresight). On its turn it sometimes (30%) plays one useful
  * card (a peek, a pair of cats or a Favor on the player with most cards), and dodges a Bomb it
  * knows is on top; then it draws. It Nopes a play aimed at it now and then, defuses every Bomb,
  * hides it at random, gives away a cat when asked and keeps a rearranged pile's order apart from
@@ -95,7 +100,7 @@ export function shortFuseBot(view: ShortFuseView, ctx: BotCtx): ShortFuseAction 
   // What a bot would rather part with: a cat, then anything but a Defuse, a Bomb or its Shelter.
   const spare = (): CardView | undefined => {
     const hand = g.hand ?? [];
-    const keep = (c: CardView) => ['defuse', 'bomb', 'void', 'shelter'].includes(c.t);
+    const keep = (c: CardView) => ['defuse', 'revive', 'bomb', 'void', 'shelter'].includes(c.t);
     return (
       hand.find((c) => isCat(c.t) || c.t === 'wild') ??
       pickOne(
@@ -113,9 +118,20 @@ export function shortFuseBot(view: ShortFuseView, ctx: BotCtx): ShortFuseAction 
     case 'each': {
       if (p.done) return null;
       if (p.blind) return { type: 'choose', ...slot(g.blindCount ?? 1) };
-      const card = spare();
+      // A ghost is never fed a bomb.
+      const card =
+        p.what === 'feed'
+          ? ((g.hand ?? []).find((c) => isCat(c.t) || c.t === 'wild') ??
+            pickOne(
+              rng,
+              (g.hand ?? []).filter((c) => !['bomb', 'void', 'twin'].includes(c.t)),
+            ))
+          : spare();
       return card ? { type: 'choose', card: card.id } : null;
     }
+    case 'dig':
+      // Keep what it saw unless it's a bomb.
+      return { type: 'dig', keep: p.card.t !== 'bomb' && p.card.t !== 'void' };
     case 'target':
       return { type: 'target', player: pickOne(rng, p.options)! };
     case 'search':
@@ -135,7 +151,16 @@ export function shortFuseBot(view: ShortFuseView, ctx: BotCtx): ShortFuseAction 
       return card ? { type: 'salvage', card: card.id } : null;
     }
     case 'bomb':
-      return p.canDefuse ? { type: 'defuse' } : null;
+      if (p.canDefuse) return { type: 'defuse' };
+      if (p.revive) {
+        const ghost = pickOne(rng, p.revive.ghosts);
+        return {
+          type: 'revive',
+          ...(ghost ? { ghost } : {}),
+          ...(p.revive.card ? {} : { copy: true }),
+        };
+      }
+      return { type: 'die' };
     case 'place':
       return {
         type: 'place',

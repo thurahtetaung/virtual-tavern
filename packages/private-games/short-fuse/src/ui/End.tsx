@@ -43,7 +43,7 @@ export function End({
             {order.map((p, i) => (
               <span key={p.id}>
                 {i > 0 && ' · '}
-                {p.left ? '🚪' : '💥'} {p.name}
+                {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
                 {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
               </span>
             ))}
@@ -137,7 +137,7 @@ export function End({
           return (
             <div key={p.id}>
               <p className="text-sm font-semibold text-ink">
-                {p.name} {p.dead ? '💥' : p.left ? '🚪' : ''}
+                {p.name} {p.ghost ? '👻' : p.dead ? '💥' : p.left ? '🚪' : ''}
               </p>
               {hand.length ? (
                 <ul className="mt-1 flex flex-wrap gap-1">

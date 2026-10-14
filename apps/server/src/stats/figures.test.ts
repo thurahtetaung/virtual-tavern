@@ -96,6 +96,8 @@ describe('Short Fuse figures', () => {
         { label: 'Classic deck', value: 1 },
         { label: 'Adult deck', value: 0 },
         { label: 'Party deck', value: 1 },
+        { label: 'Ghosts deck', value: 0 },
+        { label: 'Chaos (everything)', value: 0 },
       ],
     });
     expect(by('cards')).toMatchObject({ parts: [{ label: '{card:attack}', value: 1 }] });
@@ -108,5 +110,33 @@ describe('Short Fuse figures', () => {
         { label: 'At the bottom', value: 1 },
       ],
     });
+  });
+
+  it('count the fourth expansion: its decks, revivals and Second Lives as saves', () => {
+    const m = new Map<string, number>();
+    const events: [string, Record<string, unknown>][] = [
+      ['outcome', { players: 4, turns: 30, preset: 'zombie', x4: true, revives: 2 }],
+      ['outcome', { players: 5, turns: 40, preset: 'chaos', x1: true, x4: true, revives: 0 }],
+      ['outcome', { players: 3, turns: 20, preset: 'classic' }],
+      ['revive', { target: 'ana' }],
+      ['revive', { target: 'ben' }],
+      ['revive', { target: null }],
+      ['bomb', { kind: 'bomb', saved: 'revive' }],
+      ['bomb', { kind: 'bomb', saved: 'none' }],
+      ['play', { cards: ['dig'], kind: 'card' }],
+    ];
+    for (const [type, props] of events)
+      for (const [k, v] of figureCounters('short-fuse', type, props))
+        m.set(k, k.startsWith('max.') ? Math.max(m.get(k) ?? 0, v) : (m.get(k) ?? 0) + v);
+    const figs = buildFigures('short-fuse', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('revives')).toMatchObject({ kind: 'number', value: 1 });
+    expect(by('defused')).toMatchObject({ value: 50 });
+    const decks = by('decks');
+    expect(decks.kind === 'split' && decks.parts.slice(3)).toEqual([
+      { label: 'Ghosts deck', value: 1 },
+      { label: 'Chaos (everything)', value: 1 },
+    ]);
+    expect(by('cards')).toMatchObject({ parts: [{ label: '{card:dig}', value: 1 }] });
   });
 });

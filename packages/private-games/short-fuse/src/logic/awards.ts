@@ -213,7 +213,12 @@ const cleanHands: AwardRule = {
   compute(g) {
     const winner = g.winners[0];
     if (!winner) return [];
-    const used = g.of('bomb').some((e) => e.playerId === winner && str(e, 'saved') === 'defuse');
+    const used = g
+      .of('bomb')
+      .some(
+        (e) =>
+          e.playerId === winner && (str(e, 'saved') === 'defuse' || str(e, 'saved') === 'revive'),
+      );
     return used ? [] : one(winner, 1, { card: 'defuse' });
   },
 };
@@ -386,6 +391,47 @@ const stacked: AwardRule = {
   },
 };
 
+const backFromDead: AwardRule = {
+  id: 'short-fuse.back-from-dead',
+  emoji: '🧟',
+  title: 'Back from the Dead',
+  valence: 'glory',
+  weight: 5,
+  kind: 'moment',
+  family: 'win',
+  copy: {
+    cheeky: ['{who} died and still won. Typical', '{who} came back from the grave to win'],
+    wholesome: ['{who} came back for the win', '{who} got a second life and made it count'],
+  },
+  compute(g) {
+    const winner = g.winners[0];
+    if (!winner) return [];
+    const back = g.of('revive').some((e) => str(e, 'target') === winner);
+    return back ? one(winner) : [];
+  },
+};
+
+const necromancer: AwardRule = {
+  id: 'short-fuse.necromancer',
+  emoji: '🪦',
+  title: 'Necromancer',
+  valence: 'gentle',
+  weight: 3,
+  kind: 'award',
+  family: 'revive',
+  copy: {
+    cheeky: ['{who} raised the dead {n|time}', '{who} kept digging people up ({n})'],
+    wholesome: ['{who} brought a friend back {n|time}', '{who} gave {n} second chances'],
+  },
+  compute(g) {
+    return mostBy(
+      g.of('revive').filter((e) => str(e, 'target')),
+      undefined,
+      { min: 1 },
+    );
+  },
+};
+
 const outcomes = (games: readonly GameEvents[]) =>
   games.flatMap((g) => (outcomeOf(g) ? [outcomeOf(g)!] : []));
 
@@ -434,6 +480,18 @@ const nuggets: NuggetRule[] = [
     },
   },
   {
+    id: 'short-fuse.comebacks',
+    emoji: '🧟',
+    interest: 2,
+    record: 'max',
+    compute(games) {
+      const best = Math.max(0, ...outcomes(games).map((o) => num(o, 'revives') ?? 0));
+      return best >= 1
+        ? { value: best, text: `Most players brought back in one game: ${best}` }
+        : null;
+    },
+  },
+  {
     id: 'short-fuse.defuses',
     emoji: '✂️',
     interest: 1,
@@ -465,6 +523,8 @@ export const shortFuseAwards: AwardModule = {
     heavyHead,
     barkBite,
     stacked,
+    backFromDead,
+    necromancer,
     sleepwalker,
   ],
   nuggets,

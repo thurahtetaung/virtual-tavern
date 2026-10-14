@@ -18,16 +18,29 @@ function randomMove(
     const holders = g.players.filter((p) => g.hands[p]!.some((id) => g.cards[id]!.t === 'nope'));
     if (holders.length && rng.next() < 0.3)
       return { by: pick(holders), action: { type: 'nope', window: g.window!.id } };
+    const seers = g.players.filter((p) => g.hands[p]!.some((id) => g.cards[id]!.t === 'seer'));
+    if (seers.length && rng.next() < 0.3)
+      return { by: pick(seers), action: { type: 'seer', window: g.window!.id } };
     return null;
   }
   const waiting = awaited(state);
   const who = state.stage === 'each' ? pick(waiting.length ? waiting : ['host']) : waiting[0];
   if (!who) return null;
-  // Now and then someone off turn plays a NOW card.
-  if (state.stage === 'turn' && rng.next() < 0.05) {
-    const off = g.players.find((p) => g.hands[p]!.some((id) => g.cards[id]!.t === 'alter3now'));
-    const now = off && g.hands[off]!.find((id) => g.cards[id]!.t === 'alter3now');
-    if (off && now) return { by: off, action: { type: 'play', cards: [now] } };
+  // Now and then someone off turn (a ghost too) plays a NOW card.
+  if (state.stage === 'turn' && rng.next() < 0.06) {
+    const nows = ['alter3now', 'shufflenow', 'feed'];
+    const off = g.players.find((p) => g.hands[p]!.some((id) => nows.includes(g.cards[id]!.t)));
+    const now = off && g.hands[off]!.find((id) => nows.includes(g.cards[id]!.t));
+    const ghosts = g.ghosts ?? [];
+    if (off && now)
+      return {
+        by: off,
+        action: {
+          type: 'play',
+          cards: [now],
+          ...(ghosts.length ? { target: pick(ghosts) } : {}),
+        },
+      };
   }
   if (rng.next() < 0.01) return { by: 'host', action: { type: 'act-for', player: who } };
   const hand = g.hands[who]!;
@@ -89,8 +102,23 @@ function randomMove(
       const options = g.discard.filter((id) => !CARDS[g.cards[id]!.t].bombLike);
       return { by: who, action: { type: 'salvage', card: pick(options) } };
     }
-    case 'bomb':
+    case 'bomb': {
+      const ghosts = g.ghosts ?? [];
+      const r = rng.next();
+      if (r < 0.1) return { by: who, action: { type: 'die' } };
+      if (r < 0.55 || !g.hands[who]!.some((id) => g.cards[id]!.t === 'defuse'))
+        return {
+          by: who,
+          action: {
+            type: 'revive',
+            ...(ghosts.length ? { ghost: pick(ghosts) } : {}),
+            ...(rng.next() < 0.2 ? { copy: true } : {}),
+          },
+        };
       return { by: who, action: { type: 'defuse' } };
+    }
+    case 'dig':
+      return { by: who, action: { type: 'dig', keep: rng.next() < 0.5 } };
     case 'place':
       return { by: who, action: { type: 'place', position: rng.int(g.pile.length + 1) } };
     default:
@@ -110,6 +138,15 @@ function checkInvariants(state: ShortFuseState, label: () => string, deep = true
   check(all.length === Object.keys(g.cards).length, 'a card went missing', label);
   check(g.turn.owed >= 1, 'owed below 1', label);
   if (deep) check(JSON.stringify(state).length < 256 * 1024, 'state too large', label);
+  for (const p of g.ghosts ?? []) {
+    check(!!g.x4, 'a ghost without the fourth expansion', label);
+    check(
+      g.dead.some((d) => d.id === p),
+      `ghost ${p} isn't dead`,
+      label,
+    );
+    check(!g.left.includes(p), `ghost ${p} has left`, label);
+  }
   if (state.phase === 'playing') {
     const live = g.players.filter((p) => !g.left.includes(p) && !g.dead.some((d) => d.id === p));
     check(live.length >= 2, 'fewer than two players left in play', label);
@@ -129,7 +166,7 @@ function checkInvariants(state: ShortFuseState, label: () => string, deep = true
 
 function playOne(seed: number) {
   const rng = createRng(seed);
-  const n = 2 + (seed % 9);
+  const n = seed % 20 === 0 ? 10 : seed % 20 === 10 ? 2 : 2 + (seed % 9);
   const players = ids(10).slice(0, n);
   const settings: Partial<Settings> = {
     core: rng.next() < 0.3 ? 'party' : 'classic',
@@ -137,6 +174,7 @@ function playOne(seed: number) {
     x1: rng.next() < 0.5,
     x2: rng.next() < 0.5,
     x3: rng.next() < 0.5,
+    x4: rng.next() < 0.5,
     faster: rng.next() < 0.2,
     fiveCombo: rng.next() < 0.3,
     nonStacking: rng.next() < 0.2,
@@ -150,11 +188,15 @@ function playOne(seed: number) {
     { now, rng, content },
     players.map((id) => ({ id, name: id })),
   );
+  // Every tenth game is the Chaos deck (everything), half of those at the table's extremes.
+  if (seed % 10 === 0)
+    Object.assign(settings, { core: 'classic', x1: true, x2: true, x3: true, x4: true });
   state = run(state, { type: 'update-settings', ...settings }, 'host') as ShortFuseState;
   state = run(state, { type: 'start' }, 'host') as ShortFuseState;
   for (let step = 0; step < 3000 && state.phase === 'playing'; step++) {
     const label = () => `seed ${seed} step ${step} ${state.stage}`;
     if (rng.next() < 0.004 && state.game!.players.length > 2) {
+      // Anyone can leave: a living player or a ghost.
       const live = state.game!.players.filter((p) => !state.game!.left.includes(p));
       state = shortFuse.playerLeft(state, live[rng.int(live.length)]!, now);
       checkInvariants(state, label);

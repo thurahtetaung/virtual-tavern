@@ -123,3 +123,77 @@ describe('status lines address the viewer', () => {
     expect(statusFor(h.view(A), c).yourMove).toBe(true);
   });
 });
+
+describe('the fourth expansion’s lines address the viewer', () => {
+  const X4 = { settings: { x4: true } };
+
+  it('a ghost who feeds themself, and a feeding someone else watches', () => {
+    expect(lines({ kind: 'fed', by: A, target: A, n: 2 })).toEqual({
+      [A]: '👻 You fed yourself 2 cards.',
+      [B]: '👻 HOST fed themself 2 cards.',
+      [C]: '👻 HOST fed themself 2 cards.',
+    });
+    expect(lines({ kind: 'fed', by: A, target: B, n: 1 })).toEqual({
+      [A]: '👻 You fed ANA 1 card.',
+      [B]: '👻 HOST fed you 1 card.',
+      [C]: '👻 HOST fed ANA 1 card.',
+    });
+    expect(lines({ kind: 'play', by: A, target: A, cards: ['feed'], play: 'card' })[A]).toBe(
+      'You played Feed the Ghosts NOW on yourself.',
+    );
+  });
+
+  it('a Second Life brings you, or them, back', () => {
+    expect(lines({ kind: 'revive', by: A, target: B })).toEqual({
+      [A]: '🧟 You brought ANA back to life!',
+      [B]: '🧟 HOST brought you back to life!',
+      [C]: '🧟 HOST brought ANA back to life!',
+    });
+    expect(lines({ kind: 'play', by: A, target: B, cards: ['revive'], play: 'card' })).toEqual({
+      [A]: 'You used Second Life on ANA.',
+      [B]: 'HOST used Second Life on you.',
+      [C]: 'HOST used Second Life on ANA.',
+    });
+  });
+
+  it('becoming a ghost, Foresight, Look Twice and a Copy', () => {
+    expect(lines({ kind: 'explode', by: A, cards: ['bomb'], ghost: true })).toEqual({
+      [A]: '👻 You exploded and are a ghost now.',
+      [B]: '👻 HOST exploded and is a ghost now.',
+      [C]: '👻 HOST exploded and is a ghost now.',
+    });
+    expect(lines({ kind: 'seer', by: B })[B]).toBe(
+      '🔮 You played Foresight NOW: you’ll watch the hiding.',
+    );
+    expect(lines({ kind: 'seer', by: B })[A]).toBe(
+      '🔮 ANA played Foresight NOW: they’ll watch the hiding.',
+    );
+    expect(lines({ kind: 'dig', by: A })[A]).toBe('You looked at the top card (Look Twice).');
+    expect(
+      lines({ kind: 'play', by: A, target: B, cards: ['copy'], as: 'favor', play: 'card' }),
+    ).toEqual({
+      [A]: 'You played Copy as Favor on ANA.',
+      [B]: 'HOST played Copy as Favor on you.',
+      [C]: 'HOST played Copy as Favor on ANA.',
+    });
+  });
+
+  it('the ghost’s status line, and the Second Life countdown for each viewer', () => {
+    const h = rigged([['skip', 'revive'], ['seer'], ['nope']], ['bomb', 'cat1', 'bomb'], X4);
+    h.play(A, ['skip']);
+    h.act({ type: 'draw' }, B);
+    expect(statusFor(h.view(B), c).text).toBe('👻 You exploded: you’re a ghost now.');
+    expect(statusFor(h.view(C), c).text).toBe('👻 ANA exploded and is a ghost now.');
+    h.fire();
+    expect(statusFor(h.view(B), c).text).toMatch(/^👻 You’re a ghost: .* BEN’s turn\.$/);
+    h.act({ type: 'draw' }, C);
+    h.act({ type: 'draw' }, A);
+    h.act({ type: 'revive', ghost: B }, A);
+    expect(statusFor(h.view(A), c).text).toBe(
+      'You use Second Life and bring ANA back: no Nope can stop it. The hiding starts after the countdown…',
+    );
+    expect(statusFor(h.view(B), c).text).toBe(
+      'HOST uses Second Life and brings you back. Play Foresight NOW to watch where the bombs go?',
+    );
+  });
+});

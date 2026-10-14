@@ -56,10 +56,11 @@ import type { GameFigure } from '@vt/protocol';
 //              ko {self, removed; recap: by, card, hero, turn}, play {card, hero; recap: stolen,
 //              free, auto}, hit {hp, shield, power; recap: target, self}, heal {amount}, shield,
 //              swap, rotate, social {done}, steal {count}
-//   short-fuse outcome {players, turns, preset, x1, draws, longestChain, maxOwed; recap:
+//   short-fuse outcome {players, turns, preset, x1, x4, draws, longestChain, maxOwed, revives; recap:
 //              eliminated, maxOwedBy}, play {cards, kind; recap: target}, nope {n},
 //              noped {chain, kind, card}, yup {chain}, bomb {kind, saved}, explode {kind, turn,
-//              left; recap: placedBy}, placement {kind, position, of; recap: drawnBy, killed},
+//              left; recap: placedBy, ghost}, revive {target}, placement {kind, position, of; recap:
+//              drawnBy, killed},
 //              steal {how, hit; recap: victim, named}, attack {owed; recap: victim}, draw {from},
 //              timeout {did, host}
 
@@ -880,11 +881,33 @@ const SHORT_FUSE_CARDS = [
   'reverse',
   'bottom',
   'alter3',
+  'superskip',
+  'peek5',
+  'alter5',
+  'swap',
+  'recycle',
+  'stack',
+  'mark',
+  'blind',
+  'mine',
+  'bury',
+  'self3',
+  'potluck',
+  'share3',
+  'alter3now',
+  'dig',
+  'ghostattack',
+  'feed',
+  'copy',
+  'robber',
+  'shufflenow',
 ] as const;
 const SHORT_FUSE_PRESETS: [string, string][] = [
   ['classic', 'Classic deck'],
   ['adult', 'Adult deck'],
   ['party', 'Party deck'],
+  ['zombie', 'Ghosts deck'],
+  ['chaos', 'Chaos (everything)'],
 ];
 const SHORT_FUSE_SPOTS: [string, string][] = [
   ['top', 'On top'],
@@ -903,6 +926,7 @@ function shortFuseCounters(type: string, props: Props): Counters {
       if (preset && SHORT_FUSE_PRESETS.some(([k]) => k === preset))
         out.push([`f.preset.${preset}`, 1]);
       if (props.x1 === true) out.push(['f.x1', 1]);
+      if (props.x4 === true) out.push(['f.x4', 1]);
       out.push(
         ['f.turn_sum', num(props.turns) ?? 0],
         ['max.f.chain', num(props.longestChain) ?? 0],
@@ -926,11 +950,14 @@ function shortFuseCounters(type: string, props: Props): Counters {
       out.push(['f.nopes', 1]);
       break;
     case 'bomb':
-      if (props.saved === 'defuse') out.push(['f.defused', 1]);
+      if (props.saved === 'defuse' || props.saved === 'revive') out.push(['f.defused', 1]);
       if (props.kind === 'bomb') out.push(['f.bomb_draws', 1]);
       break;
     case 'explode':
       out.push(['f.explosions', 1]);
+      break;
+    case 'revive':
+      if (str(props.target)) out.push(['f.revives', 1]);
       break;
     case 'placement': {
       const pos = num(props.position);
@@ -989,6 +1016,12 @@ function shortFuseFigures(get: (metric: string) => number): GameFigure[] {
     },
     { id: 'turns', label: 'Turns per game', kind: 'number', value: avg(get('f.turn_sum'), games) },
     { id: 'chain', label: 'Longest {card:nope} chain', kind: 'number', value: get('max.f.chain') },
+    {
+      id: 'revives',
+      label: 'Ghosts brought back per game (with {card:revive})',
+      kind: 'number',
+      value: avg(get('f.revives'), get('f.x4')),
+    },
     { id: 'owed', label: 'Most turns owed at once', kind: 'number', value: get('max.f.owed') },
   ];
 }
