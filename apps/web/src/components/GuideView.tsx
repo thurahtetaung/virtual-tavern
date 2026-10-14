@@ -495,6 +495,7 @@ function Learn({
   const youTile = you?.tile ? guide.tiles?.items.find((t) => t.id === you.tile) : undefined;
   const youArt = you?.art ?? youTile?.art;
   const youText = you?.text ?? youTile?.text;
+  const youSubtitle = you?.subtitle ?? youTile?.subtitle;
   const tiles = guide.tiles;
   const more = (
     <nav
@@ -554,6 +555,7 @@ function Learn({
       <div className="min-w-0">
         <p className={EYEBROW}>You are</p>
         <p className="text-xl font-extrabold">{you.name}</p>
+        {youSubtitle && <p className="text-sm font-semibold text-ink-muted">{youSubtitle}</p>}
         {youText && <p className="text-sm">{youText}</p>}
         {you.now && <p className="mt-1 text-sm font-bold text-accent-text">{you.now}</p>}
       </div>
@@ -807,7 +809,8 @@ function Tiles({
       (filter === 'all' ||
         (filter === 'in-game' && inGame?.[t.id] !== undefined) ||
         t.group === filter) &&
-      (!term || `${t.name} ${t.text}`.toLowerCase().includes(term.toLowerCase())),
+      (!term ||
+        `${t.name} ${t.subtitle ?? ''} ${t.text}`.toLowerCase().includes(term.toLowerCase())),
   );
   return (
     <div>
@@ -889,6 +892,9 @@ function Tiles({
                   {count !== undefined && count > 1 && (
                     <span className="font-semibold text-ink-muted"> ×{count}</span>
                   )}
+                  {t.subtitle && (
+                    <span className="block text-xs font-semibold text-ink-muted">{t.subtitle}</span>
+                  )}
                 </span>
                 {t.badge && (
                   <span className="absolute top-1.5 left-1.5 rounded-full bg-black/65 px-2 text-xs font-bold text-white">
@@ -901,6 +907,21 @@ function Tiles({
         })}
       </ul>
     </div>
+  );
+}
+
+/** A cell's first line, then any further lines smaller and muted (a hero's class). */
+function TableCell({ text }: { text: string }) {
+  const [first, ...rest] = text.split('\n');
+  return (
+    <>
+      {first}
+      {rest.map((line, i) => (
+        <span key={i} className="block text-xs text-ink-muted">
+          {line}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -926,6 +947,9 @@ function TileSheet({
   const off = !isOn(tile.option, ctx);
   return (
     <div className="space-y-2" data-testid="guide-sheet">
+      {tile.subtitle && (
+        <p className="-mt-1 text-sm font-semibold text-ink-muted">{tile.subtitle}</p>
+      )}
       {art ? (
         <Art
           src={art}
@@ -1089,7 +1113,14 @@ function Catalog({
               className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-card py-1 pr-3 pl-1 text-sm font-semibold ring-1 ring-line hover:ring-accent"
             >
               <GroupFace group={g} size="size-8" />
-              <span className="max-w-32 truncate">{g.name}</span>
+              <span className="max-w-32 min-w-0 leading-tight">
+                <span className="block truncate">{g.name}</span>
+                {g.subtitle && (
+                  <span className="block truncate text-xs font-medium text-ink-muted">
+                    {g.subtitle}
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </nav>
@@ -1122,6 +1153,9 @@ function Catalog({
                 <GroupFace group={g} size="size-11" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-bold">{g.name}</span>
+                  {g.subtitle && (
+                    <span className="block text-sm font-semibold text-ink-muted">{g.subtitle}</span>
+                  )}
                   {g.meta && <span className="block text-xs text-ink-muted">{g.meta}</span>}
                 </span>
                 <span
@@ -1417,7 +1451,7 @@ function Reference({ guide }: { guide: GameGuide }) {
                   <tr key={k}>
                     {r.map((c, j) => (
                       <td key={j} className="border-b border-line px-1 py-1 align-top">
-                        {c}
+                        <TableCell text={c} />
                       </td>
                     ))}
                   </tr>

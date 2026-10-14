@@ -96,4 +96,26 @@ describe('the guide’s heroes, cards and mighty powers', () => {
     expect(Object.keys(ctx.inGame!)).toEqual(['mage', 'slime']);
     expect(ctx.you?.tile).toBe('mage');
   });
+
+  it('shows each hero’s class under their name, only from the manifest', () => {
+    const classed = makeGuide({
+      hero: (id) => `«${id}»`,
+      heroClass: (id) => `class ${id}`,
+    });
+    for (const h of ENABLED_HEROES) {
+      expect(classed.tiles!.items.find((t) => t.id === h)!.subtitle).toBe(`class ${h}`);
+      expect(classed.catalog!.groups.find((g) => g.id === h)!.subtitle).toBe(`class ${h}`);
+    }
+    const table = classed.reference!.find((t) => t.title === 'Mighty powers')!;
+    expect(table.rows.filter((r) => r[0]).map((r) => r[0])).toEqual(
+      ENABLED_HEROES.map((h) => `«${h}»\nclass ${h}`),
+    );
+    const ctx = classed.room!({ seats: [{ id: 'a', hero: 'mage', playing: true }] }, 'a')!;
+    expect(ctx.you?.subtitle).toBe('class mage');
+    // Without a manifest there is no class line at all.
+    expect(JSON.stringify(guide)).not.toContain('subtitle');
+    expect(
+      guide.room!({ seats: [{ id: 'a', hero: 'mage', playing: true }] }, 'a')!.you,
+    ).not.toHaveProperty('subtitle');
+  });
 });

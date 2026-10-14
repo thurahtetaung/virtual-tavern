@@ -177,6 +177,10 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
     makeGuide(
       {
         hero: (id) => name(heroes[id]),
+        heroClass: (id) => {
+          const c = obj(heroes[id]).class;
+          return typeof c === 'string' && c.trim() ? c.trim() : undefined;
+        },
         card: (id) => name(cards[id]),
         set: (id) => name(obj(m?.sets)[id]),
         heroArt: (id) => {

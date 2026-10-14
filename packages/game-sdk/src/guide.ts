@@ -117,6 +117,8 @@ export type GuideTone = 'good' | 'evil' | 'own' | 'alien' | 'neutral';
 export interface GuideTile {
   id: string;
   name: string;
+  /** A short line under the name, on the tile and in the sheet (a hero's class). */
+  subtitle?: string;
   text: string;
   /** Its filter chip ("Village", "Events", "Edition 2"). */
   group?: string;
@@ -176,6 +178,8 @@ export interface GuideCatalogGroup {
   /** Matches `GuideContext.inGame` (and the tile it belongs to), for "In this game". */
   id: string;
   name: string;
+  /** A short line under the name, in the heading and the jump chip (a hero's class). */
+  subtitle?: string;
   /** Its filter chip ("Core heroes"). */
   group?: string;
   /** One line under the name ("Core heroes · 28 cards"). */
@@ -207,6 +211,7 @@ export interface GuideCard {
 export interface GuideTable {
   title: string;
   head: string[];
+  /** A line break in a cell starts a smaller, muted line (a hero's class under their name). */
   rows: string[][];
   note?: string;
 }
@@ -253,6 +258,8 @@ export function withoutSecrets(ctx: GuideContext): GuideContext {
 
 export interface GuideYou {
   name: string;
+  /** A short line under the name (a hero's class). */
+  subtitle?: string;
   text?: string;
   art?: string;
   icon?: string;
