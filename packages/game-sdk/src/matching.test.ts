@@ -15,6 +15,11 @@ describe('sameAnswer', () => {
       ['ice creams', 'Ice cream'],
       ['berries', 'berry'],
       ['pixies', 'pixie'],
+      ['zulus', 'Zulu'],
+      ['menus', 'menu'],
+      ['kiwis', 'kiwi'],
+      ['viruses', 'virus'],
+      ['lenses', 'lens'],
     ]) {
       expect(sameAnswer(guess!, answer!), `${guess} = ${answer}`).toBe(true);
     }
@@ -50,6 +55,10 @@ describe('sameAnswer', () => {
       ['hat', 'hate'],
       ['run', 'running'],
       ['monsters', 'Monsters Inc'],
+      ['prince', 'PRINCESS'],
+      ['japan', 'JAPANESE'],
+      ['new', 'NEWS'],
+      ['mar', 'MARS'],
     ]) {
       expect(sameAnswer(guess!, answer!), `${guess} ≠ ${answer}`).toBe(false);
     }
@@ -70,9 +79,48 @@ describe('sameClue', () => {
       ['ice-cream', 'icecream'],
       ['mice', 'mouse'],
       ['colour', 'color'],
+      ['Zulu', 'zulus'],
     ]) {
       expect(sameClue(a!, b!), `${a} = ${b}`).toBe(true);
       expect(sameClue(b!, a!), `${b} = ${a}`).toBe(true);
+    }
+  });
+
+  it('matches word-family endings', () => {
+    for (const [a, b] of [
+      ['Prince', 'Princess'],
+      ['actor', 'actress'],
+      ['waiter', 'waitress'],
+      ['host', 'hostess'],
+      ['lion', 'lionesses'],
+      ['Japan', 'Japanese'],
+      ['China', 'chinese'],
+      ['king', 'kingdom'],
+      ['free', 'freedom'],
+      ['sun', 'sunny'],
+      ['salt', 'salty'],
+      ['smoke', 'smoky'],
+      ['swim', 'swimmer'],
+    ]) {
+      expect(sameClue(a!, b!), `${a} = ${b}`).toBe(true);
+      expect(sameClue(b!, a!), `${b} = ${a}`).toBe(true);
+    }
+  });
+
+  it('never reads a word as a plural or verb form of a shorter, unrelated one', () => {
+    for (const [a, b] of [
+      ['news', 'new'],
+      ['Mars', 'mar'],
+      ['lens', 'len'],
+      ['pied', 'pie'],
+      ['singed', 'sing'],
+      ['ran', 'random'],
+      ['car', 'carry'],
+      ['cook', 'cookie'],
+      ['gene', 'genie'],
+    ]) {
+      expect(sameClue(a!, b!), `${a} ≠ ${b}`).toBe(false);
+      expect(sameClue(b!, a!), `${b} ≠ ${a}`).toBe(false);
     }
   });
 
@@ -114,6 +162,13 @@ describe('containsWord', () => {
       ['mice', 'MOUSE'],
       ['color', 'COLOUR'],
       ['Café', 'cafe'],
+      ['Prince', 'PRINCESS'],
+      ['Princess', 'PRINCE'],
+      ['kingdom', 'KING'],
+      ['king', 'KINGDOM'],
+      ['Japanese', 'JAPAN'],
+      ['actress', 'ACTOR'],
+      ['lioness', 'THE LION KING'],
     ]) {
       expect(containsWord(clue!, word!), `${clue} gives away ${word}`).toBe(true);
     }

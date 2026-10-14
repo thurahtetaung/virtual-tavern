@@ -44,7 +44,7 @@ const text: GameGuide = {
     {
       title: 'What cancels',
       paragraphs: [
-        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, spaces, hyphens, plurals (also “mice” and “mouse”), British and American spellings (“colour” and “color”) and simple verb endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, “ice-cream” and “icecream”, or “run” and “running”. Every copy is cancelled, not just the second one.',
+        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, spaces, hyphens, plurals (also “mice” and “mouse”), British and American spellings (“colour” and “color”) and simple verb endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, “ice-cream” and “icecream”, or “run” and “running”. Words of the same family cancel too: “prince” and “princess”, “Japan” and “Japanese”, “king” and “kingdom”, “sun” and “sunny”, “swim” and “swimmer”. Every copy is cancelled, not just the second one.',
         'Different words that merely start alike, such as “corn” and “corner” or “bus” and “busy”, do not cancel.',
       ],
     },
@@ -53,7 +53,7 @@ const text: GameGuide = {
       bullets: [
         'More than one word. Hyphens and apostrophes are fine (“ice-cream”, “dog’s”).',
         'Just a number, such as “42”.',
-        'The secret word itself, any form of it, or a word built from it (for “sun”, not “sunny” or “sunflower”). It works both ways: for “sunflower”, not “sun”. A word that only hides it inside, such as “scatter” for “cat” or “police” for “ice”, is fine.',
+        'The secret word itself, any form of it, a word of its family or a word built from it (for “sun”, not “sunny” or “sunflower”; for “prince”, not “princess”). It works both ways: for “sunflower”, not “sun”. A word that only hides it inside, such as “scatter” for “cat” or “police” for “ice”, is fine.',
         'For an answer of several words, any of its words or the whole answer run together (for “ice cream”, not “ice”, “cream” or “icecream”).',
         'Your two clues (with 3 players) being the same word.',
         'If a clue is refused you can fix it and send again. You can also change your clues until the last one is in.',
