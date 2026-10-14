@@ -53,22 +53,57 @@ export interface SpymasterAlert {
   mine: boolean;
   /** The viewer can take the empty seat right now. */
   canTake: boolean;
+  /** Nobody in the room can take the seat: the team can't play until someone joins. */
+  stuck: boolean;
 }
 
 /**
- * Mid-game, a team without a Spymaster has its turns skipped until someone takes the seat. Says
- * so to everyone (so the table knows why), and offers the seat to whoever may take it.
+ * Who in the room may take `team`'s empty Spymaster seat: one of two or more Operatives on the
+ * team who hasn't seen a key, or a watcher who hasn't seen the other team's key.
  */
-export function spymasterAlerts(view: CodenamesView): SpymasterAlert[] {
+function takers(view: CodenamesView, team: Team) {
+  const operatives = view.seats.filter((s) => s.team === team && s.role === 'operative');
+  return {
+    team: operatives.length > 1 && operatives.some((s) => view.keyHolders[s.id] === undefined),
+    watcher: view.seats.some((s) => s.team === null && (view.keyHolders[s.id] ?? team) === team),
+  };
+}
+
+/**
+ * Mid-game, a team without a Spymaster has its turns skipped until someone takes the seat (and
+ * with both seats empty, nobody can play). Says so to everyone (so the table knows why), offers
+ * the seat to whoever may take it, and says when nobody here can, so the table waits for a
+ * newcomer or the host goes back to the lobby.
+ */
+export function spymasterAlerts(view: CodenamesView, isHost = false): SpymasterAlert[] {
   if (view.phase !== 'playing') return [];
-  return (['red', 'blue'] as const).flatMap((t) => {
-    if (view.seats.some((s) => s.team === t && s.role === 'spymaster')) return [];
+  const missing = (['red', 'blue'] as const).filter(
+    (t) => !view.seats.some((s) => s.team === t && s.role === 'spymaster'),
+  );
+  return missing.map((t) => {
     const mine = view.me?.team === t;
     const canTake = canTakeSpymaster(view, t);
-    const text = mine
-      ? `Your team has no Spymaster, so your turns are skipped.${canTake ? ' Take the seat?' : view.me?.role === 'operative' ? ' You’re its only Operative, so someone else needs to take the seat.' : ''}`
-      : `${team(t)} has no Spymaster, so ${team(t)}'s turns are skipped.${canTake ? ' Take the seat?' : ' One of them can take the seat.'}`;
-    return [{ team: t, text, mine, canTake }];
+    const can = takers(view, t);
+    const stuck = !can.team && !can.watcher;
+    const whose = mine ? 'your' : `${team(t)}'s`;
+    const outcome =
+      missing.length === 2
+        ? 'nobody can play until a Spymaster seat is filled.'
+        : `${whose} turns are skipped.`;
+    const remedy = canTake
+      ? ' Take the seat?'
+      : mine
+        ? ' You’re its only Operative, so someone else needs to take the seat.'
+        : can.team
+          ? ' One of them can take the seat.'
+          : can.watcher
+            ? ' Someone watching can take the seat.'
+            : '';
+    const wait = stuck
+      ? ` Nobody here can take it: wait for someone to join${isHost ? ', or go back to the lobby' : ' or for the host to go back to the lobby'}.`
+      : '';
+    const text = `${mine ? 'Your team' : team(t)} has no Spymaster, so ${outcome}${remedy}${wait}`;
+    return { team: t, text, mine, canTake, stuck };
   });
 }
 

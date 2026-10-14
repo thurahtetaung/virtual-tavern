@@ -184,7 +184,7 @@ function InGame({
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
-        {spymasterAlerts(view).map((alert) => (
+        {spymasterAlerts(view, room.isHost).map((alert) => (
           <div
             key={alert.team}
             role="alert"
@@ -204,6 +204,19 @@ function InGame({
                 onClick={() => void act({ type: 'join-team', team: alert.team, role: 'spymaster' })}
               >
                 Be the {TEAM_LABEL[alert.team]} Spymaster
+              </Button>
+            )}
+            {alert.stuck && room.isHost && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (window.confirm('End this game for everyone and go back to the lobby?')) {
+                    void act({ type: 'back-to-lobby' });
+                  }
+                }}
+              >
+                Back to lobby
               </Button>
             )}
           </div>
