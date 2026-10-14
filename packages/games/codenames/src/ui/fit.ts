@@ -57,14 +57,19 @@ const VOWEL = /[aeiouy]/i;
 const LETTER = /\p{L}/u;
 /** Letter pairs that sound as one, never split. */
 const DIGRAPH = /^(?:ch|sh|th|ph|wh|ck|gh|qu)$/i;
+/** Consonant pairs that can start a syllable ("RATTLE|SNAKE", "FIRE|PLACE"). */
+const ONSET =
+  /^(?:bl|br|ch|cl|cr|dr|fl|fr|gl|gr|ph|pl|pr|qu|sc|sh|sk|sl|sm|sn|sp|st|sw|th|tr|tw|wh)$/i;
 const consonant = (c: string | undefined) => c !== undefined && LETTER.test(c) && !VOWEL.test(c);
 
 /**
  * The best place to split a long word (an index into it), or -1. A rough syllable rule, at least
  * four letters from either end and as near the middle as possible: before a capital in a joined
  * name ("PLAY|STATION"), between two consonants ("STORM|TROOPER", not inside the clusters that
- * start a syllable: tr, bl, st, ch…), or after a vowel before one consonant ("SKATE|BOARDING");
- * failing those, the looser `relaxed` rules.
+ * start a syllable: tr, bl, st, ch…), or after a vowel before one consonant or a pair that starts a
+ * syllable ("SKATE|BOARDING", "RATTLE|SNAKE"); a split that leaves a pair no syllable starts with
+ * ("DIAMON|DBACK") loses to one that doesn't ("DIAMOND|BACK"). Failing those, the looser `relaxed`
+ * rules.
  */
 export function breakPoint(word: string, relaxed = false): number {
   const mid = word.length / 2;
@@ -80,12 +85,15 @@ export function breakPoint(word: string, relaxed = false): number {
     if (!relaxed && /s/i.test(a) && consonant(b) && !/s/i.test(b)) continue;
     const capital = b !== b.toLowerCase() && a === a.toLowerCase();
     const consonants = consonant(a) && consonant(b);
-    const syllable = VOWEL.test(a) && consonant(b) && (relaxed || VOWEL.test(word[i + 1] ?? ''));
+    const next = word[i + 1] ?? '';
+    const syllable =
+      VOWEL.test(a) && consonant(b) && (relaxed || VOWEL.test(next) || ONSET.test(b + next));
     if (!capital && !consonants && !syllable) continue;
     const score =
       Math.abs(i - mid) +
       (capital ? -3 : consonants ? 0 : 1.5) -
-      (VOWEL.test(word[i + 1] ?? '') ? 0.5 : 0);
+      (VOWEL.test(next) ? 0.5 : 0) +
+      (consonant(b) && consonant(next) && !ONSET.test(b + next) ? 2 : 0);
     if (score < bestScore) {
       best = i;
       bestScore = score;

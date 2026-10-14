@@ -41,6 +41,13 @@ describe('softBreaks', () => {
     expect(shown('Commissioner Gordon')).toBe('Commis|sioner Gordon');
   });
 
+  it('splits joined words where a syllable can start, not inside a consonant pair', () => {
+    expect(shown('Diamondback')).toBe('Diamond|back'); // not DIAMON|DBACK
+    expect(shown('Rattlesnake')).toBe('Rattle|snake'); // not RATTLES|NAKE
+    expect(shown('Switchboard')).toBe('Switch|board');
+    expect(shown('Entertainment')).toBe('Enter|tainment');
+  });
+
   it('leaves hyphenated words to break at their own hyphen', () => {
     expect(softBreaks('Harley-Davidson')).toBe('Harley-Davidson');
   });
