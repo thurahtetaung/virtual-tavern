@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.4...v0.37.0) (2026-10-14)
+
+
+### Features
+
+* **round-table:** review-round fixes: announce the team before the vote, plus Masquerade and accessibility fixes ([#173](https://github.com/thurahtetaung/virtual-tavern/issues/173)) ([6ab6f14](https://github.com/thurahtetaung/virtual-tavern/commit/6ab6f14cfd95f3f0e7036eb9a0306e90203475e7))
+
 ## [0.36.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.3...v0.36.4) (2026-10-14)
 
 
