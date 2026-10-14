@@ -61,6 +61,19 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   // The first team is rejected by everyone: the vote is shown, and the lead passes on.
   const good = goodPages(t);
   const first = await leader(t);
+  // The leader announces a team, the table talks it over, and the leader takes it back.
+  const pickSeat = (p: Page) =>
+    first.getByRole('button', { name: `Pick ${t.names.get(p)} for the team` });
+  await pickSeat(good[1]!).click();
+  await pickSeat(good[2]!).click();
+  await first.getByRole('button', { name: 'Announce this team' }).click();
+  const watcher = t.players.find((p) => p !== first)!;
+  await expect(watcher.getByRole('region', { name: 'Announced team' })).toBeVisible();
+  await expect(watcher.getByText(/has announced a team for quest 1/)).toBeVisible();
+  await expect(watcher.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+  await first.getByRole('button', { name: 'Change the team' }).click();
+  await pickSeat(good[1]!).click();
+  await pickSeat(good[2]!).click();
   await propose(t, goodTeam(good, 2));
   await expect(host.getByTestId('waiting-on')).toBeVisible();
   await vote(t, t.players);
