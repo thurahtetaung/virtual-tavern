@@ -2,7 +2,7 @@ import { Button, Hint, RefusalSlot, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
-import type { Bullet, GameView, InquestAction, InquestView } from '../logic/types.ts';
+import type { BulletView, GameView, InquestAction, InquestView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { type BulletNo, bulletNumbers } from './bullets.ts';
 import { BulletIcon, Tile } from './Tile.tsx';
@@ -20,7 +20,7 @@ const ordinal = (n: number) => {
  * "3rd · Location: Kitchen"; a moved bullet keeps its number: "3rd moved · Location: Kitchen →
  * Hall". Order only, never timings: the table talks between bullets, so a gap measures the talk.
  */
-export function bulletLine(b: Bullet, content: Content, no: BulletNo) {
+export function bulletLine(b: BulletView, content: Content, no: BulletNo) {
   const title = content.tileTitle(b.tile);
   const item = content.tileItem(b.tile, b.item);
   const what =
@@ -48,7 +48,7 @@ export function Timeline({
 }) {
   if (!g.bullets.length) return null;
   const nos = bulletNumbers(g.bullets);
-  const fresh = (b: Bullet) => g.stage === 'discuss' && b.round === g.round;
+  const fresh = (b: BulletView) => g.stage === 'discuss' && b.round === g.round;
   if (full)
     return (
       <ol className="space-y-1 text-sm" aria-label="Bullet timeline">

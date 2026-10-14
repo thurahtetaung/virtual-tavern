@@ -1541,7 +1541,7 @@ function gameView(state: InquestState, g: Game, viewer: PlayerId | null): GameVi
     slots: g.slots.map((s) => ({ ...s })),
     removed: g.removed.map((s) => ({ ...s })),
     pileCount: g.pile.length,
-    bullets: g.bullets.map((b) => ({ ...b })),
+    bullets: g.bullets.map(({ at, gapMs, ...b }) => (over ? { ...b, at, gapMs } : b)),
     step,
     event,
     events: [...g.events],
