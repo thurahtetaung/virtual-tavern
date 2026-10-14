@@ -218,3 +218,41 @@ test('on a phone the header buttons are labelled, and an away host is announced'
   await watching.getByRole('button', { name: 'Take a seat' }).click();
   await expect(watching).toHaveCount(0);
 });
+
+test('on a touch phone toasts stay clear of the room header and tap bands stop at 44 px', async ({
+  browser,
+}) => {
+  // No clipboard permission and no share sheet: Invite falls back to a toast.
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  await ctx.addInitScript(() => {
+    localStorage.setItem('vt.playerName', 'Hana');
+    Object.defineProperty(navigator, 'share', { value: undefined });
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create an Echo room' }).click();
+  await expect(page).toHaveURL(/\/r\//);
+  // A long address (as in production) must not make the toast taller.
+  await page.goto(`${page.url()}?from=${'x'.repeat(40)}`);
+  const invite = page.getByRole('button', { name: 'Invite friends' });
+  await invite.click();
+  const toast = page.getByRole('status').filter({ hasText: "Couldn't copy the link" });
+  await expect(toast).toBeVisible();
+  const toastBox = await toast.boundingBox();
+  const inviteBox = await invite.boundingBox();
+  expect(toastBox!.y + toastBox!.height).toBeLessThan(inviteBox!.y);
+
+  // The invisible touch band makes a small button 44 px tall, never more.
+  const band = (el: Element) => {
+    const after = getComputedStyle(el, '::after');
+    return { height: el.getBoundingClientRect().height, band: after.height };
+  };
+  expect(await invite.evaluate(band)).toEqual({ height: 44, band: '44px' });
+  await invite.evaluate((el: HTMLElement) => el.style.setProperty('min-height', '0'));
+  expect(await invite.evaluate(band)).toEqual({ height: 32, band: '44px' });
+});

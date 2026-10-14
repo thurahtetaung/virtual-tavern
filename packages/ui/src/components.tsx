@@ -22,9 +22,10 @@ const VARIANTS: Record<Variant, string> = {
   blue: 'bg-team-b text-white hover:bg-info dark:bg-blue-600 dark:hover:bg-blue-500',
 };
 const SIZES: Record<Size, string> = {
-  // On touch screens an invisible 6 px band above and below makes the 32 px button a 44 px target
-  // without making dense rows any taller.
-  sm: "relative h-8 px-3 text-sm pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:content-['']",
+  // On touch screens an invisible band, centred on the button, makes the 32 px button a 44 px target
+  // without making dense rows any taller. It is never taller than 44 px or the button itself, so a
+  // button that is already 44 px tall (`min-h-11`) doesn't reach over its neighbours.
+  sm: "relative h-8 px-3 text-sm pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:top-1/2 pointer-coarse:after:h-[max(100%,2.75rem)] pointer-coarse:after:-translate-y-1/2 pointer-coarse:after:content-['']",
   md: 'h-10 px-4',
   lg: 'h-12 px-6 text-lg',
   icon: 'size-11 shrink-0 text-lg',
