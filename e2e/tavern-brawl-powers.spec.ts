@@ -1,5 +1,13 @@
 import { type Page, expect, test } from '@playwright/test';
-import { openBackroom, pageErrors, pickHero, table, unlock, visitor } from './tavern-brawl-play.ts';
+import {
+  openBackroom,
+  pageErrors,
+  pickHero,
+  playUntil,
+  table,
+  unlock,
+  visitor,
+} from './tavern-brawl-play.ts';
 
 // Every hero's cards and mighty powers, wherever a player looks for them: the guide (rules page
 // and the room's drawer), the lobby's hero pick and the table, on a phone and on a desktop.
@@ -128,5 +136,46 @@ for (const [label, viewport] of [
     await expect(ana.getByRole('dialog', { name: 'Slime' })).toContainText('played by Hana');
     // Nothing from anyone's hand: the sheet is the deck list, the same for everyone.
     await expect(ana.getByRole('dialog', { name: 'Slime' })).not.toContainText('in hand');
+    await ana.getByRole('dialog', { name: 'Slime' }).getByRole('button', { name: 'Close' }).click();
+    // Your own hero reads as yours, mid-sentence too.
+    await panel.getByRole('button', { name: 'Mighty powers and deck: Eye' }).click();
+    await expect(ana.getByRole('dialog', { name: 'Eye' })).toContainText('played by you');
   });
 }
+
+test('a knocked-out seat still shows that hero’s powers and deck, never a hand', async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const pages = await table(browser, ['Hana', 'Ana', 'Kim'], { viewport: PHONE });
+  for (const [p, hero] of [
+    [pages[0]!, 'brute'],
+    [pages[1]!, 'knight'],
+    [pages[2]!, 'ranger'],
+  ] as const)
+    await pickHero(p, hero, true);
+  await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
+
+  // Three on 3 hit points: play until someone is out, then another player taps their seat.
+  const outSeat = (p: Page) => p.getByRole('button', { name: /, (out|ghost): their hero$/ });
+  const watcher = async () => {
+    for (const p of pages) if (await outSeat(p).count()) return p;
+    return null;
+  };
+  await playUntil(pages, async () => (await watcher()) !== null);
+  const page = (await watcher())!;
+  const label = (await outSeat(page).first().getAttribute('aria-label'))!;
+  const [who, hero] = label.split(', ') as [string, string];
+  await outSeat(page).first().click();
+  const sheet = page.getByRole('dialog', { name: hero });
+  await expect(sheet.getByRole('region', { name: 'Mighty powers' })).toBeVisible();
+  await expect(sheet).toContainText(`played by ${who}`);
+  await sheet.getByText(/The whole deck \(28 cards\)/).click();
+  await expect(sheet.getByRole('list', { name: 'The deck' }).getByRole('button')).not.toHaveCount(
+    0,
+  );
+  // The deck list is the same for everyone: nothing from the hand they had.
+  await expect(sheet).not.toContainText('in hand');
+  await expect(sheet.locator('[data-hand]')).toHaveCount(0);
+});

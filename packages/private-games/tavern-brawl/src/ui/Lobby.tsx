@@ -12,7 +12,7 @@ import {
 } from '@vt/ui';
 import { useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
-import { powersOf } from '../logic/guide.ts';
+import { FACE_ZOOM, powersOf } from '../logic/guide.ts';
 import {
   type HeroId,
   MAX_PLAYERS,
@@ -28,14 +28,12 @@ import { HeroSheet } from './HeroSheet.tsx';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
-/** Portrait width as a multiple of the circle: enough to fill it with the face. */
-const ZOOM = 2.4;
 /** Portraits keep the printed card's shape. */
 const PORTRAIT_RATIO = 630 / 400;
 
 /** Places the portrait so its face sits in the middle of the circle, never leaving a gap. */
 export function faceCrop([fx, fy]: [number, number], size: number): React.CSSProperties {
-  const width = size * ZOOM;
+  const width = size * FACE_ZOOM;
   const height = width * PORTRAIT_RATIO;
   const clamp = (v: number, min: number) => Math.min(0, Math.max(min, v));
   return {
@@ -337,7 +335,7 @@ export function Lobby({
       <HeroSheet
         hero={details}
         art={art}
-        who={detailsTaker ? (detailsTaker.id === room.you ? 'you' : detailsTaker.name) : undefined}
+        who={detailsTaker ? (detailsTaker.id === room.you ? 'You' : detailsTaker.name) : undefined}
         onClose={() => setDetails(null)}
         footer={
           details && canPick && (!detailsTaker || detailsTaker.id === room.you) ? (

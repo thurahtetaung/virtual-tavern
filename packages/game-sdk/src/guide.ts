@@ -127,6 +127,8 @@ export interface GuideTile {
   card?: string;
   /** Where the face is on `art` (fractions of its width and height), for the square crop. */
   focus?: [number, number];
+  /** How far the crop zooms in on `focus` (1 shows the picture's full width). */
+  zoom?: number;
   /** One line under the name in the sheet: team, set, whether it wakes. */
   meta?: string;
   /** The win line ("🏆 …"). */
@@ -179,7 +181,9 @@ export interface GuideCatalogGroup {
   /** One line under the name ("Core heroes · 28 cards"). */
   meta?: string;
   art?: string;
+  /** Where the face is on `art`, and how far the round crop zooms in on it (as on a tile). */
   focus?: [number, number];
+  zoom?: number;
   icon?: string;
   items: GuideCard[];
 }

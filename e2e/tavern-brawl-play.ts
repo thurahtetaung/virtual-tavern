@@ -144,17 +144,21 @@ export async function move(p: Page, ask?: Ask): Promise<boolean> {
   return true;
 }
 
-/** Plays from every screen until the brawl is over (every screen is asked at once). */
-export async function playToEnd(pages: Page[], maxMoves = 600) {
+/** Plays from every screen until `done` (every screen is asked at once). */
+export async function playUntil(pages: Page[], done: () => Promise<boolean>, maxMoves = 600) {
   for (let i = 0; i < maxMoves; i++) {
-    const [over, ...asks] = await Promise.all([isOver(pages[0]!), ...pages.map(asked)]);
-    if (over) return;
+    const [stop, ...asks] = await Promise.all([done(), ...pages.map(asked)]);
+    if (stop) return;
     const who = asks.findIndex(Boolean);
     if (who >= 0) await move(pages[who]!, asks[who]);
     else await pages[0]!.waitForTimeout(150);
   }
-  throw new Error('the brawl never ended');
+  throw new Error('the brawl never got there');
 }
+
+/** Plays from every screen until the brawl is over. */
+export const playToEnd = (pages: Page[], maxMoves = 600) =>
+  playUntil(pages, () => isOver(pages[0]!), maxMoves);
 
 /**
  * A whole game from the players' screens: everyone picks their hero, the host starts, and all

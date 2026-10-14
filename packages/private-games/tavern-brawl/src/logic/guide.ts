@@ -194,6 +194,16 @@ export interface GuideNames {
   cardArt?: (id: string) => { thumb?: string; face?: string } | undefined;
 }
 
+/**
+ * Portraits are the back of a hero card, under the game's logo: the face usually sits right of
+ * centre, mid-height, unless the manifest says where.
+ */
+export const DEFAULT_FOCUS: [number, number] = [0.66, 0.55];
+/** How far a round face crop zooms in (the portrait's width over the circle's). */
+export const FACE_ZOOM = 2.4;
+/** The guide's square hero tiles show a little more than the face. */
+const TILE_ZOOM = 2;
+
 /** A hero's mighty powers: the cards in their deck with a power (✦), in deck order. */
 export const powersOf = (hero: HeroId): CardDef[] => cardsOf(hero).filter((c) => !!c.effect);
 
@@ -310,8 +320,11 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
             items: cardsOf(h).map((c) => `${cardName(c)} ×${c.count} (${symbolLine(c)})`),
           },
           catalog: h,
-          ...(art?.portrait && { art: art.portrait }),
-          ...(art?.focus && { focus: art.focus }),
+          ...(art?.portrait && {
+            art: art.portrait,
+            focus: art.focus ?? DEFAULT_FOCUS,
+            zoom: TILE_ZOOM,
+          }),
           ...(art?.card && { card: art.card }),
         };
       }),
@@ -330,8 +343,11 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           group: setName(HEROES[h].set),
           meta: `${setName(HEROES[h].set)} · ${deckSize(h)} cards · ${powers.length} mighty ${powers.length === 1 ? 'power' : 'powers'}`,
           icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
-          ...(art?.portrait && { art: art.portrait }),
-          ...(art?.focus && { focus: art.focus }),
+          ...(art?.portrait && {
+            art: art.portrait,
+            focus: art.focus ?? DEFAULT_FOCUS,
+            zoom: FACE_ZOOM,
+          }),
           // Mighty powers first, then the rest in deck order.
           items: [...powers, ...cardsOf(h).filter((c) => !c.effect)].map((c) => {
             const face = names.cardArt?.(c.id);

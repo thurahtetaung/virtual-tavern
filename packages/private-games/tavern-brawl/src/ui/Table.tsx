@@ -246,7 +246,7 @@ function PlayerRow({
           type="button"
           onClick={onHero}
           className="min-w-0 truncate text-left text-xs underline decoration-dotted underline-offset-2"
-          aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${haunting ? 'ghost' : 'out'}: their hero`}
+          aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${haunting ? 'ghost' : 'out'}: ${name(p.id) === 'You' ? 'your' : 'their'} hero`}
         >
           {art.hero(p.hero)} · {haunting ? 'ghost: attacks once a turn, never a knockout' : 'out'}
         </button>

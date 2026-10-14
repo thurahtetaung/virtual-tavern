@@ -48,6 +48,11 @@ for (const [label, viewport, colorScheme] of [
     await settle(reader);
     await shot(reader, '03-rules-cards', false);
     await shot(reader, '03b-rules-cards-full');
+    // The jump chips and group headings: each hero's face, zoomed in.
+    await reader.evaluate(() => window.scrollTo(0, 0));
+    await reader.getByRole('navigation', { name: 'Jump to' }).screenshot({
+      path: `${OUT}/tb-powers-${label}-03c-rules-cards-chips.png`,
+    });
     await reader.locator('#guide-cards-brute button').first().click();
     await expect(reader.getByTestId('guide-card-sheet')).toBeVisible();
     await settle(reader);
@@ -92,6 +97,11 @@ for (const [label, viewport, colorScheme] of [
     await hana.locator('[data-seat-hero="mage"]').click();
     await settle(hana);
     await shot(hana, '12-table-seat-sheet', false);
+    await hana.keyboard.press('Escape');
+    // Your own seat: "played by you".
+    await hana.locator('[data-seat-hero="druid"]').click();
+    await settle(hana);
+    await shot(hana, '12b-table-own-seat-sheet', false);
     await hana.keyboard.press('Escape');
     if (label.startsWith('phone')) await ana.getByRole('tab', { name: '✦ Powers' }).click();
     else await ana.getByText('✦ Mighty powers').click();
