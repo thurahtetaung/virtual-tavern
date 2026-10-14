@@ -10,7 +10,6 @@ import {
   quest,
   readRoles,
   teamSize,
-  vote,
   withRole,
 } from './round-table-play.ts';
 
@@ -58,7 +57,7 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   ).toHaveCount(2);
   await percival.keyboard.press('Escape');
 
-  // The first team is rejected by everyone: the vote is shown, and the lead passes on.
+  // The first team is rejected: the vote is shown, and the lead passes on.
   const good = goodPages(t);
   const first = await leader(t);
   // The leader announces a team, the table talks it over, and the leader takes it back.
@@ -76,9 +75,24 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   await pickSeat(good[2]!).click();
   await propose(t, goodTeam(good, 2));
   await expect(host.getByTestId('waiting-on')).toBeVisible();
-  await vote(t, t.players);
+  // Dee walks away before voting; the host acts for her (confirmed), which counts as Approve.
+  const dee = t.players[4]!;
+  const url = dee.url();
+  await dee.goto('/');
+  const voters = t.players.slice(0, 4);
+  for (const p of voters) {
+    const button = p.getByRole('button', { name: 'Reject' });
+    await button.click();
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+  }
+  await host.getByTestId('waiting-on').getByRole('button', { name: 'Skip' }).click();
   await expect(host.getByTestId('vote-result')).toContainText('rejected');
-  await expect(host.getByTestId('vote-result')).toContainText('Against (5)');
+  await expect(host.getByTestId('vote-result')).toContainText('Against (4)');
+  await expect(host.getByTestId('vote-result')).toContainText('1 Approve was cast');
+  // Who it was stays secret until the end.
+  await expect(host.getByTestId('vote-result')).not.toContainText('Dee ⏱');
+  await dee.goto(url);
+  await expect(dee.getByRole('list', { name: 'Seats' })).toBeVisible();
   await expect(host.getByRole('img', { name: '1 of 5 teams rejected in a row' })).toBeVisible();
   expect(await leader(t)).not.toBe(first);
 
@@ -111,6 +125,9 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   // The end shows everyone's role and the whole history.
   await expect(host.getByRole('region', { name: 'Everyone’s role' })).toContainText('Morgana');
   await expect(host.getByRole('region', { name: 'History' })).toContainText('rejected');
+  // ...including the vote the host cast for Dee.
+  await expect(host.getByRole('region', { name: 'History' })).toContainText('For: Dee ⏱');
+  await expect(host.getByTestId('history-auto-note')).toBeVisible();
   // Play again keeps the setup.
   await host.getByRole('button', { name: 'Play again' }).click();
   await expect(host.getByRole('button', { name: '👁️ Show my role' })).toBeVisible();
