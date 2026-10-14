@@ -45,7 +45,7 @@ import {
 } from './Sheets.tsx';
 import { useSoundSetting, useTips } from './storage.ts';
 import { ShortFuseStyles } from './styles.tsx';
-import { amGhost, amIn, an, logLine, statusFor, who } from './text.ts';
+import { amGhost, amIn, an, logLine, playNow, statusFor, who } from './text.ts';
 import { NopePanel } from './Window.tsx';
 
 type Props = GameUiProps<ShortFuseView, ShortFuseAction>;
@@ -619,7 +619,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           onClick={() => play()}
           data-testid="play-now"
         >
-          ⚡ Play {c.name(selCards[0]!.t)} now
+          ⚡ {playNow(c.name(selCards[0]!.t))}
         </Button>
       )}
       {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
