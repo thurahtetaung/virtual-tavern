@@ -307,7 +307,7 @@ for (const device of ['phone', 'desktop'] as const)
     test(`Short Fuse screenshots: expansion 4 and Chaos (${device}, ${scheme})`, async ({
       browser,
     }) => {
-      test.setTimeout(300_000);
+      test.setTimeout(600_000);
       const opts = { viewport: VIEWPORTS[device], colorScheme: scheme };
       const shot = (p: Page, name: string, full = false) =>
         p.screenshot({
@@ -379,17 +379,19 @@ for (const device of ['phone', 'desktop'] as const)
       await host.getByTestId('place-confirm').click();
       await expect(host.getByRole('dialog')).toBeVisible();
       await shot(host, '53-place-second-bomb');
-      await host.getByTestId('place-bottom').click();
+      await host.getByTestId('place-top').click();
       await host.getByTestId('place-confirm').click();
       await expect(A.getByTestId('draw')).toBeVisible();
       await shot(A, '54-back-from-the-dead');
-      if (device === 'phone') {
-        await B.getByRole('tab', { name: /Me/ }).click();
-        await shot(B, '55-watched-memory');
-        await B.getByRole('tab', { name: /Table/ }).click();
-      } else await shot(B, '55-watched-memory');
+      await expect(B.getByTestId('watch-sheet')).toBeVisible();
+      await shot(B, '55-watched-sheet');
+      await B.getByTestId('watch-close').click();
       await draw(A);
       await expect(B.getByTestId('draw')).toBeVisible();
       await select(B, ['copy']);
       await shot(B, '56-copy-hint');
+      // Both bombs went back on top: Ben draws the second and Hana is the last one alive.
+      await draw(B);
+      await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
+      await shot(A, '57-end-ghost', true);
     });
