@@ -12,7 +12,14 @@ import {
   toFinal,
   toPresentations,
 } from '../logic/test-utils.ts';
-import { endDiscussionLabel, resultLine, solveBlocker, statusFor, waitingOn } from './status.ts';
+import {
+  endDiscussionLabel,
+  resultLine,
+  solveBlocker,
+  statusFor,
+  twistOffer,
+  waitingOn,
+} from './status.ts';
 
 const six = () => startedGame(6, { murderer: 'ana', accomplice: 'ben', witness: 'cy' });
 const say = (h: ReturnType<typeof six>, id: string, secs: number | null = null) =>
@@ -199,5 +206,21 @@ describe('statusFor', () => {
       yourMove: true,
     });
     expect(say(h, 'dee').yourMove).toBe(false);
+  });
+});
+
+describe('twistOffer', () => {
+  it('A Good Twist offers its extra attempt to its holder at once, and nobody else', () => {
+    const h = startedGame(4);
+    h.state = { ...h.state, lastSolver: 'cy' };
+    toPresentations(h);
+    stackPile(h, [EVENT_TILES['good-twist']]);
+    presentAll(h);
+    expect(h.game().twist).toBe('cy');
+    for (const id of ['ana', 'ben', 'dee', HOST, null])
+      expect(twistOffer(inquest.view(h.state, id)), String(id)).toBe(false);
+    expect(twistOffer(inquest.view(h.state, 'cy'))).toBe(true);
+    // Using it now is allowed straight away, before the round's new tile is in place.
+    expect(solveBlocker(inquest.view(h.state, 'cy'))).toBeNull();
   });
 });

@@ -223,9 +223,12 @@ export function statusFor(
       const ev = g.event;
       if (ev?.kind === 'ruled-out') {
         if (ev.current === me?.id)
-          return { text: 'Your turn: flip one of your own Clue cards face down.', yourMove: true };
+          return {
+            text: 'Your turn: flip one of your own Clue cards face down. No talking until the last one is flipped.',
+            yourMove: true,
+          };
         return {
-          text: `Everyone flips one of their own Clue cards. ${nameOf(view, ev.current)} is choosing…`,
+          text: `Everyone flips one of their own Clue cards, without talking. ${nameOf(view, ev.current)} is choosing…`,
           yourMove: false,
         };
       }
@@ -318,4 +321,13 @@ export function solveBlocker(view: InquestView): string | null {
   if (accuser && accuser !== me.id)
     return `Wait for your turn: ${nameOf(view, accuser)} is accusing.`;
   return null;
+}
+
+/**
+ * A Good Twist gave the viewer an extra attempt "immediately": offer it now (they may also keep
+ * it for later in the case), as long as they could solve right away.
+ */
+export function twistOffer(view: InquestView): boolean {
+  const g = view.game;
+  return !!g && g.twist !== null && g.twist === view.me?.id && !solveBlocker(view);
 }

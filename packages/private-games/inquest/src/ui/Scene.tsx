@@ -2,7 +2,7 @@ import { Button, Hint, RefusalSlot, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { LOCATION_TILES, SCENE_SLOTS, UNKNOWN_LOCATION_TILE } from '../logic/content.ts';
 import { locationTiles } from '../logic/setup.ts';
-import type { Bullet, GameView, InquestAction, InquestView } from '../logic/types.ts';
+import type { BulletView, GameView, InquestAction, InquestView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { type BulletNo, bulletNumbers } from './bullets.ts';
 import { BulletIcon, Tile } from './Tile.tsx';
@@ -20,7 +20,7 @@ const ordinal = (n: number) => {
  * "3rd · Location: Kitchen"; a moved bullet keeps its number: "3rd moved · Location: Kitchen →
  * Hall". Order only, never timings: the table talks between bullets, so a gap measures the talk.
  */
-export function bulletLine(b: Bullet, content: Content, no: BulletNo) {
+export function bulletLine(b: BulletView, content: Content, no: BulletNo) {
   const title = content.tileTitle(b.tile);
   const item = content.tileItem(b.tile, b.item);
   const what =
@@ -48,7 +48,7 @@ export function Timeline({
 }) {
   if (!g.bullets.length) return null;
   const nos = bulletNumbers(g.bullets);
-  const fresh = (b: Bullet) => g.stage === 'discuss' && b.round === g.round;
+  const fresh = (b: BulletView) => g.stage === 'discuss' && b.round === g.round;
   if (full)
     return (
       <ol className="space-y-1 text-sm" aria-label="Bullet timeline">
@@ -74,6 +74,8 @@ export function Timeline({
   return (
     <ol
       aria-label="Bullet order"
+      // A scrolling strip: keyboard users reach it to scroll it.
+      tabIndex={0}
       className="-mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 py-1 text-xs [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:thin] after:shrink-0 after:basis-4 after:content-['']"
     >
       {g.bullets.map((b, i) => {
@@ -115,6 +117,8 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
   return (
     <ol
       aria-label="Bullets on the table"
+      // A scrolling strip: keyboard users reach it to scroll it.
+      tabIndex={0}
       className="flex gap-1 overflow-x-auto py-0.5 text-[11px] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']"
     >
       {current.map(({ s, seq }) => (
@@ -194,6 +198,16 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
     if (g.step?.kind === 'bullets') return 'bullet';
     return null;
   })();
+
+  // One first-time tip at a time, so the tiles stay in sight: the step's own tip first.
+  const tip: 'fs-picker' | 'fs-pacing' | 'scene' | null =
+    mode === 'location' && fsTipOpen
+      ? 'fs-picker'
+      : mode === 'bullet' && paceTipOpen
+        ? 'fs-pacing'
+        : tipOpen && g.slots.length > 0
+          ? 'scene'
+          : null;
 
   const send = (action: InquestAction) =>
     void act(action, { anchor: 'inquest-scene' }).then(() => pick(null));
@@ -305,13 +319,13 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
 
   return (
     <div className="space-y-2">
-      {tipOpen && g.slots.length > 0 && (
+      {tip === 'scene' && (
         <TipBox onClose={dismissTip}>
           The 6 tiles describe the crime. Each bullet marks the item that fits best. Talk it over as
           they land: the order bullets land in can be a clue.
         </TipBox>
       )}
-      {mode === 'bullet' && paceTipOpen && (
+      {tip === 'fs-pacing' && (
         <TipBox onClose={dismissPaceTip}>
           No rush: the table talks while your bullets land, and you may let that talk guide the next
           one. Place each bullet when you’re ready, but never speak, nod or point.
@@ -319,7 +333,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
       )}
       {mode === 'location' && (
         <div className="space-y-2">
-          {fsTipOpen && (
+          {tip === 'fs-picker' && (
             <TipBox onClose={dismissFsTip}>
               Only your bullets may speak: no words, faces or gestures. Tap a tile or item, then
               confirm.

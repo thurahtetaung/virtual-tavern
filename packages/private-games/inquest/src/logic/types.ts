@@ -183,6 +183,12 @@ export interface Bullet {
   movedFrom?: number;
 }
 
+/**
+ * A bullet as players see it: order only. The timings stay on the server (for the insights)
+ * until the game is over, so nobody can read the table's pauses from the snapshot.
+ */
+export type BulletView = Omit<Bullet, 'at' | 'gapMs'> & Partial<Pick<Bullet, 'at' | 'gapMs'>>;
+
 export type ActiveEvent =
   | { kind: 'useful-clue'; tile: number; options: number[] }
   | { kind: 'ruled-out'; tile: number; order: PlayerId[]; index: number; deadline: number }
@@ -516,7 +522,7 @@ export interface GameView {
   slots: Slot[];
   removed: Slot[];
   pileCount: number;
-  bullets: Bullet[];
+  bullets: BulletView[];
   step: StepView | null;
   event: EventView | null;
   events: EventKind[];

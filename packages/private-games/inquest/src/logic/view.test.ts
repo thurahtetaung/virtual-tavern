@@ -40,6 +40,11 @@ function checkViews(h: Harness, label: string) {
     // The draw pile's order never leaves the server.
     expect(json, at).not.toContain('"pile"');
     expect(json, at).not.toContain('"seed"');
+    // Bullets are order only: their timings stay on the server until the end.
+    if (!over) {
+      expect(json, at).not.toContain('"gapMs"');
+      for (const b of v.game!.bullets) expect(b, at).not.toHaveProperty('at');
+    }
     // The Forensic Scientist is public: everyone, spectators included, sees who it is.
     expect(v.game!.fs, at).toBe(g.fs);
     expect(v.game!.formerFs, at).toEqual(g.formerFs);

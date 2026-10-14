@@ -95,12 +95,9 @@ export function Suspects(props: Common) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <div
-          role="tablist"
-          aria-label="Suspects"
-          className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]"
-        >
-          {/* The Forensic Scientist holds no cards, but everyone should see who it is. */}
+        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+          {/* The Forensic Scientist holds no cards, but everyone should see who it is (outside the
+              tablist, which may only hold tabs). */}
           {g.players
             .filter((s) => (s.isFs || s.formerFs) && s.clue.length === 0)
             .map((s) => (
@@ -112,28 +109,30 @@ export function Suspects(props: Common) {
                 {chipLabel(s, view)} 🔬
               </span>
             ))}
-          {list.map((s, k) => (
-            <button
-              key={s.id}
-              type="button"
-              role="tab"
-              aria-selected={!grid && k === i}
-              onClick={() => {
-                setIndex(k);
-                setGrid(false);
-              }}
-              className={cn(
-                'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
-                !grid && k === i
-                  ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
-                  : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
-                s.gone && 'opacity-60',
-              )}
-            >
-              {chipLabel(s, view)}
-              <BadgeDot p={s} />
-            </button>
-          ))}
+          <div role="tablist" aria-label="Suspects" className="flex shrink-0 gap-1">
+            {list.map((s, k) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={!grid && k === i}
+                onClick={() => {
+                  setIndex(k);
+                  setGrid(false);
+                }}
+                className={cn(
+                  'flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1',
+                  !grid && k === i
+                    ? 'bg-accent dark:bg-amber-500 text-accent-fg dark:text-stone-950 ring-accent dark:ring-amber-600'
+                    : 'bg-white text-stone-700 ring-stone-300 dark:bg-stone-800 dark:text-stone-200 dark:ring-stone-600',
+                  s.gone && 'opacity-60',
+                )}
+              >
+                {chipLabel(s, view)}
+                <BadgeDot p={s} />
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"

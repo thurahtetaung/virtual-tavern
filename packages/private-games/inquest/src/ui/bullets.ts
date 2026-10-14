@@ -1,4 +1,4 @@
-import type { Bullet } from '../logic/types.ts';
+import type { BulletView } from '../logic/types.ts';
 
 export interface BulletNo {
   /** The order number players see: placed bullets count 1, 2, 3…; a moved one keeps its own. */
@@ -14,7 +14,7 @@ export interface BulletNo {
  * it is the same bullet, so it keeps the number it had and the next placed bullet carries on from
  * the last placed one.
  */
-export function bulletNumbers(bullets: readonly Bullet[]): Map<number, BulletNo> {
+export function bulletNumbers(bullets: readonly BulletView[]): Map<number, BulletNo> {
   const out = new Map<number, BulletNo>();
   let placed = 0;
   bullets.forEach((b, i) => {
