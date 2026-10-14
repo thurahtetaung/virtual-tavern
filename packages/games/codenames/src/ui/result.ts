@@ -99,11 +99,7 @@ export function latestResult(view: CodenamesView): GuessResult | null {
     } else if (reason !== null) {
       next = `${team} ended the turn. ${nextTurn(view, guess.team)}`;
     } else {
-      const left = guessesLeft(view);
-      next =
-        left === null
-          ? `${team} can keep guessing, or end the turn.`
-          : `${team} can guess ${left} more, or end the turn.`;
+      next = `${team} can guess ${guessesLeft(view)} more, or end the turn.`;
     }
     return { ...base, tone: 'correct', headline: `✓ Correct! It's ${describe(guess.kind)}.`, next };
   }
