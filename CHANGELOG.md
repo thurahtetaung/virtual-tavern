@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.3...v0.36.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **royal-post:** name the face-up set-aside cards under their thumbnails so no name is cut off ([#171](https://github.com/thurahtetaung/virtual-tavern/issues/171)) ([f16d417](https://github.com/thurahtetaung/virtual-tavern/commit/f16d417429c988a4875226752557bd8d0e3eafd7))
+
 ## [0.36.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.2...v0.36.3) (2026-10-14)
 
 
