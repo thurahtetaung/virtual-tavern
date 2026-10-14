@@ -1,4 +1,4 @@
-import { type Browser, expect, test } from '@playwright/test';
+import { type Browser, type Locator, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
@@ -8,9 +8,10 @@ test.afterEach(() => {
 });
 
 let nextIp = 1;
-async function visitor(browser: Browser, name?: string) {
+async function visitor(browser: Browser, name?: string, colorScheme?: 'light' | 'dark') {
   // The back-room knock is rate-limited per address, so each browser gets its own.
   const context = await browser.newContext({
+    colorScheme,
     extraHTTPHeaders: { 'cf-connecting-ip': `10.2.0.${nextIp++}` },
   });
   const page = await context.newPage();
@@ -124,4 +125,50 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await status;
   await expect(friend.getByText('Pull up a chair.')).toBeVisible();
   await expect(friend.getByRole('link', { name: /^Rejoin your/ })).toHaveCount(0);
+});
+
+test('the back room follows the light and dark themes', async ({ browser, request }) => {
+  const login = await request.post('/api/admin/login', { data: { password: TEST_ADMIN_PASSWORD } });
+  const admin = login
+    .headersArray()
+    .find((h) => h.name.toLowerCase() === 'set-cookie')!
+    .value.split(';')[0]!;
+  await request.put('/api/admin/backroom/password', {
+    headers: { cookie: admin },
+    data: { password: TEST_BACKROOM_WORD },
+  });
+  // Whether the background of the heading's nearest `selector` ancestor is light (canvas turns any CSS
+  // colour, oklch included, into RGB).
+  const lightBehind = (heading: Locator, selector: string) =>
+    heading.evaluate((h, sel) => {
+      const ctx = document.createElement('canvas').getContext('2d')!;
+      ctx.fillStyle = getComputedStyle(h.closest(sel)!).backgroundColor;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return (r! + g! + b!) / 3 > 200;
+    }, selector);
+  // The page's own surface and a game card: candlelit stone in the dark theme, warm parchment and
+  // cards in the light one.
+  const surface = (page: Page) =>
+    lightBehind(page.getByRole('heading', { name: 'The Back Room' }), '.min-h-dvh');
+  const card = (page: Page) =>
+    lightBehind(
+      page
+        .getByRole('region', { name: 'Back room games' })
+        .getByRole('heading', { name: 'Reverie' }),
+      '.rounded-2xl',
+    );
+
+  for (const scheme of ['light', 'dark'] as const) {
+    const page = await visitor(browser, 'Hana', scheme);
+    await page.goto('/backroom');
+    await expect(page.getByLabel('The word')).toBeVisible();
+    await expect.poll(() => surface(page)).toBe(scheme === 'light');
+    await page.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+    await page.getByRole('button', { name: 'Knock' }).click();
+    await expect(page.getByText("You're on the list")).toBeVisible();
+    await expect.poll(() => surface(page)).toBe(scheme === 'light');
+    await expect.poll(() => card(page)).toBe(scheme === 'light');
+    await page.context().close();
+  }
 });
