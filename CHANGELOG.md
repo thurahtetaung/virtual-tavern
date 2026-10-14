@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.1...v0.37.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **seance,reverie:** review-round fixes: retire an empty psychic seat, keyboard-scrollable strips, steadier card placeholders ([#182](https://github.com/thurahtetaung/virtual-tavern/issues/182)) ([60b301c](https://github.com/thurahtetaung/virtual-tavern/commit/60b301c05e55f3571ddf05b0acdc1fd079675a0e))
+
 ## [0.37.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.0...v0.37.1) (2026-10-14)
 
 
