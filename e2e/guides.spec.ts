@@ -133,4 +133,9 @@ test('a first-timer sees the game in steps in the lobby, once; the drawer knows 
   await page.getByRole('dialog', { name: 'Merlin' }).getByRole('button', { name: 'Close' }).click();
   // Closing the card leaves the drawer open.
   await expect(drawer.getByRole('tab', { name: 'Roles' })).toBeVisible();
+  // Every opening starts on Learn again.
+  await drawer.getByRole('button', { name: 'Close' }).click();
+  await expect(drawer).toBeHidden();
+  await page.getByRole('button', { name: 'Rules', exact: true }).click();
+  await expect(drawer.getByRole('tab', { name: 'Learn' })).toHaveAttribute('aria-selected', 'true');
 });

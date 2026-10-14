@@ -246,9 +246,12 @@ function Room({
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideFocus, setGuideFocus] = useState<GuideFocus>();
+  // Each opening starts afresh on Learn (or at the card a game asked for).
+  const [guideOpens, setGuideOpens] = useState(0);
   // A game may name a role to open at (a click handler passes its event, which isn't one).
   const showGuide = useCallback((topic?: unknown) => {
-    if (typeof topic === 'string') setGuideFocus((f) => ({ topic, n: (f?.n ?? 0) + 1 }));
+    setGuideFocus(typeof topic === 'string' ? { topic, n: Date.now() } : undefined);
+    setGuideOpens((n) => n + 1);
     setGuideOpen(true);
   }, []);
   const [peopleOpen, setPeopleOpen] = useState(false);
@@ -553,7 +556,7 @@ function Room({
             size="sm"
             className={HEADER_BUTTON}
             aria-label="Rules"
-            onClick={() => setGuideOpen(true)}
+            onClick={() => showGuide()}
           >
             <span aria-hidden>❓</span>
             <span className={HEADER_LABEL}>Rules</span>
@@ -593,7 +596,7 @@ function Room({
           }
         >
           {snapshot.meta?.phase === 'lobby' && !playtest && (
-            <GuideIntro game={game} onRules={() => setGuideOpen(true)} />
+            <GuideIntro game={game} onRules={() => showGuide()} />
           )}
           <BotNames.Provider value={botNames}>
             <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
@@ -672,6 +675,7 @@ function Room({
         title={`How to play ${game.name}`}
       >
         <GameGuideView
+          key={guideOpens}
           game={game}
           compact
           {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}

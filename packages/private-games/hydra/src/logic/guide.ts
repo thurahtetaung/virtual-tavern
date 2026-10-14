@@ -234,7 +234,7 @@ export function nameGuide(
         ...(v.settings.rebalance ? ['community rebalance'] : []),
       ].join(' · '),
       inGame: Object.fromEntries([
-        ...ROLES.map((r) => [
+        ...ROLES.map((r): [string, number] => [
           r,
           r === 'red'
             ? Math.max(1, (RED_COUNT[n] ?? 2) - 1)
@@ -242,7 +242,7 @@ export function nameGuide(
               ? Math.max(1, n - (RED_COUNT[n] ?? 2))
               : 1,
         ]),
-        ...[...used].map((p) => [`power-${p}`, 1]),
+        ...[...used].map((p): [string, number] => [`power-${p}`, 1]),
       ]),
     };
     if (v.role && v.me?.id === you) {
