@@ -104,6 +104,24 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   );
 }
 
+/** A teammate's draft as three little boxes, empty where nothing is picked yet. */
+function PickBoxes({ draft }: { draft: readonly number[] }) {
+  const label = draft.map((d) => (d ? String(d) : 'not picked')).join(', ');
+  return (
+    <span role="img" aria-label={label} className="inline-flex gap-0.5 align-middle">
+      {draft.map((d, i) => (
+        <span
+          key={i}
+          aria-hidden
+          className="inline-flex size-4 items-center justify-center rounded-sm bg-white text-[0.7rem] font-bold tabular-nums ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-600"
+        >
+          {d || ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Who on your side has picked what, with an offline dot; the host can skip an offline voter. */
 function Picks({
   view,
@@ -134,7 +152,8 @@ function Picks({
                     className="mr-1 inline-block size-2 rounded-full bg-stone-400"
                   />
                 )}
-                {nameOf(view, id)} {v ? formatCode(v.draft) : 'picking…'} {v?.locked ? '🔒' : ''}
+                {nameOf(view, id)} {v ? <PickBoxes draft={v.draft} /> : 'picking…'}{' '}
+                {v?.locked ? '🔒' : ''}
               </Badge>
             </li>
           );

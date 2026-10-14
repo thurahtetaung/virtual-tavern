@@ -125,8 +125,10 @@ const NoteList = memo(function NoteList({
     void end.current?.scrollIntoView({ block: 'nearest' });
   }, [items.length]);
   return (
+    // Focusable, so the list scrolls from the keyboard too.
     <ul
       aria-label="Team notes"
+      tabIndex={0}
       className="max-h-48 space-y-1 overflow-y-auto rounded-md bg-white/60 p-1 text-sm ring-1 ring-stone-200 dark:bg-stone-900/40 dark:ring-stone-700"
     >
       {items.map((n) => (

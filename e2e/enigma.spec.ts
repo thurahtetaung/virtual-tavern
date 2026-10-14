@@ -131,9 +131,10 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
         // Hana has nothing left to do, so she's told who she's waiting for instead.
         await expect(host.getByText("Locked in on Blue's code. Waiting for: Ana.")).toBeVisible();
       }
-      await expect(
-        transmission(red[1]!, 'Blue').getByText(`Hana ${blueCode.join('-')} 🔒`),
-      ).toBeVisible();
+      // Each pick shows as three little boxes, read out digit by digit.
+      const hana = transmission(red[1]!, 'Blue').getByRole('listitem').filter({ hasText: 'Hana' });
+      await expect(hana.getByRole('img', { name: blueCode.join(', ') })).toBeVisible();
+      await expect(hana).toContainText('🔒');
       await pick(red[1]!, 'Blue', blueCode);
       // Blue tries to intercept Red, and gets it wrong.
       for (const p of blue) await pick(p, 'Red', wrong(redCode));
