@@ -96,6 +96,11 @@ export interface Exercised {
   /** Steered towards too when present and false (the screenshots want them). */
   baron?: boolean;
   prince?: boolean;
+  /**
+   * Two players only: end rounds fast. A Guard names the other player's card, read off their own
+   * screen, so a round is over in a turn or two instead of running the deck down.
+   */
+  quick?: boolean;
 }
 
 export type Moment =
@@ -153,10 +158,17 @@ export async function takeTurn(
     !done.guard && 'Guard',
   ].filter((c): c is string => !!c);
   const playable = hand.filter((c) => c !== 'Princess');
+  let guess: string | null = null;
+  if (done.quick && players.length === 2 && hand.includes('Guard')) {
+    const [theirs] = await handOf(players.find((o) => o !== p)!);
+    if (theirs && theirs !== 'Guard') guess = theirs;
+  }
   const card = forced
     ? 'Countess'
-    : (wanted.find((c) => playable.includes(c)) ??
-      [...playable].sort((a, b) => ranks[a]! - ranks[b]!)[0]!);
+    : guess
+      ? 'Guard'
+      : (wanted.find((c) => playable.includes(c)) ??
+        [...playable].sort((a, b) => ranks[a]! - ranks[b]!)[0]!);
 
   const sheet = p.getByRole('dialog', { name: `${card} (${ranks[card]})` });
   // A private reveal can open just as the turn starts; close it and try again. On a slow machine
@@ -187,7 +199,10 @@ export async function takeTurn(
     }
   }
   if (card === 'Guard' && target) {
-    await sheet.getByRole('group', { name: 'Name a card' }).getByRole('button').first().click();
+    const names = sheet.getByRole('group', { name: 'Name a card' });
+    await (guess ? names.getByRole('button', { name: `${guess} (` }) : names.getByRole('button'))
+      .first()
+      .click();
     await shot?.('guard-guess', p);
   }
   if (forced) await shot?.('countess', p);
