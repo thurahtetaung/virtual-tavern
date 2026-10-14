@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.4...v0.35.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **guides:** keep your secret role out of the rules drawer until you peek ([#154](https://github.com/thurahtetaung/virtual-tavern/issues/154)) ([f345ab1](https://github.com/thurahtetaung/virtual-tavern/commit/f345ab15db413215961d52336a4d335f6b62b835))
+
 ## [0.35.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.3...v0.35.4) (2026-10-14)
 
 
