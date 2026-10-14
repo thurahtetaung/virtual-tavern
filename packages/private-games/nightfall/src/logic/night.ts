@@ -1525,7 +1525,7 @@ const nostradamus: RoleAction = {
 };
 
 /** The team Nostradamus is on: the last card he saw, or the narrator's pick when he saw none. */
-function foretell(c: StepCtx, p: PlayerId | null) {
+function foretell(c: StepCtx, p: PlayerId | null, owners: PlayerId[] = []) {
   const looked = p ? (c.r.notes[p] ?? []).filter((n) => n.step === c.step && n.kind === 'saw') : [];
   const last = looked.at(-1);
   let team: NostraTeam;
@@ -1539,15 +1539,19 @@ function foretell(c: StepCtx, p: PlayerId | null) {
     const all = [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)];
     cardId = all.find((card) => nostraTeamOf(card.role) === team)?.id ?? null;
   }
-  // The team goes on his own card (a copy's card for a copy), wherever it is now.
+  // The team goes on his own card (a copy's card for a copy), wherever it is now. When nobody
+  // acted, it goes on the cards of those who should have (a Feared copy), else on the card itself.
+  const cardOf = (q: PlayerId) => cardAt(c.r, findCard(c.r, c.r.players[q]!.cardId));
   const own = p
-    ? cardAt(c.r, findCard(c.r, c.r.players[p]!.cardId))
-    : c.def.doppel
-      ? undefined
-      : [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)].find(
-          (card) => card.role === 'nostradamus',
-        );
-  if (own) own.foretold = { team, card: cardId };
+    ? [cardOf(p)]
+    : owners.length
+      ? owners.map(cardOf)
+      : c.def.doppel
+        ? []
+        : [...c.r.order.map((q) => c.r.cards[q]!), ...c.r.center.map((x) => x.card)]
+            .filter((card) => card.role === 'nostradamus')
+            .slice(0, 1);
+  for (const card of own) card.foretold = { team, card: cardId };
   if (p) note(c, p, { kind: 'foretold', team });
   announce(c, { kind: 'nostradamus', doppel: c.def.doppel === true, team });
 }
@@ -2000,7 +2004,12 @@ function finishStep(c: StepCtx) {
   if (c.def.role === 'nostradamus' && !c.def.repeat) {
     const actors = night.actors.filter((q) => c.r.players[q]!.night === 'nostradamus');
     if (actors.length) for (const p of actors) foretell(c, p);
-    else foretell(c, null);
+    else
+      foretell(
+        c,
+        null,
+        actorsFor(c.r, c.def, true).filter((q) => c.r.players[q]!.night === 'nostradamus'),
+      );
   }
   if (c.def.id === 'oracle') endOracle(c);
   // Fists nobody tapped learn so as the aliens close their eyes.

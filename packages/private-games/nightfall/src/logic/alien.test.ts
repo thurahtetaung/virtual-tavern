@@ -680,6 +680,23 @@ describe('the other Alien roles', () => {
     expect(h.state.round!.center[0]!.card.foretold).toBeTruthy();
   });
 
+  it('a Feared Doppelgänger-Nostradamus still gets the announced team on her card', () => {
+    const h = table({ players: ['doppelganger', 'nostradamus', 'the-count', 'vampire', V] });
+    h.toStep('doppelganger');
+    h.night('A', { players: ['B'] });
+    h.toStep('vampires');
+    h.night('D', { players: ['E'] });
+    h.toStep('the-count');
+    h.night('C', { players: ['A'] });
+    h.toStep('doppelganger-nostradamus');
+    expect(actors(h)).toEqual([]);
+    h.tick();
+    const a = h.view('E').announcements.at(-1);
+    expect(a).toMatchObject({ kind: 'nostradamus', doppel: true });
+    const team = a?.kind === 'nostradamus' ? a.team : null;
+    expect(h.state.round!.cards.A!.foretold?.team).toBe(team);
+  });
+
   it('Nostradamus on an own-team card wins only if its holder does', () => {
     const h = table({
       players: ['nostradamus', 'mortician', W, 'seer', V],
