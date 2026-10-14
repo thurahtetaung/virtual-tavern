@@ -5,10 +5,23 @@ import { z } from 'zod';
  * Hero ids. These neutral words are the ids in code and the fallback names on screen; the
  * heroes' real names, portraits and card art come from the private manifest in asset storage.
  */
-export const HERO_IDS = ['brute', 'mage', 'knight', 'thief', 'ranger', 'druid'] as const;
+export const HERO_IDS = [
+  'brute',
+  'mage',
+  'knight',
+  'thief',
+  'ranger',
+  'druid',
+  'dragon',
+  'owl',
+  'psychic',
+  'slime',
+  'eye',
+  'mimic',
+] as const;
 export type HeroId = (typeof HERO_IDS)[number];
 
-export const SET_IDS = ['core', 'x1'] as const;
+export const SET_IDS = ['core', 'x1', 'x2'] as const;
 export type SetId = (typeof SET_IDS)[number];
 
 /** A card in a hero's deck: `<hero>.<nn>`, e.g. `brute.03`. */
@@ -42,6 +55,24 @@ export const EFFECTS = [
   'formWolf',
   'freeFormPlay',
   'howlThenHitEach',
+  'everyoneChooses',
+  'discardHandHit',
+  'threeTargets',
+  'destroyThenHitPerShield',
+  'danceDraw',
+  'hitAllOpps',
+  'swapHands',
+  'takeTopDiscards',
+  'hitPerHandCard',
+  'destroyThenHealPerShield',
+  'ignoreShields',
+  'bonesOnDestroy',
+  'praiseOrHit',
+  'controlAttacks',
+  'hitUnshieldedThenWipe',
+  'copyShield',
+  'borrowNeighbourPower',
+  'copyHp',
 ] as const;
 export type Effect = (typeof EFFECTS)[number];
 
@@ -66,8 +97,9 @@ export const HP_MAX = 10;
 export const HAND_START = 3;
 export const DECK_SIZE = 28;
 export const MIN_PLAYERS = 2;
-/** Release 1 seats up to four. */
-export const MAX_PLAYERS = 4;
+export const MAX_PLAYERS = 6;
+/** From this many players at the start, attacks only reach neighbours and the out haunt. */
+export const ZONE_PLAYERS = 5;
 /** Public log entries kept. */
 export const MAX_LOG = 80;
 /** Social prompts and every other out-of-turn question get this long, whatever the timer. */
@@ -86,6 +118,8 @@ export interface Settings {
   seconds: number | null;
   /** Soft: a reminder only. Strict: a random legal move is made at zero. */
   timerMode: TimerMode;
+  /** Which sets the random hero picks draw from (missing: all). */
+  sets?: SetId[];
 }
 
 export interface Seat {
@@ -100,6 +134,8 @@ export interface ShieldInPlay {
   id: Inst;
   /** Damage marks; the shield breaks when they reach its shield points. */
   damage: number;
+  /** A mirror card copying this shield card (its points and its trigger). */
+  copyOf?: CardId;
 }
 
 export interface PlayerState {
@@ -114,9 +150,12 @@ export interface PlayerState {
   shields: ShieldInPlay[];
   form: { kind: FormKind; id: Inst } | null;
   out: boolean;
+  /** Knocked out in a five-or-more game: haunts the table, never wins. */
+  ghost?: boolean;
 }
 
-export type LastingKind = 'disguise';
+/** `control`: you pick the target of every other player's attack cards; `allOpps`: your attacks hit every opponent. */
+export type LastingKind = 'disguise' | 'control' | 'allOpps';
 
 /** An effect that lasts until `player`'s next turn starts. */
 export interface Lasting {
@@ -139,6 +178,8 @@ export interface Turn {
   fresh: Inst[];
   /** Cards played from hand this turn (for the clock and the chain counter). */
   plays: number;
+  /** This turn your attack cards ignore shields. */
+  ignoreShields?: boolean;
 }
 
 /** Pending damage to one player (an attack aimed at a shield starts at `first`). */
@@ -150,6 +191,12 @@ export interface Hit {
   first?: Inst;
   /** Damage dealt so far by this hit (a choice can split it). */
   dealt?: number;
+  /** Who deals it, when not the card's player (everyone attacks on one card). */
+  by?: PlayerId;
+  /** Straight to hit points. */
+  ignore?: boolean;
+  /** A ghost's attack: never takes anyone below 1. */
+  nonLethal?: boolean;
 }
 
 /** A card being resolved: steps run in order, `queue` holds damage still to deal. */
@@ -163,6 +210,12 @@ export interface Frame {
   queue: Hit[];
   /** Effect progress between choices. */
   data: Record<string, string | number | boolean | string[] | null>;
+  /** Not a card from a hand: a ghost's attack, or a broken shield's trigger. */
+  virtual?: 'ghost' | 'bones';
+  /** The card a virtual frame shows (the broken shield). */
+  card?: CardId;
+  /** A mirror resolving as a copy of this card. */
+  copy?: CardId;
 }
 
 export const CHOICE_KINDS = [
@@ -175,6 +228,14 @@ export const CHOICE_KINDS = [
   'recover',
   'form',
   'social',
+  'mna',
+  'opponent',
+  'second',
+  'side',
+  'copyA',
+  'copyB',
+  'mirror',
+  'redirect',
 ] as const;
 export type ChoiceKind = (typeof CHOICE_KINDS)[number];
 
@@ -187,15 +248,27 @@ export interface Choice {
   kind: ChoiceKind;
   chooser: PlayerId;
   options: string[];
-  /** The card asking. */
+  /** The card asking ('' for a ghost's attack or a broken shield striking back). */
   source: Inst;
+  /** The card a virtual frame asks for. */
+  card?: CardId;
   /** Damage it carries (target and shield choices). */
   amount?: number;
   /** For `shield`: whose shields. */
   target?: PlayerId;
-  /** Fixed deadline (social prompts), whatever the room timer. */
+  /** Fixed deadline (social prompts, out-of-turn questions), whatever the room timer. */
   deadline?: number;
+  /** Where the answer is kept on the frame (several questions of one kind). */
+  tag?: string;
+  /** What the timer, the host or the table answers. */
+  fallback?: string;
+  /** Social prompts: what is asked. */
+  flavour?: Flavour;
+  /** Redirects: whose attack it is. */
+  attacker?: PlayerId;
 }
+
+export type Flavour = 'howl' | 'dance' | 'praise';
 
 export interface Clock {
   /** Which decision it times; a new decision restarts it. */
@@ -243,6 +316,10 @@ export interface Game {
   passes: number;
   /** Per-player totals for the stats and the end screen. */
   tally: Record<PlayerId, Tally>;
+  /** Five or more at the start: attacks reach only neighbours, and the out become ghosts. */
+  zone?: boolean;
+  /** Broken trigger shields waiting to strike once the card in play has resolved. */
+  bones?: { holder: PlayerId; card: CardId }[];
 }
 
 export interface Tally {
@@ -277,6 +354,8 @@ export type LogEntry = { id: number; turn: number } & (
       /** Damage taken by shields. */
       shield: number;
       power: boolean;
+      /** A ghost's attack. */
+      ghost?: boolean;
     }
   | { kind: 'shield-hit'; target: PlayerId; shield: Inst; card: CardId; amount: number }
   | {
@@ -302,7 +381,24 @@ export type LogEntry = { id: number; turn: number } & (
   | { kind: 'disguise'; player: PlayerId }
   | { kind: 'bonus'; player: PlayerId; bonus: number }
   | { kind: 'form'; player: PlayerId; form: FormKind }
-  | { kind: 'social'; player: PlayerId; done: boolean; auto?: boolean }
+  | {
+      kind: 'social';
+      player: PlayerId;
+      done: boolean;
+      auto?: boolean;
+      /** Missing on older entries: the howl. */
+      flavour?: Flavour;
+    }
+  | { kind: 'mna'; player: PlayerId; pick: 'attack' | 'heal' | 'draw'; repeat?: boolean }
+  | { kind: 'hp-copy'; a: PlayerId; b: PlayerId; hp: number }
+  | { kind: 'hands'; a: PlayerId; b: PlayerId }
+  | { kind: 'mother'; by: PlayerId; cards: CardId[] }
+  | { kind: 'mirror'; player: PlayerId; card: CardId }
+  | { kind: 'lasting'; player: PlayerId; what: 'control' | 'allOpps' | 'ignoreShields' }
+  | { kind: 'redirect'; by: PlayerId; attacker: PlayerId; target: PlayerId }
+  | { kind: 'borrow'; player: PlayerId; from: PlayerId; effect: Effect }
+  | { kind: 'liquidate'; player: PlayerId; count: number }
+  | { kind: 'haunt'; player: PlayerId }
   | { kind: 'fizzle'; by: PlayerId; card: CardId; why: 'no-target' | 'no-shield' | 'no-card' }
   | { kind: 'ko'; player: PlayerId; by: PlayerId; card: CardId | null; removed?: boolean }
   | { kind: 'pass'; player: PlayerId }
@@ -339,6 +435,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     type: z.literal('update-settings'),
     seconds: z.number().int().min(10).max(600).nullable().optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
+    sets: z.array(z.enum(SET_IDS)).min(1).max(SET_IDS.length).optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('pick-hero'), hero: z.union([hero, z.literal('random')]).nullable() }),
@@ -376,6 +473,8 @@ export interface ShieldView extends CardRef {
   damage: number;
   /** Points left before it breaks. */
   left: number;
+  /** A mirror card copying this card. */
+  copyOf?: CardId;
 }
 
 export interface PlayerView {
@@ -392,22 +491,36 @@ export interface PlayerView {
   form: { kind: FormKind; card: CardRef } | null;
   /** Opponents' cards can't touch them until their next turn. */
   disguised: boolean;
+  /** A ghost (five or more players): attacks once a turn, never wins. */
+  ghost: boolean;
+  /** Picks the target of everyone else's attack cards until their next turn. */
+  controls: boolean;
+  /** Their attacks hit every opponent until their next turn. */
+  allOpps: boolean;
 }
 
 export interface ChoiceView {
   id: number;
   kind: ChoiceKind;
   chooser: PlayerId;
-  source: CardRef;
+  /** The card asking, when it's a real card (not a ghost's attack). */
+  source: CardRef | null;
+  /** Which card is asking (a broken shield striking back has no instance any more). */
+  card: CardId | null;
   /** Only the chooser gets the options. */
   options: string[];
   amount?: number;
   target?: PlayerId;
   deadline?: number;
+  flavour?: Flavour;
+  /** Whose attack a redirect is about. */
+  attacker?: PlayerId;
 }
 
 export interface GameView {
   order: PlayerId[];
+  /** Five or more at the start: neighbours only, and ghosts. */
+  zone: boolean;
   players: PlayerView[];
   first: PlayerId;
   turn: {

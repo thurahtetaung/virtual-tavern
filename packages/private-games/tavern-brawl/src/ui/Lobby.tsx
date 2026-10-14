@@ -10,10 +10,13 @@ import {
   TimerSettings,
   cn,
 } from '@vt/ui';
-import { ENABLED_HEROES, HEROES } from '../logic/cards.ts';
+import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
 import {
   type HeroId,
   MAX_PLAYERS,
+  SET_IDS,
+  type SetId,
+  ZONE_PLAYERS,
   MIN_PLAYERS,
   type TavernBrawlAction,
   type TavernBrawlView,
@@ -73,6 +76,52 @@ export function Portrait({
         <span style={{ fontSize: size * 0.42 }}>{hero ? HEROES[hero].label[0] : '?'}</span>
       )}
     </span>
+  );
+}
+
+/** The host ticks which sets random picks draw from; everyone sees the choice. */
+function SetFilter({
+  view,
+  room,
+  act,
+  art,
+}: {
+  view: TavernBrawlView;
+  room: GameRoomInfo;
+  act: Act;
+  art: Art;
+}) {
+  const on = view.settings.sets ?? [...SET_IDS];
+  const toggle = (id: SetId) => {
+    const next = on.includes(id) ? on.filter((x) => x !== id) : [...on, id];
+    if (next.length > 0) void act({ type: 'update-settings', sets: next }, { anchor: 'tb-heroes' });
+  };
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      role="group"
+      aria-label="Random picks from"
+    >
+      <span className="text-xs text-ink-muted dark:text-stone-400">🎲 picks from:</span>
+      {SET_IDS.map((id) => (
+        <button
+          key={id}
+          type="button"
+          disabled={!room.isHost}
+          aria-pressed={on.includes(id)}
+          onClick={() => toggle(id)}
+          className={cn(
+            'min-h-8 rounded-full px-3 text-xs font-semibold ring-1',
+            on.includes(id)
+              ? 'bg-accent-soft text-accent-text ring-accent-line dark:bg-amber-500/20 dark:text-amber-100 dark:ring-amber-500/40'
+              : 'bg-card text-ink-muted ring-line dark:bg-stone-800 dark:text-stone-400 dark:ring-stone-700',
+          )}
+        >
+          {on.includes(id) ? '✓ ' : ''}
+          {art.set(id) ?? SETS[id].label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -201,7 +250,14 @@ export function Lobby({
           )}
         </div>
         <RefusalSlot anchor="tb-heroes" />
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Heroes">
+        <SetFilter view={view} room={room} act={act} art={art} />
+        {seated.length >= ZONE_PLAYERS && (
+          <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+            Five or more players: regular attacks only reach your neighbours, and knocked-out
+            players come back as ghosts who attack once a turn.
+          </p>
+        )}
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="Heroes">
           {ENABLED_HEROES.map((h) => {
             const taker = takenBy.get(h);
             const mine = taker?.id === room.you;
@@ -235,9 +291,13 @@ export function Lobby({
                       </span>
                     </span>
                   </span>
-                  <span className="line-clamp-2 block text-xs">
-                    {taker ? (mine ? '✓ Your hero' : `Taken by ${taker.name}`) : HEROES[h].style}
-                  </span>
+                  {taker ? (
+                    <span className="block truncate text-xs font-medium">
+                      {mine ? '✓ Your hero' : `Taken by ${taker.name}`}
+                    </span>
+                  ) : (
+                    <span className="line-clamp-2 hidden text-xs sm:block">{HEROES[h].style}</span>
+                  )}
                 </button>
               </li>
             );

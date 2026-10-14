@@ -243,6 +243,47 @@ const rules: AwardRule[] = [
       ),
   },
   {
+    id: 'tb.haunting',
+    emoji: '👻',
+    title: 'Haunting',
+    valence: 'gentle',
+    weight: 3,
+    kind: 'award',
+    family: 'ghost',
+    minPlayers: 5,
+    copy: {
+      cheeky: ['{who} haunted the table for {n} damage', '{who} kept swinging after the end: {n}'],
+      wholesome: [
+        '{who} kept fighting as a ghost: {n} damage',
+        '{who} never really left: {n} damage',
+      ],
+    },
+    compute: (g) =>
+      leaders(
+        tally(
+          g.of('hit').filter((e) => bool(e, 'ghost') === true),
+          undefined,
+          (e) => (num(e, 'hp') ?? 0) + (num(e, 'shield') ?? 0),
+        ),
+        { min: 2 },
+      ),
+  },
+  {
+    id: 'tb.puppet-master',
+    emoji: '🕹️',
+    title: 'Puppet Master',
+    valence: 'glory',
+    weight: 3,
+    kind: 'award',
+    family: 'control',
+    minPlayers: 3,
+    copy: {
+      cheeky: ['{who} steered {n} attacks somewhere else', '{who} pulled the strings {n|time}'],
+      wholesome: ['{who} redirected {n} attacks with flair', '{who} called the shots {n|time}'],
+    },
+    compute: (g) => mostBy(g.of('redirect'), undefined, { min: 2 }),
+  },
+  {
     id: 'tb.shield-breaker',
     emoji: '🔨',
     title: 'Shield Breaker',

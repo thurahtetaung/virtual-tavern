@@ -91,15 +91,33 @@ test('two heroes brawl: chains, shields, the howl, a taken shield, a knockout', 
 for (const mix of [
   { heroes: ['Brute', 'Mage', 'Knight', 'Thief'], names: ['Hana', 'Ana', 'Ben', 'Cy'] },
   { heroes: ['Ranger', 'Druid', 'Thief'], names: ['Hana', 'Ana', 'Ben'] },
+  // Five or more: neighbours only, and the knocked out haunt the table as ghosts.
+  {
+    heroes: ['Dragon', 'Owl', 'Psychic', 'Slime', 'Eye'],
+    names: ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'],
+  },
+  {
+    heroes: ['Mimic', 'Eye', 'Slime', 'Druid', 'Ranger', 'Brute'],
+    names: ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eli'],
+  },
 ]) {
   test(`a full brawl: ${mix.heroes.join(', ')}`, async ({ browser }) => {
     test.setTimeout(300_000);
     await openBackroom(await visitor(browser, 'Admin'));
     const pages = await table(browser, mix.names);
     for (const [i, p] of pages.entries()) await pickHero(p, mix.heroes[i]!);
+    const zone = pages.length >= 5;
+    if (zone) await expect(pages[0]!.getByText(/Five or more players/)).toBeVisible();
     await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
     await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
     await playToEnd(pages);
     for (const p of pages) await expect.poll(() => isOver(p)).toBe(true);
+    // Everyone knocked out stayed at the table as a ghost (and had turns to haunt).
+    if (zone) {
+      await expect
+        .poll(() => pages[0]!.locator('[data-ghost]').count())
+        .toBeGreaterThanOrEqual(pages.length - 1);
+      await expect(pages[0]!.getByRole('log').first()).toContainText(/ghost/);
+    }
   });
 }

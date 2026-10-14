@@ -10,7 +10,7 @@ import {
 } from '@vt/game-sdk';
 import { tavernBrawlAwards } from './awards.ts';
 import { tavernBrawlBot } from './bot.ts';
-import { CARDS, ENABLED_HEROES, deckList } from './cards.ts';
+import { ENABLED_HEROES, HEROES, deckList } from './cards.ts';
 import {
   type Env,
   answer,
@@ -18,6 +18,8 @@ import {
   awaited,
   emptyTally,
   endGame,
+  hasLasting,
+  pointsOf,
   log,
   playCard,
   removePlayer,
@@ -38,6 +40,8 @@ import {
   type Inst,
   LEFT_BEAT_MS,
   MAX_PLAYERS,
+  type SetId,
+  ZONE_PLAYERS,
   MIN_PLAYERS,
   NUDGE_MS,
   type PlayerView,
@@ -82,6 +86,10 @@ export function setTestRig(rig: TestRig) {
 
 const requireHost = (ctx: Ctx) =>
   ctx.isHost ? null : err('not-host', 'Only the host can do that.');
+
+/** The heroes random picks draw from: those in the host's chosen sets (all by default). */
+const inSets = (sets: SetId[] | undefined) =>
+  ENABLED_HEROES.filter((h) => !sets || sets.includes(HEROES[h].set));
 
 function takenHeroes(state: TavernBrawlState, except?: PlayerId): Set<HeroId> {
   return new Set(
@@ -128,8 +136,9 @@ function pickHero(state: TavernBrawlState, hero: HeroId | 'random' | null, ctx: 
   const taken = takenHeroes(state, ctx.by);
   let pick = hero;
   if (pick === 'random') {
-    const free = ENABLED_HEROES.filter((h) => !taken.has(h) && h !== seat.hero);
-    const pool = free.length > 0 ? free : ENABLED_HEROES.filter((h) => !taken.has(h));
+    const offered = inSets(state.settings.sets);
+    const free = offered.filter((h) => !taken.has(h) && h !== seat.hero);
+    const pool = free.length > 0 ? free : offered.filter((h) => !taken.has(h));
     pick = pool[ctx.rng.int(pool.length)] ?? null;
     if (!pick) return err('no-hero', 'Every hero is taken.');
   }
@@ -145,7 +154,8 @@ function randomHeroes(state: TavernBrawlState, ctx: Ctx): Result {
   if (e) return e;
   if (state.phase === 'playing') return err('in-progress', 'Heroes are picked between games.');
   const s = draft(state);
-  const heroes = ctx.rng.shuffle(ENABLED_HEROES);
+  const offered = inSets(state.settings.sets);
+  const heroes = ctx.rng.shuffle(offered.length >= players(s).length ? offered : ENABLED_HEROES);
   players(s).forEach((p, i) => (s.seats[p]!.hero = heroes[i] ?? null));
   return s;
 }
@@ -161,6 +171,7 @@ function updateSettings(
   const s = draft(state);
   if (action.seconds !== undefined) s.settings.seconds = action.seconds;
   if (action.timerMode !== undefined) s.settings.timerMode = action.timerMode;
+  if (action.sets !== undefined) s.settings.sets = [...new Set(action.sets)];
   return s;
 }
 
@@ -204,6 +215,8 @@ function deal(state: TavernBrawlState, ctx: Ctx): Result {
     endReason: null,
     passes: 0,
     tally: {},
+    zone: seated.length >= ZONE_PLAYERS,
+    bones: [],
   };
   for (const p of seated) {
     const hero = state.seats[p]!.hero!;
@@ -489,10 +502,14 @@ function gameView(state: TavernBrawlState, g: Game, viewer: PlayerId | null): Ga
       shields: p.shields.map((sh) => ({
         ...ref(g, sh.id),
         damage: sh.damage,
-        left: CARDS[g.cards[sh.id]!.card]!.shield - sh.damage,
+        left: pointsOf(g, sh) - sh.damage,
+        ...(sh.copyOf && { copyOf: sh.copyOf }),
       })),
       form: p.form ? { kind: p.form.kind, card: ref(g, p.form.id) } : null,
-      disguised: g.lasting.some((l) => l.kind === 'disguise' && l.player === id),
+      disguised: hasLasting(g, 'disguise', id),
+      ghost: p.ghost === true,
+      controls: hasLasting(g, 'control', id),
+      allOpps: hasLasting(g, 'allOpps', id),
     };
   });
   const secs = state.settings.seconds;
@@ -507,6 +524,7 @@ function gameView(state: TavernBrawlState, g: Game, viewer: PlayerId | null): Ga
   const c = g.choice;
   return {
     order: [...g.order],
+    zone: g.zone === true,
     players: playersView,
     first: g.first,
     turn: {
@@ -517,13 +535,16 @@ function gameView(state: TavernBrawlState, g: Game, viewer: PlayerId | null): Ga
       bonus: g.turn.bonus,
       plays: g.turn.plays,
     },
-    resolving: g.frames.map((f) => ref(g, f.id)),
+    resolving: g.frames.flatMap((f) => (g.cards[f.id] ? [ref(g, f.id)] : [])),
     choice: c
       ? {
           id: c.id,
           kind: c.kind,
           chooser: c.chooser,
-          source: ref(g, c.source),
+          source: g.cards[c.source] ? ref(g, c.source) : null,
+          card: c.card ?? g.cards[c.source]?.card ?? null,
+          ...(c.flavour && { flavour: c.flavour }),
+          ...(c.attacker && { attacker: c.attacker }),
           options: viewer === c.chooser ? [...c.options] : [],
           ...(c.amount !== undefined && { amount: c.amount }),
           ...(c.target !== undefined && { target: c.target }),

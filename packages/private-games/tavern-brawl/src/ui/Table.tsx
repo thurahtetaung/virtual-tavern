@@ -14,7 +14,15 @@ import type {
 import { type Art, heroVars } from './assets.ts';
 import { Card, Zoom } from './Card.tsx';
 import { Portrait } from './Lobby.tsx';
-import { type NameOf, describe, possessive, prompt, waitingLine } from './text.ts';
+import {
+  type NameOf,
+  Possessive,
+  askingCard,
+  describe,
+  possessive,
+  prompt,
+  waitingLine,
+} from './text.ts';
 
 type Act = (action: TavernBrawlAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -35,12 +43,29 @@ export function statusFor(view: TavernBrawlView, you: string, name: NameOf, art:
   const c = g.choice;
   if (c && c.chooser === you)
     return {
-      text: c.kind === 'social' ? 'Your move: animal noise time!' : 'Your move: choose below.',
+      text:
+        c.kind === 'social'
+          ? c.flavour === 'dance'
+            ? 'Your move: dance time!'
+            : c.flavour === 'praise'
+              ? 'Your move: praise, or refuse?'
+              : 'Your move: animal noise time!'
+          : me?.out
+            ? 'Your ghost’s turn: choose who to haunt below.'
+            : 'Your move: choose below.',
       yourMove: true,
     };
   if (c) return { text: waitingLine(c, name, art), yourMove: false };
-  if (me?.out) return { text: 'You’re out: watching the rest of the brawl.', yourMove: false };
   const turn = g.turn;
+  const turnPlayer = g.players.find((p) => p.id === turn.player);
+  if (turnPlayer?.ghost && turn.player !== you)
+    return { text: `👻 ${Possessive(name(turn.player))} ghost is haunting…`, yourMove: false };
+  if (me?.ghost)
+    return {
+      text: 'You’re a ghost 👻: on your turn you attack one player for 1 (never a knockout).',
+      yourMove: false,
+    };
+  if (me?.out) return { text: 'You’re out: watching the rest of the brawl.', yourMove: false };
   if (turn.player === you) {
     if (g.resolving.length > 0) return { text: 'Resolving your card…', yourMove: false };
     const more =
@@ -148,11 +173,13 @@ function ShieldChip({
 }) {
   const pickable = !!picking?.options.has(shield.id);
   const borrowed = shield.owner !== holder.id;
+  const acts = shield.copyOf ?? shield.card;
+  const label = shield.copyOf ? `${art.card(shield.card)} as ${art.card(acts)}` : art.card(acts);
   return (
     <button
       type="button"
       onClick={() => (pickable ? picking!.pick(shield.id) : onZoom(shield))}
-      aria-label={`${art.card(shield.card)}, shield ${shield.left} of ${CARDS[shield.card]?.shield}${borrowed ? `, from ${possessive(name(shield.owner))} deck` : ''}${pickable ? ', tap to pick' : ''}`}
+      aria-label={`${label}, shield ${shield.left} of ${CARDS[acts]?.shield}${borrowed ? `, from ${possessive(name(shield.owner))} deck` : ''}${pickable ? ', tap to pick' : ''}`}
       className={cn(
         'inline-flex h-8 items-center gap-1 rounded-lg bg-info-soft px-2 text-sm font-bold text-info-ink ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
         pickable &&
@@ -161,7 +188,8 @@ function ShieldChip({
       data-shield={shield.id}
     >
       🛡{shield.left}
-      <span className="max-w-24 truncate text-xs font-medium">{art.card(shield.card)}</span>
+      {shield.copyOf && <span aria-hidden>🪞</span>}
+      <span className="max-w-24 truncate text-xs font-medium">{art.card(acts)}</span>
     </button>
   );
 }
@@ -175,6 +203,7 @@ function PlayerRow({
   picking,
   onZoom,
   compact,
+  near,
 }: {
   p: PlayerView;
   g: GameView;
@@ -184,20 +213,35 @@ function PlayerRow({
   picking: Picking | null;
   onZoom: (r: CardRef) => void;
   compact?: boolean;
+  /** With five or more players: which side of you this neighbour sits on. */
+  near?: 'left' | 'right';
 }) {
   const turn = g.turn.player === p.id && !p.out;
   const waiting = g.clock?.who === p.id;
   const pickable = !!picking?.options.has(p.id);
   const offline = room.players.find((x) => x.id === p.id)?.connected === false;
+  // Ghosts haunt only while the brawl goes on.
+  const haunting = !!p.ghost && g.endReason === null;
   if (p.out)
     return (
       <li
-        className="flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60 dark:text-stone-500"
+        className={cn(
+          'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60 dark:text-stone-500',
+          g.turn.player === p.id && 'ring-2 ring-line-strong dark:ring-stone-600',
+        )}
         data-player={p.id}
+        data-ghost={p.ghost || undefined}
       >
-        <span aria-hidden>💀</span>
-        <span className="truncate font-medium line-through">{name(p.id)}</span>
-        <span className="truncate text-xs">{art.hero(p.hero)} · out</span>
+        <span aria-hidden>{haunting ? '👻' : '💀'}</span>
+        <span
+          className={cn('max-w-[40%] shrink-0 truncate font-medium', !haunting && 'line-through')}
+        >
+          {name(p.id)}
+        </span>
+        <span className="min-w-0 truncate text-xs">
+          {art.hero(p.hero)} · {haunting ? 'ghost: attacks once a turn, never a knockout' : 'out'}
+        </span>
+        {waiting && <span aria-label="their move">⏳</span>}
       </li>
     );
   return (
@@ -234,11 +278,21 @@ function PlayerRow({
               />
               {p.left && <span className="text-xs text-ink-muted">(left)</span>}
               {waiting && <span aria-label="their move">⏳</span>}
+              {near && (
+                <span
+                  className="ml-auto shrink-0 rounded-full bg-warn-soft px-1.5 text-[0.65rem] font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40"
+                  title="Your regular attacks reach this neighbour"
+                >
+                  {near === 'left' ? '⬅ in reach' : 'in reach ➡'}
+                </span>
+              )}
             </span>
             <span className="block truncate text-xs text-ink-muted dark:text-stone-400">
               {art.hero(p.hero)} · ✋{p.handCount} · 🂠{p.deckCount}
               {p.form && ` · ${p.form.kind === 'bear' ? '🐻' : '🐺'}`}
               {p.disguised && ' · 🎭 disguised'}
+              {p.controls && ' · 🎯 steers attacks'}
+              {p.allOpps && ' · ✳ hits everyone'}
             </span>
           </span>
           <span className="relative">
@@ -396,7 +450,10 @@ function HandCard({
   return (
     <li
       style={{ marginLeft: index === 0 ? 0 : -overlap, zIndex: selected ? 50 : index }}
-      className={cn('relative transition-transform', selected && '-translate-y-3')}
+      className={cn(
+        'relative shrink-0 snap-start transition-transform',
+        selected && '-translate-y-3',
+      )}
     >
       <button
         type="button"
@@ -456,16 +513,27 @@ function Hand({
     setRoom(el.clientWidth);
     return () => ro.disconnect();
   }, []);
-  const width = room >= 700 ? 132 : 108;
+  // Cards never overlap, so every name stays readable: they shrink a little to fit, and past
+  // that the row scrolls sideways.
   const n = view.hand.length;
-  const overlap = n > 1 ? Math.max(0, (n * width - room) / (n - 1)) : 0;
+  const GAP = 6;
+  const full = room >= 700 ? 132 : 108;
+  const fit = n > 0 ? Math.floor((room - GAP * (n - 1)) / n) : full;
+  const width = Math.max(92, Math.min(full, fit));
+  const scrolls = n * width + GAP * (n - 1) > room;
+  const overlap = -GAP;
   const owners = new Map(g.players.map((p) => [p.id, p]));
   return (
     <div ref={ref} className="w-full" role="region" aria-label="Your hand">
       {n === 0 ? (
         <p className="py-6 text-center text-sm text-ink-muted">No cards in hand.</p>
       ) : (
-        <ul className="flex justify-center pt-3">
+        <ul
+          className={cn(
+            'flex pt-3 pb-1',
+            scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',
+          )}
+        >
           {view.hand.map((r, i) => (
             <HandCard
               key={r.id}
@@ -487,6 +555,11 @@ function Hand({
           ))}
         </ul>
       )}
+      {scrolls && (
+        <p className="text-center text-xs text-ink-muted dark:text-stone-400">
+          ← Swipe for all {n} cards →
+        </p>
+      )}
     </div>
   );
 }
@@ -499,6 +572,7 @@ function ChoiceStrip({
   art,
   name,
   picking,
+  room,
 }: {
   c: ChoiceView;
   g: GameView;
@@ -506,18 +580,32 @@ function ChoiceStrip({
   art: Art;
   name: NameOf;
   picking: Picking;
+  room: GameRoomInfo;
 }) {
+  const seat = (id: string) => {
+    const at = g.order.indexOf(me?.id ?? '');
+    const living = g.order.filter((x) => !g.players.find((p) => p.id === x)?.out || x === me?.id);
+    const i = living.indexOf(me?.id ?? '');
+    if (at < 0 || i < 0) return '';
+    if (living[(i + 1) % living.length] === id) return 'left';
+    if (living[(i - 1 + living.length) % living.length] === id) return 'right';
+    return '';
+  };
+  const MNA: Record<string, string> = { attack: '⚔ Attack 1', heal: '❤ Heal 1', draw: '🃏 Draw 1' };
   const shields = new Map(
     g.players.flatMap((p) => p.shields.map((s) => [s.id, { s, holder: p }] as const)),
   );
   const discard = new Map((me?.discard ?? []).map((r) => [r.id, r]));
   const label = (o: string) => {
     if (o === 'skip') return 'Skip';
+    if (c.kind === 'mna' && MNA[o]) return MNA[o];
     const p = g.players.find((x) => x.id === o);
+    if (p && c.kind === 'side')
+      return `${seat(o) === 'left' ? '⬅ Left' : seat(o) === 'right' ? 'Right ➡' : ''}: ${name(p.id)} (${art.hero(p.hero)})`;
     if (p)
-      return `${name(p.id)} (❤${p.hp}${p.shields.length ? ` 🛡${p.shields.reduce((n, s) => n + s.left, 0)}` : ''})`;
+      return `${name(p.id)} (❤${p.hp}${p.shields.length ? ` 🛡${p.shields.reduce((n, s) => n + s.left, 0)}` : ''}${c.kind === 'opponent' && !c.amount ? ` ✋${p.handCount}` : ''})`;
     const sh = shields.get(o);
-    if (sh) return `${art.card(sh.s.card)} (${name(sh.holder.id)}, 🛡${sh.s.left})`;
+    if (sh) return `${art.card(sh.s.copyOf ?? sh.s.card)} (${name(sh.holder.id)}, 🛡${sh.s.left})`;
     const d = discard.get(o);
     if (d) return art.card(d.card);
     return 'Card';
@@ -533,9 +621,29 @@ function ChoiceStrip({
       aria-label="Your choice"
       className="flex flex-col gap-2 rounded-xl bg-warn-soft p-2 ring-1 ring-warn-line dark:bg-amber-500/10 dark:ring-amber-500/40"
     >
-      <p className="text-sm font-semibold text-warn-ink dark:text-amber-100">
-        {prompt(c, g, name, art)}
-      </p>
+      <div className="flex items-start gap-2">
+        <p className="min-w-0 flex-1 text-sm font-semibold text-warn-ink dark:text-amber-100">
+          {prompt(c, g, name, art)}
+        </p>
+        {c.deadline !== undefined && (
+          <Countdown
+            deadline={c.deadline}
+            clockOffset={room.clockOffset}
+            atZero={
+              c.kind === 'mna'
+                ? 'then you draw'
+                : c.kind === 'redirect'
+                  ? 'then it stays on target'
+                  : 'then a random pick is made'
+            }
+          />
+        )}
+      </div>
+      {g.zone && c.kind === 'target' && c.card && CARDS[c.card]?.effect === null && (
+        <p className="text-xs text-warn-ink dark:text-amber-100">
+          Five or more players: regular attacks only reach your neighbours.
+        </p>
+      )}
       {uniqueCards.length > 0 && (
         <ul className="flex gap-2 overflow-x-auto pb-1">
           {uniqueCards.map((o) => (
@@ -569,39 +677,67 @@ function ChoiceStrip({
   );
 }
 
+const SOCIAL = {
+  howl: {
+    ask: 'make an animal noise, out loud, for everyone!',
+    then: 'Then every opponent takes 1 damage. Honour system: the table is listening.',
+    yes: '🐺 I made an animal noise!',
+    no: 'Skip the noise (no damage)',
+    label: 'to howl',
+  },
+  dance: {
+    ask: 'do a little dance, right now!',
+    then: 'Dancers draw a card (and the owl draws one more for each). Honour system.',
+    yes: '💃 I danced!',
+    no: 'Not dancing',
+    label: 'to dance',
+  },
+  praise: {
+    ask: 'praise their greatness, out loud!',
+    then: 'Refuse and you take 2 damage. Honour system: they’re listening.',
+    yes: '🙌 I praised them!',
+    no: 'Refuse (take 2 damage)',
+    label: 'to praise',
+  },
+} as const;
+
 /** The honour-system prompt: one big button, a smaller skip, and a fixed 20-second clock. */
 function SocialSheet({
   c,
   art,
   room,
   picking,
+  name,
+  turnPlayer,
 }: {
   c: ChoiceView;
   art: Art;
   room: GameRoomInfo;
   picking: Picking;
+  name: NameOf;
+  turnPlayer: string;
 }) {
+  const t = SOCIAL[c.flavour ?? 'howl'];
+  const whose = c.flavour === 'praise' ? ` ${name(turnPlayer)} wants you to` : '';
   return (
     <section
-      aria-label="Animal noise"
+      aria-label="Honour prompt"
       className="flex flex-col items-center gap-2 rounded-2xl bg-special-soft p-4 text-center ring-1 ring-special-line dark:bg-violet-500/15 dark:ring-violet-500/40"
     >
       <p className="font-bold text-special-ink dark:text-violet-100">
-        {art.card(c.source.card)}: make an animal noise, out loud, for everyone!
+        {askingCard(c, art)}:{whose} {t.ask}
       </p>
-      <p className="text-sm text-special-ink dark:text-violet-100">
-        Then every opponent takes 1 damage. Honour system: the table is listening.
-      </p>
+      <p className="text-sm text-special-ink dark:text-violet-100">{t.then}</p>
       <Button size="lg" className="w-full" onClick={() => picking.pick('done')}>
-        🐺 I made an animal noise!
+        {t.yes}
       </Button>
       <Button variant="ghost" size="sm" onClick={() => picking.pick('skip')}>
-        Skip the noise (no damage)
+        {t.no}
       </Button>
       <Countdown
         deadline={c.deadline ?? null}
         clockOffset={room.clockOffset}
-        label="to howl"
+        label={t.label}
         atZero="then it counts as done"
       />
     </section>
@@ -724,6 +860,15 @@ export function Table({
     const round = at >= 0 ? [...g.order.slice(at + 1), ...g.order.slice(0, at)] : g.order;
     return round.map((id) => g.players.find((p) => p.id === id)!).filter(Boolean);
   }, [g, you]);
+  // With five or more, regular attacks reach only the nearest living seat on each side.
+  const near = useMemo(() => {
+    const living = order.filter((p) => !p.out);
+    if (!g.zone || !me || me.out || living.length === 0) return new Map<string, 'left' | 'right'>();
+    return new Map([
+      [living.at(-1)!.id, 'right' as const],
+      [living[0]!.id, 'left' as const],
+    ]);
+  }, [order, g.zone, me]);
   const zoomRef = zoom?.ref;
   const selectedRef = view.hand.find((r) => r.id === selected);
   const clock = g.clock;
@@ -872,6 +1017,7 @@ export function Table({
           picking={picking}
           onZoom={(r) => setZoom({ ref: r })}
           compact={order.length >= 3}
+          near={near.get(p.id)}
         />
       ))}
     </ul>
@@ -894,10 +1040,17 @@ export function Table({
   const playArea = (
     <>
       {mine && mine.kind === 'social' && picking && (
-        <SocialSheet c={mine} art={art} room={room} picking={picking} />
+        <SocialSheet
+          c={mine}
+          art={art}
+          room={room}
+          picking={picking}
+          name={name}
+          turnPlayer={g.turn.player}
+        />
       )}
       {mine && mine.kind !== 'social' && picking && (
-        <ChoiceStrip c={mine} g={g} me={me} art={art} name={name} picking={picking} />
+        <ChoiceStrip c={mine} g={g} me={me} art={art} name={name} picking={picking} room={room} />
       )}
       <RefusalSlot anchor="tb-choice" />
       {canPlay && (

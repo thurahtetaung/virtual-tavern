@@ -39,7 +39,7 @@ function checkView(state: TavernBrawlState, viewer: string | null) {
 
 function randomGame(seed: number) {
   const rng = createRng(seed);
-  const n = 2 + rng.int(3);
+  const n = 2 + rng.int(5);
   const players = Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
   let now = NOW;
   let state = tavernBrawl.create({ now, rng, content: NO_CONTENT }, players);
@@ -137,7 +137,10 @@ function invariants(state: TavernBrawlState) {
   }
   expect(g.turn.debt).toBeGreaterThanOrEqual(0);
   if (state.phase === 'playing') {
-    expect(g.players[g.turn.player]!.out).toBe(false);
+    const turn = g.players[g.turn.player]!;
+    expect(!turn.out || turn.ghost === true).toBe(true);
+    for (const p of g.order) if (g.players[p]!.ghost) expect(g.players[p]!.out).toBe(true);
+    if (!g.zone) for (const p of g.order) expect(g.players[p]!.ghost).toBeFalsy();
     expect(g.order.filter((p) => !g.players[p]!.out).length).toBeGreaterThan(1);
   }
 }

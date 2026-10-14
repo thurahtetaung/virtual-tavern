@@ -36,9 +36,10 @@ export function describe(e: LogEntry, name: NameOf, art: Art): string | null {
     case 'damage': {
       const t = name(e.target);
       if (e.hp === 0 && e.shield === 0) return null;
-      if (e.hp === 0) return `${Possessive(t)} shields blocked ${e.shield}`;
+      const ghost = e.ghost ? `👻 ${Possessive(name(e.by))} ghost: ` : '';
+      if (e.hp === 0) return `${ghost}${Possessive(t)} shields blocked ${e.shield}`;
       const blocked = e.shield > 0 ? ` (shields blocked ${e.shield})` : '';
-      return `${t} took ${e.hp} damage${blocked}`;
+      return `${ghost}${t} took ${e.hp} damage${blocked}`;
     }
     case 'shield-hit':
       return null;
@@ -82,10 +83,50 @@ export function describe(e: LogEntry, name: NameOf, art: Art): string | null {
       return `${Possessive(name(e.player))} attack cards deal +${e.bonus} this turn`;
     case 'form':
       return `${name(e.player)} took the ${e.form === 'bear' ? '🐻 bear' : '🐺 wolf'} Form`;
-    case 'social':
-      return e.done
-        ? `🐺 ${name(e.player)} made an animal noise${e.auto ? ' (time ran out)' : ''}`
-        : `${name(e.player)} skipped the noise`;
+    case 'social': {
+      const who = name(e.player);
+      const late = e.auto ? ' (time ran out)' : '';
+      switch (e.flavour ?? 'howl') {
+        case 'howl':
+          return e.done ? `🐺 ${who} made an animal noise${late}` : `${who} skipped the noise`;
+        case 'dance':
+          return e.done ? `💃 ${who} danced${late}` : `${who} sat the dance out`;
+        case 'praise':
+          return e.done ? `🙌 ${who} gave praise${late}` : `😤 ${who} refused to praise`;
+      }
+      return null;
+    }
+    case 'mna': {
+      const who = name(e.player);
+      const what = { attack: '⚔ attack', heal: '❤ heal', draw: '🃏 draw' }[e.pick];
+      return `${who} chose to ${what}`;
+    }
+    case 'hp-copy':
+      return `${Possessive(name(e.a))} hit points became ${e.hp}, like ${possessive(name(e.b))}`;
+    case 'hands':
+      return `${name(e.a)} and ${name(e.b)} swapped hands`;
+    case 'mother':
+      return e.cards.length
+        ? `${name(e.by)} took ${e.cards.map(card).join(', ')} from discard piles`
+        : `${name(e.by)} found no discards to take`;
+    case 'mirror':
+      return `🪞 ${name(e.player)} copied ${card(e.card)}`;
+    case 'lasting': {
+      const who = name(e.player);
+      if (e.what === 'control')
+        return `🎯 ${who} steers everyone else’s attacks until their next turn`;
+      if (e.what === 'allOpps')
+        return `✳ ${Possessive(who)} attacks hit every opponent until their next turn`;
+      return `${Possessive(who)} attack cards ignore shields this turn`;
+    }
+    case 'redirect':
+      return `🎯 ${name(e.by)} steered ${possessive(name(e.attacker))} attack at ${name(e.target) === 'You' ? 'you' : name(e.target)}`;
+    case 'borrow':
+      return `${name(e.player)} borrowed ${possessive(name(e.from))} power`;
+    case 'liquidate':
+      return `${name(e.player)} discarded ${plural(e.count, 'card')}`;
+    case 'haunt':
+      return `👻 ${Possessive(name(e.player))} ghost had nobody to haunt`;
     case 'fizzle':
       return `${card(e.card)} had ${e.why === 'no-target' ? 'nobody to hit' : e.why === 'no-shield' ? 'no shield to take' : 'no card to take'}`;
     case 'ko': {
@@ -144,8 +185,12 @@ export function rulesLine(def: CardDef): string {
 }
 
 /** The question the open choice asks the chooser. */
+/** The card a question is about, by name ("Your ghost" for a ghost's attack). */
+export const askingCard = (c: ChoiceView, art: Art) =>
+  c.card === 'ghost' || (!c.card && !c.source) ? 'Your ghost' : art.card(c.card ?? c.source!.card);
+
 export function prompt(c: ChoiceView, g: GameView, name: NameOf, art: Art): string {
-  const card = art.card(c.source.card);
+  const card = askingCard(c, art);
   switch (c.kind) {
     case 'target':
       return `${card}: who takes ${c.amount} damage? Tap a player, or one of their shields.`;
@@ -164,15 +209,36 @@ export function prompt(c: ChoiceView, g: GameView, name: NameOf, art: Art): stri
     case 'form':
       return `${card}: play a Form card for free?`;
     case 'social':
+      if (c.flavour === 'dance') return `${card}: do a little dance out loud to draw a card!`;
+      if (c.flavour === 'praise')
+        return `${card}: ${name(g.turn.player)} demands praise. Praise them out loud, or take 2 damage.`;
       return `${card}: make an animal noise out loud to hit every opponent!`;
+    case 'mna':
+      return `${card} (${name(g.turn.player)}): attack, heal or draw? ${name(g.turn.player)} does the same.`;
+    case 'opponent':
+      return c.amount !== undefined
+        ? `${card}: who takes ${c.amount} damage?`
+        : `${card}: which opponent?`;
+    case 'second':
+      return `${card}: who takes the last ${c.amount ?? 1} damage (a different opponent)?`;
+    case 'side':
+      return `${card}: borrow the power of your left or right neighbour?`;
+    case 'copyA':
+      return `${card}: whose hit points change?`;
+    case 'copyB':
+      return `${card}: copy whose hit points?`;
+    case 'mirror':
+      return `${card}: copy which shield?`;
+    case 'redirect':
+      return `${card} (${name(c.attacker ?? '')}): you steer this ${c.amount}-damage attack. Where does it go?`;
   }
-  void g;
 }
 
 /** What everyone else sees while someone chooses. */
 export function waitingLine(c: ChoiceView, name: NameOf, art: Art): string {
   const who = name(c.chooser);
-  const card = art.card(c.source.card);
+  const card =
+    c.card === 'ghost' || (!c.card && !c.source) ? 'ghost' : art.card(c.card ?? c.source!.card);
   const verb: Record<ChoiceView['kind'], string> = {
     target: 'choosing who to hit',
     shield: 'choosing which shield to hit',
@@ -182,7 +248,20 @@ export function waitingLine(c: ChoiceView, name: NameOf, art: Art): string {
     pickpocket: 'choosing whose deck to take from',
     recover: 'taking a card back',
     form: 'deciding on a free Form',
-    social: 'making an animal noise (or not)',
+    social:
+      c.flavour === 'dance'
+        ? 'deciding whether to dance'
+        : c.flavour === 'praise'
+          ? 'deciding whether to give praise'
+          : 'making an animal noise (or not)',
+    mna: 'choosing attack, heal or draw',
+    opponent: 'choosing an opponent',
+    second: 'choosing one more opponent',
+    side: 'choosing a neighbour’s power',
+    copyA: 'choosing whose hit points change',
+    copyB: 'choosing whose hit points to copy',
+    mirror: 'choosing a shield to copy',
+    redirect: 'steering an attack',
   };
   return `${who} ${who === 'You' ? 'are' : 'is'} ${verb[c.kind]} (${card})…`;
 }

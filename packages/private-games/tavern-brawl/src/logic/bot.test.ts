@@ -14,7 +14,7 @@ const host = (view: TavernBrawlView, _me: PlayerId): TavernBrawlAction | null =>
 };
 
 describe('bots', () => {
-  for (const n of [2, 3, 4]) {
+  for (const n of [2, 3, 4, 5, 6]) {
     for (const seed of [1, 2, 3, 4, 5]) {
       it(`plays a ${n}-player game to the end (seed ${seed})`, () => {
         const r = playWithBots(tavernBrawl, seats(n), { seed, host, maxSteps: 4000 });
