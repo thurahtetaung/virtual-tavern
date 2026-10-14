@@ -152,8 +152,12 @@ export function Seats({
                 )}
               </span>
               <span className="flex min-h-4 flex-wrap items-center gap-0.5 text-[0.62rem] leading-tight font-bold">
-                {president && <Placard kind="president" c={c} special={g.special} />}
-                {chancellor && <Placard kind="chancellor" c={c} drop={nominee === p.id} />}
+                {president && (
+                  <Placard kind="president" c={c} special={g.special} compact={compact} />
+                )}
+                {chancellor && (
+                  <Placard kind="chancellor" c={c} drop={nominee === p.id} compact={compact} />
+                )}
                 {k && (
                   <span
                     className="rounded bg-red-700 px-1 text-white"
@@ -227,34 +231,50 @@ export function Seats({
   );
 }
 
-/** The President / Chancellor placard on a seat. */
+/**
+ * The President / Chancellor placard on a seat: the full office name, or its short form on a
+ * big table's phone seats, never smaller than 11 px.
+ */
 export function Placard({
   kind,
   c,
   drop,
   special,
+  compact,
 }: {
   kind: 'president' | 'chancellor';
   c: Content;
   drop?: boolean;
   special?: boolean;
+  compact?: boolean;
 }) {
   const label =
     kind === 'president'
       ? c.t(special ? '{President} (special)' : '{President}')
       : c.t('{Chancellor}');
+  const full = kind === 'president' ? c.t('{President}') : c.t('{Chancellor}');
+  const short = kind === 'president' ? c.names.presidentShort : c.names.chancellorShort;
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded px-1 text-[0.58rem] tracking-wide uppercase',
+        'inline-flex max-w-full items-center rounded px-1 text-[0.6875rem] leading-4 font-bold',
         kind === 'president' ? 'bg-teal-800 text-teal-50' : 'bg-orange-800 text-orange-50',
         drop && 'hy-drop',
       )}
       title={label}
+      aria-label={label}
     >
-      {kind === 'president'
-        ? `${c.names.presidentShort}${special ? ' ★' : ''}`
-        : c.names.chancellorShort}
+      <span aria-hidden className="truncate">
+        {compact ? (
+          <>
+            <span className="sm:hidden">{short}</span>
+            <span className="hidden sm:inline">{full}</span>
+          </>
+        ) : (
+          full
+        )}
+        {kind === 'president' && special ? ' ★' : ''}
+      </span>
     </span>
   );
 }
