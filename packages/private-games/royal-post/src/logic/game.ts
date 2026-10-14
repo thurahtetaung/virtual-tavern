@@ -202,7 +202,7 @@ function beginRound(state: RoyalPostState, first: PlayerId, now: number, rng: Rn
 
 /**
  * Ends the round: the last player standing wins, or else the highest card. Classic ties go to
- * the highest total of discards (still tied: nobody wins); in 2019 every tied player wins. A lone
+ * the highest total of discards; any tie left (and every 2019 tie) gives each tied player a token. A lone
  * surviving Spy player gains a bonus token. Reaching the target ends the game.
  */
 function endRound(state: RoyalPostState, reason: RoundEndReason): RoyalPostState {
@@ -226,7 +226,6 @@ function endRound(state: RoyalPostState, reason: RoundEndReason): RoyalPostState
       discardTotals = Object.fromEntries(winners.map((id) => [id, total(id)]));
       const best = Math.max(...winners.map(total));
       winners = winners.filter((id) => total(id) === best);
-      if (winners.length > 1) winners = [];
     }
   }
   const spies = survivors.filter((id) => round.players[id]!.discards.includes('spy'));
@@ -882,7 +881,6 @@ function view(state: RoyalPostState, viewer: PlayerId | null): RoyalPostView {
           stage: round.stage,
           deckCount: round.deck.length,
           setAside: round.setAside !== null,
-          setAsideCard: round.stage === 'over' ? round.setAside : null,
           faceUp: [...round.faceUp],
           deadline: round.deadline,
           result: round.result,

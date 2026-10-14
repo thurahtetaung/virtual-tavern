@@ -260,7 +260,7 @@ export function tiebreakLine(view: RoyalPostView): string | null {
     .map(([id, n]) => `${nameOf(view, id)} ${n}`)
     .join(', ');
   const settled =
-    result.winners.length === 0 ? ' Still tied on discards, so nobody wins the token.' : '';
+    result.winners.length > 1 ? ' Still tied on discards, so each of them wins a token.' : '';
   return `Tied cards were settled on discards: ${totals}.${settled}`;
 }
 

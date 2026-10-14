@@ -65,6 +65,30 @@ describe('lie for me', () => {
     }
   });
 
+  it('keeps the half score when the player types out the fake they were shown', () => {
+    const h = game();
+    h.act({ type: 'lie-for-me' }, 'p2');
+    const picked = round(h).lies.p2!;
+    for (const text of [picked.toUpperCase(), `${picked}!`, `the ${picked}s`]) {
+      h.act({ type: 'lie', text: 'My own idea' }, 'p2');
+      expect(round(h).autoLies).toEqual([]);
+      h.act({ type: 'lie', text }, 'p2');
+      expect(round(h).autoLies, text).toEqual(['p2']);
+    }
+    // A fake nobody showed them is just a lie of their own.
+    const p3Fake = round(h).fakes!.p3!;
+    h.act({ type: 'lie', text: p3Fake }, 'p3');
+    expect(round(h).autoLies).toEqual(['p2']);
+  });
+
+  it('never offers a fake that is the truth with a hyphen or a full stop', () => {
+    const h = game(['Wooden-spoon', 'Wooden. Spoon', ...GOOD]);
+    for (const id of ['p2', 'p3', 'p4']) h.act({ type: 'lie-for-me' }, id);
+    expect(Object.values(round(h).fakes!)).not.toContain('Wooden-spoon');
+    expect(lies(h)).not.toContain('Wooden. Spoon');
+    for (const id of ['p2', 'p3', 'p4']) expect(GOOD).toContain(round(h).lies[id]);
+  });
+
   it('can’t be re-rolled to harvest the fakes, even after typing your own lie', () => {
     const h = game();
     h.act({ type: 'lie-for-me' }, 'p2');

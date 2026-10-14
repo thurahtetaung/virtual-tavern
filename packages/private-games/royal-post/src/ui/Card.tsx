@@ -21,6 +21,9 @@ interface Props {
   reads?: boolean;
 }
 
+/** Names longer than this ("Chancellor") are set smaller so they fit the card. */
+const LONG_NAME = 8;
+
 const TEXT: Record<Size, { rank: string; emoji: string; name: string }> = {
   xs: { rank: 'text-[0.6rem] top-0.5 left-1', emoji: 'text-sm', name: 'hidden' },
   sm: { rank: 'text-xs top-1 left-1.5', emoji: 'mt-2 text-xl', name: 'text-[0.65rem]' },
@@ -67,8 +70,9 @@ export function Card({
         <span aria-hidden className={t.emoji}>
           {ROLE_EMOJI[role]}
         </span>
+        {/* Long names shrink to fit; `truncate` only catches a manifest name too long even then. */}
         <span className={cn('mt-1 max-w-full truncate px-1 font-serif font-semibold', t.name)}>
-          {name}
+          <span className={cn(name.length > LONG_NAME && 'text-[0.8em]')}>{name}</span>
         </span>
       </span>
     );
