@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { escapeRegExp } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { PLACEHOLDER_CARDS, PLACEHOLDER_NAMES, fillNames } from './names.ts';
 
@@ -19,8 +20,6 @@ describe('fillNames', () => {
   });
 });
 
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 /** String literals in the engine (refusals and the log's `did` texts) that spell a card's name. */
 function spelled(file: string): string[] {
   const src = readFileSync(new URL(file, import.meta.url), 'utf8')
@@ -34,7 +33,7 @@ function spelled(file: string): string[] {
   return literals.filter(
     (s) =>
       s.includes(' ') &&
-      words.some((w) => new RegExp(`(^|[^\\w{:])${escapeRe(w)}s?(?![\\w])`).test(s)),
+      words.some((w) => new RegExp(`(^|[^\\w{:])${escapeRegExp(w)}s?(?![\\w])`).test(s)),
   );
 }
 
