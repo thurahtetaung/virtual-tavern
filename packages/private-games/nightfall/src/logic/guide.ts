@@ -7,6 +7,7 @@ import type {
   GuideTile,
   GuideTone,
 } from '@vt/game-sdk';
+import { escapeRegExp } from '@vt/game-sdk';
 import { STEPS, type StepDef, buildNightPlan, epicPossible, publicPlan, stepDef } from './plan.ts';
 import { recommended } from './presets.ts';
 import {
@@ -54,7 +55,6 @@ export interface NightfallNames {
 const playable = ROLE_IDS.filter((r) => ENABLED_SETS.includes(ROLES[r].set));
 /** Team words, which the rules use as words rather than as card names. */
 const GENERIC = new Set<RoleId>(['werewolf', 'vampire', 'alien']);
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Whether a role is ever woken at night (its own step, or with its team). */
 const wakes = (r: RoleId) =>
@@ -109,7 +109,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
   const LABEL_RE = new RegExp(
     `(?<![\\w-])(${[...LABELS.keys()]
       .sort((a, b) => b.length - a.length)
-      .map(escapeRe)
+      .map(escapeRegExp)
       .join('|')})(?![\\w-])`,
     'g',
   );

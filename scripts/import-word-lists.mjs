@@ -26,8 +26,7 @@ if (!baseUrl || !folder || (!password && !opts.dryRun)) {
   );
   process.exit(1);
 }
-const toRegex = (glob) =>
-  glob && new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
+const toRegex = (glob) => glob && new RegExp(`^${glob.split('*').map(RegExp.escape).join('.*')}$`);
 const skip = toRegex(opts.skip);
 const only = toRegex(opts.only);
 
