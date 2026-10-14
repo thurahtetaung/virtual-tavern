@@ -198,6 +198,8 @@ test('three failed governments: the people enact the top policy', async ({ brows
   const host = players[0]!.page;
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
   await readRoles(players);
+  // On desktop the Me content shows once, in the sidebar (never again under the table).
+  await expect(host.getByRole('region', { name: 'Your role card' })).toHaveCount(1);
   const everyone = players.map((p) => p.name);
   for (let i = 0; i < 3; i++) {
     const pres = await president(players);
@@ -233,8 +235,11 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   const tabs = page.getByRole('navigation', { name: 'Game sections' });
   await expect(page.getByRole('list', { name: 'Seats' }).first()).toBeVisible();
   await expect(badge).toHaveCount(0);
+  // The Me content shows only on the Me tab, and once.
+  const card = page.getByRole('region', { name: 'Your role card' });
+  await expect(card).toHaveCount(0);
   await tabs.getByRole('button', { name: /Me/ }).click();
-  const card = page.getByRole('region', { name: 'Your role card' }).first();
+  await expect(card).toHaveCount(1);
   await expect(card).toBeVisible();
   await expect(page.getByTestId('role-details-hidden').first()).toBeVisible();
   await expect(page.getByTestId('role-details')).toHaveCount(0);
