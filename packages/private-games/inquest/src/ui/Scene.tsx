@@ -195,6 +195,16 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
     return null;
   })();
 
+  // One first-time tip at a time, so the tiles stay in sight: the step's own tip first.
+  const tip: 'fs-picker' | 'fs-pacing' | 'scene' | null =
+    mode === 'location' && fsTipOpen
+      ? 'fs-picker'
+      : mode === 'bullet' && paceTipOpen
+        ? 'fs-pacing'
+        : tipOpen && g.slots.length > 0
+          ? 'scene'
+          : null;
+
   const send = (action: InquestAction) =>
     void act(action, { anchor: 'inquest-scene' }).then(() => pick(null));
 
@@ -305,13 +315,13 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
 
   return (
     <div className="space-y-2">
-      {tipOpen && g.slots.length > 0 && (
+      {tip === 'scene' && (
         <TipBox onClose={dismissTip}>
           The 6 tiles describe the crime. Each bullet marks the item that fits best. Talk it over as
           they land: the order bullets land in can be a clue.
         </TipBox>
       )}
-      {mode === 'bullet' && paceTipOpen && (
+      {tip === 'fs-pacing' && (
         <TipBox onClose={dismissPaceTip}>
           No rush: the table talks while your bullets land, and you may let that talk guide the next
           one. Place each bullet when you’re ready, but never speak, nod or point.
@@ -319,7 +329,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
       )}
       {mode === 'location' && (
         <div className="space-y-2">
-          {fsTipOpen && (
+          {tip === 'fs-picker' && (
             <TipBox onClose={dismissFsTip}>
               Only your bullets may speak: no words, faces or gestures. Tap a tile or item, then
               confirm.
