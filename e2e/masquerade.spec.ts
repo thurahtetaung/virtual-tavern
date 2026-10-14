@@ -40,7 +40,8 @@ test('four players play Masquerade: the spy escapes, steals a round, then guesse
   // no ideas for the card and no mark on the real location, and none of it in the page.
   for (const p of [spy, locals[0]!]) {
     await expect(p.getByTestId('card-cover')).toBeVisible();
-    await expect(p.getByText('You’re the spy')).toHaveCount(0);
+    // (The rules guide says “You’re the spy” in general terms on every page: the card's title is the tell.)
+    await expect(p.getByTestId('card-title')).toHaveCount(0);
     await expect(p.getByText('💡 Coaching:')).toHaveCount(0);
     await expect(p.getByText('Safe questions (fit anywhere)')).toHaveCount(0);
     await expect(p.getByText(`📍 For ${location}`)).toHaveCount(0);
