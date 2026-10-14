@@ -138,10 +138,8 @@ export async function vote(players: Page[], names: string[], pick: (i: number) =
   }
   for (const p of players) await expect(p.getByText('🗳️ The vote')).toBeVisible();
   for (const [i, p] of players.entries()) {
-    // A Bodyguard's buttons protect instead of voting.
-    const button = p.getByRole('button', {
-      name: new RegExp(`^(Vote for|Protect) ${names[pick(i)]}$`),
-    });
+    // Every role's buttons read "Vote for": a Bodyguard's protect is told only behind a peek.
+    const button = p.getByRole('button', { name: `Vote for ${names[pick(i)]}`, exact: true });
     await button.click();
     // The last vote ends the vote, so only the others can see theirs pressed.
     if (i < players.length - 1) await expect(button).toHaveAttribute('aria-pressed', 'true');

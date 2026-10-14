@@ -28,6 +28,24 @@ export function votePower(view: NightfallView): VotePower {
   return view.myRole === 'bodyguard' ? 'protect-if-kept' : 'vote';
 }
 
+/**
+ * Whether anyone's pick could protect this game (a Bodyguard card, or the Curator's artifacts), from
+ * the public setup only. Then every player gets the same peek at what their own pick does.
+ */
+export function protectPossible(view: NightfallView): boolean {
+  return view.settings.roles.includes('bodyguard') || view.settings.roles.includes('curator');
+}
+
+/** What the viewer's pick does, for behind the vote's peek (never in a line others can see). */
+export function votePowerText(power: VotePower): string {
+  if (power === 'vote') return '🗳️ Your pick is a vote against that player.';
+  const caveat =
+    power === 'protect-if-kept'
+      ? ' You were dealt the Bodyguard: if your card was moved in the night, it counts as a vote instead.'
+      : '';
+  return `🛡️ Your pick PROTECTS: the player you tap can’t die. It isn’t a vote against them.${caveat}`;
+}
+
 type Room = Pick<GameRoomInfo, 'isHost' | 'hostId' | 'players' | 'you'>;
 
 /** "a werewolf", "a werewolf, who is a vampire", "an alien"… for the day's prompt. */
@@ -96,11 +114,8 @@ export function statusFor(view: NightfallView, room: Room): Status {
     case 'vote': {
       if (!playing) return { text: `Everyone is voting…${tail}`, yourMove: false };
       const nameOf = nameOfView(view);
-      const power = votePower(view);
-      const caveat =
-        power === 'protect-if-kept'
-          ? ' (You were dealt the Bodyguard: if your card was moved in the night, this counts as a vote instead.)'
-          : '';
+      // The same words for every role: a Bodyguard's pick is told only behind the vote's peek.
+      const peek = protectPossible(view) ? ' Peek below at what your pick does.' : '';
       if (view.vote?.hands === 2 && view.vote.myVote && !view.vote.mySecond)
         return {
           text: 'You vote with both hands: choose your second vote too (it may be the same player).',
@@ -108,21 +123,13 @@ export function statusFor(view: NightfallView, room: Room): Status {
         };
       if (view.vote?.myVote)
         return {
-          text:
-            power === 'vote'
-              ? `You voted for ${view.vote.myVote === VOTE_APP ? 'the app' : nameOf(view.vote.myVote)}${view.vote.mySecond ? ` and ${view.vote.mySecond === VOTE_APP ? 'the app' : nameOf(view.vote.mySecond)}` : ''}. Tap someone else to change.${tail}`
-              : `You’re protecting ${nameOf(view.vote.myVote)}. Tap someone else to change.${caveat}${tail}`,
+          text: `You picked ${view.vote.myVote === VOTE_APP ? 'the app' : nameOf(view.vote.myVote)}${view.vote.mySecond ? ` and ${view.vote.mySecond === VOTE_APP ? 'the app' : nameOf(view.vote.mySecond)}` : ''}. Tap someone else to change.${tail}`,
           yourMove: false,
         };
-      return power === 'vote'
-        ? {
-            text: 'Vote! Tap the player you want to die. Nobody sees it until everyone has voted.',
-            yourMove: true,
-          }
-        : {
-            text: `Your vote PROTECTS: tap the player who must not die. It isn’t a vote against them.${caveat}`,
-            yourMove: true,
-          };
+      return {
+        text: `Vote! Tap a player. Nobody sees it until everyone has voted.${peek}`,
+        yourMove: true,
+      };
     }
     case 'reveal': {
       const result = view.reveal?.result;
