@@ -87,7 +87,7 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
             <Button
               size="sm"
               variant={team}
-              className="mt-1"
+              className="mt-1 min-h-11"
               onClick={() => void act({ type: 'join-team', team, role: 'spymaster' })}
             >
               Be the Spymaster
@@ -115,7 +115,7 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
             <Button
               size="sm"
               variant="secondary"
-              className="mt-2"
+              className="mt-2 min-h-11"
               onClick={() => void act({ type: 'join-team', team, role: 'operative' })}
             >
               Join {TEAM_LABEL[team]} as Operative

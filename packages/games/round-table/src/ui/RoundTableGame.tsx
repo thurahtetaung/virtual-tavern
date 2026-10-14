@@ -58,7 +58,7 @@ function TopBar({
           </span>
         )}
         {view.role && (
-          <Button variant="secondary" size="sm" onClick={onRole} className="gap-1 pl-1">
+          <Button variant="secondary" size="sm" onClick={onRole} className="min-h-11 gap-1 pl-1">
             <Emblem role={view.role.role} className="size-6 ring-1" />
             My role
           </Button>

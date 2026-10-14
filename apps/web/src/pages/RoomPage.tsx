@@ -934,11 +934,12 @@ function People({
               )}
             </span>
             {isHost && p.id !== snapshot.you && (
-              <span className="flex gap-1">
+              <span className="flex gap-2">
                 {!p.bot && (
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="min-h-11"
                     onClick={() => void run('room:make-host', p.id)}
                   >
                     Make host
@@ -947,6 +948,7 @@ function People({
                 <Button
                   size="sm"
                   variant="ghost"
+                  className="min-h-11"
                   onClick={() =>
                     window.confirm(`Remove ${p.name} from the room?`) && void run('room:kick', p.id)
                   }

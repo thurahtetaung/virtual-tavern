@@ -730,7 +730,7 @@ export function HydraGame({
               <span className="flex-1">💡 {tip[1]}</span>
               <button
                 type="button"
-                className="text-xs font-bold"
+                className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-bold"
                 onClick={() => dismissTip(tip[0])}
               >
                 Got it

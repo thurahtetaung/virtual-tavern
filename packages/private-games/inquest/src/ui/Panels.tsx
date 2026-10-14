@@ -153,7 +153,7 @@ export function RoleCard({
         )}
         <button
           type="button"
-          className="text-xs font-semibold text-amber-700 underline dark:text-amber-400"
+          className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-amber-700 underline dark:text-amber-400"
           onClick={showGuide}
         >
           How to play your role

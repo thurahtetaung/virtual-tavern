@@ -332,7 +332,11 @@ export function Tip({ children, onDismiss }: { children: string; onDismiss: () =
     <div className="flex items-start gap-2 rounded-xl bg-special-soft px-3 py-2 text-sm text-violet-950 ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
       <span aria-hidden>💡</span>
       <span className="flex-1">{children}</span>
-      <button type="button" className="shrink-0 font-semibold underline" onClick={onDismiss}>
+      <button
+        type="button"
+        className="-my-2.5 inline-flex min-h-11 shrink-0 items-center px-2 font-semibold underline"
+        onClick={onDismiss}
+      >
         Got it
       </button>
     </div>
