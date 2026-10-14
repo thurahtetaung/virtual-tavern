@@ -2018,7 +2018,14 @@ for (const [label, viewport] of [
     await tab(host, 'Table');
 
     // More governments until the danger zone, the Leader check, and an execution.
-    let red = 1;
+    // The real count, from the header strip: a Chancellor holding only blue enacts blue.
+    const reds = async () =>
+      Number(
+        /: (\d) of 6/.exec(
+          (await host.getByRole('img', { name: /^Conspirator: / }).getAttribute('aria-label')) ??
+            '',
+        )?.[1] ?? 0,
+      );
     let checked = false;
     for (let round = 0; round < 14 && (await host.getByTestId('winner').count()) === 0; round++) {
       const p = await hy.whoShows(players, /You’re the Presidential Candidate|Use your power/);
@@ -2067,6 +2074,7 @@ for (const [label, viewport] of [
       const alive = players.filter((x) => !x.dead);
       const c = await hy.eligible(p, alive, notLeader);
       await hy.nominate(p, c.name);
+      const red = await reds();
       await hy.voteAll(alive);
       if (red >= 3 && !checked) {
         await expect(host.getByTestId('leader-check')).toBeVisible();
@@ -2074,7 +2082,6 @@ for (const [label, viewport] of [
         checked = true;
       }
       const gov = await hy.legislate(alive, 'red');
-      red++;
       await hy.claimSession(gov);
     }
     await expect(host.getByTestId('winner')).toBeVisible();
