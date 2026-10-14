@@ -1130,7 +1130,7 @@ function TableList({
     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="The table">
       {view.table!.map((p) => {
         const face = day?.faceUp.find((f) => f.player === p.id);
-        const can = pick && p.id !== me && !p.left;
+        const can = pick && p.id !== me;
         const body = (
           <>
             <span className="flex items-center gap-1 truncate font-semibold">

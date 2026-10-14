@@ -380,7 +380,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           'Everyone secretly votes for another player, then all votes show at once.',
           'The player with the most votes dies; on a tie, everyone tied dies. If nobody gets more than one vote, nobody dies.',
           `Votes for a ${roleName('prince')} don’t count, and the ${roleName('bodyguard')}’s pick protects instead of voting. Everyone’s buttons read Vote, so nobody can tell from a screen: peek at “what your pick does” to check yours.`,
-          'You can’t vote for a player who has left the game.',
+          'A player who leaves keeps their card on the table: you can still vote for their seat, and they win or lose as their card.',
         ],
       },
       {
