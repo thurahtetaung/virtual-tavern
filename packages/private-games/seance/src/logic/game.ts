@@ -54,26 +54,41 @@ const newSeed = (rng: Rng) => rng.int(2 ** 32);
 
 const withGame = (state: SeanceState, game: Game): SeanceState => ({ ...state, game });
 
+/** Psychics still at the table: a retired seat has left the game for good. */
+const active = (g: Game) => g.psychics.filter((p) => !p.retired);
 const psychicOf = (g: Game, id: PlayerId | null | undefined) =>
-  g.psychics.find((p) => p.id === id) ?? null;
-const byColor = (g: Game, c: PsychicColor) => g.psychics.find((p) => p.color === c) ?? null;
+  active(g).find((p) => p.id === id) ?? null;
+const byColor = (g: Game, c: PsychicColor) => active(g).find((p) => p.color === c) ?? null;
 
 /** Players at the table: the ghost seat plus the psychics. */
 const tableSize = (g: Game) => g.psychics.length + 1;
 
 export const pillarOf = (step: number): Pillar | null => PILLARS[step] ?? null;
 
-const unfinished = (g: Game) => g.psychics.filter((p) => p.step < 3);
+const unfinished = (g: Game) => active(g).filter((p) => p.step < 3);
 
 /**
- * Psychics the hour waits on before it can lock: everyone still searching. Those who found all
- * three may still play tokens, but never hold the table up.
+ * Psychics the hour waits on before it can lock: everyone still searching and at the table. Those
+ * who found all three may still play tokens, but never hold the table up, and an empty seat is
+ * neither sent a vision nor judged until someone takes it over (or the host retires it).
  */
 export function readyNeeded(g: Game): Psychic[] {
-  return g.psychics.filter((p) => !p.gone && p.step < 3);
+  return unfinished(g).filter((p) => !p.gone);
 }
 
-const allSent = (g: Game) => unfinished(g).every((p) => g.sent.includes(p.color));
+const allSent = (g: Game) => readyNeeded(g).every((p) => g.sent.includes(p.color));
+
+/** Every psychic still in the game has found all three. */
+const allFound = (g: Game) => active(g).every((p) => p.step >= 3);
+
+/** Once every vision is out, the sand runs (if the host set a timer and it isn't running yet). */
+function startSand(state: SeanceState, now: number): SeanceState {
+  const g = state.game!;
+  if (g.stage !== 'visions' || g.deadline !== null || state.settings.timerSeconds === null)
+    return state;
+  if (!g.sent.length || !allSent(g)) return state;
+  return withGame(state, { ...g, deadline: now + state.settings.timerSeconds * 1000 });
+}
 
 function notice(state: SeanceState, text: string, now: number): SeanceState {
   const g = state.game!;
@@ -221,6 +236,7 @@ function start(state: SeanceState, ctx: Ctx): Result {
     level: 0,
     finishedHour: null,
     gone: false,
+    retired: false,
   }));
   const deck = rng.shuffle(poolOf(s.sets, 'vision'));
   const game: Game = refill(
@@ -306,7 +322,7 @@ function send(
         }
       : x,
   );
-  let next: Game = refill(
+  const next: Game = refill(
     {
       ...g,
       psychics,
@@ -317,9 +333,7 @@ function send(
     ctx.rng,
   );
   // Every vision is out: the sand runs.
-  if (allSent(next) && state.settings.timerSeconds !== null)
-    next = { ...next, deadline: ctx.now + state.settings.timerSeconds * 1000 };
-  return maybeLock(withGame(state, next), ctx.now);
+  return maybeLock(startSand(withGame(state, next), ctx.now), ctx.now);
 }
 
 function raven(state: SeanceState, cards: readonly number[], ctx: Ctx): Result {
@@ -392,7 +406,8 @@ function mark(
   if (action.target === me.color)
     return err('own', 'Clairvoyance tokens go on the other psychics’ guesses.');
   const target = byColor(g, action.target);
-  if (!target || target.step >= 3) return err('bad-target', 'That psychic has nothing to guess.');
+  if (!target || target.step >= 3 || target.gone)
+    return err('bad-target', 'That psychic has nothing to guess.');
   const existing = g.marks.find((m) => m.by === me.color && m.target === action.target);
   const marks = g.marks.filter((m) => m !== existing);
   let tokens = me.tokens + (existing ? 1 : 0);
@@ -439,7 +454,7 @@ function lock(state: SeanceState, now: number): SeanceState {
   const table = { ...g.table };
   let discard = g.discard;
   const judged = g.psychics.map((p) => {
-    if (p.step >= 3) return p;
+    if (p.step >= 3 || p.gone || p.retired) return p;
     const pillar = pillarOf(p.step)!;
     const correct = p.intuition !== null && p.intuition === p.targets[p.step];
     const marks = g.marks.filter((m) => m.target === p.color);
@@ -470,7 +485,15 @@ function lock(state: SeanceState, now: number): SeanceState {
       finishedHour: done ? g.hour : null,
     };
   });
-  const psychics = judged.map((p) => ({ ...p, level: p.level + (gains.get(p.color) ?? 0) }));
+  // Tokens on an empty seat's guess, which isn't judged, go back to whoever played them.
+  const back = (c: PsychicColor) =>
+    g.marks.filter((m) => m.by === c && g.psychics.some((p) => p.color === m.target && p.gone))
+      .length;
+  const psychics = judged.map((p) => ({
+    ...p,
+    level: p.level + (gains.get(p.color) ?? 0),
+    tokens: p.tokens + back(p.color),
+  }));
   return withGame(state, {
     ...g,
     psychics,
@@ -486,7 +509,7 @@ function lock(state: SeanceState, now: number): SeanceState {
 /** After the verdicts: the next hour, the final, or the clock runs out. */
 function afterReveal(state: SeanceState, now: number): SeanceState {
   const g = state.game!;
-  if (g.psychics.every((p) => p.step >= 3)) return startFinal(state);
+  if (allFound(g)) return startFinal(state);
   if (g.hour >= HOURS) return finish(state, false, 'clock', null, null, [], null);
   const hour = g.hour + 1;
   const back = hour === TOKENS_BACK_HOUR && g.clairvoyance;
@@ -533,7 +556,7 @@ function lockNow(state: SeanceState, ctx: Ctx): Result {
 function startFinal(state: SeanceState): SeanceState {
   const g = state.game!;
   const final: Final = {
-    groups: g.psychics.map((p) => p.color),
+    groups: active(g).map((p) => p.color),
     culprit: null,
     shared: [],
     tags: [],
@@ -548,7 +571,7 @@ export const voteStage = (g: Game, p: Psychic) =>
 
 /** Psychics who vote once `stage` cards are face up. */
 const votersAt = (g: Game, stage: number) =>
-  g.psychics.filter((p) => !p.gone && voteStage(g, p) === stage);
+  active(g).filter((p) => !p.gone && voteStage(g, p) === stage);
 
 function voteDeadline(state: SeanceState, now: number) {
   return state.settings.timerSeconds === null ? null : now + VOTE_SECONDS * 1000;
@@ -668,7 +691,7 @@ function finish(
   tieBreaker: PsychicColor | null,
 ): SeanceState {
   const g = state.game!;
-  const everyone = [...(g.ghost ? [g.ghost] : []), ...g.psychics.map((p) => p.id)];
+  const everyone = [...(g.ghost ? [g.ghost] : []), ...active(g).map((p) => p.id)];
   return {
     ...state,
     phase: 'over',
@@ -737,6 +760,8 @@ function claimGhost(state: SeanceState, ctx: Ctx): Result {
 function takeSeat(state: SeanceState, color: PsychicColor, ctx: Ctx): Result {
   const g = state.game;
   if (!g || state.phase !== 'playing') return err('not-playing', 'No game in progress.');
+  if (g.psychics.some((x) => x.color === color && x.retired))
+    return err('retired', 'The host retired that seat.');
   const p = byColor(g, color);
   if (!p?.gone) return err('taken', 'That psychic is still at the table.');
   if (g.ghost === ctx.by || g.formerGhosts.includes(ctx.by) || psychicOf(g, ctx.by))
@@ -750,6 +775,47 @@ function takeSeat(state: SeanceState, color: PsychicColor, ctx: Ctx): Result {
     `${name} takes over ${p.name}’s seat.`,
     ctx.now,
   );
+}
+
+/**
+ * The host retires an empty seat nobody is taking over: its found cards go back on the table, its
+ * visions to the discard, and the game goes on without it (no visions, verdicts, line-up or vote).
+ */
+function retireSeat(state: SeanceState, color: PsychicColor, ctx: Ctx): Result {
+  const e = requireHost(ctx);
+  if (e) return e;
+  const g = state.game;
+  if (!g || state.phase !== 'playing') return err('not-playing', 'No game in progress.');
+  if (g.stage !== 'visions' && g.stage !== 'reveal')
+    return err('wrong-stage', 'Seats can only be retired before the line-up.');
+  const p = byColor(g, color);
+  if (!p) return err('no-psychic', 'No such psychic.');
+  if (!p.gone) return err('still-here', `${p.name} is still at the table.`);
+  if (active(g).length <= 1) return err('last-seat', 'The séance needs at least one psychic.');
+  const table = { ...g.table };
+  p.found.forEach((card, i) => {
+    const pillar = PILLARS[i]!;
+    table[pillar] = [...table[pillar], card].sort((a, b) => a - b);
+  });
+  // Tokens on their guess go back to whoever played them.
+  const refunds = g.marks.filter((m) => m.target === color);
+  const psychics = g.psychics.map((x) =>
+    x.color === color
+      ? { ...x, retired: true, ready: false, intuition: null, visions: [] }
+      : { ...x, tokens: x.tokens + refunds.filter((m) => m.by === x.color).length },
+  );
+  let s = withGame(state, {
+    ...g,
+    psychics,
+    table,
+    discard: [...g.discard, ...p.visions.map((v) => v.card)],
+    marks: g.marks.filter((m) => m.target !== color && m.by !== color),
+    sent: g.sent.filter((c) => c !== color),
+  });
+  s = notice(s, `The host retired ${p.name}’s seat: the séance goes on without it.`, ctx.now);
+  const after = s.game!;
+  if (after.stage === 'visions' && allFound(after)) return startFinal(s);
+  return after.stage === 'visions' ? maybeLock(startSand(s, ctx.now), ctx.now) : s;
 }
 
 // ---- Reduce ----
@@ -789,6 +855,8 @@ function reduce(state: SeanceState, action: SeanceAction, ctx: Ctx): Result {
       return vote(state, action.group, ctx);
     case 'take-seat':
       return takeSeat(state, action.color, ctx);
+    case 'retire-seat':
+      return retireSeat(state, action.color, ctx);
     case 'lock-now':
       return lockNow(state, ctx);
     case 'hand-ghost':
@@ -828,7 +896,7 @@ function playerJoined(state: SeanceState, player: PlayerInfo): SeanceState {
   const game = g && {
     ...g,
     psychics: g.psychics.map((p) =>
-      p.id === player.id ? { ...p, name: player.name, gone: false } : p,
+      p.id === player.id && !p.retired ? { ...p, name: player.name, gone: false } : p,
     ),
   };
   if (existing)
@@ -865,7 +933,7 @@ function playerLeft(state: SeanceState, playerId: PlayerId, now: number): Seance
     psychics: g.psychics.map((x) => (x.id === playerId ? { ...x, gone: true, ready: false } : x)),
   });
   s = notice(s, `${p.name} left. Someone watching can take over their seat.`, now);
-  if (s.game!.stage === 'visions') return maybeLock(s, now);
+  if (s.game!.stage === 'visions') return maybeLock(startSand(s, now), now);
   if (s.game!.stage === 'vote') {
     const after = s.game!;
     if (votersAt(after, after.final!.revealed).every((x) => x.color in after.final!.votes))
@@ -891,7 +959,7 @@ function onDeadline(state: SeanceState, now: number): SeanceState {
   if (due === null || now < due || !g) return state;
   if (g.stage === 'reveal') return afterReveal(state, now);
   if (g.stage === 'visions') {
-    const missing = unfinished(g).filter((p) => p.intuition === null).length;
+    const missing = readyNeeded(g).filter((p) => p.intuition === null).length;
     const what = missing
       ? `guesses were locked in (${missing} without a guess)`
       : 'guesses were locked in';
@@ -938,6 +1006,7 @@ function gameView(g: Game, viewer: PlayerId | null): GameView {
     level: p.level,
     finishedHour: p.finishedHour,
     gone: p.gone,
+    retired: p.retired ?? false,
     targets: knows ? [...p.targets] : null,
     voteStage: voteStage(g, p),
   }));

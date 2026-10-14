@@ -411,6 +411,102 @@ describe('seats changing hands', () => {
   });
 });
 
+describe('an empty psychic seat', () => {
+  it('is neither sent a vision nor judged, and the sand runs without it', () => {
+    const h = startedGame(4, { timerSeconds: 60 });
+    h.state = seance.playerLeft(h.state, 'cy', h.now);
+    sendAll(h);
+    expect(h.game().sent).not.toContain(colorOf(h, 'cy'));
+    expect(h.game().deadline).toBe(h.now + 60_000);
+    guessAll(h);
+    readyAll(h);
+    expect(h.game().stage).toBe('reveal');
+    expect(h.game().verdicts.map((v) => v.color)).toEqual([colorOf(h, 'ana'), colorOf(h, 'ben')]);
+    expect(h.psychic('cy').step).toBe(0);
+  });
+
+  it('starts the sand when the last psychic still waiting for a vision leaves', () => {
+    const h = startedGame(4, { timerSeconds: 60 });
+    h.act({ type: 'send', to: colorOf(h, 'ana'), cards: [h.game().hand[0]!] });
+    h.act({ type: 'send', to: colorOf(h, 'ben'), cards: [h.game().hand[0]!] });
+    expect(h.game().deadline).toBeNull();
+    h.state = seance.playerLeft(h.state, 'cy', h.now);
+    expect(h.game().deadline).toBe(h.now + 60_000);
+  });
+
+  it('gives back tokens played on a guess that is not judged', () => {
+    const h = startedGame(4);
+    sendAll(h);
+    guessAll(h);
+    h.act({ type: 'mark', target: colorOf(h, 'cy'), kind: 'yes' }, 'ana');
+    expect(h.psychic('ana').tokens).toBe(h.game().tokensEach - 1);
+    h.state = seance.playerLeft(h.state, 'cy', h.now);
+    expect(h.reject({ type: 'mark', target: colorOf(h, 'cy'), kind: 'no' }, 'ben')).toBe(
+      'bad-target',
+    );
+    readyAll(h);
+    expect(h.psychic('ana').tokens).toBe(h.game().tokensEach);
+  });
+
+  it('the host can retire it: its cards go back and the game goes on without it', () => {
+    const h = startedGame(4);
+    playHour(h, ['cy']);
+    const cy = h.psychic('cy');
+    const found = cy.found[0]!;
+    expect(h.game().table.suspect).not.toContain(found);
+    h.reject({ type: 'retire-seat', color: cy.color }); // still here
+    h.state = seance.playerLeft(h.state, 'cy', h.now);
+    expect(h.reject({ type: 'retire-seat', color: cy.color }, 'ana')).toBe('not-host');
+    h.act({ type: 'retire-seat', color: cy.color });
+    expect(h.psychic('cy').retired).toBe(true);
+    expect(h.game().table.suspect).toContain(found);
+    // Nobody can take it over, and the player coming back only watches.
+    h.state = seance.playerJoined(h.state, { id: 'zed', name: 'Zed' });
+    expect(h.reject({ type: 'take-seat', color: cy.color }, 'zed')).toBe('retired');
+    h.state = seance.playerJoined(h.state, { id: 'cy', name: 'Cy' });
+    expect(h.psychic('cy').gone).toBe(true);
+    expect(seance.view(h.state, 'cy').game!.myRole).toBeNull();
+    expect(h.reject({ type: 'intuition', card: h.game().table.suspect[0]! }, 'cy')).toBe(
+      'not-psychic',
+    );
+    // The others finish, and the line-up and vote leave the seat out.
+    toFinal(h);
+    expect(h.game().final!.groups).toEqual([colorOf(h, 'ana'), colorOf(h, 'ben')]);
+    const hand = h.game().hand;
+    h.act({ type: 'shared', group: 0, cards: [hand[0]!, hand[1]!, hand[2]!] });
+    for (const id of ['ana', 'ben'])
+      if (h.game().stage === 'vote') h.act({ type: 'vote', group: 0 }, id);
+    expect(h.game().result!.win).toBe(true);
+    expect(h.game().result!.winners).not.toContain('cy');
+  });
+
+  it('retiring the last psychic still searching goes straight to the line-up', () => {
+    const h = startedGame(4);
+    h.state = seance.playerLeft(h.state, 'cy', h.now);
+    toFinalExcept(h);
+    expect(h.game().stage).toBe('visions');
+    h.act({ type: 'retire-seat', color: colorOf(h, 'cy') });
+    expect(h.game().stage).toBe('shared');
+  });
+
+  it('keeps at least one psychic, and only before the line-up', () => {
+    const h = startedGame(3);
+    h.state = seance.playerLeft(h.state, 'ana', h.now);
+    h.state = seance.playerLeft(h.state, 'ben', h.now);
+    h.act({ type: 'retire-seat', color: colorOf(h, 'ana') });
+    expect(h.reject({ type: 'retire-seat', color: colorOf(h, 'ben') })).toBe('last-seat');
+    const g = startedGame(4);
+    toFinal(g);
+    g.state = seance.playerLeft(g.state, 'cy', g.now);
+    expect(g.reject({ type: 'retire-seat', color: colorOf(g, 'cy') })).toBe('wrong-stage');
+  });
+});
+
+/** Plays right guesses until everyone at the table has found all three (a gone seat stays). */
+function toFinalExcept(h: Harness) {
+  for (let i = 0; i < 3; i++) playHour(h);
+}
+
 function sendAll2(h: Harness, ghost: string) {
   for (const p of h.game().psychics)
     h.act({ type: 'send', to: p.color, cards: [h.game().hand[0]!] }, ghost);

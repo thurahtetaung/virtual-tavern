@@ -68,10 +68,10 @@ export function startedGame(
 
 export const colorOf = (h: Harness, id: string): PsychicColor => h.psychic(id).color;
 
-/** The ghost sends every psychic still searching the first card of the hand. */
+/** The ghost sends every psychic still searching (and at the table) the first card of the hand. */
 export function sendAll(h: Harness) {
   for (const p of h.game().psychics) {
-    if (p.step >= 3 || h.game().sent.includes(p.color)) continue;
+    if (p.gone || p.retired || p.step >= 3 || h.game().sent.includes(p.color)) continue;
     h.act({ type: 'send', to: p.color, cards: [h.game().hand[0]!] }, HOST);
   }
 }
@@ -79,7 +79,7 @@ export function sendAll(h: Harness) {
 /** Every psychic still searching guesses: right for those in `right`, wrong for the others. */
 export function guessAll(h: Harness, right: readonly string[] | 'all' = 'all') {
   for (const p of h.game().psychics) {
-    if (p.step >= 3) continue;
+    if (p.gone || p.retired || p.step >= 3) continue;
     const pillar = PILLARS[p.step]!;
     const target = p.targets[p.step]!;
     const good = right === 'all' || right.includes(p.id);
@@ -91,7 +91,7 @@ export function guessAll(h: Harness, right: readonly string[] | 'all' = 'all') {
 /** Everyone the hour waits on taps Ready (the hour then locks). */
 export function readyAll(h: Harness) {
   for (const p of h.game().psychics) {
-    if (p.gone || h.game().stage !== 'visions') continue;
+    if (p.gone || p.retired || h.game().stage !== 'visions') continue;
     if (p.step >= 3) continue;
     if (!p.ready) h.act({ type: 'ready', on: true }, p.id);
   }

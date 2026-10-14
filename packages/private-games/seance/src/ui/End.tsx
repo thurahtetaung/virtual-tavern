@@ -21,6 +21,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
           <p className="flex items-center gap-2 text-sm font-semibold">
             <Avatar color={p.color} content={content} name={p.name} size="sm" />
             {p.name}
+            {p.retired && <span className="font-normal text-stone-500">· seat retired</span>}
             {p.finishedHour !== null && (
               <span className="font-normal text-stone-500">
                 · all three by hour {roman(p.finishedHour)}

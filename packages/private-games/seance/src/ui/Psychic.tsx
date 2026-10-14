@@ -6,7 +6,7 @@ import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
 import type { CardRow } from './Compare.tsx';
-import { myPsychic, notReady, roman } from './status.ts';
+import { atTable, myPsychic, notReady, roman } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -271,7 +271,7 @@ export function OthersTab({
 }) {
   const g = view.game!;
   const me = myPsychic(view);
-  const others = g.psychics.filter((p) => p.color !== me?.color);
+  const others = atTable(g).filter((p) => p.color !== me?.color);
   const canMark = !!me && g.clairvoyance && g.stage === 'visions';
   return (
     <div className="space-y-2">

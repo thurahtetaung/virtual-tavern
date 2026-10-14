@@ -10,7 +10,16 @@ import { Lineup, SharedPicker, type SharedDraft, SharedRow, VoteBar } from './Fi
 import { GhostHand, GhostPsychics, SilentNote } from './Ghost.tsx';
 import { Lobby } from './Lobby.tsx';
 import { type CompareSpec, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
-import { type Step, myPsychic, nameOf, roman, statusFor, stepOf } from './status.ts';
+import {
+  type Step,
+  atTable,
+  myPsychic,
+  nameOf,
+  roman,
+  statusFor,
+  stepOf,
+  waitingForVision,
+} from './status.ts';
 import { TableTab, Verdicts } from './Table.tsx';
 
 export type SeanceUiProps = GameUiProps<SeanceView, SeanceAction>;
@@ -78,7 +87,9 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
     (s) => s.id !== g.ghost && !g.psychics.some((p) => p.id === s.id),
   );
   const latest = g.notices.at(-1);
-  const gone = g.psychics.filter((p) => p.gone);
+  const gone = atTable(g).filter((p) => p.gone);
+  const canRetire =
+    room.isHost && (g.stage === 'visions' || g.stage === 'reveal') && atTable(g).length > 1;
   return (
     <div className="space-y-1.5">
       {playing && (g.ghost === null || ghostAway) && (
@@ -133,6 +144,33 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
               Take over {p.name}’s seat
             </Button>
           ))}
+        </div>
+      )}
+      {canRetire && gone.length > 0 && (
+        <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30">
+          <p>
+            An empty seat isn’t sent visions or judged, so the séance can’t finish while it waits
+            for someone to take it over. If nobody will, retire it: its cards go back on the table.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {gone.map((p) => (
+              <Button
+                key={p.color}
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Retire ${p.name}’s seat? Nobody can take it over afterwards, and the game goes on without it.`,
+                    )
+                  )
+                    void act({ type: 'retire-seat', color: p.color });
+                }}
+              >
+                Retire {p.name}’s seat
+              </Button>
+            ))}
+          </div>
         </div>
       )}
       {latest && latest.id > seen && g.stage !== 'done' && (
@@ -224,7 +262,7 @@ function RevealPanel({
   if (g.stage !== 'reveal') return null;
   const canGo = room.isHost || g.myRole === 'ghost';
   const last = g.hour >= 7;
-  const allDone = g.psychics.every((p) => p.step >= 3);
+  const allDone = atTable(g).every((p) => p.step >= 3);
   return (
     <Panel
       role="region"
@@ -458,21 +496,18 @@ export function SeanceGame({
       )}
       <Banners view={view} room={room} act={act} />
       <RevealPanel view={view} room={room} act={act} content={content} />
-      {room.isHost &&
-        g.stage === 'visions' &&
-        g.sent.length > 0 &&
-        !g.psychics.some((p) => p.step < 3 && !g.sent.includes(p.color)) && (
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              variant="ghost"
-              className={cn(tab !== 'table' && 'hidden lg:inline-flex')}
-              onClick={() => void act({ type: 'lock-now' })}
-            >
-              🔒 Lock the guesses in now
-            </Button>
-          </div>
-        )}
+      {room.isHost && g.stage === 'visions' && g.sent.length > 0 && !waitingForVision(g).length && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="ghost"
+            className={cn(tab !== 'table' && 'hidden lg:inline-flex')}
+            onClick={() => void act({ type: 'lock-now' })}
+          >
+            🔒 Lock the guesses in now
+          </Button>
+        </div>
+      )}
       <div
         className={cn(
           'grid gap-3',

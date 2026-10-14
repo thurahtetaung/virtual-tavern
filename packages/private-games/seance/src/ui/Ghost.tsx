@@ -6,6 +6,7 @@ import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
 import { type CompareSpec, visionCaptions } from './Psychic.tsx';
+import { atTable } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -36,11 +37,11 @@ export function GhostPsychics({
         Tap a target (or Choose) to see it big above your hand, then tap the cards that point to it.
       </Tip>
       <ul className="space-y-2" aria-label="Psychics">
-        {g.psychics.map((p) => {
+        {atTable(g).map((p) => {
           const pillar = PILLARS[p.step];
           const target = pillar ? p.targets?.[p.step] : undefined;
           const sent = g.sent.includes(p.color);
-          const needs = sending && pillar && !sent;
+          const needs = sending && pillar && !sent && !p.gone;
           const openSend = () => {
             if (!pillar || target === undefined) return;
             compare({
@@ -97,6 +98,7 @@ export function GhostPsychics({
                       <Avatar color={p.color} content={content} name={p.name} size="sm" />
                       <p className="min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
                         {p.name}
+                        {p.gone && <span className="ml-1 text-xs font-normal">(left)</span>}
                         <span className="block text-xs font-normal text-stone-500">
                           {pillar
                             ? `${content.pillarName(pillar).toLowerCase()} ${p.step + 1}/3`
@@ -107,7 +109,7 @@ export function GhostPsychics({
                         <span className="rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[11px] font-bold text-stone-950">
                           needs a vision
                         </span>
-                      ) : pillar && sending ? (
+                      ) : pillar && sending && !p.gone ? (
                         <span className="rounded-full bg-stone-200 px-2 text-[11px] font-semibold dark:bg-stone-800">
                           {p.ready ? 'ready' : 'sent'}
                         </span>
