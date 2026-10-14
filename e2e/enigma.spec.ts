@@ -37,9 +37,13 @@ async function encryptorOf(pages: Page[], team: TeamName) {
   return found!;
 }
 
-/** A team may only give a clue once per game, so every set of clues gets its own word. */
+/**
+ * A team may only give a clue once per game, so every set of clues gets its own word. Every clue
+ * word is made up: a clue containing one of the team's dealt keywords is refused, and a real word
+ * here ("hotel", once) left Send clues disabled until the test timed out.
+ */
 const FRESH =
-  'echo golf hotel india kilo lima mike oscar papa romeo sierra tango maple cedar birch aspen willow hazel rowan alder larch spruce poplar yew'.split(
+  'blorft quimble zantic voxel drimp snorkle plibber gronk fwump yarvle threnk mugwop klistle brazzle wumple trindle pozzle skrimble glorp vintle zubble crandle fipple jorvax'.split(
     ' ',
   );
 let sent = 0;
@@ -48,11 +52,14 @@ async function sendClues(encryptor: Page, team: TeamName) {
   const tx = transmission(encryptor, team);
   const code = (await tx.locator('.font-mono').first().innerText()).split('-').map(Number);
   const inputs = tx.getByPlaceholder('A hint only your team will get');
-  // Clues can't contain numbers, so each one names its digit with a letter word.
-  const words = ['alpha', 'bravo', 'charlie', 'delta'];
+  // Clues can't contain numbers, so each one names its digit with a made-up word.
+  const words = ['zarp', 'brindle', 'quoth', 'dwemble'];
   const fresh = FRESH[sent++ % FRESH.length];
-  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`clue ${words[code[i]! - 1]} ${fresh}`);
-  await tx.getByRole('button', { name: 'Send clues' }).click();
+  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`${words[code[i]! - 1]} ${fresh}`);
+  // A refused clue keeps the button disabled, and a click would wait on it until the test times out.
+  const send = tx.getByRole('button', { name: 'Send clues' });
+  await expect(send).toBeEnabled();
+  await send.click();
   return code;
 }
 
