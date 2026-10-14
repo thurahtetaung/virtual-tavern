@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.1...v0.36.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **hydra:** review-round fixes: pass over a candidate who doesn't nominate, credit placement, readable placards ([#167](https://github.com/thurahtetaung/virtual-tavern/issues/167)) ([c54723f](https://github.com/thurahtetaung/virtual-tavern/commit/c54723f4bf12a2375369c8ff050374e6628bc579))
+
 ## [0.36.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.0...v0.36.1) (2026-10-14)
 
 
