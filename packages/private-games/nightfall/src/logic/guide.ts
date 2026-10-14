@@ -430,7 +430,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
           `Anyone who votes for the player with the ${markName('disease')}, or for the ${roleName('diseased')}, can’t win.`,
           `The ${roleName('assassin')} wins if a player with the ${markName('assassin')} dies, alongside any team. The ${roleName('apprentice-assassin')} wins if an ${roleName('assassin')} dies; if she found no ${roleName('assassin')} and placed the Mark herself, she wins when its holder dies, even if her card moves later.`,
           `A player with the ${markName('traitor')} wins only if someone else on their team dies, even when their team loses; their team’s result doesn’t count for them.`,
-          `A player held by the ${markName('fear')} sleeps through their turn, and learns at daybreak that they did.`,
+          `A player held by the ${markName('fear')} sleeps through their turn, and learns at daybreak that they did. Its first dusk is spared (the Mark is unseen until it ends), but not a time loop’s dusk or a repeat.`,
         ],
       },
       {

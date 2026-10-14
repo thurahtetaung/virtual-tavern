@@ -137,10 +137,16 @@ export function actorsFor(r: GameRound, def: StepDef, ignoreFear = false): Playe
     const named = rippleActors(nightState?.ripple);
     return here.filter((p) => named.includes(numberOf(r.order, p)));
   }
-  // Fear stops a player waking in the night proper; a dormant copy never wakes again.
-  const present = here.filter(
-    (p) => !r.players[p]!.dormant && (ignoreFear || !(def.order >= NIGHT_ORDER && feared(r, p))),
-  );
+  // Fear stops a player waking in the night proper; a dormant copy never wakes again. The dusk is
+  // exempt only because the Mark is unseen until it ends: a ripple's repeat, and a time loop's
+  // dusk for a player who already held Fear when the loop began, are stopped too.
+  const inLoop = nightState?.loopFrom !== undefined && nightState.index >= nightState.loopFrom;
+  const fearStops = (p: PlayerId) =>
+    feared(r, p) &&
+    (def.order >= NIGHT_ORDER ||
+      def.repeat === true ||
+      (inLoop && (nightState.loopFeared ?? []).includes(p)));
+  const present = here.filter((p) => !r.players[p]!.dormant && (ignoreFear || !fearStops(p)));
   const night = (p: PlayerId) => r.players[p]!.night;
   const doppel = (p: PlayerId) => actsAsDoppel(r, p);
   if (def.id === 'werewolves')
@@ -1856,6 +1862,7 @@ function startRipple(c: StepCtx) {
     case 'repeat-night':
     case 'repeat-observer': {
       night.loopFrom = night.plan.length;
+      night.loopFeared = r.order.filter((p) => feared(r, p));
       night.plan.push(...buildNightPlan(c.settings.roles, { loop: true }));
       if (rp.key === 'repeat-observer') {
         const who = playerNumbered(r.order, rp.observer);

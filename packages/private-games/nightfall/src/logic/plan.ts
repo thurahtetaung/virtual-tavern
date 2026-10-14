@@ -224,7 +224,7 @@ export const repeatStepOf = (role: RoleId): StepId => (role === 'alien' ? 'alien
 export const stepDef = (id: StepId): StepDef => {
   if (id.startsWith(REPEAT)) {
     const base = stepDef(id.slice(REPEAT.length));
-    // Same role and time as its step (and a dusk role's repeat isn't stopped by Fear).
+    // Same role and time as its step (Fear stops even a dusk role's repeat: the Mark is seen by then).
     return { ...base, id, code: '20R', repeat: true, noLoop: true, when: () => false };
   }
   const def = BY_ID.get(id);

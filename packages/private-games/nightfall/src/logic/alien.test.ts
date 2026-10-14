@@ -1,6 +1,7 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { buildNightPlan, publicPlan, stepFactor } from './plan.ts';
+import { actorsFor } from './night.ts';
+import { buildNightPlan, publicPlan, stepDef, stepFactor } from './plan.ts';
 import { SCENARIOS, scenarioRoles } from './presets.ts';
 import { ROLES, ROLE_IDS, type RoleId, hostileGroupsIn } from './roles.ts';
 import {
@@ -1430,6 +1431,54 @@ describe('ripples', () => {
     h.night('B', { players: ['C'] });
     expect(h.state.round!.cards.C!.shield).not.toBeNull();
     expect(h.state.round!.cards.D!.shield).not.toBeNull();
+  });
+
+  it('Fear stops a player in the time loop’s dusk once they have seen it', () => {
+    const h = table({
+      players: ['the-count', 'vampire', 'cupid', V, V],
+      center: ['alien', V, V],
+      settings: { weights: ws(STARE, only('ripple', 'repeat-night')) },
+    });
+    h.toStep('vampires');
+    h.night('B', { players: ['D'] });
+    h.toStep('the-count');
+    h.night('A', { players: ['C'] });
+    h.toStep('cupid');
+    expect(actors(h)).toEqual(['C']);
+    h.toStep('ripple');
+    h.tick();
+    expect(h.state.round!.night!.loopFeared).toEqual(['C']);
+    while (h.step() !== 'cupid') h.tick();
+    expect(actors(h)).toEqual([]);
+  });
+
+  it('Fear stops a Doppelgänger’s immediate copy from acting again in the loop', () => {
+    const h = table({
+      players: ['doppelganger', 'robber', 'the-count', 'vampire', V],
+      center: ['alien', V, V],
+      settings: { weights: ws(STARE, only('ripple', 'repeat-night')) },
+    });
+    h.toStep('doppelganger');
+    h.night('A', { players: ['B'] });
+    h.night('A', { players: ['E'] });
+    h.toStep('vampires');
+    h.night('D', { players: ['E'] });
+    h.toStep('the-count');
+    h.night('C', { players: ['A'] });
+    h.toStep('ripple');
+    h.tick();
+    while (h.step() !== 'doppelganger') h.tick();
+    expect(actors(h)).toEqual([]);
+  });
+
+  it('Fear stops a ripple’s repeat of a dusk role', () => {
+    const h = table({ players: ['the-count', 'vampire', 'cupid', V, V] });
+    h.toStep('vampires');
+    h.night('B', { players: ['D'] });
+    h.toStep('the-count');
+    h.night('A', { players: ['C'] });
+    expect(actorsFor(h.state.round!, stepDef('repeat:cupid'))).toEqual([]);
+    expect(actorsFor(h.state.round!, stepDef('repeat:the-count'))).toEqual(['A']);
   });
 
   it('repeat-observer: the named player keeps their eyes open through the loop', () => {
