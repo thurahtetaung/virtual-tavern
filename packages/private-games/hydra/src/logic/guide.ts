@@ -229,7 +229,7 @@ export function nameGuide(
     const used = new Set(trackFor(Math.max(5, Math.min(10, n))).filter(Boolean) as Power[]);
     const ctx: GuideContext = {
       summary: [
-        `${n} players`,
+        `${n} ${n === 1 ? 'player' : 'players'}`,
         ...(n >= 5 ? [f(`the ${size}–${size + 1} player {red} board`)] : []),
         ...(v.settings.rebalance ? ['community rebalance'] : []),
       ].join(' · '),

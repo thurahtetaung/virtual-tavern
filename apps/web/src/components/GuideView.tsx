@@ -277,7 +277,7 @@ function PresetPicker({
           id={id}
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
-          className="min-h-9 max-w-full rounded-lg bg-page px-2 font-semibold ring-1 ring-line"
+          className="min-h-11 max-w-full rounded-lg bg-page px-2 font-semibold ring-1 ring-line"
         >
           <option value="">Everything</option>
           {presets.map((p) => (
@@ -307,7 +307,7 @@ function Chip({
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'min-h-9 rounded-full px-3 text-sm font-semibold ring-1 transition-colors',
+        'min-h-11 rounded-full px-3.5 text-sm font-semibold ring-1 transition-colors',
         on
           ? 'bg-accent text-accent-fg ring-accent'
           : 'bg-card text-ink ring-line hover:ring-accent',
@@ -693,7 +693,7 @@ function Tiles({
             onChange={(e) => setTerm(e.target.value)}
             placeholder="Search…"
             aria-label="Search"
-            className="min-h-9 min-w-36 flex-1 rounded-full bg-card px-3 text-sm ring-1 ring-line"
+            className="min-h-11 min-w-36 flex-1 rounded-full bg-card px-3 text-sm ring-1 ring-line"
           />
         )}
       </div>

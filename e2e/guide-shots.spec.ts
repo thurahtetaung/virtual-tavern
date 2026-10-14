@@ -95,7 +95,12 @@ async function unlock(page: Page) {
 }
 
 async function tabs(page: Page, prefix: string, scope: Page | ReturnType<Page['locator']>) {
-  const shoot = (name: string) => page.screenshot({ path: `${OUT}/${prefix}-${name}.png` });
+  const shoot = async (name: string) => {
+    // Lazy art loads once it scrolls into view.
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${OUT}/${prefix}-${name}.png` });
+  };
   await shoot('learn');
   const tablist = scope.getByRole('tablist', { name: 'Guide' });
   const names = await tablist.getByRole('tab').allInnerTexts();
