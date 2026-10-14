@@ -757,7 +757,8 @@ function rigAction(state: S, action: Extract<ShortFuseAction, { type: 'rig' }>, 
   const e = requireHost(ctx);
   if (e) return e;
   if (state.phase === 'playing') return err('in-progress', 'Between games only.');
-  return { ...state, rig: { hands: action.hands, top: action.top, first: action.first } };
+  const { hands, top, first, size } = action;
+  return { ...state, rig: { hands, top, first, ...(size ? { size } : {}) } };
 }
 
 function newGame(state: S, ctx: CreateCtx): S {
@@ -872,6 +873,7 @@ function applyRig(g: Game, rig: S['rig'] & object, rng: Rng) {
     else g.stash.push(rest.splice(i, 1)[0]!);
   }
   g.pile = [...top, ...rest];
+  if (rig.size) g.out.push(...g.pile.splice(Math.max(rig.size, top.length)));
   g.bombsOut = g.pile.filter((id) => g.cards[id]!.t === 'bomb').length;
 }
 

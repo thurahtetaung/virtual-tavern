@@ -26,6 +26,10 @@ const agree = (name: string, you: string, other: string) =>
 /** "a Bomb", "an Ace": the article for a name. */
 export const an = (name: string) => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
 
+/** The off-turn play button: "Play Shuffle now", but "Play Shuffle NOW" when the name already says it. */
+export const playNow = (name: string) =>
+  /\bnow[.!]*$/i.test(name.trim()) ? `Play ${name}` : `Play ${name} now`;
+
 /** "a pair", "three of a kind", "five different cards", or the card's own name. */
 export function playName(c: Content, kind: PlayKind, t: CardType | null): string {
   if (kind === 'pair') return `a pair${t ? ` of ${c.name(t)}` : ''}`;

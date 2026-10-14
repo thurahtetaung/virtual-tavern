@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ids, rigged } from '../logic/test-utils.ts';
 import type { LogEntry } from '../logic/types.ts';
 import { contentFor } from './assets.ts';
-import { logLine, statusFor } from './text.ts';
+import { logLine, playNow, statusFor } from './text.ts';
 
 const c = contentFor(null);
 const [A, B, C] = ids(3) as [string, string, string];
@@ -195,5 +195,16 @@ describe('the fourth expansion’s lines address the viewer', () => {
     expect(statusFor(h.view(B), c).text).toBe(
       'HOST uses Second Life and brings you back. Play Foresight NOW to watch where the bombs go?',
     );
+  });
+});
+
+describe('the off-turn play button', () => {
+  it('says "now" once, even when the card name ends in NOW', () => {
+    expect(playNow('Alter the Future (3x) NOW')).toBe('Play Alter the Future (3x) NOW');
+    expect(playNow('Feed the Dead NOW')).toBe('Play Feed the Dead NOW');
+    expect(playNow('Shuffle Now')).toBe('Play Shuffle Now');
+    expect(playNow(c.name('alter3now'))).not.toMatch(/now now/i);
+    expect(playNow('Shuffle')).toBe('Play Shuffle now');
+    expect(playNow('Snowball')).toBe('Play Snowball now');
   });
 });
