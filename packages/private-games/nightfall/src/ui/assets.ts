@@ -7,6 +7,7 @@ import {
   type MarkId,
   type RoleId,
   type SetId,
+  markLabel,
   roleLabel,
 } from '../logic/roles.ts';
 import type { MusicPhase } from './audio.ts';
@@ -96,10 +97,7 @@ export interface Deck {
 }
 
 /** "fear" → "Mark of Fear", "vampire" → "Mark of the Vampire": the placeholder Mark names. */
-export const markLabel = (id: MarkId) =>
-  ['vampire', 'traitor', 'assassin'].includes(id)
-    ? `Mark of the ${id[0]!.toUpperCase()}${id.slice(1)}`
-    : `Mark of ${id[0]!.toUpperCase()}${id.slice(1)}`;
+export { markLabel };
 
 export function deckFor(state: ManifestState, artifactSummary: (id: ArtifactId) => string): Deck {
   const m = state && state !== 'unavailable' ? state : null;

@@ -57,6 +57,7 @@ describe('named guides', () => {
   it('fall back to the plain guide without a manifest', async () => {
     serve({});
     const seance = privateGames.find((g) => g.id === 'seance')!;
-    expect(await seance.namedGuide!()).toEqual(seance.guide);
+    // The same words (its room hook is a fresh function, so compare what it says).
+    expect(JSON.stringify(await seance.namedGuide!())).toBe(JSON.stringify(seance.guide));
   });
 });

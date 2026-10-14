@@ -1,17 +1,24 @@
 import { guide as hogwartsGuide } from '@vt/private-hogwarts/guide';
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
-import { guide as inquestGuide } from '@vt/private-inquest/guide';
+import { guide as inquestGuide, nameGuide as nameInquestGuide } from '@vt/private-inquest/guide';
 import { guide as masqueradeOriginalsGuide } from '@vt/private-masquerade-originals/guide';
-import { guide as nightfallGuide } from '@vt/private-nightfall/guide';
+import {
+  guide as nightfallGuide,
+  nameGuide as nameNightfallGuide,
+} from '@vt/private-nightfall/guide';
 import { guide as reverieGuide } from '@vt/private-reverie/guide';
-import { guide as royalPostGuide } from '@vt/private-royal-post/guide';
-import { guide as seanceGuide } from '@vt/private-seance/guide';
+import {
+  guide as royalPostGuide,
+  nameGuide as nameRoyalPostGuide,
+} from '@vt/private-royal-post/guide';
+import { guide as seanceGuide, nameGuide as nameSeanceGuide } from '@vt/private-seance/guide';
 import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
 import { lazy } from 'react';
 import {
   inquestLabels,
+  manifestGuide,
   nightfallLabels,
   originalsLabels,
   royalPostLabels,
@@ -55,7 +62,7 @@ export const privateGames: ClientGame[] = [
     id: 'royal-post',
     name: 'Royal Post',
     guide: royalPostGuide,
-    namedGuide: taggedGuide('royal-post', royalPostGuide),
+    namedGuide: manifestGuide('royal-post', nameRoyalPostGuide),
     icon: '✉️',
     Component: lazy(() =>
       import('@vt/private-royal-post/ui').then((m) => ({ default: m.RoyalPostGame })),
@@ -79,7 +86,7 @@ export const privateGames: ClientGame[] = [
     id: 'nightfall',
     name: 'Nightfall',
     guide: nightfallGuide,
-    namedGuide: taggedGuide('nightfall', nightfallGuide),
+    namedGuide: manifestGuide('nightfall', nameNightfallGuide),
     icon: '🐺',
     Component: lazy(() =>
       import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
@@ -90,7 +97,7 @@ export const privateGames: ClientGame[] = [
     id: 'inquest',
     name: 'Inquest',
     guide: inquestGuide,
-    namedGuide: taggedGuide('inquest', inquestGuide),
+    namedGuide: manifestGuide('inquest', nameInquestGuide),
     icon: '🔎',
     Component: lazy(() =>
       import('@vt/private-inquest/ui').then((m) => ({ default: m.InquestGame })),
@@ -101,7 +108,7 @@ export const privateGames: ClientGame[] = [
     id: 'seance',
     name: 'Séance',
     guide: seanceGuide,
-    namedGuide: taggedGuide('seance', seanceGuide),
+    namedGuide: manifestGuide('seance', nameSeanceGuide),
     icon: '🕯️',
     Component: lazy(() => import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame }))),
   },

@@ -1,6 +1,7 @@
-import type { GameGuide, GuideFooter } from '@vt/game-sdk';
+import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { CARD_TYPES, type CardType } from './cards.ts';
-import { type Names, PLACEHOLDER_NAMES, RULES, fillNames } from './names.ts';
+import { GLYPHS, type Names, PLACEHOLDER_NAMES, RULES, fillNames } from './names.ts';
+import type { ShortFuseView } from './types.ts';
 
 /**
  * Short Fuse's rules, written with name tokens (`{c:attack}`, `{bomb}`, `{Bombs}`…). The guide
@@ -42,8 +43,25 @@ const X3_CARDS: CardType[] = [
   'alter3now',
 ];
 
+const CATS = ['cat1', 'cat2', 'cat3', 'cat4', 'cat5'] as const;
 const cardLine = (t: CardType) =>
-  t === 'cat1' ? `Cats (5 kinds): ${RULES[t]}` : `{c:${t}}: ${RULES[t]}`;
+  t === 'cat1'
+    ? `Cats (5 kinds: ${CATS.map((c) => `{c:${c}}`).join(', ')}): ${RULES[t]}`
+    : `{c:${t}}: ${RULES[t]}`;
+
+const X1: GuideOption = { key: 'x1', label: 'Expansion 1' };
+const PARTY: GuideOption = { key: 'party', label: 'Party deck' };
+const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: GuideOption }> = {
+  'Your turn': { level: 'basics' },
+  '{Bombs} and {c:defuse}': { level: 'basics' },
+  'The {c:nope} countdown': { level: 'basics' },
+  'Attacks and owed turns': { level: 'details' },
+  Combos: { level: 'details' },
+  'The cards': { level: 'details' },
+  'When Expansion 1 is on': { level: 'details', option: X1 },
+  'Party deck and big tables': { level: 'edge' },
+  'House and legacy rules': { level: 'edge' },
+};
 
 const RAW: GameGuide = {
   tagline: 'Play your cards, draw one, and pray it isn’t a {bomb}. Last one standing wins.',
@@ -154,10 +172,6 @@ const RAW: GameGuide = {
     'After you defuse, hiding the {bomb} on top is a gift for the next player.',
     'Count the {c:nope} cards: an even number means the play goes ahead after all.',
   ],
-  glossary: CARD_TYPES.filter((t) => !/^cat[2-5]$/.test(t)).map((t) => ({
-    term: t === 'cat1' ? 'Cats' : `{c:${t}}`,
-    meaning: RULES[t],
-  })),
 };
 
 const fillDeep = <T>(v: T, names: Names): T => {
@@ -170,12 +184,128 @@ const fillDeep = <T>(v: T, names: Names): T => {
   return v;
 };
 
-/** The guide in an edition's words (unlocked browsers), with an optional credits footer. */
-export function nameGuide(names: Names, footer?: GuideFooter): GameGuide {
-  const g = fillDeep(RAW, names);
-  return footer ? { ...g, footer } : g;
+/** "a {bomb}" → "an Ember" when the name starts with a vowel (and "an {c:x}" → "a Bolt"). */
+export function fillArticles(text: string, names: Names): string {
+  return text.replace(
+    /\b([Aa])n? (\{(?:c:[\w-]+|bombs?|Bombs?)\})/g,
+    (_m, a: string, token: string) => {
+      const word = fillNames(token, names);
+      return `${/^[AEIOUaeiou]/.test(word) ? `${a}n` : a} ${token}`;
+    },
+  );
 }
+
+/** What the browser knows about a card's art (URLs) and printed text. */
+export interface CardArt {
+  face?: (t: CardType) => string | undefined;
+  text?: (t: CardType) => string | undefined;
+  back?: string;
+}
+
+/** The guide in an edition's words (unlocked browsers), with an optional credits footer. */
+export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {}): GameGuide {
+  const fill = <T>(v: T) => fillDeep(articled(v, names), names);
+  const g = fill(RAW);
+  const card = (t: CardType) => names.cards[t];
+  const face = (t: CardType) => art.face?.(t);
+  const tiles: GuideTile[] = CARD_TYPES.map((t) => {
+    const x1 = X1_CARDS.includes(t);
+    const f = face(t);
+    return {
+      id: t,
+      name: card(t),
+      text: fill(RULES[t]),
+      group: x1 ? (names.sets.x1 ?? 'Expansion 1') : 'Core',
+      icon: GLYPHS[t],
+      tone: t === 'bomb' || t === 'void' ? 'evil' : t === 'defuse' ? 'good' : 'neutral',
+      ...(art.text?.(t) && { meta: `On the card: “${art.text(t)}”` }),
+      ...(x1 && { option: X1 }),
+      ...(f && { art: f }),
+    };
+  });
+  const room = (raw: unknown): GuideContext | undefined => {
+    const v = raw as ShortFuseView;
+    if (!v?.settings) return undefined;
+    const s = v.settings;
+    const players = v.seats.filter((x) => x.playing).length;
+    const types = CARD_TYPES.filter((t) => !X1_CARDS.includes(t) || s.x1);
+    return {
+      summary: [
+        names.sets[s.core === 'party' ? 'party' : s.art === 'adult' ? 'adult' : 'classic'],
+        ...(s.x1 ? [names.sets.x1 ?? 'Expansion 1'] : []),
+        `${players} ${players === 1 ? 'player' : 'players'}`,
+        `${s.nopeSeconds} s ${card('nope')} countdown`,
+      ].join(' · '),
+      options: [...(s.x1 ? [X1.key] : []), ...(s.core === 'party' ? [PARTY.key] : [])],
+      inGame: Object.fromEntries(types.map((t) => [t, 1])),
+    };
+  };
+  const stepArt = (t: CardType) => (face(t) ? { art: face(t)! } : {});
+  return {
+    ...g,
+    sections: g.sections.map((sec, i) => ({ ...sec, ...LEVELS[RAW.sections[i]!.title] })),
+    steps: [
+      {
+        title: 'Play cards, then draw',
+        text: g.quickStart![0]!,
+        icon: '🃏',
+        ...(art.back && { art: art.back }),
+      },
+      { title: fill('Drew a {bomb}?'), text: g.quickStart![1]!, icon: '💣', ...stepArt('defuse') },
+      { title: 'Explode and you’re out', text: g.quickStart![2]!, icon: '💥', ...stepArt('bomb') },
+      { title: 'Dodge your draw', text: g.quickStart![3]!, icon: '⏭️', ...stepArt('attack') },
+      { title: fill('{c:nope}!'), text: g.quickStart![4]!, icon: '✋', ...stepArt('nope') },
+      {
+        title: 'Watch the pile, pair your cats',
+        text: g.quickStart![5]!,
+        icon: '🐱',
+        ...stepArt('cat1'),
+      },
+    ],
+    tiles: {
+      label: 'Cards',
+      blurb: 'Every card, with what it does',
+      intro: 'Every card in the box. Tap one to see it big and read what it does.',
+      shape: 'card',
+      items: tiles,
+    },
+    reference: [
+      {
+        title: 'Combos',
+        head: ['Play', 'You get'],
+        rows: [
+          ['Two with the same name', 'A random card from another player'],
+          ['Three with the same name', 'Name a card: they hand it over if they have it'],
+          [fill('Five different (legacy)'), 'Any card from the discard pile'],
+        ],
+      },
+      {
+        title: 'Owed turns',
+        head: ['When', 'The next player owes'],
+        rows: [
+          [fill('An {c:attack} on a normal turn'), '2 turns'],
+          [fill('An {c:attack} straight back (owing 2)'), '4 turns'],
+          [fill('An {c:attack} after one of your 2 turns'), '3 turns'],
+          ['You explode while owing', 'Nothing: the turns vanish'],
+        ],
+      },
+    ],
+    room,
+    ...(footer && { footer }),
+  };
+}
+
+/** Fixes the article before each name token in every string of `v`. */
+const articled = <T>(v: T, names: Names): T => {
+  if (typeof v === 'string') return fillArticles(v, names) as T;
+  if (Array.isArray(v)) return (v as unknown[]).map((x) => articled(x, names)) as T;
+  if (v && typeof v === 'object' && !(v instanceof Function))
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, articled(x, names)]),
+    ) as T;
+  return v;
+};
 
 export const guide: GameGuide = nameGuide(PLACEHOLDER_NAMES);
 
-export { type Manifest, footerOf, namesOf } from './manifest.ts';
+export { type Manifest, faceOf, footerOf, namesOf } from './manifest.ts';

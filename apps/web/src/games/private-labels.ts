@@ -10,6 +10,7 @@ import {
 import { makeGuide } from '@vt/private-tavern-brawl/guide';
 import {
   type Manifest as ShortFuseManifest,
+  faceOf as shortFuseFace,
   footerOf as shortFuseFooter,
   nameGuide as nameShortFuseGuide,
   namesOf as shortFuseNames,
@@ -43,6 +44,20 @@ function withTagline(m: unknown, guide: GameGuide): GameGuide {
  */
 export function taggedGuide(gameId: string, guide: GameGuide): () => Promise<GameGuide> {
   return async () => withTagline(await manifest(gameId), guide);
+}
+
+/**
+ * A back-room game's guide in its manifest's words and art (`nameGuide`), under the manifest's
+ * tagline. Without a manifest, `nameGuide(null)` is the plain guide.
+ */
+export function manifestGuide(
+  gameId: string,
+  nameGuide: (manifest: unknown) => GameGuide,
+): () => Promise<GameGuide> {
+  return async () => {
+    const m = await manifest(gameId);
+    return withTagline(m, nameGuide(m));
+  };
 }
 
 /** Fetches a manifest once per page; null without asset storage. */
@@ -148,7 +163,23 @@ export async function tavernBrawlGuide(): Promise<GameGuide> {
   return withTagline(
     m,
     makeGuide(
-      { hero: (id) => name(heroes[id]), card: (id) => name(cards[id]) },
+      {
+        hero: (id) => name(heroes[id]),
+        card: (id) => name(cards[id]),
+        set: (id) => name(obj(m?.sets)[id]),
+        heroArt: (id) => {
+          const h = obj(heroes[id]);
+          const url = (p: unknown) =>
+            typeof p === 'string' && p ? `/api/backroom/assets/tavern-brawl/${p}` : undefined;
+          const portrait = url(h.portrait);
+          const f = h.portraitFocus;
+          const focus =
+            Array.isArray(f) && f.length === 2 && f.every((n) => typeof n === 'number')
+              ? (f as [number, number])
+              : undefined;
+          return portrait ? { portrait, ...(focus && { focus }) } : undefined;
+        },
+      },
       typeof credit.title === 'string' && paragraphs.length
         ? { title: credit.title, paragraphs }
         : undefined,
@@ -165,5 +196,19 @@ export async function shortFuseLabels(): Promise<Labeler> {
 /** Short Fuse's guide in its manifest's names, with the credits as its footer. */
 export async function shortFuseGuide(): Promise<GameGuide> {
   const m = (await manifest('short-fuse')) as ShortFuseManifest | null;
-  return withTagline(m, nameShortFuseGuide(shortFuseNames(m), shortFuseFooter(m)));
+  const url = (p: string | null | undefined) =>
+    p ? `/api/backroom/assets/short-fuse/${p.replace(/^\/+/, '')}` : undefined;
+  const names = shortFuseNames(m);
+  // The tagline is filled the same way, so its article fits the name too.
+  const tagline = obj(obj(m).guide).tagline;
+  const g = nameShortFuseGuide(names, shortFuseFooter(m), {
+    face: (t) => url(shortFuseFace(m, t, 0, 'classic')),
+    text: (t) => {
+      const f = shortFuseFace(m, t, 0, 'classic');
+      const rules = f ? m?.text?.[f]?.rules : undefined;
+      return typeof rules === 'string' && rules.trim() ? rules.trim() : undefined;
+    },
+    ...(url(m?.back) && { back: url(m?.back)! }),
+  });
+  return typeof tagline === 'string' && tagline.trim() ? { ...g, tagline: tagline.trim() } : g;
 }

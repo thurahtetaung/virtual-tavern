@@ -1,6 +1,6 @@
-import type { GameGuide, GuideFooter } from '@vt/game-sdk';
-import { HEROES, cardsOf, ENABLED_HEROES, symbolCount } from './cards.ts';
-import type { CardDef, Effect, HeroId } from './types.ts';
+import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
+import { ENABLED_HEROES, HEROES, SETS, cardsOf, symbolCount } from './cards.ts';
+import type { CardDef, Effect, HeroId, SetId, TavernBrawlView } from './types.ts';
 
 /** Our own one-line summary of every power ("you" is whoever plays the card). */
 export const POWER_TEXT: Record<Effect, string> = {
@@ -121,156 +121,284 @@ export function placeholderCardName(def: CardDef): string {
 export interface GuideNames {
   hero?: (id: HeroId) => string | undefined;
   card?: (id: string) => string | undefined;
+  /** A hero's portrait (a URL) and full hero card. */
+  heroArt?: (
+    id: HeroId,
+  ) => { portrait?: string; card?: string; focus?: [number, number] } | undefined;
+  /** A hero set's name ("core", "x1", "x2"). */
+  set?: (id: SetId) => string | undefined;
 }
+
+const BIG_TABLE: GuideOption = { key: 'big', label: '5 or 6 players' };
+
+const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
+  'Your turn': 'basics',
+  'The symbols': 'basics',
+  'Shields and damage': 'basics',
+  Knockouts: 'basics',
+  'Stealing and borrowing': 'details',
+  Forms: 'details',
+  Powers: 'details',
+  'When five or six play': 'details',
+  'Out-of-turn questions': 'details',
+  'Table rulings': 'edge',
+  'Timers and absent players': 'edge',
+};
 
 export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGuide {
   const heroName = (h: HeroId) => names.hero?.(h) ?? HEROES[h].label;
   const cardName = (def: CardDef) => names.card?.(def.id) ?? placeholderCardName(def);
+  const druid = heroName('druid');
+  const portrait = (h: HeroId) => names.heroArt?.(h)?.portrait;
+  const setName = (id: SetId) => names.set?.(id) ?? SETS[id].label;
+  const deckSize = (h: HeroId) => cardsOf(h).reduce((n, c) => n + c.count, 0);
+  const guide = text();
+  const sections = guide.sections.map((sec) => ({
+    ...sec,
+    ...(sec.title === 'Forms' && { title: `Forms (${druid})` }),
+    level: LEVELS[sec.title] ?? 'details',
+    ...(sec.title === 'When five or six play' && { option: BIG_TABLE }),
+  }));
+  const room = (raw: unknown, you: string): GuideContext | undefined => {
+    const v = raw as TavernBrawlView;
+    if (!Array.isArray(v?.seats)) return undefined;
+    const heroes = v.seats.map((x) => x.hero).filter((h): h is HeroId => !!h);
+    const sets = v.settings?.sets?.length ? v.settings.sets : (Object.keys(SETS) as SetId[]);
+    const players = v.seats.filter((x) => x.playing).length;
+    // Before anyone picks, the game is whatever the ticked sets hold.
+    const pool = heroes.length
+      ? heroes
+      : ENABLED_HEROES.filter((h) => sets.includes(HEROES[h].set));
+    const ctx: GuideContext = {
+      summary: heroes.length
+        ? heroes.map(heroName).join(' · ')
+        : `Heroes from ${sets.map(setName).join(', ')}`,
+      options: players >= 5 ? [BIG_TABLE.key] : [],
+      inGame: Object.fromEntries(pool.map((h) => [h, 1])),
+    };
+    const mine = v.seats.find((x) => x.id === you)?.hero;
+    if (mine) {
+      const art = portrait(mine);
+      ctx.you = {
+        name: heroName(mine),
+        text: HEROES[mine].style,
+        tile: mine,
+        ...(art && { art }),
+      };
+    }
+    return ctx;
+  };
   return {
-    tagline:
-      'Heroes brawl with cards: hit, block, heal and chain plays to be the last one standing.',
-    players: '2 to 6',
-    duration: '10 to 20 minutes',
-    goal: 'Knock out every other hero. Everyone starts with 10 hit points; the last hero standing wins.',
-    quickStart: [
-      'Pick a hero: each has their own 28-card deck. Everyone starts with 10 hit points and 3 cards.',
-      'On your turn you draw 1 card, then play 1 card and do what its symbols say, top to bottom.',
-      '⚔ deals damage, 🛡 stays in front of you and blocks, ❤ heals, ⚡ lets you play another card, 🃏 draws.',
-      'Damage hits shields first (you choose which), and only reaches hit points once they’re broken.',
-      'Cards with ✦ have a power: just do what it says. Run out of cards in hand and you draw 2.',
-      'At 0 hit points you’re out. The last hero standing wins.',
-    ],
-    setup: [
-      'Everyone takes a seat (2 to 6 players) and picks a different hero, or taps 🎲 for a random one. The host can also deal random heroes to everyone, from the sets they tick.',
-      'Each hero’s deck is shuffled, everyone starts on 10 hit points and draws 3 cards.',
-      'A random player goes first; play passes round the table in seat order.',
-    ],
-    sections: [
+    ...guide,
+    sections,
+    steps: [
       {
-        title: 'Your turn',
-        bullets: [
-          'You draw 1 card automatically, then you must play 1 card from your hand.',
-          'Each ⚡ on a card you play means you play one more card this turn. The counter at the bottom shows how many you still owe.',
-          'You must play even if every card in your hand hurts you.',
-          'Whenever your hand is empty after a card, you draw 2 straight away and carry on.',
-          'When you owe no more cards, your turn ends by itself. Cards you played go to their owner’s discard pile; shields stay in play.',
-        ],
+        title: 'Pick a hero',
+        text: guide.quickStart![0]!,
+        icon: '🦸',
+        ...(portrait('brute') && { art: portrait('brute') }),
       },
+      { title: 'Draw 1, play 1', text: guide.quickStart![1]!, icon: '🃏' },
+      { title: 'Read the symbols', text: guide.quickStart![2]!, icon: '⚔️🛡️❤️' },
+      { title: 'Shields soak damage', text: guide.quickStart![3]!, icon: '🛡️' },
+      { title: 'Powers do what they say', text: guide.quickStart![4]!, icon: '✦' },
+      {
+        title: 'Last hero standing',
+        text: guide.quickStart![5]!,
+        icon: '🏆',
+        ...(portrait('ranger') && { art: portrait('ranger') }),
+      },
+    ],
+    tiles: {
+      label: 'Heroes',
+      blurb: `${ENABLED_HEROES.length} heroes, each with their own deck`,
+      intro:
+        'Each hero plays differently. Tap one for their style and their whole deck; filter by set.',
+      items: ENABLED_HEROES.map((h): GuideTile => {
+        const art = names.heroArt?.(h);
+        return {
+          id: h,
+          name: heroName(h),
+          text: HEROES[h].style,
+          icon: HEROES[h].set === 'x2' ? '👹' : '🦸',
+          group: setName(HEROES[h].set),
+          meta: setName(HEROES[h].set),
+          more: {
+            title: `The deck (${deckSize(h)} cards)`,
+            items: cardsOf(h).map((c) => `${cardName(c)} ×${c.count} (${symbolLine(c)})`),
+          },
+          ...(art?.portrait && { art: art.portrait }),
+          ...(art?.focus && { focus: art.focus }),
+          ...(art?.card && { card: art.card }),
+        };
+      }),
+    },
+    reference: [
       {
         title: 'The symbols',
-        bullets: [
-          '⚔ Attack: deal that much damage to one opponent (or one of their shields). All the swords on one card go to the same target.',
-          '🛡 Shield: the card stays in front of you, with that many points. Damage must break your shields before it reaches your hit points.',
-          '❤ Heal: gain that many hit points, up to 10.',
-          '⚡ Play again: play one more card this turn.',
-          '🃏 Draw: draw that many cards.',
-          '✦ Power: do what the card says (tap the card to read it).',
+        head: ['Symbol', 'What it does'],
+        rows: [
+          ['⚔', 'Damage to one opponent (or one of their shields)'],
+          ['🛡', 'A shield: stays in front of you and blocks that much'],
+          ['❤', 'Heal, up to 10'],
+          ['⚡', 'Play one more card this turn'],
+          ['🃏', 'Draw that many cards'],
+          ['🐾', `A bonus in ${druid}’s Form`],
+          ['✦', 'A power: do what the card says'],
         ],
-      },
-      {
-        title: 'Shields and damage',
-        bullets: [
-          'You attack a player or tap one of their shields. If they have shields, you choose which one takes the damage first.',
-          'Damage left over when a shield breaks goes to another shield of theirs that you pick, then to their hit points.',
-          'Damage marks stay on a shield until it breaks; a broken shield goes to its owner’s discard pile.',
-          'Power damage (like a blast that hits everyone) is blocked by shields too.',
-        ],
-      },
-      {
-        title: 'Knockouts',
-        bullets: [
-          'A card always resolves completely first; then everyone on 0 hit points is out.',
-          'If you knock yourself out on your own turn, your turn ends there.',
-          'If the last players are knocked out together, the game is a tie.',
-          'Knocked-out players can’t be targeted; they watch the rest of the game.',
-        ],
-      },
-      {
-        title: 'Stealing and borrowing',
-        bullets: [
-          'Some powers let you play or take another hero’s cards. You play them as your own (you are the “you” on the card).',
-          'A borrowed card always goes back to its owner’s discard pile afterwards; a borrowed shield protects you until it breaks, then goes home.',
-          'Only the druid ever holds a Form. Anyone else who plays a Form card just gets its symbols.',
-        ],
-      },
-      {
-        title: 'Forms (the druid)',
-        bullets: [
-          'Playing a Form card puts you in that Form; a new Form replaces the old one.',
-          '🐾 cards get a bonus in a Form: 1 more heal in the bear Form, 1 more damage in the wolf Form. Without a Form, 🐾 does nothing.',
-        ],
-      },
-      {
-        title: 'When five or six play',
-        bullets: [
-          'Neighbours only: with five or six at the start, regular attack cards can only hit the nearest player still in on your left or right, for the whole game. Cards with a power (✦) reach anyone, even their swords.',
-          'Ghosts: a knocked-out player stays at the table as a ghost. On their turn they attack one player for 1. It can never knock anyone out, can’t target a player on 1 hit point, and shields block it. Ghosts can’t win.',
-        ],
-      },
-      {
-        title: 'Out-of-turn questions',
-        bullets: [
-          'Some powers ask other players: everyone chooses attack, heal or draw; dance; praise; a broken strike-back shield’s attacks; or where a steered attack goes.',
-          'These questions always get 20 seconds. Then the table answers for you: draw, dance, praise, a random target, or the attack stays where it was aimed.',
-        ],
-      },
-      {
-        title: 'Table rulings',
-        bullets: [
-          'The attacker picks which shield is hit, and where any overflow goes.',
-          'If your deck and discard pile are both empty, you simply don’t draw. If you have nothing at all to play, your turn passes.',
-          'Taking back a discarded card only reaches cards that were there before this turn.',
-          'Powers that take or play another hero’s cards only pick opponents.',
-          'A disguise keeps out every opponent’s card, including “everyone” effects, but not your own cards. An attack with only disguised targets does nothing.',
-          'The attack bonus adds 1 damage to every target of each attack card played after it this turn, and two of them add 2.',
-          'Destroying a shield is not optional: if the only shield in play is yours, it goes.',
-          'A taken shield keeps its damage marks.',
-          'Attack cards include cards with a power and printed swords (like the wolf Form).',
-          'There is no hand limit.',
-          'When everyone chooses, every player’s attacks reach anyone, and all of your own repeated attacks hit the same opponent.',
-          'A strike-back shield strikes whenever it is destroyed (by damage or a power), but not when its holder is knocked out. Its attacks come after the destroying card has resolved.',
-          'Steering attacks never turns an attack back on the player making it.',
-          'A shield copy with no other shield in play does nothing and is discarded.',
-          'Borrowing a neighbour’s power uses the nearest player still in on that side.',
-          'The power that makes your attacks ignore shields and the one that makes them hit everyone also apply to the card that carries them.',
-          'Anyone whose hand is emptied by a card draws 2 once it has resolved.',
-        ],
-      },
-      {
-        title: 'Timers and absent players',
-        bullets: [
-          'By default the clock is only a reminder. With a strict clock, a random card is played (and random choices made) when time runs out.',
-          'Animal noises and other honour-system prompts get 20 seconds; after that they count as done.',
-          'If a player leaves, the table plays their turns for them; the host can also remove them.',
-        ],
-      },
-      {
-        title: 'Powers',
-        bullets: ENABLED_HEROES.flatMap((h) =>
-          cardsOf(h)
-            .filter((c) => c.effect)
-            .map((c) => `${heroName(h)}, ${cardName(c)}: ${POWER_TEXT[c.effect!]}`),
-        ),
       },
     ],
-    roles: ENABLED_HEROES.map((h) => ({
-      name: heroName(h),
-      summary: `${HEROES[h].style} Deck: ${cardsOf(h)
-        .map((c) => `${cardName(c)} ×${c.count}`)
-        .join(', ')}.`,
-    })),
-    tips: [
-      'Chain ⚡ cards to play several cards in one turn.',
-      'Break the biggest shield first when you can finish it off.',
-      'Keep a shield up when your hit points are low: it buys a turn.',
-      'Tap any card to see the original and what it will do.',
-    ],
-    glossary: [
-      { term: 'Power', meaning: 'A card with ✦: it does what its text says.' },
-      { term: 'Form', meaning: 'The druid’s bear or wolf, which boosts 🐾 cards.' },
-    ],
-    ...(footer && { footer }),
+    room,
   };
+
+  /** The rules, in reading order. */
+  function text(): GameGuide {
+    return {
+      tagline:
+        'Heroes brawl with cards: hit, block, heal and chain plays to be the last one standing.',
+      players: '2 to 6',
+      duration: '10 to 20 minutes',
+      goal: 'Knock out every other hero. Everyone starts with 10 hit points; the last hero standing wins.',
+      quickStart: [
+        'Pick a hero: each has their own 28-card deck. Everyone starts with 10 hit points and 3 cards.',
+        'On your turn you draw 1 card, then play 1 card and do what its symbols say, top to bottom.',
+        '⚔ deals damage, 🛡 stays in front of you and blocks, ❤ heals, ⚡ lets you play another card, 🃏 draws.',
+        'Damage hits shields first (you choose which), and only reaches hit points once they’re broken.',
+        'Cards with ✦ have a power: just do what it says. Run out of cards in hand and you draw 2.',
+        'At 0 hit points you’re out. The last hero standing wins.',
+      ],
+      setup: [
+        'Everyone takes a seat (2 to 6 players) and picks a different hero, or taps 🎲 for a random one. The host can also deal random heroes to everyone, from the sets they tick.',
+        'Each hero’s deck is shuffled, everyone starts on 10 hit points and draws 3 cards.',
+        'A random player goes first; play passes round the table in seat order.',
+      ],
+      sections: [
+        {
+          title: 'Your turn',
+          bullets: [
+            'You draw 1 card automatically, then you must play 1 card from your hand.',
+            'Each ⚡ on a card you play means you play one more card this turn. The counter at the bottom shows how many you still owe.',
+            'You must play even if every card in your hand hurts you.',
+            'Whenever your hand is empty after a card, you draw 2 straight away and carry on.',
+            'When you owe no more cards, your turn ends by itself. Cards you played go to their owner’s discard pile; shields stay in play.',
+          ],
+        },
+        {
+          title: 'The symbols',
+          bullets: [
+            '⚔ Attack: deal that much damage to one opponent (or one of their shields). All the swords on one card go to the same target.',
+            '🛡 Shield: the card stays in front of you, with that many points. Damage must break your shields before it reaches your hit points.',
+            '❤ Heal: gain that many hit points, up to 10.',
+            '⚡ Play again: play one more card this turn.',
+            '🃏 Draw: draw that many cards.',
+            '✦ Power: do what the card says (tap the card to read it).',
+          ],
+        },
+        {
+          title: 'Shields and damage',
+          bullets: [
+            'You attack a player or tap one of their shields. If they have shields, you choose which one takes the damage first.',
+            'Damage left over when a shield breaks goes to another shield of theirs that you pick, then to their hit points.',
+            'Damage marks stay on a shield until it breaks; a broken shield goes to its owner’s discard pile.',
+            'Power damage (like a blast that hits everyone) is blocked by shields too.',
+          ],
+        },
+        {
+          title: 'Knockouts',
+          bullets: [
+            'A card always resolves completely first; then everyone on 0 hit points is out.',
+            'If you knock yourself out on your own turn, your turn ends there.',
+            'If the last players are knocked out together, the game is a tie.',
+            'Knocked-out players can’t be targeted; they watch the rest of the game.',
+          ],
+        },
+        {
+          title: 'Stealing and borrowing',
+          bullets: [
+            'Some powers let you play or take another hero’s cards. You play them as your own (you are the “you” on the card).',
+            'A borrowed card always goes back to its owner’s discard pile afterwards; a borrowed shield protects you until it breaks, then goes home.',
+            `Only ${druid} ever holds a Form. Anyone else who plays a Form card just gets its symbols.`,
+          ],
+        },
+        {
+          title: 'Forms',
+          bullets: [
+            'Playing a Form card puts you in that Form; a new Form replaces the old one.',
+            '🐾 cards get a bonus in a Form: 1 more heal in the bear Form, 1 more damage in the wolf Form. Without a Form, 🐾 does nothing.',
+          ],
+        },
+        {
+          title: 'When five or six play',
+          bullets: [
+            'Neighbours only: with five or six at the start, regular attack cards can only hit the nearest player still in on your left or right, for the whole game. Cards with a power (✦) reach anyone, even their swords.',
+            'Ghosts: a knocked-out player stays at the table as a ghost. On their turn they attack one player for 1. It can never knock anyone out, can’t target a player on 1 hit point, and shields block it. Ghosts can’t win.',
+          ],
+        },
+        {
+          title: 'Out-of-turn questions',
+          bullets: [
+            'Some powers ask other players: everyone chooses attack, heal or draw; dance; praise; a broken strike-back shield’s attacks; or where a steered attack goes.',
+            'These questions always get 20 seconds. Then the table answers for you: draw, dance, praise, a random target, or the attack stays where it was aimed.',
+          ],
+        },
+        {
+          title: 'Table rulings',
+          bullets: [
+            'The attacker picks which shield is hit, and where any overflow goes.',
+            'If your deck and discard pile are both empty, you simply don’t draw. If you have nothing at all to play, your turn passes.',
+            'Taking back a discarded card only reaches cards that were there before this turn.',
+            'Powers that take or play another hero’s cards only pick opponents.',
+            'A disguise keeps out every opponent’s card, including “everyone” effects, but not your own cards. An attack with only disguised targets does nothing.',
+            'The attack bonus adds 1 damage to every target of each attack card played after it this turn, and two of them add 2.',
+            'Destroying a shield is not optional: if the only shield in play is yours, it goes.',
+            'A taken shield keeps its damage marks.',
+            'Attack cards include cards with a power and printed swords (like the wolf Form).',
+            'There is no hand limit.',
+            'When everyone chooses, every player’s attacks reach anyone, and all of your own repeated attacks hit the same opponent.',
+            'A strike-back shield strikes whenever it is destroyed (by damage or a power), but not when its holder is knocked out. Its attacks come after the destroying card has resolved.',
+            'Steering attacks never turns an attack back on the player making it.',
+            'A shield copy with no other shield in play does nothing and is discarded.',
+            'Borrowing a neighbour’s power uses the nearest player still in on that side.',
+            'The power that makes your attacks ignore shields and the one that makes them hit everyone also apply to the card that carries them.',
+            'Anyone whose hand is emptied by a card draws 2 once it has resolved.',
+          ],
+        },
+        {
+          title: 'Timers and absent players',
+          bullets: [
+            'By default the clock is only a reminder. With a strict clock, a random card is played (and random choices made) when time runs out.',
+            'Animal noises and other honour-system prompts get 20 seconds; after that they count as done.',
+            'If a player leaves, the table plays their turns for them; the host can also remove them.',
+          ],
+        },
+        {
+          title: 'Powers',
+          bullets: ENABLED_HEROES.flatMap((h) =>
+            cardsOf(h)
+              .filter((c) => c.effect)
+              .map((c) => `${heroName(h)}, ${cardName(c)}: ${POWER_TEXT[c.effect!]}`),
+          ),
+        },
+      ],
+      roles: ENABLED_HEROES.map((h) => ({
+        name: heroName(h),
+        summary: `${HEROES[h].style} Deck: ${cardsOf(h)
+          .map((c) => `${cardName(c)} ×${c.count}`)
+          .join(', ')}.`,
+      })),
+      tips: [
+        'Chain ⚡ cards to play several cards in one turn.',
+        'Break the biggest shield first when you can finish it off.',
+        'Keep a shield up when your hit points are low: it buys a turn.',
+        'Tap any card to see the original and what it will do.',
+      ],
+      glossary: [
+        { term: 'Power', meaning: 'A card with ✦: it does what its text says.' },
+        { term: 'Form', meaning: `${druid}’s bear or wolf, which boosts 🐾 cards.` },
+      ],
+      ...(footer && { footer }),
+    };
+  }
 }
 
 export const guide: GameGuide = makeGuide();
