@@ -73,9 +73,20 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(op).toHaveTitle('Codenames · Virtual Tavern');
   await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
   await spy.getByRole('button', { name: '2', exact: true }).click();
+  await expect(spy.getByRole('button', { name: '2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  // Unlimited: the team may keep guessing as long as it finds agents.
+  await spy.getByRole('button', { name: '∞ · unlimited' }).click();
+  await expect(spy.getByRole('button', { name: '2', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await spy.getByRole('button', { name: 'Give clue' }).click();
 
-  await expect(op.getByText('Your turn to guess')).toBeVisible();
+  await expect(op.getByText('Your turn to guess (no guess limit)')).toBeVisible();
+  await expect(otherOp.getByText('· ∞').first()).toBeVisible();
   await expect(op).toHaveTitle(/^● Your turn · Codenames/);
   await expect(spy).toHaveTitle('Codenames · Virtual Tavern');
   await expect(otherOp.getByText('team is guessing')).toBeVisible();

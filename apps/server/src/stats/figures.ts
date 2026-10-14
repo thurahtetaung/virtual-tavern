@@ -1310,9 +1310,12 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
     return out;
   }
   switch (`${gameId}:${type}`) {
-    case 'codenames:clue':
-      out.push(['f.clues', 1], ['f.clue_sum', num(props.count) ?? 0]);
+    case 'codenames:clue': {
+      // The average clue size leaves out 0 and ∞ clues (no number to average).
+      const count = num(props.count);
+      if (count != null && count > 0) out.push(['f.clues', 1], ['f.clue_sum', count]);
       break;
+    }
     case 'codenames:guess':
       flag('guesses', props.correct);
       if (isAssassinGuess(props)) out.push(['f.assassin_hits', 1]);

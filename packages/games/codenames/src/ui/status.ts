@@ -1,16 +1,22 @@
 import { type PresencePlayer, waitingForHost } from '@vt/game-sdk';
+import { hasGuessLimit } from '../logic/clue.ts';
 import type { CodenamesView, Team } from '../logic/types.ts';
 import { TEAM_LABEL } from './theme.ts';
 
-/** Guesses the current team may still make for this clue (the clue number plus one). */
-export function guessesLeft(view: CodenamesView): number {
-  const count = view.turn?.clue?.count ?? 1;
+/**
+ * Guesses the current team may still make for this clue (the clue number plus one), or null when
+ * a clue for 0 or unlimited lets them go on as long as they find agents.
+ */
+export function guessesLeft(view: CodenamesView): number | null {
+  const count = view.turn?.clue ? view.turn.clue.count : 1;
+  if (!hasGuessLimit(count)) return null;
   return Math.max(0, count + 1 - (view.turn?.guessesMade ?? 0));
 }
 
-/** "2 guesses left". */
+/** "2 guesses left", or "no guess limit". */
 export function guessesLeftText(view: CodenamesView): string {
   const left = guessesLeft(view);
+  if (left === null) return 'no guess limit';
   return `${left} guess${left === 1 ? '' : 'es'} left`;
 }
 

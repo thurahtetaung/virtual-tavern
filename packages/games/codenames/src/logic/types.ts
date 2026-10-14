@@ -12,8 +12,11 @@ export const MAX_CLUE_LENGTH = 32;
 export type Team = 'red' | 'blue';
 export type Role = 'spymaster' | 'operative';
 export type CardKind = Team | 'bystander' | 'assassin';
-/** How many cards a clue points at (1–9). Operatives get one extra guess on top. */
-export type ClueCount = number;
+/**
+ * How many cards a clue points at: 1–9 gives the Operatives one extra guess on top; 0 ("none of
+ * these") and null ("unlimited", shown as ∞) let them guess as long as they keep finding agents.
+ */
+export type ClueCount = number | null;
 
 export interface Settings {
   wordListIds: string[];
@@ -124,7 +127,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('give-clue'),
     word: z.string().trim().min(1).max(MAX_CLUE_LENGTH),
-    count: z.number().int().min(1).max(9),
+    count: z.number().int().min(0).max(9).nullable(),
   }),
   z.object({
     type: z.literal('toggle-suggestion'),

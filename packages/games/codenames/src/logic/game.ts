@@ -25,6 +25,7 @@ import {
   type WinReason,
   actionSchema,
 } from './types.ts';
+import { hasGuessLimit } from './clue.ts';
 import { guide } from './guide.ts';
 import { codenamesAwards } from './awards.ts';
 import { insights } from './insights.ts';
@@ -411,7 +412,7 @@ function giveClue(
   }
   const count = action.count;
   const left = remainingAgents(state.board, turn.team);
-  if (count > left) {
+  if (count !== null && count > left) {
     return new GameError(
       'count-too-high',
       `Your team only has ${left} agent${left === 1 ? '' : 's'} left to find.`,
@@ -502,8 +503,9 @@ function guess(state: CodenamesState, index: number, seen: number | undefined, c
     if (remainingAgents(board, team) === 0) return endGame(next, team, 'all-agents');
   }
   if (card.kind !== turn.team) return endTurn(next, 'wrong-guess', ctx.now);
-  // A clue for N allows N + 1 guesses.
-  if (guessesMade >= (turn.clue?.count ?? 1) + 1) {
+  // A clue for N allows N + 1 guesses; one for 0 or unlimited, as many as the team likes.
+  const count = turn.clue ? turn.clue.count : 1;
+  if (hasGuessLimit(count) && guessesMade >= count + 1) {
     return endTurn(next, 'out-of-guesses', ctx.now);
   }
   return next;

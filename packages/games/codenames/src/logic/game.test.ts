@@ -702,13 +702,13 @@ describe('actionSchema', () => {
     expect(actionSchema.safeParse(action).success).toBe(false);
   });
 
-  it('accepts disabling timers and rejects 0 or unlimited clues', () => {
+  it('accepts disabling timers, and 0 or unlimited (null) clues', () => {
     expect(actionSchema.safeParse({ type: 'update-settings', clueSeconds: null }).success).toBe(
       true,
     );
-    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: 0 }).success).toBe(false);
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: 0 }).success).toBe(true);
     expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: null }).success).toBe(
-      false,
+      true,
     );
   });
 });
@@ -771,6 +771,21 @@ describe('round 2 rule fixes', () => {
     expect(give(`${a}'s`)).toBe('bad-clue');
     expect(give(`x-${a!.toUpperCase()}`)).toBe('bad-clue');
     h.act({ type: 'give-clue', word: 'sea-salt', count: 1 }, SPY.red);
+  });
+
+  it('takes 0 and unlimited clues, which lift the guess limit but still need a guess', () => {
+    for (const count of [0, null]) {
+      const h = startedGame();
+      h.act({ type: 'give-clue', word: 'hint', count }, SPY.red);
+      expect(h.state.turn?.clue).toEqual({ word: 'hint', count });
+      expect(h.reject({ type: 'end-turn' }, OP.red)).toBe('must-guess');
+      // All but the last red agent, far past the usual "number + 1" guesses.
+      for (const card of cardsOf(h.state, 'red').slice(1)) h.act({ type: 'guess', card }, OP.red);
+      expect(h.state.turn).toMatchObject({ team: 'red', stage: 'guess', guessesMade: 8 });
+      h.act({ type: 'end-turn' }, OP.red);
+      expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'passed' });
+    }
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: -1 }).success).toBe(false);
   });
 
   it('refuses plurals and simple forms of face-down words, but not lookalike words', () => {

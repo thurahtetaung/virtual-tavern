@@ -17,6 +17,7 @@ import {
   seconds,
   str,
 } from '@vt/game-sdk';
+import { countText } from './clue.ts';
 
 /**
  * Codenames awards, read from its `insights` events: `clue` {word, count, team},
@@ -635,7 +636,8 @@ function history(g: GameEvents): string[] {
     const found = correctIn(r);
     const assassin = r.guesses.some((e) => str(e, 'kind') === 'assassin');
     const who = r.giver ? ph.p(r.giver) : 'Someone';
-    return `${teamName(r.team)}: ${who} gave "${word} ${r.count}", ${found} found${assassin ? ', then the assassin' : ''}`;
+    const said = countText(num(r.clue, 'count') ?? null);
+    return `${teamName(r.team)}: ${who} gave "${word} ${said}", ${found} found${assassin ? ', then the assassin' : ''}`;
   });
   if (lines.length <= 12) return lines;
   return [`${lines.length - 12} earlier clues…`, ...lines.slice(-11)];

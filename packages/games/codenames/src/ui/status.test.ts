@@ -201,3 +201,15 @@ describe('spymasterAlerts', () => {
     expect(spymasterAlerts(codenames.view(h.state, HOST))).toEqual([]);
   });
 });
+
+describe('guesses left', () => {
+  it('has no limit after a 0 or unlimited clue', () => {
+    const h = startedGame();
+    h.act({ type: 'give-clue', word: 'hint', count: null }, SPY.red);
+    const view = codenames.view(h.state, OP.red);
+    expect(guessesLeft(view)).toBeNull();
+    expect(statusFor(view, false, null).text).toBe(
+      'Your turn to guess (no guess limit). Tap a card to suggest it to your team, then press Guess.',
+    );
+  });
+});

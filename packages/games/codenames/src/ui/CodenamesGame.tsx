@@ -12,6 +12,7 @@ import {
   useSpectatorPrompt,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
+import { countText } from '../logic/clue.ts';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
@@ -240,7 +241,7 @@ function InGame({
               {turn.clue.word}
             </b>
             <span className="text-stone-500"> · </span>
-            <b className="text-2xl">{turn.clue.count}</b>
+            <b className="text-2xl">{countText(turn.clue.count)}</b>
           </p>
         )}
 
