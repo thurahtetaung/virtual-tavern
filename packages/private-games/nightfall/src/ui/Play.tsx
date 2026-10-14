@@ -5,7 +5,7 @@ import {
   Countdown,
   Hint,
   Panel,
-  Peek as SharedPeek,
+  Peek,
   Superlatives,
   cn,
   useSecondsLeft,
@@ -59,7 +59,6 @@ import {
   useRoleDetails,
 } from './Cards.tsx';
 import { standingOf } from './standing.ts';
-import { Peek } from './peek.tsx';
 import {
   type Status,
   nudgeFor,
@@ -482,6 +481,27 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
         ))}
       </ol>
       {said}
+    </div>
+  );
+}
+
+/**
+ * Your starting card, Mark and artifact: covered until you hold or Show, like the card at the deal,
+ * so a phone left face up on the table says nothing about you.
+ */
+function MySecrets({ children }: { children: ReactNode }) {
+  return (
+    <div data-testid="my-secrets" className="w-full">
+      <Peek
+        what="your card"
+        cover={
+          <span className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+            <span aria-hidden>🂠</span> Hold to see your card
+          </span>
+        }
+      >
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">{children}</div>
+      </Peek>
     </div>
   );
 }
@@ -1076,8 +1096,12 @@ export function Night({
                 ? 'Keep your phone face up — it lights up when it’s your turn.'
                 : status.text}
             </p>
-            {view.myRole && <MyCardChip view={view} deck={deck} />}
-            <MyMark view={view} deck={deck} />
+            {view.myRole && (
+              <MySecrets>
+                <MyCardChip view={view} deck={deck} />
+                <MyMark view={view} deck={deck} />
+              </MySecrets>
+            )}
             {eyesOpen?.kind === 'watched' && (
               <p
                 className="rounded-lg bg-stone-800 px-3 py-2 text-sm text-stone-100"
@@ -1371,16 +1395,16 @@ export function Day({
       <DayTabBar tabs={tabs} tab={tab} onChange={setTab} idOf={idOf} />
       <div {...panel('table')}>
         <Panel className="space-y-3">
-          {playing && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {playing && view.myRole && (
+            <MySecrets>
               <MyCardChip view={view} deck={deck} />
               <MyMark view={view} deck={deck} />
-            </div>
-          )}
-          {myArtifact?.kind === 'artifact' && (
-            <p className="text-sm">
-              Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
-            </p>
+              {myArtifact?.kind === 'artifact' && (
+                <span className="text-sm">
+                  Your card carries <ArtifactChip id={myArtifact.artifact} deck={deck} />
+                </span>
+              )}
+            </MySecrets>
           )}
           {(view.day?.centerUp?.length ?? 0) > 0 && (
             <p className="flex flex-wrap items-center gap-1 text-sm" data-testid="centre-up">
@@ -1487,9 +1511,9 @@ export function Day({
               `lg` up it sits beside the table behind a peek, so the default screen stays neutral. */}
           {wide ? (
             <Panel>
-              <SharedPeek what="what you learned">
+              <Peek what="what you learned">
                 <Learned view={view} deck={deck} me={me} />
-              </SharedPeek>
+              </Peek>
             </Panel>
           ) : (
             tab === 'learned' && (

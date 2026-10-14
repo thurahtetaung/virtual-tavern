@@ -19,7 +19,7 @@ import { Emblem } from './Emblem.tsx';
 import { End } from './End.tsx';
 import { History } from './History.tsx';
 import { Lobby } from './Lobby.tsx';
-import { RoleSheet } from './RoleCard.tsx';
+import { KnowledgePeek, RoleSheet } from './RoleCard.tsx';
 import { useSuspicions, useTips } from './storage.ts';
 import { currentQuest, statusFor } from './status.ts';
 
@@ -152,6 +152,7 @@ export function RoundTableGame({
   const [picked, setPicked] = useState<{ key: string; id: string | null }>({ key: '', id: null });
   const target = picked.key === stageKey ? picked.id : null;
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
+  const [known, setKnown] = useState(false);
   const [fresh, dismiss] = useTips();
   const status = statusFor(view, room.isHost, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -218,7 +219,9 @@ export function RoundTableGame({
   }
 
   const tip = tipFor(view, fresh);
-  const seats = <Seats view={view} room={room} pick={pick} marks={marks} onMark={cycleMark} />;
+  const seats = (
+    <Seats view={view} room={room} pick={pick} marks={marks} onMark={cycleMark} showKnown={known} />
+  );
   const stage = view.stage;
 
   return (
@@ -243,11 +246,14 @@ export function RoundTableGame({
           {view.phase === 'playing' && (
             <>
               <LatestNews view={view} />
-              <LadyResult view={view} />
+              <LadyResult view={view} shown={known} />
               {stage === 'reveal' && <RevealPanel view={view} act={act} showGuide={showGuide} />}
               {stage === 'vote' && <VotePanel view={view} act={act} />}
               {stage === 'quest' && <QuestPanel view={view} act={act} />}
               <WaitingChips view={view} room={room} act={act} />
+              {stage !== 'reveal' && view.role && (
+                <KnowledgePeek key={`${view.table}.${view.gamesPlayed}`} onShownChange={setKnown} />
+              )}
               {stage !== 'reveal' && seats}
               <div className="sticky bottom-[4.5rem] z-10 rounded-2xl bg-stone-100 shadow-lg empty:hidden lg:static lg:shadow-none dark:bg-stone-950">
                 {stage === 'propose' && <ProposePanel view={view} act={act} />}
@@ -272,7 +278,7 @@ export function RoundTableGame({
           )}
         </div>
         <div className={cn('min-w-0', onTab('history'))}>
-          <History view={view} />
+          <History view={view} shown={known || view.phase === 'over'} />
         </div>
       </div>
       <TabBar tab={tab} onChange={setTab} />

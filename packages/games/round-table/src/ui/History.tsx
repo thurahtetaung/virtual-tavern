@@ -4,7 +4,7 @@ import { SIDE_LABEL, SIDE_TEXT } from './Emblem.tsx';
 import { nameOf, namesFor, who } from './status.ts';
 
 /** Every proposal and its votes, every quest's result and every Lady check, round by round. */
-export function History({ view }: { view: RoundTableView }) {
+export function History({ view, shown }: { view: RoundTableView; shown: boolean }) {
   const g = view.game;
   if (!g) return null;
   const end = g.end;
@@ -48,16 +48,16 @@ export function History({ view }: { view: RoundTableView }) {
             {checks.map((c) => {
               const loyalty =
                 'loyalty' in c && (c.loyalty === 'good' || c.loyalty === 'evil') ? c.loyalty : null;
-              const mine = g.lady?.mine.find(
-                (m) => m.round === c.round && c.holder === view.me?.id,
-              );
-              const shown = loyalty ?? mine?.loyalty ?? null;
+              // Your own check's answer is a secret until you peek.
+              const mine =
+                shown && g.lady?.mine.find((m) => m.round === c.round && c.holder === view.me?.id);
+              const side = loyalty ?? (mine ? mine.loyalty : null);
               return (
                 <p key={`lady-${c.round}`} className="text-sm">
                   🌊 {who(view, c.holder, 'You')} checked {who(view, c.target)}
-                  {shown && (
+                  {side && (
                     <>
-                      : <b className={SIDE_TEXT[shown]}>{SIDE_LABEL[shown]}</b>
+                      : <b className={SIDE_TEXT[side]}>{SIDE_LABEL[side]}</b>
                     </>
                   )}
                 </p>

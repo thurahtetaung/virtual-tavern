@@ -1,5 +1,5 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Badge, Button, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
@@ -35,6 +35,8 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   const key = draftKey(view, tx);
   const [clues, setClues] = useState(() => loadDraft(key));
   const [busy, setBusy] = useState(false);
+  // The code is covered until the Encryptor shows it, so a teammate's glance can't read it.
+  const [shown, setShown] = useState(false);
   useEffect(() => {
     try {
       sessionStorage.setItem(key, JSON.stringify(clues));
@@ -56,17 +58,34 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   };
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
-      <p className="text-center">
+      <div className="text-center">
         <span className="text-sm text-stone-500">Your secret code</span>
-        <span className="block font-mono text-3xl font-black tracking-widest">
-          {formatCode(tx.code)}
-        </span>
-      </p>
+        <Peek
+          what="your code"
+          className="mt-1"
+          onShownChange={setShown}
+          cover={
+            <span className="block rounded-lg bg-stone-100 px-3 py-2 text-center text-sm text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+              🔒 Covered so your teammates can’t read it over your shoulder: hold to see it
+            </span>
+          }
+        >
+          <span className="block font-mono text-3xl font-black tracking-widest">
+            {formatCode(tx.code)}
+          </span>
+        </Peek>
+      </div>
       {tx.code?.map((digit, i) => (
         <label key={i} className="block">
           <span className="text-sm">
-            Clue {i + 1} points to <b>#{digit}</b>{' '}
-            <span className="font-bold uppercase">{keywords[digit - 1]}</span>
+            Clue {i + 1}
+            {shown && (
+              <>
+                {' '}
+                points to <b>#{digit}</b>{' '}
+                <span className="font-bold uppercase">{keywords[digit - 1]}</span>
+              </>
+            )}
           </span>
           <input
             value={clues[i]}

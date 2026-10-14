@@ -1,4 +1,4 @@
-import { Button, Modal, cn } from '@vt/ui';
+import { Button, Modal, Peek, cn } from '@vt/ui';
 import { type PointerEvent, useRef, useState } from 'react';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
@@ -187,9 +187,9 @@ export function RoleReveal({
         </Button>
       </div>
       <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
-        <div className={cn(!shown && 'invisible')} aria-hidden={!shown}>
-          <RoleDetails view={view} showGuide={showGuide} />
-        </div>
+        {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
+            page's text) could read. */}
+        {shown ? <RoleDetails view={view} showGuide={showGuide} /> : <div className="h-64" />}
         {!open && (
           <div
             role="presentation"
@@ -239,5 +239,28 @@ export function RoleSheet({
         />
       )}
     </Modal>
+  );
+}
+
+/**
+ * Over the seats: the badges for what you know (Evil teammates, Merlin or Morgana, your Lady
+ * checks) only show while you hold this or switch it on, and `onShownChange` tells the table.
+ * It looks the same for every player, so having it says nothing about your role. Key it per game
+ * so a new game starts covered.
+ */
+export function KnowledgePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
+  const bar =
+    'flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700';
+  return (
+    <div data-testid="knowledge-peek">
+      <Peek
+        what="what you know"
+        className="flex-row items-stretch"
+        onShownChange={onShownChange}
+        cover={<span className={bar}>🔒 What you know is hidden: hold to peek</span>}
+      >
+        <p className={bar}>👁️ Showing what you know on the seats</p>
+      </Peek>
+    </div>
   );
 }

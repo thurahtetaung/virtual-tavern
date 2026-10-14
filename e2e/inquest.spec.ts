@@ -174,6 +174,14 @@ test('four players: events come up in round 2, through the last call that ends i
     // The Murderer's Key Evidence (their first Clue card) looks like any other card, so a glance
     // at their screen gives nothing away; flipping it gets a plain refusal.
     if (flipper === murderer) {
+      // Their crime's KEY and MEANS marks stay off the suspects' cards too, until they peek.
+      const marks = murderer.page.getByText(/^(KEY|MEANS)$/);
+      await expect(marks).toHaveCount(0);
+      const peek = murderer.page.getByTestId('crime-peek');
+      await peek.getByRole('button', { name: '👁️ Show the crime' }).click();
+      await expect(marks.first()).toBeVisible();
+      await peek.getByRole('button', { name: '🙈 Hide the crime' }).click();
+      await expect(marks).toHaveCount(0);
       const key = panel.getByRole('button', { name: /^Clue:/ }).first();
       await expect(key).toBeEnabled();
       await expect(panel.getByText('KEY', { exact: true })).toHaveCount(0);

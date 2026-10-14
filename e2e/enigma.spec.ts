@@ -50,6 +50,10 @@ let sent = 0;
 
 async function sendClues(encryptor: Page, team: TeamName) {
   const tx = transmission(encryptor, team);
+  // Covered until the Encryptor shows it.
+  await expect(tx.locator('.font-mono')).toHaveCount(0);
+  await expect(tx.getByText(/points to/)).toHaveCount(0);
+  await tx.getByRole('button', { name: '👁️ Show your code' }).click();
   const code = (await tx.locator('.font-mono').first().innerText()).split('-').map(Number);
   const inputs = tx.getByPlaceholder('A hint only your team will get');
   // Clues can't contain numbers, so each one names its digit with a made-up word.

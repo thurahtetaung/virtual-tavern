@@ -5,7 +5,6 @@ import { masquerade } from '../logic/index.ts';
 import { FOUR, HOST, allReady, rig, startedGame } from '../logic/test-utils.ts';
 import { publicDisplay } from './display.ts';
 import { MasqueradeBoard } from './MasqueradeBoard.tsx';
-import { Peek } from './peek.tsx';
 
 // Cy is the spy at the Gym; Ana opens the asking, so Ben (a local) and Cy are alike in every other way.
 const table = () => rig(startedGame(FOUR), { spies: ['cy'], location: 'gym', starter: 'ana' });
@@ -99,17 +98,5 @@ describe('Masquerade keeps the card behind the peek', () => {
     expect(page).not.toContain('Hold to see');
     expect(page).not.toContain('You’re the spy');
     expect(page).not.toContain('Here');
-  });
-});
-
-describe('Peek (local stand-in)', () => {
-  it('never renders the content while covered, and uses the cover given', () => {
-    const page = renderToStaticMarkup(
-      <Peek what="your card" cover={<span>CARD-BACK</span>}>
-        <p>SECRET</p>
-      </Peek>,
-    );
-    expect(page).not.toContain('SECRET');
-    expect(page).toContain('CARD-BACK');
   });
 });

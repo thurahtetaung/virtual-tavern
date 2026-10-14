@@ -156,6 +156,7 @@ for (const [label, viewport] of [
           return enc !== undefined;
         })
         .toBe(true);
+      await tx(enc!, team).getByRole('button', { name: '👁️ Show your code' }).click();
       const code = (await tx(enc!, team).locator('.font-mono').first().innerText())
         .split('-')
         .map(Number);
@@ -979,6 +980,10 @@ for (const [label, viewport] of [
     const lover = players[W]!;
     await expect(lover.getByRole('button', { name: 'Ready to vote' })).toBeVisible();
     await shot(lover, 'day');
+    await lover
+      .getByTestId('my-secrets')
+      .getByRole('button', { name: '👁️ Show your card' })
+      .click();
     await lover.getByTestId('my-mark').getByRole('button').click();
     await shot(lover, 'my-mark');
     await lover.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
@@ -1318,6 +1323,7 @@ for (const [label, viewport] of [
     await shot(holder!, 'lady');
     await holder!.getByRole('button', { name: /’s loyalty$/ }).click();
     await expect(holder!.getByTestId('lady-result')).toBeVisible();
+    await holder!.getByTestId('knowledge-peek').getByRole('button', { name: '👁️ Show' }).click();
     await shot(holder!, 'lady-result');
     if (phone) {
       await host.getByRole('navigation').getByRole('button', { name: 'History' }).click();
@@ -1802,6 +1808,10 @@ for (const [label, viewport, colorScheme] of [
     const waiting = players.find((p) => p !== lab && p.page !== host)!;
     await shot(waiting.page, 'waiting');
     await check.getByRole('button', { name: /^Check / }).click();
+    await lab.page
+      .getByTestId('lab-result')
+      .getByRole('button', { name: '👁️ Show your check' })
+      .click();
     await expect(lab.page.getByText(/🤫 Your check:/)).toBeVisible();
     await shot(lab.page, 'lab-result');
     const inside = await whoShows(players, 'Allies Phase: take one player’s badge.', 45_000);

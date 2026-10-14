@@ -138,7 +138,11 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
     if (r === 'priest') expect(said(i)).toMatch(/Mark of Clarity to yourself/);
   }
 
-  // By day, each player's Mark is the one they saw, and tapping it reads it.
+  // By day, each player's Mark is the one they saw (once they uncover it), and tapping it reads it.
+  for (const p of players) {
+    await expect(p.getByTestId('my-mark')).toHaveCount(0);
+    await p.getByTestId('my-secrets').getByRole('button', { name: '👁️ Show your card' }).click();
+  }
   for (const [i, p] of players.entries())
     await expect(p.getByTestId('my-mark').locator('[data-mark]').first()).toHaveAttribute(
       'data-mark',

@@ -142,12 +142,15 @@ export function Seats({
   pick,
   marks,
   onMark,
+  showKnown,
 }: {
   view: RoundTableView;
   room: GameRoomInfo;
   pick: SeatPick | null;
   marks: Suspicions;
   onMark: (id: string) => void;
+  /** What you know is on show (KnowledgePeek): only then do the seats carry its badges. */
+  showKnown: boolean;
 }) {
   const g = view.game!;
   const team =
@@ -158,7 +161,7 @@ export function Seats({
         : view.stage === 'quest'
           ? g.quest!.team
           : [];
-  const known = new Map((view.role?.known ?? []).map((k) => [k.id, k.as]));
+  const known = new Map((showKnown ? (view.role?.known ?? []) : []).map((k) => [k.id, k.as]));
   const waiting = waitingOn(view);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const deck = g.deck;

@@ -1,4 +1,4 @@
-import { cn } from '@vt/ui';
+import { Peek, cn } from '@vt/ui';
 import { useRef, useState } from 'react';
 import type { GameView, InquestView, PlayerView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
@@ -33,6 +33,8 @@ interface Common {
   marks: Marks;
   setMark: (id: string, mark: Mark | null) => void;
   onOpen: (card: OpenCard) => void;
+  /** Mark the crime's KEY and MEANS cards (when this viewer knows them and wants them shown). */
+  showCrime: boolean;
 }
 
 /** A suspect's 8 cards: the Clue row, then the Means row, filling the width. */
@@ -43,10 +45,13 @@ function CardGrid({
   marks,
   setMark,
   onOpen,
+  showCrime,
   size = 'grid',
 }: Common & { p: PlayerView; size?: 'grid' | 'thumb' }) {
   const g = view.game!;
-  const sol = g.solution && g.solution.murderer === p.id ? g.solution : null;
+  // Always marked for the Forensic Scientist (a public role); the Murderer's side only while they
+  // peek (CrimePeek), or their highlighted cards would tell a glance that they know the answer.
+  const sol = showCrime && g.solution && g.solution.murderer === p.id ? g.solution : null;
   const row = (deck: Deck, cards: number[]) => (
     <div className={cn('grid gap-1.5', cards.length <= 4 ? 'grid-cols-4' : 'grid-cols-5')}>
       {cards.map((n) => {
@@ -226,5 +231,26 @@ export function AllSuspects(props: Common) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Over the suspects, for the Murderer's side: the KEY and MEANS marks on the crime's cards only
+ * show while held or switched on, so a glance at their phone looks like anyone's.
+ */
+export function CrimePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
+  const bar =
+    'flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700';
+  return (
+    <div data-testid="crime-peek">
+      <Peek
+        what="the crime"
+        className="flex-row items-stretch"
+        onShownChange={onShownChange}
+        cover={<span className={bar}>🔒 The crime’s cards are unmarked: hold to mark them</span>}
+      >
+        <p className={bar}>👁️ KEY and MEANS are marked below</p>
+      </Peek>
+    </div>
   );
 }
