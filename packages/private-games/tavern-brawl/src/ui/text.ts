@@ -12,6 +12,8 @@ export function namesFor(view: TavernBrawlView, you: string | null): NameOf {
   return (id) => (id === you ? 'You' : (names.get(id) ?? 'Someone'));
 }
 
+/** A name inside a sentence: "played by you", "played by Ana". */
+export const midSentence = (name: string) => (name === 'You' ? 'you' : name);
 /** "You" reads "your", anyone else "Ana's". */
 export const possessive = (name: string) => (name === 'You' ? 'your' : `${name}’s`);
 /** Sentence start for possessives. */

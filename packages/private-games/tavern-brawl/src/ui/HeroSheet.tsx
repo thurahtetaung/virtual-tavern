@@ -6,6 +6,7 @@ import type { CardId, HeroId } from '../logic/types.ts';
 import { type Art, heroVars } from './assets.ts';
 import { Card, Zoom } from './Card.tsx';
 import { Portrait } from './Lobby.tsx';
+import { midSentence } from './text.ts';
 
 const deckSize = (hero: HeroId) => cardsOf(hero).reduce((n, c) => n + c.count, 0);
 
@@ -48,7 +49,7 @@ export function HeroSheet({
 }: {
   hero: HeroId | null;
   art: Art;
-  /** Who plays this hero ("Ana", "You"). */
+  /** Who plays this hero ("Ana", "You"), worded for the middle of a sentence. */
   who?: string | undefined;
   onClose: () => void;
   footer?: React.ReactNode;
@@ -69,7 +70,7 @@ export function HeroSheet({
             <Portrait hero={hero} art={art} size={56} />
             <div className="min-w-0">
               <p className="text-xs text-ink-muted dark:text-stone-400">
-                {[box, set, who && `played by ${who}`].filter(Boolean).join(' · ')}
+                {[box, set, who && `played by ${midSentence(who)}`].filter(Boolean).join(' · ')}
               </p>
               <p className="text-sm">{HEROES[hero].style}</p>
             </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CARDS, HEROES } from '../logic/cards.ts';
-import { placeholderCardName } from '../logic/guide.ts';
+import { DEFAULT_FOCUS, placeholderCardName } from '../logic/guide.ts';
 import type { CardId, HeroId, SetId } from '../logic/types.ts';
 
 export const GAME_ID = 'tavern-brawl';
@@ -79,9 +79,6 @@ export interface Art {
   /** Whether real art is loaded. */
   real: boolean;
 }
-
-/** Portraits are the back of a hero card: the face usually sits right of centre, mid-height. */
-const DEFAULT_FOCUS: [number, number] = [0.66, 0.55];
 
 const clean = (s: string | undefined) => (s && s.trim() ? s.trim() : null);
 

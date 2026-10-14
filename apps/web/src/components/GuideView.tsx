@@ -15,6 +15,7 @@ import {
 } from '@vt/game-sdk';
 import { Button, Modal, ProtectedImage, cn } from '@vt/ui';
 import {
+  type CSSProperties,
   type ReactNode,
   type TouchEvent,
   useEffect,
@@ -358,11 +359,14 @@ function Art({
   className,
   fallback = null,
   focus,
+  zoom,
 }: {
   src: string;
   className?: string;
   fallback?: ReactNode;
   focus?: [number, number] | undefined;
+  /** How far to zoom in on `focus` (needs `object-cover` and a frame that clips). */
+  zoom?: number | undefined;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (failed === src) return <>{fallback}</>;
@@ -373,9 +377,25 @@ function Art({
       loading="lazy"
       className={className}
       onError={() => setFailed(src)}
-      {...(focus && { style: { objectPosition: `${focus[0] * 100}% ${focus[1] * 100}%` } })}
+      {...(focus && { style: focusStyle(focus, zoom) })}
     />
   );
+}
+
+/**
+ * Crops a cover-fitted picture to its focus. Positioned at the focus, the focus sits at the same
+ * fraction of the frame whatever the picture's shape; a zoom then scales around the point that
+ * brings it to the middle, kept inside the frame so the picture never leaves a gap.
+ */
+function focusStyle([fx, fy]: [number, number], zoom = 1): CSSProperties {
+  const style: CSSProperties = { objectPosition: `${fx * 100}% ${fy * 100}%` };
+  if (zoom <= 1) return style;
+  const origin = (f: number) => Math.min(1, Math.max(0, (zoom * f - 0.5) / (zoom - 1))) * 100;
+  return {
+    ...style,
+    transform: `scale(${zoom})`,
+    transformOrigin: `${origin(fx)}% ${origin(fy)}%`,
+  };
 }
 
 function Learn({
@@ -781,6 +801,7 @@ function Tiles({
                     <Art
                       src={t.art}
                       focus={t.focus}
+                      zoom={t.zoom}
                       className="h-full w-full object-cover"
                       fallback={<TileIcon icon={t.icon} />}
                     />
@@ -1035,7 +1056,8 @@ function Catalog({
                   ▸
                 </span>
               </summary>
-              <ul className="grid gap-1.5 px-2 pb-2 sm:grid-cols-2 xl:grid-cols-3">
+              {/* Columns follow the room the guide has (the drawer or the page), not the screen. */}
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(15rem,100%),1fr))] gap-1.5 px-2 pb-2">
                 {items.map((c) => (
                   <li key={c.id}>
                     <button
@@ -1096,6 +1118,7 @@ function GroupFace({ group, size }: { group: GuideCatalogGroup; size: string }) 
         <Art
           src={group.art}
           focus={group.focus}
+          zoom={group.zoom}
           className="h-full w-full object-cover"
           fallback={<span aria-hidden>{group.icon ?? '🎴'}</span>}
         />
