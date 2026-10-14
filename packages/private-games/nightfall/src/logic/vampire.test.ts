@@ -1045,6 +1045,17 @@ describe('the Copycat copies every role', () => {
     expect(h.state.round!.result!.identities.A!.role).toBe('insomniac');
   });
 
+  it('doppelganger: a Copycat who copies the Sentinel through her places her shield', () => {
+    const h = table({ players: ['copycat', 'sentinel', W, V], center: ['doppelganger', V, V] });
+    h.toStep('copycat');
+    h.night('A', { center: [0] });
+    h.toStep('doppelganger');
+    h.night('A', { players: ['B'] });
+    expect(h.view('A').night!.acting!.prompt!.players!.ids).toContain('D');
+    h.night('A', { players: ['D'] });
+    expect(h.state.round!.cards.D!.shield).toBe('doppel');
+  });
+
   it('must copy: time running out picks a centre card', () => {
     const h = table({ players: ['copycat', W, V], center: ['seer', 'seer', 'seer'] });
     h.toStep('copycat');

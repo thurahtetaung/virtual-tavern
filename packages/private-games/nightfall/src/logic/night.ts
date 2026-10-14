@@ -434,7 +434,7 @@ const ACTIONS: Partial<Record<RoleId, RoleAction>> = {
       }),
     act: (c, p, w, a) => {
       const target = a.players![0]!;
-      c.r.cards[target]!.shield = c.r.players[p]!.dealt === 'doppelganger' ? 'doppel' : 'normal';
+      c.r.cards[target]!.shield = actsAsDoppel(c.r, p) ? 'doppel' : 'normal';
       note(c, p, { kind: 'shielded', target });
       w.done = true;
     },
