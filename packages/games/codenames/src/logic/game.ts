@@ -25,6 +25,7 @@ import {
   type WinReason,
   actionSchema,
 } from './types.ts';
+import { hasGuessLimit } from './clue.ts';
 import { guide } from './guide.ts';
 import { codenamesAwards } from './awards.ts';
 import { insights } from './insights.ts';
@@ -345,6 +346,31 @@ function backToLobby(state: CodenamesState, ctx: Ctx): Result {
   };
 }
 
+/**
+ * The regular forms of `base` (already `normaliseWord`ed): plurals, -ed and -ing (with a dropped
+ * e or a doubled consonant), -y to -ies/-ied, -f(e) to -ves and -man to -men. Deliberately not
+ * the shared `wordKey` stemmer: it also joins unrelated words (KITE and "kit", HAM and "hammer",
+ * MOTH and "mother"), and a refused legal clue costs more than a missed form, which the table can
+ * still call out, as it does compounds.
+ */
+function formsOf(base: string): string[] {
+  if (!/^\p{L}{3,}$/u.test(base)) return [];
+  const forms = [`${base}s`, `${base}ed`, `${base}ing`];
+  if (/(?:s|x|z|ch|sh|o)$/.test(base)) forms.push(`${base}es`);
+  if (base.endsWith('e')) forms.push(`${base}d`, `${base.slice(0, -1)}ing`);
+  if (/[^aeiou]y$/.test(base)) forms.push(`${base.slice(0, -1)}ies`, `${base.slice(0, -1)}ied`);
+  const last = base.at(-1)!;
+  if (/[^aeiou][aeiou][^aeiouwxy]$/.test(base)) forms.push(`${base}${last}ed`, `${base}${last}ing`);
+  if (/fe?$/.test(base)) forms.push(base.replace(/fe?$/, 'ves'));
+  if (base.endsWith('man')) forms.push(`${base.slice(0, -3)}men`);
+  return forms;
+}
+
+/** Whether two normalised words are the same word or one is a regular form of the other. */
+function sameWord(a: string, b: string): boolean {
+  return a === b || formsOf(a).includes(b) || formsOf(b).includes(a);
+}
+
 function giveClue(
   state: CodenamesState,
   action: Extract<CodenamesAction, { type: 'give-clue' }>,
@@ -367,19 +393,26 @@ function giveClue(
     return new GameError('clue-is-number', 'A clue cannot be just a number.');
   }
   // The whole clue, and each part of a hyphen- or apostrophe-joined one, against the face-down words.
-  const parts = new Set([word, ...word.split(/['’-]+/)].map(normaliseWord).filter(Boolean));
-  const onBoard = state.board.find((c) => !c.revealed && parts.has(normaliseWord(c.word)));
-  if (onBoard) {
+  const whole = normaliseWord(word);
+  const parts = [whole, ...word.split(/['’-]+/).map(normaliseWord)].filter(Boolean);
+  for (const card of state.board) {
+    if (card.revealed) continue;
+    const key = normaliseWord(card.word);
+    const part = parts.find((p) => sameWord(p, key));
+    if (part === undefined) continue;
+    const shown = card.word.toUpperCase();
     return new GameError(
       'bad-clue',
-      normaliseWord(onBoard.word) === normaliseWord(word)
+      part === key && part === whole
         ? 'The clue cannot be a word on the board.'
-        : `The clue cannot contain ${onBoard.word.toUpperCase()}, a word on the board.`,
+        : part === whole
+          ? `The clue cannot be a form of ${shown}, a word on the board.`
+          : `The clue cannot contain ${shown}, a word on the board.`,
     );
   }
   const count = action.count;
   const left = remainingAgents(state.board, turn.team);
-  if (count > left) {
+  if (count !== null && count > left) {
     return new GameError(
       'count-too-high',
       `Your team only has ${left} agent${left === 1 ? '' : 's'} left to find.`,
@@ -470,23 +503,43 @@ function guess(state: CodenamesState, index: number, seen: number | undefined, c
     if (remainingAgents(board, team) === 0) return endGame(next, team, 'all-agents');
   }
   if (card.kind !== turn.team) return endTurn(next, 'wrong-guess', ctx.now);
-  // A clue for N allows N + 1 guesses.
-  if (guessesMade >= (turn.clue?.count ?? 1) + 1) {
+  // A clue for N allows N + 1 guesses; one for 0 or unlimited, as many as the team likes.
+  const count = turn.clue ? turn.clue.count : 1;
+  if (hasGuessLimit(count) && guessesMade >= count + 1) {
     return endTurn(next, 'out-of-guesses', ctx.now);
   }
   return next;
 }
 
 /**
- * Operatives may pass once they have guessed at least once. The host may end any turn at any
- * stage, which is logged as an override so a stuck turn (nobody left to act) can move on, except
- * their own team's guessing turn, where the normal rule applies to them too.
+ * Whether nobody can play the current turn: the team has nobody seated in the role this stage
+ * needs, or nobody in it is connected, or the stage's timer has run out.
+ */
+function isStuck(state: CodenamesState, turn: Turn, ctx: Ctx): boolean {
+  if (turn.deadline !== null && ctx.now >= turn.deadline) return true;
+  const role = turn.stage === 'clue' ? 'spymaster' : 'operative';
+  const connected = ctx.connected ?? (() => true);
+  return !Object.entries(state.seats).some(
+    ([id, s]) => s.team === turn.team && s.role === role && connected(id),
+  );
+}
+
+/**
+ * Operatives may pass once they have guessed at least once. The host may end a stuck turn (see
+ * `isStuck`) at any stage, logged as an override, except their own team's guessing turn, where
+ * the normal rule applies to them too.
  */
 function endTurnAction(state: CodenamesState, ctx: Ctx): Result {
   const turn = requireGuesser(state, ctx.by);
   if (!(turn instanceof GameError) && turn.guessesMade > 0)
     return endTurn(state, 'passed', ctx.now);
   if (ctx.isHost && turn instanceof GameError && state.phase === 'playing' && state.turn) {
+    if (!isStuck(state, state.turn, ctx)) {
+      return new GameError(
+        'not-stuck',
+        'Someone on that team can still play this turn, so it can’t be skipped yet.',
+      );
+    }
     return endTurn(state, 'host', ctx.now);
   }
   if (turn instanceof GameError) return turn;

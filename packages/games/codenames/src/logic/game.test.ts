@@ -386,16 +386,47 @@ describe('guessing', () => {
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'passed' });
   });
 
-  it('lets the host end any turn at any stage, logged as an override', () => {
+  it('lets the host end a stuck turn at any stage, logged as an override', () => {
     const h = startedGame();
-    h.act({ type: 'end-turn' }, HOST);
+    const everyone = [HOST, OP.red, SPY.blue, OP.blue];
+    const without = (id: string) => ({ connected: everyone.filter((p) => p !== id) });
+    // The host is red's spymaster and online, so red's clue turn isn't stuck.
+    expect(h.reject({ type: 'end-turn' }, HOST, { connected: everyone })).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, SPY.blue, OP.blue] });
     expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'host' });
+    expect(h.reject({ type: 'end-turn' }, HOST, without(OP.blue))).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, without(SPY.blue));
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, SPY.blue, OP.blue] });
     clue(h, 'blue', 2);
-    h.act({ type: 'end-turn' }, HOST);
+    // Blue's operative is online: the guessing turn is theirs to play.
+    expect(h.reject({ type: 'end-turn' }, HOST, without(SPY.blue))).toBe('not-stuck');
+    h.act({ type: 'end-turn' }, HOST, without(OP.blue));
     expect(h.state.turn).toMatchObject({ team: 'red', stage: 'clue' });
     expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
     expect(h.state.suggestions).toEqual({});
+  });
+
+  it('lets the host skip a turn once its timer has run out, even with everyone online', () => {
+    const h = startedGame({ clueSeconds: 60, timerMode: 'soft' });
+    const everyone = { connected: [HOST, OP.red, SPY.blue, OP.blue] };
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red] });
+    const { deadline } = h.state.turn!;
+    expect(h.reject({ type: 'end-turn' }, HOST, { ...everyone, now: deadline! - 1 })).toBe(
+      'not-stuck',
+    );
+    h.act({ type: 'end-turn' }, HOST, { ...everyone, now: deadline! });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
+  });
+
+  it('lets the host skip a turn when the team has nobody in the role it needs', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.blue, NOW);
+    h.state = codenames.playerLeft(h.state, SPY.red, NOW);
+    // Neither team can give a clue, so the turn waits; the host may move it on.
+    expect(h.state.turn).toMatchObject({ team: 'blue', stage: 'clue' });
+    h.act({ type: 'end-turn' }, HOST, { connected: [OP.red, OP.blue] });
+    expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'blue', reason: 'host' });
   });
 
   it('plays a whole game through to an all-agents win', () => {
@@ -671,13 +702,13 @@ describe('actionSchema', () => {
     expect(actionSchema.safeParse(action).success).toBe(false);
   });
 
-  it('accepts disabling timers and rejects 0 or unlimited clues', () => {
+  it('accepts disabling timers, and 0 or unlimited (null) clues', () => {
     expect(actionSchema.safeParse({ type: 'update-settings', clueSeconds: null }).success).toBe(
       true,
     );
-    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: 0 }).success).toBe(false);
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: 0 }).success).toBe(true);
     expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: null }).success).toBe(
-      false,
+      true,
     );
   });
 });
@@ -742,6 +773,71 @@ describe('round 2 rule fixes', () => {
     h.act({ type: 'give-clue', word: 'sea-salt', count: 1 }, SPY.red);
   });
 
+  it('takes 0 and unlimited clues, which lift the guess limit but still need a guess', () => {
+    for (const count of [0, null]) {
+      const h = startedGame();
+      h.act({ type: 'give-clue', word: 'hint', count }, SPY.red);
+      expect(h.state.turn?.clue).toEqual({ word: 'hint', count });
+      expect(h.reject({ type: 'end-turn' }, OP.red)).toBe('must-guess');
+      // All but the last red agent, far past the usual "number + 1" guesses.
+      for (const card of cardsOf(h.state, 'red').slice(1)) h.act({ type: 'guess', card }, OP.red);
+      expect(h.state.turn).toMatchObject({ team: 'red', stage: 'guess', guessesMade: 8 });
+      h.act({ type: 'end-turn' }, OP.red);
+      expect(h.state.log.at(-1)).toEqual({ type: 'end-turn', team: 'red', reason: 'passed' });
+    }
+    expect(actionSchema.safeParse({ type: 'give-clue', word: 'x', count: -1 }).success).toBe(false);
+  });
+
+  it('refuses plurals and simple forms of face-down words, but not lookalike words', () => {
+    const h = startedGame();
+    const faceDown = ['DOG', 'FIRE', 'BAT', 'FIREMAN', 'BREAK', 'BERRY', 'LEAF', 'KITE', 'HAM'];
+    h.state = {
+      ...h.state,
+      board: h.state.board.map((c, i) => ({ ...c, word: faceDown[i] ?? c.word })),
+    };
+    const give = (word: string) =>
+      codenames.reduce(
+        h.state,
+        { type: 'give-clue', word, count: 1 },
+        {
+          by: SPY.red,
+          isHost: true,
+          now: NOW,
+          rng: undefined as never,
+          content: undefined as never,
+        },
+      );
+    for (const word of [
+      'Dogs',
+      'Dogged',
+      'fires',
+      'Fired',
+      'BATS',
+      'batting',
+      'Firemen',
+      'breaking',
+    ]) {
+      expect(give(word), word).toMatchObject({ code: 'bad-clue' });
+    }
+    expect(give('berries')).toMatchObject({
+      message: 'The clue cannot be a form of BERRY, a word on the board.',
+    });
+    expect(give('leaves')).toMatchObject({ code: 'bad-clue' });
+    expect(give('sea-dogs')).toMatchObject({
+      message: 'The clue cannot contain DOG, a word on the board.',
+    });
+    // Compounds and lookalikes are left to the table, as the rulebook does.
+    for (const word of ['kit', 'hammer', 'doghouse', 'broken', 'batter', 'fir']) {
+      expect(give(word), word).not.toHaveProperty('code');
+    }
+    // A revealed word is fair game again.
+    h.state = {
+      ...h.state,
+      board: h.state.board.map((c) => (c.word === 'DOG' ? { ...c, revealed: true } : c)),
+    };
+    expect(give('dogs')).not.toHaveProperty('code');
+  });
+
   it('refuses a guess that raced a turn-ending one as too late', () => {
     const h = startedGame();
     h.state = codenames.playerJoined(h.state, { id: 'p5', name: 'Ana' });
@@ -791,7 +887,7 @@ describe('round 2 rule fixes', () => {
     h.act({ type: 'guess', card: cardsOf(h.state, 'red')[0]! }, HOST);
     h.act({ type: 'end-turn' }, HOST);
     // On the other team's turn the host can still skip a stuck turn.
-    h.act({ type: 'end-turn' }, HOST);
+    h.act({ type: 'end-turn' }, HOST, { connected: [HOST, 'p2', 'p4'] });
     expect(h.state.log.at(-1)).toMatchObject({ type: 'end-turn', team: 'blue', reason: 'host' });
   });
 });

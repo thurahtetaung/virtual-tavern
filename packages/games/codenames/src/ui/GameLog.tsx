@@ -1,5 +1,6 @@
 import { cn } from '@vt/ui';
 import { useEffect, useRef } from 'react';
+import { countText } from '../logic/clue.ts';
 import type { CodenamesView, EndTurnReason, LogEntry } from '../logic/types.ts';
 import { KIND_LABEL, TEAM_LABEL, TEAM_TEXT } from './theme.ts';
 
@@ -24,7 +25,7 @@ function Entry({
       return (
         <>
           <b className={TEAM_TEXT[entry.team]}>{name(entry.by, entry.name)}</b> gave the clue{' '}
-          <b className="uppercase">{entry.word}</b> · {entry.count}
+          <b className="uppercase">{entry.word}</b> · {countText(entry.count)}
         </>
       );
     case 'guess':

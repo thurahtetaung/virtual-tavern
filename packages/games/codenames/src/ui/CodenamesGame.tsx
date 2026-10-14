@@ -4,6 +4,7 @@ import {
   Countdown,
   Hint,
   Panel,
+  RefusalSlot,
   StickyBar,
   Superlatives,
   cn,
@@ -11,6 +12,7 @@ import {
   useSpectatorPrompt,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
+import { countText } from '../logic/clue.ts';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
 import { Board } from './Board.tsx';
 import { ClueForm } from './ClueForm.tsx';
@@ -26,6 +28,8 @@ export type CodenamesUiProps = GameUiProps<CodenamesView, CodenamesAction>;
 
 /** The seat controls a "Take a seat" link leads to. */
 const TEAMS_ID = 'codenames-teams';
+/** Where the engine's refusal of the host's skip shows (the turn isn't stuck yet). */
+const SKIP_ANCHOR = 'codenames-skip';
 
 export function CodenamesGame({
   view,
@@ -181,7 +185,7 @@ function InGame({
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
-        {spymasterAlerts(view).map((alert) => (
+        {spymasterAlerts(view, room.isHost).map((alert) => (
           <div
             key={alert.team}
             role="alert"
@@ -201,6 +205,19 @@ function InGame({
                 onClick={() => void act({ type: 'join-team', team: alert.team, role: 'spymaster' })}
               >
                 Be the {TEAM_LABEL[alert.team]} Spymaster
+              </Button>
+            )}
+            {alert.stuck && room.isHost && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  if (window.confirm('End this game for everyone and go back to the lobby?')) {
+                    void act({ type: 'back-to-lobby' });
+                  }
+                }}
+              >
+                Back to lobby
               </Button>
             )}
           </div>
@@ -224,7 +241,7 @@ function InGame({
               {turn.clue.word}
             </b>
             <span className="text-stone-500"> · </span>
-            <b className="text-2xl">{turn.clue.count}</b>
+            <b className="text-2xl">{countText(turn.clue.count)}</b>
           </p>
         )}
 
@@ -319,13 +336,14 @@ function InGame({
                       'Skip the current turn for everyone? Use this if nobody can play it.',
                     )
                   ) {
-                    void act({ type: 'end-turn' });
+                    void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
                   }
                 }}
               >
                 Skip stuck turn
               </Button>
             )}
+            <RefusalSlot anchor={SKIP_ANCHOR} />
             <Button
               variant="ghost"
               size="sm"

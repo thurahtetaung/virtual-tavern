@@ -66,6 +66,11 @@ export interface ActionCtx extends CreateCtx {
   by: PlayerId;
   /** Whether `by` is the room host. Room-level concept, supplied by the room host. */
   isHost: boolean;
+  /**
+   * Whether a player is connected right now (bots count as connected). Room-level, supplied by
+   * the room host; absent in tests and harnesses, where games should treat everyone as connected.
+   */
+  connected?: (id: PlayerId) => boolean;
 }
 
 /** A rejected action. Returned (not thrown) from `reduce`. */

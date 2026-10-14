@@ -136,7 +136,8 @@ describe('spymasterAlerts', () => {
         team: 'blue',
         mine: true,
         canTake: false,
-        text: 'Your team has no Spymaster, so your turns are skipped. You’re its only Operative, so someone else needs to take the seat.',
+        stuck: true,
+        text: 'Your team has no Spymaster, so your turns are skipped. You’re its only Operative, so someone else needs to take the seat. Nobody here can take it: wait for someone to join or for the host to go back to the lobby.',
       },
     ]);
     h.state = codenames.playerJoined(h.state, { id: 'op2', name: 'OP2' });
@@ -147,6 +148,7 @@ describe('spymasterAlerts', () => {
         team: 'blue',
         mine: true,
         canTake: true,
+        stuck: false,
         text: 'Your team has no Spymaster, so your turns are skipped. Take the seat?',
       },
     ]);
@@ -166,8 +168,48 @@ describe('spymasterAlerts', () => {
     expect(spymasterAlerts(codenames.view(h.state, OP.red))).toEqual([]);
   });
 
+  it('says when nobody here can take the seat, and when neither team can play', () => {
+    const h = startedGame();
+    h.state = codenames.playerLeft(h.state, SPY.blue, 0);
+    expect(spymasterAlerts(codenames.view(h.state, OP.red), true)).toEqual([
+      {
+        team: 'blue',
+        mine: false,
+        canTake: false,
+        stuck: true,
+        text: "Blue has no Spymaster, so Blue's turns are skipped. Nobody here can take it: wait for someone to join, or go back to the lobby.",
+      },
+    ]);
+    // A watcher could sit down, so the table isn't stuck.
+    h.state = codenames.playerJoined(h.state, { id: 'w', name: 'W' });
+    expect(spymasterAlerts(codenames.view(h.state, OP.red))).toMatchObject([
+      {
+        stuck: false,
+        text: "Blue has no Spymaster, so Blue's turns are skipped. Someone watching can take the seat.",
+      },
+    ]);
+    h.state = codenames.playerLeft(h.state, 'w', 0);
+    h.state = codenames.playerLeft(h.state, SPY.red, 0);
+    expect(spymasterAlerts(codenames.view(h.state, OP.red)).map((a) => a.text)).toEqual([
+      'Your team has no Spymaster, so nobody can play until a Spymaster seat is filled. You’re its only Operative, so someone else needs to take the seat. Nobody here can take it: wait for someone to join or for the host to go back to the lobby.',
+      'Blue has no Spymaster, so nobody can play until a Spymaster seat is filled. Nobody here can take it: wait for someone to join or for the host to go back to the lobby.',
+    ]);
+  });
+
   it('never alerts in the lobby', () => {
     const h = harness();
     expect(spymasterAlerts(codenames.view(h.state, HOST))).toEqual([]);
+  });
+});
+
+describe('guesses left', () => {
+  it('has no limit after a 0 or unlimited clue', () => {
+    const h = startedGame();
+    h.act({ type: 'give-clue', word: 'hint', count: null }, SPY.red);
+    const view = codenames.view(h.state, OP.red);
+    expect(guessesLeft(view)).toBeNull();
+    expect(statusFor(view, false, null).text).toBe(
+      'Your turn to guess (no guess limit). Tap a card to suggest it to your team, then press Guess.',
+    );
   });
 });
