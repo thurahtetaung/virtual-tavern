@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
+const NAV_LINK =
+  'inline-flex min-h-11 items-center px-1 hover:text-amber-700 dark:hover:text-amber-400';
+
 /**
  * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
  * footer tagline make way so the table fits a phone screen.
@@ -20,10 +23,10 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
           <nav className="flex items-center gap-2 text-sm font-medium text-stone-600 sm:gap-4 dark:text-stone-400">
             {!wide && (
               <>
-                <Link to="/rules" className="hover:text-amber-700 dark:hover:text-amber-400">
+                <Link to="/rules" className={NAV_LINK}>
                   How to play
                 </Link>
-                <Link to="/faq" className="hover:text-amber-700 dark:hover:text-amber-400">
+                <Link to="/faq" className={NAV_LINK}>
                   FAQ
                 </Link>
               </>
