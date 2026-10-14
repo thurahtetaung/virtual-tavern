@@ -100,9 +100,15 @@ export function rigged(
   return h;
 }
 
-/** The leader proposes `team` (for the current or given quest). */
-export function propose(h: Harness, team: string[], slot?: number) {
+/** The leader announces `team` (for the current or given quest); the table talks it over. */
+export function announce(h: Harness, team: string[], slot?: number) {
   h.act({ type: 'propose', team, ...(slot !== undefined ? { slot } : {}) }, game(h).leader);
+}
+
+/** The leader announces `team` (for the current or given quest) and calls the vote. */
+export function propose(h: Harness, team: string[], slot?: number) {
+  announce(h, team, slot);
+  h.act({ type: 'call-vote' }, game(h).leader);
 }
 
 /** Everyone votes; `no` lists the rejecters. */

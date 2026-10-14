@@ -1273,7 +1273,14 @@ for (const [label, viewport] of [
       'propose-watching',
     );
     await lead.getByRole('button', { name: `Pick ${t.names.get(good[1]!)} for the team` }).click();
-    await lead.getByRole('button', { name: 'Send this team to the vote' }).click();
+    await lead.getByRole('button', { name: 'Announce this team' }).click();
+    await expect(lead.getByRole('button', { name: 'Call the vote' })).toBeVisible();
+    await shot(lead, 'discuss-leader');
+    await shot(
+      t.players.find((p) => p !== lead)!,
+      'discuss-watching',
+    );
+    await lead.getByRole('button', { name: 'Call the vote' }).click();
     await expect(host.getByRole('region', { name: 'Vote' })).toBeVisible();
     await shot(host, 'vote');
     await rt.vote(t, t.players.slice(0, 4));

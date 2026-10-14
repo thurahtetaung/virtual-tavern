@@ -121,15 +121,25 @@ export function defineMasquerade(
 
   // ---- Round flow ----
 
-  /** Deals round `number`: new spies, a new location and a fresh clock. */
-  function deal(state: MasqueradeState, number: number, now: number, rng: Rng): MasqueradeState {
+  /**
+   * Deals round `number`: new spies, a new location and a fresh clock. `avoid` (a voided round's
+   * location, which its locals saw) is never dealt straight away.
+   */
+  function deal(
+    state: MasqueradeState,
+    number: number,
+    now: number,
+    rng: Rng,
+    avoid?: string,
+  ): MasqueradeState {
     const players = seated(state).slice(0, MAX_SEATS);
     const pool = locationsFor(pack, state.settings.editions);
     let used = state.used.filter((l) => pool.includes(l));
-    let open = pool.filter((l) => !used.includes(l));
+    let open = pool.filter((l) => !used.includes(l) && l !== avoid);
     if (open.length === 0) {
       used = [];
-      open = pool;
+      open = pool.filter((l) => l !== avoid);
+      if (open.length === 0) open = pool;
     }
     const location = open[rng.int(open.length)]!;
     const spies = rng
@@ -459,12 +469,14 @@ export function defineMasquerade(
       return round.caught.every((s) => s in guesses) ? finishRound(out) : out;
     }
     if (round.spies.includes(playerId)) {
-      // The voided round's opener gets to open the new deal too, unless they're the leaver.
+      // The voided round's opener gets to open the new deal too, unless they're the leaver. Its
+      // location wasn't played, so it goes back in the pool (just not into this new deal).
       const reopened = {
         ...next,
         started: (next.started ?? []).filter((p) => p !== round.starter),
+        used: next.used.filter((l) => l !== round.location),
       };
-      const redealt = deal(reopened, round.number, now, hiddenRng(next, now));
+      const redealt = deal(reopened, round.number, now, hiddenRng(next, now), round.location);
       return withRound(redealt, { redealtAfter: round.names[playerId] ?? seat.name });
     }
     const players = round.players.filter((p) => p !== playerId);

@@ -63,10 +63,11 @@ export interface Seat {
 
 /**
  * `reveal`: everyone reads their role card. `propose`: the leader builds a team (and with
- * Targeting, picks the quest). `vote`: everyone approves or rejects it. `quest`: the team plays
+ * Targeting, picks the quest). `discuss`: the team is announced and the table talks it over until
+ * the leader calls the vote. `vote`: everyone approves or rejects it. `quest`: the team plays
  * cards. `lady`: the Lady's holder checks someone. `assassinate`: the Assassin names Merlin.
  */
-export type Stage = 'reveal' | 'propose' | 'vote' | 'quest' | 'lady' | 'assassinate';
+export type Stage = 'reveal' | 'propose' | 'discuss' | 'vote' | 'quest' | 'lady' | 'assassinate';
 
 export type EndReason =
   /** Three quests succeeded and there was no Merlin to hunt. */
@@ -216,12 +217,16 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pick'), player: id }),
   /** Targeting: the leader picks the quest. */
   z.object({ type: z.literal('target'), slot: z.number().int().min(0).max(4) }),
-  /** The leader sends the team (the draft, or the one given) to the vote. */
+  /** The leader announces the team (the draft, or the one given) for the table to talk over. */
   z.object({
     type: z.literal('propose'),
     team: z.array(id).max(MAX_SEATS).optional(),
     slot: z.number().int().min(0).max(4).optional(),
   }),
+  /** The leader takes the announced team back to change it. */
+  z.object({ type: z.literal('edit-team') }),
+  /** The leader ends the talk and opens the vote on the announced team. */
+  z.object({ type: z.literal('call-vote') }),
   z.object({ type: z.literal('vote'), approve: z.boolean() }),
   z.object({ type: z.literal('play'), card: z.enum(QUEST_CARDS) }),
   z.object({ type: z.literal('lady'), target: id }),
@@ -297,6 +302,24 @@ export interface LadyView {
   mine: { round: number; target: PlayerId; loyalty: Loyalty }[];
 }
 
+/** A proposal as players see it: who the timer voted for stays secret until the end. */
+export interface ProposalView extends Omit<Proposal, 'autoVotes'> {
+  /** How many votes the timer or the host cast as Approve. */
+  autoVoteCount: number;
+  /** Whose they were: only at the end. */
+  autoVotes: PlayerId[] | null;
+}
+
+/**
+ * A quest result as players see it. An auto-played card is always Success, so who had one would
+ * narrow the Fail suspects: only the count is sent until the end.
+ */
+export interface QuestResultView extends Omit<QuestResult, 'autoPlayed'> {
+  autoPlayedCount: number;
+  /** Whose they were: only at the end. */
+  autoPlayed: PlayerId[] | null;
+}
+
 export interface EndView {
   winner: Loyalty;
   reason: EndReason;
@@ -334,8 +357,8 @@ export interface GameView {
   slot: number | null;
   vote: VoteView | null;
   quest: QuestView | null;
-  proposals: Proposal[];
-  results: QuestResult[];
+  proposals: ProposalView[];
+  results: QuestResultView[];
   /** Who names Merlin (named publicly only at the assassination and the end). */
   assassin: PlayerId | null;
   deadline: number | null;

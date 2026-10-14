@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { RoundTableAction, RoundTableView, Stage } from '../logic/types.ts';
 import {
   AssassinPanel,
+  DiscussPanel,
   LadyPanel,
   LadyResult,
   LatestNews,
@@ -28,6 +29,7 @@ type Tab = 'table' | 'history';
 /** What each stage's clock times, and what a strict timer does at 0:00. */
 const CLOCK: Partial<Record<Stage, { label: string; atZero: string }>> = {
   propose: { label: 'to pick a team', atZero: 'then a team is picked at random' },
+  discuss: { label: 'to talk it over', atZero: 'then the vote opens' },
   vote: { label: 'to vote', atZero: 'no vote = Approve' },
   quest: { label: 'to play a card', atZero: 'no card = Success' },
   lady: { label: 'to check someone', atZero: 'then a random pick' },
@@ -113,7 +115,7 @@ function tipFor(view: RoundTableView, fresh: (id: string) => boolean): [string, 
   const tips: [string, string, boolean][] = [
     [
       'leader',
-      'Leading tip: talk before you send the team. Ask who people trust; the votes that follow tell you a lot.',
+      'Leading tip: announce a team, then let the table argue about it before you call the vote. The votes that follow tell you a lot.',
       view.stage === 'propose' && g.leader === view.me?.id,
     ],
     [
@@ -249,6 +251,7 @@ export function RoundTableGame({
               {stage !== 'reveal' && seats}
               <div className="sticky bottom-[4.5rem] z-10 rounded-2xl bg-stone-100 shadow-lg empty:hidden lg:static lg:shadow-none dark:bg-stone-950">
                 {stage === 'propose' && <ProposePanel view={view} act={act} />}
+                {stage === 'discuss' && <DiscussPanel view={view} act={act} />}
                 {stage === 'lady' && <LadyPanel view={view} act={act} target={target} />}
                 {stage === 'assassinate' && <AssassinPanel view={view} act={act} target={target} />}
               </div>

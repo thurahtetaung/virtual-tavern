@@ -119,7 +119,7 @@ function text(pack: string): GameGuide {
       {
         title: 'Coming and going',
         bullets: [
-          'If a spy leaves before the vote is over, the round is void and dealt again. Once the vote is over, the round finishes: a caught spy who leaves counts as a wrong guess.',
+          'If a spy leaves before the vote is over, the round is void and dealt again at a new location (the void one can come up in a later round). Once the vote is over, the round finishes: a caught spy who leaves counts as a wrong guess.',
           'If anyone else leaves, the round carries on without them (votes for them are dropped).',
           'Players who join during a game watch until the next round. When all 12 seats are taken, newcomers watch and take a seat as soon as one frees up.',
           'With two spies on, a round with fewer than 7 players gets one spy; the round says so.',

@@ -43,14 +43,17 @@ export function seated(state: Pick<RoundTableState, 'seats'>): PlayerId[] {
   return Object.entries(state.seats).flatMap(([id, s]) => (s.playing ? [id] : []));
 }
 
-export const successes = (g: Pick<Game, 'results'>) => g.results.filter((r) => r.success).length;
-export const failures = (g: Pick<Game, 'results'>) => g.results.filter((r) => !r.success).length;
+/** Played quests, from the state or a view: only where they went and whether they succeeded. */
+type Played = { results: readonly Pick<QuestResult, 'slot' | 'success'>[] };
+
+export const successes = (g: Played) => g.results.filter((r) => r.success).length;
+export const failures = (g: Played) => g.results.filter((r) => !r.success).length;
 
 /**
  * The quests the leader may send a team on. Without Targeting, the next one in order. With it, any
  * quest not yet attempted, except quest 5 until two quests have succeeded.
  */
-export function legalSlots(g: Pick<Game, 'results' | 'targeting'>): number[] {
+export function legalSlots(g: Played & Pick<Game, 'targeting'>): number[] {
   const done = new Set(g.results.map((r) => r.slot));
   const open = [0, 1, 2, 3, 4].filter((s) => !done.has(s));
   if (!g.targeting) return open.slice(0, 1);
@@ -79,6 +82,7 @@ export function awaited(state: RoundTableState): PlayerId[] {
     case 'reveal':
       return g.players.filter((p) => !g.ready.includes(p));
     case 'propose':
+    case 'discuss':
       return [g.leader];
     case 'vote':
       return g.players.filter((p) => !(p in g.votes));
@@ -155,7 +159,8 @@ function endGame(
   };
 }
 
-function sendToVote(
+/** The leader announces the team: the table talks it over before the leader calls the vote. */
+function announce(
   state: RoundTableState,
   team: PlayerId[],
   slot: number,
@@ -164,7 +169,7 @@ function sendToVote(
 ): RoundTableState {
   return atStage(
     withGame(state, { team, slot, draft: team, votes: {}, autoVotes: [], autoTeam: auto }),
-    'vote',
+    'discuss',
     now,
   );
 }
@@ -272,8 +277,8 @@ function assassinate(state: RoundTableState, target: PlayerId, auto: boolean): R
 
 /**
  * Acts for `player` the way a strict timer does: a missing vote approves, a missing quest card is
- * Success (or the only legal card), and the leader's team, the Lady's check and the assassination
- * are picked at random. Returns the state unchanged if the table isn't waiting on them.
+ * Success (or the only legal card), an announced team goes to the vote, and the leader's team, the
+ * Lady's check and the assassination are picked at random. Returns the state unchanged if the table isn't waiting on them.
  */
 function actFor(state: RoundTableState, player: PlayerId, now: number, rng: Rng): RoundTableState {
   const g = state.game;
@@ -289,8 +294,10 @@ function actFor(state: RoundTableState, player: PlayerId, now: number, rng: Rng)
       const team = g.draft.slice(0, size);
       const rest = rng.shuffle(g.players.filter((p) => !team.includes(p)));
       while (team.length < size) team.push(rest.shift()!);
-      return sendToVote(state, team, slot, true, now);
+      return announce(state, team, slot, true, now);
     }
+    case 'discuss':
+      return atStage(state, 'vote', now);
     case 'vote': {
       const next = withGame(state, {
         votes: { ...g.votes, [player]: true },
@@ -431,6 +438,7 @@ function gameAt(state: RoundTableState, by: PlayerId, stage: Stage): Game | Game
     const msg: Record<Stage, string> = {
       reveal: 'Everyone has already seen their role.',
       propose: 'It’s not time to choose a team.',
+      discuss: 'There’s no announced team to talk over.',
       vote: 'There’s no team to vote on right now.',
       quest: 'No quest is under way.',
       lady: 'It’s not time for the Lady of the Lake.',
@@ -441,8 +449,12 @@ function gameAt(state: RoundTableState, by: PlayerId, stage: Stage): Game | Game
   return g;
 }
 
-function leaderAt(state: RoundTableState, by: PlayerId): Game | GameError {
-  const g = gameAt(state, by, 'propose');
+function leaderAt(
+  state: RoundTableState,
+  by: PlayerId,
+  stage: Stage = 'propose',
+): Game | GameError {
+  const g = gameAt(state, by, stage);
   if (g instanceof GameError) return g;
   if (g.leader !== by) return new GameError('not-leader', 'Only the leader chooses the team.');
   return g;
@@ -493,7 +505,24 @@ function propose(
     return new GameError('bad-player', 'That player isn’t in this game.');
   if (team.length !== size)
     return new GameError('team-size', `Quest ${slot + 1} needs a team of ${size}.`);
-  return sendToVote(state, [...team], slot, false, ctx.now);
+  return announce(state, [...team], slot, false, ctx.now);
+}
+
+/** Back to building: the announced team becomes the draft again. */
+function editTeam(state: RoundTableState, ctx: Ctx): Result {
+  const g = leaderAt(state, ctx.by, 'discuss');
+  if (g instanceof GameError) return g;
+  return atStage(
+    withGame(state, { draft: [...g.team], team: [], autoTeam: false }),
+    'propose',
+    ctx.now,
+  );
+}
+
+function callVote(state: RoundTableState, ctx: Ctx): Result {
+  const g = leaderAt(state, ctx.by, 'discuss');
+  if (g instanceof GameError) return g;
+  return atStage(state, 'vote', ctx.now);
 }
 
 function vote(state: RoundTableState, approve: boolean, ctx: Ctx): Result {
@@ -582,6 +611,10 @@ function reduceOne(state: RoundTableState, action: RoundTableAction, ctx: Ctx): 
       return target(state, action.slot, ctx);
     case 'propose':
       return propose(state, action, ctx);
+    case 'edit-team':
+      return editTeam(state, ctx);
+    case 'call-vote':
+      return callVote(state, ctx);
     case 'vote':
       return vote(state, action.approve, ctx);
     case 'play':
@@ -759,8 +792,11 @@ function gameView(state: RoundTableState, g: Game, viewer: PlayerId | null): Gam
         }
       : null,
     ready: [...g.ready],
-    draft: stage === 'propose' ? [...g.draft] : [],
-    slot: stage === 'propose' || stage === 'vote' || stage === 'quest' ? g.slot : null,
+    draft: stage === 'propose' || stage === 'discuss' ? [...g.draft] : [],
+    slot:
+      stage === 'propose' || stage === 'discuss' || stage === 'vote' || stage === 'quest'
+        ? g.slot
+        : null,
     vote:
       stage === 'vote'
         ? {
@@ -780,8 +816,16 @@ function gameView(state: RoundTableState, g: Game, viewer: PlayerId | null): Gam
             myCard: (viewer !== null && g.cards[viewer]) || null,
           }
         : null,
-    proposals: g.proposals,
-    results: g.results,
+    proposals: g.proposals.map(({ autoVotes, ...p }) => ({
+      ...p,
+      autoVoteCount: autoVotes.length,
+      autoVotes: over ? [...autoVotes] : null,
+    })),
+    results: g.results.map(({ autoPlayed, ...r }) => ({
+      ...r,
+      autoPlayedCount: autoPlayed.length,
+      autoPlayed: over ? [...autoPlayed] : null,
+    })),
     assassin: stage === 'assassinate' || over ? g.assassin : null,
     deadline: state.phase === 'playing' ? g.deadline : null,
     end:

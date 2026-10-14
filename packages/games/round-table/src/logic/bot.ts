@@ -26,6 +26,8 @@ export function roundTableBot(view: RoundTableView, ctx: BotCtx): RoundTableActi
         evil && chance(rng, 0.7) ? [me, ...pickN(rng, others, size - 1)] : pickN(rng, pool, size);
       return { type: 'propose', team, slot };
     }
+    case 'discuss':
+      return g.leader === me ? { type: 'call-vote' } : null;
     case 'vote':
       return g.vote && g.vote.myVote === null && !g.vote.voted.includes(me)
         ? { type: 'vote', approve: chance(rng, 0.7) }
