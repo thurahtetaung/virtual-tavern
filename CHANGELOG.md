@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.3...v0.35.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **short-fuse:** say NOW once on the off-turn play button ([#153](https://github.com/thurahtetaung/virtual-tavern/issues/153)) ([eff8f41](https://github.com/thurahtetaung/virtual-tavern/commit/eff8f41dea1749f888114d457d04507a852eb50c))
+
 ## [0.35.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.2...v0.35.3) (2026-10-14)
 
 
