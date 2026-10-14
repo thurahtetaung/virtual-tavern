@@ -236,8 +236,14 @@ function playOne(seed: number) {
   if (live.length === 1) expect(g.winner).toBe(live[0]);
 }
 
+// 1,000 seeded games in chunks of 100, each with its own time budget: as one test, a busy machine
+// (the whole suite in parallel) pushed it past its timeout.
+const GAMES = 1000;
+const CHUNK = 100;
+
 describe('fuzz', () => {
-  it('1,000 seeded random games keep every invariant and finish', () => {
-    for (let seed = 1; seed <= 1000; seed++) playOne(seed);
-  }, 300_000);
+  for (let from = 1; from <= GAMES; from += CHUNK)
+    it(`seeded random games ${from}–${from + CHUNK - 1} keep every invariant and finish`, () => {
+      for (let seed = from; seed < from + CHUNK; seed++) playOne(seed);
+    }, 120_000);
 });

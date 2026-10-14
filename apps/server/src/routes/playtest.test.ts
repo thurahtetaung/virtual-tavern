@@ -605,5 +605,6 @@ describe('a playtest with bots', () => {
       })
     ).json<ForgottenRoom>();
     expect(Object.values(dry.deleted).every((n) => n === 0)).toBe(true);
-  }, 60_000);
+    // About 10 s alone, nearly all of it CPU, so it slows with a busy machine.
+  }, 120_000);
 });
