@@ -51,7 +51,15 @@ export function Modal({
           ✕
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+      {/* Focusable, so a keyboard can scroll a long body (arrow keys) even with no control in it. */}
+      <div
+        tabIndex={0}
+        role="group"
+        aria-labelledby={titleId}
+        className="min-h-0 flex-1 overflow-y-auto p-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+      >
+        {children}
+      </div>
       {footer && (
         <div className="border-t border-line px-4 py-3 dark:border-stone-800">{footer}</div>
       )}
