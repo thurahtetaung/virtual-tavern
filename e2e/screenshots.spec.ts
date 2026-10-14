@@ -164,7 +164,7 @@ for (const [label, viewport] of [
     await shot(roles.Red!.enc, 'clue');
     for (const [team, r] of Object.entries(roles)) {
       const inputs = tx(r.enc, team).getByPlaceholder('A hint only your team will get');
-      for (let i = 0; i < 3; i++) await inputs.nth(i).fill(['salty', 'orbit', 'crust'][i]!);
+      for (let i = 0; i < 3; i++) await inputs.nth(i).fill(['salty', 'zorbit', 'crust'][i]!);
       await tx(r.enc, team).getByRole('button', { name: 'Send clues' }).click();
     }
     const red = roles.Red!;
