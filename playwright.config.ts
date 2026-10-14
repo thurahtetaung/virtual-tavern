@@ -118,6 +118,9 @@ export default defineConfig({
         'druid:druid.09,druid.05,druid.02,druid.08;mage:mage.06,mage.02,mage.10,mage.01;dragon:dragon.03',
       // Its full games of three or more start on fewer hit points, so each ends in a few rounds.
       TAVERN_BRAWL_TEST_HP: '3:3,4:3,5:3,6:3',
+      // Nightfall's specs click through 8-second night steps: a step waits (up to 30 s more) for a
+      // choice still to be made, so a busy machine's clicks aren't beaten by the step's clock.
+      NIGHTFALL_TEST_HOLD: '30',
       // Short Fuse's specs fix hands and the top of the pile from the lobby (`rig`).
       SHORT_FUSE_TEST_RIG: '1',
     },

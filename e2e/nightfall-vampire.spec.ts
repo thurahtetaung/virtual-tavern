@@ -103,6 +103,10 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
   expect(await getReady(players)).toEqual(roles);
   await expect(host.getByTestId(/night-(idle|acting)/)).toBeVisible({ timeout: 15_000 });
   const nights = await playMarkedNight(players, names, roles, marked);
+  // Every pick was the test's own: none was left to the step's clock (the test hold, see
+  // playwright.config.ts, waits for late clicks).
+  for (const [i, n] of nights.entries())
+    expect(n.results.join(' '), `${names[i]}'s night`).not.toContain('time ran out');
 
   // At dusk everyone saw their own Mark: the Vampire's on the marked player, Love on the lovers.
   expect(nights[marked]!.dusk).toBe('vampire');

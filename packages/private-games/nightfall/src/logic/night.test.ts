@@ -1,5 +1,6 @@
 import { createRng } from '@vt/game-sdk';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setTestHold } from './game.ts';
 import { buildNightPlan, STEPS, stepDef, stepFactor } from './plan.ts';
 import { ROLES, ROLE_IDS, type RoleId } from './roles.ts';
 import { type Harness, table, votes, winners } from './test-utils.ts';
@@ -536,5 +537,47 @@ describe('a whole game', () => {
     for (const p of h.ids) if (p !== 'B') h.act({ type: 'ready' }, p);
     expect(h.state.stage).toBe('night');
     expect(h.state.round!.number).toBe(2);
+  });
+});
+
+describe('the browser tests’ hold', () => {
+  const held = (players: RoleId[]) => {
+    const h = table({ players });
+    h.toStep('seer');
+    setTestHold(5000);
+    return h;
+  };
+  afterEach(() => setTestHold(0));
+
+  it('keeps a step waiting, a second at a time, for a choice still to be made', () => {
+    const h = held(['seer', W, V]);
+    const due = h.state.round!.night!.deadline;
+    h.tick();
+    expect(h.step()).toBe('seer');
+    expect(h.state.round!.night!.deadline).toBe(due + 1000);
+    // The hold never reaches a player.
+    for (const id of [...h.ids, null])
+      expect(JSON.stringify(h.view(id))).not.toContain(String(due));
+    h.night('A', { players: ['B'] });
+    h.tick();
+    expect(h.step()).not.toBe('seer');
+    expect(h.state.round!.night!.heldFrom).toBeUndefined();
+  });
+
+  it('gives up after the hold, and time runs out as usual', () => {
+    const h = held(['seer', W, V]);
+    for (let i = 0; i < 5; i++) h.tick();
+    expect(h.step()).toBe('seer');
+    h.tick();
+    expect(h.step()).not.toBe('seer');
+    expect(h.state.round!.notes['A']!.at(-1)).toMatchObject({ kind: 'passed', auto: true });
+  });
+
+  it('is off unless a test sets it', () => {
+    setTestHold(0);
+    const h = table({ players: ['seer', W, V] });
+    h.toStep('seer');
+    h.tick();
+    expect(h.step()).not.toBe('seer');
   });
 });

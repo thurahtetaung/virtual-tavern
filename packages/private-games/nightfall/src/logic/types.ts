@@ -343,6 +343,8 @@ export interface NightState {
   /** -1 during the intro, then the plan index. */
   index: number;
   deadline: number;
+  /** Browser tests only: the step's own deadline, while the test hold keeps it waiting. */
+  heldFrom?: number;
   /** Who acts in the current step. */
   actors: PlayerId[];
   work: Record<PlayerId, StepWork>;

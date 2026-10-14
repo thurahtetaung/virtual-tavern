@@ -3,6 +3,7 @@ export {
   dealGame,
   nightfall,
   seated,
+  setTestHold,
   setupProblem,
   shuffleDeal,
   startNight,
