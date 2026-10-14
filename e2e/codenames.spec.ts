@@ -71,6 +71,15 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   // The tab title flags whoever has to act, so a background tab stands out.
   await expect(spy).toHaveTitle(/^● Your turn · Codenames/);
   await expect(op).toHaveTitle('Codenames · Virtual Tavern');
+  // The host can't skip a turn someone can still play; the refusal goes once the table moves on
+  // (well before its own few seconds are up).
+  const skipRefusal = host.getByRole('alert').filter({ hasText: 'can’t be skipped yet' });
+  const refuseSkip = async () => {
+    host.once('dialog', (d) => void d.accept());
+    await host.getByRole('button', { name: 'Skip stuck turn' }).click();
+    await expect(skipRefusal).toBeVisible();
+  };
+  await refuseSkip();
   await spy.getByPlaceholder('e.g. Ocean').fill('Tavern');
   await spy.getByRole('button', { name: '2', exact: true }).click();
   await expect(spy.getByRole('button', { name: '2', exact: true })).toHaveAttribute(
@@ -91,6 +100,14 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(spy).toHaveTitle('Codenames · Virtual Tavern');
   await expect(otherOp.getByText('team is guessing')).toBeVisible();
   await expect(op.locator('text=TAVERN').first()).toBeVisible();
+  await expect(skipRefusal).toBeHidden({ timeout: 3000 });
+  // Refused again mid-guess, then gone as soon as an Operative's guess changes the turn.
+  await refuseSkip();
+  const ours = cards(spy, new RegExp(`, ${redStarts ? 'Red' : 'Blue'} agent`)).first();
+  const oursWord = (await ours.getAttribute('aria-label'))!.split(',')[0]!;
+  await card(op, oursWord).click();
+  await op.getByRole('button', { name: `Guess ${oursWord.toUpperCase()}` }).click();
+  await expect(skipRefusal).toBeHidden({ timeout: 3000 });
 
   // Operatives never see the key; the spymaster finds the assassin for us.
   const assassinLabel = await cards(spy, /Assassin/).getAttribute('aria-label');

@@ -343,7 +343,7 @@ function InGame({
                 Skip stuck turn
               </Button>
             )}
-            <RefusalSlot anchor={SKIP_ANCHOR} />
+            <RefusalSlot anchor={SKIP_ANCHOR} resetKey={view.log.length} />
             <Button
               variant="ghost"
               size="sm"

@@ -19,6 +19,8 @@ interface RefusalApi {
   format: (message: string) => string;
   setFormat: (format: ((message: string) => string) | null) => void;
   clear: (anchor: string) => void;
+  /** Clears every refusal on screen (the player did something else that worked). */
+  clearAll: () => void;
   register: (anchor: string) => () => void;
   messages: ReadonlyMap<string, string>;
 }
@@ -45,6 +47,11 @@ export function RefusalProvider({ children }: { children: ReactNode }) {
       next.delete(anchor);
       return next;
     });
+  }, []);
+  const clearAll = useCallback(() => {
+    for (const id of timers.current.values()) window.clearTimeout(id);
+    timers.current.clear();
+    setMessages((m) => (m.size === 0 ? m : new Map()));
   }, []);
   const show = useCallback(
     (anchor: string, message: string) => {
@@ -80,8 +87,8 @@ export function RefusalProvider({ children }: { children: ReactNode }) {
     };
   }, []);
   const api = useMemo(
-    () => ({ show, clear, register, messages, format, setFormat }),
-    [show, clear, register, messages, format, setFormat],
+    () => ({ show, clear, clearAll, register, messages, format, setFormat }),
+    [show, clear, clearAll, register, messages, format, setFormat],
   );
   return <RefusalContext.Provider value={api}>{children}</RefusalContext.Provider>;
 }
@@ -96,6 +103,8 @@ export function useRefusals() {
       clear: (anchor: string | undefined) => {
         if (anchor !== undefined) api?.clear(anchor);
       },
+      /** After any action that worked: earlier refusals no longer describe the table. */
+      clearAll: () => api?.clearAll(),
       /** The game's wording for a message the shell shows as a toast. */
       format: (message: string) => api?.format(message) ?? message,
     }),
@@ -118,13 +127,31 @@ export function useRefusalWording(format: (message: string) => string) {
 /**
  * Where a game wants the server's refusal of an action to appear: put it right under the control
  * and pass the same `anchor` to `act(action, { anchor })`. Renders nothing until there's a message.
+ * A refusal clears itself after a few seconds, when the player's next action works, and when
+ * `resetKey` changes (pass something that changes with the game state the refusal was about,
+ * such as the turn, so it never outlives the situation).
  */
-export function RefusalSlot({ anchor, className }: { anchor: string; className?: string }) {
+export function RefusalSlot({
+  anchor,
+  className,
+  resetKey,
+}: {
+  anchor: string;
+  className?: string;
+  resetKey?: string | number;
+}) {
   const api = useContext(RefusalContext);
   const register = api?.register;
+  const clear = api?.clear;
   useEffect(() => {
     return register?.(anchor);
   }, [register, anchor]);
+  const shownFor = useRef(resetKey);
+  useEffect(() => {
+    if (shownFor.current === resetKey) return;
+    shownFor.current = resetKey;
+    clear?.(anchor);
+  }, [clear, anchor, resetKey]);
   const message = api?.messages.get(anchor);
   if (!message) return null;
   return (

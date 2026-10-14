@@ -328,7 +328,7 @@ function Room({
   const act = useCallback(
     async (action: unknown, options?: ActOptions) => {
       const res = await call('game:action', action);
-      if (res.ok) refusals.clear(options?.anchor);
+      if (res.ok) refusals.clearAll();
       else if (res.error.code === 'backroom-locked') {
         // The password changed mid-game: send the player back to the door. In a playtest it was
         // the admin session that ran out.
