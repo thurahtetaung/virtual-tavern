@@ -8,6 +8,7 @@ import {
   type Rng,
   normaliseWord,
   sameAnswer,
+  wordKey,
   wordPool,
 } from '@vt/game-sdk';
 import { guide } from './guide.ts';
@@ -21,6 +22,7 @@ import {
   type EnigmaState,
   type EnigmaView,
   FIRST_INTERCEPT_ROUND,
+  type HistoryEntry,
   KEYWORD_COUNT,
   LEGACY_NOTE_ID,
   MAX_CHAT_MESSAGES,
@@ -31,6 +33,8 @@ import {
   type NotesView,
   type Role,
   type Seat,
+  type Showdown,
+  type ShowdownView,
   type Team,
   type TeamNotes,
   type TeamState,
@@ -397,6 +401,7 @@ function start(state: EnigmaState, ctx: Ctx): Result {
       blue: emptyTeam(words.slice(KEYWORD_COUNT, KEYWORD_COUNT * 2)),
     },
     winner: null,
+    showdown: null,
     gamesPlayed: state.gamesPlayed + 1,
   };
   return beginRound(fresh, 1, ctx);
@@ -417,14 +422,26 @@ function backToLobby(state: EnigmaState, ctx: Ctx): Result {
     stage: 'clue',
     deadline: null,
     winner: null,
+    showdown: null,
   };
 }
 
 /** Number words and numerals that would point at a keyword number directly. */
 const NUMBER_WORDS = new Set(['one', 'two', 'three', 'four', 'ii', 'iii', 'iv']);
 
-/** Why a clue can't be used for these keywords, or null if it's fine. The UI pre-checks with it. */
-export function clueProblem(clue: string, keywords: readonly string[]): GameError | null {
+/** Every clue a team has sent this game, from its public history. */
+export const usedClues = (history: readonly HistoryEntry[]): string[] =>
+  history.flatMap((h) => h.clues ?? []);
+
+/**
+ * Why a clue can't be used for these keywords, or null if it's fine. `used` is the team's clues
+ * from earlier rounds: a clue may only be given once per game. The UI pre-checks with it.
+ */
+export function clueProblem(
+  clue: string,
+  keywords: readonly string[],
+  used: readonly string[] = [],
+): GameError | null {
   const words = normaliseWord(clue)
     .split(/[^\p{L}\p{N}']+/u)
     .filter(Boolean);
@@ -437,6 +454,10 @@ export function clueProblem(clue: string, keywords: readonly string[]): GameErro
   }
   if (/\p{N}/u.test(clue) || words.some((w) => NUMBER_WORDS.has(w))) {
     return new GameError('clue-is-number', "A clue can't be a number or contain one.");
+  }
+  const key = wordKey(clue);
+  if (used.some((u) => wordKey(u) === key)) {
+    return new GameError('clue-used', 'Your team has already given that clue this game.');
   }
   return null;
 }
@@ -451,8 +472,9 @@ function giveClues(state: EnigmaState, clues: string[], ctx: Ctx): Result {
     return new GameError('wrong-stage', 'Clues have already been sent.');
   }
   const trimmed = clues.map((c) => c.trim());
+  const used = usedClues(state.teams[tx.team].history);
   for (const clue of trimmed) {
-    const problem = clueProblem(clue, state.teams[tx.team].keywords);
+    const problem = clueProblem(clue, state.teams[tx.team].keywords, used);
     if (problem) return problem;
   }
   if (new Set(trimmed.map(normaliseWord)).size !== trimmed.length) {
@@ -522,7 +544,7 @@ function setVote(
 export function isSilenced(state: EnigmaState, id: PlayerId): boolean {
   return (
     state.phase === 'playing' &&
-    state.stage !== 'reveal' &&
+    (state.stage === 'clue' || state.stage === 'guess') &&
     activeTx(state).some((tx) => tx.encryptor === id && !tx.expired)
   );
 }
@@ -675,17 +697,84 @@ function nextRound(state: EnigmaState, ctx: Ctx): Result {
     );
   }
   const winner = decideWinner(state);
-  if (winner) {
-    return {
+  // A level score goes to the showdown: each team guesses the other team's keywords.
+  if (winner === 'draw') {
+    const none = { red: null, blue: null };
+    return settleShowdown({
       ...state,
-      phase: 'over',
-      winner,
-      deadline: null,
-      // The other team opens the rematch.
-      startingTeam: otherTeam(state.startingTeam),
-    };
+      stage: 'showdown',
+      showdown: { guesses: none, by: none },
+      deadline: deadline(state.settings.guessSeconds, ctx.now),
+    });
   }
+  if (winner) return endGame(state, winner);
   return beginRound(state, state.round + 1, ctx);
+}
+
+function endGame(state: EnigmaState, winner: Team | 'draw'): EnigmaState {
+  return {
+    ...state,
+    phase: 'over',
+    winner,
+    deadline: null,
+    // The other team opens the rematch.
+    startingTeam: otherTeam(state.startingTeam),
+  };
+}
+
+// ---- The showdown ----
+
+/** Which of `team`'s showdown guesses name the other team's keyword in that slot. */
+export function showdownRight(state: EnigmaState, team: Team): boolean[] {
+  const keywords = state.teams[otherTeam(team)].keywords;
+  return keywords.map((k, i) => {
+    const guess = state.showdown?.guesses[team]?.[i]?.trim() ?? '';
+    return guess !== '' && sameAnswer(guess, k);
+  });
+}
+
+const rightCount = (state: EnigmaState, team: Team) =>
+  showdownRight(state, team).filter(Boolean).length;
+
+/** A team that can't hand anything in (nobody left, or the strict timer ran out) uses its notes. */
+function fromNotes(showdown: Showdown, team: Team, state: EnigmaState): Showdown {
+  return {
+    guesses: { ...showdown.guesses, [team]: [...state.teams[team].notes.guesses] },
+    by: { ...showdown.by, [team]: null },
+  };
+}
+
+/** Ends the showdown once both teams have handed in: the most right wins, else a shared draw. */
+function settleShowdown(state: EnigmaState, timedOut = false): EnigmaState {
+  if (state.stage !== 'showdown' || !state.showdown) return state;
+  let showdown = state.showdown;
+  for (const team of TEAMS) {
+    if (!showdown.guesses[team] && (timedOut || membersOf(state, team).length === 0)) {
+      showdown = fromNotes(showdown, team, state);
+    }
+  }
+  const next = { ...state, showdown };
+  if (!TEAMS.every((t) => showdown.guesses[t])) return next;
+  const diff = rightCount(next, 'red') - rightCount(next, 'blue');
+  return endGame(next, diff > 0 ? 'red' : diff < 0 ? 'blue' : 'draw');
+}
+
+function showdownGuesses(state: EnigmaState, guesses: string[], ctx: Ctx): Result {
+  if (state.phase !== 'playing' || state.stage !== 'showdown' || !state.showdown) {
+    return new GameError('wrong-stage', 'There is no showdown right now.');
+  }
+  const seat = teamSeat(state, ctx.by);
+  if (seat instanceof GameError) return seat;
+  if (state.showdown.guesses[seat.team]) {
+    return new GameError('showdown-done', 'Your team has already handed in its guesses.');
+  }
+  return settleShowdown({
+    ...state,
+    showdown: {
+      guesses: { ...state.showdown.guesses, [seat.team]: guesses.map((g) => g.trim()) },
+      by: { ...state.showdown.by, [seat.team]: ctx.by },
+    },
+  });
 }
 
 function reduce(state: EnigmaState, action: EnigmaAction, ctx: Ctx): Result {
@@ -725,6 +814,8 @@ function reduce(state: EnigmaState, action: EnigmaAction, ctx: Ctx): Result {
       return removeNote(state, action.id, ctx);
     case 'next-round':
       return nextRound(state, ctx);
+    case 'showdown-guesses':
+      return showdownGuesses(state, action.guesses, ctx);
     case 'skip-voter':
       return skipVoter(state, action.team, action.player, ctx);
   }
@@ -753,6 +844,7 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): EnigmaState {
     stage: 'clue',
     deadline: null,
     winner: null,
+    showdown: null,
     gamesPlayed: 0,
   };
 }
@@ -791,7 +883,7 @@ function playerLeft(state: EnigmaState, playerId: PlayerId, now: number): Enigma
     })),
   };
   for (let i = 0; i < next.transmissions.length; i++) next = repairTransmission(next, i);
-  return settleVotes(maybeStartGuessing(next, now));
+  return settleShowdown(settleVotes(maybeStartGuessing(next, now)));
 }
 
 // ---- Timers ----
@@ -809,6 +901,7 @@ function nextDeadline(state: EnigmaState): number | null {
 function onDeadline(state: EnigmaState, now: number): EnigmaState {
   const due = nextDeadline(state);
   if (due === null || now < due) return state;
+  if (state.stage === 'showdown') return settleShowdown(state, true);
   if (state.stage === 'clue') {
     let next = state;
     for (const i of state.active) {
@@ -911,6 +1004,22 @@ function transmissionView(
   };
 }
 
+function showdownView(state: EnigmaState, myTeam: Team | null): ShowdownView | null {
+  const showdown = state.showdown;
+  if (!showdown) return null;
+  const over = state.phase === 'over';
+  const shown = (t: Team) => (over || t === myTeam ? showdown.guesses[t] : null);
+  return {
+    done: { red: !!showdown.guesses.red, blue: !!showdown.guesses.blue },
+    guesses: { red: shown('red'), blue: shown('blue') },
+    by: {
+      red: over || myTeam === 'red' ? showdown.by.red : null,
+      blue: over || myTeam === 'blue' ? showdown.by.blue : null,
+    },
+    right: over ? { red: showdownRight(state, 'red'), blue: showdownRight(state, 'blue') } : null,
+  };
+}
+
 function notesView(notes: TeamNotes): NotesView {
   return { guesses: notes.guesses, items: noteItems(notes) };
 }
@@ -946,6 +1055,7 @@ function view(state: EnigmaState, viewer: PlayerId | null): EnigmaView {
     notes: myTeam ? notesView(state.teams[myTeam].notes) : null,
     deadline: state.deadline,
     winner: state.winner,
+    showdown: showdownView(state, myTeam),
   };
 }
 

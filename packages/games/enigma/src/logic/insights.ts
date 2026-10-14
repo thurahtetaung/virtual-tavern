@@ -23,11 +23,17 @@ function transmissionOf(before: EnigmaState, after: EnigmaState, team: Team, rou
   return null;
 }
 
-/** Why the game ended, mirroring `winnerFrom`: tokens, the score after both or round 8, or a draw. */
-function endReason(state: EnigmaState): 'intercepts' | 'misses' | 'score' | 'draw' | null {
+/**
+ * Why the game ended, mirroring `winnerFrom`: tokens, the score after both or round 8, the
+ * showdown after a level score, or a draw.
+ */
+function endReason(
+  state: EnigmaState,
+): 'intercepts' | 'misses' | 'score' | 'showdown' | 'draw' | null {
   const winner = state.winner;
   if (!winner) return null;
   if (winner === 'draw') return 'draw';
+  if (state.showdown) return 'showdown';
   const loser = other(winner);
   const qualifies = (t: Team) =>
     state.teams[t].intercepts >= TOKENS_TO_END || state.teams[other(t)].misses >= TOKENS_TO_END;

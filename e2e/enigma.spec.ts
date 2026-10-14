@@ -37,13 +37,21 @@ async function encryptorOf(pages: Page[], team: TeamName) {
   return found!;
 }
 
+/** A team may only give a clue once per game, so every set of clues gets its own word. */
+const FRESH =
+  'echo golf hotel india kilo lima mike oscar papa romeo sierra tango maple cedar birch aspen willow hazel rowan alder larch spruce poplar yew'.split(
+    ' ',
+  );
+let sent = 0;
+
 async function sendClues(encryptor: Page, team: TeamName) {
   const tx = transmission(encryptor, team);
   const code = (await tx.locator('.font-mono').first().innerText()).split('-').map(Number);
   const inputs = tx.getByPlaceholder('A hint only your team will get');
   // Clues can't contain numbers, so each one names its digit with a letter word.
   const words = ['alpha', 'bravo', 'charlie', 'delta'];
-  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`clue ${words[code[i]! - 1]}`);
+  const fresh = FRESH[sent++ % FRESH.length];
+  for (let i = 0; i < 3; i++) await inputs.nth(i).fill(`clue ${words[code[i]! - 1]} ${fresh}`);
   await tx.getByRole('button', { name: 'Send clues' }).click();
   return code;
 }
@@ -131,9 +139,10 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
         // Hana has nothing left to do, so she's told who she's waiting for instead.
         await expect(host.getByText("Locked in on Blue's code. Waiting for: Ana.")).toBeVisible();
       }
-      await expect(
-        transmission(red[1]!, 'Blue').getByText(`Hana ${blueCode.join('-')} 🔒`),
-      ).toBeVisible();
+      // Each pick shows as three little boxes, read out digit by digit.
+      const hana = transmission(red[1]!, 'Blue').getByRole('listitem').filter({ hasText: 'Hana' });
+      await expect(hana.getByRole('img', { name: blueCode.join(', ') })).toBeVisible();
+      await expect(hana).toContainText('🔒');
       await pick(red[1]!, 'Blue', blueCode);
       // Blue tries to intercept Red, and gets it wrong.
       for (const p of blue) await pick(p, 'Red', wrong(redCode));
@@ -360,4 +369,89 @@ test('a team can reopen an agreed code, and a mid-round end waits for the round'
     ben!.getByText(`${first!} wins! ${second} had 2 miscommunications.`, { exact: false }),
   ).toBeVisible();
   await expect(host.getByRole('button', { name: 'See results' })).toBeVisible();
+});
+
+test('a level score goes to a showdown on the other team’s keywords', async ({ browser }) => {
+  test.setTimeout(120_000);
+  // Phone and desktop, light and dark, so one run shoots every layout of the showdown.
+  const looks = [
+    { viewport: { width: 390, height: 844 }, colorScheme: 'light' },
+    { viewport: { width: 1280, height: 900 }, colorScheme: 'dark' },
+    { viewport: { width: 390, height: 844 }, colorScheme: 'dark' },
+    { viewport: { width: 1280, height: 900 }, colorScheme: 'light' },
+  ] as const;
+  const join = async (i: number, name: string, url = '/') => {
+    const page = await (await browser.newContext(looks[i])).newPage();
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
+    await page.goto(url);
+    return page;
+  };
+  const shot = async (page: Page, i: number, name: string) => {
+    if (process.env.SCREENSHOTS) {
+      const { viewport, colorScheme } = looks[i]!;
+      const look = `${viewport.width < 600 ? 'phone' : 'desktop'}-${colorScheme}`;
+      await page.screenshot({ path: `test-results/shots/enigma-${look}-${name}.png` });
+    }
+  };
+  const host = await join(0, 'Hana');
+  await host.getByRole('button', { name: 'Create an Enigma room' }).click();
+  await expect(host.getByText('Pick a team below')).toBeVisible();
+  const [ana, ben, cy] = await Promise.all(
+    ['Ana', 'Ben', 'Cy'].map((n, i) => join(i + 1, n, host.url())),
+  );
+  const pages = [host, ana!, ben!, cy!];
+  const teams: Record<TeamName, Page[]> = { Red: [host, ana!], Blue: [ben!, cy!] };
+  for (const t of ['Red', 'Blue'] as const) {
+    for (const p of teams[t]) await p.getByRole('button', { name: `Join ${t}` }).click();
+  }
+  await expect(host.getByText('Everyone is in')).toBeVisible();
+  await host.getByRole('button', { name: 'Start game' }).click();
+
+  // Two rounds in which both teams miscommunicate: 2 each, a level score.
+  for (const round of [1, 2]) {
+    const codes: Partial<Record<TeamName, number[]>> = {};
+    const encs: Partial<Record<TeamName, Page>> = {};
+    for (const t of ['Red', 'Blue'] as const) {
+      encs[t] = await encryptorOf(teams[t], t);
+      codes[t] = await sendClues(encs[t], t);
+    }
+    for (const t of ['Red', 'Blue'] as const) {
+      const them: TeamName = t === 'Red' ? 'Blue' : 'Red';
+      if (round === 2) for (const p of teams[them]) await pick(p, t, wrong(codes[t]!));
+      await pick(
+        teams[t].find((p) => p !== encs[t])!,
+        t,
+        wrong(codes[t]!),
+      );
+    }
+    await expect(host.getByText('The code was').first()).toBeVisible();
+    if (round === 1) await host.getByRole('button', { name: 'Next round' }).click();
+  }
+  await expect(host.getByText(/Dead level!.*so it goes to a showdown/)).toBeVisible();
+  await host.getByRole('button', { name: 'Start the showdown' }).click();
+
+  // Each team hands in its guesses once; the other team never sees them before the end.
+  for (const [i, p] of pages.entries()) {
+    await expect(p.getByRole('heading', { name: '🤝 Showdown' })).toBeVisible();
+    await shot(p, i, 'showdown');
+  }
+  await ana!.getByLabel('Final guess for Blue keyword 1').fill('Zorblax');
+  await ana!.getByRole('button', { name: 'Hand in our guesses' }).click();
+  await expect(
+    host.getByText('Your team has handed in its guesses. Waiting for Blue…'),
+  ).toBeVisible();
+  await expect(cy!.getByText('handed in ✓')).toBeVisible();
+  await expect(cy!.getByText('Zorblax')).toHaveCount(0);
+  await shot(host, 0, 'showdown-handed-in');
+  await cy!.getByRole('button', { name: 'Hand in our guesses' }).click();
+
+  for (const [i, p] of pages.entries()) {
+    await expect(p.getByText('🤝 A shared win!')).toBeVisible();
+    await expect(
+      p.getByText(/In the showdown both teams named 0 keywords right, so they share the win\./),
+    ).toBeVisible();
+    await shot(p, i, 'showdown-over');
+  }
+  await expect(ben!.getByText('Zorblax')).toBeVisible();
 });

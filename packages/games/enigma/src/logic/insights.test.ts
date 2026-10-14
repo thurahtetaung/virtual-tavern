@@ -1,4 +1,4 @@
-import { type InsightEvent, createRng } from '@vt/game-sdk';
+import type { InsightEvent } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { enigma } from './game.ts';
 import { insights } from './insights.ts';
@@ -15,7 +15,7 @@ import {
   vote,
   wrongCode,
 } from './test-utils.ts';
-import type { EnigmaState, Team } from './types.ts';
+import type { EnigmaAction, EnigmaState, Team } from './types.ts';
 
 /** Reports every action the harness applies from now on, and keeps every state it passes. */
 function record(h: Harness) {
@@ -135,13 +135,30 @@ describe('insights', () => {
     ]);
   });
 
-  it('reports a draw with no winners', () => {
+  it('reports a draw with no winners once the showdown is level too', () => {
     const h = startedGame();
-    const base = h.state;
-    const before: EnigmaState = { ...base, stage: 'reveal', round: 8 };
-    const after = enigma.reduce(before, { type: 'next-round' }, ctx());
-    expect(insights(before, after as EnigmaState, { type: 'next-round' }, HOST)).toMatchObject([
+    h.state = { ...h.state, stage: 'reveal', round: 8 };
+    const { take } = record(h);
+    // A level score goes to the showdown first: nothing is over yet.
+    h.act({ type: 'next-round' });
+    expect(take()).toEqual([]);
+    const blank: EnigmaAction = { type: 'showdown-guesses', guesses: ['', '', '', ''] };
+    h.act(blank, 'r2');
+    h.act(blank, 'b2');
+    expect(take()).toMatchObject([
       { type: 'outcome', winners: [], props: { winner: 'draw', round: 8, reason: 'draw' } },
+    ]);
+  });
+
+  it('credits a showdown win to the whole team', () => {
+    const h = startedGame();
+    h.state = { ...h.state, stage: 'reveal', round: 8 };
+    h.act({ type: 'next-round' });
+    const { take } = record(h);
+    h.act({ type: 'showdown-guesses', guesses: [...h.state.teams.blue.keywords] }, 'r2');
+    h.act({ type: 'showdown-guesses', guesses: ['', '', '', ''] }, 'b2');
+    expect(take()).toMatchObject([
+      { type: 'outcome', winners: RED, props: { winner: 'red', reason: 'showdown' } },
     ]);
   });
 
@@ -239,14 +256,4 @@ function playRoundVotes(h: Harness, opts: { redIntercepts?: boolean }) {
       opts.redIntercepts && team === 'blue' ? t.code : wrongCode(t.code),
     );
   }
-}
-
-function ctx() {
-  return {
-    by: HOST,
-    isHost: true,
-    now: NOW,
-    rng: createRng(1),
-    content: { wordLists: () => [], words: () => [] },
-  };
 }
