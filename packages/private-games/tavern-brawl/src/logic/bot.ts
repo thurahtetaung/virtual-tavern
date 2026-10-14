@@ -75,6 +75,51 @@ function scoreCard(def: CardDef, me: PlayerView, g: GameView, handDefs: CardDef[
     case 'howlThenHitEach':
       score += 2 + reachable.length * 2;
       break;
+    case 'threeTargets':
+    case 'praiseOrHit':
+    case 'danceDraw':
+    case 'everyoneChooses':
+    case 'hitAllOpps':
+      score += 3 + reachable.length;
+      break;
+    case 'discardHandHit': {
+      const n = Math.min(5, handDefs.length - 1);
+      score += n * 2 + (reachable.some((p) => effective(p) <= n) ? 6 : 0) - 2;
+      break;
+    }
+    case 'hitPerHandCard':
+      score += Math.min(5, Math.max(0, ...reachable.map((p) => p.handCount))) * 2;
+      break;
+    case 'destroyThenHitPerShield':
+    case 'destroyThenHealPerShield':
+      score += oppShields.length > 0 ? 5 : g.players.some((p) => p.shields.length) ? -3 : 0;
+      break;
+    case 'hitUnshieldedThenWipe':
+      score +=
+        reachable.filter((p) => p.shields.length === 0).length * 3 +
+        oppShields.reduce((n, sh) => n + sh.left, 0) -
+        shieldLeft(me);
+      break;
+    case 'copyHp': {
+      const best = Math.max(0, ...g.players.filter((p) => !p.out).map((p) => p.hp));
+      score += (best - me.hp) * 2;
+      break;
+    }
+    case 'copyShield':
+      score += g.players.some((p) => p.shields.length) ? 4 : -2;
+      break;
+    case 'ignoreShields':
+      score += 6;
+      break;
+    case 'controlAttacks':
+      score += low ? 5 : 2;
+      break;
+    case 'swapHands':
+      score += Math.max(0, ...reachable.map((p) => p.handCount)) - handDefs.length + 2;
+      break;
+    case 'takeTopDiscards':
+    case 'borrowNeighbourPower':
+    case 'bonesOnDestroy':
     case 'allDiscardDraw3':
     case 'playOpponentTop':
     case 'drawFromEachOpp':
@@ -139,6 +184,47 @@ function answerChoice(c: ChoiceView, g: GameView, me: PlayerView, ctx: BotCtx): 
       };
       return [...options].sort((a, b) => value(b) - value(a))[0] ?? null;
     }
+    case 'mna': {
+      const opps = g.players.filter((p) => !p.out && p.id !== me.id && !p.disguised);
+      if (opps.some((p) => effective(p) <= 2)) return 'attack';
+      return me.hp <= 5 ? 'heal' : 'draw';
+    }
+    case 'opponent':
+    case 'second': {
+      // The weakest, or for a hand-size hit the fullest hand.
+      const players = options.filter((o) => byId(o));
+      const score = (id: string) =>
+        c.amount === undefined && c.card && CARDS[c.card]?.effect === 'hitPerHandCard'
+          ? -(byId(id)?.handCount ?? 0)
+          : effective(byId(id)!);
+      return players.sort((a, b) => score(a) - score(b))[0] ?? options[0] ?? null;
+    }
+    case 'redirect': {
+      // Steer it at the weakest player who isn't us, else leave it.
+      const players = options.filter((o) => byId(o) && o !== me.id);
+      return (
+        players.sort((a, b) => effective(byId(a)!) - effective(byId(b)!))[0] ?? options[0] ?? null
+      );
+    }
+    case 'mirror':
+      return (
+        [...options].sort((a, b) => (shieldOf(b)?.left ?? 0) - (shieldOf(a)?.left ?? 0))[0] ?? null
+      );
+    case 'side':
+      return pickOne(ctx.rng, options) ?? null;
+    case 'copyA': {
+      // Raise ourselves if we're low; otherwise bring the healthiest opponent down.
+      const hp = (id: string) => byId(id)?.hp ?? 0;
+      if (options.includes(me.id) && me.hp <= 5) return me.id;
+      const opps = options.filter((o) => o !== me.id);
+      return opps.sort((a, b) => hp(b) - hp(a))[0] ?? options[0] ?? null;
+    }
+    case 'copyB': {
+      const hp = (id: string) => byId(id)?.hp ?? 0;
+      const raise = c.options.length > 0 && !options.includes(me.id);
+      const sorted = [...options].sort((a, b) => hp(a) - hp(b));
+      return (raise ? sorted.at(-1) : sorted[0]) ?? null;
+    }
   }
 }
 
@@ -148,21 +234,22 @@ export function tavernBrawlBot(view: TavernBrawlView, ctx: BotCtx): TavernBrawlA
     if (!seat) return null;
     if (!seat.playing) {
       if (seat.waiting) return null;
-      return view.seats.filter((s) => s.playing).length < 4 ? { type: 'sit', playing: true } : null;
+      return view.seats.filter((s) => s.playing).length < 6 ? { type: 'sit', playing: true } : null;
     }
     return seat.hero ? null : { type: 'pick-hero', hero: 'random' };
   }
   const g = view.game;
   if (view.phase !== 'playing' || !g) return null;
   const me = g.players.find((p) => p.id === ctx.me);
-  if (!me || me.out) return null;
+  if (!me) return null;
   const c = g.choice;
+  // Ghosts still answer their own attack.
   if (c) {
     if (c.chooser !== ctx.me) return null;
     const pick = answerChoice(c, g, me, ctx);
     return pick === null ? null : { type: 'choose', choice: c.id, pick };
   }
-  if (g.turn.player !== ctx.me || g.resolving.length > 0 || g.turn.debt <= 0) return null;
+  if (me.out || g.turn.player !== ctx.me || g.resolving.length > 0 || g.turn.debt <= 0) return null;
   const hand: CardRef[] = view.hand;
   if (hand.length === 0) return null;
   const defs = hand.map((r) => CARDS[r.card]!);

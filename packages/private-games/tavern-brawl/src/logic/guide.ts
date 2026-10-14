@@ -22,6 +22,34 @@ export const POWER_TEXT: Record<Effect, string> = {
   freeFormPlay: 'You may also play a Form card from your hand for free.',
   howlThenHitEach:
     'Make an animal noise out loud, then deal 1 damage to each opponent (or skip the noise and the damage).',
+  everyoneChooses:
+    'Starting with you and going right, each player attacks for 1, heals 1 or draws 1, and you do the same as each of them.',
+  discardHandHit:
+    'Discard the rest of your hand, then deal that much damage (up to 5) to one opponent.',
+  threeTargets:
+    'Deal 1 damage to each opponent, then 2 to one opponent, then 1 to a different opponent.',
+  destroyThenHitPerShield:
+    'Destroy a shield in play, then deal as much damage as it had printed shield points to an opponent.',
+  danceDraw:
+    'Everyone may do a little dance out loud: each dancer draws 1, and you draw 1 more for every dancer.',
+  hitAllOpps: 'Until your next turn, your attacks hit every opponent. Then this card attacks.',
+  swapHands: 'Swap your hand with an opponent’s.',
+  takeTopDiscards: 'Take the top card of each opponent’s discard pile into your hand.',
+  hitPerHandCard: 'Deal an opponent 1 damage for each card in their hand (up to 5).',
+  destroyThenHealPerShield: 'Destroy a shield in play, then heal its printed shield points.',
+  ignoreShields: 'This turn your attack cards ignore shields, this one included.',
+  bonesOnDestroy:
+    'A shield that strikes back: when it is destroyed, whoever holds it deals two separate 1-damage attacks.',
+  praiseOrHit: 'Each opponent may praise you out loud; those who refuse take 2 damage.',
+  controlAttacks:
+    'Until your next turn, you choose the target of every attack card anyone else plays.',
+  hitUnshieldedThenWipe:
+    'Deal 2 damage to each opponent with no shield, then destroy every shield in play, yours too.',
+  copyShield:
+    'Becomes a copy of another shield in play: it does what that card does and stays as that shield.',
+  borrowNeighbourPower:
+    'Use the first power of the hero to your left or right (the nearest still in the game).',
+  copyHp: 'Make one player’s hit points equal to another player’s (you may be either).',
 };
 
 /** "⚔3", "🛡2 + 🃏1"… for a card's printed symbols. */
@@ -58,6 +86,24 @@ export function placeholderCardName(def: CardDef): string {
       formWolf: 'Form: Wolf',
       freeFormPlay: 'Power: Call of the wild',
       howlThenHitEach: 'Power: Howl',
+      everyoneChooses: 'Power: Everyone chooses',
+      discardHandHit: 'Power: Cash in',
+      threeTargets: 'Power: Three targets',
+      destroyThenHitPerShield: 'Power: Shield smash',
+      danceDraw: 'Power: Dance',
+      hitAllOpps: 'Power: Hit everyone',
+      swapHands: 'Power: Swap hands',
+      takeTopDiscards: 'Power: Raid discards',
+      hitPerHandCard: 'Power: Hand blast',
+      destroyThenHealPerShield: 'Power: Shield snack',
+      ignoreShields: 'Power: Through shields',
+      bonesOnDestroy: 'Shield 3 + Strike back',
+      praiseOrHit: 'Power: Praise me',
+      controlAttacks: 'Power: Steer attacks',
+      hitUnshieldedThenWipe: 'Power: Wipe shields',
+      copyShield: 'Power: Copy a shield',
+      borrowNeighbourPower: 'Power: Borrow a power',
+      copyHp: 'Power: Copy hit points',
     };
     return short[def.effect];
   }
@@ -83,7 +129,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
   return {
     tagline:
       'Heroes brawl with cards: hit, block, heal and chain plays to be the last one standing.',
-    players: '2 to 4',
+    players: '2 to 6',
     duration: '10 to 20 minutes',
     goal: 'Knock out every other hero. Everyone starts with 10 hit points; the last hero standing wins.',
     quickStart: [
@@ -95,7 +141,7 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
       'At 0 hit points you’re out. The last hero standing wins.',
     ],
     setup: [
-      'Everyone takes a seat (2 to 4 players) and picks a different hero, or taps 🎲 for a random one. The host can also deal random heroes to everyone.',
+      'Everyone takes a seat (2 to 6 players) and picks a different hero, or taps 🎲 for a random one. The host can also deal random heroes to everyone, from the sets they tick.',
       'Each hero’s deck is shuffled, everyone starts on 10 hit points and draws 3 cards.',
       'A random player goes first; play passes round the table in seat order.',
     ],
@@ -155,6 +201,20 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
         ],
       },
       {
+        title: 'When five or six play',
+        bullets: [
+          'Neighbours only: with five or six at the start, regular attack cards can only hit the nearest player still in on your left or right, for the whole game. Cards with a power (✦) reach anyone, even their swords.',
+          'Ghosts: a knocked-out player stays at the table as a ghost. On their turn they attack one player for 1. It can never knock anyone out, can’t target a player on 1 hit point, and shields block it. Ghosts can’t win.',
+        ],
+      },
+      {
+        title: 'Out-of-turn questions',
+        bullets: [
+          'Some powers ask other players: everyone chooses attack, heal or draw; dance; praise; a broken strike-back shield’s attacks; or where a steered attack goes.',
+          'These questions always get 20 seconds. Then the table answers for you: draw, dance, praise, a random target, or the attack stays where it was aimed.',
+        ],
+      },
+      {
         title: 'Table rulings',
         bullets: [
           'The attacker picks which shield is hit, and where any overflow goes.',
@@ -167,6 +227,13 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
           'A taken shield keeps its damage marks.',
           'Attack cards include cards with a power and printed swords (like the wolf Form).',
           'There is no hand limit.',
+          'When everyone chooses, every player’s attacks reach anyone, and all of your own repeated attacks hit the same opponent.',
+          'A strike-back shield strikes whenever it is destroyed (by damage or a power), but not when its holder is knocked out. Its attacks come after the destroying card has resolved.',
+          'Steering attacks never turns an attack back on the player making it.',
+          'A shield copy with no other shield in play does nothing and is discarded.',
+          'Borrowing a neighbour’s power uses the nearest player still in on that side.',
+          'The power that makes your attacks ignore shields and the one that makes them hit everyone also apply to the card that carries them.',
+          'Anyone whose hand is emptied by a card draws 2 once it has resolved.',
         ],
       },
       {

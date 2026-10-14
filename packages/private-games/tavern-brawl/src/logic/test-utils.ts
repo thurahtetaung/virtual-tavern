@@ -196,7 +196,7 @@ export function checkConservation(state: TavernBrawlState) {
     if (pl.form) put(pl.form.id, `${p}.form`);
   }
   g.turn.played.forEach((i) => put(i, 'played'));
-  g.frames.forEach((f) => put(f.id, 'frames'));
+  g.frames.forEach((f) => !f.virtual && put(f.id, 'frames'));
   const all = Object.keys(g.cards);
   for (const i of all) if (!seen.has(i)) throw new Error(`${i} (${g.cards[i]!.card}) is nowhere`);
   if (seen.size !== all.length) throw new Error('unknown instance in play');

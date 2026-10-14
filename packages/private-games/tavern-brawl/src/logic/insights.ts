@@ -46,6 +46,7 @@ export function insights(
             shield: entry.shield,
             power: entry.power,
             self: entry.target === entry.by,
+            ghost: entry.ghost === true,
           },
         });
         break;
@@ -78,8 +79,23 @@ export function insights(
         events.push({
           type: 'social',
           playerId: entry.player,
-          props: { done: entry.done, auto: entry.auto === true },
+          props: {
+            done: entry.done,
+            auto: entry.auto === true,
+            flavour: entry.flavour ?? 'howl',
+          },
         });
+        break;
+      case 'redirect':
+        events.push({
+          type: 'redirect',
+          playerId: entry.by,
+          props: { attacker: entry.attacker, target: entry.target },
+        });
+        break;
+      case 'mother':
+        if (entry.cards.length > 0)
+          events.push({ type: 'steal', playerId: entry.by, props: { count: entry.cards.length } });
         break;
       case 'scout':
         if (entry.count > 0)
@@ -126,6 +142,8 @@ export function insights(
         biggestHit: order.map((p) => g.tally[p]?.biggestHit ?? 0),
         longestChain: order.map((p) => g.tally[p]?.longestChain ?? 0),
         finalHp: order.map((p) => g.players[p]!.hp),
+        zone: g.zone === true,
+        ghosts: order.filter((p) => g.players[p]!.ghost).length,
       },
     });
   }

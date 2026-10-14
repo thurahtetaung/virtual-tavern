@@ -1130,7 +1130,20 @@ function hydraFigures(get: (metric: string) => number, metrics: Iterable<string>
   ];
 }
 
-const TAVERN_BRAWL_HEROES = ['brute', 'mage', 'knight', 'thief', 'ranger', 'druid'] as const;
+const TAVERN_BRAWL_HEROES = [
+  'brute',
+  'mage',
+  'knight',
+  'thief',
+  'ranger',
+  'druid',
+  'dragon',
+  'owl',
+  'psychic',
+  'slime',
+  'eye',
+  'mimic',
+] as const;
 
 function tavernBrawlCounters(type: string, props: Props): Counters {
   const out: Counters = [];
@@ -1198,7 +1211,7 @@ function tavernBrawlFigures(get: (metric: string) => number): GameFigure[] {
       id: 'player-count',
       label: 'Games by table size',
       kind: 'split',
-      parts: [2, 3, 4].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+      parts: [2, 3, 4, 5, 6].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
     },
     {
       id: 'turns-per-game',

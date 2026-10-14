@@ -59,7 +59,7 @@ describe('cards', () => {
       cardsOf(hero)
         .filter((c) => c.effect)
         .reduce((n, c) => n + c.count, 0);
-    expect([HERO_IDS.map(powers)]).toEqual([[6, 6, 3, 6, 6, 9]]);
+    expect([HERO_IDS.map(powers)]).toEqual([[6, 6, 3, 6, 6, 9, 7, 6, 6, 6, 7, 7]]);
     for (const h of HERO_IDS) expect(HEROES[h].id).toBe(h);
   });
 });
@@ -76,11 +76,11 @@ describe('lobby', () => {
     return harness(state);
   };
 
-  it('seats four and lets the rest wait', () => {
-    const h = lobby(5);
-    expect(h.state.seats.p4!.playing).toBe(true);
-    expect(h.state.seats.p5!.playing).toBe(false);
-    expect(h.state.seats.p5!.waiting).toBe(true);
+  it('seats six and lets the rest wait', () => {
+    const h = lobby(7);
+    expect(h.state.seats.p6!.playing).toBe(true);
+    expect(h.state.seats.p7!.playing).toBe(false);
+    expect(h.state.seats.p7!.waiting).toBe(true);
   });
 
   it('keeps heroes unique', () => {

@@ -128,6 +128,12 @@ export const HERO_COLOURS: Record<HeroId, { light: string; dark: string }> = {
   thief: { light: '#7e22ce', dark: '#a855f7' },
   ranger: { light: '#be185d', dark: '#ec4899' },
   druid: { light: '#4d7c0f', dark: '#84cc16' },
+  dragon: { light: '#475569', dark: '#94a3b8' },
+  owl: { light: '#c2410c', dark: '#fb923c' },
+  psychic: { light: '#7c4a2d', dark: '#c08457' },
+  slime: { light: '#0e7490', dark: '#22d3ee' },
+  eye: { light: '#1d4ed8', dark: '#60a5fa' },
+  mimic: { light: '#15803d', dark: '#4ade80' },
 };
 
 /** CSS variables for a hero's colour, read by `bg-[var(--hero)] dark:bg-[var(--hero-dark)]`. */

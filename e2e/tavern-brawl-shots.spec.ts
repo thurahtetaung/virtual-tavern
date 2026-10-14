@@ -59,7 +59,7 @@ for (const [label, viewport, colorScheme] of [
   ['desktop-dark', { width: 1280, height: 860 }, 'dark'],
 ] as const) {
   test(`tavern brawl screenshots (${label})`, async ({ browser }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(600_000);
     const look: Look = { viewport, colorScheme, setup: localArt };
     const shot = (p: Page, name: string) =>
       p.screenshot({
@@ -90,7 +90,7 @@ for (const [label, viewport, colorScheme] of [
     // The scripted turn (see playwright.config.ts): chain, howl, two shields.
     await dock(hana).click();
     await playCard(hana, 'druid.08');
-    await expect(hana.getByRole('region', { name: 'Animal noise' })).toBeVisible();
+    await expect(hana.getByRole('region', { name: 'Honour prompt' })).toBeVisible();
     await shot(hana, '04-howl');
     await shot(ana, '05-waiting');
     await hana.getByRole('button', { name: /I made an animal noise/ }).click();
@@ -119,14 +119,54 @@ for (const [label, viewport, colorScheme] of [
     await shot(hana, '10-end');
     await shot(ana, '11-end-other');
 
-    // Four at the table.
-    const four = await table(browser, ['Hana', 'Ana', 'Ben', 'Cy'], look);
-    await four[0]!.getByRole('button', { name: /Random for everyone/ }).click();
-    await expect(four[0]!.getByRole('list', { name: 'Seats' })).not.toContainText('Picking a hero');
-    await four[0]!.getByRole('button', { name: 'Start the brawl' }).click();
-    for (let i = 0; i < 14; i++) {
-      for (const p of four) if (await move(p)) break;
+    // Five at the table: the dragon makes everyone choose, each on a fixed 20-second clock.
+    const five = await table(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], look);
+    for (const [i, hero] of ['dragon', 'owl', 'psychic', 'slime', 'eye'].entries())
+      await pickHero(five[i]!, hero, true);
+    await five[0]!.getByRole('button', { name: 'Start the brawl' }).click();
+    await playCard(five[0]!, 'dragon.03');
+    await expect(five[0]!.getByRole('region', { name: 'Your choice' })).toBeVisible();
+    await shot(five[0]!, '12-five-choose');
+    await five[0]!.getByRole('button', { name: /Heal 1/ }).click();
+    // Going right, the seat before the dragon's chooses next, out of turn (seats join in any
+    // order, so find whoever is asked).
+    const asked = (p: Page) => p.getByRole('region', { name: 'Your choice' }).count();
+    await expect.poll(async () => (await Promise.all(five.map(asked))).some(Boolean)).toBe(true);
+    const counts = await Promise.all(five.map(asked));
+    const other = five[counts.findIndex(Boolean)]!;
+    const watcher = five.find((p, i) => i > 0 && p !== other)!;
+    await other.waitForTimeout(400);
+    await shot(other, '13-five-choose-other');
+    await other.getByRole('button', { name: /Attack 1/ }).click();
+    await shot(other, '14-five-target');
+    await shot(watcher, '15-five-waiting');
+
+    // Six at the table: neighbours only, and ghosts once someone is out.
+    const six = await table(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eli'], look);
+    await six[0]!.getByRole('button', { name: /Random for everyone/ }).click();
+    await expect(six[0]!.getByRole('list', { name: 'Seats' })).not.toContainText('Picking a hero');
+    await shot(six[0]!, '16-six-lobby');
+    await six[0]!.getByRole('button', { name: 'Start the brawl' }).click();
+    for (let i = 0; i < 12; i++) {
+      for (const p of six) if (await move(p)) break;
     }
-    await shot(four[0]!, '12-four-table');
+    await shot(six[0]!, '17-six-table');
+    // Play on until the first ghost, and look at the table from a living seat.
+    for (let i = 0; i < 400 && (await six[0]!.locator('[data-ghost]').count()) === 0; i++) {
+      for (const p of six) if (await move(p)) break;
+    }
+    const names = ['Hana', 'Ana', 'Ben', 'Cy', 'Dee', 'Eli'];
+    await six[0]!.waitForTimeout(400);
+    await shot(six[0]!, '18-six-ghost');
+    // Then a choice screen of whoever's move it is.
+    for (const [i, p] of six.entries()) {
+      if (await p.getByRole('region', { name: /Your choice|Honour prompt/ }).count()) {
+        await shot(p, `19-six-choice-${names[i]}`);
+        break;
+      }
+    }
+    await playToEnd(six);
+    await six[0]!.waitForTimeout(400);
+    await shot(six[0]!, '20-six-end');
   });
 }

@@ -39,6 +39,23 @@ const hit = (by: string, target: string, hp: number, shield = 0) =>
   recapEv('hit', by, { target, hp, shield, power: false, self: false });
 
 describe('Tavern Brawl award rules', () => {
+  it('Haunting: the most ghost damage (2 or more), five or more players', () => {
+    const ghostHit = (by: string, n: number) =>
+      recapEv('hit', by, { target: 'a', hp: n, shield: 0, power: true, self: false, ghost: true });
+    const five = ['a', 'b', 'c', 'd', 'e'];
+    expect(
+      run('haunting', [ghostHit('b', 1), ghostHit('b', 1), ghostHit('c', 1)], five)[0],
+    ).toMatchObject({ players: ['b'], value: 2 });
+    expect(run('haunting', [ghostHit('b', 1)], five)).toEqual([]);
+    expect(run('haunting', [hit('b', 'a', 3)], five)).toEqual([]);
+  });
+
+  it('Puppet Master: two or more steered attacks', () => {
+    const steer = (by: string) => recapEv('redirect', by, { attacker: 'b', target: 'c' });
+    expect(run('puppet-master', [steer('a'), steer('a')])[0]).toMatchObject({ players: ['a'] });
+    expect(run('puppet-master', [steer('a')])).toEqual([]);
+  });
+
   it('Last One Standing: the winner with two or more knockouts', () => {
     expect(run('last-standing', [ko('b', 'a'), ko('c', 'a'), outcome(['a'])])[0]).toMatchObject({
       players: ['a'],

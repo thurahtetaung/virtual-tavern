@@ -66,7 +66,7 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
       return p;
     }),
   );
-  await expect(host.getByText(`Players (${names.length}/4)`)).toBeVisible();
+  await expect(host.getByText(`Players (${names.length}/6)`)).toBeVisible();
   return [host, ...others];
 }
 
@@ -99,9 +99,9 @@ export const isOver = async (p: Page) =>
 /** Makes the one move `p` is asked for, if any: a choice, the howl, or a card. */
 export async function move(p: Page): Promise<boolean> {
   const before = await seq(p).catch(() => '');
-  const social = p.getByRole('region', { name: 'Animal noise' });
+  const social = p.getByRole('region', { name: 'Honour prompt' });
   if (await social.count()) {
-    await social.getByRole('button', { name: /I made an animal noise/ }).click();
+    await social.getByRole('button').first().click();
     await movedOn(p, before);
     return true;
   }
