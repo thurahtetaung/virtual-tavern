@@ -1442,38 +1442,19 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   );
 }
 
-/** What the round's end uncovers: your note from its last move, and the face-down card. */
-function RoundSecrets({ view, deck }: { view: RoyalPostView; deck: Deck }) {
-  const round = view.round;
+/** What the round's end uncovers: your note from its last move. */
+function RoundSecrets({ view }: { view: RoyalPostView }) {
   const ending = roundEndingNotes(view);
+  if (ending.length === 0) return null;
   return (
-    <>
-      {ending.length > 0 && (
-        <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
-          <p className="text-xs font-semibold text-stone-500">Only you can see this</p>
-          {ending.map((n) => (
-            <p key={n.id}>
-              <Rich line={describeNote(view, n)} />
-            </p>
-          ))}
-        </div>
-      )}
-      {round?.setAsideCard && (
-        <div className="flex items-center justify-center gap-2 text-sm" data-testid="set-aside">
-          <span className="w-10">
-            <Card
-              role={round.setAsideCard}
-              rank={rankIn(view.settings.edition, round.setAsideCard)}
-              deck={deck}
-              size="xs"
-            />
-          </span>
-          <span>
-            The face-down card was <CardChip role={round.setAsideCard} />.
-          </span>
-        </div>
-      )}
-    </>
+    <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
+      <p className="text-xs font-semibold text-stone-500">Only you can see this</p>
+      {ending.map((n) => (
+        <p key={n.id}>
+          <Rich line={describeNote(view, n)} />
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -1517,7 +1498,7 @@ function RoundResult({
         {tokensLine(view)}
       </p>
       <FinalHands view={view} deck={deck} />
-      <RoundSecrets view={view} deck={deck} />
+      <RoundSecrets view={view} />
       {room.isHost ? (
         <Button size="lg" onClick={() => void act({ type: 'next-round' })}>
           Next round
@@ -1558,7 +1539,7 @@ function Podium({
             Last round: <Rich line={describeLog(view, last)} />
           </p>
           <FinalHands view={view} deck={deck} />
-          <RoundSecrets view={view} deck={deck} />
+          <RoundSecrets view={view} />
         </div>
       )}
       <Superlatives lines={room.superlatives} />

@@ -587,7 +587,7 @@ describe('round end', () => {
     expect(h.state.seats.ana!.tokens).toBe(1);
   });
 
-  it('breaks a classic tie on the total of discards, and nobody wins a double tie', () => {
+  it('breaks a classic tie on the total of discards, and a double tie gives each a token', () => {
     const h = rig(table(), {
       hands: { host: ['handmaid', 'king'], ana: ['king'], ben: ['baron'] },
       discards: { ana: ['guard', 'guard'], host: [] },
@@ -607,10 +607,12 @@ describe('round end', () => {
     });
     tied.act({ type: 'play', card: 'handmaid' });
     expect(tied.state.round!.result).toMatchObject({
-      winners: [],
+      winners: [HOST, 'ana'],
       discardTotals: { host: 4, ana: 4 },
     });
-    expect(Object.values(tied.state.seats).map((s) => s.tokens)).toEqual([0, 0, 0]);
+    expect(tied.state.seats.host!.tokens).toBe(1);
+    expect(tied.state.seats.ana!.tokens).toBe(1);
+    expect(tied.state.seats.ben!.tokens).toBe(0);
   });
 
   it('gives every tied player a token in 2019', () => {
@@ -1007,16 +1009,20 @@ describe('view', () => {
     expect(notes(null)).toEqual([]);
   });
 
-  it('shows the face-down set-aside card only once the round is over', () => {
+  it('never shows the face-down set-aside card, not even once the round is over', () => {
     const h = rig(table('classic'), {
       hands: { host: ['handmaid', 'priest'], ana: ['king'], ben: ['baron'] },
       deck: [],
       setAside: 'countess',
     });
-    expect(royalPost.view(h.state, 'ana').round!.setAsideCard).toBeNull();
+    const leaks = () =>
+      [HOST, 'ana', 'ben', null].filter((id) =>
+        JSON.stringify(royalPost.view(h.state, id)).includes('countess'),
+      );
+    expect(leaks()).toEqual([]);
     h.act({ type: 'play', card: 'handmaid' });
     expect(h.state.round!.stage).toBe('over');
-    expect(royalPost.view(h.state, 'ana').round!.setAsideCard).toBe('countess');
+    expect(leaks()).toEqual([]);
   });
 
   it('caps the log', () => {

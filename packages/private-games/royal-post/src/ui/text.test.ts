@@ -117,7 +117,7 @@ describe('round results', () => {
     expect(tokensLine(v)).toBe('5 tokens to win: ANA 1, HOST 0, You 0.');
   });
 
-  it('says a Classic tie still tied on discards gives nobody the token', () => {
+  it('says a Classic tie still tied on discards gives each tied player a token', () => {
     const h = startedGame();
     rig(h, {
       hands: { [HOST]: ['handmaid', 'baron'], ana: ['baron'], ben: ['guard'] },
@@ -126,7 +126,7 @@ describe('round results', () => {
     });
     h.act({ type: 'play', card: 'handmaid' });
     expect(tiebreakLine(royalPost.view(h.state, 'ben'))).toBe(
-      'Tied cards were settled on discards: HOST 4, ANA 4. Still tied on discards, so nobody wins the token.',
+      'Tied cards were settled on discards: HOST 4, ANA 4. Still tied on discards, so each of them wins a token.',
     );
   });
 

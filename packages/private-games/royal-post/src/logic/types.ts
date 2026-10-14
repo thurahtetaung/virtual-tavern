@@ -328,10 +328,8 @@ export interface RoundView {
   current: PlayerId;
   stage: RoundStage;
   deckCount: number;
-  /** Whether the face-down set-aside card is still there (never what it is until the round ends). */
+  /** Whether the face-down set-aside card is still there (never what it is: it stays unseen). */
   setAside: boolean;
-  /** The face-down set-aside card, shown once the round is over (null before, or if drawn). */
-  setAsideCard: Role | null;
   faceUp: Role[];
   deadline: number | null;
   result: RoundResult | null;

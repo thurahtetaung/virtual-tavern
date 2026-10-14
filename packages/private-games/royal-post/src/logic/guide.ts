@@ -213,7 +213,7 @@ function base(): GameGuide {
       'You hold one secret card. On your turn, draw a second, then play one of the two face up.',
       'Do what the played card says: guess a hand, peek at one, compare, swap or protect yourself.',
       'If a card knocks you out, you sit out the rest of the round.',
-      'The last player standing, or the highest card when the deck runs out, wins the round and a favour token.',
+      'The last player standing, or the highest card when the deck runs out, wins the round and a favour token. A tie the discards can’t break gives every tied player one.',
       'Watch the discards: every card played tells you what is left.',
       'The first to the token target wins the game.',
     ],
@@ -241,7 +241,7 @@ function base(): GameGuide {
           'Players take turns round the table: draw one, play one.',
           'Cards that target a player can’t pick someone who is protected by the Handmaid or already out. If nobody can be chosen, the card is played with no effect (the Prince can always pick you).',
           'When you are knocked out, your hand is shown and you sit out the rest of the round.',
-          'The round ends when only one player is left, or when the deck is empty after a turn. Then everyone still in shows their card and the highest wins a favour token. The result also shows the face-down set-aside card and how many tokens everyone has.',
+          'The round ends when only one player is left, or when the deck is empty after a turn. Then everyone still in shows their card and the highest wins a favour token. The result also shows how many tokens everyone has. The face-down set-aside card is never shown.',
         ],
       },
       {
@@ -272,7 +272,7 @@ function base(): GameGuide {
       {
         title: 'Ties and winning',
         bullets: [
-          'Classic: if the highest cards tie, the tied player whose discards add up to more wins. If that is a tie too, nobody wins the round, and the result says “Still tied on discards, so nobody wins the token”.',
+          'Classic: if the highest cards tie, the tied player whose discards add up to more wins. If that is a tie too, every player still tied wins a token, and the result says “Still tied on discards, so each of them wins a token”.',
           '2019: every tied player wins a token.',
           'Tokens to win, Classic: 7 with 2 players, 5 with 3, 4 with 4.',
           'Tokens to win, 2019: 6 with 2 players, 5 with 3, 4 with 4, 3 with 5 or 6.',
