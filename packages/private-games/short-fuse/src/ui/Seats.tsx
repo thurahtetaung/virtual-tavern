@@ -1,7 +1,10 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { PlayerTag, cn } from '@vt/ui';
+import { PlayerTag, ProtectedImage, cn } from '@vt/ui';
 import { useEffect, useRef } from 'react';
 import type { ShortFuseView } from '../logic/types.ts';
+import type { Content } from './assets.ts';
+import { CardFace } from './Card.tsx';
+import { who } from './text.ts';
 
 /**
  * The table's seats in play order: hand counts, whose turn it is (with the turns they owe), who
@@ -11,11 +14,13 @@ import type { ShortFuseView } from '../logic/types.ts';
 export function Seats({
   view,
   room,
+  c,
   targets,
   onPick,
 }: {
   view: ShortFuseView;
   room: GameRoomInfo;
+  c: Content;
   /** Seats that can be picked right now (null when not picking). */
   targets: string[] | null;
   onPick: (id: string) => void;
@@ -66,6 +71,41 @@ export function Seats({
                     🂠 {p.hand}
                   </span>
                 )}
+                {p.stash !== null && (
+                  <span
+                    className="inline-flex items-center gap-0.5 font-semibold text-warn-ink"
+                    title={`${c.name('vault')}: ${p.stash} cards in the Stash`}
+                    aria-label={`${c.name('vault')}, ${p.stash} cards in the Stash`}
+                    data-testid="vault"
+                  >
+                    {c.crown ? (
+                      <ProtectedImage src={c.crown} alt="" className="size-4 object-contain" />
+                    ) : (
+                      <span aria-hidden>{c.glyph('vault')}</span>
+                    )}
+                    {p.stash}
+                  </span>
+                )}
+                {p.blind && (
+                  <span
+                    title={c.t(`Blindfolded ({c:blind})`)}
+                    aria-label="blindfolded"
+                    data-testid="blind"
+                  >
+                    {c.glyph('blind')}
+                  </span>
+                )}
+                {p.mine && (
+                  <span
+                    title={c.t(
+                      `{c:mine} from ${who(view, p.mine, false)}: their next draw goes there`,
+                    )}
+                    aria-label={`${c.name('mine')} from ${who(view, p.mine, false)}`}
+                    data-testid="mine"
+                  >
+                    {c.glyph('mine')}
+                  </span>
+                )}
                 {turn && g.turn.owed > 1 && (
                   <span
                     className="sf-owed rounded-full bg-danger px-1.5 font-bold text-white"
@@ -76,6 +116,26 @@ export function Seats({
                   </span>
                 )}
               </span>
+              {(p.marked || (!p.dead && p.front.length > 0)) && (
+                <span className="mt-0.5 flex items-center gap-1" data-testid="shown">
+                  {p.marked && (
+                    <span
+                      className="flex items-center gap-1 text-[0.65rem] text-ink-muted"
+                      title={`${c.name('mark')}: everyone sees this card`}
+                      data-testid="marked"
+                    >
+                      <CardFace card={p.marked} art={g.art} c={c} size="xxs" />
+                      <span className="max-w-[4.5rem] truncate">{c.name(p.marked.t)}</span>
+                    </span>
+                  )}
+                  {!p.dead &&
+                    p.front.map((card) => (
+                      <span key={card.id} title={c.t(`{c:${card.t}} waits in front of them`)}>
+                        <CardFace card={card} art={g.art} c={c} size="xxs" />
+                      </span>
+                    ))}
+                </span>
+              )}
             </>
           );
           return (

@@ -78,9 +78,15 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'explode':
       return e.cards?.[0] === 'void' ? `🕳️ ${by} fell into ${card('void')}.` : `💥 ${by} exploded!`;
     case 'favor':
-      return e.n ? `${by} gave ${target} a card.` : `${by} had nothing to give.`;
+      return e.n
+        ? e.from === 'stash'
+          ? `${by}’s ${c.name('vault')} Stash gave ${target} a card.`
+          : `${by} gave ${target} a card.`
+        : `${by} had nothing to give.`;
     case 'steal':
-      return e.n ? `${by} stole a card from ${target}.` : `${by} found nothing to steal.`;
+      return e.n
+        ? `${by} stole a card from ${target}${e.from === 'stash' ? `’s ${c.name('vault')} Stash` : ''}.`
+        : `${by} found nothing to steal.`;
     case 'ask':
       return e.hit
         ? `${target} handed over ${card(e.named)}.`
@@ -103,6 +109,50 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
       return `${by} (host) acted for ${target}: ${e.did ?? 'moved'}.`;
     case 'win':
       return `🏆 ${by} ${by === 'You' ? 'win' : 'wins'}!`;
+    case 'swap':
+      return `${by} swapped the top and bottom of the pile.`;
+    case 'stack':
+      return `${by} put every ${c.names.bomb} on top: ${e.n} of them!`;
+    case 'mark':
+      return `${by} marked ${card(e.cards?.[0])} in ${target === 'you' ? 'your' : `${target}’s`} hand.`;
+    case 'blind':
+      return `${by} blindfolded ${target}.`;
+    case 'cured':
+      return `${by} drew safely: the blindfold is off.`;
+    case 'lost':
+      return e.cards?.length
+        ? `${by} turned over ${an(card(e.cards[0]))}: lost.`
+        : `${by} turned over a card.`;
+    case 'bark':
+      return e.cards?.length === 2
+        ? `${by} set both ${card('twin')} cards on ${target}!`
+        : `${by} played ${an(card('twin'))}: ${target} had the other one!`;
+    case 'twin-wait':
+      return `${by} played ${an(card('twin'))}: nobody has the other yet. It waits in front of them.`;
+    case 'vault':
+      return `${by} put on the ${card('vault')}, with a Stash of ${e.n}.`;
+    case 'mine':
+      return `${by} put ${an(card('mine'))} in front of ${target}.`;
+    case 'mine-took':
+      return e.cards?.length
+        ? `${by} took ${target === 'you' ? 'your' : `${target}’s`} draw: ${an(card(e.cards[0]))}!`
+        : `${by} took ${target === 'you' ? 'your' : `${target}’s`} draw.`;
+    case 'bury':
+      return `${by} drew a card to bury it back in the pile.`;
+    case 'pooled':
+      return e.cards?.[0] === 'potluck'
+        ? `${e.n} cards went face down on top of the pile.`
+        : `${e.n} cards went into the pile, and it was shuffled.`;
+    case 'shared':
+      return `${by} showed the top ${e.n} cards to ${target}.`;
+    case 'received-bomb':
+      return `${by} ${by === 'You' ? 'were' : 'was'} handed ${an(card(e.cards?.[0]))}!`;
+    case 'unprotected':
+      return `${by} lost ${by === 'You' ? 'your' : 'their'} cover: ${an(card(e.cards?.[0]))} goes off!`;
+    case 'self-attack':
+      return `${by} now ${by === 'You' ? 'owe' : 'owes'} ${e.n} turns.`;
+    case 'superskip':
+      return `${by} skipped every turn ${by === 'You' ? 'you' : 'they'} owed.`;
   }
 }
 
@@ -142,6 +192,11 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
     switch (p.kind) {
       case 'turn': {
         const owed = g.turn.owed;
+        if (p.blind)
+          return {
+            text: 'You’re blindfolded: tap a face-down card to play it blind, or draw (a safe draw takes the blindfold off).',
+            yourMove: true,
+          };
         return {
           text:
             owed > 1
@@ -156,19 +211,50 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
           yourMove: true,
         };
       case 'alter':
-        return { text: 'Put the top cards back in any order.', yourMove: true };
+        return {
+          text: p.share
+            ? `Put the top cards back in any order; ${who(view, p.share)} will see them too.`
+            : 'Put the top cards back in any order.',
+          yourMove: true,
+        };
+      case 'each':
+        return p.done
+          ? { text: 'Waiting for the others to choose their card…', yourMove: false }
+          : {
+              text:
+                p.what === 'potluck'
+                  ? 'Choose a card to put face down on top of the pile.'
+                  : 'Choose a card to put into the pile (it gets shuffled).',
+              yourMove: true,
+            };
+      case 'target':
+        return {
+          text: `You turned over ${an(c.name(p.card.t))}: choose who it’s for.`,
+          yourMove: true,
+        };
+      case 'search':
+        return {
+          text: `${p.twin ? `${cap(an(c.name('twin')))} barked at you!` : `You drew ${an(c.name('bomb'))}!`} Blindfolded: turn your cards over one by one, hoping for ${an(c.name('defuse'))}.`,
+          yourMove: true,
+        };
       case 'salvage':
         return { text: 'Take any card from the discard pile.', yourMove: true };
       case 'bomb':
         return {
-          text: `You drew ${an(c.name('bomb'))}! Play ${an(c.name('defuse'))} to survive.`,
+          text: p.twin
+            ? `${cap(an(c.name('twin')))} barked at you! Play ${an(c.name('defuse'))} to survive.`
+            : g.log.at(-1)?.kind === 'drew-bomb' && g.log.at(-1)?.by === view.me?.id
+              ? `You drew ${an(c.name('bomb'))}! Play ${an(c.name('defuse'))} to survive.`
+              : `${cap(an(c.name('bomb')))} is yours to deal with! Play ${an(c.name('defuse'))} to survive.`,
           yourMove: true,
         };
       case 'place':
         return {
-          text: p.void
-            ? c.t('Put {c:void} back face up anywhere in the pile.')
-            : c.t('Hide {c:bomb} anywhere in the pile. Nobody sees where.'),
+          text: p.bury
+            ? `Put ${an(c.name(p.card.t))} back anywhere in the pile. Nobody sees where.`
+            : p.void
+              ? c.t('Put {c:void} back face up anywhere in the pile.')
+              : c.t('Hide {c:bomb} anywhere in the pile. Nobody sees where.'),
           yourMove: true,
         };
     }
@@ -180,11 +266,19 @@ export function statusFor(view: ShortFuseView, c: Content): { text: string; your
       give: `${name} is choosing a card to give ${who(view, g.turn.player)}…`,
       alter: `${name} is rearranging the top of the pile…`,
       salvage: `${name} is picking a card from the discard pile…`,
-      bomb: `${name} drew ${an(c.name('bomb'))}!`,
+      bomb:
+        g.drawnKind === 'twin'
+          ? `${name} must answer the ${c.name('twin')}!`
+          : `${name} has ${an(c.name('bomb'))} to deal with!`,
+      search: `${name} is blindfolded with ${an(c.name(g.drawnKind === 'twin' ? 'twin' : 'bomb'))}: turning cards over…`,
+      target: `${name} is choosing who the blind card is for…`,
+      each: `Everyone with cards is choosing one (${(g.each?.waiting ?? []).map((id) => who(view, id)).join(', ') || 'done'})…`,
       place:
-        g.drawnKind === 'void'
-          ? c.t(`${name} is putting {c:void} back face up…`)
-          : c.t(`${name} is hiding {c:bomb} back in the pile…`),
+        g.drawnKind === 'bury'
+          ? `${name} is burying a card back in the pile…`
+          : g.drawnKind === 'void'
+            ? c.t(`${name} is putting {c:void} back face up…`)
+            : c.t(`${name} is hiding {c:bomb} back in the pile…`),
     };
     return { text: lines[busy.what], yourMove: false };
   }

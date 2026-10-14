@@ -24,11 +24,30 @@ export const CARD_TYPES = [
   'reverse',
   'bottom',
   'alter3',
+  // Expansion 2
+  'shelter',
+  'superskip',
+  'peek5',
+  'alter5',
+  'swap',
+  'recycle',
+  'stack',
+  'mark',
+  'blind',
+  // Expansion 3
+  'twin',
+  'vault',
+  'mine',
+  'bury',
+  'self3',
+  'potluck',
+  'share3',
+  'alter3now',
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
 /** The sets a card can come from: the core decks and the expansions. */
-export type SetId = 'core' | 'x1';
+export type SetId = 'core' | 'x1' | 'x2' | 'x3';
 
 export interface CardInfo {
   set: SetId;
@@ -38,6 +57,10 @@ export interface CardInfo {
   targeted?: boolean;
   /** Can be played on its own as an action on your turn. */
   playable: boolean;
+  /** A NOW card: anyone may play it between actions, even off their turn. */
+  now?: boolean;
+  /** Its target must have cards to take (Favor, Mark…), not just be in the game. */
+  needsCards?: boolean;
 }
 
 export const CARDS: Record<CardType, CardInfo> = {
@@ -45,7 +68,7 @@ export const CARDS: Record<CardType, CardInfo> = {
   defuse: { set: 'core', playable: false },
   attack: { set: 'core', playable: true },
   skip: { set: 'core', playable: true },
-  favor: { set: 'core', targeted: true, playable: true },
+  favor: { set: 'core', targeted: true, needsCards: true, playable: true },
   shuffle: { set: 'core', playable: true },
   peek3: { set: 'core', playable: true },
   nope: { set: 'core', playable: false },
@@ -60,13 +83,34 @@ export const CARDS: Record<CardType, CardInfo> = {
   reverse: { set: 'x1', playable: true },
   bottom: { set: 'x1', playable: true },
   alter3: { set: 'x1', playable: true },
+  shelter: { set: 'x2', playable: false },
+  superskip: { set: 'x2', playable: true },
+  peek5: { set: 'x2', playable: true },
+  alter5: { set: 'x2', playable: true },
+  swap: { set: 'x2', playable: true },
+  recycle: { set: 'x2', playable: true },
+  stack: { set: 'x2', playable: true },
+  mark: { set: 'x2', targeted: true, needsCards: true, playable: true },
+  blind: { set: 'x2', targeted: true, playable: true },
+  twin: { set: 'x3', bombLike: true, playable: true },
+  vault: { set: 'x3', playable: true },
+  mine: { set: 'x3', targeted: true, playable: true },
+  bury: { set: 'x3', playable: true },
+  self3: { set: 'x3', playable: true },
+  potluck: { set: 'x3', playable: true },
+  share3: { set: 'x3', playable: true },
+  alter3now: { set: 'x3', playable: true, now: true },
 };
 
 export const isBombCard = (t: CardType) => CARDS[t].bombLike === true;
+/** Cards that explode whoever ends up with them by surprise (not the Twin Bombs). */
+export const isExplosive = (t: CardType) => t === 'bomb' || t === 'void';
 export const isCat = (t: CardType): t is CatType => (CAT_TYPES as readonly string[]).includes(t);
 
 /** Card types that can be asked for with Three of a Kind (anything a hand can hold). */
-export const NAMEABLE: readonly CardType[] = CARD_TYPES.filter((t) => !isBombCard(t));
+export const NAMEABLE: readonly CardType[] = CARD_TYPES.filter(
+  (t) => t !== 'bomb' && t !== 'void' && t !== 'vault',
+);
 
 /** Classic and Adult core decks (same counts, different art): the cards besides Bombs and Defuses. */
 export const CORE_POOL: Partial<Record<CardType, number>> = {
@@ -134,8 +178,39 @@ export const X1_POOL: Partial<Record<CardType, number>> = {
   alter3: 4,
 };
 
-/** How many cards a peek or a rearrange shows. */
-export const PEEK_SIZE: Partial<Record<CardType, number>> = { peek3: 3, alter3: 3 };
+/** Expansion 2's cards besides its extra Bomb. */
+export const X2_POOL: Partial<Record<CardType, number>> = {
+  shelter: 1,
+  superskip: 1,
+  peek5: 1,
+  alter5: 1,
+  swap: 3,
+  recycle: 1,
+  stack: 1,
+  mark: 3,
+  blind: 2,
+};
 
-/** Cards that end one of your turns when they resolve (instead of drawing). */
-export const ENDS_TURN: readonly CardType[] = ['attack', 'aim', 'skip', 'reverse', 'bottom'];
+/** Expansion 3's cards besides the Vault card (which goes in after the Stash is dealt). */
+export const X3_POOL: Partial<Record<CardType, number>> = {
+  twin: 2,
+  mine: 4,
+  bury: 2,
+  self3: 4,
+  potluck: 2,
+  share3: 2,
+  alter3now: 2,
+  superskip: 1,
+};
+/** Cards dealt face down into the Vault's Stash. */
+export const STASH_SIZE = 6;
+
+/** How many cards a peek or a rearrange shows. */
+export const PEEK_SIZE: Partial<Record<CardType, number>> = {
+  peek3: 3,
+  alter3: 3,
+  peek5: 5,
+  alter5: 5,
+  share3: 3,
+  alter3now: 3,
+};

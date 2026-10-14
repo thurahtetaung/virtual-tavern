@@ -3,9 +3,10 @@ import type { CardType } from '../logic/cards.ts';
 import type { Art, Card } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 
-export type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type CardSize = 'xxs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
 const WIDTH: Record<CardSize, string> = {
+  xxs: 'w-6',
   xs: 'w-9',
   sm: 'w-14',
   md: 'w-[4.75rem] sm:w-24',
@@ -48,7 +49,8 @@ export function CardFace({
   thumb?: boolean;
   className?: string;
 }) {
-  const src = thumb || size === 'xs' || size === 'sm' ? c.thumb(card, art) : c.face(card, art);
+  const tiny = size === 'xxs' || size === 'xs';
+  const src = thumb || tiny || size === 'sm' ? c.thumb(card, art) : c.face(card, art);
   const name = c.name(card.t);
   return (
     <span
@@ -73,13 +75,19 @@ export function CardFace({
           aria-hidden
           className={cn(
             'absolute inset-0 flex items-center justify-center pb-4',
-            size === 'xs' ? 'text-base' : size === 'sm' ? 'text-xl' : 'text-3xl sm:text-4xl',
+            size === 'xxs'
+              ? 'text-xs'
+              : size === 'xs'
+                ? 'text-base'
+                : size === 'sm'
+                  ? 'text-xl'
+                  : 'text-3xl sm:text-4xl',
           )}
         >
           {c.glyph(card.t)}
         </span>
       )}
-      {label && size !== 'xs' && (
+      {label && !tiny && (
         <span
           className={cn(
             'absolute inset-x-0.5 bottom-0.5 truncate rounded-md bg-card/90 px-1 text-center leading-tight font-bold text-ink shadow-sm ring-1 ring-line',
@@ -89,7 +97,7 @@ export function CardFace({
           {name}
         </span>
       )}
-      {!src && size === 'xs' && <span className="sr-only">{name}</span>}
+      {!src && tiny && <span className="sr-only">{name}</span>}
     </span>
   );
 }

@@ -191,7 +191,7 @@ describe('cards', () => {
     expect(h.reject({ type: 'play', cards: [h.card(A, 'favor')] }, A)).toBe('need-target');
     h.play(A, ['favor'], { target: B });
     expect(h.state.stage).toBe('favor');
-    expect(h.view(B).game!.prompt).toEqual({ kind: 'give', to: A });
+    expect(h.view(B).game!.prompt).toEqual({ kind: 'give', to: A, blind: false });
     expect(h.reject({ type: 'give', card: h.card(B, 'cat1') }, C)).toBe('not-asked');
     h.act({ type: 'give', card: h.card(B, 'cat1') }, B);
     expect(h.hand(A)).toEqual(['cat1']);

@@ -85,3 +85,22 @@ describe('view()', () => {
     expect(h.view(null).game!.window).toEqual(w);
   });
 });
+
+describe('view() with expansions 2 and 3', () => {
+  it('never shows a held Bomb, the Stash or a blindfolded hand to anyone who may not see it', () => {
+    const [A, B, C] = ids(3) as [string, string, string];
+    const h = rigged([['shelter', 'vault', 'blind'], ['mark'], []], ['bomb', 'cat1', 'cat2'], {
+      settings: { x2: true, x3: true },
+    });
+    h.play(A, ['vault']);
+    h.play(A, ['blind'], { target: C });
+    h.act({ type: 'draw' }, A); // the Bomb, held
+    expectSealed(h);
+    h.play(B, ['mark'], { target: A });
+    expectSealed(h);
+    const marked = h.view(C).game!.players[0]!.marked;
+    expect(marked).not.toHaveProperty('id');
+    expect(h.view(C).game!.hand).toBeNull();
+    expect(h.view(C).game!.blindCount).toBe(h.game().hands[C]!.length);
+  });
+});

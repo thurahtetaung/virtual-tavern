@@ -20,13 +20,22 @@ function randomMove(
       return { by: pick(holders), action: { type: 'nope', window: g.window!.id } };
     return null;
   }
-  const who = awaited(state)[0];
+  const waiting = awaited(state);
+  const who = state.stage === 'each' ? pick(waiting.length ? waiting : ['host']) : waiting[0];
   if (!who) return null;
+  // Now and then someone off turn plays a NOW card.
+  if (state.stage === 'turn' && rng.next() < 0.05) {
+    const off = g.players.find((p) => g.hands[p]!.some((id) => g.cards[id]!.t === 'alter3now'));
+    const now = off && g.hands[off]!.find((id) => g.cards[id]!.t === 'alter3now');
+    if (off && now) return { by: off, action: { type: 'play', cards: [now] } };
+  }
   if (rng.next() < 0.01) return { by: 'host', action: { type: 'act-for', player: who } };
   const hand = g.hands[who]!;
   switch (state.stage) {
     case 'turn': {
       if (rng.next() < 0.45 || !hand.length) return { by: who, action: { type: 'draw' } };
+      if (g.blind[who])
+        return { by: who, action: { type: 'play-blind', slot: rng.int(hand.length) } };
       // Mostly sensible plays (a playable card, a matching pair or triple), sometimes junk.
       const r = rng.next();
       let cards: string[];
@@ -61,7 +70,17 @@ function randomMove(
       return { by: who, action: { type: 'play', cards, target, named: pick(NAMEABLE) } };
     }
     case 'favor':
-      return { by: who, action: { type: 'give', card: pick(hand) } };
+      return g.blind[who]
+        ? { by: who, action: { type: 'give', slot: rng.int(hand.length) } }
+        : { by: who, action: { type: 'give', card: pick(hand) } };
+    case 'each':
+      return g.blind[who]
+        ? { by: who, action: { type: 'choose', slot: rng.int(Math.max(1, hand.length)) } }
+        : { by: who, action: { type: 'choose', card: pick(hand) } };
+    case 'target':
+      return { by: who, action: { type: 'target', player: pick(g.players) } };
+    case 'search':
+      return { by: who, action: { type: 'search', slot: rng.int(Math.max(1, hand.length)) } };
     case 'alter': {
       const k = g.alter!.cards.length;
       return { by: who, action: { type: 'order', order: rng.shuffle([...Array(k).keys()]) } };
@@ -95,6 +114,16 @@ function checkInvariants(state: ShortFuseState, label: () => string, deep = true
     const live = g.players.filter((p) => !g.left.includes(p) && !g.dead.some((d) => d.id === p));
     check(live.length >= 2, 'fewer than two players left in play', label);
     check(live.includes(g.turn.player), 'the turn is with someone out', label);
+    if (state.stage === 'turn' || state.stage === 'window')
+      for (const p of live) {
+        const bombs = g.hands[p]!.filter((id) => ['bomb', 'void'].includes(g.cards[id]!.t));
+        const shelter = g.hands[p]!.some((id) => g.cards[id]!.t === 'shelter');
+        check(
+          bombs.length === 0 || (bombs.length === 1 && shelter && g.held[p] === bombs[0]),
+          `${p} holds a bomb without a shelter`,
+          label,
+        );
+      }
   }
 }
 
@@ -106,6 +135,8 @@ function playOne(seed: number) {
     core: rng.next() < 0.3 ? 'party' : 'classic',
     art: rng.next() < 0.3 ? 'adult' : 'classic',
     x1: rng.next() < 0.5,
+    x2: rng.next() < 0.5,
+    x3: rng.next() < 0.5,
     faster: rng.next() < 0.2,
     fiveCombo: rng.next() < 0.3,
     nonStacking: rng.next() < 0.2,

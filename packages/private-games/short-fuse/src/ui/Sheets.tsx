@@ -1,9 +1,9 @@
-import { Button, Modal, RefusalSlot } from '@vt/ui';
+import { Button, Modal, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
-import { CARDS, isCat } from '../logic/cards.ts';
+import { CARDS, type CardType, isCat } from '../logic/cards.ts';
 import type { Art, CardView, Memory, Prompt, ShortFuseAction } from '../logic/types.ts';
 import type { Content } from './assets.ts';
-import { CardFace } from './Card.tsx';
+import { CardBack, CardFace } from './Card.tsx';
 import { sortHand } from './Hand.tsx';
 import { an } from './text.ts';
 import { StackSide } from './Pile.tsx';
@@ -45,6 +45,8 @@ function Sheet({
   );
 }
 
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`);
 
 /** Most edges the placement stack draws; a taller pile is compressed. */
@@ -72,15 +74,24 @@ export function PlaceSheet({
   const go = (p: number) => setPos(Math.max(0, Math.min(count, p)));
   const where =
     pos === 0 ? 'On top' : pos === count ? 'At the bottom' : `${ordinal(pos + 1)} from the top`;
-  const quick: [string, number][] = [
-    ['Top', 0],
-    ['2nd', 1],
-    ['3rd', 2],
-    ['Bottom', count],
-  ];
+  // Short piles offer each spot once (the bottom of a one-card pile is its 2nd spot).
+  const quick = (
+    [
+      ['Top', 0],
+      ['2nd', 1],
+      ['3rd', 2],
+      ['Bottom', count],
+    ] as [string, number][]
+  ).filter(([label, p]) => (label === 'Bottom' ? count > 0 : p === 0 || p < count));
   return (
     <Sheet
-      title={prompt.void ? c.t('Put {c:void} back, face up') : c.t('Hide {c:bomb}')}
+      title={
+        prompt.bury
+          ? `Bury ${c.name(prompt.card.t)}`
+          : prompt.void
+            ? c.t('Put {c:void} back, face up')
+            : c.t('Hide {c:bomb}')
+      }
       footer={
         <div className="flex flex-col gap-2">
           <Button
@@ -89,7 +100,7 @@ export function PlaceSheet({
             onClick={() => void act({ type: 'place', position: pos }, { anchor: 'place' })}
             data-testid="place-confirm"
           >
-            {prompt.void ? 'Put it back here' : 'Hide it here'}
+            {prompt.void || prompt.bury ? 'Put it back here' : 'Hide it here'}
           </Button>
           <RefusalSlot anchor="place" />
         </div>
@@ -106,11 +117,13 @@ export function PlaceSheet({
         </div>
         <div className="space-y-3">
           <p className="text-sm text-ink">
-            {prompt.void
-              ? c.t(
-                  'Everyone will see {c:void} in the side of the pile from now on, but only you know exactly where you put it.',
-                )
-              : 'Only you will know where it is. On top means the next player draws it.'}
+            {prompt.bury
+              ? `You drew ${an(c.name(prompt.card.t))}. Put it back anywhere: only you will know where.`
+              : prompt.void
+                ? c.t(
+                    'Everyone will see {c:void} in the side of the pile from now on, but only you know exactly where you put it.',
+                  )
+                : 'Only you will know where it is. On top means the next player draws it.'}
           </p>
           <p className="text-lg font-bold text-ink" aria-live="polite" data-testid="place-where">
             {where}
@@ -120,14 +133,21 @@ export function PlaceSheet({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {quick.map(([label, p]) => (
-              <Button
+              <button
                 key={label}
-                variant={pos === p ? 'soft' : 'secondary'}
-                size="sm"
+                type="button"
+                aria-pressed={pos === p}
                 onClick={() => go(p)}
+                data-testid={`place-${label.toLowerCase()}`}
+                className={cn(
+                  'min-h-9 rounded-lg px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  pos === p
+                    ? 'bg-accent text-accent-fg ring-accent'
+                    : 'bg-card text-ink ring-line-strong [@media(hover:hover)]:hover:bg-panel',
+                )}
               >
                 {label}
-              </Button>
+              </button>
             ))}
             <Button
               variant="secondary"
@@ -176,11 +196,14 @@ export function AlterSheet({
   c,
   art,
   act,
+  shareWith,
 }: {
   prompt: Extract<Prompt, { kind: 'alter' }>;
   c: Content;
   art: Art;
   act: Act;
+  /** Share: the name of the player who sees the cards next. */
+  shareWith?: string | null;
 }) {
   const [order, setOrder] = useState(() => prompt.cards.map((_, i) => i));
   const move = (at: number, by: -1 | 1) =>
@@ -208,7 +231,14 @@ export function AlterSheet({
         </div>
       }
     >
-      <p className="mb-3 text-sm text-ink-muted">Top of the pile first. Nobody else sees these.</p>
+      <p className="mb-3 text-sm text-ink-muted">
+        Top of the pile first.{' '}
+        {shareWith ? (
+          <b className="text-ink">{shareWith} will see them too, in the order you leave them.</b>
+        ) : (
+          'Nobody else sees these.'
+        )}
+      </p>
       <ol className="space-y-2">
         {order.map((i, at) => (
           <li
@@ -318,17 +348,26 @@ export function PeekSheet({
   c,
   art,
   onClose,
+  from,
 }: {
-  memory: Extract<Memory, { kind: 'peek' | 'altered' }>;
+  memory: Extract<Memory, { kind: 'peek' | 'altered' | 'shared' }>;
   c: Content;
   art: Art;
   onClose: () => void;
+  /** Share: who showed you these. */
+  from?: string;
 }) {
   return (
     <Modal
       open
       onClose={onClose}
-      title={memory.kind === 'peek' ? 'The top of the pile' : 'The new top of the pile'}
+      title={
+        memory.kind === 'shared'
+          ? `${from ?? 'Someone'} shows you the top of the pile`
+          : memory.kind === 'peek'
+            ? 'The top of the pile'
+            : 'The new top of the pile'
+      }
       footer={
         <Button size="lg" className="w-full" onClick={onClose} data-testid="peek-close">
           Got it
@@ -336,7 +375,9 @@ export function PeekSheet({
       }
     >
       <p className="mb-3 text-sm text-ink-muted">
-        Top first. Only you saw these; they stay under Me until the pile changes.
+        {memory.kind === 'shared'
+          ? `Top first, in the order ${from ?? 'they'} left them. Only the two of you saw these; they stay under Me until the pile changes.`
+          : 'Top first. Only you saw these; they stay under Me until the pile changes.'}
       </p>
       <ol className="flex flex-wrap gap-2" data-testid="peek-cards">
         {memory.cards.map((card, i) => (
@@ -404,8 +445,11 @@ export function BombStrip({
   c,
   art,
   act,
+  drew = false,
 }: {
   prompt: Extract<Prompt, { kind: 'bomb' }>;
+  /** You drew it yourself (rather than receiving it). */
+  drew?: boolean;
   c: Content;
   art: Art;
   act: Act;
@@ -418,7 +462,13 @@ export function BombStrip({
     >
       <CardFace card={prompt.card} art={art} c={c} size="md" />
       <div className="min-w-0 flex-1 space-y-2">
-        <p className="font-bold text-danger-ink">You drew {an(c.name('bomb'))}!</p>
+        <p className="font-bold text-danger-ink">
+          {prompt.twin
+            ? c.t(`{c:twin} barked at you! Play {c:defuse} to survive (it hides nothing).`)
+            : drew
+              ? `You drew ${an(c.name(prompt.card.t))}!`
+              : `${cap(an(c.name(prompt.card.t)))} is yours!`}
+        </p>
         <Button
           variant="danger"
           size="lg"
@@ -447,3 +497,188 @@ export const cardHint = (card: CardView, c: Content, myTurn: boolean): string | 
   if (!info.playable) return null;
   return myTurn ? 'Tap it, then Play.' : 'You can play it on your turn.';
 };
+
+/** A blindfolded hand: face-down cards in a shuffled order, picked by position. */
+export function BlindSlots({
+  count,
+  c,
+  picked,
+  onPick,
+  label,
+  size = 'md',
+}: {
+  count: number;
+  c: Content;
+  picked?: number | null;
+  onPick: (slot: number) => void;
+  label: string;
+  /** Smaller in a sheet, so a big hand fits on a phone. */
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <ul className="flex flex-wrap gap-1.5" aria-label={label} data-testid="blind-hand">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i}>
+          <button
+            type="button"
+            aria-pressed={picked === i}
+            aria-label={`Face-down card ${i + 1}`}
+            data-slot={i}
+            onClick={() => onPick(i)}
+            className={cn(
+              'block rounded-[0.6rem] transition-transform focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              picked === i && '-translate-y-2 ring-[3px] ring-accent',
+            )}
+          >
+            <CardBack c={c} size={size} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Blindfolded and asked for a card (a Favor, Recycle, Potluck): pick a face-down card. */
+export function BlindPickSheet({
+  title,
+  intro,
+  count,
+  c,
+  confirmLabel,
+  onPick,
+  anchor,
+}: {
+  title: string;
+  intro: string;
+  count: number;
+  c: Content;
+  confirmLabel: string;
+  onPick: (slot: number) => void;
+  anchor: string;
+}) {
+  const [slot, setSlot] = useState<number | null>(null);
+  return (
+    <Sheet
+      title={title}
+      footer={
+        <div className="flex flex-col gap-2">
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={slot === null}
+            onClick={() => slot !== null && onPick(slot)}
+            data-testid="pick-confirm"
+          >
+            {slot === null ? 'Pick a face-down card' : confirmLabel}
+          </Button>
+          <RefusalSlot anchor={anchor} />
+        </div>
+      }
+    >
+      <p className="mb-3 text-sm text-ink-muted">{intro}</p>
+      <BlindSlots
+        count={count}
+        c={c}
+        picked={slot}
+        onPick={setSlot}
+        label="Your face-down cards"
+        size="sm"
+      />
+    </Sheet>
+  );
+}
+
+/** A blind card that needs a target: it's turned over, now choose who it's for. */
+export function TargetSheet({
+  prompt,
+  c,
+  art,
+  name,
+  act,
+}: {
+  prompt: Extract<Prompt, { kind: 'target' }>;
+  c: Content;
+  art: Art;
+  name: (id: string) => string;
+  act: Act;
+}) {
+  return (
+    <Sheet
+      title={`You turned over ${an(c.name(prompt.card.t))}`}
+      footer={<RefusalSlot anchor="target" />}
+    >
+      <div className="flex items-start gap-3">
+        <CardFace card={prompt.card} art={art} c={c} size="md" className="sf-flip" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-sm text-ink">{c.rules(prompt.card.t)}</p>
+          <p className="text-sm font-semibold text-ink">Choose who it’s for:</p>
+          <div className="flex flex-wrap gap-1.5" data-testid="targets">
+            {prompt.options.map((id) => (
+              <Button
+                key={id}
+                variant="soft"
+                onClick={() => void act({ type: 'target', player: id }, { anchor: 'target' })}
+              >
+                {name(id)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
+ * Blindfolded with a Bomb: turn face-down cards over one at a time, hoping for a Defuse. Each
+ * card that isn't one is lost.
+ */
+export function SearchSheet({
+  prompt,
+  c,
+  art,
+  lost,
+  act,
+}: {
+  prompt: Extract<Prompt, { kind: 'search' }>;
+  c: Content;
+  art: Art;
+  /** The cards already turned over and lost in this search. */
+  lost: CardType[];
+  act: Act;
+}) {
+  return (
+    <Sheet
+      title={
+        prompt.twin ? c.t('{c:twin} barked at you!') : `${cap(an(c.name(prompt.card.t)))} is yours!`
+      }
+      footer={<RefusalSlot anchor="search" />}
+    >
+      <div className="space-y-3" data-testid="search">
+        <div className="flex items-start gap-3">
+          <CardFace card={prompt.card} art={art} c={c} size="md" className="sf-shake" />
+          <p className="text-sm text-ink">
+            {c.t(
+              'You’re blindfolded: turn your cards over one at a time. {c:defuse} saves you; every other card is lost. Run out and you explode.',
+            )}
+          </p>
+        </div>
+        {lost.length > 0 && (
+          <p className="flex flex-wrap items-center gap-1 text-xs text-ink-muted">
+            Lost so far:
+            {lost.map((t, i) => (
+              <CardFace key={i} card={{ t, face: 0 }} art={art} c={c} size="xs" />
+            ))}
+          </p>
+        )}
+        <BlindSlots
+          count={prompt.slots}
+          c={c}
+          onPick={(slot) => void act({ type: 'search', slot }, { anchor: 'search' })}
+          label="Your face-down cards"
+          size="sm"
+        />
+      </div>
+    </Sheet>
+  );
+}

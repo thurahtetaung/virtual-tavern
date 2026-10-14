@@ -30,11 +30,15 @@ import { Pile } from './Pile.tsx';
 import { Seats } from './Seats.tsx';
 import {
   AlterSheet,
+  BlindPickSheet,
+  BlindSlots,
   BombStrip,
   Inspector,
   PeekSheet,
   PickSheet,
   PlaceSheet,
+  SearchSheet,
+  TargetSheet,
   cardHint,
   precious,
 } from './Sheets.tsx';
@@ -46,13 +50,15 @@ import { NopePanel } from './Window.tsx';
 type Props = GameUiProps<ShortFuseView, ShortFuseAction>;
 type Act = Props['act'];
 type Tab = 'table' | 'log' | 'me';
+/** Who a targeted play may pick: anyone with cards to take, anyone at all, or a special rule. */
+type Need = 'steal' | 'any' | 'mark' | 'mine';
 
 /** What the selected cards would do if played now, or why they can't be. */
 function selectionPlan(
   g: GameView,
   me: string,
   cards: CardView[],
-): { label: string; needsTarget: 'favor' | 'any' | null; named: boolean } | { why: string } | null {
+): { label: string; needsTarget: Need | null; named: boolean } | { why: string } | null {
   if (!cards.length) return null;
   const combo = comboOf(
     cards.map((c) => c.t),
@@ -69,23 +75,58 @@ function selectionPlan(
             ? 'Nope is played during the countdown after someone else’s play.'
             : t === 'defuse'
               ? 'Defuse is used for you when you draw a bomb.'
-              : 'A cat does nothing alone: pick two with the same name.',
+              : t === 'shelter'
+                ? 'It works from your hand: just keep it.'
+                : t === 'bomb' || t === 'void'
+                  ? 'You can’t play that one.'
+                  : 'A cat does nothing alone: pick two with the same name.',
       };
+    if (t === 'twin')
+      return cards.length === 2
+        ? { label: 'twins', needsTarget: 'any', named: false }
+        : { label: '', needsTarget: null, named: false };
+    if (t === 'bury' && g.players.find((p) => p.id === me)?.mine)
+      return { why: 'Bury is blocked while a Mine! is in front of you.' };
     if (info.targeted)
-      return { label: 'on…', needsTarget: t === 'favor' ? 'favor' : 'any', named: false };
+      return {
+        label: 'on…',
+        needsTarget:
+          t === 'favor' ? 'steal' : t === 'mark' ? 'mark' : t === 'mine' ? 'mine' : 'any',
+        named: false,
+      };
     return { label: '', needsTarget: null, named: false };
   }
-  if (combo.kind === 'pair') return { label: 'pair', needsTarget: 'favor', named: false };
-  if (combo.kind === 'triple') return { label: 'triple', needsTarget: 'favor', named: true };
+  if (combo.kind === 'pair') return { label: 'pair', needsTarget: 'steal', named: false };
+  if (combo.kind === 'triple') return { label: 'triple', needsTarget: 'steal', named: true };
   void me;
   return { label: 'five', needsTarget: null, named: false };
 }
 
 /** Who a targeted play may pick. */
-function targetsFor(g: GameView, me: string, need: 'favor' | 'any'): string[] {
+function targetsFor(g: GameView, me: string, need: Need): string[] {
   return g.players
-    .filter((p) => p.id !== me && !p.dead && !p.left && (need === 'any' || p.hand > 0))
+    .filter(
+      (p) =>
+        p.id !== me &&
+        !p.dead &&
+        !p.left &&
+        (need === 'any' ||
+          (need === 'steal' && (p.hand > 0 || (p.stash ?? 0) > 0)) ||
+          (need === 'mark' && p.hand > 0) ||
+          (need === 'mine' && !p.mine)),
+    )
     .map((p) => p.id);
+}
+
+/** The cards a blindfolded player has turned over and lost in the search under way. */
+function searchLost(g: GameView, me: string): CardType[] {
+  const out: CardType[] = [];
+  for (let i = g.log.length - 1; i >= 0; i--) {
+    const e = g.log[i]!;
+    if (e.kind !== 'lost' || e.by !== me) break;
+    if (e.cards?.[0]) out.unshift(e.cards[0]);
+  }
+  return out;
 }
 
 /** "Waiting on" chips: nudge whoever we wait for; the host can act for an absent player. */
@@ -246,6 +287,25 @@ function tipFor(
       'Two cards with the same name make a pair: play them together to steal a random card.',
     ],
   ];
+  tips.push(
+    [
+      'blind',
+      g.blindCount !== null,
+      c.t(
+        'Blindfolded: your cards are face down and shuffled. Tap one to play it blind (it might be lost), or draw: a safe draw takes the blindfold off.',
+      ),
+    ],
+    [
+      'now',
+      g.canNow && !mine,
+      c.t('{c:alter3now} can be played even when it isn’t your turn: look for the ⚡ button.'),
+    ],
+    [
+      'vault',
+      g.players.some((p) => p.stash !== null),
+      c.t('Anything stolen from whoever wears {c:vault} comes from their face-down Stash first.'),
+    ],
+  );
   const tip = tips.find(([id, when]) => when && fresh(id));
   return tip ? [tip[0], tip[2]] : null;
 }
@@ -327,7 +387,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const [discardOpen, setDiscardOpen] = useState(false);
 
   // A fresh peek opens its sheet once.
-  const lastPeek = g?.memory.findLast((m) => m.kind === 'peek') ?? null;
+  const lastPeek = g?.memory.findLast((m) => m.kind === 'peek' || m.kind === 'shared') ?? null;
   const [seenPeek, setSeenPeek] = useState<number>(() => lastPeek?.id ?? 0);
   // A shuffle animates the pile (and hides the face-up Black Hole) for a moment.
   const pileVersion = g?.pile.version ?? 0;
@@ -343,6 +403,25 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     };
   }, [shuffling, shuffle.v]);
 
+  // Load every face in this game ahead of time, so a play (in the Nope panel) shows its art at once.
+  const preloadKey = g && c.ready ? `${g.art}:${g.types.join(',')}` : '';
+  useEffect(() => {
+    if (!preloadKey || !g) return;
+    const imgs = g.types
+      .flatMap((t) => c.thumbs(t, g.art))
+      .map((src) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+        return img;
+      });
+    return () => {
+      imgs.length = 0;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preloadKey]);
+  const [blindSlot, setBlindSlot] = useState<{ key: string; slot: number } | null>(null);
+
   if (view.phase === 'lobby' || !g) {
     return (
       <>
@@ -356,8 +435,9 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const selCards = hand.filter((x) => selected.has(x.id));
   const plan = selectionPlan(g, me, selCards);
   const myTurn = g.prompt?.kind === 'turn';
+  const nowOnly = !myTurn && g.canNow;
   const toggle = (card: CardView) => {
-    if (!myTurn) {
+    if (!myTurn && !(nowOnly && CARDS[card.t].now)) {
       setInspect(card);
       return;
     }
@@ -388,13 +468,17 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     if (plan.label === 'pair') return 'Steal with the pair…';
     if (plan.label === 'triple') return 'Ask with three of a kind…';
     if (plan.label === 'five') return 'Play five different';
+    if (plan.label === 'twins') return `Play both ${c.name('twin')} cards…`;
     return `Play ${c.name(one.t)}${plan.needsTarget ? '…' : ''}`;
   })();
   const tip = tipFor(view, c, fresh);
   const over = view.phase === 'over';
   const strict = view.settings.strict;
   const p = g.prompt;
-  const peekOpen = lastPeek && lastPeek.id > seenPeek && lastPeek.kind === 'peek' ? lastPeek : null;
+  const peekOpen =
+    lastPeek && lastPeek.id > seenPeek && (lastPeek.kind === 'peek' || lastPeek.kind === 'shared')
+      ? lastPeek
+      : null;
   const blast = g.beat?.kind === 'explode' ? g.beat : null;
 
   const table = (
@@ -439,7 +523,56 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     </div>
   );
 
-  const dock = myTurn && (
+  const blindMe = g.blindCount !== null;
+  const slotPicked = blindSlot?.key === selKey ? blindSlot.slot : null;
+  const nowDock = nowOnly && selCards.length > 0 && (
+    <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="now-dock">
+      <Button
+        size="lg"
+        className="w-full"
+        disabled={!plan || 'why' in plan}
+        onClick={() => play()}
+        data-testid="play-now"
+      >
+        ⚡ Play {c.name(selCards[0]!.t)} now
+      </Button>
+      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{plan.why}</p>}
+      <RefusalSlot anchor="play" />
+    </div>
+  );
+  const blindDock = myTurn && blindMe && (
+    <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="dock">
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="secondary"
+          size="lg"
+          disabled={slotPicked === null}
+          onClick={() => {
+            if (slotPicked === null) return;
+            setBlindSlot(null);
+            void act({ type: 'play-blind', slot: slotPicked }, { anchor: 'play' });
+          }}
+          data-testid="play-blind"
+        >
+          Play it blind
+        </Button>
+        <Button
+          size="lg"
+          onClick={() => void act({ type: 'draw' }, { anchor: 'play' })}
+          data-testid="draw"
+        >
+          Draw{g.turn.owed > 1 ? ` (1 of ${g.turn.owed})` : ''}
+        </Button>
+      </div>
+      <p className="text-xs text-ink-muted">
+        {slotPicked === null
+          ? 'Pick a face-down card to play it blind, or draw.'
+          : 'Whatever it is gets played; a card that can’t be played is lost.'}
+      </p>
+      <RefusalSlot anchor="play" />
+    </div>
+  );
+  const dock = myTurn && !blindMe && (
     <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="dock">
       {isPicking && needs ? (
         <div className="space-y-2">
@@ -522,16 +655,38 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     </div>
   );
 
-  const handBlock = g.hand && (
-    <Hand
-      cards={hand}
-      art={g.art}
-      c={c}
-      selected={selected}
-      onTap={toggle}
-      onInspect={setInspect}
-      label="Your hand"
-    />
+  const handBlock = blindMe ? (
+    <section aria-label="Your face-down hand" className="space-y-1">
+      <p className="text-xs font-semibold text-ink-muted">
+        {c.glyph('blind')} Blindfolded: {g.blindCount} face-down{' '}
+        {g.blindCount === 1 ? 'card' : 'cards'}
+      </p>
+      {g.blindCount ? (
+        <BlindSlots
+          count={g.blindCount}
+          c={c}
+          picked={slotPicked}
+          onPick={(slot) => {
+            if (myTurn) setBlindSlot({ key: selKey, slot });
+          }}
+          label="Your face-down cards"
+        />
+      ) : (
+        <p className="text-sm text-ink-muted">Your hand is empty.</p>
+      )}
+    </section>
+  ) : (
+    g.hand && (
+      <Hand
+        cards={hand}
+        art={g.art}
+        c={c}
+        selected={selected}
+        onTap={toggle}
+        onInspect={setInspect}
+        label="Your hand"
+      />
+    )
   );
 
   return (
@@ -541,6 +696,8 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
         <span className="min-w-0 flex-1 truncate text-xs text-ink-muted">
           {c.names.sets[g.core === 'party' ? 'party' : g.art === 'adult' ? 'adult' : 'classic']}
           {g.x1 && ` + ${c.names.sets.x1}`}
+          {g.x2 && ` + ${c.names.sets.x2}`}
+          {g.x3 && ` + ${c.names.sets.x3}`}
         </span>
         {g.art === 'adult' && <AdultBadge />}
         <button
@@ -554,7 +711,13 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
         </button>
       </div>
 
-      <Seats view={view} room={room} targets={targets} onPick={(id) => play(id, picking?.named)} />
+      <Seats
+        view={view}
+        room={room}
+        c={c}
+        targets={targets}
+        onPick={(id) => play(id, picking?.named)}
+      />
 
       {over ? (
         <End view={view} room={room} c={c} act={act} />
@@ -578,9 +741,19 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
                   </button>
                 </p>
               )}
-              {p?.kind === 'bomb' && <BombStrip prompt={p} c={c} art={g.art} act={act} />}
+              {p?.kind === 'bomb' && (
+                <BombStrip
+                  prompt={p}
+                  c={c}
+                  art={g.art}
+                  act={act}
+                  drew={g.log.at(-1)?.kind === 'drew-bomb' && g.log.at(-1)?.by === me}
+                />
+              )}
               {handBlock}
               {dock}
+              {blindDock}
+              {nowDock}
             </div>
             <div className={cn('lg:hidden', tab !== 'log' && 'hidden')}>
               <Log view={view} c={c} />
@@ -603,8 +776,17 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       {p?.kind === 'place' && (
         <PlaceSheet key={`${g.turn.n}:${p.card.id}`} prompt={p} c={c} art={g.art} act={act} />
       )}
-      {p?.kind === 'alter' && <AlterSheet key={g.turn.n} prompt={p} c={c} art={g.art} act={act} />}
-      {p?.kind === 'give' && (
+      {p?.kind === 'alter' && (
+        <AlterSheet
+          key={`${g.turn.n}:${p.cards.map((x) => x.id).join()}`}
+          prompt={p}
+          c={c}
+          art={g.art}
+          act={act}
+          shareWith={p.share ? who(view, p.share, false) : null}
+        />
+      )}
+      {p?.kind === 'give' && !p.blind && (
         <PickSheet
           title={`${who(view, p.to, false)} asks you for a card`}
           intro="Pick the card to give. They take it straight into their hand."
@@ -629,8 +811,69 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           anchor="salvage"
         />
       )}
-      {peekOpen && !p?.kind?.match(/place|alter|give|salvage/) && (
-        <PeekSheet memory={peekOpen} c={c} art={g.art} onClose={() => setSeenPeek(peekOpen.id)} />
+      {peekOpen && !p?.kind?.match(/place|alter|give|salvage|each|target|search/) && (
+        <PeekSheet
+          memory={peekOpen}
+          c={c}
+          art={g.art}
+          onClose={() => setSeenPeek(peekOpen.id)}
+          {...(peekOpen.kind === 'shared' ? { from: who(view, peekOpen.other, false) } : {})}
+        />
+      )}
+      {p?.kind === 'give' && p.blind && (
+        <BlindPickSheet
+          title={`${who(view, p.to, false)} asks you for a card`}
+          intro="You’re blindfolded: pick a face-down card to give. You’ll see what it was afterwards."
+          count={g.blindCount ?? 0}
+          c={c}
+          confirmLabel="Give this card"
+          onPick={(slot) => void act({ type: 'give', slot }, { anchor: 'give' })}
+          anchor="give"
+        />
+      )}
+      {p?.kind === 'each' &&
+        !p.done &&
+        (p.blind ? (
+          <BlindPickSheet
+            title={
+              p.what === 'potluck'
+                ? c.t('{c:potluck}: put a card on top')
+                : c.t('{c:recycle}: put a card in')
+            }
+            intro="You’re blindfolded: pick a face-down card. You’ll see what it was afterwards."
+            count={g.blindCount ?? 0}
+            c={c}
+            confirmLabel="Put this card in"
+            onPick={(slot) => void act({ type: 'choose', slot }, { anchor: 'choose' })}
+            anchor="choose"
+          />
+        ) : (
+          <PickSheet
+            key={`${g.turn.n}:${p.what}`}
+            title={
+              p.what === 'potluck'
+                ? c.t('{c:potluck}: put a card on top')
+                : c.t('{c:recycle}: put a card in')
+            }
+            intro={
+              p.what === 'potluck'
+                ? 'Everyone with cards puts one face down on top of the pile, in turn order (the last one ends up on top). Nobody else sees yours.'
+                : 'Everyone with cards puts one into the pile, then it’s shuffled. Nobody else sees yours.'
+            }
+            cards={hand}
+            c={c}
+            art={g.art}
+            confirmLabel={(x) => `Put in ${c.name(x.t)}`}
+            warn={(x) => (precious(x) ? `Sure? ${c.name(x.t)} is a precious card.` : null)}
+            onPick={(x) => void act({ type: 'choose', card: x.id }, { anchor: 'choose' })}
+            anchor="choose"
+          />
+        ))}
+      {p?.kind === 'target' && (
+        <TargetSheet prompt={p} c={c} art={g.art} name={(id) => who(view, id, false)} act={act} />
+      )}
+      {p?.kind === 'search' && (
+        <SearchSheet prompt={p} c={c} art={g.art} lost={searchLost(g, me)} act={act} />
       )}
       {inspect && (
         <Inspector

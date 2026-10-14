@@ -214,6 +214,26 @@ export function Lobby({
           testId="toggle-x1"
         />
         <Toggle
+          on={s.x2}
+          editable={host}
+          title={setName('x2')}
+          help={c.t(
+            'One more {bomb}, plus {c:shelter} (keep a drawn {bomb} in your hand), {c:blind}, {c:mark}, {c:stack}, {c:recycle}, {c:swap}, {c:superskip}, {c:peek5} and {c:alter5}.',
+          )}
+          onChange={(v) => set({ x2: v })}
+          testId="toggle-x2"
+        />
+        <Toggle
+          on={s.x3}
+          editable={host}
+          title={setName('x3')}
+          help={c.t(
+            'Adds the two {c:twin} cards, {c:vault} with its face-down Stash, {c:mine}, {c:bury}, {c:self3}, {c:potluck}, {c:share3}, {c:alter3now} and {c:superskip}.',
+          )}
+          onChange={(v) => set({ x3: v })}
+          testId="toggle-x3"
+        />
+        <Toggle
           on={s.faster}
           editable={host}
           title="Faster game"

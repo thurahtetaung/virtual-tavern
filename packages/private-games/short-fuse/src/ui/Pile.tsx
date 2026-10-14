@@ -102,6 +102,11 @@ export function Pile({
           {pile.bombsOut} {pile.bombsOut === 1 ? c.t('{bomb}') : c.t('{bombs}')}
         </span>
         {pile.void === 'hidden' && <> + {c.name('void')}</>}
+        {pile.knownTop > 0 && (
+          <span className="block font-semibold text-danger-ink" data-testid="known-top">
+            {c.glyph('bomb')} {pile.knownTop} on top!
+          </span>
+        )}
         {pile.void === 'up' && (
           <span className="block font-semibold text-special-ink">
             {c.glyph('void')} face up{voidOnTop ? ' on top!' : ' inside'}

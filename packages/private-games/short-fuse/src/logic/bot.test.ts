@@ -30,7 +30,14 @@ const PRESETS: Record<string, Partial<Settings>> = {
   party: { core: 'party', art: 'classic', x1: false },
   'classic+x1': { core: 'classic', art: 'classic', x1: true },
   'party+x1': { core: 'party', art: 'classic', x1: true, faster: true },
+  'classic+x2': { core: 'classic', art: 'classic', x1: false, x2: true },
+  'classic+x3': { core: 'classic', art: 'classic', x1: false, x3: true },
+  'all three': { core: 'classic', art: 'classic', x1: true, x2: true, x3: true },
+  'party+x2+x3': { core: 'party', art: 'classic', x1: false, x2: true, x3: true },
 };
+/** The second and third expansions play at every table size; the rest at a spread of them. */
+const sizes = (name: string) =>
+  /x2|x3|all/.test(name) ? [2, 3, 4, 5, 6, 7, 8, 9, 10] : [2, 3, 5, 7, 10];
 
 describe('bots', () => {
   it('take the view, never the state', () => {
@@ -38,7 +45,7 @@ describe('bots', () => {
   });
 
   for (const [name, settings] of Object.entries(PRESETS))
-    for (const n of [2, 3, 5, 7, 10])
+    for (const n of sizes(name))
       it(`finish a ${name} game at ${n} players with no refused moves`, () => {
         for (const seed of [1, 2, 3]) {
           const r = playWithBots(shortFuse, seats(n), {

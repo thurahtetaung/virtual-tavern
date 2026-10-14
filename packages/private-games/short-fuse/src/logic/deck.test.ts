@@ -63,6 +63,23 @@ describe('setup', () => {
     }
   });
 
+  it('expansion 2 adds a Bomb; expansion 3 deals a Stash and keeps every spare Defuse alone', () => {
+    expect(bombsFor(S({ x2: true }), 4)).toEqual({ bombs: 4, void: false });
+    expect(bombsFor(S({ x1: true, x2: true }), 4)).toEqual({ bombs: 3, void: true });
+    expect(bombsFor(S({ x1: true, x2: true }), 2)).toEqual({ bombs: 1, void: true });
+    expect([2, 3, 4, 5, 6].map((n) => extraDefuses(S({ x3: true }), n))).toEqual([4, 3, 2, 1, 2]);
+    expect(extraDefuses(S({ x2: true, x3: true }), 3)).toBe(2);
+    // Classic + expansion 3 at 2: 65 cards, 6 to the Stash, the Vault in, 14 dealt, 4 Defuses, 1 Bomb.
+    expect(readout(S({ x3: true }), 2).pile).toBe(51);
+    const d = deal(S({ x3: true }), 2, createRng(4));
+    expect(d.stash).toHaveLength(6);
+    expect(d.pile.length).toBe(51);
+    expect(d.pile.some((id) => d.cards[id]!.t === 'vault')).toBe(true);
+    expect(d.stash.some((id) => ['bomb', 'vault', 'defuse'].includes(d.cards[id]!.t))).toBe(false);
+    // Expansion 2 adds 14 cards and a Bomb: 46 + 14 - 14 + 2 + 2 at two players.
+    expect(readout(S({ x2: true }), 2).pile).toBe(50);
+  });
+
   it('faster games leave a third of the pile out, before the Bombs go in', () => {
     const d = deal(S({ faster: true }), 2, createRng(5));
     expect(d.out.length).toBe(11);
