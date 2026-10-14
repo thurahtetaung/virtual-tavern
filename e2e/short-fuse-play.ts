@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
+import { escapeRegExp } from '../packages/game-sdk/src/regex.ts';
 import { unlock, visitor } from './inquest-play.ts';
 
 // Helpers to play Short Fuse through the UI. Without asset storage the cards use their neutral
@@ -102,8 +103,6 @@ export async function select(p: Page, types: string[]) {
   }
 }
 
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 /** Plays cards (and picks a target, and names a card for three of a kind). */
 export async function play(p: Page, types: string[], target?: string, named?: string) {
   await select(p, types);
@@ -112,7 +111,7 @@ export async function play(p: Page, types: string[], target?: string, named?: st
   if (target)
     await p
       .getByTestId('targets')
-      .getByRole('button', { name: new RegExp(`^${escapeRe(target)}`) })
+      .getByRole('button', { name: new RegExp(`^${escapeRegExp(target)}`) })
       .click();
 }
 

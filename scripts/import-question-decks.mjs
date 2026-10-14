@@ -99,7 +99,7 @@ export function validateDeck(meta, file) {
 
 /** `*` matches anything; everything else is literal. */
 export const globRegex = (glob) =>
-  glob ? new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`) : null;
+  glob ? new RegExp(`^${glob.split('*').map(RegExp.escape).join('.*')}$`) : null;
 
 async function main() {
   const argv = process.argv.slice(2);
