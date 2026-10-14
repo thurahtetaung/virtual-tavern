@@ -205,7 +205,7 @@ export function pointsBreakdown(view: HoodwinkView, round: RoundView, id: string
   const name = (p: string) => (p === view.me?.id ? 'you' : nameOf(view, p));
   const lines: PointsLine[] = [];
   for (const o of round.options) {
-    if (o.truth && o.voters?.includes(id) && !(round.noTruthPoints ?? []).includes(id)) {
+    if (o.truth && o.voters?.includes(id)) {
       lines.push({ reason: 'found the truth', points: TRUTH_POINTS * factor });
     }
     const authors = o.authors ?? [];

@@ -32,7 +32,7 @@ const text: GameGuide = {
       title: 'Writing a lie',
       bullets: [
         'Keep it to one line: at most 160 characters. Match the length and style of what the real answer might be.',
-        'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one. You’ve given it away, though: voting for the truth scores you nothing that round. Capitals, accents, plurals, hyphens and other punctuation, and a leading “a”, “an” or “the” are ignored when checking.',
+        'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one, with no penalty: finding the truth still scores. Capitals, accents, plurals, hyphens and other punctuation, and a leading “a”, “an” or “the” are ignored when checking.',
         'If two players write the same lie, it appears once on the board and counts for both of them, sharing the points. The game warns you when someone else has written the same lie as you, so you can change it.',
         'Stuck? Press “Lie for me” and the game hands you a ready-made fake, when the question has one for you. It counts as your lie but scores half. You can still type your own to replace it (typing out the same fake still counts as picked for you). It’s one pick per round: pressing it again won’t give you a different fake, and once you’ve sent a lie of your own, “Lie for me” goes away.',
         'A ready-made fake someone has been shown is never used to top up the board, so it never turns up as a house fake.',
@@ -41,7 +41,7 @@ const text: GameGuide = {
     {
       title: 'Scoring',
       bullets: [
-        'Find the real answer: 1,000 points (none if you typed it as your lie that round).',
+        'Find the real answer: 1,000 points.',
         'Every player who votes for your lie: 500 points to you. A lie written by several players shares those points between them.',
         'In small games the board is topped up to four answers with house fakes. They belong to nobody: picking one scores nothing.',
         'A lie the game picked for you (“Lie for me”, or filled in when the strict timer runs out) scores half: 250 points per player fooled. The reveal marks it “Picked by the game”.',
@@ -98,7 +98,7 @@ export const guide: GameGuide = shapeGuide(text, {
         ['fool one with a ready-made lie', '250 each', '500 each'],
         ['pick a house fake', '0', '0'],
       ],
-      note: 'A lie several players wrote shares its points. Typed the real answer as your lie? Finding it scores nothing that round.',
+      note: 'A lie several players wrote shares its points.',
     },
   ],
 });

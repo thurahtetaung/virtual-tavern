@@ -138,13 +138,8 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   // Only players who still need to act see "Your turn" in the tab title.
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(ben).toHaveTitle(YOUR_TURN);
-  // A near-copy (a leading article, a plural, a hyphen) counts as the truth too. The first try is
-  // remembered (Ben's vote for the truth won't score this round); a second one is refused.
+  // A near-copy (a leading article, a plural, a hyphen) counts as the truth too, and is refused.
   await ben.getByLabel('Your lie').fill('The zebra-crossings');
-  await ben.getByRole('button', { name: 'Send lie' }).click();
-  await expect(ben.getByTestId('typed-truth')).toContainText('won’t score this round');
-  await expect(ana.getByTestId('typed-truth')).toHaveCount(0);
-  await ben.getByLabel('Your lie').fill('Zebra crossing');
   await ben.getByRole('button', { name: 'Send lie' }).click();
   await expect(ben.getByText('That’s the real answer — write a lie!').first()).toBeVisible();
   await sendLie(ben, 'tiny ukuleles');
