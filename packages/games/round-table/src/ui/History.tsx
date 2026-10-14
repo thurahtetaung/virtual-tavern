@@ -1,7 +1,12 @@
+import { listNames } from '@vt/game-sdk';
 import { cn } from '@vt/ui';
 import type { RoundTableView } from '../logic/types.ts';
 import { SIDE_LABEL, SIDE_TEXT } from './Emblem.tsx';
 import { nameOf, namesFor, who } from './status.ts';
+
+/** Names, with ⏱ beside each one the timer or the host acted for (only known at the end). */
+const marked = (view: RoundTableView, ids: readonly string[], auto: readonly string[] | null) =>
+  listNames(ids.map((id) => (auto?.includes(id) ? `${who(view, id)} ⏱` : who(view, id))));
 
 /** Every proposal and its votes, every quest's result and every Lady check, round by round. */
 export function History({ view }: { view: RoundTableView }) {
@@ -11,12 +16,20 @@ export function History({ view }: { view: RoundTableView }) {
   const rounds = [
     ...new Set([...g.proposals.map((p) => p.round), ...g.results.map((r) => r.round)]),
   ];
+  // Who the timer or the host played for is only sent once the game is over.
+  const anyAuto =
+    g.proposals.some((p) => p.autoVotes?.length) || g.results.some((r) => r.autoPlayed?.length);
   return (
     <section aria-label="History" className="space-y-3">
       <h3 className="font-bold">📜 History</h3>
       {rounds.length === 0 && (
         <p className="text-sm text-stone-500">
           Nothing yet. Every team, every vote and every quest result will be listed here.
+        </p>
+      )}
+      {anyAuto && (
+        <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="history-auto-note">
+          ⏱ The timer or the host played for them: an Approve vote, or a Success card on a quest.
         </p>
       )}
       {[...rounds].reverse().map((round) => {
@@ -41,7 +54,7 @@ export function History({ view }: { view: RoundTableView }) {
                 Fail {result.fails === 1 ? 'card' : 'cards'}
                 <span className="font-normal text-stone-600 dark:text-stone-400">
                   {' '}
-                  · {namesFor(view, result.team)}
+                  · {marked(view, result.team, result.autoPlayed)}
                 </span>
               </p>
             )}
@@ -86,7 +99,7 @@ export function History({ view }: { view: RoundTableView }) {
                         {p.approved ? 'approved' : 'rejected'}
                       </span>
                       <span className="block text-xs text-stone-600 dark:text-stone-400">
-                        For: {yes.length ? namesFor(view, yes) : 'nobody'} · Against:{' '}
+                        For: {yes.length ? marked(view, yes, p.autoVotes) : 'nobody'} · Against:{' '}
                         {no.length ? namesFor(view, no) : 'nobody'}
                       </span>
                     </li>

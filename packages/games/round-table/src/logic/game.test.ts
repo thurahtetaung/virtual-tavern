@@ -16,6 +16,7 @@ import { ROLES, loyaltyOf } from './roles.ts';
 import {
   HOST,
   NOW,
+  announce,
   deadline,
   game,
   harness,
@@ -573,6 +574,42 @@ describe('timers', () => {
     h.act({ type: 'assassinate', target: game(h).players.find((p) => p !== assassin)! }, assassin);
     expect(h.state.phase).toBe('over');
     expect(h.view('cy').game!.results[0]!.autoPlayed).toEqual(['ben']);
+  });
+
+  it('sends no viewer who the timer or host voted or played for before the end', () => {
+    const h = timed('strict');
+    const viewers = [...ids(5), null];
+    const check = (label: string) => {
+      for (const viewer of viewers) {
+        const json = JSON.stringify(h.view(viewer));
+        const where = `${label} as ${viewer}`;
+        expect(json, where).not.toMatch(/"autoVotes":\[/);
+        expect(json, where).not.toMatch(/"autoPlayed":\[/);
+      }
+    };
+    announce(h, ['ana', 'ben']);
+    check('discuss');
+    h.act({ type: 'call-vote' }, game(h).leader);
+    h.act({ type: 'vote', approve: true }, 'ana');
+    check('vote');
+    deadline(h);
+    expect(game(h).proposals[0]!.autoVotes).toEqual([HOST, 'ben', 'cy', 'dee']);
+    check('quest');
+    h.act({ type: 'play', card: 'success' }, 'ana');
+    deadline(h);
+    expect(game(h).results[0]!.autoPlayed).toEqual(['ben']);
+    check('propose');
+    questRound(h, [HOST, 'ana', 'ben']);
+    questRound(h, [HOST, 'ana']);
+    check('assassinate');
+    const assassin = game(h).assassin!;
+    h.act({ type: 'assassinate', target: game(h).players.find((p) => p !== assassin)! }, assassin);
+    expect(h.state.phase).toBe('over');
+    for (const viewer of viewers) {
+      const seen = h.view(viewer).game!;
+      expect(seen.proposals[0]!.autoVotes, String(viewer)).toEqual([HOST, 'ben', 'cy', 'dee']);
+      expect(seen.results[0]!.autoPlayed, String(viewer)).toEqual(['ben']);
+    }
   });
 
   it('strict: the assassination is picked at random', () => {
