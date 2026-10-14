@@ -1,12 +1,5 @@
 import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
-import {
-  NIGHT_ORDER,
-  REPEAT,
-  type StepDef,
-  buildNightPlan,
-  repeatStepOf,
-  stepFactor,
-} from './plan.ts';
+import { NIGHT_ORDER, REPEAT, type StepDef, buildNightPlan, repeatStepOf, stepMs } from './plan.ts';
 import { type MarkId, type NostraTeam, ROLES, type RoleId, nostraTeamOf } from './roles.ts';
 import {
   TABLE_OF,
@@ -2134,7 +2127,7 @@ export function promptFor(c: StepCtx, p: PlayerId): Prompt | null {
 export function beginStep(c: StepCtx, now: number) {
   const night = c.r.night!;
   night.index = c.step;
-  night.deadline = now + stepFactor(c.def.id) * c.settings.stepSeconds * 1000;
+  night.deadline = now + stepMs(c.def.id, c.settings.stepSeconds);
   prepareStep(c);
   night.actors = actorsFor(c.r, c.def);
   night.work = Object.fromEntries(

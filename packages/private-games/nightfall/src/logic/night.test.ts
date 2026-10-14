@@ -1,7 +1,7 @@
 import { createRng } from '@vt/game-sdk';
 import { afterEach, describe, expect, it } from 'vitest';
 import { setTestHold } from './game.ts';
-import { buildNightPlan, STEPS, stepDef, stepFactor } from './plan.ts';
+import { buildNightPlan, STEPS, stepDef, stepFactor, stepMs } from './plan.ts';
 import { ROLES, ROLE_IDS, type RoleId } from './roles.ts';
 import { type Harness, table, votes, winners } from './test-utils.ts';
 import type { NightfallView } from './types.ts';
@@ -128,6 +128,13 @@ describe('wake order', () => {
     expect(stepFactor('village-idiot')).toBe(2);
     expect(stepFactor('seer')).toBe(1);
     expect(stepFactor('doppelganger-insomniac')).toBe(1);
+  });
+
+  it('gives the Village Idiot at least 5 s extra, even on short steps', () => {
+    expect(stepMs('village-idiot', 3)).toBe(8000);
+    expect(stepMs('village-idiot', 10)).toBe(20_000);
+    expect(stepMs('seer', 3)).toBe(3000);
+    expect(stepMs('paranormal-investigator', 3)).toBe(6000);
   });
 });
 

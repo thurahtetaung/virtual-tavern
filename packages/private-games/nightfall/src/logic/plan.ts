@@ -269,9 +269,15 @@ export function stepFactor(id: StepId): number {
 /** Whether a step is in the dusk, before the Marks are seen (Fear doesn't apply). */
 export const isDusk = (id: StepId) => stepDef(id).order < NIGHT_ORDER;
 
+/** How long a step lasts in ms. The Village Idiot always gets at least 5 s extra. */
+export function stepMs(id: StepId, stepSeconds: number): number {
+  const ms = stepFactor(id) * stepSeconds * 1000;
+  return stepDef(id).role === 'village-idiot' ? Math.max(ms, (stepSeconds + 5) * 1000) : ms;
+}
+
 /** Length of every step in ms, in plan order. */
 export const stepDurations = (plan: readonly StepId[], stepSeconds: number) =>
-  plan.map((id) => stepFactor(id) * stepSeconds * 1000);
+  plan.map((id) => stepMs(id, stepSeconds));
 
 // ---- Narration ----
 
