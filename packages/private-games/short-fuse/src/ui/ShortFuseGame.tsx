@@ -67,13 +67,13 @@ function selectionPlan(
     const as = g.copyAs;
     if (!as)
       return {
-        why: 'A Copy becomes the top card of the discard pile, and that one can’t be copied now (not another Copy, a Second Life, or a cat someone else played).',
+        why: 'A {c:copy} becomes the top card of the discard pile, and that one can’t be copied now (not another {c:copy}, a {c:revive}, or a cat someone else played).',
       };
     const cat = isCat(as) || as === 'wild';
-    if (types.length > 2) return { why: 'A Copy pairs with one cat at most.' };
+    if (types.length > 2) return { why: 'A {c:copy} pairs with one cat at most.' };
     if (types.length === 1 && cat)
-      return { why: 'A Copy of a cat does nothing alone: pick the matching cat too.' };
-    if (types.length === 2 && !cat) return { why: 'A Copy only makes a pair with a cat.' };
+      return { why: 'A {c:copy} of a cat does nothing alone: pick the matching cat too.' };
+    if (types.length === 2 && !cat) return { why: 'A {c:copy} only makes a pair with a cat.' };
     types = types.map((t) => (t === 'copy' ? as : t));
   }
   const combo = comboOf(types, g.fiveCombo);

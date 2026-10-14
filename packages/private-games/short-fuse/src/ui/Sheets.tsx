@@ -557,7 +557,7 @@ export function BombStrip({
                 onClick={() => revive(true)}
                 data-testid="revive-copy"
               >
-                {c.glyph('copy')} {c.t('Copy the {c:revive} on the discard pile')}
+                {c.glyph('copy')} {c.t('{c:copy} the {c:revive} on the discard pile')}
               </Button>
             )}
             {needGhost && !ghost && <p className="text-xs text-danger-ink">Pick a ghost first.</p>}

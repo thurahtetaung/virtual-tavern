@@ -211,16 +211,17 @@ export function targetsFor(g: Game, by: PlayerId, t: CardType): PlayerId[] {
  */
 export function copyTarget(g: Game, by: PlayerId): { t: CardType } | { error: string } {
   const top = g.discard.at(-1);
-  if (!top) return { error: 'A Copy becomes the top card of the discard pile, and it’s empty.' };
+  if (!top)
+    return { error: 'A {c:copy} becomes the top card of the discard pile, and it’s empty.' };
   const t = g.cards[top]!.t;
-  if (t === 'copy') return { error: 'A Copy can’t copy another Copy.' };
+  if (t === 'copy') return { error: 'A {c:copy} can’t copy another {c:copy}.' };
   if (isCat(t) || t === 'wild') {
     const lp = g.lastPlay;
     if (lp?.by === by && lp.turn === g.turn.n && lp.cards.includes(top)) return { t };
-    return { error: 'A Copy only pairs with a cat you played yourself this turn.' };
+    return { error: 'A {c:copy} only pairs with a cat you played yourself this turn.' };
   }
   if (t === 'revive')
-    return { error: 'A Copy of a Second Life only saves you when you draw a bomb.' };
+    return { error: 'A {c:copy} of a {c:revive} only saves you when you draw a {c:bomb}.' };
   if (!CARDS[t].playable || t === 'twin' || t === 'vault')
     return { error: 'The top of the discard pile can’t be copied as a play.' };
   return { t };
@@ -896,7 +897,7 @@ function inGame(g: Game, by: PlayerId, ghostOk = false): GameError | null {
     if (ghostOk) return null;
     return err(
       'ghost',
-      'You’re a ghost: no turns, but you can still play Nope and NOW cards (⚡) from your hand.',
+      'You’re a ghost: no turns, but you can still play {c:nope} and NOW cards (⚡) from your hand.',
     );
   }
   if (isOut(g, by)) return err('out', 'You’re out of this game: you can only watch.');
@@ -986,13 +987,16 @@ function playAction(
   const copied = types.includes('copy');
   if (copied) {
     if (types.length > 2 || types.filter((t) => t === 'copy').length > 1)
-      return err('copy-combo', 'A Copy pairs with one cat at most.');
+      return err('copy-combo', 'A {c:copy} pairs with one cat at most.');
     const as = copyTarget(g, ctx.by);
     if ('error' in as) return err('copy', as.error);
     if (types.length === 1 && (isCat(as.t) || as.t === 'wild'))
-      return err('cat-alone', 'A cat does nothing on its own: pair the Copy with the same cat.');
+      return err(
+        'cat-alone',
+        'A cat does nothing on its own: pair the {c:copy} with the same cat.',
+      );
     if (types.length === 2 && !(isCat(as.t) || as.t === 'wild'))
-      return err('copy-combo', 'A Copy only makes a pair with a cat.');
+      return err('copy-combo', 'A {c:copy} only makes a pair with a cat.');
     types = types.map((t) => (t === 'copy' ? as.t : t));
   }
   const combo = comboOf(types, g.fiveCombo);
@@ -1180,7 +1184,7 @@ function aimBlind(state: S, player: PlayerId, now: number) {
   commit(state, bp.by, [bp.card], 'card', typeOf(g, bp.card), player, null, now);
 }
 
-function nopeAction(state: S, windowId: number, ctx: Ctx): Result {
+function nopeAction(state: S, windowId: number, ctx: Ctx, seerBy?: PlayerId): Result {
   const e = requireGame(state);
   if (e) return e;
   const g = state.game!;
@@ -1192,8 +1196,15 @@ function nopeAction(state: S, windowId: number, ctx: Ctx): Result {
   const w = g.window;
   if (state.stage !== 'window' || !w || w.id !== windowId || ctx.now >= w.endsAt)
     return err('too-late', 'Too late: that already happened. Your {c:nope} is still in your hand.');
-  // A Second Life can't be Noped; in its window a Nope answers the latest Foresight.
-  const seer = isRevival(g.pending) ? w.seers?.at(-1) : undefined;
+  // A Second Life can't be Noped; in its window a Nope answers a Foresight (the one named, or
+  // the latest).
+  const seer = isRevival(g.pending)
+    ? seerBy
+      ? w.seers?.find((x) => x.by === seerBy)
+      : w.seers?.at(-1)
+    : undefined;
+  if (seerBy && isRevival(g.pending) && !seer)
+    return err('no-seer', 'Nobody by that name played {c:seer}. Your {c:nope} is still yours.');
   if (isRevival(g.pending) && !seer)
     return err('not-nopeable', '{c:revive} can’t be Noped. Your {c:nope} is still in your hand.');
   const chain = seer ? seer.chain : w.chain;
@@ -1238,7 +1249,7 @@ function seerAction(state: S, windowId: number, ctx: Ctx): Result {
   if (state.stage !== 'window' || !w || w.id !== windowId || ctx.now >= w.endsAt)
     return err('too-late', 'Too late: that already happened. Your card is still in your hand.');
   if (!isRevival(g.pending))
-    return err('no-revive', 'Foresight is played when someone uses a Second Life.');
+    return err('no-revive', '{c:seer} is played when someone uses a {c:revive}.');
   if (g.pending!.by === ctx.by) return err('own', 'You’re the one hiding them: you’ll know.');
   if (w.seers?.some((x) => x.by === ctx.by)) return err('twice', 'You’re already watching.');
   if (linked(w) && ctx.now - w.lastAt < NOPE_COOLDOWN_MS)
@@ -1665,7 +1676,7 @@ function chooseAction(state: S, a: { card?: string; slot?: number }, ctx: Ctx): 
   if (!id) return err('not-in-hand', 'You don’t have that card.');
   if (each.kind === 'feed' && isBombCard(typeOf(g, id))) {
     // Blindfolded you can't tell: a card you may give is taken instead, at random.
-    if (!g.blind[ctx.by]) return err('no-bomb', 'A Bomb can’t be given to a ghost.');
+    if (!g.blind[ctx.by]) return err('no-bomb', 'A {c:bomb} can’t be given to a ghost.');
     const ok = feedable(g, ctx.by);
     id = ok[rand.int(ok.length)]!;
   }
@@ -1788,13 +1799,13 @@ function reviveAction(state: S, a: { ghost?: string; copy?: boolean }, ctx: Ctx)
   if (e) return e;
   const g = state.game!;
   if (state.stage !== 'bomb' || g.drawn?.by !== ctx.by)
-    return err('no-bomb', 'There’s no Bomb for you to answer.');
+    return err('no-bomb', 'There’s no {c:bomb} for you to answer.');
   const opt = reviveOptions(g, ctx.by);
   const id = a.copy ? opt?.copy : opt?.card;
   if (!id)
     return err(
       'no-revive',
-      a.copy ? 'You can’t copy a Second Life right now.' : 'You have no Second Life.',
+      a.copy ? 'You can’t copy a {c:revive} right now.' : 'You have no {c:revive}.',
     );
   const ghosts = g.ghosts.filter((p) => atTable(g, p));
   if (ghosts.length && (!a.ghost || !ghosts.includes(a.ghost)))
@@ -1811,9 +1822,9 @@ function dieAction(state: S, ctx: Ctx): Result {
   const g = state.game!;
   const d = g.drawn;
   if (state.stage !== 'bomb' || d?.by !== ctx.by)
-    return err('no-bomb', 'There’s no Bomb for you to answer.');
+    return err('no-bomb', 'There’s no {c:bomb} for you to answer.');
   if (!g.blind[ctx.by] && has(g, ctx.by, 'defuse'))
-    return err('has-defuse', 'You have a Defuse: use it.');
+    return err('has-defuse', 'You have a {c:defuse}: use it.');
   explode(state, ctx.by, d.card, ctx.now);
   return state;
 }
@@ -2144,7 +2155,7 @@ function reduce(state: S, action: ShortFuseAction, ctx: Ctx): Result {
     case 'draw':
       return drawAction(draft, ctx);
     case 'nope':
-      return nopeAction(draft, action.window, ctx);
+      return nopeAction(draft, action.window, ctx, action.seer);
     case 'give':
       return giveAction(draft, action, ctx);
     case 'choose':
@@ -2465,11 +2476,15 @@ function canNope(state: S, g: Game, viewer: PlayerId | null): boolean {
   if (!atTable(g, viewer) || g.blind[viewer]) return false;
   if (!has(g, viewer, 'nope')) return false;
   // A Second Life can't be Noped; a Foresight played in its window can.
-  if (isRevival(g.pending)) {
-    const seer = w.seers?.at(-1);
-    return !!seer && (seer.chain.at(-1)?.by ?? seer.by) !== viewer;
-  }
+  if (isRevival(g.pending)) return nopeSeersFor(g, viewer).length > 0;
   return (w.chain.at(-1)?.by ?? g.pending.by) !== viewer;
+}
+
+/** The Foresights in a Second Life's window that `viewer` could Nope (not their own last link). */
+function nopeSeersFor(g: Game, viewer: PlayerId): PlayerId[] {
+  return (g.window?.seers ?? [])
+    .filter((x) => (x.chain.at(-1)?.by ?? x.by) !== viewer)
+    .map((x) => x.by);
 }
 
 function canSeer(state: S, g: Game, viewer: PlayerId | null): boolean {
@@ -2573,6 +2588,10 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
       : null,
     canNope: canNope(state, g, viewer),
     canSeer: !over && canSeer(state, g, viewer),
+    nopeSeers:
+      viewer !== null && canNope(state, g, viewer) && isRevival(g.pending)
+        ? nopeSeersFor(g, viewer)
+        : [],
     copyAs: copyAsFor(state, g, viewer),
     prompt: viewer !== null && mine && !over ? promptFor(state, g, viewer) : null,
     waiting,

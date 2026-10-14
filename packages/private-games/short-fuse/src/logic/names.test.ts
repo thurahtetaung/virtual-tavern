@@ -20,6 +20,9 @@ describe('fillNames', () => {
   });
 });
 
+/** Lines that use a card's placeholder word as a plain verb, not as the card's name. */
+const VERBS = ['Bury ${c.name(prompt.card.t)}', 'Rearrange the top of the pile'];
+
 /** String literals in the engine (refusals and the log's `did` texts) that spell a card's name. */
 function spelled(file: string): string[] {
   const src = readFileSync(new URL(file, import.meta.url), 'utf8')
@@ -33,6 +36,7 @@ function spelled(file: string): string[] {
   return literals.filter(
     (s) =>
       s.includes(' ') &&
+      !VERBS.includes(s) &&
       words.some((w) => new RegExp(`(^|[^\\w{:])${escapeRegExp(w)}s?(?![\\w])`).test(s)),
   );
 }
@@ -43,7 +47,14 @@ describe('server text names cards only through tokens', () => {
   });
 
   it('nor do the hints and lines the browser builds', () => {
-    for (const file of ['../ui/ShortFuseGame.tsx', '../ui/text.ts', '../ui/Log.tsx'])
+    for (const file of [
+      '../ui/ShortFuseGame.tsx',
+      '../ui/text.ts',
+      '../ui/Log.tsx',
+      '../ui/Sheets.tsx',
+      '../ui/Window.tsx',
+      '../ui/Seats.tsx',
+    ])
       expect(spelled(file), file).toEqual([]);
   });
 });

@@ -479,7 +479,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('draw') }),
   /** Answers the window it names, so a tap that crosses a change is refused, not misapplied. */
-  z.object({ type: z.literal('nope'), window: z.number().int() }),
+  /** In a Second Life's window, `seer` names the Foresight it answers (default: the latest). */
+  z.object({ type: z.literal('nope'), window: z.number().int(), seer: id.optional() }),
   /** Blind: play the card in this slot of your face-down hand, whatever it is. */
   z.object({ type: z.literal('play-blind'), slot: z.number().int().min(0).max(60) }),
   /** Blind: the target for the card you just turned over. */
@@ -664,6 +665,8 @@ export interface GameView {
   canNope: boolean;
   /** You may play Foresight in this Second Life's window. */
   canSeer: boolean;
+  /** In a Second Life's window: whose Foresight you could Nope right now. */
+  nopeSeers: PlayerId[];
   /** What a Copy would copy right now (the top of the discard pile), if anything. */
   copyAs: CardType | null;
   prompt: Prompt | null;

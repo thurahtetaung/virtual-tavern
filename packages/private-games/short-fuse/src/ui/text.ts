@@ -37,7 +37,14 @@ export function playName(c: Content, kind: PlayKind, t: CardType | null): string
 /** "Ana plays Attack", "Ana plays Favor on Ben", "Ana asks Ben for a Defuse (three of a kind)". */
 export function pendingLine(view: ShortFuseView, c: Content, p: PendingView): string {
   const by = cap(who(view, p.by));
-  const on = p.target ? who(view, p.target) : null;
+  // A ghost may play Feed the Ghosts on themself.
+  const on = p.target
+    ? p.target === p.by
+      ? by === 'You'
+        ? 'yourself'
+        : 'themself'
+      : who(view, p.target)
+    : null;
   if (p.kind === 'card' && p.t === 'revive') {
     const uses = `${by} ${by === 'You' ? 'use' : 'uses'} ${c.name(p.copied ? 'copy' : 'revive')}`;
     return on ? `${uses} and ${by === 'You' ? 'bring' : 'brings'} ${on} back` : uses;
@@ -57,7 +64,8 @@ export function pendingLine(view: ShortFuseView, c: Content, p: PendingView): st
 /** One line of the public log. */
 export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
   const by = cap(who(view, e.by));
-  const target = who(view, e.target);
+  const target =
+    e.target && e.target === e.by ? (by === 'You' ? 'yourself' : 'themself') : who(view, e.target);
   const card = (t: CardType | undefined) => (t ? c.name(t) : 'a card');
   switch (e.kind) {
     case 'start':
@@ -186,7 +194,7 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
       return `${by} looked at the top card (${card('dig')}).`;
     case 'fed':
       return e.n
-        ? `${by} fed ${target}: ${e.n} ${e.n === 1 ? 'card' : 'cards'} for the ghost.`
+        ? `👻 ${by} fed ${target} ${e.n} ${e.n === 1 ? 'card' : 'cards'}.`
         : `${by} played ${card('feed')}, but nobody had a card to give.`;
   }
 }

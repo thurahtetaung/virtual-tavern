@@ -112,7 +112,35 @@ export function NopePanel({
           <RefusalSlot anchor="seer" />
         </>
       )}
-      {g.canNope && (
+      {g.canNope && revive && (
+        <>
+          {/* One button per Foresight you could stop: each has its own chain. */}
+          {w.seers
+            .filter((x) => g.nopeSeers.includes(x.by))
+            .map((x) => (
+              <Button
+                key={x.by}
+                variant="danger"
+                size="lg"
+                className="mt-2 min-h-14 w-full text-xl tracking-wide"
+                disabled={stampState.on}
+                onClick={() =>
+                  void act({ type: 'nope', window: w.id, seer: x.by }, { anchor: 'nope' })
+                }
+                data-testid="nope-button"
+              >
+                ✋ {nope.toUpperCase()}
+                <span className="text-sm font-medium normal-case">
+                  {x.cancelled
+                    ? `(let ${who(view, x.by, false)} watch after all)`
+                    : `(stop ${who(view, x.by, false)} watching)`}
+                </span>
+              </Button>
+            ))}
+          <RefusalSlot anchor="nope" />
+        </>
+      )}
+      {g.canNope && !revive && (
         <>
           <Button
             variant="danger"
@@ -124,18 +152,10 @@ export function NopePanel({
             data-testid="nope-button"
           >
             ✋ {nope.toUpperCase()}
-            {revive && seer ? (
+            {n > 0 && (
               <span className="text-sm font-medium normal-case">
-                {seer.cancelled
-                  ? `(let ${who(view, seer.by, false)} watch after all)`
-                  : `(stop ${who(view, seer.by, false)} watching)`}
+                {w.cancelled ? '(make it go ahead)' : '(cancel it again)'}
               </span>
-            ) : (
-              n > 0 && (
-                <span className="text-sm font-medium normal-case">
-                  {w.cancelled ? '(make it go ahead)' : '(cancel it again)'}
-                </span>
-              )
             )}
           </Button>
           <RefusalSlot anchor="nope" />

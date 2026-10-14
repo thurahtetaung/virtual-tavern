@@ -447,6 +447,28 @@ describe('Foresight', () => {
     expect(k.view(H).game!.memory.some((m) => m.kind === 'watched')).toBe(false);
   });
 
+  it('a Nope can answer an earlier Foresight by name, not only the latest', () => {
+    const h = reviveWindow();
+    h.tick(500);
+    const w = () => h.game().window!.id;
+    h.act({ type: 'seer', window: w() }, H);
+    h.tick(1000);
+    h.act({ type: 'seer', window: w() }, A);
+    expect(h.view(B).game!.nopeSeers).toEqual([H, A]);
+    h.tick(1000);
+    h.act({ type: 'nope', window: w(), seer: H }, B);
+    expect(h.view(B).game!.window!.seers).toEqual([
+      { by: H, chain: [B], cancelled: true },
+      { by: A, chain: [], cancelled: false },
+    ]);
+    expect(h.reject({ type: 'nope', window: w(), seer: B }, H)).toBe('no-seer');
+    h.settle();
+    h.act({ type: 'place', position: 0 }, B);
+    h.act({ type: 'place', position: 0 }, B);
+    expect(h.view(H).game!.memory.some((m) => m.kind === 'watched')).toBe(false);
+    expect(h.view(A).game!.memory.filter((m) => m.kind === 'watched')).toHaveLength(2);
+  });
+
   it('is refused outside a Second Life’s window and after it closes (the card is kept)', () => {
     const h = reviveWindow();
     const id = h.game().window!.id;

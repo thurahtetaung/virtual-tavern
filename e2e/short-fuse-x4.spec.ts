@@ -138,3 +138,52 @@ test('Chaos: the everything deck, its pile cap, and a Copy played as a Favor', a
   await draw(host);
   await expect(A.getByTestId('draw')).toBeVisible();
 });
+
+test('Look Twice and Foresight open their sheets game after game', async ({ browser }) => {
+  test.setTimeout(200_000);
+  await openBackroom(await sfVisitor(browser, 'Admin', pageErrors));
+  const [hana, ana, ben] = await sfTable(browser, ['Hana', 'Ana', 'Ben'], pageErrors);
+  const host = hana!.page;
+  const A = ana!.page;
+  const B = ben!.page;
+  await host.getByTestId('toggle-x4').click();
+
+  for (const round of [1, 2]) {
+    await riggedStart(host, {
+      hands: [['skip', 'revive'], [], ['dig', 'seer']],
+      top: ['bomb', 'bomb', 'cat4', 'cat5'],
+    });
+    // Ana becomes a ghost; Ben looks at the bomb on top and draws the card under it.
+    await play(host, ['skip']);
+    await settle(host);
+    await draw(A);
+    await expect(B.getByTestId('draw')).toBeVisible();
+    await play(B, ['dig']);
+    await settle(B);
+    await expect(B.getByRole('dialog')).toContainText('the top card');
+    await B.getByTestId('dig-next').click();
+    // Hana's Second Life brings Ana back; Ben watches both bombs go back on top.
+    await draw(host);
+    await host.getByTestId('revive-button').click();
+    await B.getByTestId('seer-button').click();
+    await settle(B);
+    for (let i = 0; i < 2; i++) {
+      await host.getByTestId('place-top').click();
+      await host.getByTestId('place-confirm').click();
+    }
+    await expect(B.getByTestId('watch-sheet').getByRole('listitem')).toHaveCount(2);
+    await expect(B.getByTestId('watch-sheet')).toContainText('Hana put');
+    await B.getByTestId('watch-close').click();
+    await expect(B.getByTestId('watch-sheet')).toHaveCount(0);
+    // Ana and Ben draw those bombs with nothing to save them: Hana wins.
+    await draw(A);
+    await expect(B.getByTestId('draw')).toBeVisible();
+    await draw(B);
+    await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
+    await expect(B.getByTestId('watch-sheet')).toHaveCount(0);
+    if (round === 1) {
+      await host.getByRole('button', { name: 'Change the deck' }).click();
+      await expect(host.getByTestId('start')).toBeVisible();
+    }
+  }
+});
