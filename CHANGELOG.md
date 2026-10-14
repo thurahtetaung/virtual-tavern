@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.37.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.4...v0.37.5) (2026-10-14)
+
+
+### Bug Fixes
+
+* **codenames:** allow only clue numbers 1 to 9 again ([#196](https://github.com/thurahtetaung/virtual-tavern/issues/196)) ([44447d4](https://github.com/thurahtetaung/virtual-tavern/commit/44447d42a8aa2ff8390e7dc8d83989e57e142b27))
+* **codenames:** keep every card's text inside the card, clear of the spymaster caption and skull ([#195](https://github.com/thurahtetaung/virtual-tavern/issues/195)) ([d8cd959](https://github.com/thurahtetaung/virtual-tavern/commit/d8cd9595fe2e4a26d35a848b12bf8448c746c2f1))
+* **hoodwink:** refuse a lie that is the real answer again, with no scoring penalty ([#194](https://github.com/thurahtetaung/virtual-tavern/issues/194)) ([14d544f](https://github.com/thurahtetaung/virtual-tavern/commit/14d544f85217b5fa46b01008707a5f2edf079a0a))
+* keep what you secretly know off the table until you peek, in Round Table, Nightfall, Inquest and Enigma ([#190](https://github.com/thurahtetaung/virtual-tavern/issues/190)) ([1e8be7c](https://github.com/thurahtetaung/virtual-tavern/commit/1e8be7ce175a72f150a2362f11d3e28cf7d22009))
+* **nightfall:** name each role's exact team under its name in the guide ([#198](https://github.com/thurahtetaung/virtual-tavern/issues/198)) ([3b8509c](https://github.com/thurahtetaung/virtual-tavern/commit/3b8509c61e64ebe3b2900c867501509c02bd0ecd))
+* **tavern-brawl:** show each hero's class under their name in the guide ([#192](https://github.com/thurahtetaung/virtual-tavern/issues/192)) ([8121cc0](https://github.com/thurahtetaung/virtual-tavern/commit/8121cc0cb7938845143784e7e68e184d626f730e))
+* **ui:** show Hydra's Me panel once on desktop and keep line heights that tailwind-merge dropped ([#191](https://github.com/thurahtetaung/virtual-tavern/issues/191)) ([8c40048](https://github.com/thurahtetaung/virtual-tavern/commit/8c4004832468e6c92d7bdfdce40533efc5b3ae44))
+
 ## [0.37.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.3...v0.37.4) (2026-10-14)
 
 
