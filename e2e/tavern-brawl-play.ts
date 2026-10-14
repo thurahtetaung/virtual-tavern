@@ -1,4 +1,4 @@
-import { type Browser, type Page, expect } from '@playwright/test';
+import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a
@@ -87,60 +87,92 @@ const seq = async (p: Page) => (await p.locator('[data-seq]').getAttribute('data
 
 /** Waits until the table on `p` has moved on from `before`. */
 async function movedOn(p: Page, before: string) {
-  await expect.poll(() => seq(p), { timeout: 10_000 }).not.toBe(before);
+  await expect.poll(() => seq(p), { timeout: 10_000, intervals: [50] }).not.toBe(before);
 }
 
-export const isOver = async (p: Page) =>
-  (await p.getByRole('button', { name: 'Play again' }).count()) > 0 ||
-  (await p
-    .getByText(/wins the brawl!|win the brawl!|it’s a tie!|Waiting for .* to start the next brawl/)
-    .count()) > 0;
+export const isOver = async (p: Page) => {
+  const counts = await Promise.all([
+    p.getByRole('button', { name: 'Play again' }).count(),
+    p
+      .getByText(
+        /wins the brawl!|win the brawl!|it’s a tie!|Waiting for .* to start the next brawl/,
+      )
+      .count(),
+  ]);
+  return counts.some((n) => n > 0);
+};
+
+type Ask = 'social' | 'choice' | 'card' | null;
+
+/** What `p` is asked for, if anything: the howl, a choice, or a card. */
+async function asked(p: Page): Promise<Ask> {
+  const [social, choice, card] = await Promise.all([
+    p.getByRole('region', { name: 'Honour prompt' }).count(),
+    p.getByRole('region', { name: 'Your choice' }).count(),
+    p.getByRole('button', { name: 'Pick a card to play' }).count(),
+  ]);
+  return social ? 'social' : choice ? 'choice' : card ? 'card' : null;
+}
 
 /** Makes the one move `p` is asked for, if any: a choice, the howl, or a card. */
-export async function move(p: Page): Promise<boolean> {
+export async function move(p: Page, ask?: Ask): Promise<boolean> {
   const before = await seq(p).catch(() => '');
-  const social = p.getByRole('region', { name: 'Honour prompt' });
-  if (await social.count()) {
-    await social.getByRole('button').first().click();
-    await movedOn(p, before);
-    return true;
-  }
-  const choice = p.getByRole('region', { name: 'Your choice' });
-  if (await choice.count()) {
+  ask ??= await asked(p);
+  if (ask === 'social') {
+    await p.getByRole('region', { name: 'Honour prompt' }).getByRole('button').first().click();
+  } else if (ask === 'choice') {
+    const choice = p.getByRole('region', { name: 'Your choice' });
     const take = choice.getByRole('button', { name: /^Take / });
     const chips = choice.getByRole('button').filter({ hasNotText: 'Skip' });
     if (await take.count()) await take.first().click();
     else if (await chips.count()) await chips.first().click();
     else await choice.getByRole('button', { name: 'Skip' }).click();
-    await movedOn(p, before);
-    return true;
-  }
-  if (await p.getByRole('button', { name: 'Pick a card to play' }).count()) {
-    // Cards fan over each other: tap the strip of the first card that always shows.
-    await p
-      .getByRole('region', { name: 'Your hand' })
-      .locator('[data-hand]')
-      .first()
-      .click({ position: { x: 14, y: 90 } });
+  } else if (ask === 'card') {
+    // Attacks first, so a full game ends in a few rounds; cards fan over each other, so tap the
+    // strip of the card that always shows.
+    const cards = p.getByRole('region', { name: 'Your hand' }).locator('[data-hand]');
+    const attacks = cards.and(p.locator('[aria-label*="Attack"]'));
+    await ((await attacks.count()) ? attacks : cards).first().click({ position: { x: 14, y: 90 } });
     await dock(p).click();
-    await movedOn(p, before);
-    return true;
+  } else {
+    return false;
   }
-  return false;
+  await movedOn(p, before);
+  return true;
 }
 
-/** Plays from every screen until the brawl is over. */
+/** Plays from every screen until the brawl is over (every screen is asked at once). */
 export async function playToEnd(pages: Page[], maxMoves = 600) {
   for (let i = 0; i < maxMoves; i++) {
-    if (await isOver(pages[0]!)) return;
-    let acted = false;
-    for (const p of pages) {
-      if (await move(p)) {
-        acted = true;
-        break;
-      }
-    }
-    if (!acted) await pages[0]!.waitForTimeout(150);
+    const [over, ...asks] = await Promise.all([isOver(pages[0]!), ...pages.map(asked)]);
+    if (over) return;
+    const who = asks.findIndex(Boolean);
+    if (who >= 0) await move(pages[who]!, asks[who]);
+    else await pages[0]!.waitForTimeout(150);
   }
   throw new Error('the brawl never ended');
+}
+
+/**
+ * A whole game from the players' screens: everyone picks their hero, the host starts, and all
+ * play until the end. With five or more the zone is on, and the knocked out haunt as ghosts.
+ */
+export async function fullBrawl(browser: Browser, heroes: string[], names: string[]) {
+  test.setTimeout(180_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const pages = await table(browser, names);
+  for (const [i, p] of pages.entries()) await pickHero(p, heroes[i]!);
+  const zone = pages.length >= 5;
+  if (zone) await expect(pages[0]!.getByText(/Five or more players/)).toBeVisible();
+  await pages[0]!.getByRole('button', { name: 'Start the brawl' }).click();
+  await expect(pages[0]!.getByText('Your turn: play a card')).toBeVisible();
+  await playToEnd(pages);
+  for (const p of pages) await expect.poll(() => isOver(p)).toBe(true);
+  // Everyone knocked out stayed at the table as a ghost (and had turns to haunt).
+  if (zone) {
+    await expect
+      .poll(() => pages[0]!.locator('[data-ghost]').count())
+      .toBeGreaterThanOrEqual(pages.length - 1);
+    await expect(pages[0]!.getByRole('log').first()).toContainText(/ghost/);
+  }
 }

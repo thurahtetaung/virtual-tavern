@@ -74,10 +74,12 @@ interface TestRig {
   decks?: Partial<Record<HeroId, CardId[]>>;
   /** The first seat always goes first. */
   firstSeat?: boolean;
+  /** Starting hit points by player count, so a spec's full games end in a few rounds. */
+  hp?: Partial<Record<number, number>>;
 }
 let testRig: TestRig = {};
 
-/** Browser tests only: stacks decks and fixes the first player (never set in production). */
+/** Browser tests only: stacks decks, fixes the first player and lowers hit points (never set in production). */
 export function setTestRig(rig: TestRig) {
   testRig = rig;
 }
@@ -235,7 +237,7 @@ function deal(state: TavernBrawlState, ctx: Ctx): Result {
     }
     g.players[p] = {
       hero,
-      hp: HP_START,
+      hp: testRig.hp?.[seated.length] ?? HP_START,
       deck: deck.slice(HAND_START),
       hand: deck.slice(0, HAND_START),
       discard: [],
