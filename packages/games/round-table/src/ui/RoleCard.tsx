@@ -187,9 +187,9 @@ export function RoleReveal({
         </Button>
       </div>
       <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
-        <div className={cn(!shown && 'invisible')} aria-hidden={!shown}>
-          <RoleDetails view={view} showGuide={showGuide} />
-        </div>
+        {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
+            page's text) could read. */}
+        {shown ? <RoleDetails view={view} showGuide={showGuide} /> : <div className="h-64" />}
         {!open && (
           <div
             role="presentation"
@@ -239,5 +239,61 @@ export function RoleSheet({
         />
       )}
     </Modal>
+  );
+}
+
+/** Whether what you know is on show at the table: held, or switched on until the next game. */
+export interface KnowledgeReveal {
+  shown: boolean;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  setHeld: (held: boolean) => void;
+}
+
+export function useKnowledgeReveal(resetKey: string): KnowledgeReveal {
+  const [opened, setOpened] = useState<string | null>(null);
+  const [held, setHeld] = useState(false);
+  const open = opened === resetKey;
+  return {
+    shown: open || held,
+    open,
+    setOpen: (on) => setOpened(on ? resetKey : null),
+    setHeld,
+  };
+}
+
+/**
+ * Over the seats: the badges for what you know (Evil teammates, Merlin or Morgana, your Lady
+ * checks) only show while you hold this or switch it on. It looks the same for every player, so
+ * having it says nothing about your role.
+ */
+export function KnowledgePeek({ reveal }: { reveal: KnowledgeReveal }) {
+  const down = (e: PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    reveal.setHeld(true);
+  };
+  const up = () => reveal.setHeld(false);
+  return (
+    <div className="flex items-center gap-2" data-testid="knowledge-peek">
+      <div
+        role="presentation"
+        onPointerDown={down}
+        onPointerUp={up}
+        onPointerCancel={up}
+        onContextMenu={(e) => e.preventDefault()}
+        className="flex min-h-10 flex-1 cursor-grab touch-none items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 select-none dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700"
+      >
+        {reveal.shown ? '👁️ Showing what you know' : '🔒 What you know is hidden: hold to peek'}
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="min-h-10 shrink-0"
+        aria-pressed={reveal.open}
+        onClick={() => reveal.setOpen(!reveal.open)}
+      >
+        {reveal.open ? '🙈 Hide' : '👁️ Show'}
+      </Button>
+    </div>
   );
 }

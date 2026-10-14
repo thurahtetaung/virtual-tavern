@@ -150,8 +150,14 @@ test('seven players with the Lady of the Lake: private checks, a sunk quest and 
     const target = (await choice.first().getAttribute('aria-label'))!.replace('Check ', '');
     await choice.first().click();
     await holder!.getByRole('button', { name: `Check ${target}’s loyalty` }).click();
-    // Only the holder sees the answer.
-    await expect(holder!.getByTestId('lady-result')).toContainText(target);
+    // Only the holder sees the answer, and only once they peek.
+    const result = holder!.getByTestId('lady-result');
+    await expect(result).toContainText('Your Lady of the Lake check is in');
+    await expect(result).not.toContainText(target);
+    const peek = holder!.getByTestId('knowledge-peek');
+    await peek.getByRole('button', { name: '👁️ Show' }).click();
+    await expect(result).toContainText(target);
+    await peek.getByRole('button', { name: '🙈 Hide' }).click();
     for (const p of t.players.filter((x) => x !== holder))
       await expect(p.getByTestId('lady-result')).toHaveCount(0);
     return { holder: holder!, target };
@@ -215,4 +221,34 @@ test('on a phone, the rules drawer keeps your role hidden until you peek', async
   await readRoles(t);
   const assassin = withRole(t, 'Assassin');
   await checkGuidePeek(assassin, 'Assassin');
+});
+
+test('on a phone, what you know stays off the seats until you peek', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const t = await openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], {
+    viewport: { width: 390, height: 844 },
+  });
+  await t.host.getByRole('button', { name: 'Start game' }).click();
+  await readRoles(t);
+  for (const page of [withRole(t, 'Assassin'), withRole(t, 'Merlin')]) {
+    const seats = page.getByRole('list', { name: 'Seats' });
+    const badge = seats.getByText('Evil', { exact: true });
+    const peek = page.getByTestId('knowledge-peek');
+    await expect(peek).toContainText('What you know is hidden');
+    await expect(badge).toHaveCount(0);
+    // Hold to peek, let go to hide.
+    const box = (await peek.locator('[role=presentation]').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect(badge.first()).toBeVisible();
+    await page.mouse.up();
+    await expect(badge).toHaveCount(0);
+    // Or switch it on and off.
+    await peek.getByRole('button', { name: '👁️ Show' }).click();
+    await expect(badge.first()).toBeVisible();
+    await peek.getByRole('button', { name: '🙈 Hide' }).click();
+    await expect(badge).toHaveCount(0);
+  }
+  // A Loyal Servant knows nobody, and has the same control.
+  await expect(withRole(t, 'Loyal Servant').getByTestId('knowledge-peek')).toBeVisible();
 });

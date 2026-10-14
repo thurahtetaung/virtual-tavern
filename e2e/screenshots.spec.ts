@@ -1318,6 +1318,7 @@ for (const [label, viewport] of [
     await shot(holder!, 'lady');
     await holder!.getByRole('button', { name: /’s loyalty$/ }).click();
     await expect(holder!.getByTestId('lady-result')).toBeVisible();
+    await holder!.getByTestId('knowledge-peek').getByRole('button', { name: '👁️ Show' }).click();
     await shot(holder!, 'lady-result');
     if (phone) {
       await host.getByRole('navigation').getByRole('button', { name: 'History' }).click();

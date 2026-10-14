@@ -219,10 +219,21 @@ export function LadyPanel({
 }
 
 /** What the Lady just showed you (only you see this). */
-export function LadyResult({ view }: { view: RoundTableView }) {
+export function LadyResult({ view, shown }: { view: RoundTableView; shown: boolean }) {
   const g = view.game!;
   const last = g.lady?.mine.at(-1);
   if (!last || last.round !== g.results.length || view.stage !== 'propose') return null;
+  if (!shown)
+    return (
+      <p
+        role="status"
+        className="rounded-xl bg-team-b-soft px-3 py-2 text-center text-sm ring-1 ring-team-b-line dark:bg-sky-500/10 dark:ring-sky-500/30"
+        data-testid="lady-result"
+      >
+        🌊 Your Lady of the Lake check is in: hold or Show “What you know” above the seats to read
+        it.
+      </p>
+    );
   return (
     <p
       role="status"
