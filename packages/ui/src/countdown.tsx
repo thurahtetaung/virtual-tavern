@@ -56,6 +56,7 @@ export function Countdown({
   expiredLabel,
   expiredHint,
   atZero,
+  tone = 'page',
 }: {
   deadline: number | null;
   clockOffset: number;
@@ -72,6 +73,8 @@ export function Countdown({
   expiredHint?: string;
   /** Strict timers: what happens at 0:00, shown under the clock, e.g. "then a word is picked". */
   atZero?: string;
+  /** `dark` for a panel that stays dark in both themes (a night scene), so the caption stays light. */
+  tone?: 'page' | 'dark';
 }) {
   const left = useSecondsLeft(deadline, clockOffset);
   if (left === null) return null;
@@ -104,7 +107,13 @@ export function Countdown({
         {label && !expired && <span className="text-xs font-medium sm:text-sm">{label}</span>}
       </span>
       {caption && (
-        <span className="text-xs text-stone-600 dark:text-stone-400" aria-hidden>
+        <span
+          className={cn(
+            'text-xs',
+            tone === 'dark' ? 'text-stone-300' : 'text-stone-600 dark:text-stone-400',
+          )}
+          aria-hidden
+        >
           {caption}
         </span>
       )}

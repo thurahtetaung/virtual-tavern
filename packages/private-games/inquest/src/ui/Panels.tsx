@@ -355,8 +355,9 @@ export function NightPanel({
   const me = g.players.find((p) => p.id === view.me?.id);
   const [clue, setClue] = useState<number | null>(null);
   const [means, setMeans] = useState<number | null>(null);
-  const clock = (
+  const clock = (dark?: boolean) => (
     <Countdown
+      tone={dark ? 'dark' : 'page'}
       deadline={g.deadline}
       clockOffset={room.clockOffset}
       label="to choose the crime"
@@ -368,7 +369,7 @@ export function NightPanel({
       <Panel className="space-y-2 bg-stone-900 text-center text-stone-100 dark:bg-stone-950">
         <p className="text-2xl">🌙</p>
         <p className="font-semibold">Night falls. The Murderer is choosing the crime…</p>
-        <div className="flex justify-center">{clock}</div>
+        <div className="flex justify-center">{clock(true)}</div>
         <p className="text-sm text-stone-400">
           Look at your role card on the Me tab, and study the suspects meanwhile.
         </p>
@@ -382,7 +383,7 @@ export function NightPanel({
     >
       <div className="flex items-start justify-between gap-2">
         <h3 className="shrink-0 font-bold whitespace-nowrap">🔪 Choose your crime</h3>
-        {clock}
+        {clock()}
       </div>
       <p className="text-sm">
         Pick 1 Clue card (the Key Evidence) and 1 Means card from your own cards.
