@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.36.0...v0.36.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **inquest:** review-round fixes: bullet timing stays hidden, clearer events, one tip at a time ([#168](https://github.com/thurahtetaung/virtual-tavern/issues/168)) ([7fb7ade](https://github.com/thurahtetaung/virtual-tavern/commit/7fb7adef2882755699dfce87ef429d068d4f0232))
+
 ## [0.36.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.10...v0.36.0) (2026-10-14)
 
 
