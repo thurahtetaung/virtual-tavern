@@ -45,7 +45,12 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                     dimmed={!found}
                     note={found ? 'found' : 'not found'}
                   />
-                  <div className="flex gap-1 overflow-x-auto">
+                  <div
+                    tabIndex={0}
+                    role="group"
+                    aria-label={`Visions for ${p.name}’s ${content.pillarName(pillar).toLowerCase()}`}
+                    className="flex gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+                  >
                     {visions.length ? (
                       visions.map((v, i) => (
                         <div key={`${v}-${i}`} className="w-11 shrink-0">

@@ -96,7 +96,11 @@ export function Compare({
             const el = e.currentTarget;
             setAt(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
           }}
-          className="flex size-full snap-x snap-mandatory overflow-x-auto overscroll-contain [scrollbar-width:none]"
+          // Focusable, so a keyboard can scroll the pinned cards (arrow keys).
+          tabIndex={0}
+          role="group"
+          aria-label={pinnedLabel ?? 'Pinned cards'}
+          className="flex size-full snap-x snap-mandatory overflow-x-auto overscroll-contain [scrollbar-width:none] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
         >
           {pinned.cards.map((n, i) => (
             <div
@@ -163,7 +167,11 @@ export function Compare({
               {stripLabel}
             </p>
           )}
-          <ul className="flex min-h-0 flex-1 snap-x gap-2 overflow-x-auto overscroll-contain px-3 py-2">
+          <ul
+            tabIndex={0}
+            aria-label={stripLabel ?? 'Choose'}
+            className="flex min-h-0 flex-1 snap-x gap-2 overflow-x-auto overscroll-contain px-3 py-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+          >
             {strip.cards.map((n) => (
               <li
                 key={n}

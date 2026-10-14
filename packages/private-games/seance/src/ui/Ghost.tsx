@@ -117,7 +117,9 @@ export function GhostPsychics({
                     </div>
                     {pillar && (p.visions.length > 0 || p.intuition !== null) && (
                       <div
-                        className="flex items-end gap-1 overflow-x-auto"
+                        tabIndex={0}
+                        role="group"
+                        className="flex items-end gap-1 overflow-x-auto focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
                         aria-label={`What ${p.name} holds`}
                       >
                         {p.visions.map((v, i) => (

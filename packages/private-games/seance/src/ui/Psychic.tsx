@@ -75,7 +75,11 @@ export function VisionStrip({
   if (!p.visions.length)
     return <p className="text-sm text-stone-500 dark:text-stone-400">No vision yet.</p>;
   return (
-    <ul className="flex gap-1.5 overflow-x-auto pb-1" aria-label={`${p.name}’s visions`}>
+    <ul
+      tabIndex={0}
+      className="flex gap-1.5 overflow-x-auto pb-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+      aria-label={`${p.name}’s visions`}
+    >
       {p.visions.map((v, i) => (
         <li key={`${v.card}-${i}`} className={cn('shrink-0', small ? 'w-14' : 'w-20 sm:w-24')}>
           <Card
