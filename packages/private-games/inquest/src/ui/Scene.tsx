@@ -74,6 +74,8 @@ export function Timeline({
   return (
     <ol
       aria-label="Bullet order"
+      // A scrolling strip: keyboard users reach it to scroll it.
+      tabIndex={0}
       className="-mx-1 flex gap-1.5 overflow-x-auto overscroll-x-contain px-1 py-1 text-xs [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:thin] after:shrink-0 after:basis-4 after:content-['']"
     >
       {g.bullets.map((b, i) => {
@@ -115,6 +117,8 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
   return (
     <ol
       aria-label="Bullets on the table"
+      // A scrolling strip: keyboard users reach it to scroll it.
+      tabIndex={0}
       className="flex gap-1 overflow-x-auto py-0.5 text-[11px] [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] [scrollbar-width:none] after:shrink-0 after:basis-4 after:content-['']"
     >
       {current.map(({ s, seq }) => (
