@@ -17,7 +17,7 @@ import { End } from './End.tsx';
 import { playSfx, prefersReducedMotion, useBuzz } from './fx.ts';
 import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
-import { MeTab } from './Me.tsx';
+import { MeTab, useRoleReveal } from './Me.tsx';
 import { Chaos, LeaderCheck, MomentView, useMoments } from './Moments.tsx';
 import { type SeatPick, Seats, whyText } from './Seats.tsx';
 import {
@@ -473,6 +473,8 @@ export function HydraGame({
   });
   const tab = tabPick.key === stageKey ? tabPick.tab : defaultTab;
   const setTab = (t: Tab) => setTabPick({ tab: t, key: stageKey });
+  // A card switched on at the deal turns face down again once play starts.
+  const reveal = useRoleReveal(`${view.gamesPlayed}:${view.stage === 'reveal'}`);
 
   const task = g ? secretTask(view) : null;
 
@@ -592,6 +594,7 @@ export function HydraGame({
       onWhy={(text) => setWhy({ text, at: Date.now() + room.clockOffset })}
       ids={ids}
       columns={columns}
+      showKnown={reveal.shown}
     />
   );
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
@@ -681,6 +684,7 @@ export function HydraGame({
               <MeTab
                 view={view}
                 c={c}
+                reveal={reveal}
                 showGuide={showGuide}
                 big
                 moments={momentsOn}
@@ -710,6 +714,7 @@ export function HydraGame({
                 <MeTab
                   view={view}
                   c={c}
+                  reveal={reveal}
                   showGuide={showGuide}
                   moments={momentsOn}
                   setMoments={setMomentsOn}
@@ -748,6 +753,7 @@ export function HydraGame({
               <MeTab
                 view={view}
                 c={c}
+                reveal={reveal}
                 showGuide={showGuide}
                 moments={momentsOn}
                 setMoments={setMomentsOn}

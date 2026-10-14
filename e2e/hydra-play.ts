@@ -110,10 +110,15 @@ export async function hydraTable(
 export async function readRoles(players: Player[]) {
   for (const p of players) {
     const card = p.page.getByRole('region', { name: 'Your role card' });
+    // Face down, nothing under the card gives the side away.
+    await expect(p.page.getByTestId('role-details-hidden')).toBeVisible();
+    await expect(p.page.getByTestId('role-details')).toHaveCount(0);
     await card.getByRole('button', { name: '👁️ Show my role' }).click();
+    await expect(p.page.getByTestId('role-details')).toBeVisible();
     const text = (await p.page.getByTestId('role-name').first().textContent()) ?? '';
     p.role = text.includes(p.w.leader) ? 'leader' : text.includes(p.w.team.red) ? 'red' : 'blue';
     await card.getByRole('button', { name: '🙈 Hide my role' }).click();
+    await expect(p.page.getByTestId('role-details')).toHaveCount(0);
     await p.page.getByRole('button', { name: /I’ve read my role: Ready/ }).click();
   }
   for (const p of players)
