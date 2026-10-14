@@ -115,6 +115,9 @@ function liveGivers(state: EchoState, turn: Turn): PlayerId[] {
   return playingIds(state).filter((id) => id !== turn.guesser);
 }
 
+/** Clues each giver writes: 2 when only two players give clues, otherwise 1. */
+const cluesEach = (givers: readonly PlayerId[]) => (givers.length === 2 ? 2 : 1);
+
 function beginClues(state: EchoState, pick: number, now: number): EchoState {
   const turn = state.turn!;
   const givers = liveGivers(state, turn);
@@ -122,7 +125,7 @@ function beginClues(state: EchoState, pick: number, now: number): EchoState {
     pick,
     stage: 'clues',
     givers,
-    perGiver: givers.length === 2 ? 2 : 1,
+    perGiver: cluesEach(givers),
     deadline: deadline(state.settings.clueSeconds, now),
   });
 }
@@ -148,7 +151,7 @@ function maybeStartGuessing(state: EchoState, now: number, force = false): EchoS
   // Every giver left but there are still players: whoever is playing now writes the clues.
   if (turn.givers.length === 0) {
     const givers = liveGivers(state, turn);
-    turn = { ...turn, givers, perGiver: givers.length === 2 ? 2 : 1 };
+    turn = { ...turn, givers, perGiver: cluesEach(givers) };
     state = { ...state, turn };
   }
   if (!force && !turn.givers.every((g) => turn.clues[g])) return state;
@@ -531,7 +534,9 @@ function withdraw(state: EchoState, id: PlayerId, now: number): EchoState {
   }
   const clues = { ...turn.clues };
   delete clues[id];
-  return maybeStartGuessing(withTurn(state, { givers, clues }), now);
+  // Before anyone else has sent, the count follows the table: down to two writers, two clues each.
+  const perGiver = givers.some((g) => clues[g]) ? turn.perGiver : cluesEach(givers);
+  return maybeStartGuessing(withTurn(state, { givers, clues, perGiver }), now);
 }
 
 function playerLeft(state: EchoState, playerId: PlayerId, now: number): EchoState {

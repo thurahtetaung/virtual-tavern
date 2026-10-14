@@ -87,9 +87,11 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
 }
 
 function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
-  const [clues, setClues] = useState<string[]>(() =>
+  const [typed, setClues] = useState<string[]>(() =>
     Array.from({ length: turn.perGiver }, (_, i) => turn.myClues?.[i] ?? ''),
   );
+  // A writer leaving can change the count mid-card (down to two writers, two clues each).
+  const clues = Array.from({ length: turn.perGiver }, (_, i) => typed[i] ?? '');
   const [busy, setBusy] = useState(false);
   const word = turn.word ?? '';
   const trimmed = clues.map((c) => c.trim());
@@ -122,7 +124,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             autoCapitalize="off"
             spellCheck={false}
             aria-invalid={problems[i] ? true : undefined}
-            onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
+            onChange={(e) => setClues(clues.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="One word"
             className={cn(INPUT, 'mt-1', problems[i] && 'ring-2 ring-danger dark:ring-rose-500')}
           />

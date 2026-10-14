@@ -86,7 +86,7 @@ const text: GameGuide = {
       bullets: [
         'Players who join during a game wait for the next card, then join the rotation.',
         'If the guesser leaves, the next player becomes the guesser. The card goes back on top of the deck without the word that had been picked.',
-        'If a clue writer leaves while clues are being written, the others carry on without them. If one is offline, the host can press “Go on without them”.',
+        'If a clue writer leaves while clues are being written, the others carry on without them (down to two writers before anyone has sent, each writes two clues). If one is offline, the host can press “Go on without them”.',
         'If fewer than 3 players are left, the game ends.',
       ],
     },

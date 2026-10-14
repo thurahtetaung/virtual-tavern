@@ -388,6 +388,24 @@ describe('players leaving', () => {
     expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few' });
   });
 
+  it('down to two clue writers before anyone sent, each writes two clues', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    leave(h, 'p4');
+    expect(turn(h)).toMatchObject({ stage: 'clues', givers: ['p2', 'p3'], perGiver: 2 });
+    h.act({ type: 'give-clues', clues: ['apple', 'fruit'] }, 'p2');
+    h.act({ type: 'give-clues', clues: ['pear', 'tree'] }, 'p3');
+    expect(turn(h).stage).toBe('guess');
+  });
+
+  it('down to two clue writers after one sent, the count stays as it was', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    h.act({ type: 'give-clues', clues: ['apple'] }, 'p2');
+    leave(h, 'p4');
+    expect(turn(h)).toMatchObject({ givers: ['p2', 'p3'], perGiver: 1 });
+  });
+
   it('the last missing giver leaving starts the guessing', () => {
     const h = startedGame([HOST, 'p2', 'p3', 'p4', 'p5']);
     h.act({ type: 'pick', index: 0 });
