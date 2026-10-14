@@ -109,7 +109,9 @@ function HeaderStrip({
   const deadline = claim ? g.claimDeadline : g.deadline;
   const timed = deadline !== null && view.stage !== 'leader-check' && view.stage !== 'chaos';
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-950 via-stone-900 to-red-950 px-2.5 py-1.5 text-white shadow-md">
+    // A big table's tracks fill a phone's row: then who's next, the clock and the buttons wrap
+    // to a second line together instead of cutting the name off.
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-gradient-to-r from-sky-950 via-stone-900 to-red-950 px-2.5 py-1.5 text-white shadow-md">
       <button
         type="button"
         className="-m-1 flex min-w-0 shrink-0 items-center rounded-lg p-1 hover:bg-white/10"
@@ -120,51 +122,53 @@ function HeaderStrip({
       >
         <MiniTracks g={g} c={c} />
       </button>
-      <span
-        className="min-w-0 flex-1 truncate text-right text-[0.7rem] leading-tight text-white/80"
-        data-testid="next-president"
-      >
-        {view.phase === 'playing' && (
-          <>
-            <span className="hidden sm:inline">Next </span>
-            <span aria-label={c.t('Next {president}')}>🎩</span>{' '}
-            <b className="text-white">{nameOf(view, g.nextPresident)}</b>
-          </>
-        )}
-      </span>
-      {timed && (
-        <span className="[&_[role=timer]]:min-w-0 [&_[role=timer]]:px-1.5 [&_[role=timer]]:py-0 [&_span]:text-xs">
-          <Countdown
-            deadline={deadline}
-            clockOffset={room.clockOffset}
-            {...(claim || !strict
-              ? { soft: true, expiredHint: claim ? 'The host may skip' : 'Time’s up' }
-              : {})}
-          />
+      <div className="ml-auto flex min-w-0 grow items-center justify-end gap-2">
+        <span
+          className="max-w-40 min-w-0 truncate text-right text-[0.7rem] leading-tight whitespace-nowrap text-white/80"
+          data-testid="next-president"
+        >
+          {view.phase === 'playing' && (
+            <>
+              <span className="hidden sm:inline">Next </span>
+              <span aria-label={c.t('Next {president}')}>🎩</span>{' '}
+              <b className="text-white">{nameOf(view, g.nextPresident)}</b>
+            </>
+          )}
         </span>
-      )}
-      <button
-        type="button"
-        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
-        aria-label={sound ? 'Sound on (tap to mute)' : 'Sound off (tap to turn on)'}
-        aria-pressed={sound}
-        onClick={() => {
-          setSound(!sound);
-          if (!sound) playSfx('flip');
-        }}
-      >
-        {sound ? '🔊' : '🔇'}
-      </button>
-      {view.role && (
+        {timed && (
+          <span className="[&_[role=timer]]:min-w-0 [&_[role=timer]]:px-1.5 [&_[role=timer]]:py-0 [&_span]:text-xs">
+            <Countdown
+              deadline={deadline}
+              clockOffset={room.clockOffset}
+              {...(claim || !strict
+                ? { soft: true, expiredHint: claim ? 'The host may skip' : 'Time’s up' }
+                : {})}
+            />
+          </span>
+        )}
         <button
           type="button"
-          onClick={onRole}
           className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
-          aria-label="My role"
+          aria-label={sound ? 'Sound on (tap to mute)' : 'Sound off (tap to turn on)'}
+          aria-pressed={sound}
+          onClick={() => {
+            setSound(!sound);
+            if (!sound) playSfx('flip');
+          }}
         >
-          🎭
+          {sound ? '🔊' : '🔇'}
         </button>
-      )}
+        {view.role && (
+          <button
+            type="button"
+            onClick={onRole}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
+            aria-label="My role"
+          >
+            🎭
+          </button>
+        )}
+      </div>
     </div>
   );
 }
