@@ -340,6 +340,10 @@ test('a team that loses its Spymaster is told why its turns are skipped, and can
     .getByRole('dialog', { name: 'Players' })
     .getByRole('button', { name: 'Leave room' })
     .click();
+  await ben!
+    .getByRole('dialog', { name: 'Leave this room?' })
+    .getByRole('button', { name: 'Leave', exact: true })
+    .click();
 
   // Blue's only operative is told, but can't move up: nobody would be left to guess. Red knows
   // why Blue never plays.

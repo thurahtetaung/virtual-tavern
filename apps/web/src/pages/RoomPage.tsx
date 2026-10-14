@@ -15,6 +15,7 @@ import {
   SuperlativesNote,
   clock,
   cn,
+  useConfirm,
   useRefusals,
   useSecondsLeft,
 } from '@vt/ui';
@@ -224,6 +225,7 @@ function Room({
   const navigate = useNavigate();
   const toast = useToast();
   const refusals = useRefusals();
+  const [confirm, confirmDialog] = useConfirm();
   const {
     snapshot,
     clockOffset,
@@ -353,7 +355,12 @@ function Room({
 
   const tz = () => new Date().getTimezoneOffset();
   const wrapUp = async () => {
-    if (!window.confirm('Wrap up the night? Everyone sees the night recap.')) return;
+    const yes = await confirm({
+      title: 'Wrap up the night?',
+      body: 'Everyone sees the night recap.',
+      confirmLabel: 'Wrap up',
+    });
+    if (!yes) return;
     const res = await call('room:wrap', tz());
     if (!res.ok) toast(res.error.message);
   };
@@ -718,7 +725,12 @@ function Room({
               onRename(n);
             }}
             onLeave={async () => {
-              if (!window.confirm('Leave this room? You can come back with the same link.')) return;
+              const yes = await confirm({
+                title: 'Leave this room?',
+                body: 'You can come back with the same link.',
+                confirmLabel: 'Leave',
+              });
+              if (!yes) return;
               await leave();
               // Done here as well as in the status effect: the navigation unmounts the room in
               // the same render as the 'left' status, so that effect may never run.
@@ -732,6 +744,7 @@ function Room({
           />
         )}
       </Drawer>
+      {confirmDialog}
     </Layout>
   );
 }
@@ -900,6 +913,7 @@ function People({
   onWrap?: () => void;
 }) {
   const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
@@ -915,9 +929,19 @@ function People({
     if (!res.ok) toast(res.error.message);
     return res.ok;
   };
+  const remove = async (player: { id: string; name: string }) => {
+    const yes = await confirm({
+      title: `Remove ${player.name}?`,
+      body: 'They leave the room and are told the host removed them.',
+      confirmLabel: `Remove ${player.name}`,
+      danger: true,
+    });
+    if (yes) await run('room:kick', player.id);
+  };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       {!playtest && <RoomCode roomId={roomId} />}
       <ul className="divide-y divide-stone-200 dark:divide-stone-800">
         {snapshot.players.map((p) => (
@@ -953,10 +977,8 @@ function People({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="min-h-11"
-                  onClick={() =>
-                    window.confirm(`Remove ${p.name} from the room?`) && void run('room:kick', p.id)
-                  }
+                  className="min-h-11 text-danger-ink hover:bg-danger-soft dark:text-rose-300 dark:hover:bg-rose-500/15"
+                  onClick={() => void remove(p)}
                 >
                   Remove
                 </Button>

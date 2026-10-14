@@ -75,8 +75,11 @@ test('the Players drawer shows the room code, and the room announces joins and h
     await hana.screenshot({ path: 'test-results/shots/phone-players.png' });
 
   // The host leaves: Ana is told she is in charge now, and Hana's landing page forgets the room.
-  hana.on('dialog', (d) => void d.accept());
   await drawer.getByRole('button', { name: 'Leave room' }).click();
+  await hana
+    .getByRole('dialog', { name: 'Leave this room?' })
+    .getByRole('button', { name: 'Leave', exact: true })
+    .click();
   await expect(ana.getByRole('status').filter({ hasText: "You're the host now" })).toBeVisible();
   await expect(hana).toHaveURL('/');
   await expect(hana.getByRole('status').filter({ hasText: 'You left the room.' })).toBeVisible();

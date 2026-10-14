@@ -20,6 +20,7 @@ import { readCards, readyUp, votes } from './masquerade-play.ts';
 import * as hy from './hydra-play.ts';
 import { MANIFEST as HOGWARTS, WORDS as HOGWARTS_WORDS } from './hogwarts-manifest.ts';
 import * as rt from './round-table-play.ts';
+import { confirmWrap } from './recap-play.ts';
 import {
   VAMPIRES,
   getReady,
@@ -1188,6 +1189,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await strip.scrollIntoViewIfNeeded();
     await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-strip.png` });
     await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
+    await confirmWrap(host);
     const sheet = host.getByRole('dialog', { name: /at the tavern/ });
     await expect(sheet.getByText('Wrapped up')).toBeVisible();
     await host.screenshot({ path: `test-results/shots/phone-${colorScheme}-recap-sheet.png` });
@@ -1221,6 +1223,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await board.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
     await expect(host.getByRole('region', { name: 'Superlatives' })).toBeVisible();
     await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
+    await confirmWrap(host);
     await expect(sheet.getByText('Wrapped up')).toBeVisible();
     await sheet.getByRole('tab', { name: '🏆 Hall of fame' }).click();
     await expect(sheet.getByText(/Nights together: 2/)).toBeVisible();
