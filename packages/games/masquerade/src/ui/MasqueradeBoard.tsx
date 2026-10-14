@@ -782,6 +782,7 @@ function LocationsBoard({
                   {guessing ? (
                     mark === 'starred' && (
                       <span
+                        role="img"
                         aria-label="Starred"
                         className="pointer-events-none absolute -top-1 -right-1 flex size-11 items-center justify-center"
                       >
