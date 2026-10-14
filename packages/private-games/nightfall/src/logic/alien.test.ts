@@ -612,6 +612,25 @@ describe('the other Alien roles', () => {
     expect(winners(h)).toContain('B');
   });
 
+  it('the Body Snatcher can’t snatch a New Alien tapped at the aliens’ step', () => {
+    const h = table({
+      players: ['body-snatcher', 'alien', V, 'seer', V],
+      settings: { weights: ws(STARE, NO_RIPPLE, only('body-snatcher', 'steal')) },
+    });
+    h.toStep('aliens');
+    h.state.round!.aliens = { players: ['C'], helpers: [] };
+    h.toStep('body-snatcher');
+    h.state.round!.night!.picks![h.state.round!.night!.index] = {
+      kind: 'body-snatcher',
+      action: 'steal',
+      from: { kind: 'any' },
+    };
+    const ids = h.view('A').night!.acting!.prompt!.players!.ids;
+    expect(ids).not.toContain('B');
+    expect(ids).not.toContain('C');
+    expect(ids).toContain('D');
+  });
+
   it('the Body Snatcher may be told to take a centre card, or only to pretend', () => {
     const h = table({
       players: ['body-snatcher', W, V, 'seer'],

@@ -1297,8 +1297,9 @@ const bodySnatcher: RoleAction = {
         center: { slots: centreSlots(c.r), min: 1, max: 1 },
         mandatory: true,
       });
-    // A non-alien's card: not one of the aliens he saw awake.
-    const from = fromSet(c, p, pick.from, (q) => !awakeAliens(c).includes(q));
+    // A non-alien's card: not one of the aliens he saw awake, nor a New Alien tapped then.
+    const known = [...awakeAliens(c), ...(c.r.aliens?.players ?? [])];
+    const from = fromSet(c, p, pick.from, (q) => !known.includes(q));
     return setPrompt(c.r.players[p]!.night, 'snatch', from, 1, 1, true);
   },
   act: (c, p, w, a) => {
