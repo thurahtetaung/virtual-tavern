@@ -123,7 +123,7 @@ export function Tile({
               {onItem ? (
                 <button
                   type="button"
-                  className={cn(cls, 'min-h-6 hover:bg-white/10')}
+                  className={cn(cls, 'min-h-6 hover:bg-white/10 pointer-coarse:min-h-8')}
                   aria-pressed={isPending}
                   data-item={i}
                   data-marked={marked}
