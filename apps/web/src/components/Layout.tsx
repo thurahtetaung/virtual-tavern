@@ -67,7 +67,6 @@ function ThemeSwitch() {
       variant="ghost"
       size="icon"
       aria-label={label}
-      aria-pressed={resolved === 'dark'}
       title={label}
       onClick={() => setTheme(next)}
     >

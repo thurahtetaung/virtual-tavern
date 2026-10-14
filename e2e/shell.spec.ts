@@ -13,14 +13,12 @@ test('the theme switch overrides the system setting and survives a reload', asyn
   const html = page.locator('html');
   await expect(html).toHaveAttribute('data-theme', 'light');
 
+  // The label names the action, so the button is not a pressed/unpressed toggle.
   const toDark = page.getByRole('button', { name: 'Switch to dark theme' });
-  await expect(toDark).toHaveAttribute('aria-pressed', 'false');
+  await expect(toDark).not.toHaveAttribute('aria-pressed');
   await toDark.click();
   await expect(html).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('button', { name: 'Switch to light theme' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(page.getByRole('button', { name: 'Switch to light theme' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('vt.theme'))).toBe('dark');
 
   // The boot script applies the saved choice before React mounts, so it holds across a reload
