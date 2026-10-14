@@ -88,23 +88,15 @@ export function TimerSettings({
         {select('clueSeconds', clueLabel, clueHelp)}
         {guessHelp !== undefined && select('guessSeconds', guessLabel, guessHelp)}
       </div>
-      {!editable ? (
-        timed && (
-          <p className="text-sm">
-            <span className="font-semibold">When time runs out:</span>{' '}
-            {modes.find((m) => m.mode === current)!.help}
-          </p>
-        )
+      {/* What happens at zero only matters once a timer is set, so until then it isn't shown. */}
+      {!timed ? null : !editable ? (
+        <p className="text-sm">
+          <span className="font-semibold">When time runs out:</span>{' '}
+          {modes.find((m) => m.mode === current)!.help}
+        </p>
       ) : (
-        <fieldset disabled={!timed} className={cn(!timed && 'opacity-50')}>
+        <fieldset>
           <legend className="text-sm font-semibold">When time runs out</legend>
-          {!timed && (
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              {guessHelp === undefined
-                ? 'Set a timer to choose.'
-                : 'Set a clue or guess timer to choose.'}
-            </p>
-          )}
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
             {modes.map((m) => (
               <button
@@ -113,7 +105,7 @@ export function TimerSettings({
                 aria-pressed={current === m.mode}
                 onClick={() => onChange({ timerMode: m.mode })}
                 className={cn(
-                  'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-not-allowed',
+                  'rounded-lg px-3 py-2 text-left ring-1 transition',
                   current === m.mode
                     ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
                     : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
