@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
+const NAV_LINK =
+  'inline-flex min-h-11 items-center px-1 hover:text-amber-700 dark:hover:text-amber-400';
+
 /**
  * Page chrome. `wide` is for the room: the game gets the full width, and the header link and the
  * footer tagline make way so the table fits a phone screen.
@@ -20,10 +23,10 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
           <nav className="flex items-center gap-2 text-sm font-medium text-stone-600 sm:gap-4 dark:text-stone-400">
             {!wide && (
               <>
-                <Link to="/rules" className="hover:text-amber-700 dark:hover:text-amber-400">
+                <Link to="/rules" className={NAV_LINK}>
                   How to play
                 </Link>
-                <Link to="/faq" className="hover:text-amber-700 dark:hover:text-amber-400">
+                <Link to="/faq" className={NAV_LINK}>
                   FAQ
                 </Link>
               </>
@@ -47,10 +50,17 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
   );
 }
 
+const THEME_STATE: Record<Theme, { icon: string; text: string }> = {
+  light: { icon: '☀️', text: 'Light' },
+  dark: { icon: '🌙', text: 'Dark' },
+  system: { icon: '🌗', text: 'Auto' },
+};
+
 /**
  * Theme switch. From the device's theme a tap flips to the other one; tapping again goes to the
  * device's own colours as an explicit choice, and once more back to following the device. So a
- * choice can always be undone, and every tap but that last one visibly changes the page.
+ * choice can always be undone, and every tap but that last one visibly changes the page. It shows
+ * the current setting (the word only from `sm` up), and its label says what a tap does.
  */
 function ThemeSwitch() {
   const { theme, resolved, setTheme } = useTheme();
@@ -59,16 +69,18 @@ function ThemeSwitch() {
   // Following the device, or holding the opposite of it: flip. Holding the device's own: follow.
   const next: Theme = theme !== 'system' && theme === device ? 'system' : other;
   const label = next === 'system' ? "Follow your device's theme" : `Switch to ${next} theme`;
+  const state = THEME_STATE[theme];
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={label}
-      aria-pressed={resolved === 'dark'}
+      className="sm:w-auto sm:px-3"
+      aria-label={`Theme: ${state.text}. ${label}`}
       title={label}
       onClick={() => setTheme(next)}
     >
-      <span aria-hidden>{next === 'system' ? '🌗' : next === 'dark' ? '🌙' : '☀️'}</span>
+      <span aria-hidden>{state.icon}</span>
+      <span className="hidden text-sm sm:inline">{state.text}</span>
     </Button>
   );
 }

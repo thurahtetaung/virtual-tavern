@@ -371,6 +371,7 @@ export function OthersTab({
                       <Button
                         key={kind}
                         size="sm"
+                        className="min-h-11"
                         variant={mine?.kind === kind ? 'primary' : 'secondary'}
                         aria-pressed={mine?.kind === kind}
                         disabled={p.intuition === null || (!mine && me.tokens <= 0)}

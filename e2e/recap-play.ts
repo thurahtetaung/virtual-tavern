@@ -30,9 +30,18 @@ export async function expectStrips(players: Page[]) {
 /** The host wraps up; the recap opens on every device. */
 export async function wrapUp(host: Page, players: Page[]) {
   await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
+  await confirmWrap(host);
   for (const p of players) {
     const sheet = p.getByRole('dialog', { name: /at the tavern/ });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText('Wrapped up')).toBeVisible();
   }
+}
+
+/** Answers the host's "Wrap up the night?" question. */
+export async function confirmWrap(host: Page) {
+  await host
+    .getByRole('dialog', { name: 'Wrap up the night?' })
+    .getByRole('button', { name: 'Wrap up', exact: true })
+    .click();
 }

@@ -133,7 +133,7 @@ export function RoleCard({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={() => setOpen(!open)}>
+        <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(!open)}>
           {open ? '🙈 Hide my role' : '👁️ Show my role'}
         </Button>
       </div>

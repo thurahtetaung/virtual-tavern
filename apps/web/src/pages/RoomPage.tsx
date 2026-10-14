@@ -15,6 +15,7 @@ import {
   SuperlativesNote,
   clock,
   cn,
+  useConfirm,
   useRefusals,
   useSecondsLeft,
 } from '@vt/ui';
@@ -26,7 +27,7 @@ import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
-import { type ClientGame, findGame, loadGame, withTitle } from '../games/registry.ts';
+import { type ClientGame, findGame, loadGame, roomGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { awayFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
@@ -85,7 +86,9 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         // Only a playtest honours a seat; anywhere else a stored one is wiped.
         setLookup({ kind: 'found', room, seat: confirmSeat(roomId, room.playtest === true) });
         const found = await loadGame(room.gameId);
-        setGame(found ? withTitle(found, room.title) : 'missing');
+        const named = found && (await roomGame(found, room.title));
+        if (stale) return;
+        setGame(named ?? 'missing');
       })
       .catch((err: unknown) => {
         if (stale) return;
@@ -222,6 +225,7 @@ function Room({
   const navigate = useNavigate();
   const toast = useToast();
   const refusals = useRefusals();
+  const [confirm, confirmDialog] = useConfirm();
   const {
     snapshot,
     clockOffset,
@@ -351,7 +355,12 @@ function Room({
 
   const tz = () => new Date().getTimezoneOffset();
   const wrapUp = async () => {
-    if (!window.confirm('Wrap up the night? Everyone sees the night recap.')) return;
+    const yes = await confirm({
+      title: 'Wrap up the night?',
+      body: 'Everyone sees the night recap.',
+      confirmLabel: 'Wrap up',
+    });
+    if (!yes) return;
     const res = await call('room:wrap', tz());
     if (!res.ok) toast(res.error.message);
   };
@@ -397,7 +406,8 @@ function Room({
     toast(`Someone here is already called ${name}, so you're ${myName} in this room.`, 'info');
   }, [myName, name, toast]);
 
-  // Arrivals and departures, collected briefly so a group joining at once makes one toast.
+  // Arrivals and departures, collected briefly so a group joining at once makes one toast. Only in
+  // the lobby: during a game the Players count shows them, and a toast would cover the board.
   const knownPlayers = useRef<Map<string, string> | null>(null);
   const presence = useRef<{ joined: string[]; left: string[]; timer: number | null }>({
     joined: [],
@@ -410,6 +420,7 @@ function Room({
     const before = knownPlayers.current;
     knownPlayers.current = now;
     if (!before) return; // The first snapshot: everyone already here is not "joining".
+    if (snapshot.meta && snapshot.meta.phase !== 'lobby') return;
     const p = presence.current;
     for (const [id, playerName] of now)
       if (!before.has(id) && id !== snapshot.you) p.joined.push(playerName);
@@ -609,6 +620,7 @@ function Room({
                   players: snapshot.players,
                   clockOffset,
                   wordLists,
+                  gameName: game.name,
                   ...(superlatives && { superlatives }),
                 }}
                 act={act}
@@ -713,7 +725,12 @@ function Room({
               onRename(n);
             }}
             onLeave={async () => {
-              if (!window.confirm('Leave this room? You can come back with the same link.')) return;
+              const yes = await confirm({
+                title: 'Leave this room?',
+                body: 'You can come back with the same link.',
+                confirmLabel: 'Leave',
+              });
+              if (!yes) return;
               await leave();
               // Done here as well as in the status effect: the navigation unmounts the room in
               // the same render as the 'left' status, so that effect may never run.
@@ -727,6 +744,7 @@ function Room({
           />
         )}
       </Drawer>
+      {confirmDialog}
     </Layout>
   );
 }
@@ -895,6 +913,7 @@ function People({
   onWrap?: () => void;
 }) {
   const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
@@ -910,9 +929,19 @@ function People({
     if (!res.ok) toast(res.error.message);
     return res.ok;
   };
+  const remove = async (player: { id: string; name: string }) => {
+    const yes = await confirm({
+      title: `Remove ${player.name}?`,
+      body: 'They leave the room and are told the host removed them.',
+      confirmLabel: `Remove ${player.name}`,
+      danger: true,
+    });
+    if (yes) await run('room:kick', player.id);
+  };
 
   return (
     <div className="space-y-6">
+      {confirmDialog}
       {!playtest && <RoomCode roomId={roomId} />}
       <ul className="divide-y divide-stone-200 dark:divide-stone-800">
         {snapshot.players.map((p) => (
@@ -934,11 +963,12 @@ function People({
               )}
             </span>
             {isHost && p.id !== snapshot.you && (
-              <span className="flex gap-1">
+              <span className="flex gap-2">
                 {!p.bot && (
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="min-h-11"
                     onClick={() => void run('room:make-host', p.id)}
                   >
                     Make host
@@ -947,9 +977,8 @@ function People({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    window.confirm(`Remove ${p.name} from the room?`) && void run('room:kick', p.id)
-                  }
+                  className="min-h-11 text-danger-ink hover:bg-danger-soft dark:text-rose-300 dark:hover:bg-rose-500/15"
+                  onClick={() => void remove(p)}
                 >
                   Remove
                 </Button>

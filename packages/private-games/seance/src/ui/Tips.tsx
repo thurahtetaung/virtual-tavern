@@ -36,7 +36,11 @@ export function Tip({ id, children }: { id: string; children: ReactNode }) {
   return (
     <p className="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-1.5 text-sm text-sky-950 ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
       <span className="flex-1">💡 {children}</span>
-      <button type="button" className="text-xs font-bold" onClick={dismiss}>
+      <button
+        type="button"
+        className="-my-3 inline-flex min-h-11 items-center px-2 text-xs font-bold"
+        onClick={dismiss}
+      >
         Got it
       </button>
     </p>

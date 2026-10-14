@@ -456,7 +456,12 @@ export function TipBox({ children, onClose }: { children: ReactNode; onClose: ()
     >
       <span aria-hidden>💡</span>
       <span className="flex-1">{children}</span>
-      <button type="button" className="font-bold" aria-label="Got it" onClick={onClose}>
+      <button
+        type="button"
+        className="-my-2.5 inline-flex min-h-11 items-center px-2 font-bold"
+        aria-label="Got it"
+        onClick={onClose}
+      >
         Got it
       </button>
     </div>

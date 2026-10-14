@@ -177,7 +177,12 @@ export function RoleReveal({
   return (
     <section aria-label="Your role card" className="space-y-2">
       <div className="flex justify-center">
-        <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="min-h-11"
+          onClick={() => setOpen((o) => !o)}
+        >
           {open ? '🙈 Hide my role' : '👁️ Show my role'}
         </Button>
       </div>

@@ -109,7 +109,7 @@ export function Lobby({
           </div>
           <div className="min-w-0">
             <h2 className={cn('text-2xl font-black tracking-wide sm:text-3xl', DISPLAY)}>
-              {c.names.title}
+              {room.gameName ?? c.names.title}
             </h2>
             <p className="text-sm text-white/80">
               {c.t(

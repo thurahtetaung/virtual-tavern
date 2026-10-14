@@ -822,7 +822,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
                   <span className="flex-1">💡 {tip[1]}</span>
                   <button
                     type="button"
-                    className="text-xs font-semibold underline"
+                    className="-my-2.5 inline-flex min-h-11 items-center px-2 text-xs font-semibold underline"
                     onClick={() => dismissTip(tip[0])}
                   >
                     Got it

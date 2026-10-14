@@ -1,6 +1,23 @@
 import { useEffect, useState } from 'react';
 import { cn } from './cn.ts';
 
+/** Whole seconds from `now` (server time, ms) until `deadline`, never below 0. */
+export const secondsUntil = (deadline: number, now: number) =>
+  Math.max(0, Math.ceil((deadline - now) / 1000));
+
+/**
+ * What a clock shows next: the new reading, but never more than it already showed for the same
+ * deadline. Each snapshot re-measures the clock offset, latency included, so a slower snapshot would
+ * otherwise push a running clock back up (a 2:00 timer briefly read 2:03). A new deadline starts over.
+ */
+export function shownSeconds(
+  shown: { deadline: number; left: number } | null,
+  deadline: number,
+  left: number,
+): number {
+  return shown?.deadline === deadline ? Math.min(shown.left, left) : left;
+}
+
 /** Seconds left until `deadline` (server epoch ms), corrected by the client/server clock offset. */
 export function useSecondsLeft(deadline: number | null, clockOffset: number): number | null {
   const [now, setNow] = useState(() => Date.now());
@@ -17,8 +34,11 @@ export function useSecondsLeft(deadline: number | null, clockOffset: number): nu
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
   }, [deadline]);
+  const [shown, setShown] = useState<{ deadline: number; left: number } | null>(null);
   if (deadline === null) return null;
-  return Math.max(0, Math.ceil((deadline - (now + clockOffset)) / 1000));
+  const left = shownSeconds(shown, deadline, secondsUntil(deadline, now + clockOffset));
+  if (shown?.deadline !== deadline || shown.left !== left) setShown({ deadline, left });
+  return left;
 }
 
 /** "1:05" */
@@ -36,6 +56,7 @@ export function Countdown({
   expiredLabel,
   expiredHint,
   atZero,
+  tone = 'page',
 }: {
   deadline: number | null;
   clockOffset: number;
@@ -52,6 +73,8 @@ export function Countdown({
   expiredHint?: string;
   /** Strict timers: what happens at 0:00, shown under the clock, e.g. "then a word is picked". */
   atZero?: string;
+  /** `dark` for a panel that stays dark in both themes (a night scene), so the caption stays light. */
+  tone?: 'page' | 'dark';
 }) {
   const left = useSecondsLeft(deadline, clockOffset);
   if (left === null) return null;
@@ -84,7 +107,13 @@ export function Countdown({
         {label && !expired && <span className="text-xs font-medium sm:text-sm">{label}</span>}
       </span>
       {caption && (
-        <span className="text-xs text-stone-600 dark:text-stone-400" aria-hidden>
+        <span
+          className={cn(
+            'text-xs',
+            tone === 'dark' ? 'text-stone-300' : 'text-stone-600 dark:text-stone-400',
+          )}
+          aria-hidden
+        >
           {caption}
         </span>
       )}

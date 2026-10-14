@@ -73,7 +73,9 @@ test('the themed edition: five players, a peek, claims with a discard and an exe
     WORDS,
   );
   const host = players[0]!.page;
-  await expect(host.getByRole('heading', { name: 'Lantern' })).toBeVisible();
+  // The room header and the lobby name the edition alike, from its manifest.
+  await expect(host.getByRole('heading', { name: 'Lantern', level: 1 })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Lantern', level: 2 })).toBeVisible();
   await expect(host.getByTestId('composition')).toContainText('3 Glows');
   await expect(host.getByTestId('composition')).toContainText('Sunlit and');
   await host.getByLabel('Claim timer').selectOption('20');

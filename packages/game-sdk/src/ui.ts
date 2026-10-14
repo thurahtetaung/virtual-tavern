@@ -10,6 +10,11 @@ export interface GameRoomInfo {
   clockOffset: number;
   wordLists: WordListSummary[];
   /**
+   * The game's name as the room header shows it (a back-room game's title from the admin or its
+   * manifest). Show this, not a name of your own, wherever the game names itself.
+   */
+  gameName?: string;
+  /**
    * The finished game's superlatives (2–3 lines), already worded and named by the shell. Only
    * set on the end screen while night recaps are on; show them with `Superlatives` from `@vt/ui`.
    */

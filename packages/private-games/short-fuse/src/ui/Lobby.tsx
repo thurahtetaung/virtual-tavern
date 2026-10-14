@@ -157,7 +157,7 @@ export function Lobby({
           </div>
           <div className="min-w-0">
             <h2 className="text-2xl font-black tracking-wide text-ink sm:text-3xl">
-              {c.names.title}
+              {room.gameName ?? c.names.title}
             </h2>
             <p className="text-sm text-ink-muted">
               Play your cards, draw one, and hope it isn’t {an(c.names.bomb)}. Last one standing
