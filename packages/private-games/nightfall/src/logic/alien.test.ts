@@ -1591,7 +1591,9 @@ function playAlienNight(seed: number, rippleKey?: string) {
   return { h, views };
 }
 
-describe('what each player is sent in an Alien night', () => {
+// Replays whole nights: well under a second each, but a busy machine (the whole suite in
+// parallel) pushed single tests past the default 5 s.
+describe('what each player is sent in an Alien night', { timeout: 30_000 }, () => {
   const runs: [number, string | undefined][] = [
     [1, undefined],
     [2, 'repeat-night'],

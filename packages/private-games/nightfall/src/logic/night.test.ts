@@ -428,7 +428,9 @@ function playRandomNight(seed: number) {
   return { h, views };
 }
 
-describe('what each player is sent at night', () => {
+// Replays whole nights: well under a second each, but a busy machine (the whole suite in
+// parallel) pushed single tests past the default 5 s.
+describe('what each player is sent at night', { timeout: 30_000 }, () => {
   it.each([1, 2, 3])('names no card but your own at any step (seed %i)', (seed) => {
     const { h, views } = playRandomNight(seed);
     for (const { views: byViewer } of views) {
