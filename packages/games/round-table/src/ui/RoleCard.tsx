@@ -1,4 +1,4 @@
-import { Button, Modal, cn } from '@vt/ui';
+import { Button, Modal, Peek, cn } from '@vt/ui';
 import { type PointerEvent, useRef, useState } from 'react';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
@@ -242,58 +242,25 @@ export function RoleSheet({
   );
 }
 
-/** Whether what you know is on show at the table: held, or switched on until the next game. */
-export interface KnowledgeReveal {
-  shown: boolean;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  setHeld: (held: boolean) => void;
-}
-
-export function useKnowledgeReveal(resetKey: string): KnowledgeReveal {
-  const [opened, setOpened] = useState<string | null>(null);
-  const [held, setHeld] = useState(false);
-  const open = opened === resetKey;
-  return {
-    shown: open || held,
-    open,
-    setOpen: (on) => setOpened(on ? resetKey : null),
-    setHeld,
-  };
-}
-
 /**
  * Over the seats: the badges for what you know (Evil teammates, Merlin or Morgana, your Lady
- * checks) only show while you hold this or switch it on. It looks the same for every player, so
- * having it says nothing about your role.
+ * checks) only show while you hold this or switch it on, and `onShownChange` tells the table.
+ * It looks the same for every player, so having it says nothing about your role. Key it per game
+ * so a new game starts covered.
  */
-export function KnowledgePeek({ reveal }: { reveal: KnowledgeReveal }) {
-  const down = (e: PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    reveal.setHeld(true);
-  };
-  const up = () => reveal.setHeld(false);
+export function KnowledgePeek({ onShownChange }: { onShownChange: (shown: boolean) => void }) {
+  const bar =
+    'flex min-h-10 items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700';
   return (
-    <div className="flex items-center gap-2" data-testid="knowledge-peek">
-      <div
-        role="presentation"
-        onPointerDown={down}
-        onPointerUp={up}
-        onPointerCancel={up}
-        onContextMenu={(e) => e.preventDefault()}
-        className="flex min-h-10 flex-1 cursor-grab touch-none items-center gap-1.5 rounded-xl bg-white px-3 text-xs text-stone-600 ring-1 ring-stone-200 select-none dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700"
+    <div data-testid="knowledge-peek">
+      <Peek
+        what="what you know"
+        className="flex-row items-stretch"
+        onShownChange={onShownChange}
+        cover={<span className={bar}>🔒 What you know is hidden: hold to peek</span>}
       >
-        {reveal.shown ? '👁️ Showing what you know' : '🔒 What you know is hidden: hold to peek'}
-      </div>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="min-h-10 shrink-0"
-        aria-pressed={reveal.open}
-        onClick={() => reveal.setOpen(!reveal.open)}
-      >
-        {reveal.open ? '🙈 Hide' : '👁️ Show'}
-      </Button>
+        <p className={bar}>👁️ Showing what you know on the seats</p>
+      </Peek>
     </div>
   );
 }

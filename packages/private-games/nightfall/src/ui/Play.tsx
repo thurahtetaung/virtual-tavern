@@ -5,7 +5,7 @@ import {
   Countdown,
   Hint,
   Panel,
-  Peek as SharedPeek,
+  Peek,
   Superlatives,
   cn,
   useSecondsLeft,
@@ -59,7 +59,6 @@ import {
   useRoleDetails,
 } from './Cards.tsx';
 import { standingOf } from './standing.ts';
-import { Peek } from './peek.tsx';
 import {
   type Status,
   nudgeFor,
@@ -487,26 +486,22 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
 }
 
 /**
- * Your starting card, Mark and artifact: covered until you tap, like the card at the deal, so a
- * phone left face up on the table says nothing about you.
+ * Your starting card, Mark and artifact: covered until you hold or Show, like the card at the deal,
+ * so a phone left face up on the table says nothing about you.
  */
 function MySecrets({ children }: { children: ReactNode }) {
-  const [shown, setShown] = useState(false);
-  if (!shown)
-    return (
-      <Button variant="secondary" size="sm" data-testid="my-secrets" onClick={() => setShown(true)}>
-        🂠 Your card: tap to see
-      </Button>
-    );
   return (
-    <div
-      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1"
-      data-testid="my-secrets"
-    >
-      {children}
-      <Button variant="ghost" size="sm" onClick={() => setShown(false)}>
-        Cover
-      </Button>
+    <div data-testid="my-secrets" className="w-full">
+      <Peek
+        what="your card"
+        cover={
+          <span className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold text-stone-100 ring-1 ring-stone-700">
+            <span aria-hidden>🂠</span> Hold to see your card
+          </span>
+        }
+      >
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">{children}</div>
+      </Peek>
     </div>
   );
 }
@@ -1516,9 +1511,9 @@ export function Day({
               `lg` up it sits beside the table behind a peek, so the default screen stays neutral. */}
           {wide ? (
             <Panel>
-              <SharedPeek what="what you learned">
+              <Peek what="what you learned">
                 <Learned view={view} deck={deck} me={me} />
-              </SharedPeek>
+              </Peek>
             </Panel>
           ) : (
             tab === 'learned' && (

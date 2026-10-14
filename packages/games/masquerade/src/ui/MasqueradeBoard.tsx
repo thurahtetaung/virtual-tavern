@@ -4,6 +4,7 @@ import {
   Countdown,
   Hint,
   Panel,
+  Peek,
   ProtectedImage,
   Standings,
   Superlatives,
@@ -22,7 +23,6 @@ import {
 } from '../content/questions.ts';
 import type { MasqueradeAction, MasqueradeView, RoundView, Stage } from '../logic/types.ts';
 import type { LocationDisplay } from './display.ts';
-import { Peek } from './peek.tsx';
 import { Lobby, Players } from './Lobby.tsx';
 import { useMarks } from './notes.ts';
 import {

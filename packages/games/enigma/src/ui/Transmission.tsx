@@ -1,5 +1,5 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Badge, Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Badge, Button, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
@@ -60,25 +60,20 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <div className="text-center">
         <span className="text-sm text-stone-500">Your secret code</span>
-        {shown ? (
+        <Peek
+          what="your code"
+          className="mt-1"
+          onShownChange={setShown}
+          cover={
+            <span className="block rounded-lg bg-stone-100 px-3 py-2 text-center text-sm text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+              🔒 Covered so your teammates can’t read it over your shoulder: hold to see it
+            </span>
+          }
+        >
           <span className="block font-mono text-3xl font-black tracking-widest">
             {formatCode(tx.code)}
           </span>
-        ) : (
-          <span className="block text-sm text-stone-500">
-            Covered so your teammates can’t read it over your shoulder.
-          </span>
-        )}
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="mt-1"
-          aria-pressed={shown}
-          onClick={() => setShown(!shown)}
-        >
-          {shown ? '🙈 Cover code' : '👁️ Show code'}
-        </Button>
+        </Peek>
       </div>
       {tx.code?.map((digit, i) => (
         <label key={i} className="block">

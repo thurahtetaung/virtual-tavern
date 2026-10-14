@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useReducer,
+  useRef,
 } from 'react';
 import { cn } from './cn.ts';
 import { Button } from './components.tsx';
@@ -74,6 +75,7 @@ export function Peek({
   onOpenChange,
   blocked,
   onReveal,
+  onShownChange,
   className,
 }: {
   /** What is hidden, lower case, for the controls: "your role" → "Hold to see your role". */
@@ -91,6 +93,12 @@ export function Peek({
   blocked?: string | false;
   /** Called each time the content is about to show (a sound, a flip). */
   onReveal?: () => void;
+  /**
+   * Told whenever the content starts or stops showing (held or open, and hidden again if the
+   * peek unmounts), for secrets that live outside the peek itself (badges on seats, pointers
+   * beside inputs).
+   */
+  onShownChange?: (shown: boolean) => void;
   className?: string;
 }) {
   const [state, dispatch] = useReducer(peekReducer, {
@@ -114,6 +122,16 @@ export function Peek({
 
   const open = state.open;
   const shown = (open || state.held) && !blocked;
+  const onShown = useRef(onShownChange);
+  useEffect(() => {
+    onShown.current = onShownChange;
+  });
+  // Reported as it changes, and as hidden again when the peek goes away while showing.
+  useEffect(() => {
+    if (!shown) return;
+    onShown.current?.(true);
+    return () => onShown.current?.(false);
+  }, [shown]);
   const setOpen = (next: boolean) => {
     if (next && !blocked) onReveal?.();
     if (controlled === undefined) dispatch({ type: 'toggle' });

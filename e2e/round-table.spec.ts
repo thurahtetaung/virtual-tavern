@@ -237,7 +237,9 @@ test('on a phone, what you know stays off the seats until you peek', async ({ br
     await expect(peek).toContainText('What you know is hidden');
     await expect(badge).toHaveCount(0);
     // Hold to peek, let go to hide.
-    const box = (await peek.locator('[role=presentation]').boundingBox())!;
+    const box = (await peek
+      .getByRole('button', { name: 'Hold to see what you know' })
+      .boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await expect(badge.first()).toBeVisible();

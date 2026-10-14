@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import type { InquestAction, InquestView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
@@ -70,18 +70,21 @@ export function AlliesPanel({
   );
 }
 
-/** The Lab Technician's answer on the shared waiting screen: covered until they tap. */
+/** The Lab Technician's answer on the shared waiting screen: covered until they hold or Show. */
 function LabResult({ children }: { children: ReactNode }) {
-  const [shown, setShown] = useState(false);
   return (
-    <button
-      type="button"
-      onClick={() => setShown(!shown)}
-      className="w-full rounded-lg bg-stone-800 px-2 py-1 text-sm"
-      data-testid="lab-result"
-    >
-      {shown ? children : '🤫 Your check is in: tap to read it'}
-    </button>
+    <div data-testid="lab-result">
+      <Peek
+        what="your check"
+        cover={
+          <span className="block rounded-lg bg-stone-800 px-2 py-1 text-center text-sm">
+            🤫 Your check is in: hold to read it
+          </span>
+        }
+      >
+        <p className="rounded-lg bg-stone-800 px-2 py-1 text-sm">{children}</p>
+      </Peek>
+    </div>
   );
 }
 

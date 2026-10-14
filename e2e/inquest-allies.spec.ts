@@ -82,10 +82,11 @@ test('eight players with every Allies role: the Allies Phase, then the Reversal'
     .first()
     .click();
   await check.getByRole('button', { name: /^Check / }).click();
-  // The answer waits behind a tap on the shared waiting screen.
+  // The answer waits behind a peek on the shared waiting screen.
   const result = lab.page.getByTestId('lab-result');
-  await expect(result).toHaveText('🤫 Your check is in: tap to read it');
-  await result.click();
+  await expect(result).toContainText('🤫 Your check is in: hold to read it');
+  await expect(result).not.toContainText('part of the crime');
+  await result.getByRole('button', { name: '👁️ Show your check' }).click();
   await expect(lab.page.getByText(/🤫 Your check: .* is part of the crime 👍/)).toBeVisible();
 
   // Then the Inside Man takes his own badge, to look innocent; the table hears only who lost one.
