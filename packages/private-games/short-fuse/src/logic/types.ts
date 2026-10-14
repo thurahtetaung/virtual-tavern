@@ -28,7 +28,7 @@ export type CardId = string;
 export type Core = 'classic' | 'party';
 /** The core deck's art and flavour (the rules are the same): `adult` is the 18+ deck. */
 export type Art = 'classic' | 'adult';
-export type Preset = 'classic' | 'adult' | 'party' | 'custom';
+export type Preset = 'classic' | 'adult' | 'party' | 'chaos' | 'zombie' | 'custom';
 
 export interface Card {
   t: CardType;
@@ -45,6 +45,8 @@ export interface Settings {
   x2: boolean;
   /** Expansion 3 (the Twin Bombs, the Vault, Mine!…). */
   x3: boolean;
+  /** Expansion 4 (ghosts: Second Life, Look Twice, Feed the Ghosts…). */
+  x4: boolean;
   /** Remove a third of the pile before the Bombs go in. */
   faster: boolean;
   /** Legacy: five cards with different names take any card from the discard pile. */
@@ -65,6 +67,7 @@ export type Stage =
   | 'alter'
   | 'salvage'
   | 'each'
+  | 'dig'
   | 'target'
   | 'bomb'
   | 'search'
@@ -85,6 +88,8 @@ export interface Pending {
   target: PlayerId | null;
   /** The card asked for with Three of a Kind. */
   named: CardType | null;
+  /** A Copy played as the card under it (`t` is what it copies). */
+  copied?: boolean;
 }
 
 export interface NopeWindow {
@@ -93,6 +98,11 @@ export interface NopeWindow {
   lastAt: number;
   /** Who played each Nope, in order. Odd length: the play is cancelled. */
   chain: { by: PlayerId; card: CardId }[];
+  /**
+   * A Second Life's window: who played Foresight to watch the bombs go back, each with its own
+   * Nope chain (a Nope answers the latest Foresight).
+   */
+  seers?: { by: PlayerId; card: CardId; chain: { by: PlayerId; card: CardId }[] }[];
 }
 
 export interface Turn {
@@ -117,6 +127,8 @@ export interface Drawn {
   by: PlayerId;
   card: CardId;
   twin?: boolean;
+  /** Blindfolded: the Second Life the search turned over, kept for the revival. */
+  found?: CardId;
 }
 
 export type PlaceKind = 'bomb' | 'void' | 'bury';
@@ -131,10 +143,16 @@ export interface Placing {
 /** What happens once a Bomb interruption is dealt with: back to the turn, or one turn ends. */
 export type Resume = 'turn' | 'endturn';
 
-/** Everyone with cards picks one (Recycle, Potluck), in secret. */
+/**
+ * Everyone with cards picks one, in secret: into the pile (Recycle, Potluck, the ghosts' Restless
+ * Spirits) or for a ghost (Feed the Ghosts, `to`).
+ */
+export type EachKind = 'recycle' | 'potluck' | 'feed' | 'robber';
 export interface Each {
-  kind: 'recycle' | 'potluck';
+  kind: EachKind;
   by: PlayerId;
+  /** Feed the Ghosts: the ghost the cards go to. */
+  to?: PlayerId;
   /** Who chooses, in turn order from the player of the card. */
   order: PlayerId[];
   chosen: Record<PlayerId, CardId>;
@@ -151,6 +169,22 @@ export interface Alter {
   cards: CardId[];
   /** Share: who sees them next. */
   share?: PlayerId | null;
+}
+
+/** A Second Life under way: the bomb it answered and who it brings back. */
+export interface Revival {
+  by: PlayerId;
+  /** The bomb the reviver hides again (null when it answered a Twin Bomb, which hides nothing). */
+  bomb: CardId | null;
+  /** The Twin Bomb it answered, discarded once the revival goes ahead. */
+  twin: CardId | null;
+  ghost: PlayerId | null;
+}
+
+/** Look Twice: the top card the player looked at, to keep or put back. */
+export interface Dig {
+  by: PlayerId;
+  card: CardId;
 }
 
 /** A blind player's card that needs a target, turned over and waiting for one. */
@@ -185,7 +219,7 @@ export type Memory =
       kind: 'got' | 'gave';
       card: Card;
       other: PlayerId;
-      how: 'favor' | 'pair' | 'triple' | 'mine' | 'stash';
+      how: 'favor' | 'pair' | 'triple' | 'mine' | 'stash' | 'feed';
       turn: number;
       at: number;
     }
@@ -198,8 +232,20 @@ export type Memory =
       turn: number;
       at: number;
     }
+  | {
+      id: number;
+      /** Foresight: where someone hid a bomb after a Second Life. */
+      kind: 'watched';
+      t: CardType;
+      position: number;
+      of: number;
+      other: PlayerId;
+      version: number;
+      turn: number;
+      at: number;
+    }
   | { id: number; kind: 'held'; card: Card; turn: number; at: number }
-  | { id: number; kind: 'pooled'; card: Card; how: 'recycle' | 'potluck'; turn: number; at: number }
+  | { id: number; kind: 'pooled'; card: Card; how: EachKind; turn: number; at: number }
   | { id: number; kind: 'lost'; card: Card; turn: number; at: number };
 export type MemoryKind = Memory['kind'];
 
@@ -249,7 +295,11 @@ export interface LogEntry {
     | 'received-bomb'
     | 'unprotected'
     | 'self-attack'
-    | 'superskip';
+    | 'superskip'
+    | 'revive'
+    | 'seer'
+    | 'dig'
+    | 'fed';
   by?: PlayerId;
   target?: PlayerId;
   /** Cards shown (types), in play order. */
@@ -263,6 +313,10 @@ export interface LogEntry {
   from?: 'top' | 'bottom' | 'stash';
   /** What a timeout or act-for did. */
   did?: string;
+  /** An explosion that made a ghost (Expansion 4), not an exit. */
+  ghost?: boolean;
+  /** A play made with a Copy: the card it copied. */
+  as?: CardType;
 }
 
 /** The end screen's account of where every hidden card went. */
@@ -285,6 +339,7 @@ export interface Game {
   x1: boolean;
   x2: boolean;
   x3: boolean;
+  x4: boolean;
   fiveCombo: boolean;
   nonStacking: boolean;
   cards: Record<CardId, Card>;
@@ -303,8 +358,10 @@ export interface Game {
   voidUp: boolean;
   /** Bombs the table knows are still out there (public bookkeeping). */
   bombsOut: number;
-  /** In elimination order. */
+  /** In elimination order (ghosts too, until they're brought back). */
   dead: { id: PlayerId; turn: number }[];
+  /** Expansion 4: the dead who stay at the table as ghosts (they keep their hand). */
+  ghosts: PlayerId[];
   left: PlayerId[];
   turn: Turn;
   pending: Pending | null;
@@ -316,6 +373,14 @@ export interface Game {
   each: Each | null;
   blindPlay: BlindPlay | null;
   beat: Beat | null;
+  revival: Revival | null;
+  dig: Dig | null;
+  /** Bombs still to hide after a Second Life (in order), each in transit until its turn. */
+  toPlace: Placing[];
+  /** Who watches the hiding (Foresight). */
+  watchers: PlayerId[];
+  /** The last play (for Copy: a cat counts only if you played it this turn). */
+  lastPlay: { by: PlayerId; turn: number; cards: CardId[] } | null;
   /** Where play goes once a Bomb interruption is dealt with. */
   resume: Resume;
   /** The one Bomb each player holds safely with a Bomb Shelter. */
@@ -351,6 +416,8 @@ export interface GameStats {
   maxOwedBy: PlayerId | null;
   longestChain: number;
   draws: number;
+  /** Second Lives that brought someone back. */
+  revives?: number;
 }
 
 /** A test-only setup (see `rig` in `game.ts`): exact hands and the top of the pile. */
@@ -380,12 +447,13 @@ const cardType = z.enum(CARD_TYPES);
 export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('update-settings'),
-    preset: z.enum(['classic', 'adult', 'party']).optional(),
+    preset: z.enum(['classic', 'adult', 'party', 'chaos', 'zombie']).optional(),
     core: z.enum(['classic', 'party']).optional(),
     art: z.enum(['classic', 'adult']).optional(),
     x1: z.boolean().optional(),
     x2: z.boolean().optional(),
     x3: z.boolean().optional(),
+    x4: z.boolean().optional(),
     faster: z.boolean().optional(),
     fiveCombo: z.boolean().optional(),
     nonStacking: z.boolean().optional(),
@@ -434,6 +502,21 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('order'), order: z.array(z.number().int().min(0).max(9)).max(10) }),
   z.object({ type: z.literal('salvage'), card: cardId }),
   z.object({ type: z.literal('defuse') }),
+  /**
+   * A Second Life answers the bomb (or a Copy of the Second Life on top of the discard pile):
+   * bring back this ghost (a must while anyone is a ghost).
+   */
+  z.object({
+    type: z.literal('revive'),
+    ghost: id.optional(),
+    copy: z.boolean().optional(),
+  }),
+  /** With only a Second Life to save you, you may choose to explode anyway. */
+  z.object({ type: z.literal('die') }),
+  /** Look Twice: keep the card you looked at, or put it back and draw the next. */
+  z.object({ type: z.literal('dig'), keep: z.boolean() }),
+  /** Foresight, in a Second Life's window: watch where the bombs go back. */
+  z.object({ type: z.literal('seer'), window: z.number().int() }),
   /** 0 is the top of the pile. */
   z.object({ type: z.literal('place'), position: z.number().int().min(0).max(500) }),
   z.object({ type: z.literal('nudge'), player: id }),
@@ -474,6 +557,8 @@ export interface PlayerView {
   mine: PlayerId | null;
   /** Cards in their Vault's Stash, when they wear the Vault. */
   stash: number | null;
+  /** Expansion 4: out of turns but still at the table, hand and all (`dead` is true too). */
+  ghost: boolean;
 }
 
 /** The draw pile as everyone sees it: a stack with no faces showing, except a face-up Black Hole. */
@@ -502,6 +587,8 @@ export interface WindowView {
   chain: PlayerId[];
   /** Whether the play is cancelled as things stand (an odd number of Nopes). */
   cancelled: boolean;
+  /** A Second Life's window: who played Foresight, and whether a Nope stops it as things stand. */
+  seers: { by: PlayerId; chain: PlayerId[]; cancelled: boolean }[];
 }
 
 export interface PendingView {
@@ -511,6 +598,7 @@ export interface PendingView {
   cards: CardView[];
   target: PlayerId | null;
   named: CardType | null;
+  copied: boolean;
 }
 
 /** What the viewer is asked to do right now, with what they need to do it. */
@@ -519,9 +607,24 @@ export type Prompt =
   | { kind: 'give'; to: PlayerId; blind: boolean }
   | { kind: 'alter'; cards: CardView[]; share: PlayerId | null }
   | { kind: 'salvage'; options: CardView[] }
-  | { kind: 'each'; what: 'recycle' | 'potluck'; blind: boolean; done: boolean }
+  | {
+      kind: 'each';
+      what: EachKind;
+      blind: boolean;
+      done: boolean;
+      /** Feed the Ghosts: who the card goes to. */
+      to: PlayerId | null;
+    }
+  | { kind: 'dig'; card: CardView }
   | { kind: 'target'; card: CardView; options: PlayerId[] }
-  | { kind: 'bomb'; card: CardView; canDefuse: boolean; twin: boolean }
+  | {
+      kind: 'bomb';
+      card: CardView;
+      canDefuse: boolean;
+      twin: boolean;
+      /** Expansion 4: a Second Life (or a Copy of one) can answer it, bringing back one of `ghosts`. */
+      revive: { card: boolean; copy: boolean; ghosts: PlayerId[] } | null;
+    }
   | { kind: 'search'; card: CardView; slots: number; twin: boolean }
   | { kind: 'place'; card: CardView; count: number; void: boolean; bury: boolean };
 
@@ -540,6 +643,7 @@ export interface GameView {
   x1: boolean;
   x2: boolean;
   x3: boolean;
+  x4: boolean;
   fiveCombo: boolean;
   nonStacking: boolean;
   /** Card types in this game (for the Three of a Kind picker and the glossary). */
@@ -558,17 +662,21 @@ export interface GameView {
   pending: PendingView | null;
   window: WindowView | null;
   canNope: boolean;
+  /** You may play Foresight in this Second Life's window. */
+  canSeer: boolean;
+  /** What a Copy would copy right now (the top of the discard pile), if anything. */
+  copyAs: CardType | null;
   prompt: Prompt | null;
   /** Who the table waits on. */
   waiting: PlayerId[];
   /** Who is choosing what, for everyone's status line. */
   busy: {
     who: PlayerId;
-    what: 'give' | 'alter' | 'salvage' | 'bomb' | 'place' | 'target' | 'search' | 'each';
+    what: 'give' | 'alter' | 'salvage' | 'bomb' | 'place' | 'target' | 'search' | 'each' | 'dig';
   } | null;
   drawnKind: 'bomb' | 'void' | 'twin' | 'bury' | null;
-  /** Recycle or Potluck under way: who still has to choose. */
-  each: { what: 'recycle' | 'potluck'; by: PlayerId; waiting: PlayerId[] } | null;
+  /** Recycle, Potluck, Feed the Ghosts or Restless Spirits under way: who still has to choose. */
+  each: { what: EachKind; by: PlayerId; to: PlayerId | null; waiting: PlayerId[] } | null;
   decisionAt: number;
   /** Soft clock unless strict. */
   decisionEnds: number | null;
@@ -588,6 +696,8 @@ export interface Readout {
   hand: number;
   turnsEach: number;
   void: boolean;
+  /** Second Life cards dealt (one each, up to five). */
+  revives: number;
 }
 
 export interface ShortFuseView {

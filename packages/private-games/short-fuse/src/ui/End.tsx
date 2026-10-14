@@ -43,7 +43,7 @@ export function End({
             {order.map((p, i) => (
               <span key={p.id}>
                 {i > 0 && ' · '}
-                {p.left ? '🚪' : '💥'} {p.name}
+                {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
                 {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
               </span>
             ))}

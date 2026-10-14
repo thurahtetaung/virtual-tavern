@@ -10,7 +10,7 @@ import {
   useSpectatorPrompt,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CARDS, type CardType, NAMEABLE } from '../logic/cards.ts';
+import { CARDS, type CardType, NAMEABLE, isCat } from '../logic/cards.ts';
 import { comboOf } from '../logic/game.ts';
 import {
   type CardView,
@@ -33,6 +33,7 @@ import {
   BlindPickSheet,
   BlindSlots,
   BombStrip,
+  DigSheet,
   Inspector,
   PeekSheet,
   PickSheet,
@@ -44,14 +45,14 @@ import {
 } from './Sheets.tsx';
 import { useSoundSetting, useTips } from './storage.ts';
 import { ShortFuseStyles } from './styles.tsx';
-import { amIn, logLine, statusFor, who } from './text.ts';
+import { amGhost, amIn, an, logLine, statusFor, who } from './text.ts';
 import { NopePanel } from './Window.tsx';
 
 type Props = GameUiProps<ShortFuseView, ShortFuseAction>;
 type Act = Props['act'];
 type Tab = 'table' | 'log' | 'me';
 /** Who a targeted play may pick: anyone with cards to take, anyone at all, or a special rule. */
-type Need = 'steal' | 'any' | 'mark' | 'mine';
+type Need = 'steal' | 'any' | 'mark' | 'mine' | 'ghost';
 
 /** What the selected cards would do if played now, or why they can't be. */
 function selectionPlan(
@@ -60,11 +61,24 @@ function selectionPlan(
   cards: CardView[],
 ): { label: string; needsTarget: Need | null; named: boolean } | { why: string } | null {
   if (!cards.length) return null;
-  const combo = comboOf(
-    cards.map((c) => c.t),
-    g.fiveCombo,
-  );
+  let types = cards.map((c) => c.t);
+  // A Copy becomes the top card of the discard pile (alone, or to pair with that cat).
+  if (types.includes('copy')) {
+    const as = g.copyAs;
+    if (!as)
+      return {
+        why: 'A Copy becomes the top card of the discard pile, and that one can’t be copied now (not another Copy, a Second Life, or a cat someone else played).',
+      };
+    const cat = isCat(as) || as === 'wild';
+    if (types.length > 2) return { why: 'A Copy pairs with one cat at most.' };
+    if (types.length === 1 && cat)
+      return { why: 'A Copy of a cat does nothing alone: pick the matching cat too.' };
+    if (types.length === 2 && !cat) return { why: 'A Copy only makes a pair with a cat.' };
+    types = types.map((t) => (t === 'copy' ? as : t));
+  }
+  const combo = comboOf(types, g.fiveCombo);
   if ('error' in combo) return { why: combo.error };
+  const ghosts = g.players.some((p) => p.ghost);
   if (combo.kind === 'card') {
     const t = combo.t!;
     const info = CARDS[t];
@@ -75,12 +89,19 @@ function selectionPlan(
             ? '{c:nope} is played during the countdown after someone else’s play.'
             : t === 'defuse'
               ? '{c:defuse} is used for you when you draw a {c:bomb}.'
-              : t === 'shelter'
-                ? 'It works from your hand: just keep it.'
-                : t === 'bomb' || t === 'void'
-                  ? 'You can’t play that one.'
-                  : 'A cat does nothing alone: pick two with the same name.',
+              : t === 'revive'
+                ? '{c:revive} is used for you when you draw a {c:bomb}: keep it.'
+                : t === 'seer'
+                  ? '{c:seer} is played in the countdown after someone’s {c:revive}.'
+                  : t === 'shelter'
+                    ? 'It works from your hand: just keep it.'
+                    : t === 'bomb' || t === 'void'
+                      ? 'You can’t play that one.'
+                      : 'A cat does nothing alone: pick two with the same name.',
       };
+    if (info.ghosts && !ghosts)
+      return { why: 'Nobody is a ghost yet: this card needs one at the table.' };
+    if (t === 'feed') return { label: 'on…', needsTarget: 'ghost', named: false };
     if (t === 'twin')
       return cards.length === 2
         ? { label: 'twins', needsTarget: 'any', named: false }
@@ -104,6 +125,8 @@ function selectionPlan(
 
 /** Who a targeted play may pick. */
 function targetsFor(g: GameView, me: string, need: Need): string[] {
+  // Feed the Ghosts goes to a ghost, the player's own ghost included.
+  if (need === 'ghost') return g.players.filter((p) => p.ghost).map((p) => p.id);
   return g.players
     .filter(
       (p) =>
@@ -258,7 +281,17 @@ function tipFor(
   fresh: (id: string) => boolean,
 ): [string, string] | null {
   const g = view.game;
-  if (!g || view.phase !== 'playing' || !amIn(view)) return null;
+  if (!g || view.phase !== 'playing') return null;
+  if (amGhost(view))
+    return fresh('ghost')
+      ? [
+          'ghost',
+          c.t(
+            'You’re a ghost: no turns, but you keep your hand. Play {c:nope} and NOW cards (⚡) any time, and wait for someone’s {c:revive} to bring you back.',
+          ),
+        ]
+      : null;
+  if (!amIn(view)) return null;
   const mine = g.prompt?.kind === 'turn';
   const tips: [string, boolean, string][] = [
     [
@@ -299,6 +332,13 @@ function tipFor(
       'now',
       g.canNow && !mine,
       c.t('{c:alter3now} can be played even when it isn’t your turn: look for the ⚡ button.'),
+    ],
+    [
+      'revive',
+      mine && !!g.hand?.some((x) => x.t === 'revive'),
+      c.t(
+        'Your {c:revive} saves you from {c:bomb} like {c:defuse}; if anyone is a ghost, it brings one back too.',
+      ),
     ],
     [
       'vault',
@@ -381,6 +421,9 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const lastPeek = g?.memory.findLast((m) => m.kind === 'peek' || m.kind === 'shared') ?? null;
   const gameNo = view.gamesPlayed + (view.phase === 'over' ? 0 : 1);
   const [seenPeek, setSeenPeek] = useState(() => ({ game: gameNo, id: lastPeek?.id ?? 0 }));
+  // Foresight: once the hiding is done, what you watched opens once (kept per game the same way).
+  const lastWatch = g?.memory.findLast((m) => m.kind === 'watched') ?? null;
+  const [seenWatch, setSeenWatch] = useState(() => ({ game: gameNo, id: lastWatch?.id ?? 0 }));
   // A shuffle animates the pile (and hides the face-up Black Hole) for a moment.
   const pileVersion = g?.pile.version ?? 0;
   const lastKind = g?.log.at(-1)?.kind;
@@ -484,6 +527,8 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     if (plan.label === 'triple') return 'Ask with three of a kind…';
     if (plan.label === 'five') return 'Play five different';
     if (plan.label === 'twins') return `Play both ${c.name('twin')} cards…`;
+    if (one.t === 'copy' && g.copyAs)
+      return `Play ${c.name('copy')} as ${c.name(g.copyAs)}${plan.needsTarget ? '…' : ''}`;
     return `Play ${c.name(one.t)}${plan.needsTarget ? '…' : ''}`;
   })();
   const tip = tipFor(view, c, fresh);
@@ -497,6 +542,14 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       ? lastPeek
       : null;
   const blast = g.beat?.kind === 'explode' ? g.beat : null;
+  const watched =
+    lastWatch &&
+    view.stage !== 'place' &&
+    (seenWatch.game !== gameNo || lastWatch.id > seenWatch.id)
+      ? g.memory.filter(
+          (m) => m.kind === 'watched' && (seenWatch.game !== gameNo || m.id > seenWatch.id),
+        )
+      : [];
 
   const table = (
     <div className="space-y-2">
@@ -542,17 +595,33 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
 
   const blindMe = g.blindCount !== null;
   const slotPicked = blindSlot?.key === selKey ? blindSlot.slot : null;
+  const nowTargets = needs === 'ghost' ? targetsFor(g, me, 'ghost') : null;
   const nowDock = nowOnly && selCards.length > 0 && (
     <div className="space-y-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line" data-testid="now-dock">
-      <Button
-        size="lg"
-        className="w-full"
-        disabled={!plan || 'why' in plan}
-        onClick={() => play()}
-        data-testid="play-now"
-      >
-        ⚡ Play {c.name(selCards[0]!.t)} now
-      </Button>
+      {nowTargets ? (
+        <div className="space-y-1.5">
+          <p className="text-sm font-semibold text-ink">
+            ⚡ {c.name(selCards[0]!.t)}: pick the ghost to feed
+          </p>
+          <div className="flex flex-wrap gap-1.5" data-testid="targets">
+            {nowTargets.map((id) => (
+              <Button key={id} variant="soft" onClick={() => play(id)}>
+                👻 {id === me ? 'yourself' : who(view, id)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={!plan || 'why' in plan}
+          onClick={() => play()}
+          data-testid="play-now"
+        >
+          ⚡ Play {c.name(selCards[0]!.t)} now
+        </Button>
+      )}
       {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       <RefusalSlot anchor="play" />
     </div>
@@ -626,6 +695,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
                 disabled={!!(plan && 'named' in plan && plan.named && !picking?.named)}
                 onClick={() => play(id, picking?.named)}
               >
+                {needs === 'ghost' ? '👻 ' : ''}
                 {who(view, id)}{' '}
                 <span className="text-xs opacity-75">
                   🂠 {g.players.find((x) => x.id === id)?.hand}
@@ -715,6 +785,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           {g.x1 && ` + ${c.names.sets.x1}`}
           {g.x2 && ` + ${c.names.sets.x2}`}
           {g.x3 && ` + ${c.names.sets.x3}`}
+          {g.x4 && ` + ${c.names.sets.x4}`}
         </span>
         {g.art === 'adult' && <AdultBadge />}
         <button
@@ -760,10 +831,12 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
               )}
               {p?.kind === 'bomb' && (
                 <BombStrip
+                  key={`${g.turn.n}:${p.card.id}`}
                   prompt={p}
                   c={c}
                   art={g.art}
                   act={act}
+                  name={(id) => who(view, id, false)}
                   drew={g.log.at(-1)?.kind === 'drew-bomb' && g.log.at(-1)?.by === me}
                 />
               )}
@@ -828,7 +901,17 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           anchor="salvage"
         />
       )}
-      {peekOpen && !p?.kind?.match(/place|alter|give|salvage|each|target|search/) && (
+      {p?.kind === 'dig' && (
+        <DigSheet
+          key={`${g.turn.n}:${p.card.id}`}
+          prompt={p}
+          c={c}
+          art={g.art}
+          act={act}
+          onDone={() => lastPeek && setSeenPeek({ game: gameNo, id: lastPeek.id })}
+        />
+      )}
+      {peekOpen && !p?.kind?.match(/place|alter|give|salvage|each|target|search|dig/) && (
         <PeekSheet
           memory={peekOpen}
           c={c}
@@ -836,6 +919,43 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           onClose={() => setSeenPeek({ game: gameNo, id: peekOpen.id })}
           {...(peekOpen.kind === 'shared' ? { from: who(view, peekOpen.other, false) } : {})}
         />
+      )}
+      {watched.length > 0 && !p?.kind?.match(/place|alter|give|salvage|each|target|search|dig/) && (
+        <Modal
+          open
+          onClose={() => setSeenWatch({ game: gameNo, id: lastWatch!.id })}
+          title={c.t('{c:seer}: what you watched')}
+          footer={
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => setSeenWatch({ game: gameNo, id: lastWatch!.id })}
+              data-testid="watch-close"
+            >
+              Got it
+            </Button>
+          }
+        >
+          <ul className="space-y-1.5 text-sm text-ink" data-testid="watch-sheet">
+            {watched.map((m) =>
+              m.kind === 'watched' ? (
+                <li key={m.id} className="rounded-lg bg-card px-3 py-2 ring-1 ring-line">
+                  {who(view, m.other, false)} put {c.name(m.t)}{' '}
+                  {m.position === 0
+                    ? 'on top'
+                    : m.position === m.of - 1
+                      ? 'at the bottom'
+                      : `${m.position + 1} of ${m.of} from the top`}
+                  .
+                </li>
+              ) : null,
+            )}
+          </ul>
+          <p className="mt-2 text-xs text-ink-muted">
+            Only the players who played {c.name('seer')} saw this. It stays under Me until the pile
+            changes.
+          </p>
+        </Modal>
       )}
       {p?.kind === 'give' && p.blind && (
         <BlindPickSheet
@@ -850,42 +970,54 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       )}
       {p?.kind === 'each' &&
         !p.done &&
-        (p.blind ? (
-          <BlindPickSheet
-            title={
-              p.what === 'potluck'
-                ? c.t('{c:potluck}: put a card on top')
-                : c.t('{c:recycle}: put a card in')
-            }
-            intro="You’re blindfolded: pick a face-down card. You’ll see what it was afterwards."
-            count={g.blindCount ?? 0}
-            c={c}
-            confirmLabel="Put this card in"
-            onPick={(slot) => void act({ type: 'choose', slot }, { anchor: 'choose' })}
-            anchor="choose"
-          />
-        ) : (
-          <PickSheet
-            key={`${g.turn.n}:${p.what}`}
-            title={
-              p.what === 'potluck'
-                ? c.t('{c:potluck}: put a card on top')
-                : c.t('{c:recycle}: put a card in')
-            }
-            intro={
-              p.what === 'potluck'
-                ? 'Everyone with cards puts one face down on top of the pile, in turn order (the last one ends up on top). Nobody else sees yours.'
-                : 'Everyone with cards puts one into the pile, then it’s shuffled. Nobody else sees yours.'
-            }
-            cards={hand}
-            c={c}
-            art={g.art}
-            confirmLabel={(x) => `Put in ${c.name(x.t)}`}
-            warn={(x) => (precious(x) ? `Sure? ${c.name(x.t)} is a precious card.` : null)}
-            onPick={(x) => void act({ type: 'choose', card: x.id }, { anchor: 'choose' })}
-            anchor="choose"
-          />
-        ))}
+        (() => {
+          const titles = {
+            potluck: c.t('{c:potluck}: put a card on top'),
+            recycle: c.t('{c:recycle}: put a card in'),
+            robber: c.t('{c:robber}: put a card in'),
+            feed: c.t(`{c:feed}: give ${who(view, p.to, false)} a card`),
+          };
+          const intros = {
+            potluck:
+              'Everyone with cards puts one face down on top of the pile, in turn order (the last one ends up on top). Nobody else sees yours.',
+            recycle:
+              'Everyone with cards puts one into the pile, then it’s shuffled. Nobody else sees yours.',
+            robber:
+              'Every ghost with cards puts one into the pile, then it’s shuffled. Nobody else sees yours.',
+            feed: `Every living player but the one who played it gives ${who(view, p.to, false)} a card of their choice. Never ${an(c.names.bomb)}: those stay with you.`,
+          };
+          const title = titles[p.what];
+          return p.blind ? (
+            <BlindPickSheet
+              title={title}
+              intro={
+                p.what === 'feed'
+                  ? `You’re blindfolded: pick a face-down card (if it’s ${an(c.names.bomb)}, another card goes instead). You’ll see what it was afterwards.`
+                  : 'You’re blindfolded: pick a face-down card. You’ll see what it was afterwards.'
+              }
+              count={g.blindCount ?? 0}
+              c={c}
+              confirmLabel={p.what === 'feed' ? 'Give this card' : 'Put this card in'}
+              onPick={(slot) => void act({ type: 'choose', slot }, { anchor: 'choose' })}
+              anchor="choose"
+            />
+          ) : (
+            <PickSheet
+              key={`${g.turn.n}:${p.what}`}
+              title={title}
+              intro={intros[p.what]}
+              cards={p.what === 'feed' ? hand.filter((x) => !CARDS[x.t].bombLike) : hand}
+              c={c}
+              art={g.art}
+              confirmLabel={(x) =>
+                p.what === 'feed' ? `Give ${c.name(x.t)}` : `Put in ${c.name(x.t)}`
+              }
+              warn={(x) => (precious(x) ? `Sure? ${c.name(x.t)} is a precious card.` : null)}
+              onPick={(x) => void act({ type: 'choose', card: x.id }, { anchor: 'choose' })}
+              anchor="choose"
+            />
+          );
+        })()}
       {p?.kind === 'target' && (
         <TargetSheet prompt={p} c={c} art={g.art} name={(id) => who(view, id, false)} act={act} />
       )}
@@ -926,7 +1058,9 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
         >
           <span className="sf-flash absolute inset-0 bg-danger" />
           <span className="sf-pop relative rounded-2xl bg-card px-6 py-4 text-center text-2xl font-black text-danger-ink shadow-2xl ring-2 ring-danger-line">
-            💥 {blast.who === me ? 'You exploded!' : `${who(view, blast.who, false)} exploded!`}
+            {g.players.find((x) => x.id === blast.who)?.ghost
+              ? `👻 ${blast.who === me ? 'You’re a ghost now!' : `${who(view, blast.who, false)} is a ghost now!`}`
+              : `💥 ${blast.who === me ? 'You exploded!' : `${who(view, blast.who, false)} exploded!`}`}
           </span>
         </div>
       )}

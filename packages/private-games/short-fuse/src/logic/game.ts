@@ -86,6 +86,13 @@ export const isOut = (g: Pick<Game, 'dead' | 'left'>, p: PlayerId) =>
 export const alive = (g: Pick<Game, 'players' | 'dead' | 'left'>) =>
   g.players.filter((p) => !isOut(g, p));
 
+/** Expansion 4's ghosts: dead, but still at the table with their hand. */
+export const isGhost = (g: Pick<Game, 'ghosts'>, p: PlayerId) => (g.ghosts ?? []).includes(p);
+
+/** Still at the table: alive, or a ghost (who may play Nope and NOW cards). */
+export const atTable = (g: Pick<Game, 'players' | 'dead' | 'left' | 'ghosts'>, p: PlayerId) =>
+  g.players.includes(p) && !g.left.includes(p) && (!isOut(g, p) || isGhost(g, p));
+
 /** The next player still in, from `from` in the direction of play (or `from` if nobody else is). */
 export function nextAlive(g: Pick<Game, 'players' | 'dead' | 'left'>, from: PlayerId, dir: 1 | -1) {
   const n = g.players.length;
@@ -93,6 +100,21 @@ export function nextAlive(g: Pick<Game, 'players' | 'dead' | 'left'>, from: Play
   for (let k = 1; k <= n; k++) {
     const p = g.players[(((i + dir * k) % n) + n) % n]!;
     if (!isOut(g, p)) return p;
+  }
+  return from;
+}
+
+/** A Second Life's window (not a pair of Second Life cards played as a combo). */
+export const isRevival = (p: Pick<Pending, 'kind' | 't'> | null | undefined) =>
+  p?.kind === 'card' && p.t === 'revive';
+
+/** The next seat at the table (alive or a ghost), from `from` in the direction of play. */
+function nextSeat(g: Game, from: PlayerId, dir: 1 | -1) {
+  const n = g.players.length;
+  const i = g.players.indexOf(from);
+  for (let k = 1; k <= n; k++) {
+    const p = g.players[(((i + dir * k) % n) + n) % n]!;
+    if (atTable(g, p)) return p;
   }
   return from;
 }
@@ -151,6 +173,8 @@ export function awaited(state: S): PlayerId[] {
       return g.each ? g.each.order.filter((p) => !(p in g.each!.chosen)) : [];
     case 'target':
       return g.blindPlay ? [g.blindPlay.by] : [];
+    case 'dig':
+      return g.dig ? [g.dig.by] : [];
     case 'bomb':
     case 'search':
       return g.drawn ? [g.drawn.by] : [];
@@ -175,7 +199,31 @@ export function targetsFor(g: Game, by: PlayerId, t: CardType): PlayerId[] {
   if (t === 'favor') return targetable(g, by);
   if (t === 'mark') return others.filter((p) => (g.hands[p]?.length ?? 0) > 0);
   if (t === 'mine') return others.filter((p) => !g.mine[p]);
+  // Feed the Ghosts goes to a ghost (a ghost may feed themself).
+  if (t === 'feed') return g.ghosts.filter((p) => atTable(g, p));
   return others;
+}
+
+/**
+ * What a Copy played by `by` right now becomes: the card on top of the discard pile. Not another
+ * Copy, not a card that can't be played on its own, and a cat only if `by` played it this turn
+ * (so it can make a pair). A Second Life is copied only to answer a bomb.
+ */
+export function copyTarget(g: Game, by: PlayerId): { t: CardType } | { error: string } {
+  const top = g.discard.at(-1);
+  if (!top) return { error: 'A Copy becomes the top card of the discard pile, and it’s empty.' };
+  const t = g.cards[top]!.t;
+  if (t === 'copy') return { error: 'A Copy can’t copy another Copy.' };
+  if (isCat(t) || t === 'wild') {
+    const lp = g.lastPlay;
+    if (lp?.by === by && lp.turn === g.turn.n && lp.cards.includes(top)) return { t };
+    return { error: 'A Copy only pairs with a cat you played yourself this turn.' };
+  }
+  if (t === 'revive')
+    return { error: 'A Copy of a Second Life only saves you when you draw a bomb.' };
+  if (!CARDS[t].playable || t === 'twin' || t === 'vault')
+    return { error: 'The top of the discard pile can’t be copied as a play.' };
+  return { t };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -184,6 +232,7 @@ export const DEFAULT_SETTINGS: Settings = {
   x1: false,
   x2: false,
   x3: false,
+  x4: false,
   faster: false,
   fiveCombo: false,
   nonStacking: false,
@@ -192,19 +241,26 @@ export const DEFAULT_SETTINGS: Settings = {
   strict: false,
 };
 
-export function presetOf(s: Pick<Settings, 'core' | 'art'>): Preset {
+export function presetOf(
+  s: Pick<Settings, 'core' | 'art'> & Partial<Pick<Settings, 'x1' | 'x2' | 'x3' | 'x4'>>,
+): Preset {
+  if (s.core === 'classic' && s.x1 && s.x2 && s.x3 && s.x4) return 'chaos';
+  if (s.core === 'classic' && s.x4 && !s.x1 && !s.x2 && !s.x3) return 'zombie';
   if (s.core === 'party') return s.art === 'classic' ? 'party' : 'custom';
   return s.art === 'adult' ? 'adult' : 'classic';
 }
 
 /** Card types in a game with these settings (for the Three of a Kind picker and the glossary). */
-export function typesIn(s: Pick<Settings, 'core' | 'x1' | 'x2' | 'x3'>): CardType[] {
+export function typesIn(
+  s: Pick<Settings, 'core' | 'x1' | 'x2' | 'x3'> & { x4?: boolean },
+): CardType[] {
   return (Object.keys(CARDS) as CardType[]).filter((t) => {
     const set = CARDS[t].set;
-    if (t === 'superskip') return s.x2 || s.x3;
+    if (t === 'superskip') return s.x2 || s.x3 || !!s.x4;
     if (set === 'x1') return s.x1 || (s.core === 'party' && t !== 'void' && t !== 'reverse');
     if (set === 'x2') return s.x2;
     if (set === 'x3') return s.x3;
+    if (set === 'x4') return !!s.x4;
     return true;
   });
 }
@@ -224,10 +280,17 @@ function draftOf(state: S): S {
   return copy;
 }
 
-/** Games saved before the second and third expansions lack their fields. */
+/** Games saved before the later expansions lack their fields. */
 function normalize(g: Game) {
   g.x2 ??= false;
   g.x3 ??= false;
+  g.x4 ??= false;
+  g.ghosts ??= [];
+  g.revival ??= null;
+  g.dig ??= null;
+  g.toPlace ??= [];
+  g.watchers ??= [];
+  g.lastPlay ??= null;
   g.each ??= null;
   g.blindPlay ??= null;
   g.resume ??= 'turn';
@@ -366,10 +429,14 @@ function finish(state: S, now: number) {
   g.placing = null;
   g.drawn = null;
   g.beat = null;
+  g.revival = null;
+  g.dig = null;
+  g.watchers = [];
   if (g.limbo) {
     g.pile.unshift(g.limbo);
     g.limbo = null;
   }
+  for (const pl of g.toPlace.splice(0)) g.pile.unshift(pl.card);
   if (g.winner) log(g, now, { kind: 'win', by: g.winner });
   state.phase = 'over';
   state.stage = null;
@@ -394,17 +461,38 @@ function clearPlayer(g: Game, who: PlayerId) {
   g.blind[who] = false;
 }
 
-/** `who` explodes: the Bomb goes face up in front of them, their hand out of the game. */
+/**
+ * `who` explodes: the Bomb goes face up in front of them, their hand out of the game. With the
+ * fourth expansion they stay as a ghost instead: they keep their hand (and any Vault), take no
+ * more turns, and anything else face up in front of them is discarded. A Twin Bomb's death keeps
+ * both twins in front of them, to go back in if they're brought back.
+ */
 function explode(state: S, who: PlayerId, bomb: CardId, now: number) {
   const g = state.game!;
   if (g.limbo === bomb) g.limbo = null;
-  (g.front[who] ??= []).push(bomb);
-  if (typeOf(g, bomb) === 'bomb') g.bombsOut = Math.max(0, g.bombsOut - 1);
-  clearPlayer(g, who);
+  const t = typeOf(g, bomb);
+  if (g.x4) {
+    g.discard.push(...(g.front[who] ?? []));
+    g.front[who] = [bomb];
+    if (t === 'twin') {
+      const i = g.discard.findLastIndex((c) => c !== bomb && typeOf(g, c) === 'twin');
+      if (i >= 0) g.front[who].push(...g.discard.splice(i, 1));
+    }
+    const mine = g.mine[who];
+    if (mine) {
+      g.discard.push(mine.card);
+      g.mine[who] = null;
+    }
+    g.ghosts.push(who);
+  } else {
+    (g.front[who] ??= []).push(bomb);
+    clearPlayer(g, who);
+  }
+  if (t === 'bomb') g.bombsOut = Math.max(0, g.bombsOut - 1);
   g.dead.push({ id: who, turn: g.turn.n });
   g.drawn = null;
   g.placing = null;
-  log(g, now, { kind: 'explode', by: who, cards: [typeOf(g, bomb)] });
+  log(g, now, { kind: 'explode', by: who, cards: [t], ...(g.x4 ? { ghost: true } : {}) });
   if (alive(g).length <= 1) return finish(state, now);
   // Any turns they still owed vanish; the next player takes a normal turn after the moment.
   if (g.turn.player === who) {
@@ -427,8 +515,30 @@ function confront(state: S, who: PlayerId, id: CardId, now: number, twin = false
     if (!g.hands[who]!.length) return explode(state, who, id, now);
     return setStage(state, 'search', now);
   }
-  if (has(g, who, 'defuse')) return setStage(state, 'bomb', now);
+  if (has(g, who, 'defuse') || reviveOptions(g, who)) return setStage(state, 'bomb', now);
   return explode(state, who, id, now);
+}
+
+/**
+ * The Second Life that could answer the bomb `who` faces: one in hand (blindfolded, only the one
+ * their search turned over), or a Copy of the Second Life on top of the discard pile (on their
+ * own turn, eyes open). Never against a face-up Black Hole.
+ */
+function reviveOptions(
+  g: Game,
+  who: PlayerId,
+): { card: CardId | null; copy: CardId | null } | null {
+  const d = g.drawn;
+  if (!d || d.by !== who || (typeOf(g, d.card) === 'void' && g.voidUp)) return null;
+  const hand = g.hands[who]!;
+  const blind = !!g.blind[who];
+  const card = blind ? (d.found ?? null) : (hand.find((c) => typeOf(g, c) === 'revive') ?? null);
+  const top = g.discard.at(-1);
+  const copy =
+    !blind && g.turn.player === who && top && typeOf(g, top) === 'revive'
+      ? (hand.find((c) => typeOf(g, c) === 'copy') ?? null)
+      : null;
+  return card || copy ? { card, copy } : null;
 }
 
 /** A Bomb in someone's hand they aren't allowed to keep goes off, shown to everyone. */
@@ -455,8 +565,11 @@ function cure(g: Game, who: PlayerId, now: number) {
   log(g, now, { kind: 'cured', by: who });
 }
 
-/** Draws for the current player (top, bottom, or to bury) and deals with what comes up. */
-function drawCard(state: S, from: 'top' | 'bottom' | 'bury', now: number) {
+/**
+ * Draws for the current player (top, bottom, to bury, or the second card for Look Twice) and
+ * deals with what comes up.
+ */
+function drawCard(state: S, from: 'top' | 'bottom' | 'bury' | 'second', now: number) {
   const g = state.game!;
   const who = g.turn.player;
   g.resume = 'endturn';
@@ -464,8 +577,9 @@ function drawCard(state: S, from: 'top' | 'bottom' | 'bury', now: number) {
     log(g, now, { kind: 'empty', by: who });
     return settle(state, now);
   }
-  const id = from === 'bottom' ? g.pile.pop()! : g.pile.shift()!;
-  if (from !== 'bottom' && g.knownTop > 0) g.knownTop -= 1;
+  const second = from === 'second' && g.pile.length > 1;
+  const id = from === 'bottom' ? g.pile.pop()! : second ? g.pile.splice(1, 1)[0]! : g.pile.shift()!;
+  if (from !== 'bottom' && g.knownTop > (second ? 1 : 0)) g.knownTop -= 1;
   g.stats.draws += 1;
   const truth = g.truth.find((t) => t.card === id && !t.drawnBy);
   if (truth) truth.drawnBy = who;
@@ -598,15 +712,24 @@ function updateSettings(
   if (state.phase === 'playing')
     return err('in-progress', 'Settings can only change between games.');
   const s: Settings = { ...DEFAULT_SETTINGS, ...state.settings };
-  if (action.preset === 'classic') Object.assign(s, { core: 'classic', art: 'classic' });
-  if (action.preset === 'adult') Object.assign(s, { core: 'classic', art: 'adult' });
-  if (action.preset === 'party') Object.assign(s, { core: 'party', art: 'classic' });
+  const none = { x1: false, x2: false, x3: false, x4: false };
+  // Leaving the Chaos or Zombie deck for a plain one takes their expansions with it.
+  const was = presetOf(s);
+  const plain = was === 'chaos' || was === 'zombie' ? none : {};
+  if (action.preset === 'classic') Object.assign(s, { core: 'classic', art: 'classic' }, plain);
+  if (action.preset === 'adult') Object.assign(s, { core: 'classic', art: 'adult' }, plain);
+  if (action.preset === 'party') Object.assign(s, { core: 'party', art: 'classic' }, plain);
+  // Chaos and Zombie keep the deck's art (classic or adult).
+  if (action.preset === 'chaos')
+    Object.assign(s, { core: 'classic', x1: true, x2: true, x3: true, x4: true });
+  if (action.preset === 'zombie') Object.assign(s, { core: 'classic' }, none, { x4: true });
   for (const k of [
     'core',
     'art',
     'x1',
     'x2',
     'x3',
+    'x4',
     'faster',
     'fiveCombo',
     'nonStacking',
@@ -650,6 +773,7 @@ function newGame(state: S, ctx: CreateCtx): S {
     x1: s.x1,
     x2: s.x2,
     x3: s.x3,
+    x4: s.x4,
     fiveCombo: s.fiveCombo,
     nonStacking: s.nonStacking,
     cards: dealt.cards,
@@ -662,6 +786,7 @@ function newGame(state: S, ctx: CreateCtx): S {
     voidUp: false,
     bombsOut: dealt.bombs,
     dead: [],
+    ghosts: [],
     left: [],
     turn: { player: players[0]!, owed: 1, chained: false, dir: 1, n: 0, plays: 0 },
     pending: null,
@@ -673,6 +798,11 @@ function newGame(state: S, ctx: CreateCtx): S {
     each: null,
     blindPlay: null,
     beat: null,
+    revival: null,
+    dig: null,
+    toPlace: [],
+    watchers: [],
+    lastPlay: null,
     resume: 'turn',
     held: empty(null),
     marked: empty(null),
@@ -690,7 +820,7 @@ function newGame(state: S, ctx: CreateCtx): S {
     nudges: {},
     winner: null,
     seed: newSeed(ctx.rng),
-    stats: { maxOwed: 1, maxOwedBy: null, longestChain: 0, draws: 0 },
+    stats: { maxOwed: 1, maxOwedBy: null, longestChain: 0, draws: 0, revives: 0 },
   };
   let first = ctx.rng.int(n);
   if (state.rig) {
@@ -727,8 +857,8 @@ function applyRig(g: Game, rig: S['rig'] & object, rng: Rng) {
         const j = pool.findIndex((id) => want(g.cards[id]!.t));
         if (j >= 0) mine.push(pool.splice(j, 1)[0]!);
       };
-      pick((t) => t === 'defuse');
-      for (let k = 0; k < 7; k++) pick((t) => !isBombCard(t) && t !== 'shelter');
+      pick((t) => t === 'defuse' || t === 'revive');
+      for (let k = 0; k < 7; k++) pick((t) => !isBombCard(t) && t !== 'shelter' && t !== 'revive');
       hands[i] = mine;
     }
     g.hands[p] = hands[i]!;
@@ -759,8 +889,16 @@ function requireGame(state: S): GameError | null {
   return state.phase === 'playing' && state.game ? null : err('not-playing', 'No game in play.');
 }
 
-function inGame(g: Game, by: PlayerId): GameError | null {
+/** Whether `by` may act in the game; ghosts only where `ghostOk` (Nope, NOW cards, Foresight). */
+function inGame(g: Game, by: PlayerId, ghostOk = false): GameError | null {
   if (!g.players.includes(by)) return err('not-seated', 'You’re watching this game.');
+  if (isGhost(g, by) && !g.left.includes(by)) {
+    if (ghostOk) return null;
+    return err(
+      'ghost',
+      'You’re a ghost: no turns, but you can still play Nope and NOW cards (⚡) from your hand.',
+    );
+  }
   if (isOut(g, by)) return err('out', 'You’re out of this game: you can only watch.');
   return null;
 }
@@ -782,12 +920,23 @@ function commit(
   target: PlayerId | null,
   named: CardType | null,
   now: number,
+  copied = false,
 ) {
   const g = state.game!;
   for (const id of ids) leaveHand(g, by, id);
   g.discard.push(...ids);
+  g.lastPlay = { by, turn: g.turn.n, cards: ids };
   g.seq += 1;
-  const pending: Pending = { id: g.seq, by, kind, t, cards: ids, target, named };
+  const pending: Pending = {
+    id: g.seq,
+    by,
+    kind,
+    t,
+    cards: ids,
+    target,
+    named,
+    ...(copied ? { copied } : {}),
+  };
   g.pending = pending;
   g.window = {
     id: pending.id,
@@ -803,6 +952,7 @@ function commit(
     play: kind,
     ...(target ? { target } : {}),
     ...(named ? { named } : {}),
+    ...(copied && t ? { as: t } : {}),
   });
   state.stage = 'window';
 }
@@ -815,21 +965,36 @@ function playAction(
   const e = requireGame(state);
   if (e) return e;
   const g = state.game!;
-  const e2 = inGame(g, ctx.by) ?? waitWindow(state);
-  if (e2) return e2;
-  const hand = g.hands[ctx.by]!;
+  const e1 = waitWindow(state);
+  if (e1) return e1;
+  const hand = g.hands[ctx.by] ?? [];
   const ids = action.cards;
   if (new Set(ids).size !== ids.length || !ids.every((id) => hand.includes(id)))
     return err('not-in-hand', 'You don’t have those cards.');
-  const types = ids.map((id) => typeOf(g, id));
+  let types = ids.map((id) => typeOf(g, id));
   const mine = g.turn.player === ctx.by;
-  // NOW cards: anyone may play one between actions, even off their turn.
+  // NOW cards: anyone may play one between actions, even off their turn (ghosts too).
   const now = ids.length === 1 && CARDS[types[0]!].now === true;
+  const e2 = inGame(g, ctx.by, now);
+  if (e2) return e2;
   if (!mine && !now) return err('not-your-turn', `It’s ${nameOf(g, g.turn.player)}’s turn.`);
   if (state.stage !== 'turn')
     return err('busy', mine ? 'Finish what you’re doing first.' : 'Wait: something is under way.');
   if (g.blind[ctx.by])
     return err('blind', 'You’re blindfolded: tap a face-down card to play it blind.');
+  // A Copy becomes the top card of the discard pile: on its own, or as one of a pair of cats.
+  const copied = types.includes('copy');
+  if (copied) {
+    if (types.length > 2 || types.filter((t) => t === 'copy').length > 1)
+      return err('copy-combo', 'A Copy pairs with one cat at most.');
+    const as = copyTarget(g, ctx.by);
+    if ('error' in as) return err('copy', as.error);
+    if (types.length === 1 && (isCat(as.t) || as.t === 'wild'))
+      return err('cat-alone', 'A cat does nothing on its own: pair the Copy with the same cat.');
+    if (types.length === 2 && !(isCat(as.t) || as.t === 'wild'))
+      return err('copy-combo', 'A Copy only makes a pair with a cat.');
+    types = types.map((t) => (t === 'copy' ? as.t : t));
+  }
   const combo = comboOf(types, g.fiveCombo);
   if ('error' in combo) return err('no-combo', combo.error);
   const t = combo.t;
@@ -842,6 +1007,10 @@ function playAction(
       if (t === 'nope')
         return err('nothing-to-nope', '{c:nope} answers someone’s play: wait for one.');
       if (t === 'defuse') return err('no-bomb', '{c:defuse} is only for when you draw a {c:bomb}.');
+      if (t === 'revive')
+        return err('no-bomb', '{c:revive} is only for when you draw a {c:bomb}: keep it.');
+      if (t === 'seer')
+        return err('no-revive', 'Play {c:seer} in the countdown after someone’s {c:revive}.');
       if (t === 'bomb') return err('bomb', 'You can’t play a {c:bomb} you’re holding.');
       if (t === 'shelter')
         return err('shelter', 'The {c:shelter} works from your hand: just keep it.');
@@ -849,7 +1018,14 @@ function playAction(
     }
     if (t === 'bury' && g.mine[ctx.by])
       return err('mine', 'You can’t bury a card while a {c:mine} is in front of you.');
-    if (info.targeted) {
+    if (info.ghosts && !g.ghosts.length)
+      return err('no-ghosts', 'Nobody is a ghost yet: this card needs one at the table.');
+    if (t === 'feed') {
+      if (!action.target) return err('need-target', 'Choose the ghost to feed.');
+      target = action.target;
+      if (!targetsFor(g, ctx.by, t).includes(target))
+        return err('not-ghost', `${nameOf(g, target)} isn’t a ghost.`);
+    } else if (info.targeted) {
       if (!action.target) return err('need-target', 'Choose who to play it on.');
       target = action.target;
       if (target === ctx.by) return err('self', 'Choose another player.');
@@ -873,7 +1049,7 @@ function playAction(
       named = action.named;
     }
   }
-  commit(state, ctx.by, ids, combo.kind, t, target, named, ctx.now);
+  commit(state, ctx.by, ids, combo.kind, t, target, named, ctx.now, copied);
   return state;
 }
 
@@ -962,6 +1138,14 @@ function playBlind(state: S, by: PlayerId, id: CardId, now: number) {
     settle(state, now, 'turn');
   };
   if (!info.playable || (t === 'bury' && g.mine[by])) return lost();
+  if (info.ghosts && !g.ghosts.length) return lost();
+  if (t === 'copy') {
+    // A blind Copy becomes the top card when that can be played without a target.
+    const as = copyTarget(g, by);
+    if ('error' in as || isCat(as.t) || as.t === 'wild' || CARDS[as.t].targeted) return lost();
+    if (CARDS[as.t].ghosts && !g.ghosts.length) return lost();
+    return commit(state, by, [id], 'card', as.t, null, null, now, true);
+  }
   if (info.targeted) {
     if (!targetsFor(g, by, t).length) return lost();
     leaveHand(g, by, id);
@@ -1000,7 +1184,7 @@ function nopeAction(state: S, windowId: number, ctx: Ctx): Result {
   const e = requireGame(state);
   if (e) return e;
   const g = state.game!;
-  const e2 = inGame(g, ctx.by);
+  const e2 = inGame(g, ctx.by, true);
   if (e2) return e2;
   if (g.blind[ctx.by]) return err('blind', 'You’re blindfolded: you can’t pick out a {c:nope}.');
   const nope = g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'nope');
@@ -1008,24 +1192,63 @@ function nopeAction(state: S, windowId: number, ctx: Ctx): Result {
   const w = g.window;
   if (state.stage !== 'window' || !w || w.id !== windowId || ctx.now >= w.endsAt)
     return err('too-late', 'Too late: that already happened. Your {c:nope} is still in your hand.');
-  if (w.chain.length > 0 && ctx.now - w.lastAt < NOPE_COOLDOWN_MS)
+  // A Second Life can't be Noped; in its window a Nope answers the latest Foresight.
+  const seer = isRevival(g.pending) ? w.seers?.at(-1) : undefined;
+  if (isRevival(g.pending) && !seer)
+    return err('not-nopeable', '{c:revive} can’t be Noped. Your {c:nope} is still in your hand.');
+  const chain = seer ? seer.chain : w.chain;
+  if (linked(w) && ctx.now - w.lastAt < NOPE_COOLDOWN_MS)
     return err(
       'too-soon',
       'Someone played {c:nope} a split second before you; your {c:nope} is still in your hand.',
     );
-  const last = w.chain.at(-1)?.by ?? g.pending!.by;
+  const last = chain.at(-1)?.by ?? (seer ? seer.by : g.pending!.by);
   if (last === ctx.by)
     return err(
       'own',
-      w.chain.length ? 'That’s your own {c:nope}.' : 'You can’t play {c:nope} on your own play.',
+      chain.length ? 'That’s your own {c:nope}.' : 'You can’t play {c:nope} on your own play.',
     );
   leaveHand(g, ctx.by, nope);
   g.discard.push(nope);
-  w.chain.push({ by: ctx.by, card: nope });
+  chain.push({ by: ctx.by, card: nope });
   w.lastAt = ctx.now;
   w.endsAt = ctx.now + state.settings.nopeSeconds * 1000;
-  g.stats.longestChain = Math.max(g.stats.longestChain, w.chain.length);
-  log(g, ctx.now, { kind: 'nope', by: ctx.by, n: w.chain.length });
+  g.stats.longestChain = Math.max(g.stats.longestChain, chain.length);
+  log(g, ctx.now, { kind: 'nope', by: ctx.by, n: chain.length });
+  return state;
+}
+
+/** Whether anything has been played into the window yet (the anti-double-tap applies then). */
+const linked = (w: NonNullable<Game['window']>) => w.chain.length > 0 || (w.seers?.length ?? 0) > 0;
+
+/**
+ * Foresight, in a Second Life's window: watch where the bombs go back. It can be Noped (each
+ * Foresight has its own chain), and it restarts the countdown like a Nope does.
+ */
+function seerAction(state: S, windowId: number, ctx: Ctx): Result {
+  const e = requireGame(state);
+  if (e) return e;
+  const g = state.game!;
+  const e2 = inGame(g, ctx.by, true);
+  if (e2) return e2;
+  if (g.blind[ctx.by]) return err('blind', 'You’re blindfolded: you can’t pick out a card.');
+  const card = g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'seer');
+  if (!card) return err('no-seer', 'You don’t have Foresight.');
+  const w = g.window;
+  if (state.stage !== 'window' || !w || w.id !== windowId || ctx.now >= w.endsAt)
+    return err('too-late', 'Too late: that already happened. Your card is still in your hand.');
+  if (!isRevival(g.pending))
+    return err('no-revive', 'Foresight is played when someone uses a Second Life.');
+  if (g.pending!.by === ctx.by) return err('own', 'You’re the one hiding them: you’ll know.');
+  if (w.seers?.some((x) => x.by === ctx.by)) return err('twice', 'You’re already watching.');
+  if (linked(w) && ctx.now - w.lastAt < NOPE_COOLDOWN_MS)
+    return err('too-soon', 'Someone played a split second before you; your card is still yours.');
+  leaveHand(g, ctx.by, card);
+  g.discard.push(card);
+  (w.seers ??= []).push({ by: ctx.by, card, chain: [] });
+  w.lastAt = ctx.now;
+  w.endsAt = ctx.now + state.settings.nopeSeconds * 1000;
+  log(g, ctx.now, { kind: 'seer', by: ctx.by });
   return state;
 }
 
@@ -1036,6 +1259,7 @@ function resolveWindow(state: S, now: number) {
   const w = g.window!;
   g.pending = null;
   g.window = null;
+  if (isRevival(p)) return revive(state, w, now);
   if (w.chain.length % 2 === 1) {
     log(g, now, {
       kind: 'cancelled',
@@ -1047,14 +1271,16 @@ function resolveWindow(state: S, now: number) {
     return settle(state, now, 'turn');
   }
   if (w.chain.length > 0) log(g, now, { kind: 'resolved', by: p.by, n: w.chain.length });
-  if (isOut(g, p.by)) return settle(state, now, 'turn');
+  // A ghost's play (a NOW card) still counts; one by a player who left doesn't.
+  if (!atTable(g, p.by)) return settle(state, now, 'turn');
   resolvePlay(state, p, now);
 }
 
-function attack(state: S, by: PlayerId, victim: PlayerId, now: number) {
+/** An attack sends `k` turns on (2, or 3 a ghost for Ghost Attack), stacking with any owed. */
+function attack(state: S, by: PlayerId, victim: PlayerId, now: number, k = 2) {
   const g = state.game!;
   const t = g.turn;
-  const owed = g.nonStacking ? 2 : (t.chained ? t.owed : 0) + 2;
+  const owed = g.nonStacking ? k : (t.chained ? t.owed : 0) + k;
   log(g, now, { kind: 'attacked', by, target: victim, n: owed });
   startTurn(state, victim, owed, true, now);
 }
@@ -1090,6 +1316,18 @@ function steal(
   return { id, stash: false };
 }
 
+/** Every seat in turn order from `by` (who comes first), in or out. */
+function seatsFrom(g: Game, by: PlayerId): PlayerId[] {
+  const i = Math.max(0, g.players.indexOf(by));
+  const dir = g.turn.dir;
+  const n = g.players.length;
+  return Array.from({ length: n }, (_, k) => g.players[(((i + dir * k) % n) + n) % n]!);
+}
+
+/** The cards a player may give a ghost: anything but a bomb. */
+const feedable = (g: Game, p: PlayerId) =>
+  (g.hands[p] ?? []).filter((c) => !isBombCard(typeOf(g, c)));
+
 /** Every player still in with cards, in turn order from `by`. */
 function inTurnOrder(g: Game, by: PlayerId): PlayerId[] {
   const out: PlayerId[] = [];
@@ -1110,6 +1348,9 @@ function resolvePlay(state: S, p: Pending, now: number) {
         return attack(state, p.by, nextAlive(g, p.by, g.turn.dir), now);
       case 'aim':
         return attack(state, p.by, targetIn ? p.target! : nextAlive(g, p.by, g.turn.dir), now);
+      case 'ghostattack':
+        if (!g.ghosts.length) return settle(state, now, 'turn');
+        return attack(state, p.by, nextAlive(g, p.by, g.turn.dir), now, 3 * g.ghosts.length);
       case 'self3':
         g.turn.owed = (g.turn.chained ? g.turn.owed : 1) + 2;
         g.turn.chained = true;
@@ -1140,6 +1381,7 @@ function resolvePlay(state: S, p: Pending, now: number) {
         g.favor = { from: p.target!, to: p.by };
         return setStage(state, 'favor', now);
       case 'shuffle':
+      case 'shufflenow':
         g.pile = rand.shuffle(g.pile);
         pileChanged(g);
         log(g, now, { kind: 'shuffle', by: p.by });
@@ -1165,12 +1407,44 @@ function resolvePlay(state: S, p: Pending, now: number) {
         g.alter = {
           by: p.by,
           cards: g.pile.slice(0, k),
-          share: p.t === 'share3' ? nextAlive(g, p.by, g.turn.dir) : null,
+          // Shown to the next seat even if it's a ghost's.
+          share: p.t === 'share3' ? nextSeat(g, p.by, g.turn.dir) : null,
         };
         return setStage(state, 'alter', now);
       }
       case 'bottom':
         return drawCard(state, 'bottom', now);
+      case 'dig':
+        // Look Twice: with one card left it's just a draw.
+        if (g.pile.length <= 1) return drawCard(state, 'top', now);
+        g.dig = { by: p.by, card: g.pile[0]! };
+        remember(g, p.by, {
+          kind: 'peek',
+          cards: [card(g, g.pile[0]!)],
+          version: g.pileVersion,
+          turn: g.turn.n,
+          at: now,
+        });
+        log(g, now, { kind: 'dig', by: p.by });
+        return setStage(state, 'dig', now);
+      case 'feed': {
+        // Every living player but the feeder gives the ghost a card (never a bomb).
+        const to = p.target;
+        if (!to || !isGhost(g, to) || g.left.includes(to)) return settle(state, now, 'turn');
+        const order = inTurnOrder(g, p.by).filter((q) => q !== p.by && feedable(g, q).length > 0);
+        if (!order.length) return settle(state, now, 'turn');
+        g.each = { kind: 'feed', by: p.by, to, order, chosen: {} };
+        return setStage(state, 'each', now);
+      }
+      case 'robber': {
+        // Every ghost with cards puts one into the pile; then it's shuffled.
+        const order = seatsFrom(g, p.by).filter(
+          (q) => isGhost(g, q) && atTable(g, q) && g.hands[q]!.length > 0,
+        );
+        if (!order.length) return settle(state, now, 'turn');
+        g.each = { kind: 'robber', by: p.by, order, chosen: {} };
+        return setStage(state, 'each', now);
+      }
       case 'bury':
         if (g.mine[p.by]) return settle(state, now, 'turn');
         return drawCard(state, 'bury', now);
@@ -1332,7 +1606,14 @@ function choose(state: S, who: PlayerId, id: CardId, now: number) {
   const g = state.game!;
   const each = g.each!;
   each.chosen[who] = id;
-  remember(g, who, { kind: 'pooled', card: card(g, id), how: each.kind, turn: g.turn.n, at: now });
+  if (each.kind !== 'feed')
+    remember(g, who, {
+      kind: 'pooled',
+      card: card(g, id),
+      how: each.kind,
+      turn: g.turn.n,
+      at: now,
+    });
   if (each.order.every((p) => p in each.chosen)) finishEach(state, now);
 }
 
@@ -1342,8 +1623,28 @@ function finishEach(state: S, now: number) {
   const each = g.each!;
   g.each = null;
   const cards = each.order.flatMap((p) => (each.chosen[p] ? [[p, each.chosen[p]] as const] : []));
+  if (each.kind === 'feed') {
+    const to = each.to!;
+    const there = atTable(g, to);
+    if (there)
+      for (const [p, id] of cards) {
+        moveCard(g, p, to, id);
+        const how = 'feed' as const;
+        remember(g, p, {
+          kind: 'gave',
+          card: card(g, id),
+          other: to,
+          how,
+          turn: g.turn.n,
+          at: now,
+        });
+        remember(g, to, { kind: 'got', card: card(g, id), other: p, how, turn: g.turn.n, at: now });
+      }
+    log(g, now, { kind: 'fed', by: each.by, target: to, n: there ? cards.length : 0 });
+    return settle(state, now, 'turn');
+  }
   for (const [p, id] of cards) leaveHand(g, p, id);
-  if (each.kind === 'recycle') {
+  if (each.kind === 'recycle' || each.kind === 'robber') {
     g.pile = rand.shuffle([...g.pile, ...cards.map(([, id]) => id)]);
   } else {
     for (const [, id] of cards) g.pile.unshift(id);
@@ -1360,8 +1661,14 @@ function chooseAction(state: S, a: { card?: string; slot?: number }, ctx: Ctx): 
   const each = g.each;
   if (state.stage !== 'each' || !each?.order.includes(ctx.by) || ctx.by in each.chosen)
     return err('not-asked', 'You have nothing to choose right now.');
-  const id = picked(g, ctx.by, a);
+  let id = picked(g, ctx.by, a);
   if (!id) return err('not-in-hand', 'You don’t have that card.');
+  if (each.kind === 'feed' && isBombCard(typeOf(g, id))) {
+    // Blindfolded you can't tell: a card you may give is taken instead, at random.
+    if (!g.blind[ctx.by]) return err('no-bomb', 'A Bomb can’t be given to a ghost.');
+    const ok = feedable(g, ctx.by);
+    id = ok[rand.int(ok.length)]!;
+  }
   choose(state, ctx.by, id, ctx.now);
   return state;
 }
@@ -1379,7 +1686,7 @@ function reorder(state: S, order: number[], now: number) {
     turn: g.turn.n,
     at: now,
   });
-  if (a.share && !isOut(g, a.share)) {
+  if (a.share && a.share !== a.by && atTable(g, a.share)) {
     remember(g, a.share, {
       kind: 'shared',
       cards: cards.map((id) => card(g, id)),
@@ -1449,9 +1756,142 @@ function defuseAction(state: S, ctx: Ctx): Result {
   const g = state.game!;
   if (state.stage !== 'bomb' || g.drawn?.by !== ctx.by)
     return err('no-bomb', 'There’s no {c:bomb} for you to defuse.');
-  const def = g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'defuse');
+  const def = g.blind[ctx.by]
+    ? undefined
+    : g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'defuse');
   if (!def) return err('no-defuse', 'You have no {c:defuse}.');
   defuseWith(state, def, ctx.now);
+  return state;
+}
+
+/**
+ * A Second Life answers the bomb (or a Copy of one): it can't be Noped, but everyone gets the
+ * usual countdown, in which Foresight lets its holders watch the hiding. With a ghost at the
+ * table it must bring one back.
+ */
+function startRevival(state: S, by: PlayerId, id: CardId, ghost: PlayerId | null, now: number) {
+  const g = state.game!;
+  const d = g.drawn!;
+  g.drawn = null;
+  g.revival = {
+    by,
+    bomb: d.twin ? null : d.card,
+    twin: d.twin ? d.card : null,
+    ghost,
+  };
+  commit(state, by, [id], 'card', 'revive', ghost, null, now, typeOf(g, id) === 'copy');
+  g.window!.seers = [];
+}
+
+function reviveAction(state: S, a: { ghost?: string; copy?: boolean }, ctx: Ctx): Result {
+  const e = requireGame(state);
+  if (e) return e;
+  const g = state.game!;
+  if (state.stage !== 'bomb' || g.drawn?.by !== ctx.by)
+    return err('no-bomb', 'There’s no Bomb for you to answer.');
+  const opt = reviveOptions(g, ctx.by);
+  const id = a.copy ? opt?.copy : opt?.card;
+  if (!id)
+    return err(
+      'no-revive',
+      a.copy ? 'You can’t copy a Second Life right now.' : 'You have no Second Life.',
+    );
+  const ghosts = g.ghosts.filter((p) => atTable(g, p));
+  if (ghosts.length && (!a.ghost || !ghosts.includes(a.ghost)))
+    return err('need-ghost', 'Choose a ghost to bring back: with a ghost at the table, you must.');
+  if (!ghosts.length && a.ghost) return err('no-ghost', 'Nobody is a ghost to bring back.');
+  startRevival(state, ctx.by, id, a.ghost ?? null, ctx.now);
+  return state;
+}
+
+/** With only a Second Life to save you, you may explode instead (and become a ghost). */
+function dieAction(state: S, ctx: Ctx): Result {
+  const e = requireGame(state);
+  if (e) return e;
+  const g = state.game!;
+  const d = g.drawn;
+  if (state.stage !== 'bomb' || d?.by !== ctx.by)
+    return err('no-bomb', 'There’s no Bomb for you to answer.');
+  if (!g.blind[ctx.by] && has(g, ctx.by, 'defuse'))
+    return err('has-defuse', 'You have a Defuse: use it.');
+  explode(state, ctx.by, d.card, ctx.now);
+  return state;
+}
+
+/** The Second Life's window is over: bring the ghost back, then hide the bombs one by one. */
+function revive(state: S, w: NonNullable<Game['window']>, now: number) {
+  const g = state.game!;
+  const r = g.revival!;
+  g.revival = null;
+  if (g.left.includes(r.by)) {
+    // The reviver left mid-countdown: their bomb goes back at random; nobody comes back.
+    if (r.bomb) g.pile.splice(rand.int(g.pile.length + 1), 0, r.bomb);
+    if (r.twin) g.discard.push(r.twin);
+    g.limbo = null;
+    pileChanged(g);
+    return settle(state, now, 'turn');
+  }
+  g.watchers = (w.seers ?? [])
+    .filter((x) => x.chain.length % 2 === 0 && atTable(g, x.by))
+    .map((x) => x.by);
+  g.limbo = null;
+  const queue: Game['toPlace'] = [];
+  const kind = (c: CardId) => (typeOf(g, c) === 'void' ? 'void' : 'bomb');
+  if (r.bomb) queue.push({ by: r.by, card: r.bomb, kind: kind(r.bomb) });
+  // A Twin Bomb's bark hides nothing.
+  if (r.twin) g.discard.push(r.twin);
+  // The ghost picked left mid-countdown: the Second Life still brings back one, if any is left.
+  const still = g.ghosts.filter((p) => atTable(g, p));
+  const ghost = r.ghost && still.includes(r.ghost) ? r.ghost : r.ghost ? (still[0] ?? null) : null;
+  if (ghost && isGhost(g, ghost) && !g.left.includes(ghost)) {
+    g.ghosts = g.ghosts.filter((p) => p !== ghost);
+    g.dead = g.dead.filter((x) => x.id !== ghost);
+    const front = g.front[ghost] ?? [];
+    g.front[ghost] = [];
+    // Twin Bombs that killed them go back into the pile, shuffled; any other bomb is hidden.
+    const twins = front.filter((c) => typeOf(g, c) === 'twin');
+    if (twins.length) {
+      g.pile = rand.shuffle([...g.pile, ...twins]);
+      pileChanged(g);
+    }
+    for (const c of front) {
+      if (typeOf(g, c) === 'twin') continue;
+      if (typeOf(g, c) === 'bomb') g.bombsOut += 1;
+      queue.push({ by: r.by, card: c, kind: kind(c) });
+    }
+    g.stats.revives = (g.stats.revives ?? 0) + 1;
+    log(g, now, {
+      kind: 'revive',
+      by: r.by,
+      target: ghost,
+      ...(twins.length ? { cards: twins.map((c) => typeOf(g, c)) } : {}),
+    });
+  }
+  g.toPlace = queue;
+  nextPlacement(state, now);
+}
+
+/** The next bomb waiting to be hidden, or on with the game once they're all back. */
+function nextPlacement(state: S, now: number) {
+  const g = state.game!;
+  const next = g.toPlace.shift();
+  if (!next) {
+    g.watchers = [];
+    return settle(state, now);
+  }
+  g.limbo = next.card;
+  g.placing = next;
+  setStage(state, 'place', now);
+}
+
+function digAction(state: S, keep: boolean, ctx: Ctx): Result {
+  const e = requireGame(state);
+  if (e) return e;
+  const g = state.game!;
+  if (state.stage !== 'dig' || g.dig?.by !== ctx.by)
+    return err('not-digging', 'You’re not looking at the top card.');
+  g.dig = null;
+  drawCard(state, keep ? 'top' : 'second', ctx.now);
   return state;
 }
 
@@ -1463,6 +1903,11 @@ function search(state: S, slot: number, now: number) {
   const id = hand[Math.min(slot, hand.length - 1)]!;
   const t = typeOf(g, id);
   if (t === 'defuse') return defuseWith(state, id, now);
+  // A Second Life turned over: it's theirs to use (or to explode anyway).
+  if (t === 'revive' && !(typeOf(g, d.card) === 'void' && g.voidUp)) {
+    d.found = id;
+    return setStage(state, 'bomb', now);
+  }
   if (t === 'shelter' && !d.twin && typeOf(g, d.card) === 'bomb' && !g.held[d.by]) {
     g.limbo = null;
     g.hands[d.by]!.push(d.card);
@@ -1517,8 +1962,20 @@ function place(state: S, position: number, now: number) {
     });
     if (g.truth.length > MAX_TRUTH) g.truth.splice(0, g.truth.length - MAX_TRUTH);
     log(g, now, { kind: 'placed', by: p.by, cards: [typeOf(g, p.card)] });
+    for (const w of g.watchers)
+      if (w !== p.by && atTable(g, w))
+        remember(g, w, {
+          kind: 'watched',
+          t: typeOf(g, p.card),
+          position: at,
+          of: g.pile.length,
+          other: p.by,
+          version: g.pileVersion,
+          turn: g.turn.n,
+          at: now,
+        });
   }
-  settle(state, now);
+  nextPlacement(state, now);
 }
 
 function placeAction(state: S, position: number, ctx: Ctx): Result {
@@ -1554,10 +2011,19 @@ function actDefault(state: S, who: PlayerId, now: number): string | null {
     case 'each': {
       if (!g.each?.order.includes(who) || who in g.each.chosen) return null;
       const hand = g.hands[who]!;
+      if (g.each.kind === 'feed') {
+        choose(state, who, any(feedable(g, who)), now);
+        return 'gave a random card';
+      }
       const safe = hand.filter((c) => !isExplosive(typeOf(g, c)) && typeOf(g, c) !== 'shelter');
       choose(state, who, any(safe.length ? safe : hand), now);
       return 'put in a random card';
     }
+    case 'dig':
+      if (g.dig?.by !== who) return null;
+      g.dig = null;
+      drawCard(state, 'top', now);
+      return 'kept the card';
     case 'alter':
       if (g.alter?.by !== who) return null;
       reorder(
@@ -1577,9 +2043,20 @@ function actDefault(state: S, who: PlayerId, now: number): string | null {
     }
     case 'bomb': {
       if (g.drawn?.by !== who) return null;
-      const def = g.hands[who]!.find((id) => typeOf(g, id) === 'defuse')!;
-      defuseWith(state, def, now);
-      return 'played {c:defuse}';
+      const def = g.blind[who] ? undefined : g.hands[who]!.find((id) => typeOf(g, id) === 'defuse');
+      if (def) {
+        defuseWith(state, def, now);
+        return 'played {c:defuse}';
+      }
+      const opt = reviveOptions(g, who);
+      const id = opt?.card ?? opt?.copy;
+      if (!id) {
+        explode(state, who, g.drawn.card, now);
+        return 'exploded';
+      }
+      const ghosts = g.ghosts.filter((p) => atTable(g, p));
+      startRevival(state, who, id, ghosts.length ? any(ghosts) : null, now);
+      return 'played {c:revive}';
     }
     case 'search':
       if (g.drawn?.by !== who) return null;
@@ -1678,6 +2155,14 @@ function reduce(state: S, action: ShortFuseAction, ctx: Ctx): Result {
       return salvageAction(draft, action.card, ctx);
     case 'defuse':
       return defuseAction(draft, ctx);
+    case 'revive':
+      return reviveAction(draft, action, ctx);
+    case 'die':
+      return dieAction(draft, ctx);
+    case 'dig':
+      return digAction(draft, action.keep, ctx);
+    case 'seer':
+      return seerAction(draft, action.window, ctx);
     case 'search':
       return searchAction(draft, action.slot, ctx);
     case 'place':
@@ -1735,11 +2220,12 @@ function playerLeft(state: S, playerId: PlayerId, now: number): S {
   delete seats[playerId];
   let next = fillSeats({ ...state, seats });
   const g0 = next.game;
-  if (next.phase !== 'playing' || !g0?.players.includes(playerId) || isOut(g0, playerId))
+  if (next.phase !== 'playing' || !g0?.players.includes(playerId) || !atTable(g0, playerId))
     return next;
   next = draftOf(next);
   const g = next.game!;
   rand = hiddenRng(g, now);
+  if (isGhost(g, playerId)) return ghostLeft(next, playerId, now);
   for (let i = 0; i < 6 && next.phase === 'playing'; i++) {
     if (next.stage === 'turn' || !awaited(next).includes(playerId)) break;
     actDefault(next, playerId, now);
@@ -1750,6 +2236,7 @@ function playerLeft(state: S, playerId: PlayerId, now: number): S {
     delete g.each.chosen[playerId];
   }
   g.left.push(playerId);
+  g.ghosts = g.ghosts.filter((p) => p !== playerId);
   clearPlayer(g, playerId);
   log(g, now, { kind: 'left', by: playerId });
   if (alive(g).length <= 1) {
@@ -1763,6 +2250,12 @@ function playerLeft(state: S, playerId: PlayerId, now: number): S {
       g.pile.splice(rand.int(g.pile.length + 1), 0, g.limbo);
       g.limbo = null;
     }
+    for (const pl of g.toPlace.splice(0)) g.pile.splice(rand.int(g.pile.length + 1), 0, pl.card);
+    if (g.revival?.twin) {
+      // The bark's card was in limbo (back in the pile above): it goes to the discard pile.
+      g.pile = g.pile.filter((c) => c !== g.revival!.twin);
+      g.discard.push(g.revival.twin);
+    }
     g.pending = null;
     g.window = null;
     g.favor = null;
@@ -1771,12 +2264,41 @@ function playerLeft(state: S, playerId: PlayerId, now: number): S {
     g.blindPlay = null;
     g.drawn = null;
     g.placing = null;
+    g.revival = null;
+    g.dig = null;
+    g.watchers = [];
     const beat = next.stage === 'beat';
     startTurn(next, nextAlive(g, playerId, g.turn.dir), 1, false, now);
     g.resume = 'turn';
     if (beat) next.stage = 'beat';
   }
   return next;
+}
+
+/** A ghost leaves for good: their hand and Vault go out of the game, and nobody waits on them. */
+function ghostLeft(state: S, playerId: PlayerId, now: number): S {
+  const g = state.game!;
+  // Whatever the table waits on them for (a NOW card's rearrange…) is done with the safe default.
+  for (let i = 0; i < 6 && state.phase === 'playing'; i++) {
+    if (!awaited(state).includes(playerId)) break;
+    actDefault(state, playerId, now);
+  }
+  g.ghosts = g.ghosts.filter((p) => p !== playerId);
+  g.left.push(playerId);
+  if (g.each) {
+    g.each.order = g.each.order.filter((p) => p !== playerId);
+    delete g.each.chosen[playerId];
+  }
+  clearPlayer(g, playerId);
+  log(g, now, { kind: 'left', by: playerId });
+  if (state.stage === 'each' && g.each) {
+    if (g.each.kind === 'feed' && g.each.to === playerId) {
+      // Nobody left to feed: the givers keep their cards.
+      g.each = null;
+      settle(state, now, 'turn');
+    } else if (g.each.order.every((p) => p in g.each!.chosen)) finishEach(state, now);
+  }
+  return state;
 }
 
 function nextDeadline(state: S): number | null {
@@ -1857,8 +2379,16 @@ function promptFor(state: S, g: Game, viewer: PlayerId): Prompt | null {
         : null;
     case 'each':
       return g.each?.order.includes(viewer)
-        ? { kind: 'each', what: g.each.kind, blind, done: viewer in g.each.chosen }
+        ? {
+            kind: 'each',
+            what: g.each.kind,
+            blind,
+            done: viewer in g.each.chosen,
+            to: g.each.to ?? null,
+          }
         : null;
+    case 'dig':
+      return g.dig?.by === viewer ? { kind: 'dig', card: cv(g, g.dig.card) } : null;
     case 'target':
       return g.blindPlay?.by === viewer
         ? {
@@ -1867,15 +2397,19 @@ function promptFor(state: S, g: Game, viewer: PlayerId): Prompt | null {
             options: targetsFor(g, viewer, typeOf(g, g.blindPlay.card)),
           }
         : null;
-    case 'bomb':
-      return g.drawn?.by === viewer
-        ? {
-            kind: 'bomb',
-            card: cv(g, g.drawn.card),
-            canDefuse: has(g, viewer, 'defuse'),
-            twin: !!g.drawn.twin,
-          }
-        : null;
+    case 'bomb': {
+      if (g.drawn?.by !== viewer) return null;
+      const opt = reviveOptions(g, viewer);
+      return {
+        kind: 'bomb',
+        card: cv(g, g.drawn.card),
+        canDefuse: !blind && has(g, viewer, 'defuse'),
+        twin: !!g.drawn.twin,
+        revive: opt
+          ? { card: !!opt.card, copy: !!opt.copy, ghosts: g.ghosts.filter((p) => atTable(g, p)) }
+          : null,
+      };
+    }
     case 'search':
       return g.drawn?.by === viewer
         ? {
@@ -1912,6 +2446,8 @@ function busyOf(state: S, g: Game): GameView['busy'] {
       return g.each ? { who: g.each.by, what: 'each' } : null;
     case 'target':
       return g.blindPlay ? { who: g.blindPlay.by, what: 'target' } : null;
+    case 'dig':
+      return g.dig ? { who: g.dig.by, what: 'dig' } : null;
     case 'bomb':
       return g.drawn ? { who: g.drawn.by, what: 'bomb' } : null;
     case 'search':
@@ -1926,15 +2462,38 @@ function busyOf(state: S, g: Game): GameView['busy'] {
 function canNope(state: S, g: Game, viewer: PlayerId | null): boolean {
   const w = g.window;
   if (state.stage !== 'window' || !w || !g.pending || viewer === null) return false;
-  if (!g.players.includes(viewer) || isOut(g, viewer) || g.blind[viewer]) return false;
+  if (!atTable(g, viewer) || g.blind[viewer]) return false;
   if (!has(g, viewer, 'nope')) return false;
+  // A Second Life can't be Noped; a Foresight played in its window can.
+  if (isRevival(g.pending)) {
+    const seer = w.seers?.at(-1);
+    return !!seer && (seer.chain.at(-1)?.by ?? seer.by) !== viewer;
+  }
   return (w.chain.at(-1)?.by ?? g.pending.by) !== viewer;
 }
 
+function canSeer(state: S, g: Game, viewer: PlayerId | null): boolean {
+  const w = g.window;
+  if (state.stage !== 'window' || !w || !isRevival(g.pending) || viewer === null) return false;
+  if (!atTable(g, viewer) || g.blind[viewer] || g.pending!.by === viewer) return false;
+  return has(g, viewer, 'seer') && !w.seers?.some((x) => x.by === viewer);
+}
+
 function canNow(state: S, g: Game, viewer: PlayerId | null): boolean {
-  if (state.stage !== 'turn' || viewer === null || !g.players.includes(viewer)) return false;
-  if (isOut(g, viewer) || g.blind[viewer]) return false;
-  return g.hands[viewer]!.some((id) => CARDS[typeOf(g, id)].now === true);
+  if (state.stage !== 'turn' || viewer === null || !atTable(g, viewer)) return false;
+  if (g.blind[viewer]) return false;
+  return g.hands[viewer]!.some((id) => {
+    const info = CARDS[typeOf(g, id)];
+    return info.now === true && (!info.ghosts || g.ghosts.length > 0);
+  });
+}
+
+/** What the viewer's Copy would become if they played it now (their own turn, eyes open). */
+function copyAsFor(state: S, g: Game, viewer: PlayerId | null): CardType | null {
+  if (state.stage !== 'turn' || viewer === null || g.turn.player !== viewer) return null;
+  if (g.blind[viewer] || !has(g, viewer, 'copy')) return null;
+  const as = copyTarget(g, viewer);
+  return 'error' in as ? null : as.t;
 }
 
 function drawnKind(state: S, g: Game): GameView['drawnKind'] {
@@ -1947,7 +2506,8 @@ function drawnKind(state: S, g: Game): GameView['drawnKind'] {
 function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
   normalize(g);
   const over = state.phase === 'over';
-  const mine = viewer !== null && g.players.includes(viewer) && !isOut(g, viewer);
+  // Ghosts keep their hand, so they see it (and get the prompts that still involve them).
+  const mine = viewer !== null && atTable(g, viewer);
   const blindMe = mine && !!g.blind[viewer];
   const secs = state.settings.decisionSeconds;
   const waiting = awaited(state);
@@ -1967,6 +2527,7 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
         blind: !!g.blind[id],
         mine: g.mine[id]?.by ?? null,
         stash: g.vaultBy === id ? g.stash.length : null,
+        ghost: isGhost(g, id) && !g.left.includes(id),
       };
     }),
     core: g.core,
@@ -1974,6 +2535,7 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
     x1: g.x1,
     x2: g.x2,
     x3: g.x3,
+    x4: g.x4,
     fiveCombo: g.fiveCombo,
     nonStacking: g.nonStacking,
     types: typesIn(g),
@@ -1992,6 +2554,7 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
           cards: g.pending.cards.map((id) => cv(g, id)),
           target: g.pending.target,
           named: g.pending.named,
+          copied: !!g.pending.copied,
         }
       : null,
     window: g.window
@@ -2001,9 +2564,16 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
           seconds: state.settings.nopeSeconds,
           chain: g.window.chain.map((c) => c.by),
           cancelled: g.window.chain.length % 2 === 1,
+          seers: (g.window.seers ?? []).map((x) => ({
+            by: x.by,
+            chain: x.chain.map((c) => c.by),
+            cancelled: x.chain.length % 2 === 1,
+          })),
         }
       : null,
     canNope: canNope(state, g, viewer),
+    canSeer: !over && canSeer(state, g, viewer),
+    copyAs: copyAsFor(state, g, viewer),
     prompt: viewer !== null && mine && !over ? promptFor(state, g, viewer) : null,
     waiting,
     busy: busyOf(state, g),
@@ -2013,6 +2583,7 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
         ? {
             what: g.each.kind,
             by: g.each.by,
+            to: g.each.to ?? null,
             waiting: g.each.order.filter((p) => !(p in g.each!.chosen)),
           }
         : null,

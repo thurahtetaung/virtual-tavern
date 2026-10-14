@@ -20,7 +20,9 @@ import type { LogEntry, ShortFuseAction, ShortFuseState } from './types.ts';
  *   mark       {target, card}  curse {victim}  cured {}  lost {card}  stack {n}  vault {}
  *   bark       {target}        mine {target}   mine-took {victim, bomb}  pooled {kind, n}
  *   self-attack {owed}         (steal events carry `stash: true` when the Vault paid)
- *   outcome    {players, turns, eliminated, preset, x1, faster, longestChain, maxOwed, maxOwedBy}
+ *   revive     {target}                         a Second Life brought a ghost back (target null: nobody)
+ *   seer {}    dig {}    fed {target, n}         (explode carries `ghost: true` with Expansion 4)
+ *   outcome    {players, turns, eliminated, preset, x1…x4, longestChain, maxOwed, maxOwedBy, revives}
  */
 export function insights(
   before: ShortFuseState,
@@ -60,8 +62,12 @@ export function insights(
         players: g.players.length,
         turns: g.turn.n,
         eliminated: g.dead.map((d) => d.id),
-        preset: g.core === 'party' ? 'party' : g.art === 'adult' ? 'adult' : 'classic',
+        preset: presetName(g),
         x1: g.x1,
+        x2: !!g.x2,
+        x3: !!g.x3,
+        x4: !!g.x4,
+        revives: g.stats.revives ?? 0,
         draws: g.stats.draws,
         longestChain: g.stats.longestChain,
         maxOwed: g.stats.maxOwed,
@@ -72,16 +78,32 @@ export function insights(
   return out;
 }
 
+/** The deck a finished game was played with, for the stats page's split. */
+function presetName(g: NonNullable<ShortFuseState['game']>): string {
+  if (g.core === 'classic' && g.x1 && g.x2 && g.x3 && g.x4) return 'chaos';
+  if (g.core === 'classic' && g.x4 && !g.x1 && !g.x2 && !g.x3) return 'zombie';
+  return g.core === 'party' ? 'party' : g.art === 'adult' ? 'adult' : 'classic';
+}
+
 function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
   const g = after.game!;
   const by = e.by ?? null;
   switch (e.kind) {
     case 'play':
       return [
+        // A Second Life answers a bomb like a Defuse does.
+        ...(e.cards?.[0] === 'revive' || e.as === 'revive'
+          ? [{ type: 'bomb', playerId: by, props: { kind: 'bomb', saved: 'revive' } }]
+          : []),
         {
           type: 'play',
           playerId: by,
-          props: { cards: e.cards ?? [], kind: e.play ?? 'card', target: e.target ?? null },
+          props: {
+            cards: e.cards ?? [],
+            kind: e.play ?? 'card',
+            target: e.target ?? null,
+            ...(e.as ? { as: e.as } : {}),
+          },
         },
       ];
     case 'nope':
@@ -126,6 +148,7 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
             left: g.pile.length,
             placedBy: placed && placed.by !== by ? placed.by : null,
             barkedBy: bark?.by ?? null,
+            ...(e.ghost ? { ghost: true } : {}),
           },
         },
       ];
@@ -188,6 +211,14 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
       ];
     case 'pooled':
       return [{ type: 'pooled', playerId: by, props: { kind: e.cards?.[0] ?? null, n: e.n ?? 0 } }];
+    case 'revive':
+      return [{ type: 'revive', playerId: by, props: { target: e.target ?? null } }];
+    case 'seer':
+      return [{ type: 'seer', playerId: by, props: {} }];
+    case 'dig':
+      return [{ type: 'dig', playerId: by, props: {} }];
+    case 'fed':
+      return [{ type: 'fed', playerId: by, props: { target: e.target ?? null, n: e.n ?? 0 } }];
     case 'self-attack':
       return [{ type: 'self-attack', playerId: by, props: { owed: e.n ?? 3 } }];
     case 'timeout':

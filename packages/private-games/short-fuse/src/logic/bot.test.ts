@@ -34,10 +34,14 @@ const PRESETS: Record<string, Partial<Settings>> = {
   'classic+x3': { core: 'classic', art: 'classic', x1: false, x3: true },
   'all three': { core: 'classic', art: 'classic', x1: true, x2: true, x3: true },
   'party+x2+x3': { core: 'party', art: 'classic', x1: false, x2: true, x3: true },
+  zombie: { core: 'classic', art: 'classic', x1: false, x4: true },
+  'zombie faster': { core: 'classic', art: 'adult', x1: false, x4: true, faster: true },
+  'party+x4': { core: 'party', art: 'classic', x1: false, x4: true },
+  chaos: { core: 'classic', art: 'classic', x1: true, x2: true, x3: true, x4: true },
 };
-/** The second and third expansions play at every table size; the rest at a spread of them. */
+/** The later expansions (and Chaos) play at every table size; the rest at a spread of them. */
 const sizes = (name: string) =>
-  /x2|x3|all/.test(name) ? [2, 3, 4, 5, 6, 7, 8, 9, 10] : [2, 3, 5, 7, 10];
+  /x2|x3|x4|all|zombie|chaos/.test(name) ? [2, 3, 4, 5, 6, 7, 8, 9, 10] : [2, 3, 5, 7, 10];
 
 describe('bots', () => {
   it('take the view, never the state', () => {

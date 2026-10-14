@@ -47,7 +47,7 @@ export function Seats({
         {g.players.map((p, i) => {
           const online = room.players.find((r) => r.id === p.id)?.connected ?? false;
           const turn = p.id === current && view.phase === 'playing';
-          const out = p.dead || p.left;
+          const out = (p.dead && !p.ghost) || p.left;
           const pickable = targets?.includes(p.id) ?? false;
           const self = p.id === view.me?.id;
           const body = (
@@ -63,7 +63,15 @@ export function Seats({
                 />
               </span>
               <span className="flex items-center gap-1.5 text-xs text-ink-muted">
-                {p.dead ? (
+                {p.ghost ? (
+                  <span
+                    className="font-semibold text-special-ink"
+                    aria-label={`ghost, ${p.hand} cards in hand`}
+                    data-testid="ghost"
+                  >
+                    👻 ghost · 🂠 {p.hand}
+                  </span>
+                ) : p.dead ? (
                   <span>💥 out (turn {p.deadTurn})</span>
                 ) : p.left ? (
                   <span>left</span>
@@ -117,7 +125,7 @@ export function Seats({
                   </span>
                 )}
               </span>
-              {(p.marked || (!p.dead && p.front.length > 0)) && (
+              {(p.marked || ((!p.dead || p.ghost) && p.front.length > 0)) && (
                 <span className="mt-0.5 flex items-center gap-1" data-testid="shown">
                   {p.marked && (
                     <span
@@ -129,11 +137,17 @@ export function Seats({
                       <span className="max-w-[4.5rem] truncate">{c.name(p.marked.t)}</span>
                     </span>
                   )}
-                  {!p.dead &&
+                  {(!p.dead || p.ghost) &&
                     p.front.map((card) => (
                       <span
                         key={card.id}
-                        title={c.t(`{c:${card.t}} waits in front of ${self ? 'you' : 'them'}`)}
+                        title={
+                          p.ghost
+                            ? c.t(
+                                `{c:${card.t}}: it goes back in the pile if ${self ? 'you’re' : 'they’re'} brought back`,
+                              )
+                            : c.t(`{c:${card.t}} waits in front of ${self ? 'you' : 'them'}`)
+                        }
                       >
                         <CardFace card={card} art={g.art} c={c} size="xxs" />
                       </span>
@@ -157,7 +171,11 @@ export function Seats({
                 <div
                   className={cn(
                     'flex min-h-11 min-w-24 flex-col items-start rounded-xl px-2.5 py-1 ring-1',
-                    turn ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line',
+                    turn
+                      ? 'bg-accent-soft ring-2 ring-accent'
+                      : p.ghost
+                        ? 'bg-special-soft ring-special-line'
+                        : 'bg-card ring-line',
                     out && 'opacity-55',
                     targets && !pickable && 'opacity-40',
                     waiting.has(p.id) && !turn && 'ring-2 ring-info-line',

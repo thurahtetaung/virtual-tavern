@@ -29,7 +29,10 @@ const matches = (f: Filter, e: LogEntry) =>
       e.kind === 'vault' ||
       e.kind === 'pooled' ||
       e.kind === 'stack' ||
-      e.kind === 'swap')) ||
+      e.kind === 'swap' ||
+      e.kind === 'fed' ||
+      e.kind === 'dig' ||
+      e.kind === 'seer')) ||
   (f === 'nopes' && (e.kind === 'nope' || e.kind === 'cancelled' || e.kind === 'resolved')) ||
   (f === 'booms' &&
     (e.kind === 'explode' ||
@@ -38,7 +41,8 @@ const matches = (f: Filter, e: LogEntry) =>
       e.kind === 'placed' ||
       e.kind === 'bark' ||
       e.kind === 'received-bomb' ||
-      e.kind === 'unprotected'));
+      e.kind === 'unprotected' ||
+      e.kind === 'revive'));
 
 /** The public log, newest first, with filters. */
 export function Log({ view, c }: { view: ShortFuseView; c: Content }) {
@@ -120,6 +124,21 @@ function MemoryItem({ m, view, c }: { m: Memory; view: ShortFuseView; c: Content
       </li>
     );
   }
+  if (m.kind === 'watched') {
+    const where =
+      m.position === 0
+        ? 'on top'
+        : m.position === m.of - 1
+          ? 'at the bottom'
+          : `${m.position + 1} of ${m.of}`;
+    const stale = m.version !== g.pile.version;
+    return (
+      <li className="rounded-xl bg-card p-2 text-sm text-ink ring-1 ring-line">
+        {c.glyph('seer')} You watched {who(view, m.other)} put {c.name(m.t)} {where} ({when}).
+        {stale && <span className="ml-1 text-xs text-warn-ink">· the pile has changed since</span>}
+      </li>
+    );
+  }
   if (m.kind === 'shared') {
     const stale = m.version !== g.pile.version;
     return (
@@ -152,6 +171,7 @@ function MemoryItem({ m, view, c }: { m: Memory; view: ShortFuseView; c: Content
                 triple: 'three of a kind',
                 mine: c.name('mine'),
                 stash: `the ${c.name('vault')}’s Stash`,
+                feed: c.name('feed'),
               }[m.how];
               return m.kind === 'got'
                 ? `You got ${c.name(m.card.t)} from ${who(view, m.other)} (${how}, ${when}).`

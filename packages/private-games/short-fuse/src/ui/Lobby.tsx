@@ -104,6 +104,18 @@ const PRESETS: { id: Exclude<Preset, 'custom'>; title: string; line: string; gly
     line: 'The big-table deck for 2–10, with the right cards for your table size.',
     glyph: '🎉',
   },
+  {
+    id: 'zombie',
+    title: 'Ghosts',
+    line: 'Classic with Expansion 4: explode and you haunt the table until someone brings you back.',
+    glyph: '🧟',
+  },
+  {
+    id: 'chaos',
+    title: 'Chaos',
+    line: 'Everything at once: Classic with all four expansions, about 12 cards a player.',
+    glyph: '🌋',
+  },
 ];
 
 export function Lobby({
@@ -164,7 +176,7 @@ export function Lobby({
 
       <Panel className="space-y-3">
         <h3 className="font-bold text-ink">The deck</h3>
-        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Deck">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Deck">
           {PRESETS.map((p) => {
             const on = view.preset === p.id;
             return (
@@ -177,7 +189,7 @@ export function Lobby({
                 onClick={() => set({ preset: p.id })}
                 data-testid={`preset-${p.id}`}
                 className={cn(
-                  'rounded-xl p-3 text-left ring-1 transition disabled:cursor-default',
+                  'rounded-xl p-2.5 text-left ring-1 transition disabled:cursor-default sm:p-3',
                   on
                     ? 'bg-accent-soft ring-2 ring-accent'
                     : 'bg-card ring-line enabled:hover:bg-panel',
@@ -189,10 +201,14 @@ export function Lobby({
                     ? setName('party')
                     : p.id === 'adult'
                       ? setName('adult')
-                      : setName('classic')}
+                      : p.id === 'classic'
+                        ? setName('classic')
+                        : p.id === 'zombie'
+                          ? (c.names.sets.x4 ?? p.title)
+                          : p.title}
                   {p.id === 'adult' && <AdultBadge />}
                 </span>
-                <span className="mt-1 block text-xs text-ink-muted">{p.line}</span>
+                <span className="mt-1 block text-xs leading-snug text-ink-muted">{p.line}</span>
               </button>
             );
           })}
@@ -234,6 +250,16 @@ export function Lobby({
           testId="toggle-x3"
         />
         <Toggle
+          on={s.x4}
+          editable={host}
+          title={setName('x4')}
+          help={c.t(
+            'Ghosts: explode and you stay at the table with your hand. A {c:revive} replaces each {c:defuse} and brings a ghost back. Adds {c:dig}, {c:ghostattack}, {c:feed}, {c:copy}, {c:seer}, {c:robber}, {c:shufflenow} and {c:superskip}.',
+          )}
+          onChange={(v) => set({ x4: v })}
+          testId="toggle-x4"
+        />
+        <Toggle
           on={s.faster}
           editable={host}
           title="Faster game"
@@ -248,8 +274,15 @@ export function Lobby({
             <>
               {r.players} players: draw pile of <b>{r.pile}</b> · <b>{r.bombs}</b>{' '}
               {r.bombs === 1 ? c.names.bomb : c.names.bombs}
-              {r.void && <> + {c.name('void')}</>} · hands of {r.hand} · about {r.turnsEach} turns
-              each
+              {r.void && <> + {c.name('void')}</>} · hands of {r.hand}
+              {r.revives > 0 && (
+                <>
+                  {' '}
+                  (with {r.revives === r.players ? 'a' : r.revives} {c.name('revive')}
+                  {r.revives === r.players ? ' each' : ''})
+                </>
+              )}{' '}
+              · about {r.turnsEach} turns each
             </>
           ) : (
             `${MIN_PLAYERS} to ${MAX_SEATS} players can play.`

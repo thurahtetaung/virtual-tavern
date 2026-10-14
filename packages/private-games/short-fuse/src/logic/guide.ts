@@ -42,6 +42,16 @@ const X3_CARDS: CardType[] = [
   'share3',
   'alter3now',
 ];
+const X4_CARDS: CardType[] = [
+  'revive',
+  'dig',
+  'ghostattack',
+  'feed',
+  'copy',
+  'seer',
+  'robber',
+  'shufflenow',
+];
 
 const CATS = ['cat1', 'cat2', 'cat3', 'cat4', 'cat5'] as const;
 const cardLine = (t: CardType) =>
@@ -52,7 +62,8 @@ const cardLine = (t: CardType) =>
 const X1: GuideOption = { key: 'x1', label: 'Expansion 1' };
 const X2: GuideOption = { key: 'x2', label: 'Expansion 2' };
 const X3: GuideOption = { key: 'x3', label: 'Expansion 3' };
-const EXPANSIONS = { x1: X1, x2: X2, x3: X3 } as const;
+const X4: GuideOption = { key: 'x4', label: 'Expansion 4' };
+const EXPANSIONS = { x1: X1, x2: X2, x3: X3, x4: X4 } as const;
 const PARTY: GuideOption = { key: 'party', label: 'Party deck' };
 const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: GuideOption }> = {
   'Your turn': { level: 'basics' },
@@ -64,6 +75,8 @@ const LEVELS: Record<string, { level: 'basics' | 'details' | 'edge'; option?: Gu
   'When Expansion 1 is on': { level: 'details', option: X1 },
   'When Expansion 2 is on': { level: 'details', option: X2 },
   'When Expansion 3 is on': { level: 'details', option: X3 },
+  'When Expansion 4 is on': { level: 'details', option: X4 },
+  'Ghosts and the other expansions': { level: 'edge', option: X4 },
   'Party deck and big tables': { level: 'edge' },
   'House and legacy rules': { level: 'edge' },
 };
@@ -82,7 +95,7 @@ const RAW: GameGuide = {
     'The pile always shows how many cards and {bombs} are left. Pairs of matching cats steal a card.',
   ],
   setup: [
-    'Sit down in the lobby (2 to 10 players). The host picks a deck: Classic, the 18+ Adult deck (same rules, different art) or the Party deck, and can add Expansions 1, 2 and 3 in any mix.',
+    'Sit down in the lobby (2 to 10 players). The host picks a deck: Classic, the 18+ Adult deck (same rules, different art), the Party deck, Zombie (Classic with Expansion 4) or Chaos (everything at once), and can add Expansions 1 to 4 in any mix.',
     'Everyone gets a {c:defuse} and 7 cards. {Bombs} go into the pile: one fewer than the players.',
     'A random player starts; play goes round the table in seat order.',
   ],
@@ -155,11 +168,32 @@ const RAW: GameGuide = {
       bullets: X3_CARDS.map(cardLine),
     },
     {
+      title: 'When Expansion 4 is on',
+      paragraphs: [
+        'Everyone starts with a {c:revive} instead of a {c:defuse} (up to five players; from the sixth on, the rest get a {c:defuse}), and no spare {c:defuse} cards go in the pile.',
+        'Explode and you don’t leave: you become a ghost. You keep your hand and take no turns, but you can still play {c:nope} and NOW cards, and nobody can take cards from you. Ghosts can’t win.',
+        'A {c:revive} saves you from a {bomb}. If anyone is a ghost you must bring one back: then you hide your {bomb} and theirs back in the pile, one after the other, in secret. Nobody can {c:nope} it, but everyone gets the usual countdown, in which {c:seer} lets its holders watch the hiding.',
+      ],
+      bullets: X4_CARDS.map(cardLine),
+    },
+    {
       title: 'Party deck and big tables',
       bullets: [
         'The Party deck plays 2 to 10 with its own cards (including {c:aim}, {c:bottom} and {c:alter3}), picking the right subset for the table size.',
         'The Classic deck above 5 players adds cards from a second deck, about 10 a player, and more {c:defuse} cards.',
-        'Faster game takes a third of the pile out at random before the {bombs} go in.',
+        'Faster game takes a third of the pile out at random before the {bombs} go in (with Expansion 4 alone, the pile is cut to 15, 20, 25, 30 or 35 cards by table size).',
+        'Chaos (all four expansions) keeps at most 12 cards a player in the pile before the {bombs} go in, so games stay party-length.',
+        'At two players Expansion 4 leaves out {c:ghostattack}, {c:robber}, {c:feed} and its two {c:superskip} cards.',
+      ],
+    },
+    {
+      title: 'Ghosts and the other expansions',
+      bullets: [
+        'Exploding as a ghost discards anything face up in front of you; a {c:vault} and its Stash stay with you.',
+        '{c:recycle} and {c:potluck} skip ghosts; {c:share3} still shows the cards to a ghost in the next seat.',
+        'A ghost holding the other {c:twin} may stay silent: a {c:twin} never barks at a ghost. Killed by the {c:twin} cards, both go back into the pile, shuffled, if you’re brought back.',
+        'A {c:void} that killed you goes back face up when you’re brought back; a {c:revive} never answers a face-up {c:void}.',
+        'Blindfolded ghosts stay blindfolded. Lose your {c:shelter} as a ghost while hiding a {bomb}, and it goes off the moment you’re back.',
       ],
     },
     {
@@ -176,6 +210,7 @@ const RAW: GameGuide = {
     'Watch the pile count: fewer cards with the same {bombs} means danger.',
     'After you defuse, hiding the {bomb} on top is a gift for the next player.',
     'Count the {c:nope} cards: an even number means the play goes ahead after all.',
+    'As a ghost, keep your {c:nope} cards: you can still spoil the living players’ plans.',
   ],
 };
 
@@ -223,7 +258,12 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
       text: fill(RULES[t]),
       group: exp ? (names.sets[exp] ?? EXPANSIONS[exp].label) : 'Core',
       icon: GLYPHS[t],
-      tone: t === 'bomb' || t === 'void' ? 'evil' : t === 'defuse' ? 'good' : 'neutral',
+      tone:
+        t === 'bomb' || t === 'void'
+          ? 'evil'
+          : t === 'defuse' || t === 'revive'
+            ? 'good'
+            : 'neutral',
       ...(art.text?.(t) && { meta: `On the card: “${art.text(t)}”` }),
       ...(exp && {
         option: { ...EXPANSIONS[exp], label: names.sets[exp] ?? EXPANSIONS[exp].label },
@@ -236,9 +276,11 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
     if (!v?.settings) return undefined;
     const s = v.settings;
     const players = v.seats.filter((x) => x.playing).length;
-    const on = (['x1', 'x2', 'x3'] as const).filter((x) => s[x]);
+    const on = (['x1', 'x2', 'x3', 'x4'] as const).filter((x) => s[x]);
     const types = CARD_TYPES.filter((t) => {
       const set = CARDS[t].set;
+      // Super Skip comes with the second, third and fourth expansions.
+      if (t === 'superskip') return on.some((x) => x !== 'x1');
       return set === 'core' || on.some((x) => x === set);
     });
     return {
@@ -299,6 +341,19 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
           [fill('An {c:attack} straight back (owing 2)'), '4 turns'],
           [fill('An {c:attack} after one of your 2 turns'), '3 turns'],
           ['You explode while owing', 'Nothing: the turns vanish'],
+          [fill('A {c:ghostattack} (Expansion 4)'), '3 turns for every ghost, plus any owed'],
+        ],
+      },
+      {
+        title: fill('Ghosts (Expansion 4)'),
+        head: ['As a ghost, can you…', 'Answer'],
+        rows: [
+          ['keep your hand (and any Vault)?', 'Yes'],
+          ['take turns?', 'No'],
+          [fill('play {c:nope} and NOW cards?'), 'Yes, any time'],
+          ['be picked for a Favor, a pair or three of a kind?', 'No'],
+          ['come back?', fill('Yes, with someone else’s {c:revive}')],
+          ['win?', 'No: only a living player wins'],
         ],
       },
     ],
@@ -325,7 +380,7 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
           ),
         },
       },
-      ...(['x1', 'x2', 'x3'] as const).map((x) => ({
+      ...(['x1', 'x2', 'x3', 'x4'] as const).map((x) => ({
         id: x,
         label: `+ ${names.sets[x] ?? EXPANSIONS[x].label}`,
         context: {
@@ -339,6 +394,15 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
           ),
         },
       })),
+      {
+        id: 'chaos',
+        label: 'Chaos (everything)',
+        context: {
+          summary: 'The core cards with all four expansions.',
+          options: ['x1', 'x2', 'x3', 'x4'],
+          inGame: Object.fromEntries(CARD_TYPES.map((t) => [t, 1])),
+        },
+      },
     ],
     room,
     ...(footer && { footer }),
