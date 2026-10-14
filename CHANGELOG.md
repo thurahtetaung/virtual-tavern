@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.1...v0.35.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **tavern-brawl:** fit the guide's card grid to its container, show clean hero faces and word the seat sheet for you ([#148](https://github.com/thurahtetaung/virtual-tavern/issues/148)) ([2f99abd](https://github.com/thurahtetaung/virtual-tavern/commit/2f99abd77bd8ca5467d1fc0d4bb8a661af42801d))
+
 ## [0.35.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.0...v0.35.1) (2026-10-14)
 
 
