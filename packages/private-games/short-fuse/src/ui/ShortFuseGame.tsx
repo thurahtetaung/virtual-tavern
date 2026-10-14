@@ -376,9 +376,11 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const [tab, setTab] = useState<Tab>('table');
   const [discardOpen, setDiscardOpen] = useState(false);
 
-  // A fresh peek opens its sheet once.
+  // A fresh peek opens its sheet once. Memory ids restart with every game, so the one already
+  // seen is kept per game (this game's number stays the same through its end screen).
   const lastPeek = g?.memory.findLast((m) => m.kind === 'peek' || m.kind === 'shared') ?? null;
-  const [seenPeek, setSeenPeek] = useState<number>(() => lastPeek?.id ?? 0);
+  const gameNo = view.gamesPlayed + (view.phase === 'over' ? 0 : 1);
+  const [seenPeek, setSeenPeek] = useState(() => ({ game: gameNo, id: lastPeek?.id ?? 0 }));
   // A shuffle animates the pile (and hides the face-up Black Hole) for a moment.
   const pileVersion = g?.pile.version ?? 0;
   const lastKind = g?.log.at(-1)?.kind;
@@ -489,7 +491,9 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const strict = view.settings.strict;
   const p = g.prompt;
   const peekOpen =
-    lastPeek && lastPeek.id > seenPeek && (lastPeek.kind === 'peek' || lastPeek.kind === 'shared')
+    lastPeek &&
+    (seenPeek.game !== gameNo || lastPeek.id > seenPeek.id) &&
+    (lastPeek.kind === 'peek' || lastPeek.kind === 'shared')
       ? lastPeek
       : null;
   const blast = g.beat?.kind === 'explode' ? g.beat : null;
@@ -829,7 +833,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           memory={peekOpen}
           c={c}
           art={g.art}
-          onClose={() => setSeenPeek(peekOpen.id)}
+          onClose={() => setSeenPeek({ game: gameNo, id: peekOpen.id })}
           {...(peekOpen.kind === 'shared' ? { from: who(view, peekOpen.other, false) } : {})}
         />
       )}
