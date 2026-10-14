@@ -149,7 +149,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       {canRetire && gone.length > 0 && (
         <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30">
           <p>
-            An empty seat isn’t sent visions or judged, so the séance can’t finish while it waits
+            An empty seat isn’t sent visions or judged, so the line-up can’t start while it waits
             for someone to take it over. If nobody will, retire it: its cards go back on the table.
           </p>
           <div className="flex flex-wrap gap-2">
