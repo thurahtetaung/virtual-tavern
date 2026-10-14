@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.3...v0.37.4) (2026-10-14)
+
+
+### Bug Fixes
+
+* **nightfall:** review-round fixes: votes on a leaver's seat, role edge cases, and a phone tab bar with Learned behind a peek ([#179](https://github.com/thurahtetaung/virtual-tavern/issues/179)) ([cb80b16](https://github.com/thurahtetaung/virtual-tavern/commit/cb80b16f15cfe422559cadef01e385156479cd43))
+
 ## [0.37.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.2...v0.37.3) (2026-10-14)
 
 
