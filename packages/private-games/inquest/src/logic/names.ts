@@ -38,7 +38,7 @@ export const EVENT_TEXT: Readonly<Record<EventKind, string>> = {
   'good-twist':
     'Whoever solved the last case at this table gets one extra attempt. If nobody did, another tile is drawn.',
   'ruled-out':
-    'One by one, going the other way round from the Forensic Scientist, everyone flips one of their own Clue cards. A flipped card can’t be the answer.',
+    'One by one, going the other way round from the Forensic Scientist, everyone flips one of their own Clue cards. A flipped card can’t be the answer. No talking until the last card is flipped.',
   erroneous: 'The Forensic Scientist moves one bullet to a different item on the same scene tile.',
   countdown:
     'Two scene tiles are swapped for new ones, and this is the last round: the game ends after it, or the final accusations follow when they’re on.',

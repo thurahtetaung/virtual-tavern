@@ -223,9 +223,12 @@ export function statusFor(
       const ev = g.event;
       if (ev?.kind === 'ruled-out') {
         if (ev.current === me?.id)
-          return { text: 'Your turn: flip one of your own Clue cards face down.', yourMove: true };
+          return {
+            text: 'Your turn: flip one of your own Clue cards face down. No talking until the last one is flipped.',
+            yourMove: true,
+          };
         return {
-          text: `Everyone flips one of their own Clue cards. ${nameOf(view, ev.current)} is choosing…`,
+          text: `Everyone flips one of their own Clue cards, without talking. ${nameOf(view, ev.current)} is choosing…`,
           yourMove: false,
         };
       }
