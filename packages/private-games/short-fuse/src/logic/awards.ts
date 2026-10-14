@@ -300,6 +300,92 @@ const sleepwalker: AwardRule = {
   },
 };
 
+const blindLuck: AwardRule = {
+  id: 'short-fuse.blind-luck',
+  emoji: '🙈',
+  title: 'Blind Luck',
+  valence: 'gentle',
+  weight: 2,
+  kind: 'award',
+  family: 'blind',
+  copy: {
+    cheeky: ['{who} played blindfolded and lived ({n|time})', '{who} found the way out blind'],
+    wholesome: ['{who} trusted their gut and made it', '{who} came through blindfolded'],
+  },
+  compute(g) {
+    return mostBy(g.of('cured'), undefined, { min: 1 });
+  },
+};
+
+const heavyHead: AwardRule = {
+  id: 'short-fuse.heavy-head',
+  emoji: '👑',
+  title: 'Heavy Is the Head',
+  valence: 'gentle',
+  weight: 2,
+  kind: 'award',
+  family: 'steal',
+  copy: {
+    cheeky: ['{who}’s {card} got raided {n} times', '{who} lost {n} cards from the {card}'],
+    wholesome: ['{who} guarded the {card} bravely', '{who}’s {card} paid out {n} times'],
+  },
+  compute(g) {
+    return mostBy(
+      g.of('steal').filter((e) => bool(e, 'stash') === true),
+      (e) => str(e, 'victim') ?? null,
+      { min: 3 },
+    ).map((c) => ({ ...c, params: { card: 'vault' } }));
+  },
+};
+
+const barkBite: AwardRule = {
+  id: 'short-fuse.bark-bite',
+  emoji: '👯',
+  title: 'Seeing Double',
+  valence: 'glory',
+  weight: 4,
+  kind: 'moment',
+  family: 'boom',
+  copy: {
+    cheeky: ['{who}’s {card} found its match and a target', '{who} paired the {card} perfectly'],
+    wholesome: ['{who} played the {card} at just the right time', '{who} made the {card} count'],
+  },
+  compute(g) {
+    const e = g.of('explode').find((x) => str(x, 'barkedBy'));
+    return e ? one(str(e, 'barkedBy'), 1, { card: 'twin' }) : [];
+  },
+};
+
+const stacked: AwardRule = {
+  id: 'short-fuse.stacked',
+  emoji: '🧨',
+  title: 'Stacked Deck',
+  valence: 'chaos',
+  weight: 3,
+  kind: 'moment',
+  family: 'pile',
+  copy: {
+    cheeky: [
+      '{who} piled {n} bombs on top. Good luck, everyone',
+      '{who} served up {n} bombs on top',
+    ],
+    wholesome: [
+      '{who} showed the table where all {n} bombs were',
+      '{who} made the danger plain: {n} on top',
+    ],
+  },
+  compute(g) {
+    const best = g
+      .of('stack')
+      .reduce<RecapEvent | undefined>(
+        (b, e) => ((num(e, 'n') ?? 0) > (num(b, 'n') ?? 0) ? e : b),
+        undefined,
+      );
+    const n = num(best, 'n') ?? 0;
+    return n >= 2 ? one(best?.playerId, n) : [];
+  },
+};
+
 const outcomes = (games: readonly GameEvents[]) =>
   games.flatMap((g) => (outcomeOf(g) ? [outcomeOf(g)!] : []));
 
@@ -375,6 +461,10 @@ export const shortFuseAwards: AwardModule = {
     soClose,
     eventHorizon,
     secretSanta,
+    blindLuck,
+    heavyHead,
+    barkBite,
+    stacked,
     sleepwalker,
   ],
   nuggets,

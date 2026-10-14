@@ -81,6 +81,27 @@ describe('awards', () => {
     expect(rule('clean-hands').compute!(used)).toEqual([]);
   });
 
+  it('blind luck, heavy head, seeing double and the stacked deck', () => {
+    expect(rule('blind-luck').compute!(game(recapEv('cured', 'c')))[0]?.players).toEqual(['c']);
+    expect(rule('blind-luck').compute!(game(outcome()))).toEqual([]);
+    const raid = () => recapEv('steal', 'b', { how: 'pair', victim: 'a', hit: true, stash: true });
+    expect(rule('heavy-head').compute!(game(raid(), raid(), raid()))[0]).toMatchObject({
+      players: ['a'],
+      value: 3,
+    });
+    expect(rule('heavy-head').compute!(game(raid(), raid()))).toEqual([]);
+    expect(
+      rule('bark-bite').compute!(game(recapEv('explode', 'c', { kind: 'twin', barkedBy: 'd' })))[0]
+        ?.players,
+    ).toEqual(['d']);
+    expect(rule('bark-bite').compute!(game(recapEv('explode', 'c', { kind: 'bomb' })))).toEqual([]);
+    expect(rule('stacked').compute!(game(recapEv('stack', 'b', { n: 3 })))[0]).toMatchObject({
+      players: ['b'],
+      value: 3,
+    });
+    expect(rule('stacked').compute!(game(recapEv('stack', 'b', { n: 1 })))).toEqual([]);
+  });
+
   it('reads old events without the newer props', () => {
     const g = game(
       recapEv('explode', 'b'),

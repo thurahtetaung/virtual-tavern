@@ -123,6 +123,8 @@ export function everyCard(g: Game): CardId[] {
     ...Object.values(g.hands).flat(),
     ...Object.values(g.front).flat(),
     ...g.out,
+    ...(g.stash ?? []),
+    ...Object.values(g.mine ?? {}).flatMap((m) => (m ? [m.card] : [])),
     ...(g.limbo ? [g.limbo] : []),
   ];
 }
@@ -150,13 +152,16 @@ export function leaks(state: ShortFuseState, viewer: string | null): string[] {
   const over = state.phase === 'over';
   if (over) return found;
   for (const p of g.players)
-    if (p !== viewer || g.dead.some((d) => d.id === p))
+    if (p !== viewer || g.dead.some((d) => d.id === p) || g.blind?.[p])
       for (const id of g.hands[p]!) if (has(id)) found.push(`hand ${p} ${id}`);
   const altering = state.stage === 'alter' && g.alter?.by === viewer ? g.alter.cards : [];
   for (const id of g.pile) if (!altering.includes(id) && has(id)) found.push(`pile ${id}`);
   const dealing =
-    (state.stage === 'bomb' && g.drawn?.by === viewer) ||
+    ((state.stage === 'bomb' || state.stage === 'search') && g.drawn?.by === viewer) ||
+    (state.stage === 'target' && g.blindPlay?.by === viewer) ||
     (state.stage === 'place' && g.placing?.by === viewer);
+  for (const id of g.stash ?? []) if (has(id)) found.push(`stash ${id}`);
+  for (const m of Object.values(g.mine ?? {})) if (m && has(m.card)) found.push(`mine ${m.card}`);
   if (g.limbo && !dealing && has(g.limbo)) found.push(`limbo ${g.limbo}`);
   for (const id of g.out) if (has(id)) found.push(`out ${id}`);
   if (/"seed"|"truth"|"limbo"|"cards":\{/.test(json)) found.push('internals');

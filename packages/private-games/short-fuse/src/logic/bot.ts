@@ -9,11 +9,20 @@ function roll(...parts: (string | number)[]): number {
   return (h % 10_000) / 10_000;
 }
 
-const ESCAPES: CardType[] = ['skip', 'attack', 'aim', 'reverse', 'bottom', 'shuffle'];
+const ESCAPES: CardType[] = [
+  'superskip',
+  'skip',
+  'attack',
+  'aim',
+  'reverse',
+  'bottom',
+  'swap',
+  'shuffle',
+];
 
 /** What the bot knows is on top: a Bomb it saw this turn, or a face-up Black Hole showing there. */
 function dangerOnTop(g: GameView): boolean {
-  if (g.pile.voidTop) return true;
+  if (g.pile.voidTop || g.pile.knownTop > 0) return true;
   const seen = g.memory.findLast((m) => m.kind === 'peek' || m.kind === 'altered');
   if (!seen || (seen.kind !== 'peek' && seen.kind !== 'altered')) return false;
   if (seen.turn !== g.turn.n || seen.version !== g.pile.version) return false;
@@ -51,7 +60,7 @@ function turnMove(g: GameView, me: string): ShortFuseAction {
   }
   if (g.turn.plays < 2 && roll(me, g.turn.n, g.turn.plays, 'play') < 0.3) {
     const target = richest(g, me);
-    const peek = has('peek3') ?? has('alter3');
+    const peek = has('peek3') ?? has('alter3') ?? has('peek5') ?? has('alter5');
     if (peek) return { type: 'play', cards: [peek.id] };
     const pair = pairIn(hand);
     if (pair && target) return { type: 'play', cards: pair.map((c) => c.id), target };
@@ -83,18 +92,37 @@ export function shortFuseBot(view: ShortFuseView, ctx: BotCtx): ShortFuseAction 
   }
   const p = g.prompt;
   if (!p) return null;
+  // What a bot would rather part with: a cat, then anything but a Defuse, a Bomb or its Shelter.
+  const spare = (): CardView | undefined => {
+    const hand = g.hand ?? [];
+    const keep = (c: CardView) => ['defuse', 'bomb', 'void', 'shelter'].includes(c.t);
+    return (
+      hand.find((c) => isCat(c.t) || c.t === 'wild') ??
+      pickOne(
+        rng,
+        hand.filter((c) => !keep(c)),
+      ) ??
+      hand[0]
+    );
+  };
+  const slot = (n: number) => ({ slot: rng.int(Math.max(1, n)) });
   switch (p.kind) {
     case 'turn':
-      return turnMove(g, me);
+      // Blindfolded, a safe draw is the way out.
+      return p.blind ? { type: 'draw' } : turnMove(g, me);
+    case 'each': {
+      if (p.done) return null;
+      if (p.blind) return { type: 'choose', ...slot(g.blindCount ?? 1) };
+      const card = spare();
+      return card ? { type: 'choose', card: card.id } : null;
+    }
+    case 'target':
+      return { type: 'target', player: pickOne(rng, p.options)! };
+    case 'search':
+      return { type: 'search', slot: 0 };
     case 'give': {
-      const hand = g.hand ?? [];
-      const card =
-        hand.find((c) => isCat(c.t) || c.t === 'wild') ??
-        pickOne(
-          rng,
-          hand.filter((c) => c.t !== 'defuse'),
-        ) ??
-        hand[0];
+      if (p.blind) return { type: 'give', ...slot(g.blindCount ?? 1) };
+      const card = spare();
       return card ? { type: 'give', card: card.id } : null;
     }
     case 'alter': {

@@ -27,6 +27,23 @@ export const PLACEHOLDER_CARDS: Record<CardType, string> = {
   reverse: 'Reverse',
   bottom: 'Draw from the Bottom',
   alter3: 'Rearrange (3)',
+  shelter: 'Bomb Shelter',
+  superskip: 'Super Skip',
+  peek5: 'Peek (5)',
+  alter5: 'Rearrange (5)',
+  swap: 'Swap Top and Bottom',
+  recycle: 'Recycle',
+  stack: 'Bomb Stack',
+  mark: 'Mark',
+  blind: 'Blindfold',
+  twin: 'Twin Bomb',
+  vault: 'Vault',
+  mine: 'Mine!',
+  bury: 'Bury',
+  self3: 'Self Attack (3)',
+  potluck: 'Potluck',
+  share3: 'Share (3)',
+  alter3now: 'Rearrange (3) NOW',
 };
 
 /** A simple glyph per card, for placeholder cards and small chips. */
@@ -50,6 +67,23 @@ export const GLYPHS: Record<CardType, string> = {
   reverse: '🔁',
   bottom: '⤵️',
   alter3: '🔮',
+  shelter: '🛡️',
+  superskip: '⏩',
+  peek5: '🔭',
+  alter5: '🪄',
+  swap: '🔃',
+  recycle: '♻️',
+  stack: '🧨',
+  mark: '🏷️',
+  blind: '🙈',
+  twin: '👯',
+  vault: '👑',
+  mine: '🫴',
+  bury: '⛏️',
+  self3: '🌀',
+  potluck: '🍲',
+  share3: '🤝',
+  alter3now: '⚡',
 };
 
 /** Our own short rules text per card (the inspector and the glossary). */
@@ -75,6 +109,30 @@ export const RULES: Record<CardType, string> = {
   reverse: 'Reverse the order of play and end one turn without drawing.',
   bottom: 'End one turn by drawing the bottom card of the pile.',
   alter3: 'Look at the top 3 cards and put them back in any order.',
+  shelter:
+    'While it’s in your hand, a {bomb} you draw stays secretly in your hand instead of exploding (one at a time). If the Shelter leaves your hand, that {bomb} goes off on you.',
+  superskip: 'End your turn without drawing: every turn you owe ends.',
+  peek5: 'Secretly look at the top 5 cards of the pile.',
+  alter5: 'Look at the top 5 cards and put them back in any order.',
+  swap: 'Swap the top and bottom cards of the pile, without looking.',
+  recycle:
+    'Everyone with cards, you included, puts one card from their hand into the pile in secret; then it’s shuffled.',
+  stack:
+    'Take every {bomb} out of the pile in plain view and put them all on top; then end one turn without drawing.',
+  mark: 'A random card of another player’s is turned to face everyone, until it leaves their hand.',
+  blind:
+    'Blindfold another player: they can’t see their cards (any card they play is random) until they draw one safely.',
+  twin: 'Play it to find the other one: whoever has it must play a {c:defuse} or explode (that {c:defuse} hides nothing). Both together: aim them at anyone. Never Noped.',
+  vault:
+    'Wear the Vault for the rest of the game with its face-down Stash: anything stolen from you comes from the Stash first.',
+  mine: 'Put it in front of another player: the next card they draw comes to you instead (a {bomb} too!). Their turn still ends.',
+  bury: 'End one turn by drawing a card, looking at it and putting it back anywhere in the pile, in secret.',
+  self3: 'Take 3 turns in a row yourself (stacks with attacks you owe).',
+  potluck:
+    'Everyone with cards, starting with you, puts one card from their hand face down on top of the pile.',
+  share3: 'Look at the top 3 cards and put them back in any order; the next player sees them too.',
+  alter3now:
+    'Any time between actions, even off your turn: look at the top 3 cards and put them back in any order.',
 };
 
 export const PLACEHOLDER_SETS: Record<Core | SetId | 'adult', string> = {
@@ -83,6 +141,8 @@ export const PLACEHOLDER_SETS: Record<Core | SetId | 'adult', string> = {
   adult: 'Adult deck (18+)',
   core: 'Core deck',
   x1: 'Expansion 1',
+  x2: 'Expansion 2',
+  x3: 'Expansion 3',
 };
 
 export interface Names {

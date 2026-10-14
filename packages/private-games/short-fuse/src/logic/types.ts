@@ -41,6 +41,10 @@ export interface Settings {
   art: Art;
   /** Expansion 1 (the Black Hole and friends). */
   x1: boolean;
+  /** Expansion 2 (the Bomb Shelter, Blindfold, Mark…). */
+  x2: boolean;
+  /** Expansion 3 (the Twin Bombs, the Vault, Mine!…). */
+  x3: boolean;
   /** Remove a third of the pile before the Bombs go in. */
   faster: boolean;
   /** Legacy: five cards with different names take any card from the discard pile. */
@@ -54,7 +58,18 @@ export interface Settings {
   strict: boolean;
 }
 
-export type Stage = 'turn' | 'window' | 'favor' | 'alter' | 'salvage' | 'bomb' | 'place' | 'beat';
+export type Stage =
+  | 'turn'
+  | 'window'
+  | 'favor'
+  | 'alter'
+  | 'salvage'
+  | 'each'
+  | 'target'
+  | 'bomb'
+  | 'search'
+  | 'place'
+  | 'beat';
 
 /** What a play is: a card's own action, or a combo that ignores the cards' instructions. */
 export type PlayKind = 'card' | 'pair' | 'triple' | 'five';
@@ -93,22 +108,36 @@ export interface Turn {
   plays: number;
 }
 
-/** A drawn Bomb (or Black Hole) waiting on the drawer. */
+/**
+ * A Bomb someone must deal with: drawn, received from another player, left unprotected when
+ * their Bomb Shelter went, or the Twin Bombs' bark (which a Defuse answers without hiding
+ * anything: `card` is the barking card, and `twin` is set).
+ */
 export interface Drawn {
   by: PlayerId;
   card: CardId;
-  /** Drawn on the drawer's own turn (so dealing with it ends one of their turns). */
-  ownTurn: boolean;
+  twin?: boolean;
 }
 
-export type PlaceKind = 'bomb' | 'void';
+export type PlaceKind = 'bomb' | 'void' | 'bury';
 
 /** A card the player hides back in the pile. */
 export interface Placing {
   by: PlayerId;
   card: CardId;
   kind: PlaceKind;
-  ownTurn: boolean;
+}
+
+/** What happens once a Bomb interruption is dealt with: back to the turn, or one turn ends. */
+export type Resume = 'turn' | 'endturn';
+
+/** Everyone with cards picks one (Recycle, Potluck), in secret. */
+export interface Each {
+  kind: 'recycle' | 'potluck';
+  by: PlayerId;
+  /** Who chooses, in turn order from the player of the card. */
+  order: PlayerId[];
+  chosen: Record<PlayerId, CardId>;
 }
 
 export interface Favor {
@@ -120,6 +149,14 @@ export interface Alter {
   by: PlayerId;
   /** The top cards being rearranged, top first. */
   cards: CardId[];
+  /** Share: who sees them next. */
+  share?: PlayerId | null;
+}
+
+/** A blind player's card that needs a target, turned over and waiting for one. */
+export interface BlindPlay {
+  by: PlayerId;
+  card: CardId;
 }
 
 export interface Beat {
@@ -148,10 +185,22 @@ export type Memory =
       kind: 'got' | 'gave';
       card: Card;
       other: PlayerId;
-      how: 'favor' | 'pair' | 'triple';
+      how: 'favor' | 'pair' | 'triple' | 'mine' | 'stash';
       turn: number;
       at: number;
-    };
+    }
+  | {
+      id: number;
+      kind: 'shared';
+      cards: Card[];
+      other: PlayerId;
+      version: number;
+      turn: number;
+      at: number;
+    }
+  | { id: number; kind: 'held'; card: Card; turn: number; at: number }
+  | { id: number; kind: 'pooled'; card: Card; how: 'recycle' | 'potluck'; turn: number; at: number }
+  | { id: number; kind: 'lost'; card: Card; turn: number; at: number };
 export type MemoryKind = Memory['kind'];
 
 /** One public event. The browser words it. */
@@ -182,7 +231,25 @@ export interface LogEntry {
     | 'left'
     | 'timeout'
     | 'act-for'
-    | 'win';
+    | 'win'
+    | 'swap'
+    | 'stack'
+    | 'mark'
+    | 'blind'
+    | 'cured'
+    | 'lost'
+    | 'bark'
+    | 'twin-wait'
+    | 'vault'
+    | 'mine'
+    | 'mine-took'
+    | 'bury'
+    | 'pooled'
+    | 'shared'
+    | 'received-bomb'
+    | 'unprotected'
+    | 'self-attack'
+    | 'superskip';
   by?: PlayerId;
   target?: PlayerId;
   /** Cards shown (types), in play order. */
@@ -193,7 +260,7 @@ export interface LogEntry {
   hit?: boolean;
   n?: number;
   /** Where a drawn card came from. */
-  from?: 'top' | 'bottom';
+  from?: 'top' | 'bottom' | 'stash';
   /** What a timeout or act-for did. */
   did?: string;
 }
@@ -216,6 +283,8 @@ export interface Game {
   core: Core;
   art: Art;
   x1: boolean;
+  x2: boolean;
+  x3: boolean;
   fiveCombo: boolean;
   nonStacking: boolean;
   cards: Record<CardId, Card>;
@@ -244,7 +313,24 @@ export interface Game {
   placing: Placing | null;
   favor: Favor | null;
   alter: Alter | null;
+  each: Each | null;
+  blindPlay: BlindPlay | null;
   beat: Beat | null;
+  /** Where play goes once a Bomb interruption is dealt with. */
+  resume: Resume;
+  /** The one Bomb each player holds safely with a Bomb Shelter. */
+  held: Record<PlayerId, CardId | null>;
+  /** Each player's marked card, shown to everyone while it stays in their hand. */
+  marked: Record<PlayerId, CardId | null>;
+  /** Blindfolded players: their hand is face down (in a shuffled order) until a safe draw. */
+  blind: Record<PlayerId, boolean>;
+  /** The Vault's face-down Stash, and who wears the Vault (null until it's played). */
+  stash: CardId[];
+  vaultBy: PlayerId | null;
+  /** A Mine! in front of a player: its card and who placed it. */
+  mine: Record<PlayerId, { card: CardId; by: PlayerId } | null>;
+  /** Bombs everyone knows sit on top of the pile (after a Bomb Stack), until it changes. */
+  knownTop: number;
   /** When the current decision started (its soft or strict clock). */
   decisionAt: number;
   pileVersion: number;
@@ -298,6 +384,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     core: z.enum(['classic', 'party']).optional(),
     art: z.enum(['classic', 'adult']).optional(),
     x1: z.boolean().optional(),
+    x2: z.boolean().optional(),
+    x3: z.boolean().optional(),
     faster: z.boolean().optional(),
     fiveCombo: z.boolean().optional(),
     nonStacking: z.boolean().optional(),
@@ -324,7 +412,24 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('draw') }),
   /** Answers the window it names, so a tap that crosses a change is refused, not misapplied. */
   z.object({ type: z.literal('nope'), window: z.number().int() }),
-  z.object({ type: z.literal('give'), card: cardId }),
+  /** Blind: play the card in this slot of your face-down hand, whatever it is. */
+  z.object({ type: z.literal('play-blind'), slot: z.number().int().min(0).max(60) }),
+  /** Blind: the target for the card you just turned over. */
+  z.object({ type: z.literal('target'), player: id }),
+  /** A card to give (Favor): by id, or by slot when blind. */
+  z.object({
+    type: z.literal('give'),
+    card: cardId.optional(),
+    slot: z.number().int().min(0).max(60).optional(),
+  }),
+  /** Recycle or Potluck: the card you put in (by id, or by slot when blind). */
+  z.object({
+    type: z.literal('choose'),
+    card: cardId.optional(),
+    slot: z.number().int().min(0).max(60).optional(),
+  }),
+  /** Blind with a Bomb: turn over the card in this slot, hoping for a Defuse. */
+  z.object({ type: z.literal('search'), slot: z.number().int().min(0).max(60) }),
   /** The rearranged top cards, as indexes into the cards shown (top first). */
   z.object({ type: z.literal('order'), order: z.array(z.number().int().min(0).max(9)).max(10) }),
   z.object({ type: z.literal('salvage'), card: cardId }),
@@ -360,8 +465,15 @@ export interface PlayerView {
   /** The turn they exploded on. */
   deadTurn: number | null;
   left: boolean;
-  /** Face up in front of them. */
+  /** Face up in front of them: the Bomb that blew them up, a Twin Bomb waiting for its pair. */
   front: CardView[];
+  /** Their marked card, shown to everyone (but not to its owner while they're blindfolded). */
+  marked: Card | null;
+  blind: boolean;
+  /** Who placed a Mine! in front of them. */
+  mine: PlayerId | null;
+  /** Cards in their Vault's Stash, when they wear the Vault. */
+  stash: number | null;
 }
 
 /** The draw pile as everyone sees it: a stack with no faces showing, except a face-up Black Hole. */
@@ -379,6 +491,8 @@ export interface PileView {
   voidTop: boolean;
   edges: number;
   version: number;
+  /** Bombs everyone knows are on top (a Bomb Stack put them there). */
+  knownTop: number;
 }
 
 export interface WindowView {
@@ -401,17 +515,21 @@ export interface PendingView {
 
 /** What the viewer is asked to do right now, with what they need to do it. */
 export type Prompt =
-  | { kind: 'turn' }
-  | { kind: 'give'; to: PlayerId }
-  | { kind: 'alter'; cards: CardView[] }
+  | { kind: 'turn'; blind: boolean }
+  | { kind: 'give'; to: PlayerId; blind: boolean }
+  | { kind: 'alter'; cards: CardView[]; share: PlayerId | null }
   | { kind: 'salvage'; options: CardView[] }
-  | { kind: 'bomb'; card: CardView; canDefuse: boolean }
-  | { kind: 'place'; card: CardView; count: number; void: boolean };
+  | { kind: 'each'; what: 'recycle' | 'potluck'; blind: boolean; done: boolean }
+  | { kind: 'target'; card: CardView; options: PlayerId[] }
+  | { kind: 'bomb'; card: CardView; canDefuse: boolean; twin: boolean }
+  | { kind: 'search'; card: CardView; slots: number; twin: boolean }
+  | { kind: 'place'; card: CardView; count: number; void: boolean; bury: boolean };
 
 export interface EndView {
   winner: PlayerId | null;
   hands: Record<PlayerId, CardView[]>;
   pile: CardView[];
+  stash: CardView[];
   truth: Truth[];
 }
 
@@ -420,6 +538,8 @@ export interface GameView {
   core: Core;
   art: Art;
   x1: boolean;
+  x2: boolean;
+  x3: boolean;
   fiveCombo: boolean;
   nonStacking: boolean;
   /** Card types in this game (for the Three of a Kind picker and the glossary). */
@@ -427,8 +547,14 @@ export interface GameView {
   turn: Turn;
   pile: PileView;
   discard: CardView[];
-  /** Your own hand (null for watchers and the exploded). */
+  /** Your own hand (null for watchers, the exploded and the blindfolded). */
   hand: CardView[] | null;
+  /** Blindfolded: how many face-down cards you hold (you can't see them). */
+  blindCount: number | null;
+  /** You may play a NOW card right now (off your turn too). */
+  canNow: boolean;
+  /** The Stash still waiting for someone to put on the Vault, or inside it. */
+  stash: number;
   pending: PendingView | null;
   window: WindowView | null;
   canNope: boolean;
@@ -436,8 +562,13 @@ export interface GameView {
   /** Who the table waits on. */
   waiting: PlayerId[];
   /** Who is choosing what, for everyone's status line. */
-  busy: { who: PlayerId; what: 'give' | 'alter' | 'salvage' | 'bomb' | 'place' } | null;
-  drawnKind: 'bomb' | 'void' | null;
+  busy: {
+    who: PlayerId;
+    what: 'give' | 'alter' | 'salvage' | 'bomb' | 'place' | 'target' | 'search' | 'each';
+  } | null;
+  drawnKind: 'bomb' | 'void' | 'twin' | 'bury' | null;
+  /** Recycle or Potluck under way: who still has to choose. */
+  each: { what: 'recycle' | 'potluck'; by: PlayerId; waiting: PlayerId[] } | null;
   decisionAt: number;
   /** Soft clock unless strict. */
   decisionEnds: number | null;

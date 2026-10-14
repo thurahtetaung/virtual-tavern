@@ -3,7 +3,9 @@ import { useState } from 'react';
 import type { LogEntry, Memory, ShortFuseView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardFace } from './Card.tsx';
-import { logLine, who } from './text.ts';
+import { an, logLine, who } from './text.ts';
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 type Filter = 'all' | 'plays' | 'nopes' | 'booms';
 
@@ -17,10 +19,26 @@ const FILTERS: [Filter, string][] = [
 const matches = (f: Filter, e: LogEntry) =>
   f === 'all' ||
   (f === 'plays' &&
-    (e.kind === 'play' || e.kind === 'favor' || e.kind === 'steal' || e.kind === 'ask')) ||
+    (e.kind === 'play' ||
+      e.kind === 'favor' ||
+      e.kind === 'steal' ||
+      e.kind === 'ask' ||
+      e.kind === 'mark' ||
+      e.kind === 'blind' ||
+      e.kind === 'mine' ||
+      e.kind === 'vault' ||
+      e.kind === 'pooled' ||
+      e.kind === 'stack' ||
+      e.kind === 'swap')) ||
   (f === 'nopes' && (e.kind === 'nope' || e.kind === 'cancelled' || e.kind === 'resolved')) ||
   (f === 'booms' &&
-    (e.kind === 'explode' || e.kind === 'drew-bomb' || e.kind === 'defuse' || e.kind === 'placed'));
+    (e.kind === 'explode' ||
+      e.kind === 'drew-bomb' ||
+      e.kind === 'defuse' ||
+      e.kind === 'placed' ||
+      e.kind === 'bark' ||
+      e.kind === 'received-bomb' ||
+      e.kind === 'unprotected'));
 
 /** The public log, newest first, with filters. */
 export function Log({ view, c }: { view: ShortFuseView; c: Content }) {
@@ -102,15 +120,47 @@ function MemoryItem({ m, view, c }: { m: Memory; view: ShortFuseView; c: Content
       </li>
     );
   }
-  const how = m.how === 'favor' ? c.name('favor') : m.how === 'pair' ? 'a pair' : 'three of a kind';
+  if (m.kind === 'shared') {
+    const stale = m.version !== g.pile.version;
+    return (
+      <li className="rounded-xl bg-card p-2 ring-1 ring-line">
+        <p className="text-xs font-semibold text-ink-muted">
+          {cap(who(view, m.other))} showed you the top of the pile ({when})
+          {stale && <span className="ml-1 text-warn-ink">· the pile has changed since</span>}
+        </p>
+        <ol className={cn('mt-1 flex gap-1', stale && 'opacity-60')}>
+          {m.cards.map((card, i) => (
+            <li key={i}>
+              <CardFace card={card} art={g.art} c={c} size="sm" />
+            </li>
+          ))}
+        </ol>
+      </li>
+    );
+  }
+  const line =
+    m.kind === 'held'
+      ? c.t(`Your {c:shelter} is keeping ${an(c.name(m.card.t))} safe in your hand (${when}).`)
+      : m.kind === 'pooled'
+        ? `You put ${c.name(m.card.t)} ${m.how === 'potluck' ? 'on top of the pile' : 'into the pile'} (${when}).`
+        : m.kind === 'lost'
+          ? `You turned over ${c.name(m.card.t)} blindfolded: it was lost (${when}).`
+          : (() => {
+              const how = {
+                favor: c.name('favor'),
+                pair: 'a pair',
+                triple: 'three of a kind',
+                mine: c.name('mine'),
+                stash: `the ${c.name('vault')}’s Stash`,
+              }[m.how];
+              return m.kind === 'got'
+                ? `You got ${c.name(m.card.t)} from ${who(view, m.other)} (${how}, ${when}).`
+                : `You gave ${c.name(m.card.t)} to ${who(view, m.other)} (${how}, ${when}).`;
+            })();
   return (
     <li className="flex items-center gap-2 rounded-xl bg-card p-2 text-sm text-ink ring-1 ring-line">
       <CardFace card={m.card} art={g.art} c={c} size="xs" />
-      <span>
-        {m.kind === 'got'
-          ? `You got ${c.name(m.card.t)} from ${who(view, m.other)} (${how}, ${when}).`
-          : `You gave ${c.name(m.card.t)} to ${who(view, m.other)} (${how}, ${when}).`}
-      </span>
+      <span>{line}</span>
     </li>
   );
 }

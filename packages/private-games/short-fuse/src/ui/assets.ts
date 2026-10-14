@@ -50,6 +50,10 @@ export interface Content {
   face: (card: Card, art: Art) => string | null;
   thumb: (card: Card, art: Art) => string | null;
   back: string | null;
+  /** Every small face of a card type (to load ahead of time, so a play shows its art at once). */
+  thumbs: (t: CardType, art: Art) => string[];
+  /** The Vault's crown, when the manifest has one. */
+  crown: string | null;
   rules: (t: CardType, card?: Card, art?: Art) => string;
   flavour: (card: Card, art: Art) => string | null;
   /** True once the manifest has loaded (or is known to be missing). */
@@ -75,6 +79,17 @@ export function contentFor(m: ManifestState, art: Art = 'classic'): Content {
       return f ? assetUrl(thumbOf(man, f)) : null;
     },
     back: man?.back ? assetUrl(man.back) : null,
+    thumbs: (type, art) => {
+      const list = man?.faces?.[type];
+      const files = (list?.[art]?.length ? list[art] : (list?.classic ?? list?.adult)) ?? [];
+      return files
+        .filter((f): f is string => typeof f === 'string' && f.length > 0)
+        .map((f) => assetUrl(thumbOf(man, f)));
+    },
+    crown:
+      typeof man?.extras?.crownIcon === 'string' && man.extras.crownIcon
+        ? assetUrl(man.extras.crownIcon)
+        : null,
     rules: (type) => t(RULES[type]),
     flavour: (card, art) => {
       const f = faceOf(man, card.t, card.face, art);

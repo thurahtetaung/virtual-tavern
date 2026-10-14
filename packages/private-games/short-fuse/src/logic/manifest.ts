@@ -14,6 +14,7 @@ import type { Art } from './types.ts';
  *   faces: { bomb: { classic: ["cards/….webp", …], adult: […] }, void: { classic: […] }, … },
  *   thumbs: "cards/thumb/",          // a folder with a small copy of every face, same file names
  *   text: { "cards/….webp": { flavour, rules } },
+ *   extras: { crownIcon: "extras/….webp" },   // the Vault's crown, for its wearer's seat
  *   credit: { title, paragraphs: […], links: [{ label, href }] }
  * }
  */
@@ -31,6 +32,7 @@ export interface Manifest {
   faces?: Partial<Record<string, Partial<Record<Art, string[]>>>>;
   thumbs?: string;
   text?: Record<string, { flavour?: string; rules?: string }>;
+  extras?: { crown?: string; crownIcon?: string };
   credit?: { title?: string; paragraphs?: string[]; links?: { label?: string; href?: string }[] };
 }
 

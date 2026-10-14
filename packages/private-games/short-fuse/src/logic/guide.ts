@@ -20,6 +20,27 @@ const CORE_CARDS: CardType[] = [
   'cat1',
 ];
 const X1_CARDS: CardType[] = ['void', 'wild', 'aim', 'reverse', 'bottom', 'alter3'];
+const X2_CARDS: CardType[] = [
+  'shelter',
+  'superskip',
+  'peek5',
+  'alter5',
+  'swap',
+  'recycle',
+  'stack',
+  'mark',
+  'blind',
+];
+const X3_CARDS: CardType[] = [
+  'twin',
+  'vault',
+  'mine',
+  'bury',
+  'self3',
+  'potluck',
+  'share3',
+  'alter3now',
+];
 
 const cardLine = (t: CardType) =>
   t === 'cat1' ? `Cats (5 kinds): ${RULES[t]}` : `{c:${t}}: ${RULES[t]}`;
@@ -38,7 +59,7 @@ const RAW: GameGuide = {
     'The pile always shows how many cards and {bombs} are left. Pairs of matching cats steal a card.',
   ],
   setup: [
-    'Sit down in the lobby (2 to 10 players). The host picks a deck: Classic, the 18+ Adult deck (same rules, different art) or the Party deck, and can add Expansion 1.',
+    'Sit down in the lobby (2 to 10 players). The host picks a deck: Classic, the 18+ Adult deck (same rules, different art) or the Party deck, and can add Expansions 1, 2 and 3 in any mix.',
     'Everyone gets a {c:defuse} and 7 cards. {Bombs} go into the pile: one fewer than the players.',
     'A random player starts; play goes round the table in seat order.',
   ],
@@ -93,6 +114,22 @@ const RAW: GameGuide = {
         'The {c:void} replaces one of the {bombs}. The first time it’s drawn it goes back face up, and from then on everyone sees it in the side of the pile (exact for a short pile, roughly for a tall one).',
       ],
       bullets: X1_CARDS.map(cardLine),
+    },
+    {
+      title: 'When Expansion 2 is on',
+      paragraphs: [
+        'One more {bomb} goes in (as many as there are players). Hold a {c:shelter} and the next {bomb} you draw stays quietly in your hand instead of exploding; lose the {c:shelter} (stolen, given, put in the pile) and that {bomb} goes off on you. Anyone who takes a {bomb} from your hand has to deal with it.',
+        'A {c:blind} turns your hand face down and shuffled: every card you play is a random one, a card that can’t be played that way is lost, and with a {bomb} you turn cards over one at a time hoping for a {c:defuse}. Drawing a card safely takes the blindfold off.',
+      ],
+      bullets: X2_CARDS.map(cardLine),
+    },
+    {
+      title: 'When Expansion 3 is on',
+      paragraphs: [
+        'Six cards are dealt face down as the Stash before the hands. Whoever plays the {c:vault} wears it with the Stash for the rest of the game: anything stolen from them (a {c:favor}, a pair, three of a kind) comes from the Stash at random until it’s empty.',
+        'NOW cards can be played by anyone between actions, even off their turn.',
+      ],
+      bullets: X3_CARDS.map(cardLine),
     },
     {
       title: 'Party deck and big tables',

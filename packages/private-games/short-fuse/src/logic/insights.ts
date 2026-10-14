@@ -17,6 +17,9 @@ import type { LogEntry, ShortFuseAction, ShortFuseState } from './types.ts';
  *   steal      {how, victim, hit}               favor, pair or three of a kind
  *   placement  {kind, position, of, drawnBy, killed}   at the end, from the truth log
  *   timeout    {did}                            a strict timer or the host acted for someone
+ *   mark       {target, card}  curse {victim}  cured {}  lost {card}  stack {n}  vault {}
+ *   bark       {target}        mine {target}   mine-took {victim, bomb}  pooled {kind, n}
+ *   self-attack {owed}         (steal events carry `stash: true` when the Vault paid)
  *   outcome    {players, turns, eliminated, preset, x1, faster, longestChain, maxOwed, maxOwedBy}
  */
 export function insights(
@@ -109,6 +112,9 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
       const kind = e.cards?.[0] ?? 'bomb';
       const bomb = g.front[by ?? '']?.at(-1);
       const placed = g.truth.findLast((t) => t.card === bomb);
+      // A Twin Bombs' bark: whoever set it off.
+      const bark =
+        kind === 'twin' ? g.log.findLast((x) => x.kind === 'bark' && x.target === by) : null;
       return [
         { type: 'bomb', playerId: by, props: { kind, saved: 'none' } },
         {
@@ -119,6 +125,7 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
             turn: e.turn,
             left: g.pile.length,
             placedBy: placed && placed.by !== by ? placed.by : null,
+            barkedBy: bark?.by ?? null,
           },
         },
       ];
@@ -129,7 +136,7 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
             {
               type: 'steal',
               playerId: e.target ?? null,
-              props: { how: 'favor', victim: by, hit: true },
+              props: { how: 'favor', victim: by, hit: true, stash: e.from === 'stash' },
             },
           ]
         : [];
@@ -138,7 +145,7 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
         {
           type: 'steal',
           playerId: by,
-          props: { how: 'pair', victim: e.target ?? null, hit: !!e.n },
+          props: { how: 'pair', victim: e.target ?? null, hit: !!e.n, stash: e.from === 'stash' },
         },
       ];
     case 'ask':
@@ -149,6 +156,40 @@ function eventOf(e: LogEntry, after: ShortFuseState): InsightEvent[] {
           props: { how: 'triple', victim: e.target ?? null, hit: !!e.hit, named: e.named ?? null },
         },
       ];
+    case 'mark':
+      return [
+        {
+          type: 'mark',
+          playerId: by,
+          props: { target: e.target ?? null, card: e.cards?.[0] ?? null },
+        },
+      ];
+    case 'blind':
+      return [{ type: 'curse', playerId: by, props: { victim: e.target ?? null } }];
+    case 'cured':
+      return [{ type: 'cured', playerId: by, props: {} }];
+    case 'lost':
+      return e.cards?.length ? [{ type: 'lost', playerId: by, props: { card: e.cards[0]! } }] : [];
+    case 'stack':
+      return [{ type: 'stack', playerId: by, props: { n: e.n ?? 0 } }];
+    case 'vault':
+      return [{ type: 'vault', playerId: by, props: {} }];
+    case 'bark':
+      return [{ type: 'bark', playerId: by, props: { target: e.target ?? null } }];
+    case 'mine':
+      return [{ type: 'mine', playerId: by, props: { target: e.target ?? null } }];
+    case 'mine-took':
+      return [
+        {
+          type: 'mine-took',
+          playerId: by,
+          props: { victim: e.target ?? null, bomb: !!e.cards?.length },
+        },
+      ];
+    case 'pooled':
+      return [{ type: 'pooled', playerId: by, props: { kind: e.cards?.[0] ?? null, n: e.n ?? 0 } }];
+    case 'self-attack':
+      return [{ type: 'self-attack', playerId: by, props: { owed: e.n ?? 3 } }];
     case 'timeout':
     case 'act-for':
       return [

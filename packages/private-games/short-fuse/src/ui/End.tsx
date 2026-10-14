@@ -101,13 +101,29 @@ export function End({
           <ul className="space-y-0.5 text-sm text-ink">
             {end.truth.map((t, i) => (
               <li key={i}>
-                Turn {t.turn}: {who(view, t.by, false)} put {c.name(t.kind)}{' '}
+                Turn {t.turn}: {who(view, t.by, false)}{' '}
+                {t.kind === 'bury' ? 'buried a card' : `put ${c.name(t.kind)}`}{' '}
                 {t.position === 0
                   ? 'on top'
                   : t.position === t.of - 1
                     ? 'at the bottom'
                     : `${ordinal(t.position + 1)} of ${t.of}`}
                 {t.drawnBy ? `, and ${who(view, t.drawnBy, false)} drew it.` : '.'}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+
+      {end.stash.length > 0 && (
+        <Panel className="space-y-2">
+          <h3 className="font-bold text-ink">
+            {c.name('vault')}: the Stash ({end.stash.length})
+          </h3>
+          <ul className="flex flex-wrap gap-1" data-testid="end-stash">
+            {sortHand(end.stash).map((card) => (
+              <li key={card.id}>
+                <CardFace card={card} art={g.art} c={c} size="sm" />
               </li>
             ))}
           </ul>
