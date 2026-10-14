@@ -29,6 +29,7 @@ export function Seats({
   onWhy,
   ids,
   columns,
+  showKnown,
 }: {
   view: HydraView;
   room: GameRoomInfo;
@@ -43,9 +44,11 @@ export function Seats({
   /** A subset (the desktop splits the table in two rows); all players by default. */
   ids?: string[];
   columns?: number;
+  /** Your role card is up: only then do your known teammates get their badges. */
+  showKnown: boolean;
 }) {
   const g = view.game!;
-  const known = new Map((view.role?.known ?? []).map((k) => [k.id, k.role]));
+  const known = new Map((showKnown ? (view.role?.known ?? []) : []).map((k) => [k.id, k.role]));
   const waiting = waitingOn(view);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const players = ids ? g.players.filter((p) => ids.includes(p.id)) : g.players;

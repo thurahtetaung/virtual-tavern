@@ -213,3 +213,40 @@ test('three failed governments: the people enact the top policy', async ({ brows
   await expect(host.getByTestId('deck-chip').first()).toContainText('10 Conspirator');
   await whoShows(players, 'You’re the Presidential Candidate: nominate a Chancellor.');
 });
+
+test('on a phone, a face-down role card gives nothing away, not even on the seats', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await hydraVisitor(browser, 'Admin', pageErrors));
+  const players = await hydraTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], pageErrors, {
+    viewport: { width: 390, height: 844 },
+  });
+  await players[0]!.page.getByRole('button', { name: 'Start with 5 players' }).click();
+  await readRoles(players);
+  // With 5 players the red player and the Leader know each other.
+  const red = players.find((p) => p.role === 'red')!;
+  const leader = players.find((p) => p.role === 'leader')!;
+  const page = red.page;
+  const badge = page.getByTitle('Your teammate (only you see this)');
+  const tabs = page.getByRole('navigation', { name: 'Game sections' });
+  await expect(page.getByRole('list', { name: 'Seats' }).first()).toBeVisible();
+  await expect(badge).toHaveCount(0);
+  await tabs.getByRole('button', { name: /Me/ }).click();
+  const card = page.getByRole('region', { name: 'Your role card' }).first();
+  await expect(card).toBeVisible();
+  await expect(page.getByTestId('role-details-hidden').first()).toBeVisible();
+  await expect(page.getByTestId('role-details')).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'What you know' })).toHaveCount(0);
+  // Card up: the goal and the teammate show at once, and the seats badge them.
+  await card.getByRole('button', { name: '👁️ Show my role' }).click();
+  await expect(
+    page.getByRole('list', { name: 'What you know' }).first().getByText(leader.name),
+  ).toBeVisible();
+  await tabs.getByRole('button', { name: /Table/ }).click();
+  await expect(badge.first()).toBeVisible();
+  await tabs.getByRole('button', { name: /Me/ }).click();
+  await card.getByRole('button', { name: '🙈 Hide my role' }).click();
+  await expect(page.getByTestId('role-details')).toHaveCount(0);
+  await expect(badge).toHaveCount(0);
+});

@@ -1,5 +1,5 @@
 import { Button, cn } from '@vt/ui';
-import { type PointerEvent, useRef, useState } from 'react';
+import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import { leaderKnowsTeam, trackFor } from '../logic/tables.ts';
 import type { HydraView, Memory } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -19,16 +19,65 @@ function knowledge(view: HydraView, c: Content): string {
   return c.t('Your team (they know you too):');
 }
 
-/** Your role card: face down until you hold it, slide it up or switch it on. */
-export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content; big?: boolean }) {
-  const r = view.role;
-  const [open, setOpen] = useState(false);
+/** Whether your role card is up. Everything that gives your side away shows only while it is. */
+export interface RoleReveal {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  held: boolean;
+  setHeld: (held: boolean) => void;
+  flat: boolean;
+  shown: boolean;
+}
+
+/** One reveal state for every copy of the card (phone tab, desktop sidebar) and the seats;
+ * switched-on cards turn face down again whenever `resetKey` changes. */
+export function useRoleReveal(resetKey: string): RoleReveal {
+  const [opened, setOpened] = useState<string | null>(null);
   const [held, setHeld] = useState(false);
+  const flat = useLyingFlat(true);
+  const open = opened === resetKey;
+  return {
+    open,
+    setOpen: (on) => setOpened(on ? resetKey : null),
+    held,
+    setHeld,
+    flat,
+    shown: (open || held) && !flat,
+  };
+}
+
+/** Your role card: face down until you hold it, slide it up or switch it on. */
+export function RoleCard({
+  view,
+  c,
+  reveal,
+  big = false,
+}: {
+  view: HydraView;
+  c: Content;
+  reveal: RoleReveal;
+  big?: boolean;
+}) {
+  const r = view.role;
+  const { open, setOpen, setHeld, flat, shown } = reveal;
   const [drag, setDrag] = useState(0);
   const start = useRef<number | null>(null);
-  const flat = useLyingFlat(true);
+  // The face is only in the page while the card is up (and while it flips back down), so a
+  // face-down card carries no role name, not even for a screen reader.
+  const [wasShown, setWasShown] = useState(shown);
+  const [linger, setLinger] = useState(false);
+  if (wasShown !== shown) {
+    setWasShown(shown);
+    if (!shown) setLinger(true);
+  }
+  useEffect(() => {
+    if (!linger) return;
+    const t = window.setTimeout(() => setLinger(false), 600);
+    return () => {
+      window.clearTimeout(t);
+    };
+  }, [linger]);
   if (!r) return null;
-  const shown = (open || held) && !flat;
   const down = (e: PointerEvent<HTMLDivElement>) => {
     start.current = e.clientY;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -70,7 +119,11 @@ export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content
         <FlipCard
           up={shown}
           back={<RoleBack c={c} />}
-          front={<RoleFace role={r.role} art={r.art} seed={view.game?.artSeed} c={c} />}
+          front={
+            shown || linger ? (
+              <RoleFace role={r.role} art={r.art} seed={view.game?.artSeed} c={c} />
+            ) : null
+          }
           className="relative"
         />
         {!shown && (
@@ -80,7 +133,7 @@ export function RoleCard({ view, c, big = false }: { view: HydraView; c: Content
         )}
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)}>
+        <Button variant="secondary" size="sm" onClick={() => setOpen(!open)}>
           {open ? '🙈 Hide my role' : '👁️ Show my role'}
         </Button>
       </div>
@@ -127,6 +180,7 @@ function MemoryLine({ view, c, m }: { view: HydraView; c: Content; m: Memory }) 
 export function MeTab({
   view,
   c,
+  reveal,
   showGuide,
   big = false,
   moments,
@@ -136,6 +190,7 @@ export function MeTab({
 }: {
   view: HydraView;
   c: Content;
+  reveal: RoleReveal;
   showGuide: () => void;
   /** The deal: the role card is the star. */
   big?: boolean;
@@ -152,32 +207,39 @@ export function MeTab({
     <div className="space-y-3">
       {r && (
         <section className="space-y-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
-          <RoleCard view={view} c={c} big={big} />
-          <div className="space-y-2 text-sm" data-testid="role-details">
-            <p className="rounded-lg bg-stone-100 px-3 py-2 dark:bg-stone-800">
-              <b>How you win: </b>
-              {c.copy(`me.goal.${r.role}`)}
+          <RoleCard view={view} c={c} reveal={reveal} big={big} />
+          {/* Only with the card up: a glance at a face-down card must give nothing away. */}
+          {!reveal.shown ? (
+            <p className="text-center text-xs text-stone-500" data-testid="role-details-hidden">
+              Your goal, what you know and what only you saw show while your card is up.
             </p>
-            <p className="font-semibold">{knowledge(view, c)}</p>
-            {r.known.length > 0 && (
-              <ul className="flex flex-wrap gap-2" aria-label="What you know">
-                {r.known.map((k) => (
-                  <li
-                    key={k.id}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
-                  >
-                    {nameOf(view, k.id)}
-                    <span className="rounded-full bg-red-700 px-2 py-0.5 text-xs text-white">
-                      {c.roleName(k.role)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-2 text-sm" data-testid="role-details">
+              <p className="rounded-lg bg-stone-100 px-3 py-2 dark:bg-stone-800">
+                <b>How you win: </b>
+                {c.copy(`me.goal.${r.role}`)}
+              </p>
+              <p className="font-semibold">{knowledge(view, c)}</p>
+              {r.known.length > 0 && (
+                <ul className="flex flex-wrap gap-2" aria-label="What you know">
+                  {r.known.map((k) => (
+                    <li
+                      key={k.id}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
+                    >
+                      {nameOf(view, k.id)}
+                      <span className="rounded-full bg-red-700 px-2 py-0.5 text-xs text-white">
+                        {c.roleName(k.role)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </section>
       )}
-      {g.memories.length > 0 && (
+      {reveal.shown && g.memories.length > 0 && (
         <section className="rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
           <h3 className="mb-1 font-bold">🔒 What only you saw</h3>
           <ul className="space-y-1">
