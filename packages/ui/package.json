@@ -17,6 +17,7 @@
     "react": "^19.3.0"
   },
   "dependencies": {
-    "@vt/game-sdk": "workspace:*"
+    "@vt/game-sdk": "workspace:*",
+    "tailwind-merge": "^3.7.0"
   }
 }
