@@ -781,7 +781,7 @@ function InviteButton() {
     } catch (err) {
       // Closing the share sheet without sharing is not a failure.
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      toast(`Copy this link: ${url}`, 'info');
+      toast("Couldn't copy the link. Copy it from the address bar.", 'info');
     }
   };
   return (

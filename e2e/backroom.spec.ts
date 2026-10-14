@@ -51,9 +51,10 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await host.goto('/backroom');
   await host.getByLabel('The word').fill('please');
   await host.getByRole('button', { name: 'Knock' }).click();
-  // Said under the field too (until the next keystroke), and the word stays, selected, to retype.
+  // Said under the field only (until the next keystroke), and the word stays, selected, to retype.
   const field = host.getByLabel('The word');
   await expect(field).toHaveAccessibleDescription(/That's not the word/);
+  await expect(host.getByText("That's not the word")).toHaveCount(1);
   await expect(field).toHaveValue('please');
   expect(
     await field.evaluate(

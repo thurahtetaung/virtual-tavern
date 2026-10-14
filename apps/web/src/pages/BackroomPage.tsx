@@ -131,7 +131,7 @@ export function BackroomPage() {
       if (next) void navigate(next);
       else void refresh();
     } catch (err) {
-      toast((err as Error).message);
+      // Shown under the field only: a toast would say it twice.
       setRefusal((err as Error).message);
       if (err instanceof ApiFailure && err.retryAfter) setWait(err.retryAfter);
       // Keep the word, selected, so a typo can be fixed and a wrong word typed over.

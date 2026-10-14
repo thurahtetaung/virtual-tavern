@@ -66,8 +66,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* On phones only the newest shows: over the site's title bar it stays clear of the room's
-          Invite / Players / Rules row (y 81), which a second toast below it would cover. */}
+      {/* On phones only the newest shows, at most two lines tall: over the site's title bar it stays
+          clear of the room's Invite / Players / Rules row (y 81), which a second toast or a third
+          line would cover. */}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex flex-col items-center gap-2 px-4 max-sm:[&>*:not(:last-child)]:hidden">
         {toasts.map((t) => (
           <div
@@ -83,8 +84,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 : 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900')
             }
           >
-            {t.text}
-            {t.count > 1 && <span className="ml-2 opacity-75">×{t.count}</span>}
+            <span className="max-sm:line-clamp-2">
+              {t.text}
+              {t.count > 1 && <span className="ml-2 opacity-75">×{t.count}</span>}
+            </span>
           </div>
         ))}
       </div>
