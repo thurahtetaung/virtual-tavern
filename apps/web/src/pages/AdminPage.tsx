@@ -9,6 +9,7 @@ import { MAX_WORDS_PER_LIST } from '@vt/protocol';
 import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AdminNav } from '../components/AdminNav.tsx';
+import { AdminSection } from '../components/AdminSection.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
@@ -32,7 +33,17 @@ export function AdminPage() {
 
   return (
     <Layout>
-      <h1 className="mb-6 text-3xl font-bold">Tavern keeper</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-3xl font-bold">Tavern keeper</h1>
+        {session?.signedIn && (
+          <Button
+            variant="ghost"
+            onClick={() => void api('/api/admin/logout', { method: 'POST' }).then(refresh)}
+          >
+            Sign out
+          </Button>
+        )}
+      </div>
       {!session ? (
         <p className="text-stone-500">Loading…</p>
       ) : !session.enabled ? (
@@ -46,7 +57,7 @@ export function AdminPage() {
           <RecapAdmin />
           <GameTitlesAdmin />
           <NightfallMusicAdmin />
-          <WordLists onSignOut={refresh} />
+          <WordLists />
           <QuestionDecks />
         </div>
       )}
@@ -149,18 +160,16 @@ function BackroomAdmin() {
   };
 
   return (
-    <Panel className="space-y-3">
-      <div>
-        <h2 className="text-xl font-bold">🕯️ Back room</h2>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          One shared password unlocks private games for 30 days per device.{' '}
-          {open === null
-            ? ''
-            : open
-              ? 'The back room is open.'
-              : 'No password yet, so the back room is closed.'}
-        </p>
-      </div>
+    <AdminSection
+      id="backroom"
+      title="🕯️ Back room"
+      label="Back room"
+      defaultOpen
+      summary={open === null ? '' : open ? 'Open' : 'Closed: no password yet'}
+    >
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        One shared password unlocks private games for 30 days per device.
+      </p>
       <form onSubmit={(e) => void save(e)} className="flex flex-col gap-2 sm:flex-row">
         <label className="sr-only" htmlFor="backroom-password">
           Back room password
@@ -173,7 +182,7 @@ function BackroomAdmin() {
           minLength={4}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={open ? 'New password' : 'Set a password'}
-          className="h-11 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+          className="h-11 rounded-lg bg-white px-3 ring-1 ring-stone-300 sm:flex-1 dark:bg-stone-800 dark:ring-stone-600"
         />
         <Button type="submit" disabled={password.length < 4}>
           {open ? 'Change password' : 'Open the back room'}
@@ -184,7 +193,7 @@ function BackroomAdmin() {
           Sign everyone out
         </Button>
       )}
-    </Panel>
+    </AdminSection>
   );
 }
 
@@ -235,7 +244,7 @@ function RecapAdmin() {
   );
 }
 
-function WordLists({ onSignOut }: { onSignOut: () => void }) {
+function WordLists() {
   const toast = useToast();
   // null until the first load answers, so an empty server isn't confused with a slow one.
   const [lists, setLists] = useState<WordListSummary[] | null>(null);
@@ -314,113 +323,115 @@ function WordLists({ onSignOut }: { onSignOut: () => void }) {
     }
   };
 
-  if (editing) {
-    return (
-      <Editor
-        list={editing === 'new' ? null : editing}
-        games={games}
-        onClose={() => {
-          setEditing(null);
-          load();
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-bold">Word lists</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setEditing('new')}>+ New list</Button>
-          <Button
-            variant="secondary"
-            onClick={() => void downloadAll()}
-            disabled={zipping || !lists?.length}
-          >
-            {zipping ? 'Zipping…' : 'Download all (.zip)'}
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => void api('/api/admin/logout', { method: 'POST' }).then(onSignOut)}
-          >
-            Sign out
-          </Button>
-        </div>
-      </div>
-      <p className="text-sm text-stone-600 dark:text-stone-400">
-        Hosts choose from these lists when setting up a game. A game needs at least 25 words across
-        the chosen lists. Switch a list off to hide it from hosts without deleting it.
-      </p>
-      {lists === null && <p className="text-stone-500 dark:text-stone-400">Loading lists…</p>}
-      <ul className="space-y-2">
-        {lists?.map((l) => (
-          <li key={l.id}>
-            <Panel
-              className={cn(
-                'flex items-center gap-1 p-0 pr-2 transition hover:ring-accent dark:hover:ring-amber-400',
-                !l.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
-              )}
+    <AdminSection
+      id="word-lists"
+      title="Word lists"
+      summary={lists && countLine(lists.length, 'list', lists.filter((l) => !l.enabled).length)}
+    >
+      {editing ? (
+        <Editor
+          list={editing === 'new' ? null : editing}
+          games={games}
+          onClose={() => {
+            setEditing(null);
+            load();
+          }}
+        />
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-stone-600 dark:text-stone-400">
+            Hosts choose from these lists when setting up a game. A game needs at least 25 words
+            across the chosen lists. Switch a list off to hide it from hosts without deleting it.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setEditing('new')}>+ New list</Button>
+            <Button
+              variant="secondary"
+              onClick={() => void downloadAll()}
+              disabled={zipping || !lists?.length}
             >
-              <button
-                type="button"
-                onClick={() => void open(l.id)}
-                className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
-              >
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span
-                      id={`list-${l.id}`}
-                      className={cn(
-                        'font-bold',
-                        !l.enabled && 'text-stone-500 dark:text-stone-400',
-                      )}
-                    >
-                      {l.name}
-                    </span>
-                    {!l.enabled && <Badge>Disabled</Badge>}
-                  </span>
-                  <span className={cn('block', !l.enabled && 'opacity-60')}>
-                    {l.description && (
-                      <span className="block text-sm text-stone-500">{l.description}</span>
-                    )}
-                    <GameTags ids={l.games} games={games} />
-                  </span>
-                </span>
-                <span
+              {zipping ? 'Zipping…' : 'Download all (.zip)'}
+            </Button>
+          </div>
+          {lists === null && <p className="text-stone-500 dark:text-stone-400">Loading lists…</p>}
+          <ul className="space-y-2">
+            {lists?.map((l) => (
+              <li key={l.id}>
+                <Panel
                   className={cn(
-                    'shrink-0 text-sm',
-                    l.wordCount < 25 && l.enabled
-                      ? 'font-semibold text-rose-600'
-                      : 'text-stone-500',
+                    'flex items-center gap-1 p-0 pr-2 transition hover:ring-accent dark:hover:ring-amber-400',
+                    !l.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
                   )}
                 >
-                  {l.wordCount} words
-                </span>
-              </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Download ${l.name} as .txt`}
-                title="Download .txt"
-                onClick={() => void download(l.id)}
-              >
-                <DownloadIcon />
-              </Button>
-              <Switch
-                checked={l.enabled}
-                busy={switching.has(l.id)}
-                onChange={(on) => void setEnabled(l.id, on)}
-                aria-label="Enabled"
-                aria-describedby={`list-${l.id}`}
-              />
-            </Panel>
-          </li>
-        ))}
-        {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
-      </ul>
-    </div>
+                  <button
+                    type="button"
+                    onClick={() => void open(l.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span
+                          id={`list-${l.id}`}
+                          className={cn(
+                            'font-bold',
+                            !l.enabled && 'text-stone-500 dark:text-stone-400',
+                          )}
+                        >
+                          {l.name}
+                        </span>
+                        {!l.enabled && <Badge>Disabled</Badge>}
+                      </span>
+                      <span className={cn('block', !l.enabled && 'opacity-60')}>
+                        {l.description && (
+                          <span className="block text-sm text-stone-500">{l.description}</span>
+                        )}
+                        <GameTags ids={l.games} games={games} />
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 text-sm',
+                        l.wordCount < 25 && l.enabled
+                          ? 'font-semibold text-rose-600'
+                          : 'text-stone-500',
+                      )}
+                    >
+                      {l.wordCount} words
+                    </span>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Download ${l.name} as .txt`}
+                    title="Download .txt"
+                    onClick={() => void download(l.id)}
+                  >
+                    <DownloadIcon />
+                  </Button>
+                  <Switch
+                    checked={l.enabled}
+                    busy={switching.has(l.id)}
+                    onChange={(on) => void setEnabled(l.id, on)}
+                    aria-label="Enabled"
+                    aria-describedby={`list-${l.id}`}
+                  />
+                </Panel>
+              </li>
+            ))}
+            {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
+          </ul>
+        </div>
+      )}
+    </AdminSection>
   );
+}
+
+/** "12 lists, 2 switched off" for a section's summary line. */
+function countLine(n: number, noun: string, off: number, extra?: string) {
+  return [`${n} ${noun}${n === 1 ? '' : 's'}`, off ? `${off} switched off` : '', extra ?? '']
+    .filter(Boolean)
+    .join(', ');
 }
 
 /**
@@ -514,11 +525,27 @@ function QuestionDecks() {
   };
 
   return (
-    <section aria-labelledby="question-decks-heading" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="question-decks-heading" className="text-xl font-bold">
-          Question decks
-        </h2>
+    <AdminSection
+      id="question-decks"
+      title="Question decks"
+      summary={
+        decks &&
+        countLine(
+          decks.length,
+          'deck',
+          decks.filter((d) => !d.enabled).length,
+          decks.length
+            ? `${decks.reduce((n, d) => n + d.questionCount, 0).toLocaleString('en')} questions`
+            : undefined,
+        )
+      }
+    >
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        Trivia games draw their questions from these decks. The questions are private: import them
+        with <code className="text-xs">scripts/import-question-decks.mjs</code>, never into the
+        repository. Switch a deck off to hide it from hosts without deleting it.
+      </p>
+      <div>
         <Button
           variant="secondary"
           onClick={() => void downloadAll()}
@@ -527,11 +554,6 @@ function QuestionDecks() {
           {zipping ? 'Zipping…' : 'Download all decks (.zip)'}
         </Button>
       </div>
-      <p className="text-sm text-stone-600 dark:text-stone-400">
-        Trivia games draw their questions from these decks. The questions are private: import them
-        with <code className="text-xs">scripts/import-question-decks.mjs</code>, never into the
-        repository. Switch a deck off to hide it from hosts without deleting it.
-      </p>
       {decks === null && <p className="text-stone-500 dark:text-stone-400">Loading decks…</p>}
       <ul className="space-y-2">
         {decks?.map((d) => (
@@ -602,7 +624,7 @@ function QuestionDecks() {
         ))}
         {decks?.length === 0 && <li className="text-stone-500 italic">No decks yet.</li>}
       </ul>
-    </section>
+    </AdminSection>
   );
 }
 

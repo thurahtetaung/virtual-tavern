@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { type Browser, type Download, expect, test } from '@playwright/test';
 import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD } from './credentials.ts';
+import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -22,6 +23,7 @@ async function signedInAdmin(browser: Browser) {
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Question decks' })).toBeVisible();
+  await openAdminSection(page, 'Question decks');
   return page;
 }
 
@@ -48,6 +50,9 @@ test('admins list, switch, download and delete question decks', async ({ browser
   await admin.reload();
 
   const section = admin.getByRole('region', { name: 'Question decks' });
+  // The section stays unfolded across a reload, and its summary line counts the decks.
+  await expect(section.locator('details')).toHaveAttribute('open', '');
+  await expect(section.locator('summary')).toContainText(/\d+ decks?, .*\d+ questions/);
   const row = section.getByRole('listitem').filter({ hasText: 'E2E Oddities' });
   await expect(row.getByText('2 questions')).toBeVisible();
   await expect(row.getByText('Adult', { exact: true })).toBeVisible();

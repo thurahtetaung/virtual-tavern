@@ -1,7 +1,8 @@
-import { Button, Panel, cn } from '@vt/ui';
+import { Button, cn } from '@vt/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.ts';
 import { useToast } from '../lib/toast.tsx';
+import { AdminSection } from './AdminSection.tsx';
 
 interface TitleRow {
   gameId: string;
@@ -38,14 +39,15 @@ export function GameTitlesAdmin() {
   };
   if (!rows?.length) return null;
   return (
-    <Panel className="space-y-3">
-      <div>
-        <h2 className="text-xl font-bold">🏷️ Back-room titles</h2>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          The name each back-room game shows to unlocked players. Leave it empty to use the code
-          name.
-        </p>
-      </div>
+    <AdminSection
+      id="game-titles"
+      title="🏷️ Back-room titles"
+      label="Back-room titles"
+      summary={`${plural(rows.length, 'game')}, ${rows.filter((r) => r.title).length} with a title`}
+    >
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        The name each back-room game shows to unlocked players. Leave it empty to use the code name.
+      </p>
       <ul className="space-y-2">
         {rows.map((r) => (
           <li key={r.gameId} className="flex flex-col gap-1 sm:flex-row sm:items-center">
@@ -70,9 +72,11 @@ export function GameTitlesAdmin() {
           </li>
         ))}
       </ul>
-    </Panel>
+    </AdminSection>
   );
 }
+
+const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
 
 const PHASES = ['lobby', 'night', 'day', 'vote', 'reveal'] as const;
 type MusicPhase = (typeof PHASES)[number];
@@ -164,14 +168,22 @@ export function NightfallMusicAdmin() {
 
   const tracks = info?.tracks ? Object.values(info.tracks) : null;
   return (
-    <Panel className="space-y-3" aria-label="Nightfall music">
-      <div>
-        <h2 className="text-xl font-bold">🎵 Nightfall music</h2>
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          The background tracks each phase plays, on the devices that narrate. Each game moves on to
-          the next track in a phase’s list.
-        </p>
-      </div>
+    <AdminSection
+      id="nightfall-music"
+      title="🎵 Nightfall music"
+      label="Nightfall music"
+      summary={
+        !info
+          ? ''
+          : !tracks?.length
+            ? 'No tracks uploaded yet'
+            : `${plural(tracks.length, 'track')}, ${info.override ? 'your own picks' : 'the default picks'}`
+      }
+    >
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        The background tracks each phase plays, on the devices that narrate. Each game moves on to
+        the next track in a phase’s list.
+      </p>
       {!info ? (
         <p className="text-sm text-stone-500">Loading…</p>
       ) : !tracks?.length ? (
@@ -236,6 +248,6 @@ export function NightfallMusicAdmin() {
           </div>
         </>
       )}
-    </Panel>
+    </AdminSection>
   );
 }
