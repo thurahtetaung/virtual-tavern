@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.2...v0.34.0) (2026-10-14)
+
+
+### Features
+
+* **tavern-brawl:** show every hero's cards and mighty powers in the guide, hero pick and table ([#142](https://github.com/thurahtetaung/virtual-tavern/issues/142)) ([81c0886](https://github.com/thurahtetaung/virtual-tavern/commit/81c0886ae8a631bfdd4691ae71ad92d5cfe6fcdf))
+
 ## [0.33.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.1...v0.33.2) (2026-10-14)
 
 
