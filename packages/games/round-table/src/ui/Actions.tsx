@@ -17,7 +17,7 @@ export function RevealPanel({
 }: {
   view: RoundTableView;
   act: Act;
-  showGuide: () => void;
+  showGuide: (topic?: unknown) => void;
 }) {
   if (!view.role) return null;
   const ready = view.game!.ready.includes(view.me!.id);

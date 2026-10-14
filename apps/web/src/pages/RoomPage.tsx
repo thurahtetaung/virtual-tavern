@@ -21,7 +21,8 @@ import {
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Drawer } from '../components/Drawer.tsx';
-import { GameGuideView } from '../components/GuideView.tsx';
+import { GuideIntro } from '../components/GuideIntro.tsx';
+import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
@@ -244,6 +245,12 @@ function Room({
   const [adminLost, setAdminLost] = useState(false);
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [guideFocus, setGuideFocus] = useState<GuideFocus>();
+  // A game may name a role to open at (a click handler passes its event, which isn't one).
+  const showGuide = useCallback((topic?: unknown) => {
+    if (typeof topic === 'string') setGuideFocus((f) => ({ topic, n: (f?.n ?? 0) + 1 }));
+    setGuideOpen(true);
+  }, []);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const night = useRecap({ call, snapshot, game, wraps });
@@ -585,6 +592,9 @@ function Room({
             </p>
           }
         >
+          {snapshot.meta?.phase === 'lobby' && !playtest && (
+            <GuideIntro game={game} onRules={() => setGuideOpen(true)} />
+          )}
           <BotNames.Provider value={botNames}>
             <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
               <Game
@@ -599,7 +609,7 @@ function Room({
                   ...(superlatives && { superlatives }),
                 }}
                 act={act}
-                showGuide={() => setGuideOpen(true)}
+                showGuide={showGuide}
                 setYourMove={setYourMove}
                 setSpectator={setSpectator}
               />
@@ -661,7 +671,17 @@ function Room({
         onClose={() => setGuideOpen(false)}
         title={`How to play ${game.name}`}
       >
-        <GameGuideView game={game} compact />
+        <GameGuideView
+          game={game}
+          compact
+          {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}
+          {...(guideFocus && { focus: guideFocus })}
+          done={
+            <Button size="sm" className="min-h-11" onClick={() => setGuideOpen(false)}>
+              Back to the game
+            </Button>
+          }
+        />
         <Link
           to={`/rules/${game.id}`}
           target="_blank"

@@ -64,7 +64,7 @@ function CreateRoom({ game }: { game: ClientGame }) {
     document.getElementById('rules-name')?.focus(),
   );
   return (
-    <Panel className="mt-8 space-y-3 text-center">
+    <Panel id="create-room" className="mt-8 scroll-mt-4 space-y-3 text-center">
       <p className="text-lg font-bold">Ready to play?</p>
       {needsName && (
         <label className="mx-auto block max-w-sm text-left">
@@ -147,7 +147,20 @@ export function RulesPage() {
         {game.icon} How to play {game.name}
       </h1>
       <Tagline game={game} />
-      <GameGuideView game={game} />
+      <GameGuideView
+        game={game}
+        done={
+          <Button
+            size="sm"
+            className="min-h-11"
+            onClick={() =>
+              document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
+            }
+          >
+            {`Create ${article(game.name)} ${game.name} room`}
+          </Button>
+        }
+      />
       <CreateRoom game={game} />
     </Layout>
   );

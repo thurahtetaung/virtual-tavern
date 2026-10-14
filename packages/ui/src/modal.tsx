@@ -36,7 +36,8 @@ export function Modal({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      // Only this dialog's own close: React bubbles a nested dialog's too.
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}

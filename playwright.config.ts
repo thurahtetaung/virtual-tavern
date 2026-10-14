@@ -26,6 +26,7 @@ export const SHARED_STATE = [
   /hogwarts\.spec\.ts$/,
   /tavern-brawl[\w-]*\.spec\.ts$/,
   /short-fuse(-\w+)?\.spec\.ts$/,
+  /guide-shots\.spec\.ts$/,
 ];
 
 export default defineConfig({

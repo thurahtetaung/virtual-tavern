@@ -13,12 +13,9 @@ export const roleAnchor = (role: RoleId) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')}`;
 
-/** Opens the rules drawer at a role's entry. */
-export function openRoleGuide(showGuide: () => void, role: RoleId) {
-  showGuide();
-  window.setTimeout(() => {
-    document.getElementById(roleAnchor(role))?.scrollIntoView({ block: 'center' });
-  }, 200);
+/** Opens the rules drawer at a role's card. */
+export function openRoleGuide(showGuide: (topic?: unknown) => void, role: RoleId) {
+  showGuide(roleAnchor(role));
 }
 
 /** How a known player is labelled, given which of Merlin and Morgana are in the deck. */
@@ -54,7 +51,13 @@ function knowledgeLine(role: RoleId, known: Known[], deck: readonly RoleId[]): s
 }
 
 /** Your role, what it means, and what you know. */
-export function RoleDetails({ view, showGuide }: { view: RoundTableView; showGuide: () => void }) {
+export function RoleDetails({
+  view,
+  showGuide,
+}: {
+  view: RoundTableView;
+  showGuide: (topic?: unknown) => void;
+}) {
   const role = view.role;
   const g = view.game;
   if (!role || !g) return null;
@@ -144,7 +147,13 @@ export function RoleDetails({ view, showGuide }: { view: RoundTableView; showGui
  * The secret card at the start: covered until you slide the cover up (or hold it, or tap
  * Show), so neighbours can't read it over your shoulder.
  */
-export function RoleReveal({ view, showGuide }: { view: RoundTableView; showGuide: () => void }) {
+export function RoleReveal({
+  view,
+  showGuide,
+}: {
+  view: RoundTableView;
+  showGuide: (topic?: unknown) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [held, setHeld] = useState(false);
   const [drag, setDrag] = useState(0);
@@ -211,7 +220,7 @@ export function RoleSheet({
   view: RoundTableView;
   open: boolean;
   onClose: () => void;
-  showGuide: () => void;
+  showGuide: (topic?: unknown) => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title="Your secret role">
