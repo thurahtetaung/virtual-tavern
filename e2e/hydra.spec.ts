@@ -14,6 +14,7 @@ import {
   voteAll,
   whoShows,
 } from './hydra-play.ts';
+import { checkGuidePeek } from './guide-peek.ts';
 import { openBackroom } from './inquest-play.ts';
 
 // The server stacks red policies on top of every Hydra deck (`HYDRA_TEST_DECK`), so every session
@@ -249,4 +250,6 @@ test('on a phone, a face-down role card gives nothing away, not even on the seat
   await card.getByRole('button', { name: '🙈 Hide my role' }).click();
   await expect(page.getByTestId('role-details')).toHaveCount(0);
   await expect(badge).toHaveCount(0);
+  // The rules drawer's "In your room" keeps the role hidden too.
+  await checkGuidePeek(page, NAMES.red);
 });

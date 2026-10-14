@@ -674,18 +674,21 @@ function Room({
         onClose={() => setGuideOpen(false)}
         title={`How to play ${game.name}`}
       >
-        <GameGuideView
-          key={guideOpens}
-          game={game}
-          compact
-          {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}
-          {...(guideFocus && { focus: guideFocus })}
-          done={
-            <Button size="sm" className="min-h-11" onClick={() => setGuideOpen(false)}>
-              Back to the game
-            </Button>
-          }
-        />
+        {/* Only while open: a closed <dialog> must not hold the viewer's room context. */}
+        {guideOpen && (
+          <GameGuideView
+            key={guideOpens}
+            game={game}
+            compact
+            {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}
+            {...(guideFocus && { focus: guideFocus })}
+            done={
+              <Button size="sm" className="min-h-11" onClick={() => setGuideOpen(false)}>
+                Back to the game
+              </Button>
+            }
+          />
+        )}
         <Link
           to={`/rules/${game.id}`}
           target="_blank"

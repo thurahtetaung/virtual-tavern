@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { checkGuidePeek } from './guide-peek.ts';
 import {
   evilPages,
   goodPages,
@@ -190,4 +191,15 @@ test('seven players with the Lady of the Lake: private checks, a sunk quest and 
   await expect(host.getByRole('region', { name: 'Lady of the Lake' })).toContainText(
     `saw ${first.target} as`,
   );
+});
+
+test('on a phone, the rules drawer keeps your role hidden until you peek', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const t = await openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], {
+    viewport: { width: 390, height: 844 },
+  });
+  await t.host.getByRole('button', { name: 'Start game' }).click();
+  await readRoles(t);
+  const assassin = withRole(t, 'Assassin');
+  await checkGuidePeek(assassin, 'Assassin');
 });

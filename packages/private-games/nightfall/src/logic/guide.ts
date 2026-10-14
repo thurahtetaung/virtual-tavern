@@ -283,6 +283,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         ...(c?.art && { art: c.art }),
         ...(now && { now }),
       };
+      ctx.secret = true;
       ctx.stepNotes = {
         0: `You were dealt the ${roleName(mine)}. Tap Ready once you’ve looked.`,
         1:
