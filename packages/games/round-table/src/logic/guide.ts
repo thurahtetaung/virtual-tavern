@@ -154,6 +154,7 @@ function room(raw: unknown, you: string): GuideContext | undefined {
       tile: v.role.role,
       icon: v.role.loyalty === 'good' ? '🛡️' : '🗡️',
     };
+    ctx.secret = true;
   }
   return ctx;
 }

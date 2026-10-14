@@ -151,6 +151,7 @@ export function makeGuide(names: InquestNames = {}): GameGuide {
         ...(tile.art && { art: tile.art }),
         ...(now && { now }),
       };
+      ctx.secret = true;
     }
     return ctx;
   };

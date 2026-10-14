@@ -225,6 +225,30 @@ export interface GuideContext {
   stepNotes?: Record<number, string>;
   /** A section's list for this game instead of the full one (the wake order), by section title. */
   lists?: Record<string, GuideList>;
+  /**
+   * `you`, `stepNotes` and the lists' "you" lines are hidden information (a secret role): the
+   * guide shows them only while the viewer holds or switches on the peek, never by default.
+   */
+  secret?: boolean;
+}
+
+/** The context with its secret parts taken out (what's shown until the viewer peeks). */
+export function withoutSecrets(ctx: GuideContext): GuideContext {
+  if (!ctx.secret) return ctx;
+  const out: GuideContext = { ...ctx };
+  delete out.you;
+  delete out.stepNotes;
+  if (ctx.lists)
+    out.lists = Object.fromEntries(
+      Object.entries(ctx.lists).map(([k, l]) => [
+        k,
+        {
+          ...l,
+          items: l.items.map((item) => ({ label: item.label, ...(item.art && { art: item.art }) })),
+        },
+      ]),
+    );
+  return out;
 }
 
 export interface GuideYou {

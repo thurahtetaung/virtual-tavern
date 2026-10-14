@@ -12,10 +12,12 @@ import {
   isOn,
   levelOf,
   stepsOf,
+  withoutSecrets,
 } from '@vt/game-sdk';
 import { Button, Modal, ProtectedImage, cn } from '@vt/ui';
 import {
   type CSSProperties,
+  type PointerEvent,
   type ReactNode,
   type TouchEvent,
   useEffect,
@@ -156,7 +158,13 @@ export function GuideView({
   // A tile's sheet asked for its cards: the catalog opens at that group.
   const [jump, setJump] = useState<{ id: string; n: number } | null>(null);
   const [preset, setPreset] = useState<string | null>(null);
-  const ctx = context ?? guide.presets?.find((p) => p.id === preset)?.context;
+  const full = context ?? guide.presets?.find((p) => p.id === preset)?.context;
+  // A secret role stays out of the page until the viewer holds the peek or switches it on.
+  const [peekOpen, setPeekOpen] = useState(false);
+  const [peekHeld, setPeekHeld] = useState(false);
+  const secret = !!full?.secret && !!(full.you || full.stepNotes);
+  const peeking = peekOpen || peekHeld;
+  const ctx = full && secret && !peeking ? withoutSecrets(full) : full;
   const tabsId = useId();
   const top = useRef<HTMLDivElement>(null);
 
@@ -241,6 +249,9 @@ export function GuideView({
             done={done}
             go={go}
             openTile={(t) => setSheet(t)}
+            {...(secret && {
+              peek: { shown: peeking, open: peekOpen, setOpen: setPeekOpen, setHeld: setPeekHeld },
+            })}
           />
         )}
         {tab === 'tiles' && guide.tiles && (
@@ -398,6 +409,69 @@ function focusStyle([fx, fy]: [number, number], zoom = 1): CSSProperties {
   };
 }
 
+/** The peek over a secret role: held (press and hold) or switched on with Show. */
+interface Peek {
+  shown: boolean;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  setHeld: (held: boolean) => void;
+}
+
+/**
+ * Hidden information behind hold-to-peek and a Show/Hide switch. While it's hidden, nothing
+ * secret is in the page at all: the room context has had its secrets taken out
+ * (`withoutSecrets`). A small local stand-in for the shared peek control.
+ */
+function PeekGate({ peek, children }: { peek: Peek; children: ReactNode }) {
+  const down = (e: PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    peek.setHeld(true);
+  };
+  const up = () => peek.setHeld(false);
+  return (
+    <div className="space-y-2" data-testid="guide-peek">
+      {/* One element takes the press, so letting go after the card appears still hides it. */}
+      <div
+        role="presentation"
+        onPointerDown={down}
+        onPointerUp={up}
+        onPointerCancel={up}
+        onContextMenu={(e) => e.preventDefault()}
+        className="cursor-grab touch-none select-none"
+      >
+        {peek.shown ? (
+          children
+        ) : (
+          <section
+            aria-label="Your role, hidden"
+            className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-line"
+          >
+            <span aria-hidden className="w-14 shrink-0 text-center text-4xl">
+              🎴
+            </span>
+            <div className="min-w-0">
+              <p className={EYEBROW}>Your role</p>
+              <p className="text-sm text-ink-muted">
+                Hidden so nobody reads it over your shoulder. Hold here to peek.
+              </p>
+            </div>
+          </section>
+        )}
+      </div>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="min-h-9"
+        aria-pressed={peek.open}
+        onClick={() => peek.setOpen(!peek.open)}
+      >
+        {peek.open ? '🙈 Hide my role' : '👁️ Show my role'}
+      </Button>
+    </div>
+  );
+}
+
 function Learn({
   guide,
   compact,
@@ -405,6 +479,7 @@ function Learn({
   done,
   go,
   openTile,
+  peek,
 }: {
   guide: GameGuide;
   compact: boolean;
@@ -412,6 +487,8 @@ function Learn({
   done: ReactNode;
   go: (t: Tab) => void;
   openTile: (t: GuideTile) => void;
+  /** The room's role is secret: the card shows only while peeking. */
+  peek?: Peek;
 }) {
   const sectionCount = guide.sections.length + (guide.setup.length ? 1 : 0);
   const you = ctx?.you;
@@ -457,36 +534,34 @@ function Learn({
       />
     </nav>
   );
+  const card = you && (
+    <section aria-label="You are" className="flex gap-3 rounded-2xl bg-card p-3 ring-2 ring-accent">
+      {youArt ? (
+        <button
+          type="button"
+          className="w-20 shrink-0"
+          onClick={() => youTile && openTile(youTile)}
+          aria-label={`Read the ${you.name} card`}
+          disabled={!youTile}
+        >
+          <Art src={youArt} className="w-full rounded-xl" />
+        </button>
+      ) : (
+        <span aria-hidden className="w-14 shrink-0 text-center text-5xl">
+          {you.icon ?? youTile?.icon ?? '🎴'}
+        </span>
+      )}
+      <div className="min-w-0">
+        <p className={EYEBROW}>You are</p>
+        <p className="text-xl font-extrabold">{you.name}</p>
+        {youText && <p className="text-sm">{youText}</p>}
+        {you.now && <p className="mt-1 text-sm font-bold text-accent-text">{you.now}</p>}
+      </div>
+    </section>
+  );
   return (
     <div className="space-y-3">
-      {you && (
-        <section
-          aria-label="You are"
-          className="flex gap-3 rounded-2xl bg-card p-3 ring-2 ring-accent"
-        >
-          {youArt ? (
-            <button
-              type="button"
-              className="w-20 shrink-0"
-              onClick={() => youTile && openTile(youTile)}
-              aria-label={`Read the ${you.name} card`}
-              disabled={!youTile}
-            >
-              <Art src={youArt} className="w-full rounded-xl" />
-            </button>
-          ) : (
-            <span aria-hidden className="w-14 shrink-0 text-center text-5xl">
-              {you.icon ?? youTile?.icon ?? '🎴'}
-            </span>
-          )}
-          <div className="min-w-0">
-            <p className={EYEBROW}>You are</p>
-            <p className="text-xl font-extrabold">{you.name}</p>
-            {youText && <p className="text-sm">{youText}</p>}
-            {you.now && <p className="mt-1 text-sm font-bold text-accent-text">{you.now}</p>}
-          </div>
-        </section>
-      )}
+      {peek ? <PeekGate peek={peek}>{card}</PeekGate> : card}
       <div className="rounded-2xl bg-accent-soft/70 p-4 ring-1 ring-accent-line">
         <p className={EYEBROW}>
           <span aria-hidden>🎯 </span>The goal

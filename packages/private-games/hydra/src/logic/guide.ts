@@ -248,6 +248,7 @@ export function nameGuide(
     if (v.role && v.me?.id === you) {
       const t = tiles.find((x) => x.id === v.role!.role)!;
       ctx.you = { name: t.name, text: t.text, tile: t.id, ...(t.art && { art: t.art }) };
+      ctx.secret = true;
     }
     return ctx;
   };
