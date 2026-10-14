@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.2...v0.31.0) (2026-10-14)
+
+
+### Features
+
+* **tavern-brawl:** add the six monsters and 5-6 player games ([#130](https://github.com/thurahtetaung/virtual-tavern/issues/130)) ([d110fb1](https://github.com/thurahtetaung/virtual-tavern/commit/d110fb1c7853c003e55a421ce53da45a4f357d95))
+
 ## [0.30.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.30.1...v0.30.2) (2026-10-13)
 
 
