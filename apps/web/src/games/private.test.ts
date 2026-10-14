@@ -128,14 +128,19 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('«purple»');
   });
 
-  it('Tavern Brawl: the heroes', async () => {
-    const heroes = ['brute', 'mage', 'knight', 'thief', 'ranger', 'druid'];
+  it('Tavern Brawl: the heroes and their sets', async () => {
+    const { HEROES, SETS } = await import('@vt/private-tavern-brawl/logic');
+    const ids = Object.keys(HEROES) as (keyof typeof HEROES)[];
     const text = await named('tavern-brawl', {
-      heroes: all(heroes, (h) => ({ name: `«${h}»` })),
+      heroes: all(ids, (h) => ({ name: `«${h}»` })),
+      sets: all(Object.keys(SETS), (id) => ({ name: `«set ${id}»` })),
     });
-    for (const label of ['Brute', 'Mage', 'Knight', 'Thief', 'Ranger', 'Druid'])
-      expect(text, label).not.toMatch(word(label));
-    expect(text).not.toMatch(/the (druid|brute|mage|knight|thief|ranger)\b/i);
+    for (const h of ids) {
+      expect(text, h).not.toMatch(word(HEROES[h].label));
+      expect(text, h).not.toMatch(new RegExp(`the ${h}\\b`, 'i'));
+    }
+    for (const { label } of Object.values(SETS)) expect(text, label).not.toContain(label);
+    expect(text).toContain('«set x2»');
   });
 
   it('Short Fuse: card names, with a/an to fit them', async () => {
