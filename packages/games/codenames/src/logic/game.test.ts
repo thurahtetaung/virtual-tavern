@@ -742,6 +742,56 @@ describe('round 2 rule fixes', () => {
     h.act({ type: 'give-clue', word: 'sea-salt', count: 1 }, SPY.red);
   });
 
+  it('refuses plurals and simple forms of face-down words, but not lookalike words', () => {
+    const h = startedGame();
+    const faceDown = ['DOG', 'FIRE', 'BAT', 'FIREMAN', 'BREAK', 'BERRY', 'LEAF', 'KITE', 'HAM'];
+    h.state = {
+      ...h.state,
+      board: h.state.board.map((c, i) => ({ ...c, word: faceDown[i] ?? c.word })),
+    };
+    const give = (word: string) =>
+      codenames.reduce(
+        h.state,
+        { type: 'give-clue', word, count: 1 },
+        {
+          by: SPY.red,
+          isHost: true,
+          now: NOW,
+          rng: undefined as never,
+          content: undefined as never,
+        },
+      );
+    for (const word of [
+      'Dogs',
+      'Dogged',
+      'fires',
+      'Fired',
+      'BATS',
+      'batting',
+      'Firemen',
+      'breaking',
+    ]) {
+      expect(give(word), word).toMatchObject({ code: 'bad-clue' });
+    }
+    expect(give('berries')).toMatchObject({
+      message: 'The clue cannot be a form of BERRY, a word on the board.',
+    });
+    expect(give('leaves')).toMatchObject({ code: 'bad-clue' });
+    expect(give('sea-dogs')).toMatchObject({
+      message: 'The clue cannot contain DOG, a word on the board.',
+    });
+    // Compounds and lookalikes are left to the table, as the rulebook does.
+    for (const word of ['kit', 'hammer', 'doghouse', 'broken', 'batter', 'fir']) {
+      expect(give(word), word).not.toHaveProperty('code');
+    }
+    // A revealed word is fair game again.
+    h.state = {
+      ...h.state,
+      board: h.state.board.map((c) => (c.word === 'DOG' ? { ...c, revealed: true } : c)),
+    };
+    expect(give('dogs')).not.toHaveProperty('code');
+  });
+
   it('refuses a guess that raced a turn-ending one as too late', () => {
     const h = startedGame();
     h.state = codenames.playerJoined(h.state, { id: 'p5', name: 'Ana' });

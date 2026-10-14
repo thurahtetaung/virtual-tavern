@@ -345,6 +345,31 @@ function backToLobby(state: CodenamesState, ctx: Ctx): Result {
   };
 }
 
+/**
+ * The regular forms of `base` (already `normaliseWord`ed): plurals, -ed and -ing (with a dropped
+ * e or a doubled consonant), -y to -ies/-ied, -f(e) to -ves and -man to -men. Deliberately not
+ * the shared `wordKey` stemmer: it also joins unrelated words (KITE and "kit", HAM and "hammer",
+ * MOTH and "mother"), and a refused legal clue costs more than a missed form, which the table can
+ * still call out, as it does compounds.
+ */
+function formsOf(base: string): string[] {
+  if (!/^\p{L}{3,}$/u.test(base)) return [];
+  const forms = [`${base}s`, `${base}ed`, `${base}ing`];
+  if (/(?:s|x|z|ch|sh|o)$/.test(base)) forms.push(`${base}es`);
+  if (base.endsWith('e')) forms.push(`${base}d`, `${base.slice(0, -1)}ing`);
+  if (/[^aeiou]y$/.test(base)) forms.push(`${base.slice(0, -1)}ies`, `${base.slice(0, -1)}ied`);
+  const last = base.at(-1)!;
+  if (/[^aeiou][aeiou][^aeiouwxy]$/.test(base)) forms.push(`${base}${last}ed`, `${base}${last}ing`);
+  if (/fe?$/.test(base)) forms.push(base.replace(/fe?$/, 'ves'));
+  if (base.endsWith('man')) forms.push(`${base.slice(0, -3)}men`);
+  return forms;
+}
+
+/** Whether two normalised words are the same word or one is a regular form of the other. */
+function sameWord(a: string, b: string): boolean {
+  return a === b || formsOf(a).includes(b) || formsOf(b).includes(a);
+}
+
 function giveClue(
   state: CodenamesState,
   action: Extract<CodenamesAction, { type: 'give-clue' }>,
@@ -367,14 +392,21 @@ function giveClue(
     return new GameError('clue-is-number', 'A clue cannot be just a number.');
   }
   // The whole clue, and each part of a hyphen- or apostrophe-joined one, against the face-down words.
-  const parts = new Set([word, ...word.split(/['’-]+/)].map(normaliseWord).filter(Boolean));
-  const onBoard = state.board.find((c) => !c.revealed && parts.has(normaliseWord(c.word)));
-  if (onBoard) {
+  const whole = normaliseWord(word);
+  const parts = [whole, ...word.split(/['’-]+/).map(normaliseWord)].filter(Boolean);
+  for (const card of state.board) {
+    if (card.revealed) continue;
+    const key = normaliseWord(card.word);
+    const part = parts.find((p) => sameWord(p, key));
+    if (part === undefined) continue;
+    const shown = card.word.toUpperCase();
     return new GameError(
       'bad-clue',
-      normaliseWord(onBoard.word) === normaliseWord(word)
+      part === key && part === whole
         ? 'The clue cannot be a word on the board.'
-        : `The clue cannot contain ${onBoard.word.toUpperCase()}, a word on the board.`,
+        : part === whole
+          ? `The clue cannot be a form of ${shown}, a word on the board.`
+          : `The clue cannot contain ${shown}, a word on the board.`,
     );
   }
   const count = action.count;

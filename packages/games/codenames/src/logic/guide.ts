@@ -47,7 +47,8 @@ const text: GameGuide = {
       ],
       bullets: [
         'The clue must be a single word (hyphens are fine). A bare number or punctuation alone is not a clue.',
-        'It cannot be one of the words still face-down on the board, or contain one joined by a hyphen or apostrophe (not “Captain-Antenna” while CAPTAIN is face-down).',
+        'It cannot be one of the words still face-down on the board, or any form or part of one: not “Dogs” or “Dogged” while DOG is face-down, not “Horse” or “Snowshoe” while HORSESHOE is, and not “Captain-Antenna” while CAPTAIN is. Once the word is covered, it is fair game.',
+        'The app refuses plurals, simple endings (-s, -ed, -ing) and hyphen or apostrophe joins by itself. Other forms and compounds are for the table to call out, as in the box game: if nobody notices, the clue stands.',
         'The clue must be about the words’ meaning. No clues about spelling, letters, the number of letters or where cards sit on the board (not “P” for words starting with P, or “Corner” for the corner cards).',
         'The number is 1 to 9 and cannot be higher than the agents your team still has to find. Clues for 0 or “unlimited” are not supported.',
         'No hints by voice or face. Stay poker-faced while your team guesses!',
