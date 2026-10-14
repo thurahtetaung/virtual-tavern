@@ -193,8 +193,11 @@ const rules: AwardRule[] = [
       mostBy(
         guesses(g).filter((e) => {
           const no = num(e, 'guessNo');
+          // A clue for 0 or unlimited has no bonus guess.
           const count = num(e, 'clueCount');
-          return isCorrect(e) && no !== undefined && count !== undefined && no === count + 1;
+          return (
+            isCorrect(e) && no !== undefined && count !== undefined && count > 0 && no === count + 1
+          );
         }),
       ),
   },
