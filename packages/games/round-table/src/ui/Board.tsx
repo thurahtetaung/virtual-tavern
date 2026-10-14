@@ -67,7 +67,11 @@ export function QuestTrack({
                 {body}
               </button>
             ) : (
-              <span aria-label={label} className="flex w-full flex-col items-center gap-0.5">
+              <span
+                role="img"
+                aria-label={label}
+                className="flex w-full flex-col items-center gap-0.5"
+              >
                 {body}
               </span>
             )}
@@ -214,19 +218,24 @@ export function Seats({
                   </span>
                 )}
                 {g.leader === p.id && view.phase === 'playing' && (
-                  <span title="Leader: picks the team" aria-label="leader">
+                  <span role="img" title="Leader: picks the team" aria-label="leader">
                     👑
                   </span>
                 )}
                 {g.hammer === p.id &&
                   (view.stage === 'propose' || view.stage === 'discuss' || view.stage === 'vote') &&
                   g.leader !== p.id && (
-                    <span title="5th proposal: if rejected, Evil wins" aria-label="fifth proposal">
+                    <span
+                      role="img"
+                      title="5th proposal: if rejected, Evil wins"
+                      aria-label="fifth proposal"
+                    >
                       🔨
                     </span>
                   )}
                 {g.lady?.holder === p.id && (
                   <span
+                    role="img"
                     title="Holds the Lady of the Lake"
                     aria-label="holds the Lady"
                     className="text-sky-600 dark:text-sky-400"
