@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.33.0...v0.33.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **short-fuse:** peeks in later games, viewer wording, card names and hand art ([#136](https://github.com/thurahtetaung/virtual-tavern/issues/136)) ([363a02e](https://github.com/thurahtetaung/virtual-tavern/commit/363a02e6a3883a0333be0072febb329ab6acfabc))
+
 ## [0.33.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.32.0...v0.33.0) (2026-10-14)
 
 
