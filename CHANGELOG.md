@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.6...v0.35.7) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ui:** clear a refusal once the game moves on or the player's next action works ([#160](https://github.com/thurahtetaung/virtual-tavern/issues/160)) ([36f8947](https://github.com/thurahtetaung/virtual-tavern/commit/36f89478a4273f64ba829ee486f8c771ed6f1f3b))
+
 ## [0.35.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.5...v0.35.6) (2026-10-14)
 
 
