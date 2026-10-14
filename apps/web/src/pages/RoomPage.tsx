@@ -26,7 +26,7 @@ import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
-import { type ClientGame, findGame, loadGame, withTitle } from '../games/registry.ts';
+import { type ClientGame, findGame, loadGame, roomGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { awayFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
@@ -85,7 +85,9 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         // Only a playtest honours a seat; anywhere else a stored one is wiped.
         setLookup({ kind: 'found', room, seat: confirmSeat(roomId, room.playtest === true) });
         const found = await loadGame(room.gameId);
-        setGame(found ? withTitle(found, room.title) : 'missing');
+        const named = found && (await roomGame(found, room.title));
+        if (stale) return;
+        setGame(named ?? 'missing');
       })
       .catch((err: unknown) => {
         if (stale) return;
@@ -611,6 +613,7 @@ function Room({
                   players: snapshot.players,
                   clockOffset,
                   wordLists,
+                  gameName: game.name,
                   ...(superlatives && { superlatives }),
                 }}
                 act={act}

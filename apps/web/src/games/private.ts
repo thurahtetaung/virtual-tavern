@@ -22,6 +22,7 @@ import { lazy } from 'react';
 import {
   inquestLabels,
   manifestGuide,
+  manifestTitle,
   nightfallLabels,
   originalsLabels,
   royalPostLabels,
@@ -40,7 +41,7 @@ import type { ClientGame } from './registry.ts';
  * which the server only serves to players who have unlocked the back room, so private game
  * names and code never reach anyone else. Add new private games here.
  */
-export const privateGames: ClientGame[] = [
+const games: ClientGame[] = [
   {
     // Hard-coded like the public games: importing the engine for its id would bundle it here.
     id: 'reverie',
@@ -159,3 +160,8 @@ export const privateGames: ClientGame[] = [
     namedGuide: shortFuseNamedGuide,
   },
 ];
+
+export const privateGames: ClientGame[] = games.map((g) => ({
+  ...g,
+  manifestTitle: () => manifestTitle(g.id),
+}));

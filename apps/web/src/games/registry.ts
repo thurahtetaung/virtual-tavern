@@ -24,6 +24,8 @@ export interface ClientGame {
   labels?: () => Promise<Labeler>;
   /** The guide with the game's real names and credits from its manifest (back-room games only). */
   namedGuide?: () => Promise<GameGuide>;
+  /** The title in the game's manifest, if it has one (back-room games only). */
+  manifestTitle?: () => Promise<string | undefined>;
 }
 
 /** Every playable game's UI. Add new games here (and in the server registry). */
@@ -100,9 +102,20 @@ export function offeredPrivateGames(
   return known.filter((g) => titles.has(g.id)).map((g) => withTitle(g, titles.get(g.id)));
 }
 
-/** A private game shown under the title the admin set (unlocked browsers only get one). */
+/**
+ * A private game shown under the title the admin set (unlocked browsers only get one). A room
+ * falls back to the manifest's title (`roomTitle`), as the game's own lobby does.
+ */
 export const withTitle = (game: ClientGame, title: string | undefined): ClientGame =>
   title ? { ...game, name: title } : game;
+
+/**
+ * The game as a room names it: the admin's title, else its manifest's title, else its own name, so
+ * the header, the guide and the game's lobby never show two different names.
+ */
+export async function roomGame(game: ClientGame, title: string | undefined): Promise<ClientGame> {
+  return withTitle(game, title ?? (await game.manifestTitle?.()));
+}
 
 /** Finds a public game, or a private one when the back room is unlocked. */
 export async function loadGame(id: string): Promise<ClientGame | undefined> {

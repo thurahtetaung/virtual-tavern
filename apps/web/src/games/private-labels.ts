@@ -61,6 +61,12 @@ export function manifestGuide(
   };
 }
 
+/** The manifest's own `title`, if it has one. */
+export async function manifestTitle(gameId: string): Promise<string | undefined> {
+  const title = (await manifest(gameId))?.title;
+  return typeof title === 'string' && title.trim() ? title.trim() : undefined;
+}
+
 /** Fetches a manifest once per page; null without asset storage. */
 const manifests = new Map<string, Promise<Json | null>>();
 function manifest(gameId: string): Promise<Json | null> {
