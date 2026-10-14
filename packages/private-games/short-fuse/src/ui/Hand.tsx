@@ -87,7 +87,14 @@ export function Hand({
                 onTap(card);
               }}
             >
-              <CardFace card={card} art={art} c={c} size="md" selected={selected.has(card.id)} />
+              <CardFace
+                card={card}
+                art={art}
+                c={c}
+                size="md"
+                eager
+                selected={selected.has(card.id)}
+              />
             </button>
           </li>
         ))}

@@ -111,7 +111,7 @@ export function comboOf(
 ): { kind: PlayKind; t: CardType | null } | { error: string } {
   if (types.length === 1) return { kind: 'card', t: types[0]! };
   if (types.some((t) => t === 'bomb' || t === 'void'))
-    return { error: 'A bomb can’t go into a combo.' };
+    return { error: 'A {c:bomb} can’t go into a combo.' };
   if (types.length === 2 && types.every((t) => t === 'twin')) return { kind: 'card', t: 'twin' };
   if (types.length === 2 || types.length === 3) {
     const plain = types.filter((t) => t !== 'wild');
@@ -121,7 +121,7 @@ export function comboOf(
     if (kinds.size === 1) {
       const t = plain[0]!;
       if (plain.length === types.length || isCat(t)) return { kind, t };
-      return { error: 'The wild card only stands in for a cat.' };
+      return { error: 'The {c:wild} only stands in for a cat.' };
     }
     return { error: `Those cards don’t match: a combo needs ${types.length} with the same name.` };
   }
@@ -766,7 +766,8 @@ function inGame(g: Game, by: PlayerId): GameError | null {
 }
 
 function waitWindow(state: S): GameError | null {
-  if (state.stage === 'window') return err('window', 'Wait: the table can still Nope that play.');
+  if (state.stage === 'window')
+    return err('window', 'Wait: the table can still {c:nope} that play.');
   if (state.stage === 'beat') return err('beat', 'Wait a moment…');
   return null;
 }
@@ -838,22 +839,24 @@ function playAction(
     const info = CARDS[t!];
     if (t === 'twin') return twinAction(state, ids, action.target ?? null, ctx);
     if (!info.playable) {
-      if (t === 'nope') return err('nothing-to-nope', 'Nope answers someone’s play: wait for one.');
-      if (t === 'defuse') return err('no-bomb', 'Defuse is only for when you draw a Bomb.');
-      if (t === 'bomb') return err('bomb', 'You can’t play a Bomb you’re holding.');
+      if (t === 'nope')
+        return err('nothing-to-nope', '{c:nope} answers someone’s play: wait for one.');
+      if (t === 'defuse') return err('no-bomb', '{c:defuse} is only for when you draw a {c:bomb}.');
+      if (t === 'bomb') return err('bomb', 'You can’t play a {c:bomb} you’re holding.');
       if (t === 'shelter')
-        return err('shelter', 'The Bomb Shelter works from your hand: just keep it.');
+        return err('shelter', 'The {c:shelter} works from your hand: just keep it.');
       return err('cat-alone', 'A cat does nothing on its own: play two matching cats to steal.');
     }
     if (t === 'bury' && g.mine[ctx.by])
-      return err('mine', 'You can’t bury a card while a Mine! is in front of you.');
+      return err('mine', 'You can’t bury a card while a {c:mine} is in front of you.');
     if (info.targeted) {
       if (!action.target) return err('need-target', 'Choose who to play it on.');
       target = action.target;
       if (target === ctx.by) return err('self', 'Choose another player.');
       if (!alive(g).includes(target)) return err('bad-target', 'They’re not in the game.');
       if (!targetsFor(g, ctx.by, t!).includes(target)) {
-        if (t === 'mine') return err('has-mine', `${nameOf(g, target)} already has a Mine!.`);
+        if (t === 'mine')
+          return err('has-mine', `${nameOf(g, target)} already has a {c:mine} in front of them.`);
         return err('empty-hand', `${nameOf(g, target)} has no cards to take.`);
       }
     }
@@ -882,7 +885,7 @@ function twinAction(state: S, ids: CardId[], target: PlayerId | null, ctx: Ctx):
   const g = state.game!;
   const by = ctx.by;
   if (ids.length === 2) {
-    if (!target) return err('need-target', 'Choose who the Twin Bombs bark at.');
+    if (!target) return err('need-target', 'Choose who the {c:twin} cards bark at.');
     if (target === by || !alive(g).includes(target))
       return err('bad-target', 'Choose another player still in the game.');
     for (const id of ids) leaveHand(g, by, id);
@@ -999,20 +1002,23 @@ function nopeAction(state: S, windowId: number, ctx: Ctx): Result {
   const g = state.game!;
   const e2 = inGame(g, ctx.by);
   if (e2) return e2;
-  if (g.blind[ctx.by]) return err('blind', 'You’re blindfolded: you can’t pick out a Nope.');
+  if (g.blind[ctx.by]) return err('blind', 'You’re blindfolded: you can’t pick out a {c:nope}.');
   const nope = g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'nope');
-  if (!nope) return err('no-nope', 'You don’t have a Nope.');
+  if (!nope) return err('no-nope', 'You don’t have a {c:nope}.');
   const w = g.window;
   if (state.stage !== 'window' || !w || w.id !== windowId || ctx.now >= w.endsAt)
-    return err('too-late', 'Too late: that already happened. Your Nope is still in your hand.');
+    return err('too-late', 'Too late: that already happened. Your {c:nope} is still in your hand.');
   if (w.chain.length > 0 && ctx.now - w.lastAt < NOPE_COOLDOWN_MS)
     return err(
       'too-soon',
-      'Someone Noped a split second before you; your Nope is still in your hand.',
+      'Someone played {c:nope} a split second before you; your {c:nope} is still in your hand.',
     );
   const last = w.chain.at(-1)?.by ?? g.pending!.by;
   if (last === ctx.by)
-    return err('own', w.chain.length ? 'That’s your own Nope.' : 'You can’t Nope your own play.');
+    return err(
+      'own',
+      w.chain.length ? 'That’s your own {c:nope}.' : 'You can’t play {c:nope} on your own play.',
+    );
   leaveHand(g, ctx.by, nope);
   g.discard.push(nope);
   w.chain.push({ by: ctx.by, card: nope });
@@ -1442,9 +1448,9 @@ function defuseAction(state: S, ctx: Ctx): Result {
   if (e) return e;
   const g = state.game!;
   if (state.stage !== 'bomb' || g.drawn?.by !== ctx.by)
-    return err('no-bomb', 'There’s no Bomb for you to defuse.');
+    return err('no-bomb', 'There’s no {c:bomb} for you to defuse.');
   const def = g.hands[ctx.by]!.find((id) => typeOf(g, id) === 'defuse');
-  if (!def) return err('no-defuse', 'You have no Defuse.');
+  if (!def) return err('no-defuse', 'You have no {c:defuse}.');
   defuseWith(state, def, ctx.now);
   return state;
 }
@@ -1477,7 +1483,7 @@ function searchAction(state: S, slot: number, ctx: Ctx): Result {
   if (e) return e;
   const g = state.game!;
   if (state.stage !== 'search' || g.drawn?.by !== ctx.by)
-    return err('no-bomb', 'There’s no Bomb for you to deal with.');
+    return err('no-bomb', 'There’s no {c:bomb} for you to deal with.');
   if (slot >= g.hands[ctx.by]!.length) return err('bad-slot', 'That card isn’t there.');
   search(state, slot, ctx.now);
   return state;
@@ -1528,7 +1534,10 @@ function placeAction(state: S, position: number, ctx: Ctx): Result {
 
 // ---- Defaults: strict timers, the host's Act for and players who leave ----
 
-/** The safe default move for whoever the table waits on. Returns what it did, for the log. */
+/**
+ * The safe default move for whoever the table waits on. Returns what it did, for the log, with
+ * card names as tokens (`{c:defuse}`) the browser fills from the manifest.
+ */
 function actDefault(state: S, who: PlayerId, now: number): string | null {
   const g = state.game!;
   const any = (xs: CardId[]) => xs[rand.int(xs.length)]!;
@@ -1570,16 +1579,22 @@ function actDefault(state: S, who: PlayerId, now: number): string | null {
       if (g.drawn?.by !== who) return null;
       const def = g.hands[who]!.find((id) => typeOf(g, id) === 'defuse')!;
       defuseWith(state, def, now);
-      return 'used a Defuse';
+      return 'played {c:defuse}';
     }
     case 'search':
       if (g.drawn?.by !== who) return null;
       search(state, 0, now);
       return 'turned over a card';
-    case 'place':
+    case 'place': {
       if (g.placing?.by !== who) return null;
+      const kind = g.placing.kind;
       place(state, rand.int(g.pile.length + 1), now);
-      return 'hid it at random';
+      return kind === 'bury'
+        ? 'buried the card at random'
+        : kind === 'void'
+          ? 'put {c:void} back at random'
+          : 'hid {c:bomb} at random';
+    }
     default:
       return null;
   }

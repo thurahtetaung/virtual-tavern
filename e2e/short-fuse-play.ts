@@ -102,6 +102,8 @@ export async function select(p: Page, types: string[]) {
   }
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** Plays cards (and picks a target, and names a card for three of a kind). */
 export async function play(p: Page, types: string[], target?: string, named?: string) {
   await select(p, types);
@@ -110,7 +112,7 @@ export async function play(p: Page, types: string[], target?: string, named?: st
   if (target)
     await p
       .getByTestId('targets')
-      .getByRole('button', { name: new RegExp(`^${target}`) })
+      .getByRole('button', { name: new RegExp(`^${escapeRe(target)}`) })
       .click();
 }
 

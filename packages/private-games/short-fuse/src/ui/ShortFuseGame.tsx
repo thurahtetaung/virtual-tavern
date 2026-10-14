@@ -72,9 +72,9 @@ function selectionPlan(
       return {
         why:
           t === 'nope'
-            ? 'Nope is played during the countdown after someone else’s play.'
+            ? '{c:nope} is played during the countdown after someone else’s play.'
             : t === 'defuse'
-              ? 'Defuse is used for you when you draw a bomb.'
+              ? '{c:defuse} is used for you when you draw a {c:bomb}.'
               : t === 'shelter'
                 ? 'It works from your hand: just keep it.'
                 : t === 'bomb' || t === 'void'
@@ -86,7 +86,7 @@ function selectionPlan(
         ? { label: 'twins', needsTarget: 'any', named: false }
         : { label: '', needsTarget: null, named: false };
     if (t === 'bury' && g.players.find((p) => p.id === me)?.mine)
-      return { why: 'Bury is blocked while a Mine! is in front of you.' };
+      return { why: '{c:bury} is blocked while a {c:mine} is in front of you.' };
     if (info.targeted)
       return {
         label: 'on…',
@@ -326,18 +326,8 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     };
   }, [room.clockOffset]);
 
-  // Server refusals use the placeholder card words: name them from the manifest.
-  const word = useCallback(
-    (message: string) => {
-      let out = message;
-      for (const t of ['bomb', 'defuse', 'nope', 'favor', 'void'] as CardType[]) {
-        const from = t === 'void' ? 'Black Hole' : t.charAt(0).toUpperCase() + t.slice(1);
-        if (c.name(t) !== from) out = out.replace(new RegExp(`\\b${from}\\b`, 'g'), c.name(t));
-      }
-      return out;
-    },
-    [c],
-  );
+  // Server refusals name cards with tokens (`{c:nope}`): fill them from the manifest.
+  const word = useCallback((message: string) => c.t(message), [c]);
   useRefusalWording(word);
 
   const status = statusFor(view, c);
@@ -386,9 +376,11 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const [tab, setTab] = useState<Tab>('table');
   const [discardOpen, setDiscardOpen] = useState(false);
 
-  // A fresh peek opens its sheet once.
+  // A fresh peek opens its sheet once. Memory ids restart with every game, so the one already
+  // seen is kept per game (this game's number stays the same through its end screen).
   const lastPeek = g?.memory.findLast((m) => m.kind === 'peek' || m.kind === 'shared') ?? null;
-  const [seenPeek, setSeenPeek] = useState<number>(() => lastPeek?.id ?? 0);
+  const gameNo = view.gamesPlayed + (view.phase === 'over' ? 0 : 1);
+  const [seenPeek, setSeenPeek] = useState(() => ({ game: gameNo, id: lastPeek?.id ?? 0 }));
   // A shuffle animates the pile (and hides the face-up Black Hole) for a moment.
   const pileVersion = g?.pile.version ?? 0;
   const lastKind = g?.log.at(-1)?.kind;
@@ -403,6 +395,28 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     };
   }, [shuffling, shuffle.v]);
 
+  // Your hand's full-size faces (and the discard's top) first, so the deal shows its art at once;
+  // the rest of the deck only ahead of time as small copies, which phones can afford.
+  const firstFaces =
+    g && c.ready
+      ? [...new Set([...(g.hand ?? []), ...g.discard.slice(-1)].map((card) => c.face(card, g.art)))]
+          .filter((src): src is string => !!src)
+          .join('\n')
+      : '';
+  useEffect(() => {
+    if (!firstFaces) return;
+    const imgs = firstFaces.split('\n').map((src) => {
+      const img = new Image();
+      img.fetchPriority = 'high';
+      img.decoding = 'async';
+      img.src = src;
+      return img;
+    });
+    return () => {
+      imgs.length = 0;
+    };
+  }, [firstFaces]);
+
   // Load every face in this game ahead of time, so a play (in the Nope panel) shows its art at once.
   const preloadKey = g && c.ready ? `${g.art}:${g.types.join(',')}` : '';
   useEffect(() => {
@@ -411,6 +425,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       .flatMap((t) => c.thumbs(t, g.art))
       .map((src) => {
         const img = new Image();
+        img.fetchPriority = 'low';
         img.decoding = 'async';
         img.src = src;
         return img;
@@ -476,7 +491,9 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
   const strict = view.settings.strict;
   const p = g.prompt;
   const peekOpen =
-    lastPeek && lastPeek.id > seenPeek && (lastPeek.kind === 'peek' || lastPeek.kind === 'shared')
+    lastPeek &&
+    (seenPeek.game !== gameNo || lastPeek.id > seenPeek.id) &&
+    (lastPeek.kind === 'peek' || lastPeek.kind === 'shared')
       ? lastPeek
       : null;
   const blast = g.beat?.kind === 'explode' ? g.beat : null;
@@ -536,7 +553,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       >
         ⚡ Play {c.name(selCards[0]!.t)} now
       </Button>
-      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{plan.why}</p>}
+      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       <RefusalSlot anchor="play" />
     </div>
   );
@@ -647,7 +664,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           </Button>
         </div>
       )}
-      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{plan.why}</p>}
+      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       {!plan && (
         <p className="text-xs text-ink-muted">Tap cards to play them, or draw to end your turn.</p>
       )}
@@ -816,7 +833,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           memory={peekOpen}
           c={c}
           art={g.art}
-          onClose={() => setSeenPeek(peekOpen.id)}
+          onClose={() => setSeenPeek({ game: gameNo, id: peekOpen.id })}
           {...(peekOpen.kind === 'shared' ? { from: who(view, peekOpen.other, false) } : {})}
         />
       )}

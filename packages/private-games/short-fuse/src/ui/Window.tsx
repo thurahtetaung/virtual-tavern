@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { ShortFuseAction, ShortFuseView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardFace } from './Card.tsx';
-import { pendingLine, who } from './text.ts';
+import { cap, pendingLine, who } from './text.ts';
 
 /** Milliseconds left until `endsAt` on the server clock, ticking while it runs. */
 function useMsLeft(endsAt: number, clockOffset: number): number {
@@ -120,7 +120,7 @@ export function NopePanel({
       )}
       {n > 0 && (
         <p className="sr-only">
-          {who(view, w.chain.at(-1))} played {nope}.
+          {cap(who(view, w.chain.at(-1)))} played {nope}.
         </p>
       )}
     </section>
