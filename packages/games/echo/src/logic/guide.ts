@@ -44,7 +44,7 @@ const text: GameGuide = {
     {
       title: 'What cancels',
       paragraphs: [
-        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, spaces, hyphens, plurals (also “mice” and “mouse”), British and American spellings (“colour” and “color”) and simple verb endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, “ice-cream” and “icecream”, or “run” and “running”. Every copy is cancelled, not just the second one.',
+        'Two clues cancel when they are the same word, even if they look a little different. Capitals, accents, spaces, hyphens, plurals (also “mice” and “mouse”), British and American spellings (“colour” and “color”) and simple verb endings are ignored, so “Cat” and “cats” cancel, and so do “Café” and “cafe”, “ice-cream” and “icecream”, or “run” and “running”. Words of the same family cancel too: “prince” and “princess”, “Japan” and “Japanese”, “king” and “kingdom”, “sun” and “sunny”, “swim” and “swimmer”. Every copy is cancelled, not just the second one.',
         'Different words that merely start alike, such as “corn” and “corner” or “bus” and “busy”, do not cancel.',
       ],
     },
@@ -53,7 +53,7 @@ const text: GameGuide = {
       bullets: [
         'More than one word. Hyphens and apostrophes are fine (“ice-cream”, “dog’s”).',
         'Just a number, such as “42”.',
-        'The secret word itself, any form of it, or a word built from it (for “sun”, not “sunny” or “sunflower”). It works both ways: for “sunflower”, not “sun”. A word that only hides it inside, such as “scatter” for “cat” or “police” for “ice”, is fine.',
+        'The secret word itself, any form of it, a word of its family or a word built from it (for “sun”, not “sunny” or “sunflower”; for “prince”, not “princess”). It works both ways: for “sunflower”, not “sun”. A word that only hides it inside, such as “scatter” for “cat” or “police” for “ice”, is fine.',
         'For an answer of several words, any of its words or the whole answer run together (for “ice cream”, not “ice”, “cream” or “icecream”).',
         'Your two clues (with 3 players) being the same word.',
         'If a clue is refused you can fix it and send again. You can also change your clues until the last one is in.',
@@ -64,8 +64,8 @@ const text: GameGuide = {
       bullets: [
         'Right: the card scores a point.',
         'Pass: the card is set aside, with no point.',
-        'Wrong: the card is lost, and so is the next card in the deck (on the last card, only that card). A wrong guess costs more than a pass, so pass when you have no idea.',
-        'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”), British or American spelling and a single typo in a word of 5 or more letters are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
+        'Wrong: the card is lost, and so is the next card in the deck. On the last card there is no next card, so you give back a card you had already won instead (one point less, never below 0). A wrong guess costs more than a pass, so pass when you have no idea.',
+        'Close enough counts on its own: capitals, accents, spaces, hyphens, plurals (also “mice” for “mouse”) and British or American spelling are all right (“spiderman” for “Spider-Man”). Anything else is a miss, including a typo, a word one letter away (“house” for “horse”), part of the word or a longer or shorter word (“corn” for “corner”). Nobody has to judge.',
         'The game ends when the deck runs out. The list of cards played counts any card a wrong guess cost.',
       ],
     },
@@ -78,7 +78,7 @@ const text: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, a guesser who hasn’t answered passes, and an undecided near miss counts as wrong. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
+        'The host can time the clue writing and the guessing. By default the timer is just a reminder. With Strict timers, running out of time moves the game on: a guesser who hasn’t picked gets a random word, clue writers who are late simply have no clue, and a guesser who hasn’t answered passes. The screen always says when the timer made the call (⏱), so nobody is blamed for it. A clue that was typed but not sent in time doesn’t count, so send it before the clock runs out.',
       ],
     },
     {
@@ -86,7 +86,7 @@ const text: GameGuide = {
       bullets: [
         'Players who join during a game wait for the next card, then join the rotation.',
         'If the guesser leaves, the next player becomes the guesser. The card goes back on top of the deck without the word that had been picked.',
-        'If a clue writer leaves while clues are being written, the others carry on without them. If one is offline, the host can press “Go on without them”.',
+        'If a clue writer leaves while clues are being written, the others carry on without them (down to two writers before anyone has sent, each writes two clues). If one is offline, the host can press “Go on without them”.',
         'If fewer than 3 players are left, the game ends.',
       ],
     },
@@ -129,7 +129,7 @@ export const guide: GameGuide = shapeGuide(text, {
       rows: [
         ['Right', 'Scores a point', '—'],
         ['Pass', 'Set aside, no point', '—'],
-        ['Wrong', 'Lost', 'The next card is lost too'],
+        ['Wrong', 'Lost', 'The next card is lost too (on the last card, a won card)'],
       ],
     },
     {

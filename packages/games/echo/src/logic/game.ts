@@ -9,7 +9,6 @@ import {
   containsWord,
   isNumberOnly,
   isSingleWord,
-  normaliseWord,
   sameAnswer,
   sameClue,
   wordPool,
@@ -25,7 +24,6 @@ import {
   type EchoAction,
   type EchoState,
   type EchoView,
-  JUDGE_GRACE_MS,
   MAX_HISTORY,
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -117,6 +115,9 @@ function liveGivers(state: EchoState, turn: Turn): PlayerId[] {
   return playingIds(state).filter((id) => id !== turn.guesser);
 }
 
+/** Clues each giver writes: 2 when only two players give clues, otherwise 1. */
+const cluesEach = (givers: readonly PlayerId[]) => (givers.length === 2 ? 2 : 1);
+
 function beginClues(state: EchoState, pick: number, now: number): EchoState {
   const turn = state.turn!;
   const givers = liveGivers(state, turn);
@@ -124,7 +125,7 @@ function beginClues(state: EchoState, pick: number, now: number): EchoState {
     pick,
     stage: 'clues',
     givers,
-    perGiver: givers.length === 2 ? 2 : 1,
+    perGiver: cluesEach(givers),
     deadline: deadline(state.settings.clueSeconds, now),
   });
 }
@@ -150,7 +151,7 @@ function maybeStartGuessing(state: EchoState, now: number, force = false): EchoS
   // Every giver left but there are still players: whoever is playing now writes the clues.
   if (turn.givers.length === 0) {
     const givers = liveGivers(state, turn);
-    turn = { ...turn, givers, perGiver: givers.length === 2 ? 2 : 1 };
+    turn = { ...turn, givers, perGiver: cluesEach(givers) };
     state = { ...state, turn };
   }
   if (!force && !turn.givers.every((g) => turn.clues[g])) return state;
@@ -172,8 +173,10 @@ function reveal(
   const turn = state.turn!;
   const word = turn.card[turn.pick!]!;
   let { score, cardsLeft, deck } = state;
-  // A wrong guess on the last card has no next card to lose.
+  // A wrong guess on the last card has no next card to lose, so it gives back a card already
+  // won instead (if there is one).
   const burned = outcome === 'wrong' && state.cardsLeft >= 2;
+  const forfeit = outcome === 'wrong' && !burned && state.score > 0;
   if (outcome === 'right') {
     score += 1;
     cardsLeft -= 1;
@@ -183,6 +186,7 @@ function reveal(
     // A wrong guess costs this card and the next one.
     cardsLeft = Math.max(0, cardsLeft - 2);
     deck = deck.slice(1);
+    if (forfeit) score -= 1;
   }
   const nameOf = (id: PlayerId) => state.seats[id]?.name ?? '';
   const entry = {
@@ -204,6 +208,7 @@ function reveal(
     ...(turn.missed &&
       turn.missed.length > 0 && { missed: turn.missed.map(nameOf).filter(Boolean) }),
     ...(burned ? { burned: true as const } : {}),
+    ...(forfeit ? { forfeit: true as const } : {}),
   };
   return {
     ...state,
@@ -406,33 +411,13 @@ function guess(state: EchoState, word: string, ctx: Ctx): Result {
   return reveal(next, guessMatches(word, turn.card[turn.pick!]!) ? 'right' : 'wrong', null);
 }
 
-/** Letters and digits only, so spacing, hyphens and punctuation never matter. */
-const squash = (s: string) => normaliseWord(s).replace(/[^\p{L}\p{N}]/gu, '');
-
-/** Whether two words are one typo apart: a letter added, dropped, changed or two swapped. */
-function oneTypoApart(a: string, b: string): boolean {
-  if (a === b || Math.abs(a.length - b.length) > 1) return a === b;
-  let i = 0;
-  while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  if (a.length === b.length) {
-    if (a.slice(i + 1) === b.slice(i + 1)) return true;
-    return a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2);
-  }
-  const [long, short] = a.length > b.length ? [a, b] : [b, a];
-  return long.slice(i + 1) === short.slice(i);
-}
-
 /**
  * A guess is right when it is the word in another form (`sameAnswer`: plurals, irregular plurals,
- * US/UK spellings, spacing, hyphens, a multi-word answer run together) or one typo away from an
- * answer of 5 or more letters. Anything else, a longer or shorter word included, is wrong.
+ * US/UK spellings, spacing, hyphens, a multi-word answer run together). Anything else, a typo,
+ * a different word one letter away ("house" for HORSE) or a longer or shorter word, is wrong.
  */
 export function guessMatches(guess: string, answer: string): boolean {
-  if (sameAnswer(guess, answer)) return true;
-  const g = squash(guess);
-  const a = squash(answer);
-  if (!g || !a) return false;
-  return a.length >= 5 && oneTypoApart(g, a);
+  return sameAnswer(guess, answer);
 }
 
 function pass(state: EchoState, ctx: Ctx): Result {
@@ -440,32 +425,6 @@ function pass(state: EchoState, ctx: Ctx): Result {
   if (turn instanceof GameError) return turn;
   if (turn.guesser !== ctx.by) return new GameError('not-guesser', 'Only the guesser can pass.');
   return reveal(state, 'pass', null);
-}
-
-function judge(state: EchoState, counts: boolean, ctx: Ctx): Result {
-  const turn = requireStage(state, 'judge');
-  if (turn instanceof GameError) return turn;
-  const giver = turn.givers.includes(ctx.by);
-  if (counts && !giver) {
-    return new GameError('not-giver', 'Only the clue writers can count a near miss.');
-  }
-  if (!counts && !giver && !ctx.isHost) {
-    return new GameError('not-giver', 'Only the clue writers or the host can move on.');
-  }
-  // The guesser doesn't judge their own guess. A host who is guessing may only settle it when
-  // nobody else can: every clue writer has gone, or they've had a fair while to decide.
-  if (
-    !counts &&
-    ctx.by === turn.guesser &&
-    turn.givers.length > 0 &&
-    ctx.now < (turn.judgeStarted ?? 0) + JUDGE_GRACE_MS
-  ) {
-    return new GameError(
-      'guesser-judging',
-      'The clue writers decide on your guess. Give them a moment first.',
-    );
-  }
-  return counts ? reveal(state, 'right', ctx.by) : reveal(state, 'wrong', null);
 }
 
 function nextCard(state: EchoState, cardsLeft: number | undefined, ctx: Ctx): Result {
@@ -502,10 +461,6 @@ function reduce(state: EchoState, action: EchoAction, ctx: Ctx): Result {
       return guess(state, action.word, ctx);
     case 'pass':
       return pass(state, ctx);
-    case 'count-it':
-      return judge(state, true, ctx);
-    case 'continue':
-      return judge(state, false, ctx);
     case 'skip-late-clues':
       return skipLateClues(state, ctx);
     case 'next-card':
@@ -574,12 +529,14 @@ function withdraw(state: EchoState, id: PlayerId, now: number): EchoState {
   if (!turn.givers.includes(id)) return state;
   const givers = turn.givers.filter((g) => g !== id);
   if (turn.stage !== 'clues') {
-    // Clues already given stay in play; the leaver just can't judge any more.
+    // Clues already given stay in play.
     return withTurn(state, { givers });
   }
   const clues = { ...turn.clues };
   delete clues[id];
-  return maybeStartGuessing(withTurn(state, { givers, clues }), now);
+  // Before anyone else has sent, the count follows the table: down to two writers, two clues each.
+  const perGiver = givers.some((g) => clues[g]) ? turn.perGiver : cluesEach(givers);
+  return maybeStartGuessing(withTurn(state, { givers, clues, perGiver }), now);
 }
 
 function playerLeft(state: EchoState, playerId: PlayerId, now: number): EchoState {
@@ -614,8 +571,6 @@ function onDeadline(state: EchoState, now: number): EchoState {
       return maybeStartGuessing(state, now, true);
     case 'guess':
       return reveal(state, 'pass', null, true);
-    case 'judge':
-      return reveal(state, 'wrong', null, true);
     case 'reveal':
       return state;
   }

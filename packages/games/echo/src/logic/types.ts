@@ -13,11 +13,6 @@ export const MAX_GUESS_LENGTH = 32;
 export const MAX_HISTORY = 20;
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
-/**
- * How long the clue writers get to judge a near miss before a host who is also the guesser may
- * settle it themselves (for when no clue writer is around to do it).
- */
-export const JUDGE_GRACE_MS = 30_000;
 
 export type DeckSize = (typeof DECK_SIZES)[number];
 export type TimerMode = 'soft' | 'strict';
@@ -41,7 +36,7 @@ export interface Seat {
 /** Up to `CARD_SIZE` words. A word is struck off if its guesser leaves after picking it. */
 export type Card = string[];
 
-export type Stage = 'pick' | 'clues' | 'guess' | 'judge' | 'reveal';
+export type Stage = 'pick' | 'clues' | 'guess' | 'reveal';
 export type Outcome = 'right' | 'wrong' | 'pass';
 export type CancelReason = 'duplicate';
 
@@ -62,7 +57,7 @@ export interface Turn {
   cancelled: Record<string, CancelReason>;
   guess: string | null;
   outcome: Outcome | null;
-  /** The giver who pressed Count it on a near miss. */
+  /** Always null: the game judges every guess itself (kept for the stats events). */
   countedBy: PlayerId | null;
   /** Epoch ms when the current stage times out, or null if untimed. */
   deadline: number | null;
@@ -72,10 +67,8 @@ export interface Turn {
   missed?: PlayerId[];
   /** The host moved on without the missing clues, rather than the timer. */
   skipped?: boolean;
-  /** The strict timer decided the outcome (no guess, or an undecided near miss). */
+  /** The strict timer decided the outcome (no guess). */
   timedOut?: boolean;
-  /** Epoch ms when judging a near miss began. */
-  judgeStarted?: number;
 }
 
 export interface ResolvedClue {
@@ -99,6 +92,8 @@ export interface ResolvedCard {
   missed?: string[];
   /** A wrong guess that also cost the next card (absent when there was no next card). */
   burned?: true;
+  /** A wrong guess on the last card that gave back a card already won (one point less). */
+  forfeit?: true;
 }
 
 export interface EchoState {
@@ -151,8 +146,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('give-clues'), clues: z.array(line(MAX_CLUE_LENGTH)).min(1).max(2) }),
   z.object({ type: z.literal('guess'), word: line(MAX_GUESS_LENGTH) }),
   z.object({ type: z.literal('pass') }),
-  z.object({ type: z.literal('count-it') }),
-  z.object({ type: z.literal('continue') }),
   /** Host: stop waiting for clue writers who haven't sent theirs (an offline player, say). */
   z.object({ type: z.literal('skip-late-clues') }),
   /** `cardsLeft` as the sender saw it, so a second tap from someone else doesn't skip a card. */

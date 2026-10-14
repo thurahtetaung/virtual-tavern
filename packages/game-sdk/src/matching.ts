@@ -7,7 +7,9 @@ import { normaliseWord } from './words.ts';
  *   and a short list of irregular plurals and US/UK spellings only, so "spiderman" is
  *   "Spider-Man" and "mice" is "MOUSE", but "numb" is never "NUMBER".
  * - `sameClue`: are two clues the same word? `sameAnswer`, plus simple verb endings ("run" and
- *   "running", "bake" and "baked"). Words that merely start alike ("corn" and "corner") differ.
+ *   "running", "bake" and "baked") and a few word-family endings ("prince" and "princess",
+ *   "Japan" and "Japanese", "sun" and "sunny", "swim" and "swimmer", "king" and "kingdom").
+ *   Words that merely start alike ("corn" and "corner") differ.
  * - `containsWord`: does a clue give a word away? `sameClue`, or one is the other with a
  *   common ending or prefix ("sunny", "react"), or a compound of it ("sunflower"), checked both
  *   ways, or a whole word of a multi-word answer. A word hidden inside another ("cat" in
@@ -119,6 +121,9 @@ const SPELLINGS: Record<string, string> = {
   axe: 'ax',
 };
 
+/** Words that look like a plural or verb form of a shorter word but aren't ("news", "pied"). */
+const NOT_FORMS = new Set(['news', 'lens', 'mars', 'means', 'pants', 'pied', 'singed']);
+
 /** Regular plurals: the first rule whose result keeps `MIN_STEM` letters wins. */
 const PLURALS: { test: RegExp; replace: string }[] = [
   { test: /ies$/, replace: 'y' }, // berries → berry
@@ -127,6 +132,7 @@ const PLURALS: { test: RegExp; replace: string }[] = [
 ];
 
 function singular(word: string): string {
+  if (NOT_FORMS.has(word)) return word;
   const irregular = IRREGULAR[word];
   if (irregular) return irregular;
   for (const { test, replace } of PLURALS) {
@@ -170,7 +176,13 @@ function parts(s: string): string[] {
 function forms(s: string): string[] {
   const words = parts(s);
   if (words.length === 0) return [];
-  return [...new Set([words.map(baseWord).join(''), baseWord(words.join(''))])];
+  const found = [words.map(baseWord).join(''), baseWord(words.join(''))];
+  // A plural of a word ending in i or u ("zulus", "menus", "kiwis") is kept as it is, since
+  // "virus" and "tennis" aren't plurals; its form without the s is added alongside.
+  for (const f of [...found]) {
+    if (/[^aeiou][iu]s$/.test(f) && f.length > MIN_STEM) found.push(f.slice(0, -1));
+  }
+  return [...new Set(found)];
 }
 
 /** Is a guess the answer? Plurals, spelling variants, spacing and punctuation only. */
@@ -189,7 +201,9 @@ function endsShort(w: string): boolean {
 
 /** `derived` is `base` with a verb ending: "run" → "running", "bake" → "baked", "carry" → "carried". */
 function inflects(base: string, derived: string): boolean {
-  if (base.length < MIN_STEM || derived.length <= base.length) return false;
+  if (base.length < MIN_STEM || derived.length <= base.length || NOT_FORMS.has(derived)) {
+    return false;
+  }
   const endings = ['ing', 'ed'];
   const stems: string[] = [];
   if (base.endsWith('e') && !base.endsWith('ee')) {
@@ -207,11 +221,48 @@ function inflects(base: string, derived: string): boolean {
   return stems.some((stem) => endings.some((e) => derived === stem + e));
 }
 
-/** Are two clues the same word? `sameAnswer`, plus simple verb endings ("run", "running"). */
+/**
+ * `long` is `short` with a word-family ending: "princess", "actress", "hostess" (-ess), "Japanese",
+ * "Chinese" (-ese), "kingdom" (-dom), "salty", "smoky" (-y), and with the last letter doubled
+ * "sunny" and "swimmer". Only doubled forms take -er, so "corner" stays apart from "corn" and
+ * "singer" from "sing"; the rest need a word of 4 letters, so "busy" stays apart from "bus", and
+ * a doubled r never counts ("carry" isn't "car"). Compared on `kin` forms, where "cookie" stays
+ * "cookie" rather than "cooky".
+ */
+function family(long: string, short: string): boolean {
+  if (short.length < MIN_STEM || long.length < short.length) return false;
+  const cut = (n: number) => short.slice(0, -n);
+  const doubled = endsShort(short) && !short.endsWith('r') ? short + short.at(-1) : null;
+  const words = doubled ? [`${doubled}y`] : [];
+  if (short.length >= 4) {
+    words.push(`${short}ess`, `${short}ese`, `${short}dom`, `${short}y`);
+    if (short.endsWith('e')) words.push(`${cut(1)}ess`, `${cut(1)}y`); // princess, smoky
+    if (/[aeiou]$/.test(short)) words.push(`${cut(1)}ese`); // china → chinese
+    if (/[eo]r$/.test(short)) words.push(`${cut(2)}ress`); // actress, waitress
+    if (doubled) words.push(`${doubled}er`); // swimmer
+  }
+  return words.includes(long);
+}
+
+/** A phrase run together with each word singular, and nothing else changed: for `family`. */
+const kin = (s: string) => parts(s).map(singular).join('');
+
+/** Is one of `a` and `b` the other with a word-family ending? */
+const sameFamily = (a: string, b: string) => {
+  const [x, y] = [kin(a), kin(b)];
+  return !!x && !!y && (family(x, y) || family(y, x));
+};
+
+/**
+ * Are two clues the same word? `sameAnswer`, plus simple verb endings ("run", "running") and
+ * word-family endings ("prince", "princess").
+ */
 export function sameClue(a: string, b: string): boolean {
   const fa = forms(a);
   const fb = forms(b);
-  return fa.some((x) => fb.some((y) => x === y || inflects(x, y) || inflects(y, x)));
+  return (
+    fa.some((x) => fb.some((y) => x === y || inflects(x, y) || inflects(y, x))) || sameFamily(a, b)
+  );
 }
 
 /** Endings that make a new word from an old one ("sunny", "salty", "player", "fearless"). */
@@ -324,8 +375,8 @@ function affixed(long: string, short: string): boolean {
 }
 
 /**
- * Does `clue` give `word` away? It does when it is the same clue, a form of the word with an
- * ending or prefix, a compound of it (or the word a compound of the clue), or the same as a
+ * Does `clue` give `word` away? It does when it is the same clue (word families included, so
+ * "Princess" for PRINCE and "kingdom" for KING), a form of the word with an ending or prefix, a compound of it (or the word a compound of the clue), or the same as a
  * whole word of a multi-word answer ("Monsters" for MONSTERS INC). A word merely hidden inside
  * another ("cat" in "scatter", "ice" in "police") does not.
  */
@@ -342,5 +393,6 @@ export function containsWord(clue: string, word: string): boolean {
       }
     }
   }
-  return false;
+  // A word of the family of one word of a multi-word answer ("lioness" for THE LION KING).
+  return words.some((w) => sameFamily(clue, w));
 }

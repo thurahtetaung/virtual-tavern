@@ -65,26 +65,23 @@ export const stillWriting = (turn: TurnView) =>
 function outcomeText(view: EchoView, turn: TurnView): string {
   const word = turn.word ? `“${turn.word}”` : 'the word';
   if (turn.outcome === 'right') {
-    return turn.countedBy
-      ? `Counted! ${nameOf(view, turn.countedBy)} counted the guess for ${word}.`
-      : `Got it! The word was ${word}.`;
+    return `Got it! The word was ${word}.`;
   }
   if (turn.outcome === 'pass') {
     return turn.timedOut
       ? `⏱ Time ran out: counts as a pass. The word was ${word}.`
       : `Passed. The word was ${word}.`;
   }
-  const why = turn.timedOut
-    ? '⏱ Nobody decided in time, so it counts as wrong: the'
-    : 'Not this time: the';
   // What the wrong guess cost is spelled out once, in the result banner (`lossText`).
-  return `${why} word was ${word}.`;
+  return `Not this time: the word was ${word}.`;
 }
 
-/** What a wrong guess just cost: the next card too, unless this was the last one. */
+/** What a wrong guess just cost: the next card too, or on the last card a card already won. */
 export function lossText(view: EchoView): string {
-  return view.history.at(-1)?.burned
-    ? 'This card and the next are lost.'
+  const last = view.history.at(-1);
+  if (last?.burned) return 'This card and the next are lost.';
+  return last?.forfeit
+    ? 'This was the last card, so it costs a card you had won: one point less.'
     : 'This card is lost (it was the last one).';
 }
 
@@ -97,9 +94,6 @@ export function nextGuesser(view: EchoView, turn: TurnView): string | null {
   }
   return null;
 }
-
-const strictNote = (view: EchoView, turn: TurnView, text: string) =>
-  view.settings.timerMode === 'strict' && turn.deadline !== null ? ` ${text}` : '';
 
 function playingStatus(
   view: EchoView,
@@ -167,31 +161,6 @@ function playingStatus(
           : '⏱ You ran out of time, so there is no clue from you this card. '
         : '';
       return { text: `${missed}Waiting for ${guesser} to guess…`, yourMove: false };
-    }
-    case 'judge': {
-      const giver = turn.givers.includes(me);
-      const timeout = strictNote(view, turn, 'If nobody decides in time, it counts as wrong.');
-      if (role === 'guesser') {
-        return {
-          text: `Not an exact match. The clue writers are deciding whether it counts…${timeout}`,
-          yourMove: false,
-        };
-      }
-      if (giver) {
-        return {
-          text: `${guesser} guessed “${turn.guess}”. Is it really the word? One tap decides for the whole table.${timeout}`,
-          yourMove: true,
-        };
-      }
-      return isHost
-        ? {
-            text: `${guesser} guessed “${turn.guess}”. Press Doesn't count to move on.`,
-            yourMove: true,
-          }
-        : {
-            text: `The clue writers are deciding whether the guess counts…${timeout}`,
-            yourMove: false,
-          };
     }
     case 'reveal': {
       const next = view.cardsLeft > 0 ? 'Next card' : 'Finish';

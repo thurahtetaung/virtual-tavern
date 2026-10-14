@@ -222,15 +222,20 @@ describe('a card', () => {
     expect(h.state.history.at(-1)!.burned).toBe(true);
   });
 
-  it('close enough counts on its own: another form or a single typo', () => {
+  it('close enough counts on its own, but a typo is a miss', () => {
     const h = startedGame();
     toGuess(h);
     const word = secret(h);
-    // One letter swapped counts for longer words; nobody is asked to judge.
-    const typo = word.length >= 5 ? word[1]! + word[0]! + word.slice(2) : word;
-    h.act({ type: 'guess', word: typo.toUpperCase() });
+    // Capitals and spacing never matter; nobody is asked to judge.
+    h.act({ type: 'guess', word: ` ${word.toUpperCase()} ` });
     expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'right' });
     expect(h.state.score).toBe(1);
+    h.act({ type: 'next-card' });
+    toGuess(h);
+    // One letter swapped is another word as far as the game knows.
+    const other = secret(h);
+    h.act({ type: 'guess', word: other[1]! + other[0]! + other.slice(2) }, turn(h).guesser);
+    expect(turn(h)).toMatchObject({ stage: 'reveal', outcome: 'wrong' });
   });
 
   it('next card: anyone at the table deals, and it rotates the guesser', () => {
@@ -270,17 +275,35 @@ describe('a card', () => {
     expect(h.state).toMatchObject({ phase: 'over', endReason: 'finished', turn: null });
   });
 
-  it('a wrong guess on the last card clamps at zero', () => {
+  it('a wrong guess on the last card with nothing won clamps at zero', () => {
     const h = playTo(1);
     expect(h.state.deck).toHaveLength(0);
     toGuess(h);
     h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
-    expect(h.state.cardsLeft).toBe(0);
-    // There was no next card to lose.
+    expect(h.state).toMatchObject({ cardsLeft: 0, score: 0 });
+    // There was no next card to lose, and no won card to give back.
     expect(h.state.history.at(-1)!.burned).toBeUndefined();
+    expect(h.state.history.at(-1)!.forfeit).toBeUndefined();
     h.act({ type: 'next-card' });
     expect(h.state.phase).toBe('over');
     expect(h.state.history).toHaveLength(8);
+  });
+
+  it('a wrong guess on the last card gives back a card already won', () => {
+    const h = startedGame();
+    while (h.state.cardsLeft > 1) {
+      toGuess(h);
+      h.act({ type: 'guess', word: secret(h) }, turn(h).guesser);
+      h.act({ type: 'next-card' });
+    }
+    expect(h.state.score).toBe(7);
+    toGuess(h);
+    h.act({ type: 'guess', word: 'nope' }, turn(h).guesser);
+    expect(h.state).toMatchObject({ cardsLeft: 0, score: 6 });
+    expect(h.state.history.at(-1)).toMatchObject({ outcome: 'wrong', forfeit: true });
+    expect(h.state.history.at(-1)!.burned).toBeUndefined();
+    h.act({ type: 'next-card' });
+    expect(h.state).toMatchObject({ phase: 'over', score: 6 });
   });
 
   it('plays a whole game, then a rematch', () => {
@@ -363,6 +386,24 @@ describe('players leaving', () => {
     expect(turn(h).stage).toBe('clues');
     leave(h, 'p4');
     expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few' });
+  });
+
+  it('down to two clue writers before anyone sent, each writes two clues', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    leave(h, 'p4');
+    expect(turn(h)).toMatchObject({ stage: 'clues', givers: ['p2', 'p3'], perGiver: 2 });
+    h.act({ type: 'give-clues', clues: ['apple', 'fruit'] }, 'p2');
+    h.act({ type: 'give-clues', clues: ['pear', 'tree'] }, 'p3');
+    expect(turn(h).stage).toBe('guess');
+  });
+
+  it('down to two clue writers after one sent, the count stays as it was', () => {
+    const h = startedGame();
+    h.act({ type: 'pick', index: 0 });
+    h.act({ type: 'give-clues', clues: ['apple'] }, 'p2');
+    leave(h, 'p4');
+    expect(turn(h)).toMatchObject({ givers: ['p2', 'p3'], perGiver: 1 });
   });
 
   it('the last missing giver leaving starts the guessing', () => {
@@ -731,8 +772,13 @@ describe('actions and ratings', () => {
 describe('guessMatches', () => {
   it.each([
     ['Elephant', 'elephant', true],
-    ['elephnat', 'elephant', true],
-    ['elepant', 'elephant', true],
+    ['elephnat', 'elephant', false],
+    ['elepant', 'elephant', false],
+    ['house', 'HORSE', false],
+    ['night', 'LIGHT', false],
+    ['watch', 'MATCH', false],
+    ['plant', 'PLANE', false],
+    ['beach', 'BENCH', false],
     ['spiderman', 'Spider-Man', true],
     ['ice cream', 'Ice-cream', true],
     ['cats', 'cat', true],
@@ -775,7 +821,7 @@ describe('word matching in play', () => {
     return turn(h).stage === 'reveal' ? turn(h).outcome : turn(h).stage;
   };
 
-  it('scores only a strict match (or a typo) as right, and anything else as wrong', () => {
+  it('scores only a strict match as right, and anything else as wrong', () => {
     expect(guessed('NUMBER', 'numb')).toBe('wrong');
     expect(guessed('CORNER', 'corn')).toBe('wrong');
     expect(guessed('BOXER', 'box')).toBe('wrong');

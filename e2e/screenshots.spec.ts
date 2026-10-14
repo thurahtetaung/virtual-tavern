@@ -503,7 +503,8 @@ for (const [label, viewport] of [
       const writer = await wrong(guesser, writers);
       await shot(writer, 'wrong');
     });
-    // 5 cards left: two more misses (two cards each) and a pass end the deck.
+    // 5 cards left: two more misses (two cards each), then a miss on the last card gives back
+    // the card won first.
     for (let i = 0; i < 2; i++) {
       await nextCard();
       await playCard(async (guesser, writers) => {
@@ -511,8 +512,10 @@ for (const [label, viewport] of [
       });
     }
     await nextCard();
-    await playCard(async (guesser) => {
-      await guesser.getByRole('button', { name: 'Pass' }).click();
+    await playCard(async (guesser, writers) => {
+      await wrong(guesser, writers);
+      await expect(host.getByText(/costs a card you had won/).first()).toBeVisible();
+      await shot(host, 'last-wrong');
     });
     await nextCard();
     await expect(host.getByText('Game over!')).toBeVisible();

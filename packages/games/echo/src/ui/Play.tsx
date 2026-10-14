@@ -87,9 +87,11 @@ function PickCards({ turn, act, mine }: { turn: TurnView; act: Act; mine: boolea
 }
 
 function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
-  const [clues, setClues] = useState<string[]>(() =>
+  const [typed, setClues] = useState<string[]>(() =>
     Array.from({ length: turn.perGiver }, (_, i) => turn.myClues?.[i] ?? ''),
   );
+  // A writer leaving can change the count mid-card (down to two writers, two clues each).
+  const clues = Array.from({ length: turn.perGiver }, (_, i) => typed[i] ?? '');
   const [busy, setBusy] = useState(false);
   const word = turn.word ?? '';
   const trimmed = clues.map((c) => c.trim());
@@ -122,7 +124,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             autoCapitalize="off"
             spellCheck={false}
             aria-invalid={problems[i] ? true : undefined}
-            onChange={(e) => setClues((c) => c.map((x, j) => (j === i ? e.target.value : x)))}
+            onChange={(e) => setClues(clues.map((x, j) => (j === i ? e.target.value : x)))}
             placeholder="One word"
             className={cn(INPUT, 'mt-1', problems[i] && 'ring-2 ring-danger dark:ring-rose-500')}
           />
@@ -272,11 +274,6 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
     title: 'Got it!',
     tone: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
   },
-  counted: {
-    icon: '🤝',
-    title: 'Counted!',
-    tone: 'bg-success-soft text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-200',
-  },
   pass: {
     icon: '⏭️',
     title: 'Passed',
@@ -292,11 +289,6 @@ const OUTCOME: Record<string, { icon: string; title: string; tone: string }> = {
     title: 'Time ran out',
     tone: 'bg-stone-200 text-stone-800 dark:bg-stone-800 dark:text-stone-200',
   },
-  'wrong-timeout': {
-    icon: '⏱',
-    title: 'Time ran out',
-    tone: 'bg-danger-soft text-rose-900 dark:bg-rose-500/15 dark:text-rose-200',
-  },
 };
 
 /** One line under the result: what happened, in plain words. */
@@ -308,16 +300,12 @@ function outcomeLine(view: EchoView, turn: TurnView): string {
       : `${guesser} passed.`;
   }
   let line = `${guesser} guessed “${turn.guess ?? '—'}”.`;
-  if (turn.countedBy) line += ` ${nameOf(view, turn.countedBy)} counted it.`;
-  if (turn.outcome === 'wrong') {
-    if (turn.timedOut) line += ' Nobody decided in time, so it counts as wrong.';
-    line += ` ${lossText(view)}`;
-  }
+  if (turn.outcome === 'wrong') line += ` ${lossText(view)}`;
   return line;
 }
 
 function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
-  const base = turn.outcome === 'right' && turn.countedBy ? 'counted' : (turn.outcome ?? 'wrong');
+  const base = turn.outcome ?? 'wrong';
   const o = OUTCOME[turn.timedOut ? `${base}-timeout` : base] ?? OUTCOME[base]!;
   const missed = turn.missed.map((id) => nameOf(view, id));
   return (
@@ -346,67 +334,6 @@ function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
           {view.cardsLeft > 0 ? 'Next card' : 'Finish'}
         </Button>
       )}
-    </div>
-  );
-}
-
-function Judge({ view, turn, act, room }: Props & { turn: TurnView }) {
-  const isHost = room.isHost;
-  const online = (id: string) => room.players.find((p) => p.id === id)?.connected !== false;
-  const giver = turn.givers.includes(view.me?.id ?? '');
-  const guesser = view.role === 'guesser';
-  // The guesser doesn't judge their own guess. A host who is guessing only gets a way out when
-  // no clue writer is around to decide.
-  const nobodyToJudge = !turn.givers.some((g) => online(g));
-  const canMoveOn = giver || (isHost && (!guesser || nobodyToJudge));
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 text-center">
-        <p className="rounded-xl bg-stone-100 px-2 py-3 dark:bg-stone-800/70">
-          <span className="block text-sm text-stone-500">{nameOf(view, turn.guesser)} guessed</span>
-          <span className="block text-2xl font-bold break-words">{turn.guess}</span>
-        </p>
-        <p className="rounded-xl bg-accent-soft px-2 py-3 ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40">
-          <span className="block text-sm text-stone-500">The word</span>
-          <span
-            data-testid="secret-word"
-            className="block text-2xl font-black break-words uppercase"
-          >
-            {turn.word ?? '?'}
-          </span>
-        </p>
-      </div>
-      {canMoveOn && (
-        <div className={cn('grid gap-2', giver && 'grid-cols-2')}>
-          {giver && (
-            <Button size="lg" onClick={() => void act({ type: 'count-it' })}>
-              Count it
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="lg"
-            className="whitespace-nowrap"
-            onClick={() => void act({ type: 'continue' })}
-          >
-            Doesn't count
-          </Button>
-        </div>
-      )}
-      {giver && (
-        <p className="text-center text-xs text-stone-500">
-          Count it only if the guess is really the word: a typo or a different spelling. For an
-          answer of several words, only the whole answer counts (“Monsters” isn’t “Monsters Inc”).
-          Doesn't count loses this card and the next.
-        </p>
-      )}
-      {guesser && canMoveOn && (
-        <p className="text-center text-xs text-stone-500">
-          No clue writer is online to decide. Doesn't count moves on (this card and the next are
-          lost).
-        </p>
-      )}
-      {view.role !== 'guesser' && <ClueList view={view} clues={turn.clues} />}
     </div>
   );
 }
@@ -449,8 +376,6 @@ export function Stage({ view, act, room }: Props) {
           <ClueList view={view} clues={turn.clues} />
         </div>
       );
-    case 'judge':
-      return <Judge view={view} turn={turn} act={act} room={room} />;
     case 'reveal':
       return <Reveal view={view} turn={turn} act={act} room={room} />;
   }
@@ -463,6 +388,7 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   if (history.length === 0) return null;
   // Cards a wrong guess cost without being played, so the list adds up to the deck.
   const burned = history.filter((h) => h.burned).length;
+  const forfeits = history.filter((h) => h.forfeit).length;
   return (
     <details className="group" open={open}>
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
@@ -483,8 +409,6 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
                   ? ' ran out of time'
                   : ' passed'
                 : ` guessed “${h.guess ?? '—'}”`}
-              {h.countedBy && ' (counted)'}
-              {h.outcome === 'wrong' && h.timedOut && ' (undecided in time)'}
             </span>
           </li>
         ))}
@@ -492,6 +416,13 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
           <li className="flex items-baseline gap-2 text-stone-500">
             <span aria-hidden>🔥</span>
             {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
+          </li>
+        )}
+        {forfeits > 0 && (
+          <li className="flex items-baseline gap-2 text-stone-500">
+            <span aria-hidden>↩️</span>
+            {forfeits === 1 ? 'A won card was' : `${forfeits} won cards were`} given back for a
+            wrong guess on the last card
           </li>
         )}
       </ol>
