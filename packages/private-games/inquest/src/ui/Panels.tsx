@@ -450,7 +450,8 @@ export function FlipPanel({
   if (ev?.kind !== 'ruled-out') return null;
   const me = g.players.find((p) => p.id === view.me?.id);
   const mine = ev.current === me?.id && me;
-  const key = g.solution && g.myRole === 'murderer' ? g.solution.clue : null;
+  // The Murderer's key card looks like any other here (others can see the screen): tapping it gets
+  // the server's plain "Pick a different card", worded so it never sounds special.
   return (
     <Panel
       role="region"
@@ -494,9 +495,8 @@ export function FlipPanel({
                 n={n}
                 content={content}
                 selected={pick === n}
-                key_={key === n}
                 ruledOut={me.ruledOut.includes(n)}
-                disabled={me.ruledOut.includes(n) || key === n}
+                disabled={me.ruledOut.includes(n)}
                 onTap={() => setPick(n)}
               />
             ))}

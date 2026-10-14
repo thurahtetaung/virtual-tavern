@@ -171,13 +171,21 @@ test('four players: events come up in round 2, through the last call that ends i
       'Your turn: flip one of your own Clue cards face down.',
     );
     const panel = flipper.page.getByRole('region', { name: 'Flip a Clue card' });
-    // The Murderer can't flip the Key Evidence: its card is disabled for them.
-    if (flipper === murderer)
-      await expect(panel.getByRole('button', { name: /^Clue:/ }).first()).toBeDisabled();
+    // The Murderer's Key Evidence (their first Clue card) looks like any other card, so a glance
+    // at their screen gives nothing away; flipping it gets a plain refusal.
+    if (flipper === murderer) {
+      const key = panel.getByRole('button', { name: /^Clue:/ }).first();
+      await expect(key).toBeEnabled();
+      await expect(panel.getByText('KEY', { exact: true })).toHaveCount(0);
+      await key.click();
+      await panel.getByRole('button', { name: /^Flip / }).click();
+      await expect(panel.getByText('Pick a different card.')).toBeVisible();
+      await expect(panel.getByRole('button', { name: /\(ruled out\)/ })).toHaveCount(0);
+    }
     await panel
       .getByRole('button', { name: /^Clue:/ })
       .and(panel.locator(':enabled'))
-      .first()
+      .nth(flipper === murderer ? 1 : 0)
       .click();
     await panel.getByRole('button', { name: /^Flip / }).click();
     await expect(panel.getByRole('button', { name: /^Flip / })).toHaveCount(0);
