@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
@@ -52,7 +52,7 @@ async function previewArt(page: Page) {
         new URL(r.request().url()).pathname.slice(`/api/backroom/assets/${id}/`.length),
       );
       const file = join(dir, path);
-      return !path.includes('..') && existsSync(file)
+      return !path.includes('..') && existsSync(file) && statSync(file).isFile()
         ? r.fulfill({
             body: readFileSync(file),
             contentType: TYPES[path.split('.').pop() ?? ''] ?? 'application/octet-stream',
@@ -78,7 +78,12 @@ async function visitor(browser: Browser, look: (typeof LOOKS)[number], scheme: '
   });
   const page = await context.newPage();
   await previewArt(page);
-  await page.addInitScript(() => localStorage.setItem('vt.playerName', 'Hana'));
+  await page.addInitScript(() => {
+    localStorage.setItem('vt.playerName', 'Hana');
+    // The first-time lobby intro shows in every room here (the suite marks it seen).
+    for (const k of Object.keys(localStorage))
+      if (k.startsWith('vt.guide.intro.')) localStorage.removeItem(k);
+  });
   return page;
 }
 

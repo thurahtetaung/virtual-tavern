@@ -29,6 +29,40 @@ export const SHARED_STATE = [
   /guide-shots\.spec\.ts$/,
 ];
 
+/** Every game, for `introsSeen`. */
+const GAME_IDS = [
+  'codenames',
+  'enigma',
+  'echo',
+  'masquerade',
+  'round-table',
+  'reverie',
+  'hoodwink',
+  'royal-post',
+  'masquerade-originals',
+  'nightfall',
+  'inquest',
+  'seance',
+  'hydra',
+  'hogwarts',
+  'tavern-brawl',
+  'short-fuse',
+];
+
+/**
+ * Every game's first-time lobby intro counts as seen, so it never sits over a spec's lobby
+ * (`guides.spec.ts` clears it to test it).
+ */
+export const introsSeen = (origin: string) => ({
+  cookies: [],
+  origins: [
+    {
+      origin,
+      localStorage: GAME_IDS.map((id) => ({ name: `vt.guide.intro.${id}`, value: '1' })),
+    },
+  ],
+});
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -43,6 +77,7 @@ export default defineConfig({
     : 'list',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
+    storageState: introsSeen(`http://127.0.0.1:${PORT}`),
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

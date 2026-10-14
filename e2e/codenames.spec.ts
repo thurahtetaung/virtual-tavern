@@ -154,7 +154,10 @@ test('a newcomer opening a link is asked for their name first', async ({ browser
   await expect(host.getByText('Newbie').first()).toBeVisible();
 
   await guest.getByRole('button', { name: 'Read the 2-minute guide' }).click();
-  await expect(guest.getByRole('dialog').getByText('Giving a clue (Spymaster)')).toBeVisible();
+  const guide = guest.getByRole('dialog');
+  await expect(guide.getByRole('region', { name: 'How a game goes' })).toBeVisible();
+  await guide.getByRole('tab', { name: 'Rules' }).click();
+  await expect(guide.getByText('Giving a clue (Spymaster)')).toBeVisible();
 });
 
 test('admins manage word lists that hosts can pick', async ({ browser }) => {
