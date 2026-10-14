@@ -248,6 +248,16 @@ export function makeGuide(names: GuideNames = {}, footer?: GuideFooter): GameGui
         ],
       },
     ],
+    presets: (Object.keys(SETS) as SetId[]).map((set) => ({
+      id: set,
+      label: setName(set),
+      context: {
+        summary: `The heroes of ${setName(set)}.`,
+        inGame: Object.fromEntries(
+          ENABLED_HEROES.filter((h) => HEROES[h].set === set).map((h) => [h, 1]),
+        ),
+      },
+    })),
     room,
   };
 

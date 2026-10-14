@@ -183,6 +183,22 @@ export function makeGuide(names: RoyalPostNames = {}): GameGuide {
         note: 'A short game plays to 2 tokens fewer (never fewer than 2).',
       },
     ],
+    presets: (['classic', '2019'] as const).map((ed) => ({
+      id: ed,
+      label: ed === 'classic' ? 'Classic (16 cards)' : '2019 edition (21 cards)',
+      context: {
+        summary:
+          ed === 'classic'
+            ? 'The Classic deck, for 2 to 4 players.'
+            : 'The 2019 deck, for 2 to 6 players: the Spy and the Chancellor join.',
+        options: ed === '2019' ? [NEW_2019.key] : [],
+        inGame: Object.fromEntries(
+          CARDS.filter(([, , classic]) => ed === '2019' || classic !== null).map(
+            ([id, , classic, , n2019]) => [id, ed === '2019' ? n2019 : classic!],
+          ),
+        ),
+      },
+    })),
     room,
   };
 }

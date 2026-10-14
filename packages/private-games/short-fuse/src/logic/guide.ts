@@ -302,6 +302,44 @@ export function nameGuide(names: Names, footer?: GuideFooter, art: CardArt = {})
         ],
       },
     ],
+    presets: [
+      {
+        id: 'classic',
+        label: names.sets.classic ?? 'Classic deck',
+        context: {
+          summary: 'The core cards only.',
+          options: [],
+          inGame: Object.fromEntries(
+            CARD_TYPES.filter((t) => CARDS[t].set === 'core').map((t) => [t, 1]),
+          ),
+        },
+      },
+      {
+        id: 'party',
+        label: names.sets.party ?? 'Party deck',
+        context: {
+          summary: 'The Party deck: the core cards for up to 10 players.',
+          options: [PARTY.key],
+          inGame: Object.fromEntries(
+            CARD_TYPES.filter((t) => CARDS[t].set === 'core').map((t) => [t, 1]),
+          ),
+        },
+      },
+      ...(['x1', 'x2', 'x3'] as const).map((x) => ({
+        id: x,
+        label: `+ ${names.sets[x] ?? EXPANSIONS[x].label}`,
+        context: {
+          summary: `The core cards with ${names.sets[x] ?? EXPANSIONS[x].label}.`,
+          options: [x],
+          inGame: Object.fromEntries(
+            CARD_TYPES.filter((t) => CARDS[t].set === 'core' || CARDS[t].set === x).map((t) => [
+              t,
+              1,
+            ]),
+          ),
+        },
+      })),
+    ],
     room,
     ...(footer && { footer }),
   };
