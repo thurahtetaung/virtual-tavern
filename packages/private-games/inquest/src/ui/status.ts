@@ -322,3 +322,12 @@ export function solveBlocker(view: InquestView): string | null {
     return `Wait for your turn: ${nameOf(view, accuser)} is accusing.`;
   return null;
 }
+
+/**
+ * A Good Twist gave the viewer an extra attempt "immediately": offer it now (they may also keep
+ * it for later in the case), as long as they could solve right away.
+ */
+export function twistOffer(view: InquestView): boolean {
+  const g = view.game;
+  return !!g && g.twist !== null && g.twist === view.me?.id && !solveBlocker(view);
+}

@@ -648,6 +648,7 @@ export function InquestGame({
           // The dialog's own close event fires again once it hides: only count a shown card.
           if (eventKind) setEventsSeen({ game: view.gameNo, n: seen + 1 });
         }}
+        onSolve={() => setSolving(true)}
       />
     </div>
   );

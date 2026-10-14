@@ -6,7 +6,7 @@ import type { InquestAction, InquestView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
 import type { Content } from './assets.ts';
 import { type Mark, type Marks, markKey } from './marks.ts';
-import { nameOf } from './status.ts';
+import { nameOf, twistOffer } from './status.ts';
 import { type OpenCard, suspectsOf } from './Suspects.tsx';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -232,15 +232,20 @@ export function EventCard({
   view,
   content,
   onClose,
+  onSolve,
 }: {
   kind: EventKind | null;
   view: InquestView;
   content: Content;
   onClose: () => void;
+  /** Opens the Solve sheet: A Good Twist offers its new attempt at once. */
+  onSolve: () => void;
 }) {
   const g = view.game;
   const ev = g?.event;
   const art = kind ? content.tileArt(EVENT_TILES[kind]) : null;
+  // The tile says "immediately": the holder of the extra attempt may spend it now, or keep it.
+  const twist = kind === 'good-twist' && twistOffer(view);
   const pending = (() => {
     if (!g || !ev || ev.kind !== kind) return null;
     switch (ev.kind) {
@@ -279,9 +284,31 @@ export function EventCard({
             <p className="text-base leading-snug">{eventText(kind, view.settings)}</p>
           </div>
           {pending && <p className="font-semibold">{pending}</p>}
-          <Button className="w-full sm:w-auto" onClick={onClose}>
-            Got it
-          </Button>
+          {twist ? (
+            <>
+              <p className="font-semibold">
+                The extra attempt is yours: use it now, or keep it for later.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="red"
+                  onClick={() => {
+                    onClose();
+                    onSolve();
+                  }}
+                >
+                  🔎 Use it now
+                </Button>
+                <Button variant="secondary" onClick={onClose}>
+                  Keep it for later
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Button className="w-full sm:w-auto" onClick={onClose}>
+              Got it
+            </Button>
+          )}
         </div>
       )}
     </Modal>
