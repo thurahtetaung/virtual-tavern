@@ -76,6 +76,14 @@ const TEAM_GROUP: Record<GuideTone, string> = {
   neutral: 'Own goal',
 };
 
+/** The teams named by a team word rather than by the role they play for. */
+const TEAM_WORD: Partial<Record<string, string>> = {
+  village: 'Village',
+  werewolf: 'Werewolves',
+  vampire: 'Vampires',
+  alien: 'Aliens',
+};
+
 const SET: Record<'vampire' | 'alien', GuideOption> = {
   vampire: { key: 'set:vampire', label: 'Vampire set' },
   alien: { key: 'set:alien', label: 'Alien set' },
@@ -114,6 +122,11 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
     'g',
   );
   const named = (text: string) => text.replace(LABEL_RE, (l) => LABELS.get(l) ?? l);
+  /** A role's exact team, as the lobby's pill names it: a team word, or the role it plays for. */
+  const teamName = (r: RoleId) => {
+    const team = ROLES[r].team;
+    return TEAM_WORD[team] ?? roleName(team === 'synthetic' ? 'synthetic-alien' : (team as RoleId));
+  };
 
   /** A night step as the narrator says it. */
   const stepLabel = (s: StepDef) =>
@@ -150,12 +163,13 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
     return {
       id: r,
       name: roleName(r),
+      subtitle: teamName(r),
       text: c?.text ?? named(ROLES[r].summary),
       win: named(ROLES[r].win),
       group: TEAM_GROUP[t],
       tone: t,
       icon: t === 'evil' ? '🐺' : t === 'alien' ? '👽' : t === 'good' ? '🏡' : '🎭',
-      meta: `${TEAM_GROUP[t]} · ${setName(set)} · ${wakes(r) ? 'wakes at night' : 'doesn’t wake'}`,
+      meta: `${setName(set)} · ${wakes(r) ? 'wakes at night' : 'doesn’t wake'}`,
       ...(c?.art && { art: c.art }),
       ...(c?.card && { card: c.card }),
       ...(set !== 'base' && { option: { key: `set:${set}`, label: setName(set) } }),
@@ -278,6 +292,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
                   : undefined;
       ctx.you = {
         name: roleName(mine),
+        subtitle: teamName(mine),
         text: c?.text ?? named(ROLES[mine].summary),
         tile: mine,
         ...(c?.art && { art: c.art }),
