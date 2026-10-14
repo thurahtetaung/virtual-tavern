@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.9](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.8...v0.35.9) (2026-10-14)
+
+
+### Bug Fixes
+
+* **hoodwink,royal-post:** review-round fixes for lies, ties, the set-aside card and long card names ([#159](https://github.com/thurahtetaung/virtual-tavern/issues/159)) ([08fdf11](https://github.com/thurahtetaung/virtual-tavern/commit/08fdf1155d42d7d84ce192da0736516fb06012fc))
+
 ## [0.35.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.35.7...v0.35.8) (2026-10-14)
 
 
