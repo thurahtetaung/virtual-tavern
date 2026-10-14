@@ -111,9 +111,9 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'left':
       return `${by} left the game.`;
     case 'timeout':
-      return timedOut(`${who(view, e.by)} ${e.did ?? 'moved'}`);
+      return timedOut(`${who(view, e.by)} ${c.t(e.did ?? 'moved')}`);
     case 'act-for':
-      return `${by} (host) acted for ${target}: ${e.did ?? 'moved'}.`;
+      return `${by} (host) acted for ${target}: ${c.t(e.did ?? 'moved')}.`;
     case 'win':
       return `🏆 ${by} ${by === 'You' ? 'win' : 'wins'}!`;
     case 'swap':

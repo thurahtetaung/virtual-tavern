@@ -72,9 +72,9 @@ function selectionPlan(
       return {
         why:
           t === 'nope'
-            ? 'Nope is played during the countdown after someone else’s play.'
+            ? '{c:nope} is played during the countdown after someone else’s play.'
             : t === 'defuse'
-              ? 'Defuse is used for you when you draw a bomb.'
+              ? '{c:defuse} is used for you when you draw a {c:bomb}.'
               : t === 'shelter'
                 ? 'It works from your hand: just keep it.'
                 : t === 'bomb' || t === 'void'
@@ -86,7 +86,7 @@ function selectionPlan(
         ? { label: 'twins', needsTarget: 'any', named: false }
         : { label: '', needsTarget: null, named: false };
     if (t === 'bury' && g.players.find((p) => p.id === me)?.mine)
-      return { why: 'Bury is blocked while a Mine! is in front of you.' };
+      return { why: '{c:bury} is blocked while a {c:mine} is in front of you.' };
     if (info.targeted)
       return {
         label: 'on…',
@@ -326,18 +326,8 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
     };
   }, [room.clockOffset]);
 
-  // Server refusals use the placeholder card words: name them from the manifest.
-  const word = useCallback(
-    (message: string) => {
-      let out = message;
-      for (const t of ['bomb', 'defuse', 'nope', 'favor', 'void'] as CardType[]) {
-        const from = t === 'void' ? 'Black Hole' : t.charAt(0).toUpperCase() + t.slice(1);
-        if (c.name(t) !== from) out = out.replace(new RegExp(`\\b${from}\\b`, 'g'), c.name(t));
-      }
-      return out;
-    },
-    [c],
-  );
+  // Server refusals name cards with tokens (`{c:nope}`): fill them from the manifest.
+  const word = useCallback((message: string) => c.t(message), [c]);
   useRefusalWording(word);
 
   const status = statusFor(view, c);
@@ -559,7 +549,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
       >
         ⚡ Play {c.name(selCards[0]!.t)} now
       </Button>
-      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{plan.why}</p>}
+      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       <RefusalSlot anchor="play" />
     </div>
   );
@@ -670,7 +660,7 @@ export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpec
           </Button>
         </div>
       )}
-      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{plan.why}</p>}
+      {plan && 'why' in plan && <p className="text-xs text-danger-ink">{c.t(plan.why)}</p>}
       {!plan && (
         <p className="text-xs text-ink-muted">Tap cards to play them, or draw to end your turn.</p>
       )}

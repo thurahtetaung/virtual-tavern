@@ -92,6 +92,30 @@ describe('log lines address the viewer', () => {
   });
 });
 
+describe('timeouts and Act for name cards from the manifest', () => {
+  const named = contentFor({
+    names: { cards: { defuse: 'Off Switch', bomb: 'Boomer' } },
+  });
+  const h = rigged([['cat1'], ['cat2'], ['cat3']]);
+  const line = (e: Omit<LogEntry, 'id' | 'at' | 'turn'>, v = B) =>
+    logLine(h.view(v), named, { id: 1, at: 0, turn: 1, ...e });
+
+  it('fills the card tokens in what the table did', () => {
+    expect(line({ kind: 'timeout', by: A, did: 'played {c:defuse}' })).toBe(
+      '⏱ Time ran out: HOST played Off Switch',
+    );
+    expect(line({ kind: 'act-for', by: A, target: B, did: 'hid {c:bomb} at random' })).toBe(
+      'HOST (host) acted for you: hid Boomer at random.',
+    );
+  });
+
+  it('shows older plain texts as they are', () => {
+    expect(line({ kind: 'timeout', by: A, did: 'used a Defuse' })).toBe(
+      '⏱ Time ran out: HOST used a Defuse',
+    );
+  });
+});
+
 describe('status lines address the viewer', () => {
   it('whose turn it is', () => {
     const h = rigged([['cat1'], ['cat2'], ['cat3']]);

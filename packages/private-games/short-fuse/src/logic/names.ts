@@ -164,12 +164,26 @@ export const PLACEHOLDER_NAMES: Names = {
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Fills `{c:type}`, `{bomb}`, `{bombs}`, `{Bomb}`, `{Bombs}` and `{title}` in `text`. */
+/**
+ * Fills `{c:type}`, `{bomb}`, `{bombs}`, `{Bomb}`, `{Bombs}` and `{title}` in `text`. "a {c:x}"
+ * becomes "an …" when the name starts with a vowel.
+ */
 export function fillNames(text: string, names: Names = PLACEHOLDER_NAMES): string {
-  return text.replace(/\{(c:[\w-]+|bombs?|Bombs?|title)\}/g, (m, key: string) => {
-    if (key.startsWith('c:')) return names.cards[key.slice(2) as CardType] ?? m;
-    if (key === 'title') return names.title;
-    const word = key.toLowerCase() === 'bomb' ? names.bomb : names.bombs;
-    return key[0] === 'B' ? cap(word) : word;
-  });
+  return text.replace(
+    /(\b[Aa] )?\{(c:[\w-]+|bombs?|Bombs?|title)\}/g,
+    (m, article: string | undefined, key: string) => {
+      let word: string;
+      if (key.startsWith('c:')) {
+        const name = names.cards[key.slice(2) as CardType];
+        if (name === undefined) return m;
+        word = name;
+      } else if (key === 'title') word = names.title;
+      else {
+        const w = key.toLowerCase() === 'bomb' ? names.bomb : names.bombs;
+        word = key[0] === 'B' ? cap(w) : w;
+      }
+      if (!article) return word;
+      return `${article[0]}${/^[aeiou]/i.test(word) ? 'n' : ''} ${word}`;
+    },
+  );
 }

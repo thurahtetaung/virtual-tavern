@@ -415,7 +415,9 @@ describe('timers, act for and leaving', () => {
     h.act({ type: 'draw' }, A);
     h.fire();
     expect(h.state.stage).toBe('place');
+    expect(h.game().log.at(-1)).toMatchObject({ kind: 'timeout', did: 'played {c:defuse}' });
     h.fire();
+    expect(h.game().log.at(-1)).toMatchObject({ kind: 'timeout', did: 'hid {c:bomb} at random' });
     expect(h.game().turn.player).toBe(B);
     expect(h.game().pile.length).toBe(count);
   });
