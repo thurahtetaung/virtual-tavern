@@ -274,19 +274,20 @@ export function resolveVote(
     }
   }
 
-  // 8. Chain deaths, until nothing changes: a dead Hunter takes the player they voted for
-  // (unless protected), and when a lover dies every other lover dies, protected or not.
+  // 8. Chain deaths, until nothing changes: a dead Hunter takes every player they voted for
+  // (both, with two hands; unless protected), and when a lover dies every other lover dies,
+  // protected or not.
   const isDead = (p: PlayerId) => dead.some((d) => d.player === p);
   const lovers = players.filter((p) => marks?.[p]?.id === 'love');
   for (let changed = true; changed;) {
     changed = false;
     for (const d of [...dead]) {
       if (ids[d.player]!.role !== 'hunter') continue;
-      const t = votes[d.player];
-      if (t && t in tally && !isDead(t) && !protectedSet.has(t)) {
-        dead.push({ player: t, cause: 'hunter', by: d.player });
-        changed = true;
-      }
+      for (const t of hands(d.player))
+        if (t in tally && !isDead(t) && !protectedSet.has(t)) {
+          dead.push({ player: t, cause: 'hunter', by: d.player });
+          changed = true;
+        }
     }
     const heartbroken = lovers.length >= 2 ? lovers.find(isDead) : undefined;
     if (heartbroken)
