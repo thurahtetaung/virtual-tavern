@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from './cn.ts';
 import { Panel } from './components.tsx';
+import { HostOnlyNote } from './switch.tsx';
 import { fitSummary, summaryText, type SummaryPart } from './summary-fit.ts';
 
 const CLAMP = 'line-clamp-2 min-w-0 flex-1 text-ink-muted';
@@ -47,7 +48,7 @@ export function LobbySettings({
         </span>
       </summary>
       <div className={cn('px-4 pb-4', className)}>
-        <p className="text-xs text-ink-muted">Only the host can change these.</p>
+        <HostOnlyNote />
         {children}
       </div>
     </details>

@@ -32,6 +32,17 @@ test('three players: a Favor, a pair, a Nope chain, an attack, a Defuse and two 
   // A guest reads the timing and house rules too, in their own fold below the players.
   await ana!.page.getByText('Timing and house rules').click();
   await expect(ana!.page.getByText('45 seconds', { exact: true })).toBeVisible();
+  // …which are plainly read-only for them.
+  const rules = ana!.page.locator('details', { hasText: 'Timing and house rules' });
+  await expect(rules.getByText('Only the host can change these.')).toBeVisible();
+  await expect(rules.getByRole('switch', { name: /Five different cards/ })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  // (The host's fold is closed, so its switch is looked up among hidden elements.)
+  await expect(
+    host.getByRole('switch', { name: /Five different cards/, includeHidden: true }),
+  ).not.toHaveAttribute('aria-disabled');
 
   await riggedStart(host, {
     hands: [

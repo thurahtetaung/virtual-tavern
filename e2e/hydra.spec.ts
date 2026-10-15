@@ -45,6 +45,11 @@ test('five players: peek, mandatory claims, a skipped claim and an execution to 
   const host = players[0]!.page;
   await expect(host.getByTestId('composition')).toContainText('3 Loyalists');
   await host.getByLabel('Claim timer').selectOption('20');
+  // A guest's options (in their closed settings fold) are plainly read-only; the host's stay live.
+  const quick = (page: typeof host) =>
+    page.getByRole('switch', { name: /Quick mode/, includeHidden: true });
+  await expect(quick(players[1]!.page)).toHaveAttribute('aria-disabled', 'true');
+  await expect(quick(host)).not.toHaveAttribute('aria-disabled');
   await host.getByRole('button', { name: 'Start with 5 players' }).click();
   await readRoles(players);
   expect(players.filter((p) => p.role === 'leader')).toHaveLength(1);

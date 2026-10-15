@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { LobbySettings } from './lobby-settings.tsx';
 import { fitSummary, summaryText } from './summary-fit.ts';
 import { summaryFits } from './summary-width.ts';
+import { Switch } from './switch.tsx';
 import { timersLine } from './timer-settings.tsx';
 import { wordListsLine } from './word-list-picker.tsx';
 
@@ -27,6 +28,32 @@ describe('LobbySettings', () => {
     expect(page).toMatch(/<summary[^>]*>.*Settings.*2 min turns · strict.*<\/summary>/);
     expect(page).toContain('FULL-SETTINGS');
     expect(page).toContain('Only the host can change these.');
+  });
+});
+
+describe('Switch', () => {
+  const sw = (editable: boolean, on = true) =>
+    renderToStaticMarkup(
+      <Switch on={on} editable={editable} title="Strict" help="At zero" onChange={() => {}} />,
+    );
+
+  it('looks like a control for the host', () => {
+    const page = sw(true);
+    expect(page).toContain('aria-checked="true"');
+    expect(page).not.toContain('aria-disabled');
+    expect(page).toContain('ring-accent');
+    expect(page).toContain('bg-accent');
+  });
+
+  it('is muted and marked read-only for guests, on or off', () => {
+    for (const on of [true, false]) {
+      const page = sw(false, on);
+      expect(page).toContain(`aria-checked="${on}"`);
+      expect(page).toContain('aria-disabled="true"');
+      expect(page).not.toContain('disabled=""');
+      expect(page).not.toMatch(/accent|hover:/);
+      expect(page).toContain('cursor-default');
+    }
   });
 });
 
