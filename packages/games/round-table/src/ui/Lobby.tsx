@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, TimerSettings, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  TimerSettings,
+  cn,
+  LobbySettings,
+  timersLine,
+} from '@vt/ui';
 import { ROLES, ROLE_ORDER } from '../logic/roles.ts';
 import { PRESETS, evilCount, goodCount } from '../logic/setup.ts';
 import {
@@ -163,13 +173,13 @@ export function Lobby({
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Roles</h3>
-          {!editable && (
-            <span className="text-sm text-ink-muted">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Roles"
+        summary={`${PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up'} · ${good} Good vs ${evil} Evil`}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Roles</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">Ready-made line-ups</legend>
           <div className="mt-1 grid gap-2 sm:grid-cols-3">
@@ -226,9 +236,23 @@ export function Lobby({
             ))}
           </ul>
         )}
-      </Panel>
-      <Panel className="space-y-4">
-        <h3 className="text-lg font-bold">Options</h3>
+      </LobbySettings>
+      <LobbySettings
+        editable={editable}
+        title="Options"
+        summary={[
+          s.lady && 'Lady of the Lake',
+          s.targeting && 'Targeting',
+          timersLine(
+            { clueSeconds: s.pickSeconds, guessSeconds: s.voteSeconds, timerMode: s.timerMode },
+            { clue: 'leader', guess: 'votes' },
+          ),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Options</h3>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex items-start gap-3 text-sm">
             <input
@@ -323,7 +347,7 @@ export function Lobby({
             </div>
           </StickyBar>
         )}
-      </Panel>
+      </LobbySettings>
       <p className="text-center text-sm text-ink-muted">
         New to Round Table?{' '}
         <button

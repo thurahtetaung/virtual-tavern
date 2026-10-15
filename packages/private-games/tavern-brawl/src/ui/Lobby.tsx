@@ -9,6 +9,8 @@ import {
   StickyBar,
   TimerSettings,
   cn,
+  LobbySettings,
+  timersLine,
 } from '@vt/ui';
 import { useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
@@ -353,9 +355,20 @@ export function Lobby({
         }
       />
 
-      <details className="rounded-2xl bg-card/85 p-4 ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
-        <summary className="cursor-pointer font-bold">More options</summary>
-        <div className="mt-3">
+      <LobbySettings
+        editable={room.isHost}
+        title="Timer"
+        summary={timersLine(
+          {
+            clueSeconds: view.settings.seconds,
+            guessSeconds: null,
+            timerMode: view.settings.timerMode,
+          },
+          { clue: 'decisions', guess: null },
+        )}
+      >
+        {room.isHost && <h3 className="mb-2 font-bold">Timer</h3>}
+        <div>
           <TimerSettings
             values={{
               clueSeconds: view.settings.seconds,
@@ -378,7 +391,7 @@ export function Lobby({
             Animal noises and other honour-system prompts always get 20 seconds.
           </p>
         </div>
-      </details>
+      </LobbySettings>
 
       {room.isHost && (
         <StickyBar>

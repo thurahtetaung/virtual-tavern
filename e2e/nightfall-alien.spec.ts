@@ -1,6 +1,7 @@
 import { type Browser, type Locator, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, learned, merge, peek, setRoles } from './nightfall-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -163,6 +164,7 @@ test('aliens among werewolves: instructions, the Cow, numbers, a ripple and an e
   await expect(others[0]!.getByTestId('alien-options')).toBeVisible();
   await onlyEntry(host, 'alien', 'Just stare');
   await onlyEntry(host, 'ripple', 'One-minute day');
+  await openSettings(others[0]!);
   await others[0]!.getByTestId('weights-alien').locator('summary').click();
   await expect(
     others[0]!.getByTestId('weights-alien').getByRole('listitem').filter({ hasText: 'Just stare' }),

@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { CARD_SETS, SET_IDS, type SetId } from '../logic/cards.ts';
 import { RAVENS, startProblem, tableCards } from '../logic/setup.ts';
@@ -213,11 +213,18 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3" aria-label="Settings">
-        <h3 className="font-bold">
-          Settings{' '}
-          {!host && <span className="text-sm font-normal text-ink-muted">(the host chooses)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        summary={[
+          DIFFICULTY_LABEL[s.difficulty],
+          `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
+          s.timerSeconds === null
+            ? 'no timer'
+            : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
+        ].join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the ghost?</h4>
           <div className="flex flex-wrap gap-2">
@@ -342,7 +349,7 @@ export function Lobby({
           </p>
         </section>
         <RefusalSlot anchor="seance-settings" />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>

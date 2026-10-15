@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, StickyBar, TimerSettings, WordListPicker, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  StickyBar,
+  TimerSettings,
+  WordListPicker,
+  cn,
+  LobbySettings,
+  wordListsLine,
+} from '@vt/ui';
 import { DECK_SIZES, type DeckSize, type EchoAction, type EchoView } from '../logic/types.ts';
 import type { Status } from './status.ts';
 import { Table } from './Table.tsx';
@@ -21,6 +31,15 @@ function timerSummary(s: EchoView['settings']): string {
 
 /** How long a deck plays, under each deck-length button. */
 const DECK_PACE: Record<DeckSize, string> = { 8: 'quick', 13: 'standard', 20: 'long' };
+
+/** The guests' one line: "13 cards · Starter words · no time limits". */
+function settingsSummary(view: EchoView, room: GameRoomInfo): string {
+  return [
+    `${view.settings.deckSize} cards`,
+    wordListsLine(view.settings.wordListIds, room.wordLists),
+    timerSummary(view.settings),
+  ].join(' · ');
+}
 
 const cardsSummary = (chosen: unknown[], total: number) =>
   `Cards draw 5 words each from ${chosen.length === 1 ? 'this list' : 'these lists'} (${total} words).`;
@@ -49,13 +68,13 @@ export function Lobby({
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-ink-muted">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={settingsSummary(view, room)}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <WordListPicker
           selectedIds={view.settings.wordListIds}
           wordLists={room.wordLists}
@@ -125,7 +144,7 @@ export function Lobby({
             </div>
           </StickyBar>
         )}
-      </Panel>
+      </LobbySettings>
       <Button variant="secondary" className="h-11 w-full" onClick={showGuide}>
         New to Echo? Read the guide
       </Button>

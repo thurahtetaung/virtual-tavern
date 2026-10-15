@@ -2,6 +2,7 @@ import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
 import { openAdminSection } from './admin-sections.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -102,6 +103,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       .getByRole('group', { name: 'Time for each role at night' })
       .getByRole('button', { name: '5 s', exact: true })
       .click();
+    await openSettings(others[0]!);
     await expect(
       others[0]!
         .getByRole('group', { name: 'Time for each role at night' })

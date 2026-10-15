@@ -12,6 +12,9 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  LobbySettings,
+  wordListsLine,
+  timersLine,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
@@ -82,13 +85,13 @@ export function CodenamesGame({
           <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
           this game and has 9 agents to find; the other team has 8.
         </p>
-        <Panel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-bold">Game settings</h3>
-            {!room.isHost && (
-              <span className="text-sm text-ink-muted">Only the host can change these.</span>
-            )}
-          </div>
+        <LobbySettings
+          editable={room.isHost}
+          title="Game settings"
+          summary={`${wordListsLine(view.settings.wordListIds, room.wordLists)} · ${timersLine(view.settings)}`}
+          className="space-y-4"
+        >
+          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <Settings
             settings={view.settings}
             wordLists={room.wordLists}
@@ -115,7 +118,7 @@ export function CodenamesGame({
               </div>
             </StickyBar>
           )}
-        </Panel>
+        </LobbySettings>
         <p className="text-center text-sm text-ink-muted">
           First time playing?{' '}
           <button

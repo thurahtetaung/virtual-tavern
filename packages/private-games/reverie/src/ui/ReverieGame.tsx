@@ -16,6 +16,8 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  LobbySettings,
+  timersLine,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -127,13 +129,17 @@ export function ReverieGame({
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         <Seats view={view} online={online} act={act} hostId={room.hostId} />
-        <Panel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-bold">Game settings</h3>
-            {!room.isHost && (
-              <span className="text-sm text-ink-muted">Only the host can change these.</span>
-            )}
-          </div>
+        <LobbySettings
+          editable={room.isHost}
+          title="Game settings"
+          summary={[
+            `play to ${view.settings.targetScore}`,
+            `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
+            timersLine(view.settings, { clue: 'storyteller', guess: 'cards and votes' }),
+          ].join(' · ')}
+          className="space-y-4"
+        >
+          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <ChoicePicker
             selectedIds={view.settings.sets}
             choices={choices}
@@ -198,7 +204,7 @@ export function ReverieGame({
               </div>
             </StickyBar>
           )}
-        </Panel>
+        </LobbySettings>
         <p className="text-center text-sm text-ink-muted">
           New here?{' '}
           <button

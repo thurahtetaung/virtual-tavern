@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
+import { openSettings } from './lobby-settings.ts';
 
 type TeamName = 'Red' | 'Blue';
 
@@ -98,6 +99,7 @@ test('two teams play Enigma until Red intercepts twice', async ({ browser }) => 
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
   await expect(host.getByText('Everyone is in')).toBeVisible();
   // The word-list summary describes Enigma, not a 25-word board.
+  await openSettings(ben!);
   await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 
@@ -249,6 +251,7 @@ test('fast taps on a slow connection still lock in the full code', async ({ brow
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
   await expect(host.getByText('Everyone is in')).toBeVisible();
   // The word-list summary describes Enigma, not a 25-word board.
+  await openSettings(ben!);
   await expect(ben!.getByText(/Each team gets 4 secret keywords from this list/)).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 

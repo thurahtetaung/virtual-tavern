@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, StickyBar, cn, LobbySettings } from '@vt/ui';
 import {
   DECISION_SECONDS_OPTIONS,
   MAX_SEATS,
@@ -141,6 +141,13 @@ export function Lobby({
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const set = (patch: Patch) => void act({ type: 'update-settings', ...patch });
   const setName = (k: string) => c.names.sets[k] ?? k;
+  const presetTitle = (p: (typeof PRESETS)[number]) =>
+    p.id === 'party' || p.id === 'adult' || p.id === 'classic'
+      ? setName(p.id)
+      : p.id === 'zombie'
+        ? (c.names.sets.x4 ?? p.title)
+        : p.title;
+  const preset = PRESETS.find((p) => p.id === view.preset);
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="relative overflow-hidden rounded-3xl bg-panel p-5 shadow-sm ring-1 ring-line">
@@ -174,8 +181,19 @@ export function Lobby({
         </div>
       </div>
 
-      <Panel className="space-y-3">
-        <h3 className="font-bold text-ink">The deck</h3>
+      <LobbySettings
+        editable={host}
+        title="The deck"
+        summary={[
+          preset ? presetTitle(preset) : 'Custom deck',
+          ...(['x1', 'x2', 'x3', 'x4'] as const).filter((x) => s[x]).map((x) => setName(x)),
+          s.faster && 'faster game',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold text-ink">The deck</h3>}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Deck">
           {PRESETS.map((p) => {
             const on = view.preset === p.id;
@@ -197,15 +215,7 @@ export function Lobby({
               >
                 <span className="flex items-center gap-2 font-bold text-ink">
                   <span aria-hidden>{p.glyph}</span>
-                  {p.id === 'party'
-                    ? setName('party')
-                    : p.id === 'adult'
-                      ? setName('adult')
-                      : p.id === 'classic'
-                        ? setName('classic')
-                        : p.id === 'zombie'
-                          ? (c.names.sets.x4 ?? p.title)
-                          : p.title}
+                  {presetTitle(p)}
                   {p.id === 'adult' && <AdultBadge />}
                 </span>
                 <span className="mt-1 block text-xs leading-snug text-ink-muted">{p.line}</span>
@@ -288,7 +298,7 @@ export function Lobby({
             `${MIN_PLAYERS} to ${MAX_SEATS} players can play.`
           )}
         </p>
-      </Panel>
+      </LobbySettings>
 
       <Panel className="space-y-2">
         <h3 className="font-bold text-ink">

@@ -1,5 +1,15 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, TimerSettings, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  TimerSettings,
+  cn,
+  LobbySettings,
+  timersLine,
+} from '@vt/ui';
 import { RED_COUNT, setupFor, trackFor } from '../logic/tables.ts';
 import {
   CLAIM_SECONDS_OPTIONS,
@@ -224,11 +234,27 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3">
-        <h3 className="font-bold">
-          Options
-          {!host && <span className="font-normal text-ink-muted"> (the host sets these)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        title="Options"
+        summary={[
+          s.rebalance && 'rebalanced',
+          s.quick && 'quick mode',
+          s.flags && 'claim flags',
+          timersLine(
+            {
+              clueSeconds: s.pickSeconds,
+              guessSeconds: s.voteSeconds,
+              timerMode: s.timerMode === 'strict' ? 'strict' : 'soft',
+            },
+            { clue: 'turns', guess: 'votes' },
+          ),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Options</h3>}
         <Toggle
           on={s.rebalance}
           editable={host}
@@ -297,7 +323,7 @@ export function Lobby({
             })
           }
         />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>

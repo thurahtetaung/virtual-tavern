@@ -9,6 +9,7 @@ import {
   sfTable,
   sfVisitor,
 } from './short-fuse-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -25,6 +26,7 @@ test('three players: a Favor, a pair, a Nope chain, an attack, a Defuse and two 
   const host = hana!.page;
 
   // The Adult deck is marked 18+ in the lobby, for everyone.
+  await openSettings(ana!.page);
   await expect(ana!.page.getByTestId('preset-adult').getByTestId('adult-badge')).toBeVisible();
   await expect(host.getByTestId('readout')).toContainText('draw pile of 29');
 

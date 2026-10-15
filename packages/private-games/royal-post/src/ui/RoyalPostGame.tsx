@@ -15,6 +15,7 @@ import {
   cn,
   useSpectatorPrompt,
   useAbandonGame,
+  LobbySettings,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -264,13 +265,17 @@ function Lobby({
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <Seats view={view} room={room} act={act} />
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-ink-muted">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={[
+          s.edition === 'classic' ? 'Classic' : '2019 edition',
+          `${tokensToWin(EDITIONS[s.edition], Math.min(EDITIONS[s.edition].maxPlayers, Math.max(EDITIONS[s.edition].minPlayers, seated)), s.short)} tokens to win`,
+          timers,
+        ].join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">Edition</legend>
           <div className="mt-1 grid grid-cols-2 gap-2">
@@ -377,7 +382,7 @@ function Lobby({
             <RefusalSlot anchor="royal-post-start" />
           </StickyBar>
         )}
-      </Panel>
+      </LobbySettings>
       <p className="text-center text-sm text-ink-muted">
         New here?{' '}
         <button

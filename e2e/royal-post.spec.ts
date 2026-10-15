@@ -9,6 +9,7 @@ import {
   takeTurn,
   whoseTurn,
 } from './royal-post-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -91,6 +92,7 @@ test('three friends play Royal Post in both editions behind the back room', asyn
       .click();
   }
   await host.getByRole('button', { name: /^2019 edition/ }).click();
+  await openSettings(ana!);
   await expect(ana!.getByRole('button', { name: /^2019 edition/ })).toHaveAttribute(
     'aria-pressed',
     'true',

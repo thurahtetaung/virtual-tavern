@@ -12,6 +12,7 @@ import {
   teamSize,
   withRole,
 } from './round-table-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const YOUR_TURN = /^● Your turn/;
 
@@ -30,6 +31,7 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
   const t = await openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee']);
   const { host } = t;
   await host.getByRole('button', { name: /^Percival & Morgana/ }).click();
+  await openSettings(t.players[1]!);
   await expect(t.players[1]!.getByRole('button', { name: /^Percival & Morgana/ })).toHaveAttribute(
     'aria-pressed',
     'true',

@@ -121,3 +121,21 @@ export function TimerSettings({
     </div>
   );
 }
+
+const shortTime = (s: number) => (s % 60 === 0 ? `${s / 60} min` : `${s} s`);
+
+/**
+ * The timers for a one-line settings summary: "clues 1 min, guesses 90 s, strict", or "no time
+ * limits". `clue` and `guess` name the two timers (a single-timer game leaves `guess` out).
+ */
+export function timersLine(
+  values: TimerValues,
+  { clue = 'clues', guess = 'guesses' }: { clue?: string; guess?: string | null } = {},
+): string {
+  const parts = [
+    values.clueSeconds !== null && `${clue} ${shortTime(values.clueSeconds)}`,
+    guess !== null && values.guessSeconds !== null && `${guess} ${shortTime(values.guessSeconds)}`,
+  ].filter(Boolean);
+  if (!parts.length) return 'no time limits';
+  return [...parts, values.timerMode === 'strict' ? 'strict' : 'reminder only'].join(', ');
+}

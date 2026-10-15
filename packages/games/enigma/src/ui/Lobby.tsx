@@ -2,12 +2,14 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Hint,
-  Panel,
   PlayerTag,
   StickyBar,
   TimerSettings,
   WordListPicker,
   cn,
+  LobbySettings,
+  wordListsLine,
+  timersLine,
 } from '@vt/ui';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
 import type { Status } from './status.ts';
@@ -158,13 +160,17 @@ export function Lobby({
     <div className="space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-ink-muted">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={[
+          FLOWS.find((f) => f.flow === view.settings.flow)!.title,
+          wordListsLine(view.settings.wordListIds, room.wordLists),
+          timersLine(view.settings),
+        ].join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <WordListPicker
           selectedIds={view.settings.wordListIds}
           wordLists={room.wordLists}
@@ -237,7 +243,7 @@ export function Lobby({
             </div>
           </StickyBar>
         )}
-      </Panel>
+      </LobbySettings>
       <p className="text-center text-sm text-ink-muted">
         New to Enigma?{' '}
         <button

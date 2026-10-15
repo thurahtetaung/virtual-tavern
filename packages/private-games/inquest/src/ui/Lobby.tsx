@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
 import {
@@ -188,11 +188,22 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3" aria-label="Settings">
-        <h3 className="font-bold">
-          Settings{' '}
-          {!host && <span className="text-sm font-normal text-ink-muted">(the host chooses)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        summary={[
+          `Forensic Scientist: ${FS_MODES.find((m) => m.id === s.fsMode)!.label.toLowerCase()}`,
+          s.accomplice && content.roleName('accomplice'),
+          s.accomplice && s.witness && content.roleName('witness'),
+          s.events && 'events',
+          allies.on && 'Allies',
+          presentationsOf(s) && 'presentations',
+          finalOf(s) && 'final accusations',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the Forensic Scientist?</h4>
           <div className="flex flex-wrap gap-2">
@@ -427,7 +438,7 @@ export function Lobby({
           </p>
         </section>
         <RefusalSlot anchor="inquest-settings" />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>
