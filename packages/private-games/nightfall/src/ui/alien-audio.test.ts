@@ -10,7 +10,16 @@ import {
   TABLE_OF,
 } from '../logic/tables.ts';
 import { table } from '../logic/test-utils.ts';
-import { type Cue, announcementLines, cuesFor, pickLines } from './audio.ts';
+import {
+  type Cue,
+  SHOW_MS,
+  type Shown,
+  announcementLines,
+  cuesFor,
+  pickLines,
+  scheduleShown,
+  shownAt,
+} from './audio.ts';
 
 // The Alien set out loud: every random instruction and every ripple has narration keys the
 // manifest has clips for, every device cues them at the same moment, and the steps a ripple adds
@@ -182,10 +191,12 @@ function alienNight(seed: number, ripple: string) {
     if (night.index >= 0) {
       const id = night.plan[night.index]!;
       const pick = h.view('A').night!.pick;
-      const open = cues[0]![0]!;
-      expect(missing(open.lines), `step ${id}`).toEqual([]);
+      // A step with nothing to say (a repeat, a blob or ripple with no announcement) has no cue.
+      const open = cues[0]![0];
+      if (open) expect(missing(open.lines), `step ${id}`).toEqual([]);
+      else expect(stepDef(id).repeat || id === 'blob' || id === 'ripple', id).toBe(true);
       if (pick && !stepDef(id).repeat)
-        expect(open.lines.join(' ')).toContain(pickLines(pick).join(' '));
+        expect(open?.lines.join(' ')).toContain(pickLines(pick).join(' '));
       // The Oracle's step comes round twice: as it opens, and at the narrator's reply.
       const last = steps.at(-1);
       if (last?.index === night.index) last.cues = cues[0]!;
@@ -212,19 +223,55 @@ describe('an Alien night out loud', () => {
     expect(steps.map((s) => s.id)).toEqual(grown);
     for (const { id, cues } of steps) {
       const def = stepDef(id);
+      // A cue with no words would blank the words before it, so there is none.
+      for (const c of cues) expect(c.parts.length, id).toBeGreaterThan(0);
       // A repeat says nothing of its own: the ripple just named it.
       if (def.repeat) continue;
-      if (id !== 'blob' && id !== 'ripple') expect(cues[0]!.lines.length, id).toBeGreaterThan(0);
+      if (id !== 'blob' && id !== 'ripple') expect(cues[0]?.lines.length, id).toBeGreaterThan(0);
       for (const c of cues) expect(missing(c.lines), id).toEqual([]);
     }
-    // The steps the ripple added are cued like the rest.
+    // The steps the ripple added are cued like the rest; a repeat says nothing of its own.
     if (ripple.startsWith('repeat')) {
       expect(grown.length).toBeGreaterThan(before.length);
       const added = steps.slice(before.length);
       expect(added.length).toBe(grown.length - before.length);
-      for (const s of added) expect(s.cues.length, s.id).toBeGreaterThan(0);
+      for (const s of added)
+        if (stepDef(s.id).repeat) expect(s.cues, s.id).toEqual([]);
+        else expect(s.cues.length, s.id).toBeGreaterThan(0);
     }
   });
+});
+
+describe('a step that only announces', () => {
+  it.each([
+    [true, 2, 'repeat-observer'],
+    [false, 2, 'repeat-observer'],
+    [true, 4, 'shuffle'],
+    [false, 4, 'shuffle'],
+  ])(
+    'keeps its words up until the step ends (narrated %s, seed %i, %s)',
+    (narrated, seed, ripple) => {
+      const { steps } = alienNight(seed, ripple);
+      const said = steps.filter((s) => s.id === 'blob' || s.id === 'ripple');
+      expect(said.map((s) => s.id)).toEqual(expect.arrayContaining(['blob', 'ripple']));
+      for (const { id, cues } of said) {
+        // Only what was announced: no close.
+        expect(
+          cues.map((c) => c.close ?? false),
+          id,
+        ).toEqual([false]);
+        const shown: Shown[] = [];
+        for (const c of cues)
+          shown.push(
+            scheduleShown(c, shown, { narrated, narration: undefined, lengths: new Map() }),
+          );
+        const [open] = cues;
+        // With narration off, words show for `SHOW_MS` at most.
+        const last = (narrated ? open!.until! : Math.min(open!.at + SHOW_MS, open!.until!)) - 1;
+        expect(shownAt(shown, last)?.cue, id).toBe(open!.id);
+      }
+    },
+  );
 });
 
 describe('the Oracle’s reply out loud', () => {
