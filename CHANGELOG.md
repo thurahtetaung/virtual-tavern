@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.10](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.9...v0.37.10) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** review-round sweep: contrast, one Abandon game, Play again and Change setup, shared peek and folded lobby settings ([#211](https://github.com/thurahtetaung/virtual-tavern/issues/211)) ([a18568f](https://github.com/thurahtetaung/virtual-tavern/commit/a18568f763fb2efb5ac1ed98aa879aa8d1a15926))
+
 ## [0.37.9](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.8...v0.37.9) (2026-10-15)
 
 
