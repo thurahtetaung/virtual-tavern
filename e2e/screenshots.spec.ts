@@ -1483,12 +1483,17 @@ for (const [label, viewport, colorScheme] of [
     await tab(speaker.page, 'Suspects');
     await shot(speaker.page, 'presenting');
 
-    await inv.page
+    // The speaker's bar has Done in place of Solve (and a phone's other Solve sits on the Me tab),
+    // so someone listening opens the sheet.
+    const solver =
+      speaker !== inv ? inv : others.find((p) => p !== accomplice && p !== witness && p !== inv)!;
+    await solver.page
       .getByRole('button', { name: /🔎 Solve/ })
+      .filter({ visible: true })
       .first()
       .click();
-    const sheet = inv.page.getByRole('dialog', { name: /^Solve/ });
-    await shot(inv.page, 'solve-1');
+    const sheet = solver.page.getByRole('dialog', { name: /^Solve/ });
+    await shot(solver.page, 'solve-1');
     await sheet.getByRole('button', { name: murderer.name, exact: true }).click();
     await sheet
       .getByRole('button', { name: /^Clue:/ })
@@ -1498,8 +1503,8 @@ for (const [label, viewport, colorScheme] of [
       .getByRole('button', { name: /^Means:/ })
       .first()
       .click();
-    await shot(inv.page, 'solve-confirm');
-    await inv.page.keyboard.press('Escape');
+    await shot(solver.page, 'solve-confirm');
+    await solver.page.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
 
     await presentInquest(players, 5, false);
