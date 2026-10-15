@@ -597,14 +597,10 @@ function Room({
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
 
       {!snapshot ? (
-        <p className="py-16 text-center text-stone-500 dark:text-stone-400">Opening the door…</p>
+        <p className="py-16 text-center text-ink-muted">Opening the door…</p>
       ) : (
         <Suspense
-          fallback={
-            <p className="py-16 text-center text-stone-500 dark:text-stone-400">
-              Setting up the table…
-            </p>
-          }
+          fallback={<p className="py-16 text-center text-ink-muted">Setting up the table…</p>}
         >
           {snapshot.meta?.phase === 'lobby' && !playtest && (
             <GuideIntro game={game} onRules={() => showGuide()} />
@@ -866,7 +862,7 @@ function RoomCode({ roomId }: { roomId: string }) {
   };
   return (
     <div className="rounded-xl bg-stone-100 p-3 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-      <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
+      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase dark:text-stone-400">
         Room code
       </p>
       <div className="mt-1 flex items-center justify-between gap-2">
@@ -882,7 +878,7 @@ function RoomCode({ roomId }: { roomId: string }) {
           {copied ? '✓ Copied' : 'Copy'}
         </Button>
       </div>
-      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+      <p className="mt-1 text-xs text-ink-muted">
         Read it out: friends can type it on the home page instead of opening a link.
       </p>
     </div>
@@ -992,7 +988,7 @@ function People({
           🍻 Wrap up the night
         </Button>
       )}
-      <p className="text-sm text-stone-500 dark:text-stone-400">
+      <p className="text-sm text-ink-muted">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.
       </p>

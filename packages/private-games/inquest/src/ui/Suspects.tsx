@@ -205,7 +205,7 @@ export function Suspects(props: Common) {
           }}
         >
           <CardGrid {...props} p={p} />
-          <p className="mt-1 text-center text-[11px] text-stone-500 dark:text-stone-400">
+          <p className="mt-1 text-center text-[11px] text-ink-muted">
             Swipe for the next suspect · hold a card to mark it ★ / ✕
           </p>
         </section>

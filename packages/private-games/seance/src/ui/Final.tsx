@@ -27,7 +27,7 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
     <section aria-label="Shared vision" className="space-y-1">
       <h4 className="text-sm font-semibold">
         The shared vision{' '}
-        <span className="font-normal text-stone-500">({Math.min(f.revealed, 3)} of 3 face up)</span>
+        <span className="font-normal text-ink-muted">({Math.min(f.revealed, 3)} of 3 face up)</span>
       </h4>
       <ul className="grid grid-cols-3 gap-2 sm:max-w-sm">
         {[0, 1, 2].map((i) => {
@@ -116,7 +116,7 @@ export function Lineup({
                   </span>
                 )}
                 {votes !== null && (
-                  <span className="text-xs text-stone-500">
+                  <span className="text-xs text-ink-muted">
                     {votes} vote{votes === 1 ? '' : 's'}
                   </span>
                 )}
@@ -250,7 +250,7 @@ export function SharedPicker({
               <span className="w-10 shrink-0">
                 <Card kind="vision" n={c} content={content} />
               </span>
-              <span className="text-xs text-stone-500">Card {i + 1} means:</span>
+              <span className="text-xs text-ink-muted">Card {i + 1} means:</span>
               <div className="flex flex-wrap gap-1">
                 {PILLARS.map((pl) => (
                   <Button

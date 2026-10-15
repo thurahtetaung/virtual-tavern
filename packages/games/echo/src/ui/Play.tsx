@@ -28,7 +28,7 @@ const INPUT =
 function SecretWord({ word, label = 'The word' }: { word: string; label?: string }) {
   return (
     <p className="text-center">
-      <span className="block text-sm text-stone-500">{label}</span>
+      <span className="block text-sm text-ink-muted">{label}</span>
       <span
         data-testid="secret-word"
         className="block text-3xl font-black tracking-wide break-words uppercase sm:text-4xl"
@@ -48,7 +48,7 @@ function Progress({ turn, room, act }: { turn: TurnView; room: GameRoomInfo; act
   const offline = left.some((id) => room.players.find((p) => p.id === id)?.connected === false);
   return (
     <div className="space-y-2 text-center">
-      <p className="text-sm text-stone-500">
+      <p className="text-sm text-ink-muted">
         {done} of {turn.givers.length} clues in{names && ` · ${names}`}
       </p>
       {room.isHost && offline && (
@@ -150,7 +150,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
             : 'Send clue'}
       </Button>
       <RefusalSlot anchor="echo-clues" />
-      <p className="text-center text-xs text-stone-500">
+      <p className="text-center text-xs text-ink-muted">
         Keep your screen away from the guesser, and don’t discuss clues.
       </p>
     </form>
@@ -160,7 +160,7 @@ function ClueForm({ turn, act }: { turn: TurnView; act: Act }) {
 /** Every clue, with its author; cancelled ones struck through with the reason. */
 function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
   if (clues.length === 0) {
-    return <p className="text-center text-sm text-stone-500 italic">No clues were given.</p>;
+    return <p className="text-center text-sm text-ink-muted italic">No clues were given.</p>;
   }
   return (
     <ul aria-label="Clues" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -182,7 +182,7 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
           >
             {c.text}
           </span>
-          <span className="block truncate text-xs text-stone-500">
+          <span className="block truncate text-xs text-ink-muted">
             {c.name ?? nameOf(view, c.by)}
             {c.cancelled && ` · ${cancelReason(view, c)}`}
           </span>
@@ -213,7 +213,7 @@ function GuesserClues({ turn }: { turn: TurnView }) {
         <p className="text-center font-semibold">No clues arrived in time.</p>
       )}
       {turn.cancelledCount > 0 && (
-        <p className="text-center text-sm text-stone-500">
+        <p className="text-center text-sm text-ink-muted">
           {turn.cancelledCount} {turn.cancelledCount === 1 ? 'clue was' : 'clues were'} cancelled.
         </p>
       )}
@@ -236,7 +236,7 @@ function GuessForm({ act, wordCount }: { act: Act; wordCount: number | null }) {
         <span className="text-sm font-semibold">
           Your guess
           {wordCount !== null && wordCount > 1 && (
-            <span className="font-normal text-stone-500"> ({wordCount} words)</span>
+            <span className="font-normal text-ink-muted"> ({wordCount} words)</span>
           )}
         </span>
         <input
@@ -319,7 +319,7 @@ function Reveal({ view, turn, act, room }: Props & { turn: TurnView }) {
       {turn.word && <SecretWord word={turn.word} label="The word was" />}
       <ClueList view={view} clues={turn.clues} />
       {missed.length > 0 && (
-        <p className="text-center text-sm text-stone-500">
+        <p className="text-center text-sm text-ink-muted">
           {turn.skipped
             ? `No clue from ${listNames(missed)}: the host went on without it.`
             : `⏱ No clue from ${listNames(missed)}: time ran out.`}
@@ -393,7 +393,7 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
     <details className="group" open={open}>
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 font-bold [&::-webkit-details-marker]:hidden">
         Cards played ({history.length})
-        <span aria-hidden className="font-normal text-stone-500 transition group-open:rotate-90">
+        <span aria-hidden className="font-normal text-ink-muted transition group-open:rotate-90">
           ▸
         </span>
       </summary>
@@ -402,7 +402,7 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
           <li key={i} className="flex items-baseline gap-2">
             <span aria-label={h.outcome}>{RESULT_ICON[h.outcome]}</span>
             <span className="font-semibold uppercase">{h.word}</span>
-            <span className="min-w-0 truncate text-stone-500">
+            <span className="min-w-0 truncate text-ink-muted">
               {h.guesserName}
               {h.outcome === 'pass'
                 ? h.timedOut
@@ -413,13 +413,13 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
           </li>
         ))}
         {burned > 0 && (
-          <li className="flex items-baseline gap-2 text-stone-500">
+          <li className="flex items-baseline gap-2 text-ink-muted">
             <span aria-hidden>🔥</span>
             {burned} {burned === 1 ? 'card' : 'cards'} lost to a wrong guess
           </li>
         )}
         {forfeits > 0 && (
-          <li className="flex items-baseline gap-2 text-stone-500">
+          <li className="flex items-baseline gap-2 text-ink-muted">
             <span aria-hidden>↩️</span>
             {forfeits === 1 ? 'A won card was' : `${forfeits} won cards were`} given back for a
             wrong guess on the last card
@@ -436,7 +436,7 @@ export function GameOver({ view, act, room }: Props) {
     <Panel className="space-y-3 text-center">
       <p className="text-5xl font-black tabular-nums">
         {view.score}
-        <span className="text-2xl text-stone-500"> / {deck}</span>
+        <span className="text-2xl text-ink-muted"> / {deck}</span>
       </p>
       <p className="text-2xl font-bold">{rating(view.score, deck)}</p>
       <Superlatives lines={room.superlatives} />

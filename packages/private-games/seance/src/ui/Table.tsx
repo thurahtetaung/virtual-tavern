@@ -17,10 +17,10 @@ export function Clock({ g }: { g: GameView }) {
           className={cn(
             'flex h-7 min-w-7 flex-1 items-center justify-center rounded-md px-1 font-serif text-xs font-bold',
             h < g.hour
-              ? 'bg-stone-300 text-stone-500 dark:bg-stone-700 dark:text-stone-400'
+              ? 'bg-stone-300 text-ink-muted dark:bg-stone-700 dark:text-stone-400'
               : h === g.hour
                 ? 'bg-special dark:bg-violet-700 text-white ring-2 ring-special-line dark:ring-violet-500'
-                : 'bg-stone-100 text-stone-500 dark:bg-stone-800',
+                : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
             h === HOURS && h !== g.hour && 'ring-1 ring-danger/60 dark:ring-rose-400/60',
           )}
         >
@@ -66,7 +66,7 @@ export function Progress({
                   onTap={onOpen ? () => onOpen(pillar, card) : undefined}
                 >
                   {found !== undefined && (
-                    <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-600 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-700 px-1 text-[10px] font-bold text-white">
                       ✓
                     </span>
                   )}
@@ -122,7 +122,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
           />
         ))}
       </div>
-      <p className="flex justify-between text-[11px] text-stone-500 dark:text-stone-400">
+      <p className="flex justify-between text-[11px] text-ink-muted">
         <span>1 card</span>
         <span>
           {mid}+: 2 cards · {high}+: 3 cards
@@ -137,7 +137,7 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
             />
             {p.name}: <b>{p.level}</b>
             {g.tokensEach > 0 && (
-              <span className="text-stone-500">
+              <span className="text-ink-muted">
                 {' '}
                 · {p.tokens} token{p.tokens === 1 ? '' : 's'}
               </span>
@@ -173,7 +173,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
                     ? `found their ${content.pillarName(pillar).toLowerCase()}`
                     : `missed (${content.pillarName(pillar).toLowerCase()})`}
                 {v.marks.length > 0 && (
-                  <span className="text-xs text-stone-500">
+                  <span className="text-xs text-ink-muted">
                     {' '}
                     ·{' '}
                     {v.marks

@@ -33,7 +33,7 @@ export function TeamChat({
   return (
     <Panel aria-label="Team chat">
       <h3 className={cn('font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]} team chat</h3>
-      <p className="mb-2 text-xs text-stone-500">
+      <p className="mb-2 text-xs text-ink-muted">
         Only your team can read this. Keep your guesses off the voice call!
       </p>
       <ol className="max-h-64 space-y-1 overflow-y-auto pr-1 text-sm lg:max-h-80">
@@ -42,7 +42,7 @@ export function TeamChat({
             <b>{view.seats.find((s) => s.id === m.by)?.name ?? 'Someone who left'}:</b> {m.text}
           </li>
         ))}
-        {view.chat.length === 0 && <li className="text-stone-500 italic">No messages yet.</li>}
+        {view.chat.length === 0 && <li className="text-ink-muted italic">No messages yet.</li>}
         <li ref={end} aria-hidden />
       </ol>
       <form onSubmit={(e) => void send(e)} className="mt-2 flex gap-2">
@@ -62,7 +62,7 @@ export function TeamChat({
         </Button>
       </form>
       {muted && (
-        <p className="mt-1 text-xs text-stone-500">
+        <p className="mt-1 text-xs text-ink-muted">
           You know the code, so you stay quiet in chat and notes until it is revealed.
         </p>
       )}

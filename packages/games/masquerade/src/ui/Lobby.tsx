@@ -115,7 +115,7 @@ export function Lobby({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-bold">Game settings</h3>
           {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
+            <span className="text-sm text-ink-muted">Only the host can change these.</span>
           )}
         </div>
         <fieldset>
@@ -148,7 +148,7 @@ export function Lobby({
             })}
           </div>
           {view.editions.length > 1 && (
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-ink-muted">
               Pick one edition or both: {view.locations.length} locations in play.
             </p>
           )}
@@ -205,7 +205,7 @@ export function Lobby({
             />
             <span>
               <span className="block font-semibold">Two spies</span>
-              <span className="block text-xs text-stone-500">
+              <span className="block text-xs text-ink-muted">
                 From {TWO_SPIES_MIN} players. The spies don’t know each other.
                 {s.twoSpies && seated < TWO_SPIES_MIN && ` (One spy until ${TWO_SPIES_MIN} play.)`}
               </span>
@@ -222,12 +222,12 @@ export function Lobby({
               >
                 Start game
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
           </StickyBar>
         )}
       </Panel>
-      <p className="text-center text-sm text-stone-500">
+      <p className="text-center text-sm text-ink-muted">
         New to Masquerade?{' '}
         <button
           type="button"

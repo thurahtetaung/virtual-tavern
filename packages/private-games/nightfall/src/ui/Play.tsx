@@ -467,7 +467,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
     return (
       <div className="space-y-2">
         <WhereYouStand view={view} deck={deck} />
-        <p className="text-sm text-stone-500 italic">You didn’t learn anything tonight.</p>
+        <p className="text-sm text-ink-muted italic">You didn’t learn anything tonight.</p>
         {said}
       </div>
     );
@@ -478,7 +478,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
         {view.notes.map((n) => (
           <li key={n.id} className="rounded-lg bg-stone-100 px-3 py-1.5 text-sm dark:bg-stone-800">
             {n.step >= 0 && view.night === null && (
-              <span className="mr-1 text-xs text-stone-500">{n.step + 1}.</span>
+              <span className="mr-1 text-xs text-ink-muted">{n.step + 1}.</span>
             )}
             <WithChips
               text={describeNote(n, nameOf, deck, kinds, me, at)}
@@ -486,7 +486,7 @@ function Learned({ view, deck, me }: { view: NightfallView; deck: Deck; me: stri
               marks={marksIn(n)}
               deck={deck}
             />
-            {n.auto && <span className="text-xs text-stone-500"> (time ran out)</span>}
+            {n.auto && <span className="text-xs text-ink-muted"> (time ran out)</span>}
           </li>
         ))}
       </ol>
@@ -581,11 +581,7 @@ export function Ready({
               <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>
                 Ready
               </Button>
-              {!seen && (
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Look at your card first.
-                </p>
-              )}
+              {!seen && <p className="text-xs text-ink-muted">Look at your card first.</p>}
             </>
           ) : (
             <p className="text-sm">
@@ -604,7 +600,7 @@ export function Ready({
               Shuffle and deal again
             </Button>
           </div>
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-ink-muted">
             Start the night now if someone can’t press Ready (they dropped out, say): their card
             still plays.
           </p>
@@ -1197,7 +1193,7 @@ function DayTabBar({
           onClick={() => onChange(t.id)}
           className={cn(
             'flex min-h-11 flex-col items-center justify-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === t.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === t.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span aria-hidden className="text-lg leading-none">
@@ -1271,10 +1267,10 @@ function TableList({
               {p.left ? (
                 <span>left</span>
               ) : (
-                !online(p.id) && <span className="text-stone-500">offline</span>
+                !online(p.id) && <span className="text-ink-muted">offline</span>
               )}
               {view.phase === 'day' && view.waitingOn.includes(p.id) && !p.left && (
-                <span className="text-stone-500">· not ready yet</span>
+                <span className="text-ink-muted">· not ready yet</span>
               )}
             </span>
           </>
@@ -1515,7 +1511,7 @@ export function Day({
               <Button variant="ghost" size="sm" onClick={() => void act({ type: 'start-vote' })}>
                 Start the vote now
               </Button>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-ink-muted">
                 Opens the vote without waiting for everyone to be ready (someone dropped out, say).
               </p>
             </div>
@@ -1792,7 +1788,7 @@ export function Reveal({
                         {p.name}
                         {won && ' 🏆'}
                       </span>
-                      <span className="shrink-0 text-xs text-stone-500">
+                      <span className="shrink-0 text-xs text-ink-muted">
                         {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
                       </span>
                     </div>
@@ -1848,12 +1844,12 @@ export function Reveal({
                       </p>
                     )}
                     {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
-                      <p className="text-xs text-stone-500">
+                      <p className="text-xs text-ink-muted">
                         Card at the end: {deck.name(card.role)}
                       </p>
                     )}
                     {card.artifact && (
-                      <p className="text-xs text-stone-500" data-testid="artifact-effect">
+                      <p className="text-xs text-ink-muted" data-testid="artifact-effect">
                         {deck.artifactName(card.artifact)}: {artifactEffect(card.artifact, deck)}.
                       </p>
                     )}
@@ -1946,7 +1942,7 @@ export function Reveal({
         </div>
       )}
       {!room.isHost && (
-        <p className="text-center text-sm text-stone-500" data-testid="waiting-host">
+        <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
           {waitingForHost(room, 'deal again or change the cards')}
         </p>
       )}

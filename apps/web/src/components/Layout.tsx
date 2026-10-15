@@ -39,7 +39,7 @@ export function Layout({ children, wide = false }: { children: ReactNode; wide?:
         {children}
       </main>
       {!wide && (
-        <footer className="py-6 text-center text-xs text-stone-500">
+        <footer className="py-6 text-center text-xs text-ink-muted">
           A cosy corner of the internet for game nights with friends.{' '}
           <Link to="/faq" className="underline hover:text-amber-700 dark:hover:text-amber-400">
             Questions?
@@ -89,7 +89,7 @@ function ThemeSwitch() {
 export function PageLoading({ wide = false }: { wide?: boolean }) {
   return (
     <Layout wide={wide}>
-      <p role="status" className="py-16 text-center text-stone-500 dark:text-stone-400">
+      <p role="status" className="py-16 text-center text-ink-muted">
         Opening the door…
       </p>
     </Layout>

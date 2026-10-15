@@ -227,7 +227,7 @@ export function Lobby({
       <Panel className="space-y-3">
         <h3 className="font-bold">
           Options
-          {!host && <span className="font-normal text-stone-500"> (the host sets these)</span>}
+          {!host && <span className="font-normal text-ink-muted"> (the host sets these)</span>}
         </h3>
         <Toggle
           on={s.rebalance}
@@ -257,7 +257,7 @@ export function Lobby({
         />
         <label className="block">
           <span className="text-sm font-semibold">Claim timer</span>
-          <span className="block text-xs text-stone-500 dark:text-stone-400">
+          <span className="block text-xs text-ink-muted">
             A reminder: once it runs out, the host may skip a missing claim. Nothing happens by
             itself.
           </span>

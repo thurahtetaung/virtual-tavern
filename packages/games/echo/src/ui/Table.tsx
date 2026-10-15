@@ -33,7 +33,7 @@ function PlayerChip({
           online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
         )}
       />
-      <span className="text-xs font-bold text-stone-500 tabular-nums">{order}</span>
+      <span className="text-xs font-bold text-ink-muted tabular-nums">{order}</span>
       <PlayerTag name={name} host={host} you={you} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
@@ -107,7 +107,7 @@ export function Table({
             )
           ))}
       </div>
-      {players.length > 1 && <p className="text-xs text-stone-500">Numbered in guessing order.</p>}
+      {players.length > 1 && <p className="text-xs text-ink-muted">Numbered in guessing order.</p>}
       <ul className="flex flex-wrap gap-1.5">
         {players.map((s, i) => (
           <PlayerChip

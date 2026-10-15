@@ -185,9 +185,9 @@ export function NightfallMusicAdmin() {
         the next track in a phase’s list.
       </p>
       {!info ? (
-        <p className="text-sm text-stone-500">Loading…</p>
+        <p className="text-sm text-ink-muted">Loading…</p>
       ) : !tracks?.length ? (
-        <p className="text-sm text-stone-500 italic">
+        <p className="text-sm text-ink-muted italic">
           Upload the Nightfall assets to choose music.
         </p>
       ) : (

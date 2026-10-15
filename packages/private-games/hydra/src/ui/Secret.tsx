@@ -196,7 +196,7 @@ export function SecretHand({
         </Button>
       </div>
       {flat && (
-        <p className="text-center text-xs text-stone-500">
+        <p className="text-center text-xs text-ink-muted">
           Hidden while your phone lies flat: pick it up to look.
         </p>
       )}

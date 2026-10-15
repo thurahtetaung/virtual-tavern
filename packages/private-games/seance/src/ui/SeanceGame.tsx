@@ -59,7 +59,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-stone-500',
+            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
@@ -207,7 +207,7 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
       className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-xs font-semibold text-stone-500">
+        <span className="shrink-0 text-xs font-semibold text-ink-muted">
           {final ? 'The final' : `Hour ${roman(g.hour)}`}
         </span>
         <ol className="flex flex-1 flex-wrap items-center gap-1 text-xs font-semibold">
@@ -219,7 +219,7 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
                 'rounded-full px-2 py-0.5',
                 s.id === step.id
                   ? 'bg-special dark:bg-violet-700 text-white'
-                  : 'bg-stone-100 text-stone-500 dark:bg-stone-800',
+                  : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
               )}
             >
               {i + 1}. {s.title}
@@ -271,7 +271,7 @@ function RevealPanel({
     >
       <Verdicts view={view} content={content} />
       <div className="flex flex-wrap items-center gap-2">
-        <p className="flex-1 text-xs text-stone-500">
+        <p className="flex-1 text-xs text-ink-muted">
           {allDone
             ? 'Everyone has their three cards: the final comes next.'
             : last

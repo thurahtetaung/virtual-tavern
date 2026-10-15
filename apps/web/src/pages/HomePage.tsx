@@ -109,7 +109,7 @@ export function HomePage() {
             onCreate={(id) => void create(id)}
           />
         ))}
-        <Panel className="flex items-center justify-center border-2 border-dashed border-stone-300 bg-transparent text-stone-500 shadow-none ring-0 dark:border-stone-700">
+        <Panel className="flex items-center justify-center border-2 border-dashed border-stone-300 bg-transparent text-ink-muted shadow-none ring-0 dark:border-stone-700">
           More games coming soon
         </Panel>
       </div>

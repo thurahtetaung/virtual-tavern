@@ -78,7 +78,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
 
   return (
     <div className={cn('space-y-4 transition-opacity', stale && 'opacity-60')}>
-      <p className="text-xs text-stone-500" aria-live="polite">
+      <p className="text-xs text-ink-muted" aria-live="polite">
         <span
           aria-hidden
           className={cn(
@@ -125,7 +125,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                 <span className="font-semibold">
                   {info.icon} {info.name}
                 </span>
-                <span className="text-stone-500">
+                <span className="text-ink-muted">
                   {g.rooms} room{g.rooms === 1 ? '' : 's'} · {g.playing} playing · {g.players}{' '}
                   players
                 </span>
@@ -211,7 +211,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-stone-500">
+                      <p className="text-xs text-ink-muted">
                         {online}/{room.players.length} online · open {age(room.createdAt, live.now)}{' '}
                         · last move {ago(room.updatedAt, live.now)}
                       </p>

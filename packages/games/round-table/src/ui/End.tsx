@@ -64,7 +64,7 @@ export function End({ view, room, act }: { view: RoundTableView; room: GameRoomI
                   <span className="block font-semibold">
                     {p.name}
                     {p.id === view.me?.id && (
-                      <span className="font-normal text-stone-500"> (you)</span>
+                      <span className="font-normal text-ink-muted"> (you)</span>
                     )}
                   </span>
                   <span className={cn('block font-semibold', SIDE_TEXT[def.loyalty])}>
@@ -111,7 +111,7 @@ export function End({ view, room, act }: { view: RoundTableView; room: GameRoomI
       ) : (
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
-      <p className="text-center text-xs text-stone-500">
+      <p className="text-center text-xs text-ink-muted">
         Play again keeps the same roles and options. The full history is on the History tab.
       </p>
     </Panel>

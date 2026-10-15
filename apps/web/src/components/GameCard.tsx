@@ -38,7 +38,7 @@ export function GameCard({
         </span>
         <div>
           <h3 className="text-xl font-bold">{game.name}</h3>
-          <p className={cn('text-sm text-stone-500', backroom && 'dark:text-amber-200/60')}>
+          <p className={cn('text-sm text-ink-muted', backroom && 'dark:text-amber-200/60')}>
             {guide.players} · {guide.duration}
           </p>
         </div>

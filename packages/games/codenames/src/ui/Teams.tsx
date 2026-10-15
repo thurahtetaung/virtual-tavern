@@ -69,7 +69,7 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
       </header>
       <div className="space-y-2 text-sm">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Spymaster</p>
+          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Spymaster</p>
           {!compact && (
             <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
               Sees the secret key and gives one-word clues.
@@ -93,11 +93,11 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
               Be the Spymaster
             </Button>
           ) : (
-            <span className="text-stone-500 italic">Empty</span>
+            <span className="text-ink-muted italic">Empty</span>
           )}
         </div>
         <div>
-          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">Operatives</p>
+          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">Operatives</p>
           {!compact && (
             <p className="mb-1 text-xs text-stone-600 dark:text-stone-400">
               Guess the words from the clues. Best for a first game.
@@ -109,7 +109,7 @@ function TeamColumn({ team, view, online, act, compact, hostId }: Props & { team
                 <Name id={s.id} name={s.name} me={me?.id} online={online(s.id)} hostId={hostId} />
               </li>
             ))}
-            {operatives.length === 0 && <li className="text-stone-500 italic">Nobody yet</li>}
+            {operatives.length === 0 && <li className="text-ink-muted italic">Nobody yet</li>}
           </ul>
           {canJoinOps && (
             <Button

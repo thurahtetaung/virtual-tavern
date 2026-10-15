@@ -21,7 +21,7 @@ export function openRoleGuide(showGuide: (topic?: unknown) => void, role: RoleId
 /** How a known player is labelled, given which of Merlin and Morgana are in the deck. */
 function knownLabel(k: Known, deck: readonly RoleId[]): { text: string; cls: string } {
   if (k.as === 'evil')
-    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-500 dark:text-red-950' };
+    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-400 dark:text-red-950' };
   const merlin = deck.includes('merlin');
   const morgana = deck.includes('morgana');
   return {
@@ -68,7 +68,7 @@ export function RoleDetails({
       <div className="flex items-center gap-3">
         <Emblem role={role.role} className="size-16" />
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">You are</p>
+          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">You are</p>
           <p
             className={cn('text-2xl leading-tight font-bold', SIDE_TEXT[role.loyalty])}
             data-testid="role-name"

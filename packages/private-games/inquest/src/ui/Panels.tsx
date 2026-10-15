@@ -306,7 +306,7 @@ export function MeTab({
             </TipBox>
           )}
           <SolveButton view={view} onSolve={onSolve} />
-          {blocker && <p className="text-center text-xs text-stone-500">{blocker}</p>}
+          {blocker && <p className="text-center text-xs text-ink-muted">{blocker}</p>}
         </>
       )}
       <Attempts view={view} content={content} />
@@ -325,7 +325,7 @@ export function Attempts({ view, content }: { view: InquestView; content: Conten
           <li key={`${a.by}-${a.at}`}>
             {a.correct ? '✅' : '❌'} <b>{nameOf(view, a.by)}</b> named {nameOf(view, a.target)}’s{' '}
             {content.cardName('clue', a.clue)} + {content.cardName('means', a.means)}
-            <span className="text-stone-500">
+            <span className="text-ink-muted">
               {' '}
               · {a.final ? 'final accusation' : `round ${a.round}`}
             </span>
@@ -724,7 +724,7 @@ export function OverScreen({
           </Button>
         </div>
       ) : (
-        <p className="text-center text-sm text-stone-500">The host can start another case.</p>
+        <p className="text-center text-sm text-ink-muted">The host can start another case.</p>
       )}
       <RefusalSlot anchor="inquest-again" />
     </div>

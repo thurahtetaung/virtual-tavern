@@ -2,7 +2,7 @@ import { cn } from '@vt/ui';
 import type { GuessResult, ResultTone } from './result.ts';
 
 const TONE: Record<ResultTone, string> = {
-  correct: 'bg-success dark:bg-emerald-600 text-white ring-success dark:ring-emerald-700',
+  correct: 'bg-success dark:bg-emerald-700 text-white ring-success dark:ring-emerald-700',
   wrong: 'bg-team-a dark:bg-rose-600 text-white ring-team-a dark:ring-rose-700',
   assassin: 'bg-stone-950 text-stone-100 ring-black dark:ring-stone-600',
   skipped:

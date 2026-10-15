@@ -382,7 +382,7 @@ function SettingsUsage({ data, color }: { data?: GameStats; color: string }) {
           const max = Math.max(1, ...g.rows.map((r) => r.games));
           return (
             <div key={g.key}>
-              <h4 className="mb-1.5 text-xs font-semibold tracking-wide text-stone-500 uppercase">
+              <h4 className="mb-1.5 text-xs font-semibold tracking-wide text-ink-muted uppercase">
                 {settingLabel(g.key)}
               </h4>
               <ul className="space-y-1.5">

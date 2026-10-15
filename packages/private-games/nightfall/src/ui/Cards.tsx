@@ -362,7 +362,7 @@ export function PlayerNumber({
         <span
           role="img"
           aria-label={label}
-          className="inline-flex size-full items-center justify-center rounded-full bg-success text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-600"
+          className="inline-flex size-full items-center justify-center rounded-full bg-success text-xs font-bold text-white ring-1 ring-emerald-900/40 dark:bg-emerald-700"
         >
           {n}
         </span>

@@ -23,7 +23,7 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
     <section aria-label="History" className="space-y-3">
       <h3 className="font-bold">📜 History</h3>
       {rounds.length === 0 && (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-ink-muted">
           Nothing yet. Every team, every vote and every quest result will be listed here.
         </p>
       )}
@@ -40,7 +40,7 @@ export function History({ view, shown }: { view: RoundTableView; shown: boolean 
             key={round}
             className="space-y-1.5 rounded-xl bg-white/80 p-3 ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
           >
-            <p className="text-xs font-bold tracking-wide text-stone-500 uppercase">
+            <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
               Round {round}
             </p>
             {result && (

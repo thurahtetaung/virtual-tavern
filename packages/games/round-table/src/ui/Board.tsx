@@ -213,7 +213,7 @@ export function Seats({
                 {me && (
                   <span
                     className={cn(
-                      'text-xs font-normal text-stone-500',
+                      'text-xs font-normal text-ink-muted',
                       compact && 'hidden sm:inline',
                     )}
                   >
@@ -248,7 +248,7 @@ export function Seats({
                 )}
               </span>
               <span className="flex flex-wrap items-center gap-1 text-[0.7rem] leading-tight">
-                {me && compact && <span className="text-stone-500 sm:hidden">you</span>}
+                {me && compact && <span className="text-ink-muted sm:hidden">you</span>}
                 {k === 'evil' && (
                   <span className="rounded-full bg-team-a dark:bg-red-600 px-1.5 font-bold text-white">
                     Evil
@@ -266,9 +266,9 @@ export function Seats({
                 )}
                 {state && <span className="text-emerald-700 dark:text-emerald-400">{state}</span>}
                 {p.left ? (
-                  <span className="text-stone-500">left · auto-played</span>
+                  <span className="text-ink-muted">left · auto-played</span>
                 ) : (
-                  !online(p.id) && <span className="text-stone-500">offline</span>
+                  !online(p.id) && <span className="text-ink-muted">offline</span>
                 )}
               </span>
             </button>

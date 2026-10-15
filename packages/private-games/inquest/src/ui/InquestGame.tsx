@@ -74,7 +74,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
@@ -298,7 +298,7 @@ function DiscussBar({
         </div>
       </div>
       {!fs && canStart && (
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           The Forensic Scientist is away, so you can move on as the host.
         </p>
       )}

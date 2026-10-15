@@ -78,7 +78,7 @@ export function SameCrewPicker({
         one night recap.
       </p>
       {!games ? (
-        <p className="py-6 text-center text-stone-500 dark:text-stone-400">Setting tables…</p>
+        <p className="py-6 text-center text-ink-muted">Setting tables…</p>
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2">
           {games.map((g) => (

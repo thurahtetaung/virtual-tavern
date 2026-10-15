@@ -337,7 +337,7 @@ function AlienOptions({
                       +
                     </button>
                   )}
-                  <span className="w-10 text-right text-xs text-stone-500 tabular-nums">
+                  <span className="w-10 text-right text-xs text-ink-muted tabular-nums">
                     {total > 0 ? `${Math.round((value / total) * 100)}%` : '—'}
                   </span>
                 </li>
@@ -679,7 +679,7 @@ export function Lobby({
             </div>
           </div>
         )}
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           Every role in the game is called for the same time, even when its card is in the centre.
           With these cards the night lasts{' '}
           {Math.round(

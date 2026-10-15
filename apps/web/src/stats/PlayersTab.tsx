@@ -80,7 +80,7 @@ function Leaderboard() {
               key={p.id}
               className="border-t border-stone-100 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-800/40"
             >
-              <td className="py-1 pl-3 text-stone-500 tabular-nums">{i + 1}</td>
+              <td className="py-1 pl-3 text-ink-muted tabular-nums">{i + 1}</td>
               <th scope="row" className="max-w-0 px-2 py-1 text-left font-normal sm:max-w-none">
                 <button
                   type="button"
@@ -89,7 +89,7 @@ function Leaderboard() {
                 >
                   <span className="truncate font-semibold">{p.name}</span>
                   {p.aliases.length > 1 && (
-                    <span className="truncate text-xs text-stone-500">
+                    <span className="truncate text-xs text-ink-muted">
                       aka {p.aliases.filter((a) => a !== p.name).join(', ')}
                     </span>
                   )}
@@ -100,7 +100,7 @@ function Leaderboard() {
               <td className="hidden px-3 text-right tabular-nums sm:table-cell">
                 {hours(p.minutes)}
               </td>
-              <td className="hidden px-3 text-right whitespace-nowrap text-stone-500 sm:table-cell">
+              <td className="hidden px-3 text-right whitespace-nowrap text-ink-muted sm:table-cell">
                 {ago(p.lastSeen, now)}
               </td>
             </tr>
@@ -230,7 +230,7 @@ function ProfileView({ p }: { p: PlayerProfile }) {
             {p.names.map((n) => (
               <li key={n.name} className="flex items-baseline justify-between gap-3 py-2">
                 <span className="min-w-0 truncate font-semibold">{n.name}</span>
-                <span className="shrink-0 text-xs text-stone-500">
+                <span className="shrink-0 text-xs text-ink-muted">
                   {compact(n.uses)}× · {dateOf(n.firstSeen)} – {dateOf(n.lastSeen)}
                 </span>
               </li>
@@ -262,7 +262,7 @@ function ProfileView({ p }: { p: PlayerProfile }) {
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs text-stone-500">{label}</dt>
+      <dt className="text-xs text-ink-muted">{label}</dt>
       <dd className="font-semibold">{value}</dd>
     </div>
   );

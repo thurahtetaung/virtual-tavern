@@ -61,7 +61,7 @@ export function TimerSettings({
   const select = (key: 'clueSeconds' | 'guessSeconds', label: string, help: string) => (
     <label className="block">
       <span className="text-sm font-semibold">{label}</span>
-      <span className="block text-xs text-stone-500 dark:text-stone-400">{help}</span>
+      <span className="block text-xs text-ink-muted">{help}</span>
       {editable ? (
         <select
           className="mt-1 min-h-11 w-full rounded-lg bg-white px-3 py-2 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
@@ -112,7 +112,7 @@ export function TimerSettings({
                 )}
               >
                 <span className="block font-semibold">{m.title}</span>
-                <span className="block text-xs text-stone-500 dark:text-stone-400">{m.help}</span>
+                <span className="block text-xs text-ink-muted">{m.help}</span>
               </button>
             ))}
           </div>

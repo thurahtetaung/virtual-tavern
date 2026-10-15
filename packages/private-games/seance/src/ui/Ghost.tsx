@@ -99,7 +99,7 @@ export function GhostPsychics({
                       <p className="min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
                         {p.name}
                         {p.gone && <span className="ml-1 text-xs font-normal">(left)</span>}
-                        <span className="block text-xs font-normal text-stone-500">
+                        <span className="block text-xs font-normal text-ink-muted">
                           {pillar
                             ? `${content.pillarName(pillar).toLowerCase()} ${p.step + 1}/3`
                             : 'found all three'}
@@ -234,7 +234,7 @@ export function GhostHand({
         </Button>
       )}
       <RefusalSlot anchor="seance-raven" />
-      <p className="text-xs text-stone-500">{g.deckCount} cards left in the pile.</p>
+      <p className="text-xs text-ink-muted">{g.deckCount} cards left in the pile.</p>
     </Panel>
   );
 }

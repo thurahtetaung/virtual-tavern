@@ -80,7 +80,7 @@ export function CodenamesGame({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-bold">Game settings</h3>
             {!room.isHost && (
-              <span className="text-sm text-stone-500">Only the host can change these.</span>
+              <span className="text-sm text-ink-muted">Only the host can change these.</span>
             )}
           </div>
           <Settings
@@ -102,15 +102,15 @@ export function CodenamesGame({
                 <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
                   🎲 Shuffle teams
                 </Button>
-                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-                <span className="basis-full text-xs text-stone-500">
+                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+                <span className="basis-full text-xs text-ink-muted">
                   Shuffling keeps anyone who chose to be a Spymaster.
                 </span>
               </div>
             </StickyBar>
           )}
         </Panel>
-        <p className="text-center text-sm text-stone-500">
+        <p className="text-center text-sm text-ink-muted">
           First time playing?{' '}
           <button
             type="button"
@@ -235,11 +235,11 @@ function InGame({
 
         {turn?.clue && (
           <p className="text-center text-lg">
-            <span className="text-stone-500">Clue: </span>
+            <span className="text-ink-muted">Clue: </span>
             <b className={cn('text-2xl tracking-wide uppercase', TEAM_TEXT[turn.team])}>
               {turn.clue.word}
             </b>
-            <span className="text-stone-500"> · </span>
+            <span className="text-ink-muted"> · </span>
             <b className="text-2xl">{turn.clue.count}</b>
           </p>
         )}
@@ -256,7 +256,7 @@ function InGame({
                 {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
               </p>
             )}
-            <p className="text-sm text-stone-500">The full key is shown on the board below.</p>
+            <p className="text-sm text-ink-muted">The full key is shown on the board below.</p>
             <Superlatives lines={room.superlatives} />
             {room.isHost ? (
               <div className="flex flex-wrap justify-center gap-2">
@@ -306,7 +306,7 @@ function InGame({
             >
               End turn
             </Button>
-            <span className="basis-full text-center text-xs text-stone-500">
+            <span className="basis-full text-center text-xs text-ink-muted">
               {canPass
                 ? 'A guess flips the card for your whole team.'
                 : 'A guess flips the card for your whole team. Guess at least once first.'}
@@ -434,7 +434,7 @@ function TeamsSection(props: {
       <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
           <h3 className="font-bold">Teams</h3>
-          <span className="flex items-center gap-2 text-sm text-stone-500">
+          <span className="flex items-center gap-2 text-sm text-ink-muted">
             <span className={TEAM_TEXT.red}>Red {count('red')}</span>·
             <span className={TEAM_TEXT.blue}>Blue {count('blue')}</span>
             {watching > 0 && <span>· {watching} watching</span>}

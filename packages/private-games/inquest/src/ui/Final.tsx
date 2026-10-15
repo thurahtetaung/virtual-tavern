@@ -33,7 +33,7 @@ export function FinalList({
                 {content.cardName('clue', a.clue)} + {content.cardName('means', a.means)}
               </>
             ) : f.skipped.includes(id) ? (
-              <span className="text-stone-500">
+              <span className="text-ink-muted">
                 ⏭ <b>{name}</b>: turn skipped
               </span>
             ) : now ? (
@@ -41,7 +41,7 @@ export function FinalList({
                 ⚖️ <b>{name}</b> {id === view.me?.id ? 'are' : 'is'} accusing…
               </>
             ) : (
-              <span className="text-stone-500">
+              <span className="text-ink-muted">
                 ⏳ <b>{name}</b>
                 {g.stage === 'final' ? '' : ': no turn'}
               </span>

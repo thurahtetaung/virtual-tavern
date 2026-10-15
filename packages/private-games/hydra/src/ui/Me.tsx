@@ -137,7 +137,7 @@ export function RoleCard({
           {open ? '🙈 Hide my role' : '👁️ Show my role'}
         </Button>
       </div>
-      {flat && <p className="text-xs text-stone-500">Hidden while your phone lies flat.</p>}
+      {flat && <p className="text-xs text-ink-muted">Hidden while your phone lies flat.</p>}
       {shown && (
         <p
           className={cn('text-center text-lg font-black', TEAM_TEXT[r.team])}
@@ -210,7 +210,7 @@ export function MeTab({
           <RoleCard view={view} c={c} reveal={reveal} big={big} />
           {/* Only with the card up: a glance at a face-down card must give nothing away. */}
           {!reveal.shown ? (
-            <p className="text-center text-xs text-stone-500" data-testid="role-details-hidden">
+            <p className="text-center text-xs text-ink-muted" data-testid="role-details-hidden">
               Your goal, what you know and what only you saw show while your card is up.
             </p>
           ) : (
@@ -273,7 +273,7 @@ export function MeTab({
             </li>
           ))}
         </ol>
-        {g.rebalance && <p className="mt-1 text-xs text-stone-500">Community rebalance is on.</p>}
+        {g.rebalance && <p className="mt-1 text-xs text-ink-muted">Community rebalance is on.</p>}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"

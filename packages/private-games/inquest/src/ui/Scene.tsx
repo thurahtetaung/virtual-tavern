@@ -60,7 +60,7 @@ export function Timeline({
               <span
                 className={cn(
                   fresh(b) && 'font-semibold text-amber-700 dark:text-amber-300',
-                  no.movedLater && 'text-stone-500 dark:text-stone-400',
+                  no.movedLater && 'text-ink-muted',
                 )}
               >
                 {bulletLine(b, content, no)}
@@ -130,7 +130,7 @@ export function LatestBullets({ g, content }: { g: GameView; content: Content })
           )}
         >
           <BulletIcon className="h-3" />
-          <span className="text-stone-500 dark:text-stone-400">{content.tileTitle(s.tile)}:</span>
+          <span className="text-ink-muted">{content.tileTitle(s.tile)}:</span>
           <b>{content.tileItem(s.tile, s.bullet!)}</b>
         </li>
       ))}
@@ -429,7 +429,7 @@ export function Scene({ view, content, act }: { view: InquestView; content: Cont
             </Button>
           </div>
           {confirm.note && (
-            <p className="px-1 pt-0.5 text-[11px] leading-tight text-stone-500">{confirm.note}</p>
+            <p className="px-1 pt-0.5 text-[11px] leading-tight text-ink-muted">{confirm.note}</p>
           )}
         </div>
       )}

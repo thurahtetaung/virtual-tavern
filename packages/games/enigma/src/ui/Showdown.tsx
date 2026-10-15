@@ -84,7 +84,7 @@ function GuessList({ view, team }: { view: EnigmaView; team: Team }) {
               right?.[i] && 'bg-success-soft dark:bg-emerald-900',
             )}
           >
-            <span className="mr-1 text-stone-500 tabular-nums">{i + 1}</span>
+            <span className="mr-1 text-ink-muted tabular-nums">{i + 1}</span>
             <span className="font-bold uppercase">{g || '—'}</span>
             {right && <span className="ml-1">{right[i] ? '✓' : '✗'}</span>}
           </li>

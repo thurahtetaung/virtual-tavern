@@ -96,7 +96,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-2 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span className="text-lg leading-none">{it.icon}</span>

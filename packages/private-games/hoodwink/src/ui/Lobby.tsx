@@ -61,7 +61,7 @@ export function Lobby({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-lg font-bold">Game settings</h3>
           {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
+            <span className="text-sm text-ink-muted">Only the host can change these.</span>
           )}
         </div>
         <ChoicePicker
@@ -112,9 +112,9 @@ export function Lobby({
           <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
             <span>
               <span className="font-semibold">Timers</span>
-              <span className="text-stone-500"> · {timerSummary(view.settings)}</span>
+              <span className="text-ink-muted"> · {timerSummary(view.settings)}</span>
             </span>
-            <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
               ▸
             </span>
           </summary>
@@ -141,7 +141,7 @@ export function Lobby({
               >
                 Start game
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
           </StickyBar>
         )}

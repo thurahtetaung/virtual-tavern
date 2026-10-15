@@ -63,7 +63,7 @@ function VoteLine({ view, c, r }: { view: HydraView; c: Content; r: Round }) {
         </p>
       </div>
       {r.missing.length > 0 && (
-        <p className="col-span-2 text-stone-500">
+        <p className="col-span-2 text-ink-muted">
           Not counted: {r.missing.map((p) => nameOf(view, p)).join(', ')}
         </p>
       )}
@@ -110,7 +110,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
         </div>
       </div>
       {!rounds.length && (
-        <p className="text-sm text-stone-500">Nothing yet: the first government is being formed.</p>
+        <p className="text-sm text-ink-muted">Nothing yet: the first government is being formed.</p>
       )}
       <ol className="space-y-2">
         {rounds.map((r) => {
@@ -124,7 +124,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
               data-testid="round"
             >
               <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="text-xs font-bold text-stone-500">#{r.n}</span>
+                <span className="text-xs font-bold text-ink-muted">#{r.n}</span>
                 <b>{nameOf(view, r.president)}</b>
                 {r.special && (
                   <span className="rounded bg-special dark:bg-violet-600 px-1 text-[0.6rem] font-bold text-white">
@@ -146,7 +146,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                     className={cn(
                       'rounded px-1.5 text-[0.65rem] font-black tracking-wide',
                       r.elected
-                        ? 'bg-success dark:bg-emerald-600 text-white'
+                        ? 'bg-success dark:bg-emerald-700 text-white'
                         : 'bg-stone-700 text-white',
                     )}
                   >
@@ -175,7 +175,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                       ) : (
                         <span className="inline-flex items-center gap-1">
                           Enacted <Pips cards={[r.session.enacted!]} c={c} text="order" />
-                          <span className="text-xs text-stone-500">
+                          <span className="text-xs text-ink-muted">
                             {c.t('(the {chancellor}’s two were shuffled)')}
                           </span>
                         </span>
@@ -193,7 +193,7 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                     </li>
                   ))}
                   {pending.map((n) => (
-                    <li key={`${n.by}:${n.kind}`} className="text-stone-500 italic">
+                    <li key={`${n.by}:${n.kind}`} className="text-ink-muted italic">
                       {nameOf(view, n.by)} (
                       {n.kind === 'chancellor' ? c.names.chancellor : c.names.president}) is
                       choosing a claim…
@@ -223,12 +223,12 @@ export function Timeline({ view, c }: { view: HydraView; c: Content }) {
                             ? `executed ${nameOf(view, r.power.target)}`
                             : 'peeked at the top three'}
                       {r.power.auto && (
-                        <span className="text-xs text-stone-500"> (picked for them)</span>
+                        <span className="text-xs text-ink-muted"> (picked for them)</span>
                       )}
                     </li>
                   )}
                   {r.autos.map((a, i) => (
-                    <li key={i} className="text-xs text-stone-500">
+                    <li key={i} className="text-xs text-ink-muted">
                       ⏱ {c.t(AUTO_TEXT[a.what] ?? a.what)} played for {nameOf(view, a.who)}
                     </li>
                   ))}
@@ -292,10 +292,10 @@ export function PlayerRecord({
         <div>
           <p className="mb-1 font-semibold">Voting record</p>
           {!rows.length ? (
-            <p className="text-stone-500">No votes yet.</p>
+            <p className="text-ink-muted">No votes yet.</p>
           ) : (
             <table className="w-full text-left text-xs">
-              <thead className="text-stone-500">
+              <thead className="text-ink-muted">
                 <tr>
                   <th className="py-1">#</th>
                   <th>Government</th>

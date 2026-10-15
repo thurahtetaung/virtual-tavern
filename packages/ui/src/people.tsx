@@ -44,7 +44,7 @@ export function PlayerTag({
         </span>
       )}
       {host && <HostCrown />}
-      {you && <span className="text-xs text-stone-500 dark:text-stone-400">(you)</span>}
+      {you && <span className="text-xs text-ink-muted">(you)</span>}
       {offline && (
         <span className="rounded-full bg-stone-200 px-1.5 text-[11px] font-medium text-stone-600 dark:bg-stone-700 dark:text-stone-300">
           offline

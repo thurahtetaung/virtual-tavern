@@ -275,7 +275,7 @@ function HowItWorks({ view, round }: { view: MasqueradeView; round: RoundView })
     >
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>📋 How this round works · {starter}</span>
-        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+        <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
           ▸
         </span>
       </summary>
@@ -341,7 +341,7 @@ function ReadyToggle({ round, act, room }: { round: RoundView; act: Act; room: G
       <p className="text-center text-sm text-stone-600 tabular-nums dark:text-stone-400">
         <Holdouts round={round} done={round.readyIds} verb="ready" room={room} />
       </p>
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-ink-muted">
         The vote starts when everyone taps this, or when the clock runs out. Tap again to undo.
       </p>
     </div>
@@ -367,7 +367,7 @@ function VotePanel({
       className="space-y-2 rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900/80 dark:ring-stone-800"
     >
       <h3 className="font-bold">🗳️ Who is the spy?</h3>
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-ink-muted">
         Secret until everyone has voted.{' '}
         <Holdouts round={round} done={round.votedIds} verb="voted" room={room} counted={false} />
       </p>
@@ -508,7 +508,7 @@ function Reveal({
           artClassName="aspect-[5/3] w-28 shrink-0 rounded-xl"
         />
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-stone-500 uppercase">The location was</p>
+          <p className="text-xs font-semibold text-ink-muted uppercase">The location was</p>
           <p className="text-xl font-bold" data-testid="revealed-location">
             {display.name(result.location)}
           </p>
@@ -553,7 +553,7 @@ function Reveal({
             Next round
           </Button>
         ) : (
-          <p className="text-center text-sm text-stone-500">
+          <p className="text-center text-sm text-ink-muted">
             {waitingForHost(room, 'deal the next round')}
           </p>
         ))}
@@ -575,7 +575,7 @@ function Scores({ view }: { view: MasqueradeView }) {
     >
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>🏅 Scores</span>
-        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+        <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
           ▸
         </span>
       </summary>
@@ -667,7 +667,7 @@ function LocationsBoard({
     <section aria-label="Locations" className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-bold">📍 Locations ({view.locations.length})</h3>
-        <span className="text-xs text-stone-500">
+        <span className="text-xs text-ink-muted">
           {guessing ? 'Tap your guess' : 'Tap to cross off · ☆ to star'}
         </span>
       </div>
@@ -684,7 +684,7 @@ function LocationsBoard({
         </div>
       )}
       {view.played.length > 0 && (
-        <p className="text-xs text-stone-500" data-testid="played-note">
+        <p className="text-xs text-ink-muted" data-testid="played-note">
           Places marked “Played” came up earlier this game and won’t come up again until every place
           has been played.
         </p>
@@ -732,7 +732,7 @@ function LocationsBoard({
       {groups.map((g) => (
         <div key={g.id} className="space-y-2">
           {groups.length > 1 && (
-            <h4 className="flex items-center gap-2 pt-1 text-xs font-bold tracking-wide text-stone-500 uppercase after:h-px after:flex-1 after:bg-stone-300 dark:after:bg-stone-700">
+            <h4 className="flex items-center gap-2 pt-1 text-xs font-bold tracking-wide text-ink-muted uppercase after:h-px after:flex-1 after:bg-stone-300 dark:after:bg-stone-700">
               {g.label}
             </h4>
           )}
@@ -808,7 +808,7 @@ function LocationsBoard({
                           'flex size-7 items-center justify-center rounded-full text-base leading-none shadow ring-1',
                           mark === 'starred'
                             ? 'bg-accent dark:bg-amber-400 text-white ring-accent dark:ring-amber-500'
-                            : 'bg-white/90 text-stone-500 ring-stone-300 dark:bg-stone-800/90 dark:text-stone-300 dark:ring-stone-600',
+                            : 'bg-white/90 text-ink-muted ring-stone-300 dark:bg-stone-800/90 dark:text-stone-300 dark:ring-stone-600',
                         )}
                       >
                         {mark === 'starred' ? '★' : '☆'}
@@ -843,7 +843,7 @@ function IdeaList({
     >
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between text-sm font-semibold [&::-webkit-details-marker]:hidden">
         <span>{title}</span>
-        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+        <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
           ▸
         </span>
       </summary>
@@ -940,7 +940,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-2 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
