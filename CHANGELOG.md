@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.17](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.16...v0.37.17) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** keep narration text up while the narrator speaks, and show announcements ([#227](https://github.com/thurahtetaung/virtual-tavern/issues/227)) ([58463b4](https://github.com/thurahtetaung/virtual-tavern/commit/58463b45a5e83328006600ed6128ff6cc89887de))
+
 ## [0.37.16](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.15...v0.37.16) (2026-10-15)
 
 
