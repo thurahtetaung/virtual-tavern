@@ -16,6 +16,7 @@ import {
   deviceSpeaks,
   dueCues,
   enqueueClips,
+  fitCues,
   musicChange,
   musicPhaseFor,
   musicTarget,
@@ -84,6 +85,30 @@ function useGesture(): boolean {
     };
   }, [unlocked]);
   return unlocked;
+}
+
+// ---- Clip lengths: learned from the files, so closes can be timed to end with their step ----
+
+/** Narration clip lengths in ms, by clip path, for this visit. */
+const LENGTHS = new Map<string, number>();
+const MEASURING = new Set<string>();
+
+/** Starts reading the lengths of clips not known yet (only the files' headers are fetched). */
+function measure(clips: readonly string[]) {
+  for (const src of clips) {
+    if (LENGTHS.has(src) || MEASURING.has(src)) continue;
+    MEASURING.add(src);
+    const el = new Audio();
+    el.preload = 'metadata';
+    el.onloadedmetadata = () => {
+      if (Number.isFinite(el.duration)) LENGTHS.set(src, el.duration * 1000);
+      el.removeAttribute('src');
+    };
+    el.onerror = () => {
+      MEASURING.delete(src);
+    };
+    el.src = assetUrl(src);
+  }
 }
 
 // ---- Music: two players for crossfades, with ducking under the narration ----
@@ -185,10 +210,15 @@ export function useSound({
 
   // The narration: due cues show as text everywhere, and play where this device speaks.
   useEffect(() => {
-    const list = JSON.parse(cueKey) as Cue[];
+    const narration = manifest?.narration;
+    const parsed = JSON.parse(cueKey) as Cue[];
+    if (speaks) measure(parsed.flatMap((c) => clipsFor(narration, c.lines)));
     const playNext = () => {
-      // Clips whose moment has passed (the device was away) are dropped, not played late.
-      const { clip, rest } = nextClip(queue.current, Date.now() + clockOffset);
+      // Clips whose moment has passed (the device was away), or that would run too far into the
+      // next step, are dropped, not played late.
+      const { clip, rest } = nextClip(queue.current, Date.now() + clockOffset, {
+        lengths: LENGTHS,
+      });
       queue.current = rest;
       if (!clip) {
         setNarrating(false);
@@ -207,7 +237,9 @@ export function useSound({
         playNext();
       };
       el.onended = () => {
-        finish(Number.isFinite(el.duration) ? el.duration * 1000 : 0);
+        const length = Number.isFinite(el.duration) ? el.duration * 1000 : 0;
+        if (length) LENGTHS.set(clip.src, length);
+        finish(length);
       };
       el.onerror = () => {
         finish(0);
@@ -219,14 +251,16 @@ export function useSound({
     };
     const check = () => {
       const now = Date.now() + clockOffset;
+      // Closes move earlier once their clips' lengths are known.
+      const list = fitCues(parsed, narration, LENGTHS);
       for (const cue of dueCues(list, now, played.current)) {
         played.current.add(cue.id);
         setSaid({ cue: cue.id, parts: cue.parts });
         if (!speaks || !unlocked) continue;
-        const clips = clipsFor(manifest?.narration, cue.lines);
+        const clips = clipsFor(narration, cue.lines);
         const idle = voice.current?.paused ?? true;
-        // A new cue replaces clips still waiting from an older one.
-        queue.current = enqueueClips(clips, cue.at, cue.id);
+        // A new cue waits behind clips still due from an older one (nextClip drops what won't fit).
+        queue.current = enqueueClips(clips, cue, queue.current);
         if (idle) playNext();
       }
     };
