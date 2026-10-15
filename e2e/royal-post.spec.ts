@@ -76,9 +76,9 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   await playUntil(host, players, 'classic', done, () => done.guard && done.priest && done.handmaid);
 
   // Over to the 2019 edition.
-  // Mid-game the host abandons it from the Players drawer; after a game, Change settings.
-  const changeSettings = host.getByRole('button', { name: 'Change settings' });
-  if (await changeSettings.count()) await changeSettings.click();
+  // Mid-game the host abandons it from the Players drawer; after a game, Change setup.
+  const changeSetup = host.getByRole('button', { name: 'Change setup' });
+  if (await changeSetup.count()) await changeSetup.click();
   else {
     await host.getByRole('button', { name: /^Players/ }).click();
     await host

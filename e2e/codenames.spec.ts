@@ -113,7 +113,7 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
 
   await expect(host.getByText('team wins!').first()).toBeVisible();
   await expect(cards(otherOp, /Assassin/)).toHaveCount(1);
-  await expect(host.getByRole('button', { name: 'Play again (same teams)' })).toBeVisible();
+  await expect(host.getByRole('button', { name: 'Play again' })).toBeVisible();
   await expect(ana!.getByText('Waiting for Hana (host) to start the next game')).toBeVisible();
 });
 

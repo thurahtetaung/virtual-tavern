@@ -613,7 +613,7 @@ function Play({
                 size="lg"
                 onClick={() => void act({ type: 'back-to-lobby' })}
               >
-                Change settings
+                Change setup
               </Button>
             </div>
           ) : (

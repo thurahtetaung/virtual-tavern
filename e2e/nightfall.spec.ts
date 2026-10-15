@@ -214,7 +214,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByTestId('team-line').first()).toBeVisible();
     // Guests are told who moves the game on.
     await expect(others[0]!.getByTestId('waiting-host')).toHaveText(
-      'Waiting for Hana (host) to deal again or change the cards…',
+      'Waiting for Hana (host) to play again or change the setup…',
     );
     for (const p of players) await expect(p.getByTestId('reveal-player')).toHaveCount(5);
     await expect(host.getByTestId('reveal-legend')).toContainText('dealt → ended as');

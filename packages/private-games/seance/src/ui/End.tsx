@@ -114,7 +114,7 @@ export function EndScreen({
           <div className="flex flex-wrap justify-center gap-2 pt-1">
             <Button onClick={() => void act({ type: 'play-again' })}>Play again</Button>
             <Button variant="secondary" onClick={() => void act({ type: 'back-to-lobby' })}>
-              Back to the lobby
+              Change setup
             </Button>
           </div>
         )}

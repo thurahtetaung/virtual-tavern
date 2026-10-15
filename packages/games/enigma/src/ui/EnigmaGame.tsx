@@ -333,14 +333,14 @@ export function EnigmaGame({
               {room.isHost ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                    Play again (same teams)
+                    Play again
                   </Button>
                   <Button
                     variant="secondary"
                     size="lg"
                     onClick={() => void act({ type: 'back-to-lobby' })}
                   >
-                    Change teams or settings
+                    Change setup
                   </Button>
                 </div>
               ) : (

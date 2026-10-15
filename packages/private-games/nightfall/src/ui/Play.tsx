@@ -1937,13 +1937,13 @@ export function Reveal({
             </Button>
           )}
           <Button variant="secondary" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change the cards
+            Change setup
           </Button>
         </div>
       )}
       {!room.isHost && (
         <p className="text-center text-sm text-ink-muted" data-testid="waiting-host">
-          {waitingForHost(room, 'deal again or change the cards')}
+          {waitingForHost(room, 'play again or change the setup')}
         </p>
       )}
     </div>

@@ -145,7 +145,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
     host.page.getByRole('list', { name: 'Bullet timeline' }).getByRole('listitem'),
   ).toHaveCount(6);
   // Play again keeps the settings.
-  await host.page.getByRole('button', { name: 'Play again (same settings)' }).click();
+  await host.page.getByRole('button', { name: 'Play again' }).click();
   await commitCrime(players);
   await expect(host.page.getByText('Pick the Location tile for this crime.')).toBeVisible();
 });

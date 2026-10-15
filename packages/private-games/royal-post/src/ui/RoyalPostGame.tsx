@@ -1549,7 +1549,7 @@ function Podium({
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (

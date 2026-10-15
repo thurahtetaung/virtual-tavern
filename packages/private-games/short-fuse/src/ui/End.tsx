@@ -64,7 +64,7 @@ export function End({
               size="lg"
               onClick={() => void act({ type: 'back-to-lobby' })}
             >
-              Change the deck
+              Change setup
             </Button>
           </div>
         )}

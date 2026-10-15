@@ -610,7 +610,7 @@ function Podium({ view, act, room }: { view: MasqueradeView; act: Act; room: Gam
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (

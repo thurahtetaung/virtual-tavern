@@ -105,7 +105,7 @@ export function End({ view, room, act }: { view: RoundTableView; room: GameRoomI
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (

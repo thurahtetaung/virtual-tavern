@@ -84,7 +84,7 @@ for (const [device, viewport, scheme] of [
       await expect(host.getByTestId('peek-cards')).toHaveCount(0);
       await expect(A.getByTestId('peek-cards')).toHaveCount(0);
       if (round === 1) {
-        await host.getByRole('button', { name: 'Change the deck' }).click();
+        await host.getByRole('button', { name: 'Change setup' }).click();
         await expect(host.getByTestId('start')).toBeVisible();
       }
     }

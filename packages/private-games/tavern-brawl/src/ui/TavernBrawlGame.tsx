@@ -135,7 +135,7 @@ function End({
             size="lg"
             onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'tb-end' })}
           >
-            Change heroes
+            Change setup
           </Button>
         </div>
       ) : (

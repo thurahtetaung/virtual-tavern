@@ -717,10 +717,10 @@ export function OverScreen({
             className="sm:flex-1"
             onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
           >
-            Play again (same settings)
+            Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Back to the lobby
+            Change setup
           </Button>
         </div>
       ) : (
