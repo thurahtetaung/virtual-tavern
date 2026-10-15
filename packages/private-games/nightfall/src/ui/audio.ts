@@ -473,31 +473,81 @@ export function dueCues<C extends Pick<Cue, 'id' | 'at'>>(
   return cues.filter((c) => !played.has(c.id) && c.at <= now && now - c.at <= graceMs);
 }
 
-// ---- The narration queue ----
-
-/** A narration clip waiting to play, with the moment its cue was due (server clock). */
-export interface QueuedClip {
-  src: string;
-  at: number;
+/** The cue the narrator last said on this device. */
+export interface Said {
+  cue: string;
+  parts: CuePart[];
 }
 
-/** A clip that couldn't start within this long of its cue is dropped, not played late. */
+const NOTHING_SAID: CuePart[] = [];
+
+/**
+ * What the narrator is saying now: the last cue said, while it still belongs to the current
+ * phase's cues. Once its step has ended it says nothing, so the last close line never shows in
+ * the second person to the player woken next, or to everyone at dawn.
+ */
+export function stillSaid(said: Said | null, cues: readonly Pick<Cue, 'id'>[]): CuePart[] {
+  return said && cues.some((c) => c.id === said.cue) ? said.parts : NOTHING_SAID;
+}
+
+// ---- The narration queue ----
+
+/**
+ * A narration clip waiting to play. `at` is the moment it is due in sequence (server clock): its
+ * cue's moment for the cue's first clip, and for each later one the moment the clip before it was
+ * due plus that clip's length, set once the clip before it has played (`afterClip`).
+ */
+export interface QueuedClip {
+  src: string;
+  /** The id of the cue it belongs to. */
+  cue: string;
+  at?: number;
+}
+
+/** A clip that couldn't start within this long of when it was due is dropped, not played late. */
 export const STALE_CLIP_MS = 4000;
 
 /**
  * The queue once a new cue is due: its clips replace any that haven't started yet, so a long
  * clip never pushes the next step's narration ever further behind.
  */
-export function enqueueClips(clips: readonly string[], at: number): QueuedClip[] {
-  return clips.map((src) => ({ src, at }));
+export function enqueueClips(clips: readonly string[], at: number, cue: string): QueuedClip[] {
+  return clips.map((src, i) => (i === 0 ? { src, cue, at } : { src, cue }));
 }
 
-/** The next clip worth playing now, and what's left after it (stale clips are dropped). */
+/**
+ * The queue once `played` has finished after `lengthMs`: the next clip of its cue is due when
+ * `played` was due plus its length, so a cue's clips follow each other however long each is, and
+ * a cue that started a little late stays only that late.
+ */
+export function afterClip(
+  queue: readonly QueuedClip[],
+  played: QueuedClip,
+  lengthMs: number,
+): QueuedClip[] {
+  const [next, ...rest] = queue;
+  if (!next || next.cue !== played.cue || next.at !== undefined || played.at === undefined)
+    return [...queue];
+  return [{ ...next, at: played.at + Math.max(0, lengthMs) }, ...rest];
+}
+
+/**
+ * The next clip worth playing now, and what's left after it. A clip more than `staleMs` past its
+ * moment (a device that woke up late, or was in the background) is dropped with the rest of its
+ * cue, since an instruction's tail means nothing without its start.
+ */
 export function nextClip(
   queue: readonly QueuedClip[],
   now: number,
   staleMs = STALE_CLIP_MS,
 ): { clip: QueuedClip | null; rest: QueuedClip[] } {
-  const fresh = queue.filter((c) => now - c.at <= staleMs);
-  return { clip: fresh[0] ?? null, rest: fresh.slice(1) };
+  let rest = [...queue];
+  while (rest.length) {
+    const [clip, ...after] = rest;
+    // A clip whose predecessor's length never came is due no later than now.
+    const at = clip!.at ?? now;
+    if (now - at <= staleMs) return { clip: { ...clip!, at }, rest: after };
+    rest = after.filter((c) => c.cue !== clip!.cue);
+  }
+  return { clip: null, rest: [] };
 }

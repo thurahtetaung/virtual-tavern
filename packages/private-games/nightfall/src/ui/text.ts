@@ -1,5 +1,12 @@
 import { FRAME_LINES } from '../logic/plan.ts';
-import { type MarkId, ROLES, type RoleId, isRoleId } from '../logic/roles.ts';
+import {
+  type HostileGroup,
+  type MarkId,
+  ROLES,
+  type RoleId,
+  hostileGroupsIn,
+  isRoleId,
+} from '../logic/roles.ts';
 import type {
   NightfallView,
   NoteBody,
@@ -128,8 +135,25 @@ const WAKE: Partial<Record<RoleId, string>> = {
 
 const sentence = (s: string | undefined) => (s ? s[0]!.toUpperCase() + s.slice(1) : '');
 
-/** The words for a narration line key, in our own neutral text with the cards' names. */
-export function lineText(key: string, deck: Deck): string {
+const SIDE_WORDS: Record<HostileGroup, string> = {
+  werewolf: 'werewolves',
+  vampire: 'vampires',
+  alien: 'aliens',
+};
+
+/** "Werewolves and aliens tonight: …": the evil sides the selected cards can bring. */
+function epicBattleText(roles: readonly RoleId[]): string {
+  const sides = hostileGroupsIn(roles);
+  return sides.length >= 2
+    ? `${sentence(listNames(sides.map((g) => SIDE_WORDS[g])))} tonight: prepare for an epic battle!`
+    : 'Prepare for an epic battle!';
+}
+
+/**
+ * The words for a narration line key, in our own neutral text with the cards' names. `roles`
+ * are the selected cards, for the lines that depend on them (the epic battle names its sides).
+ */
+export function lineText(key: string, deck: Deck, roles: readonly RoleId[] = []): string {
   const n = (r: RoleId) => deck.name(r).toUpperCase();
   switch (key) {
     case FRAME_LINES.nightStart:
@@ -139,7 +163,7 @@ export function lineText(key: string, deck: Deck): string {
     case FRAME_LINES.nightEndMarks:
       return 'Everyone, keep your eyes closed and touch your card and your Mark.';
     case FRAME_LINES.epicBattle:
-      return 'Werewolves and vampires tonight: prepare for an epic battle!';
+      return epicBattleText(roles);
     case 'vampire:wake':
       return 'VAMPIRES, wake up and look for each other. Give the Mark of the Vampire to a player who isn’t one.';
     case 'vampire:close':
@@ -237,11 +261,11 @@ const GROUP_SUBJECT: Record<string, string> = {
 export function narrationText(
   key: string,
   deck: Deck,
-  opts: { awake: boolean; readyEarly?: boolean },
+  opts: { awake: boolean; readyEarly?: boolean; roles?: readonly RoleId[] },
 ): string {
   if (key === FRAME_LINES.vote)
     return opts.readyEarly ? 'Everyone’s ready. Three, two, one… vote!' : lineText(key, deck);
-  if (opts.awake) return lineText(key, deck);
+  if (opts.awake) return lineText(key, deck, opts.roles);
   switch (key) {
     case FRAME_LINES.nightStart:
     case 'dusk:close':
@@ -254,7 +278,7 @@ export function narrationText(
     case FRAME_LINES.epicBattle:
     case FRAME_LINES.oneMinute:
     case FRAME_LINES.thirtySeconds:
-      return lineText(key, deck);
+      return lineText(key, deck, opts.roles);
     case 'dusk:wake':
       return 'Everyone is awake, looking at their own Mark.';
     case 'werewolf:lone-wolf':

@@ -316,7 +316,7 @@ function Narration({
   // third person, unless your own box already tells you.
   const words = (part: CuePart) =>
     part.kind === 'line'
-      ? narrationText(part.key, deck, { awake, readyEarly })
+      ? narrationText(part.key, deck, { awake, readyEarly, roles: view.settings.roles })
       : part.kind === 'pick' && !told
         ? pickAbout(part.pick, at, deck, { doppel: part.doppel })
         : '';
