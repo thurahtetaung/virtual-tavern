@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.15](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.14...v0.37.15) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** count several word lists as one part and shorten Inquest's Forensic Scientist part in guests' settings summaries ([#223](https://github.com/thurahtetaung/virtual-tavern/issues/223)) ([ffebad8](https://github.com/thurahtetaung/virtual-tavern/commit/ffebad8813e6189582eec9f5acc02bfa541475e0))
+
 ## [0.37.14](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.13...v0.37.14) (2026-10-15)
 
 
