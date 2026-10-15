@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.7...v0.37.8) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** say the Alien set's random instructions out loud and keep the Oracle's reply inside her step ([#207](https://github.com/thurahtetaung/virtual-tavern/issues/207)) ([c326a54](https://github.com/thurahtetaung/virtual-tavern/commit/c326a54db35def9d3fd58ad1ee72c689517fecf2))
+
 ## [0.37.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.6...v0.37.7) (2026-10-15)
 
 
