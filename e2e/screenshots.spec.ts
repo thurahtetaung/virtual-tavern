@@ -849,11 +849,11 @@ for (const [label, viewport] of [
       .click();
     await shot(host, 'lobby');
     await host.getByRole('button', { name: 'Deal the cards' }).click();
-    await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    await expect(host.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
     await shot(host, 'ready-covered');
-    await host.getByRole('button', { name: 'Tap to see your card' }).click();
+    await host.getByRole('button', { name: '👁️ Show your card' }).click();
     await shot(host, 'ready');
-    await host.getByRole('button', { name: 'Cover it again' }).click();
+    await host.getByRole('button', { name: '🙈 Hide your card' }).click();
     const roles = await getReady(players);
     await expect(host.getByTestId(/night-/)).toBeVisible();
     let idleShot = false;
@@ -965,7 +965,7 @@ for (const [label, viewport] of [
       )
         break;
       await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
-      await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+      await expect(host.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
     }
     const W = roles.indexOf('werewolf');
     const T = roles.findIndex((r) => VAMPIRES.includes(r));
@@ -1094,7 +1094,7 @@ for (const [label, viewport] of [
       roles = await peek(players);
       if (roles.includes('alien') && roles.includes('cow')) break;
       await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
-      await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+      await expect(host.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
     }
     await getReady(players);
     await expect(host.getByTestId(/night-/)).toBeVisible();
@@ -1459,10 +1459,10 @@ for (const [label, viewport, colorScheme] of [
     await tab(inv.page, 'Scene');
     await shot(inv.page, 'scene');
     await tab(inv.page, 'Me');
-    await inv.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await inv.page.getByRole('button', { name: '👁️ Show your role' }).click();
     await shot(inv.page, 'me');
     await tab(witness.page, 'Me');
-    await witness.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await witness.page.getByRole('button', { name: '👁️ Show your role' }).click();
     await shot(witness.page, 'me-witness');
     // The discussion before the presentations.
     await tab(inv.page, 'Scene');
@@ -1797,9 +1797,9 @@ for (const [label, viewport, colorScheme] of [
     const others = players.filter((p) => p.page !== host && p !== murderer);
     const guard = await withRole(others, 'Protective Detail');
     await tab(guard.page, 'Me');
-    await guard.page.getByRole('button', { name: 'Reveal your role card' }).click();
+    await guard.page.getByRole('button', { name: '👁️ Show your role' }).click();
     await shot(guard.page, 'me-protective');
-    await guard.page.getByRole('button', { name: 'Hide your role card' }).click();
+    await guard.page.getByRole('button', { name: '🙈 Hide your role' }).click();
     const inv = others.find((p) => p !== guard)!;
     await tab(inv.page, 'Suspects');
     if (label === 'phone') await inv.page.getByRole('button', { name: '▦ Grid' }).click();

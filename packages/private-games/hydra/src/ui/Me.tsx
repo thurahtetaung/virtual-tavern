@@ -1,10 +1,10 @@
-import { Button, cn } from '@vt/ui';
-import { type PointerEvent, useEffect, useRef, useState } from 'react';
+import { Peek, cn } from '@vt/ui';
+import { useState } from 'react';
 import { leaderKnowsTeam, trackFor } from '../logic/tables.ts';
 import type { HydraView, Memory } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { POWER_EMOJI } from './Boards.tsx';
-import { FlipCard, Pips, RoleBack, RoleFace, TEAM_TEXT } from './Cards.tsx';
+import { Pips, RoleBack, RoleFace, TEAM_TEXT } from './Cards.tsx';
 import { playSfx, useLyingFlat } from './fx.ts';
 import { nameOf } from './status.ts';
 
@@ -60,84 +60,39 @@ export function RoleCard({
 }) {
   const r = view.role;
   const { open, setOpen, setHeld, flat, shown } = reveal;
-  const [drag, setDrag] = useState(0);
-  const start = useRef<number | null>(null);
-  // The face is only in the page while the card is up (and while it flips back down), so a
-  // face-down card carries no role name, not even for a screen reader.
-  const [wasShown, setWasShown] = useState(shown);
-  const [linger, setLinger] = useState(false);
-  if (wasShown !== shown) {
-    setWasShown(shown);
-    if (!shown) setLinger(true);
-  }
-  useEffect(() => {
-    if (!linger) return;
-    const t = window.setTimeout(() => setLinger(false), 600);
-    return () => {
-      window.clearTimeout(t);
-    };
-  }, [linger]);
   if (!r) return null;
-  const down = (e: PointerEvent<HTMLDivElement>) => {
-    start.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setHeld(true);
-    playSfx('flip');
-  };
-  const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (start.current !== null) setDrag(Math.max(0, start.current - e.clientY));
-  };
-  const up = () => {
-    if (drag > 50) setOpen(true);
-    start.current = null;
-    setDrag(0);
-    setHeld(false);
-  };
+  const size = cn('relative mx-auto block', big ? 'w-44 sm:w-52' : 'w-32 sm:w-40');
+  // The face is only in the page while the card is up, so a face-down card carries no role name,
+  // not even for a screen reader.
   return (
     <section aria-label="Your role card" className="flex flex-col items-center gap-2">
-      <div
-        role="presentation"
-        onPointerDown={open ? undefined : down}
-        onPointerMove={open ? undefined : move}
-        onPointerUp={open ? undefined : up}
-        onPointerCancel={open ? undefined : up}
-        onContextMenu={(e) => e.preventDefault()}
-        className={cn(
-          'relative cursor-grab touch-none select-none',
-          big ? 'w-44 sm:w-52' : 'w-32 sm:w-40',
-        )}
-        style={{ transform: `translateY(-${Math.min(drag, 60)}px)` }}
-      >
-        {/* The envelope the card slides out of. */}
-        <span
-          aria-hidden
-          className={cn(
-            'absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:ring-amber-600/50 transition-opacity duration-500 motion-reduce:transition-none dark:from-amber-700 dark:to-amber-900',
-            shown && 'opacity-30',
-          )}
-        />
-        <FlipCard
-          up={shown}
-          back={<RoleBack c={c} />}
-          front={
-            shown || linger ? (
-              <RoleFace role={r.role} art={r.art} seed={view.game?.artSeed} c={c} />
-            ) : null
-          }
-          className="relative"
-        />
-        {!shown && (
-          <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[0.65rem] font-bold text-white drop-shadow">
-            ⬆ Slide up or hold
+      <Peek
+        what="my role"
+        slide
+        open={open}
+        onOpenChange={setOpen}
+        onShownChange={setHeld}
+        blocked={flat && 'Hidden while your phone lies flat.'}
+        onReveal={() => playSfx('flip')}
+        className="w-full"
+        cover={
+          <span className={size}>
+            {/* The envelope the card slides out of. */}
+            <span
+              aria-hidden
+              className="absolute inset-x-[-8%] bottom-[-6%] h-[42%] rounded-b-xl bg-gradient-to-b from-amber-200 to-amber-400 shadow-lg ring-1 ring-accent/50 dark:from-amber-700 dark:to-amber-900 dark:ring-amber-600/50"
+            />
+            <RoleBack c={c} className="relative" />
+            <span className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[0.65rem] font-bold text-white drop-shadow">
+              ⬆ Slide up or hold
+            </span>
           </span>
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" className="min-h-11" onClick={() => setOpen(!open)}>
-          {open ? '🙈 Hide my role' : '👁️ Show my role'}
-        </Button>
-      </div>
-      {flat && <p className="text-xs text-ink-muted">Hidden while your phone lies flat.</p>}
+        }
+      >
+        <span className={size}>
+          <RoleFace role={r.role} art={r.art} seed={view.game?.artSeed} c={c} />
+        </span>
+      </Peek>
       {shown && (
         <p
           className={cn('text-center text-lg font-black', TEAM_TEXT[r.team])}

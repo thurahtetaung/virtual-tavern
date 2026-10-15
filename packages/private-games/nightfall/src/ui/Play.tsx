@@ -540,7 +540,6 @@ export function Ready({
   status: Status;
   deck: Deck;
 }) {
-  const [shown, setShown] = useState(false);
   // Ready unlocks once you've looked at this deal's card (a re-deal asks again).
   const deal = `${view.gamesPlayed}:${view.myRole}`;
   const [seenDeal, setSeenDeal] = useState<string | null>(null);
@@ -551,31 +550,25 @@ export function Ready({
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {role && (
         <Panel className="flex flex-col items-center gap-3">
-          {shown ? (
-            <>
+          <Peek
+            key={deal}
+            what="your card"
+            onReveal={() => setSeenDeal(deal)}
+            cover={
+              <span className="flex flex-col items-center gap-2 font-semibold">
+                <CardBack deck={deck} size="lg" />
+                Hold to see your card
+              </span>
+            }
+          >
+            <div className="flex flex-col items-center gap-3">
               <CardFace role={role} deck={deck} size="lg" />
               <p className="text-lg">
                 You are the <RoleChip role={role} deck={deck} />
               </p>
               <p className="text-sm text-stone-600 dark:text-stone-400">{deck.text(role)}</p>
-              <Button variant="ghost" size="sm" onClick={() => setShown(false)}>
-                Cover it again
-              </Button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setShown(true);
-                setSeenDeal(deal);
-              }}
-              aria-label="Tap to see your card"
-              className="flex flex-col items-center gap-2 font-semibold"
-            >
-              <CardBack deck={deck} size="lg" />
-              Tap to see your card
-            </button>
-          )}
+            </div>
+          </Peek>
           {!view.meReady ? (
             <>
               <Button size="lg" disabled={!seen} onClick={() => void act({ type: 'ready' })}>

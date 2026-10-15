@@ -8,6 +8,7 @@ import {
   RefusalSlot,
   Superlatives,
   cn,
+  Peek,
 } from '@vt/ui';
 import { useState } from 'react';
 import { type InquestAction, type InquestView, type RoleId, finalOf } from '../logic/types.ts';
@@ -61,7 +62,7 @@ const GOALS: Record<RoleId | 'former-forensic', { goal: string; win: string }> =
   },
 };
 
-/** The viewer's role card: face down until tapped, with what they know and how they win. */
+/** The viewer's role card: face down until held or shown, with what they know and how they win. */
 export function RoleCard({
   view,
   content,
@@ -72,93 +73,88 @@ export function RoleCard({
   showGuide: () => void;
 }) {
   const g = view.game!;
-  const [revealed, setShown] = useState(false);
   const role = g.myRole;
   if (!role) return null;
   // The Forensic Scientist is public (everyone knows who it is), so that card lies face up. The
-  // hidden roles stay face down until tapped.
+  // hidden roles stay face down until held or shown.
   const open = role === 'forensic' || role === 'former-forensic';
-  const shown = open || revealed;
   const dealt: RoleId = role === 'former-forensic' ? 'forensic' : role;
   const art = content.roleArt(dealt);
   const info = GOALS[role];
   const cardClass =
     'relative aspect-[429/699] w-24 shrink-0 self-start overflow-hidden rounded-lg bg-stone-800 shadow ring-1 ring-black/20';
-  const face = (
-    <>
-      {shown ? (
-        art ? (
+  const details = (
+    <div className="flex gap-3">
+      <div
+        role="img"
+        aria-label={`Your role card: ${content.roleName(dealt)}`}
+        className={cardClass}
+      >
+        {art ? (
           <ProtectedImage src={art} alt="" className="size-full object-contain" />
         ) : (
           <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 p-1 text-center text-xs font-bold text-white">
             {content.roleName(dealt)}
           </span>
-        )
-      ) : content.roleBack ? (
-        <ProtectedImage src={content.roleBack} alt="" className="size-full object-contain" />
-      ) : (
-        <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 text-3xl">
-          ❓
-        </span>
-      )}
-      {!shown && (
-        <span className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 text-center text-[10px] font-semibold text-white">
-          Tap to reveal
-        </span>
-      )}
-    </>
-  );
-  return (
-    <Panel className="flex gap-3">
-      {open ? (
-        <div
-          role="img"
-          aria-label={`Your role card: ${content.roleName(dealt)}`}
-          className={cardClass}
-        >
-          {face}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setShown(!revealed)}
-          aria-label={shown ? 'Hide your role card' : 'Reveal your role card'}
-          className={cardClass}
-        >
-          {face}
-        </button>
-      )}
+        )}
+      </div>
       <div className="min-w-0 space-y-1 text-sm">
         <h3 className="text-base font-bold">
-          {shown
-            ? role === 'former-forensic'
-              ? 'Former Forensic Scientist'
-              : content.roleName(dealt)
-            : 'Your role'}
+          {role === 'former-forensic' ? 'Former Forensic Scientist' : content.roleName(dealt)}
         </h3>
-        {shown ? (
-          <>
-            {open && (
-              <p className="inline-block rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
-                🔬 Everyone knows you{role === 'former-forensic' ? ' were' : '’re'} the Forensic
-                Scientist.
-              </p>
-            )}
-            <p>{info.goal}</p>
-            <p className="text-stone-600 dark:text-stone-400">{info.win}</p>
-            <Knowledge view={view} content={content} />
-          </>
-        ) : (
-          <p className="text-stone-600 dark:text-stone-400">Tap the card when nobody is looking.</p>
+        {open && (
+          <p className="inline-block rounded-full bg-info-soft px-2 py-0.5 text-xs font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100">
+            🔬 Everyone knows you{role === 'former-forensic' ? ' were' : '’re'} the Forensic
+            Scientist.
+          </p>
         )}
-        <button
-          type="button"
-          className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-amber-700 underline dark:text-amber-400"
-          onClick={showGuide}
-        >
-          How to play your role
-        </button>
+        <p>{info.goal}</p>
+        <p className="text-stone-600 dark:text-stone-400">{info.win}</p>
+        <Knowledge view={view} content={content} />
       </div>
+    </div>
+  );
+  return (
+    <Panel className="space-y-1">
+      {open ? (
+        details
+      ) : (
+        <Peek
+          what="your role"
+          cover={
+            <span className="flex gap-3">
+              <span className={cardClass}>
+                {content.roleBack ? (
+                  <ProtectedImage
+                    src={content.roleBack}
+                    alt=""
+                    className="size-full object-contain"
+                  />
+                ) : (
+                  <span className="flex size-full items-center justify-center bg-gradient-to-b from-stone-700 to-stone-950 text-3xl">
+                    ❓
+                  </span>
+                )}
+              </span>
+              <span className="min-w-0 space-y-1 text-sm">
+                <span className="block text-base font-bold">Your role</span>
+                <span className="block text-stone-600 dark:text-stone-400">
+                  Hold the card to look, when nobody is watching.
+                </span>
+              </span>
+            </span>
+          }
+        >
+          {details}
+        </Peek>
+      )}
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center px-1 text-xs font-semibold text-amber-700 underline dark:text-amber-400"
+        onClick={showGuide}
+      >
+        How to play your role
+      </button>
     </Panel>
   );
 }

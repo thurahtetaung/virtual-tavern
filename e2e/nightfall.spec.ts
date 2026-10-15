@@ -252,7 +252,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     // Play again with the same cards: straight to getting ready.
     await host.getByRole('button', { name: 'Play again' }).click();
     for (const p of players)
-      await expect(p.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+      await expect(p.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
 
     // The rules page uses the title the admin set, for unlocked browsers.
     await others[0]!.goto('/rules/nightfall');

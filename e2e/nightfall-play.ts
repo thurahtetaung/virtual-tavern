@@ -52,7 +52,7 @@ export async function setRoles(host: Page, want: Record<string, number>) {
 export async function getReady(players: Page[]): Promise<string[]> {
   return Promise.all(
     players.map(async (p) => {
-      await p.getByRole('button', { name: 'Tap to see your card' }).click();
+      await p.getByRole('button', { name: '👁️ Show your card' }).click();
       const role = (await p.locator('[data-role]').first().getAttribute('data-role'))!;
       await p.getByRole('button', { name: 'Ready', exact: true }).click();
       return role;
@@ -178,9 +178,9 @@ export const VILLAGE = ['seer', 'cupid', 'pickpocket', 'priest', 'villager'];
 export async function peek(players: Page[]): Promise<string[]> {
   return Promise.all(
     players.map(async (p) => {
-      await p.getByRole('button', { name: 'Tap to see your card' }).click();
+      await p.getByRole('button', { name: '👁️ Show your card' }).click();
       const role = (await p.locator('[data-role]').first().getAttribute('data-role'))!;
-      await p.getByRole('button', { name: 'Cover it again' }).click();
+      await p.getByRole('button', { name: '🙈 Hide your card' }).click();
       return role;
     }),
   );

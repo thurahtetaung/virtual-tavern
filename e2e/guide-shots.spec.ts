@@ -194,11 +194,11 @@ for (const scheme of ['light', 'dark'] as const)
       .getByRole('button', { name: 'Skip' })
       .click();
     await host.getByRole('button', { name: 'Deal the cards' }).click();
-    await host.getByRole('button', { name: 'Tap to see your card' }).click();
+    await host.getByRole('button', { name: '👁️ Show your card' }).click();
     await host.getByRole('button', { name: 'Rules', exact: true }).click();
     const drawer = host.getByRole('dialog');
     // The role is hidden until the viewer holds the peek.
-    const hidden = drawer.getByLabel('Your role, hidden');
+    const hidden = drawer.getByRole('button', { name: 'Hold to see my role' });
     await expect(hidden).toBeVisible();
     await hidden.hover();
     await host.mouse.down();

@@ -187,7 +187,7 @@ test('aliens among werewolves: instructions, the Cow, numbers, a ripple and an e
     roles = await peek(players);
     if (roles.includes('alien') && roles.includes('werewolf') && roles.includes('cow')) break;
     await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
-    await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    await expect(host.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
     if (tries === 39) throw new Error(`no usable deal; last ${roles.join()}`);
   }
   const W = roles.indexOf('werewolf');

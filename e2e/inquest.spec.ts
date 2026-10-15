@@ -60,7 +60,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   const investigators = rest.filter((p) => p !== accomplice && p !== witness);
   expect(investigators).toHaveLength(2);
   // The Witness sees the two culprits, not which is which; Investigators see no answer.
-  await witness.page.getByRole('button', { name: 'Reveal your role card' }).click();
+  await witness.page.getByRole('button', { name: '👁️ Show your role' }).click();
   await expect(
     witness.page.getByText(
       new RegExp(
@@ -77,7 +77,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
     host.page.getByRole('img', { name: 'Your role card: Forensic Scientist' }),
   ).toBeVisible();
   await expect(host.page.getByText('Everyone knows you’re the Forensic Scientist.')).toBeVisible();
-  await expect(host.page.getByRole('button', { name: 'Reveal your role card' })).toHaveCount(0);
+  await expect(host.page.getByRole('button', { name: '👁️ Show your role' })).toHaveCount(0);
   if (await nav.isVisible()) await nav.getByRole('button', { name: 'Scene' }).click();
   for (const p of rest) await expect(p.page.getByText('🔬 Forensic Scientist: Hana')).toBeVisible();
   // The four Location tiles look alike, so the picker letters them.

@@ -1,5 +1,4 @@
-import { Button, Modal, Peek, cn } from '@vt/ui';
-import { type PointerEvent, useRef, useState } from 'react';
+import { Modal, Peek, cn } from '@vt/ui';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
 import type { Known, RoleId, RoundTableView } from '../logic/types.ts';
@@ -154,63 +153,27 @@ export function RoleReveal({
   view: RoundTableView;
   showGuide: (topic?: unknown) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [held, setHeld] = useState(false);
-  const [drag, setDrag] = useState(0);
-  const start = useRef<number | null>(null);
-  const shown = open || held;
-  const down = (e: PointerEvent<HTMLDivElement>) => {
-    start.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setHeld(true);
-  };
-  const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (start.current === null) return;
-    setDrag(Math.max(0, start.current - e.clientY));
-  };
-  const up = () => {
-    if (drag > 60) setOpen(true);
-    start.current = null;
-    setDrag(0);
-    setHeld(false);
-  };
   return (
-    <section aria-label="Your role card" className="space-y-2">
-      <div className="flex justify-center">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="min-h-11"
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? '🙈 Hide my role' : '👁️ Show my role'}
-        </Button>
-      </div>
-      <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
-        {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
-            page's text) could read. */}
-        {shown ? <RoleDetails view={view} showGuide={showGuide} /> : <div className="h-64" />}
-        {!open && (
-          <div
-            role="presentation"
-            onPointerDown={down}
-            onPointerMove={move}
-            onPointerUp={up}
-            onPointerCancel={up}
-            style={{ transform: `translateY(-${drag}px)` }}
-            className={cn(
-              'absolute inset-0 flex cursor-grab touch-none flex-col items-center justify-center gap-2 bg-gradient-to-b from-stone-800 to-stone-950 text-stone-100 select-none',
-              held && drag < 8 && 'opacity-0',
-            )}
-          >
+    <section aria-label="Your role card">
+      {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
+          page's text) could read. */}
+      <Peek
+        what="my role"
+        slide
+        cover={
+          <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-950 text-stone-100">
             <span aria-hidden className="text-3xl">
               ⬆️
             </span>
             <span className="font-semibold">Slide up, or hold, to see your role</span>
             <span className="text-xs text-stone-400">Keep it hidden from the others</span>
-          </div>
-        )}
-      </div>
+          </span>
+        }
+      >
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+          <RoleDetails view={view} showGuide={showGuide} />
+        </div>
+      </Peek>
     </section>
   );
 }

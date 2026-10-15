@@ -66,9 +66,9 @@ test('eight players with every Allies role: the Allies Phase, then the Reversal'
   const inside = await withRole(rest, 'Inside Man');
   const guard = await withRole(rest, 'Protective Detail');
   // The Protective Detail knows the Witness.
-  await guard.page.getByRole('button', { name: 'Reveal your role card' }).click();
+  await guard.page.getByRole('button', { name: '👁️ Show your role' }).click();
   await expect(guard.page.getByText(`The Witness is ${witness.name}.`)).toBeVisible();
-  await guard.page.getByRole('button', { name: 'Hide your role card' }).click();
+  await guard.page.getByRole('button', { name: '🙈 Hide your role' }).click();
 
   // After round 1: the Allies Phase. The Lab Technician checks one of the Murderer's cards.
   await endDiscussion(players, 'Next round');
