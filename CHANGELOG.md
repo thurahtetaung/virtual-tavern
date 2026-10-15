@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.5...v0.37.6) (2026-10-15)
+
+
+### Bug Fixes
+
+* **round-table:** keep your role off the My role button, the quest status line and the quest tip ([#203](https://github.com/thurahtetaung/virtual-tavern/issues/203)) ([64f765f](https://github.com/thurahtetaung/virtual-tavern/commit/64f765ff211229265eb8baf9e187fa55509e7c05))
+
 ## [0.37.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.4...v0.37.5) (2026-10-14)
 
 
