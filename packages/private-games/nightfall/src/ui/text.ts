@@ -428,7 +428,9 @@ export function describeNote(
         ? 'Your card is shielded, so you couldn’t act.'
         : note.role === 'robber'
           ? 'There was no one to rob: every other card is shielded.'
-          : 'There was nobody you could choose.';
+          : note.role === 'exposer'
+            ? 'Every centre card was already face up, so you turned none.'
+            : 'There was nobody you could choose.';
     case 'feared':
       return `You held the ${deck.markName('fear')}, so you slept through your turn as the ${r(note.role)}.`;
     case 'passed':
@@ -614,7 +616,9 @@ export function describeNoteAbout(
         ? `${by}’s card was shielded, so they couldn’t act.`
         : note.role === 'robber'
           ? `${by} had no one to rob.`
-          : `${by} had nobody to choose.`;
+          : note.role === 'exposer'
+            ? `Every centre card was already face up, so ${by} turned none.`
+            : `${by} had nobody to choose.`;
     case 'feared':
       return `${by} held the ${deck.markName('fear')}, and slept through their turn.`;
     case 'passed':
