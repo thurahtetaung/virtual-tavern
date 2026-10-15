@@ -8,6 +8,8 @@ import {
   DEFAULT_MUSIC_VOLUME,
   DUCK_FADE_MS,
   type QueuedClip,
+  type Said,
+  afterClip,
   clipsFor,
   cuesFor,
   devicePlaysMusic,
@@ -19,6 +21,7 @@ import {
   musicTarget,
   nextClip,
   ramp,
+  stillSaid,
   trackFor,
 } from './audio.ts';
 
@@ -170,10 +173,11 @@ export function useSound({
 }): { said: CuePart[] } {
   const unlocked = useGesture();
   const speaks = deviceSpeaks(view.settings.narration, isHost);
-  const [said, setSaid] = useState<CuePart[]>([]);
+  const [said, setSaid] = useState<Said | null>(null);
   const [narrating, setNarrating] = useState(false);
   const played = useRef(new Set<string>());
   const queue = useRef<QueuedClip[]>([]);
+  const turns = useRef(0);
   const voice = useRef<HTMLAudioElement | null>(null);
   const mixer = useRef<Mixer | null>(null);
   const cues = cuesFor(view);
@@ -183,7 +187,7 @@ export function useSound({
   useEffect(() => {
     const list = JSON.parse(cueKey) as Cue[];
     const playNext = () => {
-      // Clips whose moment has passed (a long clip ran over) are dropped, not played late.
+      // Clips whose moment has passed (the device was away) are dropped, not played late.
       const { clip, rest } = nextClip(queue.current, Date.now() + clockOffset);
       queue.current = rest;
       if (!clip) {
@@ -193,21 +197,36 @@ export function useSound({
       voice.current ??= new Audio();
       const el = voice.current;
       el.src = assetUrl(clip.src);
-      el.onended = playNext;
-      el.onerror = playNext;
+      // The cue's next clip is due once this one has had its length (none if it never played).
+      // Only the clip playing now moves the queue on: a replaced clip's play() rejects late.
+      const turn = ++turns.current;
+      const finish = (lengthMs: number) => {
+        if (turn !== turns.current) return;
+        turns.current++;
+        queue.current = afterClip(queue.current, clip, lengthMs);
+        playNext();
+      };
+      el.onended = () => {
+        finish(Number.isFinite(el.duration) ? el.duration * 1000 : 0);
+      };
+      el.onerror = () => {
+        finish(0);
+      };
       setNarrating(true);
-      void el.play().catch(playNext);
+      void el.play().catch(() => {
+        finish(0);
+      });
     };
     const check = () => {
       const now = Date.now() + clockOffset;
       for (const cue of dueCues(list, now, played.current)) {
         played.current.add(cue.id);
-        setSaid(cue.parts);
+        setSaid({ cue: cue.id, parts: cue.parts });
         if (!speaks || !unlocked) continue;
         const clips = clipsFor(manifest?.narration, cue.lines);
         const idle = voice.current?.paused ?? true;
         // A new cue replaces clips still waiting from an older one.
-        queue.current = enqueueClips(clips, cue.at);
+        queue.current = enqueueClips(clips, cue.at, cue.id);
         if (idle) playNext();
       }
     };
@@ -220,7 +239,7 @@ export function useSound({
 
   // Text from an earlier phase shouldn't linger.
   useEffect(() => {
-    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') setSaid([]);
+    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') setSaid(null);
   }, [view.phase]);
 
   // Music: the phase's track, crossfaded, ducked under the narration.
@@ -254,5 +273,6 @@ export function useSound({
     };
   }, []);
 
-  return { said };
+  // A step that has ended says nothing more, not even for the moment before the next cue is due.
+  return { said: stillSaid(said, cues) };
 }

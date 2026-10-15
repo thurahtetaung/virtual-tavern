@@ -138,6 +138,21 @@ describe('narration as text', () => {
     );
     expect(narrationText(FRAME_LINES.vote, deck, { awake: true })).toMatch(/^Time’s up/);
   });
+
+  it('names only the evil sides in play when it warns of an epic battle', () => {
+    const say = (roles: RoleId[]) =>
+      narrationText(FRAME_LINES.epicBattle, deck, { awake: false, roles });
+    expect(say(['werewolf', 'alien', 'oracle'])).toBe(
+      'Werewolves and aliens tonight: prepare for an epic battle!',
+    );
+    expect(say(['vampire', 'werewolf'])).toBe(
+      'Werewolves and vampires tonight: prepare for an epic battle!',
+    );
+    expect(say(['vampire', 'alien', 'werewolf'])).toBe(
+      'Werewolves, vampires and aliens tonight: prepare for an epic battle!',
+    );
+    expect(say([])).toBe('Prepare for an epic battle!');
+  });
 });
 
 describe('Marks through the night', () => {
