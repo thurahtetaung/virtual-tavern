@@ -18,6 +18,7 @@ import {
 } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import type { Status } from './status.ts';
+import { settingsSummary } from './summary.ts';
 
 type Act = (a: InquestAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -190,17 +191,11 @@ export function Lobby({
 
       <LobbySettings
         editable={host}
-        summary={[
-          `Forensic Scientist: ${FS_MODES.find((m) => m.id === s.fsMode)!.label.toLowerCase()}`,
-          s.accomplice && content.roleName('accomplice'),
-          s.accomplice && s.witness && content.roleName('witness'),
-          s.events && 'events',
-          allies.on && 'Allies',
-          presentationsOf(s) && 'presentations',
-          finalOf(s) && 'final accusations',
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        summary={settingsSummary(
+          s,
+          FS_MODES.find((m) => m.id === s.fsMode)!.label,
+          content.roleName,
+        )}
         className="space-y-3"
       >
         {host && <h3 className="font-bold">Settings</h3>}

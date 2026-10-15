@@ -113,15 +113,12 @@ export function Lobby({
       </Panel>
       <LobbySettings
         editable={editable}
-        title="Game settings"
         summary={[
           `${s.roundSeconds / 60} min rounds`,
           s.rounds === null ? 'a round each' : `${s.rounds} ${s.rounds === 1 ? 'round' : 'rounds'}`,
           `${view.locations.length} locations`,
           s.twoSpies && 'two spies',
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        ]}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Game settings</h3>}

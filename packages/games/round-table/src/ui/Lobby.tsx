@@ -176,7 +176,10 @@ export function Lobby({
       <LobbySettings
         editable={editable}
         title="Roles"
-        summary={`${PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up'} · ${good} Good vs ${evil} Evil`}
+        summary={[
+          PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up',
+          `${good} Good vs ${evil} Evil`,
+        ]}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Roles</h3>}
@@ -247,9 +250,7 @@ export function Lobby({
             { clueSeconds: s.pickSeconds, guessSeconds: s.voteSeconds, timerMode: s.timerMode },
             { clue: 'leader', guess: 'votes' },
           ),
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        ]}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Options</h3>}

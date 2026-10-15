@@ -249,9 +249,7 @@ export function Lobby({
             },
             { clue: 'turns', guess: 'votes' },
           ),
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        ]}
         className="space-y-3"
       >
         {host && <h3 className="font-bold">Options</h3>}

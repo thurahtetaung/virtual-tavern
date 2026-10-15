@@ -12,22 +12,10 @@ import {
 } from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, ROUND_COUNTS } from '../logic/types.ts';
 import type { Status } from './status.ts';
+import { settingsSummary, timerSummary } from './summary.ts';
 import { Table } from './Table.tsx';
 
 type Act = (a: HoodwinkAction) => Promise<boolean>;
-
-const seconds = (s: number) => (s % 60 === 0 ? `${s / 60} min` : `${s} s`);
-
-/** One line for the folded timer settings, e.g. "lies 1 min, votes 30 s, strict". */
-function timerSummary(s: HoodwinkView['settings']): string {
-  if (s.clueSeconds === null && s.guessSeconds === null) return 'no time limits';
-  const parts = [
-    s.clueSeconds !== null && `lies ${seconds(s.clueSeconds)}`,
-    s.guessSeconds !== null && `votes ${seconds(s.guessSeconds)}`,
-    s.timerMode === 'strict' ? 'strict' : 'reminder only',
-  ];
-  return parts.filter(Boolean).join(', ');
-}
 
 const decksSummary = (chosen: Choice[], total: number) =>
   chosen.length === 0
@@ -58,21 +46,7 @@ export function Lobby({
       <Panel>
         <Table view={view} online={online} act={act} hostId={room.hostId} />
       </Panel>
-      <LobbySettings
-        editable={editable}
-        title="Game settings"
-        summary={[
-          `${view.settings.rounds} rounds`,
-          (() => {
-            const names = view.decks
-              .filter((d) => view.settings.deckIds.includes(d.id))
-              .map((d) => d.name);
-            return names.length > 1 ? `${names[0]} +${names.length - 1}` : (names[0] ?? 'no deck');
-          })(),
-          timerSummary(view.settings),
-        ].join(' · ')}
-        className="space-y-4"
-      >
+      <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
         {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <ChoicePicker
           selectedIds={view.settings.deckIds}

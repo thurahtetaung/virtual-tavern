@@ -6,7 +6,7 @@ import { wordListsLine } from './word-list-picker.tsx';
 
 const html = (editable: boolean) =>
   renderToStaticMarkup(
-    <LobbySettings editable={editable} summary="2 min turns · strict">
+    <LobbySettings editable={editable} summary={['2 min turns', false, 'strict']}>
       <p>FULL-SETTINGS</p>
     </LobbySettings>,
   );
