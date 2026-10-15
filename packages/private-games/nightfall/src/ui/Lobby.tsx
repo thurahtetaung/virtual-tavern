@@ -291,8 +291,8 @@ function AlienOptions({
       </div>
       <p className="text-sm text-stone-600 dark:text-stone-400">
         With these cards the narrator draws some instructions at random, like a hidden deck. These
-        are the odds of each{editable ? '; tap − or + to change them' : ''}. Only the players it
-        wakes are told what came up, but ripples are announced to everyone.
+        are the odds of each{editable ? '; tap − or + to change them' : ''}. The narrator says what
+        came up out loud for everyone, as it does the ripples, but never who acts on it.
       </p>
       {tables.map((t) => {
         const entries = weightsOf(t, w);

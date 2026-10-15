@@ -12,7 +12,7 @@ import {
 import { guide } from './guide.ts';
 import { nightfallAwards } from './awards.ts';
 import { insights } from './insights.ts';
-import { type StepCtx, actInStep, beginStep, endStep, promptFor } from './night.ts';
+import { type StepCtx, actInStep, beginStep, endStep, promptFor, replyOracle } from './night.ts';
 import { buildNightPlan, stepDef } from './plan.ts';
 import { cardsNeeded, recommended } from './presets.ts';
 import { weightsProblem } from './tables.ts';
@@ -550,7 +550,8 @@ function playerLeft(state: NightfallState, playerId: PlayerId, now: number): Nig
 function nextDeadline(state: NightfallState): number | null {
   const r = state.round;
   if (!r) return null;
-  if (state.stage === 'night') return r.night?.deadline ?? null;
+  // The Oracle's reply comes at its fixed moment, before her step ends.
+  if (state.stage === 'night') return r.night?.replyAt ?? r.night?.deadline ?? null;
   if (state.stage === 'day') return r.dayDeadline;
   if (state.stage === 'vote') return r.voteDeadline;
   return null;
@@ -577,8 +578,15 @@ function heldDeadline(state: NightfallState, now: number, due: number): Nightfal
   const next = clone(state);
   const c = stepCtx(next, hiddenRng(state, now), now);
   if (!next.round!.night!.actors.some((p) => promptFor(c, p))) return null;
-  next.round!.night!.heldFrom = from;
-  next.round!.night!.deadline = now + 1000;
+  const held = next.round!.night!;
+  held.heldFrom = from;
+  if (held.replyAt === undefined) held.deadline = now + 1000;
+  else {
+    // Waiting for the Oracle's answer moves her reply and the rest of her step along with it.
+    const shift = now + 1000 - held.replyAt;
+    held.replyAt += shift;
+    held.deadline += shift;
+  }
   return next;
 }
 
@@ -592,7 +600,13 @@ function onDeadline(state: NightfallState, now: number): NightfallState {
   }
   const rng = hiddenRng(state, now);
   let next: NightfallState;
-  if (state.stage === 'night') next = advanceNight(state, now, rng);
+  if (state.stage === 'night' && state.round!.night!.replyAt !== undefined) {
+    next = clone(state);
+    const night = next.round!.night!;
+    delete night.heldFrom;
+    // Said at its scheduled moment, which every device works out from the step's deadline.
+    replyOracle(stepCtx(next, rng, night.replyAt));
+  } else if (state.stage === 'night') next = advanceNight(state, now, rng);
   else if (state.stage === 'day') next = startVote(clone(state), now);
   else next = finish(clone(state));
   return { ...next, seed: newSeed(rng) };
@@ -686,10 +700,15 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
             };
           })()
         : null;
+    // The narrator says the step's random instruction out loud: everyone hears it, never who acts.
+    const said = night.index >= 0 ? night.picks?.[night.index] : undefined;
+    const pick = said && structuredClone(said);
+    if (pick?.kind === 'alien') delete pick.forced;
     out.night = {
       index: night.index,
       count: night.plan.length,
       deadline: night.deadline,
+      ...(pick ? { pick } : {}),
       acting,
     };
   }

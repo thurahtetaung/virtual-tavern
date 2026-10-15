@@ -4,6 +4,7 @@ import { type Manifest, assetUrl } from './assets.ts';
 import {
   CROSSFADE_MS,
   type Cue,
+  type CuePart,
   DEFAULT_MUSIC_VOLUME,
   DUCK_FADE_MS,
   type QueuedClip,
@@ -151,8 +152,8 @@ class Mixer {
 }
 
 /**
- * Plays the narration (and background music) for this device, as the host chose, and returns the
- * narration lines in progress so every screen can show them as text.
+ * Plays the narration (and background music) for this device, as the host chose, and returns
+ * what the narrator is saying so every screen can show it as text.
  */
 export function useSound({
   view,
@@ -166,10 +167,10 @@ export function useSound({
   isHost: boolean;
   clockOffset: number;
   device: DeviceSound;
-}): { lines: string[] } {
+}): { said: CuePart[] } {
   const unlocked = useGesture();
   const speaks = deviceSpeaks(view.settings.narration, isHost);
-  const [lines, setLines] = useState<string[]>([]);
+  const [said, setSaid] = useState<CuePart[]>([]);
   const [narrating, setNarrating] = useState(false);
   const played = useRef(new Set<string>());
   const queue = useRef<QueuedClip[]>([]);
@@ -201,7 +202,7 @@ export function useSound({
       const now = Date.now() + clockOffset;
       for (const cue of dueCues(list, now, played.current)) {
         played.current.add(cue.id);
-        setLines(cue.lines);
+        setSaid(cue.parts);
         if (!speaks || !unlocked) continue;
         const clips = clipsFor(manifest?.narration, cue.lines);
         const idle = voice.current?.paused ?? true;
@@ -219,7 +220,7 @@ export function useSound({
 
   // Text from an earlier phase shouldn't linger.
   useEffect(() => {
-    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') setLines([]);
+    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') setSaid([]);
   }, [view.phase]);
 
   // Music: the phase's track, crossfaded, ducked under the narration.
@@ -253,5 +254,5 @@ export function useSound({
     };
   }, []);
 
-  return { lines };
+  return { said };
 }

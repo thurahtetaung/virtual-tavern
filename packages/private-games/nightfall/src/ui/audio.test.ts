@@ -109,7 +109,12 @@ describe('narration cues', () => {
     expect(day[0]!.at).toBe(h.now);
     h.tick();
     expect(cuesFor(nightfall.view(h.state, 'A'))).toEqual([
-      { id: '1:vote', at: h.now, lines: ['vote:start'] },
+      {
+        id: '1:vote',
+        at: h.now,
+        lines: ['vote:start'],
+        parts: [{ kind: 'line', key: 'vote:start' }],
+      },
     ]);
   });
 

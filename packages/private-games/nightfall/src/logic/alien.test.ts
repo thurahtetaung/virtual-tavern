@@ -1,7 +1,14 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { actorsFor } from './night.ts';
-import { buildNightPlan, publicPlan, stepDef, stepFactor } from './plan.ts';
+import {
+  ORACLE_REPLY_MS,
+  buildNightPlan,
+  publicPlan,
+  stepDef,
+  stepFactor,
+  stepMs,
+} from './plan.ts';
 import { SCENARIOS, scenarioRoles } from './presets.ts';
 import { ROLES, ROLE_IDS, type RoleId, hostileGroupsIn } from './roles.ts';
 import {
@@ -1712,7 +1719,8 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
       for (const { views: byViewer, acting } of views)
         for (const [id, v] of Object.entries(byViewer)) {
           const { settings: _s, notes: _n, myRole: _m, announcements: _a, ...rest } = v;
-          if (rest.night) rest.night = { ...rest.night, acting: null };
+          // The step's instruction is said out loud for everyone (checked below); nothing else is.
+          if (rest.night) rest.night = { ...rest.night, acting: null, pick: undefined };
           const json = JSON.stringify(rest);
           for (const role of EVERY_ROLE) expect(json, `${id} sees ${role}`).not.toContain(role);
           for (const k of [
@@ -1733,6 +1741,30 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
   );
 
   it.each(runs)(
+    'says every step’s instruction to everyone, never who acts (seed %i, %s)',
+    (seed, key) => {
+      const { h, views } = playAlienNight(seed, key);
+      let said = 0;
+      for (const { step, views: byViewer } of views) {
+        const drawn = step >= 0 ? h.state.round!.night!.picks?.[step] : undefined;
+        for (const [id, v] of Object.entries(byViewer)) {
+          const pick = v.night!.pick;
+          if (!drawn) {
+            expect(pick, `${id} at step ${step}`).toBeUndefined();
+            continue;
+          }
+          said++;
+          // Everything but whether the Oracle forced the aliens' swap.
+          const { forced: _f, ...expected } = drawn as typeof drawn & { forced?: boolean };
+          expect(pick, `${id} at step ${step}`).toEqual(expected);
+          expect(JSON.stringify(pick)).not.toMatch(/"forced"|"[A-J]"/);
+        }
+      }
+      expect(said).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(runs)(
     'is the same for everyone not acting, and never changes mid-step (seed %i, %s)',
     (seed, key) => {
       const { h, views } = playAlienNight(seed, key);
@@ -1747,15 +1779,18 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
         for (const id of idle) expect(shared(byViewer[id]!), id).toBe(shared(byViewer[first]!));
       }
       for (const id of [...h.ids, 'watcher']) {
-        let last: [number, string] | null = null;
+        let last: [string, string] | null = null;
         for (const { step, acting, views: byViewer } of views) {
           if (acting.has(id) || h.state.round!.observers?.includes(id)) {
             last = null;
             continue;
           }
+          // Only what the narrator says out loud (the Oracle's reply, at its fixed moment) may
+          // change within a step.
+          const at = `${step}:${byViewer[id]!.announcements.length}`;
           const now = JSON.stringify(byViewer[id]);
-          if (last && last[0] === step) expect(now, `${id} at step ${step}`).toBe(last[1]);
-          last = [step, now];
+          if (last && last[0] === at) expect(now, `${id} at step ${step}`).toBe(last[1]);
+          last = [at, now];
         }
       }
     },
@@ -1779,14 +1814,18 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
         settings: { stepSeconds: 10, weights: ws(STARE, NO_RIPPLE) },
       });
       const out: number[] = [];
+      let start = h.now;
       while (h.state.stage === 'night') {
-        const start = h.now;
+        const index = h.state.round!.night!.index;
         for (const p of h.state.round!.night!.actors) {
           const pr = h.view(p).night!.acting?.prompt;
           if (pr && !pr.mandatory) h.night(p, { pass: true });
         }
+        // The Oracle's reply is a moment inside her step, not a step of its own.
         h.tick();
+        if (h.state.stage === 'night' && h.state.round!.night!.index === index) continue;
         out.push(h.now - start);
+        start = h.now;
       }
       return out;
     };
@@ -1794,7 +1833,47 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
     const centred = durations(roles.slice(3, 8), roles.slice(0, 3));
     expect(centred).toEqual(held);
     const plan = buildNightPlan([...roles, 'alien']);
-    expect(held.slice(1)).toEqual(plan.map((id) => stepFactor(id) * 10_000));
+    expect(held.slice(1)).toEqual(plan.map((id) => stepMs(id, 10)));
+    expect(held[1]).toBe(stepFactor('oracle') * 10_000 + ORACLE_REPLY_MS);
+  });
+});
+
+describe('the Oracle’s reply', () => {
+  const run = (oracle: 'held' | 'centre', answer: boolean) => {
+    const h = table({
+      players: [oracle === 'held' ? 'oracle' : 'villager', 'werewolf', 'seer', 'villager'],
+      center: [oracle === 'centre' ? 'oracle' : 'villager', 'villager', 'villager'],
+      settings: { stepSeconds: 10, weights: ws(only('oracle', 'number'), STARE, NO_RIPPLE) },
+    });
+    h.tick();
+    expect(h.step()).toBe('oracle');
+    const start = h.now;
+    const end = h.state.round!.night!.deadline;
+    if (answer) h.night('A', { choice: h.view('A').night!.acting!.prompt!.choices![0]! });
+    // Nothing is said before the reply's moment, even when she answered at once.
+    expect(h.view('B').announcements).toEqual([]);
+    h.tick();
+    const reply = h.now;
+    expect(h.step()).toBe('oracle');
+    expect(h.view('B').announcements).toMatchObject([
+      { kind: 'oracle-number', step: 0, at: reply },
+    ]);
+    h.tick();
+    expect(h.step()).toBe('werewolves');
+    // The next wake says nothing more of hers.
+    expect(h.view('B').announcements).toHaveLength(1);
+    return { reply: reply - start, end: end - start, length: h.now - start };
+  };
+
+  it('comes at a fixed moment inside her step, held or in the centre, before the next wake', () => {
+    const centre = run('centre', false);
+    expect(centre).toEqual({
+      reply: 20_000,
+      end: 20_000 + ORACLE_REPLY_MS,
+      length: 20_000 + ORACLE_REPLY_MS,
+    });
+    expect(run('held', false)).toEqual(centre);
+    expect(run('held', true)).toEqual(centre);
   });
 });
 

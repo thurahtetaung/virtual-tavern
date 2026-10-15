@@ -1,8 +1,16 @@
 import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
-import { NIGHT_ORDER, REPEAT, type StepDef, buildNightPlan, repeatStepOf, stepMs } from './plan.ts';
+import {
+  NIGHT_ORDER,
+  ORACLE_REPLY_MS,
+  REPEAT,
+  type StepDef,
+  buildNightPlan,
+  pickRoleOf,
+  repeatStepOf,
+  stepMs,
+} from './plan.ts';
 import { type MarkId, type NostraTeam, ROLES, type RoleId, nostraTeamOf } from './roles.ts';
 import {
-  TABLE_OF,
   blobOptions,
   evenly,
   numberOf,
@@ -1681,10 +1689,32 @@ const oracle: RoleAction = {
   },
 };
 
-/** The Oracle's step at its end: the narrator answers for her if she can't, and says the rest. */
+/**
+ * The narrator's reply to the Oracle, at its fixed moment in her step (`replyAt`): the game
+ * answers for her if time ran out (as at the end of any step), then `endOracle` replies.
+ */
+export function replyOracle(c: StepCtx) {
+  const night = c.r.night!;
+  delete night.replyAt;
+  for (const p of night.actors) {
+    const w = night.work[p];
+    if (!w || w.done || w.stage !== 'start') continue;
+    const pr = actionFor(c, p).prompt(c, p, w);
+    const pick = pr?.mandatory ? randomPick(pr, c.rng, c.step) : null;
+    if (!pick) continue;
+    const before = (c.r.notes[p] ?? []).length;
+    actionFor(c, p).act(c, p, w, pick);
+    for (const n of (c.r.notes[p] ?? []).slice(before)) n.auto = true;
+    for (const t of night.timeline) if (t.by === p && t.step === c.step) t.auto = true;
+  }
+  endOracle(c);
+}
+
+/** The narrator's reply: it answers for her if she can't (her card is in the centre), and says the rest. */
 function endOracle(c: StepCtx) {
   const o = c.r.oracle;
-  if (!o) return;
+  if (!o || o.replied) return;
+  o.replied = true;
   if (o.answer === null) {
     o.centre = !c.r.order.some(
       (q) => c.r.players[q]!.night === 'oracle' && c.r.players[q]!.dealt === 'oracle',
@@ -1947,9 +1977,8 @@ function watch(c: StepCtx) {
 /** Steps whose random part is drawn as they begin, from their role's table. */
 function drawPick(c: StepCtx) {
   const night = c.r.night!;
-  const role =
-    c.def.id === 'aliens' || (c.def.repeat && c.def.role === 'alien') ? 'alien' : c.def.role;
-  if (!TABLE_OF[role] || (role === 'oracle' && c.def.doppel)) return;
+  const role = pickRoleOf(c.def.id);
+  if (!role) return;
   // A repeat does again what the role was told before ("whatever you did, do it again"), with
   // fresh choices: it reuses the original step's instruction.
   const before = c.def.repeat
@@ -2128,6 +2157,8 @@ export function beginStep(c: StepCtx, now: number) {
   const night = c.r.night!;
   night.index = c.step;
   night.deadline = now + stepMs(c.def.id, c.settings.stepSeconds);
+  if (c.def.id === 'oracle') night.replyAt = night.deadline - ORACLE_REPLY_MS;
+  else delete night.replyAt;
   prepareStep(c);
   night.actors = actorsFor(c.r, c.def);
   night.work = Object.fromEntries(

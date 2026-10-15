@@ -41,10 +41,12 @@ import {
   alienRolesIn,
   announcementText,
   announcementTitle,
+  pickAbout,
   rippleText,
   toldText,
 } from './alienText.ts';
 import type { Deck } from './assets.ts';
+import type { CuePart } from './audio.ts';
 import {
   ArtifactChip,
   CardBack,
@@ -284,33 +286,41 @@ const NARRATION_SHOW_MS = 8000;
  * seconds after it is said, so a night line never lingers into the day.
  */
 function Narration({
-  lines,
+  said,
+  view,
   deck,
   awake,
+  told = false,
   readyEarly = false,
 }: {
-  lines: string[];
+  said: CuePart[];
+  view: NightfallView;
   deck: Deck;
   awake: boolean;
+  /** The step's instruction already shows in your own "The narrator says" box. */
+  told?: boolean;
   readyEarly?: boolean;
 }) {
-  const [spent, setSpent] = useState<string[] | null>(null);
+  const [spent, setSpent] = useState<CuePart[] | null>(null);
   useEffect(() => {
-    if (!lines.length) return;
+    if (!said.length) return;
     const t = setTimeout(() => {
-      setSpent(lines);
+      setSpent(said);
     }, NARRATION_SHOW_MS);
     return () => {
       clearTimeout(t);
     };
-  }, [lines]);
-  const text =
-    spent === lines
-      ? ''
-      : lines
-          .map((l) => narrationText(l, deck, { awake, readyEarly }))
-          .filter(Boolean)
-          .join(' ');
+  }, [said]);
+  const at = numberedOf(view);
+  // Announcements have their own 📣 list; the step's instruction is said to everyone in the
+  // third person, unless your own box already tells you.
+  const words = (part: CuePart) =>
+    part.kind === 'line'
+      ? narrationText(part.key, deck, { awake, readyEarly })
+      : part.kind === 'pick' && !told
+        ? pickAbout(part.pick, at, deck, { doppel: part.doppel })
+        : '';
+  const text = spent === said ? '' : said.map(words).filter(Boolean).join(' ');
   return (
     <p
       aria-live="polite"
@@ -875,7 +885,7 @@ export function Night({
   act,
   status,
   deck,
-  lines,
+  narration,
   sound,
 }: {
   view: NightfallView;
@@ -883,7 +893,7 @@ export function Night({
   act: Act;
   status: Status;
   deck: Deck;
-  lines: string[];
+  narration: CuePart[];
   sound: ReactNode;
 }) {
   const night = view.night!;
@@ -959,7 +969,13 @@ export function Night({
             }
           />
         </div>
-        <Narration lines={lines} deck={deck} awake={acting !== null} />
+        <Narration
+          said={narration}
+          view={view}
+          deck={deck}
+          awake={acting !== null}
+          told={acting?.told !== undefined}
+        />
         {acting ? (
           // Its own surface rather than <Panel>: the night is dark in both themes.
           <div className="space-y-3 rounded-2xl bg-indigo-900/70 p-4 text-indigo-50 shadow-sm ring-1 ring-special/50 dark:ring-indigo-500/50">
@@ -1327,7 +1343,7 @@ export function Day({
   act,
   status,
   deck,
-  lines,
+  narration,
   sound,
 }: {
   view: NightfallView;
@@ -1335,7 +1351,7 @@ export function Day({
   act: Act;
   status: Status;
   deck: Deck;
-  lines: string[];
+  narration: CuePart[];
   sound: ReactNode;
 }) {
   const [tab, setTab] = useState<DayTab>('table');
@@ -1383,7 +1399,8 @@ export function Day({
         </div>
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         <Narration
-          lines={lines}
+          said={narration}
+          view={view}
           deck={deck}
           awake
           readyEarly={

@@ -238,6 +238,86 @@ export function toldText(
   }
 }
 
+/** Sentence words about someone else: "your left neighbour" → "their left neighbour". */
+const theirs = (words: string) =>
+  words
+    .replace(/\byourself\b/g, 'themselves')
+    .replace(/\byours\b/g, 'theirs')
+    .replace(/\byour\b/g, 'their')
+    .replace(/\byou\b/g, 'them');
+
+/**
+ * A step's random instruction as everyone hears it, in the third person: the narrator says it out
+ * loud for the whole table, while only those it wakes read `toldText`. `doppel`: a Doppelgänger
+ * re-wake, so she is the one told.
+ */
+export function pickAbout(
+  pick: StepPick,
+  at: Numbered,
+  deck: Deck,
+  opts: { doppel?: boolean } = {},
+): string {
+  const from = (set: PlayerSet | undefined, plural = false) => theirs(setWords(set, at, plural));
+  const who = (role: RoleId) => `The ${deck.name(opts.doppel ? 'doppelganger' : role)}`;
+  switch (pick.kind) {
+    case 'alien':
+      switch (pick.action) {
+        case 'view':
+          return `Each alien may secretly look at one card of ${from(pick.from)}.`;
+        case 'all-view':
+          return `The aliens may look at one card of ${from(pick.from)} together.`;
+        case 'stare':
+          return 'The aliens just stare at each other.';
+        case 'show':
+          return 'The aliens show each other their cards.';
+        case 'timer':
+          return 'The aliens have cut the day’s timer in half.';
+        case 'left':
+        case 'right':
+          return `Each alien gives their card to the alien on their ${pick.action}.`;
+        case 'new-alien':
+          return `${whoWords(pick.fists!, at)}: fists out. The aliens tap one, and that player becomes an alien.`;
+        case 'alien-helper':
+          return `${whoWords(pick.fists!, at)}: fists out. The aliens tap one, and that player joins their side without being an alien.`;
+      }
+      return '';
+    case 'oracle':
+      return `${who('oracle')} is asked: “${oracleQuestion(pick.question)}”`;
+    case 'body-snatcher':
+      if (pick.action === 'center')
+        return `${who('body-snatcher')} takes a card from the centre: it is an Alien card now.`;
+      if (pick.action === 'pretend')
+        return `${who('body-snatcher')} only pretends to take someone’s card.`;
+      return `${who('body-snatcher')} takes the card of a player who isn’t an alien, from ${from(pick.from)}: it is an Alien card now.`;
+    case 'psychic':
+      return `${who('psychic')} may look at ${pick.count === 2 ? 'two cards' : 'one card'} of ${from(pick.from)}.`;
+    case 'rascal':
+      switch (pick.action) {
+        case 'troublemaker':
+          return `${who('rascal')} may swap the cards of ${from(pick.from, true)}, without looking.`;
+        case 'witch':
+          return `${who('rascal')} may look at a card of ${from(pick.from)}, and must then give it to any player.`;
+        case 'robber':
+          return `${who('rascal')} may swap their card with one of ${from(pick.from)}, then look at the new card.`;
+        case 'drunk':
+          return `${who('rascal')} must swap their card with one of ${from(pick.from)}, without looking.`;
+        case 'idiot':
+          return `${who('rascal')} may move everyone else’s card one seat to the left, or one to the right.`;
+      }
+      return '';
+    case 'exposer':
+      return `${who('exposer')} turns ${pick.count === 1 ? 'one centre card' : `${pick.count === 2 ? 'two' : 'three'} centre cards`} face up: exactly that many, or none.`;
+    case 'mortician':
+      if (pick.action === 'pretend')
+        return `${who('mortician')} only pretends to look at someone’s card.`;
+      if (pick.action === 'both-cards')
+        return `${who('mortician')} may look at both their neighbours’ cards.`;
+      return `${who('mortician')} may look at the card of ${from(pick.from)}.`;
+    case 'empath':
+      return `${whoWords(pick.who, at)}: eyes closed, point at ${EMPATH[pick.prompt]!.replace(/\byou\b/g, 'they')}. ${who('empath')} watches.`;
+  }
+}
+
 /** A Nostradamus team, in words. */
 export function nostraTeamWords(team: NostraTeam, deck: Deck): string {
   const role = (r: RoleId) => `the ${deck.name(r)}`;
