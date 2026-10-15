@@ -380,7 +380,7 @@ export function describeNote(
         assassins: [`The ${r('assassin')}`, `No ${r('assassin')} woke up.`],
         apprentices: [`The ${r('apprentice-assassin')}`, `No ${r('apprentice-assassin')} woke up.`],
         aliens: ['Your fellow aliens', 'No other alien woke up.'],
-        'groob-zerb': [`Awake with you`, `Nobody else woke: your rival isn’t among the players.`],
+        'groob-zerb': [`Awake with you`, `Your rival didn’t wake up.`],
       };
       const [some, none] = GROUP[note.group];
       const base = others.length ? `${some}: ${who(others)}.` : none;
