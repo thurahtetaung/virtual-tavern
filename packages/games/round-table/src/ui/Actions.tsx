@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ActOptions } from '@vt/game-sdk';
 import type {
   ProposalView,
+  QuestCard,
   QuestResultView,
   RoundTableAction,
   RoundTableView,
@@ -156,6 +157,8 @@ export function VotePanel({ view, act }: { view: RoundTableView; act: Act }) {
   );
 }
 
+const QUEST_CARDS: QuestCard[] = ['success', 'fail'];
+
 export function QuestPanel({ view, act }: { view: RoundTableView; act: Act }) {
   const quest = view.game!.quest!;
   const role = view.role;
@@ -170,22 +173,25 @@ export function QuestPanel({ view, act }: { view: RoundTableView; act: Act }) {
   return (
     <Panel role="region" className="space-y-2" aria-label="Your quest card">
       <p className="text-sm font-semibold">Play your card in secret:</p>
-      <div className={cn('grid gap-2', role.cards.length > 1 && 'grid-cols-2')}>
-        {role.cards.map((card) => (
-          <Button
-            key={card}
-            size="lg"
-            variant={card === 'success' ? 'blue' : 'red'}
-            className={BIG}
-            onClick={() => void act({ type: 'play', card })}
-          >
-            {card === 'success' ? '✓ Success' : '✕ Fail'}
-          </Button>
-        ))}
+      {/* Everyone gets the same two buttons, so a glance at a phone doesn't give a side away. A loyal
+          player's Fail looks the same but does nothing (aria-disabled keeps it focusable). */}
+      <div className="grid grid-cols-2 gap-2">
+        {QUEST_CARDS.map((card) => {
+          const allowed = role.cards.includes(card);
+          return (
+            <Button
+              key={card}
+              size="lg"
+              variant={card === 'success' ? 'blue' : 'red'}
+              className={BIG}
+              aria-disabled={allowed ? undefined : true}
+              onClick={() => allowed && void act({ type: 'play', card })}
+            >
+              {card === 'success' ? '✓ Success' : '✕ Fail'}
+            </Button>
+          );
+        })}
       </div>
-      {role.loyalty === 'good' && (
-        <p className="text-xs text-stone-500">Loyal players can only play Success.</p>
-      )}
     </Panel>
   );
 }
