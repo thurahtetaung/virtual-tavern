@@ -198,7 +198,7 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
                               'flex items-center gap-1 rounded-full px-2 py-0.5',
                               p.connected
                                 ? 'bg-stone-100 dark:bg-stone-800'
-                                : 'text-stone-400 line-through decoration-stone-400/60',
+                                : 'text-ink-muted line-through decoration-stone-400/60',
                             )}
                           >
                             {p.id === room.hostId && (

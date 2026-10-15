@@ -217,7 +217,7 @@ export function Seats({
                     mark === 'trust' &&
                       'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
                     mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
-                    !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
+                    !mark && 'text-ink-muted ring-stone-300 dark:ring-stone-600',
                   )}
                 >
                   {mark === 'trust' ? '⭐' : mark === 'doubt' ? '✕' : '☆'}

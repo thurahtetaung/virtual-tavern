@@ -32,10 +32,10 @@ export function QuestTrack({
               className={cn(
                 'flex aspect-square w-full max-w-16 items-center justify-center rounded-full text-lg font-bold ring-2 sm:text-xl',
                 result?.success &&
-                  'bg-team-b text-white ring-team-b dark:ring-blue-700 dark:bg-blue-500',
+                  'bg-team-b text-white ring-team-b dark:ring-blue-700 dark:bg-blue-600',
                 result &&
                   !result.success &&
-                  'bg-team-a text-white ring-team-a dark:ring-red-700 dark:bg-red-500',
+                  'bg-team-a text-white ring-team-a dark:ring-red-700 dark:bg-red-600',
                 !result &&
                   (current
                     ? 'bg-accent-soft text-amber-950 ring-4 ring-accent dark:ring-amber-500 dark:bg-amber-500/20 dark:text-amber-100'
@@ -290,7 +290,7 @@ export function Seats({
                   mark === 'trust' &&
                     'bg-accent-line dark:bg-amber-300 text-amber-950 ring-accent dark:ring-amber-500',
                   mark === 'doubt' && 'bg-stone-700 text-white ring-stone-800',
-                  !mark && 'text-stone-400 ring-stone-300 dark:ring-stone-600',
+                  !mark && 'text-ink-muted ring-stone-300 dark:ring-stone-600',
                 )}
               >
                 {mark === 'trust' ? '⭐' : mark === 'doubt' ? '✕' : '☆'}

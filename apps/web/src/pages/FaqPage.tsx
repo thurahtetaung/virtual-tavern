@@ -36,7 +36,7 @@ export function FaqPage() {
                     {item.question}
                     <span
                       aria-hidden
-                      className="text-stone-400 transition group-open:rotate-90 motion-reduce:transition-none"
+                      className="text-ink-muted transition group-open:rotate-90 motion-reduce:transition-none"
                     >
                       ▸
                     </span>

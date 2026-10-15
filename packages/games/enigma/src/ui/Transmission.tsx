@@ -331,7 +331,7 @@ function PastClues({
               {clues.map((c) => (
                 <li key={`${c.round}-${c.clue}`}>{c.clue}</li>
               ))}
-              {clues.length === 0 && <li className="text-stone-400">–</li>}
+              {clues.length === 0 && <li className="text-ink-muted">–</li>}
             </ul>
           </div>
         ))}

@@ -143,7 +143,7 @@ export function Dock({
         >
           <summary className="cursor-pointer list-none font-semibold [&::-webkit-details-marker]:hidden">
             <span aria-hidden>{POWER_EMOJI[power]} </span>
-            {c.powerName(power)} <span className="text-stone-400 group-open:hidden">ⓘ</span>
+            {c.powerName(power)} <span className="text-ink-muted group-open:hidden">ⓘ</span>
           </summary>
           <p className="mt-0.5">{c.powerText(power)}</p>
         </details>

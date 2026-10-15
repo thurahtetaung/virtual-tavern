@@ -177,7 +177,7 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
           <span
             className={cn(
               'block truncate text-lg font-bold',
-              c.cancelled && 'text-stone-400 line-through dark:text-stone-500',
+              c.cancelled && 'text-ink-muted line-through dark:text-stone-500',
             )}
           >
             {c.text}

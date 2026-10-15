@@ -55,7 +55,7 @@ export function TopBar({
       <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-stone-600 dark:text-stone-400">
         <span>{view.phase === 'over' ? 'Game over' : `Round ${g.round}`}</span>
         {yourMove && (
-          <span className="animate-pulse rounded-full bg-accent dark:bg-amber-500 px-2 py-0.5 text-xs font-bold text-white motion-reduce:animate-none">
+          <span className="animate-pulse rounded-full bg-accent dark:bg-amber-500 px-2 py-0.5 text-xs font-bold text-white dark:text-stone-950 motion-reduce:animate-none">
             Your turn
           </span>
         )}

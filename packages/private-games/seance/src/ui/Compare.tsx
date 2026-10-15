@@ -126,6 +126,7 @@ export function Compare({
                 </div>
               </div>
               {pinned.captions?.[n] && (
+                // vt-contrast: the compare view is dark in both themes
                 <p className="text-xs text-stone-400">{pinned.captions[n]}</p>
               )}
             </div>
@@ -163,6 +164,7 @@ export function Compare({
           className="flex h-[36%] shrink-0 flex-col border-t border-white/10 bg-stone-900"
         >
           {stripLabel && (
+            // vt-contrast: the compare view is dark in both themes
             <p className="px-3 pt-1.5 text-xs font-semibold tracking-wide text-stone-400 uppercase">
               {stripLabel}
             </p>
@@ -196,6 +198,7 @@ export function Compare({
                   )}
                 </Card>
                 {strip.captions?.[n] && (
+                  // vt-contrast: the compare view is dark in both themes
                   <p className="truncate text-center text-[11px] text-stone-400">
                     {strip.captions[n]}
                   </p>

@@ -366,6 +366,7 @@ export function NightPanel({
         <p className="text-2xl">🌙</p>
         <p className="font-semibold">Night falls. The Murderer is choosing the crime…</p>
         <div className="flex justify-center">{clock(true)}</div>
+        {/* vt-contrast: on the dark night panel in both themes */}
         <p className="text-sm text-stone-400">
           Look at your role card on the Me tab, and study the suspects meanwhile.
         </p>

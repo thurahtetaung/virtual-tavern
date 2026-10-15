@@ -166,6 +166,7 @@ export function RoleReveal({
               ⬆️
             </span>
             <span className="font-semibold">Slide up, or hold, to see your role</span>
+            {/* vt-contrast: on the dark cover in both themes */}
             <span className="text-xs text-stone-400">Keep it hidden from the others</span>
           </span>
         }

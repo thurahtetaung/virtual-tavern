@@ -120,6 +120,7 @@ export function TableScreen({
               : g.stage === 'discuss'
                 ? '💬 Discussion: talk over the new bullets'
                 : statusFor(view, false, room).text}
+          {/* vt-contrast: on the dark status bar in both themes */}
           <span className="ml-3 text-base font-normal text-stone-400">
             {accuser && f
               ? `${f.index + 1} of ${f.order.length}`
@@ -165,6 +166,7 @@ export function TableScreen({
               <p className="text-3xl font-semibold">
                 {night ? 'Night falls…' : 'The scene is being set…'}
               </p>
+              {/* vt-contrast: on the dark night panel in both themes */}
               <p className="text-lg text-stone-400">
                 {night
                   ? 'The Murderer is choosing the crime. Study the suspects’ cards meanwhile.'
