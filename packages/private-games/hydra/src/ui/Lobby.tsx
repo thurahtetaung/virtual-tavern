@@ -5,6 +5,7 @@ import {
   Panel,
   PlayerTag,
   StickyBar,
+  Switch,
   TimerSettings,
   cn,
   LobbySettings,
@@ -24,61 +25,6 @@ import { RoleBack } from './Cards.tsx';
 import { DISPLAY } from './text.tsx';
 
 type Act = (a: HydraAction) => Promise<boolean>;
-
-function Toggle({
-  on,
-  editable,
-  title,
-  help,
-  onChange,
-  tag,
-}: {
-  on: boolean;
-  editable: boolean;
-  title: string;
-  help: string;
-  onChange: (v: boolean) => void;
-  tag?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={!editable}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-        on
-          ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
-          : 'bg-white ring-stone-200 enabled:hover:bg-stone-100 dark:bg-stone-900 dark:ring-stone-700',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition',
-          on
-            ? 'justify-end bg-accent dark:bg-amber-500'
-            : 'justify-start bg-stone-300 dark:bg-stone-700',
-        )}
-      >
-        <span className="size-4 rounded-full bg-white shadow" />
-      </span>
-      <span className="min-w-0">
-        <span className="block font-semibold">
-          {title}
-          {tag && (
-            <span className="ml-1.5 rounded bg-special-soft px-1.5 py-0.5 text-[0.6rem] font-bold tracking-wide text-violet-800 uppercase dark:bg-violet-500/20 dark:text-violet-200">
-              {tag}
-            </span>
-          )}
-        </span>
-        <span className="block text-xs text-stone-600 dark:text-stone-400">{help}</span>
-      </span>
-    </button>
-  );
-}
 
 export function Lobby({
   view,
@@ -253,8 +199,9 @@ export function Lobby({
         className="space-y-3"
       >
         {host && <h3 className="font-bold">Options</h3>}
-        <Toggle
+        <Switch
           on={s.rebalance}
+          tagTone="special"
           editable={host}
           title="Rebalance for 6, 7 and 9 players"
           tag="community"
@@ -263,7 +210,7 @@ export function Lobby({
           )}
           onChange={(v) => set({ rebalance: v })}
         />
-        <Toggle
+        <Switch
           on={s.quick}
           editable={host}
           title="Quick mode"
@@ -272,7 +219,7 @@ export function Lobby({
           )}
           onChange={(v) => set({ quick: v })}
         />
-        <Toggle
+        <Switch
           on={s.flags}
           editable={host}
           title="Flag claims that don’t add up"

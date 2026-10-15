@@ -1,5 +1,15 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, cn, LobbySettings } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  HostOnlyNote,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  Switch,
+  cn,
+  LobbySettings,
+} from '@vt/ui';
 import {
   DECISION_SECONDS_OPTIONS,
   MAX_SEATS,
@@ -16,60 +26,6 @@ import { an } from './text.ts';
 
 type Act = (a: ShortFuseAction, o?: { anchor?: string }) => Promise<boolean>;
 type Patch = Omit<Extract<ShortFuseAction, { type: 'update-settings' }>, 'type'>;
-
-export function Toggle({
-  on,
-  editable,
-  title,
-  help,
-  onChange,
-  tag,
-  testId,
-}: {
-  on: boolean;
-  editable: boolean;
-  title: string;
-  help: string;
-  onChange: (v: boolean) => void;
-  tag?: string;
-  testId?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      disabled={!editable}
-      onClick={() => onChange(!on)}
-      data-testid={testId}
-      className={cn(
-        'flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-        on ? 'bg-accent-soft ring-2 ring-accent' : 'bg-card ring-line enabled:hover:bg-panel',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition',
-          on ? 'justify-end bg-accent' : 'justify-start bg-line-strong',
-        )}
-      >
-        <span className="size-4 rounded-full bg-card shadow" />
-      </span>
-      <span className="min-w-0">
-        <span className="block font-semibold text-ink">
-          {title}
-          {tag && (
-            <span className="ml-1.5 rounded bg-danger-soft px-1.5 py-0.5 text-[0.6rem] font-bold tracking-wide text-danger-ink uppercase ring-1 ring-danger-line">
-              {tag}
-            </span>
-          )}
-        </span>
-        <span className="block text-xs text-ink-muted">{help}</span>
-      </span>
-    </button>
-  );
-}
 
 /** The 18+ mark on the Adult deck, wherever it shows. */
 export function AdultBadge({ className }: { className?: string }) {
@@ -224,7 +180,7 @@ export function Lobby({
             {setName(s.art === 'adult' ? 'adult' : 'classic')} art.
           </p>
         )}
-        <Toggle
+        <Switch
           on={s.x1}
           editable={host}
           title={setName('x1')}
@@ -234,7 +190,7 @@ export function Lobby({
           onChange={(v) => set({ x1: v })}
           testId="toggle-x1"
         />
-        <Toggle
+        <Switch
           on={s.x2}
           editable={host}
           title={setName('x2')}
@@ -244,7 +200,7 @@ export function Lobby({
           onChange={(v) => set({ x2: v })}
           testId="toggle-x2"
         />
-        <Toggle
+        <Switch
           on={s.x3}
           editable={host}
           title={setName('x3')}
@@ -254,7 +210,7 @@ export function Lobby({
           onChange={(v) => set({ x3: v })}
           testId="toggle-x3"
         />
-        <Toggle
+        <Switch
           on={s.x4}
           editable={host}
           title={setName('x4')}
@@ -264,7 +220,7 @@ export function Lobby({
           onChange={(v) => set({ x4: v })}
           testId="toggle-x4"
         />
-        <Toggle
+        <Switch
           on={s.faster}
           editable={host}
           title="Faster game"
@@ -333,6 +289,7 @@ export function Lobby({
       <details className="rounded-2xl bg-panel p-4 ring-1 ring-line">
         <summary className="cursor-pointer font-bold text-ink">Timing and house rules</summary>
         <div className="mt-3 space-y-3">
+          {!host && <HostOnlyNote />}
           <label className="block">
             <span className="text-sm font-semibold text-ink">{c.name('nope')} countdown</span>
             <span className="block text-xs text-ink-muted">
@@ -380,21 +337,21 @@ export function Lobby({
               </span>
             )}
           </label>
-          <Toggle
+          <Switch
             on={s.strict}
             editable={host && s.decisionSeconds !== null}
             title="Strict clock"
             help="At zero the game moves for whoever is slow: draws, hides at random, keeps the order or gives a random card. Off: the clock only reminds."
             onChange={(v) => set({ strict: v })}
           />
-          <Toggle
+          <Switch
             on={s.fiveCombo}
             editable={host}
             title="Five different cards (legacy)"
             help="Play five cards with different names to take any card from the discard pile."
             onChange={(v) => set({ fiveCombo: v })}
           />
-          <Toggle
+          <Switch
             on={s.nonStacking}
             editable={host}
             title="Attacks don’t stack (legacy)"
