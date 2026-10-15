@@ -50,6 +50,12 @@ export interface SpectatorPrompt {
   action?: () => void;
 }
 
+/** The host's "Abandon game" in the room's Players drawer: what ends the game under way. */
+export interface AbandonGame {
+  /** Sends the game's own back-to-lobby action (the shell has already asked the host). */
+  run: () => void;
+}
+
 export interface GameUiProps<View, Action> {
   view: View;
   room: GameRoomInfo;
@@ -64,4 +70,9 @@ export interface GameUiProps<View, Action> {
   setYourMove?: (yes: boolean) => void;
   /** Tells the shell the viewer is watching (with how to join), or null once they play. */
   setSpectator?: (prompt: SpectatorPrompt | null) => void;
+  /**
+   * Offers the host "Abandon game" in the Players drawer while a game is under way, or null when
+   * there is nothing to abandon. Use `useAbandonGame` from `@vt/ui`.
+   */
+  setAbandon?: (abandon: AbandonGame | null) => void;
 }

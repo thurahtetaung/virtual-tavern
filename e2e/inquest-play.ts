@@ -62,8 +62,6 @@ export async function visitor(
   await previewArt(context);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
-  // Hand over and Abandon ask first.
-  page.on('dialog', (d) => void d.accept());
   await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
   return page;
 }

@@ -1,5 +1,5 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, cn, useSpectatorPrompt } from '@vt/ui';
+import { Button, Countdown, Hint, cn, useSpectatorPrompt, useAbandonGame } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { RoundTableAction, RoundTableView, Stage } from '../logic/types.ts';
 import {
@@ -149,6 +149,7 @@ export function RoundTableGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: RoundTableUiProps) {
   const [tab, setTab] = useState<Tab>('table');
   const [roleOpen, setRoleOpen] = useState(false);
@@ -157,6 +158,9 @@ export function RoundTableGame({
   const target = picked.key === stageKey ? picked.id : null;
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
   const [known, setKnown] = useState(false);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const [fresh, dismiss] = useTips();
   const status = statusFor(view, room.isHost, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
@@ -266,19 +270,6 @@ export function RoundTableGame({
                 {stage === 'assassinate' && <AssassinPanel view={view} act={act} target={target} />}
               </div>
             </>
-          )}
-          {room.isHost && view.phase === 'playing' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this game for everyone and go back to the lobby?'))
-                  void act({ type: 'back-to-lobby' });
-              }}
-            >
-              Abandon game
-            </Button>
           )}
         </div>
         <div className={cn('min-w-0', onTab('history'))}>

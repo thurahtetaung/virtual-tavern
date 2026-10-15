@@ -14,6 +14,8 @@ import {
   TimerSettings,
   cn,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -73,8 +75,12 @@ export function ReverieGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: ReverieUiProps) {
   const manifest = useManifest();
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const setNames = new Map(
     manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
   );
@@ -433,6 +439,7 @@ function Play({
     index?: number;
   } | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
+  const [confirm, confirmDialog] = useConfirm();
   const [clue, setClue] = useState('');
   const [storyPick, setStoryPick] = useState<number | null>(null);
   // The hand bar is fixed over the page, so the page pads by the bar's measured height and
@@ -541,6 +548,7 @@ function Play({
       className={cn('space-y-3', showHand && 'pb-44')}
       style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
     >
+      {confirmDialog}
       <Scoreboard view={view} clockOffset={room.clockOffset} />
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {(canNext || canSit) && (
@@ -584,13 +592,19 @@ function Play({
             <div className="flex flex-wrap justify-center gap-2">
               <Button
                 size="lg"
-                onClick={() => {
-                  if (
-                    window.confirm('Start a new game with the same players? Scores go back to 0.')
-                  ) {
-                    void act({ type: 'start' });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Start a new game with the same players?',
+                        body: 'Scores go back to 0.',
+                        confirmLabel: 'Play again',
+                      })
+                    ) {
+                      void act({ type: 'start' });
+                    }
+                  })()
+                }
               >
                 Play again
               </Button>
@@ -805,20 +819,6 @@ function Play({
       )}
 
       <Seats view={view} online={online} act={act} hostId={room.hostId} />
-      {room.isHost && view.phase === 'playing' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full"
-          onClick={() => {
-            if (window.confirm('End this game for everyone and go back to the lobby?')) {
-              void act({ type: 'back-to-lobby' });
-            }
-          }}
-        >
-          Abandon game
-        </Button>
-      )}
       <CardViewer
         card={viewing?.card ?? null}
         title={

@@ -8,6 +8,7 @@ import {
   cn,
   revealElement,
   useSpectatorPrompt,
+  useAbandonGame,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { tokenWords } from '../logic/outcome.ts';
@@ -196,6 +197,7 @@ export function EnigmaGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
@@ -205,6 +207,9 @@ export function EnigmaGame({
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Mid-game watchers: the Join buttons sit under the Chat tab on phones, so lead them there.
   useSpectatorPrompt(
@@ -407,20 +412,6 @@ export function EnigmaGame({
           <h3 className="mb-2 font-bold">Teams</h3>
           <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
-        {room.isHost && view.phase === 'playing' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            onClick={() => {
-              if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                void act({ type: 'back-to-lobby' });
-              }
-            }}
-          >
-            Abandon game
-          </Button>
-        )}
       </aside>
 
       <TabBar

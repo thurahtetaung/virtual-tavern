@@ -250,6 +250,10 @@ test('the host hands the case over when the Forensic Scientist drops out', async
     host.page.getByText('⏸ Waiting for the Forensic Scientist (Max, offline).'),
   ).toBeVisible();
   await host.page.getByRole('button', { name: 'Hand over' }).click();
+  await host.page
+    .getByRole('dialog', { name: 'Hand the case to a random Investigator?' })
+    .getByRole('button', { name: 'Hand over' })
+    .click();
   const next = await whoShows(left, 'Pick the Location tile for this crime.');
   for (const p of left)
     await expect(

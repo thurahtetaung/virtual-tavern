@@ -1,4 +1,4 @@
-import { Button, PlayerTag, cn } from '@vt/ui';
+import { Button, PlayerTag, cn, useConfirm } from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { points } from './status.ts';
 
@@ -111,6 +111,7 @@ export function Table({
   const players = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const me = view.me;
+  const [confirm, confirmDialog] = useConfirm();
   const mark = (id: string): { mark?: string; label?: string } => {
     if (!round) return {};
     if (round.stage === 'write' && round.players.includes(id)) {
@@ -130,6 +131,7 @@ export function Table({
   };
   return (
     <section aria-label="Players" className="space-y-2">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-bold">
           Players ({players.length}/{MAX_PLAYERS})
@@ -140,14 +142,20 @@ export function Table({
               id={SEAT_CONTROL_ID}
               variant="ghost"
               className="h-11"
-              onClick={() => {
-                if (
-                  view.phase !== 'playing' ||
-                  window.confirm('Sit out and just watch? You can join again later.')
-                ) {
-                  void act({ type: 'sit', playing: false });
-                }
-              }}
+              onClick={() =>
+                void (async () => {
+                  if (
+                    view.phase !== 'playing' ||
+                    (await confirm({
+                      title: 'Sit out and just watch?',
+                      body: 'You can join again later.',
+                      confirmLabel: 'Sit out',
+                    }))
+                  ) {
+                    void act({ type: 'sit', playing: false });
+                  }
+                })()
+              }
             >
               Sit out (watch)
             </Button>

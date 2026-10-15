@@ -26,8 +26,6 @@ async function visitor(browser: Browser, name: string) {
   });
   const page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(e.message));
-  // "Abandon game" asks first.
-  page.on('dialog', (d) => void d.accept());
   await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
   return page;
 }
@@ -78,9 +76,20 @@ test('three friends play Royal Post in both editions behind the back room', asyn
   await playUntil(host, players, 'classic', done, () => done.guard && done.priest && done.handmaid);
 
   // Over to the 2019 edition.
-  const abandon = host.getByRole('button', { name: 'Abandon game' });
-  if (await abandon.count()) await abandon.click();
-  else await host.getByRole('button', { name: 'Change settings' }).click();
+  // Mid-game the host abandons it from the Players drawer; after a game, Change settings.
+  const changeSettings = host.getByRole('button', { name: 'Change settings' });
+  if (await changeSettings.count()) await changeSettings.click();
+  else {
+    await host.getByRole('button', { name: /^Players/ }).click();
+    await host
+      .getByRole('dialog', { name: 'Players' })
+      .getByRole('button', { name: 'Abandon game' })
+      .click();
+    await host
+      .getByRole('dialog', { name: 'Abandon this game?' })
+      .getByRole('button', { name: 'Abandon game' })
+      .click();
+  }
   await host.getByRole('button', { name: /^2019 edition/ }).click();
   await expect(ana!.getByRole('button', { name: /^2019 edition/ })).toHaveAttribute(
     'aria-pressed',

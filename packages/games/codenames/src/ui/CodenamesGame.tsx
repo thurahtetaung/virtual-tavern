@@ -10,6 +10,8 @@ import {
   cn,
   revealElement,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
@@ -37,6 +39,7 @@ export function CodenamesGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: CodenamesUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
@@ -44,6 +47,9 @@ export function CodenamesGame({
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Mid-game watchers are told so at the top of the room, with a link to the join buttons
   // (the lobby's own hint already says "Pick a team below").
@@ -144,6 +150,7 @@ function InGame({
   status,
 }: CodenamesUiProps & { online: (id: string) => boolean; status: ReturnType<typeof statusFor> }) {
   const turn = view.turn;
+  const [confirm, confirmDialog] = useConfirm();
   // The picked card only counts for the moment it was picked in: any new turn, stage or reveal clears it.
   const moment = `${turn?.team}-${turn?.stage}-${view.log.length}`;
   const [pickState, setPickState] = useState<{ moment: string; index: number } | null>(null);
@@ -181,6 +188,7 @@ function InGame({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+      {confirmDialog}
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
@@ -210,11 +218,20 @@ function InGame({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => {
-                  if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                    void act({ type: 'back-to-lobby' });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Back to the lobby?',
+                        body: 'This game ends for everyone.',
+                        confirmLabel: 'Back to lobby',
+                        danger: true,
+                      })
+                    ) {
+                      void act({ type: 'back-to-lobby' });
+                    }
+                  })()
+                }
               >
                 Back to lobby
               </Button>
@@ -329,32 +346,24 @@ function InGame({
                 variant="ghost"
                 size="sm"
                 className="w-full"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Skip the current turn for everyone? Use this if nobody can play it.',
-                    )
-                  ) {
-                    void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Skip the current turn?',
+                        body: 'It ends for everyone. Use this if nobody can play it.',
+                        confirmLabel: 'Skip turn',
+                      })
+                    ) {
+                      void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
+                    }
+                  })()
+                }
               >
                 Skip stuck turn
               </Button>
             )}
             <RefusalSlot anchor={SKIP_ANCHOR} resetKey={view.log.length} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                  void act({ type: 'back-to-lobby' });
-                }
-              }}
-            >
-              Abandon game
-            </Button>
           </div>
         )}
       </aside>

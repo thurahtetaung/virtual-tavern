@@ -86,6 +86,10 @@ test('five players: Percival & Morgana, a rejected team, three quests and the as
     await expect(button).toHaveAttribute('aria-pressed', 'true');
   }
   await host.getByTestId('waiting-on').getByRole('button', { name: 'Skip' }).click();
+  await host
+    .getByRole('dialog', { name: 'Act for Dee?' })
+    .getByRole('button', { name: 'Act for Dee' })
+    .click();
   await expect(host.getByTestId('vote-result')).toContainText('rejected');
   await expect(host.getByTestId('vote-result')).toContainText('Against (4)');
   await expect(host.getByTestId('vote-result')).toContainText('1 Approve was cast');

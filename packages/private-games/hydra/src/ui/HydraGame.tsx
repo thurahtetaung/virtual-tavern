@@ -1,5 +1,14 @@
 import { type GameRoomInfo, type GameUiProps, namesWithPresence } from '@vt/game-sdk';
-import { Button, Countdown, Hint, cn, useRefusalWording, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  cn,
+  useRefusalWording,
+  useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
+} from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
 import {
@@ -184,6 +193,7 @@ function WaitingChips({
   act: Act;
   now: number;
 }) {
+  const [confirm, confirmDialog] = useConfirm();
   const ids = waitingOn(view);
   const g = view.game!;
   if (!ids.length || view.phase !== 'playing' || view.stage === 'reveal') return null;
@@ -194,6 +204,7 @@ function WaitingChips({
       className="flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       data-testid="waiting-on"
     >
+      {confirmDialog}
       <span className="shrink-0 font-semibold text-stone-600 dark:text-stone-400">
         Waiting on{ids.length > 3 ? ` (${ids.length})` : ''}:
       </span>
@@ -224,14 +235,18 @@ function WaitingChips({
                 variant="ghost"
                 size="sm"
                 className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Skip ${nameOf(view, id)}’s claim? It’s logged as “no claim, skipped by host”.`,
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: `Skip ${nameOf(view, id)}’s claim?`,
+                        body: 'It’s logged as “no claim, skipped by host”.',
+                        confirmLabel: 'Skip claim',
+                      })
                     )
-                  )
-                    void act({ type: 'skip-claim', player: id });
-                }}
+                      void act({ type: 'skip-claim', player: id });
+                  })()
+                }
               >
                 Skip claim
               </Button>
@@ -241,16 +256,21 @@ function WaitingChips({
                 variant="ghost"
                 size="sm"
                 className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      view.stage === 'nominate'
-                        ? `Act for ${nameOf(view, id)}? Their nomination is skipped: the election tracker moves and the next player nominates. Everyone is told.`
-                        : `Act for ${nameOf(view, id)}? A random legal move is played (a vote isn’t counted), and everyone is told.`,
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: `Act for ${nameOf(view, id)}?`,
+                        body:
+                          view.stage === 'nominate'
+                            ? 'Their nomination is skipped: the election tracker moves and the next player nominates. Everyone is told.'
+                            : 'A random legal move is played (a vote isn’t counted), and everyone is told.',
+                        confirmLabel: 'Act for them',
+                      })
                     )
-                  )
-                    void act({ type: 'act-for', player: id });
-                }}
+                      void act({ type: 'act-for', player: id });
+                  })()
+                }
               >
                 Act for
               </Button>
@@ -436,6 +456,7 @@ export function HydraGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
   edition = GAME_ID,
 }: HydraUiProps) {
   const manifest = useManifest(edition);
@@ -448,6 +469,9 @@ export function HydraGame({
   useRefusalWording(c.t);
   const g = view.game;
   const status = statusFor(view, c);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const [sound, setSound] = useSoundSetting();
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
   const [notes, setNote] = useNotes(`${view.table}.${view.gamesPlayed}`);
@@ -768,19 +792,6 @@ export function HydraGame({
             </div>
           )}
           <Timeline view={view} c={c} />
-          {room.isHost && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this game for everyone and go back to the lobby?'))
-                  void act({ type: 'back-to-lobby' });
-              }}
-            >
-              Abandon game
-            </Button>
-          )}
         </aside>
       </div>
       <TabBar tab={tab} onChange={setTab} alert={alert} />

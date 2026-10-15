@@ -136,6 +136,10 @@ test('when the ghost goes away, the host hands the seat to a new joiner, never a
   await unlock(zed, `/backroom?next=${encodeURIComponent(new URL(url).pathname)}`);
   await expect(zed).toHaveURL(url);
   await host.page.getByRole('button', { name: 'Hand the ghost to Zed' }).click();
+  await host.page
+    .getByRole('dialog', { name: 'Make Zed the ghost?' })
+    .getByRole('button', { name: 'Hand the ghost over' })
+    .click();
   await expect(zed.getByText(/You’re the ghost: not a word/)).toBeVisible();
   await expect(lou!.page.getByText(/Zed is the ghost now/)).toBeVisible();
   await expect(host.page.getByRole('button', { name: /^Hand the ghost to/ })).toHaveCount(0);
@@ -173,6 +177,10 @@ test('the host retires a departed psychic’s seat and the others play on to the
   await sendVisions(ghost.page);
   await expect(ghost.page.getByRole('button', { name: /^🔍 Choose Cy’s vision$/ })).toHaveCount(0);
   await ghost.page.getByRole('button', { name: 'Retire Cy’s seat' }).click();
+  await ghost.page
+    .getByRole('dialog', { name: 'Retire Cy’s seat?' })
+    .getByRole('button', { name: 'Retire the seat' })
+    .click();
   await expect(ben!.page.getByText(/The host retired Cy’s seat/)).toBeVisible();
   await expect(ghost.page.getByRole('region', { name: 'Cy (ghost view)' })).toHaveCount(0);
 

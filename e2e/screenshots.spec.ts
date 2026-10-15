@@ -1697,6 +1697,10 @@ for (const [label, viewport, colorScheme] of [
     // The host skips everyone else's turn: every final accusation missed.
     for (let i = 0; i < 3; i++) {
       await host.getByRole('button', { name: 'Skip', exact: true }).click();
+      await host
+        .getByRole('dialog', { name: /final accusation\?$/ })
+        .getByRole('button', { name: 'Skip', exact: true })
+        .click();
       if (i < 2) await expect(host.getByText(/turn skipped/).nth(i)).toBeVisible();
     }
     await expect(

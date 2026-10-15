@@ -14,6 +14,7 @@ import {
   TimerSettings,
   cn,
   useSpectatorPrompt,
+  useAbandonGame,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -66,11 +67,15 @@ export function RoyalPostGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: RoyalPostUiProps) {
   const manifest = useManifest();
   const edition = view.settings.edition;
   const deck = useMemo(() => deckFor(manifest, edition), [manifest, edition]);
   const status = statusFor(view, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   // Any card named anywhere opens here, read-only.
   const [reading, setReading] = useState<Role | null>(null);
@@ -706,20 +711,6 @@ function Table({
             .map((s) => s.name)
             .join(', ')}
         </p>
-      )}
-      {room.isHost && view.phase === 'playing' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full"
-          onClick={() => {
-            if (window.confirm('End this game for everyone and go back to the lobby?')) {
-              void act({ type: 'back-to-lobby' });
-            }
-          }}
-        >
-          Abandon game
-        </Button>
       )}
 
       {showHand && (

@@ -12,6 +12,7 @@ import {
   cn,
   useSecondsLeft,
   useSpectatorPrompt,
+  useAbandonGame,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
@@ -965,6 +966,7 @@ export function MasqueradeBoard({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
   display,
 }: MasqueradeUiProps & { display: LocationDisplay }) {
   // Each new step of the round opens on the tab it needs: Play, or the board for a caught spy.
@@ -974,6 +976,9 @@ export function MasqueradeBoard({
     picked.key === stepKey ? picked.tab : view.round?.canGuess ? 'locations' : 'play';
   const setTab = (t: Tab) => setPicked({ tab: t, key: stepKey });
   const status = statusFor(view, room.isHost, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   // A full table: watchers get the shell's banner (there is no seat to take until a new game).
   useSpectatorPrompt(
     setSpectator,
@@ -1043,20 +1048,6 @@ export function MasqueradeBoard({
           <Panel>
             <Players view={view} online={online} hostId={room.hostId} />
           </Panel>
-          {room.isHost && view.phase === 'playing' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                  void act({ type: 'back-to-lobby' });
-                }
-              }}
-            >
-              Abandon game
-            </Button>
-          )}
         </div>
         <div className="min-w-0 space-y-4">
           <div className={onTab('locations')}>

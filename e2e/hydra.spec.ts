@@ -94,6 +94,10 @@ test('five players: peek, mandatory claims, a skipped claim and an execution to 
   } else {
     await expect(skip).toBeVisible({ timeout: 30_000 });
     await skip.click();
+    await host
+      .getByRole('dialog', { name: /claim\?$/ })
+      .getByRole('button', { name: 'Skip claim' })
+      .click();
     await expect(host.getByText('(no claim, skipped by host)').first()).toBeAttached();
   }
   // The fourth red policy gives an execution: the President shoots the Leader if they can.
