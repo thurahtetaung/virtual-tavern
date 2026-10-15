@@ -17,7 +17,7 @@ export function LobbySettings({
 }: {
   /** The host: settings stay open. */
   editable: boolean;
-  /** The guests' one line, the choices that matter most first. */
+  /** The guests' summary (two lines at most on a phone), the choices that matter most first. */
   summary: string;
   title?: string;
   children: ReactNode;
@@ -31,7 +31,7 @@ export function LobbySettings({
           <span aria-hidden>⚙️ </span>
           {title}
         </span>
-        <span className="min-w-0 flex-1 truncate text-ink-muted">{summary}</span>
+        <span className="line-clamp-2 min-w-0 flex-1 text-ink-muted">{summary}</span>
         <span
           aria-hidden
           className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
