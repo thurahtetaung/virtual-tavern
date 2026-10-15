@@ -888,12 +888,18 @@ export interface TeamLine {
 
 export function teamLines(result: VoteResult): TeamLine[] {
   const winners = new Set(result.winners);
+  // The Oracle's failed number replaces the sides' results: a side wins as everyone on it but
+  // the Oracle does (she wins on her own).
+  const oracles = result.oracleRule === 'oracle' ? (result.oracles ?? []) : [];
   return result.teams.map((t) => {
-    const won = t.won && t.players.some((p) => winners.has(p));
+    const rest = t.players.filter((p) => !oracles.includes(p));
+    const won = result.oracleRule
+      ? (rest.length ? rest : t.players).some((p) => winners.has(p))
+      : t.won && t.players.some((p) => winners.has(p));
     return {
       team: t.team,
       won,
-      sideWon: t.won,
+      sideWon: result.oracleRule ? won : t.won,
       players: t.players,
       exceptions: t.players.filter((p) => winners.has(p) !== won),
     };

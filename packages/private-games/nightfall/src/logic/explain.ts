@@ -344,6 +344,24 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
   const why: string[] = [];
 
   const winners = new Set(result.winners);
+  // The Oracle's failed number replaces every side's result.
+  if (result.oracleRule === 'oracle') {
+    const oracles = result.oracles ?? [];
+    const died = oracles.filter((p) => dead.has(p));
+    const oracle = names.role('oracle');
+    why.push(
+      died.length
+        ? `The ${oracle} (${list(died.map(name))}) died, so everyone else won.`
+        : oracles.length
+          ? `The ${oracle} (${list(oracles.map(name))}) lived, so only ${oracles.length > 1 ? 'they' : 'she'} won.`
+          : `The ${oracle} lived, so only she won.`,
+    );
+    return why;
+  }
+  if (result.oracleRule === 'circle') {
+    why.push(dead.size ? 'Someone died, so nobody won.' : 'Nobody died, so everyone won.');
+    return why;
+  }
   for (const t of result.teams) {
     if (!t.won) continue;
     // Disease or a traitor can leave a winning side with no winner: say so, not "won".

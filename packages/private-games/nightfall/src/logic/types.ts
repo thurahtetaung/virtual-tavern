@@ -467,6 +467,8 @@ export interface VoteResult {
    * or `circle` (her card was in the centre: everyone wins only if nobody dies).
    */
   oracleRule?: 'oracle' | 'circle';
+  /** Under the `oracle` rule: the Oracle (and a Doppelgänger who copied her). */
+  oracles?: PlayerId[];
   /** Each Blob at the end, with its members (the Blob included) and whether it won. */
   blobs?: { player: PlayerId; members: PlayerId[] }[];
 }
