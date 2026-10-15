@@ -179,7 +179,9 @@ test('four players: events come up in round 2, through the last call that ends i
       await expect(marks).toHaveCount(0);
       const peek = murderer.page.getByTestId('crime-peek');
       await peek.getByRole('button', { name: '👁️ Show the crime' }).click();
-      await expect(marks.first()).toBeVisible();
+      // Both suspect layouts are in the page; when the Murderer is the phone layout's first
+      // suspect, the first mark in the DOM is the hidden one.
+      await expect(marks.filter({ visible: true }).first()).toBeVisible();
       await peek.getByRole('button', { name: '🙈 Hide the crime' }).click();
       await expect(marks).toHaveCount(0);
       const key = panel.getByRole('button', { name: /^Clue:/ }).first();

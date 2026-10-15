@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test';
+import { type Locator, type Page, expect } from '@playwright/test';
 
 /**
  * Opens a section of the day. On a phone it's a tab; from `lg` up every section shows at once,
@@ -77,7 +77,11 @@ async function answer(p: Page) {
   const players = prompt.getByRole('list', { name: 'Players' }).locator('button:enabled');
   const centre = prompt.getByRole('list', { name: 'Centre cards' }).locator('button:enabled');
   const pool = (await players.count()) > 0 ? players : centre;
-  for (let i = 0; i < 3 && !(await confirm.isEnabled(quick)); i++) await pool.nth(i).click(quick);
+  // Only unpicked ones: a button tapped again on a later pass (Confirm slow to light up on a
+  // busy machine) would be unpicked.
+  const unpicked = pool.and(p.locator('[aria-pressed="false"]'));
+  for (let i = 0; i < 3 && !(await confirm.isEnabled(quick)); i++)
+    await unpicked.first().click(quick);
   await confirm.click(quick);
   return stage;
 }
@@ -208,14 +212,26 @@ export async function playMarkedNight(
     players.map(async (p, i) => {
       const log: MarkedNight = { dusk: null, lovers: null, results: [] };
       const quick = { timeout: 2000 };
+      // The test hold keeps a step open while a choice is still to be made, so a click may take
+      // its time: a starved browser can need seconds just to see a button hold still.
+      const patient = { timeout: 5000 };
       const deadline = Date.now() + 200_000;
-      const tap = async (prompt: ReturnType<Page['getByTestId']>, who: number[]) => {
+      // Player buttons toggle: one tapped again on the next pass (when Confirm was slow to light
+      // up) would be unpicked, and a busy machine could go round like that until the step ends.
+      const pick = async (button: Locator) => {
+        if ((await button.getAttribute('aria-pressed', patient)) !== 'true')
+          await button.click(patient);
+      };
+      const confirm = async (prompt: Locator) => {
+        const button = prompt.getByRole('button', { name: 'Confirm' });
+        await expect(button).toBeEnabled(patient);
+        await button.click(patient);
+      };
+      const tap = async (prompt: Locator, who: number[]) => {
         const list = prompt.getByRole('list', { name: 'Players' });
         for (const w of who)
-          await list
-            .getByRole('button', { name: w === i ? 'You' : names[w]!, exact: true })
-            .click(quick);
-        await prompt.getByRole('button', { name: 'Confirm' }).click(quick);
+          await pick(list.getByRole('button', { name: w === i ? 'You' : names[w]!, exact: true }));
+        await confirm(prompt);
       };
       while (Date.now() < deadline) {
         if (await p.getByRole('button', { name: 'Ready to vote' }).count()) break;
@@ -241,16 +257,16 @@ export async function playMarkedNight(
               else await p.waitForTimeout(300);
             } else if (stage === 'give-love') await tap(prompt, [werewolf, i]);
             else if (['give-clarity', 'pickpocket', 'lone-wolf'].includes(stage))
-              await prompt.getByRole('button', { name: 'Skip' }).click(quick);
+              await prompt.getByRole('button', { name: 'Skip' }).click(patient);
             else {
               const first = prompt
                 .getByRole('list', { name: 'Players' })
                 .locator('button:enabled')
                 .first();
-              if (await first.count()) await first.click(quick);
-              const confirm = prompt.getByRole('button', { name: 'Confirm' });
-              if (await confirm.count()) await confirm.click(quick);
-              else await prompt.getByRole('button', { name: LEFT }).click(quick);
+              if (await first.count()) await pick(first);
+              if (await prompt.getByRole('button', { name: 'Confirm' }).count())
+                await confirm(prompt);
+              else await prompt.getByRole('button', { name: LEFT }).click(patient);
             }
           } catch {
             // The step ended under the click: it's still a fair night.

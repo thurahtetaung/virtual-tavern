@@ -83,7 +83,15 @@ export async function riggedStart(
   host: Page,
   rig: { hands: string[][]; top: string[]; first?: number; size?: number },
 ) {
-  await host.getByTestId('rig').locator('summary').click();
+  // Back from a game, the lobby can still shift as the room's award strip comes in, so a tap on
+  // the summary can miss it (the details takes the tap, or it lands as the summary moves): tap
+  // until the panel is open, never toggling an open one shut.
+  const panel = host.getByTestId('rig');
+  await expect(async () => {
+    if (!(await panel.evaluate((d) => (d as HTMLDetailsElement).open)))
+      await panel.locator('summary').click({ timeout: 2_000 });
+    await expect(host.getByLabel('Rig')).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
   await host.getByLabel('Rig').fill(JSON.stringify({ first: 0, ...rig }));
   await host.getByRole('button', { name: 'Use this setup' }).click();
   await expect(host.getByTestId('rig')).toContainText('(armed)');

@@ -1483,12 +1483,17 @@ for (const [label, viewport, colorScheme] of [
     await tab(speaker.page, 'Suspects');
     await shot(speaker.page, 'presenting');
 
-    await inv.page
+    // The speaker's bar has Done in place of Solve (and a phone's other Solve sits on the Me tab),
+    // so someone listening opens the sheet.
+    const solver =
+      speaker !== inv ? inv : others.find((p) => p !== accomplice && p !== witness && p !== inv)!;
+    await solver.page
       .getByRole('button', { name: /🔎 Solve/ })
+      .filter({ visible: true })
       .first()
       .click();
-    const sheet = inv.page.getByRole('dialog', { name: /^Solve/ });
-    await shot(inv.page, 'solve-1');
+    const sheet = solver.page.getByRole('dialog', { name: /^Solve/ });
+    await shot(solver.page, 'solve-1');
     await sheet.getByRole('button', { name: murderer.name, exact: true }).click();
     await sheet
       .getByRole('button', { name: /^Clue:/ })
@@ -1498,8 +1503,8 @@ for (const [label, viewport, colorScheme] of [
       .getByRole('button', { name: /^Means:/ })
       .first()
       .click();
-    await shot(inv.page, 'solve-confirm');
-    await inv.page.keyboard.press('Escape');
+    await shot(solver.page, 'solve-confirm');
+    await solver.page.keyboard.press('Escape');
     await expect(sheet).toBeHidden();
 
     await presentInquest(players, 5, false);
@@ -1512,10 +1517,11 @@ for (const [label, viewport, colorScheme] of [
         'Your turn: flip one of your own Clue cards face down.',
       );
       const panel = flipper.page.getByRole('region', { name: 'Flip a Clue card' });
+      // The Murderer's first Clue card is their crime's (picked above), which they may not flip.
       await panel
         .getByRole('button', { name: /^Clue:/ })
         .and(panel.locator(':enabled'))
-        .first()
+        .nth(flipper === murderer ? 1 : 0)
         .click();
       if (i === 0) await shot(flipper.page, 'flip');
       await panel.getByRole('button', { name: /^Flip / }).click();
@@ -2080,6 +2086,9 @@ for (const [label, viewport] of [
             .getByRole('button', { name: `Yes, execute ${pick.name}` })
             .click();
           pick.dead = true;
+          // Executing the Leader ends the game: wait for it, or the loop would look for a next
+          // candidate before the winner shows.
+          if (pick.role === 'leader') await expect(host.getByTestId('winner')).toBeVisible();
         } else {
           await p.page
             .getByTestId('dock')
