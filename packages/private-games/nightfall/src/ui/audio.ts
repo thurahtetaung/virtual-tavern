@@ -34,8 +34,10 @@ export const DUCK_RATIO = 0.25;
 /** How long music takes to fade between phases, and in and out of ducking. */
 export const CROSSFADE_MS = 1500;
 export const DUCK_FADE_MS = 300;
-/** Close lines start this long before a step ends. */
+/** Close lines start this long before a step ends, or earlier when they are longer (`fitCues`). */
 export const CLOSE_LEAD_MS = 2500;
+/** A close whose length is known starts early enough to end this long before its step does. */
+export const CLOSE_GAP_MS = 500;
 
 /** Which music a game phase plays. Getting ready keeps the lobby's track. */
 export function musicPhaseFor(phase: Phase): MusicPhase {
@@ -125,6 +127,10 @@ export interface Cue {
   at: number;
   lines: string[];
   parts: CuePart[];
+  /** A step's narration: the moment the step ends, which it should be said by. */
+  until?: number;
+  /** A step's close: it waits for the step's own narration before it. */
+  close?: boolean;
 }
 
 /** The narration keys of a part. */
@@ -141,11 +147,17 @@ export function partLines(part: CuePart): string[] {
 
 const line = (key: string): CuePart => ({ kind: 'line', key });
 
-const cue = (id: string, at: number, parts: CuePart[]): Cue => ({
+const cue = (
+  id: string,
+  at: number,
+  parts: CuePart[],
+  step?: { until: number; close?: boolean },
+): Cue => ({
   id,
   at,
   lines: parts.flatMap(partLines),
   parts,
+  ...(step ? { until: step.until, ...(step.close ? { close: true } : {}) } : {}),
 });
 
 // ---- What the narrator says out loud for everyone ----
@@ -396,7 +408,7 @@ export function cuesFor(view: NightfallView): Cue[] {
     if (plan[index] === 'oracle') {
       const at = deadline - ORACLE_REPLY_MS;
       const reply = saidAt(view.announcements, at);
-      if (reply.length) cues.push(cue(`${game}:${index}:reply`, at, reply));
+      if (reply.length) cues.push(cue(`${game}:${index}:reply`, at, reply, { until: deadline }));
     }
     return cues;
   }
@@ -443,16 +455,39 @@ function stepCues(
       ? [{ kind: 'pick', pick: opts.pick, ...(def.doppel ? { doppel: true } : {}) }]
       : [];
   const open = [...(opts.said ?? []), ...(wake ? [wake] : []), ...pick, ...after];
-  const cues: Cue[] = [cue(`${game}:${index}:open`, start, open)];
+  const cues: Cue[] = [cue(`${game}:${index}:open`, start, open, { until: end })];
   if (!opts.upcoming)
     cues.push(
       cue(
         `${game}:${index}:close`,
         Math.max(start + 1000, end - CLOSE_LEAD_MS),
         lines.close.map(line),
+        { until: end, close: true },
       ),
     );
   return cues;
+}
+
+/**
+ * The cues with each close moved earlier when its clips are known to be longer than the lead, so
+ * it ends just before its step does instead of running over the next wake (never earlier than a
+ * second into the step). `lengths` holds the clip lengths this device has learned, in ms.
+ */
+export function fitCues<C extends Cue>(
+  cues: readonly C[],
+  narration: Record<string, readonly string[]> | undefined,
+  lengths: ReadonlyMap<string, number>,
+): C[] {
+  return cues.map((c) => {
+    if (!c.close || c.until === undefined) return c;
+    const clips = clipsFor(narration, c.lines);
+    if (!clips.length || clips.some((src) => !lengths.has(src))) return c;
+    const length = clips.reduce((sum, src) => sum + lengths.get(src)!, 0);
+    const open = cues.find((o) => o.until === c.until && !o.close && o.at <= c.at);
+    const earliest = open ? open.at + 1000 : c.at;
+    const at = Math.max(earliest, Math.min(c.at, c.until - length - CLOSE_GAP_MS));
+    return at === c.at ? c : { ...c, at };
+  });
 }
 
 /** The clips for some lines, in order, from the manifest's narration map. */
@@ -501,18 +536,44 @@ export interface QueuedClip {
   src: string;
   /** The id of the cue it belongs to. */
   cue: string;
+  /** Its place in its cue (0 for the first clip). */
+  n: number;
   at?: number;
+  /** Its step's end (step cues only). */
+  until?: number;
+  /** A close's clip: it waits for the narration before it. */
+  waits?: boolean;
 }
 
 /** A clip that couldn't start within this long of when it was due is dropped, not played late. */
 export const STALE_CLIP_MS = 4000;
 
 /**
- * The queue once a new cue is due: its clips replace any that haven't started yet, so a long
- * clip never pushes the next step's narration ever further behind.
+ * How far past its step's end a step's narration may run (pushing the next step's wake back)
+ * before the clips that don't fit are dropped.
  */
-export function enqueueClips(clips: readonly string[], at: number, cue: string): QueuedClip[] {
-  return clips.map((src, i) => (i === 0 ? { src, cue, at } : { src, cue }));
+export const OVERRUN_MS = 3000;
+
+/**
+ * The queue once a new cue is due: its clips go after any still waiting, so every cue is said in
+ * order and in full whenever it fits (`nextClip` drops what doesn't).
+ */
+export function enqueueClips(
+  clips: readonly string[],
+  cue: Pick<Cue, 'id' | 'at' | 'until' | 'close'>,
+  queue: readonly QueuedClip[] = [],
+): QueuedClip[] {
+  return [
+    ...queue,
+    ...clips.map((src, n) => ({
+      src,
+      cue: cue.id,
+      n,
+      ...(n === 0 ? { at: cue.at } : {}),
+      ...(cue.until !== undefined ? { until: cue.until } : {}),
+      ...(cue.close ? { waits: true } : {}),
+    })),
+  ];
 }
 
 /**
@@ -532,21 +593,37 @@ export function afterClip(
 }
 
 /**
- * The next clip worth playing now, and what's left after it. A clip more than `staleMs` past its
- * moment (a device that woke up late, or was in the background) is dropped with the rest of its
- * cue, since an instruction's tail means nothing without its start.
+ * The next clip worth playing now, and what's left after it. A clip is dropped with the rest of
+ * its cue (an instruction's tail means nothing without its start) when:
+ * - it is more than `staleMs` past its moment (a device that woke up late, or was in the
+ *   background);
+ * - it is known not to end by its step's end (plus `overrunMs`), unless it is the first clip of a
+ *   step's wake: the wake line itself is always said;
+ * - a later cue that doesn't wait (the next step's wake, the dawn) has already waited `overrunMs`
+ *   behind it (for clips whose length isn't known yet).
+ * A close's clips wait behind its step's wake and instruction, and the next wake behind the close,
+ * as long as they fit.
  */
 export function nextClip(
   queue: readonly QueuedClip[],
   now: number,
-  staleMs = STALE_CLIP_MS,
+  opts: { staleMs?: number; overrunMs?: number; lengths?: ReadonlyMap<string, number> } = {},
 ): { clip: QueuedClip | null; rest: QueuedClip[] } {
+  const { staleMs = STALE_CLIP_MS, overrunMs = OVERRUN_MS, lengths } = opts;
   let rest = [...queue];
   while (rest.length) {
     const [clip, ...after] = rest;
     // A clip whose predecessor's length never came is due no later than now.
     const at = clip!.at ?? now;
-    if (now - at <= staleMs) return { clip: { ...clip!, at }, rest: after };
+    const length = lengths?.get(clip!.src) ?? 0;
+    const overruns =
+      clip!.until !== undefined &&
+      (clip!.n > 0 || clip!.waits === true) &&
+      now + length > clip!.until + overrunMs;
+    const held = after.find((c) => c.cue !== clip!.cue && !c.waits && c.at !== undefined);
+    const holding = held !== undefined && now > held.at! + overrunMs;
+    if (now - at <= staleMs && !overruns && !holding)
+      return { clip: { ...clip!, at }, rest: after };
     rest = after.filter((c) => c.cue !== clip!.cue);
   }
   return { clip: null, rest: [] };
