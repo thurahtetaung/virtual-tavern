@@ -1,6 +1,13 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { groupOf, isVampire } from './resolve.ts';
-import { HOSTILE_GROUPS, type HostileGroup, type MarkId, type RoleId } from './roles.ts';
+import {
+  HOSTILE_GROUPS,
+  type HostileGroup,
+  type MarkId,
+  type NostraTeam,
+  ROLES,
+  type RoleId,
+} from './roles.ts';
 import type { Death, FinalIdentity, MarkToken, TeamResultId, VoteResult } from './types.ts';
 
 // Why the vote came out as it did, in plain words, from the resolution alone. Pure, so every
@@ -38,6 +45,12 @@ export interface Explanation {
   /** Players whose own result differs from their team's: Disease, traitors, the Assassins. */
   personal: string[];
 }
+
+/** A side Nostradamus was announced on that has its own card ("Synthetic Alien", "Blob"). */
+const foretoldSide = (team: NostraTeam, names: ExplainNames) => {
+  const role = team === 'synthetic' ? 'synthetic-alien' : team;
+  return role in ROLES ? names.role(role as RoleId) : names.team(team as TeamResultId);
+};
 
 const votesWord = (n: number) => `${n} ${n === 1 ? 'vote' : 'votes'}`;
 
@@ -288,13 +301,21 @@ function personalResults(
   for (const p of players) {
     const f = ids[p]!.foretold;
     if (!f) continue;
-    const on = f.holder ? `the side of ${name(f.holder)}` : names.team(ids[p]!.team);
+    // Announced on a side of its own (the Synthetic Alien, the Blob…) whose card nobody held.
+    const centre = !f.holder && ids[p]!.team === 'nostradamus';
+    const on = f.holder
+      ? `the side of ${name(f.holder)}`
+      : centre
+        ? `the ${foretoldSide(f.team, names)}`
+        : names.team(ids[p]!.team);
     out.push(
-      dead.has(p)
-        ? `${name(p)} (${names.role('nostradamus')}) died, so lost, whatever happened to ${on}.`
-        : won.has(p)
-          ? `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which won, and lived.`
-          : `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which lost.`,
+      centre && !dead.has(p)
+        ? `${name(p)} (${names.role('nostradamus')}) was announced on the side of ${on}, whose card ended in the centre, so nobody could win it.`
+        : dead.has(p)
+          ? `${name(p)} (${names.role('nostradamus')}) died, so lost, whatever happened to ${on}.`
+          : won.has(p)
+            ? `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which won, and lived.`
+            : `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which lost.`,
     );
   }
   if (result.oracleRule === 'oracle')

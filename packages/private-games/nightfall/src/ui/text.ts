@@ -8,6 +8,7 @@ import {
   isRoleId,
 } from '../logic/roles.ts';
 import type {
+  FinalIdentity,
   NightfallView,
   NoteBody,
   Prompt,
@@ -891,4 +892,16 @@ export function teamLines(result: VoteResult): TeamLine[] {
       exceptions: t.players.filter((p) => winners.has(p) !== won),
     };
   });
+}
+
+/** Nostradamus announced on a side of its own (the Synthetic Alien…) whose card nobody held. */
+export const foretoldInCentre = (id: FinalIdentity) =>
+  !!id.foretold && !id.foretold.holder && id.team === 'nostradamus';
+
+/** Nostradamus's badge on the reveal: the side he was announced on, and who holds its card. */
+export function foretoldBadge(id: FinalIdentity, deck: Deck, nameOf: NameOf): string {
+  const f = id.foretold!;
+  const side = `side of ${nostraTeamWords(f.team, deck)}`;
+  if (f.holder) return `${side} (${nameOf(f.holder)})`;
+  return foretoldInCentre(id) ? `${side} (card in the centre)` : side;
 }

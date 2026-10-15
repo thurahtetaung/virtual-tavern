@@ -1554,7 +1554,8 @@ function foretell(c: StepCtx, p: PlayerId | null, owners: PlayerId[] = []) {
             .filter((card) => card.role === 'nostradamus')
             .slice(0, 1);
   for (const card of own) card.foretold = { team, card: cardId };
-  if (p) note(c, p, { kind: 'foretold', team });
+  // His own note only: the timeline has the announcement, which says the same.
+  if (p) note(c, p, { kind: 'foretold', team }, { quiet: true });
   announce(c, { kind: 'nostradamus', doppel: c.def.doppel === true, team });
 }
 
