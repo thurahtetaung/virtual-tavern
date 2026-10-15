@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.16](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.15...v0.37.16) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** make guests' read-only setting switches look read-only and say only the host can change Short Fuse's house rules ([#225](https://github.com/thurahtetaung/virtual-tavern/issues/225)) ([a2c4cb0](https://github.com/thurahtetaung/virtual-tavern/commit/a2c4cb03e096e61a865188b1c545f2021a716e53))
+
 ## [0.37.15](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.14...v0.37.15) (2026-10-15)
 
 
