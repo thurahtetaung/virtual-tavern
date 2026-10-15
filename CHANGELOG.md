@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.37.13](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.12...v0.37.13) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** keep the night-length estimate above the floating Deal bar and wrap guests' settings summaries to two lines ([#220](https://github.com/thurahtetaung/virtual-tavern/issues/220)) ([0a92913](https://github.com/thurahtetaung/virtual-tavern/commit/0a929137d8b1d50c0b4af8331523587da1cf97e6))
+* **tavern-brawl:** let the host abandon a game in play from the Players drawer ([#218](https://github.com/thurahtetaung/virtual-tavern/issues/218)) ([a1bf078](https://github.com/thurahtetaung/virtual-tavern/commit/a1bf0787baa03a6d462842cdddf4875d20ea03a7))
+* **ui:** 44 px end-screen buttons and readable muted text and quest circles in both themes ([#217](https://github.com/thurahtetaung/virtual-tavern/issues/217)) ([9ca63bd](https://github.com/thurahtetaung/virtual-tavern/commit/9ca63bdce45eb678915b2d8378bcb37bf17c092f))
+
 ## [0.37.12](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.11...v0.37.12) (2026-10-15)
 
 
