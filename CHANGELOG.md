@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.6...v0.37.7) (2026-10-15)
+
+
+### Bug Fixes
+
+* **round-table:** show Success and Fail to every quest member so the buttons don't give a side away ([#205](https://github.com/thurahtetaung/virtual-tavern/issues/205)) ([3d3d87a](https://github.com/thurahtetaung/virtual-tavern/commit/3d3d87aa50ff81661852ce7ad81f214cf541d588))
+
 ## [0.37.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.5...v0.37.6) (2026-10-15)
 
 
