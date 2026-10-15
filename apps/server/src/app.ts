@@ -8,6 +8,7 @@ import { ADMIN_COOKIE, AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
+import { NarrationLengths, withNarration } from './narration.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import {
   announceNextTable,
@@ -125,6 +126,12 @@ export function buildApp(opts: AppOptions) {
     ? new AdminAuth(opts.adminPassword, opts.sessionSecret)
     : null;
   const assets = opts.r2 ? new R2Assets(opts.r2) : null;
+  // Private games may time their night by their narrator's clips, from their manifest.
+  const narration = assets
+    ? new NarrationLengths(assets, now, (err, gameId) =>
+        app.log.warn({ err, gameId }, 'could not read narration lengths'),
+      )
+    : null;
   const privateGames = new PrivateGameSettings(db);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
@@ -175,7 +182,7 @@ export function buildApp(opts: AppOptions) {
   const rooms: RoomManager = new RoomManager({
     store: new SqliteRoomStore(db),
     games,
-    content: roomContent(wordLists, questionDecks, games),
+    content: withNarration(roomContent(wordLists, questionDecks, games), games, narration),
     // Every change also wakes the playtest bots (they move only in playtests with a human in).
     events: {
       changed: (roomId) => {

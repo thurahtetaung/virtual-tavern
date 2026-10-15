@@ -344,6 +344,8 @@ export interface NightState {
   plan: StepId[];
   /** -1 during the intro, then the plan index. */
   index: number;
+  /** When the current step (or the intro) began. */
+  start?: number;
   deadline: number;
   /**
    * The Oracle's step: when the narrator replies to her answer, out loud for everyone (a fixed
@@ -492,6 +494,11 @@ export interface GameRound {
   loneWolf: PlayerId | null;
   /** When the night began, the day broke and the vote opened (for the stats). */
   times: { night: number | null; dawn: number | null; vote: number | null };
+  /**
+   * How long the narrator's lines for these roles take, in ms (from the private manifest, read at
+   * the deal): with narration on, each step stretches to fit what it says. Never sent.
+   */
+  lengths?: Record<string, number>;
   /** Players a New Alien tap made aliens, or alien helpers (it stays with the player). */
   aliens?: { players: PlayerId[]; helpers: PlayerId[] };
   /** The Oracle's question and answer, when she is in the game. */
@@ -631,6 +638,8 @@ export interface NightView {
   /** -1 during the intro, then the step number; the same for everyone. */
   index: number;
   count: number;
+  /** When the current step (or the intro) began: steps stretched to the narration vary in length. */
+  start?: number;
   deadline: number;
   /**
    * The narrator's random instruction for this step (the Alien set), said out loud for everyone

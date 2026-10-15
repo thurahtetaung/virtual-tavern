@@ -54,6 +54,11 @@ export interface ContentProvider {
   questionDecks?(): QuestionDeckSummary[];
   /** Questions from the given decks (ignores unknown, disabled or untagged ids). */
   questions?(deckIds: readonly string[]): Question[];
+  /**
+   * How long each narration line of a private game's manifest lasts, in ms (`narrationLengths`),
+   * or null while unknown. Absent on servers without asset storage and for public games.
+   */
+  narrationLengths?(): Readonly<Record<string, number>> | null;
 }
 
 export interface CreateCtx {

@@ -368,14 +368,14 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
       'The host picks the cards: one per player plus three for the centre (plus one when the Alpha Wolf is in). The recommended cards for your table size are picked to start with, and follow the table as people join until the host changes them. Ready-made setups are tagged Beginner, Advanced or Chaos.',
       'Everyone gets one card. Cover your screen and peek at your role; Ready unlocks once you have looked.',
       'Night falls once everyone is ready (the host can start it early if someone dropped out). The app calls each role in turn.',
-      'Narration: with Host’s device, only the host’s phone speaks, so put it in the middle of the table; with Every device, every phone speaks, which suits players who are apart. Every screen shows the narration as text either way.',
+      'Narration: with Host’s device, only the host’s phone speaks, so put it in the middle of the table; with Every device, every phone speaks, which suits players who are apart. Every screen shows the narration as text either way. With narration on, each call lasts its time to act plus however long the narrator talks in it.',
     ],
     sections: [
       {
         title: 'The night',
         level: 'basics',
         paragraphs: [
-          'Every role in the game is called in a fixed order, even when its card is in the centre, and every call lasts the same time, so the clock never tells anyone which roles are really at the table.',
+          'Every role in the game is called in a fixed order, even when its card is in the centre, and for as long either way, so the clock never tells anyone which roles are really at the table.',
           'When your role is called, your screen lights up: tap players or centre cards to act, and see what you learn. Everyone else just sees which role is awake. If you don’t choose in time, optional actions are skipped and required ones are made for you at random.',
           'Left and right follow the seat order in the app, not where you sit, so the buttons name the player on each side.',
           'You always act as the role you were dealt, even if your card has been swapped since. At the end of the night you are whatever card is in front of you, and you don’t get to look again.',

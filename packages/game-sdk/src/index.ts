@@ -12,3 +12,4 @@ export * from './storage.ts';
 export * from './bots.ts';
 export * from './bot-harness.ts';
 export * from './regex.ts';
+export * from './narration.ts';

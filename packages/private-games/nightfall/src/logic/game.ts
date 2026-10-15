@@ -13,6 +13,7 @@ import { guide } from './guide.ts';
 import { nightfallAwards } from './awards.ts';
 import { insights } from './insights.ts';
 import { type StepCtx, actInStep, beginStep, endStep, promptFor, replyOracle } from './night.ts';
+import { introMs, linesInPlay, nightLengths } from './narration.ts';
 import { buildNightPlan, stepDef } from './plan.ts';
 import { cardsNeeded, recommended } from './presets.ts';
 import { weightsProblem } from './tables.ts';
@@ -35,7 +36,6 @@ import {
   MAX_NOTES,
   MAX_PLAYERS,
   MIN_PLAYERS,
-  NIGHT_INTRO_MS,
   type NightAction,
   type NightfallAction,
   type NightfallState,
@@ -199,6 +199,9 @@ function start(state: NightfallState, ctx: Ctx): Result {
   const games = state.stage === 'ready' ? state.gamesPlayed : dealt.gamesPlayed;
   const round =
     state.stage === 'ready' ? { ...dealt.round!, number: state.round!.number } : dealt.round;
+  // The narrator's line lengths, for steps stretched to fit what they say.
+  const lengths = ctx.content.narrationLengths?.();
+  if (round && lengths) round.lengths = linesInPlay(state.settings.roles, lengths);
   return { ...dealt, round, gamesPlayed: games, seed: newSeed(ctx.rng) };
 }
 
@@ -226,7 +229,8 @@ export function startNight(state: NightfallState, now: number): NightfallState {
   r.night = {
     plan: buildNightPlan(roles),
     index: -1,
-    deadline: now + NIGHT_INTRO_MS,
+    start: now,
+    deadline: now + introMs(roles, nightLengths(next.settings, r.lengths)),
     actors: [],
     work: {},
     touched: [],
@@ -707,6 +711,7 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
     out.night = {
       index: night.index,
       count: night.plan.length,
+      ...(night.start !== undefined ? { start: night.start } : {}),
       deadline: night.deadline,
       ...(pick ? { pick } : {}),
       acting,
