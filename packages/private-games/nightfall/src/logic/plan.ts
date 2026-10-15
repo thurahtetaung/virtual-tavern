@@ -280,10 +280,22 @@ export function stepFactor(id: StepId): number {
 /** Whether a step is in the dusk, before the Marks are seen (Fear doesn't apply). */
 export const isDusk = (id: StepId) => stepDef(id).order < NIGHT_ORDER;
 
-/** How long a step lasts in ms. The Village Idiot always gets at least 5 s extra. */
+/**
+ * The Oracle's step ends with the narrator's reply to her answer, out loud for everyone, then her
+ * follow-up (looking at or taking a centre card) and the close: this long after her time to answer,
+ * so the longest reply is said before her step closes, never over the next wake.
+ */
+export const ORACLE_REPLY_MS = 17_000;
+
+/**
+ * How long a step lasts in ms. The Village Idiot always gets at least 5 s extra; the Oracle's
+ * step adds the narrator's reply.
+ */
 export function stepMs(id: StepId, stepSeconds: number): number {
   const ms = stepFactor(id) * stepSeconds * 1000;
-  return stepDef(id).role === 'village-idiot' ? Math.max(ms, (stepSeconds + 5) * 1000) : ms;
+  const def = stepDef(id);
+  if (def.id === 'oracle') return ms + ORACLE_REPLY_MS;
+  return def.role === 'village-idiot' ? Math.max(ms, (stepSeconds + 5) * 1000) : ms;
 }
 
 /** Length of every step in ms, in plan order. */

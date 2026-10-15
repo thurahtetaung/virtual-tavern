@@ -1,5 +1,6 @@
 import {
   FRAME_LINES,
+  ORACLE_REPLY_MS,
   type StepId,
   epicPossible,
   pickRoleOf,
@@ -390,7 +391,14 @@ export function cuesFor(view: NightfallView): Cue[] {
     const starts = stepStarts(plan, s.stepSeconds, index, deadline);
     // What the narrator announces as this step begins (or as the last one ended) comes first.
     const said = saidAt(view.announcements, starts[index]!);
-    return stepCues(game, plan, index, starts[index]!, s, { said, pick: view.night.pick });
+    const cues = stepCues(game, plan, index, starts[index]!, s, { said, pick: view.night.pick });
+    // The narrator's reply to the Oracle, at its fixed moment before her step closes.
+    if (plan[index] === 'oracle') {
+      const at = deadline - ORACLE_REPLY_MS;
+      const reply = saidAt(view.announcements, at);
+      if (reply.length) cues.push(cue(`${game}:${index}:reply`, at, reply));
+    }
+    return cues;
   }
   if (view.phase === 'day' && view.day?.deadline) {
     const end = view.day.deadline;

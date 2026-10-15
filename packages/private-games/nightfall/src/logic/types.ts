@@ -134,6 +134,8 @@ export interface OracleState {
   exchange: boolean;
   /** A ripple is guaranteed at the end of the night. */
   ripple: boolean;
+  /** The narrator has replied (out loud, when the answer is public). */
+  replied?: boolean;
 }
 
 /** Something the narrator says out loud for everyone (ruled public, like the app's lines). */
@@ -343,6 +345,11 @@ export interface NightState {
   /** -1 during the intro, then the plan index. */
   index: number;
   deadline: number;
+  /**
+   * The Oracle's step: when the narrator replies to her answer, out loud for everyone (a fixed
+   * moment, whether a player holds her card or not). Gone once the reply is said.
+   */
+  replyAt?: number;
   /** Browser tests only: the step's own deadline, while the test hold keeps it waiting. */
   heldFrom?: number;
   /** Who acts in the current step. */

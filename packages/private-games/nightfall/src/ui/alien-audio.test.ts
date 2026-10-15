@@ -1,6 +1,6 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { publicPlan, stepDef } from '../logic/plan.ts';
+import { ORACLE_REPLY_MS, publicPlan, stepDef } from '../logic/plan.ts';
 import { ROLE_IDS, type RoleId } from '../logic/roles.ts';
 import {
   DEFAULT_WEIGHTS,
@@ -20,14 +20,17 @@ import { type Cue, announcementLines, cuesFor, pickLines } from './audio.ts';
 const KEYS = `
   alien:action:alien-helper alien:action:all-view alien:action:left alien:action:new-alien
   alien:action:right alien:action:show alien:action:stare alien:action:timer alien:action:view
-  alien:close alien:wake
-  blob:end:many blob:members:2-each-side blob:members:4-right
+  alien:close alien:fists-away alien:wake
+  blob:end:many blob:end:one blob:members:1-each-side blob:members:1-left blob:members:1-right
+  blob:members:2-each-side blob:members:2-left blob:members:2-right blob:members:3-left
+  blob:members:3-right blob:members:4-left blob:members:4-right
   body-snatcher:action:center body-snatcher:action:pretend body-snatcher:action:steal
   body-snatcher:close body-snatcher:end body-snatcher:wake
   cow:close cow:wake
   doppelganger:body-snatcher:close doppelganger:body-snatcher:wake doppelganger:close
   doppelganger:cow:close doppelganger:cow:wake doppelganger:empath:close doppelganger:empath:wake
-  doppelganger:exposer:close doppelganger:exposer:wake doppelganger:mortician:close
+  doppelganger:exposer:close doppelganger:exposer:wake doppelganger:leader:close
+  doppelganger:leader:groob-zerb doppelganger:leader:wake doppelganger:mortician:close
   doppelganger:mortician:wake doppelganger:nostradamus:announce doppelganger:nostradamus:close
   doppelganger:nostradamus:wake doppelganger:psychic:close doppelganger:psychic:wake
   doppelganger:rascal:close doppelganger:rascal:wake doppelganger:wake
@@ -36,21 +39,41 @@ const KEYS = `
   empath:prompt:nicest empath:prompt:sharp empath:prompt:smartest empath:prompt:smells
   empath:prompt:suspicious empath:prompt:think empath:prompt:winner empath:wake
   exposer:action:flip-1 exposer:action:flip-2 exposer:action:flip-3 exposer:close exposer:wake
-  fragment:and fragment:any-even-player fragment:any-odd-player fragment:any-player
-  fragment:both-neighbors fragment:center fragment:either-neighbor fragment:even-players
-  fragment:everyone fragment:left-neighbor fragment:odd-players fragment:or
+  fragment:and fragment:any-even-player fragment:any-higher fragment:any-lower
+  fragment:any-odd-player fragment:any-player fragment:any-two-even fragment:any-two-odd
+  fragment:any-two-players fragment:both-neighbors fragment:center fragment:either-neighbor
+  fragment:even-players fragment:everyone fragment:left-neighbor fragment:odd-players fragment:or
   fragment:right-neighbor fragment:two-higher fragment:two-left fragment:two-lower
   fragment:two-right fragment:yourself
   groob-zerb:close groob-zerb:wake
+  leader:close leader:groob-zerb leader:groob-zerb:thumbs-away leader:thumbs-away leader:wake
   mortician:action:both-cards mortician:action:one-card mortician:action:pretend mortician:close
   mortician:wake
-  name:alien name:apprentice-seer name:cupid name:curator name:diseased name:exposer name:gremlin
-  name:instigator name:marksman name:pickpocket name:psychic name:rascal name:renfield
-  name:revealer name:seer name:the-count name:troublemaker name:village-idiot name:witch
-  nostradamus:announce nostradamus:close nostradamus:team:alien nostradamus:team:blob
-  nostradamus:team:mortician nostradamus:team:oracle nostradamus:team:synthetic
-  nostradamus:team:village nostradamus:wake
-  oracle:answer:number:wrong oracle:close oracle:question:alien-exchange
+  name:alien name:alpha-wolf name:apprentice-assassin name:apprentice-seer name:apprentice-tanner
+  name:assassin name:aura-seer name:beholder name:blob name:body-snatcher name:bodyguard
+  name:copycat name:cow name:cupid name:curator name:cursed name:diseased name:doppelganger
+  name:dream-wolf name:drunk name:empath name:exposer name:gremlin name:groob name:hunter
+  name:insomniac name:instigator name:leader name:marksman name:mason name:minion name:mortician
+  name:mystic-wolf name:nostradamus name:oracle name:paranormal-investigator name:pickpocket
+  name:priest name:prince name:psychic name:rascal name:renfield name:revealer name:robber
+  name:seer name:sentinel name:squire name:synthetic-alien name:tanner name:the-count
+  name:the-master name:thing name:troublemaker name:vampire name:village-idiot name:villager
+  name:werewolf name:witch name:zerb
+  nostradamus:announce nostradamus:close nostradamus:team:alien
+  nostradamus:team:apprentice-assassin nostradamus:team:assassin nostradamus:team:blob
+  nostradamus:team:copycat nostradamus:team:doppelganger
+  nostradamus:team:mad nostradamus:team:mortician nostradamus:team:oracle
+  nostradamus:team:paranormal-investigator nostradamus:team:synthetic nostradamus:team:tanner
+  nostradamus:team:vampire nostradamus:team:village nostradamus:team:villain
+  nostradamus:team:werewolf nostradamus:wake
+  oracle:answer:alien-exchange:no oracle:answer:alien-exchange:yes oracle:answer:alien-team:yes
+  oracle:answer:alien-team:yes-helper oracle:answer:center-exchange:denied
+  oracle:answer:center-exchange:no oracle:answer:center-exchange:yes oracle:answer:even
+  oracle:answer:number:right oracle:answer:number:wrong oracle:answer:odd oracle:answer:ripple:no
+  oracle:answer:ripple:yes oracle:answer:team:no oracle:answer:vampire-team:yes
+  oracle:answer:view-center:1 oracle:answer:view-center:2 oracle:answer:view-center:3
+  oracle:answer:view-center:no oracle:answer:view-player:other oracle:answer:view-player:yes
+  oracle:answer:werewolf-team:yes oracle:close oracle:question:alien-exchange
   oracle:question:alien-team oracle:question:center-exchange oracle:question:even-odd
   oracle:question:number oracle:question:ripple oracle:question:vampire-team
   oracle:question:view-center oracle:question:view-player oracle:question:werewolf-team
@@ -157,12 +180,16 @@ function alienNight(seed: number, ripple: string) {
     // Every device hears the same narration, whoever acts.
     for (const c of cues) expect(c).toEqual(cues[0]);
     if (night.index >= 0) {
+      const id = night.plan[night.index]!;
       const pick = h.view('A').night!.pick;
       const open = cues[0]![0]!;
-      expect(missing(open.lines), `step ${night.plan[night.index]}`).toEqual([]);
-      if (pick && !stepDef(night.plan[night.index]!).repeat)
+      expect(missing(open.lines), `step ${id}`).toEqual([]);
+      if (pick && !stepDef(id).repeat)
         expect(open.lines.join(' ')).toContain(pickLines(pick).join(' '));
-      steps.push({ index: night.index, id: night.plan[night.index]!, cues: cues[0]! });
+      // The Oracle's step comes round twice: as it opens, and at the narrator's reply.
+      const last = steps.at(-1);
+      if (last?.index === night.index) last.cues = cues[0]!;
+      else steps.push({ index: night.index, id, cues: cues[0]! });
     }
     h.tick();
   }
@@ -197,5 +224,32 @@ describe('an Alien night out loud', () => {
       expect(added.length).toBe(grown.length - before.length);
       for (const s of added) expect(s.cues.length, s.id).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('the Oracle’s reply out loud', () => {
+  it('is said inside her step, before it closes, and never over the next wake', () => {
+    const h = table({
+      players: ['villager', 'werewolf', 'seer', 'villager'],
+      center: ['oracle', 'villager', 'villager'],
+      settings: { stepSeconds: 10, weights: only('oracle', 'number') },
+    });
+    h.tick();
+    const end = h.state.round!.night!.deadline;
+    expect(cuesFor(h.view('A')).map((c) => c.id)).toEqual(['1:0:open', '1:0:close']);
+    h.tick();
+    const cues = cuesFor(h.view('A'));
+    const reply = cues.find((c) => c.id === '1:0:reply')!;
+    const close = cues.find((c) => c.id === '1:0:close')!;
+    expect(reply).toMatchObject({
+      at: end - ORACLE_REPLY_MS,
+      lines: [expect.stringMatching(/^oracle:answer:number:(right|wrong)$/)],
+    });
+    expect(missing(reply.lines)).toEqual([]);
+    expect(reply.at).toBeLessThan(close.at);
+    // Every device hears it at the same moment.
+    for (const id of [...h.ids, null]) expect(cuesFor(h.view(id))).toEqual(cues);
+    h.tick();
+    expect(cuesFor(h.view('A'))[0]!.lines).toEqual(['werewolf:wake', 'werewolf:lone-wolf']);
   });
 });
