@@ -176,9 +176,9 @@ test('seven players with the Lady of the Lake: private checks, a sunk quest and 
     await expect(result).toContainText('Your Lady of the Lake check is in');
     await expect(result).not.toContainText(target);
     const peek = holder!.getByTestId('knowledge-peek');
-    await peek.getByRole('button', { name: '👁️ Show' }).click();
+    await peek.getByRole('button', { name: 'Show what you know' }).click();
     await expect(result).toContainText(target);
-    await peek.getByRole('button', { name: '🙈 Hide' }).click();
+    await peek.getByRole('button', { name: 'Hide what you know' }).click();
     for (const p of t.players.filter((x) => x !== holder))
       await expect(p.getByTestId('lady-result')).toHaveCount(0);
     return { holder: holder!, target };
@@ -247,7 +247,7 @@ test('on a phone, the rules drawer keeps your role hidden until you peek', async
 test('on a phone, what you know stays off the seats until you peek', async ({ browser }) => {
   test.setTimeout(90_000);
   const t = await openTable(browser, ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'], {
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 360, height: 780 },
   });
   await t.host.getByRole('button', { name: 'Start game' }).click();
   await readRoles(t);
@@ -255,7 +255,16 @@ test('on a phone, what you know stays off the seats until you peek', async ({ br
     const seats = page.getByRole('list', { name: 'Seats' });
     const badge = seats.getByText('Evil', { exact: true });
     const peek = page.getByTestId('knowledge-peek');
-    await expect(peek).toContainText('What you know is hidden');
+    await expect(peek).toContainText('Hidden: hold to see what you know');
+    // The Show toggle keeps to one line beside the bar, even on a 360 px phone.
+    const toggle = peek.getByRole('button', { name: 'Show what you know' });
+    const fit = await toggle.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+      return { lines, fits: el.scrollWidth <= el.clientWidth };
+    });
+    expect(fit).toEqual({ lines: 1, fits: true });
     await expect(badge).toHaveCount(0);
     // Hold to peek, let go to hide.
     const box = (await peek
@@ -267,9 +276,9 @@ test('on a phone, what you know stays off the seats until you peek', async ({ br
     await page.mouse.up();
     await expect(badge).toHaveCount(0);
     // Or switch it on and off.
-    await peek.getByRole('button', { name: '👁️ Show' }).click();
+    await peek.getByRole('button', { name: 'Show what you know' }).click();
     await expect(badge.first()).toBeVisible();
-    await peek.getByRole('button', { name: '🙈 Hide' }).click();
+    await peek.getByRole('button', { name: 'Hide what you know' }).click();
     await expect(badge).toHaveCount(0);
   }
   // A Loyal Servant knows nobody, and has the same control.

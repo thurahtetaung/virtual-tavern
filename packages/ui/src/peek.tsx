@@ -76,6 +76,7 @@ export function Peek({
   blocked,
   onReveal,
   onShownChange,
+  inline = false,
   className,
 }: {
   /** What is hidden, lower case, for the controls: "your role" → "Hold to see your role". */
@@ -99,6 +100,11 @@ export function Peek({
    * beside inputs).
    */
   onShownChange?: (shown: boolean) => void;
+  /**
+   * One row for a bar over a table: the cover beside a short "Show"/"Hide" toggle (still named in
+   * full for screen readers), so it fits a 360 px phone on one line.
+   */
+  inline?: boolean;
   className?: string;
 }) {
   const [state, dispatch] = useReducer(peekReducer, {
@@ -193,8 +199,14 @@ export function Peek({
   );
 
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
-      <div className="relative w-full">
+    <div
+      className={cn(
+        'flex gap-2',
+        inline ? 'flex-row items-stretch' : 'flex-col items-center',
+        className,
+      )}
+    >
+      <div className="relative w-full min-w-0">
         {holder}
         <div id={contentId} aria-live="polite">
           {shown && children}
@@ -208,12 +220,13 @@ export function Peek({
       <Button
         variant="secondary"
         size="sm"
-        className="min-h-11"
+        className={cn('min-h-11', inline && 'shrink-0 self-center whitespace-nowrap')}
         aria-expanded={open}
         aria-controls={contentId}
+        aria-label={inline ? `${open ? 'Hide' : 'Show'} ${what}` : undefined}
         onClick={() => setOpen(!open)}
       >
-        {open ? `🙈 Hide ${what}` : `👁️ Show ${what}`}
+        {open ? `🙈 Hide${inline ? '' : ` ${what}`}` : `👁️ Show${inline ? '' : ` ${what}`}`}
       </Button>
     </div>
   );

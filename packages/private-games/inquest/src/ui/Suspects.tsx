@@ -245,7 +245,7 @@ export function CrimePeek({ onShownChange }: { onShownChange: (shown: boolean) =
     <div data-testid="crime-peek">
       <Peek
         what="the crime"
-        className="flex-row items-stretch"
+        inline
         onShownChange={onShownChange}
         cover={<span className={bar}>🔒 The crime’s cards are unmarked: hold to mark them</span>}
       >

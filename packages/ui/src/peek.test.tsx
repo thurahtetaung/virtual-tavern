@@ -38,6 +38,15 @@ describe('Peek', () => {
     expect(page).toContain('Hidden while your phone lies flat.');
   });
 
+  it('inline, keeps the toggle short on screen but named in full', () => {
+    const page = html({ inline: true });
+    expect(page).toMatch(/<button[^>]*aria-label="Show your role"[^>]*>👁️ Show<\/button>/);
+    expect(page).toContain('whitespace-nowrap');
+    expect(html({ inline: true, open: true })).toMatch(
+      /<button[^>]*aria-label="Hide your role"[^>]*>🙈 Hide<\/button>/,
+    );
+  });
+
   it('has a default cover that says how to look', () => {
     expect(html({ cover: undefined })).toContain('Hold to see your role');
     expect(html({ cover: undefined, slide: true })).toContain(

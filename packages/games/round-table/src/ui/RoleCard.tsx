@@ -255,9 +255,9 @@ export function KnowledgePeek({ onShownChange }: { onShownChange: (shown: boolea
     <div data-testid="knowledge-peek">
       <Peek
         what="what you know"
-        className="flex-row items-stretch"
+        inline
         onShownChange={onShownChange}
-        cover={<span className={bar}>🔒 What you know is hidden: hold to peek</span>}
+        cover={<span className={bar}>🔒 Hidden: hold to see what you know</span>}
       >
         <p className={bar}>👁️ Showing what you know on the seats</p>
       </Peek>
