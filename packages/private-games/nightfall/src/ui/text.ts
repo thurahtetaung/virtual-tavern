@@ -256,19 +256,29 @@ const GROUP_SUBJECT: Record<string, string> = {
 };
 
 /**
+ * Whether a line speaks to a player acting with their eyes closed as `as`: only the Cow's own
+ * lines do (to the Cow). The Empath's and the aliens' wake and close lines speak to them, not to
+ * the players pointing or putting out a fist.
+ */
+const speaksToClosed = (key: string, as: RoleId) =>
+  as === 'cow' && (key.startsWith('cow:') || key.startsWith('doppelganger:cow:'));
+
+/**
  * The narration as text for a screen. The narrator's own words speak to the players who are
  * awake, so only a player woken in this step reads them; everyone else reads who is awake, in
- * the third person ("The Seer is awake."). When the vote opens because everyone was ready, it
- * doesn't say time ran out.
+ * the third person ("The Seer is awake."). A player acting with their eyes closed (`closedAs`:
+ * pointing for the Empath, a fist for the aliens) reads the lines that call another role in the
+ * third person too. When the vote opens because everyone was ready, it doesn't say time ran out.
  */
 export function narrationText(
   key: string,
   deck: Deck,
-  opts: { awake: boolean; readyEarly?: boolean; roles?: readonly RoleId[] },
+  opts: { awake: boolean; closedAs?: RoleId; readyEarly?: boolean; roles?: readonly RoleId[] },
 ): string {
   if (key === FRAME_LINES.vote)
     return opts.readyEarly ? 'Everyone’s ready. Three, two, one… vote!' : lineText(key, deck);
-  if (opts.awake) return lineText(key, deck, opts.roles);
+  if (opts.awake && (opts.closedAs === undefined || speaksToClosed(key, opts.closedAs)))
+    return lineText(key, deck, opts.roles);
   switch (key) {
     case FRAME_LINES.nightStart:
     case 'dusk:close':
@@ -325,6 +335,8 @@ export function partText(
   deck: Deck,
   opts: {
     awake: boolean;
+    /** The viewer acts this step with their eyes closed, as this role. */
+    closedAs?: RoleId;
     at: Numbered;
     told?: boolean;
     readyEarly?: boolean;
