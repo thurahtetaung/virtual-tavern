@@ -29,6 +29,9 @@ test('three players: a Favor, a pair, a Nope chain, an attack, a Defuse and two 
   await openSettings(ana!.page);
   await expect(ana!.page.getByTestId('preset-adult').getByTestId('adult-badge')).toBeVisible();
   await expect(host.getByTestId('readout')).toContainText('draw pile of 29');
+  // A guest reads the timing and house rules too, in their own fold below the players.
+  await ana!.page.getByText('Timing and house rules').click();
+  await expect(ana!.page.getByText('45 seconds', { exact: true })).toBeVisible();
 
   await riggedStart(host, {
     hands: [

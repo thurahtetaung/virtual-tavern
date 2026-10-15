@@ -20,13 +20,13 @@ const base = {
 
 describe('the guests’ settings summary', () => {
   it('names the hidden roles and options first and the default random Forensic Scientist last', () => {
-    const parts = settingsSummary(base, 'Random', roleName);
+    const parts = settingsSummary(base, roleName);
     expect(parts).toEqual([
       'Accomplice',
       'Witness',
       'events',
       'final accusations',
-      'Forensic Scientist: random',
+      'random Forensic Scientist',
     ]);
     // The live check's summary, cut mid-word at 360 and 390 px: the roles and options now show.
     expect(fitted(parts, 360)).toBe('Accomplice · Witness · events · +2 more');
@@ -34,9 +34,12 @@ describe('the guests’ settings summary', () => {
   });
 
   it('leads with a Forensic Scientist choice that asks something of the guests', () => {
-    expect(
-      settingsSummary({ ...base, fsMode: 'volunteers' }, 'Random volunteer', roleName)[0],
-    ).toBe('Forensic Scientist: random volunteer');
+    expect(settingsSummary({ ...base, fsMode: 'volunteers' }, roleName)[0]).toBe(
+      'Volunteer Forensic Scientist',
+    );
+    expect(settingsSummary({ ...base, fsMode: 'host' }, roleName)[0]).toBe(
+      'Host picks Forensic Scientist',
+    );
   });
 
   it('fits two lines at 360 and 390 px with Allies and every option on', () => {
@@ -50,12 +53,13 @@ describe('the guests’ settings summary', () => {
       unknownLocation: true,
       presentations: true,
     } as Settings;
-    const parts = settingsSummary(busy, 'Host picks a volunteer', roleName);
+    const parts = settingsSummary(busy, roleName);
     expect(parts).toHaveLength(11);
     for (const width of [360, 390]) {
       const text = fitted(parts, width);
       expect(summaryFits(text, 'Settings', width)).toBe(true);
-      expect(text).toMatch(/^Forensic Scientist: host picks a volunteer · Allies · .*\+\d+ more$/);
+      // The live check showed only the long Forensic Scientist part and Allies: now a role too.
+      expect(text).toMatch(/^Volunteer Forensic Scientist · Allies · Accomplice · .*\+\d+ more$/);
     }
   });
 });

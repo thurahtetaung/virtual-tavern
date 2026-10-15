@@ -44,12 +44,15 @@ export function WordListPicker({
   );
 }
 
-/** The chosen lists for a one-line summary: "Starter words", "Starter words +2", "no word list". */
+/**
+ * The chosen lists for a one-line summary: "Starter words", "3 word lists", "no word list". Several
+ * are only counted, so a summary never shows this count next to its own "+N more".
+ */
 export function wordListsLine(
   selectedIds: readonly string[],
   wordLists: readonly WordListSummary[],
 ) {
   const names = wordLists.filter((l) => selectedIds.includes(l.id)).map((l) => l.name);
   if (!names.length) return 'no word list';
-  return names.length === 1 ? names[0]! : `${names[0]} +${names.length - 1}`;
+  return names.length === 1 ? names[0]! : `${names.length} word lists`;
 }

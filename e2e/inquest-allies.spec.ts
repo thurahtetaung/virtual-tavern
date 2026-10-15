@@ -42,7 +42,7 @@ async function setUp(host: Page, fs: string, roles: string[], off: string[] = []
   if (guest)
     for (const width of [360, 390]) {
       const [summary] = await expectSummariesWhole(guest, width);
-      expect(summary).toMatch(/^Forensic Scientist: host picks · Allies · Accomplice/);
+      expect(summary).toMatch(/^Host picks Forensic Scientist · Allies · Accomplice/);
     }
   await host.getByRole('button', { name: 'Start the investigation' }).click();
 }
