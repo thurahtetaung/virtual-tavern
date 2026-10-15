@@ -29,7 +29,7 @@ function votePanel(h: ReturnType<typeof table>, you: string) {
       act={() => Promise.resolve(true)}
       status={statusFor(view, r)}
       deck={deckFor(null, () => '')}
-      narration={[]}
+      narration={null}
       sound={null}
     />,
   );

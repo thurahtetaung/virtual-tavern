@@ -4,25 +4,28 @@ import { type Manifest, assetUrl } from './assets.ts';
 import {
   CROSSFADE_MS,
   type Cue,
-  type CuePart,
   DEFAULT_MUSIC_VOLUME,
   DUCK_FADE_MS,
   type QueuedClip,
-  type Said,
+  type Shown,
   afterClip,
   clipsFor,
   cuesFor,
   devicePlaysMusic,
   deviceSpeaks,
   dueCues,
+  endShown,
   enqueueClips,
   fitCues,
   musicChange,
   musicPhaseFor,
   musicTarget,
   nextClip,
+  pendingShown,
   ramp,
-  stillSaid,
+  scheduleShown,
+  shownAt,
+  startShown,
   trackFor,
 } from './audio.ts';
 
@@ -195,10 +198,14 @@ export function useSound({
   isHost: boolean;
   clockOffset: number;
   device: DeviceSound;
-}): { said: CuePart[] } {
+}): { said: Shown | null } {
   const unlocked = useGesture();
   const speaks = deviceSpeaks(view.settings.narration, isHost);
-  const [said, setSaid] = useState<Said | null>(null);
+  const narrated = view.settings.narration !== 'off';
+  const [said, setSaid] = useState<Shown | null>(null);
+  // Each cue's words on screen, timed by when it is said; and the cues with clips still to play.
+  const shown = useRef<Shown[]>([]);
+  const speaking = useRef(new Set<string>());
   const [narrating, setNarrating] = useState(false);
   const played = useRef(new Set<string>());
   const queue = useRef<QueuedClip[]>([]);
@@ -216,13 +223,23 @@ export function useSound({
     for (const [src, ms] of Object.entries(manifest?.durations ?? {}))
       if (!LENGTHS.has(src) && typeof ms === 'number' && ms > 0) LENGTHS.set(src, ms);
     if (speaks) measure(parsed.flatMap((c) => clipsFor(narration, c.lines)));
+    const mark = (cue: string, change: (s: Shown) => Shown) => {
+      shown.current = shown.current.map((s) => (s.cue === cue ? change(s) : s));
+    };
     const playNext = () => {
       // Clips whose moment has passed (the device was away), or that would run too far into the
       // next step, are dropped, not played late.
-      const { clip, rest } = nextClip(queue.current, Date.now() + clockOffset, {
-        lengths: LENGTHS,
-      });
+      const now = Date.now() + clockOffset;
+      const { clip, rest } = nextClip(queue.current, now, { lengths: LENGTHS });
       queue.current = rest;
+      // A cue's words show from its first clip until its last one ends (or the rest is dropped).
+      if (clip) mark(clip.cue, (s) => startShown(s, now));
+      const left = new Set([...rest.map((c) => c.cue), ...(clip ? [clip.cue] : [])]);
+      for (const cue of speaking.current)
+        if (!left.has(cue)) {
+          speaking.current.delete(cue);
+          mark(cue, (s) => endShown(s, now));
+        }
       if (!clip) {
         setNarrating(false);
         return;
@@ -258,25 +275,40 @@ export function useSound({
       const list = fitCues(parsed, narration, LENGTHS);
       for (const cue of dueCues(list, now, played.current)) {
         played.current.add(cue.id);
-        setSaid({ cue: cue.id, parts: cue.parts });
-        if (!speaks || !unlocked) continue;
-        const clips = clipsFor(narration, cue.lines);
+        const planned = scheduleShown(cue, shown.current, {
+          narrated,
+          narration,
+          lengths: LENGTHS,
+        });
+        const clips = speaks && unlocked ? clipsFor(narration, cue.lines) : [];
+        // Words this device says itself wait for their first clip; elsewhere they follow the plan.
+        shown.current = [
+          ...shown.current.filter((s) => s.end > now - 60_000),
+          clips.length ? pendingShown(planned) : planned,
+        ];
+        if (!clips.length) continue;
+        speaking.current.add(cue.id);
         const idle = voice.current?.paused ?? true;
         // A new cue waits behind clips still due from an older one (nextClip drops what won't fit).
         queue.current = enqueueClips(clips, cue, queue.current);
         if (idle) playNext();
       }
+      const on = shownAt(shown.current, now);
+      setSaid((prev) => ((prev?.cue ?? null) === (on?.cue ?? null) ? prev : on));
     };
     check();
     const id = setInterval(check, 200);
     return () => {
       clearInterval(id);
     };
-  }, [cueKey, clockOffset, speaks, unlocked, manifest]);
+  }, [cueKey, clockOffset, speaks, unlocked, manifest, narrated]);
 
-  // Text from an earlier phase shouldn't linger.
+  // Text from an earlier game shouldn't linger.
   useEffect(() => {
-    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') setSaid(null);
+    if (view.phase === 'lobby' || view.phase === 'ready' || view.phase === 'reveal') {
+      shown.current = [];
+      setSaid(null);
+    }
   }, [view.phase]);
 
   // Music: the phase's track, crossfaded, ducked under the narration.
@@ -310,6 +342,5 @@ export function useSound({
     };
   }, []);
 
-  // A step that has ended says nothing more, not even for the moment before the next cue is due.
-  return { said: stillSaid(said, cues) };
+  return { said };
 }

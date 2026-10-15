@@ -21,8 +21,17 @@ import {
   type QueuedClip,
   STALE_CLIP_MS,
   afterClip,
+  CLIP_SLACK_MS,
+  MIN_SHOW_MS,
+  SHOW_MS,
+  type Shown,
+  endShown,
+  pendingShown,
   ramp,
-  stillSaid,
+  scheduleShown,
+  shownAt,
+  speaksTo,
+  startShown,
   trackFor,
 } from './audio.ts';
 
@@ -375,17 +384,117 @@ describe('the narration queue', () => {
 });
 
 describe('the narration text', () => {
-  const parts = [{ kind: 'line' as const, key: 'oracle:close' }];
+  const NARRATION = { 'seer:close': ['a.ogg', 'b.ogg'], 'seer:wake': ['w.ogg'] };
+  const opts = (lengths: Record<string, number>, narrated = true) => ({
+    narrated,
+    narration: NARRATION,
+    lengths: new Map(Object.entries(lengths)),
+  });
+  const close = {
+    id: '1:0:close',
+    at: 10_000,
+    until: 12_500,
+    step: 0,
+    lines: ['seer:close'],
+    parts: [{ kind: 'line' as const, key: 'seer:close' }],
+  };
 
-  it('shows what was said while its step lasts', () => {
-    const said = { cue: '1:0:close', parts };
-    expect(stillSaid(said, [{ id: '1:0:open' }, { id: '1:0:close' }])).toBe(parts);
+  it('stays up while its clips play past the step’s end', () => {
+    // Two clips of 2 s each from a close cued 2.5 s before the step ends: said until past 14 s.
+    const s = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
+    const said = 14_000 + 2 * CLIP_SLACK_MS;
+    expect(s).toMatchObject({ start: 10_000, end: said, spoken: said });
+    expect(shownAt([s], said - 1)?.cue).toBe('1:0:close');
+    expect(shownAt([s], said)).toBeNull();
+    // On a device that plays it, the words follow the clips however late they run.
+    let played = pendingShown(s);
+    expect(shownAt([played], 10_000)).toBeNull();
+    played = startShown(played, 10_400);
+    expect(shownAt([played], 15_000)?.cue).toBe('1:0:close');
+    played = endShown(played, 15_200);
+    expect(shownAt([played], 15_100)?.cue).toBe('1:0:close');
+    expect(shownAt([played], 15_200)).toBeNull();
   });
 
-  it('says nothing once its step has ended, before the next cue is due', () => {
-    const said = { cue: '1:0:close', parts };
-    expect(stillSaid(said, [{ id: '1:1:open' }, { id: '1:1:close' }])).toEqual([]);
-    expect(stillSaid(said, [{ id: '1:dawn' }])).toEqual([]);
-    expect(stillSaid(null, [{ id: '1:dawn' }])).toEqual([]);
+  it('waits for the narration before it, as its clips do', () => {
+    const before = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
+    const wake = {
+      id: '1:1:open',
+      at: 12_500,
+      until: 30_000,
+      step: 1,
+      lines: ['seer:wake'],
+      parts: [{ kind: 'line' as const, key: 'seer:wake' }],
+    };
+    const next = scheduleShown(
+      wake,
+      [before],
+      opts({ 'a.ogg': 2000, 'b.ogg': 2000, 'w.ogg': 3000 }),
+    );
+    expect(next).toMatchObject({
+      start: before.spoken,
+      spoken: before.spoken + 3000 + CLIP_SLACK_MS,
+    });
+    // The close's words stay until the wake is said, then the wake's.
+    expect(shownAt([before, next], 14_000)?.cue).toBe('1:0:close');
+    expect(shownAt([before, next], before.spoken)?.cue).toBe('1:1:open');
+  });
+
+  it('shows short lines long enough to read', () => {
+    const s = scheduleShown(close, [], opts({ 'a.ogg': 300, 'b.ogg': 300 }));
+    expect(s).toMatchObject({ end: 10_000 + MIN_SHOW_MS, spoken: 10_600 + 2 * CLIP_SLACK_MS });
+    expect(endShown(startShown(pendingShown(s), 10_000), 10_600).end).toBe(10_000 + MIN_SHOW_MS);
+  });
+
+  it('shows for its scheduled time when its length isn’t known', () => {
+    // Narration off: never past its step's end.
+    expect(scheduleShown(close, [], opts({}, false))).toMatchObject({ start: 10_000, end: 12_500 });
+    const open = { ...close, id: '1:0:open', at: 0, until: 60_000 };
+    expect(scheduleShown(open, [], opts({}, false)).end).toBe(SHOW_MS);
+    // A clip with no known length: its scheduled time.
+    expect(scheduleShown(close, [], opts({ 'a.ogg': 2000 })).end).toBe(10_000 + SHOW_MS);
+  });
+
+  it('isn’t held back by words still waiting for their first clip', () => {
+    const waiting = pendingShown(scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 })));
+    const next = { ...close, id: '1:1:open', at: 12_500, step: 1 };
+    expect(scheduleShown(next, [waiting], opts({ 'a.ogg': 2000, 'b.ogg': 2000 })).start).toBe(
+      12_500,
+    );
+  });
+
+  it('never shows words whose clips were all dropped', () => {
+    const s = endShown(pendingShown(scheduleShown(close, [], opts({}))), 11_000);
+    expect(shownAt([s], 11_000)).toBeNull();
+  });
+
+  it('speaks to a step’s players only in that step, and to nobody after the night', () => {
+    const s: Pick<Shown, 'step'> = { step: 0 };
+    expect(speaksTo(s, true, 0)).toBe(true);
+    // The next step's player, and everyone at dawn, read it in the third person.
+    expect(speaksTo(s, true, 1)).toBe(false);
+    expect(speaksTo(s, true, undefined)).toBe(false);
+    expect(speaksTo(s, false, 0)).toBe(false);
+    expect(speaksTo({}, true, undefined)).toBe(true);
+  });
+
+  it('keeps a real close up while it runs into the next step', () => {
+    const h = table({ players: ['werewolf', 'seer', 'villager'], settings: { stepSeconds: 10 } });
+    h.tick();
+    h.tick();
+    const v = nightfall.view(h.state, 'A');
+    const end = v.night!.deadline;
+    const c = cuesFor(v).find((x) => x.close)!;
+    const lengths = Object.fromEntries(
+      c.lines.map((_, i) => [`clip-${i}.ogg`, 4000] as [string, number]),
+    );
+    const s = scheduleShown(c, [], {
+      narrated: true,
+      narration: Object.fromEntries(c.lines.map((l, i) => [l, [`clip-${i}.ogg`]])),
+      lengths: new Map(Object.entries(lengths)),
+    });
+    expect(c.at + 4000 * c.lines.length).toBeGreaterThan(end);
+    expect(shownAt([s], end + 1)?.cue).toBe(c.id);
+    expect(s.step).toBe(v.night!.index);
   });
 });

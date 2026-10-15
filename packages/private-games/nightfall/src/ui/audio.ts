@@ -127,6 +127,8 @@ export interface Cue {
   until?: number;
   /** A step's close: it waits for the step's own narration before it. */
   close?: boolean;
+  /** A step's narration: the step's index, so its words speak to that step's players only. */
+  step?: number;
 }
 
 const line = (key: string): CuePart => ({ kind: 'line', key });
@@ -135,13 +137,13 @@ const cue = (
   id: string,
   at: number,
   parts: CuePart[],
-  step?: { until: number; close?: boolean },
+  step?: { until: number; close?: boolean; index: number },
 ): Cue => ({
   id,
   at,
   lines: parts.flatMap(partLines),
   parts,
-  ...(step ? { until: step.until, ...(step.close ? { close: true } : {}) } : {}),
+  ...(step ? { until: step.until, ...(step.close ? { close: true } : {}), step: step.index } : {}),
 });
 
 /**
@@ -189,7 +191,8 @@ export function cuesFor(view: NightfallView): Cue[] {
     if (plan[index] === 'oracle') {
       const at = deadline - ORACLE_REPLY_MS;
       const reply = saidAt(view.announcements, at);
-      if (reply.length) cues.push(cue(`${game}:${index}:reply`, at, reply, { until: deadline }));
+      if (reply.length)
+        cues.push(cue(`${game}:${index}:reply`, at, reply, { until: deadline, index }));
     }
     return cues;
   }
@@ -229,10 +232,11 @@ function stepCues(
   const { open, close } = stepParts(id, s, opts);
   if (end === null) return [cue(`${game}:${index}:open`, start, open)];
   return [
-    cue(`${game}:${index}:open`, start, open, { until: end }),
+    cue(`${game}:${index}:open`, start, open, { until: end, index }),
     cue(`${game}:${index}:close`, Math.max(start + 1000, end - CLOSE_LEAD_MS), close, {
       until: end,
       close: true,
+      index,
     }),
   ];
 }
@@ -277,22 +281,98 @@ export function dueCues<C extends Pick<Cue, 'id' | 'at'>>(
   return cues.filter((c) => !played.has(c.id) && c.at <= now && now - c.at <= graceMs);
 }
 
-/** The cue the narrator last said on this device. */
-export interface Said {
-  cue: string;
-  parts: CuePart[];
-}
-
-const NOTHING_SAID: CuePart[] = [];
+// ---- The narration as text ----
 
 /**
- * What the narrator is saying now: the last cue said, while it still belongs to the current
- * phase's cues. Once its step has ended it says nothing, so the last close line never shows in
- * the second person to the player woken next, or to everyone at dawn.
+ * A cue's words on screen, from `start` until `end` (server clock). `spoken` is when its
+ * narration is expected to end, so the next cue's words wait for it as its clips do.
  */
-export function stillSaid(said: Said | null, cues: readonly Pick<Cue, 'id'>[]): CuePart[] {
-  return said && cues.some((c) => c.id === said.cue) ? said.parts : NOTHING_SAID;
+export interface Shown {
+  cue: string;
+  parts: CuePart[];
+  /** A step's narration: its words speak to that step's players only. */
+  step?: number;
+  start: number;
+  end: number;
+  spoken: number;
 }
+
+/** Words whose narration length isn't known (narration off, or no clips) show this long. */
+export const SHOW_MS = 8000;
+/** Words stay up at least this long, however short their clips, so they can be read. */
+export const MIN_SHOW_MS = 2500;
+/** Allowed per clip, on top of its length, for loading it and starting it on a speaking device. */
+export const CLIP_SLACK_MS = 150;
+
+/**
+ * When a cue's words show. With narration on and its clips' lengths known, they show while it is
+ * expected to be said: from its moment, or once the narration before it ends (clips queue), for
+ * the clips' length. Otherwise they show for its scheduled time: `SHOW_MS`, and with narration
+ * off never past its step's end. A device that plays the clips itself times them by what it
+ * plays instead (`startShown`, `endShown`).
+ */
+export function scheduleShown(
+  c: Pick<Cue, 'id' | 'at' | 'lines' | 'parts' | 'until' | 'step'>,
+  before: readonly Shown[],
+  opts: {
+    narrated: boolean;
+    narration: Record<string, readonly string[]> | undefined;
+    lengths: ReadonlyMap<string, number>;
+  },
+): Shown {
+  const base = { cue: c.id, parts: c.parts, ...(c.step !== undefined ? { step: c.step } : {}) };
+  const clips = opts.narrated ? clipsFor(opts.narration, c.lines) : [];
+  if (clips.length && clips.every((src) => opts.lengths.has(src))) {
+    const length =
+      clips.reduce((sum, src) => sum + opts.lengths.get(src)!, 0) + clips.length * CLIP_SLACK_MS;
+    // Words still waiting for their first clip on this device don't hold later ones back.
+    const start = Math.max(c.at, ...before.map((s) => s.spoken).filter(Number.isFinite));
+    return { ...base, start, end: start + Math.max(length, MIN_SHOW_MS), spoken: start + length };
+  }
+  const end =
+    !opts.narrated && c.until !== undefined
+      ? Math.max(c.at + MIN_SHOW_MS, Math.min(c.at + SHOW_MS, c.until))
+      : c.at + SHOW_MS;
+  return { ...base, start: c.at, end, spoken: c.at };
+}
+
+/** Waiting for its first clip to play on this device: not shown yet. */
+export const pendingShown = (s: Shown): Shown => ({
+  ...s,
+  start: Infinity,
+  end: Infinity,
+  spoken: Infinity,
+});
+
+/** Its first clip started playing at `now`: the words show from now until its last clip ends. */
+export const startShown = (s: Shown, now: number): Shown =>
+  s.start === Infinity ? { ...s, start: now } : s;
+
+/**
+ * Its last clip ended (or the rest was dropped) at `now`. Words whose clips never played don't
+ * show at all.
+ */
+export function endShown(s: Shown, now: number): Shown {
+  if (s.start === Infinity) return { ...s, start: now, end: now, spoken: now };
+  return { ...s, end: Math.max(now, s.start + MIN_SHOW_MS), spoken: now };
+}
+
+/** The words on screen at `now`: the cue started last of those still showing. */
+export function shownAt(list: readonly Shown[], now: number): Shown | null {
+  let best: Shown | null = null;
+  for (const s of list)
+    if (s.start <= now && now < s.end && (!best || s.start >= best.start)) best = s;
+  return best;
+}
+
+/**
+ * Whether the words speak to this device's player: a step's narration only while that player
+ * is awake in that very step (`step`, the night's current step, or undefined after the night).
+ * Anyone else, and anyone once the step has moved on, reads them in the third person, the same
+ * for everyone, so lingering words never tell who acts.
+ */
+export const speaksTo = (shown: Pick<Shown, 'step'>, awake: boolean, step: number | undefined) =>
+  awake && (shown.step === undefined || shown.step === step);
 
 // ---- The narration queue ----
 

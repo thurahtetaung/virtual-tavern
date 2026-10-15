@@ -24,8 +24,10 @@ import {
   oracleAbout,
   oracleQuestion,
   oracleReply,
+  pickAbout,
   toldText,
 } from './alienText.ts';
+import type { CuePart } from '../logic/narration.ts';
 
 /** No player numbers known: the narrator's numbers stand alone. */
 const NO_NUMBERS: Numbered = { name: () => null };
@@ -310,6 +312,32 @@ export function narrationText(
   if (!subject) return '';
   if (parts.includes('close')) return `${subject} ${plural ? 'go' : 'goes'} back to sleep.`;
   return `${subject} ${plural ? 'are' : 'is'} awake.`;
+}
+
+/**
+ * The words for a piece of narration on a screen: a line as `narrationText` words it, a step's
+ * instruction in the third person (unless `told`: the viewer's own box already shows it), and an
+ * announcement as everyone hears it.
+ */
+export function partText(
+  part: CuePart,
+  deck: Deck,
+  opts: {
+    awake: boolean;
+    at: Numbered;
+    told?: boolean;
+    readyEarly?: boolean;
+    roles?: readonly RoleId[];
+  },
+): string {
+  switch (part.kind) {
+    case 'line':
+      return narrationText(part.key, deck, opts);
+    case 'pick':
+      return opts.told ? '' : pickAbout(part.pick, opts.at, deck, { doppel: part.doppel });
+    case 'announcement':
+      return announcementText(part.announcement, opts.at, deck);
+  }
 }
 
 // ---- What players learn ----
