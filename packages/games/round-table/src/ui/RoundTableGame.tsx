@@ -15,7 +15,6 @@ import {
   VotePanel,
 } from './Actions.tsx';
 import { QuestTrack, type SeatPick, Seats, VoteTrack, WaitingChips } from './Board.tsx';
-import { Emblem } from './Emblem.tsx';
 import { End } from './End.tsx';
 import { History } from './History.tsx';
 import { Lobby } from './Lobby.tsx';
@@ -36,7 +35,8 @@ const CLOCK: Partial<Record<Stage, { label: string; atZero: string }>> = {
   assassinate: { label: 'to name Merlin', atZero: 'then a random pick' },
 };
 
-function TopBar({
+/** The header. It looks the same for every seat: your role shows only in the sheet it opens. */
+export function TopBar({
   view,
   room,
   yourMove,
@@ -60,8 +60,8 @@ function TopBar({
           </span>
         )}
         {view.role && (
-          <Button variant="secondary" size="sm" onClick={onRole} className="min-h-11 gap-1 pl-1">
-            <Emblem role={view.role.role} className="size-6 ring-1" />
+          <Button variant="secondary" size="sm" onClick={onRole} className="min-h-11 gap-1">
+            <span aria-hidden>🎭</span>
             My role
           </Button>
         )}
@@ -108,7 +108,10 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
 }
 
 /** The first-time tip for this moment, if the viewer hasn't dismissed it. */
-function tipFor(view: RoundTableView, fresh: (id: string) => boolean): [string, string] | null {
+export function tipFor(
+  view: RoundTableView,
+  fresh: (id: string) => boolean,
+): [string, string] | null {
   const role = view.role;
   const g = view.game;
   if (!role || !g || view.phase !== 'playing') return null;
@@ -124,9 +127,10 @@ function tipFor(view: RoundTableView, fresh: (id: string) => boolean): [string, 
       view.stage === 'vote',
     ],
     [
-      'quest-evil',
-      'Evil tip: a Fail on an early quest can give you away. Sometimes a Success buys you trust for later.',
-      view.stage === 'quest' && role.loyalty === 'evil' && !!g.quest?.team.includes(view.me!.id),
+      // For the whole team, whatever their side, so the tip says nothing about yours.
+      'quest',
+      'Quest tip: Good always plays Success. For Evil, a Fail on an early quest can give you away; sometimes a Success buys trust for later.',
+      view.stage === 'quest' && !!g.quest?.team.includes(view.me!.id),
     ],
     [
       'marks',

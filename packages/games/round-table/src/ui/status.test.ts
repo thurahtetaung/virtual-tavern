@@ -80,15 +80,15 @@ describe('status', () => {
     expect(statusFor(h.view('dee'), false).text).toMatch(/^Vote on your team/);
   });
 
-  it('speaks to Good and Evil differently on a quest', () => {
+  it('speaks to Good and Evil alike on a quest, so the line gives no side away', () => {
     const h = rigged(BASE5);
     propose(h, ['ana', 'dee']);
     voteAll(h);
     expect(statusFor(h.view('ana'), false).text).toBe(
-      'You’re on the quest. Loyal players always play Success.',
+      'You’re on the quest: play your card in secret.',
     );
     expect(statusFor(h.view('dee'), false).text).toBe(
-      'You’re on the quest. Play Success to keep your cover, or Fail to sink it.',
+      'You’re on the quest: play your card in secret.',
     );
     expect(statusFor(h.view('ben'), false).yourMove).toBe(false);
   });
