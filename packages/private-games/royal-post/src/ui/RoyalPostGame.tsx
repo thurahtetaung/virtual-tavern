@@ -436,7 +436,7 @@ function Discards({
   onOpen: () => void;
 }) {
   if (p.discards.length === 0)
-    return <span className="text-xs text-stone-400 italic">no discards</span>;
+    return <span className="text-xs text-ink-muted italic">no discards</span>;
   return (
     <button
       type="button"
@@ -1357,7 +1357,7 @@ function Log({ view }: { view: RoyalPostView }) {
             touches(view, e) && 'text-rose-800 dark:text-rose-200',
           )}
         >
-          <span className="mr-1 text-xs text-stone-400 tabular-nums">R{e.round}</span>
+          <span className="mr-1 text-xs text-ink-muted tabular-nums">R{e.round}</span>
           <Rich line={describeLog(view, e)} />
         </li>
       ))}

@@ -210,7 +210,7 @@ export function MeTab({
         <h3 className="mb-1 font-bold">Quick reference: {g.players.length} players</h3>
         <ol className="space-y-0.5">
           {track.map((p, i) => (
-            <li key={i} className={cn(i < g.enacted.red && 'text-stone-400 line-through')}>
+            <li key={i} className={cn(i < g.enacted.red && 'text-ink-muted line-through')}>
               {c.policyName('red')} #{i + 1}:{' '}
               {i === 5
                 ? c.t('the {reds} win')

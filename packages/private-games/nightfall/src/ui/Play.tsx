@@ -840,6 +840,7 @@ function NightClock({
       role="timer"
       aria-label={`${left} seconds left ${label}, ${atZero}`}
       title={atZero}
+      // vt-contrast: the night screen is dark in both themes
       className="inline-flex items-baseline gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-stone-400 ring-1 ring-white/10"
     >
       <span className="font-mono text-lg font-bold tabular-nums">
@@ -1929,7 +1930,7 @@ export function Reveal({
               Play again
             </Button>
           )}
-          <Button variant="secondary" onClick={() => void act({ type: 'back-to-lobby' })}>
+          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
             Change setup
           </Button>
         </div>

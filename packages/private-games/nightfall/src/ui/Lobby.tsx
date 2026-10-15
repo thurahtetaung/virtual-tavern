@@ -163,7 +163,7 @@ function Segmented<T extends string | number>({
             className={cn(
               'h-9 rounded-lg px-3 text-sm font-semibold ring-1 ring-stone-300 transition dark:ring-stone-700',
               o.id === value
-                ? 'bg-special text-white ring-special dark:bg-indigo-500 dark:ring-indigo-500'
+                ? 'bg-special text-white ring-special dark:bg-indigo-600 dark:ring-indigo-500'
                 : 'bg-white hover:bg-stone-50 dark:bg-stone-900 dark:hover:bg-stone-800',
               disabled && o.id !== value && 'opacity-50',
             )}
