@@ -1,17 +1,25 @@
 import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
-import { type CuePart, introLines, partLines, stepParts } from '../logic/narration.ts';
+import {
+  type CuePart,
+  announcementLines,
+  introLines,
+  partLines,
+  stepParts,
+} from '../logic/narration.ts';
+import { neighbour } from '../logic/night.ts';
 import { FRAME_LINES, REPEAT, STEPS } from '../logic/plan.ts';
 import { ARTIFACTS, NOSTRA_TEAMS, ROLE_IDS, type RoleId } from '../logic/roles.ts';
 import {
   DEFAULT_WEIGHTS,
   TABLE_OF,
   type WeightTable,
+  blobMembers,
   blobOptions,
   pickFor,
   pickRipple,
 } from '../logic/tables.ts';
-import type { Announcement } from '../logic/types.ts';
+import type { Announcement, GameRound } from '../logic/types.ts';
 import { type Manifest, deckFor } from './assets.ts';
 import { partText } from './text.ts';
 
@@ -127,5 +135,30 @@ describe('the narration as text', () => {
     const wake: CuePart = { kind: 'line', key: 'seer:wake' };
     expect(partText(wake, deck, { awake: false, at })).toBe(`The Card ${seer} is awake.`);
     expect(partText(wake, deck, { awake: true, at })).toMatch(new RegExp(`^CARD ${seer}, wake up`));
+  });
+});
+
+describe('the Blob’s side', () => {
+  // The playtest's table: eight seats, the Blob in seat 2, three players to its right.
+  const order = ['ana', 'ben', 'cy', 'dee', 'eli', 'fay', 'gus', 'hal'];
+  const round = { order } as unknown as GameRound;
+
+  it('is the same side in the engine, the narration and the words', () => {
+    const shape = { left: 0, right: 3 };
+    // Right is the previous seats, as for every neighbour (the Rascal's "to your right" too).
+    expect(neighbour(round, 'ben', 'right')).toBe('ana');
+    expect(blobMembers(order, 'ben', shape).sort()).toEqual(['ana', 'ben', 'gus', 'hal']);
+    const blob: Announcement = { kind: 'blob', shape };
+    expect(announcementLines(blob)).toEqual(['blob:members:3-right', 'blob:end:many']);
+    expect(
+      partText({ kind: 'announcement', announcement: blob }, deck, { awake: false, at }),
+    ).toMatch(/the three players to the Blob’s right are part of the Blob/);
+    const left: Announcement = { kind: 'blob', shape: { left: 2, right: 0 } };
+    expect(neighbour(round, 'ben', 'left')).toBe('cy');
+    expect(blobMembers(order, 'ben', left.shape).sort()).toEqual(['ben', 'cy', 'dee']);
+    expect(announcementLines(left)[0]).toBe('blob:members:2-left');
+    expect(
+      partText({ kind: 'announcement', announcement: left }, deck, { awake: true, at }),
+    ).toMatch(/the two players to the Blob’s left/);
   });
 });
