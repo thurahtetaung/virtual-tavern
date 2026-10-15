@@ -151,10 +151,8 @@ export function statusFor(view: RoundTableView, isHost: boolean, people?: People
       const onTeam = !!me && quest.team.includes(me.id);
       if (onTeam && role && quest.myCard === null)
         return {
-          text:
-            role.loyalty === 'good'
-              ? 'You’re on the quest. Loyal players always play Success.'
-              : 'You’re on the quest. Play Success to keep your cover, or Fail to sink it.',
+          // The same line for both sides: the status line is always on screen.
+          text: 'You’re on the quest: play your card in secret.',
           yourMove: true,
         };
       return {

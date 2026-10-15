@@ -1,11 +1,12 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { game, ids, questRound, rigged } from '../logic/test-utils.ts';
+import { game, ids, propose, questRound, rigged, voteAll } from '../logic/test-utils.ts';
 import type { RoundTableView } from '../logic/types.ts';
 import { LadyResult } from './Actions.tsx';
 import { Seats } from './Board.tsx';
 import { History } from './History.tsx';
+import { TopBar, tipFor } from './RoundTableGame.tsx';
 
 const players = ids(8);
 const room = (you: string): GameRoomInfo => ({
@@ -75,5 +76,39 @@ describe('the table with what you know hidden', () => {
     expect(percival).toMatch(/>Merlin\?</);
     const checker = table(h.view(holder), true);
     expect(checker).toMatch(/The Lady shows you/);
+  });
+});
+
+describe('the header and tips with your role hidden', () => {
+  const h = rigged([
+    'merlin',
+    'percival',
+    'morgana',
+    'servant',
+    'servant',
+    'assassin',
+    'minion',
+    'servant',
+  ]);
+  const topBar = (id: string) =>
+    renderToStaticMarkup(
+      <TopBar view={h.view(id)} room={room(id)} yourMove={false} onRole={() => {}} />,
+    );
+
+  it('shows the same “My role” button to every seat, with no emblem or role word', () => {
+    const html = topBar(players[0]!);
+    expect(html).toMatch(/My role/);
+    expect(html).not.toMatch(/<svg|Merlin|Evil|Good|Morgana|Assassin/);
+    for (const id of players) expect(topBar(id), id).toBe(html);
+  });
+
+  it('gives Good and Evil on a quest the same first-time tip', () => {
+    propose(h, ['ana', 'ben', 'cy']);
+    voteAll(h);
+    const team = h.view('ana').game!.quest!.team;
+    expect(new Set(team.map((id) => h.view(id).role!.loyalty))).toEqual(new Set(['good', 'evil']));
+    const tips = team.map((id) => tipFor(h.view(id), () => true));
+    expect(tips[0]).not.toBeNull();
+    for (const tip of tips) expect(tip).toEqual(tips[0]);
   });
 });
