@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.20](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.19...v0.37.20) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** keep the narration words up until the next cue replaces them, and word eyes-closed calls in the third person ([#234](https://github.com/thurahtetaung/virtual-tavern/issues/234)) ([ee276e6](https://github.com/thurahtetaung/virtual-tavern/commit/ee276e600958424d3daa2fc5b795305fc865b078))
+
 ## [0.37.19](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.18...v0.37.19) (2026-10-15)
 
 
