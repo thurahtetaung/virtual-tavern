@@ -136,6 +136,54 @@ describe('the narration as text', () => {
     expect(partText(wake, deck, { awake: false, at })).toBe(`The Card ${seer} is awake.`);
     expect(partText(wake, deck, { awake: true, at })).toMatch(new RegExp(`^CARD ${seer}, wake up`));
   });
+
+  it('speaks to the players pointing for the Empath as they are, never as the Empath', () => {
+    const empath = `Card ${ROLE_IDS.indexOf('empath') + 1}`;
+    const pick = pickFor('empath', {
+      rng: createRng(3),
+      n: 8,
+      weights: undefined,
+      roles: ['empath'],
+    })!;
+    const { open, close } = stepParts(
+      'empath',
+      { roles: ['empath', 'seer'], loneWolf: false },
+      { pick },
+    );
+    const text = (parts: CuePart[], opts: Parameters<typeof partText>[2]) =>
+      parts
+        .map((p) => partText(p, deck, opts))
+        .filter(Boolean)
+        .join(' ');
+    // The Empath is called, and told to watch.
+    expect(text(open, { awake: true, at, told: true })).toMatch(
+      new RegExp(`^${empath.toUpperCase()}, wake up\\. Watch`),
+    );
+    expect(text(close, { awake: true, at })).toBe(`${empath.toUpperCase()}, close your eyes.`);
+    // Those pointing hear the Empath called: they read it as everyone does, in the third person,
+    // and their own instruction stays in their own box.
+    const pointing = { awake: true, closedAs: 'villager' as const, at, told: true };
+    expect(text(open, pointing)).toBe(`The ${empath} is awake.`);
+    expect(text(close, pointing)).toBe(`The ${empath} goes back to sleep.`);
+    expect(text(open, pointing)).toBe(
+      text(
+        open.filter((p) => p.kind !== 'pick'),
+        { awake: false, at },
+      ),
+    );
+  });
+
+  it('calls only the Cow by name among the players putting out a fist', () => {
+    const cow = `Card ${ROLE_IDS.indexOf('cow') + 1}`;
+    const { open } = stepParts('aliens', { roles: ['alien', 'cow'], loneWolf: false });
+    const lines = open.filter((p) => p.kind === 'line');
+    const words = (closedAs: RoleId) =>
+      lines.map((p) => partText(p, deck, { awake: true, closedAs, at })).join(' ');
+    expect(words('cow')).toMatch(
+      new RegExp(`^The aliens are awake\\. ${cow.toUpperCase()}, put out your fist`),
+    );
+    expect(words('villager')).toBe(`The aliens are awake. The ${cow} puts out a fist.`);
+  });
 });
 
 describe('the Blob’s side', () => {

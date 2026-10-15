@@ -290,6 +290,7 @@ function Narration({
   view,
   deck,
   awake,
+  closedAs,
   step,
   told = false,
   readyEarly = false,
@@ -298,6 +299,8 @@ function Narration({
   view: NightfallView;
   deck: Deck;
   awake: boolean;
+  /** You act with your eyes closed this step, as this role (pointing, or a fist out). */
+  closedAs?: RoleId | undefined;
   /** The night's current step (none in the day). */
   step?: number;
   /** The step's instruction already shows in your own "The narrator says" box. */
@@ -311,6 +314,7 @@ function Narration({
       .map((part) =>
         partText(part, deck, {
           awake: yours,
+          ...(closedAs !== undefined ? { closedAs } : {}),
           at,
           told: told && yours,
           readyEarly,
@@ -962,6 +966,7 @@ export function Night({
           view={view}
           deck={deck}
           awake={acting !== null}
+          closedAs={closed ? acting.as : undefined}
           step={night.index}
           told={acting?.told !== undefined}
         />
