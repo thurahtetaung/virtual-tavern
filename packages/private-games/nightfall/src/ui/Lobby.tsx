@@ -43,6 +43,7 @@ import type { Deck } from './assets.ts';
 import { ENTRY_LABEL, tableTitle } from './alienText.ts';
 import { CardFace, MarkChip, PlayerNumber, useRoleDetails } from './Cards.tsx';
 import { type Status, startBlocker } from './status.ts';
+import { cardsSummary } from './summary.ts';
 import { TEAM_LABEL } from './text.ts';
 
 type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
@@ -281,7 +282,7 @@ function AlienOptions({
       <LobbySettings
         editable={editable}
         title="Alien options"
-        summary={changed ? 'the host changed the odds' : 'the usual odds'}
+        summary={[changed ? 'the host changed the odds' : 'the usual odds']}
         className="space-y-2"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -458,9 +459,7 @@ export function Lobby({
       <LobbySettings
         editable={editable}
         title="The cards"
-        summary={`${s.roles.length} cards: ${[...counts]
-          .map(([r, n]) => (n > 1 ? `${deck.name(r)} ×${n}` : deck.name(r)))
-          .join(', ')}`}
+        summary={cardsSummary(s.roles, (r) => deck.name(r))}
         className="space-y-3"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -616,7 +615,7 @@ export function Lobby({
           `${s.stepSeconds} s a role`,
           `${s.daySeconds / 60} min day`,
           `narration: ${NARRATION.find((n) => n.id === s.narration)!.label.toLowerCase()}`,
-        ].join(' · ')}
+        ]}
         className="space-y-3"
       >
         {editable && <h3 className="font-bold">Settings</h3>}

@@ -358,14 +358,16 @@ export function Lobby({
       <LobbySettings
         editable={room.isHost}
         title="Timer"
-        summary={timersLine(
-          {
-            clueSeconds: view.settings.seconds,
-            guessSeconds: null,
-            timerMode: view.settings.timerMode,
-          },
-          { clue: 'decisions', guess: null },
-        )}
+        summary={[
+          timersLine(
+            {
+              clueSeconds: view.settings.seconds,
+              guessSeconds: null,
+              timerMode: view.settings.timerMode,
+            },
+            { clue: 'decisions', guess: null },
+          ),
+        ]}
       >
         {room.isHost && <h3 className="mb-2 font-bold">Timer</h3>}
         <div>

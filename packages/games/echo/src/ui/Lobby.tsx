@@ -33,12 +33,12 @@ function timerSummary(s: EchoView['settings']): string {
 const DECK_PACE: Record<DeckSize, string> = { 8: 'quick', 13: 'standard', 20: 'long' };
 
 /** The guests' one line: "13 cards · Starter words · no time limits". */
-function settingsSummary(view: EchoView, room: GameRoomInfo): string {
+function settingsSummary(view: EchoView, room: GameRoomInfo): string[] {
   return [
     `${view.settings.deckSize} cards`,
     wordListsLine(view.settings.wordListIds, room.wordLists),
     timerSummary(view.settings),
-  ].join(' · ');
+  ];
 }
 
 const cardsSummary = (chosen: unknown[], total: number) =>
@@ -70,7 +70,6 @@ export function Lobby({
       </Panel>
       <LobbySettings
         editable={editable}
-        title="Game settings"
         summary={settingsSummary(view, room)}
         className="space-y-4"
       >

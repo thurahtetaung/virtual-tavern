@@ -221,7 +221,7 @@ export function Lobby({
           s.timerSeconds === null
             ? 'no timer'
             : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
-        ].join(' · ')}
+        ]}
         className="space-y-3"
       >
         {host && <h3 className="font-bold">Settings</h3>}

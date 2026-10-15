@@ -131,12 +131,11 @@ export function ReverieGame({
         <Seats view={view} online={online} act={act} hostId={room.hostId} />
         <LobbySettings
           editable={room.isHost}
-          title="Game settings"
           summary={[
             `play to ${view.settings.targetScore}`,
             `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
             timersLine(view.settings, { clue: 'storyteller', guess: 'cards and votes' }),
-          ].join(' · ')}
+          ]}
           className="space-y-4"
         >
           {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}

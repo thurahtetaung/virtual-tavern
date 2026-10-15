@@ -162,12 +162,11 @@ export function Lobby({
       <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
       <LobbySettings
         editable={editable}
-        title="Game settings"
         summary={[
           FLOWS.find((f) => f.flow === view.settings.flow)!.title,
           wordListsLine(view.settings.wordListIds, room.wordLists),
           timersLine(view.settings),
-        ].join(' · ')}
+        ]}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Game settings</h3>}

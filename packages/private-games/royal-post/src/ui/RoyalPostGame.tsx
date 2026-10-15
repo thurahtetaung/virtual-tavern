@@ -267,12 +267,11 @@ function Lobby({
       <Seats view={view} room={room} act={act} />
       <LobbySettings
         editable={editable}
-        title="Game settings"
         summary={[
           s.edition === 'classic' ? 'Classic' : '2019 edition',
           `${tokensToWin(EDITIONS[s.edition], Math.min(EDITIONS[s.edition].maxPlayers, Math.max(EDITIONS[s.edition].minPlayers, seated)), s.short)} tokens to win`,
           timers,
-        ].join(' · ')}
+        ]}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Game settings</h3>}

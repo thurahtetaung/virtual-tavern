@@ -11,6 +11,7 @@ import {
 } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardBack, CardFace } from './Card.tsx';
+import { deckSummary } from './summary.ts';
 import { an } from './text.ts';
 
 type Act = (a: ShortFuseAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -184,13 +185,7 @@ export function Lobby({
       <LobbySettings
         editable={host}
         title="The deck"
-        summary={[
-          preset ? presetTitle(preset) : 'Custom deck',
-          ...(['x1', 'x2', 'x3', 'x4'] as const).filter((x) => s[x]).map((x) => setName(x)),
-          s.faster && 'faster game',
-        ]
-          .filter(Boolean)
-          .join(' · ')}
+        summary={deckSummary(s, preset ? presetTitle(preset) : null, setName)}
         className="space-y-3"
       >
         {host && <h3 className="font-bold text-ink">The deck</h3>}

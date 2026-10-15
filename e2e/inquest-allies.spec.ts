@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { expectSummariesWhole } from './lobby-settings.ts';
 import {
   type Player,
   commitCrime,
@@ -24,7 +25,7 @@ test.afterEach(() => {
 });
 
 /** The host picks `fs`, switches the Allies expansion on with `roles`, and sets toggles off. */
-async function setUp(host: Page, fs: string, roles: string[], off: string[] = []) {
+async function setUp(host: Page, fs: string, roles: string[], off: string[] = [], guest?: Page) {
   await host.getByRole('button', { name: 'Host picks', exact: true }).click();
   await host
     .getByLabel('Pick the Forensic Scientist')
@@ -37,6 +38,12 @@ async function setUp(host: Page, fs: string, roles: string[], off: string[] = []
     await expect(host.getByRole('button', { name: `✓ ${name}` })).toBeVisible();
   }
   for (const name of off) await host.getByRole('button', { name: `✓ ${name}` }).click();
+  // A guest's summary fits a phone whole: the host's pick first, the rest counted when it's long.
+  if (guest)
+    for (const width of [360, 390]) {
+      const [summary] = await expectSummariesWhole(guest, width);
+      expect(summary).toMatch(/^Forensic Scientist: host picks · Allies · Accomplice/);
+    }
   await host.getByRole('button', { name: 'Start the investigation' }).click();
 }
 
@@ -56,6 +63,7 @@ test('eight players with every Allies role: the Allies Phase, then the Reversal'
     'Hana',
     ['Lab Technician', 'Inside Man', 'Protective Detail'],
     ['Event tiles'],
+    players[1]!.page,
   );
   const murderer = await commitCrime(players);
   await firstRound(host.page);

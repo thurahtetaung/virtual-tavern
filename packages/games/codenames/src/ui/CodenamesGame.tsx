@@ -87,8 +87,10 @@ export function CodenamesGame({
         </p>
         <LobbySettings
           editable={room.isHost}
-          title="Game settings"
-          summary={`${wordListsLine(view.settings.wordListIds, room.wordLists)} · ${timersLine(view.settings)}`}
+          summary={[
+            wordListsLine(view.settings.wordListIds, room.wordLists),
+            timersLine(view.settings),
+          ]}
           className="space-y-4"
         >
           {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
