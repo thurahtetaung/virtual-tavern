@@ -1,23 +1,27 @@
 name: Release
 
-# Runs only after CI has passed on main, so a red build can never be released or deployed.
+# Runs on every push to main. CI already ran on the PR, so nothing here runs it again.
+# - A merged change: release-please opens or updates the Release PR (version bump and CHANGELOG).
+# - The merged Release PR: release-please tags vX.Y.Z and writes the GitHub release, then the
+#   image is published and the deploy waits for the production approval.
+# The Release PR is opened with the workflow's own token, so it starts no CI of its own.
+# Run it by hand on main to tag a merged Release PR whose push started no run.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 jobs:
   release-please:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    # One release-please run at a time, kept apart from the deploy so a deploy waiting for its
+    # approval never holds up the next merge's Release PR.
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -32,10 +36,11 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
+  # The server is aarch64, so the image is linux/arm64 only, built natively on an arm runner.
   publish:
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
@@ -47,7 +52,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release-please.outputs.tag }}
-      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -66,7 +70,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

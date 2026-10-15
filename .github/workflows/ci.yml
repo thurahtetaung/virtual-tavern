@@ -1,27 +1,30 @@
 name: CI
 
+# CI runs once per change, on its PR. A merge to main runs no CI: the release workflow publishes
+# what the PR already checked.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
+  # The production image is linux/arm64 only (the server is aarch64), so the PR builds that same
+  # image natively on an arm runner and shares its build cache with the release.
   docker:
     name: Docker build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          platforms: linux/arm64
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
