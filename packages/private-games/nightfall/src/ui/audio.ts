@@ -295,6 +295,8 @@ export interface Shown {
   start: number;
   end: number;
   spoken: number;
+  /** While waiting for its first clip: the planned window, shown if every clip is dropped. */
+  plan?: Pick<Shown, 'start' | 'end' | 'spoken'>;
 }
 
 /** Words whose narration length isn't known (narration off, or no clips) show this long. */
@@ -336,24 +338,31 @@ export function scheduleShown(
   return { ...base, start: c.at, end, spoken: c.at };
 }
 
-/** Waiting for its first clip to play on this device: not shown yet. */
+/** Waiting for its first clip to play on this device: not shown yet, its plan kept. */
 export const pendingShown = (s: Shown): Shown => ({
   ...s,
   start: Infinity,
   end: Infinity,
   spoken: Infinity,
+  plan: { start: s.start, end: s.end, spoken: s.spoken },
 });
 
 /** Its first clip started playing at `now`: the words show from now until its last clip ends. */
-export const startShown = (s: Shown, now: number): Shown =>
-  s.start === Infinity ? { ...s, start: now } : s;
+export function startShown(s: Shown, now: number): Shown {
+  if (s.start !== Infinity) return s;
+  const { plan: _plan, ...rest } = s;
+  return { ...rest, start: now };
+}
 
 /**
- * Its last clip ended (or the rest was dropped) at `now`. Words whose clips never played don't
- * show at all.
+ * Its last clip ended (or the rest was dropped) at `now`. Words whose clips were all dropped
+ * still show, for the window planned for devices that don't speak.
  */
 export function endShown(s: Shown, now: number): Shown {
-  if (s.start === Infinity) return { ...s, start: now, end: now, spoken: now };
+  if (s.start === Infinity) {
+    const { plan, ...rest } = s;
+    return { ...rest, ...(plan ?? { start: now, end: now + MIN_SHOW_MS, spoken: now }) };
+  }
   return { ...s, end: Math.max(now, s.start + MIN_SHOW_MS), spoken: now };
 }
 
