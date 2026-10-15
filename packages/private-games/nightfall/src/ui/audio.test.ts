@@ -463,9 +463,17 @@ describe('the narration text', () => {
     );
   });
 
-  it('never shows words whose clips were all dropped', () => {
-    const s = endShown(pendingShown(scheduleShown(close, [], opts({}))), 11_000);
-    expect(shownAt([s], 11_000)).toBeNull();
+  it('still shows words whose clips were all dropped, for the planned window', () => {
+    // The phone was asleep: every clip of the close was too late to play.
+    const planned = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
+    const s = endShown(pendingShown(planned), 10_500);
+    expect(s).toEqual(planned);
+    expect(shownAt([s], 10_500)?.cue).toBe('1:0:close');
+    expect(shownAt([s], planned.end - 1)?.cue).toBe('1:0:close');
+    expect(shownAt([s], planned.end)).toBeNull();
+    // Lengths unknown: the scheduled time, as on a device that doesn't speak.
+    const unknown = scheduleShown(close, [], opts({}));
+    expect(endShown(pendingShown(unknown), 11_000)).toEqual(unknown);
   });
 
   it('speaks to a step’s players only in that step, and to nobody after the night', () => {
