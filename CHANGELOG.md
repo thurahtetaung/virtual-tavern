@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.9](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.8...v0.37.9) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** say every clip of a narration cue, name the sides in the epic battle and clear an ended step's line ([#209](https://github.com/thurahtetaung/virtual-tavern/issues/209)) ([5e62a05](https://github.com/thurahtetaung/virtual-tavern/commit/5e62a053c5ec864b9ddfb4ae1e70db32284e567a))
+
 ## [0.37.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.7...v0.37.8) (2026-10-15)
 
 
