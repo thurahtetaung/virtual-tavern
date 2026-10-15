@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.14](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.13...v0.37.14) (2026-10-15)
+
+
+### Bug Fixes
+
+* **ui:** fit guests' lobby settings summaries to two lines on phones, counting what doesn't fit instead of cutting it ([#221](https://github.com/thurahtetaung/virtual-tavern/issues/221)) ([d0261e6](https://github.com/thurahtetaung/virtual-tavern/commit/d0261e6b2279baa49d43d9998e3840002652c1c2))
+
 ## [0.37.13](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.12...v0.37.13) (2026-10-15)
 
 
