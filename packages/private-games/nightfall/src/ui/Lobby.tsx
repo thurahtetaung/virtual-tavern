@@ -708,16 +708,20 @@ export function Lobby({
         <p className="text-xs text-ink-muted">
           Every role in the game is called for the same time, even when its card is in the centre
           {s.narration !== 'off' && lengths ? ': its time to act, plus what the narrator says' : ''}
-          . With these cards the night lasts about{' '}
+          .
+        </p>
+      </LobbySettings>
+
+      {/* On phones the long card list pushes Deal off screen, so it floats at the bottom, with the
+          night's length (the last thing above it, which the floating bar would cover). */}
+      <StickyBar>
+        <p className="mb-2 text-xs text-ink-muted">
+          With these cards the night lasts about{' '}
           {Math.round(
             nightEstimateMs(s, s.narration !== 'off' ? lengths : null, seated.length) / 1000,
           )}{' '}
           s.
         </p>
-      </LobbySettings>
-
-      {/* On phones the long card list pushes Deal off screen, so it floats at the bottom. */}
-      <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
           {editable && (
             <Button
