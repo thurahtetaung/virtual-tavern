@@ -1,23 +1,27 @@
 name: Release
 
-# Runs only after CI has passed on main, so a red build can never be released or deployed.
+# Runs on every push to main. CI already ran on the PR, so nothing here runs it again.
+# - A merged change: release-please opens or updates the Release PR (version bump and CHANGELOG).
+# - The merged Release PR: release-please tags vX.Y.Z and writes the GitHub release, then the
+#   image is published and the deploy waits for the production approval.
+# The Release PR is opened with the workflow's own token, so it starts no CI of its own.
+# Run it by hand on main to tag a merged Release PR whose push started no run.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 jobs:
   release-please:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
+    # One release-please run at a time, kept apart from the deploy so a deploy waiting for its
+    # approval never holds up the next merge's Release PR.
+    concurrency:
+      group: release-please
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write

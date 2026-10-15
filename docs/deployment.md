@@ -7,7 +7,8 @@ Production is one container on a small VPS (an Oracle Cloud free-tier ARM instan
 - **Tailscale** connects GitHub Actions to the VPS for deploys. CI joins the tailnet as a short-lived `tag:ci` node and SSHes in over the tailnet.
 
 ```
-merge PRs to main ─▶ release-please opens/updates a "Release PR"
+open a PR ─▶ CI (the only CI run a change gets)
+merge PRs to main ─▶ release-please opens/updates a "Release PR" (no CI of its own)
 merge the Release PR ─▶ tag vX.Y.Z + GitHub Release
                       ─▶ multi-arch image pushed to ghcr.io/thurahtetaung/virtual-tavern
                       ─▶ deploy waits for your approval ─▶ Tailscale + SSH ─▶ scripts/deploy.sh
@@ -108,7 +109,7 @@ Back-room games keep their art in a private Cloudflare R2 bucket.
 
 ## Day to day
 
-- **Ship:** merge the open Release PR, then approve the deploy when GitHub asks.
+- **Ship:** merge the PR once its checks pass. Within a minute the Release PR shows the new version. Merge it as an admin (it has no checks of its own: it only changes the version and CHANGELOG), once it is at least a minute old: a merge seconds after release-please opened it has been seen to start no workflow (if that happens, run _Release_ by hand on `main`: it tags the merged Release PR and carries on). Then approve the deploy when GitHub asks. About 10 minutes from the first merge to live, plus the approval. A `test:`/`chore:`/`docs:`/`ci:` change adds nothing to the Release PR.
 - **Roll back or redeploy:** Actions → _Deploy_ → _Run workflow_, and enter an earlier version (e.g. `0.3.1`).
 - **Logs:** `docker compose logs -f app` in `~/virtual-tavern`.
 - **Restore a backup:**

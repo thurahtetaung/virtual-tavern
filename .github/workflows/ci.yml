@@ -1,16 +1,16 @@
 name: CI
 
+# CI runs once per change, on its PR. A merge to main runs no CI: the release workflow publishes
+# what the PR already checked.
 on:
   pull_request:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   docker:
