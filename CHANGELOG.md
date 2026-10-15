@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.11](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.10...v0.37.11) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** let narration finish before the next wake and word the Rascal's swap without a doubled "one of" ([#213](https://github.com/thurahtetaung/virtual-tavern/issues/213)) ([9b14d61](https://github.com/thurahtetaung/virtual-tavern/commit/9b14d6187c058bb43e3c9bf03999572b6552feb1))
+
 ## [0.37.10](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.9...v0.37.10) (2026-10-15)
 
 
