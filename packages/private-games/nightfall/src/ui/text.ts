@@ -692,6 +692,8 @@ export function describeEntry(
       return `Nobody woke: the ${deck.name('doppelganger')} didn’t copy this card.`;
     return 'Nobody at the table had this card.';
   }
+  if (entry.note.kind === 'oracle' && entry.by === null)
+    return `The narrator answered for the ${deck.name('oracle')}: “${entry.note.answer.split('>')[0]}”.`;
   const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds, at);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`

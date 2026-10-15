@@ -1432,7 +1432,8 @@ const exposer: RoleAction = {
     });
   },
   act: (c, p, w, a) => {
-    for (const i of a.center ?? []) {
+    // In card order, whatever order they were tapped in.
+    for (const i of [...(a.center ?? [])].sort((x, y) => x - y)) {
       const card = c.r.center[i]!.card;
       card.faceUp = true;
       note(c, p, { kind: 'exposed', center: i, role: card.role });
@@ -1721,6 +1722,13 @@ function endOracle(c: StepCtx) {
       (q) => c.r.players[q]!.night === 'oracle' && c.r.players[q]!.dealt === 'oracle',
     );
     answerOracle(c, null, evenly(c.rng, oracleChoices(c)));
+    // The reveal shows the narrator's own answer.
+    c.r.night!.timeline.push({
+      step: c.step,
+      stepId: c.def.id,
+      by: null,
+      note: { kind: 'oracle', question: o.question, answer: o.answer!, outcome: o.outcome! },
+    });
   }
   if (o.question === 'even-odd')
     announce(c, { kind: 'oracle-parity', parity: o.answer === 'even' ? 'even' : 'odd' });
@@ -2180,12 +2188,19 @@ export function beginStep(c: StepCtx, now: number) {
     (c.r.dawn[p] ??= []).push(body);
     night.timeline.push({ step: c.step, stepId: c.def.id, by: p, note: body });
   }
-  if (night.actors.length === 0) {
-    const said = night.timeline.some((t) => t.step === c.step);
-    if (!asleep.length && !said)
-      night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'nobody' } });
-    return;
-  }
+  // A step whose card nobody at the table had (it is in the centre) says so at the reveal, after
+  // the narrator's instruction; the Empath's pointers wake without her. A ripple or the Blob is
+  // only an announcement.
+  const said = night.timeline.some((t) => t.step === c.step);
+  const empathless =
+    c.def.role === 'empath' && !c.def.repeat && !night.actors.some((p) => isEmpath(c, p));
+  if (
+    (night.actors.length === 0 || empathless) &&
+    !asleep.length &&
+    (!said || (c.def.id !== 'ripple' && c.def.id !== 'blob'))
+  )
+    night.timeline.push({ step: c.step, stepId: c.def.id, by: null, note: { kind: 'nobody' } });
+  if (night.actors.length === 0) return;
   startStep(c);
   for (const p of night.actors) {
     const w = night.work[p]!;
