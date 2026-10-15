@@ -349,6 +349,33 @@ describe('knockouts', () => {
   });
 });
 
+describe('back to the lobby', () => {
+  it('lets the host abandon a game in play: no winner, no clock, heroes kept', () => {
+    const h = started(['mage', 'brute', 'knight'], 7, { seconds: 30 });
+    h.play('p1', g(h).players.p1!.hand.map((i) => g(h).cards[i]!.card)[0]!);
+    expect(h.refuse('p2', { type: 'back-to-lobby' }, false)).toBe('not-host');
+    h.act('p1', { type: 'back-to-lobby' });
+    expect(h.state.phase).toBe('lobby');
+    expect(h.state.game).toBeNull();
+    expect(h.state.log).toEqual([]);
+    expect(tavernBrawl.nextDeadline!(h.state)).toBeNull();
+    expect(Object.values(h.state.seats).map((s) => s.hero)).toEqual(['mage', 'brute', 'knight']);
+    expect(tavernBrawl.insights!(h.state, h.state, null, 'p1')).toEqual([]);
+    expect(h.refuse('p1', { type: 'back-to-lobby' })).toBe('wrong-phase');
+    h.act('p1', { type: 'start' });
+    expect(h.state.phase).toBe('playing');
+    expect(h.state.gamesPlayed).toBe(2);
+  });
+
+  it('drops the seats of players who left the abandoned game', () => {
+    const h = started(['mage', 'brute', 'knight']);
+    h.state = tavernBrawl.playerLeft(h.state, 'p3', h.now);
+    expect(g(h).left.p3).toBeDefined();
+    h.act('p1', { type: 'back-to-lobby' });
+    expect(Object.keys(h.state.seats)).toEqual(['p1', 'p2']);
+  });
+});
+
 describe('core powers', () => {
   it('the spin: heal per opponent (disguised too), then 1 to each reachable opponent', () => {
     const h = started(['brute', 'thief', 'mage']);

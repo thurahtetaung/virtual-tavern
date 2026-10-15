@@ -273,10 +273,11 @@ function start(state: TavernBrawlState, ctx: Ctx): Result {
   return deal(draft(state), ctx);
 }
 
+/** After a game, or the host abandoning one in play: everyone back to the lobby, no winner. */
 function backToLobby(state: TavernBrawlState, ctx: Ctx): Result {
   const e = requireHost(ctx);
   if (e) return e;
-  if (state.phase !== 'over') return err('wrong-phase', 'Finish the game first.');
+  if (state.phase === 'lobby') return err('wrong-phase', 'No game to leave.');
   const s = draft(state);
   s.phase = 'lobby';
   dropLeavers(s);

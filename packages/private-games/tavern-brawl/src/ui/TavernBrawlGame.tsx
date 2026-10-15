@@ -1,5 +1,13 @@
 import { type GameRoomInfo, type GameUiProps, waitingForHost } from '@vt/game-sdk';
-import { Button, Hint, Panel, RefusalSlot, Superlatives, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  RefusalSlot,
+  Superlatives,
+  useAbandonGame,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect, useMemo } from 'react';
 import type { TavernBrawlAction, TavernBrawlView } from '../logic/types.ts';
 import { type Art, artFor, heroVars, useManifest } from './assets.ts';
@@ -16,11 +24,15 @@ export function TavernBrawlGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: TavernBrawlUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
   const name = useMemo(() => namesFor(view, room.you), [view, room.you]);
   const status = statusFor(view, room.you, name, art);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {

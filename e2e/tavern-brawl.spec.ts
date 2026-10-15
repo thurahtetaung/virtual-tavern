@@ -86,6 +86,25 @@ test('two heroes brawl: chains, shields, the howl, a taken shield, a knockout', 
   await hana.getByRole('button', { name: 'Play again' }).click();
   await expect(hana.getByText('Your turn: play a card')).toBeVisible();
   await expect(row(ana, 'You')).toContainText('10');
+
+  // Mid-game the host abandons it from the Players drawer: everyone is back in the lobby.
+  await ana.getByRole('button', { name: /^Players/ }).click();
+  await expect(
+    ana.getByRole('dialog', { name: 'Players' }).getByRole('button', { name: 'Abandon game' }),
+  ).toHaveCount(0);
+  await ana.keyboard.press('Escape');
+  await hana.getByRole('button', { name: /^Players/ }).click();
+  await hana
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('button', { name: 'Abandon game' })
+    .click();
+  await hana
+    .getByRole('dialog', { name: 'Abandon this game?' })
+    .getByRole('button', { name: 'Abandon game' })
+    .click();
+  await expect(hana.getByRole('button', { name: 'Start the brawl' })).toBeVisible();
+  await expect(ana.getByRole('list', { name: 'Seats' })).toContainText('Mage');
+  await expect(hand(ana)).toHaveCount(0);
 });
 
 // Full games from every screen (the server starts three or four players on fewer hit points, see
