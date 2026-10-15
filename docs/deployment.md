@@ -10,7 +10,7 @@ Production is one container on a small VPS (an Oracle Cloud free-tier ARM instan
 open a PR ─▶ CI (the only CI run a change gets)
 merge PRs to main ─▶ release-please opens/updates a "Release PR" (no CI of its own)
 merge the Release PR ─▶ tag vX.Y.Z + GitHub Release
-                      ─▶ linux/arm64 image built on an arm runner, pushed to ghcr.io/thurahtetaung/virtual-tavern
+                      ─▶ multi-arch image pushed to ghcr.io/thurahtetaung/virtual-tavern
                       ─▶ deploy waits for your approval ─▶ Tailscale + SSH ─▶ scripts/deploy.sh
                       ─▶ DB backup, health check, automatic rollback if the new version is unhealthy
 ```
