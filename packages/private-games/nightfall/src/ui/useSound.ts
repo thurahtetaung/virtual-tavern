@@ -212,6 +212,9 @@ export function useSound({
   useEffect(() => {
     const narration = manifest?.narration;
     const parsed = JSON.parse(cueKey) as Cue[];
+    // The manifest's own clip lengths come first; any it lacks are read from the files.
+    for (const [src, ms] of Object.entries(manifest?.durations ?? {}))
+      if (!LENGTHS.has(src) && typeof ms === 'number' && ms > 0) LENGTHS.set(src, ms);
     if (speaks) measure(parsed.flatMap((c) => clipsFor(narration, c.lines)));
     const playNext = () => {
       // Clips whose moment has passed (the device was away), or that would run too far into the

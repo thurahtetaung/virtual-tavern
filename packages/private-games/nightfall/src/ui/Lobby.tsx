@@ -1,6 +1,8 @@
-import type { ActOptions, GameRoomInfo } from '@vt/game-sdk';
+import { type ActOptions, type GameRoomInfo, narrationLengths } from '@vt/game-sdk';
+import { useMemo } from 'react';
 import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
-import { buildNightPlan, epicPossible, stepDurations, usesMarks } from '../logic/plan.ts';
+import { nightEstimateMs } from '../logic/narration.ts';
+import { buildNightPlan, epicPossible, usesMarks } from '../logic/plan.ts';
 import {
   LEVEL_LABEL,
   type Preset,
@@ -377,6 +379,8 @@ export function Lobby({
   const editable = room.isHost;
   const s = view.settings;
   const seated = view.seats.filter((x) => x.playing);
+  // The narrator's line lengths, when the manifest has them: steps stretch to fit what is said.
+  const lengths = useMemo(() => narrationLengths(deck.manifest), [deck.manifest]);
   const need = cardsNeeded(seated.length, s.roles);
   const counts = new Map<RoleId, number>();
   for (const r of s.roles) counts.set(r, (counts.get(r) ?? 0) + 1);
@@ -702,10 +706,11 @@ export function Lobby({
           </div>
         )}
         <p className="text-xs text-ink-muted">
-          Every role in the game is called for the same time, even when its card is in the centre.
-          With these cards the night lasts{' '}
+          Every role in the game is called for the same time, even when its card is in the centre
+          {s.narration !== 'off' && lengths ? ': its time to act, plus what the narrator says' : ''}
+          . With these cards the night lasts about{' '}
           {Math.round(
-            stepDurations(buildNightPlan(s.roles), s.stepSeconds).reduce((a, b) => a + b, 0) / 1000,
+            nightEstimateMs(s, s.narration !== 'off' ? lengths : null, seated.length) / 1000,
           )}{' '}
           s.
         </p>

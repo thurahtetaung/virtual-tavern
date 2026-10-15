@@ -1,5 +1,6 @@
 import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { type Deal, dealGame, nightfall, startNight } from './game.ts';
+import { linesInPlay } from './narration.ts';
 import type { RoleId } from './roles.ts';
 import type {
   NightAction,
@@ -19,6 +20,8 @@ export interface Table {
   wolf?: RoleId;
   settings?: Partial<Settings>;
   seed?: number;
+  /** The narrator's line lengths, as the server reads them from the manifest at the deal. */
+  lengths?: Record<string, number>;
 }
 
 export const seatName = (i: number) => String.fromCharCode(65 + i);
@@ -62,7 +65,9 @@ export function table(t: Table): Harness {
     settings: { ...state.settings, roles, ...t.settings },
   };
   const deal: Deal = { players: t.players, center, ...(t.wolf ? { wolf: t.wolf } : {}) };
-  state = startNight(dealGame(state, deal, ids), NOW);
+  state = dealGame(state, deal, ids);
+  if (t.lengths) state.round!.lengths = linesInPlay(roles, t.lengths);
+  state = startNight(state, NOW);
   const run = (s: NightfallState, action: NightfallAction, by: string, now: number) =>
     nightfall.reduce(s, action, { by, isHost: by === 'A', now, rng, content });
   const h: Harness = {

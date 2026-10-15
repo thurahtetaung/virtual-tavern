@@ -7,9 +7,9 @@ import {
   buildNightPlan,
   pickRoleOf,
   repeatStepOf,
-  stepMs,
 } from './plan.ts';
 import { type MarkId, type NostraTeam, ROLES, type RoleId, nostraTeamOf } from './roles.ts';
+import { narratedStepMs, nightLengths, saidAt } from './narration.ts';
 import {
   blobOptions,
   evenly,
@@ -2156,10 +2156,18 @@ export function promptFor(c: StepCtx, p: PlayerId): Prompt | null {
 export function beginStep(c: StepCtx, now: number) {
   const night = c.r.night!;
   night.index = c.step;
-  night.deadline = now + stepMs(c.def.id, c.settings.stepSeconds);
+  night.start = now;
+  prepareStep(c);
+  // Its length: the time to act, plus (narration on) all it says, its instruction and anything
+  // announced as it began included, all of it public.
+  night.deadline =
+    now +
+    narratedStepMs(c.def.id, c.settings, nightLengths(c.settings, c.r.lengths), {
+      pick: c.r.night!.picks?.[c.step],
+      said: saidAt(c.r.announcements ?? [], now),
+    });
   if (c.def.id === 'oracle') night.replyAt = night.deadline - ORACLE_REPLY_MS;
   else delete night.replyAt;
-  prepareStep(c);
   night.actors = actorsFor(c.r, c.def);
   night.work = Object.fromEntries(
     night.actors.map((p) => [p, { stage: 'start', picks: [], centre: [], done: false }]),

@@ -29,6 +29,7 @@ export const GAME_ID = 'nightfall';
  *   "tokens":    { "shield" | "most-votes-1" | …: { "name": "…", "art": "tokens/<id>.webp" } },
  *   "backs":     { "werewolf": "backs/werewolf.webp" },              // the card back
  *   "narration": { "<line key>": ["audio/<clip>.ogg", …] },   // see `stepLines` in plan.ts
+ *   "durations": { "audio/<clip>.ogg": 2350 },   // each clip's length in ms: steps stretch to fit
  *   "music":     { "lobby" | "night" | "day" | "vote" | "reveal": ["music/<track>.ogg", …] },
  *   "musicTracks": { "<track id>": { "name": "…", "file": "music/<track>.ogg", "duration": 42.1 } },
  *   "presets":   { "<preset id>": { "name": "…" } }
@@ -43,6 +44,8 @@ export interface Manifest {
   artifacts?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;
   marks?: Partial<Record<string, { name?: string; text?: string; art?: string }>>;
   narration?: Record<string, string[]>;
+  /** Each narration clip's length in ms (with narration on, night steps stretch to fit them). */
+  durations?: Record<string, number>;
   music?: Partial<Record<MusicPhase, string[]>>;
   musicTracks?: Record<string, { name?: string; file: string; duration?: number }>;
   presets?: Partial<Record<string, { name?: string }>>;

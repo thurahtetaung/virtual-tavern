@@ -1153,7 +1153,7 @@ describe('what each player is sent about Marks', () => {
   it.each([1, 2, 3, 4])('is identical for everyone not acting, dusk included (seed %i)', (seed) => {
     const { h, views } = playRandomNight(seed);
     const strip = (v: NightfallView) =>
-      JSON.stringify({ ...v, night: { ...v.night!, index: 0, deadline: 0 } });
+      JSON.stringify({ ...v, night: { ...v.night!, index: 0, start: 0, deadline: 0 } });
     for (const id of [...h.ids, 'watcher']) {
       let last: string | null = null;
       for (const { acting, views: byViewer } of views) {
