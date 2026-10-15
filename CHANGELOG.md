@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.19](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.18...v0.37.19) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** keep the narration text on time when a phone drops a cue's clips ([#230](https://github.com/thurahtetaung/virtual-tavern/issues/230)) ([a2440b1](https://github.com/thurahtetaung/virtual-tavern/commit/a2440b11ad778d1cf3bf949bb82f1d21974f554d))
+
 ## [0.37.18](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.17...v0.37.18) (2026-10-15)
 
 
