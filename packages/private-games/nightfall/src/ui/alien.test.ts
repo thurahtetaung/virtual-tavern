@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { nightfall } from '../logic/game.ts';
 import { ARTIFACTS, NOSTRA_TEAMS, ROLE_IDS, type RoleId } from '../logic/roles.ts';
-import { DEFAULT_WEIGHTS, type Ripple, type WeightTable, pickFor } from '../logic/tables.ts';
+import {
+  DEFAULT_WEIGHTS,
+  type PlayerSet,
+  type Ripple,
+  type StepPick,
+  type WeightTable,
+  pickFor,
+} from '../logic/tables.ts';
 import { table, votes } from '../logic/test-utils.ts';
 import type { Announcement, NoteBody } from '../logic/types.ts';
 import {
   ENTRY_LABEL,
   announcementText,
+  pickAbout,
   rippleText,
   setWords,
   tableTitle,
@@ -59,6 +67,75 @@ describe('the narrator’s Alien instructions, in words', () => {
       }
     for (const t of Object.keys(DEFAULT_WEIGHTS) as WeightTable[])
       expect(tableTitle(t, deck)).toBeTruthy();
+  });
+
+  it('fit every set of players into every sentence that names one', () => {
+    const sets: PlayerSet[] = [
+      ...(
+        [
+          'everyone',
+          'any',
+          'even',
+          'odd',
+          'center',
+          'neighbours',
+          'both-neighbours',
+          'left',
+          'right',
+          'yourself',
+          'higher',
+          'lower',
+          'two-left',
+          'two-right',
+        ] as const
+      ).map((kind) => ({ kind })),
+      { kind: 'numbers', numbers: [2, 5, 6] },
+    ];
+    const texts: string[] = [];
+    for (const from of sets) {
+      const picks: StepPick[] = [
+        ...(['view', 'all-view'] as const).map((action) => ({
+          kind: 'alien' as const,
+          action,
+          from,
+        })),
+        { kind: 'body-snatcher', action: 'steal', from },
+        { kind: 'psychic', count: 1, from },
+        { kind: 'psychic', count: 2, from },
+        ...(['troublemaker', 'witch', 'robber', 'drunk'] as const).map((action) => ({
+          kind: 'rascal' as const,
+          action,
+          from,
+        })),
+        { kind: 'mortician', action: 'one-card', from },
+      ];
+      for (const pick of picks)
+        texts.push(
+          toldText(pick, at, deck),
+          pickAbout(pick, at, deck),
+          pickAbout(pick, at, deck, { doppel: true }),
+        );
+      const ripples: Ripple[] = [
+        { key: 'view-1', actor: 1, from },
+        { key: 'view-2', actor: 1, from },
+        { key: 'dual-view', actors: [1, 3], from },
+        ...(['steal', 'drunk', 'witch'] as const).map((key) => ({ key, actor: 1, from })),
+      ];
+      for (const rp of ripples) texts.push(rippleText(rp, at, deck));
+    }
+    for (const t of texts) {
+      // "one of" only ever comes before the neighbours ("one of one of", "one of the centre"…).
+      expect(t).not.toMatch(/\bone of (?!(?:your|their) neighbours\b)/);
+      expect(t).not.toMatch(/\bthe card of (?:yourself|themselves|the centre)\b|\bof of\b/);
+    }
+    expect(
+      pickAbout({ kind: 'rascal', action: 'robber', from: { kind: 'neighbours' } }, at, deck),
+    ).toBe(
+      'The Rascal may swap their card with the card of one of their neighbours, then look at the new card.',
+    );
+    expect(toldText({ kind: 'rascal', action: 'drunk', from: { kind: 'center' } }, at, deck)).toBe(
+      'You must swap your card with a centre card, without looking at your new card.',
+    );
   });
 
   it('word every ripple and announcement', () => {

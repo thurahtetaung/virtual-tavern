@@ -70,6 +70,14 @@ export function setWords(set: PlayerSet | undefined, at: Numbered, plural = fals
   }
 }
 
+/** The card a swap takes, from a set ("the card of any other player", "a centre card"). */
+export const cardOf = (set: PlayerSet | undefined, at: Numbered) =>
+  set?.kind === 'center'
+    ? 'a centre card'
+    : set?.kind === 'yourself'
+      ? 'your own card'
+      : `the card of ${setWords(set, at)}`;
+
 /** Who the narrator names to do something ("The even-numbered players", "Players 1, 4 and 8"). */
 export function whoWords(set: PlayerSet, at: Numbered): string {
   switch (set.kind) {
@@ -218,9 +226,9 @@ export function toldText(
         case 'witch':
           return `You may look at a card of ${setWords(pick.from, at)}. If you do, you must give it to any player.`;
         case 'robber':
-          return `You may swap your card with one of ${setWords(pick.from, at)}, then look at your new card (you won’t wake as it).`;
+          return `You may swap your card with ${cardOf(pick.from, at)}, then look at your new card (you won’t wake as it).`;
         case 'drunk':
-          return `You must swap your card with one of ${setWords(pick.from, at)}, without looking at your new card.`;
+          return `You must swap your card with ${cardOf(pick.from, at)}, without looking at your new card.`;
         case 'idiot':
           return 'You may move everyone else’s card one seat to the left, or one to the right.';
       }
@@ -230,7 +238,7 @@ export function toldText(
     case 'mortician':
       if (pick.action === 'pretend') return 'Only pretend to look at someone’s card.';
       if (pick.action === 'both-cards') return 'You may look at both your neighbours’ cards.';
-      return `You may look at the card of ${setWords(pick.from, at)}.`;
+      return `You may look at ${cardOf(pick.from, at)}.`;
     case 'empath':
       return opts.empath
         ? `${whoWords(pick.who, at)}: point, eyes closed, at ${EMPATH[pick.prompt]}. Watch where they point.`
@@ -298,9 +306,9 @@ export function pickAbout(
         case 'witch':
           return `${who('rascal')} may look at a card of ${from(pick.from)}, and must then give it to any player.`;
         case 'robber':
-          return `${who('rascal')} may swap their card with one of ${from(pick.from)}, then look at the new card.`;
+          return `${who('rascal')} may swap their card with ${theirs(cardOf(pick.from, at))}, then look at the new card.`;
         case 'drunk':
-          return `${who('rascal')} must swap their card with one of ${from(pick.from)}, without looking.`;
+          return `${who('rascal')} must swap their card with ${theirs(cardOf(pick.from, at))}, without looking.`;
         case 'idiot':
           return `${who('rascal')} may move everyone else’s card one seat to the left, or one to the right.`;
       }
@@ -312,7 +320,7 @@ export function pickAbout(
         return `${who('mortician')} only pretends to look at someone’s card.`;
       if (pick.action === 'both-cards')
         return `${who('mortician')} may look at both their neighbours’ cards.`;
-      return `${who('mortician')} may look at the card of ${from(pick.from)}.`;
+      return `${who('mortician')} may look at ${theirs(cardOf(pick.from, at))}.`;
     case 'empath':
       return `${whoWords(pick.who, at)}: eyes closed, point at ${EMPATH[pick.prompt]!.replace(/\byou\b/g, 'they')}. ${who('empath')} watches.`;
   }
@@ -391,9 +399,9 @@ export function rippleText(rp: Ripple, at: Numbered, deck: Deck): string {
     case 'troublemaker':
       return `${p(rp.actor)}, you may swap the cards of ${playerNo(rp.between[0]!, at)} and ${playerNo(rp.between[1]!, at)}, without looking.`;
     case 'steal':
-      return `${p(rp.actor)}, you may swap your card with one of ${setWords(rp.from, at)}, and look at your new card.`;
+      return `${p(rp.actor)}, you may swap your card with ${cardOf(rp.from, at)}, and look at your new card.`;
     case 'drunk':
-      return `${p(rp.actor)}, you must swap your card with one of ${setWords(rp.from, at)}, without looking.`;
+      return `${p(rp.actor)}, you must swap your card with ${cardOf(rp.from, at)}, without looking.`;
     case 'witch':
       return `${p(rp.actor)}, you may look at a centre card. If you do, you must give it to ${setWords(rp.from, at)}.`;
     case 'reveal':
