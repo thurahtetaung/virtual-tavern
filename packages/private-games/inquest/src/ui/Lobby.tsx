@@ -191,11 +191,7 @@ export function Lobby({
 
       <LobbySettings
         editable={host}
-        summary={settingsSummary(
-          s,
-          FS_MODES.find((m) => m.id === s.fsMode)!.label,
-          content.roleName,
-        )}
+        summary={settingsSummary(s, content.roleName)}
         className="space-y-3"
       >
         {host && <h3 className="font-bold">Settings</h3>}

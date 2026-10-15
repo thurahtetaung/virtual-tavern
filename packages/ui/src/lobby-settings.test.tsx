@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LobbySettings } from './lobby-settings.tsx';
+import { fitSummary, summaryText } from './summary-fit.ts';
+import { summaryFits } from './summary-width.ts';
 import { timersLine } from './timer-settings.tsx';
 import { wordListsLine } from './word-list-picker.tsx';
 
@@ -39,14 +41,37 @@ describe('summary lines', () => {
     expect(timersLine({ clueSeconds: null, guessSeconds: null })).toBe('no time limits');
   });
 
-  it('names the first word list and counts the rest', () => {
+  it('names a single word list and counts several', () => {
     const lists = ['Starter', 'Animals', 'Food'].map((name, i) => ({
       id: String(i),
       name,
       wordCount: 100,
     }));
     expect(wordListsLine(['0'], lists)).toBe('Starter');
-    expect(wordListsLine(['1', '2'], lists)).toBe('Animals +1');
+    expect(wordListsLine(['1', '2'], lists)).toBe('2 word lists');
     expect(wordListsLine([], lists)).toBe('no word list');
+  });
+
+  it('shows one count on a phone, never the lists\' own next to "+N more"', () => {
+    const lists = ['City', 'Animals', 'Food', 'Films', 'Sport', 'Music'].map((name, i) => ({
+      id: String(i),
+      name,
+      wordCount: 100,
+    }));
+    const ids = lists.map((l) => l.id);
+    const timers = timersLine({ clueSeconds: 60, guessSeconds: 90, timerMode: 'strict' });
+    // Enigma's and Echo's summaries, the live check's long case at 360 and 390 px.
+    for (const parts of [
+      ['Simultaneous', wordListsLine(ids, lists), timers],
+      ['13 cards', wordListsLine(ids, lists), timers],
+    ])
+      for (const width of [360, 390]) {
+        const text = summaryText(
+          parts,
+          fitSummary(parts, (t) => summaryFits(t, 'Settings', width)),
+        );
+        expect(text).toContain('6 word lists');
+        expect(text.match(/\+/g)?.length ?? 0).toBeLessThanOrEqual(1);
+      }
   });
 });
