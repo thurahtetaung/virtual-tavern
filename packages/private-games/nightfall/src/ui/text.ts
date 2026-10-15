@@ -8,6 +8,7 @@ import {
   isRoleId,
 } from '../logic/roles.ts';
 import type {
+  FinalIdentity,
   NightfallView,
   NoteBody,
   Prompt,
@@ -379,7 +380,7 @@ export function describeNote(
         assassins: [`The ${r('assassin')}`, `No ${r('assassin')} woke up.`],
         apprentices: [`The ${r('apprentice-assassin')}`, `No ${r('apprentice-assassin')} woke up.`],
         aliens: ['Your fellow aliens', 'No other alien woke up.'],
-        'groob-zerb': [`Awake with you`, `Nobody else woke: your rival isn’t among the players.`],
+        'groob-zerb': [`Awake with you`, `Your rival didn’t wake up.`],
       };
       const [some, none] = GROUP[note.group];
       const base = others.length ? `${some}: ${who(others)}.` : none;
@@ -427,7 +428,9 @@ export function describeNote(
         ? 'Your card is shielded, so you couldn’t act.'
         : note.role === 'robber'
           ? 'There was no one to rob: every other card is shielded.'
-          : 'There was nobody you could choose.';
+          : note.role === 'exposer'
+            ? 'Every centre card was already face up, so you turned none.'
+            : 'There was nobody you could choose.';
     case 'feared':
       return `You held the ${deck.markName('fear')}, so you slept through your turn as the ${r(note.role)}.`;
     case 'passed':
@@ -613,7 +616,9 @@ export function describeNoteAbout(
         ? `${by}’s card was shielded, so they couldn’t act.`
         : note.role === 'robber'
           ? `${by} had no one to rob.`
-          : `${by} had nobody to choose.`;
+          : note.role === 'exposer'
+            ? `Every centre card was already face up, so ${by} turned none.`
+            : `${by} had nobody to choose.`;
     case 'feared':
       return `${by} held the ${deck.markName('fear')}, and slept through their turn.`;
     case 'passed':
@@ -691,6 +696,8 @@ export function describeEntry(
       return `Nobody woke: the ${deck.name('doppelganger')} didn’t copy this card.`;
     return 'Nobody at the table had this card.';
   }
+  if (entry.note.kind === 'oracle' && entry.by === null)
+    return `The narrator answered for the ${deck.name('oracle')}: “${entry.note.answer.split('>')[0]}”.`;
   const text = describeNoteAbout(entry.note, entry.by, nameOf, deck, kinds, at);
   const moved = entry.moved?.length
     ? ` (${entry.moved.map((m) => `${slotName(m.slot, nameOf, kinds)} was ${deck.name(m.role)}`).join('; ')})`
@@ -881,14 +888,32 @@ export interface TeamLine {
 
 export function teamLines(result: VoteResult): TeamLine[] {
   const winners = new Set(result.winners);
+  // The Oracle's failed number replaces the sides' results: a side wins as everyone on it but
+  // the Oracle does (she wins on her own).
+  const oracles = result.oracleRule === 'oracle' ? (result.oracles ?? []) : [];
   return result.teams.map((t) => {
-    const won = t.won && t.players.some((p) => winners.has(p));
+    const rest = t.players.filter((p) => !oracles.includes(p));
+    const won = result.oracleRule
+      ? (rest.length ? rest : t.players).some((p) => winners.has(p))
+      : t.won && t.players.some((p) => winners.has(p));
     return {
       team: t.team,
       won,
-      sideWon: t.won,
+      sideWon: result.oracleRule ? won : t.won,
       players: t.players,
       exceptions: t.players.filter((p) => winners.has(p) !== won),
     };
   });
+}
+
+/** Nostradamus announced on a side of its own (the Synthetic Alien…) whose card nobody held. */
+export const foretoldInCentre = (id: FinalIdentity) =>
+  !!id.foretold && !id.foretold.holder && id.team === 'nostradamus';
+
+/** Nostradamus's badge on the reveal: the side he was announced on, and who holds its card. */
+export function foretoldBadge(id: FinalIdentity, deck: Deck, nameOf: NameOf): string {
+  const f = id.foretold!;
+  const side = `side of ${nostraTeamWords(f.team, deck)}`;
+  if (f.holder) return `${side} (${nameOf(f.holder)})`;
+  return foretoldInCentre(id) ? `${side} (card in the centre)` : side;
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type ExplainNames, explainResult } from './explain.ts';
+import { sidesIn } from './roles.ts';
 import { type Harness, table, votes } from './test-utils.ts';
 
 const W = 'werewolf';
@@ -14,7 +15,8 @@ const NAMES: ExplainNames = {
 };
 
 const explain = (h: Harness) => {
-  const e = explainResult(h.state.round!.result!, NAMES);
+  const { roles, artifacts } = h.state.settings;
+  const e = explainResult(h.state.round!.result!, NAMES, null, sidesIn(roles, artifacts));
   return { ...e, reasons: e.reasons.map((r) => r.text) };
 };
 
@@ -115,7 +117,7 @@ describe('explainResult', () => {
     const h = table({ players: ['seer', 'robber', 'troublemaker'], center: [W, W, V] });
     h.vote(votes('A,B>C; C>A'));
     expect(explain(h).why).toEqual([
-      'Nobody won: there was no werewolf or vampire among the players, yet someone died.',
+      'Nobody won: there was no werewolf among the players, yet someone died.',
     ]);
     const tanner = table({ players: [W, 'tanner', V, V, V] });
     tanner.vote(votes('A,C,D>B; B,E>C'));
@@ -126,7 +128,11 @@ describe('explainResult', () => {
     const h = table({ players: ['seer', 'robber', 'troublemaker'], center: [W, W, V] });
     h.vote(votes('A>B; B>C; C>A'));
     expect(explain(h).why).toEqual([
-      'Village won: there was no werewolf or vampire among the players, and nobody died.',
+      'Village won: there was no werewolf among the players, and nobody died.',
+    ]);
+    // Without the setup, every evil side is named.
+    expect(explainResult(h.state.round!.result!, NAMES).why).toEqual([
+      'Village won: there was no werewolf, vampire or alien among the players, and nobody died.',
     ]);
   });
 });

@@ -321,13 +321,14 @@ export function resolveVote(
   // else only if she dies. With her card in the centre, everyone wins only if nobody dies.
   const o = extra.oracle;
   let oracleRule: VoteResult['oracleRule'];
+  let oracles: PlayerId[] = [];
   if (o?.numberFail) {
     if (o.centre || !o.player) {
       oracleRule = 'circle';
       winners = deadSet.size === 0 ? [...players] : [];
     } else {
       oracleRule = 'oracle';
-      const oracles = players.filter(
+      oracles = players.filter(
         (p) =>
           p === o.player || (cards[p]!.role === 'doppelganger' && cards[p]!.copied === 'oracle'),
       );
@@ -355,6 +356,7 @@ export function resolveVote(
     ...(extra.voteApp ? { appVotes } : {}),
     ...(leaderRule ? { leaderRule } : {}),
     ...(oracleRule ? { oracleRule } : {}),
+    ...(oracles.length ? { oracles } : {}),
     ...(blobs.length ? { blobs } : {}),
   };
 }

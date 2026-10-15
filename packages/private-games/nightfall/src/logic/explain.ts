@@ -1,6 +1,13 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { groupOf, isVampire } from './resolve.ts';
-import { HOSTILE_GROUPS, type HostileGroup, type MarkId, type RoleId } from './roles.ts';
+import {
+  HOSTILE_GROUPS,
+  type HostileGroup,
+  type MarkId,
+  type NostraTeam,
+  ROLES,
+  type RoleId,
+} from './roles.ts';
 import type { Death, FinalIdentity, MarkToken, TeamResultId, VoteResult } from './types.ts';
 
 // Why the vote came out as it did, in plain words, from the resolution alone. Pure, so every
@@ -39,6 +46,12 @@ export interface Explanation {
   personal: string[];
 }
 
+/** A side Nostradamus was announced on that has its own card ("Synthetic Alien", "Blob"). */
+const foretoldSide = (team: NostraTeam, names: ExplainNames) => {
+  const role = team === 'synthetic' ? 'synthetic-alien' : team;
+  return role in ROLES ? names.role(role as RoleId) : names.team(team as TeamResultId);
+};
+
 const votesWord = (n: number) => `${n} ${n === 1 ? 'vote' : 'votes'}`;
 
 /** "Ana", "Ana and Ben", "Ana, Ben and Cy". */
@@ -47,10 +60,19 @@ const list = (names: readonly string[]) =>
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
+/** "no werewolf or vampire among the players", naming the evil sides the game had. */
+const noneOf = (sides: readonly HostileGroup[]) => {
+  if (!sides.length) return 'nobody on an evil side';
+  const last = sides.at(-1)!;
+  return `no ${sides.length === 1 ? last : `${sides.slice(0, -1).join(', ')} or ${last}`} among the players`;
+};
+
+/** `sides`: the evil sides the game's cards (and artifacts) could put among the players. */
 export function explainResult(
   result: VoteResult,
   names: ExplainNames,
   marks: Record<PlayerId, MarkToken> | null = null,
+  sides: readonly HostileGroup[] = HOSTILE_GROUPS,
 ): Explanation {
   const players = Object.keys(result.tally);
   const ids = result.identities;
@@ -172,7 +194,7 @@ export function explainResult(
   return {
     tally,
     reasons,
-    why: whyTheyWon(result, players, names),
+    why: whyTheyWon(result, players, names, sides),
     personal: personalResults(result, players, names, marks),
   };
 }
@@ -288,13 +310,21 @@ function personalResults(
   for (const p of players) {
     const f = ids[p]!.foretold;
     if (!f) continue;
-    const on = f.holder ? `the side of ${name(f.holder)}` : names.team(ids[p]!.team);
+    // Announced on a side of its own (the Synthetic Alien, the Blob…) whose card nobody held.
+    const centre = !f.holder && ids[p]!.team === 'nostradamus';
+    const on = f.holder
+      ? `the side of ${name(f.holder)}`
+      : centre
+        ? `the ${foretoldSide(f.team, names)}`
+        : names.team(ids[p]!.team);
     out.push(
-      dead.has(p)
-        ? `${name(p)} (${names.role('nostradamus')}) died, so lost, whatever happened to ${on}.`
-        : won.has(p)
-          ? `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which won, and lived.`
-          : `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which lost.`,
+      centre && !dead.has(p)
+        ? `${name(p)} (${names.role('nostradamus')}) was announced on the side of ${on}, whose card ended in the centre, so nobody could win it.`
+        : dead.has(p)
+          ? `${name(p)} (${names.role('nostradamus')}) died, so lost, whatever happened to ${on}.`
+          : won.has(p)
+            ? `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which won, and lived.`
+            : `${name(p)} (${names.role('nostradamus')}) foresaw ${on}, which lost.`,
     );
   }
   if (result.oracleRule === 'oracle')
@@ -308,7 +338,12 @@ function personalResults(
   return out;
 }
 
-function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames): string[] {
+function whyTheyWon(
+  result: VoteResult,
+  players: PlayerId[],
+  names: ExplainNames,
+  sides: readonly HostileGroup[],
+): string[] {
   const ids = result.identities;
   const dead = new Set(result.deaths.map((d) => d.player));
   const name = names.player;
@@ -323,6 +358,24 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
   const why: string[] = [];
 
   const winners = new Set(result.winners);
+  // The Oracle's failed number replaces every side's result.
+  if (result.oracleRule === 'oracle') {
+    const oracles = result.oracles ?? [];
+    const died = oracles.filter((p) => dead.has(p));
+    const oracle = names.role('oracle');
+    why.push(
+      died.length
+        ? `The ${oracle} (${list(died.map(name))}) died, so everyone else won.`
+        : oracles.length
+          ? `The ${oracle} (${list(oracles.map(name))}) lived, so only ${oracles.length > 1 ? 'they' : 'she'} won.`
+          : `The ${oracle} lived, so only she won.`,
+    );
+    return why;
+  }
+  if (result.oracleRule === 'circle') {
+    why.push(dead.size ? 'Someone died, so nobody won.' : 'Nobody died, so everyone won.');
+    return why;
+  }
   for (const t of result.teams) {
     if (!t.won) continue;
     // Disease or a traitor can leave a winning side with no winner: say so, not "won".
@@ -343,10 +396,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
           why.push(
             `${label('village')} won: ${list(hostile.map(name))} ${hostile.length === 1 ? 'was' : 'were'} on an evil side, and died.`,
           );
-        else
-          why.push(
-            `${label('village')} won: there was no werewolf or vampire among the players, and nobody died.`,
-          );
+        else why.push(`${label('village')} won: there was ${noneOf(sides)}, and nobody died.`);
         break;
       }
       case 'alien':
@@ -408,7 +458,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
         `Nobody won: ${list(deadTanners.map(name))} died as the ${names.role('tanner')}, which stops the evil sides winning, and no one evil died.`,
       );
     else if (!players.some((p) => groupOf(ids[p]!) !== null) && dead.size > 0)
-      why.push('Nobody won: there was no werewolf or vampire among the players, yet someone died.');
+      why.push(`Nobody won: there was ${noneOf(sides)}, yet someone died.`);
     else why.push('Nobody won this time.');
   }
 

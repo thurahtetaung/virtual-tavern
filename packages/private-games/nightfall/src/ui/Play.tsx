@@ -22,6 +22,7 @@ import {
   type RoleId,
   defaultArtifacts,
   marksInPlay,
+  sidesIn,
   winFor,
 } from '../logic/roles.ts';
 import { numbersInPlay } from '../logic/tables.ts';
@@ -41,6 +42,7 @@ import {
   alienRolesIn,
   announcementText,
   announcementTitle,
+  nostraTeamWords,
   rippleText,
   toldText,
 } from './alienText.ts';
@@ -74,6 +76,8 @@ import {
   centreName,
   describeEntry,
   describeNote,
+  foretoldBadge,
+  foretoldInCentre,
   markHistory,
   marksIn,
   nameOfView,
@@ -1625,6 +1629,7 @@ export function Reveal({
       mark: (m) => deck.markName(m),
     },
     reveal.marks,
+    sidesIn(view.settings.roles, view.settings.artifacts),
   );
   const history = markHistory(reveal.timeline, reveal.marks);
   // Someone left since the deal: the picked cards may no longer fit the table.
@@ -1666,6 +1671,13 @@ export function Reveal({
                 (t.won
                   ? ` · not ${t.exceptions.map(nameOf).join(', ')}`
                   : ` · ${t.exceptions.map(nameOf).join(', ')} won anyway`)}
+              {t.team === 'nostradamus' &&
+                t.players
+                  .filter((p) => foretoldInCentre(result.identities[p]!))
+                  .map(
+                    (p) =>
+                      ` · ${t.players.length > 1 ? `${nameOf(p)}: ` : ''}on the side of ${nostraTeamWords(result.identities[p]!.foretold!.team, deck)}, whose card ended in the centre, so nobody could win it`,
+                  )}
             </span>
           </p>
         ))}
@@ -1799,7 +1811,11 @@ export function Reveal({
                         </Badge>
                       )}
                       {id.team !== ROLES[id.role].team && !id.converted && (
-                        <Badge>{TEAM_LABEL[id.team]}</Badge>
+                        <Badge>
+                          {id.foretold && id.team === 'nostradamus'
+                            ? foretoldBadge(id, deck, nameOf)
+                            : TEAM_LABEL[id.team]}
+                        </Badge>
                       )}
                       {id.alien && <Badge data-testid="alien-badge">{ALIEN_BADGE[id.alien]}</Badge>}
                       {id.oracle &&
