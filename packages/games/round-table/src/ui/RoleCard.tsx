@@ -1,5 +1,4 @@
-import { Button, Modal, Peek, cn } from '@vt/ui';
-import { type PointerEvent, useRef, useState } from 'react';
+import { Modal, Peek, cn } from '@vt/ui';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
 import type { Known, RoleId, RoundTableView } from '../logic/types.ts';
@@ -21,7 +20,7 @@ export function openRoleGuide(showGuide: (topic?: unknown) => void, role: RoleId
 /** How a known player is labelled, given which of Merlin and Morgana are in the deck. */
 function knownLabel(k: Known, deck: readonly RoleId[]): { text: string; cls: string } {
   if (k.as === 'evil')
-    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-500 dark:text-red-950' };
+    return { text: 'Evil', cls: 'bg-team-a text-white dark:bg-red-400 dark:text-red-950' };
   const merlin = deck.includes('merlin');
   const morgana = deck.includes('morgana');
   return {
@@ -68,7 +67,7 @@ export function RoleDetails({
       <div className="flex items-center gap-3">
         <Emblem role={role.role} className="size-16" />
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">You are</p>
+          <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase">You are</p>
           <p
             className={cn('text-2xl leading-tight font-bold', SIDE_TEXT[role.loyalty])}
             data-testid="role-name"
@@ -154,63 +153,27 @@ export function RoleReveal({
   view: RoundTableView;
   showGuide: (topic?: unknown) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [held, setHeld] = useState(false);
-  const [drag, setDrag] = useState(0);
-  const start = useRef<number | null>(null);
-  const shown = open || held;
-  const down = (e: PointerEvent<HTMLDivElement>) => {
-    start.current = e.clientY;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setHeld(true);
-  };
-  const move = (e: PointerEvent<HTMLDivElement>) => {
-    if (start.current === null) return;
-    setDrag(Math.max(0, start.current - e.clientY));
-  };
-  const up = () => {
-    if (drag > 60) setOpen(true);
-    start.current = null;
-    setDrag(0);
-    setHeld(false);
-  };
   return (
-    <section aria-label="Your role card" className="space-y-2">
-      <div className="flex justify-center">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="min-h-11"
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? '🙈 Hide my role' : '👁️ Show my role'}
-        </Button>
-      </div>
-      <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
-        {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
-            page's text) could read. */}
-        {shown ? <RoleDetails view={view} showGuide={showGuide} /> : <div className="h-64" />}
-        {!open && (
-          <div
-            role="presentation"
-            onPointerDown={down}
-            onPointerMove={move}
-            onPointerUp={up}
-            onPointerCancel={up}
-            style={{ transform: `translateY(-${drag}px)` }}
-            className={cn(
-              'absolute inset-0 flex cursor-grab touch-none flex-col items-center justify-center gap-2 bg-gradient-to-b from-stone-800 to-stone-950 text-stone-100 select-none',
-              held && drag < 8 && 'opacity-0',
-            )}
-          >
+    <section aria-label="Your role card">
+      {/* Only in the page while uncovered: a covered card carries nothing a neighbour (or the
+          page's text) could read. */}
+      <Peek
+        what="my role"
+        slide
+        cover={
+          <span className="flex h-64 flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-stone-800 to-stone-950 text-stone-100">
             <span aria-hidden className="text-3xl">
               ⬆️
             </span>
             <span className="font-semibold">Slide up, or hold, to see your role</span>
             <span className="text-xs text-stone-400">Keep it hidden from the others</span>
-          </div>
-        )}
-      </div>
+          </span>
+        }
+      >
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800">
+          <RoleDetails view={view} showGuide={showGuide} />
+        </div>
+      </Peek>
     </section>
   );
 }
@@ -255,9 +218,9 @@ export function KnowledgePeek({ onShownChange }: { onShownChange: (shown: boolea
     <div data-testid="knowledge-peek">
       <Peek
         what="what you know"
-        className="flex-row items-stretch"
+        inline
         onShownChange={onShownChange}
-        cover={<span className={bar}>🔒 What you know is hidden: hold to peek</span>}
+        cover={<span className={bar}>🔒 Hidden: hold to see what you know</span>}
       >
         <p className={bar}>👁️ Showing what you know on the seats</p>
       </Peek>

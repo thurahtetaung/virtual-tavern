@@ -1,4 +1,4 @@
-import { Button, cn } from '@vt/ui';
+import { Button, Peek, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { Policy } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -77,8 +77,8 @@ export function Sheet({
 }
 
 /**
- * Cards behind the privacy shield: face down until you hold the eye button (or switch them on),
- * and hidden again whenever the phone lies flat on the table.
+ * Cards behind the shared peek: face down until you hold them (or switch them on), and hidden
+ * again whenever the phone lies flat on the table.
  */
 export function SecretHand({
   cards,
@@ -99,8 +99,6 @@ export function SecretHand({
   shuffleKey?: string;
   testId?: string;
 }) {
-  const [shown, setShown] = useState(false);
-  const [held, setHeld] = useState(false);
   const flat = useLyingFlat(true);
   const [shuffling, setShuffling] = useState<string | null>(null);
   const played = useRef<string | null>(null);
@@ -114,7 +112,12 @@ export function SecretHand({
       window.clearTimeout(t);
     };
   }, [shuffleKey]);
-  const visible = (shown || held) && !flat && shuffling === null;
+  const row = cn(
+    'mx-auto flex justify-center gap-3 pt-4',
+    cards.length === 3 ? 'max-w-sm' : 'max-w-[16rem]',
+  );
+  const animOf = (i: number) =>
+    shuffling !== null && cards.length === 2 ? (i === 0 ? 'hy-swap-a' : 'hy-swap-b') : '';
   return (
     <div className="space-y-3" data-testid={testId}>
       {shuffleKey && (
@@ -122,84 +125,58 @@ export function SecretHand({
           {c.copy('hand.shuffled')}
         </p>
       )}
-      <div
-        className={cn(
-          'mx-auto flex justify-center gap-3 pt-4',
-          cards.length === 3 ? 'max-w-sm' : 'max-w-[16rem]',
-        )}
-        aria-live="polite"
+      <Peek
+        what="cards"
+        blocked={flat && 'Hidden while your phone lies flat: pick it up to look.'}
+        onReveal={() => playSfx('flip')}
+        cover={
+          <span className={row}>
+            {cards.map((_, i) => (
+              <span key={i} className={cn('relative block min-w-0 flex-1 rounded-xl', animOf(i))}>
+                <PolicyBack c={c} />
+              </span>
+            ))}
+          </span>
+        }
       >
-        {cards.map((card, i) => {
-          const isSel = selected === i;
-          const anim =
-            shuffling !== null && cards.length === 2 ? (i === 0 ? 'hy-swap-a' : 'hy-swap-b') : '';
-          return (
-            <button
-              key={i}
-              type="button"
-              disabled={!onSelect}
-              onClick={() => onSelect?.(i)}
-              aria-pressed={onSelect ? isSel : undefined}
-              aria-label={
-                visible
-                  ? `${verb ? `${verb}: ` : ''}${c.t(`${c.policyName(card)} {policy}`)} (card ${i + 1})`
-                  : `Card ${i + 1} (face down)`
-              }
-              className={cn(
-                'relative min-w-0 flex-1 rounded-xl transition-transform focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-                isSel && '-translate-y-2 ring-4 ring-accent dark:ring-amber-400',
-                onSelect && 'cursor-pointer',
-                anim,
-              )}
-            >
-              <FlipCard
-                up={visible}
-                front={<PolicyFace policy={card} c={c} />}
-                back={<PolicyBack c={c} />}
-              />
-              {isSel && (
-                <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[0.65rem] font-black text-stone-950 uppercase shadow">
-                  {verb ?? 'Picked'}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          className={cn(
-            'min-h-11 touch-none rounded-full px-4 text-sm font-bold select-none ring-1 ring-stone-300 dark:ring-stone-600',
-            held ? 'bg-accent-soft dark:bg-amber-500/30' : 'bg-white dark:bg-stone-800',
-          )}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setHeld(true);
-            playSfx('flip');
-          }}
-          onPointerUp={() => setHeld(false)}
-          onPointerCancel={() => setHeld(false)}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          👁 Hold to look
-        </button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setShown((s) => !s);
-            playSfx('flip');
-          }}
-        >
-          {shown ? '🙈 Hide cards' : 'Show cards'}
-        </Button>
-      </div>
-      {flat && (
-        <p className="text-center text-xs text-stone-500">
-          Hidden while your phone lies flat: pick it up to look.
-        </p>
-      )}
+        <div className={row}>
+          {cards.map((card, i) => {
+            const isSel = selected === i;
+            const up = shuffling === null;
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={!onSelect}
+                onClick={() => onSelect?.(i)}
+                aria-pressed={onSelect ? isSel : undefined}
+                aria-label={
+                  up
+                    ? `${verb ? `${verb}: ` : ''}${c.t(`${c.policyName(card)} {policy}`)} (card ${i + 1})`
+                    : `Card ${i + 1} (face down)`
+                }
+                className={cn(
+                  'relative min-w-0 flex-1 rounded-xl transition-transform focus-visible:outline-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
+                  isSel && '-translate-y-2 ring-4 ring-accent dark:ring-amber-400',
+                  onSelect && 'cursor-pointer',
+                  animOf(i),
+                )}
+              >
+                <FlipCard
+                  up={up}
+                  front={<PolicyFace policy={card} c={c} />}
+                  back={<PolicyBack c={c} />}
+                />
+                {isSel && (
+                  <span className="hy-pop absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[0.65rem] font-black text-stone-950 uppercase shadow">
+                    {verb ?? 'Picked'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Peek>
     </div>
   );
 }

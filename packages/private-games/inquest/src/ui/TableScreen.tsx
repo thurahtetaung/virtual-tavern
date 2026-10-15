@@ -203,7 +203,7 @@ export function TableScreen({
               aria-label="Final accusations"
               className="space-y-1 rounded-xl bg-white/70 p-3 ring-2 ring-danger dark:ring-rose-400 dark:bg-stone-900/70"
             >
-              <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">
+              <h3 className="text-sm font-bold tracking-wide text-ink-muted uppercase">
                 Final accusations
               </h3>
               <FinalList view={view} content={content} big />
@@ -214,7 +214,7 @@ export function TableScreen({
               aria-label="Events"
               className="space-y-1 rounded-xl bg-white/70 p-3 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
             >
-              <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">Events</h3>
+              <h3 className="text-sm font-bold tracking-wide text-ink-muted uppercase">Events</h3>
               {ev && (
                 <p className="text-base">
                   <b>⚡ {content.eventName(ev.kind)}:</b> {eventText(ev.kind, view.settings)}
@@ -242,7 +242,7 @@ export function TableScreen({
               aria-label="Bullets in order"
               className="min-h-0 space-y-1 overflow-auto rounded-xl bg-white/70 p-3 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
             >
-              <h3 className="text-sm font-bold tracking-wide text-stone-500 uppercase">
+              <h3 className="text-sm font-bold tracking-wide text-ink-muted uppercase">
                 Bullets in order
               </h3>
               <Timeline g={g} content={content} full />
@@ -308,7 +308,7 @@ function SuspectHand({
         )}
         {accusing && <span className="ml-2 text-sm font-semibold text-amber-500">⚖️ accusing</span>}
         {s.badges <= 0 && (
-          <span className="ml-2 text-sm font-normal text-stone-500">attempt used</span>
+          <span className="ml-2 text-sm font-normal text-ink-muted">attempt used</span>
         )}
       </h4>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${perRow}, ${card}px)` }}>

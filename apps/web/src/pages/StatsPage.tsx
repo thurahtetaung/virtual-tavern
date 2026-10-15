@@ -57,7 +57,7 @@ export function StatsPage() {
     <Layout>
       <h1 className="mb-4 text-3xl font-bold">Tavern keeper</h1>
       {!session ? (
-        <p className="text-stone-500">Loading…</p>
+        <p className="text-ink-muted">Loading…</p>
       ) : !session.enabled || !session.signedIn ? (
         <Panel className="mx-auto max-w-sm space-y-3 text-center">
           <p>The stats are for the tavern keeper. Sign in first.</p>
@@ -288,7 +288,7 @@ function DataTools({ onReset }: { onReset: () => void }) {
     <Panel className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 className="font-semibold">Stats data</h2>
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           {params.tab === 'live'
             ? 'Exports every recorded event.'
             : 'Exports the raw events in the selected range.'}

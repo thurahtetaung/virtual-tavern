@@ -14,6 +14,10 @@ import {
   TimerSettings,
   cn,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
+  LobbySettings,
+  timersLine,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -73,8 +77,12 @@ export function ReverieGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: ReverieUiProps) {
   const manifest = useManifest();
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const setNames = new Map(
     manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
   );
@@ -121,13 +129,17 @@ export function ReverieGame({
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         <Seats view={view} online={online} act={act} hostId={room.hostId} />
-        <Panel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-bold">Game settings</h3>
-            {!room.isHost && (
-              <span className="text-sm text-stone-500">Only the host can change these.</span>
-            )}
-          </div>
+        <LobbySettings
+          editable={room.isHost}
+          title="Game settings"
+          summary={[
+            `play to ${view.settings.targetScore}`,
+            `${view.settings.sets.length} card ${view.settings.sets.length === 1 ? 'set' : 'sets'}`,
+            timersLine(view.settings, { clue: 'storyteller', guess: 'cards and votes' }),
+          ].join(' · ')}
+          className="space-y-4"
+        >
+          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <ChoicePicker
             selectedIds={view.settings.sets}
             choices={choices}
@@ -188,12 +200,12 @@ export function ReverieGame({
                 >
                   Start game
                 </Button>
-                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
               </div>
             </StickyBar>
           )}
-        </Panel>
-        <p className="text-center text-sm text-stone-500">
+        </LobbySettings>
+        <p className="text-center text-sm text-ink-muted">
           New here?{' '}
           <button
             type="button"
@@ -262,7 +274,7 @@ function Seats({
             />
           </li>
         ))}
-        {playing.length === 0 && <li className="text-stone-500 italic">Nobody seated yet</li>}
+        {playing.length === 0 && <li className="text-ink-muted italic">Nobody seated yet</li>}
       </ul>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
@@ -308,7 +320,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
   const playing = view.seats.filter((s) => s.playing);
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 sm:text-sm">
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
         <span>
           {turn && view.phase === 'playing' ? `Turn ${turn.round}` : 'Game over'} · to{' '}
           {view.settings.targetScore} points · {view.drawPile} cards left to draw
@@ -354,7 +366,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
         })}
       </ul>
       {turn && view.phase === 'playing' && (
-        <p className="text-xs text-stone-500" data-testid="next-storyteller">
+        <p className="text-xs text-ink-muted" data-testid="next-storyteller">
           {turn.phase !== 'reveal' && 'Faded names are still deciding. '}
           {turn.nextStoryteller !== turn.storyteller && (
             <>
@@ -364,7 +376,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
         </p>
       )}
       {turn?.reshuffled && view.phase === 'playing' && (
-        <p className="text-xs text-stone-500" data-testid="reshuffled">
+        <p className="text-xs text-ink-muted" data-testid="reshuffled">
           🔀 The draw pile ran out, so the used cards were shuffled back in.
         </p>
       )}
@@ -433,6 +445,7 @@ function Play({
     index?: number;
   } | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
+  const [confirm, confirmDialog] = useConfirm();
   const [clue, setClue] = useState('');
   const [storyPick, setStoryPick] = useState<number | null>(null);
   // The hand bar is fixed over the page, so the page pads by the bar's measured height and
@@ -541,6 +554,7 @@ function Play({
       className={cn('space-y-3', showHand && 'pb-44')}
       style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
     >
+      {confirmDialog}
       <Scoreboard view={view} clockOffset={room.clockOffset} />
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {(canNext || canSit) && (
@@ -564,7 +578,7 @@ function Play({
 
       {turn?.clue && (
         <p className="text-center text-lg">
-          <span className="text-stone-500">{nameOf(view, turn.storyteller)} says: </span>
+          <span className="text-ink-muted">{nameOf(view, turn.storyteller)} says: </span>
           <b className="font-serif text-2xl">“{turn.clue}”</b>
         </p>
       )}
@@ -584,13 +598,19 @@ function Play({
             <div className="flex flex-wrap justify-center gap-2">
               <Button
                 size="lg"
-                onClick={() => {
-                  if (
-                    window.confirm('Start a new game with the same players? Scores go back to 0.')
-                  ) {
-                    void act({ type: 'start' });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Start a new game with the same players?',
+                        body: 'Scores go back to 0.',
+                        confirmLabel: 'Play again',
+                      })
+                    ) {
+                      void act({ type: 'start' });
+                    }
+                  })()
+                }
               >
                 Play again
               </Button>
@@ -599,7 +619,7 @@ function Play({
                 size="lg"
                 onClick={() => void act({ type: 'back-to-lobby' })}
               >
-                Change settings
+                Change setup
               </Button>
             </div>
           ) : (
@@ -675,7 +695,7 @@ function Play({
                         ✋ Your vote
                       </p>
                     )}
-                    <p className="text-stone-500">
+                    <p className="text-ink-muted">
                       {t.voters.length > 0
                         ? `Votes: ${listNames(t.voters.map((v) => nameOf(view, v)))}`
                         : 'No votes'}
@@ -683,7 +703,7 @@ function Play({
                   </div>
                 )}
                 {turn.phase !== 'reveal' && t.mine && (
-                  <p className="text-center text-xs text-stone-500">yours</p>
+                  <p className="text-center text-xs text-ink-muted">yours</p>
                 )}
                 {turn.phase !== 'reveal' && turn.myVote === i && (
                   <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
@@ -714,12 +734,12 @@ function Play({
                     <span className="min-w-0">
                       {s.name}
                       {s.id === turn.storyteller && ' (storyteller)'}
-                      <span className="text-stone-500"> · {pointsBreakdown(view, s.id)}</span>
+                      <span className="text-ink-muted"> · {pointsBreakdown(view, s.id)}</span>
                     </span>
                     <b
                       className={cn(
                         'shrink-0',
-                        r.points > 0 ? 'text-emerald-600' : 'text-stone-500',
+                        r.points > 0 ? 'text-emerald-600' : 'text-ink-muted',
                       )}
                     >
                       +{r.points}
@@ -738,7 +758,7 @@ function Play({
           className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
         >
           <div className="mx-auto max-w-7xl px-3 py-2">
-            <div className="mb-1 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-stone-500">
+            <div className="mb-1 flex min-h-8 items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
               <span>
                 Your hand
                 {handOpen && handMore && <span className="font-normal"> · swipe for more →</span>}
@@ -805,20 +825,6 @@ function Play({
       )}
 
       <Seats view={view} online={online} act={act} hostId={room.hostId} />
-      {room.isHost && view.phase === 'playing' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full"
-          onClick={() => {
-            if (window.confirm('End this game for everyone and go back to the lobby?')) {
-              void act({ type: 'back-to-lobby' });
-            }
-          }}
-        >
-          Abandon game
-        </Button>
-      )}
       <CardViewer
         card={viewing?.card ?? null}
         title={

@@ -182,7 +182,7 @@ test('Look Twice and Foresight open their sheets game after game', async ({ brow
     await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
     await expect(B.getByTestId('watch-sheet')).toHaveCount(0);
     if (round === 1) {
-      await host.getByRole('button', { name: 'Change the deck' }).click();
+      await host.getByRole('button', { name: 'Change setup' }).click();
       await expect(host.getByTestId('start')).toBeVisible();
     }
   }
@@ -207,7 +207,7 @@ test('a Copy of Look Twice opens its sheet in a second game, and a Noped one ope
   await expect(host.getByTestId('winner')).toBeVisible({ timeout: 10_000 });
 
   for (const noped of [false, true]) {
-    await host.getByRole('button', { name: 'Change the deck' }).click();
+    await host.getByRole('button', { name: 'Change setup' }).click();
     // A short pile: three cats, then the two bombs that end the game.
     await riggedStart(host, {
       hands: [['dig'], ['copy'], ['nope']],

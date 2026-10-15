@@ -137,7 +137,7 @@ const NoteList = memo(function NoteList({
           className="flex items-start gap-2 rounded px-1.5 py-1 odd:bg-stone-100/70 dark:odd:bg-stone-800/50"
         >
           <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
-            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+            <span className="text-xs font-semibold text-ink-muted">
               {names.get(n.by) ?? (n.id === LEGACY_NOTE_ID ? 'Earlier notes' : 'Someone who left')}:
             </span>{' '}
             {n.text}
@@ -148,14 +148,14 @@ const NoteList = memo(function NoteList({
             title="Remove"
             disabled={disabled}
             onClick={() => onRemove(n.id)}
-            className="-my-0.5 shrink-0 rounded px-1.5 text-stone-500 hover:bg-stone-200 hover:text-rose-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-500 dark:hover:bg-stone-700"
+            className="-my-0.5 shrink-0 rounded px-1.5 text-ink-muted hover:bg-stone-200 hover:text-rose-700 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-500 dark:hover:bg-stone-700"
           >
             ✕
           </button>
         </li>
       ))}
       {items.length === 0 && (
-        <li className="px-1.5 py-1 text-xs text-stone-500 italic dark:text-stone-400">
+        <li className="px-1.5 py-1 text-xs text-ink-muted italic dark:text-stone-400">
           No notes yet. Jot down hunches about their keywords.
         </li>
       )}
@@ -210,7 +210,7 @@ function NotesPanel({ view, act, muted }: { view: EnigmaView; act: Act; muted: b
   return (
     <section aria-label="Team notes panel" className="mt-3">
       <h4 className="text-sm font-semibold">Team notes</h4>
-      <p className="mb-1 text-xs text-stone-500 dark:text-stone-400">
+      <p className="mb-1 text-xs text-ink-muted">
         {muted ? MUTED_HINT : 'Shared with your team only. Anyone can add or remove a note.'}
       </p>
       <NoteList items={view.notes.items} names={names} onRemove={onRemove} disabled={muted} />
@@ -228,14 +228,10 @@ function ClueList({ clues }: { clues: { round: number; clue: string }[] }) {
           className="flex items-baseline justify-between gap-2 border-b border-stone-200/70 pb-0.5 dark:border-stone-700/70"
         >
           <span className="font-medium break-words">{c.clue}</span>
-          <span className="shrink-0 text-[0.65rem] text-stone-500 dark:text-stone-400">
-            R{c.round}
-          </span>
+          <span className="shrink-0 text-[0.65rem] text-ink-muted">R{c.round}</span>
         </li>
       ))}
-      {clues.length === 0 && (
-        <li className="text-xs text-stone-500 dark:text-stone-400 italic">No clues yet</li>
-      )}
+      {clues.length === 0 && <li className="text-xs text-ink-muted italic">No clues yet</li>}
     </ul>
   );
 }
@@ -254,7 +250,7 @@ export function OwnSheet({ view, team }: { view: EnigmaView; team: Team }) {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {keywords.map((word, i) => (
           <div key={i} className="rounded-xl bg-white/80 p-2 shadow-sm dark:bg-stone-900/70">
-            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">#{i + 1}</p>
+            <p className="text-xs font-bold text-ink-muted">#{i + 1}</p>
             <p className="text-base font-extrabold tracking-wide break-words uppercase sm:text-lg">
               {word}
             </p>
@@ -281,7 +277,7 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
   return (
     <Panel>
       <h3 className={cn('mb-1 font-bold', TEAM_TEXT[team])}>{TEAM_LABEL[team]}'s clues</h3>
-      <p className="mb-2 text-xs text-stone-500 dark:text-stone-400">
+      <p className="mb-2 text-xs text-ink-muted">
         Their keywords are secret. Use their past clues to guess them, and to intercept their codes.
       </p>
       {muted && (
@@ -292,7 +288,7 @@ export function OpponentSheet({ view, team, act }: { view: EnigmaView; team: Tea
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {columns.map((clues, i) => (
           <div key={i} className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">#{i + 1} · ?</p>
+            <p className="text-xs font-bold text-ink-muted">#{i + 1} · ?</p>
             {notes && (
               <div className="mt-1">
                 <GuessField

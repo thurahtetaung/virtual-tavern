@@ -67,7 +67,7 @@ export function Prompt({ prompt, fill }: { prompt: string; fill?: string | null 
 
 function Progress({ done, of, verb }: { done: number; of: number; verb: string }) {
   return (
-    <p className="text-center text-sm text-stone-500">
+    <p className="text-center text-sm text-ink-muted">
       {done} of {of} {verb}
     </p>
   );
@@ -180,7 +180,7 @@ function OptionCard({
         'flex min-h-14 w-full items-center justify-between gap-2 rounded-xl px-4 py-3 text-left text-lg font-semibold ring-1 transition',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
         option.mine
-          ? 'cursor-not-allowed bg-stone-100 text-stone-500 ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
+          ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
           : chosen
             ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/20'
             : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
@@ -231,7 +231,7 @@ function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label:
   if (ids.length === 0) return null;
   return (
     <p className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs text-stone-500">{label}</span>
+      <span className="text-xs text-ink-muted">{label}</span>
       {ids.map((id) => (
         <span
           key={id}
@@ -283,7 +283,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
             </span>
           </p>
           {(o.auto?.length ?? 0) > 0 && (
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-ink-muted">
               🎲 Picked by the game (half points)
               {(o.authors?.length ?? 0) > 1 && `: ${listNames((o.auto ?? []).map(name))}`}
             </p>
@@ -291,7 +291,7 @@ function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) 
           {(o.voters?.length ?? 0) > 0 ? (
             <Names view={view} ids={o.voters ?? []} label={o.truth ? 'Found by' : 'Fooled'} />
           ) : (
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-ink-muted">
               {o.truth ? 'Nobody found it!' : 'Nobody fell for it.'}
             </p>
           )}
@@ -320,7 +320,7 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
     .filter(([, p]) => p > 0)
     .sort(([, a], [, b]) => b - a);
   if (gained.length === 0) {
-    return <p className="text-center text-sm text-stone-500">No points this round.</p>;
+    return <p className="text-center text-sm text-ink-muted">No points this round.</p>;
   }
   return (
     <div className="space-y-1">
@@ -456,7 +456,7 @@ export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomIn
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (

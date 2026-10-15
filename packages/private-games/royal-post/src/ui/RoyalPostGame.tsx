@@ -14,6 +14,8 @@ import {
   TimerSettings,
   cn,
   useSpectatorPrompt,
+  useAbandonGame,
+  LobbySettings,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -66,11 +68,15 @@ export function RoyalPostGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: RoyalPostUiProps) {
   const manifest = useManifest();
   const edition = view.settings.edition;
   const deck = useMemo(() => deckFor(manifest, edition), [manifest, edition]);
   const status = statusFor(view, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   // Any card named anywhere opens here, read-only.
   const [reading, setReading] = useState<Role | null>(null);
@@ -158,7 +164,7 @@ function Seats({
             />
           </li>
         ))}
-        {playing.length === 0 && <li className="text-stone-500 italic">Nobody seated yet</li>}
+        {playing.length === 0 && <li className="text-ink-muted italic">Nobody seated yet</li>}
       </ul>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
@@ -188,7 +194,7 @@ function Seats({
               Take a seat
             </Button>
           ) : (
-            <span className="text-sm text-stone-500">
+            <span className="text-sm text-ink-muted">
               The table is full{me.waiting ? ': you’ll get the next free seat' : ''}.
             </span>
           )}
@@ -222,9 +228,9 @@ function Fold({
       <summary className="flex h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm [&::-webkit-details-marker]:hidden">
         <span>
           <span className="font-semibold">{title}</span>
-          <span className="text-stone-500"> · {summary}</span>
+          <span className="text-ink-muted"> · {summary}</span>
         </span>
-        <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+        <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
           ▸
         </span>
       </summary>
@@ -259,13 +265,17 @@ function Lobby({
     <div className="mx-auto max-w-3xl space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <Seats view={view} room={room} act={act} />
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={[
+          s.edition === 'classic' ? 'Classic' : '2019 edition',
+          `${tokensToWin(EDITIONS[s.edition], Math.min(EDITIONS[s.edition].maxPlayers, Math.max(EDITIONS[s.edition].minPlayers, seated)), s.short)} tokens to win`,
+          timers,
+        ].join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">Edition</legend>
           <div className="mt-1 grid grid-cols-2 gap-2">
@@ -336,7 +346,7 @@ function Lobby({
             {cards.map((c) => (
               <li key={c.role}>
                 <CardChip role={c.role} />
-                <span className="text-xs text-stone-500"> ×{c.count}</span>
+                <span className="text-xs text-ink-muted"> ×{c.count}</span>
               </li>
             ))}
           </ul>
@@ -367,13 +377,13 @@ function Lobby({
               >
                 Start game
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
             <RefusalSlot anchor="royal-post-start" />
           </StickyBar>
         )}
-      </Panel>
-      <p className="text-center text-sm text-stone-500">
+      </LobbySettings>
+      <p className="text-center text-sm text-ink-muted">
         New here?{' '}
         <button
           type="button"
@@ -406,7 +416,7 @@ function Tokens({ tokens, target }: { tokens: number; target: number }) {
           )}
         />
       ))}
-      <span aria-hidden className="ml-1 text-[0.65rem] font-semibold text-stone-500 tabular-nums">
+      <span aria-hidden className="ml-1 text-[0.65rem] font-semibold text-ink-muted tabular-nums">
         {tokens}/{target}
       </span>
     </span>
@@ -443,7 +453,7 @@ function Discards({
         ))}
       </ul>
       {p.discards.length > 5 && (
-        <span className="ml-1 text-xs font-semibold text-stone-500">+{p.discards.length - 5}</span>
+        <span className="ml-1 text-xs font-semibold text-ink-muted">+{p.discards.length - 5}</span>
       )}
     </button>
   );
@@ -489,7 +499,7 @@ function PlayerTile({
         >
           {p.name}
         </span>
-        {me && <span className="text-xs text-stone-500">(you)</span>}
+        {me && <span className="text-xs text-ink-muted">(you)</span>}
         {!online && !p.left && <Badge className="px-1.5 py-0 text-[0.65rem]">offline</Badge>}
         <span
           className="ml-auto flex shrink-0 items-center gap-0.5"
@@ -612,7 +622,7 @@ function Table({
       style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
     >
       {round && (
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 sm:text-sm">
+        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
           <span className="flex flex-wrap items-center gap-x-2">
             <span>
               Round {round.number} · {view.target} to win
@@ -666,7 +676,7 @@ function Table({
       )}
 
       {round && round.faceUp.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
           <span>Set aside face up (out of this round, so nobody holds these):</span>
           <ul aria-label="Set aside face up" className="flex gap-1.5">
             {round.faceUp.map((role, i) => (
@@ -699,27 +709,13 @@ function Table({
       <Journal view={view} deck={deck} />
 
       {view.seats.some((s) => !s.playing) && (
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           Watching:{' '}
           {view.seats
             .filter((s) => !s.playing)
             .map((s) => s.name)
             .join(', ')}
         </p>
-      )}
-      {room.isHost && view.phase === 'playing' && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full"
-          onClick={() => {
-            if (window.confirm('End this game for everyone and go back to the lobby?')) {
-              void act({ type: 'back-to-lobby' });
-            }
-          }}
-        >
-          Abandon game
-        </Button>
       )}
 
       {showHand && (
@@ -729,7 +725,7 @@ function Table({
           className="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95"
         >
           <div className="mx-auto flex max-w-4xl items-end gap-3 px-3 py-2">
-            <div className="min-w-0 flex-1 space-y-1 text-xs text-stone-500">
+            <div className="min-w-0 flex-1 space-y-1 text-xs text-ink-muted">
               <p className="font-semibold">Your hand</p>
               {me && <Tokens tokens={me.tokens} target={view.target} />}
               {myTurn && (
@@ -892,7 +888,7 @@ function PlaySheet({
             <div className="space-y-2 text-sm">
               <p>{cardText(role, edition)}</p>
               {!canPlay && (
-                <p className="text-xs text-stone-500">
+                <p className="text-xs text-ink-muted">
                   {EDITIONS[edition].cards.find((c) => c.role === role)?.count ?? 0} in the deck
                   {count ? ` · ${count.unseen} not seen by you yet` : ''}
                 </p>
@@ -918,7 +914,7 @@ function PlaySheet({
             <fieldset>
               <legend className="text-sm font-semibold">Choose a player</legend>
               {targets.length === 0 ? (
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-ink-muted">
                   Everyone else is protected or out, so this card has no effect.
                 </p>
               ) : (
@@ -942,7 +938,7 @@ function PlaySheet({
                 </div>
               )}
               {round && round.players.some((p) => p.id !== me && p.protected && !p.out) && (
-                <p className="mt-1 text-xs text-stone-500">
+                <p className="mt-1 text-xs text-ink-muted">
                   🌸 Protected:{' '}
                   {round.players
                     .filter((p) => p.id !== me && p.protected && !p.out)
@@ -955,7 +951,7 @@ function PlaySheet({
           {canPlay && !countessLock && needsGuess && (
             <fieldset>
               <legend className="text-sm font-semibold">Name a card</legend>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-ink-muted">
                 Each shows how many you haven’t seen yet (not in any discard or your hand).
               </p>
               <div className="mt-1 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
@@ -980,7 +976,7 @@ function PlaySheet({
                         <b className="tabular-nums">{c.rank}</b>
                         <span className="truncate">{deck.name(c.role)}</span>
                       </span>
-                      <span className="text-[0.65rem] font-normal text-stone-500">
+                      <span className="text-[0.65rem] font-normal text-ink-muted">
                         {c.unseen === 0 ? 'all seen' : `${c.unseen} unseen`}
                       </span>
                     </button>
@@ -1026,7 +1022,7 @@ function PileSheet({
     >
       {pile && (
         <div className="space-y-2">
-          <p className="text-sm text-stone-500">Oldest first. Tap a card to read it.</p>
+          <p className="text-sm text-ink-muted">Oldest first. Tap a card to read it.</p>
           <ol aria-label="Discard pile" className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             {pile.discards.map((role, i) => (
               <li key={i}>
@@ -1123,7 +1119,7 @@ function ChancellorSheet({
             <ol className="space-y-2 text-sm">
               {bottom.map((c, n) => (
                 <li key={c.i} className="flex items-center gap-2">
-                  <span className="text-stone-500">
+                  <span className="text-ink-muted">
                     {n === bottom.length - 1 ? 'Very bottom:' : 'Then:'}
                   </span>
                   <CardChip role={c.role} />
@@ -1234,7 +1230,7 @@ function Recent({ view, entries }: { view: RoyalPostView; entries: LogEntry[] })
       aria-live="polite"
       className="space-y-1 text-sm leading-7 text-stone-700 dark:text-stone-300"
     >
-      <h3 className="text-xs font-semibold text-stone-500">
+      <h3 className="text-xs font-semibold text-ink-muted">
         {watcher ? 'Latest moves' : 'Since your turn'}
         {entries.length > shown.length && ` (${entries.length - shown.length} more below)`}
       </h3>
@@ -1289,7 +1285,7 @@ function Journal({ view, deck }: { view: RoyalPostView; deck: Deck }) {
               'h-11 flex-1 truncate px-2 text-sm font-semibold transition',
               current === t.id
                 ? 'border-b-2 border-accent dark:border-amber-500 text-stone-900 dark:text-stone-100'
-                : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-200',
+                : 'text-ink-muted hover:text-stone-800 dark:hover:text-stone-200',
             )}
           >
             {t.label}
@@ -1314,7 +1310,7 @@ function Notes({ view }: { view: RoyalPostView }) {
   return (
     <div className="space-y-2">
       <ul aria-label="Your notes" className="space-y-1 text-sm leading-7">
-        <li className="text-xs leading-normal text-stone-500">
+        <li className="text-xs leading-normal text-ink-muted">
           Only you see these. {current.length === 0 && 'Nothing yet this round.'}
         </li>
         {[...current].reverse().map((n) => (
@@ -1325,10 +1321,10 @@ function Notes({ view }: { view: RoyalPostView }) {
       </ul>
       {earlier.length > 0 && (
         <details className="text-sm">
-          <summary className="cursor-pointer text-xs font-semibold text-stone-500">
+          <summary className="cursor-pointer text-xs font-semibold text-ink-muted">
             Earlier rounds ({earlier.length})
           </summary>
-          <ul aria-label="Earlier notes" className="mt-1 space-y-1 leading-7 text-stone-500">
+          <ul aria-label="Earlier notes" className="mt-1 space-y-1 leading-7 text-ink-muted">
             {[...earlier].reverse().map((n) => (
               <li key={n.id}>
                 <span>Round {n.round}: </span>
@@ -1343,7 +1339,7 @@ function Notes({ view }: { view: RoyalPostView }) {
 }
 
 function Log({ view }: { view: RoyalPostView }) {
-  if (view.log.length === 0) return <p className="text-sm text-stone-500">Nothing yet.</p>;
+  if (view.log.length === 0) return <p className="text-sm text-ink-muted">Nothing yet.</p>;
   const fresh = new Set(
     view.phase === 'playing' && view.round?.stage !== 'over'
       ? sinceMyTurn(view).map((e) => e.id)
@@ -1376,7 +1372,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
   const left = counts.reduce((n, c) => n + c.unseen, 0);
   return (
     <div className="space-y-2 text-sm">
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-ink-muted">
         {left} card{left === 1 ? '' : 's'} you haven’t seen: in other hands, the deck (
         {view.round.deckCount}) or set aside face down. Discards and your own hand are counted out.
       </p>
@@ -1409,7 +1405,7 @@ function CardCount({ view, deck }: { view: RoyalPostView; deck: Deck }) {
                 />
               ))}
             </span>
-            <span aria-hidden className="w-10 text-right text-xs text-stone-500 tabular-nums">
+            <span aria-hidden className="w-10 text-right text-xs text-ink-muted tabular-nums">
               {c.unseen}/{c.total}
             </span>
             {c.inDeck > 0 && (
@@ -1457,7 +1453,7 @@ function RoundSecrets({ view }: { view: RoyalPostView }) {
   if (ending.length === 0) return null;
   return (
     <div className="rounded-lg bg-accent-soft px-3 py-2 text-left text-sm leading-7 dark:bg-amber-500/10">
-      <p className="text-xs font-semibold text-stone-500">Only you can see this</p>
+      <p className="text-xs font-semibold text-ink-muted">Only you can see this</p>
       {ending.map((n) => (
         <p key={n.id}>
           <Rich line={describeNote(view, n)} />
@@ -1513,7 +1509,7 @@ function RoundResult({
           Next round
         </Button>
       ) : (
-        <p className="text-sm text-stone-500">{waitingForHost(room, 'deal the next round')}</p>
+        <p className="text-sm text-ink-muted">{waitingForHost(room, 'deal the next round')}</p>
       )}
     </Panel>
   );
@@ -1558,7 +1554,7 @@ function Podium({
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (

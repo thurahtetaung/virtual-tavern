@@ -19,7 +19,7 @@ describe('the rules drawer with a secret role', () => {
   it('shows the public room but nothing of the role until the viewer peeks', () => {
     const html = render(hydra, ctx);
     expect(html).toContain('In your room: 7 players');
-    expect(html).toContain('Your role, hidden');
+    expect(html).toContain('Hold to see my role');
     expect(html).toContain('Show my role');
     expect(html).not.toMatch(/Zebra|Yak|You were dealt|step 4/);
   });
@@ -27,6 +27,6 @@ describe('the rules drawer with a secret role', () => {
   it('shows a public card (a hero everyone sees) as it is', () => {
     const html = render(hydra, { ...ctx, secret: false });
     expect(html).toContain('Zebra role');
-    expect(html).not.toContain('Your role, hidden');
+    expect(html).not.toContain('Hold to see my role');
   });
 });

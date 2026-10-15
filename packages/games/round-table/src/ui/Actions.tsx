@@ -56,7 +56,7 @@ export function ProposePanel({ view, act }: { view: RoundTableView; act: Act }) 
           {mine ? 'Your team' : `${nameOf(view, g.leader)}’s team`} for quest {q.number}:
         </b>{' '}
         {g.draft.length ? namesFor(view, g.draft) : 'nobody yet'}{' '}
-        <span className="text-stone-500 tabular-nums">
+        <span className="text-ink-muted tabular-nums">
           ({g.draft.length}/{q.size})
         </span>
       </p>
@@ -110,7 +110,7 @@ export function DiscussPanel({ view, act }: { view: RoundTableView; act: Act }) 
           <RefusalSlot anchor="discuss" />
         </>
       ) : (
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           Talk it over. The vote opens when the leader calls it.
         </p>
       )}
@@ -150,7 +150,7 @@ export function VotePanel({ view, act }: { view: RoundTableView; act: Act }) {
         {choice(true)}
         {choice(false)}
       </div>
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-ink-muted">
         Secret until everyone has voted. A tie is a rejection.
       </p>
     </Panel>
@@ -314,7 +314,7 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
   const no = ids.filter((id) => !proposal.votes[id]);
   const column = (title: string, list: string[], cls: string) => (
     <div>
-      <p className="text-xs font-bold tracking-wide text-stone-500 uppercase">
+      <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
         {title} ({list.length})
       </p>
       <ul className={cn('flex flex-wrap justify-center gap-x-2 text-sm font-semibold', cls)}>
@@ -322,7 +322,7 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
           <li key={id}>
             {who(view, id, 'You')}
             {proposal.autoVotes?.includes(id) && (
-              <span className="font-normal text-stone-500"> ⏱</span>
+              <span className="font-normal text-ink-muted"> ⏱</span>
             )}
           </li>
         ))}
@@ -343,7 +343,7 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
         {column('Against', no, 'text-red-700 dark:text-red-300')}
       </div>
       {proposal.autoVoteCount > 0 && (
-        <p className="text-center text-xs text-stone-500">
+        <p className="text-center text-xs text-ink-muted">
           {proposal.autoVotes
             ? '⏱ voted Approve for them (timer or host)'
             : `⏱ ${proposal.autoVoteCount === 1 ? '1 Approve was' : `${proposal.autoVoteCount} Approves were`} cast by the timer or host`}

@@ -1,6 +1,7 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { readCards, readyUp, votes } from './masquerade-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -62,6 +63,7 @@ test('three friends play Masquerade Originals behind the back room, with placeho
   // Both editions are in play by default; the host can drop one.
   await expect(host.getByText('50 locations in play')).toBeVisible();
   await host.getByRole('button', { name: /^Edition 2/ }).click();
+  await openSettings(others[0]!);
   await expect(others[0]!.getByText('30 locations in play')).toBeVisible();
   await host.getByRole('button', { name: /^Edition 2/ }).click();
   await expect(others[0]!.getByText('50 locations in play')).toBeVisible();

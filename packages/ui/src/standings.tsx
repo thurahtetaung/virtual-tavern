@@ -89,7 +89,7 @@ export function Standings({
                 r.entry.id === you && 'bg-accent-soft dark:bg-amber-500/10',
               )}
             >
-              <span className="w-10 shrink-0 text-sm font-bold text-stone-500 tabular-nums dark:text-stone-400">
+              <span className="w-10 shrink-0 text-sm font-bold text-ink-muted tabular-nums dark:text-stone-400">
                 {r.tied ? '=' : ''}
                 {ordinal(r.place)}
               </span>
@@ -99,9 +99,7 @@ export function Standings({
                   {r.entry.id === you && ' (you)'}
                 </span>
                 {r.entry.note && (
-                  <span className="block text-xs text-stone-500 dark:text-stone-400">
-                    {r.entry.note}
-                  </span>
+                  <span className="block text-xs text-ink-muted">{r.entry.note}</span>
                 )}
               </span>
               <span className="shrink-0 font-semibold tabular-nums">

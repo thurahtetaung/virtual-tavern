@@ -56,7 +56,7 @@ export function ForgetMe() {
             <strong>this browser</strong>, and this browser forgets your name and seat. Your past
             games still happened, but your part in them becomes “forgotten”. It can’t be undone.
           </p>
-          <p className="text-sm text-stone-500">
+          <p className="text-sm text-ink-muted">
             Played on another phone too? Do this there as well: each device is its own player.
           </p>
           <label className="block text-sm font-semibold">

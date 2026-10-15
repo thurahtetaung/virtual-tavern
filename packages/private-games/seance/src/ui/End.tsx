@@ -21,9 +21,9 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
           <p className="flex items-center gap-2 text-sm font-semibold">
             <Avatar color={p.color} content={content} name={p.name} size="sm" />
             {p.name}
-            {p.retired && <span className="font-normal text-stone-500">· seat retired</span>}
+            {p.retired && <span className="font-normal text-ink-muted">· seat retired</span>}
             {p.finishedHour !== null && (
-              <span className="font-normal text-stone-500">
+              <span className="font-normal text-ink-muted">
                 · all three by hour {roman(p.finishedHour)}
               </span>
             )}
@@ -58,7 +58,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
                         </div>
                       ))
                     ) : (
-                      <span className="text-xs text-stone-500">no vision</span>
+                      <span className="text-xs text-ink-muted">no vision</span>
                     )}
                   </div>
                 </li>
@@ -114,7 +114,7 @@ export function EndScreen({
           <div className="flex flex-wrap justify-center gap-2 pt-1">
             <Button onClick={() => void act({ type: 'play-again' })}>Play again</Button>
             <Button variant="secondary" onClick={() => void act({ type: 'back-to-lobby' })}>
-              Back to the lobby
+              Change setup
             </Button>
           </div>
         )}

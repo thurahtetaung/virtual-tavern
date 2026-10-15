@@ -62,8 +62,6 @@ export async function visitor(
   await previewArt(context);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
-  // Hand over and Abandon ask first.
-  page.on('dialog', (d) => void d.accept());
   await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
   return page;
 }
@@ -259,8 +257,8 @@ export async function withRole(players: Player[], role: string): Promise<Player>
   for (const p of players) {
     const nav = p.page.getByRole('navigation', { name: 'Game sections' });
     if (await nav.isVisible()) await nav.getByRole('button', { name: 'Me' }).click();
-    // The Forensic Scientist's card lies face up; the hidden roles are tapped to reveal.
-    const card = p.page.getByRole('button', { name: 'Reveal your role card' });
+    // The Forensic Scientist's card lies face up; the hidden roles are shown with Show.
+    const card = p.page.getByRole('button', { name: '👁️ Show your role' });
     const faceUp = p.page.getByRole('img', { name: /^Your role card: / });
     await expect(card.or(faceUp)).toBeVisible();
     if (await faceUp.isVisible()) {
@@ -274,7 +272,7 @@ export async function withRole(players: Player[], role: string): Promise<Player>
     });
     await expect(heading).toBeVisible();
     const found = (await heading.textContent()) === role;
-    await p.page.getByRole('button', { name: 'Hide your role card' }).click();
+    await p.page.getByRole('button', { name: '🙈 Hide your role' }).click();
     if (found) return p;
   }
   throw new Error(`nobody holds ${role}`);

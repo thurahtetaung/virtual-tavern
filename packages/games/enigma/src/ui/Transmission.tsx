@@ -59,13 +59,13 @@ function ClueForm({ view, tx, act }: { view: EnigmaView; tx: TransmissionView; a
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <div className="text-center">
-        <span className="text-sm text-stone-500">Your secret code</span>
+        <span className="text-sm text-ink-muted">Your secret code</span>
         <Peek
           what="your code"
           className="mt-1"
           onShownChange={setShown}
           cover={
-            <span className="block rounded-lg bg-stone-100 px-3 py-2 text-center text-sm text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+            <span className="block rounded-lg bg-stone-100 px-3 py-2 text-center text-sm text-ink-muted dark:bg-stone-800 dark:text-stone-400">
               🔒 Covered so your teammates can’t read it over your shoulder: hold to see it
             </span>
           }
@@ -156,7 +156,7 @@ function Picks({
 }) {
   return (
     <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-      <p className="mb-1 text-xs font-semibold text-stone-500">Your team's picks</p>
+      <p className="mb-1 text-xs font-semibold text-ink-muted">Your team's picks</p>
       <ul className="flex flex-wrap gap-1.5">
         {tx.voters.map((id) => {
           const v = tx.teamVotes[id];
@@ -317,14 +317,14 @@ function PastClues({
 }) {
   return (
     <div className="rounded-xl bg-stone-100 p-2 dark:bg-stone-800/70">
-      <p className="mb-1 text-xs font-semibold text-stone-500">Their past clues</p>
+      <p className="mb-1 text-xs font-semibold text-ink-muted">Their past clues</p>
       <div className="grid grid-cols-4 gap-1">
         {columns.map((clues, i) => (
           <div key={i} className="min-w-0" aria-label={`Their past clues for keyword ${i + 1}`}>
             <p className="truncate text-xs font-black">
               {i + 1}
               {guesses[i] && (
-                <span className="ml-1 font-semibold text-stone-500 uppercase">{guesses[i]}</span>
+                <span className="ml-1 font-semibold text-ink-muted uppercase">{guesses[i]}</span>
               )}
             </p>
             <ul className="text-xs leading-snug break-words">
@@ -356,7 +356,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
   return (
     <div className="space-y-2">
       <p className="text-center">
-        <span className="text-sm text-stone-500">The code was</span>
+        <span className="text-sm text-ink-muted">The code was</span>
         <span className="block font-mono text-3xl font-black tracking-widest">
           {formatCode(tx.code)}
         </span>
@@ -376,7 +376,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
             return (
               <li key={i}>
                 <b>“{clue}”</b> → <b className="font-mono">#{tx.code![i]}</b>
-                {keyword && <span className="text-sm text-stone-500 uppercase"> {keyword}</span>}
+                {keyword && <span className="text-sm text-ink-muted uppercase"> {keyword}</span>}
               </li>
             );
           })}
@@ -386,7 +386,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
         className={cn(
           'rounded-lg px-3 py-2 font-semibold',
           r.decoded
-            ? 'bg-success dark:bg-emerald-600 text-white'
+            ? 'bg-success dark:bg-emerald-700 text-white'
             : 'bg-team-a dark:bg-rose-600 text-white',
         )}
       >
@@ -423,7 +423,7 @@ function RevealSummary({ view, tx }: { view: EnigmaView; tx: TransmissionView })
         </p>
       )}
       {view.phase === 'playing' && view.teams[tx.team].nextEncryptor && (
-        <p className="text-center text-sm text-stone-500">
+        <p className="text-center text-sm text-ink-muted">
           Next {sender} Encryptor: <b>{nameOf(view, view.teams[tx.team].nextEncryptor!)}</b>
         </p>
       )}
@@ -498,7 +498,7 @@ export function TransmissionCard({
         <ol className="space-y-1">
           {tx.clues?.map((c, i) => (
             <li key={i}>
-              <span className="text-stone-500">{i + 1}.</span> <b>“{c}”</b>
+              <span className="text-ink-muted">{i + 1}.</span> <b>“{c}”</b>
             </li>
           ))}
         </ol>
@@ -529,7 +529,7 @@ export function TransmissionCard({
     >
       <header className="mb-3 flex items-baseline justify-between gap-2">
         <h3 className={cn('font-bold', TEAM_TEXT[tx.team])}>{TEAM_LABEL[tx.team]}'s code</h3>
-        <span className="text-xs text-stone-500">Encryptor: {encryptor}</span>
+        <span className="text-xs text-ink-muted">Encryptor: {encryptor}</span>
       </header>
       {body}
       {isHost && view.stage === 'guess' && !tx.revealed && (

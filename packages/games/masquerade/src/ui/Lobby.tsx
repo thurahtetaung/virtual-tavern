@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, StickyBar, cn, LobbySettings } from '@vt/ui';
 import {
   MAX_ROUNDS,
   MAX_SEATS,
@@ -111,13 +111,20 @@ export function Lobby({
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={[
+          `${s.roundSeconds / 60} min rounds`,
+          s.rounds === null ? 'a round each' : `${s.rounds} ${s.rounds === 1 ? 'round' : 'rounds'}`,
+          `${view.locations.length} locations`,
+          s.twoSpies && 'two spies',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">
             {view.editions.length > 1 ? 'Editions' : 'Locations'}
@@ -148,7 +155,7 @@ export function Lobby({
             })}
           </div>
           {view.editions.length > 1 && (
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-ink-muted">
               Pick one edition or both: {view.locations.length} locations in play.
             </p>
           )}
@@ -205,7 +212,7 @@ export function Lobby({
             />
             <span>
               <span className="block font-semibold">Two spies</span>
-              <span className="block text-xs text-stone-500">
+              <span className="block text-xs text-ink-muted">
                 From {TWO_SPIES_MIN} players. The spies don’t know each other.
                 {s.twoSpies && seated < TWO_SPIES_MIN && ` (One spy until ${TWO_SPIES_MIN} play.)`}
               </span>
@@ -222,12 +229,12 @@ export function Lobby({
               >
                 Start game
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
           </StickyBar>
         )}
-      </Panel>
-      <p className="text-center text-sm text-stone-500">
+      </LobbySettings>
+      <p className="text-center text-sm text-ink-muted">
         New to Masquerade?{' '}
         <button
           type="button"

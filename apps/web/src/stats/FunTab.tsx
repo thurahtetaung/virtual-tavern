@@ -142,7 +142,7 @@ function RecentNights() {
             <NightCard recap={card} ctx={cardCtx} />
           </div>
         ) : (
-          <p className="py-10 text-center text-stone-500 dark:text-stone-400">Pouring…</p>
+          <p className="py-10 text-center text-ink-muted">Pouring…</p>
         )}
       </Drawer>
     </section>
@@ -158,7 +158,7 @@ export function FactCard({ fact }: { fact: FunFact }) {
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-semibold">{fact.title}</h4>
         {game && (
-          <span className="flex shrink-0 items-center gap-1.5 text-xs text-stone-500">
+          <span className="flex shrink-0 items-center gap-1.5 text-xs text-ink-muted">
             <span
               aria-hidden
               className="inline-block size-2 rounded-full"

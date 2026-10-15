@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { CARD_SETS, SET_IDS, type SetId } from '../logic/cards.ts';
 import { RAVENS, startProblem, tableCards } from '../logic/setup.ts';
@@ -102,7 +102,7 @@ export function Lobby({
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">
             At the table{' '}
-            <span className="text-sm font-normal text-stone-500">
+            <span className="text-sm font-normal text-ink-muted">
               ({seated.length}/{MAX_PLAYERS})
             </span>
           </h3>
@@ -203,7 +203,7 @@ export function Lobby({
                 );
               })}
             </div>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-ink-muted">
               {me.color
                 ? `You’ll play ${content.psychicName(me.color)}.`
                 : 'Pick one, or you get a free one at the start.'}
@@ -213,11 +213,18 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3" aria-label="Settings">
-        <h3 className="font-bold">
-          Settings{' '}
-          {!host && <span className="text-sm font-normal text-stone-500">(the host chooses)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        summary={[
+          DIFFICULTY_LABEL[s.difficulty],
+          `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
+          s.timerSeconds === null
+            ? 'no timer'
+            : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
+        ].join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the ghost?</h4>
           <div className="flex flex-wrap gap-2">
@@ -232,7 +239,7 @@ export function Lobby({
               </Choice>
             ))}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {GHOST_MODES.find((m) => m.id === s.ghostMode)!.hint} The ghost is easiest on a tablet
             or a computer.
           </p>
@@ -264,7 +271,7 @@ export function Lobby({
               </Choice>
             ))}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {DIFFICULTY_LABEL[s.difficulty]}: {tableCards(s.difficulty, n)} suspects, places and
             objects on the table with {n} players, and {ravenText(s.difficulty)}.
           </p>
@@ -285,7 +292,7 @@ export function Lobby({
               </Choice>
             ))}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             Each set adds its visions and its suspects, places and objects.{' '}
             {SET_IDS.filter((id) => s.sets.includes(id)).reduce(
               (t, id) => t + CARD_SETS[id].vision.length,
@@ -333,7 +340,7 @@ export function Lobby({
               </Choice>
             </div>
           )}
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {s.timerSeconds === null
               ? 'No timer: the hour ends when everyone taps Ready (or the host locks it).'
               : s.timerMode === 'soft'
@@ -342,7 +349,7 @@ export function Lobby({
           </p>
         </section>
         <RefusalSlot anchor="seance-settings" />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>
@@ -354,7 +361,7 @@ export function Lobby({
           >
             Begin the séance
           </Button>
-          {problem && <p className="mt-1 text-center text-xs text-stone-500">{problem}</p>}
+          {problem && <p className="mt-1 text-center text-xs text-ink-muted">{problem}</p>}
           <RefusalSlot anchor="seance-start" />
         </StickyBar>
       )}

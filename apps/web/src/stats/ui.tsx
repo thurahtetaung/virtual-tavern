@@ -113,7 +113,7 @@ export function Skeleton({ height = 160, className }: { height?: number; classNa
 
 export function EmptyState({ children = 'No games in this range yet' }: { children?: ReactNode }) {
   return (
-    <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl bg-stone-100/70 px-4 py-6 text-center text-sm text-stone-500 dark:bg-stone-800/40 dark:text-stone-400">
+    <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl bg-stone-100/70 px-4 py-6 text-center text-sm text-ink-muted dark:bg-stone-800/40 dark:text-stone-400">
       <span aria-hidden className="text-2xl">
         🕯️
       </span>
@@ -143,7 +143,7 @@ export function Legend({ items }: { items: { name: string; color: string }[] }) 
 /** The Less → More key for a heatmap. */
 export function HeatKey({ tokens }: { tokens: ChartTokens }) {
   return (
-    <div className="flex items-center gap-1 text-xs text-stone-500" aria-hidden>
+    <div className="flex items-center gap-1 text-xs text-ink-muted" aria-hidden>
       Less
       {[tokens.empty, ...tokens.sequential].map((c) => (
         <span key={c} className="inline-block size-2.5 rounded-sm" style={{ background: c }} />
@@ -193,7 +193,7 @@ export function ChartCard({
           <h3 id={titleId} className="font-semibold">
             {title}
           </h3>
-          {subtitle && <p className="text-xs text-stone-500 dark:text-stone-400">{subtitle}</p>}
+          {subtitle && <p className="text-xs text-ink-muted">{subtitle}</p>}
         </div>
         {table && !empty && !loading && (
           <button
@@ -225,7 +225,7 @@ export function ChartCard({
 const DELTA_STYLE = {
   good: 'text-green-700 dark:text-green-500',
   bad: 'text-rose-700 dark:text-rose-400',
-  flat: 'text-stone-500',
+  flat: 'text-ink-muted',
 };
 
 /** A KPI tile: label, value, and optionally the change against the previous window. */
@@ -273,16 +273,16 @@ export function StatTile({
       ) : (
         <span className="text-2xl leading-tight font-semibold sm:text-3xl">
           {value}
-          {unit && <span className="ml-1 text-sm font-medium text-stone-500">{unit}</span>}
+          {unit && <span className="ml-1 text-sm font-medium text-ink-muted">{unit}</span>}
         </span>
       )}
       {delta && !loading && (
         <span className={cn('text-xs font-medium', DELTA_STYLE[tone])}>
           <span aria-hidden>{arrow}</span> {delta.text}
-          <span className="hidden font-normal text-stone-500 sm:inline"> vs previous</span>
+          <span className="hidden font-normal text-ink-muted sm:inline"> vs previous</span>
         </span>
       )}
-      {hint && !loading && <span className="text-xs text-stone-500">{hint}</span>}
+      {hint && !loading && <span className="text-xs text-ink-muted">{hint}</span>}
     </Panel>
   );
 }

@@ -2,6 +2,7 @@ import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
 import { openAdminSection } from './admin-sections.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -102,6 +103,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       .getByRole('group', { name: 'Time for each role at night' })
       .getByRole('button', { name: '5 s', exact: true })
       .click();
+    await openSettings(others[0]!);
     await expect(
       others[0]!
         .getByRole('group', { name: 'Time for each role at night' })
@@ -214,7 +216,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     await expect(host.getByTestId('team-line').first()).toBeVisible();
     // Guests are told who moves the game on.
     await expect(others[0]!.getByTestId('waiting-host')).toHaveText(
-      'Waiting for Hana (host) to deal again or change the cards…',
+      'Waiting for Hana (host) to play again or change the setup…',
     );
     for (const p of players) await expect(p.getByTestId('reveal-player')).toHaveCount(5);
     await expect(host.getByTestId('reveal-legend')).toContainText('dealt → ended as');
@@ -252,7 +254,7 @@ test('five friends play a night, a day and a vote, and see the whole night repla
     // Play again with the same cards: straight to getting ready.
     await host.getByRole('button', { name: 'Play again' }).click();
     for (const p of players)
-      await expect(p.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+      await expect(p.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
 
     // The rules page uses the title the admin set, for unlocked browsers.
     await others[0]!.goto('/rules/nightfall');

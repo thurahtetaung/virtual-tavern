@@ -91,7 +91,7 @@ function OverviewView({ data, loading }: { data?: StatsOverview; loading: boolea
       aria-busy={loading}
     >
       {data && (
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           {windowText} · deltas compare with the window before
         </p>
       )}

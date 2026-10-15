@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -54,6 +55,7 @@ test('four players play Echo: a hit with cancelled clues, a pass and a miss deci
   const [ana, ben, cy] = joined as [Page, Page, Page];
   await expect(host.getByText('Everyone is in')).toBeVisible();
   await host.getByRole('button', { name: '8 cards' }).click();
+  await openSettings(ana);
   await expect(ana.getByText('8 cards', { exact: true })).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 

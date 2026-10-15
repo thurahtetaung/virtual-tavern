@@ -9,6 +9,8 @@ import {
   cn,
   useSecondsLeft,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import type { EventKind } from '../logic/content.ts';
@@ -74,7 +76,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
@@ -167,6 +169,7 @@ export function FinalBar({
   content: Content;
   onSolve: () => void;
 }) {
+  const [confirm, confirmDialog] = useConfirm();
   const g = view.game!;
   const f = g.final;
   if (g.stage !== 'final' || !f) return null;
@@ -187,6 +190,7 @@ export function FinalBar({
           : 'ring-1 ring-danger dark:ring-rose-400',
       )}
     >
+      {confirmDialog}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <div className="min-w-0 flex-[1_1_9rem] leading-tight">
           <p className="text-sm font-bold">
@@ -213,10 +217,17 @@ export function FinalBar({
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => {
-                if (window.confirm(`Skip ${nameOf(view, accuser)}’s final accusation?`))
-                  void act({ type: 'skip-speaker' });
-              }}
+              onClick={() =>
+                void (async () => {
+                  if (
+                    await confirm({
+                      title: `Skip ${nameOf(view, accuser)}’s final accusation?`,
+                      confirmLabel: 'Skip',
+                    })
+                  )
+                    void act({ type: 'skip-speaker' });
+                })()
+              }
             >
               Skip
             </Button>
@@ -298,7 +309,7 @@ function DiscussBar({
         </div>
       </div>
       {!fs && canStart && (
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           The Forensic Scientist is away, so you can move on as the host.
         </p>
       )}
@@ -323,6 +334,7 @@ function Banners({
 }) {
   const g = view.game!;
   const [seenNotice, setSeenNotice] = useState(0);
+  const [confirm, confirmDialog] = useConfirm();
   const fsAway = room.players.find((p) => p.id === g.fs)?.connected === false;
   const waiting = waitingOn(view);
   const handover = g.notices.findLast((n) => n.text.includes('is now the Forensic Scientist'));
@@ -331,6 +343,7 @@ function Banners({
   const playing = view.phase === 'playing';
   return (
     <div className="space-y-1.5">
+      {confirmDialog}
       {playing &&
         g.countdown &&
         (g.stage === 'collect' || g.stage === 'discuss' || g.stage === 'present') && (
@@ -362,14 +375,18 @@ function Banners({
           {room.isHost && (
             <Button
               size="sm"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Hand the case to a random Investigator? They will see the answer.',
+              onClick={() =>
+                void (async () => {
+                  if (
+                    await confirm({
+                      title: 'Hand the case to a random Investigator?',
+                      body: 'They will see the answer.',
+                      confirmLabel: 'Hand over',
+                    })
                   )
-                )
-                  void act({ type: 'hand-over' });
-              }}
+                    void act({ type: 'hand-over' });
+                })()
+              }
             >
               Hand over
             </Button>
@@ -427,10 +444,14 @@ export function InquestGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: InquestUiProps) {
   const manifest = useManifest();
   const content = useMemo(() => contentFor(manifest), [manifest]);
   const g = view.game;
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const secondsLeft = useSecondsLeft(
     g?.stage === 'present'
       ? (g.present?.deadline ?? null)
@@ -614,19 +635,6 @@ export function InquestGame({
           </div>
         </div>
       </div>
-      {room.isHost && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn('w-full', tab !== 'me' && 'hidden lg:inline-flex')}
-          onClick={() => {
-            if (window.confirm('End this case for everyone and go back to the lobby?'))
-              void act({ type: 'back-to-lobby' });
-          }}
-        >
-          Abandon game
-        </Button>
-      )}
       <TabBar tab={tab} onChange={setTab} alert={alert} />
       <CardView
         open={open}

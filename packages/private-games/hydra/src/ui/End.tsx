@@ -101,7 +101,7 @@ function TruthLog({ view, c }: { view: HydraView; c: Content }) {
               key={r.n}
               className="rounded-xl bg-white p-2.5 text-sm ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-800"
             >
-              <p className="mb-1 text-xs font-bold text-stone-500">
+              <p className="mb-1 text-xs font-bold text-ink-muted">
                 #{r.n} · {nameOf(view, r.president)} ➜ {nameOf(view, r.chancellor)}
                 {r.session?.enacted && (
                   <>
@@ -199,13 +199,13 @@ export function End({
             Play again
           </Button>
           <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
-            Change settings
+            Change setup
           </Button>
         </div>
       ) : (
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
-      <p className="text-center text-xs text-stone-500">{c.copy('end.playAgain')}</p>
+      <p className="text-center text-xs text-ink-muted">{c.copy('end.playAgain')}</p>
       <TruthLog view={view} c={c} />
       <CreditBlock c={c} />
     </div>

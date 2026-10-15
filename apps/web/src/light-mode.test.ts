@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { root, uiFiles } from './ui-sources.ts';
 
 /*
  * Guard for the calm light mode (`index.css`): UI code paints notices, highlights and buttons with
@@ -12,17 +13,6 @@ import { describe, expect, it } from 'vitest';
  * `vt-palette` comment saying why. The light palette mutes those scales anyway.
  */
 
-const root = join(import.meta.dirname, '../../..');
-
-/**
- * Hydra's editions recolour its teams by overriding Tailwind's sky (blue team) and red scales on the
- * game's root (`teamColors` in its `assets.ts`), so those two scales are its palette.
- */
-const EDITION_SCALES: Record<string, string[]> = {
-  'packages/private-games/hydra': ['sky', 'red'],
-  'packages/private-games/hogwarts': ['sky', 'red'],
-};
-
 const HUES =
   'red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose';
 // A class token: any variants (none of them `dark`), then a chromatic fill, ring, border or outline.
@@ -30,36 +20,6 @@ const LOUD = new RegExp(
   String.raw`(?<![\w:/[-])((?:[\w-]+(?:-\[[^\]]+\])?:)*)(bg|ring|border|outline)-(${HUES})-(50|[1-7]00)(?:/\d+)?(?![\w-])`,
   'g',
 );
-
-function sources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (name === 'node_modules' || name === 'dist') return [];
-    if (statSync(path).isDirectory()) return sources(path);
-    return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) ? [path] : [];
-  });
-}
-
-/** Every UI source file, with the chromatic scales it may use. */
-function uiFiles(): { file: string; scales: string[] }[] {
-  const dirs = [
-    { dir: join(root, 'apps/web/src'), scales: [] as string[] },
-    { dir: join(root, 'packages/ui/src'), scales: [] },
-  ];
-  for (const group of ['packages/games', 'packages/private-games']) {
-    for (const game of readdirSync(join(root, group))) {
-      const pkg = `${group}/${game}`;
-      for (const sub of ['src/ui', 'src']) {
-        const dir = join(root, pkg, sub);
-        if (statSync(dir, { throwIfNoEntry: false })) {
-          dirs.push({ dir, scales: EDITION_SCALES[pkg] ?? [] });
-          break;
-        }
-      }
-    }
-  }
-  return dirs.flatMap(({ dir, scales }) => sources(dir).map((file) => ({ file, scales })));
-}
 
 /** Every loud light-mode class in `source`, as `line: class`. */
 export function loudClasses(source: string, scales: string[] = []): string[] {

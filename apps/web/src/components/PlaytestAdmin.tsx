@@ -139,7 +139,7 @@ export function PlaytestAdmin() {
         </div>
 
         {!games ? (
-          <p className="text-sm text-stone-500">Loading games…</p>
+          <p className="text-sm text-ink-muted">Loading games…</p>
         ) : (
           <div
             role="radiogroup"
@@ -165,7 +165,7 @@ export function PlaytestAdmin() {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">{g.name}</span>
-                  <span className="block text-xs font-normal text-stone-500 dark:text-stone-400">
+                  <span className="block text-xs font-normal text-ink-muted">
                     {g.private && <span aria-label="back room">🕯️ </span>}
                     {g.minPlayers}–{g.maxSeats} seats
                   </span>
@@ -230,7 +230,7 @@ export function PlaytestAdmin() {
             <ol className="grid gap-2 sm:grid-cols-2">
               {seats.map((seat, i) => (
                 <li key={i} className="flex min-w-0 items-center gap-2">
-                  <span className="w-6 text-right text-sm text-stone-500 tabular-nums">
+                  <span className="w-6 text-right text-sm text-ink-muted tabular-nums">
                     {i + 1}
                   </span>
                   <input
@@ -241,7 +241,7 @@ export function PlaytestAdmin() {
                     className="h-11 w-0 min-w-0 flex-1 rounded-lg bg-white px-3 ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
                   />
                   {i === 0 ? (
-                    <span className="w-22 shrink-0 text-center text-xs whitespace-nowrap text-stone-500 dark:text-stone-400">
+                    <span className="w-22 shrink-0 text-center text-xs whitespace-nowrap text-ink-muted">
                       👑 you, host
                     </span>
                   ) : (
@@ -279,7 +279,7 @@ export function PlaytestAdmin() {
       <Panel className="space-y-3">
         <h2 className="text-xl font-bold">Your playtests</h2>
         {running.length === 0 ? (
-          <p className="text-sm text-stone-500 dark:text-stone-400">
+          <p className="text-sm text-ink-muted">
             None running. A playtest ends when you end it, or after 15 minutes with no seat open.
           </p>
         ) : (
@@ -380,7 +380,7 @@ function RunningPlaytest({
         <p className="font-semibold">
           <span aria-hidden>{icon} </span>
           {playtest.gameName}
-          <span className="font-normal text-stone-500 dark:text-stone-400">
+          <span className="font-normal text-ink-muted">
             {' '}
             · {status?.players.length ?? playtest.seats.length} seats
             {status ? ` · ${status.phase === 'lobby' ? 'in the lobby' : status.phase}` : ''}

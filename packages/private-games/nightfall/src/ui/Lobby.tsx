@@ -1,5 +1,5 @@
 import type { ActOptions, GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
 import { buildNightPlan, epicPossible, stepDurations, usesMarks } from '../logic/plan.ts';
 import {
   LEVEL_LABEL,
@@ -275,78 +275,85 @@ function AlienOptions({
       weights: { ...w, [t]: { ...w[t], [key]: Math.max(0, Math.min(MAX_WEIGHT, value)) } },
     });
   return (
-    <Panel className="space-y-2" data-testid="alien-options">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-bold">Alien options</h3>
-        {editable && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={!changed}
-            onClick={() => void act({ type: 'update-settings', weights: {} })}
-          >
-            Reset to the defaults
-          </Button>
-        )}
-      </div>
-      <p className="text-sm text-stone-600 dark:text-stone-400">
-        With these cards the narrator draws some instructions at random, like a hidden deck. These
-        are the odds of each{editable ? '; tap − or + to change them' : ''}. The narrator says what
-        came up out loud for everyone, as it does the ripples, but never who acts on it.
-      </p>
-      {tables.map((t) => {
-        const entries = weightsOf(t, w);
-        const total = entries.reduce((n, [, v]) => n + v, 0);
-        return (
-          <details key={t} className="group space-y-1" data-testid={`weights-${t}`}>
-            <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
-              <span aria-hidden className="transition group-open:rotate-90">
-                ▸
-              </span>
-              {tableTitle(t, deck)}
-            </summary>
-            <ul className="grid gap-1 sm:grid-cols-2">
-              {entries.map(([key, value]) => (
-                <li
-                  key={key}
-                  className="flex items-center gap-2 rounded-lg bg-stone-100 px-2 py-1 text-sm dark:bg-stone-800/60"
-                >
-                  <span className="min-w-0 flex-1 truncate">{ENTRY_LABEL[t][key] ?? key}</span>
-                  {editable && (
-                    <button
-                      type="button"
-                      aria-label={`Less likely: ${ENTRY_LABEL[t][key] ?? key}`}
-                      disabled={value <= 0}
-                      onClick={() => set(t, key, value - WEIGHT_STEP)}
-                      className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
-                    >
-                      −
-                    </button>
-                  )}
-                  <span className="w-8 text-right tabular-nums" data-testid="weight">
-                    {Math.round(value * 10) / 10}
-                  </span>
-                  {editable && (
-                    <button
-                      type="button"
-                      aria-label={`More likely: ${ENTRY_LABEL[t][key] ?? key}`}
-                      disabled={value >= MAX_WEIGHT}
-                      onClick={() => set(t, key, value + WEIGHT_STEP)}
-                      className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
-                    >
-                      +
-                    </button>
-                  )}
-                  <span className="w-10 text-right text-xs text-stone-500 tabular-nums">
-                    {total > 0 ? `${Math.round((value / total) * 100)}%` : '—'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        );
-      })}
-    </Panel>
+    <div data-testid="alien-options">
+      <LobbySettings
+        editable={editable}
+        title="Alien options"
+        summary={changed ? 'the host changed the odds' : 'the usual odds'}
+        className="space-y-2"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          {editable && <h3 className="font-bold">Alien options</h3>}
+          {editable && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!changed}
+              onClick={() => void act({ type: 'update-settings', weights: {} })}
+            >
+              Reset to the defaults
+            </Button>
+          )}
+        </div>
+        <p className="text-sm text-stone-600 dark:text-stone-400">
+          With these cards the narrator draws some instructions at random, like a hidden deck. These
+          are the odds of each{editable ? '; tap − or + to change them' : ''}. The narrator says
+          what came up out loud for everyone, as it does the ripples, but never who acts on it.
+        </p>
+        {tables.map((t) => {
+          const entries = weightsOf(t, w);
+          const total = entries.reduce((n, [, v]) => n + v, 0);
+          return (
+            <details key={t} className="group space-y-1" data-testid={`weights-${t}`}>
+              <summary className="flex cursor-pointer items-center gap-2 py-1 text-sm font-bold">
+                <span aria-hidden className="transition group-open:rotate-90">
+                  ▸
+                </span>
+                {tableTitle(t, deck)}
+              </summary>
+              <ul className="grid gap-1 sm:grid-cols-2">
+                {entries.map(([key, value]) => (
+                  <li
+                    key={key}
+                    className="flex items-center gap-2 rounded-lg bg-stone-100 px-2 py-1 text-sm dark:bg-stone-800/60"
+                  >
+                    <span className="min-w-0 flex-1 truncate">{ENTRY_LABEL[t][key] ?? key}</span>
+                    {editable && (
+                      <button
+                        type="button"
+                        aria-label={`Less likely: ${ENTRY_LABEL[t][key] ?? key}`}
+                        disabled={value <= 0}
+                        onClick={() => set(t, key, value - WEIGHT_STEP)}
+                        className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                      >
+                        −
+                      </button>
+                    )}
+                    <span className="w-8 text-right tabular-nums" data-testid="weight">
+                      {Math.round(value * 10) / 10}
+                    </span>
+                    {editable && (
+                      <button
+                        type="button"
+                        aria-label={`More likely: ${ENTRY_LABEL[t][key] ?? key}`}
+                        disabled={value >= MAX_WEIGHT}
+                        onClick={() => set(t, key, value + WEIGHT_STEP)}
+                        className="size-7 rounded-full bg-stone-200 font-bold disabled:opacity-30 dark:bg-stone-700"
+                      >
+                        +
+                      </button>
+                    )}
+                    <span className="w-10 text-right text-xs text-ink-muted tabular-nums">
+                      {total > 0 ? `${Math.round((value / total) * 100)}%` : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          );
+        })}
+      </LobbySettings>
+    </div>
   );
 }
 
@@ -444,9 +451,16 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3">
+      <LobbySettings
+        editable={editable}
+        title="The cards"
+        summary={`${s.roles.length} cards: ${[...counts]
+          .map(([r, n]) => (n > 1 ? `${deck.name(r)} ×${n}` : deck.name(r)))
+          .join(', ')}`}
+        className="space-y-3"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="font-bold">The cards</h3>
+          {editable && <h3 className="font-bold">The cards</h3>}
           <span
             data-testid="card-count"
             className={cn(
@@ -588,12 +602,20 @@ export function Lobby({
             </>
           );
         })()}
-      </Panel>
+      </LobbySettings>
 
       <AlienOptions view={view} act={act} deck={deck} editable={editable} />
 
-      <Panel className="space-y-3">
-        <h3 className="font-bold">Settings</h3>
+      <LobbySettings
+        editable={editable}
+        summary={[
+          `${s.stepSeconds} s a role`,
+          `${s.daySeconds / 60} min day`,
+          `narration: ${NARRATION.find((n) => n.id === s.narration)!.label.toLowerCase()}`,
+        ].join(' · ')}
+        className="space-y-3"
+      >
+        {editable && <h3 className="font-bold">Settings</h3>}
         <Segmented
           label="Time for each role at night"
           value={s.stepSeconds}
@@ -679,7 +701,7 @@ export function Lobby({
             </div>
           </div>
         )}
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-ink-muted">
           Every role in the game is called for the same time, even when its card is in the centre.
           With these cards the night lasts{' '}
           {Math.round(
@@ -687,7 +709,7 @@ export function Lobby({
           )}{' '}
           s.
         </p>
-      </Panel>
+      </LobbySettings>
 
       {/* On phones the long card list pushes Deal off screen, so it floats at the bottom. */}
       <StickyBar>

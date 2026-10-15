@@ -2,12 +2,14 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Hint,
-  Panel,
   PlayerTag,
   StickyBar,
   TimerSettings,
   WordListPicker,
   cn,
+  LobbySettings,
+  wordListsLine,
+  timersLine,
 } from '@vt/ui';
 import type { EnigmaAction, EnigmaView, Flow, Team } from '../logic/types.ts';
 import type { Status } from './status.ts';
@@ -100,7 +102,7 @@ export function TeamsPicker({
                     <PlayerName view={view} id={s.id} online={online(s.id)} hostId={hostId} />
                   </li>
                 ))}
-                {members.length === 0 && <li className="text-stone-500 italic">Nobody yet</li>}
+                {members.length === 0 && <li className="text-ink-muted italic">Nobody yet</li>}
               </ul>
               {canJoin && (
                 <Button
@@ -158,13 +160,17 @@ export function Lobby({
     <div className="space-y-4">
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Game settings</h3>
-          {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Game settings"
+        summary={[
+          FLOWS.find((f) => f.flow === view.settings.flow)!.title,
+          wordListsLine(view.settings.wordListIds, room.wordLists),
+          timersLine(view.settings),
+        ].join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Game settings</h3>}
         <WordListPicker
           selectedIds={view.settings.wordListIds}
           wordLists={room.wordLists}
@@ -195,7 +201,7 @@ export function Lobby({
                   {/* On phones only the chosen option explains itself, to save space. */}
                   <span
                     className={cn(
-                      'text-xs text-stone-500',
+                      'text-xs text-ink-muted',
                       view.settings.flow === f.flow ? 'block' : 'hidden sm:block',
                     )}
                   >
@@ -216,7 +222,7 @@ export function Lobby({
           guessHelp="Time for teams to agree on their guesses."
           strictHelp="missing clues or guesses count as failed"
         />
-        <p className="-mt-2 text-xs text-stone-500">
+        <p className="-mt-2 text-xs text-ink-muted">
           Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
           tight, especially with Strict timers.
         </p>
@@ -233,12 +239,12 @@ export function Lobby({
               <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
                 🎲 Shuffle teams
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
           </StickyBar>
         )}
-      </Panel>
-      <p className="text-center text-sm text-stone-500">
+      </LobbySettings>
+      <p className="text-center text-sm text-ink-muted">
         New to Enigma?{' '}
         <button
           type="button"

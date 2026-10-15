@@ -42,7 +42,7 @@ function Entry({
       );
     case 'end-turn':
       return (
-        <span className="text-stone-500">
+        <span className="text-ink-muted">
           {TEAM_LABEL[entry.team]} {END_REASON[entry.reason]}
         </span>
       );
@@ -70,7 +70,7 @@ export function GameLog({ view }: { view: CodenamesView }) {
   return (
     <ol className="max-h-72 space-y-1.5 overflow-y-auto pr-1 text-sm lg:max-h-[28rem]">
       {view.log.length === 0 && (
-        <li className="text-stone-500 italic">Clues and guesses will appear here.</li>
+        <li className="text-ink-muted italic">Clues and guesses will appear here.</li>
       )}
       {view.log.map((entry, i) => (
         <li

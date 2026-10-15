@@ -14,10 +14,9 @@ import {
   stepsOf,
   withoutSecrets,
 } from '@vt/game-sdk';
-import { Button, Modal, ProtectedImage, cn } from '@vt/ui';
+import { Button, Modal, Peek as SharedPeek, ProtectedImage, cn } from '@vt/ui';
 import {
   type CSSProperties,
-  type PointerEvent,
   type ReactNode,
   type TouchEvent,
   useEffect,
@@ -418,56 +417,34 @@ interface Peek {
 }
 
 /**
- * Hidden information behind hold-to-peek and a Show/Hide switch. While it's hidden, nothing
- * secret is in the page at all: the room context has had its secrets taken out
- * (`withoutSecrets`). A small local stand-in for the shared peek control.
+ * Hidden information behind the shared hold-to-peek and Show/Hide switch. While it's hidden,
+ * nothing secret is in the page at all: the room context has had its secrets taken out
+ * (`withoutSecrets`).
  */
 function PeekGate({ peek, children }: { peek: Peek; children: ReactNode }) {
-  const down = (e: PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    peek.setHeld(true);
-  };
-  const up = () => peek.setHeld(false);
   return (
-    <div className="space-y-2" data-testid="guide-peek">
-      {/* One element takes the press, so letting go after the card appears still hides it. */}
-      <div
-        role="presentation"
-        onPointerDown={down}
-        onPointerUp={up}
-        onPointerCancel={up}
-        onContextMenu={(e) => e.preventDefault()}
-        className="cursor-grab touch-none select-none"
-      >
-        {peek.shown ? (
-          children
-        ) : (
-          <section
-            aria-label="Your role, hidden"
-            className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-line"
-          >
+    <div data-testid="guide-peek">
+      <SharedPeek
+        what="my role"
+        open={peek.open}
+        onOpenChange={peek.setOpen}
+        onShownChange={peek.setHeld}
+        cover={
+          <span className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-line">
             <span aria-hidden className="w-14 shrink-0 text-center text-4xl">
               🎴
             </span>
-            <div className="min-w-0">
-              <p className={EYEBROW}>Your role</p>
-              <p className="text-sm text-ink-muted">
+            <span className="min-w-0">
+              <span className={cn('block', EYEBROW)}>Your role</span>
+              <span className="block text-sm text-ink-muted">
                 Hidden so nobody reads it over your shoulder. Hold here to peek.
-              </p>
-            </div>
-          </section>
-        )}
-      </div>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="min-h-9"
-        aria-pressed={peek.open}
-        onClick={() => peek.setOpen(!peek.open)}
+              </span>
+            </span>
+          </span>
+        }
       >
-        {peek.open ? '🙈 Hide my role' : '👁️ Show my role'}
-      </Button>
+        {children}
+      </SharedPeek>
     </div>
   );
 }

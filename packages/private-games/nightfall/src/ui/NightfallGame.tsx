@@ -1,5 +1,5 @@
 import type { GameUiProps } from '@vt/game-sdk';
-import { useSpectatorPrompt } from '@vt/ui';
+import { useSpectatorPrompt, useAbandonGame } from '@vt/ui';
 import { useEffect } from 'react';
 import { ARTIFACTS } from '../logic/roles.ts';
 import type { NightfallAction, NightfallView } from '../logic/types.ts';
@@ -20,10 +20,14 @@ export function NightfallGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: NightfallUiProps) {
   const manifest = useManifest();
   const deck = deckFor(manifest, (id) => ARTIFACTS[id].summary);
   const status = statusFor(view, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase !== 'lobby' && view.phase !== 'reveal', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const [device, setDevice] = useDeviceSound();
   const { said: narration } = useSound({

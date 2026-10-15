@@ -72,8 +72,7 @@ export function VisionStrip({
   onOpen: (i: number) => void;
   small?: boolean;
 }) {
-  if (!p.visions.length)
-    return <p className="text-sm text-stone-500 dark:text-stone-400">No vision yet.</p>;
+  if (!p.visions.length) return <p className="text-sm text-ink-muted">No vision yet.</p>;
   return (
     <ul
       tabIndex={0}
@@ -175,7 +174,7 @@ export function MineTab({
       <Panel className="space-y-2 p-3">
         <h3 className="text-sm font-bold">
           {content.pillarName(pillar)}s on the table{' '}
-          <span className="font-normal text-stone-500">· tap your guess</span>
+          <span className="font-normal text-ink-muted">· tap your guess</span>
         </h3>
         <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="Candidates">
           {candidates.map((c) => (
@@ -234,7 +233,7 @@ export function ReadyBar({
               : 'No guess yet'
             : 'Tokens placed?'}
           {me.ready && waiting.length > 0 && (
-            <span className="block text-xs text-stone-500">
+            <span className="block text-xs text-ink-muted">
               Waiting for {waiting.map((p) => p.name).join(', ')}
             </span>
           )}
@@ -299,7 +298,7 @@ export function OthersTab({
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">
                     {p.name}
                     {p.gone && <span className="ml-1 text-xs font-normal">(left)</span>}
-                    <span className="ml-1 font-normal text-stone-500">
+                    <span className="ml-1 font-normal text-ink-muted">
                       ·{' '}
                       {pillar
                         ? `${content.pillarName(pillar).toLowerCase()} ${p.step + 1}/3`
@@ -307,7 +306,7 @@ export function OthersTab({
                     </span>
                   </p>
                   {p.ready && g.stage === 'visions' && (
-                    <span className="rounded-full bg-success dark:bg-emerald-600 px-2 text-xs font-bold text-white">
+                    <span className="rounded-full bg-success dark:bg-emerald-700 px-2 text-xs font-bold text-white">
                       ready
                     </span>
                   )}
@@ -358,7 +357,7 @@ export function OthersTab({
                           note={`${p.name}’s guess`}
                         />
                       ) : (
-                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-center text-[11px] text-stone-500 dark:border-stone-700">
+                        <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-center text-[11px] text-ink-muted dark:border-stone-700">
                           no guess yet
                         </div>
                       )}

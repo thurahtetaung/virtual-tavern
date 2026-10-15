@@ -1,5 +1,15 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, TimerSettings, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  TimerSettings,
+  cn,
+  LobbySettings,
+  timersLine,
+} from '@vt/ui';
 import { RED_COUNT, setupFor, trackFor } from '../logic/tables.ts';
 import {
   CLAIM_SECONDS_OPTIONS,
@@ -224,11 +234,27 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3">
-        <h3 className="font-bold">
-          Options
-          {!host && <span className="font-normal text-stone-500"> (the host sets these)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        title="Options"
+        summary={[
+          s.rebalance && 'rebalanced',
+          s.quick && 'quick mode',
+          s.flags && 'claim flags',
+          timersLine(
+            {
+              clueSeconds: s.pickSeconds,
+              guessSeconds: s.voteSeconds,
+              timerMode: s.timerMode === 'strict' ? 'strict' : 'soft',
+            },
+            { clue: 'turns', guess: 'votes' },
+          ),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Options</h3>}
         <Toggle
           on={s.rebalance}
           editable={host}
@@ -257,7 +283,7 @@ export function Lobby({
         />
         <label className="block">
           <span className="text-sm font-semibold">Claim timer</span>
-          <span className="block text-xs text-stone-500 dark:text-stone-400">
+          <span className="block text-xs text-ink-muted">
             A reminder: once it runs out, the host may skip a missing claim. Nothing happens by
             itself.
           </span>
@@ -297,7 +323,7 @@ export function Lobby({
             })
           }
         />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>

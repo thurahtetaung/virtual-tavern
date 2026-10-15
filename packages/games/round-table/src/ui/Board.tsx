@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, cn } from '@vt/ui';
+import { Button, cn, useConfirm } from '@vt/ui';
 import { MAX_REJECTIONS, type RoundTableAction, type RoundTableView } from '../logic/types.ts';
 import { LadyMark } from './Emblem.tsx';
 import type { Suspicions } from './storage.ts';
@@ -213,7 +213,7 @@ export function Seats({
                 {me && (
                   <span
                     className={cn(
-                      'text-xs font-normal text-stone-500',
+                      'text-xs font-normal text-ink-muted',
                       compact && 'hidden sm:inline',
                     )}
                   >
@@ -248,7 +248,7 @@ export function Seats({
                 )}
               </span>
               <span className="flex flex-wrap items-center gap-1 text-[0.7rem] leading-tight">
-                {me && compact && <span className="text-stone-500 sm:hidden">you</span>}
+                {me && compact && <span className="text-ink-muted sm:hidden">you</span>}
                 {k === 'evil' && (
                   <span className="rounded-full bg-team-a dark:bg-red-600 px-1.5 font-bold text-white">
                     Evil
@@ -266,9 +266,9 @@ export function Seats({
                 )}
                 {state && <span className="text-emerald-700 dark:text-emerald-400">{state}</span>}
                 {p.left ? (
-                  <span className="text-stone-500">left · auto-played</span>
+                  <span className="text-ink-muted">left · auto-played</span>
                 ) : (
-                  !online(p.id) && <span className="text-stone-500">offline</span>
+                  !online(p.id) && <span className="text-ink-muted">offline</span>
                 )}
               </span>
             </button>
@@ -313,11 +313,13 @@ export function WaitingChips({
   room: GameRoomInfo;
   act: Act;
 }) {
+  const [confirm, confirmDialog] = useConfirm();
   const ids = waitingOn(view);
   if (!ids.length || view.phase !== 'playing') return null;
   const g = view.game!;
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="waiting-on">
+      {confirmDialog}
       <span className="font-semibold text-stone-600 dark:text-stone-400">Waiting on:</span>
       {ids.map((id) => {
         const online = room.players.find((p) => p.id === id)?.connected ?? false;
@@ -334,14 +336,18 @@ export function WaitingChips({
                 variant="ghost"
                 size="sm"
                 className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Act for ${nameOf(view, id)}? A missing vote counts as Approve, a missing quest card is Success, and a team or pick is chosen at random.`,
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: `Act for ${nameOf(view, id)}?`,
+                        body: 'A missing vote counts as Approve, a missing quest card is Success, and a team or pick is chosen at random.',
+                        confirmLabel: `Act for ${nameOf(view, id)}`,
+                      })
                     )
-                  )
-                    void act({ type: 'skip', player: id });
-                }}
+                      void act({ type: 'skip', player: id });
+                  })()
+                }
               >
                 Skip
               </Button>

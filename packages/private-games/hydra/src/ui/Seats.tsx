@@ -143,7 +143,7 @@ export function Seats({
                 {me && (
                   <span
                     className={cn(
-                      'text-xs font-normal text-stone-500',
+                      'text-xs font-normal text-ink-muted',
                       compact && 'hidden sm:inline',
                     )}
                   >
@@ -183,7 +183,7 @@ export function Seats({
                 )}
                 {cleared && !p.dead && (
                   <span
-                    className="rounded bg-success dark:bg-emerald-600 px-1 text-white"
+                    className="rounded bg-success dark:bg-emerald-700 px-1 text-white"
                     title={c.t('Confirmed: not {leader}')}
                   >
                     {c.copy('moment.cleared.stamp')}
@@ -191,11 +191,11 @@ export function Seats({
                 )}
                 {investigated && <span title="Investigated">🔍</span>}
                 {p.left ? (
-                  <span className="font-normal text-stone-500">left</span>
+                  <span className="font-normal text-ink-muted">left</span>
                 ) : (
-                  offline && <span className="font-normal text-stone-500">offline</span>
+                  offline && <span className="font-normal text-ink-muted">offline</span>
                 )}
-                {pick && why && !compact && <span className="font-normal text-stone-500">🔒</span>}
+                {pick && why && !compact && <span className="font-normal text-ink-muted">🔒</span>}
               </span>
             </button>
             {!p.dead && (

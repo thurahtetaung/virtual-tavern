@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, StickyBar, TimerSettings, cn } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Panel,
+  PlayerTag,
+  StickyBar,
+  TimerSettings,
+  cn,
+  LobbySettings,
+  timersLine,
+} from '@vt/ui';
 import { ROLES, ROLE_ORDER } from '../logic/roles.ts';
 import { PRESETS, evilCount, goodCount } from '../logic/setup.ts';
 import {
@@ -112,9 +122,7 @@ function RoleColumn({
                 {on ? '✓ ' : ''}
                 {ROLES[r].name}
               </span>
-              <span className="block text-xs leading-tight text-stone-500 dark:text-stone-400">
-                {ROLES[r].blurb}
-              </span>
+              <span className="block text-xs leading-tight text-ink-muted">{ROLES[r].blurb}</span>
             </span>
           </button>
         );
@@ -125,7 +133,7 @@ function RoleColumn({
           <b>
             {ROLES[plain].name} ×{plainCount}
           </b>
-          <span className="block text-xs text-stone-500">fill the rest</span>
+          <span className="block text-xs text-ink-muted">fill the rest</span>
         </span>
       </div>
     </fieldset>
@@ -165,13 +173,13 @@ export function Lobby({
       <Panel>
         <Players view={view} online={online} hostId={room.hostId} />
       </Panel>
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-bold">Roles</h3>
-          {!editable && (
-            <span className="text-sm text-stone-500">Only the host can change these.</span>
-          )}
-        </div>
+      <LobbySettings
+        editable={editable}
+        title="Roles"
+        summary={`${PRESETS.find((p) => p.id === s.preset)?.name ?? 'Own line-up'} · ${good} Good vs ${evil} Evil`}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Roles</h3>}
         <fieldset>
           <legend className="text-sm font-semibold">Ready-made line-ups</legend>
           <div className="mt-1 grid gap-2 sm:grid-cols-3">
@@ -189,7 +197,7 @@ export function Lobby({
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-stone-500">
+          <p className="mt-1 text-xs text-ink-muted">
             {s.preset
               ? 'Suggested line-ups follow the table size. Tap a role below to make your own.'
               : 'Your own line-up: tap roles on or off.'}
@@ -228,9 +236,23 @@ export function Lobby({
             ))}
           </ul>
         )}
-      </Panel>
-      <Panel className="space-y-4">
-        <h3 className="text-lg font-bold">Options</h3>
+      </LobbySettings>
+      <LobbySettings
+        editable={editable}
+        title="Options"
+        summary={[
+          s.lady && 'Lady of the Lake',
+          s.targeting && 'Targeting',
+          timersLine(
+            { clueSeconds: s.pickSeconds, guessSeconds: s.voteSeconds, timerMode: s.timerMode },
+            { clue: 'leader', guess: 'votes' },
+          ),
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-4"
+      >
+        {editable && <h3 className="text-lg font-bold">Options</h3>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex items-start gap-3 text-sm">
             <input
@@ -242,7 +264,7 @@ export function Lobby({
             />
             <span>
               <span className="block font-semibold">🌊 Lady of the Lake</span>
-              <span className="block text-xs text-stone-500">
+              <span className="block text-xs text-ink-muted">
                 After quests 2, 3 and 4, her holder secretly checks one player’s loyalty. Best from
                 7 players.
               </span>
@@ -258,7 +280,7 @@ export function Lobby({
             />
             <span>
               <span className="block font-semibold">🎯 Targeting</span>
-              <span className="block text-xs text-stone-500">
+              <span className="block text-xs text-ink-muted">
                 Leaders choose which quest to attempt; quest 5 opens after two successes.
               </span>
             </span>
@@ -288,7 +310,7 @@ export function Lobby({
         <details className="group rounded-xl ring-1 ring-stone-200 dark:ring-stone-800">
           <summary className="flex h-11 cursor-pointer list-none items-center justify-between px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
             <span>Advanced</span>
-            <span aria-hidden className="text-stone-500 transition group-open:rotate-90">
+            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
               ▸
             </span>
           </summary>
@@ -304,7 +326,7 @@ export function Lobby({
             />
             <span>
               <span className="block font-semibold">Oberon: the FAQ reading</span>
-              <span className="block text-xs text-stone-500">
+              <span className="block text-xs text-ink-muted">
                 Off (rulebook): Merlin sees Oberon as Evil, and the Lady shows him as Evil. On
                 (FAQ): Merlin doesn’t see Oberon, and the Lady shows him as Good.
               </span>
@@ -321,12 +343,12 @@ export function Lobby({
               >
                 Start game
               </Button>
-              {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>
           </StickyBar>
         )}
-      </Panel>
-      <p className="text-center text-sm text-stone-500">
+      </LobbySettings>
+      <p className="text-center text-sm text-ink-muted">
         New to Round Table?{' '}
         <button
           type="button"

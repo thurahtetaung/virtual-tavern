@@ -1,5 +1,14 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, cn, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  Panel,
+  cn,
+  useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
+} from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PILLARS } from '../logic/cards.ts';
 import type { SeanceAction, SeanceView } from '../logic/types.ts';
@@ -59,7 +68,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-1.5 text-xs font-semibold',
-            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-stone-500',
+            tab === it.id ? 'text-violet-700 dark:text-violet-300' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
@@ -79,6 +88,7 @@ function TabBar({
 function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
   const [seen, setSeen] = useState(0);
+  const [confirm, confirmDialog] = useConfirm();
   const playing = view.phase === 'playing';
   const ghostAway =
     g.ghost !== null && room.players.find((p) => p.id === g.ghost)?.connected === false;
@@ -92,6 +102,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
     room.isHost && (g.stage === 'visions' || g.stage === 'reveal') && atTable(g).length > 1;
   return (
     <div className="space-y-1.5">
+      {confirmDialog}
       {playing && (g.ghost === null || ghostAway) && (
         <div
           role="alert"
@@ -116,10 +127,18 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
                   key={c.id}
                   size="sm"
                   variant="secondary"
-                  onClick={() => {
-                    if (window.confirm(`Make ${c.name} the ghost? They will see every answer.`))
-                      void act({ type: 'hand-ghost', to: c.id });
-                  }}
+                  onClick={() =>
+                    void (async () => {
+                      if (
+                        await confirm({
+                          title: `Make ${c.name} the ghost?`,
+                          body: 'They will see every answer.',
+                          confirmLabel: 'Hand the ghost over',
+                        })
+                      )
+                        void act({ type: 'hand-ghost', to: c.id });
+                    })()
+                  }
                 >
                   Hand the ghost to {c.id === view.me?.id ? 'me' : c.name}
                 </Button>
@@ -158,14 +177,19 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
                 key={p.color}
                 size="sm"
                 variant="secondary"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Retire ${p.name}’s seat? Nobody can take it over afterwards, and the game goes on without it.`,
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: `Retire ${p.name}’s seat?`,
+                        body: 'Nobody can take it over afterwards, and the game goes on without it.',
+                        confirmLabel: 'Retire the seat',
+                        danger: true,
+                      })
                     )
-                  )
-                    void act({ type: 'retire-seat', color: p.color });
-                }}
+                      void act({ type: 'retire-seat', color: p.color });
+                  })()
+                }
               >
                 Retire {p.name}’s seat
               </Button>
@@ -207,7 +231,7 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
       className="rounded-xl bg-white/70 px-3 py-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-xs font-semibold text-stone-500">
+        <span className="shrink-0 text-xs font-semibold text-ink-muted">
           {final ? 'The final' : `Hour ${roman(g.hour)}`}
         </span>
         <ol className="flex flex-1 flex-wrap items-center gap-1 text-xs font-semibold">
@@ -219,7 +243,7 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
                 'rounded-full px-2 py-0.5',
                 s.id === step.id
                   ? 'bg-special dark:bg-violet-700 text-white'
-                  : 'bg-stone-100 text-stone-500 dark:bg-stone-800',
+                  : 'bg-stone-100 text-ink-muted dark:bg-stone-800',
               )}
             >
               {i + 1}. {s.title}
@@ -271,7 +295,7 @@ function RevealPanel({
     >
       <Verdicts view={view} content={content} />
       <div className="flex flex-wrap items-center gap-2">
-        <p className="flex-1 text-xs text-stone-500">
+        <p className="flex-1 text-xs text-ink-muted">
           {allDone
             ? 'Everyone has their three cards: the final comes next.'
             : last
@@ -303,11 +327,15 @@ export function SeanceGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: SeanceUiProps) {
   const manifest = useManifest();
   const content = useMemo(() => contentFor(manifest), [manifest]);
   const g = view.game;
   const status = statusFor(view, room.isHost, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const [spec, setSpec] = useState<CompareSpec | null>(null);
   const [sendCards, setSendCards] = useState<number[]>([]);
   const [draft, setDraft] = useState<SharedDraft>({ group: null, cards: [], tags: {} });
@@ -520,19 +548,6 @@ export function SeanceGame({
         <div className={cn('min-w-0', onTab('others'))}>{second}</div>
         <div className={cn('min-w-0 space-y-2', onTab('table'))}>
           <TableTab view={view} content={content} onOpen={openTable} />
-          {room.isHost && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this séance for everyone and go back to the lobby?'))
-                  void act({ type: 'back-to-lobby' });
-              }}
-            >
-              Abandon game
-            </Button>
-          )}
         </div>
       </div>
       <TabBar tabs={tabs} tab={tab} onChange={setTab} alert={alert} />

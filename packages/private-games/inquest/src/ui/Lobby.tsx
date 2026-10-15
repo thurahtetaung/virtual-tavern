@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
 import {
@@ -120,7 +120,7 @@ export function Lobby({
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-bold">
             At the table{' '}
-            <span className="text-sm font-normal text-stone-500">
+            <span className="text-sm font-normal text-ink-muted">
               ({seated.length}/{max})
             </span>
           </h3>
@@ -188,11 +188,22 @@ export function Lobby({
         )}
       </Panel>
 
-      <Panel className="space-y-3" aria-label="Settings">
-        <h3 className="font-bold">
-          Settings{' '}
-          {!host && <span className="text-sm font-normal text-stone-500">(the host chooses)</span>}
-        </h3>
+      <LobbySettings
+        editable={host}
+        summary={[
+          `Forensic Scientist: ${FS_MODES.find((m) => m.id === s.fsMode)!.label.toLowerCase()}`,
+          s.accomplice && content.roleName('accomplice'),
+          s.accomplice && s.witness && content.roleName('witness'),
+          s.events && 'events',
+          allies.on && 'Allies',
+          presentationsOf(s) && 'presentations',
+          finalOf(s) && 'final accusations',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+        className="space-y-3"
+      >
+        {host && <h3 className="font-bold">Settings</h3>}
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">Who is the Forensic Scientist?</h4>
           <div className="flex flex-wrap gap-2">
@@ -207,7 +218,7 @@ export function Lobby({
               </Choice>
             ))}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {FS_MODES.find((m) => m.id === s.fsMode)!.hint}{' '}
             {seated.some((x) => x.volunteer)
               ? `Volunteers: ${seated
@@ -224,14 +235,14 @@ export function Lobby({
                 </Choice>
               ))}
               {!pickable.length && (
-                <span className="text-sm text-stone-500">Nobody to pick yet.</span>
+                <span className="text-sm text-ink-muted">Nobody to pick yet.</span>
               )}
             </div>
           )}
         </section>
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">
-            Extra roles <span className="font-normal text-stone-500">(6+ players)</span>
+            Extra roles <span className="font-normal text-ink-muted">(6+ players)</span>
           </h4>
           <div className="flex flex-wrap gap-2">
             <Choice
@@ -254,7 +265,7 @@ export function Lobby({
               {s.events ? '✓ ' : ''}Event tiles
             </Choice>
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {extras ? '' : 'With fewer than 6 players there is no Accomplice or Witness. '}
             The Witness needs the Accomplice. Events are shuffled in after round 1.
           </p>
@@ -262,7 +273,7 @@ export function Lobby({
         <section className="space-y-1.5" aria-label="Allies expansion">
           <h4 className="text-sm font-semibold">
             Allies expansion{' '}
-            <span className="font-normal text-stone-500">(more cards, roles and up to 14)</span>
+            <span className="font-normal text-ink-muted">(more cards, roles and up to 14)</span>
           </h4>
           <div className="flex flex-wrap gap-2">
             <Choice on={allies.on} disabled={!host} onClick={() => set({ allies: !allies.on })}>
@@ -316,7 +327,7 @@ export function Lobby({
                   {seated.length > 8 ? '+' : ''} players
                 </Button>
               )}
-              <p className="text-xs text-stone-500 dark:text-stone-400">
+              <p className="text-xs text-ink-muted">
                 Suggested: the Lab Technician from 7 players, the Inside Man from 8. The Protective
                 Detail needs the Witness. Unknown Location replaces the four Location tiles with
                 one.
@@ -353,7 +364,7 @@ export function Lobby({
               {finalOf(s) ? '✓ ' : ''}Final accusations
             </Choice>
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {presentationsOf(s)
               ? 'After each discussion, everyone presents in turn. '
               : 'The discussion carries each round (no presentations). '}
@@ -376,7 +387,7 @@ export function Lobby({
               </Choice>
             ))}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             Every round, after the last bullet. A reminder: the Forensic Scientist moves on whenever
             the table is ready{discussSecondsOf(s) ? '' : ' (no clock)'}.
           </p>
@@ -384,7 +395,7 @@ export function Lobby({
         <section className="space-y-1.5">
           <h4 className="text-sm font-semibold">
             Turn time{' '}
-            <span className="font-normal text-stone-500">
+            <span className="font-normal text-ink-muted">
               (
               {[presentationsOf(s) && 'presentations', finalOf(s) && 'final accusations']
                 .filter(Boolean)
@@ -420,14 +431,14 @@ export function Lobby({
               Strict
             </Choice>
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted">
             {s.presentMode === 'soft'
               ? 'Reminder: the clock turns red at 0:00; the player finishes or the host skips.'
               : 'Strict: the turn passes by itself at 0:00 (a final accusation is skipped).'}
           </p>
         </section>
         <RefusalSlot anchor="inquest-settings" />
-      </Panel>
+      </LobbySettings>
 
       {host && (
         <StickyBar>
@@ -439,7 +450,7 @@ export function Lobby({
           >
             Start the investigation
           </Button>
-          {problem && <p className="mt-1 text-center text-xs text-stone-500">{problem}</p>}
+          {problem && <p className="mt-1 text-center text-xs text-ink-muted">{problem}</p>}
           <RefusalSlot anchor="inquest-start" />
         </StickyBar>
       )}

@@ -7,6 +7,7 @@ import {
   revealElement,
   useSecondsLeft,
   useSpectatorPrompt,
+  useAbandonGame,
 } from '@vt/ui';
 import { useEffect } from 'react';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
@@ -106,10 +107,14 @@ export function HoodwinkGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const blocker = startBlocker(view);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Watchers get the shell's "You're watching" banner, leading to the Play button.
   const seats = view.seats.filter((s) => s.playing).length;
@@ -182,19 +187,6 @@ export function HoodwinkGame({
           <Scores view={view} />
           <Table view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
-        {room.isHost && view.phase === 'playing' && (
-          <Button
-            variant="ghost"
-            className="h-11 w-full"
-            onClick={() => {
-              if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                void act({ type: 'back-to-lobby' });
-              }
-            }}
-          >
-            Abandon game
-          </Button>
-        )}
       </aside>
     </div>
   );

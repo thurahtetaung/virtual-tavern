@@ -8,6 +8,7 @@ import {
   cn,
   revealElement,
   useSpectatorPrompt,
+  useAbandonGame,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { tokenWords } from '../logic/outcome.ts';
@@ -59,7 +60,7 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-1">
         {side('red')}
-        <div className="flex flex-col items-center text-xs font-semibold text-stone-500 sm:flex-row sm:gap-2 sm:text-sm">
+        <div className="flex flex-col items-center text-xs font-semibold text-ink-muted sm:flex-row sm:gap-2 sm:text-sm">
           <button
             type="button"
             aria-expanded={legend}
@@ -111,7 +112,7 @@ function Scoreboard({ view, clockOffset }: { view: EnigmaView; clockOffset: numb
 function KeywordStrip({ keywords }: { keywords: string[] }) {
   return (
     <section aria-label="Your keywords" className="space-y-1 text-center">
-      <p className="text-sm text-stone-500">
+      <p className="text-sm text-ink-muted">
         Your keywords. You’ll match each clue to one of these.
       </p>
       <ol className="flex flex-wrap justify-center gap-1.5">
@@ -120,7 +121,7 @@ function KeywordStrip({ keywords }: { keywords: string[] }) {
             key={i}
             className="rounded-lg bg-white px-2 py-1 text-sm font-bold uppercase ring-1 ring-stone-200 dark:bg-stone-900 dark:ring-stone-700"
           >
-            <span className="mr-1 text-stone-500 tabular-nums">{i + 1}</span>
+            <span className="mr-1 text-ink-muted tabular-nums">{i + 1}</span>
             {word}
           </li>
         ))}
@@ -175,7 +176,7 @@ function TabBar({
           onClick={() => onChange(it.id)}
           className={cn(
             'flex flex-col items-center gap-0.5 py-2 text-xs font-semibold',
-            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-stone-500',
+            tab === it.id ? 'text-amber-700 dark:text-amber-400' : 'text-ink-muted',
           )}
         >
           <span className="flex items-center gap-1 text-lg leading-none">
@@ -196,6 +197,7 @@ export function EnigmaGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
@@ -205,6 +207,9 @@ export function EnigmaGame({
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Mid-game watchers: the Join buttons sit under the Chat tab on phones, so lead them there.
   useSpectatorPrompt(
@@ -321,21 +326,21 @@ export function EnigmaGame({
                   </li>
                 ))}
               </ul>
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-ink-muted">
                 Everyone's keywords are revealed under Clues.
               </p>
               <Superlatives lines={room.superlatives} />
               {room.isHost ? (
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                    Play again (same teams)
+                    Play again
                   </Button>
                   <Button
                     variant="secondary"
                     size="lg"
                     onClick={() => void act({ type: 'back-to-lobby' })}
                   >
-                    Change teams or settings
+                    Change setup
                   </Button>
                 </div>
               ) : (
@@ -345,7 +350,7 @@ export function EnigmaGame({
           ) : null}
           {view.phase === 'over' && lastReveal.length > 0 && (
             <section aria-label="The last round" className="space-y-2">
-              <h3 className="text-center text-sm font-semibold text-stone-500">
+              <h3 className="text-center text-sm font-semibold text-ink-muted">
                 Round {view.round}, the last round
               </h3>
               <div className={cn('grid gap-4', lastReveal.length > 1 && 'md:grid-cols-2')}>
@@ -407,20 +412,6 @@ export function EnigmaGame({
           <h3 className="mb-2 font-bold">Teams</h3>
           <TeamsPicker view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
-        {room.isHost && view.phase === 'playing' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full"
-            onClick={() => {
-              if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                void act({ type: 'back-to-lobby' });
-              }
-            }}
-          >
-            Abandon game
-          </Button>
-        )}
       </aside>
 
       <TabBar

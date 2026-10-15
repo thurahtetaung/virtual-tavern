@@ -98,7 +98,7 @@ test('werewolves and vampires: Marks at dusk, lovers, and an epic battle', async
     const before = roles.join();
     await host.getByRole('button', { name: 'Shuffle and deal again' }).click();
     // A new deal covers everyone's card again (it may deal the same cards, rarely).
-    await expect(host.getByRole('button', { name: 'Tap to see your card' })).toBeVisible();
+    await expect(host.getByRole('button', { name: '👁️ Show your card' })).toBeVisible();
     if (tries === 39) throw new Error(`no usable deal; last ${before}`);
   }
   const W = roles.indexOf('werewolf');

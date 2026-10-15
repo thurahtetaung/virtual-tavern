@@ -224,7 +224,7 @@ export function ClaimForm({
           <div className="grid grid-cols-3 gap-2">
             {cards.map((x, i) => (
               <div key={i} className="space-y-1 text-center">
-                <span className="text-xs text-stone-500">
+                <span className="text-xs text-ink-muted">
                   {i === 0 ? 'Top' : i === 1 ? '2nd' : '3rd'}
                 </span>
                 {(['blue', 'red'] as const).map((p) => (
@@ -302,7 +302,7 @@ export function ClaimForm({
           </div>
         )}
         <RefusalSlot anchor="claim" />
-        <p className="text-center text-xs text-stone-500">
+        <p className="text-center text-xs text-ink-muted">
           Anyone may lie. Everyone sees your claim at once.
         </p>
       </div>
@@ -334,9 +334,9 @@ export function ClaimLine({
   const derived = round && chancellorDiscard(claim, round);
   return (
     <span>
-      <b>{nameOf(view, claim.by)}</b> <span className="text-stone-500">({role})</span>{' '}
+      <b>{nameOf(view, claim.by)}</b> <span className="text-ink-muted">({role})</span>{' '}
       {claim.skipped ? (
-        <span className="text-stone-500 italic">
+        <span className="text-ink-muted italic">
           (no claim, {claim.skipped === 'host' ? 'skipped by host' : 'left the game'})
         </span>
       ) : claim.kind === 'investigate' ? (
@@ -364,7 +364,7 @@ export function ClaimLine({
         <>
           got <Pips cards={bluesCards(claim.blues!, 2)} c={c} text="counts" />
           {derived && (
-            <span className="whitespace-nowrap text-stone-500">
+            <span className="whitespace-nowrap text-ink-muted">
               {' '}
               → discarded 1 <Colour p={derived} c={c} />
             </span>

@@ -8,6 +8,8 @@ import {
   cn,
   useRefusalWording,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CARDS, type CardType, NAMEABLE, isCat } from '../logic/cards.ts';
@@ -164,6 +166,7 @@ function WaitingChips({
   act: Act;
   now: number;
 }) {
+  const [confirm, confirmDialog] = useConfirm();
   const g = view.game!;
   const ids = g.waiting;
   if (!ids.length || view.phase !== 'playing' || (ids.length === 1 && ids[0] === view.me?.id))
@@ -173,6 +176,7 @@ function WaitingChips({
       className="flex items-center gap-1.5 overflow-x-auto text-xs whitespace-nowrap [scrollbar-width:none]"
       data-testid="waiting-on"
     >
+      {confirmDialog}
       <span className="shrink-0 font-semibold text-ink-muted">Waiting on:</span>
       {ids.map((id) => {
         const online = room.players.find((p) => p.id === id)?.connected ?? false;
@@ -202,14 +206,18 @@ function WaitingChips({
                 variant="ghost"
                 size="sm"
                 className="h-6 px-1.5 text-xs"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      `Act for ${who(view, id)}? The safe move is made for them (draw, hide at random, keep the order or give a random card), and everyone is told.`,
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: `Act for ${who(view, id)}?`,
+                        body: 'The safe move is made for them (draw, hide at random, keep the order or give a random card), and everyone is told.',
+                        confirmLabel: 'Act for them',
+                      })
                     )
-                  )
-                    void act({ type: 'act-for', player: id });
-                }}
+                      void act({ type: 'act-for', player: id });
+                  })()
+                }
               >
                 Act for
               </Button>
@@ -350,8 +358,19 @@ function tipFor(
   return tip ? [tip[0], tip[2]] : null;
 }
 
-export function ShortFuseGame({ view, room, act, showGuide, setYourMove, setSpectator }: Props) {
+export function ShortFuseGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+  setAbandon,
+}: Props) {
   const manifest = useManifest();
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
   const g = view.game;
   const art = g?.art ?? view.settings.art;
   const c = useMemo(() => contentFor(manifest, art), [manifest, art]);

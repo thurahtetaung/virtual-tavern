@@ -1,4 +1,4 @@
-import { Button, PlayerTag, cn } from '@vt/ui';
+import { Button, PlayerTag, cn, useConfirm } from '@vt/ui';
 import { type EchoAction, type EchoView, MAX_PLAYERS } from '../logic/types.ts';
 
 type Act = (a: EchoAction) => Promise<boolean>;
@@ -33,7 +33,7 @@ function PlayerChip({
           online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
         )}
       />
-      <span className="text-xs font-bold text-stone-500 tabular-nums">{order}</span>
+      <span className="text-xs font-bold text-ink-muted tabular-nums">{order}</span>
       <PlayerTag name={name} host={host} you={you} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
@@ -63,6 +63,7 @@ export function Table({
   const players = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const me = view.me;
+  const [confirm, confirmDialog] = useConfirm();
   const mark = (id: string): { mark?: string; label?: string } => {
     if (!turn) return {};
     if (id === turn.guesser) return { mark: '🎯', label: 'guesser' };
@@ -75,6 +76,7 @@ export function Table({
   };
   return (
     <section aria-label="Players" className="space-y-2">
+      {confirmDialog}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-bold">
           Players ({players.length}/{MAX_PLAYERS})
@@ -84,14 +86,20 @@ export function Table({
             <Button
               variant="ghost"
               className="h-11"
-              onClick={() => {
-                if (
-                  view.phase !== 'playing' ||
-                  window.confirm('Sit out and just watch? You can join again later.')
-                ) {
-                  void act({ type: 'sit', playing: false });
-                }
-              }}
+              onClick={() =>
+                void (async () => {
+                  if (
+                    view.phase !== 'playing' ||
+                    (await confirm({
+                      title: 'Sit out and just watch?',
+                      body: 'You can join again later.',
+                      confirmLabel: 'Sit out',
+                    }))
+                  ) {
+                    void act({ type: 'sit', playing: false });
+                  }
+                })()
+              }
             >
               Sit out (watch)
             </Button>
@@ -107,7 +115,7 @@ export function Table({
             )
           ))}
       </div>
-      {players.length > 1 && <p className="text-xs text-stone-500">Numbered in guessing order.</p>}
+      {players.length > 1 && <p className="text-xs text-ink-muted">Numbered in guessing order.</p>}
       <ul className="flex flex-wrap gap-1.5">
         {players.map((s, i) => (
           <PlayerChip

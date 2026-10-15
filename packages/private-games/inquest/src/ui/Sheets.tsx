@@ -52,7 +52,7 @@ export function CardView({
             >
               ✕ Ruled out
             </Button>
-            <span className="w-full text-center text-xs text-stone-500">
+            <span className="w-full text-center text-xs text-ink-muted">
               Only you see your marks.
             </span>
           </div>
@@ -160,7 +160,7 @@ export function SolveSheet({
             >
               ← Back
             </Button>
-            <span className="text-xs text-stone-500">Step {Math.min(step, 3)} of 3</span>
+            <span className="text-xs text-ink-muted">Step {Math.min(step, 3)} of 3</span>
           </div>
         </div>
       }

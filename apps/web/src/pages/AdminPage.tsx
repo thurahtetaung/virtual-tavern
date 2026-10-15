@@ -45,7 +45,7 @@ export function AdminPage() {
         )}
       </div>
       {!session ? (
-        <p className="text-stone-500">Loading…</p>
+        <p className="text-ink-muted">Loading…</p>
       ) : !session.enabled ? (
         <Panel>The admin area is turned off. Set ADMIN_PASSWORD on the server to enable it.</Panel>
       ) : !session.signedIn ? (
@@ -354,7 +354,7 @@ function WordLists() {
               {zipping ? 'Zipping…' : 'Download all (.zip)'}
             </Button>
           </div>
-          {lists === null && <p className="text-stone-500 dark:text-stone-400">Loading lists…</p>}
+          {lists === null && <p className="text-ink-muted">Loading lists…</p>}
           <ul className="space-y-2">
             {lists?.map((l) => (
               <li key={l.id}>
@@ -373,10 +373,7 @@ function WordLists() {
                       <span className="flex flex-wrap items-center gap-2">
                         <span
                           id={`list-${l.id}`}
-                          className={cn(
-                            'font-bold',
-                            !l.enabled && 'text-stone-500 dark:text-stone-400',
-                          )}
+                          className={cn('font-bold', !l.enabled && 'text-ink-muted')}
                         >
                           {l.name}
                         </span>
@@ -384,7 +381,7 @@ function WordLists() {
                       </span>
                       <span className={cn('block', !l.enabled && 'opacity-60')}>
                         {l.description && (
-                          <span className="block text-sm text-stone-500">{l.description}</span>
+                          <span className="block text-sm text-ink-muted">{l.description}</span>
                         )}
                         <GameTags ids={l.games} games={games} />
                       </span>
@@ -394,7 +391,7 @@ function WordLists() {
                         'shrink-0 text-sm',
                         l.wordCount < 25 && l.enabled
                           ? 'font-semibold text-rose-600'
-                          : 'text-stone-500',
+                          : 'text-ink-muted',
                       )}
                     >
                       {l.wordCount} words
@@ -419,7 +416,7 @@ function WordLists() {
                 </Panel>
               </li>
             ))}
-            {lists?.length === 0 && <li className="text-stone-500 italic">No lists yet.</li>}
+            {lists?.length === 0 && <li className="text-ink-muted italic">No lists yet.</li>}
           </ul>
         </div>
       )}
@@ -554,7 +551,7 @@ function QuestionDecks() {
           {zipping ? 'Zipping…' : 'Download all decks (.zip)'}
         </Button>
       </div>
-      {decks === null && <p className="text-stone-500 dark:text-stone-400">Loading decks…</p>}
+      {decks === null && <p className="text-ink-muted">Loading decks…</p>}
       <ul className="space-y-2">
         {decks?.map((d) => (
           <li key={d.id}>
@@ -568,10 +565,7 @@ function QuestionDecks() {
                 <span className="flex flex-wrap items-center gap-2">
                   <span
                     id={`deck-${d.id}`}
-                    className={cn(
-                      'font-bold break-words',
-                      !d.enabled && 'text-stone-500 dark:text-stone-400',
-                    )}
+                    className={cn('font-bold break-words', !d.enabled && 'text-ink-muted')}
                   >
                     {d.name}
                   </span>
@@ -584,9 +578,9 @@ function QuestionDecks() {
                 </span>
                 <span className={cn('block', !d.enabled && 'opacity-60')}>
                   {d.description && (
-                    <span className="block text-sm text-stone-500">{d.description}</span>
+                    <span className="block text-sm text-ink-muted">{d.description}</span>
                   )}
-                  <span className="block text-sm text-stone-500">
+                  <span className="block text-sm text-ink-muted">
                     {d.questionCount} {d.questionCount === 1 ? 'question' : 'questions'}
                   </span>
                   <GameTags ids={d.games} games={games} />
@@ -622,7 +616,7 @@ function QuestionDecks() {
             </Panel>
           </li>
         ))}
-        {decks?.length === 0 && <li className="text-stone-500 italic">No decks yet.</li>}
+        {decks?.length === 0 && <li className="text-ink-muted italic">No decks yet.</li>}
       </ul>
     </AdminSection>
   );
@@ -840,7 +834,7 @@ function Editor({
           <Switch id={switchId} checked={enabled} onChange={setEnabled} />
           <label htmlFor={switchId} className="cursor-pointer">
             <span className="block text-sm font-semibold">Enabled</span>
-            <span className="block text-xs text-stone-500">
+            <span className="block text-xs text-ink-muted">
               {enabled
                 ? 'Hosts can pick this list.'
                 : 'Hidden from hosts and rooms until switched back on.'}{' '}
@@ -872,7 +866,7 @@ function Editor({
         )}
         <label className="block">
           <span className="text-sm font-semibold">Words</span>
-          <span className="block text-xs text-stone-500">
+          <span className="block text-xs text-ink-muted">
             One per line (commas work too). Paste as many as you like; duplicates are removed
             automatically.
           </span>
@@ -887,7 +881,7 @@ function Editor({
         <p className="text-sm">
           <b>{parsed.words.length}</b> unique words
           {parsed.duplicates > 0 && (
-            <span className="text-stone-500">
+            <span className="text-ink-muted">
               {' '}
               · {parsed.duplicates} duplicates will be dropped
             </span>

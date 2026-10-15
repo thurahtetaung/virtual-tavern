@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { cn } from './cn.ts';
+import { Panel } from './components.tsx';
 
 /**
- * A lobby's settings, as each player needs them: the host, who changes them, always sees them
+ * A lobby's settings panel, as each player needs it: the host, who changes them, always sees them
  * open; everyone else gets one summary line ("⚙️ Settings: 2 min turns · strict · narration on")
  * that opens to the full, read-only settings. Keeps guests' lobbies short on a phone.
+ * `className` styles the settings' own box (`space-y-4`), in both forms.
  */
 export function LobbySettings({
   editable,
@@ -21,14 +23,9 @@ export function LobbySettings({
   children: ReactNode;
   className?: string;
 }) {
-  if (editable) return <div className={className}>{children}</div>;
+  if (editable) return <Panel className={className}>{children}</Panel>;
   return (
-    <details
-      className={cn(
-        'group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        className,
-      )}
-    >
+    <details className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden">
         <span className="shrink-0 font-semibold">
           <span aria-hidden>⚙️ </span>
@@ -42,7 +39,10 @@ export function LobbySettings({
           ▾
         </span>
       </summary>
-      <div className="px-4 pb-4">{children}</div>
+      <div className={cn('px-4 pb-4', className)}>
+        <p className="text-xs text-ink-muted">Only the host can change these.</p>
+        {children}
+      </div>
     </details>
   );
 }

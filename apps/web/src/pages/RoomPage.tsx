@@ -1,5 +1,6 @@
 import {
   type ActOptions,
+  type AbandonGame,
   type SpectatorPrompt,
   type Superlative,
   type WordListSummary,
@@ -248,6 +249,8 @@ function Room({
   /** The admin session ran out mid-playtest: the seat can't play until they sign in again. */
   const [adminLost, setAdminLost] = useState(false);
   const [spectator, setSpectator] = useState<SpectatorPrompt | null>(null);
+  // The game under way, as the host may abandon it (the game says when there is one).
+  const [abandon, setAbandon] = useState<AbandonGame | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideFocus, setGuideFocus] = useState<GuideFocus>();
   // Each opening starts afresh on Learn (or at the card a game asked for).
@@ -597,14 +600,10 @@ function Room({
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
 
       {!snapshot ? (
-        <p className="py-16 text-center text-stone-500 dark:text-stone-400">Opening the door…</p>
+        <p className="py-16 text-center text-ink-muted">Opening the door…</p>
       ) : (
         <Suspense
-          fallback={
-            <p className="py-16 text-center text-stone-500 dark:text-stone-400">
-              Setting up the table…
-            </p>
-          }
+          fallback={<p className="py-16 text-center text-ink-muted">Setting up the table…</p>}
         >
           {snapshot.meta?.phase === 'lobby' && !playtest && (
             <GuideIntro game={game} onRules={() => showGuide()} />
@@ -627,6 +626,7 @@ function Room({
                 showGuide={showGuide}
                 setYourMove={setYourMove}
                 setSpectator={setSpectator}
+                setAbandon={setAbandon}
               />
             </SuperlativesNote.Provider>
           </BotNames.Provider>
@@ -720,6 +720,14 @@ function Room({
             call={call}
             playtest={playtest}
             onWrap={canWrap ? () => void wrapUp() : undefined}
+            onAbandon={
+              isHost && abandon
+                ? () => {
+                    setPeopleOpen(false);
+                    abandon.run();
+                  }
+                : undefined
+            }
             onRename={(n) => {
               saveName(n);
               onRename(n);
@@ -866,7 +874,7 @@ function RoomCode({ roomId }: { roomId: string }) {
   };
   return (
     <div className="rounded-xl bg-stone-100 p-3 ring-1 ring-stone-200 dark:bg-stone-800 dark:ring-stone-700">
-      <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400">
+      <p className="text-xs font-semibold tracking-wide text-ink-muted uppercase dark:text-stone-400">
         Room code
       </p>
       <div className="mt-1 flex items-center justify-between gap-2">
@@ -882,7 +890,7 @@ function RoomCode({ roomId }: { roomId: string }) {
           {copied ? '✓ Copied' : 'Copy'}
         </Button>
       </div>
-      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+      <p className="mt-1 text-xs text-ink-muted">
         Read it out: friends can type it on the home page instead of opening a link.
       </p>
     </div>
@@ -899,6 +907,7 @@ function People({
   onRename,
   onLeave,
   onWrap,
+  onAbandon,
 }: {
   roomId: string;
   snapshot: RoomSnapshot;
@@ -911,6 +920,8 @@ function People({
   onLeave: () => Promise<void>;
   /** The host's "Wrap up the night", when there is a night to wrap. */
   onWrap?: () => void;
+  /** The host's "Abandon game", while a game is under way. */
+  onAbandon?: () => void;
 }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -937,6 +948,15 @@ function People({
       danger: true,
     });
     if (yes) await run('room:kick', player.id);
+  };
+  const abandon = async () => {
+    const yes = await confirm({
+      title: 'Abandon this game?',
+      body: 'It ends for everyone and the table goes back to the lobby.',
+      confirmLabel: 'Abandon game',
+      danger: true,
+    });
+    if (yes) onAbandon?.();
   };
 
   return (
@@ -987,12 +1007,21 @@ function People({
           </li>
         ))}
       </ul>
-      {onWrap && (
-        <Button variant="secondary" className="min-h-11" onClick={onWrap}>
-          🍻 Wrap up the night
-        </Button>
+      {(onWrap || onAbandon) && (
+        <div className="flex flex-wrap gap-2">
+          {onWrap && (
+            <Button variant="secondary" className="min-h-11" onClick={onWrap}>
+              🍻 Wrap up the night
+            </Button>
+          )}
+          {onAbandon && (
+            <Button variant="danger" className="min-h-11" onClick={() => void abandon()}>
+              Abandon game
+            </Button>
+          )}
+        </div>
       )}
-      <p className="text-sm text-stone-500 dark:text-stone-400">
+      <p className="text-sm text-ink-muted">
         The host can change settings and start games. If the host is away for two minutes, someone
         else takes over.
       </p>

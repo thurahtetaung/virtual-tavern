@@ -49,9 +49,7 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-sm font-semibold">{labels.title}</h4>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
-            {labels.summary(chosen, total)}
-          </p>
+          <p className="text-xs text-ink-muted">{labels.summary(chosen, total)}</p>
         </div>
         {editable && (
           <Button
@@ -72,16 +70,12 @@ export function ChoicePicker({ selectedIds, choices, editable, labels, onSave }:
             className="rounded-lg bg-accent-soft px-3 py-1.5 text-sm ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40"
           >
             <span className="font-medium">{c.name}</span>{' '}
-            <span className="text-xs text-stone-500 dark:text-stone-400">· {c.count}</span>
-            {c.description && (
-              <span className="block text-xs text-stone-500 dark:text-stone-400">
-                {c.description}
-              </span>
-            )}
+            <span className="text-xs text-ink-muted">· {c.count}</span>
+            {c.description && <span className="block text-xs text-ink-muted">{c.description}</span>}
           </li>
         ))}
         {chosen.length === 0 && (
-          <li className="text-sm text-stone-500 italic dark:text-stone-400">Nothing chosen yet.</li>
+          <li className="text-sm text-ink-muted italic dark:text-stone-400">Nothing chosen yet.</li>
         )}
       </ul>
       {editable && picking && (
@@ -210,9 +204,7 @@ function Picker({
                     <Badge className="shrink-0">{c.count}</Badge>
                   </span>
                   {c.description && (
-                    <span className="block text-xs text-stone-500 dark:text-stone-400">
-                      {c.description}
-                    </span>
+                    <span className="block text-xs text-ink-muted">{c.description}</span>
                   )}
                 </span>
               </label>
@@ -220,7 +212,7 @@ function Picker({
           );
         })}
         {shown.length === 0 && (
-          <li className="text-sm text-stone-500 italic dark:text-stone-400">
+          <li className="text-sm text-ink-muted italic dark:text-stone-400">
             Nothing matches “{query}”.
           </li>
         )}

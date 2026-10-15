@@ -153,7 +153,7 @@ export function RecapSheet({
   }
 
   if (!recap) {
-    return <p className="py-10 text-center text-stone-500 dark:text-stone-400">Pouring…</p>;
+    return <p className="py-10 text-center text-ink-muted">Pouring…</p>;
   }
   const showHall = hasHall && tab === 'hall';
   const shown = showHall ? past : recap;
@@ -426,7 +426,7 @@ export function NightCard({
         </>
       )}
 
-      <footer className="space-y-1 text-sm text-stone-500 dark:text-stone-400">
+      <footer className="space-y-1 text-sm text-ink-muted">
         {recap.running > 0 && (
           <p>
             {recap.running === 1 ? '1 game' : `${recap.running} games`} still in progress: it joins
@@ -457,7 +457,7 @@ const RecordBadge = () => (
 );
 
 const SECTION =
-  'mb-1 text-xs font-semibold tracking-wide text-stone-500 uppercase dark:text-stone-400';
+  'mb-1 text-xs font-semibold tracking-wide text-ink-muted uppercase dark:text-stone-400';
 
 function ToneSwitch({ tone, onTone }: { tone: RecapTone; onTone: (t: RecapTone) => void }) {
   const options: { id: RecapTone; label: string }[] = [
@@ -604,8 +604,7 @@ function HallView({
       live = false;
     };
   }, [hall]);
-  if (data === 'loading')
-    return <p className="py-10 text-center text-stone-500 dark:text-stone-400">Dusting off…</p>;
+  if (data === 'loading') return <p className="py-10 text-center text-ink-muted">Dusting off…</p>;
   if (!data) return <p className="py-10 text-center">The hall of fame is closed right now.</p>;
   const name = (id: string, fallback: string) => ctx.names.get(id) ?? fallback;
   const text = (t: string) => resolveText(t, ctx.names, ctx.labels);
@@ -654,9 +653,7 @@ function HallView({
                   <span aria-hidden>{r.emoji} </span>
                   {text(r.text)}
                 </span>
-                <span className="shrink-0 text-xs text-stone-500 dark:text-stone-400">
-                  {nightDate(r.at)}
-                </span>
+                <span className="shrink-0 text-xs text-ink-muted">{nightDate(r.at)}</span>
               </li>
             ))}
           </ul>

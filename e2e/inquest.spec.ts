@@ -60,7 +60,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
   const investigators = rest.filter((p) => p !== accomplice && p !== witness);
   expect(investigators).toHaveLength(2);
   // The Witness sees the two culprits, not which is which; Investigators see no answer.
-  await witness.page.getByRole('button', { name: 'Reveal your role card' }).click();
+  await witness.page.getByRole('button', { name: '👁️ Show your role' }).click();
   await expect(
     witness.page.getByText(
       new RegExp(
@@ -77,7 +77,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
     host.page.getByRole('img', { name: 'Your role card: Forensic Scientist' }),
   ).toBeVisible();
   await expect(host.page.getByText('Everyone knows you’re the Forensic Scientist.')).toBeVisible();
-  await expect(host.page.getByRole('button', { name: 'Reveal your role card' })).toHaveCount(0);
+  await expect(host.page.getByRole('button', { name: '👁️ Show your role' })).toHaveCount(0);
   if (await nav.isVisible()) await nav.getByRole('button', { name: 'Scene' }).click();
   for (const p of rest) await expect(p.page.getByText('🔬 Forensic Scientist: Hana')).toBeVisible();
   // The four Location tiles look alike, so the picker letters them.
@@ -145,7 +145,7 @@ test('six players with the Accomplice and Witness: a wrong solve, a right one, t
     host.page.getByRole('list', { name: 'Bullet timeline' }).getByRole('listitem'),
   ).toHaveCount(6);
   // Play again keeps the settings.
-  await host.page.getByRole('button', { name: 'Play again (same settings)' }).click();
+  await host.page.getByRole('button', { name: 'Play again' }).click();
   await commitCrime(players);
   await expect(host.page.getByText('Pick the Location tile for this crime.')).toBeVisible();
 });
@@ -178,11 +178,11 @@ test('four players: events come up in round 2, through the last call that ends i
       const marks = murderer.page.getByText(/^(KEY|MEANS)$/);
       await expect(marks).toHaveCount(0);
       const peek = murderer.page.getByTestId('crime-peek');
-      await peek.getByRole('button', { name: '👁️ Show the crime' }).click();
+      await peek.getByRole('button', { name: 'Show the crime' }).click();
       // Both suspect layouts are in the page; when the Murderer is the phone layout's first
       // suspect, the first mark in the DOM is the hidden one.
       await expect(marks.filter({ visible: true }).first()).toBeVisible();
-      await peek.getByRole('button', { name: '🙈 Hide the crime' }).click();
+      await peek.getByRole('button', { name: 'Hide the crime' }).click();
       await expect(marks).toHaveCount(0);
       const key = panel.getByRole('button', { name: /^Clue:/ }).first();
       await expect(key).toBeEnabled();
@@ -250,6 +250,10 @@ test('the host hands the case over when the Forensic Scientist drops out', async
     host.page.getByText('⏸ Waiting for the Forensic Scientist (Max, offline).'),
   ).toBeVisible();
   await host.page.getByRole('button', { name: 'Hand over' }).click();
+  await host.page
+    .getByRole('dialog', { name: 'Hand the case to a random Investigator?' })
+    .getByRole('button', { name: 'Hand over' })
+    .click();
   const next = await whoShows(left, 'Pick the Location tile for this crime.');
   for (const p of left)
     await expect(

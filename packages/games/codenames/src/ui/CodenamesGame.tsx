@@ -10,6 +10,11 @@ import {
   cn,
   revealElement,
   useSpectatorPrompt,
+  useConfirm,
+  useAbandonGame,
+  LobbySettings,
+  wordListsLine,
+  timersLine,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
@@ -37,6 +42,7 @@ export function CodenamesGame({
   showGuide,
   setYourMove,
   setSpectator,
+  setAbandon,
 }: CodenamesUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
@@ -44,6 +50,9 @@ export function CodenamesGame({
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Mid-game watchers are told so at the top of the room, with a link to the join buttons
   // (the lobby's own hint already says "Pick a team below").
@@ -76,13 +85,13 @@ export function CodenamesGame({
           <b className={TEAM_TEXT[view.startingTeam]}>{TEAM_LABEL[view.startingTeam]}</b> goes first
           this game and has 9 agents to find; the other team has 8.
         </p>
-        <Panel className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-bold">Game settings</h3>
-            {!room.isHost && (
-              <span className="text-sm text-stone-500">Only the host can change these.</span>
-            )}
-          </div>
+        <LobbySettings
+          editable={room.isHost}
+          title="Game settings"
+          summary={`${wordListsLine(view.settings.wordListIds, room.wordLists)} · ${timersLine(view.settings)}`}
+          className="space-y-4"
+        >
+          {room.isHost && <h3 className="text-lg font-bold">Game settings</h3>}
           <Settings
             settings={view.settings}
             wordLists={room.wordLists}
@@ -102,15 +111,15 @@ export function CodenamesGame({
                 <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
                   🎲 Shuffle teams
                 </Button>
-                {blocker && <span className="text-sm text-stone-500">{blocker}</span>}
-                <span className="basis-full text-xs text-stone-500">
+                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+                <span className="basis-full text-xs text-ink-muted">
                   Shuffling keeps anyone who chose to be a Spymaster.
                 </span>
               </div>
             </StickyBar>
           )}
-        </Panel>
-        <p className="text-center text-sm text-stone-500">
+        </LobbySettings>
+        <p className="text-center text-sm text-ink-muted">
           First time playing?{' '}
           <button
             type="button"
@@ -144,6 +153,7 @@ function InGame({
   status,
 }: CodenamesUiProps & { online: (id: string) => boolean; status: ReturnType<typeof statusFor> }) {
   const turn = view.turn;
+  const [confirm, confirmDialog] = useConfirm();
   // The picked card only counts for the moment it was picked in: any new turn, stage or reveal clears it.
   const moment = `${turn?.team}-${turn?.stage}-${view.log.length}`;
   const [pickState, setPickState] = useState<{ moment: string; index: number } | null>(null);
@@ -181,6 +191,7 @@ function InGame({
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+      {confirmDialog}
       <div className={cn('min-w-0 space-y-3', canGuess && 'pb-4')}>
         <ScoreBar view={view} clockOffset={room.clockOffset} />
         {result && <ResultBanner key={view.log.length} result={result} />}
@@ -210,11 +221,20 @@ function InGame({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => {
-                  if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                    void act({ type: 'back-to-lobby' });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Back to the lobby?',
+                        body: 'This game ends for everyone.',
+                        confirmLabel: 'Back to lobby',
+                        danger: true,
+                      })
+                    ) {
+                      void act({ type: 'back-to-lobby' });
+                    }
+                  })()
+                }
               >
                 Back to lobby
               </Button>
@@ -235,11 +255,11 @@ function InGame({
 
         {turn?.clue && (
           <p className="text-center text-lg">
-            <span className="text-stone-500">Clue: </span>
+            <span className="text-ink-muted">Clue: </span>
             <b className={cn('text-2xl tracking-wide uppercase', TEAM_TEXT[turn.team])}>
               {turn.clue.word}
             </b>
-            <span className="text-stone-500"> · </span>
+            <span className="text-ink-muted"> · </span>
             <b className="text-2xl">{turn.clue.count}</b>
           </p>
         )}
@@ -256,19 +276,19 @@ function InGame({
                 {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
               </p>
             )}
-            <p className="text-sm text-stone-500">The full key is shown on the board below.</p>
+            <p className="text-sm text-ink-muted">The full key is shown on the board below.</p>
             <Superlatives lines={room.superlatives} />
             {room.isHost ? (
               <div className="flex flex-wrap justify-center gap-2">
                 <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again (same teams)
+                  Play again
                 </Button>
                 <Button
                   variant="secondary"
                   size="lg"
                   onClick={() => void act({ type: 'back-to-lobby' })}
                 >
-                  Change teams or settings
+                  Change setup
                 </Button>
               </div>
             ) : (
@@ -306,7 +326,7 @@ function InGame({
             >
               End turn
             </Button>
-            <span className="basis-full text-center text-xs text-stone-500">
+            <span className="basis-full text-center text-xs text-ink-muted">
               {canPass
                 ? 'A guess flips the card for your whole team.'
                 : 'A guess flips the card for your whole team. Guess at least once first.'}
@@ -329,32 +349,24 @@ function InGame({
                 variant="ghost"
                 size="sm"
                 className="w-full"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Skip the current turn for everyone? Use this if nobody can play it.',
-                    )
-                  ) {
-                    void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
-                  }
-                }}
+                onClick={() =>
+                  void (async () => {
+                    if (
+                      await confirm({
+                        title: 'Skip the current turn?',
+                        body: 'It ends for everyone. Use this if nobody can play it.',
+                        confirmLabel: 'Skip turn',
+                      })
+                    ) {
+                      void act({ type: 'end-turn' }, { anchor: SKIP_ANCHOR });
+                    }
+                  })()
+                }
               >
                 Skip stuck turn
               </Button>
             )}
             <RefusalSlot anchor={SKIP_ANCHOR} resetKey={view.log.length} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                  void act({ type: 'back-to-lobby' });
-                }
-              }}
-            >
-              Abandon game
-            </Button>
           </div>
         )}
       </aside>
@@ -434,7 +446,7 @@ function TeamsSection(props: {
       <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)} className="group">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
           <h3 className="font-bold">Teams</h3>
-          <span className="flex items-center gap-2 text-sm text-stone-500">
+          <span className="flex items-center gap-2 text-sm text-ink-muted">
             <span className={TEAM_TEXT.red}>Red {count('red')}</span>·
             <span className={TEAM_TEXT.blue}>Blue {count('blue')}</span>
             {watching > 0 && <span>· {watching} watching</span>}

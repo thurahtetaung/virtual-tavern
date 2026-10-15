@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
 /** Decks this spec imported, deleted after each test (pass or fail) so later specs see their own. */
@@ -120,9 +121,10 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   const everyone = [host, ana, ben, cy];
   // Deck names come from the server through the room (players never fetch the deck list).
   await expect(host.getByRole('region', { name: 'Question decks' })).toContainText(DECK.name);
+  await openSettings(ana);
   await expect(ana.getByRole('region', { name: 'Question decks' })).toContainText(DECK.name);
   await host.getByRole('button', { name: '5 rounds' }).click();
-  await expect(ana.getByText('5 rounds')).toBeVisible();
+  await expect(ana.getByText('5 rounds', { exact: true })).toBeVisible();
   await expect(host.getByText('Everyone is in')).toBeVisible();
   await host.getByRole('button', { name: 'Start game' }).click();
 

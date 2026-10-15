@@ -1,5 +1,5 @@
 import type { GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, Panel, useSpectatorPrompt } from '@vt/ui';
+import { Countdown, Hint, Panel, useSpectatorPrompt, useAbandonGame } from '@vt/ui';
 import { useEffect } from 'react';
 import { type EchoAction, type EchoView, MAX_PLAYERS, type TurnView } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
@@ -54,13 +54,24 @@ function Scoreboard({ view, clockOffset }: { view: EchoView; clockOffset: number
   );
 }
 
-export function EchoGame({ view, room, act, showGuide, setYourMove, setSpectator }: EchoUiProps) {
+export function EchoGame({
+  view,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+  setAbandon,
+}: EchoUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
     .reduce((n, l) => n + l.wordCount, 0);
   const blocker = startBlocker(view, wordCount);
   const status = statusFor(view, room.isHost, blocker, room);
+  useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
+    act({ type: 'back-to-lobby' }),
+  );
 
   // Watchers get the shell's "You're watching" banner, with a seat when there's one free.
   const seatFree = view.seats.filter((s) => s.playing).length < MAX_PLAYERS;
@@ -123,19 +134,6 @@ export function EchoGame({ view, room, act, showGuide, setYourMove, setSpectator
           <Table view={view} online={online} act={act} hostId={room.hostId} />
           <History key={view.phase} history={view.history} open={view.phase === 'over'} />
         </Panel>
-        {room.isHost && view.phase === 'playing' && (
-          <Button
-            variant="ghost"
-            className="h-11 w-full"
-            onClick={() => {
-              if (window.confirm('End this game for everyone and go back to the lobby?')) {
-                void act({ type: 'back-to-lobby' });
-              }
-            }}
-          >
-            Abandon game
-          </Button>
-        )}
       </aside>
     </div>
   );

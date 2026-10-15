@@ -24,7 +24,7 @@ export function PlaytestPage() {
     <Layout>
       <h1 className="mb-4 text-3xl font-bold">Tavern keeper</h1>
       {!session ? (
-        <p className="text-stone-500">Loading…</p>
+        <p className="text-ink-muted">Loading…</p>
       ) : !session.enabled || !session.signedIn ? (
         <Panel className="mx-auto max-w-sm space-y-3 text-center">
           <p>Playtests are for the tavern keeper. Sign in first.</p>
