@@ -41,12 +41,11 @@ import {
   alienRolesIn,
   announcementText,
   announcementTitle,
-  pickAbout,
   rippleText,
   toldText,
 } from './alienText.ts';
 import type { Deck } from './assets.ts';
-import type { CuePart } from './audio.ts';
+import { type Shown, speaksTo } from './audio.ts';
 import {
   ArtifactChip,
   CardBack,
@@ -78,7 +77,7 @@ import {
   markHistory,
   marksIn,
   nameOfView,
-  narrationText,
+  partText,
   promptText,
   teamLines,
   teamOutcome,
@@ -277,50 +276,45 @@ export function SoundControls({
   );
 }
 
-/** How long a narration line stays on screen once it is said. */
-const NARRATION_SHOW_MS = 8000;
-
 /**
- * The narration in progress, as text (always shown, whatever the sound setting). Players woken in
- * this step read the narrator's words; everyone else reads who is awake. Each line clears a few
- * seconds after it is said, so a night line never lingers into the day.
+ * The narration in progress, as text (always shown, whatever the sound setting), for as long as
+ * the narrator is saying it (`useSound`). Players woken in the step it belongs to read the
+ * narrator's words; everyone else, and everyone once that step is over, reads who is awake.
  */
 function Narration({
   said,
   view,
   deck,
   awake,
+  step,
   told = false,
   readyEarly = false,
 }: {
-  said: CuePart[];
+  said: Shown | null;
   view: NightfallView;
   deck: Deck;
   awake: boolean;
+  /** The night's current step (none in the day). */
+  step?: number;
   /** The step's instruction already shows in your own "The narrator says" box. */
   told?: boolean;
   readyEarly?: boolean;
 }) {
-  const [spent, setSpent] = useState<CuePart[] | null>(null);
-  useEffect(() => {
-    if (!said.length) return;
-    const t = setTimeout(() => {
-      setSpent(said);
-    }, NARRATION_SHOW_MS);
-    return () => {
-      clearTimeout(t);
-    };
-  }, [said]);
   const at = numberedOf(view);
-  // Announcements have their own 📣 list; the step's instruction is said to everyone in the
-  // third person, unless your own box already tells you.
-  const words = (part: CuePart) =>
-    part.kind === 'line'
-      ? narrationText(part.key, deck, { awake, readyEarly, roles: view.settings.roles })
-      : part.kind === 'pick' && !told
-        ? pickAbout(part.pick, at, deck, { doppel: part.doppel })
-        : '';
-  const text = spent === said ? '' : said.map(words).filter(Boolean).join(' ');
+  const yours = said !== null && speaksTo(said, awake, step);
+  const text =
+    said?.parts
+      .map((part) =>
+        partText(part, deck, {
+          awake: yours,
+          at,
+          told: told && yours,
+          readyEarly,
+          roles: view.settings.roles,
+        }),
+      )
+      .filter(Boolean)
+      .join(' ') ?? '';
   return (
     <p
       aria-live="polite"
@@ -883,7 +877,7 @@ export function Night({
   act: Act;
   status: Status;
   deck: Deck;
-  narration: CuePart[];
+  narration: Shown | null;
   sound: ReactNode;
 }) {
   const night = view.night!;
@@ -964,6 +958,7 @@ export function Night({
           view={view}
           deck={deck}
           awake={acting !== null}
+          step={night.index}
           told={acting?.told !== undefined}
         />
         {acting ? (
@@ -1341,7 +1336,7 @@ export function Day({
   act: Act;
   status: Status;
   deck: Deck;
-  narration: CuePart[];
+  narration: Shown | null;
   sound: ReactNode;
 }) {
   const [tab, setTab] = useState<DayTab>('table');
