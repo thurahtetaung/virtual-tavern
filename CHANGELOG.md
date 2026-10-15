@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.18](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.17...v0.37.18) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** end-screen text fixes from the Alien-set playtest audit ([#229](https://github.com/thurahtetaung/virtual-tavern/issues/229)) ([c9cca01](https://github.com/thurahtetaung/virtual-tavern/commit/c9cca01330990ca97c7e36711c872b12ef9a20d1))
+
 ## [0.37.17](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.16...v0.37.17) (2026-10-15)
 
 
