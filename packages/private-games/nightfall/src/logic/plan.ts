@@ -1,5 +1,5 @@
 import { MARK_ROLES, ROLES, type RoleId, hostileGroupsIn, marksInUse } from './roles.ts';
-import { ripplesIn } from './tables.ts';
+import { TABLE_OF, ripplesIn } from './tables.ts';
 
 /**
  * The night's steps. Each step is called when its role is *selected*, whether or not a player
@@ -257,6 +257,17 @@ export function publicPlan(
   if (ripple?.key === 'repeat-role' && ripple.role)
     plan.push(`${REPEAT}${repeatStepOf(ripple.role)}`);
   return plan;
+}
+
+/**
+ * The role whose table a step's random instruction is drawn from (the Alien set), or null when
+ * the narrator has none for it. A ripple's repeat reuses its step's instruction.
+ */
+export function pickRoleOf(id: StepId): RoleId | null {
+  const def = stepDef(id);
+  const role = def.id === 'aliens' || (def.repeat && def.role === 'alien') ? 'alien' : def.role;
+  if (!TABLE_OF[role] || (role === 'oracle' && def.doppel)) return null;
+  return role;
 }
 
 /** How long a step lasts, as a multiple of the step length (complex roles get double). */

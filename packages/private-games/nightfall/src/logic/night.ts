@@ -1,8 +1,15 @@
 import { GameError, type PlayerId, type Rng } from '@vt/game-sdk';
-import { NIGHT_ORDER, REPEAT, type StepDef, buildNightPlan, repeatStepOf, stepMs } from './plan.ts';
+import {
+  NIGHT_ORDER,
+  REPEAT,
+  type StepDef,
+  buildNightPlan,
+  pickRoleOf,
+  repeatStepOf,
+  stepMs,
+} from './plan.ts';
 import { type MarkId, type NostraTeam, ROLES, type RoleId, nostraTeamOf } from './roles.ts';
 import {
-  TABLE_OF,
   blobOptions,
   evenly,
   numberOf,
@@ -1947,9 +1954,8 @@ function watch(c: StepCtx) {
 /** Steps whose random part is drawn as they begin, from their role's table. */
 function drawPick(c: StepCtx) {
   const night = c.r.night!;
-  const role =
-    c.def.id === 'aliens' || (c.def.repeat && c.def.role === 'alien') ? 'alien' : c.def.role;
-  if (!TABLE_OF[role] || (role === 'oracle' && c.def.doppel)) return;
+  const role = pickRoleOf(c.def.id);
+  if (!role) return;
   // A repeat does again what the role was told before ("whatever you did, do it again"), with
   // fresh choices: it reuses the original step's instruction.
   const before = c.def.repeat

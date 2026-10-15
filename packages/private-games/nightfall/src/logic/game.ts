@@ -686,10 +686,15 @@ function view(state: NightfallState, viewer: PlayerId | null): NightfallView {
             };
           })()
         : null;
+    // The narrator says the step's random instruction out loud: everyone hears it, never who acts.
+    const said = night.index >= 0 ? night.picks?.[night.index] : undefined;
+    const pick = said && structuredClone(said);
+    if (pick?.kind === 'alien') delete pick.forced;
     out.night = {
       index: night.index,
       count: night.plan.length,
       deadline: night.deadline,
+      ...(pick ? { pick } : {}),
       acting,
     };
   }

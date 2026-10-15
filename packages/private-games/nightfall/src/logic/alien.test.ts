@@ -1712,7 +1712,8 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
       for (const { views: byViewer, acting } of views)
         for (const [id, v] of Object.entries(byViewer)) {
           const { settings: _s, notes: _n, myRole: _m, announcements: _a, ...rest } = v;
-          if (rest.night) rest.night = { ...rest.night, acting: null };
+          // The step's instruction is said out loud for everyone (checked below); nothing else is.
+          if (rest.night) rest.night = { ...rest.night, acting: null, pick: undefined };
           const json = JSON.stringify(rest);
           for (const role of EVERY_ROLE) expect(json, `${id} sees ${role}`).not.toContain(role);
           for (const k of [
@@ -1729,6 +1730,30 @@ describe('what each player is sent in an Alien night', { timeout: 30_000 }, () =
           const own = new Set((h.state.round!.notes[id] ?? []).map((n) => n.id));
           for (const n of v.notes) expect(own.has(n.id)).toBe(true);
         }
+    },
+  );
+
+  it.each(runs)(
+    'says every step’s instruction to everyone, never who acts (seed %i, %s)',
+    (seed, key) => {
+      const { h, views } = playAlienNight(seed, key);
+      let said = 0;
+      for (const { step, views: byViewer } of views) {
+        const drawn = step >= 0 ? h.state.round!.night!.picks?.[step] : undefined;
+        for (const [id, v] of Object.entries(byViewer)) {
+          const pick = v.night!.pick;
+          if (!drawn) {
+            expect(pick, `${id} at step ${step}`).toBeUndefined();
+            continue;
+          }
+          said++;
+          // Everything but whether the Oracle forced the aliens' swap.
+          const { forced: _f, ...expected } = drawn as typeof drawn & { forced?: boolean };
+          expect(pick, `${id} at step ${step}`).toEqual(expected);
+          expect(JSON.stringify(pick)).not.toMatch(/"forced"|"[A-J]"/);
+        }
+      }
+      expect(said).toBeGreaterThan(0);
     },
   );
 

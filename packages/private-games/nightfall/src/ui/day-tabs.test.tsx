@@ -26,7 +26,7 @@ function day(h: ReturnType<typeof table>, you: string) {
       act={() => Promise.resolve(true)}
       status={statusFor(view, r)}
       deck={deckFor(null, () => '')}
-      lines={[]}
+      narration={[]}
       sound={null}
     />,
   );

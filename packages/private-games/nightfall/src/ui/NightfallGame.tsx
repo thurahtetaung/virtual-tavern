@@ -26,7 +26,7 @@ export function NightfallGame({
   const status = statusFor(view, room);
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const [device, setDevice] = useDeviceSound();
-  const { lines } = useSound({
+  const { said: narration } = useSound({
     view,
     manifest: deck.manifest,
     isHost: room.isHost,
@@ -86,9 +86,9 @@ export function NightfallGame({
       ) : view.phase === 'ready' ? (
         <Ready {...props} />
       ) : view.phase === 'night' ? (
-        <Night {...props} lines={lines} sound={sound} />
+        <Night {...props} narration={narration} sound={sound} />
       ) : view.phase === 'day' || view.phase === 'vote' ? (
-        <Day {...props} lines={lines} sound={sound} />
+        <Day {...props} narration={narration} sound={sound} />
       ) : (
         <Reveal {...props} />
       )}

@@ -189,7 +189,7 @@ describe('the Alien set on screen', () => {
     h.tick();
     expect(h.view('C').night!.count).toBeGreaterThan(h.state.round!.night!.loopFrom!);
     expect(h.state.round!.night!.plan[h.state.round!.night!.index]).toBe('aliens');
-    expect(cuesFor(h.view('C'))[0]!.lines).toEqual(['alien:wake']);
+    expect(cuesFor(h.view('C'))[0]!.lines).toEqual(['alien:wake', 'alien:action:stare']);
   });
 
   it('times the day’s cues from its real length', () => {

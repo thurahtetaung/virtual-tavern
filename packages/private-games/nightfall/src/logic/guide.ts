@@ -461,7 +461,7 @@ export function makeGuide(names: NightfallNames = {}): GameGuide {
         option: SET.alien,
         paragraphs: [
           'With roles from the alien set, every player has a number: their seat, counting up to the left (the table shows each number as a token). The narrator uses the numbers: “any even player”, “a player with a number higher than yours”, “players 2, 5 or 7”. When nobody fits, the action can’t be done.',
-          'Many alien roles get their instruction at random when they wake, like the narrator choosing a card from a deck: the aliens might look at a card, show each other their cards, pass their cards round, shorten the day or tap a fist to recruit a New Alien. Only the players woken (or named) are told. In the lobby, the host can see and change how likely each instruction is under Alien options, and reset them.',
+          'Many alien roles get their instruction at random when they wake, like the narrator choosing a card from a deck: the aliens might look at a card, show each other their cards, pass their cards round, shorten the day or tap a fist to recruit a New Alien. The narrator says it out loud for everyone, whether or not anyone holds the card, so it never gives away who acts. In the lobby, the host can see and change how likely each instruction is under Alien options, and reset them.',
           `An Alien is anyone holding an alien card (${(['alien', 'synthetic-alien', 'groob', 'zerb', 'body-snatcher'] as RoleId[]).map(roleName).join(', ')}, or a card the ${roleName('body-snatcher')} took), a New Alien the aliens tapped (whatever card they hold), or anyone with the ${artifactName('alien-artifact')}. If any alien dies, the aliens lose.`,
         ],
         bullets: [

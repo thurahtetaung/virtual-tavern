@@ -2,12 +2,14 @@ import {
   FRAME_LINES,
   type StepId,
   epicPossible,
+  pickRoleOf,
   publicPlan,
+  stepDef,
   stepMs,
   stepLines,
   usesMarks,
 } from '../logic/plan.ts';
-import { type PlayerSet, blobKey } from '../logic/tables.ts';
+import { type PlayerSet, type StepPick, blobKey } from '../logic/tables.ts';
 import {
   type Announcement,
   NIGHT_INTRO_MS,
@@ -104,12 +106,46 @@ export function ramp(from: number, to: number, elapsed: number, ms: number): num
 
 // ---- Narration cues ----
 
-/** Some narration, due at a moment on the server clock. `id` is unique per game and moment. */
+/**
+ * A piece of what the narrator says: a line of its own, a step's random instruction, or an
+ * announcement. Each knows its narration keys; the screen words each its own way.
+ */
+export type CuePart =
+  | { kind: 'line'; key: string }
+  | { kind: 'pick'; pick: StepPick; doppel?: boolean }
+  | { kind: 'announcement'; announcement: Announcement };
+
+/**
+ * Some narration, due at a moment on the server clock. `id` is unique per game and moment;
+ * `lines` are the narration keys of its `parts`, in the order they are said.
+ */
 export interface Cue {
   id: string;
   at: number;
   lines: string[];
+  parts: CuePart[];
 }
+
+/** The narration keys of a part. */
+export function partLines(part: CuePart): string[] {
+  switch (part.kind) {
+    case 'line':
+      return [part.key];
+    case 'pick':
+      return pickLines(part.pick);
+    case 'announcement':
+      return announcementLines(part.announcement);
+  }
+}
+
+const line = (key: string): CuePart => ({ kind: 'line', key });
+
+const cue = (id: string, at: number, parts: CuePart[]): Cue => ({
+  id,
+  at,
+  lines: parts.flatMap(partLines),
+  parts,
+});
 
 // ---- What the narrator says out loud for everyone ----
 
@@ -132,8 +168,74 @@ function setLines(set: PlayerSet, group: boolean): string[] {
       return spoken(set.numbers, group ? 'and' : 'or');
     case 'center':
       return ['fragment:center'];
-    default:
-      return [];
+    case 'neighbours':
+      return ['fragment:either-neighbor'];
+    case 'both-neighbours':
+      return ['fragment:both-neighbors'];
+    case 'left':
+      return ['fragment:left-neighbor'];
+    case 'right':
+      return ['fragment:right-neighbor'];
+    case 'yourself':
+      return ['fragment:yourself'];
+    // Only the Rascal's swap names these: two players higher, lower, to the left or the right.
+    case 'higher':
+      return ['fragment:two-higher'];
+    case 'lower':
+      return ['fragment:two-lower'];
+    case 'two-left':
+      return ['fragment:two-left'];
+    case 'two-right':
+      return ['fragment:two-right'];
+  }
+}
+
+/**
+ * The narration keys for a step's random instruction, in the order the narrator says them (right
+ * after the step's wake line): the action, then whose cards, then how it ends.
+ */
+export function pickLines(pick: StepPick): string[] {
+  switch (pick.kind) {
+    case 'alien':
+      switch (pick.action) {
+        case 'view':
+        case 'all-view':
+          return [`alien:action:${pick.action}`, ...(pick.from ? setLines(pick.from, false) : [])];
+        case 'new-alien':
+        case 'alien-helper':
+          // "Even players, put a fist out. Aliens, tap one of the fists…"
+          return [...(pick.fists ? setLines(pick.fists, true) : []), `alien:action:${pick.action}`];
+        default:
+          return [`alien:action:${pick.action}`];
+      }
+    case 'oracle':
+      return [`oracle:question:${pick.question}`];
+    case 'body-snatcher':
+      if (pick.action === 'pretend') return ['body-snatcher:action:pretend'];
+      return [
+        `body-snatcher:action:${pick.action}`,
+        ...(pick.action === 'steal' && pick.from ? setLines(pick.from, false) : []),
+        'body-snatcher:end',
+      ];
+    case 'psychic':
+      return [`psychic:action:view-${pick.count}`, ...setLines(pick.from, false)];
+    case 'rascal': {
+      const action = `rascal:action:${pick.action}`;
+      if (pick.action === 'idiot') return [action];
+      const from = pick.from ? setLines(pick.from, false) : [];
+      if (pick.action === 'troublemaker') return [action, ...from];
+      return [action, ...from, `${action}:end`];
+    }
+    case 'exposer':
+      return [`exposer:action:flip-${pick.count}`];
+    case 'mortician':
+      return [
+        `mortician:action:${pick.action}`,
+        ...(pick.from && pick.action !== 'pretend' ? setLines(pick.from, false) : []),
+      ];
+    case 'empath':
+      // "Odd players, keep your eyes closed and point at…"
+      return [...setLines(pick.who, true), `empath:prompt:${pick.prompt}`];
   }
 }
 
@@ -243,9 +345,11 @@ export function announcementLines(a: Announcement): string[] {
   }
 }
 
-/** The lines of the announcements made at `at` (a step's start, or the dawn), in order. */
-const saidAt = (announcements: readonly PublicNote[], at: number) =>
-  announcements.filter((a) => Math.abs(a.at - at) < 500).flatMap(announcementLines);
+/** The announcements made at `at` (a step's start, or the dawn), in order. */
+const saidAt = (announcements: readonly PublicNote[], at: number): CuePart[] =>
+  announcements
+    .filter((a) => Math.abs(a.at - at) < 500)
+    .map((announcement) => ({ kind: 'announcement', announcement }));
 
 /** When each step of tonight's plan starts, from the current step's deadline. */
 function stepStarts(plan: readonly StepId[], stepSeconds: number, index: number, deadline: number) {
@@ -276,16 +380,17 @@ export function cuesFor(view: NightfallView): Cue[] {
       const open = epicPossible(s.roles)
         ? [FRAME_LINES.epicBattle, FRAME_LINES.nightStart]
         : [FRAME_LINES.nightStart];
-      const cues: Cue[] = [{ id: `${game}:night`, at: deadline - NIGHT_INTRO_MS, lines: open }];
-      if (plan.length) cues.push(...stepCues(game, plan, 0, deadline, s, true));
+      const cues: Cue[] = [cue(`${game}:night`, deadline - NIGHT_INTRO_MS, open.map(line))];
+      // The first wake is cued ahead, unless its instruction is drawn only as the step begins:
+      // that cue comes with the step, so its wake line and instruction are said together.
+      if (plan.length && !pickRoleOf(plan[0]!))
+        cues.push(...stepCues(game, plan, 0, deadline, s, { upcoming: true }));
       return cues;
     }
     const starts = stepStarts(plan, s.stepSeconds, index, deadline);
-    const cues = stepCues(game, plan, index, starts[index]!, s, false);
     // What the narrator announces as this step begins (or as the last one ended) comes first.
     const said = saidAt(view.announcements, starts[index]!);
-    if (said.length) cues[0] = { ...cues[0]!, lines: [...said, ...cues[0]!.lines] };
-    return cues;
+    return stepCues(game, plan, index, starts[index]!, s, { said, pick: view.night.pick });
   }
   if (view.phase === 'day' && view.day?.deadline) {
     const end = view.day.deadline;
@@ -293,24 +398,19 @@ export function cuesFor(view: NightfallView): Cue[] {
     const seconds = view.day.seconds ?? s.daySeconds;
     const dawn = end - seconds * 1000;
     const cues: Cue[] = [
-      {
-        id: `${game}:dawn`,
-        at: dawn,
-        lines: [
-          ...saidAt(view.announcements, dawn),
-          usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd,
-          FRAME_LINES.dayStart,
-        ],
-      },
+      cue(`${game}:dawn`, dawn, [
+        ...saidAt(view.announcements, dawn),
+        line(usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd),
+        line(FRAME_LINES.dayStart),
+      ]),
     ];
-    if (seconds > 90)
-      cues.push({ id: `${game}:1m`, at: end - 60_000, lines: [FRAME_LINES.oneMinute] });
+    if (seconds > 90) cues.push(cue(`${game}:1m`, end - 60_000, [line(FRAME_LINES.oneMinute)]));
     if (seconds > 45)
-      cues.push({ id: `${game}:30s`, at: end - 30_000, lines: [FRAME_LINES.thirtySeconds] });
+      cues.push(cue(`${game}:30s`, end - 30_000, [line(FRAME_LINES.thirtySeconds)]));
     return cues;
   }
   if (view.phase === 'vote' && view.vote?.deadline) {
-    return [{ id: `${game}:vote`, at: view.vote.deadline - 60_000, lines: [FRAME_LINES.vote] }];
+    return [cue(`${game}:vote`, view.vote.deadline - 60_000, [line(FRAME_LINES.vote)])];
   }
   return [];
 }
@@ -321,18 +421,29 @@ function stepCues(
   index: number,
   start: number,
   s: NightfallView['settings'],
-  upcoming: boolean,
+  opts: { upcoming?: boolean; said?: CuePart[]; pick?: StepPick | undefined },
 ): Cue[] {
   const id = plan[index]!;
   const lines = stepLines(id, s.roles, { loneWolf: s.loneWolf });
   const end = start + stepMs(id, s.stepSeconds);
-  const cues: Cue[] = [{ id: `${game}:${index}:open`, at: start, lines: lines.open }];
-  if (!upcoming)
-    cues.push({
-      id: `${game}:${index}:close`,
-      at: Math.max(start + 1000, end - CLOSE_LEAD_MS),
-      lines: lines.close,
-    });
+  // The instruction follows the wake line ("Aliens, wake up… Each alien may view…"), before
+  // anything else the step's wake says (the Cow's fist). A repeat's instruction isn't said again.
+  const [wake, ...after] = lines.open.map(line);
+  const def = stepDef(id);
+  const pick: CuePart[] =
+    opts.pick && !def.repeat
+      ? [{ kind: 'pick', pick: opts.pick, ...(def.doppel ? { doppel: true } : {}) }]
+      : [];
+  const open = [...(opts.said ?? []), ...(wake ? [wake] : []), ...pick, ...after];
+  const cues: Cue[] = [cue(`${game}:${index}:open`, start, open)];
+  if (!opts.upcoming)
+    cues.push(
+      cue(
+        `${game}:${index}:close`,
+        Math.max(start + 1000, end - CLOSE_LEAD_MS),
+        lines.close.map(line),
+      ),
+    );
   return cues;
 }
 
@@ -345,8 +456,8 @@ export function clipsFor(
 }
 
 /** Cues worth starting now: due, not stale (a device that joins late doesn't replay the past). */
-export function dueCues(
-  cues: readonly Cue[],
+export function dueCues<C extends Pick<Cue, 'id' | 'at'>>(
+  cues: readonly C[],
   now: number,
   played: ReadonlySet<string>,
   graceMs = 3000,

@@ -625,6 +625,12 @@ export interface NightView {
   index: number;
   count: number;
   deadline: number;
+  /**
+   * The narrator's random instruction for this step (the Alien set), said out loud for everyone
+   * like the app at a real table, whether or not anyone holds the card. Never who acts, and never
+   * whether the Oracle forced the aliens' swap.
+   */
+  pick?: StepPick;
   /** Null for everyone who isn't acting in this step. */
   acting: ActingView | null;
 }
