@@ -60,10 +60,19 @@ const list = (names: readonly string[]) =>
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
+/** "no werewolf or vampire among the players", naming the evil sides the game had. */
+const noneOf = (sides: readonly HostileGroup[]) => {
+  if (!sides.length) return 'nobody on an evil side';
+  const last = sides.at(-1)!;
+  return `no ${sides.length === 1 ? last : `${sides.slice(0, -1).join(', ')} or ${last}`} among the players`;
+};
+
+/** `sides`: the evil sides the game's cards (and artifacts) could put among the players. */
 export function explainResult(
   result: VoteResult,
   names: ExplainNames,
   marks: Record<PlayerId, MarkToken> | null = null,
+  sides: readonly HostileGroup[] = HOSTILE_GROUPS,
 ): Explanation {
   const players = Object.keys(result.tally);
   const ids = result.identities;
@@ -185,7 +194,7 @@ export function explainResult(
   return {
     tally,
     reasons,
-    why: whyTheyWon(result, players, names),
+    why: whyTheyWon(result, players, names, sides),
     personal: personalResults(result, players, names, marks),
   };
 }
@@ -329,7 +338,12 @@ function personalResults(
   return out;
 }
 
-function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames): string[] {
+function whyTheyWon(
+  result: VoteResult,
+  players: PlayerId[],
+  names: ExplainNames,
+  sides: readonly HostileGroup[],
+): string[] {
   const ids = result.identities;
   const dead = new Set(result.deaths.map((d) => d.player));
   const name = names.player;
@@ -382,10 +396,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
           why.push(
             `${label('village')} won: ${list(hostile.map(name))} ${hostile.length === 1 ? 'was' : 'were'} on an evil side, and died.`,
           );
-        else
-          why.push(
-            `${label('village')} won: there was no werewolf or vampire among the players, and nobody died.`,
-          );
+        else why.push(`${label('village')} won: there was ${noneOf(sides)}, and nobody died.`);
         break;
       }
       case 'alien':
@@ -447,7 +458,7 @@ function whyTheyWon(result: VoteResult, players: PlayerId[], names: ExplainNames
         `Nobody won: ${list(deadTanners.map(name))} died as the ${names.role('tanner')}, which stops the evil sides winning, and no one evil died.`,
       );
     else if (!players.some((p) => groupOf(ids[p]!) !== null) && dead.size > 0)
-      why.push('Nobody won: there was no werewolf or vampire among the players, yet someone died.');
+      why.push(`Nobody won: there was ${noneOf(sides)}, yet someone died.`);
     else why.push('Nobody won this time.');
   }
 

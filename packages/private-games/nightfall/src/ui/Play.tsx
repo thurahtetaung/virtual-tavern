@@ -22,6 +22,7 @@ import {
   type RoleId,
   defaultArtifacts,
   marksInPlay,
+  sidesIn,
   winFor,
 } from '../logic/roles.ts';
 import { numbersInPlay } from '../logic/tables.ts';
@@ -1628,6 +1629,7 @@ export function Reveal({
       mark: (m) => deck.markName(m),
     },
     reveal.marks,
+    sidesIn(view.settings.roles, view.settings.artifacts),
   );
   const history = markHistory(reveal.timeline, reveal.marks);
   // Someone left since the deal: the picked cards may no longer fit the table.

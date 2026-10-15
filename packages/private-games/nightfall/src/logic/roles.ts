@@ -184,7 +184,7 @@ export interface RoleDef {
 
 /** The village's win, in general; `winFor` words it for one setup. */
 const VILLAGE_WIN =
-  'Wins with the village: at least one Werewolf or Vampire dies (one of each in an epic battle), or nobody dies if no player is either.';
+  'Wins with the village: at least one Werewolf, Vampire or Alien dies (one from each of two evil sides in an epic battle), or nobody dies if no player is any of them.';
 const WOLF_WIN = 'Wins with the werewolves: no Werewolf dies.';
 const VAMPIRE_WIN = 'Wins with the vampires: no Vampire dies.';
 const ALIEN_WIN =
