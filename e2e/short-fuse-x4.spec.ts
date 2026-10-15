@@ -49,7 +49,7 @@ test('expansion 4: a ghost, Look Twice, Feed the Ghosts, a Second Life with Fore
   await draw(A);
   await expect(seat(B, 'Ana').getByTestId('ghost')).toBeVisible();
   await expect(A.getByText(/You’re a ghost: no turns/).first()).toBeVisible();
-  expect(await handTypes(A)).toEqual(expect.arrayContaining(['feed', 'cat2']));
+  await expect.poll(() => handTypes(A)).toEqual(expect.arrayContaining(['feed', 'cat2']));
 
   // Ben looks at the top card (a bomb), puts it back and draws the next one.
   await expect(B.getByTestId('draw')).toBeVisible();
@@ -58,7 +58,7 @@ test('expansion 4: a ghost, Look Twice, Feed the Ghosts, a Second Life with Fore
   await expect(B.getByRole('dialog')).toContainText('the top card');
   await B.getByTestId('dig-next').click();
   await expect(B.getByRole('dialog')).toHaveCount(0);
-  expect(await handTypes(B)).toContain('cat4');
+  await expect.poll(() => handTypes(B)).toContain('cat4');
 
   // Off turn, the ghost feeds herself: Hana and Ben each give her a card.
   await expect(host.getByTestId('draw')).toBeVisible();
@@ -134,7 +134,9 @@ test('Chaos: the everything deck, its pile cap, and a Copy played as a Favor', a
   await settle(B);
   await B.getByRole('dialog').locator('[data-card="cat3"]').click();
   await B.getByTestId('pick-confirm').click();
-  expect(await handTypes(host)).toEqual(expect.arrayContaining(['cat1', 'cat2', 'cat3']));
+  await expect
+    .poll(() => handTypes(host))
+    .toEqual(expect.arrayContaining(['cat1', 'cat2', 'cat3']));
   await draw(host);
   await expect(A.getByTestId('draw')).toBeVisible();
 });
@@ -225,14 +227,14 @@ test('a Copy of Look Twice opens its sheet in a second game, and a Noped one ope
       await B.getByTestId('nope-button').click();
       await settle(A);
       await expect(A.getByRole('dialog')).toHaveCount(0);
-      expect(await handTypes(A)).toEqual([]);
+      await expect.poll(() => handTypes(A)).toEqual([]);
       await draw(A);
     } else {
       await settle(A);
       await expect(A.getByRole('dialog')).toContainText('the top card');
       await A.getByTestId('dig-next').click();
       await expect(A.getByRole('dialog')).toHaveCount(0);
-      expect(await handTypes(A)).toEqual(['cat3']);
+      await expect.poll(() => handTypes(A)).toEqual(['cat3']);
     }
     // Ben takes the last cat; Hana and Ana draw the bombs and Ben wins.
     await expect(B.getByTestId('draw')).toBeVisible();
