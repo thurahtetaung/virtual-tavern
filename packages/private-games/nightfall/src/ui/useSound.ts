@@ -17,6 +17,7 @@ import {
   endShown,
   enqueueClips,
   fitCues,
+  limitShown,
   musicChange,
   musicPhaseFor,
   musicTarget,
@@ -232,7 +233,7 @@ export function useSound({
       const now = Date.now() + clockOffset;
       const { clip, rest } = nextClip(queue.current, now, { lengths: LENGTHS });
       queue.current = rest;
-      // A cue's words show from its first clip until its last one ends (or the rest is dropped).
+      // A cue's words show from its first clip, and stay once its last ends (or the rest is dropped).
       if (clip) mark(clip.cue, (s) => startShown(s, now));
       const left = new Set([...rest.map((c) => c.cue), ...(clip ? [clip.cue] : [])]);
       for (const cue of speaking.current)
@@ -273,6 +274,11 @@ export function useSound({
       const now = Date.now() + clockOffset;
       // Closes move earlier once their clips' lengths are known.
       const list = fitCues(parsed, narration, LENGTHS);
+      // Words cued before their step began learn when it ends.
+      shown.current = shown.current.map((s) => {
+        const c = list.find((x) => x.id === s.cue);
+        return c ? limitShown(s, c) : s;
+      });
       for (const cue of dueCues(list, now, played.current)) {
         played.current.add(cue.id);
         const planned = scheduleShown(cue, shown.current, {
@@ -282,6 +288,7 @@ export function useSound({
         });
         const clips = speaks && unlocked ? clipsFor(narration, cue.lines) : [];
         // Words this device says itself wait for their first clip; elsewhere they follow the plan.
+        // Either way they stay until the next cue's replace them or their step ends.
         shown.current = [
           ...shown.current.filter((s) => s.end > now - 60_000),
           clips.length ? pendingShown(planned) : planned,

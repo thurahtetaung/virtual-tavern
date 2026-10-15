@@ -26,6 +26,7 @@ import {
   SHOW_MS,
   type Shown,
   endShown,
+  limitShown,
   pendingShown,
   ramp,
   scheduleShown,
@@ -124,6 +125,8 @@ describe('narration cues', () => {
       ['day:30-seconds-left'],
     ]);
     expect(day[0]!.at).toBe(h.now);
+    // Their words stay up until the next replace them, or the day ends.
+    expect(day.map((c) => c.ends)).toEqual(day.map(() => h.now + 300_000));
     h.tick();
     expect(cuesFor(nightfall.view(h.state, 'A'))).toEqual([
       {
@@ -131,6 +134,7 @@ describe('narration cues', () => {
         at: h.now,
         lines: ['vote:start'],
         parts: [{ kind: 'line', key: 'vote:start' }],
+        ends: h.now + 60_000,
       },
     ]);
   });
@@ -399,13 +403,35 @@ describe('the narration text', () => {
     parts: [{ kind: 'line' as const, key: 'seer:close' }],
   };
 
+  const wake = {
+    id: '1:1:open',
+    at: 12_500,
+    until: 30_000,
+    step: 1,
+    lines: ['seer:wake'],
+    parts: [{ kind: 'line' as const, key: 'seer:wake' }],
+  };
+  const LENGTHS = { 'a.ogg': 2000, 'b.ogg': 2000, 'w.ogg': 3000 };
+
+  it('stays up until its step ends when nothing replaces it, however short its clips', () => {
+    const s = scheduleShown(close, [], opts({ 'a.ogg': 300, 'b.ogg': 300 }));
+    expect(s).toMatchObject({ start: 10_000, end: 12_500, limit: 12_500 });
+    expect(shownAt([s], 12_499)?.cue).toBe('1:0:close');
+    expect(shownAt([s], 12_500)).toBeNull();
+    // Lengths not known: the same.
+    expect(scheduleShown(close, [], opts({}))).toMatchObject({ start: 10_000, end: 12_500 });
+    // On a device that plays it: its clips ending early doesn't hide it either.
+    const played = endShown(startShown(pendingShown(s), 10_000), 10_900);
+    expect(shownAt([played], 12_000)?.cue).toBe('1:0:close');
+    expect(shownAt([played], 12_500)).toBeNull();
+  });
+
   it('stays up while its clips play past the step’s end', () => {
     // Two clips of 2 s each from a close cued 2.5 s before the step ends: said until past 14 s.
     const s = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
     const said = 14_000 + 2 * CLIP_SLACK_MS;
     expect(s).toMatchObject({ start: 10_000, end: said, spoken: said });
     expect(shownAt([s], said - 1)?.cue).toBe('1:0:close');
-    expect(shownAt([s], said)).toBeNull();
     // On a device that plays it, the words follow the clips however late they run.
     let played = pendingShown(s);
     expect(shownAt([played], 10_000)).toBeNull();
@@ -416,43 +442,76 @@ describe('the narration text', () => {
     expect(shownAt([played], 15_200)).toBeNull();
   });
 
-  it('waits for the narration before it, as its clips do', () => {
-    const before = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
-    const wake = {
-      id: '1:1:open',
-      at: 12_500,
-      until: 30_000,
-      step: 1,
-      lines: ['seer:wake'],
-      parts: [{ kind: 'line' as const, key: 'seer:wake' }],
-    };
-    const next = scheduleShown(
-      wake,
-      [before],
-      opts({ 'a.ogg': 2000, 'b.ogg': 2000, 'w.ogg': 3000 }),
-    );
+  it('keeps a guest’s words until the next cue’s replace them, with no gap', () => {
+    // Host's device: a guest times the words by the clips' lengths, and holds them past that.
+    const before = scheduleShown(close, [], opts(LENGTHS));
+    const next = scheduleShown(wake, [before], opts(LENGTHS));
     expect(next).toMatchObject({
       start: before.spoken,
       spoken: before.spoken + 3000 + CLIP_SLACK_MS,
+      end: 30_000,
     });
-    // The close's words stay until the wake is said, then the wake's.
-    expect(shownAt([before, next], 14_000)?.cue).toBe('1:0:close');
-    expect(shownAt([before, next], before.spoken)?.cue).toBe('1:1:open');
+    const list = [before, next];
+    expect(shownAt(list, 14_000)?.cue).toBe('1:0:close');
+    expect(shownAt(list, before.spoken - 1)?.cue).toBe('1:0:close');
+    expect(shownAt(list, before.spoken)?.cue).toBe('1:1:open');
+    // The wake's words stay long after its clips' expected end: the host's speaker may run late.
+    expect(shownAt(list, next.spoken + 5000)?.cue).toBe('1:1:open');
+    expect(shownAt(list, 29_999)?.cue).toBe('1:1:open');
+    expect(shownAt(list, 30_000)).toBeNull();
   });
 
-  it('shows short lines long enough to read', () => {
-    const s = scheduleShown(close, [], opts({ 'a.ogg': 300, 'b.ogg': 300 }));
-    expect(s).toMatchObject({ end: 10_000 + MIN_SHOW_MS, spoken: 10_600 + 2 * CLIP_SLACK_MS });
-    expect(endShown(startShown(pendingShown(s), 10_000), 10_600).end).toBe(10_000 + MIN_SHOW_MS);
+  it('leaves nothing blank between the cues of a step', () => {
+    // A step's opening, the Oracle's reply and its close, on a guest and on a speaking device.
+    const open = { ...wake, id: '1:1:open', at: 10_000, until: 40_000 };
+    const reply = { ...wake, id: '1:1:reply', at: 23_000, until: 40_000 };
+    const shut = { ...close, id: '1:1:close', at: 37_500, until: 40_000, step: 1 };
+    const guest: Shown[] = [];
+    for (const c of [open, reply, shut]) guest.push(scheduleShown(c, guest, opts(LENGTHS)));
+    let device = guest.map(pendingShown);
+    const mark = (i: number, f: (s: Shown) => Shown) => {
+      device = device.map((s, j) => (j === i ? f(s) : s));
+    };
+    mark(0, (s) => startShown(s, 10_300));
+    mark(0, (s) => endShown(s, 13_700));
+    // The reply's clip never plays (dropped), the close plays late.
+    mark(1, (s) => endShown(s, 23_100));
+    mark(2, (s) => startShown(s, 38_000));
+    for (let now = 10_300; now < 40_000; now += 100) {
+      expect(shownAt(device, now), `device at ${now}`).not.toBeNull();
+      expect(shownAt(guest, now), `guest at ${now}`).not.toBeNull();
+    }
+    // The dropped reply shows from its own moment.
+    expect(shownAt(device, 22_999)?.cue).toBe('1:1:open');
+    expect(shownAt(device, 23_100)?.cue).toBe('1:1:reply');
+    expect(shownAt(device, 37_999)?.cue).toBe('1:1:reply');
+    expect(shownAt(device, 38_000)?.cue).toBe('1:1:close');
   });
 
-  it('shows for its scheduled time when its length isn’t known', () => {
+  it('shows a whole cue whose clips were dropped, after the cue before it played late', () => {
+    // The live check's blocked tab: the close ran late, so the next step's whole opening was
+    // dropped well after its planned window, and nothing showed until the step after.
+    const before = scheduleShown(close, [], opts(LENGTHS));
+    const planned = scheduleShown(wake, [before], opts(LENGTHS));
+    let list = [pendingShown(before), pendingShown(planned)];
+    list = [startShown(list[0]!, 21_000), list[1]!];
+    expect(shownAt(list, 22_000)?.cue).toBe('1:0:close');
+    // The close ends at 25 s; the opening is far too late to play and is dropped.
+    list = [endShown(list[0]!, 25_000), endShown(list[1]!, 25_000)];
+    expect(shownAt(list, 25_000)?.cue).toBe('1:1:open');
+    expect(shownAt(list, 29_999)?.cue).toBe('1:1:open');
+    expect(shownAt(list, 30_000)).toBeNull();
+    // Dropped after its step ended: nothing to show.
+    expect(shownAt([endShown(pendingShown(planned), 31_000)], 31_000)).toBeNull();
+  });
+
+  it('shows for its scheduled time with narration off', () => {
     // Narration off: never past its step's end.
     expect(scheduleShown(close, [], opts({}, false))).toMatchObject({ start: 10_000, end: 12_500 });
     const open = { ...close, id: '1:0:open', at: 0, until: 60_000 };
     expect(scheduleShown(open, [], opts({}, false)).end).toBe(SHOW_MS);
-    // A clip with no known length: its scheduled time.
-    expect(scheduleShown(close, [], opts({ 'a.ogg': 2000 })).end).toBe(10_000 + SHOW_MS);
+    const short = { ...close, at: 11_000 };
+    expect(scheduleShown(short, [], opts({}, false)).end).toBe(11_000 + MIN_SHOW_MS);
   });
 
   it('isn’t held back by words still waiting for their first clip', () => {
@@ -463,17 +522,33 @@ describe('the narration text', () => {
     );
   });
 
-  it('still shows words whose clips were all dropped, for the planned window', () => {
-    // The phone was asleep: every clip of the close was too late to play.
-    const planned = scheduleShown(close, [], opts({ 'a.ogg': 2000, 'b.ogg': 2000 }));
-    const s = endShown(pendingShown(planned), 10_500);
-    expect(s).toEqual(planned);
-    expect(shownAt([s], 10_500)?.cue).toBe('1:0:close');
-    expect(shownAt([s], planned.end - 1)?.cue).toBe('1:0:close');
-    expect(shownAt([s], planned.end)).toBeNull();
-    // Lengths unknown: the scheduled time, as on a device that doesn't speak.
-    const unknown = scheduleShown(close, [], opts({}));
-    expect(endShown(pendingShown(unknown), 11_000)).toEqual(unknown);
+  it('learns the end of a step cued before it began', () => {
+    // The first step's wake is cued in the night's opening, with no end yet.
+    const ahead = { ...wake, until: undefined, step: undefined };
+    const s = scheduleShown(ahead, [], opts(LENGTHS));
+    expect(s.end).toBe(Infinity);
+    const known = limitShown(s, wake);
+    expect(known).toMatchObject({ end: 30_000, limit: 30_000, step: 1 });
+    expect(limitShown(known, { ...wake, until: 50_000 })).toBe(known);
+    // Waiting for its clip, playing it, or done: each learns it.
+    expect(limitShown(pendingShown(s), wake).plan?.end).toBe(30_000);
+    const playing = startShown(pendingShown(s), 12_600);
+    expect(limitShown(playing, wake)).toMatchObject({ end: Infinity, limit: 30_000 });
+    expect(endShown(limitShown(playing, wake), 16_000).end).toBe(30_000);
+    expect(limitShown(endShown(playing, 16_000), wake).end).toBe(30_000);
+    // Narration off keeps its own end.
+    const off = scheduleShown(ahead, [], opts({}, false));
+    expect(limitShown(off, wake).end).toBe(off.end);
+  });
+
+  it('holds the night’s opening and the day’s words until they end', () => {
+    const h = table({ players: ['werewolf', 'seer', 'villager'], settings: { stepSeconds: 10 } });
+    const v = nightfall.view(h.state, 'A');
+    const intro = cuesFor(v).find((c) => c.id.endsWith(':night'))!;
+    expect(intro.ends).toBe(v.night!.deadline);
+    const s = scheduleShown(intro, [], opts({}));
+    expect(shownAt([s], v.night!.deadline - 1)?.cue).toBe(intro.id);
+    expect(shownAt([s], v.night!.deadline)).toBeNull();
   });
 
   it('speaks to a step’s players only in that step, and to nobody after the night', () => {

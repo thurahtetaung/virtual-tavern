@@ -129,6 +129,8 @@ export interface Cue {
   close?: boolean;
   /** A step's narration: the step's index, so its words speak to that step's players only. */
   step?: number;
+  /** Outside a step: when its words stop showing at the latest (the night's opening, the day). */
+  ends?: number;
 }
 
 const line = (key: string): CuePart => ({ kind: 'line', key });
@@ -138,12 +140,14 @@ const cue = (
   at: number,
   parts: CuePart[],
   step?: { until: number; close?: boolean; index: number },
+  ends?: number,
 ): Cue => ({
   id,
   at,
   lines: parts.flatMap(partLines),
   parts,
   ...(step ? { until: step.until, ...(step.close ? { close: true } : {}), step: step.index } : {}),
+  ...(ends !== undefined ? { ends } : {}),
 });
 
 /**
@@ -174,7 +178,9 @@ export function cuesFor(view: NightfallView): Cue[] {
     const plan = publicPlan(s.roles, view.announcements);
     const start = stepStart(view.night, plan, s);
     if (index < 0) {
-      const cues: Cue[] = [cue(`${game}:night`, start, introLines(s.roles).map(line))];
+      const cues: Cue[] = [
+        cue(`${game}:night`, start, introLines(s.roles).map(line), undefined, deadline),
+      ];
       // The first wake is cued ahead, unless its instruction is drawn only as the step begins:
       // that cue comes with the step, so its wake line and instruction are said together.
       if (plan.length && !pickRoleOf(plan[0]!))
@@ -202,19 +208,29 @@ export function cuesFor(view: NightfallView): Cue[] {
     const seconds = view.day.seconds ?? s.daySeconds;
     const dawn = end - seconds * 1000;
     const cues: Cue[] = [
-      cue(`${game}:dawn`, dawn, [
-        ...saidAt(view.announcements, dawn),
-        line(usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd),
-        line(FRAME_LINES.dayStart),
-      ]),
+      cue(
+        `${game}:dawn`,
+        dawn,
+        [
+          ...saidAt(view.announcements, dawn),
+          line(usesMarks(s.roles) ? FRAME_LINES.nightEndMarks : FRAME_LINES.nightEnd),
+          line(FRAME_LINES.dayStart),
+        ],
+        undefined,
+        end,
+      ),
     ];
-    if (seconds > 90) cues.push(cue(`${game}:1m`, end - 60_000, [line(FRAME_LINES.oneMinute)]));
+    if (seconds > 90)
+      cues.push(cue(`${game}:1m`, end - 60_000, [line(FRAME_LINES.oneMinute)], undefined, end));
     if (seconds > 45)
-      cues.push(cue(`${game}:30s`, end - 30_000, [line(FRAME_LINES.thirtySeconds)]));
+      cues.push(
+        cue(`${game}:30s`, end - 30_000, [line(FRAME_LINES.thirtySeconds)], undefined, end),
+      );
     return cues;
   }
   if (view.phase === 'vote' && view.vote?.deadline) {
-    return [cue(`${game}:vote`, view.vote.deadline - 60_000, [line(FRAME_LINES.vote)])];
+    const end = view.vote.deadline;
+    return [cue(`${game}:vote`, end - 60_000, [line(FRAME_LINES.vote)], undefined, end)];
   }
   return [];
 }
@@ -284,8 +300,9 @@ export function dueCues<C extends Pick<Cue, 'id' | 'at'>>(
 // ---- The narration as text ----
 
 /**
- * A cue's words on screen, from `start` until `end` (server clock). `spoken` is when its
- * narration is expected to end, so the next cue's words wait for it as its clips do.
+ * A cue's words on screen, from `start` until `end` (server clock), unless a later cue's words
+ * replace them first. `spoken` is when its narration is expected to end, so the next cue's words
+ * wait for it as its clips do.
  */
 export interface Shown {
   cue: string;
@@ -295,26 +312,31 @@ export interface Shown {
   start: number;
   end: number;
   spoken: number;
-  /** While waiting for its first clip: the planned window, shown if every clip is dropped. */
+  /** With narration on: its step's end (or the night's opening's, or the day's), if known. */
+  limit?: number;
+  /** While waiting for its first clip: the planned window. */
   plan?: Pick<Shown, 'start' | 'end' | 'spoken'>;
 }
 
-/** Words whose narration length isn't known (narration off, or no clips) show this long. */
+/** With narration off, words show this long (never past their step's end). */
 export const SHOW_MS = 8000;
-/** Words stay up at least this long, however short their clips, so they can be read. */
+/** With narration off, words stay up at least this long, so they can be read. */
 export const MIN_SHOW_MS = 2500;
 /** Allowed per clip, on top of its length, for loading it and starting it on a speaking device. */
 export const CLIP_SLACK_MS = 150;
 
 /**
- * When a cue's words show. With narration on and its clips' lengths known, they show while it is
- * expected to be said: from its moment, or once the narration before it ends (clips queue), for
- * the clips' length. Otherwise they show for its scheduled time: `SHOW_MS`, and with narration
- * off never past its step's end. A device that plays the clips itself times them by what it
- * plays instead (`startShown`, `endShown`).
+ * When a cue's words show. With narration on, they show from the moment it is expected to be
+ * said (its moment, or once the narration before it is expected to end, as clips queue) and stay
+ * until the next cue's words replace them or its step (or the night's opening, or the day) ends:
+ * no timer guessed from clip lengths ever blanks them, so a speaker that runs late or a device
+ * that drops clips still has them on screen. They stay past the step's end while they are
+ * expected to be said. With narration off they show for `SHOW_MS`, never past the step's end. A
+ * device that plays the clips itself times them by what it plays instead (`startShown`,
+ * `endShown`).
  */
 export function scheduleShown(
-  c: Pick<Cue, 'id' | 'at' | 'lines' | 'parts' | 'until' | 'step'>,
+  c: Pick<Cue, 'id' | 'at' | 'lines' | 'parts' | 'until' | 'step' | 'ends'>,
   before: readonly Shown[],
   opts: {
     narrated: boolean;
@@ -323,19 +345,45 @@ export function scheduleShown(
   },
 ): Shown {
   const base = { cue: c.id, parts: c.parts, ...(c.step !== undefined ? { step: c.step } : {}) };
-  const clips = opts.narrated ? clipsFor(opts.narration, c.lines) : [];
+  if (!opts.narrated) {
+    const end =
+      c.until !== undefined
+        ? Math.max(c.at + MIN_SHOW_MS, Math.min(c.at + SHOW_MS, c.until))
+        : c.at + SHOW_MS;
+    return { ...base, start: c.at, end, spoken: c.at };
+  }
+  const limit = c.ends ?? c.until;
+  const held = { ...(limit !== undefined ? { limit } : {}) };
+  const clips = clipsFor(opts.narration, c.lines);
   if (clips.length && clips.every((src) => opts.lengths.has(src))) {
     const length =
       clips.reduce((sum, src) => sum + opts.lengths.get(src)!, 0) + clips.length * CLIP_SLACK_MS;
     // Words still waiting for their first clip on this device don't hold later ones back.
     const start = Math.max(c.at, ...before.map((s) => s.spoken).filter(Number.isFinite));
-    return { ...base, start, end: start + Math.max(length, MIN_SHOW_MS), spoken: start + length };
+    const spoken = start + length;
+    return { ...base, ...held, start, end: Math.max(limit ?? Infinity, spoken), spoken };
   }
-  const end =
-    !opts.narrated && c.until !== undefined
-      ? Math.max(c.at + MIN_SHOW_MS, Math.min(c.at + SHOW_MS, c.until))
-      : c.at + SHOW_MS;
-  return { ...base, start: c.at, end, spoken: c.at };
+  return { ...base, ...held, start: c.at, end: limit ?? Infinity, spoken: c.at };
+}
+
+/**
+ * A cue's step end, learned once the step has begun (the first step's wake is cued during the
+ * night's opening, before its end is known): words held with no end yet now end with the step.
+ */
+export function limitShown(s: Shown, c: Pick<Cue, 'until' | 'step' | 'ends'>): Shown {
+  const limit = c.ends ?? c.until;
+  if (s.limit !== undefined || limit === undefined) return s;
+  const step = c.step !== undefined ? { step: c.step } : {};
+  // Words timed by `SHOW_MS` (narration off) keep their end.
+  if (s.end !== Infinity) return { ...s, ...step };
+  if (s.start === Infinity) {
+    // Waiting for its first clip: only its plan changes.
+    const plan = s.plan && { ...s.plan, end: Math.max(limit, s.plan.spoken) };
+    return { ...s, ...step, limit, ...(plan ? { plan } : {}) };
+  }
+  // Its clips are playing (`spoken` not known yet): the words stay until they end.
+  if (s.spoken === Infinity) return { ...s, ...step, limit };
+  return { ...s, ...step, limit, end: Math.max(limit, s.spoken) };
 }
 
 /** Waiting for its first clip to play on this device: not shown yet, its plan kept. */
@@ -347,7 +395,7 @@ export const pendingShown = (s: Shown): Shown => ({
   plan: { start: s.start, end: s.end, spoken: s.spoken },
 });
 
-/** Its first clip started playing at `now`: the words show from now until its last clip ends. */
+/** Its first clip started playing at `now`: the words show from now, until its last clip ends. */
 export function startShown(s: Shown, now: number): Shown {
   if (s.start !== Infinity) return s;
   const { plan: _plan, ...rest } = s;
@@ -355,22 +403,26 @@ export function startShown(s: Shown, now: number): Shown {
 }
 
 /**
- * Its last clip ended (or the rest was dropped) at `now`. Words whose clips were all dropped
- * still show, for the window planned for devices that don't speak.
+ * Its last clip ended (or the rest was dropped) at `now`: the words stay until the next cue's
+ * replace them or its step ends (never shorter than its clips). Words whose clips were all
+ * dropped (a phone in the background, a blocked tab) show from now on the same terms, however
+ * late: what a device didn't say still reaches its screen.
  */
 export function endShown(s: Shown, now: number): Shown {
-  if (s.start === Infinity) {
-    const { plan, ...rest } = s;
-    return { ...rest, ...(plan ?? { start: now, end: now + MIN_SHOW_MS, spoken: now }) };
-  }
-  return { ...s, end: Math.max(now, s.start + MIN_SHOW_MS), spoken: now };
+  const { plan: _plan, ...rest } = s;
+  const end = Math.max(now, s.limit ?? Infinity);
+  if (s.start === Infinity)
+    return { ...rest, start: Math.min(now, s.plan?.start ?? now), end, spoken: now };
+  return { ...rest, end, spoken: now };
 }
 
-/** The words on screen at `now`: the cue started last of those still showing. */
+/**
+ * The words on screen at `now`: of the cues showing, the one due last (`list` is in the order
+ * the cues came due), so a cue's words replace the ones before it however late its clips start.
+ */
 export function shownAt(list: readonly Shown[], now: number): Shown | null {
   let best: Shown | null = null;
-  for (const s of list)
-    if (s.start <= now && now < s.end && (!best || s.start >= best.start)) best = s;
+  for (const s of list) if (s.start <= now && now < s.end) best = s;
   return best;
 }
 
