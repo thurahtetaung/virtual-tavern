@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.12](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.11...v0.37.12) (2026-10-15)
+
+
+### Bug Fixes
+
+* **nightfall:** stretch each night step to fit its narration when narration is on ([#215](https://github.com/thurahtetaung/virtual-tavern/issues/215)) ([2f1b9a0](https://github.com/thurahtetaung/virtual-tavern/commit/2f1b9a0f472c6d8e31d2080a4c4b7f980f17cf86))
+
 ## [0.37.11](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.10...v0.37.11) (2026-10-15)
 
 
