@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.21](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.20...v0.37.21) (2026-10-16)
+
+
+### Bug Fixes
+
+* **nightfall:** give a step no cue for words it doesn't have, so the Blob and ripple announcements stay up until their step ends ([#236](https://github.com/thurahtetaung/virtual-tavern/issues/236)) ([a7df002](https://github.com/thurahtetaung/virtual-tavern/commit/a7df0023e1d8f9424f0d64adb94c96e5a1b96a0d))
+
 ## [0.37.20](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.19...v0.37.20) (2026-10-15)
 
 
