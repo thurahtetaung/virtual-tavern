@@ -4,6 +4,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyRequest, type FastifyServerOptions } from 'fastify';
+import type { LockReason } from '@vt/protocol';
 import { ADMIN_COOKIE, AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
@@ -173,6 +174,16 @@ export function buildApp(opts: AppOptions) {
     backroom.isUnlocked(signedCookie(cookieHeader, BACKROOM_COOKIE)) ||
     (adminAuth?.isAdminValue(signedCookie(cookieHeader, ADMIN_COOKIE), now()) ?? false);
   const requestHasBackroom = (req: FastifyRequest) => hasBackroom(req.headers.cookie);
+  /**
+   * Why a cookie without the back room was turned away: an admin session that ended (signed out,
+   * or the admin password changed) comes first, since that is what let the admin in; then an
+   * unlock from before the word changed; otherwise there was no current unlock at all.
+   */
+  const lockReason = (cookieHeader: string | undefined): LockReason => {
+    if (signedCookie(cookieHeader, ADMIN_COOKIE)) return 'signed-out';
+    if (backroom.isStale(signedCookie(cookieHeader, BACKROOM_COOKIE))) return 'changed';
+    return 'none';
+  };
   const recapStore = new RecapStore(db);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
   const maintainStats = () => {
@@ -260,6 +271,7 @@ export function buildApp(opts: AppOptions) {
     {
       isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
       hasBackroom,
+      lockReason,
       isPlaytest: (roomId) => rooms.isPlaytest(roomId),
       isAdmin: (header) =>
         adminAuth?.isAdminValue(signedCookie(header, ADMIN_COOKIE), now()) ?? false,

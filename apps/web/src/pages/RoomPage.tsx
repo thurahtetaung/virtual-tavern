@@ -6,7 +6,7 @@ import {
   type WordListSummary,
   setStorageSeat,
 } from '@vt/game-sdk';
-import type { RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
+import type { LockReason, RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
 import {
   Badge,
   Button,
@@ -231,6 +231,7 @@ function Room({
     snapshot,
     clockOffset,
     status,
+    lockReason,
     error,
     call,
     leave,
@@ -337,10 +338,10 @@ function Room({
       const res = await call('game:action', action);
       if (res.ok) refusals.clearAll();
       else if (res.error.code === 'backroom-locked') {
-        // The password changed mid-game: send the player back to the door. In a playtest it was
-        // the admin session that ran out.
+        // The password changed or the admin signed out mid-game: send the player back to the
+        // door. In a playtest it was the admin session that ran out.
         if (playtest) setAdminLost(true);
-        else void navigate(backToTheDoor(roomId));
+        else void navigate(backToTheDoor(roomId, res.error.reason ?? 'none'));
       } else if (!refusals.show(options?.anchor, res.error.message)) {
         // No spot next to the control that sent it (or none on screen): say it up top.
         toast(refusals.format(res.error.message));
@@ -351,8 +352,8 @@ function Room({
   );
 
   useEffect(() => {
-    if (status === 'locked' && !playtest) void navigate(backToTheDoor(roomId));
-  }, [status, navigate, roomId, playtest]);
+    if (status === 'locked' && !playtest) void navigate(backToTheDoor(roomId, lockReason));
+  }, [status, lockReason, navigate, roomId, playtest]);
 
   const isHost = snapshot !== null && snapshot.hostId === snapshot.you;
 
@@ -760,9 +761,9 @@ function Room({
 /** Back-room games are the ones the public registry doesn't know. */
 const isBackroomGame = (game: ClientGame) => !findGame(game.id);
 
-/** The door, for a player whose unlock stopped working inside a room: they need the new word. */
-const backToTheDoor = (roomId: string) =>
-  `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&changed=1`;
+/** The door, for a player whose unlock stopped working inside a room, saying why. */
+const backToTheDoor = (roomId: string, reason: LockReason) =>
+  `/backroom?next=${encodeURIComponent(`/r/${roomId}`)}&locked=${reason}`;
 
 /**
  * Room header buttons: compact on desktop; on phones a full 44 px tap target with the icon over a

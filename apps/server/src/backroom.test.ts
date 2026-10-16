@@ -33,6 +33,20 @@ describe('Backroom', () => {
     expect(b.isUnlocked(cookie)).toBe(false);
   });
 
+  it('knows an unlock from before the word changed from one that simply ran out', () => {
+    const { b, tick } = backroom();
+    b.setPassword('pw');
+    const old = b.issue();
+    expect(b.isStale(old)).toBe(false);
+    tick(BACKROOM_SESSION_MS);
+    expect(b.isStale(old)).toBe(false);
+    b.signOutEveryone();
+    expect(b.isStale(old)).toBe(true);
+    expect(b.isStale(b.issue())).toBe(false);
+    expect(b.isStale(null)).toBe(false);
+    expect(b.isStale('junk')).toBe(false);
+  });
+
   it('signs everyone out when the password changes or on demand', () => {
     const { b } = backroom();
     b.setPassword('pw');

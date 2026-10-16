@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { GameCard } from '../components/GameCard.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
-import { doorOf, useBackroom } from '../lib/backroom.ts';
+import { doorOf, lockedLine, useBackroom } from '../lib/backroom.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -111,8 +111,9 @@ export function BackroomPage() {
   const toast = useToast();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'));
-  // Sent back from a room because the word changed (a new password, or everyone signed out).
-  const changed = params.has('changed');
+  // Sent back from a room: the word changed (a new password, or everyone signed out), or the
+  // admin session it was open to ended.
+  const locked = lockedLine(params);
   const { status, refresh } = useBackroom();
   const [word, setWord] = useState('');
   // Why the last knock failed, shown under the field until the next keystroke.
@@ -193,9 +194,9 @@ export function BackroomPage() {
           </p>
         ) : status.unlocked ? null : (
           <form onSubmit={(e) => void knock(e)} className="space-y-3">
-            {changed && (
+            {locked && (
               <p role="status" className="text-accent-text dark:text-amber-200">
-                The word has changed — ask for the new one.
+                {locked}
               </p>
             )}
             {next && (

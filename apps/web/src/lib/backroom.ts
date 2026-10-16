@@ -21,6 +21,24 @@ export function doorOf(status: BackroomStatus | null): Door {
 }
 
 /** Whether the back room exists and whether this browser has unlocked it. */
+/**
+ * The door's line for a player a room just turned away (`?locked=<reason>`, or the older
+ * `?changed=1`), or null for anyone who simply came to knock.
+ */
+export function lockedLine(params: URLSearchParams): string | null {
+  const reason = params.get('locked') ?? (params.has('changed') ? 'changed' : null);
+  switch (reason) {
+    case null:
+      return null;
+    case 'changed':
+      return 'The word has changed — ask for the new one.';
+    case 'signed-out':
+      return "You signed out of the tavern keeper's room. Enter the word to come back in.";
+    default:
+      return 'Your way in has run out. Enter the word to come back in.';
+  }
+}
+
 export function useBackroom() {
   const [status, setStatus] = useState<BackroomStatus | null>(null);
   const refresh = useCallback(

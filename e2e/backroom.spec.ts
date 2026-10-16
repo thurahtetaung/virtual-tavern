@@ -136,6 +136,26 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await status;
   await expect(friend.getByText('Pull up a chair.')).toBeVisible();
   await expect(friend.getByRole('link', { name: /^Rejoin your/ })).toHaveCount(0);
+
+  // The admin's session alone opens the room; signing out of it turns the admin away on the
+  // room's next change, and the door says it was the sign-out, not a new word.
+  await expect(host).toHaveURL(/\/backroom\?next=/);
+  await host.getByLabel('The word').fill(TEST_BACKROOM_WORD);
+  await host.getByRole('button', { name: 'Knock' }).click();
+  await expect(host).toHaveURL(roomUrl);
+  const keeper = await admin.context().newPage();
+  keeper.on('pageerror', (e) => pageErrors.push(e.message));
+  await keeper.addInitScript(() => localStorage.setItem('vt.playerName', 'Keeper'));
+  await keeper.goto(roomUrl);
+  await expect(keeper.getByRole('button', { name: 'Sit out (watch)' })).toBeVisible();
+  await admin.getByRole('button', { name: 'Sign out' }).click();
+  await expect(admin.getByLabel('Admin password')).toBeVisible();
+  await host.getByRole('button', { name: 'Sit out (watch)' }).click();
+  await expect(keeper).toHaveURL(/\/backroom\?next=/);
+  await expect(
+    keeper.getByText("You signed out of the tavern keeper's room. Enter the word to come back in."),
+  ).toBeVisible();
+  await expect(keeper.getByText('The word has changed')).toHaveCount(0);
 });
 
 test('the back room follows the light and dark themes', async ({ browser, request }) => {
