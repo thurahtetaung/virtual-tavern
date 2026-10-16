@@ -136,12 +136,6 @@ export interface GameDefinition<State, Action, View> {
    * past is treated as a bug and the room host stops its timer until the next player action.
    */
   nextDeadline?(state: State): number | null;
-  /**
-   * Whether players may change their room colour while a game is in play: true between rounds
-   * (a round's results before the next one starts), never during a turn, night, vote or other
-   * live step. The lobby and the end screen always allow it; without this hook, play never does.
-   */
-  canRecolor?(state: State): boolean;
   /** Called once the deadline has passed. Must always make progress (end the turn, time out…). */
   onDeadline?(state: State, now: number): State;
   /**

@@ -144,8 +144,6 @@ export interface RoomMeta {
   tone: RecapTone;
   /** An admin playtest room (never recorded): its bot settings, for the TEST bar. */
   playtest?: PlaytestMeta;
-  /** Players may change their colour now: no game in play, or the game is between rounds. */
-  colors?: boolean;
 }
 
 export type PlaytestSpeed = 'fast' | 'normal' | 'slow';

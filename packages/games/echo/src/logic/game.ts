@@ -676,8 +676,6 @@ export const echo: GameDefinition<EchoState, EchoAction, EchoView> = {
   playerLeft,
   view,
   nextDeadline,
-  // Between cards: the reveal waits for someone to draw the next one.
-  canRecolor: (state) => state.phase === 'playing' && state.turn?.stage === 'reveal',
   onDeadline,
   insights,
   awards: echoAwards,

@@ -2,10 +2,7 @@ import type { Ack, PlayerColor, RoomSnapshot } from '@vt/protocol';
 import { ColorPicker } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 
-/**
- * The viewer's colour in this room: the swatches and the room's refusal under them. While a game is
- * in play and not between rounds the swatches are simply disabled.
- */
+/** The viewer's colour in this room: the swatches and the room's refusal under them. */
 export function ColorChoice({
   snapshot,
   recolor,
@@ -28,8 +25,6 @@ export function ColorChoice({
     if (error) alertRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
   }, [error]);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
-  // Without `colors` (no meta yet), only the lobby and the end screen allow it.
-  const open = snapshot.meta?.colors ?? snapshot.meta?.phase !== 'playing';
   const taken = new Map(
     snapshot.players.filter((p) => p.id !== snapshot.you).map((p) => [p.color, p.name] as const),
   );
@@ -48,13 +43,8 @@ export function ColorChoice({
   return (
     <div className="space-y-1">
       {heading && <p className="text-sm font-semibold">Your colour</p>}
-      <ColorPicker
-        value={me?.color}
-        taken={taken}
-        disabled={!open || busy}
-        onPick={(c) => void pick(c)}
-      />
-      {open && error && (
+      <ColorPicker value={me?.color} taken={taken} disabled={busy} onPick={(c) => void pick(c)} />
+      {error && (
         <p
           ref={alertRef}
           role="alert"
