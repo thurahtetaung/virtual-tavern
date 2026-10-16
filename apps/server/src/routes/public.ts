@@ -21,8 +21,8 @@ export function publicRoutes(
     rooms: RoomManager;
     wordLists: WordListRepo;
     games: GameRegistry;
-    /** Whether this request carries a current back-room unlock. */
-    unlocked: (req: FastifyRequest) => boolean;
+    /** Whether this request has the back room: a current unlock, or a current admin session. */
+    hasBackroom: (req: FastifyRequest) => boolean;
     /** Admin-set titles for private games, sent only to unlocked browsers. */
     titles?: { title(gameId: string): string | null };
     /** Deletes what stats keep about a player; returns how many rows changed. */
@@ -42,7 +42,7 @@ export function publicRoutes(
     isAdmin?: (req: FastifyRequest) => boolean;
   },
 ) {
-  const { rooms, wordLists, games, unlocked, titles, forget, linkable, linked } = opts;
+  const { rooms, wordLists, games, hasBackroom, titles, forget, linkable, linked } = opts;
   const isTestTraffic = opts.isTestTraffic ?? (() => false);
   // A private game's title from the database; it only goes where the game itself is visible.
   const titleOf = (gameId: string) => {
@@ -50,10 +50,10 @@ export function publicRoutes(
     const title = titles?.title(gameId);
     return title ? { title } : {};
   };
-  // Private games behave as if they don't exist for anyone who hasn't unlocked the back room.
+  // Private games behave as if they don't exist for anyone without the back room.
   const visible = (req: FastifyRequest, gameId: string) => {
     const game = games.get(gameId);
-    return !!game && (!isPrivate(game) || unlocked(req));
+    return !!game && (!isPrivate(game) || hasBackroom(req));
   };
 
   app.get('/api/games', (req): GameSummary[] =>

@@ -57,7 +57,7 @@ export interface RecapServiceDeps {
   isTestRoom?: (roomId: string) => boolean;
 }
 
-/** Who is asking: back-room games only count for a viewer with a current unlock. */
+/** Who is asking: back-room games only count for a viewer with the back room (unlock or admin). */
 export interface Viewer {
   unlocked: boolean;
 }

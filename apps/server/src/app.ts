@@ -25,7 +25,7 @@ import { RoomManager } from './rooms/manager.ts';
 import { PlaytestPreview } from './rooms/preview.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
-import { backroomRoutes, requestUnlocked } from './routes/backroom.ts';
+import { backroomRoutes } from './routes/backroom.ts';
 import { playtestRoutes } from './routes/playtest.ts';
 import { privateGameAdminRoutes } from './routes/private-games.ts';
 import { publicRoutes } from './routes/public.ts';
@@ -158,6 +158,21 @@ export function buildApp(opts: AppOptions) {
   const recapSettings = new RecapSettings(db, now);
   /** Whether a request carries a current admin session. */
   const isAdminRequest = (req: FastifyRequest) => adminAuth?.isAdmin(req, now()) ?? false;
+  /** Unsigns one cookie from a raw `Cookie` header (sockets have no parsed cookies). */
+  const signedCookie = (header: string | undefined, name: string) => {
+    const raw = header ? app.parseCookie(header)[name] : undefined;
+    if (!raw) return null;
+    const { valid, value } = app.unsignCookie(raw);
+    return valid ? value : null;
+  };
+  /**
+   * The one back-room check, for every door (HTTP and socket): a current unlock, or a current
+   * admin session, since the admin always has the back room.
+   */
+  const hasBackroom = (cookieHeader: string | undefined) =>
+    backroom.isUnlocked(signedCookie(cookieHeader, BACKROOM_COOKIE)) ||
+    (adminAuth?.isAdminValue(signedCookie(cookieHeader, ADMIN_COOKIE), now()) ?? false);
+  const requestHasBackroom = (req: FastifyRequest) => hasBackroom(req.headers.cookie);
   const recapStore = new RecapStore(db);
   /** Rolls up finished days and drops raw events past retention; never fails the caller. */
   const maintainStats = () => {
@@ -244,19 +259,10 @@ export function buildApp(opts: AppOptions) {
     app.log,
     {
       isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
-      isUnlocked: (header) => {
-        const raw = header ? app.parseCookie(header)[BACKROOM_COOKIE] : undefined;
-        if (!raw) return false;
-        const { valid, value } = app.unsignCookie(raw);
-        return valid && backroom.isUnlocked(value);
-      },
+      hasBackroom,
       isPlaytest: (roomId) => rooms.isPlaytest(roomId),
-      isAdmin: (header) => {
-        const raw = header ? app.parseCookie(header)[ADMIN_COOKIE] : undefined;
-        if (!raw || !adminAuth) return false;
-        const { valid, value } = app.unsignCookie(raw);
-        return valid && adminAuth.isAdminValue(value, now());
-      },
+      isAdmin: (header) =>
+        adminAuth?.isAdminValue(signedCookie(header, ADMIN_COOKIE), now()) ?? false,
     },
     { recap, isTestTraffic, playtestAwards: (roomId) => preview.latest(roomId) },
   ));
@@ -335,7 +341,7 @@ export function buildApp(opts: AppOptions) {
       rooms,
       wordLists,
       games,
-      unlocked: (req) => requestUnlocked(req, backroom),
+      hasBackroom: requestHasBackroom,
       titles: privateGames,
       forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
@@ -361,6 +367,7 @@ export function buildApp(opts: AppOptions) {
       assets,
       questionDecks,
       privateGames,
+      hasBackroom: requestHasBackroom,
       isAdmin: isAdminRequest,
     });
     scope.register((admin, _a, ready) => {
@@ -392,14 +399,10 @@ export function buildApp(opts: AppOptions) {
   });
 
   if (opts.webDist && existsSync(opts.webDist)) {
-    // Private games' code is built into /backroom-assets/ and only served to unlocked players.
+    // Private games' code is built into /backroom-assets/ and only served to unlocked players
+    // (and the admin).
     app.addHook('onRequest', (req, reply, done) => {
-      // The admin may load them too, to play-test any game.
-      if (
-        req.url.startsWith('/backroom-assets/') &&
-        !requestUnlocked(req, backroom) &&
-        !isAdminRequest(req)
-      ) {
+      if (req.url.startsWith('/backroom-assets/') && !requestHasBackroom(req)) {
         void reply.code(404).send({ error: { code: 'not-found', message: 'Not found.' } });
         return;
       }
