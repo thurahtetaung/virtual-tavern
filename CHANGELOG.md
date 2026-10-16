@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.38.1...v0.39.0) (2026-10-16)
+
+
+### Features
+
+* give every player a colour in the room, changeable between rounds ([#249](https://github.com/thurahtetaung/virtual-tavern/issues/249)) ([e5eb18c](https://github.com/thurahtetaung/virtual-tavern/commit/e5eb18ce2743a6b2bc2a8e31c9f5e49b1a198cab))
+
 ## [0.38.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.38.0...v0.38.1) (2026-10-16)
 
 
