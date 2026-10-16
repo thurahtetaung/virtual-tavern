@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.22](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.21...v0.37.22) (2026-10-16)
+
+
+### Bug Fixes
+
+* **nightfall:** say role names like Nostradamus, Renfield and Cupid without "the" in the third-person narration ([#238](https://github.com/thurahtetaung/virtual-tavern/issues/238)) ([209bca1](https://github.com/thurahtetaung/virtual-tavern/commit/209bca14c094c3a5e27e353f23ad66c598642920))
+
 ## [0.37.21](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.20...v0.37.21) (2026-10-16)
 
 
