@@ -8,6 +8,7 @@ import {
   columnsOption,
   heatPieces,
   isEmptySeries,
+  localWeekHour,
   sparklineOption,
   stackedActivityOption,
   topOfStack,
@@ -16,6 +17,9 @@ import {
   weekHourTable,
 } from './options.ts';
 import { gameSlots, slotColor, slotFor, tokensFor } from './palette.ts';
+
+// Hour labels and times show in the browser's zone; pin it so the expectations hold anywhere.
+process.env.TZ = 'UTC';
 
 const light = tokensFor('light');
 const dark = tokensFor('dark');
@@ -226,5 +230,38 @@ describe('series → chart options', () => {
     expect(table.rows).toHaveLength(7);
     expect(table.rows[0]![21]).toBe(3);
     expect(table.rows[6]![2]).toBe(1);
+  });
+
+  it('moves the UTC heatmap and sparkline times to the viewer’s zone', () => {
+    const now = Date.UTC(2026, 9, 11, 12);
+    const cells = [
+      { weekday: 0, hour: 20, games: 3 },
+      { weekday: 6, hour: 1, games: 1 },
+    ];
+    // Bangkok: Mon 20:00 UTC is Tue 03:00; Sun 01:00 UTC is Sun 08:00.
+    expect(localWeekHour(cells, now, 'Asia/Bangkok')).toEqual({
+      cells: [
+        { weekday: 1, hour: 3, games: 3 },
+        { weekday: 6, hour: 8, games: 1 },
+      ],
+      zone: 'GMT+7',
+    });
+    // Los Angeles (summer): Mon 01:00 UTC is Sun 18:00.
+    expect(
+      localWeekHour([{ weekday: 0, hour: 1, games: 2 }], now, 'America/Los_Angeles').cells,
+    ).toEqual([{ weekday: 6, hour: 18, games: 2 }]);
+    // A zone off the whole hour keeps UTC.
+    expect(localWeekHour(cells, now, 'Asia/Kolkata')).toEqual({ cells, zone: 'UTC' });
+    const opt: Json = weekHourOption(cells, light, 'GMT+7');
+    expect(opt.tooltip.formatter({ value: [3, 1, 3] })).toContain('Tue 03:00 GMT+7');
+
+    const spark: Json = sparklineOption(
+      [{ ts: Date.UTC(2026, 9, 11, 18, 55), value: 2 }],
+      '#123',
+      'players',
+      light,
+      'Asia/Bangkok',
+    );
+    expect(spark.tooltip.formatter([{ dataIndex: 0 }])).toContain('01:55');
   });
 });

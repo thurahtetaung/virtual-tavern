@@ -241,7 +241,7 @@ function ProfileView({ p }: { p: PlayerProfile }) {
 
       <ChartCard
         title="Activity"
-        subtitle="Games per day"
+        subtitle="Games per day (UTC days)"
         empty={!p.calendar.some((d) => d.games > 0)}
         legend={<HeatKey tokens={tokens} />}
         table={calendarTable(p.calendar)}

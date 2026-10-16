@@ -85,17 +85,80 @@ export function longDay(day: string): string {
   return `${shortDay(day)}, ${day.slice(0, 4)}`;
 }
 
-export const dateOf = (ts: number) => longDay(new Date(ts).toISOString().slice(0, 10));
+/*
+ * Data and day buckets are UTC; times of day show in the viewer's time zone. `timeZone` is left
+ * out in the app (the browser's own) and fixed in tests.
+ */
+
+const zoned = (ts: number, timeZone?: string) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(ts);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '00';
+  return {
+    day: `${part('year')}-${part('month')}-${part('day')}`,
+    time: `${part('hour')}:${part('minute')}`,
+  };
+};
+
+/** The viewer's local time of a moment: "21:05". */
+export const clock = (ts: number, timeZone?: string) => zoned(ts, timeZone).time;
+
+/** The viewer's local day of a moment: "2026-10-09". */
+export const localDay = (ts: number, timeZone?: string) => zoned(ts, timeZone).day;
+
+/** The viewer's local date of a moment: "Oct 9, 2026". */
+export const dateOf = (ts: number, timeZone?: string) => longDay(localDay(ts, timeZone));
+
+/** The time zone's short name: "GMT+7", "UTC", "PDT". */
+export function zoneName(ts: number, timeZone?: string): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
+    .formatToParts(ts)
+    .find((p) => p.type === 'timeZoneName')?.value;
+  return !name || name === 'GMT' ? 'UTC' : name;
+}
+
+/** How far the time zone is ahead of UTC at `ts`, in minutes. */
+export function zoneOffset(ts: number, timeZone?: string): number {
+  const { day, time } = zoned(ts, timeZone);
+  const local = Date.parse(`${day}T${time}:00Z`);
+  return Math.round((local - Math.floor(ts / 60_000) * 60_000) / 60_000);
+}
+
+/** The start of an hour bucket ("2026-10-09T14") as a moment. */
+const hourStart = (t: string) => {
+  const [day, hour] = t.split('T');
+  return Date.parse(`${day}T${(hour ?? '00').padStart(2, '0')}:00:00Z`);
+};
+
+/** Whether a series' labels need the day: its buckets fall on more than one (local, for hours) day. */
+export function spansDays(ts: readonly string[], bucket: StatsBucket, timeZone?: string): boolean {
+  if (ts.length === 0) return false;
+  const dayOf = (t: string) =>
+    bucket === 'hour' ? localDay(hourStart(t), timeZone) : t.slice(0, 10);
+  return dayOf(ts[0]!) !== dayOf(ts[ts.length - 1]!);
+}
 
 /**
- * A series bucket label: hours show the time (with the day when the window spans several),
- * days and weeks the day, months the month and year.
+ * A series bucket label: hours show the viewer's local time (with the day when the window spans
+ * several), days and weeks the (UTC) day, months the month and year.
  */
-export function bucketLabel(t: string, bucket: StatsBucket, multiDay = false): string {
+export function bucketLabel(
+  t: string,
+  bucket: StatsBucket,
+  multiDay = false,
+  timeZone?: string,
+): string {
   if (bucket === 'hour') {
-    const [day, hour] = t.split('T');
-    const time = `${(hour ?? '00').padStart(2, '0')}:00`;
-    return multiDay && day ? `${shortDay(day)} ${time}` : time;
+    const { day, time } = zoned(hourStart(t), timeZone);
+    return multiDay ? `${shortDay(day)} ${time}` : time;
   }
   if (bucket === 'month') {
     const [y, m] = t.split('-');

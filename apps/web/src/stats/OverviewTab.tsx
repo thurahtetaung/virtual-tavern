@@ -11,6 +11,7 @@ import {
   calendarTable,
   isEmptySeries,
   stackedActivityOption,
+  localWeekHour,
   weekHourOption,
   weekHourTable,
 } from './options.ts';
@@ -61,9 +62,14 @@ function OverviewView({ data, loading }: { data?: StatsOverview; loading: boolea
     () => (data ? calendarOption(data.calendar, data.window.from, data.window.to, tokens) : null),
     [data, tokens],
   );
+  // The zone's offset as it was at the end of the window.
+  const local = useMemo(
+    () => localWeekHour(data?.weekHour ?? [], data ? Date.parse(`${data.window.to}T12:00:00Z`) : 0),
+    [data],
+  );
   const weekHour = useMemo(
-    () => (data ? weekHourOption(data.weekHour, tokens) : null),
-    [data, tokens],
+    () => (data ? weekHourOption(local.cells, tokens, local.zone) : null),
+    [data, local, tokens],
   );
   const mixRows = useMemo(
     () =>
@@ -92,7 +98,7 @@ function OverviewView({ data, loading }: { data?: StatsOverview; loading: boolea
     >
       {data && (
         <p className="text-xs text-ink-muted">
-          {windowText} · deltas compare with the window before
+          {windowText} (days are UTC) · deltas compare with the window before
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -154,7 +160,7 @@ function OverviewView({ data, loading }: { data?: StatsOverview; loading: boolea
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
           title="Game nights calendar"
-          subtitle="Games started per day"
+          subtitle="Games started per day (UTC days)"
           loading={first}
           empty={noGames}
           legend={<HeatKey tokens={tokens} />}
@@ -173,11 +179,11 @@ function OverviewView({ data, loading }: { data?: StatsOverview; loading: boolea
 
         <ChartCard
           title="When we play"
-          subtitle="Games started by weekday and hour (UTC)"
+          subtitle={`Games started by weekday and hour (${local.zone})`}
           loading={first}
           empty={noGames}
           legend={<HeatKey tokens={tokens} />}
-          table={data ? weekHourTable(data.weekHour) : undefined}
+          table={data ? weekHourTable(local.cells) : undefined}
           height={200}
         >
           {weekHour && (
