@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.0...v0.39.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ui:** bring a refused colour into view on small phones and say "offline" in the Players drawer like the lobbies ([#251](https://github.com/thurahtetaung/virtual-tavern/issues/251)) ([b0efbf0](https://github.com/thurahtetaung/virtual-tavern/commit/b0efbf0988fa8eb80a61923cbae6aa9382a7f697))
+
 ## [0.39.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.38.1...v0.39.0) (2026-10-16)
 
 
