@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   MARKS,
   ROLES,
+  NAMED_ROLES,
   SET_LABELS,
   type ArtifactId,
   type MarkId,
@@ -97,6 +98,16 @@ export interface Deck {
   markText: (id: MarkId) => string;
   markArt: (id: MarkId) => string | null;
   manifest: Manifest | null;
+}
+
+/**
+ * A role's name as a sentence says it: "the Seer", but "Nostradamus" and "The Master" (a proper
+ * name, or a name that already starts with its article), capitalised at a sentence start.
+ */
+export function theRole(deck: Deck, role: RoleId, start = false): string {
+  const name = deck.name(role);
+  if (NAMED_ROLES.has(role) || /^the\s/i.test(name)) return name;
+  return `${start ? 'The' : 'the'} ${name}`;
 }
 
 /** "fear" → "Mark of Fear", "vampire" → "Mark of the Vampire": the placeholder Mark names. */

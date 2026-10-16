@@ -1,7 +1,7 @@
 import type { NostraTeam, RoleId } from '../logic/roles.ts';
 import type { BlobShape, PlayerSet, Ripple, StepPick, WeightTable } from '../logic/tables.ts';
 import type { Announcement, NoteBody } from '../logic/types.ts';
-import type { Deck } from './assets.ts';
+import { type Deck, theRole } from './assets.ts';
 
 // The Alien set's words: what the narrator tells the players it wakes, what it announces to
 // everyone, and the sets of players it names. Our own words, after the narrator's meaning.
@@ -266,7 +266,7 @@ export function pickAbout(
   opts: { doppel?: boolean } = {},
 ): string {
   const from = (set: PlayerSet | undefined, plural = false) => theirs(setWords(set, at, plural));
-  const who = (role: RoleId) => `The ${deck.name(opts.doppel ? 'doppelganger' : role)}`;
+  const who = (role: RoleId) => theRole(deck, opts.doppel ? 'doppelganger' : role, true);
   switch (pick.kind) {
     case 'alien':
       switch (pick.action) {
@@ -328,7 +328,7 @@ export function pickAbout(
 
 /** A Nostradamus team, in words. */
 export function nostraTeamWords(team: NostraTeam, deck: Deck): string {
-  const role = (r: RoleId) => `the ${deck.name(r)}`;
+  const role = (r: RoleId) => theRole(deck, r);
   switch (team) {
     case 'village':
       return 'the village';
