@@ -324,8 +324,8 @@ export function fixtureGame(gameId: string, q: URLSearchParams): GameStats {
     window: w,
     totals,
     activity: activity(w, [gameId], empty),
-    averageMinutes: empty ? 0 : 18 + (hash(gameId) % 9),
-    averagePlayers: empty ? 0 : 4 + (hash(gameId) % 3) / 2,
+    averageMinutes: empty ? null : 18 + (hash(gameId) % 9),
+    averagePlayers: empty ? null : 4 + (hash(gameId) % 3) / 2,
     playerCounts: empty
       ? []
       : [3, 4, 5, 6, 7, 8].map((players, i) => ({ players, games: [2, 9, 7, 5, 2, 1][i]! })),
@@ -475,6 +475,7 @@ export function fixturePlayer(id: string): PlayerProfile | undefined {
         playerId: p.id,
       },
     ],
+    gameNames: named(Object.keys(s.byGame)),
   };
 }
 

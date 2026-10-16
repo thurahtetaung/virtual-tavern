@@ -126,8 +126,10 @@ export interface GameStats {
   window: StatsWindow;
   totals: StatsTotals;
   activity: SeriesPoint[];
-  averageMinutes: number;
-  averagePlayers: number;
+  /** Active play time per ended game; null when no ended game has any play time to average. */
+  averageMinutes: number | null;
+  /** Null when no game started. */
+  averagePlayers: number | null;
   /** Count of finished games by number of players. */
   playerCounts: { players: number; games: number }[];
   /** Settings chosen at game start, e.g. key 'wordList' / 'timerMode' / 'deckSize' / 'flow' / 'cardSet'. */
@@ -192,6 +194,8 @@ export interface PlayerProfile extends PlayerSummary {
   calendar: { day: string; games: number }[];
   /** Light-hearted superlatives earned by this player, e.g. "Fastest guesser". */
   facts: FunFact[];
+  /** Names of every game in `byGame`. */
+  gameNames: StatsGameName[];
 }
 
 export interface StatsPlayers {
@@ -245,7 +249,12 @@ export interface StatsTimeseries {
 
 export interface StatsGames {
   window: StatsWindow;
-  games: { gameId: string; totals: StatsTotals; averageMinutes: number; averagePlayers: number }[];
+  games: {
+    gameId: string;
+    totals: StatsTotals;
+    averageMinutes: number | null;
+    averagePlayers: number | null;
+  }[];
 }
 
 export interface StatsSettings {

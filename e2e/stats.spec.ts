@@ -1,6 +1,6 @@
 import { type Browser, type Page, expect, test } from '@playwright/test';
 import type { PlayerSummary } from '../packages/protocol/src/stats.ts';
-import { fixturePlayers } from '../apps/web/src/stats/fixtures.ts';
+import { fixturePlayer, fixturePlayers } from '../apps/web/src/stats/fixtures.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 
 const pageErrors: string[] = [];
@@ -182,6 +182,27 @@ test('the stats page fits a phone without sideways scrolling', async ({ browser 
     'tabindex',
     '0',
   );
+});
+
+test('a player profile names back-room games without the unlock', async ({ browser }) => {
+  const page = await newPage(browser);
+  await mockStatsApi(page);
+  const ivy = fixturePlayers(new URLSearchParams()).players.find((p) => p.name === 'Ivy')!;
+  await page.route(`**/api/admin/stats/players/${ivy.id}*`, (route) =>
+    route.fulfill({
+      json: {
+        ...fixturePlayer(ivy.id)!,
+        byGame: { 'royal-post': 3 },
+        gameNames: [{ id: 'royal-post', name: 'Royal Post' }],
+      },
+    }),
+  );
+  await openStatsAsAdmin(page);
+  await tab(page, 'Players').click();
+  await page.getByRole('button', { name: /^Ivy/ }).click();
+  const games = card(page, 'Games by game');
+  await games.getByRole('button', { name: 'Show as table' }).click();
+  await expect(games.getByRole('rowheader', { name: 'Royal Post' })).toBeVisible();
 });
 
 test('the players table shows 25 rows at a time', async ({ browser }) => {
