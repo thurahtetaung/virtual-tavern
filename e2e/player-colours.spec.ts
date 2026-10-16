@@ -81,3 +81,38 @@ test('joiners get distinct colours, can change theirs, and a new room starts afr
   await expect(drawerOf(ben).locator('[data-color]')).toHaveCount(2);
   expect(await colorOf(ben, 'Ana')).not.toBe('grey');
 });
+
+test('on a small phone the refusal shows in view, and the drawer says "offline" like the lobby', async ({
+  browser,
+}) => {
+  const hana = await player(browser, 'Hana');
+  await hana.getByRole('button', { name: 'Create a Codenames room' }).click();
+  await expect(hana).toHaveURL(/\/r\//);
+  const anaContext = await browser.newContext({ viewport: { width: 360, height: 640 } });
+  const ana = await anaContext.newPage();
+  ana.on('pageerror', (e) => pageErrors.push(e.message));
+  await ana.addInitScript(() => localStorage.setItem('vt.playerName', 'Ana'));
+  await ana.goto(hana.url());
+  await expect(hana.getByRole('status').filter({ hasText: 'Ana joined' })).toBeVisible();
+
+  // The swatches sit at the foot of the drawer; the refusal under them is scrolled into view.
+  await openPlayers(ana);
+  const drawer = drawerOf(ana);
+  await drawer.getByRole('button', { name: 'Change name or colour' }).click();
+  await drawer.getByRole('radio', { name: /taken by Hana$/ }).click();
+  await expect(drawer.getByRole('alert')).toBeInViewport({ ratio: 1 });
+  if (process.env.SCREENSHOTS)
+    await ana.screenshot({ path: 'test-results/shots/players-colour-refused-360.png' });
+
+  // Ana's browser closes: the lobby and the Players drawer use the same word for her.
+  await anaContext.close();
+  await expect(hana.getByText('Ana', { exact: true }).first()).toBeVisible();
+  const lobbyAna = hana.locator('main').getByText('offline', { exact: true });
+  await expect(lobbyAna.first()).toBeVisible();
+  await openPlayers(hana);
+  const row = drawerOf(hana)
+    .getByRole('listitem')
+    .filter({ has: hana.getByText('Ana', { exact: true }) });
+  await expect(row).toContainText('offline');
+  await expect(row).not.toContainText('away');
+});

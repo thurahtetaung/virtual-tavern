@@ -1,6 +1,6 @@
 import type { Ack, PlayerColor, RoomSnapshot } from '@vt/protocol';
 import { ColorPicker } from '@vt/ui';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * The viewer's colour in this room: the swatches and the room's refusal under them. While a game is
@@ -21,6 +21,12 @@ export function ColorChoice({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The picker sits at the foot of the Players drawer: on a phone the refusal under it would land
+  // below the fold, so bring it into view.
+  const alertRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error) alertRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
   // Without `colors` (no meta yet), only the lobby and the end screen allow it.
   const open = snapshot.meta?.colors ?? snapshot.meta?.phase !== 'playing';
@@ -45,7 +51,11 @@ export function ColorChoice({
         onPick={(c) => void pick(c)}
       />
       {open && error && (
-        <p role="alert" className="text-sm font-medium text-danger-ink dark:text-rose-300">
+        <p
+          ref={alertRef}
+          role="alert"
+          className="text-sm font-medium text-danger-ink dark:text-rose-300"
+        >
           {error}
         </p>
       )}

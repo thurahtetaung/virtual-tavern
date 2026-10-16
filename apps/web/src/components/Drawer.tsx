@@ -30,7 +30,7 @@ export function Drawer({
       onClick={(e) => e.target === ref.current && onClose()}
       className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-xl bg-stone-50 p-0 text-stone-900 backdrop:bg-black/40 dark:bg-stone-900 dark:text-stone-100"
     >
-      <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-stone-200 bg-stone-50/95 px-4 py-2 dark:border-stone-800 dark:bg-stone-900/95">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-stone-200 bg-stone-50/95 px-4 py-2 dark:border-stone-800 dark:bg-stone-900/95">
         <h2 id={titleId} className="text-xl font-bold">
           {title}
         </h2>
