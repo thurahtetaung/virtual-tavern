@@ -154,6 +154,17 @@ export class SqliteStatsStore implements StatsStore, StatsQueries, RecapSource {
     };
   }
 
+  playTimes(roomId: string, since: number): number[] {
+    return this.sql
+      .prepare(
+        `select ts from stats_events
+         where room_id = ? and ts >= ? and (type = 'action' or type like 'insight.%')
+         order by ts`,
+      )
+      .pluck()
+      .all(roomId, since) as number[];
+  }
+
   rollupDay(day: string, now: number): void {
     this.sql.transaction(() => {
       const events = this.rawEvents(day, day, false);

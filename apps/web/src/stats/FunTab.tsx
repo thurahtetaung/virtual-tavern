@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '../components/Drawer.tsx';
 import { type CardContext, NightCard, nightLabel } from '../recap/RecapSheet.tsx';
 import { statsApi } from './api.ts';
+import { clock } from './format.ts';
 import { gameColor, useLoad, useStats } from './context.tsx';
 import { useChartTokens } from './theme.ts';
 import { EmptyState, Skeleton, StatTile } from './ui.tsx';
@@ -126,7 +127,8 @@ function RecentNights() {
                   <b>{nightLabel(n, (id) => ctx.gameInfo(id))}</b>
                   <span className="text-stone-600 dark:text-stone-400">
                     {' '}
-                    · {n.games} {n.games === 1 ? 'game' : 'games'}
+                    · {clock(n.startedAt)}–{clock(n.endedAt)} · {n.games}{' '}
+                    {n.games === 1 ? 'game' : 'games'}
                     {n.mvp && <> · 👑 {n.mvp}</>}
                   </span>
                 </span>

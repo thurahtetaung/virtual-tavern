@@ -14,7 +14,7 @@ import {
   nameFigure,
   settingLabel,
 } from './figures.ts';
-import { bucketLabel, compact, duration, percent, plain } from './format.ts';
+import { bucketLabel, compact, duration, percent, plain, spansDays } from './format.ts';
 import { columnsOption, isEmptySeries, matrixOption } from './options.ts';
 import { type ChartTokens, slotColor } from './palette.ts';
 import { useChartTokens } from './theme.ts';
@@ -147,9 +147,10 @@ function GamesOverTime({
 }) {
   const option = useMemo(() => {
     if (!data) return null;
-    const multi =
-      data.activity.length > 0 &&
-      data.activity[0]!.t.slice(0, 10) !== data.activity.at(-1)!.t.slice(0, 10);
+    const multi = spansDays(
+      data.activity.map((p) => p.t),
+      data.window.bucket,
+    );
     const labels = data.activity.map((p) => bucketLabel(p.t, data.window.bucket, multi));
     return columnsOption(
       labels,
@@ -162,7 +163,9 @@ function GamesOverTime({
   return (
     <ChartCard
       title="Games over time"
-      subtitle="Games started"
+      subtitle={
+        data && data.window.bucket !== 'hour' ? 'Games started (UTC days)' : 'Games started'
+      }
       loading={!data}
       empty={!!data && isEmptySeries(data.activity)}
       table={

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../lib/toast.tsx';
 import { statsApi } from './api.ts';
 import { gameColor, useInterval, useStats } from './context.tsx';
-import { age, ago, compact } from './format.ts';
+import { age, ago, clock, compact, zoneName } from './format.ts';
 import { sparklineOption } from './options.ts';
 import { useChartTokens } from './theme.ts';
 import { ChartCard, EChart, EmptyState, Skeleton, StatTile } from './ui.tsx';
@@ -140,10 +140,10 @@ function LiveView({ live, stale }: { live: LiveStats; stale: boolean }) {
         subtitle={`Peak ${peak} · now ${live.playersOnline}`}
         height={96}
         table={{
-          columns: ['Time (UTC)', 'Players'],
+          columns: [`Time (${zoneName(live.now)})`, 'Players'],
           rows: live.lastHour
             .filter((_, i) => i % 5 === 0 || i === live.lastHour.length - 1)
-            .map((p) => [new Date(p.ts).toISOString().slice(11, 16), p.players]),
+            .map((p) => [clock(p.ts), p.players]),
         }}
       >
         <EChart

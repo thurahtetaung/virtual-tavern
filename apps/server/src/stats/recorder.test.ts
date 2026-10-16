@@ -7,7 +7,7 @@ import { SqliteRoomStore } from '../rooms/store.ts';
 import { MIGRATIONS } from '../test/helpers.ts';
 import { WordListRepo } from '../word-lists.ts';
 import { dayOf } from './days.ts';
-import { FLUSH_EVERY_MS, StatsRecorder } from './recorder.ts';
+import { activeMs, BREAK_AFTER_MS, FLUSH_EVERY_MS, StatsRecorder } from './recorder.ts';
 import { SqliteStatsStore } from './sqlite-store.ts';
 import type { StatsEvent } from './types.ts';
 
@@ -232,6 +232,68 @@ describe('StatsRecorder', () => {
     expect(ended).toHaveLength(1);
     expect(ended[0]!.props).toMatchObject({ finished: false, reason: 'swept', durationMs: 0 });
     expect(events().at(-1)!.type).toBe('room.swept');
+  });
+
+  it('times a game by its active play, leaving out breaks over the cut-off', () => {
+    const id = room();
+    act(id, 'ana', { type: 'start' });
+    act(id, 'ana', { type: 'clue', word: 'Ocean' }, 10 * 60_000);
+    // A break just under the cut-off counts; one just over it doesn't.
+    act(id, 'ben', { type: 'guess', word: 'Wave', right: true }, BREAK_AFTER_MS);
+    act(id, 'ana', { type: 'clue', word: 'Moon' }, BREAK_AFTER_MS + 1);
+    act(id, 'ana', { type: 'finish' }, 2 * 60_000);
+    recorder.flush();
+    expect(events().find((e) => e.type === 'game.ended')!.props).toMatchObject({
+      finished: true,
+      durationMs: 10 * 60_000 + BREAK_AFTER_MS + 2 * 60_000,
+    });
+  });
+
+  it('leaves out the night between a game left open and resumed the next day', () => {
+    const id = room();
+    act(id, 'ana', { type: 'start' });
+    act(id, 'ana', { type: 'clue', word: 'Ocean' }, 20 * 60_000);
+    recorder.flush();
+    rooms.close();
+    recorder = new StatsRecorder({ store, logger });
+    rooms = manager(recorder);
+    act(id, 'ben', { type: 'guess', word: 'Wave', right: true }, 20 * 60 * 60_000);
+    act(id, 'ana', { type: 'lobby' }, 5 * 60_000);
+    recorder.flush();
+    expect(events().find((e) => e.type === 'game.ended')!.props).toMatchObject({
+      finished: false,
+      durationMs: 25 * 60_000,
+    });
+  });
+
+  it('times a swept game that was no longer loaded up to its last move', () => {
+    const id = room();
+    act(id, 'ana', { type: 'start' });
+    act(id, 'ana', { type: 'clue', word: 'Ocean' }, 7 * 60_000);
+    act(id, 'ben', { type: 'guess', word: 'Wave', right: true }, 3 * 60_000);
+    recorder.flush();
+    rooms.close();
+    recorder = new StatsRecorder({ store, logger });
+    rooms = manager(recorder);
+    now += 8 * 24 * 60 * 60_000;
+    expect(rooms.sweep(7 * 24 * 60 * 60_000)).toBe(1);
+    recorder.flush();
+    expect(events().find((e) => e.type === 'game.ended')!.props).toMatchObject({
+      finished: false,
+      reason: 'swept',
+      durationMs: 10 * 60_000,
+    });
+  });
+
+  it('adds up active time from the start, skipping breaks and anything after the last move', () => {
+    const h = 60 * 60_000;
+    expect(activeMs(0, [])).toBe(0);
+    expect(activeMs(0, [0, 0])).toBe(0);
+    expect(activeMs(0, [5, 10, 30])).toBe(30);
+    // Unsorted input and events from before the start.
+    expect(activeMs(100, [130, 50, 110])).toBe(30);
+    expect(activeMs(0, [h, 2 * h + 1, 2 * h + 61])).toBe(h + 60);
+    expect(activeMs(0, [h + 1])).toBe(0);
   });
 
   it('notes host changes', () => {

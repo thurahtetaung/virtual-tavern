@@ -1,6 +1,17 @@
 import type { SeriesPoint, StatsBucket } from '@vt/protocol';
 import type { EChartsCoreOption } from 'echarts/core';
-import { WEEKDAYS, bucketLabel, compact, escapeHtml, plain, shortDay } from './format.ts';
+import {
+  WEEKDAYS,
+  bucketLabel,
+  clock,
+  compact,
+  escapeHtml,
+  plain,
+  shortDay,
+  spansDays,
+  zoneName,
+  zoneOffset,
+} from './format.ts';
 import type { ChartTokens } from './palette.ts';
 
 // Pure builders from API data to ECharts options (and to the matching "Show as table" rows), so
@@ -102,9 +113,6 @@ export function topOfStack(points: SeriesPoint[], ids: string[]): number[] {
 }
 
 /** Spans more than one day (hour buckets then show the day in labels). */
-const spansDays = (points: SeriesPoint[]) =>
-  points.length > 0 && points[0]!.t.slice(0, 10) !== points[points.length - 1]!.t.slice(0, 10);
-
 /** Stacked columns of games started per bucket, one series per game. */
 export function stackedActivityOption(
   points: SeriesPoint[],
@@ -112,7 +120,10 @@ export function stackedActivityOption(
   bucket: StatsBucket,
   t: ChartTokens,
 ): EChartsCoreOption {
-  const multi = spansDays(points);
+  const multi = spansDays(
+    points.map((p) => p.t),
+    bucket,
+  );
   const labels = points.map((p) => bucketLabel(p.t, bucket, multi));
   const ids = series.map((s) => s.id);
   const tops = topOfStack(points, ids);
@@ -271,8 +282,9 @@ export function sparklineOption(
   color: string,
   valueName: string,
   t: ChartTokens,
+  timeZone?: string,
 ): EChartsCoreOption {
-  const time = (ts: number) => new Date(ts).toISOString().slice(11, 16) + ' UTC';
+  const time = (ts: number) => clock(ts, timeZone);
   return {
     backgroundColor: 'transparent',
     animationDuration: 300,
@@ -458,10 +470,38 @@ export function calendarTable(days: { day: string; games: number }[]): TableData
 
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'));
 
-/** Weekday × hour heatmap (UTC), Monday on top. */
+type WeekHourCell = { weekday: number; hour: number; games: number };
+
+/**
+ * Moves the (UTC) weekday × hour cells to the viewer's time zone, at its offset `now`. A zone that
+ * isn't a whole number of hours from UTC keeps the UTC cells.
+ */
+export function localWeekHour(
+  cells: WeekHourCell[],
+  now: number,
+  timeZone?: string,
+): { cells: WeekHourCell[]; zone: string } {
+  const offset = zoneOffset(now, timeZone);
+  if (offset % 60 !== 0) return { cells, zone: 'UTC' };
+  const shift = offset / 60;
+  return {
+    cells: cells.map((c) => {
+      const h = c.hour + shift;
+      return {
+        weekday: (((c.weekday + Math.floor(h / 24)) % 7) + 7) % 7,
+        hour: ((h % 24) + 24) % 24,
+        games: c.games,
+      };
+    }),
+    zone: zoneName(now, timeZone),
+  };
+}
+
+/** Weekday × hour heatmap in the zone its cells are in (see `localWeekHour`), Monday on top. */
 export function weekHourOption(
-  cells: { weekday: number; hour: number; games: number }[],
+  cells: WeekHourCell[],
   t: ChartTokens,
+  zone = 'UTC',
 ): EChartsCoreOption {
   const max = cells.reduce((m, c) => Math.max(m, c.games), 0);
   return {
@@ -471,7 +511,7 @@ export function weekHourOption(
     tooltip: {
       ...tooltip(t, 'item', 'none'),
       formatter: (p: { value: [number, number, number] }) =>
-        tooltipHeader(t, `${WEEKDAYS[p.value[1]]} ${HOURS[p.value[0]]}:00 UTC`) +
+        tooltipHeader(t, `${WEEKDAYS[p.value[1]]} ${HOURS[p.value[0]]}:00 ${escapeHtml(zone)}`) +
         `<b style="color:${t.ink}">${plain(p.value[2])}</b> <span style="color:${t.inkSecondary}">games</span>`,
     },
     visualMap: { type: 'piecewise', show: false, pieces: heatPieces(max, t), dimension: 2 },
@@ -502,9 +542,7 @@ export function weekHourOption(
   };
 }
 
-export function weekHourTable(
-  cells: { weekday: number; hour: number; games: number }[],
-): TableData {
+export function weekHourTable(cells: WeekHourCell[]): TableData {
   const grid = WEEKDAYS.map(() => HOURS.map(() => 0));
   for (const c of cells) if (grid[c.weekday]) grid[c.weekday]![c.hour] = c.games;
   return {
