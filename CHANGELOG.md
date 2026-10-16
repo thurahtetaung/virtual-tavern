@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.2...v0.40.0) (2026-10-16)
+
+
+### Features
+
+* let players change their colour at any time, mid-game too ([#255](https://github.com/thurahtetaung/virtual-tavern/issues/255)) ([c91c314](https://github.com/thurahtetaung/virtual-tavern/commit/c91c3149dd5b4d3113dc5114d2e7eab08782fd11))
+
 ## [0.39.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.1...v0.39.2) (2026-10-16)
 
 
