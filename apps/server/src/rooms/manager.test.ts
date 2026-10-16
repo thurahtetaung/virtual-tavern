@@ -213,10 +213,11 @@ describe('RoomManager', () => {
       const id = rooms.create('masquerade', 'p0');
       rooms.join(id, 'p0', 'Ana');
       rooms.join(id, 'p1', 'Ben');
-      rooms.recolor(id, 'p1', 'grey');
+      const free = PLAYER_COLORS.find((c) => c !== colors(id)[0])!;
+      expect(rooms.recolor(id, 'p1', free)).toEqual({ ok: true });
       rooms.close();
       rooms = manager();
-      expect(colors(id)).toContain('grey');
+      expect(colors(id)[1]).toBe(free);
 
       const old = rooms.create('masquerade', 'p0');
       rooms.close();
@@ -289,9 +290,11 @@ describe('RoomManager', () => {
       const id = rooms.create('reverie', 'p0');
       rooms.join(id, 'p0', 'Ana');
       rooms.join(id, 'p1', 'Ben');
-      rooms.recolor(id, 'p1', 'sky');
+      // Ana's colour is random, so Ben picks one she can't have.
+      const free = PLAYER_COLORS.find((c) => c !== colors(id)[0])!;
+      expect(rooms.recolor(id, 'p1', free)).toEqual({ ok: true });
       const seats = (rooms.snapshot(id, 'p0')!.game as { seats: { color: string }[] }).seats;
-      expect(seats.map((s) => s.color)).toEqual([colors(id)[0], 'sky']);
+      expect(seats.map((s) => s.color)).toEqual([colors(id)[0], free]);
     });
   });
 
