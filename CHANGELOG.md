@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.24...v0.38.0) (2026-10-16)
+
+
+### Features
+
+* **admin:** let a signed-in admin into the back room without the password ([#245](https://github.com/thurahtetaung/virtual-tavern/issues/245)) ([f56f056](https://github.com/thurahtetaung/virtual-tavern/commit/f56f05672a2f0445e5bc12b7662a7397b271adc0))
+
 ## [0.37.24](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.23...v0.37.24) (2026-10-16)
 
 
