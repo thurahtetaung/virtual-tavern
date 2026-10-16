@@ -12,6 +12,24 @@ const FLUSH_AT = 500;
 /** "Recently online" means seen within this long. */
 export const RECENT_MS = 5 * 60_000;
 
+/** A gap between moves longer than this is a break, and counts nothing towards a game's length. */
+export const BREAK_AFTER_MS = 60 * 60_000;
+
+/**
+ * A game's active play time: the gaps between its start and its successive play events, leaving
+ * out breaks (gaps over `BREAK_AFTER_MS`) and anything after the last move.
+ */
+export function activeMs(startedAt: number, plays: readonly number[]): number {
+  let total = 0;
+  let last = startedAt;
+  for (const ts of [...plays].sort((a, b) => a - b)) {
+    if (ts < last) continue;
+    if (ts - last <= BREAK_AFTER_MS) total += ts - last;
+    last = ts;
+  }
+  return total;
+}
+
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 let lastTime = -1;
@@ -385,7 +403,7 @@ export class StatsRecorder implements RoomObserver {
     this.active.delete(o.roomId);
     emit('game.ended', null, {
       finished,
-      durationMs: game ? Math.max(0, o.now - game.startedAt) : 0,
+      durationMs: game ? this.played(o.roomId, game.startedAt) : 0,
       players: game?.players ?? participants(before),
       winners,
     });
@@ -399,6 +417,15 @@ export class StatsRecorder implements RoomObserver {
       ? open.props.players.filter((p): p is string => typeof p === 'string')
       : [];
     return { startedAt: open.ts, players };
+  }
+
+  /** The room's active play time since `startedAt`, from stored and still-buffered play events. */
+  private played(roomId: string, startedAt: number): number {
+    const isPlay = (e: StatsEvent) => e.type === 'action' || e.type.startsWith('insight.');
+    const buffered = this.events
+      .filter((e) => e.roomId === roomId && e.ts >= startedAt && isPlay(e))
+      .map((e) => e.ts);
+    return activeMs(startedAt, [...this.store.playTimes(roomId, startedAt), ...buffered]);
   }
 
   private sweep(o: RoomObservation) {
@@ -421,11 +448,10 @@ export class StatsRecorder implements RoomObserver {
         props,
       });
     if (game) {
-      // Left mid-game and never came back: abandoned, timed up to the room's last change.
-      const lastChange = o.before?.updatedAt ?? game.startedAt;
+      // Left mid-game and never came back: abandoned, timed up to its last move.
       emit('game.ended', {
         finished: false,
-        durationMs: Math.max(0, lastChange - game.startedAt),
+        durationMs: this.played(o.roomId, game.startedAt),
         players: game.players,
         winners: [],
         reason: 'swept',

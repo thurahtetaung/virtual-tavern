@@ -64,6 +64,8 @@ export interface StatsStore {
     gamesPlayed: ReadonlyMap<string, number>,
   ): void;
   openGame(roomId: string): OpenGame | null;
+  /** When the room's play events (`action`, `insight.*`) from `since` on happened, in order. */
+  playTimes(roomId: string, since: number): number[];
   /** Rolls one completed day's raw events into the daily tables (idempotent; a day with no raw events left is kept as it is). */
   rollupDay(day: string, now: number): void;
   /** Days before `today` that have raw events but no rollup yet. */
