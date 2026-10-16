@@ -1,6 +1,6 @@
 import type { PlayerProfile } from '@vt/protocol';
 import { Button, Panel, cn } from '@vt/ui';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { statsApi } from './api.ts';
 import { gameColor, useLoad, useStats } from './context.tsx';
 import { ago, compact, dateOf, hours, plain } from './format.ts';
@@ -153,6 +153,10 @@ function Profile({ id }: { id: string }) {
 function ProfileView({ p }: { p: PlayerProfile }) {
   const ctx = useStats();
   const tokens = useChartTokens();
+  const { learnGames } = ctx;
+  useEffect(() => {
+    learnGames(p.gameNames);
+  }, [p.gameNames, learnGames]);
   const byGame = useMemo(
     () =>
       Object.entries(p.byGame)

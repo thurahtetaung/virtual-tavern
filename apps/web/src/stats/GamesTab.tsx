@@ -111,12 +111,12 @@ function GameView({ game }: { game: GameInfo }) {
         <StatTile
           label="Average length"
           loading={first}
-          value={data ? (empty ? '–' : duration(data.averageMinutes)) : ''}
+          value={data ? (data.averageMinutes === null ? '–' : duration(data.averageMinutes)) : ''}
         />
         <StatTile
           label="Average players"
           loading={first}
-          value={data ? (empty ? '–' : plain(data.averagePlayers)) : ''}
+          value={data ? (data.averagePlayers === null ? '–' : plain(data.averagePlayers)) : ''}
         />
         {!empty && tiles.map((f) => <FigureTile key={f.id} fig={f} color={color} />)}
       </div>

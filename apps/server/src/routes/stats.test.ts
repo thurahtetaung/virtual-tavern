@@ -173,6 +173,11 @@ describe('admin stats', () => {
       averagePlayers: 4,
       totals: { gamesFinished: 1 },
     });
+    // Nothing to average: no game started, or none ended with any play time.
+    expect(games.find((g) => g.gameId === 'enigma')).toMatchObject({
+      averageMinutes: null,
+      averagePlayers: null,
+    });
 
     const cn = (await get<GameStats>(`games/codenames?${today}`)).body;
     expect(cn).toMatchObject({ gameId: 'codenames', playerCounts: [{ players: 4, games: 1 }] });
@@ -219,6 +224,7 @@ describe('admin stats', () => {
       name: 'Ana',
       aliases: ['Ana'],
       calendar: [{ day: DAY, games: 1 }],
+      gameNames: [{ id: 'codenames', name: 'Codenames' }],
     });
     expect((await get(`players/nobody`)).status).toBe(404);
 
@@ -702,6 +708,11 @@ describe('admin stats', () => {
         .map((p) => p.name)
         .sort(),
     ).toEqual(final.winners.map((id) => final.seats.find((s) => s.id === id)!.name).sort());
+    // The profile names the back-room game itself, so the page needn't be unlocked.
+    const gil = (await get<PlayerProfile>(`players/${playerIdFromToken(token(30))}?range=today`))
+      .body;
+    expect(gil.byGame).toEqual({ 'royal-post': 1 });
+    expect(gil.gameNames).toEqual([{ id: 'royal-post', name: 'Royal Post' }]);
   }, 20_000);
 
   it('turns a Masquerade game into figures and fun facts', async () => {

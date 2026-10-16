@@ -334,6 +334,35 @@ describe('SqliteStatsStore', () => {
     expect(store.games(w).games.find((g) => g.gameId === 'enigma')!.totals.gamesAbandoned).toBe(2);
   });
 
+  it('has no average length until a game ends with some play time', () => {
+    const t = (m: number) => at(D2, 21, m);
+    // One Hoodwink game still in play, one left before anyone moved.
+    store.append([
+      ev(t(0), 'game.started', 'hoodwink', { players: ['ana', 'ben', 'cy'] }, null, 'room-h1'),
+      ev(t(1), 'game.started', 'hoodwink', { players: ['ana', 'ben'] }, null, 'room-h2'),
+      ev(t(2), 'game.ended', 'hoodwink', { finished: false, durationMs: 0 }, null, 'room-h2'),
+    ]);
+    const w = win(D1, D2);
+    expect(store.game('hoodwink', w)).toMatchObject({
+      totals: { gamesStarted: 2, gamesAbandoned: 1 },
+      averageMinutes: null,
+      averagePlayers: 2.5,
+    });
+    expect(store.games(w).games.find((g) => g.gameId === 'hoodwink')).toMatchObject({
+      averageMinutes: null,
+    });
+  });
+
+  it('names every game on a player profile', () => {
+    expect(store.player('cy', win(D1, D2))!.gameNames).toEqual(
+      expect.arrayContaining([
+        { id: 'codenames', name: 'Codenames' },
+        { id: 'echo', name: 'Echo' },
+        { id: 'enigma', name: 'Enigma' },
+      ]),
+    );
+  });
+
   it('lists players with aliases and hands out fun facts', () => {
     store.upsertPlayers(
       [{ playerId: 'ben', name: 'Benny', now: at(D2, 9), joinedRoom: false }],

@@ -195,9 +195,10 @@ function averages(agg: Agg, w: Window, gameId: string) {
   const m = (metric: string) => sumMetric(agg, w.from, w.to, metric, gameId);
   const ended = m('games_finished') + m('games_abandoned');
   const started = m('games_started');
+  const minutes = m('minutes_played');
   return {
-    averageMinutes: ended ? round1(m('minutes_played') / ended) : 0,
-    averagePlayers: started ? round1(m('players_sum') / started) : 0,
+    averageMinutes: ended && minutes > 0 ? round1(minutes / ended) : null,
+    averagePlayers: started ? round1(m('players_sum') / started) : null,
   };
 }
 
@@ -477,6 +478,7 @@ function profile(
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, games]) => ({ day, games })),
     facts,
+    gameNames: Object.keys(totalsFor.byGame).map((g) => ({ id: g, name: ctx.gameName(g) })),
   };
 }
 
