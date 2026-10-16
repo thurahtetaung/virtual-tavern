@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.23](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.22...v0.37.23) (2026-10-16)
+
+
+### Bug Fixes
+
+* **stats:** time games by active play and show times of day in the viewer's time zone ([#240](https://github.com/thurahtetaung/virtual-tavern/issues/240)) ([47217a6](https://github.com/thurahtetaung/virtual-tavern/commit/47217a6fd9762d68b3817b2dfb417682157b4199))
+
 ## [0.37.22](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.21...v0.37.22) (2026-10-16)
 
 
