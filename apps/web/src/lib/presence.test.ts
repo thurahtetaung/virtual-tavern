@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { awayFor } from './presence.ts';
+import { offlineFor } from './presence.ts';
 
-describe('awayFor', () => {
+describe('offlineFor', () => {
   const now = 10 * 60 * 60_000;
-  it('says plain "away" when it is new or unknown', () => {
-    expect(awayFor(undefined, now)).toBe('away');
-    expect(awayFor(now - 59_000, now)).toBe('away');
+  it('says plain "offline" when it is new or unknown', () => {
+    expect(offlineFor(undefined, now)).toBe('offline');
+    expect(offlineFor(now - 59_000, now)).toBe('offline');
   });
 
   it('counts minutes, then hours', () => {
-    expect(awayFor(now - 5 * 60_000, now)).toBe('away 5 min');
-    expect(awayFor(now - 59 * 60_000, now)).toBe('away 59 min');
-    expect(awayFor(now - 125 * 60_000, now)).toBe('away 2 h');
+    expect(offlineFor(now - 5 * 60_000, now)).toBe('offline 5 min');
+    expect(offlineFor(now - 59 * 60_000, now)).toBe('offline 59 min');
+    expect(offlineFor(now - 125 * 60_000, now)).toBe('offline 2 h');
   });
 });

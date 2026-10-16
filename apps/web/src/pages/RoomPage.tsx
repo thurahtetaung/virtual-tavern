@@ -34,7 +34,7 @@ import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
 import { type ClientGame, findGame, loadGame, roomGame } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
-import { awayFor } from '../lib/presence.ts';
+import { offlineFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { type Seat, adoptSeat, clearSeat, confirmSeat, seatFor } from '../lib/seat.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -967,7 +967,7 @@ function People({
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const me = snapshot.players.find((p) => p.id === snapshot.you);
-  // Ticks while the drawer is open, so "away 3 min" keeps up.
+  // Ticks while the drawer is open, so "offline 3 min" keeps up.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -1013,7 +1013,7 @@ function People({
               {p.id === snapshot.you && <Badge>you</Badge>}
               {p.bot && <Badge>🤖 bot</Badge>}
               {!p.connected && (
-                <span className="text-xs">{awayFor(p.awaySince, now + clockOffset)}</span>
+                <span className="text-xs">{offlineFor(p.awaySince, now + clockOffset)}</span>
               )}
             </span>
             {isHost && p.id !== snapshot.you && (
