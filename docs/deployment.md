@@ -82,10 +82,9 @@ In the repository settings:
   | `DEPLOY_SSH_KEY`                         | the private CI key                                               |
   | `DEPLOY_KNOWN_HOSTS`                     | `ssh-keyscan -t ed25519 <tailnet IP>` run from a tailnet machine |
 
-  | Variable     | Value                                                        |
-  | ------------ | ------------------------------------------------------------ |
-  | `PUBLIC_URL` | the public site URL (shown as the deployment link on GitHub) |
-  | `DEPLOY_DIR` | optional; defaults to `virtual-tavern` in the user's home    |
+  | Variable     | Value                                                     |
+  | ------------ | --------------------------------------------------------- |
+  | `DEPLOY_DIR` | optional; defaults to `virtual-tavern` in the user's home |
 
 After the first release publishes, set the `virtual-tavern` package's visibility to **Public** on GitHub, so the VPS can pull it without logging in.
 
