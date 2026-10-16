@@ -235,7 +235,11 @@ export function cuesFor(view: NightfallView): Cue[] {
   return [];
 }
 
-/** A step's cues: its opening as it starts, and its close before `end` (none when it is cued ahead). */
+/**
+ * A step's cues: its opening as it starts, and its close before `end` (none when it is cued
+ * ahead). A part with no words (a step that only announces has no close) is no cue at all, so
+ * the words before it stay up until the next cue's replace them or the step ends.
+ */
 function stepCues(
   game: string,
   id: StepId,
@@ -246,15 +250,18 @@ function stepCues(
   opts: { said?: CuePart[]; pick?: StepPick | undefined },
 ): Cue[] {
   const { open, close } = stepParts(id, s, opts);
-  if (end === null) return [cue(`${game}:${index}:open`, start, open)];
-  return [
-    cue(`${game}:${index}:open`, start, open, { until: end, index }),
-    cue(`${game}:${index}:close`, Math.max(start + 1000, end - CLOSE_LEAD_MS), close, {
-      until: end,
-      close: true,
-      index,
-    }),
-  ];
+  const cues =
+    end === null
+      ? [cue(`${game}:${index}:open`, start, open)]
+      : [
+          cue(`${game}:${index}:open`, start, open, { until: end, index }),
+          cue(`${game}:${index}:close`, Math.max(start + 1000, end - CLOSE_LEAD_MS), close, {
+            until: end,
+            close: true,
+            index,
+          }),
+        ];
+  return cues.filter((c) => c.parts.length);
 }
 
 /**
