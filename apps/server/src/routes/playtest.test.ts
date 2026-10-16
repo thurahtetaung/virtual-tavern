@@ -254,7 +254,7 @@ describe('admin playtests', () => {
     expect((await seat(pt.roomId, pt.seats[0]!)).res).toEqual({ ok: true });
   });
 
-  it('lets the admin play a back-room game with no unlock, in playtests only', async () => {
+  it("lets the admin play a back-room game with no unlock, and keeps playtests the admin's", async () => {
     const webDist = mkdtempSync(join(tmpdir(), 'vt-web-'));
     cleanups.push(() => rmSync(webDist, { recursive: true, force: true }));
     writeFileSync(join(webDist, 'index.html'), '<!doctype html>');
@@ -272,25 +272,12 @@ describe('admin playtests', () => {
     expect(room.json()).toEqual({ id: pt.roomId, gameId: 'royal-post', playtest: true });
     expect((await seat(pt.roomId, pt.seats[0]!)).res).toEqual({ ok: true });
 
-    // The game's code and art reach the admin without the unlock (the art store answers 503
-    // here only because there is none in tests), and still reach nobody else.
+    // The game's code reaches the admin without the unlock, and still reaches nobody else.
     const code = '/backroom-assets/private.js';
     expect((await app.inject({ url: code, headers: as(admin) })).statusCode).toBe(200);
     expect((await app.inject({ url: code })).statusCode).toBe(404);
-    const manifest = '/api/backroom/manifest/royal-post';
-    expect((await app.inject({ url: manifest, headers: as(admin) })).statusCode).toBe(503);
-    expect((await app.inject({ url: manifest })).statusCode).toBe(404);
-    // The question decks and the game list stay unlock-only.
-    expect(
-      (await app.inject({ url: '/api/backroom/question-decks/hoodwink', headers: as(admin) }))
-        .statusCode,
-    ).toBe(404);
-    const listed = (await app.inject({ url: '/api/games', headers: as(admin) })).json<
-      { id: string }[]
-    >();
-    expect(listed.some((g) => g.id === 'royal-post')).toBe(false);
 
-    // A normal back-room room still needs the unlock, admin or not.
+    // A normal back-room room takes the admin session as an unlock too.
     const unlock = await app.inject({
       method: 'POST',
       url: '/api/backroom/unlock',
@@ -305,9 +292,9 @@ describe('admin playtests', () => {
     });
     const { roomId } = normal.json<{ roomId: string }>();
     const lookup = await app.inject({ url: `/api/rooms/${roomId}`, headers: as(admin) });
-    expect(lookup.statusCode).toBe(403);
+    expect(lookup.json()).toEqual({ id: roomId, gameId: 'royal-post' });
     const { res } = await seat(roomId, { token: token(2), name: 'Admin' });
-    expect(res).toMatchObject({ ok: false, error: { code: 'backroom-locked' } });
+    expect(res).toEqual({ ok: true });
     // And an unlocked visitor still can't get into the playtest.
     const { res: theirs } = await seat(pt.roomId, pt.seats[1]!, backroom);
     expect(theirs).toMatchObject({ ok: false, error: { code: 'no-room' } });

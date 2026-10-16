@@ -33,8 +33,11 @@ const channel = (roomId: string) => `room:${roomId}`;
 /** Decides who may enter private (back-room) rooms and admin playtests. */
 export interface RoomGate {
   isPrivateRoom(roomId: string): boolean;
-  /** Whether a raw `Cookie` header carries a current back-room unlock. */
-  isUnlocked(cookieHeader: string | undefined): boolean;
+  /**
+   * Whether a raw `Cookie` header has the back room: a current unlock, or a current admin session
+   * (the admin always has the back room).
+   */
+  hasBackroom(cookieHeader: string | undefined): boolean;
   /** Whether the room is an admin playtest (only admins may be in it). Default: never. */
   isPlaytest?(roomId: string): boolean;
   /** Whether a raw `Cookie` header carries a current admin session. Default: never. */
@@ -42,12 +45,12 @@ export interface RoomGate {
 }
 
 /**
- * Who may be in a room. A playtest takes an admin session instead of the back-room unlock (only
- * for playtests); every other room needs the unlock when it is private, as always.
+ * Who may be in a room. A playtest takes an admin session; every other room needs the back room
+ * (an unlock or an admin session) when it is private.
  */
 function roomAccess(gate: RoomGate | undefined, roomId: string) {
   if (gate?.isPlaytest?.(roomId)) return (cookie: string | undefined) => !!gate.isAdmin?.(cookie);
-  if (gate?.isPrivateRoom(roomId)) return (cookie: string | undefined) => gate.isUnlocked(cookie);
+  if (gate?.isPrivateRoom(roomId)) return (cookie: string | undefined) => gate.hasBackroom(cookie);
   return null;
 }
 
@@ -112,7 +115,7 @@ function detach(socket: ClientSocket, rooms: RoomManager) {
 
 /**
  * "Same crew, new game": tells everyone in `roomId` about the new table, so they can follow. A
- * back-room table is only announced to sockets holding a current unlock.
+ * back-room table is only announced to sockets that have the back room.
  */
 export function announceNextTable(
   io: IO,
@@ -125,7 +128,7 @@ export function announceNextTable(
   for (const id of ids ?? []) {
     const s = io.sockets.sockets.get(id);
     if (!s || s.data.playerId === next.by) continue;
-    if (privateTable && !gate?.isUnlocked(s.request.headers.cookie)) continue;
+    if (privateTable && !gate?.hasBackroom(s.request.headers.cookie)) continue;
     s.emit('room:next', next);
   }
 }
@@ -449,7 +452,7 @@ export function attachRealtime(
               opened: q.opened === true,
               ...(typeof q.nightKey === 'string' && q.nightKey && { nightKey: q.nightKey }),
             },
-            { unlocked: gate.isUnlocked(socket.request.headers.cookie) },
+            { unlocked: gate.hasBackroom(socket.request.headers.cookie) },
           );
           if (!res.ok) return res;
           data = res.data;

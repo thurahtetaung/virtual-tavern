@@ -13,14 +13,6 @@ const unlockBody = z.object({ password: z.string().min(1).max(200) });
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
 
-/** Unsigns the unlock cookie and checks it against the current password version. */
-export function requestUnlocked(req: FastifyRequest, backroom: Backroom): boolean {
-  const raw = req.cookies[BACKROOM_COOKIE];
-  if (!raw) return false;
-  const { valid, value } = req.unsignCookie(raw);
-  return valid && backroom.isUnlocked(value);
-}
-
 export function backroomRoutes(
   app: FastifyInstance,
   opts: {
@@ -29,19 +21,19 @@ export function backroomRoutes(
     assets: R2Assets | null;
     questionDecks: QuestionDeckRepo;
     privateGames?: PrivateGameSettings;
-    /**
-     * Whether the request carries a current admin session. An admin may read private art and
-     * manifests without the unlock (to play-test any game); the decks stay unlock-only.
-     */
+    /** Whether the request has the back room: a current unlock, or a current admin session. */
+    hasBackroom: (req: FastifyRequest) => boolean;
+    /** Whether the request carries a current admin session (it needs no password). */
     isAdmin?: (req: FastifyRequest) => boolean;
   },
 ) {
-  const { backroom, games, assets, questionDecks, privateGames } = opts;
+  const { backroom, games, assets, questionDecks, privateGames, hasBackroom } = opts;
   const isAdmin = opts.isAdmin ?? (() => false);
 
   app.get('/api/backroom/status', (req) => ({
     open: backroom.isOpen(),
-    unlocked: requestUnlocked(req, backroom),
+    unlocked: hasBackroom(req),
+    ...(isAdmin(req) && { admin: true }),
   }));
 
   app.post(
@@ -94,7 +86,7 @@ export function backroomRoutes(
   /** Only an unlocked player (or the admin) asking about a real private game gets past this. */
   const privateGame = (req: FastifyRequest, reply: FastifyReply, gameId: string) => {
     const game = games.get(gameId);
-    if (!(requestUnlocked(req, backroom) || isAdmin(req)) || game?.access !== 'private') {
+    if (!hasBackroom(req) || game?.access !== 'private') {
       void error(reply, 404, 'not-found', 'Not found.');
       return null;
     }
@@ -126,10 +118,10 @@ export function backroomRoutes(
 
   // The question decks a private trivia game offers: enabled decks tagged for it, as summaries
   // only (never questions, answers or decoys). Deck names are protected content too, so this
-  // answers only unlocked players asking about a private game that uses question decks.
+  // answers only unlocked players (and the admin) asking about a private game that uses decks.
   app.get<{ Params: { gameId: string } }>('/api/backroom/question-decks/:gameId', (req, reply) => {
     const game = games.get(req.params.gameId);
-    if (!requestUnlocked(req, backroom) || game?.access !== 'private' || !game.usesQuestionDecks)
+    if (!hasBackroom(req) || game?.access !== 'private' || !game.usesQuestionDecks)
       return error(reply, 404, 'not-found', 'Not found.');
     void reply.header('cache-control', 'private, no-store');
     return questionDecks.listEnabled(game.id).map(publicDeck);

@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { GameCard } from '../components/GameCard.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
-import { useBackroom } from '../lib/backroom.ts';
+import { doorOf, useBackroom } from '../lib/backroom.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -23,7 +23,7 @@ function usePrivateGames(unlocked: boolean) {
   return games;
 }
 
-function Lobby({ onLock }: { onLock: () => void }) {
+function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean }) {
   const games = usePrivateGames(true);
   const [name, setName] = useState(savedName);
   const { creating, create } = useCreateRoom(name, () =>
@@ -73,13 +73,19 @@ function Lobby({ onLock }: { onLock: () => void }) {
         )}
       </section>
       <div className="flex flex-col items-center gap-2">
-        <button
-          type="button"
-          onClick={onLock}
-          className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold text-ink-muted transition hover:bg-accent-soft hover:text-accent-text dark:text-amber-200/60 dark:hover:bg-amber-950 dark:hover:text-amber-200"
-        >
-          Lock the door on this device
-        </button>
+        {admin ? (
+          <p className="text-sm text-ink-muted dark:text-amber-200/60" data-testid="admin-key">
+            You're signed in as the admin, so the door is always open to you.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={onLock}
+            className="min-h-11 rounded-lg px-3 py-1.5 text-sm font-semibold text-ink-muted transition hover:bg-accent-soft hover:text-accent-text dark:text-amber-200/60 dark:hover:bg-amber-950 dark:hover:text-amber-200"
+          >
+            Lock the door on this device
+          </button>
+        )}
         <Link
           to="/"
           className="inline-flex min-h-11 items-center text-sm text-ink-muted hover:text-accent-text dark:text-amber-200/50 dark:hover:text-amber-200"
@@ -151,7 +157,8 @@ export function BackroomPage() {
     }
   };
 
-  if (status?.unlocked) {
+  const door = doorOf(status);
+  if (door === 'member' || door === 'admin') {
     return (
       <div
         className={cn(
@@ -160,7 +167,7 @@ export function BackroomPage() {
           '[background-image:radial-gradient(ellipse_at_top,rgb(180_110_40/0.2),transparent_65%)] dark:[background-image:radial-gradient(ellipse_at_top,rgb(120_53_15/0.35),transparent_65%)]',
         )}
       >
-        <Lobby onLock={() => void lock()} />
+        <Lobby onLock={() => void lock()} admin={door === 'admin'} />
       </div>
     );
   }

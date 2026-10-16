@@ -33,7 +33,7 @@ export async function bareRealtime(opts: RealtimeOptions = {}) {
     logger: { warn: () => {}, error: () => {} },
   });
   const server = createServer();
-  const gate = { isPrivateRoom: () => false, isUnlocked: () => false };
+  const gate = { isPrivateRoom: () => false, hasBackroom: () => false };
   holder.io = attachRealtime(server, rooms, Fastify({ logger: false }).log, gate, opts);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address();
