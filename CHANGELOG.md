@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.1...v0.39.2) (2026-10-16)
+
+
+### Bug Fixes
+
+* **ui:** give the drawer's name field its full height, keep Done in view under a refused colour and make drawer headers opaque ([#253](https://github.com/thurahtetaung/virtual-tavern/issues/253)) ([0c56c76](https://github.com/thurahtetaung/virtual-tavern/commit/0c56c7640744f68aba645ad30b756b20de59f010))
+
 ## [0.39.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.0...v0.39.1) (2026-10-16)
 
 
