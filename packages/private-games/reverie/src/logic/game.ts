@@ -718,8 +718,6 @@ export const reverie: GameDefinition<ReverieState, ReverieAction, ReverieView> =
   view,
   nextDeadline,
   onDeadline,
-  // Between turns: the reveal waits for the host's next turn.
-  canRecolor: (state) => state.phase === 'playing' && state.turn?.phase === 'reveal',
   insights,
   awards: reverieAwards,
   bot: reverieBot,

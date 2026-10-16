@@ -233,7 +233,7 @@ function Seats({
   online: (id: string) => boolean;
   act: Act;
   hostId: string;
-  /** Opens the room's colour picker (only while colours may change): your own seat does this. */
+  /** Opens the room's colour picker: your own seat does this. */
   pickColor?: () => void;
 }) {
   const me = view.me;

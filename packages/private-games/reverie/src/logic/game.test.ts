@@ -57,14 +57,6 @@ describe('lobby', () => {
     expect(recoloured.turn).toEqual(h.state.turn);
   });
 
-  it('lets colours change between turns only', () => {
-    const h = startedGame();
-    expect(reverie.canRecolor!(h.state)).toBe(false);
-    expect(reverie.canRecolor!({ ...h.state, turn: { ...h.state.turn!, phase: 'reveal' } })).toBe(
-      true,
-    );
-  });
-
   it('needs three to eight seated players and enough cards', () => {
     const h = harness(['a', 'b']);
     expect(h.reject({ type: 'start' }, 'a')).toBe('not-host');

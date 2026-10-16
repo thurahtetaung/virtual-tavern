@@ -481,8 +481,6 @@ function Room({
   );
   const [colorOpen, setColorOpen] = useState(false);
   const recolor = useCallback((color: PlayerColor) => call('room:recolor', color), [call]);
-  // A game's own "pick a colour" (Reverie's seat) only works while colours may change.
-  const colorsOpen = snapshot?.meta?.colors ?? snapshot?.meta?.phase !== 'playing';
   const openColor = useCallback(() => setColorOpen(true), []);
 
   // Where "back" goes: back-room players return to the back room, not the public tavern.
@@ -650,7 +648,7 @@ function Room({
                   setYourMove={setYourMove}
                   setSpectator={setSpectator}
                   setAbandon={setAbandon}
-                  {...(colorsOpen && { pickColor: openColor })}
+                  pickColor={openColor}
                 />
               </SuperlativesNote.Provider>
             </PlayerColors.Provider>

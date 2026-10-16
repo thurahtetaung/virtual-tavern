@@ -248,42 +248,17 @@ describe('RoomManager', () => {
       expect(colors(a)).toEqual(['teal']);
     });
 
-    it('only changes colours between games in a game without rounds', () => {
+    it('changes colours mid-game too', () => {
       const id = seatedGame();
       expect(rooms.act(id, 'h', { type: 'start' })).toEqual({ ok: true });
       const before = rooms.snapshot(id, 'h')!.players.map((p) => p.color);
       const free = PLAYER_COLORS.find((c) => !before.includes(c))!;
-      expect(rooms.recolor(id, 'h', free)).toEqual({
-        ok: false,
-        error: { code: 'game-running', message: 'Colours can only be changed between rounds.' },
-      });
-      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.color)).toEqual(before);
-    });
-
-    it('changes colours mid-game only when the game says it is between rounds', () => {
-      type S = { due: null; phase: string; between: boolean };
-      const stub = stubGame({
-        create: () => ({ due: null, phase: 'lobby', between: false }),
-        reduce: (s: S, a: { type: string }) =>
-          a.type === 'start'
-            ? { ...s, phase: 'playing' }
-            : a.type === 'round-over'
-              ? { ...s, between: true }
-              : s,
-        canRecolor: (s: S) => s.between,
-      });
-      rooms.close();
-      rooms = manager({ games: new Map([[stub.id, stub]]) });
-      const id = rooms.create(stub.id, 'p0');
-      rooms.join(id, 'p0', 'Ana');
-      const open = () => rooms.snapshot(id, 'p0')!.meta!.colors;
-      expect(open()).toBe(true);
-      rooms.act(id, 'p0', { type: 'start' });
-      expect(open()).toBe(false);
-      expect(rooms.recolor(id, 'p0', 'lime')).toMatchObject({ error: { code: 'game-running' } });
-      rooms.act(id, 'p0', { type: 'round-over' });
-      expect(open()).toBe(true);
-      expect(rooms.recolor(id, 'p0', 'lime')).toEqual({ ok: true });
+      expect(rooms.recolor(id, 'h', free)).toEqual({ ok: true });
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.color)).toEqual([
+        free,
+        ...before.slice(1),
+      ]);
+      expect(rooms.recolor(id, 'a', free)).toMatchObject({ error: { code: 'color-taken' } });
     });
 
     it("makes Reverie's seat colour the player's colour", () => {

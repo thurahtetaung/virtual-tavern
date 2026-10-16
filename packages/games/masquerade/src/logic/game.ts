@@ -619,8 +619,6 @@ export function defineMasquerade(
     playerLeft,
     view,
     nextDeadline,
-    // A round's reveal waits for the host's next round.
-    canRecolor: (state) => state.phase === 'playing' && state.round?.stage === 'reveal',
     onDeadline,
     insights: insightsFor(config.locationName ?? ((id) => id)),
     awards: masqueradeAwards,

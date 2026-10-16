@@ -910,8 +910,6 @@ export const royalPost: GameDefinition<RoyalPostState, RoyalPostAction, RoyalPos
   playerLeft,
   view,
   nextDeadline,
-  // A round's result waits for the host's next round.
-  canRecolor: (state) => state.phase === 'playing' && state.round?.stage === 'over',
   onDeadline,
   insights,
   awards: royalPostAwards,

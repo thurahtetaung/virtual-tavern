@@ -130,9 +130,16 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     await host.screenshot({ path: 'test-results/shots/reverie-seat-colours.png' });
 
   await host.getByRole('button', { name: 'Start game' }).click();
-  // Colours change between games only: in play Ana's seat is just her name.
+  // Colours change mid-game too: Ana's seat still opens the picker in play.
   await expect(host.getByText('Turn 1')).toBeVisible();
-  await expect(ana!.getByRole('button', { name: 'Ana (you): change your colour' })).toHaveCount(0);
+  const anaInPlay = await seatDot(host, 'Ana').getAttribute('data-color');
+  await ana!.getByRole('button', { name: 'Ana (you): change your colour' }).click();
+  await picker
+    .getByRole('radio', { checked: false, name: /^[a-z ]+$/ })
+    .first()
+    .click();
+  await expect(picker).toBeHidden();
+  await expect(seatDot(host, 'Ana')).not.toHaveAttribute('data-color', anaInPlay!);
 
   for (let round = 1; round <= 2; round++) {
     await expect(host.getByText(`Turn ${round}`)).toBeVisible();

@@ -301,15 +301,13 @@ export class RoomManager {
   }
 
   /**
-   * Changes a player's colour, only while no game is in play (the lobby or the end screen) or the
-   * game is between rounds (`canRecolor`); one that someone else here has is refused, as names are.
+   * Changes a player's colour, at any time, mid-game too; one that someone else here has is refused,
+   * as names are.
    */
   recolor(roomId: string, playerId: string, color: PlayerColor): Ack {
     const room = this.load(roomId);
     const me = room?.record.players.find((p) => p.id === playerId);
     if (!room || !me) return fail('not-in-room', 'Join first.');
-    if (!this.meta(room).colors)
-      return fail('game-running', 'Colours can only be changed between rounds.');
     if (me.color === color) return OK;
     const holder = room.record.players.find((p) => p.id !== playerId && p.color === color);
     if (holder) {
@@ -437,7 +435,6 @@ export class RoomManager {
     return {
       phase: coarse,
       gameNo: typeof gameNo === 'number' ? gameNo : 0,
-      colors: coarse !== 'playing' || room.game.canRecolor?.(room.record.state) === true,
       ...this.deps.recapMeta(room.record.id),
       // A playtest records no night, so it has no recap to show.
       ...(playtest && {

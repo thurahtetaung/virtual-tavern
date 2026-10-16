@@ -77,9 +77,6 @@ export interface GameUiProps<View, Action> {
    * there is nothing to abandon. Use `useAbandonGame` from `@vt/ui`.
    */
   setAbandon?: (abandon: AbandonGame | null) => void;
-  /**
-   * Opens the room's colour picker for the viewer (Reverie's own seat does this). Only given while
-   * colours may change (no game in play, or between rounds).
-   */
+  /** Opens the room's colour picker for the viewer (Reverie's own seat does this). */
   pickColor?: () => void;
 }

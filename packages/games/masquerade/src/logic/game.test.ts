@@ -518,12 +518,12 @@ describe('round 2 rule fixes', () => {
 });
 
 describe('player colours', () => {
-  it('may change between rounds only, never while the table talks or votes', () => {
+  it('may change mid-vote without touching the round', () => {
     const h = startedGame();
-    expect(masquerade.canRecolor!(h.state)).toBe(false);
     rig(h, { stage: 'vote' });
-    expect(masquerade.canRecolor!(h.state)).toBe(false);
-    rig(h, { stage: 'reveal' });
-    expect(masquerade.canRecolor!(h.state)).toBe(true);
+    const name = h.state.seats.cy!.name;
+    const after = masquerade.playerJoined(h.state, { id: 'cy', name, color: 'lime' });
+    expect(after.round).toEqual(h.state.round);
+    expect(after.seats.cy).toEqual(h.state.seats.cy);
   });
 });
