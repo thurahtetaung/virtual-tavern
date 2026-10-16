@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.38.0...v0.38.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **backroom:** say an admin signed out, not that the word changed, when the room turns them away ([#247](https://github.com/thurahtetaung/virtual-tavern/issues/247)) ([c255aac](https://github.com/thurahtetaung/virtual-tavern/commit/c255aacb5c493f16b587f7ffadf958d748680c87))
+
 ## [0.38.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.24...v0.38.0) (2026-10-16)
 
 
