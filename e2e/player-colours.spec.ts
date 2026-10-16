@@ -99,8 +99,23 @@ test('on a small phone the refusal shows in view, and the drawer says "offline" 
   await openPlayers(ana);
   const drawer = drawerOf(ana);
   await drawer.getByRole('button', { name: 'Change name or colour' }).click();
+  // The name field keeps its full touch height in the column layout.
+  const field = drawer.getByRole('textbox', { name: 'Your name' });
+  await expect.poll(async () => (await field.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await drawer.getByRole('radio', { name: /taken by Hana$/ }).click();
   await expect(drawer.getByRole('alert')).toBeInViewport({ ratio: 1 });
+  // Done stays reachable under the refusal, and doesn't cover it.
+  const done = drawer.getByRole('button', { name: 'Done', exact: true });
+  await expect(done).toBeInViewport({ ratio: 1 });
+  await expect
+    .poll(async () => {
+      const [alert, button] = await Promise.all([
+        drawer.getByRole('alert').boundingBox(),
+        done.boundingBox(),
+      ]);
+      return alert && button ? alert.y + alert.height <= button.y : false;
+    })
+    .toBe(true);
   if (process.env.SCREENSHOTS)
     await ana.screenshot({ path: 'test-results/shots/players-colour-refused-360.png' });
 

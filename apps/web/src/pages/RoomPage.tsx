@@ -1083,14 +1083,17 @@ function People({
               </p>
             )}
             <ColorChoice snapshot={snapshot} recolor={recolor} />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="min-h-11"
-              onClick={() => setRenaming(false)}
-            >
-              Done
-            </Button>
+            {/* Sticky, so Done stays reachable under a refusal on a small phone. */}
+            <div className="sticky bottom-0 -mx-4 border-t border-stone-200 bg-stone-50 px-4 py-2 dark:border-stone-800 dark:bg-stone-900">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="min-h-11"
+                onClick={() => setRenaming(false)}
+              >
+                Done
+              </Button>
+            </div>
           </>
         ) : (
           <div className="flex flex-wrap gap-2">

@@ -204,7 +204,7 @@ export function GuideView({
         aria-label="Guide"
         className={cn(
           'sticky z-10 -mx-1 mb-4 flex gap-1 border-b border-line bg-page/95 px-1 py-1.5 backdrop-blur',
-          compact ? 'top-[52px] bg-stone-50/95 dark:bg-stone-900/95' : 'top-0',
+          compact ? 'top-[52px] bg-stone-50 dark:bg-stone-900' : 'top-0',
         )}
       >
         {tabs.map(([key, label]) => (
