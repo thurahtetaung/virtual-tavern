@@ -516,3 +516,14 @@ describe('round 2 rule fixes', () => {
     expect(view.played).not.toContain(round(h).location);
   });
 });
+
+describe('player colours', () => {
+  it('may change between rounds only, never while the table talks or votes', () => {
+    const h = startedGame();
+    expect(masquerade.canRecolor!(h.state)).toBe(false);
+    rig(h, { stage: 'vote' });
+    expect(masquerade.canRecolor!(h.state)).toBe(false);
+    rig(h, { stage: 'reveal' });
+    expect(masquerade.canRecolor!(h.state)).toBe(true);
+  });
+});

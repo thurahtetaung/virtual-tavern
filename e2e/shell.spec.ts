@@ -167,7 +167,7 @@ test('a room code typed with spaces joins the room, and a taken name gets a numb
   await friend.getByRole('button', { name: /^Players/ }).click();
   const drawer = friend.getByRole('dialog', { name: 'Players' });
   await expect(drawer.getByText('Kim 2', { exact: true })).toBeVisible();
-  await drawer.getByRole('button', { name: 'Change my name' }).click();
+  await drawer.getByRole('button', { name: 'Change name or colour' }).click();
   await drawer.getByRole('textbox').fill('kim');
   await drawer.getByRole('button', { name: 'Save' }).click();
   await expect(drawer.getByRole('alert')).toHaveText(

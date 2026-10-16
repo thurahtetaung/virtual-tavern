@@ -1,6 +1,15 @@
 import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
-import type { Ack, PlaytestStatus, RecapTone, RoomMeta, RoomSnapshot } from '@vt/protocol';
+import {
+  type Ack,
+  PLAYER_COLOR_NAMES,
+  type PlayerColor,
+  type PlaytestStatus,
+  type RecapTone,
+  type RoomMeta,
+  type RoomSnapshot,
+} from '@vt/protocol';
 import { randomBytes } from 'node:crypto';
+import { freeColor } from './colors.ts';
 import { newRoomId, playerIdFromToken, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
 import type { PlaytestRecord, RoomRecord, RoomStore } from './store.ts';
@@ -238,9 +247,16 @@ export class RoomManager {
     if (!existing && record.players.length >= capacity) {
       return fail('room-full', 'This room is full.');
     }
+    // A newcomer gets a random colour nobody here has (theirs to change with `recolor`).
+    const color =
+      existing?.color ??
+      freeColor(
+        record.players.map((p) => p.color),
+        (n) => createRng(this.deps.seed()).int(n),
+      );
     const players = existing
       ? record.players.map((p) => (p.id === playerId ? { ...p, name } : p))
-      : [...record.players, { id: playerId, name }];
+      : [...record.players, { id: playerId, name, color }];
     // A room whose creator never joined has no host among its members: the first joiner takes over.
     const hostId = players.some((p) => p.id === record.hostId) ? record.hostId : playerId;
     const unchanged = existing?.name === name && hostId === record.hostId;
@@ -255,7 +271,7 @@ export class RoomManager {
         {
           players,
           hostId,
-          state: room.game.playerJoined(record.state, { id: playerId, name }),
+          state: room.game.playerJoined(record.state, { id: playerId, name, color }),
         },
         0,
         existing?.name === name
@@ -282,6 +298,33 @@ export class RoomManager {
       );
     }
     return this.join(roomId, playerId, name);
+  }
+
+  /**
+   * Changes a player's colour, only while no game is in play (the lobby or the end screen) or the
+   * game is between rounds (`canRecolor`); one that someone else here has is refused, as names are.
+   */
+  recolor(roomId: string, playerId: string, color: PlayerColor): Ack {
+    const room = this.load(roomId);
+    const me = room?.record.players.find((p) => p.id === playerId);
+    if (!room || !me) return fail('not-in-room', 'Join first.');
+    if (!this.meta(room).colors)
+      return fail('game-running', 'Colours can only be changed between rounds.');
+    if (me.color === color) return OK;
+    const holder = room.record.players.find((p) => p.id !== playerId && p.color === color);
+    if (holder) {
+      return fail(
+        'color-taken',
+        `${holder.name} is already ${PLAYER_COLOR_NAMES[color]}. Pick another colour.`,
+      );
+    }
+    const players = room.record.players.map((p) => (p.id === playerId ? { ...p, color } : p));
+    // Not a stats event: the recap and stats name players by id, never by colour.
+    this.commit(room, {
+      players,
+      state: room.game.playerJoined(room.record.state, { id: playerId, name: me.name, color }),
+    });
+    return OK;
   }
 
   leave(roomId: string, playerId: string): Ack {
@@ -390,9 +433,11 @@ export class RoomManager {
     const phase = state?.phase;
     const gameNo = state?.gamesPlayed;
     const { playtest } = room.record;
+    const coarse = phase === 'playing' || phase === 'over' ? phase : 'lobby';
     return {
-      phase: phase === 'playing' || phase === 'over' ? phase : 'lobby',
+      phase: coarse,
       gameNo: typeof gameNo === 'number' ? gameNo : 0,
+      colors: coarse !== 'playing' || room.game.canRecolor?.(room.record.state) === true,
       ...this.deps.recapMeta(room.record.id),
       // A playtest records no night, so it has no recap to show.
       ...(playtest && {

@@ -888,6 +888,8 @@ export const hoodwink: GameDefinition<HoodwinkState, HoodwinkAction, HoodwinkVie
   playerLeft,
   view,
   nextDeadline,
+  // A round's results wait for the host's next round.
+  canRecolor: (state) => state.phase === 'playing' && state.round?.stage === 'reveal',
   onDeadline,
   insights,
   awards: hoodwinkAwards,

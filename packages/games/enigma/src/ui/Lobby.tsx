@@ -47,13 +47,6 @@ export function PlayerName({
   const seat = view.seats.find((s) => s.id === id);
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden
-        className={cn(
-          'size-2 rounded-full',
-          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
-        )}
-      />
       <PlayerTag
         name={seat?.name ?? '?'}
         host={id === hostId}

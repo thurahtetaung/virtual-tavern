@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import type { PlayerColor } from '@vt/protocol';
 import type { PlaytestRecord } from '../rooms/store.ts';
 
 export const wordLists = sqliteTable('word_lists', {
@@ -70,7 +71,9 @@ export const rooms = sqliteTable('rooms', {
   id: text('id').primaryKey(),
   gameId: text('game_id').notNull(),
   hostId: text('host_id').notNull(),
-  players: text('players', { mode: 'json' }).$type<{ id: string; name: string }[]>().notNull(),
+  players: text('players', { mode: 'json' })
+    .$type<{ id: string; name: string; color?: PlayerColor }[]>()
+    .notNull(),
   state: text('state', { mode: 'json' }).$type<unknown>().notNull(),
   /** Incremented on every write; guards against lost updates if rooms are ever spread over processes. */
   version: integer('version').notNull(),

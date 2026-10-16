@@ -1074,6 +1074,8 @@ export const enigma: GameDefinition<EnigmaState, EnigmaAction, EnigmaView> = {
   playerLeft,
   view,
   nextDeadline,
+  // A team's results wait for the host's next round.
+  canRecolor: (state) => state.phase === 'playing' && state.stage === 'reveal',
   onDeadline,
   insights,
   awards: enigmaAwards,

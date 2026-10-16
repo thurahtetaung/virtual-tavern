@@ -1,14 +1,15 @@
 import { and, eq, isNotNull, lt, notInArray } from 'drizzle-orm';
-import type { PlaytestSpeed } from '@vt/protocol';
+import type { PlayerColor, PlaytestSpeed } from '@vt/protocol';
 import type { Db } from '../db/index.ts';
 import { rooms } from '../db/schema.ts';
+import { withColors } from './colors.ts';
 
 export interface RoomRecord {
   id: string;
   gameId: string;
   hostId: string;
   /** Join order. */
-  players: { id: string; name: string }[];
+  players: { id: string; name: string; color: PlayerColor }[];
   state: unknown;
   version: number;
   createdAt: number;
@@ -58,7 +59,9 @@ export class SqliteRoomStore implements RoomStore {
   }
 
   get(id: string): RoomRecord | null {
-    return this.db.select().from(rooms).where(eq(rooms.id, id)).get() ?? null;
+    const row = this.db.select().from(rooms).where(eq(rooms.id, id)).get();
+    // Rooms saved before players had colours get them here; the next change saves them.
+    return row ? { ...row, players: withColors(row.players) } : null;
   }
 
   insert(room: RoomRecord): void {

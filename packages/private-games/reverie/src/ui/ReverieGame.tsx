@@ -6,6 +6,7 @@ import {
   Hint,
   Modal,
   Panel,
+  PlayerDot,
   PlayerTag,
   RefusalSlot,
   Standings,
@@ -25,7 +26,6 @@ import {
   MAX_CLUE_LENGTH,
   type ReverieAction,
   type ReverieView,
-  type SeatColor,
   TARGET_SCORES,
   cardsIn,
 } from '../logic/types.ts';
@@ -52,17 +52,6 @@ const TELL_ANCHOR = 'reverie-tell';
 const seatsOpen = (view: ReverieView) =>
   view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
 
-const COLOR_DOT: Record<SeatColor, string> = {
-  red: 'bg-danger dark:bg-red-500',
-  blue: 'bg-info dark:bg-blue-500',
-  green: 'bg-success dark:bg-emerald-500',
-  yellow: 'bg-warn-line dark:bg-yellow-400',
-  purple: 'bg-special dark:bg-purple-500',
-  orange: 'bg-warn dark:bg-orange-500',
-  pink: 'bg-danger-line dark:bg-pink-400',
-  teal: 'bg-success dark:bg-teal-500',
-};
-
 /** A set description that only lists card numbers ("Cards 000–084") means nothing to players. */
 const plainDescription = (d: string | undefined) =>
   d && !/^cards?\s*#?\d+\s*[–—-]\s*#?\d+\.?$/i.test(d.trim()) ? d : undefined;
@@ -78,6 +67,7 @@ export function ReverieGame({
   setYourMove,
   setSpectator,
   setAbandon,
+  pickColor,
 }: ReverieUiProps) {
   const manifest = useManifest();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
@@ -128,7 +118,7 @@ export function ReverieGame({
     return (
       <div className="space-y-4">
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        <Seats view={view} online={online} act={act} hostId={room.hostId} />
+        <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
         <LobbySettings
           editable={room.isHost}
           summary={[
@@ -227,6 +217,7 @@ export function ReverieGame({
       act={act}
       status={status}
       online={online}
+      pickColor={pickColor}
     />
   );
 }
@@ -236,13 +227,38 @@ function Seats({
   online,
   act,
   hostId,
+  pickColor,
 }: {
   view: ReverieView;
   online: (id: string) => boolean;
   act: Act;
   hostId: string;
+  /** Opens the room's colour picker (only while colours may change): your own seat does this. */
+  pickColor?: () => void;
 }) {
   const me = view.me;
+  const recolor = pickColor;
+  const tag = (s: (typeof view.seats)[number]) => {
+    const name = (
+      <PlayerTag
+        name={s.name}
+        host={s.id === hostId}
+        you={s.id === me?.id}
+        offline={!online(s.id)}
+      />
+    );
+    if (s.id !== me?.id || !recolor) return name;
+    return (
+      <button
+        type="button"
+        onClick={recolor}
+        aria-label={`${s.name} (you): change your colour`}
+        className="-mx-1 inline-flex min-h-11 items-center rounded-lg px-1 hover:bg-card focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        {name}
+      </button>
+    );
+  };
   const playing = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
   const canChange = seatsOpen(view);
@@ -263,28 +279,21 @@ function Seats({
       <h3 className="font-bold">Players ({playing.length}/8)</h3>
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {playing.map((s) => (
-          <li key={s.id} className="inline-flex items-center gap-1.5">
-            <span aria-hidden className={cn('size-2.5 rounded-full', COLOR_DOT[s.color])} />
-            <PlayerTag
-              name={s.name}
-              host={s.id === hostId}
-              you={s.id === me?.id}
-              offline={!online(s.id)}
-            />
+          <li key={s.id} className="inline-flex items-center">
+            {tag(s)}
           </li>
         ))}
         {playing.length === 0 && <li className="text-ink-muted italic">Nobody seated yet</li>}
       </ul>
+      {me && recolor && (
+        <p className="text-xs text-ink-muted">Tap your name to change your colour.</p>
+      )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
         <span className="font-semibold">Watching:</span>
         {watching.map((s) => (
-          <PlayerTag
-            key={s.id}
-            name={s.name}
-            host={s.id === hostId}
-            you={s.id === me?.id}
-            offline={!online(s.id)}
-          />
+          <span key={s.id} className="inline-flex">
+            {tag(s)}
+          </span>
         ))}
         {watching.length === 0 && <span className="italic">nobody</span>}
       </div>
@@ -349,7 +358,7 @@ function Scoreboard({ view, clockOffset }: { view: ReverieView; clockOffset: num
               )}
               title={story ? 'Storyteller' : s.done ? 'Done' : 'Still deciding'}
             >
-              <span aria-hidden className={cn('size-2.5 rounded-full', COLOR_DOT[s.color])} />
+              <PlayerDot color={s.color} label={false} />
               <span className="max-w-24 truncate font-medium">{s.name}</span>
               {story && (
                 <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
@@ -428,12 +437,14 @@ function Play({
   act,
   status,
   online,
+  pickColor,
 }: {
   view: ReverieView;
   room: ReverieUiProps['room'];
   act: Act;
   status: ReturnType<typeof statusFor>;
   online: (id: string) => boolean;
+  pickColor?: () => void;
 }) {
   const turn = view.turn;
   const me = view.me;
@@ -823,7 +834,7 @@ function Play({
         </section>
       )}
 
-      <Seats view={view} online={online} act={act} hostId={room.hostId} />
+      <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
       <CardViewer
         card={viewing?.card ?? null}
         title={
