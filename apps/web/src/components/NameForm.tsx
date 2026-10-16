@@ -29,7 +29,7 @@ export function NameForm({
         onChange={(e) => setName(e.target.value)}
         placeholder="Your name"
         autoComplete="nickname"
-        className="h-12 flex-1 rounded-lg bg-white px-4 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
+        className="h-12 min-w-0 rounded-lg sm:flex-1 bg-white px-4 text-lg ring-1 ring-stone-300 dark:bg-stone-800 dark:ring-stone-600"
       />
       <Button type="submit" size="lg" disabled={!name.trim()}>
         {submitLabel}

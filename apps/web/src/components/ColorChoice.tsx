@@ -22,7 +22,7 @@ export function ColorChoice({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // The picker sits at the foot of the Players drawer: on a phone the refusal under it would land
-  // below the fold, so bring it into view.
+  // below the fold, so bring it into view (its scroll margin clears the sticky Done bar).
   const alertRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (error) alertRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
@@ -34,7 +34,11 @@ export function ColorChoice({
     snapshot.players.filter((p) => p.id !== snapshot.you).map((p) => [p.color, p.name] as const),
   );
   const pick = async (color: PlayerColor) => {
-    if (color === me?.color) return;
+    // Your own colour changes nothing, but dismisses a refusal.
+    if (color === me?.color) {
+      setError(null);
+      return;
+    }
     setBusy(true);
     const res = await recolor(color);
     setBusy(false);
@@ -54,7 +58,7 @@ export function ColorChoice({
         <p
           ref={alertRef}
           role="alert"
-          className="text-sm font-medium text-danger-ink dark:text-rose-300"
+          className="scroll-mb-20 text-sm font-medium text-danger-ink dark:text-rose-300"
         >
           {error}
         </p>
