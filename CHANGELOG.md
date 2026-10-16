@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.24](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.23...v0.37.24) (2026-10-16)
+
+
+### Bug Fixes
+
+* **stats:** show – for an average with nothing to average, and name back-room games on player profiles ([#243](https://github.com/thurahtetaung/virtual-tavern/issues/243)) ([3aff452](https://github.com/thurahtetaung/virtual-tavern/commit/3aff452741e10e074b79246324cbe56943febb41))
+
 ## [0.37.23](https://github.com/thurahtetaung/virtual-tavern/compare/v0.37.22...v0.37.23) (2026-10-16)
 
 
