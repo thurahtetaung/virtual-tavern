@@ -7,6 +7,7 @@ import {
   type RecapLine,
   type ServerToClientEvents,
   joinRoomPayload,
+  playerColor,
   playerName,
 } from '@vt/protocol';
 import type { FastifyBaseLogger } from 'fastify';
@@ -405,6 +406,18 @@ export function attachRealtime(
             };
           }
           return rooms.rename(roomId, playerId, parsed.data);
+        }),
+      ),
+    );
+
+    socket.on('room:recolor', (color, ack) =>
+      guarded(
+        ack,
+        inRoom((roomId, playerId) => {
+          const parsed = playerColor.safeParse(color);
+          if (!parsed.success)
+            return { ok: false, error: { code: 'bad-color', message: 'Pick one of the colours.' } };
+          return rooms.recolor(roomId, playerId, parsed.data);
         }),
       ),
     );

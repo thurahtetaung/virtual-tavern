@@ -45,7 +45,24 @@ describe('lobby', () => {
     const playing = Object.values(h.state.seats).filter((s) => s.playing);
     expect(playing).toHaveLength(8);
     expect(h.state.seats.i?.playing).toBe(false);
-    expect(new Set(Object.values(h.state.seats).map((s) => s.color)).size).toBe(8);
+    expect(new Set(Object.values(h.state.seats).map((s) => s.color)).size).toBe(9);
+  });
+
+  it("takes each seat's colour from the player's room colour", () => {
+    const h = startedGame();
+    const joined = reverie.playerJoined(h.state, { id: 'zed', name: 'Zed', color: 'lime' });
+    expect(joined.seats.zed?.color).toBe('lime');
+    const recoloured = reverie.playerJoined(joined, { id: HOST, name: 'Host', color: 'brown' });
+    expect(recoloured.seats[HOST]).toMatchObject({ color: 'brown', name: 'Host' });
+    expect(recoloured.turn).toEqual(h.state.turn);
+  });
+
+  it('lets colours change between turns only', () => {
+    const h = startedGame();
+    expect(reverie.canRecolor!(h.state)).toBe(false);
+    expect(reverie.canRecolor!({ ...h.state, turn: { ...h.state.turn!, phase: 'reveal' } })).toBe(
+      true,
+    );
   });
 
   it('needs three to eight seated players and enough cards', () => {

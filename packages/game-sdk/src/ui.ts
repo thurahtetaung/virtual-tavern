@@ -1,3 +1,4 @@
+import type { PlayerColor } from './colors.ts';
 import type { WordListSummary } from './types.ts';
 
 /** Room context handed to a game's UI component. Framework-agnostic so the SDK stays React-free. */
@@ -5,7 +6,8 @@ export interface GameRoomInfo {
   you: string;
   hostId: string;
   isHost: boolean;
-  players: { id: string; name: string; connected: boolean }[];
+  /** `color` is missing in tests. */
+  players: { id: string; name: string; color?: PlayerColor; connected: boolean }[];
   /** Add to Date.now() to approximate the server clock (for deadlines). */
   clockOffset: number;
   wordLists: WordListSummary[];
@@ -75,4 +77,9 @@ export interface GameUiProps<View, Action> {
    * there is nothing to abandon. Use `useAbandonGame` from `@vt/ui`.
    */
   setAbandon?: (abandon: AbandonGame | null) => void;
+  /**
+   * Opens the room's colour picker for the viewer (Reverie's own seat does this). Only given while
+   * colours may change (no game in play, or between rounds).
+   */
+  pickColor?: () => void;
 }

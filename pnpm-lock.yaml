@@ -584,6 +584,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../game-sdk
       zod:
         specifier: ^4.6.5
         version: 4.6.5

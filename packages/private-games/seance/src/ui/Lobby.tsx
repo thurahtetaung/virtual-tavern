@@ -131,6 +131,7 @@ export function Lobby({
               )}
               <PlayerTag
                 name={p.name}
+                dot={!(p.playing && p.color)}
                 host={p.id === room.hostId}
                 you={p.id === me?.id}
                 offline={!online(p.id)}

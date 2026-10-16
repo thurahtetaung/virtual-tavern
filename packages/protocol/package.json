@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@vt/game-sdk": "workspace:*",
     "zod": "^4.6.5"
   }
 }

@@ -6,12 +6,15 @@ import {
   type WordListSummary,
   setStorageSeat,
 } from '@vt/game-sdk';
-import type { LockReason, RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
+import type { Ack, LockReason, PlayerColor, RecapTone, RoomInfo, RoomSnapshot } from '@vt/protocol';
 import {
   Badge,
   Button,
+  Modal,
   Panel,
   BotNames,
+  PlayerColors,
+  PlayerDot,
   RefusalProvider,
   SuperlativesNote,
   clock,
@@ -22,6 +25,7 @@ import {
 } from '@vt/ui';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
@@ -463,6 +467,23 @@ function Room({
     .map((p) => p.name)
     .join('\n');
   const botNames = useMemo(() => new Set(botKey ? botKey.split('\n') : []), [botKey]);
+  // Every player list shows each player's colour (names are unique in a room).
+  const colorKey = snapshot?.players.map((p) => `${p.color} ${p.name}`).join('\n');
+  const playerColors = useMemo(
+    () =>
+      new Map(
+        (colorKey ? colorKey.split('\n') : []).map((line) => {
+          const at = line.indexOf(' ');
+          return [line.slice(at + 1), line.slice(0, at) as PlayerColor] as const;
+        }),
+      ),
+    [colorKey],
+  );
+  const [colorOpen, setColorOpen] = useState(false);
+  const recolor = useCallback((color: PlayerColor) => call('room:recolor', color), [call]);
+  // A game's own "pick a colour" (Reverie's seat) only works while colours may change.
+  const colorsOpen = snapshot?.meta?.colors ?? snapshot?.meta?.phase !== 'playing';
+  const openColor = useCallback(() => setColorOpen(true), []);
 
   // Where "back" goes: back-room players return to the back room, not the public tavern.
   const home = playtest
@@ -610,26 +631,29 @@ function Room({
             <GuideIntro game={game} onRules={() => showGuide()} />
           )}
           <BotNames.Provider value={botNames}>
-            <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
-              <Game
-                view={snapshot.game}
-                room={{
-                  you: snapshot.you,
-                  hostId: snapshot.hostId,
-                  isHost,
-                  players: snapshot.players,
-                  clockOffset,
-                  wordLists,
-                  gameName: game.name,
-                  ...(superlatives && { superlatives }),
-                }}
-                act={act}
-                showGuide={showGuide}
-                setYourMove={setYourMove}
-                setSpectator={setSpectator}
-                setAbandon={setAbandon}
-              />
-            </SuperlativesNote.Provider>
+            <PlayerColors.Provider value={playerColors}>
+              <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
+                <Game
+                  view={snapshot.game}
+                  room={{
+                    you: snapshot.you,
+                    hostId: snapshot.hostId,
+                    isHost,
+                    players: snapshot.players,
+                    clockOffset,
+                    wordLists,
+                    gameName: game.name,
+                    ...(superlatives && { superlatives }),
+                  }}
+                  act={act}
+                  showGuide={showGuide}
+                  setYourMove={setYourMove}
+                  setSpectator={setSpectator}
+                  setAbandon={setAbandon}
+                  {...(colorsOpen && { pickColor: openColor })}
+                />
+              </SuperlativesNote.Provider>
+            </PlayerColors.Provider>
           </BotNames.Provider>
         </Suspense>
       )}
@@ -711,6 +735,17 @@ function Room({
         </Link>
       </Drawer>
 
+      <Modal open={colorOpen} onClose={() => setColorOpen(false)} title="Your colour" size="sm">
+        {snapshot && colorOpen && (
+          <ColorChoice
+            snapshot={snapshot}
+            recolor={recolor}
+            heading={false}
+            onDone={() => setColorOpen(false)}
+          />
+        )}
+      </Modal>
+
       <Drawer open={peopleOpen} onClose={() => setPeopleOpen(false)} title="Players">
         {snapshot && (
           <People
@@ -719,6 +754,7 @@ function Room({
             clockOffset={clockOffset}
             isHost={isHost}
             call={call}
+            recolor={recolor}
             playtest={playtest}
             onWrap={canWrap ? () => void wrapUp() : undefined}
             onAbandon={
@@ -904,6 +940,7 @@ function People({
   clockOffset,
   isHost,
   call,
+  recolor,
   playtest,
   onRename,
   onLeave,
@@ -915,7 +952,8 @@ function People({
   clockOffset: number;
   isHost: boolean;
   call: ReturnType<typeof useRoom>['call'];
-  /** A playtest: no room code to share, and seats keep their names. */
+  recolor: (color: PlayerColor) => Promise<Ack>;
+  /** A playtest: no room code to share, and seats keep their names (but may change colour). */
   playtest: boolean;
   onRename: (name: string) => void;
   onLeave: () => Promise<void>;
@@ -968,14 +1006,9 @@ function People({
         {snapshot.players.map((p) => (
           <li key={p.id} className="flex items-center justify-between gap-2 py-2">
             <span className={cn('flex items-center gap-2', !p.connected && 'opacity-50')}>
-              <span
-                aria-hidden
-                className={cn(
-                  'size-2.5 rounded-full',
-                  p.connected ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
-                )}
-              />
               <span className="font-medium">{p.name}</span>
+              {/* After the name, so screen readers say "Leo, teal"; shown before it. */}
+              <PlayerDot color={p.color} className="order-first size-3" />
               {p.id === snapshot.hostId && <Badge>👑 host</Badge>}
               {p.id === snapshot.you && <Badge>you</Badge>}
               {p.bot && <Badge>🤖 bot</Badge>}
@@ -1029,38 +1062,47 @@ function People({
       <div className="space-y-2">
         {renaming ? (
           <>
-            <NameForm
-              initial={me?.name}
-              submitLabel="Save"
-              onSubmit={(n) =>
-                void call('room:rename', n).then((res) => {
-                  if (res.ok) {
-                    onRename(n);
-                    setRenaming(false);
-                    setRenameError(null);
-                  } else setRenameError(res.error.message);
-                })
-              }
-            />
+            {!playtest && (
+              <NameForm
+                initial={me?.name}
+                submitLabel="Save"
+                onSubmit={(n) =>
+                  void call('room:rename', n).then((res) => {
+                    if (res.ok) {
+                      onRename(n);
+                      setRenaming(false);
+                      setRenameError(null);
+                    } else setRenameError(res.error.message);
+                  })
+                }
+              />
+            )}
             {renameError && (
               <p role="alert" className="text-sm font-medium text-rose-700 dark:text-rose-300">
                 {renameError}
               </p>
             )}
+            <ColorChoice snapshot={snapshot} recolor={recolor} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="min-h-11"
+              onClick={() => setRenaming(false)}
+            >
+              Done
+            </Button>
           </>
         ) : (
-          <div className="flex gap-2">
-            {!playtest && (
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setRenameError(null);
-                  setRenaming(true);
-                }}
-              >
-                Change my name
-              </Button>
-            )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setRenameError(null);
+                setRenaming(true);
+              }}
+            >
+              {playtest ? 'Change my colour' : 'Change name or colour'}
+            </Button>
             <Button variant="danger" onClick={() => void onLeave()}>
               Leave room
             </Button>

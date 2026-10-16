@@ -11,6 +11,7 @@ import type {
   RoomMeta,
   RoomRecap,
 } from './recap.ts';
+import type { PlayerColor } from '@vt/game-sdk';
 
 export const MAX_NAME_LENGTH = 24;
 export const ROOM_ID_PATTERN = /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/;
@@ -25,6 +26,8 @@ export const playerName = z
 export const playerToken = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 
 export const roomId = z.string().regex(ROOM_ID_PATTERN);
+
+export { PLAYER_COLOR_NAMES, PLAYER_COLORS, type PlayerColor, playerColor } from '@vt/game-sdk';
 
 // ---- REST ----
 
@@ -115,7 +118,7 @@ export interface PlaytestStatus {
   gameId: string;
   phase: RoomMeta['phase'];
   playtest: PlaytestMeta;
-  players: { id: string; name: string; connected: boolean; bot?: true }[];
+  players: { id: string; name: string; color: PlayerColor; connected: boolean; bot?: true }[];
 }
 
 export const updatePlaytestBody = z
@@ -177,6 +180,8 @@ export interface ApiError {
 export interface RoomPlayer {
   id: string;
   name: string;
+  /** Their colour in this room: random when they join, theirs to change (`room:recolor`). */
+  color: PlayerColor;
   connected: boolean;
   /**
    * Server time the player's last connection closed, while they are away. Missing when they are
@@ -220,6 +225,8 @@ export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
 export interface ClientToServerEvents {
   'room:join': (payload: JoinRoomPayload, ack: (res: Ack) => void) => void;
   'room:rename': (name: string, ack: (res: Ack) => void) => void;
+  /** Changes the player's colour; a colour someone here already has is refused. */
+  'room:recolor': (color: PlayerColor, ack: (res: Ack) => void) => void;
   'room:leave': (ack: (res: Ack) => void) => void;
   'room:kick': (playerId: string, ack: (res: Ack) => void) => void;
   'room:make-host': (playerId: string, ack: (res: Ack) => void) => void;

@@ -1,5 +1,6 @@
 import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { AnyGameDefinition } from '@vt/game-sdk';
+import { PLAYER_COLOR_NAMES, PLAYER_COLORS, type PlayerColor } from '@vt/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { openDb } from '../db/index.ts';
@@ -167,6 +168,136 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('colours', () => {
+    const colors = (id: string) => rooms.snapshot(id, 'p0')!.players.map((p) => p.color);
+
+    it('gives every joiner a colour nobody here has, then shares the least used', () => {
+      const id = rooms.create('masquerade', 'p0');
+      for (let i = 0; i < PLAYER_COLORS.length; i++) rooms.join(id, `p${i}`, `P${i}`);
+      expect([...colors(id)].sort()).toEqual([...PLAYER_COLORS].sort());
+      rooms.join(id, 'extra', 'Extra');
+      expect(PLAYER_COLORS).toContain(colors(id).at(-1));
+    });
+
+    it('keeps a colour through a rejoin and a rename', () => {
+      const id = rooms.create('masquerade', 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      const [color] = colors(id);
+      rooms.join(id, 'p0', 'Ana');
+      rooms.rename(id, 'p0', 'Anna');
+      expect(colors(id)).toEqual([color]);
+    });
+
+    it('changes a colour, refusing one someone else has', () => {
+      const id = rooms.create('masquerade', 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      rooms.join(id, 'p1', 'Ben');
+      const [ana, ben] = colors(id) as [PlayerColor, PlayerColor];
+      const version = rooms.snapshot(id, 'p0')!;
+      expect(rooms.recolor(id, 'p1', ana)).toEqual({
+        ok: false,
+        error: {
+          code: 'color-taken',
+          message: `Ana is already ${PLAYER_COLOR_NAMES[ana]}. Pick another colour.`,
+        },
+      });
+      expect(rooms.snapshot(id, 'p0')).toEqual(version);
+      expect(rooms.recolor(id, 'p1', ben)).toEqual({ ok: true });
+      const free = PLAYER_COLORS.find((c) => c !== ana && c !== ben)!;
+      expect(rooms.recolor(id, 'p1', free)).toEqual({ ok: true });
+      expect(colors(id)).toEqual([ana, free]);
+      expect(rooms.recolor(id, 'nobody', free)).toMatchObject({ error: { code: 'not-in-room' } });
+    });
+
+    it('keeps colours over a restart and colours rooms saved without them', () => {
+      const id = rooms.create('masquerade', 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      rooms.join(id, 'p1', 'Ben');
+      const free = PLAYER_COLORS.find((c) => c !== colors(id)[0])!;
+      expect(rooms.recolor(id, 'p1', free)).toEqual({ ok: true });
+      rooms.close();
+      rooms = manager();
+      expect(colors(id)[1]).toBe(free);
+
+      const old = rooms.create('masquerade', 'p0');
+      rooms.close();
+      const store = new SqliteRoomStore(db);
+      const record = store.get(old)!;
+      store.update({
+        ...record,
+        version: record.version + 1,
+        // As saved before rooms had colours.
+        players: [
+          { id: 'p0', name: 'Ana' },
+          { id: 'p1', name: 'Ben' },
+        ] as typeof record.players,
+      });
+      rooms = manager();
+      expect(colors(old)).toEqual(['red', 'blue']);
+    });
+
+    it('starts every room afresh', () => {
+      const a = rooms.create('masquerade', 'p0');
+      rooms.join(a, 'p0', 'Ana');
+      rooms.recolor(a, 'p0', 'teal');
+      const b = rooms.create('masquerade', 'p1');
+      rooms.join(b, 'p1', 'Ben');
+      rooms.recolor(b, 'p1', 'teal');
+      rooms.join(b, 'p0', 'Ana');
+      expect(rooms.snapshot(b, 'p0')!.players.map((p) => p.color)[1]).not.toBe('teal');
+      expect(colors(a)).toEqual(['teal']);
+    });
+
+    it('only changes colours between games in a game without rounds', () => {
+      const id = seatedGame();
+      expect(rooms.act(id, 'h', { type: 'start' })).toEqual({ ok: true });
+      const before = rooms.snapshot(id, 'h')!.players.map((p) => p.color);
+      const free = PLAYER_COLORS.find((c) => !before.includes(c))!;
+      expect(rooms.recolor(id, 'h', free)).toEqual({
+        ok: false,
+        error: { code: 'game-running', message: 'Colours can only be changed between rounds.' },
+      });
+      expect(rooms.snapshot(id, 'h')!.players.map((p) => p.color)).toEqual(before);
+    });
+
+    it('changes colours mid-game only when the game says it is between rounds', () => {
+      type S = { due: null; phase: string; between: boolean };
+      const stub = stubGame({
+        create: () => ({ due: null, phase: 'lobby', between: false }),
+        reduce: (s: S, a: { type: string }) =>
+          a.type === 'start'
+            ? { ...s, phase: 'playing' }
+            : a.type === 'round-over'
+              ? { ...s, between: true }
+              : s,
+        canRecolor: (s: S) => s.between,
+      });
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      const id = rooms.create(stub.id, 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      const open = () => rooms.snapshot(id, 'p0')!.meta!.colors;
+      expect(open()).toBe(true);
+      rooms.act(id, 'p0', { type: 'start' });
+      expect(open()).toBe(false);
+      expect(rooms.recolor(id, 'p0', 'lime')).toMatchObject({ error: { code: 'game-running' } });
+      rooms.act(id, 'p0', { type: 'round-over' });
+      expect(open()).toBe(true);
+      expect(rooms.recolor(id, 'p0', 'lime')).toEqual({ ok: true });
+    });
+
+    it("makes Reverie's seat colour the player's colour", () => {
+      const id = rooms.create('reverie', 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      rooms.join(id, 'p1', 'Ben');
+      // Ana's colour is random, so Ben picks one she can't have.
+      const free = PLAYER_COLORS.find((c) => c !== colors(id)[0])!;
+      expect(rooms.recolor(id, 'p1', free)).toEqual({ ok: true });
+      const seats = (rooms.snapshot(id, 'p0')!.game as { seats: { color: string }[] }).seats;
+      expect(seats.map((s) => s.color)).toEqual([colors(id)[0], free]);
+    });
+  });
+
   it('keeps the host if they come back in time', () => {
     const id = seatedGame();
     rooms.connected(id, 'h');
@@ -190,7 +321,12 @@ describe('RoomManager', () => {
     const player = (p: string) => rooms.snapshot(id, 'h')!.players.find((x) => x.id === p)!;
     expect(player('a')).not.toHaveProperty('awaySince'); // never seen since the server started
     rooms.connected(id, 'a');
-    expect(player('a')).toEqual({ id: 'a', name: 'A', connected: true });
+    expect(player('a')).toEqual({
+      id: 'a',
+      name: 'A',
+      color: expect.any(String) as string,
+      connected: true,
+    });
     const left = now;
     rooms.disconnected(id, 'a');
     now += 5 * 60_000;
@@ -453,7 +589,13 @@ describe('RoomManager', () => {
       expect(rooms.join(id, 'h', 'H', { connect: true })).toEqual({ ok: true });
       rooms.disconnected(id, 'h');
       expect(rooms.snapshot(id, 'h')!.players).toEqual([
-        { id: 'h', name: 'H', connected: false, awaySince: now },
+        {
+          id: 'h',
+          name: 'H',
+          color: expect.any(String) as string,
+          connected: false,
+          awaySince: now,
+        },
       ]);
     });
   });

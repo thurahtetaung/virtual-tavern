@@ -2,7 +2,7 @@ import type { CodenamesView } from '@vt/game-codenames/logic';
 import type { EchoView } from '@vt/game-echo/logic';
 import type { EnigmaView } from '@vt/game-enigma/logic';
 import type { MasqueradeView } from '@vt/game-masquerade/logic';
-import type { RoomSnapshot } from '@vt/protocol';
+import { PLAYER_COLORS, type RoomSnapshot } from '@vt/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { playerIdFromToken } from './rooms/ids.ts';
 import type { HydraView } from '@vt/private-hydra/logic';
@@ -199,6 +199,32 @@ describe('realtime rooms', () => {
     expect(inTab.you).toBe(inHost.you);
   });
 
+  it('gives joiners distinct colours and lets them change theirs', async () => {
+    const { app, url } = await start(':memory:');
+    cleanups.push(() => app.close());
+    const { roomId } = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+    const [host, ana] = await joinAll(url, roomId, ['Host', 'Ana']);
+    const [mine, theirs] = host!.latest()!.players.map((p) => p.color);
+    expect(mine).not.toBe(theirs);
+    expect(await ana!.call('room:recolor', 'chartreuse')).toMatchObject({
+      ok: false,
+      error: { code: 'bad-color' },
+    });
+    expect(await ana!.call('room:recolor', mine!)).toMatchObject({
+      ok: false,
+      error: { code: 'color-taken' },
+    });
+    const free = PLAYER_COLORS.find((c) => c !== mine && c !== theirs)!;
+    expect(await ana!.call('room:recolor', free)).toEqual({ ok: true });
+    await host!.until((s) => s.players[1]?.color === free);
+  });
+
   it('rate-limits chatty sockets and drops persistent flooders', async () => {
     const server = await bareRealtime({ limits: { perSecond: 1, burst: 2, disconnectAfter: 3 } });
     cleanups.push(server.close);
@@ -225,6 +251,7 @@ describe('realtime rooms', () => {
       {
         id: playerIdFromToken(token(0)),
         name: 'Hosty',
+        color: expect.any(String) as string,
         connected: false,
         awaySince: expect.any(Number) as number,
       },

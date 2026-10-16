@@ -1,6 +1,7 @@
 import type { SpectatorPrompt } from '@vt/game-sdk';
 import { createContext, useContext, useEffect, useRef } from 'react';
 import { cn } from './cn.ts';
+import { PlayerDot, usePlayerColor } from './player-colors.tsx';
 
 /** The 👑 every player list puts after the host's name. */
 export function HostCrown() {
@@ -18,26 +19,32 @@ export function HostCrown() {
 export const BotNames = createContext<ReadonlySet<string>>(new Set());
 
 /**
- * A player's name as every list shows it: 👑 for the host, "(you)", and a muted "offline" while
- * their browser is away, so nobody waits on someone who has gone.
+ * A player's name as every list shows it: their colour's dot before it, 👑 for the host, "(you)",
+ * and a muted "offline" while their browser is away, so nobody waits on someone who has gone.
+ * The dot comes after the name in the markup, so screen readers say "Leo, teal".
  */
 export function PlayerTag({
   name,
   host = false,
   you = false,
   offline = false,
+  dot = true,
   className,
 }: {
   name: string;
   host?: boolean;
   you?: boolean;
   offline?: boolean;
+  /** Off where the game shows its own colour for the player (Séance's psychics). */
+  dot?: boolean;
   className?: string;
 }) {
   const bot = useContext(BotNames).has(name);
+  const color = usePlayerColor(name);
   return (
     <span className={cn('inline-flex min-w-0 items-center gap-1', className)}>
       <span className={cn('truncate', offline && 'opacity-60')}>{name}</span>
+      {dot && color && <PlayerDot color={color} className="order-first mr-0.5" />}
       {bot && (
         <span role="img" aria-label="bot">
           🤖

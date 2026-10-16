@@ -1093,6 +1093,8 @@ export const seance: GameDefinition<SeanceState, SeanceAction, SeanceView> = {
   playerLeft,
   view,
   nextDeadline,
+  // An hour's verdicts, before the next hour's visions.
+  canRecolor: (state) => state.phase === 'playing' && state.game?.stage === 'reveal',
   onDeadline,
   insights,
   awards: seanceAwards,

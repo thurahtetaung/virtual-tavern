@@ -104,7 +104,35 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
   const late = await visitor(browser, 'Eve');
   await expect(host.getByText('Players (4/8)')).toBeVisible();
   await expect(host.getByText('Everyone is seated')).toBeVisible();
+
+  // Seat colours are the players' room colours: Ana taps her own seat to change hers. Hana's
+  // colour is refused; a free one shows on every seat list.
+  const seatDot = (p: Page, name: string) =>
+    p
+      .getByRole('listitem')
+      .filter({ has: p.getByText(name, { exact: true }) })
+      .locator('[data-color]')
+      .first();
+  const hanaColor = await seatDot(ana!, 'Hana').getAttribute('data-color');
+  const anaBefore = await seatDot(host, 'Ana').getAttribute('data-color');
+  await ana!.getByRole('button', { name: 'Ana (you): change your colour' }).click();
+  const picker = ana!.getByRole('dialog', { name: 'Your colour' });
+  await picker.getByRole('radio', { name: /taken by Hana$/ }).click();
+  await expect(picker.getByRole('alert')).toContainText('Hana is already');
+  await picker
+    .getByRole('radio', { checked: false, name: /^[a-z ]+$/ })
+    .first()
+    .click();
+  await expect(picker).toBeHidden();
+  await expect(seatDot(host, 'Ana')).not.toHaveAttribute('data-color', anaBefore!);
+  await expect(seatDot(host, 'Ana')).not.toHaveAttribute('data-color', hanaColor!);
+  if (process.env.SCREENSHOTS)
+    await host.screenshot({ path: 'test-results/shots/reverie-seat-colours.png' });
+
   await host.getByRole('button', { name: 'Start game' }).click();
+  // Colours change between games only: in play Ana's seat is just her name.
+  await expect(host.getByText('Turn 1')).toBeVisible();
+  await expect(ana!.getByRole('button', { name: 'Ana (you): change your colour' })).toHaveCount(0);
 
   for (let round = 1; round <= 2; round++) {
     await expect(host.getByText(`Turn ${round}`)).toBeVisible();

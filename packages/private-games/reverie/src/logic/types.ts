@@ -1,4 +1,4 @@
-import type { PlayerId } from '@vt/game-sdk';
+import { PLAYER_COLORS, type PlayerColor, type PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 3;
@@ -12,18 +12,12 @@ export type TargetScore = (typeof TARGET_SCORES)[number];
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
 
-/** One colour per seat, in seat order. */
-export const SEAT_COLORS = [
-  'red',
-  'blue',
-  'green',
-  'yellow',
-  'purple',
-  'orange',
-  'pink',
-  'teal',
-] as const;
-export type SeatColor = (typeof SEAT_COLORS)[number];
+/**
+ * A seat's colour is its player's colour in the room (`PlayerInfo.color`); without one (tests),
+ * seats take the palette in seat order.
+ */
+export const SEAT_COLORS = PLAYER_COLORS;
+export type SeatColor = PlayerColor;
 
 /**
  * The card sets. The art lives in private storage as `cards/<n padded to 3>.jpg`; set *names* come

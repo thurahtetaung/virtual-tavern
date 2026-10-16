@@ -50,7 +50,7 @@ export const cardsToGive = (playerCount: number) => (playerCount === 3 ? 2 : 1);
 const others = (state: ReverieState) =>
   players(state).filter((id) => id !== state.turn?.storyteller);
 
-/** The lowest unused seat colour, so players keep their colour when someone leaves. */
+/** The lowest unused seat colour (for players without a room colour, as in tests). */
 function nextColor(state: ReverieState) {
   const used = new Set(Object.values(state.seats).map((s) => s.color));
   return SEAT_COLORS.find((c) => !used.has(c)) ?? SEAT_COLORS[0];
@@ -517,15 +517,18 @@ function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): ReverieState 
 
 function playerJoined(state: ReverieState, player: PlayerInfo): ReverieState {
   const existing = state.seats[player.id];
-  if (existing)
-    return { ...state, seats: { ...state.seats, [player.id]: { ...existing, name: player.name } } };
+  if (existing) {
+    const seat = { ...existing, name: player.name, color: player.color ?? existing.color };
+    return { ...state, seats: { ...state.seats, [player.id]: seat } };
+  }
   // Between games newcomers take a seat straight away (if there is one); mid-game they watch
   // until they sit down between turns, and then get cards at the next turn.
   const playing = state.phase !== 'playing' && players(state).length < MAX_PLAYERS;
   // Someone coming back to the game they left picks up their score again.
   const kept = state.departed?.[player.id];
   const score = state.phase === 'lobby' ? 0 : (kept ?? 0);
-  const seat: Seat = { name: player.name, color: nextColor(state), playing, score, hand: [] };
+  const color = player.color ?? nextColor(state);
+  const seat: Seat = { name: player.name, color, playing, score, hand: [] };
   const next: ReverieState = { ...state, seats: { ...state.seats, [player.id]: seat } };
   if (kept === undefined) return next;
   const departed = { ...state.departed };
@@ -715,6 +718,8 @@ export const reverie: GameDefinition<ReverieState, ReverieAction, ReverieView> =
   view,
   nextDeadline,
   onDeadline,
+  // Between turns: the reveal waits for the host's next turn.
+  canRecolor: (state) => state.phase === 'playing' && state.turn?.phase === 'reveal',
   insights,
   awards: reverieAwards,
   bot: reverieBot,

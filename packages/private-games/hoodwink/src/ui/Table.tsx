@@ -75,13 +75,6 @@ function PlayerChip({
 }) {
   return (
     <li className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2.5 py-1 text-sm dark:bg-stone-800">
-      <span
-        aria-hidden
-        className={cn(
-          'size-2 rounded-full',
-          online ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
-        )}
-      />
       <PlayerTag name={name} you={you} host={host} offline={!online} />
       {mark && (
         <span role="img" aria-label={label} title={label}>
