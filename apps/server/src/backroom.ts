@@ -85,6 +85,12 @@ export class Backroom {
     return `${this.version()}.${this.now()}`;
   }
 
+  /** Whether an (already unsigned) cookie value is an unlock from before the word last changed. */
+  isStale(value: string | null | undefined): boolean {
+    const version = Number(value?.split('.')[0]);
+    return Number.isInteger(version) && version < this.version();
+  }
+
   /** Whether an (already unsigned) cookie value is a current, unexpired unlock. */
   isUnlocked(value: string | null | undefined): boolean {
     if (!value || !this.isOpen()) return false;

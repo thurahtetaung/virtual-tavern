@@ -509,7 +509,7 @@ describe('realtime back room', () => {
         url: '/api/admin/backroom/sign-out-all',
         headers: { cookie: adminCookie },
       });
-    return { app, url, cookie, roomId, unlock, signOutAll };
+    return { app, url, cookie, roomId, unlock, signOutAll, adminCookie };
   }
 
   it('drops signed-out players on the next broadcast, before they act', async () => {
@@ -554,12 +554,51 @@ describe('realtime back room', () => {
       expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
         ok: true,
       });
-      const locked = new Promise<void>((resolve) => member.once('room:locked', () => resolve()));
+      const locked = new Promise((resolve) => member.once('room:locked', resolve));
       // Nobody acts and nobody joins: the sign-out alone turns the member away.
       await signOutAll();
-      await locked;
+      // The door says the word changed.
+      expect(await locked).toBe('changed');
     } finally {
       member.close();
+      await app.close();
+    }
+  });
+
+  it('tells an admin who signed out apart from a word change', async () => {
+    const { app, url, roomId, unlock, adminCookie } = await openBackRoom();
+    // The admin never typed the word: the admin session alone lets them in.
+    const admin = await connect(url, adminCookie);
+    const friend = await connect(url, await unlock());
+    try {
+      expect(await admin.call('room:join', { roomId, token: token(0), name: 'Ana' })).toEqual({
+        ok: true,
+      });
+      expect(await friend.call('room:join', { roomId, token: token(1), name: 'Ben' })).toEqual({
+        ok: true,
+      });
+      const locked = new Promise((resolve) => admin.once('room:locked', resolve));
+      await app.inject({
+        method: 'POST',
+        url: '/api/admin/logout',
+        headers: { cookie: adminCookie },
+      });
+      // The friend's next action turns the signed-out admin away, saying why.
+      expect(await friend.call('game:action', { type: 'sit', playing: false })).toEqual({
+        ok: true,
+      });
+      expect(await locked).toBe('signed-out');
+      const again = await connect(url, adminCookie);
+      try {
+        expect(
+          await again.call('room:join', { roomId, token: token(0), name: 'Ana' }),
+        ).toMatchObject({ ok: false, error: { code: 'backroom-locked', reason: 'signed-out' } });
+      } finally {
+        again.close();
+      }
+    } finally {
+      admin.close();
+      friend.close();
       await app.close();
     }
   });
@@ -574,7 +613,7 @@ describe('realtime back room', () => {
         await outsider.call('room:join', { roomId, token: token(1), name: 'Out' }),
       ).toMatchObject({
         ok: false,
-        error: { code: 'backroom-locked' },
+        error: { code: 'backroom-locked', reason: 'none' },
       });
       expect(await member.call('room:join', { roomId, token: token(0), name: 'In' })).toEqual({
         ok: true,

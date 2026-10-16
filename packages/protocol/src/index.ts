@@ -205,7 +205,14 @@ export interface RoomSnapshot<View = unknown> {
   meta?: RoomMeta;
 }
 
-export type Ack = { ok: true } | { ok: false; error: { code: string; message: string } };
+/**
+ * Why a back-room room turned a player away: the shared word changed (a new password, or everyone
+ * was signed out), the admin session they came in with ended, or there was no current unlock.
+ */
+export type LockReason = 'changed' | 'signed-out' | 'none';
+
+export type Ack =
+  { ok: true } | { ok: false; error: { code: string; message: string; reason?: LockReason } };
 
 export const joinRoomPayload = z.object({ roomId, token: playerToken, name: playerName });
 export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
@@ -234,7 +241,7 @@ export interface ServerToClientEvents {
   'room:state': (snapshot: RoomSnapshot) => void;
   'room:kicked': () => void;
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
-  'room:locked': () => void;
+  'room:locked': (reason: LockReason) => void;
   /** The host wrapped up the night: every device opens the recap. */
   'room:wrapped': (nightKey: string) => void;
   /** Someone here opened a new table for the same night ("Same crew, new game"). */

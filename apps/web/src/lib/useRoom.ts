@@ -1,6 +1,7 @@
 import type {
   Ack,
   ClientToServerEvents,
+  LockReason,
   NextTable,
   RecapLine,
   RoomSnapshot,
@@ -33,6 +34,8 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
   const [clockOffset, setClockOffset] = useState(0);
   const [status, setStatus] = useState<RoomStatus>('connecting');
   const [error, setError] = useState<string | null>(null);
+  /** Why a `locked` room turned this browser away (the door words it to match). */
+  const [lockReason, setLockReason] = useState<LockReason>('none');
   /** Counts the host's wrap-ups heard on this page, so the recap can open everywhere. */
   const [wraps, setWraps] = useState(0);
   /** "Same crew, new game": the latest table someone here opened for the night. */
@@ -62,6 +65,7 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
             setStatus('joined');
             setError(null);
           } else {
+            if (res.error.code === 'backroom-locked') setLockReason(res.error.reason ?? 'none');
             setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
             setError(res.error.message);
           }
@@ -93,8 +97,10 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
       setStatus('closed');
       socket.disconnect();
     });
-    // The password changed or everyone was signed out: the server already dropped us from the room.
-    socket.on('room:locked', () => {
+    // The word changed, everyone was signed out or the admin session ended: the server already
+    // dropped us from the room.
+    socket.on('room:locked', (reason) => {
+      setLockReason(reason);
       setStatus('locked');
       socket.disconnect();
     });
@@ -142,6 +148,7 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     snapshot,
     clockOffset,
     status,
+    lockReason,
     error,
     call,
     leave,

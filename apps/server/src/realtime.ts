@@ -2,6 +2,7 @@ import {
   type Ack,
   type AckWith,
   type ClientToServerEvents,
+  type LockReason,
   type NextTable,
   type RecapLine,
   type ServerToClientEvents,
@@ -38,6 +39,8 @@ export interface RoomGate {
    * (the admin always has the back room).
    */
   hasBackroom(cookieHeader: string | undefined): boolean;
+  /** Why a raw `Cookie` header without the back room was turned away. Default: `'changed'`. */
+  lockReason?(cookieHeader: string | undefined): LockReason;
   /** Whether the room is an admin playtest (only admins may be in it). Default: never. */
   isPlaytest?(roomId: string): boolean;
   /** Whether a raw `Cookie` header carries a current admin session. Default: never. */
@@ -96,6 +99,10 @@ const DEFLATE_THRESHOLD = 1024;
 
 /** The gate each server was attached with, so manager events can re-check it on broadcast. */
 const gates = new WeakMap<IO, RoomGate>();
+
+/** Why a socket's cookie was turned away from a back-room room. */
+const lockReason = (gate: RoomGate | undefined, cookie: string | undefined): LockReason =>
+  gate?.lockReason?.(cookie) ?? 'changed';
 /** The last snapshot each socket was sent (minus the clock), so unchanged views aren't re-sent. */
 const lastSent = new WeakMap<ClientSocket, string>();
 
@@ -189,7 +196,7 @@ export function createRoomEvents(
       const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId }));
       for (const { s } of stale) {
         leaveRoom(s);
-        s.emit('room:locked');
+        s.emit('room:locked', lockReason(gates.get(io), s.request.headers.cookie));
       }
       for (const { playerId } of stale) if (playerId) rooms.disconnected(roomId, playerId);
     },
@@ -268,10 +275,14 @@ const recapOff: Ack = {
 
 const notJoined: Ack = { ok: false, error: { code: 'not-joined', message: 'Join a room first.' } };
 
-const lockedOut: Ack = {
+const lockedOutAck = (reason: LockReason): Ack => ({
   ok: false,
-  error: { code: 'backroom-locked', message: 'This room is in the back room. Unlock it first.' },
-};
+  error: {
+    code: 'backroom-locked',
+    message: 'This room is in the back room. Unlock it first.',
+    reason,
+  },
+});
 
 const noRoom: Ack = {
   ok: false,
@@ -308,6 +319,7 @@ export function attachRealtime(
       return !access || access(socket.request.headers.cookie);
     };
     const isAdmin = () => !!gate.isAdmin?.(socket.request.headers.cookie);
+    const locked = () => lockedOutAck(lockReason(gate, socket.request.headers.cookie));
 
     /** Every client event goes through here: budget first, then the usual error handling. */
     const guarded = (ack: unknown, run: () => Ack) => {
@@ -327,7 +339,7 @@ export function attachRealtime(
       if (!roomId || !playerId) return notJoined;
       if (!allowed(roomId)) {
         detach(socket, rooms);
-        return lockedOut;
+        return locked();
       }
       return fn(roomId, playerId);
     };
@@ -344,7 +356,7 @@ export function attachRealtime(
         const { roomId, token, name } = parsed.data;
         // A playtest looks like a dead link to anyone but an admin.
         if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
-        if (!allowed(roomId)) return lockedOut;
+        if (!allowed(roomId)) return locked();
         const playerId = playerIdFromToken(token);
         // Enter the channel first so the join's own snapshot reaches this socket; back out if it
         // fails, so a bad join never costs the socket the room it was already in.
