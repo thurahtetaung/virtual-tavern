@@ -17,7 +17,7 @@ import type {
   TimelineEntry,
   VoteResult,
 } from '../logic/types.ts';
-import type { Deck } from './assets.ts';
+import { type Deck, theRole } from './assets.ts';
 import {
   type Numbered,
   announcementText,
@@ -236,7 +236,7 @@ export function lineText(key: string, deck: Deck, roles: readonly RoleId[] = [])
   if (parts.includes('thumbs-away')) return 'Thumbs away.';
   if (parts[0] === 'doppelganger' && parts[1] && isRoleId(parts[1])) {
     return parts[2] === 'wake'
-      ? `${n('doppelganger')}, if you copied the ${deck.name(parts[1])}, wake up. ${sentence(WAKE[parts[1]])}`.trim()
+      ? `${n('doppelganger')}, if you copied ${theRole(deck, parts[1])}, wake up. ${sentence(WAKE[parts[1]])}`.trim()
       : `${n('doppelganger')}, close your eyes.`;
   }
   const role = parts[0]!;
@@ -315,10 +315,10 @@ export function narrationText(
   let subject = GROUP_SUBJECT[parts[0]!];
   let plural = subject !== undefined && subject !== 'Everyone';
   if (!subject && parts[0] === 'doppelganger' && parts[1] && isRoleId(parts[1])) {
-    subject = `The ${deck.name('doppelganger')} (if she copied the ${deck.name(parts[1])})`;
+    subject = `${theRole(deck, 'doppelganger', true)} (if she copied ${theRole(deck, parts[1])})`;
     plural = false;
   } else if (!subject && isRoleId(parts[0]!)) {
-    subject = `The ${deck.name(parts[0])}`;
+    subject = theRole(deck, parts[0], true);
   }
   if (!subject) return '';
   if (parts.includes('close')) return `${subject} ${plural ? 'go' : 'goes'} back to sleep.`;

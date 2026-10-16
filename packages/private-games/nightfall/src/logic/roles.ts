@@ -904,6 +904,20 @@ export function rolesBySet(
 const SMALL_WORDS = new Set(['of', 'the', 'a', 'an', 'and']);
 
 /**
+ * Roles whose names are proper names, which the narration says without "the" ("Nostradamus is
+ * awake.", but "The Seer is awake."). The Master and the Count carry their own article.
+ */
+export const NAMED_ROLES: ReadonlySet<RoleId> = new Set<RoleId>([
+  'the-master',
+  'the-count',
+  'renfield',
+  'cupid',
+  'groob',
+  'zerb',
+  'nostradamus',
+]);
+
+/**
  * The plain role id as a title-cased label, matching how the cards read: "alpha-wolf" → "Alpha
  * Wolf", "claw-of-the-werewolf" → "Claw of the Werewolf". The manifest supplies real names.
  */

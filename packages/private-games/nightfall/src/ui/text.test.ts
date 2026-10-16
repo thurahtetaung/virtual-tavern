@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FRAME_LINES, buildNightPlan, stepLines } from '../logic/plan.ts';
-import { ARTIFACTS, ROLE_IDS, type RoleId } from '../logic/roles.ts';
+import { ARTIFACTS, NAMED_ROLES, ROLE_IDS, type RoleId, roleLabel } from '../logic/roles.ts';
 import { table } from '../logic/test-utils.ts';
 import { deckFor } from './assets.ts';
 import type { VoteResult } from '../logic/types.ts';
@@ -118,6 +118,45 @@ describe('narration as text', () => {
     expect(narrationText(FRAME_LINES.nightStart, deck, { awake: false })).toBe(
       'Everyone closes their eyes.',
     );
+  });
+
+  it('says a role that is a name without "the", in every third-person wake and close line', () => {
+    const named = deckFor(
+      {
+        roles: {
+          thing: { name: 'The Thing (that goes Bump)' },
+          'the-master': { name: 'The Master' },
+          'the-count': { name: 'The Count' },
+        },
+      },
+      (id) => ARTIFACTS[id].summary,
+    );
+    // The groups' lines name the group, and the Cow's speak of her fist.
+    const groups = new Set<RoleId>(['werewolf', 'vampire', 'alien', 'cow']);
+    for (const d of [deck, named])
+      for (const role of ROLE_IDS.filter((r) => !groups.has(r))) {
+        const name = d.name(role);
+        const article = !NAMED_ROLES.has(role) && !name.startsWith('The ');
+        const subject = article ? `The ${name}` : name;
+        expect(narrationText(`${role}:wake`, d, { awake: false })).toBe(`${subject} is awake.`);
+        expect(narrationText(`${role}:close`, d, { awake: false })).toBe(
+          `${subject} goes back to sleep.`,
+        );
+        expect(narrationText(`doppelganger:${role}:wake`, d, { awake: false })).toBe(
+          `The ${d.name('doppelganger')} (if she copied ${article ? `the ${name}` : name}) is awake.`,
+        );
+      }
+    expect(narrationText('nostradamus:wake', deck, { awake: false })).toBe('Nostradamus is awake.');
+    expect(narrationText('the-count:close', deck, { awake: false })).toBe(
+      'The Count goes back to sleep.',
+    );
+    expect(narrationText('empath:wake', deck, { awake: false })).toBe('The Empath is awake.');
+    expect(roleLabel('the-master')).toBe('The Master');
+    for (const id of buildNightPlan([...ROLE_IDS])) {
+      const lines = stepLines(id, [...ROLE_IDS], { loneWolf: true });
+      for (const key of [...lines.open, ...lines.close])
+        expect(narrationText(key, named, { awake: false }), key).not.toMatch(/\bthe the\b/i);
+    }
   });
 
   it('never gives an idle phone an instruction, for any step', () => {

@@ -1,6 +1,6 @@
 import { ARTIFACTS, type ArtifactId, type MarkId, type RoleId, winFor } from '../logic/roles.ts';
 import type { Note, NightfallView } from '../logic/types.ts';
-import type { Deck } from './assets.ts';
+import { type Deck, theRole } from './assets.ts';
 
 /**
  * "Where you stand now", for the top of Learned: what you started as, what your card is now as
@@ -133,7 +133,7 @@ export function standingOf(view: NightfallView, deck: Deck): Standing | null {
     );
   if (becomes && artifact)
     meaning.push(
-      `The ${deck.artifactName(artifact)} makes you the ${deck.name(becomes)}, whatever your card. ${win(becomes)}`,
+      `The ${deck.artifactName(artifact)} makes you ${theRole(deck, becomes)}, whatever your card. ${win(becomes)}`,
     );
   else if (mark?.mark === 'vampire')
     meaning.push(
