@@ -47,6 +47,7 @@ function open(roomId: string) {
     wrapped: () => {},
     next: () => {},
     playtestAwards: () => {},
+    recap: () => {},
   };
   const conn = new RoomConnection(roomId, listener, rt!.url);
   conns.push(conn);
@@ -106,6 +107,49 @@ describe('room connection', () => {
     conn.visibility(true, now);
     expect(heard.catchingUp).toEqual([]);
     expect(heard.statuses.at(-1)).toBe('joined');
+  });
+
+  it('joins with the connection itself, sending no separate join', async () => {
+    rt = await bareRealtime();
+    const roomId = rt.rooms.create('codenames', 'nobody');
+    const { conn, heard, until } = open(roomId);
+    const socket = (conn as unknown as { socket: Socket }).socket;
+    const sent: string[] = [];
+    socket.onAnyOutgoing((event: string) => sent.push(event));
+    conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await until(() => heard.statuses.at(-1) === 'joined');
+    expect(heard.states.at(-1)?.players.map((p) => p.name)).toEqual(['Ana']);
+    expect(sent).toEqual([]);
+  });
+
+  it('a join refused with the connection says why', async () => {
+    rt = await bareRealtime();
+    const { conn, heard, until } = open('zzzzzzzzzz');
+    conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await until(() => heard.statuses.at(-1) === 'error');
+    expect(heard.states).toEqual([]);
+  });
+
+  it('the next room page reuses the open connection and leaves the last room', async () => {
+    rt = await bareRealtime();
+    const first = rt.rooms.create('codenames', 'nobody');
+    const second = rt.rooms.create('codenames', 'nobody');
+    const a = open(first);
+    a.conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await a.until(() => a.heard.statuses.at(-1) === 'joined');
+    const socketOf = (c: RoomConnection) => (c as unknown as { socket: Socket }).socket;
+    const before = socketOf(a.conn);
+    a.conn.dispose();
+    conns.splice(conns.indexOf(a.conn), 1);
+
+    const b = open(second);
+    expect(socketOf(b.conn)).toBe(before);
+    b.conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await b.until(() => b.heard.statuses.at(-1) === 'joined');
+    // Only the new room's state reaches the new page.
+    expect(b.heard.states.map((s) => s.players.length)).toEqual([1]);
+    expect(rt.rooms.snapshot(first, 'x')?.players[0]?.connected).toBe(false);
+    expect(a.heard.states.length).toBe(1);
   });
 
   it('refuses a tap at once when the page left the room for good', async () => {

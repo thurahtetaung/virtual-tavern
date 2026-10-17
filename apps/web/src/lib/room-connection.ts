@@ -51,7 +51,11 @@ export interface RoomListener {
   wrapped(): void;
   next(table: NextTable): void;
   playtestAwards(lines: RecapLine[]): void;
+  /** The night recap, pushed with the state it belongs to. */
+  recap(push: RecapPush): void;
 }
+
+export type RecapPush = Parameters<ServerToClientEvents['room:recap']>[0];
 
 export interface Joiner {
   token: string;
@@ -68,6 +72,57 @@ function heartbeatExpired(socket: ClientSocket): boolean {
   return engine?._hasPingExpired?.() ?? false;
 }
 
+/** How long a room page's connection waits for the next room page before it hangs up. */
+const SPARE_MS = 3_000;
+/** The join each socket sends with its connection (whoever has it now), if any. */
+const auths = new WeakMap<ClientSocket, () => object | null>();
+/** The last room page's connection, kept open briefly so the next room reuses it. */
+let spare: {
+  socket: ClientSocket;
+  url: string | undefined;
+  timer: ReturnType<typeof setTimeout>;
+} | null = null;
+
+/**
+ * A connection for a room page: the last room's, while it is still open ("Same crew, new game"
+ * and following the crew switch rooms on it without connecting again), else a new one.
+ */
+function borrow(url: string | undefined): { socket: ClientSocket; reused: boolean } {
+  if (spare) {
+    const s = spare;
+    spare = null;
+    clearTimeout(s.timer);
+    if (s.url === url && s.socket.active) return { socket: s.socket, reused: true };
+    s.socket.disconnect();
+  }
+  const opts = {
+    transports: ['websocket', 'polling'],
+    // A quick first retry: socket.io's default waits 0.5–1.5 s before even trying again.
+    reconnectionDelay: 250,
+    reconnectionDelayMax: 5000,
+    // The join rides in the connection itself, saving a round trip before the room arrives.
+    auth: (cb: (data: object) => void) => cb(auths.get(socket)?.() ?? {}),
+    forceNew: true,
+  };
+  const socket: ClientSocket = url ? io(url, opts) : io(opts);
+  return { socket, reused: false };
+}
+
+/** A room page is done with its connection: keep it open for the next room page, briefly. */
+function giveBack(socket: ClientSocket, url: string | undefined) {
+  auths.delete(socket);
+  if (!socket.active) return;
+  if (spare) spare.socket.disconnect();
+  spare = {
+    socket,
+    url,
+    timer: setTimeout(() => {
+      spare = null;
+      socket.disconnect();
+    }, SPARE_MS),
+  };
+}
+
 interface HeldTap {
   send(): void;
   fail(): void;
@@ -81,6 +136,18 @@ interface HeldTap {
  */
 export class RoomConnection {
   private readonly socket: ClientSocket;
+  private readonly url: string | undefined;
+  /** Another room's connection: its events are that room's until this page's join is answered. */
+  private reused: boolean;
+  /** Borrowed from another room page and not yet answered: a refusal may only mean the
+   * connection predates a cookie (the back room unlocked since), so it reconnects once. */
+  private borrowed: boolean;
+  /** Whether the current connection carried the join. */
+  private joinedWithConnect = false;
+  /** The room's state, held until the join that sent it is answered. */
+  private early: RoomSnapshot | null = null;
+  private earlyAwards: RecapLine[] | null = null;
+  private readonly off: (() => void)[] = [];
   private readonly roomId: string;
   private readonly listener: RoomListener;
   private joiner: (() => Joiner) | null = null;
@@ -98,20 +165,37 @@ export class RoomConnection {
   constructor(roomId: string, listener: RoomListener, url?: string) {
     this.roomId = roomId;
     this.listener = listener;
-    const opts = {
-      transports: ['websocket', 'polling'],
-      // A quick first retry: socket.io's default waits 0.5–1.5 s before even trying again.
-      reconnectionDelay: 250,
-      reconnectionDelayMax: 5000,
-    };
-    const socket: ClientSocket = url ? io(url, opts) : io(opts);
+    this.url = url;
+    const { socket, reused } = borrow(url);
     this.socket = socket;
+    this.reused = reused;
+    this.borrowed = reused;
+    auths.set(socket, () => {
+      this.joinedWithConnect = this.joiner !== null;
+      return this.joiner ? { roomId, ...this.joiner() } : null;
+    });
     this.watch = new JoinWatch(() => {
       if (socket.connected) this.join();
     });
+    const on = ((event: string, fn: (...a: never[]) => void) => {
+      socket.on(event as 'connect', fn);
+      this.off.push(() => socket.off(event as 'connect', fn));
+    }) as ClientSocket['on'];
+    /** Room events that only count once this page is in the room. */
+    const inRoom =
+      <A extends unknown[]>(fn: (...a: A) => void) =>
+      (...a: A) => {
+        if (!this.reused) fn(...a);
+      };
 
-    socket.on('connect', () => this.join());
-    socket.on('disconnect', () => {
+    on('connect', () => {
+      this.reused = false;
+      // Sent with the connection: its answer is on the way (and re-sent if it never comes).
+      if (this.joinedWithConnect) this.watch.sent();
+      else this.join();
+    });
+    on('room:joined', (res) => this.answered(res));
+    on('disconnect', () => {
       this.joined = false;
       this.watch.stop();
       if (this.current === 'joined') this.setStatus('reconnecting');
@@ -120,27 +204,54 @@ export class RoomConnection {
     });
     // The server can't be reached (down, or the phone is offline). socket.io keeps retrying, so
     // say so instead of sitting on "Opening the door…"; a successful join flips it back.
-    socket.on('connect_error', () => {
+    on('connect_error', () => {
       if (this.current === 'connecting' || this.current === 'joined')
         this.setStatus('reconnecting');
     });
-    socket.on('room:state', (s) => {
+    on('room:state', (s) => {
+      // A join's room comes just before its answer: held until then, so a room this connection
+      // was in before never shows here.
+      if (!this.joined) {
+        this.early = s;
+        return;
+      }
       this.watch.stop();
-      // A rejoin's room comes just before its answer, which ends the catching up.
-      if (this.joined) this.caughtUp();
+      this.caughtUp();
       listener.state(s);
     });
-    socket.on('room:kicked', () => this.end('kicked'));
-    socket.on('room:wrapped', () => listener.wrapped());
-    socket.on('room:next', (table) => listener.next(table));
-    socket.on('room:playtestAwards', (lines) => listener.playtestAwards(lines));
-    socket.on('room:closed', () => this.end('closed'));
+    on(
+      'room:kicked',
+      inRoom(() => this.end('kicked')),
+    );
+    on(
+      'room:wrapped',
+      inRoom(() => listener.wrapped()),
+    );
+    on(
+      'room:next',
+      inRoom((table: NextTable) => listener.next(table)),
+    );
+    on('room:playtestAwards', (lines) => {
+      if (this.joined) listener.playtestAwards(lines);
+      else this.earlyAwards = lines;
+    });
+    on(
+      'room:recap',
+      inRoom((push: RecapPush) => listener.recap(push)),
+    );
+    on(
+      'room:closed',
+      inRoom(() => this.end('closed')),
+    );
     // The word changed, everyone was signed out or the admin session ended: the server already
     // dropped us from the room.
-    socket.on('room:locked', (reason) => {
-      listener.lockReason(reason);
-      this.end('locked');
-    });
+    on(
+      'room:locked',
+      inRoom((reason: LockReason) => {
+        listener.lockReason(reason);
+        this.end('locked');
+      }),
+    );
   }
 
   private setStatus(status: RoomStatus) {
@@ -156,23 +267,47 @@ export class RoomConnection {
   private join() {
     if (!this.joiner) return;
     this.watch.sent();
-    this.socket.emit('room:join', { roomId: this.roomId, ...this.joiner() }, (res) => {
-      if (res.ok) {
-        this.joined = true;
-        this.watch.accepted();
-        this.setStatus('joined');
-        this.listener.error(null);
-        this.caughtUp();
-        this.release(true);
-      } else {
+    this.socket.emit('room:join', { roomId: this.roomId, ...this.joiner() }, (res) =>
+      this.answered(res),
+    );
+  }
+
+  /** The server answered this page's join (sent with the connection or after it). */
+  private answered(res: Ack) {
+    this.reused = false;
+    if (!res.ok && this.borrowed) {
+      // The server read this connection's cookies when it opened, for another room: try once
+      // more on a fresh one, which carries the cookies as they are now.
+      this.borrowed = false;
+      this.early = null;
+      this.earlyAwards = null;
+      this.reconnect();
+      return;
+    }
+    this.borrowed = false;
+    const early = this.early;
+    const awards = this.earlyAwards;
+    this.early = null;
+    this.earlyAwards = null;
+    if (res.ok) {
+      this.joined = true;
+      this.setStatus('joined');
+      this.listener.error(null);
+      if (early) {
         this.watch.stop();
-        this.release(false);
-        if (res.error.code === 'backroom-locked')
-          this.listener.lockReason(res.error.reason ?? 'none');
-        this.setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
-        this.listener.error(res.error.message);
-      }
-    });
+        this.listener.state(early);
+      } else this.watch.accepted();
+      if (awards) this.listener.playtestAwards(awards);
+      this.caughtUp();
+      this.release(true);
+    } else {
+      this.watch.stop();
+      this.release(false);
+      if (res.error.code === 'backroom-locked')
+        this.listener.lockReason(res.error.reason ?? 'none');
+      this.setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
+      this.listener.error(res.error.message);
+    }
   }
 
   private release(ok: boolean) {
@@ -273,10 +408,12 @@ export class RoomConnection {
     this.socket.disconnect();
   }
 
+  /** The page is gone: its connection stays open briefly for the next room page. */
   dispose() {
     this.watch.stop();
     clearTimeout(this.catchUpTimer);
     this.release(false);
-    this.socket.disconnect();
+    for (const off of this.off) off();
+    giveBack(this.socket, this.url);
   }
 }

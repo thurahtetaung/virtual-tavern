@@ -5,6 +5,8 @@ import {
   type LockReason,
   type NextTable,
   type RecapLine,
+  type RoomRecap,
+  type RoomSnapshot,
   type ServerToClientEvents,
   joinRoomPayload,
   playerColor,
@@ -106,6 +108,37 @@ const lockReason = (gate: RoomGate | undefined, cookie: string | undefined): Loc
   gate?.lockReason?.(cookie) ?? 'changed';
 /** The last snapshot each socket was sent (minus the clock), so unchanged views aren't re-sent. */
 const lastSent = new WeakMap<ClientSocket, string>();
+/** The recap service each server was attached with, for the recaps pushed with the state. */
+const recaps = new WeakMap<IO, RecapService>();
+/** The recap moment of the last snapshot each socket was sent (`<phase>:<gameNo>|<tone>`). */
+const recapMoment = new WeakMap<ClientSocket, string>();
+
+/** The state a recap belongs to, as the browser names it (`<phase>:<gameNo>`). */
+const recapFor = (s: RoomSnapshot) => `${s.meta?.phase}:${s.meta?.gameNo}`;
+
+/**
+ * Pushes the night recap to each socket, as that socket may see it (a back-room table only to
+ * a browser that has the back room), so nobody has to ask for it.
+ */
+function pushRecap(io: IO, roomId: string, targets: { s: ClientSocket; for: string }[]) {
+  const recap = recaps.get(io);
+  const gate = gates.get(io);
+  if (!recap || !gate) return;
+  const built = new Map<string, unknown>();
+  for (const { s, for: forState } of targets) {
+    const playerId = s.data.playerId;
+    if (!playerId || s.data.roomId !== roomId || !s.connected) continue;
+    const unlocked = gate.hasBackroom(s.request.headers.cookie);
+    const key = `${playerId}|${unlocked}`;
+    if (!built.has(key)) {
+      const res = recap.recap(roomId, playerId, { scope: 'night', opened: false }, { unlocked });
+      built.set(key, res.ok ? res.data : undefined);
+    }
+    const data = built.get(key);
+    if (data !== undefined)
+      s.emit('room:recap', { recap: data as RoomRecap | null, for: forState });
+  }
+}
 
 /** Takes the socket out of its room without telling the manager (the caller already has). */
 function leaveRoom(socket: ClientSocket) {
@@ -177,6 +210,7 @@ export function createRoomEvents(
         else socketsByPlayer.set(playerId, [id]);
       }
       const rooms = getRooms();
+      const recapDue: { s: ClientSocket; for: string }[] = [];
       for (const [playerId, sockets] of socketsByPlayer) {
         const snapshot = rooms.snapshot(roomId, playerId);
         if (!snapshot) break;
@@ -191,7 +225,19 @@ export function createRoomEvents(
           return true;
         });
         if (due.length) io.to(due).emit('room:state', snapshot);
+        // A join, a game starting or ending and a new tone each come with their recap.
+        if (snapshot.meta?.recap) {
+          const moment = `${recapFor(snapshot)}|${snapshot.meta.tone}`;
+          for (const id of due) {
+            const s = io.sockets.sockets.get(id)!;
+            if (recapMoment.get(s) === moment) continue;
+            recapMoment.set(s, moment);
+            recapDue.push({ s, for: recapFor(snapshot) });
+          }
+        }
       }
+      // After the change is fully recorded (the stats observer runs once the state is sent).
+      if (recapDue.length) queueMicrotask(() => pushRecap(io, roomId, recapDue));
       // Their unlock (or admin session) expired or was revoked: this snapshot never reached them,
       // and no later one will.
       const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId }));
@@ -309,6 +355,7 @@ export function attachRealtime(
     perMessageDeflate: { threshold: DEFLATE_THRESHOLD },
   });
   gates.set(io, gate);
+  if (opts.recap) recaps.set(io, opts.recap);
 
   io.on('connection', (socket: ClientSocket) => {
     const bucket = new TokenBucket(limits);
@@ -345,54 +392,63 @@ export function attachRealtime(
       return fn(roomId, playerId);
     };
 
-    socket.on('room:join', (payload, ack) =>
-      guarded(ack, () => {
-        const parsed = joinRoomPayload.safeParse(payload);
-        if (!parsed.success) {
-          return {
-            ok: false,
-            error: { code: 'bad-request', message: parsed.error.issues[0]!.message },
-          };
-        }
-        const { roomId, token, name } = parsed.data;
-        // A playtest looks like a dead link to anyone but an admin.
-        if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
-        if (!allowed(roomId)) return locked();
-        const playerId = playerIdFromToken(token);
-        // Enter the channel first so the join's own snapshot reaches this socket; back out if it
-        // fails, so a bad join never costs the socket the room it was already in.
-        const prev = socket.data;
-        const rollback = () => {
-          if (prev.roomId !== roomId) void socket.leave(channel(roomId));
-          socket.data = prev;
+    const joinAs = (payload: unknown): Ack => {
+      const parsed = joinRoomPayload.safeParse(payload);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: { code: 'bad-request', message: parsed.error.issues[0]!.message },
         };
-        socket.data = { roomId, playerId };
-        void socket.join(channel(roomId));
-        let res: Ack;
-        try {
-          res = rooms.join(roomId, playerId, name, {
-            connect: true,
-            ...(test && { test }),
-            ...(isAdmin() && { admin: true }),
-          });
-        } catch (err) {
-          rollback();
-          throw err;
-        }
-        if (!res.ok) {
-          rollback();
-          return res;
-        }
-        if (prev.roomId && prev.playerId) {
-          if (prev.roomId !== roomId) void socket.leave(channel(prev.roomId));
-          rooms.disconnected(prev.roomId, prev.playerId);
-        }
-        // A seat that reopens on a finished playtest game still sees its award preview.
-        const preview = opts.playtestAwards?.(roomId);
-        if (preview) socket.emit('room:playtestAwards', preview);
+      }
+      const { roomId, token, name } = parsed.data;
+      // A playtest looks like a dead link to anyone but an admin.
+      if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
+      if (!allowed(roomId)) return locked();
+      const playerId = playerIdFromToken(token);
+      // Enter the channel first so the join's own snapshot reaches this socket; back out if it
+      // fails, so a bad join never costs the socket the room it was already in.
+      const prev = socket.data;
+      const rollback = () => {
+        if (prev.roomId !== roomId) void socket.leave(channel(roomId));
+        socket.data = prev;
+      };
+      socket.data = { roomId, playerId };
+      void socket.join(channel(roomId));
+      let res: Ack;
+      try {
+        res = rooms.join(roomId, playerId, name, {
+          connect: true,
+          ...(test && { test }),
+          ...(isAdmin() && { admin: true }),
+        });
+      } catch (err) {
+        rollback();
+        throw err;
+      }
+      if (!res.ok) {
+        rollback();
         return res;
-      }),
-    );
+      }
+      if (prev.roomId && prev.playerId) {
+        if (prev.roomId !== roomId) void socket.leave(channel(prev.roomId));
+        rooms.disconnected(prev.roomId, prev.playerId);
+      }
+      // A seat that reopens on a finished playtest game still sees its award preview.
+      const preview = opts.playtestAwards?.(roomId);
+      if (preview) socket.emit('room:playtestAwards', preview);
+      return res;
+    };
+
+    socket.on('room:join', (payload, ack) => guarded(ack, () => joinAs(payload)));
+
+    // A join that came with the connection (`auth`): the room's state follows the connection at
+    // once, a round trip sooner than a `room:join` sent after it. Same checks, same answers.
+    const auth: unknown = socket.handshake.auth;
+    if (auth !== null && typeof auth === 'object' && 'roomId' in auth)
+      guarded(
+        (res: Ack) => socket.emit('room:joined', res),
+        () => joinAs(auth),
+      );
 
     socket.on('room:rename', (name, ack) =>
       guarded(
@@ -493,6 +549,15 @@ export function attachRealtime(
           if (!recap) return recapOff;
           const res = recap.wrap(roomId, playerId, tz);
           if (!res.ok) return res;
+          // Each device gets the wrapped-up recap first, then opens it.
+          const here = [...(io.of('/').adapter.rooms.get(channel(roomId)) ?? [])]
+            .map((id) => io.sockets.sockets.get(id))
+            .filter((s): s is ClientSocket => !!s);
+          pushRecap(
+            io,
+            roomId,
+            here.map((s) => ({ s, for: recapMoment.get(s)?.split('|')[0] ?? '' })),
+          );
           io.to(channel(roomId)).emit('room:wrapped', res.data);
           return { ok: true };
         }),

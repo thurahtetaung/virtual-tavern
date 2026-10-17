@@ -49,7 +49,7 @@ import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useRoom } from '../lib/useRoom.ts';
 import { type CardContext, RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
 import { resolveText } from '../recap/resolve.ts';
-import { NextTableBanner, SameCrewPicker } from '../recap/SameCrew.tsx';
+import { NextTableBanner, SameCrewPicker, prefetchSameCrew } from '../recap/SameCrew.tsx';
 import { useRecap } from '../recap/useRecap.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
 import { fetchWordLists, noteVersions } from '../lib/games.ts';
@@ -293,6 +293,7 @@ function Room({
     next,
     dismissNext,
     playtestAwards,
+    recapPush,
   } = conn;
   // A playtest seat keeps its own marks, notes and tips (set before the game reads them).
   setStorageSeat(playtest ? (snapshot?.you ?? null) : null);
@@ -318,7 +319,7 @@ function Room({
   }, []);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
-  const night = useRecap({ call, snapshot, game, wraps });
+  const night = useRecap({ call, snapshot, game, wraps, pushed: recapPush });
   const [sameCrewOpen, setSameCrewOpen] = useState(false);
   // Games on the card: this room's, a linked table's (public, or named by the server).
   const nightGameNames = night.recap?.games;
@@ -344,8 +345,11 @@ function Room({
   };
   const { opened: recapOpened, closed: recapClosed } = night;
   useEffect(() => {
-    if (recapShown) recapOpened();
-    else recapClosed();
+    if (recapShown) {
+      recapOpened();
+      // "Same crew, new game" sits on the sheet: its games are in before anyone taps it.
+      void prefetchSameCrew().catch(() => {});
+    } else recapClosed();
   }, [recapShown, recapOpened, recapClosed]);
   const [wordLists, setWordLists] = useState<WordListSummary[]>([]);
 
