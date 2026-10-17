@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.3...v0.41.4) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ui:** show one room-colour dot by every listed name ([#267](https://github.com/thurahtetaung/virtual-tavern/issues/267)) ([196aa1e](https://github.com/thurahtetaung/virtual-tavern/commit/196aa1e5b5e76f8a071eec13eeb5ba446fa4c91b))
+
 ## [0.41.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.2...v0.41.3) (2026-10-17)
 
 
