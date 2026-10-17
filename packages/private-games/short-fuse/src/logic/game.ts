@@ -608,7 +608,7 @@ function drawCard(state: S, from: 'top' | 'bottom' | 'bury' | 'second', now: num
       g.hands[who]!.push(id);
       g.held[who] = id;
       remember(g, who, { kind: 'held', card: card(g, id), turn: g.turn.n, at: now });
-      log(g, now, { kind: 'draw', by: who, from: side });
+      log(g, now, { kind: 'draw', by: who, from: side, drew: t });
       return settle(state, now);
     }
     g.limbo = id;
@@ -616,8 +616,9 @@ function drawCard(state: S, from: 'top' | 'bottom' | 'bury' | 'second', now: num
     return confront(state, who, id, now);
   }
   if (t === 'void') return drawVoid(state, who, id, side, now);
+  const seen = !g.blind[who];
   enterHand(g, who, id);
-  log(g, now, { kind: 'draw', by: who, from: side });
+  log(g, now, { kind: 'draw', by: who, from: side, ...(seen && { drew: t }) });
   cure(g, who, now);
   settle(state, now);
 }
@@ -655,8 +656,9 @@ function mineTakes(
       return confront(state, drawer, id, now);
     }
     if (t === 'void') return drawVoid(state, drawer, id, from, now);
+    const seen = !g.blind[drawer];
     enterHand(g, drawer, id);
-    log(g, now, { kind: 'draw', by: drawer, from });
+    log(g, now, { kind: 'draw', by: drawer, from, ...(seen && { drew: t }) });
     return settle(state, now);
   }
   log(g, now, {
@@ -2612,7 +2614,8 @@ function gameView(state: S, g: Game, viewer: PlayerId | null): GameView {
     decisionEnds: secs && waiting.length ? g.decisionAt + secs * 1000 : null,
     beat: g.beat ? { ...g.beat } : null,
     memory: viewer !== null ? (g.memory[viewer] ?? []).map((m) => ({ ...m })) : [],
-    log: g.log.map((e) => ({ ...e })),
+    // What a player drew reaches only their own log.
+    log: g.log.map(({ drew, ...e }) => (drew && e.by === viewer ? { ...e, drew } : e)),
     nudges: { ...g.nudges },
     winner: g.winner,
     end: over

@@ -150,6 +150,8 @@ export function leaks(state: ShortFuseState, viewer: string | null): string[] {
   walk(v);
   const has = (id: string) => strings.has(id);
   const found: string[] = [];
+  // What someone drew reaches only their own log, even once the game is over.
+  for (const e of v.game?.log ?? []) if (e.drew && e.by !== viewer) found.push(`drew ${e.id}`);
   const over = state.phase === 'over';
   if (over) return found;
   // Ghosts keep (and see) their own hand.

@@ -86,6 +86,37 @@ describe('view()', () => {
   });
 });
 
+describe('view() of a draw', () => {
+  it('names the drawn card in the drawer’s own log only', () => {
+    const [A, B, C] = ids(3) as [string, string, string];
+    const h = rigged([['skip'], ['skip'], []], ['attack', 'cat2']);
+    h.act({ type: 'draw' }, A);
+    const line = (v: string | null) => h.view(v).game!.log.findLast((e) => e.kind === 'draw')!;
+    expect(line(A)).toMatchObject({ by: A, drew: 'attack' });
+    for (const v of [B, C, null, 'watcher']) {
+      expect(line(v)).not.toHaveProperty('drew');
+      expect(JSON.stringify(h.view(v).game!.log)).not.toContain('attack');
+    }
+    expectSealed(h);
+    h.act({ type: 'draw' }, B);
+    expect(line(B)).toMatchObject({ by: B, drew: 'cat2' });
+    expect(JSON.stringify(h.view(A).game!.log)).not.toContain('cat2');
+  });
+
+  it('never names a card drawn into a blindfolded hand, even to its owner', () => {
+    const [A, B] = ids(2) as [string, string];
+    const h = rigged([['blind'], []], ['skip', 'attack', 'cat1'], { settings: { x2: true } });
+    h.play(A, ['blind'], { target: B });
+    h.act({ type: 'draw' }, A);
+    expect(h.view(A).game!.log.findLast((e) => e.kind === 'draw')).toHaveProperty('drew', 'skip');
+    h.act({ type: 'draw' }, B);
+    const drew = h.view(B).game!.log.findLast((e) => e.kind === 'draw')!;
+    expect(drew.by).toBe(B);
+    expect(drew).not.toHaveProperty('drew');
+    expectSealed(h);
+  });
+});
+
 describe('view() with expansions 2 and 3', () => {
   it('never shows a held Bomb, the Stash or a blindfolded hand to anyone who may not see it', () => {
     const [A, B, C] = ids(3) as [string, string, string];
