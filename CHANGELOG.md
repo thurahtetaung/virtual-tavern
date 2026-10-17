@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.8...v0.43.0) (2026-10-17)
+
+
+### Features
+
+* **ui:** show that a move is on its way while the server has it ([#291](https://github.com/thurahtetaung/virtual-tavern/issues/291)) ([04a7ab7](https://github.com/thurahtetaung/virtual-tavern/commit/04a7ab72351cece2b06bdedef4a4f7a11af7ccaa))
+
 ## [0.42.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.7...v0.42.8) (2026-10-17)
 
 
