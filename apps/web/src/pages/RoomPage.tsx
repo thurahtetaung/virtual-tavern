@@ -278,6 +278,7 @@ function Room({
     snapshot,
     clockOffset,
     status,
+    catchingUp,
     lockReason,
     error,
     call,
@@ -646,7 +647,7 @@ function Room({
 
       {playtest && snapshot && <PlaytestBar roomId={roomId} snapshot={snapshot} />}
 
-      {status === 'reconnecting' && (
+      {(status === 'reconnecting' || (catchingUp && status === 'joined')) && (
         <p
           role="status"
           className="mb-3 rounded-xl bg-accent-soft dark:bg-amber-200 px-4 py-2 text-center text-sm font-semibold text-amber-950"
