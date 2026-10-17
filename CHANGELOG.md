@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.3...v0.42.4) (2026-10-17)
+
+
+### Performance Improvements
+
+* open rooms with fewer waits in a row ([#277](https://github.com/thurahtetaung/virtual-tavern/issues/277)) ([4db2d72](https://github.com/thurahtetaung/virtual-tavern/commit/4db2d724a9fb12ed48af349b6b83a898b7988a16))
+
 ## [0.42.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.2...v0.42.3) (2026-10-17)
 
 
