@@ -1,4 +1,5 @@
 import { ProtectedImage, cn } from '@vt/ui';
+import { memo } from 'react';
 import type { CardType } from '../logic/cards.ts';
 import type { Art, Card } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -28,7 +29,7 @@ function tint(t: CardType): string {
  * A card face: the manifest's art with our name chip over it (so the name is always readable
  * text), or a placeholder with a glyph and the name when there's no art.
  */
-export function CardFace({
+export const CardFace = memo(function CardFace({
   card,
   art,
   c,
@@ -103,10 +104,10 @@ export function CardFace({
       {!src && tiny && <span className="sr-only">{name}</span>}
     </span>
   );
-}
+});
 
 /** The shared card back (the manifest's, or a drawn one). */
-export function CardBack({
+export const CardBack = memo(function CardBack({
   c,
   size = 'md',
   className,
@@ -133,4 +134,4 @@ export function CardBack({
       )}
     </span>
   );
-}
+});

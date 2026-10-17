@@ -458,10 +458,10 @@ export function ShortFuseGame({
   const voidOpens = useRef(0);
   const voidTop = g?.pile.voidTop ?? false;
   if (voidOpen && !voidTop) setVoidOpen(0);
-  const openVoidTop = (from: HTMLElement) => {
+  const openVoidTop = useCallback((from: HTMLElement) => {
     pileOpener.current = from;
     setVoidOpen((voidOpens.current += 1));
-  };
+  }, []);
   const closeVoidTop = (opening: number) => {
     if (opening !== voidOpens.current) return;
     setVoidOpen(0);
@@ -533,6 +533,25 @@ export function ShortFuseGame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preloadKey]);
   const [blindSlot, setBlindSlot] = useState<{ key: string; slot: number } | null>(null);
+  const myTurn = g?.prompt?.kind === 'turn';
+  const nowOnly = !myTurn && !!g?.canNow;
+  // Kept the same between updates that don't change it, so the hand can skip them.
+  const toggle = useCallback(
+    (card: CardView) => {
+      if (!myTurn && !(nowOnly && CARDS[card.t].now)) {
+        setInspect(card);
+        return;
+      }
+      setPicking(null);
+      setSel({
+        key: selKey,
+        ids: selected.has(card.id)
+          ? [...selected].filter((x) => x !== card.id)
+          : [...selected, card.id],
+      });
+    },
+    [myTurn, nowOnly, selKey, selected],
+  );
 
   if (view.phase === 'lobby' || !g) {
     return (
@@ -546,21 +565,6 @@ export function ShortFuseGame({
   const hand = g.hand ?? [];
   const selCards = hand.filter((x) => selected.has(x.id));
   const plan = selectionPlan(g, me, selCards);
-  const myTurn = g.prompt?.kind === 'turn';
-  const nowOnly = !myTurn && g.canNow;
-  const toggle = (card: CardView) => {
-    if (!myTurn && !(nowOnly && CARDS[card.t].now)) {
-      setInspect(card);
-      return;
-    }
-    setPicking(null);
-    setSel({
-      key: selKey,
-      ids: selected.has(card.id)
-        ? [...selected].filter((x) => x !== card.id)
-        : [...selected, card.id],
-    });
-  };
   const play = (target?: string, named?: CardType | null) => {
     const action: ShortFuseAction = {
       type: 'play',

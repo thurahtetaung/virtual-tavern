@@ -6,9 +6,18 @@ export type NameOf = (id: string) => string;
 
 /** Display names for everyone who sat in the game, then everyone in the room. */
 export function namesFor(view: TavernBrawlView, you: string | null): NameOf {
-  const names = new Map<string, string>();
-  for (const s of view.seats) names.set(s.id, s.name);
-  for (const p of view.game?.players ?? []) names.set(p.id, p.name);
+  return namesFrom(nameKey(view), you);
+}
+
+/** Who's who as one string, which changes far less often than the view. */
+export const nameKey = (view: TavernBrawlView) =>
+  JSON.stringify([
+    ...view.seats.map((s) => [s.id, s.name]),
+    ...(view.game?.players ?? []).map((p) => [p.id, p.name]),
+  ]);
+
+export function namesFrom(key: string, you: string | null): NameOf {
+  const names = new Map(JSON.parse(key) as [string, string][]);
   return (id) => (id === you ? 'You' : (names.get(id) ?? 'Someone'));
 }
 

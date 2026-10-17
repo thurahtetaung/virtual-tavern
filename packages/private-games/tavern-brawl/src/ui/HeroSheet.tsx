@@ -1,5 +1,5 @@
 import { Button, Modal, NameDot } from '@vt/ui';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { HEROES, cardsOf } from '../logic/cards.ts';
 import { POWER_TEXT, cardText, powersOf } from '../logic/guide.ts';
 import type { CardId, HeroId } from '../logic/types.ts';
@@ -147,7 +147,7 @@ export function HeroSheet({
 }
 
 /** One "Powers" line per hero at the table: theirs and everyone else's, each opening the sheet. */
-export function PowersPanel({
+export const PowersPanel = memo(function PowersPanel({
   heroes,
   art,
 }: {
@@ -194,4 +194,4 @@ export function PowersPanel({
       />
     </div>
   );
-}
+});

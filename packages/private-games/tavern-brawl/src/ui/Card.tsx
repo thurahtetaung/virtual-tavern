@@ -1,5 +1,5 @@
 import { Button, Modal, ProtectedImage, cn } from '@vt/ui';
-import type { ReactNode } from 'react';
+import { type ReactNode, memo } from 'react';
 import { CARDS, symbolCount } from '../logic/cards.ts';
 import { cardText } from '../logic/guide.ts';
 import type { CardDef, CardId, HeroId } from '../logic/types.ts';
@@ -50,7 +50,7 @@ export interface CardProps {
  * symbol badges on the left, ✦ for a power, and the name in a banner along the bottom.
  * The untouched original only shows in the zoom view.
  */
-export function Card({
+export const Card = memo(function Card({
   card,
   art,
   width,
@@ -129,7 +129,7 @@ export function Card({
       {children}
     </div>
   );
-}
+});
 
 /** A card-shaped placeholder in the hero's colour, for when there is no art. */
 function Placeholder({ def, big }: { def: CardDef; big: boolean }) {
