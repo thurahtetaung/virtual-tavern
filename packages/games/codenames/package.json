@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@vt/game-sdk": "workspace:*",
-    "zod": "^4.6.5",
+    "zod": "^4.6.7",
     "@vt/ui": "workspace:*"
   },
   "peerDependencies": {
