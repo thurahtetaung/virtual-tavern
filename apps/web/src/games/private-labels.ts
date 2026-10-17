@@ -1,4 +1,5 @@
 import type { GameGuide } from '@vt/game-sdk';
+import { loadManifest } from '@vt/ui';
 import {
   creditOf,
   footerOf,
@@ -67,18 +68,8 @@ export async function manifestTitle(gameId: string): Promise<string | undefined>
   return typeof title === 'string' && title.trim() ? title.trim() : undefined;
 }
 
-/** Fetches a manifest once per page; null without asset storage. */
-const manifests = new Map<string, Promise<Json | null>>();
-function manifest(gameId: string): Promise<Json | null> {
-  let p = manifests.get(gameId);
-  if (!p) {
-    p = fetch(`/api/backroom/manifest/${gameId}`)
-      .then(async (res) => (res.ok ? obj(await res.json()) : null))
-      .catch(() => null);
-    manifests.set(gameId, p);
-  }
-  return p;
-}
+/** A manifest, fetched once per page and shared with the games' own UIs; null without one. */
+const manifest = (gameId: string): Promise<Json | null> => loadManifest(gameId);
 
 /** "e1-07" → "Location 7", "e2-01" → "Location 31", as the game's own placeholders. */
 function locationPlaceholder(id: string): string | undefined {

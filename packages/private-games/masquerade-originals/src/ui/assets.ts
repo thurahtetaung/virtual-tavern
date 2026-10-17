@@ -1,4 +1,5 @@
 import type { LocationDisplay } from '@vt/game-masquerade/ui';
+import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { placeholderName } from '../logic/pack.ts';
 
@@ -29,18 +30,11 @@ export function useManifest(): ManifestState {
   const [manifest, setManifest] = useState<ManifestState>(null);
   useEffect(() => {
     let live = true;
-    void fetch(`/api/backroom/manifest/${GAME_ID}`)
-      .then(async (res) => {
-        if (!live) return;
-        if (!res.ok) return setManifest('unavailable');
-        const body = (await res.json()) as Manifest | null;
-        setManifest(
-          body && typeof body === 'object' && body.locations && typeof body.locations === 'object'
-            ? body
-            : 'unavailable',
-        );
-      })
-      .catch(() => live && setManifest('unavailable'));
+    void loadManifest(GAME_ID).then((body) => {
+      const m = body as Manifest | null;
+      if (live)
+        setManifest(m && m.locations && typeof m.locations === 'object' ? m : 'unavailable');
+    });
     return () => {
       live = false;
     };

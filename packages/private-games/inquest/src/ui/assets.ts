@@ -1,3 +1,4 @@
+import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
   type EventKind,
@@ -45,16 +46,10 @@ export function useManifest(): ManifestState {
   const [manifest, setManifest] = useState<ManifestState>(null);
   useEffect(() => {
     let live = true;
-    void fetch(`/api/backroom/manifest/${GAME_ID}`)
-      .then(async (res) => {
-        if (!live) return;
-        if (!res.ok) return setManifest('unavailable');
-        const body = (await res.json()) as Manifest | null;
-        setManifest(body && typeof body === 'object' ? body : 'unavailable');
-      })
-      .catch(() => {
-        if (live) setManifest('unavailable');
-      });
+    void loadManifest(GAME_ID).then((body) => {
+      const m = body as Manifest | null;
+      if (live) setManifest(m ? m : 'unavailable');
+    });
     return () => {
       live = false;
     };

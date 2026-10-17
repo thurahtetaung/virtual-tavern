@@ -119,6 +119,12 @@ export class R2Assets {
     return { status: res.status, headers: passed, body: res.body };
   }
 
+  /** The briefly cached copy of `json(key)`, without asking the bucket; undefined if none. */
+  cachedJson(key: string, cacheMs = 60_000): unknown {
+    const hit = this.manifests.get(key);
+    return hit && Date.now() - hit.at < cacheMs ? hit.body : undefined;
+  }
+
   /** A JSON object from the bucket (cached briefly), or null if it doesn't exist. */
   async json(key: string, cacheMs = 60_000): Promise<unknown> {
     const hit = this.manifests.get(key);

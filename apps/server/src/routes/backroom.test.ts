@@ -90,6 +90,7 @@ describe('back room over HTTP', () => {
     expect((await app.inject({ method: 'GET', url: '/api/backroom/status' })).json()).toEqual({
       open: false,
       unlocked: false,
+      versions: { games: expect.any(String) as string },
     });
     expect((await unlock(app)).res.statusCode).toBe(503);
     const forbidden = await app.inject({
@@ -170,6 +171,7 @@ describe('back room over HTTP', () => {
     ).toEqual({
       id: roomId,
       gameId: 'reverie',
+      versions: { games: expect.any(String) as string, manifests: expect.any(Object) as object },
     });
   });
 
@@ -271,6 +273,7 @@ describe('back room over HTTP', () => {
     ).toEqual({
       open: true,
       unlocked: false,
+      versions: { games: expect.any(String) as string },
     });
   });
 

@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { isLocalAddress } from './app.ts';
 import { dbHealthy, openDb } from './db/index.ts';
@@ -97,7 +98,11 @@ describe('http api', () => {
     const { roomId } = res.json<{ roomId: string }>();
     expect(roomId).toMatch(/^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/);
     const found = await app.inject({ method: 'GET', url: `/api/rooms/${roomId}` });
-    expect(found.json()).toEqual({ id: roomId, gameId: 'codenames' });
+    expect(found.json()).toEqual({
+      id: roomId,
+      gameId: 'codenames',
+      versions: { games: expect.any(String) as string, wordLists: expect.any(String) as string },
+    });
     expect((await app.inject({ method: 'GET', url: '/api/rooms/nope' })).statusCode).toBe(404);
     const bad = await app.inject({
       method: 'POST',
@@ -184,10 +189,18 @@ describe('admin api', () => {
         .inject({ method: 'GET', url: '/api/admin/session', headers })
         .then((r) => r.json<unknown>());
     const restarted = testApp();
-    expect(await session(restarted)).toEqual({ enabled: true, signedIn: true });
+    expect(await session(restarted)).toEqual({
+      enabled: true,
+      signedIn: true,
+      versions: { games: expect.any(String) as string },
+    });
     await restarted.close();
     const changed = testApp({ adminPassword: 'hunter3' });
-    expect(await session(changed)).toEqual({ enabled: true, signedIn: false });
+    expect(await session(changed)).toEqual({
+      enabled: true,
+      signedIn: false,
+      versions: { games: expect.any(String) as string },
+    });
     expect(
       (await changed.inject({ method: 'GET', url: '/api/admin/word-lists', headers })).statusCode,
     ).toBe(401);
@@ -199,7 +212,7 @@ describe('admin api', () => {
     const headers = { cookie };
     expect(
       (await app.inject({ method: 'GET', url: '/api/admin/session', headers })).json(),
-    ).toEqual({ enabled: true, signedIn: true });
+    ).toEqual({ enabled: true, signedIn: true, versions: { games: expect.any(String) as string } });
 
     const created = await app.inject({
       method: 'POST',
@@ -380,6 +393,7 @@ describe('admin api', () => {
     expect((await app.inject({ method: 'GET', url: '/api/admin/session' })).json()).toEqual({
       enabled: false,
       signedIn: false,
+      versions: { games: expect.any(String) as string },
     });
   });
 });
@@ -390,6 +404,10 @@ describe('web app caching', () => {
   mkdirSync(join(webDist, 'assets'), { recursive: true });
   writeFileSync(join(webDist, 'index.html'), '<!doctype html><title>tavern</title>');
   writeFileSync(join(webDist, 'assets', 'index-abc123.js'), 'console.log(1)');
+  // The web app's own public files, as Vite copies them into the build.
+  const publicDir = fileURLToPath(new URL('../../web/public/', import.meta.url));
+  for (const file of ['favicon.ico', 'apple-touch-icon.png'])
+    copyFileSync(join(publicDir, file), join(webDist, file));
   const app = testApp({ webDist });
   afterEach(() => app.close());
 
@@ -407,6 +425,17 @@ describe('web app caching', () => {
     const missing = await app.inject({ method: 'GET', url: '/assets/index-gone.js' });
     expect(missing.statusCode).toBe(404);
     expect(missing.headers['cache-control']).toBe('no-cache');
+
+    // The real icons are served as images, never the SPA shell.
+    for (const [file, type] of [
+      ['favicon.ico', 'image/'],
+      ['apple-touch-icon.png', 'image/png'],
+    ] as const) {
+      const res = await app.inject({ method: 'GET', url: `/${file}` });
+      expect(res.statusCode, file).toBe(200);
+      expect(res.headers['content-type'], file).toContain(type);
+      expect(res.body, file).not.toContain('<title>');
+    }
     dir.cleanup();
   });
 });

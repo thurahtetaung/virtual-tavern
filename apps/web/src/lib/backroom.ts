@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api.ts';
+import type { ListVersions } from '@vt/protocol';
+import { noteVersions } from './games.ts';
 
 export interface BackroomStatus {
   open: boolean;
@@ -7,6 +9,7 @@ export interface BackroomStatus {
   unlocked: boolean;
   /** Signed in as the admin, so no password is needed and there is no door to lock. */
   admin?: boolean;
+  versions?: ListVersions;
 }
 
 /** What the back room's door shows: still asking, shut, the password form, or the lobby. */
@@ -44,7 +47,10 @@ export function useBackroom() {
   const refresh = useCallback(
     () =>
       api<BackroomStatus>('/api/backroom/status')
-        .then(setStatus)
+        .then((s) => {
+          noteVersions(s.versions);
+          setStatus(s);
+        })
         .catch(() => setStatus({ open: false, unlocked: false })),
     [],
   );

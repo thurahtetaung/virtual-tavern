@@ -63,7 +63,12 @@ describe('an admin session has the back room', () => {
   it('lists, creates, joins and plays back-room games without the password', async () => {
     const { admin, get, createRoom, socket } = await start();
     const status = await get('/api/backroom/status', admin);
-    expect(status.json()).toEqual({ open: true, unlocked: true, admin: true });
+    expect(status.json()).toEqual({
+      open: true,
+      unlocked: true,
+      admin: true,
+      versions: { games: expect.any(String) as string, manifests: expect.any(Object) as object },
+    });
 
     const listed = (await get('/api/games', admin)).json<{ id: string }[]>().map((g) => g.id);
     expect(listed).toContain('reverie');
@@ -75,6 +80,7 @@ describe('an admin session has the back room', () => {
     expect((await get(`/api/rooms/${roomId}`, admin)).json()).toEqual({
       id: roomId,
       gameId: 'reverie',
+      versions: { games: expect.any(String) as string, manifests: expect.any(Object) as object },
     });
 
     const c = await socket(admin);
@@ -90,6 +96,7 @@ describe('an admin session has the back room', () => {
       open: false,
       unlocked: true,
       admin: true,
+      versions: { games: expect.any(String) as string, manifests: expect.any(Object) as object },
     });
     expect((await createRoom('royal-post', admin)).statusCode).toBe(200);
   });
@@ -115,7 +122,11 @@ describe('an admin session has the back room', () => {
 
   it('changes nothing for anyone else', async () => {
     const { admin, get, createRoom, socket } = await start();
-    expect((await get('/api/backroom/status')).json()).toEqual({ open: true, unlocked: false });
+    expect((await get('/api/backroom/status')).json()).toEqual({
+      open: true,
+      unlocked: false,
+      versions: { games: expect.any(String) as string },
+    });
     const listed = (await get('/api/games')).json<{ id: string }[]>().map((g) => g.id);
     expect(listed).not.toContain('reverie');
     expect((await createRoom('reverie')).statusCode).toBe(400);
@@ -149,6 +160,7 @@ describe('an admin session has the back room', () => {
     expect((await get('/api/backroom/status', admin)).json()).toEqual({
       open: true,
       unlocked: false,
+      versions: { games: expect.any(String) as string },
     });
     expect(
       (await get('/api/games', admin)).json<{ id: string }[]>().map((g) => g.id),

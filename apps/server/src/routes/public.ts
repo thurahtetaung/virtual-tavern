@@ -1,16 +1,15 @@
-import {
-  type GameSummary,
-  type NextTable,
-  createRoomBody,
-  playerToken,
-  roomId,
-} from '@vt/protocol';
+import { type NextTable, createRoomBody, playerToken, roomId } from '@vt/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import type { RoomManager } from '../rooms/manager.ts';
-import type { WordListRepo } from '../word-lists.ts';
+import type { Lists } from './lists.ts';
+import type { Manifests } from './manifests.ts';
+import { sendRevalidated } from './revalidate.ts';
 import { z } from 'zod';
+
+/** Seconds a browser keeps a versioned game or word list (a change is a new URL). */
+export const LIST_MAX_AGE = 86_400;
 
 /** The browser's secret token; the server only ever keeps the id derived from it. */
 const forgetBody = z.object({ token: playerToken });
@@ -19,12 +18,11 @@ export function publicRoutes(
   app: FastifyInstance,
   opts: {
     rooms: RoomManager;
-    wordLists: WordListRepo;
     games: GameRegistry;
-    /** Whether this request has the back room: a current unlock, or a current admin session. */
-    hasBackroom: (req: FastifyRequest) => boolean;
-    /** Admin-set titles for private games, sent only to unlocked browsers. */
-    titles?: { title(gameId: string): string | null };
+    /** The game and word lists, with their versions. */
+    lists: Lists;
+    /** Back-room manifests' versions, for a private game's room. */
+    manifests?: Manifests;
     /** Deletes what stats keep about a player; returns how many rows changed. */
     forget?: (playerId: string) => number;
     /**
@@ -42,40 +40,31 @@ export function publicRoutes(
     isAdmin?: (req: FastifyRequest) => boolean;
   },
 ) {
-  const { rooms, wordLists, games, hasBackroom, titles, forget, linkable, linked } = opts;
+  const { rooms, games, lists, forget, linkable, linked } = opts;
   const isTestTraffic = opts.isTestTraffic ?? (() => false);
-  // A private game's title from the database; it only goes where the game itself is visible.
-  const titleOf = (gameId: string) => {
-    if (!isPrivate(games.get(gameId))) return {};
-    const title = titles?.title(gameId);
-    return title ? { title } : {};
-  };
-  // Private games behave as if they don't exist for anyone without the back room.
-  const visible = (req: FastifyRequest, gameId: string) => {
-    const game = games.get(gameId);
-    return !!game && (!isPrivate(game) || hasBackroom(req));
-  };
+  const titleOf = (gameId: string) => lists.titleOf(gameId);
+  const visible = (req: FastifyRequest, gameId: string) => lists.visible(req, gameId);
 
-  app.get('/api/games', (req): GameSummary[] =>
-    [...games.values()]
-      .filter((g) => visible(req, g.id))
-      .map((g) => ({
-        id: g.id,
-        name: g.name,
-        description: g.description,
-        minPlayers: g.minPlayers,
-        maxPlayers: g.maxPlayers,
-        private: g.access === 'private',
-        wordLists: g.usesWordLists === true,
-        questionDecks: g.usesQuestionDecks === true,
-        ...titleOf(g.id),
-      })),
-  );
+  // A versioned list (`?v=`, the version the page was given) is kept for a day: any change is a
+  // new version, so a new URL. A stale or missing version is revalidated on every load. The game
+  // list depends on the back-room cookies, so its tag is of this request's own answer.
+  const maxAge = (v: unknown, current: string) => (v === current ? LIST_MAX_AGE : undefined);
+
+  app.get<{ Querystring: { v?: unknown } }>('/api/games', (req, reply) => {
+    const list = lists.games(req);
+    return sendRevalidated(req, reply, list, {
+      maxAge: maxAge(req.query.v, lists.version(list)),
+      vary: 'Cookie',
+    });
+  });
 
   // Only enabled lists; `?game=<id>` keeps only the lists that game offers.
-  app.get<{ Querystring: { game?: unknown } }>('/api/word-lists', (req) => {
+  app.get<{ Querystring: { game?: unknown; v?: unknown } }>('/api/word-lists', (req, reply) => {
     const { game } = req.query;
-    return wordLists.listEnabled(typeof game === 'string' && game ? game : undefined);
+    const enabled = lists.wordLists(typeof game === 'string' && game ? game : undefined);
+    return sendRevalidated(req, reply, enabled, {
+      maxAge: maxAge(req.query.v, lists.version(enabled)),
+    });
   });
 
   app.post(
@@ -119,6 +108,14 @@ export function publicRoutes(
     },
   );
 
+  // A back-room room's manifest version, when the server has it in memory; otherwise the server
+  // reads it now, without waiting, so the page's own request a moment later finds it ready.
+  const manifestVersions = (gameId: string): Record<string, string> => {
+    const v = opts.manifests?.cachedVersion(gameId);
+    if (!v) opts.manifests?.warm(gameId);
+    return v ? { [gameId]: v } : {};
+  };
+
   app.get<{ Params: { id: string } }>('/api/rooms/:id', (req, reply) => {
     const room = roomId.safeParse(req.params.id).success ? rooms.exists(req.params.id) : null;
     const playtest = !!room && rooms.isPlaytest(req.params.id);
@@ -139,6 +136,14 @@ export function publicRoutes(
         .code(403)
         .send({ error: { code: 'backroom-locked', message: 'This room is in the back room.' } });
     }
-    return { id: req.params.id, gameId: room.gameId, ...titleOf(room.gameId) };
+    // The lists' versions, so the room asks for URLs its browser may keep.
+    const versions = {
+      games: lists.gamesVersion(req),
+      ...(games.get(room.gameId)?.usesWordLists && {
+        wordLists: lists.wordListsVersion(room.gameId),
+      }),
+      ...(isPrivate(games.get(room.gameId)) && { manifests: manifestVersions(room.gameId) }),
+    };
+    return { id: req.params.id, gameId: room.gameId, ...titleOf(room.gameId), versions };
   });
 }

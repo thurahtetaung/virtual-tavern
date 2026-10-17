@@ -19,3 +19,4 @@ export * from './sticky-bar.tsx';
 export * from './switch.tsx';
 export * from './superlatives.tsx';
 export * from './player-colors.tsx';
+export * from './manifest.ts';

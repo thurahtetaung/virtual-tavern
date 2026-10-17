@@ -1,3 +1,4 @@
+import { loadManifest as loadSharedManifest } from '@vt/ui';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { type CopyKey, type CopyVars, copyLine, fillVars } from '../logic/copy.ts';
@@ -23,23 +24,9 @@ export type ManifestState = Manifest | null | 'unavailable';
 export const assetUrl = (gameId: string, path: string) =>
   `/api/backroom/assets/${gameId}/${path.replace(/^\/+/, '')}`;
 
-const cached = new Map<string, Promise<Manifest | null>>();
-
 /** An edition's manifest, fetched once per page; null without asset storage (tests, dev). */
-export function loadManifest(gameId: string): Promise<Manifest | null> {
-  let p = cached.get(gameId);
-  if (!p) {
-    p = fetch(`/api/backroom/manifest/${gameId}`)
-      .then(async (res) => {
-        if (!res.ok) return null;
-        const body = (await res.json()) as unknown;
-        return body && typeof body === 'object' ? body : null;
-      })
-      .catch(() => null);
-    cached.set(gameId, p);
-  }
-  return p;
-}
+export const loadManifest = (gameId: string): Promise<Manifest | null> =>
+  loadSharedManifest(gameId);
 
 export function useManifest(gameId: string): ManifestState {
   const [manifest, setManifest] = useState<ManifestState>(null);

@@ -40,6 +40,7 @@ import {
   writeParams,
 } from '../stats/range.ts';
 import { Chip, ChipRow } from '../stats/ui.tsx';
+import { fetchGames } from '../lib/games.ts';
 
 interface Session {
   enabled: boolean;
@@ -94,7 +95,7 @@ function Stats() {
   // and the stats responses name every game in their data, private ones included.
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   useEffect(() => {
-    void api<GameSummary[]>('/api/games')
+    void fetchGames()
       .then(setSummaries)
       .catch(() => {});
   }, []);

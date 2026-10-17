@@ -45,6 +45,8 @@ import { PrivateGameSettings, gameNamer } from './private-games.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
+import { Lists } from './routes/lists.ts';
+import { Manifests } from './routes/manifests.ts';
 
 export interface AppOptions {
   version: string;
@@ -377,13 +379,20 @@ export function buildApp(opts: AppOptions) {
     return { status: 'ok', version: opts.version };
   });
 
+  const lists = new Lists({
+    games,
+    wordLists,
+    hasBackroom: requestHasBackroom,
+    titles: privateGames,
+    build: opts.version,
+  });
+  const manifests = new Manifests({ games, assets, privateGames, lists });
   void app.register((scope, _o, done) => {
     publicRoutes(scope, {
       rooms,
-      wordLists,
       games,
-      hasBackroom: requestHasBackroom,
-      titles: privateGames,
+      lists,
+      manifests,
       forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
       isTestTraffic: (req) => isTestTraffic(req.headers),
@@ -402,6 +411,7 @@ export function buildApp(opts: AppOptions) {
       recapSettings,
       offsiteStatus: () => readOffsiteStatus(offsiteStatusFile, now()),
       now,
+      lists,
     });
     backroomRoutes(scope, {
       backroom,
@@ -410,9 +420,10 @@ export function buildApp(opts: AppOptions) {
       games,
       assets,
       questionDecks,
-      privateGames,
       hasBackroom: requestHasBackroom,
       isAdmin: isAdminRequest,
+      lists,
+      manifests,
     });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));

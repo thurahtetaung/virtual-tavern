@@ -1,3 +1,4 @@
+import { loadManifest as loadSharedManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CardType } from '../logic/cards.ts';
 import { type Manifest, faceOf, namesOf, thumbOf } from '../logic/manifest.ts';
@@ -11,19 +12,8 @@ export type ManifestState = Manifest | null | 'unavailable';
 export const assetUrl = (path: string) =>
   `/api/backroom/assets/${GAME_ID}/${path.replace(/^\/+/, '')}`;
 
-let cached: Promise<Manifest | null> | null = null;
-
 /** The private manifest, fetched once per page; null without asset storage (tests, dev). */
-export function loadManifest(): Promise<Manifest | null> {
-  cached ??= fetch(`/api/backroom/manifest/${GAME_ID}`)
-    .then(async (res) => {
-      if (!res.ok) return null;
-      const body = (await res.json()) as unknown;
-      return body && typeof body === 'object' ? body : null;
-    })
-    .catch(() => null);
-  return cached;
-}
+export const loadManifest = (): Promise<Manifest | null> => loadSharedManifest(GAME_ID);
 
 export function useManifest(): ManifestState {
   const [manifest, setManifest] = useState<ManifestState>(null);
