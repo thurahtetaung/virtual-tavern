@@ -64,22 +64,24 @@ test('joiners get distinct colours, can change theirs, and a new room starts afr
   await expect(drawer.getByRole('alert')).toHaveText(
     /^Hana is already .+\. Pick another colour\.$/,
   );
-  await swatches.getByRole('radio', { name: 'grey', exact: true }).click();
-  await expect(swatches.getByRole('radio', { name: 'grey', exact: true })).toBeChecked();
+  // Colours are dealt at random, so pick one neither of them was dealt.
+  const free = ['grey', 'brown', 'mint'].find((c) => c !== hanaColor && c !== anaColor)!;
+  await swatches.getByRole('radio', { name: free, exact: true }).click();
+  await expect(swatches.getByRole('radio', { name: free, exact: true })).toBeChecked();
   await expect(drawer.getByRole('alert')).toHaveCount(0);
-  await expect.poll(() => colorOf(hana, 'Ana')).toBe('grey');
+  await expect.poll(() => colorOf(hana, 'Ana')).toBe(free);
 
-  // Colours aren't remembered: in Ben's room, where Ben is grey already, Ana gets another one.
+  // Colours aren't remembered: in Ben's room, where Ben has that colour already, Ana gets another one.
   const ben = await player(browser, 'Ben', '/');
   await ben.getByRole('button', { name: 'Create a Codenames room' }).click();
   await expect(ben).toHaveURL(/\/r\//);
   await openPlayers(ben);
   await drawerOf(ben).getByRole('button', { name: 'Change name or colour' }).click();
-  await drawerOf(ben).getByRole('radio', { name: 'grey', exact: true }).click();
-  await expect(drawerOf(ben).getByRole('radio', { name: 'grey', exact: true })).toBeChecked();
+  await drawerOf(ben).getByRole('radio', { name: free, exact: true }).click();
+  await expect(drawerOf(ben).getByRole('radio', { name: free, exact: true })).toBeChecked();
   await ana.goto(ben.url());
   await expect(drawerOf(ben).locator('[data-color]')).toHaveCount(2);
-  expect(await colorOf(ben, 'Ana')).not.toBe('grey');
+  expect(await colorOf(ben, 'Ana')).not.toBe(free);
 });
 
 test('on a small phone the refusal shows in view, and the drawer says "offline" like the lobby', async ({
