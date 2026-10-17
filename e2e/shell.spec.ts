@@ -257,3 +257,45 @@ test('on a touch phone toasts stay clear of the room header and tap bands stop a
   await invite.evaluate((el: HTMLElement) => el.style.setProperty('min-height', '0'));
   expect(await invite.evaluate(band)).toEqual({ height: 32, band: '44px' });
 });
+
+test('a move the server is slow to answer shows it is on its way, then says so', async ({
+  browser,
+}) => {
+  const page = await (
+    await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light' })
+  ).newPage();
+  page.on('pageerror', (e) => pageErrors.push(e.message));
+  await page.addInitScript(() => localStorage.setItem('vt.playerName', 'Hana'));
+  // Hold the server's answers while `slow` is on, as a slow connection would.
+  let slow = false;
+  const held: (() => void)[] = [];
+  await page.routeWebSocket(/\/socket\.io\//, (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((m) => (slow ? held.push(() => ws.send(m)) : ws.send(m)));
+    ws.onMessage((m) => server.send(m));
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a Codenames room' }).click();
+  const join = page.getByRole('button', { name: 'Join Red as Operative' });
+  await expect(join).toBeVisible();
+
+  slow = true;
+  await join.click();
+  await expect(join).toHaveAttribute('aria-busy', 'true');
+  await expect(page.locator('.vt-sending')).toBeVisible();
+  if (process.env.SCREENSHOTS)
+    await page.screenshot({ path: 'test-results/shots/pending-phone-light.png' });
+  await expect(page.getByRole('status').filter({ hasText: 'Still sending…' })).toBeVisible();
+  if (process.env.SCREENSHOTS) {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.screenshot({ path: 'test-results/shots/still-sending-phone-light.png' });
+  }
+  // Other controls still work meanwhile.
+  await expect(page.getByRole('button', { name: 'Be the Spymaster' }).first()).toBeEnabled();
+
+  slow = false;
+  for (const send of held.splice(0)) send();
+  await expect(page.getByRole('status').filter({ hasText: 'Still sending…' })).toBeHidden();
+  await expect(page.locator('.vt-sending')).toBeHidden();
+  await expect(page.locator('[data-vt-sending]')).toHaveCount(0);
+});

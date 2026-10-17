@@ -44,6 +44,7 @@ import { retryOnce } from '../lib/retry.ts';
 import { offlineFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { type Seat, adoptSeat, clearSeat, confirmSeat, seatFor } from '../lib/seat.ts';
+import { PendingIndicator, usePending } from '../lib/pending.tsx';
 import { useToast } from '../lib/toast.tsx';
 import { roomTitle, usePageTitle } from '../lib/title.ts';
 import { useUnchanged } from '../lib/unchanged.ts';
@@ -398,9 +399,13 @@ function Room({
     if (status === 'kicked' || status === 'left') forgetLastRoom(roomId);
   }, [status, roomId, game.name, backroomGame, playtest]);
 
+  // Every move shows it is on its way while the server has it (the control that sent it, a bar
+  // along the top, then "Still sending…").
+  const pending = usePending();
+  const { track } = pending;
   const act = useCallback(
     async (action: unknown, options?: ActOptions) => {
-      const res = await call('game:action', action);
+      const res = await track(call('game:action', action));
       if (res.ok) refusals.clearAll();
       else if (res.error.code === 'backroom-locked') {
         // The password changed or the admin signed out mid-game: send the player back to the
@@ -413,7 +418,7 @@ function Room({
       }
       return res.ok;
     },
-    [call, toast, navigate, roomId, refusals, playtest],
+    [call, track, toast, navigate, roomId, refusals, playtest],
   );
 
   useEffect(() => {
@@ -681,6 +686,7 @@ function Room({
         </div>
       </div>
 
+      <PendingIndicator sending={pending.sending} stillSending={pending.stillSending} />
       {playtest && snapshot && <PlaytestBar roomId={roomId} snapshot={snapshot} />}
 
       {(status === 'reconnecting' || (catchingUp && status === 'joined')) && (
