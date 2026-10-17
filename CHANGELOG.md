@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.7...v0.42.8) (2026-10-17)
+
+
+### Performance Improvements
+
+* join with the connection, push the recap and reuse the connection between rooms ([#288](https://github.com/thurahtetaung/virtual-tavern/issues/288)) ([8c68046](https://github.com/thurahtetaung/virtual-tavern/commit/8c6804604707267930f5cdcc4d52fc44206d4e71))
+
 ## [0.42.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.6...v0.42.7) (2026-10-17)
 
 
