@@ -190,3 +190,45 @@
     transform: none;
   }
 }
+
+/* A move on its way (lib/pending.tsx): the control that sent it pulses, a bar runs along the top. */
+[data-vt-sending] {
+  cursor: progress;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  animation: vt-sending-pulse 1s ease-in-out infinite;
+}
+@keyframes vt-sending-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.vt-sending::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  animation: vt-sending-slide 1.1s ease-in-out infinite;
+}
+@keyframes vt-sending-slide {
+  from {
+    left: -40%;
+  }
+  to {
+    left: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-vt-sending] {
+    animation: none;
+    opacity: 0.7;
+  }
+  .vt-sending::before {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.6;
+  }
+}
