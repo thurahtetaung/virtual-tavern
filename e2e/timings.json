@@ -29,6 +29,7 @@
   "screenshots.spec.ts": 1,
   "seance.spec.ts": 26,
   "shell.spec.ts": 11,
+  "short-fuse-discard.spec.ts": 60,
   "short-fuse-peek.spec.ts": 125,
   "short-fuse-shots.spec.ts": 1,
   "short-fuse-x1.spec.ts": 18,
