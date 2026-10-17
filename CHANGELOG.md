@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.1...v0.42.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* **ui:** retry a protected image once when it fails to load ([#274](https://github.com/thurahtetaung/virtual-tavern/issues/274)) ([4f5c7ad](https://github.com/thurahtetaung/virtual-tavern/commit/4f5c7ad1c7e0f9fc5fca00398788b6930a6b29e9))
+
 ## [0.42.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.0...v0.42.1) (2026-10-17)
 
 
