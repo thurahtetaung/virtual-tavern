@@ -148,18 +148,25 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     const target = request.method === 'GET' ? targetOf(url.pathname) : null;
     const secret = env.EDGE_SECRET;
     if (!target || !secret || (target.kind === 'art' && !env.ART)) return await pass(request, deps);
-    const version = await currentVersion(request, deps);
-    const proven =
-      version !== null &&
-      (await verifyPass(readPass(request.headers.get('cookie')), secret, version, deps.now()));
-    if (!proven) return await pass(request, deps);
-
+    const edgePass = readPass(request.headers.get('cookie'));
+    if (!edgePass) return await pass(request, deps);
+    const ranged = target.kind === 'art' && request.headers.has('range');
     const key = new Request(`${url.origin}${url.pathname}`);
-    if (target.kind === 'art' && request.headers.has('range')) {
+    // Look in the cache while the pass is checked; nothing found is served unless the pass holds.
+    const lookup = ranged ? null : deps.cache.match(key);
+    void lookup?.catch(() => undefined);
+    const version = await currentVersion(request, deps);
+    const proven = version !== null && (await verifyPass(edgePass, secret, version, deps.now()));
+    if (!proven) {
+      void lookup?.then((found) => found?.body?.cancel()).catch(() => undefined);
+      return await pass(request, deps);
+    }
+
+    if (ranged) {
       const partial = await fromBucket(env.ART!, target.key, request);
       return partial ? labelled(partial, 'miss') : await pass(request, deps);
     }
-    const cached = await deps.cache.match(key);
+    const cached = await lookup;
     if (cached) return labelled(cached, 'hit', BROWSER_CACHE);
 
     if (target.kind === 'art') {
