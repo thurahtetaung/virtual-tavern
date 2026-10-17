@@ -11,7 +11,7 @@ import {
   useConfirm,
   useAbandonGame,
 } from '@vt/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CARDS, type CardType, NAMEABLE, isCat } from '../logic/cards.ts';
 import { comboOf } from '../logic/game.ts';
 import {
@@ -434,6 +434,20 @@ export function ShortFuseGame({
   const [inspect, setInspect] = useState<CardView | null>(null);
   const [tab, setTab] = useState<Tab>('table');
   const [discardOpen, setDiscardOpen] = useState(false);
+  // A discard card opened for its details (from the pile browser or the face-up top card).
+  const [pileCard, setPileCard] = useState<CardView | null>(null);
+  // The card that opened them gets the focus back (closing by a button unmounts the dialog).
+  const pileOpener = useRef<HTMLElement | null>(null);
+  const openPileCard = (card: CardView, from: HTMLElement) => {
+    pileOpener.current = from;
+    setPileCard(card);
+  };
+  const closePileCard = () => {
+    setPileCard(null);
+    window.requestAnimationFrame(() => {
+      if (pileOpener.current?.isConnected) pileOpener.current.focus();
+    });
+  };
 
   // A fresh peek opens its sheet once. Memory ids restart with every game, so the one already
   // seen is kept per game (this game's number stays the same through its end screen).
@@ -570,24 +584,38 @@ export function ShortFuseGame({
         )
       : [];
 
+  // Only while it is still in the pile (a card taken back from it closes its details).
+  const pileShown = pileCard && g.discard.some((x) => x.id === pileCard.id) ? pileCard : null;
+  const top = g.discard.at(-1);
+
   const table = (
     <div className="space-y-2">
       <div className="grid grid-cols-2 items-start justify-items-center gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:justify-items-start sm:gap-4 sm:p-3">
         <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} />
-        <button
-          type="button"
-          className="flex flex-col items-center gap-1 text-xs text-ink-muted"
-          onClick={() => setDiscardOpen(true)}
-          aria-label={`Discard pile (${g.discard.length} cards): browse`}
-          data-testid="discard"
-        >
-          {g.discard.length ? (
-            <CardFace card={g.discard.at(-1)!} art={g.art} c={c} size="md" />
+        <div className="flex flex-col items-center gap-1 text-xs text-ink-muted">
+          {top ? (
+            <button
+              type="button"
+              className="rounded-[0.55rem]"
+              onClick={(e) => openPileCard(top, e.currentTarget)}
+              aria-label={`Top of the discard pile: ${c.name(top.t)}. Details`}
+              data-testid="discard-top"
+            >
+              <CardFace card={top} art={g.art} c={c} size="md" />
+            </button>
           ) : (
             <span className="block aspect-[5/7] w-[4.75rem] rounded-[0.55rem] border-2 border-dashed border-line sm:w-24" />
           )}
-          <span>Discard ({g.discard.length})</span>
-        </button>
+          <button
+            type="button"
+            className="rounded-md px-1.5 py-0.5 underline decoration-dotted underline-offset-2 hover:text-ink"
+            onClick={() => setDiscardOpen(true)}
+            aria-label={`Discard pile (${g.discard.length} cards): browse`}
+            data-testid="discard"
+          >
+            Discard ({g.discard.length})
+          </button>
+        </div>
         <div className="col-span-2 flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:col-span-1 sm:flex-col sm:items-start">
           <LastAction view={view} c={c} />
           {g.decisionEnds !== null && !over && view.stage !== 'window' && view.stage !== 'beat' && (
@@ -1057,10 +1085,21 @@ export function ShortFuseGame({
         onClose={() => setDiscardOpen(false)}
         title={`Discard pile (${g.discard.length})`}
       >
-        <ol className="flex flex-wrap gap-1.5">
+        {g.discard.length > 0 && (
+          <p className="mb-2 text-xs text-ink-muted">Newest first. Tap a card for its details.</p>
+        )}
+        <ol className="flex flex-wrap gap-1.5" aria-label="Discard pile, newest first">
           {[...g.discard].reverse().map((x) => (
             <li key={x.id}>
-              <CardFace card={x} art={g.art} c={c} size="sm" />
+              <button
+                type="button"
+                className="block rounded-[0.55rem]"
+                onClick={(e) => openPileCard(x, e.currentTarget)}
+                aria-label={`${c.name(x.t)}: details`}
+                data-testid="discard-card"
+              >
+                <CardFace card={x} art={g.art} c={c} size="sm" />
+              </button>
             </li>
           ))}
           {g.discard.length === 0 && (
@@ -1068,6 +1107,26 @@ export function ShortFuseGame({
           )}
         </ol>
       </Modal>
+      {pileShown && (
+        <Inspector
+          card={pileShown}
+          c={c}
+          art={g.art}
+          now={null}
+          onClose={closePileCard}
+          back={
+            discardOpen
+              ? { label: 'Back to the pile', onClick: closePileCard }
+              : {
+                  label: `See the whole pile (${g.discard.length})`,
+                  onClick: () => {
+                    setPileCard(null);
+                    setDiscardOpen(true);
+                  },
+                }
+          }
+        />
+      )}
       {blast && (
         <div
           key={blast.until}

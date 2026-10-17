@@ -407,6 +407,7 @@ export function Inspector({
   art,
   now,
   onClose,
+  back,
 }: {
   card: CardView;
   c: Content;
@@ -414,10 +415,29 @@ export function Inspector({
   /** What playing it right now would do (or why it can't be played). */
   now: string | null;
   onClose: () => void;
+  /** A footer button back to where the card was opened from (the discard pile). */
+  back?: { label: string; onClick: () => void };
 }) {
   const flavour = c.flavour(card, art);
   return (
-    <Modal open onClose={onClose} title={c.name(card.t)}>
+    <Modal
+      open
+      onClose={onClose}
+      title={c.name(card.t)}
+      footer={
+        back && (
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={back.onClick}
+            data-autofocus
+            data-testid="inspect-back"
+          >
+            {back.label}
+          </Button>
+        )
+      }
+    >
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
         <CardFace card={card} art={art} c={c} size="xl" />
         <div className="space-y-2 text-sm">
