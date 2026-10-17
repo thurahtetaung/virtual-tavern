@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.4...v0.42.5) (2026-10-17)
+
+
+### Performance Improvements
+
+* rejoin sooner after a drop and keep the first tap after a phone wakes ([#281](https://github.com/thurahtetaung/virtual-tavern/issues/281)) ([4072f45](https://github.com/thurahtetaung/virtual-tavern/commit/4072f45e99c0981504b98c6f873aab7ffcf92926))
+
 ## [0.42.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.3...v0.42.4) (2026-10-17)
 
 
