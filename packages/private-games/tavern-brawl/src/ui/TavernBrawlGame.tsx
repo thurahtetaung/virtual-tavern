@@ -14,7 +14,7 @@ import type { TavernBrawlAction, TavernBrawlView } from '../logic/types.ts';
 import { type Art, artFor, heroVars, useManifest } from './assets.ts';
 import { Lobby, Portrait } from './Lobby.tsx';
 import { HpDial, type Status, Table, statusFor } from './Table.tsx';
-import { type NameOf, namesFor } from './text.ts';
+import { type NameOf, nameKey, namesFrom } from './text.ts';
 
 export type TavernBrawlUiProps = GameUiProps<TavernBrawlView, TavernBrawlAction>;
 
@@ -29,7 +29,9 @@ export function TavernBrawlGame({
 }: TavernBrawlUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
-  const name = useMemo(() => namesFor(view, room.you), [view, room.you]);
+  // Kept the same function while nobody's name changes, so memoised seats and cards stay put.
+  const names = nameKey(view);
+  const name = useMemo(() => namesFrom(names, room.you), [names, room.you]);
   const status = statusFor(view, room.you, name, art);
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),

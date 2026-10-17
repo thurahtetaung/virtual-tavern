@@ -46,6 +46,7 @@ import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identi
 import { type Seat, adoptSeat, clearSeat, confirmSeat, seatFor } from '../lib/seat.ts';
 import { useToast } from '../lib/toast.tsx';
 import { roomTitle, usePageTitle } from '../lib/title.ts';
+import { useUnchanged } from '../lib/unchanged.ts';
 import { useRoom } from '../lib/useRoom.ts';
 import { type CardContext, RecapSheet, recapHeading } from '../recap/RecapSheet.tsx';
 import { resolveText } from '../recap/resolve.ts';
@@ -517,6 +518,28 @@ function Room({
     }));
   }, [playtest, snapshot?.meta?.phase, playtestAwards, nightNames, nightLabels]);
   const superlatives = playtest ? previewLines : night.superlatives;
+  // Unchanged parts of the view keep their objects, and the room info only changes with its
+  // fields, so a game's memoised pieces skip updates that don't touch them.
+  const gameView = useUnchanged(snapshot?.game);
+  const players = useUnchanged(snapshot?.players);
+  const you = snapshot?.you;
+  const hostId = snapshot?.hostId;
+  const roomInfo = useMemo(
+    () =>
+      you === undefined || hostId === undefined || !players
+        ? null
+        : {
+            you,
+            hostId,
+            isHost,
+            players,
+            clockOffset,
+            wordLists,
+            gameName: game.name,
+            ...(superlatives && { superlatives }),
+          },
+    [you, hostId, isHost, players, clockOffset, wordLists, game.name, superlatives],
+  );
   // Playtest bots get a 🤖 in every player list (names are unique in a room).
   const botKey = snapshot?.players
     .filter((p) => p.bot)
@@ -694,17 +717,8 @@ function Room({
             <PlayerColors.Provider value={playerColors}>
               <SuperlativesNote.Provider value={playtest ? '🧪 Playtest preview: not saved' : null}>
                 <Game
-                  view={snapshot.game}
-                  room={{
-                    you: snapshot.you,
-                    hostId: snapshot.hostId,
-                    isHost,
-                    players: snapshot.players,
-                    clockOffset,
-                    wordLists,
-                    gameName: game.name,
-                    ...(superlatives && { superlatives }),
-                  }}
+                  view={gameView}
+                  room={roomInfo!}
                   act={act}
                   showGuide={showGuide}
                   setYourMove={setYourMove}

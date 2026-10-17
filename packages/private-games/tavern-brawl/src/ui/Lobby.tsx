@@ -12,7 +12,7 @@ import {
   LobbySettings,
   timersLine,
 } from '@vt/ui';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { ENABLED_HEROES, HEROES, SETS } from '../logic/cards.ts';
 import { FACE_ZOOM, powersOf } from '../logic/guide.ts';
 import {
@@ -47,7 +47,7 @@ export function faceCrop([fx, fy]: [number, number], size: number): React.CSSPro
 }
 
 /** A hero's face: the portrait from the manifest, or a disc in the hero's colour. */
-export function Portrait({
+export const Portrait = memo(function Portrait({
   hero,
   art,
   size,
@@ -80,7 +80,7 @@ export function Portrait({
       )}
     </span>
   );
-}
+});
 
 /** The host ticks which sets random picks draw from; everyone sees the choice. */
 function SetFilter({

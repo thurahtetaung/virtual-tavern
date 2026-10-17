@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Hint, NameDot, PlayerTag, RefusalSlot, cn } from '@vt/ui';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CARDS } from '../logic/cards.ts';
 import type {
   CardRef,
@@ -157,7 +157,7 @@ interface Picking {
   pick: (id: string) => void;
 }
 
-function ShieldChip({
+const ShieldChip = memo(function ShieldChip({
   shield,
   art,
   picking,
@@ -169,11 +169,12 @@ function ShieldChip({
   art: Art;
   picking: Picking | null;
   name: NameOf;
-  holder: PlayerView;
+  /** Who it sits in front of. */
+  holder: string;
   onZoom: (r: CardRef) => void;
 }) {
   const pickable = !!picking?.options.has(shield.id);
-  const borrowed = shield.owner !== holder.id;
+  const borrowed = shield.owner !== holder;
   const acts = shield.copyOf ?? shield.card;
   const label = shield.copyOf ? `${art.card(shield.card)} as ${art.card(acts)}` : art.card(acts);
   return (
@@ -193,14 +194,18 @@ function ShieldChip({
       <span className="max-w-24 truncate text-xs font-medium">{art.card(acts)}</span>
     </button>
   );
-}
+});
 
-function PlayerRow({
+// Only plain values and stable callbacks come in, so a seat re-renders only when it changes.
+const PlayerRow = memo(function PlayerRow({
   p,
-  g,
+  turnPlayer,
+  waiting,
+  ended,
+  host,
+  offline,
   art,
   name,
-  room,
   picking,
   onZoom,
   compact,
@@ -208,30 +213,33 @@ function PlayerRow({
   onHero,
 }: {
   p: PlayerView;
-  g: GameView;
+  turnPlayer: string;
+  /** The clock waits on them. */
+  waiting: boolean;
+  /** The brawl is over. */
+  ended: boolean;
+  host: boolean;
+  offline: boolean;
   art: Art;
   name: NameOf;
-  room: GameRoomInfo;
   picking: Picking | null;
   onZoom: (r: CardRef) => void;
   compact?: boolean;
   /** With five or more players: which side of you this neighbour sits on. */
-  near?: 'left' | 'right';
+  near?: 'left' | 'right' | undefined;
   /** Opens this player's hero sheet (a tap on the seat when there's nothing to pick). */
-  onHero: () => void;
+  onHero: (p: PlayerView) => void;
 }) {
-  const turn = g.turn.player === p.id && !p.out;
-  const waiting = g.clock?.who === p.id;
+  const turn = turnPlayer === p.id && !p.out;
   const pickable = !!picking?.options.has(p.id);
-  const offline = room.players.find((x) => x.id === p.id)?.connected === false;
   // Ghosts haunt only while the brawl goes on.
-  const haunting = !!p.ghost && g.endReason === null;
+  const haunting = !!p.ghost && !ended;
   if (p.out)
     return (
       <li
         className={cn(
           'flex items-center gap-2 rounded-xl bg-panel px-2 py-1 text-sm text-ink-muted dark:bg-stone-900/60 dark:text-stone-500',
-          g.turn.player === p.id && 'ring-2 ring-line-strong dark:ring-stone-600',
+          turnPlayer === p.id && 'ring-2 ring-line-strong dark:ring-stone-600',
         )}
         data-player={p.id}
         data-ghost={p.ghost || undefined}
@@ -245,7 +253,7 @@ function PlayerRow({
         <NameDot name={p.name} className="order-first" />
         <button
           type="button"
-          onClick={onHero}
+          onClick={() => onHero(p)}
           className="min-w-0 truncate text-left text-xs underline decoration-dotted underline-offset-2"
           aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${haunting ? 'ghost' : 'out'}: ${name(p.id) === 'You' ? 'your' : 'their'} hero`}
         >
@@ -269,7 +277,7 @@ function PlayerRow({
           type="button"
           // Picking a target: the seat is the pick. Otherwise it shows their hero.
           disabled={!!picking && !pickable}
-          onClick={() => (pickable ? picking?.pick(p.id) : onHero())}
+          onClick={() => (pickable ? picking?.pick(p.id) : onHero(p))}
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left disabled:cursor-default"
           aria-label={`${name(p.id)}, ${art.hero(p.hero)}, ${p.hp} hit points${pickable ? ', tap to pick' : ''}`}
           data-seat-hero={p.hero}
@@ -281,7 +289,7 @@ function PlayerRow({
             <span className="flex items-center gap-1">
               <PlayerTag
                 name={name(p.id)}
-                host={p.id === room.hostId}
+                host={host}
                 offline={offline}
                 dot={false}
                 className="font-semibold"
@@ -323,7 +331,7 @@ function PlayerRow({
               art={art}
               picking={picking}
               name={name}
-              holder={p}
+              holder={p.id}
               onZoom={onZoom}
             />
           ))}
@@ -331,29 +339,32 @@ function PlayerRow({
       )}
     </li>
   );
-}
+});
 
 /** The latest card and what it did, for everyone to follow along. */
-function Resolution({
-  view,
+const Resolution = memo(function Resolution({
+  log,
+  resolving,
+  played,
   art,
   name,
   onZoom,
 }: {
-  view: TavernBrawlView;
+  log: TavernBrawlView['log'];
+  resolving: GameView['resolving'];
+  played: GameView['turn']['played'];
   art: Art;
   name: NameOf;
   onZoom: (r: CardRef) => void;
 }) {
-  const g = view.game!;
-  const lastPlay = view.log.findLast((e) => e.kind === 'play');
-  const since = lastPlay ? view.log.filter((e) => e.id >= lastPlay.id) : [];
+  const lastPlay = log.findLast((e) => e.kind === 'play');
+  const since = lastPlay ? log.filter((e) => e.id >= lastPlay.id) : [];
   const lines = since
     .map((e) => ({ id: e.id, text: describe(e, name, art) }))
     .filter((l): l is { id: number; text: string } => !!l.text)
     .slice(-5);
   const showing: CardRef | null =
-    g.resolving.at(-1) ??
+    resolving.at(-1) ??
     (lastPlay?.kind === 'play'
       ? { id: lastPlay.inst, card: lastPlay.card, owner: lastPlay.owner }
       : null);
@@ -388,13 +399,13 @@ function Resolution({
           ))}
           {lines.length === 0 && <li className="text-ink-muted">The brawl begins!</li>}
         </ol>
-        {g.turn.played.length > 0 && (
+        {played.length > 0 && (
           <div
             className="mt-1.5 flex items-center gap-1 overflow-x-auto"
             aria-label="Played this turn"
           >
             <span className="shrink-0 text-xs text-ink-muted dark:text-stone-400">This turn:</span>
-            {g.turn.played.map((r) => (
+            {played.map((r) => (
               <button
                 key={r.id}
                 type="button"
@@ -409,7 +420,7 @@ function Resolution({
       </div>
     </section>
   );
-}
+});
 
 /** Long-press (or right-click) zooms; a tap does `onTap`. */
 function usePress(onTap: () => void, onLong: () => void) {
@@ -435,12 +446,13 @@ function usePress(onTap: () => void, onLong: () => void) {
   };
 }
 
-function HandCard({
+const HandCard = memo(function HandCard({
   r,
   art,
   width,
   selected,
-  borrowed,
+  borrowedName,
+  borrowedHero,
   pickable,
   overlap,
   index,
@@ -451,14 +463,19 @@ function HandCard({
   art: Art;
   width: number;
   selected: boolean;
-  borrowed: PlayerView | undefined;
+  /** Whose deck it came from, when it isn't yours. */
+  borrowedName: string | undefined;
+  borrowedHero: PlayerView['hero'] | undefined;
   pickable: boolean;
   overlap: number;
   index: number;
-  onTap: () => void;
-  onZoom: () => void;
+  onTap: (r: CardRef) => void;
+  onZoom: (r: CardRef) => void;
 }) {
-  const press = usePress(onTap, onZoom);
+  const press = usePress(
+    () => onTap(r),
+    () => onZoom(r),
+  );
   return (
     <li
       style={{ marginLeft: index === 0 ? 0 : -overlap, zIndex: selected ? 50 : index }}
@@ -471,7 +488,7 @@ function HandCard({
         type="button"
         {...press}
         aria-pressed={selected}
-        aria-label={`${art.card(r.card)}${borrowed ? `, from ${borrowed.name}’s deck` : ''}`}
+        aria-label={`${art.card(r.card)}${borrowedName !== undefined ? `, from ${borrowedName}’s deck` : ''}`}
         className="block touch-manipulation"
         data-hand={r.card}
       >
@@ -481,12 +498,12 @@ function HandCard({
           width={width}
           selected={selected}
           pickable={pickable}
-          borrowedFrom={borrowed?.hero}
+          borrowedFrom={borrowedHero}
         />
       </button>
       <button
         type="button"
-        onClick={onZoom}
+        onClick={() => onZoom(r)}
         aria-label={`Read ${art.card(r.card)}`}
         className="absolute top-0 right-0 flex size-9 items-start justify-end p-1 text-xs"
       >
@@ -496,7 +513,7 @@ function HandCard({
       </button>
     </li>
   );
-}
+});
 
 function Hand({
   view,
@@ -535,6 +552,13 @@ function Hand({
   const scrolls = n * width + GAP * (n - 1) > room;
   const overlap = -GAP;
   const owners = new Map(g.players.map((p) => [p.id, p]));
+  const onTap = useCallback(
+    (r: CardRef) =>
+      pickCard?.options.has(r.id)
+        ? pickCard.pick(r.id)
+        : setSelected(selected === r.id ? null : r.id),
+    [pickCard, selected, setSelected],
+  );
   return (
     <div ref={ref} className="w-full" role="region" aria-label="Your hand">
       {n === 0 ? (
@@ -546,25 +570,25 @@ function Hand({
             scrolls ? 'snap-x snap-mandatory overflow-x-auto' : 'justify-center',
           )}
         >
-          {view.hand.map((r, i) => (
-            <HandCard
-              key={r.id}
-              r={r}
-              art={art}
-              width={width}
-              index={i}
-              overlap={overlap}
-              selected={selected === r.id}
-              pickable={!!pickCard?.options.has(r.id)}
-              borrowed={r.owner !== view.me?.id ? owners.get(r.owner) : undefined}
-              onTap={() =>
-                pickCard?.options.has(r.id)
-                  ? pickCard.pick(r.id)
-                  : setSelected(selected === r.id ? null : r.id)
-              }
-              onZoom={() => onZoom(r)}
-            />
-          ))}
+          {view.hand.map((r, i) => {
+            const borrowed = r.owner !== view.me?.id ? owners.get(r.owner) : undefined;
+            return (
+              <HandCard
+                key={r.id}
+                r={r}
+                art={art}
+                width={width}
+                index={i}
+                overlap={overlap}
+                selected={selected === r.id}
+                pickable={!!pickCard?.options.has(r.id)}
+                borrowedName={borrowed?.name}
+                borrowedHero={borrowed?.hero}
+                onTap={onTap}
+                onZoom={onZoom}
+              />
+            );
+          })}
         </ul>
       )}
       {scrolls && (
@@ -772,64 +796,125 @@ function Discards({
   return (
     <div className="flex flex-col gap-3">
       {g.players.map((p) => (
-        <section key={p.id} aria-label={`${possessive(name(p.id))} discard pile`}>
-          <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold">
-            <span>
-              {possessive(name(p.id)).replace(/^./, (x) => x.toUpperCase())} discard pile (
-              {p.discard.length}) · deck {p.deckCount}
-            </span>
-            <NameDot name={p.name} className="order-first" />
-          </h3>
-          {p.discard.length === 0 ? (
-            <p className="text-xs text-ink-muted">Empty.</p>
-          ) : (
-            <ul className="flex flex-wrap gap-1">
-              {[...p.discard].reverse().map((r) => (
-                <li key={r.id}>
-                  <button type="button" onClick={() => onZoom(r)} aria-label={art.card(r.card)}>
-                    <Card card={r.card} art={art} width={56} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <DiscardPile
+          key={p.id}
+          who={name(p.id)}
+          player={p.name}
+          discard={p.discard}
+          deckCount={p.deckCount}
+          art={art}
+          onZoom={onZoom}
+        />
       ))}
     </div>
   );
 }
 
+const DiscardPile = memo(function DiscardPile({
+  who,
+  player,
+  discard,
+  deckCount,
+  art,
+  onZoom,
+}: {
+  who: string;
+  player: string;
+  discard: PlayerView['discard'];
+  deckCount: number;
+  art: Art;
+  onZoom: (r: CardRef) => void;
+}) {
+  return (
+    <section aria-label={`${possessive(who)} discard pile`}>
+      <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold">
+        <span>
+          {possessive(who).replace(/^./, (x) => x.toUpperCase())} discard pile ({discard.length}) ·
+          deck {deckCount}
+        </span>
+        <NameDot name={player} className="order-first" />
+      </h3>
+      {discard.length === 0 ? (
+        <p className="text-xs text-ink-muted">Empty.</p>
+      ) : (
+        <ul className="flex flex-wrap gap-1">
+          {[...discard].reverse().map((r) => (
+            <li key={r.id}>
+              <button type="button" onClick={() => onZoom(r)} aria-label={art.card(r.card)}>
+                <Card card={r.card} art={art} width={56} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+});
+
 /** The public log, newest turn first, each turn's header above its lines (newest first). */
-function Log({ view, art, name }: { view: TavernBrawlView; art: Art; name: NameOf }) {
-  const turns: { key: number; head: string | null; lines: { id: number; text: string }[] }[] = [];
-  for (const e of view.log) {
-    if (e.kind === 'turn' || turns.length === 0) turns.push({ key: e.id, head: null, lines: [] });
-    const text = describe(e, name, art);
-    if (!text) continue;
-    const t = turns.at(-1)!;
-    if (e.kind === 'turn') t.head = text;
-    else t.lines.push({ id: e.id, text });
+const Log = memo(function Log({
+  log,
+  art,
+  name,
+}: {
+  log: TavernBrawlView['log'];
+  art: Art;
+  name: NameOf;
+}) {
+  const turns: { key: number; entries: TavernBrawlView['log'] }[] = [];
+  for (const e of log) {
+    if (e.kind === 'turn' || turns.length === 0) turns.push({ key: e.id, entries: [] });
+    turns.at(-1)!.entries.push(e);
   }
   return (
     <div className="flex flex-col gap-1.5 text-sm" aria-label="Log" role="log">
       {[...turns].reverse().map((t) => (
-        <section
-          key={t.key}
-          className="border-t border-line pt-1 first:border-0 first:pt-0 dark:border-stone-800"
-        >
-          {t.head && <h3 className="font-semibold">{t.head}</h3>}
-          <ol className="flex flex-col gap-0.5">
-            {[...t.lines].reverse().map((l) => (
-              <li key={l.id}>{l.text}</li>
-            ))}
-          </ol>
-        </section>
+        <LogTurn key={t.key} entries={t.entries} art={art} name={name} />
       ))}
     </div>
   );
-}
+});
+
+/** One turn of the log: its header above its lines (newest first). */
+const LogTurn = memo(
+  function LogTurn({
+    entries,
+    art,
+    name,
+  }: {
+    entries: TavernBrawlView['log'];
+    art: Art;
+    name: NameOf;
+  }) {
+    let head: string | null = null;
+    const lines: { id: number; text: string }[] = [];
+    for (const e of entries) {
+      const text = describe(e, name, art);
+      if (!text) continue;
+      if (e.kind === 'turn') head = text;
+      else lines.push({ id: e.id, text });
+    }
+    return (
+      <section className="border-t border-line pt-1 first:border-0 first:pt-0 dark:border-stone-800">
+        {head && <h3 className="font-semibold">{head}</h3>}
+        <ol className="flex flex-col gap-0.5">
+          {[...lines].reverse().map((l) => (
+            <li key={l.id}>{l.text}</li>
+          ))}
+        </ol>
+      </section>
+    );
+  },
+  // Each update slices the turns afresh: the same entries make the same turn.
+  (a, b) =>
+    a.art === b.art &&
+    a.name === b.name &&
+    a.entries.length === b.entries.length &&
+    a.entries.every((e, i) => e === b.entries[i]),
+);
 
 type Tab = 'table' | 'log' | 'discards' | 'powers';
+type Hero = Parameters<typeof PowersPanel>[0]['heroes'][number];
 
 export function Table({
   view,
@@ -861,13 +946,25 @@ export function Table({
     g.resolving.length === 0 &&
     g.turn.debt > 0 &&
     view.phase === 'playing';
-  const picking: Picking | null = mine
-    ? {
-        options: new Set(mine.options),
-        pick: (pick) =>
-          void act({ type: 'choose', choice: mine.id, pick }, { anchor: 'tb-choice' }),
-      }
-    : null;
+  const picking = useMemo(
+    (): Picking | null =>
+      mine
+        ? {
+            options: new Set(mine.options),
+            pick: (pick) =>
+              void act({ type: 'choose', choice: mine.id, pick }, { anchor: 'tb-choice' }),
+          }
+        : null,
+    [mine, act],
+  );
+  const zoomTo = useCallback((r: CardRef) => setZoom({ ref: r }), []);
+  const hand = view.hand;
+  const selectInHand = useCallback(
+    (id: string | null) =>
+      canPlay ? setSelected(id) : id && setZoom({ ref: hand.find((r) => r.id === id)! }),
+    [canPlay, hand],
+  );
+  const zoomInHand = useCallback((r: CardRef) => setZoom({ ref: r, play: canPlay }), [canPlay]);
   const play = (id: string) => {
     setSelected(null);
     setZoom(null);
@@ -877,7 +974,7 @@ export function Table({
     const at = g.order.indexOf(you);
     const round = at >= 0 ? [...g.order.slice(at + 1), ...g.order.slice(0, at)] : g.order;
     return round.map((id) => g.players.find((p) => p.id === id)!).filter(Boolean);
-  }, [g, you]);
+  }, [g.order, g.players, you]);
   // With five or more, regular attacks reach only the nearest living seat on each side.
   const near = useMemo(() => {
     const living = order.filter((p) => !p.out);
@@ -892,6 +989,19 @@ export function Table({
   const clock = g.clock;
   const strict = view.settings.timerMode === 'strict';
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
+  const seat = (p: PlayerView) => ({
+    p,
+    turnPlayer: g.turn.player,
+    waiting: clock?.who === p.id,
+    ended: g.endReason !== null,
+    host: p.id === room.hostId,
+    offline: offline(p.id),
+    art,
+    name,
+    picking,
+    onZoom: zoomTo,
+    onHero: setHeroOf,
+  });
   const waitingOn = clock && clock.who !== you ? clock.who : null;
   const nudged = g.nudges[you];
   // A nudge shows a banner (and buzzes the phone) until it's been seen for a few seconds.
@@ -1026,45 +1136,27 @@ export function Table({
       aria-label="Opponents"
     >
       {order.map((p) => (
-        <PlayerRow
-          key={p.id}
-          p={p}
-          g={g}
-          art={art}
-          name={name}
-          room={room}
-          picking={picking}
-          onZoom={(r) => setZoom({ ref: r })}
-          compact={order.length >= 3}
-          near={near.get(p.id)}
-          onHero={() => setHeroOf(p)}
-        />
+        <PlayerRow key={p.id} {...seat(p)} compact={order.length >= 3} near={near.get(p.id)} />
       ))}
     </ul>
   );
 
   const mePanel = me && (
     <ul aria-label="You">
-      <PlayerRow
-        p={me}
-        g={g}
-        art={art}
-        name={name}
-        room={room}
-        picking={picking}
-        onZoom={(r) => setZoom({ ref: r })}
-        onHero={() => setHeroOf(me)}
-      />
+      <PlayerRow {...seat(me)} />
     </ul>
   );
 
   // Every hero at the table, yours first, then in seat order (knocked-out ones too).
-  const heroes = (me ? [me, ...order] : order).map((p) => ({
-    hero: p.hero,
-    who: name(p.id),
-    player: p.name,
-    out: p.out,
-  }));
+  const heroesKey = JSON.stringify(
+    (me ? [me, ...order] : order).map((p) => ({
+      hero: p.hero,
+      who: name(p.id),
+      player: p.name,
+      out: p.out,
+    })),
+  );
+  const heroes = useMemo(() => JSON.parse(heroesKey) as Hero[], [heroesKey]);
 
   const playArea = (
     <>
@@ -1107,11 +1199,9 @@ export function Table({
           view={view}
           art={art}
           selected={canPlay ? selected : null}
-          setSelected={(id) =>
-            canPlay ? setSelected(id) : id && setZoom({ ref: view.hand.find((r) => r.id === id)! })
-          }
+          setSelected={selectInHand}
           pickCard={mine?.kind === 'form' ? picking : null}
-          onZoom={(r) => setZoom({ ref: r, play: canPlay })}
+          onZoom={zoomInHand}
         />
       )}
       <RefusalSlot anchor="tb-play" />
@@ -1129,18 +1219,25 @@ export function Table({
         {tabs}
         <div className={cn('flex flex-col gap-2', tab !== 'table' && 'max-lg:hidden')}>
           {opponents}
-          <Resolution view={view} art={art} name={name} onZoom={(r) => setZoom({ ref: r })} />
+          <Resolution
+            log={view.log}
+            resolving={g.resolving}
+            played={g.turn.played}
+            art={art}
+            name={name}
+            onZoom={zoomTo}
+          />
           {mePanel}
           {playArea}
         </div>
         {tab === 'log' && (
           <div className="lg:hidden">
-            <Log view={view} art={art} name={name} />
+            <Log log={view.log} art={art} name={name} />
           </div>
         )}
         {tab === 'discards' && (
           <div className="lg:hidden">
-            <Discards g={g} art={art} name={name} onZoom={(r) => setZoom({ ref: r })} />
+            <Discards g={g} art={art} name={name} onZoom={zoomTo} />
           </div>
         )}
         {tab === 'powers' && (
@@ -1173,9 +1270,9 @@ export function Table({
           </div>
         </details>
         <h2 className="font-bold">Log</h2>
-        <Log view={view} art={art} name={name} />
+        <Log log={view.log} art={art} name={name} />
         <h2 className="font-bold">Discard piles</h2>
-        <Discards g={g} art={art} name={name} onZoom={(r) => setZoom({ ref: r })} />
+        <Discards g={g} art={art} name={name} onZoom={zoomTo} />
       </aside>
       <HeroSheet
         hero={heroOf?.hero ?? null}

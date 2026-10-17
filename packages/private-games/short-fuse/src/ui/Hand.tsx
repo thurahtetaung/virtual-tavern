@@ -1,5 +1,5 @@
 import { cn } from '@vt/ui';
-import { useRef } from 'react';
+import { memo, useRef } from 'react';
 import { CARD_TYPES } from '../logic/cards.ts';
 import type { Art, CardView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -17,7 +17,7 @@ export const sortHand = (cards: CardView[]) =>
  * Your hand: tap to select (several for a combo), press and hold for the card's details at any
  * time. When `pick` is set, a tap picks that card instead (giving a card away).
  */
-export function Hand({
+export const Hand = memo(function Hand({
   cards,
   art,
   c,
@@ -104,4 +104,4 @@ export function Hand({
       </p>
     </section>
   );
-}
+});

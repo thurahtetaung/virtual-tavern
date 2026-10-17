@@ -1,4 +1,5 @@
 import { cn } from '@vt/ui';
+import { memo } from 'react';
 import type { Art, CardView, PileView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardBack, CardFace, type CardSize } from './Card.tsx';
@@ -11,7 +12,7 @@ const EDGE_PX = 3;
  * face-up Black Hole as a white-bordered stripe at its depth. While the pile shuffles the stripe
  * is hidden, as it would be at a real table.
  */
-export function StackSide({
+export const StackSide = memo(function StackSide({
   edges,
   voidEdge,
   shuffling,
@@ -47,13 +48,13 @@ export function StackSide({
       {gap === edges && <span className="sf-gap block h-3 rounded-sm bg-accent/30" />}
     </span>
   );
-}
+});
 
 /** The face-up Black Hole on top of the pile, as the details sheet shows it. */
 export const VOID_TOP: CardView = { t: 'void', face: 0, id: 'pile-top' };
 
 /** The draw pile: its top card, its side view and the public counts. */
-export function Pile({
+export const Pile = memo(function Pile({
   pile,
   c,
   art,
@@ -131,4 +132,4 @@ export function Pile({
       </figcaption>
     </figure>
   );
-}
+});
