@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.2...v0.41.3) (2026-10-17)
+
+
+### Bug Fixes
+
+* **short-fuse:** open the face-up Black Hole's details from the top of the draw pile ([#265](https://github.com/thurahtetaung/virtual-tavern/issues/265)) ([3906160](https://github.com/thurahtetaung/virtual-tavern/commit/390616073cb35db93de9bd95fd65dd70b9de4937))
+
 ## [0.41.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.1...v0.41.2) (2026-10-17)
 
 
