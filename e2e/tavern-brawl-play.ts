@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a

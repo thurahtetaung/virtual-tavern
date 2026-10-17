@@ -28,6 +28,7 @@ import { BotRunner } from './rooms/bots.ts';
 import { RoomManager } from './rooms/manager.ts';
 import { PlaytestPreview } from './rooms/preview.ts';
 import { SqliteRoomStore } from './rooms/store.ts';
+import { TEST_SEED_HEADER, TestSeeds } from './rooms/test-seed.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes } from './routes/backroom.ts';
 import { playtestRoutes } from './routes/playtest.ts';
@@ -75,6 +76,8 @@ export interface AppOptions {
   offsiteStatusPath?: string | null;
   /** How long a playtest bot thinks before a move (ms, before the speed factor); tests only. */
   botDelay?: (trivial: boolean) => number;
+  /** Test builds only (`VT_TEST_SEED`): rooms draw their randomness from this seed. */
+  testSeed?: string | null;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -189,6 +192,12 @@ export function buildApp(opts: AppOptions) {
     backroom.isUnlocked(signedCookie(cookieHeader, BACKROOM_COOKIE)) ||
     (adminAuth?.isAdminValue(signedCookie(cookieHeader, ADMIN_COOKIE), now()) ?? false);
   const requestHasBackroom = (req: FastifyRequest) => hasBackroom(req.headers.cookie);
+  const testSeeds = opts.testSeed ? new TestSeeds(opts.testSeed) : null;
+  /** The seed a test browser asks for its new room; only a test build listens. */
+  const testSeedOf = (req: FastifyRequest) => {
+    const seed = testSeeds && req.headers[TEST_SEED_HEADER];
+    return typeof seed === 'string' && seed ? seed.slice(0, 200) : undefined;
+  };
   /**
    * Why a cookie without the back room was turned away: an admin session that ended (signed out,
    * or the admin password changed) comes first, since that is what let the admin in; then an
@@ -237,6 +246,7 @@ export function buildApp(opts: AppOptions) {
       },
     },
     now,
+    testSeeds,
     logger: app.log,
     observer: {
       observe(o) {
@@ -271,6 +281,7 @@ export function buildApp(opts: AppOptions) {
     logger: app.log,
     now,
     ...(opts.botDelay && { delay: opts.botDelay }),
+    ...(testSeeds && { seed: (roomId: string, key: string) => testSeeds.draw(roomId, key) }),
   });
   const preview = new PlaytestPreview({
     games,
@@ -396,6 +407,7 @@ export function buildApp(opts: AppOptions) {
       forget: (playerId) => recorder.forget(playerId) + recapStore.forgetPlayer(playerId),
       linkable: (nightKey, playerId) => recap.linkable(nightKey, playerId),
       isTestTraffic: (req) => isTestTraffic(req.headers),
+      testSeedOf,
       roomCreateLimit: opts.roomCreateLimit ?? 20,
       isAdmin: isAdminRequest,
       linked: (from, next) => {
@@ -428,7 +440,7 @@ export function buildApp(opts: AppOptions) {
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       privateGameAdminRoutes(admin, { games, assets, settings: privateGames });
-      playtestRoutes(admin, { rooms, games, titles: privateGames, now });
+      playtestRoutes(admin, { rooms, games, titles: privateGames, now, testSeedOf });
       statsRoutes(admin, {
         queries: stats,
         store: stats,

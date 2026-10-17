@@ -34,6 +34,8 @@ export function publicRoutes(
     linked?: (from: string[], next: NextTable) => void;
     /** Whether the request is test traffic (`x-vt-test`), whose rooms record no stats. */
     isTestTraffic?: (req: FastifyRequest) => boolean;
+    /** The seed a test browser asks for its new room (test builds only). */
+    testSeedOf?: (req: FastifyRequest) => string | undefined;
     /** Rooms one address may create a minute. */
     roomCreateLimit?: number;
     /** Whether this request carries a current admin session (playtest rooms are theirs only). */
@@ -84,9 +86,11 @@ export function publicRoutes(
           error: { code: 'bad-night', message: "That night can't be continued from here." },
         });
       }
+      const testSeed = opts.testSeedOf?.(req);
       const id = rooms.create(gameId, playerId, {
         ...(nightKey && { nightKey }),
         ...(isTestTraffic(req) && { test: true }),
+        ...(testSeed && { testSeed }),
       });
       if (from.length) linked?.(from, { roomId: id, gameId, by: playerId });
       return { roomId: id };

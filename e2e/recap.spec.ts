@@ -1,4 +1,5 @@
-import { type Browser, expect, test } from '@playwright/test';
+import { type Browser, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { expectStrips, playEscape, wrapUp } from './recap-play.ts';
 
 const pageErrors: string[] = [];

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { type Browser, type Download, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Download, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
 import { openAdminSection } from './admin-sections.ts';
@@ -66,8 +67,12 @@ test('four friends play a game of Codenames to the end', async ({ browser }) => 
   await expect(cy!.getByTestId('my-role')).toHaveText('You: Blue Operative');
   await expect(cy!.getByText('Blue (you) to find')).toBeVisible();
 
-  // Whoever's team starts, its spymaster gives a clue.
-  const redStarts = await host.getByText('Your turn! Give your team').isVisible();
+  // Whoever's team starts (dealt at random), its spymaster gives a clue.
+  const clueTurn = (p: Page) => p.getByText('Your turn! Give your team');
+  await expect
+    .poll(async () => (await clueTurn(host).count()) + (await clueTurn(ben!).count()))
+    .toBe(1);
+  const redStarts = (await clueTurn(host).count()) > 0;
   const [spy, op, otherOp] = redStarts ? [host, ana!, cy!] : [ben!, cy!, ana!];
   // The tab title flags whoever has to act, so a background tab stands out.
   await expect(spy).toHaveTitle(/^● Your turn · Codenames/);

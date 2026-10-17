@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { type Browser, type Download, expect, test } from '@playwright/test';
+import { type Browser, type Download, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { TEST_ADMIN_PASSWORD } from './credentials.ts';
 import { openAdminSection } from './admin-sections.ts';

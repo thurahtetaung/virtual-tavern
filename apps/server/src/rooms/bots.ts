@@ -35,8 +35,8 @@ export interface BotRunnerDeps {
   clock?: () => number;
   /** How long a bot thinks before a move (ms), before the speed factor. Tests pass their own. */
   delay?: (trivial: boolean) => number;
-  /** A fresh seed for each move's rng. */
-  seed?: () => number;
+  /** A fresh seed for each move's rng (`key` names the move, for a test build's room seed). */
+  seed?: (roomId: string, key: string) => number;
 }
 
 interface RoomRun {
@@ -178,7 +178,7 @@ export class BotRunner {
     const ctx: BotCtx = {
       me: botId,
       now: this.deps.now(),
-      rng: createRng(this.deps.seed()),
+      rng: createRng(this.deps.seed(roomId, `bot:${botId}:${seen.version}`)),
       words: (ids) => this.deps.words(table.game.id, ids),
     };
     try {

@@ -1,4 +1,5 @@
-import { type Browser, type BrowserContext, type Page, expect, test } from '@playwright/test';
+import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
 import { EVIL, type Table, readRoles } from './round-table-play.ts';
 

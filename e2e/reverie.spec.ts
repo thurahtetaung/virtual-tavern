@@ -1,4 +1,5 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
 const pageErrors: string[] = [];
@@ -154,10 +155,15 @@ test('four friends play Reverie behind the back room', async ({ browser }) => {
     // Everyone holds six cards; the storyteller is whoever sees the prompt.
     for (const p of players) await expect(hand(p)).toHaveCount(6);
     let storyteller: Page | undefined;
-    for (const p of players) {
-      if (await p.getByText('You are the storyteller').isVisible()) storyteller = p;
-    }
-    expect(storyteller).toBeTruthy();
+    await expect
+      .poll(async () => {
+        const tellers = [];
+        for (const p of players)
+          if (await p.getByText('You are the storyteller').count()) tellers.push(p);
+        storyteller = tellers.length === 1 ? tellers[0] : undefined;
+        return tellers.length;
+      })
+      .toBe(1);
     // Everyone can see who tells next.
     await expect(host.getByTestId('next-storyteller')).toContainText('Next storyteller:');
     await tell(storyteller!, `clue ${round}`);

@@ -1,4 +1,5 @@
-import { type Browser, type Locator, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Locator, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, learned, merge, peek, setRoles } from './nightfall-play.ts';
 import { openSettings } from './lobby-settings.ts';

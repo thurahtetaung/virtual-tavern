@@ -1,4 +1,5 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import type { PlayerSummary } from '../packages/protocol/src/stats.ts';
 import { fixturePlayer, fixturePlayers } from '../apps/web/src/stats/fixtures.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';

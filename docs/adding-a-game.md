@@ -95,3 +95,11 @@ A back-room game (`access: 'private'`) never names its commercial original in th
 
 - Unit-test the rules with a seeded harness (see `packages/games/codenames/src/logic/test-utils.ts`).
 - Add a Playwright spec in `e2e/` that plays one game with several browser contexts.
+- Take `test` from `e2e/fixtures.ts` (lint enforces it): each test sends its own seed with the rooms
+  it creates, and the e2e server (`VT_TEST_SEED`) draws every deal, shuffle, colour and bot move in
+  that room from it, so a test replays the same way on every run, whatever runs beside it.
+- Never assume a random outcome (a colour, card, role, seat, who starts or who is dealt what): read it
+  from the page, fix it with the game's test rig, or rely on the seeded room. The seed only makes a
+  run repeatable; a different title is a different deal, so a spec must still pass for any deal.
+- Wait with web-first assertions or `expect.poll`, never a one-off `isVisible()` or `count()` read
+  right after something changed (scanning pages for who holds a role goes inside `expect.poll`).

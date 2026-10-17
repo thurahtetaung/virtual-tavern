@@ -1,4 +1,5 @@
-import { type APIRequestContext, expect, request, test } from '@playwright/test';
+import { type APIRequestContext, expect, request } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_STATS_IGNORE_TOKEN } from './credentials.ts';
 
 const pageErrors: string[] = [];

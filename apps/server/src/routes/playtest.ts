@@ -8,7 +8,7 @@ import {
   firstIssueMessage,
   updatePlaytestBody,
 } from '@vt/protocol';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import type { RoomManager } from '../rooms/manager.ts';
@@ -35,6 +35,8 @@ export function playtestRoutes(
     /** Admin-set titles for private games. */
     titles?: { title(gameId: string): string | null };
     now: () => number;
+    /** The seed a test browser asks for its new room (test builds only). */
+    testSeedOf?: (req: FastifyRequest) => string | undefined;
   },
 ) {
   const { rooms, games, titles, now } = opts;
@@ -91,7 +93,9 @@ export function playtestRoutes(
         };
       });
       const host = made[firstHuman]!;
+      const testSeed = opts.testSeedOf?.(req);
       const roomId = rooms.create(gameId, host.playerId, {
+        ...(testSeed && { testSeed }),
         playtest: {
           bots: made.filter((s) => s.bot).map((s) => ({ id: s.playerId, name: s.name })),
           speed: 'normal',

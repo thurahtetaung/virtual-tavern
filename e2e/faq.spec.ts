@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 
 test('visitors can open the FAQ from the header and read an answer', async ({ page }) => {
   const errors: string[] = [];

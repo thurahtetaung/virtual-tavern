@@ -107,6 +107,9 @@ export default defineConfig({
       // Every browser shares one address, so the suite would trip the per-address room limit.
       ROOM_CREATE_LIMIT: '1000',
       LOG_LEVEL: 'warn',
+      // Rooms draw their randomness from this seed and the one each test's browsers send
+      // (`e2e/fixtures.ts`), so a test deals the same cards, roles and colours on every run.
+      VT_TEST_SEED: 'e2e',
       // Inquest's events specs need these events first when the pile gets its events (the
       // Allies expansion's perfect-crime only counts in games with the expansion on).
       INQUEST_TEST_EVENTS: 'perfect-crime,ruled-out,erroneous,countdown',

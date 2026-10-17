@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { fullBrawl, pageErrors } from './tavern-brawl-play.ts';
 
 test.afterEach(() => {

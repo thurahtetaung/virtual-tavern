@@ -1,4 +1,5 @@
-import { type Browser, expect, test } from '@playwright/test';
+import { type Browser, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 
 // The rules guide: the rules page and the in-room drawer, on a phone.
 
