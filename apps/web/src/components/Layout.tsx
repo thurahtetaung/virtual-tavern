@@ -146,3 +146,15 @@ export function PageLoading({
     </Layout>
   );
 }
+
+/**
+ * The room page's loading screen, shown over the page the moment a room is being created, so
+ * the tap leads straight into the room's own steps.
+ */
+export function RoomOpening() {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-page dark:bg-stone-950">
+      <PageLoading wide label="Setting up your room…" />
+    </div>
+  );
+}

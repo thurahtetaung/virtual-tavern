@@ -293,6 +293,17 @@ export interface ServerToClientEvents {
   'room:closed': () => void;
   /** A playtest's finished game: its award strip, computed in memory and never saved. */
   'room:playtestAwards': (lines: RecapLine[]) => void;
+  /**
+   * The answer to a join sent with the connection itself (`auth` holding a `JoinRoomPayload`),
+   * which goes out right after the room's state.
+   */
+  'room:joined': (res: Ack) => void;
+  /**
+   * The night recap as it stands, pushed with the state it belongs to (on joining, when a game
+   * starts or ends, the tone changes or the host wraps up), so nobody has to ask for it.
+   * `for` names that state: `<phase>:<gameNo>`.
+   */
+  'room:recap': (push: { recap: RoomRecap | null; for: string }) => void;
 }
 export * from './questions.ts';
 export * from './recap.ts';

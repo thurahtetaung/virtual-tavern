@@ -2,7 +2,7 @@ import { Button, Panel } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { GameGuideView, useGameGuide } from '../components/GuideView.tsx';
-import { Layout, PageLoading } from '../components/Layout.tsx';
+import { Layout, PageLoading, RoomOpening } from '../components/Layout.tsx';
 import {
   type ClientGame,
   clientGames,
@@ -64,6 +64,7 @@ function CreateRoom({ game }: { game: ClientGame }) {
   );
   return (
     <Panel id="create-room" className="mt-8 scroll-mt-4 space-y-3 text-center">
+      {creating && <RoomOpening />}
       <p className="text-lg font-bold">Ready to play?</p>
       {needsName && (
         <label className="mx-auto block max-w-sm text-left">

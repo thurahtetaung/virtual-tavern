@@ -2,7 +2,7 @@ import type { CreateRoomResponse, NextTable } from '@vt/protocol';
 import { Button, Modal } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { findGame, loadPrivateGames } from '../games/registry.ts';
+import { findGame, loadGame, loadPrivateGames } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
 import { playerToken } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -14,7 +14,7 @@ interface Choice extends GameInfo {
 }
 
 /** The games this browser may open: the public ones, and the back room's once it is unlocked. */
-async function choices(): Promise<Choice[]> {
+async function fetchChoices(): Promise<Choice[]> {
   const offered = await fetchGames();
   const known = offered.some((g) => g.private) ? await loadPrivateGames({ known: true }) : [];
   return offered.map((g) => ({
@@ -22,6 +22,32 @@ async function choices(): Promise<Choice[]> {
     name: g.title ?? g.name,
     icon: findGame(g.id)?.icon ?? known.find((k) => k.id === g.id)?.icon ?? '🎲',
   }));
+}
+
+/** Loads a game's screen ahead (the room page itself is already in). */
+function preloadGame(gameId: string) {
+  void loadGame(gameId)
+    .then((game) => game?.Component.preload())
+    .catch(() => {});
+}
+
+/** How long a fetched list of games is good for the picker. */
+const CHOICES_FRESH_MS = 60_000;
+let cached: { at: number; list: Promise<Choice[]> } | null = null;
+
+/**
+ * The picker's games, fetched ahead when the recap or the wrap-up opens so the picker opens with
+ * them; a failed fetch is forgotten, so the picker asks again.
+ */
+export function prefetchSameCrew(): Promise<Choice[]> {
+  if (cached && Date.now() - cached.at < CHOICES_FRESH_MS) return cached.list;
+  const list = fetchChoices();
+  const entry = { at: Date.now(), list };
+  cached = entry;
+  list.catch(() => {
+    if (cached === entry) cached = null;
+  });
+  return list;
 }
 
 /**
@@ -44,7 +70,7 @@ export function SameCrewPicker({
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void choices()
+    void prefetchSameCrew()
       .then((list) => {
         if (live) setGames(list);
       })
@@ -58,6 +84,8 @@ export function SameCrewPicker({
 
   const create = async (gameId: string) => {
     setBusy(gameId);
+    // The game's screen loads while the table is set.
+    preloadGame(gameId);
     try {
       const { roomId } = await api<CreateRoomResponse>('/api/rooms', {
         method: 'POST',
@@ -120,6 +148,8 @@ export function NextTableBanner({
         if (live && g) setGame(g);
       });
     }
+    // Following them is likely: their game's screen loads now, so the next room opens sooner.
+    preloadGame(next.gameId);
     return () => {
       live = false;
     };

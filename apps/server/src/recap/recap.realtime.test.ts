@@ -100,6 +100,37 @@ describe('night recap over the socket', () => {
     for (const p of card.players) expect(covered.has(p.id), p.name).toBe(true);
   });
 
+  it('pushes the recap with the end screen and with the wrap-up, before anyone asks', async () => {
+    const { clients } = await room();
+    const heard = clients.map((c) => {
+      const got: string[] = [];
+      const pushes: { recap: RoomRecap | null; for: string }[] = [];
+      c.on('room:state', (s) => got.push(`state ${s.meta?.phase}`));
+      c.on('room:recap', (p) => {
+        got.push(`recap ${p.for}`);
+        pushes.push(p);
+      });
+      c.on('room:wrapped', () => got.push('wrapped'));
+      return { got, pushes };
+    });
+    await playToAssassin(clients);
+    await new Promise((r) => setTimeout(r, 50));
+    for (const { got, pushes } of heard) {
+      // Straight after the state that ends the game, with that game's strip in it.
+      const over = got.indexOf('state over');
+      expect(got[over + 1]).toBe('recap over:1');
+      const last = pushes.at(-1)!.recap!;
+      expect(last.running).toBe(0);
+      expect(last.games.findLast((g) => !g.elsewhere)!.lines.length).toBeGreaterThan(0);
+    }
+    expect(await clients[0]!.call('room:wrap', 0)).toEqual({ ok: true });
+    await new Promise((r) => setTimeout(r, 50));
+    for (const { got, pushes } of heard) {
+      expect(got.slice(-2)).toEqual(['recap over:1', 'wrapped']);
+      expect(pushes.at(-1)!.recap!.status).not.toBe('live');
+    }
+  });
+
   it('refuses a kicked player and leaves them off the card', async () => {
     const { clients } = await room();
     const [host, , , cy] = clients;

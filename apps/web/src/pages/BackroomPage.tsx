@@ -2,6 +2,7 @@ import { Button, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { GameCard } from '../components/GameCard.tsx';
+import { RoomOpening } from '../components/Layout.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { doorOf, lockedLine, useBackroom } from '../lib/backroom.ts';
@@ -31,6 +32,7 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
   );
   return (
     <div className="w-full max-w-3xl space-y-6">
+      {creating && <RoomOpening />}
       <header className="space-y-1 text-center">
         <p className="text-5xl" aria-hidden>
           🕯️

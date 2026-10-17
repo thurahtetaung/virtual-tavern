@@ -1,7 +1,7 @@
 import { Button, Panel } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Layout } from '../components/Layout.tsx';
+import { Layout, RoomOpening } from '../components/Layout.tsx';
 import { GameCard } from '../components/GameCard.tsx';
 import { clientGames } from '../games/registry.ts';
 import { useBackroom } from '../lib/backroom.ts';
@@ -44,6 +44,7 @@ export function HomePage() {
 
   return (
     <Layout>
+      {creating && <RoomOpening />}
       <section className="py-6 text-center sm:py-10">
         <h1 className="text-4xl font-bold sm:text-5xl">Pull up a chair.</h1>
         <p className="mx-auto mt-3 max-w-xl text-lg text-stone-600 dark:text-stone-400">

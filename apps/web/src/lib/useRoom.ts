@@ -8,7 +8,7 @@ import type {
 } from '@vt/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { playerToken } from './identity.ts';
-import { RoomConnection, type RoomStatus } from './room-connection.ts';
+import { type RecapPush, RoomConnection, type RoomStatus } from './room-connection.ts';
 
 export type { RoomStatus } from './room-connection.ts';
 
@@ -37,6 +37,8 @@ export function useRoom(roomId: string, name: string | null, token?: string, rea
   const [next, setNext] = useState<NextTable | null>(null);
   /** A playtest's award preview for its finished game (never saved anywhere). */
   const [playtestAwards, setPlaytestAwards] = useState<RecapLine[] | null>(null);
+  /** The night recap the server pushed with the latest state it belongs to. */
+  const [recapPush, setRecapPush] = useState<(RecapPush & { at: number }) | null>(null);
   const connRef = useRef<RoomConnection | null>(null);
   // Latest name for automatic rejoins, so a reconnect never reverts a rename.
   const nameRef = useRef(name);
@@ -61,6 +63,7 @@ export function useRoom(roomId: string, name: string | null, token?: string, rea
       wrapped: () => setWraps((n) => n + 1),
       next: setNext,
       playtestAwards: setPlaytestAwards,
+      recap: (push) => setRecapPush({ ...push, at: performance.now() }),
     });
     connRef.current = conn;
     const onVisible = () => conn.visibility(document.visibilityState === 'visible');
@@ -113,5 +116,6 @@ export function useRoom(roomId: string, name: string | null, token?: string, rea
     next,
     dismissNext: () => setNext(null),
     playtestAwards,
+    recapPush,
   };
 }
