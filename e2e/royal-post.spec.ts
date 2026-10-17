@@ -202,7 +202,16 @@ test('every card name opens the card: the Guard grid, a private reveal, the log 
   await records.getByRole('tab', { name: 'Log' }).click();
   await readFirstCard(peeker!, records.getByRole('list', { name: 'What happened' }));
   await records.getByRole('tab', { name: /^Notes/ }).click();
-  await readFirstCard(peeker!, records.getByRole('list', { name: 'Your notes' }));
+  // The peek may have been in an earlier round (the loop plays on until a Guard is played), and
+  // nobody acts now, so the current round's notes can't change under us.
+  const current = records.getByRole('list', { name: 'Your notes' });
+  await expect(current).toBeVisible();
+  if (await current.getByRole('button', { name: /^Read / }).count()) {
+    await readFirstCard(peeker!, current);
+  } else {
+    await records.locator('summary', { hasText: 'Earlier rounds' }).click();
+    await readFirstCard(peeker!, records.getByRole('list', { name: 'Earlier notes' }));
+  }
   await records.getByRole('tab', { name: 'Card count' }).click();
   await expect(records.getByRole('list', { name: 'Card count' }).getByRole('listitem')).toHaveCount(
     8,
