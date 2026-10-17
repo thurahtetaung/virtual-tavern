@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { BACKROOM_SESSION_MS } from '@vt/protocol/edge';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { assetKey as serverAssetKey } from '../../server/src/r2.ts';
-import { readPass, verifyPass } from './pass.ts';
+import { readPass, resetSigned, verifyPass } from './pass.ts';
 import { assetKey, targetOf } from './paths.ts';
 import {
   type ArtBucket,
@@ -26,6 +26,7 @@ const passFor = (version: number, issuedAt: number, secret = SECRET) => {
 
 describe('verifyPass', () => {
   const current = { version: 3, open: true };
+  beforeEach(() => resetSigned());
 
   it('accepts a pass the server signed, for the current version, until the unlock runs out', async () => {
     const pass = passFor(3, NOW);
@@ -174,7 +175,10 @@ function setup(version = { version: 1, open: true }) {
 }
 
 describe('handle', () => {
-  beforeEach(() => resetVersion());
+  beforeEach(() => {
+    resetVersion();
+    resetSigned();
+  });
   const unlocked = { cookie: `vt_edge=${passFor(1, NOW)}` };
 
   it('serves code from origin once, then from the edge cache, keyed by URL alone', async () => {
@@ -205,6 +209,34 @@ describe('handle', () => {
     expect(origin.filter((p) => p.startsWith('/backroom-assets/'))).toHaveLength(3);
     // Nor does it touch anything outside the back room's files, or anything but GET.
     expect((await get('/api/backroom/manifest/reverie', unlocked)).headers.get('x-vt-edge')).toBe(
+      'pass',
+    );
+  });
+
+  it('never serves a cached file without a pass it can prove', async () => {
+    const { get, origin, tick } = setup();
+    for (const path of [
+      '/backroom-assets/private-abc.js',
+      '/api/backroom/assets/reverie/cards/001.jpg',
+    ])
+      expect((await get(path, unlocked)).headers.get('x-vt-edge')).toBe('miss');
+    const [, , mac] = passFor(1, NOW).split('.');
+    for (const headers of [
+      {} as Record<string, string>,
+      { cookie: `vt_edge=${passFor(0, NOW)}` },
+      { cookie: `vt_edge=${passFor(1, NOW, 'other')}` },
+      { cookie: `vt_edge=1.${NOW + 1}.${mac}` },
+    ]) {
+      const code = await get('/backroom-assets/private-abc.js', headers);
+      expect(code.headers.get('x-vt-edge')).toBe('pass');
+      const art = await get('/api/backroom/assets/reverie/cards/001.jpg', headers);
+      expect(art.headers.get('x-vt-edge')).toBe('pass');
+      expect(await art.text()).toBe('origin');
+    }
+    expect(origin.filter((p) => p === '/backroom-assets/private-abc.js')).toHaveLength(5);
+    // A pass checked once stays bound to its lifetime.
+    tick(BACKROOM_SESSION_MS);
+    expect((await get('/backroom-assets/private-abc.js', unlocked)).headers.get('x-vt-edge')).toBe(
       'pass',
     );
   });

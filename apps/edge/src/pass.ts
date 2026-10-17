@@ -2,6 +2,13 @@ import { BACKROOM_SESSION_MS, EDGE_COOKIE, type EdgeVersion } from '@vt/protocol
 
 const encoder = new TextEncoder();
 const keys = new Map<string, Promise<CryptoKey>>();
+/**
+ * Passes whose signature this isolate has already checked, per secret. A signature never stops
+ * being valid, so a browser's later requests skip the HMAC; version and lifetime are still
+ * checked every time. Only good signatures go in, so forgeries can't fill it.
+ */
+const signed = new Map<string, Set<string>>();
+const SIGNED_MAX = 1024;
 
 function hmacKey(secret: string) {
   let key = keys.get(secret);
@@ -21,7 +28,14 @@ function hmacKey(secret: string) {
 function fromBase64url(text: string): Uint8Array<ArrayBuffer> | null {
   if (!/^[\w-]+$/.test(text)) return null;
   const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/** Forgets the checked signatures (tests). */
+export function resetSigned() {
+  signed.clear();
 }
 
 /** The edge pass from a `Cookie` header, if there is one. */
@@ -50,12 +64,20 @@ export async function verifyPass(
   if (!Number.isInteger(version) || version !== current.version) return false;
   if (!Number.isFinite(issuedAt) || now - issuedAt < 0 || now - issuedAt >= BACKROOM_SESSION_MS)
     return false;
+  let seen = signed.get(secret);
+  if (seen?.has(pass)) return true;
   const mac = fromBase64url(parts[2]!);
   if (!mac) return false;
-  return crypto.subtle.verify(
+  const good = await crypto.subtle.verify(
     'HMAC',
     await hmacKey(secret),
     mac,
     encoder.encode(`${parts[0]}.${parts[1]}`),
   );
+  if (good) {
+    if (!seen) signed.set(secret, (seen = new Set()));
+    if (seen.size >= SIGNED_MAX) seen.clear();
+    seen.add(pass);
+  }
+  return good;
 }
