@@ -1,4 +1,4 @@
-import type { CreateRoomResponse, GameSummary, NextTable } from '@vt/protocol';
+import type { CreateRoomResponse, NextTable } from '@vt/protocol';
 import { Button, Modal } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -7,6 +7,7 @@ import { api } from '../lib/api.ts';
 import { playerToken } from '../lib/identity.ts';
 import { useToast } from '../lib/toast.tsx';
 import type { GameInfo } from './copyText.ts';
+import { fetchGames } from '../lib/games.ts';
 
 interface Choice extends GameInfo {
   id: string;
@@ -14,7 +15,7 @@ interface Choice extends GameInfo {
 
 /** The games this browser may open: the public ones, and the back room's once it is unlocked. */
 async function choices(): Promise<Choice[]> {
-  const offered = await api<GameSummary[]>('/api/games');
+  const offered = await fetchGames();
   const known = offered.some((g) => g.private) ? await loadPrivateGames({ known: true }) : [];
   return offered.map((g) => ({
     id: g.id,

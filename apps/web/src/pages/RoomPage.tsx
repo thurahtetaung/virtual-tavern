@@ -52,6 +52,7 @@ import { resolveText } from '../recap/resolve.ts';
 import { NextTableBanner, SameCrewPicker } from '../recap/SameCrew.tsx';
 import { useRecap } from '../recap/useRecap.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
+import { fetchWordLists, noteVersions } from '../lib/games.ts';
 
 type RoomLookup =
   | { kind: 'loading' }
@@ -114,6 +115,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
     )
       .then(async (room) => {
         if (stale) return;
+        noteVersions(room.versions);
         // Only a playtest honours a seat; anywhere else a stored one is wiped.
         setLookup({ kind: 'found', room, seat: confirmSeat(roomId, room.playtest === true) });
         const found = await loadGame(room.gameId);
@@ -239,6 +241,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         onRename={setName}
         conn={conn}
         playtest={lookup.kind === 'found' && lookup.room.playtest === true}
+        wordListsVersion={lookup.kind === 'found' ? lookup.room.versions?.wordLists : undefined}
       />
     </RefusalProvider>
   );
@@ -260,6 +263,7 @@ function Room({
   onRename,
   conn,
   playtest,
+  wordListsVersion,
 }: {
   roomId: string;
   game: ClientGame;
@@ -269,6 +273,8 @@ function Room({
   conn: ReturnType<typeof useRoom>;
   /** An admin playtest room: nothing is recorded, and nobody can be invited. */
   playtest: boolean;
+  /** The word lists' version from the room lookup, so the first load may come from the cache. */
+  wordListsVersion: string | undefined;
 }) {
   const navigate = useNavigate();
   const toast = useToast();
@@ -343,16 +349,19 @@ function Room({
   }, [recapShown, recapOpened, recapClosed]);
   const [wordLists, setWordLists] = useState<WordListSummary[]>([]);
 
-  // Only the lists tagged for this game; the server enforces the same filter on play.
+  // Only the lists tagged for this game; the server enforces the same filter on play. The first
+  // load asks for the version the room lookup named (kept by the browser); coming back to the
+  // tab revalidates, so an admin's edit made meanwhile shows.
   useEffect(() => {
-    const load = () =>
-      void api<WordListSummary[]>(`/api/word-lists?game=${encodeURIComponent(game.id)}`)
+    const load = (version?: string) =>
+      void fetchWordLists(game.id, version)
         .then(setWordLists)
         .catch(() => {});
-    load();
-    window.addEventListener('focus', load);
-    return () => window.removeEventListener('focus', load);
-  }, [game.id]);
+    const reload = () => load();
+    load(wordListsVersion);
+    window.addEventListener('focus', reload);
+    return () => window.removeEventListener('focus', reload);
+  }, [game.id, wordListsVersion]);
 
   // The game reports when it's the viewer's move; the tab title says so, and phones buzz once.
   const [yourMove, setYourMove] = useState(false);

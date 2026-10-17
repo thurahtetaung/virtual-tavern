@@ -1,4 +1,3 @@
-import type { GameSummary } from '@vt/protocol';
 import { Button, Panel } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -11,12 +10,12 @@ import {
   loadPrivateGames,
   offeredPrivateGames,
 } from '../games/registry.ts';
-import { api } from '../lib/api.ts';
 import { article } from '../lib/article.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
+import { fetchGames } from '../lib/games.ts';
 
 /**
  * The back-room games this browser may see, under their admin-set titles: an empty list while
@@ -25,7 +24,7 @@ import { NotFoundPage } from './NotFoundPage.tsx';
 function useBackroomGames() {
   const [games, setGames] = useState<ClientGame[] | null>(null);
   useEffect(() => {
-    void api<GameSummary[]>('/api/games')
+    void fetchGames()
       .then(async (offered) =>
         offered.some((g) => g.private)
           ? offeredPrivateGames(offered, await loadPrivateGames())

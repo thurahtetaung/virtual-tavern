@@ -1,4 +1,3 @@
-import type { GameSummary } from '@vt/protocol';
 import { Button, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -10,13 +9,14 @@ import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
+import { fetchGames } from '../lib/games.ts';
 
 /** The private games this server actually offers, with their UIs (loaded only once unlocked). */
 function usePrivateGames(unlocked: boolean) {
   const [games, setGames] = useState<ClientGame[] | null>(null);
   useEffect(() => {
     if (!unlocked) return;
-    void Promise.all([api<GameSummary[]>('/api/games'), loadPrivateGames()]).then(([offered, ui]) =>
+    void Promise.all([fetchGames(), loadPrivateGames()]).then(([offered, ui]) =>
       setGames(offeredPrivateGames(offered, ui)),
     );
   }, [unlocked]);

@@ -292,7 +292,11 @@ describe('admin playtests', () => {
     });
     const { roomId } = normal.json<{ roomId: string }>();
     const lookup = await app.inject({ url: `/api/rooms/${roomId}`, headers: as(admin) });
-    expect(lookup.json()).toEqual({ id: roomId, gameId: 'royal-post' });
+    expect(lookup.json()).toEqual({
+      id: roomId,
+      gameId: 'royal-post',
+      versions: { games: expect.any(String) as string, manifests: {} },
+    });
     const { res } = await seat(roomId, { token: token(2), name: 'Admin' });
     expect(res).toEqual({ ok: true });
     // And an unlocked visitor still can't get into the playtest.

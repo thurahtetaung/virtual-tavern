@@ -6,9 +6,12 @@ import { z } from 'zod';
 import { EDGE_VERSION_PATH, type EdgeVersion } from '@vt/protocol/edge';
 import { BACKROOM_COOKIE, BACKROOM_SESSION_MS, type Backroom } from '../backroom.ts';
 import { EdgePass } from '../edge.ts';
-import { type PrivateGameSettings, effectiveMusic } from '../private-games.ts';
 import { type QuestionDeckRepo, publicDeck } from '../question-decks.ts';
 import { type R2Assets, assetKey } from '../r2.ts';
+import type { Lists } from './lists.ts';
+import type { Manifests } from './manifests.ts';
+import { LIST_MAX_AGE } from './public.ts';
+import { sendRevalidated } from './revalidate.ts';
 
 const unlockBody = z.object({ password: z.string().min(1).max(200) });
 
@@ -25,14 +28,17 @@ export function backroomRoutes(
     games: ReadonlyMap<string, AnyGameDefinition>;
     assets: R2Assets | null;
     questionDecks: QuestionDeckRepo;
-    privateGames?: PrivateGameSettings;
     /** Whether the request has the back room: a current unlock, or a current admin session. */
     hasBackroom: (req: FastifyRequest) => boolean;
     /** Whether the request carries a current admin session (it needs no password). */
     isAdmin?: (req: FastifyRequest) => boolean;
+    /** The game list, whose version rides on the status. */
+    lists: Lists;
+    /** The manifests as sent, with their versions. */
+    manifests: Manifests;
   },
 ) {
-  const { backroom, games, assets, questionDecks, privateGames, hasBackroom } = opts;
+  const { backroom, games, assets, questionDecks, hasBackroom, lists, manifests } = opts;
   const isAdmin = opts.isAdmin ?? (() => false);
   const edge = opts.edge ?? null;
   const now = opts.now ?? Date.now;
@@ -41,6 +47,12 @@ export function backroomRoutes(
     open: backroom.isOpen(),
     unlocked: hasBackroom(req),
     ...(isAdmin(req) && { admin: true }),
+    // The lists' versions for this browser, so pages ask for URLs they may keep; back-room
+    // manifests only for a browser that has the back room.
+    versions: {
+      games: lists.gamesVersion(req),
+      ...(hasBackroom(req) && { manifests: manifests.versions() }),
+    },
   }));
 
   app.post(
@@ -146,18 +158,19 @@ export function backroomRoutes(
     return questionDecks.listEnabled(game.id).map(publicDeck);
   });
 
-  app.get<{ Params: { gameId: string } }>('/api/backroom/manifest/:gameId', async (req, reply) => {
-    const store = privateGame(req, reply, req.params.gameId);
-    if (!store) return reply;
-    const manifest = await store.json(`${req.params.gameId}/manifest.json`);
-    if (manifest === null) return error(reply, 404, 'not-found', 'This game has no assets yet.');
-    void reply.header('cache-control', 'private, no-store');
-    // The admin's music choices replace the manifest's defaults, phase by phase.
-    const override = privateGames?.music(req.params.gameId) ?? null;
-    if (override && typeof manifest === 'object' && !Array.isArray(manifest)) {
-      const m = manifest as { music?: unknown };
-      return { ...m, music: effectiveMusic(m.music, override) };
-    }
-    return manifest;
-  });
+  app.get<{ Params: { gameId: string }; Querystring: { v?: unknown } }>(
+    '/api/backroom/manifest/:gameId',
+    async (req, reply) => {
+      if (!privateGame(req, reply, req.params.gameId)) return reply;
+      const body = await manifests.body(req.params.gameId);
+      if (body === null) return error(reply, 404, 'not-found', 'This game has no assets yet.');
+      // Only reached past the unlock check above. A versioned URL (the version the page was given)
+      // is kept for a day: a new manifest or music choice is a new version. Otherwise the browser
+      // revalidates on every load.
+      const current = lists.version(body);
+      return sendRevalidated(req, reply, body, {
+        ...(req.query.v === current && { maxAge: LIST_MAX_AGE }),
+      });
+    },
+  );
 }

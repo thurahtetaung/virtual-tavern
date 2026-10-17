@@ -12,6 +12,7 @@ import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 import { retryOnce } from '../lib/retry.ts';
 import type { Labeler } from '../recap/resolve.ts';
 import { type GameUi, lazyUi } from './lazy-ui.ts';
+import { noteVersions } from '../lib/games.ts';
 
 export interface ClientGame {
   id: string;
@@ -104,7 +105,10 @@ export function usePrivateGames(wanted: boolean): readonly ClientGame[] {
     if (!wanted || asked.current) return;
     asked.current = true;
     void api<BackroomStatus>('/api/backroom/status')
-      .then((s) => (s.unlocked ? loadPrivateGames({ known: true }) : []))
+      .then((s) => {
+        noteVersions(s.versions);
+        return s.unlocked ? loadPrivateGames({ known: true }) : [];
+      })
       .then((loaded) => {
         if (loaded.length) setGames(loaded);
       })

@@ -14,6 +14,7 @@ import type { Backroom } from '../backroom.ts';
 import type { QuestionDeckRepo } from '../question-decks.ts';
 import type { RecapSettings } from '../recap/settings.ts';
 import type { WordListRepo } from '../word-lists.ts';
+import type { Lists } from './lists.ts';
 
 const error = (reply: FastifyReply, status: number, code: string, message: string) =>
   reply.code(status).send({ error: { code, message } });
@@ -41,6 +42,8 @@ export function adminRoutes(
     /** The nightly off-site copy's last result (optional so older tests need not build one). */
     offsiteStatus?: () => OffsiteBackupStatus;
     now: () => number;
+    /** The game list, whose version rides on the session. */
+    lists: Lists;
   },
 ) {
   const { auth, wordLists, questionDecks, backroom, recapSettings, offsiteStatus, now } = opts;
@@ -83,6 +86,7 @@ export function adminRoutes(
   app.get('/api/admin/session', (req) => ({
     enabled: auth !== null,
     signedIn: auth !== null && auth.isAdmin(req, now()),
+    versions: { games: opts.lists.gamesVersion(req) },
   }));
 
   app.register((scope, _opts, done) => {

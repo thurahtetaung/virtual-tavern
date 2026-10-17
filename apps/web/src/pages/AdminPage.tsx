@@ -1,6 +1,7 @@
 import type {
   OffsiteBackupStatus,
   GameSummary,
+  ListVersions,
   QuestionDeckDetail,
   QuestionDeckSummary,
   WordListDetail,
@@ -19,16 +20,25 @@ import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { deckBackupZip, deckFile } from '../lib/question-deck-backup.ts';
 import { backupFileName, backupZip, listFile, saveFile } from '../lib/word-list-backup.ts';
+import { fetchGames, noteVersions } from '../lib/games.ts';
 
 interface Session {
   enabled: boolean;
   signedIn: boolean;
+  versions?: ListVersions;
 }
 
 export function AdminPage() {
   usePageTitle('Admin');
   const [session, setSession] = useState<Session | null>(null);
-  const refresh = useCallback(() => void api<Session>('/api/admin/session').then(setSession), []);
+  const refresh = useCallback(
+    () =>
+      void api<Session>('/api/admin/session').then((s) => {
+        noteVersions(s.versions);
+        setSession(s);
+      }),
+    [],
+  );
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -289,7 +299,7 @@ function WordLists() {
   // The games a list can be offered in ("Used by").
   const [games, setGames] = useState<GameSummary[]>([]);
   useEffect(() => {
-    void api<GameSummary[]>('/api/games')
+    void fetchGames()
       .then((all) => setGames(all.filter((g) => g.wordLists)))
       .catch(() => {});
   }, []);
@@ -477,7 +487,7 @@ function QuestionDecks() {
   const [decks, setDecks] = useState<QuestionDeckSummary[] | null>(null);
   const [games, setGames] = useState<GameSummary[]>([]);
   useEffect(() => {
-    void api<GameSummary[]>('/api/games')
+    void fetchGames()
       .then(setGames)
       .catch(() => {});
   }, []);

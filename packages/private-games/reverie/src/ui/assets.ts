@@ -1,3 +1,4 @@
+import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 
 export const GAME_ID = 'reverie';
@@ -19,13 +20,10 @@ export function useManifest(): Manifest | null | 'unavailable' {
   const [manifest, setManifest] = useState<Manifest | null | 'unavailable'>(null);
   useEffect(() => {
     let live = true;
-    void fetch(`/api/backroom/manifest/${GAME_ID}`)
-      .then(async (res) => {
-        if (!live) return;
-        if (!res.ok) return setManifest('unavailable');
-        setManifest((await res.json()) as Manifest);
-      })
-      .catch(() => live && setManifest('unavailable'));
+    void loadManifest(GAME_ID).then((body) => {
+      const m = body as Manifest | null;
+      if (live) setManifest(m ? m : 'unavailable');
+    });
     return () => {
       live = false;
     };

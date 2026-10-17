@@ -27,7 +27,7 @@ export class ApiTimeout extends Error {
  */
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: unknown; timeoutMs?: number } = {},
+  init: { method?: string; body?: unknown; timeoutMs?: number; cache?: RequestCache } = {},
 ): Promise<T> {
   const controller = init.timeoutMs ? new AbortController() : null;
   const timer = controller && setTimeout(() => controller.abort(), init.timeoutMs);
@@ -39,6 +39,7 @@ export async function api<T>(
       headers: init.body === undefined ? undefined : { 'content-type': 'application/json' },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       credentials: 'same-origin',
+      ...(init.cache && { cache: init.cache }),
       ...(controller && { signal: controller.signal }),
     });
     if (res.status === 204) return undefined as T;

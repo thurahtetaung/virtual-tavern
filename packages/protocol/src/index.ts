@@ -68,6 +68,20 @@ export interface RoomInfo {
   title?: string;
   /** An admin playtest room (only ever sent to a signed-in admin). */
   playtest?: true;
+  versions?: ListVersions;
+}
+
+/**
+ * The current versions of `/api/games` (for this browser), a game's `/api/word-lists` and the
+ * back-room manifests,
+ * sent on responses every page load fetches anyway, so pages can ask for URLs (`?v=`) the
+ * browser may keep for a day.
+ */
+export interface ListVersions {
+  games: string;
+  wordLists?: string;
+  /** Back-room manifests by game id (only for a browser that has the back room). */
+  manifests?: Record<string, string>;
 }
 
 // ---- Playtests (admin only) ----

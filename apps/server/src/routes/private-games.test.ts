@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { effectiveMusic, manifestTracks, unknownTrack } from '../private-games.ts';
 import { testApp, token } from '../test/helpers.ts';
 
@@ -28,7 +28,7 @@ async function fakeBucket() {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address();
   const endpoint = typeof addr === 'object' && addr ? `http://127.0.0.1:${addr.port}` : '';
-  return { endpoint, close: () => server.close() };
+  return { endpoint, objects, close: () => server.close() };
 }
 
 describe('music choices', () => {
@@ -97,7 +97,7 @@ describe('private game settings over HTTP', () => {
       payload: { password: 'speakeasy' },
     });
     const backroom = `vt_backroom=${unlocked.cookies.find((c) => c.name === 'vt_backroom')!.value}`;
-    return { app, admin, backroom };
+    return { app, admin, backroom, bucket };
   }
 
   it('need the admin', async () => {
@@ -169,7 +169,12 @@ describe('private game settings over HTTP', () => {
           headers: { cookie: backroom },
         })
       ).json(),
-    ).toEqual({ id: roomId, gameId: 'nightfall', title: 'The Real Title' });
+    ).toEqual({
+      id: roomId,
+      gameId: 'nightfall',
+      title: 'The Real Title',
+      versions: { games: expect.any(String) as string, manifests: expect.any(Object) as object },
+    });
     // Clearing it falls back to the registry name.
     await app.inject({
       method: 'PUT',
@@ -206,6 +211,118 @@ describe('private game settings over HTTP', () => {
     expect(games.get('nightfall')).toBe('Moonlit Village');
     expect(games.get('inquest')).toBe('Inquest');
     expect(games.get('codenames')).toBe('Codenames');
+  });
+
+  it('let browsers revalidate a manifest, only once unlocked', async () => {
+    const { app, admin, backroom, bucket } = await setup();
+    const get = (headers: Record<string, string>) =>
+      app.inject({ method: 'GET', url: '/api/backroom/manifest/nightfall', headers });
+    const first = await get({ cookie: backroom });
+    expect(first.statusCode).toBe(200);
+    expect(first.headers['cache-control']).toBe('private, no-cache');
+    expect(first.json()).toEqual(MANIFEST);
+    const etag = first.headers.etag as string;
+    expect(etag).toMatch(/^"[\w-]+"$/);
+
+    const again = await get({ cookie: backroom, 'if-none-match': etag });
+    expect(again.statusCode).toBe(304);
+    expect(again.body).toBe('');
+    expect((await get({ cookie: backroom, 'if-none-match': `"x", W/${etag}` })).statusCode).toBe(
+      304,
+    );
+    // The unlock check comes first: a matching tag never tells a locked browser anything.
+    const locked = await get({ 'if-none-match': etag });
+    expect(locked.statusCode).toBe(404);
+    expect(locked.headers.etag).toBeUndefined();
+
+    // A new music choice changes the tag, so the next load gets the new manifest.
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/game-music/nightfall',
+      headers: { cookie: admin },
+      payload: { music: { night: ['music/c.ogg'] } },
+    });
+    const changed = await get({ cookie: backroom, 'if-none-match': etag });
+    expect(changed.statusCode).toBe(200);
+    expect(changed.headers.etag).not.toBe(etag);
+    expect(changed.json()).toMatchObject({ music: { night: ['music/c.ogg'] } });
+
+    // So does a new manifest in the bucket, once the server's short copy of it runs out.
+    const edited = { ...MANIFEST, title: 'New' };
+    bucket.objects.set('nightfall/manifest.json', [
+      'application/json',
+      Buffer.from(JSON.stringify(edited)),
+    ]);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 61_000);
+      const fresh = await get({
+        cookie: backroom,
+        'if-none-match': changed.headers.etag as string,
+      });
+      expect(fresh.statusCode).toBe(200);
+      expect(fresh.json()).toMatchObject({ title: 'New' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('version manifests for unlocked browsers only, kept a day', async () => {
+    const { app, admin, backroom } = await setup();
+    const status = async (cookie = backroom) =>
+      (await app.inject({ method: 'GET', url: '/api/backroom/status', headers: { cookie } })).json<{
+        versions: { games: string; manifests?: Record<string, string> };
+      }>().versions;
+    const manifest = (v: string, cookie = backroom) =>
+      app.inject({
+        method: 'GET',
+        url: `/api/backroom/manifest/nightfall?v=${v}`,
+        headers: { cookie },
+      });
+    // Nothing in memory yet: no version, so the page asks for the plain URL.
+    expect((await status()).manifests).toEqual({});
+    const room = await app.inject({
+      method: 'POST',
+      url: '/api/rooms',
+      headers: { cookie: backroom },
+      payload: { gameId: 'nightfall', token: token(1) },
+    });
+    const roomId = room.json<{ roomId: string }>().roomId;
+    const lookup = () =>
+      app.inject({ method: 'GET', url: `/api/rooms/${roomId}`, headers: { cookie: backroom } });
+    // The room lookup reads its game's manifest in the background, and names it next time.
+    expect((await lookup()).json<{ versions: object }>().versions).not.toHaveProperty(
+      'manifests.nightfall',
+    );
+    await expect
+      .poll(async () => (await status()).manifests?.nightfall)
+      .toEqual(expect.any(String));
+    const v = (await status()).manifests!.nightfall!;
+    expect(
+      (await lookup()).json<{ versions: { manifests: Record<string, string> } }>().versions
+        .manifests,
+    ).toEqual({ nightfall: v });
+
+    const kept = await manifest(v);
+    expect(kept.statusCode).toBe(200);
+    expect(kept.headers['cache-control']).toBe('private, max-age=86400');
+    expect((await manifest('old')).headers['cache-control']).toBe('private, no-cache');
+
+    // A locked browser gets neither versions nor the manifest, whatever it asks for.
+    const locked = await status('');
+    expect(locked).toEqual({ games: expect.any(String) as string });
+    expect((await manifest(v, '')).statusCode).toBe(404);
+
+    // A new music choice is a new version.
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/game-music/nightfall',
+      headers: { cookie: admin },
+      payload: { music: { night: ['music/c.ogg'] } },
+    });
+    const next = (await status()).manifests!.nightfall!;
+    expect(next).not.toBe(v);
+    expect((await manifest(next)).json()).toMatchObject({ music: { night: ['music/c.ogg'] } });
   });
 
   it('let the admin pick music from the manifest and preview it', async () => {
