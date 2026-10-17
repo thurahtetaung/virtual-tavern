@@ -57,7 +57,7 @@ const games: ClientGame[] = [
     id: 'hoodwink',
     name: 'Hoodwink',
     guide: hoodwinkGuide,
-    icon: '🎭',
+    icon: '🤥',
     Component: lazy(() =>
       import('@vt/private-hoodwink/ui').then((m) => ({ default: m.HoodwinkGame })),
     ),
@@ -141,7 +141,7 @@ const games: ClientGame[] = [
     id: 'tavern-brawl',
     name: 'Tavern Brawl',
     guide: tavernBrawlGuide,
-    icon: '🍺',
+    icon: '🥊',
     Component: lazy(() =>
       import('@vt/private-tavern-brawl/ui').then((m) => ({ default: m.TavernBrawlGame })),
     ),

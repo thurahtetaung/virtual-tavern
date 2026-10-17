@@ -2,9 +2,21 @@ import { escapeRegExp } from '@vt/game-sdk';
 import { PLACEHOLDER_NAMES } from '@vt/private-hydra/logic';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { privateGames } from './private.ts';
+import { clientGames } from './registry.ts';
 
 /** Every back-room game's code name and listed name, which players may not know. */
 const codeNames = privateGames.flatMap((g) => [g.id.replace(/-/g, ' '), g.name]);
+
+describe('game emoji', () => {
+  // The recap and the stats page tell games apart by them; 🍺 is the tavern's own, 🎲 the unknown.
+  it('every game has its own, never the tavern’s or the fallback', () => {
+    const icons = [...clientGames, ...privateGames].map((g) => g.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+    expect(icons).not.toContain('🍺');
+    expect(icons).not.toContain('🍻');
+    expect(icons).not.toContain('🎲');
+  });
+});
 
 describe('back-room plain guides', () => {
   // The plain guide shows until the manifest loads, or for good without asset storage.

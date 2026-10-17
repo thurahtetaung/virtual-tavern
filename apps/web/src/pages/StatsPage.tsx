@@ -5,7 +5,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { Link, useSearchParams } from 'react-router';
 import { AdminNav } from '../components/AdminNav.tsx';
 import { Layout } from '../components/Layout.tsx';
-import { clientGames } from '../games/registry.ts';
+import { clientGames, usePrivateGames } from '../games/registry.ts';
 import { api } from '../lib/api.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -78,8 +78,6 @@ export function StatsPage() {
   );
 }
 
-const ICONS = new Map(clientGames.map((g) => [g.id, g.icon]));
-
 function Stats() {
   const [search, setSearch] = useSearchParams();
   const params = useMemo(() => parseParams(search), [search]);
@@ -113,7 +111,10 @@ function Stats() {
     statsApi.overview(query),
   );
 
+  // Every game's own emoji: the back room's come with its registry (the admin always has it).
+  const privateGames = usePrivateGames(true);
   const ctx = useMemo<StatsContextValue>(() => {
+    const icons = new Map([...clientGames, ...privateGames].map((g) => [g.id, g.icon]));
     const names = new Map([
       ...learned,
       ...(mix.data?.games.map((g) => [g.id, g.name] as const) ?? []),
@@ -130,7 +131,7 @@ function Stats() {
         names.get(id) ??
         summaries.find((g) => g.id === id)?.name ??
         id.charAt(0).toUpperCase() + id.slice(1),
-      icon: ICONS.get(id) ?? '🎲',
+      icon: icons.get(id) ?? '🎲',
     });
     for (const id of ids) if (!byId.has(id)) byId.set(id, info(id));
     const slots = gameSlots(ids);
@@ -147,7 +148,7 @@ function Stats() {
       gameInfo: (id) => byId.get(id) ?? info(id),
       learnGames,
     };
-  }, [summaries, learned, learnGames, mix.data, params, setParams, query, epoch]);
+  }, [summaries, privateGames, learned, learnGames, mix.data, params, setParams, query, epoch]);
 
   return (
     <StatsContext.Provider value={ctx}>
