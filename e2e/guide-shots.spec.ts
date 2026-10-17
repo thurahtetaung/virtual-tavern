@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 
 // Screenshots of every game's guide (rules page and in-room drawer; phone and desktop; light and

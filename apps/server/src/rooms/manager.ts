@@ -13,6 +13,7 @@ import { freeColor } from './colors.ts';
 import { newRoomId, playerIdFromToken, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
 import type { PlaytestRecord, RoomRecord, RoomStore } from './store.ts';
+import type { TestSeeds } from './test-seed.ts';
 
 export const MAX_PLAYERS_PER_ROOM = 30;
 /** How long a disconnected host keeps the role before it passes to someone who is online. */
@@ -137,6 +138,8 @@ export interface RoomManagerDeps {
   events: RoomEvents;
   now?: () => number;
   seed?: () => number;
+  /** Test builds only: rooms draw from their test seed instead of `seed` (see `TestSeeds`). */
+  testSeeds?: TestSeeds | null;
   /** Where timer failures and misbehaving games are reported. Defaults to the console. */
   logger?: RoomLogger;
   /** Stats hook; never allowed to affect play. */
@@ -166,6 +169,7 @@ export class RoomManager {
     this.deps = {
       now: Date.now,
       seed: randomSeed,
+      testSeeds: null,
       logger: console,
       observer: null,
       recapMeta: () => ({ recap: true, tone: 'cheeky' }),
@@ -181,19 +185,20 @@ export class RoomManager {
   create(
     gameId: string,
     hostId: string,
-    opts: { nightKey?: string; test?: boolean; playtest?: PlaytestRecord } = {},
+    opts: { nightKey?: string; test?: boolean; playtest?: PlaytestRecord; testSeed?: string } = {},
   ): string {
     const game = this.deps.games.get(gameId);
     if (!game) throw new RoomError('unknown-game', 'That game does not exist.');
     const now = this.deps.now();
     let id = newRoomId();
     while (this.deps.store.get(id)) id = newRoomId();
+    if (opts.testSeed) this.deps.testSeeds?.assign(id, opts.testSeed);
     const record: RoomRecord = {
       id,
       gameId,
       hostId,
       players: [],
-      state: game.create(this.ctx(gameId), []),
+      state: game.create(this.ctx(id, gameId, 0), []),
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -252,7 +257,7 @@ export class RoomManager {
       existing?.color ??
       freeColor(
         record.players.map((p) => p.color),
-        (n) => createRng(this.deps.seed()).int(n),
+        (n) => createRng(this.seed(roomId, `color:${record.version}`)).int(n),
       );
     const players = existing
       ? record.players.map((p) => (p.id === playerId ? { ...p, name } : p))
@@ -363,7 +368,7 @@ export class RoomManager {
     const parsed = room.game.actionSchema.safeParse(action);
     if (!parsed.success) return fail('bad-action', 'That move is not valid.');
     const result: unknown = room.game.reduce(room.record.state, parsed.data, {
-      ...this.ctx(room.record.gameId),
+      ...this.ctx(roomId, room.record.gameId, room.record.version),
       by: playerId,
       isHost: room.record.hostId === playerId,
       connected: (id) => room.connections.has(id) || botIds(room.record).has(id),
@@ -704,11 +709,16 @@ export class RoomManager {
     for (const id of [...this.rooms.keys()]) this.unload(id);
   }
 
+  /** A seed for one rng: random, or in a test build the room's draw for `key`. */
+  seed(roomId: string, key: string): number {
+    return this.deps.testSeeds?.draw(roomId, key) ?? this.deps.seed();
+  }
+
   /** A game only ever sees the word lists tagged for it. */
-  private ctx(gameId: string) {
+  private ctx(roomId: string, gameId: string, version: number) {
     return {
       now: this.deps.now(),
-      rng: createRng(this.deps.seed()),
+      rng: createRng(this.seed(roomId, `game:${version}`)),
       content: this.deps.content.forGame(gameId),
     };
   }

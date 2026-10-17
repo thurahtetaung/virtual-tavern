@@ -1,4 +1,5 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { escapeRegExp } from '../packages/game-sdk/src/regex.ts';
 import { TEST_ADMIN_PASSWORD, ownLoginLimit } from './credentials.ts';
 
@@ -229,7 +230,12 @@ async function startedGame(browser: Browser) {
     .evaluateAll((bs) => bs.map((b) => b.getAttribute('aria-label')!));
   expect(labels.map(wordOf).sort()).toEqual([...PHRASES].sort());
 
-  const redStarts = await host.getByText('Your turn! Give your team').isVisible();
+  // The starting team is dealt at random: wait until one of the two spymasters is asked.
+  const clueTurn = (p: Page) => p.getByText('Your turn! Give your team');
+  await expect
+    .poll(async () => (await clueTurn(host).count()) + (await clueTurn(ben!).count()))
+    .toBe(1);
+  const redStarts = (await clueTurn(host).count()) > 0;
   const [spy, op] = redStarts ? [host, ana!] : [ben!, cy!];
   return { spy, op, team: redStarts ? 'Red' : 'Blue' };
 }

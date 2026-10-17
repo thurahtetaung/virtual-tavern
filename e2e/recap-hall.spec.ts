@@ -4,8 +4,8 @@ import {
   type Page,
   devices,
   expect,
-  test,
 } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { expectStrips, playEscape, wrapUp } from './recap-play.ts';
 
 const pageErrors: string[] = [];

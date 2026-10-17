@@ -30,6 +30,11 @@ export interface Config {
    * its cache. Unset: no pass is issued and the Worker, if any, passes every request through.
    */
   edgeSecret: string | null;
+  /**
+   * `VT_TEST_SEED`: every room's randomness comes from this seed (or the one its creator asks
+   * for), so e2e specs replay. Never read in production.
+   */
+  testSeed: string | null;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -66,5 +71,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     statsIgnoreToken: env.STATS_IGNORE_TOKEN?.trim() || null,
     roomCreateLimit: Number(env.ROOM_CREATE_LIMIT ?? 20),
     edgeSecret: env.EDGE_SECRET?.trim() || null,
+    testSeed: (!production && env.VT_TEST_SEED?.trim()) || null,
   };
 }

@@ -1,4 +1,5 @@
-import { type Browser, type Page, expect, test } from '@playwright/test';
+import { type Browser, type Page, expect } from '@playwright/test';
+import { test } from './fixtures.ts';
 import { openSettings } from './lobby-settings.ts';
 
 type TeamName = 'Red' | 'Blue';
