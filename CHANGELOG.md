@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.4...v0.42.0) (2026-10-17)
+
+
+### Features
+
+* serve back-room files from the edge and stop stuck room joins ([#269](https://github.com/thurahtetaung/virtual-tavern/issues/269)) ([2a3af2c](https://github.com/thurahtetaung/virtual-tavern/commit/2a3af2c87ea373f91d159a26eeeaee2c82313c10))
+
 ## [0.41.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.3...v0.41.4) (2026-10-17)
 
 
