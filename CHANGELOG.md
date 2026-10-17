@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.2...v0.42.3) (2026-10-17)
+
+
+### Bug Fixes
+
+* **short-fuse:** reopen the Black Hole details when Enter follows Escape at once ([#278](https://github.com/thurahtetaung/virtual-tavern/issues/278)) ([5dc89fd](https://github.com/thurahtetaung/virtual-tavern/commit/5dc89fd639131c3339d44d9d15d91081fbfcb0cf))
+
 ## [0.42.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.1...v0.42.2) (2026-10-17)
 
 
