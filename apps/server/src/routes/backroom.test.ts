@@ -1,4 +1,5 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -273,7 +274,7 @@ describe('back room over HTTP', () => {
     });
   });
 
-  it('serves private game code only to unlocked players, never cacheably', async () => {
+  it('serves private game code only to unlocked players, never to shared caches', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'vt-web-'));
     mkdirSync(join(dir, 'backroom-assets'));
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>');
@@ -285,7 +286,133 @@ describe('back room over HTTP', () => {
     const { cookie } = await unlock(app);
     const res = await app.inject({ method: 'GET', url, headers: { cookie } });
     expect(res.statusCode).toBe(200);
-    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(res.headers['cache-control']).toBe('private, max-age=31536000, immutable');
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/backroom-assets/gone.js',
+      headers: { cookie },
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.headers['cache-control']).toBe('private, no-store');
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('the edge pass', () => {
+  const apps: ReturnType<typeof testApp>[] = [];
+  afterEach(async () => {
+    for (const a of apps.splice(0)) await a.close();
+  });
+  const SECRET = 'edge-test-secret';
+  let clock = 1_700_000_000_000;
+  const make = (edgeSecret: string | null = SECRET) => {
+    const app = testApp({ edgeSecret, now: () => clock });
+    apps.push(app);
+    return app;
+  };
+  const mac = (unlock: string) => createHmac('sha256', SECRET).update(unlock).digest('base64url');
+  const cookieOf = (
+    res: { cookies: { name: string; value: string; maxAge?: number }[] },
+    name: string,
+  ) => res.cookies.find((c) => c.name === name);
+
+  async function setup(app: ReturnType<typeof testApp>) {
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/admin/login',
+      payload: { password: 'hunter2' },
+    });
+    const admin = `vt_admin=${cookieOf(login, 'vt_admin')!.value}`;
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/backroom/password',
+      headers: { cookie: admin },
+      payload: { password: 'speakeasy' },
+    });
+    return admin;
+  }
+  const unlock = (app: ReturnType<typeof testApp>) =>
+    app.inject({ method: 'POST', url: '/api/backroom/unlock', payload: { password: 'speakeasy' } });
+
+  it('comes with every unlock, signed over the unlock’s version and time, for as long', async () => {
+    const app = make();
+    await setup(app);
+    const res = await unlock(app);
+    const pass = cookieOf(res, 'vt_edge')!;
+    expect(pass.value).toBe(`1.${clock}.${mac(`1.${clock}`)}`);
+    expect(pass).toMatchObject({
+      httpOnly: true,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+    });
+  });
+
+  it('is never issued without an edge secret, and the version endpoint is not there', async () => {
+    const app = make(null);
+    await setup(app);
+    expect(cookieOf(await unlock(app), 'vt_edge')).toBeUndefined();
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/edge/backroom-version' })).statusCode,
+    ).toBe(404);
+  });
+
+  it('tops up a browser unlocked before it existed, and only one with a current unlock', async () => {
+    const app = make();
+    await setup(app);
+    const res = await unlock(app);
+    const backroom = `vt_backroom=${cookieOf(res, 'vt_backroom')!.value}`;
+    const pass = `vt_edge=${cookieOf(res, 'vt_edge')!.value}`;
+    clock += 60_000;
+    const get = (cookie: string, url = '/api/backroom/status') =>
+      app.inject({ method: 'GET', url, headers: { cookie } });
+
+    const topped = cookieOf(await get(backroom), 'vt_edge')!;
+    expect(topped.value).toBe(cookieOf(res, 'vt_edge')!.value);
+    // It lapses with the unlock, not a month from now.
+    expect(topped.maxAge).toBe(30 * 24 * 60 * 60 - 60);
+    expect(cookieOf(await get(`${backroom}; ${pass}`), 'vt_edge')).toBeUndefined();
+    expect(
+      cookieOf(await get(`${backroom}; vt_edge=1.2.forged`, '/api/games'), 'vt_edge'),
+    ).toBeDefined();
+    // No unlock, a bare pass, or an admin session alone get nothing.
+    expect(cookieOf(await get(pass), 'vt_edge')).toBeUndefined();
+    expect(cookieOf(await get(''), 'vt_edge')).toBeUndefined();
+
+    // Once every unlock is signed out, the old one tops up nothing.
+    const admin = await setup(app);
+    expect(cookieOf(await get(admin), 'vt_edge')).toBeUndefined();
+    expect(cookieOf(await get(backroom), 'vt_edge')).toBeUndefined();
+  });
+
+  it('goes when the back room is locked again', async () => {
+    const app = make();
+    await setup(app);
+    const res = await unlock(app);
+    const cookie = `vt_backroom=${cookieOf(res, 'vt_backroom')!.value}`;
+    const lock = await app.inject({
+      method: 'POST',
+      url: '/api/backroom/lock',
+      headers: { cookie },
+    });
+    const pass = cookieOf(lock, 'vt_edge')!;
+    expect(pass.value).toBe('');
+    expect(lock.headers['set-cookie']).toHaveLength(2);
+  });
+
+  it('tells the Worker the current version, uncached', async () => {
+    const app = make();
+    const version = () => app.inject({ method: 'GET', url: '/api/edge/backroom-version' });
+    expect((await version()).json()).toEqual({ version: 0, open: false });
+    const admin = await setup(app);
+    const res = await version();
+    expect(res.json()).toEqual({ version: 1, open: true });
+    expect(res.headers['cache-control']).toBe('no-store');
+    await app.inject({
+      method: 'POST',
+      url: '/api/admin/backroom/sign-out-all',
+      headers: { cookie: admin },
+    });
+    expect((await version()).json()).toMatchObject({ version: 2 });
   });
 });

@@ -1,11 +1,12 @@
 import { randomBytes, scrypt as scryptCb, scryptSync, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { BACKROOM_SESSION_MS } from '@vt/protocol/edge';
 import { eq } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
 import { appSettings } from './db/schema.ts';
 
 export const BACKROOM_COOKIE = 'vt_backroom';
-export const BACKROOM_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+export { BACKROOM_SESSION_MS };
 
 const scrypt = promisify(scryptCb) as (
   password: string,

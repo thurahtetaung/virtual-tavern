@@ -3,7 +3,9 @@ import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import type { AnyGameDefinition } from '@vt/game-sdk';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { EDGE_VERSION_PATH, type EdgeVersion } from '@vt/protocol/edge';
 import { BACKROOM_COOKIE, BACKROOM_SESSION_MS, type Backroom } from '../backroom.ts';
+import { EdgePass } from '../edge.ts';
 import { type PrivateGameSettings, effectiveMusic } from '../private-games.ts';
 import { type QuestionDeckRepo, publicDeck } from '../question-decks.ts';
 import { type R2Assets, assetKey } from '../r2.ts';
@@ -17,6 +19,9 @@ export function backroomRoutes(
   app: FastifyInstance,
   opts: {
     backroom: Backroom;
+    /** Signs the edge pass that goes with each unlock; null when the edge Worker is off. */
+    edge?: EdgePass | null;
+    now?: () => number;
     games: ReadonlyMap<string, AnyGameDefinition>;
     assets: R2Assets | null;
     questionDecks: QuestionDeckRepo;
@@ -29,6 +34,8 @@ export function backroomRoutes(
 ) {
   const { backroom, games, assets, questionDecks, privateGames, hasBackroom } = opts;
   const isAdmin = opts.isAdmin ?? (() => false);
+  const edge = opts.edge ?? null;
+  const now = opts.now ?? Date.now;
 
   app.get('/api/backroom/status', (req) => ({
     open: backroom.isOpen(),
@@ -66,7 +73,8 @@ export function backroomRoutes(
           "That's not the word. The bouncer shakes their head.",
         );
       }
-      void reply.setCookie(BACKROOM_COOKIE, backroom.issue(), {
+      const unlock = backroom.issue();
+      void reply.setCookie(BACKROOM_COOKIE, unlock, {
         signed: true,
         httpOnly: true,
         sameSite: 'lax',
@@ -74,14 +82,25 @@ export function backroomRoutes(
         path: '/',
         maxAge: BACKROOM_SESSION_MS / 1000,
       });
+      edge?.set(reply, unlock, now());
       return { ok: true };
     },
   );
 
   app.post('/api/backroom/lock', (_req, reply) => {
     void reply.clearCookie(BACKROOM_COOKIE, { path: '/' });
+    if (edge) EdgePass.clear(reply);
     return { ok: true };
   });
+
+  // The edge Worker asks this (and keeps the answer about 30 s) to turn away passes from before
+  // the last password change or "Sign everyone out". Nothing secret: a counter and a flag.
+  if (edge) {
+    app.get(EDGE_VERSION_PATH, (_req, reply): EdgeVersion => {
+      void reply.header('cache-control', 'no-store');
+      return { version: backroom.version(), open: backroom.isOpen() };
+    });
+  }
 
   /** Only an unlocked player (or the admin) asking about a real private game gets past this. */
   const privateGame = (req: FastifyRequest, reply: FastifyReply, gameId: string) => {

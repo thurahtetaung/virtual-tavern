@@ -9,6 +9,7 @@ import { type ComponentType, lazy, useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.ts';
 import type { BackroomStatus } from '../lib/backroom.ts';
 import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
+import { retryOnce } from '../lib/retry.ts';
 import type { Labeler } from '../recap/resolve.ts';
 
 export interface ClientGame {
@@ -84,7 +85,8 @@ export const findGame = (id: string | undefined) => clientGames.find((g) => g.id
  */
 export async function loadPrivateGames({ known = false } = {}): Promise<ClientGame[]> {
   try {
-    return (await import('./private.ts')).privateGames;
+    // A phone on a flaky network often gets it at the second try.
+    return (await retryOnce(() => import('./private.ts'))).privateGames;
   } catch (err) {
     if (known && isChunkLoadError(err)) reloadOnce();
     return [];

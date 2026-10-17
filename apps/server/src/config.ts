@@ -25,6 +25,11 @@ export interface Config {
   statsIgnoreToken: string | null;
   /** Rooms one address may create a minute (the e2e suite, all on one address, raises it). */
   roomCreateLimit: number;
+  /**
+   * Signs the edge pass (`vt_edge`) that lets the Cloudflare Worker serve back-room files from
+   * its cache. Unset: no pass is issued and the Worker, if any, passes every request through.
+   */
+  edgeSecret: string | null;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -60,5 +65,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         : null,
     statsIgnoreToken: env.STATS_IGNORE_TOKEN?.trim() || null,
     roomCreateLimit: Number(env.ROOM_CREATE_LIMIT ?? 20),
+    edgeSecret: env.EDGE_SECRET?.trim() || null,
   };
 }

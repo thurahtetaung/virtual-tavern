@@ -10,6 +10,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Socket, io } from 'socket.io-client';
 import { playerToken } from './identity.ts';
+import { JoinWatch } from './retry.ts';
 
 export type RoomStatus =
   | 'connecting'
@@ -56,15 +57,25 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     const socket: ClientSocket = io({ transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
+    // Whether the server has this page in the room right now.
+    let joined = false;
+    const watch = new JoinWatch(() => {
+      if (socket.connected) join();
+    });
+
     const join = () => {
+      watch.sent();
       socket.emit(
         'room:join',
         { roomId, token: tokenRef.current ?? playerToken(), name: nameRef.current ?? name },
         (res) => {
           if (res.ok) {
+            joined = true;
+            watch.accepted();
             setStatus('joined');
             setError(null);
           } else {
+            watch.stop();
             if (res.error.code === 'backroom-locked') setLockReason(res.error.reason ?? 'none');
             setStatus(res.error.code === 'backroom-locked' ? 'locked' : 'error');
             setError(res.error.message);
@@ -72,15 +83,29 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
         },
       );
     };
+    // A phone that slept mid-join can come back to a socket that looks fine but is dead: start
+    // over on a fresh connection. A socket closed on purpose (kicked, locked out, closed, left)
+    // is no longer `active` and stays closed.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || joined || !socket.active) return;
+      socket.disconnect();
+      socket.connect();
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     socket.on('connect', join);
-    socket.on('disconnect', () => setStatus((s) => (s === 'joined' ? 'reconnecting' : s)));
+    socket.on('disconnect', () => {
+      joined = false;
+      watch.stop();
+      setStatus((s) => (s === 'joined' ? 'reconnecting' : s));
+    });
     // The server can't be reached (down, or the phone is offline). socket.io keeps retrying, so
     // say so instead of sitting on "Opening the door…"; a successful join flips it back.
     socket.on('connect_error', () =>
       setStatus((s) => (s === 'connecting' || s === 'joined' ? 'reconnecting' : s)),
     );
     socket.on('room:state', (s) => {
+      watch.stop();
       setSnapshot(s);
       setClockOffset(s.serverNow - Date.now());
       // A new game drops the last one's preview.
@@ -106,6 +131,8 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     });
 
     return () => {
+      watch.stop();
+      document.removeEventListener('visibilitychange', onVisible);
       socket.disconnect();
       socketRef.current = null;
     };

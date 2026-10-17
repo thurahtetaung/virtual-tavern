@@ -13,18 +13,42 @@ export class ApiFailure extends Error {
   }
 }
 
+/** A request that got no answer in time (see `api`'s `timeoutMs`). */
+export class ApiTimeout extends Error {
+  constructor(path: string) {
+    super(`No answer from ${path} in time`);
+    this.name = 'ApiTimeout';
+  }
+}
+
+/**
+ * Calls the server. With `timeoutMs`, gives up (throwing `ApiTimeout`) when the answer, body
+ * included, takes longer: a phone on a bad network can otherwise wait forever.
+ */
 export async function api<T>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; timeoutMs?: number } = {},
 ): Promise<T> {
-  const res = await fetch(path, {
-    method: init.method ?? 'GET',
-    headers: init.body === undefined ? undefined : { 'content-type': 'application/json' },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    credentials: 'same-origin',
-  });
-  if (res.status === 204) return undefined as T;
-  const data = (await res.json().catch(() => null)) as T | ApiError | null;
+  const controller = init.timeoutMs ? new AbortController() : null;
+  const timer = controller && setTimeout(() => controller.abort(), init.timeoutMs);
+  let res: Response;
+  let data: T | ApiError | null;
+  try {
+    res = await fetch(path, {
+      method: init.method ?? 'GET',
+      headers: init.body === undefined ? undefined : { 'content-type': 'application/json' },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      credentials: 'same-origin',
+      ...(controller && { signal: controller.signal }),
+    });
+    if (res.status === 204) return undefined as T;
+    data = (await res.json().catch(() => null)) as T | ApiError | null;
+    if (controller?.signal.aborted) throw new ApiTimeout(path);
+  } catch (err) {
+    throw controller?.signal.aborted ? new ApiTimeout(path) : err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (!res.ok) {
     const err = (data as ApiError | null)?.error;
     const retryAfter = Number(res.headers.get('retry-after'));

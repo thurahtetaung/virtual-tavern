@@ -45,6 +45,15 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
 
+  apps/edge:
+    devDependencies:
+      '@vt/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.29)(tsx@4.23.15)(typescript@6.0.3)
+
   apps/server:
     dependencies:
       '@fastify/cookie':
