@@ -1,4 +1,5 @@
 import type {
+  OffsiteBackupStatus,
   GameSummary,
   QuestionDeckDetail,
   QuestionDeckSummary,
@@ -13,6 +14,7 @@ import { AdminSection } from '../components/AdminSection.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
+import { offsiteLine } from '../lib/offsite-backup.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
 import { deckBackupZip, deckFile } from '../lib/question-deck-backup.ts';
@@ -53,6 +55,7 @@ export function AdminPage() {
       ) : (
         <div className="space-y-8">
           <AdminNav current="lists" />
+          <OffsiteBackup />
           <BackroomAdmin />
           <RecapAdmin />
           <GameTitlesAdmin />
@@ -194,6 +197,40 @@ function BackroomAdmin() {
         </Button>
       )}
     </AdminSection>
+  );
+}
+
+/** One line on the nightly off-site database copy: when it last ran, and a warning if it failed. */
+export function OffsiteBackup() {
+  const [status, setStatus] = useState<OffsiteBackupStatus | null>(null);
+  useEffect(() => {
+    void api<OffsiteBackupStatus>('/api/admin/backup-status')
+      .then(setStatus)
+      .catch(() => setStatus(null));
+  }, []);
+  return status && <OffsiteBackupLine status={status} />;
+}
+
+export function OffsiteBackupLine({
+  status,
+  timeZone,
+}: {
+  status: OffsiteBackupStatus;
+  /** Fixed in tests; the browser's own otherwise. */
+  timeZone?: string;
+}) {
+  const { warn, text } = offsiteLine(status, timeZone);
+  return (
+    <p
+      role={warn ? 'alert' : 'status'}
+      className={cn(
+        'rounded-lg px-3 py-2 text-sm',
+        warn ? 'bg-warn-soft font-semibold text-warn-ink ring-1 ring-warn-line' : 'text-ink-muted',
+      )}
+    >
+      {warn ? '⚠️ ' : '💾 '}
+      {text}
+    </p>
   );
 }
 

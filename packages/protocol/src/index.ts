@@ -171,6 +171,28 @@ export const wordListEnabledBody = z.object({ enabled: z.boolean() });
 
 export const adminLoginBody = z.object({ password: z.string().min(1).max(200) });
 
+/**
+ * The nightly off-site database copy's last result, as the job wrote it next to the backups.
+ * `stale` is set when the last success is too old to trust (the job may have stopped running).
+ */
+export type OffsiteBackupStatus =
+  | { recorded: false }
+  | {
+      recorded: true;
+      /** ISO time of the run. */
+      at: string;
+      ok: boolean;
+      /** Object key of the uploaded copy. */
+      key?: string;
+      bytes?: number;
+      /** Copies kept off-site, and their combined size. */
+      copies?: number;
+      totalBytes?: number;
+      /** Why the run failed, when `ok` is false. */
+      error?: string;
+      stale: boolean;
+    };
+
 export interface ApiError {
   error: { code: string; message: string };
 }

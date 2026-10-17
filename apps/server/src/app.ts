@@ -8,6 +8,7 @@ import type { LockReason } from '@vt/protocol';
 import { ADMIN_COOKIE, AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
+import { offsiteStatusPath, readOffsiteStatus } from './backup-status.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { NarrationLengths, withNarration } from './narration.ts';
 import { R2Assets, type R2Config } from './r2.ts';
@@ -64,6 +65,8 @@ export interface AppOptions {
   statsIgnoreToken?: string | null;
   /** Rooms one address may create a minute; 20 by default. */
   roomCreateLimit?: number;
+  /** The off-site backup job's status file; defaults to `backups/` next to the database. */
+  offsiteStatusPath?: string | null;
   /** How long a playtest bot thinks before a move (ms, before the speed factor); tests only. */
   botDelay?: (trivial: boolean) => number;
 }
@@ -121,6 +124,10 @@ export function buildApp(opts: AppOptions) {
   });
 
   const db = openDb(opts.databasePath, opts.migrationsFolder);
+  const offsiteStatusFile =
+    opts.offsiteStatusPath === undefined
+      ? offsiteStatusPath(opts.databasePath)
+      : opts.offsiteStatusPath;
   const games = opts.games ?? buildGames();
   const backroom = new Backroom(db, now);
   const adminAuth = opts.adminPassword
@@ -371,6 +378,7 @@ export function buildApp(opts: AppOptions) {
       questionDecks,
       backroom,
       recapSettings,
+      offsiteStatus: () => readOffsiteStatus(offsiteStatusFile, now()),
       now,
     });
     backroomRoutes(scope, {
