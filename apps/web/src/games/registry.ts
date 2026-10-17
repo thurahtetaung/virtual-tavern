@@ -5,7 +5,9 @@ import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
 import { guide as roundTableGuide } from '@vt/game-round-table/guide';
-import { type ComponentType, lazy } from 'react';
+import { type ComponentType, lazy, useEffect, useRef, useState } from 'react';
+import { api } from '../lib/api.ts';
+import type { BackroomStatus } from '../lib/backroom.ts';
 import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 import type { Labeler } from '../recap/resolve.ts';
 
@@ -87,6 +89,26 @@ export async function loadPrivateGames({ known = false } = {}): Promise<ClientGa
     if (known && isChunkLoadError(err)) reloadOnce();
     return [];
   }
+}
+
+/**
+ * The back room's games (for their emoji), once `wanted` and only in a browser that has the back
+ * room; empty until then, and for everyone else.
+ */
+export function usePrivateGames(wanted: boolean): readonly ClientGame[] {
+  const [games, setGames] = useState<readonly ClientGame[]>([]);
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!wanted || asked.current) return;
+    asked.current = true;
+    void api<BackroomStatus>('/api/backroom/status')
+      .then((s) => (s.unlocked ? loadPrivateGames({ known: true }) : []))
+      .then((loaded) => {
+        if (loaded.length) setGames(loaded);
+      })
+      .catch(() => {});
+  }, [wanted]);
+  return games;
 }
 
 /**

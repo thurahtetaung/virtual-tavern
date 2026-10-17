@@ -32,7 +32,13 @@ import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
-import { type ClientGame, findGame, loadGame, roomGame } from '../games/registry.ts';
+import {
+  type ClientGame,
+  findGame,
+  loadGame,
+  roomGame,
+  usePrivateGames,
+} from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { offlineFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
@@ -272,15 +278,18 @@ function Room({
   const [sameCrewOpen, setSameCrewOpen] = useState(false);
   // Games on the card: this room's, a linked table's (public, or named by the server).
   const nightGameNames = night.recap?.games;
+  // Back-room games keep their own emoji on the card, for a browser that has the back room.
+  const privateGames = usePrivateGames(recapOpen || wraps > 0);
   const cardCtx = useMemo((): CardContext => {
     const gameInfo = (id: string) => {
       if (id === game.id) return game;
-      const known = findGame(id);
-      if (known) return known;
-      return { name: nightGameNames?.find((g) => g.gameId === id)?.name ?? 'A game', icon: '🎲' };
+      const known = findGame(id) ?? privateGames.find((g) => g.id === id);
+      // The server names each game (a back-room game by its title, where one is set).
+      const name = nightGameNames?.find((g) => g.gameId === id)?.name ?? known?.name ?? 'A game';
+      return { name, icon: known?.icon ?? '🎲' };
     };
     return { gameInfo, names: night.names, labels: night.labels };
-  }, [game, nightGameNames, night.names, night.labels]);
+  }, [game, nightGameNames, privateGames, night.names, night.labels]);
 
   // The host wrapped up the night: the recap opens on every device (anyone can close it).
   const [wrapsSeen, setWrapsSeen] = useState(0);
