@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.0...v0.41.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **short-fuse:** name the card you drew in your own game log ([#259](https://github.com/thurahtetaung/virtual-tavern/issues/259)) ([64fb478](https://github.com/thurahtetaung/virtual-tavern/commit/64fb47835eedd3b5122eb12c3172a235c78cafad))
+
 ## [0.41.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.40.0...v0.41.0) (2026-10-17)
 
 
