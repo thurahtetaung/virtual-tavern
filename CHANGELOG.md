@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.6...v0.42.7) (2026-10-17)
+
+
+### Performance Improvements
+
+* **web:** skip re-rendering unchanged seats, cards and logs on each update ([#287](https://github.com/thurahtetaung/virtual-tavern/issues/287)) ([bdd836c](https://github.com/thurahtetaung/virtual-tavern/commit/bdd836c5c4fb5fb5048e4241bed00b8604840fe9))
+
 ## [0.42.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.5...v0.42.6) (2026-10-17)
 
 
