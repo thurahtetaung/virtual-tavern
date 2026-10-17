@@ -1,59 +1,8 @@
-import { Button, PlayerTag, cn, useConfirm } from '@vt/ui';
+import { Button, NameDot, PlayerTag, cn, useConfirm } from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { points } from './status.ts';
 
 type Act = (a: HoodwinkAction) => Promise<boolean>;
-
-const AVATAR_TONES = [
-  'bg-danger dark:bg-rose-500',
-  'bg-accent dark:bg-amber-500',
-  'bg-success dark:bg-emerald-600',
-  'bg-info dark:bg-sky-600',
-  'bg-special dark:bg-violet-600',
-  'bg-special dark:bg-fuchsia-600',
-  'bg-success dark:bg-teal-600',
-  'bg-warn dark:bg-orange-600',
-  'bg-success dark:bg-lime-600',
-  'bg-special dark:bg-indigo-600',
-];
-
-/**
- * A player's colour: by seat order, so up to ten players at a table never share one (leavers
- * still in the scores come after).
- */
-export function toneOf(view: HoodwinkView, id: string): string {
-  const order = [...new Set([...view.seats.map((s) => s.id), ...view.scores.map((s) => s.id)])];
-  const i = order.indexOf(id);
-  return AVATAR_TONES[(i < 0 ? 0 : i) % AVATAR_TONES.length]!;
-}
-
-/** A small round initial badge for a player. */
-export function Avatar({
-  view,
-  id,
-  name,
-  className,
-}: {
-  view: HoodwinkView;
-  id: string;
-  name: string;
-  className?: string;
-}) {
-  return (
-    <span
-      role="img"
-      aria-label={name}
-      title={name}
-      className={cn(
-        'inline-flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ring-2 ring-white dark:ring-stone-900',
-        toneOf(view, id),
-        className,
-      )}
-    >
-      {name.trim().charAt(0).toUpperCase() || '?'}
-    </span>
-  );
-}
 
 /** The Play / Just watch button, which the shell's "You're watching" banner leads to. */
 export const SEAT_CONTROL_ID = 'hoodwink-seat';
@@ -178,17 +127,17 @@ export function Table({
         ))}
       </ul>
       {watching.length > 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          <span className="font-semibold">Watching:</span>{' '}
-          {watching
-            .map(
-              (s) =>
-                s.name +
-                (s.id === hostId ? ' 👑' : '') +
-                (s.id === me?.id ? ' (you)' : '') +
-                (online(s.id) ? '' : ' (offline)'),
-            )
-            .join(', ')}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+          <span className="font-semibold">Watching:</span>
+          {watching.map((s) => (
+            <PlayerTag
+              key={s.id}
+              name={s.name}
+              host={s.id === hostId}
+              you={s.id === me?.id}
+              offline={!online(s.id)}
+            />
+          ))}
         </p>
       )}
     </section>
@@ -205,12 +154,12 @@ export function Scores({ view }: { view: HoodwinkView }) {
       <ol className="space-y-1 text-sm">
         {view.scores.map((s) => (
           <li key={s.id} className={cn('flex items-center gap-2', s.left && 'opacity-50')}>
-            <Avatar view={view} id={s.id} name={s.name} className="size-6" />
             <span className="min-w-0 flex-1 truncate">
               {s.name}
               {s.id === view.me?.id && ' (you)'}
               {s.left && ' (left)'}
             </span>
+            <NameDot name={s.name} className="order-first" />
             {gained?.[s.id] ? (
               <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                 +{points(gained[s.id]!)}

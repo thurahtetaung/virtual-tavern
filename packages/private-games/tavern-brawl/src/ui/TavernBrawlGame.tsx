@@ -2,6 +2,7 @@ import { type GameRoomInfo, type GameUiProps, waitingForHost } from '@vt/game-sd
 import {
   Button,
   Hint,
+  NameDot,
   Panel,
   RefusalSlot,
   Superlatives,
@@ -126,8 +127,11 @@ function End({
             className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
           >
             <HpDial hp={p.hp} size={30} out={p.out} />
-            <span className="text-sm">
-              <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
+            <span className="inline-flex items-center gap-1 text-sm">
+              <span>
+                <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
+              </span>
+              <NameDot name={p.name} className="order-first" />
             </span>
           </li>
         ))}

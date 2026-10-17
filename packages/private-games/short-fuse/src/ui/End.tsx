@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Panel, Superlatives, cn } from '@vt/ui';
+import { Button, NameDot, Panel, Superlatives, cn } from '@vt/ui';
 import type { ShortFuseAction, ShortFuseView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardFace } from './Card.tsx';
@@ -39,12 +39,17 @@ export function End({
           {end.winner ? `${who(view, end.winner, false)} wins!` : 'Nobody is left standing.'}
         </h2>
         {order.length > 0 && (
-          <p className="text-sm text-ink-muted">
+          <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-ink-muted">
             {order.map((p, i) => (
-              <span key={p.id}>
-                {i > 0 && ' · '}
-                {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
-                {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
+              <span key={p.id} className="inline-flex items-center gap-1.5">
+                {i > 0 && <span aria-hidden>·</span>}
+                <span className="inline-flex items-center gap-1">
+                  <span>
+                    {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
+                    {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
+                  </span>
+                  <NameDot name={p.name} className="order-first" />
+                </span>
               </span>
             ))}
           </p>
@@ -136,8 +141,11 @@ export function End({
           const hand = end.hands[p.id] ?? [];
           return (
             <div key={p.id}>
-              <p className="text-sm font-semibold text-ink">
-                {p.name} {p.ghost ? '👻' : p.dead ? '💥' : p.left ? '🚪' : ''}
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <span>
+                  {p.name} {p.ghost ? '👻' : p.dead ? '💥' : p.left ? '🚪' : ''}
+                </span>
+                <NameDot name={p.name} className="order-first" />
               </p>
               {hand.length ? (
                 <ul className="mt-1 flex flex-wrap gap-1">

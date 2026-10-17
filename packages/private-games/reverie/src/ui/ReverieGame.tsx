@@ -1,4 +1,4 @@
-import { type ActOptions, type GameUiProps, listNames, waitingForHost } from '@vt/game-sdk';
+import { type ActOptions, type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   ChoicePicker,
@@ -18,6 +18,7 @@ import {
   useConfirm,
   useAbandonGame,
   LobbySettings,
+  NameDot,
   timersLine,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
@@ -696,19 +697,29 @@ function Play({
                         📖 Story card
                       </p>
                     )}
-                    <p className="font-semibold">
-                      {t.owner ? nameOf(view, t.owner) : ''}
-                      {t.mine && ' (you)'}
-                    </p>
+                    {t.owner && (
+                      <p className="flex min-w-0 items-center justify-center gap-1 font-semibold">
+                        <span className="min-w-0 truncate">{nameOf(view, t.owner)}</span>
+                        <NameDot name={nameOf(view, t.owner)} className="order-first" />
+                        {t.mine && <span className="shrink-0">(you)</span>}
+                      </p>
+                    )}
                     {turn.myVote === i && (
                       <p className="font-semibold text-amber-700 dark:text-amber-400">
                         ✋ Your vote
                       </p>
                     )}
                     <p className="text-ink-muted">
-                      {t.voters.length > 0
-                        ? `Votes: ${listNames(t.voters.map((v) => nameOf(view, v)))}`
-                        : 'No votes'}
+                      {t.voters.length > 0 ? 'Votes: ' : 'No votes'}
+                      {t.voters.map((v, n) => (
+                        <span key={v}>
+                          {n > 0 && ' '}
+                          <span className="inline-flex max-w-full items-center gap-0.5 align-middle">
+                            <span className="min-w-0 truncate">{nameOf(view, v)}</span>
+                            <NameDot name={nameOf(view, v)} className="order-first" />
+                          </span>
+                        </span>
+                      ))}
                     </p>
                   </div>
                 )}
@@ -741,10 +752,13 @@ function Play({
                 const r = turn.results![s.id]!;
                 return (
                   <li key={s.id} className="flex justify-between gap-2">
-                    <span className="min-w-0">
-                      {s.name}
-                      {s.id === turn.storyteller && ' (storyteller)'}
-                      <span className="text-ink-muted"> · {pointsBreakdown(view, s.id)}</span>
+                    <span className="flex min-w-0 items-baseline gap-1.5">
+                      <span className="min-w-0">
+                        {s.name}
+                        {s.id === turn.storyteller && ' (storyteller)'}
+                        <span className="text-ink-muted"> · {pointsBreakdown(view, s.id)}</span>
+                      </span>
+                      <NameDot name={s.name} className="order-first" />
                     </span>
                     <b
                       className={cn(

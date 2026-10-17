@@ -16,6 +16,7 @@ import {
   useSpectatorPrompt,
   useAbandonGame,
   LobbySettings,
+  NameDot,
 } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -498,6 +499,7 @@ function PlayerTile({
         >
           {p.name}
         </span>
+        <NameDot name={p.name} className="order-first" />
         {me && <span className="text-xs text-ink-muted">(you)</span>}
         {!online && !p.left && <Badge className="px-1.5 py-0 text-[0.65rem]">offline</Badge>}
         <span
@@ -708,12 +710,13 @@ function Table({
       <Journal view={view} deck={deck} />
 
       {view.seats.some((s) => !s.playing) && (
-        <p className="text-xs text-ink-muted">
-          Watching:{' '}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+          <span>Watching:</span>
           {view.seats
             .filter((s) => !s.playing)
-            .map((s) => s.name)
-            .join(', ')}
+            .map((s) => (
+              <PlayerTag key={s.id} name={s.name} />
+            ))}
         </p>
       )}
 
@@ -925,13 +928,14 @@ function PlaySheet({
                       aria-pressed={target === p.id}
                       onClick={() => setTarget(p.id)}
                       className={cn(
-                        'h-11 truncate rounded-lg px-3 font-semibold ring-1 transition',
+                        'flex h-11 min-w-0 items-center gap-1.5 rounded-lg px-3 font-semibold ring-1 transition',
                         target === p.id
                           ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                           : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
                       )}
                     >
-                      {p.id === me ? 'Yourself' : p.name}
+                      <span className="min-w-0 truncate">{p.id === me ? 'Yourself' : p.name}</span>
+                      <NameDot name={p.name} className="order-first" />
                     </button>
                   ))}
                 </div>
@@ -1437,8 +1441,11 @@ function FinalHands({ view, deck }: { view: RoyalPostView; deck: Deck }) {
             reads
             onClick={() => read(role)}
           />
-          <p className={cn('truncate', result.winners.includes(id) && 'font-bold')}>
-            {id === view.me?.id ? 'You' : nameOf(view, id)}
+          <p className="flex min-w-0 items-center gap-1">
+            <span className={cn('min-w-0 truncate', result.winners.includes(id) && 'font-bold')}>
+              {id === view.me?.id ? 'You' : nameOf(view, id)}
+            </span>
+            <NameDot name={nameOf(view, id)} className="order-first" />
           </p>
         </li>
       ))}

@@ -225,8 +225,11 @@ export function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="text-sm text-ink-muted dark:text-stone-400">
-            Watching: {watching.map((s) => s.name).join(', ')}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted dark:text-stone-400">
+            <span>Watching:</span>
+            {watching.map((s) => (
+              <PlayerTag key={s.id} name={s.name} />
+            ))}
           </p>
         )}
         {me && !me.playing && seated.length < MAX_PLAYERS && (

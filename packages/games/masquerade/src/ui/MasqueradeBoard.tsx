@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   Hint,
+  NameDot,
   Panel,
   Peek,
   ProtectedImage,
@@ -381,14 +382,17 @@ function VotePanel({
             aria-label={`Vote for ${p.name}`}
             onClick={() => void act({ type: 'vote', target: p.id })}
             className={cn(
-              'h-12 truncate rounded-lg px-3 font-semibold ring-1 transition',
+              'flex h-12 min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 font-semibold ring-1 transition',
               round.myVote === p.id
                 ? 'bg-accent-soft ring-2 ring-accent dark:ring-amber-500 dark:bg-amber-500/10'
                 : 'ring-stone-200 hover:bg-stone-100 dark:ring-stone-700 dark:hover:bg-stone-800',
             )}
           >
-            {round.myVote === p.id && '✓ '}
-            {p.name}
+            <span className="truncate">
+              {round.myVote === p.id && '✓ '}
+              {p.name}
+            </span>
+            <NameDot name={p.name} className="order-first" />
           </button>
         ))}
       </div>
@@ -438,7 +442,10 @@ function VotesList({
       <ul aria-label="Votes" className="grid grid-cols-1 gap-x-4 gap-y-0.5 text-sm sm:grid-cols-2">
         {round.players.map((p) => (
           <li key={p.id} className="flex justify-between gap-2">
-            <span className="truncate">{label(p.id)}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate">{label(p.id)}</span>
+              <NameDot name={p.name} className="order-first" />
+            </span>
             <span className="truncate text-stone-600 dark:text-stone-400">
               {votes[p.id] ? `→ ${label(votes[p.id]!)}` : 'abstained'}
             </span>
@@ -582,10 +589,13 @@ function Scores({ view }: { view: MasqueradeView }) {
       </summary>
       <ol aria-label="Scores" className="space-y-0.5 pb-3 text-sm">
         {ranked.map((s) => (
-          <li key={s.id} className="flex justify-between">
-            <span>
-              {s.name}
-              {s.id === view.me?.id && ' (you)'}
+          <li key={s.id} className="flex justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate">
+                {s.name}
+                {s.id === view.me?.id && ' (you)'}
+              </span>
+              <NameDot name={s.name} className="order-first" />
             </span>
             <b className="tabular-nums">{s.score}</b>
           </li>

@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  NameDot,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  LobbySettings,
+} from '@vt/ui';
 import type { ReactNode } from 'react';
 import { CARD_SETS, SET_IDS, type SetId } from '../logic/cards.ts';
 import { RAVENS, startProblem, tableCards } from '../logic/setup.ts';
@@ -252,7 +262,21 @@ export function Lobby({
                   on={s.ghostPick === p.id}
                   onClick={() => set({ ghostPick: p.id })}
                 >
-                  {p.name}
+                  {/* As in the seat list: a psychic's colour, else the room colour. */}
+                  <span className="inline-flex items-center gap-1.5">
+                    {p.name}
+                    {p.color ? (
+                      <Avatar
+                        color={p.color}
+                        content={content}
+                        name={p.name}
+                        size="sm"
+                        className="order-first size-5"
+                      />
+                    ) : (
+                      <NameDot name={p.name} className="order-first" />
+                    )}
+                  </span>
                 </Choice>
               ))}
             </div>

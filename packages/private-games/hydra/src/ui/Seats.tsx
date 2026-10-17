@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { cn } from '@vt/ui';
+import { NameDot, cn } from '@vt/ui';
 import type { HydraView, Ineligible } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import type { Suspicions } from './storage.ts';
@@ -128,18 +128,14 @@ export function Seats({
               )}
             >
               <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
-                {p.dead && <span aria-label="executed">✝</span>}
-                {/* An initial, so every card reads as a person's seat. */}
-                <span
-                  aria-hidden
-                  className={cn(
-                    'size-5 shrink-0 items-center justify-center rounded-full bg-stone-700 text-[0.6rem] font-black text-white uppercase dark:bg-stone-300 dark:text-stone-900',
-                    compact ? 'hidden sm:flex' : 'flex',
-                  )}
-                >
-                  {[...p.name][0] ?? '?'}
-                </span>
+                {p.dead && (
+                  <span aria-label="executed" className="order-first">
+                    ✝
+                  </span>
+                )}
                 <span className={cn('truncate', offline && 'opacity-60')}>{p.name}</span>
+                {/* The room colour, so every card reads as a person's seat. */}
+                <NameDot name={p.name} className="order-first" />
                 {me && (
                   <span
                     className={cn(

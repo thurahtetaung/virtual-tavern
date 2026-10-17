@@ -1,6 +1,7 @@
 import { type Placed, ordinal, rankStandings } from '@vt/game-sdk';
 import type { ReactNode } from 'react';
 import { cn } from './cn.ts';
+import { NameDot } from './player-colors.tsx';
 
 export interface StandingEntry {
   id: string;
@@ -55,9 +56,16 @@ export function Standings({
                 </span>
                 <ul className="w-full text-center text-sm leading-tight">
                   {onPlace(place).map((r) => (
-                    <li key={r.entry.id} className="truncate font-semibold" aria-label={label(r)}>
-                      {r.entry.name}
-                      {r.entry.id === you && ' (you)'}
+                    <li
+                      key={r.entry.id}
+                      className="flex items-center justify-center gap-1 font-semibold"
+                      aria-label={label(r)}
+                    >
+                      <span className="truncate">
+                        {r.entry.name}
+                        {r.entry.id === you && ' (you)'}
+                      </span>
+                      <NameDot name={r.entry.name} className="order-first" />
                     </li>
                   ))}
                 </ul>
@@ -94,9 +102,12 @@ export function Standings({
                 {ordinal(r.place)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">
-                  {r.entry.name}
-                  {r.entry.id === you && ' (you)'}
+                <span className="flex items-center gap-1 font-medium">
+                  <span className="truncate">
+                    {r.entry.name}
+                    {r.entry.id === you && ' (you)'}
+                  </span>
+                  <NameDot name={r.entry.name} className="order-first" />
                 </span>
                 {r.entry.note && (
                   <span className="block text-xs text-ink-muted">{r.entry.note}</span>

@@ -100,7 +100,10 @@ for (const [label, viewport, colorScheme] of [
     await playCard(five[0]!, 'dragon.03');
     await expect(five[0]!.getByRole('region', { name: 'Your choice' })).toBeVisible();
     await shot(five[0]!, '12-five-choose');
-    await five[0]!.getByRole('button', { name: /Heal 1/ }).click();
+    await five[0]!
+      .getByRole('region', { name: 'Your choice' })
+      .getByRole('button', { name: /Heal 1/ })
+      .click();
     // Going right, the seat before the dragon's chooses next, out of turn (seats join in any
     // order, so find whoever is asked).
     const asked = (p: Page) => p.getByRole('region', { name: 'Your choice' }).count();
@@ -110,7 +113,10 @@ for (const [label, viewport, colorScheme] of [
     const watcher = five.find((p, i) => i > 0 && p !== other)!;
     await other.waitForTimeout(400);
     await shot(other, '13-five-choose-other');
-    await other.getByRole('button', { name: /Attack 1/ }).click();
+    await other
+      .getByRole('region', { name: 'Your choice' })
+      .getByRole('button', { name: /Attack 1/ })
+      .click();
     await shot(other, '14-five-target');
     await shot(watcher, '15-five-waiting');
 

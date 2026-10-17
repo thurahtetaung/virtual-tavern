@@ -412,22 +412,20 @@ function RunningPlaytest({
       )}
       <ul className="flex flex-wrap gap-2" aria-label="Seats">
         {humans.map((seat) => (
-          <li key={seat.playerId}>
+          <li key={seat.playerId} className="flex items-center gap-1">
             <a
               href={seatLink(roomId, seat)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3 text-sm font-semibold text-amber-800 ring-1 ring-stone-300 hover:bg-accent-soft dark:bg-stone-900 dark:text-amber-300 dark:ring-stone-600 dark:hover:bg-stone-800"
             >
-              <span
-                aria-hidden
-                className={cn(
-                  'size-2 rounded-full',
-                  online.has(seat.playerId) ? 'bg-success dark:bg-emerald-500' : 'bg-stone-400',
-                )}
-              />
               Open {seat.name}
             </a>
+            {status && !online.has(seat.playerId) && (
+              <span className="rounded-full bg-stone-200 px-1.5 text-[11px] font-medium text-stone-600 dark:bg-stone-700 dark:text-stone-300">
+                offline
+              </span>
+            )}
           </li>
         ))}
         {bots.map((b) => (

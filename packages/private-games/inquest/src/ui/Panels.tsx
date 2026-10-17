@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  NameDot,
   Panel,
   PlayerTag,
   ProtectedImage,
@@ -470,13 +471,14 @@ export function FlipPanel({
           <li
             key={id}
             className={cn(
-              'rounded-full px-2 py-0.5 ring-1 ring-stone-300 dark:ring-stone-600',
+              'flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-stone-300 dark:ring-stone-600',
               i < ev.index && 'line-through opacity-60',
               i === ev.index &&
                 'bg-accent dark:bg-amber-500 font-bold text-accent-fg dark:text-stone-950 ring-accent',
             )}
           >
-            {id === me?.id ? 'you' : nameOf(view, id)}
+            <span>{id === me?.id ? 'you' : nameOf(view, id)}</span>
+            <NameDot name={nameOf(view, id)} className="order-first" />
           </li>
         ))}
       </ol>
@@ -597,7 +599,8 @@ export function ReversalPanel({
                     void act({ type: 'reversal-tap', target: p.id }, { anchor: 'inquest-reversal' })
                   }
                 >
-                  {p.name}
+                  <span className="truncate">{p.name}</span>
+                  <NameDot name={p.name} className="order-first" />
                   {theirs.length > 0 && (
                     <span className="text-xs">
                       👈 {theirs.map((t) => nameOf(view, t.id)).join(', ')}

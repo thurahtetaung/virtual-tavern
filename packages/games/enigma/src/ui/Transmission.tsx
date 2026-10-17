@@ -1,5 +1,5 @@
 import type { ActOptions } from '@vt/game-sdk';
-import { Badge, Button, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
+import { Badge, Button, Panel, Peek, PlayerTag, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { clueProblem, usedClues } from '../logic/game.ts';
 import type { EnigmaAction, EnigmaView, TransmissionView } from '../logic/types.ts';
@@ -168,14 +168,8 @@ function Picks({
                     'bg-success-soft text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100',
                 )}
               >
-                {!online(id) && (
-                  <span
-                    aria-label="offline"
-                    className="mr-1 inline-block size-2 rounded-full bg-stone-400"
-                  />
-                )}
-                {nameOf(view, id)} {v ? <PickBoxes draft={v.draft} /> : 'picking…'}{' '}
-                {v?.locked ? '🔒' : ''}
+                <PlayerTag name={nameOf(view, id)} offline={!online(id)} />{' '}
+                {v ? <PickBoxes draft={v.draft} /> : 'picking…'} {v?.locked ? '🔒' : ''}
               </Badge>
             </li>
           );

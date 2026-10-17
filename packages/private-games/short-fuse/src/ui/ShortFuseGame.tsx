@@ -4,6 +4,7 @@ import {
   Countdown,
   Hint,
   Modal,
+  NameDot,
   RefusalSlot,
   cn,
   useRefusalWording,
@@ -189,6 +190,7 @@ function WaitingChips({
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-info-soft py-0.5 pr-1 pl-2 font-semibold text-info-ink ring-1 ring-info-line"
           >
             {mine ? 'you' : namesWithPresence([id], room.players) || who(view, id)}
+            <NameDot name={who(view, id, false)} className="order-first" />
             {!mine && online && amIn(view) && (
               <button
                 type="button"
@@ -669,6 +671,7 @@ export function ShortFuseGame({
             {nowTargets.map((id) => (
               <Button key={id} variant="soft" onClick={() => play(id)}>
                 👻 {id === me ? 'yourself' : who(view, id)}
+                <NameDot name={who(view, id, false)} className="order-first" />
               </Button>
             ))}
           </div>
@@ -758,7 +761,8 @@ export function ShortFuseGame({
                 onClick={() => play(id, picking?.named)}
               >
                 {needs === 'ghost' ? '👻 ' : ''}
-                {who(view, id)}{' '}
+                {who(view, id)}
+                <NameDot name={who(view, id, false)} className="order-first" />
                 <span className="text-xs opacity-75">
                   🂠 {g.players.find((x) => x.id === id)?.hand}
                 </span>

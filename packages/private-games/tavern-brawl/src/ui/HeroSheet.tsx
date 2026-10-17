@@ -1,4 +1,4 @@
-import { Button, Modal } from '@vt/ui';
+import { Button, Modal, NameDot } from '@vt/ui';
 import { useState } from 'react';
 import { HEROES, cardsOf } from '../logic/cards.ts';
 import { POWER_TEXT, cardText, powersOf } from '../logic/guide.ts';
@@ -151,13 +151,14 @@ export function PowersPanel({
   heroes,
   art,
 }: {
-  heroes: { hero: HeroId; who: string; out?: boolean }[];
+  /** `who` is how the line names the player ("You"), `player` their room name. */
+  heroes: { hero: HeroId; who: string; player?: string; out?: boolean }[];
   art: Art;
 }) {
   const [open, setOpen] = useState<{ hero: HeroId; who: string } | null>(null);
   return (
     <div className="flex flex-col gap-2" data-testid="tb-powers">
-      {heroes.map(({ hero, who, out }) => (
+      {heroes.map(({ hero, who, player, out }) => (
         <section
           key={`${hero}-${who}`}
           aria-label={`${who}: ${art.hero(hero)}`}
@@ -166,9 +167,12 @@ export function PowersPanel({
         >
           <div className="mb-1 flex items-center gap-2">
             <Portrait hero={hero} art={art} size={32} className={out ? 'opacity-60' : ''} />
-            <p className="min-w-0 flex-1 truncate text-sm">
-              <span className="font-semibold">{who}</span>
-              <span className="text-ink-muted dark:text-stone-400"> · {art.hero(hero)}</span>
+            <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+              <span className="min-w-0 truncate">
+                <span className="font-semibold">{who}</span>
+                <span className="text-ink-muted dark:text-stone-400"> · {art.hero(hero)}</span>
+              </span>
+              {player && <NameDot name={player} className="order-first" />}
             </p>
             <Button
               variant="ghost"

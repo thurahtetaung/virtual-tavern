@@ -1,25 +1,13 @@
 import type { RoomSnapshot } from '@vt/protocol';
-import { Button, cn } from '@vt/ui';
+import { Button, PlayerDot } from '@vt/ui';
 import { useState } from 'react';
 import { api } from '../lib/api.ts';
 import { BotControls } from './BotControls.tsx';
 import { useToast } from '../lib/toast.tsx';
 
-/** One colour per seat (by join order), so seat tabs look different at a glance. */
-const SEAT_COLOURS = [
-  'bg-special-soft text-violet-950 ring-special-line dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-500/40',
-  'bg-info-soft text-sky-950 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40',
-  'bg-success-soft text-emerald-950 ring-success-line dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-500/40',
-  'bg-danger-soft text-rose-950 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40',
-  'bg-accent-soft text-amber-950 ring-accent-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40',
-  'bg-success-soft text-teal-950 ring-success-line dark:bg-teal-500/15 dark:text-teal-100 dark:ring-teal-500/40',
-  'bg-special-soft text-fuchsia-950 ring-special-line dark:bg-fuchsia-500/15 dark:text-fuchsia-100 dark:ring-fuchsia-500/40',
-  'bg-success-soft text-lime-950 ring-success-line dark:bg-lime-500/15 dark:text-lime-100 dark:ring-lime-500/40',
-];
-
 /**
  * The thin bar every seat tab of an admin playtest shows under the room header: which seat this
- * tab plays, in the seat's own colour, the bots' pause and speed switches, and (for the host
+ * tab plays, after its player colour's dot, the bots' pause and speed switches, and (for the host
  * seat) a way to end the playtest.
  */
 export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: RoomSnapshot }) {
@@ -47,14 +35,13 @@ export function PlaytestBar({ roomId, snapshot }: { roomId: string; snapshot: Ro
   return (
     <section
       aria-label="Playtest"
-      className={cn(
-        'mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl px-3 py-1.5 text-sm ring-1',
-        SEAT_COLOURS[seatNo % SEAT_COLOURS.length],
-      )}
+      className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-xl bg-stone-100 px-3 py-1.5 text-sm text-stone-900 ring-1 ring-stone-300 dark:bg-stone-800/60 dark:text-stone-100 dark:ring-stone-700"
     >
       <p className="min-w-0 truncate">
         <span aria-hidden>🧪 </span>
-        <b>Playtest</b> · you are <b data-testid="playtest-seat">{me?.name ?? 'watching'}</b>
+        <b>Playtest</b> · you are{' '}
+        {me && <PlayerDot color={me.color} label={false} className="mr-1 align-middle" />}
+        <b data-testid="playtest-seat">{me?.name ?? 'watching'}</b>
         <span className="hidden sm:inline"> · nothing here is recorded</span>
       </p>
       {playtest?.stuck && (

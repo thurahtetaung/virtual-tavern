@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   Hint,
+  NameDot,
   cn,
   useRefusalWording,
   useSpectatorPrompt,
@@ -218,6 +219,7 @@ function WaitingChips({
             className="inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-100 py-0.5 pr-1 pl-2 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100"
           >
             {mine ? 'you' : namesWithPresence([id], room.players) || nameOf(view, id)}
+            <NameDot name={nameOf(view, id)} className="order-first" />
             {!mine && online && view.role && (
               <button
                 type="button"

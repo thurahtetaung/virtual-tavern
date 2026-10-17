@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, cn } from '@vt/ui';
+import { Button, Countdown, NameDot, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { eventText } from '../logic/names.ts';
 import type { InquestView, PlayerView } from '../logic/types.ts';
@@ -303,14 +303,19 @@ function SuspectHand({
           : 'ring-1 ring-stone-200 dark:ring-stone-800',
       )}
     >
-      <h4 className="mb-1 truncate text-lg leading-tight font-bold">
-        {s.name}
+      <h4 className="mb-1 flex min-w-0 items-center gap-1.5 text-lg leading-tight font-bold">
+        <span className="truncate">{s.name}</span>
+        <NameDot name={s.name} className="order-first" />
         {speaking && (
-          <span className="ml-2 text-sm font-semibold text-amber-500">🎙️ presenting</span>
+          <span className="ml-0.5 shrink-0 text-sm font-semibold text-amber-500">
+            🎙️ presenting
+          </span>
         )}
-        {accusing && <span className="ml-2 text-sm font-semibold text-amber-500">⚖️ accusing</span>}
+        {accusing && (
+          <span className="ml-0.5 shrink-0 text-sm font-semibold text-amber-500">⚖️ accusing</span>
+        )}
         {s.badges <= 0 && (
-          <span className="ml-2 text-sm font-normal text-ink-muted">attempt used</span>
+          <span className="ml-0.5 shrink-0 text-sm font-normal text-ink-muted">attempt used</span>
         )}
       </h4>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${perRow}, ${card}px)` }}>
