@@ -451,16 +451,20 @@ export function ShortFuseGame({
     });
   };
   // The face-up Black Hole on top of the draw pile, opened for its details (closed once it leaves
-  // the top, so it never reopens by itself).
-  const [voidOpen, setVoidOpen] = useState(false);
+  // the top, so it never reopens by itself). Each opening has its own number: Escape shuts the
+  // dialog at once but tells React a moment later, so an Enter in between opens a fresh one, which
+  // that late close must leave alone.
+  const [voidOpen, setVoidOpen] = useState(0);
+  const voidOpens = useRef(0);
   const voidTop = g?.pile.voidTop ?? false;
-  if (voidOpen && !voidTop) setVoidOpen(false);
+  if (voidOpen && !voidTop) setVoidOpen(0);
   const openVoidTop = (from: HTMLElement) => {
     pileOpener.current = from;
-    setVoidOpen(true);
+    setVoidOpen((voidOpens.current += 1));
   };
-  const closeVoidTop = () => {
-    setVoidOpen(false);
+  const closeVoidTop = (opening: number) => {
+    if (opening !== voidOpens.current) return;
+    setVoidOpen(0);
     window.requestAnimationFrame(() => {
       if (pileOpener.current?.isConnected) pileOpener.current.focus();
     });
@@ -1146,8 +1150,15 @@ export function ShortFuseGame({
           }
         />
       )}
-      {voidOpen && voidTop && !shuffling && (
-        <Inspector card={VOID_TOP} c={c} art={g.art} now={null} onClose={closeVoidTop} />
+      {voidOpen > 0 && voidTop && !shuffling && (
+        <Inspector
+          key={voidOpen}
+          card={VOID_TOP}
+          c={c}
+          art={g.art}
+          now={null}
+          onClose={() => closeVoidTop(voidOpen)}
+        />
       )}
       {blast && (
         <div
