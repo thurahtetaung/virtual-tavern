@@ -95,7 +95,7 @@ export function logLine(view: ShortFuseView, c: Content, e: LogEntry): string {
     case 'resolved':
       return `${whose(by)} play goes ahead after ${e.n} × ${c.name('nope')}.`;
     case 'draw':
-      return `${by} drew a card${e.from === 'bottom' ? ' from the bottom' : ''}.`;
+      return `${by} drew ${e.drew ? an(card(e.drew)) : 'a card'}${e.from === 'bottom' ? ' from the bottom' : ''}.`;
     case 'drew-bomb':
       return `${by} drew ${an(card(e.cards?.[0]))}!`;
     case 'defuse':

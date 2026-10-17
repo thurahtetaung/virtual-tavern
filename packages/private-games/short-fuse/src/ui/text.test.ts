@@ -28,6 +28,13 @@ describe('log lines address the viewer', () => {
     );
   });
 
+  it('your own draw names the card (the view sends it only to you)', () => {
+    expect(lines({ kind: 'draw', by: A, drew: 'attack' })[A]).toBe('You drew an Attack.');
+    expect(lines({ kind: 'draw', by: A, from: 'bottom' })[B]).toBe(
+      'HOST drew a card from the bottom.',
+    );
+  });
+
   it('a steal from a Vault Stash names your Stash', () => {
     expect(lines({ kind: 'steal', by: A, target: B, n: 1, from: 'stash' })).toEqual({
       [A]: 'You stole a card from ANA’s Vault Stash.',

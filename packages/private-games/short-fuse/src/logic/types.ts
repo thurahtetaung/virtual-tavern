@@ -317,6 +317,8 @@ export interface LogEntry {
   ghost?: boolean;
   /** A play made with a Copy: the card it copied. */
   as?: CardType;
+  /** The card a player drew (not while blindfolded), only ever in the drawer's own view. */
+  drew?: CardType;
 }
 
 /** The end screen's account of where every hidden card went. */
