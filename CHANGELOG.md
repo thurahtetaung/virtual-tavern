@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.41.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.40.0...v0.41.0) (2026-10-17)
+
+
+### Features
+
+* **admin:** show the last offsite backup on the admin page ([#258](https://github.com/thurahtetaung/virtual-tavern/issues/258)) ([81ebbc3](https://github.com/thurahtetaung/virtual-tavern/commit/81ebbc3419570a2235a13e43eba5f87b39136257))
+
+
+### Bug Fixes
+
+* **short-fuse:** open any discarded card's details from the top card or the pile browser, newest first ([#257](https://github.com/thurahtetaung/virtual-tavern/issues/257)) ([de3f468](https://github.com/thurahtetaung/virtual-tavern/commit/de3f468a1d1e2dbde2f4e9477d6afa34c618c032))
+
 ## [0.40.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.39.2...v0.40.0) (2026-10-16)
 
 
