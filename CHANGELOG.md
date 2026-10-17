@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.41.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.1...v0.41.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* give every game its own emoji in recaps and stats ([#263](https://github.com/thurahtetaung/virtual-tavern/issues/263)) ([402c4f0](https://github.com/thurahtetaung/virtual-tavern/commit/402c4f0b7133e1d4926dc70cb6ad81028972d876))
+* name back-room games by their real titles in stats and recaps ([#262](https://github.com/thurahtetaung/virtual-tavern/issues/262)) ([46fd19e](https://github.com/thurahtetaung/virtual-tavern/commit/46fd19ee246d56d94d2b718d54a65f0c8bcdeb6c))
+
 ## [0.41.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.0...v0.41.1) (2026-10-17)
 
 
