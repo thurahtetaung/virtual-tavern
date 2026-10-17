@@ -29,7 +29,7 @@ import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
 import { GuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
-import { Layout, PageLoading } from '../components/Layout.tsx';
+import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
 import {
@@ -40,6 +40,7 @@ import {
   usePrivateGames,
 } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
+import { retryOnce } from '../lib/retry.ts';
 import { offlineFor } from '../lib/presence.ts';
 import { forgetLastRoom, saveLastRoom, saveName, savedName } from '../lib/identity.ts';
 import { type Seat, adoptSeat, clearSeat, confirmSeat, seatFor } from '../lib/seat.ts';
@@ -66,6 +67,11 @@ export function RoomPage() {
   return <RoomLookupPage key={roomId} roomId={roomId} />;
 }
 
+/** How long the room lookup may take before it is tried again (then the error screen). */
+const LOOKUP_TIMEOUT_MS = 10_000;
+/** When loading a game's code says it's still at it (and offers a reload). */
+const CODE_SLOW_MS = 12_000;
+
 function RoomLookupPage({ roomId }: { roomId: string }) {
   const navigate = useNavigate();
   const [lookup, setLookup] = useState<RoomLookup>({ kind: 'loading' });
@@ -91,7 +97,12 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
 
   useEffect(() => {
     let stale = false;
-    api<RoomInfo>(`/api/rooms/${roomId}`)
+    // A lookup that gets no answer (or no connection) is tried once more before the error screen;
+    // the server's own answers (no such room, the back room's door) are final.
+    retryOnce(
+      () => api<RoomInfo>(`/api/rooms/${roomId}`, { timeoutMs: LOOKUP_TIMEOUT_MS }),
+      (err) => !(err instanceof ApiFailure),
+    )
       .then(async (room) => {
         if (stale) return;
         // Only a playtest honours a seat; anywhere else a stored one is wiped.
@@ -167,7 +178,8 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
 
   if (!name) {
     // A seat tab waits for the room (and its seat) instead of asking for a name.
-    if (seatLink && lookup.kind === 'loading') return <PageLoading wide />;
+    if (seatLink && lookup.kind === 'loading')
+      return <PageLoading wide label="Finding your room…" />;
     return (
       <Layout>
         <Panel className="mx-auto mt-10 max-w-md space-y-4 text-center">
@@ -192,7 +204,16 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
     );
   }
 
-  if (!game) return <PageLoading wide />;
+  if (lookup.kind === 'loading') return <PageLoading wide label="Finding your room…" />;
+  if (!game)
+    return (
+      <PageLoading
+        wide
+        label="Setting up the table…"
+        slowLabel="Still setting up the table…"
+        slowAfterMs={CODE_SLOW_MS}
+      />
+    );
   return (
     <RefusalProvider>
       <Room
@@ -629,10 +650,16 @@ function Room({
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
 
       {!snapshot ? (
-        <p className="py-16 text-center text-ink-muted">Opening the door…</p>
+        <LoadingStep label="Opening the door…" />
       ) : (
         <Suspense
-          fallback={<p className="py-16 text-center text-ink-muted">Setting up the table…</p>}
+          fallback={
+            <LoadingStep
+              label="Setting up the table…"
+              slowLabel="Still setting up the table…"
+              slowAfterMs={CODE_SLOW_MS}
+            />
+          }
         >
           {snapshot.meta?.phase === 'lobby' && !playtest && (
             <GuideIntro game={game} onRules={() => showGuide()} />

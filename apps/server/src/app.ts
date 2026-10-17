@@ -5,9 +5,11 @@ import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyRequest, type FastifyServerOptions } from 'fastify';
 import type { LockReason } from '@vt/protocol';
+import { EDGE_COOKIE } from '@vt/protocol/edge';
 import { ADMIN_COOKIE, AdminAuth } from './admin-auth.ts';
 import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
+import { EdgePass } from './edge.ts';
 import { offsiteStatusPath, readOffsiteStatus } from './backup-status.ts';
 import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
 import { NarrationLengths, withNarration } from './narration.ts';
@@ -65,6 +67,8 @@ export interface AppOptions {
   statsIgnoreToken?: string | null;
   /** Rooms one address may create a minute; 20 by default. */
   roomCreateLimit?: number;
+  /** Signs the edge pass for the Cloudflare Worker; unset, none is issued. */
+  edgeSecret?: string | null;
   /** The off-site backup job's status file; defaults to `backups/` next to the database. */
   offsiteStatusPath?: string | null;
   /** How long a playtest bot thinks before a move (ms, before the speed factor); tests only. */
@@ -130,6 +134,7 @@ export function buildApp(opts: AppOptions) {
       : opts.offsiteStatusPath;
   const games = opts.games ?? buildGames();
   const backroom = new Backroom(db, now);
+  const edge = opts.edgeSecret ? new EdgePass(opts.edgeSecret) : null;
   const adminAuth = opts.adminPassword
     ? new AdminAuth(opts.adminPassword, opts.sessionSecret)
     : null;
@@ -349,6 +354,21 @@ export function buildApp(opts: AppOptions) {
     return reply.code(status).send({ error: { code, message: text } });
   });
 
+  // Browsers unlocked before the edge pass existed (or whose pass is for an older unlock) get one
+  // on their next API call.
+  if (edge) {
+    app.addHook('onRequest', (req, reply, done) => {
+      if (req.url.startsWith('/api/')) {
+        const header = req.headers.cookie;
+        const unlock = signedCookie(header, BACKROOM_COOKIE);
+        const pass = header ? app.parseCookie(header)[EDGE_COOKIE] : undefined;
+        if (unlock && backroom.isUnlocked(unlock) && !edge.matches(pass, unlock))
+          edge.set(reply, unlock, now());
+      }
+      done();
+    });
+  }
+
   app.get('/healthz', (_req, reply) => {
     if (!dbHealthy(db)) {
       reply.log.error('health check failed: database unavailable');
@@ -385,6 +405,8 @@ export function buildApp(opts: AppOptions) {
     });
     backroomRoutes(scope, {
       backroom,
+      edge,
+      now,
       games,
       assets,
       questionDecks,
@@ -444,9 +466,12 @@ export function buildApp(opts: AppOptions) {
         const hashed = path.startsWith('/assets/') && reply.statusCode === 200;
         void reply.header(
           'cache-control',
-          // Never let a shared cache (or Cloudflare's edge) keep a copy of private code.
+          // Back-room chunks are content-hashed too, but `private`: no shared cache may keep them.
+          // Only the edge Worker caches them, behind its own unlock check.
           path.startsWith('/backroom-assets/')
-            ? 'private, no-store'
+            ? reply.statusCode === 200
+              ? 'private, max-age=31536000, immutable'
+              : 'private, no-store'
             : hashed
               ? 'public, max-age=31536000, immutable'
               : 'no-cache',

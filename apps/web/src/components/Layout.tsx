@@ -1,5 +1,5 @@
 import { Button } from '@vt/ui';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { type ResolvedTheme, type Theme, systemTheme, useTheme } from '../lib/theme.ts';
 
@@ -85,13 +85,64 @@ function ThemeSwitch() {
   );
 }
 
+/** After this long on one loading step, the page says so and offers a reload. */
+export const SLOW_STEP_MS = 15_000;
+
+/**
+ * One step of opening a page ("Finding your room…"). If it takes longer than `slowAfterMs`, it
+ * shows `slowLabel` (or keeps its label), says it's taking longer than usual and offers a reload,
+ * so nobody is left staring at a line that never changes.
+ */
+export function LoadingStep({
+  label,
+  slowLabel = label,
+  slowAfterMs = SLOW_STEP_MS,
+}: {
+  label: string;
+  slowLabel?: string;
+  slowAfterMs?: number;
+}) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), slowAfterMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [slowAfterMs]);
+  return (
+    <div role="status" className="space-y-3 py-16 text-center">
+      <p className="text-ink-muted">{slow ? slowLabel : label}</p>
+      {slow && (
+        <>
+          <p className="text-sm text-ink-muted">Taking longer than usual.</p>
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Reload
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** What a page shows while its code or data is on the way, instead of a blank screen. */
-export function PageLoading({ wide = false }: { wide?: boolean }) {
+export function PageLoading({
+  wide = false,
+  label = 'Opening the door…',
+  slowLabel,
+  slowAfterMs,
+}: {
+  wide?: boolean;
+  label?: string;
+  slowLabel?: string;
+  slowAfterMs?: number;
+}) {
   return (
     <Layout wide={wide}>
-      <p role="status" className="py-16 text-center text-ink-muted">
-        Opening the door…
-      </p>
+      <LoadingStep
+        label={label}
+        {...(slowLabel && { slowLabel })}
+        {...(slowAfterMs && { slowAfterMs })}
+      />
     </Layout>
   );
 }
