@@ -86,6 +86,9 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
   const seat = lookup.kind === 'found' ? lookup.seat : null;
   // A seat tab plays under the seat's name and never asks for one.
   const name = seat?.name ?? savedAs;
+  // The socket opens alongside the lookup, and the join goes out once the name is known. A seat
+  // link waits for the lookup: only a playtest honours its seat.
+  const conn = useRoom(roomId, name, seat?.token, !seatLink || lookup.kind === 'found');
   // Inside the room, the room names the tab itself (and marks "Your turn").
   usePageTitle(
     lookup.kind === 'failed'
@@ -94,6 +97,12 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         ? `Join ${game?.name ?? 'a game'}`
         : null,
   );
+
+  // A game this app doesn't have: hang up rather than sit in the room the socket may have joined.
+  const { close } = conn;
+  useEffect(() => {
+    if (game === 'missing') close();
+  }, [game, close]);
 
   useEffect(() => {
     let stale = false;
@@ -108,7 +117,14 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         // Only a playtest honours a seat; anywhere else a stored one is wiped.
         setLookup({ kind: 'found', room, seat: confirmSeat(roomId, room.playtest === true) });
         const found = await loadGame(room.gameId);
-        const named = found && (await roomGame(found, room.title));
+        // The game's code loads while the socket joins, and the room shows once it's in (a failed
+        // load is left to the room, as before).
+        const [named] = found
+          ? await Promise.all([
+              roomGame(found, room.title),
+              found.Component.preload().catch(() => {}),
+            ])
+          : [];
         if (stale) return;
         setGame(named ?? 'missing');
       })
@@ -221,7 +237,7 @@ function RoomLookupPage({ roomId }: { roomId: string }) {
         game={game}
         name={name}
         onRename={setName}
-        seat={seat}
+        conn={conn}
         playtest={lookup.kind === 'found' && lookup.room.playtest === true}
       />
     </RefusalProvider>
@@ -242,15 +258,15 @@ function Room({
   game,
   name,
   onRename,
-  seat,
+  conn,
   playtest,
 }: {
   roomId: string;
   game: ClientGame;
   name: string;
   onRename: (n: string) => void;
-  /** This tab's playtest seat; null plays as the browser's own player, as always. */
-  seat: Seat | null;
+  /** The live connection, opened by the page while it looked the room up. */
+  conn: ReturnType<typeof useRoom>;
   /** An admin playtest room: nothing is recorded, and nobody can be invited. */
   playtest: boolean;
 }) {
@@ -270,7 +286,7 @@ function Room({
     next,
     dismissNext,
     playtestAwards,
-  } = useRoom(roomId, name, seat?.token);
+  } = conn;
   // A playtest seat keeps its own marks, notes and tips (set before the game reads them).
   setStorageSeat(playtest ? (snapshot?.you ?? null) : null);
   useEffect(() => {

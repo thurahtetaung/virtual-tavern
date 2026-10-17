@@ -29,8 +29,11 @@ type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 /**
  * Live connection to one room. Rejoins automatically after network drops or server restarts.
  * `token`: the identity to join as (a playtest seat); by default the browser's own player.
+ * The socket connects at once, so it opens while the page looks the room up and loads the game;
+ * the join waits for a name and for `ready` (the identity is settled), then goes out as soon as
+ * the socket is up.
  */
-export function useRoom(roomId: string, name: string | null, token?: string) {
+export function useRoom(roomId: string, name: string | null, token?: string, ready = true) {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const [status, setStatus] = useState<RoomStatus>('connecting');
@@ -51,9 +54,12 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
   }, [name]);
   // The seat this page joins as, kept for every automatic rejoin (the same seat after a drop).
   const tokenRef = useRef(token);
+  const canJoin = ready && name !== null;
+  const canJoinRef = useRef(false);
+  // Joins now if the socket is already up (else its `connect` does).
+  const joinNow = useRef(() => {});
 
   useEffect(() => {
-    if (!name) return;
     const socket: ClientSocket = io({ transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
@@ -64,10 +70,11 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     });
 
     const join = () => {
+      if (!canJoinRef.current) return;
       watch.sent();
       socket.emit(
         'room:join',
-        { roomId, token: tokenRef.current ?? playerToken(), name: nameRef.current ?? name },
+        { roomId, token: tokenRef.current ?? playerToken(), name: nameRef.current ?? '' },
         (res) => {
           if (res.ok) {
             joined = true;
@@ -83,11 +90,15 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
         },
       );
     };
+    joinNow.current = () => {
+      if (socket.connected && !joined) join();
+    };
     // A phone that slept mid-join can come back to a socket that looks fine but is dead: start
     // over on a fresh connection. A socket closed on purpose (kicked, locked out, closed, left)
     // is no longer `active` and stays closed.
     const onVisible = () => {
-      if (document.visibilityState !== 'visible' || joined || !socket.active) return;
+      if (document.visibilityState !== 'visible' || joined || !canJoinRef.current || !socket.active)
+        return;
       socket.disconnect();
       socket.connect();
     };
@@ -135,10 +146,18 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
       document.removeEventListener('visibilitychange', onVisible);
       socket.disconnect();
       socketRef.current = null;
+      joinNow.current = () => {};
     };
-    // Only (re)connect when the room or the presence of a name changes; renames go through `rename`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, name !== null]);
+  }, [roomId]);
+
+  // The name and seat are known: join (once; rejoins after drops reuse them). Renames go through
+  // `room:rename`, and the seat never changes on a page.
+  useEffect(() => {
+    if (!canJoin || canJoinRef.current) return;
+    tokenRef.current = token;
+    canJoinRef.current = true;
+    joinNow.current();
+  }, [canJoin, token]);
 
   const call = useCallback(
     <E extends keyof ClientToServerEvents>(event: E, ...args: unknown[]): Promise<Ack> =>
@@ -171,6 +190,11 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     setStatus('left');
   }, [call]);
 
+  // Hangs up for good, staying a member (a page that can't show the room).
+  const close = useCallback(() => {
+    socketRef.current?.disconnect();
+  }, []);
+
   return {
     snapshot,
     clockOffset,
@@ -179,6 +203,7 @@ export function useRoom(roomId: string, name: string | null, token?: string) {
     error,
     call,
     leave,
+    close,
     wraps,
     next,
     dismissNext: () => setNext(null),
