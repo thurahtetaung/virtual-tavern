@@ -1,5 +1,5 @@
 import { cn } from '@vt/ui';
-import type { Art, PileView } from '../logic/types.ts';
+import type { Art, CardView, PileView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { CardBack, CardFace, type CardSize } from './Card.tsx';
 
@@ -49,6 +49,9 @@ export function StackSide({
   );
 }
 
+/** The face-up Black Hole on top of the pile, as the details sheet shows it. */
+export const VOID_TOP: CardView = { t: 'void', face: 0, id: 'pile-top' };
+
 /** The draw pile: its top card, its side view and the public counts. */
 export function Pile({
   pile,
@@ -56,12 +59,15 @@ export function Pile({
   art,
   shuffling,
   size = 'md',
+  onInspect,
 }: {
   pile: PileView;
   c: Content;
   art: Art;
   shuffling: boolean;
   size?: CardSize;
+  /** Opens the details of the face-up Black Hole when it is on top (a deeper stripe never). */
+  onInspect?: (from: HTMLElement) => void;
 }) {
   const voidOnTop = pile.voidTop;
   const sideEdges = Math.max(0, pile.edges - 1);
@@ -81,8 +87,18 @@ export function Pile({
               size === 'sm' ? 'w-14' : 'w-[4.75rem] sm:w-24',
             )}
           />
+        ) : voidOnTop && !shuffling && onInspect ? (
+          <button
+            type="button"
+            className="rounded-[0.55rem]"
+            onClick={(e) => onInspect(e.currentTarget)}
+            aria-label={`Top of the draw pile: ${c.name('void')}, face up. Details`}
+            data-testid="pile-top"
+          >
+            <CardFace card={VOID_TOP} art={art} c={c} size={size} />
+          </button>
         ) : voidOnTop && !shuffling ? (
-          <CardFace card={{ t: 'void', face: 0 }} art={art} c={c} size={size} />
+          <CardFace card={VOID_TOP} art={art} c={c} size={size} />
         ) : (
           <CardBack c={c} size={size} />
         )}
