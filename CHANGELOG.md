@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.0...v0.42.1) (2026-10-17)
+
+
+### Performance Improvements
+
+* **edge:** verify passes and serve from the cache with less CPU ([#272](https://github.com/thurahtetaung/virtual-tavern/issues/272)) ([dc8579e](https://github.com/thurahtetaung/virtual-tavern/commit/dc8579e6092dc744b0769570cccc486109d59386))
+
 ## [0.42.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.41.4...v0.42.0) (2026-10-17)
 
 
