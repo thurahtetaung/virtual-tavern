@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, cn, useConfirm } from '@vt/ui';
+import { Button, NameDot, cn, useConfirm } from '@vt/ui';
 import { MAX_REJECTIONS, type RoundTableAction, type RoundTableView } from '../logic/types.ts';
 import { LadyMark } from './Emblem.tsx';
 import type { Suspicions } from './storage.ts';
@@ -210,6 +210,7 @@ export function Seats({
             >
               <span className="flex w-full min-w-0 items-center gap-1 text-sm font-semibold">
                 <span className={cn('truncate', !online(p.id) && 'opacity-60')}>{p.name}</span>
+                <NameDot name={p.name} className="order-first" />
                 {me && (
                   <span
                     className={cn(
@@ -330,6 +331,7 @@ export function WaitingChips({
             className="inline-flex items-center gap-1 rounded-full bg-team-b-soft px-2 py-0.5 font-semibold text-sky-900 dark:bg-sky-500/15 dark:text-sky-100"
           >
             {id === view.me?.id ? 'you' : nameOf(view, id)}
+            <NameDot name={nameOf(view, id)} className="order-first" />
             {!online && !left && <span className="font-normal opacity-70">(offline)</span>}
             {room.isHost && !online && !left && (
               <Button

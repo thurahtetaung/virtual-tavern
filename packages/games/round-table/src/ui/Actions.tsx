@@ -1,4 +1,4 @@
-import { Button, Modal, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, Modal, NameDot, Panel, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
 import type { ActOptions } from '@vt/game-sdk';
 import type {
@@ -319,8 +319,9 @@ export function VoteResult({ view, proposal }: { view: RoundTableView; proposal:
       </p>
       <ul className={cn('flex flex-wrap justify-center gap-x-2 text-sm font-semibold', cls)}>
         {list.map((id) => (
-          <li key={id}>
+          <li key={id} className="inline-flex items-center gap-1">
             {who(view, id, 'You')}
+            <NameDot name={nameOf(view, id)} className="order-first" />
             {proposal.autoVotes?.includes(id) && (
               <span className="font-normal text-ink-muted"> ⏱</span>
             )}

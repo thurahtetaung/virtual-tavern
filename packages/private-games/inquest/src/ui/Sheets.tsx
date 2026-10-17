@@ -1,4 +1,4 @@
-import { Button, Modal, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import { Button, Modal, NameDot, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
 import { EVENT_TILES, type EventKind } from '../logic/content.ts';
 import { eventText } from '../logic/names.ts';
@@ -177,7 +177,8 @@ export function SolveSheet({
                 disabled={p.isFs}
                 onClick={() => setTarget(p.id)}
               >
-                {p.name}
+                <span className="truncate">{p.name}</span>
+                <NameDot name={p.name} className="order-first" />
               </Button>
             ))}
         </div>

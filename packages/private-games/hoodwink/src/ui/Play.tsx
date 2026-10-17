@@ -1,5 +1,5 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
+import { Button, NameDot, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
@@ -13,7 +13,6 @@ import {
   TRUTH_POINTS,
 } from '../logic/types.ts';
 import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
-import { toneOf } from './Table.tsx';
 
 type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
 
@@ -226,7 +225,7 @@ function VoteBoard({ view, round, act }: { view: HoodwinkView; round: RoundView;
   );
 }
 
-/** Who found the truth or fell for a lie, by name, each with their colour. */
+/** Who found the truth or fell for a lie, by name, each after their colour's dot. */
 function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label: string }) {
   if (ids.length === 0) return null;
   return (
@@ -237,8 +236,8 @@ function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label:
           key={id}
           className="inline-flex items-center gap-1 rounded-full bg-stone-100 py-0.5 pr-2 pl-1.5 text-xs font-semibold dark:bg-stone-700/70"
         >
-          <span aria-hidden className={cn('size-2.5 rounded-full', toneOf(view, id))} />
           {id === view.me?.id ? 'You' : nameOf(view, id)}
+          <NameDot name={nameOf(view, id)} className="order-first" />
         </span>
       ))}
     </p>
@@ -331,8 +330,9 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
             key={id}
             className="rounded-lg bg-success-soft px-3 py-1.5 text-sm dark:bg-emerald-500/10"
           >
-            <span className="flex justify-between gap-2 font-semibold text-emerald-900 dark:text-emerald-200">
-              <span className="min-w-0 truncate">{nameOf(view, id)}</span>
+            <span className="flex items-center gap-1 font-semibold text-emerald-900 dark:text-emerald-200">
+              <span className="min-w-0 flex-1 truncate">{nameOf(view, id)}</span>
+              <NameDot name={nameOf(view, id)} className="order-first" />
               <span className="tabular-nums">+{points(p)}</span>
             </span>
             {pointsBreakdown(view, round, id).map((line, i) => (

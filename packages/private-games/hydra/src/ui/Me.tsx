@@ -1,4 +1,4 @@
-import { Peek, cn } from '@vt/ui';
+import { NameDot, Peek, cn } from '@vt/ui';
 import { useState } from 'react';
 import { leaderKnowsTeam, trackFor } from '../logic/tables.ts';
 import type { HydraView, Memory } from '../logic/types.ts';
@@ -183,6 +183,7 @@ export function MeTab({
                       className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
                     >
                       {nameOf(view, k.id)}
+                      <NameDot name={nameOf(view, k.id)} className="order-first" />
                       <span className="rounded-full bg-red-700 px-2 py-0.5 text-xs text-white">
                         {c.roleName(k.role)}
                       </span>

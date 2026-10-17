@@ -3,6 +3,7 @@ import {
   Button,
   Countdown,
   Hint,
+  NameDot,
   Panel,
   RefusalSlot,
   clock,
@@ -424,11 +425,14 @@ function Banners({
           {waiting.ids.map((id) => (
             <span
               key={id}
-              className="rounded-full bg-stone-200 px-2 py-0.5 font-semibold dark:bg-stone-800"
+              className="flex min-w-0 items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 font-semibold dark:bg-stone-800"
             >
-              {id === view.me?.id
-                ? 'you'
-                : namesWithPresence([id], room.players) || nameOf(view, id)}
+              <span className="truncate">
+                {id === view.me?.id
+                  ? 'you'
+                  : namesWithPresence([id], room.players) || nameOf(view, id)}
+              </span>
+              <NameDot name={nameOf(view, id)} className="order-first" />
             </span>
           ))}
         </p>

@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, NameDot, Panel, Peek, RefusalSlot, cn } from '@vt/ui';
 import { type ReactNode, useState } from 'react';
 import type { InquestAction, InquestView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
@@ -128,13 +128,14 @@ function LabPick({
               setCard(null);
             }}
             className={cn(
-              'min-h-9 rounded-full px-3 text-sm font-semibold ring-1',
+              'flex min-h-9 min-w-0 items-center gap-1 rounded-full px-3 text-sm font-semibold ring-1',
               owner === p.id
                 ? 'bg-info dark:bg-sky-600 text-white ring-info dark:ring-sky-700'
                 : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
             )}
           >
-            {p.id === view.me?.id ? `${p.name} (you)` : p.name}
+            <span className="truncate">{p.id === view.me?.id ? `${p.name} (you)` : p.name}</span>
+            <NameDot name={p.name} className="order-first" />
           </button>
         ))}
       </div>
@@ -221,7 +222,8 @@ function InsidePick({ view, act, clock }: { view: InquestView; act: Act; clock: 
             className="min-h-12"
             onClick={() => setTarget(p.id)}
           >
-            {p.id === view.me?.id ? `${p.name} (you)` : p.name}
+            <span className="truncate">{p.id === view.me?.id ? `${p.name} (you)` : p.name}</span>
+            <NameDot name={p.name} className="order-first" />
           </Button>
         ))}
       </div>

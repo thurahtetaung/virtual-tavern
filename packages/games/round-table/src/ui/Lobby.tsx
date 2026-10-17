@@ -62,8 +62,11 @@ export function Players({
         ))}
       </ul>
       {watching.length > 0 && (
-        <p className="text-sm text-stone-600 dark:text-stone-400">
-          Watching: {watching.map((s) => s.name).join(', ')}
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+          <span>Watching:</span>
+          {watching.map((s) => (
+            <PlayerTag key={s.id} name={s.name} you={s.id === view.me?.id} />
+          ))}
         </p>
       )}
     </section>

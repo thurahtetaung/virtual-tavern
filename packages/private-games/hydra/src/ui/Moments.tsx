@@ -1,4 +1,4 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import { NameDot, ProtectedImage, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { powerAt } from '../logic/tables.ts';
 import type { Ballot, HydraView, Policy, Power } from '../logic/types.ts';
@@ -203,8 +203,10 @@ function VoteMoment({
               back={<BallotBack c={c} className="w-14 sm:w-16" />}
               front={<BallotFace ballot={b} c={c} className="w-14 sm:w-16" />}
             />
-            <span className="max-w-16 truncate text-[0.65rem] text-white/80">
-              {nameOf(view, id)}
+            <span className="flex max-w-16 min-w-0 items-center gap-1 text-[0.65rem] text-white/80">
+              <span className="truncate">{nameOf(view, id)}</span>
+              {/* A light ring: the overlay is dark in both themes. */}
+              <NameDot name={nameOf(view, id)} className="order-first ring-white/60" />
             </span>
           </li>
         ))}

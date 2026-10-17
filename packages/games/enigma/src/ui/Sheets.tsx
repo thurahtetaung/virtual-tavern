@@ -1,5 +1,5 @@
 import { sameAnswer } from '@vt/game-sdk';
-import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
+import { Button, NameDot, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView, NoteItem, Team } from '../logic/types.ts';
 import { LEGACY_NOTE_ID, MAX_NOTE_ITEM_LENGTH, MAX_NOTE_LENGTH } from '../logic/types.ts';
@@ -137,8 +137,9 @@ const NoteList = memo(function NoteList({
           className="flex items-start gap-2 rounded px-1.5 py-1 odd:bg-stone-100/70 dark:odd:bg-stone-800/50"
         >
           <p className="min-w-0 flex-1 break-words whitespace-pre-wrap">
-            <span className="text-xs font-semibold text-ink-muted">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-muted">
               {names.get(n.by) ?? (n.id === LEGACY_NOTE_ID ? 'Earlier notes' : 'Someone who left')}:
+              {names.has(n.by) && <NameDot name={names.get(n.by)!} className="order-first" />}
             </span>{' '}
             {n.text}
           </p>

@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Superlatives, cn } from '@vt/ui';
+import { Button, NameDot, Superlatives, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import { claimLied, presidentLies } from '../logic/claims.ts';
 import type { HydraAction, HydraView, Truth } from '../logic/types.ts';
@@ -37,9 +37,12 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
               front={<RoleFace role={role} art={end.art[p.id] ?? 0} seed={g.artSeed} c={c} />}
               className={cn('w-full', p.dead && 'grayscale')}
             />
-            <span className="w-full truncate text-xs font-semibold">
-              {p.dead && '✝ '}
-              {p.name}
+            <span className="flex w-full min-w-0 items-center justify-center gap-1 text-xs font-semibold">
+              <span className="truncate">
+                {p.dead && '✝ '}
+                {p.name}
+              </span>
+              <NameDot name={p.name} className="order-first" />
             </span>
             <span
               className={cn(

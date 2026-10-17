@@ -1,4 +1,4 @@
-import { Button, Modal, RefusalSlot, cn } from '@vt/ui';
+import { Button, Modal, NameDot, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
 import { CARDS, type CardType, isCat } from '../logic/cards.ts';
 import type { Art, CardView, Memory, Prompt, ShortFuseAction } from '../logic/types.ts';
@@ -543,13 +543,14 @@ export function BombStrip({
                       onClick={() => setGhost(id)}
                       data-testid="revive-ghost"
                       className={cn(
-                        'min-h-10 rounded-full px-3 text-sm font-semibold ring-1',
+                        'inline-flex min-h-10 items-center gap-1.5 rounded-full px-3 text-sm font-semibold ring-1',
                         ghost === id
                           ? 'bg-special text-white ring-special'
                           : 'bg-card text-ink ring-special-line',
                       )}
                     >
-                      👻 {name(id)}
+                      <span>👻 {name(id)}</span>
+                      <NameDot name={name(id)} className="order-first" />
                     </button>
                   ))}
                 </div>
@@ -814,6 +815,7 @@ export function TargetSheet({
                 onClick={() => void act({ type: 'target', player: id }, { anchor: 'target' })}
               >
                 {name(id)}
+                <NameDot name={name(id)} className="order-first" />
               </Button>
             ))}
           </div>

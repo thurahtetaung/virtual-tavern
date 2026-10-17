@@ -1,4 +1,4 @@
-import { Peek, cn } from '@vt/ui';
+import { NameDot, Peek, cn } from '@vt/ui';
 import { useRef, useState } from 'react';
 import type { GameView, InquestView, PlayerView } from '../logic/types.ts';
 import { ArtCard } from './ArtCard.tsx';
@@ -81,8 +81,14 @@ function CardGrid({
   );
 }
 
-function chipLabel(p: PlayerView, view: InquestView) {
-  return p.id === view.me?.id ? `${p.name} (you)` : p.name;
+/** A suspect's name with their room colour's dot, for a flex row. */
+function ChipLabel({ p, view }: { p: PlayerView; view: InquestView }) {
+  return (
+    <>
+      <span className="truncate">{p.id === view.me?.id ? `${p.name} (you)` : p.name}</span>
+      <NameDot name={p.name} className="order-first" />
+    </>
+  );
 }
 
 /** Phones: one suspect at a time, a chip strip and swipes; a Grid toggle for the overview. */
@@ -111,7 +117,7 @@ export function Suspects(props: Common) {
                 aria-label={`${s.name}${s.formerFs ? ' was' : ' is'} the Forensic Scientist`}
                 className="flex shrink-0 items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-xs font-semibold text-sky-900 ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40"
               >
-                {chipLabel(s, view)} 🔬
+                <ChipLabel p={s} view={view} /> 🔬
               </span>
             ))}
           <div role="tablist" aria-label="Suspects" className="flex shrink-0 gap-1">
@@ -133,7 +139,7 @@ export function Suspects(props: Common) {
                   s.gone && 'opacity-60',
                 )}
               >
-                {chipLabel(s, view)}
+                <ChipLabel p={s} view={view} />
                 <BadgeDot p={s} />
               </button>
             ))}
@@ -159,13 +165,13 @@ export function Suspects(props: Common) {
             <li key={s.id}>
               <button
                 type="button"
-                className="mb-0.5 text-xs font-bold underline-offset-2 hover:underline"
+                className="mb-0.5 flex items-center gap-1 text-xs font-bold underline-offset-2 hover:underline"
                 onClick={() => {
                   setIndex(k);
                   setGrid(false);
                 }}
               >
-                {chipLabel(s, view)} <BadgeDot p={s} />
+                <ChipLabel p={s} view={view} /> <BadgeDot p={s} />
               </button>
               <div className="grid grid-cols-[repeat(10,minmax(0,1fr))] gap-1">
                 {(['clue', 'means'] as const).flatMap((deck) =>
@@ -225,7 +231,7 @@ export function AllSuspects(props: Common) {
           className="rounded-xl bg-white/70 p-2 ring-1 ring-stone-200 dark:bg-stone-900/70 dark:ring-stone-800"
         >
           <h4 className="mb-1 flex items-center gap-1 text-sm font-bold">
-            {chipLabel(p, props.view)} <BadgeDot p={p} />
+            <ChipLabel p={p} view={props.view} /> <BadgeDot p={p} />
           </h4>
           <CardGrid {...props} p={p} />
         </li>

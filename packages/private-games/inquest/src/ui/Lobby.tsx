@@ -1,5 +1,15 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Hint, Panel, PlayerTag, RefusalSlot, StickyBar, cn, LobbySettings } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  NameDot,
+  Panel,
+  PlayerTag,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  LobbySettings,
+} from '@vt/ui';
 import type { ReactNode } from 'react';
 import { rolesFor, startProblem, suggestedRoles } from '../logic/setup.ts';
 import {
@@ -222,7 +232,10 @@ export function Lobby({
             <div className="flex flex-wrap gap-2" aria-label="Pick the Forensic Scientist">
               {pickable.map((p) => (
                 <Choice key={p.id} on={s.fsPick === p.id} onClick={() => set({ fsPick: p.id })}>
-                  {p.name}
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="truncate">{p.name}</span>
+                    <NameDot name={p.name} className="order-first" />
+                  </span>
                 </Choice>
               ))}
               {!pickable.length && (

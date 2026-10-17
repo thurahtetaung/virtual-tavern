@@ -5,7 +5,7 @@ import {
   sameClue,
   waitingForHost,
 } from '@vt/game-sdk';
-import { Button, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
+import { Button, NameDot, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
@@ -182,9 +182,12 @@ function ClueList({ view, clues }: { view: EchoView; clues: ClueView[] }) {
           >
             {c.text}
           </span>
-          <span className="block truncate text-xs text-ink-muted">
-            {c.name ?? nameOf(view, c.by)}
-            {c.cancelled && ` · ${cancelReason(view, c)}`}
+          <span className="flex items-center gap-1 text-xs text-ink-muted">
+            <span className="truncate">
+              {c.name ?? nameOf(view, c.by)}
+              {c.cancelled && ` · ${cancelReason(view, c)}`}
+            </span>
+            <NameDot name={c.name ?? nameOf(view, c.by)} className="order-first" />
           </span>
         </li>
       ))}

@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Panel, Superlatives, cn } from '@vt/ui';
+import { Button, NameDot, Panel, Superlatives, cn } from '@vt/ui';
 import { ROLES } from '../logic/roles.ts';
 import type { RoundTableView } from '../logic/types.ts';
 import type { Act } from './Actions.tsx';
@@ -61,10 +61,11 @@ export function End({ view, room, act }: { view: RoundTableView; room: GameRoomI
               >
                 <Emblem role={r} className="size-10" />
                 <span className="min-w-0 text-sm">
-                  <span className="block font-semibold">
-                    {p.name}
+                  <span className="flex items-center gap-1 font-semibold">
+                    <span className="truncate">{p.name}</span>
+                    <NameDot name={p.name} className="order-first" />
                     {p.id === view.me?.id && (
-                      <span className="font-normal text-ink-muted"> (you)</span>
+                      <span className="shrink-0 font-normal text-ink-muted">(you)</span>
                     )}
                   </span>
                   <span className={cn('block font-semibold', SIDE_TEXT[def.loyalty])}>

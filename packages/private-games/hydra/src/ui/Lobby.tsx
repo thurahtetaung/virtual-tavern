@@ -139,8 +139,16 @@ export function Lobby({
           ))}
         </ul>
         {watching.length > 0 && (
-          <p className="text-sm text-stone-600 dark:text-stone-400">
-            Watching: {watching.map((x) => x.name).join(', ')}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
+            Watching:
+            {watching.map((x) => (
+              <PlayerTag
+                key={x.id}
+                name={x.name}
+                you={x.id === view.me?.id}
+                offline={!online(x.id)}
+              />
+            ))}
           </p>
         )}
         {ok && reds !== undefined && setup && (

@@ -1,4 +1,4 @@
-import { Modal, Peek, cn } from '@vt/ui';
+import { Modal, NameDot, Peek, cn } from '@vt/ui';
 import { ROLE_GOAL } from '../logic/guide.ts';
 import { ROLES } from '../logic/roles.ts';
 import type { Known, RoleId, RoundTableView } from '../logic/types.ts';
@@ -107,6 +107,7 @@ export function RoleDetails({
                   className="inline-flex items-center gap-1.5 rounded-full bg-white py-1 pr-1 pl-3 text-sm font-semibold ring-1 ring-stone-300 dark:bg-stone-900 dark:ring-stone-700"
                 >
                   {nameOf(view, k.id)}
+                  <NameDot name={nameOf(view, k.id)} className="order-first" />
                   <span className={cn('rounded-full px-2 py-0.5 text-xs', label.cls)}>
                     {label.text}
                   </span>

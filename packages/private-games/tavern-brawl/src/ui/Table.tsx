@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, Hint, PlayerTag, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, Hint, NameDot, PlayerTag, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CARDS } from '../logic/cards.ts';
 import type {
@@ -242,6 +242,7 @@ function PlayerRow({
         >
           {name(p.id)}
         </span>
+        <NameDot name={p.name} className="order-first" />
         <button
           type="button"
           onClick={onHero}
@@ -282,8 +283,11 @@ function PlayerRow({
                 name={name(p.id)}
                 host={p.id === room.hostId}
                 offline={offline}
+                dot={false}
                 className="font-semibold"
               />
+              {/* The room colour by the real name, since your own seat reads "You". */}
+              <NameDot name={p.name} className="order-first" />
               {p.left && <span className="text-xs text-ink-muted">(left)</span>}
               {waiting && <span aria-label="their move">⏳</span>}
               {near && (
@@ -604,6 +608,7 @@ function ChoiceStrip({
     g.players.flatMap((p) => p.shields.map((s) => [s.id, { s, holder: p }] as const)),
   );
   const discard = new Map((me?.discard ?? []).map((r) => [r.id, r]));
+  const players = new Map(g.players.map((p) => [p.id, p.name]));
   const label = (o: string) => {
     if (o === 'skip') return 'Skip';
     if (c.kind === 'mna' && MNA[o]) return MNA[o];
@@ -678,6 +683,7 @@ function ChoiceStrip({
             className="min-h-11"
           >
             {label(o)}
+            {players.has(o) && <NameDot name={players.get(o)!} className="order-first" />}
           </Button>
         ))}
       </div>
@@ -767,9 +773,12 @@ function Discards({
     <div className="flex flex-col gap-3">
       {g.players.map((p) => (
         <section key={p.id} aria-label={`${possessive(name(p.id))} discard pile`}>
-          <h3 className="mb-1 text-sm font-semibold">
-            {possessive(name(p.id)).replace(/^./, (x) => x.toUpperCase())} discard pile (
-            {p.discard.length}) · deck {p.deckCount}
+          <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold">
+            <span>
+              {possessive(name(p.id)).replace(/^./, (x) => x.toUpperCase())} discard pile (
+              {p.discard.length}) · deck {p.deckCount}
+            </span>
+            <NameDot name={p.name} className="order-first" />
           </h3>
           {p.discard.length === 0 ? (
             <p className="text-xs text-ink-muted">Empty.</p>
@@ -1011,7 +1020,7 @@ export function Table({
   const opponents = (
     <ul
       className={cn(
-        'grid gap-1.5',
+        'grid grid-cols-1 gap-1.5',
         order.length >= 3 ? 'lg:grid-cols-3' : order.length === 2 ? 'lg:grid-cols-2' : '',
       )}
       aria-label="Opponents"
@@ -1053,6 +1062,7 @@ export function Table({
   const heroes = (me ? [me, ...order] : order).map((p) => ({
     hero: p.hero,
     who: name(p.id),
+    player: p.name,
     out: p.out,
   }));
 

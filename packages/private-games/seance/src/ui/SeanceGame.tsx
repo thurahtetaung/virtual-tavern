@@ -8,6 +8,7 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  NameDot,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PILLARS } from '../logic/cards.ts';
@@ -141,6 +142,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
                   }
                 >
                   Hand the ghost to {c.id === view.me?.id ? 'me' : c.name}
+                  <NameDot name={c.name} className="order-first" />
                 </Button>
               ))}
             {room.isHost && !candidates.length && (

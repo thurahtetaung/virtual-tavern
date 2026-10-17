@@ -1,4 +1,4 @@
-import { cn } from '@vt/ui';
+import { NameDot, cn } from '@vt/ui';
 import { useState } from 'react';
 import { type Flag, type FlagKind, claimFlags } from '../logic/claims.ts';
 import type { HydraView, Round } from '../logic/types.ts';
@@ -40,6 +40,21 @@ function PassedMismatch({ f, c }: { f: Flag; c: Content }) {
   );
 }
 
+/** Who cast a ballot, each with their dot. */
+function Voters({ view, ids }: { view: HydraView; ids: string[] }) {
+  if (!ids.length) return <p className="text-stone-600 dark:text-stone-400">—</p>;
+  return (
+    <ul className="flex flex-wrap gap-x-2 gap-y-0.5 text-stone-600 dark:text-stone-400">
+      {ids.map((id) => (
+        <li key={id} className="inline-flex min-w-0 items-center gap-1">
+          <span className="truncate">{nameOf(view, id)}</span>
+          <NameDot name={nameOf(view, id)} className="order-first" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function VoteLine({ view, c, r }: { view: HydraView; c: Content; r: Round }) {
   const ids = Object.keys(r.votes);
   const yes = ids.filter((p) => r.votes[p] === 'yes');
@@ -50,22 +65,18 @@ function VoteLine({ view, c, r }: { view: HydraView; c: Content; r: Round }) {
         <p className="font-bold">
           {c.ballotName('yes')} · {yes.length}
         </p>
-        <p className="text-stone-600 dark:text-stone-400">
-          {yes.map((p) => nameOf(view, p)).join(', ') || '—'}
-        </p>
+        <Voters view={view} ids={yes} />
       </div>
       <div>
         <p className="font-bold">
           {c.ballotName('no')} · {no.length}
         </p>
-        <p className="text-stone-600 dark:text-stone-400">
-          {no.map((p) => nameOf(view, p)).join(', ') || '—'}
-        </p>
+        <Voters view={view} ids={no} />
       </div>
       {r.missing.length > 0 && (
-        <p className="col-span-2 text-ink-muted">
-          Not counted: {r.missing.map((p) => nameOf(view, p)).join(', ')}
-        </p>
+        <div className="col-span-2 flex flex-wrap items-center gap-x-2 text-ink-muted">
+          Not counted: <Voters view={view} ids={r.missing} />
+        </div>
       )}
     </div>
   );

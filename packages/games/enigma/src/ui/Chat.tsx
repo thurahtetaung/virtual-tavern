@@ -1,4 +1,4 @@
-import { Button, Panel, cn } from '@vt/ui';
+import { Button, NameDot, Panel, cn } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { EnigmaAction, EnigmaView } from '../logic/types.ts';
 import { MAX_CHAT_LENGTH } from '../logic/types.ts';
@@ -39,7 +39,7 @@ export function TeamChat({
       <ol className="max-h-64 space-y-1 overflow-y-auto pr-1 text-sm lg:max-h-80">
         {view.chat.map((m, i) => (
           <li key={i}>
-            <b>{view.seats.find((s) => s.id === m.by)?.name ?? 'Someone who left'}:</b> {m.text}
+            <Author name={view.seats.find((s) => s.id === m.by)?.name} /> {m.text}
           </li>
         ))}
         {view.chat.length === 0 && <li className="text-ink-muted italic">No messages yet.</li>}
@@ -67,5 +67,16 @@ export function TeamChat({
         </p>
       )}
     </Panel>
+  );
+}
+
+/** A message's author in bold, after their colour's dot. */
+function Author({ name }: { name: string | undefined }) {
+  if (!name) return <b>Someone who left:</b>;
+  return (
+    <b className="inline-flex items-center gap-1">
+      {name}:
+      <NameDot name={name} className="order-first" />
+    </b>
   );
 }

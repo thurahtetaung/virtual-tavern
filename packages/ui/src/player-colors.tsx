@@ -68,6 +68,17 @@ export function PlayerDot({
 }
 
 /**
+ * The dot of the player called `name`, for seats, buttons and chips that lay out the name
+ * themselves (lists use `PlayerTag`); nothing for a name the room doesn't know. It is hidden from
+ * screen readers, so a button's name stays the player's name ("Pick Leo", not "Pick Leo, teal").
+ * Put it after the name with `order-first` in a flex row.
+ */
+export function NameDot({ name, className }: { name: string; className?: string }) {
+  const color = usePlayerColor(name);
+  return color ? <PlayerDot color={color} label={false} className={className} /> : null;
+}
+
+/**
  * The colour swatches: the viewer's own is ticked, and the ones other players have are faded and
  * say whose they are (picking one is still sent, so the room explains the refusal).
  */

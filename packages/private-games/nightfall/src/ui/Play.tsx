@@ -4,6 +4,7 @@ import {
   Button,
   Countdown,
   Hint,
+  NameDot,
   Panel,
   Peek,
   Superlatives,
@@ -704,7 +705,10 @@ function PromptPanel({
                     {prompt.stage === 'view-mark' ? '🔘' : prompt.stage === 'point' ? '👉' : '🂠'}
                   </span>
                   <Num view={view} id={p.id} deck={deck} />
-                  <span className="truncate">{p.id === me ? 'You' : p.name}</span>
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="truncate">{p.id === me ? 'You' : p.name}</span>
+                    <NameDot name={p.name} className="order-first" />
+                  </span>
                   {by.length > 0 && (
                     <span className="ml-auto truncate text-xs font-normal" data-testid="team-pick">
                       ← {by.join(', ')}
@@ -1238,9 +1242,12 @@ function TableList({
         const can = pick && p.id !== me;
         const body = (
           <>
-            <span className="flex items-center gap-1 truncate font-semibold">
+            <span className="flex max-w-full min-w-0 items-center gap-1 font-semibold">
               <Num view={view} id={p.id} deck={deck} />
-              {p.id === me ? `${p.name} (you)` : p.name}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate">{p.id === me ? `${p.name} (you)` : p.name}</span>
+                <NameDot name={p.name} className="order-first" />
+              </span>
             </span>
             <span className="flex flex-wrap items-center gap-1 text-xs">
               {face && (
@@ -1789,10 +1796,13 @@ export function Reveal({
                   <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-semibold">
-                        {dead && '☠️ '}
-                        {p.name}
-                        {won && ' 🏆'}
+                      <span className="flex min-w-0 items-center gap-1 font-semibold">
+                        <span className="truncate">
+                          {dead && '☠️ '}
+                          {p.name}
+                          {won && ' 🏆'}
+                        </span>
+                        <NameDot name={p.name} className="order-first" />
                       </span>
                       <span className="shrink-0 text-xs text-ink-muted">
                         {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
