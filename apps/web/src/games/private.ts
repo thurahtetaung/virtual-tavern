@@ -18,7 +18,6 @@ import {
 import { guide as seanceGuide, nameGuide as nameSeanceGuide } from '@vt/private-seance/guide';
 import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
-import { lazy } from 'react';
 import {
   inquestLabels,
   manifestGuide,
@@ -34,6 +33,7 @@ import {
   shortFuseLabels,
   taggedGuide,
 } from './private-labels.ts';
+import { lazyUi } from './lazy-ui.ts';
 import type { ClientGame } from './registry.ts';
 
 /**
@@ -49,7 +49,7 @@ const games: ClientGame[] = [
     guide: reverieGuide,
     namedGuide: taggedGuide('reverie', reverieGuide),
     icon: '🐇',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-reverie/ui').then((m) => ({ default: m.ReverieGame })),
     ),
   },
@@ -58,7 +58,7 @@ const games: ClientGame[] = [
     name: 'Hoodwink',
     guide: hoodwinkGuide,
     icon: '🤥',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-hoodwink/ui').then((m) => ({ default: m.HoodwinkGame })),
     ),
   },
@@ -68,7 +68,7 @@ const games: ClientGame[] = [
     guide: royalPostGuide,
     namedGuide: manifestGuide('royal-post', nameRoyalPostGuide),
     icon: '✉️',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-royal-post/ui').then((m) => ({ default: m.RoyalPostGame })),
     ),
     labels: royalPostLabels,
@@ -79,7 +79,7 @@ const games: ClientGame[] = [
     guide: masqueradeOriginalsGuide,
     namedGuide: manifestGuide('masquerade-originals', nameOriginalsGuide),
     icon: '🗺️',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-masquerade-originals/ui').then((m) => ({
         default: m.MasqueradeOriginalsGame,
       })),
@@ -92,7 +92,7 @@ const games: ClientGame[] = [
     guide: nightfallGuide,
     namedGuide: manifestGuide('nightfall', nameNightfallGuide),
     icon: '🐺',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-nightfall/ui').then((m) => ({ default: m.NightfallGame })),
     ),
     labels: nightfallLabels,
@@ -103,7 +103,7 @@ const games: ClientGame[] = [
     guide: inquestGuide,
     namedGuide: manifestGuide('inquest', nameInquestGuide),
     icon: '🔎',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-inquest/ui').then((m) => ({ default: m.InquestGame })),
     ),
     labels: inquestLabels,
@@ -114,14 +114,16 @@ const games: ClientGame[] = [
     guide: seanceGuide,
     namedGuide: manifestGuide('seance', nameSeanceGuide),
     icon: '🕯️',
-    Component: lazy(() => import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame }))),
+    Component: lazyUi(() =>
+      import('@vt/private-seance/ui').then((m) => ({ default: m.SeanceGame })),
+    ),
   },
   {
     id: 'hydra',
     name: 'Hydra',
     guide: hydraGuide,
     icon: '🐍',
-    Component: lazy(() => import('@vt/private-hydra/ui').then((m) => ({ default: m.HydraGame }))),
+    Component: lazyUi(() => import('@vt/private-hydra/ui').then((m) => ({ default: m.HydraGame }))),
     labels: hydraLabels('hydra'),
     namedGuide: hydraNamedGuide('hydra'),
   },
@@ -131,7 +133,7 @@ const games: ClientGame[] = [
     name: 'Hydra: Wands',
     guide: hogwartsGuide,
     icon: '🪄',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-hogwarts/ui').then((m) => ({ default: m.HogwartsGame })),
     ),
     labels: hydraLabels('hogwarts'),
@@ -142,7 +144,7 @@ const games: ClientGame[] = [
     name: 'Tavern Brawl',
     guide: tavernBrawlGuide,
     icon: '🥊',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-tavern-brawl/ui').then((m) => ({ default: m.TavernBrawlGame })),
     ),
     labels: tavernBrawlLabels,
@@ -153,7 +155,7 @@ const games: ClientGame[] = [
     name: 'Short Fuse',
     guide: shortFuseGuide,
     icon: '💣',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/private-short-fuse/ui').then((m) => ({ default: m.ShortFuseGame })),
     ),
     labels: shortFuseLabels,

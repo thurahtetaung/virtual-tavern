@@ -1,16 +1,17 @@
-import type { GameGuide, GameUiProps } from '@vt/game-sdk';
+import type { GameGuide } from '@vt/game-sdk';
 // Guides come from their own entry point, so the landing page doesn't ship the game engines.
 import { guide as codenamesGuide } from '@vt/game-codenames/guide';
 import { guide as echoGuide } from '@vt/game-echo/guide';
 import { guide as enigmaGuide } from '@vt/game-enigma/guide';
 import { guide as masqueradeGuide } from '@vt/game-masquerade/guide';
 import { guide as roundTableGuide } from '@vt/game-round-table/guide';
-import { type ComponentType, lazy, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api.ts';
 import type { BackroomStatus } from '../lib/backroom.ts';
 import { isChunkLoadError, reloadOnce } from '../lib/chunk-reload.ts';
 import { retryOnce } from '../lib/retry.ts';
 import type { Labeler } from '../recap/resolve.ts';
+import { type GameUi, lazyUi } from './lazy-ui.ts';
 
 export interface ClientGame {
   id: string;
@@ -18,8 +19,7 @@ export interface ClientGame {
   guide: GameGuide;
   /** Emoji shown on cards and headers. */
   icon: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Component: ComponentType<GameUiProps<any, any>>;
+  Component: GameUi;
   /**
    * Names the night recap's private placeholders (`{role:…}`, `{loc:…}`, `{card:…}`) from the
    * game's manifest. Back-room games only; public games report readable words already.
@@ -38,7 +38,7 @@ export const clientGames: ClientGame[] = [
     name: 'Codenames',
     guide: codenamesGuide,
     icon: '🕵️',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/game-codenames/ui').then((m) => ({ default: m.CodenamesGame })),
     ),
   },
@@ -47,21 +47,21 @@ export const clientGames: ClientGame[] = [
     name: 'Enigma',
     guide: enigmaGuide,
     icon: '🔐',
-    Component: lazy(() => import('@vt/game-enigma/ui').then((m) => ({ default: m.EnigmaGame }))),
+    Component: lazyUi(() => import('@vt/game-enigma/ui').then((m) => ({ default: m.EnigmaGame }))),
   },
   {
     id: 'echo',
     name: 'Echo',
     guide: echoGuide,
     icon: '🔔',
-    Component: lazy(() => import('@vt/game-echo/ui').then((m) => ({ default: m.EchoGame }))),
+    Component: lazyUi(() => import('@vt/game-echo/ui').then((m) => ({ default: m.EchoGame }))),
   },
   {
     id: 'masquerade',
     name: 'Masquerade',
     guide: masqueradeGuide,
     icon: '🎭',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/game-masquerade/ui').then((m) => ({ default: m.MasqueradeGame })),
     ),
   },
@@ -70,7 +70,7 @@ export const clientGames: ClientGame[] = [
     name: 'Round Table',
     guide: roundTableGuide,
     icon: '⚔️',
-    Component: lazy(() =>
+    Component: lazyUi(() =>
       import('@vt/game-round-table/ui').then((m) => ({ default: m.RoundTableGame })),
     ),
   },
