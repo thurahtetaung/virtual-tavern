@@ -181,6 +181,33 @@ describe('private game settings over HTTP', () => {
     expect(after.find((g) => g.id === 'nightfall')).not.toHaveProperty('title');
   });
 
+  it('name a titled private game by its title on the stats page, others by their code name', async () => {
+    const { app, admin } = await setup();
+    const named = async () =>
+      new Map(
+        (
+          await app.inject({
+            method: 'GET',
+            url: '/api/admin/stats/overview',
+            headers: { cookie: admin },
+          })
+        )
+          .json<{ games: { id: string; name: string }[] }>()
+          .games.map((g) => [g.id, g.name]),
+      );
+    expect((await named()).get('nightfall')).toBe('Nightfall');
+    await app.inject({
+      method: 'PUT',
+      url: '/api/admin/game-titles/nightfall',
+      headers: { cookie: admin },
+      payload: { title: 'Moonlit Village' },
+    });
+    const games = await named();
+    expect(games.get('nightfall')).toBe('Moonlit Village');
+    expect(games.get('inquest')).toBe('Inquest');
+    expect(games.get('codenames')).toBe('Codenames');
+  });
+
   it('let the admin pick music from the manifest and preview it', async () => {
     const { app, admin, backroom } = await setup();
     const put = (music: unknown) =>

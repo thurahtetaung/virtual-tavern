@@ -2,6 +2,7 @@ import type { HallOfFame, RecapQuery, RoomRecap } from '@vt/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb } from '../db/index.ts';
 import { buildGames } from '../games/registry.ts';
+import { gameNamer } from '../private-games.ts';
 import type { RoomObservation } from '../rooms/manager.ts';
 import { ulid } from '../stats/recorder.ts';
 import { SqliteStatsStore } from '../stats/sqlite-store.ts';
@@ -46,10 +47,13 @@ function setup() {
     return e;
   };
   const phase = { value: 'over' as 'lobby' | 'playing' | 'over' };
+  /** Admin-set back-room titles. */
+  const titles = new Map<string, string>();
   const service = new RecapService({
     source: stats,
     store,
     games,
+    gameName: gameNamer(games, { title: (id) => titles.get(id) ?? null }),
     rooms: {
       members: (roomId) => {
         const r = rooms.get(roomId);
@@ -119,6 +123,7 @@ function setup() {
     ask,
     started,
     phase,
+    titles,
     advance: (ms: number) => (now += ms),
   };
 }
@@ -284,6 +289,42 @@ describe('linked nights ("Same crew, new game")', () => {
     const hall = t.ask<HallOfFame>('pub', { scope: 'hall' }, false);
     expect(hall.previous.map((n) => n.games)).toEqual([1]);
     expect(JSON.stringify(hall)).not.toMatch(/nightfall/i);
+  });
+
+  it('names a back-room game by its title where one is set, else by its code name', () => {
+    const key = linked();
+    const names = (card: RoomRecap) => card.games.map((g) => g.name);
+    expect(names(t.ask<RoomRecap>('pub', { scope: 'night' }))).toEqual(['Codenames', 'Nightfall']);
+    t.titles.set('nightfall', 'Moonlit Village');
+    // Public games keep their own name, whatever the settings say.
+    t.titles.set('codenames', 'Not This');
+    expect(names(t.ask<RoomRecap>('pub', { scope: 'night' }))).toEqual([
+      'Codenames',
+      'Moonlit Village',
+    ]);
+    const locked = t.ask<RoomRecap>('pub', { scope: 'night' }, false);
+    expect(JSON.stringify(locked)).not.toMatch(/nightfall|moonlit/i);
+
+    // A frozen card shows the title as it is now, set before or after the night was frozen.
+    t.advance(30 * 60_000);
+    expect(t.service.wrap('pub', 'ana', 0)).toMatchObject({ ok: true, data: key });
+    t.titles.set('nightfall', 'Village After Dark');
+    const frozen = t.ask<RoomRecap>('pub', { scope: 'night', nightKey: key });
+    expect(names(frozen)).toEqual(['Codenames', 'Village After Dark']);
+    expect(JSON.stringify(t.ask<HallOfFame>('pub', { scope: 'hall' }))).toContain(
+      'Village After Dark',
+    );
+    expect(t.service.recent(5)[0]?.mix.map((m) => m.name)).toEqual([
+      'Codenames',
+      'Village After Dark',
+    ]);
+    const lockedHall = t.ask<HallOfFame>('pub', { scope: 'hall' }, false);
+    expect(JSON.stringify(lockedHall)).not.toMatch(/nightfall|village/i);
+    t.titles.clear();
+    expect(names(t.ask<RoomRecap>('pub', { scope: 'night', nightKey: key }))).toEqual([
+      'Codenames',
+      'Nightfall',
+    ]);
   });
 
   it('a night across three different games reads every room', () => {

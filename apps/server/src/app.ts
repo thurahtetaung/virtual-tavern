@@ -39,7 +39,7 @@ import { SqliteStatsStore } from './stats/sqlite-store.ts';
 import { RAW_RETENTION_DAYS } from './stats/types.ts';
 import { forgetRoomStats } from './stats/forget-room.ts';
 import { testTrafficCheck } from './test-traffic.ts';
-import { PrivateGameSettings } from './private-games.ts';
+import { PrivateGameSettings, gameNamer } from './private-games.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
@@ -141,6 +141,7 @@ export function buildApp(opts: AppOptions) {
       )
     : null;
   const privateGames = new PrivateGameSettings(db);
+  const gameName = gameNamer(games, privateGames);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
   if (opts.packsFolder) {
@@ -151,7 +152,7 @@ export function buildApp(opts: AppOptions) {
 
   const stats = new SqliteStatsStore(db, {
     gameIds: [...games.keys()],
-    gameName: (id) => games.get(id)?.name ?? id,
+    gameName,
     label: (key, value) =>
       key === 'wordList'
         ? wordLists.get(value)?.name
@@ -246,6 +247,7 @@ export function buildApp(opts: AppOptions) {
     source: stats,
     store: recapStore,
     games,
+    gameName,
     rooms,
     settings: recapSettings,
     flush: () => recorder.flush(),
@@ -312,7 +314,7 @@ export function buildApp(opts: AppOptions) {
     sockets: () => countSockets(io, (roomId) => rooms.isTest(roomId)),
     playtests: () => rooms.playtestsRunning(),
     recentPlayers: (since) => recorder.recentPlayers(since),
-    gameName: (id) => games.get(id)?.name ?? id,
+    gameName,
     now,
   });
   const liveSampler = setInterval(() => live.sample(), LIVE_SAMPLE_MS);

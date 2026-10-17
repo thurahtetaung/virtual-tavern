@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Db } from './db/index.ts';
 import { appSettings } from './db/schema.ts';
+import { type GameRegistry, isPrivate } from './games/registry.ts';
 
 const TITLES_KEY = 'private_game_titles';
 const MUSIC_KEY = 'private_game_music';
@@ -122,4 +123,18 @@ export class PrivateGameSettings {
     else delete all[gameId];
     this.write(MUSIC_KEY, all);
   }
+}
+
+/**
+ * A game's name for stats and recaps: a back-room game's admin-set title where there is one, else
+ * the registry's name (the code name), else the id. Every stats and recap game name goes through it.
+ */
+export function gameNamer(
+  games: GameRegistry,
+  titles: Pick<PrivateGameSettings, 'title'>,
+): (gameId: string) => string {
+  return (gameId) => {
+    const game = games.get(gameId);
+    return (isPrivate(game) && titles.title(gameId)) || game?.name || gameId;
+  };
 }

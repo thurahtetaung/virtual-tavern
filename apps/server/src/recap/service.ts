@@ -39,6 +39,8 @@ export interface RecapServiceDeps {
   /** Frozen nights, their awards and the rooms' records. */
   store: RecapStore;
   games: ReadonlyMap<string, AnyGameDefinition>;
+  /** A game's name as players see it (a back-room game's admin-set title); else the registry's. */
+  gameName?: (gameId: string) => string;
   rooms: Pick<RoomManager, 'members' | 'wrap'>;
   settings: RecapSettings;
   /** Writes buffered stats events, so the recap sees the game that just ended. */
@@ -304,7 +306,7 @@ export class RecapService {
     if (frozen) return { ...this.served(frozen, tone, unlocked), previous };
     const shown = this.visible(night, loaded, unlocked);
     const built = this.build(roomId, room, tone, loaded, shown, `${unlocked}`);
-    return { ...built.recap, ...(night && { nightKey: night.key }), previous };
+    return { ...this.named(built.recap), ...(night && { nightKey: night.key }), previous };
   }
 
   /** One card for a night (cached until the room's events or members change). */
@@ -369,7 +371,7 @@ export class RecapService {
       abandoned: night?.abandoned ?? 0,
       games: out.games.map((g, i) => ({
         ...g,
-        name: this.deps.games.get(g.gameId)?.name ?? g.gameId,
+        name: this.gameName(g.gameId),
         ...(elsewhere.has(i) && { elsewhere: true }),
       })),
       players: [...played].map(([id, n]) => ({
@@ -401,7 +403,16 @@ export class RecapService {
   /** A frozen card for this viewer: in the room's tone, public-only for a locked viewer. */
   private served(frozen: FrozenNight, tone: RecapTone, unlocked: boolean): RoomRecap {
     const cards = frozen.card.cards[tone] ?? frozen.card.cards[frozen.tone];
-    return { ...(unlocked || !cards.open ? cards.full : cards.open), tone };
+    return { ...this.named(unlocked || !cards.open ? cards.full : cards.open), tone };
+  }
+
+  private gameName(gameId: string): string {
+    return this.deps.gameName?.(gameId) ?? this.deps.games.get(gameId)?.name ?? gameId;
+  }
+
+  /** Names every game by its current name: a title set since the card was built or frozen shows. */
+  private named(recap: RoomRecap): RoomRecap {
+    return { ...recap, games: recap.games.map((g) => ({ ...g, name: this.gameName(g.gameId) })) };
   }
 
   // ---- Freezing ----

@@ -1,5 +1,6 @@
 import type { RecapLine, RoomRecap } from '@vt/protocol';
 import { describe, expect, it } from 'vitest';
+import { chatText } from './copyText.ts';
 import {
   FONTS,
   IMAGE_AWARDS,
@@ -189,6 +190,23 @@ describe('the image content', () => {
     expect(out.mix).toBe('🎲 Masquerade ×1 · 🎲 Codenames ×1');
     expect(out.sub).toBe('Sat 10 Oct · 2 games · 50m');
     expect(JSON.stringify(out)).not.toMatch(/\{(p|loc):/);
+  });
+
+  it('carries no link to the site, in the picture or the chat text', () => {
+    const opts = {
+      heading: 'Virtual Tavern · Last night',
+      names: new Map([['ana', 'Ana']]),
+      labels: null,
+      gameInfo: (id: string) => ({ name: id, icon: '🎲' }),
+    };
+    const drawn = layoutCard(imageCard(recap, opts), measure)
+      .ops.flatMap((op) => (op.kind === 'text' ? [op.text] : []))
+      .join('\n');
+    const chat = chatText(recap, opts);
+    for (const text of [drawn, chat]) {
+      expect(text).toContain('Ana');
+      expect(text).not.toMatch(/https?:|www\.|\/\/|\.(com|net|org|app|io|xyz|dev)\b/i);
+    }
   });
 
   it('names the file after the night', () => {
