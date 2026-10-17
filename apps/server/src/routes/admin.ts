@@ -1,4 +1,5 @@
 import {
+  type OffsiteBackupStatus,
   adminLoginBody,
   firstIssueMessage,
   questionDeckBody,
@@ -37,10 +38,12 @@ export function adminRoutes(
     backroom: Backroom;
     /** Night recaps' on/off switch (optional so older tests need not build one). */
     recapSettings?: RecapSettings;
+    /** The nightly off-site copy's last result (optional so older tests need not build one). */
+    offsiteStatus?: () => OffsiteBackupStatus;
     now: () => number;
   },
 ) {
-  const { auth, wordLists, questionDecks, backroom, recapSettings, now } = opts;
+  const { auth, wordLists, questionDecks, backroom, recapSettings, offsiteStatus, now } = opts;
 
   /** A message naming the first id that is not a registered word-list game, or null. */
   const unknownGame = (games: readonly string[] | undefined) => {
@@ -109,6 +112,12 @@ export function adminRoutes(
       recapSettings.setEnabled(body.data.enabled);
       return { enabled: body.data.enabled };
     });
+
+    scope.get(
+      '/api/admin/backup-status',
+      { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+      (): OffsiteBackupStatus => offsiteStatus?.() ?? { recorded: false },
+    );
 
     scope.post('/api/admin/backroom/sign-out-all', () => {
       backroom.signOutEveryone();

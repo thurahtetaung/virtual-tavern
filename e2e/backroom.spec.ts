@@ -42,6 +42,10 @@ test('the back room: hidden door, password, private rooms and sign-out', async (
   await admin.goto('/tavern-keeper');
   await admin.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await admin.getByRole('button', { name: 'Sign in' }).click();
+  // The test server keeps its database in memory, so no offsite backup has run.
+  await expect(admin.getByRole('status').filter({ hasText: 'offsite backup' })).toHaveText(
+    /No offsite backup recorded yet/,
+  );
   await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
   await admin.getByRole('button', { name: 'Open the back room' }).click();
   await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();

@@ -49,6 +49,8 @@ Backups land in the volume under `/data/backups` and the newest 14 are kept. Eac
 
 `scp -r backups other-host:` works just as well. The app itself cannot push them anywhere: its R2 token is read-only, and a separate write token would be needed to send backups to a bucket.
 
+A nightly off-site job that writes its result to `/data/backups/offsite-status.json` (`{ at, ok, key, bytes, copies, totalBytes, error? }`) shows on `/tavern-keeper` as "Last offsite backup: …", with a warning when the last run failed or the last success is over 26 hours old.
+
 ### 2. Cloudflare
 
 In Zero Trust → Networks → Tunnels, point the site's public hostname at `http://localhost:<APP_PORT>`.
