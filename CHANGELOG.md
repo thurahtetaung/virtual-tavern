@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.5...v0.42.6) (2026-10-17)
+
+
+### Performance Improvements
+
+* fetch back-room manifests once, version cached lists and add real icons ([#276](https://github.com/thurahtetaung/virtual-tavern/issues/276)) ([c85e5f7](https://github.com/thurahtetaung/virtual-tavern/commit/c85e5f78d37c981178a8c9cf0e58ab3768e7ecb0))
+
 ## [0.42.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.4...v0.42.5) (2026-10-17)
 
 
