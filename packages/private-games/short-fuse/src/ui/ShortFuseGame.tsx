@@ -28,7 +28,7 @@ import { playSfx, useBuzz } from './fx.ts';
 import { Hand } from './Hand.tsx';
 import { AdultBadge, Lobby } from './Lobby.tsx';
 import { Log, MeTab } from './Log.tsx';
-import { Pile } from './Pile.tsx';
+import { Pile, VOID_TOP } from './Pile.tsx';
 import { Seats } from './Seats.tsx';
 import {
   AlterSheet,
@@ -448,6 +448,21 @@ export function ShortFuseGame({
       if (pileOpener.current?.isConnected) pileOpener.current.focus();
     });
   };
+  // The face-up Black Hole on top of the draw pile, opened for its details (closed once it leaves
+  // the top, so it never reopens by itself).
+  const [voidOpen, setVoidOpen] = useState(false);
+  const voidTop = g?.pile.voidTop ?? false;
+  if (voidOpen && !voidTop) setVoidOpen(false);
+  const openVoidTop = (from: HTMLElement) => {
+    pileOpener.current = from;
+    setVoidOpen(true);
+  };
+  const closeVoidTop = () => {
+    setVoidOpen(false);
+    window.requestAnimationFrame(() => {
+      if (pileOpener.current?.isConnected) pileOpener.current.focus();
+    });
+  };
 
   // A fresh peek opens its sheet once. Memory ids restart with every game, so the one already
   // seen is kept per game (this game's number stays the same through its end screen).
@@ -591,7 +606,7 @@ export function ShortFuseGame({
   const table = (
     <div className="space-y-2">
       <div className="grid grid-cols-2 items-start justify-items-center gap-2 rounded-2xl bg-panel p-2.5 ring-1 ring-line sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:justify-items-start sm:gap-4 sm:p-3">
-        <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} />
+        <Pile pile={g.pile} c={c} art={g.art} shuffling={shuffling} onInspect={openVoidTop} />
         <div className="flex flex-col items-center gap-1 text-xs text-ink-muted">
           {top ? (
             <button
@@ -1126,6 +1141,9 @@ export function ShortFuseGame({
                 }
           }
         />
+      )}
+      {voidOpen && voidTop && !shuffling && (
+        <Inspector card={VOID_TOP} c={c} art={g.art} now={null} onClose={closeVoidTop} />
       )}
       {blast && (
         <div
