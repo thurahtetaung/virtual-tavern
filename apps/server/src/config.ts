@@ -35,6 +35,13 @@ export interface Config {
    * for), so e2e specs replay. Never read in production.
    */
   testSeed: string | null;
+  /**
+   * `METRICS_PORT`: serves Prometheus metrics at `/metrics` on this port, apart from the app's
+   * own. Unset: no metrics port.
+   */
+  metricsPort: number | null;
+  /** Address the metrics port binds to (`METRICS_HOST`, default the app's `HOST`). */
+  metricsHost: string;
 }
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -72,5 +79,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     roomCreateLimit: Number(env.ROOM_CREATE_LIMIT ?? 20),
     edgeSecret: env.EDGE_SECRET?.trim() || null,
     testSeed: (!production && env.VT_TEST_SEED?.trim()) || null,
+    metricsPort: env.METRICS_PORT?.trim() ? Number(env.METRICS_PORT) : null,
+    metricsHost: env.METRICS_HOST ?? env.HOST ?? '0.0.0.0',
   };
 }

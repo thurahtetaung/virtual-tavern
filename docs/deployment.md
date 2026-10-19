@@ -120,6 +120,16 @@ Without it, every room join fetches the back room's code again through the tunne
 
 The Worker keeps one copy per URL (never per cookie) in Cloudflare's cache and sends browsers `private, max-age=31536000, immutable`, so no shared cache downstream keeps one. Manifests are never cached at the edge, and byte ranges (Nightfall's audio) are read from the bucket each time.
 
+### 7. Metrics for monitoring (optional)
+
+The server can serve Prometheus metrics at `/metrics` on a port of its own, for a monitoring agent to scrape every 30 to 60 s. It is off unless `METRICS_PORT` is set, and it is never on the app's port: the public reaches the app's port, so a metrics page there would be public too. Nothing in it names a room, a player, an address or a token; labels are game ids, error codes and status classes only.
+
+1. **Enable.** Add `METRICS_PORT=9464` to `~/virtual-tavern/.env` and recreate the app (`docker compose up -d app`). The port listens on `METRICS_HOST` (default: the app's `HOST`, `0.0.0.0` in the container). The compose file does not publish it, so it is reachable only from the server itself (at the container's address on its Docker network) and from containers on that network. To scrape it from an agent on the host at `127.0.0.1` instead, publish it on loopback only with a `docker-compose.override.yml` (`ports: ['127.0.0.1:9464:9464']`), never on a public address.
+2. **Scrape.** Point the agent at `http://<container address>:9464/metrics` (an agent with Docker discovery can find the app container by name and use its network address) or at the loopback port of step 1. `curl -s http://127.0.0.1:9464/metrics | head` on the server (with the override) or `docker compose exec app node -e "fetch('http://127.0.0.1:9464/metrics').then(r => r.text()).then(console.log)" | head` shows the page.
+3. **What is there.** Live rooms, players and playing rooms per game and open sockets (test rooms and playtests left out, like the Live tab); games started and ended (`finished` or `abandoned`), moves, refused moves by error code, and active play time, per game (from the stats recorder, so test traffic never counts); room snapshot broadcast time and size; HTTP responses by status class; stats flush time and failures; database file sizes; the off-site backup's last run, result and sizes; build version; process memory, CPU and event-loop delay.
+
+Without `METRICS_PORT` nothing listens and nothing changes. Rollback: remove the line and recreate the app.
+
 ## Day to day
 
 - **Ship:** merge the PR once its checks pass. Within a minute the Release PR shows the new version. Merge it as an admin (it has no checks of its own: it only changes the version and CHANGELOG), once it is at least a minute old: a merge seconds after release-please opened it has been seen to start no workflow (if that happens, run _Release_ by hand on `main`: it tags the merged Release PR and carries on). Then approve the deploy when GitHub asks. About 10 minutes from the first merge to live, plus the approval. A `test:`/`chore:`/`docs:`/`ci:` change adds nothing to the Release PR.

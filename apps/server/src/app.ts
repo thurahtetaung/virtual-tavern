@@ -36,6 +36,7 @@ import { privateGameAdminRoutes } from './routes/private-games.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { addDays, dayOf } from './stats/days.ts';
+import type { TavernMetrics } from './metrics/tavern.ts';
 import { LiveTracker } from './stats/live.ts';
 import { StatsRecorder } from './stats/recorder.ts';
 import { SqliteStatsStore } from './stats/sqlite-store.ts';
@@ -78,6 +79,8 @@ export interface AppOptions {
   botDelay?: (trivial: boolean) => number;
   /** Test builds only (`VT_TEST_SEED`): rooms draw their randomness from this seed. */
   testSeed?: string | null;
+  /** Prometheus metrics to keep up to date; served on their own port by the caller, if at all. */
+  metrics?: TavernMetrics | null;
 }
 
 const SWEEP_EVERY_MS = 60 * 60_000;
@@ -173,7 +176,16 @@ export function buildApp(opts: AppOptions) {
   const isTestTraffic = testTrafficCheck(opts.statsIgnoreToken);
   // Test rooms record nothing; `rooms` is assigned below, before any room can exist.
   const isTestRoom = (roomId: string) => rooms.isTest(roomId);
-  const recorder = new StatsRecorder({ store: stats, logger: app.log, isTestRoom });
+  const metrics = opts.metrics ?? null;
+  const recorder = new StatsRecorder({
+    store: stats,
+    logger: app.log,
+    isTestRoom,
+    ...(metrics && {
+      onEvent: (e) => metrics.event(e),
+      onFlush: (seconds, ok) => metrics.flush(seconds, ok),
+    }),
+  });
   const recapSettings = new RecapSettings(db, now);
   /** Whether a request carries a current admin session. */
   const isAdminRequest = (req: FastifyRequest) => adminAuth?.isAdmin(req, now()) ?? false;
@@ -228,6 +240,7 @@ export function buildApp(opts: AppOptions) {
   const roomEvents = createRoomEvents(
     () => realtime.io,
     () => rooms,
+    metrics ? (seconds, sizes) => metrics.broadcast(seconds, sizes) : undefined,
   );
   const rooms: RoomManager = new RoomManager({
     store: new SqliteRoomStore(db),
@@ -303,7 +316,17 @@ export function buildApp(opts: AppOptions) {
       isAdmin: (header) =>
         adminAuth?.isAdminValue(signedCookie(header, ADMIN_COOKIE), now()) ?? false,
     },
-    { recap, isTestTraffic, playtestAwards: (roomId) => preview.latest(roomId) },
+    {
+      recap,
+      isTestTraffic,
+      playtestAwards: (roomId) => preview.latest(roomId),
+      ...(metrics && {
+        onRefusal: (roomId: string, code: string) => {
+          const room = rooms.exists(roomId);
+          if (room && !rooms.isTest(roomId)) metrics.refusal(room.gameId, code);
+        },
+      }),
+    },
   ));
 
   // A new password or "Sign everyone out" sends players in back-room rooms to the door right
@@ -337,6 +360,23 @@ export function buildApp(opts: AppOptions) {
   });
   const liveSampler = setInterval(() => live.sample(), LIVE_SAMPLE_MS);
   liveSampler.unref();
+
+  if (metrics) {
+    metrics.attach({
+      version: opts.version,
+      gameIds: [...games.keys()],
+      liveRooms: () => rooms.liveRooms(),
+      sockets: () => countSockets(io, (roomId) => rooms.isTest(roomId)),
+      playtests: () => rooms.playtestsRunning(),
+      databasePath: opts.databasePath,
+      offsiteStatusPath: offsiteStatusFile,
+      now,
+    });
+    app.addHook('onResponse', (_req, reply, done) => {
+      metrics.response(reply.statusCode);
+      done();
+    });
+  }
 
   void app.register(fastifyCookie, { secret: opts.sessionSecret });
   void app.register(fastifyRateLimit, {
