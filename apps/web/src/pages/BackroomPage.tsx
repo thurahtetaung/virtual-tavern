@@ -31,9 +31,10 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
   const loaded = usePrivateGames(true);
   const chips = useMemo(() => chipsOf(loaded?.offered ?? []), [loaded]);
   const filter = useCategoryFilter('vt.categories.backroom', chips);
-  const games = loaded?.ui.filter((g) =>
-    shows(filter.chosen, loaded.offered.find((s) => s.id === g.id)?.categories ?? []),
-  );
+  const games = loaded?.ui.filter((g) => {
+    const summary = loaded.offered.find((s) => s.id === g.id);
+    return !summary?.off && shows(filter.chosen, summary?.categories ?? []);
+  });
   const [name, setName] = useState(savedName);
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('backroom-name')?.focus(),
@@ -83,7 +84,7 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
         {games?.length === 0 && filter.chosen.length > 0 && (
           <NoGamesMatch onClear={filter.clear} backroom />
         )}
-        {loaded?.ui.length === 0 && (
+        {loaded && !loaded.offered.some((g) => !g.off) && (
           <p className="col-span-full rounded-2xl border border-dashed border-line-strong p-8 text-center text-ink-muted italic dark:border-amber-900/60 dark:text-amber-200/60">
             Nothing back here yet… The tables are still being set.
           </p>

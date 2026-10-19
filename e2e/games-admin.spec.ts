@@ -1,7 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD } from './credentials.ts';
-import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -20,17 +19,19 @@ async function signedInAdmin(browser: Browser) {
   await page.goto('/tavern-keeper');
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await openAdminSection(page, 'Game categories');
+  await page.getByRole('link', { name: 'Games', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Categories' })).toBeVisible();
   return page;
 }
 
-/** Deletes the categories this spec made (their ids start with `e2e-`). */
+/** Deletes the categories this spec made (their ids start with `e2e-`) and turns games on. */
 async function cleanUp(admin: Page) {
-  const { categories } = (await (await admin.request.get('/api/admin/categories')).json()) as {
+  const { categories } = (await (await admin.request.get('/api/admin/games')).json()) as {
     categories: { id: string }[];
   };
   for (const c of categories.filter((c) => c.id.startsWith('e2e-')))
-    await admin.request.delete(`/api/admin/categories/${c.id}`);
+    await admin.request.delete(`/api/admin/games/categories/${c.id}`);
+  await admin.request.put('/api/admin/games/echo', { data: { enabled: true } });
 }
 
 const card = (page: Page, name: string) => page.getByRole('heading', { name, exact: true });
@@ -39,7 +40,7 @@ test('admins make categories and players filter the game list by them', async ({
   test.setTimeout(90_000);
   const admin = await signedInAdmin(browser);
   try {
-    const section = admin.getByRole('region', { name: 'Game categories' });
+    const section = admin.getByRole('region', { name: 'Categories' });
     const add = async (emoji: string, name: string) => {
       await section.getByLabel('New category emoji').fill(emoji);
       await section.getByLabel('New category name').fill(name);
@@ -51,7 +52,7 @@ test('admins make categories and players filter the game list by them', async ({
     await add('🗝️', 'E2E Hush');
 
     const tick = async (game: string, category: string) => {
-      const chip = section
+      const chip = admin
         .getByRole('group', { name: game, exact: true })
         .getByRole('button', { name: category });
       await chip.click();
@@ -110,6 +111,27 @@ test('admins make categories and players filter the game list by them', async ({
     await backroomChips.getByRole('button', { name: 'E2E Hush' }).click();
     await expect(card(admin, 'Reverie')).toBeVisible();
     await expect(card(admin, 'Hoodwink')).toHaveCount(0);
+
+    // Switched off: gone from the list, the rules say so, and no new rooms open.
+    await admin.goto('/tavern-keeper/games');
+    const echo = admin.getByRole('switch', { name: 'Echo on' });
+    await echo.click();
+    await expect(echo).toHaveAttribute('aria-checked', 'false');
+    await player.reload();
+    await chips.getByRole('button', { name: 'All' }).click();
+    await expect(card(player, 'Codenames')).toBeVisible();
+    await expect(card(player, 'Echo')).toHaveCount(0);
+    await player.goto('/rules/echo');
+    await expect(player.getByText(/Echo isn’t available right now/)).toBeVisible();
+    await expect(player.getByRole('button', { name: /Create an? Echo room/ })).toHaveCount(0);
+    const refused = await player.request.post('/api/rooms', {
+      data: { gameId: 'echo', token: 'e2e-off-token-000000000000000000000' },
+    });
+    expect(refused.status()).toBe(409);
+    await echo.click();
+    await expect(echo).toHaveAttribute('aria-checked', 'true');
+    await player.goto('/');
+    await expect(card(player, 'Echo')).toBeVisible();
   } finally {
     await cleanUp(admin);
   }

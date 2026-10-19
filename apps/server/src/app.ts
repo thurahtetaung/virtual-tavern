@@ -32,8 +32,7 @@ import { TEST_SEED_HEADER, TestSeeds } from './rooms/test-seed.ts';
 import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes } from './routes/backroom.ts';
 import { playtestRoutes } from './routes/playtest.ts';
-import { privateGameAdminRoutes } from './routes/private-games.ts';
-import { categoryAdminRoutes } from './routes/categories.ts';
+import { gamesAdminRoutes } from './routes/games-admin.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { addDays, dayOf } from './stats/days.ts';
@@ -44,8 +43,7 @@ import { SqliteStatsStore } from './stats/sqlite-store.ts';
 import { RAW_RETENTION_DAYS } from './stats/types.ts';
 import { forgetRoomStats } from './stats/forget-room.ts';
 import { testTrafficCheck } from './test-traffic.ts';
-import { PrivateGameSettings, gameNamer } from './private-games.ts';
-import { GameCategories } from './categories.ts';
+import { GameSettingsStore, gameNamer, offMessage } from './game-settings.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
@@ -155,9 +153,8 @@ export function buildApp(opts: AppOptions) {
         app.log.warn({ err, gameId }, 'could not read narration lengths'),
       )
     : null;
-  const privateGames = new PrivateGameSettings(db);
-  const categories = new GameCategories(db, games, privateGames);
-  const gameName = gameNamer(games, privateGames);
+  const gameSettings = new GameSettingsStore(db, games);
+  const gameName = gameNamer(games, gameSettings);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
   if (opts.packsFolder) {
@@ -275,6 +272,7 @@ export function buildApp(opts: AppOptions) {
       },
     },
     recapMeta: (roomId) => recap.meta(roomId),
+    gameOff: (gameId) => (gameSettings.enabled(gameId) ? null : offMessage(gameName(gameId))),
   });
   const recap: RecapService = new RecapService({
     source: stats,
@@ -437,11 +435,10 @@ export function buildApp(opts: AppOptions) {
     games,
     wordLists,
     hasBackroom: requestHasBackroom,
-    titles: privateGames,
-    categories,
+    settings: gameSettings,
     build: opts.version,
   });
-  const manifests = new Manifests({ games, assets, privateGames, lists });
+  const manifests = new Manifests({ games, assets, settings: gameSettings, lists });
   void app.register((scope, _o, done) => {
     publicRoutes(scope, {
       rooms,
@@ -483,9 +480,8 @@ export function buildApp(opts: AppOptions) {
     });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
-      privateGameAdminRoutes(admin, { games, assets, settings: privateGames });
-      categoryAdminRoutes(admin, { categories });
-      playtestRoutes(admin, { rooms, games, titles: privateGames, now, testSeedOf });
+      gamesAdminRoutes(admin, { games, assets, settings: gameSettings });
+      playtestRoutes(admin, { rooms, games, settings: gameSettings, now, testSeedOf });
       statsRoutes(admin, {
         queries: stats,
         store: stats,

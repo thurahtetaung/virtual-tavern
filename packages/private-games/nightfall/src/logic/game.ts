@@ -771,6 +771,15 @@ export const nightfall: GameDefinition<NightfallState, NightfallAction, Nightfal
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
   access: 'private',
+  music: {
+    phases: [
+      { id: 'lobby', label: 'Lobby and getting ready' },
+      { id: 'night', label: 'Night' },
+      { id: 'day', label: 'Day' },
+      { id: 'vote', label: 'Vote' },
+      { id: 'reveal', label: 'Reveal' },
+    ],
+  },
   guide,
   actionSchema,
   create,

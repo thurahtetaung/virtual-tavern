@@ -41,9 +41,10 @@ export function HomePage() {
   );
   const chips = useMemo(() => chipsOf(listed), [listed]);
   const filter = useCategoryFilter('vt.categories.home', chips);
-  const games = clientGames.filter((g) =>
-    shows(filter.chosen, listed.find((s) => s.id === g.id)?.categories ?? []),
-  );
+  const games = clientGames.filter((g) => {
+    const summary = listed.find((s) => s.id === g.id);
+    return !summary?.off && shows(filter.chosen, summary?.categories ?? []);
+  });
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),

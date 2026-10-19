@@ -6,18 +6,22 @@ export function AdminNav({
   current,
   className,
 }: {
-  current: 'lists' | 'stats' | 'playtest';
+  current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
   const items = [
     { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room' },
+    { id: 'games', to: '/tavern-keeper/games', label: 'Games' },
     { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
     { id: 'playtest', to: '/tavern-keeper/playtest', label: '🧪 Playtest' },
   ] as const;
   return (
     <nav
       aria-label="Admin"
-      className={cn('flex gap-1 rounded-xl bg-stone-200/70 p-1 dark:bg-stone-800/70', className)}
+      className={cn(
+        'flex flex-wrap gap-1 rounded-xl bg-stone-200/70 p-1 dark:bg-stone-800/70',
+        className,
+      )}
     >
       {items.map((item) => (
         <Link

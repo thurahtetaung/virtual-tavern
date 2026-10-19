@@ -56,15 +56,15 @@ cookie = login.res.headers
 if (!cookie) throw new Error('login returned no session cookie');
 const tag = dryRun ? '(dry run) ' : '';
 try {
-  const current = (await api('/api/admin/categories')).body;
+  const current = (await api('/api/admin/games')).body;
   const have = new Map(current.categories.map((c) => [c.id, c]));
   for (const c of categories) {
     const old = have.get(c.id);
     if (!old) {
-      await send('POST', '/api/admin/categories', { id: c.id, name: c.name, emoji: c.emoji });
+      await send('POST', '/api/admin/games/categories', { id: c.id, name: c.name, emoji: c.emoji });
       console.log(`${tag}added ${c.emoji} ${c.name} (${c.id})`);
     } else if (old.name !== c.name || old.emoji !== c.emoji) {
-      await send('PUT', `/api/admin/categories/${encodeURIComponent(c.id)}`, {
+      await send('PUT', `/api/admin/games/categories/${encodeURIComponent(c.id)}`, {
         name: c.name,
         emoji: c.emoji,
       });
@@ -79,7 +79,7 @@ try {
   ];
   const now = [...current.categories.map((c) => c.id), ...fileIds.filter((id) => !have.has(id))];
   if (order.join() !== now.join()) {
-    await send('PUT', '/api/admin/categories/order', { ids: order });
+    await send('PUT', '/api/admin/games/categories/order', { ids: order });
     console.log(`${tag}ordered: ${order.join(', ')}`);
   }
 
@@ -91,10 +91,10 @@ try {
       continue;
     }
     // Shown in the server's category order, so compare as sets.
-    const same =
-      game.categories.length === ids.length && ids.every((id) => game.categories.includes(id));
+    const tagged = game.settings.categories;
+    const same = tagged.length === ids.length && ids.every((id) => tagged.includes(id));
     if (same) continue;
-    await send('PUT', `/api/admin/game-categories/${encodeURIComponent(gameId)}`, {
+    await send('PUT', `/api/admin/games/${encodeURIComponent(gameId)}`, {
       categories: ids,
     });
     console.log(`${tag}${gameId}: ${ids.join(', ') || '(none)'}`);

@@ -1,11 +1,11 @@
 {
   "backroom.spec.ts": 6,
-  "categories.spec.ts": 8,
   "codenames-cards.spec.ts": 32,
   "codenames.spec.ts": 21,
   "echo.spec.ts": 7,
   "enigma.spec.ts": 35,
   "faq.spec.ts": 1,
+  "games-admin.spec.ts": 10,
   "guide-shots.spec.ts": 1,
   "guides.spec.ts": 4,
   "hogwarts.spec.ts": 41,

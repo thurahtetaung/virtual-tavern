@@ -3,7 +3,7 @@ import type { GameSummary } from '@vt/protocol';
 import type { FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import type { WordListRepo } from '../word-lists.ts';
-import type { GameCategories } from '../categories.ts';
+import type { GameSettingsStore } from '../game-settings.ts';
 
 /**
  * The game list and the word lists, as `/api/games` and `/api/word-lists` send them, with a
@@ -17,10 +17,11 @@ export interface ListsOptions {
   wordLists: WordListRepo;
   /** Whether this request has the back room: a current unlock, or a current admin session. */
   hasBackroom: (req: FastifyRequest) => boolean;
-  /** Admin-set titles for private games, sent only to unlocked browsers. */
-  titles?: { title(gameId: string): string | null };
-  /** Each game's categories (the admin's where set); without it, each game's defaults. */
-  categories?: Pick<GameCategories, 'forGames'>;
+  /**
+   * The admin's game settings: private games' titles (sent only to unlocked browsers), on/off
+   * and categories. Without it every game is on, with no categories.
+   */
+  settings?: Pick<GameSettingsStore, 'title' | 'enabled' | 'categoriesFor'>;
   /** The build (`APP_VERSION`), so a deploy is a new version too. */
   build: string;
 }
@@ -34,7 +35,7 @@ export class Lists {
   /** A private game's title from the database; it only goes where the game itself is visible. */
   titleOf(gameId: string): { title?: string } {
     if (!isPrivate(this.opts.games.get(gameId))) return {};
-    const title = this.opts.titles?.title(gameId);
+    const title = this.opts.settings?.title(gameId);
     return title ? { title } : {};
   }
 
@@ -44,10 +45,17 @@ export class Lists {
     return !!game && (!isPrivate(game) || this.opts.hasBackroom(req));
   }
 
+  /** Whether the admin has left the game on (new rooms may open). */
+  enabled(gameId: string): boolean {
+    return this.opts.settings?.enabled(gameId) ?? true;
+  }
+
   games(req: FastifyRequest): GameSummary[] {
     const games = [...this.opts.games.values()].filter((g) => this.visible(req, g.id));
-    // Only the categories these games use: a locked browser learns nothing of back-room games.
-    const categories = this.opts.categories?.forGames(games.map((g) => g.id));
+    // Only the categories of the games this browser can play: a locked browser learns nothing of
+    // back-room games, and a game that is off adds no chip.
+    const on = games.filter((g) => this.enabled(g.id)).map((g) => g.id);
+    const categories = this.opts.settings?.categoriesFor(on);
     return games.map((g) => ({
       id: g.id,
       name: g.name,
@@ -59,6 +67,7 @@ export class Lists {
       questionDecks: g.usesQuestionDecks === true,
       ...this.titleOf(g.id),
       categories: categories?.get(g.id) ?? [],
+      ...(!this.enabled(g.id) && { off: true as const }),
     }));
   }
 

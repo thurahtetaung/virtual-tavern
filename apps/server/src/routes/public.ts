@@ -1,5 +1,6 @@
 import { type NextTable, createRoomBody, playerToken, roomId } from '@vt/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { offMessage } from '../game-settings.ts';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
 import type { RoomManager } from '../rooms/manager.ts';
@@ -78,6 +79,11 @@ export function publicRoutes(
       const body = createRoomBody.safeParse(req.body);
       if (!body.success || !visible(req, body.data.gameId)) {
         return reply.code(400).send({ error: { code: 'bad-request', message: 'Unknown game.' } });
+      }
+      if (!lists.enabled(body.data.gameId)) {
+        const game = games.get(body.data.gameId)!;
+        const name = titleOf(game.id).title ?? game.name;
+        return reply.code(409).send({ error: { code: 'game-off', message: offMessage(name) } });
       }
       const { gameId, token, nightKey } = body.data;
       const playerId = playerIdFromToken(token);

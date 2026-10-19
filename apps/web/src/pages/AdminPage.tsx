@@ -12,9 +12,8 @@ import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AdminNav } from '../components/AdminNav.tsx';
 import { AdminSection } from '../components/AdminSection.tsx';
-import { CategoriesAdmin } from '../components/CategoriesAdmin.tsx';
+import { AdminSwitch } from '../components/AdminSwitch.tsx';
 import { Layout } from '../components/Layout.tsx';
-import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
 import { offsiteLine } from '../lib/offsite-backup.ts';
 import { usePageTitle } from '../lib/title.ts';
@@ -69,9 +68,6 @@ export function AdminPage() {
           <OffsiteBackup />
           <BackroomAdmin />
           <RecapAdmin />
-          <GameTitlesAdmin />
-          <CategoriesAdmin />
-          <NightfallMusicAdmin />
           <WordLists />
           <QuestionDecks />
         </div>
@@ -281,7 +277,7 @@ function RecapAdmin() {
         </p>
       </div>
       {enabled !== null && (
-        <Switch
+        <AdminSwitch
           checked={enabled}
           busy={busy}
           onChange={(on) => void change(on)}
@@ -455,7 +451,7 @@ function WordLists() {
                   >
                     <DownloadIcon />
                   </Button>
-                  <Switch
+                  <AdminSwitch
                     checked={l.enabled}
                     busy={switching.has(l.id)}
                     onChange={(on) => void setEnabled(l.id, on)}
@@ -655,7 +651,7 @@ function QuestionDecks() {
                   <TrashIcon />
                 </span>
               </Button>
-              <Switch
+              <AdminSwitch
                 checked={d.enabled}
                 busy={switching.has(d.id)}
                 onChange={(on) => void setEnabled(d.id, on)}
@@ -702,57 +698,6 @@ function DownloadIcon() {
     >
       <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
     </svg>
-  );
-}
-
-/**
- * An on/off switch with a 44 px tap target. Name it with `aria-label`, or with a `<label>`
- * pointing at `id`. While `busy`, taps are ignored (the switch stays focusable).
- */
-function Switch({
-  checked,
-  onChange,
-  busy = false,
-  ...aria
-}: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  busy?: boolean;
-  id?: string;
-  'aria-label'?: string;
-  'aria-describedby'?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-busy={busy || undefined}
-      onClick={() => {
-        if (!busy) onChange(!checked);
-      }}
-      className={cn(
-        'inline-flex h-11 min-w-14 shrink-0 items-center justify-center rounded-lg',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-        busy && 'cursor-wait',
-      )}
-      {...aria}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'relative h-6 w-11 rounded-full transition-colors',
-          checked ? 'bg-accent dark:bg-amber-500' : 'bg-stone-300 dark:bg-stone-600',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform',
-            checked && 'translate-x-5',
-          )}
-        />
-      </span>
-    </button>
   );
 }
 
@@ -880,7 +825,7 @@ function Editor({
           </label>
         </div>
         <div className="flex items-center gap-2">
-          <Switch id={switchId} checked={enabled} onChange={setEnabled} />
+          <AdminSwitch id={switchId} checked={enabled} onChange={setEnabled} />
           <label htmlFor={switchId} className="cursor-pointer">
             <span className="block text-sm font-semibold">Enabled</span>
             <span className="block text-xs text-ink-muted">
