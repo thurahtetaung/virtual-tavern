@@ -32,6 +32,7 @@ import {
 } from '../logic/types.ts';
 import { useManifest } from './assets.ts';
 import { Card } from './Card.tsx';
+import { cardSetChoices } from './sets.ts';
 import {
   missedVoteNote,
   pointsBreakdown,
@@ -53,10 +54,6 @@ const TELL_ANCHOR = 'reverie-tell';
 const seatsOpen = (view: ReverieView) =>
   view.phase === 'lobby' || view.turn?.phase === 'reveal' || view.phase === 'over';
 
-/** A set description that only lists card numbers ("Cards 000–084") means nothing to players. */
-const plainDescription = (d: string | undefined) =>
-  d && !/^cards?\s*#?\d+\s*[–—-]\s*#?\d+\.?$/i.test(d.trim()) ? d : undefined;
-
 const nameOf = (view: ReverieView, id: string) =>
   view.seats.find((s) => s.id === id)?.name ?? 'Someone';
 
@@ -74,17 +71,7 @@ export function ReverieGame({
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
-  const setNames = new Map(
-    manifest && manifest !== 'unavailable' ? manifest.sets.map((s) => [s.id, s]) : [],
-  );
-  const choices = CARD_SETS.map((s) => ({
-    id: s.id,
-    name:
-      setNames.get(s.id)?.name ??
-      (s.id === 'base' ? 'Base set' : s.id === 'extras' ? 'Extras' : `Set ${s.id.split('-')[1]}`),
-    description: plainDescription(setNames.get(s.id)?.description),
-    count: s.cards.length,
-  }));
+  const choices = cardSetChoices(manifest);
   const cardCount = CARD_SETS.filter((s) => view.settings.sets.includes(s.id)).reduce(
     (n, s) => n + cardsIn(s).length,
     0,

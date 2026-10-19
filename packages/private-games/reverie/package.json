@@ -7,6 +7,8 @@
   "exports": {
     "./logic": "./src/logic/index.ts",
     "./guide": "./src/logic/guide.ts",
+    "./cards": "./src/logic/cards.ts",
+    "./card": "./src/ui/card.ts",
     "./ui": "./src/ui/index.ts"
   },
   "scripts": {
