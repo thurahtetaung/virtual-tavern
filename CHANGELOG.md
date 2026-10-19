@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.46.0...v0.47.0) (2026-10-19)
+
+
+### Features
+
+* **starlight:** play one word per round, with no word-switch step ([#300](https://github.com/thurahtetaung/virtual-tavern/issues/300)) ([f11cf71](https://github.com/thurahtetaung/virtual-tavern/commit/f11cf712b8b1d75a3f5288ee33dbd9803324f799))
+
 ## [0.46.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.45.0...v0.46.0) (2026-10-19)
 
 
