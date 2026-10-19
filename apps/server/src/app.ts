@@ -33,6 +33,7 @@ import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes } from './routes/backroom.ts';
 import { playtestRoutes } from './routes/playtest.ts';
 import { privateGameAdminRoutes } from './routes/private-games.ts';
+import { categoryAdminRoutes } from './routes/categories.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { addDays, dayOf } from './stats/days.ts';
@@ -44,6 +45,7 @@ import { RAW_RETENTION_DAYS } from './stats/types.ts';
 import { forgetRoomStats } from './stats/forget-room.ts';
 import { testTrafficCheck } from './test-traffic.ts';
 import { PrivateGameSettings, gameNamer } from './private-games.ts';
+import { GameCategories } from './categories.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
@@ -154,6 +156,7 @@ export function buildApp(opts: AppOptions) {
       )
     : null;
   const privateGames = new PrivateGameSettings(db);
+  const categories = new GameCategories(db, games, privateGames);
   const gameName = gameNamer(games, privateGames);
   const wordLists = new WordListRepo(db, now);
   wordLists.seedIfEmpty();
@@ -435,6 +438,7 @@ export function buildApp(opts: AppOptions) {
     wordLists,
     hasBackroom: requestHasBackroom,
     titles: privateGames,
+    categories,
     build: opts.version,
   });
   const manifests = new Manifests({ games, assets, privateGames, lists });
@@ -480,6 +484,7 @@ export function buildApp(opts: AppOptions) {
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       privateGameAdminRoutes(admin, { games, assets, settings: privateGames });
+      categoryAdminRoutes(admin, { categories });
       playtestRoutes(admin, { rooms, games, titles: privateGames, now, testSeedOf });
       statsRoutes(admin, {
         queries: stats,

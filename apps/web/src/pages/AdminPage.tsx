@@ -12,6 +12,7 @@ import { Badge, Button, Panel, cn } from '@vt/ui';
 import { type FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AdminNav } from '../components/AdminNav.tsx';
 import { AdminSection } from '../components/AdminSection.tsx';
+import { CategoriesAdmin } from '../components/CategoriesAdmin.tsx';
 import { Layout } from '../components/Layout.tsx';
 import { GameTitlesAdmin, NightfallMusicAdmin } from '../components/PrivateGamesAdmin.tsx';
 import { api } from '../lib/api.ts';
@@ -69,6 +70,7 @@ export function AdminPage() {
           <BackroomAdmin />
           <RecapAdmin />
           <GameTitlesAdmin />
+          <CategoriesAdmin />
           <NightfallMusicAdmin />
           <WordLists />
           <QuestionDecks />

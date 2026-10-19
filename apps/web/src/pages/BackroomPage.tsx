@@ -1,11 +1,14 @@
 import { Button, cn } from '@vt/ui';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import type { GameSummary } from '@vt/protocol';
+import { CategoryFilter, NoGamesMatch } from '../components/CategoryFilter.tsx';
 import { GameCard } from '../components/GameCard.tsx';
 import { RoomOpening } from '../components/Layout.tsx';
 import { type ClientGame, loadPrivateGames, offeredPrivateGames } from '../games/registry.ts';
 import { ApiFailure, api } from '../lib/api.ts';
 import { doorOf, lockedLine, useBackroom } from '../lib/backroom.ts';
+import { chipsOf, shows, useCategoryFilter } from '../lib/categories.ts';
 import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useToast } from '../lib/toast.tsx';
@@ -14,18 +17,23 @@ import { fetchGames } from '../lib/games.ts';
 
 /** The private games this server actually offers, with their UIs (loaded only once unlocked). */
 function usePrivateGames(unlocked: boolean) {
-  const [games, setGames] = useState<ClientGame[] | null>(null);
+  const [games, setGames] = useState<{ ui: ClientGame[]; offered: GameSummary[] } | null>(null);
   useEffect(() => {
     if (!unlocked) return;
     void Promise.all([fetchGames(), loadPrivateGames()]).then(([offered, ui]) =>
-      setGames(offeredPrivateGames(offered, ui)),
+      setGames({ ui: offeredPrivateGames(offered, ui), offered: offered.filter((g) => g.private) }),
     );
   }, [unlocked]);
   return games;
 }
 
 function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean }) {
-  const games = usePrivateGames(true);
+  const loaded = usePrivateGames(true);
+  const chips = useMemo(() => chipsOf(loaded?.offered ?? []), [loaded]);
+  const filter = useCategoryFilter('vt.categories.backroom', chips);
+  const games = loaded?.ui.filter((g) =>
+    shows(filter.chosen, loaded.offered.find((s) => s.id === g.id)?.categories ?? []),
+  );
   const [name, setName] = useState(savedName);
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('backroom-name')?.focus(),
@@ -55,6 +63,13 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
           className="mt-1 h-11 w-full rounded-lg bg-card px-4 text-ink ring-1 ring-line-strong placeholder:text-ink-muted/60 focus:ring-accent dark:bg-stone-900 dark:text-amber-50 dark:ring-amber-900 dark:placeholder:text-amber-200/30 dark:focus:ring-amber-500"
         />
       </label>
+      <CategoryFilter
+        chips={chips}
+        chosen={filter.chosen}
+        onToggle={filter.toggle}
+        onClear={filter.clear}
+        backroom
+      />
       <section aria-label="Back room games" className="grid gap-4 sm:grid-cols-2">
         {games?.map((game) => (
           <GameCard
@@ -65,7 +80,10 @@ function Lobby({ onLock, admin = false }: { onLock: () => void; admin?: boolean 
             backroom
           />
         ))}
-        {games?.length === 0 && (
+        {games?.length === 0 && filter.chosen.length > 0 && (
+          <NoGamesMatch onClear={filter.clear} backroom />
+        )}
+        {loaded?.ui.length === 0 && (
           <p className="col-span-full rounded-2xl border border-dashed border-line-strong p-8 text-center text-ink-muted italic dark:border-amber-900/60 dark:text-amber-200/60">
             Nothing back here yet… The tables are still being set.
           </p>

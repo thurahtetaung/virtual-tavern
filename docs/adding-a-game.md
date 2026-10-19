@@ -83,6 +83,8 @@ Trivia games read admin question decks through `ctx.content`. Set `usesQuestionD
 
 A back-room game (`access: 'private'`) never names its commercial original in the repository: it uses a code name, and the admin sets the title unlocked players see (`/tavern-keeper` → Back-room titles, or `scripts/set-game-title.mjs`). Names, art and sound come from the game's private `manifest.json` in asset storage, with placeholders when there is none.
 
+**Categories.** A game's categories (the filter chips on the game lists) are not set in code: once it is live, the admin ticks them in `/tavern-keeper` → Game categories, or runs `scripts/set-game-categories.mjs` (`docs/deployment.md`). A locked browser only ever sees the categories of the games it can see.
+
 **Editions.** A second edition of an existing game (other art, other names, the same rules) is the same engine under a new id: the game exports a `define<Game>({ id, … })` factory (`defineMasquerade`, `defineHydra`), and the edition is a small package that calls it and wraps the game's UI with its own id, so it reads its own manifest and assets and gets its own lobby entry, stats and recap. Write the game's player-facing text with name tokens and copy keys from the start (Hydra's `names.ts` and `copy.ts`), so an edition can rename and reword everything from its manifest without touching code.
 
 ## 4. Register it

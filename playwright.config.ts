@@ -28,6 +28,7 @@ export const SHARED_STATE = [
   /short-fuse(-\w+)?\.spec\.ts$/,
   /starlight\.spec\.ts$/,
   /thorns[\w-]*\.spec\.ts$/,
+  /categories\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GameCategory } from './categories.ts';
 import type {
   AckWith,
   GameRecap,
@@ -45,6 +46,8 @@ export interface GameSummary {
   questionDecks: boolean;
   /** A private game's display title, set by the admin (only sent to unlocked browsers). */
   title?: string;
+  /** The game's categories (the admin's where set, else its defaults), in the admin's order. */
+  categories: GameCategory[];
 }
 
 /** A night recap's key (the ULID of the night's first game start). */
@@ -305,6 +308,7 @@ export interface ServerToClientEvents {
    */
   'room:recap': (push: { recap: RoomRecap | null; for: string }) => void;
 }
+export * from './categories.ts';
 export * from './questions.ts';
 export * from './recap.ts';
 export * from './stats.ts';

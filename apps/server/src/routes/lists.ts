@@ -3,6 +3,7 @@ import type { GameSummary } from '@vt/protocol';
 import type { FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import type { WordListRepo } from '../word-lists.ts';
+import type { GameCategories } from '../categories.ts';
 
 /**
  * The game list and the word lists, as `/api/games` and `/api/word-lists` send them, with a
@@ -18,6 +19,8 @@ export interface ListsOptions {
   hasBackroom: (req: FastifyRequest) => boolean;
   /** Admin-set titles for private games, sent only to unlocked browsers. */
   titles?: { title(gameId: string): string | null };
+  /** Each game's categories (the admin's where set); without it, each game's defaults. */
+  categories?: Pick<GameCategories, 'forGames'>;
   /** The build (`APP_VERSION`), so a deploy is a new version too. */
   build: string;
 }
@@ -42,19 +45,21 @@ export class Lists {
   }
 
   games(req: FastifyRequest): GameSummary[] {
-    return [...this.opts.games.values()]
-      .filter((g) => this.visible(req, g.id))
-      .map((g) => ({
-        id: g.id,
-        name: g.name,
-        description: g.description,
-        minPlayers: g.minPlayers,
-        maxPlayers: g.maxPlayers,
-        private: g.access === 'private',
-        wordLists: g.usesWordLists === true,
-        questionDecks: g.usesQuestionDecks === true,
-        ...this.titleOf(g.id),
-      }));
+    const games = [...this.opts.games.values()].filter((g) => this.visible(req, g.id));
+    // Only the categories these games use: a locked browser learns nothing of back-room games.
+    const categories = this.opts.categories?.forGames(games.map((g) => g.id));
+    return games.map((g) => ({
+      id: g.id,
+      name: g.name,
+      description: g.description,
+      minPlayers: g.minPlayers,
+      maxPlayers: g.maxPlayers,
+      private: g.access === 'private',
+      wordLists: g.usesWordLists === true,
+      questionDecks: g.usesQuestionDecks === true,
+      ...this.titleOf(g.id),
+      categories: categories?.get(g.id) ?? [],
+    }));
   }
 
   /**

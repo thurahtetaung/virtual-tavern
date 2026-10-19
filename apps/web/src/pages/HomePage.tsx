@@ -1,10 +1,14 @@
 import { Button, Panel } from '@vt/ui';
-import { type FormEvent, useState } from 'react';
+import type { GameSummary } from '@vt/protocol';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Layout, RoomOpening } from '../components/Layout.tsx';
+import { CategoryFilter, NoGamesMatch } from '../components/CategoryFilter.tsx';
 import { GameCard } from '../components/GameCard.tsx';
 import { clientGames } from '../games/registry.ts';
 import { useBackroom } from '../lib/backroom.ts';
+import { chipsOf, shows, useCategoryFilter } from '../lib/categories.ts';
+import { fetchGames } from '../lib/games.ts';
 import { lastRoom, saveName, savedName } from '../lib/identity.ts';
 import { EXAMPLE_ROOM_CODE, parseRoomCode } from '../lib/room-code.ts';
 import { usePageTitle } from '../lib/title.ts';
@@ -24,6 +28,22 @@ export function HomePage() {
   const isPrivate = !!last && (last.private || !clientGames.some((g) => g.name === last.game));
   const recent = last && (!isPrivate || backroom?.unlocked) ? last : null;
   usePageTitle();
+  // The game cards come with the page; their categories from the server, when it answers.
+  const [offered, setOffered] = useState<GameSummary[]>([]);
+  useEffect(() => {
+    void fetchGames()
+      .then(setOffered)
+      .catch(() => {});
+  }, []);
+  const listed = useMemo(
+    () => offered.filter((s) => clientGames.some((g) => g.id === s.id)),
+    [offered],
+  );
+  const chips = useMemo(() => chipsOf(listed), [listed]);
+  const filter = useCategoryFilter('vt.categories.home', chips);
+  const games = clientGames.filter((g) =>
+    shows(filter.chosen, listed.find((s) => s.id === g.id)?.categories ?? []),
+  );
 
   const { creating, create } = useCreateRoom(name, () =>
     document.getElementById('home-name')?.focus(),
@@ -101,8 +121,17 @@ export function HomePage() {
       </div>
 
       <h2 className="mt-10 mb-4 text-2xl font-bold">2. Pick a game</h2>
+      <div className="mb-4">
+        <CategoryFilter
+          chips={chips}
+          chosen={filter.chosen}
+          onToggle={filter.toggle}
+          onClear={filter.clear}
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {clientGames.map((game) => (
+        {games.length === 0 && <NoGamesMatch onClear={filter.clear} />}
+        {games.map((game) => (
           <GameCard
             key={game.id}
             game={game}
@@ -110,9 +139,11 @@ export function HomePage() {
             onCreate={(id) => void create(id)}
           />
         ))}
-        <Panel className="flex items-center justify-center border-2 border-dashed border-stone-300 bg-transparent text-ink-muted shadow-none ring-0 dark:border-stone-700">
-          More games coming soon
-        </Panel>
+        {filter.chosen.length === 0 && (
+          <Panel className="flex items-center justify-center border-2 border-dashed border-stone-300 bg-transparent text-ink-muted shadow-none ring-0 dark:border-stone-700">
+            More games coming soon
+          </Panel>
+        )}
       </div>
 
       {/* The only public hint of the back room: a quiet, text-free door at the end of the page. */}
