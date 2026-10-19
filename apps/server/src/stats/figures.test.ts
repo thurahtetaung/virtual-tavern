@@ -140,3 +140,37 @@ describe('Short Fuse figures', () => {
     expect(by('cards')).toMatchObject({ parts: [{ label: '{card:dig}', value: 1 }] });
   });
 });
+
+describe('Starlight figures', () => {
+  it('count shown cards, round scores, the Dark and flipped words', () => {
+    const m = new Map<string, number>();
+    const events: [string, Record<string, unknown>][] = [
+      ['word', { round: 1, flipped: true, dark: 'ana' }],
+      ['word', { round: 2, flipped: false, dark: null }],
+      ['show', { kind: 'spark' }],
+      ['show', { kind: 'super' }],
+      ['show', { kind: 'fall' }],
+      ['show', { kind: 'spark' }],
+      ['round', { points: 9, dark: true, fell: true }],
+      ['round', { points: 3, dark: false, fell: false }],
+      ['outcome', { endReason: 'rounds' }],
+    ];
+    for (const [type, props] of events)
+      for (const [k, v] of figureCounters('starlight', type, props))
+        m.set(k, k.startsWith('max.') ? Math.max(m.get(k) ?? 0, v) : (m.get(k) ?? 0) + v);
+    const figs = buildFigures('starlight', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('shown')).toMatchObject({
+      parts: [
+        { label: 'Sparks', value: 2 },
+        { label: 'Super-Sparks', value: 1 },
+        { label: 'Falls', value: 1 },
+      ],
+    });
+    expect(by('round-score')).toMatchObject({ value: 6 });
+    expect(by('best-round')).toMatchObject({ value: 9 });
+    expect(by('dark-rounds')).toMatchObject({ value: 50 });
+    expect(by('dark-fell')).toMatchObject({ value: 100 });
+    expect(by('flipped')).toMatchObject({ value: 50 });
+  });
+});

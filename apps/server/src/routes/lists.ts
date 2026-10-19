@@ -57,9 +57,19 @@ export class Lists {
       }));
   }
 
-  /** The enabled lists, or only those `gameId` offers. */
-  wordLists(gameId?: string) {
-    return this.opts.wordLists.listEnabled(gameId);
+  /**
+   * The enabled lists, or only those `gameId` offers, as this request may see them. Without the
+   * back room a private game's lists don't exist: asking for its lists gets none, a list made
+   * only for back-room games is left out, and other lists never name a back-room game.
+   */
+  wordLists(req: FastifyRequest, gameId?: string) {
+    if (gameId !== undefined && !this.visible(req, gameId)) return [];
+    const lists = this.opts.wordLists.listEnabled(gameId);
+    if (this.opts.hasBackroom(req)) return lists;
+    return lists.flatMap((l) => {
+      const games = l.games.filter((id) => !isPrivate(this.opts.games.get(id)));
+      return games.length ? [{ ...l, games }] : [];
+    });
   }
 
   version(body: unknown): string {
@@ -73,7 +83,7 @@ export class Lists {
     return this.version(this.games(req));
   }
 
-  wordListsVersion(gameId?: string): string {
-    return this.version(this.wordLists(gameId));
+  wordListsVersion(req: FastifyRequest, gameId?: string): string {
+    return this.version(this.wordLists(req, gameId));
   }
 }

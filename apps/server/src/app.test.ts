@@ -255,7 +255,7 @@ describe('admin api', () => {
       (await app.inject({ method: 'GET', url })).json<{ name: string }[]>().map((l) => l.name);
 
     const all = await post({ name: 'All', words: ['a'] });
-    expect(all.json()).toMatchObject({ games: ['codenames', 'enigma', 'echo'] });
+    expect(all.json()).toMatchObject({ games: ['codenames', 'enigma', 'echo', 'starlight'] });
     const only = await post({ name: 'Enigma only', words: ['b'], games: ['enigma'] });
     expect(only.statusCode).toBe(201);
     expect(only.json()).toMatchObject({ games: ['enigma'] });

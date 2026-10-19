@@ -60,12 +60,14 @@ export function publicRoutes(
     });
   });
 
-  // Only enabled lists; `?game=<id>` keeps only the lists that game offers.
+  // Only enabled lists; `?game=<id>` keeps only the lists that game offers. Lists made only for
+  // back-room games depend on the back-room cookies, like the game list.
   app.get<{ Querystring: { game?: unknown; v?: unknown } }>('/api/word-lists', (req, reply) => {
     const { game } = req.query;
-    const enabled = lists.wordLists(typeof game === 'string' && game ? game : undefined);
+    const enabled = lists.wordLists(req, typeof game === 'string' && game ? game : undefined);
     return sendRevalidated(req, reply, enabled, {
       maxAge: maxAge(req.query.v, lists.version(enabled)),
+      vary: 'Cookie',
     });
   });
 
@@ -144,7 +146,7 @@ export function publicRoutes(
     const versions = {
       games: lists.gamesVersion(req),
       ...(games.get(room.gameId)?.usesWordLists && {
-        wordLists: lists.wordListsVersion(room.gameId),
+        wordLists: lists.wordListsVersion(req, room.gameId),
       }),
       ...(isPrivate(games.get(room.gameId)) && { manifests: manifestVersions(room.gameId) }),
     };

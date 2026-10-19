@@ -217,19 +217,22 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   await admin.getByLabel(/^Words/).fill('Moon\nmoon\nMars, Venus\nComet');
   await expect(admin.getByText('4 unique words')).toBeVisible();
   await expect(admin.getByText('1 duplicates will be dropped')).toBeVisible();
-  // A new list is offered in every word-list game; at least one must stay ticked. (It stays in
-  // all of them: a Codenames-only list would become the default for every later Codenames room here.)
+  // A new list is offered in every word-list game, the back room's too (the admin has it); at
+  // least one must stay ticked. (It stays in all of them: a Codenames-only list would become the
+  // default for every later Codenames room here.)
   const usedBy = admin.getByRole('group', { name: 'Used by' });
-  for (const game of ['Codenames', 'Enigma', 'Echo'])
-    await usedBy.getByRole('checkbox', { name: game }).uncheck();
+  const WORD_GAMES = ['Codenames', 'Enigma', 'Echo', 'Starlight'];
+  await expect(usedBy.getByRole('checkbox')).toHaveCount(WORD_GAMES.length);
+  for (const game of WORD_GAMES)
+    await expect(usedBy.getByRole('checkbox', { name: game })).toBeChecked();
+  for (const game of WORD_GAMES) await usedBy.getByRole('checkbox', { name: game }).uncheck();
   await expect(admin.getByText('Pick at least one game.')).toBeVisible();
   await expect(admin.getByRole('button', { name: 'Save list' })).toBeDisabled();
-  for (const game of ['Codenames', 'Enigma', 'Echo'])
-    await usedBy.getByRole('checkbox', { name: game }).check();
+  for (const game of WORD_GAMES) await usedBy.getByRole('checkbox', { name: game }).check();
   await admin.getByRole('button', { name: 'Save list' }).click();
   await expect(
     admin.getByRole('button', {
-      name: new RegExp(`^${NAME}\\s*Codenames\\s*Enigma\\s*Echo\\s*4 words$`),
+      name: new RegExp(`^${NAME}\\s*${WORD_GAMES.join('\\s*')}\\s*4 words$`),
     }),
   ).toBeVisible();
 

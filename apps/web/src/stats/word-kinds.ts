@@ -30,6 +30,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   'tavern-brawl': [],
   // Cards, not words: no Words card.
   'short-fuse': [],
+  // Each round's word.
+  starlight: ['clue'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -45,6 +47,7 @@ const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> =
   masquerade: { clue: 'Locations', guess: 'Spy guesses' },
   'masquerade-originals': { clue: 'Locations', guess: 'Spy guesses' },
   nightfall: { clue: 'Roles dealt', guess: 'Roles that died' },
+  starlight: { clue: 'Words' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */

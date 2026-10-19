@@ -15,6 +15,7 @@ import { royalPost } from '@vt/private-royal-post/logic';
 import { seance } from '@vt/private-seance/logic';
 import { setTestRig, tavernBrawl } from '@vt/private-tavern-brawl/logic';
 import { enableTestRig, shortFuse } from '@vt/private-short-fuse/logic';
+import { starlight } from '@vt/private-starlight/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -99,6 +100,7 @@ export function buildGames(): GameRegistry {
     hogwarts,
     tavernBrawl,
     shortFuse,
+    starlight,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

@@ -26,6 +26,7 @@ export const SHARED_STATE = [
   /hogwarts\.spec\.ts$/,
   /tavern-brawl[\w-]*\.spec\.ts$/,
   /short-fuse(-\w+)?\.spec\.ts$/,
+  /starlight\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
 
@@ -47,6 +48,7 @@ const GAME_IDS = [
   'hogwarts',
   'tavern-brawl',
   'short-fuse',
+  'starlight',
 ];
 
 /**
