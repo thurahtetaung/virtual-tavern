@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.47.0...v0.48.0) (2026-10-19)
+
+
+### Features
+
+* add a Games admin page with on/off, categories and filter chips ([#302](https://github.com/thurahtetaung/virtual-tavern/issues/302)) ([e95c0f2](https://github.com/thurahtetaung/virtual-tavern/commit/e95c0f24b3ba40ac7d0410ed22c333e1acce4629))
+
 ## [0.47.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.46.0...v0.47.0) (2026-10-19)
 
 
