@@ -82,16 +82,19 @@ test('admins make categories and players filter the game list by them', async ({
     await expect(loud).toHaveAttribute('aria-pressed', 'true');
     await expect(card(player, 'Codenames')).toBeVisible();
     await expect(card(player, 'Echo')).toHaveCount(0);
-    // Several chips show games with any of them.
-    await chips.getByRole('button', { name: 'E2E Quiet' }).click();
-    await expect(card(player, 'Echo')).toBeVisible();
-    await expect(card(player, 'Enigma')).toHaveCount(0);
+    // Several chips narrow the list: a game shows only with all of them.
+    const quiet = chips.getByRole('button', { name: 'E2E Quiet' });
+    await quiet.click();
+    await expect(player.getByText('No game has all of those categories.')).toBeVisible();
+    await expect(card(player, 'Codenames')).toHaveCount(0);
+    await expect(card(player, 'Echo')).toHaveCount(0);
     // The choice is remembered in this browser.
     await player.reload();
-    await expect(chips.getByRole('button', { name: 'E2E Loud' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(loud).toHaveAttribute('aria-pressed', 'true');
+    await expect(quiet).toHaveAttribute('aria-pressed', 'true');
+    await expect(player.getByText('No game has all of those categories.')).toBeVisible();
+    await quiet.click();
+    await expect(card(player, 'Codenames')).toBeVisible();
     await expect(card(player, 'Enigma')).toHaveCount(0);
 
     // A rename and a new tick reach the list.

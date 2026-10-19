@@ -15,10 +15,11 @@ describe('category chips', () => {
     expect(chipsOf([{ categories: [] }])).toEqual([]);
   });
 
-  it('show every game with none chosen, else games with any chosen category', () => {
+  it('show every game with none chosen, else only games with every chosen category', () => {
     expect(shows([], [])).toBe(true);
     expect(shows(['loud'], [loud, quiet])).toBe(true);
-    expect(shows(['odd', 'quiet'], [quiet])).toBe(true);
+    expect(shows(['loud', 'quiet'], [loud, quiet, odd])).toBe(true);
+    expect(shows(['odd', 'quiet'], [quiet])).toBe(false);
     expect(shows(['odd'], [loud, quiet])).toBe(false);
     expect(shows(['odd'], [])).toBe(false);
   });
