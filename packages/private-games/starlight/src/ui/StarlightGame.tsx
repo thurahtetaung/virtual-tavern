@@ -158,7 +158,7 @@ export function StarlightGame({
             clueLabel="Marking timer"
             guessLabel="Scout timer"
             clueHelp="Time to mark your slate. The rules say take as long as you like."
-            guessHelp="Time for each Scout to show a card (and for the First Scout to pick the word)."
+            guessHelp="Time for each Scout to show a card."
             strictHelp="open slates lock as they are, and a slow Scout shows a random card of theirs"
           />
           {room.isHost && (
@@ -278,7 +278,6 @@ function Seats({
 
 /** What each step's clock is for, and what a strict timer does at 0:00. */
 const STEP_TIMER: Partial<Record<RoundView['stage'], { label: string; atZero: string }>> = {
-  word: { label: 'to pick the word', atZero: 'then the top word is played' },
   mark: { label: 'to mark', atZero: 'then open slates lock as they are' },
   reveal: { label: 'to show a card', atZero: 'then a random card is shown' },
 };
@@ -380,14 +379,12 @@ function Play({
             />
           )}
         </div>
-        {r.word !== null && (
-          <p className="text-center" data-testid="starlight-word">
-            <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
-              The word
-            </span>
-            <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
-          </p>
-        )}
+        <p className="text-center" data-testid="starlight-word">
+          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
+            The word
+          </span>
+          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
+        </p>
       </header>
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {canMark && (
@@ -402,27 +399,6 @@ function Play({
       )}
 
       {view.phase === 'over' && <Final view={view} room={room} act={act} confirm={confirm} />}
-
-      {r.stage === 'word' && r.choices && (
-        <Panel className="space-y-3 text-center">
-          <p className="font-semibold">
-            This word card has two words. Which one does the table play?
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={() => void act({ type: 'choose-word', side: 0 })}>
-              Play “{r.choices[0]}”
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => void act({ type: 'choose-word', side: 1 })}
-            >
-              Flip to “{r.choices[1]}”
-            </Button>
-          </div>
-          <p className="text-sm text-ink-muted">Only you see both. Nobody else can switch.</p>
-        </Panel>
-      )}
 
       {last && r.stage !== 'mark' && (
         <p

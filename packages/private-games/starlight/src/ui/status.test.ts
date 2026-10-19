@@ -16,7 +16,7 @@ describe('status line', () => {
     const [a, b, c, d] = fromFirst(h) as [string, string, string, string];
     const text = (id: string) => statusFor(starlight.view(h.state, id), room(id), null);
     expect(text(a)).toMatchObject({ yourMove: true });
-    expect(text(a).text).toContain(round(h).card[0]);
+    expect(text(a).text).toContain(round(h).word);
     h.act({ type: 'mark', positions: [1] }, a);
     h.act({ type: 'lock' }, a);
     expect(text(a)).toMatchObject({ yourMove: false });

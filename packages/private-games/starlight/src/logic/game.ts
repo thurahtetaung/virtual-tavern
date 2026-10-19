@@ -14,7 +14,6 @@ import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import { keptListIds, offeredLists, wordsFrom } from './lobby.ts';
 import { announce, finish, nextScout, present, show, starsOf, unshown } from './reveal.ts';
-import { chooseWord, hasOtherWord, openingStage, parseWordCard, wordOf } from './switch.ts';
 import {
   CARDS_PER_GAME,
   CARD_SETS,
@@ -68,11 +67,7 @@ export const poolOf = (sets: readonly string[]) =>
 function timed(state: StarlightState, round: Round, now: number): Round {
   const s = state.settings;
   const seconds =
-    round.stage === 'mark'
-      ? s.clueSeconds
-      : round.stage === 'word' || round.stage === 'reveal'
-        ? s.guessSeconds
-        : null;
+    round.stage === 'mark' ? s.clueSeconds : round.stage === 'reveal' ? s.guessSeconds : null;
   return { ...round, deadline: deadline(seconds, now) };
 }
 
@@ -97,7 +92,7 @@ function beginRound(
   fresh: number[],
   now: number,
 ): StarlightState {
-  const [card, ...words] = state.words;
+  const [word, ...words] = state.words;
   const round: Round = {
     no,
     first,
@@ -105,9 +100,8 @@ function beginRound(
     gone: [],
     board,
     fresh,
-    card: card!,
-    side: 0,
-    stage: openingStage(card!),
+    word: word!,
+    stage: 'mark',
     marks: {},
     locked: [],
     counts: null,
@@ -140,6 +134,45 @@ function endGame(state: StarlightState, endReason: StarlightState['endReason']):
     endReason,
     round: state.round ? { ...state.round, deadline: null } : null,
   };
+}
+
+// ---- Rooms saved before the word-switch step went ----
+
+/** A round as saved while the First Scout could still switch a two-word card's word. */
+interface SavedRound extends Omit<Round, 'stage' | 'word'> {
+  stage: Round['stage'] | 'word';
+  word?: string;
+  card?: string[];
+  side?: 0 | 1;
+}
+
+const isSaved = (state: StarlightState) => {
+  const round = state.round as SavedRound | null;
+  return (
+    state.words.some((w) => typeof w !== 'string') ||
+    (!!round && (round.word === undefined || round.stage === 'word'))
+  );
+};
+
+/**
+ * Brings a room saved with word cards up to date: each card plays its chosen word (the top one if
+ * nobody had chosen yet), and a round waiting on the choice moves on to marking, timed from `now`
+ * (or keeping its clock when only viewing).
+ */
+function upgraded(state: StarlightState, now: number | null): StarlightState {
+  if (!isSaved(state)) return state;
+  const words = (state.words as unknown[]).map((w) =>
+    Array.isArray(w) ? String(w[0]) : String(w),
+  );
+  const saved = state.round as SavedRound | null;
+  if (!saved) return { ...state, words };
+  const { card, side, ...rest } = saved;
+  const word = saved.word ?? card?.[side ?? 0] ?? card?.[0] ?? '';
+  const round: Round = { ...rest, word, stage: rest.stage === 'word' ? 'mark' : rest.stage };
+  const next = { ...state, words };
+  return saved.stage === 'word' && now !== null
+    ? { ...next, round: timed(next, round, now) }
+    : { ...next, round };
 }
 
 // ---- Lobby ----
@@ -228,7 +261,7 @@ function start(state: StarlightState, ctx: Ctx): Result {
     seats,
     seed: newSeed(ctx.rng),
     pile: deck.slice(GRID),
-    words: ctx.rng.shuffle(words).slice(0, ROUNDS).map(parseWordCard),
+    words: ctx.rng.shuffle(words).slice(0, ROUNDS),
     winners: [],
     endReason: null,
     gamesPlayed: state.gamesPlayed + 1,
@@ -262,18 +295,9 @@ function inRound(state: StarlightState, by: PlayerId): Round | GameError {
   return round;
 }
 
-function pickWord(state: StarlightState, side: 0 | 1, ctx: Ctx): Result {
-  const round = inRound(state, ctx.by);
-  if (round instanceof GameError) return round;
-  const next = chooseWord(round, side, ctx.by);
-  return next instanceof GameError ? next : withRound(state, next, ctx.now);
-}
-
 function marking(state: StarlightState, ctx: Ctx): Round | GameError {
   const round = inRound(state, ctx.by);
   if (round instanceof GameError) return round;
-  if (round.stage === 'word')
-    return new GameError('wrong-stage', 'Wait for the First Scout to choose the word.');
   if (round.stage !== 'mark')
     return new GameError('wrong-stage', 'The cards are already chosen for this round.');
   return round;
@@ -346,7 +370,7 @@ function nextRound(state: StarlightState, ctx: Ctx): Result {
 }
 
 function reduce(state: StarlightState, action: StarlightAction, ctx: Ctx): Result {
-  const current = refreshLists(state, ctx);
+  const current = refreshLists(upgraded(state, ctx.now), ctx);
   switch (action.type) {
     case 'update-settings':
       return updateSettings(current, action, ctx);
@@ -356,8 +380,6 @@ function reduce(state: StarlightState, action: StarlightAction, ctx: Ctx): Resul
       return start(current, ctx);
     case 'back-to-lobby':
       return backToLobby(current, ctx);
-    case 'choose-word':
-      return pickWord(current, action.side, ctx);
     case 'mark':
       return mark(current, action.positions, ctx);
     case 'lock':
@@ -420,7 +442,8 @@ function playerJoined(state: StarlightState, player: PlayerInfo): StarlightState
   return { ...state, departed, seats: { ...state.seats, [player.id]: seat } };
 }
 
-function playerLeft(state: StarlightState, id: PlayerId, now: number): StarlightState {
+function playerLeft(saved: StarlightState, id: PlayerId, now: number): StarlightState {
+  const state = upgraded(saved, now);
   const seat = state.seats[id];
   if (!seat) return state;
   const seats = { ...state.seats };
@@ -432,9 +455,9 @@ function playerLeft(state: StarlightState, id: PlayerId, now: number): Starlight
   if (state.phase !== 'playing' || !round || !present(round).includes(id) || round.stage === 'done')
     return next;
   const order = Object.keys(state.seats);
-  if (round.stage === 'word' || round.stage === 'mark') {
+  if (round.stage === 'mark') {
     // Nothing is public yet: the leaver's slate simply goes. A leaving First Scout hands the
-    // pawn (and the word choice) on clockwise.
+    // pawn on clockwise.
     const marks = { ...round.marks };
     delete marks[id];
     const rest: Round = {
@@ -445,7 +468,7 @@ function playerLeft(state: StarlightState, id: PlayerId, now: number): Starlight
       first: round.first === id ? (playingAfter(next, id, order) ?? round.first) : round.first,
     };
     if (rest.players.length < MIN_PLAYERS) return endGame({ ...next, round: rest }, 'too-few');
-    return rest.stage === 'mark' ? maybeAnnounce(next, rest, now) : { ...next, round: rest };
+    return maybeAnnounce(next, rest, now);
   }
   // Mid-Reveal the crosses are on the table: they keep counting for others, like a fallen
   // player's, but the leaver scouts and scores no more.
@@ -464,18 +487,16 @@ function nextDeadline(state: StarlightState): number | null {
 }
 
 /**
- * Strict timers only, and always progress: the First Scout keeps the top word; unlocked slates
- * lock as they stand (one random card for an empty one); a Scout shows a random cross of theirs.
+ * Strict timers only, and always progress: unlocked slates lock as they stand (one random card for an empty one); a Scout shows a random cross of theirs.
  */
-function onDeadline(state: StarlightState, now: number): StarlightState {
-  const due = nextDeadline(state);
-  const round = state.round;
-  if (due === null || now < due || !round) return state;
+function onDeadline(saved: StarlightState, now: number): StarlightState {
+  const due = nextDeadline(saved);
+  if (due === null || now < due || !saved.round) return saved;
+  // A room saved while its First Scout chose the word only moves on to marking.
+  if ((saved.round as SavedRound).stage === 'word') return upgraded(saved, now);
+  const state = upgraded(saved, now);
+  const round = state.round!;
   const rng = hiddenRng(state, now);
-  if (round.stage === 'word') {
-    const chosen = chooseWord(round, 0, round.first);
-    return chosen instanceof GameError ? state : withRound(state, chosen, now);
-  }
   if (round.stage === 'mark') {
     const marks = { ...round.marks };
     const autoLocked: PlayerId[] = [];
@@ -497,7 +518,6 @@ function onDeadline(state: StarlightState, now: number): StarlightState {
 // ---- Views ----
 
 function roundView(round: Round, viewer: PlayerId | null): RoundView {
-  const choosing = round.stage === 'word';
   const counts = round.counts;
   return {
     no: round.no,
@@ -505,10 +525,7 @@ function roundView(round: Round, viewer: PlayerId | null): RoundView {
     players: [...round.players],
     board: [...round.board],
     fresh: [...round.fresh],
-    word: wordOf(round),
-    choices:
-      choosing && viewer === round.first && hasOtherWord(round.card) ? [...round.card] : null,
-    side: round.side,
+    word: round.word,
     stage: round.stage,
     myMarks: viewer === null ? [] : [...(round.marks[viewer] ?? [])],
     locked: [...round.locked],
@@ -528,7 +545,8 @@ function roundView(round: Round, viewer: PlayerId | null): RoundView {
   };
 }
 
-function view(state: StarlightState, viewer: PlayerId | null): StarlightView {
+function view(saved: StarlightState, viewer: PlayerId | null): StarlightView {
+  const state = upgraded(saved, null);
   const seats: SeatView[] = Object.entries(state.seats).map(([id, s]) => ({
     id,
     name: s.name,

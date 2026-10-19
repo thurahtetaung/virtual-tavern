@@ -85,25 +85,11 @@ async function shoot(p: Page, name: string, phoneTab?: string) {
 }
 
 const LIST = 'Starlight test cards';
-/** Made-up two-word cards, so every round opens with the First Scout's choice. */
+/** Made-up entries written as a printed card's two words: each side is a word of its own. */
 const WORDS = ['Moon / Tide', 'Lantern / Harbour', 'Velvet / Thunder', 'Honey / Clock'];
 
 const card = (p: Page, pos: string) =>
   p.getByRole('button', { name: new RegExp(`^Card ${pos}\\b`) });
-
-/** The one page that matches `has`, found by polling every player's page. */
-async function onePage(players: Page[], has: (p: Page) => Promise<boolean>): Promise<Page> {
-  let found: Page | undefined;
-  await expect
-    .poll(async () => {
-      const hits: Page[] = [];
-      for (const p of players) if (await has(p)) hits.push(p);
-      found = hits.length === 1 ? hits[0] : undefined;
-      return hits.length;
-    })
-    .toBe(1);
-  return found!;
-}
 
 /** Each player marks their cards (by grid name) and locks. */
 async function markAndLock(marks: [Page, string[]][]) {
@@ -207,21 +193,16 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
     for (let round = 1; round <= 4; round++) {
       const roman = ['I', 'II', 'III', 'IV'][round - 1]!;
       await expect(host.getByText(`Round ${roman} of 4`)).toBeVisible();
-      // Only the First Scout sees both words; in round I they flip to the one upside down.
-      const first = await onePage(
-        players,
-        async (p) => (await p.getByRole('button', { name: /^Play “/ }).count()) > 0,
-      );
-      const flip = first.getByRole('button', { name: /^Flip to “/ });
-      const other = ((await flip.textContent()) ?? '').match(/“(.+)”/)![1]!;
-      const top = (
-        (await first.getByRole('button', { name: /^Play “/ }).textContent()) ?? ''
-      ).match(/“(.+)”/)![1]!;
-      if (round === 1) await shoot(first, 'word-choice');
-      if (round === 1) await flip.click();
-      else await first.getByRole('button', { name: /^Play “/ }).click();
-      for (const p of players)
-        await expect(p.getByTestId('starlight-word')).toContainText(round === 1 ? other : top);
+      // One plain word for everyone, never the pair, and nobody is asked to choose.
+      const word = (
+        (await host.getByTestId('starlight-word').locator('b').textContent()) ?? ''
+      ).trim();
+      expect(WORDS.flatMap((w) => w.split(' / '))).toContain(word);
+      for (const p of players) {
+        await expect(p.getByTestId('starlight-word').locator('b')).toHaveText(word);
+        await expect(p.getByRole('button', { name: /^Flip to|^Play “/ })).toHaveCount(0);
+      }
+      if (round === 1) await shoot(others[0]!, 'round-start');
 
       if (round === 1) {
         // Everyone shares A1; Hana and Ana alone share B1 (a Super-Spark); Ben alone has C1.

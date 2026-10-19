@@ -6,7 +6,7 @@ export const NOW = 1_000_000;
 export const HOST = 'host';
 export const FOUR = [HOST, 'ana', 'ben', 'cy'];
 
-/** Made-up word cards: some with a second word, some without. */
+/** Made-up entries: some written as a printed card's two words, some plain. */
 export const WORDS = ['Moon / Tide', 'Lantern', 'Harbour / Kite', 'Velvet', 'Thunder / Honey'];
 
 export const content: ContentProvider = {
@@ -14,7 +14,7 @@ export const content: ContentProvider = {
   words: (ids) => (ids.includes('test') ? WORDS : []),
 };
 
-/** One-word cards only, so a round opens straight on marking. */
+/** Plain words only. */
 export const plainContent: ContentProvider = {
   wordLists: () => [{ id: 'plain', name: 'Plain words', wordCount: 4 }],
   words: (ids) => (ids.includes('plain') ? ['Lantern', 'Velvet', 'Meadow', 'Clock'] : []),

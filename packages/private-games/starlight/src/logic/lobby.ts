@@ -21,14 +21,19 @@ export function keptListIds(selected: readonly string[], lists: readonly WordLis
   return kept.length ? kept : defaultListIds(lists);
 }
 
-/** Distinct words from the chosen lists, first spelling kept (case-insensitive). */
+/**
+ * Distinct words from the chosen lists, first spelling kept (case-insensitive). An entry written
+ * `Top / Bottom` (a printed card's two words) gives both as words of their own.
+ */
 export function wordsFrom(content: ContentProvider, listIds: readonly string[]): string[] {
   const seen = new Set<string>();
-  return content.words(listIds).flatMap((raw) => {
-    const word = raw.trim();
-    const key = word.toLocaleLowerCase();
-    if (!word || seen.has(key)) return [];
-    seen.add(key);
-    return [word];
-  });
+  return content.words(listIds).flatMap((raw) =>
+    raw.split(' / ').flatMap((side) => {
+      const word = side.trim();
+      const key = word.toLocaleLowerCase();
+      if (!word || seen.has(key)) return [];
+      seen.add(key);
+      return [word];
+    }),
+  );
 }

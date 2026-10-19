@@ -23,7 +23,7 @@ const text: GameGuide = {
     {
       title: 'The word',
       paragraphs: [
-        'The First Scout reveals the round’s word. Some word cards have a second word printed upside down: then the First Scout alone chooses which of the two the table plays, before anyone marks. Nobody else sees the other word.',
+        'Each round shows one word, drawn at random from the host’s word lists, and everyone marks for that same word at once.',
       ],
     },
     {
@@ -77,7 +77,7 @@ const text: GameGuide = {
       title: 'Coming and going',
       bullets: [
         'You can sit down or stand up in the lobby, between rounds and at the end. Someone who sits down mid-game plays from the next round.',
-        'Someone who leaves before the Reveal takes their slate with them; a leaving First Scout passes the pawn (and the word choice) clockwise.',
+        'Someone who leaves before the Reveal takes their slate with them; a leaving First Scout passes the pawn clockwise.',
         'Someone who leaves during the Reveal is out of the round, but their marks still count for everyone else, like a fallen player’s.',
         'Someone who comes back during the same game picks up their score again. If fewer than 3 players are left, the game ends and the most points wins.',
       ],
@@ -85,7 +85,7 @@ const text: GameGuide = {
     {
       title: 'Timers (optional)',
       paragraphs: [
-        'The host can time marking, and each Scout’s choice (and the First Scout’s word choice). By default the timer is only a reminder. In Strict mode, unlocked slates lock as they are when time runs out (an empty one gets one random card), the word stays the top one, and a slow Scout shows one of their marks at random. The table is told each time.',
+        'The host can time marking and each Scout’s choice. By default the timer is only a reminder. In Strict mode, unlocked slates lock as they are when time runs out (an empty one gets one random card) and a slow Scout shows one of their marks at random. The table is told each time.',
       ],
     },
   ],
@@ -100,7 +100,7 @@ const text: GameGuide = {
     { term: 'Scout', meaning: 'The player showing a card right now.' },
     {
       term: 'First Scout',
-      meaning: 'Starts the Reveal and chooses the word; moves clockwise each round.',
+      meaning: 'Starts the Reveal; moves clockwise each round.',
     },
     { term: 'Spark', meaning: 'A shown card at least 2 other players marked: 2 stars each.' },
     { term: 'Super-Spark', meaning: 'A shown card exactly 1 other player marked: 3 stars each.' },

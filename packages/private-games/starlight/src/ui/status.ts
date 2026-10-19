@@ -62,17 +62,6 @@ export function statusFor(view: StarlightView, room: Room, blocker: string | nul
     };
   }
   const playing = !!me && r.players.includes(me.id) && !r.gone.includes(me.id);
-  if (r.stage === 'word') {
-    if (me?.id === r.first)
-      return {
-        text: 'You’re the First Scout: this word card has two words. Pick the one the table plays.',
-        yourMove: true,
-      };
-    return {
-      text: `${nameOf(view, r.first)} (First Scout) is choosing the word…`,
-      yourMove: false,
-    };
-  }
   if (r.stage === 'mark') {
     const waiting = r.players.filter((id) => !r.locked.includes(id));
     if (!playing) return { text: waitingFor(waiting, room.players), yourMove: false };
