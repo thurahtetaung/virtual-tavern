@@ -10,9 +10,9 @@ export function chipsOf(
   return [...seen.values()].sort((a, b) => a.order - b.order);
 }
 
-/** Whether a game shows under the chosen chips: none chosen shows all, else any match. */
+/** Whether a game shows under the chosen chips: none chosen shows all, else it needs every one. */
 export function shows(chosen: readonly string[], categories: readonly { id: string }[]): boolean {
-  return chosen.length === 0 || categories.some((c) => chosen.includes(c.id));
+  return chosen.every((id) => categories.some((c) => c.id === id));
 }
 
 function remembered(key: string): string[] {

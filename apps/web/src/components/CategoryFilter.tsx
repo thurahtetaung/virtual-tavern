@@ -6,7 +6,7 @@ const CHIP =
 
 /**
  * The category chips above a game list: "All" and one per category its games have. Several may be
- * chosen; a game shows when it has any of them. `backroom` gives them the candlelit dark theme.
+ * chosen; a game shows only when it has all of them. `backroom` gives them the candlelit dark theme.
  */
 export function CategoryFilter({
   chips,
@@ -65,7 +65,7 @@ export function CategoryFilter({
   );
 }
 
-/** Shown in place of the cards when no game has any chosen category. */
+/** Shown in place of the cards when no game has every chosen category. */
 export function NoGamesMatch({
   onClear,
   backroom = false,
@@ -81,7 +81,7 @@ export function NoGamesMatch({
         backroom ? 'dark:border-amber-900/60 dark:text-amber-200/60' : 'dark:border-stone-700',
       )}
     >
-      No games in those categories.{' '}
+      No game has all of those categories.{' '}
       <button
         type="button"
         onClick={onClear}
