@@ -121,7 +121,10 @@ describe('versioned game and word lists', () => {
     // Locked: no back-room list, no back-room game named, nothing for a back-room game.
     for (const url of ['/api/word-lists', '/api/word-lists?game=codenames']) {
       const body = await lists(url);
-      expect(body.map((l) => l.id), url).not.toContain(secret);
+      expect(
+        body.map((l) => l.id),
+        url,
+      ).not.toContain(secret);
       expect(body.find((l) => l.id === shared)?.games, url).toEqual(['codenames']);
       expect(JSON.stringify(body), url).not.toMatch(/starlight|Printed words/);
     }

@@ -397,6 +397,8 @@ function Play({
         </Tip>
       )}
 
+      {view.phase === 'over' && <Final view={view} room={room} act={act} confirm={confirm} />}
+
       {r.stage === 'word' && r.choices && (
         <Panel className="space-y-3 text-center">
           <p className="font-semibold">
@@ -462,7 +464,11 @@ function Play({
           aria-label="The cards"
           className={cn('space-y-2', tab !== 'table' && 'hidden sm:block')}
         >
-          <ul className="mx-auto grid max-w-3xl grid-cols-5 gap-1.5 sm:gap-2">
+          <ul
+            // Three lines of cards fit the screen's height on any desktop.
+            style={{ maxWidth: 'min(48rem, 68dvh)' }}
+            className="mx-auto grid grid-cols-5 gap-1.5 sm:gap-2"
+          >
             {Array.from({ length: GRID }, (_, pos) => (
               <GridCard
                 key={pos}
@@ -515,7 +521,6 @@ function Play({
       </div>
 
       {r.stage === 'done' && r.results && <RoundResults view={view} room={room} act={act} />}
-      {view.phase === 'over' && <Final view={view} room={room} act={act} confirm={confirm} />}
 
       <Modal
         open={viewing !== null}
@@ -614,7 +619,7 @@ function GridCard({
         </span>
       )}
       {outcome && shown && (
-        <span className="pointer-events-none absolute inset-x-1 bottom-1 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-[0.65rem] font-bold text-white">
+        <span className="pointer-events-none absolute inset-x-1 top-7 flex flex-wrap items-center justify-center gap-0.5 rounded-lg bg-stone-950/80 px-1 py-0.5 text-[0.65rem] font-bold text-white">
           <span aria-hidden>{outcome.icon}</span>
           {shown.markers.map((id) => (
             <NameDot key={id} name={nameOf(view, id)} />
@@ -625,7 +630,7 @@ function GridCard({
         type="button"
         onClick={onZoom}
         aria-label={`Zoom card ${posName(pos)}`}
-        className="absolute right-0.5 bottom-0.5 hidden size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white sm:flex"
+        className="absolute right-0.5 bottom-0.5 flex size-7 items-center justify-center rounded-full bg-stone-950/60 text-xs text-white"
       >
         🔍
       </button>
@@ -681,7 +686,7 @@ function StarBoard({
                       +{r.stars[s.id] ?? 0}★{' '}
                     </span>
                   )}
-                  {s.score}
+                  {s.score} pts
                 </span>
               </div>
               {chips.length > 0 && <p className="text-xs text-ink-muted">{chips.join(' · ')}</p>}

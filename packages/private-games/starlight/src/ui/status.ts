@@ -116,6 +116,8 @@ export function statusFor(view: StarlightView, room: Room, blocker: string | nul
       };
 }
 
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /** What a shown card did, in a sentence: the Reveal's moment. */
 export function showLine(view: StarlightView, s: Shown, you?: string): string {
   const scout = s.scout === you ? 'You' : nameOf(view, s.scout);
@@ -128,5 +130,5 @@ export function showLine(view: StarlightView, s: Shown, you?: string): string {
     return `🌠 ${scout} ${s.scout === you ? 'fall' : 'falls'}: nobody else marked it. No more stars this round.`;
   if (s.kind === 'super')
     return `🌟 Super-Spark! Only ${names(view, others, you)} marked it too: 3 stars each${fallenNote}.`;
-  return `✨ Spark! ${names(view, others, you)} marked it too: 2 stars each${fallenNote}.`;
+  return `✨ Spark! ${capital(names(view, others, you))} marked it too: 2 stars each${fallenNote}.`;
 }

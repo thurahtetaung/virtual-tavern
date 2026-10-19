@@ -63,6 +63,9 @@ import type { GameFigure } from '@vt/protocol';
 //              drawnBy, killed},
 //              steal {how, hit; recap: victim, named}, attack {owed; recap: victim}, draw {from},
 //              timeout {did, host}
+//   starlight  word {round, word, flipped, dark; recap: players, counts}, show {kind, others;
+//              recap: round, markers, card, auto}, round {points, dark, fell; recap: round, stars,
+//              boxes, marks, total}, outcome {endReason; recap: ranking, scores}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -917,6 +920,12 @@ const SHORT_FUSE_SPOTS: [string, string][] = [
   ['bottom', 'At the bottom'],
 ];
 
+const STARLIGHT_SHOWS = [
+  ['spark', 'Sparks'],
+  ['super', 'Super-Sparks'],
+  ['fall', 'Falls'],
+] as const;
+
 function shortFuseCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -1348,6 +1357,29 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
       if (isPerfectEcho(props)) out.push(['f.perfect', 1]);
       break;
     }
+    case 'starlight:word':
+      out.push(['f.rounds', 1]);
+      if (props.flipped === true) out.push(['f.flipped', 1]);
+      if (str(props.dark)) out.push(['f.dark_rounds', 1]);
+      break;
+    case 'starlight:show': {
+      const kind = str(props.kind);
+      out.push(['f.shows', 1]);
+      if (kind && STARLIGHT_SHOWS.some(([k]) => k === kind)) out.push([`f.show.${kind}`, 1]);
+      break;
+    }
+    case 'starlight:round': {
+      const points = num(props.points) ?? 0;
+      out.push(['f.player_rounds', 1], ['f.points_sum', points], ['max.f.best_round', points]);
+      if (props.dark === true) {
+        out.push(['f.dark', 1]);
+        if (props.fell === true) out.push(['f.dark_fell', 1]);
+      }
+      break;
+    }
+    case 'starlight:outcome':
+      out.push(['f.games', 1]);
+      break;
     case 'reverie:story':
       flag('stories', props.allOrNone);
       break;
@@ -1546,6 +1578,45 @@ export function buildFigures(
         },
       ];
     }
+    case 'starlight':
+      return [
+        {
+          id: 'shown',
+          label: 'Cards shown',
+          kind: 'split',
+          parts: STARLIGHT_SHOWS.map(([k, label]) => ({ label, value: get(`f.show.${k}`) })),
+        },
+        {
+          id: 'round-score',
+          label: 'Average round score',
+          kind: 'number',
+          value: avg(get('f.points_sum'), get('f.player_rounds')),
+        },
+        {
+          id: 'best-round',
+          label: 'Best round score',
+          kind: 'number',
+          value: get('max.f.best_round'),
+        },
+        {
+          id: 'dark-rounds',
+          label: 'Rounds with a player in the Dark',
+          kind: 'percent',
+          value: pct(get('f.dark_rounds'), get('f.rounds')),
+        },
+        {
+          id: 'dark-fell',
+          label: 'Players in the Dark who fell',
+          kind: 'percent',
+          value: pct(get('f.dark_fell'), get('f.dark')),
+        },
+        {
+          id: 'flipped',
+          label: 'Rounds played on the upside-down word',
+          kind: 'percent',
+          value: pct(get('f.flipped'), get('f.rounds')),
+        },
+      ];
     case 'reverie':
       return [
         {

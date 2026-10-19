@@ -41,7 +41,10 @@ describe('WordListRepo game tags', () => {
     expect(make('Plain').games).toEqual(GAMES);
     expect(make('Dupes', ['enigma', 'enigma']).games).toEqual(['enigma']);
     // Without an explicit list, the repo uses the server's registered word-list games.
-    expect(new WordListRepo(openDb(':memory:', MIGRATIONS)).gameIds).toEqual(GAMES);
+    expect(new WordListRepo(openDb(':memory:', MIGRATIONS)).gameIds).toEqual([
+      ...GAMES,
+      'starlight',
+    ]);
   });
 
   it('offers a game only its tagged lists, its own lists first, each group oldest first', () => {
