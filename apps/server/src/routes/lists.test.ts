@@ -97,6 +97,56 @@ describe('versioned game and word lists', () => {
     expect(shut.headers.etag).toBe(lockedTag);
   });
 
+  it('keeps word lists made only for back-room games from anyone without the back room', async () => {
+    const app = make();
+    const headers = { cookie: await admin(app) };
+    const create = async (name: string, games: string[]) =>
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/admin/word-lists',
+          headers,
+          payload: { name, words: ['moon', 'tide', 'lantern'], games },
+        })
+      ).json<{ id: string }>().id;
+    const secret = await create('Printed words', ['starlight']);
+    const shared = await create('Shared words', ['codenames', 'starlight']);
+    type List = { id: string; name: string; games: string[] };
+    const lists = async (url: string, cookie = '') => {
+      const res = await get(app, url, { cookie });
+      expect(res.headers.vary, url).toBe('Cookie');
+      return res.json<List[]>();
+    };
+
+    // Locked: no back-room list, no back-room game named, nothing for a back-room game.
+    for (const url of ['/api/word-lists', '/api/word-lists?game=codenames']) {
+      const body = await lists(url);
+      expect(body.map((l) => l.id), url).not.toContain(secret);
+      expect(body.find((l) => l.id === shared)?.games, url).toEqual(['codenames']);
+      expect(JSON.stringify(body), url).not.toMatch(/starlight|Printed words/);
+    }
+    expect(await lists('/api/word-lists?game=starlight')).toEqual([]);
+
+    // Unlocked: the game's lobby gets its lists, its own first.
+    const cookie = await unlocked(app);
+    const open = await lists('/api/word-lists?game=starlight', cookie);
+    expect(open.map((l) => l.id)).toEqual(expect.arrayContaining([secret, shared]));
+    expect(open.find((l) => l.id === shared)?.games).toEqual(['codenames', 'starlight']);
+
+    // A locked browser's version differs from an unlocked one's, so neither keeps the other's.
+    const room = await app.inject({
+      method: 'POST',
+      url: '/api/rooms',
+      payload: { gameId: 'codenames', token: token(1) },
+    });
+    const roomId = room.json<{ roomId: string }>().roomId;
+    const version = async (c = '') =>
+      (await get(app, `/api/rooms/${roomId}`, { cookie: c })).json<{
+        versions: { wordLists: string };
+      }>().versions.wordLists;
+    expect(await version()).not.toBe(await version(cookie));
+  });
+
   it('is a new version after an admin’s title or word-list edit, and after a deploy', async () => {
     const app = make();
     const cookie = await unlocked(app);
