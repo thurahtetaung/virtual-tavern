@@ -1,7 +1,16 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
-import { YOUR_TURN, bidAll, flip, putDown, table, whoseTurn, yourDiscs } from './thorns-play.ts';
+import {
+  YOUR_TURN,
+  bidAll,
+  flip,
+  leaveRoom,
+  putDown,
+  table,
+  whoseTurn,
+  yourDiscs,
+} from './thorns-play.ts';
 
 test.afterEach(() => {
   const errors = pageErrors.splice(0);
@@ -92,4 +101,26 @@ test('a full game: a won challenge, failed ones, the Last Chance disc and the wi
   await expect(v.getByRole('region', { name: 'Every stack' })).toBeVisible();
   await hana.getByRole('button', { name: 'Play again' }).click();
   await expect(v.getByText(/Put your first disc face down/)).toBeVisible();
+});
+
+test('a player who leaves is skipped until the host removes them', async ({ browser }) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [hana, ana, ben] = (await table(browser, ['Hana', 'Ana', 'Ben'])) as [Page, Page, Page];
+  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await putDown(hana);
+  await putDown(ana);
+  // Ben leaves before putting his first disc down: nobody waits for him.
+  await leaveRoom(ben);
+  await expect(hana.locator('[data-mat]').filter({ hasText: 'Ben' })).toContainText('away');
+  const players = hana.getByRole('region', { name: 'Players who left' });
+  await expect(players).toContainText('Ben left the room');
+  await expect(ana.getByRole('region', { name: 'Players who left' })).not.toContainText('Remove');
+  const first = await whoseTurn([hana, ana]);
+  await expect(first.getByText(YOUR_TURN)).toBeVisible();
+  // The host removes him: his discs weren't in play, so the round goes on with two.
+  await players.getByRole('button', { name: 'Remove Ben' }).click();
+  await expect(hana.getByRole('region', { name: 'Players who left' })).toHaveCount(0);
+  await expect(hana.locator('[data-mat]').filter({ hasText: 'Ben' })).toContainText('left');
+  await expect(first.getByText(YOUR_TURN)).toBeVisible();
 });

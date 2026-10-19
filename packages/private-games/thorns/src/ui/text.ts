@@ -110,7 +110,9 @@ export function logLine(e: LogEntry, name: NameOf, names: Names): string | null 
     case 'bid':
       return line(`${name(e.by)} bids ${e.amount}.`);
     case 'pass':
-      return line(`${name(e.by)} passes.`);
+      return line(
+        e.auto === 'left' ? `${name(e.by)} is away: skipped (passes).` : `${name(e.by)} passes.`,
+      );
     case 'challenge':
       return line(`${name(e.by)} must turn over ${plural(e.amount, 'disc')}.`);
     case 'flip':
@@ -130,7 +132,7 @@ export function logLine(e: LogEntry, name: NameOf, names: Names): string | null 
     case 'out':
       return line(
         e.cause === 'left'
-          ? `${name(e.player)} left the game.`
+          ? `${name(e.player)} was removed from the game.`
           : e.cause === 'lone'
             ? `${name(e.player)}’s last disc was their {thorn}: they’re out.`
             : `${name(e.player)} is out.`,
@@ -142,7 +144,11 @@ export function logLine(e: LogEntry, name: NameOf, names: Names): string | null 
     case 'starter':
       return line(`${name(e.by)} names ${name(e.starter)} to start.`);
     case 'void':
-      return line(`${name(e.player)} left, so the round starts again.`);
+      return line(`${name(e.player)} was removed, so the round starts again.`);
+    case 'away':
+      return line(`${name(e.player)} left: skipped until they come back or the host removes them.`);
+    case 'back':
+      return line(`${name(e.player)} is back.`);
     case 'end':
       return line(
         `${e.winners.map(name).join(' and ')} ${e.how === 'last' ? 'is the last one standing' : 'wins with two points'}.`,

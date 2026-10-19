@@ -86,3 +86,16 @@ export async function bidAll(p: Page) {
 
 export const flip = (p: Page, whose: string) =>
   p.getByRole('button', { name: `Turn over ${whose} top disc` }).click();
+
+/** Leaves the room for good from the Players drawer. */
+export async function leaveRoom(p: Page) {
+  await p.getByRole('button', { name: /^Players/ }).click();
+  await p
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('button', { name: 'Leave room' })
+    .click();
+  await p
+    .getByRole('dialog', { name: 'Leave this room?' })
+    .getByRole('button', { name: 'Leave', exact: true })
+    .click();
+}

@@ -140,10 +140,16 @@ describe('view()', () => {
       act(HOST, { type: 'start' });
       for (let step = 0; step < 600 && state.phase === 'playing'; step++) {
         now += 500;
-        if (rng.next() < 0.004) {
-          const g = state.game!;
-          const leaver = g.order[rng.int(g.order.length)]!;
+        const g = state.game!;
+        const roll = rng.next();
+        if (roll < 0.006) {
+          // Someone leaves (never the host, who removes them); some come back, some are removed.
+          const leaver = g.order[1 + rng.int(g.order.length - 1)]!;
           state = thorns.playerLeft(state, leaver, now);
+        } else if (roll < 0.012 && g.away.length) {
+          const id = g.away[rng.int(g.away.length)]!;
+          if (rng.next() < 0.5) state = thorns.playerJoined(state, { id, name: id });
+          else act(HOST, { type: 'remove', player: id });
         } else {
           const move = randomMove(state, rng);
           if (move) act(move.by, move.action);

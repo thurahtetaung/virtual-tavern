@@ -72,15 +72,17 @@ function Mat({
     ? p.left
       ? 'left'
       : 'out'
-    : r.challenger === p.id
-      ? 'Challenger'
-      : r.passed.includes(p.id)
-        ? 'passed'
-        : bid
-          ? `bid ${bid.amount}`
-          : r.stage === 'place' && r.placed.includes(p.id)
-            ? 'ready'
-            : null;
+    : p.away
+      ? 'away'
+      : r.challenger === p.id
+        ? 'Challenger'
+        : r.passed.includes(p.id)
+          ? 'passed'
+          : bid
+            ? `bid ${bid.amount}`
+            : r.stage === 'place' && r.placed.includes(p.id)
+              ? 'ready'
+              : null;
   const body = (
     <>
       <div className="flex min-w-0 items-center justify-between gap-1">
@@ -372,6 +374,7 @@ export function Table(props: TableProps) {
   }, [flipping, g.players, r.bids, room.you]);
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const clock = g.clock;
+  const away = g.players.filter((p) => p.away && !p.out);
   const nudge =
     clock &&
     room.isHost &&
@@ -429,6 +432,36 @@ export function Table(props: TableProps) {
         ))}
       </ul>
       {view.phase === 'playing' && <MyArea {...props} />}
+      {view.phase === 'playing' && away.length > 0 && (
+        <section
+          aria-label="Players who left"
+          className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+        >
+          <p>
+            {away.map((p) => p.name).join(', ')} left the room:{' '}
+            {away.length === 1 ? 'they’re' : 'they’re all'} skipped (a skipped bidder passes), and
+            their discs stay on the mat.{' '}
+            {room.isHost
+              ? 'Wait for them to come back, or remove them.'
+              : 'The host can wait for them or remove them.'}
+          </p>
+          {room.isHost && (
+            <div className="flex flex-wrap justify-end gap-1.5">
+              {away.map((p) => (
+                <Button
+                  key={p.id}
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void act({ type: 'remove', player: p.id }, { anchor: 'th-away' })}
+                >
+                  Remove {p.name}
+                </Button>
+              ))}
+            </div>
+          )}
+          <RefusalSlot anchor="th-away" />
+        </section>
+      )}
       {nudge && nudge.length > 0 && (
         <div className="flex flex-wrap justify-end gap-1.5">
           {nudge.map((id) => (

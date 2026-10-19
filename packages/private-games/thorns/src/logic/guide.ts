@@ -194,7 +194,7 @@ function base(art: GuideArt): GameGuide {
         level: 'edge',
         bullets: [
           'The host can set a time for each decision. By default it is a reminder, and the host may tap Act for to move for a player.',
-          'In Strict mode, a player who runs out of time puts down a {rose} (or whatever they hold), bids the least they can when they must, passes a bid, turns over the next disc, gives up a random disc or names the next player. The log marks those moves with ⏱.',
+          'In Strict mode, nobody’s disc is put down for them except the first disc of a round, which is picked at random from their hand. Before any bid, a player out of time opens the bidding at 1; in the bidding, they pass; as Challenger, they turn over their own disc while it must be turned, then the top disc of the next stack clockwise; a disc to lose is picked at random, and the next player is named to start. The log marks those moves with ⏱.',
         ],
       },
       {
@@ -202,7 +202,8 @@ function base(art: GuideArt): GameGuide {
         level: 'edge',
         bullets: [
           'Players joining during a game watch, and are seated at the next one if there is room.',
-          'Someone who leaves mid-game is out. If their discs were still in play, the round is called off: everyone takes their discs back and it starts again, with nobody scoring or losing.',
+          'Someone who leaves mid-game stays in, marked away: they are skipped when discs go down and in the bidding (a skipped bidder has passed for that round), and their discs stay on the mat, where they can be turned over. If they come back, they carry on.',
+          'An away Challenger is waited for (a strict timer moves for them). The host can remove a player who left: if their discs were in play, the round starts again with nobody scoring or losing a disc; once a {thorn} has been hit, the round finishes first. If only one player is left, they win.',
         ],
       },
     ],

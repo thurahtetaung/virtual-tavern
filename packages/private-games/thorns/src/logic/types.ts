@@ -127,8 +127,13 @@ export interface Game {
   players: Record<PlayerId, PlayerState>;
   /** Names kept for players who have left. */
   names: Record<PlayerId, string>;
-  /** Players who left the room mid-game (out for good). */
+  /** Players the host removed after they left the room (out for good). */
   left: PlayerId[];
+  /**
+   * Players who left the room and haven't been removed: skipped when placing and bidding (a
+   * skipped bidder has passed), their discs still on the mat. They carry on if they come back.
+   */
+  away: PlayerId[];
   round: Round;
   clock: Clock | null;
   /** Who holds the Last Chance disc, and for which round. */
@@ -155,6 +160,8 @@ export type LogEntry = { id: number; round: number; auto?: Auto } & (
   | { kind: 'shown'; player: PlayerId }
   | { kind: 'starter'; by: PlayerId; starter: PlayerId }
   | { kind: 'void'; player: PlayerId }
+  | { kind: 'away'; player: PlayerId }
+  | { kind: 'back'; player: PlayerId }
   | { kind: 'end'; winners: PlayerId[]; how: 'points' | 'last' }
 );
 
@@ -193,6 +200,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('starter'), player: id }),
   z.object({ type: z.literal('show') }),
   z.object({ type: z.literal('act-for'), player: id }),
+  z.object({ type: z.literal('remove'), player: id }),
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),
 ]);
@@ -224,7 +232,10 @@ export interface PlayerView {
   shown: Disc[] | null;
   points: number;
   out: boolean;
+  /** Removed by the host after leaving. */
   left: boolean;
+  /** Left the room and not (yet) removed: skipped, discs still on the mat. */
+  away: boolean;
 }
 
 export interface RoundView {

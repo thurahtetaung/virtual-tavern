@@ -5,6 +5,7 @@ import {
   YOUR_TURN,
   bidAll,
   flip,
+  leaveRoom,
   localArt,
   putDown,
   table,
@@ -86,3 +87,27 @@ for (const [label, viewport, colorScheme] of [
     await shot(hana, '09-end');
   });
 }
+
+test('thorns remove control (phone-dark)', async ({ browser }) => {
+  test.setTimeout(120_000);
+  const look: Look = {
+    viewport: { width: 390, height: 844 },
+    colorScheme: 'dark',
+    setup: localArt,
+  };
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [hana, ana, ben] = (await table(browser, ['Hana', 'Ana', 'Ben'], look)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  await hana.getByRole('button', { name: 'Start the game' }).click();
+  await Promise.all([hana, ana, ben].map((p) => putDown(p)));
+  await leaveRoom(ben);
+  await expect(hana.getByRole('button', { name: 'Remove Ben' })).toBeVisible();
+  await hana.waitForTimeout(600);
+  await hana.screenshot({
+    path: 'test-results/thorns-shots/phone-dark-10-remove.png',
+    fullPage: true,
+  });
+});

@@ -353,3 +353,121 @@ describe('the Last Chance disc', () => {
     expect(game(failDownToOne({ lastChance: false })).chance).toBeNull();
   });
 });
+
+describe('players who leave', () => {
+  const join = (h: ReturnType<typeof started>, id: string) => {
+    h.state = thorns.playerJoined(h.state, { id, name: id.toUpperCase() });
+  };
+  const leave = (h: ReturnType<typeof started>, id: string) => {
+    h.state = thorns.playerLeft(h.state, id, h.now);
+  };
+
+  it('are skipped while placing and bidding (a skipped bidder passes), discs kept', () => {
+    const h = started(4, { first: 'p1' });
+    rigStacks(h, { p1: ['rose'], p2: ['rose'], p3: ['thorn'], p4: ['rose'] }, 'p1');
+    leave(h, 'p2');
+    expect(game(h).players.p2!.out).toBe(false);
+    expect(h.state.seats.p2).toBeDefined();
+    h.act('p1', { type: 'place', disc: 'rose' });
+    // p2 is skipped.
+    expect(round(h).current).toBe('p3');
+    h.act('p3', { type: 'bid', amount: 1 });
+    h.act('p4', { type: 'pass' });
+    // p1 is next; then p2 would be, and passes by being away.
+    h.act('p1', { type: 'bid', amount: 3 });
+    expect(round(h).passed).toContain('p2');
+    expect(round(h).current).toBe('p3');
+    // Their disc is still on the mat and can be turned over.
+    h.act('p3', { type: 'pass' });
+    h.act('p1', { type: 'flip', owner: 'p1' });
+    h.act('p1', { type: 'flip', owner: 'p1' });
+    h.act('p1', { type: 'flip', owner: 'p2' });
+    expect(round(h).flips.at(-1)).toEqual({ owner: 'p2', disc: 'rose' });
+    expect(thorns.view(h.state, 'p1').game!.players[1]).toMatchObject({ away: true, out: false });
+  });
+
+  it('are not waited for with their first disc, and carry on when they come back', () => {
+    const h = started(3, { first: 'p2' });
+    leave(h, 'p2');
+    h.act('p1', { type: 'place', disc: 'rose' });
+    h.act('p3', { type: 'place', disc: 'rose' });
+    expect(round(h).stage).toBe('turns');
+    // The starter is away: the next player here starts.
+    expect(round(h).current).toBe('p3');
+    join(h, 'p2');
+    expect(game(h).away).toEqual([]);
+    h.act('p3', { type: 'place', disc: 'rose' });
+    h.act('p1', { type: 'place', disc: 'rose' });
+    expect(round(h).current).toBe('p2');
+  });
+
+  it('an away Challenger is waited for; the host can remove them and the round restarts', () => {
+    const h = started(3, { first: 'p1' });
+    rigStacks(h, { p1: ['rose'], p2: ['rose'], p3: ['rose'] }, 'p1');
+    h.act('p1', { type: 'bid', amount: 3 });
+    leave(h, 'p1');
+    expect(round(h).stage).toBe('flip');
+    expect(thorns.nextDeadline!(h.state)).toBeNull();
+    expect(h.refuse('p2', { type: 'remove', player: 'p1' })).toBe('not-host');
+    expect(h.refuse(HOST, { type: 'remove', player: 'p2' })).toBe('not-away');
+  });
+
+  it('removing a player whose discs are in play restarts the round; with 2 left play goes on', () => {
+    const h = started(3, { first: 'p2' });
+    rigStacks(h, { p1: ['rose'], p2: ['rose', 'rose'], p3: ['thorn'] }, 'p2');
+    leave(h, 'p3');
+    h.act(HOST, { type: 'remove', player: 'p3' });
+    expect(game(h).players.p3).toMatchObject({ out: true, discs: [] });
+    expect(h.state.seats.p3).toBeUndefined();
+    expect(round(h)).toMatchObject({ number: 2, stage: 'place', starter: 'p2' });
+    expect(game(h).players.p2!.hand).toHaveLength(4);
+    expect(h.state.phase).toBe('playing');
+  });
+
+  it('once a thorn was hit, the round finishes first; one player left wins', () => {
+    const h = started(3, { first: 'p2', settings: { lastChance: false } });
+    rigStacks(h, { p1: ['rose'], p2: ['thorn'], p3: ['rose'] }, 'p2');
+    h.act('p2', { type: 'bid', amount: 1 });
+    h.act('p3', { type: 'pass' });
+    h.act('p1', { type: 'pass' });
+    h.act('p2', { type: 'flip', owner: 'p2' });
+    expect(round(h).stage).toBe('lose');
+    leave(h, 'p2');
+    h.act(HOST, { type: 'remove', player: 'p2' });
+    // Their disc to lose was picked for them, then they left: no restart.
+    expect(round(h).number).toBe(1);
+    leave(h, 'p3');
+    h.act(HOST, { type: 'remove', player: 'p3' });
+    expect(h.state.phase).toBe('over');
+    expect(game(h)).toMatchObject({ winners: ['p1'], how: 'last' });
+  });
+});
+
+describe('strict timers', () => {
+  const strict = { seconds: 20, timerMode: 'strict' as const };
+
+  it('put down only the first disc (a random one), then open the bidding at 1', () => {
+    const h = started(3, { first: 'p1', settings: strict });
+    h.tick();
+    expect(round(h).stage).toBe('turns');
+    for (const id of ['p1', 'p2', 'p3']) expect(game(h).players[id]!.stack).toHaveLength(1);
+    h.tick();
+    expect(round(h).bids).toEqual([{ by: 'p1', amount: 1 }]);
+    expect(game(h).players.p1!.stack).toHaveLength(1);
+    // In the bidding: pass.
+    h.tick();
+    expect(round(h).passed).toEqual(['p2']);
+  });
+
+  it('turn over the Challenger’s own discs, then the next stack clockwise', () => {
+    const h = started(4, { first: 'p2', settings: strict });
+    rigStacks(h, { p1: ['rose'], p2: ['rose'], p3: ['rose', 'rose'], p4: ['rose'] }, 'p2');
+    h.act('p2', { type: 'bid', amount: 5 });
+    h.tick();
+    expect(round(h).flips.map((f) => f.owner)).toEqual(['p2']);
+    h.tick();
+    h.tick();
+    h.tick();
+    expect(round(h).flips.map((f) => f.owner)).toEqual(['p2', 'p3', 'p3', 'p4']);
+  });
+});

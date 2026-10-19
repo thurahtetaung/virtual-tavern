@@ -79,12 +79,19 @@ export const ownToFlip = (g: Game) => {
   return by ? Math.min(highBid(r)?.amount ?? 0, g.players[by]!.stack.length) : 0;
 };
 
+/** In the game and in the room (not away). */
+const here = (g: Game) => (id: PlayerId) => !g.away.includes(id);
+
+/** `from` if they are in and here, else the next player who is. */
+const firstHere = (g: Game, from: PlayerId) =>
+  !g.players[from]!.out && here(g)(from) ? from : (nextAfter(g, from, here(g)) ?? from);
+
 /** Who the table is waiting on right now. */
 export function awaited(g: Game): PlayerId[] {
   const r = g.round;
   switch (r.stage) {
     case 'place':
-      return alive(g).filter((id) => g.players[id]!.stack.length === 0);
+      return alive(g).filter((id) => g.players[id]!.stack.length === 0 && here(g)(id));
     case 'turns':
     case 'bid':
       return r.current ? [r.current] : [];
@@ -197,15 +204,17 @@ function place(s: ThornsState, by: PlayerId, disc: Disc, auto?: Auto): GameError
   p.stack.push(disc);
   r.moves += 1;
   log(s, { kind: 'placed', by, ...autoOf(auto) });
-  if (r.stage === 'place') {
-    if (alive(g).every((id) => g.players[id]!.stack.length > 0)) {
-      r.stage = 'turns';
-      r.current = r.starter;
-    }
-  } else {
-    r.current = nextAfter(g, by, () => true);
-  }
+  if (r.stage === 'place') placedAll(g);
+  else r.current = nextAfter(g, by, here(g)) ?? r.current;
   return null;
+}
+
+/** Once everyone here has a first disc down, turns start from the first player (or the next one here). */
+function placedAll(g: Game) {
+  const r = g.round;
+  if (r.stage !== 'place' || awaited(g).length > 0) return;
+  r.stage = 'turns';
+  r.current = firstHere(g, r.starter);
 }
 
 function startChallenge(s: ThornsState, by: PlayerId, amount: number) {
@@ -221,9 +230,21 @@ function nextBidder(s: ThornsState, from: PlayerId) {
   const g = s.game!;
   const r = g.round;
   const high = highBid(r)!;
-  const next = nextAfter(g, from, (id) => id !== high.by && !r.passed.includes(id));
-  if (next) r.current = next;
-  else startChallenge(s, high.by, high.amount);
+  for (;;) {
+    const next = nextAfter(g, from, (id) => id !== high.by && !r.passed.includes(id));
+    if (!next) {
+      startChallenge(s, high.by, high.amount);
+      return;
+    }
+    if (here(g)(next)) {
+      r.current = next;
+      return;
+    }
+    // Away: skipped, which counts as a pass for this round.
+    r.passed.push(next);
+    log(s, { kind: 'pass', by: next, auto: 'left' });
+    from = next;
+  }
 }
 
 function bid(s: ThornsState, by: PlayerId, amount: number, auto?: Auto): GameError | null {
@@ -474,10 +495,11 @@ function nameStarter(s: ThornsState, by: PlayerId, player: PlayerId, now: number
 // ---- Moves made for a player ----
 
 /**
- * The safe move made for a player who ran out of time, when the host acts for them, or for
- * bots' fallbacks: put down a rose (else whatever is in hand), bid the least when there is
- * nothing left to put down, pass a bid, turn over the next disc that must be turned (a random
- * stack once your own are done), give up a random disc, name a random starter.
+ * The move made for a player who ran out of time, or when the host acts for them: never a disc
+ * put down, except the round's mandatory first one (a random disc from their hand); before any
+ * bid, open the bidding at the least (1); in the bidding, pass; as Challenger, turn over the top
+ * disc of their own stack while it must be turned, then of the next stack clockwise; give up a
+ * random disc; name the next player.
  */
 function autoAct(s: ThornsState, who: PlayerId, why: Auto, now: number, rng: Rng): boolean {
   const g = s.game!;
@@ -485,22 +507,23 @@ function autoAct(s: ThornsState, who: PlayerId, why: Auto, now: number, rng: Rng
   const p = g.players[who];
   // A Challenger out by their own thorn still names who starts.
   if (!p || (p.out && r.stage !== 'starter') || !awaited(g).includes(who)) return false;
-  const pick = (xs: PlayerId[]) => xs[rng.int(xs.length)]!;
   let e: GameError | null = null;
   switch (r.stage) {
     case 'place':
+      e = place(s, who, p.hand[rng.int(p.hand.length)]!, why);
+      break;
     case 'turns':
-      if (p.hand.length > 0) {
-        const disc = (['rose', 'chance', 'thorn'] as const).find((d) => p.hand.includes(d))!;
-        e = place(s, who, disc, why);
-      } else e = bid(s, who, (highBid(r)?.amount ?? 0) + 1, why);
+      e = bid(s, who, 1, why);
       break;
     case 'bid':
       e = pass(s, who, why);
       break;
-    case 'flip':
-      e = flip(s, who, pick(flipTargets(g)), now, rng, why);
+    case 'flip': {
+      const targets = flipTargets(g);
+      const next = targets.includes(who) ? who : nextAfter(g, who, (id) => targets.includes(id));
+      e = next ? flip(s, who, next, now, rng, why) : err('stuck', 'Nothing to turn over.');
       break;
+    }
     case 'lose':
       e = lose(s, who, p.discs[rng.int(p.discs.length)]!, now, why);
       break;
@@ -554,8 +577,14 @@ function sit(state: ThornsState, playing: boolean, ctx: Ctx): Result {
   return s;
 }
 
+/** Players still away when a game ends have left the room: their seats go. */
+function dropAway(s: ThornsState) {
+  for (const id of s.game?.away ?? []) delete s.seats[id];
+}
+
 function deal(state: ThornsState, ctx: Ctx): Result {
   const s = draft(state);
+  dropAway(s);
   seatWaiting(s);
   const order = players(s);
   if (order.length < MIN_PLAYERS) return err('too-few', `${MIN_PLAYERS} players are needed.`);
@@ -571,6 +600,7 @@ function deal(state: ThornsState, ctx: Ctx): Result {
     players: pl,
     names: Object.fromEntries(order.map((id) => [id, s.seats[id]!.name])),
     left: [],
+    away: [],
     round: {
       number: 0,
       starter: order[0]!,
@@ -616,6 +646,7 @@ function backToLobby(state: ThornsState, ctx: Ctx): Result {
   if (e) return e;
   if (state.phase === 'lobby') return err('wrong-phase', 'No game to leave.');
   const s = draft(state);
+  dropAway(s);
   s.phase = 'lobby';
   s.game = null;
   s.log = [];
@@ -669,6 +700,11 @@ function reduce(state: ThornsState, action: ThornsAction, ctx: Ctx): Result {
       return inPlay(state, ctx, (s) => nameStarter(s, by, action.player, ctx.now));
     case 'show':
       return inPlay(state, ctx, (s) => show(s, by));
+    case 'remove': {
+      const e = requireHost(ctx);
+      if (e) return e;
+      return inPlay(state, ctx, (s) => remove(s, action.player, ctx.now, ctx.rng));
+    }
     case 'act-for': {
       const e = requireHost(ctx);
       if (e) return e;
@@ -705,7 +741,13 @@ function playerJoined(state: ThornsState, player: PlayerInfo): ThornsState {
   const existing = s.seats[player.id];
   if (existing) {
     existing.name = player.name;
-    if (s.game?.names[player.id]) s.game.names[player.id] = player.name;
+    const g = s.game;
+    if (g?.names[player.id]) g.names[player.id] = player.name;
+    // Back from being away: they carry on from here.
+    if (g?.away.includes(player.id)) {
+      g.away = g.away.filter((id) => id !== player.id);
+      log(s, { kind: 'back', player: player.id });
+    }
     return s;
   }
   const playing = s.phase !== 'playing' && players(s).length < MAX_PLAYERS;
@@ -715,39 +757,75 @@ function playerJoined(state: ThornsState, player: PlayerInfo): ThornsState {
 }
 
 /**
- * Someone left for good. Mid-game they are out at once and their discs leave the table. While
- * their discs were in play (the first discs, the turns, the bidding or the flip), the round is
- * called off: everyone takes their discs back and it starts again, with nobody winning or losing
- * anything. Once a thorn has been hit, the round finishes as it would have.
+ * Someone left the room for good. Mid-game they keep their place: away, skipped when placing and
+ * bidding (a skipped bidder has passed), their discs still on the mat, until they come back or
+ * the host removes them. A Challenger who is away is waited for.
  */
 function playerLeft(state: ThornsState, playerId: PlayerId, now: number): ThornsState {
   if (!state.seats[playerId]) return state;
   const s = draft(state);
-  delete s.seats[playerId];
   const g = s.game;
   const p = g?.players[playerId];
   if (s.phase !== 'playing' || !g || !p || p.out) {
+    delete s.seats[playerId];
     if (s.phase !== 'playing') seatWaiting(s);
     return s;
   }
-  p.out = true;
-  p.discs = [];
-  g.left.push(playerId);
-  log(s, { kind: 'out', player: playerId, cause: 'left' });
-  const left = alive(g);
-  if (left.length <= 1) {
-    endGame(s, left, 'last');
-    return s;
-  }
+  if (g.away.includes(playerId)) return s;
+  g.away.push(playerId);
+  log(s, { kind: 'away', player: playerId });
   const r = g.round;
-  if (['place', 'turns', 'bid', 'flip'].includes(r.stage)) {
-    log(s, { kind: 'void', player: playerId });
-    beginRound(s, r.starter);
-  } else if (r.result?.next === playerId) {
-    r.result.next = nextAfter(g, playerId, () => true);
+  if (r.stage === 'place') placedAll(g);
+  else if (r.stage === 'turns' && r.current === playerId)
+    r.current = nextAfter(g, playerId, here(g)) ?? r.current;
+  else if (r.stage === 'bid' && r.current === playerId) {
+    r.passed.push(playerId);
+    log(s, { kind: 'pass', by: playerId, auto: 'left' });
+    nextBidder(s, playerId);
   }
   settle(s, now);
   return s;
+}
+
+/**
+ * The host removes a player who left: they are out and their discs leave the table. If their
+ * discs were in play (the first discs, the turns, the bidding or the flip), the round is called
+ * off: everyone takes their discs back and it starts again, with nobody winning or losing
+ * anything. Once a thorn has been hit, the round finishes as it would have (a removed Challenger's
+ * choices are made for them first). With one player left, they win.
+ */
+function remove(s: ThornsState, player: PlayerId, now: number, rng: Rng): GameError | null {
+  const g = s.game!;
+  const p = g.players[player];
+  if (!p || !g.away.includes(player))
+    return err('not-away', 'Only a player who has left can be removed.');
+  const r = g.round;
+  if (awaited(g).includes(player) && (r.stage === 'lose' || r.stage === 'starter'))
+    autoAct(s, player, 'left', now, rng);
+  const inPlay = p.stack.length > 0 && ['place', 'turns', 'bid', 'flip'].includes(r.stage);
+  g.away = g.away.filter((id) => id !== player);
+  delete s.seats[player];
+  if (s.phase !== 'playing' || p.out) return null;
+  p.out = true;
+  p.discs = [];
+  g.left.push(player);
+  log(s, { kind: 'out', player, cause: 'left' });
+  const left = alive(g);
+  if (left.length <= 1) {
+    endGame(s, left, 'last');
+    return null;
+  }
+  if (inPlay) {
+    log(s, { kind: 'void', player });
+    beginRound(s, r.starter);
+    return null;
+  }
+  if (r.result?.next === player) r.result.next = nextAfter(g, player, () => true);
+  if (r.stage === 'place') placedAll(g);
+  else if (r.current === player && r.stage === 'turns')
+    r.current = nextAfter(g, player, here(g)) ?? r.current;
+  else if (r.current === player && r.stage === 'bid') nextBidder(s, player);
+  return null;
 }
 
 // ---- Timers ----
@@ -812,6 +890,7 @@ function gameView(state: ThornsState, g: Game): GameView {
         points: p.points,
         out: p.out,
         left: g.left.includes(id),
+        away: g.away.includes(id),
       };
     }),
     round: {
