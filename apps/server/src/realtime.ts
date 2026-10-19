@@ -95,6 +95,8 @@ export interface RealtimeOptions {
   isTestTraffic?: (headers: IncomingHttpHeaders) => boolean;
   /** A playtest's award preview to send a seat that (re)joins, if its game just ended. */
   playtestAwards?: (roomId: string) => RecapLine[] | null;
+  /** A refused move (`game:action`), for the metrics. */
+  onRefusal?: (roomId: string, code: string) => void;
 }
 
 /** Broadcast messages at least this big are compressed. */
@@ -178,12 +180,16 @@ export function announceNextTable(
 export function createRoomEvents(
   getIo: () => IO | undefined,
   getRooms: () => RoomManager,
+  /** Each change sent: how long it took and each snapshot's size in bytes (for the metrics). */
+  onBroadcast?: (seconds: number, sizes: number[]) => void,
 ): RoomEvents {
   return {
     changed(roomId) {
       const io = getIo();
       const ids = io?.of('/').adapter.rooms.get(channel(roomId));
       if (!io || !ids) return;
+      const started = performance.now();
+      const sizes: number[] = [];
       const access = roomAccess(gates.get(io), roomId);
       // One gate check per distinct cookie, one view per player, one encode per player.
       const unlockedByCookie = new Map<string | undefined, boolean>();
@@ -224,7 +230,10 @@ export function createRoomEvents(
           lastSent.set(s, key);
           return true;
         });
-        if (due.length) io.to(due).emit('room:state', snapshot);
+        if (due.length) {
+          io.to(due).emit('room:state', snapshot);
+          if (onBroadcast) sizes.push(Buffer.byteLength(key));
+        }
         // A join, a game starting or ending and a new tone each come with their recap.
         if (snapshot.meta?.recap) {
           const moment = `${recapFor(snapshot)}|${snapshot.meta.tone}`;
@@ -238,6 +247,7 @@ export function createRoomEvents(
       }
       // After the change is fully recorded (the stats observer runs once the state is sent).
       if (recapDue.length) queueMicrotask(() => pushRecap(io, roomId, recapDue));
+      if (onBroadcast && sizes.length) onBroadcast((performance.now() - started) / 1000, sizes);
       // Their unlock (or admin session) expired or was revoked: this snapshot never reached them,
       // and no later one will.
       const stale = lockedOut.map((s) => ({ s, playerId: s.data.playerId }));
@@ -505,7 +515,11 @@ export function attachRealtime(
     socket.on('game:action', (action, ack) =>
       guarded(
         ack,
-        inRoom((roomId, playerId) => rooms.act(roomId, playerId, action)),
+        inRoom((roomId, playerId) => {
+          const res = rooms.act(roomId, playerId, action);
+          if (!res.ok) opts.onRefusal?.(roomId, res.error.code);
+          return res;
+        }),
       ),
     );
 

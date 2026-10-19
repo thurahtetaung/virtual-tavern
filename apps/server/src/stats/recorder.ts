@@ -145,6 +145,10 @@ export interface StatsRecorderOptions {
   flushEveryMs?: number;
   /** Whether test traffic opened or joined the room; its recap usage counts are not recorded. */
   isTestRoom?: (roomId: string) => boolean;
+  /** Sees every event recorded (never a test room's), for the metrics. */
+  onEvent?: (e: StatsEvent) => void;
+  /** How long each write took and whether it worked, for the metrics. */
+  onFlush?: (seconds: number, ok: boolean) => void;
 }
 
 /**
@@ -156,6 +160,8 @@ export class StatsRecorder implements RoomObserver {
   private readonly logger: RoomLogger;
   private readonly flushEveryMs: number;
   private readonly isTestRoom: (roomId: string) => boolean;
+  private readonly onEvent: (e: StatsEvent) => void;
+  private readonly onFlush: (seconds: number, ok: boolean) => void;
   private events: StatsEvent[] = [];
   private sightings: PlayerSighting[] = [];
   private gamesPlayed = new Map<string, number>();
@@ -170,6 +176,8 @@ export class StatsRecorder implements RoomObserver {
     this.logger = opts.logger;
     this.flushEveryMs = opts.flushEveryMs ?? FLUSH_EVERY_MS;
     this.isTestRoom = opts.isTestRoom ?? (() => false);
+    this.onEvent = opts.onEvent ?? (() => {});
+    this.onFlush = opts.onFlush ?? (() => {});
   }
 
   observe(o: RoomObservation): void {
@@ -238,10 +246,17 @@ export class StatsRecorder implements RoomObserver {
     this.events = [];
     this.sightings = [];
     this.gamesPlayed = new Map();
+    const started = performance.now();
+    // Only batches with something in them count towards the write timings.
+    const timed = (ok: boolean) => {
+      if (events.length || sightings.length) this.onFlush((performance.now() - started) / 1000, ok);
+    };
     try {
       this.store.append(events);
       this.store.upsertPlayers(sightings, games);
+      timed(true);
     } catch (err) {
+      timed(false);
       this.logger.error({ err, events: events.length }, 'stats flush failed; events dropped');
     }
   }
@@ -462,6 +477,7 @@ export class StatsRecorder implements RoomObserver {
 
   private push(e: StatsEvent) {
     this.events.push(e);
+    this.onEvent(e);
     if (this.events.length >= FLUSH_AT) {
       this.flush();
       return;
