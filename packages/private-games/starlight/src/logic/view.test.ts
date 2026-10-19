@@ -14,8 +14,6 @@ const ROUND_KEYS = [
   'board',
   'fresh',
   'word',
-  'choices',
-  'side',
   'stage',
   'myMarks',
   'locked',
@@ -38,24 +36,15 @@ function leaks(state: StarlightState, viewer: string | null): string[] {
   const found: string[] = [];
   for (const key of ['"pile"', '"words"', '"seed"', '"marks"', '"departed"'])
     if (json.includes(key)) found.push(`field ${key}`);
-  for (const card of state.words)
-    for (const w of card) if (json.includes(JSON.stringify(w))) found.push(`a later word ${w}`);
+  for (const w of state.words)
+    if (json.includes(JSON.stringify(w))) found.push(`a later word ${w}`);
   const r = state.round;
   if (!r) return found;
   const v = view.round!;
   if (JSON.stringify(Object.keys(v).sort()) !== JSON.stringify(ROUND_KEYS))
     found.push('round keys');
-  // The word card: both words only to the First Scout while they choose; after, only the one played.
-  const [top, bottom] = r.card;
-  if (r.stage === 'word') {
-    if (
-      viewer !== r.first &&
-      (json.includes(JSON.stringify(top)) || (bottom && json.includes(JSON.stringify(bottom))))
-    )
-      found.push('the word card before it was chosen');
-  } else if (bottom && json.includes(JSON.stringify(r.side === 0 ? bottom : top))) {
-    found.push('the word not played');
-  }
+  // One plain word: never a printed card's pair.
+  if (v.word !== r.word || v.word.includes('/')) found.push('the word');
   // Crosses: your own, and who marked a card only once it is shown.
   if (JSON.stringify(v.myMarks) !== JSON.stringify(viewer ? (r.marks[viewer] ?? []) : []))
     found.push('own marks');
@@ -64,7 +53,7 @@ function leaks(state: StarlightState, viewer: string | null): string[] {
     if ([...s.markers].sort().join() !== truth.sort().join()) found.push('shown markers');
   }
   if (v.shown.length !== r.shown.length) found.push('shown cards');
-  if ((r.stage === 'word' || r.stage === 'mark') && (v.counts !== null || v.left !== null))
+  if (r.stage === 'mark' && (v.counts !== null || v.left !== null))
     found.push('counts before the Announce');
   return found;
 }
@@ -77,8 +66,6 @@ describe('view() is the boundary', () => {
     const check = () => {
       for (const v of viewers(h.state)) expect(leaks(h.state, v), `${v}`).toEqual([]);
     };
-    check();
-    if (round(h).stage === 'word') h.act({ type: 'choose-word', side: 1 }, round(h).first);
     check();
     const [a, b, c, d, e] = fromFirst(h);
     h.act({ type: 'mark', positions: [0, 7, 9] }, a);

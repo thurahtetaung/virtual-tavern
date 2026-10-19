@@ -48,7 +48,12 @@ import {
   startBlocker,
   statusFor,
 } from './status.ts';
-import { type Manifest, firstScoutArt, lanternArt, useManifest as useTokens } from './assets.ts';
+import {
+  type ManifestState,
+  firstScoutArt,
+  lanternArt,
+  useManifest as useTokens,
+} from './assets.ts';
 import { Tip } from './Tips.tsx';
 
 export type StarlightUiProps = GameUiProps<StarlightView, StarlightAction>;
@@ -158,7 +163,7 @@ export function StarlightGame({
             clueLabel="Marking timer"
             guessLabel="Scout timer"
             clueHelp="Time to mark your slate. The rules say take as long as you like."
-            guessHelp="Time for each Scout to show a card (and for the First Scout to pick the word)."
+            guessHelp="Time for each Scout to show a card."
             strictHelp="open slates lock as they are, and a slow Scout shows a random card of theirs"
           />
           {room.isHost && (
@@ -278,7 +283,6 @@ function Seats({
 
 /** What each step's clock is for, and what a strict timer does at 0:00. */
 const STEP_TIMER: Partial<Record<RoundView['stage'], { label: string; atZero: string }>> = {
-  word: { label: 'to pick the word', atZero: 'then the top word is played' },
   mark: { label: 'to mark', atZero: 'then open slates lock as they are' },
   reveal: { label: 'to show a card', atZero: 'then a random card is shown' },
 };
@@ -366,8 +370,8 @@ function Play({
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
           <span className="flex items-center gap-1">
             {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} ·{' '}
-            <Token src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" /> First Scout:{' '}
-            {r.first === you ? 'you' : nameOf(view, r.first)}
+            <Token tokens={tokens} src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />{' '}
+            First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
           </span>
           {view.phase === 'playing' && (
             <Countdown
@@ -380,14 +384,12 @@ function Play({
             />
           )}
         </div>
-        {r.word !== null && (
-          <p className="text-center" data-testid="starlight-word">
-            <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
-              The word
-            </span>
-            <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
-          </p>
-        )}
+        <p className="text-center" data-testid="starlight-word">
+          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
+            The word
+          </span>
+          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
+        </p>
       </header>
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
       {canMark && (
@@ -402,27 +404,6 @@ function Play({
       )}
 
       {view.phase === 'over' && <Final view={view} room={room} act={act} confirm={confirm} />}
-
-      {r.stage === 'word' && r.choices && (
-        <Panel className="space-y-3 text-center">
-          <p className="font-semibold">
-            This word card has two words. Which one does the table play?
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button size="lg" onClick={() => void act({ type: 'choose-word', side: 0 })}>
-              Play “{r.choices[0]}”
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => void act({ type: 'choose-word', side: 1 })}
-            >
-              Flip to “{r.choices[1]}”
-            </Button>
-          </div>
-          <p className="text-sm text-ink-muted">Only you see both. Nobody else can switch.</p>
-        </Panel>
-      )}
 
       {last && r.stage !== 'mark' && (
         <p
@@ -644,9 +625,23 @@ function GridCard({
   );
 }
 
-/** A token's picture from the private manifest, or its emoji without one (or if it can't load). */
-function Token({ src, emoji, alt }: { src: string | null; emoji: string; alt: string }) {
+/**
+ * A token's picture from the private manifest, or its emoji without one (or if it can't load).
+ * While the manifest is still loading it keeps the space empty, so no emoji flashes first.
+ */
+function Token({
+  src,
+  emoji,
+  alt,
+  tokens,
+}: {
+  src: string | null;
+  emoji: string;
+  alt: string;
+  tokens: ManifestState;
+}) {
   const [failed, setFailed] = useState(false);
+  if (tokens === null) return <span aria-hidden className="inline-block size-6 shrink-0" />;
   if (!src || failed)
     return (
       <span role="img" aria-label={alt} className="inline-block w-5 text-center">
@@ -664,7 +659,7 @@ function Token({ src, emoji, alt }: { src: string | null; emoji: string; alt: st
 }
 
 /** Who is in the Dark, from the Announce on: the one thing the table must know before showing. */
-function DarkLine({ view, tokens }: { view: StarlightView; tokens: Manifest | null }) {
+function DarkLine({ view, tokens }: { view: StarlightView; tokens: ManifestState }) {
   const r = view.round!;
   if (!r.counts) return null;
   const top = Math.max(...Object.values(r.counts));
@@ -677,7 +672,12 @@ function DarkLine({ view, tokens }: { view: StarlightView; tokens: Manifest | nu
     >
       {dark ? (
         <>
-          <Token src={lanternArt(tokens, dark.color, 'dark')} emoji="🌑" alt="Dark lantern" />
+          <Token
+            tokens={tokens}
+            src={lanternArt(tokens, dark.color, 'dark')}
+            emoji="🌑"
+            alt="Dark lantern"
+          />
           <span>
             <b className="text-ink">
               {dark.id === you ? 'You are' : `${dark.name} is`} in the Dark
@@ -731,10 +731,16 @@ function StarBoard({
               <div className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-1">
                   {s.id === r.first && (
-                    <Token src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />
+                    <Token
+                      tokens={tokens}
+                      src={firstScoutArt(tokens)}
+                      emoji="🔭"
+                      alt="First Scout pawn"
+                    />
                   )}
                   {r.counts?.[s.id] !== undefined && (
                     <Token
+                      tokens={tokens}
                       src={lanternArt(tokens, s.color, r.dark === s.id ? 'dark' : 'light')}
                       emoji={r.dark === s.id ? '🌑' : '🏮'}
                       alt={r.dark === s.id ? 'Lantern, Dark side' : 'Lantern, Light side'}

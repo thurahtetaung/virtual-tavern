@@ -1,5 +1,4 @@
 import type { InsightEvent, PlayerId } from '@vt/game-sdk';
-import { wordOf } from './switch.ts';
 import type { Round, StarlightAction, StarlightState } from './types.ts';
 
 const sameRound = (before: StarlightState, after: StarlightState) =>
@@ -73,7 +72,7 @@ export function insights(
 }
 
 function announced(round: Round): InsightEvent {
-  const word = wordOf(round) ?? '';
+  const word = round.word;
   const ids = Object.keys(round.counts ?? {});
   return {
     type: 'word',
@@ -82,7 +81,6 @@ function announced(round: Round): InsightEvent {
     props: {
       round: round.no,
       word,
-      flipped: round.side === 1,
       dark: round.dark,
       players: ids,
       counts: ids.map((id) => round.counts![id]!),

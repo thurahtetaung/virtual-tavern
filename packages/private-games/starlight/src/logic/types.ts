@@ -47,9 +47,6 @@ export interface Seat {
   rounds: number[];
 }
 
-/** One word card: the word on top, and the one printed upside down (absent for one-word lists). */
-export type WordCard = [string] | [string, string];
-
 /** A card a Scout showed and what came of it. */
 export type ShowKind = 'spark' | 'super' | 'fall';
 
@@ -67,8 +64,7 @@ export interface Shown {
   auto?: boolean;
 }
 
-/** `word`: the First Scout picks a two-word card's word (see `switch.ts`); then marking. */
-export type Stage = 'word' | 'mark' | 'reveal' | 'done';
+export type Stage = 'mark' | 'reveal' | 'done';
 
 export interface RoundResult {
   stars: number;
@@ -92,9 +88,7 @@ export interface Round {
   board: number[];
   /** Positions new this round (the replaced line), for the table to point out. */
   fresh: number[];
-  card: WordCard;
-  /** Which word of the card is in play: 0 the top one, 1 the one printed upside down. */
-  side: 0 | 1;
+  word: string;
   stage: Stage;
   /** Each player's crosses (grid positions); secret until a card is shown. */
   marks: Record<PlayerId, number[]>;
@@ -125,8 +119,8 @@ export interface StarlightState {
   seats: Record<PlayerId, Seat>;
   /** Cards still to come, top first. */
   pile: number[];
-  /** Word cards still to come. */
-  words: WordCard[];
+  /** Words still to come. */
+  words: string[];
   round: Round | null;
   winners: PlayerId[];
   endReason: EndReason | null;
@@ -175,8 +169,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('lock') }),
   z.object({ type: z.literal('unlock') }),
-  /** The First Scout plays the card's top word (0) or the one upside down (1). */
-  z.object({ type: z.literal('choose-word'), side: z.union([z.literal(0), z.literal(1)]) }),
   z.object({ type: z.literal('show'), pos: position }),
   z.object({ type: z.literal('next-round') }),
 ]);
@@ -201,11 +193,7 @@ export interface RoundView {
   players: PlayerId[];
   board: number[];
   fresh: number[];
-  /** The word in play; null while the First Scout is still choosing it. */
-  word: string | null;
-  /** Both words, only to the First Scout while they choose. */
-  choices: [string, string] | null;
-  side: 0 | 1;
+  word: string;
   stage: Stage;
   /** Only the viewer's own crosses. */
   myMarks: number[];

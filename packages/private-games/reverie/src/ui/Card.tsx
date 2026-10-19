@@ -1,6 +1,6 @@
 import { ProtectedImage, cn } from '@vt/ui';
 import { useState } from 'react';
-import { cardUrl } from './assets.ts';
+import { cardUrl, useManifest } from './assets.ts';
 
 interface Props {
   card: number;
@@ -17,29 +17,48 @@ interface Props {
 }
 
 /**
- * One picture card. The image comes from private storage and lies over a numbered placeholder,
- * so a card still loading (or one that can't load: no storage in tests, or a missing file) shows
- * its number rather than a blank rectangle, and play goes on.
+ * One picture card. The image comes from private storage. While the manifest or the image is
+ * still loading the card is a plain pulsing shape (no number to flash first); without asset
+ * storage (tests, dev), or for a card that can't load, it shows its number as a placeholder, so
+ * play goes on.
  */
 export function Card({ card, label, selected, dimmed, onClick, className, big, eager }: Props) {
-  const [failed, setFailed] = useState(false);
+  const [art, setArt] = useState<{ card: number; state: 'loading' | 'loaded' | 'failed' }>({
+    card,
+    state: 'loading',
+  });
+  const state = art.card === card ? art.state : 'loading';
+  const failed = state === 'failed';
+  const noStorage = useManifest() === 'unavailable';
+  const numbered = failed || (noStorage && state === 'loading');
   const body = (
     <>
-      <span
-        aria-hidden={!failed}
-        className={cn(
-          'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-amber-950 dark:from-amber-900 dark:to-orange-950 dark:text-amber-100',
-          big ? 'text-6xl' : 'text-2xl',
-        )}
-      >
-        {card}
-      </span>
+      {numbered ? (
+        <span
+          aria-hidden={!failed}
+          className={cn(
+            'absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-200 to-orange-300 font-serif font-bold text-amber-950 dark:from-amber-900 dark:to-orange-950 dark:text-amber-100',
+            big ? 'text-6xl' : 'text-2xl',
+          )}
+        >
+          {card}
+        </span>
+      ) : (
+        state === 'loading' && (
+          <span
+            aria-hidden
+            data-testid="card-loading"
+            className="absolute inset-0 animate-pulse bg-stone-300 motion-reduce:animate-none dark:bg-stone-700"
+          />
+        )
+      )}
       {!failed && (
         <ProtectedImage
           src={cardUrl(card)}
           alt={`Card ${card}`}
           loading={eager ? 'eager' : 'lazy'}
-          onError={() => setFailed(true)}
+          onLoad={() => setArt({ card, state: 'loaded' })}
+          onError={() => setArt({ card, state: 'failed' })}
           className="absolute inset-0 size-full object-cover"
         />
       )}

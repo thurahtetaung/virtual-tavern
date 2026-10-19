@@ -55,31 +55,58 @@ describe('lobby', () => {
 });
 
 describe('the word', () => {
-  it('lets only the First Scout pick a two-word card’s word, before marking', () => {
+  it('plays each side of a two-word entry as a word of its own, never the pair', () => {
+    const words = new Set<string>();
     for (let seed = 1; seed < 40; seed++) {
       const h = startedGame(FOUR, seed, content);
-      const r = round(h);
-      if (r.card.length !== 2) continue;
-      expect(r.stage).toBe('word');
-      const other = r.players.find((p) => p !== r.first)!;
-      expect(h.reject({ type: 'choose-word', side: 1 }, other)).toBe('not-first-scout');
-      expect(h.reject({ type: 'mark', positions: [1] }, other)).toBe('wrong-stage');
-      expect(starlight.view(h.state, other).round!.word).toBeNull();
-      expect(starlight.view(h.state, other).round!.choices).toBeNull();
-      expect(starlight.view(h.state, r.first).round!.choices).toEqual(r.card);
-      h.act({ type: 'choose-word', side: 1 }, r.first);
       expect(round(h).stage).toBe('mark');
-      expect(starlight.view(h.state, other).round!.word).toBe(r.card[1]);
-      expect(h.reject({ type: 'choose-word', side: 0 }, r.first)).toBe('wrong-stage');
-      return;
+      for (const w of [round(h).word, ...h.state.words]) {
+        expect(w).not.toContain('/');
+        words.add(w);
+      }
+      expect(starlight.view(h.state, 'ana').round!.word).toBe(round(h).word);
     }
-    throw new Error('no two-word card dealt');
+    expect([...words].sort()).toEqual(
+      ['Moon', 'Tide', 'Lantern', 'Harbour', 'Kite', 'Velvet', 'Thunder', 'Honey'].sort(),
+    );
   });
 
-  it('opens straight on marking for a one-word card', () => {
+  it('counts both sides towards the words a game needs, once each', () => {
+    const pairs = {
+      wordLists: () => [{ id: 'p', name: 'Pairs', wordCount: 3 }],
+      words: () => ['Moon / Tide', 'Kite / Moon', 'tide'],
+    };
+    expect(harness(FOUR, 3, pairs).reject({ type: 'start' })).toBe('cannot-start');
+    const more = { ...pairs, words: () => ['Moon / Tide', 'Kite / Moon', 'Honey'] };
+    const h = harness(FOUR, 3, more);
+    h.act({ type: 'start' });
+    expect([round(h).word, ...h.state.words].sort()).toEqual(['Honey', 'Kite', 'Moon', 'Tide']);
+  });
+
+  it('moves a room saved while the First Scout chose the word on to marking', () => {
     const h = startedGame();
-    expect(round(h).stage).toBe('mark');
-    expect(starlight.view(h.state, 'ana').round!.word).toBe(round(h).card[0]);
+    const { word: _, ...rest } = round(h);
+    const saved = {
+      ...h.state,
+      settings: { ...h.state.settings, clueSeconds: 30, timerMode: 'strict' as const },
+      words: [['Meadow', 'Pond'], ['Clock']],
+      round: { ...rest, card: ['Lantern', 'Ember'], side: 0, stage: 'word', deadline: NOW + 5 },
+    } as unknown as typeof h.state;
+    const v = starlight.view(saved, 'ana').round!;
+    expect(v).toMatchObject({ word: 'Lantern', stage: 'mark' });
+    const later = starlight.onDeadline!(saved, NOW + 5);
+    expect(later.round).toMatchObject({ word: 'Lantern', stage: 'mark', deadline: NOW + 30_005 });
+    expect(later.words).toEqual(['Meadow', 'Clock']);
+    expect(later.round).not.toHaveProperty('card');
+    h.state = saved;
+    h.act({ type: 'mark', positions: [1] }, 'ana');
+    expect(round(h)).toMatchObject({ word: 'Lantern', stage: 'mark' });
+    // A round already past the choice keeps the word that was played.
+    h.state = {
+      ...saved,
+      round: { ...saved.round!, stage: 'mark', card: ['Lantern', 'Ember'], side: 1 },
+    } as typeof saved;
+    expect(starlight.view(h.state, 'ana').round!.word).toBe('Ember');
   });
 });
 
@@ -183,8 +210,6 @@ describe('the Reveal', () => {
 
 describe('rounds and the end', () => {
   function finishRound(h: ReturnType<typeof startedGame>) {
-    const r = round(h);
-    if (r.stage === 'word') h.act({ type: 'choose-word', side: 0 }, r.first);
     const order = fromFirst(h);
     markAll(h, Object.fromEntries(order.map((id) => [id, [0]])));
     h.act({ type: 'show', pos: 0 }, order[0]);
@@ -195,13 +220,13 @@ describe('rounds and the end', () => {
     const seats = Object.keys(h.state.seats);
     const firsts = [round(h).first];
     const boards = [round(h).board];
-    const words = [round(h).card[0]];
+    const words = [round(h).word];
     for (let no = 1; no < 4; no++) {
       finishRound(h);
       h.act({ type: 'next-round' });
       firsts.push(round(h).first);
       boards.push(round(h).board);
-      words.push(round(h).card[0]);
+      words.push(round(h).word);
     }
     const changed = (x: number[], y: number[]) =>
       x.flatMap((card, pos) => (card === y[pos] ? [] : [pos]));
@@ -291,11 +316,11 @@ describe('timers', () => {
     const h = harness(FOUR, 3, content);
     h.act({ type: 'update-settings', clueSeconds: 30, guessSeconds: 20 });
     h.act({ type: 'start' });
-    expect(round(h).deadline).toBe(NOW + 20_000);
+    expect(round(h).deadline).toBe(NOW + 30_000);
     expect(starlight.nextDeadline!(h.state)).toBeNull();
   });
 
-  it('keeps the top word, locks slates as they are and shows for a slow Scout', () => {
+  it('locks slates as they are and shows for a slow Scout', () => {
     const h = harness();
     h.act({ type: 'update-settings', clueSeconds: 30, guessSeconds: 20, timerMode: 'strict' });
     h.act({ type: 'start' });
@@ -314,16 +339,5 @@ describe('timers', () => {
     }
     expect(state.round!.stage).toBe('done');
     expect(starlight.nextDeadline!(state)).toBeNull();
-
-    for (let seed = 1; seed < 40; seed++) {
-      const t = harness(FOUR, seed, content);
-      t.act({ type: 'update-settings', guessSeconds: 20, timerMode: 'strict' });
-      t.act({ type: 'start' });
-      if (round(t).stage !== 'word') continue;
-      const next = starlight.onDeadline!(t.state, NOW + 20_000);
-      expect(next.round).toMatchObject({ stage: 'mark', side: 0 });
-      return;
-    }
-    throw new Error('no two-word card dealt');
   });
 });
