@@ -146,6 +146,7 @@ describe('back room over HTTP', () => {
       'tavern-brawl',
       'short-fuse',
       'starlight',
+      'thorns',
     ]);
   });
 

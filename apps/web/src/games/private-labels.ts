@@ -17,6 +17,7 @@ import {
   nameGuide as nameShortFuseGuide,
   namesOf as shortFuseNames,
 } from '@vt/private-short-fuse/guide';
+import { namesOf as thornsNames } from '@vt/private-thorns/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
 /**
@@ -222,4 +223,11 @@ export async function shortFuseGuide(): Promise<GameGuide> {
     ...(url(m?.back) && { back: url(m?.back)! }),
   });
   return typeof tagline === 'string' && tagline.trim() ? { ...g, tagline: tagline.trim() } : g;
+}
+
+/** Thorns' disc names (`{card:thorn}`), from its manifest, with its placeholders otherwise. */
+export async function thornsLabels(): Promise<Labeler> {
+  const names = thornsNames(await manifest('thorns'));
+  return (kind, id) =>
+    kind === 'card' && (id === 'rose' || id === 'thorn' || id === 'chance') ? names[id] : undefined;
 }

@@ -27,6 +27,7 @@ export const SHARED_STATE = [
   /tavern-brawl[\w-]*\.spec\.ts$/,
   /short-fuse(-\w+)?\.spec\.ts$/,
   /starlight\.spec\.ts$/,
+  /thorns[\w-]*\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
 
@@ -49,6 +50,7 @@ const GAME_IDS = [
   'tavern-brawl',
   'short-fuse',
   'starlight',
+  'thorns',
 ];
 
 /**
