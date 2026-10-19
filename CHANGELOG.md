@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.45.0...v0.46.0) (2026-10-19)
+
+
+### Features
+
+* **thorns:** add Thorns, a disc-bluffing bidding game in the back room ([#297](https://github.com/thurahtetaung/virtual-tavern/issues/297)) ([aa3160f](https://github.com/thurahtetaung/virtual-tavern/commit/aa3160fea297f29189259840041f287def7995f5))
+
 ## [0.45.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.44.0...v0.45.0) (2026-10-19)
 
 
