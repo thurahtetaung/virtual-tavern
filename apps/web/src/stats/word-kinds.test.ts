@@ -18,6 +18,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('seance')).toEqual([]);
     expect(knownWordKinds('hydra')).toEqual([]);
     expect(knownWordKinds('short-fuse')).toEqual([]);
+    expect(knownWordKinds('starlight')).toEqual(['clue']);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });
@@ -25,6 +26,7 @@ describe('word kinds per game', () => {
   it('labels kinds in each game’s own words', () => {
     expect(wordKindLabel('hoodwink', 'guess')).toBe('Lies');
     expect(wordKindLabel('masquerade', 'clue')).toBe('Locations');
+    expect(wordKindLabel('starlight', 'clue')).toBe('Words');
     expect(wordKindLabel('codenames', 'guess')).toBe('Guesses');
     expect(wordKindLabel('reverie', 'story')).toBe('Story clues');
   });

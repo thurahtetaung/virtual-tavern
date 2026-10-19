@@ -145,6 +145,7 @@ describe('back room over HTTP', () => {
       'hogwarts',
       'tavern-brawl',
       'short-fuse',
+      'starlight',
     ]);
   });
 

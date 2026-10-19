@@ -50,6 +50,7 @@ const LIGHT: ChartTokens = {
     '#2d3f8f',
     '#b85c1e',
     '#8f2d4e',
+    '#0f766e',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -81,6 +82,7 @@ const DARK: ChartTokens = {
     '#7f93e8',
     '#d9773a',
     '#d46a8c',
+    '#2bb3a3',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -100,8 +102,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * amber), Séance a thirteenth (a plum, apart from the pink and the violet) and Hydra's themed
  * edition a fourteenth (a navy, apart from the plum before it and from both blues by lightness),
  * Tavern Brawl a fifteenth (a burnt orange, darker than the orange and apart from the navy),
- * and Short Fuse a sixteenth (a wine, apart from the burnt orange before it and darker than the
- * pink).
+ * Short Fuse a sixteenth (a wine, apart from the burnt orange before it and darker than the
+ * pink), and Starlight a seventeenth (a deep teal, apart from the wine before it; dark mode a
+ * brighter sea green).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -122,6 +125,7 @@ const FIXED_ORDER = [
   'hogwarts',
   'tavern-brawl',
   'short-fuse',
+  'starlight',
 ];
 
 /**

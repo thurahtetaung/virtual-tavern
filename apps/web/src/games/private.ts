@@ -18,6 +18,7 @@ import {
 import { guide as seanceGuide, nameGuide as nameSeanceGuide } from '@vt/private-seance/guide';
 import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
+import { guide as starlightGuide } from '@vt/private-starlight/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -160,6 +161,16 @@ const games: ClientGame[] = [
     ),
     labels: shortFuseLabels,
     namedGuide: shortFuseNamedGuide,
+  },
+  {
+    id: 'starlight',
+    name: 'Starlight',
+    guide: starlightGuide,
+    namedGuide: taggedGuide('starlight', starlightGuide),
+    icon: '🌠',
+    Component: lazyUi(() =>
+      import('@vt/private-starlight/ui').then((m) => ({ default: m.StarlightGame })),
+    ),
   },
 ];
 
