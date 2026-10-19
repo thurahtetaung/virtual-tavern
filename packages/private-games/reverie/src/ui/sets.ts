@@ -1,4 +1,4 @@
-import { CARD_SETS } from '../logic/cards.ts';
+import { CARD_SETS, STELLAR_SET } from '../logic/cards.ts';
 import type { Manifest } from './assets.ts';
 
 /** A set description that only lists card numbers ("Cards 000–084") means nothing to players. */
@@ -14,7 +14,13 @@ export function cardSetChoices(manifest: Manifest | null | 'unavailable') {
     id: s.id,
     name:
       setNames.get(s.id)?.name ??
-      (s.id === 'base' ? 'Base set' : s.id === 'extras' ? 'Extras' : `Set ${s.id.split('-')[1]}`),
+      (s.id === 'base'
+        ? 'Base set'
+        : s.id === 'extras'
+          ? 'Extras'
+          : s.id === STELLAR_SET
+            ? 'Starlight cards'
+            : `Set ${s.id.split('-')[1]}`),
     description: plainDescription(setNames.get(s.id)?.description),
     count: s.cards.length,
   }));

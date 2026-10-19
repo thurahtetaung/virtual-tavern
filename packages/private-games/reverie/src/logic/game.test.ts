@@ -23,10 +23,10 @@ const THREE = [HOST, 'ana', 'ben'];
 const score = (h: ReturnType<typeof harness>, id: string) => h.state.seats[id]!.score;
 
 describe('card sets', () => {
-  it('cover the 867 existing cards in eleven blocks, skipping the unused numbers', () => {
+  it('cover the 951 existing cards: eleven blocks skipping the unused numbers, then Starlight’s', () => {
     const all = CARD_SETS.flatMap(cardsIn);
-    expect(all).toHaveLength(867);
-    expect(new Set(all).size).toBe(867);
+    expect(all).toHaveLength(951);
+    expect(new Set(all).size).toBe(951);
     expect(all).not.toContain(69);
     expect(all).not.toContain(139);
     expect(all).toContain(839);
@@ -36,6 +36,10 @@ describe('card sets', () => {
     expect(CARD_SETS[10]?.cards).toHaveLength(27);
     expect(CARD_SETS[0]?.cards[0]).toBe(0);
     expect(CARD_SETS[1]?.cards[0]).toBe(85);
+    expect(CARD_SETS[11]).toMatchObject({ id: 'stellar' });
+    expect(CARD_SETS[11]?.cards).toHaveLength(84);
+    expect(CARD_SETS[11]?.cards[0]).toBe(878);
+    expect(CARD_SETS[11]?.cards.at(-1)).toBe(961);
   });
 });
 
@@ -716,7 +720,7 @@ describe('what each player can see', () => {
 
 describe('actionSchema', () => {
   it.each([
-    { type: 'tell', card: 878, clue: 'x' },
+    { type: 'tell', card: 962, clue: 'x' },
     { type: 'tell', card: 1, clue: '' },
     { type: 'give', cards: [] },
     { type: 'give', cards: [1, 2, 3] },

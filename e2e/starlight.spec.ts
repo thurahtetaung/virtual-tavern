@@ -1,4 +1,6 @@
-import { type Browser, type Page, expect } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD } from './credentials.ts';
 
@@ -14,10 +16,31 @@ async function visitor(browser: Browser, name: string) {
   const context = await browser.newContext({
     extraHTTPHeaders: { 'cf-connecting-ip': `10.7.0.${nextIp++}` },
   });
+  await withArt(context);
   const page = await context.newPage();
   page.on('pageerror', (e) => pageErrors.push(e.message));
   await page.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
   return page;
+}
+
+/**
+ * STARLIGHT_ART=<folder with cards/ and components/ and manifest.json> serves the private art in
+ * place of asset storage (screenshots only; the test server has none).
+ */
+async function withArt(context: BrowserContext) {
+  const art = process.env.STARLIGHT_ART;
+  if (!art) return;
+  const file = (path: string) => join(art, path);
+  await context.route(/\/api\/backroom\/assets\/(reverie|starlight)\/(.+)$/, (route) => {
+    const path = new URL(route.request().url()).pathname.split('/').slice(5).join('/');
+    return existsSync(file(path)) ? route.fulfill({ path: file(path) }) : route.continue();
+  });
+  await context.route(/\/api\/backroom\/manifest\/starlight/, (route) =>
+    route.fulfill({ json: JSON.parse(readFileSync(file('manifest.json'), 'utf8')) as object }),
+  );
+  await context.route(/\/api\/backroom\/manifest\/reverie/, (route) =>
+    route.fulfill({ json: { sets: [{ id: 'stellar', name: 'Starlight cards' }] } }),
+  );
 }
 
 async function openBackroom(page: Page) {
@@ -39,7 +62,7 @@ async function unlock(page: Page, url = '/backroom') {
  * SCREENSHOTS=1 saves each main screen at phone and desktop size, light and dark, to
  * test-results/starlight-shots.
  */
-async function shoot(p: Page, name: string) {
+async function shoot(p: Page, name: string, phoneTab?: string) {
   if (!process.env.SCREENSHOTS) return;
   const size = p.viewportSize();
   for (const [w, h, device] of [
@@ -47,12 +70,17 @@ async function shoot(p: Page, name: string) {
     [1280, 900, 'desktop'],
   ] as const) {
     await p.setViewportSize({ width: w, height: h });
+    if (phoneTab && device === 'phone') await p.getByRole('button', { name: phoneTab }).click();
     for (const scheme of ['light', 'dark'] as const) {
       await p.emulateMedia({ colorScheme: scheme });
       await p.screenshot({ path: `test-results/starlight-shots/${name}-${device}-${scheme}.png` });
     }
   }
   await p.emulateMedia({ colorScheme: null });
+  if (phoneTab) {
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.getByRole('button', { name: '🖼️ Table' }).click();
+  }
   if (size) await p.setViewportSize(size);
 }
 
@@ -166,6 +194,14 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
     // The game's own list comes first, so the room starts on it.
     await expect(host.getByText(LIST).first()).toBeVisible();
     await shoot(others[0]!, 'lobby');
+    // The game's own cards are the default set, and the picker offers every set.
+    await expect(host.getByText('Starlight cards').first()).toBeVisible();
+    if (process.env.SCREENSHOTS) {
+      await host.getByRole('button', { name: 'Change card sets' }).click();
+      await shoot(host, 'card-sets');
+      await host.keyboard.press('Escape');
+      await expect(host.getByRole('dialog')).toBeHidden();
+    }
     await host.getByRole('button', { name: 'Start game' }).click();
 
     for (let round = 1; round <= 4; round++) {
@@ -208,7 +244,19 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
         await markAndLock([[cy, ['A1']]]);
         // The counts are public: nobody leads alone with 2 (three players tie), so nobody is in
         // the Dark.
-        await expect(host.getByText('🌑 in the Dark')).toHaveCount(0);
+        await expect(host.getByTestId('starlight-dark')).toContainText('Nobody is in the Dark');
+      } else if (round === 2) {
+        // Hana alone marks two: she is in the Dark, and her second card can only fall.
+        const [hana, ...rest] = players as [Page, ...Page[]];
+        await markAndLock([
+          [hana, ['A1', 'B1']],
+          ...rest.map((p) => [p, ['A1']] as [Page, string[]]),
+        ]);
+        for (const p of players)
+          await expect(p.getByTestId('starlight-dark')).toContainText(
+            p === hana ? 'You are in the Dark' : 'Hana is in the Dark',
+          );
+        await shoot(rest[0]!, 'dark', '⭐ Stars');
       } else {
         await markAndLock(players.map((p) => [p, ['A1']] as [Page, string[]]));
       }
@@ -218,6 +266,9 @@ test('four friends play a whole game of Starlight in the back room', async ({ br
       if (round === 1) {
         await expect(results).toContainText('1 ✨ · 1 🌟 · 1 🌠');
         await shoot(host, 'round-scored');
+      } else if (round === 2) {
+        await expect(results).toContainText('1 ✨ · 0 🌟 · 1 🌠');
+        await expect(results).toContainText('(fell in the Dark)');
       } else {
         await expect(results).toContainText('1 ✨ · 0 🌟 · 0 🌠');
       }

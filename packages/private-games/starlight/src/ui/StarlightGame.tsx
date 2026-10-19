@@ -10,6 +10,7 @@ import {
   NameDot,
   Panel,
   PlayerTag,
+  ProtectedImage,
   RefusalSlot,
   Standings,
   StickyBar,
@@ -47,6 +48,7 @@ import {
   startBlocker,
   statusFor,
 } from './status.ts';
+import { type Manifest, firstScoutArt, lanternArt, useManifest as useTokens } from './assets.ts';
 import { Tip } from './Tips.tsx';
 
 export type StarlightUiProps = GameUiProps<StarlightView, StarlightAction>;
@@ -354,6 +356,7 @@ function Play({
     return undefined;
   })();
 
+  const tokens = useTokens();
   const stars = <StarBoard view={view} room={room} online={online} pickColor={pickColor} />;
 
   return (
@@ -361,9 +364,10 @@ function Play({
       {confirmDialog}
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span>
-            {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} · First
-            Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+          <span className="flex items-center gap-1">
+            {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} ·{' '}
+            <Token src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" /> First Scout:{' '}
+            {r.first === you ? 'you' : nameOf(view, r.first)}
           </span>
           {view.phase === 'playing' && (
             <Countdown
@@ -436,6 +440,8 @@ function Play({
           {last.auto && ' (Time ran out: it was picked at random.)'}
         </p>
       )}
+
+      {r.stage !== 'done' && <DarkLine view={view} tokens={tokens} />}
 
       <div className="flex gap-1 rounded-xl bg-panel p-1 ring-1 ring-line sm:hidden dark:bg-stone-900 dark:ring-stone-800">
         {(
@@ -638,6 +644,54 @@ function GridCard({
   );
 }
 
+/** A token's picture from the private manifest, or its emoji without one (or if it can't load). */
+function Token({ src, emoji, alt }: { src: string | null; emoji: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed)
+    return (
+      <span role="img" aria-label={alt} className="inline-block w-5 text-center">
+        {emoji}
+      </span>
+    );
+  return (
+    <ProtectedImage
+      src={src}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className="inline-block size-6 shrink-0 object-contain align-middle"
+    />
+  );
+}
+
+/** Who is in the Dark, from the Announce on: the one thing the table must know before showing. */
+function DarkLine({ view, tokens }: { view: StarlightView; tokens: Manifest | null }) {
+  const r = view.round!;
+  if (!r.counts) return null;
+  const top = Math.max(...Object.values(r.counts));
+  const dark = r.dark ? view.seats.find((s) => s.id === r.dark) : undefined;
+  const you = view.me?.id;
+  return (
+    <p
+      data-testid="starlight-dark"
+      className="flex items-center justify-center gap-2 text-center text-sm text-ink-muted"
+    >
+      {dark ? (
+        <>
+          <Token src={lanternArt(tokens, dark.color, 'dark')} emoji="🌑" alt="Dark lantern" />
+          <span>
+            <b className="text-ink">
+              {dark.id === you ? 'You are' : `${dark.name} is`} in the Dark
+            </b>{' '}
+            with {top} marks: a fall costs a point per Spark.
+          </span>
+        </>
+      ) : (
+        <span>🏮 Nobody is in the Dark: the most marks ({top}) is shared.</span>
+      )}
+    </p>
+  );
+}
+
 /** The table of stars: each player's step, count, the Dark, falls and scores. */
 function StarBoard({
   view,
@@ -652,6 +706,7 @@ function StarBoard({
 }) {
   const r = view.round!;
   const you = view.me?.id;
+  const tokens = useTokens();
   const seats = view.seats.filter((s) => s.playing || r.players.includes(s.id));
   return (
     <Panel className="space-y-2 p-3">
@@ -661,12 +716,12 @@ function StarBoard({
           const inRound = r.players.includes(s.id);
           const gone = r.gone.includes(s.id);
           const chips: string[] = [];
-          if (s.id === r.first) chips.push('🔭 First Scout');
+          if (s.id === r.first) chips.push('First Scout');
           if (r.stage === 'reveal' && r.scout === s.id) chips.push('👉 Scout');
           if (r.stage === 'mark' && inRound)
             chips.push(r.locked.includes(s.id) ? '🔒 locked' : '✏️ marking');
           if (r.counts?.[s.id] !== undefined) chips.push(`✕ ${r.counts[s.id]}`);
-          if (r.dark === s.id) chips.push('🌑 in the Dark');
+          if (r.dark === s.id) chips.push('in the Dark');
           if (r.fallen.includes(s.id)) chips.push('🌠 fell');
           if (gone) chips.push('left');
           if (r.stage === 'reveal' && r.left?.[s.id] !== undefined && !r.fallen.includes(s.id))
@@ -674,12 +729,24 @@ function StarBoard({
           return (
             <li key={s.id} className="space-y-0.5" data-testid={`starlight-player-${s.id}`}>
               <div className="flex items-center justify-between gap-2">
-                <PlayerTag
-                  name={s.name}
-                  host={s.id === room.hostId}
-                  you={s.id === you}
-                  offline={!online(s.id)}
-                />
+                <span className="flex min-w-0 items-center gap-1">
+                  {s.id === r.first && (
+                    <Token src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />
+                  )}
+                  {r.counts?.[s.id] !== undefined && (
+                    <Token
+                      src={lanternArt(tokens, s.color, r.dark === s.id ? 'dark' : 'light')}
+                      emoji={r.dark === s.id ? '🌑' : '🏮'}
+                      alt={r.dark === s.id ? 'Lantern, Dark side' : 'Lantern, Light side'}
+                    />
+                  )}
+                  <PlayerTag
+                    name={s.name}
+                    host={s.id === room.hostId}
+                    you={s.id === you}
+                    offline={!online(s.id)}
+                  />
+                </span>
                 <span className="shrink-0 font-bold tabular-nums">
                   {inRound && r.stage !== 'done' && (
                     <span className="font-semibold text-amber-700 dark:text-amber-300">

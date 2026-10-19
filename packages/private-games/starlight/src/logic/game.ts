@@ -29,6 +29,7 @@ import {
   type Round,
   type RoundView,
   SEAT_COLORS,
+  STELLAR_SET,
   type Seat,
   type SeatView,
   type StarlightAction,
@@ -377,7 +378,7 @@ function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): StarlightStat
   let state: StarlightState = {
     phase: 'lobby',
     settings: {
-      sets: ['base'],
+      sets: [STELLAR_SET],
       wordListIds: keptListIds([], wordLists),
       clueSeconds: null,
       guessSeconds: null,

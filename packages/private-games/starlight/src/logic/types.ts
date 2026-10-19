@@ -2,7 +2,7 @@ import { PLAYER_COLORS, type PlayerColor, type PlayerId, type WordListSummary } 
 import { CARD_SETS, LAST_CARD } from '@vt/private-reverie/cards';
 import { z } from 'zod';
 
-export { CARD_SETS, type CardSet, cardsIn } from '@vt/private-reverie/cards';
+export { CARD_SETS, type CardSet, STELLAR_SET, cardsIn } from '@vt/private-reverie/cards';
 
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 6;
