@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.43.0...v0.44.0) (2026-10-19)
+
+
+### Features
+
+* **server:** add a Prometheus metrics endpoint for monitoring ([#294](https://github.com/thurahtetaung/virtual-tavern/issues/294)) ([f35ce59](https://github.com/thurahtetaung/virtual-tavern/commit/f35ce590296eff86d6e4a8fdf1f60384bee1fe7f))
+
 ## [0.43.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.42.8...v0.43.0) (2026-10-17)
 
 
