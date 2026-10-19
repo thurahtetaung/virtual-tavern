@@ -32,6 +32,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   'short-fuse': [],
   // Each round's word.
   starlight: ['clue'],
+  // Discs, not words: no Words card.
+  thorns: [],
 };
 
 const LABELS: Record<WordKind, string> = {

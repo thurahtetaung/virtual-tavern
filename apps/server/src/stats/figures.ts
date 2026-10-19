@@ -66,6 +66,9 @@ import type { GameFigure } from '@vt/protocol';
 //   starlight  word {round, word, flipped, dark; recap: players, counts}, show {kind, others;
 //              recap: round, markers, card, auto}, round {points, dark, fell; recap: round, stars,
 //              boxes, marks, total}, outcome {endReason; recap: ranking, scores}
+//   thorns     outcome {players, rounds, how; recap: ranking, discs, points}, challenge {success,
+//              bid, own; recap: round, total, thornBy, bluffed, flips, points, players},
+//              bid {amount; recap: total, opening, auto}, elimination {recap: round, by}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1282,6 +1285,81 @@ function tavernBrawlFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function thornsCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 3 && n <= 6) out.push([`f.n.${n}`, 1]);
+      if (props.how === 'points' || props.how === 'last') out.push([`f.how.${props.how}`, 1]);
+      const rounds = num(props.rounds);
+      if (rounds) out.push(['f.round_sum', rounds]);
+      break;
+    }
+    case 'challenge': {
+      out.push(['f.challenges', 1]);
+      const bid = num(props.bid) ?? 0;
+      if (props.success === true) out.push(['f.challenge_won', 1], ['f.won_bid_sum', bid]);
+      else if (props.own === true) out.push(['f.own_thorn', 1]);
+      else out.push(['f.other_thorn', 1]);
+      break;
+    }
+    case 'bid':
+      out.push(['f.bids', 1]);
+      break;
+  }
+  return out;
+}
+
+function thornsFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'challenge-success',
+      label: 'Challenges that found no {card:thorn}',
+      kind: 'percent',
+      value: pct(get('f.challenge_won'), get('f.challenges')),
+    },
+    {
+      id: 'thorn-stops',
+      label: 'Whose {card:thorn} stopped a challenge',
+      kind: 'split',
+      parts: [
+        { label: 'Another player’s', value: get('f.other_thorn') },
+        { label: 'The Challenger’s own', value: get('f.own_thorn') },
+      ],
+    },
+    {
+      id: 'winning-bid',
+      label: 'Average successful bid',
+      kind: 'number',
+      value: avg(get('f.won_bid_sum'), get('f.challenge_won')),
+    },
+    {
+      id: 'how-games-end',
+      label: 'How games were won',
+      kind: 'split',
+      parts: [
+        { label: 'Two points', value: get('f.how.points') },
+        { label: 'Last one standing', value: get('f.how.last') },
+      ],
+    },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [3, 4, 5, 6].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+    {
+      id: 'rounds-per-game',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.round_sum'), games),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1291,6 +1369,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'hydra' || gameId === 'hogwarts') return hydraCounters(type, props);
   if (gameId === 'tavern-brawl') return tavernBrawlCounters(type, props);
   if (gameId === 'short-fuse') return shortFuseCounters(type, props);
+  if (gameId === 'thorns') return thornsCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1494,6 +1573,8 @@ export function buildFigures(
       return hydraFigures(get, metrics);
     case 'short-fuse':
       return shortFuseFigures(get);
+    case 'thorns':
+      return thornsFigures(get);
     case 'codenames':
       return [
         teams(false),

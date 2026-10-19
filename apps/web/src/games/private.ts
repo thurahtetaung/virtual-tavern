@@ -19,6 +19,7 @@ import { guide as seanceGuide, nameGuide as nameSeanceGuide } from '@vt/private-
 import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
 import { guide as starlightGuide } from '@vt/private-starlight/guide';
+import { guide as thornsGuide, nameGuide as nameThornsGuide } from '@vt/private-thorns/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -33,6 +34,7 @@ import {
   shortFuseGuide as shortFuseNamedGuide,
   shortFuseLabels,
   taggedGuide,
+  thornsLabels,
 } from './private-labels.ts';
 import { lazyUi } from './lazy-ui.ts';
 import type { ClientGame } from './registry.ts';
@@ -171,6 +173,17 @@ const games: ClientGame[] = [
     Component: lazyUi(() =>
       import('@vt/private-starlight/ui').then((m) => ({ default: m.StarlightGame })),
     ),
+  },
+  {
+    id: 'thorns',
+    name: 'Thorns',
+    guide: thornsGuide,
+    namedGuide: manifestGuide('thorns', nameThornsGuide),
+    icon: '🌹',
+    Component: lazyUi(() =>
+      import('@vt/private-thorns/ui').then((m) => ({ default: m.ThornsGame })),
+    ),
+    labels: thornsLabels,
   },
 ];
 

@@ -44,5 +44,7 @@
   "tavern-brawl-powers.spec.ts": 28,
   "tavern-brawl-shots.spec.ts": 1,
   "tavern-brawl-zone.spec.ts": 50,
-  "tavern-brawl.spec.ts": 35
+  "tavern-brawl.spec.ts": 35,
+  "thorns-shots.spec.ts": 1,
+  "thorns.spec.ts": 35
 }

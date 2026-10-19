@@ -28,6 +28,7 @@
     "@vt/private-short-fuse": "workspace:*",
     "@vt/private-starlight": "workspace:*",
     "@vt/private-tavern-brawl": "workspace:*",
+    "@vt/private-thorns": "workspace:*",
     "@vt/protocol": "workspace:*",
     "@vt/ui": "workspace:*",
     "echarts": "^6.1.0",

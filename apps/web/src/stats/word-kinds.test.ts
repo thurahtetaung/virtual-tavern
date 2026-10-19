@@ -19,6 +19,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('hydra')).toEqual([]);
     expect(knownWordKinds('short-fuse')).toEqual([]);
     expect(knownWordKinds('starlight')).toEqual(['clue']);
+    expect(knownWordKinds('thorns')).toEqual([]);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });

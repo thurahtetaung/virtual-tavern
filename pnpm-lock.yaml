@@ -141,6 +141,9 @@ importers:
       '@vt/private-tavern-brawl':
         specifier: workspace:*
         version: link:../../packages/private-games/tavern-brawl
+      '@vt/private-thorns':
+        specifier: workspace:*
+        version: link:../../packages/private-games/thorns
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -213,6 +216,9 @@ importers:
       '@vt/private-tavern-brawl':
         specifier: workspace:*
         version: link:../../packages/private-games/tavern-brawl
+      '@vt/private-thorns':
+        specifier: workspace:*
+        version: link:../../packages/private-games/thorns
       '@vt/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -601,6 +607,25 @@ importers:
         version: 19.3.0
 
   packages/private-games/tavern-brawl:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+
+  packages/private-games/thorns:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*
