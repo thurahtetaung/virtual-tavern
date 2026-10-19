@@ -118,6 +118,11 @@ export interface GameDefinition<State, Action, View> {
   usesWordLists?: boolean;
   /** Whether the game draws questions from admin question decks. Default: false. */
   usesQuestionDecks?: boolean;
+  /**
+   * Back-room games with background music from their manifest (`music`, `musicTracks`): the
+   * phases it plays in, which the admin may give other tracks on the Games page.
+   */
+  music?: { phases: readonly { id: string; label: string }[] };
   /** Beginner-friendly rules; required so every game is learnable in-app. */
   guide: GameGuide;
   actionSchema: ZodType<Action>;

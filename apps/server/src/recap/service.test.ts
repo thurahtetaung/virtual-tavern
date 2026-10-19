@@ -2,7 +2,7 @@ import type { HallOfFame, RecapQuery, RoomRecap } from '@vt/protocol';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb } from '../db/index.ts';
 import { buildGames } from '../games/registry.ts';
-import { gameNamer } from '../private-games.ts';
+import { gameNamer } from '../game-settings.ts';
 import type { RoomObservation } from '../rooms/manager.ts';
 import { ulid } from '../stats/recorder.ts';
 import { SqliteStatsStore } from '../stats/sqlite-store.ts';

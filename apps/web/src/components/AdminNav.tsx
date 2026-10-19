@@ -6,14 +6,16 @@ export function AdminNav({
   current,
   className,
 }: {
-  current: 'lists' | 'stats' | 'playtest';
+  current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
-  const items = [
-    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room' },
+  // `short` stands in for the label on phones, so the four tabs fit one row.
+  const items: readonly { id: string; to: string; label: string; short?: string }[] = [
+    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room', short: 'Lists' },
+    { id: 'games', to: '/tavern-keeper/games', label: 'Games' },
     { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
     { id: 'playtest', to: '/tavern-keeper/playtest', label: '🧪 Playtest' },
-  ] as const;
+  ];
   return (
     <nav
       aria-label="Admin"
@@ -31,7 +33,14 @@ export function AdminNav({
               : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100',
           )}
         >
-          {item.label}
+          {item.short ? (
+            <>
+              <span className="sm:hidden">{item.short}</span>
+              <span className="hidden sm:inline">{item.label}</span>
+            </>
+          ) : (
+            item.label
+          )}
         </Link>
       ))}
     </nav>

@@ -15,7 +15,7 @@ import { saveName, savedName } from '../lib/identity.ts';
 import { usePageTitle } from '../lib/title.ts';
 import { useCreateRoom } from '../lib/useCreateRoom.ts';
 import { NotFoundPage } from './NotFoundPage.tsx';
-import { fetchGames } from '../lib/games.ts';
+import { fetchGames, useOffGames } from '../lib/games.ts';
 
 /**
  * The back-room games this browser may see, under their admin-set titles: an empty list while
@@ -55,6 +55,18 @@ function Tagline({ game }: { game: ClientGame }) {
   return <p className="mb-6 text-lg text-stone-600 dark:text-stone-400">{tagline}</p>;
 }
 
+/** In place of "Create a room" while the admin has the game switched off. */
+function NotAvailable({ name }: { name: string }) {
+  return (
+    <p
+      role="status"
+      className="mb-6 rounded-xl bg-warn-soft p-4 text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/30"
+    >
+      {name} isn’t available right now, so no new rooms can be opened. The rules are here to read.
+    </p>
+  );
+}
+
 /** The end of a rules page: read enough, now play. */
 function CreateRoom({ game }: { game: ClientGame }) {
   const [name, setName] = useState(savedName);
@@ -91,6 +103,7 @@ function CreateRoom({ game }: { game: ClientGame }) {
 export function RulesPage() {
   const { gameId } = useParams();
   const backroom = useBackroomGames();
+  const off = useOffGames();
   const publicGame = gameId ? findGame(gameId) : undefined;
   // Back-room games' rules are only loadable once unlocked; anyone else just gets "not found".
   const game = publicGame ?? backroom?.find((g) => g.id === gameId);
@@ -110,19 +123,23 @@ export function RulesPage() {
       <Layout>
         <h1 className="mb-6 text-3xl font-bold">How to play</h1>
         <div className="grid gap-4 sm:grid-cols-2">
-          {clientGames.map((g) => (
-            <GameLink key={g.id} game={g} />
-          ))}
+          {clientGames
+            .filter((g) => !off.has(g.id))
+            .map((g) => (
+              <GameLink key={g.id} game={g} />
+            ))}
         </div>
-        {backroom && backroom.length > 0 && (
+        {backroom && backroom.some((g) => !off.has(g.id)) && (
           <section aria-labelledby="rules-back-room">
             <h2 id="rules-back-room" className="mt-10 mb-4 text-2xl font-bold">
               <span aria-hidden>🕯️</span> The back room
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {backroom.map((g) => (
-                <GameLink key={g.id} game={g} />
-              ))}
+              {backroom
+                .filter((g) => !off.has(g.id))
+                .map((g) => (
+                  <GameLink key={g.id} game={g} />
+                ))}
             </div>
           </section>
         )}
@@ -147,21 +164,24 @@ export function RulesPage() {
         {game.icon} How to play {game.name}
       </h1>
       <Tagline game={game} />
+      {off.has(game.id) && <NotAvailable name={game.name} />}
       <GameGuideView
         game={game}
         done={
-          <Button
-            size="sm"
-            className="min-h-11"
-            onClick={() =>
-              document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
-            }
-          >
-            {`Create ${article(game.name)} ${game.name} room`}
-          </Button>
+          off.has(game.id) ? undefined : (
+            <Button
+              size="sm"
+              className="min-h-11"
+              onClick={() =>
+                document.getElementById('create-room')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              {`Create ${article(game.name)} ${game.name} room`}
+            </Button>
+          )
         }
       />
-      <CreateRoom game={game} />
+      {!off.has(game.id) && <CreateRoom game={game} />}
     </Layout>
   );
 }

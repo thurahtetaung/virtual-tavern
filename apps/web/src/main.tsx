@@ -17,6 +17,9 @@ const RoomPage = lazy(() => import('./pages/RoomPage.tsx').then((m) => ({ defaul
 const AdminPage = lazy(() =>
   import('./pages/AdminPage.tsx').then((m) => ({ default: m.AdminPage })),
 );
+const GamesPage = lazy(() =>
+  import('./pages/GamesPage.tsx').then((m) => ({ default: m.GamesPage })),
+);
 const PlaytestPage = lazy(() =>
   import('./pages/PlaytestPage.tsx').then((m) => ({ default: m.PlaytestPage })),
 );
@@ -38,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/faq" element={<FaqPage />} />
               <Route path="/rules/:gameId" element={<RulesPage />} />
               <Route path="/tavern-keeper" element={<AdminPage />} />
+              <Route path="/tavern-keeper/games" element={<GamesPage />} />
               <Route path="/tavern-keeper/stats" element={<StatsPage />} />
               <Route path="/tavern-keeper/playtest" element={<PlaytestPage />} />
               <Route path="/backroom" element={<BackroomPage />} />

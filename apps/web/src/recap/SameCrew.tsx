@@ -17,11 +17,13 @@ interface Choice extends GameInfo {
 async function fetchChoices(): Promise<Choice[]> {
   const offered = await fetchGames();
   const known = offered.some((g) => g.private) ? await loadPrivateGames({ known: true }) : [];
-  return offered.map((g) => ({
-    id: g.id,
-    name: g.title ?? g.name,
-    icon: findGame(g.id)?.icon ?? known.find((k) => k.id === g.id)?.icon ?? '🎲',
-  }));
+  return offered
+    .filter((g) => !g.off)
+    .map((g) => ({
+      id: g.id,
+      name: g.title ?? g.name,
+      icon: findGame(g.id)?.icon ?? known.find((k) => k.id === g.id)?.icon ?? '🎲',
+    }));
 }
 
 /** Loads a game's screen ahead (the room page itself is already in). */

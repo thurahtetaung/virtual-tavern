@@ -40,14 +40,15 @@ cookie = login.res.headers
 if (!cookie) throw new Error('login returned no session cookie');
 try {
   if (gameId === '--list') {
-    for (const g of (await api('/api/admin/game-titles')).body)
-      console.log(`${g.gameId.padEnd(24)} ${g.title ?? `(none; shows "${g.name}")`}`);
+    for (const g of (await api('/api/admin/games')).body.games.filter((g) => g.private))
+      console.log(`${g.gameId.padEnd(24)} ${g.settings.title ?? `(none; shows "${g.name}")`}`);
   } else {
-    const { body } = await api(`/api/admin/game-titles/${encodeURIComponent(gameId)}`, {
+    const { body } = await api(`/api/admin/games/${encodeURIComponent(gameId)}`, {
       method: 'PUT',
       body: JSON.stringify({ title: title === '--clear' ? null : title }),
     });
-    console.log(body.title ? `${gameId}: "${body.title}"` : `${gameId}: title cleared`);
+    const set = body.games.find((g) => g.gameId === gameId)?.settings.title;
+    console.log(set ? `${gameId}: "${set}"` : `${gameId}: title cleared`);
   }
 } finally {
   await api('/api/admin/logout', { method: 'POST', body: '{}' });

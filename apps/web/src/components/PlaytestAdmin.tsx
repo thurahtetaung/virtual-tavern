@@ -168,6 +168,7 @@ export function PlaytestAdmin() {
                   <span className="block text-xs font-normal text-ink-muted">
                     {g.private && <span aria-label="back room">🕯️ </span>}
                     {g.minPlayers}–{g.maxSeats} seats
+                    {g.off && <span className="font-semibold text-warn-ink"> · off</span>}
                   </span>
                   <span
                     className={cn(

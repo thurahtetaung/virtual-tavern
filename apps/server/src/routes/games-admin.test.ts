@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { effectiveMusic, manifestTracks, unknownTrack } from '../private-games.ts';
+import type { AdminGamesResponse } from '@vt/protocol';
+import { effectiveMusic, manifestTracks, unknownTrack } from '../game-settings.ts';
 import { testApp, token } from '../test/helpers.ts';
 
 const MANIFEST = {
@@ -12,6 +13,7 @@ const MANIFEST = {
   },
 };
 const OGG = Buffer.from('OggS fake');
+const PHASES = ['lobby', 'night', 'day', 'vote', 'reveal'];
 
 /** A stand-in for the private bucket holding a small Nightfall manifest and one track. */
 async function fakeBucket() {
@@ -33,16 +35,16 @@ async function fakeBucket() {
 
 describe('music choices', () => {
   it('fall back to the manifest’s defaults phase by phase', () => {
-    expect(effectiveMusic(MANIFEST.music, null)).toEqual(MANIFEST.music);
+    expect(effectiveMusic(MANIFEST.music, null, PHASES)).toEqual(MANIFEST.music);
     expect(
-      effectiveMusic(MANIFEST.music, { night: ['music/c.ogg'], lobby: ['music/a.ogg'] }),
+      effectiveMusic(MANIFEST.music, { night: ['music/c.ogg'], lobby: ['music/a.ogg'] }, PHASES),
     ).toEqual({
       night: ['music/c.ogg'],
       day: ['music/c.ogg'],
       lobby: ['music/a.ogg'],
     });
-    expect(effectiveMusic(undefined, null)).toEqual({});
-    expect(effectiveMusic({ night: 'nope', day: ['music/c.ogg', 3] }, null)).toEqual({
+    expect(effectiveMusic(undefined, null, PHASES)).toEqual({});
+    expect(effectiveMusic({ night: 'nope', day: ['music/c.ogg', 3] }, null, PHASES)).toEqual({
       day: ['music/c.ogg'],
     });
   });
@@ -56,7 +58,7 @@ describe('music choices', () => {
   });
 });
 
-describe('private game settings over HTTP', () => {
+describe('back-room titles and music over HTTP', () => {
   const cleanup: (() => unknown)[] = [];
   afterEach(async () => {
     for (const c of cleanup.splice(0)) await c();
@@ -103,13 +105,16 @@ describe('private game settings over HTTP', () => {
   it('need the admin', async () => {
     const { app } = await setup();
     for (const [method, url] of [
-      ['GET', '/api/admin/game-titles'],
-      ['PUT', '/api/admin/game-titles/nightfall'],
-      ['GET', '/api/admin/game-music/nightfall'],
-      ['PUT', '/api/admin/game-music/nightfall'],
+      ['GET', '/api/admin/games'],
+      ['PUT', '/api/admin/games/nightfall'],
+      ['GET', '/api/admin/games/nightfall/music'],
+      ['POST', '/api/admin/games/categories'],
+      ['PUT', '/api/admin/games/categories/order'],
+      ['PUT', '/api/admin/games/categories/x'],
+      ['DELETE', '/api/admin/games/categories/x'],
       ['GET', '/api/admin/backroom-assets/nightfall/music/a.ogg'],
     ] as const) {
-      const res = await app.inject({ method, url, payload: method === 'PUT' ? {} : undefined });
+      const res = await app.inject({ method, url, payload: method === 'GET' ? undefined : {} });
       expect(res.statusCode, `${method} ${url}`).toBe(401);
     }
   });
@@ -120,29 +125,32 @@ describe('private game settings over HTTP', () => {
       (
         await app.inject({
           method: 'PUT',
-          url: '/api/admin/game-titles/codenames',
+          url: '/api/admin/games/codenames',
           headers: { cookie: admin },
           payload: { title: 'X' },
         })
       ).statusCode,
-    ).toBe(404);
+    ).toBe(400);
     const set = await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-titles/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: admin },
       payload: { title: 'The Real Title' },
     });
-    expect(set.json()).toEqual({ gameId: 'nightfall', title: 'The Real Title' });
+    expect(
+      set.json<AdminGamesResponse>().games.find((g) => g.gameId === 'nightfall'),
+    ).toMatchObject({ name: 'Nightfall', settings: { title: 'The Real Title' } });
     const list = await app.inject({
       method: 'GET',
-      url: '/api/admin/game-titles',
+      url: '/api/admin/games',
       headers: { cookie: admin },
     });
-    expect(list.json()).toContainEqual({
-      gameId: 'nightfall',
-      name: 'Nightfall',
-      title: 'The Real Title',
-    });
+    expect(list.json<AdminGamesResponse>().games).toContainEqual(
+      expect.objectContaining({
+        gameId: 'nightfall',
+        settings: expect.objectContaining({ title: 'The Real Title' }) as object,
+      }),
+    );
 
     const games = (cookie = '') =>
       app.inject({ method: 'GET', url: '/api/games', headers: { cookie } });
@@ -178,7 +186,7 @@ describe('private game settings over HTTP', () => {
     // Clearing it falls back to the registry name.
     await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-titles/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: admin },
       payload: { title: null },
     });
@@ -203,7 +211,7 @@ describe('private game settings over HTTP', () => {
     expect((await named()).get('nightfall')).toBe('Nightfall');
     await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-titles/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: admin },
       payload: { title: 'Moonlit Village' },
     });
@@ -238,7 +246,7 @@ describe('private game settings over HTTP', () => {
     // A new music choice changes the tag, so the next load gets the new manifest.
     await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-music/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: admin },
       payload: { music: { night: ['music/c.ogg'] } },
     });
@@ -316,7 +324,7 @@ describe('private game settings over HTTP', () => {
     // A new music choice is a new version.
     await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-music/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: admin },
       payload: { music: { night: ['music/c.ogg'] } },
     });
@@ -330,18 +338,20 @@ describe('private game settings over HTTP', () => {
     const put = (music: unknown) =>
       app.inject({
         method: 'PUT',
-        url: '/api/admin/game-music/nightfall',
+        url: '/api/admin/games/nightfall',
         headers: { cookie: admin },
         payload: { music },
       });
+    const override = (res: Awaited<ReturnType<typeof put>>) =>
+      res.json<AdminGamesResponse>().games.find((g) => g.gameId === 'nightfall')!.settings.music;
     expect((await put({ night: ['music/nope.ogg'] })).statusCode).toBe(400);
     expect((await put({ dusk: ['music/a.ogg'] })).statusCode).toBe(400);
-    expect((await put({ night: ['music/c.ogg'] })).json()).toEqual({
-      override: { night: ['music/c.ogg'] },
+    expect(override(await put({ night: ['music/c.ogg'] }))).toEqual({
+      night: ['music/c.ogg'],
     });
     const got = await app.inject({
       method: 'GET',
-      url: '/api/admin/game-music/nightfall',
+      url: '/api/admin/games/nightfall/music',
       headers: { cookie: admin },
     });
     expect(got.json()).toMatchObject({
@@ -369,14 +379,14 @@ describe('private game settings over HTTP', () => {
     expect(track.headers['cache-control']).toBe('private, no-store');
     expect(track.rawPayload).toEqual(OGG);
     // Reset.
-    expect((await put(null)).json()).toEqual({ override: null });
+    expect(override(await put(null))).toBeNull();
   });
 
   it('report no tracks when the server has no asset storage', async () => {
     const { app, admin } = await setup(false);
     const got = await app.inject({
       method: 'GET',
-      url: '/api/admin/game-music/nightfall',
+      url: '/api/admin/games/nightfall/music',
       headers: { cookie: admin },
     });
     expect(got.json()).toEqual({ override: null, defaults: null, effective: null, tracks: null });

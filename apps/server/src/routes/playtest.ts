@@ -32,24 +32,25 @@ export function playtestRoutes(
   opts: {
     rooms: RoomManager;
     games: GameRegistry;
-    /** Admin-set titles for private games. */
-    titles?: { title(gameId: string): string | null };
+    /** Admin-set titles for private games, and which games are off (playtests still allowed). */
+    settings?: { title(gameId: string): string | null; enabled(gameId: string): boolean };
     now: () => number;
     /** The seed a test browser asks for its new room (test builds only). */
     testSeedOf?: (req: FastifyRequest) => string | undefined;
   },
 ) {
-  const { rooms, games, titles, now } = opts;
+  const { rooms, games, settings, now } = opts;
 
   app.get('/api/admin/playtest/games', (): PlaytestGame[] =>
     [...games.values()].map((g) => ({
       id: g.id,
-      name: (isPrivate(g) && titles?.title(g.id)) || g.name,
+      name: (isPrivate(g) && settings?.title(g.id)) || g.name,
       private: isPrivate(g),
       minPlayers: g.minPlayers,
       maxSeats: maxSeats(g.maxPlayers),
       bots: !g.bot ? 'none' : g.botInfo?.note ? 'some' : 'all',
       ...(g.bot && g.botInfo?.note && { botNote: g.botInfo.note }),
+      ...(settings?.enabled(g.id) === false && { off: true as const }),
     })),
   );
 

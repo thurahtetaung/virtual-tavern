@@ -156,7 +156,7 @@ describe('versioned game and word lists', () => {
     const before = await gamesVersion(app, cookie);
     await app.inject({
       method: 'PUT',
-      url: '/api/admin/game-titles/nightfall',
+      url: '/api/admin/games/nightfall',
       headers: { cookie: await admin(app) },
       payload: { title: 'Moonlit Village' },
     });

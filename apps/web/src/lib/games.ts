@@ -1,5 +1,6 @@
 import type { GameSummary, ListVersions, WordListSummary } from '@vt/protocol';
 import { noteManifestVersions } from '@vt/ui';
+import { useEffect, useState } from 'react';
 import { api } from './api.ts';
 
 /**
@@ -34,4 +35,15 @@ export function fetchWordLists(gameId: string, version?: string): Promise<WordLi
 /** For tests: a fresh page. */
 export function resetVersions(): void {
   gamesVersion = null;
+}
+
+/** The games the admin switched off (an empty set until the list arrives). */
+export function useOffGames(): ReadonlySet<string> {
+  const [off, setOff] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => {
+    void fetchGames()
+      .then((games) => setOff(new Set(games.filter((g) => g.off).map((g) => g.id))))
+      .catch(() => {});
+  }, []);
+  return off;
 }

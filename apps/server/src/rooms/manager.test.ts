@@ -491,6 +491,70 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('a game the admin switched off', () => {
+    /** Phases as the stats see them: `start`, `end` (one more game played) and `again`. */
+    function offRoom() {
+      const stub = stubGame({
+        create: () => ({ due: null, phase: 'lobby', gamesPlayed: 0 }),
+        reduce: (s: { phase: string; gamesPlayed: number }, a: { type: string }) =>
+          a.type === 'start'
+            ? { ...s, phase: 'playing' }
+            : a.type === 'end'
+              ? { ...s, phase: 'over', gamesPlayed: s.gamesPlayed + 1 }
+              : a.type === 'again'
+                ? { ...s, phase: 'lobby' }
+                : s,
+      });
+      let off = false;
+      rooms.close();
+      rooms = manager({
+        games: new Map([[stub.id, stub]]),
+        gameOff: () => (off ? 'Stub isn’t available right now.' : null),
+      });
+      const id = rooms.create(stub.id, 'h');
+      rooms.join(id, 'h', 'H');
+      return { id, switchOff: () => (off = true) };
+    }
+
+    it('lets an open room finish its game, then refuses another', () => {
+      const { id, switchOff } = offRoom();
+      switchOff();
+      // A room opened before the switch still plays its game, and others may still join it.
+      expect(rooms.join(id, 'a', 'A')).toEqual({ ok: true });
+      expect(rooms.act(id, 'h', { type: 'start' })).toEqual({ ok: true });
+      expect(rooms.act(id, 'h', { type: 'end' })).toEqual({ ok: true });
+      for (const type of ['again', 'start'])
+        expect(rooms.act(id, 'h', { type })).toEqual({
+          ok: false,
+          error: { code: 'game-off', message: 'Stub isn’t available right now.' },
+        });
+    });
+
+    it('refuses a new game from a lobby that already played one', () => {
+      const { id, switchOff } = offRoom();
+      rooms.act(id, 'h', { type: 'start' });
+      rooms.act(id, 'h', { type: 'end' });
+      rooms.act(id, 'h', { type: 'again' });
+      switchOff();
+      expect(rooms.act(id, 'h', { type: 'start' })).toMatchObject({
+        ok: false,
+        error: { code: 'game-off' },
+      });
+    });
+
+    it('never stops a playtest', () => {
+      const { switchOff } = offRoom();
+      switchOff();
+      const id = rooms.create('stub', 'h', {
+        playtest: { bots: [], speed: 'normal', paused: false, createdAt: now },
+      });
+      rooms.join(id, 'h', 'H', { admin: true });
+      rooms.act(id, 'h', { type: 'start' });
+      rooms.act(id, 'h', { type: 'end' });
+      expect(rooms.act(id, 'h', { type: 'again' })).toEqual({ ok: true });
+    });
+  });
+
   describe('game contract', () => {
     it("enforces the game's own player cap", () => {
       const stub = stubGame({ maxPlayers: 2 });

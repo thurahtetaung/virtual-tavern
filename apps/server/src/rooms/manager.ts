@@ -146,6 +146,11 @@ export interface RoomManagerDeps {
   observer?: RoomObserver | null;
   /** The room's recap settings for the snapshot (recaps on, tone). Default: on, cheeky. */
   recapMeta?: (roomId: string) => { recap: boolean; tone: RecapTone };
+  /**
+   * Why a new game of `gameId` can't start now (the admin switched it off), or null. Open rooms
+   * finish the game they are playing; a playtest is never stopped.
+   */
+  gameOff?: (gameId: string) => string | null;
 }
 
 export interface JoinOptions {
@@ -173,6 +178,7 @@ export class RoomManager {
       logger: console,
       observer: null,
       recapMeta: () => ({ recap: true, tone: 'cheeky' }),
+      gameOff: () => null,
       ...deps,
     };
   }
@@ -374,6 +380,8 @@ export class RoomManager {
       connected: (id) => room.connections.has(id) || botIds(room.record).has(id),
     });
     if (isGameError(result)) return fail(result.code, result.message);
+    const off = room.record.playtest ? null : this.deps.gameOff(room.record.gameId);
+    if (off && this.startsAnotherGame(room, result)) return fail('game-off', off);
     try {
       this.commit(room, { state: result }, 0, {
         kind: 'action',
@@ -428,6 +436,18 @@ export class RoomManager {
       serverNow: this.deps.now(),
       meta: this.meta(room),
     };
+  }
+
+  /**
+   * Whether `next` leaves a finished game (Play again, back to the lobby) or starts a game after
+   * one has been played: what a room may no longer do once its game is switched off.
+   */
+  private startsAnotherGame(room: LiveRoom, next: unknown): boolean {
+    const before = this.meta(room);
+    const phase = (next as { phase?: unknown } | null)?.phase;
+    const after = phase === 'playing' || phase === 'over' ? phase : 'lobby';
+    if (before.phase === 'over') return after !== 'over';
+    return before.phase === 'lobby' && after === 'playing' && before.gameNo > 0;
   }
 
   /** The coarse phase every game reports for stats, and the room's recap settings. */

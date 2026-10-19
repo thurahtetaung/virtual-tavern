@@ -1,5 +1,5 @@
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
-import { type PrivateGameSettings, effectiveMusic } from '../private-games.ts';
+import { type GameSettingsStore, effectiveMusic, musicPhasesOf } from '../game-settings.ts';
 import type { R2Assets } from '../r2.ts';
 import type { Lists } from './lists.ts';
 
@@ -13,7 +13,7 @@ export class Manifests {
   private readonly opts: {
     games: GameRegistry;
     assets: R2Assets | null;
-    privateGames?: PrivateGameSettings;
+    settings?: Pick<GameSettingsStore, 'music'>;
     lists: Lists;
   };
   constructor(opts: Manifests['opts']) {
@@ -51,10 +51,11 @@ export class Manifests {
 
   /** The admin's music choices replace the manifest's defaults, phase by phase. */
   private merged(gameId: string, manifest: unknown): unknown {
-    const override = this.opts.privateGames?.music(gameId) ?? null;
+    const override = this.opts.settings?.music(gameId) ?? null;
     if (override && typeof manifest === 'object' && !Array.isArray(manifest)) {
       const m = manifest as { music?: unknown };
-      return { ...m, music: effectiveMusic(m.music, override) };
+      const phases = musicPhasesOf(this.opts.games.get(gameId));
+      return { ...m, music: effectiveMusic(m.music, override, phases) };
     }
     return manifest;
   }

@@ -2,7 +2,6 @@ import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
 import { dayTab, getReady, playNight, setRoles, vote } from './nightfall-play.ts';
-import { openAdminSection } from './admin-sections.ts';
 import { expectSummariesWhole, openSettings } from './lobby-settings.ts';
 
 const pageErrors: string[] = [];
@@ -47,20 +46,15 @@ test('five friends play a night, a day and a vote, and see the whole night repla
   await admin.getByLabel('Back room password').fill(TEST_BACKROOM_WORD);
   await admin.getByRole('button', { name: /Open the back room|Change password/ }).click();
   await expect(admin.getByRole('button', { name: 'Change password' })).toBeVisible();
-  // Without asset storage there's no music to pick yet.
-  await openAdminSection(admin, 'Nightfall music');
-  await expect(
-    admin.getByRole('region', { name: 'Nightfall music' }).getByText('No tracks uploaded yet'),
-  ).toBeVisible();
-  await expect(admin.getByText('Upload the Nightfall assets to choose music')).toBeVisible();
+  // Nightfall's card on the Games page: music (without asset storage there is none to pick).
+  await admin.goto('/tavern-keeper/games');
+  const card = admin.getByTestId('game-card-nightfall');
+  await card.locator('summary').click();
+  await expect(card.getByText('No tracks uploaded yet')).toBeVisible();
   // The real title lives in the database and reaches unlocked browsers only.
-  await openAdminSection(admin, 'Back-room titles');
-  await admin.getByLabel('Nightfall', { exact: true }).fill(TITLE);
-  const titles = admin
-    .getByRole('listitem')
-    .filter({ has: admin.getByLabel('Nightfall', { exact: true }) });
-  await titles.getByRole('button', { name: 'Save' }).click();
-  await expect(titles.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await card.getByLabel('Title for unlocked players').fill(TITLE);
+  await card.getByRole('button', { name: 'Save the title of Nightfall' }).click();
+  await expect(card.getByRole('heading', { name: TITLE })).toBeVisible();
 
   try {
     const names = ['Hana', 'Ana', 'Ben', 'Cy', 'Dee'];
@@ -268,14 +262,10 @@ test('five friends play a night, a day and a vote, and see the whole night repla
       `How to play ${TITLE}`,
     );
   } finally {
-    await admin.goto('/tavern-keeper');
-    await openAdminSection(admin, 'Back-room titles');
-    const field = admin.getByLabel('Nightfall', { exact: true });
-    await field.fill('');
-    await admin
-      .getByRole('listitem')
-      .filter({ has: field })
-      .getByRole('button', { name: 'Save' })
-      .click();
+    await admin.goto('/tavern-keeper/games');
+    const card = admin.getByTestId('game-card-nightfall');
+    await card.getByLabel('Title for unlocked players').fill('');
+    await card.getByRole('button', { name: 'Save the title of Nightfall' }).click();
+    await expect(card.getByRole('heading', { name: 'Nightfall', exact: true })).toBeVisible();
   }
 });

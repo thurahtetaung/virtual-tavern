@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GameCategory } from './game-settings.ts';
 import type {
   AckWith,
   GameRecap,
@@ -45,6 +46,13 @@ export interface GameSummary {
   questionDecks: boolean;
   /** A private game's display title, set by the admin (only sent to unlocked browsers). */
   title?: string;
+  /** The game's categories, in the admin's order (none for a game that is off). */
+  categories: GameCategory[];
+  /**
+   * The admin switched the game off: it leaves the game lists and new rooms are refused, while
+   * rooms already open play on until their game ends.
+   */
+  off?: true;
 }
 
 /** A night recap's key (the ULID of the night's first game start). */
@@ -101,6 +109,8 @@ export interface PlaytestGame {
   bots: 'all' | 'some' | 'none';
   /** What the setup should know, e.g. "The Forensic Scientist must be human". */
   botNote?: string;
+  /** The game is switched off for players (the admin may still playtest it). */
+  off?: true;
 }
 
 export const playtestSeat = z.object({ name: playerName, bot: z.boolean().default(false) });
@@ -305,6 +315,7 @@ export interface ServerToClientEvents {
    */
   'room:recap': (push: { recap: RoomRecap | null; for: string }) => void;
 }
+export * from './game-settings.ts';
 export * from './questions.ts';
 export * from './recap.ts';
 export * from './stats.ts';
