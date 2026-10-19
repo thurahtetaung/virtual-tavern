@@ -20,15 +20,20 @@ export interface Manifest {
   };
 }
 
+const loaded = (manifest: ManifestState) => (manifest === 'unavailable' ? null : manifest);
+
 export const assetUrl = (path: string) => `/api/backroom/assets/${GAME_ID}/${path}`;
 
-/** Loads the manifest; null while loading or when there is none (tests, dev). */
-export function useManifest(): Manifest | null {
-  const [manifest, setManifest] = useState<Manifest | null>(null);
+/** `null` while loading; `'unavailable'` when there is none (tests, dev). */
+export type ManifestState = Manifest | null | 'unavailable';
+
+/** Loads the manifest. */
+export function useManifest(): ManifestState {
+  const [manifest, setManifest] = useState<ManifestState>(null);
   useEffect(() => {
     let live = true;
     void loadManifest(GAME_ID).then((body) => {
-      if (live) setManifest(body);
+      if (live) setManifest(body ?? 'unavailable');
     });
     return () => {
       live = false;
@@ -59,15 +64,15 @@ const LANTERN_OF: Record<PlayerColor, LanternColor> = {
 
 /** The lantern picture for a player's colour and side, if the manifest has it. */
 export function lanternArt(
-  manifest: Manifest | null,
+  manifest: ManifestState,
   color: PlayerColor,
   side: 'light' | 'dark',
 ): string | null {
-  const path = manifest?.components?.lantern?.[LANTERN_OF[color]]?.[side];
+  const path = loaded(manifest)?.components?.lantern?.[LANTERN_OF[color]]?.[side];
   return path ? assetUrl(path) : null;
 }
 
-export function firstScoutArt(manifest: Manifest | null): string | null {
-  const path = manifest?.components?.firstScout;
+export function firstScoutArt(manifest: ManifestState): string | null {
+  const path = loaded(manifest)?.components?.firstScout;
   return path ? assetUrl(path) : null;
 }
