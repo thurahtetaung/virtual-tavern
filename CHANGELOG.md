@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.44.0...v0.45.0) (2026-10-19)
+
+
+### Features
+
+* **starlight:** add Starlight, a picture word-association game in the back room ([#296](https://github.com/thurahtetaung/virtual-tavern/issues/296)) ([3a1d7a7](https://github.com/thurahtetaung/virtual-tavern/commit/3a1d7a70851e6b6675e42b42cdf0350297152faa))
+
 ## [0.44.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.43.0...v0.44.0) (2026-10-19)
 
 
