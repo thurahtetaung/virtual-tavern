@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.0...v0.48.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **web:** narrow the game list to games with every chosen category ([#304](https://github.com/thurahtetaung/virtual-tavern/issues/304)) ([dece473](https://github.com/thurahtetaung/virtual-tavern/commit/dece4738b9e89f2a18f7342b23ae4d93ac881f97))
+
 ## [0.48.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.47.0...v0.48.0) (2026-10-19)
 
 
