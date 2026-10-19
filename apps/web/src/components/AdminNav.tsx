@@ -9,19 +9,17 @@ export function AdminNav({
   current: 'lists' | 'games' | 'stats' | 'playtest';
   className?: string;
 }) {
-  const items = [
-    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room' },
+  // `short` stands in for the label on phones, so the four tabs fit one row.
+  const items: readonly { id: string; to: string; label: string; short?: string }[] = [
+    { id: 'lists', to: '/tavern-keeper', label: 'Lists & back room', short: 'Lists' },
     { id: 'games', to: '/tavern-keeper/games', label: 'Games' },
     { id: 'stats', to: '/tavern-keeper/stats', label: 'Stats' },
     { id: 'playtest', to: '/tavern-keeper/playtest', label: '🧪 Playtest' },
-  ] as const;
+  ];
   return (
     <nav
       aria-label="Admin"
-      className={cn(
-        'flex flex-wrap gap-1 rounded-xl bg-stone-200/70 p-1 dark:bg-stone-800/70',
-        className,
-      )}
+      className={cn('flex gap-1 rounded-xl bg-stone-200/70 p-1 dark:bg-stone-800/70', className)}
     >
       {items.map((item) => (
         <Link
@@ -35,7 +33,14 @@ export function AdminNav({
               : 'text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100',
           )}
         >
-          {item.label}
+          {item.short ? (
+            <>
+              <span className="sm:hidden">{item.short}</span>
+              <span className="hidden sm:inline">{item.label}</span>
+            </>
+          ) : (
+            item.label
+          )}
         </Link>
       ))}
     </nav>

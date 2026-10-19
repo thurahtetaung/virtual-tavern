@@ -1,6 +1,7 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD } from './credentials.ts';
+import { openAdminSection } from './admin-sections.ts';
 
 const pageErrors: string[] = [];
 test.afterEach(() => {
@@ -20,7 +21,7 @@ async function signedInAdmin(browser: Browser) {
   await page.getByLabel('Admin password').fill(TEST_ADMIN_PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByRole('link', { name: 'Games', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Categories' })).toBeVisible();
+  await openAdminSection(page, 'Categories');
   return page;
 }
 

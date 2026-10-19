@@ -428,7 +428,6 @@ function CategoryEditor({
       id="categories"
       title="🗂️ Categories"
       label="Categories"
-      defaultOpen
       summary={
         categories.length
           ? `${plural(categories.length, 'category', 'categories')}, ${plural(tagged, 'game')} tagged`
