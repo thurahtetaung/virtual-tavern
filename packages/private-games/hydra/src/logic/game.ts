@@ -1317,6 +1317,7 @@ export function defineHydra(edition: Edition): GameDefinition<HydraState, HydraA
     description: edition.description,
     minPlayers: MIN_PLAYERS,
     maxPlayers: 30,
+    maxSeated: MAX_SEATS,
     access: 'private',
     guide: edition.guide,
     actionSchema,

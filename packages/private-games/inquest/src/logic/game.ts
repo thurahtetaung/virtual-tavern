@@ -32,6 +32,7 @@ import { locationTiles, rolesFor, startProblem } from './setup.ts';
 import { insights } from './insights.ts';
 import { eventName } from './names.ts';
 import {
+  ALLIES_MAX_PLAYERS,
   ALLIES_STEP_SECONDS,
   type AlliesPhase,
   type AlliesStep,
@@ -1602,6 +1603,8 @@ export const inquest: GameDefinition<InquestState, InquestAction, InquestView> =
     'A murder at the scene: the Forensic Scientist knows who did it and can only point with bullets.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  /** With the Allies expansion; 12 without. */
+  maxSeated: ALLIES_MAX_PLAYERS,
   access: 'private',
   guide,
   actionSchema,

@@ -595,6 +595,7 @@ export const tavernBrawl: GameDefinition<TavernBrawlState, TavernBrawlAction, Ta
   description: 'Hero card brawl: hit, shield, heal and chain cards to be the last one standing.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   guide,
   actionSchema,

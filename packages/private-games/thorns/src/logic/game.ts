@@ -962,6 +962,7 @@ export const thorns: GameDefinition<ThornsState, ThornsAction, ThornsView> = {
   description: 'Hide a thorn among your roses, bid on how many you can turn over, and bluff.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   guide,
   actionSchema,

@@ -6,6 +6,7 @@ Each game is a self-contained workspace package under `packages/games/<id>`. The
 
 Implement `GameDefinition` from `@vt/game-sdk` (see `packages/games/codenames/src/logic/game.ts`):
 
+- **Player limits:** `minPlayers` is the fewest who can play and `maxPlayers` the room limit, watchers included (most games allow 30). If fewer than that can actually play, set `maxSeated` to the most who can (the largest over every lobby setting, e.g. Royal Post's bigger edition), taken from your own start and join checks; playtests offer only that many seats, and `seatLimit(game)` reads it.
 - **State is plain JSON.** The server stores it after every move and reloads it after restarts.
 - **Logic is pure.** Use `ctx.rng` for randomness, `ctx.now` for time and `ctx.content` for word lists. Never read `Math.random`, `Date.now` or the network.
 - `reduce` **returns** a `GameError` for an illegal move; the player sees its message as a toast.

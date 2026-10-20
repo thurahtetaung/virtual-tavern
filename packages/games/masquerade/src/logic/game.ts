@@ -610,6 +610,7 @@ export function defineMasquerade(
     description: config.description,
     minPlayers: MIN_PLAYERS,
     maxPlayers: 30,
+    maxSeated: MAX_SEATS,
     ...(config.access ? { access: config.access } : {}),
     guide: config.guide,
     actionSchema,

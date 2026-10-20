@@ -2663,6 +2663,7 @@ export const shortFuse: GameDefinition<ShortFuseState, ShortFuseAction, ShortFus
     'A fast card game of nerve: play cards, then draw one, and hope it isn’t a bomb. Last one standing wins.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_SEATS,
   access: 'private',
   guide,
   actionSchema,

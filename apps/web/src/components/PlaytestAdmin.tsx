@@ -291,6 +291,7 @@ export function PlaytestAdmin() {
                 playtest={p}
                 icon={icons.get(p.gameId) ?? '🎲'}
                 canAddBots={games?.find((g) => g.id === p.gameId)?.bots !== 'none'}
+                maxSeats={games?.find((g) => g.id === p.gameId)?.maxSeats}
                 onEnded={ended}
               />
             ))}
@@ -305,11 +306,14 @@ function RunningPlaytest({
   playtest,
   icon,
   canAddBots,
+  maxSeats,
   onEnded,
 }: {
   playtest: SavedPlaytest;
   icon: string;
   canAddBots: boolean;
+  /** Most seats the game takes, when the game list has loaded. */
+  maxSeats: number | undefined;
   onEnded: (roomId: string) => void;
 }) {
   const toast = useToast();
@@ -447,7 +451,7 @@ function RunningPlaytest({
             )}
           </li>
         ))}
-        {lobby && canAddBots && (
+        {lobby && canAddBots && (maxSeats === undefined || status.players.length < maxSeats) && (
           <li>
             <Button
               variant="secondary"

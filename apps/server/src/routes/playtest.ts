@@ -8,6 +8,7 @@ import {
   firstIssueMessage,
   updatePlaytestBody,
 } from '@vt/protocol';
+import { type AnyGameDefinition, seatLimit } from '@vt/game-sdk';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type GameRegistry, isPrivate } from '../games/registry.ts';
 import { playerIdFromToken } from '../rooms/ids.ts';
@@ -20,8 +21,8 @@ const error = (reply: FastifyReply, status: number, code: string, message: strin
 /** A fresh seat secret, in the same format as a browser's `playerToken`. */
 export const seatToken = () => randomBytes(32).toString('base64url');
 
-/** Most seats a playtest of `maxPlayers` may have. */
-export const maxSeats = (maxPlayers: number) => Math.min(maxPlayers, MAX_PLAYTEST_SEATS);
+/** Most seats a playtest of `game` may have: as many as can play it, capped. */
+export const maxSeats = (game: AnyGameDefinition) => Math.min(seatLimit(game), MAX_PLAYTEST_SEATS);
 
 /**
  * The admin's playtests: rooms that record nothing, whose seats are all played from the admin's
@@ -47,7 +48,7 @@ export function playtestRoutes(
       name: (isPrivate(g) && settings?.title(g.id)) || g.name,
       private: isPrivate(g),
       minPlayers: g.minPlayers,
-      maxSeats: maxSeats(g.maxPlayers),
+      maxSeats: maxSeats(g),
       bots: !g.bot ? 'none' : g.botInfo?.note ? 'some' : 'all',
       ...(g.bot && g.botInfo?.note && { botNote: g.botInfo.note }),
       ...(settings?.enabled(g.id) === false && { off: true as const }),
@@ -63,7 +64,7 @@ export function playtestRoutes(
       const { gameId, seats } = body.data;
       const game = games.get(gameId);
       if (!game) return error(reply, 400, 'bad-request', 'Unknown game.');
-      const most = maxSeats(game.maxPlayers);
+      const most = maxSeats(game);
       if (seats.length < game.minPlayers || seats.length > most) {
         return error(
           reply,
@@ -131,9 +132,13 @@ export function playtestRoutes(
     const body = updatePlaytestBody.safeParse(req.body);
     if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
     const { roomId } = req.params;
-    if (!rooms.playtestStatus(roomId))
-      return error(reply, 404, 'no-room', 'This playtest has ended.');
+    const status = rooms.playtestStatus(roomId);
+    if (!status) return error(reply, 404, 'no-room', 'This playtest has ended.');
     const { paused, speed, addBot, removeBot } = body.data;
+    // No more seats than can play: a bot past that would only watch.
+    const game = games.get(status.gameId);
+    if (addBot !== undefined && game && status.players.length >= maxSeats(game))
+      return error(reply, 400, 'full', `${game.name} takes at most ${maxSeats(game)} seats.`);
     if (paused !== undefined || speed !== undefined)
       rooms.setPlaytest(roomId, {
         ...(paused !== undefined && { paused }),

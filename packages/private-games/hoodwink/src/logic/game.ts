@@ -877,6 +877,7 @@ export const hoodwink: GameDefinition<HoodwinkState, HoodwinkAction, HoodwinkVie
   minPlayers: MIN_PLAYERS,
   /** Room capacity: up to `MAX_PLAYERS` play, the rest watch. */
   maxPlayers: ROOM_CAPACITY,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   usesWordLists: false,
   usesQuestionDecks: true,
