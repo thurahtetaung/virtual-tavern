@@ -708,6 +708,7 @@ export const reverie: GameDefinition<ReverieState, ReverieAction, ReverieView> =
   description: 'Give a dreamy clue for one of your picture cards; let some, but not all, find it.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   guide,
   actionSchema,

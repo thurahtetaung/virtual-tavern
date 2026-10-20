@@ -19,6 +19,7 @@ import {
   type LogEntry,
   MAX_LOG,
   MAX_NOTES,
+  MAX_SEATS,
   MIN_PLAYERS,
   type Note,
   type OutCause,
@@ -901,6 +902,8 @@ export const royalPost: GameDefinition<RoyalPostState, RoyalPostAction, RoyalPos
   description: 'Win the royal favour with one card in hand: deduce, protect and outlast.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  /** The larger edition's table. */
+  maxSeated: MAX_SEATS,
   access: 'private',
   guide,
   actionSchema,

@@ -657,6 +657,7 @@ export const codenames: GameDefinition<CodenamesState, CodenamesAction, Codename
   name: 'Codenames',
   description: 'Two teams race to contact their agents from one-word clues.',
   minPlayers: 4,
+  /** Everyone in the room can join a team, so this is also the most who play. */
   maxPlayers: 20,
   usesWordLists: true,
   guide,

@@ -1084,6 +1084,7 @@ export const seance: GameDefinition<SeanceState, SeanceAction, SeanceView> = {
     'A silent ghost sends picture visions; the psychics read them to find who, where and how.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   guide,
   actionSchema,

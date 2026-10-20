@@ -770,6 +770,7 @@ export const nightfall: GameDefinition<NightfallState, NightfallAction, Nightfal
     'One night, hidden roles, one vote: find the werewolves before the sun comes up, or be one.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   music: {
     phases: [

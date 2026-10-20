@@ -573,6 +573,7 @@ export const starlight: GameDefinition<StarlightState, StarlightAction, Starligh
   description: 'Secretly mark the pictures a word brings to mind, then hope others saw them too.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_PLAYERS,
   access: 'private',
   usesWordLists: true,
   guide,

@@ -879,6 +879,7 @@ export const roundTable: GameDefinition<RoundTableState, RoundTableAction, Round
   description: 'Loyal knights against hidden traitors: pick teams, vote, and protect Merlin.',
   minPlayers: MIN_PLAYERS,
   maxPlayers: 30,
+  maxSeated: MAX_SEATS,
   guide,
   actionSchema,
   create,

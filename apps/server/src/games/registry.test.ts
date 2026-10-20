@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { seatLimit } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { buildGames, isPrivate } from './registry.ts';
 
@@ -38,5 +39,12 @@ describe('game registries', () => {
     expect(new Set(web).size).toBe(web.length);
     for (const id of publicIds) expect(isPrivate(server.get(id)), `${id} is public`).toBe(false);
     for (const id of privateIds) expect(isPrivate(server.get(id)), `${id} is private`).toBe(true);
+  });
+
+  it('seat at most the room limit and at least the fewest who can play', () => {
+    for (const game of server.values()) {
+      expect(seatLimit(game), `${game.id} seats`).toBeLessThanOrEqual(game.maxPlayers);
+      expect(seatLimit(game), `${game.id} seats`).toBeGreaterThanOrEqual(game.minPlayers);
+    }
   });
 });

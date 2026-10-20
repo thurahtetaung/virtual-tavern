@@ -110,7 +110,14 @@ describe('admin playtests', () => {
     const inquest = games.find((g) => g.id === 'inquest')!;
     expect(inquest.bots).toBe('some');
     expect(inquest.botNote).toMatch(/Forensic Scientist must be human/);
-    expect(games.find((g) => g.id === 'royal-post')).toMatchObject({ private: true });
+    expect(games.find((g) => g.id === 'royal-post')).toMatchObject({ private: true, maxSeats: 6 });
+    // Only as many seats as can play, not the room's limit (which counts watchers).
+    expect(games.find((g) => g.id === 'tavern-brawl')).toMatchObject({
+      minPlayers: 2,
+      maxSeats: 6,
+    });
+    expect(games.find((g) => g.id === 'inquest')).toMatchObject({ maxSeats: 14 });
+    expect(games.find((g) => g.id === 'echo')).toMatchObject({ maxSeats: 7 });
     expect(games.length).toBeGreaterThanOrEqual(11);
   });
 
@@ -125,6 +132,19 @@ describe('admin playtests', () => {
     await bad('nope', ['Ana', 'Ben', 'Cy', 'Dee'], 'bad-request');
     await bad('codenames', ['Ana', 'Ben', 'Cy', ' ana '], 'bad-seats');
     await bad('codenames', ['Ana', 'Ben', 'Cy', ''], 'bad-request');
+    await bad(
+      'tavern-brawl',
+      Array.from({ length: 7 }, (_, i) => `P${i}`),
+      'bad-seats',
+    );
+    expect(
+      (
+        await create(
+          'tavern-brawl',
+          Array.from({ length: 6 }, (_, i) => `P${i}`),
+        )
+      ).statusCode,
+    ).toBe(200);
     await bad(
       'codenames',
       Array.from({ length: 17 }, (_, i) => `P${i}`),
@@ -216,6 +236,12 @@ describe('admin playtests', () => {
     const fay = added.players.find((p) => p.name === 'Fay')!;
     expect(fay).toMatchObject({ bot: true, connected: true });
     expect((await patch({ removeBot: fay.id })).json<PlaytestStatus>().players).toHaveLength(5);
+    // Bots fill the table up to the most who can play Round Table (10), and no further.
+    for (const name of ['Fay', 'Gus', 'Hal', 'Ivy', 'Jo'])
+      expect((await patch({ addBot: name })).statusCode).toBe(200);
+    const full = await patch({ addBot: 'Kit' });
+    expect(full.statusCode).toBe(400);
+    expect(full.json<{ error: { code: string } }>().error.code).toBe('full');
     expect((await patch({ removeBot: ana.playerId })).statusCode).toBe(400);
     expect(
       (

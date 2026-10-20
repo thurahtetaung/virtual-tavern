@@ -94,6 +94,10 @@ export class GameError {
   }
 }
 
+/** The most players who can play a game at once (`maxSeated`, else its room limit). */
+export const seatLimit = (game: { maxPlayers: number; maxSeated?: number }) =>
+  game.maxSeated ?? game.maxPlayers;
+
 export const isGameError = (value: unknown): value is GameError => value instanceof GameError;
 
 /**
@@ -105,7 +109,14 @@ export interface GameDefinition<State, Action, View> {
   name: string;
   description: string;
   minPlayers: number;
+  /** The room limit: everyone in the room, watchers included. */
   maxPlayers: number;
+  /**
+   * The most players who can actually play (take a seat at the table); the rest of the room
+   * watches. Where it depends on lobby settings, the largest over all of them. Default:
+   * `maxPlayers`, for games where everyone in the room plays.
+   */
+  maxSeated?: number;
   /**
    * `private` games are only listed, created, joined and played by players who have unlocked
    * the back room. Their assets live in private storage, never in the repo. Default: public.
