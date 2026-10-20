@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.1...v0.48.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **playtest:** offer only as many seats as a game can play ([#306](https://github.com/thurahtetaung/virtual-tavern/issues/306)) ([197758d](https://github.com/thurahtetaung/virtual-tavern/commit/197758d1f7ac096ebab7f4a8ff4570c53afdeab5))
+
 ## [0.48.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.0...v0.48.1) (2026-10-19)
 
 
