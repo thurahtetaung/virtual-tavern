@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Keep in sync with the "volta" pin in package.json.
-ARG NODE_VERSION=24.21.0
+ARG NODE_VERSION=24.22.1
 
 # The build stage runs on the builder's own platform even for the arm64 image: its output is
 # platform-independent (bundled JS, and better-sqlite3 ships prebuilt binaries for every platform),
