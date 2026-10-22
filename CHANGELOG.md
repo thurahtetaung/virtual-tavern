@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.2...v0.48.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** update Node to 24.22.1 for its security fixes ([#308](https://github.com/thurahtetaung/virtual-tavern/issues/308)) ([0cc60f7](https://github.com/thurahtetaung/virtual-tavern/commit/0cc60f7b935d0840c841c739f5fcb31264640580))
+
 ## [0.48.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.1...v0.48.2) (2026-10-20)
 
 
