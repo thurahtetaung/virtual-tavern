@@ -1,5 +1,5 @@
 import type { InsightEvent, PlayerId } from '@vt/game-sdk';
-import { PILLARS, cardKey } from './cards.ts';
+import { PILLARS, cardKey, kindOf } from './cards.ts';
 import type { Game, PsychicColor, SeanceAction, SeanceState } from './types.ts';
 
 /**
@@ -58,7 +58,7 @@ export function insights(
         hour: v.hour,
         tries,
         visions: held,
-        card: v.guess === null ? null : cardKey(pillar, v.guess),
+        card: v.guess === null ? null : cardKey(kindOf(pillar, g.third), v.guess),
       },
     });
     for (const m of v.marks) {

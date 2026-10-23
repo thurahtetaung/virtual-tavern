@@ -392,8 +392,9 @@ function SeanceTable({
   setAbandon,
 }: SeanceUiProps) {
   const manifest = useManifest();
-  const content = useMemo(() => contentFor(manifest), [manifest]);
   const g = view.game;
+  const third = g?.third ?? view.settings.third ?? 'object';
+  const content = useMemo(() => contentFor(manifest, third), [manifest, third]);
   const status = statusFor(view, room.isHost, room);
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),

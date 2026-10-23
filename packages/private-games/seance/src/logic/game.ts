@@ -9,7 +9,7 @@ import {
   timedOut,
 } from '@vt/game-sdk';
 import { seanceAwards } from './awards.ts';
-import { PILLARS, type Pillar, SET_IDS, poolOf } from './cards.ts';
+import { PILLARS, POOL_IDS, type Pillar, SET_IDS, kindOf, poolOf } from './cards.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import { RAVENS, assignColors, startProblem, tableCards, tokensFor, voteStageOf } from './setup.ts';
@@ -148,6 +148,8 @@ function updateSettings(
   }
   if (action.difficulty !== undefined) s.difficulty = action.difficulty;
   if (action.sets !== undefined) s.sets = SET_IDS.filter((id) => action.sets!.includes(id));
+  if (action.third !== undefined) s.third = action.third;
+  if (action.pools !== undefined) s.pools = POOL_IDS.filter((id) => action.pools!.includes(id));
   if (action.timerSeconds !== undefined) s.timerSeconds = action.timerSeconds;
   if (action.timerMode !== undefined) s.timerMode = action.timerMode;
   return { ...state, settings: s };
@@ -212,11 +214,12 @@ function start(state: SeanceState, ctx: Ctx): Result {
   const psychicIds = ids.filter((id) => id !== ghost);
   const colors = assignColors(psychicIds, (id) => state.seats[id]!.color);
   const n = tableCards(s.difficulty, ids.length);
+  const third = s.third ?? 'object';
   // Per pillar: lay N cards face up; the ghost shuffles their copies and deals one per psychic.
   const table = {} as Record<Pillar, number[]>;
   const targets = psychicIds.map(() => [] as number[]);
   for (const pillar of PILLARS) {
-    const laid = rng.shuffle(poolOf(s.sets, pillar)).slice(0, n);
+    const laid = rng.shuffle(poolOf(s.sets, kindOf(pillar, third))).slice(0, n);
     table[pillar] = [...laid].sort((a, b) => a - b);
     const dealt = rng.shuffle(laid);
     psychicIds.forEach((_, i) => targets[i]!.push(dealt[i]!));
@@ -239,13 +242,14 @@ function start(state: SeanceState, ctx: Ctx): Result {
     gone: false,
     retired: false,
   }));
-  const deck = rng.shuffle(poolOf(s.sets, 'vision'));
+  const deck = rng.shuffle(poolOf(s.sets, 'vision', s.pools));
   const game: Game = refill(
     {
       ghost,
       formerGhosts: [],
       psychics,
       difficulty: s.difficulty,
+      third,
       clairvoyance,
       tokensEach,
       hour: 1,
@@ -896,6 +900,8 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): SeanceState {
       ghostPick: null,
       difficulty: 'easy',
       sets: [...SET_IDS],
+      third: 'object',
+      pools: [],
       timerSeconds: DEFAULT_TIMER,
       timerMode: 'soft',
     },
@@ -1047,6 +1053,7 @@ function gameView(g: Game, viewer: PlayerId | null): GameView {
     stage: g.stage,
     hour: g.hour,
     difficulty: g.difficulty,
+    third: g.third ?? 'object',
     clairvoyance: g.clairvoyance,
     tokensEach: g.tokensEach,
     ghost: g.ghost,
@@ -1092,7 +1099,12 @@ function view(state: SeanceState, viewer: PlayerId | null): SeanceView {
     phase: state.phase,
     table: state.table,
     gameNo: state.gamesPlayed,
-    settings: { ...state.settings, sets: [...state.settings.sets] },
+    settings: {
+      ...state.settings,
+      sets: [...state.settings.sets],
+      third: state.settings.third ?? 'object',
+      pools: [...(state.settings.pools ?? [])],
+    },
     seats,
     me: viewer === null ? null : (seats.find((s) => s.id === viewer) ?? null),
     game: state.game ? gameView(state.game, viewer) : null,

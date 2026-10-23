@@ -2,13 +2,14 @@ import { ProtectedImage, cn } from '@vt/ui';
 import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { Kind } from '../logic/cards.ts';
 import type { PsychicColor } from '../logic/types.ts';
-import { type Content, PILLAR_ICONS } from './assets.ts';
+import { type Content, KIND_ICONS } from './assets.ts';
 
 const PLACEHOLDER: Record<Kind, string> = {
   vision: 'from-indigo-800 via-violet-900 to-stone-950',
   suspect: 'from-rose-900 to-stone-900',
   place: 'from-emerald-900 to-stone-900',
   object: 'from-amber-800 to-stone-900',
+  story: 'from-slate-800 to-stone-950',
 };
 
 interface Props {
@@ -48,9 +49,7 @@ export function CardPlaceholder({ kind, n, big }: { kind: Kind; n: number; big?:
         big ? 'text-5xl' : 'text-lg',
       )}
     >
-      <span className={big ? 'text-6xl' : 'text-xl'}>
-        {kind === 'vision' ? '👁️' : PILLAR_ICONS[kind]}
-      </span>
+      <span className={big ? 'text-6xl' : 'text-xl'}>{KIND_ICONS[kind]}</span>
       {n}
     </span>
   );
@@ -219,7 +218,7 @@ function useHoverPreview(on: boolean, portrait: boolean) {
 }
 
 /**
- * One card, art first. Visions are portrait, suspects, places and objects landscape. When the art
+ * One card, art first. Visions are portrait, suspects, places, objects and stories landscape. When the art
  * can't load (no asset storage in tests or dev, or a missing file) it shows a numbered placeholder.
  */
 export function Card({

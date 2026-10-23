@@ -40,7 +40,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
               const found = p.found[step] !== undefined;
               const row: LookCard[] = [
                 {
-                  kind: pillar,
+                  kind: content.kindOf(pillar),
                   n: target,
                   caption: `${p.name}’s ${content.pillarName(pillar).toLowerCase()} (${found ? 'found' : 'not found'})`,
                 },
@@ -55,7 +55,7 @@ function GhostMeant({ view, content }: { view: SeanceView; content: Content }) {
               return (
                 <li key={pillar} className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-2">
                   <Card
-                    kind={pillar}
+                    kind={content.kindOf(pillar)}
                     n={target}
                     content={content}
                     dimmed={!found}

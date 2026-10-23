@@ -1,6 +1,6 @@
 import { Button, Modal, Panel, RefusalSlot, cn } from '@vt/ui';
 import { useState } from 'react';
-import { PILLARS } from '../logic/cards.ts';
+import { PILLARS, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
@@ -28,7 +28,13 @@ function psychicCards(p: PsychicView, g: GameView): LookCard[] {
   if (!pillar) return [];
   return [
     ...(target !== undefined
-      ? [{ kind: pillar, n: target, caption: `${p.name}’s target` } satisfies LookCard]
+      ? [
+          {
+            kind: kindOf(pillar, g.third),
+            n: target,
+            caption: `${p.name}’s target`,
+          } satisfies LookCard,
+        ]
       : []),
     ...cardsOf(
       'vision',
@@ -41,7 +47,7 @@ function psychicCards(p: PsychicView, g: GameView): LookCard[] {
     ...(p.intuition !== null
       ? [
           {
-            kind: pillar,
+            kind: kindOf(pillar, g.third),
             n: p.intuition,
             caption: `${p.name}’s guess${p.intuition === target ? ' (right)' : ' (wrong)'}`,
           } satisfies LookCard,
@@ -99,7 +105,7 @@ function PsychicSheet({
             </h3>
             <div className="mx-auto max-w-sm">
               <Card
-                kind={pillar}
+                kind={content.kindOf(pillar)}
                 n={target}
                 content={content}
                 size="big"
@@ -139,7 +145,7 @@ function PsychicSheet({
             {p.intuition !== null ? (
               <div className="max-w-[12rem]">
                 <Card
-                  kind={pillar}
+                  kind={content.kindOf(pillar)}
                   n={p.intuition}
                   content={content}
                   note={`${p.name}’s guess`}
@@ -187,7 +193,7 @@ export function GhostPsychics({
         ? `Vision for ${p.name}: pick from your hand`
         : `${p.name}’s ${content.pillarName(pillar).toLowerCase()}`,
       pinned: {
-        kind: pillar,
+        kind: content.kindOf(pillar),
         cards: [target],
         captions: { [target]: `${p.name}’s ${content.pillarName(pillar).toLowerCase()}` },
       },
@@ -253,7 +259,7 @@ export function GhostPsychics({
                 <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[10rem_minmax(0,1fr)] xl:grid-cols-[13rem_minmax(0,1fr)]">
                   {pillar && target !== undefined ? (
                     <Card
-                      kind={pillar}
+                      kind={content.kindOf(pillar)}
                       n={target}
                       content={content}
                       note={`${p.name}’s target`}
@@ -318,7 +324,7 @@ export function GhostPsychics({
                         {p.intuition !== null && (
                           <div className="ml-1 w-16 shrink-0 xl:w-24">
                             <Card
-                              kind={pillar}
+                              kind={content.kindOf(pillar)}
                               n={p.intuition}
                               content={content}
                               note={`${p.name}’s guess`}

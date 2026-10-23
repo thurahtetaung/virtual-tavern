@@ -1,6 +1,15 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
-import { CARD_COUNTS, type Pillar, SET_IDS, type SetId } from './cards.ts';
+import {
+  CARD_COUNTS,
+  type Pillar,
+  POOL_IDS,
+  type PoolId,
+  SET_IDS,
+  type SetId,
+  THIRDS,
+  type Third,
+} from './cards.ts';
 
 /** Official counts: the ghost plus 2 to 6 psychics. */
 export const MIN_PLAYERS = 3;
@@ -35,6 +44,10 @@ export interface Settings {
   ghostPick: PlayerId | null;
   difficulty: Difficulty;
   sets: SetId[];
+  /** Objects or stories as the third pillar. Optional so older rooms still load (objects). */
+  third?: Third;
+  /** Extra vision pools mixed into the deck. Optional so older rooms still load (none). */
+  pools?: PoolId[];
   /** The interpretation timer once every vision is out; null: no timer. */
   timerSeconds: TimerSeconds | null;
   /** soft: a reminder (the host can lock in); strict: guesses lock at 0:00. */
@@ -61,7 +74,7 @@ export interface Psychic {
   id: PlayerId;
   name: string;
   color: PsychicColor;
-  /** Their secret suspect, place and object. Secret until found (or the end). */
+  /** Their secret suspect, place and object (or story). Secret until found (or the end). */
   targets: [number, number, number];
   /** 0 suspect, 1 place, 2 object, 3 done. */
   step: number;
@@ -164,6 +177,8 @@ export interface Game {
   /** Psychics in seat order. */
   psychics: Psychic[];
   difficulty: Difficulty;
+  /** What the third pillar is played with; games saved before it have none (objects). */
+  third?: Third;
   /** Clairvoyance tokens and the track are in play (4+ players). */
   clairvoyance: boolean;
   tokensEach: number;
@@ -214,6 +229,7 @@ export interface SeanceState {
 const id = z.string().min(1).max(128);
 const vision = z.number().int().min(1).max(CARD_COUNTS.vision);
 const card = z.number().int().min(1).max(40);
+const unique = <T>(ids: T[]) => new Set(ids).size === ids.length;
 const color = z.enum(COLORS);
 const pillar = z.enum(['suspect', 'place', 'object']);
 
@@ -227,7 +243,13 @@ export const actionSchema = z.discriminatedUnion('type', [
       .array(z.enum(SET_IDS))
       .min(1)
       .max(SET_IDS.length)
-      .refine((ids) => new Set(ids).size === ids.length, 'Card sets must be unique.')
+      .refine(unique, 'Card sets must be unique.')
+      .optional(),
+    third: z.enum(THIRDS).optional(),
+    pools: z
+      .array(z.enum(POOL_IDS))
+      .max(POOL_IDS.length)
+      .refine(unique, 'Vision pools must be unique.')
       .optional(),
     timerSeconds: z
       .union([z.literal(60), z.literal(120), z.literal(180), z.literal(300)])
@@ -327,6 +349,7 @@ export interface GameView {
   stage: Stage;
   hour: number;
   difficulty: Difficulty;
+  third: Third;
   clairvoyance: boolean;
   tokensEach: number;
   ghost: PlayerId | null;

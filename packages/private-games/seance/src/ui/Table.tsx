@@ -2,7 +2,7 @@ import { Panel, cn } from '@vt/ui';
 import { PILLARS } from '../logic/cards.ts';
 import { levelThresholds } from '../logic/setup.ts';
 import { HOURS, type GameView, type SeanceView } from '../logic/types.ts';
-import { type Content, PILLAR_ICONS } from './assets.ts';
+import type { Content } from './assets.ts';
 import { Avatar, Card } from './Card.tsx';
 import { type LookCard, useLook } from './Look.tsx';
 import { atTable, psychicByColor, roman } from './status.ts';
@@ -55,7 +55,7 @@ export function Progress({
             ? []
             : [
                 {
-                  kind: pillar,
+                  kind: content.kindOf(pillar),
                   n: card,
                   caption: found !== undefined ? `${p.name} found it` : `${p.name}’s target`,
                 },
@@ -73,7 +73,7 @@ export function Progress({
                 return card !== undefined ? (
                   <Card
                     key={pillar}
-                    kind={pillar}
+                    kind={content.kindOf(pillar)}
                     n={card}
                     content={content}
                     dimmed={found === undefined}
@@ -103,7 +103,7 @@ export function Progress({
                         : 'border-stone-300 opacity-60 dark:border-stone-700',
                     )}
                   >
-                    {PILLAR_ICONS[pillar]}
+                    {content.pillarIcon(pillar)}
                   </div>
                 );
               })}

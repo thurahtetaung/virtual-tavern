@@ -1,6 +1,6 @@
 import { cn } from '@vt/ui';
 import type { GameView, PsychicView } from '../logic/types.ts';
-import { type Content, PILLAR_ICONS } from './assets.ts';
+import type { Content } from './assets.ts';
 import { Card } from './Card.tsx';
 import { type LookCard, useLook } from './Look.tsx';
 import { pastGuesses, roman } from './status.ts';
@@ -66,7 +66,7 @@ export function PastGuesses({
                   aria-label={`No ${content.pillarName(x.pillar).toLowerCase()} guess, ${label}`}
                   className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-xs text-ink-muted dark:border-stone-700"
                 >
-                  {PILLAR_ICONS[x.pillar]} —
+                  {content.pillarIcon(x.pillar)} —
                 </div>
               ) : (
                 <Card

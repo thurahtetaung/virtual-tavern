@@ -1,18 +1,33 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { type Kind, type Pillar, SET_LABELS, type SetId } from '../logic/cards.ts';
+import {
+  type Kind,
+  POOL_LABELS,
+  type Pillar,
+  type PoolId,
+  SET_LABELS,
+  type SetId,
+  type Third,
+  kindOf,
+  pictureCardOf,
+} from '../logic/cards.ts';
 import type { PsychicColor } from '../logic/types.ts';
 
 export const GAME_ID = 'seance';
 
 /**
  * The private manifest in asset storage (`seance/manifest.json`):
- * `{ back, sets: { base: { name, description } … }, psychics: { blue: { name, art, color } … } }`. Card art lives at `<kind>/<n>.webp` with a smaller
- * `<kind>/thumb/<n>.webp`. Everything is optional: without it, cards are numbered placeholders.
+ * `{ back, sets: { base: { name, description } … }, pools: { 'pool-a': { name, description, art? } … },
+ * psychics: { blue: { name, art, color } … } }`. Card art lives at `<kind>/<n>.webp` with a smaller
+ * `<kind>/thumb/<n>.webp`. A pool's `art` points at another back-room game's files instead (for
+ * `pool-r`, Reverie's: `reverie/cards/{nnn}.jpg`, `{n}` being Reverie's card number, `{nnn}` it
+ * padded to 3), with no separate thumbnail. Everything is optional: without it, cards are
+ * numbered placeholders.
  */
 export interface Manifest {
   back?: string;
   sets?: Partial<Record<SetId, { name?: string; description?: string }>>;
+  pools?: Partial<Record<PoolId, { name?: string; description?: string; art?: string }>>;
   psychics?: Partial<Record<PsychicColor, { name?: string; art?: string; color?: string }>>;
 }
 
@@ -46,13 +61,33 @@ export const SWATCHES: Record<PsychicColor, string> = {
   brown: '#7a5434',
 };
 
-const PILLAR_LABELS: Record<Pillar, string> = {
+const KIND_LABELS: Record<Kind, string> = {
+  vision: 'Vision',
   suspect: 'Suspect',
   place: 'Place',
   object: 'Object',
+  story: 'Story',
 };
 
-export const PILLAR_ICONS: Record<Pillar, string> = { suspect: '🧑', place: '🏚️', object: '🗝️' };
+export const KIND_ICONS: Record<Kind, string> = {
+  vision: '👁️',
+  suspect: '🧑',
+  place: '🏚️',
+  object: '🗝️',
+  story: '📜',
+};
+
+/** A pool's art template, kept to a plain path under the back-room assets. */
+const ART_TEMPLATE = /^[\w-]+\/(?:[\w.-]+\/)*[\w.{}-]+$/;
+
+/** Where a pool's card art lives, from the manifest's template, or null. */
+export function poolArt(template: string | undefined, n: number): string | null {
+  if (!template || !ART_TEMPLATE.test(template) || template.includes('..')) return null;
+  const path = template
+    .replaceAll('{nnn}', String(n).padStart(3, '0'))
+    .replaceAll('{n}', String(n));
+  return `/api/backroom/assets/${path}`;
+}
 
 /** Names and art for everything on the table, with placeholders where the manifest is silent. */
 export interface Content {
@@ -61,9 +96,18 @@ export interface Content {
   cardArt: (kind: Kind, n: number, thumb?: boolean) => string | null;
   /** "Suspect 12", "Vision 40": what screen readers and placeholders say. */
   cardLabel: (kind: Kind, n: number) => string;
+  /** What this game's third pillar is played with. */
+  third: Third;
+  /** The card kind of a pillar in this game (stories for the third, when chosen). */
+  kindOf: (p: Pillar) => Kind;
   pillarName: (p: Pillar) => string;
+  /** "Suspects", "Stories". */
+  pillarPlural: (p: Pillar) => string;
+  pillarIcon: (p: Pillar) => string;
   setName: (id: SetId) => string;
   setDescription: (id: SetId) => string | null;
+  poolName: (id: PoolId) => string;
+  poolDescription: (id: PoolId) => string | null;
   psychicName: (c: PsychicColor) => string;
   psychicArt: (c: PsychicColor) => string | null;
   swatch: (c: PsychicColor) => string;
@@ -74,17 +118,27 @@ const m = (s: ManifestState): Manifest | null => (s && s !== 'unavailable' ? s :
 const clean = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 const capital = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 
-export function contentFor(state: ManifestState): Content {
+export function contentFor(state: ManifestState, third: Third = 'object'): Content {
   const man = m(state);
-  const pillarName = (p: Pillar) => PILLAR_LABELS[p];
+  const kind = (p: Pillar) => kindOf(p, third);
   return {
     art: !!man,
-    cardArt: (kind, n, thumb) =>
-      man ? assetUrl(`${kind}/${thumb ? 'thumb/' : ''}${n}.webp`) : null,
-    cardLabel: (kind, n) => `${kind === 'vision' ? 'Vision' : pillarName(kind)} ${n}`,
-    pillarName,
+    cardArt: (kind, n, thumb) => {
+      if (!man) return null;
+      const picture = kind === 'vision' ? pictureCardOf(n) : null;
+      if (picture !== null) return poolArt(clean(man.pools?.['pool-r']?.art), picture);
+      return assetUrl(`${kind}/${thumb ? 'thumb/' : ''}${n}.webp`);
+    },
+    cardLabel: (kind, n) => `${KIND_LABELS[kind]} ${n}`,
+    third,
+    kindOf: kind,
+    pillarName: (p) => KIND_LABELS[kind(p)],
+    pillarPlural: (p) => (kind(p) === 'story' ? 'Stories' : `${KIND_LABELS[kind(p)]}s`),
+    pillarIcon: (p) => KIND_ICONS[kind(p)],
     setName: (id) => clean(man?.sets?.[id]?.name) ?? SET_LABELS[id],
     setDescription: (id) => clean(man?.sets?.[id]?.description) ?? null,
+    poolName: (id) => clean(man?.pools?.[id]?.name) ?? POOL_LABELS[id],
+    poolDescription: (id) => clean(man?.pools?.[id]?.description) ?? null,
     psychicName: (c) => clean(man?.psychics?.[c]?.name) ?? `The ${c} psychic`,
     psychicArt: (c) => {
       const art = clean(man?.psychics?.[c]?.art);

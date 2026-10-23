@@ -1,4 +1,6 @@
+import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
+import { PILLARS, POOL_IDS } from './cards.ts';
 import { seance } from './game.ts';
 import {
   HOST,
@@ -15,8 +17,8 @@ import {
 // Five at the table: host is the ghost, ana, ben, cy and dee are psychics; zed watches.
 const PSYCHICS = ['ana', 'ben', 'cy', 'dee'];
 
-function game() {
-  const h = startedGame(5);
+function game(settings: Parameters<typeof startedGame>[1] = {}) {
+  const h = startedGame(5, settings);
   h.state = seance.playerJoined(h.state, { id: 'zed', name: 'Zed' });
   return h;
 }
@@ -32,6 +34,7 @@ function checkViews(h: Harness, label: string) {
     const at = `${label} / ${viewer ?? 'nobody'}`;
     const ghost = viewer !== null && viewer === g.ghost;
     const knows = ghost || over;
+    expect(v.game!.third, at).toBe(g.third ?? 'object');
     // The draw pile and the hidden seed never leave the server.
     expect(json, at).not.toContain('"deck"');
     expect(json, at).not.toContain('"seed"');
@@ -162,4 +165,94 @@ describe('view() redaction, every viewer at every phase', () => {
     expect(seance.view(h.state, HOST).game!.hand).toBeNull();
     expect(PSYCHICS.every((id) => seance.view(h.state, id).game!.hand === null)).toBe(true);
   });
+
+  it('stories and every extra pool: the same boundary', () => {
+    const h = game({ third: 'story', pools: [...POOL_IDS] });
+    checkViews(h, 'stories, hour 1');
+    playHour(h, ['ana']);
+    checkViews(h, 'stories, hour 2');
+    toFinal(h);
+    checkViews(h, 'stories, final');
+    h.act(
+      { type: 'shared', group: 0, cards: h.game().hand.slice(0, 3), tags: ['object', null, null] },
+      HOST,
+    );
+    checkViews(h, 'stories, vote');
+  });
+});
+
+/** Every psychic whose stage is up votes, at random, until the game ends. */
+function voteOut(h: Harness, pick: (n: number) => number) {
+  while (h.state.phase !== 'over') {
+    const f = h.game().final!;
+    const next = h.game().psychics.find((p) => {
+      if (p.retired || f.votes[p.color] !== undefined) return false;
+      const me = seance.view(h.state, p.id).game!.psychics.find((x) => x.id === p.id)!;
+      return me.voteStage <= f.revealed;
+    });
+    if (!next) throw new Error('nobody can vote');
+    h.act({ type: 'vote', group: pick(f.groups.length) }, next.id);
+    checkViews(h, `fuzz vote by ${next.id}`);
+  }
+}
+
+describe('view() fuzz: seeded games with every option', () => {
+  it('never leaks across 150 games', () => {
+    for (let seed = 1; seed <= 150; seed++) {
+      const r = createRng(seed * 7919);
+      const players = 3 + r.int(5);
+      const pools = POOL_IDS.filter(() => r.int(2) === 1);
+      const h = startedGame(
+        players,
+        {
+          third: r.int(2) ? 'story' : 'object',
+          pools,
+          difficulty: (['easy', 'medium', 'hard'] as const)[r.int(3)]!,
+        },
+        seed,
+      );
+      h.state = seance.playerJoined(h.state, { id: 'zed', name: 'Zed' });
+      const label = `seed ${seed}`;
+      checkViews(h, label);
+      while (h.game().stage === 'visions') {
+        for (const p of h.game().psychics) {
+          if (p.step >= 3 || h.game().sent.includes(p.color)) continue;
+          const hand = h.game().hand;
+          h.act({ type: 'send', to: p.color, cards: hand.slice(0, 1 + r.int(3)) }, HOST);
+        }
+        for (const p of h.game().psychics) {
+          if (p.step >= 3) continue;
+          const pillar = PILLARS[p.step]!;
+          const table = h.game().table[pillar];
+          const card = r.int(3) ? p.targets[p.step]! : table[r.int(table.length)]!;
+          h.act({ type: 'intuition', card }, p.id);
+        }
+        const g = h.game();
+        if (g.clairvoyance) {
+          for (const p of g.psychics) {
+            const other = g.psychics[r.int(g.psychics.length)]!;
+            if (other.color === p.color || other.step >= 3 || p.tokens <= 0 || r.int(2)) continue;
+            h.act({ type: 'mark', target: other.color, kind: r.int(2) ? 'yes' : 'no' }, p.id);
+          }
+        }
+        checkViews(h, `${label} hour ${g.hour}`);
+        readyAll(h);
+        checkViews(h, `${label} verdicts ${g.hour}`);
+        if (h.state.phase === 'over') break;
+        h.act({ type: 'continue' }, HOST);
+      }
+      if (h.state.phase !== 'over') {
+        expect(h.game().stage, label).toBe('shared');
+        const tags = [0, 1, 2].map(() => [null, ...PILLARS][r.int(4)]!);
+        const groups = h.game().final!.groups.length;
+        h.act(
+          { type: 'shared', group: r.int(groups), cards: h.game().hand.slice(0, 3), tags },
+          HOST,
+        );
+        checkViews(h, `${label} shared`);
+        voteOut(h, (n) => r.int(n));
+      }
+      checkViews(h, `${label} over`);
+    }
+  }, 120_000);
 });

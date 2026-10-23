@@ -327,3 +327,60 @@ test('on a phone, a tap straight after swiping the card viewer closed registers'
   await expect(look).toHaveCount(0);
   await expect(pick).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('stories as the third pillar and an extra vision pool, played to the end', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  await openBackroom(await visitor(browser, 'Admin', pageErrors));
+  const players = await seanceTable(browser, ['Kit', 'Lu', 'Mo'], pageErrors);
+  const [ghost, ...psychics] = players as [(typeof players)[0], ...typeof players];
+  const host = ghost.page;
+  // Objects and no extra visions by default; the host picks stories and the second pool.
+  await expect(host.getByRole('button', { name: /^Objects/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(host.getByText('173 visions in play.')).toBeVisible();
+  await host.getByRole('button', { name: /^Stories \(20\)/ }).click();
+  await host.getByRole('button', { name: /^Extra visions B \(84\)/ }).click();
+  await expect(host.getByRole('button', { name: /^✓ Extra visions B/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(host.getByText('257 visions in play.')).toBeVisible();
+  await expect(host.getByText(/Story cards take the place of objects/)).toBeVisible();
+  // A psychic sees the host's choices in the settings summary.
+  await expect(
+    psychics[0]!.page.locator('details > summary', { hasText: /stories · \+1 extra pool/ }),
+  ).toBeVisible();
+  await begin(host, 'Kit');
+
+  // Two hours (suspect, place), then each psychic's third card is a story.
+  await playHour(host, psychics);
+  await playHour(host, psychics);
+  for (const p of psychics) {
+    expect(await targetOf(host, p.name)).toMatch(/^story-\d+$/);
+    await expect(p.page.getByText(/Looking for your story \(3 of 3\)/)).toBeVisible();
+  }
+  await playHour(host, psychics);
+
+  // The final: with 3 players the shared vision is face up and both psychics vote at once.
+  const pick = host.getByRole('region', { name: 'Choose the shared vision' });
+  await expect(pick).toBeVisible();
+  await expect(pick.getByText(/one for its story/)).toBeVisible();
+  await host.getByRole('button', { name: 'This is the culprit (group 1)' }).click();
+  for (let i = 0; i < 3; i++)
+    await pick.getByRole('list', { name: 'Your hand' }).locator('button[data-pick]').nth(i).click();
+  await pick
+    .getByRole('list', { name: 'Tags' })
+    .getByRole('button', { name: /Story/ })
+    .first()
+    .click();
+  await pick.getByRole('button', { name: '👻 Send the shared vision' }).click();
+  for (const p of psychics) await p.page.getByRole('button', { name: 'Vote for group 1' }).click();
+  for (const p of players)
+    await expect(p.page.getByRole('heading', { name: 'The ghost is at peace' })).toBeVisible();
+  // The end shows each psychic's story among their found cards.
+  await expect(psychics[0]!.page.locator('[data-card^="story-"]').first()).toBeVisible();
+});
