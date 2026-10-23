@@ -1,5 +1,5 @@
 import type { PlayerId } from '@vt/game-sdk';
-import { PILLARS, poolOf } from './cards.ts';
+import { PILLARS, kindOf, poolOf } from './cards.ts';
 import {
   COLORS,
   type Difficulty,
@@ -62,10 +62,13 @@ export function startProblem(
   if (playing.length > MAX_PLAYERS) return `At most ${MAX_PLAYERS} can play.`;
   const need = tableCards(settings.difficulty, playing.length);
   for (const pillar of PILLARS) {
-    if (poolOf(settings.sets, pillar).length < need)
-      return `Those card sets have too few ${pillar} cards for ${playing.length} players on this difficulty: add a set.`;
+    const kind = kindOf(pillar, settings.third);
+    if (poolOf(settings.sets, kind).length < need)
+      return kind === 'story'
+        ? `Those card sets have too few story cards for ${playing.length} players on this difficulty: the stories come with the second expansion and the promos.`
+        : `Those card sets have too few ${kind} cards for ${playing.length} players on this difficulty: add a set.`;
   }
-  if (poolOf(settings.sets, 'vision').length < VISION_MIN)
+  if (poolOf(settings.sets, 'vision', settings.pools).length < VISION_MIN)
     return 'Those card sets have too few vision cards: add a set.';
   switch (settings.ghostMode) {
     case 'host':

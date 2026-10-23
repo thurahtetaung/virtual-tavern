@@ -25,9 +25,51 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   'The final: the culprit': 'basics',
   'Clairvoyance tokens': 'details',
   Difficulty: 'details',
+  'Story cards': 'details',
+  'Extra visions': 'details',
   'If someone drops out': 'edge',
 };
 const ORDER = Object.keys(LEVELS);
+const OPTIONS: Record<string, { key: string; label: string }> = {
+  'Clairvoyance tokens': { key: 'tokens', label: '4 or more players' },
+  'Story cards': { key: 'stories', label: 'Stories as the third pillar' },
+  'Extra visions': { key: 'pools', label: 'Extra vision pools' },
+};
+
+/** The card kinds, as tiles: what each one is for. */
+const CARD_TILES: GuideTile[] = [
+  {
+    id: 'vision',
+    name: 'Visions',
+    text: 'The picture cards the ghost sends. They point at a card on the table without saying anything.',
+    icon: '👁️',
+  },
+  {
+    id: 'suspect',
+    name: 'Suspects',
+    text: 'The first thing each psychic looks for: who was there.',
+    icon: '🧑',
+  },
+  {
+    id: 'place',
+    name: 'Places',
+    text: 'The second thing each psychic looks for: where it happened.',
+    icon: '🏚️',
+  },
+  {
+    id: 'object',
+    name: 'Objects',
+    text: 'The third thing each psychic looks for: with what. Played unless the host picks stories.',
+    icon: '🗝️',
+  },
+  {
+    id: 'story',
+    name: 'Stories',
+    text: 'Scenes that can take the place of objects as the third pillar: the same rules, harder pictures. Best for players who know the game.',
+    icon: '📜',
+    meta: 'Host option',
+  },
+].map((t) => ({ ...t, group: 'Cards', tone: 'neutral' as const }));
 
 export function makeGuide(names: SeanceNames = {}): GameGuide {
   const psychicName = (c: PsychicColor) =>
@@ -58,14 +100,21 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
         ...(art && { art }),
       };
     }),
+    ...CARD_TILES,
   ];
   const room = (raw: unknown, you: string): GuideContext | undefined => {
     const v = raw as SeanceView;
     if (!v?.settings) return undefined;
     const players = v.seats.filter((x) => x.playing).length;
+    const stories = (v.game?.third ?? v.settings.third) === 'story';
+    const pools = v.settings.pools?.length ?? 0;
     const ctx: GuideContext = {
-      summary: `${v.settings.difficulty[0]!.toUpperCase()}${v.settings.difficulty.slice(1)} · ${v.settings.sets.length} card ${v.settings.sets.length === 1 ? 'set' : 'sets'} · ${players} at the table`,
-      options: players >= 4 ? ['tokens'] : [],
+      summary: `${v.settings.difficulty[0]!.toUpperCase()}${v.settings.difficulty.slice(1)} · ${v.settings.sets.length} card ${v.settings.sets.length === 1 ? 'set' : 'sets'}${stories ? ' · stories' : ''}${pools ? ` · ${pools} extra vision ${pools === 1 ? 'pool' : 'pools'}` : ''} · ${players} at the table`,
+      options: [
+        ...(players >= 4 ? ['tokens'] : []),
+        ...(stories ? ['stories'] : []),
+        ...(pools ? ['pools'] : []),
+      ],
     };
     const g = v.game;
     if (g && v.me?.id === you) {
@@ -77,7 +126,7 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
           name: tile.name,
           text: ghost
             ? 'Silent all game. Send each psychic a vision every hour.'
-            : 'Find your suspect, then your place, then your object.',
+            : `Find your suspect, then your place, then your ${stories ? 'story' : 'object'}.`,
           tile: tile.id,
           ...(tile.art && { art: tile.art }),
           ...(g.stage === 'visions' || g.stage === 'reveal'
@@ -97,9 +146,7 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
     .map((s) => ({
       ...s,
       level: LEVELS[s.title] ?? 'details',
-      ...(s.title === 'Clairvoyance tokens' && {
-        option: { key: 'tokens', label: '4 or more players' },
-      }),
+      ...(OPTIONS[s.title] && { option: OPTIONS[s.title] }),
     }));
   return {
     ...plain,
@@ -126,9 +173,9 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
       { title: 'The final vision', text: plain.quickStart![5]!, icon: '⚖️' },
     ],
     tiles: {
-      label: 'Ghost & psychics',
-      blurb: '1 ghost · 6 psychics',
-      intro: 'One ghost and up to six psychics. Tap one to read it.',
+      label: 'Ghost, psychics & cards',
+      blurb: '1 ghost · 6 psychics · 5 kinds of card',
+      intro: 'One ghost, up to six psychics and the cards they play with. Tap one to read it.',
       items: tiles,
     },
     reference: [
@@ -168,7 +215,7 @@ function base(): GameGuide {
     ],
     setup: [
       'Sit down (3 to 7 players). The host chooses how the ghost is picked: at random, the host picks, or at random among volunteers. Psychics may pick which psychic (colour) they play.',
-      'The host chooses the difficulty: more cards on the table make it harder, and fewer ravens leave the ghost stuck with bad cards. The host can also switch card sets on and off and set the turn timer.',
+      'The host chooses the difficulty: more cards on the table make it harder, and fewer ravens leave the ghost stuck with bad cards. The host can also switch card sets on and off, play stories instead of objects, add extra vision pools and set the turn timer.',
       'The game lays out suspect, place and object cards face up and secretly deals each psychic one of each. The rest are decoys. The ghost gets a hand of 7 vision cards.',
       'The ghost is best played on a tablet or a computer: comparing seven pictures with a target is easier on a big screen.',
     ],
@@ -230,6 +277,21 @@ function base(): GameGuide {
           'With 3 players there are no tokens and no track: all three cards are face up for both psychics.',
           'The group with the most votes is the verdict. A tie goes to the tied group chosen by the psychic furthest along the track, then by whoever found their three cards first, then by seat order.',
           'If the verdict is the culprit’s group, everyone wins, the ghost included. At the end you see what the ghost meant by each card.',
+        ],
+      },
+      {
+        title: 'Story cards',
+        bullets: [
+          'The host may play story cards instead of objects as the third pillar. Read “object” as “story” everywhere: each psychic finds a suspect, a place, then a story, and the ghost’s shared vision points to the culprit’s story.',
+          'Stories are dark scenes full of detail, so they are harder to read than objects. Try them once everyone knows the game.',
+          'Story cards come with the second expansion and the promos: those sets must be on.',
+        ],
+      },
+      {
+        title: 'Extra visions',
+        bullets: [
+          'The host may shuffle extra vision pools into the deck: picture cards from other games. They are off by default, and nothing else changes.',
+          'More visions means more variety in the ghost’s hand. One of the pools is at a lower resolution, so it looks softer when zoomed in.',
         ],
       },
       {

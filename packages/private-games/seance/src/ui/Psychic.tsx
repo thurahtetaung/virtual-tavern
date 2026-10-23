@@ -151,12 +151,12 @@ export function MineTab({
           {PILLARS.map((pl, i) => (
             <Card
               key={pl}
-              kind={pl}
+              kind={content.kindOf(pl)}
               n={me.found[i]!}
               content={content}
               onTap={() =>
                 look(
-                  PILLARS.map((k, j) => ({ kind: k, n: me.found[j]! })),
+                  PILLARS.map((k, j) => ({ kind: content.kindOf(k), n: me.found[j]! })),
                   i,
                   'Your three cards',
                 )
@@ -181,8 +181,8 @@ export function MineTab({
         captions: visionCaptions(me, g.hour),
       },
       pinnedLabel: 'Your vision',
-      strip: { kind: pillar, cards: candidates },
-      stripLabel: `${content.pillarName(pillar)}s on the table: tap your guess`,
+      strip: { kind: content.kindOf(pillar), cards: candidates },
+      stripLabel: `${content.pillarPlural(pillar)} on the table: tap your guess`,
       mode: 'guess',
       start,
     });
@@ -215,7 +215,7 @@ export function MineTab({
       </Panel>
       <Panel className="space-y-2 p-3">
         <h3 className="text-sm font-bold">
-          {content.pillarName(pillar)}s on the table{' '}
+          {content.pillarPlural(pillar)} on the table{' '}
           <span className="font-normal text-ink-muted">· tap to look, Guess to choose</span>
         </h3>
         <ul
@@ -225,7 +225,7 @@ export function MineTab({
           {candidates.map((c, i) => (
             <li key={c}>
               <PickableCard
-                kind={pillar}
+                kind={content.kindOf(pillar)}
                 n={c}
                 content={content}
                 note={me.intuition === c ? 'your guess' : undefined}
@@ -233,7 +233,7 @@ export function MineTab({
                   look(
                     cardsOf(pillar, candidates),
                     i,
-                    `${content.pillarName(pillar)}s on the table`,
+                    `${content.pillarPlural(pillar)} on the table`,
                   )
                 }
                 pick={{
@@ -424,7 +424,13 @@ export function OthersTab({
                                 visionCaptions(p, g.hour),
                               ),
                               ...(p.intuition !== null
-                                ? [{ kind: pillar, n: p.intuition, caption: `${p.name}’s guess` }]
+                                ? [
+                                    {
+                                      kind: content.kindOf(pillar),
+                                      n: p.intuition,
+                                      caption: `${p.name}’s guess`,
+                                    },
+                                  ]
                                 : []),
                             ],
                             i,
@@ -447,14 +453,14 @@ export function OthersTab({
                               },
                               pinnedLabel: `${p.name}’s vision`,
                               strip: {
-                                kind: pillar,
+                                kind: content.kindOf(pillar),
                                 cards: g.table[pillar],
                                 captions:
                                   p.intuition !== null
                                     ? { [p.intuition]: `${p.name}’s guess` }
                                     : undefined,
                               },
-                              stripLabel: `${content.pillarName(pillar)}s on the table`,
+                              stripLabel: `${content.pillarPlural(pillar)} on the table`,
                               mode: 'view',
                             })
                           }
@@ -466,13 +472,19 @@ export function OthersTab({
                     <div className="w-24 shrink-0 xl:w-32">
                       {p.intuition !== null ? (
                         <Card
-                          kind={pillar}
+                          kind={content.kindOf(pillar)}
                           n={p.intuition}
                           content={content}
                           note={`${p.name}’s guess`}
                           onTap={() =>
                             look(
-                              [{ kind: pillar, n: p.intuition!, caption: `${p.name}’s guess` }],
+                              [
+                                {
+                                  kind: content.kindOf(pillar),
+                                  n: p.intuition!,
+                                  caption: `${p.name}’s guess`,
+                                },
+                              ],
                               0,
                               `${p.name}’s guess`,
                             )

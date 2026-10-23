@@ -551,6 +551,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../game-sdk
+      '@vt/private-reverie':
+        specifier: workspace:*
+        version: link:../reverie
       '@vt/ui':
         specifier: workspace:*
         version: link:../../ui

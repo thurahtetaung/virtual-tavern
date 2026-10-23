@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@vt/game-sdk": "workspace:*",
+    "@vt/private-reverie": "workspace:*",
     "@vt/ui": "workspace:*",
     "zod": "^4.6.7"
   },

@@ -2,7 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
-import { type Content, PILLAR_ICONS } from './assets.ts';
+import type { Content } from './assets.ts';
 import { Avatar, Card, CardBack } from './Card.tsx';
 import type { CompareSpec } from './Psychic.tsx';
 import { HandCards } from './Ghost.tsx';
@@ -74,7 +74,7 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
               )}
               {tags && tag && (
                 <p className="text-center text-xs font-semibold">
-                  {PILLAR_ICONS[tag]} {content.pillarName(tag)}
+                  {content.pillarIcon(tag)} {content.pillarName(tag)}
                 </p>
               )}
             </li>
@@ -104,7 +104,7 @@ export function Lineup({
   const { look, viewer } = useLook(content);
   const all = f.groups.flatMap((_, i) =>
     groupCards(g, i).map((n, k): LookCard => ({
-      kind: PILLARS[k]!,
+      kind: content.kindOf(PILLARS[k]!),
       n,
       caption: `Group ${i + 1} · ${content.pillarName(PILLARS[k]!).toLowerCase()}`,
     })),
@@ -162,7 +162,7 @@ export function Lineup({
                 {cards.map((c, k) => (
                   <Card
                     key={k}
-                    kind={PILLARS[k]!}
+                    kind={content.kindOf(PILLARS[k]!)}
                     n={c}
                     content={content}
                     onTap={() => look(all, startOf(i) + k, 'The line-up')}
@@ -229,7 +229,7 @@ export function SharedPicker({
         </li>
         <li>
           Pick 3 cards from your hand (tap a card to look, Pick to choose): one for its suspect, one
-          for its place, one for its object.
+          for its place, one for its {content.pillarName('object').toLowerCase()}.
         </li>
         <li>Tag what each card means (only you see it until the end), then send.</li>
       </ol>
@@ -240,7 +240,11 @@ export function SharedPicker({
         onClick={() =>
           compare({
             title: `Group ${(group ?? 0) + 1}: pick 3 cards`,
-            pinned: { kind: 'suspect', kinds: PILLARS, cards: groupCards(g, group ?? 0) },
+            pinned: {
+              kind: 'suspect',
+              kinds: PILLARS.map(content.kindOf),
+              cards: groupCards(g, group ?? 0),
+            },
             pinnedLabel: 'The culprit’s group',
             strip: { kind: 'vision', cards: hand },
             stripLabel: 'Your hand: pick 3',
@@ -299,7 +303,7 @@ export function SharedPicker({
                       })
                     }
                   >
-                    {PILLAR_ICONS[pl]}{' '}
+                    {content.pillarIcon(pl)}{' '}
                     <span className="sr-only sm:not-sr-only">{content.pillarName(pl)}</span>
                   </Button>
                 ))}

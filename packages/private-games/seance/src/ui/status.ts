@@ -155,7 +155,7 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
         return { text: `${hour}: the verdicts are in.`, yourMove: false };
       case 'shared':
         return {
-          text: 'Everyone found their cards! Pick the culprit’s group, then 3 cards from your hand: one for its suspect, place and object.',
+          text: `Everyone found their cards! Pick the culprit’s group, then 3 cards from your hand: one for its suspect, place and ${g.third === 'story' ? 'story' : 'object'}.`,
           yourMove: true,
         };
       case 'vote':

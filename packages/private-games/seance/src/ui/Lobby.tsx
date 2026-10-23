@@ -11,7 +11,16 @@ import {
   LobbySettings,
 } from '@vt/ui';
 import type { ReactNode } from 'react';
-import { CARD_SETS, SET_IDS, type SetId } from '../logic/cards.ts';
+import {
+  CARD_SETS,
+  POOL_CARDS,
+  POOL_IDS,
+  type PoolId,
+  SET_IDS,
+  type SetId,
+  THIRDS,
+  poolOf,
+} from '../logic/cards.ts';
 import { RAVENS, startProblem, tableCards } from '../logic/setup.ts';
 import {
   COLORS,
@@ -104,6 +113,10 @@ export function Lobby({
     const next = s.sets.includes(id) ? s.sets.filter((x) => x !== id) : [...s.sets, id];
     if (next.length) set({ sets: next });
   };
+  const pools = s.pools ?? [];
+  const third = s.third ?? 'object';
+  const togglePool = (id: PoolId) =>
+    set({ pools: pools.includes(id) ? pools.filter((x) => x !== id) : [...pools, id] });
 
   return (
     <div className="mx-auto max-w-2xl space-y-3">
@@ -229,6 +242,8 @@ export function Lobby({
         summary={[
           DIFFICULTY_LABEL[s.difficulty],
           `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
+          third === 'story' && 'stories',
+          pools.length > 0 && `+${pools.length} extra ${pools.length === 1 ? 'pool' : 'pools'}`,
           s.timerSeconds === null
             ? 'no timer'
             : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
@@ -297,8 +312,9 @@ export function Lobby({
             ))}
           </div>
           <p className="text-xs text-ink-muted">
-            {DIFFICULTY_LABEL[s.difficulty]}: {tableCards(s.difficulty, n)} suspects, places and
-            objects on the table with {n} players, and {ravenText(s.difficulty)}.
+            {DIFFICULTY_LABEL[s.difficulty]}: {tableCards(s.difficulty, n)} suspects, places and{' '}
+            {third === 'story' ? 'stories' : 'objects'} on the table with {n} players, and{' '}
+            {ravenText(s.difficulty)}.
           </p>
         </section>
         <section className="space-y-1.5">
@@ -318,12 +334,47 @@ export function Lobby({
             ))}
           </div>
           <p className="text-xs text-ink-muted">
-            Each set adds its visions and its suspects, places and objects.{' '}
-            {SET_IDS.filter((id) => s.sets.includes(id)).reduce(
-              (t, id) => t + CARD_SETS[id].vision.length,
-              0,
-            )}{' '}
-            visions in play.
+            Each set adds its visions and its suspects, places, objects and stories.{' '}
+            {poolOf(s.sets, 'vision', pools).length} visions in play.
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-sm font-semibold">Third pillar</h4>
+          <div className="flex flex-wrap gap-2">
+            {THIRDS.map((t) => (
+              <Choice key={t} on={third === t} disabled={!host} onClick={() => set({ third: t })}>
+                {t === 'object' ? 'Objects' : 'Stories'}{' '}
+                <span className="font-normal opacity-70">({poolOf(s.sets, t).length})</span>
+              </Choice>
+            ))}
+          </div>
+          <p className="text-xs text-ink-muted">
+            {third === 'object'
+              ? 'Each psychic finds a suspect, a place and an object.'
+              : 'Story cards take the place of objects: the same rules. They are dark and busy scenes, best for players who know the game.'}
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-sm font-semibold">Extra visions</h4>
+          <div className="flex flex-wrap gap-2">
+            {POOL_IDS.map((id) => (
+              <Choice
+                key={id}
+                on={pools.includes(id)}
+                disabled={!host}
+                onClick={() => togglePool(id)}
+              >
+                {pools.includes(id) ? '✓ ' : ''}
+                {content.poolName(id)}{' '}
+                <span className="font-normal opacity-70">
+                  ({POOL_CARDS[id].length}
+                  {id === 'pool-r' ? ', lower resolution' : ''})
+                </span>
+              </Choice>
+            ))}
+          </div>
+          <p className="text-xs text-ink-muted">
+            Picture cards from other games, shuffled in with the visions. Off by default.
           </p>
         </section>
         <section className="space-y-1.5">
