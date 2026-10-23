@@ -530,6 +530,8 @@ describe('admin stats', () => {
         await act(c, { type: 'intuition', card: me.targets![me.step] });
         await act(c, { type: 'ready', on: true });
       }
+      await ghost.until((snap) => (snap.game as SeanceView).game?.canReveal === true);
+      await act(ghost, { type: 'reveal' });
       await ghost.until((snap) => (snap.game as SeanceView).game?.stage === 'reveal');
       await act(ghost, { type: 'continue' });
     }

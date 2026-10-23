@@ -204,49 +204,66 @@ export function MineTab({
   );
 }
 
-/** The guess, the timer and Ready, in one row. */
+/** The hour's clock, saying what it does: a reminder, or the end of the hour. */
+export function HourClock({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
+  const strict = view.settings.timerMode === 'strict';
+  return (
+    <Countdown
+      deadline={view.game!.deadline}
+      clockOffset={room.clockOffset}
+      label={strict ? 'The hour ends when this runs out' : 'Talk time (a reminder only)'}
+      soft={!strict}
+      atZero={strict ? 'then the guesses lock' : undefined}
+      expiredHint={strict ? undefined : 'The ghost reveals once everyone is Ready.'}
+    />
+  );
+}
+
+/** The guess and Ready in one row (plus the clock in the compare view, which hides the steps). */
 export function ReadyBar({
   view,
   room,
   act,
   content,
+  clock,
 }: {
   view: SeanceView;
   room: GameRoomInfo;
   act: Act;
   content: Content;
+  clock?: boolean;
 }) {
   const g = view.game!;
   const me = myPsychic(view);
   if (!me || g.stage !== 'visions') return null;
   const pillar = PILLARS[me.step];
-  const strict = view.settings.timerMode === 'strict';
   const canReady = me.step >= 3 || me.intuition !== null;
   const waiting = notReady(g).filter((p) => p.color !== me.color);
   return (
-    <div className="sticky bottom-16 z-10 space-y-1 lg:static">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl bg-special-soft shadow-lg lg:shadow-none px-2 py-1.5 ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30">
-        <p className="min-w-0 flex-1 text-sm">
+    // Never sticky: a bar floating over the cards (or just above the tab bar) caught taps meant
+    // for them. One row, with Ready at a fixed spot, so nothing moves under the finger.
+    <div className="mt-3 space-y-1">
+      <div className="flex items-center gap-2 rounded-xl bg-special-soft px-2 py-1.5 ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30">
+        <p className="min-w-0 flex-1 truncate text-sm">
           {pillar
             ? me.intuition !== null
               ? `Your guess: ${content.cardLabel(pillar, me.intuition)}`
               : 'No guess yet'
             : 'Tokens placed?'}
           {me.ready && waiting.length > 0 && (
-            <span className="block text-xs text-ink-muted">
+            <span className="block truncate text-xs text-ink-muted">
               Waiting for {waiting.map((p) => p.name).join(', ')}
             </span>
           )}
         </p>
-        <Countdown
-          deadline={g.deadline}
-          clockOffset={room.clockOffset}
-          soft={!strict}
-          atZero={strict ? 'then guesses lock' : undefined}
-          expiredHint={strict ? undefined : 'The host can lock the guesses in.'}
-        />
+        {clock && (
+          <div className="max-w-[45%] min-w-0">
+            <HourClock view={view} room={room} />
+          </div>
+        )}
         <Button
           size="md"
+          className="min-w-24 shrink-0 self-start"
           variant={me.ready ? 'secondary' : 'primary'}
           disabled={!canReady}
           aria-pressed={me.ready}
@@ -284,7 +301,6 @@ export function OthersTab({
           {g.hour < 4 ? ' until hour IV' : ''}: ✓ if you think a guess is right, ✗ if not.
         </p>
       )}
-      <RefusalSlot anchor="seance-mark" />
       <ul className="space-y-2" aria-label="Other psychics">
         {others.map((p) => {
           const pillar = PILLARS[p.step];
@@ -399,6 +415,8 @@ export function OthersTab({
           );
         })}
       </ul>
+      {/* Under the list, so a refusal clearing never moves the token buttons. */}
+      <RefusalSlot anchor="seance-mark" />
     </div>
   );
 }

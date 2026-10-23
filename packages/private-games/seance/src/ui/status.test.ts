@@ -6,6 +6,7 @@ import {
   guessAll,
   harness,
   readyAll,
+  readyOnly,
   sendAll,
   startedGame,
   toFinal,
@@ -56,7 +57,15 @@ describe('status line', () => {
     expect(statusFor(seance.view(h.state, 'ana'), false, people(ids)).text).toBe(
       'You’re ready. Waiting for: Ben and Cy.',
     );
-    readyAll(h);
+    readyOnly(h);
+    expect(statusFor(seance.view(h.state, 'ana'), false).text).toMatch(
+      /^Everyone’s ready: waiting for the ghost to reveal\./,
+    );
+    expect(statusFor(seance.view(h.state, HOST), true)).toEqual({
+      text: 'Hour I: everyone is Ready. Reveal the verdicts when you are.',
+      yourMove: true,
+    });
+    h.act({ type: 'reveal' }, HOST);
     expect(statusFor(seance.view(h.state, 'ana'), false).text).toBe('Right! Next, your place.');
   });
 

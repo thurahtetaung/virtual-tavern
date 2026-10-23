@@ -4,6 +4,7 @@ import {
   Countdown,
   Hint,
   Panel,
+  RefusalSlot,
   cn,
   useSpectatorPrompt,
   useConfirm,
@@ -12,14 +13,14 @@ import {
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { PILLARS } from '../logic/cards.ts';
-import type { SeanceAction, SeanceView } from '../logic/types.ts';
+import { REVEAL_SECONDS, type SeanceAction, type SeanceView } from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
 import { Compare } from './Compare.tsx';
 import { EndScreen } from './End.tsx';
 import { Lineup, SharedPicker, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
 import { GhostHand, GhostPsychics, SilentNote } from './Ghost.tsx';
 import { Lobby } from './Lobby.tsx';
-import { type CompareSpec, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
+import { type CompareSpec, HourClock, MineTab, OthersTab, ReadyBar } from './Psychic.tsx';
 import {
   type Step,
   atTable,
@@ -98,6 +99,11 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
     (s) => s.id !== g.ghost && !g.psychics.some((p) => p.id === s.id),
   );
   const latest = g.notices.at(-1);
+  // The verdicts say what ended the hour themselves.
+  const lockNotice =
+    g.stage === 'reveal' &&
+    g.deadline !== null &&
+    latest?.at === g.deadline - REVEAL_SECONDS * 1000;
   const gone = atTable(g).filter((p) => p.gone);
   const canRetire =
     room.isHost && (g.stage === 'visions' || g.stage === 'reveal') && atTable(g).length > 1;
@@ -199,7 +205,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         </div>
       )}
-      {latest && latest.id > seen && g.stage !== 'done' && (
+      {latest && latest.id > seen && g.stage !== 'done' && !lockNotice && (
         <p className="flex items-center gap-2 rounded-xl bg-stone-100 px-3 py-1 text-sm dark:bg-stone-800">
           <span className="flex-1">📣 {latest.text}</span>
           <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
@@ -222,7 +228,7 @@ const FINAL_STEPS: { id: Step['id']; title: string }[] = [
 ];
 
 /** Where the hour (or the final) stands: the steps in order, the current one lit and explained. */
-function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
+function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
   const step = stepOf(g);
   const final = step.id === 'lineup' || step.id === 'vote';
@@ -253,24 +259,77 @@ function StepBar({ view, room }: { view: SeanceView; room: GameRoomInfo }) {
           ))}
         </ol>
       </div>
-      <div className="mt-1 flex items-start gap-2">
-        <p className="flex-1 text-xs text-stone-600 dark:text-stone-400">{step.text}</p>
-        {step.id === 'discussion' && (myPsychic(view)?.step ?? 3) >= 3 && (
-          <Countdown
-            deadline={g.deadline}
-            clockOffset={room.clockOffset}
-            label="to discuss"
-            soft={view.settings.timerMode !== 'strict'}
-            atZero={view.settings.timerMode === 'strict' ? 'then guesses lock' : undefined}
-            expiredHint={
-              view.settings.timerMode === 'strict' ? undefined : 'The host can lock the guesses in.'
-            }
-          />
-        )}
+      <div className="mt-1 flex flex-wrap items-start justify-end gap-2">
+        <p className="min-w-[14rem] flex-1 text-xs text-stone-600 dark:text-stone-400">
+          {step.text}
+        </p>
+        {step.id === 'discussion' && <HourClock view={view} room={room} />}
       </div>
+      {g.stage === 'visions' && <WaitingLine view={view} act={act} />}
     </section>
   );
 }
+
+/**
+ * What the hour waits for, always in sight: the ghost's visions, then each psychic still
+ * searching (Ready or not), then the ghost's reveal (the ghost gets the button).
+ */
+function WaitingLine({ view, act }: { view: SeanceView; act: Act }) {
+  const g = view.game!;
+  const searching = atTable(g).filter((p) => !p.gone && p.step < 3);
+  const ghost = g.myRole === 'ghost';
+  const unsent = waitingForVision(g);
+  let body;
+  if (!g.sent.length || unsent.length) {
+    const all = g.sent.length + unsent.length;
+    body = (
+      <p>
+        Waiting for the ghost: {g.sent.length} of {all} vision{all === 1 ? '' : 's'} sent
+      </p>
+    );
+  } else if (g.canReveal && ghost) {
+    body = (
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="flex-1">Everyone’s ready. Reveal the verdicts when you are.</p>
+        <Button size="sm" onClick={() => void act({ type: 'reveal' }, { anchor: 'seance-reveal' })}>
+          👻 Reveal the verdicts
+        </Button>
+      </div>
+    );
+  } else if (g.canReveal) {
+    body = <p>Everyone’s ready: waiting for the ghost to reveal.</p>;
+  } else {
+    body = (
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5" aria-label="Who is ready">
+        {atTable(g).map((p) => (
+          <li key={p.color} className={cn(!searching.includes(p) && 'text-ink-muted')}>
+            {p.step >= 3
+              ? `${p.name}: done`
+              : p.gone
+                ? `${p.name} (left)`
+                : `${p.ready ? '✓' : '✗'} ${p.name} ${p.ready ? 'ready' : 'not ready'}`}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <div
+      role="status"
+      aria-label="Waiting for"
+      className="mt-1.5 border-t border-stone-200 pt-1.5 text-xs font-semibold dark:border-stone-800"
+    >
+      {body}
+      <RefusalSlot anchor="seance-reveal" />
+    </div>
+  );
+}
+
+const LOCKED_BY = {
+  ghost: '👻 The ghost revealed the verdicts',
+  host: '🔒 The host locked the guesses in',
+  timer: '⏱ Time ran out',
+} as const;
 
 /** The verdicts, held for a few seconds; the ghost or host can move the clock on. */
 function RevealPanel({
@@ -295,6 +354,7 @@ function RevealPanel({
       className="space-y-2 p-3 ring-2 ring-special dark:ring-violet-400"
       aria-label="The ghost answers"
     >
+      {g.lockedHow && <p className="text-sm font-semibold">{LOCKED_BY[g.lockedHow]}</p>}
       <Verdicts view={view} content={content} />
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-xs text-ink-muted">
@@ -342,6 +402,7 @@ export function SeanceGame({
   const [sendCards, setSendCards] = useState<number[]>([]);
   const [draft, setDraft] = useState<SharedDraft>({ group: null, cards: [], tags: {} });
   const [tableScreen, setTableScreen] = useState(false);
+  const [confirmLock, confirmLockDialog] = useConfirm();
   const compare = useCallback((s: CompareSpec) => {
     setSendCards([]);
     setSpec(s);
@@ -500,6 +561,7 @@ export function SeanceGame({
             Leave table screen
           </Button>
         </div>
+        <StepBar view={view} room={room} act={act} />
         <RevealPanel view={view} room={room} act={act} content={content} />
         <div className="grid gap-4 xl:grid-cols-2">
           <TableTab view={view} content={content} onOpen={openTable} />
@@ -510,10 +572,10 @@ export function SeanceGame({
     );
 
   return (
-    <div className="space-y-2 pb-16 lg:pb-0">
+    <div className="space-y-2 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
       {ghost && <SilentNote />}
       <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      <StepBar view={view} room={room} />
+      <StepBar view={view} room={room} act={act} />
       {!inGame && (
         <Button
           variant="secondary"
@@ -532,7 +594,18 @@ export function SeanceGame({
             size="sm"
             variant="ghost"
             className={cn(tab !== 'table' && 'hidden lg:inline-flex')}
-            onClick={() => void act({ type: 'lock-now' })}
+            onClick={() =>
+              void (async () => {
+                if (
+                  await confirmLock({
+                    title: 'Lock the guesses in now?',
+                    body: 'Every guess is judged as it stands, without waiting for Ready or the ghost’s reveal.',
+                    confirmLabel: 'Lock them in',
+                  })
+                )
+                  void act({ type: 'lock-now' });
+              })()
+            }
           >
             🔒 Lock the guesses in now
           </Button>
@@ -554,6 +627,7 @@ export function SeanceGame({
       </div>
       <TabBar tabs={tabs} tab={tab} onChange={setTab} alert={alert} />
       {overlay}
+      {confirmLockDialog}
     </div>
   );
 }
@@ -594,7 +668,7 @@ function CompareOverlay({
         { type: 'intuition', card: me.intuition === c ? null : c },
         { anchor: 'seance-ready' },
       );
-    footer = <ReadyBar view={view} room={room} act={act} content={content} />;
+    footer = <ReadyBar view={view} room={room} act={act} content={content} clock />;
   } else if (spec.mode === 'send' && spec.to) {
     const p = g.psychics.find((x) => x.color === spec.to);
     const live = sendCards.filter((c) => g.hand?.includes(c));

@@ -12,6 +12,7 @@ import {
   harness,
   playHour,
   readyAll,
+  readyOnly,
   sendAll,
   startedGame,
   toFinal,
@@ -104,15 +105,69 @@ describe('an hour', () => {
     );
   });
 
-  it('starts the timer once every vision is out, and locks early when everyone is ready', () => {
+  it('starts the timer once every vision is out; the ghost reveals once everyone is ready', () => {
     const h = startedGame(4);
     sendAll(h);
     expect(h.game().deadline).toBe(h.now + 120_000);
     guessAll(h);
-    readyAll(h);
+    readyOnly(h);
+    // Everyone is Ready, but nothing is judged until the ghost reveals.
+    expect(h.game().stage).toBe('visions');
+    expect(seance.view(h.state, 'ana').game!.canReveal).toBe(true);
+    expect(h.reject({ type: 'reveal' }, 'ana')).toBe('not-ghost');
+    h.act({ type: 'reveal' }, HOST);
     expect(h.game().stage).toBe('reveal');
+    expect(h.game().lockedHow).toBe('ghost');
+    expect(h.game().notices.at(-1)!.text).toBe('👻 The ghost revealed the verdicts.');
     expect(h.game().psychics.every((p) => p.step === 1)).toBe(true);
     expect(h.game().verdicts).toHaveLength(3);
+  });
+
+  it('refuses the reveal until every vision is out and every psychic still searching is Ready', () => {
+    const h = startedGame(4);
+    expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-yet');
+    guessAll(h);
+    h.act({ type: 'send', to: colorOf(h, 'ana'), cards: [h.game().hand[0]!] }, HOST);
+    h.act({ type: 'ready', on: true }, 'ana');
+    expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-yet');
+    sendAll(h);
+    guessAll(h);
+    h.act({ type: 'ready', on: true }, 'ana');
+    h.act({ type: 'ready', on: true }, 'ben');
+    expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-ready');
+    expect(seance.view(h.state, 'ana').game!.canReveal).toBe(false);
+  });
+
+  it('lets a psychic change their mind after everyone was Ready, which holds the reveal', () => {
+    const h = startedGame(4);
+    sendAll(h);
+    guessAll(h);
+    readyOnly(h);
+    // Ben moves his guess: he is no longer Ready, so the ghost has to wait.
+    const other = h.game().table.suspect.find((c) => c !== h.psychic('ben').intuition)!;
+    h.act({ type: 'intuition', card: other }, 'ben');
+    expect(h.psychic('ben').ready).toBe(false);
+    expect(h.reject({ type: 'reveal' }, HOST)).toBe('not-ready');
+    // Ana takes her Ready back too, then both are Ready again.
+    h.act({ type: 'ready', on: false }, 'ana');
+    expect(h.game().stage).toBe('visions');
+    h.act({ type: 'ready', on: true }, 'ana');
+    h.act({ type: 'ready', on: true }, 'ben');
+    expect(h.game().stage).toBe('visions');
+    h.act({ type: 'reveal' }, HOST);
+    expect(h.game().verdicts.find((v) => v.color === colorOf(h, 'ben'))!.guess).toBe(other);
+  });
+
+  it('the host still locks the guesses in without the ghost', () => {
+    const h = startedGame(4);
+    sendAll(h);
+    guessAll(h);
+    // The ghost's seat empties (the host keeps hosting): nobody can reveal, the host locks.
+    h.state = seance.playerLeft(h.state, HOST, h.now);
+    expect(h.game().ghost).toBeNull();
+    h.act({ type: 'lock-now' }, HOST);
+    expect(h.game().stage).toBe('reveal');
+    expect(h.game().lockedHow).toBe('host');
   });
 
   it('refuses Ready without a guess, and a new vision clears Ready', () => {
@@ -140,6 +195,7 @@ describe('an hour', () => {
     expect(strict.game().stage).toBe('reveal');
     expect(strict.game().verdicts.map((v) => v.correct)).toEqual([true, false, false]);
     expect(strict.game().notices.at(-1)!.text).toMatch(/Time ran out: guesses were locked in \(1/);
+    expect(strict.game().lockedHow).toBe('timer');
 
     const soft = startedGame(4);
     sendAll(soft);
@@ -403,6 +459,7 @@ describe('seats changing hands', () => {
     // The hour no longer waits for them.
     h.act({ type: 'ready', on: true }, 'ana');
     h.act({ type: 'ready', on: true }, 'ben');
+    h.act({ type: 'reveal' }, HOST);
     expect(h.game().stage).toBe('reveal');
     h.state = seance.playerJoined(h.state, { id: 'zed', name: 'Zed' });
     expect(h.reject({ type: 'take-seat', color: h.psychic('ana').color }, 'zed')).toBe('taken');

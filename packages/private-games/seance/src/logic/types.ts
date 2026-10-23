@@ -153,6 +153,9 @@ export interface Notice {
 
 export type Stage = 'visions' | 'reveal' | 'shared' | 'vote' | 'done';
 
+/** What ended the hour: the ghost's reveal, the host's lock or a strict timer. */
+export type LockHow = 'ghost' | 'host' | 'timer';
+
 export interface Game {
   /** The ghost now (null while the seat is empty). */
   ghost: PlayerId | null;
@@ -182,6 +185,8 @@ export interface Game {
   marks: Mark[];
   /** The interpretation timer, the reveal hold or a vote stage's timer. */
   deadline: number | null;
+  /** What ended the last hour (rooms saved before it have none). */
+  lockedHow?: LockHow | null;
   sends: Send[];
   verdicts: Verdict[];
   final: Final | null;
@@ -250,6 +255,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     tags: z.array(pillar.nullable()).length(3).optional(),
   }),
   z.object({ type: z.literal('continue') }),
+  z.object({ type: z.literal('reveal') }),
   // The psychics.
   z.object({ type: z.literal('intuition'), card: card.nullable() }),
   z.object({ type: z.literal('mark'), target: color, kind: z.enum(['yes', 'no']).nullable() }),
@@ -341,6 +347,10 @@ export interface GameView {
   ravensLeft: number;
   marks: Mark[];
   deadline: number | null;
+  /** What ended the last hour: shown with the verdicts. */
+  lockedHow: LockHow | null;
+  /** Every vision is out and every psychic still searching is Ready: the ghost may reveal. */
+  canReveal: boolean;
   sends: Send[];
   verdicts: Verdict[];
   final: FinalView | null;
