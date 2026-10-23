@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.1...v0.50.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **ui:** a tap right after swiping the card viewer closed now registers ([#316](https://github.com/thurahtetaung/virtual-tavern/issues/316)) ([d268296](https://github.com/thurahtetaung/virtual-tavern/commit/d268296dc64fbf62d6615beea18baa8608d93dbb))
+
 ## [0.50.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.0...v0.50.1) (2026-10-23)
 
 
