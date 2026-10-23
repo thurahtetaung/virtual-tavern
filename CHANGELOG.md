@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.51.0...v0.51.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **seance:** open the story card itself from the progress row ([#320](https://github.com/thurahtetaung/virtual-tavern/issues/320)) ([12b1a49](https://github.com/thurahtetaung/virtual-tavern/commit/12b1a49875d8ce8a4553456235c64f7b80acee0a))
+
 ## [0.51.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.2...v0.51.0) (2026-10-23)
 
 
