@@ -28,6 +28,13 @@ export const kindOf = (pillar: Pillar, third: Third = 'object'): Kind =>
   pillar === 'object' ? third : pillar;
 
 /**
+ * Whether a card of this kind is a card of the pillar. Compare a card's kind with a pillar only
+ * through this: the third pillar's cards are stories when the host picks them.
+ */
+export const isPillarCard = (kind: Kind, pillar: Pillar, third: Third = 'object') =>
+  kind === kindOf(pillar, third);
+
+/**
  * Card sets: each a lobby toggle that adds its visions and its pillar cards. Ids are neutral; the
  * private manifest names them. New sets go here; the extra vision pools are below.
  */

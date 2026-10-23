@@ -149,7 +149,9 @@ function PsychicSheet({
                   n={p.intuition}
                   content={content}
                   note={`${p.name}’s guess`}
-                  onTap={() => open(at(pillar, p.intuition!, visionStart + p.visions.length))}
+                  onTap={() =>
+                    open(at(kindOf(pillar, g.third), p.intuition!, visionStart + p.visions.length))
+                  }
                   className={
                     p.intuition === target
                       ? 'ring-2 ring-success dark:ring-emerald-500'
