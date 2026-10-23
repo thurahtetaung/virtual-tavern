@@ -28,7 +28,10 @@ interface Props {
   className?: string;
   /** Overlays: tokens, guesses, stamps. */
   children?: ReactNode;
-  /** A larger copy on mouse hover (desktop); on by default for small tappable cards. */
+  /**
+   * A larger copy on mouse hover (desktop), on by default for tappable cards; it only shows when
+   * it would be much bigger than the card as drawn (`previewSpot`).
+   */
   preview?: boolean;
   /** The tap only looks (picking is a separate button), so the card is no toggle. */
   look?: boolean;
@@ -55,38 +58,136 @@ export function CardPlaceholder({ kind, n, big }: { kind: Kind; n: number; big?:
 
 /** How long the mouse rests on a card before its larger preview shows. */
 export const PREVIEW_DELAY_MS = 450;
-const PREVIEW_W = { portrait: 300, landscape: 420 };
+/** A preview only shows when it is at least this much bigger than the card on screen. */
+export const PREVIEW_MIN_GAIN = 1.6;
+const PREVIEW_MAX_H = 0.7;
+const PREVIEW_MAX_W = 0.6;
+const GAP = 12;
 
-/** Where a hover preview of a card at `r` goes: beside it, inside the window. */
+interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+const overlap = (a: Box, b: Box) =>
+  Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left)) *
+  Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+
+/** A spot for a preview of this size beside, above or below `r`, clear of `avoid`, or null. */
+function placeAt(
+  r: Box,
+  width: number,
+  height: number,
+  win: { w: number; h: number },
+  avoid: readonly Box[],
+) {
+  const clamp = (v: number, size: number, max: number) =>
+    Math.max(GAP, Math.min(max - size - GAP, v));
+  const midTop = clamp(r.top + r.height / 2 - height / 2, height, win.h);
+  const midLeft = clamp(r.left + r.width / 2 - width / 2, width, win.w);
+  // Beside, above or below the card, or just past a card to keep clear of, in any mix.
+  const lefts = [
+    midLeft,
+    r.left + r.width + GAP,
+    r.left - GAP - width,
+    ...avoid.flatMap((a) => [a.left + a.width + GAP, a.left - GAP - width]),
+  ];
+  const tops = [
+    midTop,
+    r.top - GAP - height,
+    r.top + r.height + GAP,
+    ...avoid.flatMap((a) => [a.top + a.height + GAP, a.top - GAP - height]),
+  ];
+  const spots: Box[] = [
+    ...lefts.flatMap((left) => tops.map((top) => ({ left, top, width, height }))),
+  ].filter(
+    (s) =>
+      s.left >= GAP &&
+      s.top >= GAP &&
+      s.left + s.width <= win.w - GAP &&
+      s.top + s.height <= win.h - GAP &&
+      overlap(s, r) === 0 &&
+      avoid.every((a) => overlap(s, a) === 0),
+  );
+  const far = (s: Box) =>
+    Math.hypot(
+      s.left + s.width / 2 - (r.left + r.width / 2),
+      s.top + s.height / 2 - (r.top + r.height / 2),
+    );
+  return spots.reduce<Box | null>((best, s) => (!best || far(s) < far(best) ? s : best), null);
+}
+
+/**
+ * Where a hover preview of a card at `r` goes, or null when it wouldn't be worth it: sized from
+ * the window (up to 70% of its height, the art's own shape), inside the window and never over
+ * the card itself or the `avoid` boxes (the card being compared against), shrunk to fit if it
+ * must, and shown only when it is at least 1.6 times the card as drawn.
+ */
 export function previewSpot(
-  r: { left: number; right: number; top: number; height: number },
+  r: Box,
   portrait: boolean,
   win: { w: number; h: number },
-) {
-  const w = portrait ? PREVIEW_W.portrait : PREVIEW_W.landscape;
-  const h = portrait ? (w * 1024) / 700 : (w * 700) / 1024;
-  const gap = 12;
-  const left = r.right + gap + w <= win.w ? r.right + gap : Math.max(gap, r.left - gap - w);
-  const top = Math.max(gap, Math.min(win.h - h - gap, r.top + r.height / 2 - h / 2));
-  return { left, top, width: w, height: h };
+  avoid: readonly Box[] = [],
+): Box | null {
+  const aspect = portrait ? 700 / 1024 : 1024 / 700;
+  let height = win.h * PREVIEW_MAX_H;
+  let width = height * aspect;
+  if (width > win.w * PREVIEW_MAX_W) {
+    width = win.w * PREVIEW_MAX_W;
+    height = width / aspect;
+  }
+  const least = Math.max(r.width / width, r.height / height) * PREVIEW_MIN_GAIN;
+  if (least > 1) return null;
+  for (let scale = 1; scale > least; scale -= 0.05) {
+    const spot = placeAt(r, width * scale, height * scale, win, avoid);
+    if (spot) return spot;
+  }
+  return placeAt(r, width * least, height * least, win, avoid);
 }
 
 const canHover = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches;
 
+/** The on-screen cards a preview should keep clear of (Compare's pinned card). */
+function avoidBoxes(el: HTMLElement) {
+  const scope = el.closest('[role="dialog"]') ?? document;
+  return [...scope.querySelectorAll<HTMLElement>('[data-preview-avoid]')]
+    .map((a) => a.getBoundingClientRect())
+    .filter(
+      (b) =>
+        b.width > 0 &&
+        b.right > 0 &&
+        b.left < window.innerWidth &&
+        b.bottom > 0 &&
+        b.top < window.innerHeight,
+    );
+}
+
 /**
  * A larger copy of a card after the mouse rests on it (desktop only), in the top layer so it
- * never moves the layout.
+ * never moves the layout. Gone on leave, click, wheel or any scroll.
  */
-function useHoverPreview(on: boolean) {
-  const [spot, setSpot] = useState<ReturnType<typeof previewSpot> | null>(null);
+function useHoverPreview(on: boolean, portrait: boolean) {
+  const [spot, setSpot] = useState<Box | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     return () => {
       clearTimeout(timer.current);
     };
   }, []);
+  useEffect(() => {
+    if (!spot) return;
+    const off = () => setSpot(null);
+    window.addEventListener('scroll', off, true);
+    window.addEventListener('resize', off);
+    return () => {
+      window.removeEventListener('scroll', off, true);
+      window.removeEventListener('resize', off);
+    };
+  }, [spot]);
   const hide = () => {
     clearTimeout(timer.current);
     setSpot(null);
@@ -96,15 +197,16 @@ function useHoverPreview(on: boolean) {
         onPointerEnter: (e: PointerEvent<HTMLElement>) => {
           if (e.pointerType !== 'mouse' || !canHover()) return;
           const el = e.currentTarget;
-          const portrait = el.offsetHeight > el.offsetWidth;
           clearTimeout(timer.current);
           timer.current = setTimeout(() => {
             if (!el.isConnected) return;
             setSpot(
-              previewSpot(el.getBoundingClientRect(), portrait, {
-                w: window.innerWidth,
-                h: window.innerHeight,
-              }),
+              previewSpot(
+                el.getBoundingClientRect(),
+                portrait,
+                { w: window.innerWidth, h: window.innerHeight },
+                avoidBoxes(el),
+              ),
             );
           }, PREVIEW_DELAY_MS);
         },
@@ -138,7 +240,8 @@ export function Card({
 }: Props) {
   const [failed, setFailed] = useState(false);
   const [spot, hoverHandlers] = useHoverPreview(
-    (preview ?? (!!onTap && size === 'thumb')) && !disabled,
+    (preview ?? !!onTap) && !disabled,
+    kind === 'vision',
   );
   const art = content.cardArt(kind, n, size === 'thumb');
   const label = `${content.cardLabel(kind, n)}${note ? ` (${note})` : ''}`;

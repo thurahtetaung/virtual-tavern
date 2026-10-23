@@ -140,6 +140,7 @@ export function Compare({
             >
               <div className="flex min-h-0 w-full flex-1 items-center justify-center">
                 <div
+                  data-preview-avoid
                   className={cn(
                     'max-h-full max-w-full',
                     (pinned.kinds?.[i] ?? pinned.kind) === 'vision'
@@ -153,6 +154,7 @@ export function Compare({
                     content={content}
                     size="big"
                     fill
+                    preview={false}
                     onTap={() => look(pinnedCards, i, pinnedLabel ?? title)}
                   />
                 </div>
@@ -303,7 +305,10 @@ export function SendPreview({
           <p className="text-xs font-semibold tracking-wide text-stone-400 uppercase">
             {name}’s target
           </p>
-          <div className="aspect-[1024/700] max-h-full min-h-0 w-auto max-w-full flex-1 lg:h-auto lg:w-[32rem] lg:flex-none">
+          <div
+            data-preview-avoid
+            className="aspect-[1024/700] max-h-full min-h-0 w-auto max-w-full flex-1 lg:h-auto lg:w-[32rem] lg:flex-none"
+          >
             <Card
               kind={target.kind}
               n={target.n}
