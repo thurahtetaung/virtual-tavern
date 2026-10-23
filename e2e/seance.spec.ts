@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { openBackroom, unlock, visitor } from './inquest-play.ts';
 import {
@@ -283,4 +283,47 @@ test('a ghost and a psychic open cards full screen, swipe to the next and close'
   await expect(
     oto!.page.getByRole('list', { name: 'Candidates' }).locator(`button[data-pick="${c1}"]`),
   ).toHaveAttribute('aria-pressed', 'true');
+});
+
+/** A finger dragged straight down from (x, y), as raw touch events. */
+async function swipeDown(page: Page, x: number, y: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 6; i++)
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ x, y: y + i * 30 }],
+    });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
+test('on a phone, a tap straight after swiping the card viewer closed registers', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin', pageErrors));
+  const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true };
+  const players = await seanceTable(browser, ['Rae', 'Sol', 'Tam'], pageErrors, phone);
+  const [ghost, sol] = players as [(typeof players)[0], (typeof players)[0]];
+  await begin(ghost.page, 'Rae');
+  await sendVisions(ghost.page);
+
+  const page = sol.page;
+  const list = page.getByRole('list', { name: 'Candidates' });
+  const card = list.locator('button[data-card]').nth(2);
+  const id = await card.getAttribute('data-card');
+  const pick = list.locator(`button[data-pick="${id}"]`);
+  await card.scrollIntoViewIfNeeded();
+  const at = (await pick.boundingBox())!;
+  await card.tap();
+  const look = page.getByRole('dialog', { name: /on the table/ });
+  const stage = look.locator('[aria-roledescription="card"]');
+  await expect(stage).toBeVisible();
+  const box = (await stage.boundingBox())!;
+  await swipeDown(page, box.x + box.width / 2, box.y + box.height / 3);
+  // At once, before anything settles: the browser used to swallow this tap.
+  await page.touchscreen.tap(at.x + at.width / 2, at.y + at.height / 2);
+  await expect(look).toHaveCount(0);
+  await expect(pick).toHaveAttribute('aria-pressed', 'true');
 });

@@ -52,7 +52,12 @@ export async function visitor(
   browser: Browser,
   name: string,
   errors: string[],
-  opts: { viewport?: { width: number; height: number }; colorScheme?: 'light' | 'dark' } = {},
+  opts: {
+    viewport?: { width: number; height: number };
+    colorScheme?: 'light' | 'dark';
+    hasTouch?: boolean;
+    isMobile?: boolean;
+  } = {},
 ) {
   const worker = Number(process.env.TEST_WORKER_INDEX ?? 0) % 200;
   const context = await browser.newContext({

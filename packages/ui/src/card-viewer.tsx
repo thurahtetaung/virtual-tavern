@@ -235,6 +235,22 @@ export function CardViewer({
     const d = ref.current;
     if (d && !d.open) d.showModal();
   }, []);
+  useEffect(() => {
+    // Pointer events drive every gesture here. Left to itself, the browser also reads a swipe as
+    // a drag or fling of its own and, once the viewer has closed under the finger, swallows the
+    // next tap on the page; cancelling its touch handling on the card stops that.
+    const el = stage.current;
+    if (!el) return;
+    const cancel = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    el.addEventListener('touchstart', cancel, { passive: false });
+    el.addEventListener('touchmove', cancel, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', cancel);
+      el.removeEventListener('touchmove', cancel);
+    };
+  }, []);
 
   const frame = (): Frame | undefined => {
     const el = frameRef.current;
