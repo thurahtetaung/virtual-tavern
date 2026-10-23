@@ -77,6 +77,12 @@ export async function guess(p: Page, card: string, right: boolean) {
   await expect(ready).toHaveCount(0);
 }
 
+/** Everyone is Ready: the ghost reveals the verdicts. */
+export async function reveal(ghost: Page) {
+  await ghost.getByRole('button', { name: '👻 Reveal the verdicts' }).click();
+  await expect(ghost.getByRole('region', { name: 'The ghost answers' })).toBeVisible();
+}
+
 /** One whole hour: visions, everyone guesses (right or wrong), then the ghost moves on. */
 export async function playHour(ghost: Page, psychics: Player[], right: boolean | string[] = true) {
   await sendVisions(ghost);
@@ -88,8 +94,12 @@ export async function playHour(ghost: Page, psychics: Player[], right: boolean |
   await nextHour(ghost);
 }
 
+/** The ghost reveals (unless the verdicts are already up), then moves the clock on. */
 export async function nextHour(ghost: Page) {
   const answers = ghost.getByRole('region', { name: 'The ghost answers' });
+  const button = ghost.getByRole('button', { name: '👻 Reveal the verdicts' });
+  await expect(answers.or(button)).toBeVisible();
+  if (await button.isVisible()) await reveal(ghost);
   await expect(answers).toBeVisible();
   // The verdicts also move on by themselves after a few seconds, so the button may go first.
   await ghost
@@ -169,6 +179,9 @@ export async function seanceScreenshots(
   await tab(ana, 'My vision');
   await guess(ana, (await targetOf(ghost, 'Ana'))!, true);
   await guess(psychics[3]!.page, (await targetOf(ghost, 'Dee'))!, false);
+  await shot(ana, 'all-ready');
+  await shot(ghost, 'ghost-reveal-button');
+  await reveal(ghost);
   await expect(ana.getByRole('region', { name: 'The ghost answers' })).toBeVisible();
   await shot(ana, 'reveal');
   await shot(ghost, 'ghost-reveal');

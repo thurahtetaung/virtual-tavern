@@ -162,7 +162,7 @@ function base(): GameGuide {
       'One player is the ghost; everyone else is a psychic. The ghost never speaks: no words, no faces, no nods.',
       'Each psychic secretly has a suspect, a place and an object among the cards on the table. Only the ghost knows which.',
       'Each hour the ghost sends every psychic one or more picture cards (visions) that point to their current card.',
-      'Psychics talk it over out loud, tap the card they think it is, and tap Ready. Right: on to the next card. Wrong: keep the visions and get more next hour.',
+      'Psychics talk it over, tap their guess, then Ready; the ghost reveals. Right: on to the next card. Wrong: keep the visions and get more next hour.',
       'Bet on each other’s guesses with ✓ and ✗ clairvoyance tokens: every right bet makes you more clear-sighted for the final.',
       'Find everything within 7 hours, then read the ghost’s shared vision of the culprit, and vote. The more clear-sighted you are, the more of it you see first.',
     ],
@@ -198,8 +198,9 @@ function base(): GameGuide {
           'The ghost picks a psychic still searching, chooses one or more cards from their hand and sends them. The hand fills back up to 7.',
           'Each psychic gets exactly one vision per hour; the ghost works round the table until everyone still searching has one.',
           'Psychics may start guessing as soon as their own vision arrives. Several psychics may pick the same card, but each card belongs to at most one of them.',
-          'Once every vision is out, the timer starts (2 minutes by default). Talk freely; the ghost may listen but never react. Tap Ready when you are happy; the hour ends early when everyone still searching is ready. Psychics who have found all three can still play tokens until then.',
-          'The host chooses what 0:00 does: a reminder (the host can lock the guesses in) or strict (the guesses lock by themselves; no guess counts as wrong).',
+          'Once every vision is out, the timer starts (2 minutes by default). Talk freely; the ghost listens but never reacts. Tap Ready when you are happy.',
+          'When everyone still searching is Ready, the ghost reveals the verdicts. Until then, moving a guess or token takes your Ready back.',
+          'The timer is a reminder, or strict (the hour ends at 0:00; no guess counts as wrong). The host can lock the guesses in at any time.',
         ],
       },
       {
@@ -212,7 +213,7 @@ function base(): GameGuide {
       {
         title: 'An hour: the verdicts',
         bullets: [
-          'The app judges every guess at once (the ghost doesn’t have to).',
+          'The app judges every guess at once (the ghost doesn’t have to), and says what ended the hour: the ghost’s reveal, the host’s lock or the strict timer.',
           'Right: the psychic takes that card, discards their visions and moves on to the next kind (suspect, then place, then object).',
           'Wrong: they keep their visions, and the ghost adds more next hour.',
           'A psychic who finds all three moves along the track one step for each hour left on the clock (finishing in hour IV is worth 3), then keeps helping the others and can still play tokens.',
@@ -241,6 +242,7 @@ function base(): GameGuide {
       },
     ],
     tips: [
+      'The line under the steps always says what the hour waits for: the ghost’s visions, who is Ready, or the ghost’s reveal.',
       'Ghost: look for shapes, colours and details that only your target shares. Several cards that agree are clearer than one.',
       'Psychics: say out loud what you see in your visions, and compare them with the other psychics’ visions too: a card that suits someone else’s vision is probably not yours.',
       'Tap a card to see it big. The compare view keeps your vision pinned while you swipe through the candidates.',
@@ -253,6 +255,11 @@ function base(): GameGuide {
         term: 'Clairvoyance',
         meaning:
           'How clear-sighted a psychic is: it decides how much of the final vision they see.',
+      },
+      {
+        term: 'Ready',
+        meaning:
+          'A psychic is happy with their guess. Once everyone still searching is Ready, the ghost reveals the verdicts.',
       },
       { term: 'Raven', meaning: 'The ghost throws away cards from their hand and draws new ones.' },
     ],

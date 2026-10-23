@@ -40,7 +40,7 @@ export function stepOf(g: GameView): Step {
         : {
             id: 'discussion',
             title: 'Discussion',
-            text: 'Every vision is out. Psychics: talk them all over out loud, move your guesses and tokens, then tap Ready. The ghost listens in silence.',
+            text: 'Every vision is out. Psychics: talk them all over out loud, move your guesses and tokens, then tap Ready. The ghost listens in silence and reveals the verdicts once everyone is Ready.',
           };
     case 'reveal':
       return {
@@ -141,8 +141,13 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
             text: `${hour}: send a vision to ${waiting.length === 1 ? names(waiting) || 'the last psychic' : `each psychic (${waiting.length} waiting)`}. Tap a psychic to compare their card with your hand.`,
             yourMove: true,
           };
+        if (g.canReveal)
+          return {
+            text: `${hour}: everyone is Ready. Reveal the verdicts when you are.`,
+            yourMove: true,
+          };
         return {
-          text: `${hour}: every vision is out. Listen in silence while they decide.`,
+          text: `${hour}: every vision is out. Listen in silence while they decide; once everyone is Ready, you reveal the verdicts.`,
           yourMove: false,
         };
       }
@@ -182,7 +187,7 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
             yourMove: false,
           };
         return {
-          text: `You found all three. ${notReady(g).length ? `Waiting for: ${names(notReady(g))}.` : ''}`.trim(),
+          text: `You found all three. ${g.canReveal ? 'Everyone’s ready: waiting for the ghost to reveal.' : notReady(g).length ? `Waiting for: ${names(notReady(g))}.` : ''}`.trim(),
           yourMove: false,
         };
       }
@@ -202,6 +207,11 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
             ? 'Guess placed. Talk the visions over out loud; tap Ready when you’re sure.'
             : 'Discussion time: talk the visions over out loud, then tap Ready.',
           yourMove: true,
+        };
+      if (g.canReveal)
+        return {
+          text: 'Everyone’s ready: waiting for the ghost to reveal. You can still change your mind.',
+          yourMove: false,
         };
       const waiting = waitingForVision(g).length
         ? 'Waiting for the ghost to finish the visions.'

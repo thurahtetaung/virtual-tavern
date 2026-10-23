@@ -20,6 +20,7 @@ import {
   type Game,
   type GameView,
   HAND_SIZE,
+  type LockHow,
   HOURS,
   MAX_NOTICES,
   MAX_PLAYERS,
@@ -333,7 +334,7 @@ function send(
     ctx.rng,
   );
   // Every vision is out: the sand runs.
-  return maybeLock(startSand(withGame(state, next), ctx.now), ctx.now);
+  return startSand(withGame(state, next), ctx.now);
 }
 
 function raven(state: SeanceState, cards: readonly number[], ctx: Ctx): Result {
@@ -434,19 +435,35 @@ function ready(state: SeanceState, on: boolean, ctx: Ctx): Result {
   if (on && me.step < 3 && me.intuition === null)
     return err('no-intuition', 'Place your guess first.');
   const psychics = g.psychics.map((p) => (p.id === me.id ? { ...p, ready: on } : p));
-  return maybeLock(withGame(state, { ...g, psychics }), ctx.now);
+  return withGame(state, { ...g, psychics });
 }
 
-/** Locks the hour once every vision is out and everyone the hour waits on is ready. */
-function maybeLock(state: SeanceState, now: number): SeanceState {
+/** Every vision is out and everyone the hour waits on is Ready: the ghost may reveal. */
+export const canReveal = (g: Game) =>
+  g.stage === 'visions' && g.sent.length > 0 && allSent(g) && readyNeeded(g).every((p) => p.ready);
+
+/**
+ * Nothing locks the moment the last psychic is Ready: the ghost reveals the verdicts, so anyone
+ * can still change their mind (which un-Readies them) until then.
+ */
+function reveal(state: SeanceState, ctx: Ctx): Result {
+  const e = requireGhost(state, ctx.by);
+  if (e) return e;
   const g = state.game!;
-  if (g.stage !== 'visions' || !allSent(g)) return state;
-  if (!readyNeeded(g).every((p) => p.ready)) return state;
-  return lock(state, now);
+  if (g.stage !== 'visions') return err('wrong-stage', 'There is nothing to reveal right now.');
+  if (!g.sent.length || !allSent(g))
+    return err('not-yet', 'Send every psychic their vision first.');
+  const waiting = readyNeeded(g).filter((p) => !p.ready);
+  if (waiting.length)
+    return err(
+      'not-ready',
+      `Wait until every psychic is Ready (${waiting.map((p) => p.name).join(', ')} ${waiting.length === 1 ? 'isn’t' : 'aren’t'} yet).`,
+    );
+  return lock(notice(state, '👻 The ghost revealed the verdicts.', ctx.now), ctx.now, 'ghost');
 }
 
 /** Spectral manifestation: the server judges every guess, then the verdicts stay up a moment. */
-function lock(state: SeanceState, now: number): SeanceState {
+function lock(state: SeanceState, now: number, how: LockHow): SeanceState {
   const g = state.game!;
   const verdicts: Verdict[] = [];
   const gains = new Map<PsychicColor, number>();
@@ -502,6 +519,7 @@ function lock(state: SeanceState, now: number): SeanceState {
     marks: [],
     verdicts: [...g.verdicts, ...verdicts],
     stage: 'reveal',
+    lockedHow: how,
     deadline: now + REVEAL_SECONDS * 1000,
   });
 }
@@ -544,7 +562,7 @@ function lockNow(state: SeanceState, ctx: Ctx): Result {
   if (!g || state.phase !== 'playing') return err('not-playing', 'No game in progress.');
   if (g.stage === 'visions') {
     if (!allSent(g)) return err('not-yet', 'The ghost hasn’t sent every vision yet.');
-    return lock(notice(state, 'The host locked the guesses in.', ctx.now), ctx.now);
+    return lock(notice(state, 'The host locked the guesses in.', ctx.now), ctx.now, 'host');
   }
   if (g.stage === 'vote')
     return nextVoteStage(notice(state, 'The host closed this round of votes.', ctx.now), ctx.now);
@@ -815,7 +833,7 @@ function retireSeat(state: SeanceState, color: PsychicColor, ctx: Ctx): Result {
   s = notice(s, `The host retired ${p.name}’s seat: the séance goes on without it.`, ctx.now);
   const after = s.game!;
   if (after.stage === 'visions' && allFound(after)) return startFinal(s);
-  return after.stage === 'visions' ? maybeLock(startSand(s, ctx.now), ctx.now) : s;
+  return after.stage === 'visions' ? startSand(s, ctx.now) : s;
 }
 
 // ---- Reduce ----
@@ -845,6 +863,8 @@ function reduce(state: SeanceState, action: SeanceAction, ctx: Ctx): Result {
       return shared(state, action, ctx);
     case 'continue':
       return cont(state, ctx);
+    case 'reveal':
+      return reveal(state, ctx);
     case 'intuition':
       return intuition(state, action.card, ctx);
     case 'mark':
@@ -933,7 +953,7 @@ function playerLeft(state: SeanceState, playerId: PlayerId, now: number): Seance
     psychics: g.psychics.map((x) => (x.id === playerId ? { ...x, gone: true, ready: false } : x)),
   });
   s = notice(s, `${p.name} left. Someone watching can take over their seat.`, now);
-  if (s.game!.stage === 'visions') return maybeLock(startSand(s, now), now);
+  if (s.game!.stage === 'visions') return startSand(s, now);
   if (s.game!.stage === 'vote') {
     const after = s.game!;
     if (votersAt(after, after.final!.revealed).every((x) => x.color in after.final!.votes))
@@ -963,7 +983,7 @@ function onDeadline(state: SeanceState, now: number): SeanceState {
     const what = missing
       ? `guesses were locked in (${missing} without a guess)`
       : 'guesses were locked in';
-    return lock(notice(state, timedOut(what), now), now);
+    return lock(notice(state, timedOut(what), now), now, 'timer');
   }
   if (g.stage === 'vote') {
     const f = g.final!;
@@ -1048,6 +1068,8 @@ function gameView(g: Game, viewer: PlayerId | null): GameView {
     ravensLeft: ravensLeft(g),
     marks: g.marks.map((m) => ({ ...m })),
     deadline: g.deadline,
+    lockedHow: g.lockedHow ?? null,
+    canReveal: canReveal(g),
     sends: g.sends.map((s) => ({ ...s, cards: [...s.cards] })),
     verdicts: g.verdicts.map((v) => ({ ...v, marks: v.marks.map((m) => ({ ...m })) })),
     final,

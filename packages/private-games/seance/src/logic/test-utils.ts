@@ -88,13 +88,20 @@ export function guessAll(h: Harness, right: readonly string[] | 'all' = 'all') {
   }
 }
 
-/** Everyone the hour waits on taps Ready (the hour then locks). */
-export function readyAll(h: Harness) {
+/** Everyone the hour waits on taps Ready; the ghost has not revealed yet. */
+export function readyOnly(h: Harness) {
   for (const p of h.game().psychics) {
     if (p.gone || p.retired || h.game().stage !== 'visions') continue;
     if (p.step >= 3) continue;
     if (!p.ready) h.act({ type: 'ready', on: true }, p.id);
   }
+}
+
+/** Everyone the hour waits on taps Ready, then the ghost reveals the verdicts. */
+export function readyAll(h: Harness) {
+  readyOnly(h);
+  const g = h.game();
+  if (g.stage === 'visions' && g.ghost) h.act({ type: 'reveal' }, g.ghost);
 }
 
 /** One whole hour: visions, guesses, ready, and the clock moves on. */

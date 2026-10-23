@@ -6,6 +6,7 @@ import {
   guess,
   nextHour,
   playHour,
+  reveal,
   seanceTable,
   sendVisions,
   targetOf,
@@ -45,8 +46,22 @@ test('a ghost and three psychics find everything, read the shared vision in stag
       .click();
   }
   await guess(ana!.page, (await targetOf(ghost.page, 'Ana'))!, true);
-  for (const p of players)
+  // Everyone is Ready, but nothing is judged until the ghost reveals; anyone may still back out.
+  const waiting = (p: (typeof players)[0]) => p.page.getByRole('status', { name: 'Waiting for' });
+  await expect(waiting(ben!)).toHaveText(/Everyone’s ready: waiting for the ghost to reveal/);
+  const revealButton = ghost.page.getByRole('button', { name: '👻 Reveal the verdicts' });
+  await expect(revealButton).toBeVisible();
+  await ana!.page.getByRole('button', { name: '✓ Ready' }).click();
+  await expect(revealButton).toHaveCount(0);
+  await expect(waiting(ghost)).toHaveText(/✗ Ana not ready/);
+  await ana!.page.getByRole('button', { name: 'Ready', exact: true }).click();
+  await reveal(ghost.page);
+  for (const p of players) {
     await expect(p.page.getByRole('region', { name: 'The ghost answers' })).toBeVisible();
+    await expect(
+      p.page.getByText('👻 The ghost revealed the verdicts', { exact: true }),
+    ).toBeVisible();
+  }
   await expect(ana!.page.getByText('Right! Next, your place.')).toBeVisible();
   await nextHour(ghost.page);
 
