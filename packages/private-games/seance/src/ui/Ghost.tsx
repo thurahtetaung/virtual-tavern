@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { PILLARS, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
+import { CandidatesRow, TableOverview, candidateMarks, candidateNote } from './Candidates.tsx';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
 import { PastGuesses } from './PastGuesses.tsx';
@@ -114,6 +115,21 @@ function PsychicSheet({
               />
             </div>
           </section>
+          <section aria-label={`${p.name}’s candidates`} className="space-y-1">
+            <h3 className="text-sm font-semibold">
+              {content.pillarPlural(pillar)} on the table{' '}
+              <span className="font-normal text-ink-muted">
+                (what {p.name} chooses from: steer away from the look-alikes)
+              </span>
+            </h3>
+            <CandidatesRow
+              g={g}
+              pillar={pillar}
+              content={content}
+              one={p}
+              label={`${content.pillarPlural(pillar)} on the table for ${p.name}`}
+            />
+          </section>
           <section aria-label={`Visions ${p.name} holds`} className="space-y-1">
             <h3 className="text-sm font-semibold">
               Visions they hold{' '}
@@ -190,16 +206,26 @@ export function GhostPsychics({
     const target = pillar ? p.targets?.[p.step] : undefined;
     if (!pillar || target === undefined) return null;
     const needs = sending && !g.sent.includes(p.color) && !p.gone;
+    // The target first, then the other candidates: swipe to check the vision fits it best.
+    const others = g.table[pillar].filter((n) => n !== target);
+    const marksOf = candidateMarks(g, pillar, [p]);
+    const word = content.pillarName(pillar).toLowerCase();
     return {
-      title: needs
-        ? `Vision for ${p.name}: pick from your hand`
-        : `${p.name}’s ${content.pillarName(pillar).toLowerCase()}`,
+      title: needs ? `Vision for ${p.name}: pick from your hand` : `${p.name}’s ${word}`,
       pinned: {
         kind: content.kindOf(pillar),
-        cards: [target],
-        captions: { [target]: `${p.name}’s ${content.pillarName(pillar).toLowerCase()}` },
+        cards: [target, ...others],
+        captions: {
+          [target]: `🎯 ${p.name}’s ${word}${others.length ? ' · swipe for the other candidates' : ''}`,
+          ...Object.fromEntries(
+            others.map((n) => [
+              n,
+              `Not it: another ${word} on the table${candidateNote(marksOf(n), p) ? ` · ${candidateNote(marksOf(n), p)}` : ''}`,
+            ]),
+          ),
+        },
       },
-      pinnedLabel: `${p.name}’s target`,
+      pinnedLabel: `${p.name}’s target and the other candidates`,
       strip: needs
         ? { kind: 'vision', cards: g.hand ?? [] }
         : p.visions.length
@@ -238,6 +264,7 @@ export function GhostPsychics({
         Tap any card to see it full screen: swipe for the next, pinch or double-tap to zoom. Tap a
         psychic’s name for all their cards, and Choose to pick their vision.
       </Tip>
+      <TableOverview g={g} content={content} />
       <ul className="space-y-2" aria-label="Psychics">
         {atTable(g).map((p) => {
           const pillar = PILLARS[p.step];
