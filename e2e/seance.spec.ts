@@ -379,6 +379,17 @@ test('stories as the third pillar and an extra vision pool, played to the end', 
   await expect(luViewer.getByRole('button', { name: /^Guess this one/ })).toBeVisible();
   await luViewer.press('Escape');
   await expect(luViewer).toHaveCount(0);
+  // The ghost's sheet shows every story on the table, the target among them.
+  await host.getByRole('button', { name: 'All of Lu’s cards' }).click();
+  const sheet = host.getByRole('dialog', { name: 'Lu’s cards' });
+  const row = sheet.getByRole('list', { name: 'Stories on the table for Lu' });
+  await expect(row.locator('[data-card^="story-"]')).toHaveCount(5);
+  await expect(row.locator(`[data-card="${await targetOf(host, 'Lu')}"]`)).toHaveAttribute(
+    'aria-label',
+    /\(Lu’s target\)$/,
+  );
+  await sheet.getByRole('button', { name: 'Close' }).first().click();
+  await expect(sheet).toBeHidden();
   await playHour(host, psychics);
 
   // The final: with 3 players the shared vision is face up and both psychics vote at once.

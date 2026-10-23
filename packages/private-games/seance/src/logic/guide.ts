@@ -305,7 +305,7 @@ function base(): GameGuide {
     ],
     tips: [
       'The line under the steps always says what the hour waits for: the ghost’s visions, who is Ready, or the ghost’s reveal.',
-      'Ghost: look for shapes, colours and details that only your target shares. Several cards that agree are clearer than one.',
+      'Ghost: look for shapes, colours and details that only your target shares. Every other card on the table is on your screen too (in each psychic’s cards, and as the other cards in Compare): steer away from the look-alikes. Several cards that agree are clearer than one.',
       'Psychics: say out loud what you see in your visions, and compare them with the other psychics’ visions too: a card that suits someone else’s vision is probably not yours.',
       'Tap any card to see it full screen: swipe for the next, pinch or double-tap to zoom. Tap your vision to pin it above the candidates and swipe through them.',
       'Tokens are cheap until hour IV: use them.',
