@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.0...v0.50.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **seance:** only show a hover preview when it is really bigger than the card ([#314](https://github.com/thurahtetaung/virtual-tavern/issues/314)) ([0814b0e](https://github.com/thurahtetaung/virtual-tavern/commit/0814b0e408131b11fc0961293322f7032751e140))
+
 ## [0.50.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.49.0...v0.50.0) (2026-10-23)
 
 
