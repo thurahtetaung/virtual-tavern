@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.51.1...v0.52.0) (2026-10-23)
+
+
+### Features
+
+* **seance:** the ghost sees every candidate card on the table ([#321](https://github.com/thurahtetaung/virtual-tavern/issues/321)) ([61f41ab](https://github.com/thurahtetaung/virtual-tavern/commit/61f41ab58f7c2c648425dcb6545b2bf05a817366))
+
 ## [0.51.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.51.0...v0.51.1) (2026-10-23)
 
 
