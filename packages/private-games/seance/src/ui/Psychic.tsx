@@ -1,6 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
-import { PILLARS, type Pillar } from '../logic/cards.ts';
+import { PILLARS, type Pillar, isPillarCard, kindOf } from '../logic/cards.ts';
 import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
@@ -124,7 +124,7 @@ export function MineTab({
   const open = g.stage === 'visions';
   const candidates = pillar ? g.table[pillar] : [];
   const { look, viewer } = useLook(content, (c) =>
-    pillar && c.kind === pillar && candidates.includes(c.n) ? (
+    pillar && isPillarCard(c.kind, pillar, g.third) && candidates.includes(c.n) ? (
       <PickButton
         kind={c.kind}
         n={c.n}
@@ -231,7 +231,7 @@ export function MineTab({
                 note={me.intuition === c ? 'your guess' : undefined}
                 onLook={() =>
                   look(
-                    cardsOf(pillar, candidates),
+                    cardsOf(kindOf(pillar, g.third), candidates),
                     i,
                     `${content.pillarPlural(pillar)} on the table`,
                   )
@@ -303,7 +303,7 @@ export function ReadyBar({
         <p className="min-w-0 flex-1 truncate text-sm">
           {pillar
             ? me.intuition !== null
-              ? `Your guess: ${content.cardLabel(pillar, me.intuition)}`
+              ? `Your guess: ${content.cardLabel(kindOf(pillar, g.third), me.intuition)}`
               : 'No guess yet'
             : 'Tokens placed?'}
           {me.ready && waiting.length > 0 && (

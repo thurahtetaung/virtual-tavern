@@ -363,6 +363,22 @@ test('stories as the third pillar and an extra vision pool, played to the end', 
     expect(await targetOf(host, p.name)).toMatch(/^story-\d+$/);
     await expect(p.page.getByText(/Looking for your story \(3 of 3\)/)).toBeVisible();
   }
+  // The ghost taps Lu's story in the progress row: the viewer opens on that story, not the suspect.
+  const story = (await targetOf(host, 'Lu'))!;
+  await host.getByRole('list', { name: 'Progress' }).locator(`[data-card="${story}"]`).click();
+  const progressViewer = host.getByRole('dialog', { name: 'Lu’s cards' });
+  await expect(progressViewer.locator(`[data-viewer-card="${story}"]`)).toBeVisible();
+  await expect(progressViewer.getByText('3 / 3')).toBeVisible();
+  await progressViewer.press('Escape');
+  await expect(progressViewer).toHaveCount(0);
+  // Lu opens a story on the table full screen and can guess it from there.
+  const lu = psychics[0]!.page;
+  await lu.getByRole('list', { name: 'Candidates' }).locator('button[data-card]').first().click();
+  const luViewer = lu.getByRole('dialog', { name: /Stories on the table/ });
+  await expect(luViewer.locator('[data-viewer-card^="story-"]')).toBeVisible();
+  await expect(luViewer.getByRole('button', { name: /^Guess this one/ })).toBeVisible();
+  await luViewer.press('Escape');
+  await expect(luViewer).toHaveCount(0);
   await playHour(host, psychics);
 
   // The final: with 3 players the shared vision is face up and both psychics vote at once.

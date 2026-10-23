@@ -1,5 +1,5 @@
 import { Panel, cn } from '@vt/ui';
-import { PILLARS } from '../logic/cards.ts';
+import { PILLARS, isPillarCard } from '../logic/cards.ts';
 import { levelThresholds } from '../logic/setup.ts';
 import { HOURS, type GameView, type SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -81,7 +81,7 @@ export function Progress({
                     onTap={() =>
                       look(
                         row,
-                        row.findIndex((c) => c.kind === pillar),
+                        row.findIndex((c) => isPillarCard(c.kind, pillar, g.third)),
                         `${p.name}’s cards`,
                       )
                     }

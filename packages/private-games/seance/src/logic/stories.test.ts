@@ -7,6 +7,7 @@ import {
   POOL_IDS,
   POOL_R_CARDS,
   SET_IDS,
+  isPillarCard,
   kindOf,
   pictureCardOf,
   poolOf,
@@ -69,6 +70,16 @@ describe('card numbers', () => {
     expect(kindOf('object', 'story')).toBe('story');
     expect(kindOf('suspect', 'story')).toBe('suspect');
     expect(kindOf('place', 'story')).toBe('place');
+  });
+
+  it('a card belongs to a pillar by its kind, stories standing in for objects', () => {
+    expect(isPillarCard('story', 'object', 'story')).toBe(true);
+    expect(isPillarCard('object', 'object', 'story')).toBe(false);
+    expect(isPillarCard('object', 'object')).toBe(true);
+    expect(isPillarCard('story', 'object')).toBe(false);
+    expect(isPillarCard('suspect', 'suspect', 'story')).toBe(true);
+    expect(isPillarCard('vision', 'suspect', 'story')).toBe(false);
+    expect(isPillarCard('place', 'suspect', 'story')).toBe(false);
   });
 });
 
