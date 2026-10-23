@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.49.0...v0.50.0) (2026-10-23)
+
+
+### Features
+
+* **seance:** open any card full screen with zoom, and give the ghost a bigger hand ([#312](https://github.com/thurahtetaung/virtual-tavern/issues/312)) ([6a1c04f](https://github.com/thurahtetaung/virtual-tavern/commit/6a1c04f125a94bafd9f03074ce2ab5dcfc0f7bea))
+
 ## [0.49.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.3...v0.49.0) (2026-10-23)
 
 
