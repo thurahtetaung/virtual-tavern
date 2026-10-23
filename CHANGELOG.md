@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.3...v0.49.0) (2026-10-23)
+
+
+### Features
+
+* **seance:** the ghost reveals the verdicts once every psychic is ready ([#310](https://github.com/thurahtetaung/virtual-tavern/issues/310)) ([c32586c](https://github.com/thurahtetaung/virtual-tavern/commit/c32586cdd14105f44c9ffce6c2eecc842645bdca))
+
 ## [0.48.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.48.2...v0.48.3) (2026-10-22)
 
 
