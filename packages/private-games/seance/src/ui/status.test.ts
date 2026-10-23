@@ -11,7 +11,7 @@ import {
   startedGame,
   toFinal,
 } from '../logic/test-utils.ts';
-import { resultLine, statusFor, stepOf } from './status.ts';
+import { pastGuesses, resultLine, statusFor, stepOf } from './status.ts';
 
 const people = (ids: string[]) => ({
   hostId: HOST,
@@ -102,5 +102,29 @@ describe('status line', () => {
     const h = startedGame(4);
     h.state = seance.playerLeft(h.state, HOST, h.now);
     expect(statusFor(seance.view(h.state, 'ana'), false).text).toMatch(/ghost’s seat is empty/);
+  });
+});
+
+describe('past guesses', () => {
+  it('lists every judged guess per psychic in order, the same for every viewer', () => {
+    const h = startedGame(4);
+    const ana = colorOf(h, 'ana');
+    sendAll(h);
+    guessAll(h, []);
+    const wrong = h.psychic('ana').intuition!;
+    readyAll(h);
+    h.act({ type: 'continue' }, HOST);
+    sendAll(h);
+    guessAll(h, ['ana']);
+    readyAll(h);
+    const target = h.psychic('ana').found[0]!;
+    const g = seance.view(h.state, 'ben').game!;
+    expect(pastGuesses(g, ana)).toEqual([
+      { hour: 1, pillar: 'suspect', card: wrong, correct: false },
+      { hour: 2, pillar: 'suspect', card: target, correct: true },
+    ]);
+    expect(wrong).not.toBe(target);
+    expect(pastGuesses(seance.view(h.state, HOST).game!, ana)).toEqual(pastGuesses(g, ana));
+    expect(pastGuesses(seance.view(h.state, null).game!, ana)).toEqual(pastGuesses(g, ana));
   });
 });

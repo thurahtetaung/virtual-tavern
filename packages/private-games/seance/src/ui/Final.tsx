@@ -5,6 +5,8 @@ import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
 import { type Content, PILLAR_ICONS } from './assets.ts';
 import { Avatar, Card, CardBack } from './Card.tsx';
 import type { CompareSpec } from './Psychic.tsx';
+import { HandCards } from './Ghost.tsx';
+import { type LookCard, useLook } from './Look.tsx';
 import { myPsychic, psychicByColor, votersNow } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -22,9 +24,25 @@ export const groupCards = (g: GameView, i: number) =>
 /** The shared vision: face-up cards, then face-down ones. */
 export function SharedRow({ g, content, tags }: { g: GameView; content: Content; tags?: boolean }) {
   const f = g.final!;
+  const { look, viewer } = useLook(content);
   if (!f.sharedCount) return null;
+  const visible = [0, 1, 2].flatMap((i): LookCard[] => {
+    const card = f.shared[i];
+    const up = i < f.revealed || g.stage === 'done';
+    const tag = f.tags?.[i];
+    return card !== undefined && (up || g.myRole === 'ghost')
+      ? [
+          {
+            kind: 'vision',
+            n: card,
+            caption: `Shared card ${i + 1}${up ? '' : ' (still face down for them)'}${tags && tag ? ` · ${content.pillarName(tag)}` : ''}`,
+          },
+        ]
+      : [];
+  });
   return (
     <section aria-label="Shared vision" className="space-y-1">
+      {viewer}
       <h4 className="text-sm font-semibold">
         The shared vision{' '}
         <span className="font-normal text-ink-muted">({Math.min(f.revealed, 3)} of 3 face up)</span>
@@ -43,6 +61,13 @@ export function SharedRow({ g, content, tags }: { g: GameView; content: Content;
                   content={content}
                   note={`shared card ${i + 1}`}
                   dimmed={!up}
+                  onTap={() =>
+                    look(
+                      visible,
+                      visible.findIndex((c) => c.n === card),
+                      'The shared vision',
+                    )
+                  }
                 />
               ) : (
                 <CardBack content={content} />
@@ -67,17 +92,25 @@ export function Lineup({
   content,
   draft,
   setDraft,
-  compare,
 }: {
   view: SeanceView;
   act: Act;
   content: Content;
   draft?: SharedDraft;
   setDraft?: (d: SharedDraft) => void;
-  compare: (spec: CompareSpec) => void;
 }) {
   const g = view.game!;
   const f = g.final!;
+  const { look, viewer } = useLook(content);
+  const all = f.groups.flatMap((_, i) =>
+    groupCards(g, i).map((n, k): LookCard => ({
+      kind: PILLARS[k]!,
+      n,
+      caption: `Group ${i + 1} · ${content.pillarName(PILLARS[k]!).toLowerCase()}`,
+    })),
+  );
+  const startOf = (i: number) =>
+    f.groups.slice(0, i).reduce((sum, _, j) => sum + groupCards(g, j).length, 0);
   const me = myPsychic(view);
   const myTurn =
     !!me && g.stage === 'vote' && me.voteStage === f.revealed && f.myVote === undefined;
@@ -85,6 +118,7 @@ export function Lineup({
   const over = g.stage === 'done';
   return (
     <ul className="space-y-2" aria-label="Line-up">
+      {viewer}
       {f.groups.map((color, i) => {
         const p = psychicByColor(g, color);
         const cards = groupCards(g, i);
@@ -131,14 +165,7 @@ export function Lineup({
                     kind={PILLARS[k]!}
                     n={c}
                     content={content}
-                    onTap={() =>
-                      compare({
-                        title: `Group ${i + 1}`,
-                        pinned: { kind: PILLARS[k]!, kinds: PILLARS, cards },
-                        mode: 'view',
-                        start: k,
-                      })
-                    }
+                    onTap={() => look(all, startOf(i) + k, 'The line-up')}
                   />
                 ))}
               </div>
@@ -191,15 +218,18 @@ export function SharedPicker({
   const cards = draft.cards.filter((c) => hand.includes(c));
   const group = draft.group;
   const ready = group !== null && cards.length === 3;
+  const { look, viewer } = useLook(content);
   return (
     <Panel role="region" className="space-y-2 p-3" aria-label="Choose the shared vision">
+      {viewer}
       <h3 className="font-bold">The shared vision</h3>
       <ol className="list-decimal space-y-0.5 pl-5 text-sm text-stone-700 dark:text-stone-300">
         <li className={cn(group !== null && 'line-through opacity-60')}>
           Tap “This is the culprit” on one group.
         </li>
         <li>
-          Pick 3 cards from your hand: one for its suspect, one for its place, one for its object.
+          Pick 3 cards from your hand (tap a card to look, Pick to choose): one for its suspect, one
+          for its place, one for its object.
         </li>
         <li>Tag what each card means (only you see it until the end), then send.</li>
       </ol>
@@ -220,35 +250,39 @@ export function SharedPicker({
       >
         🔍 Compare with the group
       </Button>
-      <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-7" aria-label="Your hand">
-        {hand.map((c) => {
-          const on = cards.includes(c);
-          return (
-            <li key={c}>
-              <Card
-                kind="vision"
-                n={c}
-                content={content}
-                selected={on}
-                onTap={() => {
-                  const next = on
-                    ? cards.filter((x) => x !== c)
-                    : cards.length < 3
-                      ? [...cards, c]
-                      : cards;
-                  setDraft({ ...draft, cards: next });
-                }}
-              />
-            </li>
-          );
-        })}
-      </ul>
+      <HandCards
+        hand={hand}
+        content={content}
+        picked={cards}
+        canPick={() => cards.length < 3}
+        onToggle={(c) =>
+          setDraft({
+            ...draft,
+            cards: cards.includes(c)
+              ? cards.filter((x) => x !== c)
+              : cards.length < 3
+                ? [...cards, c]
+                : cards,
+          })
+        }
+      />
       {cards.length > 0 && (
         <ul className="space-y-1" aria-label="Tags">
           {cards.map((c, i) => (
             <li key={c} className="flex items-center gap-2">
-              <span className="w-10 shrink-0">
-                <Card kind="vision" n={c} content={content} />
+              <span className="w-12 shrink-0">
+                <Card
+                  kind="vision"
+                  n={c}
+                  content={content}
+                  onTap={() =>
+                    look(
+                      cards.map((n, k) => ({ kind: 'vision', n, caption: `Card ${k + 1}` })),
+                      i,
+                      'Your shared vision',
+                    )
+                  }
+                />
               </span>
               <span className="text-xs text-ink-muted">Card {i + 1} means:</span>
               <div className="flex flex-wrap gap-1">

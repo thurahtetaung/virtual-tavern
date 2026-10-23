@@ -5,6 +5,9 @@ import type { GameView, PsychicView, SeanceAction, SeanceView } from '../logic/t
 import type { Content } from './assets.ts';
 import { Tip } from './Tips.tsx';
 import { Avatar, Card } from './Card.tsx';
+import { PickButton, PickableCard, cardsOf, useLook } from './Look.tsx';
+import { useReadyNoteText } from './ready-note.ts';
+import { PastGuesses } from './PastGuesses.tsx';
 import type { CardRow } from './Compare.tsx';
 import { atTable, myPsychic, notReady, roman } from './status.ts';
 
@@ -80,7 +83,10 @@ export function VisionStrip({
       aria-label={`${p.name}’s visions`}
     >
       {p.visions.map((v, i) => (
-        <li key={`${v.card}-${i}`} className={cn('shrink-0', small ? 'w-14' : 'w-20 sm:w-24')}>
+        <li
+          key={`${v.card}-${i}`}
+          className={cn('shrink-0', small ? 'w-16 sm:w-20' : 'w-24 sm:w-28 xl:w-32')}
+        >
           <Card
             kind="vision"
             n={v.card}
@@ -116,15 +122,49 @@ export function MineTab({
   const me = myPsychic(view)!;
   const pillar = PILLARS[me.step];
   const open = g.stage === 'visions';
+  const candidates = pillar ? g.table[pillar] : [];
+  const { look, viewer } = useLook(content, (c) =>
+    pillar && c.kind === pillar && candidates.includes(c.n) ? (
+      <PickButton
+        kind={c.kind}
+        n={c.n}
+        big
+        on={me.intuition === c.n}
+        label="Guess this one"
+        onLabel="✓ Your guess"
+        disabled={!open}
+        onToggle={() =>
+          void act(
+            { type: 'intuition', card: me.intuition === c.n ? null : c.n },
+            { anchor: 'seance-ready' },
+          )
+        }
+      />
+    ) : null,
+  );
   if (!pillar)
     return (
       <Panel className="space-y-2 p-3">
+        {viewer}
         <h3 className="font-bold">🎉 You found all three</h3>
         <div className="grid grid-cols-3 gap-1.5">
           {PILLARS.map((pl, i) => (
-            <Card key={pl} kind={pl} n={me.found[i]!} content={content} />
+            <Card
+              key={pl}
+              kind={pl}
+              n={me.found[i]!}
+              content={content}
+              onTap={() =>
+                look(
+                  PILLARS.map((k, j) => ({ kind: k, n: me.found[j]! })),
+                  i,
+                  'Your three cards',
+                )
+              }
+            />
           ))}
         </div>
+        <PastGuesses g={g} p={me} content={content} compact />
         <p className="text-sm text-stone-600 dark:text-stone-400">
           {g.clairvoyance && me.tokens > 0
             ? `Help the others: put your ${me.tokens} clairvoyance token${me.tokens === 1 ? '' : 's'} on their guesses (Others) before they lock in.`
@@ -132,7 +172,6 @@ export function MineTab({
         </p>
       </Panel>
     );
-  const candidates = g.table[pillar];
   const openCompare = (start = 0) =>
     compare({
       title: `Your vision → which ${content.pillarName(pillar).toLowerCase()}?`,
@@ -149,6 +188,7 @@ export function MineTab({
     });
   return (
     <div className="space-y-2">
+      {viewer}
       <Panel className="space-y-2 p-3">
         <div className="flex items-center gap-2">
           <Avatar color={me.color} content={content} name={me.name} />
@@ -165,36 +205,51 @@ export function MineTab({
           )}
         </div>
         <VisionStrip p={me} g={g} content={content} onOpen={(i) => openCompare(i)} />
+        <PastGuesses g={g} p={me} content={content} compact />
         {me.visions.length > 0 && (
           <Tip id="compare">
-            Tap 🔍 Compare to pin your vision above the cards on the table and swipe through them.
+            Tap your vision to pin it above the cards on the table and swipe through them. Tap any
+            other card to see it full screen; pinch or double-tap to zoom.
           </Tip>
         )}
       </Panel>
       <Panel className="space-y-2 p-3">
         <h3 className="text-sm font-bold">
           {content.pillarName(pillar)}s on the table{' '}
-          <span className="font-normal text-ink-muted">· tap your guess</span>
+          <span className="font-normal text-ink-muted">· tap to look, Guess to choose</span>
         </h3>
-        <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" aria-label="Candidates">
-          {candidates.map((c) => (
+        <ul
+          className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 2xl:grid-cols-4"
+          aria-label="Candidates"
+        >
+          {candidates.map((c, i) => (
             <li key={c}>
-              <Card
+              <PickableCard
                 kind={pillar}
                 n={c}
                 content={content}
-                selected={me.intuition === c}
                 note={me.intuition === c ? 'your guess' : undefined}
-                disabled={!open}
-                onTap={() =>
-                  void act(
-                    { type: 'intuition', card: me.intuition === c ? null : c },
-                    { anchor: 'seance-ready' },
+                onLook={() =>
+                  look(
+                    cardsOf(pillar, candidates),
+                    i,
+                    `${content.pillarName(pillar)}s on the table`,
                   )
                 }
+                pick={{
+                  on: me.intuition === c,
+                  label: 'Guess',
+                  onLabel: '✓ Guess',
+                  disabled: !open,
+                  onToggle: () =>
+                    void act(
+                      { type: 'intuition', card: me.intuition === c ? null : c },
+                      { anchor: 'seance-ready' },
+                    ),
+                }}
               >
                 <Guessers g={g} card={c} pillar={pillar} content={content} />
-              </Card>
+              </PickableCard>
             </li>
           ))}
         </ul>
@@ -235,6 +290,7 @@ export function ReadyBar({
 }) {
   const g = view.game!;
   const me = myPsychic(view);
+  const note = useReadyNoteText();
   if (!me || g.stage !== 'visions') return null;
   const pillar = PILLARS[me.step];
   const canReady = me.step >= 3 || me.intuition !== null;
@@ -253,6 +309,14 @@ export function ReadyBar({
           {me.ready && waiting.length > 0 && (
             <span className="block truncate text-xs text-ink-muted">
               Waiting for {waiting.map((p) => p.name).join(', ')}
+            </span>
+          )}
+          {note && !me.ready && (
+            <span
+              role="status"
+              className="block text-xs font-semibold whitespace-normal text-special-ink dark:text-violet-200"
+            >
+              ↻ {note}
             </span>
           )}
         </p>
@@ -293,8 +357,19 @@ export function OthersTab({
   const me = myPsychic(view);
   const others = atTable(g).filter((p) => p.color !== me?.color);
   const canMark = !!me && g.clairvoyance && g.stage === 'visions';
+  const note = useReadyNoteText();
+  const { look, viewer } = useLook(content);
   return (
     <div className="space-y-2">
+      {viewer}
+      {note && me && !me.ready && (
+        <p
+          role="status"
+          className="rounded-xl bg-special-soft px-3 py-1.5 text-sm font-semibold ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30"
+        >
+          ↻ {note}
+        </p>
+      )}
       {canMark && (
         <p className="text-xs text-stone-600 dark:text-stone-400">
           You have <b>{me.tokens}</b> clairvoyance token{me.tokens === 1 ? '' : 's'}
@@ -341,36 +416,67 @@ export function OthersTab({
                         content={content}
                         small
                         onOpen={(i) =>
-                          compare({
-                            title: `${p.name}’s vision → which ${content.pillarName(pillar).toLowerCase()}?`,
-                            pinned: {
-                              kind: 'vision',
-                              cards: p.visions.map((v) => v.card),
-                              captions: visionCaptions(p, g.hour),
-                            },
-                            pinnedLabel: `${p.name}’s vision`,
-                            strip: {
-                              kind: pillar,
-                              cards: g.table[pillar],
-                              captions:
-                                p.intuition !== null
-                                  ? { [p.intuition]: `${p.name}’s guess` }
-                                  : undefined,
-                            },
-                            stripLabel: `${content.pillarName(pillar)}s on the table`,
-                            mode: 'view',
-                            start: i,
-                          })
+                          look(
+                            [
+                              ...cardsOf(
+                                'vision',
+                                p.visions.map((v) => v.card),
+                                visionCaptions(p, g.hour),
+                              ),
+                              ...(p.intuition !== null
+                                ? [{ kind: pillar, n: p.intuition, caption: `${p.name}’s guess` }]
+                                : []),
+                            ],
+                            i,
+                            `${p.name}’s vision`,
+                          )
                         }
                       />
+                      {p.visions.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="mt-0.5"
+                          onClick={() =>
+                            compare({
+                              title: `${p.name}’s vision → which ${content.pillarName(pillar).toLowerCase()}?`,
+                              pinned: {
+                                kind: 'vision',
+                                cards: p.visions.map((v) => v.card),
+                                captions: visionCaptions(p, g.hour),
+                              },
+                              pinnedLabel: `${p.name}’s vision`,
+                              strip: {
+                                kind: pillar,
+                                cards: g.table[pillar],
+                                captions:
+                                  p.intuition !== null
+                                    ? { [p.intuition]: `${p.name}’s guess` }
+                                    : undefined,
+                              },
+                              stripLabel: `${content.pillarName(pillar)}s on the table`,
+                              mode: 'view',
+                            })
+                          }
+                        >
+                          🔍 Compare with the table
+                        </Button>
+                      )}
                     </div>
-                    <div className="w-24 shrink-0">
+                    <div className="w-24 shrink-0 xl:w-32">
                       {p.intuition !== null ? (
                         <Card
                           kind={pillar}
                           n={p.intuition}
                           content={content}
                           note={`${p.name}’s guess`}
+                          onTap={() =>
+                            look(
+                              [{ kind: pillar, n: p.intuition!, caption: `${p.name}’s guess` }],
+                              0,
+                              `${p.name}’s guess`,
+                            )
+                          }
                         />
                       ) : (
                         <div className="flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed border-stone-300 text-center text-[11px] text-ink-muted dark:border-stone-700">
@@ -380,6 +486,7 @@ export function OthersTab({
                     </div>
                   </div>
                 )}
+                <PastGuesses g={g} p={p} content={content} compact />
                 {canMark && pillar && (
                   <div
                     className="flex gap-1.5"

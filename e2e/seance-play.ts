@@ -47,9 +47,10 @@ export async function sendVisions(ghost: Page) {
     const dialog = ghost.getByRole('dialog');
     await dialog
       .getByRole('region', { name: /Your hand/ })
-      .locator('button[data-card]')
+      .locator('button[data-pick]')
       .first()
       .click();
+    await dialog.getByRole('button', { name: /^Preview 1 card for / }).click();
     const send = dialog.getByRole('button', { name: /^👻 Send 1 card to / });
     await send.click();
     await expect(dialog).toBeHidden();
@@ -68,8 +69,8 @@ export async function targetOf(ghost: Page, name: string): Promise<string | null
 export async function guess(p: Page, card: string, right: boolean) {
   const list = p.getByRole('list', { name: 'Candidates' });
   const button = right
-    ? list.locator(`button[data-card="${card}"]`)
-    : list.locator(`button[data-card]:not([data-card="${card}"])`).first();
+    ? list.locator(`button[data-pick="${card}"]`)
+    : list.locator(`button[data-pick]:not([data-pick="${card}"])`).first();
   await button.click();
   await expect(button).toHaveAttribute('aria-pressed', 'true');
   const ready = p.getByRole('button', { name: 'Ready', exact: true });
@@ -147,21 +148,49 @@ export async function seanceScreenshots(
   // The ghost's compare view: Ana's target over the hand.
   await ghost.getByRole('button', { name: /^🔍 Choose Ana’s vision$/ }).click();
   const dialog = ghost.getByRole('dialog');
-  const hand = dialog.getByRole('region', { name: /Your hand/ }).locator('button[data-card]');
+  const hand = dialog.getByRole('region', { name: /Your hand/ }).locator('button[data-pick]');
   await hand.nth(0).click();
   await hand.nth(2).click();
   await shot(ghost, 'ghost-compare');
+  await dialog.getByRole('button', { name: /^Preview 2 cards for Ana/ }).click();
+  await expect(dialog.getByRole('region', { name: 'The visions you picked' })).toBeVisible();
+  await shot(ghost, 'ghost-send-preview');
   await dialog.getByRole('button', { name: /^👻 Send 2 cards to Ana$/ }).click();
   await expect(dialog).toBeHidden();
   await sendVisions(ghost);
   await tab(ghost, 'Hand');
   await shot(ghost, 'ghost-hand');
+  // The full-screen viewer, unzoomed then zoomed (double tap is two quick clicks).
+  await ghost.getByRole('list', { name: 'Your hand' }).locator('button[data-card]').nth(1).click();
+  const viewer = ghost.getByRole('dialog', { name: /Your hand/ });
+  await expect(viewer).toBeVisible();
+  await shot(ghost, 'viewer');
+  await viewer.locator('[aria-roledescription="card"]').dblclick();
+  await expect(viewer).not.toHaveAttribute('data-zoom', '1.00');
+  await shot(ghost, 'viewer-zoomed');
+  await viewer.getByRole('button', { name: 'Close' }).click();
+  await expect(viewer).toHaveCount(0);
   await tab(ghost, 'Psychics');
+  // A psychic's sheet: their target, visions and guess.
+  await ghost.getByRole('button', { name: 'All of Ana’s cards' }).click();
+  const sheet = ghost.getByRole('dialog', { name: 'Ana’s cards' });
+  await expect(sheet).toBeVisible();
+  await shot(ghost, 'ghost-sheet');
+  await sheet.getByRole('button', { name: 'Close' }).first().click();
+  await expect(sheet).toBeHidden();
   // Ben and Cy guess; Ana looks at her vision.
   for (const p of psychics.slice(1, 3))
     await guess(p.page, (await targetOf(ghost, p.name))!, p.name === 'Ben');
   await shot(ana, 'mine');
-  await ana.getByRole('button', { name: '🔍 Compare' }).click();
+  // Ana changes her guess after Ready: the note tells her to tap Ready again.
+  const cand = ana.getByRole('list', { name: 'Candidates' }).locator('button[data-pick]');
+  await cand.nth(0).click();
+  await ana.getByRole('button', { name: 'Ready', exact: true }).click();
+  await cand.nth(1).click();
+  await expect(ana.getByText(/You changed your guess: tap Ready again/).first()).toBeVisible();
+  await shot(ana, 'ready-note');
+  await cand.nth(1).click();
+  await ana.getByRole('button', { name: '🔍 Compare', exact: true }).click();
   await shot(ana, 'compare');
   await ana.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
   await tab(ana, 'Others');
@@ -186,6 +215,18 @@ export async function seanceScreenshots(
   await shot(ana, 'reveal');
   await shot(ghost, 'ghost-reveal');
   await nextHour(ghost);
+  // Past guesses: Dee's wrong one on the ghost's row and sheet, and on Ana's board.
+  await expect(ghost.getByRole('list', { name: 'Dee’s past guesses' }).first()).toBeVisible();
+  await ghost.getByRole('button', { name: 'All of Dee’s cards' }).click();
+  const deeSheet = ghost.getByRole('dialog', { name: 'Dee’s cards' });
+  await expect(deeSheet.getByRole('list', { name: 'Dee’s past guesses' })).toBeVisible();
+  await shot(ghost, 'ghost-past-guesses');
+  await deeSheet.getByRole('button', { name: 'Close' }).first().click();
+  await expect(deeSheet).toBeHidden();
+  await tab(ana, 'Others');
+  await expect(ana.getByRole('list', { name: 'Dee’s past guesses' })).toBeVisible();
+  await shot(ana, 'others-past-guesses');
+  await tab(ana, 'My vision');
   // Play on (everyone right) until the final.
   const final = ghost.getByText(/Everyone found their cards! Pick the culprit/);
   const choose = ghost.getByRole('button', { name: /^🔍 Choose/ });
@@ -199,7 +240,7 @@ export async function seanceScreenshots(
   await expect(pick).toBeVisible();
   await ghost.getByRole('button', { name: 'This is the culprit (group 3)' }).click();
   for (let i = 0; i < 3; i++)
-    await pick.getByRole('list', { name: 'Your hand' }).locator('button[data-card]').nth(i).click();
+    await pick.getByRole('list', { name: 'Your hand' }).locator('button[data-pick]').nth(i).click();
   await pick
     .getByRole('list', { name: 'Tags' })
     .getByRole('button', { name: /Suspect/ })

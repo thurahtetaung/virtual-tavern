@@ -83,7 +83,7 @@ test('a ghost and three psychics find everything, read the shared vision in stag
   await expect(pick).toBeVisible();
   await ghost.page.getByRole('button', { name: 'This is the culprit (group 2)' }).click();
   for (let i = 0; i < 3; i++)
-    await pick.getByRole('list', { name: 'Your hand' }).locator('button[data-card]').nth(i).click();
+    await pick.getByRole('list', { name: 'Your hand' }).locator('button[data-pick]').nth(i).click();
   // Tag the first card privately (the tags show at the end).
   await pick
     .getByRole('list', { name: 'Tags' })
@@ -217,4 +217,70 @@ test('the host retires a departed psychic’s seat and the others play on to the
   await expect(
     ghost.page.getByRole('button', { name: 'This is the culprit (group 3)' }),
   ).toHaveCount(0);
+});
+
+test('a ghost and a psychic open cards full screen, swipe to the next and close', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin', pageErrors));
+  const players = await seanceTable(browser, ['Nia', 'Oto', 'Pam'], pageErrors);
+  const [ghost, oto] = players as [(typeof players)[0], ...typeof players];
+  await begin(ghost.page, 'Nia');
+  await expect(ghost.page.getByText(/You’re the ghost: not a word/)).toBeVisible();
+
+  // The ghost looks at a hand card: looking never picks it.
+  const hand = ghost.page.getByRole('list', { name: 'Your hand' });
+  const cards = hand.locator('button[data-card]');
+  const first = await cards.nth(0).getAttribute('data-card');
+  const second = await cards.nth(1).getAttribute('data-card');
+  await cards.nth(0).click();
+  const viewer = ghost.page.getByRole('dialog', { name: /^Your hand/ });
+  await expect(viewer.locator(`[data-viewer-card="${first}"]`)).toBeVisible();
+  await expect(viewer.getByText('1 / 7')).toBeVisible();
+  await viewer.press('ArrowRight');
+  await expect(viewer.locator(`[data-viewer-card="${second}"]`)).toBeVisible();
+  await viewer.press('Escape');
+  await expect(viewer).toHaveCount(0);
+  await expect(cards.nth(0)).not.toHaveAttribute('aria-pressed', 'true');
+
+  // A swipe moves on and a swipe down closes (touch-style pointer drags on the card).
+  await cards.nth(0).click();
+  const stage = viewer.locator('[aria-roledescription="card"]');
+  const box = (await stage.boundingBox())!;
+  const drag = async (dx: number, dy: number) => {
+    await ghost.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await ghost.page.mouse.down();
+    await ghost.page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy, {
+      steps: 6,
+    });
+    await ghost.page.mouse.up();
+  };
+  await drag(-150, 0);
+  await expect(viewer.locator(`[data-viewer-card="${second}"]`)).toBeVisible();
+  await drag(0, 150);
+  await expect(viewer).toHaveCount(0);
+
+  // A psychic opens a candidate, and the back button closes it without leaving the room.
+  await sendVisions(ghost.page);
+  const url = oto!.page.url();
+  const candidates = oto!.page
+    .getByRole('list', { name: 'Candidates' })
+    .locator('button[data-card]');
+  const c0 = await candidates.nth(0).getAttribute('data-card');
+  const c1 = await candidates.nth(1).getAttribute('data-card');
+  await candidates.nth(0).click();
+  const look = oto!.page.getByRole('dialog', { name: /on the table/ });
+  await expect(look.locator(`[data-viewer-card="${c0}"]`)).toBeVisible();
+  await look.press('ArrowRight');
+  await expect(look.locator(`[data-viewer-card="${c1}"]`)).toBeVisible();
+  // Guessing from the viewer is the button under the card.
+  await look.getByRole('button', { name: /^Guess this one/ }).click();
+  await expect(look.getByRole('button', { name: /^✓ Your guess/ })).toBeVisible();
+  await oto!.page.goBack();
+  await expect(look).toHaveCount(0);
+  expect(oto!.page.url()).toBe(url);
+  await expect(
+    oto!.page.getByRole('list', { name: 'Candidates' }).locator(`button[data-pick="${c1}"]`),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
