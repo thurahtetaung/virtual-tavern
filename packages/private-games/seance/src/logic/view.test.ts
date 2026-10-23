@@ -43,6 +43,8 @@ function checkViews(h: Harness, label: string) {
       expect(json, at).not.toContain('"hand":[');
     }
     expect(v.game!.handCount, at).toBe(g.hand.length);
+    // Every verdict (the past guesses) is public, the same for everyone.
+    expect(v.game!.verdicts, at).toEqual(g.verdicts);
     // Each psychic's three cards: the ghost and the end only. Found cards are public.
     for (const p of v.game!.psychics) {
       const real = g.psychics.find((x) => x.color === p.color)!;

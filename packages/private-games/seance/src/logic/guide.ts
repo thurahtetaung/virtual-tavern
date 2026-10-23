@@ -162,7 +162,7 @@ function base(): GameGuide {
       'One player is the ghost; everyone else is a psychic. The ghost never speaks: no words, no faces, no nods.',
       'Each psychic secretly has a suspect, a place and an object among the cards on the table. Only the ghost knows which.',
       'Each hour the ghost sends every psychic one or more picture cards (visions) that point to their current card.',
-      'Psychics talk it over, tap their guess, then Ready; the ghost reveals. Right: on to the next card. Wrong: keep the visions and get more next hour.',
+      'Psychics talk it over, tap Guess on their card, then Ready; the ghost reveals. Right: on to the next card. Wrong: keep the visions and get more next hour.',
       'Bet on each other’s guesses with ✓ and ✗ clairvoyance tokens: every right bet makes you more clear-sighted for the final.',
       'Find everything within 7 hours, then read the ghost’s shared vision of the culprit, and vote. The more clear-sighted you are, the more of it you see first.',
     ],
@@ -245,7 +245,7 @@ function base(): GameGuide {
       'The line under the steps always says what the hour waits for: the ghost’s visions, who is Ready, or the ghost’s reveal.',
       'Ghost: look for shapes, colours and details that only your target shares. Several cards that agree are clearer than one.',
       'Psychics: say out loud what you see in your visions, and compare them with the other psychics’ visions too: a card that suits someone else’s vision is probably not yours.',
-      'Tap a card to see it big. The compare view keeps your vision pinned while you swipe through the candidates.',
+      'Tap any card to see it full screen: swipe for the next, pinch or double-tap to zoom. Tap your vision to pin it above the candidates and swipe through them.',
       'Tokens are cheap until hour IV: use them.',
     ],
     glossary: [

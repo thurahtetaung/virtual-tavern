@@ -12,10 +12,9 @@ import {
   NameDot,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { PILLARS } from '../logic/cards.ts';
 import { REVEAL_SECONDS, type SeanceAction, type SeanceView } from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
-import { Compare } from './Compare.tsx';
+import { Compare, SendPreview } from './Compare.tsx';
 import { EndScreen } from './End.tsx';
 import { Lineup, SharedPicker, type SharedDraft, SharedRow, VoteBar } from './Final.tsx';
 import { GhostHand, GhostPsychics, SilentNote } from './Ghost.tsx';
@@ -32,6 +31,7 @@ import {
   waitingForVision,
 } from './status.ts';
 import { TableTab, Verdicts } from './Table.tsx';
+import { ReadyNoteContext, useReadyNote } from './ready-note.ts';
 
 export type SeanceUiProps = GameUiProps<SeanceView, SeanceAction>;
 type Act = SeanceUiProps['act'];
@@ -382,7 +382,7 @@ function RevealPanel({
   );
 }
 
-export function SeanceGame({
+function SeanceTable({
   view,
   room,
   act,
@@ -484,14 +484,12 @@ export function SeanceGame({
   if (g.stage === 'done')
     return (
       <>
-        <EndScreen view={view} room={room} act={act} content={content} compare={compare} />
+        <EndScreen view={view} room={room} act={act} content={content} />
         {overlay}
       </>
     );
 
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
-  const openTable = (kind: (typeof PILLARS)[number], n: number) =>
-    compare({ title: content.cardLabel(kind, n), pinned: { kind, cards: [n] }, mode: 'view' });
 
   const tabs: { id: Tab; icon: string; label: string }[] = ghost
     ? [
@@ -533,7 +531,6 @@ export function SeanceGame({
           content={content}
           draft={ghost ? draft : undefined}
           setDraft={ghost ? setDraft : undefined}
-          compare={compare}
         />
       </Panel>
     </div>
@@ -564,7 +561,7 @@ export function SeanceGame({
         <StepBar view={view} room={room} act={act} />
         <RevealPanel view={view} room={room} act={act} content={content} />
         <div className="grid gap-4 xl:grid-cols-2">
-          <TableTab view={view} content={content} onOpen={openTable} />
+          <TableTab view={view} content={content} />
           {finalPanel || second}
         </div>
         {overlay}
@@ -622,13 +619,22 @@ export function SeanceGame({
         {main && <div className={cn('min-w-0 space-y-2', onTab('main'))}>{main}</div>}
         <div className={cn('min-w-0', onTab('others'))}>{second}</div>
         <div className={cn('min-w-0 space-y-2', onTab('table'))}>
-          <TableTab view={view} content={content} onOpen={openTable} />
+          <TableTab view={view} content={content} />
         </div>
       </div>
       <TabBar tabs={tabs} tab={tab} onChange={setTab} alert={alert} />
       {overlay}
       {confirmLockDialog}
     </div>
+  );
+}
+
+export function SeanceGame(props: SeanceUiProps) {
+  const readyNote = useReadyNote(props.view);
+  return (
+    <ReadyNoteContext.Provider value={readyNote}>
+      <SeanceTable {...props} />
+    </ReadyNoteContext.Provider>
   );
 }
 
@@ -658,11 +664,17 @@ function CompareOverlay({
 }) {
   const g = view.game!;
   const me = myPsychic(view);
+  const [previewing, setPreviewing] = useState(false);
   let selected: number[] = [];
   let onToggle: ((c: number) => void) | undefined;
   let footer = null;
+  let pickLabel = 'Pick';
+  let pickedLabel = '✓ Picked';
+  let canPick: ((c: number) => boolean) | undefined;
   if (spec.mode === 'guess' && me && g.stage === 'visions') {
     selected = me.intuition !== null ? [me.intuition] : [];
+    pickLabel = 'Guess';
+    pickedLabel = '✓ Your guess';
     onToggle = (c) =>
       void act(
         { type: 'intuition', card: me.intuition === c ? null : c },
@@ -672,27 +684,42 @@ function CompareOverlay({
   } else if (spec.mode === 'send' && spec.to) {
     const p = g.psychics.find((x) => x.color === spec.to);
     const live = sendCards.filter((c) => g.hand?.includes(c));
+    const closed = g.stage !== 'visions' || g.sent.includes(spec.to);
+    const target = spec.pinned.cards[0];
+    if (previewing && live.length && target !== undefined)
+      return (
+        <SendPreview
+          name={p?.name ?? 'them'}
+          target={{ kind: spec.pinned.kind, n: target }}
+          cards={live}
+          content={content}
+          disabled={closed}
+          onBack={() => setPreviewing(false)}
+          onSend={() =>
+            void act({ type: 'send', to: spec.to!, cards: live }).then((ok) => {
+              if (ok) onClose();
+            })
+          }
+        />
+      );
     selected = live;
     onToggle = (c) => setSendCards(live.includes(c) ? live.filter((x) => x !== c) : [...live, c]);
     footer = (
       <Button
         size="lg"
         className="w-full"
-        disabled={!live.length || g.stage !== 'visions' || g.sent.includes(spec.to)}
-        onClick={() =>
-          void act({ type: 'send', to: spec.to!, cards: live }).then((ok) => {
-            if (ok) onClose();
-          })
-        }
+        disabled={!live.length || closed}
+        onClick={() => setPreviewing(true)}
       >
         {live.length
-          ? `👻 Send ${live.length} card${live.length === 1 ? '' : 's'} to ${p?.name ?? 'them'}`
-          : 'Tap the cards to send'}
+          ? `Preview ${live.length} card${live.length === 1 ? '' : 's'} for ${p?.name ?? 'them'} →`
+          : 'Pick the cards to send'}
       </Button>
     );
   } else if (spec.mode === 'shared') {
     const live = draft.cards.filter((c) => g.hand?.includes(c));
     selected = live;
+    canPick = () => live.length < 3;
     onToggle = (c) =>
       setDraft({
         ...draft,
@@ -721,6 +748,9 @@ function CompareOverlay({
       content={content}
       onClose={onClose}
       start={spec.start}
+      pickLabel={pickLabel}
+      pickedLabel={pickedLabel}
+      canPick={canPick}
     />
   );
 }

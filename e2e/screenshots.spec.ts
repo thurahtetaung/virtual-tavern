@@ -1931,17 +1931,19 @@ for (const [label, viewport, colorScheme] of [
   });
 }
 
-for (const [label, viewport, colorScheme] of [
-  ['desktop', { width: 1280, height: 900 }, 'light'],
-  ['phone', { width: 390, height: 844 }, 'dark'],
+for (const [label, viewport] of [
+  ['desktop', { width: 1440, height: 900 }],
+  ['phone', { width: 390, height: 844 }],
 ] as const) {
-  test(`seance screenshots (${label})`, async ({ browser }) => {
-    test.setTimeout(300_000);
-    await openInquestBackroom(
-      await inquestVisitor(browser, 'Admin', [], { viewport, colorScheme }),
-    );
-    await seanceScreenshots(browser, label, { viewport, colorScheme });
-  });
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`seance screenshots (${label}, ${colorScheme})`, async ({ browser }) => {
+      test.setTimeout(300_000);
+      await openInquestBackroom(
+        await inquestVisitor(browser, 'Admin', [], { viewport, colorScheme }),
+      );
+      await seanceScreenshots(browser, label, { viewport, colorScheme }, `seance-${colorScheme}`);
+    });
+  }
 }
 
 for (const [label, viewport] of [

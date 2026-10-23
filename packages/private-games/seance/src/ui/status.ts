@@ -275,3 +275,22 @@ export function resultLine(g: GameView): string {
       return 'The seventh hour has passed and the connection is lost. Everyone loses.';
   }
 }
+
+/** One judged guess, for the past-guesses strips. */
+export interface PastGuess {
+  hour: number;
+  pillar: Pillar;
+  /** Null when no guess was in when the hour locked. */
+  card: number | null;
+  correct: boolean;
+}
+
+/**
+ * A psychic's judged guesses in order, from the public verdicts (every hour's verdicts stay in
+ * the game, so nothing new is kept).
+ */
+export function pastGuesses(g: GameView, color: PsychicColor): PastGuess[] {
+  return g.verdicts
+    .filter((v) => v.color === color && PILLARS[v.step])
+    .map((v) => ({ hour: v.hour, pillar: PILLARS[v.step]!, card: v.guess, correct: v.correct }));
+}

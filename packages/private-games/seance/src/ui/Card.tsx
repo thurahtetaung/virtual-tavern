@@ -1,5 +1,5 @@
 import { ProtectedImage, cn } from '@vt/ui';
-import { type ReactNode, useState } from 'react';
+import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import type { Kind } from '../logic/cards.ts';
 import type { PsychicColor } from '../logic/types.ts';
 import { type Content, PILLAR_ICONS } from './assets.ts';
@@ -28,6 +28,92 @@ interface Props {
   className?: string;
   /** Overlays: tokens, guesses, stamps. */
   children?: ReactNode;
+  /** A larger copy on mouse hover (desktop); on by default for small tappable cards. */
+  preview?: boolean;
+  /** The tap only looks (picking is a separate button), so the card is no toggle. */
+  look?: boolean;
+}
+
+/** The numbered stand-in for a card without art. */
+export function CardPlaceholder({ kind, n, big }: { kind: Kind; n: number; big?: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br font-serif font-bold text-white/90',
+        PLACEHOLDER[kind],
+        big ? 'text-5xl' : 'text-lg',
+      )}
+    >
+      <span className={big ? 'text-6xl' : 'text-xl'}>
+        {kind === 'vision' ? '👁️' : PILLAR_ICONS[kind]}
+      </span>
+      {n}
+    </span>
+  );
+}
+
+/** How long the mouse rests on a card before its larger preview shows. */
+export const PREVIEW_DELAY_MS = 450;
+const PREVIEW_W = { portrait: 300, landscape: 420 };
+
+/** Where a hover preview of a card at `r` goes: beside it, inside the window. */
+export function previewSpot(
+  r: { left: number; right: number; top: number; height: number },
+  portrait: boolean,
+  win: { w: number; h: number },
+) {
+  const w = portrait ? PREVIEW_W.portrait : PREVIEW_W.landscape;
+  const h = portrait ? (w * 1024) / 700 : (w * 700) / 1024;
+  const gap = 12;
+  const left = r.right + gap + w <= win.w ? r.right + gap : Math.max(gap, r.left - gap - w);
+  const top = Math.max(gap, Math.min(win.h - h - gap, r.top + r.height / 2 - h / 2));
+  return { left, top, width: w, height: h };
+}
+
+const canHover = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches;
+
+/**
+ * A larger copy of a card after the mouse rests on it (desktop only), in the top layer so it
+ * never moves the layout.
+ */
+function useHoverPreview(on: boolean) {
+  const [spot, setSpot] = useState<ReturnType<typeof previewSpot> | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    return () => {
+      clearTimeout(timer.current);
+    };
+  }, []);
+  const hide = () => {
+    clearTimeout(timer.current);
+    setSpot(null);
+  };
+  const handlers = on
+    ? {
+        onPointerEnter: (e: PointerEvent<HTMLElement>) => {
+          if (e.pointerType !== 'mouse' || !canHover()) return;
+          const el = e.currentTarget;
+          const portrait = el.offsetHeight > el.offsetWidth;
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => {
+            if (!el.isConnected) return;
+            setSpot(
+              previewSpot(el.getBoundingClientRect(), portrait, {
+                w: window.innerWidth,
+                h: window.innerHeight,
+              }),
+            );
+          }, PREVIEW_DELAY_MS);
+        },
+        onPointerLeave: hide,
+        onPointerDown: hide,
+        onWheel: hide,
+      }
+    : {};
+  return [spot, handlers] as const;
 }
 
 /**
@@ -47,8 +133,13 @@ export function Card({
   fill,
   className,
   children,
+  preview,
+  look,
 }: Props) {
   const [failed, setFailed] = useState(false);
+  const [spot, hoverHandlers] = useHoverPreview(
+    (preview ?? (!!onTap && size === 'thumb')) && !disabled,
+  );
   const art = content.cardArt(kind, n, size === 'thumb');
   const label = `${content.cardLabel(kind, n)}${note ? ` (${note})` : ''}`;
   const body = (
@@ -66,19 +157,7 @@ export function Card({
           )}
         />
       ) : (
-        <span
-          aria-hidden
-          className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br font-serif font-bold text-white/90',
-            PLACEHOLDER[kind],
-            size === 'big' ? 'text-5xl' : 'text-lg',
-          )}
-        >
-          <span className={size === 'big' ? 'text-6xl' : 'text-xl'}>
-            {kind === 'vision' ? '👁️' : PILLAR_ICONS[kind]}
-          </span>
-          {n}
-        </span>
+        <CardPlaceholder kind={kind} n={n} big={size === 'big'} />
       )}
       {children}
     </>
@@ -100,18 +179,43 @@ export function Card({
         {body}
       </div>
     );
+  const big = content.cardArt(kind, n, false);
   return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={selected}
-      disabled={disabled}
-      data-card={`${kind}-${n}`}
-      onClick={onTap}
-      className={cn(classes, 'cursor-pointer touch-manipulation disabled:cursor-not-allowed')}
-    >
-      {body}
-    </button>
+    <>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={look ? undefined : selected}
+        disabled={disabled}
+        data-card={`${kind}-${n}`}
+        onClick={onTap}
+        {...hoverHandlers}
+        className={cn(classes, 'cursor-pointer touch-manipulation disabled:cursor-not-allowed')}
+      >
+        {body}
+      </button>
+      {spot && (
+        <div
+          ref={(el) => {
+            el?.showPopover?.();
+          }}
+          popover="manual"
+          aria-hidden
+          style={spot}
+          className="pointer-events-none fixed inset-auto m-0 overflow-hidden rounded-xl border-0 bg-stone-900 p-0 shadow-2xl ring-1 ring-black/30"
+        >
+          {big && !failed ? (
+            <ProtectedImage
+              src={big}
+              alt=""
+              className="absolute inset-0 size-full object-contain"
+            />
+          ) : (
+            <CardPlaceholder kind={kind} n={n} big />
+          )}
+        </div>
+      )}
+    </>
   );
 }
 

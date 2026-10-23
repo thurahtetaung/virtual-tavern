@@ -4,6 +4,7 @@ import { levelThresholds } from '../logic/setup.ts';
 import { HOURS, type GameView, type SeanceView } from '../logic/types.ts';
 import { type Content, PILLAR_ICONS } from './assets.ts';
 import { Avatar, Card } from './Card.tsx';
+import { type LookCard, useLook } from './Look.tsx';
 import { atTable, psychicByColor, roman } from './status.ts';
 
 /** The seven hours, with the current one lit. */
@@ -36,59 +37,80 @@ export function Progress({
   g,
   content,
   showTargets = false,
-  onOpen,
 }: {
   g: GameView;
   content: Content;
   /** The ghost sees every target (the screen). */
   showTargets?: boolean;
-  onOpen?: (kind: (typeof PILLARS)[number], n: number) => void;
 }) {
+  const { look, viewer } = useLook(content);
   return (
     <ul className="space-y-2" aria-label="Progress">
-      {atTable(g).map((p) => (
-        <li key={p.color} className="flex items-center gap-2">
-          <Avatar color={p.color} content={content} name={p.name} size="sm" />
-          <span className="w-16 truncate text-sm font-semibold sm:w-24">{p.name}</span>
-          <div className="grid flex-1 grid-cols-3 gap-1">
-            {PILLARS.map((pillar, i) => {
-              const found = p.found[i];
-              const target = p.targets?.[i];
-              const card = found ?? (showTargets ? target : undefined);
-              return card !== undefined ? (
-                <Card
-                  key={pillar}
-                  kind={pillar}
-                  n={card}
-                  content={content}
-                  dimmed={found === undefined}
-                  note={found !== undefined ? `${p.name} found it` : `${p.name}’s target`}
-                  onTap={onOpen ? () => onOpen(pillar, card) : undefined}
-                >
-                  {found !== undefined && (
-                    <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-700 px-1 text-[10px] font-bold text-white">
-                      ✓
-                    </span>
-                  )}
-                </Card>
-              ) : (
-                <div
-                  key={pillar}
-                  aria-label={`${content.pillarName(pillar)} not found yet`}
-                  className={cn(
-                    'flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed text-lg',
-                    i === p.step
-                      ? 'border-special dark:border-violet-400 bg-special/10 dark:bg-violet-500/10'
-                      : 'border-stone-300 opacity-60 dark:border-stone-700',
-                  )}
-                >
-                  {PILLAR_ICONS[pillar]}
-                </div>
-              );
-            })}
-          </div>
-        </li>
-      ))}
+      {viewer}
+      {atTable(g).map((p) => {
+        const row = PILLARS.flatMap((pillar, i): LookCard[] => {
+          const found = p.found[i];
+          const card = found ?? (showTargets ? p.targets?.[i] : undefined);
+          return card === undefined
+            ? []
+            : [
+                {
+                  kind: pillar,
+                  n: card,
+                  caption: found !== undefined ? `${p.name} found it` : `${p.name}’s target`,
+                },
+              ];
+        });
+        return (
+          <li key={p.color} className="flex items-center gap-2">
+            <Avatar color={p.color} content={content} name={p.name} size="sm" />
+            <span className="w-16 truncate text-sm font-semibold sm:w-24">{p.name}</span>
+            <div className="grid flex-1 grid-cols-3 gap-1">
+              {PILLARS.map((pillar, i) => {
+                const found = p.found[i];
+                const target = p.targets?.[i];
+                const card = found ?? (showTargets ? target : undefined);
+                return card !== undefined ? (
+                  <Card
+                    key={pillar}
+                    kind={pillar}
+                    n={card}
+                    content={content}
+                    dimmed={found === undefined}
+                    note={found !== undefined ? `${p.name} found it` : `${p.name}’s target`}
+                    onTap={() =>
+                      look(
+                        row,
+                        row.findIndex((c) => c.kind === pillar),
+                        `${p.name}’s cards`,
+                      )
+                    }
+                  >
+                    {found !== undefined && (
+                      <span className="absolute right-0.5 bottom-0.5 rounded bg-success dark:bg-emerald-700 px-1 text-[10px] font-bold text-white">
+                        ✓
+                      </span>
+                    )}
+                  </Card>
+                ) : (
+                  <div
+                    key={pillar}
+                    aria-label={`${content.pillarName(pillar)} not found yet`}
+                    className={cn(
+                      'flex aspect-[1024/700] items-center justify-center rounded-lg border border-dashed text-lg',
+                      i === p.step
+                        ? 'border-special dark:border-violet-400 bg-special/10 dark:bg-violet-500/10'
+                        : 'border-stone-300 opacity-60 dark:border-stone-700',
+                    )}
+                  >
+                    {PILLAR_ICONS[pillar]}
+                  </div>
+                );
+              })}
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -197,15 +219,7 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
 }
 
 /** The Table tab: the clock, ravens, the track, everyone's progress and the last verdicts. */
-export function TableTab({
-  view,
-  content,
-  onOpen,
-}: {
-  view: SeanceView;
-  content: Content;
-  onOpen?: (kind: (typeof PILLARS)[number], n: number) => void;
-}) {
+export function TableTab({ view, content }: { view: SeanceView; content: Content }) {
   const g = view.game!;
   const ghost = g.myRole === 'ghost';
   return (
@@ -222,7 +236,7 @@ export function TableTab({
       </div>
       <Clock g={g} />
       <Track g={g} content={content} />
-      <Progress g={g} content={content} showTargets={ghost} onOpen={onOpen} />
+      <Progress g={g} content={content} showTargets={ghost} />
       <Verdicts view={view} content={content} />
     </Panel>
   );
