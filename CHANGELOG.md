@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.2...v0.51.0) (2026-10-23)
+
+
+### Features
+
+* **seance:** story cards as a third pillar and extra vision pools ([#317](https://github.com/thurahtetaung/virtual-tavern/issues/317)) ([248b8f4](https://github.com/thurahtetaung/virtual-tavern/commit/248b8f4377ff01162a52139ed63e6f9c589cbdc5))
+
 ## [0.50.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.50.1...v0.50.2) (2026-10-23)
 
 
