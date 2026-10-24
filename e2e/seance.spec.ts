@@ -10,6 +10,7 @@ import {
   seanceTable,
   sendVisions,
   targetOf,
+  vote,
 } from './seance-play.ts';
 
 const pageErrors: string[] = [];
@@ -102,10 +103,13 @@ test('a ghost and three psychics find everything, read the shared vision in stag
       .getByRole('region', { name: 'Shared vision' })
       .getByRole('img', { name: 'Face-down vision' }),
   ).toHaveCount(2);
-  for (const p of [ben!, cy!])
-    await p.page.getByRole('button', { name: 'Vote for group 2' }).click();
+  // Choosing a group casts nothing: only the bar does.
+  await ben!.page.getByRole('button', { name: 'Choose group 1' }).click();
+  await expect(ben!.page.getByRole('button', { name: '✓ Group 1 chosen' })).toBeVisible();
+  await expect(ben!.page.getByText(/Your vote is in/)).toHaveCount(0);
+  for (const p of [ben!, cy!]) await vote(p.page, 2);
   await expect(ana!.page.getByText(/Vote now, in silence.*3 of 3/)).toBeVisible();
-  await ana!.page.getByRole('button', { name: 'Vote for group 2' }).click();
+  await vote(ana!.page, 2);
 
   for (const p of players) {
     await expect(p.page.getByRole('heading', { name: 'The ghost is at peace' })).toBeVisible();
@@ -411,7 +415,7 @@ test('stories, an extra vision pool and the extra suspects and places, played to
     .first()
     .click();
   await pick.getByRole('button', { name: '👻 Send the shared vision' }).click();
-  for (const p of psychics) await p.page.getByRole('button', { name: 'Vote for group 1' }).click();
+  for (const p of psychics) await vote(p.page, 1);
   for (const p of players)
     await expect(p.page.getByRole('heading', { name: 'The ghost is at peace' })).toBeVisible();
   // The end shows each psychic's story among their found cards.

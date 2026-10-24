@@ -1,5 +1,6 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Panel, RefusalSlot, cn } from '@vt/ui';
+import { useState } from 'react';
 import { PILLARS, type Pillar } from '../logic/cards.ts';
 import type { GameView, SeanceAction, SeanceView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
@@ -20,6 +21,16 @@ export interface SharedDraft {
 
 export const groupCards = (g: GameView, i: number) =>
   psychicByColor(g, g.final!.groups[i])?.found ?? [];
+
+/** Tapping a group chooses it; tapping the chosen one again lets it go. Nothing is cast yet. */
+export const toggleChoice = (choice: number | null, group: number) =>
+  choice === group ? null : group;
+
+/** The group the "Cast my vote" bar would send: only on the viewer's turn, and a real group. */
+export function castable(g: GameView, myTurn: boolean, choice: number | null): number | null {
+  if (!myTurn || choice === null || !g.final) return null;
+  return choice >= 0 && choice < g.final.groups.length ? choice : null;
+}
 
 /** The shared vision: face-up cards, then face-down ones. */
 export function SharedRow({ g, content, tags }: { g: GameView; content: Content; tags?: boolean }) {
@@ -116,84 +127,109 @@ export function Lineup({
     !!me && g.stage === 'vote' && me.voteStage === f.revealed && f.myVote === undefined;
   const picking = g.myRole === 'ghost' && g.stage === 'shared' && !!setDraft;
   const over = g.stage === 'done';
+  // The vote is two taps: choose a group, then cast it from the bar (scrolling never votes).
+  const [choice, setChoice] = useState<number | null>(null);
+  const cast = castable(g, myTurn, choice);
   return (
-    <ul className="space-y-2" aria-label="Line-up">
-      {viewer}
-      {f.groups.map((color, i) => {
-        const p = psychicByColor(g, color);
-        const cards = groupCards(g, i);
-        const culprit = over ? g.result?.culprit === i : g.myRole === 'ghost' && f.culprit === i;
-        const chosen = over && g.result?.chosen === i;
-        const selected = picking && draft?.group === i;
-        const votes = over ? (g.result?.tally[i] ?? 0) : null;
-        return (
-          <li key={color}>
-            <div
-              className={cn(
-                'rounded-xl p-2 ring-1 ring-stone-200 dark:ring-stone-800',
-                (selected || culprit) && 'ring-2 ring-special bg-special/10 dark:bg-violet-500/10',
-                chosen && !culprit && 'ring-2 ring-danger',
-              )}
-              aria-label={`Group ${i + 1}`}
-            >
-              <div className="mb-1 flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-full bg-stone-900 font-serif font-bold text-white dark:bg-stone-100 dark:text-stone-900">
-                  {i + 1}
-                </span>
-                {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  {p ? `${p.name}’s cards` : ''}
-                </span>
-                {culprit && (
-                  <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
-                    👻 culprit
-                  </span>
+    <div className="space-y-2">
+      <ul className="space-y-2" aria-label="Line-up">
+        {viewer}
+        {f.groups.map((color, i) => {
+          const p = psychicByColor(g, color);
+          const cards = groupCards(g, i);
+          const culprit = over ? g.result?.culprit === i : g.myRole === 'ghost' && f.culprit === i;
+          const chosen = over && g.result?.chosen === i;
+          const selected = picking && draft?.group === i;
+          const votes = over ? (g.result?.tally[i] ?? 0) : null;
+          return (
+            <li key={color}>
+              <div
+                className={cn(
+                  'rounded-xl p-2 ring-1 ring-stone-200 dark:ring-stone-800',
+                  (selected || culprit || (myTurn && choice === i)) &&
+                    'ring-2 ring-special bg-special/10 dark:bg-violet-500/10',
+                  chosen && !culprit && 'ring-2 ring-danger',
                 )}
-                {votes !== null && (
-                  <span className="text-xs text-ink-muted">
-                    {votes} vote{votes === 1 ? '' : 's'}
+                aria-label={`Group ${i + 1}`}
+              >
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-full bg-stone-900 font-serif font-bold text-white dark:bg-stone-100 dark:text-stone-900">
+                    {i + 1}
                   </span>
+                  {p && <Avatar color={p.color} content={content} name={p.name} size="sm" />}
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {p ? `${p.name}’s cards` : ''}
+                  </span>
+                  {culprit && (
+                    <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                      👻 culprit
+                    </span>
+                  )}
+                  {votes !== null && (
+                    <span className="text-xs text-ink-muted">
+                      {votes} vote{votes === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  {f.myVote === i && !over && (
+                    <span className="text-xs font-semibold">your vote</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {cards.map((c, k) => (
+                    <Card
+                      key={k}
+                      kind={content.kindOf(PILLARS[k]!)}
+                      n={c}
+                      content={content}
+                      onTap={() => look(all, startOf(i) + k, 'The line-up')}
+                    />
+                  ))}
+                </div>
+                {myTurn && (
+                  <Button
+                    size="sm"
+                    variant={choice === i ? 'primary' : 'secondary'}
+                    className="mt-1.5 w-full"
+                    aria-pressed={choice === i}
+                    onClick={() => setChoice(toggleChoice(choice, i))}
+                  >
+                    {choice === i ? `✓ Group ${i + 1} chosen` : `Choose group ${i + 1}`}
+                  </Button>
                 )}
-                {f.myVote === i && !over && (
-                  <span className="text-xs font-semibold">your vote</span>
+                {picking && (
+                  <Button
+                    size="sm"
+                    variant={selected ? 'primary' : 'secondary'}
+                    className="mt-1.5 w-full"
+                    aria-pressed={selected}
+                    onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
+                  >
+                    {selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`}
+                  </Button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-1">
-                {cards.map((c, k) => (
-                  <Card
-                    key={k}
-                    kind={content.kindOf(PILLARS[k]!)}
-                    n={c}
-                    content={content}
-                    onTap={() => look(all, startOf(i) + k, 'The line-up')}
-                  />
-                ))}
-              </div>
-              {myTurn && (
-                <Button
-                  size="sm"
-                  className="mt-1.5 w-full"
-                  onClick={() => void act({ type: 'vote', group: i }, { anchor: 'seance-vote' })}
-                >
-                  Vote for group {i + 1}
-                </Button>
-              )}
-              {picking && (
-                <Button
-                  size="sm"
-                  variant={selected ? 'primary' : 'secondary'}
-                  className="mt-1.5 w-full"
-                  aria-pressed={selected}
-                  onClick={() => setDraft({ ...(draft ?? { cards: [], tags: {} }), group: i })}
-                >
-                  {selected ? '👻 The culprit’s group' : `This is the culprit (group ${i + 1})`}
-                </Button>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            </li>
+          );
+        })}
+      </ul>
+      {myTurn && (
+        // Stays in reach above the phone tab bar while the groups scroll past.
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 rounded-xl bg-card/95 p-1.5 shadow-lg ring-1 ring-line backdrop-blur lg:bottom-2 dark:bg-stone-900/95 dark:ring-stone-700">
+          <Button
+            size="lg"
+            className="w-full"
+            disabled={cast === null}
+            onClick={() =>
+              cast !== null && void act({ type: 'vote', group: cast }, { anchor: 'seance-vote' })
+            }
+          >
+            {cast === null
+              ? 'Tap a group to choose it first'
+              : `Cast my vote for group ${cast + 1}`}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -219,10 +255,28 @@ export function SharedPicker({
   const group = draft.group;
   const ready = group !== null && cards.length === 3;
   const { look, viewer } = useLook(content);
+  // The hand only shows here in the final, so the raven (throw away and draw) lives here too.
+  const [raven, setRaven] = useState(false);
+  const [thrown, setThrown] = useState<number[]>([]);
+  const throwing = thrown.filter((c) => hand.includes(c));
   return (
     <Panel role="region" className="space-y-2 p-3" aria-label="Choose the shared vision">
       {viewer}
-      <h3 className="font-bold">The shared vision</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-bold">The shared vision</h3>
+        <Button
+          size="sm"
+          variant={raven ? 'primary' : 'secondary'}
+          aria-pressed={raven}
+          disabled={g.ravensLeft <= 0}
+          onClick={() => {
+            setRaven(!raven);
+            setThrown([]);
+          }}
+        >
+          🐦‍⬛ Raven{g.difficulty === 'easy' ? '' : ` (${g.ravensLeft} left)`}
+        </Button>
+      </div>
       <ol className="list-decimal space-y-0.5 pl-5 text-sm text-stone-700 dark:text-stone-300">
         <li className={cn(group !== null && 'line-through opacity-60')}>
           Tap “This is the culprit” on one group.
@@ -254,22 +308,59 @@ export function SharedPicker({
       >
         🔍 Compare with the group
       </Button>
-      <HandCards
-        hand={hand}
-        content={content}
-        picked={cards}
-        canPick={() => cards.length < 3}
-        onToggle={(c) =>
-          setDraft({
-            ...draft,
-            cards: cards.includes(c)
-              ? cards.filter((x) => x !== c)
-              : cards.length < 3
-                ? [...cards, c]
-                : cards,
-          })
-        }
-      />
+      {raven ? (
+        <>
+          <p className="text-xs text-stone-600 dark:text-stone-400">
+            Tap Throw away on the cards to lose, then draw back up to 7.
+          </p>
+          <HandCards
+            hand={hand}
+            content={content}
+            picked={throwing}
+            onToggle={(c) =>
+              setThrown(throwing.includes(c) ? throwing.filter((x) => x !== c) : [...throwing, c])
+            }
+            pickLabel="Throw away"
+            pickedLabel="✓ Throw away"
+          />
+          <Button
+            className="w-full"
+            disabled={!throwing.length}
+            onClick={() =>
+              void act({ type: 'raven', cards: throwing }, { anchor: 'seance-raven' }).then(
+                (ok) => {
+                  if (ok) {
+                    setRaven(false);
+                    setThrown([]);
+                  }
+                },
+              )
+            }
+          >
+            {throwing.length
+              ? `🐦‍⬛ Throw away ${throwing.length} and draw`
+              : 'Pick the cards to throw away first'}
+          </Button>
+          <RefusalSlot anchor="seance-raven" />
+        </>
+      ) : (
+        <HandCards
+          hand={hand}
+          content={content}
+          picked={cards}
+          canPick={() => cards.length < 3}
+          onToggle={(c) =>
+            setDraft({
+              ...draft,
+              cards: cards.includes(c)
+                ? cards.filter((x) => x !== c)
+                : cards.length < 3
+                  ? [...cards, c]
+                  : cards,
+            })
+          }
+        />
+      )}
       {cards.length > 0 && (
         <ul className="space-y-1" aria-label="Tags">
           {cards.map((c, i) => (

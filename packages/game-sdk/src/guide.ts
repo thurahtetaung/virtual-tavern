@@ -20,6 +20,11 @@ export interface GameGuide {
   quickStart?: string[];
   /** Short numbered steps to get a game going. */
   setup: string[];
+  /**
+   * The Rules band "Getting started" (the setup) opens: `details` by default; a game whose setup
+   * has choices every table makes (who is the ghost) puts it in `basics`, at the top.
+   */
+  setupLevel?: GuideLevel;
   /** The rules, in reading order. */
   sections: GuideSection[];
   /** Who's who: shown on the Learn tab when the guide has no `tiles`. */

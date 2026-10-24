@@ -78,6 +78,15 @@ export async function guess(p: Page, card: string, right: boolean) {
   await expect(ready).toHaveCount(0);
 }
 
+/** A psychic votes in the final: chooses the group, then casts it from the bar. */
+export async function vote(p: Page, group: number) {
+  await p.getByRole('button', { name: `Choose group ${group}` }).click();
+  const cast = p.getByRole('button', { name: `Cast my vote for group ${group}` });
+  await cast.click();
+  // The bar goes once the vote is in (the last vote may end the game at once).
+  await expect(cast).toHaveCount(0);
+}
+
 /** Everyone is Ready: the ghost reveals the verdicts. */
 export async function reveal(ghost: Page) {
   await ghost.getByRole('button', { name: '👻 Reveal the verdicts' }).click();
@@ -171,7 +180,8 @@ export async function seanceScreenshots(
   await viewer.getByRole('button', { name: 'Close' }).click();
   await expect(viewer).toHaveCount(0);
   await tab(ghost, 'Psychics');
-  // A psychic's sheet: their target, visions and guess.
+  // A psychic's sheet: their target, visions and guess (on phones, from the opened row).
+  if (label === 'phone') await ghost.getByRole('button', { name: 'Show Ana’s row' }).click();
   await ghost.getByRole('button', { name: 'All of Ana’s cards' }).click();
   const sheet = ghost.getByRole('dialog', { name: 'Ana’s cards' });
   await expect(sheet).toBeVisible();
@@ -216,6 +226,7 @@ export async function seanceScreenshots(
   await shot(ghost, 'ghost-reveal');
   await nextHour(ghost);
   // Past guesses: Dee's wrong one on the ghost's row and sheet, and on Ana's board.
+  if (label === 'phone') await ghost.getByRole('button', { name: 'Show Dee’s row' }).click();
   await expect(ghost.getByRole('list', { name: 'Dee’s past guesses' }).first()).toBeVisible();
   await ghost.getByRole('button', { name: 'All of Dee’s cards' }).click();
   const deeSheet = ghost.getByRole('dialog', { name: 'Dee’s cards' });
@@ -254,8 +265,8 @@ export async function seanceScreenshots(
   // Everyone votes when their turn comes.
   for (let round = 0; round < 3; round++) {
     for (const p of psychics) {
-      const b = p.page.getByRole('button', { name: 'Vote for group 3' });
-      if ((await b.count()) > 0) await b.click();
+      const b = p.page.getByRole('button', { name: 'Choose group 3' });
+      if ((await b.count()) > 0) await vote(p.page, 3);
     }
   }
   await expect(

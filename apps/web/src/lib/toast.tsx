@@ -66,10 +66,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* On phones only the newest shows, at most two lines tall: over the site's title bar it stays
-          clear of the room's Invite / Players / Rules row (y 81), which a second toast or a third
-          line would cover. */}
-      <div className="pointer-events-none fixed inset-x-0 top-3 z-50 flex flex-col items-center gap-2 px-4 max-sm:[&>*:not(:last-child)]:hidden">
+      {/* On phones only the newest shows, at most two lines tall, at the right of the site's title
+          bar: there it stays clear of both the site title and the room's Invite / Players / Rules
+          row (y 81), which a second toast or a third line would cover. */}
+      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:items-end max-sm:pl-48 max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -78,13 +78,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             title="Tap to dismiss"
             onClick={() => dismiss(t.id)}
             className={
-              'pointer-events-auto max-w-md cursor-pointer rounded-xl px-4 py-2 text-sm font-medium shadow-lg ' +
+              'pointer-events-auto max-w-md cursor-pointer rounded-xl px-4 py-2 text-sm max-sm:px-3 max-sm:py-1.5 font-medium shadow-lg ' +
               (t.tone === 'error'
                 ? 'bg-danger dark:bg-rose-600 text-white'
                 : 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900')
             }
           >
-            <span className="max-sm:line-clamp-2">
+            <span className="max-sm:line-clamp-2 max-sm:text-xs">
               {t.text}
               {t.count > 1 && <span className="ml-2 opacity-75">×{t.count}</span>}
             </span>

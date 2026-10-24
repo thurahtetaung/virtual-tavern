@@ -438,10 +438,10 @@ export function Lobby({
           )}
           <p className="text-xs text-ink-muted">
             {s.timerSeconds === null
-              ? 'No timer: the hour ends when everyone taps Ready (or the host locks it).'
+              ? 'No timer: the hour ends when everyone is Ready and the ghost reveals (or the host locks).'
               : s.timerMode === 'soft'
-                ? 'Reminder: at 0:00 nothing happens by itself; the host can lock the guesses in. The hour ends early once everyone is Ready.'
-                : 'Lock at 0:00: guesses lock by themselves (no guess counts as wrong). The hour ends early once everyone is Ready.'}
+                ? 'Reminder: at 0:00 nothing happens by itself. The hour ends when everyone is Ready and the ghost reveals (or the host locks).'
+                : 'Lock at 0:00: guesses lock by themselves (no guess counts as wrong). Before that, the hour ends when everyone is Ready and the ghost reveals (or the host locks).'}
           </p>
         </section>
         <RefusalSlot anchor="seance-settings" />

@@ -231,8 +231,20 @@ export function MineTab({
           }
         />
         <h3 className="text-sm font-bold">
-          {content.pillarPlural(pillar)} on the table{' '}
-          <span className="font-normal text-ink-muted">· tap to look</span>
+          {g.stage === 'reveal' ? (
+            // Between hours: these are next hour's cards, not something to guess now.
+            <>
+              Next: your {pillarWord}{' '}
+              <span className="font-normal text-ink-muted">
+                · {content.pillarPlural(pillar).toLowerCase()} on the table
+              </span>
+            </>
+          ) : (
+            <>
+              {content.pillarPlural(pillar)} on the table{' '}
+              <span className="font-normal text-ink-muted">· tap to look</span>
+            </>
+          )}
         </h3>
         <ul
           className={cn(
@@ -270,17 +282,20 @@ export function MineTab({
                       `${content.pillarPlural(pillar)} on the table`,
                     )
                   }
-                  pick={{
-                    on: me.intuition === c,
-                    label: 'Guess',
-                    onLabel: '✓ Guess',
-                    disabled: !open,
-                    onToggle: () =>
-                      void act(
-                        { type: 'intuition', card: me.intuition === c ? null : c },
-                        { anchor: 'seance-ready' },
-                      ),
-                  }}
+                  pick={
+                    open
+                      ? {
+                          on: me.intuition === c,
+                          label: 'Guess',
+                          onLabel: '✓ Guess',
+                          onToggle: () =>
+                            void act(
+                              { type: 'intuition', card: me.intuition === c ? null : c },
+                              { anchor: 'seance-ready' },
+                            ),
+                        }
+                      : undefined
+                  }
                 >
                   <Guessers g={g} card={c} pillar={pillar} content={content} />
                   {triedIn !== undefined && <TriedStamp hour={triedIn} />}

@@ -12,6 +12,8 @@ export interface CardRow {
   cards: readonly number[];
   /** A caption per card ("from hour II", "Ana’s guess"). */
   captions?: Readonly<Record<number, string>>;
+  /** The card that is the answer (the ghost's view): badged, the others dimmed. */
+  target?: number;
 }
 
 /**
@@ -54,10 +56,17 @@ export function Compare({
   canPick?: (card: number) => boolean;
 }) {
   const pane = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState(start);
+  const targetAt = pinned.target === undefined ? -1 : pinned.cards.indexOf(pinned.target);
+  // Picking is always against the target: a pick swings the pinned row back to it.
+  const [snap, setSnap] = useState(0);
   const pick = (n: number) =>
     onToggle && {
       on: selected.includes(n),
-      onToggle: () => onToggle(n),
+      onToggle: () => {
+        onToggle(n);
+        if (targetAt >= 0 && at !== targetAt) setSnap((k) => k + 1);
+      },
       label: pickLabel,
       onLabel: pickedLabel,
       disabled: !selected.includes(n) && !canPick(n),
@@ -76,7 +85,6 @@ export function Compare({
     n,
     caption: strip!.captions?.[n],
   }));
-  const [at, setAt] = useState(start);
   const count = pinned.cards.length;
 
   useEffect(() => {
@@ -99,6 +107,12 @@ export function Compare({
     if (!el) return;
     el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const el = pane.current;
+    if (snap && el && targetAt >= 0)
+      el.scrollTo({ left: targetAt * el.clientWidth, behavior: 'smooth' });
+  }, [snap, targetAt]);
 
   return (
     <div
@@ -156,12 +170,30 @@ export function Compare({
                     fill
                     preview={false}
                     onTap={() => look(pinnedCards, i, pinnedLabel ?? title)}
-                  />
+                    className={cn(
+                      pinned.target === n && 'ring-4 ring-accent-line dark:ring-amber-400',
+                      pinned.target !== undefined && pinned.target !== n && 'opacity-50',
+                    )}
+                  >
+                    {pinned.target === n && (
+                      <span className="absolute top-2 left-2 rounded-md bg-accent-line px-2 py-0.5 text-sm font-black tracking-wide text-stone-950 uppercase shadow dark:bg-amber-400">
+                        🎯 Target
+                      </span>
+                    )}
+                    {pinned.target !== undefined && pinned.target !== n && (
+                      <span className="absolute top-2 left-2 rounded-md bg-black/75 px-2 py-0.5 text-sm font-bold text-stone-100">
+                        Not it
+                      </span>
+                    )}
+                  </Card>
                 </div>
               </div>
-              {pinned.captions?.[n] && (
+              {pinned.captions && (
+                // Two lines kept for every card, so the picture doesn't change size on a swipe.
                 // vt-contrast: the compare view is dark in both themes
-                <p className="text-xs text-stone-400">{pinned.captions[n]}</p>
+                <p className="line-clamp-2 h-8 w-full shrink-0 text-center text-xs leading-4 text-stone-400">
+                  {pinned.captions[n]}
+                </p>
               )}
             </div>
           ))}
@@ -224,6 +256,8 @@ export function Compare({
                   className="min-h-0 flex-1"
                   onLook={() => look(stripCards, i, stripLabel ?? title)}
                   pick={pick(n) || undefined}
+                  // The pinned card is already big: a hover copy would only cover the strip.
+                  preview={false}
                 />
                 {strip.captions?.[n] && (
                   // vt-contrast: the compare view is dark in both themes

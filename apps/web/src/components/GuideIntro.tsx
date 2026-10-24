@@ -1,6 +1,6 @@
 import { storageKey } from '@vt/game-sdk';
 import { Button } from '@vt/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import { Stepper, useGameGuide } from './GuideView.tsx';
 
@@ -19,9 +19,24 @@ function seen(gameId: string): boolean {
  * The 30-second "how a game goes" stepper, shown once in the lobby to players new to the game
  * (a first-time tip like the games' own). Skip or finish it and it stays away.
  */
-export function GuideIntro({ game, onRules }: { game: ClientGame; onRules: () => void }) {
+export function GuideIntro({
+  game,
+  onRules,
+  onShown,
+}: {
+  game: ClientGame;
+  onRules: () => void;
+  /** Whether the intro is on screen (the rules drawer then opens past its Learn tab). */
+  onShown?: (shown: boolean) => void;
+}) {
   const guide = useGameGuide(game);
   const [open, setOpen] = useState(() => !seen(game.id));
+  useEffect(() => {
+    onShown?.(open);
+    return () => {
+      onShown?.(false);
+    };
+  }, [open, onShown]);
   if (!open) return null;
   const close = () => {
     setOpen(false);
