@@ -43,8 +43,10 @@ export function Button({
       className={join(
         'inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-        'disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
+        // Clearly off rather than a dimmer copy of the live button: no fill, a grey outline and
+        // grey text, on light and dark backgrounds alike.
+        'disabled:cursor-not-allowed disabled:bg-stone-500/10 disabled:text-stone-500 disabled:shadow-none disabled:ring-1 disabled:ring-stone-400/60 disabled:hover:bg-stone-500/10 dark:disabled:bg-stone-500/10 dark:disabled:text-stone-400 dark:disabled:ring-stone-600 dark:disabled:hover:bg-stone-500/10',
         SIZES[size],
         className,
       )}

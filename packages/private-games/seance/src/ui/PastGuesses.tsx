@@ -56,7 +56,7 @@ export function PastGuesses({
               key={`${x.hour}-${i}`}
               className={cn(
                 'shrink-0 space-y-0.5 text-center',
-                compact ? 'w-12 sm:w-14' : 'w-16 sm:w-20',
+                compact ? 'w-14 sm:w-16' : 'w-24 sm:w-28',
                 i > 0 && list[i - 1]!.pillar !== x.pillar && 'ml-2',
               )}
             >

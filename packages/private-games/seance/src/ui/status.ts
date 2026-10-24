@@ -294,3 +294,15 @@ export function pastGuesses(g: GameView, color: PsychicColor): PastGuess[] {
     .filter((v) => v.color === color && PILLARS[v.step])
     .map((v) => ({ hour: v.hour, pillar: PILLARS[v.step]!, card: v.guess, correct: v.correct }));
 }
+
+/**
+ * The cards a psychic already guessed wrong for the pillar they are on now, each with the first
+ * hour they tried it ("✗ tried in hour II" on that candidate).
+ */
+export function triedCards(g: GameView, p: PsychicView): Map<number, number> {
+  const tried = new Map<number, number>();
+  for (const v of g.verdicts)
+    if (v.color === p.color && v.step === p.step && !v.correct && v.guess !== null)
+      if (!tried.has(v.guess)) tried.set(v.guess, v.hour);
+  return tried;
+}

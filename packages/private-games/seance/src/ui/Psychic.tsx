@@ -9,7 +9,7 @@ import { PickButton, PickableCard, cardsOf, useLook } from './Look.tsx';
 import { useReadyNoteText } from './ready-note.ts';
 import { PastGuesses } from './PastGuesses.tsx';
 import type { CardRow } from './Compare.tsx';
-import { atTable, myPsychic, notReady, roman } from './status.ts';
+import { atTable, myPsychic, notReady, pastGuesses, roman, triedCards } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -67,12 +67,15 @@ export function VisionStrip({
   g,
   content,
   onOpen,
+  onLook,
   small,
 }: {
   p: PsychicView;
   g: GameView;
   content: Content;
   onOpen: (i: number) => void;
+  /** A long press: the vision full screen, where a tap opens the compare view. */
+  onLook?: (i: number) => void;
   small?: boolean;
 }) {
   if (!p.visions.length) return <p className="text-sm text-ink-muted">No vision yet.</p>;
@@ -85,7 +88,7 @@ export function VisionStrip({
       {p.visions.map((v, i) => (
         <li
           key={`${v.card}-${i}`}
-          className={cn('shrink-0', small ? 'w-16 sm:w-20' : 'w-24 sm:w-28 xl:w-32')}
+          className={cn('shrink-0', small ? 'w-16 sm:w-20' : 'w-20 sm:w-28 xl:w-32')}
         >
           <Card
             kind="vision"
@@ -93,6 +96,7 @@ export function VisionStrip({
             content={content}
             note={`hour ${roman(v.hour)}`}
             onTap={() => onOpen(i)}
+            onLongPress={onLook && (() => onLook(i))}
           >
             {v.hour === g.hour && g.stage !== 'done' && (
               <span className="absolute top-1 right-1 size-2.5 rounded-full bg-accent-line dark:bg-amber-400 ring-2 ring-stone-900" />
@@ -186,76 +190,132 @@ export function MineTab({
       mode: 'guess',
       start,
     });
+  const tried = triedCards(g, me);
+  const kind = content.kindOf(pillar);
+  const pillarWord = content.pillarName(pillar).toLowerCase();
   return (
+    // One panel, top to bottom: your vision as a strip, the cards on the table, Ready. On a phone
+    // that is one screen; past guesses and tips come after it.
     <div className="space-y-2">
       {viewer}
-      <Panel className="space-y-2 p-3">
+      <Panel className="space-y-2 p-2.5 sm:p-3">
         <div className="flex items-center gap-2">
-          <Avatar color={me.color} content={content} name={me.name} />
-          <div className="min-w-0 flex-1 leading-tight">
-            <h3 className="font-bold">Your vision</h3>
-            <p className="text-xs text-stone-600 dark:text-stone-400">
-              Looking for your {content.pillarName(pillar).toLowerCase()} ({me.step + 1} of 3)
-            </p>
-          </div>
+          <Avatar color={me.color} content={content} name={me.name} size="sm" />
+          <p className="min-w-0 flex-1 leading-tight">
+            <span className="font-bold">Your vision</span>{' '}
+            <span className="text-xs text-stone-600 dark:text-stone-400">
+              · {pillarWord} {me.step + 1} of 3
+            </span>
+          </p>
           {me.visions.length > 0 && (
             <Button size="sm" onClick={() => openCompare()}>
               🔍 Compare
             </Button>
           )}
         </div>
-        <VisionStrip p={me} g={g} content={content} onOpen={(i) => openCompare(i)} />
-        <PastGuesses g={g} p={me} content={content} compact />
-        {me.visions.length > 0 && (
-          <Tip id="compare">
-            Tap your vision to pin it above the cards on the table and swipe through them. Tap any
-            other card to see it full screen; pinch or double-tap to zoom.
-          </Tip>
-        )}
-      </Panel>
-      <Panel className="space-y-2 p-3">
+        <VisionStrip
+          p={me}
+          g={g}
+          content={content}
+          onOpen={(i) => openCompare(i)}
+          onLook={(i) =>
+            look(
+              cardsOf(
+                'vision',
+                me.visions.map((v) => v.card),
+                visionCaptions(me, g.hour),
+              ),
+              i,
+              'Your vision',
+            )
+          }
+        />
         <h3 className="text-sm font-bold">
           {content.pillarPlural(pillar)} on the table{' '}
-          <span className="font-normal text-ink-muted">· tap to look, Guess to choose</span>
+          <span className="font-normal text-ink-muted">· tap to look</span>
         </h3>
         <ul
-          className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 2xl:grid-cols-4"
+          className={cn(
+            'grid gap-1.5 sm:grid-cols-3 2xl:grid-cols-4',
+            candidates.length > 6 ? 'grid-cols-3' : 'grid-cols-2',
+          )}
           aria-label="Candidates"
         >
-          {candidates.map((c, i) => (
-            <li key={c}>
-              <PickableCard
-                kind={content.kindOf(pillar)}
-                n={c}
-                content={content}
-                note={me.intuition === c ? 'your guess' : undefined}
-                onLook={() =>
-                  look(
-                    cardsOf(kindOf(pillar, g.third), candidates),
-                    i,
-                    `${content.pillarPlural(pillar)} on the table`,
-                  )
-                }
-                pick={{
-                  on: me.intuition === c,
-                  label: 'Guess',
-                  onLabel: '✓ Guess',
-                  disabled: !open,
-                  onToggle: () =>
-                    void act(
-                      { type: 'intuition', card: me.intuition === c ? null : c },
-                      { anchor: 'seance-ready' },
-                    ),
-                }}
-              >
-                <Guessers g={g} card={c} pillar={pillar} content={content} />
-              </PickableCard>
-            </li>
-          ))}
+          {candidates.map((c, i) => {
+            const triedIn = tried.get(c);
+            const notes = [
+              me.intuition === c && 'your guess',
+              triedIn !== undefined && `tried in hour ${roman(triedIn)}`,
+            ].filter(Boolean);
+            return (
+              <li key={c}>
+                <PickableCard
+                  kind={kind}
+                  n={c}
+                  content={content}
+                  note={notes.join(', ') || undefined}
+                  onLook={() =>
+                    look(
+                      cardsOf(
+                        kindOf(pillar, g.third),
+                        candidates,
+                        Object.fromEntries(
+                          [...tried].map(([card, h]) => [
+                            card,
+                            `✗ You tried it in hour ${roman(h)}`,
+                          ]),
+                        ),
+                      ),
+                      i,
+                      `${content.pillarPlural(pillar)} on the table`,
+                    )
+                  }
+                  pick={{
+                    on: me.intuition === c,
+                    label: 'Guess',
+                    onLabel: '✓ Guess',
+                    disabled: !open,
+                    onToggle: () =>
+                      void act(
+                        { type: 'intuition', card: me.intuition === c ? null : c },
+                        { anchor: 'seance-ready' },
+                      ),
+                  }}
+                >
+                  <Guessers g={g} card={c} pillar={pillar} content={content} />
+                  {triedIn !== undefined && <TriedStamp hour={triedIn} />}
+                </PickableCard>
+              </li>
+            );
+          })}
         </ul>
         {open && <ReadyBar view={view} room={room} act={act} content={content} />}
       </Panel>
+      {pastGuesses(g, me.color).length > 0 && (
+        <Panel className="p-2.5 sm:p-3">
+          <PastGuesses g={g} p={me} content={content} />
+        </Panel>
+      )}
+      {me.visions.length > 0 && (
+        <Tip id="compare">
+          Tap your vision to pin it above the cards on the table and swipe through them; press and
+          hold it to see it full screen. Tap any other card to see it full screen; pinch or
+          double-tap to zoom.
+        </Tip>
+      )}
     </div>
+  );
+}
+
+/** "✗ tried in hour II" across the top of a candidate the viewer already guessed wrong. */
+export function TriedStamp({ hour }: { hour: number }) {
+  return (
+    <span
+      aria-hidden
+      className="absolute top-1 right-1 rounded bg-danger px-1 text-[10px] leading-snug font-bold text-white shadow dark:bg-rose-700"
+    >
+      ✗ tried in hour {roman(hour)}
+    </span>
   );
 }
 
@@ -300,11 +360,24 @@ export function ReadyBar({
     // for them. One row, with Ready at a fixed spot, so nothing moves under the finger.
     <div className="mt-3 space-y-1">
       <div className="flex items-center gap-2 rounded-xl bg-special-soft px-2 py-1.5 ring-1 ring-special-line dark:bg-violet-950 dark:ring-violet-500/30">
+        {pillar && me.intuition !== null && (
+          // The guessed card itself: cards carry no visible number, so a name like "Suspect 4"
+          // would mean nothing.
+          <span className="w-14 shrink-0">
+            <Card
+              kind={kindOf(pillar, g.third)}
+              n={me.intuition}
+              content={content}
+              note="your guess"
+              preview={false}
+            />
+          </span>
+        )}
         <p className="min-w-0 flex-1 truncate text-sm">
           {pillar
             ? me.intuition !== null
-              ? `Your guess: ${content.cardLabel(kindOf(pillar, g.third), me.intuition)}`
-              : 'No guess yet'
+              ? 'Your guess'
+              : 'No guess yet: pick a card first'
             : 'Tokens placed?'}
           {me.ready && waiting.length > 0 && (
             <span className="block truncate text-xs text-ink-muted">

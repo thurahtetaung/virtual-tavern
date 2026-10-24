@@ -89,9 +89,12 @@ export function PickButton({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        'rounded-full font-bold shadow-lg ring-1 touch-manipulation disabled:cursor-not-allowed disabled:opacity-50',
+        'rounded-full font-bold shadow-lg ring-1 touch-manipulation disabled:cursor-not-allowed disabled:bg-stone-600/80 disabled:text-stone-300 disabled:shadow-none disabled:ring-stone-400/40',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
-        big ? 'min-h-12 px-6 text-base' : 'min-h-10 px-3 text-sm',
+        // On a card it is a small chip in the corner, so it never hides much of the picture.
+        // No invisible touch band: on a small card it would reach the middle and catch the
+        // taps meant to open the card.
+        big ? 'min-h-12 px-6 text-base' : 'min-h-8 px-2.5 text-xs',
         on
           ? 'bg-accent-line text-stone-950 ring-black/20 dark:bg-amber-400'
           : 'bg-black/70 text-white ring-white/30',
@@ -156,7 +159,7 @@ export function PickableCard({
           label={pick.label}
           onLabel={pick.onLabel}
           disabled={pick.disabled}
-          className="absolute right-1.5 bottom-1.5"
+          className="absolute right-1 bottom-1"
         />
       )}
     </div>

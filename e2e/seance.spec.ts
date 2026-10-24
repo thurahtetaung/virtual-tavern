@@ -367,7 +367,7 @@ test('stories, an extra vision pool and the extra suspects and places, played to
   await playHour(host, psychics);
   for (const p of psychics) {
     expect(await targetOf(host, p.name)).toMatch(/^story-\d+$/);
-    await expect(p.page.getByText(/Looking for your story \(3 of 3\)/)).toBeVisible();
+    await expect(p.page.getByText(/· story 3 of 3/)).toBeVisible();
   }
   // The ghost taps Lu's story in the progress row: the viewer opens on that story, not the suspect.
   const story = (await targetOf(host, 'Lu'))!;

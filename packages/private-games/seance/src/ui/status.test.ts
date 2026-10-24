@@ -11,7 +11,7 @@ import {
   startedGame,
   toFinal,
 } from '../logic/test-utils.ts';
-import { pastGuesses, resultLine, statusFor, stepOf } from './status.ts';
+import { pastGuesses, resultLine, statusFor, stepOf, triedCards } from './status.ts';
 
 const people = (ids: string[]) => ({
   hostId: HOST,
@@ -126,5 +126,25 @@ describe('past guesses', () => {
     expect(wrong).not.toBe(target);
     expect(pastGuesses(seance.view(h.state, HOST).game!, ana)).toEqual(pastGuesses(g, ana));
     expect(pastGuesses(seance.view(h.state, null).game!, ana)).toEqual(pastGuesses(g, ana));
+  });
+});
+
+describe('tried cards', () => {
+  it('stamps the wrong guesses of the current pillar only, with the first hour', () => {
+    const h = startedGame(4);
+    sendAll(h);
+    guessAll(h, []);
+    const wrong = h.psychic('ana').intuition!;
+    readyAll(h);
+    h.act({ type: 'continue' }, HOST);
+    const view = () => seance.view(h.state, 'ana').game!;
+    const me = () => view().psychics.find((p) => p.id === 'ana')!;
+    expect([...triedCards(view(), me())]).toEqual([[wrong, 1]]);
+    sendAll(h);
+    guessAll(h, ['ana']);
+    readyAll(h);
+    h.act({ type: 'continue' }, HOST);
+    // On to the next pillar: the old misses are no longer candidates.
+    expect(triedCards(view(), me()).size).toBe(0);
   });
 });
