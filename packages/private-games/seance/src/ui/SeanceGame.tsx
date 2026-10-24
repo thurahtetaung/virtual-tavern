@@ -233,6 +233,9 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   const step = stepOf(g);
   const final = step.id === 'lineup' || step.id === 'vote';
   const steps = final ? FINAL_STEPS : STEPS;
+  // From hour II everyone knows the steps: their explanation folds to one line, "?" opens it.
+  const brief = !final && g.hour > 1;
+  const [more, setMore] = useState(false);
   return (
     <section
       aria-label={`Step: ${step.title}`}
@@ -259,13 +262,36 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           ))}
         </ol>
       </div>
-      <div className="mt-1 flex flex-wrap items-start justify-end gap-2">
-        <p className="min-w-[14rem] flex-1 text-xs text-stone-600 dark:text-stone-400">
-          {step.text}
-        </p>
-        {step.id === 'discussion' && <HourClock view={view} room={room} />}
-      </div>
-      {g.stage === 'visions' && <WaitingLine view={view} act={act} />}
+      {brief ? (
+        <div className="mt-1 flex items-start gap-1">
+          <p
+            className={cn(
+              'min-w-0 flex-1 text-xs text-stone-600 dark:text-stone-400',
+              !more && 'truncate',
+            )}
+          >
+            {step.text}
+          </p>
+          <button
+            type="button"
+            aria-expanded={more}
+            aria-label={more ? 'Show less' : 'What happens in this step?'}
+            onClick={() => setMore(!more)}
+            className="-my-1 shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-ink-muted ring-1 ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800"
+          >
+            {more ? '▴' : '?'}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">{step.text}</p>
+      )}
+      {(g.stage === 'visions' || step.id === 'discussion') && (
+        // The clock and who the hour waits for share one row.
+        <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-stone-200 pt-1.5 dark:border-stone-800">
+          {g.stage === 'visions' && <WaitingLine view={view} act={act} />}
+          {step.id === 'discussion' && <HourClock view={view} room={room} />}
+        </div>
+      )}
     </section>
   );
 }
@@ -314,11 +340,7 @@ function WaitingLine({ view, act }: { view: SeanceView; act: Act }) {
     );
   }
   return (
-    <div
-      role="status"
-      aria-label="Waiting for"
-      className="mt-1.5 border-t border-stone-200 pt-1.5 text-xs font-semibold dark:border-stone-800"
-    >
+    <div role="status" aria-label="Waiting for" className="min-w-0 flex-1 text-xs font-semibold">
       {body}
       <RefusalSlot anchor="seance-reveal" />
     </div>

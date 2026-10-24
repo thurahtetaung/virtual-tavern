@@ -36,6 +36,8 @@ interface Props {
   preview?: boolean;
   /** The tap only looks (picking is a separate button), so the card is no toggle. */
   look?: boolean;
+  /** A long press (touch or mouse): opens the card at once where a tap does something else. */
+  onLongPress?: () => void;
 }
 
 /** The numbered stand-in for a card without art. */
@@ -53,6 +55,57 @@ export function CardPlaceholder({ kind, n, big }: { kind: Kind; n: number; big?:
       {n}
     </span>
   );
+}
+
+/** How long a press must last to count as a long press. */
+export const LONG_PRESS_MS = 450;
+
+/**
+ * A long press on a tappable card: fires after `LONG_PRESS_MS` unless the finger moves (a scroll)
+ * or lifts, and swallows the click that follows it.
+ */
+function useLongPress(on: (() => void) | undefined) {
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fired = useRef(false);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    return () => {
+      clearTimeout(timer.current);
+    };
+  }, []);
+  if (!on) return { handlers: {}, swallow: () => false };
+  const cancel = () => {
+    clearTimeout(timer.current);
+    start.current = null;
+  };
+  return {
+    handlers: {
+      onPointerDown: (e: PointerEvent<HTMLElement>) => {
+        fired.current = false;
+        start.current = { x: e.clientX, y: e.clientY };
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+          fired.current = true;
+          start.current = null;
+          on();
+        }, LONG_PRESS_MS);
+      },
+      onPointerMove: (e: PointerEvent<HTMLElement>) => {
+        const s = start.current;
+        if (s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 10) cancel();
+      },
+      onPointerUp: cancel,
+      onPointerCancel: cancel,
+      onPointerLeave: cancel,
+      onContextMenu: (e: { preventDefault: () => void }) => e.preventDefault(),
+    },
+    /** True (once) when this click ends a long press. */
+    swallow: () => {
+      const was = fired.current;
+      fired.current = false;
+      return was;
+    },
+  };
 }
 
 /** How long the mouse rests on a card before its larger preview shows. */
@@ -236,12 +289,20 @@ export function Card({
   children,
   preview,
   look,
+  onLongPress,
 }: Props) {
   const [failed, setFailed] = useState(false);
   const [spot, hoverHandlers] = useHoverPreview(
     (preview ?? !!onTap) && !disabled,
     kind === 'vision',
   );
+  const press = useLongPress(onTap && !disabled ? onLongPress : undefined);
+  // Both hooks listen for the press and the leave.
+  const hover: Partial<Record<'onPointerDown' | 'onPointerLeave', () => void>> = hoverHandlers;
+  const pressed: {
+    onPointerDown?: (e: PointerEvent<HTMLElement>) => void;
+    onPointerLeave?: () => void;
+  } = press.handlers;
   const art = content.cardArt(kind, n, size === 'thumb');
   const label = `${content.cardLabel(kind, n)}${note ? ` (${note})` : ''}`;
   const body = (
@@ -290,8 +351,19 @@ export function Card({
         aria-pressed={look ? undefined : selected}
         disabled={disabled}
         data-card={`${kind}-${n}`}
-        onClick={onTap}
+        onClick={() => {
+          if (!press.swallow()) onTap();
+        }}
         {...hoverHandlers}
+        {...press.handlers}
+        onPointerDown={(e) => {
+          hover.onPointerDown?.();
+          pressed.onPointerDown?.(e);
+        }}
+        onPointerLeave={() => {
+          hover.onPointerLeave?.();
+          pressed.onPointerLeave?.();
+        }}
         className={cn(classes, 'cursor-pointer touch-manipulation disabled:cursor-not-allowed')}
       >
         {body}
