@@ -166,8 +166,8 @@ describe('view() redaction, every viewer at every phase', () => {
     expect(PSYCHICS.every((id) => seance.view(h.state, id).game!.hand === null)).toBe(true);
   });
 
-  it('stories and every extra pool: the same boundary', () => {
-    const h = game({ third: 'story', pools: [...POOL_IDS] });
+  it('stories, every extra pool and the extra suspects and places: the same boundary', () => {
+    const h = game({ third: 'story', pools: [...POOL_IDS], extras: true });
     checkViews(h, 'stories, hour 1');
     playHour(h, ['ana']);
     checkViews(h, 'stories, hour 2');
@@ -208,6 +208,7 @@ describe('view() fuzz: seeded games with every option', () => {
           third: r.int(2) ? 'story' : 'object',
           pools,
           difficulty: (['easy', 'medium', 'hard'] as const)[r.int(3)]!,
+          extras: r.int(2) === 1,
         },
         seed,
       );
