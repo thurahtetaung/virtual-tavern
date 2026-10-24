@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.52.0...v0.53.0) (2026-10-24)
+
+
+### Features
+
+* **seance:** an optional pool of extra suspects and places ([#324](https://github.com/thurahtetaung/virtual-tavern/issues/324)) ([5ba27cb](https://github.com/thurahtetaung/virtual-tavern/commit/5ba27cb23b57b30b6bfd5300b3d977cbb34c4d58))
+
 ## [0.52.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.51.1...v0.52.0) (2026-10-23)
 
 
