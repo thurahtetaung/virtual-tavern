@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.0...v0.53.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **seance:** fit the phone screen and keep the cards readable ([#326](https://github.com/thurahtetaung/virtual-tavern/issues/326)) ([3d2367f](https://github.com/thurahtetaung/virtual-tavern/commit/3d2367f40d94bbd6d519c9ac8c3850443fb85dce))
+
 ## [0.53.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.52.0...v0.53.0) (2026-10-24)
 
 
