@@ -144,10 +144,10 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
           />
         ))}
       </div>
-      <p className="flex justify-between text-[11px] text-ink-muted">
-        <span>1 card</span>
+      <p className="flex flex-wrap justify-between gap-x-2 text-[11px] text-ink-muted">
+        <span>0–{mid - 1}: you vote after card 1</span>
         <span>
-          {mid}+: 2 cards · {high}+: 3 cards
+          {mid}+: after card 2 · {high}+: after card 3
         </span>
       </p>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
@@ -174,11 +174,13 @@ export function Track({ g, content }: { g: GameView; content: Content }) {
 /** This hour's (or the last hour's) verdicts, in plain words. */
 export function Verdicts({ view, content }: { view: SeanceView; content: Content }) {
   const g = view.game!;
+  const { look, viewer } = useLook(content);
   const hour = g.verdicts.at(-1)?.hour;
   if (hour === undefined) return null;
   const list = g.verdicts.filter((v) => v.hour === hour);
   return (
     <div aria-label="Verdicts" className="space-y-1">
+      {viewer}
       <h4 className="text-sm font-semibold">Hour {roman(hour)}: the ghost answered</h4>
       <ul className="space-y-1 text-sm">
         {list.map((v) => {
@@ -207,6 +209,35 @@ export function Verdicts({ view, content }: { view: SeanceView; content: Content
                   </span>
                 )}
               </span>
+              {v.guess !== null && (
+                // The guessed card itself: at the table, the card is the moment.
+                <span className="w-14 shrink-0 sm:w-16">
+                  <Card
+                    kind={content.kindOf(pillar)}
+                    n={v.guess}
+                    content={content}
+                    note={`${p?.name ?? v.color}’s guess`}
+                    onTap={() =>
+                      look(
+                        [
+                          {
+                            kind: content.kindOf(pillar),
+                            n: v.guess!,
+                            caption: `${p?.name ?? v.color}’s guess: ${v.correct ? 'right' : 'wrong'}`,
+                          },
+                        ],
+                        0,
+                        `Hour ${roman(hour)}`,
+                      )
+                    }
+                    className={
+                      v.correct
+                        ? 'ring-2 ring-success dark:ring-emerald-500'
+                        : 'ring-2 ring-danger dark:ring-rose-500'
+                    }
+                  />
+                </span>
+              )}
               <span aria-hidden className="text-lg">
                 {v.correct ? '✅' : '❌'}
               </span>
@@ -225,7 +256,7 @@ export function TableTab({ view, content }: { view: SeanceView; content: Content
   return (
     <Panel className="space-y-3 p-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-bold">Hour {roman(g.hour)} of VII</h3>
+        <h3 className="shrink-0 font-bold whitespace-nowrap">Hour {roman(g.hour)} / VII</h3>
         <p className="text-xs text-stone-600 dark:text-stone-400">
           🐦‍⬛ Ravens:{' '}
           {g.difficulty === 'easy'

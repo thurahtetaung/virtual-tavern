@@ -117,6 +117,7 @@ export function PickableCard({
   fill,
   className,
   children,
+  preview,
 }: {
   kind: Kind;
   n: number;
@@ -134,6 +135,8 @@ export function PickableCard({
   fill?: boolean;
   className?: string;
   children?: ReactNode;
+  /** The desktop hover preview (on by default). */
+  preview?: boolean;
 }) {
   return (
     <div className={cn('relative', fill && 'size-full', className)}>
@@ -147,6 +150,7 @@ export function PickableCard({
         onTap={onLook}
         look
         fill={fill}
+        preview={preview}
       >
         {children}
       </Card>

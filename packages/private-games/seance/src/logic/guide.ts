@@ -154,6 +154,7 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
     }));
   return {
     ...plain,
+    setupLevel: 'basics',
     setup: plain.setup.map((line) =>
       named
         ? line.replace(
@@ -197,6 +198,16 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
         head: ['', 'Easy', 'Medium', 'Hard'],
         rows: [['Ravens', 'once an hour', '3 a game', '1 a game']],
         note: 'Clairvoyance tokens: 4 each with 4–5 players, 6 each with 6–7, none with 3. They all come back at the start of hour IV.',
+      },
+      {
+        title: 'Who votes when',
+        head: ['Players (ghost included)', 'After card 1', 'After card 2', 'After card 3'],
+        rows: [
+          ['3', '—', '—', 'both psychics'],
+          ['4–5', 'track 0–4', 'track 5–6', 'track 7+'],
+          ['6–7', 'track 0–6', 'track 7–9', 'track 10+'],
+        ],
+        note: 'The shared vision turns over one card at a time; the further you are on the clairvoyance track, the more cards you see before you vote. With 3 players all three are face up at once.',
       },
     ],
     room,

@@ -11,7 +11,7 @@ import {
   startedGame,
   toFinal,
 } from '../logic/test-utils.ts';
-import { pastGuesses, resultLine, statusFor, stepOf, triedCards } from './status.ts';
+import { awayPsychics, pastGuesses, resultLine, statusFor, stepOf, triedCards } from './status.ts';
 
 const people = (ids: string[]) => ({
   hostId: HOST,
@@ -146,5 +146,23 @@ describe('tried cards', () => {
     h.act({ type: 'continue' }, HOST);
     // On to the next pillar: the old misses are no longer candidates.
     expect(triedCards(view(), me()).size).toBe(0);
+  });
+});
+
+describe('away psychics', () => {
+  it('names psychics whose device dropped, not the ghost, watchers or seats already left', () => {
+    const h = startedGame(4);
+    const g = seance.view(h.state, HOST).game!;
+    const online = (ids: string[]) =>
+      [HOST, 'ana', 'ben', 'cy', 'zed'].map((id) => ({ id, connected: !ids.includes(id) }));
+    expect(awayPsychics(g, online([]))).toEqual([]);
+    // The host is the ghost here; zed is only watching.
+    const away = awayPsychics(g, online(['ben', 'zed', HOST]));
+    expect(away.map((p) => p.id)).toEqual(['ben']);
+    const left = {
+      ...g,
+      psychics: g.psychics.map((p) => (p.id === 'ben' ? { ...p, gone: true } : p)),
+    };
+    expect(awayPsychics(left, online(['ben']))).toEqual([]);
   });
 });

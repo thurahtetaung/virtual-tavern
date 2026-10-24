@@ -136,9 +136,23 @@ export function statusFor(view: SeanceView, isHost: boolean, people?: People): S
     switch (g.stage) {
       case 'visions': {
         const waiting = waitingForVision(g);
+        const away = people ? awayPsychics(g, people.players) : [];
+        const here = waiting.filter((p) => !away.includes(p));
+        if (waiting.length && !here.length)
+          return {
+            text: `${hour}: ${away.map((p) => p.name).join(' and ')} ${away.length === 1 ? 'is' : 'are'} away. Their vision can wait, but the hour can’t end without it: send it when you like.`,
+            yourMove: true,
+          };
         if (waiting.length)
           return {
-            text: `${hour}: send a vision to ${waiting.length === 1 ? names(waiting) || 'the last psychic' : `each psychic (${waiting.length} waiting)`}. Tap a psychic to compare their card with your hand.`,
+            text: `${hour}: send a vision to ${here.length === 1 ? names(here) || 'the last psychic' : `each psychic (${here.length} waiting)`}.${
+              waiting.length > here.length
+                ? ` ${waiting
+                    .filter((p) => away.includes(p))
+                    .map((p) => p.name)
+                    .join(' and ')} (away) can come last.`
+                : ' Tap a psychic to compare their card with your hand.'
+            }`,
             yourMove: true,
           };
         if (g.canReveal)
@@ -305,4 +319,17 @@ export function triedCards(g: GameView, p: PsychicView): Map<number, number> {
     if (v.color === p.color && v.step === p.step && !v.correct && v.guess !== null)
       if (!tried.has(v.guess)) tried.set(v.guess, v.hour);
   return tried;
+}
+
+/**
+ * Psychics still at the table whose device has dropped (a closed tab, a phone gone to sleep):
+ * the seat is theirs, but nobody is there to read the visions or tap Ready.
+ */
+export function awayPsychics(
+  g: GameView,
+  players: readonly { id: string; connected?: boolean }[],
+): PsychicView[] {
+  return atTable(g).filter(
+    (p) => !p.gone && players.some((x) => x.id === p.id && x.connected === false),
+  );
 }

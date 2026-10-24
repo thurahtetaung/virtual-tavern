@@ -310,6 +310,8 @@ function Room({
   // The game under way, as the host may abandon it (the game says when there is one).
   const [abandon, setAbandon] = useState<AbandonGame | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  // The lobby's intro already shows the Learn stepper: the drawer then opens on Rules.
+  const [introShown, setIntroShown] = useState(false);
   const [guideFocus, setGuideFocus] = useState<GuideFocus>();
   // Each opening starts afresh on Learn (or at the card a game asked for).
   const [guideOpens, setGuideOpens] = useState(0);
@@ -721,7 +723,7 @@ function Room({
           }
         >
           {snapshot.meta?.phase === 'lobby' && !playtest && (
-            <GuideIntro game={game} onRules={() => showGuide()} />
+            <GuideIntro game={game} onRules={() => showGuide()} onShown={setIntroShown} />
           )}
           <BotNames.Provider value={botNames}>
             <PlayerColors.Provider value={playerColors}>
@@ -803,6 +805,7 @@ function Room({
             compact
             {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}
             {...(guideFocus && { focus: guideFocus })}
+            {...(introShown && snapshot?.meta?.phase === 'lobby' && { start: 'rules' as const })}
             done={
               <Button size="sm" className="min-h-11" onClick={() => setGuideOpen(false)}>
                 Back to the game

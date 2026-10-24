@@ -23,6 +23,7 @@ import { type CompareSpec, HourClock, MineTab, OthersTab, ReadyBar } from './Psy
 import {
   type Step,
   atTable,
+  awayPsychics,
   myPsychic,
   nameOf,
   roman,
@@ -86,6 +87,31 @@ function TabBar({
   );
 }
 
+/** How long a psychic is away before the host is offered what to do about the seat. */
+const AWAY_GRACE_MS = 60_000;
+
+/** The away psychics (by colour) who have been away for at least `ms`, as seen from here. */
+function useLongAway(colors: readonly string[], ms: number): string[] {
+  const key = colors.join(',');
+  const [long, setLong] = useState<string[]>([]);
+  const [seenKey, setSeenKey] = useState(key);
+  if (seenKey !== key) {
+    // Someone came back (or dropped): their clock starts again.
+    setSeenKey(key);
+    setLong(long.filter((c) => colors.includes(c)));
+  }
+  useEffect(() => {
+    const timers = key
+      .split(',')
+      .filter(Boolean)
+      .map((c) => setTimeout(() => setLong((l) => (l.includes(c) ? l : [...l, c])), ms));
+    return () => {
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [key, ms]);
+  return long.filter((c) => colors.includes(c));
+}
+
 /** The ghost's seat when the ghost is away or gone, other empty seats, and the latest notice. */
 function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
@@ -99,12 +125,24 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
     (s) => s.id !== g.ghost && !g.psychics.some((p) => p.id === s.id),
   );
   const latest = g.notices.at(-1);
+  // A notice belongs to the step it arrived in: the next hour (or the final) clears it, so "the
+  // ghost revealed the verdicts" never lingers into the next discussion.
+  const stepKey = `${g.stage}-${g.hour}`;
+  const [arrived, setArrived] = useState(() => latest && { id: latest.id, key: stepKey });
+  if (latest && arrived?.id !== latest.id) setArrived({ id: latest.id, key: stepKey });
+  const current = !!latest && arrived?.id === latest.id && arrived.key === stepKey;
   // The verdicts say what ended the hour themselves.
   const lockNotice =
     g.stage === 'reveal' &&
     g.deadline !== null &&
     latest?.at === g.deadline - REVEAL_SECONDS * 1000;
   const gone = atTable(g).filter((p) => p.gone);
+  const away = awayPsychics(g, room.players);
+  const longAway = useLongAway(
+    away.map((p) => p.color),
+    AWAY_GRACE_MS,
+  );
+  const stuck = away.filter((p) => longAway.includes(p.color) && p.step < 3);
   const canRetire =
     room.isHost && (g.stage === 'visions' || g.stage === 'reveal') && atTable(g).length > 1;
   return (
@@ -173,6 +211,26 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           ))}
         </div>
       )}
+      {room.isHost &&
+        playing &&
+        stuck.length > 0 &&
+        (g.stage === 'visions' || g.stage === 'reveal') && (
+          <div
+            role="alert"
+            className="space-y-1 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30"
+          >
+            {stuck.map((p) => (
+              <p key={p.color} className="font-semibold">
+                {p.name} left: let someone watching take their seat, or retire it.
+              </p>
+            ))}
+            <p className="text-xs">
+              Their device dropped, so the seat is still theirs and the hour waits for them. If they
+              aren’t coming back, remove them from the room (Players › Remove): then someone
+              watching can take the seat, or you can retire it here.
+            </p>
+          </div>
+        )}
       {canRetire && gone.length > 0 && (
         <div className="space-y-1.5 rounded-xl bg-warn-soft px-3 py-2 text-sm ring-1 ring-warn-line dark:bg-orange-500/10 dark:ring-orange-500/30">
           <p>
@@ -205,7 +263,7 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           </div>
         </div>
       )}
-      {latest && latest.id > seen && g.stage !== 'done' && !lockNotice && (
+      {latest && current && latest.id > seen && g.stage !== 'done' && !lockNotice && (
         <p className="flex items-center gap-2 rounded-xl bg-stone-100 px-3 py-1 text-sm dark:bg-stone-800">
           <span className="flex-1">📣 {latest.text}</span>
           <button type="button" className="text-xs font-bold" onClick={() => setSeen(latest.id)}>
@@ -236,6 +294,8 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   // From hour II everyone knows the steps: their explanation folds to one line, "?" opens it.
   const brief = !final && g.hour > 1;
   const [more, setMore] = useState(false);
+  // The ghost's status line already says what to do; after hour I the paragraph only repeats it.
+  const silent = brief && g.myRole === 'ghost';
   return (
     <section
       aria-label={`Step: ${step.title}`}
@@ -262,7 +322,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
           ))}
         </ol>
       </div>
-      {brief ? (
+      {silent ? null : brief ? (
         <div className="mt-1 flex items-start gap-1">
           <p
             className={cn(
@@ -288,7 +348,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
       {(g.stage === 'visions' || step.id === 'discussion') && (
         // The clock and who the hour waits for share one row.
         <div className="mt-1.5 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 border-t border-stone-200 pt-1.5 dark:border-stone-800">
-          {g.stage === 'visions' && <WaitingLine view={view} act={act} />}
+          {g.stage === 'visions' && <WaitingLine view={view} room={room} act={act} />}
           {step.id === 'discussion' && <HourClock view={view} room={room} />}
         </div>
       )}
@@ -300,8 +360,9 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
  * What the hour waits for, always in sight: the ghost's visions, then each psychic still
  * searching (Ready or not), then the ghost's reveal (the ghost gets the button).
  */
-function WaitingLine({ view, act }: { view: SeanceView; act: Act }) {
+function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
+  const away = awayPsychics(g, room.players);
   const searching = atTable(g).filter((p) => !p.gone && p.step < 3);
   const ghost = g.myRole === 'ghost';
   const unsent = waitingForVision(g);
@@ -311,6 +372,12 @@ function WaitingLine({ view, act }: { view: SeanceView; act: Act }) {
     body = (
       <p>
         Waiting for the ghost: {g.sent.length} of {all} vision{all === 1 ? '' : 's'} sent
+        {away.length > 0 && (
+          <span className="font-normal text-ink-muted">
+            {' '}
+            · {away.map((p) => p.name).join(', ')} away
+          </span>
+        )}
       </p>
     );
   } else if (g.canReveal && ghost) {
@@ -333,7 +400,9 @@ function WaitingLine({ view, act }: { view: SeanceView; act: Act }) {
               ? `${p.name}: done`
               : p.gone
                 ? `${p.name} (left)`
-                : `${p.ready ? '✓' : '✗'} ${p.name} ${p.ready ? 'ready' : 'not ready'}`}
+                : away.includes(p) && !p.ready
+                  ? `💤 ${p.name} away, not ready`
+                  : `${p.ready ? '✓' : '✗'} ${p.name} ${p.ready ? 'ready' : 'not ready'}`}
           </li>
         ))}
       </ul>
@@ -514,10 +583,12 @@ function SeanceTable({
 
   const onTab = (t: Tab) => (tab === t ? '' : 'hidden lg:block');
 
+  // In the final the ghost's hand is in the shared-vision picker, so no Hand tab or column.
+  const ghostFinal = ghost && finalStage;
   const tabs: { id: Tab; icon: string; label: string }[] = ghost
     ? [
         { id: 'main', icon: finalStage ? '🗳️' : '👥', label: finalStage ? 'Final' : 'Psychics' },
-        { id: 'others', icon: '🃏', label: 'Hand' },
+        ...(ghostFinal ? [] : [{ id: 'others' as Tab, icon: '🃏', label: 'Hand' }]),
         { id: 'table', icon: '🕰️', label: 'Table' },
       ]
     : me
@@ -535,38 +606,51 @@ function SeanceTable({
 
   const finalPanel = finalStage && (
     <div className="space-y-2">
-      {ghost && g.stage === 'shared' && (
-        <SharedPicker
-          view={view}
-          act={act}
-          content={content}
-          draft={draft}
-          setDraft={setDraft}
-          compare={compare}
-        />
-      )}
       <VoteBar view={view} room={room} act={act} />
-      <Panel className="space-y-3 p-3">
-        <SharedRow g={g} content={content} tags={ghost} />
-        <Lineup
-          view={view}
-          act={act}
-          content={content}
-          draft={ghost ? draft : undefined}
-          setDraft={ghost ? setDraft : undefined}
-        />
-      </Panel>
+      {/* The ghost picks beside the line-up (below it on phones), whose groups step 1 names. */}
+      <div
+        className={cn(
+          'grid gap-2',
+          ghost && g.stage === 'shared' && 'lg:grid-cols-2 lg:items-start',
+        )}
+      >
+        <Panel className="space-y-3 p-3">
+          <SharedRow g={g} content={content} tags={ghost} />
+          <Lineup
+            view={view}
+            act={act}
+            content={content}
+            draft={ghost ? draft : undefined}
+            setDraft={ghost ? setDraft : undefined}
+          />
+        </Panel>
+        {ghost && g.stage === 'shared' && (
+          <SharedPicker
+            view={view}
+            act={act}
+            content={content}
+            draft={draft}
+            setDraft={setDraft}
+            compare={compare}
+          />
+        )}
+      </div>
     </div>
   );
 
   const main = finalStage ? (
     finalPanel
   ) : ghost ? (
-    <GhostPsychics view={view} content={content} compare={compare} />
+    <GhostPsychics
+      view={view}
+      content={content}
+      compare={compare}
+      away={awayPsychics(g, room.players).map((p) => p.color)}
+    />
   ) : me ? (
     <MineTab view={view} room={room} act={act} content={content} compare={compare} />
   ) : null;
-  const second = ghost ? (
+  const second = ghostFinal ? null : ghost ? (
     <GhostHand view={view} act={act} content={content} />
   ) : (
     <OthersTab view={view} act={act} content={content} compare={compare} />
@@ -634,13 +718,15 @@ function SeanceTable({
       <div
         className={cn(
           'grid gap-3',
-          ghost
-            ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)_minmax(0,4fr)]'
-            : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
+          ghostFinal
+            ? 'lg:grid-cols-[minmax(0,12fr)_minmax(0,4fr)]'
+            : ghost
+              ? 'lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)_minmax(0,4fr)]'
+              : 'lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)_minmax(0,4fr)]',
         )}
       >
         {main && <div className={cn('min-w-0 space-y-2', onTab('main'))}>{main}</div>}
-        <div className={cn('min-w-0', onTab('others'))}>{second}</div>
+        {second && <div className={cn('min-w-0', onTab('others'))}>{second}</div>}
         <div className={cn('min-w-0 space-y-2', onTab('table'))}>
           <TableTab view={view} content={content} />
         </div>

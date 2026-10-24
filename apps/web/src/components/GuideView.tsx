@@ -83,12 +83,15 @@ export function GameGuideView({
   compact = false,
   room,
   focus,
+  start,
   done,
 }: {
   game: ClientGame;
   compact?: boolean;
   room?: GuideRoomState;
   focus?: GuideFocus;
+  /** The tab to open on (Learn by default). */
+  start?: GuideTab;
   done?: ReactNode;
 }) {
   const guide = useGameGuide(game);
@@ -100,6 +103,7 @@ export function GameGuideView({
       inRoom={room !== undefined}
       {...(context && { context })}
       {...(focus && { focus })}
+      {...(start && { start })}
       done={done}
     />
   );
@@ -120,6 +124,7 @@ export interface GuideFocus {
 }
 
 type Tab = 'learn' | 'tiles' | 'cards' | 'rules' | 'ref';
+export type GuideTab = Tab;
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 const sectionWords = (s: GuideSection) =>
@@ -142,6 +147,7 @@ export function GuideView({
   inRoom = false,
   context,
   focus,
+  start = 'learn',
   done,
 }: {
   guide: GameGuide;
@@ -149,9 +155,10 @@ export function GuideView({
   inRoom?: boolean;
   context?: GuideContext;
   focus?: GuideFocus;
+  start?: Tab;
   done?: ReactNode;
 }) {
-  const [tab, setTab] = useState<Tab>('learn');
+  const [tab, setTab] = useState<Tab>(start);
   const [sheet, setSheet] = useState<GuideTile | null>(null);
   const [card, setCard] = useState<GuideCard | null>(null);
   // A tile's sheet asked for its cards: the catalog opens at that group.
@@ -666,16 +673,21 @@ export function Stepper({
           <div key={i} className="motion-safe:animate-[guide-in_.25s_ease]">
             <div
               className={cn(
-                'mb-3 flex items-center justify-center overflow-hidden rounded-xl bg-page',
+                'mb-3 flex items-center justify-center overflow-hidden rounded-xl',
+                // Art gets no backdrop of its own, so a tall card isn't a sliver in a wide box.
+                !step.art && 'bg-page',
                 compact ? 'h-28' : 'h-32 sm:h-40',
               )}
             >
               {step.art ? (
                 <Art
                   src={step.art}
-                  className="h-full w-auto max-w-full object-contain"
+                  className="h-full w-auto max-w-full rounded-lg object-contain shadow"
                   fallback={
-                    <span aria-hidden className="text-6xl">
+                    <span
+                      aria-hidden
+                      className="flex size-full items-center justify-center rounded-xl bg-page text-6xl"
+                    >
                       {step.icon ?? '🎲'}
                     </span>
                   }
@@ -1263,11 +1275,12 @@ function Rules({
   ctx: GuideContext | undefined;
   inRoom: boolean;
 }) {
-  // Setup is how the app gets a game going: a detail for whoever hosts.
+  // Setup is how the app gets a game going: a detail for whoever hosts (unless the game says
+  // otherwise), first in its band.
   const setup: GuideSection | undefined = guide.setup.length
-    ? { title: 'Getting started', bullets: guide.setup, level: 'details' }
+    ? { title: 'Getting started', bullets: guide.setup, level: guide.setupLevel ?? 'details' }
     : undefined;
-  const all = setup ? [...guide.sections, setup] : guide.sections;
+  const all = setup ? [setup, ...guide.sections] : guide.sections;
   const firstBasic = all.find((s) => levelOf(s) === 'basics');
   return (
     <div>
