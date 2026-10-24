@@ -48,6 +48,8 @@ export interface Settings {
   third?: Third;
   /** Extra vision pools mixed into the deck. Optional so older rooms still load (none). */
   pools?: PoolId[];
+  /** The extra suspects and places in the pillars. Optional so older rooms still load (off). */
+  extras?: boolean;
   /** The interpretation timer once every vision is out; null: no timer. */
   timerSeconds: TimerSeconds | null;
   /** soft: a reminder (the host can lock in); strict: guesses lock at 0:00. */
@@ -228,7 +230,11 @@ export interface SeanceState {
 
 const id = z.string().min(1).max(128);
 const vision = z.number().int().min(1).max(CARD_COUNTS.vision);
-const card = z.number().int().min(1).max(40);
+const card = z
+  .number()
+  .int()
+  .min(1)
+  .max(Math.max(CARD_COUNTS.suspect, CARD_COUNTS.place, CARD_COUNTS.object, CARD_COUNTS.story));
 const unique = <T>(ids: T[]) => new Set(ids).size === ids.length;
 const color = z.enum(COLORS);
 const pillar = z.enum(['suspect', 'place', 'object']);
@@ -251,6 +257,7 @@ export const actionSchema = z.discriminatedUnion('type', [
       .max(POOL_IDS.length)
       .refine(unique, 'Vision pools must be unique.')
       .optional(),
+    extras: z.boolean().optional(),
     timerSeconds: z
       .union([z.literal(60), z.literal(120), z.literal(180), z.literal(300)])
       .nullable()

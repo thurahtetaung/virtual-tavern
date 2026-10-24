@@ -36,7 +36,8 @@ export const isPillarCard = (kind: Kind, pillar: Pillar, third: Third = 'object'
 
 /**
  * Card sets: each a lobby toggle that adds its visions and its pillar cards. Ids are neutral; the
- * private manifest names them. New sets go here; the extra vision pools are below.
+ * private manifest names them. New sets go here; the extra vision pools and the extra suspects and
+ * places are below.
  */
 export const SET_IDS = ['base', 'exp1', 'exp2', 'promo'] as const;
 export type SetId = (typeof SET_IDS)[number];
@@ -124,24 +125,45 @@ export const pictureCardOf = (vision: number): number | null =>
 export const poolOfVision = (vision: number): PoolId | null =>
   POOL_IDS.find((p) => POOL_CARDS[p].includes(vision)) ?? null;
 
+/**
+ * Extra suspects and places from another edition of the game, one lobby toggle (off by default).
+ * They are numbered on after the sets' 31 of each; there are no extra objects or stories, so the
+ * toggle leaves the third pillar alone.
+ */
+export const EXTRA_CARDS: Readonly<Record<Kind, readonly number[]>> = {
+  vision: [],
+  suspect: range(32, 51),
+  place: range(32, 51),
+  object: [],
+  story: [],
+};
+
+/** Placeholder name, used until the manifest loads (and in tests). */
+export const EXTRAS_LABEL = 'Extra suspects & places';
+
 export const CARD_COUNTS: Record<Kind, number> = {
   vision: POOL_R_FIRST + POOL_R_CARDS.length - 1,
-  suspect: 31,
-  place: 31,
+  suspect: 51,
+  place: 51,
   object: 32,
   story: 20,
 };
 
-/** Every card of one kind in the chosen sets (and, for visions, the chosen extra pools). */
+/**
+ * Every card of one kind in the chosen sets (and, for visions, the chosen extra pools; for
+ * suspects and places, the extra ones when they are on).
+ */
 export const poolOf = (
   sets: readonly SetId[],
   kind: Kind,
   pools: readonly PoolId[] = [],
+  extras = false,
 ): number[] => [
   ...SET_IDS.filter((s) => sets.includes(s)).flatMap((s) => [...CARD_SETS[s][kind]]),
   ...(kind === 'vision'
     ? POOL_IDS.filter((p) => pools.includes(p)).flatMap((p) => [...POOL_CARDS[p]])
     : []),
+  ...(extras ? EXTRA_CARDS[kind] : []),
 ];
 
 /** Card ids as the night recap and the stats name them: `suspect-12`, `vision-40`. */

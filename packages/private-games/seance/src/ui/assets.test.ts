@@ -41,6 +41,18 @@ describe('card art and names', () => {
     expect(contentFor('unavailable').cardArt('story', 1)).toBeNull();
   });
 
+  it('the extra suspects and places: art with the others, name from the manifest', () => {
+    const c = contentFor({ extras: { name: 'More faces', description: 'From elsewhere.' } });
+    expect(c.cardArt('suspect', 40, true)).toBe(
+      '/api/backroom/assets/seance/suspect/thumb/40.webp',
+    );
+    expect(c.cardArt('place', 51, false)).toBe('/api/backroom/assets/seance/place/51.webp');
+    expect(c.extrasName).toBe('More faces');
+    expect(c.extrasDescription).toBe('From elsewhere.');
+    expect(contentFor(null).extrasName).toBe('Extra suspects & places');
+    expect(contentFor(null).extrasDescription).toBeNull();
+  });
+
   it('a pool’s art template stays a plain path under the back-room assets', () => {
     expect(poolArt('reverie/cards/{n}.jpg', 7)).toBe('/api/backroom/assets/reverie/cards/7.jpg');
     expect(poolArt('../admin/{n}', 7)).toBeNull();

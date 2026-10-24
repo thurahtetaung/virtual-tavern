@@ -27,6 +27,7 @@ const LEVELS: Record<string, 'basics' | 'details' | 'edge'> = {
   Difficulty: 'details',
   'Story cards': 'details',
   'Extra visions': 'details',
+  'Extra suspects and places': 'details',
   'If someone drops out': 'edge',
 };
 const ORDER = Object.keys(LEVELS);
@@ -34,6 +35,7 @@ const OPTIONS: Record<string, { key: string; label: string }> = {
   'Clairvoyance tokens': { key: 'tokens', label: '4 or more players' },
   'Story cards': { key: 'stories', label: 'Stories as the third pillar' },
   'Extra visions': { key: 'pools', label: 'Extra vision pools' },
+  'Extra suspects and places': { key: 'extras', label: 'Extra suspects and places' },
 };
 
 /** The card kinds, as tiles: what each one is for. */
@@ -108,12 +110,14 @@ export function makeGuide(names: SeanceNames = {}): GameGuide {
     const players = v.seats.filter((x) => x.playing).length;
     const stories = (v.game?.third ?? v.settings.third) === 'story';
     const pools = v.settings.pools?.length ?? 0;
+    const extras = v.settings.extras ?? false;
     const ctx: GuideContext = {
-      summary: `${v.settings.difficulty[0]!.toUpperCase()}${v.settings.difficulty.slice(1)} · ${v.settings.sets.length} card ${v.settings.sets.length === 1 ? 'set' : 'sets'}${stories ? ' · stories' : ''}${pools ? ` · ${pools} extra vision ${pools === 1 ? 'pool' : 'pools'}` : ''} · ${players} at the table`,
+      summary: `${v.settings.difficulty[0]!.toUpperCase()}${v.settings.difficulty.slice(1)} · ${v.settings.sets.length} card ${v.settings.sets.length === 1 ? 'set' : 'sets'}${stories ? ' · stories' : ''}${pools ? ` · ${pools} extra vision ${pools === 1 ? 'pool' : 'pools'}` : ''}${extras ? ' · extra suspects and places' : ''} · ${players} at the table`,
       options: [
         ...(players >= 4 ? ['tokens'] : []),
         ...(stories ? ['stories'] : []),
         ...(pools ? ['pools'] : []),
+        ...(extras ? ['extras'] : []),
       ],
     };
     const g = v.game;
@@ -215,7 +219,7 @@ function base(): GameGuide {
     ],
     setup: [
       'Sit down (3 to 7 players). The host chooses how the ghost is picked: at random, the host picks, or at random among volunteers. Psychics may pick which psychic (colour) they play.',
-      'The host chooses the difficulty: more cards on the table make it harder, and fewer ravens leave the ghost stuck with bad cards. The host can also switch card sets on and off, play stories instead of objects, add extra vision pools and set the turn timer.',
+      'The host chooses the difficulty: more cards on the table make it harder, and fewer ravens leave the ghost stuck with bad cards. The host can also switch card sets on and off, play stories instead of objects, add extra vision pools or extra suspects and places, and set the turn timer.',
       'The game lays out suspect, place and object cards face up and secretly deals each psychic one of each. The rest are decoys. The ghost gets a hand of 7 vision cards.',
       'The ghost is best played on a tablet or a computer: comparing seven pictures with a target is easier on a big screen.',
     ],
@@ -292,6 +296,13 @@ function base(): GameGuide {
         bullets: [
           'The host may shuffle extra vision pools into the deck: picture cards from other games. They are off by default, and nothing else changes.',
           'More visions means more variety in the ghost’s hand. One of the pools is at a lower resolution, so it looks softer when zoomed in.',
+        ],
+      },
+      {
+        title: 'Extra suspects and places',
+        bullets: [
+          'The host may add 20 extra suspects and 20 extra places from another edition of the game. They join the cards the table’s suspects and places are drawn from, so any of them can be someone’s target or a decoy. Off by default.',
+          'Objects and stories have no extra cards: the third pillar stays as it is. The final line-up can mix extra cards with the rest.',
         ],
       },
       {

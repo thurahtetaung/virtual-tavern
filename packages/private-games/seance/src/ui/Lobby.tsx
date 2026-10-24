@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import {
   CARD_SETS,
+  EXTRA_CARDS,
   POOL_CARDS,
   POOL_IDS,
   type PoolId,
@@ -114,6 +115,7 @@ export function Lobby({
     if (next.length) set({ sets: next });
   };
   const pools = s.pools ?? [];
+  const extras = s.extras ?? false;
   const third = s.third ?? 'object';
   const togglePool = (id: PoolId) =>
     set({ pools: pools.includes(id) ? pools.filter((x) => x !== id) : [...pools, id] });
@@ -244,6 +246,7 @@ export function Lobby({
           `ghost: ${GHOST_MODES.find((m) => m.id === s.ghostMode)!.label.toLowerCase()}`,
           third === 'story' && 'stories',
           pools.length > 0 && `+${pools.length} extra ${pools.length === 1 ? 'pool' : 'pools'}`,
+          extras && 'extra suspects & places',
           s.timerSeconds === null
             ? 'no timer'
             : `${s.timerSeconds % 60 === 0 ? `${s.timerSeconds / 60} min` : `${s.timerSeconds} s`}${s.timerMode === 'strict' ? ', locks' : ''}`,
@@ -375,6 +378,23 @@ export function Lobby({
           </div>
           <p className="text-xs text-ink-muted">
             Picture cards from other games, shuffled in with the visions. Off by default.
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-sm font-semibold">Extra suspects &amp; places</h4>
+          <div className="flex flex-wrap gap-2">
+            <Choice on={extras} disabled={!host} onClick={() => set({ extras: !extras })}>
+              {extras ? '✓ ' : ''}
+              {content.extrasName}{' '}
+              <span className="font-normal opacity-70">
+                (+{EXTRA_CARDS.suspect.length} suspects, +{EXTRA_CARDS.place.length} places)
+              </span>
+            </Choice>
+          </div>
+          <p className="text-xs text-ink-muted">
+            Suspects and places from another edition, mixed in with the others; objects and stories
+            stay as they are. Off by default. {poolOf(s.sets, 'suspect', [], extras).length}{' '}
+            suspects and {poolOf(s.sets, 'place', [], extras).length} places in play.
           </p>
         </section>
         <section className="space-y-1.5">

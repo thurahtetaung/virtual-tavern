@@ -1,6 +1,7 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
+  EXTRAS_LABEL,
   type Kind,
   POOL_LABELS,
   type Pillar,
@@ -18,7 +19,7 @@ export const GAME_ID = 'seance';
 /**
  * The private manifest in asset storage (`seance/manifest.json`):
  * `{ back, sets: { base: { name, description } … }, pools: { 'pool-a': { name, description, art? } … },
- * psychics: { blue: { name, art, color } … } }`. Card art lives at `<kind>/<n>.webp` with a smaller
+ * extras: { name, description }, psychics: { blue: { name, art, color } … } }`. Card art lives at `<kind>/<n>.webp` with a smaller
  * `<kind>/thumb/<n>.webp`. A pool's `art` points at another back-room game's files instead (for
  * `pool-r`, Reverie's: `reverie/cards/{nnn}.jpg`, `{n}` being Reverie's card number, `{nnn}` it
  * padded to 3), with no separate thumbnail. Everything is optional: without it, cards are
@@ -28,6 +29,8 @@ export interface Manifest {
   back?: string;
   sets?: Partial<Record<SetId, { name?: string; description?: string }>>;
   pools?: Partial<Record<PoolId, { name?: string; description?: string; art?: string }>>;
+  /** The extra suspects and places (their art is stored with the others). */
+  extras?: { name?: string; description?: string };
   psychics?: Partial<Record<PsychicColor, { name?: string; art?: string; color?: string }>>;
 }
 
@@ -108,6 +111,8 @@ export interface Content {
   setDescription: (id: SetId) => string | null;
   poolName: (id: PoolId) => string;
   poolDescription: (id: PoolId) => string | null;
+  extrasName: string;
+  extrasDescription: string | null;
   psychicName: (c: PsychicColor) => string;
   psychicArt: (c: PsychicColor) => string | null;
   swatch: (c: PsychicColor) => string;
@@ -139,6 +144,8 @@ export function contentFor(state: ManifestState, third: Third = 'object'): Conte
     setDescription: (id) => clean(man?.sets?.[id]?.description) ?? null,
     poolName: (id) => clean(man?.pools?.[id]?.name) ?? POOL_LABELS[id],
     poolDescription: (id) => clean(man?.pools?.[id]?.description) ?? null,
+    extrasName: clean(man?.extras?.name) ?? EXTRAS_LABEL,
+    extrasDescription: clean(man?.extras?.description) ?? null,
     psychicName: (c) => clean(man?.psychics?.[c]?.name) ?? `The ${c} psychic`,
     psychicArt: (c) => {
       const art = clean(man?.psychics?.[c]?.art);

@@ -328,7 +328,7 @@ test('on a phone, a tap straight after swiping the card viewer closed registers'
   await expect(pick).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('stories as the third pillar and an extra vision pool, played to the end', async ({
+test('stories, an extra vision pool and the extra suspects and places, played to the end', async ({
   browser,
 }) => {
   test.setTimeout(180_000);
@@ -350,9 +350,15 @@ test('stories as the third pillar and an extra vision pool, played to the end', 
   );
   await expect(host.getByText('257 visions in play.')).toBeVisible();
   await expect(host.getByText(/Story cards take the place of objects/)).toBeVisible();
+  // The extra suspects and places are off by default; switching them on adds 20 of each.
+  await expect(host.getByText(/31 suspects and 31 places in play\./)).toBeVisible();
+  await host.getByRole('button', { name: /^Extra suspects & places \(\+20 suspects/ }).click();
+  await expect(host.getByText(/51 suspects and 51 places in play\./)).toBeVisible();
   // A psychic sees the host's choices in the settings summary.
   await expect(
-    psychics[0]!.page.locator('details > summary', { hasText: /stories · \+1 extra pool/ }),
+    psychics[0]!.page.locator('details > summary', {
+      hasText: /stories · \+1 extra pool · extra suspects & places/,
+    }),
   ).toBeVisible();
   await begin(host, 'Kit');
 

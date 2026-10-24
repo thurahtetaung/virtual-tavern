@@ -150,6 +150,7 @@ function updateSettings(
   if (action.sets !== undefined) s.sets = SET_IDS.filter((id) => action.sets!.includes(id));
   if (action.third !== undefined) s.third = action.third;
   if (action.pools !== undefined) s.pools = POOL_IDS.filter((id) => action.pools!.includes(id));
+  if (action.extras !== undefined) s.extras = action.extras;
   if (action.timerSeconds !== undefined) s.timerSeconds = action.timerSeconds;
   if (action.timerMode !== undefined) s.timerMode = action.timerMode;
   return { ...state, settings: s };
@@ -219,7 +220,7 @@ function start(state: SeanceState, ctx: Ctx): Result {
   const table = {} as Record<Pillar, number[]>;
   const targets = psychicIds.map(() => [] as number[]);
   for (const pillar of PILLARS) {
-    const laid = rng.shuffle(poolOf(s.sets, kindOf(pillar, third))).slice(0, n);
+    const laid = rng.shuffle(poolOf(s.sets, kindOf(pillar, third), [], s.extras)).slice(0, n);
     table[pillar] = [...laid].sort((a, b) => a - b);
     const dealt = rng.shuffle(laid);
     psychicIds.forEach((_, i) => targets[i]!.push(dealt[i]!));
@@ -902,6 +903,7 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): SeanceState {
       sets: [...SET_IDS],
       third: 'object',
       pools: [],
+      extras: false,
       timerSeconds: DEFAULT_TIMER,
       timerMode: 'soft',
     },
@@ -1104,6 +1106,7 @@ function view(state: SeanceState, viewer: PlayerId | null): SeanceView {
       sets: [...state.settings.sets],
       third: state.settings.third ?? 'object',
       pools: [...(state.settings.pools ?? [])],
+      extras: state.settings.extras ?? false,
     },
     seats,
     me: viewer === null ? null : (seats.find((s) => s.id === viewer) ?? null),

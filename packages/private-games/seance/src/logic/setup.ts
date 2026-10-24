@@ -63,7 +63,7 @@ export function startProblem(
   const need = tableCards(settings.difficulty, playing.length);
   for (const pillar of PILLARS) {
     const kind = kindOf(pillar, settings.third);
-    if (poolOf(settings.sets, kind).length < need)
+    if (poolOf(settings.sets, kind, [], settings.extras).length < need)
       return kind === 'story'
         ? `Those card sets have too few story cards for ${playing.length} players on this difficulty: the stories come with the second expansion and the promos.`
         : `Those card sets have too few ${kind} cards for ${playing.length} players on this difficulty: add a set.`;
