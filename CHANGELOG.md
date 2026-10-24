@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.1...v0.53.2) (2026-10-24)
+
+
+### Bug Fixes
+
+* **seance:** clearer final vote, verdicts and ghost screens ([#328](https://github.com/thurahtetaung/virtual-tavern/issues/328)) ([8d8630b](https://github.com/thurahtetaung/virtual-tavern/commit/8d8630bdb7e3ac165335f9f3a7d3ececa1a3438d))
+
 ## [0.53.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.0...v0.53.1) (2026-10-24)
 
 
