@@ -93,7 +93,7 @@ const text: GameGuide = {
       bullets: [
         'Only the host sees the answers while they are being checked, and every change the host makes is listed for everyone at the reveal (“Joined Coke into Coca-Cola”).',
         'Answers that look like a typo of each other (“flower” and “flowr”) are suggested to the host, never joined by themselves.',
-        'Tap an answer to move it into another group or onto its own. “Start again” brings back the automatic groups.',
+        'Tap an answer to move it into another group or onto its own. “Undo my changes” brings back the automatic groups.',
         'If the host is away for a while, another player becomes host and takes over the checking.',
       ],
     },

@@ -256,6 +256,8 @@ function MergeBoard({ view, act, room }: Props) {
     selectedGroup
       ? send({ type: 'merge', from: selectedGroup, into: g.id })
       : send({ type: 'move', player: selectedMember!, into: g.id });
+  // Undo only while there is a change since the last undo.
+  const lastStep = round.merges?.at(-1);
   const big = groups.filter((g) => g.members.length > 1);
   const alone = groups.filter((g) => g.members.length === 1);
   const moving = selectedGroup
@@ -383,13 +385,13 @@ function MergeBoard({ view, act, room }: Props) {
           <Button
             variant="secondary"
             size="lg"
-            disabled={!(round.merges ?? []).some((m) => m.kind !== 'reset')}
+            disabled={!lastStep || lastStep.kind === 'reset'}
             onClick={() => void send({ type: 'reset-groups' })}
           >
-            Start again
+            Undo my changes
           </Button>
           <Button size="lg" onClick={() => void send({ type: 'reveal' })} data-testid="reveal">
-            Reveal answers
+            Reveal 🐄
           </Button>
         </div>
       </StickyBar>
@@ -408,7 +410,7 @@ function stepText(s: MergeStep): string {
     case 'split':
       return `Took “${a}” out of “${b}”`;
     case 'reset':
-      return 'Started again from the automatic groups';
+      return 'Undid the changes, back to the automatic groups';
   }
 }
 
