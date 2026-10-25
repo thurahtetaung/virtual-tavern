@@ -1,8 +1,8 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
 
-// Shared steps for Stampede's specs: a made-up open-question deck, a room, answering, the host's
-// check and the reveal. The questions are invented; real decks are private and never committed.
+// Shared steps for Stampede's specs: a made-up open-question deck, a room, answering and the
+// reveal. The questions are invented; real decks are private and never committed.
 
 export const DECK = {
   name: 'E2E pretend questions',
@@ -46,12 +46,12 @@ export async function answer(p: Page, text: string) {
   await expect(p.getByTestId('answer-input')).toBeVisible();
   await p.getByTestId('answer-input').fill(text);
   await p.getByTestId('answer-input').press('Enter');
-  // Locked in, or (the last answer) the round moved on to the host's check.
+  // Locked in, or (the last answer) the round went straight to the reveal.
   await expect(
     p
       .getByRole('button', { name: `✓ Locked in: ${text}` })
-      .or(p.getByTestId('my-answer'))
-      .or(p.getByTestId('merge-board'))
+      .or(p.getByTestId('reveal-board'))
+      .or(p.getByRole('region', { name: 'Final standings' }))
       .first(),
   ).toBeVisible();
 }
@@ -61,13 +61,8 @@ export async function answerAll(pages: Page[], answers: string[]) {
   for (const [i, p] of pages.entries()) await answer(p, answers[i]!);
 }
 
-/** A group on the host's check screen, by its label. */
-export const group = (host: Page, label: string) =>
-  host.locator(`[data-testid="merge-group"][data-label="${label}"]`);
-
-/** The host reveals, and everyone sees the reveal. */
-export async function reveal(host: Page, pages: Page[]) {
-  await host.getByTestId('reveal').click();
+/** Everyone sees the reveal (it comes as soon as the last answer is in). */
+export async function revealed(pages: Page[]) {
   for (const p of pages) await expect(p.getByTestId('reveal-board')).toBeVisible();
 }
 

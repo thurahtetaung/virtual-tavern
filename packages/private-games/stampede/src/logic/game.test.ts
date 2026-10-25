@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { stampede } from './game.ts';
-import { autoGroups, editDistance, typoSuggestions } from './match.ts';
 import { HOST, answerAll, cows, deck, harness, next, playRound, started } from './test-utils.ts';
 import { PICK_MS } from './types.ts';
 
@@ -45,7 +44,8 @@ describe('answering', () => {
     h.act('p2', { type: 'answer', text: 'Pasta!' });
     expect(h.state.round!.stage).toBe('answer');
     h.act('p3', { type: 'answer', text: 'the pastas' });
-    expect(h.state.round!.stage).toBe('merge');
+    // Straight to the reveal: the answers group themselves.
+    expect(h.state.round!.stage).toBe('reveal');
     expect(h.state.round!.groups).toEqual([{ id: 'g1', members: ['p1', 'p2', 'p3'] }]);
   });
 
@@ -61,8 +61,7 @@ describe('answering', () => {
     answerAll(h, ['Cat', 'Cat', 'Dog']);
     expect(h.refuse('p2', { type: 'continue-without' })).toBe('not-host');
     h.act(HOST, { type: 'continue-without' });
-    expect(h.state.round).toMatchObject({ stage: 'merge', late: ['p4'] });
-    h.act(HOST, { type: 'reveal' });
+    expect(h.state.round).toMatchObject({ stage: 'reveal', late: ['p4'] });
     expect(h.state.round!.result).toMatchObject({ scorers: ['p1', 'p2'], blanks: ['p4'] });
     // The blank never counts as alone: "Dog" is the only answer alone.
     expect(h.state.pinkCow).toBe('p3');
@@ -75,7 +74,7 @@ describe('answering', () => {
     const h = started(3, { settings: { answerSeconds: 30, timerMode: 'strict' } });
     h.act('p1', { type: 'answer', text: 'Tea' });
     h.tick();
-    expect(h.state.round).toMatchObject({ stage: 'merge', late: ['p2', 'p3'] });
+    expect(h.state.round).toMatchObject({ stage: 'reveal', late: ['p2', 'p3'] });
     expect(stampede.nextDeadline!(h.state)).toBeNull();
   });
 });
@@ -143,68 +142,42 @@ describe('scoring', () => {
   });
 });
 
-describe('checking the groups', () => {
-  it('lets the host merge, move, split and start again, logging every step', () => {
-    const h = started(4);
-    answerAll(h, ['Coke', 'Coca-Cola', 'coke', 'Pepsi']);
-    const [coke, cola, pepsi] = h.state.round!.groups;
-    expect(coke!.members).toEqual(['p1', 'p3']);
-    expect(h.refuse('p2', { type: 'merge', from: cola!.id, into: coke!.id })).toBe('not-host');
-    h.act(HOST, { type: 'merge', from: cola!.id, into: coke!.id });
-    expect(h.state.round!.groups.map((g) => g.members)).toEqual([['p1', 'p3', 'p2'], ['p4']]);
-    h.act(HOST, { type: 'move', player: 'p4', into: coke!.id });
-    expect(h.state.round!.groups.map((g) => g.members)).toEqual([['p1', 'p3', 'p2', 'p4']]);
-    h.act(HOST, { type: 'move', player: 'p4', into: null });
-    expect(h.refuse(HOST, { type: 'move', player: 'p4', into: null })).toBe('already-alone');
-    expect(h.state.round!.groups.map((g) => g.members)).toEqual([['p1', 'p3', 'p2'], ['p4']]);
-    h.act(HOST, { type: 'reset-groups' });
-    expect(h.state.round!.groups.map((g) => g.members)).toEqual([['p1', 'p3'], ['p2'], ['p4']]);
-    expect(h.state.round!.merges.map((m) => m.kind)).toEqual(['merge', 'move', 'split', 'reset']);
-    expect(h.state.round!.merges[0]!.labels).toEqual(['Coca-Cola', 'Coke']);
-    expect(pepsi!.members).toEqual(['p4']);
-    h.act(HOST, { type: 'merge', from: cola!.id, into: coke!.id });
-    h.act(HOST, { type: 'reveal' });
-    expect(herdOf(h)).toEqual(['p1', 'p3', 'p2']);
-    expect(h.state.pinkCow).toBe('p4');
-  });
-
-  it('suggests likely typos but never joins them by itself', () => {
-    const answers = {
-      p1: 'flower',
-      p2: 'flowers',
-      p3: 'flowr',
-      p4: 'flour',
-      p5: 'cat',
-      p6: 'cart',
-    };
-    const groups = autoGroups(['p1', 'p2', 'p3', 'p4', 'p5', 'p6'], answers);
-    // "flower" and "flowers" match by themselves; the typos and "flour" stay apart.
-    expect(groups.map((g) => g.members)).toEqual([['p1', 'p2'], ['p3'], ['p4'], ['p5'], ['p6']]);
-    const suggestions = typoSuggestions(groups, answers);
-    expect(suggestions).toContainEqual({ from: 'g2', into: 'g1' });
-    // "flour" is one letter from "flowr" (offered), two from "flower" (not).
-    expect(suggestions).toEqual([
-      { from: 'g2', into: 'g1' },
-      { from: 'g3', into: 'g2' },
+describe('automatic grouping', () => {
+  it('groups typos and spellings by itself, with no host step, and shows each spelling', () => {
+    const h = started(5);
+    answerAll(h, ['Coca-Cola', 'coca cola', 'Cocacola', 'Pizzaa', 'pizza']);
+    const r = h.state.round!;
+    expect(r.stage).toBe('reveal');
+    expect(r.groups.map((g) => g.members)).toEqual([
+      ['p1', 'p2', 'p3'],
+      ['p4', 'p5'],
     ]);
-    // Short words are never offered ("cat"/"cart").
-    expect(suggestions.some((s) => s.from === 'g5' || s.into === 'g5')).toBe(false);
-    expect(editDistance('teh', 'the')).toBe(1);
+    const view = stampede.view(h.state, 'p2').round!;
+    expect(view.groups![0]).toMatchObject({ label: 'Coca-Cola', answers: { p3: 'Cocacola' } });
+    // No host decides anything: a refused old-style reveal changes nothing.
+    expect(h.refuse(HOST, { type: 'reveal' })).toBe('wrong-stage');
   });
 
-  it('shows the groups only to the checking host, and lets a new host take over', () => {
+  it('reveals a round saved mid-check by the older version at the next action', () => {
     const h = started(3);
-    answerAll(h, ['a', 'a', 'b']);
-    expect(stampede.view(h.state, HOST).round!.groups).not.toBeNull();
+    answerAll(h, ['a', 'a']);
+    // What an older version saved: the writing over, the host still checking.
+    const old = structuredClone(h.state);
+    old.round = {
+      ...old.round!,
+      stage: 'merge',
+      answers: { p1: 'a', p2: 'a', p3: 'b' },
+      groups: [
+        { id: 'g1', members: ['p1', 'p2'] },
+        { id: 'g2', members: ['p3'] },
+      ],
+    };
+    h.state = old;
     expect(stampede.view(h.state, 'p2').round!.groups).toBeNull();
-    // The room hands the host role to p2.
-    h.host = 'p2';
-    expect(h.refuse(HOST, { type: 'reveal' })).toBe('not-host');
-    h.act('p2', { type: 'check' });
-    expect(stampede.view(h.state, 'p2').round!.groups).not.toBeNull();
-    expect(stampede.view(h.state, HOST).round!.groups).toBeNull();
-    h.act('p2', { type: 'reveal' });
+    h.act(HOST, { type: 'reveal' });
     expect(h.state.round!.stage).toBe('reveal');
+    expect(h.state.round!.result).toMatchObject({ scorers: ['p1', 'p2'] });
+    expect(h.state.pinkCow).toBe('p3');
   });
 });
 
@@ -363,14 +336,13 @@ describe('skip, moo and leavers', () => {
     expect(h.state.pinkCow).toBeNull();
     expect(h.state.round!.players).not.toContain('p5');
     h.act('p4', { type: 'answer', text: 'd' });
-    expect(h.state.round!.stage).toBe('merge');
-    // Leaving during the check takes the answer out of its group.
-    h.state = stampede.playerLeft(h.state, 'p4', h.now);
-    expect(h.state.round!.groups.flatMap((g) => g.members)).toEqual(['p1', 'p2', 'p3']);
+    expect(h.state.round!.stage).toBe('reveal');
+    expect(h.state.round!.groups.flatMap((g) => g.members)).toEqual(['p1', 'p2', 'p3', 'p4']);
     expect(h.state.scores.p5).toBeDefined();
     expect(stampede.view(h.state, 'p1').scores.find((s) => s.id === 'p5')!.left).toBe(true);
+    h.state = stampede.playerLeft(h.state, 'p4', h.now);
     h.state = stampede.playerLeft(h.state, 'p3', h.now);
-    expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few', round: null });
+    expect(h.state).toMatchObject({ phase: 'over', endReason: 'too-few' });
   });
 
   it('reuses the questions it had longest ago once the decks run out', () => {

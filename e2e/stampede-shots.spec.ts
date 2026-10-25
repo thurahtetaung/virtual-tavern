@@ -1,7 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
-import { answer, answerAll, importDeck, nextQuestion, reveal, table } from './stampede-play.ts';
+import { answer, answerAll, importDeck, nextQuestion, revealed, table } from './stampede-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/stampede-shots.spec.ts
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -49,12 +49,8 @@ for (const [label, viewport, colorScheme] of [
       await answer(ana, 'pancake');
       await answer(cy, 'Toast');
 
-      // The host's check, with a typo suggested.
-      await expect(hana.getByTestId('merge-board')).toBeVisible();
-      await shot(hana, 'host-merge');
-      await shot(ana, 'waiting-for-check');
-      await hana.getByTestId('merge-suggestion').click();
-      await reveal(hana, pages);
+      // The last answer reveals the round, the typo grouped with the herd.
+      await revealed(pages);
       await shot(ana, 'reveal');
       await shot(cy, 'reveal-pink');
       await shot(hana, 'reveal-host');
@@ -68,11 +64,10 @@ for (const [label, viewport, colorScheme] of [
       for (let i = 0; i < 3; i++) {
         await nextQuestion(hana, pages);
         await answerAll(pages, ['tea', 'tea', `b${i}`, `c${i}`]);
-        await reveal(hana, pages);
+        await revealed(pages);
       }
       await nextQuestion(hana, pages);
       await answerAll(pages, ['tea', 'milk', 'tea', 'juice']);
-      await hana.getByTestId('reveal').click();
       await expect(ana.getByText('🏆 Hana wins!')).toBeVisible();
       await shot(ana, 'standings');
       await shot(hana, 'standings-host');

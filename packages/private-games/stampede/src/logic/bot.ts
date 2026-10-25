@@ -50,15 +50,11 @@ export function stampedeBot(view: StampedeView, ctx: BotCtx): StampedeAction | n
   }
 }
 
-/**
- * The host's buttons for bot tests: start, reveal the groups as the game made them (answers that
- * match exactly, under `wordKey`, are already together) and go on to the next question.
- */
+/** The host's buttons for bot tests: start, and go on to the next question. */
 export function hostMove(view: StampedeView): StampedeAction | null {
   if (view.phase === 'lobby') return { type: 'start' };
   const r = view.round;
   if (view.phase !== 'playing' || !r) return null;
-  if (r.stage === 'merge') return r.groups ? { type: 'reveal' } : { type: 'check' };
   if (r.stage === 'reveal') return { type: 'next-round' };
   return null;
 }

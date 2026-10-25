@@ -14,7 +14,7 @@ import { stampedeAwards } from './awards.ts';
 import { stampedeBot } from './bot.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
-import { autoGroups, groupLabel, tidyAnswer, typoSuggestions } from './match.ts';
+import { autoGroups, groupLabel, tidyAnswer } from './match.ts';
 import {
   DEFAULT_TARGET,
   type Group,
@@ -22,13 +22,11 @@ import {
   type HistoryEntry,
   MAX_ANSWER_LENGTH,
   MAX_HISTORY,
-  MAX_MERGES,
   MAX_MOOS,
   MAX_PLAYERS,
   MAX_USED_QUESTIONS,
   MIN_PLAYERS,
   MOO_GAP_MS,
-  type MergeStep,
   PICK_MS,
   ROOM_CAPACITY,
   type Role,
@@ -170,34 +168,30 @@ function beginRound(
       late: [],
       deadline: deadlineIn(state.settings.answerSeconds, now),
       groups: [],
-      auto: [],
-      nextGroup: 1,
-      merges: [],
       result: null,
       pick: null,
     },
   };
 }
 
-/** Answers are in (or time is up): group them automatically for the host to check. */
-function endWriting(state: StampedeState, force = false): StampedeState {
+/** Answers are in (or time is up): they group themselves and the round is scored at once. */
+function endWriting(state: StampedeState, now: number, force = false): StampedeState {
   const round = state.round;
   if (state.phase !== 'playing' || round?.stage !== 'answer') return state;
   const missing = missingPlayers(round);
   if (!force && missing.length > 0) return state;
-  const groups = autoGroups(round.players, round.answers);
-  return withRound(state, {
-    stage: 'merge',
-    late: missing,
-    deadline: null,
-    groups,
-    auto: groups,
-    nextGroup: groups.length + 1,
-  });
+  return score(
+    withRound(state, {
+      late: missing,
+      deadline: null,
+      groups: autoGroups(round.players, round.answers),
+    }),
+    now,
+  );
 }
 
 /**
- * Scores the checked groups. The single biggest group (of at least 2) is the herd and each of
+ * Scores the groups. The single biggest group (of at least 2) is the herd and each of
  * its players gets a cow; a tie for the biggest scores nobody. A player alone with their answer
  * takes the Pink Cow when they are the only one; with several, the holder may pick (house rule).
  */
@@ -355,6 +349,7 @@ function sit(state: StampedeState, playing: boolean, ctx: Ctx): Result {
   return withdraw(
     { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing: false } } },
     ctx.by,
+    ctx.now,
   );
 }
 
@@ -416,6 +411,7 @@ function answer(state: StampedeState, text: string, ctx: Ctx): Result {
   if (problem) return problem;
   return endWriting(
     withRound(state, { answers: { ...round.answers, [ctx.by]: tidyAnswer(text) } }),
+    ctx.now,
   );
 }
 
@@ -475,110 +471,15 @@ function continueWithout(state: StampedeState, ctx: Ctx): Result {
   if (missingPlayers(round).length === 0) {
     return new GameError('nobody-missing', 'Everyone is in already.');
   }
-  return endWriting(state, true);
+  return endWriting(state, ctx.now, true);
 }
 
-function check(state: StampedeState, ctx: Ctx): Result {
-  const err = requireHost(ctx);
-  if (err) return err;
-  const round = requireStage(state, 'merge');
-  if (round instanceof GameError) return round;
-  return { ...state, checker: ctx.by };
-}
-
-/** A checking step, applied by the host while the groups are being checked. */
-function regroup(
-  state: StampedeState,
-  ctx: Ctx,
-  change: (round: Round) => { groups: Group[]; step: MergeStep; nextGroup?: number } | GameError,
-): Result {
-  const err = requireHost(ctx);
-  if (err) return err;
-  const round = requireStage(state, 'merge');
-  if (round instanceof GameError) return round;
-  const done = change(round);
-  if (done instanceof GameError) return done;
-  return {
-    ...state,
-    checker: ctx.by,
-    round: {
-      ...round,
-      groups: done.groups.filter((g) => g.members.length > 0),
-      nextGroup: done.nextGroup ?? round.nextGroup,
-      merges: [...round.merges, done.step].slice(-MAX_MERGES),
-    },
-  };
-}
-
-function merge(state: StampedeState, fromId: string, intoId: string, ctx: Ctx): Result {
-  return regroup(state, ctx, (round) => {
-    const from = round.groups.find((g) => g.id === fromId);
-    const into = round.groups.find((g) => g.id === intoId);
-    if (!from || !into) return new GameError('no-group', 'Those answers have moved. Try again.');
-    if (from === into) return new GameError('same-group', 'Pick two different answers.');
-    return {
-      groups: round.groups.flatMap((g) =>
-        g === from ? [] : g === into ? [{ ...g, members: [...g.members, ...from.members] }] : [g],
-      ),
-      step: {
-        kind: 'merge',
-        labels: [groupLabel(from, round.answers), groupLabel(into, round.answers)],
-      },
-    };
-  });
-}
-
-function move(state: StampedeState, player: PlayerId, intoId: string | null, ctx: Ctx): Result {
-  return regroup(state, ctx, (round) => {
-    const from = round.groups.find((g) => g.members.includes(player));
-    if (!from) return new GameError('no-answer', 'That player has no answer this round.');
-    const label = round.answers[player] ?? '';
-    if (intoId === null) {
-      if (from.members.length === 1) {
-        return new GameError('already-alone', 'That answer is on its own already.');
-      }
-      const id = `g${round.nextGroup}`;
-      return {
-        groups: [
-          ...round.groups.map((g) =>
-            g === from ? { ...g, members: g.members.filter((m) => m !== player) } : g,
-          ),
-          { id, members: [player] },
-        ],
-        nextGroup: round.nextGroup + 1,
-        step: { kind: 'split', labels: [label, groupLabel(from, round.answers)] },
-      };
-    }
-    const into = round.groups.find((g) => g.id === intoId);
-    if (!into) return new GameError('no-group', 'Those answers have moved. Try again.');
-    if (into === from) return new GameError('same-group', 'That answer is in that group already.');
-    return {
-      groups: round.groups.map((g) =>
-        g === from
-          ? { ...g, members: g.members.filter((m) => m !== player) }
-          : g === into
-            ? { ...g, members: [...g.members, player] }
-            : g,
-      ),
-      step: { kind: 'move', labels: [label, groupLabel(into, round.answers)] },
-    };
-  });
-}
-
-function resetGroups(state: StampedeState, ctx: Ctx): Result {
-  return regroup(state, ctx, (round) => ({
-    groups: round.auto.map((g) => ({ ...g, members: [...g.members] })),
-    nextGroup: Math.max(round.nextGroup, round.auto.length + 1),
-    step: { kind: 'reset', labels: [] },
-  }));
-}
-
-function reveal(state: StampedeState, ctx: Ctx): Result {
-  const err = requireHost(ctx);
-  if (err) return err;
-  const round = requireStage(state, 'merge');
-  if (round instanceof GameError) return round;
-  return score({ ...state, checker: ctx.by }, ctx.now);
+/**
+ * Rounds saved mid-check by the version that had a host check: scored as they stand (the groups
+ * were already made). Every action first passes through here.
+ */
+function upgraded(state: StampedeState, now: number): StampedeState {
+  return state.phase === 'playing' && state.round?.stage === 'merge' ? score(state, now) : state;
 }
 
 function pick(state: StampedeState, player: PlayerId, ctx: Ctx): Result {
@@ -622,17 +523,8 @@ function refreshDecks(state: StampedeState, ctx: Ctx): StampedeState {
   return { ...state, decks, settings };
 }
 
-/**
- * Who checks the groups: the room's host as last seen acting. A player who was the checker and
- * acts as a non-host has lost the role, so the new host is asked to take over.
- */
-function noteHost(state: StampedeState, ctx: Ctx): StampedeState {
-  if (ctx.isHost) return state.checker === ctx.by ? state : { ...state, checker: ctx.by };
-  return state.checker === ctx.by ? { ...state, checker: null } : state;
-}
-
 function reduce(state: StampedeState, action: StampedeAction, ctx: Ctx): Result {
-  const current = noteHost(refreshDecks(state, ctx), ctx);
+  const current = upgraded(refreshDecks(state, ctx), ctx.now);
   switch (action.type) {
     case 'update-settings':
       return updateSettings(current, action, ctx);
@@ -650,16 +542,11 @@ function reduce(state: StampedeState, action: StampedeAction, ctx: Ctx): Result 
       return skip(current, ctx);
     case 'continue-without':
       return continueWithout(current, ctx);
-    case 'check':
-      return check(current, ctx);
-    case 'merge':
-      return merge(current, action.from, action.into, ctx);
-    case 'move':
-      return move(current, action.player, action.into, ctx);
-    case 'reset-groups':
-      return resetGroups(current, ctx);
     case 'reveal':
-      return reveal(current, ctx);
+      // Only an old round mid-check has anything to reveal (done by `upgraded` above).
+      return current.round?.stage === state.round?.stage
+        ? new GameError('wrong-stage', "That's not possible now.")
+        : current;
     case 'pick':
       return pick(current, action.player, ctx);
     case 'next-round':
@@ -692,7 +579,6 @@ function create(ctx: CreateCtx, players: readonly PlayerInfo[]): StampedeState {
     round: null,
     history: [],
     moos: [],
-    checker: null,
     usedQuestionIds: [],
     seed: ctx.rng.int(SEED_RANGE),
     gamesPlayed: 0,
@@ -722,7 +608,7 @@ function playerJoined(state: StampedeState, player: PlayerInfo): StampedeState {
  * them until the reveal (so it can never hand anyone the Pink Cow), and they drop out of the
  * holder's pick. Ends the game below the minimum.
  */
-function withdraw(state: StampedeState, id: PlayerId): StampedeState {
+function withdraw(state: StampedeState, id: PlayerId, now: number): StampedeState {
   const round = state.round;
   if (state.phase !== 'playing' || !round) return state;
   if (playingIds(state).length < MIN_PLAYERS) return endGame(state, 'too-few');
@@ -733,23 +619,25 @@ function withdraw(state: StampedeState, id: PlayerId): StampedeState {
       delete answers[id];
       return endWriting(
         withRound(state, { players: round.players.filter((p) => p !== id), answers }),
+        now,
       );
     }
     case 'merge': {
-      if (!round.players.includes(id)) return state;
+      // A round saved mid-check by an older version: the leaver's answer goes, then it's scored.
+      if (!round.players.includes(id)) return score(state, now);
       const answers = { ...round.answers };
       delete answers[id];
-      const drop = (groups: Group[]) =>
-        groups
-          .map((g) => ({ ...g, members: g.members.filter((m) => m !== id) }))
-          .filter((g) => g.members.length > 0);
-      return withRound(state, {
-        players: round.players.filter((p) => p !== id),
-        answers,
-        late: round.late.filter((p) => p !== id),
-        groups: drop(round.groups),
-        auto: drop(round.auto),
-      });
+      return score(
+        withRound(state, {
+          players: round.players.filter((p) => p !== id),
+          answers,
+          late: round.late.filter((p) => p !== id),
+          groups: round.groups
+            .map((g) => ({ ...g, members: g.members.filter((m) => m !== id) }))
+            .filter((g) => g.members.length > 0),
+        }),
+        now,
+      );
     }
     case 'pick': {
       // The holder left: the cow is back in the middle.
@@ -765,7 +653,7 @@ function withdraw(state: StampedeState, id: PlayerId): StampedeState {
 }
 
 /** A leaver keeps their cows on the board but can't win; the Pink Cow goes back to the middle. */
-function playerLeft(state: StampedeState, playerId: PlayerId): StampedeState {
+function playerLeft(state: StampedeState, playerId: PlayerId, now: number): StampedeState {
   if (!state.seats[playerId]) return state;
   const seats = { ...state.seats };
   delete seats[playerId];
@@ -774,9 +662,9 @@ function playerLeft(state: StampedeState, playerId: PlayerId): StampedeState {
       ...state,
       seats,
       pinkCow: state.pinkCow === playerId ? null : state.pinkCow,
-      checker: state.checker === playerId ? null : state.checker,
     },
     playerId,
+    now,
   );
 }
 
@@ -794,7 +682,7 @@ function onDeadline(state: StampedeState, now: number): StampedeState {
   const due = nextDeadline(state);
   const round = state.round;
   if (due === null || now < due || !round) return state;
-  if (round.stage === 'answer') return endWriting(state, true);
+  if (round.stage === 'answer') return endWriting(state, now, true);
   if (round.stage === 'pick' && round.pick) {
     const rng = createRng(state.seed);
     const to = round.pick.options[rng.int(round.pick.options.length)]!;
@@ -822,9 +710,7 @@ function groupView(group: Group, answers: Record<PlayerId, string>): GroupView {
 }
 
 function roundView(state: StampedeState, round: Round, viewer: PlayerId | null): RoundView {
-  const checking = round.stage === 'merge' && viewer !== null && viewer === state.checker;
-  const open = round.stage === 'pick' || round.stage === 'reveal';
-  const shown = checking || open;
+  const shown = round.stage === 'pick' || round.stage === 'reveal';
   return {
     number: round.number,
     stage: round.stage,
@@ -839,9 +725,6 @@ function roundView(state: StampedeState, round: Round, viewer: PlayerId | null):
     late: round.stage === 'answer' ? [] : round.late,
     deadline: round.stage === 'answer' ? round.deadline : null,
     groups: shown ? round.groups.map((g) => groupView(g, round.answers)) : null,
-    suggestions: checking ? typoSuggestions(round.groups, round.answers) : [],
-    merges: shown ? round.merges : null,
-    checker: state.checker,
     result: round.result,
     pick: round.pick,
   };
