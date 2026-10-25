@@ -248,7 +248,11 @@ function PlayerPanel({
           className="min-w-0 truncate font-semibold"
         />
         <span className="flex items-center gap-2 text-sm">
-          {p.left && <span className="text-xs text-ink-muted dark:text-stone-400">away</span>}
+          {p.left && (
+            <span className="text-xs text-ink-muted dark:text-stone-400">
+              {p.removed ? 'removed' : 'away'}
+            </span>
+          )}
           <span className="font-black tabular-nums" aria-label={`${p.points} points`}>
             {p.points}★
           </span>
@@ -632,6 +636,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const { staged, tap, clear } = useStaging(view, acting);
   const [sheet, setSheet] = useState<Sheet>(null);
   const others = g.players.filter((p) => p.id !== room.you);
+  // Left the room and still in the game: the host may remove them.
+  const away = g.players.filter((p) => p.left && !p.removed && p.id !== room.you);
   const marketIds = useMemo(
     () => LEVELS.flatMap((l) => g.market[l]).filter((c): c is string => c !== null),
     [g.market],
@@ -818,7 +824,10 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           ))}
         </section>
 
-        <Bank view={view} art={art} staged={staged} onTap={tap} active={acting} />
+        {/* On your turn the piles sit in the action bar, so the bar never hides them. */}
+        {!(acting && !noMove) && (
+          <Bank view={view} art={art} staged={staged} onTap={tap} active={false} />
+        )}
 
         <div className="lg:hidden">{mePanel}</div>
 
@@ -851,32 +860,67 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
                 No move is possible: pass
               </Button>
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="flex min-w-0 flex-1 items-center gap-1">
-                  {staged.length > 0
-                    ? staged.map((s, i) => <TokenChip key={i} token={s} art={art} size={26} />)
-                    : null}
-                  <span className="text-xs text-ink-muted dark:text-stone-400">
-                    {takeHint(view, staged)}
-                    {!problem && after > 0 && ` You’ll hand back ${after} after.`}
+              <>
+                <Bank view={view} art={art} staged={staged} onTap={tap} active />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex min-w-0 flex-1 items-center gap-1">
+                    {staged.length > 0
+                      ? staged.map((s, i) => <TokenChip key={i} token={s} art={art} size={26} />)
+                      : null}
+                    <span className="text-xs text-ink-muted dark:text-stone-400">
+                      {takeHint(view, staged)}
+                      {!problem && after > 0 && ` You’ll hand back ${after} after.`}
+                    </span>
                   </span>
-                </span>
-                {staged.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={clear}>
-                    Clear
+                  {staged.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={clear}>
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    disabled={!!problem}
+                    onClick={() => void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })}
+                    data-testid="jw-take"
+                  >
+                    Take {staged.length || ''}
                   </Button>
-                )}
-                <Button
-                  disabled={!!problem}
-                  onClick={() => void act({ type: 'take', gems: staged }, { anchor: 'jw-play' })}
-                  data-testid="jw-take"
-                >
-                  Take {staged.length || ''}
-                </Button>
-              </div>
+                </div>
+              </>
             )}
             <RefusalSlot anchor="jw-play" resetKey={view.log.at(-1)?.id ?? 0} />
           </div>
+        )}
+
+        {playing && away.length > 0 && (
+          <section
+            aria-label="Players who left"
+            className="flex flex-col gap-2 rounded-2xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-500/30"
+          >
+            <p>
+              {away.map((p) => p.name).join(', ')} left the room: the table plays their turns for
+              them.{' '}
+              {room.isHost
+                ? 'Wait for them to come back, or remove them: their pieces go back to the supply and their cards leave play.'
+                : 'The host can wait for them or remove them.'}
+            </p>
+            {room.isHost && (
+              <div className="flex flex-wrap justify-end gap-1.5">
+                {away.map((p) => (
+                  <Button
+                    key={p.id}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      void act({ type: 'remove', player: p.id }, { anchor: 'jw-away' })
+                    }
+                  >
+                    Remove {p.name}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <RefusalSlot anchor="jw-away" />
+          </section>
         )}
 
         {nudge && (

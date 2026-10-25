@@ -414,6 +414,132 @@ describe('passing', () => {
   });
 });
 
+describe('removing a player who left (owner’s ruling)', () => {
+  const leave = (h: ReturnType<typeof started>, id: string) => {
+    h.state = jeweller.playerLeft(h.state, id, h.now);
+  };
+
+  it('only the host, and only for a player who left', () => {
+    const h = started(3);
+    expect(h.refuse(HOST, { type: 'remove', player: 'p2' })).toBe('not-left');
+    leave(h, 'p2');
+    expect(h.refuse('p3', { type: 'remove', player: 'p2' })).toBe('not-host');
+    h.act(HOST, { type: 'remove', player: 'p2' });
+    expect(h.refuse(HOST, { type: 'remove', player: 'p2' })).toBe('already-removed');
+  });
+
+  it('pieces go back to the supply, cards and nobles leave play, and their turns are skipped', () => {
+    const h = started(3);
+    const card = game(h).decks[2][0]!;
+    setPlayer(h, 'p2', {
+      tokens: pieces({ red: 2, gold: 1 }),
+      cards: ['L1-01'],
+      reserved: [{ card, blind: true }],
+      nobles: ['N01'],
+    });
+    h.rig((s) => {
+      s.game!.bank.red -= 2;
+      s.game!.bank.gold -= 1;
+    });
+    leave(h, 'p2');
+    h.act(HOST, { type: 'remove', player: 'p2' });
+    expect(player(h, 'p2')).toEqual({ tokens: noPieces(), cards: [], reserved: [], nobles: [] });
+    expect(game(h).bank).toEqual(
+      pieces({ white: 5, blue: 5, green: 5, red: 5, black: 5, gold: 5 }),
+    );
+    expect(jeweller.view(h.state, 'p1').game!.players[1]).toMatchObject({
+      removed: true,
+      points: 0,
+    });
+    h.act('p1', { type: 'take', gems: ['white', 'blue', 'green'] });
+    expect(game(h).current).toBe('p3');
+    expect(h.state.log.find((e) => e.kind === 'removed')).toMatchObject({
+      player: 'p2',
+      tokens: pieces({ red: 2, gold: 1 }),
+    });
+  });
+
+  it('removed on their turn: the next player goes on', () => {
+    const h = started(3);
+    h.act('p1', { type: 'take', gems: ['white', 'blue', 'green'] });
+    leave(h, 'p2');
+    h.act(HOST, { type: 'remove', player: 'p2' });
+    expect(game(h).current).toBe('p3');
+    expect(game(h).stage).toBe('action');
+  });
+
+  it('in the final round, removing the last seat on their turn ends the game', () => {
+    const h = started(3);
+    setPlayer(h, 'p1', { cards: ['L3-04', 'L3-08', 'L3-12'] });
+    h.act('p1', { type: 'take', gems: ['white', 'blue', 'green'] });
+    expect(game(h).finalBy).toBe('p1');
+    h.act('p2', { type: 'take', gems: ['white', 'blue', 'green'] });
+    leave(h, 'p3');
+    h.act(HOST, { type: 'remove', player: 'p3' });
+    expect(h.state.phase).toBe('over');
+    expect(game(h).winners).toEqual(['p1']);
+  });
+
+  it('with the last seat removed earlier, the round ends with the seat before it', () => {
+    const h = started(3);
+    leave(h, 'p3');
+    h.act(HOST, { type: 'remove', player: 'p3' });
+    setPlayer(h, 'p1', { cards: ['L3-04', 'L3-08', 'L3-12'] });
+    h.act('p1', { type: 'take', gems: ['white', 'blue', 'green'] });
+    h.act('p2', { type: 'take', gems: ['white', 'blue', 'green'] });
+    expect(h.state.phase).toBe('over');
+  });
+
+  it('one player left: the game ends and they win', () => {
+    const h = started(2);
+    setPlayer(h, 'p2', { cards: ['L3-04', 'L3-08'] });
+    leave(h, 'p2');
+    h.act(HOST, { type: 'remove', player: 'p2' });
+    expect(h.state.phase).toBe('over');
+    expect(game(h).winners).toEqual(['p1']);
+    expect(h.state.log.at(-1)).toMatchObject({ kind: 'end', how: 'alone' });
+  });
+});
+
+describe('a round where nobody can act (owner’s ruling)', () => {
+  it('ends the game as it stands, with the usual tiebreak', () => {
+    const h = started(3);
+    h.rig((s) => {
+      const g = s.game!;
+      g.bank = noPieces();
+      for (const [i, id] of ['p1', 'p2', 'p3'].entries())
+        g.players[id]!.reserved = g.decks[3]
+          .slice(i * 3, i * 3 + 3)
+          .map((card) => ({ card, blind: true }));
+    });
+    setPlayer(h, 'p2', { cards: ['L1-08'] });
+    h.act('p1', { type: 'pass' });
+    h.act('p2', { type: 'pass' });
+    expect(h.state.phase).toBe('playing');
+    h.act('p3', { type: 'pass' });
+    expect(h.state.phase).toBe('over');
+    expect(game(h).winners).toEqual(['p2']);
+    expect(h.state.log.at(-1)).toMatchObject({ kind: 'end', how: 'stalled' });
+  });
+
+  it('any other move in between starts the count again', () => {
+    const h = started(2);
+    h.rig((s) => {
+      s.game!.bank = pieces({ white: 1 });
+      s.game!.players.p1!.reserved = s
+        .game!.decks[3].slice(0, 3)
+        .map((card) => ({ card, blind: true }));
+      s.game!.players.p2!.reserved = s
+        .game!.decks[3].slice(3, 6)
+        .map((card) => ({ card, blind: true }));
+    });
+    h.act('p1', { type: 'take', gems: ['white'] });
+    h.act('p2', { type: 'pass' });
+    h.act('p1', { type: 'pass' });
+    expect(h.state.phase).toBe('over');
+  });
+});
+
 describe('timers and leavers', () => {
   it('soft: a reminder, then the host may act for the player', () => {
     const h = started(2, { settings: { seconds: 30 } });

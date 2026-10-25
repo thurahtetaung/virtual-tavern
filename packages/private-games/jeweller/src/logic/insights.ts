@@ -1,7 +1,7 @@
 import type { InsightEvent, PlayerId } from '@vt/game-sdk';
 import { cardOf } from './cards.ts';
 import { pointsOf, totalOf } from './rules.ts';
-import type { JewellerAction, JewellerState } from './types.ts';
+import type { JewellerAction, JewellerState, LogEntry } from './types.ts';
 
 /**
  * Stats only, read from the log entries this change added. A blind reserve never names its card
@@ -77,13 +77,15 @@ export function insights(
   }
   if (before.phase !== 'over' && after.phase === 'over') {
     const score = (id: PlayerId) => pointsOf(g.players[id]!.cards, g.players[id]!.nobles);
-    const ranking = [...g.order].sort(
+    // Removed players are out of the game: they don't rank.
+    const inGame = g.order.filter((id) => !g.removed?.includes(id));
+    const ranking = [...inGame].sort(
       (a, b) =>
         Number(g.winners.includes(b)) - Number(g.winners.includes(a)) ||
         score(b) - score(a) ||
         g.players[a]!.cards.length - g.players[b]!.cards.length,
     );
-    const top = Math.max(...g.order.map(score));
+    const top = Math.max(...inGame.map(score));
     events.push({
       type: 'outcome',
       winners: [...g.winners],
@@ -92,7 +94,12 @@ export function insights(
         rounds: Math.ceil(g.turns / g.order.length),
         target: after.settings.target,
         // The tie on points was broken by fewest cards.
-        tiebreak: g.order.filter((id) => score(id) === top).length > g.winners.length,
+        tiebreak: inGame.filter((id) => score(id) === top).length > g.winners.length,
+        how:
+          [...after.log]
+            .reverse()
+            .find((e): e is Extract<LogEntry, { kind: 'end' }> => e.kind === 'end')?.how ??
+          'target',
         shared: g.winners.length > 1,
         ranking,
         scores: ranking.map(score),

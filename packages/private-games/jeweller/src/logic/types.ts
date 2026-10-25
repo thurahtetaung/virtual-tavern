@@ -108,6 +108,13 @@ export interface Game {
   finalBy: PlayerId | null;
   /** Players who left the room mid-game, with when: the table plays their turns. */
   left: Record<PlayerId, number>;
+  /**
+   * Players the host removed after they left: out of the turn order and the scoring, their
+   * pieces back in the supply and their cards out of play. (Missing in games saved before.)
+   */
+  removed?: PlayerId[];
+  /** Passes in a row: a full round of them ends the game as it stands. */
+  passes?: number;
   clock: Clock | null;
   winners: PlayerId[];
 }
@@ -137,7 +144,9 @@ export type LogEntry = { id: number; turn: number; auto?: Auto } & (
   | { kind: 'final'; by: PlayerId; points: number }
   | { kind: 'left'; player: PlayerId }
   | { kind: 'back'; player: PlayerId }
-  | { kind: 'end'; winners: PlayerId[] }
+  | { kind: 'removed'; player: PlayerId; tokens: Pieces }
+  /** `stalled`: a full round where nobody could act; `alone`: one player left. */
+  | { kind: 'end'; winners: PlayerId[]; how?: 'stalled' | 'alone' }
 );
 
 export interface JewellerState {
@@ -201,6 +210,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('noble'), noble: id }),
   z.object({ type: z.literal('pass') }),
   z.object({ type: z.literal('act-for'), player: id }),
+  /** The host takes a player who left out of the game. */
+  z.object({ type: z.literal('remove'), player: id }),
   z.object({ type: z.literal('play-again') }),
   z.object({ type: z.literal('back-to-lobby') }),
 ]);
@@ -235,6 +246,8 @@ export interface PlayerView {
   bonuses: Record<Gem, number>;
   /** Left the room: the table plays their turns. */
   left: boolean;
+  /** Removed by the host after leaving: out of the game. */
+  removed: boolean;
 }
 
 export interface ClockView {

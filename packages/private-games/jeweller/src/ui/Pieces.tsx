@@ -90,6 +90,13 @@ export const TokenChip = memo(function TokenChip({
   );
 });
 
+/**
+ * The illustration on a printed face: everything right of the cost column and below the band.
+ * The column's widest pips reach past 22 % on some faces, so the cut is at 28 % (y 20 %), about
+ * 288 × 448 of a 400 × 560 face.
+ */
+const ART_CROP = { x: 0.28, y: 0.2, w: 288, h: 448 };
+
 /** A small cost pip: the colour and how many. */
 function Pip({
   gem,
@@ -158,12 +165,34 @@ export const CardTile = memo(function CardTile({
   const label = `Level ${LEVEL_NAME[card.level]} ${TOKEN_NAME[card.bonus]} card, ${card.points} ${card.points === 1 ? 'point' : 'points'}, costs ${pips.map((g) => `${card.cost[g]} ${TOKEN_NAME[g]}`).join(', ')}${afford === 'yes' ? ': you can buy it' : afford === 'gold' ? ': you can buy it with gold' : ''}`;
   const body = (
     <>
-      {src ? (
+      {src && size === 'lg' ? (
         <ProtectedImage
           src={src}
           alt=""
-          className="pointer-events-none absolute inset-0 size-full object-cover object-[50%_60%]"
+          className="pointer-events-none absolute inset-0 size-full object-cover"
         />
+      ) : src ? (
+        // Small cards show only the illustration (the face without its printed band and cost
+        // column), so the printed cost never sits beside the drawn pips. The window has the
+        // illustration's shape, fills the card's width and is centred; the face inside it is
+        // scaled and shifted so x 22–100 % and y 20–100 % of it fill the window.
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-0 w-full -translate-y-1/2 overflow-hidden"
+          style={{ aspectRatio: `${ART_CROP.w} / ${ART_CROP.h}` }}
+        >
+          <ProtectedImage
+            src={src}
+            alt=""
+            className="absolute max-w-none"
+            style={{
+              width: `${100 / (1 - ART_CROP.x)}%`,
+              height: `${100 / (1 - ART_CROP.y)}%`,
+              left: `${(-100 * ART_CROP.x) / (1 - ART_CROP.x)}%`,
+              top: `${(-100 * ART_CROP.y) / (1 - ART_CROP.y)}%`,
+            }}
+          />
+        </span>
       ) : (
         size === 'lg' && (
           <span
@@ -174,38 +203,42 @@ export const CardTile = memo(function CardTile({
           </span>
         )
       )}
-      <span
-        className={cn(
-          'relative flex items-center justify-between px-1.5',
-          size === 'lg' ? 'h-12 text-3xl' : 'h-5 text-sm sm:h-7 sm:text-lg',
-          BAND[card.bonus],
-          BAND_TEXT[card.bonus],
-        )}
-      >
-        <span className="font-black tabular-nums drop-shadow-sm">{card.points || ''}</span>
-        <TokenChip
-          token={card.bonus}
-          art={art}
-          size={size === 'lg' ? 34 : 16}
-          className={card.bonus === 'white' ? 'ring-stone-500' : 'ring-white/80'}
-        />
-      </span>
-      <span
-        className={cn(
-          'relative mt-auto flex flex-wrap-reverse content-end gap-0.5 p-1',
-          size === 'lg' && 'gap-1.5 p-2',
-        )}
-      >
-        {pips.map((g) => (
-          <Pip
-            key={g}
-            gem={g}
-            n={after[g]}
-            covered={!!hints && after[g] === 0}
-            short={!!hints && after[g] > hints.tokens[g]}
-          />
-        ))}
-      </span>
+      {!(src && size === 'lg') && (
+        <>
+          <span
+            className={cn(
+              'relative flex items-center justify-between px-1.5',
+              size === 'lg' ? 'h-12 text-3xl' : 'h-5 text-sm sm:h-7 sm:text-lg',
+              BAND[card.bonus],
+              BAND_TEXT[card.bonus],
+            )}
+          >
+            <span className="font-black tabular-nums drop-shadow-sm">{card.points || ''}</span>
+            <TokenChip
+              token={card.bonus}
+              art={art}
+              size={size === 'lg' ? 34 : 16}
+              className={card.bonus === 'white' ? 'ring-stone-500' : 'ring-white/80'}
+            />
+          </span>
+          <span
+            className={cn(
+              'relative mt-auto flex flex-wrap-reverse content-end gap-0.5 p-1',
+              size === 'lg' && 'gap-1.5 p-2',
+            )}
+          >
+            {pips.map((g) => (
+              <Pip
+                key={g}
+                gem={g}
+                n={after[g]}
+                covered={!!hints && after[g] === 0}
+                short={!!hints && after[g] > hints.tokens[g]}
+              />
+            ))}
+          </span>
+        </>
+      )}
     </>
   );
   const box = cn(

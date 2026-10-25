@@ -107,9 +107,13 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
       return line(`${name(e.player)} left: the table plays their turns.`);
     case 'back':
       return line(`${name(e.player)} is back.`);
+    case 'removed':
+      return line(
+        `${name(e.player)} was removed: their pieces went back to the supply and their cards left play.`,
+      );
     case 'end':
       return line(
-        `${e.winners.map(name).join(' and ')} ${e.winners.length > 1 ? 'share the win' : 'wins'}.`,
+        `${e.how === 'stalled' ? 'Nobody could move for a whole round, so the game ends. ' : e.how === 'alone' ? 'Only one player is left, so the game ends. ' : ''}${e.winners.map(name).join(' and ')} ${e.winners.length > 1 ? 'share the win' : 'wins'}.`,
       );
   }
 }

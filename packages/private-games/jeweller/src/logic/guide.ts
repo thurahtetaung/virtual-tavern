@@ -209,6 +209,7 @@ function base(art: GuideArt): GameGuide {
         level: 'edge',
         bullets: [
           'You can only pass when there is nothing at all you may do: no gems to take, 3 cards reserved, and nothing you can afford. The app offers Pass only then.',
+          'If a whole round goes by with everyone passing, nobody can move any more: the game ends there and scores as it stands (a tie still goes to fewest bought cards).',
         ],
       },
       {
@@ -217,7 +218,8 @@ function base(art: GuideArt): GameGuide {
         bullets: [
           'The host can set a time for each turn. By default it is a reminder, and the host may tap Act for to play a turn for someone.',
           'In Strict mode, a player out of time takes gems (the fullest piles); if they can’t, they reserve, then buy the cheapest card they can, then pass. Pieces over 10 go back from what they hold most of, gold last, and the first noble that qualifies visits. The log marks those moves with ⏱.',
-          'Someone who leaves mid-game keeps their seat, and the table plays their turns the same way after a short pause. If they come back, they carry on.',
+          'Someone who leaves mid-game keeps their seat, and the table plays their turns the same way after a short pause (3 seconds). If they come back, they carry on.',
+          'The host can remove a player who left: their pieces (gold too) go back to the supply, their bought and reserved cards and their nobles leave play, and they no longer take turns or score. If it was their turn, the next player goes on; if only one player is left, the game ends and they win.',
           'Players joining during a game watch, and are seated at the next one if there is room.',
         ],
       },

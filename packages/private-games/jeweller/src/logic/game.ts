@@ -121,8 +121,18 @@ export function hasAction(g: Game, id: PlayerId): boolean {
   );
 }
 
-const nextPlayer = (g: Game, from: PlayerId) =>
-  g.order[(g.order.indexOf(from) + 1) % g.order.length]!;
+/** Players still in the game (not removed), in turn order. */
+export const active = (g: Game) => g.order.filter((id) => !g.removed?.includes(id));
+
+/** The next player still in the game after `from`. */
+function nextPlayer(g: Game, from: PlayerId): PlayerId {
+  const at = g.order.indexOf(from);
+  for (let i = 1; i <= g.order.length; i++) {
+    const id = g.order[(at + i) % g.order.length]!;
+    if (!g.removed?.includes(id)) return id;
+  }
+  return from;
+}
 
 // ---- Log ----
 
@@ -159,9 +169,9 @@ function refill(g: Game, level: Level, space: number) {
   g.market[level][space] = g.decks[level].shift() ?? null;
 }
 
-function endGame(s: JewellerState) {
+function endGame(s: JewellerState, how?: 'stalled' | 'alone') {
   const g = s.game!;
-  const scored = g.order.map((id) => ({
+  const scored = active(g).map((id) => ({
     id,
     points: pointsFor(g.players[id]!),
     cards: g.players[id]!.cards.length,
@@ -174,7 +184,7 @@ function endGame(s: JewellerState) {
   s.phase = 'over';
   g.clock = null;
   g.nobleChoice = [];
-  log(s, { kind: 'end', winners: [...g.winners] });
+  log(s, { kind: 'end', winners: [...g.winners], ...(how && { how }) });
 }
 
 /** The end of a turn: the target check, then the next player or, after the round, the end. */
@@ -187,8 +197,13 @@ function endTurn(s: JewellerState, by: PlayerId) {
   }
   g.turns += 1;
   g.nobleChoice = [];
-  if (g.finalBy && by === g.order.at(-1)) {
+  if (g.finalBy && by === active(g).at(-1)) {
     endGame(s);
+    return;
+  }
+  // A full round in which nobody could act: the game ends as it stands.
+  if ((g.passes ?? 0) >= active(g).length) {
+    endGame(s, 'stalled');
     return;
   }
   g.current = nextPlayer(g, by);
@@ -218,6 +233,7 @@ function nobleCheck(s: JewellerState, by: PlayerId, auto?: Auto) {
 /** After an action: hand back pieces over 10, then the noble check. */
 function afterAction(s: JewellerState, by: PlayerId, auto?: Auto) {
   const g = s.game!;
+  g.passes = 0;
   if (totalOf(g.players[by]!.tokens) > TOKEN_LIMIT) {
     g.stage = 'return';
     return;
@@ -368,8 +384,48 @@ function pass(s: JewellerState, by: PlayerId, auto?: Auto): GameError | null {
   if (e) return e;
   if (hasAction(g, by))
     return err('can-act', 'You can still take gems, reserve or buy: passing is only for no move.');
+  g.passes = (g.passes ?? 0) + 1;
   log(s, { kind: 'pass', by, ...autoOf(auto) });
   nobleCheck(s, by, auto);
+  return null;
+}
+
+/**
+ * The host takes a player who left out of the game: their pieces go back to the supply, their
+ * bought and reserved cards and their nobles leave play, and they no longer take turns or score.
+ * If it was their turn, the next player goes on; with one player left, the game ends.
+ */
+function remove(s: JewellerState, player: PlayerId): GameError | null {
+  const g = s.game!;
+  const p = g.players[player];
+  if (!p || g.left[player] === undefined)
+    return err('not-left', 'Only a player who has left can be removed.');
+  if (g.removed?.includes(player)) return err('already-removed', 'They are already out.');
+  const tokens = { ...p.tokens };
+  for (const t of TOKENS) g.bank[t] += p.tokens[t];
+  p.tokens = noPieces();
+  p.cards = [];
+  p.reserved = [];
+  p.nobles = [];
+  g.removed = [...(g.removed ?? []), player];
+  log(s, { kind: 'removed', player, tokens });
+  const left = active(g);
+  if (left.length <= 1) {
+    endGame(s, 'alone');
+    return null;
+  }
+  if (g.current === player) {
+    // Their turn ends where it stands; a final round still ends with the last seat in play.
+    g.nobleChoice = [];
+    const last = g.order.indexOf(player) > g.order.indexOf(left.at(-1)!);
+    if (g.finalBy && last) {
+      endGame(s);
+      return null;
+    }
+    g.turns += 1;
+    g.current = nextPlayer(g, player);
+    g.stage = 'action';
+  }
   return null;
 }
 
@@ -624,6 +680,11 @@ function reduce(state: JewellerState, action: JewellerAction, ctx: Ctx): Result 
       return inPlay(state, ctx, (s) => chooseNoble(s, by, action.noble));
     case 'pass':
       return inPlay(state, ctx, (s) => pass(s, by));
+    case 'remove': {
+      const e = requireHost(ctx);
+      if (e) return e;
+      return inPlay(state, ctx, (s) => remove(s, action.player));
+    }
     case 'act-for': {
       const e = requireHost(ctx);
       if (e) return e;
@@ -755,6 +816,7 @@ function gameView(state: JewellerState, g: Game, viewer: PlayerId | null): GameV
         points: pointsFor(p),
         bonuses: bonusesFor(p),
         left: g.left[id] !== undefined || !state.seats[id],
+        removed: !!g.removed?.includes(id),
       };
     }),
     decks: deckCounts(g),

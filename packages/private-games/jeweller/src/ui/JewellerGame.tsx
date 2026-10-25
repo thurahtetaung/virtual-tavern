@@ -333,7 +333,9 @@ function End({
           id: p.id,
           name: p.name,
           score: score(p.id),
-          note: `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'} · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
+          note: p.removed
+            ? 'removed after leaving'
+            : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'} · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
         }))}
         you={room.you}
         scoreLabel={(n) => `${Math.ceil(n / 100)} points`}

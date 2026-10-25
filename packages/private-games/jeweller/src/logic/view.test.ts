@@ -175,7 +175,9 @@ describe('view()', () => {
           state = jeweller.playerLeft(state, g.order[1 + rng.int(g.order.length - 1)]!, now);
         } else if (roll < 0.01 && Object.keys(g.left).length) {
           const id = Object.keys(g.left)[0]!;
-          state = jeweller.playerJoined(state, { id, name: id });
+          // Some come back; the host removes the others.
+          if (rng.next() < 0.5) state = jeweller.playerJoined(state, { id, name: id });
+          else act(HOST, { type: 'remove', player: id });
         } else if (roll < 0.03 && jeweller.nextDeadline!(state) !== null) {
           now = Math.max(now, jeweller.nextDeadline!(state)!);
           state = jeweller.onDeadline!(state, now);
