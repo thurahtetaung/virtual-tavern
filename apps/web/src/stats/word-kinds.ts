@@ -42,6 +42,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   jeweller: [],
   // Drawings and bids, not words: no Words card.
   'going-once': [],
+  // Fake titles, reported as guesses.
+  sketchy: ['guess'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -60,6 +62,7 @@ const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> =
   starlight: { clue: 'Words' },
   iconic: { clue: 'Words' },
   stampede: { guess: 'Answers' },
+  sketchy: { guess: 'Fake titles' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */

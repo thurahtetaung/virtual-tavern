@@ -27,6 +27,7 @@ import {
   guide as goingOnceGuide,
   nameGuide as nameGoingOnceGuide,
 } from '@vt/private-going-once/guide';
+import { guide as sketchyGuide, nameGuide as nameSketchyGuide } from '@vt/private-sketchy/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -234,6 +235,16 @@ const games: ClientGame[] = [
     icon: '🔨',
     Component: lazyUi(() =>
       import('@vt/private-going-once/ui').then((m) => ({ default: m.GoingOnceGame })),
+    ),
+  },
+  {
+    id: 'sketchy',
+    name: 'Sketchy',
+    guide: sketchyGuide,
+    namedGuide: manifestGuide('sketchy', nameSketchyGuide),
+    icon: '✏️',
+    Component: lazyUi(() =>
+      import('@vt/private-sketchy/ui').then((m) => ({ default: m.SketchyGame })),
     ),
   },
 ];

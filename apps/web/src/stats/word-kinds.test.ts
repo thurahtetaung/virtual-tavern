@@ -24,6 +24,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('stampede')).toEqual(['guess']);
     expect(knownWordKinds('jeweller')).toEqual([]);
     expect(knownWordKinds('going-once')).toEqual([]);
+    expect(knownWordKinds('sketchy')).toEqual(['guess']);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });

@@ -42,10 +42,21 @@ export function strokePath(points: readonly number[]): string {
   return `${d}L${x(n - 1)} ${y(n - 1)}`;
 }
 
-function StrokePath({ stroke }: { stroke: Stroke }) {
+/** When a stroke starts drawing itself in, and for how long (ms). */
+interface DrawIn {
+  delay: number;
+  duration: number;
+}
+
+function StrokePath({ stroke, drawIn }: { stroke: Stroke; drawIn?: DrawIn }) {
   return (
     <path
       d={strokePath(stroke.points)}
+      {...(drawIn && {
+        pathLength: 1,
+        className: 'vt-draw-in',
+        style: { animationDelay: `${drawIn.delay}ms`, animationDuration: `${drawIn.duration}ms` },
+      })}
       fill="none"
       stroke={DRAWING_COLORS[stroke.c]?.hex ?? DRAWING_COLORS[0].hex}
       strokeWidth={DRAWING_WIDTHS[stroke.w]?.size ?? DRAWING_WIDTHS[0].size}
@@ -55,11 +66,40 @@ function StrokePath({ stroke }: { stroke: Stroke }) {
   );
 }
 
-const Strokes = memo(function Strokes({ strokes }: { strokes: readonly Stroke[] }) {
+/**
+ * Each stroke's share of `ms`, by its points, one after another, so the drawing draws itself in
+ * the order it was drawn.
+ */
+function drawInTimes(strokes: readonly Stroke[], ms: number): DrawIn[] {
+  const total = strokes.reduce((n, s) => n + Math.max(1, s.points.length / 2), 0);
+  let at = 0;
+  return strokes.map((s) => {
+    const duration = (ms * Math.max(1, s.points.length / 2)) / total;
+    const t = { delay: at, duration };
+    at += duration;
+    return t;
+  });
+}
+
+/** Dashes that shrink to nothing: a stroke traces itself. Reduced motion shows it whole. */
+const DRAW_IN_CSS =
+  '.vt-draw-in{stroke-dasharray:1;stroke-dashoffset:1;animation-name:vt-draw-in;animation-timing-function:linear;animation-fill-mode:forwards}' +
+  '@keyframes vt-draw-in{to{stroke-dashoffset:0}}' +
+  '@media (prefers-reduced-motion:reduce){.vt-draw-in{animation:none;stroke-dashoffset:0}}';
+
+const Strokes = memo(function Strokes({
+  strokes,
+  drawInMs,
+}: {
+  strokes: readonly Stroke[];
+  drawInMs?: number;
+}) {
+  const times = drawInMs ? drawInTimes(strokes, drawInMs) : null;
   return (
     <>
+      {times && <style>{DRAW_IN_CSS}</style>}
       {strokes.map((s, i) => (
-        <StrokePath key={i} stroke={s} />
+        <StrokePath key={i} stroke={s} drawIn={times?.[i]} />
       ))}
     </>
   );
@@ -73,11 +113,14 @@ export function DrawingView({
   drawing,
   label,
   className,
+  drawInMs,
   children,
 }: {
   drawing: Drawing | readonly Stroke[] | null;
   label: string;
   className?: string;
+  /** The drawing draws itself in, stroke by stroke, over this long (on the compositor's clock). */
+  drawInMs?: number;
   /** Laid over the paper (a "Hidden" veil, a stamp). */
   children?: ReactNode;
 }) {
@@ -94,7 +137,7 @@ export function DrawingView({
         aria-label={label}
       >
         <rect width={DRAW_W} height={DRAW_H} fill={PAPER} />
-        <Strokes strokes={strokes} />
+        <Strokes strokes={strokes} drawInMs={drawInMs} />
       </svg>
       {children}
     </div>
