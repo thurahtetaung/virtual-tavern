@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.2...v0.54.0) (2026-10-25)
+
+
+### Features
+
+* **iconic:** add Iconic, an icon-board word-guessing game, in the back room ([#334](https://github.com/thurahtetaung/virtual-tavern/issues/334)) ([1be7e08](https://github.com/thurahtetaung/virtual-tavern/commit/1be7e08afc7133ba84a2f2f6bbc528bc2b3ad638))
+
 ## [0.53.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.1...v0.53.2) (2026-10-24)
 
 
