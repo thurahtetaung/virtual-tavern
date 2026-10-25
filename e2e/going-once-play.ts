@@ -145,8 +145,10 @@ export async function drawWithMouse(page: Page) {
 }
 
 /** The lot number on screen: the badge, or the wooden LOT disc on desktop when there is art. */
-export const lotIs = (p: Page, n: number) =>
-  expect(p.getByText(new RegExp(`^(Lot )?${n}/8$`)).filter({ visible: true })).toBeVisible();
+export const lotIs = (p: Page, n: number, timeout?: number) =>
+  expect(p.getByText(new RegExp(`^(Lot )?${n}/8$`)).filter({ visible: true })).toBeVisible({
+    timeout,
+  });
 export const bid = async (p: Page, amount: number) => {
   const button = p.getByTestId(`go-bid-${amount}`);
   await expect(button).toBeEnabled();

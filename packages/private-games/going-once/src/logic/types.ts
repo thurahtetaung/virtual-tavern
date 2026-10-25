@@ -324,8 +324,10 @@ export const PADDLE_SHAPES = 29;
 
 /** A test-only setup (browser tests): fixed deal and a quicker clock. Refused unless the server allows it. */
 export interface Rig {
-  /** Every duration is multiplied by this (0.1–1). */
+  /** Every duration is multiplied by this (0.1–1)… */
   scale: number;
+  /** …except the auction's close, which uses this when set (a full-length close leaves time to bid). */
+  closeScale?: number;
   /** Starting cash, to reach the bank quickly. */
   cash?: number;
   /**
@@ -381,6 +383,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('rig'),
     scale: z.number().min(0.1).max(1),
+    closeScale: z.number().min(0.1).max(1).optional(),
     cash: z.number().int().min(0).max(100_000).optional(),
     fixed: z.boolean(),
   }),

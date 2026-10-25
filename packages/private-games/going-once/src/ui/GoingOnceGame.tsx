@@ -329,7 +329,9 @@ function RigPanel({ view, act }: { view: GoingOnceView; act: Act }) {
       <Button
         size="sm"
         variant="secondary"
-        onClick={() => void act({ type: 'rig', scale: 0.5, fixed: true, cash: 1400 })}
+        onClick={() =>
+          void act({ type: 'rig', scale: 0.5, closeScale: 1, fixed: true, cash: 1400 })
+        }
       >
         Rig next game
       </Button>

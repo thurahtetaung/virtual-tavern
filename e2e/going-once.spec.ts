@@ -59,48 +59,36 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await bid(cleo, 500);
   await expect(ben.getByTestId('go-top-bid')).toContainText('$500');
   await bid(ben, 600);
-  // The Sold card shows briefly: check every phone at once.
-  await Promise.all(
-    all.map(async (p) => {
-      const sold = p.getByTestId('go-sold');
-      await expect(sold).toContainText('SOLD to');
-      await expect(sold).toContainText('Apple');
-      await expect(sold).toContainText('Worth $3,500');
-      if (p === hana) await expect(sold).toContainText('You earn $300 commission');
-    }),
-  );
+  // The Sold card only shows for a moment, so everything below is checked on what stays on
+  // screen: the bank's sheet, cash, the Lots tab and the end gallery (the rig keeps the close at
+  // full length, so each bid above has the usual seconds to land).
 
-  // Ben is down to $800: the bank opens by itself. He borrows; the others pass.
+  // Ben is down to $800: the bank opens by itself and waits for everyone. He borrows; the others pass.
   await expect(ben.getByTestId('go-bank')).toBeVisible();
   await ben.getByTestId('go-take-loan').click();
   await hana.getByRole('button', { name: 'No thanks' }).click();
   await cleo.getByRole('button', { name: 'No thanks' }).click();
-
-  // Lots 2–4 go unsold; their values still show.
-  await lotIs(ben, 2);
   await expect(ben.getByTestId('go-cash')).toContainText('$1,800');
   await expect(ben.getByTestId('go-cash')).toContainText('owes the bank $1,500');
-  for (const n of [2, 3, 4]) {
-    await lotIs(cleo, n);
-    await expect(cleo.getByTestId('go-sold')).toContainText('Unsold – it was worth', {
-      timeout: 20_000,
-    });
+  // Hana drew "Apple": half of Ben's $600 is hers.
+  await expect(hana.getByTestId('go-cash')).toContainText('$1,700');
+  // Lot 1 in everyone's Lots tab: title, artist, buyer, price and value.
+  for (const p of all) {
+    await p.getByRole('tab', { name: '🧾 Lots' }).click();
+    const lot1 = p.getByTestId('go-log').getByRole('listitem').filter({ hasText: 'Apple' });
+    await expect(lot1).toContainText(p === hana ? 'by you' : 'by Hana');
+    await expect(lot1).toContainText(p === ben ? 'You paid $600 · worth $3,500' : 'Ben paid $600');
   }
 
-  // Half-time, then lot 5 (Hana's "Top hat"): Cleo screws Ben into bidding $400.
-  await expect(cleo.getByTestId('go-halftime')).toBeVisible();
-  await lotIs(cleo, 5);
+  // Lots 2–4 go unsold; half-time follows. Lot 5 is Hana's "Top hat": Cleo screws Ben into bidding
+  // $400, and nobody outbids him.
+  await lotIs(cleo, 5, 90_000);
   await cleo.getByTestId('go-screw').click();
   const picker = cleo.getByTestId('go-screw-picker');
   await picker.getByRole('button', { name: /Ben/ }).click();
-  await expect(hana.getByTestId('go-screw-banner')).toContainText(
-    'Cleo screwed Ben: Ben bids $400',
-  );
-  await expect(hana.getByTestId('go-top-bid')).toContainText('$400');
-  await expect(hana.getByTestId('go-top-bid')).toContainText('🔩 by Cleo');
-  await expect(ben.getByTestId('go-sold')).toContainText('A forced buy, thanks to Cleo', {
-    timeout: 20_000,
-  });
+  // The log keeps the screw (the banner over the lot only shows for a moment).
+  await hana.getByRole('tab', { name: '🧾 Lots' }).click();
+  await expect(hana.getByText('🔩 Cleo screwed Ben into bidding $400.')).toBeVisible();
 
   // The rest go unsold, then the end: standings and the gallery on every phone.
   for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 60_000 });
@@ -110,6 +98,18 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     await expect(p.getByTestId('go-gallery').getByText('Apple')).toBeVisible();
     await expect(p.getByTestId('go-gallery').getByText('Fez')).toBeVisible();
   }
+  // The gallery keeps every lot's result: the contested one, the forced buy and the unsold ones.
+  const gallery = cleo.getByTestId('go-gallery');
+  await expect(gallery.getByRole('listitem').filter({ hasText: 'Apple' })).toContainText(
+    'Ben paid $600',
+  );
+  await expect(gallery.getByRole('listitem').filter({ hasText: 'Top hat' })).toContainText(
+    'Ben paid $400',
+  );
+  for (const title of ['Pear', 'Quince', 'Green ball'])
+    await expect(gallery.getByRole('listitem').filter({ hasText: title })).toContainText(
+      'Unsold · worth',
+    );
   // Ben: $1,800 − $400 = $1,400 cash, two drawings worth $3,500 + $1,000, $1,500 debt.
   await expect(ben.getByText('cash $1,400 + art $4,500 − debt $1,500')).toBeVisible();
 });

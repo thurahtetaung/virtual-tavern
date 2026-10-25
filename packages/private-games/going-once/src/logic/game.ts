@@ -76,15 +76,20 @@ export function players(state: GoingOnceState): PlayerId[] {
 export function timing(state: GoingOnceState): Timing {
   const t = TIMINGS[state.settings.pace];
   const k = state.rig?.scale ?? 1;
+  const c = closeScale(state);
   return {
-    open: t.open * k,
-    quiet: t.quiet * k,
-    once: t.once * k,
-    twice: t.twice * k,
+    open: t.open * c,
+    quiet: t.quiet * c,
+    once: t.once * c,
+    twice: t.twice * c,
     sold: t.sold * k,
     halftime: t.halftime * k,
   };
 }
+
+/** The test rig's speed for the auction's close (it may keep the close at full length). */
+const closeScale = (state: Pick<GoingOnceState, 'rig'>) =>
+  state.rig?.closeScale ?? state.rig?.scale ?? 1;
 
 const screwMs = (state: GoingOnceState) => SCREW_PICK_MS * (state.rig?.scale ?? 1);
 const scaled = (state: GoingOnceState, ms: number) => ms * (state.rig?.scale ?? 1);
@@ -99,7 +104,7 @@ export function closeMs(
   bid: { amount: number } | null,
 ): number {
   const t = TIMINGS[state.settings.pace];
-  const k = state.rig?.scale ?? 1;
+  const k = closeScale(state);
   const fast =
     state.settings.pace === 'normal' &&
     (close === 'once' || close === 'twice') &&
@@ -721,7 +726,12 @@ function rig(state: GoingOnceState, r: Rig, ctx: Ctx): Result {
   if (e) return e;
   if (state.phase === 'playing') return err('in-progress', 'Rig the next game from the lobby.');
   const s = draft(state);
-  s.rig = { scale: r.scale, fixed: r.fixed, ...(r.cash !== undefined && { cash: r.cash }) };
+  s.rig = {
+    scale: r.scale,
+    fixed: r.fixed,
+    ...(r.cash !== undefined && { cash: r.cash }),
+    ...(r.closeScale !== undefined && { closeScale: r.closeScale }),
+  };
   return s;
 }
 
@@ -910,7 +920,7 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
           ]);
         else
           say(s, rng, [
-            closeMs(s, 'once', a.bid) < TIMINGS[s.settings.pace].once * (s.rig?.scale ?? 1)
+            closeMs(s, 'once', a.bid) < TIMINGS[s.settings.pace].once * closeScale(s)
               ? ['going-once-fast', 'going-once']
               : 'going-once',
           ]);
@@ -918,7 +928,7 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
         a.closeAt = now + closeMs(s, 'once', a.bid);
       } else if (a.close === 'once') {
         say(s, rng, [
-          closeMs(s, 'twice', a.bid) < TIMINGS[s.settings.pace].twice * (s.rig?.scale ?? 1)
+          closeMs(s, 'twice', a.bid) < TIMINGS[s.settings.pace].twice * closeScale(s)
             ? ['going-twice-fast', 'going-twice']
             : 'going-twice',
         ]);
