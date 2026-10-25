@@ -8,14 +8,18 @@ import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
 const ART = process.env.JEWELLER_ART;
 const TYPES: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
 
-/** With JEWELLER_ART=<folder holding manifest.json and the art>, pages get them from disk. */
+/**
+ * With JEWELLER_ART=<folder holding manifest.json (or the art worker's manifest-draft.json) and
+ * the art>, pages get them from disk.
+ */
 export async function localArt(page: Page) {
   if (!ART) return;
-  await page.route('**/api/backroom/manifest/jeweller', async (route) =>
-    route.fulfill({
-      json: JSON.parse(await readFile(join(ART, 'manifest.json'), 'utf8')) as unknown,
-    }),
-  );
+  await page.route('**/api/backroom/manifest/jeweller', async (route) => {
+    const file = await readFile(join(ART, 'manifest.json'), 'utf8').catch(() =>
+      readFile(join(ART, 'manifest-draft.json'), 'utf8'),
+    );
+    await route.fulfill({ json: JSON.parse(file) as unknown });
+  });
   await page.route('**/api/backroom/assets/jeweller/**', async (route) => {
     const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(
       /^\/api\/backroom\/assets\/jeweller\//,

@@ -56,7 +56,7 @@ export const TokenChip = memo(function TokenChip({
   className?: string;
   dim?: boolean;
 }) {
-  const src = art.token(token);
+  const src = size <= 60 ? art.tokenThumb(token) : art.token(token);
   return (
     <span
       role="img"
@@ -162,7 +162,7 @@ export const CardTile = memo(function CardTile({
         <ProtectedImage
           src={src}
           alt=""
-          className="pointer-events-none absolute inset-0 size-full object-cover opacity-80"
+          className="pointer-events-none absolute inset-0 size-full object-cover object-[50%_60%]"
         />
       ) : (
         size === 'lg' && (
@@ -252,7 +252,7 @@ export function CardBack({
   className?: string;
   label?: string;
 }) {
-  const src = art.back(level);
+  const src = art.backThumb(level);
   const name =
     label ?? `Level ${LEVEL_NAME[level]} deck${count !== undefined ? `, ${count} left` : ''}`;
   const body = (
@@ -311,7 +311,7 @@ export const NobleTile = memo(function NobleTile({
   fresh?: boolean;
 }) {
   const noble = nobleOf(id);
-  const src = art.noble(id);
+  const src = size === 'lg' ? art.noble(id) : art.nobleThumb(id);
   const wants = GEMS.filter((g) => noble.requires[g] > 0);
   const ready = !!bonuses && wants.every((g) => bonuses[g] >= noble.requires[g]);
   const label = `${art.nobleName(id)}: ${noble.points} points for ${wants.map((g) => `${noble.requires[g]} ${TOKEN_NAME[g]}`).join(', ')} cards${bonuses ? ` (you have ${wants.map((g) => Math.min(bonuses[g], noble.requires[g])).join(', ')})` : ''}`;

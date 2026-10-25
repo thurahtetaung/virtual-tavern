@@ -1,6 +1,6 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { type Manifest, artOf, nameOf, nobleNumber, thumbOf } from '../logic/manifest.ts';
+import { type Manifest, artOf, backOf, nameOf, nobleNumber, thumbOf } from '../logic/manifest.ts';
 import type { Level, Token } from '../logic/types.ts';
 
 export const GAME_ID = 'jeweller';
@@ -35,9 +35,12 @@ export interface Art {
   /** A small copy of the face, for the market on phones (falls back to the face). */
   cardThumb: (id: string) => string | null;
   back: (level: Level) => string | null;
+  backThumb: (level: Level) => string | null;
   noble: (id: string) => string | null;
+  nobleThumb: (id: string) => string | null;
   nobleName: (id: string) => string;
   token: (t: Token) => string | null;
+  tokenThumb: (t: Token) => string | null;
   box: string | null;
   logo: string | null;
 }
@@ -51,10 +54,13 @@ export function artFor(manifest: ManifestState): Art {
   return {
     card: (id) => path(artOf(cards[id])),
     cardThumb: (id) => path(thumbOf(cards[id])) ?? path(artOf(cards[id])),
-    back: (level) => path(m?.backs?.[`${level}`]),
+    back: (level) => path(backOf(m?.backs, level)),
+    backThumb: (level) => path(backOf(m?.backThumbs, level)) ?? path(backOf(m?.backs, level)),
     noble: (id) => path(artOf(nobles[id])),
+    nobleThumb: (id) => path(thumbOf(nobles[id])) ?? path(artOf(nobles[id])),
     nobleName: (id) => nameOf(nobles[id]) ?? nobleNumber(id),
     token: (t) => path(m?.tokens?.[t]),
+    tokenThumb: (t) => path(m?.tokenThumbs?.[t]) ?? path(m?.tokens?.[t]),
     box: path(m?.box),
     logo: path(m?.logo),
   };

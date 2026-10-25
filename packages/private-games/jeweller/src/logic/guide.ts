@@ -1,7 +1,7 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { CARDS, NOBLES } from './cards.ts';
 import { LEVEL_NAME, TOKEN_EMOJI, TOKEN_NAME } from './gems.ts';
-import { type Manifest, artOf, footerOf } from './manifest.ts';
+import { type Manifest, artOf, backOf, footerOf } from './manifest.ts';
 import {
   DEFAULT_TARGET,
   GEMS,
@@ -332,7 +332,7 @@ export function nameGuide(manifest: unknown): GameGuide {
     if (u) art.tokens![t] = u;
   }
   for (const l of LEVELS) {
-    const u = a(typeof m?.backs?.[`${l}`] === 'string' ? m.backs[`${l}`] : undefined);
+    const u = a(backOf(m?.backs, l));
     if (u) art.backs![l] = u;
   }
   const noble = a(artOf(m?.nobles?.[NOBLES[0]!.id]));
