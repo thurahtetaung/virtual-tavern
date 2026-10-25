@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.56.1...v0.57.0) (2026-10-25)
+
+
+### Features
+
+* **jeweller:** add Jeweller, a gem-merchant card game, in the back room ([#343](https://github.com/thurahtetaung/virtual-tavern/issues/343)) ([ca1f470](https://github.com/thurahtetaung/virtual-tavern/commit/ca1f470639a7450e57b6243504effb0f47fa014e))
+
 ## [0.56.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.56.0...v0.56.1) (2026-10-25)
 
 
