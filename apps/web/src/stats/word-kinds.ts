@@ -38,6 +38,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   iconic: ['clue'],
   // Answers, reported as guesses.
   stampede: ['guess'],
+  // Gems and cards, not words: no Words card.
+  jeweller: [],
 };
 
 const LABELS: Record<WordKind, string> = {

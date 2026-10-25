@@ -210,6 +210,18 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('a goat');
   });
 
+  it('Jeweller: art and credits from the manifest', async () => {
+    const text = await named('jeweller', {
+      tokens: { gold: 'tokens/gold.webp' },
+      backs: { '1': 'backs/1.webp' },
+      nobles: { N01: { art: 'nobles/N01.webp', name: '«noble»' } },
+      credit: { paragraphs: ['«credit»'] },
+    });
+    for (const path of ['tokens/gold.webp', 'backs/1.webp', 'nobles/N01.webp'])
+      expect(text).toContain(`/api/backroom/assets/jeweller/${path}`);
+    expect(text).toContain('«credit»');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);
