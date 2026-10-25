@@ -199,6 +199,17 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('/api/backroom/assets/iconic/icons/17.webp');
   });
 
+  it('Stampede: the cows and the odd one out’s cow', async () => {
+    const text = await named('stampede', {
+      names: { pink: 'Lilac Goat', cow: 'goat', cows: 'goats' },
+    });
+    // Ids ("cow", "pink") stay; no placeholder word may show.
+    for (const w of ['Pink Cow', 'cows?'])
+      expect(text, w).not.toMatch(new RegExp(`(?<!")\\b${w}\\b`, 'i'));
+    expect(text).toContain('Lilac Goat');
+    expect(text).toContain('a goat');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

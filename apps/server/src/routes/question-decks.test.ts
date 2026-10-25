@@ -108,6 +108,62 @@ describe('question decks api', () => {
     expect(ok.json<QuestionDeckDetail>().questions[0]).toMatchObject({ answer: long });
   });
 
+  it('keeps trivia decks to their rules and takes open-question decks for open games', async () => {
+    const headers = await admin();
+    const post = (payload: object) =>
+      app.inject({ method: 'POST', url: '/api/admin/question-decks', headers, payload });
+    const refused = async (payload: object, message: RegExp) => {
+      const res = await post(payload);
+      expect(res.statusCode).toBe(400);
+      expect(res.json<{ error: { message: string } }>().error.message).toMatch(message);
+    };
+    const open = { prompt: 'Name a pretend snack?', hints: ['Crisps', 'Toast'] };
+    // Hoodwink's decks are unchanged: an answer and the prompt shape on every question, also
+    // when the deck is tagged by default.
+    await refused(deck({ questions: [{ prompt: 'A pretend ___.' }] }), /questions\.0\.answer/);
+    await refused(deck({ games: ['hoodwink'], questions: [open] }), /questions\.0\.answer/);
+    await refused(
+      deck({ questions: [{ prompt: 'No blank, no mark.', answer: 'a' }] }),
+      /exactly one "___"/,
+    );
+    // Open decks: no answers, any prompt shape, and never mixed with trivia games.
+    await refused(deck({ games: ['stampede', 'hoodwink'], questions: [open] }), /not both/);
+    await refused(
+      deck({ games: ['stampede'], questions: [{ ...open, answer: 'Crisps' }] }),
+      /Open questions have no answer/,
+    );
+    const made = await post(
+      deck({
+        name: 'Snacks',
+        games: ['stampede'],
+        questions: [open, { prompt: 'A pretend colour.' }],
+      }),
+    );
+    expect(made.statusCode).toBe(201);
+    const snacks = made.json<QuestionDeckDetail>();
+    expect(snacks.questions[0]).toEqual({
+      prompt: 'Name a pretend snack?',
+      alternates: [],
+      sources: [],
+      adult: false,
+      tags: [],
+      hints: ['Crisps', 'Toast'],
+    });
+    // An update without tags keeps the deck's kind.
+    const put = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/question-decks/${snacks.id}`,
+      headers,
+      payload: { name: 'Snacks', questions: [{ prompt: 'Another pretend snack?' }] },
+    });
+    expect(put.statusCode).toBe(200);
+    // Hints mean nothing to a trivia deck and are dropped, as an unknown field always was.
+    const trivia = await post(
+      deck({ questions: [{ prompt: 'A ___.', answer: 'b', hints: ['c'] }] }),
+    );
+    expect(trivia.json<QuestionDeckDetail>().questions[0]).not.toHaveProperty('hints');
+  });
+
   it('creates, reads, updates, toggles, exports and deletes decks', async () => {
     const headers = await admin();
     const created = await app.inject({

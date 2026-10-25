@@ -27,6 +27,7 @@
     "@vt/private-royal-post": "workspace:*",
     "@vt/private-seance": "workspace:*",
     "@vt/private-short-fuse": "workspace:*",
+    "@vt/private-stampede": "workspace:*",
     "@vt/private-starlight": "workspace:*",
     "@vt/private-tavern-brawl": "workspace:*",
     "@vt/private-thorns": "workspace:*",

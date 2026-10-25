@@ -11,7 +11,13 @@ import { dbHealthy, openDb } from './db/index.ts';
 import { BACKROOM_COOKIE, Backroom } from './backroom.ts';
 import { EdgePass } from './edge.ts';
 import { offsiteStatusPath, readOffsiteStatus } from './backup-status.ts';
-import { type GameRegistry, buildGames, isPrivate, questionDeckGameIds } from './games/registry.ts';
+import {
+  type GameRegistry,
+  buildGames,
+  isPrivate,
+  questionDeckGameIds,
+  openQuestionGameIds,
+} from './games/registry.ts';
 import { NarrationLengths, withNarration } from './narration.ts';
 import { R2Assets, type R2Config } from './r2.ts';
 import {
@@ -161,7 +167,12 @@ export function buildApp(opts: AppOptions) {
     const added = wordLists.seedPacks(loadWordPacks(opts.packsFolder));
     if (added.length) app.log.info({ packs: added }, 'added built-in word packs');
   }
-  const questionDecks = new QuestionDeckRepo(db, now, questionDeckGameIds(games));
+  const questionDecks = new QuestionDeckRepo(
+    db,
+    now,
+    questionDeckGameIds(games),
+    openQuestionGameIds(games),
+  );
 
   const stats = new SqliteStatsStore(db, {
     gameIds: [...games.keys()],
@@ -290,8 +301,9 @@ export function buildApp(opts: AppOptions) {
   });
   const bots: BotRunner = new BotRunner({
     rooms,
-    // Bots get word lists only; never questions, answers or decoys.
+    // Bots get word lists and open questions' common answers; never trivia answers or decoys.
     words: (gameId, ids) => wordLists.forGame(gameId).words(ids),
+    hints: (gameId, id) => questionDecks.hints(gameId, id),
     logger: app.log,
     now,
     ...(opts.botDelay && { delay: opts.botDelay }),

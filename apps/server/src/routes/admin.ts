@@ -11,7 +11,7 @@ import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { type AdminAuth, clearAdminSession } from '../admin-auth.ts';
 import type { Backroom } from '../backroom.ts';
-import type { QuestionDeckRepo } from '../question-decks.ts';
+import { DEFAULT_QUESTION_GAMES, type QuestionDeckRepo } from '../question-decks.ts';
 import type { RecapSettings } from '../recap/settings.ts';
 import type { WordListRepo } from '../word-lists.ts';
 import type { Lists } from './lists.ts';
@@ -58,6 +58,24 @@ export function adminRoutes(
   const unknownDeckGame = (games: readonly string[] | undefined) => {
     const bad = games?.find((id) => !questionDecks.gameIds.includes(id));
     return bad === undefined ? null : `games: "${bad}" is not a game that uses question decks.`;
+  };
+
+  /**
+   * Checks a parsed deck against its kind (from its tags: the given ones, else `stored` on an
+   * update, else the default) and returns the fields to save, or a message. Trivia decks keep
+   * Hoodwink's rules and drop open-only fields, as an unknown field always was.
+   */
+  const checkedDeck = (
+    deck: z.output<typeof questionDeckBody>,
+    stored?: readonly string[],
+  ): typeof deck | string => {
+    const badGame = unknownDeckGame(deck.games);
+    if (badGame) return badGame;
+    const games = deck.games?.length ? deck.games : (stored ?? DEFAULT_QUESTION_GAMES);
+    const problem = questionDecks.problem(deck.questions, games);
+    if (problem) return problem;
+    if (questionDecks.kindOf(games) === 'open') return deck;
+    return { ...deck, questions: deck.questions.map(({ hints: _hints, ...q }) => q) };
   };
 
   const requireAdmin = adminGuard(auth, now);
@@ -183,9 +201,9 @@ export function adminRoutes(
     scope.post('/api/admin/question-decks', { bodyLimit: DECK_BODY_LIMIT }, (req, reply) => {
       const body = questionDeckBody.safeParse(req.body);
       if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
-      const badGame = unknownDeckGame(body.data.games);
-      if (badGame) return error(reply, 400, 'bad-request', badGame);
-      return reply.code(201).send(questionDecks.create(body.data));
+      const deck = checkedDeck(body.data);
+      if (typeof deck === 'string') return error(reply, 400, 'bad-request', deck);
+      return reply.code(201).send(questionDecks.create(deck));
     });
 
     scope.put<{ Params: { id: string } }>(
@@ -194,10 +212,12 @@ export function adminRoutes(
       (req, reply) => {
         const body = questionDeckBody.safeParse(req.body);
         if (!body.success) return error(reply, 400, 'bad-request', firstIssueMessage(body.error));
-        const badGame = unknownDeckGame(body.data.games);
-        if (badGame) return error(reply, 400, 'bad-request', badGame);
+        const stored = questionDecks.gamesOf(req.params.id);
+        if (!stored) return error(reply, 404, 'not-found', 'Question deck not found.');
+        const deck = checkedDeck(body.data, stored);
+        if (typeof deck === 'string') return error(reply, 400, 'bad-request', deck);
         return (
-          questionDecks.update(req.params.id, body.data) ??
+          questionDecks.update(req.params.id, deck) ??
           error(reply, 404, 'not-found', 'Question deck not found.')
         );
       },

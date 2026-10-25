@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// Imports trivia question decks into a running Virtual Tavern through the admin API.
+// Imports question decks into a running Virtual Tavern through the admin API.
 // The folder holds a manifest.json ({ decks: { <slug>: { name, description, games?, enabled? } } },
 // the same shape the admin page's "Download all" backup writes) and one <slug>.json per deck
 // ({ name?, description?, questions: [{ prompt, answer, alternates?, sources?, adult?, tags?, decoys? }] }).
+// Decks for open-question games (OPEN_GAMES, e.g. games: ["stampede"]) must list those games in
+// the manifest; their questions have no answer: { prompt, adult?, tags?, hints? }.
 // Every deck is checked locally first (the same rules the server applies; see
 // packages/protocol/src/questions.ts) and nothing is uploaded if any deck fails. Decks whose name
 // already exists are skipped, so the script is safe to re-run. The admin password comes from
@@ -16,6 +18,9 @@ import { fileURLToPath } from 'node:url';
 const BLANK = '___';
 const MAX_QUESTIONS = 5000;
 const MAX_ANSWER = 160;
+const MAX_HINT = 40;
+/** Games whose decks hold open questions (no answers); mirrors `questionKind: 'open'`. */
+export const OPEN_GAMES = ['stampede'];
 
 // An absolute http(s) URL with a host and no spaces (the same check as the server's).
 const isHttpUrl = (value) => /^https?:\/\/[^\s/?#]+\S*$/i.test(value);
@@ -49,6 +54,10 @@ export function validateDeck(meta, file) {
     errors.push('games: 1-10 game ids (lowercase letters, digits and dashes)');
   if (meta?.enabled !== undefined && typeof meta.enabled !== 'boolean')
     errors.push('enabled: true or false');
+  const openTags = (meta?.games ?? []).filter((g) => OPEN_GAMES.includes(g)).length;
+  const open = openTags > 0;
+  if (open && openTags !== meta.games.length)
+    errors.push('games: a deck is either for trivia games or for open-question games, not both');
 
   const raw = file?.questions;
   if (!Array.isArray(raw) || raw.length < 1 || raw.length > MAX_QUESTIONS)
@@ -57,12 +66,18 @@ export function validateDeck(meta, file) {
     const at = `questions.${i}`;
     const prompt = trimmed(q?.prompt);
     if (!isText(prompt, 5, 300)) errors.push(`${at}.prompt: 5-300 characters`);
-    else {
+    else if (!open) {
       const blanks = prompt.split(BLANK).length - 1;
       if (!(blanks === 1 || (blanks === 0 && prompt.endsWith('?'))))
         errors.push(`${at}.prompt: needs exactly one "___", or no blank and a final "?"`);
     }
-    if (!isText(q?.answer, 1, MAX_ANSWER)) errors.push(`${at}.answer: 1-${MAX_ANSWER} characters`);
+    if (open) {
+      if (q?.answer !== undefined || q?.alternates?.length || q?.decoys?.length)
+        errors.push(`${at}: open questions have no answer, alternates or decoys`);
+      if (!textList(q?.hints, 10, 1, MAX_HINT))
+        errors.push(`${at}.hints: at most 10, each 1-${MAX_HINT} characters`);
+    } else if (!isText(q?.answer, 1, MAX_ANSWER))
+      errors.push(`${at}.answer: 1-${MAX_ANSWER} characters`);
     if (!textList(q?.alternates, 10, 1, MAX_ANSWER))
       errors.push(`${at}.alternates: at most 10, each 1-${MAX_ANSWER} characters`);
     if (!textList(q?.decoys, 30, 1, MAX_ANSWER))
@@ -75,6 +90,15 @@ export function validateDeck(meta, file) {
     if (q?.adult !== undefined && typeof q.adult !== 'boolean')
       errors.push(`${at}.adult: true or false`);
     if (!textList(q?.tags, 10, 1, 40)) errors.push(`${at}.tags: at most 10, each 1-40 characters`);
+    if (open) {
+      return {
+        prompt,
+        sources: (q?.sources ?? []).map(trimmed),
+        adult: q?.adult ?? false,
+        tags: (q?.tags ?? []).map(trimmed),
+        ...(q?.hints === undefined ? {} : { hints: q.hints.map(trimmed) }),
+      };
+    }
     return {
       prompt,
       answer: trimmed(q?.answer),

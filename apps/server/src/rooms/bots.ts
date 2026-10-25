@@ -28,6 +28,8 @@ export interface BotRunnerDeps {
   rooms: RoomManager;
   /** Word lists for `BotCtx.words` (never questions, answers or decoys). */
   words: (gameId: string, listIds: readonly string[]) => string[];
+  /** Common answers to an open question, for `BotCtx.hints` (never trivia answers or decoys). */
+  hints?: (gameId: string, questionId: string) => string[];
   logger: BotRunnerLogger;
   /** Server time, for the bots' view of deadlines. */
   now?: () => number;
@@ -67,6 +69,7 @@ export class BotRunner {
       // Normal pace: 1.5–4 s to choose, 0.6–1.2 s to press a button.
       delay: (trivial) => (trivial ? 600 + Math.random() * 600 : 1500 + Math.random() * 2500),
       seed: () => Math.floor(Math.random() * 2 ** 32),
+      hints: () => [],
       ...deps,
     };
   }
@@ -180,6 +183,7 @@ export class BotRunner {
       now: this.deps.now(),
       rng: createRng(this.deps.seed(roomId, `bot:${botId}:${seen.version}`)),
       words: (ids) => this.deps.words(table.game.id, ids),
+      hints: (id) => this.deps.hints(table.game.id, id),
     };
     try {
       const move: unknown = table.game.bot(seen.view, ctx);

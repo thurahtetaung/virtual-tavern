@@ -72,6 +72,10 @@ import type { GameFigure } from '@vt/protocol';
 //   iconic     word {level, outcome, how, ms, pieces, helper; recap: word, givers, closeBy, icons,
 //              marker, sets, guesses, auto}, outcome {words, rounds; recap: ranking, scores,
 //              scoring, length}
+//   stampede   round {herdSize, answered, tie, merges, skipped, groups; recap: round, herd,
+//              blanks, sizes, scorers, loners, raisedTo}, pink {recap: round, from, how},
+//              outcome {rounds, endReason; recap: target, pinkCow, ranking, cows};
+//              recap: answer {round, group, herd, alone, with}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1467,6 +1471,74 @@ function iconicFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function stampedeCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'round': {
+      out.push(['f.rounds', 1]);
+      const herd = num(props.herdSize) ?? 0;
+      out.push(['f.answered_sum', num(props.answered) ?? 0]);
+      if (herd > 0) out.push(['f.herds', 1], ['f.herd_sum', herd]);
+      if (props.tie === true) out.push(['f.ties', 1]);
+      if ((num(props.merges) ?? 0) > 0) out.push(['f.merged', 1]);
+      if (props.skipped === true) out.push(['f.skips', 1]);
+      break;
+    }
+    case 'pink':
+      out.push(['f.pinks', 1]);
+      break;
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      if (props.endReason === 'won') {
+        out.push(['f.won', 1], ['f.won_round_sum', num(props.rounds) ?? 0]);
+      }
+      break;
+    }
+  }
+  return out;
+}
+
+function stampedeFigures(get: (metric: string) => number): GameFigure[] {
+  return [
+    {
+      id: 'herd-rounds',
+      label: 'Rounds with a herd',
+      kind: 'percent',
+      value: pct(get('f.herds'), get('f.rounds')),
+    },
+    {
+      id: 'herd-share',
+      label: 'Answers that were in the herd',
+      kind: 'percent',
+      value: pct(get('f.herd_sum'), get('f.answered_sum')),
+    },
+    {
+      id: 'tie-rounds',
+      label: 'Rounds tied at the top',
+      kind: 'percent',
+      value: pct(get('f.ties'), get('f.rounds')),
+    },
+    {
+      id: 'merged-rounds',
+      label: 'Rounds where the host joined or split answers',
+      kind: 'percent',
+      value: pct(get('f.merged'), get('f.rounds')),
+    },
+    {
+      id: 'pink-moves',
+      label: '{card:pink-cow} moves per game',
+      kind: 'number',
+      value: avg(get('f.pinks'), get('f.games')),
+    },
+    {
+      id: 'rounds-to-win',
+      label: 'Rounds to a winner',
+      kind: 'number',
+      value: avg(get('f.won_round_sum'), get('f.won')),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1478,6 +1550,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'short-fuse') return shortFuseCounters(type, props);
   if (gameId === 'thorns') return thornsCounters(type, props);
   if (gameId === 'iconic') return iconicCounters(type, props);
+  if (gameId === 'stampede') return stampedeCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1685,6 +1758,8 @@ export function buildFigures(
       return thornsFigures(get);
     case 'iconic':
       return iconicFigures(get);
+    case 'stampede':
+      return stampedeFigures(get);
     case 'codenames':
       return [
         teams(false),
