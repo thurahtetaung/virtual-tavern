@@ -26,13 +26,16 @@ export const wordLists = sqliteTable('word_lists', {
 /** One question in a deck; the stored shape of `questionBody` in `@vt/protocol`. */
 export interface QuestionRow {
   prompt: string;
-  answer: string;
+  /** Trivia decks only; open-question decks have none. */
+  answer?: string;
   alternates: string[];
   sources: string[];
   adult: boolean;
   tags: string[];
   /** Ready-made fake answers games may use as house lies; never served over HTTP except to admins. */
   decoys?: string[];
+  /** Open-question decks only: common answers for playtest bots; never served except to admins. */
+  hints?: string[];
 }
 
 /**

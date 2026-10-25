@@ -21,6 +21,7 @@ import { guide as tavernBrawlGuide } from '@vt/private-tavern-brawl/guide';
 import { guide as shortFuseGuide } from '@vt/private-short-fuse/guide';
 import { guide as starlightGuide } from '@vt/private-starlight/guide';
 import { guide as thornsGuide, nameGuide as nameThornsGuide } from '@vt/private-thorns/guide';
+import { guide as stampedeGuide, nameGuide as nameStampedeGuide } from '@vt/private-stampede/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -37,6 +38,7 @@ import {
   taggedGuide,
   thornsLabels,
   iconicLabels,
+  stampedeLabels,
 } from './private-labels.ts';
 import { lazyUi } from './lazy-ui.ts';
 import type { ClientGame } from './registry.ts';
@@ -197,6 +199,17 @@ const games: ClientGame[] = [
       import('@vt/private-iconic/ui').then((m) => ({ default: m.IconicGame })),
     ),
     labels: iconicLabels,
+  },
+  {
+    id: 'stampede',
+    name: 'Stampede',
+    guide: stampedeGuide,
+    namedGuide: manifestGuide('stampede', nameStampedeGuide),
+    icon: '🐄',
+    Component: lazyUi(() =>
+      import('@vt/private-stampede/ui').then((m) => ({ default: m.StampedeGame })),
+    ),
+    labels: stampedeLabels,
   },
 ];
 

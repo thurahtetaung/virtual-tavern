@@ -51,6 +51,17 @@ export interface Question {
   decoys?: string[];
 }
 
+/**
+ * One open question (Stampede): no right answer, just a prompt everyone answers. Games with
+ * `questionKind: 'open'` read these through `ContentProvider.openQuestions`.
+ */
+export interface OpenQuestion {
+  /** Stable within its deck, e.g. `<deckId>:<index>`; used to avoid repeats. */
+  id: string;
+  deckId: string;
+  prompt: string;
+}
+
 /** Server-provided content that games may read synchronously. */
 export interface ContentProvider {
   wordLists(): WordListSummary[];
@@ -60,6 +71,8 @@ export interface ContentProvider {
   questionDecks?(): QuestionDeckSummary[];
   /** Questions from the given decks (ignores unknown, disabled or untagged ids). */
   questions?(deckIds: readonly string[]): Question[];
+  /** Open questions from the given decks, for games with `questionKind: 'open'`. */
+  openQuestions?(deckIds: readonly string[]): OpenQuestion[];
   /**
    * How long each narration line of a private game's manifest lasts, in ms (`narrationLengths`),
    * or null while unknown. Absent on servers without asset storage and for public games.
@@ -129,6 +142,12 @@ export interface GameDefinition<State, Action, View> {
   usesWordLists?: boolean;
   /** Whether the game draws questions from admin question decks. Default: false. */
   usesQuestionDecks?: boolean;
+  /**
+   * Which decks a question-deck game reads: `trivia` (the default: every question has an answer)
+   * or `open` (questions with no right answer, through `ContentProvider.openQuestions`). A deck is
+   * tagged for games of one kind only.
+   */
+  questionKind?: 'trivia' | 'open';
   /**
    * Back-room games with background music from their manifest (`music`, `musicTracks`): the
    * phases it plays in, which the admin may give other tracks on the Games page.

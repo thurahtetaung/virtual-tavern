@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { questionDeckBody } from '../packages/protocol/src/questions.ts';
+import { questionDeckBody, triviaProblem } from '../packages/protocol/src/questions.ts';
 import { globRegex, validateDeck } from './import-question-decks.mjs';
 
 // Made-up questions only: real decks are private and never committed.
@@ -108,7 +108,10 @@ describe('import-question-decks validateDeck', () => {
     for (const q of cases) {
       const body = { name: 'Deck', questions: [q] };
       const local = validateDeck({ name: 'Deck' }, { questions: [q] }).errors.length === 0;
-      expect(local, JSON.stringify(q)).toBe(questionDeckBody.safeParse(body).success);
+      // The server parses the body, then applies the trivia rules (the deck isn't for an open game).
+      const parsed = questionDeckBody.safeParse(body);
+      const server = parsed.success && triviaProblem(parsed.data.questions) === null;
+      expect(local, JSON.stringify(q)).toBe(server);
     }
   });
 
@@ -117,5 +120,32 @@ describe('import-question-decks validateDeck', () => {
     expect(globRegex('odd-*').test('very-odd')).toBe(false);
     expect(globRegex('a.b').test('axb')).toBe(false);
     expect(globRegex(null)).toBeNull();
+  });
+
+  it('checks open-question decks (no answers) for open games', () => {
+    const open = { prompt: 'Name a pretend snack.', hints: [' Crisps '], tags: ['food'] };
+    const ok = validateDeck({ name: 'Snacks', games: ['stampede'] }, deckFile([open]));
+    expect(ok.errors).toEqual([]);
+    expect(ok.deck.questions).toEqual([
+      {
+        prompt: 'Name a pretend snack.',
+        sources: [],
+        adult: false,
+        tags: ['food'],
+        hints: ['Crisps'],
+      },
+    ]);
+    expect(validateDeck({ name: 'S', games: ['stampede'] }, deckFile([question()])).errors).toEqual(
+      ['questions.0: open questions have no answer, alternates or decoys'],
+    );
+    expect(
+      validateDeck({ name: 'S', games: ['stampede', 'hoodwink'] }, deckFile([open])).errors,
+    ).toContain('games: a deck is either for trivia games or for open-question games, not both');
+    // Without open games in its tags, a deck is trivia and needs answers, as before.
+    expect(validateDeck({ name: 'S' }, deckFile([open])).errors).toContain(
+      'questions.0.answer: 1-160 characters',
+    );
+    // The server accepts what the script sends.
+    expect(questionDeckBody.safeParse(ok.deck).success).toBe(true);
   });
 });

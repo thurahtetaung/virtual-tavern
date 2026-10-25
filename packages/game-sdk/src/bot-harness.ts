@@ -16,6 +16,8 @@ export interface BotHarnessOptions<View, Action> {
   /** Moves (and deadlines) after which the harness gives up. Default 2,000. */
   maxSteps?: number;
   content?: ContentProvider;
+  /** Common answers per open question, for `BotCtx.hints`. */
+  hints?: (questionId: string) => string[];
   /** The clock at the start (epoch ms). */
   start?: number;
   /** How far the clock moves with each move. Default 1 s. */
@@ -84,6 +86,7 @@ export function playWithBots<State, Action, View>(
     now,
     rng: createRng(rng.int(2 ** 32)),
     words: (ids) => content.words(ids),
+    hints: (id) => opts.hints?.(id) ?? [],
   });
   const moveOf = (me: PlayerId): Action | null => {
     const view = def.view(state, me);

@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { ContentProvider } from '@vt/game-sdk';
-import type {
-  PublicQuestionDeck,
-  QuestionDeckDetail,
-  QuestionDeckSummary,
-  StoredQuestion,
+import {
+  type PublicQuestionDeck,
+  type QuestionDeckDetail,
+  type QuestionDeckSummary,
+  type QuestionKind,
+  type StoredQuestion,
+  openProblem,
+  triviaProblem,
 } from '@vt/protocol';
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from './db/index.ts';
-import { buildGames, questionDeckGameIds } from './games/registry.ts';
+import { buildGames, openQuestionGameIds, questionDeckGameIds } from './games/registry.ts';
 import { questionDecks } from './db/schema.ts';
 
 /** What a new deck is tagged with when no games are given (matches the column's SQL default). */
@@ -82,15 +85,64 @@ export class QuestionDeckRepo {
   private readonly now: () => number;
   /** The registered games that use question decks: the only ids a deck may be tagged with. */
   readonly gameIds: readonly string[];
+  /** Those of `gameIds` that read open questions (no answers); the rest are trivia games. */
+  readonly openGameIds: readonly string[];
 
   constructor(
     db: Db,
     now: () => number = Date.now,
     gameIds: readonly string[] = questionDeckGameIds(buildGames()),
+    openGameIds: readonly string[] = openQuestionGameIds(buildGames()),
   ) {
     this.db = db;
     this.now = now;
     this.gameIds = gameIds;
+    this.openGameIds = openGameIds;
+  }
+
+  /** A deck's kind from the games it is tagged for, or null when it mixes the two kinds. */
+  kindOf(games: readonly string[]): QuestionKind | null {
+    const open = games.filter((g) => this.openGameIds.includes(g)).length;
+    if (open === 0) return 'trivia';
+    return open === games.length ? 'open' : null;
+  }
+
+  /**
+   * Why a deck can't be saved with these questions and tags (the stored tags on an update that
+   * leaves them out, the default for a new deck), or null. Trivia decks keep Hoodwink's rules.
+   */
+  problem(questions: readonly StoredQuestion[], games: readonly string[]): string | null {
+    const kind = this.kindOf(games);
+    if (kind === null)
+      return 'games: a deck is either for trivia games or for open-question games, not both.';
+    return kind === 'open' ? openProblem(questions) : triviaProblem(questions);
+  }
+
+  /** The tags a deck has, or null when there is no such deck. */
+  gamesOf(id: string): string[] | null {
+    return (
+      this.db
+        .select({ games: questionDecks.games })
+        .from(questionDecks)
+        .where(eq(questionDecks.id, id))
+        .get()?.games ?? null
+    );
+  }
+
+  /**
+   * The common answers to an open question (`<deck id>:<index>`) of an enabled deck tagged for
+   * `gameId`, for playtest bots; empty otherwise. Never a trivia answer.
+   */
+  hints(gameId: string, questionId: string): string[] {
+    if (!this.openGameIds.includes(gameId)) return [];
+    const cut = questionId.lastIndexOf(':');
+    const row = this.db
+      .select()
+      .from(questionDecks)
+      .where(eq(questionDecks.id, questionId.slice(0, cut)))
+      .get();
+    if (!row?.enabled || !row.games.includes(gameId)) return [];
+    return row.questions[Number(questionId.slice(cut + 1))]?.hints ?? [];
   }
 
   /** Every deck by name, disabled ones included (for admins). */
@@ -193,40 +245,69 @@ export class QuestionDeckRepo {
    * The question content a room of `gameId` may read: only enabled decks tagged for the game.
    * Question ids are `<deck id>:<index>`, stable as long as the deck isn't replaced.
    */
-  forGame(gameId: string): Required<Pick<ContentProvider, 'questionDecks' | 'questions'>> {
+  forGame(
+    gameId: string,
+  ): Required<Pick<ContentProvider, 'questionDecks'>> &
+    Pick<ContentProvider, 'questions' | 'openQuestions'> {
+    const rowsOf = (deckIds: readonly string[]) => {
+      const wanted = [...new Set(deckIds)];
+      if (!wanted.length) return [];
+      const rows = new Map(
+        this.db
+          .select()
+          .from(questionDecks)
+          .where(inArray(questionDecks.id, wanted))
+          .all()
+          .filter((r) => r.enabled && r.games.includes(gameId))
+          .map((r) => [r.id, r]),
+      );
+      return wanted.flatMap((deckId) => {
+        const row = rows.get(deckId);
+        return row ? [row] : [];
+      });
+    };
+    const decks = () =>
+      this.listEnabled(gameId).map((d) => ({
+        id: d.id,
+        name: d.name,
+        ...(d.description ? { description: d.description } : {}),
+        questionCount: d.questionCount,
+        ...(d.adult ? { adult: true } : {}),
+      }));
+    if (this.openGameIds.includes(gameId)) {
+      return {
+        questionDecks: decks,
+        // Prompts only: the hints stay on the server, for bots (`hints`).
+        openQuestions: (deckIds) =>
+          rowsOf(deckIds).flatMap((row) =>
+            row.questions.map((q, i) => ({
+              id: `${row.id}:${i}`,
+              deckId: row.id,
+              prompt: q.prompt,
+            })),
+          ),
+      };
+    }
     return {
-      questionDecks: () =>
-        this.listEnabled(gameId).map((d) => ({
-          id: d.id,
-          name: d.name,
-          ...(d.description ? { description: d.description } : {}),
-          questionCount: d.questionCount,
-          ...(d.adult ? { adult: true } : {}),
-        })),
-      questions: (deckIds) => {
-        const wanted = [...new Set(deckIds)];
-        if (!wanted.length) return [];
-        const rows = new Map(
-          this.db
-            .select()
-            .from(questionDecks)
-            .where(inArray(questionDecks.id, wanted))
-            .all()
-            .filter((r) => r.enabled && r.games.includes(gameId))
-            .map((r) => [r.id, r]),
-        );
-        return wanted.flatMap((deckId) => {
-          const row = rows.get(deckId);
-          return (row?.questions ?? []).map((q, i) => ({
-            id: `${deckId}:${i}`,
-            deckId,
-            prompt: q.prompt,
-            answer: q.answer,
-            alternates: q.alternates,
-            ...(q.decoys?.length ? { decoys: q.decoys } : {}),
-          }));
-        });
-      },
+      questionDecks: decks,
+      questions: (deckIds) =>
+        rowsOf(deckIds).flatMap((row) =>
+          row.questions.flatMap((q, i) =>
+            // Trivia games only ever get answered questions.
+            q.answer === undefined
+              ? []
+              : [
+                  {
+                    id: `${row.id}:${i}`,
+                    deckId: row.id,
+                    prompt: q.prompt,
+                    answer: q.answer,
+                    alternates: q.alternates,
+                    ...(q.decoys?.length ? { decoys: q.decoys } : {}),
+                  },
+                ],
+          ),
+        ),
     };
   }
 }

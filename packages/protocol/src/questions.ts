@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
-// Question decks: admin-managed trivia questions. The decks themselves are private content: they
-// live only in the server's database (imported with `scripts/import-question-decks.mjs`) and are
-// never committed. `scripts/import-question-decks.mjs` repeats these rules in plain JavaScript so
-// it can check a deck before uploading it; keep the two in step.
+// Question decks: admin-managed questions. The decks themselves are private content: they live
+// only in the server's database (imported with `scripts/import-question-decks.mjs`) and are never
+// committed. `scripts/import-question-decks.mjs` repeats these rules in plain JavaScript so it can
+// check a deck before uploading it; keep the two in step.
+//
+// A deck is of one of two kinds, set by the games it is tagged for (`questionKind` on their
+// definitions): trivia decks (Hoodwink) need an answer and the `___`/`?` prompt shape on every
+// question (`triviaProblem`); open decks (Stampede) hold questions with no right answer, only an
+// optional list of common answers (`hints`) for playtest bots (`openProblem`).
 
 export const MAX_QUESTIONS_PER_DECK = 5000;
 /** Long enough for proverb and first-line answers. */
@@ -23,15 +28,13 @@ export const promptShapeOk = (prompt: string) => {
 const isHttpUrl = (value: string) => /^https?:\/\/[^\s/?#]+\S*$/i.test(value);
 
 const answerText = z.string().trim().min(1).max(MAX_ANSWER_LENGTH);
+export const MAX_HINT_LENGTH = 40;
 
 export const questionBody = z.object({
-  prompt: z
-    .string()
-    .trim()
-    .min(5)
-    .max(300)
-    .refine(promptShapeOk, 'A prompt needs exactly one "___", or no blank and a final "?".'),
-  answer: answerText,
+  /** The trivia shape (`promptShapeOk`) is checked per deck kind, by `triviaProblem`. */
+  prompt: z.string().trim().min(5).max(300),
+  /** Required on trivia decks (`triviaProblem`); open decks have none. */
+  answer: answerText.optional(),
   /** Other accepted forms of the answer. */
   alternates: z.array(answerText).max(10).default([]),
   /** Where the answer can be checked. */
@@ -46,6 +49,11 @@ export const questionBody = z.object({
    * `ctx.content.questions()`; no HTTP response carries them except the admin detail and export.
    */
   decoys: z.array(answerText).max(30).optional(),
+  /**
+   * Open decks only: answers many players would give, which playtest bots copy. Like decoys, no
+   * HTTP response carries them except the admin detail and export.
+   */
+  hints: z.array(z.string().trim().min(1).max(MAX_HINT_LENGTH)).max(10).optional(),
 });
 export type QuestionBody = z.input<typeof questionBody>;
 export type StoredQuestion = z.output<typeof questionBody>;
@@ -70,6 +78,32 @@ export const questionDeckBody = z.object({
   enabled: z.boolean().optional(),
 });
 export type QuestionDeckBody = z.input<typeof questionDeckBody>;
+
+export type QuestionKind = 'trivia' | 'open';
+
+export const PROMPT_SHAPE_MESSAGE =
+  'A prompt needs exactly one "___", or no blank and a final "?".';
+
+/**
+ * The first problem with a trivia deck's questions (an answer on every one, and the prompt shape),
+ * with its path, or null.
+ */
+export function triviaProblem(questions: readonly StoredQuestion[]): string | null {
+  for (const [i, q] of questions.entries()) {
+    if (!promptShapeOk(q.prompt)) return `questions.${i}.prompt: ${PROMPT_SHAPE_MESSAGE}`;
+    if (q.answer === undefined) return `questions.${i}.answer: Trivia questions need an answer.`;
+  }
+  return null;
+}
+
+/** The first problem with an open deck's questions (they have no answers), with its path, or null. */
+export function openProblem(questions: readonly StoredQuestion[]): string | null {
+  for (const [i, q] of questions.entries()) {
+    if (q.answer !== undefined || q.alternates.length || q.decoys?.length)
+      return `questions.${i}: Open questions have no answer, alternates or decoys.`;
+  }
+  return null;
+}
 
 /** Switches a deck on or off without resending its questions. */
 export const questionDeckEnabledBody = z.object({ enabled: z.boolean() });

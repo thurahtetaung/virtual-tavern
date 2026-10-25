@@ -96,7 +96,7 @@ describe('QuestionDeckRepo', () => {
       questionCount: 2,
     });
 
-    const questions = content.questions([own.id, other.id, off.id, 'missing', own.id]);
+    const questions = content.questions!([own.id, other.id, off.id, 'missing', own.id]);
     expect(questions).toEqual([
       {
         id: `${own.id}:0`,
@@ -113,9 +113,12 @@ describe('QuestionDeckRepo', () => {
         alternates: [],
       },
     ]);
-    expect(content.questions([both.id]).map((x) => x.id)).toEqual([`${both.id}:0`, `${both.id}:1`]);
-    expect(content.questions([])).toEqual([]);
-    expect(repo.forGame('quiz').questions([other.id])).toHaveLength(2);
+    expect(content.questions!([both.id]).map((x) => x.id)).toEqual([
+      `${both.id}:0`,
+      `${both.id}:1`,
+    ]);
+    expect(content.questions!([])).toEqual([]);
+    expect(repo.forGame('quiz').questions!([other.id])).toHaveLength(2);
 
     repo.setEnabled(own.id, true);
     repo.setEnabled(both.id, false);
@@ -131,7 +134,7 @@ describe('QuestionDeckRepo', () => {
     });
     const [deck] = repo.forGame('hoodwink').questionDecks();
     expect(deck).toMatchObject({ name: 'Late', adult: true });
-    const [question] = repo.forGame('hoodwink').questions([deck!.id]);
+    const [question] = repo.forGame('hoodwink').questions!([deck!.id]);
     expect(question?.alternates).toEqual(['owls']);
     // Games get the decoys (as house lies); HTTP responses never do, except to admins.
     expect(question?.decoys).toEqual(['bat']);
@@ -153,5 +156,40 @@ describe('roomContent', () => {
     expect(content.forGame('hoodwink').wordLists()).toEqual([]);
     expect('questionDecks' in content.forGame('codenames')).toBe(false);
     expect('questions' in content.forGame('codenames')).toBe(false);
+  });
+
+  it('gives open-question games prompts only, and their hints to bots alone', () => {
+    const db = openDb(':memory:', MIGRATIONS);
+    const repo = new QuestionDeckRepo(db, () => 1, ['hoodwink', 'stampede'], ['stampede']);
+    const open = repo.create({
+      name: 'Open',
+      description: '',
+      games: ['stampede'],
+      questions: [
+        {
+          prompt: 'Name a pretend fruit?',
+          alternates: [],
+          sources: [],
+          adult: false,
+          tags: [],
+          hints: ['Plum'],
+        },
+      ],
+    });
+    const trivia = repo.create({ name: 'Trivia', description: '', questions: [q('A ___.', 'b')] });
+    const content = repo.forGame('stampede');
+    expect(content.questions).toBeUndefined();
+    expect(content.openQuestions!([open.id, trivia.id])).toEqual([
+      { id: `${open.id}:0`, deckId: open.id, prompt: 'Name a pretend fruit?' },
+    ]);
+    expect(repo.forGame('hoodwink').openQuestions).toBeUndefined();
+    expect(repo.hints('stampede', `${open.id}:0`)).toEqual(['Plum']);
+    expect(repo.hints('hoodwink', `${open.id}:0`)).toEqual([]);
+    expect(repo.hints('stampede', `${trivia.id}:0`)).toEqual([]);
+    repo.setEnabled(open.id, false);
+    expect(repo.hints('stampede', `${open.id}:0`)).toEqual([]);
+    expect(repo.kindOf(['stampede'])).toBe('open');
+    expect(repo.kindOf(['hoodwink'])).toBe('trivia');
+    expect(repo.kindOf(['hoodwink', 'stampede'])).toBeNull();
   });
 });

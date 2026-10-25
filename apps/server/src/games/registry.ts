@@ -18,6 +18,7 @@ import { setTestRig, tavernBrawl } from '@vt/private-tavern-brawl/logic';
 import { enableTestRig, shortFuse } from '@vt/private-short-fuse/logic';
 import { starlight } from '@vt/private-starlight/logic';
 import { thorns } from '@vt/private-thorns/logic';
+import { stampede } from '@vt/private-stampede/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -111,6 +112,7 @@ export function buildGames(): GameRegistry {
     starlight,
     thorns,
     iconic,
+    stampede,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
@@ -124,3 +126,9 @@ export const wordListGameIds = (games: GameRegistry): string[] =>
 /** Ids of the registered games that draw questions from question decks, in registry order. */
 export const questionDeckGameIds = (games: GameRegistry): string[] =>
   [...games.values()].filter((g) => g.usesQuestionDecks).map((g) => g.id);
+
+/** The question-deck games that read open questions (no answers) rather than trivia. */
+export const openQuestionGameIds = (games: GameRegistry): string[] =>
+  [...games.values()]
+    .filter((g) => g.usesQuestionDecks && g.questionKind === 'open')
+    .map((g) => g.id);

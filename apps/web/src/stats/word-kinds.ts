@@ -36,6 +36,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   thorns: [],
   // Each round's secret word, once revealed.
   iconic: ['clue'],
+  // Answers, reported as guesses.
+  stampede: ['guess'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -53,6 +55,7 @@ const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> =
   nightfall: { clue: 'Roles dealt', guess: 'Roles that died' },
   starlight: { clue: 'Words' },
   iconic: { clue: 'Words' },
+  stampede: { guess: 'Answers' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */

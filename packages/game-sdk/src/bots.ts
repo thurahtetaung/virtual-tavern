@@ -14,6 +14,11 @@ export interface BotCtx {
   rng: Rng;
   /** Words from the given admin word lists (never questions, answers or decoys). */
   words(listIds: readonly string[]): string[];
+  /**
+   * Common answers to an open question (its deck's `hints`), for games with
+   * `questionKind: 'open'`; empty when the deck gives none. Never trivia answers or decoys.
+   */
+  hints?(questionId: string): string[];
 }
 
 /** How a game's bots fit a playtest, for the admin's setup. */

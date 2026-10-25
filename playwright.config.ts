@@ -29,6 +29,7 @@ export const SHARED_STATE = [
   /starlight\.spec\.ts$/,
   /thorns[\w-]*\.spec\.ts$/,
   /iconic\.spec\.ts$/,
+  /stampede[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -54,6 +55,7 @@ const GAME_IDS = [
   'starlight',
   'thorns',
   'iconic',
+  'stampede',
 ];
 
 /**
