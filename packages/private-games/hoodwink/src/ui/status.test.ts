@@ -21,6 +21,7 @@ import {
   nameOf,
   pointsBreakdown,
   ranks,
+  shownScores,
   splitPrompt,
   startBlocker,
   statusFor,
@@ -204,5 +205,27 @@ describe('pointsBreakdown', () => {
     const sum = (id: string) =>
       pointsBreakdown(v, v.round!, id).reduce((n, line) => n + line.points, 0);
     for (const id of FOUR) expect(sum(id), id).toBe(v.round!.points![id]);
+  });
+});
+
+describe('during the one-by-one reveal', () => {
+  it('keeps the scores and the status from giving the answers away', () => {
+    const h = startedGame();
+    playRound(h);
+    writeAll(h);
+    // Only p3 finds the truth this time; everyone else falls for p4's lie.
+    for (const id of round(h).voters) {
+      const pick = id === 'p3' ? truthIndex(h) : lieOf(h, id === 'p4' ? HOST : 'p4');
+      h.act({ type: 'vote', option: pick }, id);
+    }
+    const view = hoodwink.view(h.state, 'p2');
+    // Everyone found the truth in round 1, so the reveal shows them level.
+    expect(shownScores(view, true).map((s) => s.score)).toEqual([1000, 1000, 1000, 1000]);
+    expect(shownScores(view, false).map((s) => s.score)).toEqual([2000, 2000, 1500, 1000]);
+    expect(statusFor(view, false, null, undefined, true)).toEqual({
+      text: 'The moment of truth: who fooled whom?',
+      yourMove: false,
+    });
+    expect(statusFor(view, false, null).text).toContain('Round over!');
   });
 });

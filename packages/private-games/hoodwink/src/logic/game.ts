@@ -31,6 +31,8 @@ import {
   type Option,
   type OptionView,
   POINT_STEP,
+  REVEAL_FLIP_MS,
+  REVEAL_STEP_MS,
   type Role,
   type Round,
   type RoundView,
@@ -128,14 +130,21 @@ function beginRound(state: HoodwinkState, number: number, now: number): Hoodwink
   const [question, ...questions] = state.questions;
   if (!question || number > state.settings.rounds) return endGame(state, 'finished');
   const players = playingIds(state);
-  // Each player gets a fake of their own up front (while they last), so whether "Lie for me" is
-  // offered never hints at what anyone else has done.
+  // Each player gets a fake of their own up front (while they last), then a second one, so what
+  // "Lie for me" offers never hints at what anyone else has done.
   const pool = decoyPool(question, takenKeys({ question, lies: {} }));
   const rng = createRng(state.seed);
   const dealt = rng.shuffle(pool);
-  const fakes = Object.fromEntries(
-    players.flatMap((id, i) => (dealt[i] === undefined ? [] : [[id, dealt[i]]])),
-  );
+  const deal = (from: number, until: number): Record<PlayerId, string> =>
+    Object.fromEntries(
+      players.flatMap((id, i) => {
+        const fake = from + i < until ? dealt[from + i] : undefined;
+        return fake === undefined ? [] : [[id, fake]];
+      }),
+    );
+  const fakes = deal(0, dealt.length);
+  // Second fakes leave at least one spare over, to top up a small board or fill in a missed lie.
+  const spareFakes = deal(players.length, dealt.length - 1);
   const scores = { ...state.scores };
   for (const id of players) {
     scores[id] = {
@@ -156,7 +165,9 @@ function beginRound(state: HoodwinkState, number: number, now: number): Hoodwink
       lies: {},
       autoLies: [],
       fakes,
+      spareFakes,
       fakeShown: [],
+      fakeChoices: {},
       options: [],
       voters: [],
       votes: {},
@@ -188,13 +199,17 @@ function decoyPool(question: Question, taken: ReadonlySet<string>): string[] {
   return pool;
 }
 
+/** The fakes `id` was offered with "Lie for me" (none if they haven't pressed it). */
+function shownTo(round: Round, id: PlayerId): string[] {
+  if (!(round.fakeShown ?? []).includes(id)) return [];
+  const fake = round.fakes?.[id];
+  return round.fakeChoices?.[id] ?? (fake === undefined ? [] : [fake]);
+}
+
 /** Keys of the fakes players have been shown with "Lie for me": never reused for anyone else. */
-function shownKeys(round: Round): Set<string> {
+function shownKeys(round: Round, except?: PlayerId): Set<string> {
   return new Set(
-    (round.fakeShown ?? []).flatMap((id) => {
-      const fake = round.fakes?.[id];
-      return fake === undefined ? [] : [wordKey(fake)];
-    }),
+    (round.fakeShown ?? []).flatMap((id) => (id === except ? [] : shownTo(round, id).map(wordKey))),
   );
 }
 
@@ -261,13 +276,18 @@ function board(state: HoodwinkState, round: Round): { options: Option[]; seed: n
 function fillMissingLies(state: HoodwinkState): HoodwinkState {
   const round = state.round!;
   const missing = round.players.filter((id) => round.lies[id] === undefined);
-  const taken = new Set([...takenKeys(round), ...shownKeys(round)]);
   const given: Record<PlayerId, string> = {};
+  const givenKeys = new Set<string>();
   for (const id of missing) {
-    const own = round.fakes?.[id];
-    if (own !== undefined && !taken.has(wordKey(own))) given[id] = own;
+    // The first fake they were offered (they opened "Lie for me" but never picked), else their own.
+    const own = shownTo(round, id)[0] ?? round.fakes?.[id];
+    if (own === undefined) continue;
+    const key = wordKey(own);
+    if (takenKeys(round).has(key) || shownKeys(round, id).has(key) || givenKeys.has(key)) continue;
+    given[id] = own;
+    givenKeys.add(key);
   }
-  for (const fake of Object.values(given)) taken.add(wordKey(fake));
+  const taken = new Set([...takenKeys(round), ...shownKeys(round), ...givenKeys]);
   const rest = missing.filter((id) => given[id] === undefined);
   const { picked, seed } = pickDecoys(state, round, rest.length, taken);
   rest.slice(0, picked.length).forEach((id, i) => {
@@ -307,7 +327,7 @@ function maybeStartVoting(state: HoodwinkState, now: number, force = false): Hoo
   );
 }
 
-function reveal(state: HoodwinkState): HoodwinkState {
+function reveal(state: HoodwinkState, now: number): HoodwinkState {
   const round = state.round!;
   const factor = multiplier(round, state.settings.rounds);
   const points: Record<PlayerId, number> = {};
@@ -342,16 +362,16 @@ function reveal(state: HoodwinkState): HoodwinkState {
   return {
     ...state,
     scores,
-    round: { ...round, stage: 'reveal', points, deadline: null },
+    round: { ...round, stage: 'reveal', points, revealedAt: now, deadline: null },
   };
 }
 
 /** Reveals once every voter still here has voted (or the timer forces it). */
-function maybeReveal(state: HoodwinkState, force = false): HoodwinkState {
+function maybeReveal(state: HoodwinkState, now: number, force = false): HoodwinkState {
   const round = state.round;
   if (state.phase !== 'playing' || !round || round.stage !== 'vote') return state;
   if (!force && !round.voters.every((id) => round.votes[id] !== undefined)) return state;
-  return reveal(state);
+  return reveal(state, now);
 }
 
 // ---- Actions ----
@@ -494,10 +514,8 @@ function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
   }
   const problem = lieProblem(text, round.question);
   if (problem) return problem;
-  // Typing out the ready-made lie you were shown still counts as picked for you: half points.
-  const fake = round.fakes?.[ctx.by];
-  const isFake =
-    fake !== undefined && (round.fakeShown ?? []).includes(ctx.by) && sameAnswer(fake, text);
+  // Typing out a ready-made lie you were shown still counts as picked for you: half points.
+  const isFake = shownTo(round, ctx.by).some((fake) => sameAnswer(fake, text));
   return maybeStartVoting(
     withRound(state, {
       lies: { ...round.lies, [ctx.by]: tidyLie(text) },
@@ -520,23 +538,75 @@ export function fakeFor(round: Round, id: PlayerId): string | undefined {
   const taken = new Set([...takenKeys(round), ...shownKeys(round)]);
   const free = decoyPool(round.question, taken);
   const ownKey = wordKey(own);
-  return free.find((f) => wordKey(f) === ownKey) ?? free[0] ?? own;
+  // Never one already offered to someone else: that would hint at their lie.
+  const offeredElsewhere = shownKeys(round, id).has(ownKey);
+  return (
+    free.find((f) => wordKey(f) === ownKey) ??
+    free.find((f) => !heldForOther(round, id, f)) ??
+    free[0] ??
+    (offeredElsewhere ? undefined : own)
+  );
+}
+
+/** Whether a fake was set aside for someone other than `id` (and not yet shown to them). */
+function heldForOther(round: Round, id: PlayerId, fake: string): boolean {
+  const key = wordKey(fake);
+  return round.players.some(
+    (p) =>
+      p !== id &&
+      [round.fakes?.[p], round.spareFakes?.[p]].some((f) => f !== undefined && wordKey(f) === key),
+  );
 }
 
 /**
- * "Lie for me": a built-in fake becomes the player's lie, worth half points. One pick per player
- * per round, so pressing it again can't reveal the other fakes.
+ * The fakes "Lie for me" offers `id`: the one `fakeFor` gives, plus their second one when it's still
+ * free (or another free fake nobody else holds). One when there's no second to give.
  */
-function lieForMe(state: HoodwinkState, ctx: Ctx): Result {
+export function fakeChoicesFor(round: Round, id: PlayerId): string[] {
+  const first = fakeFor(round, id);
+  if (first === undefined) return [];
+  const spare = round.spareFakes?.[id];
+  if (spare === undefined) return [first];
+  const firstKey = wordKey(first);
+  const free = decoyPool(
+    round.question,
+    new Set([...takenKeys(round), ...shownKeys(round)]),
+  ).filter((f) => wordKey(f) !== firstKey);
+  const spareKey = wordKey(spare);
+  const second =
+    free.find((f) => wordKey(f) === spareKey) ?? free.find((f) => !heldForOther(round, id, f));
+  return second === undefined ? [first] : [first, second];
+}
+
+/**
+ * "Lie for me": the game offers the player two built-in fakes to choose from (or hands them the
+ * only one), worth half points. One offer per player per round, so pressing it again can't reveal
+ * other fakes; they may switch between the two they were offered until the vote.
+ */
+function lieForMe(state: HoodwinkState, choice: number | undefined, ctx: Ctx): Result {
   const round = requireStage(state, 'write');
   if (round instanceof GameError) return round;
   if (!round.players.includes(ctx.by)) {
     return new GameError('not-playing-round', "You're watching this round. You join the next one.");
   }
+  if (choice !== undefined) {
+    const offered = round.fakeChoices?.[ctx.by];
+    const fake = offered?.[choice];
+    if (fake === undefined) {
+      return new GameError('no-choice', 'Press “Lie for me” to see your ready-made lies first.');
+    }
+    return maybeStartVoting(
+      withRound(state, {
+        lies: { ...round.lies, [ctx.by]: fake },
+        autoLies: [...new Set([...round.autoLies, ctx.by])],
+      }),
+      ctx.now,
+    );
+  }
   if ((round.fakeShown ?? []).includes(ctx.by) || round.autoLies.includes(ctx.by)) {
     return new GameError(
       'already-picked',
-      'You’ve had your ready-made lie for this round. Type your own to replace it.',
+      'You’ve had your ready-made lies for this round. Type your own to replace it.',
     );
   }
   if (round.lies[ctx.by] !== undefined) {
@@ -545,17 +615,22 @@ function lieForMe(state: HoodwinkState, ctx: Ctx): Result {
       'You’ve already sent your own lie. Change it in the box if you like.',
     );
   }
-  const fake = fakeFor(round, ctx.by);
-  if (fake === undefined) {
+  const offered = fakeChoicesFor(round, ctx.by);
+  if (offered.length === 0) {
     return new GameError('no-decoys', 'No ready-made lie for this one. Write your own!');
   }
+  // Remember what they were shown, so it never turns up as a house fake or anyone else's offer.
+  const shown: Partial<Round> = {
+    fakeShown: [...(round.fakeShown ?? []), ctx.by],
+    fakeChoices: { ...round.fakeChoices, [ctx.by]: offered },
+  };
+  if (offered.length > 1) return withRound(state, shown);
   return maybeStartVoting(
     withRound(state, {
-      lies: { ...round.lies, [ctx.by]: fake },
+      ...shown,
+      lies: { ...round.lies, [ctx.by]: offered[0]! },
       autoLies: [...round.autoLies, ctx.by],
-      // Remember what they were shown, so it never turns up as a house fake.
-      fakes: { ...round.fakes, [ctx.by]: fake },
-      fakeShown: [...(round.fakeShown ?? []), ctx.by],
+      fakes: { ...round.fakes, [ctx.by]: offered[0]! },
     }),
     ctx.now,
   );
@@ -572,7 +647,16 @@ function vote(state: HoodwinkState, option: number, ctx: Ctx): Result {
   if (picked.authors.includes(ctx.by)) {
     return new GameError('own-lie', "That's your own lie! Pick another answer.");
   }
-  return maybeReveal(withRound(state, { votes: { ...round.votes, [ctx.by]: option } }));
+  return maybeReveal(withRound(state, { votes: { ...round.votes, [ctx.by]: option } }), ctx.now);
+}
+
+/** The host shows the whole reveal at once, on every phone. */
+function skipReveal(state: HoodwinkState, ctx: Ctx): Result {
+  const err = requireHost(ctx);
+  if (err) return err;
+  const round = requireStage(state, 'reveal');
+  if (round instanceof GameError) return round;
+  return round.revealSkipped ? state : withRound(state, { revealSkipped: true });
 }
 
 function nextRound(state: HoodwinkState, ctx: Ctx): Result {
@@ -611,7 +695,7 @@ function continueWithout(state: HoodwinkState, ctx: Ctx): Result {
   }
   return round.stage === 'write'
     ? maybeStartVoting(state, ctx.now, true)
-    : maybeReveal(state, true);
+    : maybeReveal(state, ctx.now, true);
 }
 
 /**
@@ -646,11 +730,13 @@ function reduce(state: HoodwinkState, action: HoodwinkAction, ctx: Ctx): Result 
     case 'lie':
       return lie(current, action.text, ctx);
     case 'lie-for-me':
-      return lieForMe(current, ctx);
+      return lieForMe(current, action.choice, ctx);
     case 'vote':
       return vote(current, action.option, ctx);
     case 'next-round':
       return nextRound(current, ctx);
+    case 'skip-reveal':
+      return skipReveal(current, ctx);
     case 'continue-without':
       return continueWithout(current, ctx);
   }
@@ -724,7 +810,7 @@ function withdraw(state: HoodwinkState, id: PlayerId, now: number): HoodwinkStat
     case 'vote': {
       // A vote already cast still counts.
       if (!round.voters.includes(id) || round.votes[id] !== undefined) return state;
-      return maybeReveal(withRound(state, { voters: round.voters.filter((v) => v !== id) }));
+      return maybeReveal(withRound(state, { voters: round.voters.filter((v) => v !== id) }), now);
     }
     case 'reveal':
       return state;
@@ -755,7 +841,7 @@ function onDeadline(state: HoodwinkState, now: number): HoodwinkState {
       return maybeStartVoting(state, now, true);
     case 'vote': {
       const missing = round.voters.some((id) => round.votes[id] === undefined);
-      return maybeReveal(missing ? withRound(state, { voteTimedOut: true }) : state, true);
+      return maybeReveal(missing ? withRound(state, { voteTimedOut: true }) : state, now, true);
     }
     case 'reveal':
       return state;
@@ -807,12 +893,18 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
       round.lies[viewer] === undefined &&
       !(round.fakeShown ?? []).includes(viewer) &&
       round.fakes?.[viewer] !== undefined,
+    myFakes:
+      round.stage === 'write' && viewer !== null && (round.fakeChoices?.[viewer]?.length ?? 0) > 1
+        ? round.fakeChoices![viewer]!
+        : null,
     myLieShared: viewer !== null && lieShared(round, viewer),
     options,
     voters: round.voters,
     voted: round.voters.filter((id) => round.votes[id] !== undefined),
     myVote: viewer === null ? null : (round.votes[viewer] ?? null),
     points: revealed ? round.points : null,
+    revealAt:
+      revealed && !round.revealSkipped && round.revealedAt !== undefined ? round.revealedAt : null,
     deadline: round.deadline,
   };
 }
@@ -825,6 +917,32 @@ function lieShared(round: Round, id: PlayerId): boolean {
   return round.players.some(
     (p) => p !== id && round.lies[p] !== undefined && wordKey(round.lies[p]) === key,
   );
+}
+
+/**
+ * The order the reveal turns the answers over, as board indexes: every answer somebody picked that
+ * isn't the truth, least picked first (board order breaks ties), then the truth last. Answers
+ * nobody picked only show on the full board afterwards.
+ */
+export function revealOrder(
+  options: readonly Pick<OptionView, 'index' | 'truth' | 'voters'>[],
+): number[] {
+  const picked = options
+    .filter((o) => !o.truth && (o.voters?.length ?? 0) > 0)
+    .sort((a, b) => a.voters!.length - b.voters!.length || a.index - b.index)
+    .map((o) => o.index);
+  const truth = options.find((o) => o.truth);
+  return truth ? [...picked, truth.index] : picked;
+}
+
+/**
+ * Where the reveal is, `elapsed` ms after it began: the answer in the spotlight (`step`, an index
+ * into the order), whether it has flipped yet, and whether the whole board is out (`done`).
+ */
+export function revealProgress(count: number, elapsed: number) {
+  const step = Math.max(0, Math.floor(elapsed / REVEAL_STEP_MS));
+  if (step >= count) return { step: count, flipped: true, done: true };
+  return { step, flipped: elapsed - step * REVEAL_STEP_MS >= REVEAL_FLIP_MS, done: false };
 }
 
 /** The real answer's rough length: a word or two, a short phrase, or a whole sentence. */

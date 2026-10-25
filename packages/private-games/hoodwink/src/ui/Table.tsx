@@ -1,6 +1,6 @@
 import { Button, NameDot, PlayerTag, cn, useConfirm } from '@vt/ui';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
-import { points } from './status.ts';
+import { points, shownScores } from './status.ts';
 
 type Act = (a: HoodwinkAction) => Promise<boolean>;
 
@@ -145,14 +145,14 @@ export function Table({
 }
 
 /** Everyone's score, highest first, compact enough to sit under the game on a phone. */
-export function Scores({ view }: { view: HoodwinkView }) {
+export function Scores({ view, revealing }: { view: HoodwinkView; revealing: boolean }) {
   if (view.scores.length === 0) return null;
-  const gained = view.round?.points ?? null;
+  const gained = revealing ? null : (view.round?.points ?? null);
   return (
     <section aria-label="Scores">
       <h3 className="mb-1 font-bold">Scores</h3>
       <ol className="space-y-1 text-sm">
-        {view.scores.map((s) => (
+        {shownScores(view, revealing).map((s) => (
           <li key={s.id} className={cn('flex items-center gap-2', s.left && 'opacity-50')}>
             <span className="min-w-0 flex-1 truncate">
               {s.name}

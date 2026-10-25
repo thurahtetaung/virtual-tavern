@@ -5,6 +5,7 @@ import {
   MAX_PLAYERS,
   MIN_PLAYERS,
   type RoundView,
+  type ScoreView,
   TRUTH_POINTS,
 } from '../logic/types.ts';
 
@@ -62,11 +63,24 @@ export function missingIds(round: RoundView): string[] {
   return [];
 }
 
+/**
+ * The scores to show: while the reveal turns the answers over one by one, as they stood before
+ * this round (ranked so), so the scoreboard doesn't give the answers away.
+ */
+export function shownScores(view: HoodwinkView, revealing: boolean): ScoreView[] {
+  const gained = view.round?.points;
+  if (!revealing || !gained) return view.scores;
+  return view.scores
+    .map((s) => ({ ...s, score: s.score - (gained[s.id] ?? 0) }))
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'en'));
+}
+
 function roundStatus(
   view: HoodwinkView,
   round: RoundView,
   isHost: boolean,
   room: StatusRoom | undefined,
+  revealing: boolean,
 ): Status {
   const me = view.me?.id ?? '';
   // Without the room (tests), name from the seats; nobody is marked offline then.
@@ -105,6 +119,9 @@ function roundStatus(
       };
     }
     case 'reveal': {
+      if (revealing) {
+        return { text: 'The moment of truth: who fooled whom?', yourMove: false };
+      }
       const mine = round.points?.[me];
       const scored = mine === undefined ? '' : ` You scored ${points(mine)}.`;
       const last = round.number >= round.rounds;
@@ -129,6 +146,8 @@ export function statusFor(
   isHost: boolean,
   blocker: string | null,
   room?: StatusRoom,
+  /** The one-by-one reveal is still running. */
+  revealing = false,
 ): Status {
   if (view.phase === 'lobby') {
     const ended =
@@ -173,7 +192,7 @@ export function statusFor(
       : { text: `Game over! A tie at ${top} points: ${listNames(names)}.`, yourMove: false };
   }
   if (!view.round) return { text: 'Shuffling the questions…', yourMove: false };
-  return roundStatus(view, view.round, isHost, room);
+  return roundStatus(view, view.round, isHost, room, revealing);
 }
 
 /** The prompt split around its blank (`___`, or any run of 2+ underscores). */

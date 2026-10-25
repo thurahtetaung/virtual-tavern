@@ -48,8 +48,21 @@ async function unlock(page: Page, url = '/backroom') {
 const YOUR_TURN = /^● Your turn/;
 const TRUTH = 'Zebra crossing';
 
-/** Ready-made fakes: "Lie for me" picks one, and a small board is padded with another. */
-const DECOYS = ['Coin toss', 'Goat race', 'Snail derby', 'Pie contest'];
+/**
+ * Ready-made fakes: enough for "Lie for me" to offer each of four players two, with one left over
+ * to pad a small board.
+ */
+const DECOYS = [
+  'Coin toss',
+  'Goat race',
+  'Snail derby',
+  'Pie contest',
+  'Pancake flip',
+  'Duck vote',
+  'Turnip draw',
+  'Kite duel',
+  'Cheese roll',
+];
 
 /** A tiny made-up deck: every question has the same answer, so the test knows the truth. */
 const DECK = {
@@ -84,15 +97,14 @@ async function vote(page: Page, answer: string) {
   await expect(page).toHaveTitle(YOUR_TURN);
   const option = page.getByRole('list', { name: 'Answers' }).getByRole('button', { name: answer });
   await option.click();
-  await expect(
-    option.or(page.getByRole('list', { name: 'Answers revealed' })).first(),
-  ).toBeVisible();
+  // The last vote starts the reveal, and the board goes away.
+  await expect(option.or(page.getByTestId('reveal-sequence')).first()).toBeVisible();
 }
 
 const scoreIs = (page: Page, score: number) =>
   expect(page.getByRole('img', { name: `Your score ${score}` })).toBeVisible();
 
-test('four players play Hoodwink in the back room: a refused truth, merged lies, "Lie for me", house fakes and scores', async ({
+test('four players play Hoodwink in the back room: a refused truth, merged lies, "Lie for me", house fakes, the reveal and scores', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -168,8 +180,26 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await vote(ben, 'Garden gnome');
   await vote(cy, 'Purple llama');
 
-  // Reveal: the truth, who wrote what, and the points (a merged lie splits its 500).
+  // The reveal turns the three picked lies over one at a time (each picked once), then the truth.
+  // Until it's done, the scores stay as they were.
+  const card = cy.getByTestId('reveal-card');
+  await expect(cy.getByTestId('reveal-sequence')).toBeVisible();
+  await expect(cy.getByText('Answer 1 of 4')).toBeVisible();
+  await scoreIs(ana, 0);
+  await expect(cy.getByRole('list', { name: 'Points this round' })).toHaveCount(0);
+  await expect(card.getByTestId('reveal-verdict')).toContainText('🎭 Lie by', { timeout: 4000 });
+  await expect(cy.getByText('Answer 2 of 4')).toBeVisible({ timeout: 4000 });
+  await expect(cy.getByRole('list', { name: 'Answers so far' }).getByRole('listitem')).toHaveCount(
+    1,
+  );
+  await expect(cy.getByText('And the truth is…')).toBeVisible({ timeout: 8000 });
+  await expect(card).toContainText(TRUTH);
+  await expect(card).toContainText('Picked by Ana');
+  await expect(card.getByTestId('reveal-verdict')).toHaveText('✅ The truth', { timeout: 4000 });
+
+  // Then the whole board: the truth, who wrote what, and the points (a merged lie splits its 500).
   const revealed = cy.getByRole('list', { name: 'Answers revealed' });
+  await expect(revealed).toBeVisible({ timeout: 5000 });
   await expect(revealed).toContainText('✅ The truth');
   await expect(revealed).toContainText('🎭 Lie by Ana and Ben');
   await expect(revealed).not.toContainText('House fake');
@@ -182,15 +212,23 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await host.getByRole('button', { name: 'Next round' }).click();
 
-  // Round 2: Ana lets the game lie for her; the other three write the same lie, so the board is
-  // padded with a house fake.
+  // Round 2: Ana lets the game lie for her, picking one of the two it offers; the other three
+  // write the same lie, so the board is padded with a house fake.
   await expect(ana.getByText('Round 2/5')).toBeVisible();
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
   await ana.getByRole('button', { name: '🎲 Lie for me' }).click();
+  const choices = ana.getByTestId('fake-choices').getByRole('button');
+  await expect(choices).toHaveCount(2);
+  const offered = (await choices.allInnerTexts()).map((t) => t.trim());
+  for (const fake of offered) expect(DECOYS).toContain(fake);
+  // Offered, not picked yet: still Ana's turn.
+  await expect(ana).toHaveTitle(YOUR_TURN);
+  await choices.nth(1).click();
   await expect(ana.getByText('🎲 Picked for you: it scores half.')).toBeVisible();
+  await expect(choices.nth(1)).toHaveAttribute('aria-pressed', 'true');
   const autoLie = await ana.getByLabel('Your lie').inputValue();
-  expect(DECOYS).toContain(autoLie);
-  // One pick per round: the button goes, so it can't be pressed again to see other fakes.
+  expect(autoLie).toBe(offered[1]);
+  // One offer per round: the button goes, so it can't be pressed again to see other fakes.
   await expect(ana.getByRole('button', { name: '🎲 Lie for me' })).toHaveCount(0);
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await expect(cy).toHaveTitle(YOUR_TURN);
@@ -203,11 +241,17 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   const texts = (await answers.allInnerTexts()).map((t) => t.split('\n')[0]!.trim());
   const house = texts.find((t) => ![TRUTH, 'Moon cheese', autoLie].includes(t));
   expect(DECOYS).toContain(house);
+  // A fake offered to Ana is never used to pad the board.
+  expect(offered).not.toContain(house);
   await vote(host, autoLie);
   await vote(ana, 'Moon cheese');
   await vote(ben, house!);
   await vote(cy, TRUTH);
 
+  // The host skips the one-by-one reveal, and every phone shows the whole board at once.
+  await expect(cy.getByTestId('reveal-sequence')).toBeVisible();
+  await expect(cy.getByRole('button', { name: /Skip to the results/ })).toHaveCount(0);
+  await host.getByRole('button', { name: /Skip to the results/ }).click();
   // The reveal names the lie picked for Ana and the house fake; Ana's lie scores half (250).
   const second = cy.getByRole('list', { name: 'Answers revealed' });
   await expect(second).toContainText('🏠 House fake');

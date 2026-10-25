@@ -17,6 +17,10 @@ export const AUTO_FOOL_POINTS = 250;
 export const MIN_OPTIONS = 4;
 /** Shared credit is rounded down to a multiple of this. */
 export const POINT_STEP = 50;
+/** How long each answer stays in the spotlight during the reveal, one after another. */
+export const REVEAL_STEP_MS = 3000;
+/** When, within its step, an answer flips to show whose it was (or that it's the truth). */
+export const REVEAL_FLIP_MS = 1400;
 /** Question ids remembered per room, so rematches avoid repeats while the decks allow. */
 export const MAX_USED_QUESTIONS = 500;
 export const MIN_TIMER_SECONDS = 10;
@@ -72,8 +76,15 @@ export interface Round {
    * offered never depends on what anyone else does. Missing on rounds saved by older versions.
    */
   fakes?: Record<PlayerId, string>;
-  /** Players who have pressed "Lie for me" this round (once each): their fake is never a house fake. */
+  /**
+   * A second fake set aside for each player once everyone has a first, while they last, so "Lie for
+   * me" can offer two. Missing on rounds saved by older versions.
+   */
+  spareFakes?: Record<PlayerId, string>;
+  /** Players who have pressed "Lie for me" this round (once each): their fakes are never house fakes. */
   fakeShown?: PlayerId[];
+  /** The fakes each of them was offered (one or two), to pick from until the vote. */
+  fakeChoices?: Record<PlayerId, string[]>;
   /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
   filled?: PlayerId[];
   /** The strict vote timer ended the vote before everyone had voted. */
@@ -86,6 +97,10 @@ export interface Round {
   votes: Record<PlayerId, number>;
   /** Points scored this round, filled at the reveal. */
   points: Record<PlayerId, number>;
+  /** Epoch ms when the reveal began: every phone turns the answers over one by one from then. */
+  revealedAt?: number;
+  /** The host skipped the one-by-one reveal: everything shows at once. */
+  revealSkipped?: boolean;
   /** Epoch ms when the current stage times out, or null if untimed. */
   deadline: number | null;
 }
@@ -135,9 +150,12 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('back-to-lobby') }),
   // Length and content are checked in `reduce`, so the player gets a friendly message.
   z.object({ type: z.literal('lie'), text: z.string().max(400) }),
-  z.object({ type: z.literal('lie-for-me') }),
+  /** Without `choice`, offers the player their fakes (or uses the only one); with it, picks one. */
+  z.object({ type: z.literal('lie-for-me'), choice: z.number().int().min(0).max(1).optional() }),
   z.object({ type: z.literal('vote'), option: z.number().int().min(0).max(20) }),
   z.object({ type: z.literal('next-round') }),
+  /** Host: show the whole reveal at once instead of one answer at a time. */
+  z.object({ type: z.literal('skip-reveal') }),
   /** Host: stop waiting for the players still missing; the stage ends as a strict timeout would. */
   z.object({ type: z.literal('continue-without') }),
 ]);
@@ -200,6 +218,8 @@ export interface RoundView {
    * lie yet (it's one pick per round).
    */
   canLieForMe: boolean;
+  /** The two fakes "Lie for me" offered the viewer, while lies are written (null otherwise). */
+  myFakes: string[] | null;
   /** Another player has written the same lie as the viewer, so it will be shared. */
   myLieShared: boolean;
   /** The board: empty while lies are being written. */
@@ -210,6 +230,11 @@ export interface RoundView {
   myVote: number | null;
   /** Points scored this round: null until the reveal. */
   points: Record<PlayerId, number> | null;
+  /**
+   * When the one-by-one reveal began (server clock), or null when everything shows at once (the
+   * host skipped it, or there was nothing to turn over).
+   */
+  revealAt: number | null;
   deadline: number | null;
 }
 
