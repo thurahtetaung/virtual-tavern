@@ -78,6 +78,13 @@
       "when": 1791800662945,
       "tag": "0010_room_playtest",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792939352491,
+      "tag": "0011_content_packs",
+      "breakpoints": true
     }
   ]
 }

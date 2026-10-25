@@ -316,6 +316,7 @@ export interface ServerToClientEvents {
   'room:recap': (push: { recap: RoomRecap | null; for: string }) => void;
 }
 export * from './game-settings.ts';
+export * from './content-packs.ts';
 export * from './questions.ts';
 export * from './recap.ts';
 export * from './stats.ts';
