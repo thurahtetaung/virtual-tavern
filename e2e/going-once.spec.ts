@@ -64,7 +64,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   // full length, so each bid above has the usual seconds to land).
 
   // Ben is down to $800: the bank opens by itself and waits for everyone. He borrows; the others pass.
-  await expect(ben.getByTestId('go-bank')).toBeVisible();
+  // After the close (about 8 s) and the Sold card.
+  await expect(ben.getByTestId('go-bank')).toBeVisible({ timeout: 30_000 });
   await ben.getByTestId('go-take-loan').click();
   await hana.getByRole('button', { name: 'No thanks' }).click();
   await cleo.getByRole('button', { name: 'No thanks' }).click();
