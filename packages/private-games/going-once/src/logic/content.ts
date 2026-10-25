@@ -33,11 +33,31 @@ export type LinesPack = z.output<typeof linesPack>;
  * What the host says, by moment (`host.ts` names the moments): lines that name nobody, or name a
  * player as `{player}`. Shown as on-screen text, one moment at a time.
  */
+/**
+ * Why a host line isn't a line someone would say (a cue or file name, a stage direction, a label
+ * left in by a recording script), or null.
+ */
+export function hostLineProblem(line: string): string | null {
+  if (/^(new (version|audio)|redo)\b/i.test(line)) return 'a recording label, not a line';
+  if (/\.(ogg|wav|mp3|webp|png)\b|\b[A-Z]{3,}\d{2,}\b/.test(line)) return 'a file or cue name';
+  if (/[[\]()]/.test(line)) return 'a stage direction in brackets';
+  if (!/[A-Za-z]|\$\d/.test(line.replaceAll('{player}', ''))) return 'no words';
+  if (!/[.!?…"”'’]$/.test(line)) return 'it needs to end like a sentence';
+  return null;
+}
+
+const hostLine = z
+  .string()
+  .trim()
+  .min(2)
+  .max(300)
+  .superRefine((line, ctx) => {
+    const problem = hostLineProblem(line);
+    if (problem) ctx.addIssue({ code: 'custom', message: `"${line}": ${problem}` });
+  });
+
 export const hostPack = z
-  .record(
-    z.string().regex(/^[a-z][a-z0-9-]{0,40}$/),
-    z.array(z.string().trim().min(1).max(300)).min(1).max(200),
-  )
+  .record(z.string().regex(/^[a-z][a-z0-9-]{0,40}$/), z.array(hostLine).min(1).max(200))
   .refine((r) => Object.keys(r).length > 0 && Object.keys(r).length <= 300, 'one to 300 moments');
 export type HostPack = z.output<typeof hostPack>;
 

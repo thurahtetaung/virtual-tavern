@@ -52,6 +52,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     await expect(p.getByTestId('go-host')).toContainText('E2E host: the first lot!');
   await expect(hana.getByText('🎨 Your drawing')).toBeVisible();
   await expect(ben.getByText('🎨 Your drawing')).toHaveCount(0);
+  // On a 390×844 phone the bid row stays pinned on screen under the drawing.
+  await expect(ben.getByTestId('go-bid-400')).toBeInViewport({ ratio: 1 });
   await bid(ben, 400);
   await expect(cleo.getByTestId('go-top-bid')).toContainText('$400');
   await bid(cleo, 500);

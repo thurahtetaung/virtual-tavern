@@ -11,6 +11,33 @@ import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * Host lines (Going Once's `host` kind) that aren't lines someone would say: recording labels,
+ * file or cue names, bracketed stage directions, no words, or no sentence ending. The server
+ * refuses the same (`hostLineProblem` in packages/private-games/going-once/src/logic/content.ts);
+ * keep the two in step.
+ */
+export function hostLineProblems(data) {
+  const out = [];
+  for (const [moment, lines] of Object.entries(data ?? {}))
+    for (const line of Array.isArray(lines) ? lines : []) {
+      const t = String(line).trim();
+      const why = /^(new (version|audio)|redo)\b/i.test(t)
+        ? 'a recording label'
+        : /\.(ogg|wav|mp3|webp|png)\b|\b[A-Z]{3,}\d{2,}\b/.test(t)
+          ? 'a file or cue name'
+          : /[[\]()]/.test(t)
+            ? 'a stage direction in brackets'
+            : !/[A-Za-z]|\$\d/.test(t.replaceAll('{player}', ''))
+              ? 'no words'
+              : !/[.!?…"”'’]$/.test(t)
+                ? 'no sentence ending'
+                : null;
+      if (why) out.push(`${moment}: "${t}" (${why})`);
+    }
+  return out;
+}
+
 /** The command line as options, or an error message. */
 export function parseArgs(argv) {
   const positional = [];
@@ -48,6 +75,14 @@ async function main() {
   if (!entries) {
     console.error(`${args.file} holds no entries`);
     process.exit(1);
+  }
+  if (args.kind === 'host') {
+    const problems = hostLineProblems(data);
+    if (problems.length) {
+      for (const p of problems.slice(0, 20)) console.error(`not a line: ${p}`);
+      console.error(`nothing imported: ${problems.length} host line(s) to fix`);
+      process.exit(1);
+    }
   }
   if (args.dryRun) {
     console.log(`would import "${args.name}" (${args.gameId}/${args.kind}, ${entries} entries)`);

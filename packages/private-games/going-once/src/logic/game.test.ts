@@ -724,3 +724,12 @@ describe('the default pace', () => {
     expect(h.state.settings.pace).toBe('relaxed');
   });
 });
+
+describe('host pack checks', () => {
+  it('refuse lines that are labels, file names or stage directions, and unfinished lines', async () => {
+    const { hostPack } = await import('./content.ts');
+    expect(hostPack.safeParse({ sold: ['Sold!'] }).success).toBe(true);
+    for (const bad of ['New Version', 'Hello (sigh).', 'see AUC037.', 'Going once', '{player}.'])
+      expect(hostPack.safeParse({ sold: [bad] }).success, bad).toBe(false);
+  });
+});

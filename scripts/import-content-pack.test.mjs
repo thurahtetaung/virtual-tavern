@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseArgs } from './import-content-pack.mjs';
+import { hostLineProblems, parseArgs } from './import-content-pack.mjs';
 
 describe('import-content-pack arguments', () => {
   it('reads the four positionals and names the pack after its file', () => {
@@ -37,5 +37,23 @@ describe('import-content-pack arguments', () => {
     expect(parseArgs(['http://x', 'going-once', 'groups', 'f.json', '--wat']).error).toMatch(
       /unknown/,
     );
+  });
+});
+
+describe('host line checks', () => {
+  it('flag labels, file names, stage directions and unfinished lines', () => {
+    expect(
+      hostLineProblems({
+        sold: ['Sold!', 'New Version'],
+        opening: ['Here we go (long sigh).', 'clip AUC037.ogg here.', 'Who starts'],
+        congrats: ['Well done, {player}!', '{player}.'],
+      }),
+    ).toEqual([
+      'sold: "New Version" (a recording label)',
+      'opening: "Here we go (long sigh)." (a stage direction in brackets)',
+      'opening: "clip AUC037.ogg here." (a file or cue name)',
+      'opening: "Who starts" (no sentence ending)',
+      'congrats: "{player}." (no words)',
+    ]);
   });
 });

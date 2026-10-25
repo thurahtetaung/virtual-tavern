@@ -50,7 +50,9 @@ function lineFor(s: GoingOnceState, rng: Rng, moment: string, player?: string): 
   if (!lines?.length) return null;
   const line = lines[rng.int(lines.length)]!;
   if (line.includes('{player}') && !player) return null;
-  return line.replaceAll('{player}', player ?? '');
+  const text = line.replaceAll('{player}', player ?? '');
+  // Lines are shown one after another, so each must end like a sentence.
+  return /[.!?…"”'’]$/.test(text) ? text : `${text}.`;
 }
 
 /**
