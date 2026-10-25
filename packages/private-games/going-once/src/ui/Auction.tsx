@@ -1,5 +1,14 @@
 import { type Drawing, type GameRoomInfo, storageKey } from '@vt/game-sdk';
-import { Button, Panel, PlayerTag, ProtectedImage, RefusalSlot, cn, useSecondsLeft } from '@vt/ui';
+import {
+  Button,
+  Panel,
+  PlayerTag,
+  ProtectedImage,
+  RefusalSlot,
+  StickyBar,
+  cn,
+  useSecondsLeft,
+} from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
@@ -182,29 +191,36 @@ function BidPanel({
         )}
       </div>
       <BidLadder view={view} art={art} name={name} you={room.you} />
-      <CloseBar view={view} room={room} />
+      {/* On phones the clock and the bid buttons float at the bottom while their spot is below the fold. */}
+      <StickyBar whole>
+        <div className="flex flex-col gap-2">
+          <CloseBar view={view} room={room} />
+          {mine && (
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Bid">
+              {a.steps.map((amount) => {
+                const can = affordable.includes(amount);
+                return (
+                  <Button
+                    key={amount}
+                    size="lg"
+                    variant={amount === a.steps[0] ? 'primary' : 'soft'}
+                    className="h-14 px-1 text-lg tabular-nums"
+                    disabled={!live || leading || !can || !!a.screw}
+                    onClick={() =>
+                      void act({ type: 'bid', amount, seq: a.seq }, { anchor: 'go-bid' })
+                    }
+                    data-testid={`go-bid-${amount}`}
+                  >
+                    {can ? money(amount) : '—'}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </StickyBar>
       {mine && (
         <>
-          <div className="grid grid-cols-3 gap-2" role="group" aria-label="Bid">
-            {a.steps.map((amount) => {
-              const can = affordable.includes(amount);
-              return (
-                <Button
-                  key={amount}
-                  size="lg"
-                  variant={amount === a.steps[0] ? 'primary' : 'soft'}
-                  className="h-14 px-1 text-lg tabular-nums"
-                  disabled={!live || leading || !can || !!a.screw}
-                  onClick={() =>
-                    void act({ type: 'bid', amount, seq: a.seq }, { anchor: 'go-bid' })
-                  }
-                  data-testid={`go-bid-${amount}`}
-                >
-                  {can ? money(amount) : '—'}
-                </Button>
-              );
-            })}
-          </div>
           {affordable.length === 0 && !leading && live && (
             <p className="text-center text-sm text-ink-muted dark:text-stone-400">
               Not enough cash to bid on this one.
@@ -634,7 +650,7 @@ export function Auction({
         )}
       </section>
       <section aria-label="Bidding" className="flex flex-col gap-3">
-        <Panel className="sticky bottom-2 z-10 flex flex-col gap-3 p-3 shadow-lg lg:static lg:shadow-none">
+        <Panel className="flex flex-col gap-3 p-3">
           <Money view={view} art={art} />
           <BidPanel view={view} room={room} act={act} art={art} name={name} />
         </Panel>

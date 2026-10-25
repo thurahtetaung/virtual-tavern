@@ -8,7 +8,14 @@ const PHONE = '(max-width: 639px)';
  * its spot is below the bottom of a phone screen, the same control floats in a bar at the bottom
  * instead (it is only ever rendered once, so tests and screen readers see one button).
  */
-export function StickyBar({ children }: { children: ReactNode }) {
+export function StickyBar({
+  children,
+  whole = false,
+}: {
+  children: ReactNode;
+  /** Float unless the spot is wholly on screen (not just partly), for controls that must stay usable. */
+  whole?: boolean;
+}) {
   const spot = useRef<HTMLDivElement>(null);
   const [floating, setFloating] = useState(false);
   const [height, setHeight] = useState(0);
@@ -19,18 +26,22 @@ export function StickyBar({ children }: { children: ReactNode }) {
     const phone = window.matchMedia(PHONE);
     let below = false;
     const update = () => setFloating(phone.matches && below);
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry) return;
-      below = !entry.isIntersecting && entry.boundingClientRect.top > 0;
-      update();
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        const visible = whole ? entry.intersectionRatio >= 0.99 : entry.isIntersecting;
+        below = !visible && entry.boundingClientRect.bottom > window.innerHeight - 1;
+        update();
+      },
+      whole ? { threshold: [0, 0.5, 0.99, 1] } : undefined,
+    );
     observer.observe(el);
     phone.addEventListener('change', update);
     return () => {
       observer.disconnect();
       phone.removeEventListener('change', update);
     };
-  }, []);
+  }, [whole]);
 
   // Keep the spot's height while the control floats, so the page doesn't jump.
   useEffect(() => {
