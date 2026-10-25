@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.56.0...v0.56.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **iconic:** keep the desktop play screen inside the window ([#342](https://github.com/thurahtetaung/virtual-tavern/issues/342)) ([20f3906](https://github.com/thurahtetaung/virtual-tavern/commit/20f39066180c4e34578ee64f08ea46daa96b86c9))
+
 ## [0.56.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.55.0...v0.56.0) (2026-10-25)
 
 
