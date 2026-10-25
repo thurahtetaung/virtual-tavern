@@ -32,7 +32,17 @@ async function withArt(page: Page) {
   );
 }
 
-/** On a wide screen the whole board fits the window: its last row is above the fold. */
+/** On a wide screen the page fits the window: nothing to scroll. */
+async function pageFits(p: Page) {
+  await expect
+    .poll(() => p.evaluate(() => document.scrollingElement!.scrollHeight <= window.innerHeight))
+    .toBe(true);
+}
+
+/**
+ * On a wide screen the whole board fits the window: its last row is above the fold, and the
+ * page doesn't scroll either.
+ */
 async function boardFits(p: Page) {
   const board = p.getByTestId('ic-board-full');
   await expect(board).toBeVisible();
@@ -45,13 +55,15 @@ async function boardFits(p: Page) {
       }),
     )
     .toBe(true);
+  await pageFits(p);
 }
 
 /**
  * SCREENSHOTS=1 saves a screen at phone and desktop size, light and dark, to
- * test-results/iconic-shots; `wide` adds 1280×800 and 1440×900, checking the board fits each.
+ * test-results/iconic-shots; `wide` adds 1280×800, 1440×900 and 1920×1080, checking the board
+ * (or, for `'page'`, just the page) fits each.
  */
-async function shoot(p: Page, name: string, wide = false) {
+async function shoot(p: Page, name: string, wide: boolean | 'page' = false) {
   if (!process.env.SCREENSHOTS) return;
   const size = p.viewportSize();
   const sizes: [number, number, string][] = [
@@ -61,12 +73,13 @@ async function shoot(p: Page, name: string, wide = false) {
       ? ([
           [1280, 800, 'desktop-1280x800'],
           [1440, 900, 'desktop-1440x900'],
+          [1920, 1080, 'desktop-1920x1080'],
         ] as [number, number, string][])
       : []),
   ];
   for (const [w, h, device] of sizes) {
     await p.setViewportSize({ width: w, height: h });
-    if (wide && w >= 1024) await boardFits(p);
+    if (wide && w >= 1024) await (wide === 'page' ? pageFits(p) : boardFits(p));
     for (const scheme of ['light', 'dark'] as const) {
       await p.emulateMedia({ colorScheme: scheme });
       // The site switches its theme from script: wait for it before the picture.
@@ -237,7 +250,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   }
   await expect(first.getByTestId('ic-reveal')).toContainText(`${nameOf(second)} guessed it`);
   await expect(first.getByTestId('ic-reveal')).toContainText(`${nameOf(second)} +2`);
-  await shoot(first, 'reveal');
+  await shoot(first, 'reveal', 'page');
 
   // Someone else gives the next clue (the next seat; players joined at once, so the seat order
   // isn't the order the pages opened in).
@@ -266,12 +279,20 @@ test('a short game, one word each, to the final standings', async ({ browser }) 
     // The whole board on a wide screen: every group at once.
     const guesser = pages.find((p) => p !== giver)!;
     await boardFits(giver);
-    if (round === 1) await boardFits(guesser);
+    if (round === 1) {
+      // With the first-time tips, and after they're closed.
+      await boardFits(guesser);
+      await guesser.getByRole('button', { name: 'Got it' }).click();
+      await boardFits(guesser);
+    }
     await tile(giver, 15 + round).click();
     await expect(strip(guesser)).toContainText(iconName(15 + round));
     await guess(guesser, WORD.toLowerCase());
     await award(giver, WORD.toLowerCase());
-    if (round < 3) await expect(guesser.getByTestId('ic-reveal')).toBeVisible({ timeout: 15_000 });
+    if (round < 3) {
+      await expect(guesser.getByTestId('ic-reveal')).toBeVisible({ timeout: 15_000 });
+      await pageFits(guesser);
+    }
   }
   for (const p of pages)
     await expect(p.getByText('Final standings')).toBeVisible({ timeout: 15_000 });

@@ -24,7 +24,7 @@ import {
   useConfirm,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CardWord,
   type Guess,
@@ -41,7 +41,7 @@ import {
   WORDS_TO_END,
 } from '../logic/types.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
-import { BoardView, ClueStrip, SetPicker } from './Board.tsx';
+import { BoardView, ClueStrip, PAGE_BELOW, SetPicker, useRoomBelow } from './Board.tsx';
 import { type NameOf, andList, statusFor } from './status.ts';
 
 export type IconicUiProps = GameUiProps<IconicView, IconicAction>;
@@ -157,8 +157,11 @@ function useWide(): boolean {
 
 const TIPS_KEY = 'iconic.tips.v1';
 
-/** First-time tips for the clue team or the guessers, until dismissed (per seat in a playtest). */
-function Tips({ view, you }: { view: IconicView; you: string }) {
+/**
+ * First-time tips for the clue team or the guessers, until dismissed (per seat in a playtest).
+ * `compact` is the wide screen's: small print with Got it in its heading, so the column fits.
+ */
+function Tips({ view, you, compact }: { view: IconicView; you: string; compact?: boolean }) {
   const [seen, setSeen] = useState(() => {
     try {
       return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
@@ -169,11 +172,40 @@ function Tips({ view, you }: { view: IconicView; you: string }) {
   const r = view.game!.round;
   if (seen || r.stage !== 'clue' || !view.game!.order.includes(you)) return null;
   const giving = r.givers.includes(you) || r.helper === you;
+  const gotIt = (
+    <Button
+      variant="ghost"
+      size="sm"
+      className={compact ? 'shrink-0' : 'self-end'}
+      onClick={() => {
+        try {
+          localStorage.setItem(storageKey(TIPS_KEY), '1');
+        } catch {
+          // Storage blocked: the tips just close for now.
+        }
+        setSeen(true);
+      }}
+    >
+      Got it
+    </Button>
+  );
   return (
-    <aside className="flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
+    <aside
+      className={cn(
+        'flex shrink-0 flex-col rounded-2xl bg-info-soft text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
+        compact ? 'gap-1 px-3 py-2 text-xs' : 'gap-2 px-4 py-3 text-sm',
+      )}
+    >
+      {compact ? (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold">New here? Three things to know</p>
+          {gotIt}
+        </div>
+      ) : (
+        <p className="font-semibold">New here? Three things to know</p>
+      )}
       {giving ? (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={cn('list-disc pl-5', compact ? 'space-y-0.5' : 'space-y-1')}>
           <li>
             Put the green ? on the icon closest to your word, then cubes on icons that narrow it
             down.
@@ -185,27 +217,13 @@ function Tips({ view, you }: { view: IconicView; you: string }) {
           <li>A ! set is a separate idea. Mark guesses ✗, 🤏 close or ✓ as they come in.</li>
         </ul>
       ) : (
-        <ul className="list-disc space-y-1 pl-5">
+        <ul className={cn('list-disc pl-5', compact ? 'space-y-0.5' : 'space-y-1')}>
           <li>The strip at the top reads the clue: each coloured set is one idea.</li>
           <li>Guess as often as you like. 🤏 means you’re on the right track.</li>
           <li>Stuck? Tap Give up; when everyone has, the word is dropped.</li>
         </ul>
       )}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => {
-          try {
-            localStorage.setItem(storageKey(TIPS_KEY), '1');
-          } catch {
-            // Storage blocked: the tips just close for now.
-          }
-          setSeen(true);
-        }}
-      >
-        Got it
-      </Button>
+      {!compact && gotIt}
     </aside>
   );
 }
@@ -507,6 +525,8 @@ function Play({
   const g = view.game!;
   const r = g.round;
   const target = view.settings.length === 'twelve' ? ` of ${WORDS_TO_END}` : '';
+  // Wide screens put the scores beside the board while clues are given (see Clue).
+  const scoresBeside = useWide() && r.stage === 'clue';
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm text-stone-600 dark:text-stone-400">
@@ -530,8 +550,12 @@ function Play({
       {r.stage === 'choose' && <Choose view={view} room={room} act={act} name={name} />}
       {r.stage === 'clue' && <Clue view={view} room={room} act={act} art={art} name={name} />}
       {r.stage === 'reveal' && <Reveal view={view} room={room} art={art} name={name} />}
-      <Scores view={view} room={room} />
-      {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+      {!scoresBeside && (
+        <>
+          <Scores view={view} room={room} />
+          {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+        </>
+      )}
     </>
   );
 }
@@ -837,20 +861,25 @@ function Clue({
   );
   const guesses = <Guesses view={view} room={room} act={act} name={name} confirm={confirm} />;
   if (wide)
-    // Wide screens: the whole board on the left, sized to the window, and everything else beside it.
+    // Wide screens: the whole board on the left, sized to the window, and everything else beside
+    // it in a column of the same height, where the guess list takes what's left and scrolls.
     return (
       <>
         {dialog}
-        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <FillWindow className="grid min-h-80 grid-cols-[minmax(0,1fr)_22rem] items-start gap-3">
           <Panel className="p-3">{boardView}</Panel>
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-end">{clock}</div>
-            <Tips view={view} you={room.you} />
+          <div className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto">
+            <div className="flex shrink-0 justify-end">{clock}</div>
+            <Tips view={view} you={room.you} compact />
             <ClueStrip board={r.board} art={art} />
             {controls}
-            <Panel className="flex flex-col gap-2 p-3">{guesses}</Panel>
+            <Panel className="flex min-h-40 flex-1 flex-col gap-2 p-3">{guesses}</Panel>
+            <div className="flex shrink-0 flex-col gap-2">
+              <Scores view={view} room={room} />
+              {room.isHost && view.settings.length === 'endless' && <EndNow act={act} />}
+            </div>
           </div>
-        </div>
+        </FillWindow>
       </>
     );
   return (
@@ -894,6 +923,17 @@ function Clue({
         {guesses}
       </Panel>
     </>
+  );
+}
+
+/** A box as tall as the window below its top, so the page under it never scrolls. */
+function FillWindow({ className, children }: { className: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { height } = useRoomBelow(ref, PAGE_BELOW);
+  return (
+    <div ref={ref} className={className} style={height ? { height } : undefined}>
+      {children}
+    </div>
   );
 }
 
@@ -992,7 +1032,7 @@ function Guesses({
       <ol
         ref={list}
         aria-label="Guesses"
-        className="flex max-h-[45vh] min-h-24 flex-col gap-1 overflow-y-auto lg:max-h-[60vh]"
+        className="flex max-h-[45vh] min-h-24 flex-col gap-1 overflow-y-auto lg:max-h-none lg:min-h-12 lg:flex-1"
         data-testid="ic-guesses"
       >
         {r.guesses.length === 0 && (
