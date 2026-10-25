@@ -3,7 +3,7 @@ import type { HoodwinkAction, HoodwinkView } from './types.ts';
 
 /**
  * A playtest bot, from its own seat's view only: takes a seat, writes "Lie for me" when the game
- * offers it (the server picks the fake, as for a human pressing the button) or else a canned lie,
+ * offers it (the server deals the fakes, as for a human pressing the button, and it takes either) or else a canned lie,
  * and votes for any option that isn't its own. It never sees the answer.
  */
 export function hoodwinkBot(view: HoodwinkView, ctx: BotCtx): HoodwinkAction | null {
@@ -15,6 +15,8 @@ export function hoodwinkBot(view: HoodwinkView, ctx: BotCtx): HoodwinkAction | n
   switch (r.stage) {
     case 'write':
       if (!r.players.includes(me) || r.myLie !== null || r.written.includes(me)) return null;
+      // Offered two ready-made lies: take either.
+      if (r.myFakes) return { type: 'lie-for-me', choice: rng.int(r.myFakes.length) };
       return r.canLieForMe ? { type: 'lie-for-me' } : { type: 'lie', text: cannedText(rng, 'lie') };
     case 'vote': {
       if (!r.voters.includes(me) || r.myVote !== null || r.voted.includes(me)) return null;

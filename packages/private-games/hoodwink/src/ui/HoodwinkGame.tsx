@@ -13,15 +13,32 @@ import { useEffect } from 'react';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
 import { Lobby } from './Lobby.tsx';
 import { GameOver, Stage } from './Play.tsx';
-import { listNames, missingIds, nameOf, points, startBlocker, statusFor } from './status.ts';
+import { useReveal } from './Reveal.tsx';
+import {
+  listNames,
+  missingIds,
+  nameOf,
+  points,
+  shownScores,
+  startBlocker,
+  statusFor,
+} from './status.ts';
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 
 export type HoodwinkUiProps = GameUiProps<HoodwinkView, HoodwinkAction>;
 
 /** One line on every play screen: the round, the viewer's score and the timer. */
-function Scoreboard({ view, clockOffset }: { view: HoodwinkView; clockOffset: number }) {
+function Scoreboard({
+  view,
+  clockOffset,
+  revealing,
+}: {
+  view: HoodwinkView;
+  clockOffset: number;
+  revealing: boolean;
+}) {
   const round = view.round;
-  const mine = view.scores.find((s) => s.id === view.me?.id);
+  const mine = shownScores(view, revealing).find((s) => s.id === view.me?.id);
   const strict = view.settings.timerMode === 'strict';
   const writing = round?.stage === 'write';
   return (
@@ -111,7 +128,10 @@ export function HoodwinkGame({
 }: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const blocker = startBlocker(view);
-  const status = statusFor(view, room.isHost, blocker, room);
+  const reveal = useReveal(view.phase === 'playing' ? view.round : null, room.clockOffset);
+  // While the answers are turned over one by one, nothing gives away who scored.
+  const revealing = reveal.progress !== null;
+  const status = statusFor(view, room.isHost, blocker, room, revealing);
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -159,7 +179,7 @@ export function HoodwinkGame({
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <div className="min-w-0 space-y-3">
-        <Scoreboard view={view} clockOffset={room.clockOffset} />
+        <Scoreboard view={view} clockOffset={room.clockOffset} revealing={revealing} />
         {view.phase === 'playing' && view.round?.double && (
           <p
             data-testid="final-round"
@@ -176,7 +196,7 @@ export function HoodwinkGame({
             <>
               <ContinueWithout view={view} room={room} act={act} online={online} />
               <Panel>
-                <Stage view={view} act={act} isHost={room.isHost} />
+                <Stage view={view} act={act} isHost={room.isHost} reveal={reveal} />
               </Panel>
             </>
           )
@@ -184,7 +204,7 @@ export function HoodwinkGame({
       </div>
       <aside className="space-y-3">
         <Panel className="space-y-3">
-          <Scores view={view} />
+          <Scores view={view} revealing={revealing} />
           <Table view={view} online={online} act={act} hostId={room.hostId} />
         </Panel>
       </aside>

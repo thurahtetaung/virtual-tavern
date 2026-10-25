@@ -526,14 +526,16 @@ for (const [label, viewport] of [
   });
 }
 
-// Hoodwink, with a made-up deck imported by the admin (the real decks are private).
-for (const [label, viewport] of [
-  ['desktop', { width: 1280, height: 900 }],
-  ['phone', { width: 390, height: 844 }],
+// Hoodwink, with a made-up deck imported by the admin (the real decks are private), on phone and
+// desktop in both themes.
+for (const [label, viewport, colorScheme] of [
+  ['desktop', { width: 1280, height: 900 }, 'light'],
+  ['phone', { width: 390, height: 844 }, 'dark'],
+  ['desktop-dark', { width: 1280, height: 900 }, 'dark'],
+  ['phone-light', { width: 390, height: 844 }, 'light'],
 ] as const) {
   test(`hoodwink screenshots (${label})`, async ({ browser }) => {
     test.setTimeout(120_000);
-    const colorScheme = label === 'phone' ? 'dark' : 'light';
     const shot = (p: Page, name: string) =>
       p.screenshot({
         path: `test-results/shots/hoodwink-${label}-${name}.png`,
@@ -554,7 +556,17 @@ for (const [label, viewport] of [
         questions: Array.from({ length: 5 }, (_, i) => ({
           prompt: `In the invented hamlet of Wobbleton ${i + 1}, every newborn is given a ceremonial ___ by the oldest villager.`,
           answer: 'Tin spoon',
-          decoys: ['Velvet hat', 'Wooden duck', 'Goose feather'],
+          decoys: [
+            'Velvet hat',
+            'Wooden duck',
+            'Goose feather',
+            'Copper thimble',
+            'Paper crown',
+            'Lucky turnip',
+            'Silver whistle',
+            'Knitted scarf',
+            'Clay owl',
+          ],
         })),
       },
     });
@@ -572,7 +584,9 @@ for (const [label, viewport] of [
         const ctx = await browser.newContext({
           viewport,
           colorScheme,
-          extraHTTPHeaders: { 'cf-connecting-ip': `10.5.${label === 'phone' ? 1 : 0}.${ip++}` },
+          extraHTTPHeaders: {
+            'cf-connecting-ip': `10.5.${['desktop', 'phone', 'desktop-dark', 'phone-light'].indexOf(label)}.${ip++}`,
+          },
         });
         const p = await ctx.newPage();
         await p.addInitScript((n) => localStorage.setItem('vt.playerName', n), name);
@@ -615,6 +629,10 @@ for (const [label, viewport] of [
           await p.getByRole('button', { name: 'Send lie' }).click();
         }
         await host.getByRole('button', { name: '🎲 Lie for me' }).click();
+        const choices = host.getByTestId('fake-choices').getByRole('button');
+        await expect(choices).toHaveCount(2);
+        if (round === 1) await shot(host, 'lie-for-me');
+        await choices.first().click();
         for (const p of everyone)
           await expect(p.getByRole('list', { name: 'Answers' }).getByRole('button')).toHaveCount(5);
         if (round === 1) await shot(host, 'vote');
@@ -627,7 +645,19 @@ for (const [label, viewport] of [
             }
           }
         }
-        await expect(host.getByRole('list', { name: 'Answers revealed' })).toBeVisible();
+        if (round === 1) {
+          // The one-by-one reveal: an answer flipped to show whose it was.
+          await expect(host.getByTestId('reveal-verdict')).toBeVisible({ timeout: 5000 });
+          await host.waitForTimeout(500); // the stamp pops in
+          await shot(host, 'reveal-step');
+          await shot(ana, 'reveal-step-player');
+        } else {
+          // Later rounds skip the one-by-one reveal (round 1 runs to the end on its own).
+          await host.getByRole('button', { name: /Skip to the results/ }).click();
+        }
+        await expect(host.getByRole('list', { name: 'Answers revealed' })).toBeVisible({
+          timeout: 20_000,
+        });
         if (round === 1) {
           await host.waitForTimeout(1200); // the reveal animates in
           await shot(host, 'reveal');

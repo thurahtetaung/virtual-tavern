@@ -12,6 +12,7 @@ import {
   type RoundView,
   TRUTH_POINTS,
 } from '../logic/types.ts';
+import { type RevealState, RevealSequence } from './Reveal.tsx';
 import { listNames, nameOf, points, pointsBreakdown, splitPrompt } from './status.ts';
 
 type Act = (a: HoodwinkAction, options?: ActOptions) => Promise<boolean>;
@@ -20,6 +21,11 @@ interface Props {
   view: HoodwinkView;
   act: Act;
   isHost: boolean;
+}
+
+interface StageProps extends Props {
+  /** How far the one-by-one reveal has got. */
+  reveal: RevealState;
 }
 
 /** Where the server's refusal of a lie shows: right under the lie form. */
@@ -96,12 +102,13 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
     setRefused(ok ? null : trimmed);
     setBusy(false);
   };
-  const lieForMe = async () => {
+  const lieForMe = async (choice?: number) => {
     setBusy(true);
-    await act({ type: 'lie-for-me' }, { anchor: LIE_ANCHOR });
+    await act({ type: 'lie-for-me', choice }, { anchor: LIE_ANCHOR });
     setRefused(null);
     setBusy(false);
   };
+  const fakes = round.myFakes;
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <label className="block">
@@ -123,6 +130,47 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
           </span>
         )}
       </label>
+      {fakes && (
+        <fieldset data-testid="fake-choices" className="space-y-2">
+          <legend className="text-sm font-semibold">
+            🎲 Pick a ready-made lie{' '}
+            <span className="font-normal text-ink-muted">(scores half)</span>
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {fakes.map((fake, i) => {
+              const chosen = round.myLie === fake;
+              return (
+                <button
+                  key={fake}
+                  type="button"
+                  aria-pressed={chosen}
+                  disabled={busy}
+                  onClick={() => void lieForMe(i)}
+                  className={cn(
+                    'flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-lg font-semibold ring-1 transition',
+                    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:focus-visible:outline-amber-500',
+                    chosen
+                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
+                      : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
+                  )}
+                >
+                  <span className="min-w-0 break-words">{fake}</span>
+                  {chosen && (
+                    <span className="shrink-0 text-sm" aria-hidden>
+                      ✓
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {round.myLie === null && (
+            <p className="text-sm text-stone-600 dark:text-stone-400">
+              Or type your own above: it scores in full.
+            </p>
+          )}
+        </fieldset>
+      )}
       {round.myLieAuto && unchanged && (
         <p className="text-sm text-stone-600 dark:text-stone-400">
           🎲 Picked for you: it scores half. Type your own to replace it.
@@ -244,7 +292,7 @@ function Names({ view, ids, label }: { view: HoodwinkView; ids: string[]; label:
   );
 }
 
-/** The truth first, then each lie with its authors and who fell for it. */
+/** The whole board once the reveal is over: the truth first, then each lie with its authors. */
 function RevealBoard({ view, round }: { view: HoodwinkView; round: RoundView }) {
   const ordered = [...round.options].sort(
     (a, b) =>
@@ -352,7 +400,7 @@ function RoundPoints({ view, round }: { view: HoodwinkView; round: RoundView }) 
 }
 
 /** The round in play, for whoever is looking. */
-export function Stage({ view, act, isHost }: Props) {
+export function Stage({ view, act, isHost, reveal }: StageProps) {
   const round = view.round!;
   const me = view.me?.id ?? '';
   const roundKey = `${round.number}-${round.prompt}`;
@@ -387,6 +435,20 @@ export function Stage({ view, act, isHost }: Props) {
         </div>
       );
     case 'reveal':
+      if (reveal.progress) {
+        return (
+          <div className="space-y-4">
+            <Prompt prompt={round.prompt} />
+            <RevealSequence
+              view={view}
+              round={round}
+              reveal={reveal}
+              isHost={isHost}
+              onSkip={() => void act({ type: 'skip-reveal' })}
+            />
+          </div>
+        );
+      }
       return (
         <div className="space-y-4">
           <Prompt prompt={round.prompt} fill={round.answer} />

@@ -7,7 +7,7 @@ const text: GameGuide = {
   goal: 'Score the most points. Each round everyone sees a strange but true fact with a word missing. Make up a believable fake answer to fool the others, then try to spot the real one among everybody’s lies.',
   quickStart: [
     'Everyone sees the same strange but true fact with one word or phrase missing.',
-    'Write a fake answer that sounds true. Stuck? “Lie for me” picks one, worth half points.',
+    'Write a fake answer that sounds true. Stuck? “Lie for me” offers two to pick from, worth half points.',
     'All the lies are shuffled in with the real answer.',
     'Vote for the answer you think is true (never your own lie).',
     'Score for finding the truth, and for every player your lie fools.',
@@ -25,7 +25,7 @@ const text: GameGuide = {
         'Everyone sees the same question: a fact with a blank where the answer goes, or a question to answer.',
         'Each player secretly writes a lie: a fake answer that sounds like it could be true. The game tells you roughly how long the real answer is (a word or two, a short phrase or a whole sentence), so you can match it. You can change your lie until the last lie is in.',
         'The real answer is shuffled in with everyone’s lies. Each player votes for the answer they think is true. You can’t vote for your own lie, and you can change your vote until everyone has voted.',
-        'The reveal shows the real answer, who wrote each lie, and who fell for what. The host then moves on to the next round.',
+        'The reveal turns the answers over one by one, least-picked lies first and the truth last, then shows who wrote each lie and who fell for what. The host moves on to the next round, or skips the reveal.',
       ],
     },
     {
@@ -34,8 +34,8 @@ const text: GameGuide = {
         'Keep it to one line: at most 160 characters. Match the length and style of what the real answer might be.',
         'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one, with no penalty: finding the truth still scores. Capitals, accents, plurals, hyphens and other punctuation, and a leading “a”, “an” or “the” are ignored when checking.',
         'If two players write the same lie, it appears once on the board and counts for both of them, sharing the points. The game warns you when someone else has written the same lie as you, so you can change it.',
-        'Stuck? Press “Lie for me” and the game hands you a ready-made fake, when the question has one for you. It counts as your lie but scores half. You can still type your own to replace it (typing out the same fake still counts as picked for you). It’s one pick per round: pressing it again won’t give you a different fake, and once you’ve sent a lie of your own, “Lie for me” goes away.',
-        'A ready-made fake someone has been shown is never used to top up the board, so it never turns up as a house fake.',
+        'Stuck? Press “Lie for me” and the game offers you two ready-made fakes to choose from, when the question has them (or hands you the only one it has for you). Your pick counts as your lie but scores half. You can switch to the other one, or type your own to replace it (typing out one of the fakes still counts as picked for you). It’s one offer per round: pressing it again won’t give you different fakes, and once you’ve sent a lie of your own, “Lie for me” goes away.',
+        'A ready-made fake someone has been offered is never offered to anyone else or used to top up the board, so it never turns up as a house fake.',
       ],
     },
     {
