@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.55.0...v0.56.0) (2026-10-25)
+
+
+### Features
+
+* **stampede:** add Stampede, an answer-matching party game, in the back room ([#341](https://github.com/thurahtetaung/virtual-tavern/issues/341)) ([93ef64a](https://github.com/thurahtetaung/virtual-tavern/commit/93ef64a16c423b7b1ec731f0f559a1855088601e))
+
 ## [0.55.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.54.0...v0.55.0) (2026-10-25)
 
 
