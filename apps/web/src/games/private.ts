@@ -3,6 +3,7 @@ import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
 import { guide as iconicGuide, nameGuide as nameIconicGuide } from '@vt/private-iconic/guide';
 import { guide as inquestGuide, nameGuide as nameInquestGuide } from '@vt/private-inquest/guide';
+import { guide as jewellerGuide, nameGuide as nameJewellerGuide } from '@vt/private-jeweller/guide';
 import {
   guide as masqueradeOriginalsGuide,
   nameGuide as nameOriginalsGuide,
@@ -210,6 +211,16 @@ const games: ClientGame[] = [
       import('@vt/private-stampede/ui').then((m) => ({ default: m.StampedeGame })),
     ),
     labels: stampedeLabels,
+  },
+  {
+    id: 'jeweller',
+    name: 'Jeweller',
+    guide: jewellerGuide,
+    namedGuide: manifestGuide('jeweller', nameJewellerGuide),
+    icon: '💎',
+    Component: lazyUi(() =>
+      import('@vt/private-jeweller/ui').then((m) => ({ default: m.JewellerGame })),
+    ),
   },
 ];
 

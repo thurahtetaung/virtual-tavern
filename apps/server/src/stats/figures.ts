@@ -76,6 +76,10 @@ import type { GameFigure } from '@vt/protocol';
 //              blanks, sizes, scorers, loners, raisedTo}, pink {recap: round, from, how},
 //              outcome {rounds, endReason; recap: target, pinkCow, ranking, cows};
 //              recap: answer {round, group, herd, alone, with}
+//   jeweller   outcome {players, rounds, tiebreak; recap: target, shared, ranking, scores, cards,
+//              nobles}, buy {level, paid, gold, free; recap: points, bonus, fromReserve, auto},
+//              reserve {blind; recap: level, gold, auto}, noble {recap: turn, auto},
+//              take {recap: count, double, auto}, return {recap: count, auto}, final {recap: points, turn}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1539,6 +1543,93 @@ function stampedeFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function jewellerCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 4) out.push([`f.n.${n}`, 1]);
+      const rounds = num(props.rounds);
+      if (rounds) out.push(['f.round_sum', rounds]);
+      if (props.tiebreak === true) out.push(['f.tiebreak', 1]);
+      break;
+    }
+    case 'buy': {
+      out.push(['f.buys', 1]);
+      const level = num(props.level);
+      if (level === 1 || level === 2 || level === 3) out.push([`f.buy.${level}`, 1]);
+      if ((num(props.gold) ?? 0) > 0) out.push(['f.buy_gold', 1]);
+      if (props.free === true) out.push(['f.buy_free', 1]);
+      break;
+    }
+    case 'reserve':
+      out.push([props.blind === true ? 'f.reserve_blind' : 'f.reserve_open', 1]);
+      break;
+    case 'noble':
+      out.push(['f.nobles', 1]);
+      break;
+  }
+  return out;
+}
+
+function jewellerFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'buys-by-level',
+      label: 'Cards bought by level',
+      kind: 'split',
+      parts: [1, 2, 3].map((l) => ({ label: `Level ${'I'.repeat(l)}`, value: get(`f.buy.${l}`) })),
+    },
+    {
+      id: 'gold-buys',
+      label: 'Purchases that used gold',
+      kind: 'percent',
+      value: pct(get('f.buy_gold'), get('f.buys')),
+    },
+    {
+      id: 'free-buys',
+      label: 'Cards bought with discounts alone',
+      kind: 'percent',
+      value: pct(get('f.buy_free'), get('f.buys')),
+    },
+    {
+      id: 'reserves',
+      label: 'Cards reserved',
+      kind: 'split',
+      parts: [
+        { label: 'Face up', value: get('f.reserve_open') },
+        { label: 'From a deck', value: get('f.reserve_blind') },
+      ],
+    },
+    {
+      id: 'nobles-per-game',
+      label: 'Noble visits per game',
+      kind: 'number',
+      value: avg(get('f.nobles'), games),
+    },
+    {
+      id: 'rounds-per-game',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.round_sum'), games),
+    },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [2, 3, 4].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+    {
+      id: 'tiebreaks',
+      label: 'Ties broken by fewer cards',
+      kind: 'number',
+      value: get('f.tiebreak'),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1551,6 +1642,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'thorns') return thornsCounters(type, props);
   if (gameId === 'iconic') return iconicCounters(type, props);
   if (gameId === 'stampede') return stampedeCounters(type, props);
+  if (gameId === 'jeweller') return jewellerCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1760,6 +1852,8 @@ export function buildFigures(
       return iconicFigures(get);
     case 'stampede':
       return stampedeFigures(get);
+    case 'jeweller':
+      return jewellerFigures(get);
     case 'codenames':
       return [
         teams(false),

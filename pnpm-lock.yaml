@@ -120,6 +120,9 @@ importers:
       '@vt/private-inquest':
         specifier: workspace:*
         version: link:../../packages/private-games/inquest
+      '@vt/private-jeweller':
+        specifier: workspace:*
+        version: link:../../packages/private-games/jeweller
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
@@ -201,6 +204,9 @@ importers:
       '@vt/private-inquest':
         specifier: workspace:*
         version: link:../../packages/private-games/inquest
+      '@vt/private-jeweller':
+        specifier: workspace:*
+        version: link:../../packages/private-games/jeweller
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
@@ -494,6 +500,25 @@ importers:
       react-dom:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
+
+  packages/private-games/jeweller:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
 
   packages/private-games/masquerade-originals:
     dependencies:

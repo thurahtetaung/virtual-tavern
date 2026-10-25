@@ -149,6 +149,7 @@ describe('back room over HTTP', () => {
       'thorns',
       'iconic',
       'stampede',
+      'jeweller',
     ]);
   });
 

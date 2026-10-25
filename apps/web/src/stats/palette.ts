@@ -54,6 +54,7 @@ const LIGHT: ChartTokens = {
     '#6b5a96',
     '#7c6f3a',
     '#c0395b',
+    '#84a800',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -89,6 +90,7 @@ const DARK: ChartTokens = {
     '#ad9fdc',
     '#bfae6a',
     '#e2708e',
+    '#b5d94a',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -112,8 +114,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * pink), Starlight a seventeenth (a deep teal, apart from the wine before it; dark mode a
  * brighter sea green), Thorns an eighteenth (a muted violet, apart from the teal before
  * it and lighter than the plum), Iconic a nineteenth (a khaki, apart from the violet before
- * it and greyer and more yellow than the brown), and Stampede a twentieth (a raspberry, apart
- * from the khaki before it, darker than the pink and lighter than the wine).
+ * it and greyer and more yellow than the brown), Stampede a twentieth (a raspberry, apart
+ * from the khaki before it, darker than the pink and lighter than the wine), and Jeweller a
+ * twenty-first (a lime, brighter and lighter than the olive and apart from both greens).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -138,6 +141,7 @@ const FIXED_ORDER = [
   'thorns',
   'iconic',
   'stampede',
+  'jeweller',
 ];
 
 /**

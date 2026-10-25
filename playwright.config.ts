@@ -30,6 +30,7 @@ export const SHARED_STATE = [
   /thorns[\w-]*\.spec\.ts$/,
   /iconic\.spec\.ts$/,
   /stampede[\w-]*\.spec\.ts$/,
+  /jeweller[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -56,6 +57,7 @@ const GAME_IDS = [
   'thorns',
   'iconic',
   'stampede',
+  'jeweller',
 ];
 
 /**
@@ -137,6 +139,11 @@ export default defineConfig({
       SHORT_FUSE_TEST_RIG: '1',
       // Iconic's spec knows the answer: every card's first word.
       ICONIC_TEST_WORD: 'Paper Lantern',
+      // Jeweller's specs: the first seat starts owning 4 white, 3 black and three level-III blue
+      // cards (12 points), one black card it can finish with tops the level-I deck, and only one
+      // noble on the table fits it, so a game reaches a noble visit and the end in a few turns.
+      JEWELLER_TEST_DECK:
+        '1:L1-35;n:N09,N01,N03;own:L1-01,L1-02,L1-03,L1-04,L1-33,L1-34,L1-36,L3-05,L3-06,L3-08',
     },
   },
 });

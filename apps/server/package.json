@@ -35,6 +35,7 @@
     "@vt/private-hydra": "workspace:*",
     "@vt/private-iconic": "workspace:*",
     "@vt/private-inquest": "workspace:*",
+    "@vt/private-jeweller": "workspace:*",
     "@vt/private-masquerade-originals": "workspace:*",
     "@vt/private-nightfall": "workspace:*",
     "@vt/private-reverie": "workspace:*",
