@@ -59,12 +59,16 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await bid(cleo, 500);
   await expect(ben.getByTestId('go-top-bid')).toContainText('$500');
   await bid(ben, 600);
-  for (const p of all) {
-    await expect(p.getByTestId('go-sold')).toContainText('SOLD to');
-    await expect(p.getByTestId('go-sold')).toContainText('Apple');
-    await expect(p.getByTestId('go-sold')).toContainText('Worth $3,500');
-  }
-  await expect(hana.getByTestId('go-sold')).toContainText('You earn $300 commission');
+  // The Sold card shows briefly: check every phone at once.
+  await Promise.all(
+    all.map(async (p) => {
+      const sold = p.getByTestId('go-sold');
+      await expect(sold).toContainText('SOLD to');
+      await expect(sold).toContainText('Apple');
+      await expect(sold).toContainText('Worth $3,500');
+      if (p === hana) await expect(sold).toContainText('You earn $300 commission');
+    }),
+  );
 
   // Ben is down to $800: the bank opens by itself. He borrows; the others pass.
   await expect(ben.getByTestId('go-bank')).toBeVisible();
