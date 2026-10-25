@@ -344,10 +344,10 @@ export function BoardView({
 }
 
 /**
- * The room the board has on screen: its box's width, and the window's height below the box's top
- * (as when the page is scrolled to the top), so the whole board shows without scrolling.
+ * The room a box has on screen: its width, and the window's height below its top (as when the
+ * page is scrolled to the top) less `below`, what sits under it, so it shows without scrolling.
  */
-function useBoardRoom(ref: RefObject<HTMLDivElement | null>) {
+export function useRoomBelow(ref: RefObject<HTMLDivElement | null>, below: number) {
   const [room, setRoom] = useState({ width: 0, height: 0 });
   useEffect(() => {
     const el = ref.current;
@@ -357,7 +357,7 @@ function useBoardRoom(ref: RefObject<HTMLDivElement | null>) {
       const top = box.top + window.scrollY;
       const next = {
         width: Math.round(box.width),
-        height: Math.max(0, Math.round(window.innerHeight - top - 16)),
+        height: Math.max(0, Math.round(window.innerHeight - top - below)),
       };
       setRoom((r) => (r.width === next.width && r.height === next.height ? r : next));
     };
@@ -371,14 +371,19 @@ function useBoardRoom(ref: RefObject<HTMLDivElement | null>) {
       seen.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [ref]);
+  }, [ref, below]);
   return room;
 }
+
+/** What sits under the play area: the page's bottom padding. */
+export const PAGE_BELOW = 24;
+const BOARD_BELOW = PAGE_BELOW + 12;
 
 /** The whole board on wider screens, column by column as printed, sized to fit the window. */
 function FullBoard({ tile }: { tile: (n: number) => ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { width, height } = useBoardRoom(ref);
+  // Under the board: its panel's padding and the page's.
+  const { width, height } = useRoomBelow(ref, BOARD_BELOW);
   const fit = fitBoard(width, height);
   return (
     <div ref={ref} className="hidden w-full md:block" data-testid="ic-board-full">
