@@ -228,22 +228,14 @@
       "indexes": {
         "recap_awards_player": {
           "name": "recap_awards_player",
-          "columns": [
-            "player_id",
-            "created_at"
-          ],
+          "columns": ["player_id", "created_at"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "recap_awards_room_id_night_key_award_id_player_id_pk": {
-          "columns": [
-            "room_id",
-            "night_key",
-            "award_id",
-            "player_id"
-          ],
+          "columns": ["room_id", "night_key", "award_id", "player_id"],
           "name": "recap_awards_room_id_night_key_award_id_player_id_pk"
         }
       },
@@ -313,19 +305,14 @@
       "indexes": {
         "recap_nights_started": {
           "name": "recap_nights_started",
-          "columns": [
-            "started_at"
-          ],
+          "columns": ["started_at"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "recap_nights_room_id_night_key_pk": {
-          "columns": [
-            "room_id",
-            "night_key"
-          ],
+          "columns": ["room_id", "night_key"],
           "name": "recap_nights_room_id_night_key_pk"
         }
       },
@@ -403,10 +390,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "recap_records_room_id_record_id_pk": {
-          "columns": [
-            "room_id",
-            "record_id"
-          ],
+          "columns": ["room_id", "record_id"],
           "name": "recap_records_room_id_record_id_pk"
         }
       },
@@ -592,11 +576,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "stats_daily_day_game_id_metric_pk": {
-          "columns": [
-            "day",
-            "game_id",
-            "metric"
-          ],
+          "columns": ["day", "game_id", "metric"],
           "name": "stats_daily_day_game_id_metric_pk"
         }
       },
@@ -645,22 +625,14 @@
       "indexes": {
         "stats_daily_players_player": {
           "name": "stats_daily_players_player",
-          "columns": [
-            "player_id",
-            "day"
-          ],
+          "columns": ["player_id", "day"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "stats_daily_players_day_game_id_player_id_metric_pk": {
-          "columns": [
-            "day",
-            "game_id",
-            "player_id",
-            "metric"
-          ],
+          "columns": ["day", "game_id", "player_id", "metric"],
           "name": "stats_daily_players_day_game_id_player_id_metric_pk"
         }
       },
@@ -710,12 +682,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "stats_daily_settings_day_game_id_key_value_pk": {
-          "columns": [
-            "day",
-            "game_id",
-            "key",
-            "value"
-          ],
+          "columns": ["day", "game_id", "key", "value"],
           "name": "stats_daily_settings_day_game_id_key_value_pk"
         }
       },
@@ -764,23 +731,14 @@
       "indexes": {
         "stats_daily_words_game_kind": {
           "name": "stats_daily_words_game_kind",
-          "columns": [
-            "game_id",
-            "kind",
-            "day"
-          ],
+          "columns": ["game_id", "kind", "day"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "stats_daily_words_day_game_id_kind_word_pk": {
-          "columns": [
-            "day",
-            "game_id",
-            "kind",
-            "word"
-          ],
+          "columns": ["day", "game_id", "kind", "word"],
           "name": "stats_daily_words_day_game_id_kind_word_pk"
         }
       },
@@ -850,34 +808,22 @@
       "indexes": {
         "stats_events_day_game": {
           "name": "stats_events_day_game",
-          "columns": [
-            "day",
-            "game_id"
-          ],
+          "columns": ["day", "game_id"],
           "isUnique": false
         },
         "stats_events_type_ts": {
           "name": "stats_events_type_ts",
-          "columns": [
-            "type",
-            "ts"
-          ],
+          "columns": ["type", "ts"],
           "isUnique": false
         },
         "stats_events_player_ts": {
           "name": "stats_events_player_ts",
-          "columns": [
-            "player_id",
-            "ts"
-          ],
+          "columns": ["player_id", "ts"],
           "isUnique": false
         },
         "stats_events_room_ts": {
           "name": "stats_events_room_ts",
-          "columns": [
-            "room_id",
-            "ts"
-          ],
+          "columns": ["room_id", "ts"],
           "isUnique": false
         }
       },
@@ -930,10 +876,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "stats_player_names_player_id_name_pk": {
-          "columns": [
-            "player_id",
-            "name"
-          ],
+          "columns": ["player_id", "name"],
           "name": "stats_player_names_player_id_name_pk"
         }
       },

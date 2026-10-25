@@ -59,7 +59,7 @@ export function Picture({
         <ProtectedImage src={src} alt={label} className="size-full object-contain" />
       ) : (
         <div
-          className="flex size-full flex-col items-center justify-center gap-1 p-3 text-center text-stone-500"
+          className="flex size-full flex-col items-center justify-center gap-1 p-3 text-center text-stone-600"
           role="img"
           aria-label={`${label}: house picture`}
         >
