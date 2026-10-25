@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.2...v0.59.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **stampede:** label a tied group with its cleanest spelling ([#354](https://github.com/thurahtetaung/virtual-tavern/issues/354)) ([56c4c6d](https://github.com/thurahtetaung/virtual-tavern/commit/56c4c6d47e0958689660ba5637a3ddd44a648fb3))
+
 ## [0.59.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.1...v0.59.2) (2026-10-25)
 
 
