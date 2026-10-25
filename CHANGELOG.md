@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.0...v0.59.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **jeweller:** show whole deck backs ([#351](https://github.com/thurahtetaung/virtual-tavern/issues/351)) ([09ffac5](https://github.com/thurahtetaung/virtual-tavern/commit/09ffac5121a9624dd8809fee613cf0adc6811a44))
+
 ## [0.59.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.58.0...v0.59.0) (2026-10-25)
 
 
