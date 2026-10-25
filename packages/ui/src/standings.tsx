@@ -75,7 +75,7 @@ export function Standings({
                     'flex w-full items-start justify-center rounded-t-lg pt-1 text-sm font-bold tabular-nums',
                     STEP[step],
                     step === 0
-                      ? 'bg-accent-soft text-accent-text ring-1 ring-accent-line dark:bg-amber-500/70 dark:text-amber-950 dark:ring-0'
+                      ? 'bg-accent-soft text-accent-text ring-1 ring-accent-line dark:bg-amber-500 dark:text-stone-950 dark:ring-0'
                       : 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-100',
                   )}
                 >

@@ -384,13 +384,18 @@ function MergeBoard({ view, act, room }: Props) {
         <div className="grid grid-cols-[auto_1fr] gap-2 border-t border-line pt-3 dark:border-stone-800">
           <Button
             variant="secondary"
-            size="lg"
+            className="h-12 whitespace-nowrap"
             disabled={!lastStep || lastStep.kind === 'reset'}
             onClick={() => void send({ type: 'reset-groups' })}
           >
             Undo my changes
           </Button>
-          <Button size="lg" onClick={() => void send({ type: 'reveal' })} data-testid="reveal">
+          <Button
+            size="lg"
+            className="whitespace-nowrap"
+            onClick={() => void send({ type: 'reveal' })}
+            data-testid="reveal"
+          >
             Reveal 🐄
           </Button>
         </div>
