@@ -35,7 +35,7 @@ const text: GameGuide = {
         'If you happen to write the real answer (or a spelling of it), the game tells you so and you write a different one, with no penalty: finding the truth still scores. Capitals, accents, plurals, hyphens and other punctuation, and a leading “a”, “an” or “the” are ignored when checking.',
         'If two players write the same lie, it appears once on the board and counts for both of them, sharing the points. The game warns you when someone else has written the same lie as you, so you can change it.',
         'Stuck? Press “Lie for me” and the game offers you two ready-made fakes to choose from, when the question has them (or hands you the only one it has for you). Your pick counts as your lie but scores half. You can switch to the other one, or type your own to replace it (typing out one of the fakes still counts as picked for you). It’s one offer per round: pressing it again won’t give you different fakes, and once you’ve sent a lie of your own, “Lie for me” goes away.',
-        'A ready-made fake someone has been offered is never offered to anyone else or used to top up the board, so it never turns up as a house fake.',
+        'Other players may be offered the same fakes as you, but each fake can only be one player’s lie: when someone picks one, it leaves everyone else’s offer and another takes its place while any are left. One fake is kept back to top up the board, and a fake anyone was offered never turns up as a house fake.',
       ],
     },
     {

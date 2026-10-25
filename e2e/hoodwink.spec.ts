@@ -49,20 +49,10 @@ const YOUR_TURN = /^● Your turn/;
 const TRUTH = 'Zebra crossing';
 
 /**
- * Ready-made fakes: enough for "Lie for me" to offer each of four players two, with one left over
- * to pad a small board.
+ * Ready-made fakes: only four, so "Lie for me" offers overlap (three are offered, two to each
+ * player) and one is kept back to pad a small board.
  */
-const DECOYS = [
-  'Coin toss',
-  'Goat race',
-  'Snail derby',
-  'Pie contest',
-  'Pancake flip',
-  'Duck vote',
-  'Turnip draw',
-  'Kite duel',
-  'Cheese roll',
-];
+const DECOYS = ['Coin toss', 'Goat race', 'Snail derby', 'Pie contest'];
 
 /** A tiny made-up deck: every question has the same answer, so the test knows the truth. */
 const DECK = {
@@ -212,22 +202,36 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   await expect(ana).not.toHaveTitle(YOUR_TURN);
   await host.getByRole('button', { name: 'Next round' }).click();
 
-  // Round 2: Ana lets the game lie for her, picking one of the two it offers; the other three
-  // write the same lie, so the board is padded with a house fake.
+  // Round 2: Ana and Ben both ask the game to lie for them, and are offered two each. With three
+  // fakes to offer, they share one; Ana picks it, so it leaves Ben's offer for another. The other
+  // three then write the same lie, so the board is padded with the fake kept back.
   await expect(ana.getByText('Round 2/5')).toBeVisible();
   for (const page of everyone) await expect(page).toHaveTitle(YOUR_TURN);
+  const offerOf = async (page: Page) => {
+    const buttons = page.getByTestId('fake-choices').getByRole('button');
+    await expect(buttons).toHaveCount(2);
+    return (await buttons.allInnerTexts()).map((t) => t.trim());
+  };
   await ana.getByRole('button', { name: '🎲 Lie for me' }).click();
-  const choices = ana.getByTestId('fake-choices').getByRole('button');
-  await expect(choices).toHaveCount(2);
-  const offered = (await choices.allInnerTexts()).map((t) => t.trim());
-  for (const fake of offered) expect(DECOYS).toContain(fake);
+  const offered = await offerOf(ana);
+  await ben.getByRole('button', { name: '🎲 Lie for me' }).click();
+  const benOffered = await offerOf(ben);
+  for (const fake of [...offered, ...benOffered]) expect(DECOYS).toContain(fake);
+  const shared = offered.find((f) => benOffered.includes(f))!;
+  expect(shared).toBeDefined();
   // Offered, not picked yet: still Ana's turn.
   await expect(ana).toHaveTitle(YOUR_TURN);
-  await choices.nth(1).click();
+  const choices = ana.getByTestId('fake-choices').getByRole('button');
+  await choices.filter({ hasText: shared }).click();
   await expect(ana.getByText('🎲 Picked for you: it scores half.')).toBeVisible();
-  await expect(choices.nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(choices.filter({ hasText: shared })).toHaveAttribute('aria-pressed', 'true');
   const autoLie = await ana.getByLabel('Your lie').inputValue();
-  expect(autoLie).toBe(offered[1]);
+  expect(autoLie).toBe(shared);
+  // Ben's offer loses it at once and gets another fake in its place.
+  const benChoices = ben.getByTestId('fake-choices').getByRole('button');
+  await expect(benChoices.filter({ hasText: shared })).toHaveCount(0);
+  await expect(benChoices).toHaveCount(2);
+  const benNow = (await benChoices.allInnerTexts()).map((t) => t.trim());
   // One offer per round: the button goes, so it can't be pressed again to see other fakes.
   await expect(ana.getByRole('button', { name: '🎲 Lie for me' })).toHaveCount(0);
   await expect(ana).not.toHaveTitle(YOUR_TURN);
@@ -241,8 +245,8 @@ test('four players play Hoodwink in the back room: a refused truth, merged lies,
   const texts = (await answers.allInnerTexts()).map((t) => t.split('\n')[0]!.trim());
   const house = texts.find((t) => ![TRUTH, 'Moon cheese', autoLie].includes(t));
   expect(DECOYS).toContain(house);
-  // A fake offered to Ana is never used to pad the board.
-  expect(offered).not.toContain(house);
+  // A fake anyone was offered is never used to pad the board.
+  for (const fake of [...offered, ...benOffered, ...benNow]) expect(fake).not.toBe(house);
   await vote(host, autoLie);
   await vote(ana, 'Moon cheese');
   await vote(ben, house!);

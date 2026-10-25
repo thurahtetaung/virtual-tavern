@@ -15,8 +15,12 @@ export function hoodwinkBot(view: HoodwinkView, ctx: BotCtx): HoodwinkAction | n
   switch (r.stage) {
     case 'write':
       if (!r.players.includes(me) || r.myLie !== null || r.written.includes(me)) return null;
-      // Offered two ready-made lies: take either.
-      if (r.myFakes) return { type: 'lie-for-me', choice: rng.int(r.myFakes.length) };
+      // Offered ready-made lies: take either (the others may have picked them all by now).
+      if (r.myFakes?.length) {
+        const choice = rng.int(r.myFakes.length);
+        return { type: 'lie-for-me', choice, fake: r.myFakes[choice] };
+      }
+      if (r.myFakes) return { type: 'lie', text: cannedText(rng, 'lie') };
       return r.canLieForMe ? { type: 'lie-for-me' } : { type: 'lie', text: cannedText(rng, 'lie') };
     case 'vote': {
       if (!r.voters.includes(me) || r.myVote !== null || r.voted.includes(me)) return null;

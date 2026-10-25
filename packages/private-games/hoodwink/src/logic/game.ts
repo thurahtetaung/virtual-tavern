@@ -130,21 +130,9 @@ function beginRound(state: HoodwinkState, number: number, now: number): Hoodwink
   const [question, ...questions] = state.questions;
   if (!question || number > state.settings.rounds) return endGame(state, 'finished');
   const players = playingIds(state);
-  // Each player gets a fake of their own up front (while they last), then a second one, so what
-  // "Lie for me" offers never hints at what anyone else has done.
-  const pool = decoyPool(question, takenKeys({ question, lies: {} }));
+  // The fakes "Lie for me" offers and the board is padded with, in a hidden order.
   const rng = createRng(state.seed);
-  const dealt = rng.shuffle(pool);
-  const deal = (from: number, until: number): Record<PlayerId, string> =>
-    Object.fromEntries(
-      players.flatMap((id, i) => {
-        const fake = from + i < until ? dealt[from + i] : undefined;
-        return fake === undefined ? [] : [[id, fake]];
-      }),
-    );
-  const fakes = deal(0, dealt.length);
-  // Second fakes leave at least one spare over, to top up a small board or fill in a missed lie.
-  const spareFakes = deal(players.length, dealt.length - 1);
+  const decoys = rng.shuffle(decoyPool(question, takenKeys({ question, lies: {} })));
   const scores = { ...state.scores };
   for (const id of players) {
     scores[id] = {
@@ -164,10 +152,10 @@ function beginRound(state: HoodwinkState, number: number, now: number): Hoodwink
       players,
       lies: {},
       autoLies: [],
-      fakes,
-      spareFakes,
+      decoys,
       fakeShown: [],
       fakeChoices: {},
+      fakesSeen: [],
       options: [],
       voters: [],
       votes: {},
@@ -184,12 +172,16 @@ function takenKeys(round: Pick<Round, 'question' | 'lies'>): Set<string> {
 }
 
 /** The question's usable built-in fakes, tidied, distinct, and matching none of `taken`. */
-function decoyPool(question: Question, taken: ReadonlySet<string>): string[] {
+function decoyPool(
+  question: Question,
+  taken: ReadonlySet<string>,
+  raw: readonly string[] = question.decoys ?? [],
+): string[] {
   const keys = new Set(taken);
   const truths = new Set([question.answer, ...question.alternates].map(looseKey));
   const pool: string[] = [];
-  for (const raw of question.decoys ?? []) {
-    const decoy = tidyLie(raw);
+  for (const text of raw) {
+    const decoy = tidyLie(text);
     const key = wordKey(decoy);
     if (!decoy || decoy.length > MAX_LIE_LENGTH || keys.has(key)) continue;
     if (truths.has(looseKey(decoy))) continue;
@@ -199,34 +191,94 @@ function decoyPool(question: Question, taken: ReadonlySet<string>): string[] {
   return pool;
 }
 
-/** The fakes `id` was offered with "Lie for me" (none if they haven't pressed it). */
-function shownTo(round: Round, id: PlayerId): string[] {
-  if (!(round.fakeShown ?? []).includes(id)) return [];
-  const fake = round.fakes?.[id];
-  return round.fakeChoices?.[id] ?? (fake === undefined ? [] : [fake]);
+/** The round's fakes in its hidden order, none matching `taken`. */
+function roundDecoys(round: Round, taken: ReadonlySet<string>): string[] {
+  return decoyPool(round.question, taken, round.decoys);
 }
 
-/** Keys of the fakes players have been shown with "Lie for me": never reused for anyone else. */
-function shownKeys(round: Round, except?: PlayerId): Set<string> {
-  return new Set(
-    (round.fakeShown ?? []).flatMap((id) => (id === except ? [] : shownTo(round, id).map(wordKey))),
-  );
+/** Keys of every fake anyone has been offered this round. */
+function seenKeys(round: Round): Set<string> {
+  const seen = round.fakesSeen ?? Object.values(round.fakeChoices ?? {}).flat();
+  return new Set(seen.map(wordKey));
+}
+
+/**
+ * What "Lie for me" offers `id` now: the fakes nobody else has picked (typed or chosen), keeping
+ * what they were already offered, topped up to two from the round's order, starting at a point of
+ * their own so offers spread. The last free fake stays out for the board unless offering it is
+ * the only way to offer two. Offers may overlap; a pick takes a fake out of everyone else's.
+ */
+export function offerFor(round: Round, id: PlayerId): string[] {
+  const others = Object.fromEntries(Object.entries(round.lies).filter(([p]) => p !== id));
+  const free = roundDecoys(round, takenKeys({ question: round.question, lies: others }));
+  const freeKeys = new Set(free.map(wordKey));
+  const offerable = free.length > 2 ? free.slice(0, -1) : free;
+  const offer = (round.fakeChoices?.[id] ?? []).filter((f) => freeKeys.has(wordKey(f)));
+  const from = offerable.length
+    ? (Math.max(0, round.players.indexOf(id)) * 2) % offerable.length
+    : 0;
+  for (const fake of [...offerable.slice(from), ...offerable.slice(0, from)]) {
+    if (offer.length >= 2) break;
+    if (!offer.some((f) => wordKey(f) === wordKey(fake))) offer.push(fake);
+  }
+  return offer.slice(0, 2);
+}
+
+/**
+ * Whether the viewer's offer is worth showing as choices: they pressed "Lie for me", and it isn't
+ * just the one fake they already have as their lie.
+ */
+function hadChoice(round: Round, id: PlayerId): boolean {
+  const offer = round.fakeChoices?.[id];
+  if (!offer || !(round.fakeShown ?? []).includes(id)) return false;
+  return !(offer.length === 1 && round.lies[id] === offer[0]);
+}
+
+/** Brings every open "Lie for me" offer up to date after a lie changed. */
+function refreshOffers(round: Round): Partial<Round> {
+  const fakeChoices = { ...round.fakeChoices };
+  for (const id of round.fakeShown ?? []) {
+    if (fakeChoices[id] && round.players.includes(id)) fakeChoices[id] = offerFor(round, id);
+  }
+  const seen = new Map((round.fakesSeen ?? []).map((f) => [wordKey(f), f]));
+  for (const f of Object.values(fakeChoices).flat())
+    if (!seen.has(wordKey(f))) seen.set(wordKey(f), f);
+  return { fakeChoices, fakesSeen: [...seen.values()] };
+}
+
+/** Sets the round's lies (and who the game picked for), then refreshes the open offers. */
+function withLies(
+  state: HoodwinkState,
+  patch: Pick<Round, 'lies' | 'autoLies'> & Partial<Round>,
+): HoodwinkState {
+  const round = { ...state.round!, ...patch };
+  return { ...state, round: { ...round, ...refreshOffers(round) } };
 }
 
 /**
  * Up to `count` distinct built-in fakes for this round, drawn with the hidden seed, none matching
- * the truth, a lie already written or a fake a player has been shown.
+ * the truth or a lie already written (nor `taken`), those nobody has been offered first, and only
+ * those when `unseenOnly`.
  */
 function pickDecoys(
   state: HoodwinkState,
   round: Round,
   count: number,
-  taken = new Set([...takenKeys(round), ...shownKeys(round)]),
+  {
+    taken = takenKeys(round),
+    unseenOnly = false,
+  }: { taken?: Set<string>; unseenOnly?: boolean } = {},
 ): { picked: string[]; seed: number } {
-  const pool = decoyPool(round.question, taken);
+  const seen = seenKeys(round);
+  const pool = roundDecoys(round, taken).filter((f) => !unseenOnly || !seen.has(wordKey(f)));
   if (count <= 0 || pool.length === 0) return { picked: [], seed: state.seed };
   const rng = createRng(state.seed);
-  return { picked: rng.shuffle(pool).slice(0, count), seed: rng.int(SEED_RANGE) };
+  const shuffled = rng.shuffle(pool);
+  const ordered = [
+    ...shuffled.filter((f) => !seen.has(wordKey(f))),
+    ...shuffled.filter((f) => seen.has(wordKey(f))),
+  ];
+  return { picked: ordered.slice(0, count), seed: rng.int(SEED_RANGE) };
 }
 
 /**
@@ -256,7 +308,10 @@ function board(state: HoodwinkState, round: Round): { options: Option[]; seed: n
     house: false,
   };
   if (groups.size === 0) return { options: [truth], seed: state.seed };
-  const { picked, seed } = pickDecoys(state, round, MIN_OPTIONS - 1 - groups.size);
+  // A fake someone was offered would tell them it's not the truth: never a house fake.
+  const { picked, seed } = pickDecoys(state, round, MIN_OPTIONS - 1 - groups.size, {
+    unseenOnly: true,
+  });
   const house = picked.map((text): Option => ({
     text: displayText(text),
     truth: false,
@@ -270,8 +325,9 @@ function board(state: HoodwinkState, round: Round): { options: Option[]; seed: n
 }
 
 /**
- * Gives every player still without a lie a built-in fake (strict lie timer): the one set aside for
- * them while it's still free, otherwise another nobody has used or been shown.
+ * Gives every player still without a lie a built-in fake (strict lie timer): the first one they
+ * were offered while it's still free, otherwise another nobody has used, those nobody was offered
+ * first.
  */
 function fillMissingLies(state: HoodwinkState): HoodwinkState {
   const round = state.round!;
@@ -279,17 +335,17 @@ function fillMissingLies(state: HoodwinkState): HoodwinkState {
   const given: Record<PlayerId, string> = {};
   const givenKeys = new Set<string>();
   for (const id of missing) {
-    // The first fake they were offered (they opened "Lie for me" but never picked), else their own.
-    const own = shownTo(round, id)[0] ?? round.fakes?.[id];
+    // They opened "Lie for me" but never picked: the first fake they're offered.
+    const own = (round.fakeShown ?? []).includes(id) ? offerFor(round, id)[0] : undefined;
     if (own === undefined) continue;
     const key = wordKey(own);
-    if (takenKeys(round).has(key) || shownKeys(round, id).has(key) || givenKeys.has(key)) continue;
+    if (takenKeys(round).has(key) || givenKeys.has(key)) continue;
     given[id] = own;
     givenKeys.add(key);
   }
-  const taken = new Set([...takenKeys(round), ...shownKeys(round), ...givenKeys]);
+  const taken = new Set([...takenKeys(round), ...givenKeys]);
   const rest = missing.filter((id) => given[id] === undefined);
-  const { picked, seed } = pickDecoys(state, round, rest.length, taken);
+  const { picked, seed } = pickDecoys(state, round, rest.length, { taken });
   rest.slice(0, picked.length).forEach((id, i) => {
     given[id] = picked[i]!;
   });
@@ -515,9 +571,9 @@ function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
   const problem = lieProblem(text, round.question);
   if (problem) return problem;
   // Typing out a ready-made lie you were shown still counts as picked for you: half points.
-  const isFake = shownTo(round, ctx.by).some((fake) => sameAnswer(fake, text));
+  const isFake = (round.fakeChoices?.[ctx.by] ?? []).some((fake) => sameAnswer(fake, text));
   return maybeStartVoting(
-    withRound(state, {
+    withLies(state, {
       lies: { ...round.lies, [ctx.by]: tidyLie(text) },
       autoLies: isFake
         ? [...new Set([...round.autoLies, ctx.by])]
@@ -528,62 +584,16 @@ function lie(state: HoodwinkState, text: string, ctx: Ctx): Result {
 }
 
 /**
- * The fake "Lie for me" hands `id`: the one set aside for them, unless someone has written it
- * already, in which case another nobody has written or been shown (falling back to their own, which
- * then merges). Undefined when none was set aside for them.
- */
-export function fakeFor(round: Round, id: PlayerId): string | undefined {
-  const own = round.fakes?.[id];
-  if (own === undefined) return undefined;
-  const taken = new Set([...takenKeys(round), ...shownKeys(round)]);
-  const free = decoyPool(round.question, taken);
-  const ownKey = wordKey(own);
-  // Never one already offered to someone else: that would hint at their lie.
-  const offeredElsewhere = shownKeys(round, id).has(ownKey);
-  return (
-    free.find((f) => wordKey(f) === ownKey) ??
-    free.find((f) => !heldForOther(round, id, f)) ??
-    free[0] ??
-    (offeredElsewhere ? undefined : own)
-  );
-}
-
-/** Whether a fake was set aside for someone other than `id` (and not yet shown to them). */
-function heldForOther(round: Round, id: PlayerId, fake: string): boolean {
-  const key = wordKey(fake);
-  return round.players.some(
-    (p) =>
-      p !== id &&
-      [round.fakes?.[p], round.spareFakes?.[p]].some((f) => f !== undefined && wordKey(f) === key),
-  );
-}
-
-/**
- * The fakes "Lie for me" offers `id`: the one `fakeFor` gives, plus their second one when it's still
- * free (or another free fake nobody else holds). One when there's no second to give.
- */
-export function fakeChoicesFor(round: Round, id: PlayerId): string[] {
-  const first = fakeFor(round, id);
-  if (first === undefined) return [];
-  const spare = round.spareFakes?.[id];
-  if (spare === undefined) return [first];
-  const firstKey = wordKey(first);
-  const free = decoyPool(
-    round.question,
-    new Set([...takenKeys(round), ...shownKeys(round)]),
-  ).filter((f) => wordKey(f) !== firstKey);
-  const spareKey = wordKey(spare);
-  const second =
-    free.find((f) => wordKey(f) === spareKey) ?? free.find((f) => !heldForOther(round, id, f));
-  return second === undefined ? [first] : [first, second];
-}
-
-/**
  * "Lie for me": the game offers the player two built-in fakes to choose from (or hands them the
- * only one), worth half points. One offer per player per round, so pressing it again can't reveal
- * other fakes; they may switch between the two they were offered until the vote.
+ * only one), worth half points. One offer per player per round, kept up to date as others pick;
+ * they may switch between what they're offered until the vote.
  */
-function lieForMe(state: HoodwinkState, choice: number | undefined, ctx: Ctx): Result {
+function lieForMe(
+  state: HoodwinkState,
+  choice: number | undefined,
+  seen: string | undefined,
+  ctx: Ctx,
+): Result {
   const round = requireStage(state, 'write');
   if (round instanceof GameError) return round;
   if (!round.players.includes(ctx.by)) {
@@ -591,12 +601,15 @@ function lieForMe(state: HoodwinkState, choice: number | undefined, ctx: Ctx): R
   }
   if (choice !== undefined) {
     const offered = round.fakeChoices?.[ctx.by];
-    const fake = offered?.[choice];
-    if (fake === undefined) {
+    if (!offered) {
       return new GameError('no-choice', 'Press “Lie for me” to see your ready-made lies first.');
     }
+    const fake = offerFor(round, ctx.by)[choice];
+    if (fake === undefined || (seen !== undefined && wordKey(seen) !== wordKey(fake))) {
+      return new GameError('fake-taken', 'Someone just picked that one. Choose again.');
+    }
     return maybeStartVoting(
-      withRound(state, {
+      withLies(state, {
         lies: { ...round.lies, [ctx.by]: fake },
         autoLies: [...new Set([...round.autoLies, ctx.by])],
       }),
@@ -615,22 +628,20 @@ function lieForMe(state: HoodwinkState, choice: number | undefined, ctx: Ctx): R
       'You’ve already sent your own lie. Change it in the box if you like.',
     );
   }
-  const offered = fakeChoicesFor(round, ctx.by);
+  const offered = offerFor(round, ctx.by);
   if (offered.length === 0) {
     return new GameError('no-decoys', 'No ready-made lie for this one. Write your own!');
   }
-  // Remember what they were shown, so it never turns up as a house fake or anyone else's offer.
-  const shown: Partial<Round> = {
+  const shown = withRound(state, {
     fakeShown: [...(round.fakeShown ?? []), ctx.by],
     fakeChoices: { ...round.fakeChoices, [ctx.by]: offered },
-  };
-  if (offered.length > 1) return withRound(state, shown);
+    fakesSeen: [...(round.fakesSeen ?? []), ...offered],
+  });
+  if (offered.length > 1) return shown;
   return maybeStartVoting(
-    withRound(state, {
-      ...shown,
+    withLies(shown, {
       lies: { ...round.lies, [ctx.by]: offered[0]! },
       autoLies: [...round.autoLies, ctx.by],
-      fakes: { ...round.fakes, [ctx.by]: offered[0]! },
     }),
     ctx.now,
   );
@@ -730,7 +741,7 @@ function reduce(state: HoodwinkState, action: HoodwinkAction, ctx: Ctx): Result 
     case 'lie':
       return lie(current, action.text, ctx);
     case 'lie-for-me':
-      return lieForMe(current, action.choice, ctx);
+      return lieForMe(current, action.choice, action.fake, ctx);
     case 'vote':
       return vote(current, action.option, ctx);
     case 'next-round':
@@ -892,9 +903,9 @@ function roundView(state: HoodwinkState, round: Round, viewer: PlayerId | null):
       round.players.includes(viewer) &&
       round.lies[viewer] === undefined &&
       !(round.fakeShown ?? []).includes(viewer) &&
-      round.fakes?.[viewer] !== undefined,
+      offerFor(round, viewer).length > 0,
     myFakes:
-      round.stage === 'write' && viewer !== null && (round.fakeChoices?.[viewer]?.length ?? 0) > 1
+      round.stage === 'write' && viewer !== null && hadChoice(round, viewer)
         ? round.fakeChoices![viewer]!
         : null,
     myLieShared: viewer !== null && lieShared(round, viewer),
