@@ -28,6 +28,7 @@ export const SHARED_STATE = [
   /short-fuse(-\w+)?\.spec\.ts$/,
   /starlight\.spec\.ts$/,
   /thorns[\w-]*\.spec\.ts$/,
+  /iconic\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -52,6 +53,7 @@ const GAME_IDS = [
   'short-fuse',
   'starlight',
   'thorns',
+  'iconic',
 ];
 
 /**
@@ -131,6 +133,8 @@ export default defineConfig({
       NIGHTFALL_TEST_HOLD: '30',
       // Short Fuse's specs fix hands and the top of the pile from the lobby (`rig`).
       SHORT_FUSE_TEST_RIG: '1',
+      // Iconic's spec knows the answer: every card's first word.
+      ICONIC_TEST_WORD: 'Paper Lantern',
     },
   },
 });

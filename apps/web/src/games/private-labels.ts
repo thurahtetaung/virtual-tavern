@@ -17,6 +17,7 @@ import {
   nameGuide as nameShortFuseGuide,
   namesOf as shortFuseNames,
 } from '@vt/private-short-fuse/guide';
+import { type Manifest as IconicManifest, iconName } from '@vt/private-iconic/guide';
 import { namesOf as thornsNames } from '@vt/private-thorns/guide';
 import type { Labeler } from '../recap/resolve.ts';
 
@@ -230,4 +231,10 @@ export async function thornsLabels(): Promise<Labeler> {
   const names = thornsNames(await manifest('thorns'));
   return (kind, id) =>
     kind === 'card' && (id === 'rose' || id === 'thorn' || id === 'chance') ? names[id] : undefined;
+}
+
+/** Iconic's icon names (`{card:17}`), from its manifest, else "Icon 17". */
+export async function iconicLabels(): Promise<Labeler> {
+  const m = (await manifest('iconic')) as IconicManifest | null;
+  return (kind, id) => (kind === 'card' && /^\d+$/.test(id) ? iconName(m, Number(id)) : undefined);
 }

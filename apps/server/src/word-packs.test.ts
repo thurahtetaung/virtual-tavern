@@ -6,7 +6,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { openDb } from './db/index.ts';
 import { MIGRATIONS } from './test/helpers.ts';
 import { WordListRepo, normalizeWords } from './word-lists.ts';
-import { MAX_PACK_WORD_LENGTH, type WordPack, loadWordPacks } from './word-packs.ts';
+import {
+  MAX_PACK_PHRASE_LENGTH,
+  MAX_PACK_WORD_LENGTH,
+  PHRASE_GAMES,
+  type WordPack,
+  loadWordPacks,
+} from './word-packs.ts';
 
 const REPO_PACKS = fileURLToPath(new URL('../word-packs', import.meta.url));
 const words = (n: number, prefix = 'w') => Array.from({ length: n }, (_, i) => `${prefix}${i}`);
@@ -40,6 +46,27 @@ describe('loadWordPacks', () => {
     ['a bad slug', { slug: 'X Y', name: 'X', description: '', words: words(30) }],
   ])('rejects %s', (_, body) => {
     expect(() => loadWordPacks(folder({ 'x.json': body }))).toThrow(/Invalid word pack/);
+  });
+
+  it('allows phrases up to 40 characters only in packs made for phrase games', () => {
+    const body = (games: string[] | undefined, long: string) => ({
+      slug: 'x',
+      name: 'X',
+      description: '',
+      ...(games && { games }),
+      words: [...words(30), long],
+    });
+    expect(loadWordPacks(folder({ 'x.json': body(['iconic'], 'p'.repeat(40)) }))[0]!.games).toEqual(
+      ['iconic'],
+    );
+    for (const [games, long] of [
+      [['iconic'], 'p'.repeat(41)],
+      [['codenames', 'iconic'], 'p'.repeat(21)],
+      [undefined, 'p'.repeat(21)],
+    ] as const)
+      expect(() =>
+        loadWordPacks(folder({ 'x.json': body(games as string[] | undefined, long) })),
+      ).toThrow(/Invalid word pack/);
   });
 
   it('requires the file name to match the slug and names to be unique', () => {
@@ -84,6 +111,20 @@ describe('WordListRepo.seedPacks', () => {
     expect(r.forGame('codenames').wordLists()[0]?.name).toBe('Starter');
   });
 
+  it('tags a pack with its own games, or every word-list game', () => {
+    const r = repo();
+    r.seedPacks([{ ...pack('iconic-easy', 'Iconic: Easy'), games: ['iconic'] }, pack('tv', 'TV')]);
+    const tags = (name: string) => r.list().find((l) => l.name === name)!.games;
+    expect(tags('Iconic: Easy')).toEqual(['iconic']);
+    expect(tags('TV')).toEqual(r.gameIds);
+    expect(
+      r
+        .forGame('codenames')
+        .wordLists()
+        .map((l) => l.name),
+    ).not.toContain('Iconic: Easy');
+  });
+
   it('never re-adds a pack an admin deleted, and leaves edits alone', () => {
     const r = repo();
     r.seedPacks([pack('movies', 'Movies'), pack('tv', 'TV')]);
@@ -108,9 +149,10 @@ describe('built-in word packs', () => {
     const unique = normalizeWords(p.words);
     expect(unique).toHaveLength(p.words.length); // no duplicates, even case-insensitively
     expect(unique.length).toBeGreaterThanOrEqual(100);
+    const phrases = !!p.games?.every((g) => PHRASE_GAMES.includes(g));
     for (const w of p.words) {
       expect(w).toBe(w.trim());
-      expect(w.length).toBeLessThanOrEqual(MAX_PACK_WORD_LENGTH);
+      expect(w.length).toBeLessThanOrEqual(phrases ? MAX_PACK_PHRASE_LENGTH : MAX_PACK_WORD_LENGTH);
     }
     expect(p.description.length).toBeGreaterThan(0);
   });

@@ -61,6 +61,7 @@ describe('chart colours', () => {
     expect(slots.get('short-fuse')).toBe(15);
     expect(slots.get('starlight')).toBe(16);
     expect(slots.get('thorns')).toBe(17);
+    expect(slots.get('iconic')).toBe(18);
     // With every slot taken, other games get the neutral colour.
     for (const id of ['zeta', 'alpha']) expect(slotColor(light, slotFor(id))).toBe(light.other);
     // A filter that hides a game never repaints the others.
@@ -69,8 +70,8 @@ describe('chart colours', () => {
 
   it('falls back to the neutral colour past the last slot', () => {
     expect(slotColor(light, 0)).toBe(light.series[0]);
-    expect(slotColor(light, 17)).toBe(light.series[17]);
-    expect(slotColor(light, 18)).toBe(light.other);
+    expect(slotColor(light, 18)).toBe(light.series[18]);
+    expect(slotColor(light, 19)).toBe(light.other);
     expect(slotColor(dark, undefined)).toBe(dark.other);
     expect(dark.series).not.toEqual(light.series);
   });

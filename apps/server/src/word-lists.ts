@@ -91,7 +91,12 @@ export class WordListRepo {
       const added: string[] = [];
       for (const pack of packs) {
         if (seen.has(pack.slug)) continue;
-        this.create({ name: pack.name, description: pack.description, words: pack.words });
+        this.create({
+          name: pack.name,
+          description: pack.description,
+          words: pack.words,
+          games: pack.games,
+        });
         this.db.insert(seededPacks).values({ slug: pack.slug, seededAt: this.now() }).run();
         added.push(pack.slug);
       }

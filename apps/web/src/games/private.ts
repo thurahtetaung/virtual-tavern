@@ -1,6 +1,7 @@
 import { guide as hogwartsGuide } from '@vt/private-hogwarts/guide';
 import { guide as hoodwinkGuide } from '@vt/private-hoodwink/guide';
 import { guide as hydraGuide } from '@vt/private-hydra/guide';
+import { guide as iconicGuide, nameGuide as nameIconicGuide } from '@vt/private-iconic/guide';
 import { guide as inquestGuide, nameGuide as nameInquestGuide } from '@vt/private-inquest/guide';
 import {
   guide as masqueradeOriginalsGuide,
@@ -35,6 +36,7 @@ import {
   shortFuseLabels,
   taggedGuide,
   thornsLabels,
+  iconicLabels,
 } from './private-labels.ts';
 import { lazyUi } from './lazy-ui.ts';
 import type { ClientGame } from './registry.ts';
@@ -184,6 +186,17 @@ const games: ClientGame[] = [
       import('@vt/private-thorns/ui').then((m) => ({ default: m.ThornsGame })),
     ),
     labels: thornsLabels,
+  },
+  {
+    id: 'iconic',
+    name: 'Iconic',
+    guide: iconicGuide,
+    namedGuide: manifestGuide('iconic', nameIconicGuide),
+    icon: '💡',
+    Component: lazyUi(() =>
+      import('@vt/private-iconic/ui').then((m) => ({ default: m.IconicGame })),
+    ),
+    labels: iconicLabels,
   },
 ];
 

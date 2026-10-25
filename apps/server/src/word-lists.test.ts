@@ -44,6 +44,7 @@ describe('WordListRepo game tags', () => {
     expect(new WordListRepo(openDb(':memory:', MIGRATIONS)).gameIds).toEqual([
       ...GAMES,
       'starlight',
+      'iconic',
     ]);
   });
 

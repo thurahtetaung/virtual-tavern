@@ -221,7 +221,7 @@ test('admins manage word lists that hosts can pick', async ({ browser }) => {
   // least one must stay ticked. (It stays in all of them: a Codenames-only list would become the
   // default for every later Codenames room here.)
   const usedBy = admin.getByRole('group', { name: 'Used by' });
-  const WORD_GAMES = ['Codenames', 'Enigma', 'Echo', 'Starlight'];
+  const WORD_GAMES = ['Codenames', 'Enigma', 'Echo', 'Starlight', 'Iconic'];
   await expect(usedBy.getByRole('checkbox')).toHaveCount(WORD_GAMES.length);
   for (const game of WORD_GAMES)
     await expect(usedBy.getByRole('checkbox', { name: game })).toBeChecked();

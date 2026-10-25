@@ -33,6 +33,7 @@
     "@vt/private-hogwarts": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",
     "@vt/private-hydra": "workspace:*",
+    "@vt/private-iconic": "workspace:*",
     "@vt/private-inquest": "workspace:*",
     "@vt/private-masquerade-originals": "workspace:*",
     "@vt/private-nightfall": "workspace:*",

@@ -147,6 +147,7 @@ describe('back room over HTTP', () => {
       'short-fuse',
       'starlight',
       'thorns',
+      'iconic',
     ]);
   });
 

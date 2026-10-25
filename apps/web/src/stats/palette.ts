@@ -52,6 +52,7 @@ const LIGHT: ChartTokens = {
     '#8f2d4e',
     '#0f766e',
     '#6b5a96',
+    '#7c6f3a',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -85,6 +86,7 @@ const DARK: ChartTokens = {
     '#d46a8c',
     '#2bb3a3',
     '#ad9fdc',
+    '#bfae6a',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -106,8 +108,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * Tavern Brawl a fifteenth (a burnt orange, darker than the orange and apart from the navy),
  * Short Fuse a sixteenth (a wine, apart from the burnt orange before it and darker than the
  * pink), Starlight a seventeenth (a deep teal, apart from the wine before it; dark mode a
- * brighter sea green), and Thorns an eighteenth (a muted violet, apart from the teal before
- * it and lighter than the plum).
+ * brighter sea green), Thorns an eighteenth (a muted violet, apart from the teal before
+ * it and lighter than the plum), and Iconic a nineteenth (a khaki, apart from the violet before
+ * it and greyer and more yellow than the brown).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -130,6 +133,7 @@ const FIXED_ORDER = [
   'short-fuse',
   'starlight',
   'thorns',
+  'iconic',
 ];
 
 /**

@@ -34,6 +34,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   starlight: ['clue'],
   // Discs, not words: no Words card.
   thorns: [],
+  // Each round's secret word, once revealed.
+  iconic: ['clue'],
 };
 
 const LABELS: Record<WordKind, string> = {
@@ -50,6 +52,7 @@ const GAME_LABELS: Readonly<Record<string, Partial<Record<WordKind, string>>>> =
   'masquerade-originals': { clue: 'Locations', guess: 'Spy guesses' },
   nightfall: { clue: 'Roles dealt', guess: 'Roles that died' },
   starlight: { clue: 'Words' },
+  iconic: { clue: 'Words' },
 };
 
 /** The kinds a known game reports, or null for a game this page doesn't know yet. */

@@ -7,6 +7,7 @@ import { roundTable } from '@vt/game-round-table/logic';
 import { hogwarts } from '@vt/private-hogwarts/logic';
 import { hoodwink } from '@vt/private-hoodwink/logic';
 import { hydra, setTestDeck } from '@vt/private-hydra/logic';
+import { iconic, setTestWord } from '@vt/private-iconic/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { nightfall, setTestHold } from '@vt/private-nightfall/logic';
@@ -77,6 +78,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.NIGHTFALL_TEST_HOLD) {
   setTestHold(Number(process.env.NIGHTFALL_TEST_HOLD) * 1000 || 0);
 }
 
+// Browser tests only: the first word of every Iconic card, so a spec knows the answer. Never read
+// in production.
+if (process.env.NODE_ENV !== 'production' && process.env.ICONIC_TEST_WORD) {
+  setTestWord(process.env.ICONIC_TEST_WORD);
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -103,6 +110,7 @@ export function buildGames(): GameRegistry {
     shortFuse,
     starlight,
     thorns,
+    iconic,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
