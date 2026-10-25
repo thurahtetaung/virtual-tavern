@@ -3,7 +3,7 @@ import { Button, Panel, PlayerTag, RefusalSlot, cn, useSecondsLeft } from '@vt/u
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
-import type { GoingOnceView, LotResult } from '../logic/types.ts';
+import { type GoingOnceView, type LotResult, TIMINGS } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
 import { Picture } from './Picture.tsx';
@@ -71,10 +71,7 @@ function CloseBar({ view, room }: { view: GoingOnceView; room: GameRoomInfo }) {
   const a = view.game!.auction!;
   const sold = view.game!.stage === 'sold';
   const now = useServerNow(room.clockOffset, !sold);
-  const total =
-    { open: 8000, quiet: 4000, once: 2000, twice: 2000 }[a.close] *
-    ({ relaxed: 1.5, normal: 1, fast: 0.75 } as const)[view.settings.pace] *
-    (view.rig?.scale ?? 1);
+  const total = TIMINGS[view.settings.pace][a.close] * (view.rig?.scale ?? 1);
   const left = a.screw ? null : Math.max(0, a.closeAt - now);
   const fraction = left === null ? 1 : Math.min(1, left / total);
   const hot = a.close === 'once' || a.close === 'twice';
