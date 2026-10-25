@@ -184,6 +184,21 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).not.toMatch(/\ba Orchid/);
   });
 
+  it('Iconic: every icon’s name, meanings and art', async () => {
+    const { ALL_ICONS } = await import('@vt/private-iconic/logic');
+    const icons = all(ALL_ICONS.map(String), (n) => ({
+      name: `«icon ${n}»`,
+      meanings: [`«meaning ${n}»`],
+      art: `icons/${n}.webp`,
+    }));
+    const text = await named('iconic', { icons });
+    expect(text).not.toMatch(/\bIcon \d/);
+    expect(text).not.toMatch(/of the \w+ column\./);
+    expect(text).toContain('«icon 118»');
+    expect(text).toContain('«meaning 1».');
+    expect(text).toContain('/api/backroom/assets/iconic/icons/17.webp');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

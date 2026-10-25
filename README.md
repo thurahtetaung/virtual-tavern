@@ -63,6 +63,7 @@ packages/private-games/inquest Inquest (back room) rules, guide and UI; card nam
 packages/private-games/seance  Séance (back room) rules, guide and UI; card art, set names and psychic portraits come from private storage
 packages/private-games/hydra  Hydra (back room) rules, guide and UI (CC BY-NC-SA 4.0, see its NOTICE); names and art come from private storage
 packages/private-games/thorns Thorns (back room) rules, guide and UI; names and art come from private storage
+packages/private-games/iconic Iconic (back room) rules, guide and UI; icon names, meanings and art come from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private trivia decks) set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)
 ```

@@ -174,3 +174,36 @@ describe('Starlight figures', () => {
     expect(by('flipped')).toMatchObject({ value: 50 });
   });
 });
+
+describe('Iconic figures', () => {
+  it('count words guessed, time by level, pieces and dropped words', () => {
+    const m = new Map<string, number>();
+    const events: [string, Record<string, unknown>][] = [
+      ['word', { level: 'easy', outcome: 'guessed', ms: 20_000, pieces: 4, helper: null }],
+      ['word', { level: 'easy', outcome: 'guessed', ms: 40_000, pieces: 12, helper: 'p3' }],
+      ['word', { level: 'hard', outcome: 'abandoned', how: 'pass', ms: 90_000, pieces: 7 }],
+      ['word', { level: 'challenging', outcome: 'abandoned', how: 'gave-up', pieces: 2 }],
+      ['outcome', { words: 2, rounds: 4 }],
+    ];
+    for (const [type, props] of events)
+      for (const [k, v] of figureCounters('iconic', type, props))
+        m.set(k, k.startsWith('max.') ? Math.max(m.get(k) ?? 0, v) : (m.get(k) ?? 0) + v);
+    const figs = buildFigures('iconic', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('words-guessed')).toMatchObject({ value: 50 });
+    expect(by('time-easy')).toMatchObject({ value: 30 });
+    expect(by('fastest')).toMatchObject({ value: 20 });
+    expect(by('pieces')).toMatchObject({ value: 8 });
+    expect(by('most-pieces')).toMatchObject({ value: 12 });
+    expect(by('helper')).toMatchObject({ value: 25 });
+    expect(by('words-per-game')).toMatchObject({ value: 4 });
+    expect(by('dropped')).toMatchObject({
+      parts: [
+        { label: 'Clue givers passed', value: 1 },
+        { label: 'Everyone gave up', value: 1 },
+        { label: 'Time ran out', value: 0 },
+        { label: 'A clue giver left', value: 0 },
+      ],
+    });
+  });
+});

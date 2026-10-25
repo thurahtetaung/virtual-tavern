@@ -69,6 +69,9 @@ import type { GameFigure } from '@vt/protocol';
 //   thorns     outcome {players, rounds, how; recap: ranking, discs, points}, challenge {success,
 //              bid, own; recap: round, total, thornBy, bluffed, flips, points, players},
 //              bid {amount; recap: total, opening, auto}, elimination {recap: round, by}
+//   iconic     word {level, outcome, how, ms, pieces, helper; recap: word, givers, closeBy, icons,
+//              marker, sets, guesses, auto}, outcome {words, rounds; recap: ranking, scores,
+//              scoring, length}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1360,6 +1363,110 @@ function thornsFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+const ICONIC_LEVELS = [
+  ['easy', 'Easy'],
+  ['hard', 'Hard'],
+  ['challenging', 'Challenging'],
+] as const;
+const ICONIC_DROPS = [
+  ['pass', 'Clue givers passed'],
+  ['gave-up', 'Everyone gave up'],
+  ['timer', 'Time ran out'],
+  ['left', 'A clue giver left'],
+] as const;
+/** Fastest guesses are kept as `max.f.quick` = this minus the seconds (counters only keep maxima). */
+const ICONIC_QUICK_CAP = 3600;
+
+function iconicCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const rounds = num(props.rounds);
+      if (rounds) out.push(['f.round_sum', rounds]);
+      break;
+    }
+    case 'word': {
+      out.push(['f.words', 1]);
+      const level = ICONIC_LEVELS.find(([k]) => k === props.level)?.[0];
+      if (level) out.push([`f.level.${level}`, 1]);
+      if (props.helper) out.push(['f.helper', 1]);
+      if (props.outcome === 'guessed') {
+        const s = Math.round((num(props.ms) ?? 0) / 1000);
+        const pieces = num(props.pieces) ?? 0;
+        out.push(['f.guessed', 1], ['f.pieces_sum', pieces], ['max.f.pieces', pieces]);
+        if (level) out.push([`f.level.${level}_yes`, 1], [`f.level.${level}_s`, s]);
+        if (s > 0 && s < ICONIC_QUICK_CAP) out.push(['max.f.quick', ICONIC_QUICK_CAP - s]);
+      } else {
+        const how = ICONIC_DROPS.find(([k]) => k === props.how)?.[0];
+        if (how) out.push([`f.drop.${how}`, 1]);
+      }
+      break;
+    }
+  }
+  return out;
+}
+
+function iconicFigures(get: (metric: string) => number): GameFigure[] {
+  const quick = get('max.f.quick');
+  return [
+    {
+      id: 'words-guessed',
+      label: 'Words guessed',
+      kind: 'percent',
+      value: pct(get('f.guessed'), get('f.words')),
+    },
+    ...ICONIC_LEVELS.map(([k, label]) => ({
+      id: `time-${k}`,
+      label: `Average seconds to guess a ${label} word`,
+      kind: 'number' as const,
+      value: avg(get(`f.level.${k}_s`), get(`f.level.${k}_yes`)),
+    })),
+    {
+      id: 'fastest',
+      label: 'Fastest guess (seconds)',
+      kind: 'number',
+      value: quick > 0 ? ICONIC_QUICK_CAP - quick : 0,
+    },
+    {
+      id: 'pieces',
+      label: 'Average pieces on a guessed word',
+      kind: 'number',
+      value: avg(get('f.pieces_sum'), get('f.guessed')),
+    },
+    {
+      id: 'most-pieces',
+      label: 'Most pieces on a guessed word',
+      kind: 'number',
+      value: get('max.f.pieces'),
+    },
+    {
+      id: 'levels',
+      label: 'Words chosen by level',
+      kind: 'split',
+      parts: ICONIC_LEVELS.map(([k, label]) => ({ label, value: get(`f.level.${k}`) })),
+    },
+    {
+      id: 'dropped',
+      label: 'How words were dropped',
+      kind: 'split',
+      parts: ICONIC_DROPS.map(([k, label]) => ({ label, value: get(`f.drop.${k}`) })),
+    },
+    {
+      id: 'helper',
+      label: 'Words with a helper',
+      kind: 'percent',
+      value: pct(get('f.helper'), get('f.words')),
+    },
+    {
+      id: 'words-per-game',
+      label: 'Words per game',
+      kind: 'number',
+      value: avg(get('f.round_sum'), get('f.games')),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1370,6 +1477,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'tavern-brawl') return tavernBrawlCounters(type, props);
   if (gameId === 'short-fuse') return shortFuseCounters(type, props);
   if (gameId === 'thorns') return thornsCounters(type, props);
+  if (gameId === 'iconic') return iconicCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1575,6 +1683,8 @@ export function buildFigures(
       return shortFuseFigures(get);
     case 'thorns':
       return thornsFigures(get);
+    case 'iconic':
+      return iconicFigures(get);
     case 'codenames':
       return [
         teams(false),
