@@ -222,6 +222,17 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('«credit»');
   });
 
+  it('Going Once: the bank’s name and the credit', async () => {
+    const text = await named('going-once', {
+      names: { bank: 'Moneybags & Sons' },
+      credit: { text: 'After an old favourite.' },
+    });
+    expect(text).not.toMatch(/\bthe bank\b/i);
+    expect(text).toContain('Moneybags & Sons');
+    expect(text).toContain('After an old favourite.');
+    expect(text).not.toMatch(/\{\w+\}/);
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

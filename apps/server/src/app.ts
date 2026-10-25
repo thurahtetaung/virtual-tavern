@@ -39,6 +39,7 @@ import { adminGuard, adminRoutes } from './routes/admin.ts';
 import { backroomRoutes } from './routes/backroom.ts';
 import { playtestRoutes } from './routes/playtest.ts';
 import { gamesAdminRoutes } from './routes/games-admin.ts';
+import { contentPackRoutes } from './routes/content-packs.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
 import { addDays, dayOf } from './stats/days.ts';
@@ -51,6 +52,7 @@ import { forgetRoomStats } from './stats/forget-room.ts';
 import { testTrafficCheck } from './test-traffic.ts';
 import { GameSettingsStore, gameNamer, offMessage } from './game-settings.ts';
 import { QuestionDeckRepo, roomContent } from './question-decks.ts';
+import { ContentPackRepo, withContentPacks } from './content-packs.ts';
 import { WordListRepo } from './word-lists.ts';
 import { loadWordPacks } from './word-packs.ts';
 import { Lists } from './routes/lists.ts';
@@ -173,6 +175,7 @@ export function buildApp(opts: AppOptions) {
     questionDeckGameIds(games),
     openQuestionGameIds(games),
   );
+  const contentPacks = new ContentPackRepo(db, games, now);
 
   const stats = new SqliteStatsStore(db, {
     gameIds: [...games.keys()],
@@ -256,7 +259,11 @@ export function buildApp(opts: AppOptions) {
   const rooms: RoomManager = new RoomManager({
     store: new SqliteRoomStore(db),
     games,
-    content: withNarration(roomContent(wordLists, questionDecks, games), games, narration),
+    content: withNarration(
+      withContentPacks(roomContent(wordLists, questionDecks, games), contentPacks, games),
+      games,
+      narration,
+    ),
     // Every change also wakes the playtest bots (they move only in playtests with a human in).
     events: {
       changed: (roomId) => {
@@ -493,6 +500,7 @@ export function buildApp(opts: AppOptions) {
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       gamesAdminRoutes(admin, { games, assets, settings: gameSettings });
+      contentPackRoutes(admin, { packs: contentPacks });
       playtestRoutes(admin, { rooms, games, settings: gameSettings, now, testSeedOf });
       statsRoutes(admin, {
         queries: stats,

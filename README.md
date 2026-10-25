@@ -66,8 +66,9 @@ packages/private-games/thorns Thorns (back room) rules, guide and UI; names and 
 packages/private-games/iconic Iconic (back room) rules, guide and UI; icon names, meanings and art come from private storage
 packages/private-games/stampede Stampede (back room) rules, guide and UI; questions come from private question decks
 packages/private-games/jeweller Jeweller (back room) rules, guide and UI; card, noble and piece art come from private storage
+packages/private-games/going-once Going Once (back room) rules, guide and UI; title groups, hint lines and house pictures come from private storage
 e2e                           Playwright specs, run against the production build
-scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private question decks) set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)
+scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private question decks), import-content-pack.mjs (private content packs), set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)
 ```
 
 - [Adding a game](docs/adding-a-game.md)

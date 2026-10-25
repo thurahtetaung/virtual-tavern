@@ -1,4 +1,6 @@
 import type {
+  ContentPackDetail,
+  ContentPackSummary,
   OffsiteBackupStatus,
   GameSummary,
   ListVersions,
@@ -70,6 +72,7 @@ export function AdminPage() {
           <RecapAdmin />
           <WordLists />
           <QuestionDecks />
+          <ContentPacks />
         </div>
       )}
     </Layout>
@@ -662,6 +665,141 @@ function QuestionDecks() {
           </li>
         ))}
         {decks?.length === 0 && <li className="text-ink-muted italic">No decks yet.</li>}
+      </ul>
+    </AdminSection>
+  );
+}
+
+/**
+ * Content packs: private content for back-room games (Going Once's title groups and hint lines).
+ * Imported with `scripts/import-content-pack.mjs`; here they are switched on and off, downloaded
+ * and deleted.
+ */
+function ContentPacks() {
+  const toast = useToast();
+  const [packs, setPacks] = useState<ContentPackSummary[] | null>(null);
+  const load = useCallback(
+    () =>
+      void api<ContentPackSummary[]>('/api/admin/content-packs')
+        .then(setPacks)
+        .catch((e: Error) => {
+          toast(e.message);
+          setPacks((p) => p ?? []);
+        }),
+    [toast],
+  );
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const json = (data: unknown) =>
+    new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const download = async (p: ContentPackSummary) => {
+    try {
+      const detail = await api<ContentPackDetail>(`/api/admin/content-packs/${p.id}`);
+      saveFile(json(detail.data), `${p.gameId}-${p.kind}-${p.name}.json`.replace(/[^\w.-]+/g, '-'));
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+  const downloadAll = async () => {
+    try {
+      const all = await api<ContentPackDetail[]>('/api/admin/content-packs/export');
+      saveFile(json(all), backupFileName(new Date(), 'content-packs').replace(/\.zip$/, '.json'));
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+  const remove = async (p: ContentPackSummary) => {
+    if (!window.confirm(`Delete "${p.name}"? Download it first if you might want it back.`)) return;
+    try {
+      await api(`/api/admin/content-packs/${p.id}`, { method: 'DELETE' });
+      toast(`Deleted "${p.name}".`, 'info');
+      load();
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+  const setEnabled = async (id: string, enabled: boolean) => {
+    setPacks((ps) => ps?.map((p) => (p.id === id ? { ...p, enabled } : p)) ?? ps);
+    try {
+      await api(`/api/admin/content-packs/${id}`, { method: 'PATCH', body: { enabled } });
+    } catch (err) {
+      setPacks((ps) => ps?.map((p) => (p.id === id ? { ...p, enabled: !enabled } : p)) ?? ps);
+      toast((err as Error).message);
+    }
+  };
+
+  return (
+    <AdminSection
+      id="content-packs"
+      title="Content packs"
+      summary={packs && countLine(packs.length, 'pack', packs.filter((p) => !p.enabled).length)}
+    >
+      <p className="text-sm text-stone-600 dark:text-stone-400">
+        Private content for back-room games that need more than words or questions. Import it with{' '}
+        <code className="text-xs">scripts/import-content-pack.mjs</code>, never into the repository.
+      </p>
+      <div>
+        <Button variant="secondary" onClick={() => void downloadAll()} disabled={!packs?.length}>
+          Download all packs (.json)
+        </Button>
+      </div>
+      {packs === null && <p className="text-ink-muted">Loading packs…</p>}
+      <ul className="space-y-2">
+        {packs?.map((p) => (
+          <li key={p.id}>
+            <Panel
+              className={cn(
+                'flex items-center gap-1 p-0 py-2 pr-2 pl-4',
+                !p.enabled && 'bg-stone-100/80 dark:bg-stone-900/40',
+              )}
+            >
+              <div className="min-w-0 flex-1 py-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span
+                    id={`pack-${p.id}`}
+                    className={cn('font-bold break-words', !p.enabled && 'text-ink-muted')}
+                  >
+                    {p.name}
+                  </span>
+                  {!p.enabled && <Badge>Disabled</Badge>}
+                </span>
+                <span className="block text-sm text-ink-muted">
+                  {p.gameId} · {p.kind} · {p.entries} {p.entries === 1 ? 'entry' : 'entries'} ·{' '}
+                  {Math.ceil(p.size / 1024)} KB
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Download ${p.name} as .json`}
+                title="Download .json"
+                onClick={() => void download(p)}
+              >
+                <DownloadIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Delete ${p.name}`}
+                title="Delete"
+                onClick={() => void remove(p)}
+              >
+                <span className="text-rose-700 dark:text-rose-400">
+                  <TrashIcon />
+                </span>
+              </Button>
+              <AdminSwitch
+                checked={p.enabled}
+                onChange={(on) => void setEnabled(p.id, on)}
+                aria-label="Enabled"
+                aria-describedby={`pack-${p.id}`}
+              />
+            </Panel>
+          </li>
+        ))}
+        {packs?.length === 0 && <li className="text-ink-muted italic">No packs yet.</li>}
       </ul>
     </AdminSection>
   );

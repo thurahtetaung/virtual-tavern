@@ -40,6 +40,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   stampede: ['guess'],
   // Gems and cards, not words: no Words card.
   jeweller: [],
+  // Drawings and bids, not words: no Words card.
+  'going-once': [],
 };
 
 const LABELS: Record<WordKind, string> = {

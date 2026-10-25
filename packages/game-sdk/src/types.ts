@@ -74,10 +74,23 @@ export interface ContentProvider {
   /** Open questions from the given decks, for games with `questionKind: 'open'`. */
   openQuestions?(deckIds: readonly string[]): OpenQuestion[];
   /**
+   * The enabled private content packs of one kind for this game (`content_packs`), each with its
+   * data as the game's schema accepted it. Absent on servers without content packs; only games
+   * that declare `contentPacks` get it.
+   */
+  contentPacks?(kind: string): ContentPack[];
+  /**
    * How long each narration line of a private game's manifest lasts, in ms (`narrationLengths`),
    * or null while unknown. Absent on servers without asset storage and for public games.
    */
   narrationLengths?(): Readonly<Record<string, number>> | null;
+}
+
+/** One private content pack (admin-imported, server-side only). */
+export interface ContentPack {
+  id: string;
+  name: string;
+  data: unknown;
 }
 
 export interface CreateCtx {
@@ -148,6 +161,12 @@ export interface GameDefinition<State, Action, View> {
    * tagged for games of one kind only.
    */
   questionKind?: 'trivia' | 'open';
+  /**
+   * Back-room games with private content packs: the kinds they read through
+   * `ctx.content.contentPacks(kind)`, each with the schema a pack's data must pass to be imported.
+   * Packs never reach a browser except the admin's.
+   */
+  contentPacks?: { kinds: Readonly<Record<string, ZodType>> };
   /**
    * Back-room games with background music from their manifest (`music`, `musicTracks`): the
    * phases it plays in, which the admin may give other tracks on the Games page.

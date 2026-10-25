@@ -105,6 +105,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-going-once':
+        specifier: workspace:*
+        version: link:../../packages/private-games/going-once
       '@vt/private-hogwarts':
         specifier: workspace:*
         version: link:../../packages/private-games/hogwarts
@@ -189,6 +192,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-going-once':
+        specifier: workspace:*
+        version: link:../../packages/private-games/going-once
       '@vt/private-hogwarts':
         specifier: workspace:*
         version: link:../../packages/private-games/hogwarts
@@ -393,6 +399,25 @@ importers:
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
+
+  packages/private-games/going-once:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.0
+        version: 19.3.1
 
   packages/private-games/hogwarts:
     dependencies:

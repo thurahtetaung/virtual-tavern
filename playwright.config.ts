@@ -31,6 +31,7 @@ export const SHARED_STATE = [
   /iconic\.spec\.ts$/,
   /stampede[\w-]*\.spec\.ts$/,
   /jeweller[\w-]*\.spec\.ts$/,
+  /going-once[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -58,6 +59,7 @@ const GAME_IDS = [
   'iconic',
   'stampede',
   'jeweller',
+  'going-once',
 ];
 
 /**
@@ -95,7 +97,8 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: SHARED_STATE },
     // These specs share server-wide state: the back-room password (setting it or signing everyone
-    // out ends every unlock) and the question decks a new Hoodwink room offers. One at a time.
+    // out ends every unlock), the question decks a new Hoodwink room offers and the content packs
+    // Going Once deals from. One at a time.
     {
       name: 'back-room',
       use: { ...devices['Desktop Chrome'] },
@@ -144,6 +147,8 @@ export default defineConfig({
       // noble on the table fits it, so a game reaches a noble visit and the end in a few turns.
       JEWELLER_TEST_DECK:
         '1:L1-35;n:N09,N01,N03;own:L1-01,L1-02,L1-03,L1-04,L1-33,L1-34,L1-36,L3-05,L3-06,L3-08',
+      // Going Once's spec fixes the deal and halves its clocks from the lobby (`rig`).
+      GOING_ONCE_TEST_RIG: '1',
     },
   },
 });

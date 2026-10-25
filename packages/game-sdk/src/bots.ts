@@ -39,6 +39,11 @@ export interface BotInfo {
    * try (with fresh randomness) may well be accepted.
    */
   retry?(code: string): boolean;
+  /**
+   * Moves the bot makes at button-press speed (0.6–1.2 s rather than 1.5–4 s), for games that
+   * move faster than a turn, like a live auction's bids.
+   */
+  quick?(move: unknown): boolean;
 }
 
 /** One random item, or undefined from an empty list. */

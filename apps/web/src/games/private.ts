@@ -24,6 +24,10 @@ import { guide as starlightGuide } from '@vt/private-starlight/guide';
 import { guide as thornsGuide, nameGuide as nameThornsGuide } from '@vt/private-thorns/guide';
 import { guide as stampedeGuide, nameGuide as nameStampedeGuide } from '@vt/private-stampede/guide';
 import {
+  guide as goingOnceGuide,
+  nameGuide as nameGoingOnceGuide,
+} from '@vt/private-going-once/guide';
+import {
   inquestLabels,
   manifestGuide,
   manifestTitle,
@@ -220,6 +224,16 @@ const games: ClientGame[] = [
     icon: '💎',
     Component: lazyUi(() =>
       import('@vt/private-jeweller/ui').then((m) => ({ default: m.JewellerGame })),
+    ),
+  },
+  {
+    id: 'going-once',
+    name: 'Going Once',
+    guide: goingOnceGuide,
+    namedGuide: manifestGuide('going-once', nameGoingOnceGuide),
+    icon: '🔨',
+    Component: lazyUi(() =>
+      import('@vt/private-going-once/ui').then((m) => ({ default: m.GoingOnceGame })),
     ),
   },
 ];

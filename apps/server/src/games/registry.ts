@@ -20,6 +20,7 @@ import { enableTestRig, shortFuse } from '@vt/private-short-fuse/logic';
 import { starlight } from '@vt/private-starlight/logic';
 import { thorns } from '@vt/private-thorns/logic';
 import { stampede } from '@vt/private-stampede/logic';
+import { enableTestRig as enableGoingOnceRig, goingOnce } from '@vt/private-going-once/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -71,6 +72,12 @@ function testHp(spec: string | undefined): Partial<Record<number, number>> {
 // action), so a spec can reach a given card. Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.SHORT_FUSE_TEST_RIG === '1') {
   enableTestRig();
+}
+
+// Browser tests only: let the host fix Going Once's deal and speed up its clock (the `rig`
+// action), so a spec can play a whole game quickly. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.GOING_ONCE_TEST_RIG === '1') {
+  enableGoingOnceRig();
 }
 
 // Browser tests only: a Nightfall step waits up to this many seconds past its clock for players
@@ -134,6 +141,7 @@ export function buildGames(): GameRegistry {
     iconic,
     stampede,
     jeweller,
+    goingOnce,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

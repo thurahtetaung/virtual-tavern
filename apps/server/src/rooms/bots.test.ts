@@ -186,6 +186,22 @@ describe('the playtest bot runner', () => {
     expect(logger.debug).toHaveBeenCalledTimes(2);
   });
 
+  it('makes the moves a game marks as quick at button-press speed', () => {
+    const game = counter((view: { n: number }) => (view.n < 1 ? { type: 'bump' } : null));
+    const t = setup({
+      ...game,
+      botInfo: { quick: (move) => (move as { type: string }).type === 'bump' },
+    });
+    t.rooms.connected(t.roomId, HOST);
+    t.elapse(SECOND);
+    expect(t.state()).toBe(1);
+    // Other games keep the usual pause.
+    const slow = setup({ ...counter(() => ({ type: 'bump' })), id: 'counter-2' });
+    slow.rooms.connected(slow.roomId, HOST);
+    slow.elapse(SECOND);
+    expect(slow.state()).toBe(0);
+  });
+
   it('retries a refusal the game marks as worth another go, after its pause', () => {
     let calls = 0;
     const game = counter(() => {

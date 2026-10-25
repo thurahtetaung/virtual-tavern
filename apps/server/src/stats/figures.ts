@@ -80,6 +80,10 @@ import type { GameFigure } from '@vt/protocol';
 //              nobles}, buy {level, paid, gold, free; recap: points, bonus, fromReserve, auto},
 //              reserve {blind; recap: level, gold, auto}, noble {recap: turn, auto},
 //              take {recap: count, double, auto}, return {recap: count, auto}, final {recap: points, turn}
+//   going-once outcome {players, lots; recap: ranking, scores, cash, art, debt}, sale {price,
+//              value, profit, own, house, screwedBy; recap: lot, artist, commission, players},
+//              unsold {value, house; recap: lot}, bid {amount}, screw {outcome; recap: target,
+//              amount}, loan {loans}, drawing {missed}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1623,6 +1627,103 @@ function jewellerFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function goingOnceCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 3 && n <= 6) out.push([`f.n.${n}`, 1]);
+      const scores = Array.isArray(props.scores) ? props.scores.map(num) : [];
+      if (typeof scores[0] === 'number') out.push(['f.top_score_sum', scores[0]]);
+      break;
+    }
+    case 'sale': {
+      out.push(['f.sales', 1]);
+      const price = num(props.price) ?? 0;
+      const profit = num(props.profit) ?? 0;
+      out.push(['f.price_sum', price]);
+      if (profit > 0) out.push(['f.bargains', 1]);
+      if (props.own === true) out.push(['f.own', 1]);
+      if (props.screwedBy) out.push(['f.forced', 1]);
+      break;
+    }
+    case 'unsold':
+      out.push(['f.unsold', 1]);
+      break;
+    case 'screw':
+      out.push(['f.screws', 1]);
+      if (props.outcome === 'forced') out.push(['f.screw_forced', 1]);
+      else out.push(['f.screw_wasted', 1]);
+      break;
+    case 'loan':
+      out.push(['f.loans', 1]);
+      break;
+    case 'drawing':
+      out.push(['f.drawings', 1]);
+      if (props.missed === true) out.push(['f.missed', 1]);
+      break;
+  }
+  return out;
+}
+
+function goingOnceFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'sold-rate',
+      label: 'Lots that sold',
+      kind: 'percent',
+      value: pct(get('f.sales'), get('f.sales') + get('f.unsold')),
+    },
+    {
+      id: 'average-price',
+      label: 'Average price paid',
+      kind: 'number',
+      value: avg(get('f.price_sum'), get('f.sales')),
+    },
+    {
+      id: 'bargains',
+      label: 'Buys worth more than their price',
+      kind: 'percent',
+      value: pct(get('f.bargains'), get('f.sales')),
+    },
+    {
+      id: 'screws',
+      label: 'Screws',
+      kind: 'split',
+      parts: [
+        { label: 'Forced a bid', value: get('f.screw_forced') },
+        { label: 'Wasted', value: get('f.screw_wasted') },
+      ],
+    },
+    {
+      id: 'winning-money',
+      label: 'Average winning money',
+      kind: 'number',
+      value: avg(get('f.top_score_sum'), games),
+    },
+    {
+      id: 'loans-per-game',
+      label: 'Loans per game',
+      kind: 'number',
+      value: avg(get('f.loans'), games),
+    },
+    {
+      id: 'missed-drawings',
+      label: 'Drawings not sent in time',
+      kind: 'percent',
+      value: pct(get('f.missed'), get('f.drawings')),
+    },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [3, 4, 5, 6].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+  ];
+}
+
 /** Daily counters for one insight event. */
 export function figureCounters(gameId: string, type: string, props: Props): Counters {
   if (gameId === 'nightfall') return nightfallCounters(type, props);
@@ -1636,6 +1737,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'iconic') return iconicCounters(type, props);
   if (gameId === 'stampede') return stampedeCounters(type, props);
   if (gameId === 'jeweller') return jewellerCounters(type, props);
+  if (gameId === 'going-once') return goingOnceCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1847,6 +1949,8 @@ export function buildFigures(
       return stampedeFigures(get);
     case 'jeweller':
       return jewellerFigures(get);
+    case 'going-once':
+      return goingOnceFigures(get);
     case 'codenames':
       return [
         teams(false),

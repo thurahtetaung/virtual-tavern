@@ -58,6 +58,23 @@ export const questionDecks = sqliteTable('question_decks', {
   updatedAt: integer('updated_at').notNull(),
 });
 
+/**
+ * Private content for back-room games that need more than words or questions (Going Once's title
+ * groups and hint lines): one pack of one kind for one game, its `data` checked by the game's own
+ * schema. Imported with `scripts/import-content-pack.mjs`; never served over HTTP except to admins.
+ */
+export const contentPacks = sqliteTable('content_packs', {
+  id: text('id').primaryKey(),
+  gameId: text('game_id').notNull(),
+  kind: text('kind').notNull(),
+  name: text('name').notNull(),
+  data: text('data', { mode: 'json' }).$type<unknown>().notNull(),
+  /** Disabled packs stay in the admin area but rooms don't read them. */
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 /** Small key/value store for server-wide settings (e.g. the back-room password hash). */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

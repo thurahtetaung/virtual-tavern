@@ -97,7 +97,8 @@ export class BotRunner {
       // A look now only sets the pace; the move itself is worked out again when it is made.
       const move = this.decide(roomId, botId, run);
       if (!move) continue;
-      const wait = this.deps.delay(TRIVIAL.has(move.type)) * SPEED[table.speed];
+      const quick = TRIVIAL.has(move.type) || table.game.botInfo?.quick?.(move) === true;
+      const wait = this.deps.delay(quick) * SPEED[table.speed];
       const r = run;
       r.timers.set(
         botId,
