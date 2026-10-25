@@ -212,7 +212,7 @@ function Choice<T extends string | number | null>({
   return (
     <fieldset className="flex flex-col gap-1.5" data-testid={testId}>
       <legend className="text-sm font-semibold">{label}</legend>
-      {help && <p className="text-xs text-stone-500 dark:text-stone-400">{help}</p>}
+      {help && <p className="text-xs text-ink-muted dark:text-stone-400">{help}</p>}
       <div className="flex flex-wrap gap-1.5">
         {options.map(([v, text]) => (
           <button
@@ -562,7 +562,7 @@ function WordCard({
     <div className="grid gap-2 sm:grid-cols-3" data-testid="ic-card">
       {LEVELS.map((level) => (
         <div key={level} className="flex flex-col gap-1.5">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-muted dark:text-stone-400">
             {LEVEL_LABELS[level]}
           </h4>
           {card.map((w, i) =>
@@ -762,7 +762,7 @@ function Clue({
         <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-800/60 dark:ring-stone-700">
           <p className="text-sm">
             Your word: <b data-testid="ic-answer">“{answer}”</b>
-            <span className="ml-1 text-xs text-stone-500 dark:text-stone-400">
+            <span className="ml-1 text-xs text-ink-muted dark:text-stone-400">
               ({LEVEL_LABELS[r.secret!.answer!.level]})
             </span>
           </p>
@@ -799,7 +799,7 @@ function Clue({
               <InviteHelper view={view} room={room} act={act} name={name} />
             )}
           </div>
-          <p className="text-xs text-stone-500 dark:text-stone-400">
+          <p className="text-xs text-ink-muted dark:text-stone-400">
             Tap an icon to place; tap again to stack; long-press or right-click to take one off.
           </p>
           <RefusalSlot anchor="ic-board" />
@@ -960,7 +960,7 @@ function Guesses({
         data-testid="ic-guesses"
       >
         {r.guesses.length === 0 && (
-          <li className="py-4 text-center text-sm text-stone-500 dark:text-stone-400">
+          <li className="py-4 text-center text-sm text-ink-muted dark:text-stone-400">
             No guesses yet.
           </li>
         )}
@@ -1014,7 +1014,7 @@ function Guesses({
           {gaveUp ? '↩︎ Take back my give-up' : '🏳️ Give up on this word'}
         </Button>
       )}
-      <p className="text-xs text-stone-500 dark:text-stone-400">
+      <p className="text-xs text-ink-muted dark:text-stone-400">
         {r.gaveUp.length
           ? `Gave up: ${andList(r.gaveUp.map((id) => (id === room.you ? 'you' : name(id))))} (${r.gaveUp.length} of ${guessers.length}). The word is dropped once everyone has.`
           : 'If every guesser gives up, the word is dropped.'}
@@ -1058,7 +1058,7 @@ function GuessRow({
       )}
       data-guess={guess.id}
     >
-      <span className="w-16 shrink-0 truncate text-xs text-stone-500 dark:text-stone-400">
+      <span className="w-16 shrink-0 truncate text-xs text-ink-muted dark:text-stone-400">
         {guess.by === you ? 'You' : name(guess.by)}
       </span>
       <span
@@ -1204,7 +1204,7 @@ function Reveal({
         className="ic-reveal flex flex-col items-center gap-2 text-center"
         data-testid="ic-reveal"
       >
-        <p className="text-sm uppercase tracking-wide text-stone-500 dark:text-stone-400">
+        <p className="text-sm uppercase tracking-wide text-ink-muted dark:text-stone-400">
           The word was · {LEVEL_LABELS[res.level]}
         </p>
         <p className="text-3xl font-black">“{res.word}”</p>
@@ -1299,7 +1299,7 @@ function End({
           {g.history.map((h) => (
             <li key={h.no} className="flex flex-wrap gap-x-2">
               <span className="font-semibold">“{h.word}”</span>
-              <span className="text-stone-500 dark:text-stone-400">
+              <span className="text-ink-muted dark:text-stone-400">
                 {h.outcome === 'guessed'
                   ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
                   : `dropped (clues by ${andList(h.givers.map(name))})`}

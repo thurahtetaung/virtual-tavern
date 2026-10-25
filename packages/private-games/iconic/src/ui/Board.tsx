@@ -335,7 +335,7 @@ export function BoardView({
       >
         {GROUPS.map((g) => (
           <section key={g} aria-label={GROUP_LABELS[g]} className="flex flex-col gap-1">
-            <h4 className="text-center text-xs font-semibold text-stone-500 dark:text-stone-400">
+            <h4 className="text-center text-xs font-semibold text-ink-muted dark:text-stone-400">
               {GROUP_LABELS[g]}
             </h4>
             <div
@@ -363,7 +363,7 @@ export function ClueStrip({ board, art }: { board: Board; art: Art }) {
       data-testid="ic-clue-strip"
     >
       {used.length === 0 ? (
-        <p className="py-1 text-center text-stone-500 dark:text-stone-400">
+        <p className="py-1 text-center text-ink-muted dark:text-stone-400">
           No pieces on the board yet.
         </p>
       ) : (
@@ -375,14 +375,14 @@ export function ClueStrip({ board, art }: { board: Board; art: Art }) {
               {c.marker !== null ? (
                 <IconWord icon={c.marker} art={art} strong />
               ) : (
-                <span className="italic text-stone-500 dark:text-stone-400">(marker off)</span>
+                <span className="italic text-ink-muted dark:text-stone-400">(marker off)</span>
               )}
               {c.cubes.map((cube, i) => (
                 <span key={cube.icon} className="inline-flex items-center gap-1">
-                  <span aria-hidden className="text-stone-400">
+                  <span aria-hidden className="text-ink-muted">
                     ·
                   </span>
-                  <span className="text-[11px] text-stone-500 dark:text-stone-400">{i + 1}</span>
+                  <span className="text-[11px] text-ink-muted dark:text-stone-400">{i + 1}</span>
                   <IconWord icon={cube.icon} art={art} />
                   {cube.n > 1 && <span className="text-xs font-semibold">×{cube.n}</span>}
                 </span>
