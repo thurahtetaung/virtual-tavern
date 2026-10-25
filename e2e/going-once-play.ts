@@ -159,7 +159,9 @@ export const bid = async (p: Page, amount: number) => {
   const top = p.getByTestId('go-top-bid');
   const label = `$${amount.toLocaleString('en-US')}`;
   await expect(async () => {
-    if (!(await top.textContent())?.includes(label)) {
+    const now = (await top.textContent()) ?? '';
+    // Pressed already and landed: this player holds the top bid at that amount.
+    if (!(now.includes('(you)') && now.includes(label))) {
       await expect(button).toBeEnabled({ timeout: 1000 });
       await button.click();
     }
