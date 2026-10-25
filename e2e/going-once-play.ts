@@ -149,8 +149,21 @@ export const lotIs = (p: Page, n: number, timeout?: number) =>
   expect(p.getByText(new RegExp(`^(Lot )?${n}/8$`)).filter({ visible: true })).toBeVisible({
     timeout,
   });
+/**
+ * Bids and waits until the bid has landed: the top-bid line shows this player at that amount.
+ * The server takes one bid per player every 300 ms, and on a fast machine a player's next bid can
+ * come sooner (their bid, a rival's, theirs again); a refused press is simply made again.
+ */
 export const bid = async (p: Page, amount: number) => {
   const button = p.getByTestId(`go-bid-${amount}`);
-  await expect(button).toBeEnabled();
-  await button.click();
+  const top = p.getByTestId('go-top-bid');
+  const label = `$${amount.toLocaleString('en-US')}`;
+  await expect(async () => {
+    if (!(await top.textContent())?.includes(label)) {
+      await expect(button).toBeEnabled({ timeout: 1000 });
+      await button.click();
+    }
+    await expect(top).toContainText(label, { timeout: 1000 });
+    await expect(top).toContainText('(you)', { timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 };
