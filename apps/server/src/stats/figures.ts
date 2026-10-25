@@ -72,7 +72,7 @@ import type { GameFigure } from '@vt/protocol';
 //   iconic     word {level, outcome, how, ms, pieces, helper; recap: word, givers, closeBy, icons,
 //              marker, sets, guesses, auto}, outcome {words, rounds; recap: ranking, scores,
 //              scoring, length}
-//   stampede   round {herdSize, answered, tie, merges, skipped, groups; recap: round, herd,
+//   stampede   round {herdSize, answered, tie, skipped, groups; recap: round, herd,
 //              blanks, sizes, scorers, loners, raisedTo}, pink {recap: round, from, how},
 //              outcome {rounds, endReason; recap: target, pinkCow, ranking, cows};
 //              recap: answer {round, group, herd, alone, with}
@@ -1484,7 +1484,6 @@ function stampedeCounters(type: string, props: Props): Counters {
       out.push(['f.answered_sum', num(props.answered) ?? 0]);
       if (herd > 0) out.push(['f.herds', 1], ['f.herd_sum', herd]);
       if (props.tie === true) out.push(['f.ties', 1]);
-      if ((num(props.merges) ?? 0) > 0) out.push(['f.merged', 1]);
       if (props.skipped === true) out.push(['f.skips', 1]);
       break;
     }
@@ -1521,12 +1520,6 @@ function stampedeFigures(get: (metric: string) => number): GameFigure[] {
       label: 'Rounds tied at the top',
       kind: 'percent',
       value: pct(get('f.ties'), get('f.rounds')),
-    },
-    {
-      id: 'merged-rounds',
-      label: 'Rounds where the host joined or split answers',
-      kind: 'percent',
-      value: pct(get('f.merged'), get('f.rounds')),
     },
     {
       id: 'pink-moves',

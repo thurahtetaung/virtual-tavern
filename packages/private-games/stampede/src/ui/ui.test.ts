@@ -41,10 +41,6 @@ describe('Stampede UI text', () => {
     answerAll(h, ['a', 'a', 'b']);
     expect(status('p1').text).toMatch(/^Answer in! Waiting for: P4/);
     h.act('p4', { type: 'answer', text: 'c' });
-    expect(status('p1').yourMove).toBe(true);
-    expect(status('p1').text).toMatch(/Check the groups/);
-    expect(status('p2').text).toMatch(/P1 \(host\) is checking/);
-    h.act(HOST, { type: 'reveal' });
     expect(status('p2').text).toMatch(/You’re in the herd/);
     expect(status('p3').text).toMatch(/Waiting for P1 \(host\) to ask the next question/);
   });

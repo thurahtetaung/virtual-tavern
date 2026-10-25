@@ -19,7 +19,6 @@ import { type Names, cowCount, fillNames } from '../logic/names.ts';
 import {
   type GroupView,
   MAX_ANSWER_LENGTH,
-  type MergeStep,
   type RoundView,
   type StampedeAction,
   type StampedeView,
@@ -38,7 +37,6 @@ interface Props {
 }
 
 const ANSWER_ANCHOR = 'stampede-answer';
-const MERGE_ANCHOR = 'stampede-merge';
 const PICK_ANCHOR = 'stampede-pick';
 
 export function Question({ prompt, small = false }: { prompt: string; small?: boolean }) {
@@ -231,223 +229,21 @@ function Answering(props: Props) {
   );
 }
 
-// ---- Checking the groups (the host) ----
-
-type Selected = { kind: 'group'; id: string } | { kind: 'member'; player: string } | null;
-
-function MergeBoard({ view, act, room }: Props) {
-  const round = view.round!;
-  const groups = [...(round.groups ?? [])].sort((a, b) => b.members.length - a.members.length);
-  const [selected, setSelected] = useState<Selected>(null);
-  const send = async (action: StampedeAction) => {
-    setSelected(null);
-    await act(action, { anchor: MERGE_ANCHOR });
-  };
-  const label = (id: string) => round.groups?.find((g) => g.id === id)?.label ?? '';
-  const suggestionFor = (id: string) => round.suggestions.find((s) => s.from === id);
-  const selectedGroup = selected?.kind === 'group' ? selected.id : null;
-  const selectedMember = selected?.kind === 'member' ? selected.player : null;
-  const memberGroup = selectedMember
-    ? groups.find((g) => g.members.includes(selectedMember))
-    : undefined;
-  const target = (g: GroupView) =>
-    (selectedGroup && selectedGroup !== g.id) || (memberGroup && memberGroup.id !== g.id);
-  const drop = (g: GroupView) =>
-    selectedGroup
-      ? send({ type: 'merge', from: selectedGroup, into: g.id })
-      : send({ type: 'move', player: selectedMember!, into: g.id });
-  const big = groups.filter((g) => g.members.length > 1);
-  const alone = groups.filter((g) => g.members.length === 1);
-  const moving = selectedGroup
-    ? `“${label(selectedGroup)}”`
-    : selectedMember
-      ? `${nameOf(view, selectedMember)}’s answer`
-      : null;
-
-  const card = (g: GroupView) => {
-    const suggestion = suggestionFor(g.id);
-    const isSelected = selectedGroup === g.id;
-    return (
-      <li
-        key={g.id}
-        data-testid="merge-group"
-        data-label={g.label}
-        className={cn(
-          'sp-rise space-y-2 rounded-xl bg-card p-3 ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700',
-          isSelected && 'ring-2 ring-accent dark:ring-amber-500',
-        )}
-      >
-        <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-lg font-bold">
-            {g.label} <span className="font-normal text-ink-muted">×{g.members.length}</span>
-          </p>
-          {target(g) ? (
-            <Button size="sm" variant="soft" onClick={() => void drop(g)} data-testid="merge-here">
-              Join here
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant={isSelected ? 'primary' : 'secondary'}
-              aria-pressed={isSelected}
-              onClick={() => setSelected(isSelected ? null : { kind: 'group', id: g.id })}
-              data-testid="merge-pick"
-            >
-              {isSelected ? 'Cancel' : 'Join into…'}
-            </Button>
-          )}
-        </div>
-        <ul className="flex flex-wrap gap-1.5">
-          {g.members.map((id) => {
-            const on = selectedMember === id;
-            const raw = g.answers[id] ?? '';
-            return (
-              <li key={id}>
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setSelected(on ? null : { kind: 'member', player: id })}
-                  className={cn(
-                    'inline-flex min-h-9 items-center gap-1 rounded-full bg-panel px-2.5 py-1 text-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-                    on && 'ring-2 ring-accent dark:ring-amber-500',
-                  )}
-                  title="Move this answer"
-                >
-                  <PlayerTag name={nameOf(view, id)} />
-                  {raw.toLowerCase() !== g.label.toLowerCase() && (
-                    <span className="text-ink-muted">“{raw}”</span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {suggestion && !selected && (
-          <p className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-line px-2 py-1.5 text-sm dark:border-stone-600">
-            <span>✏️ Looks like a typo of “{label(suggestion.into)}”</span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => void send({ type: 'merge', from: g.id, into: suggestion.into })}
-              data-testid="merge-suggestion"
-            >
-              Join
-            </Button>
-          </p>
-        )}
-        {selectedMember && memberGroup?.id === g.id && g.members.length > 1 && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void send({ type: 'move', player: selectedMember, into: null })}
-            data-testid="merge-split"
-          >
-            Put {nameOf(view, selectedMember)}’s answer on its own
-          </Button>
-        )}
-      </li>
-    );
-  };
-
-  return (
-    <div className="space-y-3" data-testid="merge-board">
-      <Question prompt={round.prompt} small />
-      <p className="text-center text-sm text-ink-muted">
-        Only you see the answers now. Every change you make is shown to everyone at the reveal.
-      </p>
-      {moving && (
-        <p className="sticky top-2 z-10 flex items-center justify-between gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-500/40">
-          <span>Moving {moving}: tap “Join here” on its group.</span>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
-            Cancel
-          </Button>
-        </p>
-      )}
-      <ul className="grid gap-2 lg:grid-cols-2">{big.map(card)}</ul>
-      {alone.length > 0 && (
-        <section aria-label="Answers on their own" className="space-y-2">
-          <h3 className="text-sm font-semibold">On their own ({alone.length})</h3>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{alone.map(card)}</ul>
-        </section>
-      )}
-      {groups.length === 0 && <p className="text-center">Nobody answered this round.</p>}
-      {round.late.length > 0 && (
-        <p className="text-sm text-ink-muted">
-          No answer from {round.late.map((id) => who(view, id)).join(', ')}.
-        </p>
-      )}
-      <Changes steps={round.merges ?? []} />
-      <RefusalSlot anchor={MERGE_ANCHOR} resetKey={round.number} />
-      <StickyBar>
-        <div className="grid grid-cols-[auto_1fr] gap-2 border-t border-line pt-3 dark:border-stone-800">
-          <Button
-            variant="secondary"
-            size="lg"
-            disabled={!(round.merges ?? []).some((m) => m.kind !== 'reset')}
-            onClick={() => void send({ type: 'reset-groups' })}
-          >
-            Start again
-          </Button>
-          <Button size="lg" onClick={() => void send({ type: 'reveal' })} data-testid="reveal">
-            Reveal answers
-          </Button>
-        </div>
-      </StickyBar>
-      {!room.isHost && <p className="text-sm text-ink-muted">You’re no longer the host.</p>}
-    </div>
-  );
-}
-
-function stepText(s: MergeStep): string {
-  const [a = '', b = ''] = s.labels;
-  switch (s.kind) {
-    case 'merge':
-      return `Joined “${a}” into “${b}”`;
-    case 'move':
-      return `Moved “${a}” to “${b}”`;
-    case 'split':
-      return `Took “${a}” out of “${b}”`;
-    case 'reset':
-      return 'Started again from the automatic groups';
-  }
-}
-
-/** The host's checking steps (all of them are shown to everyone at the reveal). */
-function Changes({ steps, title = 'Changes' }: { steps: MergeStep[]; title?: string }) {
-  if (steps.length === 0) return null;
-  return (
-    <details className="text-sm" data-testid="merge-log">
-      <summary className="cursor-pointer text-ink-muted">
-        {title} ({steps.length})
-      </summary>
-      <ol className="mt-1 list-decimal space-y-0.5 pl-5">
-        {steps.map((s, i) => (
-          <li key={i}>{stepText(s)}</li>
-        ))}
-      </ol>
-    </details>
-  );
-}
-
-function WaitingForCheck({ view, room, act }: Props) {
+/**
+ * A round saved mid-check by the version that had a host check: the host reveals it as it
+ * stands (any action would too).
+ */
+function OldCheck({ view, room, act }: Props) {
   const round = view.round!;
   return (
     <div className="space-y-4 text-center">
       <Question prompt={round.prompt} small />
-      <p className="text-5xl" aria-hidden>
-        🐄🐄🐄
-      </p>
-      {round.myAnswer && (
-        <p data-testid="my-answer">
-          Your answer: <strong>{round.myAnswer}</strong>
-        </p>
-      )}
       {room.isHost ? (
-        <Button size="lg" onClick={() => void act({ type: 'check' })} data-testid="check">
-          Check the answers
+        <Button size="lg" onClick={() => void act({ type: 'reveal' })} data-testid="reveal">
+          Reveal 🐄
         </Button>
       ) : (
-        <p className="text-ink-muted">The host is grouping the answers. Get ready…</p>
+        <p className="text-ink-muted">All answers are in. Revealing…</p>
       )}
     </div>
   );
@@ -495,6 +291,9 @@ function GroupRow({
         {g.members.map((id) => (
           <li key={id} className="inline-flex items-center gap-1">
             <PlayerTag name={nameOf(view, id)} you={id === view.me?.id} />
+            {(g.answers[id] ?? '').toLowerCase() !== g.label.toLowerCase() && (
+              <span className="opacity-70">“{g.answers[id]}”</span>
+            )}
             {herd && (
               <span className="sp-fly font-semibold" aria-label={`+1 ${names.cow}`}>
                 +1 🐄
@@ -635,7 +434,6 @@ export function Reveal({ view, room, act, names, final = false }: Props & { fina
           {f(`A tie at the target! Now it’s first to ${cowCount(names, r.raisedTo)}.`)}
         </p>
       )}
-      <Changes steps={round.merges ?? []} title="The host’s changes" />
       {round.stage === 'pick' && (
         <PickPanel view={view} room={room} act={act} names={names} online={() => true} />
       )}
@@ -664,7 +462,7 @@ export function Stage(props: Props) {
     case 'answer':
       return <Answering {...props} />;
     case 'merge':
-      return round.groups ? <MergeBoard {...props} /> : <WaitingForCheck {...props} />;
+      return <OldCheck {...props} />;
     case 'pick':
     case 'reveal':
       return <Reveal {...props} />;

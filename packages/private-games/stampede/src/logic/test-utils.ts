@@ -113,11 +113,10 @@ export function answerAll(h: Harness, answers: (string | undefined)[]): void {
   });
 }
 
-/** One whole round: answers, then the host reveals the automatic groups. */
+/** One whole round: answers (the host continues without anyone left out), then the reveal. */
 export function playRound(h: Harness, answers: (string | undefined)[]): StampedeState {
   answerAll(h, answers);
   if (h.state.round?.stage === 'answer') h.act(h.host, { type: 'continue-without' });
-  h.act(h.host, { type: 'reveal' });
   return h.state;
 }
 

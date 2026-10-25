@@ -117,11 +117,20 @@ describe('Stampede awards', () => {
 
   it('report nothing before an answer is public', () => {
     const h = started(3);
-    const before = h.state;
+    const start = h.state;
     h.act('p1', { type: 'answer', text: 'secret' });
     h.act('p2', { type: 'answer', text: 'secret' });
+    expect(insights(start, h.state, null, 'p2')).toEqual([]);
+    // The last answer reveals the round, and only then are the answers reported.
+    const before = h.state;
     h.act('p3', { type: 'answer', text: 'other' });
-    expect(insights(before, h.state, null, 'p3')).toEqual([]);
-    expect(stampede.view(h.state, 'p2').round!.stage).toBe('merge');
+    expect(stampede.view(h.state, 'p2').round!.stage).toBe('reveal');
+    expect(insights(before, h.state, null, 'p3').map((e) => e.type)).toEqual([
+      'answer',
+      'answer',
+      'answer',
+      'round',
+      'pink',
+    ]);
   });
 });

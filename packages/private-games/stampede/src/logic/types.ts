@@ -21,8 +21,6 @@ export const MAX_MOOS = 8;
 export const MAX_USED_QUESTIONS = 500;
 /** Rounds kept for the Scores tab's round log. */
 export const MAX_HISTORY = 30;
-/** Merge steps kept per round (the host's log). */
-export const MAX_MERGES = 60;
 
 export type Target = (typeof TARGETS)[number];
 export type TimerMode = 'soft' | 'strict';
@@ -49,20 +47,17 @@ export interface Seat {
   playing: boolean;
 }
 
-/** `answer`: everyone writes; `merge`: the host checks the groups; `pick`: the Pink Cow's holder picks. */
+/**
+ * `answer`: everyone writes; `pick`: the Pink Cow's holder picks (house rule); `reveal`. `merge`
+ * (the host's check) only exists in rounds saved before answers grouped themselves: the next
+ * action reveals such a round.
+ */
 export type Stage = 'answer' | 'merge' | 'pick' | 'reveal';
 
 /** Answers that count as the same. */
 export interface Group {
   id: string;
   members: PlayerId[];
-}
-
-/** One step of the host's checking, shown to everyone at the reveal. */
-export interface MergeStep {
-  kind: 'merge' | 'split' | 'move' | 'reset';
-  /** The answers involved, as shown (`merge`: from, into; `move`/`split`: the answer, into). */
-  labels: string[];
 }
 
 export interface RoundResult {
@@ -103,13 +98,8 @@ export interface Round {
   late: PlayerId[];
   /** The writing timer's end, or null without one. */
   deadline: number | null;
-  /** The groups, from the end of the writing (auto) and then the host's checking. */
+  /** The answers grouped automatically when the writing ends. */
   groups: Group[];
-  /** The automatic grouping, for "Start again". */
-  auto: Group[];
-  /** Next new group's number. */
-  nextGroup: number;
-  merges: MergeStep[];
   /** Set from the reveal on. */
   result: RoundResult | null;
   /** The Pink Cow holder's pick: who they may pick from, and until when. */
@@ -159,11 +149,6 @@ export interface StampedeState {
   round: Round | null;
   history: HistoryEntry[];
   moos: Moo[];
-  /**
-   * The host as last seen acting: the one who checks the groups. The game can't see the room's
-   * host otherwise, so a new host claims the checking with `check`.
-   */
-  checker: PlayerId | null;
   /** Questions drawn in this room, oldest first (capped). */
   usedQuestionIds: string[];
   /** Hidden seed for the timed-out pick. Never sent to clients. */
@@ -175,7 +160,6 @@ export interface StampedeState {
 }
 
 const timerSeconds = z.number().int().min(MIN_TIMER_SECONDS).max(MAX_TIMER_SECONDS).nullable();
-const groupId = z.string().min(1).max(12);
 
 export const actionSchema = z.discriminatedUnion('type', [
   z.object({
@@ -197,16 +181,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('skip') }),
   /** Host: stop waiting for the players still writing; they have no answer this round. */
   z.object({ type: z.literal('continue-without') }),
-  /** Host: take over checking the groups (after the host changed). */
-  z.object({ type: z.literal('check') }),
-  z.object({ type: z.literal('merge'), from: groupId, into: groupId }),
-  /** Moves one answer into another group, or on its own (`into: null`, a split). */
-  z.object({
-    type: z.literal('move'),
-    player: z.string().min(1).max(100),
-    into: groupId.nullable(),
-  }),
-  z.object({ type: z.literal('reset-groups') }),
+  /** Host: reveal a round saved mid-check by an older version. */
   z.object({ type: z.literal('reveal') }),
   z.object({ type: z.literal('pick'), player: z.string().min(1).max(100) }),
   z.object({ type: z.literal('next-round') }),
@@ -228,12 +203,6 @@ export interface GroupView {
   answers: Record<PlayerId, string>;
 }
 
-/** "These look like a typo of each other": a merge the host may want. */
-export interface Suggestion {
-  from: string;
-  into: string;
-}
-
 export interface RoundView {
   number: number;
   stage: Stage;
@@ -250,14 +219,8 @@ export interface RoundView {
   skipped: boolean;
   late: PlayerId[];
   deadline: number | null;
-  /** The groups: to the checker while checking, to everyone from the pick on; else null. */
+  /** The groups: to everyone from the pick on (or the reveal); null before. */
   groups: GroupView[] | null;
-  /** Likely typos, to the checker while checking. */
-  suggestions: Suggestion[];
-  /** The checking steps: the checker's while checking, everyone's from the pick on. */
-  merges: MergeStep[] | null;
-  /** Who is checking the groups (the host as last seen). */
-  checker: PlayerId | null;
   result: RoundResult | null;
   pick: { options: PlayerId[]; deadline: number } | null;
 }

@@ -46,7 +46,6 @@ function roundEvents(round: Round): InsightEvent[] {
         tie: result.tie,
         scorers: result.scorers,
         loners: result.loners.length,
-        merges: round.merges.filter((m) => m.kind !== 'reset').length,
         skipped: round.skipped,
         raisedTo: result.raisedTo,
       },
@@ -64,7 +63,7 @@ function roundEvents(round: Round): InsightEvent[] {
 
 /**
  * Stats only: at each reveal, every answer (with its group's size, whether it was the herd or
- * alone), the round itself (group sizes, the host's merges) and any Pink Cow move; at the end, the
+ * alone), the round itself (group sizes) and any Pink Cow move; at the end, the
  * ranking. Answers are only ever reported once they are public.
  */
 export function insights(

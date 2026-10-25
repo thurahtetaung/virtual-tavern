@@ -37,7 +37,7 @@ const text: GameGuide = {
   quickStart: [
     'Everyone sees the same question. There is no right answer.',
     'Write the answer you think most people will give. Nobody sees it yet.',
-    'Answers that say the same thing are grouped; the host checks the groups.',
+    'When the last answer is in, matching answers group themselves and everything is revealed.',
     'The biggest group is the herd: each of its players wins a {cow}. A tie for biggest scores nobody.',
     'The only player alone with their answer takes the {pink}. You can’t win while you hold it.',
     'First to the target with no {pink} wins.',
@@ -53,8 +53,7 @@ const text: GameGuide = {
       bullets: [
         'Everyone sees the same question. Write the answer you think most people will give: one or two words is best, and at most 30 characters.',
         'Nobody sees what you wrote, only a tick that you have answered. You can change your answer until the last one is in.',
-        'Answers that are the same apart from capitals, accents, punctuation, plurals and a leading “a”, “an” or “the” are grouped together automatically.',
-        'The host checks the groups and joins answers that mean the same thing (“Coke” and “Coca-Cola”), or splits ones that don’t. Then the host reveals them to everyone.',
+        'When the last answer is in (or the host stops waiting), matching answers are grouped automatically and revealed to everyone at once. Nobody corrects the groups.',
         'The {cows} are handed out and the host moves on to the next question.',
       ],
     },
@@ -89,12 +88,14 @@ const text: GameGuide = {
       ],
     },
     {
-      title: 'Checking the answers',
+      title: 'How answers are matched',
       bullets: [
-        'Only the host sees the answers while they are being checked, and every change the host makes is listed for everyone at the reveal (“Joined Coke into Coca-Cola”).',
-        'Answers that look like a typo of each other (“flower” and “flowr”) are suggested to the host, never joined by themselves.',
-        'Tap an answer to move it into another group or onto its own. “Start again” brings back the automatic groups.',
-        'If the host is away for a while, another player becomes host and takes over the checking.',
+        'Matching is automatic, the same for everyone, and never fixed by hand.',
+        'Capitals, accents, punctuation, plurals and simple word endings, and a leading “a”, “an” or “the” don’t matter (“The Cats” and “cat” match).',
+        'Spacing, hyphens and word order don’t matter either (“ice cream”, “ice-cream”, “icecream” and “cream ice” all match).',
+        'A slip of the finger is forgiven: one letter wrong, missing, extra or swapped in answers of 5 or more letters (“pizza” and “pizzaa”), two from 10 letters. Shorter answers must match exactly (“Mars” and “Mass” stay apart).',
+        'Different words never match, even if they mean the same thing: “Coke” isn’t “Coca-Cola”, and “USA” isn’t “America”. So agree on what you’d all call it!',
+        'The reveal shows how each player wrote their answer under its group.',
       ],
     },
     {
@@ -171,7 +172,7 @@ function base(): GameGuide {
     steps: [
       ['One question for everyone', '❓'],
       ['Write a secret answer', '✍️'],
-      ['The host checks the groups', '🧐'],
+      ['Matching answers group up', '🧲'],
       ['The herd wins {cows}', '🐄'],
       ['Alone? Take the {pink}', '🩷'],
       ['Reach the target', '🏆'],
@@ -181,7 +182,7 @@ function base(): GameGuide {
       'Winning {cows}': 'basics',
       'The {pink}': 'basics',
       'Winning the game': 'basics',
-      'Checking the answers': 'details',
+      'How answers are matched': 'basics',
       'Moo!': 'details',
       'Skipping a question': 'edge',
       'House rule: the holder picks': 'edge',

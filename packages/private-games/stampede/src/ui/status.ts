@@ -45,27 +45,6 @@ export function startBlocker(view: StampedeView, title: string): string | null {
 export const missingIds = (round: RoundView) =>
   round.stage === 'answer' ? round.players.filter((id) => !round.answered.includes(id)) : [];
 
-/** Who's checking the groups, as the status line names them. */
-function checkerLine(view: StampedeView, round: RoundView, room: StatusRoom): Status {
-  const me = view.me?.id ?? '';
-  if (round.groups) {
-    return {
-      text: 'Check the groups: join answers that mean the same thing, split any that don’t, then reveal.',
-      yourMove: true,
-    };
-  }
-  if (room.isHost) {
-    return { text: 'You’re the host now: open the answers to check them.', yourMove: true };
-  }
-  const checker = round.checker && round.checker !== me ? nameOf(view, round.checker) : null;
-  return {
-    text: checker
-      ? `All answers are in! ${checker} (host) is checking them…`
-      : `All answers are in! ${waitingForHost(room, 'check them')}`,
-    yourMove: false,
-  };
-}
-
 function roundStatus(view: StampedeView, round: RoundView, room: StatusRoom, names: Names): Status {
   const me = view.me?.id ?? '';
   const f = (s: string) => fillNames(s, names);
@@ -85,7 +64,7 @@ function roundStatus(view: StampedeView, round: RoundView, room: StatusRoom, nam
       return { text: `Answer in! ${still}… You can still change yours.`, yourMove: false };
     }
     case 'merge':
-      return checkerLine(view, round, room);
+      return { text: 'All answers are in. Revealing…', yourMove: room.isHost };
     case 'pick': {
       const holder = view.pinkCow;
       if (holder === me) {

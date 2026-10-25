@@ -8,13 +8,12 @@ const json = (state: StampedeState, viewer: string | null) =>
   JSON.stringify(stampede.view(state, viewer)).toLowerCase();
 
 /**
- * Every answer of the round in play that `viewer` may not see yet: before the reveal, everyone
- * else's (the checking host sees them all while checking), and none from the pick on.
+ * Every answer of the round in play that `viewer` may not see yet: before the reveal (or the
+ * holder's pick), everyone else's; none after.
  */
 function hidden(state: StampedeState, viewer: string | null): string[] {
   const round = state.round;
   if (!round || round.stage === 'pick' || round.stage === 'reveal') return [];
-  if (round.stage === 'merge' && viewer !== null && viewer === state.checker) return [];
   const mine = viewer === null ? undefined : round.answers[viewer]?.toLowerCase();
   return (
     Object.entries(round.answers)
@@ -46,7 +45,7 @@ const expectNoLeaks = (state: StampedeState, viewers: (string | null)[]) =>
   expect(leaks(state, viewers)).toEqual([]);
 
 describe('Stampede view', () => {
-  it('hides every answer until all are in, then from all but the checking host', () => {
+  it('hides every answer until all are in, then shows them all at the reveal', () => {
     const h = started(4);
     const viewers = [...ids(4), null];
     expectNoLeaks(h.state, viewers);
@@ -58,13 +57,10 @@ describe('Stampede view', () => {
       myAnswer: null,
       groups: null,
     });
+    // Not even the host sees an answer before the last one is in.
+    expect(json(h.state, HOST)).not.toContain('zqbanana');
     h.act('p4', { type: 'answer', text: 'zqcherry' });
-    expect(h.state.round!.stage).toBe('merge');
-    expectNoLeaks(h.state, viewers);
-    expect(json(h.state, HOST)).toContain('zqcherry');
-    expect(json(h.state, 'p2')).not.toContain('zqcherry');
-    expect(stampede.view(h.state, 'p2').round!.suggestions).toEqual([]);
-    h.act(HOST, { type: 'reveal' });
+    expect(h.state.round!.stage).toBe('reveal');
     for (const viewer of viewers) expect(json(h.state, viewer)).toContain('zqcherry');
   });
 
@@ -82,11 +78,10 @@ describe('Stampede view', () => {
     answerAll(h, ['zqfirst']);
     h.act(HOST, { type: 'skip' });
     expect(json(h.state, HOST)).not.toContain('zqfirst');
-    answerAll(h, ['zqone', 'zqtwo', 'zqthree']);
+    answerAll(h, ['zqone', 'zqtwo']);
     h.host = 'p2';
     expectNoLeaks(h.state, ['p1', 'p2', 'p3', null]);
-    h.act('p2', { type: 'check' });
-    expectNoLeaks(h.state, ['p1', 'p2', 'p3', null]);
+    h.act('p3', { type: 'answer', text: 'zqthree' });
     expect(json(h.state, 'p2')).toContain('zqone');
   });
 });
@@ -96,7 +91,6 @@ function randomMove(rng: Rng, state: StampedeState, by: string, host: string): S
   const round = state.round;
   const pick = <T>(xs: readonly T[]) => xs[rng.int(xs.length)]!;
   if (state.phase !== 'playing' || !round) return { type: 'start' };
-  const groups = round.groups;
   // Answers carry the round, so a past round's herd in the log never looks like a leak.
   const r = `r${round.number}x`;
   switch (round.stage) {
@@ -111,25 +105,8 @@ function randomMove(rng: Rng, state: StampedeState, by: string, host: string): S
         { type: 'skip' },
         ...(by === host ? [{ type: 'continue-without' as const }] : []),
       ]);
-    case 'merge': {
-      const g = groups.length ? pick(groups) : null;
-      const other = groups.length ? pick(groups) : null;
-      return pick<StampedeAction>([
-        { type: 'reveal' },
-        { type: 'check' },
-        { type: 'reset-groups' },
-        ...(g && other ? [{ type: 'merge' as const, from: g.id, into: other.id }] : []),
-        ...(g
-          ? [
-              {
-                type: 'move' as const,
-                player: pick(g.members),
-                into: rng.int(2) ? null : (other?.id ?? null),
-              },
-            ]
-          : []),
-      ]);
-    }
+    case 'merge':
+      return { type: 'reveal' };
     case 'pick':
       return { type: 'pick', player: pick(round.pick?.options ?? [by]) };
     case 'reveal':
