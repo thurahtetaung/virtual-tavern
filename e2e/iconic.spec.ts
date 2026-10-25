@@ -32,18 +32,50 @@ async function withArt(page: Page) {
   );
 }
 
-/** SCREENSHOTS=1 saves a screen at phone and desktop size, light and dark, to test-results/iconic-shots. */
-async function shoot(p: Page, name: string) {
+/** On a wide screen the whole board fits the window: its last row is above the fold. */
+async function boardFits(p: Page) {
+  const board = p.getByTestId('ic-board-full');
+  await expect(board).toBeVisible();
+  await expect
+    .poll(() =>
+      board.evaluate((el) => {
+        const tiles = [...el.querySelectorAll('[data-icon], [role="img"]')];
+        const bottom = Math.max(...tiles.map((t) => t.getBoundingClientRect().bottom));
+        return tiles.length === 118 && bottom + window.scrollY <= window.innerHeight;
+      }),
+    )
+    .toBe(true);
+}
+
+/**
+ * SCREENSHOTS=1 saves a screen at phone and desktop size, light and dark, to
+ * test-results/iconic-shots; `wide` adds 1280×800 and 1440×900, checking the board fits each.
+ */
+async function shoot(p: Page, name: string, wide = false) {
   if (!process.env.SCREENSHOTS) return;
   const size = p.viewportSize();
-  for (const [w, h, device] of [
+  const sizes: [number, number, string][] = [
     [390, 844, 'phone'],
     [1280, 900, 'desktop'],
-  ] as const) {
+    ...(wide
+      ? ([
+          [1280, 800, 'desktop-1280x800'],
+          [1440, 900, 'desktop-1440x900'],
+        ] as [number, number, string][])
+      : []),
+  ];
+  for (const [w, h, device] of sizes) {
     await p.setViewportSize({ width: w, height: h });
+    if (wide && w >= 1024) await boardFits(p);
     for (const scheme of ['light', 'dark'] as const) {
       await p.emulateMedia({ colorScheme: scheme });
-      await p.screenshot({ path: `test-results/iconic-shots/${name}-${device}-${scheme}.png` });
+      // The site switches its theme from script: wait for it before the picture.
+      await expect(p.locator('html')).toHaveAttribute('data-theme', scheme);
+      // Colour transitions still running from the last theme would show stale colours.
+      await p.screenshot({
+        path: `test-results/iconic-shots/${name}-${device}-${scheme}.png`,
+        animations: 'disabled',
+      });
     }
   }
   await p.emulateMedia({ colorScheme: null });
@@ -175,7 +207,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
     await expect(p.getByText(WORD)).toHaveCount(0);
   }
   await expect(first.getByLabel('Your guess')).toHaveAttribute('enterkeyhint', 'send');
-  await shoot(giver, 'placing');
+  await shoot(giver, 'placing', true);
 
   await guess(first, 'lamp');
   await phoneTab(giver, 'Guesses');
@@ -184,7 +216,7 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await expect(
     first.getByTestId('ic-guesses').getByRole('listitem').filter({ hasText: 'lamp' }),
   ).toContainText('close');
-  await shoot(first, 'guessing');
+  await shoot(first, 'guessing', true);
 
   // A matching guess is flagged for the clue giver only, and never awarded by itself.
   await guess(second, 'the paper lanterns');
@@ -232,9 +264,10 @@ test('a short game, one word each, to the final standings', async ({ browser }) 
     seen.add(giver);
     await chooseTestWord(giver);
     // The whole board on a wide screen: every group at once.
-    await expect(giver.getByTestId('ic-board-full')).toBeVisible();
-    await tile(giver, 15 + round).click();
     const guesser = pages.find((p) => p !== giver)!;
+    await boardFits(giver);
+    if (round === 1) await boardFits(guesser);
+    await tile(giver, 15 + round).click();
     await expect(strip(guesser)).toContainText(iconName(15 + round));
     await guess(guesser, WORD.toLowerCase());
     await award(giver, WORD.toLowerCase());

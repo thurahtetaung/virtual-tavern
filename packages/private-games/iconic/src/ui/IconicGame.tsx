@@ -103,14 +103,18 @@ export function IconicGame({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+    <div
+      className={cn(
+        'mx-auto flex w-full flex-col gap-3',
+        view.phase === 'playing' ? 'max-w-7xl' : 'max-w-5xl',
+      )}
+    >
       <IconicStyles />
       {view.phase === 'lobby' || !view.game ? (
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && <Tips view={view} you={room.you} />}
           {view.phase === 'over' ? (
             <End view={view} room={room} act={act} name={name} />
           ) : (
@@ -133,6 +137,22 @@ function IconicStyles() {
 @media (prefers-reduced-motion: reduce) { .ic-pop, .ic-reveal { animation: none } }
 `}</style>
   );
+}
+
+/** Desktop and wide tablets (Tailwind's `lg`): the board and the guesses side by side. */
+const WIDE = '(min-width: 1024px)';
+
+function useWide(): boolean {
+  const [wide, setWide] = useState(() => window.matchMedia(WIDE).matches);
+  useEffect(() => {
+    const query = window.matchMedia(WIDE);
+    const change = () => setWide(query.matches);
+    query.addEventListener('change', change);
+    return () => {
+      query.removeEventListener('change', change);
+    };
+  }, []);
+  return wide;
 }
 
 const TIPS_KEY = 'iconic.tips.v1';
@@ -741,6 +761,7 @@ function Clue({
   const active: SetId = r.board.main.marker !== null ? chosenSet : 'main';
   const unjudged = r.guesses.filter((x) => x.mark === null).length;
   const answer = r.secret?.answer?.word;
+  const wide = useWide();
   const clock = (
     <Countdown
       deadline={r.clueBy}
@@ -756,75 +777,89 @@ function Clue({
           })}
     />
   );
-  const board = (
-    <div className="flex flex-col gap-2">
-      {inTeam && (
-        <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-800/60 dark:ring-stone-700">
-          <p className="text-sm">
-            Your word: <b data-testid="ic-answer">“{answer}”</b>
-            <span className="ml-1 text-xs text-ink-muted dark:text-stone-400">
-              ({LEVEL_LABELS[r.secret!.answer!.level]})
-            </span>
-          </p>
-          <SetPicker board={r.board} active={active} onPick={setActive} />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'wipe' }, { anchor: 'ic-board' })}
-            >
-              🧹 Wipe the board
-            </Button>
-            {isGiver && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  void (async () => {
-                    if (
-                      await confirm({
-                        title: 'Pass on this word?',
-                        body: 'The word is dropped and nobody scores. The next clue givers take over.',
-                        confirmLabel: 'Pass',
-                      })
-                    )
-                      void act({ type: 'pass' }, { anchor: 'ic-board' });
-                  })()
-                }
-              >
-                Pass
-              </Button>
-            )}
-            {isGiver && r.helperOpen && (
-              <InviteHelper view={view} room={room} act={act} name={name} />
-            )}
-          </div>
-          <p className="text-xs text-ink-muted dark:text-stone-400">
-            Tap an icon to place; tap again to stack; long-press or right-click to take one off.
-          </p>
-          <RefusalSlot anchor="ic-board" />
-        </div>
-      )}
-      <BoardView
-        board={r.board}
-        art={art}
-        active={inTeam ? active : null}
-        {...(inTeam && {
-          onPlace: (icon: number) =>
-            void act({ type: 'place', set: active, icon }, { anchor: 'ic-board' }),
-          onRemove: (icon: number) =>
-            void act({ type: 'remove', set: active, icon }, { anchor: 'ic-board' }),
-        })}
-      />
+  const controls = inTeam && (
+    <div className="flex flex-col gap-2 rounded-xl bg-panel p-2 ring-1 ring-line dark:bg-stone-800/60 dark:ring-stone-700">
+      <p className="text-sm">
+        Your word: <b data-testid="ic-answer">“{answer}”</b>
+        <span className="ml-1 text-xs text-ink-muted dark:text-stone-400">
+          ({LEVEL_LABELS[r.secret!.answer!.level]})
+        </span>
+      </p>
+      <SetPicker board={r.board} active={active} onPick={setActive} />
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void act({ type: 'wipe' }, { anchor: 'ic-board' })}
+        >
+          🧹 Wipe the board
+        </Button>
+        {isGiver && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              void (async () => {
+                if (
+                  await confirm({
+                    title: 'Pass on this word?',
+                    body: 'The word is dropped and nobody scores. The next clue givers take over.',
+                    confirmLabel: 'Pass',
+                  })
+                )
+                  void act({ type: 'pass' }, { anchor: 'ic-board' });
+              })()
+            }
+          >
+            Pass
+          </Button>
+        )}
+        {isGiver && r.helperOpen && <InviteHelper view={view} room={room} act={act} name={name} />}
+      </div>
+      <p className="text-xs text-ink-muted dark:text-stone-400">
+        Tap an icon to place; tap again to stack; long-press or right-click to take one off.
+      </p>
+      <RefusalSlot anchor="ic-board" />
     </div>
   );
+  const boardView = (
+    <BoardView
+      board={r.board}
+      art={art}
+      active={inTeam ? active : null}
+      {...(inTeam && {
+        onPlace: (icon: number) =>
+          void act({ type: 'place', set: active, icon }, { anchor: 'ic-board' }),
+        onRemove: (icon: number) =>
+          void act({ type: 'remove', set: active, icon }, { anchor: 'ic-board' }),
+      })}
+    />
+  );
   const guesses = <Guesses view={view} room={room} act={act} name={name} confirm={confirm} />;
+  if (wide)
+    // Wide screens: the whole board on the left, sized to the window, and everything else beside it.
+    return (
+      <>
+        {dialog}
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <Panel className="p-3">{boardView}</Panel>
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-end">{clock}</div>
+            <Tips view={view} you={room.you} />
+            <ClueStrip board={r.board} art={art} />
+            {controls}
+            <Panel className="flex flex-col gap-2 p-3">{guesses}</Panel>
+          </div>
+        </div>
+      </>
+    );
   return (
     <>
       {dialog}
+      <Tips view={view} you={room.you} />
       <div className="flex justify-end">{clock}</div>
       <ClueStrip board={r.board} art={art} />
-      <div role="tablist" aria-label="View" className="grid grid-cols-2 gap-1 lg:hidden">
+      <div role="tablist" aria-label="View" className="grid grid-cols-2 gap-1">
         {(
           [
             ['board', '🧩 Board'],
@@ -851,12 +886,13 @@ function Clue({
           </button>
         ))}
       </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <Panel className={cn('p-3', tab !== 'board' && 'max-lg:hidden')}>{board}</Panel>
-        <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'max-lg:hidden')}>
-          {guesses}
-        </Panel>
-      </div>
+      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'board' && 'hidden')}>
+        {controls}
+        {boardView}
+      </Panel>
+      <Panel className={cn('flex flex-col gap-2 p-3', tab !== 'guesses' && 'hidden')}>
+        {guesses}
+      </Panel>
     </>
   );
 }

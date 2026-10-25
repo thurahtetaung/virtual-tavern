@@ -1,8 +1,17 @@
 import { storageKey } from '@vt/game-sdk';
 import { ProtectedImage, cn } from '@vt/ui';
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { GROUPS, GROUP_EMOJI, GROUP_LABELS, type Group, iconsOf } from '../logic/board.ts';
 import { type Board, CUBE_CAP, SETS, type SetId } from '../logic/types.ts';
+import { GAP_X, GAP_Y, GROUP_GAP, LABEL, fitBoard } from '../logic/fit.ts';
 import type { Art } from './assets.ts';
 
 /** Each set's symbol, so a set never depends on its colour alone. */
@@ -329,26 +338,74 @@ export function BoardView({
           {iconsOf(tab).map(tile)}
         </div>
       </div>
-      <div
-        className="mx-auto hidden w-full max-w-[38rem] gap-3 md:grid md:grid-cols-[2fr_2fr_2fr_2fr_1fr]"
-        data-testid="ic-board-full"
-      >
-        {GROUPS.map((g) => (
-          <section key={g} aria-label={GROUP_LABELS[g]} className="flex flex-col gap-1">
-            <h4 className="text-center text-xs font-semibold text-ink-muted dark:text-stone-400">
-              {GROUP_LABELS[g]}
-            </h4>
-            <div
-              className={cn(
-                'grid gap-x-1.5 gap-y-2',
-                g === 'colours' ? 'grid-cols-1' : 'grid-cols-2',
-              )}
-            >
-              {iconsOf(g).map(tile)}
-            </div>
-          </section>
-        ))}
-      </div>
+      <FullBoard tile={tile} />
+    </div>
+  );
+}
+
+/**
+ * The room the board has on screen: its box's width, and the window's height below the box's top
+ * (as when the page is scrolled to the top), so the whole board shows without scrolling.
+ */
+function useBoardRoom(ref: RefObject<HTMLDivElement | null>) {
+  const [room, setRoom] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const box = el.getBoundingClientRect();
+      const top = box.top + window.scrollY;
+      const next = {
+        width: Math.round(box.width),
+        height: Math.max(0, Math.round(window.innerHeight - top - 16)),
+      };
+      setRoom((r) => (r.width === next.width && r.height === next.height ? r : next));
+    };
+    measure();
+    // Whatever moves the board's top (a tip closing, a status line wrapping) resizes the page.
+    const seen = new ResizeObserver(measure);
+    seen.observe(el);
+    seen.observe(document.body);
+    window.addEventListener('resize', measure);
+    return () => {
+      seen.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [ref]);
+  return room;
+}
+
+/** The whole board on wider screens, column by column as printed, sized to fit the window. */
+function FullBoard({ tile }: { tile: (n: number) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { width, height } = useBoardRoom(ref);
+  const fit = fitBoard(width, height);
+  return (
+    <div ref={ref} className="hidden w-full md:block" data-testid="ic-board-full">
+      {width > 0 && (
+        <div className="flex justify-center" style={{ gap: GROUP_GAP }}>
+          {GROUPS.map((g) => (
+            <section key={g} aria-label={GROUP_LABELS[g]} className="flex flex-col">
+              <h4
+                className="text-center text-xs font-semibold text-ink-muted dark:text-stone-400"
+                style={{ height: LABEL }}
+              >
+                {GROUP_LABELS[g]}
+              </h4>
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: `repeat(${g === 'colours' ? fit.colourCols : fit.cols}, ${fit.tile}px)`,
+                  columnGap: GAP_X,
+                  rowGap: GAP_Y,
+                }}
+              >
+                {iconsOf(g).map(tile)}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
