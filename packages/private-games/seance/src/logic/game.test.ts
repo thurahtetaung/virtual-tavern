@@ -228,6 +228,8 @@ describe('an hour', () => {
     readyAll(h);
     expect(h.reject({ type: 'continue' }, 'ana')).toBe('not-host');
     h.tick(8_000);
+    expect(h.game().stage).toBe('reveal');
+    h.tick(4_000);
     expect(h.game().hour).toBe(2);
   });
 

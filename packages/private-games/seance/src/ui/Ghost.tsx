@@ -9,7 +9,7 @@ import { Avatar, Card } from './Card.tsx';
 import { PastGuesses } from './PastGuesses.tsx';
 import { type LookCard, PickableCard, PickButton, cardsOf, useLook } from './Look.tsx';
 import { type CompareSpec, visionCaptions } from './Psychic.tsx';
-import { atTable, roman } from './status.ts';
+import { atTable, isEmpty, roman } from './status.ts';
 
 type Act = (a: SeanceAction, o?: { anchor?: string }) => Promise<boolean>;
 
@@ -210,7 +210,7 @@ export function GhostPsychics({
     const pillar = PILLARS[p.step];
     const target = pillar ? p.targets?.[p.step] : undefined;
     if (!pillar || target === undefined) return null;
-    const needs = sending && !g.sent.includes(p.color) && !p.gone;
+    const needs = sending && !g.sent.includes(p.color) && !isEmpty(p);
     // The target first, then the other candidates: swipe to check the vision fits it best.
     const others = g.table[pillar].filter((n) => n !== target);
     const marksOf = candidateMarks(g, pillar, [p]);
@@ -256,7 +256,10 @@ export function GhostPsychics({
           content={content}
           onClose={() => setSheet(null)}
           onChoose={
-            sending && PILLARS[sheetFor.step] && !g.sent.includes(sheetFor.color) && !sheetFor.gone
+            sending &&
+            PILLARS[sheetFor.step] &&
+            !g.sent.includes(sheetFor.color) &&
+            !isEmpty(sheetFor)
               ? () => {
                   const spec = sendSpec(sheetFor);
                   setSheet(null);
@@ -280,7 +283,7 @@ export function GhostPsychics({
             const pillar = PILLARS[p.step];
             const target = pillar ? p.targets?.[p.step] : undefined;
             const sent = g.sent.includes(p.color);
-            const needs = sending && pillar && !sent && !p.gone;
+            const needs = sending && pillar && !sent && !isEmpty(p);
             const cards = psychicCards(p, g);
             const visionStart = target !== undefined ? 1 : 0;
             const open = (i: number) => look(cards, i, `${p.name}’s cards`);
@@ -337,6 +340,8 @@ export function GhostPsychics({
                             {p.name}
                             {p.gone ? (
                               <span className="ml-1 text-xs font-normal">(left)</span>
+                            ) : p.absent ? (
+                              <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
                             ) : (
                               isAway && <span className="ml-1 text-xs font-normal">(away)</span>
                             )}
@@ -361,7 +366,7 @@ export function GhostPsychics({
                         >
                           Choose
                         </Button>
-                      ) : pillar && sending && !p.gone ? (
+                      ) : pillar && sending && !isEmpty(p) ? (
                         <span className="shrink-0 rounded-full bg-stone-200 px-2 text-[11px] font-semibold dark:bg-stone-800">
                           {p.ready ? 'ready' : 'sent'}
                         </span>
@@ -398,6 +403,8 @@ export function GhostPsychics({
                             {p.name}
                             {p.gone ? (
                               <span className="ml-1 text-xs font-normal">(left)</span>
+                            ) : p.absent ? (
+                              <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
                             ) : (
                               isAway && <span className="ml-1 text-xs font-normal">(away)</span>
                             )}
@@ -412,7 +419,7 @@ export function GhostPsychics({
                           <span className="rounded-full bg-accent-line dark:bg-amber-400 px-2 text-[11px] font-bold text-stone-950">
                             {isAway ? 'away · needs a vision' : 'needs a vision'}
                           </span>
-                        ) : pillar && sending && !p.gone ? (
+                        ) : pillar && sending && !isEmpty(p) ? (
                           <span className="rounded-full bg-stone-200 px-2 text-[11px] font-semibold dark:bg-stone-800">
                             {p.ready ? 'ready' : 'sent'}
                           </span>

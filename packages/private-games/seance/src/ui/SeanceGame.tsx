@@ -5,14 +5,22 @@ import {
   Hint,
   Panel,
   RefusalSlot,
+  clock,
   cn,
+  useSecondsLeft,
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
   NameDot,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { REVEAL_SECONDS, type SeanceAction, type SeanceView } from '../logic/types.ts';
+import {
+  AWAY_SECONDS,
+  type PsychicView,
+  REVEAL_SECONDS,
+  type SeanceAction,
+  type SeanceView,
+} from '../logic/types.ts';
 import { type Content, contentFor, useManifest } from './assets.ts';
 import { Compare, SendPreview } from './Compare.tsx';
 import { EndScreen } from './End.tsx';
@@ -24,6 +32,7 @@ import {
   type Step,
   atTable,
   awayPsychics,
+  isEmpty,
   myPsychic,
   nameOf,
   roman,
@@ -112,6 +121,19 @@ function useLongAway(colors: readonly string[], ms: number): string[] {
   return long.filter((c) => colors.includes(c));
 }
 
+/** "Hal is away: counts as empty in 2:10", then that the seat counts as empty until they're back. */
+function AwayNote({ p, clockOffset }: { p: PsychicView; clockOffset: number }) {
+  const left = useSecondsLeft(p.awayUntil, clockOffset);
+  return (
+    <p className="text-xs text-ink-muted">
+      💤 {p.name} is away:{' '}
+      {p.absent || left === 0
+        ? 'their seat counts as empty until they’re back.'
+        : `counts as empty in ${clock(left ?? AWAY_SECONDS)}`}
+    </p>
+  );
+}
+
 /** The ghost's seat when the ghost is away or gone, other empty seats, and the latest notice. */
 function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
@@ -145,9 +167,15 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
   const stuck = away.filter((p) => longAway.includes(p.color) && p.step < 3);
   const canRetire =
     room.isHost && (g.stage === 'visions' || g.stage === 'reveal') && atTable(g).length > 1;
+  const awayNotes = playing
+    ? atTable(g).filter((p) => !p.gone && (p.absent || (p.awayUntil !== null && away.includes(p))))
+    : [];
   return (
     <div className="space-y-1.5">
       {confirmDialog}
+      {awayNotes.map((p) => (
+        <AwayNote key={p.color} p={p} clockOffset={room.clockOffset} />
+      ))}
       {playing && (g.ghost === null || ghostAway) && (
         <div
           role="alert"
@@ -225,8 +253,9 @@ function Banners({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
               </p>
             ))}
             <p className="text-xs">
-              Their device dropped, so the seat is still theirs and the hour waits for them. If they
-              aren’t coming back, remove them from the room (Players › Remove): then someone
+              Their device dropped, so the seat is still theirs. The hour waits for them for{' '}
+              {AWAY_SECONDS / 60} minutes, then their seat counts as empty until they’re back. If
+              they aren’t coming back, remove them from the room (Players › Remove): then someone
               watching can take the seat, or you can retire it here.
             </p>
           </div>
@@ -363,7 +392,7 @@ function StepBar({ view, room, act }: { view: SeanceView; room: GameRoomInfo; ac
 function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo; act: Act }) {
   const g = view.game!;
   const away = awayPsychics(g, room.players);
-  const searching = atTable(g).filter((p) => !p.gone && p.step < 3);
+  const searching = atTable(g).filter((p) => !isEmpty(p) && p.step < 3);
   const ghost = g.myRole === 'ghost';
   const unsent = waitingForVision(g);
   let body;
@@ -400,9 +429,11 @@ function WaitingLine({ view, room, act }: { view: SeanceView; room: GameRoomInfo
               ? `${p.name}: done`
               : p.gone
                 ? `${p.name} (left)`
-                : away.includes(p) && !p.ready
-                  ? `💤 ${p.name} away, not ready`
-                  : `${p.ready ? '✓' : '✗'} ${p.name} ${p.ready ? 'ready' : 'not ready'}`}
+                : p.absent
+                  ? `💤 ${p.name} away (seat empty)`
+                  : away.includes(p) && !p.ready
+                    ? `💤 ${p.name} away, not ready`
+                    : `${p.ready ? '✓' : '✗'} ${p.name} ${p.ready ? 'ready' : 'not ready'}`}
           </li>
         ))}
       </ul>

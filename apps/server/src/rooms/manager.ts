@@ -282,7 +282,8 @@ export class RoomManager {
         {
           players,
           hostId,
-          state: room.game.playerJoined(record.state, { id: playerId, name, color }),
+          // The latest state: connecting may just have changed it (`playerPresence`).
+          state: room.game.playerJoined(room.record.state, { id: playerId, name, color }),
         },
         0,
         existing?.name === name
@@ -762,6 +763,10 @@ export class RoomManager {
     this.armDeadline(room);
     // Nobody is connected yet, the host included: start the hand-off clock right away.
     this.armHostAway(room);
+    // Nor anyone else: games that track presence hear that everyone is away until they're back.
+    const bots = botIds(record);
+    const away = record.players.filter((p) => !bots.has(p.id)).map((p) => p.id);
+    this.presence(room, away, false);
     return room;
   }
 
@@ -852,6 +857,7 @@ export class RoomManager {
   }
 
   private markConnected(room: LiveRoom, playerId: string, hostId: string) {
+    const first = !room.connections.has(playerId);
     room.connections.set(playerId, (room.connections.get(playerId) ?? 0) + 1);
     room.awaySince.delete(playerId);
     room.emptySince = undefined;
@@ -868,6 +874,7 @@ export class RoomManager {
       // The host is away and no hand-off is pending (it already fired with nobody online).
       this.armHostAway(room);
     }
+    if (first) this.presence(room, [playerId], true);
   }
 
   private unmarkConnected(room: LiveRoom, playerId: string) {
@@ -884,6 +891,35 @@ export class RoomManager {
       kind: 'player.disconnected',
       by: playerId,
     });
+    if (left <= 0) this.presence(room, [playerId], false);
+  }
+
+  /**
+   * Tells a game that tracks presence (`playerPresence`) that members came or went, and saves
+   * what it made of it, if anything. Bots are always there, so they never count.
+   */
+  private presence(room: LiveRoom, playerIds: readonly string[], connected: boolean) {
+    const { game } = room;
+    if (!game.playerPresence) return;
+    const bots = botIds(room.record);
+    const now = this.deps.now();
+    let state: unknown = room.record.state;
+    try {
+      for (const id of playerIds)
+        if (!bots.has(id) && room.record.players.some((p) => p.id === id))
+          state = game.playerPresence(state, id, connected, now);
+    } catch (err) {
+      this.deps.logger.error({ roomId: room.record.id, err }, 'playerPresence failed');
+      return;
+    }
+    if (state === room.record.state) return;
+    try {
+      this.commit(room, { state });
+    } catch (err) {
+      // A conflict means the room was unloaded; it hears again when it loads.
+      if (!(err instanceof RoomError && err.code === 'conflict'))
+        this.deps.logger.error({ roomId: room.record.id, err }, 'presence change failed');
+    }
   }
 
   private removePlayer(room: LiveRoom, playerId: string, kind: 'player.left' | 'player.kicked') {

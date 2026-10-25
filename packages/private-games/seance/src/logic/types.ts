@@ -20,7 +20,9 @@ export const HOURS = 7;
 /** Clairvoyance tokens come back at the start of this hour. */
 export const TOKENS_BACK_HOUR = 4;
 /** How long the hour's verdicts stay up before the clock moves on (the ghost or host can skip). */
-export const REVEAL_SECONDS = 8;
+export const REVEAL_SECONDS = 12;
+/** How long a psychic's device can be gone before their seat counts as empty. */
+export const AWAY_SECONDS = 180;
 /** Each stage of the final vote, when the host has a timer on. */
 export const VOTE_SECONDS = 60;
 export const TIMER_OPTIONS = [60, 120, 180, 300] as const;
@@ -100,6 +102,13 @@ export interface Psychic {
    * vote), and its found cards went back on the table. Optional so older games still load.
    */
   retired?: boolean;
+  /** Since when their device has been gone (server clock), while it is. Optional, like below. */
+  awaySince?: number | null;
+  /**
+   * Away for `AWAY_SECONDS`: the seat counts as empty (not waited on, sent visions or judged, no
+   * vote) until they're back, when it is theirs again as it was.
+   */
+  absent?: boolean;
 }
 
 /** A clairvoyance token on another psychic's intuition: ✓ agrees, ✗ disagrees. */
@@ -325,6 +334,10 @@ export interface PsychicView {
   gone: boolean;
   /** The host retired the seat: out of the game. */
   retired: boolean;
+  /** Away so long the seat counts as empty until they're back. */
+  absent: boolean;
+  /** When an away psychic's seat will count as empty (server clock), or null. */
+  awayUntil: number | null;
   /** Their three cards: only to the ghost, and to everyone at the end. */
   targets: number[] | null;
   /** When they vote in the final (1–3 shared cards seen). */

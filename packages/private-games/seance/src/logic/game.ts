@@ -29,6 +29,7 @@ import {
   type Psychic,
   type PsychicColor,
   type PsychicView,
+  AWAY_SECONDS,
   REVEAL_SECONDS,
   type SeanceAction,
   type SeanceState,
@@ -68,13 +69,16 @@ export const pillarOf = (step: number): Pillar | null => PILLARS[step] ?? null;
 
 const unfinished = (g: Game) => active(g).filter((p) => p.step < 3);
 
+/** A seat nobody is in: left for good, or away so long it counts as empty until they're back. */
+export const empty = (p: Psychic) => p.gone || !!p.absent;
+
 /**
  * Psychics the hour waits on before it can lock: everyone still searching and at the table. Those
  * who found all three may still play tokens, but never hold the table up, and an empty seat is
  * neither sent a vision nor judged until someone takes it over (or the host retires it).
  */
 export function readyNeeded(g: Game): Psychic[] {
-  return unfinished(g).filter((p) => !p.gone);
+  return unfinished(g).filter((p) => !empty(p));
 }
 
 const allSent = (g: Game) => readyNeeded(g).every((p) => g.sent.includes(p.color));
@@ -242,6 +246,9 @@ function start(state: SeanceState, ctx: Ctx): Result {
     finishedHour: null,
     gone: false,
     retired: false,
+    // Someone whose device is already gone starts the away clock with the game.
+    awaySince: ctx.connected?.(id) === false ? ctx.now : null,
+    absent: false,
   }));
   const deck = rng.shuffle(poolOf(s.sets, 'vision', s.pools));
   const game: Game = refill(
@@ -412,7 +419,7 @@ function mark(
   if (action.target === me.color)
     return err('own', 'Clairvoyance tokens go on the other psychics’ guesses.');
   const target = byColor(g, action.target);
-  if (!target || target.step >= 3 || target.gone)
+  if (!target || target.step >= 3 || empty(target))
     return err('bad-target', 'That psychic has nothing to guess.');
   const existing = g.marks.find((m) => m.by === me.color && m.target === action.target);
   const marks = g.marks.filter((m) => m !== existing);
@@ -476,7 +483,7 @@ function lock(state: SeanceState, now: number, how: LockHow): SeanceState {
   const table = { ...g.table };
   let discard = g.discard;
   const judged = g.psychics.map((p) => {
-    if (p.step >= 3 || p.gone || p.retired) return p;
+    if (p.step >= 3 || empty(p) || p.retired) return p;
     const pillar = pillarOf(p.step)!;
     const correct = p.intuition !== null && p.intuition === p.targets[p.step];
     const marks = g.marks.filter((m) => m.target === p.color);
@@ -509,7 +516,7 @@ function lock(state: SeanceState, now: number, how: LockHow): SeanceState {
   });
   // Tokens on an empty seat's guess, which isn't judged, go back to whoever played them.
   const back = (c: PsychicColor) =>
-    g.marks.filter((m) => m.by === c && g.psychics.some((p) => p.color === m.target && p.gone))
+    g.marks.filter((m) => m.by === c && g.psychics.some((p) => p.color === m.target && empty(p)))
       .length;
   const psychics = judged.map((p) => ({
     ...p,
@@ -594,7 +601,7 @@ export const voteStage = (g: Game, p: Psychic) =>
 
 /** Psychics who vote once `stage` cards are face up. */
 const votersAt = (g: Game, stage: number) =>
-  active(g).filter((p) => !p.gone && voteStage(g, p) === stage);
+  active(g).filter((p) => !empty(p) && voteStage(g, p) === stage);
 
 function voteDeadline(state: SeanceState, now: number) {
   return state.settings.timerSeconds === null ? null : now + VOTE_SECONDS * 1000;
@@ -791,7 +798,9 @@ function takeSeat(state: SeanceState, color: PsychicColor, ctx: Ctx): Result {
     return err('in-game', 'You are already part of this game.');
   const name = state.seats[ctx.by]?.name ?? 'Someone';
   const psychics = g.psychics.map((x) =>
-    x.color === color ? { ...x, id: ctx.by, name, gone: false, ready: false } : x,
+    x.color === color
+      ? { ...x, id: ctx.by, name, gone: false, ready: false, awaySince: null, absent: false }
+      : x,
   );
   return notice(
     withGame(state, { ...g, psychics }),
@@ -958,9 +967,16 @@ function playerLeft(state: SeanceState, playerId: PlayerId, now: number): Seance
   if (!p) return s;
   s = withGame(s, {
     ...g,
-    psychics: g.psychics.map((x) => (x.id === playerId ? { ...x, gone: true, ready: false } : x)),
+    psychics: g.psychics.map((x) =>
+      x.id === playerId ? { ...x, gone: true, ready: false, awaySince: null, absent: false } : x,
+    ),
   });
   s = notice(s, `${p.name} left. Someone watching can take over their seat.`, now);
+  return afterEmptied(s, now);
+}
+
+/** A seat just emptied: the hour may no longer wait for anyone, or the vote stage is complete. */
+function afterEmptied(s: SeanceState, now: number): SeanceState {
   if (s.game!.stage === 'visions') return startSand(s, now);
   if (s.game!.stage === 'vote') {
     const after = s.game!;
@@ -970,9 +986,80 @@ function playerLeft(state: SeanceState, playerId: PlayerId, now: number): Seance
   return s;
 }
 
+/**
+ * A psychic's device went (or came back). After `AWAY_SECONDS` away the seat counts as empty
+ * (`expireAway`); coming back makes it theirs again as it was, cards found and guess kept.
+ */
+function playerPresence(
+  state: SeanceState,
+  playerId: PlayerId,
+  connected: boolean,
+  now: number,
+): SeanceState {
+  const g = state.game;
+  if (state.phase !== 'playing' || !g || g.stage === 'done') return state;
+  const p = psychicOf(g, playerId);
+  if (!p || p.gone) return state;
+  if (!connected) {
+    // Already away (the room reloading after a restart): the clock keeps running from then.
+    if (p.awaySince != null || p.absent) return state;
+    return withGame(state, {
+      ...g,
+      psychics: g.psychics.map((x) => (x.id === playerId ? { ...x, awaySince: now } : x)),
+    });
+  }
+  if (p.awaySince == null && !p.absent) return state;
+  const s = withGame(state, {
+    ...g,
+    psychics: g.psychics.map((x) =>
+      x.id === playerId ? { ...x, awaySince: null, absent: false, ready: false } : x,
+    ),
+  });
+  return p.absent ? notice(s, `${p.name} is back in their seat.`, now) : s;
+}
+
+/** When the next away psychic's seat counts as empty, or null. */
+function awayDue(g: Game): number | null {
+  const due = active(g)
+    .filter((p) => !p.gone && !p.absent && p.awaySince != null)
+    .map((p) => p.awaySince! + AWAY_SECONDS * 1000);
+  return due.length ? Math.min(...due) : null;
+}
+
+/** Seats whose psychic has been away for `AWAY_SECONDS` now count as empty. */
+function expireAway(state: SeanceState, now: number): SeanceState {
+  const g = state.game;
+  if (state.phase !== 'playing' || !g || g.stage === 'done') return state;
+  const due = active(g).filter(
+    (p) => !p.gone && !p.absent && p.awaySince != null && p.awaySince + AWAY_SECONDS * 1000 <= now,
+  );
+  if (!due.length) return state;
+  let s = withGame(state, {
+    ...g,
+    psychics: g.psychics.map((x) => (due.includes(x) ? { ...x, absent: true, ready: false } : x)),
+  });
+  for (const p of due)
+    s = notice(
+      s,
+      `${p.name} has been away ${AWAY_SECONDS / 60} minutes: their seat counts as empty until they’re back.`,
+      now,
+    );
+  return afterEmptied(s, now);
+}
+
 // ---- Timers ----
 
 function nextDeadline(state: SeanceState): number | null {
+  const g = state.game;
+  if (state.phase !== 'playing' || !g) return null;
+  const timer = stageDeadline(state);
+  const away = g.stage === 'done' ? null : awayDue(g);
+  if (timer === null) return away;
+  return away === null ? timer : Math.min(timer, away);
+}
+
+/** The stage's own clock: the verdicts, or a strict timer. */
+function stageDeadline(state: SeanceState): number | null {
   const g = state.game;
   if (state.phase !== 'playing' || !g) return null;
   if (g.stage === 'reveal') return g.deadline;
@@ -981,8 +1068,9 @@ function nextDeadline(state: SeanceState): number | null {
   return null;
 }
 
-function onDeadline(state: SeanceState, now: number): SeanceState {
-  const due = nextDeadline(state);
+function onDeadline(prev: SeanceState, now: number): SeanceState {
+  const state = expireAway(prev, now);
+  const due = stageDeadline(state);
   const g = state.game;
   if (due === null || now < due || !g) return state;
   if (g.stage === 'reveal') return afterReveal(state, now);
@@ -1035,6 +1123,9 @@ function gameView(g: Game, viewer: PlayerId | null): GameView {
     finishedHour: p.finishedHour,
     gone: p.gone,
     retired: p.retired ?? false,
+    absent: !p.gone && !!p.absent,
+    awayUntil:
+      !p.gone && !p.absent && p.awaySince != null ? p.awaySince + AWAY_SECONDS * 1000 : null,
     targets: knows ? [...p.targets] : null,
     voteStage: voteStage(g, p),
   }));
@@ -1129,6 +1220,7 @@ export const seance: GameDefinition<SeanceState, SeanceAction, SeanceView> = {
   reduce,
   playerJoined,
   playerLeft,
+  playerPresence,
   view,
   nextDeadline,
   onDeadline,

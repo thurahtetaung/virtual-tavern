@@ -477,6 +477,9 @@ export function OthersTab({
                   <p className="min-w-0 flex-1 truncate text-sm font-semibold">
                     {p.name}
                     {p.gone && <span className="ml-1 text-xs font-normal">(left)</span>}
+                    {p.absent && (
+                      <span className="ml-1 text-xs font-normal">(away: seat empty)</span>
+                    )}
                     <span className="ml-1 font-normal text-ink-muted">
                       ·{' '}
                       {pillar

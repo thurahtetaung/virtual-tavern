@@ -144,6 +144,13 @@ export interface GameDefinition<State, Action, View> {
   playerJoined(state: State, player: PlayerInfo): State;
   /** Player left the room for good (left or was kicked). Disconnects are not reported. */
   playerLeft(state: State, playerId: PlayerId, now: number): State;
+  /**
+   * Optional: a member's device came (`connected`) or went. Called when their last connection
+   * closes or their first one opens (several tabs count as one), and, as disconnected, for every
+   * member when the room loads (after a restart nobody is connected yet), so it must be
+   * idempotent. Never called for playtest bots. Return the same state when nothing changes.
+   */
+  playerPresence?(state: State, playerId: PlayerId, connected: boolean, now: number): State;
   /** What `viewer` may see. `null` is an observer with no seat. Must strip all hidden information. */
   view(state: State, viewer: PlayerId | null): View;
   /**
