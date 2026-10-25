@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.54.0...v0.55.0) (2026-10-25)
+
+
+### Features
+
+* **seance:** count away seats as empty after 3 minutes and hold verdicts longer ([#339](https://github.com/thurahtetaung/virtual-tavern/issues/339)) ([5d6dce2](https://github.com/thurahtetaung/virtual-tavern/commit/5d6dce2f4d357b1c2a92a27cdce77a7d2bb9715b))
+
 ## [0.54.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.53.2...v0.54.0) (2026-10-25)
 
 
