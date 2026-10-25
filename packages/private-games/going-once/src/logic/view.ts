@@ -110,6 +110,11 @@ function gameView(state: GoingOnceState, g: Game): GameView {
         })
       : null,
     winners: [...g.winners],
+    host: g.host ? { id: g.host.id, lines: [...g.host.lines] } : null,
+    ended: g.ended,
+    redraw: g.stage === 'draw' && g.redraws > 0,
+    paddles: { ...g.paddles },
+    firstGame: state.gamesPlayed <= 1,
   };
 }
 

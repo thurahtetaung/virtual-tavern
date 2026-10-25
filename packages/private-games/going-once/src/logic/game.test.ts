@@ -118,7 +118,7 @@ describe('the deal', () => {
   it('uses the pack’s house keys, or the title’s place in its group', () => {
     const g = game(started(3, 5));
     for (const item of Object.values(g.items))
-      expect(item.house).toMatch(item.title === 'Top hat' ? /^h0$/ : /^(h\d|g-\w+:\d)$/);
+      expect(item.house).toMatch(item.title === 'Top hat' ? /^h0$/ : /^(h\d|g-\w+_\d)$/);
   });
 });
 
@@ -188,7 +188,11 @@ describe('drawing', () => {
     const h = started(3);
     drawAll(h, ['p3']);
     expect(game(h).stage).toBe('draw');
-    // 90 s plus a short grace for drawings in flight.
+    // Nudges at half time and with ten seconds left, then 90 s plus a short grace.
+    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 45_000);
+    h.tick();
+    expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 80_000);
+    h.tick();
     expect(goingOnce.nextDeadline!(h.state)).toBe(NOW + 90_000 + 2500);
     h.tick();
     const g = game(h);
@@ -561,5 +565,149 @@ describe('moderation and leaving', () => {
     h.act(HOST, { type: 'skip' });
     expect(game(h).stage).toBe('auction');
     expect(game(h).auction!.lot).toBe(1);
+  });
+});
+
+describe('the original’s timings and redraw', () => {
+  it('gives a screw 15 seconds to aim', () => {
+    const h = toSecondHalf();
+    h.act('p1', { type: 'screw' });
+    expect(game(h).auction!.screw!.until).toBe(h.now + 15_000);
+  });
+
+  it('opens the bank for 30 seconds the first time and 10 after', () => {
+    const h = auctioning(3, 3);
+    const s = structuredClone(h.state);
+    s.game!.players.p1!.cash = 900;
+    h.state = s;
+    hammer(h);
+    h.tick();
+    expect(game(h).stage).toBe('bank');
+    expect(game(h).until).toBe(h.now + 30_000);
+    for (const p of ['p1', 'p2', 'p3']) h.act(p, { type: 'loan', take: false });
+    h.act('p2', { type: 'call-bank' });
+    hammer(h);
+    h.tick();
+    expect(game(h).stage).toBe('bank');
+    expect(game(h).until).toBe(h.now + 10_000);
+  });
+
+  it('calls faster above $1,000 at the Normal pace only', () => {
+    const h = auctioning(3, 3);
+    bid(h, 'p1', 600);
+    h.tick();
+    expect(game(h).auction!.closeAt).toBe(h.now + 2000);
+    bid(h, 'p2', 900);
+    bid(h, 'p3', 1100);
+    h.tick();
+    expect(game(h).auction!.close).toBe('once');
+    expect(game(h).auction!.closeAt).toBe(h.now + 1500);
+    h.tick();
+    expect(game(h).auction!.closeAt).toBe(h.now + 1500);
+  });
+
+  it('redraws once with new titles when nobody draws anything, then ends the game', () => {
+    const h = started(3, 4);
+    const before = Object.values(game(h).items)
+      .map((i) => i.title)
+      .sort();
+    for (let i = 0; i < 3; i++) h.tick();
+    expect(game(h).stage).toBe('draw');
+    expect(game(h).redraws).toBe(1);
+    const after = Object.values(game(h).items)
+      .map((i) => i.title)
+      .sort();
+    expect(after).not.toEqual(before);
+    expect(goingOnce.view(h.state, 'p1').game!.redraw).toBe(true);
+    // Drawing in the redraw plays on as usual.
+    const h2 = structuredClone(h.state);
+    for (let i = 0; i < 3; i++) h.tick();
+    expect(h.state.phase).toBe('over');
+    expect(game(h).ended).toBe('no-drawings');
+    expect(game(h).winners).toEqual([]);
+    h.state = h2;
+    drawAll(h);
+    expect(game(h).stage).toBe('auction');
+  });
+
+  it('fills a partly empty round with house pictures, no redraw', () => {
+    const h = started(3, 4);
+    const g = game(h);
+    h.act('p1', { type: 'draw', item: g.prompts.p1![0]!, drawing: SQUIGGLE });
+    for (let i = 0; i < 3; i++) h.tick();
+    expect(game(h).stage).toBe('auction');
+    expect(game(h).redraws).toBe(0);
+  });
+});
+
+describe('the host', () => {
+  const HOST_LINES = {
+    'draw-start': ['Draw!'],
+    'opening-first': ['First up.'],
+    opening: ['Who will start?'],
+    'bid-400': ['We have 400.'],
+    'bid-500': ['I see 500.'],
+    'going-once': ['Going once…'],
+    'going-twice': ['Going twice…'],
+    sold: ['Sold!'],
+    congrats: ['Well done, {player}!'],
+    windfall: ['What a windfall.'],
+    'own-art': ['{player} bought their own art.'],
+    'no-bids-first': ['Not a great start.'],
+    'no-bids-1': ['No one?'],
+    'no-bids-2': ['Again?'],
+    unsold: ['Get rid of it!'],
+    quiet: ['{player}, you are very quiet.'],
+    halftime: ['Screws out!'],
+    'end-intro': ['Winners and losers!'],
+  };
+  const withHost = () => packContent(undefined, {}, HOST_LINES);
+
+  it('speaks at each moment, from the private pack only', () => {
+    const h = harness(3, 3, withHost());
+    h.act(HOST, { type: 'start' });
+    expect(goingOnce.view(h.state, null).game!.host!.lines).toEqual(['Draw!']);
+    drawAll(h);
+    expect(game(h).host!.lines).toEqual(['First up.']);
+    bid(h, 'p2', 400);
+    expect(game(h).host!.lines).toEqual(['We have 400.']);
+    h.tick();
+    expect(game(h).host!.lines).toEqual(['Going once…']);
+    h.tick();
+    expect(game(h).host!.lines).toEqual(['Going twice…']);
+    h.tick();
+    const item = lot(h);
+    const lines = game(h).host!.lines;
+    expect(lines[0]).toBe('Well done, P2!');
+    if (item.artist === 'p2') expect(lines[1]).toBe('P2 bought their own art.');
+    else if (item.value - 400 >= 800) expect(lines[1]).toBe('What a windfall.');
+    // Unsold lots: "No one?", then "Again?" on the next one.
+    nextLot(h);
+    h.tick();
+    expect(game(h).host!.lines).toEqual(['No one?']);
+    hammer(h);
+    expect(game(h).host!.lines).toEqual(['Get rid of it!']);
+    nextLot(h);
+    h.tick();
+    expect(game(h).host!.lines).toEqual(['Again?']);
+  });
+
+  it('says nothing without a host pack', () => {
+    const h = auctioning(3, 3);
+    expect(game(h).host).toBeNull();
+    bid(h, 'p1', 400);
+    expect(goingOnce.view(h.state, 'p1').game!.host).toBeNull();
+  });
+
+  it('calls out a quiet bidder before a lot', () => {
+    const h = harness(3, 3, withHost());
+    h.act(HOST, { type: 'start' });
+    drawAll(h);
+    for (let i = 0; i < 3; i++) {
+      hammer(h);
+      nextLot(h);
+    }
+    const line = game(h).host!.lines[0]!;
+    expect(line).toMatch(/^P\d, you are very quiet\.$/);
   });
 });

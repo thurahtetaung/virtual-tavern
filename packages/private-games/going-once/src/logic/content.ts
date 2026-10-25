@@ -29,7 +29,19 @@ export const linesPack = z.partialRecord(
 );
 export type LinesPack = z.output<typeof linesPack>;
 
-export const PACK_KINDS = { groups: groupsPack, lines: linesPack } as const;
+/**
+ * What the host says, by moment (`host.ts` names the moments): lines that name nobody, or name a
+ * player as `{player}`. Shown as on-screen text, one moment at a time.
+ */
+export const hostPack = z
+  .record(
+    z.string().regex(/^[a-z][a-z0-9-]{0,40}$/),
+    z.array(z.string().trim().min(1).max(300)).min(1).max(200),
+  )
+  .refine((r) => Object.keys(r).length > 0 && Object.keys(r).length <= 300, 'one to 300 moments');
+export type HostPack = z.output<typeof hostPack>;
+
+export const PACK_KINDS = { groups: groupsPack, lines: linesPack, host: hostPack } as const;
 
 export interface TitleGroup {
   /** `<pack id>:<group id>`. */
@@ -47,9 +59,22 @@ export function titleGroups(content: ContentProvider): TitleGroup[] {
     return parsed.data.map((g) => ({
       key: `${pack.id}:${g.id}`,
       titles: g.titles,
-      house: g.titles.map((_, i) => g.house?.[i] ?? `${g.id}:${i}`),
+      // House pictures are keyed by the title's prompt id, `<group id>_<index>`, unless the pack says.
+      house: g.titles.map((_, i) => g.house?.[i] ?? `${g.id}_${i}`),
     }));
   });
+}
+
+/** Host lines per moment from every enabled host pack, merged. */
+export function hostLinesOf(content: ContentProvider): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const pack of content.contentPacks?.('host') ?? []) {
+    const parsed = hostPack.safeParse(pack.data);
+    if (!parsed.success) continue;
+    for (const [moment, lines] of Object.entries(parsed.data))
+      out[moment] = [...(out[moment] ?? []), ...lines];
+  }
+  return out;
 }
 
 /** Lines per kind from every enabled lines pack, merged. */

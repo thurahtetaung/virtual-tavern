@@ -56,6 +56,10 @@ function perturb(state: GoingOnceState, viewer: PlayerId | null): GoingOnceState
     p.lastBidAt = 123;
   }
   g.lines = { filler: ['nothing'] };
+  g.hostLines = { opening: ['Secret line'] };
+  g.spares = null;
+  g.lastBidLot = {};
+  g.calledOut = { quiet: {}, empty: [] };
   s.seed = 42;
   s.usedGroups = ['x'];
   return s;

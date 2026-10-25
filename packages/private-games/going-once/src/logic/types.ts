@@ -27,7 +27,12 @@ export const BID_GAP_MS = 300;
 /** The artist's share of the price. */
 export const COMMISSION = 0.5;
 
-export const SCREW_PICK_MS = 10_000;
+export const SCREW_PICK_MS = 15_000;
+/** A screw still unaimed this long after the press gets a nudge on screen. */
+export const SCREW_NUDGE_MS = 10_000;
+/** The bank's first visit, and the visits someone called for (both end once everyone has answered). */
+export const BANK_FIRST_MS = 30_000;
+export const BANK_LATER_MS = 10_000;
 /** At or below this much cash, the bank's first visit comes by itself. */
 export const BANK_TRIGGER = 1000;
 export const LOAN_CASH = 1000;
@@ -53,8 +58,6 @@ export interface Timing {
   twice: number;
   /** The Sold card. */
   sold: number;
-  /** The bank's visit (ends sooner once everyone has decided). */
-  bank: number;
   /** The half-time card that unlocks the screws. */
   halftime: number;
 }
@@ -66,7 +69,6 @@ export const TIMINGS: Record<Pace, Timing> = {
     once: 3000,
     twice: 3000,
     sold: 7000,
-    bank: 20_000,
     halftime: 9000,
   },
   normal: {
@@ -75,7 +77,6 @@ export const TIMINGS: Record<Pace, Timing> = {
     once: 2000,
     twice: 2000,
     sold: 5000,
-    bank: 15_000,
     halftime: 7000,
   },
   fast: {
@@ -84,7 +85,6 @@ export const TIMINGS: Record<Pace, Timing> = {
     once: 1500,
     twice: 1500,
     sold: 3500,
-    bank: 12_000,
     halftime: 5000,
   },
 };
@@ -271,7 +271,43 @@ export interface Game {
   /** Players who left the room for good: they keep their seat, cash and art. */
   left: PlayerId[];
   winners: PlayerId[];
+  /** Host lines for this game, by moment (from the private host packs; none without them). */
+  hostLines: Record<string, string[]>;
+  /** What the host says now (public: lines name only players everyone sees). */
+  host: HostLine | null;
+  /** Two more title groups, dealt if nobody draws anything (one redraw a game). */
+  spares: [TitleGroupRef, TitleGroupRef] | null;
+  /** Drawing rounds redone because nobody drew anything (at most one). */
+  redraws: number;
+  /** Set when the game ended with nothing drawn twice. */
+  ended: 'no-drawings' | null;
+  /** Drawing-stage nudges already given (half time, ten seconds left). */
+  nudges: number;
+  /** Lots in a row nobody bid on. */
+  unsoldRun: number;
+  /** Each player's paddle shape (an index into the manifest's paddles). */
+  paddles: Record<PlayerId, number>;
+  /** When each player last bid (lot index), for the host's call-outs. */
+  lastBidLot: Record<PlayerId, number>;
+  /** Players the host has called out (quiet ones every 3 lots at most, the art-less once). */
+  calledOut: { quiet: Record<PlayerId, number>; empty: PlayerId[] };
 }
+
+/** A title group kept for a redraw. */
+export interface TitleGroupRef {
+  key: string;
+  titles: string[];
+  house: string[];
+}
+
+export interface HostLine {
+  id: number;
+  /** One to three short lines, in order. */
+  lines: string[];
+}
+
+/** Paddle shapes to deal from (the manifest's `ui.paddles` may hold fewer; the UI wraps). */
+export const PADDLE_SHAPES = 29;
 
 /** A test-only setup (browser tests): fixed deal and a quicker clock. Refused unless the server allows it. */
 export interface Rig {
@@ -447,6 +483,15 @@ export interface GameView {
   bankOpened: boolean;
   final: FinalView[] | null;
   winners: PlayerId[];
+  host: HostLine | null;
+  /** The game ended because nobody drew anything, twice. */
+  ended: 'no-drawings' | null;
+  /** This drawing round is the redraw. */
+  redraw: boolean;
+  /** Each player's paddle shape. */
+  paddles: Record<PlayerId, number>;
+  /** The room's first game (the how-to shows; later games skip it). */
+  firstGame: boolean;
 }
 
 export interface GoingOnceView {

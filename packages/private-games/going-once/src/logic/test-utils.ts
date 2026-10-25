@@ -33,6 +33,7 @@ export const GROUPS = [
 export function packContent(
   groups: unknown = GROUPS,
   lines: Partial<Record<HintKind, string[]>> = {},
+  host: Record<string, string[]> | null = null,
 ): ContentProvider {
   return {
     wordLists: () => [],
@@ -42,7 +43,9 @@ export function packContent(
         ? [{ id: 'pack1', name: 'Test groups', data: groups }]
         : kind === 'lines'
           ? [{ id: 'pack2', name: 'Test lines', data: lines }]
-          : [],
+          : kind === 'host' && host
+            ? [{ id: 'pack3', name: 'Test host', data: host }]
+            : [],
   };
 }
 
