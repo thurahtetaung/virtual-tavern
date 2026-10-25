@@ -17,6 +17,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      codeql-action:
+        patterns: ['github/codeql-action*']
     commit-message:
       prefix: ci(deps)
   - package-ecosystem: docker
