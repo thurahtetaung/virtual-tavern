@@ -32,7 +32,7 @@ async function cleanUp(admin: Page) {
   };
   for (const c of categories.filter((c) => c.id.startsWith('e2e-')))
     await admin.request.delete(`/api/admin/games/categories/${c.id}`);
-  await admin.request.put('/api/admin/games/echo', { data: { enabled: true } });
+  await admin.request.put('/api/admin/games/thorns', { data: { enabled: true } });
 }
 
 const card = (page: Page, name: string) => page.getByRole('heading', { name, exact: true });
@@ -116,26 +116,33 @@ test('admins make categories and players filter the game list by them', async ({
     await expect(card(admin, 'Reverie')).toBeVisible();
     await expect(card(admin, 'Hoodwink')).toHaveCount(0);
 
-    // Switched off: gone from the list, the rules say so, and no new rooms open.
+    // Switched off: gone from the list, the rules say so, and no new rooms open. A back-room
+    // game, so the switch never reaches a spec running beside this one (only this project's
+    // specs, one at a time, play back-room games); the admin always has the back room.
     await admin.goto('/tavern-keeper/games');
-    const echo = admin.getByRole('switch', { name: 'Echo on' });
-    await echo.click();
-    await expect(echo).toHaveAttribute('aria-checked', 'false');
-    await player.reload();
-    await chips.getByRole('button', { name: 'All' }).click();
-    await expect(card(player, 'Codenames')).toBeVisible();
-    await expect(card(player, 'Echo')).toHaveCount(0);
-    await player.goto('/rules/echo');
-    await expect(player.getByText(/Echo isn’t available right now/)).toBeVisible();
-    await expect(player.getByRole('button', { name: /Create an? Echo room/ })).toHaveCount(0);
-    const refused = await player.request.post('/api/rooms', {
-      data: { gameId: 'echo', token: 'e2e-off-token-000000000000000000000' },
+    const thorns = admin.getByRole('switch', { name: 'Thorns on' });
+    await thorns.click();
+    await expect(thorns).toHaveAttribute('aria-checked', 'false');
+    // The admin's cookies only, so no chip chosen above filters this list.
+    const { cookies } = await admin.context().storageState();
+    const viewer = await (
+      await browser.newContext({ storageState: { cookies, origins: [] } })
+    ).newPage();
+    viewer.on('pageerror', (e) => pageErrors.push(e.message));
+    await viewer.goto('/backroom');
+    await expect(card(viewer, 'Reverie')).toBeVisible();
+    await expect(card(viewer, 'Thorns')).toHaveCount(0);
+    await viewer.goto('/rules/thorns');
+    await expect(viewer.getByText(/Thorns isn’t available right now/)).toBeVisible();
+    await expect(viewer.getByRole('button', { name: /Create an? Thorns room/ })).toHaveCount(0);
+    const refused = await viewer.request.post('/api/rooms', {
+      data: { gameId: 'thorns', token: 'e2e-off-token-000000000000000000000' },
     });
     expect(refused.status()).toBe(409);
-    await echo.click();
-    await expect(echo).toHaveAttribute('aria-checked', 'true');
-    await player.goto('/');
-    await expect(card(player, 'Echo')).toBeVisible();
+    await thorns.click();
+    await expect(thorns).toHaveAttribute('aria-checked', 'true');
+    await viewer.goto('/backroom');
+    await expect(card(viewer, 'Thorns')).toBeVisible();
   } finally {
     await cleanUp(admin);
   }
