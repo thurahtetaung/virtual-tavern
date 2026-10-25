@@ -128,7 +128,7 @@ export function GoingOnceGame({
 }
 
 const PACE_HELP: Record<Pace, string> = {
-  relaxed: 'More time before each Sold (12 s to open, 6 s after a bid).',
+  relaxed: 'The original’s unhurried calls: 12 s to open and 12 s after each bid.',
   normal: '8 s to open, 4 s after a bid, then going once, going twice.',
   fast: 'For players who know the game (6 s to open, 3 s after a bid).',
 };

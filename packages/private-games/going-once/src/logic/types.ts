@@ -65,9 +65,9 @@ export interface Timing {
 export const TIMINGS: Record<Pace, Timing> = {
   relaxed: {
     open: 12_000,
-    quiet: 6000,
-    once: 3000,
-    twice: 3000,
+    quiet: 12_000,
+    once: 2000,
+    twice: 2000,
     sold: 7000,
     halftime: 9000,
   },
