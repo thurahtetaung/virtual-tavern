@@ -104,7 +104,8 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
   };
   const lieForMe = async (choice?: number) => {
     setBusy(true);
-    await act({ type: 'lie-for-me', choice }, { anchor: LIE_ANCHOR });
+    const fake = choice === undefined ? undefined : round.myFakes?.[choice];
+    await act({ type: 'lie-for-me', choice, fake }, { anchor: LIE_ANCHOR });
     setRefused(null);
     setBusy(false);
   };
@@ -164,7 +165,12 @@ function LieForm({ round, act }: { round: RoundView; act: Act }) {
               );
             })}
           </div>
-          {round.myLie === null && (
+          {fakes.length === 0 && (
+            <p className="text-sm text-stone-600 dark:text-stone-400">
+              The others picked them all. Type your own above.
+            </p>
+          )}
+          {round.myLie === null && fakes.length > 0 && (
             <p className="text-sm text-stone-600 dark:text-stone-400">
               Or type your own above: it scores in full.
             </p>

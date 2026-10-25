@@ -72,19 +72,24 @@ export interface Round {
   /** Players whose current lie the game picked for them. */
   autoLies: PlayerId[];
   /**
-   * The built-in fake set aside for each player when the round began, so whether "Lie for me" is
-   * offered never depends on what anyone else does. Missing on rounds saved by older versions.
+   * The question's usable built-in fakes in the order they were shuffled when the round began:
+   * "Lie for me" offers and house fakes are drawn from it. Missing on rounds saved by older
+   * versions, which use the question's own order.
    */
+  decoys?: string[];
+  /** Set aside per player by older versions; only read from rounds saved then. */
   fakes?: Record<PlayerId, string>;
-  /**
-   * A second fake set aside for each player once everyone has a first, while they last, so "Lie for
-   * me" can offer two. Missing on rounds saved by older versions.
-   */
+  /** Older versions' second fake per player; no longer used. */
   spareFakes?: Record<PlayerId, string>;
-  /** Players who have pressed "Lie for me" this round (once each): their fakes are never house fakes. */
+  /** Players who have pressed "Lie for me" this round (once each). */
   fakeShown?: PlayerId[];
-  /** The fakes each of them was offered (one or two), to pick from until the vote. */
+  /**
+   * The fakes each of them is offered now (one or two): a fake someone else picks leaves the offer
+   * and another free one takes its place while any are left.
+   */
   fakeChoices?: Record<PlayerId, string[]>;
+  /** Every fake anyone has been offered this round: never used as a house fake. */
+  fakesSeen?: string[];
   /** Players whose lie the strict timer filled in (a subset of `autoLies`). */
   filled?: PlayerId[];
   /** The strict vote timer ended the vote before everyone had voted. */
@@ -150,8 +155,15 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('back-to-lobby') }),
   // Length and content are checked in `reduce`, so the player gets a friendly message.
   z.object({ type: z.literal('lie'), text: z.string().max(400) }),
-  /** Without `choice`, offers the player their fakes (or uses the only one); with it, picks one. */
-  z.object({ type: z.literal('lie-for-me'), choice: z.number().int().min(0).max(1).optional() }),
+  /**
+   * Without `choice`, offers the player their fakes (or uses the only one); with it, picks one.
+   * `fake` is the text the player saw there, so a pick made just as the offer changed is refused.
+   */
+  z.object({
+    type: z.literal('lie-for-me'),
+    choice: z.number().int().min(0).max(1).optional(),
+    fake: z.string().max(400).optional(),
+  }),
   z.object({ type: z.literal('vote'), option: z.number().int().min(0).max(20) }),
   z.object({ type: z.literal('next-round') }),
   /** Host: show the whole reveal at once instead of one answer at a time. */
@@ -214,11 +226,14 @@ export interface RoundView {
   /** The strict vote timer ended the vote before everyone had voted. */
   voteTimedOut: boolean;
   /**
-   * "Lie for me" is offered to the viewer: a fake was set aside for them, and they haven't sent a
-   * lie yet (it's one pick per round).
+   * "Lie for me" is offered to the viewer: a fake nobody else has picked is left, and they haven't
+   * sent a lie yet (it's one offer per round).
    */
   canLieForMe: boolean;
-  /** The two fakes "Lie for me" offered the viewer, while lies are written (null otherwise). */
+  /**
+   * The fakes "Lie for me" offers the viewer now, while lies are written, once they had two to
+   * choose from (null otherwise). Fewer than two when the others have picked the rest.
+   */
   myFakes: string[] | null;
   /** Another player has written the same lie as the viewer, so it will be shared. */
   myLieShared: boolean;
