@@ -177,6 +177,19 @@ All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
 
   Every deck is validated first and nothing is uploaded if any fails. A deck's `games` (in the manifest) may only name games that use question decks (`hoodwink`, the default, and `stampede`); the server refuses anything else. A deck is either trivia (Hoodwink: every question needs an `answer` and a `___` blank or a final `?`) or open (Stampede: list `"games": ["stampede"]` in the manifest; questions are `{ "prompt", "adult"?, "tags"?, "hints"? }` with no answer, any prompt shape, and `hints` up to 10 common answers of at most 40 characters, which only playtest bots read); one deck can't be both. Put each deck's source or theme in its `description`: Stampede's lobby shows it under the deck's name and question count. A deck holds up to 5,000 questions, and there may be any number of decks; the host turns each one on or off in the lobby (adult-only decks start off). Decks whose name already exists are skipped, so re-running is safe; `--only <glob>` / `--skip <glob>` pick decks by slug. To replace a deck, delete it in `/tavern-keeper` first. Node 24 must be on the host's `PATH` (or run it with `docker run --rm --network host -v /tmp:/tmp node:24-alpine node ...`).
 
+- **Import content packs** (private content for back-room games that need more than words or questions: Going Once's title groups and hint lines; never in the repository). Each pack is one JSON file for one game and one kind; the server checks it against the game's own schema (`packages/private-games/going-once/src/logic/content.ts`: `groups` is a list of `{ id, titles: [7–12 titles], house?: [one house key per title] }`, `lines` maps hint kinds to lines with `{player}`, `{value}` and `{random}` placeholders). Copy the script and the file to the host, run it there against the app's local port, then delete the copy:
+
+  ```sh
+  scp scripts/import-content-pack.mjs private-assets/<game>/<file>.json <server>:/tmp/
+  # on the server:
+  read -rs ADMIN_PASSWORD && export ADMIN_PASSWORD
+  node /tmp/import-content-pack.mjs http://localhost:<APP_PORT> going-once groups /tmp/<file>.json --name "Title groups" --dry-run
+  node /tmp/import-content-pack.mjs http://localhost:<APP_PORT> going-once groups /tmp/<file>.json --name "Title groups"
+  rm -f /tmp/<file>.json /tmp/import-content-pack.mjs; unset ADMIN_PASSWORD
+  ```
+
+  A pack with the same game, kind and name is skipped, so re-running is safe; to replace one, delete it in `/tavern-keeper` (**Content packs**, where packs are also switched off and downloaded) first. Rooms read every enabled pack of a kind, merged. Until a game has two title groups, its lobby says so and refuses to start.
+
 - **Check the running version:** `curl -s localhost:$APP_PORT/healthz` (or the public `/healthz`) answers `{"status":"ok","version":"X.Y.Z"}`; `{"status":"degraded"}` with a 503 means the database is not answering, and Docker's health check turns the container unhealthy.
 
 ## Admin stats
