@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.1...v0.59.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **hoodwink:** two lie suggestions for everyone even when fakes are few ([#353](https://github.com/thurahtetaung/virtual-tavern/issues/353)) ([49016a9](https://github.com/thurahtetaung/virtual-tavern/commit/49016a9e598ade6fdfda5bfc2ea34bb00d95d13d))
+
 ## [0.59.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.0...v0.59.1) (2026-10-25)
 
 
