@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.3...v0.60.0) (2026-10-25)
+
+
+### Features
+
+* **going-once:** add Going Once, a drawing and live auction game, in the back room ([#357](https://github.com/thurahtetaung/virtual-tavern/issues/357)) ([e1b542d](https://github.com/thurahtetaung/virtual-tavern/commit/e1b542d78cdf7ba5f73b1b9fc138a1360711b859))
+
 ## [0.59.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.2...v0.59.3) (2026-10-25)
 
 
