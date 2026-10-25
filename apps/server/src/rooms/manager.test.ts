@@ -555,6 +555,150 @@ describe('RoomManager', () => {
     });
   });
 
+  describe('presence hook', () => {
+    const GRACE = 180_000;
+    type Presence = { due: number | null; away: Record<string, number>; empty: string[] };
+    /** A stub that counts a member's seat as empty after `GRACE` away, like Séance. */
+    const presenceGame = (calls: string[] = []) =>
+      stubGame({
+        create: (): Presence => ({ due: null, away: {}, empty: [] }),
+        playerPresence: (s: Presence, id: string, connected: boolean, at: number) => {
+          calls.push(`${id}:${connected}`);
+          if (!connected) {
+            if (id in s.away || s.empty.includes(id)) return s;
+            const away = { ...s.away, [id]: at };
+            return { ...s, away, due: Math.min(...Object.values(away)) + GRACE };
+          }
+          if (!(id in s.away) && !s.empty.includes(id)) return s;
+          const away = { ...s.away };
+          delete away[id];
+          const times = Object.values(away);
+          return {
+            away,
+            empty: s.empty.filter((x) => x !== id),
+            due: times.length ? Math.min(...times) + GRACE : null,
+          };
+        },
+        onDeadline: (s: Presence, at: number) => {
+          const gone = Object.keys(s.away).filter((id) => s.away[id]! + GRACE <= at);
+          const away = { ...s.away };
+          for (const id of gone) delete away[id];
+          const times = Object.values(away);
+          return {
+            away,
+            empty: [...s.empty, ...gone],
+            due: times.length ? Math.min(...times) + GRACE : null,
+          };
+        },
+      });
+    function presenceRoom(calls: string[] = []) {
+      const stub = presenceGame(calls);
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      const id = rooms.create(stub.id, 'h');
+      rooms.join(id, 'h', 'H');
+      rooms.join(id, 'a', 'A');
+      return { id, stub };
+    }
+    const state = (id: string) => rooms.snapshot(id, 'h')!.game as Presence;
+    const version = (id: string) => new SqliteRoomStore(db).get(id)!.version;
+
+    it('hears 0 -> 1 and 1 -> 0 only, so several tabs never flap it', () => {
+      const calls: string[] = [];
+      const { id } = presenceRoom(calls);
+      calls.length = 0;
+      rooms.connected(id, 'a');
+      rooms.connected(id, 'a');
+      rooms.disconnected(id, 'a');
+      expect(calls).toEqual(['a:true']);
+      rooms.disconnected(id, 'a');
+      expect(calls).toEqual(['a:true', 'a:false']);
+      expect(state(id).away).toEqual({ a: now });
+    });
+
+    it('saves only a changed state', () => {
+      const { id } = presenceRoom();
+      rooms.connected(id, 'a');
+      const v = version(id);
+      // Connecting when never away changes nothing: nothing is saved.
+      rooms.connected(id, 'h');
+      expect(version(id)).toBe(v);
+      rooms.disconnected(id, 'a');
+      expect(version(id)).toBe(v + 1);
+    });
+
+    it('times the seat out, and a reconnect clears it', () => {
+      const { id } = presenceRoom();
+      rooms.connected(id, 'a');
+      rooms.disconnected(id, 'a');
+      elapse(GRACE - 1);
+      expect(state(id).empty).toEqual([]);
+      elapse(1);
+      expect(state(id).empty).toEqual(['a']);
+      rooms.connected(id, 'a');
+      expect(state(id)).toMatchObject({ away: {}, empty: [] });
+    });
+
+    it('marks every member away when the room loads, and a reconnect clears it', () => {
+      const { id } = presenceRoom();
+      rooms.close();
+      const stub = presenceGame();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      expect(state(id).away).toEqual({ h: now, a: now });
+      rooms.connected(id, 'a');
+      expect(state(id).away).toEqual({ h: now });
+    });
+
+    it('still times out after a restart mid-countdown', () => {
+      const { id } = presenceRoom();
+      rooms.connected(id, 'a');
+      rooms.disconnected(id, 'a');
+      const since = now;
+      elapse(GRACE / 2);
+      rooms.close();
+      const stub = presenceGame();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      rooms.connected(id, 'h');
+      // The first away time stands.
+      expect(state(id).away).toEqual({ a: since });
+      elapse(GRACE / 2);
+      expect(state(id).empty).toEqual(['a']);
+    });
+
+    it('never tells it about bots', () => {
+      const calls: string[] = [];
+      const stub = { ...presenceGame(calls), bot: () => null };
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      const id = rooms.create(stub.id, 'h', {
+        playtest: { bots: [], speed: 'normal', paused: false, createdAt: now },
+      });
+      rooms.join(id, 'h', 'H', { admin: true });
+      expect(rooms.addBot(id, 'Bot')).toEqual({ ok: true });
+      rooms.close();
+      calls.length = 0;
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      rooms.snapshot(id, 'h');
+      expect(calls).toEqual(['h:false']);
+    });
+
+    it('leaves games without the hook untouched', () => {
+      const stub = stubGame({});
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      const id = rooms.create(stub.id, 'h');
+      rooms.join(id, 'h', 'H');
+      const v = version(id);
+      rooms.connected(id, 'h');
+      rooms.disconnected(id, 'h');
+      rooms.close();
+      rooms = manager({ games: new Map([[stub.id, stub]]) });
+      rooms.snapshot(id, 'h');
+      expect(version(id)).toBe(v);
+      expect(rooms.snapshot(id, 'h')!.game).toEqual({ due: null });
+    });
+  });
+
   describe('game contract', () => {
     it("enforces the game's own player cap", () => {
       const stub = stubGame({ maxPlayers: 2 });

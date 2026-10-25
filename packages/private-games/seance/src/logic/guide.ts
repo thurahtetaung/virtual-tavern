@@ -279,15 +279,15 @@ function base(): GameGuide {
           'Right: the psychic takes that card, discards their visions and moves on to the next kind (suspect, then place, then object).',
           'Wrong: they keep their visions, and the ghost adds more next hour.',
           'A psychic who finds all three moves along the track one step for each hour left on the clock (finishing in hour IV is worth 3), then keeps helping the others and can still play tokens.',
-          'Then the clock moves on. If anyone is still searching at the end of hour VII, the connection is lost and everyone loses.',
+          'The verdicts stay up for 12 seconds (the ghost or the host can move on sooner), then the clock moves on. If anyone is still searching at the end of hour VII, the connection is lost and everyone loses.',
         ],
       },
       {
         title: 'The final: the culprit',
         bullets: [
-          'Each psychic’s three cards become a numbered group. One of them is the real culprit’s.',
+          'Each psychic’s three cards become a numbered group. The ghost chooses which one is the culprit’s: any group, the ghost’s own pick.',
           'Line-up: while the ghost chooses, study the groups and talk freely. From the moment the shared vision is out, nobody speaks until every vote is in.',
-          'The ghost picks the culprit’s group and three cards from their hand: one pointing to its suspect, one to its place, one to its object. The app shuffles them, so nobody knows which is which.',
+          'Having picked the culprit’s group, the ghost chooses three cards from their hand: one pointing to its suspect, one to its place, one to its object. The app shuffles them, so nobody knows which is which.',
           'The cards turn over one at a time. Psychics low on the track vote after the first card, those in the middle after the second, and the most clear-sighted after all three (with 4–5 players: up to 4, 5–6, 7 and up; with 6–7: up to 6, 7–9, 10 and up). Vote in silence: votes stay hidden until everyone has voted.',
           'With 3 players there are no tokens and no track: all three cards are face up for both psychics.',
           'The group with the most votes is the verdict. A tie goes to the tied group chosen by the psychic furthest along the track, then by whoever found their three cards first, then by seat order.',
@@ -319,7 +319,8 @@ function base(): GameGuide {
       {
         title: 'If someone drops out',
         bullets: [
-          'If a psychic leaves, their seat stays: anyone watching can take it over and carry on with the same cards. While it is empty, the ghost needn’t send it visions and its guess isn’t judged.',
+          'If a psychic leaves, their seat stays: anyone watching can take it over and carry on with the same cards. While it is empty, the ghost needn’t send it visions, its guess isn’t judged and nobody waits for it to be Ready.',
+          'If a psychic’s device drops (a closed tab, a phone gone to sleep), the table waits for them for 3 minutes, with a countdown on screen. After that their seat counts as empty until they’re back: no vision needed, no verdict, no wait for Ready, and no vote in the final. When they come back, the seat is theirs again, with every card they found.',
           'If nobody will take the seat, the host can retire it before the line-up: its found cards go back on the table, and the others play on without it (no visions, no group in the line-up, no vote). The line-up waits for every seat still in the game, so retire it before the clock runs out.',
           'If the ghost goes away, the game simply waits for them. The host can hand the ghost’s seat to someone watching (or a new joiner), never to a psychic, who would then see the answers. If the ghost leaves the room for good, anyone watching can take the seat.',
         ],

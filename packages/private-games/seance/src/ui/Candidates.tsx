@@ -4,11 +4,11 @@ import type { GameView, PsychicView } from '../logic/types.ts';
 import type { Content } from './assets.ts';
 import { Avatar, Card } from './Card.tsx';
 import { type LookCard, useLook } from './Look.tsx';
-import { atTable } from './status.ts';
+import { atTable, isEmpty } from './status.ts';
 
 /** Psychics still looking for a card of this pillar (the ghost knows their targets). */
 export const searchingFor = (g: GameView, pillar: Pillar) =>
-  atTable(g).filter((p) => !p.gone && PILLARS[p.step] === pillar && p.targets);
+  atTable(g).filter((p) => !isEmpty(p) && PILLARS[p.step] === pillar && p.targets);
 
 /** The cards a psychic has already guessed wrong for their current pillar. */
 export const missedBy = (g: GameView, p: PsychicView) =>

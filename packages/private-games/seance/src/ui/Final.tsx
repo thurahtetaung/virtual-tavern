@@ -279,7 +279,7 @@ export function SharedPicker({
       </div>
       <ol className="list-decimal space-y-0.5 pl-5 text-sm text-stone-700 dark:text-stone-300">
         <li className={cn(group !== null && 'line-through opacity-60')}>
-          Tap “This is the culprit” on one group.
+          You choose the culprit: pick one group (tap “This is the culprit” on it).
         </li>
         <li>
           Pick 3 cards from your hand (tap a card to look, Pick to choose): one for its suspect, one

@@ -15,6 +15,8 @@ export interface Harness {
   act(action: SeanceAction, by?: string, at?: number): SeanceState;
   reject(action: SeanceAction, by?: string): string;
   tick(ms: number): SeanceState;
+  /** A player's device went (false) or came back (true). */
+  presence(id: string, connected: boolean): SeanceState;
   game(): Game;
   psychic(id: string): Psychic;
 }
@@ -48,6 +50,10 @@ export function harness(count = 4, seed = 7): Harness {
       if (due !== null && h.now >= due) h.state = seance.onDeadline!(h.state, h.now);
       return h.state;
     },
+    presence(id, connected) {
+      h.state = seance.playerPresence!(h.state, id, connected, h.now);
+      return h.state;
+    },
     game: () => h.state.game!,
     psychic: (id) => h.game().psychics.find((p) => p.id === id)!,
   };
@@ -71,7 +77,7 @@ export const colorOf = (h: Harness, id: string): PsychicColor => h.psychic(id).c
 /** The ghost sends every psychic still searching (and at the table) the first card of the hand. */
 export function sendAll(h: Harness) {
   for (const p of h.game().psychics) {
-    if (p.gone || p.retired || p.step >= 3 || h.game().sent.includes(p.color)) continue;
+    if (p.gone || p.absent || p.retired || p.step >= 3 || h.game().sent.includes(p.color)) continue;
     h.act({ type: 'send', to: p.color, cards: [h.game().hand[0]!] }, HOST);
   }
 }
@@ -79,7 +85,7 @@ export function sendAll(h: Harness) {
 /** Every psychic still searching guesses: right for those in `right`, wrong for the others. */
 export function guessAll(h: Harness, right: readonly string[] | 'all' = 'all') {
   for (const p of h.game().psychics) {
-    if (p.gone || p.retired || p.step >= 3) continue;
+    if (p.gone || p.absent || p.retired || p.step >= 3) continue;
     const pillar = PILLARS[p.step]!;
     const target = p.targets[p.step]!;
     const good = right === 'all' || right.includes(p.id);
@@ -91,7 +97,7 @@ export function guessAll(h: Harness, right: readonly string[] | 'all' = 'all') {
 /** Everyone the hour waits on taps Ready; the ghost has not revealed yet. */
 export function readyOnly(h: Harness) {
   for (const p of h.game().psychics) {
-    if (p.gone || p.retired || h.game().stage !== 'visions') continue;
+    if (p.gone || p.absent || p.retired || h.game().stage !== 'visions') continue;
     if (p.step >= 3) continue;
     if (!p.ready) h.act({ type: 'ready', on: true }, p.id);
   }
