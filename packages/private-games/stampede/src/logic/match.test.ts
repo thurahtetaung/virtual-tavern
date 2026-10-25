@@ -130,4 +130,27 @@ describe('autoGroups', () => {
     const [group] = autoGroups(['p1', 'p2', 'p3', 'p4'], answers);
     expect(groupLabel(group!, answers)).toBe('Pizza');
   });
+
+  it('labels a tied group with its cleanest spelling, whoever typed first', () => {
+    const label = (...texts: string[]) => {
+      const ids = texts.map((_, i) => `p${i + 1}`);
+      const answers = Object.fromEntries(texts.map((t, i) => [ids[i]!, t]));
+      const [group] = autoGroups(ids, answers);
+      expect(group!.members).toHaveLength(texts.length);
+      return groupLabel(group!, answers);
+    };
+    expect(label('Pizzza', 'pizza')).toBe('Pizza');
+    expect(label('pizza', 'Pizzza')).toBe('Pizza');
+    expect(label('Icecream', 'Ice cream')).toBe('Ice cream');
+    expect(label('ice cream', 'icecream')).toBe('Ice cream');
+    expect(label('icecream', 'ice-cream')).toBe('Ice-cream');
+    // The spelling that is the same words as most others wins first: "Pizza" and "Pizzas" agree
+    // under wordKey, "Pizas" is only a slip of them.
+    expect(label('Pizas', 'Pizzas', 'pizza')).toBe('Pizza');
+    // Still the most common spelling first, typo or not.
+    expect(label('Pizzza', 'pizzza', 'pizza')).toBe('Pizzza');
+    // Otherwise the fewest letters, then the first given.
+    expect(label('Spaghetti', 'Spagheti')).toBe('Spagheti');
+    expect(label('Banana', 'Bananq')).toBe('Banana');
+  });
 });

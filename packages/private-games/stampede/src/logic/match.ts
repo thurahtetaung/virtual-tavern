@@ -118,18 +118,49 @@ export function autoGroups(
   return [...byRoot.values()];
 }
 
-/** A group's answer as shown: its most common spelling (the first given on a tie). */
+/** A run of three or more of the same letter ("Pizzza"), a likely slip of the finger. */
+const TRIPLED = /(\p{L})\1\1/iu;
+
+/**
+ * A group's answer as shown: its most common spelling. On a tie, the cleanest one: the spelling
+ * that is the same `wordKey` words as the most other members' answers, then one without a run of
+ * three of a letter ("Pizza" over "Pizzza"), then the one in more words ("Ice cream" or
+ * "Ice-cream" over "Icecream"), then the fewest letters and digits, then the first given.
+ */
 export function groupLabel(group: Group, answers: Readonly<Record<PlayerId, string>>): string {
-  const counts = new Map<string, { text: string; n: number }>();
-  for (const id of group.members) {
+  const given = group.members.flatMap((id) => {
     const text = answers[id];
-    if (text === undefined) continue;
+    return text === undefined ? [] : [text];
+  });
+  const spellings = new Map<string, { text: string; n: number; forms: Forms }>();
+  for (const text of given) {
     const key = normaliseWord(text);
-    const seen = counts.get(key);
+    const seen = spellings.get(key);
     if (seen) seen.n += 1;
-    else counts.set(key, { text: displayAnswer(text), n: 1 });
+    else {
+      spellings.set(key, { text: displayAnswer(text), n: 1, forms: formsOf(text) });
+    }
   }
-  let best: { text: string; n: number } | undefined;
-  for (const c of counts.values()) if (!best || c.n > best.n) best = c;
+  const scored = [...spellings.entries()].map(([key, s]) => ({
+    text: s.text,
+    n: s.n,
+    keyed: given.filter((t) => normaliseWord(t) !== key && formsOf(t).run === s.forms.run).length,
+    clean: TRIPLED.test(s.text) ? 0 : 1,
+    words: words(spaced(s.text)).length,
+    letters: s.forms.plainRun.length,
+  }));
+  let best: (typeof scored)[number] | undefined;
+  for (const c of scored) {
+    if (!best) best = c;
+    else {
+      const order =
+        c.n - best.n ||
+        c.keyed - best.keyed ||
+        c.clean - best.clean ||
+        c.words - best.words ||
+        best.letters - c.letters;
+      if (order > 0) best = c;
+    }
+  }
   return best?.text ?? '';
 }
