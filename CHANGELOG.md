@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.57.0...v0.58.0) (2026-10-25)
+
+
+### Features
+
+* **hoodwink:** a one-by-one suspense reveal and two lies to pick from with Lie for me ([#346](https://github.com/thurahtetaung/virtual-tavern/issues/346)) ([887d9ac](https://github.com/thurahtetaung/virtual-tavern/commit/887d9acffe9ae670eff3211d0eb7e5957d895952))
+
 ## [0.57.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.56.1...v0.57.0) (2026-10-25)
 
 
