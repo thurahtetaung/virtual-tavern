@@ -78,6 +78,7 @@ const base: GameGuide = {
         'Pick a pen, a width, draw, and tap Send. You must draw something to send it.',
         'Nobody else sees your title, ever, until your drawing is sold.',
         'A drawing not sent in time is replaced by a house picture of the same title, and you lose the commission on it.',
+        'The auctioneer nudges you at half time and with ten seconds left; whatever is on your page is sent when time runs out.',
       ],
     },
     {
@@ -106,7 +107,7 @@ const base: GameGuide = {
         'Lots go up one at a time, the first family’s drawings first. Every phone shows the drawing, the top bid and who holds it.',
         'Before any bid the buttons offer $400, $500 and $600; after a bid of $B, $B+100, $B+200 and $B+300.',
         'You can’t raise your own top bid, and you can’t bid more cash than you have.',
-        'The clock: about 8 seconds to open, then 4 seconds of quiet after each bid, then “Going once” and “Going twice” (2 seconds each), then Sold. Any bid restarts the quiet.',
+        'The clock: about 8 seconds to open, then 4 seconds of quiet after each bid, then “Going once” and “Going twice” (2 seconds each; at the Normal pace 1.5 once the price passes $1,000), then Sold. Any bid restarts the quiet.',
         'If two bids arrive together, the first one the server gets wins; the other player sees the new price and why their bid didn’t count.',
         'No bid at all: the drawing goes unsold and its value is lost to everyone.',
       ],
@@ -135,7 +136,7 @@ const base: GameGuide = {
       level: 'details',
       bullets: [
         'Screws unlock at half-time. Everyone has one for the whole game.',
-        'Press Screw during a lot and the clock pauses while you pick a player (10 seconds). The screw is spent as soon as you press it.',
+        'Press Screw during a lot and the clock pauses while you pick a player (15 seconds). The screw is spent as soon as you press it.',
         'Your target is forced to bid $100 more than the top bid ($400 with no bid yet). If they can’t afford it, or you pick nobody, the screw is wasted.',
         'You can’t screw the top bidder. While a forced bid leads, nobody can screw until someone makes a free bid.',
         'You can screw an artist into bidding on their own drawing.',
@@ -145,8 +146,8 @@ const base: GameGuide = {
       title: 'Loans',
       level: 'details',
       bullets: [
-        '{Bank} first opens by itself between lots as soon as anyone has $1,000 or less.',
-        'After that, anyone can tap Call {bank} during a lot (at most 3 times a game, not on the last lot); it opens once the lot is sold.',
+        '{Bank} first opens by itself between lots as soon as anyone has $1,000 or less, for 30 seconds.',
+        'After that, anyone can tap Call {bank} during a lot (at most 3 times a game, not on the last lot); it opens once the lot is sold, for 10 seconds.',
         'At each visit, everyone may take one loan: $1,000 now, $1,500 owed at the end. At most 3 loans a game.',
         'There’s no paying back early: debt comes off your money at the end.',
       ],
@@ -168,6 +169,7 @@ const base: GameGuide = {
         'Auction pace: Relaxed, Normal (default) or Fast. Relaxed gives everyone longer before each Sold; Fast suits players who know the game.',
         'The host can hide a drawing for everyone; it still sells, shown as hidden. Anyone can hide a drawing on their own screen.',
         'Between lots the host can tap Next to skip a wait.',
+        'The how-to shows in a room’s first game only; anyone can skip it.',
       ],
     },
     {
@@ -176,6 +178,7 @@ const base: GameGuide = {
       bullets: [
         'Players joining during a game watch, and are seated at the next one if there is room.',
         'Someone who leaves keeps their seat, cash and drawings; they just stop bidding. If they come back, they carry on. A drawing they didn’t send becomes a house picture.',
+        'If nobody sends a single drawing, everyone gets new titles and draws again. If nobody draws that time either, the game ends with nothing auctioned.',
       ],
     },
   ],
@@ -219,6 +222,7 @@ const base: GameGuide = {
         ['After a bid', '4'],
         ['Going once', '2'],
         ['Going twice', '2, then Sold'],
+        ['Going once / twice above $1,000', '1.5 each (Normal pace)'],
       ],
     },
   ],
