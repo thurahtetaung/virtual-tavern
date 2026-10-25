@@ -415,7 +415,8 @@ function LotLog({
                 hiddenByMe={localHidden.has(r.item)}
                 art={art}
                 label={`Lot ${r.index + 1}`}
-                className="w-10 shrink-0 text-[0px]"
+                compact
+                className="w-10 shrink-0"
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">
@@ -486,17 +487,19 @@ export function Auction({
   act,
   art,
   name,
+  seen,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** Drawings this tab has seen (kept by the game root, which outlives this screen). */
+  seen: ReadonlyMap<string, Drawing>;
 }) {
   const g = view.game!;
   const a = g.auction!;
   const pic = a.picture;
-  const seen = useSeenDrawings(view);
   const [localHidden, setLocalHidden] = useLocalHidden();
   const own = view.mine?.prompts.some((p) => p.item === pic.item) ?? false;
   const side = (tab: Tab) =>
@@ -509,7 +512,7 @@ export function Auction({
     );
   const latest = view.mine?.messages.at(-1);
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:items-start">
       <section aria-label="The lot" className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <span className="rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700">
@@ -549,7 +552,7 @@ export function Auction({
           hiddenByMe={localHidden.has(pic.item)}
           art={art}
           label={`Lot ${a.lot + 1}`}
-          className="mx-auto w-full max-w-[min(100%,46vh)] shadow-md lg:max-w-none"
+          className="mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
         />
       </section>
       <section aria-label="Bidding" className="flex flex-col gap-3">

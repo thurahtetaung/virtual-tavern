@@ -12,6 +12,7 @@ export function Picture({
   house,
   hidden,
   hiddenByMe = false,
+  compact = false,
   art,
   label,
   className,
@@ -21,6 +22,8 @@ export function Picture({
   house: string | null;
   hidden: boolean;
   hiddenByMe?: boolean;
+  /** A thumbnail: icons only, no captions. */
+  compact?: boolean;
   art: Art;
   label: string;
   className?: string;
@@ -36,10 +39,10 @@ export function Picture({
         role="img"
         aria-label={`${label}: hidden`}
       >
-        <span aria-hidden className="text-3xl">
+        <span aria-hidden className={compact ? 'text-base' : 'text-3xl'}>
           🙈
         </span>
-        <span>{hidden ? 'Hidden by the host' : 'Hidden on your screen'}</span>
+        {!compact && <span>{hidden ? 'Hidden by the host' : 'Hidden on your screen'}</span>}
         {children}
       </div>
     );
@@ -59,14 +62,17 @@ export function Picture({
         <ProtectedImage src={src} alt={label} className="size-full object-contain" />
       ) : (
         <div
-          className="flex size-full flex-col items-center justify-center gap-1 p-3 text-center text-stone-600"
+          className={cn(
+            'flex size-full flex-col items-center justify-center gap-1 text-center text-stone-600',
+            !compact && 'p-3',
+          )}
           role="img"
           aria-label={`${label}: house picture`}
         >
-          <span aria-hidden className="text-4xl">
+          <span aria-hidden className={compact ? 'text-base' : 'text-4xl'}>
             🏛️
           </span>
-          <span className="text-sm font-semibold">House picture</span>
+          {!compact && <span className="text-sm font-semibold">House picture</span>}
         </div>
       )}
       {children}

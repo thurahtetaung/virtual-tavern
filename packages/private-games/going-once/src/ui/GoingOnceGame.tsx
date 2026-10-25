@@ -102,9 +102,9 @@ export function GoingOnceGame({
           {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
           {(g.stage === 'auction' || g.stage === 'sold') && (
             <>
-              {g.auction?.lot === 0 && g.stage === 'auction' && <FirstLotTips art={art} />}
               {g.stage === 'sold' && <SoldCard view={view} room={room} act={act} name={name} />}
-              <Auction view={view} room={room} act={act} art={art} name={name} />
+              <Auction view={view} room={room} act={act} art={art} name={name} seen={seen} />
+              {g.auction?.lot === 0 && g.stage === 'auction' && <FirstLotTips art={art} />}
             </>
           )}
           {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
@@ -588,7 +588,7 @@ function End({
   const [localHidden] = useLocalHidden();
   const final = g.final ?? [];
   return (
-    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
       <Panel className="flex flex-col gap-3">
         <Standings
           entries={final.map((f) => ({
