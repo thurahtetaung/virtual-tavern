@@ -294,6 +294,7 @@ function Lobby({
           />
           <p className="text-xs text-ink-muted dark:text-stone-400">
             {PACE_HELP[view.settings.pace]}
+            {!view.settings.paceChosen && ' Fast is the default at 3 players, Normal otherwise.'}
           </p>
         </div>
         <RefusalSlot anchor="go-lobby" />
