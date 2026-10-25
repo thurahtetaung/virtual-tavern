@@ -76,7 +76,11 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   // Lot 1 in everyone's Lots tab: title, artist, buyer, price and value.
   for (const p of all) {
     await p.getByRole('tab', { name: '🧾 Lots' }).click();
-    const lot1 = p.getByTestId('go-log').getByRole('listitem').filter({ hasText: 'Apple' });
+    const lot1 = p
+      .getByRole('region', { name: 'Bidding' })
+      .getByTestId('go-log')
+      .getByRole('listitem')
+      .filter({ hasText: 'Apple' });
     await expect(lot1).toContainText(p === hana ? 'by you' : 'by Hana');
     await expect(lot1).toContainText(p === ben ? 'You paid $600 · worth $3,500' : 'Ben paid $600');
   }
@@ -89,7 +93,11 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await picker.getByRole('button', { name: /Ben/ }).click();
   // The log keeps the screw (the banner over the lot only shows for a moment).
   await hana.getByRole('tab', { name: '🧾 Lots' }).click();
-  await expect(hana.getByText('🔩 Cleo screwed Ben into bidding $400.')).toBeVisible();
+  await expect(
+    hana
+      .getByRole('region', { name: 'Bidding' })
+      .getByText('🔩 Cleo screwed Ben into bidding $400.'),
+  ).toBeVisible();
 
   // The rest go unsold, then the end: standings and the gallery on every phone.
   for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 60_000 });
