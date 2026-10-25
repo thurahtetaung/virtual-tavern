@@ -59,8 +59,16 @@ export const DEFAULT_DRAWING_LIMITS: DrawingLimits = { strokes: 300, points: 250
 export const drawingSchema = z
   .array(
     z.object({
-      c: z.number().int().min(0).max(DRAWING_COLORS.length - 1),
-      w: z.number().int().min(0).max(DRAWING_WIDTHS.length - 1),
+      c: z
+        .number()
+        .int()
+        .min(0)
+        .max(DRAWING_COLORS.length - 1),
+      w: z
+        .number()
+        .int()
+        .min(0)
+        .max(DRAWING_WIDTHS.length - 1),
       p: z.string().min(1).max(DEFAULT_DRAWING_LIMITS.bytes),
     }),
   )

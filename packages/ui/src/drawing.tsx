@@ -133,7 +133,10 @@ function writeDraft(key: string, strokes: Stroke[]) {
   try {
     if (strokes.length === 0) localStorage.removeItem(storageKey(key));
     else
-      localStorage.setItem(storageKey(key), JSON.stringify({ at: Date.now(), strokes } as Draft));
+      localStorage.setItem(
+        storageKey(key),
+        JSON.stringify({ at: Date.now(), strokes } satisfies Draft),
+      );
   } catch {
     // Storage full or blocked: the draft just won't survive a reload.
   }
@@ -230,8 +233,7 @@ export function DrawingPad({
     strokesRef.current = strokes;
   }, [strokes]);
 
-  const full =
-    strokes.length >= limits.strokes || drawingPoints(strokes) >= limits.points * 1.5;
+  const full = strokes.length >= limits.strokes || drawingPoints(strokes) >= limits.points * 1.5;
 
   const commit = useCallback(
     (next: Stroke[]) => {
@@ -360,8 +362,7 @@ export function DrawingPad({
 
   const clear = async () => {
     if (!strokes.length) return;
-    if (!(await confirm({ title: 'Clear the page?', confirmLabel: 'Clear', danger: true })))
-      return;
+    if (!(await confirm({ title: 'Clear the page?', confirmLabel: 'Clear', danger: true }))) return;
     commit([]);
   };
 
@@ -432,7 +433,9 @@ export function DrawingPad({
               onClick={() => setColor(i)}
               className={cn(
                 'size-9 rounded-full ring-offset-2 ring-offset-page transition-shadow dark:ring-offset-stone-900',
-                color === i ? 'ring-3 ring-stone-700 dark:ring-stone-200' : 'ring-1 ring-line-strong',
+                color === i
+                  ? 'ring-3 ring-stone-700 dark:ring-stone-200'
+                  : 'ring-1 ring-line-strong',
               )}
               style={{ background: c.hex }}
             />

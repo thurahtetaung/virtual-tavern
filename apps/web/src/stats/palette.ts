@@ -55,6 +55,7 @@ const LIGHT: ChartTokens = {
     '#7c6f3a',
     '#c0395b',
     '#84a800',
+    '#3f6e9e',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -91,6 +92,7 @@ const DARK: ChartTokens = {
     '#bfae6a',
     '#e2708e',
     '#b5d94a',
+    '#7fa8d6',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -142,6 +144,7 @@ const FIXED_ORDER = [
   'iconic',
   'stampede',
   'jeweller',
+  'going-once',
 ];
 
 /**
