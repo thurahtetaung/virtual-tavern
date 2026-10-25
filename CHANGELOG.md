@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.58.0...v0.59.0) (2026-10-25)
+
+
+### Features
+
+* **stampede:** answers group automatically and the reveal comes straight away ([#349](https://github.com/thurahtetaung/virtual-tavern/issues/349)) ([ab25dfb](https://github.com/thurahtetaung/virtual-tavern/commit/ab25dfbc8d465b9e8463c54b0785f027453c3b57))
+
 ## [0.58.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.57.0...v0.58.0) (2026-10-25)
 
 
