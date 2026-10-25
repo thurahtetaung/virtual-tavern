@@ -27,7 +27,6 @@ export const HOST_MOMENTS = [
   'own-art-screwed',
   'screw-fail',
   'screw-lost',
-  'screw-nudge',
   'quiet',
   'no-art',
   'halftime',

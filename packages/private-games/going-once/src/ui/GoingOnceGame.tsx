@@ -39,6 +39,7 @@ import type { Act } from './act.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
+import { GoingOnceStyles, HostStrip, HowTo, RackUp } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
 import { type NameOf, statusFor } from './text.ts';
 
@@ -98,13 +99,24 @@ export function GoingOnceGame({
         <Lobby view={view} room={room} act={act} showGuide={showGuide} />
       ) : (
         <>
+          <GoingOnceStyles />
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          <HostStrip view={view} />
+          {g.stage === 'draw' && g.redraw && (
+            <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+              Nobody drew anything, so here are new titles. If nobody draws this time, the game
+              ends.
+            </p>
+          )}
+          {g.stage === 'draw' && <HowTo view={view} />}
           {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
           {(g.stage === 'auction' || g.stage === 'sold') && (
             <>
               {g.stage === 'sold' && <SoldCard view={view} room={room} act={act} name={name} />}
               <Auction view={view} room={room} act={act} art={art} name={name} seen={seen} />
-              {g.auction?.lot === 0 && g.stage === 'auction' && <FirstLotTips art={art} />}
+              {g.auction?.lot === 0 && g.stage === 'auction' && g.firstGame && (
+                <FirstLotTips art={art} />
+              )}
             </>
           )}
           {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
@@ -590,16 +602,24 @@ function End({
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
       <Panel className="flex flex-col gap-3">
-        <Standings
-          entries={final.map((f) => ({
-            id: f.id,
-            name: name(f.id),
-            score: f.score,
-            note: `cash ${money(f.cash)} + art ${money(f.art)}${f.debt ? ` − debt ${money(f.debt)}` : ''}`,
-          }))}
-          you={room.you}
-          scoreLabel={(n) => money(n)}
-        />
+        {g.ended === 'no-drawings' ? (
+          <p className="text-center" data-testid="go-no-drawings">
+            Nobody drew anything, twice, so there was nothing to auction. Try again!
+          </p>
+        ) : (
+          <RackUp view={view} art={art} name={name} you={room.you}>
+            <Standings
+              entries={final.map((f) => ({
+                id: f.id,
+                name: name(f.id),
+                score: f.score,
+                note: `cash ${money(f.cash)} + art ${money(f.art)}${f.debt ? ` − debt ${money(f.debt)}` : ''}`,
+              }))}
+              you={room.you}
+              scoreLabel={(n) => money(n)}
+            />
+          </RackUp>
+        )}
         <Superlatives lines={room.superlatives} />
         {room.isHost ? (
           <div className="flex flex-wrap gap-2">

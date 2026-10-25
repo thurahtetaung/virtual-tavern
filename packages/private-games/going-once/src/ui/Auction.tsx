@@ -1,13 +1,15 @@
 import { type Drawing, type GameRoomInfo, storageKey } from '@vt/game-sdk';
-import { Button, Panel, PlayerTag, RefusalSlot, cn, useSecondsLeft } from '@vt/ui';
+import { Button, Panel, PlayerTag, ProtectedImage, RefusalSlot, cn, useSecondsLeft } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
-import { type GoingOnceView, type LotResult, TIMINGS } from '../logic/types.ts';
+import { closeMs } from '../logic/game.ts';
+import type { GoingOnceView, LotResult } from '../logic/types.ts';
+import { Paddle, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
 import { Picture } from './Picture.tsx';
-import { type NameOf, SENDERS, logLine, whyLine } from './text.ts';
+import { type NameOf, logLine, whyLine } from './text.ts';
 
 // ---- Small hooks ----
 
@@ -71,7 +73,7 @@ function CloseBar({ view, room }: { view: GoingOnceView; room: GameRoomInfo }) {
   const a = view.game!.auction!;
   const sold = view.game!.stage === 'sold';
   const now = useServerNow(room.clockOffset, !sold);
-  const total = TIMINGS[view.settings.pace][a.close] * (view.rig?.scale ?? 1);
+  const total = closeMs(view, a.close, a.bid);
   const left = a.screw ? null : Math.max(0, a.closeAt - now);
   const fraction = left === null ? 1 : Math.min(1, left / total);
   const hot = a.close === 'once' || a.close === 'twice';
@@ -154,6 +156,13 @@ function BidPanel({
       <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1">
         {a.bid ? (
           <p className="flex min-w-0 items-center gap-2 text-lg" data-testid="go-top-bid">
+            <Paddle
+              key={a.seq}
+              name={name(a.bid.by)}
+              shape={view.game!.paddles[a.bid.by]}
+              art={art}
+              raised
+            />
             <PlayerTag
               name={name(a.bid.by)}
               you={a.bid.by === room.you}
@@ -264,6 +273,7 @@ function ScrewPicker({
   const left = useSecondsLeft(a.screw?.until ?? null, room.clockOffset);
   if (!a.screw || a.screw.by !== room.you) return null;
   const amount = a.bid ? a.bid.amount + 100 : 400;
+  const hurry = left !== null && left <= 5;
   return (
     <Panel
       className="flex flex-col gap-2 ring-2 ring-warn-line dark:ring-amber-500/60"
@@ -284,8 +294,17 @@ function ScrewPicker({
           </Button>
         ))}
       </div>
-      <p className="text-xs text-ink-muted dark:text-stone-400">
-        If they can’t afford it, or you pick nobody in time, the screw is wasted.
+      <p
+        className={cn(
+          'text-xs',
+          hurry
+            ? 'font-semibold text-danger-ink dark:text-rose-300'
+            : 'text-ink-muted dark:text-stone-400',
+        )}
+      >
+        {hurry
+          ? 'Use it or lose it: pick someone now!'
+          : 'If they can’t afford it, or you pick nobody in time, the screw is wasted.'}
       </p>
       <RefusalSlot anchor="go-screw" />
     </Panel>
@@ -329,7 +348,7 @@ function WishList({ view }: { view: GoingOnceView }) {
   );
 }
 
-function Hints({ view, name }: { view: GoingOnceView; name: NameOf }) {
+function Hints({ view, name, art }: { view: GoingOnceView; name: NameOf; art: Art }) {
   const messages = [...(view.mine?.messages ?? [])].reverse();
   if (!messages.length)
     return <p className="text-sm text-ink-muted dark:text-stone-400">No messages yet.</p>;
@@ -337,7 +356,6 @@ function Hints({ view, name }: { view: GoingOnceView; name: NameOf }) {
     <ul className="flex flex-col gap-2" data-testid="go-hints">
       {messages.slice(0, 8).map((m, i) => {
         const why = whyLine(m, name);
-        const sender = SENDERS[m.from];
         return (
           <li
             key={m.id}
@@ -348,11 +366,8 @@ function Hints({ view, name }: { view: GoingOnceView; name: NameOf }) {
                 : 'opacity-75',
             )}
           >
-            <span aria-hidden className="text-lg leading-none">
-              {sender.icon}
-            </span>
+            <SenderIcon from={m.from} art={art} />
             <span className="min-w-0">
-              <span className="sr-only">{sender.label}: </span>
               {m.text}
               {why && <span className="mt-0.5 block text-xs opacity-80">{why}</span>}
               <span className="mt-0.5 block text-[11px] opacity-60">Before lot {m.lot + 1}</span>
@@ -506,18 +521,41 @@ export function Auction({
     tab === 'wish' ? (
       <WishList view={view} />
     ) : tab === 'hints' ? (
-      <Hints view={view} name={name} />
+      <Hints view={view} name={name} art={art} />
     ) : (
       <LotLog view={view} room={room} art={art} name={name} seen={seen} localHidden={localHidden} />
     );
   const latest = view.mine?.messages.at(-1);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:items-start">
-      <section aria-label="The lot" className="flex flex-col gap-2">
+      <section aria-label="The lot" className="relative flex flex-col gap-2 lg:rounded-2xl lg:p-3">
+        {art.ui('gallery') && (
+          <ProtectedImage
+            src={art.ui('gallery')!}
+            alt=""
+            className="pointer-events-none absolute inset-0 -z-10 hidden size-full rounded-2xl object-cover lg:block"
+          />
+        )}
         <div className="flex items-center justify-between gap-2">
-          <span className="rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700">
+          <span className="relative rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line lg:hidden dark:bg-stone-800 dark:ring-stone-700">
             Lot {a.lot + 1}/{g.lotCount}
           </span>
+          {/* Desktop and TV: the lot number on the wooden disc, when the manifest has it. */}
+          {art.ui('lot') ? (
+            <span className="relative hidden size-16 items-end justify-center pb-3 lg:flex">
+              <ProtectedImage src={art.ui('lot')!} alt="" className="absolute inset-0 size-full" />
+              <span
+                className="relative text-lg font-black text-stone-800"
+                aria-label={`Lot ${a.lot + 1} of ${g.lotCount}`}
+              >
+                {a.lot + 1}/{g.lotCount}
+              </span>
+            </span>
+          ) : (
+            <span className="relative hidden rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line lg:inline dark:bg-stone-800 dark:ring-stone-700">
+              Lot {a.lot + 1}/{g.lotCount}
+            </span>
+          )}
           {own && (
             <span className="rounded-full bg-special-soft px-2.5 py-0.5 text-xs font-semibold text-special-ink ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-200 dark:ring-violet-500/40">
               🎨 Your drawing
@@ -552,8 +590,15 @@ export function Auction({
           hiddenByMe={localHidden.has(pic.item)}
           art={art}
           label={`Lot ${a.lot + 1}`}
-          className="mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
+          className="relative mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
         />
+        {art.ui('easel') && (
+          <ProtectedImage
+            src={art.ui('easel')!}
+            alt=""
+            className="pointer-events-none relative -z-[1] mx-auto -mt-[45%] hidden w-1/2 lg:block"
+          />
+        )}
       </section>
       <section aria-label="Bidding" className="flex flex-col gap-3">
         <Panel className="flex flex-col gap-3 p-3">
@@ -563,7 +608,7 @@ export function Auction({
         <ScrewPicker view={view} room={room} act={act} name={name} />
         {latest && latest.lot === a.lot && (
           <p className="flex gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line lg:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-            <span aria-hidden>{SENDERS[latest.from].icon}</span>
+            <SenderIcon from={latest.from} art={art} size="sm" />
             <span>{latest.text}</span>
           </p>
         )}

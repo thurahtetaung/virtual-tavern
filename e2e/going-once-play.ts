@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
 
@@ -19,15 +21,63 @@ export const TITLES: [string, string][] = [
   ['Quince', 'Fez'],
 ];
 
+/** A few made-up host lines. */
+export const HOST = {
+  'opening-first': ['E2E host: the first lot!'],
+  opening: ['E2E host: who starts?'],
+  sold: ['E2E host: sold!'],
+  unsold: ['E2E host: nobody wanted it.'],
+};
+
+// Local previews only: GOING_ONCE_ART=<folder with manifest.json and the art> serves them to the
+// pages, and GOING_ONCE_PACKS=<folder with pack-groups/lines/host.json> imports those packs instead
+// of the made-up ones (screenshots read every title from the page, so any groups work).
+const ART = process.env.GOING_ONCE_ART;
+const PACKS = process.env.GOING_ONCE_PACKS;
+const TYPES: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+
+export async function localArt(page: Page) {
+  if (!ART) return;
+  await page.route('**/api/backroom/manifest/going-once', async (route) =>
+    route.fulfill({
+      json: JSON.parse(await readFile(join(ART, 'manifest.json'), 'utf8')) as unknown,
+    }),
+  );
+  await page.route('**/api/backroom/assets/going-once/**', async (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(
+      /^\/api\/backroom\/assets\/going-once\//,
+      '',
+    );
+    try {
+      await route.fulfill({
+        body: await readFile(join(ART, path)),
+        contentType: TYPES[path.split('.').pop() ?? ''] ?? 'application/octet-stream',
+      });
+    } catch {
+      await route.fulfill({ status: 404 });
+    }
+  });
+}
+
 /** The admin imports made-up title groups and lines; returns how to delete them again. */
 export async function importPacks(browser: Browser): Promise<() => Promise<unknown>> {
   const admin = await visitor(browser, 'Admin');
   await openBackroom(admin);
   const ids: string[] = [];
-  for (const [kind, data] of [
-    ['groups', GROUPS],
-    ['lines', { someoneKnows: ['E2E line: {player} knows this one.'] }],
-  ] as const) {
+  const own = async (kind: string) =>
+    JSON.parse(await readFile(join(PACKS!, `pack-${kind}.json`), 'utf8')) as unknown;
+  const packs: [string, unknown][] = PACKS
+    ? [
+        ['groups', await own('groups')],
+        ['lines', await own('lines')],
+        ['host', await own('host')],
+      ]
+    : [
+        ['groups', GROUPS],
+        ['lines', { someoneKnows: ['E2E line: {player} knows this one.'] }],
+        ['host', HOST],
+      ];
+  for (const [kind, data] of packs) {
     const res = await admin.request.post('/api/admin/content-packs', {
       data: { gameId: 'going-once', kind, name: `E2E ${kind}`, data },
     });

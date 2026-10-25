@@ -47,6 +47,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
 
   // Lot 1 is Hana's "Apple" (worth $3,500): Ben and Cleo fight over it, Ben wins at $600.
   for (const p of all) await lotIs(p, 1);
+  // The host's line, from the made-up host pack, on every phone.
+  for (const p of all)
+    await expect(p.getByTestId('go-host')).toContainText('E2E host: the first lot!');
   await expect(hana.getByText('🎨 Your drawing')).toBeVisible();
   await expect(ben.getByText('🎨 Your drawing')).toHaveCount(0);
   await bid(ben, 400);
@@ -93,7 +96,8 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   // The rest go unsold, then the end: standings and the gallery on every phone.
   for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 60_000 });
   for (const p of all) {
-    await expect(p.getByText('Final standings')).toBeVisible();
+    // The rack-up counts the money first.
+    await expect(p.getByText('Final standings')).toBeVisible({ timeout: 15_000 });
     await expect(p.getByTestId('go-gallery').getByText('Apple')).toBeVisible();
     await expect(p.getByTestId('go-gallery').getByText('Fez')).toBeVisible();
   }
