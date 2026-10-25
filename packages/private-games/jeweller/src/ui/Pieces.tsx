@@ -291,7 +291,7 @@ export function CardBack({
   const body = (
     <>
       {src && (
-        <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-cover" />
+        <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-contain" />
       )}
       <span className="relative text-sm font-black tracking-widest text-ink drop-shadow dark:text-stone-100">
         {'•'.repeat(level)}
