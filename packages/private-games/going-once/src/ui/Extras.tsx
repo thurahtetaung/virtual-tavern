@@ -11,12 +11,17 @@ import { type NameOf, SENDERS } from './text.ts';
 export function HostStrip({ view }: { view: GoingOnceView }) {
   const host = view.game?.host;
   if (!host?.lines.length) return null;
+  const close = view.game?.stage === 'auction' ? view.game.auction?.close : null;
+  const big = close === 'once' || close === 'twice';
   return (
     <p
       key={host.id}
       aria-live="polite"
       data-testid="go-host"
-      className="flex items-start gap-2 rounded-xl bg-card px-3 py-2 text-sm italic ring-1 ring-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-stone-800/70 dark:ring-stone-700"
+      className={cn(
+        'flex items-start gap-2 rounded-xl bg-card px-3 py-2 ring-1 ring-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-stone-800/70 dark:ring-stone-700',
+        big ? 'justify-center text-center text-xl font-extrabold' : 'text-sm italic',
+      )}
     >
       <span aria-hidden className="not-italic">
         🎙️
@@ -292,4 +297,190 @@ export function RackUp({
       )}
     </section>
   );
+}
+
+/** Whether the viewer asked for less motion (staged reveals then show at once). */
+export function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() =>
+    typeof matchMedia === 'function'
+      ? matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const q = matchMedia('(prefers-reduced-motion: reduce)');
+    const on = () => setReduced(q.matches);
+    q.addEventListener('change', on);
+    return () => q.removeEventListener('change', on);
+  }, []);
+  return reduced;
+}
+
+/**
+ * The bid race: the bids before the current one on this lot, newest first, and "Ana vs Ben" when
+ * the same two have traded the last three bids.
+ */
+export function BidLadder({
+  view,
+  art,
+  name,
+  you,
+}: {
+  view: GoingOnceView;
+  art: Art;
+  name: NameOf;
+  you: string;
+}) {
+  const a = view.game?.auction;
+  const recent = a?.recent ?? [];
+  if (recent.length < 2) return null;
+  const [x, y, z] = recent.slice(-3).reverse();
+  const duel = z && x && y && x.by === z.by && x.by !== y.by ? [y.by, x.by] : null;
+  return (
+    <div className="flex flex-col gap-1" data-testid="go-ladder">
+      {duel && (
+        <span className="self-start rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+          ⚔ {name(duel[0])} vs {name(duel[1])}
+        </span>
+      )}
+      <ol aria-label="Earlier bids" className="flex flex-col gap-0.5">
+        {recent
+          .slice(0, -1)
+          .reverse()
+          .slice(0, 3)
+          .map((r, i) => (
+            <li
+              key={`${r.by}-${r.amount}`}
+              className={cn(
+                'flex items-center gap-2 text-sm motion-safe:animate-[go-rise_0.25s_ease-out]',
+                i === 0 ? 'opacity-80' : 'opacity-50',
+              )}
+            >
+              <Paddle
+                name={name(r.by)}
+                shape={view.game!.paddles[r.by]}
+                art={art}
+                className="w-5"
+              />
+              <PlayerTag name={name(r.by)} you={r.by === you} />
+              <span className="tabular-nums">{money(r.amount)}</span>
+              {r.forced && <span aria-label="a forced bid">🔩</span>}
+            </li>
+          ))}
+      </ol>
+    </div>
+  );
+}
+
+function vibrate(pattern: number | number[]) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    // Not supported: the flash is enough.
+  }
+}
+
+/**
+ * Synced alerts: a flash round the screen edge (and a buzz where phones allow it) when the viewer
+ * is outbid, at "going twice" on a lot they bid on but don't lead, and when they are screwed.
+ */
+export function Alerts({ view, you }: { view: GoingOnceView; you: string }) {
+  const a = view.game?.stage === 'auction' ? view.game.auction : null;
+  const [flash, setFlash] = useState<{ id: string; tone: 'accent' | 'danger' } | null>(null);
+  const key = a ? `${a.lot}:${a.seq}:${a.close}:${a.bid?.by ?? ''}` : '';
+  const [seen, setSeen] = useState({ key, lead: a?.bid?.by === you, close: a?.close });
+  if (seen.key !== key) {
+    const lead = a?.bid?.by === you;
+    let next: typeof flash = null;
+    if (a && seen.lead && !lead && a.bid) {
+      next = { id: key, tone: 'accent' };
+      vibrate(a.screwed?.target === you ? 60 : 30);
+    } else if (a?.screwed?.target === you && a.bid?.by === you && !seen.lead) {
+      next = { id: key, tone: 'danger' };
+      vibrate(60);
+    } else if (a?.close === 'twice' && seen.close !== 'twice' && !lead && a.bidders.includes(you)) {
+      next = { id: key, tone: 'danger' };
+      vibrate([20, 40, 20]);
+    }
+    setSeen({ key, lead, close: a?.close });
+    if (next) setFlash(next);
+  }
+  useEffect(() => {
+    if (!flash) return;
+    const id = setTimeout(() => setFlash(null), 700);
+    return () => clearTimeout(id);
+  }, [flash]);
+  if (!flash) return null;
+  return (
+    <div
+      key={flash.id}
+      aria-hidden
+      data-testid="go-alert"
+      className={cn(
+        'pointer-events-none fixed inset-0 z-50 ring-8 ring-inset motion-safe:animate-pulse',
+        flash.tone === 'accent'
+          ? 'ring-accent/70 dark:ring-amber-500/70'
+          : 'ring-danger/70 dark:ring-rose-500/70',
+      )}
+    />
+  );
+}
+
+/** "Ana screwed Ben: Ben bids $1,300" for everyone, for two seconds, with a buzz on Ben. */
+export function ScrewBanner({
+  view,
+  name,
+  you,
+}: {
+  view: GoingOnceView;
+  name: NameOf;
+  you: string;
+}) {
+  const last = [...view.log].reverse().find((e) => e.kind === 'screw');
+  const id = last?.id ?? 0;
+  const [shown, setShown] = useState<number>(id);
+  const [visible, setVisible] = useState(false);
+  if (id !== shown) {
+    setShown(id);
+    if (last?.kind === 'screw' && last.outcome !== 'wasted') {
+      setVisible(true);
+      if (last.target === you && last.outcome === 'forced') vibrate(60);
+    }
+  }
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => setVisible(false), 2000);
+    return () => clearTimeout(t);
+  }, [visible, shown]);
+  if (!visible || last?.kind !== 'screw') return null;
+  return (
+    <p
+      role="status"
+      data-testid="go-screw-banner"
+      className="rounded-xl bg-danger-soft px-4 py-3 text-center text-base font-bold text-danger-ink ring-1 ring-danger-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
+    >
+      🔩{' '}
+      {last.outcome === 'forced'
+        ? `${name(last.by)} screwed ${name(last.target)}: ${name(last.target)} bids ${money(last.amount ?? 0)}`
+        : `${name(last.by)} tried to screw ${name(last.target)}, who can’t afford it`}
+    </p>
+  );
+}
+
+/**
+ * How many beats of a staged reveal to show: one more every `stepMs`, all at once when the viewer
+ * asks for less motion or `instant` is set. Starts over when `key` changes.
+ */
+export function useBeats(key: string, beats: number, stepMs: number, instant: boolean): number {
+  const reduced = useReducedMotion();
+  const all = instant || reduced;
+  const [state, setState] = useState({ key, shown: all ? beats : 1 });
+  if (state.key !== key) setState({ key, shown: all ? beats : 1 });
+  const shown = all ? beats : state.shown;
+  useEffect(() => {
+    if (all || shown >= beats) return;
+    const id = setTimeout(() => setState((s) => ({ ...s, shown: s.shown + 1 })), stepMs);
+    return () => clearTimeout(id);
+  }, [all, shown, beats, stepMs, key]);
+  return shown;
 }

@@ -38,6 +38,7 @@ import {
   MIN_PLAYERS,
   OPENING_BID,
   PADDLE_SHAPES,
+  RECENT_BIDS,
   type PlayerState,
   type Rig,
   SCREW_PICK_MS,
@@ -214,6 +215,7 @@ function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead:
     screwed: null,
     bankCalled: [],
     bidders: [],
+    recent: [],
   };
   sendHints(s, rng);
   say(
@@ -433,6 +435,7 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   a.bid = { by, amount };
   a.seq += 1;
   a.screwed = null;
+  a.recent = [...(a.recent ?? []), { by, amount, forced: false }].slice(-RECENT_BIDS);
   if (!a.bidders.includes(by)) a.bidders.push(by);
   a.close = 'quiet';
   a.closeAt = now + timing(s).quiet;
@@ -482,6 +485,7 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   a.bid = { by: target, amount };
   a.seq += 1;
   a.screwed = { target, by };
+  a.recent = [...(a.recent ?? []), { by: target, amount, forced: true }].slice(-RECENT_BIDS);
   if (!a.bidders.includes(target)) a.bidders.push(target);
   a.close = 'quiet';
   a.closeAt = now + timing(s).quiet;
@@ -545,6 +549,12 @@ function requireHost(ctx: Ctx) {
   return ctx.isHost ? null : err('not-host', 'Only the host can do that.');
 }
 
+/** Until the host picks a pace, it follows the table: Fast at 3 players, else Normal. */
+function defaultPace(s: GoingOnceState) {
+  if (s.settings.paceChosen || s.phase === 'playing') return;
+  s.settings.pace = players(s).length === 3 ? 'fast' : 'normal';
+}
+
 function seatWaiting(s: GoingOnceState) {
   let free = MAX_PLAYERS - players(s).length;
   for (const seat of Object.values(s.seats)) {
@@ -578,6 +588,7 @@ function sit(state: GoingOnceState, playing: boolean, ctx: Ctx): Result {
   if (s.phase === 'playing' && playing) mine.waiting = true;
   else mine.playing = playing;
   if (s.phase === 'lobby') countGroups(s, ctx);
+  defaultPace(s);
   return s;
 }
 
@@ -585,6 +596,7 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
   const s = draft(state);
   dropLeft(s);
   seatWaiting(s);
+  defaultPace(s);
   const order = players(s);
   if (order.length < MIN_PLAYERS) return err('too-few', `${MIN_PLAYERS} players are needed.`);
   if (order.length > MAX_PLAYERS) return err('too-many', `At most ${MAX_PLAYERS} can play.`);
@@ -681,7 +693,10 @@ function updateSettings(
   if (state.phase === 'playing') return err('in-progress', 'Settings change between games.');
   const s = draft(state);
   if (action.drawSeconds !== undefined) s.settings.drawSeconds = action.drawSeconds;
-  if (action.pace !== undefined) s.settings.pace = action.pace;
+  if (action.pace !== undefined) {
+    s.settings.pace = action.pace;
+    s.settings.paceChosen = true;
+  }
   countGroups(s, ctx);
   return s;
 }
@@ -812,6 +827,7 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
   const playing = s.phase !== 'playing' && players(s).length < MAX_PLAYERS;
   const seat: Seat = { name: player.name, playing, ...(!playing && { waiting: true }) };
   s.seats[player.id] = seat;
+  defaultPace(s);
   return s;
 }
 
@@ -827,6 +843,7 @@ export function playerLeft(state: GoingOnceState, playerId: PlayerId, now: numbe
   if (s.phase !== 'playing' || !g?.players[playerId]) {
     delete s.seats[playerId];
     if (s.phase !== 'playing') seatWaiting(s);
+    defaultPace(s);
     return s;
   }
   if (g.left.includes(playerId)) return s;

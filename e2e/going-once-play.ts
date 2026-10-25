@@ -103,6 +103,9 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
     await expect(host.getByText(`Bidders (${pages.length}/6)`)).toBeVisible();
   }
+  // Three players default to the Fast pace; the specs time their clicks for Normal.
+  await host.getByRole('radio', { name: 'Normal' }).click();
+  await expect(host.getByRole('radio', { name: 'Normal' })).toHaveAttribute('aria-checked', 'true');
   await host.getByRole('button', { name: 'Rig next game' }).click();
   await expect(host.getByTestId('go-rig')).toContainText('on (×0.5');
   return pages;

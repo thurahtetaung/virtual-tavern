@@ -86,6 +86,7 @@ function gameView(state: GoingOnceState, g: Game): GameView {
             screwed: a.screwed ? { ...a.screwed } : null,
             bankCalled: a.bankCalled.length > 0,
             bidders: [...a.bidders],
+            recent: (a.recent ?? []).map((r) => ({ ...r })),
           }
         : null,
     results: g.lots.flatMap((id, i) => {
@@ -115,6 +116,22 @@ function gameView(state: GoingOnceState, g: Game): GameView {
     redraw: g.stage === 'draw' && g.redraws > 0,
     paddles: { ...g.paddles },
     firstGame: state.gamesPlayed <= 1,
+    knew: over
+      ? {
+          lists: Object.fromEntries(
+            g.order.map((id) => [
+              id,
+              g.players[id]!.wish.map((w) => ({ title: w.title, value: w.value })),
+            ]),
+          ),
+          by: Object.fromEntries(
+            g.lots.map((item) => [
+              item,
+              g.order.filter((id) => g.players[id]!.wish.some((w) => w.item === item)),
+            ]),
+          ),
+        }
+      : null,
   };
 }
 

@@ -87,6 +87,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await cleo.getByTestId('go-screw').click();
   const picker = cleo.getByTestId('go-screw-picker');
   await picker.getByRole('button', { name: /Ben/ }).click();
+  await expect(hana.getByTestId('go-screw-banner')).toContainText(
+    'Cleo screwed Ben: Ben bids $400',
+  );
   await expect(hana.getByTestId('go-top-bid')).toContainText('$400');
   await expect(hana.getByTestId('go-top-bid')).toContainText('🔩 by Cleo');
   await expect(ben.getByTestId('go-sold')).toContainText('A forced buy, thanks to Cleo', {

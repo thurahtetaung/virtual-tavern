@@ -134,6 +134,8 @@ export type Sender = 'buyer1' | 'buyer2' | 'buyer3' | 'bank' | 'dog' | 'caller';
 export interface Settings {
   drawSeconds: DrawSeconds;
   pace: Pace;
+  /** The host picked the pace; until then it follows the table (Fast at 3 players, else Normal). */
+  paceChosen?: boolean;
 }
 
 export interface Seat {
@@ -225,7 +227,18 @@ export interface Auction {
   bankCalled: PlayerId[];
   /** Players who bid on this lot. */
   bidders: PlayerId[];
+  /** The last few bids on this lot, newest last (a screw's forced bid marked). */
+  recent?: RecentBid[];
 }
+
+export interface RecentBid {
+  by: PlayerId;
+  amount: number;
+  forced: boolean;
+}
+
+/** Bids kept in `Auction.recent`. */
+export const RECENT_BIDS = 4;
 
 export type Stage = 'draw' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
 
@@ -434,6 +447,7 @@ export interface AuctionView {
   screwed: { target: PlayerId; by: PlayerId } | null;
   bankCalled: boolean;
   bidders: PlayerId[];
+  recent: RecentBid[];
 }
 
 export interface MineView {
@@ -492,6 +506,11 @@ export interface GameView {
   paddles: Record<PlayerId, number>;
   /** The room's first game (the how-to shows; later games skip it). */
   firstGame: boolean;
+  /** At the end: every player's wish list, and who had each lot on theirs (item id → players). */
+  knew: {
+    lists: Record<PlayerId, { title: string; value: number }[]>;
+    by: Record<string, PlayerId[]>;
+  } | null;
 }
 
 export interface GoingOnceView {

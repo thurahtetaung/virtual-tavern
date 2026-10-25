@@ -4,8 +4,8 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
-import type { GoingOnceView, LotResult } from '../logic/types.ts';
-import { Paddle, SenderIcon } from './Extras.tsx';
+import { type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.ts';
+import { BidLadder, Paddle, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
 import { Picture } from './Picture.tsx';
@@ -181,6 +181,7 @@ function BidPanel({
           </p>
         )}
       </div>
+      <BidLadder view={view} art={art} name={name} you={room.you} />
       <CloseBar view={view} room={room} />
       {mine && (
         <>
@@ -233,7 +234,11 @@ function BidPanel({
               {showBank && (
                 <Button
                   variant="secondary"
-                  className="flex-1"
+                  className={cn(
+                    'flex-1',
+                    a.bankCalled &&
+                      'ring-2 ring-accent motion-safe:animate-pulse dark:ring-amber-500',
+                  )}
                   disabled={!mine.canCallBank || !live}
                   onClick={() => void act({ type: 'call-bank' }, { anchor: 'go-tools' })}
                   data-testid="go-call-bank"
@@ -356,6 +361,8 @@ function Hints({ view, name, art }: { view: GoingOnceView; name: NameOf; art: Ar
     <ul className="flex flex-col gap-2" data-testid="go-hints">
       {messages.slice(0, 8).map((m, i) => {
         const why = whyLine(m, name);
+        // Useful tips stand out; chatter reads as gossip.
+        const tip = why !== null;
         return (
           <li
             key={m.id}
@@ -367,9 +374,10 @@ function Hints({ view, name, art }: { view: GoingOnceView; name: NameOf; art: Ar
             )}
           >
             <SenderIcon from={m.from} art={art} />
-            <span className="min-w-0">
+            <span className={cn('min-w-0', tip ? 'font-semibold' : 'italic opacity-70')}>
+              {!tip && <span className="mr-1 text-[11px] uppercase not-italic">Gossip ·</span>}
               {m.text}
-              {why && <span className="mt-0.5 block text-xs opacity-80">{why}</span>}
+              {why && <span className="mt-0.5 block text-xs font-normal opacity-80">{why}</span>}
               <span className="mt-0.5 block text-[11px] opacity-60">Before lot {m.lot + 1}</span>
             </span>
           </li>
@@ -415,6 +423,7 @@ function LotLog({
           ))}
         </ul>
       )}
+      <PairLines view={view} name={name} you={room.you} />
       {results.length === 0 ? (
         <p className="text-sm text-ink-muted dark:text-stone-400">
           Sold lots show here, with their values.
@@ -453,6 +462,32 @@ function LotLog({
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * The pair arithmetic, said plainly: an artist with one sold drawing whose value is known has
+ * their other one worth $4,500 minus it. Which lot that is stays the puzzle.
+ */
+function PairLines({ view, name, you }: { view: GoingOnceView; name: NameOf; you: string }) {
+  const byArtist = new Map<string, number[]>();
+  for (const r of view.game?.results ?? [])
+    if (r.artistKnown && r.artist)
+      byArtist.set(r.artist, [...(byArtist.get(r.artist) ?? []), r.value]);
+  const lines = [...byArtist].filter(([, values]) => values.length === 1);
+  if (!lines.length) return null;
+  return (
+    <ul
+      className="flex flex-col gap-0.5 rounded-lg bg-page px-2 py-1.5 text-xs dark:bg-stone-900"
+      data-testid="go-pairs"
+    >
+      {lines.map(([artist, [value]]) => (
+        <li key={artist}>
+          <b>{artist === you ? 'You' : name(artist)}</b>: one sold, worth {money(value!)} → the
+          other is worth <b>{money(PAIR_TOTAL - value!)}</b>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -537,23 +572,21 @@ export function Auction({
           />
         )}
         <div className="flex items-center justify-between gap-2">
-          <span className="relative rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line lg:hidden dark:bg-stone-800 dark:ring-stone-700">
+          <span
+            className={cn(
+              'relative rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+              art.ui('lot') && 'lg:hidden',
+            )}
+          >
             Lot {a.lot + 1}/{g.lotCount}
           </span>
           {/* Desktop and TV: the lot number on the wooden disc, when the manifest has it. */}
-          {art.ui('lot') ? (
+          {art.ui('lot') && (
             <span className="relative hidden size-16 items-end justify-center pb-3 lg:flex">
               <ProtectedImage src={art.ui('lot')!} alt="" className="absolute inset-0 size-full" />
-              <span
-                className="relative text-lg font-black text-stone-800"
-                aria-label={`Lot ${a.lot + 1} of ${g.lotCount}`}
-              >
+              <span className="relative text-lg font-black text-stone-800" aria-hidden>
                 {a.lot + 1}/{g.lotCount}
               </span>
-            </span>
-          ) : (
-            <span className="relative hidden rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line lg:inline dark:bg-stone-800 dark:ring-stone-700">
-              Lot {a.lot + 1}/{g.lotCount}
             </span>
           )}
           {own && (
@@ -601,7 +634,7 @@ export function Auction({
         )}
       </section>
       <section aria-label="Bidding" className="flex flex-col gap-3">
-        <Panel className="flex flex-col gap-3 p-3">
+        <Panel className="sticky bottom-2 z-10 flex flex-col gap-3 p-3 shadow-lg lg:static lg:shadow-none">
           <Money view={view} art={art} />
           <BidPanel view={view} room={room} act={act} art={art} name={name} />
         </Panel>

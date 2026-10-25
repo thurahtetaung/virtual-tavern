@@ -2,7 +2,6 @@ import {
   type Drawing,
   type GameRoomInfo,
   type GameUiProps,
-  storageKey,
   waitingFor,
   waitingForHost,
 } from '@vt/game-sdk';
@@ -21,7 +20,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import {
@@ -39,7 +38,7 @@ import type { Act } from './act.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
-import { GoingOnceStyles, HostStrip, HowTo, RackUp } from './Extras.tsx';
+import { Alerts, GoingOnceStyles, HostStrip, RackUp, ScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
 import { type NameOf, statusFor } from './text.ts';
 
@@ -108,15 +107,13 @@ export function GoingOnceGame({
               ends.
             </p>
           )}
-          {g.stage === 'draw' && <HowTo view={view} />}
+          <Alerts view={view} you={room.you} />
+          <ScrewBanner view={view} name={name} you={room.you} />
           {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
           {(g.stage === 'auction' || g.stage === 'sold') && (
             <>
               {g.stage === 'sold' && <SoldCard view={view} room={room} act={act} name={name} />}
               <Auction view={view} room={room} act={act} art={art} name={name} seen={seen} />
-              {g.auction?.lot === 0 && g.stage === 'auction' && g.firstGame && (
-                <FirstLotTips art={art} />
-              )}
             </>
           )}
           {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
@@ -127,58 +124,6 @@ export function GoingOnceGame({
         </>
       )}
     </div>
-  );
-}
-
-const TIPS_KEY = 'go.tips.v1';
-
-/** Tips for a newcomer's first lot, until dismissed (per seat in a playtest). */
-function FirstLotTips({ art }: { art: Art }) {
-  const [seen, setSeen] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey(TIPS_KEY)) === '1';
-    } catch {
-      return true;
-    }
-  });
-  if (seen) return null;
-  return (
-    <aside className="flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">Your first lot: how it works</p>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>
-          Open your <b>wish list</b>: three titles with their true values. If this picture looks
-          like one of them, you know what it’s worth.
-        </li>
-        <li>
-          Every artist’s two drawings add up to <b>$4,500</b>: one high, one low. Once one sells,
-          the other’s value is known.
-        </li>
-        <li>
-          Tap a bid button. After each bid there are a few quiet seconds, then “Going once”, “Going
-          twice”, Sold. Any bid restarts the clock.
-        </li>
-        <li>
-          The artist earns half the price. From half-time, your screw forces someone to bid; short
-          of cash, {fillNames('{bank}', art.names)} lends $1,000 for $1,500.
-        </li>
-      </ul>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => {
-          try {
-            localStorage.setItem(storageKey(TIPS_KEY), '1');
-          } catch {
-            // Storage blocked: the tips just close for now.
-          }
-          setSeen(true);
-        }}
-      >
-        Got it
-      </Button>
-    </aside>
   );
 }
 
@@ -403,16 +348,20 @@ function SoldCard({
   name: NameOf;
 }) {
   const r = view.game!.results.at(-1);
+  // The reveal in beats inside the Sold card's few seconds: stamp, price, value, profit, artist.
+  const beats = useBeats(r?.item ?? '', 5, 800, !!view.rig);
   if (!r) return null;
   const who = (id: string | null) => (id === room.you ? 'you' : name(id));
   const profit = r.value - r.price;
+  const beat = (n: number) =>
+    cn('transition-opacity duration-300', beats > n ? 'opacity-100' : 'opacity-0');
   return (
     <Panel
       className="flex flex-col items-center gap-1 text-center ring-2 ring-accent-line dark:ring-amber-500/50"
       role="status"
       data-testid="go-sold"
     >
-      <p className="text-2xl font-black tracking-tight">
+      <p className="text-2xl font-black tracking-tight motion-safe:animate-[go-rise_0.25s_ease-out]">
         {r.buyer ? (
           <>
             SOLD to <PlayerTag name={name(r.buyer)} you={r.buyer === room.you} />
@@ -421,23 +370,30 @@ function SoldCard({
           'Unsold'
         )}
       </p>
-      <p className="text-lg">
-        “<span className="font-semibold">{r.title}</span>”
-        {r.artistKnown && (
-          <span className="text-ink-muted dark:text-stone-400">
-            {' '}
-            {r.artist ? `by ${who(r.artist)}` : '· a house picture'}
-          </span>
-        )}
-      </p>
       {r.buyer ? (
         <>
-          <p>
-            Paid <b>{money(r.price)}</b> · Worth <b>{money(r.value)}</b>
+          <p className={beat(1)}>
+            Paid <b>{money(r.price)}</b>
+            <span className={beat(2)}>
+              {' '}
+              · Worth{' '}
+              <b
+                className={
+                  profit > 0
+                    ? 'text-success-ink dark:text-emerald-300'
+                    : profit < 0
+                      ? 'text-danger-ink dark:text-rose-300'
+                      : ''
+                }
+              >
+                {money(r.value)}
+              </b>
+            </span>
           </p>
           <p
             className={cn(
               'font-bold',
+              beat(3),
               profit > 0
                 ? 'text-success-ink dark:text-emerald-300'
                 : profit < 0
@@ -451,20 +407,34 @@ function SoldCard({
                 ? `LOSS ${money(-profit)}`
                 : 'BROKE EVEN'}
           </p>
+          <p className={cn('text-lg', beat(4))}>
+            “<span className="font-semibold">{r.title}</span>”
+            {r.artistKnown && (
+              <span className="text-ink-muted dark:text-stone-400">
+                {' '}
+                {r.artist ? `by ${who(r.artist)}` : '· a house picture'}
+              </span>
+            )}
+          </p>
           {r.commission > 0 && r.artist && (
-            <p className="text-sm text-ink-muted dark:text-stone-400">
+            <p className={cn('text-sm text-ink-muted dark:text-stone-400', beat(4))}>
               {r.artist === room.you ? 'You earn' : `${name(r.artist)} earns`} {money(r.commission)}{' '}
-              commission
+              commission 🎨
             </p>
           )}
           {r.screwedBy && (
-            <p className="text-sm text-ink-muted dark:text-stone-400">
+            <p className={cn('text-sm text-ink-muted dark:text-stone-400', beat(1))}>
               🔩 A forced buy, thanks to {who(r.screwedBy)}
             </p>
           )}
         </>
       ) : (
-        <p>Unsold – it was worth {money(r.value)}</p>
+        <>
+          <p className={beat(1)}>Unsold – it was worth {money(r.value)}</p>
+          <p className={cn('text-lg', beat(2))}>
+            “<span className="font-semibold">{r.title}</span>”
+          </p>
+        </>
       )}
       {room.isHost && (
         <Button variant="ghost" size="sm" onClick={() => void act({ type: 'skip' })}>
@@ -685,6 +655,17 @@ function End({
                     `Unsold · worth ${money(r.value)}`
                   )}
                 </span>
+                {(g.knew?.by[r.item]?.length ?? 0) > 0 && (
+                  <span
+                    className="text-xs text-ink-muted dark:text-stone-400"
+                    data-testid="go-knew"
+                  >
+                    📜 Knew it:{' '}
+                    {g
+                      .knew!.by[r.item]!.map((id) => (id === room.you ? 'you' : name(id)))
+                      .join(', ')}
+                  </span>
+                )}
               </li>
             );
           })}

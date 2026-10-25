@@ -2,6 +2,7 @@ import type { GameRoomInfo } from '@vt/game-sdk';
 import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag } from '@vt/ui';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
+import { HowTo } from './Extras.tsx';
 
 /** How long before the drawing clock ends a pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
@@ -57,6 +58,8 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
       ) : (
         <Panel className="flex flex-col gap-3">
           <p className="font-semibold">Thanks for the drawings!</p>
+          {/* Off the clock: the room's first game explains the auction while the others draw. */}
+          <HowTo view={view} />
           <div className="grid grid-cols-2 gap-3">
             {mine.prompts.map((p) => (
               <figure key={p.item} className="flex flex-col gap-1">

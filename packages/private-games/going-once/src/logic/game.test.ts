@@ -37,7 +37,7 @@ describe('lobby', () => {
   it('lets the host set the drawing time and pace', () => {
     const h = harness(3);
     h.act(HOST, { type: 'update-settings', drawSeconds: 60, pace: 'fast' });
-    expect(h.state.settings).toEqual({ drawSeconds: 60, pace: 'fast' });
+    expect(h.state.settings).toEqual({ drawSeconds: 60, pace: 'fast', paceChosen: true });
     expect(h.refuse('p2', { type: 'update-settings', pace: 'relaxed' }).code).toBe('not-host');
   });
 
@@ -709,5 +709,18 @@ describe('the host', () => {
     }
     const line = game(h).host!.lines[0]!;
     expect(line).toMatch(/^P\d, you are very quiet\.$/);
+  });
+});
+
+describe('the default pace', () => {
+  it('is Fast at 3 players and Normal otherwise, until the host picks one', () => {
+    expect(harness(3).state.settings.pace).toBe('fast');
+    expect(harness(4).state.settings.pace).toBe('normal');
+    const h = harness(4);
+    h.state = goingOnce.playerLeft(h.state, 'p4', h.now);
+    expect(h.state.settings.pace).toBe('fast');
+    h.act(HOST, { type: 'update-settings', pace: 'relaxed' });
+    h.state = goingOnce.playerJoined(h.state, { id: 'p9', name: 'P9' });
+    expect(h.state.settings.pace).toBe('relaxed');
   });
 });

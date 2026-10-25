@@ -49,7 +49,7 @@ function perturb(state: GoingOnceState, viewer: PlayerId | null): GoingOnceState
     }
     p.bankCalls = 3 - p.bankCalls;
     p.bids += 5;
-    p.wish = p.wish.map((w) => ({ ...w, title: 'Nope', value: 1 }));
+    if (!over) p.wish = p.wish.map((w) => ({ ...w, title: 'Nope', value: 1 }));
     p.messages = p.messages.map((m) => ({ ...m, text: 'Hidden', kind: 'filler', value: 99 }));
     p.sent = [];
     p.pending = [];
@@ -127,6 +127,23 @@ describe('view', () => {
       expect(v.game!.auction!.picture.drawing).toEqual(item.drawing);
       expect(JSON.stringify(v.game!.auction)).not.toContain(item.title);
       expect(v.game!.results).toEqual([]);
+    }
+  });
+
+  it('reveals who knew what only at the end', () => {
+    const h = auctioning(3, 2);
+    expect(goingOnce.view(h.state, 'p1').game!.knew).toBeNull();
+    while (h.state.phase !== 'over') {
+      hammer(h);
+      nextLot(h);
+    }
+    const knew = goingOnce.view(h.state, null).game!.knew!;
+    const g = h.state.game!;
+    for (const id of g.order) {
+      expect(knew.lists[id]).toEqual(
+        g.players[id]!.wish.map((w) => ({ title: w.title, value: w.value })),
+      );
+      for (const w of g.players[id]!.wish) expect(knew.by[w.item]).toContain(id);
     }
   });
 
