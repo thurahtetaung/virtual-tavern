@@ -38,6 +38,8 @@ import {
   type SoundMode,
 } from '../logic/types.ts';
 import type { Act } from './act.ts';
+import { soundModeIn } from './audio.ts';
+import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
@@ -65,6 +67,7 @@ export function GoingOnceGame({
   setYourMove,
   setSpectator,
   setAbandon,
+  profile = 'phone-full',
 }: GoingOnceUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
@@ -104,6 +107,7 @@ export function GoingOnceGame({
     clockOffset: room.clockOffset,
     device,
     colours: room.players.flatMap((p) => (p.color ? [p.color] : [])),
+    stagePresent: room.stage?.present === true,
   });
   // Seen here so the gallery keeps drawings from lots this tab watched.
   const seen = useSeenDrawings(view);
@@ -114,53 +118,66 @@ export function GoingOnceGame({
   );
   const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
 
+  const quiet = profile === 'phone-quiet';
   return (
-    <div
-      className={cn(
-        'mx-auto flex w-full flex-col gap-3',
-        wide ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl',
-      )}
-    >
-      {view.phase === 'lobby' || !g ? (
-        <Lobby view={view} room={room} act={act} showGuide={showGuide} sound={sound} />
-      ) : (
-        <>
-          <GoingOnceStyles />
-          <div className="flex items-start gap-1">
-            <div className="min-w-0 flex-1">
-              <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+    <PhoneShow view={view} you={room.you} clockOffset={room.clockOffset} profile={profile}>
+      <div
+        className={cn(
+          'mx-auto flex w-full flex-col gap-3',
+          wide ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl',
+        )}
+      >
+        {view.phase === 'lobby' || !g ? (
+          <Lobby view={view} room={room} act={act} showGuide={showGuide} sound={sound} />
+        ) : (
+          <>
+            <GoingOnceStyles />
+            <div className="flex items-start gap-1">
+              <div className="min-w-0 flex-1">
+                <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+              </div>
+              {sound}
             </div>
-            {sound}
-          </div>
-          <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
-          {g.stage === 'draw' && g.redraw && (
-            <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
-              Nobody drew anything, so here are new titles. If nobody draws this time, the game
-              ends.
-            </p>
-          )}
-          <Alerts view={view} you={room.you} />
-          <ScrewBanner view={view} name={name} you={room.you} />
-          {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
-          {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
-          {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
-          {g.stage === 'practice' && g.practice && (
-            <Practice view={view} room={room} act={act} art={art} name={name} />
-          )}
-          {(g.stage === 'auction' || g.stage === 'sold') && (
-            <>
-              {g.stage === 'sold' && <SoldCard view={view} room={room} act={act} name={name} />}
-              <Auction view={view} room={room} act={act} art={art} name={name} seen={seen} />
-            </>
-          )}
-          {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
-          {g.stage === 'bank' && <Bank view={view} room={room} act={act} art={art} />}
-          {g.stage === 'done' && (
-            <End view={view} room={room} act={act} art={art} name={name} seen={seen} />
-          )}
-        </>
-      )}
-    </div>
+            <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
+            {g.stage === 'draw' && g.redraw && (
+              <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
+                Nobody drew anything, so here are new titles. If nobody draws this time, the game
+                ends.
+              </p>
+            )}
+            <Alerts view={view} you={room.you} />
+            <ScrewBanner view={view} name={name} you={room.you} />
+            {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
+            {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
+            {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
+            {g.stage === 'practice' && g.practice && (
+              <Practice view={view} room={room} act={act} art={art} name={name} />
+            )}
+            {(g.stage === 'auction' || g.stage === 'sold') && (
+              <>
+                {g.stage === 'sold' && (
+                  <SoldCard view={view} room={room} act={act} name={name} quiet={quiet} />
+                )}
+                <Auction
+                  view={view}
+                  room={room}
+                  act={act}
+                  art={art}
+                  name={name}
+                  seen={seen}
+                  quiet={quiet}
+                />
+              </>
+            )}
+            {g.stage === 'halftime' && <Halftime view={view} room={room} act={act} />}
+            {g.stage === 'bank' && <Bank view={view} room={room} act={act} art={art} />}
+            {g.stage === 'done' && (
+              <End view={view} room={room} act={act} art={art} name={name} seen={seen} />
+            )}
+          </>
+        )}
+      </div>
+    </PhoneShow>
   );
 }
 
@@ -219,6 +236,7 @@ const SOUND_NAME: Record<SoundMode, string> = {
   off: 'Off',
   host: 'Host’s device',
   all: 'Every device',
+  stage: 'Table screen',
 };
 
 /** Who hears what, for each sound choice. */
@@ -226,6 +244,8 @@ const SOUND_HELP: Record<SoundMode, string> = {
   off: 'No device makes a sound.',
   host: 'Only the host’s device plays the sound: put it in the middle of the table. Hint rings still buzz on each player’s own device.',
   all: 'Every device plays the same sounds at the same moment, so each bid’s yelp goes round the table.',
+  stage:
+    'The table screen plays the music, the voice and every bid’s yelp; phones only ring for their own tips.',
 };
 
 function Lobby({
@@ -246,6 +266,9 @@ function Lobby({
   const me = view.me;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const noContent = view.groupsAvailable < 2;
+  const stagePresent = room.stage?.present === true;
+  // The sound the room will play (a paired table screen takes it until the host picks one).
+  const soundNow = soundModeIn(view.settings, stagePresent);
   // With the auctioneer's voice on, his lines and chants time the auction instead of the pace.
   const voiceSetsPace = view.settings.voice && view.settings.sound !== 'off';
   const blocker =
@@ -329,9 +352,9 @@ function Lobby({
         summary={[
           `${view.settings.drawSeconds} s to draw`,
           voiceSetsPace ? 'the auctioneer’s pace' : `${PACE_NAME[view.settings.pace]} pace`,
-          view.settings.sound === 'off'
+          soundNow === 'off'
             ? 'sound off'
-            : `sound: ${SOUND_NAME[view.settings.sound].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
+            : `sound: ${SOUND_NAME[soundNow].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
           ...(view.gamesPlayed === 0 && view.settings.practice ? ['practice lot'] : []),
         ]}
         className="space-y-4"
@@ -374,17 +397,17 @@ function Lobby({
         <div className="flex flex-col gap-2" data-testid="go-sound-settings">
           <Segmented
             label="Sound"
-            values={SOUND_MODES}
-            value={view.settings.sound}
+            values={SOUND_MODES.filter(
+              (m) => m !== 'stage' || stagePresent || soundNow === 'stage',
+            )}
+            value={soundNow}
             format={(v) => SOUND_NAME[v]}
             editable={room.isHost}
             onChange={(v) =>
               void act({ type: 'update-settings', sound: v }, { anchor: 'go-lobby' })
             }
           />
-          <p className="text-xs text-ink-muted dark:text-stone-400">
-            {SOUND_HELP[view.settings.sound]}
-          </p>
+          <p className="text-xs text-ink-muted dark:text-stone-400">{SOUND_HELP[soundNow]}</p>
           <div className="grid gap-2 sm:grid-cols-3">
             <Switch
               on={view.settings.music}
@@ -479,11 +502,14 @@ function SoldCard({
   room,
   act,
   name,
+  quiet = false,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   act: Act;
   name: NameOf;
+  /** A table screen shows the reveal: only the headline and this player's own money here. */
+  quiet?: boolean;
 }) {
   const r = view.game!.results.at(-1);
   // The reveal in beats inside the Sold card's few seconds: stamp, price, value, profit, artist.
@@ -510,41 +536,45 @@ function SoldCard({
       </p>
       {r.buyer ? (
         <>
-          <p className={beat(1)}>
-            Paid <b>{money(r.price)}</b>
-            <span className={beat(2)}>
-              {' '}
-              · Worth{' '}
-              <b
-                className={
+          {(!quiet || r.buyer === room.you) && (
+            <>
+              <p className={beat(1)}>
+                Paid <b>{money(r.price)}</b>
+                <span className={beat(2)}>
+                  {' '}
+                  · Worth{' '}
+                  <b
+                    className={
+                      profit > 0
+                        ? 'text-success-ink dark:text-emerald-300'
+                        : profit < 0
+                          ? 'text-danger-ink dark:text-rose-300'
+                          : ''
+                    }
+                  >
+                    {money(r.value)}
+                  </b>
+                </span>
+              </p>
+              <p
+                className={cn(
+                  'font-bold',
+                  beat(3),
                   profit > 0
                     ? 'text-success-ink dark:text-emerald-300'
                     : profit < 0
                       ? 'text-danger-ink dark:text-rose-300'
-                      : ''
-                }
+                      : '',
+                )}
               >
-                {money(r.value)}
-              </b>
-            </span>
-          </p>
-          <p
-            className={cn(
-              'font-bold',
-              beat(3),
-              profit > 0
-                ? 'text-success-ink dark:text-emerald-300'
-                : profit < 0
-                  ? 'text-danger-ink dark:text-rose-300'
-                  : '',
-            )}
-          >
-            {profit > 0
-              ? `PROFIT ${money(profit)}`
-              : profit < 0
-                ? `LOSS ${money(-profit)}`
-                : 'BROKE EVEN'}
-          </p>
+                {profit > 0
+                  ? `PROFIT ${money(profit)}`
+                  : profit < 0
+                    ? `LOSS ${money(-profit)}`
+                    : 'BROKE EVEN'}
+              </p>
+            </>
+          )}
           <p className={cn('text-lg', beat(4))}>
             “<span className="font-semibold">{r.title}</span>”
             {r.artistKnown && (
@@ -554,7 +584,7 @@ function SoldCard({
               </span>
             )}
           </p>
-          {r.commission > 0 && r.artist && (
+          {r.commission > 0 && r.artist && (!quiet || r.artist === room.you) && (
             <p className={cn('text-sm text-ink-muted dark:text-stone-400', beat(4))}>
               {r.artist === room.you ? 'You earn' : `${name(r.artist)} earns`} {money(r.commission)}{' '}
               commission 🎨

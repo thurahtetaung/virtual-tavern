@@ -206,6 +206,19 @@ describe('reduced motion and cancelling', () => {
     expect(els.slab!.attrs['data-tone']).toBeUndefined();
   });
 
+  it('settle leaves what is to come at its end, with no sound or buzz', () => {
+    const p = play(sold(now), env());
+    now += 100;
+    p.settle();
+    expect(els.stamp!.anims[0]!.playState).toBe('idle');
+    expect(els.stamp!.style.transform).toBe('matrix(2,0,0,2,5,5)');
+    expect(els.slab!.attrs['data-tone']).toBe('good');
+    expect(els.word!.textContent).toBe('$2,000');
+    vi.advanceTimersByTime(5000);
+    expect(sounds).toEqual([['sold', 0]]);
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
   it('pause and finish reach every animation (a hidden page and its return)', () => {
     const p = play(sold(now), env());
     p.pause();

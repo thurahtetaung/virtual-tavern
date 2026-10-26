@@ -23,6 +23,7 @@ import {
   STALE_MS,
   cuePlays,
   deviceSounds,
+  soundModeIn,
   dueCues,
   effectCues,
   endTimes,
@@ -72,6 +73,25 @@ describe('who plays what', () => {
     expect(cuePlays(said, { ...host, voice: false })).toBe(false);
     expect(cuePlays(bell, { ...host, effects: false })).toBe(false);
     expect(cuePlays(ring, { ...guest, mode: 'off' })).toBe(false);
+  });
+
+  it('gives a paired table screen the sound until the host picks one, phones keeping their rings', () => {
+    const fresh = { sound: 'all' as const };
+    expect(soundModeIn(fresh, false)).toBe('all');
+    expect(soundModeIn(fresh, true)).toBe('stage');
+    // The host's own pick stands, and "Table screen" without one plays on every device.
+    expect(soundModeIn({ sound: 'host', soundChosen: true }, true)).toBe('host');
+    expect(soundModeIn({ sound: 'stage', soundChosen: true }, false)).toBe('all');
+    expect(deviceSounds('stage', true)).toBe(false);
+    expect(deviceSounds('stage', false, true)).toBe(true);
+    expect(deviceSounds('all', false, true)).toBe(true);
+    expect(deviceSounds('host', true, true)).toBe(false);
+    const ring: Cue = { id: 'r', at: 0, kind: 'sfx', key: 'message', local: true };
+    const yelp: Cue = { id: 'y', at: 0, kind: 'sfx', key: 'bidder-voice' };
+    const phone = { mode: 'stage' as const, isHost: true, effects: true, voice: true };
+    expect(cuePlays(ring, phone)).toBe(true);
+    expect(cuePlays(yelp, phone)).toBe(false);
+    expect(cuePlays(yelp, { ...phone, isStage: true })).toBe(true);
   });
 
   it('ducks the music under the voice', () => {
@@ -495,8 +515,10 @@ describe('fetching ahead', () => {
       's/ring-2.ogg',
     ]);
     expect(startupClips(undefined, ['red'], all)).toEqual([]);
-    // A device that only rings fetches its rings.
-    expect(ringClips(audio)).toEqual(['s/ring-1.ogg', 's/ring-2.ogg']);
+    // A device that only rings fetches its own art buyer's ring ahead.
+    expect(ringClips(audio, 'buyer1')).toEqual(['s/ring-2.ogg']);
+    expect(ringClips(audio, 'buyer2')).toEqual(['s/ring-1.ogg']);
+    expect(ringClips(audio, undefined)).toEqual([]);
   });
 
   /** A voiced game at its first lot (the intro skipped, everything drawn). */

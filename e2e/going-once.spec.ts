@@ -8,9 +8,10 @@ import {
   drawWithMouse,
   importPacks,
   lotIs,
+  madeUpShow,
   table,
 } from './going-once-play.ts';
-import { pageErrors } from './tavern-brawl-play.ts';
+import { pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // A whole Going Once game on phones: drawings, a contested lot, the bank, a screw and the end,
 // on the rigged deal (`going-once-play.ts`). The title groups are made up and deleted afterwards.
@@ -161,4 +162,69 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     );
   // Ben: $1,800 − $400 = $1,400 cash, two drawings worth $3,500 + $1,000, $1,500 debt.
   await expect(ben.getByText('cash $1,400 + art $4,500 − debt $1,500')).toBeVisible();
+});
+
+test('a table screen shows the auction while the phones go quiet', async ({ browser }) => {
+  test.setTimeout(180_000);
+  cleanup.push(await importPacks(browser));
+  const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], PHONE)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  const all = [hana, ben, cleo];
+
+  // The host pairs a TV from the Players drawer.
+  await hana.getByRole('button', { name: /^Players/ }).click();
+  const panel = hana
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('region', { name: /Table screen/ });
+  await panel.getByRole('button', { name: 'Show a pairing code' }).click();
+  const code = (await panel.getByTestId('stage-code').textContent())!;
+  await hana.keyboard.press('Escape');
+  const tv = await visitor(browser, 'TV', {
+    viewport: { width: 1280, height: 720 },
+    setup: madeUpShow,
+  });
+  await tv.goto('/stage');
+  await tv.getByLabel('Pairing code').fill(code);
+  await tv.getByRole('button', { name: 'Pair this screen' }).click();
+  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  const stage = tv.getByTestId('go-stage');
+  await expect(stage).toHaveAttribute('data-phase', 'lobby');
+
+  // With a table screen in the room, the sound goes to it until the host picks otherwise.
+  await expect(hana.getByRole('radio', { name: 'Table screen' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await hana.getByTestId('go-start').click();
+  await expect(stage).toHaveAttribute('data-phase', 'draw');
+  for (const [seat, p] of all.entries()) {
+    for (const title of TITLES[seat]!) {
+      await expect(p.getByTestId('go-title')).toHaveText(title);
+      await drawWithMouse(p);
+      await p.getByTestId('drawing-send').click();
+    }
+  }
+  await cleo.getByTestId('go-skip-practice').click();
+
+  // Lot 1 on the TV; on the phones only a thumbnail with a nudge to look up.
+  await expect(stage).toHaveAttribute('data-phase', 'auction');
+  for (const p of all) await lotIs(p, 1);
+  for (const p of all) {
+    await expect(p.getByTestId('go-thumb')).toContainText('Look up');
+    await expect(p.getByTestId('go-thumb').getByRole('img')).toBeVisible();
+  }
+  await bid(ben, 400);
+  await bid(cleo, 500);
+  await bid(ben, 600);
+  await expect(stage.getByText('Current bid')).toBeVisible();
+
+  // Sold: the TV's stamp turned to the value, toned for a profit (Hana's Apple is worth
+  // $3,500); the room keeps the mark after the Sold card (the bank opens next).
+  await expect(ben.getByTestId('go-bank')).toBeVisible({ timeout: 30_000 });
+  await expect(stage).toHaveAttribute('data-sold', '0:good');
+  // The phones stayed quiet: no full-size picture, only their own bank sheet.
+  for (const p of all) await expect(p.getByTestId('go-bank')).toBeVisible();
 });

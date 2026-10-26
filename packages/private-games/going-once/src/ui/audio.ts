@@ -68,9 +68,23 @@ export interface Cue {
   local?: boolean;
 }
 
-/** Whether this device plays the room's sound: the host's choice. */
-export function deviceSounds(mode: SoundMode, isHost: boolean): boolean {
-  return mode === 'all' || (mode === 'host' && isHost);
+/**
+ * The sound the room plays: the host's choice, except that a paired table screen takes the sound
+ * until the host picks one, and "Table screen" without one plays on every device.
+ */
+export function soundModeIn(
+  settings: { sound: SoundMode; soundChosen?: boolean },
+  stagePresent: boolean,
+): SoundMode {
+  if (stagePresent && !settings.soundChosen) return 'stage';
+  if (settings.sound === 'stage' && !stagePresent) return 'all';
+  return settings.sound;
+}
+
+/** Whether this device plays the room's sound (`isStage`: it is the table screen). */
+export function deviceSounds(mode: SoundMode, isHost: boolean, isStage = false): boolean {
+  if (mode === 'stage') return isStage;
+  return mode === 'all' || (mode === 'host' && isHost && !isStage);
 }
 
 /** The music a moment plays: a key of the manifest's `music` and which of its tracks. */
@@ -520,12 +534,13 @@ export const voiceBusy = (saying: boolean, queue: readonly VoiceClip[], now: num
 /** Whether this device plays a cue: local rings always (unless sound is off), the rest as chosen. */
 export function cuePlays(
   cue: Cue,
-  opts: { mode: SoundMode; isHost: boolean; effects: boolean; voice: boolean },
+  opts: { mode: SoundMode; isHost: boolean; effects: boolean; voice: boolean; isStage?: boolean },
 ): boolean {
   if (opts.mode === 'off') return false;
-  if (cue.kind === 'voice') return opts.voice && deviceSounds(opts.mode, opts.isHost);
+  const shared = deviceSounds(opts.mode, opts.isHost, opts.isStage);
+  if (cue.kind === 'voice') return opts.voice && shared;
   if (!opts.effects) return false;
-  return cue.local === true || deviceSounds(opts.mode, opts.isHost);
+  return cue.local === true || shared;
 }
 
 /**
@@ -580,8 +595,14 @@ export function startupClips(
   return [...new Set([...effects, ...voice].filter((p) => typeof p === 'string' && p))];
 }
 
-/** The rings of this player's own tips: all a device that only rings fetches. */
-export const ringClips = (audio: AudioManifest | undefined) => audio?.sfx?.message ?? [];
+/**
+ * What a device that only rings fetches ahead: the ring of this player's own art buyer, who sends
+ * most of their tips (a tip from the bank, the dog or a wrong number loads its ring when it comes).
+ */
+export const ringClips = (audio: AudioManifest | undefined, contact: Sender | undefined) => {
+  const ring = contact ? clipOf(audio?.sfx, 'message', RING[contact]) : null;
+  return ring ? [ring] : [];
+};
 
 /** The chant key the server says after a bid of `amount` (its long version is `chant-long-…`). */
 const chantTag = (amount: number) => (amount <= 4000 ? String(amount) : 'high');

@@ -50,6 +50,14 @@ describe('lobby', () => {
     expect(h.refuse('p2', { type: 'update-settings', pace: 'relaxed' }).code).toBe('not-host');
   });
 
+  it('notes when the host picks the sound, so a table screen no longer takes it', () => {
+    const h = harness(3);
+    expect(h.state.settings.soundChosen).toBeUndefined();
+    h.act(HOST, { type: 'update-settings', sound: 'stage' });
+    expect(h.state.settings).toMatchObject({ sound: 'stage', soundChosen: true });
+    expect(goingOnce.view(h.state, 'p2').settings).toMatchObject({ soundChosen: true });
+  });
+
   it('refuses the test rig unless the server allows it', () => {
     const h = harness(3);
     expect(h.refuse(HOST, { type: 'rig', scale: 0.5, fixed: true }).code).toBe('no-rig');

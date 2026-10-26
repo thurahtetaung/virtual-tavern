@@ -3,6 +3,7 @@ import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag } from '@vt/ui';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
+import { PadFrame, RigIcon } from './PhoneShow.tsx';
 
 /** How long before the drawing clock ends a pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
@@ -34,23 +35,28 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
               {index + 1} of {mine.prompts.length}
             </span>
           </div>
-          <DrawingPad
-            key={todo.item}
-            draftKey={`go.draft.${todo.item}`}
-            sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
-            onSubmit={(drawing) =>
-              act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
-            }
-            submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
-            footer={
-              <Countdown
-                deadline={deadline}
-                clockOffset={room.clockOffset}
-                label="for both"
-                atZero="whatever is drawn is sent"
-              />
-            }
-          />
+          <PadFrame>
+            <DrawingPad
+              key={todo.item}
+              draftKey={`go.draft.${todo.item}`}
+              sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
+              onSubmit={(drawing) =>
+                act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
+              }
+              submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
+              footer={
+                <span className="flex items-center gap-1.5">
+                  <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
+                  <Countdown
+                    deadline={deadline}
+                    clockOffset={room.clockOffset}
+                    label="for both"
+                    atZero="whatever is drawn is sent"
+                  />
+                </span>
+              }
+            />
+          </PadFrame>
           <p className="text-xs text-ink-muted dark:text-stone-400">
             Others drew lookalike titles: keep it simple. Nobody sees your title until it sells.
           </p>

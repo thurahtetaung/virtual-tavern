@@ -26,6 +26,7 @@ import {
   ownCues,
   ringClips,
   shiftLine,
+  soundModeIn,
   startupClips,
   voiceBusy,
   voiceClipOf,
@@ -83,9 +84,14 @@ export function useDeviceSound(): [DeviceSound, (next: Partial<DeviceSound>) => 
  * The first tap or key press starts the audio (inside the event, as phones require); later ones
  * restart it if the phone suspended it.
  */
-function useGesture(): boolean {
+function useGesture(auto: boolean): boolean {
   const [unlocked, setUnlocked] = useState(() => soundEngine().ready);
   useEffect(() => {
+    // The table screen was started with a tap on its pairing page: the page may play from now on.
+    if (auto) {
+      soundEngine().unlock();
+      setUnlocked(soundEngine().ready);
+    }
     const on = () => {
       soundEngine().unlock();
       setUnlocked(soundEngine().ready);
@@ -95,7 +101,7 @@ function useGesture(): boolean {
     return () => {
       for (const e of events) window.removeEventListener(e, on, { capture: true });
     };
-  }, []);
+  }, [auto]);
   return unlocked;
 }
 
@@ -116,6 +122,8 @@ export function useSound({
   clockOffset,
   device,
   colours,
+  stagePresent = false,
+  isStage = false,
 }: {
   view: GoingOnceView;
   manifest: ManifestState;
@@ -125,11 +133,16 @@ export function useSound({
   device: DeviceSound;
   /** The room's player colours: lines said to a player are fetched only for these. */
   colours: readonly string[];
+  /** A table screen is paired in the room. */
+  stagePresent?: boolean;
+  /** This device is the table screen. */
+  isStage?: boolean;
 }): void {
-  const unlocked = useGesture();
+  const unlocked = useGesture(isStage);
   const audio: AudioManifest | undefined =
     manifest && manifest !== 'unavailable' ? manifest.audio : undefined;
-  const { sound: mode, music, effects, voice } = view.settings;
+  const { music, effects, voice } = view.settings;
+  const mode = soundModeIn(view.settings, stagePresent);
   const on = unlocked && !device.muted && mode !== 'off' && !!audio;
   const played = useRef(new Set<string>());
   const [speaking, setSpeaking] = useState(false);
@@ -158,19 +171,20 @@ export function useSound({
   // Once a game starts (the host has set the sound by then), a device that plays the room's sound
   // fetches what the game will say in the background (a device that only rings, its rings), and
   // keeps the instant effects decoded.
-  const shared = on && deviceSounds(mode, isHost);
+  const shared = on && deviceSounds(mode, isHost, isStage);
   const seated = colours.join(',');
   const playing = view.phase !== 'lobby';
+  const contact = view.mine?.contact;
   useEffect(() => {
     if (!on || !playing) return;
     const engine = soundEngine();
     if (!shared) {
-      if (effects) engine.prefetch(ringClips(audio));
+      if (effects) engine.prefetch(ringClips(audio, contact));
       return;
     }
     engine.prefetch(startupClips(audio, seated.split(','), { effects, voice }));
     if (effects) engine.pin(INSTANT_EFFECTS.flatMap((k) => audio?.sfx?.[k] ?? []));
-  }, [on, playing, shared, effects, voice, audio, seated]);
+  }, [on, playing, shared, effects, voice, audio, seated, contact]);
 
   // The chants for the next likely bids, and the music now and next.
   useEffect(() => {
@@ -260,7 +274,7 @@ export function useSound({
   // Effects and the voice: due cues play once, where this device plays them.
   useEffect(() => {
     if (!on) return;
-    const opts = { mode, isHost, effects, voice };
+    const opts = { mode, isHost, effects, voice, isStage };
     const engine = soundEngine();
     const check = () => {
       const now = Date.now() + clockOffset;
@@ -268,7 +282,7 @@ export function useSound({
       const id = line[0]?.line;
       if (id && !lines.current.has(id)) {
         lines.current.add(id);
-        if (voice && deviceSounds(mode, isHost)) hear(line);
+        if (voice && deviceSounds(mode, isHost, isStage)) hear(line);
       }
       const cues = [...effectCues(view, you), ...own.current];
       for (const cue of cues) {
@@ -304,16 +318,30 @@ export function useSound({
     return () => {
       clearInterval(timer);
     };
-  }, [on, view, you, clockOffset, audio, mode, isHost, effects, voice, device.volume, hear, pump]);
+  }, [
+    on,
+    view,
+    you,
+    clockOffset,
+    audio,
+    mode,
+    isHost,
+    effects,
+    voice,
+    device.volume,
+    hear,
+    pump,
+    isStage,
+  ]);
 
   // A device that goes quiet stops talking at once.
   useEffect(() => {
-    if (on && voice && deviceSounds(mode, isHost)) return;
+    if (on && voice && deviceSounds(mode, isHost, isStage)) return;
     queue.current = [];
     saying.current?.handle?.cut(CUT_MS);
     saying.current = null;
     setSpeaking(false);
-  }, [on, voice, mode, isHost]);
+  }, [on, voice, mode, isHost, isStage]);
 
   // Music: the moment's track, crossfaded, ducked under the voice.
   // At the end the music follows the rack-up's beats, so it needs the time.
@@ -326,7 +354,7 @@ export function useSound({
   }, [ending]);
   const choice = musicFor(view, clock + clockOffset);
   const wanted =
-    on && music && deviceSounds(mode, isHost) && choice
+    on && music && deviceSounds(mode, isHost, isStage) && choice
       ? clipOf(audio?.music, choice.key, choice.pick)
       : null;
   const level = musicLevel(device.volume, speaking);

@@ -1081,6 +1081,7 @@ function updateSettings(
   }
   for (const key of ['sound', 'music', 'effects', 'voice', 'practice'] as const)
     if (action[key] !== undefined) Object.assign(s.settings, { [key]: action[key] });
+  if (action.sound !== undefined) s.settings.soundChosen = true;
   countGroups(s, ctx);
   return s;
 }
