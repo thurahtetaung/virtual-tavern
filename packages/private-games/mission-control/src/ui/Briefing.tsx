@@ -1,9 +1,29 @@
+import { Fragment } from 'react';
 import type { GameRoomInfo } from '@vt/game-sdk';
 import { Button, Countdown, Panel, PlayerTag } from '@vt/ui';
 import { type AttemptView, DUMMY, EPILOGUE, type MissionPlay } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
 import { MissionTags } from './Logbook.tsx';
 import { missionLabel } from './status.ts';
+
+/** Logbook text as printed: `**bold**` and `*italic*` only. */
+export function Printed({ text }: { text: string }) {
+  return (
+    <>
+      {text
+        .split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+        .map((part, i) =>
+          part.startsWith('**') ? (
+            <strong key={i}>{part.slice(2, -2)}</strong>
+          ) : part.startsWith('*') && part.length > 2 ? (
+            <em key={i}>{part.slice(1, -1)}</em>
+          ) : (
+            <Fragment key={i}>{part}</Fragment>
+          ),
+        )}
+    </>
+  );
+}
 
 /** A mission's title, story and rule: the pack's text, else the manifest's logbook entry. */
 export function useMissionText(m: MissionPlay) {
@@ -23,7 +43,11 @@ export function RuleBox({ a }: { a: AttemptView }) {
   const text = useMissionText(m);
   return (
     <div className="space-y-2 rounded-xl bg-info-soft p-3 text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      {text.rule && <p className="font-semibold">{art.say(text.rule)}</p>}
+      {text.rule && (
+        <p className="font-semibold">
+          <Printed text={art.say(text.rule)} />
+        </p>
+      )}
       <MissionTags
         comms={m.comms}
         selection={m.selection}
@@ -85,7 +109,9 @@ export function Briefing({
           <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">
             Logbook entry
           </summary>
-          <p className="whitespace-pre-line text-sm leading-relaxed italic">{text.story}</p>
+          <p className="whitespace-pre-line text-sm leading-relaxed">
+            <Printed text={text.story} />
+          </p>
         </details>
       )}
       <RuleBox a={a} />

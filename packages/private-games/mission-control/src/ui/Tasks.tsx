@@ -23,7 +23,7 @@ export function TaskChip({
   compact?: boolean;
 }) {
   const art = useArt();
-  const scan = art.task(task.key);
+  const scan = art.taskThumb(task.key);
   const tone =
     task.state === 'done'
       ? 'bg-success-soft text-success-ink ring-success-line dark:bg-emerald-500/10 dark:text-emerald-100 dark:ring-emerald-500/30'

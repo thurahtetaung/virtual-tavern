@@ -7,7 +7,7 @@ import {
   PLACEHOLDER_NAMES,
   artOf,
   asManifest,
-  clean,
+  cardKey,
   fillNames,
   namesOf,
   thumbOf,
@@ -35,6 +35,14 @@ export function useManifest(): Manifest | null {
 
 const path = (p: string | undefined) => (p ? assetUrl(p) : null);
 
+const TOKEN_KEYS = {
+  token: 'sonar-green',
+  used: 'sonar-red',
+  captain: 'captain',
+  distress: 'distress-up',
+  reminder: 'reminder',
+} as const;
+
 export interface Art {
   names: Names;
   /** Fills name tokens ({trump}, {captain}…). */
@@ -43,7 +51,9 @@ export interface Art {
   cardThumb: (id: string) => string | null;
   back: string | null;
   task: (key: string) => string | null;
+  taskThumb: (key: string) => string | null;
   token: (which: 'token' | 'used' | 'captain' | 'distress' | 'reminder') => string | null;
+  box: string | null;
   logbook: (n: number) => LogbookEntry | null;
 }
 
@@ -55,12 +65,23 @@ export function artFor(m: Manifest | null): Art {
   return {
     names,
     say: (text) => fillNames(text, names),
-    card: (id) => path(artOf(cards[id])),
-    cardThumb: (id) => path(thumbOf(cards[id]) ?? artOf(cards[id])),
-    back: path(clean(m?.back)),
+    card: (id) => path(artOf(cards[cardKey(id)] ?? cards[id])),
+    cardThumb: (id) => {
+      const ref = cards[cardKey(id)] ?? cards[id];
+      return path(thumbOf(ref) ?? artOf(ref));
+    },
+    back: path(artOf(m?.back)),
     // Task scans are keyed by the task's own id (the part after the pack id).
     task: (key) => path(artOf(tasks[key.split(':').at(-1)!])),
-    token: (which) => path(clean(m?.tokens?.[which])),
+    taskThumb: (key) => {
+      const ref = tasks[key.split(':').at(-1)!];
+      return path(thumbOf(ref) ?? artOf(ref));
+    },
+    token: (which) => {
+      const t = m?.tokens && typeof m.tokens === 'object' ? m.tokens : {};
+      return path(artOf(t[TOKEN_KEYS[which]] ?? t[which]));
+    },
+    box: path(artOf(m?.box)),
     logbook: (n) => {
       const e = logbook[n === 0 ? 'epilogue' : String(n)];
       return e && typeof e === 'object' ? e : null;

@@ -40,6 +40,7 @@ import {
   DUMMY,
   type DraftState,
   EPILOGUE,
+  HOLD_SECONDS,
   MAX_EMOTES,
   MAX_SEATED,
   MAX_USED_TASKS,
@@ -639,6 +640,7 @@ function begin(
     pool: comms === 'rapture' ? crew.length - 2 : 0,
     signals: [],
     holds: [],
+    holdSince: null,
     distress: {
       proposal: null,
       accepted: [],
@@ -985,7 +987,7 @@ function settle(a: Attempt): Attempt {
 }
 
 function end(a: Attempt, result: Result): Attempt {
-  return { ...a, stage: 'done', result, deadline: null, holds: [] };
+  return { ...a, stage: 'done', result, deadline: null, holds: [], holdSince: null };
 }
 
 /** Records a finished attempt in the campaign's logbook. */
@@ -1056,7 +1058,7 @@ function playCard(
       : a.dummy;
   const current = [...a.current, { by: seat, card: c }];
   const signals = a.signals.map((s) => (s.card === c ? { ...s, played: true } : s));
-  let next: Attempt = { ...a, hands, dummy, current, signals, holds: [] };
+  let next: Attempt = { ...a, hands, dummy, current, signals, holds: [], holdSince: null };
   if (current.length < a.crew.length) {
     next = { ...next, turn: nextSeat(a, seat) };
     return commit(state, settle(next), now);
@@ -1081,6 +1083,12 @@ function playCard(
   return commit(state, settle(next), now);
 }
 
+/** A player's hold lifted (the clock goes when nobody holds). */
+function dropHold(a: Attempt, by: string): Pick<Attempt, 'holds' | 'holdSince'> {
+  const holds = a.holds.filter((s) => s !== by);
+  return { holds, holdSince: holds.length ? a.holdSince : null };
+}
+
 // ---- Reduce ----
 
 export function reduce(
@@ -1096,7 +1104,10 @@ export function reduce(
       if (state.phase !== 'lobby' && !(state.attempt?.stage === 'done'))
         return err('in-play', 'Settings can change between attempts.');
       const s: Settings = { ...state.settings };
-      if (action.voyageKey !== undefined) s.voyageKey = action.voyageKey;
+      if (action.voyageKey !== undefined) {
+        if (state.phase !== 'lobby') return err('in-play', 'Change the campaign in the lobby.');
+        s.voyageKey = action.voyageKey;
+      }
       if (action.playedCards !== undefined) s.playedCards = action.playedCards;
       if (action.realTime !== undefined) s.realTime = action.realTime;
       if (action.openTable !== undefined) s.openTable = action.openTable;
@@ -1444,7 +1455,7 @@ export function reduce(
         ],
         tokens: a.comms === 'rapture' ? a.tokens : a.tokens.filter((s) => s !== by),
         pool: a.comms === 'rapture' ? a.pool - 1 : a.pool,
-        holds: a.holds.filter((s) => s !== by),
+        ...dropHold(a, by),
       });
     }
     case 'hold': {
@@ -1453,15 +1464,19 @@ export function reduce(
       if (action.on) {
         const block = signalBlock(a, by);
         if (block) return err('no-signal', block);
-        return withAttempt(state, { ...a, holds: [...new Set([...a.holds, by])] });
+        return withAttempt(state, {
+          ...a,
+          holds: [...new Set([...a.holds, by])],
+          holdSince: a.holdSince ?? ctx.now,
+        });
       }
-      return withAttempt(state, { ...a, holds: a.holds.filter((s) => s !== by) });
+      return withAttempt(state, { ...a, ...dropHold(a, by) });
     }
     case 'play': {
       if (a.stage !== 'play') return err('not-now', 'The dive hasn’t started.');
       if (controller(a, a.turn) !== by) return err('not-your-turn', 'Wait for your turn.');
       if (!a.current.length && a.holds.length)
-        return err('hold', 'Someone asked for a moment to signal. Wait for them.');
+        return err('hold', 'Someone asked for a moment to signal. Wait for them (20 s at most).');
       if (!playable(a, a.turn).includes(action.card))
         return err('no-card', 'That card isn’t in the hand.');
       if (!legalFor(a, a.turn).includes(action.card))
@@ -1478,15 +1493,20 @@ export function reduce(
 export function nextDeadline(state: MissionControlState): number | null {
   const a = state.attempt;
   if (!a || state.phase !== 'playing') return null;
-  if (a.stage === 'briefing' || a.stage === 'play') return a.deadline;
-  return null;
+  if (a.stage === 'briefing') return a.deadline;
+  if (a.stage !== 'play') return null;
+  const hold = a.holdSince === null ? null : a.holdSince + HOLD_SECONDS * 1000;
+  const due = [a.deadline, hold].filter((t): t is number => t !== null);
+  return due.length ? Math.min(...due) : null;
 }
 
 export function onDeadline(state: MissionControlState, now: number): MissionControlState {
   const a = state.attempt;
-  if (!a || a.deadline === null || now < a.deadline) return state;
-  if (a.stage === 'briefing') return withAttempt(state, enterDraft(a));
-  if (a.stage === 'play') {
+  if (!a) return state;
+  if (a.stage === 'briefing' && a.deadline !== null && now >= a.deadline)
+    return withAttempt(state, enterDraft(a));
+  if (a.stage !== 'play') return withAttempt(state, { ...a, deadline: null });
+  if (a.deadline !== null && now >= a.deadline) {
     const failed = end(a, {
       success: false,
       why: 'Time ran out.',
@@ -1496,7 +1516,10 @@ export function onDeadline(state: MissionControlState, now: number): MissionCont
     });
     return commit(state, failed, now);
   }
-  return withAttempt(state, { ...a, deadline: null });
+  // A request to wait for a signal lapses.
+  if (a.holdSince !== null && now >= a.holdSince + HOLD_SECONDS * 1000)
+    return withAttempt(state, { ...a, holds: [], holdSince: null });
+  return state;
 }
 
 export { COLOURS };

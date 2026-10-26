@@ -13,6 +13,8 @@ export const DUMMY = 'dummy';
 export const BRIEFING_SECONDS = 60;
 /** Task cards remembered as drawn, so new draws prefer fresh ones until the deck runs low. */
 export const MAX_USED_TASKS = 300;
+/** How long a request to wait for a signal holds the leader back. */
+export const HOLD_SECONDS = 20;
 /** Emotes kept (only after a trick). */
 export const MAX_EMOTES = 8;
 export const EMOTES = ['😬', '👍', '🙏', '🤞', '🎉', '😅'] as const;
@@ -206,6 +208,8 @@ export interface Attempt {
   signals: Signal[];
   /** Players asking the leader to wait while they signal. */
   holds: string[];
+  /** When the first of them asked (holds lapse after `HOLD_SECONDS`). */
+  holdSince: number | null;
   distress: Distress;
   tricks: Trick[];
   current: Play[];
@@ -376,6 +380,8 @@ export interface AttemptView {
   pool: number;
   signals: Signal[];
   holds: string[];
+  /** When the holds lapse (server clock), or null. */
+  holdUntil: number | null;
   distress: {
     proposal: Distress['proposal'];
     accepted: string[];

@@ -16,6 +16,7 @@ import {
   type AttemptView,
   DUMMY,
   type DraftView,
+  HOLD_SECONDS,
   type MissionControlState,
   type MissionControlView,
   type Role,
@@ -114,6 +115,7 @@ function attemptView(a: Attempt, viewer: PlayerId | null, playedCards: boolean):
     pool: a.pool,
     signals: a.signals,
     holds: a.holds,
+    holdUntil: a.holdSince === null ? null : a.holdSince + HOLD_SECONDS * 1000,
     distress: {
       proposal: a.distress.proposal,
       accepted: a.distress.accepted,

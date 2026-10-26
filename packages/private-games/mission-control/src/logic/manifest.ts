@@ -8,11 +8,11 @@ import type { GuideFooter } from '@vt/game-sdk';
  * {
  *   title,
  *   names: { trump, trumps, token, captain, dummy, distress, crew },
- *   cards: { "p3": "cards/p3.webp" | { art, thumb }, …, "t4": … },   // p b g y colours, t trumps
- *   back,
- *   tasks: { "<task id>": { art } },                                 // task card scans by id
- *   tokens: { token, used, captain, distress, reminder },
- *   box,
+ *   cards: { "pink-3": "cards/pink-3.webp" | { art, thumb }, …, "sub-4": … },  // or "p3", "t4"
+ *   back: "…" | { art, thumb },
+ *   tasks: { "<task id>": { art, thumb } },                                    // task card scans
+ *   tokens: { "sonar-green", "sonar-red", "captain", "distress-up", "distress-down", "reminder" },
+ *   box: "…" | { art, thumb },
  *   logbook: { "<mission n>": { title?, text?, rule? }, "epilogue": { … } },
  *   credit: "…" | { title, text, url, paragraphs: […], links: [{ label, href }] }
  * }
@@ -49,10 +49,10 @@ export interface Manifest {
   title?: string;
   names?: Partial<Names>;
   cards?: Record<string, ArtRef>;
-  back?: string;
+  back?: ArtRef;
   tasks?: Record<string, ArtRef>;
-  tokens?: Partial<Record<'token' | 'used' | 'captain' | 'distress' | 'reminder', string>>;
-  box?: string;
+  tokens?: Record<string, ArtRef>;
+  box?: ArtRef;
   logbook?: Record<string, LogbookEntry>;
   credit?:
     | string
@@ -92,6 +92,16 @@ export function fillNames(text: string, names: Names): string {
     return key === lower ? word : cap(word);
   });
 }
+
+/** A card's key in the manifest: "pink-3", "sub-4" (the plain id "p3" is read too). */
+const SUIT_KEYS: Record<string, string> = {
+  p: 'pink',
+  b: 'blue',
+  g: 'green',
+  y: 'yellow',
+  t: 'sub',
+};
+export const cardKey = (id: string) => `${SUIT_KEYS[id[0]!] ?? id[0]}-${id.slice(1)}`;
 
 /** The art path in an entry (a plain path, or `{ art }`). */
 export const artOf = (ref: ArtRef | undefined): string | undefined =>
