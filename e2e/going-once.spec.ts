@@ -122,8 +122,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
       .getByText('🔩 Cleo screwed Ben into bidding $400.'),
   ).toBeVisible();
 
-  // The rest go unsold, then the end: standings and the gallery on every phone.
-  for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 60_000 });
+  // The rest go unsold (each opens with its 2 s intro), then the end: standings and the gallery on
+  // every phone.
+  for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 120_000 });
   for (const p of all) {
     // The rack-up counts the money first.
     await expect(p.getByText('Final standings')).toBeVisible({ timeout: 15_000 });
