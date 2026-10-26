@@ -542,7 +542,7 @@ export const CityTile = memo(function CityTile({
         </>
       )}
       {met && (
-        <span className="absolute top-0.5 left-0.5 rounded-full bg-success px-1 text-[10px] font-black text-white dark:bg-emerald-500 dark:text-stone-950">
+        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line dark:bg-emerald-500 dark:text-stone-950 dark:ring-emerald-300">
           ✓
         </span>
       )}
