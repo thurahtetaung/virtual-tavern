@@ -980,7 +980,7 @@ function Reveal({
                   />
                 </span>
                 {/* The points under the pill (beside it they would leave the screen on the right). */}
-                <Layer m={[1, 0, 0, 1, 0, 64]}>
+                <Layer m={[1, 0, 0, 1, 40, 105]}>
                   <Ink name="artist.points" size={56} style={{ color: '#15803d' }} />
                 </Layer>
               </Layer>

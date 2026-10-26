@@ -169,16 +169,38 @@ for (const colorScheme of ['light', 'dark'] as const) {
         tv
           ? expect(tv.locator(`[data-face="${f}"]`).first()).toBeAttached({ timeout: 10_000 })
           : expect(ben.getByTestId('reveal-sequence')).toBeVisible();
+      // A number on the table screen once it can really be seen (every layer above it shown).
+      const shown = (text: string, count = 1) =>
+        tv
+          ? expect
+              .poll(
+                () =>
+                  tv.evaluate((t) => {
+                    const seen = (e: Element) => {
+                      let o = 1;
+                      for (let n: Element | null = e; n; n = n.parentElement)
+                        o *= Number(getComputedStyle(n).opacity);
+                      return o > 0.9;
+                    };
+                    return [...document.querySelectorAll('span,div')].filter(
+                      (e) => e.childElementCount === 0 && e.textContent === t && seen(e),
+                    ).length;
+                  }, text),
+                { timeout: 10_000, intervals: [50] },
+              )
+              .toBeGreaterThanOrEqual(count)
+          : Promise.resolve();
       await face('up');
       await hana.waitForTimeout(1000);
       await shot('07a-reveal-names', ben);
       await face('lie');
       await hana.waitForTimeout(300);
       await shot('07b-reveal-flip-lie', ben);
-      await hana.waitForTimeout(500);
+      await shown('+500');
       await shot('07c-reveal-fooler', cleo);
       await face('truth');
-      await hana.waitForTimeout(400);
+      // The finder's chip and the artist both get +1,000.
+      await shown('+1,000', 2);
       await shot('08-reveal-truth', cleo);
       if (process.env.SOUND_LOG) {
         const { writeFile } = await import('node:fs/promises');
@@ -198,9 +220,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await results(pages, 'purple elephant');
       // The board as the original's: the points gained pop up on the balloons, then the balloons
       // flip round to the score bars.
-      await hana.waitForTimeout(3600);
+      await shown('+1,500');
       await shot('09a-board-gains', ben);
-      await hana.waitForTimeout(4500);
+      await hana.waitForTimeout(5000);
       await shot('09b-board-scores', ben);
       const play = async (drawings: [number, string][]) => {
         for (const [artist, prompt] of drawings) {
