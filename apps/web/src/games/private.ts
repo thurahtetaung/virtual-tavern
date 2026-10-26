@@ -29,6 +29,7 @@ import {
   nameGuide as nameGoingOnceGuide,
 } from '@vt/private-going-once/guide';
 import { guide as sketchyGuide, nameGuide as nameSketchyGuide } from '@vt/private-sketchy/guide';
+import { guide as encoreGuide, nameGuide as nameEncoreGuide } from '@vt/private-encore/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -256,6 +257,16 @@ const games: ClientGame[] = [
     icon: '🧩',
     Component: lazyUi(() =>
       import('@vt/private-mosaic/ui').then((m) => ({ default: m.MosaicGame })),
+    ),
+  },
+  {
+    id: 'encore',
+    name: 'Encore',
+    guide: encoreGuide,
+    namedGuide: manifestGuide('encore', nameEncoreGuide),
+    icon: '🎪',
+    Component: lazyUi(() =>
+      import('@vt/private-encore/ui').then((m) => ({ default: m.EncoreGame })),
     ),
   },
 ];

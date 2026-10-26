@@ -153,6 +153,7 @@ describe('back room over HTTP', () => {
       'going-once',
       'sketchy',
       'mosaic',
+      'encore',
     ]);
   });
 

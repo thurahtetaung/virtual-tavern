@@ -94,6 +94,10 @@ import type { GameFigure } from '@vt/protocol';
 //              leftover, auto}, tiling {placed, points, penalty, perfect; recap: round, best,
 //              floor}, outcome {players, rounds, how, tiebreak; recap: shared, ranking, scores,
 //              rows, columns, colours, bonus}
+//   encore     show {size, kind, captured, double, withRecruited; recap: low, round, auto}, recruit
+//              {double, paid; recap: owner, round, auto}, round {how, players; recap: round,
+//              negative, ids, points, best, worst}, outcome {players, rounds; recap: shared,
+//              ranking, scores}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1834,6 +1838,112 @@ function mosaicFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function encoreCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 5) out.push([`f.n.${n}`, 1]);
+      break;
+    }
+    case 'show': {
+      out.push(['f.shows', 1]);
+      const size = num(props.size) ?? 0;
+      out.push([`f.show.${size >= 4 ? '4' : size >= 1 ? String(size) : '1'}`, 1]);
+      out.push(['max.f.biggest', size]);
+      const kind = str(props.kind);
+      if (kind === 'set' || kind === 'run' || kind === 'single') out.push([`f.kind.${kind}`, 1]);
+      if (props.double === true) out.push(['f.doubles', 1]);
+      if (props.withRecruited === true) out.push(['f.with_recruited', 1]);
+      break;
+    }
+    case 'recruit':
+      out.push(['f.recruits', 1]);
+      break;
+    case 'round': {
+      out.push(['f.rounds', 1]);
+      const how = str(props.how);
+      if (how === 'out' || how === 'unbeaten' || how === 'stuck') out.push([`f.end.${how}`, 1]);
+      break;
+    }
+  }
+  return out;
+}
+
+function encoreFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'round-ends',
+      label: 'How rounds ended',
+      kind: 'split',
+      parts: [
+        { label: 'A hand played out', value: get('f.end.out') },
+        { label: 'A show went unbeaten', value: get('f.end.unbeaten') },
+        { label: 'No chips left (2 players)', value: get('f.end.stuck') },
+      ],
+    },
+    {
+      id: 'show-sizes',
+      label: 'Shows by size',
+      kind: 'split',
+      parts: [
+        { label: '1 card', value: get('f.show.1') },
+        { label: '2 cards', value: get('f.show.2') },
+        { label: '3 cards', value: get('f.show.3') },
+        { label: '4 or more', value: get('f.show.4') },
+      ],
+    },
+    {
+      id: 'show-kinds',
+      label: 'Shows by kind',
+      kind: 'split',
+      parts: [
+        { label: 'Single cards', value: get('f.kind.single') },
+        { label: 'Sets', value: get('f.kind.set') },
+        { label: 'Runs', value: get('f.kind.run') },
+      ],
+    },
+    {
+      id: 'biggest-show',
+      label: 'Biggest show',
+      kind: 'number',
+      value: get('max.f.biggest'),
+    },
+    {
+      id: 'recruits-per-round',
+      label: 'Recruits per round',
+      kind: 'number',
+      value: avg(get('f.recruits'), get('f.rounds')),
+    },
+    {
+      id: 'doubles',
+      label: 'Shows made with Recruit & Show',
+      kind: 'percent',
+      value: pct(get('f.doubles'), get('f.shows')),
+    },
+    {
+      id: 'with-recruited',
+      label: 'Shows using a recruited card',
+      kind: 'percent',
+      value: pct(get('f.with_recruited'), get('f.shows')),
+    },
+    {
+      id: 'rounds-per-game',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.rounds'), games),
+    },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [2, 3, 4, 5].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+  ];
+}
+
 function goingOnceCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -1947,6 +2057,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'going-once') return goingOnceCounters(type, props);
   if (gameId === 'sketchy') return sketchyCounters(type, props);
   if (gameId === 'mosaic') return mosaicCounters(type, props);
+  if (gameId === 'encore') return encoreCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2160,6 +2271,8 @@ export function buildFigures(
       return jewellerFigures(get);
     case 'going-once':
       return goingOnceFigures(get);
+    case 'encore':
+      return encoreFigures(get);
     case 'sketchy':
       return sketchyFigures(get);
     case 'mosaic':
