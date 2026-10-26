@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.5...v0.66.6) (2026-10-26)
+
+
+### Bug Fixes
+
+* **ui:** make the drawing pen colours and line widths visible in dark mode ([#390](https://github.com/thurahtetaung/virtual-tavern/issues/390)) ([e5ae2f8](https://github.com/thurahtetaung/virtual-tavern/commit/e5ae2f821e9c57e68fe263ad5951672114798e6f))
+
 ## [0.66.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.4...v0.66.5) (2026-10-26)
 
 
