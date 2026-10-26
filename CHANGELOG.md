@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.3...v0.63.0) (2026-10-26)
+
+
+### Features
+
+* **mosaic:** add Mosaic, a tile-drafting board game, in the back room ([#370](https://github.com/thurahtetaung/virtual-tavern/issues/370)) ([ee713f8](https://github.com/thurahtetaung/virtual-tavern/commit/ee713f80bc5892ac9ec3ff56f165c5f7d538b09f))
+
 ## [0.62.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.2...v0.62.3) (2026-10-26)
 
 
