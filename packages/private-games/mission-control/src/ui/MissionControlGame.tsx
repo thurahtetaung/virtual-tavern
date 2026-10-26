@@ -1,4 +1,5 @@
 import type { GameUiProps } from '@vt/game-sdk';
+import { TokenIcon } from './Token.tsx';
 import {
   Button,
   Countdown,
@@ -57,7 +58,9 @@ function Header({ view, clockOffset }: { view: MissionControlView; clockOffset: 
           Try {a.number}
           {m.practice ? ' · practice' : ''}
         </span>
-        {a.distress.used && <span title={art.say('{Distress} sent')}>🆘</span>}
+        {a.distress.used && (
+          <TokenIcon kind="distress-used" label={art.say('{Distress} sent')} className="h-6 w-4" />
+        )}
         {a.terrain && (
           <span className="flex items-center gap-1" title="Unfamiliar terrain">
             ❓ <CardChip card={a.terrain} />
@@ -149,7 +152,7 @@ function Game({
     );
   }
   const side = (
-    <aside className="space-y-3">
+    <aside className="hidden space-y-3 lg:block">
       <Panel className="space-y-2">
         <h3 className="font-bold">Mission</h3>
         <RuleBox a={a} />
@@ -169,6 +172,21 @@ function Game({
     <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
       <div className="min-w-0 space-y-3">
         <Header view={view} clockOffset={room.clockOffset} />
+        {/* Phones: the mission's rules fold away; wide screens show them beside the table. */}
+        <details className="group rounded-xl bg-panel ring-1 ring-line lg:hidden dark:bg-stone-800/70 dark:ring-stone-700">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            📜 Mission rules
+            <span aria-hidden className="text-ink-muted transition group-open:rotate-90">
+              ▸
+            </span>
+          </summary>
+          <div className="space-y-2 px-3 pb-3">
+            <RuleBox a={a} />
+            <Button variant="secondary" className="w-full" onClick={showGuide}>
+              📖 Rules
+            </Button>
+          </div>
+        </details>
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {a.stage === 'draft' && (
           <>
@@ -183,8 +201,8 @@ function Game({
         {a.stage === 'predict' && <PredictPanel a={a} act={act} name={name} />}
         {a.stage === 'play' && (
           <Tip id="play">
-            Highlighted cards are the ones you may play: tap once to pick, again to play. Tap a card
-            during someone else’s turn to play it as soon as yours comes.
+            Lit cards are playable: tap once to pick, twice to play. Tap one during others’ turns to
+            play it when yours comes.
           </Tip>
         )}
         {a.stage === 'done' ? (

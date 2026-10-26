@@ -1,6 +1,7 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
+import { TokenIcon } from './Token.tsx';
 import { Button, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type CardId, sortCards } from '../logic/cards.ts';
 import {
   type AttemptView,
@@ -121,6 +122,17 @@ export function Debrief({
   const inCrew = a.crew.some((c) => c.id === me);
   const decide = inCrew || room.isHost;
   const [replay, setReplay] = useState(false);
+  // Every card the replay shows, fetched now so it is ready when opened.
+  const thumbs = useMemo(
+    () =>
+      Object.values(a.replay?.hands ?? {})
+        .flat()
+        .map((c) => art.cardThumb(c)),
+    [a.replay, art],
+  );
+  useEffect(() => {
+    for (const url of thumbs) if (url) new Image().src = url;
+  }, [thumbs]);
   const failed = r.task !== null ? a.tasks[r.task] : null;
   const log = a.mission.n !== EPILOGUE ? campaign?.log[a.mission.n] : null;
   return (
@@ -131,7 +143,7 @@ export function Debrief({
     >
       {r.success ? (
         <div className="space-y-2 text-center">
-          <p className="text-5xl" aria-hidden>
+          <p className="text-3xl sm:text-5xl" aria-hidden>
             🏅
           </p>
           <h2 className="text-2xl font-black">{missionLabel(a.mission.n)} accomplished!</h2>
@@ -143,7 +155,13 @@ export function Debrief({
             {a.mission.practice
               ? 'practice'
               : `done in ${log?.attempts ?? a.number} ${log?.attempts === 1 ? 'attempt' : 'attempts'}`}
-            {log?.distress ? ' 🆘' : ''}
+            {log?.distress ? (
+              <TokenIcon
+                kind="distress-used"
+                label={art.say('{Distress} used (+1)')}
+                className="ml-1 inline-flex h-5 w-3.5 align-middle"
+              />
+            ) : null}
           </p>
           {a.mission.n === EPILOGUE && (
             <p className="text-sm">Next dive: difficulty {(a.mission.difficulty ?? 0) + 1}.</p>
@@ -151,7 +169,7 @@ export function Debrief({
         </div>
       ) : (
         <div className="space-y-2 text-center">
-          <p className="text-5xl" aria-hidden>
+          <p className="text-3xl sm:text-5xl" aria-hidden>
             🫧
           </p>
           <h2 className="text-2xl font-black">Mission lost</h2>

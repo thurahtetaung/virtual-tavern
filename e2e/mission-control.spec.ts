@@ -92,3 +92,41 @@ test('a failed attempt says why, shows the replay, and retries with the same tas
     );
   }
 });
+
+test('“Same crew, new game” takes the campaign to the new room', async ({ browser }) => {
+  test.setTimeout(180_000);
+  cleanup.push(await importPacks(browser));
+  const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], PHONE)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  const all = [hana, ben, cleo];
+  await brief(all);
+  await claim(hana, 'Take the pink 3');
+  await claim(hana, 'Take trick one');
+  await dive(all);
+  await play(hana, 'p3');
+  await play(ben, 'b2');
+  await play(cleo, 'g6');
+  await expect(hana.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'success');
+
+  // The host opens the next table with the same game; the crew follows.
+  await hana.getByRole('button', { name: '🎲 Same crew, new game' }).click();
+  await hana
+    .getByRole('dialog', { name: '🎲 Same crew, new game' })
+    .getByRole('button', { name: 'Mission Control' })
+    .click();
+  await expect(hana.getByTestId('logbook')).toBeVisible();
+  const next = hana.url();
+  const banner = ben.getByRole('status').filter({ hasText: 'opened a new table' });
+  await banner.getByRole('link', { name: 'Join them' }).click();
+  await expect(ben).toHaveURL(next);
+
+  // The new room continues the campaign: mission 1 is done and mission 2 is next.
+  for (const p of [hana, ben]) {
+    await expect(p.getByTestId('logbook-1')).toContainText('✅');
+    await expect(p.getByTestId('depth-strip')).toContainText('1/2 missions done');
+    await expect(p.getByTestId('depth-strip')).toContainText('Mission 2 next');
+  }
+});

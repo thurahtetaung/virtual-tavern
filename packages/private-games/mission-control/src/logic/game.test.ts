@@ -100,6 +100,32 @@ describe('checks', () => {
     ).toBe('failed');
   });
 
+  it('failure reasons say why in plain words', () => {
+    const own = tbl({ hands: { a: ['g9', 't1'], b: ['g1'], c: ['p2'] } });
+    const sub: Check = {
+      kind: 'win-with-card',
+      target: { cards: ['g9'] },
+      using: { suits: ['t'] },
+    };
+    expect(evaluate(sub, 'a', own)).toMatchObject({
+      state: 'failed',
+      why: '{p:a} holds {c:g9}, so nobody else can play it for {p:a} to win.',
+    });
+    const gone = tbl({ hands: { a: ['t1'], b: [], c: [] } });
+    expect(evaluate(sub, 'a', gone)).toMatchObject({ why: 'No {c:g9} is left for {p:a} to win.' });
+    const five: Check = { kind: 'win-with', match: { values: [5], suits: ['p', 'b', 'g', 'y'] } };
+    expect(evaluate(five, 'a', tbl({ hands: { a: ['p2'], b: [], c: [] } }))).toMatchObject({
+      why: '{p:a} has no 5 left to win a trick with.',
+    });
+    const behind = tbl({ total: 4, tricks: [trick('b'), trick('b'), trick('b')] });
+    expect(evaluate({ kind: 'compare', with: 'each', op: 'more' }, 'c', behind)).toMatchObject({
+      why: '{p:c} has 0 tricks to 3 for the most of the others, with 1 left: no longer enough to finish ahead.',
+    });
+    expect(
+      evaluate({ kind: 'colour-set', mode: 'each' }, 'a', tbl({ hands: { a: [], b: [], c: [] } })),
+    ).toMatchObject({ why: 'No {s:p} card is left for {p:a} to win.' });
+  });
+
   it('trick counts and runs', () => {
     const t = tbl({ total: 4, tricks: [trick('a'), trick('a'), trick('b')] });
     expect(evaluate({ kind: 'run', n: 2 }, 'a', t).state).toBe('done');

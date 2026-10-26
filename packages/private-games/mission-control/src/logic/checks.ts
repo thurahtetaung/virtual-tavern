@@ -176,6 +176,23 @@ export type Status =
 /** Text placeholders the UI fills: `{p:<seat>}` a player, `{c:<card>}` a card. */
 const P = (seat: string) => `{p:${seat}}`;
 const C = (c: CardId) => `{c:${c}}`;
+/** A suit's name: `{s:p}` (the UI names colours and the theme's trumps). */
+const S = (suit: Suit) => `{s:${suit}}`;
+const or = (parts: string[]) =>
+  parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} or ${parts.at(-1)}`;
+
+/** Cards a filter names, in words: "{c:g9}", "a 5", "a {s:t}", "a {s:p} card". */
+export function what(m: CardMatch): string {
+  if (m.cards) return or(m.cards.map(C));
+  const colourOnly = !m.suits || m.suits.every((x) => x !== TRUMP);
+  if (m.values) {
+    const v = or(m.values.map(String));
+    if (m.suits?.length === 1) return `a ${S(m.suits[0]!)} ${v}`;
+    return colourOnly ? `a ${v}` : `a ${v} or {trump}`;
+  }
+  if (m.suits) return or(m.suits.map((x) => (x === TRUMP ? `a ${S(x)}` : `a ${S(x)} card`)));
+  return 'such a card';
+}
 
 const done = (progress?: string): Status => ({ state: 'done', ...(progress && { progress }) });
 const open = (progress?: string): Status => ({ state: 'open', ...(progress && { progress }) });
@@ -246,7 +263,8 @@ export function evaluate(
           t.tricks.length < t.total - 1
         )
           return fail(`${C(c)} was played before the last trick.`);
-        if (w === undefined && t.final) return fail(`${C(c)} was never played.`, progress);
+        if (w === undefined && t.final)
+          return fail(`${C(c)} was the card left over, never played.`, progress);
         if (w === me) got++;
       }
       const progress = check.cards.length > 1 ? `${got}/${check.cards.length}` : undefined;
@@ -259,18 +277,28 @@ export function evaluate(
       const progress = `${have}/${check.n}`;
       if (check.op === 'atLeast') {
         if (have >= check.n) return done(progress);
-        if (have + more < check.n) return fail('Too few of these cards are left to win.', progress);
+        if (have + more < check.n)
+          return fail(
+            `${P(me)} has ${have} and only ${more} more can still be won: ${check.n} were needed.`,
+            progress,
+          );
         return open(progress);
       }
       if (have > check.n) return fail(`${P(me)} won ${C(mine.at(-1)!)}, one too many.`, progress);
-      if (have + more < check.n) return fail('Too few of these cards are left to win.', progress);
+      if (have + more < check.n)
+        return fail(
+          `${P(me)} has ${have} and only ${more} more can still be won: exactly ${check.n} were needed.`,
+          progress,
+        );
       return have === check.n && more === 0 ? done(progress) : open(progress);
     }
     case 'win-with': {
       const hit = t.tricks.some((tr) => tr.winner === me && matches(check.match, winningCard(tr)));
       if (hit) return done();
       if (f.pending(check.match, me).length === 0)
-        return fail(`${P(me)} has no card left to win it with.`);
+        return fail(
+          `${P(me)} has no ${what(check.match).replace(/^an? /, '')} left to win a trick with.`,
+        );
       return open();
     }
     case 'win-with-card': {
@@ -284,9 +312,18 @@ export function evaluate(
       });
       if (hit) return done();
       if (f.pending(check.using, me).length === 0)
-        return fail(`${P(me)} has no card left to win it with.`);
-      if (f.pending(check.target, undefined, me).length === 0)
-        return fail('No card is left for it to win.');
+        return fail(
+          `${P(me)} has no ${what(check.using).replace(/^an? /, '')} left to win it with.`,
+        );
+      if (f.pending(check.target, undefined, me).length === 0) {
+        // The holder can't win a card they play themself.
+        const own = f.pending(check.target, me).filter((c) => !matches(check.using, c));
+        if (own.length)
+          return fail(
+            `${P(me)} holds ${or(own.map(C))}, so nobody else can play it for ${P(me)} to win.`,
+          );
+        return fail(`No ${what(check.target).replace(/^an? /, '')} is left for ${P(me)} to win.`);
+      }
       return open();
     }
     case 'tricks': {
@@ -318,7 +355,11 @@ export function evaluate(
       if (n === null) return open(`${w}`);
       const progress = `${w}/${n}`;
       if (w > n) return fail(`${P(me)} won ${w} tricks, more than ${n}.`, progress);
-      if (w + f.left < n) return fail(`Too few tricks are left to reach ${n}.`, progress);
+      if (w + f.left < n)
+        return fail(
+          `${P(me)} has ${w} tricks with ${f.left} left: ${n} can't be reached.`,
+          progress,
+        );
       return t.final ? done(progress) : open(progress);
     }
     case 'run': {
@@ -332,7 +373,8 @@ export function evaluate(
       const w = mine.filter(Boolean).length;
       if (!check.exact) {
         if (best >= check.n) return done(`${best}/${check.n}`);
-        if (run + f.left < check.n) return fail(`No ${check.n} tricks in a row are left to win.`);
+        if (run + f.left < check.n)
+          return fail(`Only ${f.left} tricks are left: no room for ${check.n} in a row.`);
         return open(`${run}/${check.n}`);
       }
       const first = mine.indexOf(true);
@@ -341,7 +383,7 @@ export function evaluate(
       if (first >= 0 && w !== best) return fail(`${P(me)}'s tricks are not in a row.`);
       if (ended && w < check.n) return fail(`${P(me)}'s run stopped at ${w}.`);
       if (w === 0 ? f.left < check.n : w + f.left < check.n)
-        return fail(`Too few tricks are left to win ${check.n} in a row.`);
+        return fail(`Only ${f.left} tricks are left: no room for ${check.n} in a row.`);
       return t.final ? done() : open(`${w}/${check.n}`);
     }
     case 'no-run': {
@@ -360,14 +402,24 @@ export function evaluate(
       else if (check.with === 'together') target = others.reduce((a, b) => a + b, 0);
       else target = check.op === 'fewer' ? Math.min(...others) : Math.max(...others);
       const progress = `${w}:${target}`;
+      const them =
+        check.with === 'captain'
+          ? P(t.captain)
+          : check.with === 'together'
+            ? 'the others together'
+            : check.op === 'fewer'
+              ? 'the fewest of the others'
+              : 'the most of the others';
+      const score = `${P(me)} has ${w} tricks to ${target} for ${them}, with ${R} left`;
       if (check.op === 'more') {
         if (w > target + R) return done(progress);
-        if (w + R <= target) return fail(`${P(me)} can no longer win more tricks.`, progress);
+        if (w + R <= target) return fail(`${score}: no longer enough to finish ahead.`, progress);
       } else if (check.op === 'fewer') {
         if (w + R < target) return done(progress);
-        if (w >= target + R) return fail(`${P(me)} can no longer win fewer tricks.`, progress);
+        if (w >= target + R) return fail(`${score}: no longer able to finish behind.`, progress);
       } else {
-        if (Math.abs(w - target) > R) return fail(`${P(me)} can no longer draw level.`, progress);
+        if (Math.abs(w - target) > R)
+          return fail(`${score}: no longer able to draw level.`, progress);
         if (t.final) return done(progress);
       }
       return open(progress);
@@ -422,7 +474,10 @@ export function evaluate(
       const leftA = f.pending({ suits: [check.a] }).length;
       const leftB = f.pending({ suits: [check.b] }).length;
       if (a + leftA < b || b + leftB < a)
-        return fail(`${P(me)} can no longer even them up.`, progress);
+        return fail(
+          `${P(me)} has ${a} ${S(check.a)} to ${b} ${S(check.b)}, too far apart to even up.`,
+          progress,
+        );
       return open(progress);
     }
     case 'more': {
@@ -433,7 +488,11 @@ export function evaluate(
       const leftM = f.pending({ suits: [check.more] }).length;
       const leftN = f.pending({ suits: [check.than] }).length;
       if (m > n + leftN) return done(progress);
-      if (m + leftM <= n) return fail(`${P(me)} can no longer win more of them.`, progress);
+      if (m + leftM <= n)
+        return fail(
+          `${P(me)} has ${m} ${S(check.more)} to ${n} ${S(check.than)}, and can no longer get ahead.`,
+          progress,
+        );
       return open(progress);
     }
     case 'colour-set': {
@@ -457,7 +516,7 @@ export function evaluate(
         (s) => !have.includes(s) && f.pending({ suits: [s] }).length === 0,
       );
       if (missing)
-        return fail(`${P(me)} can no longer win a card of every colour.`, `${have.length}/4`);
+        return fail(`No ${S(missing)} card is left for ${P(me)} to win.`, `${have.length}/4`);
       return open(`${have.length}/4`);
     }
     case 'no-lead': {
@@ -509,7 +568,7 @@ export function evaluate(
           return fail(`${C(c)} was played in trick ${t.tricks.length + 1}.`);
         if (i < t.current.length - 1) return fail(`${C(c)} was not the last card played.`);
       }
-      if (t.final) return fail(`${C(c)} was never played.`);
+      if (t.final) return fail(`${C(c)} was the card left over, never played.`);
       return open();
     }
   }

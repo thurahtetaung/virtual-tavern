@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { cn } from '@vt/ui';
+import { TokenIcon } from './Token.tsx';
 import type { Comms, Selection } from '../logic/content.ts';
 import {
   type CampaignView,
@@ -114,6 +116,7 @@ const day = (t: number) =>
   new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 function Attempts({ log }: { log: MissionLog | undefined }) {
+  const art = useArt();
   if (!log || (!log.attempts && !log.practice)) return <span className="text-ink-muted">–</span>;
   return (
     <span className="tabular-nums">
@@ -121,10 +124,14 @@ function Attempts({ log }: { log: MissionLog | undefined }) {
         <>
           {log.attempts}
           {log.distress && (
-            <span role="img" aria-label="distress signal used" title="Distress signal used (+1)">
+            <>
               {' '}
-              🆘
-            </span>
+              <TokenIcon
+                kind="distress-used"
+                label={art.say('{Distress} used (+1)')}
+                className="inline-flex h-5 w-3.5 align-middle"
+              />
+            </>
           )}
         </>
       )}
@@ -148,6 +155,9 @@ export function Logbook({
   const art = useArt();
   const next = campaign?.next ?? voyage.missions[0]!.n;
   const picked = chosen ?? next;
+  // Phones show only the chosen mission until asked for the whole list.
+  const [all, setAll] = useState(false);
+  const folded = (selected: boolean) => !selected && !all && 'hidden sm:block';
   const row = (m: MissionSummary) => {
     const log = campaign?.log[m.n];
     const title = art.logbook(m.n)?.title ?? m.title;
@@ -183,14 +193,13 @@ export function Logbook({
         'bg-accent-soft ring-1 ring-accent-line dark:bg-amber-500/10 dark:ring-amber-500/40',
     );
     return (
-      <li key={m.n}>
+      <li key={m.n} data-testid={`logbook-${m.n}`} className={cn(folded(selected))}>
         {onChoose ? (
           <button
             type="button"
             className={cn(classes, 'min-h-11 hover:bg-panel dark:hover:bg-stone-800')}
             aria-pressed={selected}
             onClick={() => onChoose(m.n === next ? null : m.n)}
-            data-testid={`logbook-${m.n}`}
           >
             {body}
           </button>
@@ -210,10 +219,10 @@ export function Logbook({
           attempt counts.
         </p>
       )}
-      <ol className="max-h-[50vh] space-y-0.5 overflow-y-auto pr-1">
+      <ol className="max-h-56 space-y-0.5 overflow-y-auto pr-1 sm:max-h-[50vh]">
         {voyage.missions.map(row)}
         {e && (
-          <li>
+          <li className={cn(folded(picked === EPILOGUE))}>
             <button
               type="button"
               disabled={!onChoose}
@@ -241,6 +250,14 @@ export function Logbook({
           </li>
         )}
       </ol>
+      <button
+        type="button"
+        className="min-h-10 text-sm font-semibold underline sm:hidden"
+        onClick={() => setAll(!all)}
+        aria-expanded={all}
+      >
+        {all ? 'Show only the chosen mission' : `📘 All missions (${voyage.missions.length})`}
+      </button>
       {campaign && (
         <p className="text-xs text-ink-muted">
           Logbook started {day(campaign.started)}
