@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.4...v0.66.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mission-control:** show the token art, never blank replay cards, clearer failure reasons and a tighter phone layout ([#388](https://github.com/thurahtetaung/virtual-tavern/issues/388)) ([42d38c7](https://github.com/thurahtetaung/virtual-tavern/commit/42d38c7b69510c84c1cc54a7a05af1d3f1d95082))
+
 ## [0.66.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.3...v0.66.4) (2026-10-26)
 
 
