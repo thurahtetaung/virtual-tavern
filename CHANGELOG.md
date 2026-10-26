@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.61.0...v0.62.0) (2026-10-26)
+
+
+### Features
+
+* **jeweller:** add the Cities and Strongholds modules as lobby options ([#363](https://github.com/thurahtetaung/virtual-tavern/issues/363)) ([5422ca7](https://github.com/thurahtetaung/virtual-tavern/commit/5422ca7afd753956eb4373a4552e2d0c8f5780cc))
+
 ## [0.61.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.60.0...v0.61.0) (2026-10-26)
 
 
