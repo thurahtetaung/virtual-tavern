@@ -32,6 +32,26 @@ describe('RevealCard', () => {
     expect(html).toContain('<b>the answer</b>');
     expect(html.match(/opacity:0/g)?.length).toBe(2);
   });
+
+  it('stacks the glow at the back and who chose or wrote it in front of the balloon', () => {
+    const tracks = {
+      'card-author': { Appear: { ms: 33, frames: [pose] } },
+      'card-bubble': { Appear: { ms: 33, frames: [pose] } },
+      'card-ramp': { Appear: { ms: 33, frames: [pose] } },
+    };
+    const html = render(
+      <RevealCard
+        rig={{ ...rig, tracks }}
+        live={{ 'card-author': <i>Cleo</i>, 'card-bubble': <b>the answer</b> }}
+      />,
+    );
+    const glow = html.indexOf('<path');
+    const balloon = html.indexOf('<b>the answer</b>');
+    const author = html.indexOf('<i>Cleo</i>');
+    expect(glow).toBeGreaterThan(-1);
+    expect(glow).toBeLessThan(balloon);
+    expect(balloon).toBeLessThan(author);
+  });
 });
 
 describe('Choosers', () => {

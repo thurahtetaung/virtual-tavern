@@ -730,27 +730,29 @@ function TurnRoom({
         turn.options.map((o, i) =>
           stage === 'reveal' && !shown.has(o.index) ? null : (
             <Layer key={o.index} m={choiceAt(rig, i, turn.options.length)}>
+              {/* The reveal's dimming is React's, on its own layer: the vote's pop settling on the
+                  named one must never bring a label back under the card. */}
               <Layer
-                name={`choice:${o.index}`}
-                moving
                 style={
                   stage === 'reveal' ? { opacity: order[step!] === o.index ? 0 : 0.35 } : undefined
                 }
               >
-                <Layer m={[1, 0, 0, 1, 104, 48]}>
-                  <Label
-                    style={{
-                      color: INK,
-                      fontSize: 30,
-                      fontWeight: 800,
-                      whiteSpace: 'normal',
-                      width: 330,
-                      textAlign: 'center',
-                      lineHeight: 1.05,
-                    }}
-                  >
-                    {o.text}
-                  </Label>
+                <Layer name={`choice:${o.index}`} moving>
+                  <Layer m={[1, 0, 0, 1, 104, 48]}>
+                    <Label
+                      style={{
+                        color: INK,
+                        fontSize: 30,
+                        fontWeight: 800,
+                        whiteSpace: 'normal',
+                        width: 330,
+                        textAlign: 'center',
+                        lineHeight: 1.05,
+                      }}
+                    >
+                      {o.text}
+                    </Label>
+                  </Layer>
                 </Layer>
               </Layer>
             </Layer>

@@ -178,7 +178,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await hana.waitForTimeout(500);
       await shot('07c-reveal-fooler', cleo);
       await face('truth');
-      await hana.waitForTimeout(1000);
+      await hana.waitForTimeout(400);
       await shot('08-reveal-truth', cleo);
       if (process.env.SOUND_LOG) {
         const { writeFile } = await import('node:fs/promises');
@@ -196,8 +196,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await writeFile(`${dir}/sound.json`, JSON.stringify(log, null, 1));
       }
       await results(pages, 'purple elephant');
-      await hana.waitForTimeout(1500);
-      await shot('09-board', ben);
+      // The board as the original's: the points gained pop up on the balloons, then the balloons
+      // flip round to the score bars.
+      await hana.waitForTimeout(3000);
+      await shot('09a-board-gains', ben);
+      await hana.waitForTimeout(5000);
+      await shot('09b-board-scores', ben);
       const play = async (drawings: [number, string][]) => {
         for (const [artist, prompt] of drawings) {
           const writers = pages.filter((_, i) => i !== artist);

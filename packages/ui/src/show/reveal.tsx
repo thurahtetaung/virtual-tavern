@@ -11,6 +11,8 @@ import type { LoadedRig } from './rig.ts';
 const HIDDEN: CSSProperties = { opacity: 0 };
 /** Card parts drawn behind the rest (the truth's glow and its marks). */
 const BACK = ['card-ramp', 'card-happyMarks'];
+/** Card parts drawn over the rest (who chose it, who wrote it, who drew it), never under the balloon. */
+const FRONT = ['Chose', 'author', 'artist'];
 
 /**
  * The reveal card: a layer per rig part (`card/<part>`), the part's own art where the rig has it,
@@ -31,8 +33,8 @@ export function RevealCard({
   className?: string;
   style?: CSSProperties;
 }) {
-  // The original's stacking: the glow and its marks at the back, everything else over them.
-  const back = (p: string) => (BACK.includes(p) ? 0 : 1);
+  // The original's stacking: the glow and its marks at the back, the names and points in front.
+  const back = (p: string) => (BACK.includes(p) ? 0 : FRONT.some((f) => p.includes(f)) ? 2 : 1);
   const card = [...revealParts(rig.tracks).card].sort((a, b) => back(a) - back(b));
   return (
     <Layer name={name} className={className} style={style}>
