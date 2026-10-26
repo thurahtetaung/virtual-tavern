@@ -23,6 +23,13 @@ const GamesPage = lazy(() =>
 const PlaytestPage = lazy(() =>
   import('./pages/PlaytestPage.tsx').then((m) => ({ default: m.PlaytestPage })),
 );
+// The table screen: its pairing page and the show, which TVs and laptops load and phones never do.
+const StagePage = lazy(() =>
+  import('./pages/StagePage.tsx').then((m) => ({ default: m.StagePage })),
+);
+const StageShowPage = lazy(() =>
+  import('./pages/StageShowPage.tsx').then((m) => ({ default: m.StageShowPage })),
+);
 // The stats page carries the chart library, so it gets a chunk of its own.
 const StatsPage = lazy(() =>
   import('./pages/StatsPage.tsx').then((m) => ({ default: m.StatsPage })),
@@ -45,6 +52,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/tavern-keeper/stats" element={<StatsPage />} />
               <Route path="/tavern-keeper/playtest" element={<PlaytestPage />} />
               <Route path="/backroom" element={<BackroomPage />} />
+              <Route path="/stage" element={<StagePage />} />
+              <Route path="/stage/:roomId" element={<StageShowPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

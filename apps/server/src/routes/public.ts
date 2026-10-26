@@ -41,6 +41,8 @@ export function publicRoutes(
     roomCreateLimit?: number;
     /** Whether this request carries a current admin session (playtest rooms are theirs only). */
     isAdmin?: (req: FastifyRequest) => boolean;
+    /** The room this request's table-screen pass opens right now, or null. */
+    stageRoom?: (req: FastifyRequest) => string | null;
   },
 ) {
   const { rooms, games, lists, forget, linkable, linked } = opts;
@@ -132,6 +134,20 @@ export function publicRoutes(
   app.get<{ Params: { id: string } }>('/api/rooms/:id', (req, reply) => {
     const room = roomId.safeParse(req.params.id).success ? rooms.exists(req.params.id) : null;
     const playtest = !!room && rooms.isPlaytest(req.params.id);
+    // A room's table screen may look its own room up, whatever the room is (and nothing else).
+    if (room && games.has(room.gameId) && opts.stageRoom?.(req) === req.params.id) {
+      void reply.header('cache-control', 'no-store');
+      return {
+        id: req.params.id,
+        gameId: room.gameId,
+        ...titleOf(room.gameId),
+        ...(playtest && { playtest: true as const }),
+        versions: {
+          games: lists.gamesVersion(req),
+          ...(isPrivate(games.get(room.gameId)) && { manifests: manifestVersions(room.gameId) }),
+        },
+      };
+    }
     // A playtest is the admin's alone: to anyone else it looks like a dead link.
     if (!room || !games.has(room.gameId) || (playtest && !opts.isAdmin?.(req))) {
       return reply

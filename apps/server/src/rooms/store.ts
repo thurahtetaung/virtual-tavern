@@ -18,6 +18,8 @@ export interface RoomRecord {
   test?: boolean | null;
   /** An admin playtest (always a test room too); null or missing for normal rooms. */
   playtest?: PlaytestRecord | null;
+  /** The current table-screen pass's nonce; null or missing when no table screen is paired. */
+  stage?: string | null;
 }
 
 /** A playtest room's own settings, kept with the room. */
@@ -45,6 +47,8 @@ export interface RoomStore {
   deleteIdle(before: number, keep?: readonly string[]): { id: string; test: boolean }[];
   /** Saves a playtest room's settings (without changing its version). */
   setPlaytest(id: string, playtest: PlaytestRecord): void;
+  /** Saves the room's table-screen nonce, or clears it (without changing its version). */
+  setStage(id: string, stage: string | null): void;
   /** Deletes one room; returns whether it existed. */
   delete(id: string): boolean;
   /** Like `deleteIdle`, but only playtest rooms; returns their ids. */
@@ -99,6 +103,10 @@ export class SqliteRoomStore implements RoomStore {
 
   setPlaytest(id: string, playtest: PlaytestRecord): void {
     this.db.update(rooms).set({ playtest }).where(eq(rooms.id, id)).run();
+  }
+
+  setStage(id: string, stage: string | null): void {
+    this.db.update(rooms).set({ stage }).where(eq(rooms.id, id)).run();
   }
 
   delete(id: string): boolean {

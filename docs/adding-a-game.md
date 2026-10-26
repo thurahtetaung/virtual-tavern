@@ -93,6 +93,18 @@ A back-room game whose private content is neither words nor questions (Going Onc
 
 Games where players draw use the shared canvas. The pure part is `drawing.ts` in `@vt/game-sdk`: an 800 × 1000 (4:5) page in logical units, four named colour-blind-safe pens (`DRAWING_COLORS`), three widths, Ramer–Douglas–Peucker `simplifyPoints`, a compact stroke encoding (`encodePoints`: grid-snapped deltas as base64url varints, about 2 characters a point) and `validateDrawing(raw, limits)`, which a game's `reduce` calls on every drawing it receives (shape, pens, every point on the page, at most 300 strokes, 2,500 points and 12 KB by default; it returns a clean copy to store). Put `drawingSchema` in your action schema. The UI part is in `@vt/ui`: `DrawingPad` (pens, widths, undo, clear with a confirm, a draft saved under `storageKey(draftKey)` after every line, `sendBy` to send whatever is drawn before a strict deadline, and `onSubmit` with the packed drawing, simplified harder until it fits rather than refused) and `DrawingView` (read-only SVG at any size). On touch screens the pad never scrolls or zooms the page (`touch-action: none` plus non-passive touch listeners for iOS), ignores palm-sized contacts and fingers while a pen is down, cancels a line when a second finger lands, and undoes on a quick two-finger tap. Keep drawings in the game state (about 2–5 KB each) and send only the ones a viewer needs (Going Once: the lot on the easel, then every drawing at the end), since every accepted change sends each player a full snapshot.
 
+## Table screen
+
+A room can have one table screen: a TV or laptop that shows the room to everyone and never plays. The host pairs it from the Players drawer (📺 Table screen shows a six-character code, good for 10 minutes and one use); the screen types it on `/stage`, gets a pass for that one room and joins as `role: 'stage'`. It receives `view(state, null)`, the spectator view, so it never shows more than someone watching would: keep `view()` safe for `null` (your leak tests should already cover it). Every snapshot carries `stage: { present }`, and the shell passes each device's `profile` (`@vt/game-sdk/show`): `stage` on the table screen, `phone-quiet` on phones while one is present (keep every control and private detail, drop the shared show: big pictures, room sounds, long animations), `phone-full` otherwise.
+
+To give your game a table screen, export a `Stage` component from its UI (it takes the usual `GameUiProps`, with `profile: 'stage'` and an `act` that does nothing) and register it as `stage` next to `Component`, lazily, so phones never download it:
+
+```ts
+stage: lazyUi(() => import('@vt/private-<id>/ui').then((m) => ({ default: m.MyGameStage }))),
+```
+
+The shell gives it the whole screen (black, pointer hidden, kept awake); render your scene in `Scene` from `@vt/ui/show` (1280 × 720 stage units, scaled to fit and letterboxed) inside your own show's targets, and lay it out in those units with big type. Games without a `Stage` get a generic one: the game, the room and who is in it. The screen started with a tap (the pairing page's "Start the show"), so it may play sound.
+
 ## Private games
 
 A back-room game (`access: 'private'`) never names its commercial original in the repository: it uses a code name, and the admin sets the title unlocked players see (`/tavern-keeper/games`, or `scripts/set-game-title.mjs`). Names, art and sound come from the game's private `manifest.json` in asset storage, with placeholders when there is none.

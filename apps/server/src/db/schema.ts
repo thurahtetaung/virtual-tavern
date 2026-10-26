@@ -106,6 +106,11 @@ export const rooms = sqliteTable('rooms', {
    * JSON; null for normal rooms. A playtest room is also a test room.
    */
   playtest: text('playtest', { mode: 'json' }).$type<PlaytestRecord>(),
+  /**
+   * The current table-screen pass's secret (a random nonce), or null when no table screen is
+   * paired. Pairing again or the host's removal replaces it, so older passes stop working.
+   */
+  stage: text('stage'),
 });
 
 // ---- Stats (admin only) ----

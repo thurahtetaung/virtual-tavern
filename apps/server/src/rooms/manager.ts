@@ -120,6 +120,11 @@ interface LiveRoom {
   deadlineStalls: number;
   /** Since when nobody has been connected (server clock); undefined while someone is. */
   emptySince?: number;
+  /**
+   * Open table-screen connections. Never a member: they don't count for presence, host hand-off,
+   * sweeps or stats.
+   */
+  stages: number;
 }
 
 /** A playtest's bot seats. */
@@ -430,17 +435,21 @@ export class RoomManager {
     this.deps.events.changed(roomId);
   }
 
-  snapshot(roomId: string, viewer: string): RoomSnapshot | null {
+  /**
+   * The room as `viewer` sees it. `viewer` null is the table screen: the spectator view, as anyone
+   * not seated gets.
+   */
+  snapshot(roomId: string, viewer: string | null): RoomSnapshot | null {
     const room = this.load(roomId);
     if (!room) return null;
     const { record } = room;
-    const seated = record.players.some((p) => p.id === viewer);
+    const seated = viewer !== null && record.players.some((p) => p.id === viewer);
     const bots = botIds(record);
     return {
       id: record.id,
       gameId: record.gameId,
       hostId: record.hostId,
-      you: viewer,
+      you: viewer ?? '',
       players: record.players.map((p) => {
         // A playtest bot is always there.
         if (bots.has(p.id)) return { ...p, connected: true, bot: true as const };
@@ -456,7 +465,68 @@ export class RoomManager {
       serverNow: this.deps.now(),
       meta: this.meta(room),
       ...(room.game.colors?.length && { colors: [...room.game.colors] }),
+      stage: { present: room.stages > 0 },
+      ...(viewer === null && { role: 'stage' as const }),
     };
+  }
+
+  // ---- Table screen ----
+
+  /** The room's current table-screen nonce, or null when none is paired (or the room is gone). */
+  stagePass(roomId: string): string | null {
+    const record = this.rooms.get(roomId)?.record ?? this.deps.store.get(roomId);
+    return record?.stage ?? null;
+  }
+
+  /** Whether `by` hosts the room (only the host pairs or removes a table screen). */
+  hostOnly(roomId: string, by: string, message: string): Ack {
+    const room = this.load(roomId);
+    if (!room) return fail('no-room', 'Room not found.');
+    if (!room.record.players.some((p) => p.id === by)) return fail('not-in-room', 'Join first.');
+    return room.record.hostId === by ? OK : fail('not-host', message);
+  }
+
+  /**
+   * Pairs a new table screen: a fresh nonce replaces the last, so an older pass stops working (one
+   * table screen per room). Returns the nonce, or null when the room is gone.
+   */
+  pairStage(roomId: string): string | null {
+    const room = this.load(roomId);
+    if (!room) return null;
+    const nonce = randomBytes(18).toString('base64url');
+    this.setStage(room, nonce);
+    return nonce;
+  }
+
+  /** Host only: removes the table screen; its pass dies at once. */
+  removeStage(roomId: string, by: string): Ack {
+    const allowed = this.hostOnly(roomId, by, 'Only the host can remove the table screen.');
+    if (!allowed.ok) return allowed;
+    this.setStage(this.load(roomId)!, null);
+    return OK;
+  }
+
+  private setStage(room: LiveRoom, stage: string | null) {
+    this.deps.store.setStage(room.record.id, stage);
+    room.record = { ...room.record, stage };
+    // The broadcast re-checks every table screen's pass, so a replaced one leaves now.
+    this.deps.events.changed(room.record.id);
+  }
+
+  /** A table screen connected; everyone hears that one is present. */
+  stageConnected(roomId: string): boolean {
+    const room = this.load(roomId);
+    if (!room) return false;
+    room.stages += 1;
+    this.deps.events.changed(roomId);
+    return true;
+  }
+
+  stageDisconnected(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room || room.stages === 0) return;
+    room.stages -= 1;
+    this.deps.events.changed(roomId);
   }
 
   /**
@@ -692,10 +762,13 @@ export class RoomManager {
     return OK;
   }
 
-  /** Every loaded room someone is connected to, test rooms included (for re-checking gates). */
+  /**
+   * Every loaded room someone (or a table screen) is connected to, test rooms included (for
+   * re-checking gates).
+   */
   occupiedRooms(): { id: string; gameId: string }[] {
     return [...this.rooms.values()]
-      .filter((r) => r.connections.size > 0)
+      .filter((r) => r.connections.size > 0 || r.stages > 0)
       .map((r) => ({ id: r.record.id, gameId: r.record.gameId }));
   }
 
@@ -726,6 +799,8 @@ export class RoomManager {
     const deleted = this.deps.store.deleteIdle(this.deps.now() - maxIdleMs, occupied);
     for (const { id, test } of deleted) {
       const live = this.rooms.get(id);
+      // A table screen still showing it is told the room is gone.
+      if (live?.stages) this.deps.events.closed?.(id);
       this.unload(id);
       const record = live?.record ?? null;
       this.notify({
@@ -741,7 +816,8 @@ export class RoomManager {
       });
     }
     for (const [id, room] of this.rooms) {
-      if (room.connections.size === 0 && !room.deadlineTimer) this.unload(id);
+      // A table screen keeps its room in memory (it never keeps it from being swept).
+      if (room.connections.size === 0 && !room.deadlineTimer && !room.stages) this.unload(id);
     }
     return deleted.length;
   }
@@ -798,6 +874,7 @@ export class RoomManager {
       awaySince: new Map(),
       deadlineStalls: 0,
       emptySince: this.deps.now(),
+      stages: 0,
     };
     this.rooms.set(roomId, room);
     // After a restart, timers resume (or fire at once if they expired while we were down).

@@ -23,6 +23,7 @@ import {
   useRefusals,
   useSecondsLeft,
 } from '@vt/ui';
+import { useShowProfile } from '@vt/ui/show';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
@@ -32,6 +33,7 @@ import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
 import { PlaytestBar } from '../components/PlaytestBar.tsx';
+import { TableScreen } from '../components/TableScreen.tsx';
 import {
   type ClientGame,
   findGame,
@@ -535,6 +537,10 @@ function Room({
   const players = useUnchanged(snapshot?.players);
   const you = snapshot?.you;
   const hostId = snapshot?.hostId;
+  // A table screen in the room: phones keep their controls and go quiet.
+  const stagePresent = snapshot?.stage?.present === true;
+  const stage = useMemo(() => ({ present: stagePresent }), [stagePresent]);
+  const { profile } = useShowProfile(stage);
   const roomInfo = useMemo(
     () =>
       you === undefined || hostId === undefined || !players
@@ -547,9 +553,10 @@ function Room({
             clockOffset,
             wordLists,
             gameName: game.name,
+            stage,
             ...(superlatives && { superlatives }),
           },
-    [you, hostId, isHost, players, clockOffset, wordLists, game.name, superlatives],
+    [you, hostId, isHost, players, clockOffset, wordLists, game.name, stage, superlatives],
   );
   // Playtest bots get a 🤖 in every player list (names are unique in a room).
   const botKey = snapshot?.players
@@ -737,6 +744,7 @@ function Room({
                   setSpectator={setSpectator}
                   setAbandon={setAbandon}
                   pickColor={openColor}
+                  profile={profile}
                 />
               </SuperlativesNote.Provider>
             </PlayerColors.Provider>
@@ -1128,6 +1136,12 @@ function People({
           </li>
         ))}
       </ul>
+      <TableScreen
+        present={snapshot.stage?.present === true}
+        isHost={isHost}
+        clockOffset={clockOffset}
+        call={call}
+      />
       {(onWrap || onAbandon) && (
         <div className="flex flex-wrap gap-2">
           {onWrap && (

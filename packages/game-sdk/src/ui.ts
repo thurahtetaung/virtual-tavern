@@ -1,4 +1,5 @@
 import type { PlayerColor } from './colors.ts';
+import type { Profile, StagePresence } from './show.ts';
 import type { WordListSummary } from './types.ts';
 
 /** Room context handed to a game's UI component. Framework-agnostic so the SDK stays React-free. */
@@ -21,6 +22,8 @@ export interface GameRoomInfo {
    * set on the end screen while night recaps are on; show them with `Superlatives` from `@vt/ui`.
    */
   superlatives?: Superlative[];
+  /** Whether a table screen is watching the room (missing in tests and older shells). */
+  stage?: StagePresence;
 }
 
 /** One line of a game's end-screen strip: "💀 Assassin Magnet: Ben shook hands with the assassin". */
@@ -79,4 +82,10 @@ export interface GameUiProps<View, Action> {
   setAbandon?: (abandon: AbandonGame | null) => void;
   /** Opens the room's colour picker for the viewer (Reverie's own seat does this). */
   pickColor?: () => void;
+  /**
+   * How loud this device's show is: `stage` on the table screen itself (a game's `Stage` view),
+   * `phone-quiet` on a phone while a table screen is in the room (its own controls and personal
+   * cues only), `phone-full` otherwise. Missing means `phone-full`.
+   */
+  profile?: Profile;
 }

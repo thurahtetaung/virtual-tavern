@@ -17,12 +17,19 @@ const CLOCK_JITTER_MS = 50;
 
 /**
  * Live connection to one room (`RoomConnection`), as React state.
- * `token`: the identity to join as (a playtest seat); by default the browser's own player.
+ * `token`: the identity to join as (a playtest seat); by default the browser's own player. `stage`:
+ * join as the room's table screen instead (on its pass; `name` and `token` are ignored).
  * The socket connects at once, so it opens while the page looks the room up and loads the game;
  * the join waits for a name and for `ready` (the identity is settled), then goes out as soon as
  * the socket is up.
  */
-export function useRoom(roomId: string, name: string | null, token?: string, ready = true) {
+export function useRoom(
+  roomId: string,
+  name: string | null,
+  token?: string,
+  ready = true,
+  stage = false,
+) {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [clockOffset, setClockOffset] = useState(0);
   const [status, setStatus] = useState<RoomStatus>('connecting');
@@ -79,9 +86,13 @@ export function useRoom(roomId: string, name: string | null, token?: string, rea
   // `room:rename`, and the seat never changes on a page.
   useEffect(() => {
     if (!canJoin) return;
+    if (stage) {
+      connRef.current?.enable(() => ({ role: 'stage' }));
+      return;
+    }
     const seat = token ?? playerToken();
     connRef.current?.enable(() => ({ token: seat, name: nameRef.current ?? '' }));
-  }, [canJoin, token, roomId]);
+  }, [canJoin, token, roomId, stage]);
 
   const call = useCallback(
     <E extends keyof ClientToServerEvents>(event: E, ...args: unknown[]): Promise<Ack> =>

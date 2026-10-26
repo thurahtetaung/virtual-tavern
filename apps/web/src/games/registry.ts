@@ -22,6 +22,11 @@ export interface ClientGame {
   icon: string;
   Component: GameUi;
   /**
+   * The game's table-screen view (its own chunk), given the spectator view and `profile: 'stage'`.
+   * Games without one get the shell's generic table screen.
+   */
+  stage?: GameUi;
+  /**
    * Names the night recap's private placeholders (`{role:…}`, `{loc:…}`, `{card:…}`) from the
    * game's manifest. Back-room games only; public games report readable words already.
    */

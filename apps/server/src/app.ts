@@ -42,6 +42,8 @@ import { gamesAdminRoutes } from './routes/games-admin.ts';
 import { contentPackRoutes } from './routes/content-packs.ts';
 import { publicRoutes } from './routes/public.ts';
 import { statsRoutes } from './routes/stats.ts';
+import { stageRoutes } from './routes/stage.ts';
+import { STAGE_COOKIE, StageDoor } from './stage.ts';
 import { addDays, dayOf } from './stats/days.ts';
 import type { TavernMetrics } from './metrics/tavern.ts';
 import { LiveTracker } from './stats/live.ts';
@@ -326,20 +328,37 @@ export function buildApp(opts: AppOptions) {
     },
     logger: app.log,
   });
+  const isPrivateRoom = (roomId: string) =>
+    isPrivate(games.get(rooms.exists(roomId)?.gameId ?? ''));
+  const stageDoor = new StageDoor({ rooms, backroom, isPrivateRoom, now });
+  /** The room a raw `Cookie` header's table-screen pass opens right now, or null. */
+  const stageRoomOf = (cookieHeader: string | undefined) =>
+    stageDoor.roomOf(signedCookie(cookieHeader, STAGE_COOKIE));
+  const stageRoom = (req: FastifyRequest) => stageRoomOf(req.headers.cookie);
+  /** The game a request's table-screen pass is for (its back-room art and manifest only). */
+  const stageGame = (req: FastifyRequest) => {
+    const roomId = stageRoom(req);
+    return roomId ? (rooms.exists(roomId)?.gameId ?? null) : null;
+  };
+  const isAdminHeader = (header: string | undefined) =>
+    adminAuth?.isAdminValue(signedCookie(header, ADMIN_COOKIE), now()) ?? false;
   const io = (realtime.io = attachRealtime(
     app.server,
     rooms,
     app.log,
     {
-      isPrivateRoom: (roomId) => isPrivate(games.get(rooms.exists(roomId)?.gameId ?? '')),
+      isPrivateRoom,
       hasBackroom,
       lockReason,
       isPlaytest: (roomId) => rooms.isPlaytest(roomId),
-      isAdmin: (header) =>
-        adminAuth?.isAdminValue(signedCookie(header, ADMIN_COOKIE), now()) ?? false,
+      isAdmin: isAdminHeader,
+      // A pass opens its own room only; in a playtest the admin needs no code either.
+      stageAllowed: (roomId, header) =>
+        stageRoomOf(header) === roomId || (rooms.isPlaytest(roomId) && isAdminHeader(header)),
     },
     {
       recap,
+      stage: stageDoor,
       isTestTraffic,
       playtestAwards: (roomId) => preview.latest(roomId),
       ...(metrics && {
@@ -472,6 +491,7 @@ export function buildApp(opts: AppOptions) {
       testSeedOf,
       roomCreateLimit: opts.roomCreateLimit ?? 20,
       isAdmin: isAdminRequest,
+      stageRoom,
       linked: (from, next) => {
         const privateTable = isPrivate(games.get(next.gameId));
         for (const roomId of from) announceNextTable(io, roomId, next, privateTable);
@@ -496,9 +516,11 @@ export function buildApp(opts: AppOptions) {
       questionDecks,
       hasBackroom: requestHasBackroom,
       isAdmin: isAdminRequest,
+      stageGame,
       lists,
       manifests,
     });
+    stageRoutes(scope, { door: stageDoor, stageRoom });
     scope.register((admin, _a, ready) => {
       admin.addHook('preHandler', adminGuard(adminAuth, now));
       gamesAdminRoutes(admin, { games, assets, settings: gameSettings });
@@ -530,9 +552,18 @@ export function buildApp(opts: AppOptions) {
 
   if (opts.webDist && existsSync(opts.webDist)) {
     // Private games' code is built into /backroom-assets/ and only served to unlocked players
-    // (and the admin).
+    // (and the admin), and to a back-room room's table screen (the chunks are shared by every
+    // back-room game, and the code is no secret; art and manifests stay with its own game).
+    const stageInBackroom = (req: FastifyRequest) => {
+      const roomId = stageRoom(req);
+      return !!roomId && isPrivateRoom(roomId);
+    };
     app.addHook('onRequest', (req, reply, done) => {
-      if (req.url.startsWith('/backroom-assets/') && !requestHasBackroom(req)) {
+      if (
+        req.url.startsWith('/backroom-assets/') &&
+        !requestHasBackroom(req) &&
+        !stageInBackroom(req)
+      ) {
         void reply.code(404).send({ error: { code: 'not-found', message: 'Not found.' } });
         return;
       }
