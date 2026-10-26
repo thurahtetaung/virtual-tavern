@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.2...v0.68.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mission-control:** store arrow order tokens as plain letters so pack imports keep them ([#402](https://github.com/thurahtetaung/virtual-tavern/issues/402)) ([c724220](https://github.com/thurahtetaung/virtual-tavern/commit/c7242208dd8c0047070736a014773bb4a721524f))
+
 ## [0.68.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.1...v0.68.2) (2026-10-26)
 
 
