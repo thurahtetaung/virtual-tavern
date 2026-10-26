@@ -1,4 +1,9 @@
-import { contentPackBody, contentPackEnabledBody, firstIssueMessage } from '@vt/protocol';
+import {
+  contentPackBody,
+  contentPackDataBody,
+  contentPackEnabledBody,
+  firstIssueMessage,
+} from '@vt/protocol';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { ContentPackRepo } from '../content-packs.ts';
 
@@ -30,6 +35,21 @@ export function contentPackRoutes(app: FastifyInstance, opts: { packs: ContentPa
     if ('problem' in checked) return error(reply, 400, 'bad-request', checked.problem);
     return reply.code(201).send(packs.create({ ...body.data, data: checked.data }));
   });
+
+  // New data for a pack in place (same id, so rooms' record of the groups they used still holds).
+  app.put<{ Params: { id: string } }>(
+    '/api/admin/content-packs/:id',
+    { bodyLimit: PACK_BODY_LIMIT },
+    (req, reply) => {
+      const body = contentPackDataBody.safeParse(req.body);
+      if (!body.success) return error(reply, 400, 'bad-request', 'Send { "data": … }.');
+      const pack = packs.get(req.params.id);
+      if (!pack) return error(reply, 404, 'not-found', 'Content pack not found.');
+      const checked = packs.check({ ...pack, data: body.data.data });
+      if ('problem' in checked) return error(reply, 400, 'bad-request', checked.problem);
+      return packs.replace(pack.id, checked.data);
+    },
+  );
 
   app.patch<{ Params: { id: string } }>('/api/admin/content-packs/:id', (req, reply) => {
     const body = contentPackEnabledBody.safeParse(req.body);

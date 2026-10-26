@@ -162,38 +162,39 @@ function BidPanel({
   const showBank = !!mine && g.bankOpened && mine.bankRefusal !== undefined;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        {a.bid ? (
-          <p className="flex min-w-0 items-center gap-2 text-lg" data-testid="go-top-bid">
-            <Paddle
-              key={a.seq}
-              name={name(a.bid.by)}
-              shape={view.game!.paddles[a.bid.by]}
-              art={art}
-              raised
-            />
-            <PlayerTag
-              name={name(a.bid.by)}
-              you={a.bid.by === room.you}
-              className="font-semibold"
-            />
-            <span className="text-2xl font-extrabold tabular-nums">{money(a.bid.amount)}</span>
-            {a.screwed && (
-              <span className="text-sm text-ink-muted dark:text-stone-400" title="A forced bid">
-                🔩 by {name(a.screwed.by)}
-              </span>
-            )}
-          </p>
-        ) : (
-          <p className="text-lg text-ink-muted dark:text-stone-400" data-testid="go-top-bid">
-            No bids yet · opens at {money(a.steps[0]!)}
-          </p>
-        )}
-      </div>
-      <BidLadder view={view} art={art} name={name} you={room.you} />
-      {/* On phones the clock and the bid buttons float at the bottom while their spot is below the fold. */}
+      {/* On phones the top bid, the bids before it, the clock and the bid buttons float together
+          at the bottom while their spot is below the fold, so who leads is never hidden. */}
       <StickyBar whole>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-testid="go-bid-bar">
+          <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            {a.bid ? (
+              <p className="flex min-w-0 items-center gap-2 text-lg" data-testid="go-top-bid">
+                <Paddle
+                  key={a.seq}
+                  name={name(a.bid.by)}
+                  shape={view.game!.paddles[a.bid.by]}
+                  art={art}
+                  raised
+                />
+                <PlayerTag
+                  name={name(a.bid.by)}
+                  you={a.bid.by === room.you}
+                  className="font-semibold"
+                />
+                <span className="text-2xl font-extrabold tabular-nums">{money(a.bid.amount)}</span>
+                {a.screwed && (
+                  <span className="text-sm text-ink-muted dark:text-stone-400" title="A forced bid">
+                    🔩 by {name(a.screwed.by)}
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="text-lg text-ink-muted dark:text-stone-400" data-testid="go-top-bid">
+                No bids yet · opens at {money(a.steps[0]!)}
+              </p>
+            )}
+          </div>
+          <BidLadder view={view} art={art} name={name} you={room.you} />
           <CloseBar view={view} room={room} />
           {mine && (
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Bid">
@@ -547,6 +548,10 @@ function SideTabs({ children }: { children: (tab: Tab) => ReactNode }) {
 
 // ---- The screen ----
 
+/** Small buttons over the lot: a solid chip, readable on the gallery wall in light and dark. */
+const CHIP =
+  'bg-card text-ink shadow-sm ring-1 ring-line-strong hover:bg-panel dark:bg-stone-900 dark:text-stone-100 dark:ring-stone-600 dark:hover:bg-stone-800';
+
 export function Auction({
   view,
   room,
@@ -615,6 +620,7 @@ export function Auction({
               <Button
                 variant="ghost"
                 size="sm"
+                className={CHIP}
                 onClick={() => setLocalHidden(pic.item, !localHidden.has(pic.item))}
               >
                 {localHidden.has(pic.item) ? 'Show' : 'Hide'}
@@ -624,6 +630,7 @@ export function Auction({
               <Button
                 variant="ghost"
                 size="sm"
+                className={CHIP}
                 onClick={() => void act({ type: 'hide', item: pic.item, hidden: !pic.hidden })}
                 title="Hide or show this drawing for everyone; it still sells"
               >

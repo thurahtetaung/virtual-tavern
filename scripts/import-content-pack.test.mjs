@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hostLineProblems, parseArgs } from './import-content-pack.mjs';
+import { cleanPack, hostLineProblems, parseArgs, plainText } from './import-content-pack.mjs';
 
 describe('import-content-pack arguments', () => {
   it('reads the four positionals and names the pack after its file', () => {
@@ -13,6 +13,7 @@ describe('import-content-pack arguments', () => {
       name: 'titles',
       enabled: true,
       dryRun: false,
+      replace: false,
     });
   });
 
@@ -55,5 +56,29 @@ describe('host line checks', () => {
       'opening: "Who starts" (no sentence ending)',
       'congrats: "{player}." (no words)',
     ]);
+  });
+});
+
+describe('import-content-pack markup', () => {
+  it('takes tags and entities out of every string, keeping the words', () => {
+    expect(plainText('The movie <i>Speed</i>')).toBe('The movie Speed');
+    expect(plainText('Fish &amp; chips&#8230;')).toBe('Fish & chips…');
+    expect(plainText('<scr<script>ipt>x')).toBe('x');
+    expect(plainText('&lt;b&gt;Bus&lt;/b&gt;')).toBe('Bus');
+    const { data, changed } = cleanPack([
+      { id: 1, titles: ['<b>Bus</b>', 'Van', '  Car  '], house: ['k_0'] },
+    ]);
+    expect(data).toEqual([{ id: 1, titles: ['Bus', 'Van', 'Car'], house: ['k_0'] }]);
+    expect(changed).toBe(1);
+    expect(cleanPack({ filler: ['Hi &amp; bye.'] })).toEqual({
+      data: { filler: ['Hi & bye.'] },
+      changed: 1,
+    });
+  });
+
+  it('takes a --replace switch', () => {
+    expect(
+      parseArgs(['http://x.test', 'going-once', 'groups', 'g.json', '--replace']),
+    ).toMatchObject({ replace: true });
   });
 });

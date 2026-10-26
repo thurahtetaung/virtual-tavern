@@ -40,6 +40,7 @@ describe('content packs api', () => {
       ['POST', '/api/admin/content-packs'],
       ['GET', '/api/admin/content-packs/x'],
       ['PATCH', '/api/admin/content-packs/x'],
+      ['PUT', '/api/admin/content-packs/x'],
       ['DELETE', '/api/admin/content-packs/x'],
     ];
     for (const [method, url] of routes) {
@@ -70,6 +71,34 @@ describe('content packs api', () => {
     await bad(pack({ name: '' }), /name/);
     expect((await post(headers, pack({}))).statusCode).toBe(201);
     expect((await post(headers, pack({ kind: 'lines', data: lines }))).statusCode).toBe(201);
+  });
+
+  it('replaces a pack’s data in place, checked and with markup taken out', async () => {
+    const headers = await admin();
+    const created = (
+      await post(headers, { gameId: 'going-once', kind: 'groups', name: 'Animals', data: groups })
+    ).json<ContentPackDetail>();
+    const put = (id: string, payload: object) =>
+      app.inject({ method: 'PUT', url: `/api/admin/content-packs/${id}`, headers, payload });
+    const marked = [
+      {
+        id: 'g1',
+        titles: ['The movie <i>Speed</i>', 'Bus &amp; van', ...groups[0]!.titles.slice(2)],
+      },
+      groups[1]!,
+    ];
+    const res = await put(created.id, { data: marked });
+    expect(res.statusCode).toBe(200);
+    const after = res.json<ContentPackDetail>();
+    expect(after.id).toBe(created.id);
+    expect(after.name).toBe('Animals');
+    expect((after.data as typeof groups)[0]!.titles.slice(0, 2)).toEqual([
+      'The movie Speed',
+      'Bus & van',
+    ]);
+    expect((await put(created.id, { data: [{ id: 'x', titles: ['few'] }] })).statusCode).toBe(400);
+    expect((await put('nope', { data: groups })).statusCode).toBe(404);
+    expect((await put(created.id, {})).statusCode).toBe(400);
   });
 
   it('lists, reads, switches, exports and deletes packs', async () => {

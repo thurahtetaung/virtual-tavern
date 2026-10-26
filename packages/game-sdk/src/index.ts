@@ -11,6 +11,7 @@ export * from './awards.ts';
 export * from './storage.ts';
 export * from './bots.ts';
 export * from './bot-harness.ts';
+export * from './markup.mjs';
 export * from './regex.ts';
 export * from './narration.ts';
 export * from './colors.ts';

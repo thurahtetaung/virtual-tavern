@@ -50,9 +50,10 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    // Hand-rolled escapes miss characters (CodeQL blocks them as incomplete
-    // escaping), so there is one shared helper.
-    ignores: ['packages/game-sdk/src/regex.ts'],
+    // Hand-rolled escapes miss characters and one-pass tag stripping leaves
+    // tags behind (CodeQL blocks both as incomplete sanitising), so each has
+    // one shared helper.
+    ignores: ['packages/game-sdk/src/regex.ts', 'packages/game-sdk/src/markup.mjs'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -61,6 +62,12 @@ export default tseslint.config(
             "CallExpression[callee.property.name=/^replace(All)?$/][arguments.0.regex]:matches([arguments.1.value='\\\\$&'], [arguments.1.quasis.0.value.cooked='\\\\$&'])",
           message:
             "Don't escape for RegExp by hand: use escapeRegExp from '@vt/game-sdk' (or RegExp.escape in Node scripts).",
+        },
+        {
+          selector:
+            'CallExpression[callee.property.name=/^replace(All)?$/][arguments.0.regex.pattern=/^<\\[/]',
+          message:
+            "Don't strip tags by hand: use plainText from '@vt/game-sdk' (packages/game-sdk/src/markup.mjs in Node scripts).",
         },
       ],
     },
