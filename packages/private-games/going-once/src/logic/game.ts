@@ -534,7 +534,7 @@ function advance(s: GoingOnceState, from: 'sold' | 'halftime' | 'bank', now: num
       now,
       {
         text: ['halftime'],
-        voice: ['halfway', 'halfway-2', 'screw-explain', 'screw-whenever'],
+        voice: ['halfway', 'halfway-turn', 'screw-explain', 'screw-whenever'],
       },
       true,
     );
@@ -1036,7 +1036,7 @@ const INTRO = (n: number): VoicePart[] => [
   'buyers-more',
   'expect-messages',
   'buy-advice',
-  'buy-advice-2',
+  'buy-advice-also',
   'how-to-win',
   'need-art',
 ];
