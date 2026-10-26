@@ -20,12 +20,23 @@ export function TableScreen({
   clockOffset: number;
   call: (event: 'room:stage-code' | 'room:stage-remove') => Promise<Ack>;
 }) {
-  const [code, setCode] = useState<StageCode | null>(null);
+  /** The code shown, and whether the room has been without a table screen since it was made. */
+  const [minted, setMinted] = useState<{ code: StageCode; away: boolean } | null>(null);
+  const [wasPresent, setWasPresent] = useState(present);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  // A screen that connects after the room was without one used the code: hide it. Pairing
+  // another screen while one is connected shows its code until the old one leaves and the new
+  // one arrives.
+  if (present !== wasPresent) {
+    setWasPresent(present);
+    if (minted && !present) setMinted({ ...minted, away: true });
+    else if (minted?.away) setMinted(null);
+  }
+  const code = minted?.code ?? null;
   const left = useSecondsLeft(code?.expiresAt ?? null, clockOffset);
-  const live = code && left !== null && left > 0 && !present ? code : null;
+  const live = code && left !== null && left > 0 ? code : null;
 
   if (!isHost) {
     return present ? (
@@ -40,7 +51,7 @@ export function TableScreen({
     const res = (await call('room:stage-code')) as unknown as AckWith<StageCode>;
     setBusy(false);
     if (res.ok) {
-      setCode(res.data);
+      setMinted({ code: res.data, away: !present });
       setError(null);
     } else setError(res.error.message);
   };
@@ -53,7 +64,7 @@ export function TableScreen({
     });
     if (!yes) return;
     const res = await call('room:stage-remove');
-    if (res.ok) setCode(null);
+    if (res.ok) setMinted(null);
     else setError(res.error.message);
   };
 
@@ -98,6 +109,7 @@ export function TableScreen({
           </p>
           <p className="text-xs text-ink-muted">
             Works once, for {clock(left ?? 0)}. Only you can see it.
+            {present && ' The screen showing now leaves when the new one pairs.'}
           </p>
         </div>
       ) : (

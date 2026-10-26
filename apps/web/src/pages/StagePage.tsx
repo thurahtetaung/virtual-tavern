@@ -1,4 +1,4 @@
-import { STAGE_CODE_LENGTH, type StagePaired } from '@vt/protocol';
+import { STAGE_CODE_LENGTH, type StagePaired, type StageStatus } from '@vt/protocol';
 import { Button } from '@vt/ui';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -22,9 +22,9 @@ export function StagePage() {
 
   useEffect(() => {
     let stale = false;
-    api<StagePaired>('/api/stage')
+    api<StageStatus>('/api/stage')
       .then((p) => {
-        if (!stale) setRoomId(p.roomId);
+        if (!stale && p.roomId) setRoomId(p.roomId);
       })
       .catch(() => {});
     return () => {

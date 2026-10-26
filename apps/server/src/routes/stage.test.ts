@@ -240,9 +240,30 @@ describe('the table screen', () => {
       ok: false,
       error: { code: 'stage-unpaired' },
     });
+    // A screen that isn't paired is told so plainly, not with an error.
+    const probe = await t.app.inject({ url: '/api/stage', headers: { cookie: second } });
+    expect(probe.statusCode).toBe(200);
+    expect(probe.json()).toEqual({ roomId: null });
+    expect((await t.app.inject({ url: '/api/stage' })).json()).toEqual({ roomId: null });
+  });
+
+  it('is never an admin session', async () => {
+    const t = await start();
+    const roomId = await t.room('codenames');
+    const host = await t.player(roomId, 0, 'Ana');
+    const pass = await t.paired(host);
+    const as = (url: string) => t.app.inject({ url, headers: { cookie: pass } });
+    expect((await as('/api/stage')).json()).toEqual({ roomId });
+    expect((await as('/api/admin/session')).json()).toMatchObject({
+      enabled: true,
+      signedIn: false,
+    });
+    expect((await as('/api/admin/word-lists')).statusCode).toBe(401);
+    expect((await as('/api/admin/playtest/games')).statusCode).toBe(401);
+    // The admin's own session still reads as signed in.
     expect(
-      (await t.app.inject({ url: '/api/stage', headers: { cookie: second } })).statusCode,
-    ).toBe(404);
+      (await t.app.inject({ url: '/api/admin/session', headers: { cookie: t.admin } })).json(),
+    ).toMatchObject({ signedIn: true });
   });
 
   it("opens only its own back-room room, as that room's unlock and nothing more", async () => {
