@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.67.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.7...v0.67.0) (2026-10-26)
+
+
+### Features
+
+* **mosaic:** grey wall, jokers and special factories as host options ([#393](https://github.com/thurahtetaung/virtual-tavern/issues/393)) ([a137a51](https://github.com/thurahtetaung/virtual-tavern/commit/a137a5144f3a4e9dfa2498bcf71f8362dbec9f27))
+
 ## [0.66.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.6...v0.66.7) (2026-10-26)
 
 
