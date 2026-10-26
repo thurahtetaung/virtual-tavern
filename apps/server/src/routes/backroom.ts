@@ -32,6 +32,11 @@ export function backroomRoutes(
     hasBackroom: (req: FastifyRequest) => boolean;
     /** Whether the request carries a current admin session (it needs no password). */
     isAdmin?: (req: FastifyRequest) => boolean;
+    /**
+     * The game of the room this request's table-screen pass opens: that game's art and manifest
+     * only (never the status, the decks or any other game). Default: none.
+     */
+    stageGame?: (req: FastifyRequest) => string | null;
     /** The game list, whose version rides on the status. */
     lists: Lists;
     /** The manifests as sent, with their versions. */
@@ -114,10 +119,14 @@ export function backroomRoutes(
     });
   }
 
-  /** Only an unlocked player (or the admin) asking about a real private game gets past this. */
+  /**
+   * Only an unlocked player (or the admin, or a table screen of a room of this game) asking about
+   * a real private game gets past this.
+   */
   const privateGame = (req: FastifyRequest, reply: FastifyReply, gameId: string) => {
     const game = games.get(gameId);
-    if (!hasBackroom(req) || game?.access !== 'private') {
+    const open = hasBackroom(req) || opts.stageGame?.(req) === gameId;
+    if (!open || game?.access !== 'private') {
       void error(reply, 404, 'not-found', 'Not found.');
       return null;
     }

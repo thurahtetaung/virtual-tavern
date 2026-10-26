@@ -57,10 +57,8 @@ export interface RoomListener {
 
 export type RecapPush = Parameters<ServerToClientEvents['room:recap']>[0];
 
-export interface Joiner {
-  token: string;
-  name: string;
-}
+/** Who joins: a player (their token and name), or the room's table screen (on its pass). */
+export type Joiner = { token: string; name: string } | { role: 'stage' };
 
 /**
  * Whether the heartbeat ran out while the page was asleep. A frozen phone never ran the timer

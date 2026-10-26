@@ -85,6 +85,13 @@
       "when": 1792939352491,
       "tag": "0011_content_packs",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793011900019,
+      "tag": "0012_room_stage",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,7 @@ import type {
   RoomRecap,
 } from './recap.ts';
 import type { PlayerColor } from '@vt/game-sdk';
+import type { StagePresence } from '@vt/game-sdk/show';
 
 export const MAX_NAME_LENGTH = 24;
 export const ROOM_ID_PATTERN = /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{4}$/;
@@ -80,9 +81,36 @@ export interface RoomInfo {
   gameId: string;
   /** A private game's display title, set by the admin (only sent to unlocked browsers). */
   title?: string;
-  /** An admin playtest room (only ever sent to a signed-in admin). */
+  /** An admin playtest room (only ever sent to a signed-in admin, or its table screen). */
   playtest?: true;
   versions?: ListVersions;
+}
+
+// ---- Table screen ----
+
+/** Characters of a table-screen pairing code: no 0/O, 1/I/L or U/V, so it reads out loud. */
+export const STAGE_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTWXYZ23456789';
+export const STAGE_CODE_LENGTH = 6;
+
+/** A pairing code the host's phone shows; the table screen types it in on `/stage`. */
+export interface StageCode {
+  code: string;
+  /** Server time it stops working. */
+  expiresAt: number;
+}
+
+export const stagePairBody = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .transform((c) => c.replace(/[\s-]/g, ''))
+    .pipe(z.string().length(STAGE_CODE_LENGTH, 'Codes are six characters.')),
+});
+
+/** A paired table screen: the room its pass is for. */
+export interface StagePaired {
+  roomId: string;
 }
 
 /**
@@ -262,6 +290,13 @@ export interface RoomSnapshot<View = unknown> {
   meta?: RoomMeta;
   /** The only colours this room offers, when its game uses fewer than all (`GameDefinition.colors`). */
   colors?: PlayerColor[];
+  /** Whether a table screen is watching the room right now (phones go quiet). */
+  stage?: StagePresence;
+  /**
+   * This snapshot is for the table screen itself: `game` is the spectator view and `you` is
+   * empty, since the table screen is never a player.
+   */
+  role?: 'stage';
 }
 
 /**
@@ -275,9 +310,12 @@ export type Ack =
 
 export const joinRoomPayload = z.object({ roomId, token: playerToken, name: playerName });
 export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
+/** A table screen joins with its pass (a cookie), never as a player. */
+export const stageJoinPayload = z.object({ roomId, role: z.literal('stage') });
+export type StageJoinPayload = z.infer<typeof stageJoinPayload>;
 
 export interface ClientToServerEvents {
-  'room:join': (payload: JoinRoomPayload, ack: (res: Ack) => void) => void;
+  'room:join': (payload: JoinRoomPayload | StageJoinPayload, ack: (res: Ack) => void) => void;
   'room:rename': (name: string, ack: (res: Ack) => void) => void;
   /** Changes the player's colour; a colour someone here already has is refused. */
   'room:recolor': (color: PlayerColor, ack: (res: Ack) => void) => void;
@@ -285,6 +323,10 @@ export interface ClientToServerEvents {
   'room:kick': (playerId: string, ack: (res: Ack) => void) => void;
   'room:make-host': (playerId: string, ack: (res: Ack) => void) => void;
   'game:action': (action: unknown, ack: (res: Ack) => void) => void;
+  /** Host only: a new table-screen pairing code. */
+  'room:stage-code': (ack: (res: AckWith<StageCode>) => void) => void;
+  /** Host only: removes the table screen (its pass stops working at once). */
+  'room:stage-remove': (ack: (res: Ack) => void) => void;
   /** The night recap (members only). */
   'room:recap': (
     query: RecapQuery,
