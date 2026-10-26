@@ -134,6 +134,16 @@ describe('checks', () => {
     expect(evaluate({ kind: 'trick-count', n: 1 }, 'a', t).state).toBe('failed');
     expect(evaluate({ kind: 'trick-count', n: 1 }, 'b', t).state).toBe('open');
     expect(evaluate({ kind: 'trick-count', n: 3 }, 'c', t).state).toBe('failed');
+    // Counts read as English: one trick, two tricks.
+    expect(evaluate({ kind: 'trick-count', n: 0 }, 'b', t)).toMatchObject({
+      why: '{p:b} won 1 trick, more than 0.',
+    });
+    expect(evaluate({ kind: 'trick-count', n: 1 }, 'a', t)).toMatchObject({
+      why: '{p:a} won 2 tricks, more than 1.',
+    });
+    expect(evaluate({ kind: 'run', n: 3 }, 'b', t)).toMatchObject({
+      why: 'Only 1 trick is left: no room for 3 in a row.',
+    });
   });
 
   it('comparisons settle as soon as the tricks left can’t change them', () => {
