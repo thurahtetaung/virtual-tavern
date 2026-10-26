@@ -48,6 +48,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   mosaic: [],
   // Cards, not words: no Words card.
   encore: [],
+  // Cards and tasks, not words: no Words card.
+  'mission-control': [],
 };
 
 const LABELS: Record<WordKind, string> = {

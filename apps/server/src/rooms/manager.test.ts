@@ -91,6 +91,28 @@ describe('RoomManager', () => {
   }
   const game = (id: string) => rooms.snapshot(id, 'h')!.game as CodenamesView;
 
+  it('hands a linked room what the latest room of the same game carries', () => {
+    const stub = stubGame({
+      create: (ctx: { carried?: unknown }) => ({ due: null, campaign: ctx.carried ?? 'fresh' }),
+      carry: (s: { campaign: unknown }) => `kept:${String(s.campaign)}`,
+    });
+    const other = stubGame({ id: 'other' });
+    rooms = manager({
+      games: new Map([
+        [stub.id, stub],
+        [other.id, other],
+      ]),
+    });
+    const first = rooms.create('stub', 'h');
+    const elsewhere = rooms.create('other', 'h');
+    expect(rooms.snapshot(first, 'h')!.game).toMatchObject({ campaign: 'fresh' });
+    const next = rooms.create('stub', 'h', { carryFrom: [elsewhere, first] });
+    expect(rooms.snapshot(next, 'h')!.game).toMatchObject({ campaign: 'kept:fresh' });
+    // Without a linked room of the same game, nothing is carried.
+    const lone = rooms.create('stub', 'h', { carryFrom: [elsewhere] });
+    expect(rooms.snapshot(lone, 'h')!.game).toMatchObject({ campaign: 'fresh' });
+  });
+
   it('fires turn timers on the server', () => {
     const id = seatedGame({ clueSeconds: 30, timerMode: 'strict' });
     expect(rooms.act(id, 'h', { type: 'start' })).toEqual({ ok: true });

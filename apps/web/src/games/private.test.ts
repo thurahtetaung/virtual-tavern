@@ -262,6 +262,26 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('«credit»');
   });
 
+  it('Mission Control: the theme’s names and the credit', async () => {
+    const text = await named('mission-control', {
+      names: {
+        trump: 'gizmo',
+        trumps: 'gizmos',
+        captain: 'skipper',
+        token: 'beacon',
+        dummy: 'Robo',
+      },
+      credit: { text: 'After an old favourite.' },
+    });
+    expect(text).toContain('gizmo');
+    expect(text).toContain('Skipper');
+    expect(text).toContain('Robo');
+    expect(text).not.toMatch(/\btrumps?\b/i);
+    expect(text).not.toMatch(/\bcaptain\b/i);
+    expect(text).not.toMatch(/\{\w+\}/);
+    expect(text).toContain('After an old favourite.');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

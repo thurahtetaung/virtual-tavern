@@ -59,6 +59,7 @@ const LIGHT: ChartTokens = {
     '#b07d1a',
     '#a5463a',
     '#7a4fb3',
+    '#5b4636',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -99,6 +100,7 @@ const DARK: ChartTokens = {
     '#d39a3a',
     '#e07a68',
     '#a98ad9',
+    '#b89a80',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -127,7 +129,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * twenty-first (a lime, brighter and lighter than the olive and apart from both greens), Going
  * Once a twenty-second (a steel blue), Sketchy a twenty-third (an ochre, apart from the steel
  * blue before it), Mosaic a twenty-fourth (a brick, apart from the ochre before it and duller
- * than the red), and Encore a twenty-fifth (a violet, apart from the brick before it).
+ * than the red), Encore a twenty-fifth (a violet, apart from the brick before it), and Mission
+ * Control a twenty-sixth (a dark brown; dark mode a sand, apart from the violet before it and
+ * from the bronze).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -157,6 +161,7 @@ const FIXED_ORDER = [
   'sketchy',
   'mosaic',
   'encore',
+  'mission-control',
 ];
 
 /**

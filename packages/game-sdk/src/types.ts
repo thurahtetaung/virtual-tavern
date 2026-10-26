@@ -97,6 +97,11 @@ export interface CreateCtx {
   now: number;
   rng: Rng;
   content: ContentProvider;
+  /**
+   * What the game's `carry` took from the latest room of the same game in this night, when the
+   * room was opened from it ("Same crew, new game"). Untrusted shape: parse it before use.
+   */
+  carried?: unknown;
 }
 
 export interface ActionCtx extends CreateCtx {
@@ -183,6 +188,12 @@ export interface GameDefinition<State, Action, View> {
   /** Beginner-friendly rules; required so every game is learnable in-app. */
   guide: GameGuide;
   actionSchema: ZodType<Action>;
+  /**
+   * Optional: what a new room of this game opened by the same crew ("Same crew, new game") takes
+   * over from this room's state, such as a campaign's progress. It reaches `create` as
+   * `ctx.carried`. Keep it small and free of hidden information.
+   */
+  carry?(state: State): unknown;
   /** Initial state for a freshly opened game (typically a pre-game lobby phase). */
   create(ctx: CreateCtx, players: readonly PlayerInfo[]): State;
   reduce(state: State, action: Action, ctx: ActionCtx): State | GameError;

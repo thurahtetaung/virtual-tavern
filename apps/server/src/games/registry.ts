@@ -28,6 +28,7 @@ import {
   parseTestDeck as parseEncoreDeck,
   setTestDeck as setEncoreDeck,
 } from '@vt/private-encore/logic';
+import { missionControl, parseTestDeal, setTestDeal } from '@vt/private-mission-control/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -161,6 +162,13 @@ if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
   setTestBag({ top, wall, firstSeat: true });
 }
 
+// Browser tests only: Mission Control's hands and tasks for every deal (`hands=p1 p2 …|b1 …|…`, by
+// seat, and `tasks=3,7`, task ids from the packs), so a spec knows the table. Never read in
+// production.
+if (process.env.NODE_ENV !== 'production' && process.env.MISSION_CONTROL_TEST_DEAL) {
+  setTestDeal(parseTestDeal(process.env.MISSION_CONTROL_TEST_DEAL));
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -194,6 +202,7 @@ export function buildGames(): GameRegistry {
     sketchy,
     mosaic,
     encore,
+    missionControl,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

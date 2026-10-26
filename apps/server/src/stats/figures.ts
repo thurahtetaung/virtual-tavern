@@ -86,6 +86,10 @@ import type { GameFigure } from '@vt/protocol';
 //              value, profit, own, house, screwedBy; recap: lot, artist, commission, players},
 //              unsold {value, house; recap: lot}, bid {amount}, screw {outcome; recap: target,
 //              amount}, loan {loans}, drawing {missed}
+//   mission-control outcome {success, players, tricks, distress, timedOut, practice, epilogue,
+//              comms; recap: mission, level, attempt, dummy, tasks, signals, failedBy}, task {fedBy;
+//              recap: trick, signalBy, difficulty}, feed {recap: to}, signal {trick; recap: comms},
+//              distress {dir}
 //   sketchy    drawing {found, voters, lies, house, hidden; recap: round, points}, lie {fooled,
 //              auto; recap: authors, artist}, vote {foundTruth, house; recap: authors, artist,
 //              streak}, like {byArtist; recap: authors, round}, outcome {drawings, endReason;
@@ -1554,6 +1558,76 @@ function stampedeFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function missionControlCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      if (props.success === true) out.push(['f.won', 1]);
+      if (props.timedOut === true) out.push(['f.timed_out', 1]);
+      if (props.distress === true) out.push(['f.distress', 1]);
+      if (props.practice === true) out.push(['f.practice', 1]);
+      if (props.epilogue === true) out.push(['f.epilogue', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 5) out.push([`f.n.${n}`, 1]);
+      const tricks = num(props.tricks);
+      if (tricks !== null) out.push(['f.trick_sum', tricks]);
+      break;
+    }
+    case 'task': {
+      out.push(['f.tasks', 1]);
+      if (Array.isArray(props.fedBy) && props.fedBy.length > 0) out.push(['f.fed', 1]);
+      break;
+    }
+    case 'signal':
+      out.push(['f.signals', 1]);
+      break;
+  }
+  return out;
+}
+
+function missionControlFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'success-rate',
+      label: 'Attempts that succeeded',
+      kind: 'percent',
+      value: pct(get('f.won'), games),
+    },
+    {
+      id: 'fed-share',
+      label: 'Tasks met with a teammate’s card',
+      kind: 'percent',
+      value: pct(get('f.fed'), get('f.tasks')),
+    },
+    {
+      id: 'signals-per-attempt',
+      label: 'Signals per attempt',
+      kind: 'number',
+      value: avg(get('f.signals'), games),
+    },
+    {
+      id: 'tricks-per-attempt',
+      label: 'Tricks played per attempt',
+      kind: 'number',
+      value: avg(get('f.trick_sum'), games),
+    },
+    {
+      id: 'distress',
+      label: 'Attempts with a distress signal',
+      kind: 'percent',
+      value: pct(get('f.distress'), games),
+    },
+    {
+      id: 'player-count',
+      label: 'Attempts by crew size',
+      kind: 'split',
+      parts: [2, 3, 4, 5].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+  ];
+}
+
 function sketchyCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2058,6 +2132,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'sketchy') return sketchyCounters(type, props);
   if (gameId === 'mosaic') return mosaicCounters(type, props);
   if (gameId === 'encore') return encoreCounters(type, props);
+  if (gameId === 'mission-control') return missionControlCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2277,6 +2352,8 @@ export function buildFigures(
       return sketchyFigures(get);
     case 'mosaic':
       return mosaicFigures(get);
+    case 'mission-control':
+      return missionControlFigures(get);
     case 'codenames':
       return [
         teams(false),
