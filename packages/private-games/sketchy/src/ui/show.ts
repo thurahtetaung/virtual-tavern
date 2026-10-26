@@ -303,7 +303,7 @@ function clock(view: SketchyView): Moment[] {
 
 // ---- 5, 6 a drawing comes up, lies come in ----
 //
-// The original (its Shortie flowchart): after the drawings are in, the timer's "off" sound and
+// The original: after the drawings are in, the timer's "off" sound and
 // "Your drawings are in" (or the scold when some are missing); each drawing then fades on under
 // "What is it?" with its sound and the timer's numbers popping on; 1.75 s later the narrator asks
 // for titles ("Use your devices…", or "Okay, the next drawing…" then "Enter your titles… now!").
