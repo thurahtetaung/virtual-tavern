@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { type Table, evaluate } from './checks.ts';
-import { createRng } from '@vt/game-sdk';
+import { createRng, plainLines } from '@vt/game-sdk';
+import { TOKENS } from './content.ts';
 import { drawFromRight, orderFailure, rowFailure } from './onecard.ts';
 import { HOST, type Harness, att, dive, draftAll, harness, readyAll, rig } from './test-utils.ts';
 import { DUMMY, type TaskInPlay } from './types.ts';
@@ -52,6 +53,10 @@ const open = (token: TaskInPlay['token'], text = 'y'): TaskInPlay => ({
 });
 
 describe('order tokens', () => {
+  it('survive the pack import’s markup cleaner unchanged', () => {
+    for (const t of TOKENS) expect(plainLines(t)).toBe(t);
+  });
+
   it('numbered tokens: 1 before 2, and an unmarked task can’t jump the queue', () => {
     expect(orderFailure([done(1, '1'), done(2, '2')])).toBeNull();
     expect(orderFailure([done(2, '1'), done(1, '2', 'b')])?.why).toMatch(/too early/);
@@ -65,8 +70,8 @@ describe('order tokens', () => {
   });
 
   it('arrows keep their relative order; unmarked tasks come any time', () => {
-    expect(orderFailure([done(1, null), done(2, '>'), done(3, '>>', 'z')])).toBeNull();
-    expect(orderFailure([done(1, '>>', 'b'), open('>', 'a')])?.why).toMatch(/before/);
+    expect(orderFailure([done(1, null), done(2, 'a1'), done(3, 'a2', 'z')])).toBeNull();
+    expect(orderFailure([done(1, 'a2', 'b'), open('a1', 'a')])?.why).toMatch(/before/);
   });
 
   it('Ω is last; in the same trick as the others it still counts as last', () => {

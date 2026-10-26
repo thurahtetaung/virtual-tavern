@@ -73,10 +73,10 @@ const ORDER_KEYS: Record<OrderToken, string> = {
   '3': 'task-3',
   '4': 'task-4',
   '5': 'task-5',
-  '>': 'task-arrow-1',
-  '>>': 'task-arrow-2',
-  '>>>': 'task-arrow-3',
-  '>>>>': 'task-arrow-4',
+  a1: 'task-arrow-1',
+  a2: 'task-arrow-2',
+  a3: 'task-arrow-3',
+  a4: 'task-arrow-4',
   o: 'task-omega',
 };
 

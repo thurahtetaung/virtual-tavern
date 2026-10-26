@@ -120,7 +120,7 @@ export const VOYAGE_CARDS = {
   taskSet: 'cards',
   missions: [
     { n: 1, cards: 2, tokens: ['1', '2'], passing: false },
-    { n: 2, cards: 3, tokens: ['>', '>>'], passing: false },
+    { n: 2, cards: 3, tokens: ['a1', 'a2'], passing: false },
     { n: 3, cards: 3, tokens: ['o'], omegaLast: true, passing: false },
     {
       n: 4,

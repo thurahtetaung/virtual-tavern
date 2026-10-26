@@ -51,8 +51,11 @@ export const SELECTIONS = [
   'roles',
 ] as const;
 
-/** Order tokens on one-card tasks: 1–5 (that place among all tasks), arrows (relative), Ω (last). */
-export const TOKENS = ['1', '2', '3', '4', '5', '>', '>>', '>>>', '>>>>', 'o'] as const;
+/**
+ * Order tokens on one-card tasks: 1–5 (that place among all tasks), arrows `a1`–`a4` (relative,
+ * one to four arrows), `o` = Ω (last). Plain letters, so no text cleaner mistakes them for markup.
+ */
+export const TOKENS = ['1', '2', '3', '4', '5', 'a1', 'a2', 'a3', 'a4', 'o'] as const;
 export type OrderToken = (typeof TOKENS)[number];
 
 /** What a crew member the captain picks must do (or may not do). */
