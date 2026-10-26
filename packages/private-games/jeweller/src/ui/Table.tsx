@@ -592,8 +592,7 @@ function CardSheet({
   const short = me
     ? Math.max(0, totalOf(shortfall(card, me.bonuses, me.tokens)) - me.tokens.gold)
     : 0;
-  const reserveOk =
-    canMove && !conquest && !blocked && inMarket && (me?.reserved.length ?? 0) < MAX_RESERVED;
+  const reserveOk = canMove && !conquest && inMarket && (me?.reserved.length ?? 0) < MAX_RESERVED;
   const goldLeft = me ? me.tokens.gold - totalOf(gold) : 0;
   const run = async (action: JewellerAction) => {
     if (await act(action, { anchor: 'jw-sheet' })) onClose();
@@ -671,21 +670,19 @@ function CardSheet({
             </ul>
           </div>
         )}
-        {canMove && (mineReserved || inMarket) && (
+        {canMove && !blocked && (mineReserved || inMarket) && (
           <div className="flex w-full flex-wrap gap-2">
             <Button
               className="flex-1"
-              disabled={typeof paid === 'string' || blocked}
+              disabled={typeof paid === 'string'}
               onClick={() => void run({ type: 'buy', card: id, gold })}
               data-testid="jw-buy"
             >
-              {blocked
-                ? 'Held by another player'
-                : typeof paid === 'string'
-                  ? 'Can’t afford it yet'
-                  : totalOf(paid) === 0
-                    ? 'Buy for free'
-                    : `Buy for ${totalOf(paid)} ${totalOf(paid) === 1 ? 'piece' : 'pieces'}`}
+              {typeof paid === 'string'
+                ? 'Can’t afford it yet'
+                : totalOf(paid) === 0
+                  ? 'Buy for free'
+                  : `Buy for ${totalOf(paid)} ${totalOf(paid) === 1 ? 'piece' : 'pieces'}`}
             </Button>
             {inMarket && !conquest && (
               <Button
@@ -789,7 +786,7 @@ function HoldPicker({
   const hint =
     mode.from === 'evict'
       ? 'Tap a card with a lone stronghold of another player’s to send it back.'
-      : 'Tap a highlighted card to put your stronghold there.';
+      : 'Tap a highlighted card. Only you can buy or reserve a card you hold.';
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Place a stronghold">
       <p className="flex items-center gap-1.5 text-sm font-semibold">
@@ -810,12 +807,7 @@ function HoldPicker({
         )}
         {canEvict && choice('evict', 'Send one back', 'evict')}
       </div>
-      <p className="text-xs text-ink-muted dark:text-stone-400">
-        {hint}{' '}
-        {mode.from === 'evict'
-          ? ''
-          : `Nobody else can buy or reserve a card you hold; with all three on one card you may buy it as well as your action.`}
-      </p>
+      <p className="text-xs text-ink-muted dark:text-stone-400">{hint}</p>
       {mode.from === 'evict' && (
         <p className="sr-only">
           {mode.moves

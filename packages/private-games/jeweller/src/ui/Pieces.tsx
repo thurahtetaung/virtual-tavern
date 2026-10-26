@@ -466,6 +466,12 @@ export const NobleTile = memo(function NobleTile({
   );
 });
 
+/** A City's requirement pips, by tile size. */
+const PIP = {
+  sm: 'h-3.5 min-w-3.5 text-[9px] sm:h-4 sm:min-w-4 sm:text-[10px]',
+  lg: 'h-6 min-w-6 text-sm',
+} as const;
+
 /**
  * A City side: its art (which prints the points and cards it needs), else drawn from its numbers:
  * the points, each colour's cards, and "N =" for that many of one other colour. With `met`, a
@@ -493,53 +499,61 @@ export const CityTile = memo(function CityTile({
     ...wants.map((g) => `${city.requires[g]} ${TOKEN_NAME[g]}`),
     ...(city.any ? [`${city.any} of one ${wants.length ? 'other ' : ''}colour`] : []),
   ].join(', ')} cards${wants.length || city.any ? '' : ' (no cards)'}${met ? ': you meet it' : ''}`;
+  // The printed values are too small to read on a small tile, so they are drawn over the art's
+  // value column; the large tile (a sheet) shows the art as printed.
+  const drawn = !(src && size === 'lg');
   const body = (
     <>
       {src ? (
         <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-cover" />
       ) : (
-        <>
-          <span aria-hidden className="absolute top-0.5 left-1 text-sm opacity-60">
-            🏙
+        <span aria-hidden className="absolute top-0.5 left-1 text-sm opacity-60">
+          🏙
+        </span>
+      )}
+      {drawn && (
+        <span
+          className={cn(
+            'relative ml-auto flex flex-col items-end justify-center gap-0.5 p-0.5 sm:p-1',
+            src && 'rounded-l-md bg-card/90 text-ink dark:bg-stone-900/90 dark:text-stone-100',
+          )}
+        >
+          <span
+            className={cn(
+              'font-black tabular-nums leading-none',
+              size === 'lg' ? 'text-3xl' : 'text-base sm:text-lg',
+            )}
+          >
+            {city.points}
           </span>
-          <span className="relative ml-auto flex flex-col items-end gap-0.5 p-1">
-            <span
-              className={cn(
-                'font-black tabular-nums leading-none',
-                size === 'lg' ? 'text-3xl' : 'text-lg',
-              )}
-            >
-              {city.points}
-            </span>
-            <span className="flex flex-wrap justify-end gap-0.5">
-              {wants.map((g) => (
-                <span
-                  key={g}
-                  className={cn(
-                    'inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[10px] font-black ring-1',
-                    size === 'lg' && 'h-6 min-w-6 text-sm',
-                    TOKEN_FILL[g],
-                  )}
-                >
-                  {city.requires[g]}
-                </span>
-              ))}
-              {city.any > 0 && (
-                <span
-                  className={cn(
-                    'inline-flex h-4 min-w-4 items-center justify-center rounded bg-stone-400 px-0.5 text-[10px] font-black text-stone-950 ring-1 ring-stone-600',
-                    size === 'lg' && 'h-6 min-w-6 text-sm',
-                  )}
-                  title={`${city.any} of one colour (${anyColours(city)
-                    .map((g) => TOKEN_NAME[g])
-                    .join(', ')})`}
-                >
-                  {city.any}=
-                </span>
-              )}
-            </span>
+          <span className="flex max-w-16 flex-wrap justify-end gap-0.5">
+            {wants.map((g) => (
+              <span
+                key={g}
+                className={cn(
+                  'inline-flex items-center justify-center rounded px-0.5 font-black ring-1',
+                  PIP[size],
+                  TOKEN_FILL[g],
+                )}
+              >
+                {city.requires[g]}
+              </span>
+            ))}
+            {city.any > 0 && (
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center rounded bg-stone-400 px-0.5 font-black text-stone-950 ring-1 ring-stone-600',
+                  PIP[size],
+                )}
+                title={`${city.any} of one colour (${anyColours(city)
+                  .map((g) => TOKEN_NAME[g])
+                  .join(', ')})`}
+              >
+                {city.any}=
+              </span>
+            )}
           </span>
-        </>
+        </span>
       )}
       {met && (
         <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line dark:bg-emerald-500 dark:text-stone-950 dark:ring-emerald-300">

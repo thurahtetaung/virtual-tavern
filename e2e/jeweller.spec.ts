@@ -178,8 +178,9 @@ test('Strongholds: a placement locks a card, and a Conquest buys it on top of th
   await take(hana, ['green', 'red', 'white']);
   await myTurn(ana);
   await openCard(ana, 'L1-35');
-  await expect(sheet(ana).getByTestId('jw-buy')).toBeDisabled();
-  await expect(sheet(ana).getByTestId('jw-reserve')).toBeDisabled();
+  await expect(sheet(ana).getByText(/Hana’s 2 strongholds are on this card/)).toBeVisible();
+  await expect(sheet(ana).getByTestId('jw-buy')).toHaveCount(0);
+  await expect(sheet(ana).getByTestId('jw-reserve')).toHaveCount(0);
   await ana.keyboard.press('Escape');
   await expect(sheet(ana)).toHaveCount(0);
   await take(ana, ['white', 'blue', 'black']);
