@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.65.0...v0.66.0) (2026-10-26)
+
+
+### Features
+
+* **mission-control:** add Mission Control, a cooperative trick-taking campaign, in the back room ([#378](https://github.com/thurahtetaung/virtual-tavern/issues/378)) ([67a7acf](https://github.com/thurahtetaung/virtual-tavern/commit/67a7acf3e083a5be19e8a7746dafcb387432a057))
+
 ## [0.65.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.64.0...v0.65.0) (2026-10-26)
 
 
