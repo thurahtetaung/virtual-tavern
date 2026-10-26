@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.70.0...v0.71.0) (2026-10-26)
+
+
+### Features
+
+* **rooms:** a table screen any room can pair from the host's phone ([#411](https://github.com/thurahtetaung/virtual-tavern/issues/411)) ([30aa0fd](https://github.com/thurahtetaung/virtual-tavern/commit/30aa0fd5e5265d53bbfa987f88e93449381f32c7))
+
 ## [0.70.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.69.0...v0.70.0) (2026-10-26)
 
 
