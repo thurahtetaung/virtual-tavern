@@ -86,15 +86,15 @@ export function statusFor(
     return { text: `Watching: ${name(g.current)} is on turn.${lastNote}`, yourMove: false };
   if (mine) {
     const options = [
-      ...(g.clues > 0 ? ['give a clue (tap a teammate)'] : []),
-      'play a card',
-      ...(g.clues < 8 ? ['discard one'] : []),
+      ...(g.clues > 0 ? ['give a clue'] : []),
+      'play',
+      ...(g.clues < 8 ? ['discard'] : []),
     ];
     const text = `Your turn: ${options.join(', ').replace(/, ([^,]*)$/, ' or $1')}.`;
     return { text: text + lastNote, yourMove: true };
   }
   return {
-    text: `${name(g.current)} is on turn. Read the table: you can’t see your own cards.${lastNote}`,
+    text: `${name(g.current)} is on turn.${lastNote}`,
     yourMove: false,
   };
 }

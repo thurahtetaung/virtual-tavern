@@ -9,7 +9,7 @@ import {
   cn,
   useConfirm,
 } from '@vt/ui';
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import { type ReactNode, type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
 import {
   RANKS,
   type Rank,
@@ -108,8 +108,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const discards = g.discards.length;
   return (
-    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
-      <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex flex-col gap-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-3">
+      <div className="flex min-w-0 flex-col gap-1.5 lg:gap-2">
         <TopStrip view={view} art={art} room={room} name={name} onDetail={setDetail} />
         <Fireworks g={g} art={art} onDetail={setDetail} />
         <div role="tablist" aria-label="Table views" className="grid grid-cols-3 gap-1 lg:hidden">
@@ -127,7 +127,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                'rounded-lg px-2 py-1.5 text-sm font-semibold ring-1 ring-line dark:ring-stone-700',
+                'rounded-lg px-2 py-1 text-sm font-semibold lg:py-1.5 ring-1 ring-line dark:ring-stone-700',
                 tab === id
                   ? 'bg-accent text-accent-fg dark:bg-amber-500 dark:text-stone-950'
                   : 'bg-card dark:bg-stone-900',
@@ -137,7 +137,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             </button>
           ))}
         </div>
-        <div className={cn('flex flex-col gap-2', tab !== 'table' && 'hidden lg:flex')}>
+        <div className={cn('flex flex-col gap-1.5 lg:gap-2', tab !== 'table' && 'hidden lg:flex')}>
           {playing && g.lastTurns && <LastRound g={g} name={name} />}
           <Teammates
             view={view}
@@ -149,19 +149,36 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             mine={mine}
           />
           <Since view={view} you={room.you} name={name} onMore={() => setTab('log')} />
-          {me && (
-            <MyHand view={view} room={room} act={act} art={art} mine={mine} showGuide={showGuide} />
+          {me ? (
+            <MyHand
+              view={view}
+              room={room}
+              act={act}
+              art={art}
+              mine={mine}
+              showGuide={showGuide}
+              reactions={
+                <>
+                  <Reactions view={view} room={room} act={act} name={name} />
+                  {playing && <ActFor view={view} room={room} act={act} name={name} />}
+                </>
+              }
+            />
+          ) : (
+            <>
+              <Reactions view={view} room={room} act={act} name={name} />
+              {playing && <ActFor view={view} room={room} act={act} name={name} />}
+            </>
           )}
-          <Reactions view={view} room={room} act={act} name={name} />
-          {playing && <HostControls view={view} room={room} act={act} name={name} />}
         </div>
       </div>
       <aside className={cn('flex min-w-0 flex-col gap-3', tab === 'table' && 'hidden lg:flex')}>
         <div className={cn(tab === 'log' && 'hidden lg:block')}>
           <Discards view={view} art={art} onDetail={setDetail} />
         </div>
-        <div className={cn(tab === 'discards' && 'hidden lg:block')}>
+        <div className={cn('flex flex-col gap-2', tab === 'discards' && 'hidden lg:flex')}>
           <Log view={view} you={room.you} name={name} />
+          {playing && <EndShow room={room} act={act} />}
         </div>
       </aside>
       {detail && (
@@ -213,7 +230,7 @@ function TopStrip({
   const g = view.game!;
   const score = scoreOf(g.fireworks);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-panel px-3 py-2 text-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl bg-panel px-3 py-1.5 text-sm sm:gap-x-3 sm:py-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
       <button
         type="button"
         onClick={() => onDetail({ kind: 'clues' })}
@@ -227,7 +244,7 @@ function TopStrip({
         ) : (
           <span aria-hidden>💡</span>
         )}
-        <span aria-hidden className="flex gap-0.5">
+        <span aria-hidden className="hidden gap-0.5 sm:flex">
           {Array.from({ length: CLUE_TOKENS }, (_, i) => (
             <span
               key={i}
@@ -274,7 +291,8 @@ function TopStrip({
       <span className="ml-auto font-semibold tabular-nums" data-testid="sf-score">
         {score}{' '}
         <span className="font-normal text-ink-muted dark:text-stone-400">
-          / {g.max} · {ratingOf(score, g.max)}
+          / {g.max}
+          <span className="hidden sm:inline"> · {ratingOf(score, g.max)}</span>
         </span>
       </span>
       {view.phase === 'playing' && <Clock view={view} room={room} name={name} />}
@@ -287,7 +305,9 @@ function Clock({ view, room, name }: { view: SkyfireView; room: GameRoomInfo; na
   if (!g.clock?.deadline) return null;
   const whose = g.clock.who === room.you ? 'for your turn' : `for ${name(g.clock.who)}’s turn`;
   return (
-    <div className="text-xs sm:text-sm">
+    // On phones the clock keeps to the strip's one line: the time alone (the label stays for
+    // screen readers, and the host's Act for button says what a soft clock allows).
+    <div className="text-xs max-sm:[&_[aria-hidden]]:hidden max-sm:[&_[role=timer]>span+span]:hidden max-sm:[&_[role=timer]]:py-0 sm:text-sm">
       {view.settings.timerMode === 'strict' ? (
         <Countdown
           deadline={g.clock.deadline}
@@ -340,7 +360,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                 />
               ) : (
                 <span
-                  className="relative flex aspect-[5/7] w-9 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
+                  className="relative flex aspect-[5/7] w-8 items-center justify-center overflow-hidden rounded-md text-lg ring-2 ring-dashed sm:w-14"
                   style={{
                     borderColor: 'transparent',
                     boxShadow: `inset 0 0 0 2px ${suit === 'multi' ? '#9a8fb0' : SUIT_STYLE[suit].bg}55`,
@@ -358,7 +378,7 @@ function Fireworks({ g, art, onDetail }: { g: GameView; art: Art; onDetail: (d: 
                   </span>
                 </span>
               )}
-              <span className="text-[10px] tabular-nums text-ink-muted sm:text-xs dark:text-stone-400">
+              <span className="hidden text-xs tabular-nums text-ink-muted sm:inline dark:text-stone-400">
                 {SUIT_SYMBOL[suit]} {h}/5
               </span>
             </button>
@@ -378,7 +398,7 @@ function LastRound({ g, name }: { g: GameView; name: NameOf }) {
     names.length > 1 ? `${names.slice(0, -1).join(', ')}, then ${names.at(-1)}` : names[0];
   return (
     <p
-      className="rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30"
+      className="hidden rounded-xl bg-warn-soft px-3 py-2 text-sm text-warn-ink lg:block ring-1 ring-warn-line dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30"
       data-testid="sf-last-round"
     >
       ⏳ Last round: {list} {turns.length === 1 ? 'has the final turn' : 'have one turn each'}.
@@ -412,7 +432,7 @@ function Teammates({
   return (
     <ul
       aria-label="The other hands"
-      className="flex flex-col gap-1 lg:grid lg:grid-cols-2 lg:gap-2"
+      className="flex flex-col gap-0.5 lg:grid lg:grid-cols-2 lg:gap-2"
     >
       {others.map((id) => {
         const p = g.players.find((x) => x.id === id)!;
@@ -422,7 +442,7 @@ function Teammates({
           <li
             key={id}
             className={cn(
-              'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-1 ring-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)] dark:bg-stone-900 dark:ring-stone-700',
+              'grid w-full grid-cols-[4rem_minmax(0,1fr)] items-center gap-2 rounded-xl bg-card px-2 py-0.5 ring-1 sm:py-1 ring-line sm:grid-cols-[6rem_minmax(0,1fr)] dark:bg-stone-900 dark:ring-stone-700',
               current && 'ring-2 ring-accent dark:ring-amber-500',
             )}
             data-testid={`sf-hand-${id}`}
@@ -450,7 +470,7 @@ function Teammates({
             <span
               className="grid gap-1"
               style={{
-                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.4rem, 10.5vw, 4rem)))`,
+                gridTemplateColumns: `repeat(${width}, minmax(0, clamp(2.2rem, 9.5vw, 4rem)))`,
               }}
             >
               {hand.map((s) => {
@@ -702,6 +722,7 @@ function MyHand({
   art,
   mine,
   showGuide,
+  reactions,
 }: {
   view: SkyfireView;
   room: GameRoomInfo;
@@ -709,15 +730,16 @@ function MyHand({
   art: Art;
   mine: boolean;
   showGuide: (id?: string) => void;
+  reactions: ReactNode;
 }) {
   const g = view.game!;
   const me = room.you;
   const hand = g.hands[me]!;
   const memory = view.settings.memory === 'memory';
   const [open, setOpen] = useState<string | null>(null);
-  const [drag, setDrag] = useState<{ id: string; x0: number; moved: boolean; over: number } | null>(
-    null,
-  );
+  const [drag, setDrag] = useState<Drag | null>(null);
+  // The order just dropped, shown until the server's next view of this hand arrives.
+  const [dropped, setDropped] = useState<{ from: string; order: string[] } | null>(null);
   const refs = useRef<Map<string, HTMLElement>>(new Map());
   // Clues the viewer can still see that touched their cards (playing from memory: the log's).
   const lit = new Set(
@@ -726,43 +748,66 @@ function MyHand({
       .flatMap((e) => (e.kind === 'clue' ? e.touched : [])),
   );
   const latest = latestClue(view);
-  const order = hand.map((s) => s.id);
-  const shown = drag?.moved ? moveTo(order, drag.id, drag.over) : order;
-  const slots = shown.map((id) => hand.find((s) => s.id === id)!);
+  const served = hand.map((s) => s.id);
+  if (dropped && dropped.from !== served.join()) setDropped(null);
+  const order = dropped?.from === served.join() ? dropped.order : served;
+  const slots = order.map((id) => hand.find((s) => s.id === id)!);
 
-  const overIndex = (x: number) => {
-    let best = 0;
-    let dist = Infinity;
-    order.forEach((id, i) => {
-      const el = refs.current.get(id);
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const d = Math.abs(x - (r.left + r.width / 2));
-      if (d < dist) {
-        dist = d;
-        best = i;
-      }
-    });
-    return best;
-  };
+  // The cards never move in the page while one is dragged (moving the node would drop the
+  // pointer): the dragged card follows the finger and the others slide aside with a transform.
   const down = (e: ReactPointerEvent, id: string) => {
-    if (view.phase !== 'playing') return;
+    if (view.phase !== 'playing' || drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const centres = order.map((x) => {
+      const r = refs.current.get(x)?.getBoundingClientRect();
+      return r ? r.left + r.width / 2 : 0;
+    });
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    setDrag({ id, x0: e.clientX, moved: false, over: order.indexOf(id) });
+    const from = order.indexOf(id);
+    setDrag({
+      id,
+      pointer: e.pointerId,
+      x0: e.clientX,
+      dx: 0,
+      moved: false,
+      from,
+      over: from,
+      centres,
+    });
   };
   const move = (e: ReactPointerEvent) => {
-    if (!drag) return;
-    const moved = drag.moved || Math.abs(e.clientX - drag.x0) > 10;
-    setDrag({ ...drag, moved, over: moved ? overIndex(e.clientX) : drag.over });
+    if (!drag || e.pointerId !== drag.pointer) return;
+    const dx = e.clientX - drag.x0;
+    const moved = drag.moved || Math.abs(dx) > 8;
+    if (!moved) return;
+    const x = drag.centres[drag.from]! + dx;
+    let over = 0;
+    drag.centres.forEach((c, i) => {
+      if (Math.abs(x - c) < Math.abs(x - drag.centres[over]!)) over = i;
+    });
+    setDrag({ ...drag, dx, moved, over });
   };
-  const up = () => {
-    if (!drag) return;
-    if (drag.moved) {
-      const next = moveTo(order, drag.id, drag.over);
-      if (next.join() !== order.join())
-        void act({ type: 'reorder', order: next }, { anchor: 'sf-hand' });
-    } else setOpen(drag.id);
+  const up = (e: ReactPointerEvent) => {
+    if (!drag || e.pointerId !== drag.pointer) return;
     setDrag(null);
+    if (!drag.moved) {
+      setOpen(drag.id);
+      return;
+    }
+    const next = moveTo(order, drag.id, drag.over);
+    if (next.join() === order.join()) return;
+    setDropped({ from: served.join(), order: next });
+    void act({ type: 'reorder', order: next }, { anchor: 'sf-hand' }).then((ok) => {
+      if (!ok) setDropped(null);
+    });
+  };
+  /** Where a card sits while another is dragged. */
+  const shift = (id: string, i: number): string | undefined => {
+    if (!drag?.moved) return undefined;
+    if (id === drag.id) return `translateX(${drag.dx}px) scale(1.05)`;
+    const step = (drag.centres[1] ?? 0) - (drag.centres[0] ?? 0);
+    if (drag.from < i && i <= drag.over) return `translateX(${-step}px)`;
+    if (drag.over <= i && i < drag.from) return `translateX(${step}px)`;
+    return undefined;
   };
 
   return (
@@ -775,18 +820,16 @@ function MyHand({
         mine && 'ring-2 ring-accent dark:ring-amber-500',
       )}
     >
-      <div className="flex items-baseline justify-between gap-2 text-xs text-ink-muted dark:text-stone-400">
-        <span className="font-semibold text-ink dark:text-stone-200">Your hand</span>
-        <span>
-          {mine
-            ? 'Tap a card to play or discard it · drag to reorder'
-            : 'Drag to reorder · new cards arrive on the left'}
+      <div className="flex items-center justify-between gap-2 text-xs text-ink-muted dark:text-stone-400">
+        <span className="hidden font-semibold text-ink sm:inline dark:text-stone-200">
+          Your hand
         </span>
+        {reactions}
       </div>
       <div
-        className="grid gap-1.5"
+        className="grid gap-1.5 [--sf-hand-card:3.75rem] sm:[--sf-hand-card:4.75rem]"
         style={{
-          gridTemplateColumns: `repeat(${Math.max(hand.length, 4)}, minmax(0, 4.75rem))`,
+          gridTemplateColumns: `repeat(${Math.max(hand.length, 4)}, minmax(0, var(--sf-hand-card)))`,
           touchAction: 'pan-y',
         }}
         data-testid="sf-my-hand"
@@ -807,6 +850,9 @@ function MyHand({
               onPointerMove={move}
               onPointerUp={up}
               onPointerCancel={() => setDrag(null)}
+              onLostPointerCapture={(e) => {
+                if (drag?.pointer === e.pointerId) setDrag(null);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
@@ -815,8 +861,12 @@ function MyHand({
               }}
               className={cn(
                 'flex min-w-0 touch-pan-y flex-col items-center gap-0.5 rounded-md select-none focus-visible:outline-2 focus-visible:outline-accent',
-                drag?.moved && drag.id === s.id && 'z-10 scale-105 opacity-90',
+                drag?.moved &&
+                  (drag.id === s.id
+                    ? 'relative z-20 cursor-grabbing opacity-90 drop-shadow-lg'
+                    : 'transition-transform duration-150'),
               )}
+              style={{ transform: shift(s.id, i) }}
               aria-label={`Card ${i + 1} from the left${marksText(kn.k) && !memory ? `: ${marksText(kn.k)}` : ''}`}
               data-testid={`sf-mine-${i}`}
               data-card={s.id}
@@ -838,6 +888,11 @@ function MyHand({
           );
         })}
       </div>
+      <p className="hidden text-xs text-ink-muted sm:block dark:text-stone-400">
+        {mine
+          ? 'Tap a card to play or discard it · drag to reorder'
+          : 'Drag to reorder · new cards arrive on the left'}
+      </p>
       <RefusalSlot anchor="sf-hand" />
       {open && hand.some((s) => s.id === open) && (
         <CardSheet
@@ -859,6 +914,18 @@ function MyHand({
       )}
     </section>
   );
+}
+
+interface Drag {
+  id: string;
+  pointer: number;
+  x0: number;
+  dx: number;
+  moved: boolean;
+  from: number;
+  over: number;
+  /** The cards' centres when the drag began, in hand order. */
+  centres: number[];
 }
 
 function moveTo(order: readonly string[], id: string, to: number): string[] {
@@ -1031,9 +1098,13 @@ function Since({
       aria-label="Since your last turn (open the log)"
       data-testid="sf-since"
     >
-      <span className="font-semibold text-ink-muted dark:text-stone-400">Since your last turn</span>
-      {recent.map((e) => (
-        <span key={e.id}>{logLine(e, name, you)}</span>
+      <span className="hidden font-semibold text-ink-muted lg:inline dark:text-stone-400">
+        Since your last turn
+      </span>
+      {recent.map((e, i) => (
+        <span key={e.id} className={cn(i < recent.length - 2 && 'hidden lg:inline')}>
+          {logLine(e, name, you)}
+        </span>
       ))}
     </button>
   );
@@ -1059,7 +1130,7 @@ function Reactions({
   const here = view.reactions.filter((r) => r.to === last.id);
   const mineNow = here.find((r) => r.by === room.you)?.emoji;
   return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-label="Reactions">
+    <div className="flex min-w-0 items-center gap-1 sm:gap-1.5" aria-label="Reactions">
       {player &&
         REACTIONS.map((emoji) => (
           <button
@@ -1069,7 +1140,7 @@ function Reactions({
             aria-label={`React ${emoji}`}
             onClick={() => void act({ type: 'react', emoji }, { anchor: 'sf-react' })}
             className={cn(
-              'rounded-full bg-card px-2 py-0.5 text-lg ring-1 ring-line transition hover:scale-110 dark:bg-stone-900 dark:ring-stone-700',
+              'shrink-0 rounded-full bg-card px-1.5 py-0.5 text-base leading-tight ring-1 ring-line transition hover:scale-110 dark:bg-stone-900 dark:ring-stone-700',
               mineNow === emoji && 'ring-2 ring-accent dark:ring-amber-400',
             )}
           >
@@ -1077,7 +1148,11 @@ function Reactions({
           </button>
         ))}
       {here.length > 0 && (
-        <span className="text-xs text-ink-muted dark:text-stone-400" data-testid="sf-reactions">
+        <span
+          className="min-w-0 truncate text-xs text-ink-muted dark:text-stone-400"
+          title={here.map((r) => `${name(r.by)} ${r.emoji}`).join(' · ')}
+          data-testid="sf-reactions"
+        >
           {here.map((r) => `${name(r.by)} ${r.emoji}`).join(' · ')}
         </span>
       )}
@@ -1088,7 +1163,8 @@ function Reactions({
 
 // ---- The host ----
 
-function HostControls({
+/** The host plays a safe move for whoever is on turn once their clock ran out or they are away. */
+function ActFor({
   view,
   room,
   act,
@@ -1100,23 +1176,32 @@ function HostControls({
   name: NameOf;
 }) {
   const g = view.game!;
-  const [confirm, dialog] = useConfirm();
   if (!room.isHost) return null;
   const current = g.players.find((p) => p.id === g.current);
   const away = current?.left || room.players.find((p) => p.id === g.current)?.connected === false;
-  const canActFor = g.current !== room.you && (g.clock?.reminded || away);
+  if (g.current === room.you || !(g.clock?.reminded || away)) return null;
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => void act({ type: 'act-for', player: g.current }, { anchor: 'sf-host' })}
+      >
+        Act for {name(g.current)}
+        <span className="hidden sm:inline">&nbsp;(safe move)</span>
+      </Button>
+      <RefusalSlot anchor="sf-host" />
+    </div>
+  );
+}
+
+/** The host's End the show, under the log (its own tab on phones). */
+function EndShow({ room, act }: { room: GameRoomInfo; act: Act }) {
+  const [confirm, dialog] = useConfirm();
+  if (!room.isHost) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
       {dialog}
-      {canActFor && (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void act({ type: 'act-for', player: g.current }, { anchor: 'sf-host' })}
-        >
-          Act for {name(g.current)} (safe move)
-        </Button>
-      )}
       <Button
         variant="ghost"
         size="sm"
@@ -1130,14 +1215,14 @@ function HostControls({
                 danger: true,
               })
             )
-              void act({ type: 'end-game' }, { anchor: 'sf-host' });
+              void act({ type: 'end-game' }, { anchor: 'sf-end' });
           })()
         }
         data-testid="sf-end-game"
       >
         End the show
       </Button>
-      <RefusalSlot anchor="sf-host" />
+      <RefusalSlot anchor="sf-end" />
     </div>
   );
 }

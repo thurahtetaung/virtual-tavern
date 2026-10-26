@@ -84,15 +84,19 @@ export function Badge({ children, className }: { children: ReactNode; className?
 export function Hint({
   children,
   tone = 'neutral',
+  dense = false,
 }: {
   children: ReactNode;
   tone?: 'neutral' | 'action';
+  /** Less padding on phones, for game screens that must fit one screen. */
+  dense?: boolean;
 }) {
   return (
     <p
       role="status"
       className={join(
-        'rounded-xl px-4 py-3 text-center text-sm sm:text-base',
+        'rounded-xl px-4 text-center text-sm sm:text-base',
+        dense ? 'py-1.5 sm:py-3' : 'py-3',
         tone === 'action'
           ? 'bg-warn-soft font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
           : 'bg-panel text-stone-700 ring-1 ring-line dark:bg-stone-800/70 dark:text-stone-300 dark:ring-0',

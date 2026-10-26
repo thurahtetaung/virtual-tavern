@@ -73,13 +73,15 @@ export function SkyfireGame({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-1.5 sm:gap-2">
       <SkyfireStyles />
       {view.phase === 'lobby' || !view.game ? (
         <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />
       ) : (
         <>
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+          <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
+            {status.text}
+          </Hint>
           {view.phase === 'playing' && inGame && <Tips />}
           {view.phase === 'over' && <End view={view} room={room} act={act} art={art} name={name} />}
           <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
