@@ -1,5 +1,5 @@
 import { ProtectedImage, cn } from '@vt/ui';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import { capacity, colourAt, floorPenalty } from '../logic/rules.ts';
 import { COLOUR_NAME, SYMBOL } from '../logic/tiles.ts';
 import {
@@ -11,6 +11,24 @@ import {
   SIZE,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
+
+/** Whether a media query matches, following changes. */
+export function useMatch(query: string) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches,
+  );
+  useEffect(() => {
+    const m = window.matchMedia?.(query);
+    if (!m) return;
+    const on = () => setMatches(m.matches);
+    on();
+    m.addEventListener('change', on);
+    return () => {
+      m.removeEventListener('change', on);
+    };
+  }, [query]);
+  return matches;
+}
 
 /** Board sizes: one cell's width in px. */
 export const CELL = { lg: 34, md: 28, sm: 18, xs: 9 } as const;
@@ -136,7 +154,7 @@ export function BoardView({
   className?: string;
 }) {
   const cell = CELL[size];
-  const gap = size === 'sm' ? 2 : 3;
+  const gap = size === 'xs' ? 1 : size === 'sm' ? 2 : 3;
   // During the tiling: the lines that are still to tile show full, their wall tiles not yet there.
   const pending = frame ? frame.score.placed.slice(frame.shown) : [];
   const lines = board.lines.map((l, row) => {
@@ -317,7 +335,8 @@ function FloorLine({
       ))}
       <span
         className={cn(
-          'ml-1 self-center text-sm font-bold tabular-nums',
+          'ml-1 self-center font-bold tabular-nums',
+          cell < 14 ? 'text-xs' : 'text-sm',
           cost ? 'text-danger-ink dark:text-rose-300' : 'text-ink-muted dark:text-stone-500',
           cracked && cost !== 0 && 'mo-pop',
         )}

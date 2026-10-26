@@ -15,7 +15,7 @@ import {
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 import { PLAY_ANCHOR, type Pick, PickSheet } from './PickSheet.tsx';
-import { BoardView, Marker, MiniWall, Tile } from './Pieces.tsx';
+import { BoardView, Marker, MiniWall, Tile, useMatch } from './Pieces.tsx';
 import { Tiling } from './Tiling.tsx';
 import { type NameOf, logLine } from './text.ts';
 
@@ -33,22 +33,7 @@ export interface TableProps {
 type Tab = 'play' | 'boards' | 'scores';
 
 /** Whether the desktop layout is showing (Tailwind's `lg`). */
-function useWide() {
-  const query = '(min-width: 1024px)';
-  const [wide, setWide] = useState(
-    () => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches,
-  );
-  useEffect(() => {
-    const m = window.matchMedia?.(query);
-    if (!m) return;
-    const on = () => setWide(m.matches);
-    m.addEventListener('change', on);
-    return () => {
-      m.removeEventListener('change', on);
-    };
-  }, []);
-  return wide;
-}
+const useWide = () => useMatch('(min-width: 1024px)');
 
 const reduced = () =>
   typeof window !== 'undefined' &&
@@ -593,12 +578,12 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     </>
   );
 
-  const centrePiece =
-    g.stage === 'tiling' && g.scoring ? (
-      <Tiling view={view} room={room} act={act} art={art} />
-    ) : (
-      <Market view={view} art={art} onPick={mine ? setPick : null} />
-    );
+  const tiling = g.stage === 'tiling' && !!g.scoring;
+  const centrePiece = tiling ? (
+    <Tiling view={view} room={room} act={act} art={art} />
+  ) : (
+    <Market view={view} art={art} onPick={mine ? setPick : null} />
+  );
 
   const myBoard = me && (
     <section
@@ -635,15 +620,24 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         </aside>
 
         <div className={cn('flex min-w-0 flex-col gap-2', tab !== 'play' && 'hidden lg:flex')}>
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden" aria-label="Players">
-            {others.map((p) => (
-              <PlayerChip key={p.id} p={p} view={view} room={room} onOpen={() => setSheet(p.id)} />
-            ))}
-          </div>
+          {/* The wall-tiling shows every board itself; on phones it stands in for these. */}
+          {!(tiling && !wide) && (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 lg:hidden" aria-label="Players">
+              {others.map((p) => (
+                <PlayerChip
+                  key={p.id}
+                  p={p}
+                  view={view}
+                  room={room}
+                  onOpen={() => setSheet(p.id)}
+                />
+              ))}
+            </div>
+          )}
           {clockLine}
           <Ouch view={view} name={name} you={room.you} />
           {centrePiece}
-          {myBoard}
+          {!(tiling && !wide) && myBoard}
           {hostTools}
           <p className="text-center text-xs text-ink-muted dark:text-stone-500">
             Round {g.round} ·{' '}
