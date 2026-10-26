@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.2...v0.62.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **realtime:** reconnect every tab by itself after the server restarts ([#368](https://github.com/thurahtetaung/virtual-tavern/issues/368)) ([91af85b](https://github.com/thurahtetaung/virtual-tavern/commit/91af85b48b7751babea147e075abba6bb6412c68))
+
 ## [0.62.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.1...v0.62.2) (2026-10-26)
 
 
