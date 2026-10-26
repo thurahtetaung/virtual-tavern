@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.71.1...v0.72.0) (2026-10-26)
+
+
+### Features
+
+* **conveyor:** add Conveyor, a sushi card-drafting game, in the back room ([#415](https://github.com/thurahtetaung/virtual-tavern/issues/415)) ([74e2386](https://github.com/thurahtetaung/virtual-tavern/commit/74e2386af81dc8d41ae4e9b902355b2271970c90))
+
 ## [0.71.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.71.0...v0.71.1) (2026-10-26)
 
 
