@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.71.0...v0.71.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **rooms:** pairing another table screen shows its code, and a fresh table screen page logs no errors ([#414](https://github.com/thurahtetaung/virtual-tavern/issues/414)) ([d601523](https://github.com/thurahtetaung/virtual-tavern/commit/d601523aa8532802d59d4841868912b53f67dcba))
+
 ## [0.71.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.70.0...v0.71.0) (2026-10-26)
 
 
