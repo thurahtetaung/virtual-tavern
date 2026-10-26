@@ -30,6 +30,7 @@ import {
   clipNow,
   clipTimes,
   musicLevel,
+  prime,
   ownCues,
   voiceCues,
   type VoiceClip,
@@ -587,5 +588,39 @@ describe('timing', () => {
     const v = after;
     const loaned = { ...v, mine: { ...v.mine!, loans: 1 } };
     expect(keys(ownCues(v, loaned, 5))).toEqual(['loan']);
+  });
+
+  it('primes a music player without stopping a track set on it before the primer settled', async () => {
+    const player = () => {
+      const pending: (() => void)[] = [];
+      const el = {
+        src: '',
+        paused: true,
+        play: () =>
+          new Promise<void>((resolve) => {
+            el.paused = false;
+            pending.push(resolve);
+          }),
+        pause: () => {
+          el.paused = true;
+        },
+      };
+      return { el, settle: () => pending.splice(0).forEach((resolve) => resolve()) };
+    };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    // Nothing set in the meantime: the primer stops.
+    const quiet = player();
+    prime(quiet.el, 'data:silent');
+    quiet.settle();
+    await tick();
+    expect(quiet.el.paused).toBe(true);
+    // A cached track set and played before the primer's play settles keeps playing.
+    const cached = player();
+    prime(cached.el, 'data:silent');
+    cached.el.src = 'blob:lobby';
+    void cached.el.play();
+    cached.settle();
+    await tick();
+    expect(cached.el.paused).toBe(false);
   });
 });

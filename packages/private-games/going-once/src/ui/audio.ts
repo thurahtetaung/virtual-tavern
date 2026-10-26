@@ -635,3 +635,26 @@ export function musicClips(audio: AudioManifest | undefined, view: GoingOnceView
     ...new Set([now, ...next].flatMap((m) => (m ? [clipOf(audio?.music, m.key, m.pick)] : []))),
   ].filter((p): p is string => !!p);
 }
+
+/** The bits of an audio element the primer touches. */
+export interface Primable {
+  src: string;
+  play: () => Promise<void>;
+  pause: () => void;
+}
+
+/**
+ * Plays `silent` on a music player inside the tap, so it may start tracks later without one, then
+ * stops it. A track set on the player before that play has settled (a cached one comes that fast)
+ * is left playing: only the primer itself is paused.
+ */
+export function prime(el: Primable, silent: string) {
+  el.src = silent;
+  const primer = el.src;
+  void el.play().then(
+    () => {
+      if (el.src === primer) el.pause();
+    },
+    () => {},
+  );
+}

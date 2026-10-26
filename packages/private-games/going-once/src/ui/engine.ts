@@ -1,5 +1,5 @@
 import { assetUrl } from './assets.ts';
-import { CROSSFADE_MS, DUCK_FADE_MS } from './audio.ts';
+import { CROSSFADE_MS, DUCK_FADE_MS, prime } from './audio.ts';
 
 // The browser half of the sound: one AudioContext, started by the player's first tap, plays every
 // effect and voice clip from decoded buffers (so they start on time, overlap freely and need no
@@ -83,11 +83,7 @@ export class SoundEngine {
     el.loop = true;
     el.preload = 'auto';
     // Played once inside the tap, so this player may start tracks later without one.
-    el.src = SILENT;
-    void el.play().then(
-      () => el.pause(),
-      () => {},
-    );
+    prime(el, SILENT);
     // Where an element's volume can be set, it does the fades. Where it can't (iPhones), the
     // player runs through the audio context for them.
     el.volume = 0.5;
