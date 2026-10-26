@@ -48,8 +48,8 @@ const rules: AwardRule[] = [
     family: 'signals',
     copy: {
       cheeky: [
-        '{who} read a signal and struck at once, {n|time}',
-        'One signal, and {who} knew: {n|time}',
+        '{who} cashed in a teammate’s signal {n|time}',
+        'One signal, and {who} knew what to do: {n|time}',
       ],
       wholesome: [
         '{who} met a task right after a signal, {n|time}',

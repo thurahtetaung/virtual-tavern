@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
 
@@ -72,6 +74,34 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     await expect(host.getByText(`The crew (${pages.length}/5)`)).toBeVisible();
   }
   return pages;
+}
+
+/** `MISSION_CONTROL_ART=<folder with manifest.json and the art>` previews the real art in shots. */
+const ART = process.env.MISSION_CONTROL_ART;
+const TYPES: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+
+export async function localArt(page: Page) {
+  if (!ART) return;
+  await page.route('**/api/backroom/manifest/mission-control', async (route) => {
+    const file = await readFile(join(ART, 'manifest.json'), 'utf8').catch(() =>
+      readFile(join(ART, 'manifest-draft.json'), 'utf8'),
+    );
+    await route.fulfill({ json: JSON.parse(file) as unknown });
+  });
+  await page.route('**/api/backroom/assets/mission-control/**', async (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(
+      /^\/api\/backroom\/assets\/mission-control\//,
+      '',
+    );
+    try {
+      await route.fulfill({
+        body: await readFile(join(ART, path)),
+        contentType: TYPES[path.split('.').pop() ?? ''] ?? 'application/octet-stream',
+      });
+    } catch {
+      await route.fulfill({ status: 404 });
+    }
+  });
 }
 
 export const PHONE: Look = { viewport: { width: 390, height: 844 } };

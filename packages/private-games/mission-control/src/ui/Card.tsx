@@ -48,6 +48,8 @@ const SIZE = {
   sm: 'h-16 w-11 text-base',
   md: 'h-20 w-14 text-xl',
   lg: 'h-28 w-20 text-2xl',
+  /** The hand: phone size, bigger on wide screens. */
+  hand: 'h-20 w-14 text-xl lg:h-28 lg:w-20 lg:text-2xl',
 } as const;
 
 /** A playing card's face: art from the manifest when there is some, else its symbol and value. */

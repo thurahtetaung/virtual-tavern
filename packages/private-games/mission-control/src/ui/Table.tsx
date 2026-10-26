@@ -121,7 +121,7 @@ export function TrickRow({
   plays: Trick['plays'];
   name: (id: string) => string;
   winner?: string | null;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'hand';
 }) {
   const best = plays.length ? plays[winningIndex(plays.map((p) => p.card))]!.by : null;
   const top = winner ?? best;
@@ -372,7 +372,7 @@ export function PlayTable({
               : ''}
         </p>
         {a.current.length ? (
-          <TrickRow plays={a.current} name={name} />
+          <TrickRow plays={a.current} name={name} size="hand" />
         ) : showLast ? (
           <div className="opacity-70">
             <TrickRow plays={last.plays} name={name} winner={last.winner} size="sm" />
@@ -428,7 +428,7 @@ export function PlayTable({
                 <CardFace
                   key={c}
                   card={c}
-                  size="md"
+                  size="hand"
                   state={state}
                   onClick={() => tapHand(c)}
                   testId={`mc-card-${c}`}

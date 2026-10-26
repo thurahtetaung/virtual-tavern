@@ -1,11 +1,12 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { claim, dive, importPacks, play, table } from './mission-control-play.ts';
+import { claim, dive, importPacks, localArt, play, table } from './mission-control-play.ts';
 import type { Look } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/mission-control-shots.spec.ts
 // Phone and desktop, light and dark: the logbook, the briefing, the draft, a trick with legal
 // cards lit and task chips, a signal, the task stamp, the failure and its replay, on the test deal.
+// MISSION_CONTROL_ART=<folder> serves a local manifest and art (`localArt`).
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
 
 const cleanup: (() => Promise<unknown>)[] = [];
@@ -21,7 +22,7 @@ for (const [label, viewport, colorScheme] of [
 ] as const) {
   test(`mission control screenshots (${label})`, async ({ browser }) => {
     test.setTimeout(300_000);
-    const look: Look = { viewport, colorScheme };
+    const look: Look = { viewport, colorScheme, setup: localArt };
     const shot = (p: Page, name: string) =>
       p.screenshot({
         path: `test-results/mission-control-shots/${label}-${name}.png`,
