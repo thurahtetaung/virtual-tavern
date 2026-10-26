@@ -1,6 +1,6 @@
 {
   "name": "virtual-tavern",
-  "version": "0.73.4",
+  "version": "0.73.5",
   "private": true,
   "description": "A private, self-hosted tavern for playing party games with friends.",
   "license": "MIT",
