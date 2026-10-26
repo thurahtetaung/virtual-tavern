@@ -8,6 +8,7 @@ import {
   type SoundMode,
 } from '../logic/types.ts';
 import { CLIP_GAP_MS } from '../logic/voice.ts';
+import { GAME_COLORS } from '../logic/types.ts';
 
 // The pure half of the sound: which music plays, which clips play when, and how loud. The React
 // hook in `useSound.ts` only turns these decisions into audio elements, so everything here is
@@ -35,8 +36,13 @@ export const CROSSFADE_MS = 1000;
 export const DUCK_FADE_MS = 250;
 /** A voice clip cut off by a newer line (a chant when a new bid lands) fades out this fast. */
 export const CUT_MS = 200;
-/** A cue seen more than this long after its moment is dropped. */
+/**
+ * A cue seen more than this long after its moment is dropped. A voice clip waiting behind the one
+ * being said counts from when the voice came free, so only a device that was away drops clips.
+ */
 export const STALE_MS = 1500;
+/** Effects due this soon are started now, on the audio clock, so they land on their moment. */
+export const LOOKAHEAD_MS = 250;
 /** A hint's ring is cut short after this long (the clips are whole ringtones). */
 export const RING_MS = 1800;
 /** The Sold card's beats (stamp, price, value, profit, artist) and the end rack-up's. */
@@ -381,12 +387,135 @@ export function voiceCues(view: GoingOnceView): Cue[] {
   }));
 }
 
-/** Cues due now that haven't played: their moment has come and isn't too long gone. */
-export function dueCues(cues: readonly Cue[], now: number, played: ReadonlySet<string>): Cue[] {
+/**
+ * Cues due now (or within `lead` ms) that haven't played: their moment has come and isn't too
+ * long gone.
+ */
+export function dueCues(
+  cues: readonly Cue[],
+  now: number,
+  played: ReadonlySet<string>,
+  lead = 0,
+): Cue[] {
   return cues
-    .filter((c) => !played.has(c.id) && c.at <= now && now <= (c.until ?? c.at + STALE_MS))
+    .filter((c) => !played.has(c.id) && c.at <= now + lead && now <= (c.until ?? c.at + STALE_MS))
     .sort((a, b) => a.at - b.at);
 }
+
+// ---- The voice's queue ----
+
+/** One clip waiting to be said, on the server clock. */
+export interface VoiceClip {
+  id: string;
+  /** The host line it belongs to (a lone cue is its own line). */
+  line: string;
+  key: string;
+  pick: number;
+  at: number;
+  /** The game's stage when its line was said: a Skip moves it on. */
+  stage: string;
+  /** When the server timed its line to end. */
+  lineEnd: number;
+}
+
+/** A host line's clips (every clip, those to come included), as the voice queue takes them. */
+export function voiceLine(view: GoingOnceView): VoiceClip[] {
+  const host = view.game?.host;
+  if (!host?.clips?.length || host.at === undefined) return [];
+  const times = clipTimes(host);
+  const lineEnd = times.at(-1)! + host.clips.at(-1)!.ms;
+  return host.clips.map((c, i) => ({
+    id: `host${host.id}:${i}`,
+    line: `host${host.id}`,
+    key: c.key,
+    pick: c.i,
+    at: times[i]!,
+    stage: view.game!.stage,
+    lineEnd,
+  }));
+}
+
+/** A lone voice cue (the throat-clear) as a line of its own. */
+export function voiceClipOf(cue: Cue, stage: string): VoiceClip {
+  return {
+    id: cue.id,
+    line: cue.id,
+    key: cue.key,
+    pick: cue.pick ?? 0,
+    at: cue.at,
+    stage,
+    lineEnd: cue.at,
+  };
+}
+
+/**
+ * The queue once a new line arrives: what is left of older lines gives way (the server has moved
+ * on), the new line's clips wait in order.
+ */
+export function enqueueLine(queue: readonly VoiceClip[], clips: readonly VoiceClip[]): VoiceClip[] {
+  const line = clips[0]?.line;
+  if (!line) return [...queue];
+  const queued = new Set(queue.map((c) => c.id));
+  return [...queue.filter((c) => c.line === line), ...clips.filter((c) => !queued.has(c.id))];
+}
+
+/** Stages that only end before their line does when the host skips them. */
+const SKIPPABLE = new Set(['sold', 'halftime']);
+
+/**
+ * Whether a new line cuts off the clip being said rather than waiting for it to end: only a chant
+ * (a new bid lands on it), or a Skip: the welcome skipped, or the host skipping a Sold or the
+ * half-time before its line was done. Anything else (everyone's drawings in early, the bank done
+ * early) waits for the clip to end.
+ */
+export function cutsOff(saying: VoiceClip, next: VoiceClip): boolean {
+  if (saying.line === next.line) return false;
+  if (saying.key.startsWith('chant')) return true;
+  if (next.key === 'skipped') return true;
+  return SKIPPABLE.has(saying.stage) && next.stage !== saying.stage && next.at < saying.lineEnd;
+}
+
+/**
+ * How long a clip may wait for its own file to load once its turn has come: its lateness is
+ * judged when its turn comes, so loading never makes a clip too late, but a file that takes
+ * longer than this (a stalled network) gives its turn to the next clip.
+ */
+export const LOAD_WAIT_MS = 4000;
+
+/** Whether a clip whose turn came at `takenAt` loaded too slowly to still be said at `loadedAt`. */
+export const loadedTooLate = (takenAt: number, loadedAt: number) =>
+  loadedAt - takenAt > LOAD_WAIT_MS;
+
+/** A clip too late to say: its moment (or, waiting behind another clip, the voice's) is long gone. */
+export const voiceLate = (clip: VoiceClip, now: number, freeSince: number) =>
+  now - Math.max(clip.at, freeSince) > STALE_MS;
+
+/**
+ * The next clip to say once the voice is free (since `freeSince`), or null while none is due
+ * (within `lead` ms); clips too late for their moment are dropped on the way.
+ */
+export function nextVoice(
+  queue: readonly VoiceClip[],
+  now: number,
+  freeSince: number,
+  lead = 0,
+): { clip: VoiceClip | null; rest: VoiceClip[] } {
+  const rest = [...queue];
+  while (rest.length && voiceLate(rest[0]!, now, freeSince)) rest.shift();
+  const first = rest[0];
+  if (!first || first.at > now + lead) return { clip: null, rest };
+  return { clip: first, rest: rest.slice(1) };
+}
+
+/** A clip of `line` started `by` ms late: the rest of its line moves back to keep its pauses. */
+export function shiftLine(queue: readonly VoiceClip[], line: string, by: number): VoiceClip[] {
+  if (by <= 0) return [...queue];
+  return queue.map((c) => (c.line === line ? { ...c, at: c.at + by } : c));
+}
+
+/** Whether the voice counts as speaking for the music's ducking: saying a clip, or one due soon. */
+export const voiceBusy = (saying: boolean, queue: readonly VoiceClip[], now: number) =>
+  saying || queue.some((c) => c.at <= now + 1000);
 
 /** Whether this device plays a cue: local rings always (unless sound is off), the rest as chosen. */
 export function cuePlays(
@@ -424,4 +553,85 @@ export function ramp(from: number, to: number, elapsed: number, ms: number): num
   if (ms <= 0 || elapsed >= ms) return to;
   if (elapsed <= 0) return from;
   return from + ((to - from) * elapsed) / ms;
+}
+
+// ---- Fetching ahead ----
+
+/** A key said to one player: it ends in a player colour. */
+const colourOf = (key: string) => GAME_COLORS.find((c) => key.endsWith(`-${c}`)) ?? null;
+const isChant = (key: string) => key.startsWith('chant');
+
+/**
+ * What a device that plays the room's sound fetches once the sound starts, in the background:
+ * every effect and every voice line but the chants, the lines said to a player only for the
+ * colours at the table (each only when its switch is on). Effects come first: they are small and
+ * wanted at once.
+ */
+export function startupClips(
+  audio: AudioManifest | undefined,
+  colours: readonly string[],
+  on: { effects: boolean; voice: boolean },
+): string[] {
+  const seated = new Set(colours);
+  const effects = on.effects ? Object.values(audio?.sfx ?? {}).flat() : [];
+  const voice = Object.entries(on.voice ? (audio?.voice ?? {}) : {})
+    .filter(([key]) => !isChant(key) && (colourOf(key) === null || seated.has(colourOf(key)!)))
+    .flatMap(([, list]) => list);
+  return [...new Set([...effects, ...voice].filter((p) => typeof p === 'string' && p))];
+}
+
+/** The rings of this player's own tips: all a device that only rings fetches. */
+export const ringClips = (audio: AudioManifest | undefined) => audio?.sfx?.message ?? [];
+
+/** The chant key the server says after a bid of `amount` (its long version is `chant-long-…`). */
+const chantTag = (amount: number) => (amount <= 4000 ? String(amount) : 'high');
+
+/** Effects kept decoded all game: wanted the instant a bid lands or a call is made. */
+export const INSTANT_EFFECTS = ['bid', 'bidder-voice', 'going-once', 'going-twice', 'tick'];
+
+/** How many of the next bid amounts have their chants fetched ahead. */
+export const CHANTS_AHEAD = 3;
+
+/**
+ * The chants worth fetching now: those for the next few amounts a bid could bring (the opening's
+ * three before the first bid). The chant the server picked for a bid comes with its line.
+ */
+export function chantClips(audio: AudioManifest | undefined, view: GoingOnceView): string[] {
+  const g = view.game;
+  const a = g?.auction;
+  if (!g?.voiced || g.stage !== 'auction' || !a) return [];
+  const top = a.bid?.amount;
+  const amounts = top
+    ? Array.from({ length: CHANTS_AHEAD }, (_, i) => top + 100 * (i + 1))
+    : [400, 500, 600];
+  const tags = [...new Set(amounts.map(chantTag))];
+  return tags.flatMap((t) => audio?.voice?.[`chant-${t}`] ?? []);
+}
+
+/** The tracks to have ready: the one playing now and the one most likely next. */
+export function musicClips(audio: AudioManifest | undefined, view: GoingOnceView): string[] {
+  const g = view.game;
+  const now = musicFor(view, g?.since ?? 0);
+  const next: { key: string; pick: number }[] = [];
+  if (view.phase === 'lobby' || !g) next.push({ key: 'tutorial', pick: 0 });
+  else
+    switch (g.stage) {
+      case 'intro':
+      case 'draw':
+      case 'practice':
+        next.push({ key: 'auction', pick: 0 });
+        break;
+      case 'auction':
+      case 'sold':
+      case 'halftime':
+      case 'bank':
+        next.push({ key: 'auction', pick: (g.auction?.lot ?? 0) + 1 });
+        break;
+      case 'done':
+        next.push({ key: 'drumroll', pick: 0 }, { key: 'credits', pick: 0 });
+        break;
+    }
+  return [
+    ...new Set([now, ...next].flatMap((m) => (m ? [clipOf(audio?.music, m.key, m.pick)] : []))),
+  ].filter((p): p is string => !!p);
 }
