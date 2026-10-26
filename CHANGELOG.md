@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.1...v0.73.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **realtime:** send websocket messages uncompressed ([#428](https://github.com/thurahtetaung/virtual-tavern/issues/428)) ([b614d8f](https://github.com/thurahtetaung/virtual-tavern/commit/b614d8faab4dfdfb36595f95eb36c736dc8b67c7))
+
 ## [0.73.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.0...v0.73.1) (2026-10-26)
 
 
