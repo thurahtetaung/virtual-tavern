@@ -1,5 +1,5 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
-import { Button, Countdown, PlayerTag, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, PlayerTag, ProtectedImage, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import {
   type HandCard,
@@ -81,7 +81,7 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
         {g.stage === 'flip' ? (
           <FlipStep view={view} room={room} act={act} art={art} name={name} />
         ) : g.stage === 'scores' && view.phase === 'playing' ? (
-          <ScoresStep view={view} room={room} act={act} name={name} />
+          <ScoresStep view={view} room={room} act={act} art={art} name={name} />
         ) : (
           <Play
             view={view}
@@ -109,6 +109,11 @@ export function Table({ view, room, act, art, name, logName, showGuide }: TableP
   );
 }
 
+/** The chip's art, or 🎟️ without the manifest. */
+function ChipIcon({ art }: { art: Art }) {
+  return art.chip ? <ProtectedImage src={art.chip} alt="" className="h-3.5 w-auto" /> : <>🎟️</>;
+}
+
 /** Everyone at the table: hand count, captured cards, chips, the Recruit & Show marker. */
 function Seats({
   g,
@@ -124,7 +129,7 @@ function Seats({
   const say = useSay();
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   return (
-    <ul aria-label="Players" className="flex flex-wrap gap-1.5">
+    <ul aria-label="Players" className="flex flex-wrap gap-1 sm:gap-1.5">
       {g.players.map((p) => {
         const current = g.stage === 'play' && g.current === p.id && !g.winners.length;
         const owner = g.table?.owner === p.id && g.stage === 'play';
@@ -132,7 +137,7 @@ function Seats({
           <li
             key={p.id}
             className={cn(
-              'flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-sm shadow-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
+              'flex items-center gap-0.5 rounded-full bg-card px-2 py-0.5 text-xs shadow-sm sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-sm ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
               current && 'ring-2 ring-accent dark:ring-amber-500',
               p.left && 'opacity-60',
             )}
@@ -156,7 +161,7 @@ function Seats({
               ▢{p.captured}
             </span>
             <span className="flex items-center gap-0.5 tabular-nums" title="Chips">
-              {art.chip ? <ProtectedImage src={art.chip} alt="" className="h-3.5 w-auto" /> : '🎟️'}
+              <ChipIcon art={art} />
               {p.chips}
             </span>
             {!g.twoPlayer &&
@@ -412,13 +417,27 @@ function Play({
   const strength = selected.length ? strengthOf(selected) : null;
   const ownerName = g.table ? name(g.table.owner) : '';
   const last = useLastShow(view);
+  // The half-turn plays once as the round's play begins, not on cards recruited later.
+  const [turning, setTurning] = useState(turnedNow);
+  useEffect(() => {
+    if (!turning) return;
+    const t = setTimeout(() => {
+      setTurning(false);
+    }, 600);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [turning]);
 
   return (
     <section className="flex flex-col gap-3" aria-label="The table">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>
           Round {g.round} of {g.rounds}
-          {g.twoPlayer && ` · ${plural(g.reserve, 'card')} waiting for round ${g.round + 1}`}
+          {g.twoPlayer &&
+            g.round < g.rounds &&
+            view.phase === 'playing' &&
+            ` · ${plural(g.reserve, 'card')} waiting for round ${g.round + 1}`}
         </span>
         <Clock
           g={g}
@@ -429,7 +448,7 @@ function Play({
         />
       </div>
       <div
-        className="relative flex min-h-36 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-4 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+        className="relative flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-panel px-3 py-3 ring-1 sm:min-h-36 sm:py-4 ring-line dark:bg-stone-900 dark:ring-stone-700"
         data-testid="en-table"
       >
         {table.length ? (
@@ -521,137 +540,138 @@ function Play({
                 : shapeLine(hand)}
             </span>
           </div>
-          <div className={cn(turnedNow && 'en-turn')}>
-            <Hand
-              cards={shownHand}
-              art={art}
-              selected={choosingShow ? sel : null}
-              legal={mine && choosingShow ? legal : undefined}
-              preview={recruiting?.at ?? null}
-              onCard={mine && choosingShow ? tapCard : undefined}
-              onGap={
-                recruiting
-                  ? (at) => {
-                      // Gaps are counted in the hand without the recruited card.
-                      const real = recruiting.at !== null && at > recruiting.at ? at - 1 : at;
-                      setSel(null);
-                      setRecruiting({ ...recruiting, at: real });
-                    }
-                  : undefined
-              }
-            />
-          </div>
+          <Hand
+            cards={shownHand}
+            turning={turning}
+            art={art}
+            selected={choosingShow ? sel : null}
+            legal={mine && choosingShow ? legal : undefined}
+            preview={recruiting?.at ?? null}
+            onCard={mine && choosingShow ? tapCard : undefined}
+            onGap={
+              recruiting
+                ? (at) => {
+                    // Gaps are counted in the hand without the recruited card.
+                    const real = recruiting.at !== null && at > recruiting.at ? at - 1 : at;
+                    setSel(null);
+                    setRecruiting({ ...recruiting, at: real });
+                  }
+                : undefined
+            }
+          />
           {mine && (
-            <div className="flex flex-col gap-2" data-testid="en-actions">
-              {recruiting ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setRecruiting(null);
-                      setSel(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  {!recruiting.double ? (
-                    <Button
-                      className="flex-1"
-                      disabled={recruiting.at === null || busy}
-                      onClick={() =>
-                        void send({
-                          type: 'recruit',
-                          end: recruiting.end,
-                          flip: recruiting.flip,
-                          at: recruiting.at!,
-                        })
-                      }
-                    >
-                      {recruiting.at === null
-                        ? 'Tap a gap in your hand'
-                        : g.twoPlayer
-                          ? say('Pay a chip and recruit it here')
-                          : say(`Recruit it here · ${ownerName} +1`)}
-                    </Button>
-                  ) : (
-                    <Button
-                      className="flex-1"
-                      disabled={recruiting.at === null || !sel || !!problem || busy}
-                      onClick={() =>
-                        void send({
-                          type: 'recruit-show',
-                          end: recruiting.end,
-                          flip: recruiting.flip,
-                          at: recruiting.at!,
-                          from: sel![0],
-                          to: sel![1],
-                        })
-                      }
-                    >
-                      {recruiting.at === null
-                        ? 'Tap a gap in your hand'
-                        : !sel
-                          ? 'Now tap the cards to show'
-                          : problem
-                            ? problem
-                            : say(
-                                `🎪 Recruit & show ${groupLine(selected)} · ${beatReason(strength!, against)}`,
-                              )}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <Button
-                    disabled={!sel || !!problem || busy}
-                    onClick={() => void send({ type: 'show', from: sel![0], to: sel![1] })}
-                    data-testid="en-show"
-                  >
-                    {!sel
-                      ? shows.length
-                        ? 'Tap your cards to pick a show'
-                        : 'Nothing in your hand beats the table'
-                      : problem
-                        ? problem
-                        : `Show ${groupLine(selected)} · ${beatReason(strength!, against)}`}
-                  </Button>
+            <StickyBar whole>
+              <div className="flex flex-col gap-2" data-testid="en-actions">
+                {recruiting ? (
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="soft"
-                      className="flex-1"
-                      disabled={!canRecruit || busy}
-                      onClick={() => beginRecruit(false)}
-                      data-testid="en-recruit"
+                      variant="ghost"
+                      onClick={() => {
+                        setRecruiting(null);
+                        setSel(null);
+                      }}
                     >
-                      🤝 {say('Recruit')}
-                      {table.length
-                        ? g.twoPlayer
-                          ? ` (${plural(me?.chips ?? 0, 'chip')} left)`
-                          : ` · ${ownerName} +1`
-                        : ''}
+                      Cancel
                     </Button>
-                    {!g.twoPlayer && (
+                    {!recruiting.double ? (
                       <Button
-                        variant="soft"
                         className="flex-1"
-                        disabled={!canRecruit || !me?.marker || busy}
-                        onClick={() => beginRecruit(true)}
-                        data-testid="en-recruit-show"
+                        disabled={recruiting.at === null || busy}
+                        onClick={() =>
+                          void send({
+                            type: 'recruit',
+                            end: recruiting.end,
+                            flip: recruiting.flip,
+                            at: recruiting.at!,
+                          })
+                        }
                       >
-                        🎪 {say('Recruit & Show')}
-                        {me?.marker ? '' : ' (used)'}
+                        {recruiting.at === null
+                          ? 'Tap a gap in your hand'
+                          : g.twoPlayer
+                            ? say('Pay a chip and recruit it here')
+                            : say(`Recruit it here · ${ownerName} +1`)}
+                      </Button>
+                    ) : (
+                      <Button
+                        className="flex-1"
+                        disabled={recruiting.at === null || !sel || !!problem || busy}
+                        onClick={() =>
+                          void send({
+                            type: 'recruit-show',
+                            end: recruiting.end,
+                            flip: recruiting.flip,
+                            at: recruiting.at!,
+                            from: sel![0],
+                            to: sel![1],
+                          })
+                        }
+                      >
+                        {recruiting.at === null
+                          ? 'Tap a gap in your hand'
+                          : !sel
+                            ? 'Now tap the cards to show'
+                            : problem
+                              ? problem
+                              : say(
+                                  `🎪 Recruit & show ${groupLine(selected)} · ${beatReason(strength!, against)}`,
+                                )}
                       </Button>
                     )}
                   </div>
-                  {picking && (
-                    <p className="text-sm text-info-ink dark:text-sky-300">
-                      Tap the card you want at either end of the table.
-                    </p>
-                  )}
-                </>
-              )}
-              <RefusalSlot anchor="en-play" resetKey={turnKey} />
-            </div>
+                ) : (
+                  <>
+                    <Button
+                      disabled={!sel || !!problem || busy}
+                      onClick={() => void send({ type: 'show', from: sel![0], to: sel![1] })}
+                      data-testid="en-show"
+                    >
+                      {!sel
+                        ? shows.length
+                          ? 'Tap your cards to pick a show'
+                          : 'Nothing in your hand beats the table'
+                        : problem
+                          ? problem
+                          : `Show ${groupLine(selected)} · ${beatReason(strength!, against)}`}
+                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="soft"
+                        className="flex-1 px-2 whitespace-nowrap"
+                        disabled={!canRecruit || busy}
+                        onClick={() => beginRecruit(false)}
+                        data-testid="en-recruit"
+                      >
+                        🤝 {say('Recruit')}
+                        {table.length
+                          ? g.twoPlayer
+                            ? ` (${plural(me?.chips ?? 0, 'chip')} left)`
+                            : ` · ${ownerName} +1`
+                          : ''}
+                      </Button>
+                      {!g.twoPlayer && (
+                        <Button
+                          variant="soft"
+                          className="flex-1 px-2 whitespace-nowrap"
+                          disabled={!canRecruit || !me?.marker || busy}
+                          onClick={() => beginRecruit(true)}
+                          data-testid="en-recruit-show"
+                        >
+                          🎪 {say('Recruit & Show')}
+                          {me?.marker ? '' : ' (used)'}
+                        </Button>
+                      )}
+                    </div>
+                    {picking && (
+                      <p className="text-sm text-info-ink dark:text-sky-300">
+                        Tap the card you want at either end of the table.
+                      </p>
+                    )}
+                  </>
+                )}
+                <RefusalSlot anchor="en-play" resetKey={turnKey} />
+              </div>
+            </StickyBar>
           )}
         </div>
       ) : (
@@ -788,11 +808,13 @@ function ScoresStep({
   view,
   room,
   act,
+  art,
   name,
 }: {
   view: EncoreView;
   room: GameRoomInfo;
   act: Act;
+  art: Art;
   name: NameOf;
 }) {
   const say = useSay();
@@ -810,7 +832,7 @@ function ScoresStep({
         <p className="text-sm">{say(endLine(r, name))}</p>
       </div>
       <div className="rounded-2xl bg-panel p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700">
-        <RoundBreakdown g={g} round={r.round} name={name} you={room.you} />
+        <RoundBreakdown g={g} round={r.round} name={name} you={room.you} art={art} />
       </div>
       <div className="flex flex-wrap gap-2">
         {me && (
@@ -852,11 +874,13 @@ export function RoundBreakdown({
   round,
   name,
   you,
+  art,
 }: {
   g: GameView;
   round: number;
   name: NameOf;
   you: string;
+  art: Art;
 }) {
   const r = g.results.find((x) => x.round === round);
   if (!r) return null;
@@ -869,7 +893,9 @@ export function RoundBreakdown({
             ▢ +
           </th>
           <th className="font-normal" title="Chips">
-            🎟️ +
+            <span className="inline-flex items-center gap-0.5">
+              <ChipIcon art={art} /> +
+            </span>
           </th>
           <th className="font-normal" title="Cards in hand">
             ✋ −
@@ -967,6 +993,7 @@ function Log({ view, name }: { view: EncoreView; name: NameOf }) {
     .slice(-6)
     .reverse();
   if (!lines.length) return null;
+  // Phones show the newest three, so a turn fits the screen.
   return (
     <section
       aria-label="What happened"
@@ -977,7 +1004,10 @@ function Log({ view, name }: { view: EncoreView; name: NameOf }) {
       </h3>
       <ul className="flex flex-col gap-0.5" data-testid="en-log">
         {lines.map((l, i) => (
-          <li key={l.id} className={cn(i > 0 && 'text-ink-muted dark:text-stone-400')}>
+          <li
+            key={l.id}
+            className={cn(i > 0 && 'text-ink-muted dark:text-stone-400', i > 2 && 'max-sm:hidden')}
+          >
             {l.text}
           </li>
         ))}
