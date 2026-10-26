@@ -52,9 +52,20 @@ export function statusFor(view: JewellerView, you: string, name: NameOf): Status
   const me = g.players.find((p) => p.id === you);
   const mine = g.current === you;
   const final = g.finalBy
-    ? ` Final round: ${g.finalBy === you ? 'you' : name(g.finalBy)} reached ${view.settings.target}.`
+    ? ` Final round: ${g.finalBy === you ? 'you' : name(g.finalBy)} ${view.settings.cities ? 'met a City' : `reached ${view.settings.target}`}.`
     : '';
   switch (g.stage) {
+    case 'hold':
+      return mine
+        ? f(
+            'Place a stronghold on a face-up card (or move one of yours), or send back a lone stronghold of another player’s.',
+            true,
+          )
+        : f(`${name(g.current)} is placing a stronghold.${final}`);
+    case 'conquer':
+      return mine
+        ? f('Conquest: all three of your strongholds hold a card you can afford. Buy it too?', true)
+        : f(`${name(g.current)} may buy the card they conquered.${final}`);
     case 'return': {
       const over = me ? totalOf(me.tokens) - TOKEN_LIMIT : 0;
       return mine
@@ -92,9 +103,19 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
     case 'buy': {
       const paid = totalOf(e.paid);
       return line(
-        `${name(e.by)} buys ${cardLine(e.card)}${e.fromReserve ? ' from their hand' : ''}${paid ? ` for ${piecesLine(e.paid)}` : ' for free'}.`,
+        `${e.conquest ? '🏰 Conquest! ' : ''}${name(e.by)} buys ${cardLine(e.card)}${e.fromReserve ? ' from their hand' : ''}${paid ? ` for ${piecesLine(e.paid)}` : ' for free'}.`,
       );
     }
+    case 'hold':
+      return line(
+        `${name(e.by)} ${e.from ? 'moves a stronghold' : 'places a stronghold'} on ${cardLine(e.card)}.`,
+      );
+    case 'evict':
+      return line(
+        `${name(e.by)} sends ${name(e.owner)}’s stronghold back from ${cardLine(e.card)}.`,
+      );
+    case 'conquest-pass':
+      return line(`${name(e.by)} doesn’t buy the conquered card.`);
     case 'return':
       return line(`${name(e.by)} hands back ${piecesLine(e.tokens)}.`);
     case 'noble':
@@ -102,14 +123,18 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
     case 'pass':
       return line(`${name(e.by)} can’t do anything and passes.`);
     case 'final':
-      return line(`${name(e.by)} reached ${e.points} points: this is the final round.`);
+      return line(
+        e.city
+          ? `🏙 ${name(e.by)} meets a City: this is the final round.`
+          : `${name(e.by)} reached ${e.points} points: this is the final round.`,
+      );
     case 'left':
       return line(`${name(e.player)} left: the table plays their turns.`);
     case 'back':
       return line(`${name(e.player)} is back.`);
     case 'removed':
       return line(
-        `${name(e.player)} was removed: their pieces went back to the supply and their cards left play.`,
+        `${name(e.player)} was removed: their pieces went back to the supply and their cards (and strongholds) left play.`,
       );
     case 'end':
       return line(

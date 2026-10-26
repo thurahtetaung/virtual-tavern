@@ -14,7 +14,8 @@ import {
 
 /**
  * Tavern night recap awards for Jeweller, read from its `insights` events (`take`, `reserve`,
- * `buy`, `return`, `noble`, `final`, `outcome`). Nothing here names a card or a noble.
+ * `buy`, `hold`, `evict`, `return`, `noble`, `final`, `outcome`). Nothing here names a card, a
+ * noble or a City.
  */
 
 const buys = (g: GameEvents) => g.of('buy');
@@ -129,6 +130,52 @@ const rules: AwardRule[] = [
       ),
   },
   {
+    id: 'jw.conqueror',
+    emoji: '🏰',
+    title: 'Conqueror',
+    wholesomeTitle: 'Master Builder',
+    valence: 'glory',
+    weight: 4,
+    kind: 'award',
+    family: 'strongholds',
+    copy: {
+      cheeky: [
+        '{who} stormed a card with all three strongholds, {n|time}',
+        '{who} conquered {n|time}. Resistance was futile',
+      ],
+      wholesome: ['{who} bought by Conquest {n|time}', 'Strongholds won {who} a card, {n|time}'],
+    },
+    compute: (g) =>
+      mostBy(
+        buys(g).filter((e) => bool(e, 'conquest') === true),
+        undefined,
+        { min: 1 },
+      ),
+  },
+  {
+    id: 'jw.gatecrasher',
+    emoji: '🪓',
+    title: 'Gatecrasher',
+    wholesomeTitle: 'Keeping It Fair',
+    valence: 'chaos',
+    weight: 2,
+    kind: 'award',
+    family: 'strongholds',
+    copy: {
+      cheeky: [
+        '{who} knocked down {n} strongholds. Not their own',
+        '{who} sent {n} strongholds packing',
+      ],
+      wholesome: ['{who} opened up {n} guarded cards', '{who} sent {n} strongholds home'],
+    },
+    compute: (g) =>
+      mostBy(
+        g.of('evict').filter((e) => bool(e, 'auto') !== true),
+        undefined,
+        { min: 2 },
+      ),
+  },
+  {
     id: 'jw.overflow',
     emoji: '🫗',
     title: 'Pockets Overflowing',
@@ -188,7 +235,11 @@ function history(g: GameEvents): string[] {
     .map((e) => (e.playerId ? `A noble visited ${ph.p(e.playerId)}` : 'A noble visited'));
   const final = g.of('final')[0];
   if (final?.playerId)
-    lines.push(`${ph.p(final.playerId)} reached ${num(final, 'points') ?? 0} points`);
+    lines.push(
+      bool(final, 'city') === true
+        ? `${ph.p(final.playerId)} met a City first`
+        : `${ph.p(final.playerId)} reached ${num(final, 'points') ?? 0} points`,
+    );
   return lines;
 }
 

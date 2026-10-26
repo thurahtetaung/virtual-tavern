@@ -147,8 +147,10 @@ export default defineConfig({
       // Jeweller's specs: the first seat starts owning 4 white, 3 black and three level-III blue
       // cards (12 points), one black card it can finish with tops the level-I deck, and only one
       // noble on the table fits it, so a game reaches a noble visit and the end in a few turns.
+      // With Cities, a blue 2-point card (one white gem) meets the first City; with Strongholds,
+      // two of the first seat's sit on that black card and a free blue card lies beside it.
       JEWELLER_TEST_DECK:
-        '1:L1-35;n:N09,N01,N03;own:L1-01,L1-02,L1-03,L1-04,L1-33,L1-34,L1-36,L3-05,L3-06,L3-08',
+        '1:L1-35,L1-09;2:L2-11;n:N09,N01,N03;c:C3a,C2a,C7b;h:L1-35,L1-35;own:L1-01,L1-02,L1-03,L1-04,L1-33,L1-34,L1-36,L3-05,L3-06,L3-08',
       // Going Once's spec fixes the deal and halves its clocks from the lobby (`rig`).
       GOING_ONCE_TEST_RIG: '1',
       // Sketchy's spec knows each player's prompt: packs dealt in order, drawings in seat order.

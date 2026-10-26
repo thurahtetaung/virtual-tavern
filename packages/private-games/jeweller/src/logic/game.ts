@@ -11,6 +11,7 @@ import {
 import { jewellerAwards } from './awards.ts';
 import { jewellerBot } from './bot.ts';
 import { CARDS, NOBLES, cardOf } from './cards.ts';
+import { CITIES, CITIES_IN_PLAY, CITY_TILES, cityOf, meetsCity } from './cities.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
@@ -19,6 +20,7 @@ import {
   canReserve,
   canTake,
   colorsIn,
+  shortfall,
   differentToTake,
   noPieces,
   noblesFor,
@@ -27,6 +29,16 @@ import {
   takeProblem,
   totalOf,
 } from './rules.ts';
+import {
+  type HoldMove,
+  applyHold,
+  conquestCard,
+  holdMoves,
+  holdProblem,
+  occupiedFor,
+  openMarket,
+  supplyOf,
+} from './strongholds.ts';
 import {
   type Auto,
   DEFAULT_TARGET,
@@ -74,12 +86,26 @@ const newSeed = (rng: Rng) => rng.int(2 ** 32);
 export interface TestDeck {
   decks?: Partial<Record<Level, string[]>>;
   nobles?: string[];
+  /** City sides to deal (with the Cities option), in place of the random ones. */
+  cities?: string[];
+  /** Strongholds the first seat starts with on face-up cards, as card ids (with the option). */
+  holds?: string[];
   firstSeat?: boolean;
   owned?: string[];
 }
 let testDeck: TestDeck | null = null;
 export function setTestDeck(rig: TestDeck | null) {
   testDeck = rig;
+}
+
+/**
+ * The rig's City sides first, then the dealt ones, never two sides of one tile, three in all.
+ */
+function fixCities(dealt: string[]): string[] {
+  const out: string[] = [];
+  for (const id of [...(testDeck?.cities ?? []), ...dealt])
+    if (CITIES.some((c) => c.id === id) && !out.some((o) => o[1] === id[1])) out.push(id);
+  return out.slice(0, CITIES_IN_PLAY);
 }
 
 /** Moves the listed ids to the front, in order. */
@@ -103,23 +129,42 @@ const deckCounts = (g: Game): Record<Level, number> => ({
   3: g.decks[3].length,
 });
 
-/** Whether the player can buy any face-up or reserved card. */
-function canBuyAny(g: Game, p: PlayerState): boolean {
-  const b = bonusesFor(p);
-  const ids = [
-    ...LEVELS.flatMap((l) => g.market[l].filter((c): c is string => c !== null)),
-    ...p.reserved.map((r) => r.card),
+/** Face-up cards the player may buy or reserve (others' strongholds keep them off). */
+const marketFor = (g: Game, id: PlayerId) => openMarket(g.market, g.holds, id);
+
+/** Face-up cards the player may buy, then their reserved ones. */
+function buyable(g: Game, id: PlayerId): string[] {
+  const m = marketFor(g, id);
+  return [
+    ...LEVELS.flatMap((l) => m[l].filter((c): c is string => c !== null)),
+    ...g.players[id]!.reserved.map((r) => r.card),
   ];
-  return ids.some((id) => canAfford(cardOf(id), b, p.tokens));
+}
+
+/** Whether the player can buy any face-up or reserved card. */
+function canBuyAny(g: Game, id: PlayerId): boolean {
+  const p = g.players[id]!;
+  const b = bonusesFor(p);
+  return buyable(g, id).some((c) => canAfford(cardOf(c), b, p.tokens));
 }
 
 /** Whether the player has any action but passing. */
 export function hasAction(g: Game, id: PlayerId): boolean {
   const p = g.players[id]!;
   return (
-    canTake(g.bank) || canReserve(p.reserved.length, g.market, deckCounts(g)) || canBuyAny(g, p)
+    canTake(g.bank) ||
+    canReserve(p.reserved.length, marketFor(g, id), deckCounts(g)) ||
+    canBuyAny(g, id)
   );
 }
+
+/** The City sides a player meets now. */
+export const citiesMet = (g: Game, id: PlayerId) => {
+  const p = g.players[id]!;
+  const b = bonusesFor(p);
+  const points = pointsFor(p);
+  return (g.cities ?? []).filter((c) => meetsCity(cityOf(c), b, points));
+};
 
 /** Players still in the game (not removed), in turn order. */
 export const active = (g: Game) => g.order.filter((id) => !g.removed?.includes(id));
@@ -169,9 +214,28 @@ function refill(g: Game, level: Level, space: number) {
   g.market[level][space] = g.decks[level].shift() ?? null;
 }
 
+/** Refills the spaces this turn's purchases emptied. */
+function refillGaps(g: Game) {
+  for (const gap of g.gaps ?? []) refill(g, gap.level, gap.space);
+  delete g.gaps;
+}
+
+/** The turn's bookkeeping, cleared as it ends. */
+function clearTurn(g: Game) {
+  refillGaps(g);
+  delete g.owed;
+  delete g.conquest;
+  g.nobleChoice = [];
+}
+
 function endGame(s: JewellerState, how?: 'stalled' | 'alone') {
   const g = s.game!;
-  const scored = active(g).map((id) => ({
+  refillGaps(g);
+  // With Cities, only players who meet one can win; if nobody does (a game that stalled), it
+  // scores as the base game.
+  const meeting = active(g).filter((id) => citiesMet(g, id).length > 0);
+  const pool = s.settings.cities && meeting.length ? meeting : active(g);
+  const scored = pool.map((id) => ({
     id,
     points: pointsFor(g.players[id]!),
     cards: g.players[id]!.cards.length,
@@ -191,12 +255,19 @@ function endGame(s: JewellerState, how?: 'stalled' | 'alone') {
 function endTurn(s: JewellerState, by: PlayerId) {
   const g = s.game!;
   const points = pointsFor(g.players[by]!);
-  if (!g.finalBy && points >= s.settings.target) {
-    g.finalBy = by;
-    log(s, { kind: 'final', by, points });
+  if (!g.finalBy) {
+    // With Cities, meeting one ends the game instead of the target.
+    const city = s.settings.cities ? citiesMet(g, by)[0] : undefined;
+    if (city) {
+      g.finalBy = by;
+      log(s, { kind: 'final', by, points, city });
+    } else if (!s.settings.cities && points >= s.settings.target) {
+      g.finalBy = by;
+      log(s, { kind: 'final', by, points });
+    }
   }
+  clearTurn(g);
   g.turns += 1;
-  g.nobleChoice = [];
   if (g.finalBy && by === active(g).at(-1)) {
     endGame(s);
     return;
@@ -230,10 +301,31 @@ function nobleCheck(s: JewellerState, by: PlayerId, auto?: Auto) {
   g.nobleChoice = can;
 }
 
-/** After an action: hand back pieces over 10, then the noble check. */
+/**
+ * After an action, in the rulebook's order: a stronghold for each purchase, then a Conquest if all
+ * three strongholds sit on a card the player can afford, then the emptied spaces are refilled,
+ * pieces over 10 handed back, and the noble check.
+ */
 function afterAction(s: JewellerState, by: PlayerId, auto?: Auto) {
   const g = s.game!;
   g.passes = 0;
+  if (g.owed) {
+    if (holdMoves(g.market, g.holds, by).length) {
+      g.stage = 'hold';
+      return;
+    }
+    delete g.owed;
+  }
+  if (s.settings.strongholds && !g.conquest) {
+    g.conquest = true;
+    const card = conquestCard(g.holds, by);
+    const p = g.players[by]!;
+    if (card && canAfford(cardOf(card), bonusesFor(p), p.tokens)) {
+      g.stage = 'conquer';
+      return;
+    }
+  }
+  refillGaps(g);
   if (totalOf(g.players[by]!.tokens) > TOKEN_LIMIT) {
     g.stage = 'return';
     return;
@@ -249,7 +341,11 @@ function myTurn(g: Game, by: PlayerId, stage: Game['stage']): GameError | null {
       ? err('return-first', 'Hand back pieces down to 10 first.')
       : g.stage === 'noble'
         ? err('noble-first', 'Pick the noble who visits first.')
-        : err('wrong-stage', 'Your action is done.');
+        : g.stage === 'hold'
+          ? err('hold-first', 'Place a stronghold first.')
+          : g.stage === 'conquer'
+            ? err('conquer-first', 'Buy the conquered card or skip it first.')
+            : err('wrong-stage', 'Your action is done.');
   return null;
 }
 
@@ -288,6 +384,10 @@ function reserve(
       g.market[l].flatMap((c, i) => (c === target.card ? [{ l, i }] : [])),
     )[0];
     if (!at) return err('not-in-market', 'That card isn’t face up on the table.');
+    if (occupiedFor(g.holds, target.card, by))
+      return err('occupied', 'Another player’s stronghold is on that card.');
+    // Reserving a card with your own strongholds takes them back.
+    delete g.holds?.[target.card];
     card = target.card;
     level = at.l;
     blind = false;
@@ -319,15 +419,20 @@ function buy(
   auto?: Auto,
 ): GameError | null {
   const g = s.game!;
-  const e = myTurn(g, by, 'action');
+  const conquest = g.stage === 'conquer';
+  const e = myTurn(g, by, conquest ? 'conquer' : 'action');
   if (e) return e;
+  if (conquest && conquestCard(g.holds, by) !== card)
+    return err('not-conquest', 'Conquest buys only the card with all three of your strongholds.');
   const p = g.players[by]!;
-  const fromReserve = p.reserved.some((r) => r.card === card);
+  const fromReserve = !conquest && p.reserved.some((r) => r.card === card);
   const at = fromReserve
     ? null
     : LEVELS.flatMap((l) => g.market[l].flatMap((c, i) => (c === card ? [{ l, i }] : [])))[0];
   if (!fromReserve && !at)
     return err('not-buyable', 'Buy a face-up card or one of your reserved cards.');
+  if (at && occupiedFor(g.holds, card, by))
+    return err('occupied', 'Another player’s stronghold is on that card.');
   const paid = payment(cardOf(card), bonusesFor(p), p.tokens, gold);
   if (typeof paid === 'string') return err('cant-afford', paid);
   for (const t of TOKENS) {
@@ -335,9 +440,56 @@ function buy(
     g.bank[t] += paid[t];
   }
   if (fromReserve) p.reserved = p.reserved.filter((r) => r.card !== card);
-  else refill(g, at!.l, at!.i);
+  else {
+    // The space is refilled once the turn's purchases (and strongholds) are done.
+    g.market[at!.l][at!.i] = null;
+    g.gaps = [...(g.gaps ?? []), { level: at!.l, space: at!.i }];
+    // Buying a card with your own strongholds takes them back.
+    delete g.holds?.[card];
+  }
   p.cards.push(card);
-  log(s, { kind: 'buy', by, card, fromReserve, paid, ...autoOf(auto) });
+  log(s, {
+    kind: 'buy',
+    by,
+    card,
+    fromReserve,
+    paid,
+    ...(conquest && { conquest: true }),
+    ...autoOf(auto),
+  });
+  // Every purchase owes a stronghold move.
+  if (s.settings.strongholds) g.owed = true;
+  afterAction(s, by, auto);
+  return null;
+}
+
+/** The stronghold move owed for a purchase. */
+function hold(s: JewellerState, by: PlayerId, move: HoldMove, auto?: Auto): GameError | null {
+  const g = s.game!;
+  const e = myTurn(g, by, 'hold');
+  if (e) return e;
+  const problem = holdProblem(g.market, g.holds, by, move);
+  if (problem) return err('bad-stronghold', problem);
+  const holds = (g.holds ??= {});
+  if (move.type === 'evict') {
+    const owner = holds[move.card]!.by;
+    applyHold(holds, by, move);
+    log(s, { kind: 'evict', by, card: move.card, owner, ...autoOf(auto) });
+  } else {
+    applyHold(holds, by, move);
+    log(s, { kind: 'hold', by, card: move.card, from: move.from ?? null, ...autoOf(auto) });
+  }
+  delete g.owed;
+  afterAction(s, by, auto);
+  return null;
+}
+
+/** Skips the turn's Conquest. */
+function noConquest(s: JewellerState, by: PlayerId, auto?: Auto): GameError | null {
+  const g = s.game!;
+  const e = myTurn(g, by, 'conquer');
+  if (e) return e;
+  log(s, { kind: 'conquest-pass', by, ...autoOf(auto) });
   afterAction(s, by, auto);
   return null;
 }
@@ -407,6 +559,8 @@ function remove(s: JewellerState, player: PlayerId): GameError | null {
   p.cards = [];
   p.reserved = [];
   p.nobles = [];
+  // Their strongholds leave the table with their cards.
+  for (const [card, h] of Object.entries(g.holds ?? {})) if (h.by === player) delete g.holds![card];
   g.removed = [...(g.removed ?? []), player];
   log(s, { kind: 'removed', player, tokens });
   const left = active(g);
@@ -416,7 +570,7 @@ function remove(s: JewellerState, player: PlayerId): GameError | null {
   }
   if (g.current === player) {
     // Their turn ends where it stands; a final round still ends with the last seat in play.
-    g.nobleChoice = [];
+    clearTurn(g);
     const last = g.order.indexOf(player) > g.order.indexOf(left.at(-1)!);
     if (g.finalBy && last) {
       endGame(s);
@@ -430,6 +584,28 @@ function remove(s: JewellerState, player: PlayerId): GameError | null {
 }
 
 // ---- Moves made for a player ----
+
+/**
+ * The stronghold move made for a player: onto the face-up card that is cheapest for them, from
+ * the supply while they have one, else moved from the card with the fewest; else sending back
+ * the first lone opponent's.
+ */
+function safeHold(g: Game, who: PlayerId): HoldMove {
+  const moves = holdMoves(g.market, g.holds, who);
+  const p = g.players[who]!;
+  const b = bonusesFor(p);
+  const cost = (card: string) => totalOf(shortfall(cardOf(card), b, p.tokens));
+  const from = (m: HoldMove) => (m.type === 'stronghold' ? m.from : undefined);
+  const supply = supplyOf(g.holds, who) > 0;
+  const place = moves
+    .filter((m) => m.type === 'stronghold' && (from(m) === undefined) === supply)
+    .sort(
+      (x, y) =>
+        cost(x.card) - cost(y.card) ||
+        (g.holds?.[from(x) ?? '']?.n ?? 0) - (g.holds?.[from(y) ?? '']?.n ?? 0),
+    );
+  return place[0] ?? moves[0]!;
+}
 
 /** Pieces handed back for a player: the ones they hold most of, gold last. */
 export function safeReturn(tokens: Pieces, over: number): Pieces {
@@ -464,22 +640,27 @@ function autoStep(s: JewellerState, who: PlayerId, why: Auto): boolean {
         e = take(s, who, fullest.slice(0, n), why);
         break;
       }
-      if (canReserve(p.reserved.length, g.market, deckCounts(g))) {
+      const market = marketFor(g, who);
+      if (canReserve(p.reserved.length, market, deckCounts(g))) {
         const level = LEVELS.find((l) => g.decks[l].length > 0);
-        const card = LEVELS.flatMap((l) => g.market[l]).find((c): c is string => c !== null);
+        const card = LEVELS.flatMap((l) => market[l]).find((c): c is string => c !== null);
         e = reserve(s, who, level ? { level } : { card: card! }, why);
         break;
       }
       const b = bonusesFor(p);
-      const buyable = [
-        ...LEVELS.flatMap((l) => g.market[l].filter((c): c is string => c !== null)),
-        ...p.reserved.map((r) => r.card),
-      ]
+      const cheapest = buyable(g, who)
         .filter((id) => canAfford(cardOf(id), b, p.tokens))
         .sort((x, y) => totalOf(cardOf(x).cost) - totalOf(cardOf(y).cost));
-      e = buyable[0] ? buy(s, who, buyable[0], undefined, why) : pass(s, who, why);
+      e = cheapest[0] ? buy(s, who, cheapest[0], undefined, why) : pass(s, who, why);
       break;
     }
+    case 'hold':
+      // A stronghold from the supply where one is left, else a move; else sending one back.
+      e = hold(s, who, safeHold(g, who), why);
+      break;
+    case 'conquer':
+      e = noConquest(s, who, why);
+      break;
     case 'return':
       e = giveBack(s, who, safeReturn(p.tokens, totalOf(p.tokens) - TOKEN_LIMIT), why);
       break;
@@ -562,16 +743,26 @@ function deal(state: JewellerState, ctx: Ctx): Result {
     decks[l] = stack(ids, testDeck?.decks?.[l]);
     market[l] = decks[l].splice(0, MARKET_SIZE);
   }
-  const nobles = stack(rng.shuffle(NOBLES.map((n) => n.id)), testDeck?.nobles).slice(
-    0,
-    order.length + 1,
-  );
+  // With Cities, the nobles stay in the box: 3 City tiles come out instead, a random side up.
+  const nobles = s.settings.cities
+    ? []
+    : stack(rng.shuffle(NOBLES.map((n) => n.id)), testDeck?.nobles).slice(0, order.length + 1);
+  const cities = s.settings.cities
+    ? stack(
+        rng
+          .shuffle([...CITY_TILES])
+          .slice(0, CITIES_IN_PLAY)
+          .map((t) => `C${t}${rng.int(2) ? 'b' : 'a'}`),
+        testDeck?.cities,
+      )
+    : [];
   const gems = GEMS_FOR[order.length]!;
   const bank: Pieces = { ...noPieces(), gold: GOLD_PIECES };
   for (const gem of GEMS) bank[gem] = gems;
   const pl: Record<PlayerId, PlayerState> = {};
   for (const id of order) pl[id] = { tokens: noPieces(), cards: [], reserved: [], nobles: [] };
   pl[order[0]!]!.cards = owned;
+  const rigHolds = s.settings.strongholds ? (testDeck?.holds ?? []) : [];
   s.phase = 'playing';
   s.gamesPlayed += 1;
   s.log = [];
@@ -582,6 +773,8 @@ function deal(state: JewellerState, ctx: Ctx): Result {
     decks,
     market,
     nobles,
+    ...(s.settings.cities && { cities: fixCities(cities) }),
+    ...(s.settings.strongholds && { holds: {} }),
     bank,
     current: order[0]!,
     stage: 'action',
@@ -592,6 +785,12 @@ function deal(state: JewellerState, ctx: Ctx): Result {
     clock: null,
     winners: [],
   };
+  for (const card of rigHolds.slice(0, 3)) {
+    if (!LEVELS.some((l) => market[l].includes(card))) continue;
+    const h = s.game.holds![card];
+    if (h) h.n += 1;
+    else s.game.holds![card] = { by: order[0]!, n: 1 };
+  }
   log(s, { kind: 'start', first: order[0]! });
   s.seed = newSeed(rng);
   settle(s, ctx.now);
@@ -611,6 +810,8 @@ function updateSettings(
   if (action.showReserved !== undefined) s.settings.showReserved = action.showReserved;
   if (action.seconds !== undefined) s.settings.seconds = action.seconds;
   if (action.timerMode !== undefined) s.settings.timerMode = action.timerMode;
+  if (action.cities !== undefined) s.settings.cities = action.cities;
+  if (action.strongholds !== undefined) s.settings.strongholds = action.strongholds;
   return s;
 }
 
@@ -680,6 +881,18 @@ function reduce(state: JewellerState, action: JewellerAction, ctx: Ctx): Result 
       return inPlay(state, ctx, (s) => chooseNoble(s, by, action.noble));
     case 'pass':
       return inPlay(state, ctx, (s) => pass(s, by));
+    case 'stronghold':
+      return inPlay(state, ctx, (s) =>
+        hold(s, by, {
+          type: 'stronghold',
+          card: action.card,
+          ...(action.from !== undefined && { from: action.from }),
+        }),
+      );
+    case 'evict':
+      return inPlay(state, ctx, (s) => hold(s, by, { type: 'evict', card: action.card }));
+    case 'no-conquest':
+      return inPlay(state, ctx, (s) => noConquest(s, by));
     case 'remove': {
       const e = requireHost(ctx);
       if (e) return e;
@@ -702,7 +915,14 @@ function reduce(state: JewellerState, action: JewellerAction, ctx: Ctx): Result 
 function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): JewellerState {
   let state: JewellerState = {
     phase: 'lobby',
-    settings: { target: DEFAULT_TARGET, showReserved: false, seconds: null, timerMode: 'soft' },
+    settings: {
+      target: DEFAULT_TARGET,
+      showReserved: false,
+      seconds: null,
+      timerMode: 'soft',
+      cities: false,
+      strongholds: false,
+    },
     seed: newSeed(ctx.rng),
     seats: {},
     game: null,
@@ -817,11 +1037,16 @@ function gameView(state: JewellerState, g: Game, viewer: PlayerId | null): GameV
         bonuses: bonusesFor(p),
         left: g.left[id] !== undefined || !state.seats[id],
         removed: !!g.removed?.includes(id),
+        strongholds:
+          state.settings.strongholds && !g.removed?.includes(id) ? supplyOf(g.holds, id) : 0,
+        cities: citiesMet(g, id),
       };
     }),
     decks: deckCounts(g),
     market: { 1: [...g.market[1]], 2: [...g.market[2]], 3: [...g.market[3]] },
     nobles: [...g.nobles],
+    cities: [...(g.cities ?? [])],
+    holds: structuredClone(g.holds ?? {}),
     bank: { ...g.bank },
     current: g.current,
     stage: g.stage,

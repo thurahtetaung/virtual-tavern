@@ -71,6 +71,27 @@ describe('awards', () => {
     expect(rule('jw.big-buy').compute!(fixtureGame([buy('a', { paid: 5 })], players))).toEqual([]);
   });
 
+  it('conqueror and gatecrasher', () => {
+    const g = fixtureGame(
+      [
+        buy('a', { conquest: true }),
+        buy('b', {}),
+        recapEv('evict', 'c', { owner: 'a' }),
+        recapEv('evict', 'c', { owner: 'b' }),
+        recapEv('evict', 'b', { owner: 'a', auto: true }),
+      ],
+      players,
+    );
+    expect(rule('jw.conqueror').compute!(g)[0]).toMatchObject({ players: ['a'], value: 1 });
+    expect(rule('jw.gatecrasher').compute!(g)[0]).toMatchObject({ players: ['c'], value: 2 });
+    expect(rule('jw.conqueror').compute!(fixtureGame([buy('a', {})], players))).toEqual([]);
+  });
+
+  it('history: a City met first', () => {
+    const g = fixtureGame([recapEv('final', 'b', { points: 14, city: true })], players);
+    expect(jewellerAwards.history!(g)).toEqual(['{p:b} met a City first']);
+  });
+
   it('history and nuggets', () => {
     const g = fixtureGame(
       [
@@ -107,6 +128,8 @@ describe('awards', () => {
         events.push(...insights(state, next, action, by));
         state = next;
       };
+      // Half the games with both modules, so their awards read real events too.
+      if (seed % 2) act('a', { type: 'update-settings', cities: true, strongholds: true });
       act('a', { type: 'start' });
       for (let i = 0; i < 2000 && state.phase === 'playing'; i++) {
         now += 1000;

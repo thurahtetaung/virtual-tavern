@@ -101,9 +101,11 @@ if (process.env.NODE_ENV !== 'production' && process.env.ICONIC_TEST_WORD) {
 }
 
 // Browser tests only: Jeweller cards and nobles to put on top when a game is dealt
-// (`1:L1-01,L1-25;2:L2-03;n:N01,N06;own:L3-05`: a level's cards top first, `n` the nobles, `own`
-// cards the first seat already owns), with the first seat always starting, so a spec can reach a
-// noble visit and the end quickly. Never read in production.
+// (`1:L1-01,L1-25;2:L2-03;n:N01,N06;own:L3-05;c:C3a,C1b;h:L1-35,L1-35`: a level's cards top first,
+// `n` the nobles, `own` cards the first seat already owns, `c` the City sides with Cities on, `h`
+// face-up cards the first seat's strongholds start on with Strongholds on), with the first seat
+// always starting, so a spec can reach a noble visit, a City, a Conquest and the end quickly.
+// Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.JEWELLER_TEST_DECK) {
   const parts = Object.fromEntries(
     process.env.JEWELLER_TEST_DECK.split(';').flatMap((part) => {
@@ -115,6 +117,8 @@ if (process.env.NODE_ENV !== 'production' && process.env.JEWELLER_TEST_DECK) {
     decks: { 1: parts['1'] ?? [], 2: parts['2'] ?? [], 3: parts['3'] ?? [] },
     nobles: parts.n ?? [],
     owned: parts.own ?? [],
+    cities: parts.c ?? [],
+    holds: parts.h ?? [],
     firstSeat: true,
   });
 }

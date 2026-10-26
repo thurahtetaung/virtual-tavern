@@ -145,6 +145,8 @@ function Lobby({
   const me = view.me;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const { target, showReserved } = view.settings;
+  const cities = !!view.settings.cities;
+  const strongholds = !!view.settings.strongholds;
   const timers = {
     clueSeconds: view.settings.seconds,
     guessSeconds: null,
@@ -223,22 +225,42 @@ function Lobby({
         <p className="flex items-center gap-2 text-sm text-ink-muted dark:text-stone-400">
           <TokenChip token="red" art={art} size={22} />
           <TokenChip token="gold" art={art} size={22} />
-          Take gems, buy cards for lasting discounts, and win the nobles over. First to {
-            target
-          }{' '}
-          points ends the game.
+          Take gems, buy cards for lasting discounts, and{' '}
+          {cities
+            ? 'meet a City to end the game.'
+            : `win the nobles over. First to ${target} points ends the game.`}
+          {strongholds ? ' Strongholds guard cards.' : ''}
         </p>
       </Panel>
       <LobbySettings
         editable={room.isHost}
         summary={[
-          `first to ${target}`,
+          cities ? 'Cities' : `first to ${target}`,
+          ...(strongholds ? ['Strongholds'] : []),
           showReserved ? 'reserved cards shown' : 'reserved cards hidden',
           timersLine(timers, { clue: 'turns', guess: null }),
         ]}
         className="space-y-4"
       >
-        <div className="flex flex-col gap-1.5">
+        <Switch
+          on={cities}
+          editable={room.isHost}
+          title="Cities"
+          help="Cities replace the nobles and the target: meet a City’s points and cards to end the game, and only players who meet one can win."
+          onChange={(v) => void act({ type: 'update-settings', cities: v }, { anchor: 'jw-lobby' })}
+          testId="jw-cities"
+        />
+        <Switch
+          on={strongholds}
+          editable={room.isHost}
+          title="Strongholds"
+          help="Three strongholds each. Every purchase places or moves one on a face-up card (or sends a lone opponent’s back): only you can buy a card you hold, and with all three on it you may buy it on top of your action."
+          onChange={(v) =>
+            void act({ type: 'update-settings', strongholds: v }, { anchor: 'jw-lobby' })
+          }
+          testId="jw-strongholds"
+        />
+        <div className={cities ? 'hidden' : 'flex flex-col gap-1.5'}>
           <label htmlFor="jw-target" className="text-sm font-semibold">
             Points to end the game: {target}
             {target === DEFAULT_TARGET ? ' (the usual)' : ''}
@@ -321,10 +343,14 @@ function End({
   art: Art;
 }) {
   const g = view.game!;
-  // Winners first among equal points (a tie goes to fewer cards), so the podium matches.
+  const cities = !!view.settings.cities;
+  const anyMet = g.players.some((p) => p.cities.length > 0 && !p.removed);
+  // Winners first among equal points (a tie goes to fewer cards), and with Cities everyone who
+  // met one above everyone who didn't, so the podium matches.
   const score = (id: string) => {
     const p = g.players.find((x) => x.id === id)!;
-    return p.points * 100 - (g.winners.includes(id) ? 0 : 1);
+    const tier = cities && anyMet && p.cities.length > 0 ? 1 : 0;
+    return tier * 10_000 + p.points * 100 + (g.winners.includes(id) ? 1 : 0);
   };
   return (
     <Panel className="jw-rise flex flex-col gap-3">
@@ -335,10 +361,10 @@ function End({
           score: score(p.id),
           note: p.removed
             ? 'removed after leaving'
-            : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'} · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
+            : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'}${cities ? (p.cities.length ? ' · 🏙 met a City' : ' · no City') : ` · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}`}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
         }))}
         you={room.you}
-        scoreLabel={(n) => `${Math.ceil(n / 100)} points`}
+        scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
       />
       <section aria-label="Every hand" className="flex flex-col gap-1 text-sm">
         <h3 className="font-semibold">What everyone had in hand</h3>

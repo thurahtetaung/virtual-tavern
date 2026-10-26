@@ -1,6 +1,14 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { type Manifest, artOf, backOf, nameOf, nobleNumber, thumbOf } from '../logic/manifest.ts';
+import {
+  type Manifest,
+  artOf,
+  backOf,
+  nameOf,
+  nobleNumber,
+  strongholdArt,
+  thumbOf,
+} from '../logic/manifest.ts';
 import type { Level, Token } from '../logic/types.ts';
 
 export const GAME_ID = 'jeweller';
@@ -39,6 +47,10 @@ export interface Art {
   noble: (id: string) => string | null;
   nobleThumb: (id: string) => string | null;
   nobleName: (id: string) => string;
+  city: (id: string) => string | null;
+  cityThumb: (id: string) => string | null;
+  /** The stronghold picture for the seat at this place in turn order. */
+  stronghold: (seat: number) => string | null;
   token: (t: Token) => string | null;
   tokenThumb: (t: Token) => string | null;
   box: string | null;
@@ -51,6 +63,7 @@ export function artFor(manifest: ManifestState): Art {
   const m = manifest && manifest !== 'unavailable' ? manifest : null;
   const cards = m?.cards && typeof m.cards === 'object' ? m.cards : {};
   const nobles = m?.nobles && typeof m.nobles === 'object' ? m.nobles : {};
+  const cities = m?.cities && typeof m.cities === 'object' ? m.cities : {};
   return {
     card: (id) => path(artOf(cards[id])),
     cardThumb: (id) => path(thumbOf(cards[id])) ?? path(artOf(cards[id])),
@@ -59,6 +72,9 @@ export function artFor(manifest: ManifestState): Art {
     noble: (id) => path(artOf(nobles[id])),
     nobleThumb: (id) => path(thumbOf(nobles[id])) ?? path(artOf(nobles[id])),
     nobleName: (id) => nameOf(nobles[id]) ?? nobleNumber(id),
+    city: (id) => path(artOf(cities[id])),
+    cityThumb: (id) => path(thumbOf(cities[id])) ?? path(artOf(cities[id])),
+    stronghold: (seat) => path(strongholdArt(m, seat)),
     token: (t) => path(m?.tokens?.[t]),
     tokenThumb: (t) => path(m?.tokenThumbs?.[t]) ?? path(m?.tokens?.[t]),
     box: path(m?.box),

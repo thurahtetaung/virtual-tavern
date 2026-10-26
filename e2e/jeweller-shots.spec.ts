@@ -1,6 +1,15 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { localArt, myTurn, openCard, sheet, table, take } from './jeweller-play.ts';
+import {
+  localArt,
+  marketCard,
+  myTurn,
+  openCard,
+  options,
+  sheet,
+  table,
+  take,
+} from './jeweller-play.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/jeweller-shots.spec.ts
@@ -77,5 +86,52 @@ for (const [label, viewport, colorScheme] of [
     await expect(hana.getByRole('group', { name: 'Pieces to hand back' })).toBeVisible();
     await shot(hana, '09-return-pieces');
     await shot(ana, '10-opponent-view');
+  });
+}
+
+// Wave 2: Cities and Strongholds together. The rig's first City (C3a) is met by buying L2-11, and
+// two of the first seat's strongholds start on L1-35.
+for (const [label, viewport, colorScheme] of [
+  ['phone-light', { width: 390, height: 844 }, 'light'],
+  ['phone-dark', { width: 390, height: 844 }, 'dark'],
+  ['desktop-light', { width: 1440, height: 900 }, 'light'],
+  ['desktop-dark', { width: 1440, height: 900 }, 'dark'],
+] as const) {
+  test(`jeweller wave 2 screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const look: Look = { viewport, colorScheme, setup: localArt };
+    const shot = async (p: Page, name: string) => {
+      await p.waitForTimeout(500);
+      await p.screenshot({ path: `test-results/jeweller-shots/${label}-w2-${name}.png` });
+    };
+    await openBackroom(await visitor(browser, 'Admin'));
+    const [hana, ana] = (await table(browser, ['Hana', 'Ana'], look)) as [Page, Page];
+    await options(hana, ['jw-cities', 'jw-strongholds']);
+    await shot(hana, '01-lobby');
+    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await take(hana, ['white', 'red', 'green']);
+    await myTurn(ana);
+    await expect(marketCard(ana, 'L1-35')).toHaveAttribute('aria-label', /Hana’s 2 strongholds/);
+    await shot(ana, '02-stronghold-market');
+    await openCard(ana, 'L1-35');
+    await shot(ana, '03-held-card-sheet');
+    await ana.keyboard.press('Escape');
+    await take(ana, ['white', 'blue', 'black']);
+
+    await myTurn(hana);
+    await openCard(hana, 'L2-11');
+    await sheet(hana).getByTestId('jw-buy').click();
+    const picker = hana.getByRole('group', { name: 'Place a stronghold' });
+    await expect(picker).toBeVisible();
+    await shot(hana, '04-place-stronghold');
+    await marketCard(hana, 'L1-35').click();
+    await expect(hana.getByRole('group', { name: 'Conquest' })).toBeVisible();
+    await shot(hana, '05-conquest');
+    await hana.getByRole('button', { name: 'Not now' }).click();
+    await expect(ana.getByText(/Final round: Hana met a City/).first()).toBeVisible();
+    await shot(hana, '06-city-met');
+    await shot(ana, '07-final-round');
+    await hana.getByRole('region', { name: 'Cities' }).locator('[data-city="C3a"]').click();
+    await shot(hana, '08-city-sheet');
   });
 }

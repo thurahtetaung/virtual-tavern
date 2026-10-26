@@ -1,5 +1,6 @@
 import { type BotCtx, chance } from '@vt/game-sdk';
 import { type CardDef, cardOf, nobleOf } from './cards.ts';
+import { cityGap, cityOf } from './cities.ts';
 import {
   canAfford,
   canReserve,
@@ -11,6 +12,7 @@ import {
   shortfall,
   totalOf,
 } from './rules.ts';
+import { type HoldMove, conquestCard, holdMoves, openMarket, supplyOf } from './strongholds.ts';
 import {
   DOUBLE_MIN,
   GEMS,
@@ -53,27 +55,74 @@ function nobleHelp(card: CardDef, nobles: readonly string[], bonuses: Record<Gem
   }, 0);
 }
 
-/** How much a card is worth to this seat: points, noble progress and the discount itself. */
+/** With Cities: the side this seat is nearest to meeting, which it aims at. */
+function aimCity(view: JewellerView, me: PlayerView): string | null {
+  const g = view.game!;
+  return (
+    [...g.cities].sort(
+      (a, b) =>
+        cityGap(cityOf(a), me.bonuses, me.points) - cityGap(cityOf(b), me.bonuses, me.points),
+    )[0] ?? null
+  );
+}
+
+/** How much a card's bonus helps toward the City the seat aims at. */
+function cityHelp(card: CardDef, city: string | null, me: PlayerView) {
+  if (!city) return 0;
+  const c = cityOf(city);
+  const after = { ...me.bonuses, [card.bonus]: me.bonuses[card.bonus] + 1 };
+  return Math.max(
+    0,
+    cityGap(c, me.bonuses, me.points) - cityGap(c, after, me.points + card.points),
+  );
+}
+
+/** The points that end the game for this seat: the target, or the aimed City's. */
+const goal = (view: JewellerView, me: PlayerView) => {
+  const city = view.settings.cities ? aimCity(view, me) : null;
+  return city ? cityOf(city).points : view.settings.target;
+};
+
+/** How much a card is worth to this seat: points, noble or City progress and the discount. */
 function worth(card: CardDef, me: PlayerView, view: JewellerView, style: BotStyle) {
   const w = WEIGHTS[style];
   const g = view.game!;
   const pieces = totalOf(costAfter(card, me.bonuses));
   // Late in the game, points matter most.
-  const late = me.points >= view.settings.target - 5 ? 2 : 1;
+  const late = me.points >= goal(view, me) - 5 ? 2 : 1;
   return (
     (card.points * w.points * late) / Math.max(1, pieces / 3) +
     nobleHelp(card, g.nobles, me.bonuses) * w.noble +
+    (view.settings.cities ? cityHelp(card, aimCity(view, me), me) * w.noble * 0.5 : 0) +
     (card.level === 1 ? 1 : card.level === 2 ? 0.5 : 0) * w.engine
   );
 }
 
-/** Cards the seat could buy: face up, and its own reserved ones. */
+/** Cards the seat could buy: face up (none an opponent's stronghold sits on), and its own. */
 function candidates(view: JewellerView, me: PlayerView): string[] {
   const g = view.game!;
+  const market = openMarket(g.market, g.holds, me.id);
   return [
-    ...LEVELS.flatMap((l) => g.market[l].filter((c): c is string => c !== null)),
+    ...LEVELS.flatMap((l) => market[l].filter((c): c is string => c !== null)),
     ...me.reserved.flatMap((r) => (r.card ? [r.card] : [])),
   ];
+}
+
+/**
+ * The stronghold move: guard the card it aims at (from the supply, else moved from its smallest
+ * stack); failing that, send back an opponent's lone stronghold; else any legal move.
+ */
+function holdFor(view: JewellerView, me: PlayerView, target: string | undefined): HoldMove | null {
+  const g = view.game!;
+  const moves = holdMoves(g.market, g.holds, me.id);
+  const supply = supplyOf(g.holds, me.id) > 0;
+  const onTarget = moves.filter(
+    (m) => m.type === 'stronghold' && m.card === target && (m.from === undefined) === supply,
+  );
+  if (onTarget[0]) return onTarget[0];
+  const evict = moves.find((m) => m.type === 'evict');
+  if (evict) return evict;
+  return moves.find((m) => m.type === 'stronghold' && m.from === undefined) ?? moves[0] ?? null;
 }
 
 /** Gems to take toward the colours a target still needs (gold covers some of them). */
@@ -127,6 +176,16 @@ export function jewellerBot(view: JewellerView, ctx: BotCtx): JewellerAction | n
   )[0];
   const need = target ? costAfter(cardOf(target), me.bonuses) : { ...noPieces() };
 
+  if (g.stage === 'hold') {
+    const move = holdFor(view, me, target);
+    return move && { ...move };
+  }
+  if (g.stage === 'conquer') {
+    const card = conquestCard(g.holds, me.id);
+    return card && canAfford(cardOf(card), me.bonuses, me.tokens)
+      ? { type: 'buy', card }
+      : { type: 'no-conquest' };
+  }
   if (g.stage === 'noble')
     return g.nobleChoice[0] ? { type: 'noble', noble: g.nobleChoice[0] } : null;
   if (g.stage === 'return') {
@@ -143,10 +202,12 @@ export function jewellerBot(view: JewellerView, ctx: BotCtx): JewellerAction | n
     if (worthIt) return { type: 'buy', card: best };
   }
 
-  const reserveOk = canReserve(me.reserved.length, g.market, g.decks);
-  // Block a card a rival could buy now that would reach the target.
-  if (reserveOk && me.reserved.length < MAX_RESERVED - 1) {
-    const threat = LEVELS.flatMap((l) => g.market[l]).find(
+  const market = openMarket(g.market, g.holds, me.id);
+  const reserveOk = canReserve(me.reserved.length, market, g.decks);
+  // Block a card a rival could buy now that would reach the target (not with Cities: a City
+  // needs more than points).
+  if (reserveOk && !view.settings.cities && me.reserved.length < MAX_RESERVED - 1) {
+    const threat = LEVELS.flatMap((l) => market[l]).find(
       (id) =>
         id !== null &&
         g.players.some(
@@ -169,13 +230,13 @@ export function jewellerBot(view: JewellerView, ctx: BotCtx): JewellerAction | n
     (full || gems.length === 0) &&
     !me.reserved.some((r) => r.card === target)
   ) {
-    if (g.market[cardOf(target).level].includes(target)) return { type: 'reserve', card: target };
+    if (market[cardOf(target).level].includes(target)) return { type: 'reserve', card: target };
   }
   if (gems.length) return { type: 'take', gems };
   if (reserveOk) {
     const level = LEVELS.find((l) => g.decks[l] > 0);
     if (level) return { type: 'reserve', level };
-    const card = LEVELS.flatMap((l) => g.market[l]).find((c): c is string => c !== null);
+    const card = LEVELS.flatMap((l) => market[l]).find((c): c is string => c !== null);
     if (card) return { type: 'reserve', card };
   }
   if (best) return { type: 'buy', card: best };

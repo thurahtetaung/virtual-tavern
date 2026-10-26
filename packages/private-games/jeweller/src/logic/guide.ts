@@ -1,7 +1,8 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { CARDS, NOBLES } from './cards.ts';
+import { CITIES, CITIES_IN_PLAY, CITY_TILES, type CityDef } from './cities.ts';
 import { LEVEL_NAME, TOKEN_EMOJI, TOKEN_NAME } from './gems.ts';
-import { type Manifest, artOf, backOf, footerOf } from './manifest.ts';
+import { type Manifest, artOf, backOf, footerOf, strongholdArt } from './manifest.ts';
 import {
   DEFAULT_TARGET,
   GEMS,
@@ -11,6 +12,7 @@ import {
   LEVELS,
   type Level,
   MAX_TARGET,
+  STRONGHOLDS,
   type Token,
 } from './types.ts';
 
@@ -22,10 +24,23 @@ export interface GuideArt {
   backs?: Partial<Record<Level, string>>;
   noble?: string;
   box?: string;
+  city?: string;
+  stronghold?: string;
 }
 
 const TARGET: GuideOption = { key: 'target', label: 'Higher target' };
 const SHOWN: GuideOption = { key: 'showReserved', label: 'Reserved cards shown' };
+const CITY: GuideOption = { key: 'cities', label: 'Cities' };
+const HOLD: GuideOption = { key: 'strongholds', label: 'Strongholds' };
+
+/** "4 white, 3 blue + 4 of another colour" for a City side. */
+function cityNeeds(c: CityDef): string {
+  const cards = GEMS.filter((g) => c.requires[g] > 0).map(
+    (g) => `${c.requires[g]} ${TOKEN_EMOJI[g]}`,
+  );
+  if (c.any) cards.push(`${c.any} of ${cards.length ? 'another' : 'one'} colour`);
+  return cards.length ? cards.join(' + ') : 'no cards';
+}
 
 const TOKEN_TEXT: Record<Token, string> = {
   white: 'A white gem. Pay it for white costs; white cards give a lasting white discount.',
@@ -75,6 +90,26 @@ function base(art: GuideArt): GameGuide {
       meta: `${NOBLES.length} in the box · players + 1 on the table`,
       tone: 'good',
       ...(art.noble && { art: art.noble }),
+    },
+    {
+      id: 'cities',
+      name: 'Cities',
+      icon: '🏙',
+      text: 'With Cities, these replace the nobles. Each side asks for points and cards. Meet one at the end of your turn and the round is finished; only players who meet a City can win.',
+      meta: `${CITY_TILES.length} tiles, two sides each · ${CITIES_IN_PLAY} on the table`,
+      tone: 'good',
+      option: CITY,
+      ...(art.city && { art: art.city }),
+    },
+    {
+      id: 'strongholds',
+      name: 'Strongholds',
+      icon: '🏰',
+      text: 'With Strongholds, each purchase lets you put one on a face-up card. Nobody else may buy or reserve a card you hold, and with all three on one card you may buy it on top of your action.',
+      meta: `${STRONGHOLDS} per player`,
+      tone: 'own',
+      option: HOLD,
+      ...(art.stronghold && { art: art.stronghold }),
     },
   ];
   return {
@@ -205,6 +240,42 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
+        title: 'Cities',
+        level: 'details',
+        option: CITY,
+        bullets: [
+          `The nobles stay in the box. Instead, ${CITIES_IN_PLAY} of the ${CITY_TILES.length} City tiles come out, each with a random side up.`,
+          'Each City side shows the points you need and the cards you need, like a noble. You need both: at least that many points and at least those cards (cards, not gems).',
+          'A “4 of one colour” (or 5, or 6) needs that many cards of any single colour, but not a colour the City already asks for.',
+          'The target no longer ends the game. At the end of your turn, if you meet any City, the round is finished: play on until the player before the first player has had their turn.',
+          'At the end, only players who meet a City can win, whatever the others scored. Among them, the most points wins; a tie goes to fewest bought cards; still tied, they share the win.',
+          'Nobody takes the City: anyone can meet the same one.',
+        ],
+      },
+      {
+        title: 'Strongholds',
+        level: 'details',
+        option: HOLD,
+        bullets: [
+          `Everyone has ${STRONGHOLDS} strongholds in their own colour.`,
+          'Every time you buy a card (from the table or your hand), before the space is refilled, you must do one of these: put a stronghold of yours from your supply on a face-up card, move one of yours to another face-up card, or send back an opponent’s stronghold from a card that has exactly one.',
+          'You can’t put a stronghold on a card with an opponent’s; you can stack up to 3 of yours on one card.',
+          'A card with strongholds on it can be bought or reserved only by the player they belong to. Buying or reserving it takes them back.',
+          'Conquest: when all three of your strongholds are on one card, after your action you may also buy that card, paying its usual cost (you can use what you just took or bought). That purchase comes before handing back pieces over 10 and before nobles or Cities, and it owes a stronghold too.',
+          'Strongholds on a card are shown to everyone on the card itself.',
+        ],
+      },
+      {
+        title: 'Cities and Strongholds together',
+        level: 'edge',
+        option: CITY,
+        bullets: [
+          'Both modules can be played at once. A Conquest purchase counts before the City check, so it can meet a City in the same turn.',
+          'If a game stops because nobody can move for a whole round and nobody meets a City, it scores as the usual game: most points, then fewest cards, then shared.',
+          'If only one player is left after the host removes the others, that player wins, City or not.',
+        ],
+      },
+      {
         title: 'Passing',
         level: 'edge',
         bullets: [
@@ -219,7 +290,8 @@ function base(art: GuideArt): GameGuide {
           'The host can set a time for each turn. By default it is a reminder, and the host may tap Act for to play a turn for someone.',
           'In Strict mode, a player out of time takes gems (the fullest piles); if they can’t, they reserve, then buy the cheapest card they can, then pass. Pieces over 10 go back from what they hold most of, gold last, and the first noble that qualifies visits. The log marks those moves with ⏱.',
           'Someone who leaves mid-game keeps their seat, and the table plays their turns the same way after a short pause (3 seconds). If they come back, they carry on.',
-          'The host can remove a player who left: their pieces (gold too) go back to the supply, their bought and reserved cards and their nobles leave play, and they no longer take turns or score. If it was their turn, the next player goes on; if only one player is left, the game ends and they win.',
+          'The host can remove a player who left: their pieces (gold too) go back to the supply, their bought and reserved cards, their nobles and their strongholds leave play, and they no longer take turns or score. If it was their turn, the next player goes on; if only one player is left, the game ends and they win.',
+          'With Strongholds, a player out of time puts a stronghold from their supply on the card cheapest for them (or moves one, or sends one back when that is all they can do), and never takes a Conquest.',
           'Players joining during a game watch, and are seated at the next one if there is room.',
         ],
       },
@@ -249,6 +321,20 @@ function base(art: GuideArt): GameGuide {
           ['Over 10 pieces?', 'Hand back pieces of your choice'],
           ['A noble qualifies?', 'It visits (pick one if several)'],
           [`${DEFAULT_TARGET}+ points?`, 'Finish the round, then the game ends'],
+        ],
+      },
+      {
+        title: 'City sides (Cities)',
+        head: ['Side', 'Points', 'Cards'],
+        rows: CITIES.map((c) => [c.id, `${c.points}`, cityNeeds(c)]),
+      },
+      {
+        title: 'After a purchase (Strongholds)',
+        head: ['Choice', 'Where'],
+        rows: [
+          ['Place one', 'A face-up card without an opponent’s (up to 3 of yours)'],
+          ['Move one', 'From one of your cards to another'],
+          ['Send one back', 'An opponent’s, from a card with exactly one'],
         ],
       },
       {
@@ -282,13 +368,17 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
     if (!v?.settings) return undefined;
     const seated = v.game?.players.length ?? v.seats.filter((s) => s.playing).length;
     const target = v.settings.target;
+    const cities = !!v.settings.cities;
+    const holds = !!v.settings.strongholds;
     const options = [
-      ...(target !== DEFAULT_TARGET ? [TARGET.key] : []),
+      ...(target !== DEFAULT_TARGET && !cities ? [TARGET.key] : []),
       ...(v.settings.showReserved ? [SHOWN.key] : []),
+      ...(cities ? [CITY.key] : []),
+      ...(holds ? [HOLD.key] : []),
     ];
     const n = Math.min(4, Math.max(2, seated));
     return {
-      summary: `${seated} players · first to ${target} points${v.settings.showReserved ? ' · reserved cards shown' : ''}`,
+      summary: `${seated} players · ${cities ? 'Cities' : `first to ${target} points`}${holds ? ' · Strongholds' : ''}${v.settings.showReserved ? ' · reserved cards shown' : ''}`,
       options,
       inGame: {
         ...Object.fromEntries(GEMS.map((g) => [g, GEMS_FOR[n]!])),
@@ -296,7 +386,8 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         'level-1': count(1),
         'level-2': count(2),
         'level-3': count(3),
-        nobles: n + 1,
+        ...(cities ? { cities: CITIES_IN_PLAY } : { nobles: n + 1 }),
+        ...(holds && { strongholds: STRONGHOLDS * n }),
       },
     };
   };
@@ -312,6 +403,24 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         id: 'long',
         label: 'Higher target',
         context: { summary: 'A longer game, with a higher target.', options: [TARGET.key] },
+      },
+      {
+        id: 'cities',
+        label: 'Cities',
+        context: { summary: 'Cities replace the nobles and the target.', options: [CITY.key] },
+      },
+      {
+        id: 'strongholds',
+        label: 'Strongholds',
+        context: {
+          summary: 'Strongholds guard cards, and win them by Conquest.',
+          options: [HOLD.key],
+        },
+      },
+      {
+        id: 'both',
+        label: 'Cities + Strongholds',
+        context: { summary: 'Both modules at once.', options: [CITY.key, HOLD.key] },
       },
     ],
     ...(footer && { footer }),
@@ -341,5 +450,9 @@ export function nameGuide(manifest: unknown): GameGuide {
   if (noble) art.noble = noble;
   const box = a(typeof m?.box === 'string' ? m.box : undefined);
   if (box) art.box = box;
+  const city = a(artOf(m?.cities?.[CITIES[0]!.id]));
+  if (city) art.city = city;
+  const hold = a(strongholdArt(m, 0));
+  if (hold) art.stronghold = hold;
   return makeGuide(art, footerOf(m));
 }

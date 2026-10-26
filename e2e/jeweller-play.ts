@@ -74,3 +74,16 @@ export const openCard = (p: Page, id: string) =>
   p.getByRole('region', { name: 'Cards for sale' }).locator(`[data-card="${id}"]`).click();
 
 export const sheet = (p: Page) => p.getByRole('dialog');
+
+/** The host switches lobby options on (`jw-cities`, `jw-strongholds`) and waits for each. */
+export async function options(host: Page, ids: string[]) {
+  for (const id of ids) {
+    const sw = host.getByTestId(id);
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+  }
+}
+
+/** A face-up card on the table. */
+export const marketCard = (p: Page, id: string) =>
+  p.getByRole('region', { name: 'Cards for sale' }).locator(`[data-card="${id}"]`);

@@ -4,6 +4,7 @@ import { jewellerBot } from './bot.ts';
 import { cardOf } from './cards.ts';
 import { jeweller } from './game.ts';
 import { totalOf } from './rules.ts';
+import { conquestCard, holdMoves, supplyOf } from './strongholds.ts';
 import { HOST, content, game, ids, setPlayer, started } from './test-utils.ts';
 import {
   GEMS,
@@ -85,6 +86,17 @@ function randomMove(state: JewellerState, rng: Rng): { by: string; action: Jewel
     }
     case 'noble':
       return { by, action: { type: 'noble', noble: pick(g.nobleChoice) } };
+    case 'hold': {
+      const moves = holdMoves(g.market, g.holds, by);
+      // Now and then an illegal one (refused).
+      if (!moves.length || rng.next() < 0.1)
+        return { by, action: { type: 'stronghold', card: pick([...market, 'L1-01']) } };
+      return { by, action: { ...pick(moves) } };
+    }
+    case 'conquer':
+      return rng.next() < 0.5
+        ? { by, action: { type: 'no-conquest' } }
+        : { by, action: { type: 'buy', card: conquestCard(g.holds, by) ?? pick(market) } };
     case 'action': {
       const roll = rng.next();
       if (roll < 0.4)
@@ -155,6 +167,9 @@ describe('view()', () => {
         target: 15 + (seed % 7 === 0 ? 3 : 0),
         seconds: seed % 3 === 0 ? 30 : null,
         timerMode: seed % 2 ? ('strict' as const) : ('soft' as const),
+        // Both modules, alone and together.
+        cities: seed % 5 === 1 || seed % 5 === 2,
+        strongholds: seed % 5 === 2 || seed % 5 === 3,
       };
       let now = 1_000_000;
       let state = jeweller.create(
@@ -196,6 +211,13 @@ describe('view()', () => {
         );
         const start = 5 + 5 * GEMS_FOR[s.order.length]!;
         if (all !== start) expect.fail(`seed ${seed}, step ${step}: ${all} pieces`);
+        // Strongholds sit only on face-up cards, at most 3 a player.
+        const faceUp = LEVELS.flatMap((l) => s.market[l]);
+        for (const [card, h] of Object.entries(s.holds ?? {}))
+          if (!faceUp.includes(card) || h.n < 1 || h.n > 3)
+            expect.fail(`seed ${seed}, step ${step}: stronghold on ${card}`);
+        for (const id of s.order)
+          if (supplyOf(s.holds, id) < 0) expect.fail(`seed ${seed}: ${id} has too many out`);
       }
       expect(leak(state)).toBeUndefined();
       if (state.phase === 'over') finished++;
