@@ -238,6 +238,17 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('After an old favourite.');
   });
 
+  it('Mosaic: tile art (the light blue keyed white) and the credit', async () => {
+    const text = await named('mosaic', {
+      tiles: { blue: 'tiles/blue.webp', white: 'tiles/white.webp' },
+      first: 'tiles/first.webp',
+      credit: '«credit»',
+    });
+    for (const path of ['tiles/blue.webp', 'tiles/white.webp', 'tiles/first.webp'])
+      expect(text).toContain(`/api/backroom/assets/mosaic/${path}`);
+    expect(text).toContain('«credit»');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

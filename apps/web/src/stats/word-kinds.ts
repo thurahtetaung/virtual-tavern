@@ -44,6 +44,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   'going-once': [],
   // Fake titles, reported as guesses.
   sketchy: ['guess'],
+  // Tiles, not words: no Words card.
+  mosaic: [],
 };
 
 const LABELS: Record<WordKind, string> = {

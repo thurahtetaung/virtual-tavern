@@ -57,6 +57,7 @@ const LIGHT: ChartTokens = {
     '#84a800',
     '#3f6e9e',
     '#b07d1a',
+    '#a5463a',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -95,6 +96,7 @@ const DARK: ChartTokens = {
     '#b5d94a',
     '#7fa8d6',
     '#d39a3a',
+    '#e07a68',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -121,8 +123,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * it and greyer and more yellow than the brown), Stampede a twentieth (a raspberry, apart
  * from the khaki before it, darker than the pink and lighter than the wine), and Jeweller a
  * twenty-first (a lime, brighter and lighter than the olive and apart from both greens), Going
- * Once a twenty-second (a steel blue) and Sketchy a twenty-third (an ochre, apart from the steel
- * blue before it).
+ * Once a twenty-second (a steel blue), Sketchy a twenty-third (an ochre, apart from the steel
+ * blue before it) and Mosaic a twenty-fourth (a brick, apart from the ochre before it and duller
+ * than the red).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -150,6 +153,7 @@ const FIXED_ORDER = [
   'jeweller',
   'going-once',
   'sketchy',
+  'mosaic',
 ];
 
 /**

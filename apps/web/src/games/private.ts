@@ -4,6 +4,7 @@ import { guide as hydraGuide } from '@vt/private-hydra/guide';
 import { guide as iconicGuide, nameGuide as nameIconicGuide } from '@vt/private-iconic/guide';
 import { guide as inquestGuide, nameGuide as nameInquestGuide } from '@vt/private-inquest/guide';
 import { guide as jewellerGuide, nameGuide as nameJewellerGuide } from '@vt/private-jeweller/guide';
+import { guide as mosaicGuide, nameGuide as nameMosaicGuide } from '@vt/private-mosaic/guide';
 import {
   guide as masqueradeOriginalsGuide,
   nameGuide as nameOriginalsGuide,
@@ -245,6 +246,16 @@ const games: ClientGame[] = [
     icon: '✏️',
     Component: lazyUi(() =>
       import('@vt/private-sketchy/ui').then((m) => ({ default: m.SketchyGame })),
+    ),
+  },
+  {
+    id: 'mosaic',
+    name: 'Mosaic',
+    guide: mosaicGuide,
+    namedGuide: manifestGuide('mosaic', nameMosaicGuide),
+    icon: '🧩',
+    Component: lazyUi(() =>
+      import('@vt/private-mosaic/ui').then((m) => ({ default: m.MosaicGame })),
     ),
   },
 ];

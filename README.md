@@ -68,6 +68,7 @@ packages/private-games/stampede Stampede (back room) rules, guide and UI; questi
 packages/private-games/jeweller Jeweller (back room) rules, guide and UI; card, noble and piece art come from private storage
 packages/private-games/going-once Going Once (back room) rules, guide and UI; title groups, hint lines and house pictures come from private storage
 packages/private-games/sketchy Sketchy (back room) rules, guide and UI; prompts and house titles come from private content packs
+packages/private-games/mosaic  Mosaic (back room) rules, guide and UI; tile, marker and factory art come from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private question decks), import-content-pack.mjs (private content packs), set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)
 ```

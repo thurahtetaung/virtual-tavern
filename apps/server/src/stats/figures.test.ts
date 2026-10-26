@@ -207,3 +207,33 @@ describe('Iconic figures', () => {
     });
   });
 });
+
+describe('Mosaic figures', () => {
+  it('count scores, rounds, floors and where tiles were taken', () => {
+    const m = new Map<string, number>();
+    const events: [string, Record<string, unknown>][] = [
+      ['outcome', { players: 2, rounds: 6, scores: [64, 51], tiebreak: false }],
+      ['take', { source: 'factory', toFloor: 0, dumped: 0 }],
+      ['take', { source: 'centre', toFloor: 2, dumped: 2, marker: true }],
+      ['tiling', { placed: 2, points: 5, penalty: -14, perfect: false }],
+      ['tiling', { placed: 2, points: 3, penalty: 0, perfect: true }],
+    ];
+    for (const [type, props] of events)
+      for (const [k, v] of figureCounters('mosaic', type, props)) m.set(k, (m.get(k) ?? 0) + v);
+    const figs = buildFigures('mosaic', (k) => m.get(k) ?? 0, m.keys());
+    const by = Object.fromEntries(figs.map((f) => [f.id, f]));
+    expect(by['winning-score']).toMatchObject({ value: 64 });
+    expect(by['rounds-per-game']).toMatchObject({ value: 6 });
+    expect(by['points-per-tile']).toMatchObject({ value: 2 });
+    expect(by['floor-per-round']).toMatchObject({ value: 7 });
+    expect(by['clean-rounds']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(by['dumped']).toMatchObject({ kind: 'percent', value: 50 });
+    expect(by['full-floors']).toMatchObject({ value: 1 });
+    expect(by['takes']).toMatchObject({
+      parts: [
+        { label: 'A factory', value: 1 },
+        { label: 'The centre', value: 1 },
+      ],
+    });
+  });
+});
