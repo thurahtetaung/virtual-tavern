@@ -694,7 +694,7 @@ function TurnRoom({
               className="h-full w-full"
             />
           ) : (
-            <p className="grid h-full place-items-center text-lg font-bold text-stone-500">
+            <p className="grid h-full place-items-center text-lg font-bold text-stone-700">
               {turn.hidden ? '🙈 Hidden by the host' : 'No drawing'}
             </p>
           )}
