@@ -205,9 +205,17 @@ function Factory({
       data-factory={index}
       data-special={special ? special.kind : undefined}
     >
-      {bg && <ProtectedImage src={bg} alt="" className="absolute inset-0 size-full rounded-full" />}
-      {special?.kind === 'sf2' && special.colour && face && (
-        // The face shows another set's piece: our own tile sits over its centre square.
+      {bg && (
+        // An empty factory's face is dimmed, so the art's own pieces never read as tiles left.
+        <ProtectedImage
+          src={bg}
+          alt=""
+          className={cn('absolute inset-0 size-full rounded-full', !tiles.length && 'opacity-45')}
+        />
+      )}
+      {special?.kind === 'sf2' && special.colour && face && tiles.length > 0 && (
+        // The face shows another set's piece: our own tile sits over its centre square (not once
+        // the factory is empty, where it would read as a tile left behind).
         <Tile
           colour={special.colour}
           art={art}
@@ -219,7 +227,7 @@ function Factory({
         <button
           type="button"
           onClick={() => onInfo(special)}
-          className="absolute -top-1 left-1/2 z-10 max-w-[110%] -translate-x-1/2 truncate rounded-full bg-special-soft px-1.5 text-[9px] leading-4 font-bold text-special-ink ring-1 ring-special-line"
+          className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-special px-2 text-[11px] leading-[18px] font-bold whitespace-nowrap text-white shadow-sm ring-1 ring-white/70 sm:text-xs sm:leading-5 dark:ring-black/50"
           aria-label={`Special factory ${index + 1}: ${specialName(special)}. What does it do?`}
           data-testid="mo-special"
         >
@@ -274,7 +282,7 @@ function Market({
   const centre = TILES.filter((c) => countOf(g.centre, c) > 0);
   return (
     <section aria-label="The table" className="flex flex-col gap-2" data-testid="mo-market">
-      <div className={cn('grid grid-cols-5 gap-1.5', g.specials && 'pt-1.5')}>
+      <div className={cn('grid grid-cols-5 gap-1.5', g.specials && 'pt-2.5')}>
         {g.factories.map((f, i) => (
           <Factory
             key={i}

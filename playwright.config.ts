@@ -164,8 +164,10 @@ export default defineConfig({
       // Mosaic's spec knows the deal: two blues, then a run of single colours, top the bag, and
       // the first seat's top wall row lacks only its blue, so the first round ends the game. With
       // jokers, a joker takes the second blue's place; with special factories, the first factory
-      // sends its leftovers to its neighbours and the third is a floor shield.
-      MOSAIC_TEST_BAG: 'top:bbyyrrrrkkkkaaaayyyy;jtop:bjyyrrrrkkkkaaaayyyy;wall0:yrka;sf:sf4,-,sf5',
+      // sends its leftovers to its neighbours and the third is a floor shield. With the grey
+      // wall, row 4 has no space a black may take; with jokers, yellow lacks only row 2's tile.
+      MOSAIC_TEST_BAG:
+        'top:bbyyrrrrkkkkaaaayyyy;jtop:bjyyrrrrkkkkaaaayyyy;wall0:yrka;sf:sf4,-,sf5;gwall2:k;gwall3:.by.r;jwall2:...y;jwall3:....y;jwall4:y',
       // Encore's specs know every hand: the deck in this order for 3 and 2 players, every round.
       ENCORE_TEST_DECK:
         '3:1/2 4/1 7/1 2/3 5/1 8/1 3/1 6/1 9/1 4/2 7/2 5/2 8/2 8/3 6/2 3/4 9/2 5/3 7/3 4/5 6/3 9/3 4/6 7/4 5/8 7/8 4/8 6/5 8/6 5/7 7/6 4/9 9/5 9/6 9/7 9/8;' +

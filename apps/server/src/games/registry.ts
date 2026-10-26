@@ -140,8 +140,9 @@ if (process.env.NODE_ENV !== 'production' && process.env.JEWELLER_TEST_DECK) {
 // blue, y yellow, r red, k black, a light blue, j joker; four fill each factory in turn; `jtop` is
 // the top instead with jokers on), tiles already on the first seat's wall (`top:bbbbyyyy;wall0:yrka`:
 // row 0 holds yellow, red, black and light blue), and with special factories on, the faces of the
-// first factories every round (`sf:sf4,-,sf5`, `sf2r` for a red gatherer, `-` plain), with the
-// first seat always starting, so a spec knows the deal and reaches the end in a round. Never read in
+// first factories every round (`sf:sf4,-,sf5`, `sf2r` for a red gatherer, `-` plain), more wall
+// tiles only with the grey wall or jokers on (`gwall3:.by.r`, `jwall2:...y.`: by column, `.` free),
+// with the first seat always starting, so a spec knows the deal and reaches the end in a round. Never read in
 // production.
 if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
   const letters: Record<string, Tile> = {
@@ -157,6 +158,10 @@ if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
   let top: Tile[] = [];
   let jokerTop: Tile[] | undefined;
   let specials: (Special | null)[] | undefined;
+  const optionWall: Record<'grey' | 'jokers', Record<number, (Colour | null)[]>> = {
+    grey: {},
+    jokers: {},
+  };
   for (const part of process.env.MOSAIC_TEST_BAG.split(';')) {
     const [key, value] = part.split(':').map((x) => x.trim());
     if (!key || !value) continue;
@@ -174,6 +179,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
       });
     const row = /^wall([0-4])$/.exec(key);
     if (row) wall[Number(row[1])] = tiles(value).filter((t): t is Colour => t !== 'joker');
+    const extra = /^([gj])wall([0-4])$/.exec(key);
+    if (extra)
+      optionWall[extra[1] === 'g' ? 'grey' : 'jokers'][Number(extra[2])] = [...value].map((ch) => {
+        const t = letters[ch];
+        return t && t !== 'joker' ? t : null;
+      });
   }
   setTestBag({
     top,
@@ -181,6 +192,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
     firstSeat: true,
     ...(jokerTop && { jokerTop }),
     ...(specials && { specials }),
+    optionWall,
   });
 }
 

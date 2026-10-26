@@ -122,6 +122,8 @@ export interface PlaceResult {
   fills: boolean;
   /** The floor shield caught the first item. */
   shielded: boolean;
+  /** That item was the first-player marker (else, with `shielded`, it was one of the tiles). */
+  markerShielded: boolean;
 }
 
 /**
@@ -165,6 +167,7 @@ export function place(
     markerOnFloor,
     fills,
     shielded: m.shielded || r.shielded,
+    markerShielded: m.shielded,
   };
 }
 
@@ -404,6 +407,7 @@ export function previewWith(
         markerOnFloor: false,
         fills: false,
         shielded: false,
+        markerShielded: false,
       },
     };
   const r = place(b, colour, count, target, marker, jokers);

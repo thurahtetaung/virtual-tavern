@@ -252,6 +252,41 @@ describe('jokers', () => {
     expect(bonusOf(wall)).toEqual({ rows: 1, columns: 1, colours: 0, points: 9 });
   });
 
+  it('a colour of five real tiles still scores its bonus with jokers on the wall', () => {
+    const wall = emptyBoard().wall;
+    wall[0] = ['joker', 'yellow', 'red', 'black', 'aqua'];
+    wall[1]![2] = 'yellow';
+    wall[2]![3] = 'yellow';
+    wall[3]![4] = 'yellow';
+    wall[4]![0] = 'yellow';
+    expect(bonusOf(wall)).toEqual({ rows: 1, columns: 0, colours: 1, points: 12 });
+  });
+
+  it('in a game with jokers, completing a colour with real tiles gives the bonus at the end', () => {
+    setTestBag({
+      wall: { 0: ['yellow', 'red', 'black', 'aqua'] },
+      optionWall: {
+        jokers: {
+          2: [null, null, null, 'yellow'],
+          3: [null, null, null, null, 'yellow'],
+          4: ['yellow'],
+        },
+      },
+    });
+    const h = started(2, opts({ jokers: true }));
+    setTable(h, [['joker', 'blue', 'yellow', 'yellow'], ['red', 'red', 'red', 'red'], [], [], []]);
+    // The joker alone to line 1 (row 1's last space), then the yellows complete the colour.
+    h.act('p1', { type: 'take', source: 0, colour: 'joker', target: 0 });
+    h.act('p2', { type: 'take', source: 1, colour: 'red', target: 3 });
+    h.act('p1', { type: 'take', source: 'centre', colour: 'yellow', target: 1 });
+    h.act('p2', { type: 'take', source: 'centre', colour: 'blue', target: 0 });
+    for (let i = 0; i < 3 && h.state.phase === 'playing'; i++) h.tick();
+    expect(h.state.phase).toBe('over');
+    expect(board(h, 'p1').wall[0]![0]).toBe('joker');
+    expect(board(h, 'p1').wall[1]![2]).toBe('yellow');
+    expect(bonusOf(board(h, 'p1').wall).colours).toBe(1);
+  });
+
   it('with the grey wall: a mixed line’s joker goes where its colour may go; jokers never block a column', () => {
     const b = emptyBoard();
     b.wall[0]![2] = 'red';
