@@ -37,7 +37,16 @@ describe('lobby', () => {
   it('lets the host set the drawing time and pace', () => {
     const h = harness(3);
     h.act(HOST, { type: 'update-settings', drawSeconds: 60, pace: 'fast' });
-    expect(h.state.settings).toEqual({ drawSeconds: 60, pace: 'fast', paceChosen: true });
+    expect(h.state.settings).toEqual({
+      drawSeconds: 60,
+      pace: 'fast',
+      paceChosen: true,
+      sound: 'all',
+      music: true,
+      effects: true,
+      voice: false,
+      practice: true,
+    });
     expect(h.refuse('p2', { type: 'update-settings', pace: 'relaxed' }).code).toBe('not-host');
   });
 
@@ -281,7 +290,7 @@ describe('bidding', () => {
 
   it('runs at the host’s pace', () => {
     const h = harness(3);
-    h.act(HOST, { type: 'update-settings', pace: 'relaxed' });
+    h.act(HOST, { type: 'update-settings', pace: 'relaxed', practice: false });
     h.act(HOST, { type: 'start' });
     drawAll(h);
     expect(game(h).auction!.closeAt).toBe(h.now + 12_000);
@@ -665,6 +674,7 @@ describe('the host', () => {
 
   it('speaks at each moment, from the private pack only', () => {
     const h = harness(3, 3, withHost());
+    h.act(HOST, { type: 'update-settings', practice: false });
     h.act(HOST, { type: 'start' });
     expect(goingOnce.view(h.state, null).game!.host!.lines).toEqual(['Draw!']);
     drawAll(h);
@@ -701,6 +711,7 @@ describe('the host', () => {
 
   it('calls out a quiet bidder before a lot', () => {
     const h = harness(3, 3, withHost());
+    h.act(HOST, { type: 'update-settings', practice: false });
     h.act(HOST, { type: 'start' });
     drawAll(h);
     for (let i = 0; i < 3; i++) {

@@ -64,9 +64,17 @@ type Named = { moment: string; player: string };
 /** One part of what the host says: a moment, or moments to try in turn (the first with a line). */
 export type HostPart = string | Named | readonly (string | Named)[];
 
-export function say(s: GoingOnceState, rng: Rng, parts: readonly HostPart[], clear = false): void {
+export function say(
+  s: GoingOnceState,
+  rng: Rng,
+  now: number,
+  parts: readonly HostPart[],
+  clear = false,
+): void {
   const g = s.game!;
   const lines: string[] = [];
+  const moments: string[] = [];
+  const named: boolean[] = [];
   for (const part of parts) {
     const options: readonly (string | Named)[] = Array.isArray(part)
       ? part
@@ -75,6 +83,10 @@ export function say(s: GoingOnceState, rng: Rng, parts: readonly HostPart[], cle
       const text = typeof o === 'string' ? lineFor(s, rng, o) : lineFor(s, rng, o.moment, o.player);
       if (text) {
         lines.push(text);
+        moments.push(typeof o === 'string' ? o : o.moment);
+        // A line for a named moment only names someone if it has the placeholder; a bare line
+        // from a named moment's pool still names nobody, but it is said to someone: keep it quiet.
+        named.push(typeof o !== 'string');
         break;
       }
     }
@@ -84,5 +96,11 @@ export function say(s: GoingOnceState, rng: Rng, parts: readonly HostPart[], cle
     return;
   }
   s.seq += 1;
-  g.host = { id: s.seq, lines: lines.slice(0, 3) };
+  g.host = {
+    id: s.seq,
+    lines: lines.slice(0, 3),
+    moments: moments.slice(0, 3),
+    named: named.slice(0, 3),
+    at: now,
+  };
 }

@@ -11,6 +11,7 @@ import {
 import { artOf } from './hints.ts';
 import { halfAt } from './setup.ts';
 import {
+  BUYERS,
   DRAW_GRACE_MS,
   type Game,
   type GameView,
@@ -21,7 +22,11 @@ import {
   type LotResult,
   MAX_LOANS,
   type MineView,
+  PRACTICE_CASH,
+  PRACTICE_VALUE,
+  type PracticeView,
   type SeatView,
+  settingsOf,
 } from './types.ts';
 
 /** A lot's picture: strokes or the house picture, nothing while hidden. */
@@ -53,6 +58,32 @@ function result(g: Game, item: Item, index: number, over: boolean): LotResult {
   };
 }
 
+function practiceView(g: Game): PracticeView | null {
+  const p = g.practice;
+  if (g.stage !== 'practice' || !p) return null;
+  return {
+    step: p.step,
+    until: p.until,
+    since: p.since,
+    house: p.house,
+    hint: p.hint,
+    value: PRACTICE_VALUE,
+    cash: PRACTICE_CASH,
+    title: p.step === 'hint' || p.step === 'bid' ? null : p.title,
+    seq: p.seq,
+    bid: p.bid ? { ...p.bid } : null,
+    close: p.close,
+    closeAt: p.closeAt,
+    steps: bidSteps(p.bid).filter((n) => n <= PRACTICE_CASH),
+    recent: p.recent.map((r) => ({ ...r })),
+  };
+}
+
+/** The lot on the easel: nothing of it during its intro, before the picture goes up. */
+function easel(item: Item, intro: boolean): LotPicture {
+  return intro ? { item: item.id, drawing: null, house: null, hidden: false } : picture(item, true);
+}
+
 function gameView(state: GoingOnceState, g: Game): GameView {
   const over = state.phase === 'over';
   const a = g.auction;
@@ -61,6 +92,8 @@ function gameView(state: GoingOnceState, g: Game): GameView {
   return {
     stage: g.stage,
     until: drawing ? g.until - DRAW_GRACE_MS : g.until,
+    since: g.since ?? 0,
+    practice: practiceView(g),
     order: [...g.order],
     players: g.order.map((id) => ({
       id,
@@ -76,11 +109,12 @@ function gameView(state: GoingOnceState, g: Game): GameView {
       a && (g.stage === 'auction' || g.stage === 'sold')
         ? {
             lot: a.lot,
-            picture: picture(g.items[g.lots[a.lot]!]!, true),
+            picture: easel(g.items[g.lots[a.lot]!]!, a.close === 'intro'),
             seq: a.seq,
             bid: a.bid ? { ...a.bid } : null,
             close: a.close,
             closeAt: a.closeAt,
+            since: a.since ?? 0,
             steps: bidSteps(a.bid),
             screw: a.screw ? { by: a.screw.by, until: a.screw.until } : null,
             screwed: a.screwed ? { ...a.screwed } : null,
@@ -111,7 +145,15 @@ function gameView(state: GoingOnceState, g: Game): GameView {
         })
       : null,
     winners: [...g.winners],
-    host: g.host ? { id: g.host.id, lines: [...g.host.lines] } : null,
+    host: g.host
+      ? {
+          id: g.host.id,
+          lines: [...g.host.lines],
+          ...(g.host.moments && { moments: [...g.host.moments] }),
+          ...(g.host.named && { named: [...g.host.named] }),
+          ...(g.host.at !== undefined && { at: g.host.at }),
+        }
+      : null,
     ended: g.ended,
     redraw: g.stage === 'draw' && g.redraws > 0,
     paddles: { ...g.paddles },
@@ -162,6 +204,7 @@ function mineView(state: GoingOnceState, g: Game, viewer: PlayerId): MineView | 
     bankDone: g.stage === 'bank' && g.bankDone.includes(viewer),
     canCallBank: refusal === null,
     bankRefusal: refusal ?? null,
+    contact: g.contacts?.[viewer] ?? BUYERS[g.order.indexOf(viewer) % BUYERS.length]!,
   };
 }
 
@@ -175,13 +218,14 @@ export function view(state: GoingOnceState, viewer: PlayerId | null): GoingOnceV
   const g = state.game;
   return {
     phase: state.phase,
-    settings: { ...state.settings },
+    settings: settingsOf(state.settings),
     seats,
     me: seats.find((s) => s.id === viewer) ?? null,
     game: g ? gameView(state, g) : null,
     mine: g && viewer !== null ? mineView(state, g, viewer) : null,
     log: state.log.map((e) => ({ ...e })),
     groupsAvailable: state.groupsAvailable,
+    gamesPlayed: state.gamesPlayed,
     rigAllowed: testRigAllowed(),
     rig: state.rig ? { ...state.rig } : null,
   };

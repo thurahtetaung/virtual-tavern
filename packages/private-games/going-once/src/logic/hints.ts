@@ -3,6 +3,7 @@ import { FALLBACK_LINES, fillLine, senderOf } from './lines.ts';
 import { halfAt } from './setup.ts';
 import {
   BANK_TRIGGER,
+  BUYERS,
   type Game,
   type GoingOnceState,
   type HintKind,
@@ -149,14 +150,23 @@ export function sendHints(s: GoingOnceState, rng: Rng): void {
 
     p.pending = p.pending.filter((f) => f !== pick.kind);
     if (ONCE.has(pick.kind)) p.sent.push(pick.kind);
-    const lines = g.lines[pick.kind]?.length ? g.lines[pick.kind]! : FALLBACK_LINES[pick.kind];
+    // Rooms saved before contacts were dealt pick a buyer per message, as they used to.
+    const contact = g.contacts?.[id] ?? BUYERS[rng.int(BUYERS.length)]!;
+    const from = senderOf(pick.kind, contact);
+    // Filler from a buyer is that buyer's own chatter when the pack gives them some.
+    const own = pick.kind === 'filler' && from === contact ? g.lines[contact] : undefined;
+    const lines = own?.length
+      ? own
+      : g.lines[pick.kind]?.length
+        ? g.lines[pick.kind]!
+        : FALLBACK_LINES[pick.kind];
     const line = lines[rng.int(lines.length)]!;
     s.seq += 1;
     p.messages.push({
       id: s.seq,
       lot,
       kind: pick.kind,
-      from: senderOf(pick.kind, rng),
+      from,
       text: fillLine(
         line,
         {

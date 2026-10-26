@@ -27,8 +27,26 @@ export function statusFor(view: GoingOnceView, you: string, name: NameOf, names:
       const waiting = g.players.filter((p) => !p.drawn && !p.left).map((p) => name(p.id));
       return { text: `Both sent! Waiting for: ${waiting.join(', ')}.`, yourMove: false };
     }
+    case 'practice': {
+      const p = g.practice;
+      if (!p) return { text: 'Practice lot.', yourMove: false };
+      switch (p.step) {
+        case 'hint':
+          return { text: 'Practice lot: read your tip.', yourMove: false };
+        case 'bid':
+          return {
+            text: 'Practice lot: bid with play money. Nothing counts.',
+            yourMove: !!mine && p.bid?.by !== you,
+          };
+        case 'sold':
+          return { text: 'Practice lot: sold!', yourMove: false };
+        default:
+          return { text: 'Practice lot: one more thing before lot 1.', yourMove: false };
+      }
+    }
     case 'auction': {
       const a = g.auction!;
+      if (a.close === 'intro') return { text: `${lot}: coming up…`, yourMove: false };
       if (a.screw)
         return a.screw.by === you
           ? { text: 'Pick who to screw: they must bid $100 more.', yourMove: true }

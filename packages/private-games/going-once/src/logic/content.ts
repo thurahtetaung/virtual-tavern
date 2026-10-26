@@ -1,6 +1,6 @@
 import { type ContentProvider, plainText } from '@vt/game-sdk';
 import { z } from 'zod';
-import { HINT_KINDS, type HintKind } from './types.ts';
+import { BUYERS, HINT_KINDS } from './types.ts';
 
 // The private content: title groups and hint lines, imported as content packs (never in the repo).
 // Tests use small made-up packs.
@@ -25,10 +25,14 @@ export type GroupsPack = z.output<typeof groupsPack>;
 
 /**
  * Message lines per hint kind. `{player}` is the player a line names, `{value}` an amount and
- * `{random}` a string of random characters.
+ * `{random}` a string of random characters. `buyer1`…`buyer3` are each art buyer's own chatter
+ * (their personality), sent instead of the shared filler when that buyer is the sender, and
+ * `practice` is the practice lot's tip (`{value}` is its worth).
  */
+export const LINE_KEYS = [...HINT_KINDS, ...BUYERS, 'practice'] as const;
+export type LineKey = (typeof LINE_KEYS)[number];
 export const linesPack = z.partialRecord(
-  z.enum(HINT_KINDS),
+  z.enum(LINE_KEYS),
   z.array(packText(1, 300)).min(1).max(300),
 );
 export type LinesPack = z.output<typeof linesPack>;
@@ -97,12 +101,12 @@ export function hostLinesOf(content: ContentProvider): Record<string, string[]> 
 }
 
 /** Lines per kind from every enabled lines pack, merged. */
-export function hintLines(content: ContentProvider): Partial<Record<HintKind, string[]>> {
-  const out: Partial<Record<HintKind, string[]>> = {};
+export function hintLines(content: ContentProvider): Partial<Record<LineKey, string[]>> {
+  const out: Partial<Record<LineKey, string[]>> = {};
   for (const pack of content.contentPacks?.('lines') ?? []) {
     const parsed = linesPack.safeParse(pack.data);
     if (!parsed.success) continue;
-    for (const [kind, lines] of Object.entries(parsed.data) as [HintKind, string[]][])
+    for (const [kind, lines] of Object.entries(parsed.data) as [LineKey, string[]][])
       out[kind] = [...(out[kind] ?? []), ...lines];
   }
   return out;
