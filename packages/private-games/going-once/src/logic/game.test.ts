@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { enableTestRig, timing } from './game.ts';
 import { halfAt } from './setup.ts';
-import { SCREW_OUTCOME_MS } from './types.ts';
+import { BID_SETTLE_MS, SCREW_OUTCOME_MS } from './types.ts';
 import {
   GROUPS,
   HOST,
@@ -101,8 +101,17 @@ describe('the deal', () => {
           expect(inGroup).toHaveLength(n + (n === 6 ? 0 : 1));
           expect(new Set(inGroup.map((i) => i.title)).size).toBe(inGroup.length);
         }
-        // The first group's lots come first.
-        expect(g.lots.slice(0, g.lots.length / 2).every((i) => g.items[i]!.group === 0)).toBe(true);
+        // The original's order: each half has every player's drawing (and the house's) once, and
+        // the first half's groups alternate.
+        const half = g.lots.length / 2;
+        for (const part of [g.lots.slice(0, half), g.lots.slice(half)]) {
+          const drawers = part.map((i) => g.items[i]!.drawer);
+          expect(new Set(drawers).size).toBe(part.length);
+          expect(drawers.filter((d) => d !== null).sort()).toEqual([...g.order].sort());
+        }
+        g.lots
+          .slice(1, half)
+          .forEach((id, k) => expect(g.items[id]!.group).not.toBe(g.items[g.lots[k]!]!.group));
         for (const id of g.order) {
           const [a, b] = g.prompts[id]!.map((i) => g.items[i]!);
           expect(a!.group).not.toBe(b!.group);
@@ -219,6 +228,12 @@ describe('drawing', () => {
       expect(g.items[item]!.drawing).toBeNull();
       expect(g.items[item]!.artist).toBeNull();
     }
+    // The wish lists are dealt as if everyone had drawn (the original): full, and an unsent
+    // drawing may be on them.
+    for (const id of g.order) expect(g.players[id]!.wish).toHaveLength(3);
+    expect(
+      g.order.some((id) => g.players[id]!.wish.some((w) => g.prompts.p3!.includes(w.item))),
+    ).toBe(true);
     expect(h.refuse('p3', { type: 'draw', item: g.prompts.p3![0]!, drawing: SQUIGGLE }).code).toBe(
       'not-drawing',
     );
@@ -240,7 +255,7 @@ describe('bidding', () => {
     bid(h, 'p1', 500);
     expect(goingOnce.view(h.state, 'p2').game!.auction!.steps).toEqual([600, 700, 800]);
     const seq = game(h).auction!.seq;
-    h.wait(400);
+    h.wait(BID_SETTLE_MS);
     expect(h.refuse('p2', { type: 'bid', amount: 650, seq }).code).toBe('bad-bid');
     expect(h.refuse('p2', { type: 'bid', amount: 900, seq }).code).toBe('bad-bid');
     h.act('p2', { type: 'bid', amount: 800, seq });
@@ -266,10 +281,13 @@ describe('bidding', () => {
     s.game!.players.p2!.cash = 650;
     h.state = s;
     expect(h.refuse('p2', { type: 'bid', amount: 700, seq }).code).toBe('cash');
+    // A bid still landing holds the next for a second, as the original stops listening.
+    expect(h.refuse('p3', { type: 'bid', amount: 700, seq }).code).toBe('too-soon');
+    h.wait(BID_SETTLE_MS);
     h.act('p3', { type: 'bid', amount: 700, seq });
-    // p1 bid a moment ago: one bid at a time.
-    expect(h.refuse('p1', { type: 'bid', amount: 800, seq: seq + 1 }).code).toBe('too-fast');
-    h.wait(300);
+    h.wait(BID_SETTLE_MS - 1);
+    expect(h.refuse('p1', { type: 'bid', amount: 800, seq: seq + 1 }).code).toBe('too-soon');
+    h.wait(1);
     h.act('p1', { type: 'bid', amount: 800, seq: seq + 1 });
   });
 
@@ -383,10 +401,11 @@ describe('screws', () => {
     const a = game(h).auction!;
     expect(a.screw).toMatchObject({ by: 'p2' });
     expect(game(h).players.p2!.screw).toBe(false);
-    expect(goingOnce.view(h.state, 'p2').mine!.targets).toEqual(['p3']);
+    // The top bidder can be screwed too (the original; the owner's ruling).
+    expect(goingOnce.view(h.state, 'p2').mine!.targets).toEqual(['p1', 'p3']);
     expect(goingOnce.view(h.state, 'p3').mine!.targets).toEqual([]);
     expect(h.refuse('p3', { type: 'bid', amount: 700, seq: a.seq }).code).toBe('screwing');
-    expect(h.refuse('p2', { type: 'screw-pick', target: 'p1' }).code).toBe('bad-target');
+    expect(h.refuse('p2', { type: 'screw-pick', target: 'p2' }).code).toBe('bad-target');
     h.act('p2', { type: 'screw-pick', target: 'p3' });
     expect(game(h).auction!.bid).toEqual({ by: 'p3', amount: 700 });
     expect(game(h).auction!.screwed).toEqual({ target: 'p3', by: 'p2' });
@@ -518,13 +537,20 @@ describe('the bank', () => {
     s.game!.bankOpened = true;
     h.state = s;
     h.act('p2', { type: 'call-bank' });
-    expect(h.refuse('p3', { type: 'call-bank' }).code).toBe('bank-refused');
-    hammer(h);
+    // Once each; anyone else may call too (on their own three), as in the original.
+    expect(h.refuse('p2', { type: 'call-bank' }).code).toBe('bank-refused');
+    bid(h, 'p1', 400);
+    for (let i = 0; i < 10 && game(h).stage === 'auction'; i++) h.tick();
+    // The button stays through the Sold wrap-up: p3 calls there.
+    expect(game(h).stage).toBe('sold');
+    h.act('p3', { type: 'call-bank' });
+    expect(game(h).players.p3!.bankCalls).toBe(1);
     h.tick();
     expect(game(h).stage).toBe('bank');
     for (const p of ['p1', 'p2', 'p3']) h.act(p, { type: 'loan', take: false });
     // Called without a loan: the bank says so next.
     expect(game(h).players.p2!.messages.at(-1)!.kind).toBe('prankCall');
+    expect(game(h).players.p3!.messages.at(-1)!.kind).toBe('prankCall');
     const t = structuredClone(h.state);
     t.game!.players.p2!.bankCalls = 3;
     h.state = t;

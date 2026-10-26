@@ -16,7 +16,11 @@ import {
   CLIP_GAP_MS,
   type VoicePart,
   chantKey,
+  clipTimes,
+  clipsFor,
+  clipsMs,
   leadIn,
+  sayClips,
   speak,
   voiced,
 } from './voice.ts';
@@ -58,7 +62,17 @@ import {
   RECENT_BIDS,
   type PlayerState,
   type Rig,
+  BANK_RING_MS,
+  BID_SETTLE_MS,
+  ARTIST_FLIP_MS,
+  COMMISSION_MS,
   SCREW_OUTCOME_MS,
+  SOLD_BEAT_MS,
+  SOLD_LINE_GAP_MS,
+  SOLD_PAUSE_MS,
+  SOLD_SHOWN_MS,
+  SOLD_SPIN_MS,
+  type SoldBeats,
   SCREW_PICK_MS,
   STARTING_CASH,
   type Seat,
@@ -167,19 +181,23 @@ export const screwsOn = (g: Game) => g.auction !== null && g.auction.lot >= half
 /** Why a player can't call the bank now, or null if they can. Undefined: no button at all. */
 export function bankRefusal(g: Game, id: PlayerId): string | null | undefined {
   const a = g.auction;
-  if (g.stage !== 'auction' || !a || !g.bankOpened) return undefined;
+  // As the original, the button stays from the lot's start through its Sold wrap-up.
+  if ((g.stage !== 'auction' && g.stage !== 'sold') || !a || !g.bankOpened) return undefined;
   if (a.lot >= g.lots.length - 1) return undefined;
   const p = g.players[id]!;
   if (p.loans >= MAX_LOANS) return 'Bad credit: no more loans.';
   if (p.bankCalls >= MAX_BANK_CALLS) return 'Stop calling: three calls is the limit.';
-  if (a.bankCalled.length) return 'The bank has been called: it opens after this lot.';
+  // Anyone else may call too (each on their own three), as in the original.
+  if (a.bankCalled.includes(id)) return 'You called the bank: it opens after this lot.';
   return null;
 }
 
-/** Who can be screwed now: anyone else at the table but the top bidder. */
+/**
+ * Who can be screwed now: anyone else at the table, the top bidder included (forced to raise
+ * their own bid by $100), as the original (the owner's ruling, 2026-10-26).
+ */
 export function screwTargets(g: Game, by: PlayerId): PlayerId[] {
-  const a = g.auction;
-  return present(g).filter((id) => id !== by && id !== a?.bid?.by);
+  return present(g).filter((id) => id !== by);
 }
 
 // ---- Log ----
@@ -224,42 +242,46 @@ function host(s: GoingOnceState, rng: Rng, now: number, line: Say, clear = false
 }
 
 /**
- * A bid's voice: the reaction for the amount just bid, then the chant asking for the next one
- * (the original's `reactionTag` and `nextBidTag`: the bid, and the bid + $100).
+ * A bid's voice, as the original: the bidder's yelp and their paddle going up (`BID_SETTLE_MS`,
+ * with no words), then the chant asking for the next amount (its `nextBidTag`, the bid + $100).
+ * The amount ("We have $600", its `reactionTag`) is said only after a screw's forced bid.
  */
-const bidVoice = (amount: number, rng: Rng): VoicePart[] => [
-  bidMoment(amount),
+const bidVoice = (amount: number, rng: Rng, forced = false): VoicePart[] => [
+  ...(forced ? [bidMoment(amount)] : [{ wait: BID_SETTLE_MS }]),
   chantKey(amount + BID_STEP, rng),
 ];
 
-/** The host's call-out before a lot, if anyone is due one: a quiet bidder, or the only one without art. */
-function callOut(s: GoingOnceState, lot: number): Say {
+/**
+ * The host's call-out as a lot opens, as the original's: first the only player without art, then a
+ * quiet bidder (picked at random among those with $900 or more and no bid in the last three
+ * lots, from lot 4); each kind at most once a game.
+ */
+function callOut(s: GoingOnceState, lot: number, rng: Rng): Say {
   const g = s.game!;
   const here = present(g);
-  const quiet = here.find(
-    (id) =>
-      lot >= 3 &&
-      g.players[id]!.cash >= 900 &&
-      lot - (g.lastBidLot[id] ?? -1) > 3 &&
-      lot - (g.calledOut.quiet[id] ?? -9) >= 3,
-  );
-  if (quiet) {
-    g.calledOut.quiet[quiet] = lot;
-    return {
-      text: [{ moment: 'quiet', player: g.names[quiet]! }],
-      voice: [leadIn(quiet), 'quiet'],
-    };
-  }
   const owners = new Set(
     Object.values(g.items).flatMap((i) => (i.sale?.buyer ? [i.sale.buyer] : [])),
   );
   const without = here.filter((id) => !owners.has(id));
-  if (without.length === 1 && here.length > 1 && !g.calledOut.empty.includes(without[0]!)) {
+  if (!g.calledOut.empty.length && without.length === 1 && here.length > 1) {
     g.calledOut.empty.push(without[0]!);
     return {
       text: [{ moment: 'no-art', player: g.names[without[0]!]! }],
       voice: [leadIn(without[0]!), 'no-art-yet'],
     };
+  }
+  if (!Object.keys(g.calledOut.quiet).length && lot >= 3) {
+    const quiet = here.filter(
+      (id) => g.players[id]!.cash >= 900 && lot - (g.lastBidLot[id] ?? -1) > 3,
+    );
+    if (quiet.length) {
+      const who = quiet[rng.int(quiet.length)]!;
+      g.calledOut.quiet[who] = lot;
+      return {
+        text: [{ moment: 'quiet', player: g.names[who]! }],
+        voice: [leadIn(who), 'quiet'],
+      };
+    }
   }
   return nothing();
 }
@@ -282,31 +304,33 @@ function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead:
     bidders: [],
     recent: [],
   };
-  sendHints(s, rng);
-  const out = callOut(s, index);
-  // Text games show the opening line now; the voice says it as the picture goes up, after what
-  // is said here (the drawing's end, a call-out), and the intro waits for that.
+  // Lot 1's tips may have gone out with the tutorial.
+  if (!(index === 0 && g.firstSent)) sendHints(s, rng);
+  // Text games show the call-out and the opening line now. The voice says what leads in (the
+  // drawing's end) and, on lot 1, "The first item up for bid" as the lot number shows; the
+  // call-out and the opening come as the picture goes up (`openingVoice`), as in the original.
+  const out = voiced(s) ? nothing() : callOut(s, index, rng);
   const ms = host(
     s,
     rng,
     now,
     {
       text: [...lead.text, ...out.text, index === 0 ? ['opening-first', 'opening'] : 'opening'],
-      voice: [...lead.voice, ...out.voice],
+      voice: [...lead.voice, ...(index === 0 ? ['opening-first'] : [])],
     },
     true,
   );
   if (ms) g.auction.closeAt = Math.max(g.auction.closeAt, now + ms + CLIP_GAP_MS);
 }
 
-/** The voice's opening as the picture goes up: the opening line and a chant, then a pause. */
+/**
+ * The voice's opening as the picture goes up: a call-out if anyone is due one, the opening line
+ * and the chant for $400, then the pause.
+ */
 function openingVoice(s: GoingOnceState, now: number, rng: Rng): number {
   const a = s.game!.auction!;
-  const ms = speak(s, rng, now, [
-    ...(a.lot === 0 ? ['opening-first'] : []),
-    'opening',
-    chantKey(400, rng),
-  ]);
+  const out = callOut(s, a.lot, rng);
+  const ms = speak(s, rng, now, [...out.voice, 'opening', chantKey(OPENING_BID, rng)]);
   return ms + CHANT_GAP_MS;
 }
 
@@ -336,16 +360,18 @@ function endDraw(s: GoingOnceState, now: number, rng: Rng) {
     // Nobody drew anything: one more round with new titles, then the game is off.
     if (g.redraws === 0 && g.spares) {
       redeal(s, g.spares, now, rng);
-      host(
+      // As the original, the new clock starts once he has said so (and to hurry).
+      const ms = host(
         s,
         rng,
         now,
         {
           text: ['redraw', 'draw-start'],
-          voice: ['time-up', 'no-art', 'no-art-worry', 'new-titles'],
+          voice: ['time-up', 'no-art', 'no-art-worry', 'new-titles', 'draw-hurry'],
         },
         true,
       );
+      startDrawClock(s, now + ms);
       return;
     }
     s.phase = 'over';
@@ -362,8 +388,8 @@ function endDraw(s: GoingOnceState, now: number, rng: Rng) {
   const lead: Say = missing
     ? { text: ['draw-missing'], voice: ['time-up', 'art-missing', 'house-fill', 'segue'] }
     : { text: ['draw-all-in'], voice: ['all-art-in'] };
-  if (practiceDue(s)) startPractice(s, now, rng, lead);
-  else startLot(s, 0, now, rng, lead);
+  if (g.voiced && s.gamesPlayed === 1) startTutorial(s, now, rng, lead);
+  else afterDrawing(s, now, rng, lead);
 }
 
 /** Deals the drawing again from the spare title groups (nothing else has happened yet). */
@@ -376,9 +402,8 @@ function redeal(s: GoingOnceState, groups: [TitleGroupRef, TitleGroupRef], now: 
   g.redraws += 1;
   g.spares = null;
   g.nudges = 0;
-  g.drawStart = now;
   g.since = now;
-  g.until = drawTimes(s, now).end + DRAW_GRACE_MS;
+  startDrawClock(s, now);
   s.usedGroups = [...s.usedGroups, ...groups.map((x) => x.key)].slice(-MAX_USED_GROUPS);
 }
 
@@ -401,7 +426,7 @@ function hammer(s: GoingOnceState, now: number, rng: Rng) {
     };
   } else item.sale = { buyer: null, price: 0, commission: 0, screwedBy: null };
   const sale = item.sale;
-  const voice = soldVoice(s, a.lot, item.id);
+  const said = soldVoice(s, a.lot, item.id);
   let ms: number;
   if (sale.buyer) {
     g.unsoldRun = 0;
@@ -411,47 +436,112 @@ function hammer(s: GoingOnceState, now: number, rng: Rng) {
         ? sale.screwedBy
           ? 'own-art-screwed'
           : { moment: 'own-art', player: g.names[sale.buyer]! }
-        : profit >= 800
-          ? 'windfall'
-          : profit <= -800
-            ? 'ouch'
-            : Math.abs(profit) <= 200
-              ? 'even'
-              : null;
+        : remarkOf(a.lot, profit);
     const text: Parts = [
       [{ moment: 'congrats', player: g.names[sale.buyer]! }, 'sold'],
       ...(remark ? [remark] : []),
       ...(sale.commission ? [sale.price >= 1000 ? 'commission-high' : 'commission-low'] : []),
     ];
-    ms = host(s, rng, now, { text, voice }, true);
+    if (voiced(s)) {
+      const beats = voicedBeats(s, rng, now, said, item.artist !== null);
+      g.soldBeats = beats.beats;
+      ms = beats.ms;
+    } else {
+      ms = host(s, rng, now, { text, voice: [] }, true);
+      g.soldBeats = textBeats(s, item.artist !== null);
+    }
   } else {
     g.unsoldRun += 1;
-    ms = host(s, rng, now, { text: ['unsold'], voice }, true);
+    g.soldBeats = null;
+    ms = host(s, rng, now, { text: ['unsold'], voice: said.reveal }, true);
   }
   g.bankCallers = [...a.bankCalled];
   enter(g, 'sold', now);
-  // A voiced Sold lasts as long as the auctioneer's wrap-up.
-  g.until = now + Math.max(timing(s).sold, ms ? ms + 500 : 0);
+  // A voiced Sold lasts as long as the auctioneer's wrap-up; every Sold until its beats are seen.
+  const shown = g.soldBeats ? g.soldBeats.profit + SOLD_SHOWN_MS * (s.rig?.scale ?? 1) : 0;
+  g.until = now + Math.max(timing(s).sold, ms ? ms + 500 : 0, shown);
 }
 
 /**
- * The voice's wrap-up of a lot, as the original says it: Sold and the winner's congratulations
- * (or a "Sorry" when screwed into their own drawing), the artist (or the own-art remarks), the
- * commission, the profit or loss, the money set aside, then "Moving on". Unsold: a quip.
+ * The remark on a buy, the original's way: on lot 1 a windfall at $800 or more of profit, "Ouch"
+ * at $800 or more of loss, "a bit of a draw" within $200; on later lots a windfall or "Ouch" past
+ * $200 either way, else nothing.
  */
-function soldVoice(s: GoingOnceState, lot: number, itemId: string): VoicePart[] {
+function remarkOf(lot: number, profit: number): 'windfall' | 'ouch' | 'even' | null {
+  if (lot === 0)
+    return profit >= 800
+      ? 'windfall'
+      : profit <= -800
+        ? 'ouch'
+        : Math.abs(profit) <= 200
+          ? 'even'
+          : null;
+  return profit > 200 ? 'windfall' : profit < -200 ? 'ouch' : null;
+}
+
+/** A text game's Sold beats: the artist's paddle, then the value, then PROFIT or LOSS. */
+function textBeats(s: GoingOnceState, artist: boolean): SoldBeats {
+  const beat = SOLD_BEAT_MS * (s.rig?.scale ?? 1);
+  const value = (artist ? 3 : 2) * beat;
+  return { artist: artist ? 2 * beat : null, value, profit: value + beat };
+}
+
+/**
+ * A voiced Sold: what is said up to the value, then a silence while the value spins and PROFIT
+ * or LOSS lands, then the rest; the beats follow the lines, as the original's flowchart waits for
+ * each. The artist's paddle turns as they are named (lot 1, or a first own-art buy), or on later
+ * lots right after the congratulations, with the commission paid into it before the value.
+ */
+function voicedBeats(
+  s: GoingOnceState,
+  rng: Rng,
+  now: number,
+  said: { reveal: VoicePart[]; after: VoicePart[] },
+  hasArtist: boolean,
+): { beats: SoldBeats; ms: number } {
+  const reveal = clipsFor(s, rng, said.reveal);
+  const end = clipsMs(reveal);
+  const times = clipTimes({ at: 0, clips: reveal });
+  const named = reveal.findIndex((c) => /^(artist-call|own-art|sorry)/.test(c.key));
+  let artist: number | null = null;
+  let value = end + SOLD_LINE_GAP_MS;
+  if (hasArtist && named >= 0) artist = times[named]!;
+  else if (hasArtist) {
+    artist = end + SOLD_LINE_GAP_MS;
+    value = artist + ARTIST_FLIP_MS + COMMISSION_MS;
+  }
+  const profit = value + SOLD_SPIN_MS + SOLD_PAUSE_MS;
+  const after = clipsFor(s, rng, said.after);
+  if (after[0])
+    after[0] = { ...after[0], wait: Math.max(0, profit + SOLD_LINE_GAP_MS - end - CLIP_GAP_MS) };
+  const ms = sayClips(s, now, [...reveal, ...after], true);
+  return { beats: { artist, value, profit }, ms: Math.max(ms, profit) };
+}
+
+/**
+ * The voice's wrap-up of a lot, as the original says it (its Auction and own-art flowcharts):
+ * "Sold!" and the winner's congratulations (or a "Sorry" when screwed into their own drawing).
+ * Lot 1 explains everything: the artist named, the commission, "More importantly…" and whether the
+ * buyer can sell it on; later lots just turn the artist's paddle. The own-art remarks come the
+ * first time in a game only. `after`, said once PROFIT or LOSS is up: the remark (`remarkOf`),
+ * lot 1's money set aside, and "Moving on…" unless it was the last lot. Unsold: a quip alone.
+ */
+function soldVoice(
+  s: GoingOnceState,
+  lot: number,
+  itemId: string,
+): { reveal: VoicePart[]; after: VoicePart[] } {
   const g = s.game!;
   const item = g.items[itemId]!;
   const sale = item.sale!;
-  const more: VoicePart[] = lot + 1 < g.lots.length ? ['moving-on'] : [];
-  if (!sale.buyer) return ['unsold', ...more];
+  if (!sale.buyer) return { reveal: ['unsold'], after: [] };
   const buyer = sale.buyer;
   const first = lot === 0;
   const own = item.artist === buyer;
-  const parts: VoicePart[] = ['sold'];
-  if (own && sale.screwedBy) parts.push({ key: 'sorry', player: buyer }, 'screwed-own');
-  else {
-    parts.push(
+  const reveal: VoicePart[] = ['sold'];
+  if (own && sale.screwedBy) reveal.push({ key: 'sorry', player: buyer }, 'screwed-own');
+  else
+    reveal.push(
       first
         ? [
             { key: 'congrats-first', player: buyer },
@@ -459,25 +549,32 @@ function soldVoice(s: GoingOnceState, lot: number, itemId: string): VoicePart[] 
           ]
         : { key: 'congrats', player: buyer },
     );
-    if (own) parts.push({ key: 'own-art', player: buyer }, 'own-art-tease');
-  }
   if (own) {
-    if (!g.ownArtTold) parts.push('own-art-explain');
-    g.ownArtTold = true;
-    parts.push('own-art-resell');
-  } else if (item.artist) {
-    if (first) parts.push('reveal-artist');
-    parts.push({ key: 'artist-call', player: item.artist });
-    if (first) parts.push('commission-explain');
-    parts.push(sale.price >= 1000 ? 'commission-high' : 'commission-low', 'segue-resell');
-    parts.push({ key: 'resell', player: buyer });
-  } else parts.push({ key: 'resell', player: buyer });
-  const profit = item.value - sale.price;
-  if (profit >= 800) parts.push('windfall');
-  else if (profit <= -800) parts.push('ouch');
-  else if (Math.abs(profit) <= 200) parts.push('even');
-  parts.push({ key: 'buyer-keeps', player: buyer }, 'tally', ...more);
-  return parts;
+    if (first && !sale.screwedBy) reveal.push('reveal-artist');
+    if (!g.ownArtTold) {
+      if (!sale.screwedBy) reveal.push({ key: 'own-art', player: buyer }, 'own-art-tease');
+      reveal.push('own-art-explain');
+      g.ownArtTold = true;
+    }
+    if (first) reveal.push(sale.screwedBy ? 'own-art-resell' : { key: 'resell', player: buyer });
+  } else if (first) {
+    if (item.artist)
+      reveal.push(
+        'reveal-artist',
+        { key: 'artist-call', player: item.artist },
+        'commission-explain',
+        sale.price >= 1000 ? 'commission-high' : 'commission-low',
+        'segue-resell',
+      );
+    reveal.push({ key: 'resell', player: buyer });
+  }
+  const remark = remarkOf(lot, item.value - sale.price);
+  const after: VoicePart[] = [
+    ...(remark ? [remark] : []),
+    ...(first ? [{ key: 'buyer-keeps', player: buyer }, 'tally'] : []),
+    ...(lot + 1 < g.lots.length ? ['moving-on'] : []),
+  ];
+  return { reveal, after };
 }
 
 /** Whether the bank visits before the next lot. */
@@ -503,6 +600,7 @@ function openBank(s: GoingOnceState, now: number, rng: Rng) {
       ? {
           text: ['bank-first'],
           voice: [
+            { wait: BANK_RING_MS },
             'bank-first',
             'bank-pitch',
             'bank-press',
@@ -511,7 +609,7 @@ function openBank(s: GoingOnceState, now: number, rng: Rng) {
             'bank-remember',
           ],
         }
-      : { text: ['bank-called'], voice: ['bank-called'] },
+      : { text: ['bank-called'], voice: [{ wait: BANK_RING_MS }, 'bank-called'] },
     true,
   );
 }
@@ -605,6 +703,9 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
     return err('bad-bid', 'Bid one of the amounts on the buttons.');
   if (amount > p.cash) return err('cash', 'You don’t have that much cash.');
   if (now - p.lastBidAt < BID_GAP_MS) return err('too-fast', 'One bid at a time!');
+  // As the original, the auction stops listening while a bid lands (the paddle up and down).
+  if (a.bidAt !== undefined && now - a.bidAt < BID_SETTLE_MS)
+    return err('too-soon', 'Hold on: the last bid is still landing.');
   a.bid = { by, amount };
   a.seq += 1;
   a.screwed = null;
@@ -612,10 +713,11 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   if (!a.bidders.includes(by)) a.bidders.push(by);
   a.close = 'quiet';
   a.since = now;
+  a.bidAt = now;
   p.bids += 1;
   p.lastBidAt = now;
   g.lastBidLot[by] = a.lot;
-  // Voiced, the quiet stretch is the reaction and a chant for the amount, then the pause.
+  // Voiced, the quiet stretch is the paddle going up, the chant for the next amount, the pause.
   const ms = host(s, rng, now, { text: [bidMoment(amount)], voice: bidVoice(amount, rng) });
   a.closeAt = now + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
   return null;
@@ -678,7 +780,7 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   if (g.stage !== 'auction' || !a?.screw || a.screw.by !== by)
     return err('not-screwing', 'You aren’t aiming a screw.');
   if (!screwTargets(g, by).includes(target))
-    return err('bad-target', 'Pick another player (not the top bidder).');
+    return err('bad-target', 'Pick another player at the table.');
   const amount = a.bid ? a.bid.amount + BID_STEP : OPENING_BID;
   if (g.players[target]!.cash < amount) {
     log(s, { kind: 'screw', by, target, outcome: 'failed', amount });
@@ -693,7 +795,7 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   log(s, { kind: 'screw', by, target, outcome: 'forced', amount });
   afterScrew(s, rng, now, {
     text: [bidMoment(amount)],
-    voice: [{ key: 'screwed', player: target }, ...bidVoice(amount, rng)],
+    voice: [{ key: 'screwed', player: target }, ...bidVoice(amount, rng, true)],
   });
   return null;
 }
@@ -705,6 +807,8 @@ function callBank(s: GoingOnceState, by: PlayerId) {
   if (why) return err('bank-refused', why);
   g.players[by]!.bankCalls += 1;
   g.auction!.bankCalled.push(by);
+  // Called during the Sold wrap-up: the bank comes before the next lot all the same.
+  if (g.stage === 'sold') g.bankCallers.push(by);
   return null;
 }
 
@@ -1031,65 +1135,106 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
     practice: null,
     voiced: s.settings.voice === true && (s.settings.sound ?? DEFAULT_SETTINGS.sound) !== 'off',
   };
-  // Voiced, the room's first game opens with the auctioneer's welcome and tutorial.
-  if (s.game.voiced && s.gamesPlayed === 1) startIntro(s, ctx.now, ctx.rng);
-  else beginDraw(s, ctx.now, ctx.rng);
+  beginDraw(s, ctx.now, ctx.rng);
   s.seed = newSeed(ctx.rng);
   return s;
 }
 
-/** The spoken welcome and tutorial (voiced games, the room's first game). */
-function startIntro(s: GoingOnceState, now: number, rng: Rng) {
+/**
+ * The drawing starts: two titles each, open at once, and one clock. Voiced, as the original: the
+ * welcome every game (greeting, the guests, the room's scent, "we'll need some art"), then the
+ * drawing's instructions in a room's first game ("I'll spare you the introduction" later); the
+ * clock starts once he has said them, so the instructions never eat the drawing time.
+ */
+function beginDraw(s: GoingOnceState, now: number, rng: Rng) {
+  const g = s.game!;
+  const n = g.order.length;
+  enter(g, 'draw', now);
+  g.nudges = 0;
+  const ms = host(
+    s,
+    rng,
+    now,
+    {
+      text: ['draw-start'],
+      voice: [
+        'greeting',
+        'welcome',
+        'guest-error',
+        `guest-count-${n}`,
+        'guest-tease',
+        'need-art',
+        ...(s.gamesPlayed > 1
+          ? ['later-game']
+          : [
+              'titles-sent',
+              'draw-instructions',
+              'draw-craft',
+              'artist-cut',
+              'draw-hurry',
+              'two-drawings',
+            ]),
+      ],
+    },
+    true,
+  );
+  startDrawClock(s, now + ms);
+}
+
+/** The drawing's clock from `at` (its nudges and its end, with a short grace). */
+function startDrawClock(s: GoingOnceState, at: number) {
+  const g = s.game!;
+  g.drawStart = at;
+  g.until = drawTimes(s, at).end + DRAW_GRACE_MS;
+}
+
+/**
+ * The auctioneer's tutorial, as the original: after the drawing, in a voiced room's first game;
+ * lot 1's tips go out with it ("you should have your first message now"). Anyone can skip it.
+ */
+function startTutorial(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
   const g = s.game!;
   const n = g.order.length;
   enter(g, 'intro', now);
-  const ms = speak(s, rng, now, INTRO(n), true);
+  sendHints(s, rng, 0);
+  g.firstSent = true;
+  const ms = speak(
+    s,
+    rng,
+    now,
+    [
+      ...lead.voice,
+      'tutorial-start',
+      `auction-count-${n}`,
+      'worth-a-lot',
+      'worth-less',
+      'starting-money',
+      'buyers-info',
+      'buyers-more',
+      'expect-messages',
+      'first-message',
+      'buy-advice',
+      'buy-advice-also',
+      'how-to-win',
+    ],
+    true,
+  );
   g.until = now + ms + 500;
 }
 
-/** What the auctioneer says to open a room's first game, for `n` players. */
-const INTRO = (n: number): VoicePart[] => [
-  'greeting',
-  'welcome',
-  'guest-error',
-  `guest-count-${n}`,
-  'guest-tease',
-  'tutorial-start',
-  `auction-count-${n}`,
-  'worth-a-lot',
-  'worth-less',
-  'starting-money',
-  'artist-cut',
-  'buyers-info',
-  'buyers-more',
-  'expect-messages',
-  'buy-advice',
-  'buy-advice-also',
-  'how-to-win',
-  'need-art',
-];
-
-/** The drawing starts: two titles each, one clock (the voice explains it, or skips the welcome). */
-function beginDraw(s: GoingOnceState, now: number, rng: Rng) {
-  const g = s.game!;
-  enter(g, 'draw', now);
-  g.drawStart = now;
-  g.nudges = 0;
-  g.until = drawTimes(s, now).end + DRAW_GRACE_MS;
-  const voice: VoicePart[] = g.introSkipped
-    ? ['skipped', 'titles-sent', 'draw-hurry']
-    : s.gamesPlayed > 1
-      ? ['later-game', 'draw-hurry']
-      : ['titles-sent', 'draw-instructions', 'draw-craft', 'draw-hurry', 'two-drawings'];
-  host(s, rng, now, { text: ['draw-start'], voice }, true);
+/** After the drawing (and the tutorial): the practice lot in a room's first game, then lot 1. */
+function afterDrawing(s: GoingOnceState, now: number, rng: Rng, lead: Say = nothing()) {
+  if (practiceDue(s)) startPractice(s, now, rng, lead);
+  else startLot(s, 0, now, rng, lead);
 }
 
-/** The host skips the spoken introduction: everyone hears so, and the drawing starts. */
+/** Anyone skips the tutorial: everyone hears so ("On with the game"), and the game goes on. */
 function skipIntro(s: GoingOnceState, now: number, rng: Rng) {
   const g = s.game!;
   if (g.stage !== 'intro') return err('no-intro', 'The introduction is over.');
   g.introSkipped = true;
-  beginDraw(s, now, rng);
+  g.introSkippedAt = now;
+  afterDrawing(s, now, rng, { text: [], voice: ['skipped'] });
   return null;
 }
 
@@ -1189,11 +1334,10 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
       return inPlay(state, (s) => practiceBid(s, by, action.amount, action.seq, ctx.now, ctx.rng));
     case 'skip-practice':
       return inPlay(state, (s) => skipPractice(s, by, ctx.now, ctx.rng));
-    case 'skip-intro': {
-      const e = requireHost(ctx);
-      if (e) return e;
+    case 'skip-intro':
+      // Anyone at the table may skip the tutorial, as in the original.
+      if (!state.game?.players[ctx.by]) return err('not-playing', 'You are not in this game.');
       return inPlay(state, (s) => skipIntro(s, ctx.now, ctx.rng));
-    }
     case 'screw':
       return inPlay(state, (s) => screw(s, by, ctx.now, ctx.rng));
     case 'screw-pick':
@@ -1321,7 +1465,7 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
   const rng = hiddenRng(state, now);
   switch (g.stage) {
     case 'intro':
-      beginDraw(s, now, rng);
+      afterDrawing(s, now, rng);
       break;
     case 'draw':
       if (due < g.until) {
@@ -1367,7 +1511,15 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
               : g.unsoldRun > 0
                 ? ['no-bids-2', 'no-bids-1']
                 : ['no-bids-1'];
-          call({ text: [noBids], voice: [noBids, once] }, 'once');
+          // Said as the original: lot 1's "No one?" then "anticlimactic"; a second unsold lot
+          // in a row "Again?" alone.
+          const said: VoicePart[] =
+            a.lot === 0
+              ? ['no-bids-1', 'no-bids-first']
+              : g.unsoldRun > 0
+                ? ['no-bids-2']
+                : ['no-bids-1'];
+          call({ text: [noBids], voice: [...said, once] }, 'once');
         } else
           call(
             {

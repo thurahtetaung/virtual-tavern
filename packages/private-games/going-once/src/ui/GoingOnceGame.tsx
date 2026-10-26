@@ -154,7 +154,11 @@ export function GoingOnceGame({
             <Alerts view={view} you={room.you} />
             <ScrewBanner view={view} name={name} you={room.you} clockOffset={room.clockOffset} />
             {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
-            {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
+            {g.introSkipped &&
+              (g.stage === 'practice' ||
+                (g.stage === 'auction' && g.auction?.lot === 0 && g.auction.close === 'intro')) && (
+                <IntroSkipped />
+              )}
             {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
             {g.stage === 'practice' && g.practice && (
               <Practice view={view} room={room} act={act} art={art} name={name} />
@@ -439,7 +443,7 @@ function Lobby({
               on={view.settings.voice}
               editable={room.isHost && view.settings.sound !== 'off'}
               title="Auctioneer voice"
-              help="The auctioneer speaks: a welcome the host can skip, every call, and players by their colour. His chants set the auction’s pace, as in the original."
+              help="The auctioneer speaks: a welcome, a short tutorial anyone can skip, every call, and players by their colour. His chants set the auction’s pace, as in the original."
               onChange={(v) =>
                 void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
               }
@@ -639,8 +643,8 @@ function IntroSkipped() {
 }
 
 /**
- * The auctioneer's spoken welcome and tutorial (voiced games, a room's first game): the words show
- * in the host strip above; the host can skip it for everyone.
+ * The auctioneer's tutorial after the drawing (voiced games, a room's first game), as the original:
+ * the words show in the host strip above; anyone at the table can skip it for everyone.
  */
 function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
   return (
@@ -648,16 +652,16 @@ function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; a
       <p className="text-4xl" aria-hidden>
         🎙️
       </p>
-      <h2 className="text-xl font-bold">Welcome to the auction</h2>
+      <h2 className="text-xl font-bold">How the auction works</h2>
       <p className="max-w-md text-sm">
-        The auctioneer explains how it works. The drawing starts as soon as he’s done.
+        The auctioneer explains the auction. The first lot comes up as soon as he’s done.
       </p>
       <Countdown
         deadline={view.game!.until}
         clockOffset={room.clockOffset}
-        label="until the drawing"
+        label="until the first lot"
       />
-      {room.isHost ? (
+      {view.mine && (
         <Button
           variant="secondary"
           onClick={() => void act({ type: 'skip-intro' }, { anchor: 'go-intro' })}
@@ -665,10 +669,6 @@ function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; a
         >
           Skip the introduction ▸
         </Button>
-      ) : (
-        <p className="text-xs text-ink-muted dark:text-stone-400">
-          {waitingForHost(room, 'skip it')}
-        </p>
       )}
       <RefusalSlot anchor="go-intro" />
     </Panel>
@@ -684,8 +684,8 @@ function Halftime({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo
       <h2 className="text-xl font-bold">Half-time: screws are unlocked!</h2>
       <p className="max-w-md text-sm">
         Everyone has one screw for the rest of the game. Press Screw during a lot and pick a player:
-        they must bid $100 more than the top bid ($400 if nobody has bid). The top bidder can’t be
-        screwed, and nobody can screw again until someone makes a free bid.
+        they must bid $100 more than the top bid ($400 if nobody has bid), the top bidder too.
+        Nobody can screw again until someone makes a free bid.
       </p>
       <Countdown
         deadline={view.game!.until}

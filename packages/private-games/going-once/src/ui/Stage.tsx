@@ -17,10 +17,11 @@ import {
   useRig,
 } from '@vt/ui/show';
 import type { Track } from '@vt/game-sdk/show';
-import { type CSSProperties, Fragment, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { BID_STEP, type GoingOnceView, OPENING_BID, type PlayerView } from '../logic/types.ts';
 import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
+import { endTimes } from './audio.ts';
 import { HostStrip } from './Extras.tsx';
 import type { GoingOnceUiProps } from './GoingOnceGame.tsx';
 import { Picture } from './Picture.tsx';
@@ -362,7 +363,7 @@ function Plain({ view, art, name }: { view: GoingOnceView; art: Art; name: NameO
 }
 
 const STAGE_WORDS: Record<string, string> = {
-  intro: 'Welcome to the auction',
+  intro: 'How the auction works',
   draw: 'Look at your phone and draw',
   practice: 'The practice lot',
   auction: 'The next lot is coming up',
@@ -842,79 +843,89 @@ function EndScene({
   const T = rig.tracks;
   const byItem = new Map(g.results.map((r) => [r.item, r]));
   const buyers = final.filter((f) => f.bought.length > 0);
+  const groups = endTimes(view)?.groups ?? [];
   const row = rowOf(rig.places, final.length, 'room');
   const hidden = (t: Track | undefined): CSSProperties => ({ ...startOf(t), opacity: 0 });
   return (
     <>
-      {buyers.map((f, i) => {
-        const items = f.bought.slice(0, 3);
-        const n = items.length;
+      {/* Each buyer's art, a group at a time (every drawing they bought, as the original). */}
+      {groups.map((grp) => {
+        const n = grp.items.length;
         return (
-          <Fragment key={f.id}>
-            <Layer m={AT.art}>
-              {items.map((item, k) => {
-                const r = byItem.get(item);
-                return (
-                  <Layer
-                    key={item}
-                    name={`end:${i}:${k}`}
-                    moving
-                    style={hidden(T[endTrack(n, k)]?.Appear)}
-                  >
-                    <Layer m={placeOf(rig, 'endpic-d1')}>
-                      <RigArt rig={rig} symbol="endpic-d1" />
-                    </Layer>
-                    <div className="absolute overflow-hidden" style={END_CANVAS}>
-                      {r && (
-                        <Picture
-                          drawing={r.drawing}
-                          house={r.house}
-                          hidden={r.hidden}
-                          art={art}
-                          label={r.title}
-                          className="h-full w-full rounded-none"
-                        />
-                      )}
-                    </div>
-                    <Layer
-                      name={`end:${i}:${k}.name`}
-                      moving
-                      style={hidden(T['endpic-drawingName']?.NameOn)}
-                    >
-                      <RigArt rig={rig} symbol="endpic-drawingName" />
-                      <Label style={{ fontSize: 26, color: '#fff' }}>{r?.title}</Label>
-                    </Layer>
-                    <Layer
-                      name={`end:${i}:${k}.price`}
-                      moving
-                      style={hidden(T['endpic-price']?.ValueOn)}
-                    >
-                      <Label style={{ fontSize: 34, color: '#2f7d32', textShadow: '0 2px 0 #fff' }}>
-                        {money(r?.value ?? 0)}
-                      </Label>
-                    </Layer>
+          <Layer key={grp.index} m={AT.art}>
+            {grp.items.map((item, k) => {
+              const r = byItem.get(item);
+              return (
+                <Layer
+                  key={item}
+                  name={`end:${grp.index}:${k}`}
+                  moving
+                  style={hidden(T[endTrack(n, k)]?.Appear)}
+                >
+                  <Layer m={placeOf(rig, 'endpic-d1')}>
+                    <RigArt rig={rig} symbol="endpic-d1" />
                   </Layer>
-                );
-              })}
-            </Layer>
-            <Layer m={AT.total}>
-              <Layer name={`endtotal:${i}`} style={{ opacity: 0 }}>
-                <Layer name={`endtotal:${i}.thump`} moving>
-                  <Label style={{ fontSize: 30, color: INK, transform: 'translate(-50%, -110%)' }}>
-                    {name(f.id)}’s art
-                  </Label>
-                  <Label
-                    name={`endtotal:${i}.num`}
-                    style={{ fontSize: 54, color: INK, transform: 'translate(-50%, 0)' }}
+                  <div className="absolute overflow-hidden" style={END_CANVAS}>
+                    {r && (
+                      <Picture
+                        drawing={r.drawing}
+                        house={r.house}
+                        hidden={r.hidden}
+                        art={art}
+                        label={r.title}
+                        className="h-full w-full rounded-none"
+                      />
+                    )}
+                  </div>
+                  <Layer
+                    name={`end:${grp.index}:${k}.name`}
+                    moving
+                    style={hidden(T['endpic-drawingName']?.NameOn)}
                   >
-                    {money(f.art)}
-                  </Label>
+                    <TitlePlate rig={rig} artist={r?.artist ? name(r.artist) : null} />
+                    <Label
+                      style={{
+                        fontSize: 26,
+                        color: '#fff',
+                        textShadow: '0 1px 3px rgba(0,0,0,.85)',
+                      }}
+                    >
+                      {r?.title}
+                    </Label>
+                  </Layer>
+                  <Layer
+                    name={`end:${grp.index}:${k}.price`}
+                    moving
+                    style={hidden(T['endpic-price']?.ValueOn)}
+                  >
+                    <Label style={{ fontSize: 34, color: '#2f7d32', textShadow: '0 2px 0 #fff' }}>
+                      {money(r?.value ?? 0)}
+                    </Label>
+                  </Layer>
                 </Layer>
-              </Layer>
-            </Layer>
-          </Fragment>
+              );
+            })}
+          </Layer>
         );
       })}
+      {/* Each buyer's total: their cash, with their art racked into it. */}
+      {buyers.map((f, i) => (
+        <Layer key={f.id} m={AT.total}>
+          <Layer name={`endtotal:${i}`} style={{ opacity: 0 }}>
+            <Layer name={`endtotal:${i}.thump`} moving>
+              <Label style={{ fontSize: 30, color: INK, transform: 'translate(-50%, -110%)' }}>
+                {name(f.id)}
+              </Label>
+              <Label
+                name={`endtotal:${i}.num`}
+                style={{ fontSize: 54, color: INK, transform: 'translate(-50%, 0)' }}
+              >
+                {money(f.cash + f.art)}
+              </Label>
+            </Layer>
+          </Layer>
+        </Layer>
+      ))}
       <Layer>
         {final.map((f, i) => (
           <Layer key={f.id} m={row[i] === undefined ? undefined : seatAt(row[i], 420)}>
@@ -954,6 +965,21 @@ function EndScene({
         ))}
       </Layer>
     </>
+  );
+}
+
+/**
+ * A title's plate at the end, in its artist's colour (house drawings black), as the original
+ * tints them, so the end shows who drew what.
+ */
+function TitlePlate({ rig, artist }: { rig: LoadedRig; artist: string | null }) {
+  const colour = usePlayerColor(artist ?? '');
+  return (
+    <RigArt
+      rig={rig}
+      symbol="endpic-drawingName"
+      tint={artist ? (PAINT[colour ?? ''] ?? '#57534e') : '#1c1917'}
+    />
   );
 }
 

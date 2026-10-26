@@ -104,19 +104,21 @@ describe('each player’s art buyer', () => {
       buyer2: ['Two speaks.'],
       buyer3: ['Three speaks.'],
     };
-    const h = auctioning(3, 6, packContent(undefined, lines));
-    while (h.state.phase !== 'over') {
-      hammer(h);
-      nextLot(h);
-    }
-    const g = game(h);
     const own = { buyer1: 'One speaks.', buyer2: 'Two speaks.', buyer3: 'Three speaks.' };
     let fillers = 0;
-    for (const id of g.order)
-      for (const m of g.players[id]!.messages.filter((x) => x.kind === 'filler')) {
-        fillers++;
-        expect(m.text).toBe(own[g.contacts![id]!]);
+    for (const seed of [6, 7, 8, 9]) {
+      const h = auctioning(3, seed, packContent(undefined, lines));
+      while (h.state.phase !== 'over') {
+        hammer(h);
+        nextLot(h);
       }
+      const g = game(h);
+      for (const id of g.order)
+        for (const m of g.players[id]!.messages.filter((x) => x.kind === 'filler')) {
+          fillers++;
+          expect(m.text).toBe(own[g.contacts![id]!]);
+        }
+    }
     expect(fillers).toBeGreaterThan(0);
   });
 
@@ -288,5 +290,47 @@ describe('the practice lot', () => {
   it('uses the pack’s practice tip when it has one', () => {
     const h = practising(13, { practice: ['This one is worth {value}, honest.'] });
     expect(game(h).practice!.hint).toBe('This one is worth $2,000, honest.');
+  });
+});
+
+describe('hints the original’s way (the owner’s rulings, 2026-10-26)', () => {
+  it('offers revenge after a forced buy that made no profit at all', () => {
+    const h = auctioning(3, 3);
+    bid(h, 'p2', 400);
+    const s = structuredClone(h.state);
+    s.game!.auction!.screwed = { target: 'p2', by: 'p1' };
+    s.game!.items[s.game!.lots[0]!]!.value = 400;
+    h.state = s;
+    hammer(h);
+    nextLot(h);
+    expect(game(h).players.p2!.messages.at(-1)).toMatchObject({ kind: 'revenge', about: 'p1' });
+  });
+
+  it('sends no wants-art message to an artist who is the one being asked for', () => {
+    /** Lot 4, after p3 bought one of `artists`' cheaper drawings for $1,500 each. */
+    const setUp = (artists: string[]) => {
+      const h = auctioning(3, 3);
+      const s = structuredClone(h.state);
+      const g = s.game!;
+      for (const id of g.order) {
+        g.players[id]!.sent = ['intro'];
+        g.players[id]!.wish = [];
+      }
+      for (const id of artists) {
+        const [lo] = g.prompts[id]!.map((i) => g.items[i]!).sort((x, y) => x.value - y.value);
+        lo!.sale = { buyer: 'p3', price: 1500, commission: 750, screwedBy: null };
+      }
+      g.auction!.lot = 3;
+      h.state = s;
+      sendHints(h.state, createRng(1));
+      return game(h);
+    };
+    // p1 and p2 would both be asked for: neither is told about the other.
+    let g = setUp(['p1', 'p2']);
+    expect(g.players.p1!.messages.at(-1)?.kind).not.toBe('wantArt');
+    expect(g.players.p2!.messages.at(-1)?.kind).not.toBe('wantArt');
+    // Only p2 would be: p1 hears about p2.
+    g = setUp(['p2']);
+    expect(g.players.p1!.messages.at(-1)).toMatchObject({ kind: 'wantArt', about: 'p2' });
   });
 });

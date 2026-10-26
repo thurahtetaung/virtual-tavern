@@ -1,5 +1,5 @@
 import { type BotCtx, type BotInfo, type Rng, chance, encodeDrawing, pickOne } from '@vt/game-sdk';
-import type { GoingOnceAction, GoingOnceView } from './types.ts';
+import { BID_SETTLE_MS, type GoingOnceAction, type GoingOnceView } from './types.ts';
 
 /**
  * A bot's drawing: a few wobbly lines built from its own random numbers (never an image), so a
@@ -54,8 +54,9 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
     return target ? { type: 'screw-pick', target } : null;
   }
   if (a.bid?.by === me) return null;
-  // A screw still playing out holds every bid.
+  // A screw still playing out holds every bid, and so does a bid still landing.
   if (ctx.now < a.pausedUntil) return null;
+  if (a.bid && a.close === 'quiet' && ctx.now - a.since < BID_SETTLE_MS) return null;
 
   if (mine.canCallBank && mine.cash < 800 && mine.loans < 3) return { type: 'call-bank' };
 

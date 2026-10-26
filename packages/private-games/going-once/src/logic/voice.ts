@@ -1,5 +1,5 @@
 import type { PlayerId, Rng } from '@vt/game-sdk';
-import type { Game, GoingOnceState, HostClip } from './types.ts';
+import type { Game, GoingOnceState, HostClip, HostLine } from './types.ts';
 import { VOICE_MS } from './voice-lengths.ts';
 
 // The auctioneer's voice, when the host turns it on: the server picks every clip (keys and clip
@@ -15,10 +15,12 @@ export const CHANT_GAP_MS = 1000;
 export const LONG_CHANT = 0.2;
 
 /**
- * One thing to say: a clip key, a key said to a player (`<key>-<their colour>`), or keys to try
- * in turn (the first the table has).
+ * One thing to say: a clip key, a key said to a player (`<key>-<their colour>`), keys to try in
+ * turn (the first the table has), or a silence of `wait` ms before the next clip (something on
+ * screen the next line waits for, as the original's flowcharts wait for their animations).
  */
-export type VoicePart = string | { key: string; player: PlayerId } | readonly VoicePart[];
+export type VoicePart =
+  string | { key: string; player: PlayerId } | { wait: number } | readonly VoicePart[];
 
 /** Whether this game is voiced (the host's voice switch, with sound on, when it began). */
 export const voiced = (s: GoingOnceState) => s.game?.voiced === true;
@@ -34,10 +36,15 @@ function keyOf(s: GoingOnceState, part: string | { key: string; player: PlayerId
 /** The clips for `parts`, each picked from its key's clips. */
 export function clipsFor(s: GoingOnceState, rng: Rng, parts: readonly VoicePart[]): HostClip[] {
   const out: HostClip[] = [];
+  let wait = 0;
   for (const part of parts) {
+    if (!Array.isArray(part) && typeof part === 'object' && 'wait' in part) {
+      wait += part.wait;
+      continue;
+    }
     const options = (Array.isArray(part) ? part : [part]) as readonly VoicePart[];
     for (const o of options) {
-      if (Array.isArray(o)) continue;
+      if (Array.isArray(o) || (typeof o === 'object' && 'wait' in o)) continue;
       const one = o as string | { key: string; player: PlayerId };
       const key = keyOf(s, one);
       if (!key) continue;
@@ -48,16 +55,30 @@ export function clipsFor(s: GoingOnceState, rng: Rng, parts: readonly VoicePart[
         i,
         ms: lengths[i]!,
         ...(typeof one !== 'string' && { player: one.player }),
+        ...(wait > 0 && { wait }),
       });
+      wait = 0;
       break;
     }
   }
   return out;
 }
 
-/** How long clips take, said one after the other. */
+/** How long clips take, said one after the other (each after its `wait`, if any). */
 export const clipsMs = (clips: readonly HostClip[]) =>
-  clips.reduce((n, c, i) => n + c.ms + (i ? CLIP_GAP_MS : 0), 0);
+  clips.reduce((n, c, i) => n + (c.wait ?? 0) + c.ms + (i ? CLIP_GAP_MS : 0), 0);
+
+/** When each clip of a line starts, on the server clock, from the line's `at`. */
+export function clipTimes(host: Pick<HostLine, 'at' | 'clips'>): number[] {
+  const out: number[] = [];
+  let t = host.at ?? 0;
+  for (const c of host.clips ?? []) {
+    t += c.wait ?? 0;
+    out.push(t);
+    t += c.ms + CLIP_GAP_MS;
+  }
+  return out;
+}
 
 /**
  * The chant asking for `amount`: the next ask after a bid, or the opening's $400 ('high' above the
@@ -80,8 +101,12 @@ export function speak(
   parts: readonly VoicePart[],
   clear = false,
 ): number {
+  return sayClips(s, now, clipsFor(s, rng, parts), clear);
+}
+
+/** The host says clips already picked (`clipsFor`), as `speak` does. */
+export function sayClips(s: GoingOnceState, now: number, clips: HostClip[], clear = false): number {
   const g = s.game!;
-  const clips = clipsFor(s, rng, parts);
   if (!clips.length) {
     if (clear) g.host = null;
     return 0;

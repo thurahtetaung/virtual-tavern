@@ -8,7 +8,7 @@ import {
   OPENING_BID,
   type PracticeView,
 } from '../logic/types.ts';
-import { RACKUP_BEAT_MS, SOLD_BEAT_MS, endTimes } from './audio.ts';
+import { FINALE_GAP_MS, RACKUP_BEAT_MS, SOLD_BEAT_MS, endTimes, soldBeatsOf } from './audio.ts';
 
 // Going Once's show as data: every beat the table screen and the phones animate, built purely from
 // the view on the server clock (the same moments the sound in `audio.ts` keys its cues to: the
@@ -270,17 +270,19 @@ function screwOutcome(view: GoingOnceView): Moment[] {
 }
 
 /**
- * The hammer: the stamp slams onto the picture with the bell, spins round to the value (counting
- * up from the price on the table screen), PROFIT or LOSS pops under it, the artist's paddle turns
- * round to say ARTIST and their commission rises from it, and the stamp leaves with the picture.
- * Unsold: the picture just leaves. Beats as the sound's (`SOLD_BEAT_MS`), so the bell, the spin
- * and the profit line land together.
+ * The hammer: the stamp slams onto the picture with the bell, the artist's paddle turns round to
+ * say ARTIST and their commission rises from it, the stamp spins round to the value (counting up
+ * from the price on the table screen), PROFIT or LOSS pops under it, and the stamp leaves with the
+ * picture: the original's order, on the server's beats (`soldBeatsOf`, which voiced follow the
+ * lines) as the sound's, so the bell, the spin and the profit line land together. Unsold: the
+ * picture just leaves.
  */
 export function soldMoment(view: GoingOnceView): Moment | null {
   const g = view.game;
   const r: LotResult | undefined = g?.results.at(-1);
   if (!g || g.stage !== 'sold' || !r) return null;
   const beat = SOLD_BEAT_MS * (view.rig?.scale ?? 1);
+  const beats = soldBeatsOf(view, r.artistKnown && r.artist !== null);
   const len = Math.max(beat * 5, g.until - g.since);
   const id = `sold${r.index}`;
   if (!r.buyer)
@@ -302,7 +304,7 @@ export function soldMoment(view: GoingOnceView): Moment | null {
       : profit < 0
         ? `LOSS : ${money(-profit)}`
         : 'BROKE EVEN';
-  const spin = beat * 2;
+  const spin = beats.value;
   const swap = spin + 300;
   const out = len - Math.max(MS.paintingOut, profit >= 0 ? MS.stampGood : MS.stampBad) - 150;
   const steps: Step[] = [
@@ -359,11 +361,11 @@ export function soldMoment(view: GoingOnceView): Moment | null {
       on: STAGE,
     },
     text(swap, 'stamp.word', money(r.value), { on: PHONES }),
-    text(beat * 3, 'stamp.line', line, { on: FULL }),
-    anim(beat * 3, 'stamp.lineL', 'profit.Appear', { on: FULL }),
+    text(beats.profit, 'stamp.line', line, { on: FULL }),
+    anim(beats.profit, 'stamp.lineL', 'profit.Appear', { on: FULL }),
     // The buyer's own phone: the profit or loss lands with a tap.
     {
-      t: beat * 3,
+      t: beats.profit,
       kind: 'haptic',
       pattern: profit >= 0 ? [20] : [40, 40, 40],
       for: r.buyer,
@@ -392,14 +394,15 @@ export function soldMoment(view: GoingOnceView): Moment | null {
       .filter((id) => !(r.artistKnown && id === r.artist))
       .map((id) => text(out, `pad:${id}.num`, '', { on: FULL })),
   ];
-  if (r.artistKnown && r.artist) {
+  if (r.artistKnown && r.artist && beats.artist !== null) {
     const artist = r.artist;
+    const at = beats.artist;
     steps.push(
-      anim(beat * 4, `pad:${artist}`, 'paddle.Flip', { on: FULL }),
-      text(beat * 4 + MS.flipEdge, `pad:${artist}.num`, 'ARTIST', { on: FULL }),
+      anim(at, `pad:${artist}`, 'paddle.Flip', { on: FULL }),
+      text(at + MS.flipEdge, `pad:${artist}.num`, 'ARTIST', { on: FULL }),
       // The title's "by …" waits for the flip, as the auctioneer reveals the artist.
       {
-        t: beat * 4 + MS.flipEdge,
+        t: at + MS.flipEdge,
         kind: 'css',
         target: 'title.by',
         keyframes: [{ opacity: 1 }],
@@ -407,14 +410,14 @@ export function soldMoment(view: GoingOnceView): Moment | null {
         on: STAGE,
       },
       // Back down once the flip has been seen (a short Sold card still lets it finish).
-      text(Math.max(out, beat * 4 + 900), `pad:${artist}.num`, '', { on: FULL }),
-      anim(Math.max(out, beat * 4 + 900), `pad:${artist}`, 'paddle.DoneOff', { on: FULL }),
+      text(Math.max(out, at + 900), `pad:${artist}.num`, '', { on: FULL }),
+      anim(Math.max(out, at + 900), `pad:${artist}`, 'paddle.DoneOff', { on: FULL }),
     );
     if (r.commission > 0)
       steps.push(
-        text(beat * 4 + 500, `artpay:${artist}.text`, `+${money(r.commission)}`, { on: FULL }),
-        anim(beat * 4 + 500, `artpay:${artist}`, 'artpay.Appear', { on: FULL }),
-        { t: beat * 4 + 500, kind: 'haptic', pattern: [15, 40, 15], for: artist, on: PHONES },
+        text(at + 500, `artpay:${artist}.text`, `+${money(r.commission)}`, { on: FULL }),
+        anim(at + 500, `artpay:${artist}`, 'artpay.Appear', { on: FULL }),
+        { t: at + 500, kind: 'haptic', pattern: [15, 40, 15], for: artist, on: PHONES },
       );
   }
   // Quiet phones drop the table's beats they don't draw (nothing to aim them at), and the
@@ -485,31 +488,31 @@ function drawing(view: GoingOnceView): Moment[] {
   ];
 }
 
-/** A buyer's art at the end: one, two or three pictures (the original's layouts), the first three. */
+/** A group of art at the end: one, two or three pictures (the original's layouts). */
 export const endTrack = (n: number, k: number) => (n === 1 ? 'art1' : `art${n}-painting${k}`);
 
 /**
- * The end: each buyer's art slides in, each title and value pops, the values fly down into the
- * buyer's total; then everyone's totals line up, the shark bites the debts off, and the winners
- * spring up in the light.
+ * The end, on `endTimes`' beats: each buyer's art slides in a group at a time, each title and
+ * value pops, the values fly down into the buyer's total (counting up from their cash); then
+ * everyone's totals line up, lowest first, the shark bites the debts off, and the winners spring
+ * up in the light.
  */
 function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   const g = view.game!;
   const times = endTimes(view);
   if (!times || !g.final) return [];
-  const step = RACKUP_BEAT_MS * (view.rig?.scale ?? 1);
+  const scale = view.rig?.scale ?? 1;
+  const step = RACKUP_BEAT_MS * scale;
   const out: Moment[] = [];
-  const buyers = g.final.filter((f) => f.bought.length > 0);
-  buyers.forEach((f, i) => {
-    const items = f.bought.slice(0, 3);
-    const n = items.length;
-    // Everything they bought counts; the layout shows the first three.
-    const art = f.art;
+  times.groups.forEach((grp) => {
+    const n = grp.items.length;
+    const i = grp.buyer;
+    const last = times.groups[grp.index + 1]?.buyer !== i;
     out.push({
-      id: `end:${g.since}:buyer${i}`,
-      at: g.since + i * step,
+      id: `end:${g.since}:group${grp.index}`,
+      at: grp.at,
       steps: [
-        ...(i === 0 ? [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })] : []),
+        ...(grp.index === 0 ? [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })] : []),
         {
           t: 0,
           kind: 'css',
@@ -518,59 +521,73 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
           ms: 200,
           on: STAGE,
         },
-        text(0, `endtotal:${i}.num`, '', { on: STAGE }),
-        ...items.flatMap((_, k) => [
-          anim(0, `end:${i}:${k}`, `${endTrack(n, k)}.Appear`, { on: STAGE }),
-          anim(450 + k * 120, `end:${i}:${k}.name`, 'endpic-drawingName.NameOn', { on: STAGE }),
-          anim(650 + k * 120, `end:${i}:${k}.price`, 'endpic-price.ValueOn', { on: STAGE }),
-          anim(950 + k * 120, `end:${i}:${k}.price`, 'endpic-price.Score', { on: STAGE }),
+        text(0, `endtotal:${i}.num`, money(grp.from), { on: STAGE }),
+        ...grp.items.flatMap((_, k) => [
+          anim(0, `end:${grp.index}:${k}`, `${endTrack(n, k)}.Appear`, { on: STAGE }),
+          anim(450 + k * 120, `end:${grp.index}:${k}.name`, 'endpic-drawingName.NameOn', {
+            on: STAGE,
+          }),
+          anim(650 + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.ValueOn', {
+            on: STAGE,
+          }),
+          anim(950 + k * 120, `end:${grp.index}:${k}.price`, 'endpic-price.Score', { on: STAGE }),
         ]),
         // The total counts up as the values fly into it.
         {
           t: 950,
           kind: 'count',
           target: `endtotal:${i}.num`,
-          from: 0,
-          to: art,
+          from: grp.from,
+          to: grp.to,
           ms: 700,
           format: 'money',
           on: STAGE,
         },
         anim(1300, `endtotal:${i}.thump`, 'total-score.RackUp', { on: STAGE }),
-        ...items.map((_, k) =>
-          anim(step - 450, `end:${i}:${k}`, `${endTrack(n, k)}.Disappear`, { on: STAGE }),
+        ...grp.items.map((_, k) =>
+          anim(step - 450, `end:${grp.index}:${k}`, `${endTrack(n, k)}.Disappear`, { on: STAGE }),
         ),
-        {
-          t: step - 300,
-          kind: 'css',
-          target: `endtotal:${i}`,
-          keyframes: [{ opacity: 0 }],
-          ms: 250,
-          on: STAGE,
-        },
+        // The buyer's total stays while more of their art comes up.
+        ...(last
+          ? [
+              {
+                t: step - 300,
+                kind: 'css',
+                target: `endtotal:${i}`,
+                keyframes: [{ opacity: 0 }],
+                ms: 250,
+                on: STAGE,
+              } as Step,
+            ]
+          : []),
       ],
     });
   });
+  const gap = FINALE_GAP_MS * scale;
+  const byId = new Map(g.final.map((f) => [f.id, f]));
   out.push({
     id: `end:${g.since}:finale`,
     at: times.sum,
     steps: [
-      ...(buyers.length ? [] : [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })]),
-      ...g.final.flatMap((f, i) => [
-        text(0, `finale:${f.id}.score`, money(f.score + f.debt), { on: STAGE }),
-        anim(i * 250, `finale:${f.id}`, 'finale-content.Appear', { on: STAGE }),
-        anim(i * 250, `finale:${f.id}.scoreL`, 'finale-score.Appear', { on: STAGE }),
+      ...(times.groups.length ? [] : [anim(0, 'camera', 'stage.ZoomOut', { on: STAGE })]),
+      ...times.finale.flatMap((id, i) => [
+        text(0, `finale:${id}.score`, money(byId.get(id)!.score + byId.get(id)!.debt), {
+          on: STAGE,
+        }),
+        anim(i * gap, `finale:${id}`, 'finale-content.Appear', { on: STAGE }),
+        anim(i * gap, `finale:${id}.scoreL`, 'finale-score.Appear', { on: STAGE }),
       ]),
-      ...g.final.flatMap((f) =>
-        f.debt > 0
+      ...g.final.flatMap((f) => {
+        const bite = times.debtAt - times.sum;
+        return f.debt > 0
           ? [
-              anim(step, `finale:${f.id}.shark`, 'finale-d7.Debt', { on: STAGE }),
-              anim(step, `finale:${f.id}.debtL`, 'finale-debt.Debt', { on: STAGE }),
-              anim(step, `finale:${f.id}.scoreL`, 'finale-score.Debt', { on: STAGE }),
-              text(step + 300, `finale:${f.id}.score`, money(f.score), { on: STAGE }),
+              anim(bite, `finale:${f.id}.shark`, 'finale-d7.Debt', { on: STAGE }),
+              anim(bite, `finale:${f.id}.debtL`, 'finale-debt.Debt', { on: STAGE }),
+              anim(bite, `finale:${f.id}.scoreL`, 'finale-score.Debt', { on: STAGE }),
+              text(bite + 300, `finale:${f.id}.score`, money(f.score), { on: STAGE }),
             ]
-          : [],
-      ),
+          : [];
+      }),
       // Your own total, on your phone.
       ...(ctx.you && g.final.some((f) => f.id === ctx.you)
         ? [{ t: 0, kind: 'haptic', pattern: [15], for: ctx.you, on: PHONES } as Step]
