@@ -475,12 +475,11 @@ export function DrawingPad({
               title={c.name}
               onClick={() => setColor(i)}
               className={cn(
-                'size-9 rounded-full ring-offset-2 ring-offset-page transition-shadow dark:ring-offset-stone-900',
-                color === i
-                  ? 'ring-3 ring-stone-700 dark:ring-stone-200'
-                  : 'ring-1 ring-line-strong',
+                'size-9 rounded-full border-3 ring-offset-2 ring-offset-page transition-shadow',
+                color === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong',
               )}
-              style={{ background: c.hex }}
+              // The pens are made for the paper, so each swatch sits on a rim of it
+              style={{ background: c.hex, borderColor: PAPER }}
             />
           ))}
         </div>
@@ -495,11 +494,11 @@ export function DrawingPad({
               title={w.name}
               onClick={() => setWidth(i)}
               className={cn(
-                'flex size-9 items-center justify-center rounded-lg',
-                width === i
-                  ? 'bg-card ring-2 ring-stone-700 dark:bg-stone-800 dark:ring-stone-200'
-                  : 'hover:bg-line/60 dark:hover:bg-stone-800',
+                'flex size-9 items-center justify-center rounded-lg ring-offset-2 ring-offset-page transition-shadow',
+                width === i ? 'ring-3 ring-accent' : 'ring-1 ring-line-strong hover:ring-ink-muted',
               )}
+              // The pen's colour on a chip of paper, as it will draw
+              style={{ background: PAPER }}
             >
               <span
                 className="block rounded-full"
