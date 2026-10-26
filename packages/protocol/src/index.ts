@@ -113,6 +113,11 @@ export interface StagePaired {
   roomId: string;
 }
 
+/** `GET /api/stage`: the room this screen is paired with, or null when it isn't. */
+export interface StageStatus {
+  roomId: string | null;
+}
+
 /**
  * The current versions of `/api/games` (for this browser), a game's `/api/word-lists` and the
  * back-room manifests,

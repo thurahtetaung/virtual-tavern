@@ -1,4 +1,4 @@
-import { type StagePaired, stagePairBody } from '@vt/protocol';
+import { type StagePaired, type StageStatus, stagePairBody } from '@vt/protocol';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { STAGE_COOKIE, STAGE_SESSION_MS, type StageDoor } from '../stage.ts';
 
@@ -46,15 +46,11 @@ export function stageRoutes(
     },
   );
 
-  // A table screen that reloads finds its room again.
+  // A table screen that reloads finds its room again. Not being paired is an answer, not an
+  // error: every fresh /stage page asks.
   app.get('/api/stage', (req, reply) => {
     void reply.header('cache-control', 'no-store');
-    const roomId = stageRoom(req);
-    if (!roomId)
-      return reply
-        .code(404)
-        .send({ error: { code: 'stage-unpaired', message: 'This screen is not paired.' } });
-    return { roomId } satisfies StagePaired;
+    return { roomId: stageRoom(req) } satisfies StageStatus;
   });
 
   app.post('/api/stage/forget', (_req, reply) => {
