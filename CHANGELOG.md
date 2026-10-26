@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.3...v0.73.0) (2026-10-26)
+
+
+### Features
+
+* **going-once:** the auction house on a table screen, with quiet phones ([#424](https://github.com/thurahtetaung/virtual-tavern/issues/424)) ([d7a7b36](https://github.com/thurahtetaung/virtual-tavern/commit/d7a7b36c636f1187c7785afcb8f523873ebf0e11))
+
 ## [0.72.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.2...v0.72.3) (2026-10-26)
 
 
