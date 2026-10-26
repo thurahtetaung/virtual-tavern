@@ -1,21 +1,47 @@
-import { storageKey } from '@vt/game-sdk';
+import { PLAYER_COLOR_NAMES, type PlayerColor, storageKey } from '@vt/game-sdk';
 import { Button, PLAYER_DOT, PlayerTag, ProtectedImage, cn, usePlayerColor } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
-import type { FinalView, GoingOnceView, Message } from '../logic/types.ts';
+import {
+  BUYERS,
+  type Buyer,
+  type FinalView,
+  type GoingOnceView,
+  type HostClip,
+  type Message,
+  type Sender,
+} from '../logic/types.ts';
 import type { Art } from './assets.ts';
-import { type NameOf, SENDERS } from './text.ts';
+import { RACKUP_BEAT_MS, clipNow } from './audio.ts';
+import { type NameOf, SENDERS, whyLine } from './text.ts';
 
-/** What the host says now, as on-screen text (from the private host pack; nothing without it). */
-export function HostStrip({ view }: { view: GoingOnceView }) {
+/**
+ * What the host says now, as on-screen text: the text pack's lines, or in a voiced game the words
+ * of the clip being said (`clipNow`), with a player the clip names by colour shown as their dot,
+ * name and colour word ("You're screwed, ● Kim (yellow)!").
+ */
+export function HostStrip({
+  view,
+  art,
+  name,
+  clockOffset,
+}: {
+  view: GoingOnceView;
+  art: Art;
+  name: NameOf;
+  clockOffset: number;
+}) {
   const host = view.game?.host;
-  if (!host?.lines.length) return null;
+  const voicedLine = !!host?.clips?.length;
+  const now = useClock(clockOffset, voicedLine);
+  const clip = voicedLine ? clipNow(host, now, (c) => art.voiceWords(c.key, c.i) !== '') : null;
+  if (!host || (!voicedLine && !host.lines.length) || (voicedLine && !clip)) return null;
   const close = view.game?.stage === 'auction' ? view.game.auction?.close : null;
   const big = close === 'once' || close === 'twice';
   return (
     <p
-      key={host.id}
+      key={voicedLine ? `${host.id}:${clip!.key}:${clip!.i}` : host.id}
       aria-live="polite"
       data-testid="go-host"
       className={cn(
@@ -27,15 +53,58 @@ export function HostStrip({ view }: { view: GoingOnceView }) {
         🎙️
       </span>
       <span className="sr-only">The auctioneer: </span>
-      <span>{host.lines.join(' ')}</span>
+      <span>
+        {clip ? (
+          <Subtitle words={art.voiceWords(clip.key, clip.i)} clip={clip} name={name} />
+        ) : (
+          host.lines.join(' ')
+        )}
+      </span>
     </p>
+  );
+}
+
+/** Server time, ticking every 200 ms while `on`. */
+function useClock(clockOffset: number, on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [on]);
+  return now + clockOffset;
+}
+
+/** The colour word a colour-named clip says ("Gray" in the recordings is our grey). */
+const COLOR_WORD: Partial<Record<PlayerColor, string>> = { grey: 'gr[ae]y' };
+
+/**
+ * A clip's words, with the colour it says out loud shown as the player it names: their dot and
+ * name, then the colour word, so everyone links the spoken colour to the person.
+ */
+export function Subtitle({ words, clip, name }: { words: string; clip: HostClip; name: NameOf }) {
+  const color = clip.player ? (clip.key.split('-').at(-1) as PlayerColor) : null;
+  if (!clip.player || !color || !PLAYER_COLOR_NAMES[color]) return <>{words}</>;
+  const match = new RegExp(`\\b(${COLOR_WORD[color] ?? color})\\b`, 'i').exec(words);
+  const who = (
+    <span className="not-italic" data-testid="go-host-player">
+      <PlayerTag name={name(clip.player)} /> ({PLAYER_COLOR_NAMES[color]})
+    </span>
+  );
+  if (!match) return <>{words}</>;
+  return (
+    <>
+      {words.slice(0, match.index)}
+      {who}
+      {words.slice(match.index + match[0].length)}
+    </>
   );
 }
 
 /** Keyframes for the small entrances (kept here so the package carries its own). */
 export function GoingOnceStyles() {
   return (
-    <style>{`@keyframes go-rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}`}</style>
+    <style>{`@keyframes go-rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes go-psst{0%{opacity:0;transform:translateY(12px) scale(.96)}55%{opacity:1;transform:translateY(-2px) rotate(-1deg)}70%{transform:rotate(1deg)}85%{transform:rotate(-.5deg)}to{transform:none}}`}</style>
   );
 }
 
@@ -94,6 +163,95 @@ const SENDER_ART: Partial<Record<Message['from'], string>> = {
   bank: 'bank',
 };
 
+/** A sender's name: the buyer's from the manifest (or their placeholder), the bank's, or a label. */
+export function senderName(from: Sender, art: Art): string {
+  if (from === 'bank') return fillNames('{Bank}', art.names);
+  const buyer = BUYERS.indexOf(from as Buyer);
+  return buyer >= 0 ? art.names.buyers[buyer]! : SENDERS[from].label;
+}
+
+/**
+ * A tip arriving: a chat bubble from its sender ("psst"), with a buzz where phones allow it the
+ * first time it shows. Tips (true, useful) are bold from their sender; chatter reads as gossip.
+ */
+export function PsstBubble({
+  message,
+  art,
+  name,
+  big = false,
+  fact,
+}: {
+  message: Message;
+  art: Art;
+  name: NameOf;
+  big?: boolean;
+  /** The plain fact behind a tip the engine didn't send (the practice lot's). */
+  fact?: string;
+}) {
+  const why = fact ?? whyLine(message, name);
+  const tip = why !== null;
+  const [buzzed, setBuzzed] = useState<number | null>(null);
+  if (big && buzzed !== message.id) {
+    setBuzzed(message.id);
+    vibrate([15, 60, 15]);
+  }
+  return (
+    <div
+      role="status"
+      data-testid="go-psst"
+      data-tip={tip}
+      className={cn(
+        'flex items-start gap-2 motion-safe:animate-[go-rise_0.3s_ease-out]',
+        big && 'motion-safe:animate-[go-psst_0.5s_ease-out]',
+      )}
+    >
+      <SenderIcon from={message.from} art={art} size={big ? 'md' : 'sm'} />
+      <div
+        className={cn(
+          'relative min-w-0 rounded-2xl rounded-tl-sm px-3 py-2 ring-1',
+          tip
+            ? 'bg-info-soft text-info-ink ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30'
+            : 'bg-panel text-ink-muted ring-line dark:bg-stone-800/70 dark:text-stone-400 dark:ring-stone-700',
+          big ? 'text-base' : 'text-sm',
+        )}
+      >
+        <span className="block text-xs">
+          <b className={cn(!tip && 'font-semibold')}>{senderName(message.from, art)}</b>
+          <span className="opacity-70">{tip ? ' · psst' : ' · gossip'}</span>
+        </span>
+        <span className={cn('block', tip ? 'font-semibold' : 'italic')}>{message.text}</span>
+        {why && big && <span className="mt-0.5 block text-xs font-normal opacity-80">{why}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** This device's own sound switch (the host sets the room's; any device can mute itself). */
+export function SoundButton({
+  view,
+  muted,
+  onChange,
+}: {
+  view: GoingOnceView;
+  muted: boolean;
+  onChange: (muted: boolean) => void;
+}) {
+  if (view.settings.sound === 'off') return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-pressed={!muted}
+      onClick={() => onChange(!muted)}
+      title={muted ? 'Sound is off on this device' : 'Sound is on on this device'}
+      data-testid="go-sound"
+    >
+      <span aria-hidden>{muted ? '🔇' : '🔊'}</span>
+      <span className="sr-only">{muted ? 'Turn sound on here' : 'Mute this device'}</span>
+    </Button>
+  );
+}
+
 /** Who sent a hint: the buyer's or the bank's portrait from the manifest, else an emoji. */
 export function SenderIcon({
   from,
@@ -107,7 +265,7 @@ export function SenderIcon({
   const key = SENDER_ART[from];
   const src = key ? art.ui(key) : null;
   const sender = SENDERS[from];
-  const label = from === 'bank' ? fillNames('{Bank}', art.names) : sender.label;
+  const label = senderName(from, art);
   if (src)
     return (
       <ProtectedImage
@@ -235,7 +393,7 @@ export function RackUp({
   const [shown, setShown] = useState(0);
   useEffect(() => {
     if (shown >= steps) return;
-    const id = setTimeout(() => setShown((n) => n + 1), 1800 * (view.rig?.scale ?? 1));
+    const id = setTimeout(() => setShown((n) => n + 1), RACKUP_BEAT_MS * (view.rig?.scale ?? 1));
     return () => clearTimeout(id);
   }, [shown, steps, view.rig?.scale]);
   if (shown >= steps) return <>{children}</>;

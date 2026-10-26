@@ -1,4 +1,10 @@
-import { type AnyGameDefinition, type ContentProvider, createRng, isGameError } from '@vt/game-sdk';
+import {
+  type AnyGameDefinition,
+  type ContentProvider,
+  colorsOf,
+  createRng,
+  isGameError,
+} from '@vt/game-sdk';
 import {
   type Ack,
   PLAYER_COLOR_NAMES,
@@ -9,7 +15,7 @@ import {
   type RoomSnapshot,
 } from '@vt/protocol';
 import { randomBytes } from 'node:crypto';
-import { freeColor } from './colors.ts';
+import { freeColor, withColors } from './colors.ts';
 import { newRoomId, playerIdFromToken, randomSeed } from './ids.ts';
 import { nameTaken, uniqueName } from './names.ts';
 import type { PlaytestRecord, RoomRecord, RoomStore } from './store.ts';
@@ -264,6 +270,7 @@ export class RoomManager {
       freeColor(
         record.players.map((p) => p.color),
         (n) => createRng(this.seed(roomId, `color:${record.version}`)).int(n),
+        colorsOf(room.game),
       );
     const players = existing
       ? record.players.map((p) => (p.id === playerId ? { ...p, name } : p))
@@ -321,6 +328,11 @@ export class RoomManager {
     const me = room?.record.players.find((p) => p.id === playerId);
     if (!room || !me) return fail('not-in-room', 'Join first.');
     if (me.color === color) return OK;
+    if (!colorsOf(room.game).includes(color))
+      return fail(
+        'color-not-offered',
+        `This game doesn’t use ${PLAYER_COLOR_NAMES[color]}. Pick another colour.`,
+      );
     const holder = room.record.players.find((p) => p.id !== playerId && p.color === color);
     if (holder) {
       return fail(
@@ -436,6 +448,7 @@ export class RoomManager {
       game: room.game.view(record.state, seated ? viewer : null),
       serverNow: this.deps.now(),
       meta: this.meta(room),
+      ...(room.game.colors?.length && { colors: [...room.game.colors] }),
     };
   }
 
@@ -747,9 +760,14 @@ export class RoomManager {
   private load(roomId: string): LiveRoom | null {
     const live = this.rooms.get(roomId);
     if (live) return live;
-    const record = this.deps.store.get(roomId);
-    const game = record && this.deps.games.get(record.gameId);
-    if (!record || !game) return null;
+    const stored = this.deps.store.get(roomId);
+    const game = stored && this.deps.games.get(stored.gameId);
+    if (!stored || !game) return null;
+    // A game with its own colours moves anyone with another one (a room saved before) onto a free
+    // one; it is saved with the next change.
+    const record = game.colors?.length
+      ? { ...stored, players: withColors(stored.players, colorsOf(game)) }
+      : stored;
     const room: LiveRoom = {
       record,
       game,

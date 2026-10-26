@@ -23,4 +23,15 @@ describe('player colours', () => {
     expect(withColors(players).map((p) => p.color)).toEqual(['blue', 'red', 'green']);
     expect(withColors(players)).toEqual(withColors(players));
   });
+
+  it('picks only from a game’s own colours, and repeats them past the list', () => {
+    const own = ['red', 'orange', 'yellow'] as const;
+    expect(freeColor(['red', 'yellow', 'teal'], () => 0, own)).toBe('orange');
+    expect(freeColor(['red', 'orange', 'yellow'], (n) => n - 1, own)).toBe('yellow');
+    const players = [
+      { id: 'a', name: 'Ana', color: 'teal' as const },
+      { id: 'b', name: 'Ben', color: 'red' as const },
+    ];
+    expect(withColors(players, own).map((p) => p.color)).toEqual(['orange', 'red']);
+  });
 });

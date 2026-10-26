@@ -16,11 +16,12 @@ import {
   Standings,
   StickyBar,
   Superlatives,
+  Switch,
   cn,
   useAbandonGame,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import {
@@ -33,14 +34,26 @@ import {
   MIN_PLAYERS,
   PACES,
   type Pace,
+  SOUND_MODES,
+  type SoundMode,
 } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
-import { Alerts, GoingOnceStyles, HostStrip, RackUp, ScrewBanner, useBeats } from './Extras.tsx';
+import {
+  Alerts,
+  GoingOnceStyles,
+  HostStrip,
+  RackUp,
+  ScrewBanner,
+  SoundButton,
+  useBeats,
+} from './Extras.tsx';
 import { Picture } from './Picture.tsx';
+import { Practice } from './Practice.tsx';
 import { type NameOf, statusFor } from './text.ts';
+import { useDeviceSound, useSound } from './useSound.ts';
 
 export type GoingOnceUiProps = GameUiProps<GoingOnceView, GoingOnceAction>;
 
@@ -61,6 +74,7 @@ export function GoingOnceGame({
     return (id) => (id ? (map.get(id) ?? 'Someone') : 'Someone');
   }, [names]);
   const status = statusFor(view, room.you, name, art.names);
+  const [device, setDevice] = useDeviceSound();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -82,6 +96,14 @@ export function GoingOnceGame({
         : { text: 'You can join from the next game.' }
       : null,
   );
+  useSound({
+    view,
+    manifest,
+    you: inGame ? room.you : null,
+    isHost: room.isHost,
+    clockOffset: room.clockOffset,
+    device,
+  });
   // Seen here so the gallery keeps drawings from lots this tab watched.
   const seen = useSeenDrawings(view);
   const g = view.game;
@@ -99,8 +121,17 @@ export function GoingOnceGame({
       ) : (
         <>
           <GoingOnceStyles />
-          <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          <HostStrip view={view} />
+          <div className="flex items-start gap-1">
+            <div className="min-w-0 flex-1">
+              <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+            </div>
+            <SoundButton
+              view={view}
+              muted={device.muted}
+              onChange={(muted) => setDevice({ muted })}
+            />
+          </div>
+          <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
           {g.stage === 'draw' && g.redraw && (
             <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
               Nobody drew anything, so here are new titles. If nobody draws this time, the game
@@ -109,7 +140,12 @@ export function GoingOnceGame({
           )}
           <Alerts view={view} you={room.you} />
           <ScrewBanner view={view} name={name} you={room.you} />
+          {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
+          {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
           {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
+          {g.stage === 'practice' && g.practice && (
+            <Practice view={view} room={room} act={act} art={art} name={name} />
+          )}
           {(g.stage === 'auction' || g.stage === 'sold') && (
             <>
               {g.stage === 'sold' && <SoldCard view={view} room={room} act={act} name={name} />}
@@ -178,6 +214,19 @@ function Segmented<T extends string | number>({
 
 const PACE_NAME: Record<Pace, string> = { relaxed: 'Relaxed', normal: 'Normal', fast: 'Fast' };
 
+const SOUND_NAME: Record<SoundMode, string> = {
+  off: 'Off',
+  host: 'Host’s device',
+  all: 'Every device',
+};
+
+/** Who hears what, for each sound choice. */
+const SOUND_HELP: Record<SoundMode, string> = {
+  off: 'No device makes a sound.',
+  host: 'Only the host’s device plays the sound: put it in the middle of the table. Hint rings still buzz on each player’s own device.',
+  all: 'Every device plays the same sounds at the same moment, so each bid’s yelp goes round the table.',
+};
+
 function Lobby({
   view,
   room,
@@ -194,6 +243,8 @@ function Lobby({
   const me = view.me;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const noContent = view.groupsAvailable < 2;
+  // With the auctioneer's voice on, his lines and chants time the auction instead of the pace.
+  const voiceSetsPace = view.settings.voice && view.settings.sound !== 'off';
   const blocker =
     seated.length < MIN_PLAYERS
       ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
@@ -269,7 +320,11 @@ function Lobby({
         editable={room.isHost}
         summary={[
           `${view.settings.drawSeconds} s to draw`,
-          `${PACE_NAME[view.settings.pace]} pace`,
+          voiceSetsPace ? 'the auctioneer’s pace' : `${PACE_NAME[view.settings.pace]} pace`,
+          view.settings.sound === 'off'
+            ? 'sound off'
+            : `sound: ${SOUND_NAME[view.settings.sound].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
+          ...(view.gamesPlayed === 0 && view.settings.practice ? ['practice lot'] : []),
         ]}
         className="space-y-4"
       >
@@ -284,19 +339,91 @@ function Lobby({
           }
         />
         <div className="flex flex-col gap-1">
-          <Segmented
-            label="Auction pace"
-            values={PACES}
-            value={view.settings.pace}
-            format={(v) => PACE_NAME[v]}
-            editable={room.isHost}
-            onChange={(v) => void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })}
-          />
-          <p className="text-xs text-ink-muted dark:text-stone-400">
-            {PACE_HELP[view.settings.pace]}
-            {!view.settings.paceChosen && ' Fast is the default at 3 players, Normal otherwise.'}
+          <div
+            className={cn(voiceSetsPace && 'opacity-50')}
+            aria-disabled={voiceSetsPace || undefined}
+          >
+            <Segmented
+              label="Auction pace"
+              values={PACES}
+              value={view.settings.pace}
+              format={(v) => PACE_NAME[v]}
+              editable={room.isHost && !voiceSetsPace}
+              onChange={(v) =>
+                void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })
+              }
+            />
+          </div>
+          <p className="text-xs text-ink-muted dark:text-stone-400" data-testid="go-pace-help">
+            {voiceSetsPace
+              ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'
+              : PACE_HELP[view.settings.pace]}
+            {!voiceSetsPace &&
+              !view.settings.paceChosen &&
+              ' Fast is the default at 3 players, Normal otherwise.'}
           </p>
         </div>
+        <div className="flex flex-col gap-2" data-testid="go-sound-settings">
+          <Segmented
+            label="Sound"
+            values={SOUND_MODES}
+            value={view.settings.sound}
+            format={(v) => SOUND_NAME[v]}
+            editable={room.isHost}
+            onChange={(v) =>
+              void act({ type: 'update-settings', sound: v }, { anchor: 'go-lobby' })
+            }
+          />
+          <p className="text-xs text-ink-muted dark:text-stone-400">
+            {SOUND_HELP[view.settings.sound]}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Switch
+              on={view.settings.music}
+              editable={room.isHost && view.settings.sound !== 'off'}
+              title="Music"
+              help="A track for each part of the game."
+              onChange={(v) =>
+                void act({ type: 'update-settings', music: v }, { anchor: 'go-lobby' })
+              }
+              testId="go-music"
+            />
+            <Switch
+              on={view.settings.effects}
+              editable={room.isHost && view.settings.sound !== 'off'}
+              title="Effects"
+              help="Paddles, everyone’s own bid yelp, going once, Sold, the bank’s ring."
+              onChange={(v) =>
+                void act({ type: 'update-settings', effects: v }, { anchor: 'go-lobby' })
+              }
+              testId="go-effects"
+            />
+            <Switch
+              on={view.settings.voice}
+              editable={room.isHost && view.settings.sound !== 'off'}
+              title="Auctioneer voice"
+              help="The auctioneer speaks: a welcome the host can skip, every call, and players by their colour. His chants set the auction’s pace, as in the original."
+              onChange={(v) =>
+                void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
+              }
+              testId="go-voice"
+            />
+          </div>
+        </div>
+        <Switch
+          on={view.settings.practice}
+          editable={room.isHost && view.gamesPlayed === 0}
+          title="Practice lot"
+          help={
+            view.gamesPlayed === 0
+              ? 'In this room’s first game: one lot for play money before lot 1, teaching the four things to know. Anyone can skip it.'
+              : 'Only in a room’s first game: this room has played already.'
+          }
+          onChange={(v) =>
+            void act({ type: 'update-settings', practice: v }, { anchor: 'go-lobby' })
+          }
+          testId="go-practice-setting"
+        />
         <RefusalSlot anchor="go-lobby" />
       </LobbySettings>
       {view.rigAllowed && room.isHost && <RigPanel view={view} act={act} />}
@@ -444,6 +571,62 @@ function SoldCard({
           Next lot ▸
         </Button>
       )}
+    </Panel>
+  );
+}
+
+/** "Skipping the introduction", for everyone, for the first few seconds of the drawing. */
+function IntroSkipped() {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setShown(false), 6000);
+    return () => clearTimeout(id);
+  }, []);
+  if (!shown) return null;
+  return (
+    <p
+      role="status"
+      data-testid="go-intro-skipped"
+      className="rounded-xl bg-panel px-4 py-2 text-center text-sm ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700"
+    >
+      ⏭ Skipping the introduction
+    </p>
+  );
+}
+
+/**
+ * The auctioneer's spoken welcome and tutorial (voiced games, a room's first game): the words show
+ * in the host strip above; the host can skip it for everyone.
+ */
+function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
+  return (
+    <Panel className="flex flex-col items-center gap-3 text-center" data-testid="go-intro">
+      <p className="text-4xl" aria-hidden>
+        🎙️
+      </p>
+      <h2 className="text-xl font-bold">Welcome to the auction</h2>
+      <p className="max-w-md text-sm">
+        The auctioneer explains how it works. The drawing starts as soon as he’s done.
+      </p>
+      <Countdown
+        deadline={view.game!.until}
+        clockOffset={room.clockOffset}
+        label="until the drawing"
+      />
+      {room.isHost ? (
+        <Button
+          variant="secondary"
+          onClick={() => void act({ type: 'skip-intro' }, { anchor: 'go-intro' })}
+          data-testid="go-skip-intro"
+        >
+          Skip the introduction ▸
+        </Button>
+      ) : (
+        <p className="text-xs text-ink-muted dark:text-stone-400">
+          {waitingForHost(room, 'skip it')}
+        </p>
+      )}
+      <RefusalSlot anchor="go-intro" />
     </Panel>
   );
 }

@@ -26,6 +26,10 @@ export const PLAYER_COLORS = [
 export type PlayerColor = (typeof PLAYER_COLORS)[number];
 export const playerColor = z.enum(PLAYER_COLORS);
 
+/** The colours a game's rooms use: its own list (`GameDefinition.colors`), else all of them. */
+export const colorsOf = (game: { colors?: readonly PlayerColor[] | undefined }) =>
+  game.colors?.length ? game.colors : PLAYER_COLORS;
+
 export const PLAYER_COLOR_NAMES: Record<PlayerColor, string> = {
   red: 'red',
   blue: 'blue',

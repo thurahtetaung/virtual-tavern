@@ -28,7 +28,13 @@ export const playerToken = z.string().regex(/^[A-Za-z0-9_-]{32,64}$/);
 
 export const roomId = z.string().regex(ROOM_ID_PATTERN);
 
-export { PLAYER_COLOR_NAMES, PLAYER_COLORS, type PlayerColor, playerColor } from '@vt/game-sdk';
+export {
+  PLAYER_COLOR_NAMES,
+  PLAYER_COLORS,
+  type PlayerColor,
+  colorsOf,
+  playerColor,
+} from '@vt/game-sdk';
 
 // ---- REST ----
 
@@ -254,6 +260,8 @@ export interface RoomSnapshot<View = unknown> {
   serverNow: number;
   /** The game's coarse phase and the room's recap settings. */
   meta?: RoomMeta;
+  /** The only colours this room offers, when its game uses fewer than all (`GameDefinition.colors`). */
+  colors?: PlayerColor[];
 }
 
 /**

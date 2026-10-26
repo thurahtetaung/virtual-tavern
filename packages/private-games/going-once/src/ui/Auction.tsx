@@ -14,7 +14,7 @@ import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
 import { type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.ts';
-import { BidLadder, Paddle, SenderIcon } from './Extras.tsx';
+import { BidLadder, Paddle, PsstBubble, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
 import { Picture } from './Picture.tsx';
@@ -72,13 +72,14 @@ export function useSeenDrawings(view: GoingOnceView): ReadonlyMap<string, Drawin
 // ---- The close ----
 
 const CLOSE_WORDS = {
+  intro: 'Coming up…',
   open: 'Bidding open',
   quiet: 'Any more bids?',
   once: 'Going once…',
   twice: 'Going twice…',
 } as const;
 
-function CloseBar({ view, room }: { view: GoingOnceView; room: GameRoomInfo }) {
+export function CloseBar({ view, room }: { view: GoingOnceView; room: GameRoomInfo }) {
   const a = view.game!.auction!;
   const sold = view.game!.stage === 'sold';
   const now = useServerNow(room.clockOffset, !sold);
@@ -139,7 +140,7 @@ function Money({ view, art }: { view: GoingOnceView; art: Art }) {
   );
 }
 
-function BidPanel({
+export function BidPanel({
   view,
   room,
   act,
@@ -155,7 +156,7 @@ function BidPanel({
   const g = view.game!;
   const a = g.auction!;
   const mine = view.mine;
-  const live = g.stage === 'auction';
+  const live = g.stage === 'auction' && a.close !== 'intro';
   const leading = a.bid?.by === room.you;
   const affordable = mine ? a.steps.filter((s) => s <= mine.cash) : [];
   const screwBlocked = !g.screwsOn || !mine?.screw || !!a.screw || !!a.screwed || !live;
@@ -546,6 +547,54 @@ function SideTabs({ children }: { children: (tab: Tab) => ReactNode }) {
   );
 }
 
+/**
+ * A lot's first moments: its number on the wooden disc and this player's tip arriving as a
+ * "psst" bubble, before the picture goes up (in the picture's own space, so nothing jumps).
+ */
+function LotIntro({ view, art, name }: { view: GoingOnceView; art: Art; name: NameOf }) {
+  const g = view.game!;
+  const a = g.auction!;
+  const latest = view.mine?.messages.at(-1);
+  const disc = art.ui('lot');
+  return (
+    <div
+      className="relative mx-auto flex aspect-[4/5] w-full max-w-[min(100%,32vh)] flex-col items-center justify-center gap-4 rounded-lg bg-card p-4 shadow-md ring-1 ring-line lg:max-w-none dark:bg-stone-800 dark:ring-stone-700"
+      data-testid="go-lot-intro"
+    >
+      <span className="relative flex size-28 items-end justify-center pb-7 motion-safe:animate-[go-rise_0.3s_ease-out]">
+        {disc ? (
+          <ProtectedImage src={disc} alt="" className="absolute inset-0 size-full" />
+        ) : (
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-accent-soft ring-4 ring-accent-line dark:bg-amber-900/60 dark:ring-amber-700/50"
+          />
+        )}
+        <span
+          className={cn(
+            'relative text-center leading-none',
+            disc ? 'text-stone-800' : 'text-ink dark:text-amber-100',
+          )}
+        >
+          {/* The disc art says LOT itself. */}
+          {!disc && <span className="block text-xs font-bold tracking-widest">LOT</span>}
+          <span className="text-3xl font-black tabular-nums">{a.lot + 1}</span>
+        </span>
+      </span>
+      <span className="sr-only">
+        Lot {a.lot + 1} of {g.lotCount} is coming up.
+      </span>
+      {latest && latest.lot === a.lot ? (
+        <div className="w-full">
+          <PsstBubble message={latest} art={art} name={name} big />
+        </div>
+      ) : (
+        <p className="text-sm text-ink-muted dark:text-stone-400">The picture is coming up…</p>
+      )}
+    </div>
+  );
+}
+
 // ---- The screen ----
 
 /** Small buttons over the lot: a solid chip, readable on the gallery wall in light and dark. */
@@ -639,15 +688,19 @@ export function Auction({
             )}
           </div>
         </div>
-        <Picture
-          drawing={pic.drawing}
-          house={pic.house}
-          hidden={pic.hidden}
-          hiddenByMe={localHidden.has(pic.item)}
-          art={art}
-          label={`Lot ${a.lot + 1}`}
-          className="relative mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
-        />
+        {a.close === 'intro' ? (
+          <LotIntro view={view} art={art} name={name} />
+        ) : (
+          <Picture
+            drawing={pic.drawing}
+            house={pic.house}
+            hidden={pic.hidden}
+            hiddenByMe={localHidden.has(pic.item)}
+            art={art}
+            label={`Lot ${a.lot + 1}`}
+            className="relative mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
+          />
+        )}
         {art.ui('easel') && (
           <ProtectedImage
             src={art.ui('easel')!}
@@ -662,11 +715,10 @@ export function Auction({
           <BidPanel view={view} room={room} act={act} art={art} name={name} />
         </Panel>
         <ScrewPicker view={view} room={room} act={act} name={name} />
-        {latest && latest.lot === a.lot && (
-          <p className="flex gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line lg:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-            <SenderIcon from={latest.from} art={art} size="sm" />
-            <span>{latest.text}</span>
-          </p>
+        {latest && latest.lot === a.lot && a.close !== 'intro' && (
+          <div className="lg:hidden">
+            <PsstBubble message={latest} art={art} name={name} />
+          </div>
         )}
         <SideTabs>{side}</SideTabs>
       </section>

@@ -36,6 +36,8 @@ export interface Art {
   ui: (key: string) => string | null;
   /** The paddle silhouette for a shape index (wrapping round the manifest's list), or null. */
   paddle: (shape: number) => string | null;
+  /** What a voice clip says (its key and number in the manifest's `audio.voice`); '' for none. */
+  voiceWords: (key: string, i: number) => string;
 }
 
 export function artFor(manifest: ManifestState): Art {
@@ -48,6 +50,12 @@ export function artFor(manifest: ManifestState): Art {
     ui: (key) => path(ui[key]),
     paddle: (shape) => (paddles.length ? path(paddles[shape % paddles.length]) : null),
     names: namesOf(m),
+    voiceWords: (key, i) => {
+      const list = m?.audio?.voice?.[key];
+      const path = list?.length ? list[i % list.length] : undefined;
+      const words = path ? m?.audio?.text?.[path] : undefined;
+      return typeof words === 'string' ? words.trim() : '';
+    },
     house: (key) => {
       const p = house[key];
       return typeof p === 'string' && p.trim() ? assetUrl(p.trim()) : null;

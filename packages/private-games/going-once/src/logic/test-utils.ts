@@ -32,7 +32,7 @@ export const GROUPS = [
 
 export function packContent(
   groups: unknown = GROUPS,
-  lines: Partial<Record<HintKind, string[]>> = {},
+  lines: Partial<Record<HintKind | 'buyer1' | 'buyer2' | 'buyer3' | 'practice', string[]>> = {},
   host: Record<string, string[]> | null = null,
 ): ContentProvider {
   return {
@@ -103,21 +103,31 @@ export function harness(n = 3, seed = 7, content: ContentProvider = packContent(
   return h;
 }
 
-/** A started game in its drawing stage, at the Normal pace (whatever the table size). */
-export function started(n = 3, seed = 7, content?: ContentProvider) {
+/**
+ * A started game in its drawing stage, at the Normal pace (whatever the table size), without the
+ * practice lot unless `practice` is set.
+ */
+export function started(n = 3, seed = 7, content?: ContentProvider, practice = false) {
   const h = harness(n, seed, content);
-  h.act(HOST, { type: 'update-settings', pace: 'normal' });
+  h.act(HOST, { type: 'update-settings', pace: 'normal', practice });
   h.act(HOST, { type: 'start' });
   return h;
 }
 
-/** Everyone sends both drawings: the auction's first lot opens. */
+/** Everyone sends both drawings: the auction's first lot opens (past its intro). */
 export function drawAll(h: Harness, skip: string[] = []) {
   const g = h.state.game!;
   for (const id of g.order) {
     if (skip.includes(id)) continue;
     for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
   }
+  pastIntro(h);
+}
+
+/** Runs the lot's intro, so its picture is up and bidding is open. */
+export function pastIntro(h: Harness) {
+  const g = h.state.game;
+  if (g?.stage === 'auction' && g.auction?.close === 'intro') h.tick();
 }
 
 /** A game at its first lot. */
@@ -152,7 +162,7 @@ export function nextLot(h: Harness) {
   for (let i = 0; i < 40; i++) {
     const g = h.state.game!;
     if (h.state.phase === 'over') return;
-    if (g.stage === 'auction' && g.auction!.lot !== from) return;
+    if (g.stage === 'auction' && g.auction!.lot !== from && g.auction!.close !== 'intro') return;
     h.tick();
   }
   throw new Error('stuck');

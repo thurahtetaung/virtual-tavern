@@ -11,8 +11,17 @@ import {
 } from '@vt/game-sdk';
 import { hintLines, hostLinesOf, titleGroups } from './content.ts';
 import { type HostPart, bidMoment, say } from './host.ts';
+import {
+  CHANT_GAP_MS,
+  CLIP_GAP_MS,
+  type VoicePart,
+  chantKey,
+  leadIn,
+  speak,
+  voiced,
+} from './voice.ts';
 import { artOf, sendHints } from './hints.ts';
-import { money } from './lines.ts';
+import { PRACTICE_TIP, dealContacts, fillLine, money } from './lines.ts';
 import { deal as dealItems, halfAt, wishLists } from './setup.ts';
 import {
   BANK_FIRST_MS,
@@ -22,13 +31,16 @@ import {
   BID_GAP_MS,
   BID_STEP,
   COMMISSION,
+  DEFAULT_SETTINGS,
   DRAW_GRACE_MS,
   type Game,
+  HOUSE_BIDDER,
   type GoingOnceAction,
   type GoingOnceState,
   type Item,
   LOAN_CASH,
   LOAN_DEBT,
+  LOT_INTRO_MS,
   type LogEntry,
   MAX_BANK_CALLS,
   MAX_LOANS,
@@ -38,12 +50,17 @@ import {
   MIN_PLAYERS,
   OPENING_BID,
   PADDLE_SHAPES,
+  PRACTICE_CASH,
+  PRACTICE_MS,
+  PRACTICE_VALUE,
+  type Practice,
   RECENT_BIDS,
   type PlayerState,
   type Rig,
   SCREW_PICK_MS,
   STARTING_CASH,
   type Seat,
+  type Stage,
   TIMINGS,
   type Timing,
   type TitleGroupRef,
@@ -100,11 +117,12 @@ export const FAST_CALLS_ABOVE = 1000;
 /** How long a close stage lasts now: the pace's, with faster calls above $1,000 at Normal pace. */
 export function closeMs(
   state: Pick<GoingOnceState, 'settings' | 'rig'>,
-  close: 'open' | 'quiet' | 'once' | 'twice',
+  close: 'intro' | 'open' | 'quiet' | 'once' | 'twice',
   bid: { amount: number } | null,
 ): number {
   const t = TIMINGS[state.settings.pace];
   const k = closeScale(state);
+  if (close === 'intro') return LOT_INTRO_MS * k;
   const fast =
     state.settings.pace === 'normal' &&
     (close === 'once' || close === 'twice') &&
@@ -178,10 +196,39 @@ function log(s: GoingOnceState, entry: NewLog) {
 
 // ---- The flow ----
 
+/** Moves the game to a stage, noting when it began (the sound plays its beats from then). */
+function enter(g: Game, stage: Stage, now: number) {
+  g.stage = stage;
+  g.since = now;
+}
+
 type Parts = HostPart[];
 
+/** What the host says at a moment: lines from the text pack, and the voice's clips. */
+interface Say {
+  text: Parts;
+  voice: VoicePart[];
+}
+const nothing = (): Say => ({ text: [], voice: [] });
+
+/**
+ * The host speaks: the voice's clips in a voiced game, else the text pack's lines. Returns how
+ * long the voice takes (0 in a text game).
+ */
+function host(s: GoingOnceState, rng: Rng, now: number, line: Say, clear = false): number {
+  if (voiced(s)) return speak(s, rng, now, line.voice, clear);
+  say(s, rng, now, line.text, clear);
+  return 0;
+}
+
+/** A bid's voice: the reaction for that amount, then a chant for it. */
+const bidVoice = (amount: number, rng: Rng): VoicePart[] => [
+  bidMoment(amount),
+  chantKey(amount, rng),
+];
+
 /** The host's call-out before a lot, if anyone is due one: a quiet bidder, or the only one without art. */
-function callOut(s: GoingOnceState, lot: number): Parts {
+function callOut(s: GoingOnceState, lot: number): Say {
   const g = s.game!;
   const here = present(g);
   const quiet = here.find(
@@ -193,7 +240,10 @@ function callOut(s: GoingOnceState, lot: number): Parts {
   );
   if (quiet) {
     g.calledOut.quiet[quiet] = lot;
-    return [{ moment: 'quiet', player: g.names[quiet]! }];
+    return {
+      text: [{ moment: 'quiet', player: g.names[quiet]! }],
+      voice: [leadIn(quiet), 'quiet'],
+    };
   }
   const owners = new Set(
     Object.values(g.items).flatMap((i) => (i.sale?.buyer ? [i.sale.buyer] : [])),
@@ -201,21 +251,26 @@ function callOut(s: GoingOnceState, lot: number): Parts {
   const without = here.filter((id) => !owners.has(id));
   if (without.length === 1 && here.length > 1 && !g.calledOut.empty.includes(without[0]!)) {
     g.calledOut.empty.push(without[0]!);
-    return [{ moment: 'no-art', player: g.names[without[0]!]! }];
+    return {
+      text: [{ moment: 'no-art', player: g.names[without[0]!]! }],
+      voice: [leadIn(without[0]!), 'no-art-yet'],
+    };
   }
-  return [];
+  return nothing();
 }
 
-function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead: Parts = []) {
+function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead: Say = nothing()) {
   const g = s.game!;
-  g.stage = 'auction';
+  enter(g, 'auction', now);
   g.until = 0;
+  // The lot number and the hints come first; the picture goes up and bidding opens after.
   g.auction = {
     lot: index,
     seq: 0,
     bid: null,
-    close: 'open',
-    closeAt: now + timing(s).open,
+    close: 'intro',
+    closeAt: now + closeMs(s, 'intro', null),
+    since: now,
     screw: null,
     screwed: null,
     bankCalled: [],
@@ -223,18 +278,37 @@ function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead:
     recent: [],
   };
   sendHints(s, rng);
-  say(
+  const out = callOut(s, index);
+  // Text games show the opening line now; the voice says it as the picture goes up, after what
+  // is said here (the drawing's end, a call-out), and the intro waits for that.
+  const ms = host(
     s,
     rng,
-    [...lead, ...callOut(s, index), index === 0 ? ['opening-first', 'opening'] : 'opening'],
+    now,
+    {
+      text: [...lead.text, ...out.text, index === 0 ? ['opening-first', 'opening'] : 'opening'],
+      voice: [...lead.voice, ...out.voice],
+    },
     true,
   );
+  if (ms) g.auction.closeAt = Math.max(g.auction.closeAt, now + ms + CLIP_GAP_MS);
 }
 
-function endGame(s: GoingOnceState) {
+/** The voice's opening as the picture goes up: the opening line and a chant, then a pause. */
+function openingVoice(s: GoingOnceState, now: number, rng: Rng): number {
+  const a = s.game!.auction!;
+  const ms = speak(s, rng, now, [
+    ...(a.lot === 0 ? ['opening-first'] : []),
+    'opening',
+    chantKey(400, rng),
+  ]);
+  return ms + CHANT_GAP_MS;
+}
+
+function endGame(s: GoingOnceState, now: number) {
   const g = s.game!;
   s.phase = 'over';
-  g.stage = 'done';
+  enter(g, 'done', now);
   g.until = 0;
   const scores = g.order.map((id) => {
     const p = g.players[id]!;
@@ -244,9 +318,9 @@ function endGame(s: GoingOnceState) {
   g.winners = g.order.filter((_, i) => scores[i] === best);
 }
 
-function endGameWithHost(s: GoingOnceState, rng: Rng) {
-  endGame(s);
-  say(s, rng, ['end-intro'], true);
+function endGameWithHost(s: GoingOnceState, now: number, rng: Rng) {
+  endGame(s, now);
+  host(s, rng, now, { text: ['end-intro'], voice: ['end-intro'] }, true);
 }
 
 /** The drawing is over: unsent drawings become house pictures, wish lists go out, lot 1 opens. */
@@ -257,21 +331,34 @@ function endDraw(s: GoingOnceState, now: number, rng: Rng) {
     // Nobody drew anything: one more round with new titles, then the game is off.
     if (g.redraws === 0 && g.spares) {
       redeal(s, g.spares, now, rng);
-      say(s, rng, ['redraw', 'draw-start'], true);
+      host(
+        s,
+        rng,
+        now,
+        {
+          text: ['redraw', 'draw-start'],
+          voice: ['time-up', 'no-art', 'no-art-worry', 'new-titles'],
+        },
+        true,
+      );
       return;
     }
     s.phase = 'over';
-    g.stage = 'done';
+    enter(g, 'done', now);
     g.until = 0;
     g.ended = 'no-drawings';
     g.winners = [];
-    say(s, rng, ['no-drawings'], true);
+    host(s, rng, now, { text: ['no-drawings'], voice: ['no-art-end'] }, true);
     return;
   }
   const missing = Object.values(g.items).some((i) => i.drawer && !i.drawing);
   const wish = wishLists(g.order, g.items, rng, s.rig?.fixed);
   for (const id of g.order) g.players[id]!.wish = wish[id] ?? [];
-  startLot(s, 0, now, rng, [missing ? 'draw-missing' : 'draw-all-in']);
+  const lead: Say = missing
+    ? { text: ['draw-missing'], voice: ['time-up', 'art-missing', 'house-fill', 'segue'] }
+    : { text: ['draw-all-in'], voice: ['all-art-in'] };
+  if (practiceDue(s)) startPractice(s, now, rng, lead);
+  else startLot(s, 0, now, rng, lead);
 }
 
 /** Deals the drawing again from the spare title groups (nothing else has happened yet). */
@@ -285,6 +372,7 @@ function redeal(s: GoingOnceState, groups: [TitleGroupRef, TitleGroupRef], now: 
   g.spares = null;
   g.nudges = 0;
   g.drawStart = now;
+  g.since = now;
   g.until = drawTimes(s, now).end + DRAW_GRACE_MS;
   s.usedGroups = [...s.usedGroups, ...groups.map((x) => x.key)].slice(-MAX_USED_GROUPS);
 }
@@ -308,6 +396,8 @@ function hammer(s: GoingOnceState, now: number, rng: Rng) {
     };
   } else item.sale = { buyer: null, price: 0, commission: 0, screwedBy: null };
   const sale = item.sale;
+  const voice = soldVoice(s, a.lot, item.id);
+  let ms: number;
   if (sale.buyer) {
     g.unsoldRun = 0;
     const profit = item.value - sale.price;
@@ -323,23 +413,66 @@ function hammer(s: GoingOnceState, now: number, rng: Rng) {
             : Math.abs(profit) <= 200
               ? 'even'
               : null;
-    say(
-      s,
-      rng,
-      [
-        [{ moment: 'congrats', player: g.names[sale.buyer]! }, 'sold'],
-        ...(remark ? [remark] : []),
-        ...(sale.commission ? [sale.price >= 1000 ? 'commission-high' : 'commission-low'] : []),
-      ],
-      true,
-    );
+    const text: Parts = [
+      [{ moment: 'congrats', player: g.names[sale.buyer]! }, 'sold'],
+      ...(remark ? [remark] : []),
+      ...(sale.commission ? [sale.price >= 1000 ? 'commission-high' : 'commission-low'] : []),
+    ];
+    ms = host(s, rng, now, { text, voice }, true);
   } else {
     g.unsoldRun += 1;
-    say(s, rng, ['unsold'], true);
+    ms = host(s, rng, now, { text: ['unsold'], voice }, true);
   }
   g.bankCallers = [...a.bankCalled];
-  g.stage = 'sold';
-  g.until = now + timing(s).sold;
+  enter(g, 'sold', now);
+  // A voiced Sold lasts as long as the auctioneer's wrap-up.
+  g.until = now + Math.max(timing(s).sold, ms ? ms + 500 : 0);
+}
+
+/**
+ * The voice's wrap-up of a lot, as the original says it: Sold and the winner's congratulations
+ * (or a "Sorry" when screwed into their own drawing), the artist (or the own-art remarks), the
+ * commission, the profit or loss, the money set aside, then "Moving on". Unsold: a quip.
+ */
+function soldVoice(s: GoingOnceState, lot: number, itemId: string): VoicePart[] {
+  const g = s.game!;
+  const item = g.items[itemId]!;
+  const sale = item.sale!;
+  const more: VoicePart[] = lot + 1 < g.lots.length ? ['moving-on'] : [];
+  if (!sale.buyer) return ['unsold', ...more];
+  const buyer = sale.buyer;
+  const first = lot === 0;
+  const own = item.artist === buyer;
+  const parts: VoicePart[] = ['sold'];
+  if (own && sale.screwedBy) parts.push({ key: 'sorry', player: buyer }, 'screwed-own');
+  else {
+    parts.push(
+      first
+        ? [
+            { key: 'congrats-first', player: buyer },
+            { key: 'congrats', player: buyer },
+          ]
+        : { key: 'congrats', player: buyer },
+    );
+    if (own) parts.push({ key: 'own-art', player: buyer }, 'own-art-tease');
+  }
+  if (own) {
+    if (!g.ownArtTold) parts.push('own-art-explain');
+    g.ownArtTold = true;
+    parts.push('own-art-resell');
+  } else if (item.artist) {
+    if (first) parts.push('reveal-artist');
+    parts.push({ key: 'artist-call', player: item.artist });
+    if (first) parts.push('commission-explain');
+    parts.push(sale.price >= 1000 ? 'commission-high' : 'commission-low', 'segue-resell');
+    parts.push({ key: 'resell', player: buyer });
+  } else parts.push({ key: 'resell', player: buyer });
+  const profit = item.value - sale.price;
+  if (profit >= 800) parts.push('windfall');
+  else if (profit <= -800) parts.push('ouch');
+  else if (Math.abs(profit) <= 200) parts.push('even');
+  parts.push({ key: 'buyer-keeps', player: buyer }, 'tally', ...more);
+  return parts;
 }
 
 /** Whether the bank visits before the next lot. */
@@ -352,12 +485,30 @@ function bankDue(g: Game, next: number): boolean {
 function openBank(s: GoingOnceState, now: number, rng: Rng) {
   const g = s.game!;
   const first = !g.bankOpened;
-  g.stage = 'bank';
+  enter(g, 'bank', now);
   g.bankOpened = true;
   g.bankDone = [];
   g.bankTook = [];
   g.until = now + scaled(s, first ? BANK_FIRST_MS : BANK_LATER_MS);
-  say(s, rng, [first ? 'bank-first' : 'bank-called'], true);
+  host(
+    s,
+    rng,
+    now,
+    first
+      ? {
+          text: ['bank-first'],
+          voice: [
+            'bank-first',
+            'bank-pitch',
+            'bank-press',
+            'bank-owe',
+            'bank-aside',
+            'bank-remember',
+          ],
+        }
+      : { text: ['bank-called'], voice: ['bank-called'] },
+    true,
+  );
 }
 
 function closeBank(g: Game) {
@@ -376,9 +527,18 @@ function advance(s: GoingOnceState, from: 'sold' | 'halftime' | 'bank', now: num
   const done = g.auction!.lot;
   const next = done + 1;
   if (from === 'sold' && next === halfAt(g.lots.length) && next < g.lots.length) {
-    g.stage = 'halftime';
-    g.until = now + timing(s).halftime;
-    say(s, rng, ['halftime'], true);
+    enter(g, 'halftime', now);
+    const ms = host(
+      s,
+      rng,
+      now,
+      {
+        text: ['halftime'],
+        voice: ['halfway', 'halfway-turn', 'screw-explain', 'screw-whenever'],
+      },
+      true,
+    );
+    g.until = now + Math.max(timing(s).halftime, ms ? ms + 500 : 0);
     return;
   }
   if (from === 'bank') closeBank(g);
@@ -388,7 +548,7 @@ function advance(s: GoingOnceState, from: 'sold' | 'halftime' | 'bank', now: num
       closeBank(g);
     } else return;
   }
-  if (next >= g.lots.length) endGameWithHost(s, rng);
+  if (next >= g.lots.length) endGameWithHost(s, now, rng);
   else startLot(s, next, now, rng);
 }
 
@@ -423,6 +583,7 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   if (!p) return err('not-playing', 'You are not in this game.');
   if (g.stage === 'sold') return err('too-late', 'Sold just before your bid.');
   if (g.stage !== 'auction' || !a) return err('no-auction', 'Nothing is up for auction right now.');
+  if (a.close === 'intro') return err('not-yet', 'Wait for the picture to go up.');
   if (a.screw)
     return err('screwing', `${g.names[a.screw.by]} is choosing who to screw: hold your horses.`);
   if (seq !== a.seq)
@@ -443,26 +604,31 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   a.recent = [...(a.recent ?? []), { by, amount, forced: false }].slice(-RECENT_BIDS);
   if (!a.bidders.includes(by)) a.bidders.push(by);
   a.close = 'quiet';
-  a.closeAt = now + timing(s).quiet;
+  a.since = now;
   p.bids += 1;
   p.lastBidAt = now;
   g.lastBidLot[by] = a.lot;
-  say(s, rng, [bidMoment(amount)]);
+  // Voiced, the quiet stretch is the reaction and a chant for the amount, then the pause.
+  const ms = host(s, rng, now, { text: [bidMoment(amount)], voice: bidVoice(amount, rng) });
+  a.closeAt = now + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
   return null;
 }
 
-function screw(s: GoingOnceState, by: PlayerId, now: number) {
+function screw(s: GoingOnceState, by: PlayerId, now: number, rng: Rng) {
   const g = s.game!;
   const a = g.auction;
   const p = g.players[by];
   if (!p) return err('not-playing', 'You are not in this game.');
   if (g.stage !== 'auction' || !a) return err('no-auction', 'Nothing is up for auction right now.');
   if (!screwsOn(g)) return err('locked', 'Screws unlock at half-time.');
+  if (a.close === 'intro') return err('not-yet', 'Wait for the picture to go up.');
   if (!p.screw) return err('no-screw', 'You’ve used your screw.');
   if (a.screw) return err('screwing', `${g.names[a.screw.by]} is already screwing someone.`);
   if (a.screwed) return err('screwed', 'No screwing until someone makes a free bid.');
   p.screw = false;
   a.screw = { by, until: now + screwMs(s), left: Math.max(0, a.closeAt - now) };
+  a.since = now;
+  if (voiced(s)) speak(s, rng, now, [{ key: 'screw-pick', player: by }]);
   return null;
 }
 
@@ -470,6 +636,7 @@ function resumeClock(s: GoingOnceState, now: number) {
   const a = s.game!.auction!;
   a.closeAt = now + a.screw!.left;
   a.screw = null;
+  a.since = now;
 }
 
 function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: number, rng: Rng) {
@@ -483,7 +650,7 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   if (g.players[target]!.cash < amount) {
     log(s, { kind: 'screw', by, target, outcome: 'failed', amount });
     resumeClock(s, now);
-    say(s, rng, ['screw-fail']);
+    host(s, rng, now, { text: ['screw-fail'], voice: ['screw-fail'] });
     return null;
   }
   a.screw = null;
@@ -493,9 +660,13 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   a.recent = [...(a.recent ?? []), { by: target, amount, forced: true }].slice(-RECENT_BIDS);
   if (!a.bidders.includes(target)) a.bidders.push(target);
   a.close = 'quiet';
-  a.closeAt = now + timing(s).quiet;
+  a.since = now;
   log(s, { kind: 'screw', by, target, outcome: 'forced', amount });
-  say(s, rng, [bidMoment(amount)]);
+  const ms = host(s, rng, now, {
+    text: [bidMoment(amount)],
+    voice: [{ key: 'screwed', player: target }, ...bidVoice(amount, rng)],
+  });
+  a.closeAt = now + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
   return null;
 }
 
@@ -546,6 +717,151 @@ function skip(s: GoingOnceState, now: number, rng: Rng) {
     return null;
   }
   return err('nothing-to-skip', 'Nothing to skip right now.');
+}
+
+// ---- The practice lot ----
+
+/**
+ * The practice lot runs in a room's first game (unless the host turned it off), before lot 1: a
+ * house picture from the spare title groups (no lot uses them once the drawings are in), play
+ * money, and a house bidder who bids once. Nothing in it counts.
+ */
+function practiceDue(s: GoingOnceState): boolean {
+  return (
+    (s.settings.practice ?? DEFAULT_SETTINGS.practice) && s.gamesPlayed === 1 && !!s.game?.spares
+  );
+}
+
+function startPractice(s: GoingOnceState, now: number, rng: Rng, lead: Say) {
+  const g = s.game!;
+  const spare = g.spares![0];
+  const tips = g.lines.practice?.length ? g.lines.practice : [PRACTICE_TIP];
+  enter(g, 'practice', now);
+  g.until = 0;
+  g.practice = {
+    step: 'hint',
+    since: now,
+    until: now + scaled(s, PRACTICE_MS.hint),
+    title: spare.titles[0]!,
+    house: spare.house[0]!,
+    hint: fillLine(tips[rng.int(tips.length)]!, { value: PRACTICE_VALUE }, rng),
+    seq: 0,
+    bid: null,
+    close: 'open',
+    closeAt: 0,
+    recent: [],
+    houseBid: false,
+    lastBidAt: {},
+  };
+  host(s, rng, now, lead, true);
+}
+
+function endPractice(s: GoingOnceState, now: number, rng: Rng) {
+  s.game!.practice = null;
+  startLot(s, 0, now, rng);
+}
+
+/** A practice bid moves the practice lot's own close, as a real bid moves a lot's. */
+function placePracticeBid(
+  s: GoingOnceState,
+  p: Practice,
+  by: PlayerId,
+  amount: number,
+  now: number,
+  rng: Rng,
+) {
+  p.bid = { by, amount };
+  p.seq += 1;
+  p.recent = [...p.recent, { by, amount, forced: false }].slice(-RECENT_BIDS);
+  p.close = 'quiet';
+  p.closeAt = now + timing(s).quiet;
+  p.since = now;
+  host(s, rng, now, { text: [bidMoment(amount)], voice: [bidMoment(amount)] });
+}
+
+function practiceBid(
+  s: GoingOnceState,
+  by: PlayerId,
+  amount: number,
+  seq: number,
+  now: number,
+  rng: Rng,
+) {
+  const g = s.game!;
+  const p = g.practice;
+  if (!g.players[by]) return err('not-playing', 'You are not in this game.');
+  if (g.stage !== 'practice' || !p) return err('no-practice', 'The practice lot is over.');
+  if (p.step !== 'bid')
+    return err(p.step === 'hint' ? 'not-yet' : 'too-late', 'The practice bidding isn’t open.');
+  if (seq !== p.seq) return err('too-late', 'Too late: the price changed.');
+  if (p.bid?.by === by) return err('leading', 'You already have the top bid.');
+  if (!bidSteps(p.bid).includes(amount))
+    return err('bad-bid', 'Bid one of the amounts on the buttons.');
+  if (amount > PRACTICE_CASH) return err('cash', 'That’s more play money than you have.');
+  if (now - (p.lastBidAt[by] ?? 0) < BID_GAP_MS) return err('too-fast', 'One bid at a time!');
+  p.lastBidAt[by] = now;
+  placePracticeBid(s, p, by, amount, now, rng);
+  return null;
+}
+
+function skipPractice(s: GoingOnceState, by: PlayerId, now: number, rng: Rng) {
+  const g = s.game!;
+  if (!g.players[by]) return err('not-playing', 'You are not in this game.');
+  if (g.stage !== 'practice') return err('no-practice', 'The practice lot is over.');
+  endPractice(s, now, rng);
+  return null;
+}
+
+/** The practice lot's timers: its steps in turn, and the bidding's close with the house bidder. */
+function practiceDeadline(s: GoingOnceState, now: number, rng: Rng) {
+  const g = s.game!;
+  const p = g.practice!;
+  const next = (step: Exclude<Practice['step'], 'hint' | 'bid'>) => {
+    p.step = step;
+    p.since = now;
+    p.until = now + scaled(s, PRACTICE_MS[step]);
+  };
+  switch (p.step) {
+    case 'hint':
+      p.step = 'bid';
+      p.since = now;
+      p.close = 'open';
+      p.closeAt = now + timing(s).open;
+      return;
+    case 'bid':
+      // The house bidder bids once: to open a lot nobody opened, or to raise a low first bid.
+      if ((p.close === 'open' || p.close === 'quiet') && !p.houseBid) {
+        const amount = p.bid ? p.bid.amount + BID_STEP : OPENING_BID;
+        if (amount <= PRACTICE_VALUE / 2 + OPENING_BID) {
+          p.houseBid = true;
+          placePracticeBid(s, p, HOUSE_BIDDER, amount, now, rng);
+          return;
+        }
+      }
+      p.since = now;
+      if (p.close === 'open' || p.close === 'quiet') {
+        p.close = 'once';
+        p.closeAt = now + closeMs(s, 'once', p.bid);
+        host(s, rng, now, { text: ['going-once'], voice: ['going-once'] });
+      } else if (p.close === 'once') {
+        p.close = 'twice';
+        p.closeAt = now + closeMs(s, 'twice', p.bid);
+        host(s, rng, now, { text: ['going-twice'], voice: ['going-twice'] });
+      } else {
+        next('sold');
+        host(s, rng, now, { text: ['sold'], voice: ['sold'] }, true);
+      }
+      return;
+    case 'sold':
+      next('own');
+      return;
+    case 'own':
+      next('screw');
+      return;
+    case 'screw':
+      endPractice(s, now, rng);
+      return;
+  }
 }
 
 // ---- Lobby ----
@@ -655,7 +971,7 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
     lots: dealt.lots,
     prompts: dealt.prompts,
     stage: 'draw',
-    until: drawTimes(s, ctx.now).end + DRAW_GRACE_MS,
+    until: 0,
     drawStart: ctx.now,
     auction: null,
     bankOpened: false,
@@ -682,10 +998,71 @@ function start(state: GoingOnceState, ctx: Ctx): Result {
     ),
     lastBidLot: {},
     calledOut: { quiet: {}, empty: [] },
+    since: ctx.now,
+    contacts: dealContacts(order, ctx.rng, fixed),
+    practice: null,
+    voiced: s.settings.voice === true && (s.settings.sound ?? DEFAULT_SETTINGS.sound) !== 'off',
   };
-  say(s, ctx.rng, ['draw-start']);
+  // Voiced, the room's first game opens with the auctioneer's welcome and tutorial.
+  if (s.game.voiced && s.gamesPlayed === 1) startIntro(s, ctx.now, ctx.rng);
+  else beginDraw(s, ctx.now, ctx.rng);
   s.seed = newSeed(ctx.rng);
   return s;
+}
+
+/** The spoken welcome and tutorial (voiced games, the room's first game). */
+function startIntro(s: GoingOnceState, now: number, rng: Rng) {
+  const g = s.game!;
+  const n = g.order.length;
+  enter(g, 'intro', now);
+  const ms = speak(s, rng, now, INTRO(n), true);
+  g.until = now + ms + 500;
+}
+
+/** What the auctioneer says to open a room's first game, for `n` players. */
+const INTRO = (n: number): VoicePart[] => [
+  'greeting',
+  'welcome',
+  'guest-error',
+  `guest-count-${n}`,
+  'guest-tease',
+  'tutorial-start',
+  `auction-count-${n}`,
+  'worth-a-lot',
+  'worth-less',
+  'starting-money',
+  'artist-cut',
+  'buyers-info',
+  'buyers-more',
+  'expect-messages',
+  'buy-advice',
+  'buy-advice-also',
+  'how-to-win',
+  'need-art',
+];
+
+/** The drawing starts: two titles each, one clock (the voice explains it, or skips the welcome). */
+function beginDraw(s: GoingOnceState, now: number, rng: Rng) {
+  const g = s.game!;
+  enter(g, 'draw', now);
+  g.drawStart = now;
+  g.nudges = 0;
+  g.until = drawTimes(s, now).end + DRAW_GRACE_MS;
+  const voice: VoicePart[] = g.introSkipped
+    ? ['skipped', 'titles-sent', 'draw-hurry']
+    : s.gamesPlayed > 1
+      ? ['later-game', 'draw-hurry']
+      : ['titles-sent', 'draw-instructions', 'draw-craft', 'draw-hurry', 'two-drawings'];
+  host(s, rng, now, { text: ['draw-start'], voice }, true);
+}
+
+/** The host skips the spoken introduction: everyone hears so, and the drawing starts. */
+function skipIntro(s: GoingOnceState, now: number, rng: Rng) {
+  const g = s.game!;
+  if (g.stage !== 'intro') return err('no-intro', 'The introduction is over.');
+  g.introSkipped = true;
+  beginDraw(s, now, rng);
+  return null;
 }
 
 function updateSettings(
@@ -702,6 +1079,8 @@ function updateSettings(
     s.settings.pace = action.pace;
     s.settings.paceChosen = true;
   }
+  for (const key of ['sound', 'music', 'effects', 'voice', 'practice'] as const)
+    if (action[key] !== undefined) Object.assign(s.settings, { [key]: action[key] });
   countGroups(s, ctx);
   return s;
 }
@@ -777,8 +1156,17 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
       return inPlay(state, (s) => draw(s, by, action.item, action.drawing, ctx.now, ctx.rng));
     case 'bid':
       return inPlay(state, (s) => bid(s, by, action.amount, action.seq, ctx.now, ctx.rng));
+    case 'practice-bid':
+      return inPlay(state, (s) => practiceBid(s, by, action.amount, action.seq, ctx.now, ctx.rng));
+    case 'skip-practice':
+      return inPlay(state, (s) => skipPractice(s, by, ctx.now, ctx.rng));
+    case 'skip-intro': {
+      const e = requireHost(ctx);
+      if (e) return e;
+      return inPlay(state, (s) => skipIntro(s, ctx.now, ctx.rng));
+    }
     case 'screw':
-      return inPlay(state, (s) => screw(s, by, ctx.now));
+      return inPlay(state, (s) => screw(s, by, ctx.now, ctx.rng));
     case 'screw-pick':
       return inPlay(state, (s) => screwPick(s, by, action.target, ctx.now, ctx.rng));
     case 'call-bank':
@@ -805,7 +1193,7 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
 export function create(ctx: CreateCtx, playersIn: readonly PlayerInfo[]): GoingOnceState {
   let state: GoingOnceState = {
     phase: 'lobby',
-    settings: { drawSeconds: 90, pace: 'normal' },
+    settings: { ...DEFAULT_SETTINGS },
     seats: {},
     game: null,
     log: [],
@@ -826,6 +1214,7 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
   const existing = s.seats[player.id];
   if (existing) {
     existing.name = player.name;
+    if (player.color) existing.color = player.color;
     const g = s.game;
     if (g?.names[player.id]) g.names[player.id] = player.name;
     if (g?.left.includes(player.id)) {
@@ -835,7 +1224,12 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
     return s;
   }
   const playing = s.phase !== 'playing' && players(s).length < MAX_PLAYERS;
-  const seat: Seat = { name: player.name, playing, ...(!playing && { waiting: true }) };
+  const seat: Seat = {
+    name: player.name,
+    playing,
+    ...(!playing && { waiting: true }),
+    ...(player.color && { color: player.color }),
+  };
   s.seats[player.id] = seat;
   defaultPace(s);
   return s;
@@ -865,7 +1259,7 @@ export function playerLeft(state: GoingOnceState, playerId: PlayerId, now: numbe
   else if (g.stage === 'auction' && g.auction?.screw?.by === playerId) {
     log(s, { kind: 'screw', by: playerId, target: null, outcome: 'wasted' });
     resumeClock(s, now);
-    say(s, rng, ['screw-lost']);
+    host(s, rng, now, { text: ['screw-lost'], voice: ['screw-lost'] });
   }
   s.seed = newSeed(rng);
   return s;
@@ -877,6 +1271,10 @@ export function nextDeadline(state: GoingOnceState): number | null {
   const g = state.game;
   if (state.phase !== 'playing' || !g) return null;
   if (g.stage === 'auction') return g.auction!.screw ? g.auction!.screw.until : g.auction!.closeAt;
+  if (g.stage === 'practice') {
+    const p = g.practice!;
+    return p.step === 'bid' ? p.closeAt : p.until;
+  }
   if (g.stage === 'done') return null;
   if (g.stage === 'draw') {
     // The host's nudges at half time and with ten seconds left come first.
@@ -894,9 +1292,20 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
   const g = s.game!;
   const rng = hiddenRng(state, now);
   switch (g.stage) {
+    case 'intro':
+      beginDraw(s, now, rng);
+      break;
     case 'draw':
       if (due < g.until) {
-        say(s, rng, [g.nudges === 0 ? 'draw-halfway' : 'draw-seconds'], true);
+        host(
+          s,
+          rng,
+          now,
+          g.nudges === 0
+            ? { text: ['draw-halfway'], voice: ['nudge', 'draw-halfway', 'second-drawing'] }
+            : { text: ['draw-seconds'], voice: ['seconds-left', 'submit-now'] },
+          true,
+        );
         g.nudges += 1;
       } else endDraw(s, now, rng);
       break;
@@ -906,37 +1315,56 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
         log(s, { kind: 'screw', by: a.screw.by, target: null, outcome: 'wasted' });
         resumeClock(s, now);
         if (a.closeAt <= now) a.closeAt = now + 1;
-        say(s, rng, ['screw-lost']);
+        host(s, rng, now, { text: ['screw-lost'], voice: ['screw-lost'] });
         break;
       }
-      if (a.close === 'open' || a.close === 'quiet') {
-        if (!a.bid)
-          say(s, rng, [
+      a.since = now;
+      // Voiced, each call lasts as long as it is said, plus the original's pause.
+      const call = (line: Say, close: 'once' | 'twice') => {
+        const ms = host(s, rng, now, line);
+        a.close = close;
+        a.closeAt = now + (ms ? ms + CHANT_GAP_MS : closeMs(s, close, a.bid));
+      };
+      const fast = (step: 'once' | 'twice') =>
+        voiced(s)
+          ? (a.bid?.amount ?? 0) > FAST_CALLS_ABOVE
+          : closeMs(s, step, a.bid) < TIMINGS[s.settings.pace][step] * closeScale(s);
+      if (a.close === 'intro') {
+        a.close = 'open';
+        a.closeAt = now + (voiced(s) ? openingVoice(s, now, rng) : timing(s).open);
+      } else if (a.close === 'open' || a.close === 'quiet') {
+        const once = fast('once') ? 'going-once-fast' : 'going-once';
+        if (!a.bid) {
+          const noBids =
             a.lot === 0
               ? ['no-bids-first', 'no-bids-1']
               : g.unsoldRun > 0
                 ? ['no-bids-2', 'no-bids-1']
-                : 'no-bids-1',
-          ]);
-        else
-          say(s, rng, [
-            closeMs(s, 'once', a.bid) < TIMINGS[s.settings.pace].once * closeScale(s)
-              ? ['going-once-fast', 'going-once']
-              : 'going-once',
-          ]);
-        a.close = 'once';
-        a.closeAt = now + closeMs(s, 'once', a.bid);
+                : ['no-bids-1'];
+          call({ text: [noBids], voice: [noBids, once] }, 'once');
+        } else
+          call(
+            {
+              text: [fast('once') ? ['going-once-fast', 'going-once'] : 'going-once'],
+              voice: [once],
+            },
+            'once',
+          );
       } else if (a.close === 'once') {
-        say(s, rng, [
-          closeMs(s, 'twice', a.bid) < TIMINGS[s.settings.pace].twice * closeScale(s)
-            ? ['going-twice-fast', 'going-twice']
-            : 'going-twice',
-        ]);
-        a.close = 'twice';
-        a.closeAt = now + closeMs(s, 'twice', a.bid);
+        const twice = fast('twice') ? 'going-twice-fast' : 'going-twice';
+        call(
+          {
+            text: [fast('twice') ? ['going-twice-fast', 'going-twice'] : 'going-twice'],
+            voice: [twice],
+          },
+          'twice',
+        );
       } else hammer(s, now, rng);
       break;
     }
+    case 'practice':
+      practiceDeadline(s, now, rng);
+      break;
     case 'sold':
     case 'halftime':
     case 'bank':

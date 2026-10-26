@@ -64,7 +64,8 @@ const base: GameGuide = {
       icon: '🔩',
     },
   ],
-  stepsDone: 'Your first lot comes with tips. Tap 📖 Rules any time to read the details.',
+  stepsDone:
+    'A room’s first game starts with a practice lot for play money; anyone can skip it. Tap 📖 Rules any time to read the details.',
   setup: [
     'Everyone sits down; 3 to 6 can play, others can watch.',
     'Everyone starts with $3,000 cash and one screw. The app deals the titles and keeps every value secret.',
@@ -104,10 +105,12 @@ const base: GameGuide = {
       title: 'The auction',
       level: 'basics',
       bullets: [
-        'Lots go up one at a time, the first family’s drawings first. Every phone shows the drawing, the top bid and who holds it.',
+        'Lots go up one at a time, the first family’s drawings first. Each opens with its number and your tip for 2 seconds; then the picture goes up and bidding opens.',
+        'Every phone shows the drawing, the top bid and who holds it, with the bids before it.',
         'Before any bid the buttons offer $400, $500 and $600; after a bid of $B, $B+100, $B+200 and $B+300.',
         'You can’t raise your own top bid, and you can’t bid more cash than you have.',
         'The clock: about 8 seconds to open, then 4 seconds of quiet after each bid, then “Going once” and “Going twice” (2 seconds each; at the Normal pace 1.5 once the price passes $1,000), then Sold. Any bid restarts the quiet.',
+        'With the auctioneer’s voice on, he sets the pace instead, as in the original: after each bid he says the amount and chants (about 10 to 15 seconds), pauses a second, then going once, going twice, Sold. A new bid cuts the chant and he starts again from the new amount.',
         'If two bids arrive together, the first one the server gets wins; the other player sees the new price and why their bid didn’t count.',
         'No bid at all: the drawing goes unsold and its value is lost to everyone.',
       ],
@@ -126,9 +129,19 @@ const base: GameGuide = {
       title: 'Hints',
       level: 'details',
       bullets: [
-        'Before each lot, everyone gets one message from an art buyer, {bank} or a passer-by.',
-        'Useful ones are always true: “this one is yours”, “Ana knows what this one is worth”, “the most valuable drawing hasn’t sold yet”, “I’ll pay $3,400 for a drawing by Ben”, who is leading, who is short of cash.',
-        'The rest is chatter. Only one player per lot is told who knows it.',
+        'Before each lot, as its number shows, everyone gets one message. Three art buyers send the tips, and each player hears from the same one, their contact, all game; {bank} and the odd passer-by write too.',
+        'Tips are always true and show in bold: “this one is yours”, “Ana knows what this one is worth”, “the most valuable drawing hasn’t sold yet”, “I’ll pay $3,400 for a drawing by Ben”, who is leading, who is short of cash.',
+        'The rest is gossip, shown greyed. Only one player per lot is told who knows it.',
+      ],
+    },
+    {
+      title: 'The practice lot',
+      level: 'details',
+      bullets: [
+        'In a room’s first game, after the drawing and before lot 1, one house picture goes up for play money ($3,000 each). Nothing in it counts.',
+        'It teaches four things in turn: tips are true (your contact tells you what it’s worth), values are true (its value shows at Sold), you can bid on your own drawing, and a screw fails on a player who can’t pay.',
+        'A house bidder bids once: to open it if nobody does, or to raise a low first bid.',
+        'Anyone can skip it for everyone; the host can turn it off in the lobby.',
       ],
     },
     {
@@ -169,7 +182,19 @@ const base: GameGuide = {
         'Auction pace: Relaxed, Normal (the default) or Fast (the default at 3 players). Relaxed gives 12 seconds after each bid, like the original; Fast suits players who know the game.',
         'The host can hide a drawing for everyone; it still sells, shown as hidden. Anyone can hide a drawing on their own screen.',
         'Between lots the host can tap Next to skip a wait.',
-        'The how-to shows in a room’s first game only; anyone can skip it.',
+        'The how-to and the practice lot come in a room’s first game only; anyone can skip them, and the host can turn the practice lot off.',
+      ],
+    },
+    {
+      title: 'Sound',
+      level: 'edge',
+      bullets: [
+        'The host picks where the sound plays: Off, the host’s device only, or every device (the default), all in time with each other.',
+        'Music for each part of the game; effects for every beat, including each player’s own yelp when they bid; and the auctioneer’s voice, off unless the host turns it on.',
+        'With the voice on, a room’s first game opens with his spoken welcome and a short tutorial, which the host can skip; later games go straight to the drawing. He also talks through the drawing, the wrap-up after each sale, half-time and the visits from {bank}, and his timing replaces the auction pace.',
+        'He calls players by their colour (“You’re screwed, yellow!”), so every player is one of his seven colours: red, orange, yellow, green, blue, purple or grey. The words on screen show the player’s dot and name with the colour.',
+        'A tip’s ring plays on its own player’s device even when only the host’s device plays the rest.',
+        'Sound starts after your first tap. Any device can mute itself with 🔊.',
       ],
     },
     {
@@ -235,7 +260,7 @@ export function makeGuide(names: Names = PLACEHOLDER_NAMES, footer?: GuideFooter
     if (!v?.settings) return undefined;
     const seated = v.game?.players.length ?? v.seats.filter((s) => s.playing).length;
     return {
-      summary: `${seated} players · ${v.settings.drawSeconds} s to draw · ${PACE_LABEL[v.settings.pace]} pace`,
+      summary: `${seated} players · ${v.settings.drawSeconds} s to draw · ${PACE_LABEL[v.settings.pace]} pace${v.settings.sound === 'off' ? ' · sound off' : ''}`,
     };
   };
   return { ...fill(base, names), ...(footer && { footer }), room };

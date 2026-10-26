@@ -11,9 +11,10 @@ import {
   ids,
   nextLot,
   packContent,
+  pastIntro,
   started,
 } from './test-utils.ts';
-import type { GoingOnceAction, GoingOnceState } from './types.ts';
+import { GAME_COLORS, type GoingOnceAction, type GoingOnceState } from './types.ts';
 
 const OTHER = encodeDrawing([{ c: 2, w: 2, points: [700, 900, 50, 50] }]);
 const ALL_TITLES = GROUPS.flatMap((g) => g.titles);
@@ -28,8 +29,13 @@ function perturb(state: GoingOnceState, viewer: PlayerId | null): GoingOnceState
   const g = s.game;
   if (!g) return s;
   const over = s.phase === 'over';
+  // During a lot's intro its picture isn't up yet: even its strokes are hidden.
   const current =
-    g.auction && (g.stage === 'auction' || g.stage === 'sold') ? g.lots[g.auction.lot] : null;
+    g.auction &&
+    (g.stage === 'auction' || g.stage === 'sold') &&
+    !(g.stage === 'auction' && g.auction.close === 'intro')
+      ? g.lots[g.auction.lot]
+      : null;
   for (const item of Object.values(g.items)) {
     const own = item.drawer !== null && item.drawer === viewer;
     if (!over && !item.sale && !own) {
@@ -55,6 +61,9 @@ function perturb(state: GoingOnceState, viewer: PlayerId | null): GoingOnceState
     p.pending = [];
     p.lastBidAt = 123;
   }
+  for (const id of g.order)
+    if (id !== viewer && g.contacts)
+      g.contacts[id] = g.contacts[id] === 'buyer1' ? 'buyer2' : 'buyer1';
   g.lines = { filler: ['nothing'] };
   g.hostLines = { opening: ['Secret line'] };
   g.spares = null;
@@ -71,6 +80,9 @@ function allowedTitles(state: GoingOnceState, viewer: PlayerId | null): Set<stri
   if (state.phase === 'over') return new Set(ALL_TITLES);
   const out = new Set<string>();
   for (const item of Object.values(g.items)) if (item.sale) out.add(item.title);
+  // The practice lot's title (from a spare group no lot uses) is shown from its Sold step on.
+  const p = g.practice;
+  if (p && p.step !== 'hint' && p.step !== 'bid') out.add(p.title);
   if (viewer && g.players[viewer]) {
     for (const id of g.prompts[viewer]!) out.add(g.items[id]!.title);
     if (g.stage !== 'draw') for (const w of g.players[viewer].wish) out.add(w.title);
@@ -105,6 +117,10 @@ describe('view', () => {
     drawAll(h, ['p1']);
     h.act('p1', { type: 'draw', item: g.prompts.p1![1]!, drawing: OTHER });
     for (let guard = 0; guard < 30 && h.state.phase === 'playing'; guard++) {
+      if (h.state.game!.auction!.close === 'intro') {
+        checkViews(h.state, `lot ${h.state.game!.auction!.lot} intro`);
+        pastIntro(h);
+      }
       checkViews(h.state, `lot ${h.state.game!.auction!.lot} open`);
       const a = h.state.game!.auction!;
       h.wait(400);
@@ -177,7 +193,7 @@ describe('fuzz', () => {
     let now = NOW;
     let state = goingOnce.create(
       { now, rng, content },
-      ids(n).map((id) => ({ id, name: id.toUpperCase() })),
+      ids(n).map((id, i) => ({ id, name: id.toUpperCase(), color: GAME_COLORS[i] })),
     );
     const run = (by: string, action: GoingOnceAction) => {
       const r = goingOnce.reduce(state, action, { by, isHost: by === HOST, now, rng, content });
@@ -186,12 +202,15 @@ describe('fuzz', () => {
     run(HOST, {
       type: 'update-settings',
       pace: (['relaxed', 'normal', 'fast'] as const)[seed % 3],
+      practice: seed % 2 === 0,
+      // Some games voiced: the intro, clips said to players by colour, the voice's timing.
+      voice: seed % 5 < 2,
     });
     run(HOST, { type: 'start' });
     let stage = '';
     for (let step = 0; step < 400 && state.phase === 'playing'; step++) {
       const g = state.game!;
-      const key = `${g.stage}:${g.auction?.lot}`;
+      const key = `${g.stage}:${g.auction?.lot}:${g.auction?.close === 'intro'}:${g.practice?.step}`;
       if (key !== stage) checkViews(state, `seed ${seed} step ${step}`);
       else if (step % 2 === 0)
         checkViews(state, `seed ${seed} step ${step}`, pickOne(rng, [...g.order, null]));
@@ -203,6 +222,16 @@ describe('fuzz', () => {
       if (g.stage === 'draw') {
         const todo = view.mine!.prompts.find((p) => !p.sent);
         if (todo && roll < 0.9) run(id, { type: 'draw', item: todo.item, drawing: OTHER });
+      } else if (g.stage === 'intro' && roll < 0.3) {
+        run(HOST, { type: 'skip-intro' });
+        continue;
+      } else if (g.stage === 'practice' && view.game!.practice) {
+        const p = view.game!.practice;
+        now += 350;
+        if (roll < 0.05) run(id, { type: 'skip-practice' });
+        else if (roll < 0.4 && p.step === 'bid')
+          run(id, { type: 'practice-bid', amount: pickOne(rng, p.steps)!, seq: p.seq });
+        if (roll < 0.4) continue;
       } else if (g.stage === 'bank' && roll < 0.6) {
         run(id, { type: 'loan', take: rng.next() < 0.4 });
       } else if (g.stage === 'auction' && a && (roll < 0.3 || view.mine!.targets.length)) {

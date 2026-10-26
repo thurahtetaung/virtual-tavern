@@ -45,8 +45,9 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
     return { type: 'loan', take: mine.canLoan && mine.cash < 1500 && mine.loans < 2 };
   }
 
+  // The practice lot is for the people at the table: bots leave it to them.
   const a = g.auction;
-  if (g.stage !== 'auction' || !a) return null;
+  if (g.stage !== 'auction' || !a || a.close === 'intro') return null;
   if (a.screw) {
     if (a.screw.by !== me) return null;
     const target = pickOne(rng, mine.targets);

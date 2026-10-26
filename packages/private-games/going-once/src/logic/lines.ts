@@ -1,5 +1,5 @@
-import type { Rng } from '@vt/game-sdk';
-import type { HintKind, Sender } from './types.ts';
+import type { PlayerId, Rng } from '@vt/game-sdk';
+import { BUYERS, type Buyer, type HintKind, type Sender } from './types.ts';
 
 /**
  * Our own plain wording for every hint kind, used when no lines pack is imported (and for any kind
@@ -38,8 +38,11 @@ export const FALLBACK_LINES: Record<HintKind, readonly string[]> = {
   ],
 };
 
-/** Who sends each kind (buyers take turns). */
-export function senderOf(kind: HintKind, rng: Rng): Sender {
+/**
+ * Who sends each kind: the bank its own, the dog and the wrong numbers theirs, and every other
+ * message the player's own art buyer (`contact`), so "your contact" keeps one voice all game.
+ */
+export function senderOf(kind: HintKind, contact: Buyer): Sender {
   if (
     kind === 'firstLoan' ||
     kind === 'thirdLoan' ||
@@ -49,8 +52,24 @@ export function senderOf(kind: HintKind, rng: Rng): Sender {
     return 'bank';
   if (kind === 'dog') return 'dog';
   if (kind === 'cameoA' || kind === 'cameoB') return 'caller';
-  return (['buyer1', 'buyer2', 'buyer3'] as const)[rng.int(3)]!;
+  return contact;
 }
+
+/**
+ * Deals the art buyers round the table: each player gets one, spread as evenly as the table
+ * allows (two players share a buyer only once everyone else has one too).
+ */
+export function dealContacts(order: readonly PlayerId[], rng: Rng, fixed = false) {
+  const buyers = fixed ? [...BUYERS] : rng.shuffle([...BUYERS]);
+  return Object.fromEntries(order.map((id, i) => [id, buyers[i % buyers.length]!])) as Record<
+    PlayerId,
+    Buyer
+  >;
+}
+
+/** The practice lot's tip when no lines pack words it. */
+export const PRACTICE_TIP =
+  'Psst! The picture coming up is worth {value}. My tips are always true: bid below that and you profit.';
 
 const RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz!?#&*%$';
 

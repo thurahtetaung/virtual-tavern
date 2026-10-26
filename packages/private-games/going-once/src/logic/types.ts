@@ -1,8 +1,22 @@
-import { type Drawing, type PlayerId, drawingSchema } from '@vt/game-sdk';
+import { type Drawing, type PlayerColor, type PlayerId, drawingSchema } from '@vt/game-sdk';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 6;
+
+/**
+ * The room's colours: the seven paddle colours the auctioneer says out loud ("You're screwed,
+ * yellow!"), so every player is one of them (`GameDefinition.colors`).
+ */
+export const GAME_COLORS = [
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+  'grey',
+] as const satisfies readonly PlayerColor[];
 
 /** Title groups a game draws from. */
 export const GROUPS_PER_GAME = 2;
@@ -26,6 +40,9 @@ export const BID_BUTTONS = 3;
 export const BID_GAP_MS = 300;
 /** The artist's share of the price. */
 export const COMMISSION = 0.5;
+
+/** Each lot opens with its number and the hints for this long, before the picture goes up. */
+export const LOT_INTRO_MS = 2000;
 
 export const SCREW_PICK_MS = 15_000;
 /** A screw still unaimed this long after the press gets a nudge on screen. */
@@ -130,16 +147,61 @@ export type HintKind = (typeof HINT_KINDS)[number];
 
 /** Who a message seems to come from. */
 export type Sender = 'buyer1' | 'buyer2' | 'buyer3' | 'bank' | 'dog' | 'caller';
+/** The three art buyers: each player hears from one of them all game ("your contact"). */
+export const BUYERS = ['buyer1', 'buyer2', 'buyer3'] as const;
+export type Buyer = (typeof BUYERS)[number];
+
+/** Who makes sound: nobody, only the host's device, or every device. */
+export const SOUND_MODES = ['off', 'host', 'all'] as const;
+export type SoundMode = (typeof SOUND_MODES)[number];
+
+/** The practice lot: a house picture for play money, before lot 1 of a room's first game. */
+export const PRACTICE_STEPS = ['hint', 'bid', 'sold', 'own', 'screw'] as const;
+export type PracticeStep = (typeof PRACTICE_STEPS)[number];
+/** How long each practice step lasts (the bidding runs on the auction's own close instead). */
+export const PRACTICE_MS: Record<Exclude<PracticeStep, 'bid'>, number> = {
+  hint: 6000,
+  sold: 7000,
+  own: 7000,
+  screw: 9000,
+};
+export const PRACTICE_VALUE = 2000;
+export const PRACTICE_CASH = 3000;
+/** The practice lot's scripted rival, who bids once: never a real player id (those are hashes). */
+export const HOUSE_BIDDER = '~house';
 
 export interface Settings {
   drawSeconds: DrawSeconds;
   pace: Pace;
   /** The host picked the pace; until then it follows the table (Fast at 3 players, else Normal). */
   paceChosen?: boolean;
+  /** Sound (rooms saved before it load with the defaults, `settingsOf`). */
+  sound?: SoundMode;
+  music?: boolean;
+  effects?: boolean;
+  /** The auctioneer's voice, off unless the host turns it on. */
+  voice?: boolean;
+  /** The practice lot in the room's first game. */
+  practice?: boolean;
 }
+
+export const DEFAULT_SETTINGS: Required<Omit<Settings, 'paceChosen'>> = {
+  drawSeconds: 90,
+  pace: 'normal',
+  sound: 'all',
+  music: true,
+  effects: true,
+  voice: false,
+  practice: true,
+};
+
+/** The settings with every default filled in. */
+export const settingsOf = (s: Settings) => ({ ...DEFAULT_SETTINGS, ...s });
 
 export interface Seat {
   name: string;
+  /** Their room colour (the auctioneer's voice names players by it). */
+  color?: PlayerColor;
   playing: boolean;
   /** Watching only for want of a seat: sat down at the next game if there's room. */
   waiting?: boolean;
@@ -208,7 +270,8 @@ export interface PlayerState {
   lastBidAt: number;
 }
 
-export type CloseStage = 'open' | 'quiet' | 'once' | 'twice';
+/** `intro`: the lot number and the hints, before the picture goes up and bidding opens. */
+export type CloseStage = 'intro' | 'open' | 'quiet' | 'once' | 'twice';
 
 export interface Auction {
   /** Index into `Game.lots`. */
@@ -219,6 +282,8 @@ export interface Auction {
   close: CloseStage;
   /** When the current close stage ends. */
   closeAt: number;
+  /** When the current close stage began (or a screw was pressed or resolved): for the sound. */
+  since?: number;
   /** A screw being aimed: the clock is paused with `left` ms of its stage to go. */
   screw: { by: PlayerId; until: number; left: number } | null;
   /** Set while a screw's forced bid leads: nobody may screw until a free bid. */
@@ -240,7 +305,31 @@ export interface RecentBid {
 /** Bids kept in `Auction.recent`. */
 export const RECENT_BIDS = 4;
 
-export type Stage = 'draw' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
+/** `intro`: the auctioneer's spoken welcome and tutorial (voiced games only, the host can skip). */
+export type Stage =
+  'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
+
+/** The practice lot in play (none of it counts). */
+export interface Practice {
+  step: PracticeStep;
+  /** When a timed step ends. */
+  until: number;
+  /** When this step (or the bidding's current close stage) began. */
+  since: number;
+  /** A title and house picture from the spare groups, which no lot uses. */
+  title: string;
+  house: string;
+  /** The coach's hint, the same for everyone (it is about the practice lot only). */
+  hint: string;
+  seq: number;
+  bid: { by: PlayerId; amount: number } | null;
+  close: CloseStage;
+  closeAt: number;
+  recent: RecentBid[];
+  /** The house bidder has made its one bid. */
+  houseBid: boolean;
+  lastBidAt: Record<PlayerId, number>;
+}
 
 export type LogEntry =
   | {
@@ -279,8 +368,11 @@ export interface Game {
   bankCallers: PlayerId[];
   /** Who took a loan at this visit. */
   bankTook: PlayerId[];
-  /** The hint lines for this game (from the private lines packs; kinds left out use our own). */
-  lines: Partial<Record<HintKind, string[]>>;
+  /**
+   * The hint lines for this game (from the private lines packs; kinds left out use our own), plus
+   * each buyer's own chatter and the practice tip (`LineKey` in `content.ts`).
+   */
+  lines: Partial<Record<HintKind | Buyer | 'practice', string[]>>;
   /** Players who left the room for good: they keep their seat, cash and art. */
   left: PlayerId[];
   winners: PlayerId[];
@@ -304,6 +396,18 @@ export interface Game {
   lastBidLot: Record<PlayerId, number>;
   /** Players the host has called out (quiet ones every 3 lots at most, the art-less once). */
   calledOut: { quiet: Record<PlayerId, number>; empty: PlayerId[] };
+  /** When the current stage began (games saved before it have none). */
+  since?: number;
+  /** Each player's art buyer, who sends them every tip (games saved before it pick at random). */
+  contacts?: Record<PlayerId, Buyer>;
+  /** The practice lot, while it runs. */
+  practice?: Practice | null;
+  /** The auctioneer's voice is on (the host's switch with sound on, at the start): it sets the pace. */
+  voiced?: boolean;
+  /** The voice has explained buying your own drawing once this game. */
+  ownArtTold?: boolean;
+  /** The host skipped the spoken introduction. */
+  introSkipped?: boolean;
 }
 
 /** A title group kept for a redraw. */
@@ -313,10 +417,27 @@ export interface TitleGroupRef {
   house: string[];
 }
 
+/** One voice clip the auctioneer says: a key and clip number into the manifest's `audio.voice`. */
+export interface HostClip {
+  key: string;
+  i: number;
+  ms: number;
+  /** The player a colour-named clip ("You're screwed, yellow!") is said to. */
+  player?: PlayerId;
+}
+
 export interface HostLine {
   id: number;
-  /** One to three short lines, in order. */
+  /** One to three short lines, in order (text games; voiced games say `clips`). */
   lines: string[];
+  /** Voiced games: the clips said from `at`, one after the other, `ms` in all. */
+  clips?: HostClip[];
+  ms?: number;
+  /** The moment each line was said for (the voice plays the matching clip), and when. */
+  moments?: string[];
+  /** Lines that name a player: the voice never says those. */
+  named?: boolean[];
+  at?: number;
 }
 
 /** Paddle shapes to deal from (the manifest's `ui.paddles` may hold fewer; the UI wraps). */
@@ -364,6 +485,11 @@ export const actionSchema = z.discriminatedUnion('type', [
     type: z.literal('update-settings'),
     drawSeconds: z.union([z.literal(60), z.literal(90), z.literal(120)]).optional(),
     pace: z.enum(PACES).optional(),
+    sound: z.enum(SOUND_MODES).optional(),
+    music: z.boolean().optional(),
+    effects: z.boolean().optional(),
+    voice: z.boolean().optional(),
+    practice: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('refresh') }),
@@ -374,6 +500,13 @@ export const actionSchema = z.discriminatedUnion('type', [
     amount: z.number().int().min(OPENING_BID).max(1_000_000),
     seq: z.number().int().min(0),
   }),
+  z.object({
+    type: z.literal('practice-bid'),
+    amount: z.number().int().min(OPENING_BID).max(PRACTICE_CASH),
+    seq: z.number().int().min(0),
+  }),
+  z.object({ type: z.literal('skip-practice') }),
+  z.object({ type: z.literal('skip-intro') }),
   z.object({ type: z.literal('screw') }),
   z.object({ type: z.literal('screw-pick'), target: id }),
   z.object({ type: z.literal('call-bank') }),
@@ -439,11 +572,13 @@ export interface LotResult extends LotPicture {
 
 export interface AuctionView {
   lot: number;
+  /** Empty (no strokes, no house picture) during the lot's intro. */
   picture: LotPicture;
   seq: number;
   bid: { by: PlayerId; amount: number } | null;
   close: CloseStage;
   closeAt: number;
+  since: number;
   /** The bids the buttons offer now. */
   steps: number[];
   screw: { by: PlayerId; until: number } | null;
@@ -473,6 +608,28 @@ export interface MineView {
   canCallBank: boolean;
   /** Why the Call the bank button is off ("Stop calling", "Bad credit"), when it shows. */
   bankRefusal: string | null;
+  /** The art buyer who sends this player's tips. */
+  contact: Buyer;
+}
+
+/** The practice lot as everyone sees it. */
+export interface PracticeView {
+  step: PracticeStep;
+  until: number;
+  since: number;
+  /** The house picture's key. */
+  house: string;
+  hint: string;
+  value: number;
+  cash: number;
+  /** Shown from the Sold step on. */
+  title: string | null;
+  seq: number;
+  bid: { by: PlayerId; amount: number } | null;
+  close: CloseStage;
+  closeAt: number;
+  steps: number[];
+  recent: RecentBid[];
 }
 
 export interface FinalView {
@@ -487,6 +644,9 @@ export interface FinalView {
 export interface GameView {
   stage: Stage;
   until: number;
+  /** When this stage began (for the sound). */
+  since: number;
+  practice: PracticeView | null;
   order: PlayerId[];
   players: PlayerView[];
   lotCount: number;
@@ -503,6 +663,10 @@ export interface GameView {
   host: HostLine | null;
   /** The game ended because nobody drew anything, twice. */
   ended: 'no-drawings' | null;
+  /** The auctioneer's voice sets the pace this game. */
+  voiced: boolean;
+  /** The host skipped the spoken introduction (intro stage). */
+  introSkipped: boolean;
   /** This drawing round is the redraw. */
   redraw: boolean;
   /** Each player's paddle shape. */
@@ -518,13 +682,15 @@ export interface GameView {
 
 export interface GoingOnceView {
   phase: GoingOnceState['phase'];
-  settings: Settings;
+  settings: ReturnType<typeof settingsOf> & Pick<Settings, 'paceChosen'>;
   seats: SeatView[];
   me: SeatView | null;
   game: GameView | null;
   mine: MineView | null;
   log: LogEntry[];
   groupsAvailable: number;
+  /** Games started in this room (the practice lot runs in the first). */
+  gamesPlayed: number;
   rigAllowed: boolean;
   rig: Rig | null;
 }

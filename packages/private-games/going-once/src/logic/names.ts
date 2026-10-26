@@ -4,9 +4,14 @@
  */
 export interface Names {
   bank: string;
+  /** The three art buyers who send the tips (`buyer1`…`buyer3`), by their portraits. */
+  buyers: [string, string, string];
 }
 
-export const PLACEHOLDER_NAMES: Names = { bank: 'the bank' };
+export const PLACEHOLDER_NAMES: Names = {
+  bank: 'the bank',
+  buyers: ['The collector', 'The old lady', 'The socialite'],
+};
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
