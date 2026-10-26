@@ -89,6 +89,11 @@ export interface TestBag {
   jokerTop?: Tile[];
   /** With special factories: the faces of the first factories every round (null: plain). */
   specials?: (Special | null)[];
+  /**
+   * With the grey wall or jokers on: more tiles on the first seat's wall, by row, each at its
+   * column (null: free), so a spec can reach a fall or a colour bonus in one round.
+   */
+  optionWall?: Partial<Record<'grey' | 'jokers', Record<number, (Colour | null)[]>>>;
 }
 let testBag: TestBag | null = null;
 export function setTestBag(rig: TestBag | null) {
@@ -616,6 +621,16 @@ function deal(state: MosaicState, ctx: Ctx): Result {
       bag.splice(at, 1);
       pl[starter]!.wall[Number(row)]![columnOf(Number(row), c)] = c;
     }
+  const extra = (['grey', 'jokers'] as const).flatMap((o) =>
+    s.settings[o] ? Object.entries(testBag?.optionWall?.[o] ?? {}) : [],
+  );
+  for (const [row, colours] of extra)
+    colours.forEach((c, col) => {
+      const at = c ? bag.indexOf(c) : -1;
+      if (at < 0) return;
+      bag.splice(at, 1);
+      pl[starter]!.wall[Number(row)]![col] = c;
+    });
   const top: Tile[] = [];
   for (const c of (jokers ? testBag?.jokerTop : undefined) ?? testBag?.top ?? []) {
     const at = bag.indexOf(c);

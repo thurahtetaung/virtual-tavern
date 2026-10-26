@@ -19,7 +19,7 @@ import {
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 import { BoardView, Tile } from './Pieces.tsx';
-import type { NameOf } from './text.ts';
+import { type NameOf, placeDetail, spillOf } from './text.ts';
 
 export const CONFIRM_KEY = 'mosaic.confirm';
 export const PLAY_ANCHOR = 'mo-play';
@@ -108,8 +108,7 @@ export function PickSheet({
   const targets: Target[] = [...Array.from({ length: SIZE }, (_, r) => r), 'floor'];
   const previews = targets.map((t) => previewOf(me, colour, count, t, marker, jokers, grey));
   const legal = previews.filter((p) => !p.problem);
-  const spill = (p: (typeof previews)[number]) => p.toFloor + p.toLid - (p.shielded ? 1 : 0);
-  const least = Math.min(...legal.map(spill));
+  const least = Math.min(...legal.map(spillOf));
   const rest = tiles.filter((t) => t !== colour && !(jokers && t === 'joker'));
   const groups = leftoverGroups(rest);
   const sides =
@@ -138,8 +137,8 @@ export function PickSheet({
   };
   const chosenPreview = chosen === null ? null : previews[targets.indexOf(chosen)]!;
   const warn =
-    chosenPreview && spill(chosenPreview) >= 3 && spill(chosenPreview) > least
-      ? `That spills ${spill(chosenPreview)} tiles; ${targetLine(legal.find((p) => spill(p) === least)!.target)} would spill ${least}.`
+    chosenPreview && spillOf(chosenPreview) >= 3 && spillOf(chosenPreview) > least
+      ? `That spills ${spillOf(chosenPreview)} tiles; ${targetLine(legal.find((p) => spillOf(p) === least)!.target)} would spill ${least}.`
       : null;
   const from = pick.source === 'centre' ? 'the centre' : `factory ${pick.source + 1}`;
 
@@ -213,12 +212,9 @@ export function PickSheet({
         <ul className="flex flex-col gap-1" aria-label="Where they can go">
           {previews.map((p, i) => {
             const t = targets[i]!;
-            const s = spill(p);
             const detail = p.problem
               ? p.problem
-              : t === 'floor'
-                ? `all ${count + jokers} on the floor${p.shielded ? ' (1 on your shield)' : ''}${p.toLid ? ` (${p.toLid} to the lid)` : ''}`
-                : `${p.toLine} here${p.fills ? ', fills it ✓' : ''}${s ? `, ${s} spill` : ''}${p.shielded ? ', 1 on your shield' : ''}${p.choice ? ' · you pick its wall space' : ''}${p.falls ? ' · no wall space left: it would fall to the floor' : ''}`;
+              : `${placeDetail(p, count + jokers, marker)}${p.choice ? ' · you pick its wall space' : ''}${p.falls ? ' · no wall space left: it would fall to the floor' : ''}`;
             return (
               <li key={String(t)}>
                 <button

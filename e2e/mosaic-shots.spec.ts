@@ -106,12 +106,11 @@ for (const [label, viewport, colorScheme] of [
     await take(ana, 'light blue', 4, 5);
     await take(hana, 'yellow', 5, 5);
     await take(ana, 'yellow', 'centre', 3);
-    await expect(hana.getByTestId('mo-wall-choice')).toBeVisible();
-    await hana.getByTestId('mo-wall-choice').locator('[data-cell="3:0"] button').click();
-    await shot(hana, '03-grey-wall-choice');
-    await hana.getByTestId('mo-wall-place').click();
-    await shot(hana, '04-grey-waiting');
+    // Hana's black line has no space (the rig): only Ana chooses, and Hana waits.
+    await expect(ana.getByTestId('mo-wall-choice')).toBeVisible();
     await ana.getByTestId('mo-wall-choice').locator('[data-cell="1:4"] button').click();
+    await shot(ana, '03-grey-wall-choice');
+    await shot(hana, '04-grey-waiting');
     await ana.getByTestId('mo-wall-place').click();
     await expect(hana.getByText(/You win/)).toBeVisible();
     await shot(hana, '05-grey-end', 4000);

@@ -25,7 +25,7 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
   // Two blues: the sheet says line 1 fills with one spilling, and what is left behind.
   await pick(hana, 'blue', 1);
   const line1 = sheet(hana).locator('button[data-target="0"]');
-  await expect(line1).toContainText('1 here, fills it ✓, 1 spill');
+  await expect(line1).toContainText('1 here, fills it ✓; 1 spill to the floor');
   await expect(line1).toContainText('+5 at round end');
   await expect(sheet(hana).getByTestId('mo-leaves')).toContainText('Leaves 2 yellow → centre.');
   await place(hana, 1);
@@ -63,7 +63,9 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
 
 // The wave 2 options, one game each on the same rig.
 
-test('the grey wall: full lines wait for their owner to pick a lit space', async ({ browser }) => {
+test('the grey wall: full lines wait for their owner to pick a lit space, and a line with none falls', async ({
+  browser,
+}) => {
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
@@ -72,28 +74,40 @@ test('the grey wall: full lines wait for their owner to pick a lit space', async
 
   await take(hana, 'blue', 1, 1);
   await take(ana, 'red', 2, 2);
-  await take(hana, 'black', 3, 4);
+  // The rig leaves row 4 no space for a black: its free spaces sit under blacks. The sheet says so.
+  await pick(hana, 'black', 3);
+  await expect(sheet(hana).locator('button[data-target="3"]')).toContainText(
+    'no wall space left: it would fall to the floor',
+  );
+  await place(hana, 4);
   await take(ana, 'light blue', 4, 5);
   await take(hana, 'yellow', 5, 5);
   await take(ana, 'yellow', 'centre', 3);
 
-  // Hana's blue has one space left in its row; her black line and Ana's red line have several.
-  for (const [p, row, col] of [
-    [hana, 3, 0],
-    [ana, 1, 4],
-  ] as const) {
-    const choice = p.getByTestId('mo-wall-choice');
-    await expect(choice).toContainText(`Line ${row + 1}`);
-    await choice.locator(`[data-cell="${row}:${col}"] button`).click();
-    await p.getByTestId('mo-wall-place').click();
-  }
-  await expect(hana.getByText('You win with 7 points!')).toBeVisible();
+  // Hana's blue has one space left in its row; Ana's red line has several.
+  const choice = ana.getByTestId('mo-wall-choice');
+  await expect(choice).toContainText('Line 2');
+  await choice.locator('[data-cell="1:4"] button').click();
+  await ana.getByTestId('mo-wall-place').click();
+
+  // Hana's blacks fall: the tiling says why, and her floor costs the spilled blue and four blacks.
+  await expect(hana.getByTestId('mo-tiling-note').first()).toContainText(
+    'Line 4 had no legal wall space: its tiles fell to the floor.',
+    { timeout: 10_000 },
+  );
+  await expect(
+    hana
+      .locator('[data-tiling]')
+      .getByRole('img', { name: /^Floor: \d of 7, -8 points$/ })
+      .first(),
+  ).toBeVisible();
+  await expect(hana.getByText('You win with 2 points!')).toBeVisible();
   await expect(
     ana.locator('[data-tiling]').getByRole('img', { name: 'red, row 2' }).first(),
   ).toBeVisible();
 });
 
-test('jokers: a joker alone fills a line and goes to the wall in its place', async ({
+test('jokers: a joker alone fills a line and goes to the wall in its place; real tiles still complete a colour', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -118,14 +132,15 @@ test('jokers: a joker alone fills a line and goes to the wall in its place', asy
   await take(ana, 'red', 2, 4);
   await take(hana, 'black', 3, 4);
   await take(ana, 'light blue', 4, 5);
-  await take(hana, 'yellow', 5, 5);
+  // The rig has yellows on rows 3 to 5: two in line 2 complete the colour with real tiles.
+  await take(hana, 'yellow', 5, 2);
   await take(ana, 'yellow', 'centre', 3);
-  await take(hana, 'blue', 'centre', 2);
+  await take(hana, 'blue', 'centre', 3);
 
-  // The joker takes the row's last space: the row is full, but it is no colour.
-  await expect(hana.getByText('You win with 8 points!')).toBeVisible();
+  // The joker takes the row's last space: the row is full, but it is no colour; yellow is.
+  await expect(hana.getByText('You win with 18 points!')).toBeVisible();
   await expect(hana.getByRole('img', { name: 'joker, row 1' }).first()).toBeVisible();
-  await expect(hana.getByTestId('mo-bonus').first()).toContainText('Colours 0 × 10', {
+  await expect(hana.getByTestId('mo-bonus').first()).toContainText('Colours 1 × 10', {
     timeout: 10_000,
   });
 });

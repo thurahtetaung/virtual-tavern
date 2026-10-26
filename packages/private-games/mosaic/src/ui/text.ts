@@ -1,3 +1,4 @@
+import type { Preview } from '../logic/rules.ts';
 import { SPECIAL_SHORT } from '../logic/specials.ts';
 import { COLOUR_NAME, targetLine, tilesLine } from '../logic/tiles.ts';
 import type { LogEntry, MosaicView } from '../logic/types.ts';
@@ -110,4 +111,40 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
         `${e.how === 'empty' ? 'No tiles were left for another round, so the game ends. ' : e.how === 'alone' ? 'Only one player is left, so the game ends. ' : ''}${e.winners.map(name).join(' and ')} ${e.winners.length > 1 ? 'share the win' : 'wins'}.`,
       );
   }
+}
+
+/** The tiles a take puts anywhere but its line: the floor, the shield and the lid. */
+export const spillOf = (p: Preview) => p.toFloor + p.toLid;
+
+/**
+ * Where a legal take's tiles and the marker go, for its line on the pick sheet: how many land on
+ * the line, then exactly where each spilled tile goes (floor, shield, lid) and where the marker
+ * goes, so a shield that catches the marker never hides a tile on the floor.
+ */
+export function placeDetail(p: Preview, total: number, marker: boolean): string {
+  const tileShielded = p.shielded && !p.markerShielded;
+  const spill = spillOf(p);
+  const parts = (
+    [
+      [p.toFloor - (tileShielded ? 1 : 0), 'to the floor'],
+      [tileShielded ? 1 : 0, 'onto your shield'],
+      [p.toLid, 'to the lid'],
+    ] as const
+  ).filter(([n]) => n > 0);
+  const where =
+    parts.length === 1
+      ? ` ${parts[0]![1]}`
+      : `: ${parts.map(([n, to]) => `${n} ${to}`).join(', ')}`;
+  const tiles =
+    p.target === 'floor'
+      ? `all ${total}${where}`
+      : `${p.toLine} here${p.fills ? ', fills it ✓' : ''}${spill ? `; ${spill} spill${where}` : ''}`;
+  const markerTo = !marker
+    ? ''
+    : p.markerShielded
+      ? '; the marker onto your shield'
+      : p.markerOnFloor
+        ? '; the marker to the floor'
+        : '; the marker beside your full floor';
+  return tiles + markerTo;
 }

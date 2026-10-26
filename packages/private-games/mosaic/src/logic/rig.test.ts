@@ -22,4 +22,18 @@ describe('the test rig', () => {
     expect(game(h).players.p1!.wall[0]).toEqual([null, 'yellow', 'red', 'black', 'aqua']);
     expect(game(h).current).toBe('p1');
   });
+
+  it('adds the option walls only with their option on', () => {
+    setTestBag({
+      wall: { 0: ['yellow', 'red', 'black', 'aqua'] },
+      optionWall: { grey: { 3: [null, 'blue', 'yellow', null, 'red'] } },
+      firstSeat: true,
+    });
+    const grey = harness(2, 11, { grey: true });
+    grey.act(HOST, { type: 'start' });
+    expect(game(grey).players.p1!.wall[3]).toEqual([null, 'blue', 'yellow', null, 'red']);
+    const plain = harness(2, 11);
+    plain.act(HOST, { type: 'start' });
+    expect(game(plain).players.p1!.wall[3]).toEqual([null, null, null, null, null]);
+  });
 });
