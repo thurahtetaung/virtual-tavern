@@ -216,7 +216,7 @@ export function Debrief({
               )}
               <Button
                 size="lg"
-                variant="secondary"
+                variant={a.mission.cardTasks ? 'primary' : 'secondary'}
                 onClick={() => send({ type: 'retry', same: false })}
                 data-testid="mc-retry-new"
               >

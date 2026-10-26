@@ -55,7 +55,7 @@ export function RuleBox({ a }: { a: AttemptView }) {
         selection={m.selection}
         timed={m.seconds !== null}
         commsFrom={m.commsFrom}
-        fixed={m.difficulty === null}
+        fixed={m.difficulty === null && !(m.cardTasks && m.rules.cards)}
       />
       <p className="text-sm">
         {m.cardTasks && m.rules.cards

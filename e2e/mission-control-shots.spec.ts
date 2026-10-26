@@ -1,6 +1,14 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { claim, dive, importPacks, localArt, play, table } from './mission-control-play.ts';
+import {
+  claim,
+  claimCard,
+  dive,
+  importPacks,
+  localArt,
+  play,
+  table,
+} from './mission-control-play.ts';
 import type { Look } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/mission-control-shots.spec.ts
@@ -78,5 +86,58 @@ for (const [label, viewport, colorScheme] of [
     await hana.getByRole('button', { name: '📘 Logbook and settings' }).click();
     await expect(hana.getByTestId('logbook-1')).toContainText('✅');
     await shot(hana, '10-logbook');
+  });
+}
+
+for (const [label, viewport, colorScheme] of [
+  ['phone-light', { width: 390, height: 844 }, 'light'],
+  ['phone-dark', { width: 390, height: 844 }, 'dark'],
+  ['desktop-light', { width: 1280, height: 860 }, 'light'],
+  ['desktop-dark', { width: 1280, height: 860 }, 'dark'],
+] as const) {
+  test(`mission control one-card screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(300_000);
+    const look: Look = { viewport, colorScheme, setup: localArt };
+    const shot = (p: Page, name: string) =>
+      p.screenshot({
+        path: `test-results/mission-control-shots/${label}-${name}.png`,
+        fullPage: true,
+      });
+    cleanup.push(await importPacks(browser));
+    const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], look)) as [
+      Page,
+      Page,
+      Page,
+    ];
+    const all = [hana, ben, cleo];
+    await hana.getByTestId('mc-voyage-voyage-1').click();
+    await expect(hana.getByTestId('logbook')).toContainText('In order');
+    await shot(hana, '11-voyage-pick');
+    await hana.getByTestId('mc-start').click();
+    for (const p of all) await p.getByTestId('mc-ready').click();
+    for (const p of all) await expect(p.getByTestId('mc-draft')).toBeVisible();
+    await claimCard(hana, 'pink 3');
+    await shot(ben, '12-token-draft');
+    await claimCard(hana, 'pink 2');
+    await dive(all);
+    await shot(hana, '13-tokens-in-play');
+    await play(hana, 'p2');
+    await play(ben, 'b2');
+    await play(cleo, 'g6');
+    await expect(hana.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'failure');
+    await shot(hana, '14-order-failure');
+    // A custom mission: the captain's question round and pick.
+    await hana.getByRole('button', { name: '📘 Logbook and settings' }).click();
+    // Phones list only the chosen mission until the whole logbook is opened.
+    if (viewport.width < 640) await hana.getByRole('button', { name: /All missions/ }).click();
+    await hana.getByTestId('logbook-2').getByRole('button').click();
+    await hana.getByTestId('mc-start').click();
+    for (const p of all) await p.getByTestId('mc-ready').click();
+    await expect(ben.getByTestId('mc-pick')).toBeVisible();
+    await shot(ben, '15-pick-question');
+    await ben.getByTestId('mc-reply').first().click();
+    await cleo.getByTestId('mc-reply').last().click();
+    await expect(hana.getByTestId('mc-choose').first()).toBeVisible();
+    await shot(hana, '16-pick-choose');
   });
 }

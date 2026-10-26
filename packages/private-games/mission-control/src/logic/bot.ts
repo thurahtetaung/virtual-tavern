@@ -208,7 +208,9 @@ export function missionControlBot(
         return { type: 'reply', reply: pickOne(ctx.rng, r?.replies ?? ['Yes']) ?? 'Yes' };
       }
       if (me !== a.captain) return null;
-      const options = a.crew.map((c) => c.id).filter((x) => r?.self || x !== a.captain);
+      const options = a.crew
+        .map((c) => c.id)
+        .filter((x) => (r?.self || x !== a.captain) && !(r?.role === 'mute' && x === DUMMY));
       return { type: 'choose-member', seat: pickOne(ctx.rng, options)! };
     }
     case 'tokens': {

@@ -49,6 +49,8 @@ export function insights(
       props: {
         success: a.result.success,
         mission: a.mission.n,
+        voyage: after.settings.voyageKey,
+        cardTasks: a.mission.cardTasks,
         epilogue: a.mission.n === EPILOGUE,
         level: a.mission.n === EPILOGUE ? (a.mission.difficulty ?? 0) : 0,
         practice: a.mission.practice,

@@ -39,6 +39,28 @@ export const VOYAGE = {
   epilogue: { difficulty: 5, title: 'Beyond' },
 };
 
+/** A made-up one-card campaign: the test deal makes its tasks the pink 3 (token 1), pink 2 (2). */
+export const CARD_VOYAGE = {
+  key: 'voyage-1',
+  name: 'Card voyage',
+  taskSet: 'cards',
+  missions: [
+    { n: 1, title: 'In order', cards: 2, tokens: ['1', '2'], selection: 'free' },
+    {
+      n: 2,
+      title: 'Feeling well?',
+      pick: { role: 'sick', question: 'How do you feel?', replies: ['Good', 'Bad'], self: true },
+    },
+    {
+      n: 3,
+      title: 'Level pegging',
+      conditions: [
+        { check: { kind: 'trick-balance', gap: 2 }, text: 'Nobody gets two tricks ahead' },
+      ],
+    },
+  ],
+};
+
 /** The admin imports the made-up packs; returns how to delete them again. */
 export async function importPacks(browser: Browser): Promise<() => Promise<unknown>> {
   const admin = await visitor(browser, 'Admin');
@@ -47,9 +69,15 @@ export async function importPacks(browser: Browser): Promise<() => Promise<unkno
   for (const [kind, data] of [
     ['tasks', TASKS],
     ['voyage', VOYAGE],
+    ['voyage', CARD_VOYAGE],
   ] as const) {
     const res = await admin.request.post('/api/admin/content-packs', {
-      data: { gameId: 'mission-control', kind, name: `E2E ${kind}`, data },
+      data: {
+        gameId: 'mission-control',
+        kind,
+        name: data === CARD_VOYAGE ? 'E2E voyage cards' : `E2E ${kind}`,
+        data,
+      },
     });
     expect(res.status(), await res.text()).toBe(201);
     ids.push(((await res.json()) as { id: string }).id);
@@ -120,6 +148,13 @@ export async function brief(pages: Page[], mission = 'Mission 1') {
 /** Free selection: `page` takes the task with this text and waits until it's theirs. */
 export async function claim(page: Page, text: string) {
   const chip = page.getByTestId('mc-task').filter({ hasText: text });
+  await chip.getByTestId('mc-claim').click();
+  await expect(chip).toContainText('Yours');
+}
+
+/** Free selection on the one-card campaign: `page` takes the task for this card ("pink 3"). */
+export async function claimCard(page: Page, card: string) {
+  const chip = page.getByTestId('mc-task').filter({ has: page.getByRole('img', { name: card }) });
   await chip.getByTestId('mc-claim').click();
   await expect(chip).toContainText('Yours');
 }

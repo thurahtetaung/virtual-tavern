@@ -1464,6 +1464,7 @@ export function reduce(
       const seat = action.seat;
       if (!a.crew.includes(seat)) return err('no-seat', 'Choose a crew member.');
       if (seat === a.captain && !r.self) return err('not-self', 'Choose another crew member.');
+      if (r.role === 'mute' && seat === DUMMY) return err('not-dummy', 'Choose a player.');
       const task = pickTask(r.role, seat);
       const next: Attempt = {
         ...a,

@@ -267,7 +267,8 @@ function HandPreview({ view }: { view: MissionControlView }) {
 
 export function MissionControlGame(props: MissionControlUiProps) {
   const manifest = useManifest();
-  const art = useMemo(() => artFor(manifest), [manifest]);
+  const voyage = props.view.settings.voyageKey;
+  const art = useMemo(() => artFor(manifest, voyage), [manifest, voyage]);
   return (
     <ArtContext.Provider value={art}>
       <Game {...props} />

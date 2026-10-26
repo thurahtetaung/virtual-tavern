@@ -2,13 +2,7 @@ import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
 import type { CardId, Position } from './cards.ts';
 import type { Check, Play, Trick } from './checks.ts';
-import type {
-  AttemptComms,
-  Comms,
-  MissionDef,
-  OrderToken,
-  Selection,
-} from './content.ts';
+import type { AttemptComms, Comms, MissionDef, OrderToken, Selection } from './content.ts';
 
 export const MIN_PLAYERS = 2;
 export const MAX_SEATED = 5;

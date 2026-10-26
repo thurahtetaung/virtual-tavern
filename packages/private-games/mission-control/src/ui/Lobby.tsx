@@ -121,6 +121,7 @@ export function Lobby({
             <div className="mt-1 flex flex-wrap gap-2">
               {view.voyages.map((v) => (
                 <button
+                  data-testid={`mc-voyage-${v.key}`}
                   key={v.key}
                   type="button"
                   disabled={!editable}
@@ -132,7 +133,7 @@ export function Lobby({
                       'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
                   )}
                 >
-                  {v.name}
+                  {art.voyageTitle(v.key) ?? v.name}
                 </button>
               ))}
             </div>

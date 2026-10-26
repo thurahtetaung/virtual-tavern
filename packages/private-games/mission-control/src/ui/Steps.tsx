@@ -62,7 +62,9 @@ export function PickPanel({
   const r = a.mission.rules.pick!;
   const p = a.extras.pick;
   const answered = p.at >= p.order.length;
-  const options = a.crew.map((c) => c.id).filter((s) => r.self || s !== a.captain);
+  const options = a.crew
+    .map((c) => c.id)
+    .filter((s) => (r.self || s !== a.captain) && !(r.role === 'mute' && s === DUMMY));
   return (
     <Panel className="space-y-3" data-testid="mc-pick">
       {r.question && <p className="text-center font-semibold">{r.question}</p>}

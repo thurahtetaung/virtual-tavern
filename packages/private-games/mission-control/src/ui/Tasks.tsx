@@ -56,7 +56,21 @@ export function TaskChip({
       <span aria-hidden className="mt-0.5 shrink-0 font-black">
         {task.crew ? '👥' : STATE_ICON[task.state]}
       </span>
-      {task.token && (
+      {task.token && art.orderToken(task.token) && (
+        <span
+          role="img"
+          aria-label={`order token ${tokenLabel(task.token)}`}
+          className="size-7 shrink-0 overflow-hidden rounded-full"
+          data-testid="mc-token-badge"
+        >
+          <ProtectedImage
+            src={art.orderToken(task.token)!}
+            alt=""
+            className="size-full object-cover"
+          />
+        </span>
+      )}
+      {task.token && !art.orderToken(task.token) && (
         <span
           role="img"
           aria-label={`order token ${tokenLabel(task.token)}`}
