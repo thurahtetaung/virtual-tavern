@@ -61,10 +61,24 @@ export function Lobby({
           {view.notice}
         </p>
       )}
-      <Panel className="space-y-3">
-        <h3 className="font-bold">
-          {art.say('The {crew}')} ({seated.length}/5)
-        </h3>
+      <Panel className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-bold">
+            {art.say('The {crew}')} ({seated.length}/5)
+          </h3>
+          {view.me && (
+            <Button
+              id={SEAT_CONTROL_ID}
+              size="sm"
+              variant={view.me.playing ? 'secondary' : 'primary'}
+              onClick={() =>
+                void act({ type: 'sit', playing: !view.me!.playing }, { anchor: ANCHOR })
+              }
+            >
+              {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
+            </Button>
+          )}
+        </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {seated.map((p) => (
             <li key={p.id}>
@@ -80,17 +94,6 @@ export function Lobby({
             <li className="text-ink-muted">🤖 {art.say('{dummy}')} (best with 3–5)</li>
           )}
         </ul>
-        {view.me && (
-          <Button
-            id={SEAT_CONTROL_ID}
-            variant={view.me.playing ? 'secondary' : 'primary'}
-            onClick={() =>
-              void act({ type: 'sit', playing: !view.me!.playing }, { anchor: ANCHOR })
-            }
-          >
-            {view.me.playing ? 'Sit out (watch)' : 'Take a seat'}
-          </Button>
-        )}
       </Panel>
       {view.voyage ? (
         <Panel>
@@ -139,7 +142,7 @@ export function Lobby({
           on={s.playedCards}
           editable={editable}
           title="Show all played cards"
-          help="Everyone can look back at every trick. Off: only the last trick, as at the table."
+          help="Look back at every trick. Off: the last trick only."
           onChange={(playedCards) => set({ playedCards })}
           testId="mc-played-cards"
         />
@@ -147,14 +150,14 @@ export function Lobby({
           on={s.realTime}
           editable={editable}
           title="Real-time missions"
-          help="Missions with a clock run it. Off: they play their printed alternative instead."
+          help="Off: timed missions play their printed alternative."
           onChange={(realTime) => set({ realTime })}
         />
         <Switch
           on={s.openTable}
           editable={editable}
           title="Open table (house rule)"
-          help="For groups who talk freely: the banners stop asking for silence. Off by default."
+          help="For groups who talk freely: no silence banners."
           onChange={(openTable) => set({ openTable })}
         />
         {seated.length === 2 && (

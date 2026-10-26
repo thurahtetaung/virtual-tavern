@@ -1,4 +1,5 @@
 import { storageKey } from '@vt/game-sdk';
+import { TokenIcon } from './Token.tsx';
 import { Button, Modal, Panel, PlayerTag, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
@@ -53,7 +54,7 @@ function Seat({
   return (
     <li
       className={cn(
-        'relative w-44 shrink-0 space-y-1 rounded-xl bg-card p-2 ring-1 ring-line sm:w-auto dark:bg-stone-800/70 dark:ring-stone-700',
+        'relative w-40 shrink-0 space-y-1 rounded-xl bg-card p-1.5 ring-1 ring-line sm:w-auto sm:p-2 dark:bg-stone-800/70 dark:ring-stone-700',
         turn && 'ring-2 ring-accent dark:ring-amber-400',
       )}
       data-testid={`mc-seat-${seat}`}
@@ -68,10 +69,11 @@ function Seat({
         </span>
         {c.captain && (
           <span
-            title={art.say('{Captain}')}
-            className="shrink-0 rounded-full bg-accent-soft px-1.5 text-xs font-bold text-accent-text ring-1 ring-accent-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/40"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-1 pr-1.5 text-xs font-bold text-accent-text ring-1 ring-accent-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/40"
+            data-testid="mc-captain"
           >
-            {art.say('{Captain}')}
+            <TokenIcon kind="captain" label={art.say('{Captain}')} className="h-5 w-4" />
+            <span className="hidden sm:inline">{art.say('{Captain}')}</span>
           </span>
         )}
       </div>
@@ -79,8 +81,14 @@ function Seat({
         <span title="tricks won">🂠 {c.tricks}</span>
         <span title="cards in hand">✋ {c.cards}</span>
         {c.token && (
-          <span title={c.token === 'unused' ? 'signal unused' : 'signal used'}>
-            📡 {c.token === 'unused' ? 'ready' : 'used'}
+          <span className="flex items-center gap-0.5" data-testid="mc-token" data-token={c.token}>
+            <TokenIcon
+              kind={c.token === 'unused' ? 'token' : 'used'}
+              label={art.say(c.token === 'unused' ? '{token} unused' : '{token} used')}
+              decorative
+              className="size-5"
+            />
+            {c.token === 'unused' ? 'ready' : 'used'}
           </span>
         )}
         {emote && (
@@ -91,6 +99,7 @@ function Seat({
       </div>
       {signal ? (
         <p className="flex items-center gap-1 text-xs" data-testid={`mc-signal-${seat}`}>
+          <TokenIcon kind="token" label="" decorative className="size-4" />
           <CardChip card={signal.card} /> {positionText(signal.pos)}
         </p>
       ) : usedSignal ? (
@@ -332,10 +341,15 @@ export function PlayTable({
 
   return (
     <div className="space-y-3">
-      <p className="rounded-lg bg-panel px-3 py-1.5 text-center text-sm ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700">
-        {openTable
-          ? '🗣️ Open table'
-          : '🤫 Silent running: no talking about cards. Let the play speak.'}
+      <p className="rounded-lg bg-panel px-3 py-1 text-center text-xs ring-1 ring-line sm:text-sm dark:bg-stone-800/70 dark:ring-stone-700">
+        {openTable ? (
+          '🗣️ Open table'
+        ) : (
+          <>
+            🤫 Silent running
+            <span className="hidden sm:inline">: no talking about cards. Let the play speak.</span>
+          </>
+        )}
       </p>
       <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible">
         {order.map((seat) => (
@@ -362,7 +376,10 @@ export function PlayTable({
         </ul>
       )}
 
-      <Panel className="min-h-36 space-y-2 text-center" data-testid="mc-trick">
+      <Panel
+        className="min-h-28 space-y-2 p-3! text-center sm:min-h-36 sm:p-4!"
+        data-testid="mc-trick"
+      >
         <p className="text-sm text-ink-muted">
           Trick {Math.min(a.trickCount + 1, a.total)} of {a.total}
           {a.current.length
@@ -432,6 +449,15 @@ export function PlayTable({
                   state={state}
                   onClick={() => tapHand(c)}
                   testId={`mc-card-${c}`}
+                  {...(signalled && {
+                    badge: (
+                      <TokenIcon
+                        kind="reminder"
+                        label="Signalled: still face up on the table"
+                        className="h-7 w-5 drop-shadow"
+                      />
+                    ),
+                  })}
                   label={`${cardName(c, art.names.trump)}${signalled ? ', signalled' : ''}${myTurnSeat === me && !a.legal.includes(c) ? ', can’t be played now' : ''}`}
                 />
               );
@@ -462,7 +488,8 @@ export function PlayTable({
               data-testid="mc-signal"
               title={a.signalBlock ?? undefined}
             >
-              📡 Signal
+              <TokenIcon kind="token" label="" decorative className="size-6" />
+              Signal
             </Button>
             {canHold && (
               <Button
@@ -579,10 +606,12 @@ export function DistressPanel({
             onClick={() => send({ type: 'distress', dir: 'left' })}
             data-testid="mc-distress-left"
           >
-            🆘 Pass left
+            <TokenIcon kind="distress" label="" decorative className="h-7 w-5" />
+            Pass left
           </Button>
           <Button variant="secondary" onClick={() => send({ type: 'distress', dir: 'right' })}>
-            🆘 Pass right
+            <TokenIcon kind="distress" label="" decorative className="h-7 w-5" />
+            Pass right
           </Button>
         </div>
       )}

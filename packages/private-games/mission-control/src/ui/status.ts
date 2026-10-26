@@ -188,7 +188,7 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
       const r = a.result!;
       if (r.success) return { text: `${missionLabel(a.mission.n)} complete!`, yourMove: false };
       return {
-        text: `Lost: ${plainText(r.why ?? 'a task could not be met.', name, names.trump)}`,
+        text: `Lost: ${plainText(r.why ?? 'a task could not be met.', name, names)}`,
         yourMove: false,
       };
     }

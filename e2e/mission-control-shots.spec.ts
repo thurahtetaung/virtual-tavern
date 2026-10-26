@@ -44,7 +44,11 @@ for (const [label, viewport, colorScheme] of [
     await claim(hana, 'Take trick one');
     await shot(ben, '03-draft');
     await claim(ben, 'Take the pink 3');
-    await dive(all);
+    for (const p of all) await p.getByTestId('mc-draft-ready').click();
+    await expect(hana.getByTestId('mc-distress')).toBeVisible();
+    await shot(hana, '03b-distress');
+    for (const p of all) await p.getByTestId('mc-dive').click();
+    for (const p of all) await expect(p.getByTestId('mc-trick')).toBeVisible();
     await ben.getByTestId('mc-signal').click();
     await expect(ben.getByTestId('mc-signal-b9-top')).toBeVisible();
     await shot(ben, '04-signal-dialog');

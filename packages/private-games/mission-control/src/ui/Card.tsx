@@ -1,6 +1,7 @@
 import { ProtectedImage, cn } from '@vt/ui';
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { type CardId, type Suit, suitOf, valueOf } from '../logic/cards.ts';
+import { type Names, fillNames } from '../logic/manifest.ts';
 import { useArt } from './assets.tsx';
 
 /**
@@ -49,7 +50,7 @@ const SIZE = {
   md: 'h-20 w-14 text-xl',
   lg: 'h-28 w-20 text-2xl',
   /** The hand: phone size, bigger on wide screens. */
-  hand: 'h-20 w-14 text-xl lg:h-28 lg:w-20 lg:text-2xl',
+  hand: 'h-16 w-11 text-base sm:h-20 sm:w-14 sm:text-xl lg:h-28 lg:w-20 lg:text-2xl',
 } as const;
 
 /** A playing card's face: art from the manifest when there is some, else its symbol and value. */
@@ -72,12 +73,24 @@ export function CardFace({
 }) {
   const art = useArt();
   const look = SUIT_LOOK[suitOf(card)];
-  const src = size === 'xs' || size === 'sm' ? art.cardThumb(card) : art.card(card);
+  const url = size === 'xs' || size === 'sm' ? art.cardThumb(card) : art.card(card);
+  // An image that failed for good falls back to the drawn face.
+  const [broken, setBroken] = useState<string | null>(null);
+  const src = url && url !== broken ? url : null;
   const name = cardName(card, art.names.trump);
   const body = (
     <>
+      {/* The drawn face sits under the art, so a card still loading never shows blank. */}
+      <span aria-hidden className="text-[1.6em] leading-none" style={{ color: look.color }}>
+        {look.symbol}
+      </span>
       {src ? (
-        <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-cover" />
+        <ProtectedImage
+          src={src}
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+          onError={() => setBroken(src)}
+        />
       ) : null}
       {/* The symbol and value always show, over the art too, for colour-blind players. */}
       <span
@@ -91,11 +104,6 @@ export function CardFace({
         <span>{valueOf(card)}</span>
         <span className="text-[0.7em]">{look.symbol}</span>
       </span>
-      {!src && (
-        <span aria-hidden className="text-[1.6em] leading-none" style={{ color: look.color }}>
-          {look.symbol}
-        </span>
-      )}
       {badge && <span className="absolute -right-1 -top-1">{badge}</span>}
     </>
   );
@@ -164,22 +172,43 @@ export function CardBack({ size = 'sm' }: { size?: keyof typeof SIZE }) {
  */
 export function Rich({ text, name }: { text: string; name: (id: string) => string }) {
   const art = useArt();
-  const parts = art.say(text).split(/(\{[pc]:[^}]+\})/g);
+  const parts = art.say(text).split(/(\{[pcs]:[^}]+\})/g);
   return (
     <>
       {parts.map((part, i) => {
-        const m = /^\{([pc]):([^}]+)\}$/.exec(part);
+        const m = /^\{([pcs]):([^}]+)\}$/.exec(part);
         if (!m) return <Fragment key={i}>{part}</Fragment>;
         if (m[1] === 'p') return <strong key={i}>{name(m[2]!)}</strong>;
+        if (m[1] === 's') return <SuitName key={i} suit={m[2]! as Suit} />;
         return <CardChip key={i} card={m[2]!} />;
       })}
     </>
   );
 }
 
+/** A suit named in running text: its symbol in its colour, then its name. */
+function SuitName({ suit }: { suit: Suit }) {
+  const { names } = useArt();
+  const look = SUIT_LOOK[suit] ?? SUIT_LOOK.t;
+  return (
+    <span>
+      <span aria-hidden style={{ color: look.color }}>
+        {look.symbol}
+      </span>{' '}
+      {suit === 't' ? names.trump : look.name}
+    </span>
+  );
+}
+
 /** Plain text with placeholders filled (for aria labels and status lines). */
-export function plainText(text: string, name: (id: string) => string, trump: string): string {
-  return text
-    .replace(/\{p:([^}]+)\}/g, (_, id: string) => name(id))
-    .replace(/\{c:([^}]+)\}/g, (_, c: string) => cardName(c, trump));
+export function plainText(text: string, name: (id: string) => string, names: Names): string {
+  return fillNames(
+    text
+      .replace(/\{p:([^}]+)\}/g, (_, id: string) => name(id))
+      .replace(/\{c:([^}]+)\}/g, (_, c: string) => cardName(c, names.trump))
+      .replace(/\{s:([^}]+)\}/g, (_, x: string) =>
+        x === 't' ? names.trump : (SUIT_LOOK[x as Suit]?.name ?? x),
+      ),
+    names,
+  );
 }

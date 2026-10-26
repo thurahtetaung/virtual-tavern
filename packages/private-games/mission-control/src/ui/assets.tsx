@@ -40,6 +40,7 @@ const TOKEN_KEYS = {
   used: 'sonar-red',
   captain: 'captain',
   distress: 'distress-up',
+  'distress-down': 'distress-down',
   reminder: 'reminder',
 } as const;
 
@@ -52,7 +53,7 @@ export interface Art {
   back: string | null;
   task: (key: string) => string | null;
   taskThumb: (key: string) => string | null;
-  token: (which: 'token' | 'used' | 'captain' | 'distress' | 'reminder') => string | null;
+  token: (which: keyof typeof TOKEN_KEYS) => string | null;
   box: string | null;
   logbook: (n: number) => LogbookEntry | null;
 }
