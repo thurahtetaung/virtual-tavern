@@ -120,9 +120,6 @@ export interface RealtimeOptions {
   stage?: StageControls;
 }
 
-/** Broadcast messages at least this big are compressed. */
-const DEFLATE_THRESHOLD = 1024;
-
 /** The gate each server was attached with, so manager events can re-check it on broadcast. */
 const gates = new WeakMap<IO, RoomGate>();
 
@@ -416,7 +413,9 @@ export function attachRealtime(
   const io: IO = new Server(server, {
     serveClient: false,
     connectionStateRecovery: undefined,
-    perMessageDeflate: { threshold: DEFLATE_THRESHOLD },
+    // Uncompressed, to test whether it stops the blips where a connection is cut every few minutes,
+    // just after the browser's heartbeat reply.
+    perMessageDeflate: false,
   });
   gates.set(io, gate);
   if (opts.recap) recaps.set(io, opts.recap);
