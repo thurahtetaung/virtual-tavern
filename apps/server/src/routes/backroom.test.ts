@@ -154,6 +154,7 @@ describe('back room over HTTP', () => {
       'sketchy',
       'mosaic',
       'encore',
+      'mission-control',
     ]);
   });
 

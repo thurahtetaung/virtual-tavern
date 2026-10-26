@@ -99,6 +99,7 @@ export function publicRoutes(
         ...(nightKey && { nightKey }),
         ...(isTestTraffic(req) && { test: true }),
         ...(testSeed && { testSeed }),
+        ...(from.length && { carryFrom: from }),
       });
       if (from.length) linked?.(from, { roomId: id, gameId, by: playerId });
       return { roomId: id };

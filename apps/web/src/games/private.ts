@@ -31,6 +31,10 @@ import {
 import { guide as sketchyGuide, nameGuide as nameSketchyGuide } from '@vt/private-sketchy/guide';
 import { guide as encoreGuide, nameGuide as nameEncoreGuide } from '@vt/private-encore/guide';
 import {
+  guide as missionControlGuide,
+  nameGuide as nameMissionControlGuide,
+} from '@vt/private-mission-control/guide';
+import {
   inquestLabels,
   manifestGuide,
   manifestTitle,
@@ -267,6 +271,16 @@ const games: ClientGame[] = [
     icon: '🎪',
     Component: lazyUi(() =>
       import('@vt/private-encore/ui').then((m) => ({ default: m.EncoreGame })),
+    ),
+  },
+  {
+    id: 'mission-control',
+    name: 'Mission Control',
+    guide: missionControlGuide,
+    namedGuide: manifestGuide('mission-control', nameMissionControlGuide),
+    icon: '🌊',
+    Component: lazyUi(() =>
+      import('@vt/private-mission-control/ui').then((m) => ({ default: m.MissionControlGame })),
     ),
   },
 ];

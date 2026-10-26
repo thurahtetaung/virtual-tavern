@@ -192,12 +192,19 @@ export class RoomManager {
   /**
    * Opens a room. `nightKey`: it continues that night ("Same crew, new game"), for the recap.
    * `test`: test traffic opened it, so the stats record nothing about it. `playtest`: an admin
-   * playtest (always a test room too), which only admins may join.
+   * playtest (always a test room too), which only admins may join. `carryFrom`: the night's rooms
+   * it was opened from; the latest of them playing the same game hands its `carry` to `create`.
    */
   create(
     gameId: string,
     hostId: string,
-    opts: { nightKey?: string; test?: boolean; playtest?: PlaytestRecord; testSeed?: string } = {},
+    opts: {
+      nightKey?: string;
+      test?: boolean;
+      playtest?: PlaytestRecord;
+      testSeed?: string;
+      carryFrom?: readonly string[];
+    } = {},
   ): string {
     const game = this.deps.games.get(gameId);
     if (!game) throw new RoomError('unknown-game', 'That game does not exist.');
@@ -210,7 +217,7 @@ export class RoomManager {
       gameId,
       hostId,
       players: [],
-      state: game.create(this.ctx(id, gameId, 0), []),
+      state: game.create({ ...this.ctx(id, gameId, 0), ...this.carried(game, opts.carryFrom) }, []),
       version: 1,
       createdAt: now,
       updatedAt: now,
@@ -746,6 +753,22 @@ export class RoomManager {
   /** A seed for one rng: random, or in a test build the room's draw for `key`. */
   seed(roomId: string, key: string): number {
     return this.deps.testSeeds?.draw(roomId, key) ?? this.deps.seed();
+  }
+
+  /** What the latest of `rooms` playing the same game passes on to a new room of it. */
+  private carried(game: AnyGameDefinition, rooms: readonly string[] = []): { carried?: unknown } {
+    if (!game.carry || !rooms.length) return {};
+    const latest = rooms
+      .map((r) => this.rooms.get(r)?.record ?? this.deps.store.get(r))
+      .filter((r): r is RoomRecord => !!r && r.gameId === game.id)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    if (!latest) return {};
+    try {
+      return { carried: game.carry(latest.state) };
+    } catch (e) {
+      this.deps.logger.error({ gameId: game.id, err: e }, 'carry failed');
+      return {};
+    }
   }
 
   /** A game only ever sees the word lists tagged for it. */

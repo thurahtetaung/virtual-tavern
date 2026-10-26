@@ -132,6 +132,9 @@ importers:
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
+      '@vt/private-mission-control':
+        specifier: workspace:*
+        version: link:../../packages/private-games/mission-control
       '@vt/private-mosaic':
         specifier: workspace:*
         version: link:../../packages/private-games/mosaic
@@ -228,6 +231,9 @@ importers:
       '@vt/private-masquerade-originals':
         specifier: workspace:*
         version: link:../../packages/private-games/masquerade-originals
+      '@vt/private-mission-control':
+        specifier: workspace:*
+        version: link:../../packages/private-games/mission-control
       '@vt/private-mosaic':
         specifier: workspace:*
         version: link:../../packages/private-games/mosaic
@@ -593,6 +599,25 @@ importers:
       '@vt/ui':
         specifier: workspace:*
         version: link:../../ui
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+
+  packages/private-games/mission-control:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@types/react':
         specifier: ^19.3.0
