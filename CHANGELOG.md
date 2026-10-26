@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.0...v0.68.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** the auctioneer finishes his lines, and every clip is fetched ahead ([#396](https://github.com/thurahtetaung/virtual-tavern/issues/396)) ([adfacc2](https://github.com/thurahtetaung/virtual-tavern/commit/adfacc2bf120d88e234b91228fccc2a0458845e4))
+
 ## [0.68.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.67.0...v0.68.0) (2026-10-26)
 
 
