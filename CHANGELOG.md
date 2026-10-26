@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.63.1...v0.64.0) (2026-10-26)
+
+
+### Features
+
+* **encore:** add Encore, a card game of shows and recruiting, in the back room ([#374](https://github.com/thurahtetaung/virtual-tavern/issues/374)) ([b65f08e](https://github.com/thurahtetaung/virtual-tavern/commit/b65f08ec0ab557eabc1682a6ec7601d7fe888cb2))
+
 ## [0.63.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.63.0...v0.63.1) (2026-10-26)
 
 
