@@ -204,6 +204,8 @@ export type Status =
 
 /** Text placeholders the UI fills: `{p:<seat>}` a player, `{c:<card>}` a card. */
 const P = (seat: string) => `{p:${seat}}`;
+/** "1 trick", "2 tricks". */
+const tricks = (n: number) => `${n} ${n === 1 ? 'trick' : 'tricks'}`;
 const C = (c: CardId) => `{c:${c}}`;
 /** A suit's name: `{s:p}` (the UI names colours and the theme's trumps). */
 const S = (suit: Suit) => `{s:${suit}}`;
@@ -383,10 +385,10 @@ export function evaluate(
       const w = f.wins(me);
       if (n === null) return open(`${w}`);
       const progress = `${w}/${n}`;
-      if (w > n) return fail(`${P(me)} won ${w} tricks, more than ${n}.`, progress);
+      if (w > n) return fail(`${P(me)} won ${tricks(w)}, more than ${n}.`, progress);
       if (w + f.left < n)
         return fail(
-          `${P(me)} has ${w} tricks with ${f.left} left: ${n} can't be reached.`,
+          `${P(me)} has ${tricks(w)} with ${f.left} left: ${n} can't be reached.`,
           progress,
         );
       return t.final ? done(progress) : open(progress);
@@ -403,16 +405,20 @@ export function evaluate(
       if (!check.exact) {
         if (best >= check.n) return done(`${best}/${check.n}`);
         if (run + f.left < check.n)
-          return fail(`Only ${f.left} tricks are left: no room for ${check.n} in a row.`);
+          return fail(
+            `Only ${tricks(f.left)} ${f.left === 1 ? 'is' : 'are'} left: no room for ${check.n} in a row.`,
+          );
         return open(`${run}/${check.n}`);
       }
       const first = mine.indexOf(true);
       const ended = first >= 0 && run === 0;
-      if (w > check.n) return fail(`${P(me)} won ${w} tricks, more than ${check.n}.`);
+      if (w > check.n) return fail(`${P(me)} won ${tricks(w)}, more than ${check.n}.`);
       if (first >= 0 && w !== best) return fail(`${P(me)}'s tricks are not in a row.`);
       if (ended && w < check.n) return fail(`${P(me)}'s run stopped at ${w}.`);
       if (w === 0 ? f.left < check.n : w + f.left < check.n)
-        return fail(`Only ${f.left} tricks are left: no room for ${check.n} in a row.`);
+        return fail(
+          `Only ${tricks(f.left)} ${f.left === 1 ? 'is' : 'are'} left: no room for ${check.n} in a row.`,
+        );
       return t.final ? done() : open(`${w}/${check.n}`);
     }
     case 'no-run': {
@@ -439,7 +445,7 @@ export function evaluate(
             : check.op === 'fewer'
               ? 'the fewest of the others'
               : 'the most of the others';
-      const score = `${P(me)} has ${w} tricks to ${target} for ${them}, with ${R} left`;
+      const score = `${P(me)} has ${tricks(w)} to ${target} for ${them}, with ${R} left`;
       if (check.op === 'more') {
         if (w > target + R) return done(progress);
         if (w + R <= target) return fail(`${score}: no longer enough to finish ahead.`, progress);
@@ -571,7 +577,9 @@ export function evaluate(
       const hi = counts.reduce((a, b) => (b.n > a.n ? b : a));
       const lo = counts.reduce((a, b) => (b.n < a.n ? b : a));
       if (hi.n - lo.n >= check.gap)
-        return fail(`${P(hi.s)} has won ${hi.n - lo.n} more ${check.value}s than ${P(lo.s)}.`);
+        return fail(
+          `${P(hi.s)} has won ${hi.n - lo.n} more ${check.value}${hi.n - lo.n === 1 ? '' : 's'} than ${P(lo.s)}.`,
+        );
       const left = f.pending({ values: [check.value], suits: [...COLOURS] }).length;
       return t.final || left === 0 ? done() : open();
     }
@@ -637,7 +645,9 @@ export function evaluate(
       const hi = counts.reduce((a, b) => (b.n > a.n ? b : a));
       const lo = counts.reduce((a, b) => (b.n < a.n ? b : a));
       if (hi.n - lo.n >= check.gap)
-        return fail(`${P(hi.x)} has won ${hi.n - lo.n} more tricks than ${P(lo.x)}.`);
+        return fail(
+          `${P(hi.x)} has won ${hi.n - lo.n} more ${hi.n - lo.n === 1 ? 'trick' : 'tricks'} than ${P(lo.x)}.`,
+        );
       return t.final ? done() : open();
     }
     case 'span': {

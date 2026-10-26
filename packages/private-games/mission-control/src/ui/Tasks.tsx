@@ -15,6 +15,7 @@ export function TaskChip({
   you,
   action,
   compact = false,
+  inline = false,
 }: {
   task: TaskView;
   name: (id: string) => string;
@@ -22,6 +23,8 @@ export function TaskChip({
   you?: string;
   action?: ReactNode;
   compact?: boolean;
+  /** Holder and progress on the task's own line (saves a line on a phone). */
+  inline?: boolean;
 }) {
   const art = useArt();
   const scan = art.taskThumb(task.key);
@@ -81,13 +84,14 @@ export function TaskChip({
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">
+        <span className={cn('font-semibold', !inline && 'block')}>
           <Rich text={task.text} name={name} />
           {prediction}
         </span>
-        <span className="block text-xs opacity-80">
+        <span className={cn('text-xs opacity-80', !inline && 'block')}>
+          {inline && ' · '}
           {showOwner &&
-            (task.crew
+            (task.crew && !task.owner
               ? 'Whole crew'
               : task.owner
                 ? task.owner === you

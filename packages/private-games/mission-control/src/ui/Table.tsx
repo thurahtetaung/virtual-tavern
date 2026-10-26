@@ -411,7 +411,7 @@ export function PlayTable({
             .filter((t) => t.crew)
             .map((t) => (
               <li key={t.index}>
-                <TaskChip task={t} name={name} showOwner you={me} />
+                <TaskChip task={t} name={name} showOwner inline you={me} />
               </li>
             ))}
         </ul>

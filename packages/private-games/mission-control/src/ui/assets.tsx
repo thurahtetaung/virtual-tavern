@@ -62,6 +62,8 @@ export interface Art {
   orderToken: (t: OrderToken) => string | null;
   /** A campaign's real title from the manifest, if any. */
   voyageTitle: (key: string) => string | null;
+  /** What a campaign is called: its manifest title, else the pack's name. */
+  campaignName: (v: { key: string; name: string }) => string;
   box: string | null;
   logbook: (n: number) => LogbookEntry | null;
 }
@@ -96,6 +98,9 @@ export function artFor(m: Manifest | null, voyage: string | null = null): Art {
     const id = key.split(':').at(-1)!;
     return tasks[id] ?? (isCard(id) ? tasks[cardKey(id)] : undefined);
   };
+  // A campaign's own title; the top-level title names the campaign without a block of its own.
+  const voyageTitle = (key: string) =>
+    clean(m?.voyages?.[key] ? m.voyages[key].title : m?.title, 80) ?? null;
   return {
     names,
     say: (text) => fillNames(text, names),
@@ -118,7 +123,8 @@ export function artFor(m: Manifest | null, voyage: string | null = null): Art {
       const ref = tokens[ORDER_KEYS[t]];
       return path(thumbOf(ref) ?? artOf(ref));
     },
-    voyageTitle: (key) => clean(m?.voyages?.[key]?.title, 80) ?? null,
+    voyageTitle,
+    campaignName: (c) => voyageTitle(c.key) ?? c.name,
     box: path(artOf(v?.box ?? m?.box)),
     logbook: (n) => {
       const e = logbook[n === 0 ? 'epilogue' : String(n)];

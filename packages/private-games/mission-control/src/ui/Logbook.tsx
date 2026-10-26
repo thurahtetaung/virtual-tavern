@@ -83,8 +83,12 @@ export function DepthStrip({
   const done = voyage.missions.filter((m) => campaign?.log[m.n]?.done).length;
   const total = voyage.missions.length;
   const next = campaign?.next ?? voyage.missions[0]?.n ?? 1;
+  const art = useArt();
   return (
     <div className="space-y-1" data-testid="depth-strip">
+      <h3 className="truncate text-xs font-semibold tracking-wide text-ink-muted uppercase">
+        📘 {art.campaignName(voyage)}
+      </h3>
       <div className="flex items-baseline justify-between gap-2 text-sm">
         <span className="font-semibold">
           🤿 {next === EPILOGUE ? 'The epilogue' : `${missionLabel(next)} next`}

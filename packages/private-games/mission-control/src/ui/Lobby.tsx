@@ -11,7 +11,7 @@ import {
   cn,
 } from '@vt/ui';
 import type { MissionControlAction, MissionControlView, Settings } from '../logic/types.ts';
-import { useArt } from './assets.tsx';
+import { type Art, useArt } from './assets.tsx';
 import { Logbook } from './Logbook.tsx';
 import { type Status, missionLabel, startBlocker } from './status.ts';
 
@@ -20,10 +20,10 @@ const ANCHOR = 'mc-lobby';
 
 type Act = (a: MissionControlAction, o?: { anchor?: string }) => Promise<boolean>;
 
-export function settingsSummary(view: MissionControlView): string[] {
+export function settingsSummary(view: MissionControlView, art: Art): string[] {
   const s = view.settings;
   return [
-    view.voyage?.name ?? 'no campaign',
+    view.voyage ? art.campaignName(view.voyage) : 'no campaign',
     s.playedCards ? 'all played cards shown' : 'last trick only',
     ...(s.realTime ? [] : ['no real-time clocks']),
     ...(s.openTable ? ['open table'] : []),
@@ -113,7 +113,7 @@ export function Lobby({
           </p>
         </Panel>
       )}
-      <LobbySettings editable={editable} summary={settingsSummary(view)} className="space-y-4">
+      <LobbySettings editable={editable} summary={settingsSummary(view, art)} className="space-y-4">
         {editable && <h3 className="text-lg font-bold">Settings</h3>}
         {view.voyages.length > 1 && (
           <fieldset>
@@ -133,7 +133,7 @@ export function Lobby({
                       'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
                   )}
                 >
-                  {art.voyageTitle(v.key) ?? v.name}
+                  {art.campaignName(v)}
                 </button>
               ))}
             </div>

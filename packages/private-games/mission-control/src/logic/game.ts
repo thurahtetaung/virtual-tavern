@@ -1482,7 +1482,11 @@ export function reduce(
       const asked = p.order[p.at]!;
       if (controller(a, asked) !== by)
         return err('not-your-turn', 'Wait for your turn to announce.');
-      if (action.n > a.total) return err('too-many', `There are only ${a.total} tricks.`);
+      if (action.n > a.total)
+        return err(
+          'too-many',
+          `There ${a.total === 1 ? 'is only 1 trick' : `are only ${a.total} tricks`}.`,
+        );
       const target = nextSeat(a, asked);
       const tasks = a.tasks.map((t) =>
         t.key === `announce:${target}` ? { ...t, prediction: action.n } : t,
@@ -1846,7 +1850,11 @@ export function reduce(
       if (!t || !predictionOf(t.check)) return err('no-task', 'That task needs no prediction.');
       if (!t.owner || controller(a, t.owner) !== by)
         return err('not-yours', 'Only its holder predicts.');
-      if (action.n > a.total) return err('too-many', `There are only ${a.total} tricks.`);
+      if (action.n > a.total)
+        return err(
+          'too-many',
+          `There ${a.total === 1 ? 'is only 1 trick' : `are only ${a.total} tricks`}.`,
+        );
       const next = {
         ...a,
         tasks: a.tasks.map((x, i) => (i === action.task ? { ...x, prediction: action.n } : x)),

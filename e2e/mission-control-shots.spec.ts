@@ -113,6 +113,7 @@ for (const [label, viewport, colorScheme] of [
     await hana.getByTestId('mc-voyage-voyage-1').click();
     await expect(hana.getByTestId('logbook')).toContainText('In order');
     await shot(hana, '11-voyage-pick');
+    await shot(ben, '11b-voyage-summary');
     await hana.getByTestId('mc-start').click();
     for (const p of all) await p.getByTestId('mc-ready').click();
     for (const p of all) await expect(p.getByTestId('mc-draft')).toBeVisible();
@@ -139,5 +140,13 @@ for (const [label, viewport, colorScheme] of [
     await cleo.getByTestId('mc-reply').last().click();
     await expect(hana.getByTestId('mc-choose').first()).toBeVisible();
     await shot(hana, '16-pick-choose');
+    // The sick crew member's condition names them.
+    await hana.getByTestId('mc-choose').filter({ hasText: 'Cleo' }).click();
+    for (const p of all) await p.getByTestId('mc-dive').click();
+    for (const p of all) await expect(p.getByTestId('mc-trick')).toBeVisible();
+    await expect(hana.getByTestId('mc-task').filter({ hasText: 'sick' }).last()).toContainText(
+      'Cleo',
+    );
+    await shot(hana, '17-sick-named');
   });
 }
