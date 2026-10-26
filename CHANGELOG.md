@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.6...v0.66.7) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mission-control:** keep a phone turn on one screen and show the used signal token ([#392](https://github.com/thurahtetaung/virtual-tavern/issues/392)) ([8b1883e](https://github.com/thurahtetaung/virtual-tavern/commit/8b1883ed5de40673f5b18a58ce40641200adf72f))
+
 ## [0.66.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.5...v0.66.6) (2026-10-26)
 
 
