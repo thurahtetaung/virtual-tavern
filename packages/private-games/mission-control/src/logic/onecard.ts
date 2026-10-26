@@ -148,14 +148,14 @@ const LABEL: Record<OrderToken, string> = {
   '3': '3',
   '4': '4',
   '5': '5',
-  '>': '›',
-  '>>': '››',
-  '>>>': '›››',
-  '>>>>': '››››',
+  a1: '›',
+  a2: '››',
+  a3: '›››',
+  a4: '››››',
   o: 'Ω',
 };
 export const tokenLabel = (t: OrderToken) => LABEL[t];
-const arrows = (t: OrderToken | null) => (t && t.startsWith('>') ? t.length : 0);
+const arrows = (t: OrderToken | null) => (t && /^a[1-4]$/.test(t) ? Number(t[1]) : 0);
 const number = (t: OrderToken | null) => (t && /^[1-5]$/.test(t) ? Number(t) : 0);
 
 /**
