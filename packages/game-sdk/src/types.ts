@@ -144,6 +144,14 @@ export interface GameDefinition<State, Action, View> {
    */
   maxSeated?: number;
   /**
+   * The only player colours this game's rooms use, when it needs fewer than all 16 (Going Once:
+   * the seven its auctioneer says out loud). The room gives newcomers one of these, offers only
+   * these in the colour picker, refuses the rest, and moves players who had another colour (a
+   * room saved before) onto a free one; past the list's length they repeat, least used first.
+   * Default: every `PLAYER_COLORS` colour.
+   */
+  colors?: readonly PlayerColor[];
+  /**
    * `private` games are only listed, created, joined and played by players who have unlocked
    * the back room. Their assets live in private storage, never in the repo. Default: public.
    */

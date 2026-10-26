@@ -236,6 +236,53 @@ describe('RoomManager', () => {
       expect(colors(old)).toEqual(['red', 'blue']);
     });
 
+    it('uses only a game’s own colours where it has a list, and all of them elsewhere', () => {
+      const own = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'grey'];
+      const id = rooms.create('going-once', 'p0');
+      for (let i = 0; i < 9; i++) rooms.join(id, `p${i}`, `P${i}`);
+      const got = colors(id);
+      // Seven players get the seven colours; watchers past that repeat them.
+      expect([...got.slice(0, 7)].sort()).toEqual([...own].sort());
+      expect(got.every((c) => own.includes(c!))).toBe(true);
+      expect(rooms.snapshot(id, 'p0')!.colors).toEqual(own);
+      expect(rooms.recolor(id, 'p0', 'teal')).toEqual({
+        ok: false,
+        error: {
+          code: 'color-not-offered',
+          message: 'This game doesn’t use teal. Pick another colour.',
+        },
+      });
+      expect(rooms.recolor(id, 'p0', 'pink')).toMatchObject({
+        error: { code: 'color-not-offered' },
+      });
+      // Other games keep every colour and send no list.
+      const other = rooms.create('masquerade', 'p0');
+      rooms.join(other, 'p0', 'Ana');
+      expect(rooms.snapshot(other, 'p0')!.colors).toBeUndefined();
+      expect(rooms.recolor(other, 'p0', 'teal')).toEqual({ ok: true });
+    });
+
+    it('moves players with a colour the game doesn’t use onto free ones of its own', () => {
+      const id = rooms.create('going-once', 'p0');
+      rooms.join(id, 'p0', 'Ana');
+      rooms.join(id, 'p1', 'Ben');
+      rooms.close();
+      const store = new SqliteRoomStore(db);
+      const record = store.get(id)!;
+      const keep = record.players[1]!.color;
+      // As saved before the game had its own colours.
+      store.update({
+        ...record,
+        version: record.version + 1,
+        players: [{ ...record.players[0]!, color: 'teal' }, record.players[1]!],
+      });
+      rooms = manager();
+      const [ana, ben] = colors(id);
+      expect(ben).toBe(keep);
+      expect(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'grey']).toContain(ana);
+      expect(ana).not.toBe(ben);
+    });
+
     it('starts every room afresh', () => {
       const a = rooms.create('masquerade', 'p0');
       rooms.join(a, 'p0', 'Ana');

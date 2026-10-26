@@ -1008,6 +1008,7 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
   const existing = s.seats[player.id];
   if (existing) {
     existing.name = player.name;
+    if (player.color) existing.color = player.color;
     const g = s.game;
     if (g?.names[player.id]) g.names[player.id] = player.name;
     if (g?.left.includes(player.id)) {
@@ -1017,7 +1018,12 @@ export function playerJoined(state: GoingOnceState, player: PlayerInfo): GoingOn
     return s;
   }
   const playing = s.phase !== 'playing' && players(s).length < MAX_PLAYERS;
-  const seat: Seat = { name: player.name, playing, ...(!playing && { waiting: true }) };
+  const seat: Seat = {
+    name: player.name,
+    playing,
+    ...(!playing && { waiting: true }),
+    ...(player.color && { color: player.color }),
+  };
   s.seats[player.id] = seat;
   defaultPace(s);
   return s;

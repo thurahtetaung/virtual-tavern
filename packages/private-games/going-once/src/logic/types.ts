@@ -1,8 +1,22 @@
-import { type Drawing, type PlayerId, drawingSchema } from '@vt/game-sdk';
+import { type Drawing, type PlayerColor, type PlayerId, drawingSchema } from '@vt/game-sdk';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 6;
+
+/**
+ * The room's colours: the seven paddle colours the auctioneer says out loud ("You're screwed,
+ * yellow!"), so every player is one of them (`GameDefinition.colors`).
+ */
+export const GAME_COLORS = [
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'purple',
+  'grey',
+] as const satisfies readonly PlayerColor[];
 
 /** Title groups a game draws from. */
 export const GROUPS_PER_GAME = 2;
@@ -186,6 +200,8 @@ export const settingsOf = (s: Settings) => ({ ...DEFAULT_SETTINGS, ...s });
 
 export interface Seat {
   name: string;
+  /** Their room colour (the auctioneer's voice names players by it). */
+  color?: PlayerColor;
   playing: boolean;
   /** Watching only for want of a seat: sat down at the next game if there's room. */
   waiting?: boolean;

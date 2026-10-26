@@ -87,8 +87,11 @@ export function ColorPicker({
   taken,
   onPick,
   disabled = false,
+  colors = PLAYER_COLORS,
 }: {
   value: PlayerColor | undefined;
+  /** The colours on offer: the room's game may use fewer than all (`RoomSnapshot.colors`). */
+  colors?: readonly PlayerColor[];
   /** Colours other players have, with their names. */
   taken: ReadonlyMap<PlayerColor, string>;
   onPick: (color: PlayerColor) => void;
@@ -101,7 +104,7 @@ export function ColorPicker({
       aria-label="Your colour"
       className="grid w-fit grid-cols-6 gap-1 sm:grid-cols-8"
     >
-      {PLAYER_COLORS.map((c) => {
+      {colors.map((c) => {
         const holder = taken.get(c);
         const mine = c === value;
         const name = PLAYER_COLOR_NAMES[c];

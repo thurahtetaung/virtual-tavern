@@ -43,7 +43,13 @@ export function ColorChoice({
   return (
     <div className="space-y-1">
       {heading && <p className="text-sm font-semibold">Your colour</p>}
-      <ColorPicker value={me?.color} taken={taken} disabled={busy} onPick={(c) => void pick(c)} />
+      <ColorPicker
+        value={me?.color}
+        taken={taken}
+        disabled={busy}
+        colors={snapshot.colors}
+        onPick={(c) => void pick(c)}
+      />
       {error && (
         <p
           ref={alertRef}
