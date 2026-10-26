@@ -133,5 +133,14 @@ for (const [label, viewport, colorScheme] of [
     await shot(ana, '07-final-round');
     await hana.getByRole('region', { name: 'Cities' }).locator('[data-city="C3a"]').click();
     await shot(hana, '08-city-sheet');
+    await hana.keyboard.press('Escape');
+    await hana.getByRole('button', { name: 'Rules', exact: true }).click();
+    const drawer = hana.getByRole('dialog');
+    await drawer.getByRole('tab', { name: 'Rules' }).click();
+    const nobles = drawer
+      .locator('details')
+      .filter({ has: hana.locator('summary', { hasText: 'Nobles' }) });
+    await nobles.scrollIntoViewIfNeeded();
+    await shot(hana, '09-rules-nobles');
   });
 }

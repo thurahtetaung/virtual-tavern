@@ -7,6 +7,7 @@ import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
 import { costAfter } from '../logic/rules.ts';
 import { GEMS, type Gem, type Level, type Token } from '../logic/types.ts';
 import type { Art } from './assets.ts';
+import { cityLabel } from './text.ts';
 
 /** Each piece's own colour: the game's identity, in both themes. */
 export const TOKEN_FILL: Record<Token, string> = {
@@ -495,12 +496,9 @@ export const CityTile = memo(function CityTile({
   const city = cityOf(id);
   const src = size === 'lg' ? art.city(id) : art.cityThumb(id);
   const wants = GEMS.filter((g) => city.requires[g] > 0);
-  const label = `City ${id}: ${city.points} points and ${[
-    ...wants.map((g) => `${city.requires[g]} ${TOKEN_NAME[g]}`),
-    ...(city.any ? [`${city.any} of one ${wants.length ? 'other ' : ''}colour`] : []),
-  ].join(', ')} cards${wants.length || city.any ? '' : ' (no cards)'}${met ? ': you meet it' : ''}`;
+  const label = cityLabel(id, met);
   // The printed values are too small to read on a small tile, so they are drawn over the art's
-  // value column; the large tile (a sheet) shows the art as printed.
+  // value column (its right quarter); the large tile (a sheet) shows the art as printed.
   const drawn = !(src && size === 'lg');
   const body = (
     <>
@@ -515,7 +513,9 @@ export const CityTile = memo(function CityTile({
         <span
           className={cn(
             'relative ml-auto flex flex-col items-end justify-center gap-0.5 p-0.5 sm:p-1',
-            src && 'rounded-l-md bg-card/90 text-ink dark:bg-stone-900/90 dark:text-stone-100',
+            // Opaque and as wide as the art's printed value column, so none of it shows through.
+            src &&
+              'min-w-[27%] rounded-l-md bg-card text-ink dark:bg-stone-900 dark:text-stone-100',
           )}
         >
           <span

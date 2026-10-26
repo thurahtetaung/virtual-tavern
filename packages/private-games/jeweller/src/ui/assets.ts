@@ -2,6 +2,7 @@ import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import {
   type Manifest,
+  type StrongholdColor,
   artOf,
   backOf,
   nameOf,
@@ -49,8 +50,8 @@ export interface Art {
   nobleName: (id: string) => string;
   city: (id: string) => string | null;
   cityThumb: (id: string) => string | null;
-  /** The stronghold picture for the seat at this place in turn order. */
-  stronghold: (seat: number) => string | null;
+  /** The stronghold picture in a colour (`strongholdColors` gives each player's). */
+  stronghold: (color: StrongholdColor) => string | null;
   token: (t: Token) => string | null;
   tokenThumb: (t: Token) => string | null;
   box: string | null;
@@ -74,7 +75,7 @@ export function artFor(manifest: ManifestState): Art {
     nobleName: (id) => nameOf(nobles[id]) ?? nobleNumber(id),
     city: (id) => path(artOf(cities[id])),
     cityThumb: (id) => path(thumbOf(cities[id])) ?? path(artOf(cities[id])),
-    stronghold: (seat) => path(strongholdArt(m, seat)),
+    stronghold: (color) => path(strongholdArt(m, color)),
     token: (t) => path(m?.tokens?.[t]),
     tokenThumb: (t) => path(m?.tokenThumbs?.[t]) ?? path(m?.tokens?.[t]),
     box: path(m?.box),

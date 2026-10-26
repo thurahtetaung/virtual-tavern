@@ -81,10 +81,14 @@ export interface GuideSection {
   list?: GuideList;
 }
 
-/** A setting a section or tile depends on: `key` for the room, `label` for the reader. */
+/**
+ * A setting a section or tile depends on: `key` for the room, `label` for the reader. With `off`,
+ * it belongs only to games where that setting is off (rules a setting replaces).
+ */
 export interface GuideOption {
   key: string;
   label: string;
+  off?: boolean;
 }
 
 export interface GuideList {
@@ -301,7 +305,7 @@ export function stepsOf(guide: GameGuide): GuideStep[] {
 
 /** Whether something tied to `option` is in a game with this context (no context: everything). */
 export function isOn(option: GuideOption | undefined, ctx: GuideContext | undefined): boolean {
-  return !option || !ctx?.options || ctx.options.includes(option.key);
+  return !option || !ctx?.options || ctx.options.includes(option.key) !== !!option.off;
 }
 
 /** What `shapeGuide` adds to a guide written as plain text. */
