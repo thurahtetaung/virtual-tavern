@@ -1,46 +1,9 @@
-import type { ContentProvider } from '@vt/game-sdk';
+import { type ContentProvider, plainText } from '@vt/game-sdk';
 import { z } from 'zod';
 import { HINT_KINDS, type HintKind } from './types.ts';
 
 // The private content: title groups and hint lines, imported as content packs (never in the repo).
 // Tests use small made-up packs.
-
-const ENTITIES: Record<string, string> = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-  nbsp: ' ',
-  hellip: '…',
-  mdash: '—',
-  ndash: '–',
-  lsquo: '‘',
-  rsquo: '’',
-  ldquo: '“',
-  rdquo: '”',
-};
-
-/**
- * Text with any markup taken out: tags stripped (keeping their words, so "The movie <i>Speed</i>"
- * is "The movie Speed"), entities decoded, spaces collapsed. Every pack string goes through it,
- * so markup in a source never reaches a screen. Keep in step with `plainText` in
- * scripts/import-content-pack.mjs.
- */
-export function plainText(text: string): string {
-  return text
-    .replace(/<\/?[a-zA-Z][^<>]*>/g, '')
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
-      if (code[0] === '#') {
-        const n =
-          code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : Number(code.slice(1));
-        return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
-      }
-      return ENTITIES[code.toLowerCase()] ?? whole;
-    })
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 /** A pack string: trimmed, markup out, then within `max` characters. */
 const packText = (min: number, max: number) =>

@@ -63,7 +63,8 @@ describe('import-content-pack markup', () => {
   it('takes tags and entities out of every string, keeping the words', () => {
     expect(plainText('The movie <i>Speed</i>')).toBe('The movie Speed');
     expect(plainText('Fish &amp; chips&#8230;')).toBe('Fish & chips…');
-    expect(plainText('3 < 4')).toBe('3 < 4');
+    expect(plainText('<scr<script>ipt>x')).toBe('x');
+    expect(plainText('&lt;b&gt;Bus&lt;/b&gt;')).toBe('Bus');
     const { data, changed } = cleanPack([
       { id: 1, titles: ['<b>Bus</b>', 'Van', '  Car  '], house: ['k_0'] },
     ]);

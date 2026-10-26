@@ -13,42 +13,10 @@
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// The games' own markup cleaner, so the script and the server clean text the same way.
+import { plainText } from '../packages/game-sdk/src/markup.mjs';
 
-const ENTITIES = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-  nbsp: ' ',
-  hellip: '…',
-  mdash: '—',
-  ndash: '–',
-  lsquo: '‘',
-  rsquo: '’',
-  ldquo: '“',
-  rdquo: '”',
-};
-
-/**
- * Text with markup taken out: tags stripped (keeping their words), entities decoded, spaces
- * collapsed. The server does the same to every pack string (`plainText` in
- * packages/private-games/going-once/src/logic/content.ts); keep the two in step.
- */
-export function plainText(text) {
-  return String(text)
-    .replace(/<\/?[a-zA-Z][^<>]*>/g, '')
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code) => {
-      if (code[0] === '#') {
-        const n =
-          code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : Number(code.slice(1));
-        return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
-      }
-      return ENTITIES[code.toLowerCase()] ?? whole;
-    })
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+export { plainText };
 
 /** Every string in a pack's data with markup taken out, and how many changed. */
 export function cleanPack(data) {
