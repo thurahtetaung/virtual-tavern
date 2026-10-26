@@ -282,6 +282,27 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('After an old favourite.');
   });
 
+  it('Skyfire: suit art, tokens, the back and the credit', async () => {
+    const text = await named('skyfire', {
+      cards: { 'red-5': { art: 'cards/red-5.webp' } },
+      suits: { blue: 'suits/blue.webp' },
+      back: 'back.webp',
+      tokens: { clue: 'tokens/clue.webp', fuse: 'tokens/fuse.webp' },
+      credit: '«credit»',
+      guide: { tagline: '«tagline»' },
+    });
+    for (const path of [
+      'cards/red-5.webp',
+      'suits/blue.webp',
+      'back.webp',
+      'tokens/clue.webp',
+      'tokens/fuse.webp',
+    ])
+      expect(text).toContain(`/api/backroom/assets/skyfire/${path}`);
+    expect(text).toContain('«credit»');
+    expect(text).toContain('«tagline»');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

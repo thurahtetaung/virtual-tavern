@@ -155,6 +155,7 @@ describe('back room over HTTP', () => {
       'mosaic',
       'encore',
       'mission-control',
+      'skyfire',
     ]);
   });
 

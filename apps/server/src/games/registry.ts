@@ -29,6 +29,11 @@ import {
   setTestDeck as setEncoreDeck,
 } from '@vt/private-encore/logic';
 import { missionControl, parseTestDeal, setTestDeal } from '@vt/private-mission-control/logic';
+import {
+  parseTestDeck as parseSkyfireDeck,
+  setTestDeck as setSkyfireDeck,
+  skyfire,
+} from '@vt/private-skyfire/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -98,6 +103,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.SKETCHY_TEST_RIG === '1
 // dealt in seat order every round, so a spec knows every hand. Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.ENCORE_TEST_DECK) {
   setEncoreDeck(parseEncoreDeck(process.env.ENCORE_TEST_DECK));
+}
+
+// Browser tests only: Skyfire's deck top (`r1 y1 g5 k5 m3 …`, top first), dealt a hand at a time in
+// seat order, with the first seat starting, so a spec knows every hand. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.SKYFIRE_TEST_DECK) {
+  setSkyfireDeck(parseSkyfireDeck(process.env.SKYFIRE_TEST_DECK));
 }
 
 // Browser tests only: a Nightfall step waits up to this many seconds past its clock for players
@@ -237,6 +248,7 @@ export function buildGames(): GameRegistry {
     mosaic,
     encore,
     missionControl,
+    skyfire,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

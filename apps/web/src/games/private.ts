@@ -34,6 +34,7 @@ import {
   guide as missionControlGuide,
   nameGuide as nameMissionControlGuide,
 } from '@vt/private-mission-control/guide';
+import { guide as skyfireGuide, nameGuide as nameSkyfireGuide } from '@vt/private-skyfire/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -281,6 +282,16 @@ const games: ClientGame[] = [
     icon: '🌊',
     Component: lazyUi(() =>
       import('@vt/private-mission-control/ui').then((m) => ({ default: m.MissionControlGame })),
+    ),
+  },
+  {
+    id: 'skyfire',
+    name: 'Skyfire',
+    guide: skyfireGuide,
+    namedGuide: manifestGuide('skyfire', nameSkyfireGuide),
+    icon: '🎆',
+    Component: lazyUi(() =>
+      import('@vt/private-skyfire/ui').then((m) => ({ default: m.SkyfireGame })),
     ),
   },
 ];

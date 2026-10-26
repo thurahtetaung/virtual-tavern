@@ -90,6 +90,10 @@ import type { GameFigure } from '@vt/protocol';
 //              comms; recap: mission, level, attempt, dummy, tasks, signals, failedBy}, task {fedBy;
 //              recap: trick, signalBy, difficulty}, feed {recap: to}, signal {trick; recap: comms},
 //              distress {dir}
+//   skyfire    outcome {players, how, score, reached, max, win, multi, black, expert; recap:
+//              fuses, turns}, clue {kind, touched; recap: to, value, turn, auto}, play {ok,
+//              clued, lastRound; recap: suit, rank, completed, clueBy, clueTurn, auto}, discard
+//              {clued; recap: suit, rank, auto}
 //   sketchy    drawing {found, voters, lies, house, hidden; recap: round, points}, lie {fooled,
 //              auto; recap: authors, artist}, vote {foundTruth, house; recap: authors, artist,
 //              streak}, like {byArtist; recap: authors, round}, outcome {drawings, endReason;
@@ -1628,6 +1632,136 @@ function missionControlFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+/** Skyfire's score bands, as the rulebook's scale names them. */
+const SKYFIRE_BANDS: [string, string, (n: number) => boolean][] = [
+  ['0', 'Lost (0)', (n) => n <= 0],
+  ['1', '1–5', (n) => n >= 1 && n <= 5],
+  ['6', '6–10', (n) => n >= 6 && n <= 10],
+  ['11', '11–15', (n) => n >= 11 && n <= 15],
+  ['16', '16–20', (n) => n >= 16 && n <= 20],
+  ['21', '21–24', (n) => n >= 21 && n <= 24],
+  ['25', '25 and up', (n) => n >= 25],
+];
+
+function skyfireCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      if (props.win === true) out.push(['f.perfect', 1]);
+      const how = str(props.how);
+      if (how && ['perfect', 'deck', 'fuses', 'lost-card', 'no-cards', 'ended'].includes(how))
+        out.push([`f.end.${how}`, 1]);
+      const score = num(props.score);
+      if (score !== null && how !== 'ended') {
+        out.push(['f.scored', 1], ['f.score_sum', score], ['max.f.best', score]);
+        const band = SKYFIRE_BANDS.find(([, , test]) => test(score));
+        if (band) out.push([`f.band.${band[0]}`, 1]);
+      }
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 5) out.push([`f.n.${n}`, 1]);
+      if (str(props.multi) && str(props.multi) !== 'off') out.push(['f.multi', 1]);
+      if (props.black === true) out.push(['f.black', 1]);
+      if (props.expert === true) out.push(['f.expert', 1]);
+      break;
+    }
+    case 'clue':
+      out.push(['f.clues', 1]);
+      out.push([str(props.kind) === 'number' ? 'f.clue.number' : 'f.clue.colour', 1]);
+      if (num(props.touched) === 0) out.push(['f.clue.empty', 1]);
+      out.push(['f.touched_sum', num(props.touched) ?? 0]);
+      break;
+    case 'play':
+      out.push(['f.plays', 1]);
+      if (props.ok === true) {
+        out.push(['f.lit', 1]);
+        if (props.clued === false) out.push(['f.blind', 1]);
+      } else out.push(['f.misfires', 1]);
+      break;
+    case 'discard':
+      out.push(['f.discards', 1]);
+      break;
+  }
+  return out;
+}
+
+function skyfireFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'scores',
+      label: 'Scores',
+      kind: 'histogram',
+      bins: SKYFIRE_BANDS.map(([k, label]) => ({ label, value: get(`f.band.${k}`) })),
+    },
+    {
+      id: 'average',
+      label: 'Average score',
+      kind: 'number',
+      value: avg(get('f.score_sum'), get('f.scored')),
+    },
+    { id: 'best', label: 'Best score', kind: 'number', value: get('max.f.best') },
+    { id: 'perfect', label: 'Perfect shows', kind: 'percent', value: pct(get('f.perfect'), games) },
+    {
+      id: 'endings',
+      label: 'How shows ended',
+      kind: 'split',
+      parts: [
+        { label: 'Perfect', value: get('f.end.perfect') },
+        { label: 'Deck ran out', value: get('f.end.deck') },
+        { label: 'Third fuse', value: get('f.end.fuses') },
+        { label: 'Needed card lost', value: get('f.end.lost-card') },
+        { label: 'Out of cards', value: get('f.end.no-cards') },
+        { label: 'Ended early', value: get('f.end.ended') },
+      ],
+    },
+    {
+      id: 'clue-kinds',
+      label: 'Clues by kind',
+      kind: 'split',
+      parts: [
+        { label: 'Colour', value: get('f.clue.colour') },
+        { label: 'Number', value: get('f.clue.number') },
+      ],
+    },
+    {
+      id: 'cards-per-clue',
+      label: 'Cards touched per clue',
+      kind: 'number',
+      value: avg(get('f.touched_sum'), get('f.clues')),
+    },
+    {
+      id: 'empty-clues',
+      label: 'Clues that touched no card',
+      kind: 'percent',
+      value: pct(get('f.clue.empty'), get('f.clues')),
+    },
+    {
+      id: 'misfires',
+      label: 'Plays that misfired',
+      kind: 'percent',
+      value: pct(get('f.misfires'), get('f.plays')),
+    },
+    { id: 'blind', label: 'Unclued cards played right', kind: 'number', value: get('f.blind') },
+    {
+      id: 'variants',
+      label: 'Shows with each option',
+      kind: 'split',
+      parts: [
+        { label: 'Multicolour', value: get('f.multi') },
+        { label: 'Black powder', value: get('f.black') },
+        { label: 'Expert ending', value: get('f.expert') },
+      ],
+    },
+    {
+      id: 'player-count',
+      label: 'Shows by table size',
+      kind: 'split',
+      parts: [2, 3, 4, 5].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+  ];
+}
+
 function sketchyCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2133,6 +2267,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'mosaic') return mosaicCounters(type, props);
   if (gameId === 'encore') return encoreCounters(type, props);
   if (gameId === 'mission-control') return missionControlCounters(type, props);
+  if (gameId === 'skyfire') return skyfireCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2354,6 +2489,8 @@ export function buildFigures(
       return mosaicFigures(get);
     case 'mission-control':
       return missionControlFigures(get);
+    case 'skyfire':
+      return skyfireFigures(get);
     case 'codenames':
       return [
         teams(false),

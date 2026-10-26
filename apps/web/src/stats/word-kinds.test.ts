@@ -28,6 +28,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('mosaic')).toEqual([]);
     expect(knownWordKinds('encore')).toEqual([]);
     expect(knownWordKinds('mission-control')).toEqual([]);
+    expect(knownWordKinds('skyfire')).toEqual([]);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });
