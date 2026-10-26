@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.5...v0.73.6) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** confetti and the winner line hold at the end, going once waits for the chant, and quiet phones fit with the battery saver ([#436](https://github.com/thurahtetaung/virtual-tavern/issues/436)) ([2ad685f](https://github.com/thurahtetaung/virtual-tavern/commit/2ad685fd6c4703615a9d238619679f9db45674a5))
+
 ## [0.73.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.4...v0.73.5) (2026-10-26)
 
 
