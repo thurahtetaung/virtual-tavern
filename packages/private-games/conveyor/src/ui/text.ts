@@ -15,6 +15,15 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export const poss = (name: string, start = false) =>
   name === 'You' ? (start ? 'Your' : 'your') : `${name}’s`;
 
+/** "you" mid-sentence for the viewer, else the name. */
+export const obj = (name: string) => (name === 'You' ? 'you' : name);
+
+/** "Ana is" / "You are"; a list of several names "are". */
+const is = (names: string[]) => (names.length > 1 || names[0] === 'You' ? 'are' : 'is');
+
+/** "Ana wins" / "You win". */
+const wins = (names: string[]) => (names.length > 1 || names[0] === 'You' ? 'win' : 'wins');
+
 /** "a tempura" / "an egg nigiri". */
 export const a = (word: string) => `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
 
@@ -54,7 +63,7 @@ export function statusFor(view: ConveyorView, you: string, name: NameOf, n: Name
       return step.players.includes(you) && !step.done.includes(you)
         ? f(`Your ${n.type('chopsticks')}: pick a second card from your hand.`, true)
         : f(
-            `${step.players.map(name).join(' and ')} ${step.players.length > 1 ? 'are' : 'is'} using ${n.type('chopsticks')}.`,
+            `${step.players.map(name).join(' and ')} ${is(step.players.map(name))} using ${n.type('chopsticks')}.`,
           );
     case 'spoon':
       return step.by === you
@@ -66,12 +75,10 @@ export function statusFor(view: ConveyorView, you: string, name: NameOf, n: Name
     case 'give':
       return step.from === you
         ? f(
-            `${name(step.by)}’s ${n.type('spoon')} asks you for a card: choose which to give.`,
+            `${poss(name(step.by), true)} ${n.type('spoon')} asks you for a card: choose which to give.`,
             true,
           )
-        : f(
-            `${name(step.from)} is choosing which card to give ${name(step.by) === 'You' ? 'you' : name(step.by)}.`,
-          );
+        : f(`${name(step.from)} is choosing which card to give ${obj(name(step.by))}.`);
     case 'menu':
       return step.by === you
         ? f(`Your ${n.type('menu')}: play one of the four cards drawn.`, true)
@@ -108,34 +115,34 @@ export function logLine(e: LogEntry, name: NameOf, n: Names): string | null {
         )
         .join(', ')}.`;
     case 'wasabi':
-      return `${name(e.by)}’s ${c(e.k)} lands on ${n.type('wasabi')}: triple!`;
+      return `${poss(name(e.by), true)} ${c(e.k)} lands on ${n.type('wasabi')}: triple!`;
     case 'steal':
-      return `${name(e.by)} took ${a(c(e.k))} ${name(e.from) === 'You' ? 'you' : name(e.from)} needed (+${e.worth} for ${name(e.from) === 'You' ? 'you' : 'them'}).`;
+      return `${name(e.by)} took ${a(c(e.k))} ${obj(name(e.from))} needed (+${e.worth} for ${name(e.from) === 'You' ? 'you' : 'them'}).`;
     case 'chop':
       return line(`${name(e.by)} used ${n.type('chopsticks')} for ${a(c(e.k))}.`);
     case 'spoon':
       return line(
         e.from && e.k
-          ? `${name(e.by)}’s ${n.type('spoon')} took ${a(c(e.k))} from ${name(e.from)}.`
-          : `${name(e.by)}’s ${n.type('spoon')} found nobody holding it.`,
+          ? `${poss(name(e.by), true)} ${n.type('spoon')} took ${a(c(e.k))} from ${name(e.from)}.`
+          : `${poss(name(e.by), true)} ${n.type('spoon')} found nobody holding it.`,
       );
     case 'menu':
       return line(
         e.k
           ? `${name(e.by)} ordered ${a(c(e.k))} from the ${n.type('menu')}.`
-          : `${name(e.by)}’s ${n.type('menu')} had nothing to play.`,
+          : `${poss(name(e.by), true)} ${n.type('menu')} had nothing to play.`,
       );
     case 'copy':
       return line(
         e.k
-          ? `${name(e.by)}’s ${n.type('order')} copies ${a(c(e.k))}.`
-          : `${name(e.by)}’s ${n.type('order')} had nothing to copy.`,
+          ? `${poss(name(e.by), true)} ${n.type('order')} copies ${a(c(e.k))}.`
+          : `${poss(name(e.by), true)} ${n.type('order')} had nothing to copy.`,
       );
     case 'takeout':
       return line(
         e.ks.length
           ? `${name(e.by)} turned ${plural(e.ks.length, 'card')} face down (${e.ks.map(c).join(', ')}).`
-          : `${name(e.by)}’s ${n.type('takeout')} stayed empty.`,
+          : `${poss(name(e.by), true)} ${n.type('takeout')} stayed empty.`,
       );
     case 'uramaki':
       return e.claims
@@ -148,9 +155,9 @@ export function logLine(e: LogEntry, name: NameOf, n: Names): string | null {
     case 'left':
       return `${name(e.player)} left: the table picks for them.`;
     case 'back':
-      return `${name(e.player)} is back.`;
+      return `${name(e.player)} ${is([name(e.player)])} back.`;
     case 'over':
-      return `${e.winners.map(name).join(' and ')} ${e.winners.length > 1 ? 'share the win' : 'wins'}.`;
+      return `${e.winners.map(name).join(' and ')} ${e.winners.length > 1 ? 'share the win' : wins(e.winners.map(name))}.`;
   }
 }
 

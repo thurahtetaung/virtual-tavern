@@ -25,7 +25,7 @@ import type {
 } from '../logic/types.ts';
 import { type Art, preloadThumbs } from './assets.ts';
 import { CardFace } from './Cards.tsx';
-import { type NameOf, a, groups, logLine, partLine } from './text.ts';
+import { type NameOf, a, groups, logLine, partLine, poss } from './text.ts';
 
 export type Act = (action: ConveyorAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -315,9 +315,66 @@ function Others({
       : g.order;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const shown = g.players.find((p) => p.id === open);
+  const head = (id: string, p: PlayerView, compact = false) => (
+    <>
+      {id === toId && n > 2 && (
+        <span title="You pass to them" aria-label="you pass to them">
+          ▶
+        </span>
+      )}
+      {id === fromId && n > 2 && (
+        <span title="They pass to you" aria-label="they pass to you">
+          ◀
+        </span>
+      )}
+      {n === 2 && <span aria-label="you pass to each other">⇄</span>}
+      <PlayerTag
+        name={name(id)}
+        host={id === room.hostId}
+        offline={offline(id) || p.left}
+        className={cn('min-w-0 truncate', compact ? 'max-w-[6.5rem]' : 'flex-1')}
+      />
+      {g.stage === 'pick' && (
+        <span
+          className={cn(
+            'text-xs',
+            p.done
+              ? 'text-success-ink dark:text-emerald-300'
+              : 'text-ink-muted dark:text-stone-500',
+          )}
+        >
+          {p.done && compact ? <span aria-label="picked">✓</span> : p.done ? '✓ picked' : '…'}
+        </span>
+      )}
+      <span className="text-xs font-bold tabular-nums">
+        {p.score}
+        <span className="font-normal text-ink-muted dark:text-stone-400">
+          {' '}
+          {signed(live[id] ?? 0)}
+        </span>
+      </span>
+    </>
+  );
   return (
     <section aria-label="Other players" className="flex flex-col gap-1.5">
-      <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Phones: one strip of names, a tap from each tray. */}
+      <ul className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 sm:hidden">
+        {others.map((id) => {
+          const p = g.players.find((x) => x.id === id)!;
+          return (
+            <li key={id} className="shrink-0">
+              <button
+                type="button"
+                onClick={() => setOpen(id)}
+                className="flex items-center gap-1 rounded-full bg-card px-2 py-1 text-sm ring-1 ring-line hover:bg-panel dark:bg-stone-900 dark:ring-stone-700"
+              >
+                {head(id, p, true)}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <ul className="hidden grid-cols-1 gap-1.5 sm:grid sm:grid-cols-2 xl:grid-cols-3">
         {others.map((id) => {
           const p = g.players.find((x) => x.id === id)!;
           return (
@@ -327,44 +384,7 @@ function Others({
                 onClick={() => setOpen(id)}
                 className="flex w-full flex-col gap-1 rounded-xl bg-card px-2 py-1.5 text-left ring-1 ring-line hover:bg-panel dark:bg-stone-900 dark:ring-stone-700"
               >
-                <span className="flex items-center gap-1.5 text-sm">
-                  {id === toId && n > 2 && (
-                    <span title="You pass to them" aria-label="you pass to them">
-                      ▶
-                    </span>
-                  )}
-                  {id === fromId && n > 2 && (
-                    <span title="They pass to you" aria-label="they pass to you">
-                      ◀
-                    </span>
-                  )}
-                  {n === 2 && <span aria-label="you pass to each other">⇄</span>}
-                  <PlayerTag
-                    name={name(id)}
-                    host={id === room.hostId}
-                    offline={offline(id) || p.left}
-                    className="min-w-0 flex-1 truncate"
-                  />
-                  {g.stage === 'pick' && (
-                    <span
-                      className={cn(
-                        'text-xs',
-                        p.done
-                          ? 'text-success-ink dark:text-emerald-300'
-                          : 'text-ink-muted dark:text-stone-500',
-                      )}
-                    >
-                      {p.done ? '✓ picked' : '…'}
-                    </span>
-                  )}
-                  <span className="text-xs font-bold tabular-nums">
-                    {p.score}
-                    <span className="font-normal text-ink-muted dark:text-stone-400">
-                      {' '}
-                      {signed(live[id] ?? 0)}
-                    </span>
-                  </span>
-                </span>
+                <span className="flex items-center gap-1.5 text-sm">{head(id, p)}</span>
                 <TrayLine p={p} g={g} art={art} />
               </button>
             </li>
@@ -374,11 +394,17 @@ function Others({
       <Modal
         open={!!shown}
         onClose={() => setOpen(null)}
-        title={shown ? `${name(shown.id)}’s tray` : ''}
+        title={shown ? `${poss(name(shown.id), true)} tray` : ''}
       >
         {shown && (
           <div className="flex flex-col gap-3">
-            <TrayGroups p={shown} g={g} art={art} zoom={zoom} title={`${name(shown.id)}’s tray`} />
+            <TrayGroups
+              p={shown}
+              g={g}
+              art={art}
+              zoom={zoom}
+              title={`${poss(name(shown.id), true)} tray`}
+            />
             <Jar p={shown} g={g} art={art} />
             <p className="text-sm text-ink-muted dark:text-stone-400">
               {shown.hand} cards in hand{shown.pile ? `, ${shown.pile} in their pile` : ''} ·{' '}
@@ -575,7 +601,7 @@ function MyTray({
       aria-label="Your tray"
       className={cn(
         'flex flex-col gap-2 rounded-2xl bg-card p-3 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700',
-        ids && 'ring-2 ring-accent dark:ring-amber-400',
+        ids ? 'ring-2 ring-accent dark:ring-amber-400' : 'max-sm:order-last',
       )}
     >
       <h2 className="flex items-baseline justify-between gap-2 text-sm font-bold">
@@ -974,7 +1000,7 @@ function Play({
         </p>
       )}
       {selectable && me && (
-        <StickyBar>
+        <StickyBar whole>
           <div className="flex gap-2">
             {picking && pickedNow && (
               <Button
