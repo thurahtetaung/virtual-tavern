@@ -919,7 +919,9 @@ function Reveal({
                     rig={rig}
                     k={k}
                     nameStyle={{ color: INK, fontSize: 46, fontWeight: 900 }}
-                    pointsStyle={{ color: '#15803d', fontSize: 34, fontWeight: 900 }}
+                    // A finder's name turns into their points (the original's TransitionToPoints);
+                    // the points field has none of the name's 2.3x scale, so it is set that big.
+                    pointsStyle={{ color: '#15803d', fontSize: 100, fontWeight: 900 }}
                   />
                 </Layer>
               ))}
@@ -1189,6 +1191,12 @@ function EndRoom({
   const now = useNow(offset, 250, endAt > 0);
   const since = endAt > 0 ? now - endAt : Infinity;
   const on = (t: number): CSSProperties => ({ opacity: since >= t ? 1 : 0 });
+  /** A row popping up from the end's clock (a CSS transition: nothing to get stuck half-way). */
+  const grown = (t: number): CSSProperties => ({
+    ...on(t),
+    transform: since >= t ? 'scale(1)' : 'scale(0.6)',
+    transition: 'transform 367ms cubic-bezier(.34,1.56,.64,1), opacity 150ms',
+  });
   const liked = mostLiked(view);
   const top = Math.max(0, ...view.scores.map((s) => s.score));
   const winners = top > 0 ? view.scores.filter((s) => s.score === top) : [];
@@ -1205,7 +1213,7 @@ function EndRoom({
         </Layer>
         {view.scores.slice(0, 10).map((s, i) => (
           <Layer key={s.id} m={[1, 0, 0, 1, 640, 130 + i * 50]}>
-            <Layer style={rig ? on(T.first + (view.scores.length - 1 - i) * T.each) : undefined}>
+            <Layer style={rig ? grown(T.first + (view.scores.length - 1 - i) * T.each) : undefined}>
               <Layer name={`final:${s.id}`} moving>
                 <span
                   className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[34px] font-black"
@@ -1222,7 +1230,10 @@ function EndRoom({
           </Layer>
         ))}
       </Layer>
-      <Layer m={[1, 0, 0, 1, 640, 590]}>
+      {/* Under the list, the burst whole on screen (it reaches about 150 below its middle). */}
+      <Layer
+        m={[0.8, 0, 0, 0.8, 640, Math.min(540, 130 + Math.min(10, view.scores.length) * 50 + 170)]}
+      >
         <Layer style={rig ? on(T.winner) : undefined}>
           <Layer name="winners" moving>
             {rig && <RigArt rig={rig} symbol="winners" />}

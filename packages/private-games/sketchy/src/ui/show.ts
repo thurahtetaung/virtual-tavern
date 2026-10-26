@@ -69,20 +69,6 @@ const pop = (t: number, target: string, on: Profile[] = FULL, ms = 300): Step =>
   easing: 'ease-out',
   on,
 });
-/** A row popping up that is already shown: the swell without the fade (the original's 367 ms). */
-const grow = (t: number, target: string): Step => ({
-  t,
-  kind: 'css',
-  target,
-  keyframes: [
-    { transform: 'scale(0.6)' },
-    { transform: 'scale(1.12)', offset: 0.7 },
-    { transform: 'scale(1)' },
-  ],
-  ms: 367,
-  easing: 'ease-out',
-  on: STAGE,
-});
 /** A quick swell, as a streak bumps a balloon (the original's StreakBump). */
 const bump = (t: number, target: string): Step => ({
   t,
@@ -610,12 +596,8 @@ function ending(view: SketchyView, ctx: ShowCtx): Moment[] {
   const lastFirst = [...view.scores].reverse();
   const steps: Step[] = [
     sfx(0, 'end.gliss', { ms: T.winner }),
-    ...lastFirst.flatMap((s, i) => [
-      // Scale only: the row's showing is the stage's own (from the end's clock), so a pop cut short
-      // can never leave a score hidden.
-      grow(T.first + i * T.each, `final:${s.id}`),
-      sfx(T.first + i * T.each, `yelp#${slotOf(view, s.id)}`),
-    ]),
+    // Each row's yelp; the rows themselves pop up from the stage's own clock (EndRoom).
+    ...lastFirst.map((s, i) => sfx(T.first + i * T.each, `yelp#${slotOf(view, s.id)}`)),
     anim(T.winner, 'winners', 'winners.Appear', { on: FULL }),
     { t: T.winner, kind: 'confetti', n: 60, on: FULL },
     sfx(T.winner, 'end.tada'),
