@@ -1,5 +1,5 @@
 import type { PlayerId, Rng } from '@vt/game-sdk';
-import { FALLBACK_LINES, fillLine, senderOf } from './lines.ts';
+import { FALLBACK_LINES, fillLine, saidAs, senderOf } from './lines.ts';
 import { halfAt } from './setup.ts';
 import {
   BANK_TRIGGER,
@@ -30,6 +30,9 @@ const ONCE: ReadonlySet<HintKind> = new Set([
   'cameoA',
   'cameoB',
 ]);
+
+/** How many of a player's latest messages a new line may not repeat. */
+const RECENT_LINES = 4;
 
 /** A player's full score now: cash, plus the value of the art they own, minus debt. */
 export function scoreOf(g: Game, id: PlayerId): number {
@@ -160,21 +163,22 @@ export function sendHints(s: GoingOnceState, rng: Rng): void {
       : g.lines[pick.kind]?.length
         ? g.lines[pick.kind]!
         : FALLBACK_LINES[pick.kind];
-    const line = lines[rng.int(lines.length)]!;
+    const vars = {
+      ...(pick.about && { player: g.names[pick.about] }),
+      ...(pick.value !== undefined && { value: pick.value }),
+    };
+    // Never the same line twice in a player's last few messages, while there is another.
+    const recent = p.messages.slice(-RECENT_LINES);
+    const fresh = lines.filter((l) => !recent.some((m) => saidAs(m.text, l, vars)));
+    const choices = fresh.length ? fresh : lines;
+    const line = choices[rng.int(choices.length)]!;
     s.seq += 1;
     p.messages.push({
       id: s.seq,
       lot,
       kind: pick.kind,
       from,
-      text: fillLine(
-        line,
-        {
-          ...(pick.about && { player: g.names[pick.about] }),
-          ...(pick.value !== undefined && { value: pick.value }),
-        },
-        rng,
-      ),
+      text: fillLine(line, vars, rng),
       ...(pick.about && { about: pick.about }),
       ...(pick.value !== undefined && { value: pick.value }),
     });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
-import { dealContacts } from './lines.ts';
+import { sendHints } from './hints.ts';
+import { dealContacts, saidAs } from './lines.ts';
 import { createRng } from '@vt/game-sdk';
 import {
   HOST,
@@ -117,6 +118,54 @@ describe('each player’s art buyer', () => {
         expect(m.text).toBe(own[g.contacts![id]!]);
       }
     expect(fillers).toBeGreaterThan(0);
+  });
+
+  it('never repeats a line from a player’s last few messages while there is another', () => {
+    const chatter = (b: string) => Array.from({ length: 5 }, (_, i) => `${b} line ${i}.`);
+    const lines = {
+      filler: ['Shared chatter.'],
+      buyer1: chatter('One'),
+      buyer2: chatter('Two'),
+      buyer3: [...chatter('Three').slice(1), 'Code {random} from {player}.'],
+    };
+    const all = Object.values(lines).flat();
+    const lineOf = (text: string) => all.find((l) => saidAs(text, l, {}));
+    let fillers = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      const h = auctioning(3, seed, packContent(undefined, lines));
+      // The same lot's hints over and over: once the one-off tips are out, it is all chatter.
+      const rng = createRng(seed);
+      for (let i = 0; i < 30; i++) sendHints(h.state, rng);
+      for (const p of Object.values(game(h).players))
+        p.messages.forEach((m, i) => {
+          if (m.kind !== 'filler') return;
+          fillers++;
+          const before = p.messages.slice(Math.max(0, i - 4), i).map((x) => lineOf(x.text));
+          expect(lineOf(m.text)).toBeDefined();
+          expect(before).not.toContain(lineOf(m.text));
+        });
+    }
+    expect(fillers).toBeGreaterThan(200);
+  });
+
+  it('still sends a line it said lately when it is the only one', () => {
+    const h = auctioning(3, 6, packContent(undefined, { filler: ['Only one.'] }));
+    const rng = createRng(6);
+    for (let i = 0; i < 10; i++) sendHints(h.state, rng);
+    // The lot's artist hears about their own art instead; the others get the one line each time.
+    const said = Object.values(game(h).players).map(
+      (p) => p.messages.filter((m) => m.text === 'Only one.').length,
+    );
+    expect(said.filter((n) => n >= 8)).toHaveLength(2);
+  });
+
+  it('knows a filled line when it sees one', () => {
+    expect(saidAs('Code ab!?cd from Ana.', 'Code {random} from {player}.', { player: 'Ana' })).toBe(
+      true,
+    );
+    expect(saidAs('Code ab!?cd from Ana.', 'Code {random} from {player}.', {})).toBe(false);
+    expect(saidAs('Worth $4,500.', 'Worth {value}.', { value: 4500 })).toBe(true);
+    expect(saidAs('Worth $4,500 now.', 'Worth {value}.', { value: 4500 })).toBe(false);
   });
 
   it('keeps other players’ buyers out of each view', () => {

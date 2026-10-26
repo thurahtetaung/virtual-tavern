@@ -72,6 +72,7 @@ export const PRACTICE_TIP =
   'Psst! The picture coming up is worth {value}. My tips are always true: bid below that and you profit.';
 
 const RANDOM_CHARS = 'abcdefghijklmnopqrstuvwxyz!?#&*%$';
+const RANDOM_LENGTH = 6;
 
 export const money = (n: number) => `${n < 0 ? '−' : ''}$${Math.abs(n).toLocaleString('en-US')}`;
 
@@ -81,10 +82,25 @@ export function fillLine(
   vars: { player?: string; value?: number },
   rng: Rng,
 ): string {
-  return line
+  return fillNames(line, vars).replaceAll('{random}', () =>
+    Array.from({ length: RANDOM_LENGTH }, () => RANDOM_CHARS[rng.int(RANDOM_CHARS.length)]).join(
+      '',
+    ),
+  );
+}
+
+const fillNames = (line: string, vars: { player?: string; value?: number }) =>
+  line
     .replaceAll('{player}', vars.player ?? 'someone')
-    .replaceAll('{value}', vars.value === undefined ? 'a lot' : money(vars.value))
-    .replaceAll('{random}', () =>
-      Array.from({ length: 6 }, () => RANDOM_CHARS[rng.int(RANDOM_CHARS.length)]).join(''),
-    );
+    .replaceAll('{value}', vars.value === undefined ? 'a lot' : money(vars.value));
+
+/** Whether a message's text is this line filled with these values (with any `{random}` code). */
+export function saidAs(text: string, line: string, vars: { player?: string; value?: number }) {
+  const parts = fillNames(line, vars).split('{random}');
+  let at = 0;
+  for (const [i, part] of parts.entries()) {
+    if (!text.startsWith(part, at)) return false;
+    at += part.length + (i < parts.length - 1 ? RANDOM_LENGTH : 0);
+  }
+  return at === text.length;
 }
