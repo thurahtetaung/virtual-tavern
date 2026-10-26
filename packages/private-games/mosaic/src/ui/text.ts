@@ -1,4 +1,5 @@
-import { COLOUR_NAME, targetLine } from '../logic/tiles.ts';
+import { SPECIAL_SHORT } from '../logic/specials.ts';
+import { COLOUR_NAME, targetLine, tilesLine } from '../logic/tiles.ts';
 import type { LogEntry, MosaicView } from '../logic/types.ts';
 
 export type NameOf = (id: string | null | undefined) => string;
@@ -8,8 +9,6 @@ export interface Status {
   /** The viewer is expected to act now. */
   yourMove: boolean;
 }
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The one line that says what is happening and what the viewer should do. */
 export function statusFor(view: MosaicView, you: string, name: NameOf): Status {
@@ -29,6 +28,20 @@ export function statusFor(view: MosaicView, you: string, name: NameOf): Status {
       : f(`${name(w[0])} wins with ${score(w[0]!)} points!`);
   }
   const me = g.players.find((p) => p.id === you && !p.removed);
+  if (g.stage === 'wall') {
+    const row = g.walls?.[you]?.row;
+    if (me && row !== null && row !== undefined)
+      return f(
+        `Round ${g.round}: choose where line ${row + 1}’s tile goes on your wall (tap a lit space).`,
+        true,
+      );
+    const waiting = Object.entries(g.walls ?? {}).flatMap(([id, w]) =>
+      w.row === null ? [] : [name(id)],
+    );
+    return f(
+      `Round ${g.round}: ${waiting.join(' and ')} ${waiting.length === 1 ? 'is' : 'are'} choosing where tiles go on their wall.`,
+    );
+  }
   if (g.stage === 'tiling')
     return me && !g.ready.includes(you)
       ? f(`Round ${g.round} is over: watch the walls fill, then tap Next round.`)
@@ -55,10 +68,35 @@ export function logLine(e: LogEntry, name: NameOf): string | null {
         e.target === 'floor'
           ? 'on the floor'
           : `in ${targetLine(e.target)}${e.toFloor + e.toLid ? `, ${e.toFloor + e.toLid} spilled` : ''}`;
+      const jokers = e.jokers ?? 0;
+      const what =
+        e.colour === 'joker'
+          ? tilesLine(e.count, 'joker')
+          : `${tilesLine(e.count - jokers, e.colour)}${jokers ? ` + ${tilesLine(jokers, 'joker')}` : ''}`;
+      const extra = [
+        e.sent
+          ? `the rest went ${e.sent.left ? `${e.sent.left} left` : ''}${e.sent.left && e.sent.right ? ', ' : ''}${e.sent.right ? `${e.sent.right} right` : ''}`
+          : '',
+        e.special === 'sf3' && e.leftover ? 'the rest stayed on it' : '',
+        e.special === 'sf5' ? 'kept it as a floor shield' : '',
+        e.shielded ? 'the shield caught one' : '',
+      ].filter(Boolean);
       return line(
-        `${name(e.by)} took ${plural(e.count, COLOUR_NAME[e.colour], COLOUR_NAME[e.colour])} from ${from}${e.marker ? ' and the first-player marker' : ''}: ${where}${e.penalty ? ` (${e.penalty})` : ''}.`,
+        `${name(e.by)} took ${what} from ${from}${e.marker ? ' and the first-player marker' : ''}: ${where}${e.penalty ? ` (${e.penalty})` : ''}${extra.length ? `; ${extra.join('; ')}` : ''}.`,
       );
     }
+    case 'wall':
+      return line(
+        `${name(e.by)} put line ${e.row + 1}’s ${COLOUR_NAME[e.tile]} in column ${e.col + 1}.`,
+      );
+    case 'specials':
+      return `Round ${e.round}’s special factories: ${e.faces
+        .map((f) =>
+          f.kind === 'sf2' && f.colour
+            ? `${SPECIAL_SHORT.sf2} (${COLOUR_NAME[f.colour]})`
+            : SPECIAL_SHORT[f.kind],
+        )
+        .join(', ')}.`;
     case 'round':
       return `Round ${e.round}: the walls were tiled.`;
     case 'left':

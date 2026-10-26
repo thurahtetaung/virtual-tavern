@@ -10,6 +10,7 @@ import {
   Standings,
   StickyBar,
   Superlatives,
+  Switch,
   TimerSettings,
   timersLine,
   useAbandonGame,
@@ -85,7 +86,7 @@ export function MosaicGame({
       ) : (
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-          {view.phase === 'playing' && inGame && <Tips art={art} />}
+          {view.phase === 'playing' && inGame && <Tips art={art} view={view} />}
           {view.phase === 'over' ? (
             <End view={view} room={room} act={act} art={art} />
           ) : (
@@ -98,7 +99,7 @@ export function MosaicGame({
 }
 
 /** First-time tips, until dismissed (per seat in a playtest). */
-function Tips({ art }: { art: Art }) {
+function Tips({ art, view }: { art: Art; view: MosaicView }) {
   const [seen, setSeen] = useState(tipsSeen);
   if (seen) return null;
   return (
@@ -108,6 +109,21 @@ function Tips({ art }: { art: Art }) {
         <li>
           Tap a tile to take every tile of its colour there; a sheet shows what each line costs.
         </li>
+        {view.settings.grey && (
+          <li>
+            Grey wall: when a line fills, you choose its tile’s space; no colour twice in a row or
+            column.
+          </li>
+        )}
+        {view.settings.jokers && (
+          <li className="flex flex-wrap items-center gap-1">
+            <Tile colour="joker" art={art} size={18} /> Jokers: take them with one other colour from
+            the same place; they fill in for any colour.
+          </li>
+        )}
+        {view.settings.specials && (
+          <li>Gold ✦ factories are special: tap the label to see what each one does.</li>
+        )}
         <li className="flex flex-wrap items-center gap-1">
           Each colour has a symbol:
           {COLOURS.map((c) => (
@@ -163,6 +179,11 @@ function Lobby({
         ? `At most ${MAX_PLAYERS} can play.`
         : null;
   const n = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, seated.length));
+  const options = [
+    view.settings.grey && 'Grey wall',
+    view.settings.jokers && 'Jokers',
+    view.settings.specials && 'Special factories',
+  ].filter((x): x is string => !!x);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
       <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
@@ -239,9 +260,38 @@ function Lobby({
       </Panel>
       <LobbySettings
         editable={room.isHost}
-        summary={[timersLine(timers, { clue: 'turns', guess: null })]}
+        summary={[
+          ...(options.length ? [options.join(', ')] : []),
+          timersLine(timers, { clue: 'turns', guess: null }),
+        ]}
         className="space-y-4"
       >
+        <Switch
+          on={!!view.settings.grey}
+          editable={room.isHost}
+          title="Grey wall"
+          help="The blank side of the board: a full line’s tile goes on any free space of its row that you choose, but no colour may appear twice in a row or a column. A line with no such space falls to the floor."
+          onChange={(v) => void act({ type: 'update-settings', grey: v }, { anchor: 'mo-lobby' })}
+          testId="mo-grey"
+        />
+        <Switch
+          on={!!view.settings.jokers}
+          editable={room.isHost}
+          title="Jokers"
+          help="Jokers replace a few tiles of each colour. Taking a place’s jokers, you may take one other colour there too; a line holds one colour plus jokers, and a joker goes to the wall in its place. Jokers count for rows and columns, never for a colour."
+          onChange={(v) => void act({ type: 'update-settings', jokers: v }, { anchor: 'mo-lobby' })}
+          testId="mo-jokers"
+        />
+        <Switch
+          on={!!view.settings.specials}
+          editable={room.isHost}
+          title="Special factories"
+          help="Each round, one factory per player turns special at random: +1 tile, gathers its colour from its neighbours, keeps its leftovers, sends them to its neighbours, or becomes a floor shield."
+          onChange={(v) =>
+            void act({ type: 'update-settings', specials: v }, { anchor: 'mo-lobby' })
+          }
+          testId="mo-specials"
+        />
         <TimerSettings
           values={timers}
           editable={room.isHost}

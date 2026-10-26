@@ -1,5 +1,6 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
-import { type Manifest, clean, footerOf, tileOf } from './manifest.ts';
+import { type Manifest, clean, footerOf, specialOf, tileOf } from './manifest.ts';
+import { FACES, SPECIAL_SHORT, SPECIAL_TEXT } from './specials.ts';
 import { COLOUR_EMOJI, COLOUR_NAME, SYMBOL } from './tiles.ts';
 import {
   COLOURS,
@@ -9,6 +10,7 @@ import {
   DEFAULT_SECONDS,
   FACTORIES_FOR,
   FLOOR,
+  JOKERS_FOR,
   type MosaicView,
   ROW_BONUS,
   TILES_EACH,
@@ -18,13 +20,19 @@ export { type Manifest, footerOf } from './manifest.ts';
 
 /** Art for the guide, from the private manifest. */
 export interface GuideArt {
-  tiles?: Partial<Record<Colour, string>>;
+  tiles?: Partial<Record<Colour | 'joker', string>>;
+  /** Special factory faces, by kind (`sf2`: the red one). */
+  specials?: Partial<Record<string, string>>;
+  greyBoard?: string;
   first?: string;
   factory?: string;
   board?: string;
 }
 
 const STRICT: GuideOption = { key: 'strict', label: 'Strict turn timer' };
+const GREY: GuideOption = { key: 'grey', label: 'Grey wall' };
+const JOKERS: GuideOption = { key: 'jokers', label: 'Jokers' };
+const SPECIALS: GuideOption = { key: 'specials', label: 'Special factories' };
 
 const floorText = FLOOR.map((n) => `${n}`).join(' ');
 
@@ -66,6 +74,39 @@ function base(art: GuideArt): GameGuide {
       tone: 'good',
       ...(art.board && { art: art.board }),
     },
+    {
+      id: 'grey-wall',
+      name: 'The grey wall',
+      icon: '⬜',
+      text: 'The blank side of the board. A full line’s tile goes on any free space of its row that you choose, but no colour may appear twice in any row or any column.',
+      meta: 'Host option · you choose each space',
+      tone: 'neutral',
+      option: GREY,
+      ...(art.greyBoard && { art: art.greyBoard }),
+    },
+    {
+      id: 'joker',
+      name: 'Jokers',
+      icon: COLOUR_EMOJI.joker,
+      text: `Wild tiles (${SYMBOL.joker}): ${JOKERS_FOR[2]} at 2 players, ${JOKERS_FOR[3]} at 3–4, taking the place of tiles of each colour. Take a place’s jokers and you may take one other colour there too. A line holds one colour plus jokers; when it fills, a joker goes to the wall in its place.`,
+      meta: 'Host option · count for rows and columns, never a colour',
+      tone: 'own',
+      option: JOKERS,
+      ...(art.tiles?.joker && { art: art.tiles.joker }),
+    },
+    ...(['sf1', 'sf2', 'sf3', 'sf4', 'sf5'] as const).map((k): GuideTile => ({
+      id: k,
+      name: `✦ ${SPECIAL_SHORT[k]}`,
+      icon: '✦',
+      text: SPECIAL_TEXT[k],
+      meta:
+        k === 'sf2'
+          ? 'Special factory · five of them, one per colour'
+          : 'Special factory · one in the set',
+      tone: 'good',
+      option: SPECIALS,
+      ...(art.specials?.[k] && { art: art.specials[k] }),
+    })),
   ];
   return {
     tagline: 'Draft coloured tiles, fill your pattern lines and tile a wall that scores in runs.',
@@ -103,6 +144,11 @@ function base(art: GuideArt): GameGuide {
         text: 'When every tile is taken, each full line moves one tile to the wall. A tile scores 1, or the length of the rows and columns it joins.',
         icon: '🧱',
         ...(art.board && { art: art.board }),
+      },
+      {
+        title: 'Table options',
+        text: 'The host can add the grey wall (you choose where each tile goes), jokers (wild tiles) and special factories (gold factories with a twist). The lobby says which are on.',
+        icon: '✦',
       },
       {
         title: 'Finish a row to end it',
@@ -184,12 +230,60 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
+        title: 'Grey wall',
+        level: 'details',
+        option: GREY,
+        bullets: [
+          'Everyone plays the blank side of the board. Drafting is unchanged: a colour still can’t go in a line whose wall row already has it.',
+          'At the round’s end, each full line, top to bottom, asks its owner where its tile goes: any free space of that row, as long as that colour isn’t already in the row or in that space’s column.',
+          'If a full line has no such space, all of its tiles fall to the floor at once and cost points there.',
+          'Scoring and bonuses are the same as on the coloured wall.',
+        ],
+      },
+      {
+        title: 'Jokers',
+        level: 'details',
+        option: JOKERS,
+        bullets: [
+          `Setup: ${JOKERS_FOR[3]} jokers replace 2 tiles of each colour at 3–4 players; at 2 players, ${JOKERS_FOR[2]} replace 1 of each.`,
+          'You may take every joker from one factory or the centre. If you do, you may also take every tile of one other colour from the same place. The rest slides on as usual.',
+          'All of them go in one line: a line may hold one colour plus jokers, or jokers alone. Your colour’s tiles fill the line first; spare jokers spill to the floor.',
+          'When a line with jokers fills, a joker is the tile that goes to the wall: on that colour’s space, or, for a line of jokers alone, on any free space of the row (you choose). The rest goes to the lid.',
+          'A joker on a wall space of a colour means that colour can’t go in that row’s line any more.',
+          `Jokers count for full rows (+${ROW_BONUS}) and columns (+${COLUMN_BONUS}), never for a colour (+${COLOUR_BONUS}).`,
+        ],
+      },
+      {
+        title: 'Special factories',
+        level: 'details',
+        option: SPECIALS,
+        bullets: [
+          'There are nine gold faces: one +1 tile, five that gather a colour (one per colour), one that keeps its leftovers, one that sends them to its neighbours and one floor shield.',
+          'At the start of each round, the factories in play are drawn at random and as many as there are players turn gold.',
+          ...FACES.filter((f, i, all) => all.findIndex((x) => x.kind === f.kind) === i).map(
+            (f) => `✦ ${SPECIAL_SHORT[f.kind]}: ${SPECIAL_TEXT[f.kind]}`,
+          ),
+        ],
+      },
+      {
+        title: 'Option rulings',
+        level: 'edge',
+        bullets: [
+          'Grey wall with jokers: a joker in a line with a colour goes on any free space of the row where that colour could go (not in that row or column already); a line of jokers alone goes on any free space. Jokers never count for the one-of-each-colour rule.',
+          'Setting up several special factories: every +1 tile factory takes its tile first, then the colour gatherers in table order from factory 1.',
+          'Sending leftovers to the neighbours: each colour group goes left or right as you choose, all to one side if you like. Factories sit in a circle, and the neighbours are the nearest factories still on the table.',
+          'The floor shield covers the next tile (or the first-player marker) that lands on your floor this round, the tiles of the take from it included. The tile on it goes to the lid at no cost. The shield leaves the circle for the round, so it is nobody’s neighbour.',
+          'Strict timers and players who left: the app’s pick for joker takes and where leftovers go, and the leftmost legal space when a wall space is to be chosen.',
+        ],
+      },
+      {
         title: 'Placing in the app',
         level: 'edge',
         bullets: [
           'Tap a tile to pick up its colour group; a sheet shows every line with what it would cost (tiles that would spill, the floor points, whether the line fills and what its tile would score), and what you leave in the centre.',
           'By default you pick a line and then tap Place. There is no undo after placing. You can switch the confirm step off in the sheet.',
           'After each round, the wall-tiling plays on every screen. The next round starts when everyone has tapped Next round, or after a few seconds; the host can skip it.',
+          'With a choice to make on the wall (the grey wall, a line of jokers), your board shows the lit spaces for each full line, top line first; tap one and Place. The others wait for you, and the turn timer applies.',
         ],
       },
       {
@@ -274,14 +368,29 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
     const seated = v.game?.players.length ?? v.seats.filter((s) => s.playing).length;
     const n = Math.min(4, Math.max(2, seated));
     const strict = v.settings.timerMode === 'strict' && v.settings.seconds !== null;
+    const on = [
+      strict && STRICT.key,
+      v.settings.grey && GREY.key,
+      v.settings.jokers && JOKERS.key,
+      v.settings.specials && SPECIALS.key,
+    ].filter((x): x is string => !!x);
+    const jokers = v.settings.jokers ? JOKERS_FOR[n]! : 0;
+    const extras = [
+      v.settings.grey && 'grey wall',
+      v.settings.jokers && 'jokers',
+      v.settings.specials && 'special factories',
+    ].filter(Boolean);
     return {
-      summary: `${seated} players · ${FACTORIES_FOR[n]} factories${v.settings.seconds ? ` · ${v.settings.seconds} s turns${strict ? ' (strict)' : ''}` : ''}`,
-      options: strict ? [STRICT.key] : [],
+      summary: `${seated} players · ${FACTORIES_FOR[n]} factories${extras.length ? ` · ${extras.join(', ')}` : ''}${v.settings.seconds ? ` · ${v.settings.seconds} s turns${strict ? ' (strict)' : ''}` : ''}`,
+      options: on,
       inGame: {
-        ...Object.fromEntries(COLOURS.map((c) => [c, TILES_EACH])),
+        ...Object.fromEntries(COLOURS.map((c) => [c, TILES_EACH - jokers / COLOURS.length])),
         first: 1,
         factory: FACTORIES_FOR[n]!,
         board: seated,
+        ...(v.settings.grey && { 'grey-wall': 1 }),
+        ...(jokers && { joker: jokers }),
+        ...(v.settings.specials && { sf1: 1, sf2: 5, sf3: 1, sf4: 1, sf5: 1 }),
       },
     };
   };
@@ -290,6 +399,14 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
     presets: [
       { id: 'two', label: '2 players', context: { summary: '5 factories.', options: [] } },
       { id: 'four', label: '4 players', context: { summary: '9 factories.', options: [] } },
+      {
+        id: 'options',
+        label: 'All options',
+        context: {
+          summary: 'Grey wall, jokers and special factories.',
+          options: [GREY.key, JOKERS.key, SPECIALS.key],
+        },
+      },
     ],
     ...(footer && { footer }),
     room,
@@ -306,10 +423,17 @@ export function nameGuide(manifest: unknown): GameGuide {
   const m = (manifest && typeof manifest === 'object' ? manifest : null) as Manifest | null;
   const a = (p: string | undefined) => (p ? url(p) : undefined);
   const art: GuideArt = { tiles: {} };
-  for (const c of COLOURS) {
-    const u = a(tileOf(m?.tiles, c));
+  for (const c of [...COLOURS, 'joker'] as const) {
+    const u = a(tileOf(m?.tiles, c) ?? (c === 'joker' ? clean(m?.jokers) : undefined));
     if (u) art.tiles![c] = u;
   }
+  art.specials = {};
+  for (const f of FACES) {
+    const u = a(specialOf(m, f.kind === 'sf2' ? { kind: 'sf2', colour: 'red' } : f));
+    if (u) art.specials[f.kind] = u;
+  }
+  const grey = a(clean(m?.board?.grey));
+  if (grey) art.greyBoard = grey;
   const first = a(clean(m?.first));
   if (first) art.first = first;
   const factory = a(clean(m?.factory));

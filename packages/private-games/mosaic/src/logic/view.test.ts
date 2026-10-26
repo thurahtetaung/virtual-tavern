@@ -4,7 +4,7 @@ import { groups, mosaicBot } from './bot.ts';
 import { mosaic } from './game.ts';
 import { linesFor } from './rules.ts';
 import { HOST, content, ids, started, tileCount } from './test-utils.ts';
-import { COLOURS, type MosaicAction, type MosaicState, SIZE } from './types.ts';
+import { COLOURS, type MosaicAction, type MosaicState, SIZE, type Split, TILES } from './types.ts';
 
 /**
  * The state with everything nobody may see changed: the bag's order and the hidden seed. A view
@@ -29,6 +29,15 @@ function leak(state: MosaicState): string | null | undefined {
 /** A random move by the current player: mostly the bot's, sometimes anything (refusals are fine). */
 function randomMove(state: MosaicState, rng: Rng): { by: string; action: MosaicAction } {
   const g = state.game!;
+  if (g.stage === 'wall') {
+    const waiting = Object.keys(g.walls!).filter((id) => g.walls![id]!.row !== null);
+    const by = waiting[rng.int(waiting.length)]!;
+    if (rng.next() < 0.5) {
+      const move = mosaicBot(mosaic.view(state, by), { me: by, now: 0, rng, words: () => [] });
+      if (move) return { by, action: move };
+    }
+    return { by, action: { type: 'wall', row: g.walls![by]!.row!, col: rng.int(SIZE) } };
+  }
   if (g.stage === 'tiling') {
     if (rng.next() < 0.1) return { by: HOST, action: { type: 'skip-tiling' } };
     const by = g.order[rng.int(g.order.length)]!;
@@ -40,10 +49,15 @@ function randomMove(state: MosaicState, rng: Rng): { by: string; action: MosaicA
     const move = mosaicBot(mosaic.view(state, by), { me: by, now: 0, rng, words: () => [] });
     if (move) return { by, action: move };
   }
-  const options = groups({ factories: g.factories, centre: g.centre, marker: g.marker });
+  const options = groups({
+    factories: g.factories,
+    centre: g.centre,
+    marker: g.marker,
+    specials: g.specials ?? null,
+  });
   const pick = options[rng.int(options.length)]!;
   // Mostly a legal line; now and then the floor, or a line that may well be refused.
-  const legal = linesFor(g.players[by]!, pick.colour);
+  const legal = linesFor(g.players[by]!, pick.colour, !!state.settings.grey);
   const roll = rng.next();
   const target =
     roll < 0.15 || !legal.length
@@ -51,7 +65,19 @@ function randomMove(state: MosaicState, rng: Rng): { by: string; action: MosaicA
       : roll < 0.25
         ? rng.int(SIZE)
         : legal[rng.int(legal.length)]!;
-  return { by, action: { type: 'take', source: pick.source, colour: pick.colour, target } };
+  const split: Split = {};
+  for (const t of TILES) split[t] = rng.next() < 0.5 ? 'left' : 'right';
+  return {
+    by,
+    action: {
+      type: 'take',
+      source: pick.source,
+      colour: pick.colour,
+      target,
+      ...(pick.jokers && { jokers: true }),
+      ...(rng.next() < 0.9 && { split }),
+    },
+  };
 }
 
 describe('view()', () => {
@@ -88,15 +114,19 @@ describe('view()', () => {
     expect(h.state.phase).toBe('over');
   });
 
-  it('leaks nothing to any viewer at any point of 1,000 seeded games', () => {
+  it('leaks nothing to any viewer at any point of 1,000 seeded games, with every option combination', () => {
     let finished = 0;
     for (let seed = 1; seed <= 1000; seed++) {
       const rng = createRng(seed);
       // With a watcher seated when there's room: 2 to 4 players.
       const n = 1 + (seed % 3);
+      // Every combination of the three options, in turn.
       const settings = {
         seconds: seed % 3 === 0 ? 30 : null,
         timerMode: seed % 2 ? ('strict' as const) : ('soft' as const),
+        grey: !!(seed & 8),
+        jokers: !!(seed & 16),
+        specials: !!(seed & 32),
       };
       let now = 1_000_000;
       let state = mosaic.create(

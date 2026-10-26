@@ -11,7 +11,7 @@ import { iconic, setTestWord } from '@vt/private-iconic/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { jeweller, setTestDeck as setJewellerDeck } from '@vt/private-jeweller/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
-import { type Colour, mosaic, setTestBag } from '@vt/private-mosaic/logic';
+import { type Colour, type Special, type Tile, mosaic, setTestBag } from '@vt/private-mosaic/logic';
 import { nightfall, setTestHold } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
@@ -137,29 +137,51 @@ if (process.env.NODE_ENV !== 'production' && process.env.JEWELLER_TEST_DECK) {
 }
 
 // Browser tests only: Mosaic tiles for the top of the bag when a game is dealt, as letters (b
-// blue, y yellow, r red, k black, a light blue; four fill each factory in turn), and tiles already
-// on the first seat's wall (`top:bbbbyyyy;wall0:yrka`: row 0 holds yellow, red, black and light
-// blue), with the first seat always starting, so a spec knows the deal and reaches the end in a
-// round. Never read in production.
+// blue, y yellow, r red, k black, a light blue, j joker; four fill each factory in turn; `jtop` is
+// the top instead with jokers on), tiles already on the first seat's wall (`top:bbbbyyyy;wall0:yrka`:
+// row 0 holds yellow, red, black and light blue), and with special factories on, the faces of the
+// first factories every round (`sf:sf4,-,sf5`, `sf2r` for a red gatherer, `-` plain), with the
+// first seat always starting, so a spec knows the deal and reaches the end in a round. Never read in
+// production.
 if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
-  const letters: Record<string, Colour> = {
+  const letters: Record<string, Tile> = {
     b: 'blue',
     y: 'yellow',
     r: 'red',
     k: 'black',
     a: 'aqua',
+    j: 'joker',
   };
   const tiles = (s: string) => [...s].flatMap((ch) => (letters[ch] ? [letters[ch]] : []));
   const wall: Record<number, Colour[]> = {};
-  let top: Colour[] = [];
+  let top: Tile[] = [];
+  let jokerTop: Tile[] | undefined;
+  let specials: (Special | null)[] | undefined;
   for (const part of process.env.MOSAIC_TEST_BAG.split(';')) {
     const [key, value] = part.split(':').map((x) => x.trim());
     if (!key || !value) continue;
     if (key === 'top') top = tiles(value);
+    if (key === 'jtop') jokerTop = tiles(value);
+    if (key === 'sf')
+      specials = value.split(',').map((f): Special | null => {
+        const m = /^sf([1-5])([byrka])?$/.exec(f.trim());
+        if (!m) return null;
+        const colour = m[2] ? letters[m[2]] : undefined;
+        return {
+          kind: `sf${m[1]}` as Special['kind'],
+          ...(colour && colour !== 'joker' && { colour }),
+        };
+      });
     const row = /^wall([0-4])$/.exec(key);
-    if (row) wall[Number(row[1])] = tiles(value);
+    if (row) wall[Number(row[1])] = tiles(value).filter((t): t is Colour => t !== 'joker');
   }
-  setTestBag({ top, wall, firstSeat: true });
+  setTestBag({
+    top,
+    wall,
+    firstSeat: true,
+    ...(jokerTop && { jokerTop }),
+    ...(specials && { specials }),
+  });
 }
 
 // Browser tests only: Mission Control's hands and tasks for every deal (`hands=p1 p2 …|b1 …|…`, by
