@@ -286,7 +286,15 @@ export function useSound({
   }, [on, voice]);
 
   // Music: the moment's track, crossfaded, ducked under the voice.
-  const choice = musicFor(view);
+  // At the end the music follows the rack-up's beats, so it needs the time.
+  const ending = view.game?.stage === 'done';
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ending) return;
+    const id = setInterval(() => setClock(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [ending]);
+  const choice = musicFor(view, clock + clockOffset);
   const wanted =
     on && music && deviceSounds(mode, isHost) && choice
       ? clipOf(audio?.music, choice.key, choice.pick)

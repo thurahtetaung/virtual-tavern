@@ -1,4 +1,12 @@
-import type { GoingOnceView, HostClip, HostLine, Sender, SoundMode } from '../logic/types.ts';
+import {
+  type GoingOnceView,
+  type HostClip,
+  type HostLine,
+  SCREW_NUDGE_MS,
+  SCREW_PICK_MS,
+  type Sender,
+  type SoundMode,
+} from '../logic/types.ts';
 import { CLIP_GAP_MS } from '../logic/voice.ts';
 
 // The pure half of the sound: which music plays, which clips play when, and how loud. The React
@@ -60,7 +68,32 @@ export function deviceSounds(mode: SoundMode, isHost: boolean): boolean {
 }
 
 /** The music a moment plays: a key of the manifest's `music` and which of its tracks. */
-export function musicFor(view: GoingOnceView): { key: string; pick: number } | null {
+/**
+ * The end's rack-up on the server clock (its beats as `RackUp` shows them): when everyone's
+ * totals rack up together, and when the winner takes the centre.
+ */
+export function endTimes(
+  view: GoingOnceView,
+): { buyers: number; debt: boolean; sum: number; winner: number } | null {
+  const g = view.game;
+  if (!g || g.stage !== 'done' || g.ended || !g.final) return null;
+  const step = RACKUP_BEAT_MS * (view.rig?.scale ?? 1);
+  const buyers = g.final.filter((f) => f.bought.length > 0).length;
+  const debt = g.final.some((f) => f.debt > 0);
+  return {
+    buyers,
+    debt,
+    sum: g.since + buyers * step,
+    winner: g.since + (buyers + 1 + (debt ? 1 : 0)) * step,
+  };
+}
+
+/**
+ * The music a moment plays (`now` on the server clock matters only at the end: the scores' loop
+ * through each buyer's art, the drumroll while everyone's totals rack up, then the credits once
+ * the winner is shown).
+ */
+export function musicFor(view: GoingOnceView, now = 0): { key: string; pick: number } | null {
   const g = view.game;
   if (view.phase === 'lobby' || !g) return { key: 'lobby', pick: 0 };
   switch (g.stage) {
@@ -80,8 +113,12 @@ export function musicFor(view: GoingOnceView): { key: string; pick: number } | n
     }
     case 'bank':
       return { key: 'bank', pick: 0 };
-    case 'done':
-      return g.ended ? null : { key: 'scores', pick: 0 };
+    case 'done': {
+      const end = endTimes(view);
+      if (!end) return null;
+      const key = now < end.sum ? 'scores' : now < end.winner ? 'drumroll' : 'credits';
+      return { key, pick: 0 };
+    }
   }
 }
 
@@ -254,6 +291,16 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       }
       if (a.screw) {
         out.push(sfx(`${id}:aim${a.since}`, a.since, 'screw-select'));
+        // Voiced: the auctioneer clears his throat at the original's moment, the last few seconds
+        // of the pick (`SCREW_PICK_MS - SCREW_NUDGE_MS` before it runs out), from its known deadline.
+        if (g.voiced)
+          out.push({
+            id: `${id}:nudge${a.since}`,
+            at: a.screw.until - (SCREW_PICK_MS - SCREW_NUDGE_MS) * scale,
+            kind: 'voice',
+            key: 'nudge',
+            pick: a.since,
+          });
         break;
       }
       // A screw that failed or was wasted (the clock restarts as it happens).
@@ -300,19 +347,16 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       break;
     }
     case 'done': {
-      if (g.ended || !g.final) break;
+      const end = endTimes(view);
+      if (!end) break;
       const id = `end:${g.since}`;
       const step = RACKUP_BEAT_MS * scale;
-      const buyers = g.final.filter((f) => f.bought.length > 0).length;
-      const debt = g.final.some((f) => f.debt > 0);
       out.push(sfx(`${id}:in`, g.since, 'player-in'));
-      for (let i = 1; i < buyers; i++)
+      for (let i = 1; i < end.buyers; i++)
         out.push(sfx(`${id}:art${i}`, g.since + i * step, 'painting-value'));
-      out.push(sfx(`${id}:sum`, g.since + buyers * step, 'score-rackup'));
-      if (debt) out.push(sfx(`${id}:shark`, g.since + (buyers + 1) * step, 'debt-shark'));
-      out.push(
-        sfx(`${id}:winner`, g.since + (buyers + 1 + (debt ? 1 : 0)) * step, 'winner-centre'),
-      );
+      out.push(sfx(`${id}:sum`, end.sum, 'score-rackup'));
+      if (end.debt) out.push(sfx(`${id}:shark`, end.sum + step, 'debt-shark'));
+      out.push(sfx(`${id}:winner`, end.winner, 'winner-centre'));
       break;
     }
   }

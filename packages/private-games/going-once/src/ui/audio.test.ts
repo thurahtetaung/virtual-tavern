@@ -13,6 +13,7 @@ import {
   started,
 } from '../logic/test-utils.ts';
 import { halfAt } from '../logic/setup.ts';
+import { SCREW_NUDGE_MS } from '../logic/types.ts';
 import {
   type Cue,
   DUCK_RATIO,
@@ -24,6 +25,7 @@ import {
   deviceSounds,
   dueCues,
   effectCues,
+  endTimes,
   musicFor,
   clipNow,
   clipTimes,
@@ -82,7 +84,16 @@ describe('music', () => {
       hammer(h);
       nextLot(h);
     }
-    expect(musicFor(goingOnce.view(h.state, null))).toEqual({ key: 'scores', pick: 0 });
+    // The end: the scores' loop through each buyer's art, the drumroll while everyone's totals
+    // rack up, then the credits once the winner is shown.
+    const end = goingOnce.view(h.state, null);
+    const times = endTimes(end)!;
+    expect(musicFor(end, times.sum)).toEqual({ key: 'drumroll', pick: 0 });
+    expect(musicFor(end, times.winner - 1)).toEqual({ key: 'drumroll', pick: 0 });
+    expect(musicFor(end, times.winner)).toEqual({ key: 'credits', pick: 0 });
+    expect(times.winner).toBeGreaterThan(times.sum);
+    // The winner's sound comes at the same moment.
+    expect(effectCues(end, null).find((c) => c.key === 'winner-centre')!.at).toBe(times.winner);
     h.act(HOST, { type: 'back-to-lobby' });
     expect(musicFor(goingOnce.view(h.state, null))).toEqual({ key: 'lobby', pick: 0 });
   });
@@ -96,6 +107,36 @@ describe('music', () => {
     bid(h, 'p2', 400);
     h.act('p1', { type: 'screw' });
     expect(musicFor(goingOnce.view(h.state, 'p3'))).toEqual({ key: 'screw', pick: 0 });
+    // A text game: no throat-clearing.
+    expect(effectCues(goingOnce.view(h.state, 'p3'), 'p3').some((c) => c.key === 'nudge')).toBe(
+      false,
+    );
+  });
+
+  it('has the auctioneer clear his throat 5 s before a voiced screw pick runs out', () => {
+    const h = harness(3, 5);
+    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'start' });
+    h.act(HOST, { type: 'skip-intro' });
+    const g = game(h);
+    for (const id of g.order)
+      for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    while (!game(h).auction || game(h).auction!.lot < halfAt(game(h).lots.length)) {
+      hammer(h);
+      nextLot(h);
+    }
+    bid(h, 'p2', 400);
+    h.act('p1', { type: 'screw' });
+    const v = goingOnce.view(h.state, 'p3');
+    const nudge = effectCues(v, 'p3').find((c) => c.key === 'nudge')!;
+    expect(nudge.kind).toBe('voice');
+    expect(nudge.at).toBe(v.game!.auction!.screw!.until - 5000);
+    expect(nudge.at).toBe(h.now + SCREW_NUDGE_MS);
+    // Played where the voice plays, like the rest of what he says.
+    expect(cuePlays(nudge, { mode: 'all', isHost: false, effects: true, voice: false })).toBe(
+      false,
+    );
+    expect(cuePlays(nudge, { mode: 'all', isHost: false, effects: false, voice: true })).toBe(true);
   });
 });
 
@@ -195,6 +236,11 @@ describe('effects', () => {
     expect(ks[0]).toBe('player-in');
     expect(ks.at(-1)).toBe('winner-centre');
     expect(ks.includes('debt-shark')).toBe(v.game!.final!.some((f) => f.debt > 0));
+    // Each buyer's art racks up to the scores' loop, before the drumroll.
+    const times = endTimes(v)!;
+    expect(times.buyers).toBeGreaterThan(0);
+    expect(musicFor(v, v.game!.since)).toEqual({ key: 'scores', pick: 0 });
+    expect(musicFor(v, times.sum)).toEqual({ key: 'drumroll', pick: 0 });
   });
 });
 
