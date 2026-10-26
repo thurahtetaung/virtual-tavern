@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.2...v0.72.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **skyfire:** a phone turn fits with the first-time tips or an expired clock ([#421](https://github.com/thurahtetaung/virtual-tavern/issues/421)) ([3ac2c2c](https://github.com/thurahtetaung/virtual-tavern/commit/3ac2c2cda37d7a85b7b93c588e5e11ca07e3b94d))
+
 ## [0.72.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.1...v0.72.2) (2026-10-26)
 
 
