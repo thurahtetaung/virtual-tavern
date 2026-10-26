@@ -1,9 +1,16 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, PlayerTag, RefusalSlot, cn } from '@vt/ui';
+import { Button, Countdown, Modal, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { COLOUR_BONUS, COLUMN_BONUS, type MosaicView, ROW_BONUS } from '../logic/types.ts';
+import {
+  COLOUR_BONUS,
+  COLUMN_BONUS,
+  type MosaicView,
+  type PlayerScore,
+  type PlayerView,
+  ROW_BONUS,
+} from '../logic/types.ts';
 import type { Art } from './assets.ts';
-import { BoardView } from './Pieces.tsx';
+import { BoardView, type Size, useMatch } from './Pieces.tsx';
 import type { Act } from './Table.tsx';
 
 /** One placement every this many ms, then the floor, then (at the end) the bonuses. */
@@ -53,6 +60,9 @@ export function Tiling({
   // Placements, the floor, and on the last round the three bonus lines.
   const steps = most + 1 + (s?.last ? 3 : 0);
   const [step, finish] = useTilingStep(`${s?.round}:${s?.last}`, steps);
+  // Phones: your own board large, the others small in one row (tap one to see it large).
+  const compact = !useMatch('(min-width: 640px)');
+  const [enlarged, setEnlarged] = useState<string | null>(null);
   if (!s) return null;
   const me = g.players.find((p) => p.id === room.you && !p.removed);
   const waiting = view.phase === 'playing' && g.stage === 'tiling';
@@ -60,7 +70,21 @@ export function Tiling({
   const ordered = [...players].sort(
     (a, b) => Number(b.id === room.you) - Number(a.id === room.you),
   );
-  const bonusStep = step - most - 1;
+  const mine = ordered[0]?.id === room.you ? ordered[0] : undefined;
+  const small = compact ? ordered.filter((p) => p !== mine) : [];
+  const large = compact ? (mine ? [mine] : []) : ordered;
+  const card = (p: PlayerView, size: Size) => (
+    <PlayerTiling
+      p={p}
+      score={s.players[p.id]!}
+      art={art}
+      size={size}
+      step={step}
+      most={most}
+      you={p.id === room.you}
+    />
+  );
+  const big = enlarged ? players.find((p) => p.id === enlarged) : undefined;
   return (
     <section
       aria-label={`Round ${s.round} wall-tiling`}
@@ -77,98 +101,154 @@ export function Tiling({
           </Button>
         )}
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {ordered.map((p) => {
-          const ps = s.players[p.id]!;
-          const shown = Math.min(step, ps.placed.length);
-          const gained = ps.placed.slice(0, shown).reduce((n, x) => n + x.points, 0);
-          const floorDone = step > most;
-          const b = ps.bonus;
-          return (
-            <div
-              key={p.id}
-              className={cn(
-                'flex flex-col items-center gap-1 rounded-xl p-1.5 ring-1 ring-line dark:ring-stone-800',
-                p.id === room.you && 'ring-2 ring-accent dark:ring-amber-500',
-              )}
-              data-tiling={p.id}
-            >
-              <div className="flex w-full items-center justify-between gap-2 text-sm">
-                <PlayerTag name={p.name} you={p.id === room.you} />
-                <span className="font-bold tabular-nums" aria-live="polite">
-                  {ps.before}
-                  {gained ? (
-                    <span className="text-success-ink dark:text-emerald-300"> +{gained}</span>
-                  ) : null}
-                  {floorDone && ps.penalty ? (
-                    <span className="text-danger-ink dark:text-rose-300"> {ps.penalty}</span>
-                  ) : null}
-                  {floorDone && <> = {ps.bonus ? ps.after - ps.bonus.points : ps.after}</>}
-                </span>
-              </div>
-              <BoardView
-                board={p}
-                art={art}
-                size="sm"
-                frame={{ score: ps, shown, floorDone }}
-                owner={p.id}
-              />
-              {b && bonusStep >= 0 && (
-                <p className="w-full text-xs tabular-nums" data-testid="mo-bonus">
-                  <span className={cn(bonusStep >= 0 && 'mo-rise')}>
-                    Rows {b.rows} × {ROW_BONUS}
-                  </span>
-                  {bonusStep >= 1 && (
-                    <span className="mo-rise">
-                      {' · '}Columns {b.columns} × {COLUMN_BONUS}
-                    </span>
-                  )}
-                  {bonusStep >= 2 && (
-                    <span className="mo-rise">
-                      {' · '}Colours {b.colours} × {COLOUR_BONUS}
-                      <strong className="ml-1 text-success-ink dark:text-emerald-300">
-                        = +{b.points} → {ps.after}
-                      </strong>
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {waiting && (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Countdown
-            deadline={g.tilingUntil}
-            clockOffset={room.clockOffset}
-            label="until the next round"
-          />
-          {me && !ready && (
-            <Button
-              onClick={() => void act({ type: 'ready' }, { anchor: 'mo-tiling' })}
-              data-testid="mo-next"
-            >
-              Next round
-            </Button>
-          )}
-          {me && ready && (
-            <span className="text-sm text-ink-muted dark:text-stone-400">
-              Waiting for the others…
-            </span>
-          )}
-          {room.isHost && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void act({ type: 'skip-tiling' }, { anchor: 'mo-tiling' })}
-            >
-              Start it now for everyone
-            </Button>
-          )}
-          <RefusalSlot anchor="mo-tiling" />
+      {large.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {large.map((p) => (
+            <div key={p.id}>{card(p, compact ? 'md' : 'sm')}</div>
+          ))}
         </div>
       )}
+      {small.length > 0 && (
+        <div
+          className="grid gap-1"
+          style={{
+            gridTemplateColumns: `repeat(${small.length === 4 ? 2 : small.length}, minmax(0, 1fr))`,
+          }}
+        >
+          {small.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="min-w-0 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-accent"
+              onClick={() => setEnlarged(p.id)}
+              aria-label={`${p.name}’s wall-tiling: show it large`}
+            >
+              {card(p, 'xs')}
+            </button>
+          ))}
+        </div>
+      )}
+      {big && (
+        <Modal open onClose={() => setEnlarged(null)} title={`${big.name}’s wall-tiling`}>
+          <div className="flex justify-center">{card(big, 'md')}</div>
+        </Modal>
+      )}
+      {waiting && (
+        <StickyBar>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Countdown
+              deadline={g.tilingUntil}
+              clockOffset={room.clockOffset}
+              label="until the next round"
+            />
+            {me && !ready && (
+              <Button
+                onClick={() => void act({ type: 'ready' }, { anchor: 'mo-tiling' })}
+                data-testid="mo-next"
+              >
+                Next round
+              </Button>
+            )}
+            {me && ready && (
+              <span className="text-sm text-ink-muted dark:text-stone-400">
+                Waiting for the others…
+              </span>
+            )}
+            {room.isHost && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void act({ type: 'skip-tiling' }, { anchor: 'mo-tiling' })}
+              >
+                Start it now for everyone
+              </Button>
+            )}
+          </div>
+          <RefusalSlot anchor="mo-tiling" />
+        </StickyBar>
+      )}
     </section>
+  );
+}
+
+/** One player's board as the tiling plays: score line, board, and on the last round the bonuses. */
+function PlayerTiling({
+  p,
+  score: ps,
+  art,
+  size,
+  step,
+  most,
+  you,
+}: {
+  p: PlayerView;
+  score: PlayerScore;
+  art: Art;
+  size: Size;
+  step: number;
+  most: number;
+  you: boolean;
+}) {
+  const tiny = size === 'xs';
+  const shown = Math.min(step, ps.placed.length);
+  const gained = ps.placed.slice(0, shown).reduce((n, x) => n + x.points, 0);
+  const floorDone = step > most;
+  const b = ps.bonus;
+  const bonusStep = step - most - 1;
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center gap-1 rounded-xl ring-1 ring-line dark:ring-stone-800',
+        tiny ? 'p-1' : 'p-1.5',
+        you && 'ring-2 ring-accent dark:ring-amber-500',
+      )}
+      data-tiling={p.id}
+    >
+      <div
+        className={cn(
+          'flex w-full min-w-0 items-center justify-between',
+          tiny ? 'flex-wrap gap-x-1 text-xs' : 'gap-2 text-sm',
+        )}
+      >
+        <PlayerTag name={p.name} you={you} className="min-w-0" />
+        <span className="font-bold tabular-nums" aria-live="polite">
+          {ps.before}
+          {gained ? (
+            <span className="text-success-ink dark:text-emerald-300"> +{gained}</span>
+          ) : null}
+          {floorDone && ps.penalty ? (
+            <span className="text-danger-ink dark:text-rose-300"> {ps.penalty}</span>
+          ) : null}
+          {floorDone && <> = {ps.bonus ? ps.after - ps.bonus.points : ps.after}</>}
+        </span>
+      </div>
+      <BoardView
+        board={p}
+        art={art}
+        size={size}
+        frame={{ score: ps, shown, floorDone }}
+        owner={p.id}
+      />
+      {b && bonusStep >= 0 && !tiny && (
+        <p className="w-full text-xs tabular-nums" data-testid="mo-bonus">
+          <span className="mo-rise">
+            Rows {b.rows} × {ROW_BONUS}
+          </span>
+          {bonusStep >= 1 && (
+            <span className="mo-rise">
+              {' · '}Columns {b.columns} × {COLUMN_BONUS}
+            </span>
+          )}
+          {bonusStep >= 2 && (
+            <span className="mo-rise">
+              {' · '}Colours {b.colours} × {COLOUR_BONUS}
+              <strong className="ml-1 text-success-ink dark:text-emerald-300">
+                = +{b.points} → {ps.after}
+              </strong>
+            </span>
+          )}
+        </p>
+      )}
+    </div>
   );
 }

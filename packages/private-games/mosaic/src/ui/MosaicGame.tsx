@@ -18,12 +18,17 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { fullRows } from '../logic/rules.ts';
 import {
+  type Board,
+  type Bonus,
+  COLOUR_BONUS,
   COLOURS,
+  COLUMN_BONUS,
   FACTORIES_FOR,
   MAX_PLAYERS,
   MIN_PLAYERS,
   type MosaicAction,
   type MosaicView,
+  ROW_BONUS,
 } from '../logic/types.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { MosaicStyles, Tile } from './Pieces.tsx';
@@ -273,6 +278,32 @@ function Lobby({
   );
 }
 
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * Under each standing: the full rows (the tie-break) and the end bonuses they earned, so the
+ * whole result reads in one place, e.g. "3 full rows +6 · 1 colour +10 = +16 bonus" or "1 full row +2 bonus".
+ */
+function endNote(wall: Board['wall'], bonus: Bonus | undefined, left: boolean | undefined) {
+  const rows = fullRows(wall);
+  const parts = [
+    `${plural(rows, 'full row', 'full rows')}${bonus && rows ? ` +${rows * ROW_BONUS}` : ''}`,
+  ];
+  if (bonus?.columns)
+    parts.push(`${plural(bonus.columns, 'column', 'columns')} +${bonus.columns * COLUMN_BONUS}`);
+  if (bonus?.colours)
+    parts.push(`${plural(bonus.colours, 'colour', 'colours')} +${bonus.colours * COLOUR_BONUS}`);
+  const earned = [rows, bonus?.columns, bonus?.colours].filter(Boolean).length;
+  const total = !bonus
+    ? ''
+    : !bonus.points
+      ? ' · no bonus'
+      : earned > 1
+        ? ` = +${bonus.points} bonus`
+        : ' bonus';
+  return `${parts.join(' · ')}${total}${left ? ' · left' : ''}`;
+}
+
 function End({
   view,
   room,
@@ -299,7 +330,11 @@ function End({
             id: p.id,
             name: p.name,
             score: score(p.id),
-            note: `${fullRows(p.wall)} full ${fullRows(p.wall) === 1 ? 'row' : 'rows'}${p.left ? ' · left' : ''}`,
+            note: endNote(
+              p.wall,
+              g.scoring?.last ? g.scoring.players[p.id]?.bonus : undefined,
+              p.left,
+            ),
           }))}
           you={room.you}
           scoreLabel={(n) =>

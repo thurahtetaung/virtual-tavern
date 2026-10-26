@@ -378,7 +378,10 @@ export class RoomConnection {
           (err: unknown, res: Ack) =>
             resolve(
               err
-                ? { ok: false, error: { code: 'timeout', message: 'The server did not respond.' } }
+                ? {
+                    ok: false,
+                    error: { code: 'timeout', message: 'The server did not respond. Try again.' },
+                  }
                 : res,
             ),
         );
