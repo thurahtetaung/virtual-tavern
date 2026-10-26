@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.69.0...v0.70.0) (2026-10-26)
+
+
+### Features
+
+* **skyfire:** add Skyfire, a cooperative fireworks card game, in the back room ([#409](https://github.com/thurahtetaung/virtual-tavern/issues/409)) ([2c59d62](https://github.com/thurahtetaung/virtual-tavern/commit/2c59d62f09d58b4ccadd13fc2ad761b9163805cc))
+
 ## [0.69.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.5...v0.69.0) (2026-10-26)
 
 
