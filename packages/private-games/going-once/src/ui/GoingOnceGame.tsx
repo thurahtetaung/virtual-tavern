@@ -103,6 +103,7 @@ export function GoingOnceGame({
     isHost: room.isHost,
     clockOffset: room.clockOffset,
     device,
+    colours: room.players.flatMap((p) => (p.color ? [p.color] : [])),
   });
   // Seen here so the gallery keeps drawings from lots this tab watched.
   const seen = useSeenDrawings(view);

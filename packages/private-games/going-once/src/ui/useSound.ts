@@ -1,24 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GoingOnceView } from '../logic/types.ts';
-import { type ManifestState, assetUrl } from './assets.ts';
+import type { ManifestState } from './assets.ts';
 import {
   type AudioManifest,
-  CROSSFADE_MS,
   CUT_MS,
   type Cue,
   DEFAULT_VOLUME,
-  DUCK_FADE_MS,
+  LOOKAHEAD_MS,
+  STALE_MS,
+  type VoiceClip,
   clipOf,
   cuePlays,
+  INSTANT_EFFECTS,
+  chantClips,
+  cutsOff,
   deviceSounds,
   dueCues,
+  loadedTooLate,
   effectCues,
+  enqueueLine,
+  musicClips,
   musicFor,
   musicLevel,
+  nextVoice,
   ownCues,
-  ramp,
-  voiceCues,
+  ringClips,
+  shiftLine,
+  startupClips,
+  voiceBusy,
+  voiceClipOf,
+  voiceLate,
+  voiceLine,
 } from './audio.ts';
+import { type Saying, soundEngine } from './engine.ts';
 
 // ---- This device's own switch and volume (a per-device convenience) ----
 
@@ -65,117 +79,29 @@ export function useDeviceSound(): [DeviceSound, (next: Partial<DeviceSound>) => 
 
 // ---- Nothing plays before the player has touched the page ----
 
+/**
+ * The first tap or key press starts the audio (inside the event, as phones require); later ones
+ * restart it if the phone suspended it.
+ */
 function useGesture(): boolean {
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(() => soundEngine().ready);
   useEffect(() => {
-    if (unlocked) return;
     const on = () => {
-      setUnlocked(true);
+      soundEngine().unlock();
+      setUnlocked(soundEngine().ready);
     };
-    window.addEventListener('pointerdown', on, { once: true });
-    window.addEventListener('keydown', on, { once: true });
+    const events = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+    for (const e of events) window.addEventListener(e, on, { capture: true });
     return () => {
-      window.removeEventListener('pointerdown', on);
-      window.removeEventListener('keydown', on);
+      for (const e of events) window.removeEventListener(e, on, { capture: true });
     };
-  }, [unlocked]);
+  }, []);
   return unlocked;
 }
 
-// ---- Music: two players for crossfades, ducked under the voice ----
-
-interface Fade {
-  el: HTMLAudioElement;
-  from: number;
-  to: number;
-  start: number;
-  ms: number;
-  stopAfter: boolean;
-}
-
-class Mixer {
-  private current: { src: string; el: HTMLAudioElement } | null = null;
-  private fades: Fade[] = [];
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private target = 0;
-
-  setTrack(src: string | null, level: number) {
-    if ((this.current?.src ?? null) === src) return;
-    if (this.current) this.fade(this.current.el, 0, CROSSFADE_MS, true);
-    this.current = null;
-    if (!src) return;
-    const el = new Audio(assetUrl(src));
-    el.loop = true;
-    el.volume = 0;
-    void el.play().catch(() => {});
-    this.current = { src, el };
-    this.target = level;
-    this.fade(el, level, CROSSFADE_MS, false);
-  }
-
-  setLevel(level: number) {
-    if (!this.current || Math.abs(level - this.target) < 0.001) return;
-    this.target = level;
-    this.fade(this.current.el, level, DUCK_FADE_MS, false);
-  }
-
-  private fade(el: HTMLAudioElement, to: number, ms: number, stopAfter: boolean) {
-    this.fades = this.fades.filter((f) => f.el !== el);
-    this.fades.push({ el, from: el.volume, to, start: Date.now(), ms, stopAfter });
-    this.timer ??= setInterval(() => this.tick(), 50);
-  }
-
-  private tick() {
-    const now = Date.now();
-    this.fades = this.fades.filter((f) => {
-      f.el.volume = Math.max(0, Math.min(1, ramp(f.from, f.to, now - f.start, f.ms)));
-      if (now - f.start < f.ms) return true;
-      if (f.stopAfter) {
-        f.el.pause();
-        f.el.removeAttribute('src');
-      }
-      return false;
-    });
-    if (!this.fades.length && this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-  }
-
-  stop() {
-    if (this.current) this.fade(this.current.el, 0, CROSSFADE_MS, true);
-    this.current = null;
-  }
-}
-
-/** Plays one effect clip at `volume`, cut off after `maxMs` when set. */
-function playEffect(src: string, volume: number, maxMs?: number) {
-  const el = new Audio(assetUrl(src));
-  el.volume = Math.max(0, Math.min(1, volume));
-  void el.play().catch(() => {});
-  if (maxMs) {
-    setTimeout(() => {
-      el.pause();
-      el.removeAttribute('src');
-    }, maxMs);
-  }
-}
-
-/** Fades a voice clip out over `CUT_MS`, stops it, then goes on with `then`. */
-function cutVoice(el: HTMLAudioElement, then: () => void) {
-  const from = el.volume;
-  const start = Date.now();
-  const id = setInterval(() => {
-    const t = Date.now() - start;
-    el.volume = Math.max(0, ramp(from, 0, t, CUT_MS));
-    if (t < CUT_MS) return;
-    clearInterval(id);
-    el.pause();
-    el.removeAttribute('src');
-    el.volume = from;
-    then();
-  }, 40);
-}
+/** Clips decoded ahead: the voice's next few, and effects due this soon. */
+const DECODE_AHEAD = 2;
+const DECODE_AHEAD_MS = 3000;
 
 /**
  * The room's sound on this device, as the host set it: music per phase, an effect on every beat
@@ -189,6 +115,7 @@ export function useSound({
   isHost,
   clockOffset,
   device,
+  colours,
 }: {
   view: GoingOnceView;
   manifest: ManifestState;
@@ -196,6 +123,8 @@ export function useSound({
   isHost: boolean;
   clockOffset: number;
   device: DeviceSound;
+  /** The room's player colours: lines said to a player are fetched only for these. */
+  colours: readonly string[];
 }): void {
   const unlocked = useGesture();
   const audio: AudioManifest | undefined =
@@ -203,13 +132,19 @@ export function useSound({
   const { sound: mode, music, effects, voice } = view.settings;
   const on = unlocked && !device.muted && mode !== 'off' && !!audio;
   const played = useRef(new Set<string>());
-  const voiceQueue = useRef<Cue[]>([]);
-  const voiceEl = useRef<HTMLAudioElement | null>(null);
-  const voiceHost = useRef('');
   const [speaking, setSpeaking] = useState(false);
-  const mixer = useRef<Mixer | null>(null);
   const prev = useRef<GoingOnceView | null>(null);
   const own = useRef<Cue[]>([]);
+  // The voice: clips waiting their turn, the one being said, and since when the voice is free.
+  const queue = useRef<VoiceClip[]>([]);
+  const saying = useRef<{ clip: VoiceClip; handle: Saying | null } | null>(null);
+  const freeSince = useRef(0);
+  const lines = useRef(new Set<string>());
+  // The latest of what the voice needs, for callbacks that run after a render.
+  const latest = useRef({ audio, clockOffset, volume: device.volume });
+  useEffect(() => {
+    latest.current = { audio, clockOffset, volume: device.volume };
+  });
 
   // This player's own actions, from the change between views.
   useEffect(() => {
@@ -220,70 +155,165 @@ export function useSound({
     prev.current = view;
   }, [view, clockOffset]);
 
+  // Once a game starts (the host has set the sound by then), a device that plays the room's sound
+  // fetches what the game will say in the background (a device that only rings, its rings), and
+  // keeps the instant effects decoded.
+  const shared = on && deviceSounds(mode, isHost);
+  const seated = colours.join(',');
+  const playing = view.phase !== 'lobby';
+  useEffect(() => {
+    if (!on || !playing) return;
+    const engine = soundEngine();
+    if (!shared) {
+      if (effects) engine.prefetch(ringClips(audio));
+      return;
+    }
+    engine.prefetch(startupClips(audio, seated.split(','), { effects, voice }));
+    if (effects) engine.pin(INSTANT_EFFECTS.flatMap((k) => audio?.sfx?.[k] ?? []));
+  }, [on, playing, shared, effects, voice, audio, seated]);
+
+  // The chants for the next likely bids, and the music now and next.
+  useEffect(() => {
+    if (!shared) return;
+    const engine = soundEngine();
+    if (voice) engine.prefetch(chantClips(audio, view));
+    if (music) engine.prefetch(musicClips(audio, view));
+  }, [shared, voice, music, audio, view]);
+
+  // The voice's next few clips decode while the one before is said.
+  const decodeAhead = useCallback(() => {
+    const voiceClips = latest.current.audio?.voice;
+    for (const c of queue.current.slice(0, DECODE_AHEAD)) {
+      const src = clipOf(voiceClips, c.key, c.pick);
+      if (src) void soundEngine().load(src);
+    }
+  }, []);
+
+  // Says the next clip once the voice is free: each clip to its end, a late start moving the
+  // rest of its line back, and only clips too late for their moment dropped.
+  const pump = useCallback(() => {
+    if (saying.current) return;
+    const { audio: a, clockOffset: offset } = latest.current;
+    const now = Date.now() + offset;
+    const { clip, rest } = nextVoice(queue.current, now, freeSince.current, LOOKAHEAD_MS);
+    queue.current = rest;
+    setSpeaking(voiceBusy(!!clip, rest, now));
+    if (!clip) return;
+    const src = clipOf(a?.voice, clip.key, clip.pick);
+    if (!src) {
+      pump();
+      return;
+    }
+    const engine = soundEngine();
+    const said = { clip, handle: null as Saying | null };
+    saying.current = said;
+    const done = () => {
+      if (saying.current !== said) return;
+      saying.current = null;
+      freeSince.current = Date.now() + latest.current.clockOffset;
+      pump();
+    };
+    void engine.load(src).then((buffer) => {
+      if (saying.current !== said) return;
+      const at = Date.now() + latest.current.clockOffset;
+      // Lateness counts from when its turn came, not from when its file was ready.
+      if (!buffer || voiceLate(clip, now, freeSince.current) || loadedTooLate(now, at)) {
+        done();
+        return;
+      }
+      const start = Math.max(at, clip.at);
+      queue.current = shiftLine(queue.current, clip.line, start - clip.at);
+      decodeAhead();
+      said.handle = engine.say(
+        buffer,
+        start - latest.current.clockOffset,
+        latest.current.volume,
+        done,
+      );
+      if (!said.handle) done();
+    });
+  }, [decodeAhead]);
+
+  // A new line: it waits behind the clip being said (or cuts off a chant, or a line a Skip ended),
+  // and its clips start loading at once.
+  const hear = useCallback(
+    (clips: VoiceClip[]) => {
+      if (!clips.length) return;
+      // The whole line is fetched now (most of it is here already); its first clips decode.
+      soundEngine().prefetch(
+        clips.flatMap((c) => clipOf(latest.current.audio?.voice, c.key, c.pick) ?? []),
+      );
+      queue.current = enqueueLine(queue.current, clips);
+      decodeAhead();
+      const now = saying.current;
+      if (now?.handle && cutsOff(now.clip, clips[0]!)) now.handle.cut(CUT_MS);
+      else if (now && !now.handle && cutsOff(now.clip, clips[0]!)) {
+        // Still loading: it gives way before it starts.
+        saying.current = null;
+        freeSince.current = Date.now() + latest.current.clockOffset;
+      }
+      pump();
+    },
+    [pump, decodeAhead],
+  );
+
   // Effects and the voice: due cues play once, where this device plays them.
   useEffect(() => {
     if (!on) return;
     const opts = { mode, isHost, effects, voice };
-    const playVoice = () => {
-      const el = (voiceEl.current ??= new Audio());
-      if (!el.paused && !el.ended && el.src) return;
-      const now = Date.now() + clockOffset;
-      // A newer line drops what is left of an older one; a line too late for its moment is skipped.
-      const queue = voiceQueue.current.filter((c) => now <= (c.until ?? c.at));
-      const next = queue.shift();
-      voiceQueue.current = queue;
-      const src = next ? clipOf(audio?.voice, next.key, next.pick ?? 0) : null;
-      if (!next || !src) {
-        setSpeaking(false);
-        if (next) playVoice();
-        return;
-      }
-      el.src = assetUrl(src);
-      voiceHost.current = next.id.split(':')[0]!;
-      el.volume = Math.max(0, Math.min(1, device.volume));
-      el.onended = () => playVoice();
-      el.onerror = () => playVoice();
-      setSpeaking(true);
-      void el.play().catch(() => playVoice());
-    };
+    const engine = soundEngine();
     const check = () => {
       const now = Date.now() + clockOffset;
-      const cues = [...effectCues(view, you), ...voiceCues(view), ...own.current];
-      for (const cue of dueCues(cues, now, played.current)) {
+      const line = voiceLine(view);
+      const id = line[0]?.line;
+      if (id && !lines.current.has(id)) {
+        lines.current.add(id);
+        if (voice && deviceSounds(mode, isHost)) hear(line);
+      }
+      const cues = [...effectCues(view, you), ...own.current];
+      for (const cue of cues) {
+        // Effects still to come load ahead of their moment.
+        const src = cue.kind === 'sfx' ? clipOf(audio?.sfx, cue.key, cue.pick ?? cue.at) : null;
+        if (src && cuePlays(cue, opts) && cue.at > now && cue.at < now + DECODE_AHEAD_MS)
+          void engine.load(src);
+      }
+      for (const cue of dueCues(cues, now, played.current, LOOKAHEAD_MS)) {
         played.current.add(cue.id);
         if (!cuePlays(cue, opts)) continue;
         if (cue.kind === 'voice') {
-          const host = cue.id.split(':')[0];
-          // Lines from an older host moment give way to the new one: a chant a new bid cuts off
-          // fades out quickly first.
-          voiceQueue.current = [
-            ...voiceQueue.current.filter((c) => c.id.split(':')[0] === host),
-            cue,
-          ];
-          const el = voiceEl.current;
-          if (el && !el.paused && voiceHost.current !== host) cutVoice(el, playVoice);
-          else playVoice();
-        } else {
-          const src = clipOf(audio?.sfx, cue.key, cue.pick ?? cue.at);
-          if (src) playEffect(src, device.volume, cue.maxMs);
+          hear([voiceClipOf(cue, view.game?.stage ?? '')]);
+          continue;
         }
+        const src = clipOf(audio?.sfx, cue.key, cue.pick ?? cue.at);
+        if (src)
+          void engine.effect(
+            src,
+            cue.at - clockOffset,
+            device.volume,
+            cue.at - clockOffset + STALE_MS,
+            cue.maxMs,
+          );
       }
+      // The voice moves on by itself; this catches a clip that was waiting for its moment.
+      pump();
       if (played.current.size > 2000) played.current = new Set([...played.current].slice(-500));
+      if (lines.current.size > 500) lines.current = new Set([...lines.current].slice(-100));
     };
     check();
-    const id = setInterval(check, 100);
+    const timer = setInterval(check, 100);
     return () => {
-      clearInterval(id);
+      clearInterval(timer);
     };
-  }, [on, view, you, clockOffset, audio, mode, isHost, effects, voice, device.volume]);
+  }, [on, view, you, clockOffset, audio, mode, isHost, effects, voice, device.volume, hear, pump]);
 
   // A device that goes quiet stops talking at once.
   useEffect(() => {
-    if (on && voice) return;
-    voiceQueue.current = [];
-    voiceEl.current?.pause();
+    if (on && voice && deviceSounds(mode, isHost)) return;
+    queue.current = [];
+    saying.current?.handle?.cut(CUT_MS);
+    saying.current = null;
     setSpeaking(false);
-  }, [on, voice]);
+  }, [on, voice, mode, isHost]);
 
   // Music: the moment's track, crossfaded, ducked under the voice.
   // At the end the music follows the rack-up's beats, so it needs the time.
@@ -305,16 +335,17 @@ export function useSound({
     levelNow.current = level;
   });
   useEffect(() => {
-    mixer.current ??= new Mixer();
-    mixer.current.setTrack(wanted, levelNow.current);
-  }, [wanted]);
+    soundEngine().setMusic(wanted, levelNow.current);
+  }, [wanted, unlocked]);
   useEffect(() => {
-    mixer.current?.setLevel(level);
+    soundEngine().setMusicLevel(level);
   }, [level]);
   useEffect(() => {
     return () => {
-      mixer.current?.stop();
-      voiceEl.current?.pause();
+      soundEngine().setMusic(null, 0);
+      queue.current = [];
+      saying.current?.handle?.cut(CUT_MS);
+      saying.current = null;
     };
   }, []);
 }
