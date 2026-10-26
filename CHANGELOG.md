@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.0...v0.72.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **skyfire:** drag to reorder your hand works, and a phone turn fits the screen ([#417](https://github.com/thurahtetaung/virtual-tavern/issues/417)) ([28d629d](https://github.com/thurahtetaung/virtual-tavern/commit/28d629db15005595e7bdeeea643ac966f418766f))
+
 ## [0.72.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.71.1...v0.72.0) (2026-10-26)
 
 
