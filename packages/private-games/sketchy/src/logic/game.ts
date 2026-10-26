@@ -22,7 +22,6 @@ import {
 } from './content.ts';
 import {
   ARTIST_POINTS,
-  AUTO_FOOL_POINTS,
   DEFAULT_DRAW_SECONDS,
   DEFAULT_VOTE_SECONDS,
   DEFAULT_WRITE_SECONDS,
@@ -50,7 +49,7 @@ type Ctx = ActionCtx;
 type Result = SketchyState | GameError;
 
 const SEED_RANGE = 0x1_0000_0000;
-/** House titles each drawing gets for "Lie for me" and padding, at most. */
+/** House titles each drawing gets to pad its board, at most. */
 const DECOYS_PER_TURN = 24;
 
 const err = (code: string, message: string) => new GameError(code, message);
@@ -103,13 +102,10 @@ export function lieProblem(text: string, truth?: Pick<Prompt, 'text' | 'alternat
   return null;
 }
 
-/**
- * One author's share of a lie's points, rounded down to a multiple of `POINT_STEP`. A lie the game
- * picked for its author (`auto`) is worth half.
- */
-export function liePoints(fooled: number, authors: number, auto = false): number {
+/** One author's share of a lie's points, rounded down to a multiple of `POINT_STEP`. */
+export function liePoints(fooled: number, authors: number): number {
   if (authors <= 0) return 0;
-  const share = ((auto ? AUTO_FOOL_POINTS : FOOL_POINTS) * fooled) / authors;
+  const share = (FOOL_POINTS * fooled) / authors;
   return Math.floor(share / POINT_STEP) * POINT_STEP;
 }
 
@@ -210,12 +206,7 @@ function beginTurn(state: SketchyState, now: number): SketchyState {
     artist,
     writers,
     lies: {},
-    autoLies: [],
     decoys: share,
-    fakeShown: [],
-    fakeChoices: {},
-    fakesSeen: [],
-    filled: [],
     options: [],
     voters: [],
     votes: {},
@@ -244,107 +235,24 @@ function afterRound(state: SketchyState, now: number): SketchyState {
   return beginRound(state, g.round + 1, now);
 }
 
-// ---- Lie for me (as in Hoodwink: overlapping offers, exclusive picks) ----
+// ---- House titles (they pad a small board and score for nobody) ----
 
-/** Comparison keys a house title must not match: the truth, its alternates and every lie so far. */
+/** Comparison keys a house title must not match: the truth, its alternates and every lie. */
 function takenKeys(game: Game, lies: Record<PlayerId, string>): Set<string> {
   const truth = game.sketches[game.turn!.artist]!.prompt;
   return new Set([truth.text, ...truth.alternates, ...Object.values(lies)].map(wordKey));
 }
 
-function freeDecoys(game: Game, taken: ReadonlySet<string>): string[] {
-  return game.turn!.decoys.filter((d) => !taken.has(wordKey(d)));
-}
-
-/**
- * What "Lie for me" offers `id` now: house titles nobody else has picked, keeping what they were
- * already offered, topped up to two from a starting point of their own so offers spread. The last
- * free one stays out for the board unless offering it is the only way to offer two.
- */
-export function offerFor(game: Game, id: PlayerId): string[] {
-  const turn = game.turn!;
-  const others = Object.fromEntries(Object.entries(turn.lies).filter(([p]) => p !== id));
-  const free = freeDecoys(game, takenKeys(game, others));
-  const freeKeys = new Set(free.map(wordKey));
-  const offerable = free.length > 2 ? free.slice(0, -1) : free;
-  const offer = (turn.fakeChoices[id] ?? []).filter((f) => freeKeys.has(wordKey(f)));
-  const from = offerable.length
-    ? (Math.max(0, turn.writers.indexOf(id)) * 2) % offerable.length
-    : 0;
-  for (const fake of [...offerable.slice(from), ...offerable.slice(0, from)]) {
-    if (offer.length >= 2) break;
-    if (!offer.some((f) => wordKey(f) === wordKey(fake))) offer.push(fake);
-  }
-  return offer.slice(0, 2);
-}
-
-/** Sets the lies (and who the game picked for), then brings the open offers up to date. */
-function withLies(
-  state: SketchyState,
-  patch: Pick<Turn, 'lies' | 'autoLies'> & Partial<Turn>,
-): SketchyState {
-  const next = withTurn(state, patch);
-  const g = next.game!;
-  const turn = g.turn!;
-  const fakeChoices = { ...turn.fakeChoices };
-  for (const id of turn.fakeShown) {
-    if (fakeChoices[id] && turn.writers.includes(id)) fakeChoices[id] = offerFor(g, id);
-  }
-  const seen = new Map(turn.fakesSeen.map((f) => [wordKey(f), f]));
-  for (const f of Object.values(fakeChoices).flat())
-    if (!seen.has(wordKey(f))) seen.set(wordKey(f), f);
-  return withTurn(next, { fakeChoices, fakesSeen: [...seen.values()] });
-}
-
-/**
- * Up to `count` distinct house titles nobody has used, drawn with the hidden seed, those nobody
- * has been offered first (and only those when `unseenOnly`).
- */
+/** Up to `count` of this drawing's house titles that match nothing taken, drawn with the hidden seed. */
 function pickDecoys(
   state: SketchyState,
   count: number,
-  { taken, unseenOnly = false }: { taken: Set<string>; unseenOnly?: boolean },
+  taken: ReadonlySet<string>,
 ): { picked: string[]; seed: number } {
-  const turn = state.game!.turn!;
-  const seen = new Set(turn.fakesSeen.map(wordKey));
-  const pool = freeDecoys(state.game!, taken).filter((f) => !unseenOnly || !seen.has(wordKey(f)));
+  const pool = state.game!.turn!.decoys.filter((d) => !taken.has(wordKey(d)));
   if (count <= 0 || pool.length === 0) return { picked: [], seed: state.seed };
   const rng = createRng(state.seed);
-  const shuffled = rng.shuffle(pool);
-  const ordered = [
-    ...shuffled.filter((f) => !seen.has(wordKey(f))),
-    ...shuffled.filter((f) => seen.has(wordKey(f))),
-  ];
-  return { picked: ordered.slice(0, count), seed: rng.int(SEED_RANGE) };
-}
-
-/** Strict writing timer: anyone without a lie gets a house title (worth half), while any last. */
-function fillMissingLies(state: SketchyState): SketchyState {
-  const g = state.game!;
-  const turn = g.turn!;
-  const missing = turn.writers.filter((id) => turn.lies[id] === undefined);
-  const given: Record<PlayerId, string> = {};
-  const givenKeys = new Set<string>();
-  for (const id of missing) {
-    const own = turn.fakeShown.includes(id) ? offerFor(g, id)[0] : undefined;
-    if (own === undefined) continue;
-    const key = wordKey(own);
-    if (takenKeys(g, turn.lies).has(key) || givenKeys.has(key)) continue;
-    given[id] = own;
-    givenKeys.add(key);
-  }
-  const taken = new Set([...takenKeys(g, turn.lies), ...givenKeys]);
-  const rest = missing.filter((id) => given[id] === undefined);
-  const { picked, seed } = pickDecoys(state, rest.length, { taken });
-  rest.slice(0, picked.length).forEach((id, i) => {
-    given[id] = picked[i]!;
-  });
-  const filled = missing.filter((id) => given[id] !== undefined);
-  if (filled.length === 0) return state;
-  return withTurn(
-    { ...state, seed },
-    { lies: { ...turn.lies, ...given }, autoLies: [...turn.autoLies, ...filled], filled },
-  );
+  return { picked: rng.shuffle(pool).slice(0, count), seed: rng.int(SEED_RANGE) };
 }
 
 /**
@@ -359,44 +267,27 @@ function board(state: SketchyState): { options: Option[]; seed: number } {
     const text = turn.lies[id];
     if (text === undefined) continue;
     const key = wordKey(text);
-    const auto = turn.autoLies.includes(id) ? [id] : [];
     const group = groups.get(key);
-    if (group) {
-      group.authors.push(id);
-      group.auto.push(...auto);
-    } else {
-      groups.set(key, { text, truth: false, authors: [id], auto, house: false });
-    }
+    if (group) group.authors.push(id);
+    else groups.set(key, { text, truth: false, authors: [id], house: false });
   }
   const truth: Option = {
     text: g.sketches[turn.artist]!.prompt.text,
     truth: true,
     authors: [],
-    auto: [],
     house: false,
   };
   const size = Math.max(MIN_OPTIONS, g.players.length);
-  // A title someone was offered would tell them it's not the truth: never a house title.
-  const { picked, seed } = pickDecoys(state, size - 1 - groups.size, {
-    taken: takenKeys(g, turn.lies),
-    unseenOnly: true,
-  });
-  const house = picked.map((text): Option => ({
-    text,
-    truth: false,
-    authors: [],
-    auto: [],
-    house: true,
-  }));
+  const { picked, seed } = pickDecoys(state, size - 1 - groups.size, takenKeys(g, turn.lies));
+  const house = picked.map((text): Option => ({ text, truth: false, authors: [], house: true }));
   const rng = createRng(seed);
   return { options: rng.shuffle([truth, ...groups.values(), ...house]), seed: rng.int(SEED_RANGE) };
 }
 
-/** Moves on to the vote once every writer has a lie (or the timer forces it). */
+/** Moves on to the vote once every writer has a lie (or the timer forces it; missing lies stay out). */
 function maybeStartVoting(state: SketchyState, now: number, force = false): SketchyState {
   if (state.phase !== 'playing' || state.game?.stage !== 'write') return state;
-  if (force) state = fillMissingLies(state);
-  const turn = state.game!.turn!;
+  const turn = state.game.turn!;
   if (!force && !turn.writers.every((id) => turn.lies[id] !== undefined)) return state;
   const { options, seed } = board(state);
   const voters = turn.writers;
@@ -458,7 +349,7 @@ function reveal(state: SketchyState, now: number): SketchyState {
     if (option.truth || fooled === 0) return;
     for (const author of option.authors) {
       add(author, {
-        score: liePoints(fooled, option.authors.length, option.auto.includes(author)),
+        score: liePoints(fooled, option.authors.length),
         fooled,
       });
     }
@@ -748,70 +639,8 @@ function lie(state: SketchyState, text: string, ctx: Ctx): Result {
   if (turn instanceof GameError) return turn;
   const problem = lieProblem(text, state.game!.sketches[turn.artist]!.prompt);
   if (problem) return problem;
-  // Typing out a house title you were offered still counts as picked for you: half points.
-  const isFake = (turn.fakeChoices[ctx.by] ?? []).some((f) => sameTitle(f, text));
   return maybeStartVoting(
-    withLies(state, {
-      lies: { ...turn.lies, [ctx.by]: tidyLie(text) },
-      autoLies: isFake
-        ? [...new Set([...turn.autoLies, ctx.by])]
-        : turn.autoLies.filter((id) => id !== ctx.by),
-    }),
-    ctx.now,
-  );
-}
-
-function lieForMe(
-  state: SketchyState,
-  choice: number | undefined,
-  seen: string | undefined,
-  ctx: Ctx,
-): Result {
-  const turn = requireWriter(state, 'write', ctx);
-  if (turn instanceof GameError) return turn;
-  const g = state.game!;
-  if (choice !== undefined) {
-    if (!turn.fakeChoices[ctx.by]) {
-      return err('no-choice', 'Press “Lie for me” to see your ready-made titles first.');
-    }
-    const fake = offerFor(g, ctx.by)[choice];
-    if (fake === undefined || (seen !== undefined && wordKey(seen) !== wordKey(fake))) {
-      return err('fake-taken', 'Someone just picked that one. Choose again.');
-    }
-    return maybeStartVoting(
-      withLies(state, {
-        lies: { ...turn.lies, [ctx.by]: fake },
-        autoLies: [...new Set([...turn.autoLies, ctx.by])],
-      }),
-      ctx.now,
-    );
-  }
-  if (turn.fakeShown.includes(ctx.by) || turn.autoLies.includes(ctx.by)) {
-    return err(
-      'already-picked',
-      'You’ve had your ready-made titles for this drawing. Type your own to replace it.',
-    );
-  }
-  if (turn.lies[ctx.by] !== undefined) {
-    return err(
-      'own-lie-sent',
-      'You’ve already sent your own title. Change it in the box if you like.',
-    );
-  }
-  const offered = offerFor(g, ctx.by);
-  if (offered.length === 0)
-    return err('no-decoys', 'No ready-made title for this one. Write your own!');
-  const shown = withTurn(state, {
-    fakeShown: [...turn.fakeShown, ctx.by],
-    fakeChoices: { ...turn.fakeChoices, [ctx.by]: offered },
-    fakesSeen: [...turn.fakesSeen, ...offered],
-  });
-  if (offered.length > 1) return shown;
-  return maybeStartVoting(
-    withLies(shown, {
-      lies: { ...turn.lies, [ctx.by]: offered[0]! },
-      autoLies: [...turn.autoLies, ctx.by],
-    }),
+    withTurn(state, { lies: { ...turn.lies, [ctx.by]: tidyLie(text) } }),
     ctx.now,
   );
 }
@@ -952,8 +781,6 @@ export function reduce(state: SketchyState, action: SketchyAction, ctx: Ctx): Re
       return reroll(current, ctx);
     case 'lie':
       return lie(current, action.text, ctx);
-    case 'lie-for-me':
-      return lieForMe(current, action.choice, action.fake, ctx);
     case 'vote':
       return vote(current, action.option, ctx);
     case 'like':
@@ -1036,11 +863,7 @@ function withdraw(state: SketchyState, id: PlayerId, now: number): SketchyState 
       const lies = { ...turn.lies };
       delete lies[id];
       return maybeStartVoting(
-        withLies(state, {
-          writers: turn.writers.filter((p) => p !== id),
-          lies,
-          autoLies: turn.autoLies.filter((p) => p !== id),
-        }),
+        withTurn(state, { writers: turn.writers.filter((p) => p !== id), lies }),
         now,
       );
     }

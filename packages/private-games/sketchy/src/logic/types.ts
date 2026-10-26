@@ -13,8 +13,6 @@ export const TRUTH_POINTS = 1000;
 export const ARTIST_POINTS = 1000;
 /** Points for each player your lie fools (shared between the authors of a merged lie). */
 export const FOOL_POINTS = 500;
-/** Points per player fooled by a lie the game picked for you ("Lie for me", or filled in). */
-export const AUTO_FOOL_POINTS = 250;
 /** Extra points per drawing in a row on which you found the truth, after the first. */
 export const STREAK_POINTS = 100;
 /** The board is padded with house titles up to this many options, or the player count if more. */
@@ -65,8 +63,6 @@ export interface Option {
   truth: boolean;
   /** Who wrote this lie (empty for the truth and house titles). */
   authors: PlayerId[];
-  /** Authors whose lie the game picked for them; they score half. */
-  auto: PlayerId[];
   /** A house title that pads a small board: nobody's lie, scores for nobody. */
   house: boolean;
 }
@@ -84,18 +80,8 @@ export interface Turn {
   /** Who writes and votes: the round's players but the artist, pruned as they leave. */
   writers: PlayerId[];
   lies: Record<PlayerId, string>;
-  /** Players whose current lie the game picked for them. */
-  autoLies: PlayerId[];
-  /** This drawing's house titles in their hidden order: "Lie for me" and padding come from it. */
+  /** This drawing's share of the house titles, in their hidden order: the padding comes from it. */
   decoys: string[];
-  /** Players who have pressed "Lie for me" on this drawing (once each). */
-  fakeShown: PlayerId[];
-  /** The fakes each of them is offered now (one or two). */
-  fakeChoices: Record<PlayerId, string[]>;
-  /** Every fake anyone has been offered: never used as a house title. */
-  fakesSeen: string[];
-  /** Players whose lie the strict timer filled in. */
-  filled: PlayerId[];
   options: Option[];
   /** Who votes: the writers when voting started (leavers who hadn't voted are dropped). */
   voters: PlayerId[];
@@ -205,15 +191,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('reroll') }),
   // Length and content are checked in `reduce`, so the player gets a friendly message.
   z.object({ type: z.literal('lie'), text: z.string().max(200) }),
-  /**
-   * Without `choice`, offers the player their fakes (or uses the only one); with it, picks one.
-   * `fake` is the text the player saw there, so a pick made just as the offer changed is refused.
-   */
-  z.object({
-    type: z.literal('lie-for-me'),
-    choice: z.number().int().min(0).max(1).optional(),
-    fake: z.string().max(200).optional(),
-  }),
   z.object({ type: z.literal('vote'), option: z.number().int().min(0).max(20) }),
   z.object({ type: z.literal('like'), option: z.number().int().min(0).max(20), on: z.boolean() }),
   /** Host: moves on after a reveal. */
@@ -242,7 +219,6 @@ export interface OptionView {
   truth: boolean | null;
   authors: PlayerId[] | null;
   voters: PlayerId[] | null;
-  auto: PlayerId[] | null;
   house: boolean | null;
   likes: number | null;
 }
@@ -272,11 +248,7 @@ export interface TurnView {
   /** Lies in (or votes cast). */
   done: number;
   myLie: string | null;
-  myLieAuto: boolean;
-  myLieFilled: boolean;
   myLieShared: boolean;
-  canLieForMe: boolean;
-  myFakes: string[] | null;
   /** The board: empty while lies are being written. */
   options: OptionView[];
   myVote: number | null;

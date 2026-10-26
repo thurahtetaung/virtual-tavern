@@ -39,4 +39,6 @@ export const sketchy: GameDefinition<SketchyState, SketchyAction, SketchyView> =
   insights,
   awards: sketchyAwards,
   bot: sketchyBot,
+  // A bot's fake title can hit the real title it can't see: it picks another after its pause.
+  botInfo: { retry: (code) => code === 'is-the-truth' },
 };

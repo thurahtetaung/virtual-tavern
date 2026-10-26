@@ -5,7 +5,6 @@ import { lieProblem, tidyLie } from '../logic/game.ts';
 import { revealOrder, revealProgress } from '../logic/reveal.ts';
 import {
   ARTIST_POINTS,
-  AUTO_FOOL_POINTS,
   FOOL_POINTS,
   MAX_LIE_LENGTH,
   type OptionView,
@@ -168,14 +167,6 @@ function LieForm({ turn, act }: { turn: TurnView; act: Act }) {
     setRefused(ok ? null : trimmed);
     setBusy(false);
   };
-  const lieForMe = async (choice?: number) => {
-    setBusy(true);
-    const fake = choice === undefined ? undefined : turn.myFakes?.[choice];
-    await act({ type: 'lie-for-me', choice, fake }, { anchor: LIE_ANCHOR });
-    setRefused(null);
-    setBusy(false);
-  };
-  const fakes = turn.myFakes;
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-3">
       <label className="block">
@@ -199,69 +190,20 @@ function LieForm({ turn, act }: { turn: TurnView; act: Act }) {
           </span>
         )}
       </label>
-      {fakes && (
-        <fieldset data-testid="fake-choices" className="space-y-2">
-          <legend className="text-sm font-semibold">
-            🎲 Pick a ready-made title{' '}
-            <span className="font-normal text-ink-muted">(scores half)</span>
-          </legend>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {fakes.map((fake, i) => {
-              const chosen = turn.myLie === fake;
-              return (
-                <button
-                  key={fake}
-                  type="button"
-                  aria-pressed={chosen}
-                  disabled={busy}
-                  onClick={() => void lieForMe(i)}
-                  className={cn(
-                    'flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-lg font-semibold ring-1 transition',
-                    chosen
-                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
-                      : 'bg-white ring-stone-300 hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:hover:bg-stone-700',
-                  )}
-                >
-                  <span className="min-w-0 break-words">{fake}</span>
-                  {chosen && <span aria-hidden>✓</span>}
-                </button>
-              );
-            })}
-          </div>
-          {fakes.length === 0 && (
-            <p className="text-sm text-ink-muted">
-              The others picked them all. Type your own above.
-            </p>
-          )}
-        </fieldset>
-      )}
-      {turn.myLieAuto && unchanged && (
-        <p className="text-sm text-ink-muted">
-          🎲 Picked for you: it scores half. Type your own to replace it.
-        </p>
-      )}
       {turn.myLieShared && unchanged && (
         <p data-testid="lie-shared" className="text-sm text-amber-800 dark:text-amber-300">
           👯 Someone else wrote that too: it’ll be shared, and so will the points. Change it to keep
           them all.
         </p>
       )}
-      <div className={cn('grid gap-2', turn.canLieForMe && 'grid-cols-[1fr_auto]')}>
-        <Button type="submit" size="lg" disabled={busy || unchanged || !trimmed || blocked}>
-          {sent ? (unchanged ? '✓ Sent' : 'Change my title') : 'Send title'}
-        </Button>
-        {turn.canLieForMe && (
-          <Button
-            variant="secondary"
-            size="lg"
-            className="px-3 whitespace-nowrap max-sm:text-base"
-            disabled={busy}
-            onClick={() => void lieForMe()}
-          >
-            🎲 Lie for me
-          </Button>
-        )}
-      </div>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={busy || unchanged || !trimmed || blocked}
+      >
+        {sent ? (unchanged ? '✓ Sent' : 'Change my title') : 'Send title'}
+      </Button>
       <RefusalSlot anchor={LIE_ANCHOR} />
     </form>
   );
@@ -334,11 +276,7 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                 )}
               >
                 <span className="min-w-0 break-words">{o.text}</span>
-                {o.mine && (
-                  <span className="shrink-0 text-xs font-medium">
-                    {turn.myLieFilled ? 'Filled in for you' : 'Yours'}
-                  </span>
-                )}
+                {o.mine && <span className="shrink-0 text-xs font-medium">Yours</span>}
                 {chosen && !o.mine && <span aria-hidden>✓</span>}
               </button>
               {turn.canLike && !o.mine && (
@@ -514,7 +452,6 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
                   : 'Nobody fell for it.'}
             </span>
             {(o.likes ?? 0) > 0 && <span>👍 {o.likes}</span>}
-            {(o.auto?.length ?? 0) > 0 && <span>🎲 ready-made</span>}
           </p>
         </li>
       ))}
@@ -540,9 +477,8 @@ function TurnPoints({ view, turn }: { view: SketchyView; turn: TurnView }) {
       lines.push(`drew it (${points(ARTIST_POINTS)} × ${truth?.voters?.length ?? 0})`);
     for (const o of turn.options) {
       if (o.truth || !(o.authors ?? []).includes(id) || !(o.voters?.length ?? 0)) continue;
-      const each = (o.auto ?? []).includes(id) ? AUTO_FOOL_POINTS : FOOL_POINTS;
       lines.push(
-        `fooled ${o.voters!.length} (${points(each)} each${(o.authors?.length ?? 0) > 1 ? ', shared' : ''})`,
+        `fooled ${o.voters!.length} (${points(FOOL_POINTS)} each${(o.authors?.length ?? 0) > 1 ? ', shared' : ''})`,
       );
     }
     return lines.join(' · ');
@@ -596,9 +532,7 @@ export function TurnStage({
             You drew <span className="font-semibold">“{turn.prompt}”</span>. Shh!
           </p>
         )}
-        {turn.writing && (
-          <LieForm key={`${key}-${turn.myLieAuto ? turn.myLie : ''}`} turn={turn} act={act} />
-        )}
+        {turn.writing && <LieForm key={key} turn={turn} act={act} />}
         {progressLine('titles in')}
       </div>
     );

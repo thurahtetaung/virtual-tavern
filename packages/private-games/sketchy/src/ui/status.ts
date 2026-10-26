@@ -116,11 +116,9 @@ function turnStatus(
       yourMove: false,
     };
   }
-  const filled = t.myLieFilled
-    ? '⏱ Time ran out, so a ready-made title was filled in for you (it scores half). '
-    : '';
+  const missed = t.myLie === null ? '⏱ Picking started before your title was in. ' : '';
   if (t.myVote === null)
-    return { text: `${filled}Which is the real title? Pick one.`, yourMove: true };
+    return { text: `${missed}Which is the real title? Pick one.`, yourMove: true };
   return { text: `Picked! Like the funny ones. ${still(t.missing)}…`, yourMove: false };
 }
 

@@ -1,5 +1,5 @@
 import type { PlayerId } from '@vt/game-sdk';
-import { canLike, missingPlayers, offerFor } from './game.ts';
+import { canLike, missingPlayers } from './game.ts';
 import type {
   Game,
   GameView,
@@ -28,12 +28,6 @@ function lieShared(turn: Turn, id: PlayerId): boolean {
   return turn.writers.some((p) => p !== id && turn.lies[p] === mine);
 }
 
-function hadChoice(turn: Turn, id: PlayerId): boolean {
-  const offer = turn.fakeChoices[id];
-  if (!offer || !turn.fakeShown.includes(id)) return false;
-  return !(offer.length === 1 && turn.lies[id] === offer[0]);
-}
-
 function turnView(
   state: SketchyState,
   g: Game,
@@ -59,7 +53,6 @@ function turnView(
     truth: revealed ? o.truth : null,
     authors: revealed ? o.authors : null,
     voters: revealed ? voterIds(i) : null,
-    auto: revealed ? o.auto : null,
     house: revealed ? o.house : null,
     likes: revealed ? likeCount(i) : null,
   }));
@@ -80,17 +73,7 @@ function turnView(
         ? turn.writers.filter((id) => turn.lies[id] !== undefined).length
         : turn.voters.filter((id) => turn.votes[id] !== undefined).length,
     myLie: writing ? (turn.lies[viewer] ?? null) : null,
-    myLieAuto: writing && turn.autoLies.includes(viewer),
-    myLieFilled: writing && turn.filled.includes(viewer),
     myLieShared: writing && lieShared(turn, viewer),
-    canLieForMe:
-      g.stage === 'write' &&
-      writing &&
-      turn.lies[viewer] === undefined &&
-      !turn.fakeShown.includes(viewer) &&
-      offerFor(g, viewer).length > 0,
-    myFakes:
-      g.stage === 'write' && writing && hadChoice(turn, viewer) ? turn.fakeChoices[viewer]! : null,
     options,
     myVote: viewer === null ? null : (turn.votes[viewer] ?? null),
     myLikes: viewer === null ? [] : (turn.likes[viewer] ?? []),

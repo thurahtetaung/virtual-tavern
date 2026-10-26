@@ -1,4 +1,4 @@
-import { type BotCtx, createRng } from '@vt/game-sdk';
+import { type BotCtx, type ContentPack, createRng } from '@vt/game-sdk';
 import type { PlaytestSpeed } from '@vt/protocol';
 import type { RoomManager } from './manager.ts';
 
@@ -30,6 +30,8 @@ export interface BotRunnerDeps {
   words: (gameId: string, listIds: readonly string[]) => string[];
   /** Common answers to an open question, for `BotCtx.hints` (never trivia answers or decoys). */
   hints?: (gameId: string, questionId: string) => string[];
+  /** Enabled content packs of a kind, for `BotCtx.contentPacks`. */
+  contentPacks?: (gameId: string, kind: string) => ContentPack[];
   logger: BotRunnerLogger;
   /** Server time, for the bots' view of deadlines. */
   now?: () => number;
@@ -70,6 +72,7 @@ export class BotRunner {
       delay: (trivial) => (trivial ? 600 + Math.random() * 600 : 1500 + Math.random() * 2500),
       seed: () => Math.floor(Math.random() * 2 ** 32),
       hints: () => [],
+      contentPacks: () => [],
       ...deps,
     };
   }
@@ -185,6 +188,7 @@ export class BotRunner {
       rng: createRng(this.deps.seed(roomId, `bot:${botId}:${seen.version}`)),
       words: (ids) => this.deps.words(table.game.id, ids),
       hints: (id) => this.deps.hints(table.game.id, id),
+      contentPacks: (kind) => this.deps.contentPacks(table.game.id, kind),
     };
     try {
       const move: unknown = table.game.bot(seen.view, ctx);

@@ -62,7 +62,6 @@ const base: GameGuide = {
         'Keep it short: one line, at most 45 characters. Everything on the board is shown in lowercase, real title included, so nobody stands out by their capitals.',
         'If your title is the real one (or too close to it), the game tells you privately and you write another. Capitals, accents, plurals, hyphens and apostrophes are ignored when checking.',
         'If two players write the same title, it shows once and counts for both of them, sharing the points. The game warns you so you can change it.',
-        'Stuck? Press “Lie for me” and the game offers you two ready-made titles to choose from. Your pick counts as your fake but scores half. Type your own to replace it.',
       ],
     },
     {
@@ -70,7 +69,7 @@ const base: GameGuide = {
       bullets: [
         'Find the real title: 1,000 points.',
         'Streak: find it on several drawings in a row and you get 100 more for each drawing after the first (the third in a row: +200). Your own drawing doesn’t break a streak; a wrong pick or no pick does.',
-        'Every player who picks your fake title: 500 points to you (shared when several of you wrote it, half for a ready-made one).',
+        'Every player who picks your fake title: 500 points to you (shared when several of you wrote it).',
         'The artist: 1,000 points for every player who found the real title. So draw clearly!',
         'In small games the board is topped up with house titles. They belong to nobody: picking one scores nothing.',
         'Likes are for fun: they score no points, but the most liked player gets an award at the end.',
@@ -80,7 +79,7 @@ const base: GameGuide = {
     {
       title: 'Timers',
       paragraphs: [
-        'The timers are reminders by default: 130 seconds to draw, 40 to write a title and 30 to pick, and the game waits for everyone. Each stage ends once everyone is in. The host can change each timer, or make them strict: then when time runs out, whatever you’ve drawn is sent (a blank page means no drawing this round), anyone without a fake title gets a ready-made one (worth half) while there are some, and anyone who hasn’t picked scores nothing and loses their streak.',
+        'The timers are reminders by default: 130 seconds to draw, 40 to write a title and 30 to pick, and the game waits for everyone. Each stage ends once everyone is in. The host can change each timer, or make them strict: then when time runs out, whatever you’ve drawn is sent (a blank page means no drawing this round), picking starts without the fake titles still missing, and anyone who hasn’t picked scores nothing and loses their streak.',
       ],
     },
     {
@@ -132,7 +131,6 @@ const shaped = (footer?: GuideFooter): GameGuide =>
           ['find the real title', '1,000'],
           ['…on several drawings in a row', '+100 per drawing after the first'],
           ['fool a player with your fake', '500 each'],
-          ['fool one with a ready-made fake', '250 each'],
           ['are the artist', '1,000 per player who found it'],
           ['pick a house title', '0'],
           ['get a like', '0 (the Most liked award)'],

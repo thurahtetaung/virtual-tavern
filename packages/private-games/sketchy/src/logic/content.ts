@@ -48,7 +48,10 @@ export interface Prompt {
   adult: boolean;
 }
 
-function parsed<T>(content: ContentProvider, kind: keyof typeof PACK_KINDS) {
+/** Only the packs are read, so a bot's `BotCtx` serves as well as a room's content. */
+type Packs = Pick<ContentProvider, 'contentPacks'>;
+
+function parsed<T>(content: Packs, kind: keyof typeof PACK_KINDS) {
   return (content.contentPacks?.(kind) ?? []).flatMap((pack) => {
     const data = PACK_KINDS[kind].safeParse(pack.data);
     return data.success ? [{ id: pack.id, name: pack.name, items: data.data as T[] }] : [];
@@ -66,11 +69,7 @@ export function promptPacks(content: ContentProvider): PackSummary[] {
 }
 
 /** Every prompt in the chosen packs (adult ones only when allowed), lowercased. */
-export function promptsFrom(
-  content: ContentProvider,
-  packIds: readonly string[],
-  adult: boolean,
-): Prompt[] {
+export function promptsFrom(content: Packs, packIds: readonly string[], adult: boolean): Prompt[] {
   const chosen = new Set(packIds);
   return parsed<PromptEntry>(content, 'prompts')
     .filter((p) => chosen.has(p.id))

@@ -182,7 +182,7 @@ export function Lobby({
               on={s.timerMode === 'strict'}
               editable={editable}
               title="Strict timers"
-              help="When time runs out, the drawing is sent as it is, a missing title gets a ready-made one (worth half) and a missing pick scores nothing. Off: the timers are only reminders."
+              help="When time runs out, the drawing is sent as it is, picking starts without the missing titles and a missing pick scores nothing. Off: the timers are only reminders."
               onChange={(on) => set({ timerMode: on ? 'strict' : 'soft' })}
             />
           </div>

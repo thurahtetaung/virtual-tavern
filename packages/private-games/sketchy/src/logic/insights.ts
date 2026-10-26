@@ -26,7 +26,6 @@ function revealEvents(g: Game, turn: Turn): InsightEvent[] {
             props: {
               fooled: pickedBy(i).length,
               authors: o.authors,
-              auto: o.auto.length > 0,
               artist: turn.artist,
             },
           },

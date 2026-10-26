@@ -25,7 +25,7 @@ export type SketchyUiProps = GameUiProps<SketchyView, SketchyAction>;
 const CLOCK_LABEL = { draw: 'to draw', write: 'to write a title', vote: 'to pick' } as const;
 const AT_ZERO = {
   draw: 'whatever is drawn is sent',
-  write: 'missing titles get a ready-made one while there are some',
+  write: 'picking starts without the missing titles',
   vote: 'missing picks score nothing',
 } as const;
 

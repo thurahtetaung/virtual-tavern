@@ -308,9 +308,11 @@ export function buildApp(opts: AppOptions) {
   });
   const bots: BotRunner = new BotRunner({
     rooms,
-    // Bots get word lists and open questions' common answers; never trivia answers or decoys.
+    // Bots get word lists, open questions' common answers and content packs (Sketchy's prompts,
+    // for fake titles); never trivia answers or decoys.
     words: (gameId, ids) => wordLists.forGame(gameId).words(ids),
     hints: (gameId, id) => questionDecks.hints(gameId, id),
+    contentPacks: (gameId, kind) => contentPacks.forGame(gameId).contentPacks(kind),
     logger: app.log,
     now,
     ...(opts.botDelay && { delay: opts.botDelay }),

@@ -14,7 +14,7 @@ import {
 import { pageErrors } from './tavern-brawl-play.ts';
 
 // A whole Sketchy game on phones, on the rigged deal (`sketchy-play.ts`): prompts in seat order, a
-// reroll, the truth refused as a lie, Lie for me, likes, the scoring with a streak, and the end.
+// reroll, the truth refused as a lie, likes, the scoring with a streak, and the end.
 // Only what stays on screen is checked (the one-by-one reveal is gone a few seconds later).
 
 const cleanup: (() => Promise<unknown>)[] = [];
@@ -75,13 +75,11 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await expect(scoreOf(cleo, 'Hana')).toContainText('1,000');
   await hana.getByTestId('sketchy-next').click();
 
-  // Drawing 2 is Ben's: Hana takes a ready-made title, Cleo writes one; both find it.
+  // Drawing 2 is Ben's: Hana and Cleo write their own titles (there is nothing ready-made to
+  // fall back on); both find it.
   for (const p of all) await expect(p.getByText('Drawing 2/3')).toBeVisible();
-  await hana.getByRole('button', { name: '🎲 Lie for me' }).click();
-  const fakes = hana.getByTestId('fake-choices').getByRole('button');
-  await expect(fakes).toHaveCount(2);
-  await fakes.first().click();
-  await expect(fakes.first()).toHaveAttribute('aria-pressed', 'true');
+  await expect(hana.getByRole('button', { name: /Lie for me/ })).toHaveCount(0);
+  await writeLie(hana, 'fluffy puff');
   await writeLie(cleo, 'smiling sky');
   await pick(hana, 'happy cloud');
   await pick(cleo, 'happy cloud');

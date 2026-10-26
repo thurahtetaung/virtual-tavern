@@ -1,5 +1,6 @@
-import { type BotCtx, type Rng, cannedText, encodeDrawing, pickOne } from '@vt/game-sdk';
-import type { OptionView, SketchyAction, SketchyView } from './types.ts';
+import { type BotCtx, type Rng, cannedText, encodeDrawing, pickOne, wordKey } from '@vt/game-sdk';
+import { PLAYER_SLOT, promptsFrom } from './content.ts';
+import { MAX_LIE_LENGTH, type OptionView, type SketchyAction, type SketchyView } from './types.ts';
 
 /**
  * A bot's drawing: a few wobbly lines built from its own random numbers (never an image), so a
@@ -36,9 +37,32 @@ function weightedPick(rng: Rng, options: readonly OptionView[]): OptionView | un
 }
 
 /**
- * A playtest bot, from its own seat's view only: takes a seat, sends a scribble, writes "Lie for
- * me" when the game offers it (or a canned title), picks a title (never its own), and likes one
- * other title once it has picked. It never sees the real title.
+ * A bot's fake title: a prompt from the room's chosen packs that this game hasn't shown it (its own
+ * prompt and the real titles so far), else a canned line. The real title stays hidden from it, so
+ * a pick can match it; the engine refuses that and the bot tries again (`botInfo.retry`).
+ */
+export function botLie(view: SketchyView, ctx: BotCtx): string {
+  const g = view.game;
+  const seen = new Set(
+    [g?.myPrompt, ...(g?.history ?? []).map((h) => h.prompt)].flatMap((p) =>
+      p ? [wordKey(p)] : [],
+    ),
+  );
+  const pool = ctx.contentPacks
+    ? promptsFrom(ctx, view.settings.packIds, view.settings.adult).filter(
+        (p) =>
+          p.text.length <= MAX_LIE_LENGTH &&
+          !p.text.includes(PLAYER_SLOT) &&
+          !seen.has(wordKey(p.text)),
+      )
+    : [];
+  return pickOne(ctx.rng, pool)?.text ?? cannedText(ctx.rng, 'lie').slice(0, MAX_LIE_LENGTH);
+}
+
+/**
+ * A playtest bot, from its own seat's view only: takes a seat, sends a scribble, writes a fake
+ * title from an unused prompt (`botLie`), picks a title (never its own), and likes one other title
+ * once it has picked. It never sees the real title.
  */
 export function sketchyBot(view: SketchyView, ctx: BotCtx): SketchyAction | null {
   const { me, rng } = ctx;
@@ -54,15 +78,7 @@ export function sketchyBot(view: SketchyView, ctx: BotCtx): SketchyAction | null
   const t = g.turn;
   if (!t || t.mine || !t.writing) return null;
   if (g.stage === 'write') {
-    if (t.myLie !== null) return null;
-    if (t.myFakes?.length) {
-      const choice = rng.int(t.myFakes.length);
-      return { type: 'lie-for-me', choice, fake: t.myFakes[choice] };
-    }
-    if (t.myFakes) return { type: 'lie', text: cannedText(rng, 'lie').slice(0, 45) };
-    return t.canLieForMe
-      ? { type: 'lie-for-me' }
-      : { type: 'lie', text: cannedText(rng, 'lie').slice(0, 45) };
+    return t.myLie === null ? { type: 'lie', text: botLie(view, ctx) } : null;
   }
   if (g.stage === 'vote' && t.myVote === null) {
     const option = weightedPick(

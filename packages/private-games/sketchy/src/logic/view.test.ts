@@ -60,10 +60,6 @@ function perturb(state: SketchyState, viewer: PlayerId | null): SketchyState {
       t.votes[id] = (t.votes[id]! + 1) % t.options.length;
     }
     for (const id of Object.keys(t.likes)) if (id !== viewer) t.likes[id] = [];
-    for (const o of t.options) {
-      if (viewer !== null && o.authors.includes(viewer)) continue;
-      o.auto = [];
-    }
   }
   return s;
 }

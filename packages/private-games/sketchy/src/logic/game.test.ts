@@ -167,16 +167,14 @@ describe('lies', () => {
     expect(turn(h).options.filter((o) => o.house)).toHaveLength(1);
   });
 
-  it('offers two ready-made titles worth half', () => {
+  it('has no ready-made titles: every lie is a player’s own', () => {
     const h = writing(4);
     const w = turn(h).writers[0]!;
-    h.act(w, { type: 'lie-for-me' });
-    const offer = turn(h).fakeChoices[w]!;
-    expect(offer).toHaveLength(2);
-    h.act(w, { type: 'lie-for-me', choice: 1, fake: offer[1] });
-    expect(turn(h).lies[w]).toBe(offer[1]);
-    expect(turn(h).autoLies).toContain(w);
-    expect(liePoints(2, 1, true)).toBe(500);
+    expect(sketchy.actionSchema.safeParse({ type: 'lie-for-me' }).success).toBe(false);
+    h.act(w, { type: 'lie', text: 'my own' });
+    expect(turn(h).lies[w]).toBe('my own');
+    expect(liePoints(2, 1)).toBe(2 * FOOL_POINTS);
+    expect(liePoints(3, 2)).toBe(750);
   });
 });
 
@@ -298,13 +296,19 @@ describe('flow', () => {
     expect(h.state.endReason).toBe('finished');
   });
 
-  it('strict clocks fill missing lies and move on', () => {
+  it('strict clocks leave missing lies missing and pad with house titles', () => {
     const h = writing(4);
     const w = turn(h).writers[0]!;
     h.act(w, { type: 'lie', text: 'mine' });
     h.tick();
     expect(game(h).stage).toBe('vote');
-    expect(turn(h).filled).toHaveLength(2);
+    expect(Object.keys(turn(h).lies)).toEqual([w]);
+    const options = turn(h).options;
+    expect(options).toHaveLength(4);
+    expect(options.filter((o) => o.authors.length > 0).map((o) => o.text)).toEqual(['mine']);
+    expect(options.filter((o) => o.house)).toHaveLength(2);
+    // The writers without a lie still pick, and house titles score for nobody.
+    expect(turn(h).voters).toEqual(turn(h).writers);
   });
 
   it('soft timers wait, and the host can continue without', () => {
