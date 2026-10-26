@@ -339,14 +339,21 @@ function Lobby({
           }
         />
         <div className="flex flex-col gap-1">
-          <Segmented
-            label="Auction pace"
-            values={PACES}
-            value={view.settings.pace}
-            format={(v) => PACE_NAME[v]}
-            editable={room.isHost && !voiceSetsPace}
-            onChange={(v) => void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })}
-          />
+          <div
+            className={cn(voiceSetsPace && 'opacity-50')}
+            aria-disabled={voiceSetsPace || undefined}
+          >
+            <Segmented
+              label="Auction pace"
+              values={PACES}
+              value={view.settings.pace}
+              format={(v) => PACE_NAME[v]}
+              editable={room.isHost && !voiceSetsPace}
+              onChange={(v) =>
+                void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })
+              }
+            />
+          </div>
           <p className="text-xs text-ink-muted dark:text-stone-400" data-testid="go-pace-help">
             {voiceSetsPace
               ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'

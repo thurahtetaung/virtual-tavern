@@ -576,7 +576,8 @@ function LotIntro({ view, art, name }: { view: GoingOnceView; art: Art; name: Na
             disc ? 'text-stone-800' : 'text-ink dark:text-amber-100',
           )}
         >
-          <span className="block text-xs font-bold tracking-widest">LOT</span>
+          {/* The disc art says LOT itself. */}
+          {!disc && <span className="block text-xs font-bold tracking-widest">LOT</span>}
           <span className="text-3xl font-black tabular-nums">{a.lot + 1}</span>
         </span>
       </span>
