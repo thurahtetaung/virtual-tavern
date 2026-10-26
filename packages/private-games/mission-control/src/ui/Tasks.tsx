@@ -4,7 +4,7 @@ import { DUMMY, type TaskView } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
 import { Rich } from './Card.tsx';
 
-const STATE_ICON = { open: '○', done: '✓', failed: '✗' } as const;
+export const STATE_ICON = { open: '○', done: '✓', failed: '✗' } as const;
 
 /** One task as a chip: its text, holder, live state, progress and who fed it. */
 export function TaskChip({

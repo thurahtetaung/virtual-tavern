@@ -104,7 +104,12 @@ export function CardFace({
         <span>{valueOf(card)}</span>
         <span className="text-[0.7em]">{look.symbol}</span>
       </span>
-      {badge && <span className="absolute -right-1 -top-1">{badge}</span>}
+      {/* Bottom left on phones, where an overlapped card in the hand still shows. */}
+      {badge && (
+        <span className="absolute bottom-0 left-0 sm:bottom-auto sm:left-auto sm:-right-1 sm:-top-1">
+          {badge}
+        </span>
+      )}
     </>
   );
   const classes = cn(
@@ -112,8 +117,8 @@ export function CardFace({
     SIZE[size],
     state === 'dim' && 'opacity-35',
     state === 'legal' && 'ring-2 ring-accent -translate-y-1 dark:ring-amber-400',
-    state === 'selected' && 'ring-4 ring-accent -translate-y-2 dark:ring-amber-400',
-    state === 'queued' && 'ring-4 ring-info -translate-y-1 dark:ring-sky-400',
+    state === 'selected' && 'z-10 ring-4 ring-accent -translate-y-2 dark:ring-amber-400',
+    state === 'queued' && 'z-10 ring-4 ring-info -translate-y-1 dark:ring-sky-400',
     state === 'signalled' && 'ring-2 ring-special dark:ring-violet-400',
   );
   if (!onClick)
