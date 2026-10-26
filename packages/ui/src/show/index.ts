@@ -1,3 +1,4 @@
+export * from './art.ts';
 export * from './blocks.tsx';
 export * from './confetti.ts';
 export * from './player.ts';

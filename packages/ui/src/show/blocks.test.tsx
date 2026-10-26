@@ -8,8 +8,8 @@ import {
   ShowTargetsProvider,
   Stamp,
   placeOf,
-  symbolSource,
 } from './blocks.tsx';
+import { symbolSource } from './art.ts';
 import type { LoadedRig } from './rig.ts';
 
 // A made-up rig: shapes and tracks of our own, no original art.
@@ -21,6 +21,7 @@ const rig: LoadedRig = {
     'shape.Star':
       '<defs><clipPath id="c1"><rect/></clipPath></defs><path d="M0 0L5 5" clip-path="url(#c1)"/>',
     slab: '<path d="M0 0h80v40H0z"/><image href="tex-1.webp" width="8" height="8"/>',
+    slab2: '@slab',
   },
   tracks: {
     paddle: {
@@ -62,6 +63,7 @@ describe('symbolSource', () => {
     expect(s).toContain('<path style="fill:var(--c)" d=');
     expect(symbolSource(rig, 'slab')).not.toContain('var(--c)');
     expect(symbolSource(rig, 'missing')).toBe('');
+    expect(symbolSource(rig, 'slab2')).toContain('href="blob:tex-1"'); // the same art by reference
   });
 });
 

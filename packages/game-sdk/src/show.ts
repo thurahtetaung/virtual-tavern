@@ -32,8 +32,10 @@ export interface Track {
 /**
  * Vector parts and their motion, exported from the original art (private: rigs live in the game's
  * asset storage, never the repo). `symbols` are inline SVG sources (texture hrefs relative to the
- * rig's URL), `tracks` are named clips by part (`stamp.Appear` is `tracks.stamp.Appear`), `places`
- * resting matrices of parts inside their parents (or lists of them: seat positions per table).
+ * rig's URL; `@<key>` reuses another symbol's art), `tracks` are named clips by part (`stamp.Appear`
+ * is `tracks.stamp.Appear`; parts of a many-part clip are `<clip>-<child>`), `places` resting
+ * matrices of parts inside their parents (or lists of them: seat positions per table; `<clip>.at`
+ * is where a clip sits on the stage).
  */
 export interface Rig {
   fps: number;
@@ -42,6 +44,8 @@ export interface Rig {
   symbols: Record<string, string>;
   tracks: Record<string, Record<string, Track>>;
   places: Record<string, number[] | number[][]>;
+  /** Where a part's art changes mid-track: per part and label, [ms, symbol key] in order. */
+  swaps?: Record<string, Record<string, [ms: number, symbol: string][]>>;
 }
 
 /** A keyframe of our own small motions: transform and opacity only (they run on the compositor). */
