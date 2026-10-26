@@ -21,7 +21,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import {
@@ -107,6 +107,10 @@ export function GoingOnceGame({
   // Seen here so the gallery keeps drawings from lots this tab watched.
   const seen = useSeenDrawings(view);
   const g = view.game;
+  // The lobby plays music too, so the same switch sits beside its hint.
+  const sound = (
+    <SoundButton view={view} muted={device.muted} onChange={(muted) => setDevice({ muted })} />
+  );
   const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
 
   return (
@@ -117,7 +121,7 @@ export function GoingOnceGame({
       )}
     >
       {view.phase === 'lobby' || !g ? (
-        <Lobby view={view} room={room} act={act} showGuide={showGuide} />
+        <Lobby view={view} room={room} act={act} showGuide={showGuide} sound={sound} />
       ) : (
         <>
           <GoingOnceStyles />
@@ -125,11 +129,7 @@ export function GoingOnceGame({
             <div className="min-w-0 flex-1">
               <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
             </div>
-            <SoundButton
-              view={view}
-              muted={device.muted}
-              onChange={(muted) => setDevice({ muted })}
-            />
+            {sound}
           </div>
           <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
           {g.stage === 'draw' && g.redraw && (
@@ -232,11 +232,13 @@ function Lobby({
   room,
   act,
   showGuide,
+  sound,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   act: Act;
   showGuide: () => void;
+  sound: ReactNode;
 }) {
   const seated = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
@@ -255,17 +257,22 @@ function Lobby({
           : null;
   return (
     <>
-      <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
-        {!me
-          ? 'Watching the table.'
-          : !me.playing
-            ? 'You’re watching. Take a seat to play.'
-            : blocker
-              ? blocker
-              : room.isHost
-                ? 'Everyone’s here? Start the game.'
-                : waitingForHost(room)}
-      </Hint>
+      <div className="flex items-start gap-1">
+        <div className="min-w-0 flex-1">
+          <Hint tone={room.isHost && !blocker ? 'action' : 'neutral'}>
+            {!me
+              ? 'Watching the table.'
+              : !me.playing
+                ? 'You’re watching. Take a seat to play.'
+                : blocker
+                  ? blocker
+                  : room.isHost
+                    ? 'Everyone’s here? Start the game.'
+                    : waitingForHost(room)}
+          </Hint>
+        </div>
+        {sound}
+      </div>
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-bold">
