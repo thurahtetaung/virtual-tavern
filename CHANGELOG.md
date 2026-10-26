@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.3...v0.73.4) (2026-10-26)
+
+
+### Performance Improvements
+
+* **realtime:** send each player only what changed in the room ([#432](https://github.com/thurahtetaung/virtual-tavern/issues/432)) ([7bf5557](https://github.com/thurahtetaung/virtual-tavern/commit/7bf5557199bcef90e82f9253f4cb965589a2e19e))
+
 ## [0.73.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.2...v0.73.3) (2026-10-26)
 
 
