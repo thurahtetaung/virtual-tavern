@@ -58,6 +58,9 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await expect(cleo.getByTestId('go-top-bid')).toContainText('$400');
   await bid(cleo, 500);
   await expect(ben.getByTestId('go-top-bid')).toContainText('$500');
+  // Who leads and the bids before stay on screen with the floating bid bar.
+  await expect(ben.getByTestId('go-top-bid')).toBeInViewport({ ratio: 1 });
+  await expect(ben.getByTestId('go-ladder')).toBeInViewport({ ratio: 1 });
   await bid(ben, 600);
   // The Sold card only shows for a moment, so everything below is checked on what stays on
   // screen: the bank's sheet, cash, the Lots tab and the end gallery (the rig keeps the close at
