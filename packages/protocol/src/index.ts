@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { GameCategory } from './game-settings.ts';
+import type { Patch } from './patch.ts';
 import type {
   AckWith,
   GameRecap,
@@ -313,10 +314,17 @@ export type LockReason = 'changed' | 'signed-out' | 'none';
 export type Ack =
   { ok: true } | { ok: false; error: { code: string; message: string; reason?: LockReason } };
 
-export const joinRoomPayload = z.object({ roomId, token: playerToken, name: playerName });
+/** Set by browsers that rebuild the room from `room:patch` updates (older ones only take `room:state`). */
+const takesPatches = z.literal(true).optional();
+export const joinRoomPayload = z.object({
+  roomId,
+  token: playerToken,
+  name: playerName,
+  patch: takesPatches,
+});
 export type JoinRoomPayload = z.infer<typeof joinRoomPayload>;
 /** A table screen joins with its pass (a cookie), never as a player. */
-export const stageJoinPayload = z.object({ roomId, role: z.literal('stage') });
+export const stageJoinPayload = z.object({ roomId, role: z.literal('stage'), patch: takesPatches });
 export type StageJoinPayload = z.infer<typeof stageJoinPayload>;
 
 export interface ClientToServerEvents {
@@ -343,10 +351,26 @@ export interface ClientToServerEvents {
   'room:recap-tone': (tone: RecapTone, tz: number, ack: (res: Ack) => void) => void;
   /** The viewer copied or shared the recap (counted, nothing else). */
   'room:recap-shared': (how: 'copy' | 'share' | 'image', ack: (res: Ack) => void) => void;
+  /** A `room:patch` didn't fit this browser's copy of the room: send the whole room again. */
+  'room:resync': (ack: (res: Ack) => void) => void;
+}
+
+/**
+ * What changed in the room since the update numbered `base` (each connection numbers its own
+ * updates), sent only to browsers that joined with `patch: true`.
+ */
+export interface RoomPatch {
+  seq: number;
+  base: number;
+  serverNow: number;
+  ops: Patch;
 }
 
 export interface ServerToClientEvents {
-  'room:state': (snapshot: RoomSnapshot) => void;
+  /** The whole room. `seq` (for browsers that take patches) numbers it for the patches after it. */
+  'room:state': (snapshot: RoomSnapshot & { seq?: number }) => void;
+  /** What changed since the last update (see `RoomPatch`). */
+  'room:patch': (patch: RoomPatch) => void;
   'room:kicked': () => void;
   /** The back-room unlock this connection joined with is no longer valid; it has left the room. */
   'room:locked': (reason: LockReason) => void;
@@ -371,6 +395,7 @@ export interface ServerToClientEvents {
   'room:recap': (push: { recap: RoomRecap | null; for: string }) => void;
 }
 export * from './game-settings.ts';
+export * from './patch.ts';
 export * from './content-packs.ts';
 export * from './questions.ts';
 export * from './recap.ts';

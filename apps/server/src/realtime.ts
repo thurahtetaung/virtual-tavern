@@ -6,9 +6,11 @@ import {
   type NextTable,
   type RecapLine,
   type RoomRecap,
+  type RoomPatch,
   type RoomSnapshot,
   type ServerToClientEvents,
   type StageCode,
+  diff,
   joinRoomPayload,
   stageJoinPayload,
   playerColor,
@@ -126,8 +128,64 @@ const gates = new WeakMap<IO, RoomGate>();
 /** Why a socket's cookie was turned away from a back-room room. */
 const lockReason = (gate: RoomGate | undefined, cookie: string | undefined): LockReason =>
   gate?.lockReason?.(cookie) ?? 'changed';
-/** The last snapshot each socket was sent (minus the clock), so unchanged views aren't re-sent. */
-const lastSent = new WeakMap<ClientSocket, string>();
+/** The last snapshot each socket was sent, so unchanged views aren't re-sent and patches have a base. */
+interface Sent {
+  /** Whose view in which room (`<roomId>|<playerId>`, no player for a table screen). */
+  view: string;
+  /** The snapshot as JSON, minus the clock. */
+  key: string;
+  /** The update's number on this socket (each socket numbers its own). */
+  seq: number;
+  /** The snapshot as the browser has it, for the next patch (sockets that take patches only). */
+  json?: unknown;
+}
+const lastSent = new WeakMap<ClientSocket, Sent>();
+/** Sockets that joined saying they rebuild the room from `room:patch` updates. */
+const takesPatches = new WeakSet<ClientSocket>();
+/** Per-socket update numbers, kept across views so a stale patch can never match. */
+const seqs = new WeakMap<ClientSocket, number>();
+
+/** One view's snapshot for the sockets that may be sent it (parsed once, only when patching). */
+interface Outgoing {
+  view: string;
+  snapshot: RoomSnapshot;
+  key: string;
+  json?: unknown;
+}
+
+/**
+ * Sends `out` to `s` unless it already has it: the whole snapshot, or (to a socket that takes
+ * patches and has this view's previous snapshot) what changed since, when that is smaller.
+ * Returns the bytes sent, or null when the socket already had this snapshot.
+ */
+function deliver(s: ClientSocket, out: Outgoing): number | null {
+  const prev = lastSent.get(s);
+  if (prev?.key === out.key && prev.view === out.view) return null;
+  if (!takesPatches.has(s)) {
+    lastSent.set(s, { view: out.view, key: out.key, seq: 0 });
+    s.emit('room:state', out.snapshot);
+    return Buffer.byteLength(out.key);
+  }
+  const seq = (seqs.get(s) ?? 0) + 1;
+  seqs.set(s, seq);
+  out.json ??= JSON.parse(out.key);
+  lastSent.set(s, { view: out.view, key: out.key, seq, json: out.json });
+  if (prev?.json !== undefined && prev.view === out.view) {
+    const patch: RoomPatch = {
+      seq,
+      base: prev.seq,
+      serverNow: out.snapshot.serverNow,
+      ops: diff(prev.json, out.json),
+    };
+    const encoded = JSON.stringify(patch);
+    if (encoded.length < out.key.length) {
+      s.emit('room:patch', patch);
+      return Buffer.byteLength(encoded);
+    }
+  }
+  s.emit('room:state', { ...out.snapshot, seq });
+  return Buffer.byteLength(out.key);
+}
 /** The recap service each server was attached with, for the recaps pushed with the state. */
 const recaps = new WeakMap<IO, RecapService>();
 /** The recap moment of the last snapshot each socket was sent (`<phase>:<gameNo>|<tone>`). */
@@ -249,17 +307,18 @@ export function createRoomEvents(
         // Only send what changed for this player. An unchanged view is never re-sent, so the
         // timing of messages can't reveal that someone else acted (a hidden role at night), and
         // nobody re-renders for changes they can't see.
-        const key = JSON.stringify({ ...snapshot, serverNow: 0 });
+        const out: Outgoing = {
+          view: `${roomId}|${playerId}`,
+          snapshot,
+          key: JSON.stringify({ ...snapshot, serverNow: 0 }),
+        };
         const due = sockets.filter((id) => {
           const s = io.sockets.sockets.get(id);
-          if (!s || lastSent.get(s) === key) return false;
-          lastSent.set(s, key);
+          const bytes = s ? deliver(s, out) : null;
+          if (bytes === null) return false;
+          if (onBroadcast) sizes.push(bytes);
           return true;
         });
-        if (due.length) {
-          io.to(due).emit('room:state', snapshot);
-          if (onBroadcast) sizes.push(Buffer.byteLength(key));
-        }
         // A join, a game starting or ending and a new tone each come with their recap.
         if (snapshot.meta?.recap) {
           const moment = `${recapFor(snapshot)}|${snapshot.meta.tone}`;
@@ -275,14 +334,12 @@ export function createRoomEvents(
       if (stages.length) {
         const snapshot = rooms.snapshot(roomId, null);
         if (snapshot) {
-          const key = JSON.stringify({ ...snapshot, serverNow: 0 });
-          const due = stages.filter((id) => {
-            const s = io.sockets.sockets.get(id)!;
-            if (lastSent.get(s) === key) return false;
-            lastSent.set(s, key);
-            return true;
-          });
-          if (due.length) io.to(due).emit('room:state', snapshot);
+          const out: Outgoing = {
+            view: `${roomId}|`,
+            snapshot,
+            key: JSON.stringify({ ...snapshot, serverNow: 0 }),
+          };
+          for (const id of stages) deliver(io.sockets.sockets.get(id)!, out);
         }
       }
       // After the change is fully recorded (the stats observer runs once the state is sent).
@@ -402,6 +459,15 @@ const rateLimited: Ack = {
   error: { code: 'rate-limited', message: 'Too many requests. Slow down a little.' },
 };
 
+/** The socket server's options. */
+export const SOCKET_OPTIONS = {
+  serveClient: false,
+  connectionStateRecovery: undefined,
+  // Uncompressed: with compression on, connections were cut every few minutes, just after the
+  // browser's heartbeat reply. Updates stay small as patches instead (`room:patch`).
+  perMessageDeflate: false,
+} as const;
+
 export function attachRealtime(
   server: HttpServer,
   rooms: RoomManager,
@@ -410,13 +476,7 @@ export function attachRealtime(
   opts: RealtimeOptions = {},
 ): IO {
   const limits: RateLimits = { ...DEFAULT_RATE_LIMITS, ...opts.limits };
-  const io: IO = new Server(server, {
-    serveClient: false,
-    connectionStateRecovery: undefined,
-    // Uncompressed, to test whether it stops the blips where a connection is cut every few minutes,
-    // just after the browser's heartbeat reply.
-    perMessageDeflate: false,
-  });
+  const io: IO = new Server(server, SOCKET_OPTIONS);
   gates.set(io, gate);
   if (opts.recap) recaps.set(io, opts.recap);
 
@@ -431,6 +491,10 @@ export function attachRealtime(
     };
     const isAdmin = () => !!gate.isAdmin?.(socket.request.headers.cookie);
     const locked = () => lockedOutAck(lockReason(gate, socket.request.headers.cookie));
+    const setPatches = (on: boolean) => {
+      if (on) takesPatches.add(socket);
+      else takesPatches.delete(socket);
+    };
 
     /** Every client event goes through here: budget first, then the usual error handling. */
     const guarded = (ack: unknown, run: () => Ack) => {
@@ -464,10 +528,12 @@ export function attachRealtime(
     };
 
     /** A table screen: in on its pass alone, never a player (no seat, no moves, no presence). */
-    const joinAsStage = (roomId: string): Ack => {
+    const joinAsStage = (roomId: string, patch: boolean): Ack => {
       if (!gate.stageAllowed?.(roomId, socket.request.headers.cookie)) return unpaired;
       const prev = socket.data;
       if (prev.stage && prev.roomId === roomId) return { ok: true };
+      setPatches(patch);
+      lastSent.delete(socket);
       socket.data = { roomId, stage: true };
       void socket.join(channel(roomId));
       leavePrevious(prev, roomId);
@@ -480,7 +546,7 @@ export function attachRealtime(
 
     const joinAs = (payload: unknown): Ack => {
       const stage = stageJoinPayload.safeParse(payload);
-      if (stage.success) return joinAsStage(stage.data.roomId);
+      if (stage.success) return joinAsStage(stage.data.roomId, !!stage.data.patch);
       const parsed = joinRoomPayload.safeParse(payload);
       if (!parsed.success) {
         return {
@@ -488,7 +554,7 @@ export function attachRealtime(
           error: { code: 'bad-request', message: parsed.error.issues[0]!.message },
         };
       }
-      const { roomId, token, name } = parsed.data;
+      const { roomId, token, name, patch } = parsed.data;
       // A playtest looks like a dead link to anyone but an admin.
       if (gate.isPlaytest?.(roomId) && !isAdmin()) return noRoom;
       if (!allowed(roomId)) return locked();
@@ -496,10 +562,17 @@ export function attachRealtime(
       // Enter the channel first so the join's own snapshot reaches this socket; back out if it
       // fails, so a bad join never costs the socket the room it was already in.
       const prev = socket.data;
+      // A join always gets the whole room first (its browser may have nothing to patch).
+      const sent = lastSent.get(socket);
+      const patches = takesPatches.has(socket);
       const rollback = () => {
         if (prev.roomId !== roomId) void socket.leave(channel(roomId));
         socket.data = prev;
+        if (sent) lastSent.set(socket, sent);
+        setPatches(patches);
       };
+      lastSent.delete(socket);
+      setPatches(!!patch);
       socket.data = { roomId, playerId };
       void socket.join(channel(roomId));
       let res: Ack;
@@ -525,6 +598,30 @@ export function attachRealtime(
     };
 
     socket.on('room:join', (payload, ack) => guarded(ack, () => joinAs(payload)));
+
+    // A patch didn't fit the browser's copy of the room: it gets the whole room again (asked for
+    // by the browser itself, so its timing reveals nothing).
+    socket.on('room:resync', (ack) =>
+      guarded(ack, () => {
+        const { roomId, playerId, stage } = socket.data;
+        if (!roomId || (!playerId && !stage)) return notJoined;
+        if (
+          stage ? !gate.stageAllowed?.(roomId, socket.request.headers.cookie) : !allowed(roomId)
+        ) {
+          detach(socket, rooms);
+          return stage ? unpaired : locked();
+        }
+        const snapshot = rooms.snapshot(roomId, playerId ?? null);
+        if (!snapshot) return noRoom;
+        lastSent.delete(socket);
+        deliver(socket, {
+          view: `${roomId}|${playerId ?? ''}`,
+          snapshot,
+          key: JSON.stringify({ ...snapshot, serverNow: 0 }),
+        });
+        return { ok: true };
+      }),
+    );
 
     // A join that came with the connection (`auth`): the room's state follows the connection at
     // once, a round trip sooner than a `room:join` sent after it. Same checks, same answers.
