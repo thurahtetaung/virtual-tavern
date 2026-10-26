@@ -32,6 +32,7 @@ export const SHARED_STATE = [
   /stampede[\w-]*\.spec\.ts$/,
   /jeweller[\w-]*\.spec\.ts$/,
   /going-once[\w-]*\.spec\.ts$/,
+  /sketchy[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -60,6 +61,7 @@ const GAME_IDS = [
   'stampede',
   'jeweller',
   'going-once',
+  'sketchy',
 ];
 
 /**
@@ -149,6 +151,8 @@ export default defineConfig({
         '1:L1-35;n:N09,N01,N03;own:L1-01,L1-02,L1-03,L1-04,L1-33,L1-34,L1-36,L3-05,L3-06,L3-08',
       // Going Once's spec fixes the deal and halves its clocks from the lobby (`rig`).
       GOING_ONCE_TEST_RIG: '1',
+      // Sketchy's spec knows each player's prompt: packs dealt in order, drawings in seat order.
+      SKETCHY_TEST_RIG: '1',
     },
   },
 });

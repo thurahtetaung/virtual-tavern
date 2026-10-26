@@ -84,6 +84,10 @@ import type { GameFigure } from '@vt/protocol';
 //              value, profit, own, house, screwedBy; recap: lot, artist, commission, players},
 //              unsold {value, house; recap: lot}, bid {amount}, screw {outcome; recap: target,
 //              amount}, loan {loans}, drawing {missed}
+//   sketchy    drawing {found, voters, lies, house, hidden; recap: round, points}, lie {fooled,
+//              auto; recap: authors, artist}, vote {foundTruth, house; recap: authors, artist,
+//              streak}, like {byArtist; recap: authors, round}, outcome {drawings, endReason;
+//              recap: ranking, scores, fooled, truths, likes}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1540,6 +1544,71 @@ function stampedeFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function sketchyCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'drawing': {
+      out.push(['f.drawings', 1]);
+      const voters = num(props.voters) ?? 0;
+      const found = num(props.found) ?? 0;
+      out.push(['f.voter_sum', voters], ['f.found_sum', found]);
+      if (voters > 0 && found === 0) out.push(['f.unsolved', 1]);
+      if (props.hidden === true) out.push(['f.hidden', 1]);
+      break;
+    }
+    case 'vote':
+      out.push(['f.votes', 1]);
+      if (props.house === true) out.push(['f.house_votes', 1]);
+      break;
+    case 'lie':
+      out.push(['f.lies', 1]);
+      if (props.auto === true) out.push(['f.auto_lies', 1]);
+      break;
+    case 'like':
+      out.push(['f.likes', 1]);
+      break;
+    case 'outcome':
+      out.push(['f.games', 1]);
+      break;
+  }
+  return out;
+}
+
+function sketchyFigures(get: (metric: string) => number): GameFigure[] {
+  return [
+    {
+      id: 'found-share',
+      label: 'Picks that found the real title',
+      kind: 'percent',
+      value: pct(get('f.found_sum'), get('f.voter_sum')),
+    },
+    {
+      id: 'unsolved',
+      label: 'Drawings nobody could name',
+      kind: 'percent',
+      value: pct(get('f.unsolved'), get('f.drawings')),
+    },
+    {
+      id: 'house-picks',
+      label: 'Picks that fell for a house title',
+      kind: 'percent',
+      value: pct(get('f.house_votes'), get('f.votes')),
+    },
+    {
+      id: 'ready-made',
+      label: 'Fake titles that were ready-made',
+      kind: 'percent',
+      value: pct(get('f.auto_lies'), get('f.lies')),
+    },
+    {
+      id: 'likes-per-game',
+      label: 'Likes per game',
+      kind: 'number',
+      value: avg(get('f.likes'), get('f.games')),
+    },
+  ];
+}
+
 function jewellerCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -1738,6 +1807,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'stampede') return stampedeCounters(type, props);
   if (gameId === 'jeweller') return jewellerCounters(type, props);
   if (gameId === 'going-once') return goingOnceCounters(type, props);
+  if (gameId === 'sketchy') return sketchyCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -1951,6 +2021,8 @@ export function buildFigures(
       return jewellerFigures(get);
     case 'going-once':
       return goingOnceFigures(get);
+    case 'sketchy':
+      return sketchyFigures(get);
     case 'codenames':
       return [
         teams(false),

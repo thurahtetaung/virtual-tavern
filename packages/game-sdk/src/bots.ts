@@ -1,5 +1,5 @@
 import type { Rng } from './rng.ts';
-import type { PlayerId } from './types.ts';
+import type { ContentPack, PlayerId } from './types.ts';
 
 /**
  * What a playtest bot knows besides its own seat's view: never the game state, never another
@@ -19,6 +19,12 @@ export interface BotCtx {
    * `questionKind: 'open'`; empty when the deck gives none. Never trivia answers or decoys.
    */
   hints?(questionId: string): string[];
+  /**
+   * The game's enabled content packs of one kind, for games that declare `contentPacks` and whose
+   * bots write from them (Sketchy's fake titles come from its prompts). Read on the server only:
+   * never part of a view.
+   */
+  contentPacks?(kind: string): ContentPack[];
 }
 
 /** How a game's bots fit a playtest, for the admin's setup. */

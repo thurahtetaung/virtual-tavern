@@ -87,6 +87,7 @@ export function playWithBots<State, Action, View>(
     rng: createRng(rng.int(2 ** 32)),
     words: (ids) => content.words(ids),
     hints: (id) => opts.hints?.(id) ?? [],
+    contentPacks: (kind) => content.contentPacks?.(kind) ?? [],
   });
   const moveOf = (me: PlayerId): Action | null => {
     const view = def.view(state, me);
