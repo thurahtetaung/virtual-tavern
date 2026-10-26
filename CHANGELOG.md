@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.1...v0.62.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** clean markup out of titles, keep the top bid in view on phones, and two smaller fixes from the live check ([#362](https://github.com/thurahtetaung/virtual-tavern/issues/362)) ([593ffdd](https://github.com/thurahtetaung/virtual-tavern/commit/593ffdd13d2b0e71befe6a1ee51fef1d584dfb37))
+
 ## [0.62.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.0...v0.62.1) (2026-10-26)
 
 
