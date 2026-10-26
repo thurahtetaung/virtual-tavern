@@ -485,6 +485,8 @@ const SKIPPABLE = new Set(['sold', 'halftime']);
 export function cutsOff(saying: VoiceClip, next: VoiceClip): boolean {
   if (saying.line === next.line) return false;
   if (saying.key.startsWith('chant')) return true;
+  // The screwer picked while being asked to: the pick's line follows at once.
+  if (saying.key.startsWith('screw-pick')) return true;
   if (next.key === 'skipped') return true;
   return SKIPPABLE.has(saying.stage) && next.stage !== saying.stage && next.at < saying.lineEnd;
 }
@@ -521,10 +523,34 @@ export function nextVoice(
   return { clip: first, rest: rest.slice(1) };
 }
 
-/** A clip of `line` started `by` ms late: the rest of its line moves back to keep its pauses. */
+/**
+ * Whether a clip keeps its server time whatever comes before it: a chant, which "going once"
+ * follows by the server's clock (`CHANT_GAP_MS` after its end), so it must end on time.
+ */
+export const keepsTime = (c: Pick<VoiceClip, 'key'>) => c.key.startsWith('chant');
+
+/**
+ * A clip of `line` started `by` ms late: the rest of its line moves back to keep its pauses,
+ * except a chant, which keeps its time (`keepsTime`).
+ */
 export function shiftLine(queue: readonly VoiceClip[], line: string, by: number): VoiceClip[] {
   if (by <= 0) return [...queue];
-  return queue.map((c) => (c.line === line ? { ...c, at: c.at + by } : c));
+  return queue.map((c) => (c.line === line && !keepsTime(c) ? { ...c, at: c.at + by } : c));
+}
+
+/** The least of a chant worth saying. */
+export const MIN_CHANT_MS = 500;
+
+/**
+ * How far into a clip to start it at `start` (ms into it), or null when it would end too soon to
+ * be worth saying: a chant whose turn came late (the amount before it waited for another clip, or
+ * its file was slow) skips its head so that it still ends when the server timed it to; any other
+ * clip starts at its beginning.
+ */
+export function clipSkip(clip: VoiceClip, start: number, lengthMs: number): number | null {
+  if (!keepsTime(clip)) return 0;
+  const skip = Math.max(0, start - clip.at);
+  return lengthMs - skip < MIN_CHANT_MS ? null : skip;
 }
 
 /** Whether the voice counts as speaking for the music's ducking: saying a clip, or one due soon. */

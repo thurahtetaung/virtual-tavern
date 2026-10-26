@@ -265,7 +265,13 @@ export class SoundEngine {
    * Says a decoded clip from `localAt`; `onEnd` runs once when it has ended or been cut. Returns
    * null when the audio isn't running.
    */
-  say(buffer: AudioBuffer, localAt: number, volume: number, onEnd: () => void): Saying | null {
+  say(
+    buffer: AudioBuffer,
+    localAt: number,
+    volume: number,
+    onEnd: () => void,
+    skipMs = 0,
+  ): Saying | null {
     const ctx = this.ctx;
     if (!ctx) return null;
     const { node, gain } = this.source(buffer, volume);
@@ -276,7 +282,7 @@ export class SoundEngine {
       gain.disconnect();
       onEnd();
     };
-    node.start(this.when(localAt));
+    node.start(this.when(localAt), skipMs / 1000);
     return {
       cut: (ms) => {
         if (done) return;

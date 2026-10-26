@@ -134,11 +134,17 @@ export function GoingOnceGame({
             <GoingOnceStyles />
             <div className="flex items-start gap-1">
               <div className="min-w-0 flex-1">
-                <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+                {/* A quiet phone's Sold card says it all. */}
+                {!(quiet && g.stage === 'sold') && (
+                  <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+                )}
               </div>
               {sound}
             </div>
-            <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
+            {/* During a lot a quiet phone leaves the auctioneer's words to the table screen. */}
+            {!(quiet && (g.stage === 'auction' || g.stage === 'sold')) && (
+              <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
+            )}
             {g.stage === 'draw' && g.redraw && (
               <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
                 Nobody drew anything, so here are new titles. If nobody draws this time, the game
@@ -146,7 +152,7 @@ export function GoingOnceGame({
               </p>
             )}
             <Alerts view={view} you={room.you} />
-            <ScrewBanner view={view} name={name} you={room.you} />
+            <ScrewBanner view={view} name={name} you={room.you} clockOffset={room.clockOffset} />
             {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
             {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
             {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}

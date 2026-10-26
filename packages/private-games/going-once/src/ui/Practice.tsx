@@ -156,6 +156,7 @@ function PracticeBidding({
     since: p.since,
     steps: p.steps,
     screw: null,
+    pausedUntil: 0,
     screwed: null,
     bankCalled: false,
     bidders: [],
@@ -290,7 +291,8 @@ function PracticeScrew({ view, room }: { view: GoingOnceView; room: GameRoomInfo
           className="rounded-xl bg-danger-soft px-3 py-2 text-sm font-semibold text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
         >
           The screw fails: the {HOUSE_NAME.toLowerCase()} can’t pay {money(top + 100)}, so your
-          screw is wasted. Pick someone with cash!
+          screw is wasted. Pick someone with cash! The clock waits while a screw plays out, then
+          everyone gets a fresh countdown to bid.
         </p>
       )}
       <Countdown deadline={p.until} clockOffset={room.clockOffset} label="until lot 1" />

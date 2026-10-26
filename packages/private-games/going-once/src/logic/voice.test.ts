@@ -1,9 +1,9 @@
-import type { PlayerColor } from '@vt/game-sdk';
+import { type PlayerColor, createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
 import { HOST, SQUIGGLE, bid, game, hammer, harness, nextLot, pastIntro } from './test-utils.ts';
 import type { GoingOnceState } from './types.ts';
-import { CHANT_GAP_MS, CLIP_GAP_MS, clipsMs } from './voice.ts';
+import { CHANT_GAP_MS, CLIP_GAP_MS, chantKey, clipsMs } from './voice.ts';
 import { VOICE_MS } from './voice-lengths.ts';
 
 const COLORS: PlayerColor[] = ['red', 'yellow', 'blue', 'green'];
@@ -104,16 +104,25 @@ describe('the voiced auction', () => {
     expect(a.closeAt).toBe(h.now + clipsMs(game(h).host!.clips!) + CHANT_GAP_MS);
   });
 
-  it('runs a bid’s quiet stretch as its amount line, a chant for it and 1 s', () => {
+  it('runs a bid’s quiet stretch as its amount line, the chant asking for the next and 1 s', () => {
     const h = voicedAuction();
     bid(h, 'p2', 600);
     const clips = game(h).host!.clips!;
+    // The original's reactionTag (the bid) and nextBidTag (the bid + $100).
     expect(clips[0]!.key).toBe('bid-600');
-    expect(clips[1]!.key).toMatch(/^chant(-long)?-600$/);
+    expect(clips[1]!.key).toMatch(/^chant(-long)?-700$/);
     expect(clips[0]!.ms).toBe(VOICE_MS['bid-600']![clips[0]!.i]);
     expect(game(h).auction!.closeAt).toBe(
       h.now + clips[0]!.ms + CLIP_GAP_MS + clips[1]!.ms + CHANT_GAP_MS,
     );
+  });
+
+  it('chants for the next ask by its amount, and the high chant above the recordings', () => {
+    const rng = createRng(3);
+    for (let i = 0; i < 20; i++) {
+      expect(chantKey(4000, rng)).toMatch(/^chant(-long)?-4000$/);
+      expect(chantKey(4100, rng)).toMatch(/^chant(-long)?-high$/);
+    }
   });
 
   it('restarts from the new amount when a bid comes mid-chant', () => {
@@ -171,6 +180,33 @@ describe('the voiced auction', () => {
     const clips = game(h).host!.clips!;
     expect(clips[0]).toMatchObject({ key: 'screwed-blue', player: 'p3' });
     expect(clips[1]!.key).toBe('bid-500');
+    // The forced bid's chant asks for the next one too.
+    expect(clips[2]!.key).toMatch(/^chant(-long)?-600$/);
+  });
+});
+
+describe('the voiced clock around a screw', () => {
+  it('holds the bidding through the failure line, then a fresh chant for the bid on the table', () => {
+    const h = voicedAuction(4, 6);
+    while (game(h).auction!.lot < game(h).lots.length / 2) {
+      hammer(h);
+      nextLot(h);
+    }
+    const s = structuredClone(h.state);
+    s.game!.players.p3!.cash = 300;
+    h.state = s;
+    bid(h, 'p1', 600);
+    h.act('p1', { type: 'screw' });
+    h.wait(3000);
+    const at = h.now;
+    h.act('p1', { type: 'screw-pick', target: 'p3' });
+    const a = game(h).auction!;
+    const clips = game(h).host!.clips!;
+    expect(clips[0]!.key).toBe('screw-fail');
+    expect(clips[1]!.key).toMatch(/^chant(-long)?-700$/);
+    expect(a.pausedUntil).toBe(at + clips[0]!.ms + CLIP_GAP_MS);
+    expect(a.closeAt).toBe(at + clipsMs(clips) + CHANT_GAP_MS);
+    expect(a.close).toBe('quiet');
   });
 });
 

@@ -1,6 +1,7 @@
 import type { Profile } from '@vt/game-sdk/show';
 import {
   type LoadedRig,
+  LowEffectsNotice,
   ShowTargetsProvider,
   symbolSource,
   Stamp,
@@ -71,9 +72,13 @@ export function PhoneShow({
     tracks: rig?.tracks ?? {},
     el: targets.el,
   });
+  // The battery saver keeps the art (it is still) and only stills the motion (`schedule`).
   return (
     <ShowTargetsProvider targets={targets}>
-      <PhoneRig.Provider value={low ? null : rig}>{children}</PhoneRig.Provider>
+      <PhoneRig.Provider value={rig}>
+        <LowEffectsNotice className="mb-2" />
+        {children}
+      </PhoneRig.Provider>
     </ShowTargetsProvider>
   );
 }
@@ -83,7 +88,7 @@ const PAINTING_W = 264;
 
 /**
  * The Sold stamp over a lot's picture on the phone, hidden until the Sold moment slams it on.
- * Without the art (or with the battery saver) nothing: the Sold card says it all.
+ * Without the art nothing: the Sold card says it all.
  */
 export function PictureStamp() {
   const rig = usePhoneRig();
@@ -153,7 +158,7 @@ const FRAME_AT = [136.2, 117.25];
 
 /**
  * The drawing pad hung like a painting: the original's paper, shadow and strings behind the pad,
- * stretched to its box. Without the art (or with the battery saver), just the pad.
+ * stretched to its box. Without the art, just the pad.
  */
 export function PadFrame({ children }: { children: ReactNode }) {
   const rig = usePhoneRig();
@@ -177,14 +182,16 @@ export function PadFrame({ children }: { children: ReactNode }) {
   return (
     <div ref={box} className={rig ? 'relative mt-6' : 'relative'} data-testid="go-pad-frame">
       {rig && size && (
-        // The strings show a short way above the pad, never up into the page.
+        // The strings show a short way above the pad, never up into the page; the frame's shadow
+        // a little beyond it. Clipped by paint only: a box wider than the pad would scroll the
+        // page sideways.
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-[-40px] -top-6 bottom-[-40px] overflow-hidden"
+          className="pointer-events-none absolute inset-0"
+          style={{ clipPath: 'inset(-24px -40px -40px -40px)' }}
         >
           <svg
-            className="absolute overflow-visible"
-            style={{ left: 40, top: 24 }}
+            className="absolute left-0 top-0 overflow-visible"
             width="1"
             height="1"
             dangerouslySetInnerHTML={{

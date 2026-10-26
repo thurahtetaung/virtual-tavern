@@ -589,10 +589,12 @@ export function ScrewBanner({
   view,
   name,
   you,
+  clockOffset,
 }: {
   view: GoingOnceView;
   name: NameOf;
   you: string;
+  clockOffset: number;
 }) {
   const last = [...view.log].reverse().find((e) => e.kind === 'screw');
   const id = last?.id ?? 0;
@@ -605,11 +607,16 @@ export function ScrewBanner({
       if (last.target === you && last.outcome === 'forced') vibrate(60);
     }
   }
+  // Up while the screw plays out (the clock is paused till then), and at least 2 s.
+  const until = view.game?.auction?.pausedUntil ?? 0;
   useEffect(() => {
     if (!visible) return;
-    const t = setTimeout(() => setVisible(false), 2000);
+    const t = setTimeout(
+      () => setVisible(false),
+      Math.max(SCREW_BANNER_MS, until - (Date.now() + clockOffset)),
+    );
     return () => clearTimeout(t);
-  }, [visible, shown]);
+  }, [visible, shown, until, clockOffset]);
   if (!visible || last?.kind !== 'screw') return null;
   return (
     <p
@@ -618,12 +625,21 @@ export function ScrewBanner({
       className="rounded-xl bg-danger-soft px-4 py-3 text-center text-base font-bold text-danger-ink ring-1 ring-danger-line motion-safe:animate-[go-rise_0.25s_ease-out] dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
     >
       🔩{' '}
-      {last.outcome === 'forced'
-        ? `${name(last.by)} screwed ${name(last.target)}: ${name(last.target)} bids ${money(last.amount ?? 0)}`
-        : `${name(last.by)} tried to screw ${name(last.target)}, who can’t afford it`}
+      {last.outcome === 'forced' ? (
+        `${name(last.by)} screwed ${name(last.target)}: ${name(last.target)} bids ${money(last.amount ?? 0)}`
+      ) : (
+        <>
+          Screw failed:{' '}
+          {last.target ? <PlayerTag name={name(last.target)} you={last.target === you} /> : 'they'}{' '}
+          could not pay {money(last.amount ?? 0)}
+        </>
+      )}
     </p>
   );
 }
+
+/** The least a screw's banner stays up. */
+const SCREW_BANNER_MS = 2000;
 
 /**
  * How many beats of a staged reveal to show: one more every `stepMs`, all at once when the viewer

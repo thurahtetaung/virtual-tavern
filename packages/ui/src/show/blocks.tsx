@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { symbolSource } from './art.ts';
+import { setLowEffects, useShowSettings } from './profile.ts';
 import type { LoadedRig } from './rig.ts';
 
 // The show's building blocks: HTML layers (absolutely placed, transform origin top left) holding
@@ -466,5 +467,35 @@ export function HostPortrait({
       )}
       <p ref={sub} aria-live="polite" />
     </div>
+  );
+}
+
+/**
+ * Says so when the battery saver went on by itself (this device kept dropping frames), with a
+ * way back to the full show: the show never thins out silently.
+ */
+export function LowEffectsNotice({ className }: { className?: string }) {
+  const { auto } = useShowSettings();
+  if (!auto) return null;
+  return (
+    <p
+      role="status"
+      className={
+        'flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-panel px-3 py-1.5 text-sm text-ink-muted ring-1 ring-line dark:bg-stone-800/70 dark:text-stone-300 dark:ring-stone-700 ' +
+        (className ?? '')
+      }
+      data-testid="show-low-notice"
+    >
+      <span>
+        <span aria-hidden>🔋 </span>This device looked slow, so the show moves less.
+      </span>
+      <button
+        type="button"
+        className="font-semibold text-ink underline underline-offset-2 dark:text-stone-100"
+        onClick={() => setLowEffects('off')}
+      >
+        Full show
+      </button>
+    </p>
   );
 }

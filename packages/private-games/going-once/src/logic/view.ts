@@ -117,6 +117,7 @@ function gameView(state: GoingOnceState, g: Game): GameView {
             since: a.since ?? 0,
             steps: bidSteps(a.bid),
             screw: a.screw ? { by: a.screw.by, until: a.screw.until } : null,
+            pausedUntil: a.pausedUntil ?? 0,
             screwed: a.screwed ? { ...a.screwed } : null,
             bankCalled: a.bankCalled.length > 0,
             bidders: [...a.bidders],
