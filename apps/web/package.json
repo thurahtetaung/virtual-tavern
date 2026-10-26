@@ -32,6 +32,7 @@
     "@vt/private-seance": "workspace:*",
     "@vt/private-sketchy": "workspace:*",
     "@vt/private-mission-control": "workspace:*",
+    "@vt/private-skyfire": "workspace:*",
     "@vt/private-short-fuse": "workspace:*",
     "@vt/private-stampede": "workspace:*",
     "@vt/private-starlight": "workspace:*",

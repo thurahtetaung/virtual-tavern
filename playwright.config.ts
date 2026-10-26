@@ -36,6 +36,7 @@ export const SHARED_STATE = [
   /mosaic[\w-]*\.spec\.ts$/,
   /encore[\w-]*\.spec\.ts$/,
   /mission-control[\w-]*\.spec\.ts$/,
+  /skyfire[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -68,6 +69,7 @@ const GAME_IDS = [
   'mosaic',
   'encore',
   'mission-control',
+  'skyfire',
 ];
 
 /**
@@ -178,6 +180,9 @@ export default defineConfig({
       // campaign the pink 3 (token 1) and the pink 2 (token 2).
       MISSION_CONTROL_TEST_DEAL:
         'hands=p1 p2 p3 p4 p5 p6 p7 p8 p9 t1 t2 t3 t4 b1|b2 b3 b4 b5 b6 b7 b8 b9 g1 g2 g3 g4 g5|g6 g7 g8 g9 y1 y2 y3 y4 y5 y6 y7 y8 y9;tasks=1,2,p3,p2',
+      // Skyfire's spec knows the deal: these cards top the deck, dealt a hand at a time in seat
+      // order (2 players: Ana y3 y4 w4 b4 g4, Ben r1 g5 b5 w5 y5), and the first seat starts.
+      SKYFIRE_TEST_DECK: 'y3 y4 w4 b4 g4 r1 g5 b5 w5 y5 r2',
     },
   },
 });
