@@ -243,7 +243,7 @@ describe('RoomManager', () => {
       const got = colors(id);
       // Seven players get the seven colours; watchers past that repeat them.
       expect([...got.slice(0, 7)].sort()).toEqual([...own].sort());
-      expect(got.every((c) => own.includes(c!))).toBe(true);
+      expect(got.every((c) => own.includes(c))).toBe(true);
       expect(rooms.snapshot(id, 'p0')!.colors).toEqual(own);
       expect(rooms.recolor(id, 'p0', 'teal')).toEqual({
         ok: false,
