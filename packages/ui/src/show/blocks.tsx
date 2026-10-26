@@ -474,9 +474,30 @@ export function HostPortrait({
  * Says so when the battery saver went on by itself (this device kept dropping frames), with a
  * way back to the full show: the show never thins out silently.
  */
-export function LowEffectsNotice({ className }: { className?: string }) {
+export function LowEffectsNotice({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  /** One small line, for a screen that has no room for a banner. */
+  compact?: boolean;
+}) {
   const { auto } = useShowSettings();
   if (!auto) return null;
+  if (compact)
+    return (
+      <p role="status" className={'text-xs ' + (className ?? '')} data-testid="show-low-notice">
+        <span aria-hidden>🔋 </span>
+        <span className="text-ink-muted dark:text-stone-400">Battery saver on · </span>
+        <button
+          type="button"
+          className="font-semibold text-ink underline underline-offset-2 dark:text-stone-100"
+          onClick={() => setLowEffects('off')}
+        >
+          Full show
+        </button>
+      </p>
+    );
   return (
     <p
       role="status"

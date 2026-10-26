@@ -9,7 +9,7 @@ import {
   type SoldBeats,
   type SoundMode,
 } from '../logic/types.ts';
-import { clipTimes } from '../logic/voice.ts';
+import { CHANT_GAP_MS, clipTimes } from '../logic/voice.ts';
 
 export { SOLD_BEAT_MS, clipTimes };
 import { GAME_COLORS } from '../logic/types.ts';
@@ -556,7 +556,8 @@ const SKIPPABLE = new Set(['sold', 'halftime']);
  */
 export function cutsOff(saying: VoiceClip, next: VoiceClip): boolean {
   if (saying.line === next.line) return false;
-  if (saying.key.startsWith('chant')) return true;
+  // A new bid (or a screw) cuts a chant; the close's own call waits for it (`callStart`).
+  if (saying.key.startsWith('chant')) return !isCall(next);
   // The screwer picked while being asked to: the pick's line follows at once.
   if (saying.key.startsWith('screw-pick')) return true;
   if (next.key === 'skipped') return true;
@@ -608,6 +609,18 @@ export const keepsTime = (c: Pick<VoiceClip, 'key'>) => c.key.startsWith('chant'
 export function shiftLine(queue: readonly VoiceClip[], line: string, by: number): VoiceClip[] {
   if (by <= 0) return [...queue];
   return queue.map((c) => (c.line === line && !keepsTime(c) ? { ...c, at: c.at + by } : c));
+}
+
+/** The close's calls that come after a chant: "going once" (fast or not) and "No one?". */
+export const isCall = (c: Pick<VoiceClip, 'key'>) => /^(going-once|no-bids)/.test(c.key);
+
+/**
+ * When a call may start, as the original sequences it: one second (`CHANT_GAP_MS`) after the
+ * chant before it has actually ended on this device, whatever the server's clock assumed (a
+ * device that starts its clips a little late would otherwise talk over its own chant).
+ */
+export function callStart(clip: VoiceClip, start: number, chantEnded: number | null): number {
+  return isCall(clip) && chantEnded !== null ? Math.max(start, chantEnded + CHANT_GAP_MS) : start;
 }
 
 /** The least of a chant worth saying. */

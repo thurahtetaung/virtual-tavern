@@ -576,6 +576,14 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
         }),
         anim(i * gap, `finale:${id}`, 'finale-content.Appear', { on: STAGE }),
         anim(i * gap, `finale:${id}.scoreL`, 'finale-score.Appear', { on: STAGE }),
+        {
+          t: i * gap + 300,
+          kind: 'css' as const,
+          target: `finale:${id}.name`,
+          keyframes: [{ opacity: 1 }],
+          ms: 200,
+          on: STAGE,
+        },
       ]),
       ...g.final.flatMap((f) => {
         const bite = times.debtAt - times.sum;
@@ -603,6 +611,14 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
       ...g.final.map((f) =>
         anim(0, `finale:${f.id}.scoreL`, 'finale-score.Disappear', { on: STAGE }),
       ),
+      ...g.final.map((f) => ({
+        t: 0,
+        kind: 'css' as const,
+        target: `finale:${f.id}.name`,
+        keyframes: [{ opacity: 0 }],
+        ms: 300,
+        on: STAGE,
+      })),
       ...g.winners.map((id, i) =>
         anim(300 + i * 100, `win:${id}`, 'winning-content.Appear', { on: STAGE }),
       ),

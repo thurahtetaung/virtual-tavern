@@ -86,11 +86,7 @@ export function play(m: Moment, env: ShowEnv): Playing {
     const a = el.animate(kf, { fill: 'forwards', ...opts });
     if (at > 0) a.currentTime = at;
     a.onfinish = () => {
-      try {
-        a.commitStyles();
-      } catch {
-        // A detached element keeps no style: nothing to commit.
-      }
+      if (opts.fill !== 'none') settlePose(el, a, kf);
       a.cancel();
     };
     anims.push(a);
@@ -265,6 +261,29 @@ export function play(m: Moment, env: ShowEnv): Playing {
       anims.forEach((a) => a.playState === 'running' && a.pause());
     },
   };
+}
+
+/**
+ * Leaves a finished animation's end pose in the element's own style before it is dropped. The
+ * browser's `commitStyles` can refuse (or quietly not take) when the page isn't drawing at that
+ * instant; then the last keyframe is written by hand, so a part never snaps back to where it
+ * started (the winner line once flashed out for a frame that way).
+ */
+export function settlePose(
+  el: Pick<HTMLElement, 'style'>,
+  a: Pick<Animation, 'commitStyles'>,
+  kf: readonly Keyframe[],
+): void {
+  const last = kf.at(-1) ?? {};
+  try {
+    a.commitStyles();
+  } catch {
+    // Written by hand below.
+  }
+  if (last.transform !== undefined && el.style.transform !== String(last.transform))
+    el.style.transform = String(last.transform);
+  if (last.opacity !== undefined && el.style.opacity !== String(last.opacity))
+    el.style.opacity = String(last.opacity);
 }
 
 /** Where a clip starts inside its voice step. */

@@ -128,9 +128,13 @@ export function setLowEffects(setting: LowSetting) {
   update({ setting });
 }
 
-/** Whether the device plays low effects, from its switch and what `auto` found. */
-export const lowOf = (s: Pick<State, 'setting' | 'auto'>) =>
-  s.setting === 'on' || (s.setting === 'auto' && s.auto);
+/**
+ * Whether the device plays low effects, from its switch and what `auto` found. A table screen
+ * only when switched on: it runs on mains power and the show is its whole job, so slow frames
+ * there never take its confetti away.
+ */
+export const lowOf = (s: Pick<State, 'setting' | 'auto'>, isStage = false) =>
+  s.setting === 'on' || (!isStage && s.setting === 'auto' && s.auto);
 
 const samples: FrameSample[] = [];
 let sampling = false;

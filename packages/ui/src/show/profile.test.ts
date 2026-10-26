@@ -12,6 +12,9 @@ describe('show settings', () => {
     expect(lowOf({ setting: 'off', auto: true })).toBe(false);
     expect(lowOf({ setting: 'auto', auto: true })).toBe(true);
     expect(lowOf({ setting: 'auto', auto: false })).toBe(false);
+    // A table screen: only when switched on, never by itself (its confetti stays).
+    expect(lowOf({ setting: 'auto', auto: true }, true)).toBe(false);
+    expect(lowOf({ setting: 'on', auto: false }, true)).toBe(true);
   });
 
   it('keeps the battery-saver switch per device, and auto clears it', async () => {

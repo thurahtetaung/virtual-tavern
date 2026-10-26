@@ -76,7 +76,10 @@ export function PhoneShow({
   return (
     <ShowTargetsProvider targets={targets}>
       <PhoneRig.Provider value={rig}>
-        <LowEffectsNotice className="mb-2" />
+        {/* A quiet phone's lot has no room for it: the thumbnail's row carries it then. */}
+        {!(profile === 'phone-quiet' && (g?.stage === 'auction' || g?.stage === 'sold')) && (
+          <LowEffectsNotice className="mb-2" />
+        )}
         {children}
       </PhoneRig.Provider>
     </ShowTargetsProvider>

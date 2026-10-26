@@ -18,6 +18,7 @@ import {
   dueCues,
   loadedTooLate,
   effectCues,
+  callStart,
   clipSkip,
   enqueueLine,
   musicClips,
@@ -153,6 +154,8 @@ export function useSound({
   const queue = useRef<VoiceClip[]>([]);
   const saying = useRef<{ clip: VoiceClip; handle: Saying | null } | null>(null);
   const freeSince = useRef(0);
+  // When the last chant actually ended here (a call waits a second after it, `callStart`).
+  const chantEnded = useRef<number | null>(null);
   const lines = useRef(new Set<string>());
   // The latest of what the voice needs, for callbacks that run after a render.
   const latest = useRef({ audio, clockOffset, volume: device.volume });
@@ -227,6 +230,7 @@ export function useSound({
       if (saying.current !== said) return;
       saying.current = null;
       freeSince.current = Date.now() + latest.current.clockOffset;
+      chantEnded.current = clip.key.startsWith('chant') ? freeSince.current : null;
       pump();
     };
     void engine.load(src).then((buffer) => {
@@ -237,7 +241,7 @@ export function useSound({
         done();
         return;
       }
-      const start = Math.max(at, clip.at);
+      const start = callStart(clip, Math.max(at, clip.at), chantEnded.current);
       const skip = clipSkip(clip, start, buffer.duration * 1000);
       if (skip === null) {
         done();
