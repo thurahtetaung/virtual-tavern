@@ -105,6 +105,40 @@ describe('realtime rooms', () => {
     expect(over.winner).toBe(first === 'red' ? 'blue' : 'red');
   });
 
+  it('lets clients reconnect by themselves when the server restarts', async () => {
+    const db = tempDb();
+    cleanups.push(db.cleanup);
+    const server = await start(db.path);
+    const port = Number(new URL(server.url).port);
+    const { roomId } = (
+      await server.app.inject({
+        method: 'POST',
+        url: '/api/rooms',
+        payload: { gameId: 'codenames', token: token(0) },
+      })
+    ).json<{ roomId: string }>();
+    const [host, ana] = await joinAll(server.url, roomId, ['Host', 'Ana']);
+    const reasons: string[] = [];
+    for (const [i, c] of [host!, ana!].entries()) {
+      c.on('disconnect', (reason) => reasons.push(reason));
+      // What the web app does on every reconnect.
+      c.on('connect', () => void c.call('room:join', { roomId, token: token(i), name: 'x' }));
+    }
+
+    await server.app.close();
+    // Told nothing, so socket.io keeps retrying (it never retries "io server disconnect").
+    await expect.poll(() => reasons).toEqual(['transport close', 'transport close']);
+    expect(host!.active && ana!.active).toBe(true);
+    const app = testApp({ databasePath: db.path });
+    await app.listen({ port, host: '127.0.0.1' });
+    cleanups.push(() => app.close());
+
+    for (const c of [host!, ana!])
+      await expect
+        .poll(() => c.latest()!.players.filter((p) => p.connected).length, { timeout: 10_000 })
+        .toBe(2);
+  });
+
   it('tracks presence, kicks, and hands over hosting', async () => {
     const db = tempDb();
     cleanups.push(db.cleanup);
