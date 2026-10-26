@@ -1,0 +1,11 @@
+export { encore, parseCards, parseTestDeck, players, setTestDeck } from './game.ts';
+export { encoreBot, handValue } from './bot.ts';
+export { guide, makeGuide, nameGuide } from './guide.ts';
+export { insights } from './insights.ts';
+export { encoreAwards } from './awards.ts';
+export { totalsOf } from './score.ts';
+export * from './cards.ts';
+export * from './manifest.ts';
+export * from './rules.ts';
+export * from './types.ts';
+export * from './names.ts';

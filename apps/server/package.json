@@ -30,6 +30,7 @@
     "@vt/game-masquerade": "workspace:*",
     "@vt/game-round-table": "workspace:*",
     "@vt/game-sdk": "workspace:*",
+    "@vt/private-encore": "workspace:*",
     "@vt/private-going-once": "workspace:*",
     "@vt/private-hogwarts": "workspace:*",
     "@vt/private-hoodwink": "workspace:*",

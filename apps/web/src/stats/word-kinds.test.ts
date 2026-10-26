@@ -26,6 +26,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('going-once')).toEqual([]);
     expect(knownWordKinds('sketchy')).toEqual(['guess']);
     expect(knownWordKinds('mosaic')).toEqual([]);
+    expect(knownWordKinds('encore')).toEqual([]);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });

@@ -249,6 +249,19 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('«credit»');
   });
 
+  it('Encore: card art, the chip, the marker and the credit', async () => {
+    const text = await named('encore', {
+      cards: { '3-8': { art: 'cards/3-8.webp', thumb: 'cards/thumb/3-8.webp' } },
+      chip: 'chip.webp',
+      marker: 'recruit-show.webp',
+      startHat: 'start-hat.webp',
+      credit: '«credit»',
+    });
+    for (const path of ['cards/3-8.webp', 'chip.webp', 'recruit-show.webp', 'start-hat.webp'])
+      expect(text).toContain(`/api/backroom/assets/encore/${path}`);
+    expect(text).toContain('«credit»');
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

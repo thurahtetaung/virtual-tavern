@@ -3,6 +3,8 @@
   "codenames-cards.spec.ts": 32,
   "codenames.spec.ts": 21,
   "echo.spec.ts": 7,
+  "encore-shots.spec.ts": 1,
+  "encore.spec.ts": 30,
   "enigma.spec.ts": 35,
   "faq.spec.ts": 1,
   "games-admin.spec.ts": 10,

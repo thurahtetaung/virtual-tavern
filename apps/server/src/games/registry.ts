@@ -23,6 +23,11 @@ import { thorns } from '@vt/private-thorns/logic';
 import { stampede } from '@vt/private-stampede/logic';
 import { enableTestRig as enableGoingOnceRig, goingOnce } from '@vt/private-going-once/logic';
 import { enableTestRig as enableSketchyRig, sketchy } from '@vt/private-sketchy/logic';
+import {
+  encore,
+  parseTestDeck as parseEncoreDeck,
+  setTestDeck as setEncoreDeck,
+} from '@vt/private-encore/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -86,6 +91,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.GOING_ONCE_TEST_RIG ===
 // up in seat order, so a spec knows what each player draws. Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.SKETCHY_TEST_RIG === '1') {
   enableSketchyRig();
+}
+
+// Browser tests only: Encore's deck by table size (`3:1/2 4/1 …;2:…`, each card up-number first),
+// dealt in seat order every round, so a spec knows every hand. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.ENCORE_TEST_DECK) {
+  setEncoreDeck(parseEncoreDeck(process.env.ENCORE_TEST_DECK));
 }
 
 // Browser tests only: a Nightfall step waits up to this many seconds past its clock for players
@@ -182,6 +193,7 @@ export function buildGames(): GameRegistry {
     goingOnce,
     sketchy,
     mosaic,
+    encore,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
