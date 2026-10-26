@@ -35,6 +35,7 @@ import {
   nameGuide as nameMissionControlGuide,
 } from '@vt/private-mission-control/guide';
 import { guide as skyfireGuide, nameGuide as nameSkyfireGuide } from '@vt/private-skyfire/guide';
+import { guide as conveyorGuide, nameGuide as nameConveyorGuide } from '@vt/private-conveyor/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -292,6 +293,16 @@ const games: ClientGame[] = [
     icon: '🎆',
     Component: lazyUi(() =>
       import('@vt/private-skyfire/ui').then((m) => ({ default: m.SkyfireGame })),
+    ),
+  },
+  {
+    id: 'conveyor',
+    name: 'Conveyor',
+    guide: conveyorGuide,
+    namedGuide: manifestGuide('conveyor', nameConveyorGuide),
+    icon: '🍣',
+    Component: lazyUi(() =>
+      import('@vt/private-conveyor/ui').then((m) => ({ default: m.ConveyorGame })),
     ),
   },
 ];

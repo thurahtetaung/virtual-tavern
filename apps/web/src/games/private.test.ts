@@ -303,6 +303,19 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).toContain('«tagline»');
   });
 
+  it('Conveyor: dish and menu names, tile art and the credit', async () => {
+    const text = await named('conveyor', {
+      tiles: { tempura: { art: 'tiles/tempura.webp', thumb: 'tiles/thumb/tempura.webp' } },
+      cards: { 'nigiri-egg': { art: 'cards/egg.webp', thumb: 'cards/thumb/egg.webp' } },
+      names: { types: { tempura: '«tempura»', spoon: '«spoon»' }, menus: { first: '«first»' } },
+      credit: '«credit»',
+    });
+    for (const path of ['tiles/tempura.webp', 'cards/egg.webp'])
+      expect(text).toContain(`/api/backroom/assets/conveyor/${path}`);
+    for (const w of ['«tempura»', '«spoon»', '«first»', '«credit»']) expect(text).toContain(w);
+    expect(text).not.toMatch(/"name":"Tempura"/);
+  });
+
   it.each(['hydra', 'hogwarts'])('%s: teams, offices and powers', async (id) => {
     const { PLACEHOLDER_NAMES } = await import('@vt/private-hydra/logic');
     const names = all(Object.keys(PLACEHOLDER_NAMES), (k) => `«${k}»`);

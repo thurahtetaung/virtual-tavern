@@ -52,6 +52,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   'mission-control': [],
   // Cards, not words: no Words card.
   skyfire: [],
+  // Cards, not words: no Words card.
+  conveyor: [],
 };
 
 const LABELS: Record<WordKind, string> = {

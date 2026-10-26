@@ -34,6 +34,11 @@ import {
   setTestDeck as setSkyfireDeck,
   skyfire,
 } from '@vt/private-skyfire/logic';
+import {
+  conveyor,
+  parseTestDeck as parseConveyorDeck,
+  setTestDeck as setConveyorDeck,
+} from '@vt/private-conveyor/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -214,6 +219,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.MISSION_CONTROL_TEST_DE
   setTestDeal(parseTestDeal(process.env.MISSION_CONTROL_TEST_DEAL));
 }
 
+// Browser tests only: the top of Conveyor's deck by table size (`3:nigiri-squid wasabi …;2:…`),
+// dealt in seat order every round, so a spec knows every hand. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.CONVEYOR_TEST_DECK) {
+  setConveyorDeck(parseConveyorDeck(process.env.CONVEYOR_TEST_DECK));
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -249,6 +260,7 @@ export function buildGames(): GameRegistry {
     encore,
     missionControl,
     skyfire,
+    conveyor,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
