@@ -11,7 +11,7 @@ import {
 /** No word lists or questions: what a test table gets unless it brings its own. */
 const NO_CONTENT: ContentProvider = { wordLists: () => [], words: () => [] };
 
-export interface BotHarnessOptions<View, Action> {
+export interface BotHarnessOptions<View, Action, State = unknown> {
   seed?: number;
   /** Moves (and deadlines) after which the harness gives up. Default 2,000. */
   maxSteps?: number;
@@ -32,6 +32,8 @@ export interface BotHarnessOptions<View, Action> {
     ids: readonly PlayerId[];
     play: (view: View, me: PlayerId, rng: Rng) => Action | null;
   };
+  /** Called with the state after the deal and after every change (a move or a deadline). */
+  onChange?: (state: State) => void;
 }
 
 export interface BotHarnessResult<State> {
@@ -59,7 +61,7 @@ const phaseOf = (state: unknown) => (state as { phase?: unknown } | null)?.phase
 export function playWithBots<State, Action, View>(
   def: GameDefinition<State, Action, View>,
   seats: readonly PlayerInfo[],
-  opts: BotHarnessOptions<View, Action> = {},
+  opts: BotHarnessOptions<View, Action, State> = {},
 ): BotHarnessResult<State> {
   if (!def.bot) throw new Error(`${def.id} has no bot`);
   const bot = def.bot.bind(def);
@@ -72,6 +74,7 @@ export function playWithBots<State, Action, View>(
   let now = opts.start ?? 1_700_000_000_000;
   let state = def.create({ now, rng, content }, seats);
   for (const p of seats) state = def.playerJoined(state, p);
+  opts.onChange?.(state);
   const result: BotHarnessResult<State> = {
     state,
     steps: 0,
@@ -122,6 +125,7 @@ export function playWithBots<State, Action, View>(
         continue;
       }
       state = next;
+      opts.onChange?.(state);
       result.moves += 1;
       acted = true;
       now += stepMs;
@@ -131,6 +135,7 @@ export function playWithBots<State, Action, View>(
     if (due === null || !def.onDeadline) break;
     now = Math.max(now + stepMs, due);
     state = def.onDeadline(state, now);
+    opts.onChange?.(state);
     result.deadlines += 1;
   }
   result.state = state;

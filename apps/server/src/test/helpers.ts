@@ -3,7 +3,14 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Ack, ClientToServerEvents, RoomSnapshot, ServerToClientEvents } from '@vt/protocol';
+import {
+  type Ack,
+  type ClientToServerEvents,
+  type Patch,
+  type RoomSnapshot,
+  type ServerToClientEvents,
+  applyPatch,
+} from '@vt/protocol';
 import Fastify from 'fastify';
 import { type Socket, io } from 'socket.io-client';
 import { type AppOptions, buildApp } from '../app.ts';
@@ -69,17 +76,31 @@ export function testApp(overrides: Partial<AppOptions> = {}) {
 
 export const token = (n: number) => `test-token-${String(n).padStart(24, '0')}`;
 
+/** Whether `connect` joins as a browser that takes patches (see `patch-mode.ts`). */
+let patchClients = false;
+export function setPatchClients(on: boolean) {
+  patchClients = on;
+}
+
 export type TestClient = Socket<ServerToClientEvents, ClientToServerEvents> & {
   latest: () => RoomSnapshot | null;
+  /** Messages received: whole rooms, patches, and patches that didn't fit (each asks again). */
+  received: { full: number; patch: number; misfit: number };
   /** Resolves with the next snapshot matching `predicate` (or the current one if it already does). */
   until: (predicate: (s: RoomSnapshot) => boolean) => Promise<RoomSnapshot>;
   call: <E extends keyof ClientToServerEvents>(event: E, ...args: unknown[]) => Promise<Ack>;
 };
 
+/**
+ * A test socket. With `patches` (default: `setPatchClients`), it joins saying it takes patches
+ * and rebuilds each room from them like the browser; its `room:state` listeners then hear every
+ * rebuilt room, patched or whole.
+ */
 export async function connect(
   url: string,
   cookie?: string,
   headers: Record<string, string> = {},
+  { patches = patchClients }: { patches?: boolean } = {},
 ): Promise<TestClient> {
   const extraHeaders = { ...headers, ...(cookie && { cookie }) };
   const socket = io(url, {
@@ -92,7 +113,9 @@ export async function connect(
     p: (s: RoomSnapshot) => boolean;
     resolve: (s: RoomSnapshot) => void;
   }>();
-  socket.on('room:state', (s) => {
+  const received = { full: 0, patch: 0, misfit: 0 };
+  const listeners: ((s: RoomSnapshot) => void)[] = [];
+  const got = (s: RoomSnapshot) => {
     latest = s;
     for (const w of waiters) {
       if (w.p(s)) {
@@ -100,7 +123,46 @@ export async function connect(
         w.resolve(s);
       }
     }
+    for (const fn of listeners) fn(s);
+  };
+  let copy: { seq?: number; snapshot: RoomSnapshot } | null = null;
+  socket.on('room:state', ({ seq, ...s }) => {
+    received.full += 1;
+    if (patches) copy = { ...(seq !== undefined && { seq }), snapshot: s };
+    got(s);
   });
+  socket.on('room:patch', (p) => {
+    received.patch += 1;
+    if (!patches) throw new Error('a patch reached a socket that never asked for them');
+    if (!copy || copy.seq !== p.base) {
+      received.misfit += 1;
+      copy = null;
+      socket.emit('room:resync', () => {});
+      return;
+    }
+    const snapshot = {
+      ...applyPatch(copy.snapshot, JSON.parse(JSON.stringify(p.ops)) as Patch),
+      serverNow: p.serverNow,
+    };
+    copy = { seq: p.seq, snapshot };
+    got(snapshot);
+  });
+  if (patches) {
+    const on = socket.on.bind(socket);
+    socket.on = ((event: string, fn: (...a: never[]) => void) =>
+      event === 'room:state'
+        ? (listeners.push(fn as (s: RoomSnapshot) => void), socket)
+        : on(event as 'connect', fn)) as typeof socket.on;
+    const emit = socket.emit.bind(socket);
+    socket.emit = (event: string, ...args: unknown[]) =>
+      (emit as (...a: unknown[]) => typeof socket)(
+        event,
+        ...(event === 'room:join' && typeof args[0] === 'object'
+          ? [{ ...(args[0] as object), patch: true }, ...args.slice(1)]
+          : args),
+      );
+  }
+  socket.received = received;
   socket.latest = () => latest;
   socket.until = (p) =>
     latest && p(latest)

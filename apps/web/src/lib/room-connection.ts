@@ -4,11 +4,14 @@ import type {
   LockReason,
   NextTable,
   RecapLine,
+  RoomPatch,
   RoomSnapshot,
   ServerToClientEvents,
 } from '@vt/protocol';
+import { applyPatch } from '@vt/protocol';
 import { type Socket, io } from 'socket.io-client';
 import { JoinWatch } from './retry.ts';
+import { keepUnchanged } from './unchanged.ts';
 
 export type RoomStatus =
   | 'connecting'
@@ -71,6 +74,44 @@ export type Joiner = { token: string; name: string } | { role: 'stage' };
 function heartbeatExpired(socket: ClientSocket): boolean {
   const engine = socket.io.engine as { _hasPingExpired?: () => boolean } | undefined;
   return engine?._hasPingExpired?.() ?? false;
+}
+
+/**
+ * The room as each connection last had it, which the next `room:patch` applies to. Kept per
+ * connection (not per page) because a connection outlives its page ("Same crew, new game").
+ */
+const copies = new WeakMap<ClientSocket, { seq: number | undefined; snapshot: RoomSnapshot }>();
+/** Connections whose copy a patch didn't fit: patches are ignored until the whole room comes. */
+const stale = new WeakSet<ClientSocket>();
+
+/** The whole room arrived: it becomes the connection's copy (sharing what didn't change). */
+export function fullState(
+  socket: ClientSocket,
+  { seq, ...snapshot }: RoomSnapshot & { seq?: number },
+): RoomSnapshot {
+  const prev = copies.get(socket)?.snapshot;
+  const kept = prev?.id === snapshot.id ? keepUnchanged(prev, snapshot) : snapshot;
+  copies.set(socket, { seq, snapshot: kept });
+  stale.delete(socket);
+  return kept;
+}
+
+/**
+ * The room with a patch applied to the connection's copy, or null when the patch doesn't fit
+ * it (the copy is then stale: patches are ignored until the whole room comes again).
+ */
+export function patchedState(socket: ClientSocket, patch: RoomPatch): RoomSnapshot | null {
+  const copy = copies.get(socket);
+  if (stale.has(socket)) return null;
+  try {
+    if (copy?.seq === undefined || patch.base !== copy.seq) throw new Error('out of sequence');
+    const snapshot = { ...applyPatch(copy.snapshot, patch.ops), serverNow: patch.serverNow };
+    copies.set(socket, { seq: patch.seq, snapshot });
+    return snapshot;
+  } catch {
+    stale.add(socket);
+    return null;
+  }
 }
 
 /** How long a room page's connection waits for the next room page before it hangs up. */
@@ -175,7 +216,7 @@ export class RoomConnection {
     this.borrowed = reused;
     auths.set(socket, () => {
       this.joinedWithConnect = this.joiner !== null;
-      return this.joiner ? { roomId, ...this.joiner() } : null;
+      return this.joiner ? { roomId, ...this.joiner(), patch: true } : null;
     });
     this.watch = new JoinWatch(() => {
       if (socket.connected) this.join();
@@ -220,7 +261,7 @@ export class RoomConnection {
       else if (this.current === 'joined' && this.quietTimer === undefined)
         this.setStatus('reconnecting');
     });
-    on('room:state', (s) => {
+    const state = (s: RoomSnapshot) => {
       // A join's room comes just before its answer: held until then, so a room this connection
       // was in before never shows here.
       if (!this.joined) {
@@ -230,6 +271,14 @@ export class RoomConnection {
       this.watch.stop();
       this.caughtUp();
       listener.state(s);
+    };
+    on('room:state', (s) => state(fullState(socket, s)));
+    on('room:patch', (p) => {
+      const asked = stale.has(socket);
+      const s = patchedState(socket, p);
+      if (s) return state(s);
+      // Ask for the whole room once; a join on the way brings it anyway.
+      if (!asked && this.joined) socket.emit('room:resync', () => {});
     });
     on(
       'room:kicked',
@@ -281,7 +330,7 @@ export class RoomConnection {
   private join() {
     if (!this.joiner) return;
     this.watch.sent();
-    this.socket.emit('room:join', { roomId: this.roomId, ...this.joiner() }, (res) =>
+    this.socket.emit('room:join', { roomId: this.roomId, ...this.joiner(), patch: true }, (res) =>
       this.answered(res),
     );
   }
