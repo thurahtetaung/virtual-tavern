@@ -1,7 +1,7 @@
 import { storageKey } from '@vt/game-sdk';
 import { TokenIcon } from './Token.tsx';
-import { Button, Modal, Panel, PlayerTag, RefusalSlot, cn } from '@vt/ui';
-import { useEffect, useRef, useState } from 'react';
+import { Button, Modal, Panel, PlayerTag, RefusalSlot, StickyBar, cn } from '@vt/ui';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { type CardId, type Position, isTrump, sortCards, winningIndex } from '../logic/cards.ts';
 import type { Trick } from '../logic/checks.ts';
 import {
@@ -13,7 +13,7 @@ import {
 } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
 import { CardBack, CardChip, CardFace, cardName } from './Card.tsx';
-import { TaskChip } from './Tasks.tsx';
+import { STATE_ICON, TaskChip } from './Tasks.tsx';
 
 type Act = (a: MissionControlAction, o?: { anchor?: string }) => Promise<boolean>;
 const ANCHOR = 'mc-play';
@@ -51,6 +51,8 @@ function Seat({
   const usedSignal = a.signals.find((s) => s.by === seat);
   const tasks = a.tasks.filter((t) => t.owner === seat);
   const turn = a.stage === 'play' && a.turn === seat;
+  // Phones fold a seat's tasks into one line (tap to open), so the strip stays short.
+  const [open, setOpen] = useState(false);
   return (
     <li
       className={cn(
@@ -108,7 +110,36 @@ function Seat({
         </p>
       ) : null}
       {tasks.length > 0 && (
-        <ul className="space-y-1">
+        <button
+          type="button"
+          className="flex min-h-7 w-full items-center gap-1 rounded-lg bg-panel px-1.5 text-xs ring-1 ring-line sm:hidden dark:bg-stone-900/60 dark:ring-stone-700"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+          data-testid="mc-seat-tasks"
+        >
+          <span aria-hidden className="flex gap-0.5 font-black">
+            {tasks.map((t) => (
+              <span
+                key={t.index}
+                className={cn(
+                  t.state === 'done' && 'text-success-ink dark:text-emerald-300',
+                  t.state === 'failed' && 'text-danger-ink dark:text-rose-300',
+                )}
+              >
+                {STATE_ICON[t.state]}
+              </span>
+            ))}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left font-semibold">
+            {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+          </span>
+          <span aria-hidden className={cn('text-ink-muted transition', open && 'rotate-90')}>
+            ▸
+          </span>
+        </button>
+      )}
+      {tasks.length > 0 && (
+        <ul className={cn('space-y-1 sm:block', !open && 'hidden')}>
           {tasks.map((t) => (
             <li key={t.index}>
               <TaskChip task={t} name={name} compact you={me} />
@@ -338,18 +369,19 @@ export function PlayTable({
   const showLast = !a.current.length && last && last.no === a.trickCount;
   const canHold = !a.signalBlock && !a.current.length && !a.holds.includes(me) && a.turn !== me;
   const order = a.crew.map((c) => c.id);
+  // The viewer's signal is spent (their own token, or the shared ones): show the used side.
+  const tokenUsed =
+    a.comms === 'rapture' ? a.pool <= 0 : a.crew.find((c) => c.id === me)?.token === 'used';
+  // Phones keep the hand on one row, overlapping the cards as much as it takes (a w-11 card each).
+  const overlap = `min(0.375rem, calc((100% - ${hand.length} * 2.75rem) / ${Math.max(hand.length - 1, 1)}))`;
 
   return (
     <div className="space-y-3">
-      <p className="rounded-lg bg-panel px-3 py-1 text-center text-xs ring-1 ring-line sm:text-sm dark:bg-stone-800/70 dark:ring-stone-700">
-        {openTable ? (
-          '🗣️ Open table'
-        ) : (
-          <>
-            🤫 Silent running
-            <span className="hidden sm:inline">: no talking about cards. Let the play speak.</span>
-          </>
-        )}
+      {/* Phones say it in the trick's header instead. */}
+      <p className="hidden rounded-lg bg-panel px-3 py-1 text-center text-sm ring-1 ring-line sm:block dark:bg-stone-800/70 dark:ring-stone-700">
+        {openTable
+          ? '🗣️ Open table'
+          : '🤫 Silent running: no talking about cards. Let the play speak.'}
       </p>
       <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:overflow-visible">
         {order.map((seat) => (
@@ -377,7 +409,7 @@ export function PlayTable({
       )}
 
       <Panel
-        className="min-h-28 space-y-2 p-3! text-center sm:min-h-36 sm:p-4!"
+        className="min-h-24 space-y-2 p-3! text-center sm:min-h-36 sm:p-4!"
         data-testid="mc-trick"
       >
         <p className="text-sm text-ink-muted">
@@ -387,6 +419,7 @@ export function PlayTable({
             : showLast
               ? ` · last trick won by ${name(last.winner)}`
               : ''}
+          <span className="sm:hidden">{openTable ? ' · 🗣️ Open table' : ' · 🤫 Silent'}</span>
         </p>
         {a.current.length ? (
           <TrickRow plays={a.current} name={name} size="hand" />
@@ -395,7 +428,7 @@ export function PlayTable({
             <TrickRow plays={last.plays} name={name} winner={last.winner} size="sm" />
           </div>
         ) : (
-          <p className="py-6 text-sm text-ink-muted">{name(a.turn)} leads.</p>
+          <p className="py-3 text-sm text-ink-muted sm:py-6">{name(a.turn)} leads.</p>
         )}
         {a.stage === 'play' && !a.current.length && a.trickCount > 0 && inCrew && (
           <div className="flex justify-center gap-1" aria-label="React">
@@ -426,7 +459,10 @@ export function PlayTable({
 
       {inCrew && (
         <div className="space-y-2" data-testid="mc-hand">
-          <div className="flex flex-wrap justify-center gap-1.5">
+          <div
+            className="flex justify-center pt-2 max-sm:[&>*+*]:ml-(--mc-overlap) sm:flex-wrap sm:gap-1.5 sm:pt-0"
+            style={{ '--mc-overlap': overlap } as CSSProperties}
+          >
             {hand.map((c) => {
               const signalled = a.signals.some((s) => s.card === c && !s.played);
               const state =
@@ -463,63 +499,95 @@ export function PlayTable({
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {picked && myTurnSeat && (
-              <Button
-                size="lg"
-                onClick={() => void send({ type: 'play', card: picked })}
-                data-testid="mc-play"
-              >
-                Play {cardName(picked, art.names.trump)}
-              </Button>
-            )}
-            {queued && myTurnSeat !== me && (
-              <span className="text-sm">
-                Plays when it’s your turn: <CardChip card={queued} />{' '}
-                <button type="button" className="underline" onClick={() => setQueued(null)}>
-                  cancel
-                </button>
-              </span>
-            )}
-            <Button
-              variant="secondary"
-              disabled={!!a.signalBlock}
-              onClick={() => setSignalling(true)}
-              data-testid="mc-signal"
-              title={a.signalBlock ?? undefined}
-            >
-              <TokenIcon kind="token" label="" decorative className="size-6" />
-              Signal
-            </Button>
-            {canHold && (
+          <StickyBar whole>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {picked && myTurnSeat && (
+                <Button
+                  size="lg"
+                  className="max-sm:h-10 max-sm:px-4 max-sm:text-base"
+                  onClick={() => void send({ type: 'play', card: picked })}
+                  data-testid="mc-play"
+                >
+                  Play {cardName(picked, art.names.trump)}
+                </Button>
+              )}
+              {queued && myTurnSeat !== me && (
+                <span className="basis-full text-center text-sm">
+                  Plays when it’s your turn: <CardChip card={queued} />{' '}
+                  <button type="button" className="underline" onClick={() => setQueued(null)}>
+                    cancel
+                  </button>
+                </span>
+              )}
               <Button
                 variant="secondary"
-                onClick={() => void send({ type: 'hold', on: true })}
-                data-testid="mc-hold"
+                disabled={!!a.signalBlock}
+                onClick={() => setSignalling(true)}
+                data-testid="mc-signal"
+                title={a.signalBlock ?? undefined}
+                className="max-sm:px-3"
               >
-                ✋ Wait, I’ll signal
+                <TokenIcon
+                  kind={tokenUsed ? 'used' : 'token'}
+                  label=""
+                  decorative
+                  className="size-6"
+                />
+                Signal
               </Button>
-            )}
-            {a.holds.includes(me) && (
-              <Button variant="secondary" onClick={() => void send({ type: 'hold', on: false })}>
-                Never mind
+              {canHold && (
+                <Button
+                  variant="secondary"
+                  onClick={() => void send({ type: 'hold', on: true })}
+                  data-testid="mc-hold"
+                  className="max-sm:px-3"
+                >
+                  <span>
+                    ✋ Wait<span className="hidden sm:inline">, I’ll signal</span>
+                  </span>
+                </Button>
+              )}
+              {a.holds.includes(me) && (
+                <Button
+                  variant="secondary"
+                  className="max-sm:px-3"
+                  onClick={() => void send({ type: 'hold', on: false })}
+                >
+                  Never mind
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                onClick={() => setPlayedOpen(true)}
+                data-testid="mc-played-open"
+                className="max-sm:px-3"
+              >
+                {showAllPlayed ? (
+                  <span>
+                    🃏 Played<span className="hidden sm:inline"> cards</span>
+                  </span>
+                ) : (
+                  '🃏 Last trick'
+                )}
               </Button>
-            )}
-            <Button
-              variant="secondary"
-              onClick={() => setPlayedOpen(true)}
-              data-testid="mc-played-open"
-            >
-              🃏 {showAllPlayed ? 'Played cards' : 'Last trick'}
-            </Button>
-          </div>
+            </div>
+          </StickyBar>
           {a.signalBlock && a.stage === 'play' && (
-            <p className="text-center text-xs text-ink-muted" data-testid="mc-signal-block">
-              📡 {art.say(a.signalBlock)}
+            <p
+              className="flex items-center justify-center gap-1 text-center text-xs text-ink-muted"
+              data-testid="mc-signal-block"
+            >
+              <TokenIcon
+                kind={tokenUsed ? 'used' : 'token'}
+                label=""
+                decorative
+                className="size-4 shrink-0"
+              />
+              {art.say(a.signalBlock)}
             </p>
           )}
           {myTurnSeat !== me && a.stage === 'play' && !queued && (
-            <p className="text-center text-xs text-ink-muted">
+            <p className="hidden text-center text-xs text-ink-muted sm:block">
               Tip: tap a card now to play it as soon as your turn comes.
             </p>
           )}
