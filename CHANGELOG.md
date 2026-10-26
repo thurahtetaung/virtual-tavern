@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.3...v0.68.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** the lobby music plays when it is already in the browser's cache ([#404](https://github.com/thurahtetaung/virtual-tavern/issues/404)) ([c5f6af1](https://github.com/thurahtetaung/virtual-tavern/commit/c5f6af124a9ca032fbfa80c0806c6c5422e51217))
+
 ## [0.68.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.2...v0.68.3) (2026-10-26)
 
 
