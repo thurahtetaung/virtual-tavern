@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plainText } from './markup.mjs';
+import { plainLines, plainText } from './markup.mjs';
 
 describe('plainText', () => {
   it('takes tags out and keeps the words', () => {
@@ -25,5 +25,12 @@ describe('plainText', () => {
 
   it('collapses spaces', () => {
     expect(plainText('  a \n\t b  ')).toBe('a b');
+  });
+
+  it('plainLines keeps line and paragraph breaks, collapsing spaces within a line', () => {
+    expect(plainLines('  First  <i>line</i>.\r\nSecond\t line.\n\n\n\nNew   paragraph.  ')).toBe(
+      'First line.\nSecond line.\n\nNew paragraph.',
+    );
+    expect(plainLines('a &lt;b&gt;x&lt;/b&gt;\n \nb')).toBe('a x\n\nb');
   });
 });

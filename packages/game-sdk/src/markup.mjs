@@ -49,3 +49,17 @@ export function plainText(text) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+/**
+ * `plainText` for longer text such as a story: line and paragraph breaks stay, spaces are
+ * collapsed within each line, and three or more breaks become one blank line.
+ */
+export function plainLines(text) {
+  return String(text)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => plainText(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}

@@ -76,6 +76,18 @@ describe('import-content-pack markup', () => {
     });
   });
 
+  it('keeps paragraph breaks in longer text', () => {
+    const story = 'Day one.\n\nThe <b>water</b>  is calm.';
+    expect(cleanPack({ missions: [{ n: 1, story }] })).toEqual({
+      data: { missions: [{ n: 1, story: 'Day one.\n\nThe water is calm.' }] },
+      changed: 1,
+    });
+    expect(cleanPack(['Line one.\nLine two.'])).toEqual({
+      data: ['Line one.\nLine two.'],
+      changed: 0,
+    });
+  });
+
   it('takes a --replace switch', () => {
     expect(
       parseArgs(['http://x.test', 'going-once', 'groups', 'g.json', '--replace']),
