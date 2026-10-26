@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.0...v0.66.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mosaic:** fit the wall-tiling and the end on a phone, and say to try again after a timeout ([#380](https://github.com/thurahtetaung/virtual-tavern/issues/380)) ([73c72cb](https://github.com/thurahtetaung/virtual-tavern/commit/73c72cba7b6350df24bdad0c5ad80e9866d919d0))
+
 ## [0.66.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.65.0...v0.66.0) (2026-10-26)
 
 
