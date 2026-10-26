@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.67.0...v0.68.0) (2026-10-26)
+
+
+### Features
+
+* **mission-control:** add the one-card campaign, a second voyage of 50 missions and three bonus missions ([#397](https://github.com/thurahtetaung/virtual-tavern/issues/397)) ([f052d6a](https://github.com/thurahtetaung/virtual-tavern/commit/f052d6a14e1b8f5e82e42867edede7cae2fba4b2))
+
 ## [0.67.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.7...v0.67.0) (2026-10-26)
 
 
