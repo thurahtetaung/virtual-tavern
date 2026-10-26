@@ -356,21 +356,24 @@ export function Paddle({
 
 const STAMP_CSS =
   '.vt-slab{--c:#2e2e2e}.vt-slab[data-tone=good]{--c:#003300}.vt-slab[data-tone=bad]{--c:#660000}' +
-  '[data-face=value] .vt-stamp-word{font-size:44px;top:-8px}';
+  '[data-face=value] .vt-stamp-word{font-size:40px;top:-14px}';
 
 /**
  * The stamp: a tinted slab (`<name>.slab`, `data-tone` good/bad), its word or value
  * (`<name>.word`, face swapped through the stamp's `data-face`) and a line under it
- * (`<name>.line` in the `<name>.lineL` layer). Hidden until a moment shows it.
+ * (`<name>.line` in the `<name>.lineL` layer): inside the slab, or with `line="below"` on its own
+ * row under it, big (a table screen read across a room). Hidden until a moment shows it.
  */
 export function Stamp({
   rig,
   name = 'stamp',
   slab = 'slab',
+  line = 'inside',
 }: {
   rig: LoadedRig;
   name?: string;
   slab?: string;
+  line?: 'inside' | 'below';
 }) {
   const slabRef = useTarget(`${name}.slab`);
   return (
@@ -384,9 +387,22 @@ export function Stamp({
         className="vt-stamp-word"
         style={{ color: '#fff', fontSize: 58, letterSpacing: -1 }}
       />
-      <Layer m={placeOf(rig, `${name}.profit`)}>
+      <Layer m={line === 'below' ? [1, 0, 0, 1, 0, 78] : placeOf(rig, `${name}.profit`)}>
         <Layer name={`${name}.lineL`} moving style={{ opacity: 0 }}>
-          <Label name={`${name}.line`} style={{ color: '#fff', fontSize: 13 }} />
+          <Label
+            name={`${name}.line`}
+            style={
+              line === 'below'
+                ? {
+                    color: '#fff',
+                    fontSize: 30,
+                    padding: '4px 16px',
+                    borderRadius: 999,
+                    background: 'rgba(20,16,12,.85)',
+                  }
+                : { color: '#fff', fontSize: 13 }
+            }
+          />
         </Layer>
       </Layer>
     </Layer>

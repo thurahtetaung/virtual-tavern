@@ -7,6 +7,7 @@ import {
   type ShowKeyframe,
   type Step,
   countAt,
+  momentEnd,
   schedule,
   trackEnd,
   trackKeyframes,
@@ -46,6 +47,11 @@ export interface Playing {
   cancel: () => void;
   /** Jumps every animation to its end (a hidden page coming back). */
   finish: () => void;
+  /**
+   * Stops and leaves everything where the moment would have left it (its state moved on before
+   * it was over): what is still to come shows its end state, sounds and buzzes are dropped.
+   */
+  settle: () => void;
   pause: () => void;
 }
 
@@ -235,13 +241,21 @@ export function play(m: Moment, env: ShowEnv): Playing {
 
   for (const s of schedule(m, env.clock(), env)) run(s);
 
+  const cancel = () => {
+    timers.forEach(clearTimeout);
+    timers.length = 0;
+    anims.forEach((a) => a.cancel());
+    stops.forEach((stop) => stop());
+    if (frame) cancelAnimationFrame(frame);
+    counts.clear();
+  };
   return {
-    cancel() {
-      timers.forEach(clearTimeout);
-      anims.forEach((a) => a.cancel());
-      stops.forEach((stop) => stop());
-      if (frame) cancelAnimationFrame(frame);
-      counts.clear();
+    cancel,
+    settle() {
+      cancel();
+      // As a device arriving after the end would: every state at its end, nothing transient.
+      const after = m.at + momentEnd(m, env.tracks) + STALE_MS + 1;
+      for (const s of schedule(m, after, env)) run(s);
     },
     finish() {
       anims.forEach((a) => a.playState !== 'idle' && a.finish());

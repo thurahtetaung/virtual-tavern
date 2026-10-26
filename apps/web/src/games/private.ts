@@ -244,6 +244,9 @@ const games: ClientGame[] = [
     Component: lazyUi(() =>
       import('@vt/private-going-once/ui').then((m) => ({ default: m.GoingOnceGame })),
     ),
+    stage: lazyUi(() =>
+      import('@vt/private-going-once/stage').then((m) => ({ default: m.GoingOnceStage })),
+    ),
   },
   {
     id: 'sketchy',

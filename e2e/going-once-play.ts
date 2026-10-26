@@ -173,3 +173,38 @@ export const bid = async (p: Page, amount: number) => {
     await expect(top).toContainText('(you)', { timeout: 1000 });
   }).toPass({ timeout: 10_000 });
 };
+
+/**
+ * A made-up table-screen rig (a plain slab, two-frame tracks; nothing from any original), served
+ * to a page as Going Once's manifest `show` block, so a spec can follow the show's lasting state.
+ */
+export async function madeUpShow(page: Page) {
+  const still = {
+    ms: 100,
+    frames: [
+      [1, 0, 0, 1, 0, 0, 1],
+      [1, 0, 0, 1, 0, 0, 1],
+    ],
+  };
+  const rig = {
+    fps: 30,
+    stage: [1280, 720],
+    symbols: { slab: '<rect x="-120" y="-40" width="240" height="80" rx="10"/>' },
+    tracks: {
+      stamp: { Appear: still, Good: still, Bad: still },
+      profit: { Appear: still },
+      painting: { Appear: still, Disappear: still },
+    },
+    places: {},
+  };
+  const files = ['show/e2e.stage.rig.json'];
+  const phases = Object.fromEntries(
+    ['lobby', 'draw', 'practice', 'auction', 'end'].map((p) => [p, files]),
+  );
+  await page.route('**/api/backroom/manifest/going-once', (route) =>
+    route.fulfill({ json: { show: { stage: { rig: files[0], phases } } } }),
+  );
+  await page.route('**/api/backroom/assets/going-once/show/e2e.stage.rig.json', (route) =>
+    route.fulfill({ json: rig }),
+  );
+}

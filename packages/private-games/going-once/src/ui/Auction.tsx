@@ -17,6 +17,7 @@ import { type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.t
 import { BidLadder, Paddle, PsstBubble, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
+import { PictureStamp } from './PhoneShow.tsx';
 import { Picture } from './Picture.tsx';
 import { type NameOf, logLine, whyLine } from './text.ts';
 
@@ -608,6 +609,7 @@ export function Auction({
   art,
   name,
   seen,
+  quiet = false,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
@@ -616,6 +618,8 @@ export function Auction({
   name: NameOf;
   /** Drawings this tab has seen (kept by the game root, which outlives this screen). */
   seen: ReadonlyMap<string, Drawing>;
+  /** A table screen shows the lot: a thumbnail here, so the phone is for bidding. */
+  quiet?: boolean;
 }) {
   const g = view.game!;
   const a = g.auction!;
@@ -690,6 +694,24 @@ export function Auction({
         </div>
         {a.close === 'intro' ? (
           <LotIntro view={view} art={art} name={name} />
+        ) : quiet ? (
+          <div className="flex items-center gap-3" data-testid="go-thumb">
+            <Picture
+              drawing={pic.drawing}
+              house={pic.house}
+              hidden={pic.hidden}
+              hiddenByMe={localHidden.has(pic.item)}
+              art={art}
+              compact
+              label={`Lot ${a.lot + 1}`}
+              className="relative w-24 shrink-0 shadow-md"
+            >
+              <PictureStamp />
+            </Picture>
+            <p className="text-sm text-ink-muted dark:text-stone-400">
+              <span aria-hidden>👀 </span>Look up: the lot is on the table screen.
+            </p>
+          </div>
         ) : (
           <Picture
             drawing={pic.drawing}
@@ -699,9 +721,11 @@ export function Auction({
             art={art}
             label={`Lot ${a.lot + 1}`}
             className="relative mx-auto w-full max-w-[min(100%,32vh)] shadow-md lg:max-w-none"
-          />
+          >
+            <PictureStamp />
+          </Picture>
         )}
-        {art.ui('easel') && (
+        {!quiet && art.ui('easel') && (
           <ProtectedImage
             src={art.ui('easel')!}
             alt=""

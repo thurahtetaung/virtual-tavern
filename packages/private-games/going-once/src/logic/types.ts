@@ -151,8 +151,11 @@ export type Sender = 'buyer1' | 'buyer2' | 'buyer3' | 'bank' | 'dog' | 'caller';
 export const BUYERS = ['buyer1', 'buyer2', 'buyer3'] as const;
 export type Buyer = (typeof BUYERS)[number];
 
-/** Who makes sound: nobody, only the host's device, or every device. */
-export const SOUND_MODES = ['off', 'host', 'all'] as const;
+/**
+ * Who makes sound: nobody, only the host's device, every device, or the table screen (phones then
+ * play only their own rings).
+ */
+export const SOUND_MODES = ['off', 'host', 'all', 'stage'] as const;
 export type SoundMode = (typeof SOUND_MODES)[number];
 
 /** The practice lot: a house picture for play money, before lot 1 of a room's first game. */
@@ -177,6 +180,8 @@ export interface Settings {
   paceChosen?: boolean;
   /** Sound (rooms saved before it load with the defaults, `settingsOf`). */
   sound?: SoundMode;
+  /** The host picked the sound; until then a paired table screen takes it (`soundModeIn`). */
+  soundChosen?: boolean;
   music?: boolean;
   effects?: boolean;
   /** The auctioneer's voice, off unless the host turns it on. */
@@ -185,7 +190,7 @@ export interface Settings {
   practice?: boolean;
 }
 
-export const DEFAULT_SETTINGS: Required<Omit<Settings, 'paceChosen'>> = {
+export const DEFAULT_SETTINGS: Required<Omit<Settings, 'paceChosen' | 'soundChosen'>> = {
   drawSeconds: 90,
   pace: 'normal',
   sound: 'all',
@@ -682,7 +687,7 @@ export interface GameView {
 
 export interface GoingOnceView {
   phase: GoingOnceState['phase'];
-  settings: ReturnType<typeof settingsOf> & Pick<Settings, 'paceChosen'>;
+  settings: ReturnType<typeof settingsOf> & Pick<Settings, 'paceChosen' | 'soundChosen'>;
   seats: SeatView[];
   me: SeatView | null;
   game: GameView | null;

@@ -11,8 +11,11 @@ export type LowSetting = 'auto' | 'on' | 'off';
 
 const KEY = 'vt.show.low';
 const LOW_BATTERY = 0.2;
-/** More than this share of slow frames in the first second of a show turns low effects on. */
-const SLOW_SHARE = 0.1;
+/**
+ * More than this share of slow frames in the first second of a live moment turns low effects on
+ * (a phone that drops one frame in four can't keep up; a page settling drops the odd one).
+ */
+const SLOW_SHARE = 0.25;
 const SLOW_FRAME_MS = 34;
 
 interface State {
@@ -100,7 +103,7 @@ export const lowOf = (s: Pick<State, 'setting' | 'auto'>) =>
 
 let sampled = false;
 /**
- * Watches the first second of the first show on this page: if more than one frame in ten is slow,
+ * Watches the first second of the first live moment on this page: if more than one frame in four is slow,
  * low effects go on by themselves (for this page; the switch can still say otherwise).
  */
 export function sampleFrames() {
