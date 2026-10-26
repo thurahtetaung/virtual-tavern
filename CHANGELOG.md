@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.2...v0.66.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **content-packs:** keep paragraph breaks when importing packs, and show logbook paragraphs ([#384](https://github.com/thurahtetaung/virtual-tavern/issues/384)) ([a651b95](https://github.com/thurahtetaung/virtual-tavern/commit/a651b95a7209863650d4695f5ce5bf7a54557b4b))
+
 ## [0.66.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.1...v0.66.2) (2026-10-26)
 
 
