@@ -128,7 +128,8 @@ const turnKey = (view: SketchyView) => `${view.game?.round}:${view.game?.turn?.n
 export function seenKeys(view: SketchyView): string[] {
   const g = view.game;
   if (view.phase === 'lobby') return view.seats.filter((s) => s.playing).map((s) => `join:${s.id}`);
-  if (view.phase === 'over') return [`over:${g?.history.length ?? 0}:${view.scores.length}`];
+  // One key for the whole end: a later snapshot of it must not restart its beats.
+  if (view.phase === 'over') return ['over'];
   if (!g) return [];
   const keys: string[] = [];
   if (g.stage === 'draw') for (const id of g.drawn) keys.push(`drawn:${g.round}:${id}`);
@@ -594,14 +595,12 @@ function ending(view: SketchyView, ctx: ShowCtx): Moment[] {
   const T = endTimes(view);
   const lastFirst = [...view.scores].reverse();
   const steps: Step[] = [
-    show(0, 'final', 1, STAGE),
     sfx(0, 'end.gliss', { ms: T.winner }),
     ...lastFirst.flatMap((s, i) => [
       pop(T.first + i * T.each, `final:${s.id}`, STAGE, 367),
       sfx(T.first + i * T.each, `yelp#${slotOf(view, s.id)}`),
     ]),
     anim(T.winner, 'winners', 'winners.Appear', { on: FULL }),
-    show(T.winner, 'fireworks', 1, FULL),
     { t: T.winner, kind: 'confetti', n: 60, on: FULL },
     sfx(T.winner, 'end.tada'),
     ...winners.map((id): Step => ({
@@ -614,10 +613,6 @@ function ending(view: SketchyView, ctx: ShowCtx): Moment[] {
   ];
   if (liked.length) {
     steps.push(
-      show(T.likes, 'final', 0, STAGE),
-      show(T.likes, 'winners', 0, STAGE),
-      show(T.likes, 'fireworks', 0, STAGE),
-      show(T.likes, 'likes', 1, STAGE),
       sfx(T.likes + 1000, 'likes.drumroll', { ms: T.risen - T.likes - 1000 }),
       ...view.scores.slice(0, 8).flatMap((s, k): Step[] => [
         {

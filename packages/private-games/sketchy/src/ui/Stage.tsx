@@ -27,7 +27,15 @@ import type { SketchyView, TurnView } from '../logic/types.ts';
 import { GAME_ID, manifestOf, useManifest } from './assets.ts';
 import { jokeFor } from './audio.ts';
 import type { SketchyUiProps } from './SketchyGame.tsx';
-import { TIMER_STEP_S, mostLiked, moments, phaseOf, revealEndOf } from './show.ts';
+import {
+  TIMER_STEP_S,
+  endTimes,
+  mostLiked,
+  seenKeys,
+  moments,
+  phaseOf,
+  revealEndOf,
+} from './show.ts';
 import { nameOf, points } from './status.ts';
 import { useDeviceSound, useSound } from './useSound.ts';
 import { useSeen } from './useSeen.ts';
@@ -237,7 +245,16 @@ export function SketchyStage({ view, room }: SketchyUiProps) {
             />
           )}
           {phase === 'end' && (
-            <EndRoom view={view} rig={rig} owl={owl} cup={cup} paw={paw} paint={paint} />
+            <EndRoom
+              view={view}
+              rig={rig}
+              owl={owl}
+              cup={cup}
+              paw={paw}
+              paint={paint}
+              endAt={seen[seenKeys(view)[0] ?? ''] ?? 0}
+              offset={offset}
+            />
           )}
         </Scene>
       </div>
@@ -891,8 +908,9 @@ function Reveal({
             </>
           ),
           'card-titlename': <Layer m={[1, 0, 0, 1, 104, 48]}>{words}</Layer>,
+          // The choosers' names sit a little higher than the original's spots, clear of the title.
           'card-playersWhoChose': (
-            <>
+            <Layer m={[1, 0, 0, 1, 0, -40]}>
               {chips.map((m, k) => (
                 <Layer key={k} m={m}>
                   <Chooser
@@ -903,7 +921,7 @@ function Reveal({
                   />
                 </Layer>
               ))}
-            </>
+            </Layer>
           ),
           'card-author': (
             <Layer m={placeOf(rig, 'author.right')}>
@@ -938,37 +956,36 @@ function Reveal({
               ))}
             </Layer>
           ),
+          // The artist (the original's slot under the truth): a pill with their name, their points
+          // under it; the original's placeholder avatar is left out.
           'card-artist': turn.artist ? (
-            <>
-              {(
-                [
-                  'artist-backer',
-                  'artist-artistName',
-                  'artist-actualTitleText',
-                  'artist-playerIcon',
-                ] as const
-              ).map((part) => (
-                <Layer key={part} name={`artist/${part}`} moving style={HIDDEN}>
-                  {part === 'artist-backer' ? (
-                    <Ink size={30} style={{ fontWeight: 700 }}>
-                      drawn by
-                    </Ink>
-                  ) : part === 'artist-artistName' ? (
-                    <>
-                      <Ink name="artist.name" size={40} />
-                      <Layer m={[1, 0, 0, 1, 0, 46]}>
-                        <Ink name="artist.points" size={36} style={{ color: '#15803d' }} />
-                      </Layer>
-                    </>
-                  ) : part === 'artist-playerIcon' ? (
-                    <span
-                      className="absolute size-12 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-stone-900"
-                      style={{ background: paint(turn.artist!) }}
-                    />
-                  ) : null}
+            <Layer name="artist/artist-artistName" moving style={HIDDEN}>
+              <Layer m={[1, 0, 0, 1, -60, -150]}>
+                <span
+                  className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
+                  style={{ ...PILL, fontSize: 50, display: 'flex', alignItems: 'center', gap: 12 }}
+                >
+                  <span
+                    className="inline-block size-9 rounded-full ring-4 ring-stone-900"
+                    style={{ background: paint(turn.artist) }}
+                  />
+                  drawn by{' '}
+                  <Ink
+                    name="artist.name"
+                    size={50}
+                    style={{ position: 'static', transform: 'none' }}
+                  />
+                </span>
+                {/* The points beside the pill, clear of the title below it. */}
+                <Layer m={[1, 0, 0, 1, 250, 0]}>
+                  <Ink
+                    name="artist.points"
+                    size={56}
+                    style={{ color: '#15803d', transform: 'translate(0, -50%)' }}
+                  />
                 </Layer>
-              ))}
-            </>
+              </Layer>
+            </Layer>
           ) : null,
         }}
       />
@@ -1034,11 +1051,33 @@ function Board({
           <Layer key={s.id} m={[m[0]!, 0, 0, m[3]!, at[4]! + m[4]!, at[5]! + m[5]!]}>
             {rig ? (
               <>
+                {/* As the original: the blue balloon holds the name, then flips round to the
+                    score bar (the rank in its yellow end, the score in the orange). */}
                 <Layer name={`score:${s.id}/bar`} moving>
                   <RigArt rig={rig} symbol="scoreRow.score" />
+                  <Layer m={[1, 0, 0, 1, 28, 83]}>
+                    <Label style={{ color: INK, fontSize: 34, fontWeight: 900 }}>{i + 1}</Label>
+                  </Layer>
+                  <Layer m={[1, 0, 0, 1, 166, 83]}>
+                    <Label style={{ color: '#fff', fontSize: 34, fontWeight: 900 }}>
+                      {points(s.score)}
+                    </Label>
+                  </Layer>
                 </Layer>
                 <Layer name={`score:${s.id}/balloon`} moving style={HIDDEN}>
                   <RigArt rig={rig} symbol="scoreRow.balloon" />
+                  <Layer m={[1, 0, 0, 1, 139, 83]}>
+                    <span
+                      className="absolute -translate-x-1/2 -translate-y-1/2 truncate whitespace-nowrap text-center font-black"
+                      style={{ color: '#fff', fontSize: 34, maxWidth: 250 }}
+                    >
+                      <span
+                        className="mr-2 inline-block size-6 rounded-full ring-2 ring-white"
+                        style={{ background: paint(s.id) }}
+                      />
+                      {s.name}
+                    </span>
+                  </Layer>
                 </Layer>
                 {(gained[s.id] ?? 0) > 0 && (
                   <Layer m={[0.7, 0, 0, 0.7, 150, -20]}>
@@ -1054,23 +1093,21 @@ function Board({
                 )}
               </>
             ) : null}
-            <Layer m={[1, 0, 0, 1, 28, 82]}>
-              <Label style={{ color: rig ? '#1c1917' : INK, fontSize: 30, fontWeight: 900 }}>
-                {i + 1}
-              </Label>
-            </Layer>
-            <Layer m={[1, 0, 0, 1, 64, 82]}>
-              <span
-                className="absolute -translate-y-1/2 whitespace-nowrap text-[28px] font-black"
-                style={{ color: rig ? '#fff' : INK }}
-              >
+            {!rig && (
+              <Layer m={[1, 0, 0, 1, 0, 82]}>
                 <span
-                  className="mr-2 inline-block size-5 rounded-full ring-2 ring-white"
-                  style={{ background: paint(s.id) }}
-                />
-                {s.name} · {points(s.score)}
-              </span>
-            </Layer>
+                  className="absolute -translate-y-1/2 whitespace-nowrap text-[28px] font-black"
+                  style={{ color: INK }}
+                >
+                  {i + 1}.{' '}
+                  <span
+                    className="mr-2 inline-block size-5 rounded-full ring-2 ring-stone-900"
+                    style={{ background: paint(s.id) }}
+                  />
+                  {s.name} · {points(s.score)}
+                </span>
+              </Layer>
+            )}
             {likes > 0 && (
               <Layer
                 m={
@@ -1121,6 +1158,8 @@ function EndRoom({
   cup,
   paw,
   paint,
+  endAt,
+  offset,
 }: {
   view: SketchyView;
   rig: LoadedRig | null;
@@ -1128,7 +1167,16 @@ function EndRoom({
   cup: LoadedRig | null;
   paw: LoadedRig | null;
   paint: (id: string) => string;
+  /** When this screen saw the game end, on the server clock (0: long before). */
+  endAt: number;
+  offset: number;
 }) {
+  // What lasts is set from the end's own clock (the moments only add the motion), so a screen
+  // arriving late lands on the right beat.
+  const T = endTimes(view);
+  const now = useNow(offset, 250, endAt > 0);
+  const since = endAt > 0 ? now - endAt : Infinity;
+  const on = (t: number): CSSProperties => ({ opacity: since >= t ? 1 : 0 });
   const liked = mostLiked(view);
   const top = Math.max(0, ...view.scores.map((s) => s.score));
   const winners = top > 0 ? view.scores.filter((s) => s.score === top) : [];
@@ -1145,35 +1193,39 @@ function EndRoom({
         </Layer>
         {view.scores.slice(0, 10).map((s, i) => (
           <Layer key={s.id} m={[1, 0, 0, 1, 640, 130 + i * 50]}>
-            <Layer name={`final:${s.id}`} moving style={rig ? HIDDEN : undefined}>
-              <span
-                className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[34px] font-black"
-                style={{ color: INK }}
-              >
+            <Layer style={rig ? on(T.first + (view.scores.length - 1 - i) * T.each) : undefined}>
+              <Layer name={`final:${s.id}`} moving>
                 <span
-                  className="mr-3 inline-block size-7 rounded-full ring-2 ring-stone-900"
-                  style={{ background: paint(s.id) }}
-                />
-                {i + 1}. {s.name} · {points(s.score)}
-              </span>
+                  className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[34px] font-black"
+                  style={{ color: INK }}
+                >
+                  <span
+                    className="mr-3 inline-block size-7 rounded-full ring-2 ring-stone-900"
+                    style={{ background: paint(s.id) }}
+                  />
+                  {i + 1}. {s.name} · {points(s.score)}
+                </span>
+              </Layer>
             </Layer>
           </Layer>
         ))}
       </Layer>
-      <Layer m={[1, 0, 0, 1, 640, 650]}>
-        <Layer name="winners" moving style={rig ? restOf(rig.tracks.winners?.Appear) : undefined}>
-          {rig && <RigArt rig={rig} symbol="winners" />}
-          <Ink size={52} style={{ color: '#b45309' }}>
-            <span data-testid="sk-stage-winner">
-              {winners.length === 0
-                ? 'Nobody scored!'
-                : `${winners.map((w) => w.name).join(' & ')} ${winners.length === 1 ? 'wins' : 'share the win'}!`}
-            </span>
-          </Ink>
+      <Layer m={[1, 0, 0, 1, 640, 590]}>
+        <Layer style={rig ? on(T.winner) : undefined}>
+          <Layer name="winners" moving>
+            {rig && <RigArt rig={rig} symbol="winners" />}
+            <Ink size={52} style={{ color: '#b45309' }}>
+              <span data-testid="sk-stage-winner">
+                {winners.length === 0
+                  ? 'Nobody scored!'
+                  : `${winners.map((w) => w.name).join(' & ')} ${winners.length === 1 ? 'wins' : 'share the win'}!`}
+              </span>
+            </Ink>
+          </Layer>
         </Layer>
       </Layer>
       {rig && (
-        <Layer name="fireworks" moving style={HIDDEN}>
+        <Layer name="fireworks" style={on(T.winner)}>
           {(['firework1', 'firework2', 'firework3', 'burst', 'star'] as const).map((f, i) => (
             <Layer key={f} m={[0.8, 0, 0, 0.8, 160 + i * 240, 140 + (i % 2) * 380]}>
               <Boil rig={rig} part={f} />
@@ -1182,7 +1234,7 @@ function EndRoom({
         </Layer>
       )}
       {liked.length > 0 && rig && (
-        <Layer name="likes" moving style={HIDDEN}>
+        <Layer style={on(T.likes)}>
           <div className="absolute bg-stone-100" style={ROOM} />
           <Layer m={[1, 0, 0, 1, 640, 44]}>
             <Ink size={44}>Most liked</Ink>
@@ -1209,8 +1261,10 @@ function EndRoom({
                 </Layer>
                 {liked.includes(s.id) && s.id === liked[0] && (
                   <Layer m={[0.8, 0, 0, 0.8, 0, fist - 70]}>
-                    <Layer name="crown" moving style={HIDDEN}>
-                      <SwapArt rig={rig} part="crown" label="Glow" last />
+                    <Layer style={on(T.crown)}>
+                      <Layer name="crown" moving>
+                        <SwapArt rig={rig} part="crown" label="Glow" last />
+                      </Layer>
                     </Layer>
                   </Layer>
                 )}

@@ -163,14 +163,22 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await pick(ben, 'violet hippo');
       await like(ben, 'violet hippo');
       await pick(cleo, 'purple elephant');
-      // Step 1 (Cleo's lie fooled Ben): before the flip, then after; step 2 the truth.
-      await hana.waitForTimeout(900);
+      // Step 1 (Cleo's lie fooled Ben): before the flip, then after; step 2 the truth. The shots
+      // wait for the table screen's card (or, without it, the phone's step) rather than a guess.
+      const face = (f: string) =>
+        tv
+          ? expect(tv.locator(`[data-face="${f}"]`).first()).toBeAttached({ timeout: 10_000 })
+          : expect(ben.getByTestId('reveal-sequence')).toBeVisible();
+      await face('up');
+      await hana.waitForTimeout(1000);
       await shot('07a-reveal-names', ben);
-      await hana.waitForTimeout(900);
+      await face('lie');
+      await hana.waitForTimeout(300);
       await shot('07b-reveal-flip-lie', ben);
-      await hana.waitForTimeout(400);
+      await hana.waitForTimeout(500);
       await shot('07c-reveal-fooler', cleo);
-      await hana.waitForTimeout(2600);
+      await face('truth');
+      await hana.waitForTimeout(1000);
       await shot('08-reveal-truth', cleo);
       if (process.env.SOUND_LOG) {
         const { writeFile } = await import('node:fs/promises');
@@ -211,10 +219,14 @@ for (const colorScheme of ['light', 'dark'] as const) {
         [2, 'loud fish'],
       ]);
       await expect(hana.getByTestId('sketchy-over')).toBeVisible({ timeout: 60_000 });
-      await hana.waitForTimeout(2500);
-      await shot('10a-end-likes', hana);
-      await hana.waitForTimeout(5000);
+      // The end's beats, as the original's: the scores (last place first), the winner, then the
+      // likes cup and its crown.
+      await hana.waitForTimeout(3500);
+      await shot('10a-end-scores', hana);
+      await hana.waitForTimeout(1500);
       await shot('10b-end-winner', hana);
+      await hana.waitForTimeout(8000);
+      await shot('10c-end-likes', hana);
     });
   }
 }
