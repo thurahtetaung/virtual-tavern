@@ -220,6 +220,16 @@ test('a table screen shows the auction while the phones go quiet', async ({ brow
   await bid(cleo, 500);
   await bid(ben, 600);
   await expect(stage.getByText('Current bid')).toBeVisible();
+  // A quiet phone's bidding fits a 390 × 844 screen: no page to scroll, either way.
+  for (const p of all)
+    await expect
+      .poll(() =>
+        p.evaluate(() => [
+          document.documentElement.scrollWidth,
+          document.documentElement.scrollHeight,
+        ]),
+      )
+      .toEqual([390, 844]);
 
   // Sold: the TV's stamp turned to the value, toned for a profit (Hana's Apple is worth
   // $3,500); the room keeps the mark after the Sold card (the bank opens next).

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from './definition.ts';
-import { enableTestRig } from './game.ts';
+import { enableTestRig, timing } from './game.ts';
 import { halfAt } from './setup.ts';
+import { SCREW_OUTCOME_MS } from './types.ts';
 import {
   GROUPS,
   HOST,
@@ -380,7 +381,7 @@ describe('screws', () => {
     h.wait(1000);
     h.act('p2', { type: 'screw' });
     const a = game(h).auction!;
-    expect(a.screw).toMatchObject({ by: 'p2', left: 3000 });
+    expect(a.screw).toMatchObject({ by: 'p2' });
     expect(game(h).players.p2!.screw).toBe(false);
     expect(goingOnce.view(h.state, 'p2').mine!.targets).toEqual(['p3']);
     expect(goingOnce.view(h.state, 'p3').mine!.targets).toEqual([]);
@@ -391,6 +392,7 @@ describe('screws', () => {
     expect(game(h).auction!.screwed).toEqual({ target: 'p3', by: 'p2' });
     // Nobody can screw until a free bid.
     expect(h.refuse('p1', { type: 'screw' }).code).toBe('screwed');
+    h.wait(SCREW_OUTCOME_MS);
     bid(h, 'p1');
     expect(game(h).auction!.screwed).toBeNull();
     h.act('p3', { type: 'screw' });
@@ -414,12 +416,76 @@ describe('screws', () => {
     h.act('p1', { type: 'screw-pick', target: 'p3' });
     expect(game(h).auction!.bid).toBeNull();
     expect(h.state.log.at(-1)).toMatchObject({ kind: 'screw', outcome: 'failed', target: 'p3' });
+    h.wait(SCREW_OUTCOME_MS);
     h.act('p2', { type: 'screw' });
     h.tick();
     expect(game(h).auction!.screw).toBeNull();
     expect(h.state.log.at(-1)).toMatchObject({ kind: 'screw', by: 'p2', outcome: 'wasted' });
     expect(game(h).players.p2!.screw).toBe(false);
     expect(h.refuse('p2', { type: 'screw' }).code).toBe('no-screw');
+  });
+});
+
+describe('the clock around a screw (the owner’s ruling, 2026-10-26, and the original’s flow)', () => {
+  /** Hana leads at going twice with a moment left, then screws someone. */
+  function leaderScrewsLate(targetCash: number) {
+    const h = toSecondHalf();
+    const s = structuredClone(h.state);
+    s.game!.players.p3!.cash = targetCash;
+    h.state = s;
+    bid(h, 'p1', 600);
+    h.tick();
+    h.tick();
+    expect(game(h).auction!.close).toBe('twice');
+    // A breath before Sold.
+    h.now = game(h).auction!.closeAt - 300;
+    h.act('p1', { type: 'screw' });
+    return h;
+  }
+
+  it('never closes the lot while the screw is aimed', () => {
+    const h = leaderScrewsLate(5000);
+    const a = game(h).auction!;
+    expect(goingOnce.nextDeadline!(h.state)).toBe(a.screw!.until);
+    h.wait(10_000);
+    expect(game(h).stage).toBe('auction');
+  });
+
+  it('after a failed screw: paused through its banner, then a full fresh stretch, never the time left', () => {
+    const h = leaderScrewsLate(300);
+    h.wait(4000);
+    const at = h.now;
+    h.act('p1', { type: 'screw-pick', target: 'p3' });
+    const a = game(h).auction!;
+    expect(h.state.log.at(-1)).toMatchObject({ outcome: 'failed', target: 'p3' });
+    expect(a.pausedUntil).toBe(at + SCREW_OUTCOME_MS);
+    expect(a.close).toBe('quiet');
+    expect(a.closeAt).toBe(at + SCREW_OUTCOME_MS + timing(h.state).quiet);
+    expect(goingOnce.view(h.state, 'p2').game!.auction!.pausedUntil).toBe(a.pausedUntil);
+    // Nobody bids or screws while it plays out; then anyone may, the screwer's lead as it was.
+    expect(h.refuse('p2', { type: 'bid', amount: 700, seq: a.seq }).code).toBe('screwing');
+    expect(h.refuse('p2', { type: 'screw' }).code).toBe('screwing');
+    h.wait(SCREW_OUTCOME_MS);
+    expect(goingOnce.nextDeadline!(h.state)).toBe(a.closeAt);
+    expect(game(h).auction!.bid).toEqual({ by: 'p1', amount: 600 });
+    bid(h, 'p2', 700);
+    expect(game(h).auction!.bid).toEqual({ by: 'p2', amount: 700 });
+  });
+
+  it('after a forced bid or a lost screw: the same pause and a fresh stretch', () => {
+    const forced = leaderScrewsLate(5000);
+    const at = forced.now;
+    forced.act('p1', { type: 'screw-pick', target: 'p3' });
+    let a = game(forced).auction!;
+    expect(a.bid).toEqual({ by: 'p3', amount: 700 });
+    expect(a.pausedUntil).toBe(at + SCREW_OUTCOME_MS);
+    expect(a.closeAt).toBe(at + SCREW_OUTCOME_MS + timing(forced.state).quiet);
+    const lost = leaderScrewsLate(5000);
+    lost.tick();
+    a = game(lost).auction!;
+    expect(lost.state.log.at(-1)).toMatchObject({ outcome: 'wasted' });
+    expect(a.close).toBe('quiet');
+    expect(a.closeAt).toBe(lost.now + SCREW_OUTCOME_MS + timing(lost.state).quiet);
   });
 });
 

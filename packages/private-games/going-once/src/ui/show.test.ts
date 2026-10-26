@@ -1,9 +1,22 @@
+import { createRng } from '@vt/game-sdk';
 import { type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from '../logic/definition.ts';
 import { auctioning, bid, hammer, harness, nextLot, started } from '../logic/test-utils.ts';
 import type { GoingOnceView } from '../logic/types.ts';
-import { BANK_PARTS, endTrack, moments, raiseOf, soldMoment } from './show.ts';
+import {
+  BANK_PARTS,
+  WINNERS_SETTLE_MS,
+  endTrack,
+  moments,
+  ROW_BOUNDS,
+  raiseOf,
+  rowOf,
+  shapeKey,
+  soldMoment,
+  winnersShownAt,
+} from './show.ts';
+import { endTimes } from './audio.ts';
 
 // The show's moments are pure: built from real views (the game's own harness), the same for
 // every device, with only the steps meant for someone personal.
@@ -46,8 +59,8 @@ describe('moments', () => {
       track: raiseOf(0, 500),
     });
     expect(steps(newest, 'pad:p2')[0]).toMatchObject({ track: 'paddle.Unraise' });
-    // An older bid is long past: a device arriving now only shows where it left things.
-    expect(list.find((m) => m.id === 'lot0:bid400')!.at).toBeLessThan(newest.at - 10_000);
+    // Only the newest bid has a moment: older ones are played, and their paddles show it.
+    expect(list.find((m) => m.id === 'lot0:bid400')).toBeUndefined();
     // Every viewer gets the same moments: players' views and the table screen's.
     for (const who of ['p1', 'p2', 'p3'])
       expect(
@@ -165,5 +178,121 @@ describe('moments', () => {
     const winner = list.find((m) => m.id.endsWith(':winner'))!;
     expect(winner.steps.some((s) => s.kind === 'confetti')).toBe(true);
     for (const id of v.game!.winners) expect(steps(winner, `win:${id}`)).toHaveLength(1);
+  });
+
+  it('keeps the winners on show whatever the view does after the end', () => {
+    const h = auctioning();
+    bid(h, 'p2', 400);
+    for (let i = 0; i < 60 && h.state.phase !== 'over'; i++) nextLot(h);
+    const before = goingOnce.view(h.state, null);
+    const winner = stage(before).find((m) => m.id.endsWith(':winner'))!;
+    // Later updates (a player leaving after the end, the clock running on) keep the very same
+    // winner moment, so the table screen never settles or replays it.
+    h.wait(30_000);
+    h.state = goingOnce.playerLeft(h.state, 'p3', h.now);
+    const after = goingOnce.view(h.state, null);
+    expect(after).not.toEqual(before);
+    expect(stage(after).find((m) => m.id.endsWith(':winner'))).toEqual(winner);
+    // And once it has settled, the page shows the winners itself (`winnersShownAt`), so even a
+    // moment cut short leaves the line and the winners up.
+    expect(winnersShownAt(after)).toBe(endTimes(after)!.winner + WINNERS_SETTLE_MS);
+    expect(winner.at).toBe(endTimes(after)!.winner);
+    const last = Math.max(
+      ...winner.steps.map((st) => st.t + ('ms' in st && typeof st.ms === 'number' ? st.ms : 450)),
+    );
+    expect(last).toBeLessThanOrEqual(WINNERS_SETTLE_MS);
+    expect(winnersShownAt(goingOnce.view(auctioning().state, null))).toBeNull();
+  });
+});
+
+describe('the paddles over many bids', () => {
+  it('has exactly the leader’s paddle up after every bid, over 30 seeded bids', () => {
+    const h = auctioning(4, 11);
+    const rng = createRng(29);
+    // What the table screen does with the moments (`useShow`): a new one plays, one that leaves
+    // the list settles at its end. Each paddle keeps the pose of the last track it was given.
+    const playing = new Map<string, Moment>();
+    const pose: Record<string, string> = {};
+    const ctx = { profile: 'stage' as const, you: null, reduced: false, low: false, tracks };
+    const apply = (m: Moment, now: number) => {
+      for (const sc of schedule(m, now, ctx))
+        if (sc.step.kind === 'anim' && sc.step.target.startsWith('pad:'))
+          pose[sc.step.target.slice(4)] = sc.step.track;
+    };
+    const sync = () => {
+      const list = stage(goingOnce.view(h.state, null));
+      const live = new Set(list.map((m) => m.id));
+      for (const [id, m] of playing)
+        if (!live.has(id)) {
+          apply(m, Number.MAX_SAFE_INTEGER);
+          playing.delete(id);
+        }
+      for (const m of list)
+        if (!playing.has(m.id)) {
+          playing.set(m.id, m);
+          apply(m, h.now);
+        }
+    };
+    sync();
+    for (let n = 0; n < 30;) {
+      const g = h.state.game!;
+      const a = g.auction;
+      if (g.stage !== 'auction' || !a || a.close === 'intro') {
+        h.tick();
+        sync();
+        continue;
+      }
+      const amount = a.bid ? a.bid.amount + 100 : 400;
+      const can = g.order.filter((id) => id !== a.bid?.by && g.players[id]!.cash >= amount);
+      if (!can.length) {
+        // Sold: every view on the way, as the table screen sees them.
+        h.tick();
+        sync();
+        continue;
+      }
+      const by = can[rng.int(can.length)]!;
+      h.wait(400);
+      h.act(by, { type: 'bid', amount, seq: a.seq });
+      n++;
+      sync();
+      const up = Object.entries(pose)
+        .filter(([, track]) => /Raise\d$/.test(track))
+        .map(([id]) => id);
+      expect(up, `after bid ${n} (${by} at ${amount})`).toEqual([by]);
+    }
+  });
+});
+
+describe('the table screen’s layout', () => {
+  it('finds every dealt paddle’s silhouette by its picture’s name, the bell included', () => {
+    const manifest = {
+      ui: { paddles: ['ui/paddles/thumbs-up.webp', 'ui/paddles/bell.webp', 'ui/paddles/x.webp'] },
+    };
+    const rig = { symbols: { 'shape.ThumbsUp': '<path/>', 'shape.Bell': '<path/>' } };
+    expect(shapeKey(manifest, rig, 0)).toBe('shape.ThumbsUp');
+    expect(shapeKey(manifest, rig, 1)).toBe('shape.Bell');
+    // One the rig lacks draws no head (the export refuses to leave one out).
+    expect(shapeKey(manifest, rig, 2)).toBeNull();
+    expect(shapeKey(null, rig, 0)).toBeNull();
+  });
+
+  it('centres the row: across the room, or right of the painting during a lot', () => {
+    // The original's seat layouts (made-up numbers in their shape: 200 apart, 3 to 6 seats).
+    const places = Object.fromEntries(
+      (['Three', 'Four', 'Five', 'Six'] as const).map((k, i) => [
+        `row.${k}`,
+        Array.from({ length: 6 }, (_, j) => [0.9, 0, 0, 0.9, 140 + j * 200 + (3 - i) * 100, 300]),
+      ]),
+    );
+    for (const n of [3, 4, 5, 6])
+      for (const where of ['room', 'lot'] as const) {
+        const xs = rowOf(places, n, where);
+        expect(xs).toHaveLength(n);
+        const [lo, hi] = ROW_BOUNDS[where];
+        expect((xs[0]! + xs.at(-1)!) / 2).toBeCloseTo((lo + hi) / 2);
+        expect(xs[0]!).toBeGreaterThanOrEqual(lo);
+        expect(xs.at(-1)!).toBeLessThanOrEqual(hi);
+      }
+    expect((rowOf(places, 3, 'room')[0]! + rowOf(places, 3, 'room')[2]!) / 2).toBe(640);
   });
 });

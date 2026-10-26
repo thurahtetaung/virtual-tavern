@@ -11,10 +11,13 @@ const PHONE = '(max-width: 639px)';
 export function StickyBar({
   children,
   whole = false,
+  off = false,
 }: {
   children: ReactNode;
   /** Float unless the spot is wholly on screen (not just partly), for controls that must stay usable. */
   whole?: boolean;
+  /** Stay in place for now (the control has nothing to do, and the page above it matters more). */
+  off?: boolean;
 }) {
   const spot = useRef<HTMLDivElement>(null);
   const [floating, setFloating] = useState(false);
@@ -43,17 +46,18 @@ export function StickyBar({
     };
   }, [whole]);
 
+  const float = floating && !off;
   // Keep the spot's height while the control floats, so the page doesn't jump.
   useEffect(() => {
-    if (!floating && spot.current) setHeight(spot.current.offsetHeight);
-  }, [floating, children]);
+    if (!float && spot.current) setHeight(spot.current.offsetHeight);
+  }, [float, children]);
 
   return (
     <>
-      <div ref={spot} style={floating ? { minHeight: height } : undefined}>
-        {!floating && children}
+      <div ref={spot} style={float ? { minHeight: height } : undefined}>
+        {!float && children}
       </div>
-      {floating && (
+      {float && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur dark:border-stone-800 dark:bg-stone-950/95">
           {children}
         </div>

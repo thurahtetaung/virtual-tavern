@@ -85,10 +85,18 @@ export function CloseBar({ view, room }: { view: GoingOnceView; room: GameRoomIn
   const sold = view.game!.stage === 'sold';
   const now = useServerNow(room.clockOffset, !sold);
   const total = closeMs(view, a.close, a.bid);
-  const left = a.screw ? null : Math.max(0, a.closeAt - now);
+  // A screw being aimed, or its outcome still playing out: the clock waits.
+  const paused = !!a.screw || now < a.pausedUntil;
+  const left = paused ? null : Math.max(0, a.closeAt - now);
   const fraction = left === null ? 1 : Math.min(1, left / total);
   const hot = a.close === 'once' || a.close === 'twice';
-  const words = sold ? 'Sold!' : a.screw ? 'Paused: a screw is being aimed' : CLOSE_WORDS[a.close];
+  const words = sold
+    ? 'Sold!'
+    : a.screw
+      ? 'Paused: a screw is being aimed'
+      : paused
+        ? 'Paused: the screw is playing out'
+        : CLOSE_WORDS[a.close];
   return (
     <div
       className="flex flex-col gap-1"
@@ -147,12 +155,15 @@ export function BidPanel({
   act,
   art,
   name,
+  quiet = false,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** A table screen shows the lot: once it is sold, the bids that led there are the TV's. */
+  quiet?: boolean;
 }) {
   const g = view.game!;
   const a = g.auction!;
@@ -160,13 +171,17 @@ export function BidPanel({
   const live = g.stage === 'auction' && a.close !== 'intro';
   const leading = a.bid?.by === room.you;
   const affordable = mine ? a.steps.filter((s) => s <= mine.cash) : [];
-  const screwBlocked = !g.screwsOn || !mine?.screw || !!a.screw || !!a.screwed || !live;
+  // A screw's outcome playing out holds every bid and screw until it is over.
+  const now = useServerNow(room.clockOffset, a.pausedUntil > 0 && live);
+  const held = !!a.screw || now < a.pausedUntil;
+  const screwBlocked = !g.screwsOn || !mine?.screw || held || !!a.screwed || !live;
   const showBank = !!mine && g.bankOpened && mine.bankRefusal !== undefined;
   return (
     <div className="flex flex-col gap-3">
       {/* On phones the top bid, the bids before it, the clock and the bid buttons float together
           at the bottom while their spot is below the fold, so who leads is never hidden. */}
-      <StickyBar whole>
+      {/* Once sold, it stays in place: the stamp on the picture is what matters then. */}
+      <StickyBar whole off={g.stage === 'sold'}>
         <div className="flex flex-col gap-2" data-testid="go-bid-bar">
           <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1">
             {a.bid ? (
@@ -196,9 +211,11 @@ export function BidPanel({
               </p>
             )}
           </div>
-          <BidLadder view={view} art={art} name={name} you={room.you} />
+          {!(quiet && g.stage === 'sold') && (
+            <BidLadder view={view} art={art} name={name} you={room.you} />
+          )}
           <CloseBar view={view} room={room} />
-          {mine && (
+          {mine && !(quiet && g.stage === 'sold') && (
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Bid">
               {a.steps.map((amount) => {
                 const can = affordable.includes(amount);
@@ -208,7 +225,7 @@ export function BidPanel({
                     size="lg"
                     variant={amount === a.steps[0] ? 'primary' : 'soft'}
                     className="h-14 px-1 text-lg tabular-nums"
-                    disabled={!live || leading || !can || !!a.screw}
+                    disabled={!live || leading || !can || held}
                     onClick={() =>
                       void act({ type: 'bid', amount, seq: a.seq }, { anchor: 'go-bid' })
                     }
@@ -512,15 +529,25 @@ function PairLines({ view, name, you }: { view: GoingOnceView; name: NameOf; you
 
 type Tab = 'wish' | 'hints' | 'log';
 
-function SideTabs({ children }: { children: (tab: Tab) => ReactNode }) {
-  const [tab, setTab] = useState<Tab>('wish');
+/**
+ * The wish list, hints and lots under the bidding on phones. A quiet phone keeps them shut until a
+ * tab is tapped (and shuts them again on a second tap), so the bidding fits the screen.
+ */
+function SideTabs({
+  children,
+  closed = false,
+}: {
+  children: (tab: Tab) => ReactNode;
+  closed?: boolean;
+}) {
+  const [tab, setTab] = useState<Tab | null>(closed ? null : 'wish');
   const tabs: [Tab, string][] = [
     ['wish', '📜 Wish list'],
     ['hints', '💬 Hints'],
     ['log', '🧾 Lots'],
   ];
   return (
-    <Panel className="flex flex-col gap-3 p-3 lg:hidden">
+    <Panel className={cn('flex flex-col lg:hidden', tab ? 'gap-3 p-3' : 'p-1.5')}>
       <div
         role="tablist"
         className="grid grid-cols-3 gap-1 rounded-lg bg-page p-1 dark:bg-stone-900"
@@ -531,7 +558,7 @@ function SideTabs({ children }: { children: (tab: Tab) => ReactNode }) {
             role="tab"
             type="button"
             aria-selected={tab === id}
-            onClick={() => setTab(id)}
+            onClick={() => setTab(closed && tab === id ? null : id)}
             className={cn(
               'rounded-md px-2 py-1.5 text-sm font-semibold',
               tab === id
@@ -543,7 +570,7 @@ function SideTabs({ children }: { children: (tab: Tab) => ReactNode }) {
           </button>
         ))}
       </div>
-      {children(tab)}
+      {tab && children(tab)}
     </Panel>
   );
 }
@@ -635,6 +662,57 @@ export function Auction({
       <LotLog view={view} room={room} art={art} name={name} seen={seen} localHidden={localHidden} />
     );
   const latest = view.mine?.messages.at(-1);
+  // The lot's number, whose drawing it is and the hide buttons (beside the thumbnail on a quiet
+  // phone, so the bidding fits the screen).
+  const header = (
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <span
+        className={cn(
+          'relative rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+          art.ui('lot') && 'lg:hidden',
+        )}
+      >
+        Lot {a.lot + 1}/{g.lotCount}
+      </span>
+      {/* Desktop and TV: the lot number on the wooden disc, when the manifest has it. */}
+      {art.ui('lot') && (
+        <span className="relative hidden size-16 items-end justify-center pb-3 lg:flex">
+          <ProtectedImage src={art.ui('lot')!} alt="" className="absolute inset-0 size-full" />
+          <span className="relative text-lg font-black text-stone-800" aria-hidden>
+            {a.lot + 1}/{g.lotCount}
+          </span>
+        </span>
+      )}
+      {own && (
+        <span className="rounded-full bg-special-soft px-2.5 py-0.5 text-xs font-semibold text-special-ink ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-200 dark:ring-violet-500/40">
+          🎨 Your drawing
+        </span>
+      )}
+      <div className="flex gap-1">
+        {pic.drawing && !pic.hidden && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={CHIP}
+            onClick={() => setLocalHidden(pic.item, !localHidden.has(pic.item))}
+          >
+            {localHidden.has(pic.item) ? 'Show' : 'Hide'}
+          </Button>
+        )}
+        {room.isHost && (pic.drawing || pic.hidden) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className={CHIP}
+            onClick={() => void act({ type: 'hide', item: pic.item, hidden: !pic.hidden })}
+            title="Hide or show this drawing for everyone; it still sells"
+          >
+            {pic.hidden ? 'Unhide for all' : 'Hide for all'}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.9fr)] lg:items-start">
       <section aria-label="The lot" className="relative flex flex-col gap-2 lg:rounded-2xl lg:p-3">
@@ -645,53 +723,7 @@ export function Auction({
             className="pointer-events-none absolute inset-0 -z-10 hidden size-full rounded-2xl object-cover lg:block"
           />
         )}
-        <div className="flex items-center justify-between gap-2">
-          <span
-            className={cn(
-              'relative rounded-full bg-card px-2.5 py-0.5 text-sm font-bold ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
-              art.ui('lot') && 'lg:hidden',
-            )}
-          >
-            Lot {a.lot + 1}/{g.lotCount}
-          </span>
-          {/* Desktop and TV: the lot number on the wooden disc, when the manifest has it. */}
-          {art.ui('lot') && (
-            <span className="relative hidden size-16 items-end justify-center pb-3 lg:flex">
-              <ProtectedImage src={art.ui('lot')!} alt="" className="absolute inset-0 size-full" />
-              <span className="relative text-lg font-black text-stone-800" aria-hidden>
-                {a.lot + 1}/{g.lotCount}
-              </span>
-            </span>
-          )}
-          {own && (
-            <span className="rounded-full bg-special-soft px-2.5 py-0.5 text-xs font-semibold text-special-ink ring-1 ring-special-line dark:bg-violet-500/15 dark:text-violet-200 dark:ring-violet-500/40">
-              🎨 Your drawing
-            </span>
-          )}
-          <div className="flex gap-1">
-            {pic.drawing && !pic.hidden && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={CHIP}
-                onClick={() => setLocalHidden(pic.item, !localHidden.has(pic.item))}
-              >
-                {localHidden.has(pic.item) ? 'Show' : 'Hide'}
-              </Button>
-            )}
-            {room.isHost && (pic.drawing || pic.hidden) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={CHIP}
-                onClick={() => void act({ type: 'hide', item: pic.item, hidden: !pic.hidden })}
-                title="Hide or show this drawing for everyone; it still sells"
-              >
-                {pic.hidden ? 'Unhide for all' : 'Hide for all'}
-              </Button>
-            )}
-          </div>
-        </div>
+        {!(quiet && a.close !== 'intro') && header}
         {a.close === 'intro' ? (
           <LotIntro view={view} art={art} name={name} />
         ) : quiet ? (
@@ -704,13 +736,16 @@ export function Auction({
               art={art}
               compact
               label={`Lot ${a.lot + 1}`}
-              className="relative w-24 shrink-0 shadow-md"
+              className="relative w-16 shrink-0 shadow-md"
             >
               <PictureStamp />
             </Picture>
-            <p className="text-sm text-ink-muted dark:text-stone-400">
-              <span aria-hidden>👀 </span>Look up: the lot is on the table screen.
-            </p>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {header}
+              <p className="text-xs text-ink-muted dark:text-stone-400">
+                <span aria-hidden>👀 </span>Look up: the lot is on the table screen.
+              </p>
+            </div>
           </div>
         ) : (
           <Picture
@@ -736,15 +771,19 @@ export function Auction({
       <section aria-label="Bidding" className="flex flex-col gap-3">
         <Panel className="flex flex-col gap-3 p-3">
           <Money view={view} art={art} />
-          <BidPanel view={view} room={room} act={act} art={art} name={name} />
+          <BidPanel view={view} room={room} act={act} art={art} name={name} quiet={quiet} />
         </Panel>
         <ScrewPicker view={view} room={room} act={act} name={name} />
-        {latest && latest.lot === a.lot && a.close !== 'intro' && (
-          <div className="lg:hidden">
-            <PsstBubble message={latest} art={art} name={name} />
-          </div>
-        )}
-        <SideTabs>{side}</SideTabs>
+        {/* Once sold, a quiet phone's tip has had its day (the Sold card needs the room). */}
+        {latest &&
+          latest.lot === a.lot &&
+          a.close !== 'intro' &&
+          !(quiet && g.stage === 'sold') && (
+            <div className="lg:hidden">
+              <PsstBubble message={latest} art={art} name={name} />
+            </div>
+          )}
+        <SideTabs closed={quiet}>{side}</SideTabs>
       </section>
       <aside className="hidden flex-col gap-3 lg:flex">
         <Panel className="flex flex-col gap-2 p-3">

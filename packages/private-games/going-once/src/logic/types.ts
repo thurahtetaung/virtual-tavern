@@ -45,6 +45,11 @@ export const COMMISSION = 0.5;
 export const LOT_INTRO_MS = 2000;
 
 export const SCREW_PICK_MS = 15_000;
+/**
+ * Without the voice, how long a screw's outcome holds the bidding (its banner on every phone, the
+ * screw landing or tumbling off on the table screen); voiced, the outcome's own line does.
+ */
+export const SCREW_OUTCOME_MS = 2500;
 /** A screw still unaimed this long after the press gets a nudge on screen. */
 export const SCREW_NUDGE_MS = 10_000;
 /** The bank's first visit, and the visits someone called for (both end once everyone has answered). */
@@ -289,8 +294,16 @@ export interface Auction {
   closeAt: number;
   /** When the current close stage began (or a screw was pressed or resolved): for the sound. */
   since?: number;
-  /** A screw being aimed: the clock is paused with `left` ms of its stage to go. */
-  screw: { by: PlayerId; until: number; left: number } | null;
+  /**
+   * A screw being aimed: the bidding clock waits (bids are refused) until it lands, fails or is
+   * lost, then starts a fresh stretch (`afterScrew`). `left` only survives in rooms saved before.
+   */
+  screw: { by: PlayerId; until: number; left?: number } | null;
+  /**
+   * A screw's outcome still playing out (the forced bid's or the failure's line and banner): no
+   * bids and no close until then, and the clock shows Paused.
+   */
+  pausedUntil?: number;
   /** Set while a screw's forced bid leads: nobody may screw until a free bid. */
   screwed: { target: PlayerId; by: PlayerId } | null;
   /** Players who called the bank during this lot. */
@@ -587,6 +600,8 @@ export interface AuctionView {
   /** The bids the buttons offer now. */
   steps: number[];
   screw: { by: PlayerId; until: number } | null;
+  /** A screw's outcome playing out until then (0: none): the clock is paused. */
+  pausedUntil: number;
   screwed: { target: PlayerId; by: PlayerId } | null;
   bankCalled: boolean;
   bidders: PlayerId[];

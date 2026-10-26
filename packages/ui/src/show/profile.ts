@@ -3,8 +3,10 @@ import { useSyncExternalStore } from 'react';
 
 // How much of the show this device plays. The profile comes from the room (a table screen paired
 // or not); reduced motion from the system; low effects ("Battery saver") from a per-device switch,
-// or by itself when the battery is low, the browser asks to save data, or the first second of a
-// show drops frames. Kept in localStorage per device (not per seat: it is about the hardware).
+// or by itself when the battery is low, the browser asks to save data, or the show keeps dropping
+// frames over several moments (`judgeFrames`). Kept in localStorage per device (not per seat: it is
+// about the hardware). When it goes on by itself the page says so (`ShowSettings.auto`), with a way
+// back.
 
 /** The device's battery-saver switch: `auto` decides from the battery and the frame rate. */
 export type LowSetting = 'auto' | 'on' | 'off';
@@ -12,11 +14,37 @@ export type LowSetting = 'auto' | 'on' | 'off';
 const KEY = 'vt.show.low';
 const LOW_BATTERY = 0.2;
 /**
- * More than this share of slow frames in the first second of a live moment turns low effects on
- * (a phone that drops one frame in four can't keep up; a page settling drops the odd one).
+ * A sampled second of a live moment is slow when more than this share of its frames are (a phone
+ * that drops one frame in four can't keep up; a page settling drops the odd one).
  */
 const SLOW_SHARE = 0.25;
 const SLOW_FRAME_MS = 34;
+/** Seconds sampled (one per live moment) before auto decides, and how many of them must be slow. */
+export const FRAME_SAMPLES = 4;
+export const SLOW_SAMPLES = 3;
+/** Nothing is sampled this soon after the page loads: loading and decoding stall any device. */
+export const SAMPLE_AFTER_MS = 10_000;
+/** Samples are at least this far apart, so they come from different moments of the show. */
+export const SAMPLE_GAP_MS = 4_000;
+
+/** One sampled second: its frames and how many of them were slow. */
+export interface FrameSample {
+  frames: number;
+  slow: number;
+}
+
+/**
+ * What the frames say so far: `slow` once `SLOW_SAMPLES` sampled seconds dropped frames (real,
+ * lasting jank, not one stall), `fine` once that can no longer happen, else `undecided`. A second
+ * with too few frames to judge (a hidden or frozen page) counts for neither.
+ */
+export function judgeFrames(samples: readonly FrameSample[]): 'slow' | 'fine' | 'undecided' {
+  const judged = samples.filter((s) => s.frames > 5);
+  const slow = judged.filter((s) => s.slow / s.frames > SLOW_SHARE).length;
+  if (slow >= SLOW_SAMPLES) return 'slow';
+  if (judged.length - slow > FRAME_SAMPLES - SLOW_SAMPLES) return 'fine';
+  return 'undecided';
+}
 
 interface State {
   setting: LowSetting;
@@ -24,6 +52,9 @@ interface State {
   auto: boolean;
   reduced: boolean;
 }
+
+/** Turns `auto` on (the page then says so). */
+const autoOn = () => update({ auto: true });
 
 const listeners = new Set<() => void>();
 let state: State = {
@@ -64,12 +95,12 @@ function start() {
       addEventListener: (type: string, cb: () => void) => void;
     }>;
   };
-  if (nav.connection?.saveData) update({ auto: true });
+  if (nav.connection?.saveData) autoOn();
   void nav
     .getBattery?.()
     .then((b) => {
       const check = () => {
-        if (b.level < LOW_BATTERY && !b.charging) update({ auto: true });
+        if (b.level < LOW_BATTERY && !b.charging) autoOn();
       };
       check();
       b.addEventListener('levelchange', check);
@@ -101,24 +132,41 @@ export function setLowEffects(setting: LowSetting) {
 export const lowOf = (s: Pick<State, 'setting' | 'auto'>) =>
   s.setting === 'on' || (s.setting === 'auto' && s.auto);
 
-let sampled = false;
+const samples: FrameSample[] = [];
+let sampling = false;
+let decided = false;
+let lastSample = -Infinity;
+
 /**
- * Watches the first second of the first live moment on this page: if more than one frame in four is slow,
- * low effects go on by themselves (for this page; the switch can still say otherwise).
+ * Samples a second of frames while a live moment plays (at most one second per `SAMPLE_GAP_MS`,
+ * none in the page's first `SAMPLE_AFTER_MS` or while it is hidden), until `judgeFrames` decides;
+ * slow turns low effects on by themselves (for this page; the switch can still say otherwise).
  */
 export function sampleFrames() {
-  if (sampled || typeof requestAnimationFrame === 'undefined') return;
-  sampled = true;
-  let last = performance.now();
-  const end = last + 1000;
-  let frames = 0;
-  let slow = 0;
+  if (decided || sampling || typeof requestAnimationFrame === 'undefined') return;
+  const start = performance.now();
+  if (start < SAMPLE_AFTER_MS || start - lastSample < SAMPLE_GAP_MS) return;
+  if (typeof document !== 'undefined' && document.hidden) return;
+  sampling = true;
+  lastSample = start;
+  let last = start;
+  const sample: FrameSample = { frames: 0, slow: 0 };
   const step = (now: number) => {
-    frames++;
-    if (now - last > SLOW_FRAME_MS) slow++;
+    sample.frames++;
+    if (now - last > SLOW_FRAME_MS) sample.slow++;
     last = now;
-    if (now < end) requestAnimationFrame(step);
-    else if (frames > 5 && slow / frames > SLOW_SHARE) update({ auto: true });
+    if (now < start + 1000) {
+      requestAnimationFrame(step);
+      return;
+    }
+    sampling = false;
+    // A page hidden meanwhile has no frames worth judging.
+    if (typeof document !== 'undefined' && document.hidden) return;
+    samples.push(sample);
+    const verdict = judgeFrames(samples);
+    if (verdict === 'undecided') return;
+    decided = true;
+    if (verdict === 'slow') autoOn();
   };
   requestAnimationFrame(step);
 }
@@ -127,12 +175,19 @@ export interface ShowSettings {
   low: boolean;
   setting: LowSetting;
   reduced: boolean;
+  /** Low effects are on by themselves (`auto`): the page should say so and offer a way back. */
+  auto: boolean;
 }
 
 /** The device's show settings (reduced motion, battery saver), live. */
 export function useShowSettings(): ShowSettings {
   const s = useSyncExternalStore(subscribe, snapshot, serverSnapshot);
-  return { low: lowOf(s), setting: s.setting, reduced: s.reduced };
+  return {
+    low: lowOf(s),
+    setting: s.setting,
+    reduced: s.reduced,
+    auto: s.setting === 'auto' && s.auto,
+  };
 }
 
 /**

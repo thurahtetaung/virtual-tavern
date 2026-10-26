@@ -18,6 +18,7 @@ import {
   dueCues,
   loadedTooLate,
   effectCues,
+  clipSkip,
   enqueueLine,
   musicClips,
   musicFor,
@@ -204,7 +205,8 @@ export function useSound({
   }, []);
 
   // Says the next clip once the voice is free: each clip to its end, a late start moving the
-  // rest of its line back, and only clips too late for their moment dropped.
+  // rest of its line back (a chant keeps its time, skipping its head so going once follows it on
+  // time), and only clips too late for their moment dropped.
   const pump = useCallback(() => {
     if (saying.current) return;
     const { audio: a, clockOffset: offset } = latest.current;
@@ -236,6 +238,11 @@ export function useSound({
         return;
       }
       const start = Math.max(at, clip.at);
+      const skip = clipSkip(clip, start, buffer.duration * 1000);
+      if (skip === null) {
+        done();
+        return;
+      }
       queue.current = shiftLine(queue.current, clip.line, start - clip.at);
       decodeAhead();
       said.handle = engine.say(
@@ -243,6 +250,7 @@ export function useSound({
         start - latest.current.clockOffset,
         latest.current.volume,
         done,
+        skip,
       );
       if (!said.handle) done();
     });

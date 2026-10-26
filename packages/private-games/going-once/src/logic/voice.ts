@@ -59,7 +59,10 @@ export function clipsFor(s: GoingOnceState, rng: Rng, parts: readonly VoicePart[
 export const clipsMs = (clips: readonly HostClip[]) =>
   clips.reduce((n, c, i) => n + c.ms + (i ? CLIP_GAP_MS : 0), 0);
 
-/** The chant after a bid of `amount` (or the opening's, at $400): a long one one time in five. */
+/**
+ * The chant asking for `amount`: the next ask after a bid, or the opening's $400 ('high' above the
+ * recordings' top amount, $4,000); a long one one time in five.
+ */
 export function chantKey(amount: number, rng: Rng): string {
   const tag = amount <= 4000 ? String(amount) : 'high';
   const long = `chant-long-${tag}`;

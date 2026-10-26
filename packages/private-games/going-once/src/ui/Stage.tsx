@@ -24,7 +24,15 @@ import { type Art, GAME_ID, artFor, useManifest } from './assets.ts';
 import { HostStrip } from './Extras.tsx';
 import type { GoingOnceUiProps } from './GoingOnceGame.tsx';
 import { Picture } from './Picture.tsx';
-import { BANK_PARTS, endTrack, moments } from './show.ts';
+import {
+  BANK_PARTS,
+  type RowWhere,
+  endTrack,
+  moments,
+  rowOf,
+  shapeKey,
+  winnersShownAt,
+} from './show.ts';
 import type { NameOf } from './text.ts';
 import { useDeviceSound, useSound } from './useSound.ts';
 
@@ -67,23 +75,6 @@ const PAINT: Record<string, string> = {
   grey: '#a8a29e',
 };
 
-/**
- * The rig's silhouette for a paddle shape: the manifest's paddle pictures are named after the
- * original's shapes (`ui/paddles/thumbs-up.webp` is `shape.ThumbsUp`); one the rig lacks has none.
- */
-function shapeKey(manifest: unknown, rig: LoadedRig, shape: number | undefined): string | null {
-  const list = (manifest as { ui?: { paddles?: unknown } } | null)?.ui?.paddles;
-  if (shape === undefined || !Array.isArray(list) || !list.length) return null;
-  const path: unknown = list[shape % list.length];
-  if (typeof path !== 'string') return null;
-  const base = path
-    .split('/')
-    .pop()!
-    .replace(/\.\w+$/, '');
-  const key = `shape.${base.replace(/(^|-)(\w)/g, (_, __, c: string) => c.toUpperCase())}`;
-  return rig.symbols[key] ? key : null;
-}
-
 /** Where a part waits before its first moment: the first frame of the track that brings it on. */
 const startOf = (t: Track | undefined): CSSProperties | undefined => {
   const f = t?.frames[0];
@@ -116,23 +107,25 @@ const AT = {
   /** A buyer's total, where the values fly to. */
   total: [1, 0, 0, 1, 640, 560],
 };
-/** The seats: the original's row, a little smaller and to the right of the painting. */
+/** The seats: the original's row, a little smaller. */
 const SEAT_K = 0.8;
 /** Each seat's height: a lowered paddle stands on the floor's line. */
 const ROW_Y = 520;
-/** A seat's place in the row from the original layout's x. */
-const seatAt = (x: number, y = ROW_Y) => [SEAT_K, 0, 0, SEAT_K, 380 + (x - 140) * 0.78, y];
+/** A seat's place: `x` from `rowOf`. */
+const seatAt = (x: number, y = ROW_Y) => [SEAT_K, 0, 0, SEAT_K, x, y];
+
 /** A player's name, on the floor under their paddle. */
 const NAME_AT = [1, 0, 0, 1, 0, 190];
 
 /** The lot's canvas in the painting (the original's 240 × 320 at 1.1875). */
 const CANVAS: CSSProperties = { left: 0, top: 0, width: 285, height: 380, borderRadius: 3 };
-/** The sold lot's title, under the painting. */
+/** The sold lot's title, under the painting (clear of the paddles, which stand right of it). */
 const TITLE: CSSProperties = {
-  left: 880,
-  top: 340,
+  left: 90,
+  top: 548,
   width: 380,
-  fontSize: 34,
+  fontSize: 28,
+  lineHeight: 1.15,
   color: '#1c1917',
   textAlign: 'left',
 };
@@ -151,6 +144,17 @@ const HOST_STRIP: CSSProperties = {
   transform: 'scale(1.4)',
   transformOrigin: '50% 0',
 };
+/**
+ * During a lot, the host's words over the bidding column, clear of the painting, the LOT disc and
+ * the strings they hang from.
+ */
+const HOST_STRIP_LOT: CSSProperties = {
+  left: 836,
+  top: 8,
+  width: 310,
+  transform: 'scale(1.4)',
+  transformOrigin: '0 0',
+};
 
 /** A part not on show. */
 const HIDDEN: CSSProperties = { opacity: 0 };
@@ -158,14 +162,11 @@ const HIDDEN: CSSProperties = { opacity: 0 };
 /** The room's size in stage units. */
 const ROOM: CSSProperties = { width: 1280, height: 720 };
 
-const COUNT = ['', 'Three', 'Three', 'Three', 'Four', 'Five', 'Six'];
 const WINNERS = ['One', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
 
-/** The x of each seat in a row of `n` (the original's layouts for three to six). */
-function rowOf(rig: LoadedRig, n: number): number[] {
-  const list = rig.places[`row.${COUNT[Math.min(6, Math.max(3, n))]}`] as number[][] | undefined;
-  return (list ?? []).map((m) => m[4]!);
-}
+/** Where the row stands in this phase: right of the painting while a lot is on. */
+const rowWhere = (view: GoingOnceView): RowWhere =>
+  phaseOf(view) === 'auction' || phaseOf(view) === 'practice' ? 'lot' : 'room';
 
 /** The lot on the easel as the stage draws it: an auctioned lot or the practice lot. */
 function lotView(view: GoingOnceView) {
@@ -270,8 +271,19 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
           }
           overlay={
             <>
-              {rig && <Lights view={view} rig={rig} manifest={manifest} name={name} />}
-              <div className="absolute" style={HOST_STRIP}>
+              {rig && (
+                <Lights
+                  view={view}
+                  rig={rig}
+                  manifest={manifest}
+                  name={name}
+                  clockOffset={offset}
+                />
+              )}
+              <div
+                className="absolute"
+                style={rowWhere(view) === 'lot' ? HOST_STRIP_LOT : HOST_STRIP}
+              >
                 {view.game && <HostStrip view={view} art={art} name={name} clockOffset={offset} />}
               </div>
             </>
@@ -379,14 +391,23 @@ function Room({
   const players: Pick<PlayerView, 'id' | 'name'>[] = g
     ? g.order.flatMap((id) => g.players.find((p) => p.id === id) ?? [])
     : view.seats.filter((s) => s.playing);
-  const seats = rowOf(rig, players.length);
+  const seats = rowOf(rig.places, players.length, rowWhere(view));
   const a = lotView(view);
   const sold = g?.stage === 'sold' ? g.results.at(-1) : undefined;
   const lead = a?.bid?.by ?? null;
   const T = rig.tracks;
   if (!g) return <Lobby view={view} rig={rig} manifest={manifest} seats={seats} />;
   if (g.stage === 'done' && g.final)
-    return <EndScene view={view} rig={rig} art={art} manifest={manifest} name={name} />;
+    return (
+      <EndScene
+        view={view}
+        rig={rig}
+        art={art}
+        manifest={manifest}
+        name={name}
+        clockOffset={room.clockOffset}
+      />
+    );
   return (
     <>
       {a && (
@@ -432,12 +453,10 @@ function Room({
             </Layer>
           </Layer>
           {sold?.buyer && (
-            <p className="absolute font-black" style={TITLE} data-testid="go-stage-title">
-              “{sold.title}”
-              {sold.artistKnown && sold.artist && (
-                <span className="block text-2xl font-bold">by {name(sold.artist)}</span>
-              )}
-            </p>
+            <SoldTitle
+              title={sold.title}
+              artist={sold.artistKnown && sold.artist ? name(sold.artist) : null}
+            />
           )}
           {/* The phone that rings while the tips go out. */}
           <Layer m={placeOf(rig, 'phone.at')}>
@@ -618,10 +637,12 @@ function DrawingProps({ view, rig }: { view: GoingOnceView; rig: LoadedRig }) {
     <>
       <Layer m={placeOf(rig, 'timer.at')}>
         <Layer name="timer" moving style={startOf(T.timer?.Appear)}>
-          <Layer m={[1, 0, 0, 1, -330, -60]}>
+          {/* Lower than the original's (which hangs from the top), so all of it shows under
+              the host's words. */}
+          <Layer m={[1, 0, 0, 1, -330, 68]}>
             <RigArt rig={rig} symbol="hourglass" />
           </Layer>
-          <Layer m={[1, 0, 0, 1, -330, 110]}>
+          <Layer m={[1, 0, 0, 1, -330, 238]}>
             <Label
               name="timeNum"
               style={{ fontSize: 44, color: '#fff', textShadow: '0 2px 4px #000' }}
@@ -710,22 +731,29 @@ function BankPart({ rig, part }: { rig: LoadedRig; part: string }) {
   );
 }
 
-/** A paddle drawn from the rig: the handle and a silhouette in the player's colour. */
+/**
+ * A paddle drawn from the rig: the handle and a silhouette in the player's colour (`stick={false}`:
+ * the silhouette alone, where a total stands under it).
+ */
 function RigPaddle({
   rig,
   shapeKey: key,
   who,
+  stick = true,
 }: {
   rig: LoadedRig;
   shapeKey: string | null;
   who: string;
+  stick?: boolean;
 }) {
   const colour = usePlayerColor(who);
   return (
     <>
-      <Layer m={placeOf(rig, 'paddle.wood')}>
-        <RigArt rig={rig} symbol="wood" />
-      </Layer>
+      {stick && (
+        <Layer m={placeOf(rig, 'paddle.wood')}>
+          <RigArt rig={rig} symbol="wood" />
+        </Layer>
+      )}
       {key && (
         <Layer m={placeOf(rig, 'paddle.shape')}>
           <RigArt rig={rig} symbol={key} tint={PAINT[colour ?? ''] ?? '#e7e5e4'} />
@@ -798,19 +826,23 @@ function EndScene({
   art,
   manifest,
   name,
+  clockOffset,
 }: {
   view: GoingOnceView;
   rig: LoadedRig;
   art: Art;
   manifest: unknown;
   name: NameOf;
+  clockOffset: number;
 }) {
+  // Once the winners are on show, everyone's row has gone for good (whatever the moment did).
+  const settled = useReached(winnersShownAt(view), clockOffset);
   const g = view.game!;
   const final = g.final!;
   const T = rig.tracks;
   const byItem = new Map(g.results.map((r) => [r.item, r]));
   const buyers = final.filter((f) => f.bought.length > 0);
-  const row = rowOf(rig, final.length);
+  const row = rowOf(rig.places, final.length, 'room');
   const hidden = (t: Track | undefined): CSSProperties => ({ ...startOf(t), opacity: 0 });
   return (
     <>
@@ -886,11 +918,16 @@ function EndScene({
       <Layer>
         {final.map((f, i) => (
           <Layer key={f.id} m={row[i] === undefined ? undefined : seatAt(row[i], 420)}>
-            <Layer name={`finale:${f.id}`} moving style={hidden(T['finale-content']?.Appear)}>
+            <Layer
+              name={`finale:${f.id}`}
+              moving
+              style={settled ? HIDDEN : hidden(T['finale-content']?.Appear)}
+            >
               <RigPaddle
                 rig={rig}
                 shapeKey={shapeKey(manifest, rig, g.paddles[f.id])}
                 who={name(f.id)}
+                stick={false}
               />
               <Layer m={[1, 0, 0, 1, 0, 130]}>
                 <Label style={NAME}>{name(f.id)}</Label>
@@ -899,7 +936,11 @@ function EndScene({
             <Layer name={`finale:${f.id}.shark`} moving style={hidden(T['finale-d7']?.Debt)}>
               <RigArt rig={rig} symbol="finale-d7" />
             </Layer>
-            <Layer name={`finale:${f.id}.scoreL`} moving style={hidden(T['finale-score']?.Appear)}>
+            <Layer
+              name={`finale:${f.id}.scoreL`}
+              moving
+              style={settled ? HIDDEN : hidden(T['finale-score']?.Appear)}
+            >
               <Label name={`finale:${f.id}.score`} style={{ fontSize: 40, color: INK }}>
                 {money(f.score)}
               </Label>
@@ -928,13 +969,16 @@ function Lights({
   rig,
   manifest,
   name,
+  clockOffset,
 }: {
   view: GoingOnceView;
   rig: LoadedRig;
   manifest: unknown;
   name: NameOf;
+  clockOffset: number;
 }) {
   const g = view.game;
+  const settled = useReached(g ? winnersShownAt(view) : null, clockOffset);
   if (!g) return null;
   const T = rig.tracks;
   const hidden = (t: Track | undefined): CSSProperties => ({ ...startOf(t), opacity: 0 });
@@ -945,6 +989,7 @@ function Lights({
     return (
       <>
         <WinLine
+          shown={settled}
           text={`${
             g.winners.length === 1
               ? `${name(g.winners[0])} wins`
@@ -954,7 +999,15 @@ function Lights({
         <Layer m={placeOf(rig, 'winners.at')}>
           {g.winners.map((id, i) => (
             <Layer key={id} m={wins?.[i]}>
-              <Layer name={`win:${id}`} moving style={hidden(T['winning-content']?.Appear)}>
+              <Layer
+                name={`win:${id}`}
+                moving
+                style={
+                  settled
+                    ? restOf(T['winning-content']?.Appear)
+                    : hidden(T['winning-content']?.Appear)
+                }
+              >
                 <RigPaddle
                   rig={rig}
                   shapeKey={shapeKey(manifest, rig, g.paddles[id])}
@@ -972,7 +1025,7 @@ function Lights({
       </>
     );
   }
-  const seats = rowOf(rig, g.order.length);
+  const seats = rowOf(rig.places, g.order.length, rowWhere(view));
   return (
     <>
       {g.order.map((id, i) =>
@@ -988,8 +1041,40 @@ function Lights({
   );
 }
 
-/** The winner's line at the end, shown by the winner moment. */
-function WinLine({ text }: { text: string }) {
+/**
+ * The sold lot's title under the painting; the artist's name waits for their paddle's flip
+ * (`title.by`, shown by the Sold moment), as the auctioneer reveals the artist.
+ */
+function SoldTitle({ title, artist }: { title: string; artist: string | null }) {
+  const by = useTarget('title.by');
+  return (
+    <p className="absolute font-black" style={TITLE} data-testid="go-stage-title">
+      <span className="line-clamp-3">“{title}”</span>
+      {artist && (
+        <span ref={by} className="block text-2xl font-bold" style={HIDDEN}>
+          by {artist}
+        </span>
+      )}
+    </p>
+  );
+}
+
+/**
+ * Whether the server clock has reached `at` (false while it is null), re-rendering once when it
+ * does: what a moment brought on and must stay, the page then renders itself.
+ */
+function useReached(at: number | null, offset: number): boolean {
+  const [reached, setReached] = useState<number | null>(null);
+  useEffect(() => {
+    if (at === null) return;
+    const id = setTimeout(() => setReached(at), Math.max(0, at - (Date.now() + offset)));
+    return () => clearTimeout(id);
+  }, [at, offset]);
+  return at !== null && reached === at;
+}
+
+/** The winner's line at the end: brought on by the winner moment, then shown for good (`shown`). */
+function WinLine({ text, shown }: { text: string; shown: boolean }) {
   const ref = useTarget('winline');
   return (
     <div
@@ -1002,7 +1087,7 @@ function WinLine({ text }: { text: string }) {
         fontSize: 64,
         color: '#fff',
         textShadow: '0 3px 8px #000',
-        opacity: 0,
+        opacity: shown ? 1 : 0,
       }}
       data-testid="go-stage-winner"
     >

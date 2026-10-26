@@ -16,7 +16,8 @@ import { RACKUP_BEAT_MS, SOLD_BEAT_MS, endTimes } from './audio.ts';
 // the same beat at the same instant and a device that arrives late lands on the same frame. The
 // parts named here are the rig's (`private-assets/tools/showkit_export.py`) and the layers
 // `Stage.tsx` and the phone's overlays register under these target names:
-//   camera, dim · lot, lot.num · painting, stamp, stamp.slab, stamp.word, stamp.lineL, stamp.line
+//   camera, dim · lot, lot.num · painting, stamp, stamp.slab, stamp.word, stamp.lineL, stamp.line,
+//   title.by
 //   bidPrompt, bidAmount, bidFrom · phone · timer, timeNum, sign · bank-<part>
 //   seat:<id>, pad:<id>, pad:<id>.num, artpay:<id>, artpay:<id>.text, screws:<id>, spot:<id>
 //   finale:<id>, finale:<id>.debt, win:<id>, end:<buyer>, endpic:<item>, total:<buyer>, total.num
@@ -182,43 +183,45 @@ function paintingIn(view: GoingOnceView, l: Lot): Moment {
 }
 
 /**
- * Every bid still in the lot's recent list: the bidder's paddle shoots up (their wobble from the
- * amount), the one they beat drops, the amount pops with the leader's shape spinning in. Only the
- * newest is timed: older ones are long past, so a late device only shows where they left things.
+ * The lot's newest bid: the bidder's paddle shoots up (their wobble from the amount), the one they
+ * beat drops, the amount pops with the leader's shape spinning in. Only the newest gets a moment:
+ * older bids are long played and their lasting result is already on the paddles; a moment that
+ * leaves the list settles where it ended, so an old bid's moment leaving later (as `recent` drops
+ * it) would raise its bidder's paddle again. The one leaving is always the bid just beaten, whose
+ * end the new bid's moment animates on from.
  */
 function bids(l: Lot): Moment[] {
-  const out: Moment[] = [];
-  l.recent.forEach((b, i) => {
-    const newest = i === l.recent.length - 1 && l.bid?.amount === b.amount;
-    const before = l.recent[i - 1];
-    const at = newest ? l.since : l.since - 60_000 + i;
-    const steps: Step[] = [
-      text(0, `pad:${b.by}.num`, money(b.amount), { on: FULL }),
-      anim(0, `pad:${b.by}`, b.forced ? 'paddle.ScrewRaise' : raiseOf(l.lot, b.amount), {
+  const i = l.recent.length - 1;
+  const b = l.recent[i];
+  if (!b) return [];
+  const before = l.recent[i - 1];
+  const first = i === 0;
+  const steps: Step[] = [
+    text(0, `pad:${b.by}.num`, money(b.amount), { on: FULL }),
+    anim(0, `pad:${b.by}`, b.forced ? 'paddle.ScrewRaise' : raiseOf(l.lot, b.amount), {
+      on: FULL,
+    }),
+    text(0, 'bidAmount.text', money(b.amount), { on: STAGE }),
+    anim(0, 'bidAmount', 'bidAmount.Update', { on: STAGE }),
+    anim(0, 'bidFrom', first ? 'bidFrom.Appear' : 'bidFrom.Update', { on: STAGE }),
+    // The next ask swaps in as the bar slides back (the original swaps it at the turn).
+    anim(0, 'bidPrompt', 'bidPrompt.Swap', { on: STAGE }),
+    text(300, 'bidPrompt.text', `${money(b.amount + BID_STEP)}?`, { on: STAGE }),
+  ];
+  if (first)
+    steps.push(
+      anim(0, 'bidLabel', 'bidLabel.Swap', { on: STAGE }),
+      text(160, 'bidLabel.text', 'Current bid', { on: STAGE }),
+    );
+  if (before && before.by !== b.by)
+    steps.push(
+      anim(0, `pad:${before.by}`, b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise', {
         on: FULL,
       }),
-      text(0, 'bidAmount.text', money(b.amount), { on: STAGE }),
-      anim(0, 'bidAmount', 'bidAmount.Update', { on: STAGE }),
-      anim(0, 'bidFrom', i === 0 ? 'bidFrom.Appear' : 'bidFrom.Update', { on: STAGE }),
-      // The next ask swaps in as the bar slides back (the original swaps it at the turn).
-      anim(0, 'bidPrompt', 'bidPrompt.Swap', { on: STAGE }),
-      text(300, 'bidPrompt.text', `${money(b.amount + BID_STEP)}?`, { on: STAGE }),
-    ];
-    if (i === 0)
-      steps.push(
-        anim(0, 'bidLabel', 'bidLabel.Swap', { on: STAGE }),
-        text(160, 'bidLabel.text', 'Current bid', { on: STAGE }),
-      );
-    if (before && before.by !== b.by)
-      steps.push(
-        anim(0, `pad:${before.by}`, b.forced ? 'paddle.ScrewUnraise' : 'paddle.Unraise', {
-          on: FULL,
-        }),
-      );
-    // Outbid and screwed buzzes are the phone's own (`Alerts`), so no personal steps here.
-    out.push({ id: `${l.key}:bid${b.amount}`, at, steps });
-  });
-  return out;
+    );
+  // Outbid and screwed buzzes are the phone's own (`Alerts`), so no personal steps here.
+  const at = l.bid?.amount === b.amount ? l.since : l.since - 60_000;
+  return [{ id: `${l.key}:bid${b.amount}`, at, steps }];
 }
 
 /** Aiming a screw: the room darkens and a spotlight drops on the screwer. */
@@ -384,12 +387,25 @@ export function soldMoment(view: GoingOnceView): Moment | null {
     anim(out, 'bidFrom', 'bidFrom.Disappear', { on: STAGE }),
     anim(out, 'bidLabel', 'bidLabel.Disappear', { on: STAGE }),
     anim(out, `pad:${r.buyer}`, 'paddle.DoneOff', { on: FULL }),
+    // The lot's amounts come off the paddles as it leaves (the artist's sign comes off below).
+    ...g.order
+      .filter((id) => !(r.artistKnown && id === r.artist))
+      .map((id) => text(out, `pad:${id}.num`, '', { on: FULL })),
   ];
   if (r.artistKnown && r.artist) {
     const artist = r.artist;
     steps.push(
       anim(beat * 4, `pad:${artist}`, 'paddle.Flip', { on: FULL }),
       text(beat * 4 + MS.flipEdge, `pad:${artist}.num`, 'ARTIST', { on: FULL }),
+      // The title's "by …" waits for the flip, as the auctioneer reveals the artist.
+      {
+        t: beat * 4 + MS.flipEdge,
+        kind: 'css',
+        target: 'title.by',
+        keyframes: [{ opacity: 1 }],
+        ms: 300,
+        on: STAGE,
+      },
       // Back down once the flip has been seen (a short Sold card still lets it finish).
       text(Math.max(out, beat * 4 + 900), `pad:${artist}.num`, '', { on: FULL }),
       anim(Math.max(out, beat * 4 + 900), `pad:${artist}`, 'paddle.DoneOff', { on: FULL }),
@@ -591,6 +607,19 @@ function end(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   return out;
 }
 
+/** How long the winners' moment takes to settle: the line fades in, the winners spring up. */
+export const WINNERS_SETTLE_MS = 1500;
+
+/**
+ * When the end has settled on its winners, on the server clock (null before the end): from then
+ * the stage renders the line and the winners itself, so a moment cut short by anything (a
+ * re-render, a remount, a hidden tab) still leaves them on show.
+ */
+export function winnersShownAt(view: GoingOnceView): number | null {
+  const times = endTimes(view);
+  return times ? times.winner + WINNERS_SETTLE_MS : null;
+}
+
 /** Players joining in the lobby: each paddle pops up into the row as its player sits down. */
 function lobby(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   if (view.phase !== 'lobby') return [];
@@ -621,4 +650,54 @@ export function moments(view: GoingOnceView, ctx: ShowCtx): Moment[] {
   if (sold) out.push(sold);
   out.push(...halftime(view), ...bank(view, ctx), ...end(view, ctx));
   return out;
+}
+
+// ---- Where things stand (the table screen's layout, pure so it can be checked) ----
+
+/**
+ * The rig's silhouette for a paddle shape: the manifest's paddle pictures are named after the
+ * original's shapes (`ui/paddles/thumbs-up.webp` is `shape.ThumbsUp`); one the rig lacks has none.
+ */
+export function shapeKey(
+  manifest: unknown,
+  rig: Pick<Rig, 'symbols'>,
+  shape: number | undefined,
+): string | null {
+  const list = (manifest as { ui?: { paddles?: unknown } } | null)?.ui?.paddles;
+  if (shape === undefined || !Array.isArray(list) || !list.length) return null;
+  const path: unknown = list[shape % list.length];
+  if (typeof path !== 'string') return null;
+  const base = path
+    .split('/')
+    .pop()!
+    .replace(/\.\w+$/, '');
+  const key = `shape.${base.replace(/(^|-)(\w)/g, (_, __, c: string) => c.toUpperCase())}`;
+  return rig.symbols[key] ? key : null;
+}
+
+const COUNT = ['', 'Three', 'Three', 'Three', 'Four', 'Five', 'Six'];
+
+/**
+ * Where the row's seats go: across the room, centred (the lobby, the drawing, the end), or during
+ * a lot right of the painting and its title, centred there; a raised paddle and its name stay
+ * inside these bounds (seat centres).
+ */
+export const ROW_BOUNDS = { room: [100, 1180], lot: [550, 1200] } as const;
+export type RowWhere = keyof typeof ROW_BOUNDS;
+/** The original's seat spacing, at our scale. */
+const ROW_SPREAD = 0.78;
+
+/**
+ * The x of each seat in a row of `n` (the original's layouts for three to six), centred in
+ * `where`'s bounds at the original's spacing, closer together when that would not fit.
+ */
+export function rowOf(places: Rig['places'], n: number, where: RowWhere): number[] {
+  const list = places[`row.${COUNT[Math.min(6, Math.max(3, n))]}`] as number[][] | undefined;
+  const xs = (list ?? []).slice(0, n).map((m) => m[4]!);
+  if (!xs.length) return [];
+  const [lo, hi] = ROW_BOUNDS[where];
+  const span = xs.at(-1)! - xs[0]!;
+  const k = span ? Math.min(ROW_SPREAD, (hi - lo) / span) : 0;
+  const mid = (xs[0]! + xs.at(-1)!) / 2;
+  return xs.map((x) => (lo + hi) / 2 + (x - mid) * k);
 }

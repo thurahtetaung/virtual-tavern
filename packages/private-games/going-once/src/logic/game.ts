@@ -36,6 +36,7 @@ import {
   type Game,
   HOUSE_BIDDER,
   type GoingOnceAction,
+  type Auction,
   type GoingOnceState,
   type Item,
   LOAN_CASH,
@@ -57,6 +58,7 @@ import {
   RECENT_BIDS,
   type PlayerState,
   type Rig,
+  SCREW_OUTCOME_MS,
   SCREW_PICK_MS,
   STARTING_CASH,
   type Seat,
@@ -221,10 +223,13 @@ function host(s: GoingOnceState, rng: Rng, now: number, line: Say, clear = false
   return 0;
 }
 
-/** A bid's voice: the reaction for that amount, then a chant for it. */
+/**
+ * A bid's voice: the reaction for the amount just bid, then the chant asking for the next one
+ * (the original's `reactionTag` and `nextBidTag`: the bid, and the bid + $100).
+ */
 const bidVoice = (amount: number, rng: Rng): VoicePart[] => [
   bidMoment(amount),
-  chantKey(amount, rng),
+  chantKey(amount + BID_STEP, rng),
 ];
 
 /** The host's call-out before a lot, if anyone is due one: a quiet bidder, or the only one without art. */
@@ -586,6 +591,8 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   if (a.close === 'intro') return err('not-yet', 'Wait for the picture to go up.');
   if (a.screw)
     return err('screwing', `${g.names[a.screw.by]} is choosing who to screw: hold your horses.`);
+  if (a.pausedUntil && now < a.pausedUntil)
+    return err('screwing', 'Hold your horses: the screw is still playing out.');
   if (seq !== a.seq)
     return err(
       'too-late',
@@ -625,19 +632,45 @@ function screw(s: GoingOnceState, by: PlayerId, now: number, rng: Rng) {
   if (!p.screw) return err('no-screw', 'You’ve used your screw.');
   if (a.screw) return err('screwing', `${g.names[a.screw.by]} is already screwing someone.`);
   if (a.screwed) return err('screwed', 'No screwing until someone makes a free bid.');
+  if (a.pausedUntil && now < a.pausedUntil)
+    return err('screwing', 'Hold your horses: the screw is still playing out.');
   p.screw = false;
-  a.screw = { by, until: now + screwMs(s), left: Math.max(0, a.closeAt - now) };
+  a.screw = { by, until: now + screwMs(s) };
   a.since = now;
   if (voiced(s)) speak(s, rng, now, [{ key: 'screw-pick', player: by }]);
   return null;
 }
 
-function resumeClock(s: GoingOnceState, now: number) {
-  const a = s.game!.auction!;
-  a.closeAt = now + a.screw!.left;
+/**
+ * A screw's outcome (a forced bid, or a screw that failed or was lost): the clock stays paused
+ * while it plays out (`pausedUntil`: voiced, its first line; otherwise `SCREW_OUTCOME_MS` for its
+ * banner), then a full fresh stretch starts, never the time left before the screw. So does the
+ * original: after any screw it goes back to the next-bid prompt and a new chant. A lot can never
+ * close while a screw is aimed or still playing out.
+ */
+function afterScrew(s: GoingOnceState, rng: Rng, now: number, line: Say) {
+  const g = s.game!;
+  const a = g.auction!;
   a.screw = null;
   a.since = now;
+  a.close = a.bid ? 'quiet' : 'open';
+  const ms = host(s, rng, now, line);
+  if (ms) {
+    // Voiced: the outcome's line, then the rest (the bid's lines and the chant) is the stretch.
+    const first = g.host!.clips![0]!;
+    a.pausedUntil = now + first.ms + CLIP_GAP_MS;
+    a.closeAt = now + ms + CHANT_GAP_MS;
+  } else {
+    a.pausedUntil = now + SCREW_OUTCOME_MS * (s.rig?.scale ?? 1);
+    a.closeAt = a.pausedUntil + timing(s)[a.close];
+  }
 }
+
+/** A screw that came to nothing: said, then the chant asking for the bid on the table again. */
+const screwMiss = (a: Auction, key: 'screw-fail' | 'screw-lost', rng: Rng): Say => ({
+  text: [key],
+  voice: [key, chantKey(a.bid ? a.bid.amount + BID_STEP : OPENING_BID, rng)],
+});
 
 function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: number, rng: Rng) {
   const g = s.game!;
@@ -649,24 +682,19 @@ function screwPick(s: GoingOnceState, by: PlayerId, target: PlayerId, now: numbe
   const amount = a.bid ? a.bid.amount + BID_STEP : OPENING_BID;
   if (g.players[target]!.cash < amount) {
     log(s, { kind: 'screw', by, target, outcome: 'failed', amount });
-    resumeClock(s, now);
-    host(s, rng, now, { text: ['screw-fail'], voice: ['screw-fail'] });
+    afterScrew(s, rng, now, screwMiss(a, 'screw-fail', rng));
     return null;
   }
-  a.screw = null;
   a.bid = { by: target, amount };
   a.seq += 1;
   a.screwed = { target, by };
   a.recent = [...(a.recent ?? []), { by: target, amount, forced: true }].slice(-RECENT_BIDS);
   if (!a.bidders.includes(target)) a.bidders.push(target);
-  a.close = 'quiet';
-  a.since = now;
   log(s, { kind: 'screw', by, target, outcome: 'forced', amount });
-  const ms = host(s, rng, now, {
+  afterScrew(s, rng, now, {
     text: [bidMoment(amount)],
     voice: [{ key: 'screwed', player: target }, ...bidVoice(amount, rng)],
   });
-  a.closeAt = now + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
   return null;
 }
 
@@ -1259,8 +1287,7 @@ export function playerLeft(state: GoingOnceState, playerId: PlayerId, now: numbe
   else if (g.stage === 'bank' && loanWaiting(g).length === 0) advance(s, 'bank', now, rng);
   else if (g.stage === 'auction' && g.auction?.screw?.by === playerId) {
     log(s, { kind: 'screw', by: playerId, target: null, outcome: 'wasted' });
-    resumeClock(s, now);
-    host(s, rng, now, { text: ['screw-lost'], voice: ['screw-lost'] });
+    afterScrew(s, rng, now, screwMiss(g.auction, 'screw-lost', rng));
   }
   s.seed = newSeed(rng);
   return s;
@@ -1314,9 +1341,7 @@ export function onDeadline(state: GoingOnceState, now: number): GoingOnceState {
       const a = g.auction!;
       if (a.screw) {
         log(s, { kind: 'screw', by: a.screw.by, target: null, outcome: 'wasted' });
-        resumeClock(s, now);
-        if (a.closeAt <= now) a.closeAt = now + 1;
-        host(s, rng, now, { text: ['screw-lost'], voice: ['screw-lost'] });
+        afterScrew(s, rng, now, screwMiss(a, 'screw-lost', rng));
         break;
       }
       a.since = now;

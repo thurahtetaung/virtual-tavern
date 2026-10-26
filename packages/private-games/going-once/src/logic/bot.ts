@@ -54,6 +54,8 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
     return target ? { type: 'screw-pick', target } : null;
   }
   if (a.bid?.by === me) return null;
+  // A screw still playing out holds every bid.
+  if (ctx.now < a.pausedUntil) return null;
 
   if (mine.canCallBank && mine.cash < 800 && mine.loans < 3) return { type: 'call-bank' };
 

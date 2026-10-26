@@ -151,6 +151,7 @@ const base: GameGuide = {
         'Screws unlock at half-time. Everyone has one for the whole game.',
         'Press Screw during a lot and the clock pauses while you pick a player (15 seconds). The screw is spent as soon as you press it.',
         'Your target is forced to bid $100 more than the top bid ($400 with no bid yet). If they can’t afford it, or you pick nobody, the screw is wasted.',
+        'The clock stays paused until the screw has played out (the forced bid, or “Screw failed”), then the bidding starts a full fresh countdown, never the time that was left. So nobody can be sold a lot while a screw is still in the air.',
         'You can’t screw the top bidder. While a forced bid leads, nobody can screw until someone makes a free bid.',
         'You can screw an artist into bidding on their own drawing.',
       ],

@@ -39,6 +39,8 @@ import {
   enqueueLine,
   nextVoice,
   shiftLine,
+  clipSkip,
+  keepsTime,
   voiceBusy,
   voiceClipOf,
   voiceLate,
@@ -51,7 +53,8 @@ import {
   ringClips,
   startupClips,
 } from './audio.ts';
-import { CLIP_GAP_MS } from '../logic/voice.ts';
+import { CHANT_GAP_MS, CLIP_GAP_MS } from '../logic/voice.ts';
+import { VOICE_MS } from '../logic/voice-lengths.ts';
 
 const keys = (cues: Cue[]) => cues.map((c) => c.key);
 
@@ -472,6 +475,123 @@ describe('the voice queue', () => {
     expect(voiceBusy(false, [clip('host1:0', 900)], 0)).toBe(true);
     expect(voiceBusy(false, [clip('host1:0', 1500)], 0)).toBe(false);
     expect(voiceBusy(false, [], 0)).toBe(false);
+  });
+
+  /**
+   * The voice queue as `useSound` runs it, on a 10 ms clock: lines arrive, a clip waits for the
+   * voice or cuts it off (`cutsOff`), a late start moves the rest of its line back (a chant keeps
+   * its time and skips its head) and each clip lasts its real length (`VOICE_MS`). `load` delays
+   * a clip's start (its file is slow). Returns what was said, from when to when, and if it was cut.
+   */
+  function run(arrivals: { at: number; clips: VoiceClip[] }[], load: Record<string, number> = {}) {
+    const said: { id: string; key: string; start: number; end: number; cut: boolean }[] = [];
+    let queue: VoiceClip[] = [];
+    let saying: (typeof said)[number] | null = null;
+    let sayingClip: VoiceClip | null = null;
+    let free = 0;
+    const from = arrivals[0]!.at;
+    const to = arrivals.at(-1)!.at + 30_000;
+    for (let t = from; t <= to; t += 10) {
+      for (const a of arrivals.filter((x) => x.at === t)) {
+        queue = enqueueLine(queue, a.clips);
+        if (saying && sayingClip && cutsOff(sayingClip, a.clips[0]!)) {
+          saying.end = t;
+          saying.cut = true;
+          saying = null;
+          free = t;
+        }
+      }
+      if (saying && t >= saying.end) {
+        free = saying.end;
+        saying = null;
+      }
+      if (saying) continue;
+      const next = nextVoice(queue, t, free);
+      queue = next.rest;
+      if (!next.clip) continue;
+      const clip = next.clip;
+      const length = VOICE_MS[clip.key]![clip.pick]!;
+      const start = Math.max(t + (load[clip.key] ?? 0), clip.at);
+      const skip = clipSkip(clip, start, length);
+      if (skip === null) continue;
+      queue = shiftLine(queue, clip.line, start - clip.at);
+      saying = { id: clip.id, key: clip.key, start, end: start + length - skip, cut: false };
+      sayingClip = clip;
+      said.push(saying);
+    }
+    return said;
+  }
+  const lineAt = (h: ReturnType<typeof voiced>) => {
+    const clips = voiceLine(goingOnce.view(h.state, 'p1'));
+    return { at: clips[0]!.at, clips };
+  };
+
+  it('times every clip by its real length, and keeps a chant on its time', () => {
+    const h = voiced();
+    bid(h, 'p2', 400);
+    const host = game(h).host!;
+    for (const c of host.clips!) expect(c.ms).toBe(VOICE_MS[c.key]![c.i]);
+    expect(keepsTime({ key: 'chant-400' })).toBe(true);
+    expect(keepsTime({ key: 'chant-long-1200' })).toBe(true);
+    expect(keepsTime({ key: 'bid-400' })).toBe(false);
+    const chant = voiceLine(goingOnce.view(h.state, 'p1')).at(-1)!;
+    // On time it is said whole; late, it skips what it missed; nearly over, it is left out.
+    expect(clipSkip(chant, chant.at, 9000)).toBe(0);
+    expect(clipSkip(chant, chant.at + 2500, 9000)).toBe(2500);
+    expect(clipSkip(chant, chant.at + 8800, 9000)).toBeNull();
+    expect(clipSkip({ ...chant, key: 'bid-400' }, chant.at + 2500, 9000)).toBe(0);
+    // A chant never moves with a late amount before it.
+    expect(shiftLine([chant], chant.line, 2000)[0]!.at).toBe(chant.at);
+  });
+
+  it('ends a chant a second before going once, even when what comes before it runs late', () => {
+    const h = voiced();
+    bid(h, 'p2', 400);
+    const first = lineAt(h);
+    // A quick raise while the first amount is still being said: its amount waits for it.
+    h.wait(200);
+    h.act('p3', { type: 'bid', amount: 500, seq: game(h).auction!.seq });
+    const second = lineAt(h);
+    const closeAt = game(h).auction!.closeAt;
+    h.tick();
+    expect(game(h).auction!.close).toBe('once');
+    const once = lineAt(h);
+    expect(once.at).toBe(closeAt);
+    // The second chant's file is slow too (1.5 s): it still ends on time, never cut.
+    const said = run([first, second, once], { [second.clips.at(-1)!.key]: 1500 });
+    const chant = said.find((c) => c.id === second.clips.at(-1)!.id)!;
+    expect(chant.key).toMatch(/^chant/);
+    expect(chant.cut).toBe(false);
+    expect(chant.end).toBe(closeAt - CHANT_GAP_MS);
+    expect(said.find((c) => c.id === once.clips[0]!.id)!.start).toBe(closeAt);
+  });
+
+  it('chants after a screw too, ending a second before going once', () => {
+    const h = voiced();
+    // Lines said to a player need their colour.
+    h.state.seats.p1!.color = 'red';
+    h.state.seats.p3!.color = 'blue';
+    while (game(h).auction!.lot < halfAt(game(h).lots.length)) {
+      hammer(h);
+      nextLot(h);
+    }
+    bid(h, 'p2', 400);
+    h.act('p1', { type: 'screw' });
+    const ask = lineAt(h);
+    // Picked at once, while the screwer is still being asked to pick.
+    h.wait(500);
+    h.act('p1', { type: 'screw-pick', target: 'p3' });
+    const forced = lineAt(h);
+    expect(forced.clips.at(-1)!.key).toMatch(/^chant/);
+    const closeAt = game(h).auction!.closeAt;
+    h.tick();
+    const once = lineAt(h);
+    const said = run([ask, forced, once]);
+    // The ask gives way to the pick; the forced bid's line runs whole, on time.
+    expect(said.find((c) => c.id === ask.clips[0]!.id)!.cut).toBe(true);
+    const chant = said.find((c) => c.id === forced.clips.at(-1)!.id)!;
+    expect(chant.cut).toBe(false);
+    expect(chant.end).toBe(closeAt - CHANT_GAP_MS);
   });
 });
 
