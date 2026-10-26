@@ -3,6 +3,7 @@ import {
   Button,
   Hint,
   LobbySettings,
+  Modal,
   Panel,
   PlayerTag,
   ProtectedImage,
@@ -111,34 +112,52 @@ export function ConveyorGame({
   );
 }
 
-/** First-time tips, until dismissed (per seat in a playtest). */
+/** First-time tips, until dismissed (per seat in a playtest): one line on phones, the list in a sheet. */
 function Tips({ art }: { art: Art }) {
   const [seen, setSeen] = useState(tipsSeen);
+  const [open, setOpen] = useState(false);
   if (seen) return null;
+  const dismiss = () => {
+    seeTips();
+    setSeen(true);
+    setOpen(false);
+  };
+  const list = (
+    <ul className="list-disc space-y-1 pl-5">
+      <li>Tap a card in your hand, then Lock in. Nobody sees it until everyone has picked.</li>
+      <li>The chips under your cards say how many points each would add right now.</li>
+      <li>
+        Tap a dish in the menu strip for its rules; tap a player to see their tray. ▶ marks who you
+        pass to: watch what they need. {art.names.type('chopsticks')} and {art.names.type('spoon')}{' '}
+        are buttons once they’re in your tray.
+      </li>
+    </ul>
+  );
   return (
-    <aside className="cv-rise flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>Tap a card in your hand, then Lock in. Nobody sees it until everyone has picked.</li>
-        <li>The chips under your cards say how many points each would add right now.</li>
-        <li>
-          Tap a dish in the menu strip for its rules; tap a player to see their tray. ▶ marks who
-          you pass to: watch what they need. {art.names.type('chopsticks')} and{' '}
-          {art.names.type('spoon')} are buttons once they’re in your tray.
-        </li>
-      </ul>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => {
-          seeTips();
-          setSeen(true);
-        }}
-      >
-        Got it
-      </Button>
-    </aside>
+    <>
+      <aside className="cv-rise hidden flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+        <p className="font-semibold">New here? Three things to know</p>
+        {list}
+        <Button variant="ghost" size="sm" className="self-end" onClick={dismiss}>
+          Got it
+        </Button>
+      </aside>
+      <aside className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
+        <span className="min-w-0 flex-1 truncate">New here? Tap a card, then Lock in.</span>
+        <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+          Tips
+        </Button>
+        <Button variant="ghost" size="sm" aria-label="Hide the tips" onClick={dismiss}>
+          ✕
+        </Button>
+      </aside>
+      <Modal open={open} onClose={() => setOpen(false)} title="New here? Three things to know">
+        <div className="flex flex-col gap-3 text-sm">
+          {list}
+          <Button onClick={dismiss}>Got it</Button>
+        </div>
+      </Modal>
+    </>
   );
 }
 
