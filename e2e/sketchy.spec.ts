@@ -35,9 +35,8 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   ];
   const all = [hana, ben, cleo];
 
-  // Reminder timers, so a slow machine never has a clock decide for anyone.
+  // Reminder timers (the default), so a slow machine never has a clock decide for anyone.
   await hana.getByText('Timers', { exact: true }).click();
-  await hana.getByRole('switch', { name: /Strict timers/ }).click();
   await expect(hana.getByRole('switch', { name: /Strict timers/ })).toHaveAttribute(
     'aria-checked',
     'false',

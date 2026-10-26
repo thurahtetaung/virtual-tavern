@@ -1,3 +1,4 @@
+import { createRng } from '@vt/game-sdk';
 import { describe, expect, it } from 'vitest';
 import { sketchy } from './definition.ts';
 import { lieProblem, liePoints, sameTitle, streakBonus } from './game.ts';
@@ -63,15 +64,21 @@ describe('setup', () => {
     for (const [, s] of sketches) expect(s.prompt.text).not.toContain('{player}');
   });
 
-  it('starts strict, with the original clocks', () => {
-    const h = started(4);
+  it('starts with reminder timers at the original lengths', () => {
+    const h = harness(4);
+    h.state = sketchy.create(
+      { now: h.now, rng: createRng(1), content: packContent() },
+      Object.entries(h.state.seats).map(([id, s]) => ({ id, name: s.name })),
+    );
     expect(h.state.settings).toMatchObject({
-      timerMode: 'strict',
+      timerMode: 'soft',
       drawSeconds: 130,
       writeSeconds: 40,
       voteSeconds: 30,
     });
+    h.act(HOST, { type: 'start' });
     expect(game(h).deadline).toBe(h.now + 130_000);
+    expect(sketchy.nextDeadline!(h.state)).toBeNull();
   });
 });
 

@@ -90,6 +90,7 @@ describe('awards', () => {
         state = next;
         return true;
       };
+      act('a', { type: 'update-settings', timerMode: 'strict' });
       act('a', { type: 'start' });
       for (let i = 0; i < 3000 && state.phase === 'playing'; i++) {
         now += 400;

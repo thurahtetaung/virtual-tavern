@@ -80,7 +80,7 @@ const base: GameGuide = {
     {
       title: 'Timers',
       paragraphs: [
-        'By default the game is timed like the original: 130 seconds to draw, 40 to write a title and 30 to pick. Each stage ends early once everyone is in. When time runs out, whatever you’ve drawn is sent (a blank page means no drawing this round), anyone without a fake title gets a ready-made one (worth half) while there are some, and anyone who hasn’t picked scores nothing and loses their streak. The host can change each timer, or make them reminders only, so the game waits for everyone.',
+        'The timers are reminders by default: 130 seconds to draw, 40 to write a title and 30 to pick, and the game waits for everyone. Each stage ends once everyone is in. The host can change each timer, or make them strict: then when time runs out, whatever you’ve drawn is sent (a blank page means no drawing this round), anyone without a fake title gets a ready-made one (worth half) while there are some, and anyone who hasn’t picked scores nothing and loses their streak.',
       ],
     },
     {

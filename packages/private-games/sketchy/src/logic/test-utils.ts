@@ -119,6 +119,8 @@ export function harness(n = 4, seed = 7, content: ContentProvider = packContent(
       h.now += ms;
     },
   };
+  // Tests run on strict clocks, so a tick moves the game on; the reminder default has its own test.
+  h.act(HOST, { type: 'update-settings', timerMode: 'strict' });
   return h;
 }
 

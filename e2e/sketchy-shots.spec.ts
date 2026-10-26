@@ -32,7 +32,6 @@ for (const [label, viewport, colorScheme] of [
     ];
     await hana.getByText('Timers', { exact: true }).click();
     await shot(hana, '01-lobby');
-    await hana.getByRole('switch', { name: /Strict timers/ }).click();
     await hana.getByRole('button', { name: 'Start game' }).click();
     await expect(ben.getByTestId('sketchy-prompt')).toBeVisible();
     await shot(ben, '02-drawing');

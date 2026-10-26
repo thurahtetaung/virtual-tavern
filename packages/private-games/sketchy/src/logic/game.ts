@@ -981,7 +981,7 @@ export function create(ctx: CreateCtx, players: readonly PlayerInfo[]): SketchyS
       drawSeconds: DEFAULT_DRAW_SECONDS,
       writeSeconds: DEFAULT_WRITE_SECONDS,
       voteSeconds: DEFAULT_VOTE_SECONDS,
-      timerMode: 'strict',
+      timerMode: 'soft',
     },
     seats: Object.fromEntries(
       players.map((p, i) => [p.id, { name: p.name, playing: i < MAX_PLAYERS }]),
