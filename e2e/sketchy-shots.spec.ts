@@ -198,9 +198,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await results(pages, 'purple elephant');
       // The board as the original's: the points gained pop up on the balloons, then the balloons
       // flip round to the score bars.
-      await hana.waitForTimeout(3000);
+      await hana.waitForTimeout(4500);
       await shot('09a-board-gains', ben);
-      await hana.waitForTimeout(5000);
+      await hana.waitForTimeout(4000);
       await shot('09b-board-scores', ben);
       const play = async (drawings: [number, string][]) => {
         for (const [artist, prompt] of drawings) {

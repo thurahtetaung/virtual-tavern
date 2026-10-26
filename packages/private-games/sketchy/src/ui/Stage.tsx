@@ -959,10 +959,11 @@ function Reveal({
             </Layer>
           ),
           // The artist (the original's slot under the truth): a pill with their name, their points
-          // under it; the original's placeholder avatar is left out.
+          // beside it; the original's placeholder avatar is left out.
           'card-artist': turn.artist ? (
             <Layer name="artist/artist-artistName" moving style={HIDDEN}>
-              <Layer m={[1, 0, 0, 1, -60, -150]}>
+              {/* Under the title, clear of the choosers' names above it. */}
+              <Layer m={[1, 0, 0, 1, 90, 150]}>
                 <span
                   className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
                   style={{ ...PILL, fontSize: 50, display: 'flex', alignItems: 'center', gap: 12 }}
@@ -1060,8 +1061,21 @@ function Board({
                   <Layer m={[1, 0, 0, 1, 28, 83]}>
                     <Label style={{ color: INK, fontSize: 34, fontWeight: 900 }}>{i + 1}</Label>
                   </Layer>
-                  <Layer m={[1, 0, 0, 1, 166, 83]}>
-                    <Label style={{ color: '#fff', fontSize: 34, fontWeight: 900 }}>
+                  {/* Whose bar it is stays on it once the rows reshuffle (the balloon's name). */}
+                  <Layer m={[1, 0, 0, 1, 166, 62]}>
+                    <span
+                      className="absolute -translate-x-1/2 -translate-y-1/2 truncate whitespace-nowrap font-bold"
+                      style={{ color: '#fff', fontSize: 22, maxWidth: 220 }}
+                    >
+                      <span
+                        className="mr-1.5 inline-block size-4 rounded-full ring-2 ring-white"
+                        style={{ background: paint(s.id) }}
+                      />
+                      {s.name}
+                    </span>
+                  </Layer>
+                  <Layer m={[1, 0, 0, 1, 166, 96]}>
+                    <Label style={{ color: '#fff', fontSize: 32, fontWeight: 900 }}>
                       {points(s.score)}
                     </Label>
                   </Layer>
