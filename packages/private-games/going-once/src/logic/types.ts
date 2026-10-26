@@ -45,6 +45,38 @@ export const COMMISSION = 0.5;
 export const LOT_INTRO_MS = 2000;
 
 export const SCREW_PICK_MS = 15_000;
+/** The bank's phone rings first; then the line (the original's 2.2 s ring). */
+export const BANK_RING_MS = 2200;
+
+/** A text game's Sold beat (the bell, the artist, the value, PROFIT or LOSS, one apart). */
+export const SOLD_BEAT_MS = 800;
+/** The value spinning round on the stamp and counting up. */
+export const SOLD_SPIN_MS = 1200;
+/** The original's second between the value and PROFIT or LOSS. */
+export const SOLD_PAUSE_MS = 1000;
+/** The artist's paddle turning round (the original's 0.75 s) and the commission paid into it. */
+export const ARTIST_FLIP_MS = 750;
+export const COMMISSION_MS = 1000;
+/** A breath between a line and the beat that follows it. */
+export const SOLD_LINE_GAP_MS = 300;
+/** How long the last beat stays up before the stamp leaves with the picture. */
+export const SOLD_SHOWN_MS = 1800;
+
+/**
+ * When the Sold card's beats land, ms after it began, in the original's order: the artist's
+ * paddle turns (null: no artist), the value spins in, PROFIT or LOSS. Voiced, each waits for its
+ * line (`voicedBeats`); the table screen and the sound both follow these.
+ */
+export interface SoldBeats {
+  artist: number | null;
+  value: number;
+  profit: number;
+}
+/**
+ * After a bid, the original stops listening while the bidder's paddle goes up and the prompt racks
+ * up (about a second); the voice's chant comes after it too.
+ */
+export const BID_SETTLE_MS = 1000;
 /**
  * Without the voice, how long a screw's outcome holds the bidding (its banner on every phone, the
  * screw landing or tumbling off on the table screen); voiced, the outcome's own line does.
@@ -304,6 +336,8 @@ export interface Auction {
    * bids and no close until then, and the clock shows Paused.
    */
   pausedUntil?: number;
+  /** When the last free bid landed: the next waits `BID_SETTLE_MS`, as the original. */
+  bidAt?: number;
   /** Set while a screw's forced bid leads: nobody may screw until a free bid. */
   screwed: { target: PlayerId; by: PlayerId } | null;
   /** Players who called the bank during this lot. */
@@ -323,7 +357,7 @@ export interface RecentBid {
 /** Bids kept in `Auction.recent`. */
 export const RECENT_BIDS = 4;
 
-/** `intro`: the auctioneer's spoken welcome and tutorial (voiced games only, the host can skip). */
+/** `intro`: the auctioneer's tutorial after the drawing (a voiced room's first game; anyone can skip). */
 export type Stage =
   'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
 
@@ -424,8 +458,14 @@ export interface Game {
   voiced?: boolean;
   /** The voice has explained buying your own drawing once this game. */
   ownArtTold?: boolean;
+  /** The current Sold card's beats (null: unsold); missing in rooms saved before. */
+  soldBeats?: SoldBeats | null;
   /** The host skipped the spoken introduction. */
   introSkipped?: boolean;
+  /** When the tutorial was skipped (for its sound). */
+  introSkippedAt?: number;
+  /** Lot 1's tips went out with the tutorial. */
+  firstSent?: boolean;
 }
 
 /** A title group kept for a redraw. */
@@ -442,6 +482,8 @@ export interface HostClip {
   ms: number;
   /** The player a colour-named clip ("You're screwed, yellow!") is said to. */
   player?: PlayerId;
+  /** A silence before it (ms): something on screen it waits for. */
+  wait?: number;
 }
 
 export interface HostLine {
@@ -663,6 +705,8 @@ export interface FinalView {
 
 export interface GameView {
   stage: Stage;
+  /** The Sold card's beats (`SoldBeats`) while it is up, else null. */
+  soldBeats: SoldBeats | null;
   until: number;
   /** When this stage began (for the sound). */
   since: number;
@@ -687,6 +731,8 @@ export interface GameView {
   voiced: boolean;
   /** The host skipped the spoken introduction (intro stage). */
   introSkipped: boolean;
+  /** When the tutorial was skipped (0: it wasn't). */
+  introSkippedAt: number;
   /** This drawing round is the redraw. */
   redraw: boolean;
   /** Each player's paddle shape. */

@@ -13,7 +13,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
-import { type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.ts';
+import { BID_SETTLE_MS, type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.ts';
 import { BidLadder, Paddle, PsstBubble, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
@@ -172,7 +172,9 @@ export function BidPanel({
   const leading = a.bid?.by === room.you;
   const affordable = mine ? a.steps.filter((s) => s <= mine.cash) : [];
   // A screw's outcome playing out holds every bid and screw until it is over.
-  const now = useServerNow(room.clockOffset, a.pausedUntil > 0 && live);
+  const now = useServerNow(room.clockOffset, live);
+  // A bid still landing (the original's second of not listening) holds the buttons too.
+  const landing = !!a.bid && a.close === 'quiet' && now < a.since + BID_SETTLE_MS;
   const held = !!a.screw || now < a.pausedUntil;
   const screwBlocked = !g.screwsOn || !mine?.screw || held || !!a.screwed || !live;
   const showBank = !!mine && g.bankOpened && mine.bankRefusal !== undefined;
@@ -225,7 +227,7 @@ export function BidPanel({
                     size="lg"
                     variant={amount === a.steps[0] ? 'primary' : 'soft'}
                     className="h-14 px-1 text-lg tabular-nums"
-                    disabled={!live || leading || !can || held}
+                    disabled={!live || leading || !can || held || landing}
                     onClick={() =>
                       void act({ type: 'bid', amount, seq: a.seq }, { anchor: 'go-bid' })
                     }
@@ -275,13 +277,13 @@ export function BidPanel({
                     a.bankCalled &&
                       'ring-2 ring-accent motion-safe:animate-pulse dark:ring-amber-500',
                   )}
-                  disabled={!mine.canCallBank || !live}
+                  disabled={!mine.canCallBank}
                   onClick={() => void act({ type: 'call-bank' }, { anchor: 'go-tools' })}
                   data-testid="go-call-bank"
                   title={mine.bankRefusal ?? undefined}
                 >
                   🏦{' '}
-                  {a.bankCalled
+                  {a.bankCalled && !mine.canCallBank
                     ? `${fillNames('{Bank}', art.names)} called`
                     : `Call ${fillNames('{bank}', art.names)}`}
                 </Button>

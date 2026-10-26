@@ -7,7 +7,7 @@ import {
 } from '@vt/game-sdk';
 import { goingOnce } from './definition.ts';
 import type { HintKind } from './types.ts';
-import type { GoingOnceAction, GoingOnceState } from './types.ts';
+import { BID_SETTLE_MS, type GoingOnceAction, type GoingOnceState } from './types.ts';
 
 export const NOW = 1_000_000;
 export const HOST = 'p1';
@@ -147,7 +147,7 @@ export const lot = (h: Harness) => {
 export function bid(h: Harness, by: string, amount?: number) {
   const a = h.state.game!.auction!;
   const steps = a.bid ? [a.bid.amount + 100] : [400];
-  h.wait(400);
+  h.wait(BID_SETTLE_MS);
   return h.act(by, { type: 'bid', amount: amount ?? steps[0]!, seq: a.seq });
 }
 

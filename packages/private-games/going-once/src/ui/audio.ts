@@ -4,10 +4,14 @@ import {
   type HostLine,
   SCREW_NUDGE_MS,
   SCREW_PICK_MS,
+  SOLD_BEAT_MS,
   type Sender,
+  type SoldBeats,
   type SoundMode,
 } from '../logic/types.ts';
-import { CLIP_GAP_MS } from '../logic/voice.ts';
+import { clipTimes } from '../logic/voice.ts';
+
+export { SOLD_BEAT_MS, clipTimes };
 import { GAME_COLORS } from '../logic/types.ts';
 
 // The pure half of the sound: which music plays, which clips play when, and how loud. The React
@@ -45,9 +49,19 @@ export const STALE_MS = 1500;
 export const LOOKAHEAD_MS = 250;
 /** A hint's ring is cut short after this long (the clips are whole ringtones). */
 export const RING_MS = 1800;
-/** The Sold card's beats (stamp, price, value, profit, artist) and the end rack-up's. */
-export const SOLD_BEAT_MS = 800;
+/** The end rack-up's beat. */
 export const RACKUP_BEAT_MS = 1800;
+
+/**
+ * The Sold card's beats for this view: the server's (`GameView.soldBeats`), else (a room saved
+ * before, the practice lot) a text game's, one `SOLD_BEAT_MS` apart.
+ */
+export function soldBeatsOf(view: GoingOnceView, artist: boolean): SoldBeats {
+  if (view.game?.soldBeats) return view.game.soldBeats;
+  const beat = SOLD_BEAT_MS * (view.rig?.scale ?? 1);
+  const value = (artist ? 3 : 2) * beat;
+  return { artist: artist ? 2 * beat : null, value, profit: value + beat };
+}
 
 export interface Cue {
   /** Unique per game and moment. */
@@ -88,23 +102,90 @@ export function deviceSounds(mode: SoundMode, isHost: boolean, isStage = false):
 }
 
 /** The music a moment plays: a key of the manifest's `music` and which of its tracks. */
+/** The finale's players come up one a second (the original's `secondsBetween`). */
+export const FINALE_GAP_MS = 1000;
+
 /**
- * The end's rack-up on the server clock (its beats as `RackUp` shows them): when everyone's
- * totals rack up together, and when the winner takes the centre.
+ * A buyer's drawings in the end's groups, as the original's (threes and twos, never one alone):
+ * 4 is 2 + 2, 5 is 3 + 2, 7 is 3 + 2 + 2.
  */
-export function endTimes(
-  view: GoingOnceView,
-): { buyers: number; debt: boolean; sum: number; winner: number } | null {
+export function endGroups<T>(items: readonly T[]): T[][] {
+  const n = items.length;
+  if (n <= 3) return n ? [[...items]] : [];
+  const k = Math.ceil(n / 3);
+  const sizes = Array.from({ length: k }, (_, i) => 2 + (i < n - 2 * k ? 1 : 0));
+  let at = 0;
+  return sizes.map((size) => items.slice(at, (at += size)));
+}
+
+/** One group of a buyer's drawings racked up at the end. */
+export interface EndGroup {
+  /** The buyer's place among those who bought something, and this group's among all groups. */
+  buyer: number;
+  index: number;
+  items: string[];
+  at: number;
+  /** Their total before and after this group's values fly in (from their cash, as the original). */
+  from: number;
+  to: number;
+}
+
+/**
+ * The end's rack-up on the server clock, as the original's: once the auctioneer's opening line is
+ * said, each buyer's drawings in their groups (`endGroups`), one beat each, counting up from their
+ * cash; then everyone's totals in a row, lowest first, one a second; the shark's bite on debts;
+ * then the winners.
+ */
+export function endTimes(view: GoingOnceView): {
+  buyers: number;
+  debt: boolean;
+  start: number;
+  groups: EndGroup[];
+  sum: number;
+  /** The finale's players in the order they come up (lowest score before debt first). */
+  finale: string[];
+  debtAt: number;
+  winner: number;
+} | null {
   const g = view.game;
   if (!g || g.stage !== 'done' || g.ended || !g.final) return null;
   const step = RACKUP_BEAT_MS * (view.rig?.scale ?? 1);
-  const buyers = g.final.filter((f) => f.bought.length > 0).length;
+  // Voiced, the rack-up waits for "Let's divide the winners from the losers!".
+  const lead = g.voiced && g.host?.at === g.since && g.host.ms ? g.host.ms + 300 : 0;
+  const start = g.since + lead;
+  const values = new Map(g.results.map((r) => [r.item, r.value]));
+  const buyers = g.final.filter((f) => f.bought.length > 0);
+  const groups: EndGroup[] = [];
+  buyers.forEach((f, buyer) => {
+    let total = f.cash;
+    for (const items of endGroups(f.bought)) {
+      const from = total;
+      total += items.reduce((n, item) => n + (values.get(item) ?? 0), 0);
+      groups.push({
+        buyer,
+        index: groups.length,
+        items,
+        at: start + groups.length * step,
+        from,
+        to: total,
+      });
+    }
+  });
   const debt = g.final.some((f) => f.debt > 0);
+  const sum = start + groups.length * step;
+  const finale = [...g.final]
+    .sort((x, y) => x.score + x.debt - (y.score + y.debt))
+    .map((f) => f.id);
+  const debtAt = sum + finale.length * FINALE_GAP_MS * (view.rig?.scale ?? 1);
   return {
-    buyers,
+    buyers: buyers.length,
     debt,
-    sum: g.since + buyers * step,
-    winner: g.since + (buyers + 1 + (debt ? 1 : 0)) * step,
+    start,
+    groups,
+    sum,
+    finale,
+    debtAt,
+    winner: debtAt + (debt ? step : 0) + step / 2,
   };
 }
 
@@ -151,20 +232,6 @@ export function clipOf(
   const list = lists?.[key]?.filter((p) => typeof p === 'string' && p) ?? [];
   if (!list.length) return null;
   return list[((pick % list.length) + list.length) % list.length]!;
-}
-
-/**
- * Where each clip of a voiced host line starts, on the server clock: one after the other from
- * when it was said, as the server timed them (`CLIP_GAP_MS` apart).
- */
-export function clipTimes(host: Pick<HostLine, 'at' | 'clips'>): number[] {
-  const out: number[] = [];
-  let t = host.at ?? 0;
-  for (const c of host.clips ?? []) {
-    out.push(t);
-    t += c.ms + CLIP_GAP_MS;
-  }
-  return out;
 }
 
 /**
@@ -218,11 +285,15 @@ function bidCues(view: GoingOnceView, id: string, at: number, by: string, forced
   ];
 }
 
-/** The Sold card's beats: the bell, the value spin, profit or loss, the commission, the artist. */
+/**
+ * The Sold card's beats, in the original's order: the bell, the artist's paddle turning and the
+ * commission paid, the value's spin, then profit or loss (`beats`, which voiced follow the lines).
+ */
 function soldCues(
   id: string,
   at: number,
-  sale: { buyer: string | null; price: number; value: number; commission: number; artist: boolean },
+  sale: { buyer: string | null; price: number; value: number; commission: number },
+  beats: SoldBeats,
 ) {
   if (!sale.buyer) return [sfx(`${id}:unsold`, at + 600, 'unsold-out')];
   const profit = sale.value - sale.price;
@@ -230,10 +301,12 @@ function soldCues(
   const out = profit > 0 ? 'profit-out' : profit < 0 ? 'loss-out' : 'even-out';
   return [
     sfx(`${id}:sold`, at, 'sold'),
-    sfx(`${id}:spin`, at + SOLD_BEAT_MS * 2, spin),
-    sfx(`${id}:out`, at + SOLD_BEAT_MS * 3, out),
-    ...(sale.commission ? [sfx(`${id}:cash`, at + SOLD_BEAT_MS * 3 + 400, 'cha-ching')] : []),
-    ...(sale.artist ? [sfx(`${id}:artist`, at + SOLD_BEAT_MS * 4, 'paddle-flip')] : []),
+    ...(beats.artist !== null ? [sfx(`${id}:artist`, at + beats.artist, 'paddle-flip')] : []),
+    ...(sale.commission && beats.artist !== null
+      ? [sfx(`${id}:cash`, at + beats.artist + 500, 'cha-ching')]
+      : []),
+    sfx(`${id}:spin`, at + beats.value, spin),
+    sfx(`${id}:out`, at + beats.profit, out),
   ];
 }
 
@@ -247,10 +320,10 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
   if (!g || view.phase === 'lobby') return [];
   const scale = view.rig?.scale ?? 1;
   const out: Cue[] = [];
+  if (g.introSkippedAt) out.push(sfx(`intro:skip`, g.introSkippedAt, 'skip'));
   switch (g.stage) {
     case 'draw': {
       const id = `draw:${g.since}`;
-      if (g.introSkipped) out.push(sfx(`${id}:skip`, g.since, 'skip'));
       out.push(sfx(`${id}:in`, g.since, 'timer-in'));
       for (let s = 10; s >= 1; s--) {
         const at = g.until - s * 1000 * scale;
@@ -281,13 +354,12 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       }
       if (p.step === 'sold' && p.bid)
         out.push(
-          ...soldCues(`${id}:sold`, p.since, {
-            buyer: p.bid.by,
-            price: p.bid.amount,
-            value: p.value,
-            commission: 0,
-            artist: false,
-          }),
+          ...soldCues(
+            `${id}:sold`,
+            p.since,
+            { buyer: p.bid.by, price: p.bid.amount, value: p.value, commission: 0 },
+            soldBeatsOf(view, false),
+          ),
         );
       if (p.step === 'screw') out.push(sfx(`${id}:screw`, p.since + 300, 'screw-lost'));
       break;
@@ -339,13 +411,12 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const r = g.results.at(-1);
       if (!r) break;
       out.push(
-        ...soldCues(`sold${r.index}`, g.since, {
-          buyer: r.buyer,
-          price: r.price,
-          value: r.value,
-          commission: r.commission,
-          artist: r.artistKnown && r.artist !== null,
-        }),
+        ...soldCues(
+          `sold${r.index}`,
+          g.since,
+          { buyer: r.buyer, price: r.price, value: r.value, commission: r.commission },
+          soldBeatsOf(view, r.artistKnown && r.artist !== null),
+        ),
       );
       break;
     }
@@ -359,7 +430,9 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const host = g.host;
       if (g.voiced && host?.clips?.length && host.at !== undefined) {
         if (host.clips[0]!.key === 'bank-first')
-          out.push(sfx(`bank:${g.since}:bumper`, host.at + host.clips[0]!.ms, 'bank-bumper'));
+          out.push(
+            sfx(`bank:${g.since}:bumper`, clipTimes(host)[0]! + host.clips[0]!.ms, 'bank-bumper'),
+          );
         out.push(
           sfx(`bank:${g.since}:tag`, host.at + (host.ms ?? 0) + 200, 'bank-tag', { pick: host.id }),
         );
@@ -370,12 +443,11 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       const end = endTimes(view);
       if (!end) break;
       const id = `end:${g.since}`;
-      const step = RACKUP_BEAT_MS * scale;
-      out.push(sfx(`${id}:in`, g.since, 'player-in'));
-      for (let i = 1; i < end.buyers; i++)
-        out.push(sfx(`${id}:art${i}`, g.since + i * step, 'painting-value'));
+      out.push(sfx(`${id}:in`, end.start, 'player-in'));
+      for (const grp of end.groups.slice(1))
+        out.push(sfx(`${id}:art${grp.index}`, grp.at, 'painting-value'));
       out.push(sfx(`${id}:sum`, end.sum, 'score-rackup'));
-      if (end.debt) out.push(sfx(`${id}:shark`, end.sum + step, 'debt-shark'));
+      if (end.debt) out.push(sfx(`${id}:shark`, end.debtAt, 'debt-shark'));
       out.push(sfx(`${id}:winner`, end.winner, 'winner-centre'));
       break;
     }

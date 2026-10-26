@@ -13,7 +13,7 @@ import {
   started,
 } from '../logic/test-utils.ts';
 import { halfAt } from '../logic/setup.ts';
-import { SCREW_NUDGE_MS } from '../logic/types.ts';
+import { BID_SETTLE_MS, SCREW_NUDGE_MS } from '../logic/types.ts';
 import {
   type Cue,
   DUCK_RATIO,
@@ -157,10 +157,10 @@ describe('music', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
-    h.act(HOST, { type: 'skip-intro' });
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    h.act(HOST, { type: 'skip-intro' });
     while (!game(h).auction || game(h).auction!.lot < halfAt(game(h).lots.length)) {
       hammer(h);
       nextLot(h);
@@ -228,7 +228,7 @@ describe('effects', () => {
     expect(keys(effectCues(goingOnce.view(h.state, 'p1'), 'p1'))).toEqual(['going-twice']);
   });
 
-  it('stages the Sold card: the bell, the value spin, profit or loss, commission, the artist', () => {
+  it('stages the Sold card as the original: the bell, the artist and commission, the value, profit or loss', () => {
     const h = auctioning(3, 3);
     const item = game(h).items[game(h).lots[0]!]!;
     const buyer = ['p1', 'p2', 'p3'].find((p) => p !== item.artist)!;
@@ -239,15 +239,14 @@ describe('effects', () => {
     const profit = item.value - 400;
     expect(keys(cues)).toEqual([
       'sold',
+      ...(item.artist ? ['paddle-flip', 'cha-ching'] : []),
       profit > 0 ? 'value-under' : profit < 0 ? 'value-over' : 'value-even',
       profit > 0 ? 'profit-out' : profit < 0 ? 'loss-out' : 'even-out',
-      ...(item.artist ? ['cha-ching', 'paddle-flip'] : []),
     ]);
-    expect(cues.map((c) => c.at - since).slice(0, 3)).toEqual([
-      0,
-      SOLD_BEAT_MS * 2,
-      SOLD_BEAT_MS * 3,
-    ]);
+    const beats = item.artist ? [0, 2, 2, 3, 4] : [0, 2, 3];
+    expect(cues.map((c) => c.at - since)).toEqual(
+      beats.map((b, i) => b * SOLD_BEAT_MS + (item.artist && i === 2 ? 500 : 0)),
+    );
     // Unsold: the painting goes off.
     nextLot(h);
     hammer(h);
@@ -290,24 +289,28 @@ describe('the auctioneer’s voice', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
-    h.act(HOST, { type: 'skip-intro' });
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    h.act(HOST, { type: 'skip-intro' });
     h.tick();
     return h;
   }
 
   it('plays each clip the server picked, one after the other, from when it was said', () => {
+    // Lot 1's opening as the picture goes up: the line, then the chant.
     const h = voiced();
-    bid(h, 'p2', 400);
-    const v = goingOnce.view(h.state, 'p1');
+    let v = goingOnce.view(h.state, 'p1');
     const host = v.game!.host!;
     const cues = voiceCues(v);
     expect(cues.map((c) => [c.key, c.pick])).toEqual(host.clips!.map((c) => [c.key, c.i]));
     expect(cues[0]!.at).toBe(h.now);
     expect(cues[1]!.at).toBe(h.now + host.clips![0]!.ms + CLIP_GAP_MS);
     expect(clipTimes(host)).toEqual(cues.map((c) => c.at));
+    // A bid's chant waits for the paddle (a silence before it).
+    bid(h, 'p2', 400);
+    v = goingOnce.view(h.state, 'p1');
+    expect(voiceCues(v)[0]!.at).toBe(h.now + BID_SETTLE_MS);
     // A text game has no voice.
     const quiet = started(3, 3, packContent(undefined, {}, { 'draw-start': ['Draw!'] }));
     expect(voiceCues(goingOnce.view(quiet.state, 'p1'))).toEqual([]);
@@ -315,21 +318,24 @@ describe('the auctioneer’s voice', () => {
 
   it('shows the words of the clip being said; a chant keeps the line before it on screen', () => {
     const h = voiced();
-    bid(h, 'p2', 400);
     const host = goingOnce.view(h.state, 'p1').game!.host!;
     const words = (c: { key: string }) => !c.key.startsWith('chant');
     const [line, chant] = host.clips!;
     expect(clipNow(host, h.now - 1, words)).toBeNull();
     expect(clipNow(host, h.now, words)).toEqual(line);
-    // During the chant the bid line stays.
+    // During the chant the opening line stays.
     expect(clipNow(host, h.now + line!.ms + CLIP_GAP_MS + 100, words)).toEqual(line);
     expect(clipNow(host, h.now + line!.ms + chant!.ms + 60_000, words)).toBeNull();
   });
 
-  it('plays the welcome’s music while the introduction runs', () => {
+  it('plays the tutorial’s music while it runs, after the drawing', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
+    expect(musicFor(goingOnce.view(h.state, 'p1'))!.key).toBe('draw');
+    const g = game(h);
+    for (const id of g.order)
+      for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     expect(musicFor(goingOnce.view(h.state, 'p1'))).toEqual({ key: 'tutorial', pick: 0 });
   });
 });
@@ -340,10 +346,10 @@ describe('the voice queue', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
-    h.act(HOST, { type: 'skip-intro' });
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    h.act(HOST, { type: 'skip-intro' });
     h.tick();
     return h;
   }
@@ -375,9 +381,9 @@ describe('the voice queue', () => {
     expect(nudge.line).toBe('lot1:nudge5');
   });
 
-  it('lets a new bid wait for the amount being said, but cuts off a chant', () => {
+  it('lets a new bid wait for the line being said, but cuts off a chant', () => {
     const h = voiced();
-    bid(h, 'p2', 400);
+    // Lot 1's opening: its line, then the chant for $400.
     const [amount, chant] = voiceLine(goingOnce.view(h.state, 'p1'));
     expect(chant!.key).toMatch(/^chant/);
     bid(h, 'p3', 500);
@@ -393,12 +399,15 @@ describe('the voice queue', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
-    const welcome = voiceLine(goingOnce.view(h.state, 'p1'));
-    expect(welcome[0]!.stage).toBe('intro');
-    h.act(HOST, { type: 'skip-intro' });
+    const g = game(h);
+    for (const id of g.order)
+      for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    const tutorial = voiceLine(goingOnce.view(h.state, 'p1'));
+    expect(tutorial[0]!.stage).toBe('intro');
+    h.act('p2', { type: 'skip-intro' });
     const skipped = voiceLine(goingOnce.view(h.state, 'p1'))[0]!;
-    expect(skipped.stage).toBe('draw');
-    expect(cutsOff(welcome[0]!, skipped)).toBe(true);
+    expect(skipped.stage).toBe('auction');
+    expect(cutsOff(tutorial[0]!, skipped)).toBe(true);
     // The host skipping the Sold card cuts its wrap-up.
     const wrapUp = clip('host3:2', 0, { stage: 'sold', lineEnd: 9000 });
     expect(cutsOff(wrapUp, clip('host4:0', 4000, { stage: 'auction' }))).toBe(true);
@@ -546,11 +555,10 @@ describe('the voice queue', () => {
 
   it('ends a chant a second before going once, even when what comes before it runs late', () => {
     const h = voiced();
-    bid(h, 'p2', 400);
+    // Lot 1's opening line is being said when the first bid comes: its chant waits for it.
     const first = lineAt(h);
-    // A quick raise while the first amount is still being said: its amount waits for it.
     h.wait(200);
-    h.act('p3', { type: 'bid', amount: 500, seq: game(h).auction!.seq });
+    h.act('p3', { type: 'bid', amount: 400, seq: game(h).auction!.seq });
     const second = lineAt(h);
     const closeAt = game(h).auction!.closeAt;
     h.tick();
@@ -646,10 +654,10 @@ describe('fetching ahead', () => {
     const h = harness(3, 5);
     h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
     h.act(HOST, { type: 'start' });
-    h.act(HOST, { type: 'skip-intro' });
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
+    h.act(HOST, { type: 'skip-intro' });
     h.tick();
     return h;
   }

@@ -34,8 +34,8 @@ export interface Deal {
 /**
  * Deals a game: one title from each group to every player (no two drawings share a title), the
  * house's extra drawing per group at 3–5 players, the values (each player's pair sums to $4,500,
- * one high and one low, random which; the house's $500–$4,500), and the lot order (the first group,
- * shuffled, then the second). `fixed` (the test rig) skips every shuffle.
+ * one high and one low, random which; the house's $500–$4,500), and the lot order (`lotOrder`).
+ * `fixed` (the test rig) skips every shuffle.
  */
 export function deal(
   order: readonly PlayerId[],
@@ -46,16 +46,18 @@ export function deal(
   const shuffle = <T>(xs: readonly T[]) => (fixed ? [...xs] : rng.shuffle(xs));
   const items: Record<string, Item> = {};
   const prompts: Record<PlayerId, string[]> = Object.fromEntries(order.map((id) => [id, []]));
-  const lots: string[] = [];
   const highGroup = Object.fromEntries(order.map((id) => [id, fixed ? 0 : rng.int(2)]));
   const highValue = Object.fromEntries(
     order.map((id) => [id, fixed ? 3500 : steps(HIGH_MIN, HIGH_MAX, rng)]),
   );
   const houses = housePerGroup(order.length);
+  const unused = new Map<PlayerId | null, string[]>([
+    ...order.map((p) => [p, []] as [PlayerId, string[]]),
+    [null, []],
+  ]);
   for (const g of [0, 1] as const) {
     const group = groups[g];
     const picks = shuffle(group.titles.map((_, i) => i)).slice(0, order.length + houses);
-    const inGroup: string[] = [];
     const make = (titleIdx: number, drawer: PlayerId | null, value: number) => {
       let id = randomId(rng);
       while (items[id]) id = randomId(rng);
@@ -71,7 +73,7 @@ export function deal(
         hidden: false,
         sale: null,
       };
-      inGroup.push(id);
+      unused.get(drawer)!.push(id);
       return id;
     };
     order.forEach((p, k) => {
@@ -80,17 +82,41 @@ export function deal(
     });
     for (let h = 0; h < houses; h++)
       make(picks[order.length + h]!, null, fixed ? 2000 : steps(HOUSE_MIN, HOUSE_MAX, rng));
-    lots.push(...shuffle(inGroup));
   }
-  return { items, lots, prompts };
+  return { items, lots: lotOrder(order, unused, rng, fixed), prompts };
+}
+
+/**
+ * The lot order, as the original's: two rounds, each with every player (and the house, when it
+ * drew) once in a shuffled order; each takes the item at (a random start + lots so far) among its
+ * unused ones. So in the first half each player has one drawing and the two groups alternate;
+ * the second half is everyone's other drawing, in a new order.
+ */
+export function lotOrder(
+  order: readonly PlayerId[],
+  unused: Map<PlayerId | null, string[]>,
+  rng: Rng,
+  fixed = false,
+): string[] {
+  const start = fixed ? 0 : rng.int(2);
+  const lots: string[] = [];
+  for (let round = 0; round < 2; round++) {
+    const entries: (PlayerId | null)[] = [...order, ...(unused.get(null)!.length ? [null] : [])];
+    for (const who of fixed ? entries : rng.shuffle(entries)) {
+      const left = unused.get(who)!;
+      if (!left.length) continue;
+      lots.push(left.splice((start + lots.length) % left.length, 1)[0]!);
+    }
+  }
+  return lots;
 }
 
 /**
  * Wish lists: every player is told the true value of three drawings, never their own and never
  * the house's, at most two from one group. In turn, everyone gets a high one nobody else has, then
  * a low one nobody has yet, then a low one exactly one other player has; a backtracking search
- * makes sure all three exist. Drawings nobody sent count as the house's, so with several missing a
- * list may come up short.
+ * makes sure all three exist. Players' drawings count whether or not they were sent (the original
+ * deals the lists before unsent ones become house art).
  */
 export function wishLists(
   order: readonly PlayerId[],
@@ -100,7 +126,9 @@ export function wishLists(
 ): Record<PlayerId, WishEntry[]> {
   const shuffle = <T>(xs: readonly T[]) => (fixed ? [...xs] : rng.shuffle(xs));
   const players = shuffle(order);
-  const art = Object.values(items).filter((i) => i.artist !== null && i.drawer !== null);
+  // Every player's drawing, sent or not: as the original deals the lists before unsent drawings
+  // become house art, a list may name one nobody drew (its value is still true).
+  const art = Object.values(items).filter((i) => i.drawer !== null);
   const high = art.filter((i) => i.value >= HIGH_MIN);
   const low = art.filter((i) => i.value < HIGH_MIN);
   const lists = new Map<PlayerId, Item[]>(order.map((p) => [p, []]));

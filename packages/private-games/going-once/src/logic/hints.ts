@@ -57,10 +57,8 @@ interface Pick {
  * condition holds. Players with the fewest bids so far go first, and only one player per lot is
  * told who knows the lot. Every informative message is true.
  */
-export function sendHints(s: GoingOnceState, rng: Rng): void {
+export function sendHints(s: GoingOnceState, rng: Rng, lot = s.game!.auction!.lot): void {
   const g = s.game!;
-  const a = g.auction!;
-  const lot = a.lot;
   const item = g.items[g.lots[lot]!]!;
   const prev = lot > 0 ? g.items[g.lots[lot - 1]!]! : null;
   const half = halfAt(g.lots.length);
@@ -112,7 +110,8 @@ export function sendHints(s: GoingOnceState, rng: Rng): void {
       )
         return { kind: 'bankReminder' };
       if (won && profit >= 1000) return { kind: 'goodBuy' };
-      if (won && profit < 0 && won.sale!.screwedBy && p.screw)
+      // Revenge from no profit at all, as the original (a break-even forced buy included).
+      if (won && profit <= 0 && won.sale!.screwedBy && p.screw)
         return { kind: 'revenge', about: won.sale!.screwedBy };
       if (won && profit >= -400 && profit <= 500) return { kind: 'brokeEven' };
       if (won && profit <= -800) return { kind: 'badBuy' };
@@ -132,14 +131,16 @@ export function sendHints(s: GoingOnceState, rng: Rng): void {
         if (poor.length) return { kind: 'poorPlayer', about: poor[rng.int(poor.length)]! };
       }
       if (can('wantArt') && mine.length <= 1) {
-        const offers = others.flatMap((o) => {
+        const offer = (o: PlayerId) => {
           const theirs = Object.values(g.items).filter((i) => i.artist === o);
           const hi = theirs.find((i) => i.value >= 3000);
           const lo = theirs.find((i) => i.value < 3000);
           return hi && lo && !hi.sale && lo.sale?.buyer && lo.sale.price >= 1500
             ? [{ about: o, value: hi.value }]
             : [];
-        });
+        };
+        // As the original: an artist who is the one being asked for gets no such message.
+        const offers = offer(id).length ? [] : others.flatMap(offer);
         if (offers.length) return { kind: 'wantArt', ...offers[rng.int(offers.length)]! };
       }
       if (can('notBidding') && lot >= 2 && p.bids === 0) return { kind: 'notBidding' };

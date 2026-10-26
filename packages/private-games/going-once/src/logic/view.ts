@@ -93,6 +93,7 @@ function gameView(state: GoingOnceState, g: Game): GameView {
     stage: g.stage,
     until: drawing ? g.until - DRAW_GRACE_MS : g.until,
     since: g.since ?? 0,
+    soldBeats: g.stage === 'sold' ? (g.soldBeats ?? null) : null,
     practice: practiceView(g),
     order: [...g.order],
     players: g.order.map((id) => ({
@@ -148,6 +149,7 @@ function gameView(state: GoingOnceState, g: Game): GameView {
     winners: [...g.winners],
     voiced: g.voiced === true,
     introSkipped: g.introSkipped === true,
+    introSkippedAt: g.introSkippedAt ?? 0,
     host: g.host
       ? {
           id: g.host.id,

@@ -3,7 +3,7 @@ import { type Moment, type Rig, playsOn, schedule } from '@vt/game-sdk/show';
 import { describe, expect, it } from 'vitest';
 import { goingOnce } from '../logic/definition.ts';
 import { auctioning, bid, hammer, harness, nextLot, started } from '../logic/test-utils.ts';
-import type { GoingOnceView } from '../logic/types.ts';
+import { BID_SETTLE_MS, type GoingOnceView } from '../logic/types.ts';
 import {
   BANK_PARTS,
   WINNERS_SETTLE_MS,
@@ -16,7 +16,7 @@ import {
   soldMoment,
   winnersShownAt,
 } from './show.ts';
-import { endTimes } from './audio.ts';
+import { endGroups, endTimes } from './audio.ts';
 
 // The show's moments are pure: built from real views (the game's own harness), the same for
 // every device, with only the steps meant for someone personal.
@@ -162,22 +162,51 @@ describe('moments', () => {
     });
   });
 
-  it('racks up the end per buyer, then the finale and the winners', () => {
+  it('racks up every buyer’s art in groups from their cash, then the finale lowest first', () => {
     const h = auctioning();
     bid(h, 'p2', 400);
     for (let i = 0; i < 60 && h.state.phase !== 'over'; i++) nextLot(h);
     const v = goingOnce.view(h.state, null);
     expect(v.game!.stage).toBe('done');
     const list = stage(v);
+    const times = endTimes(v)!;
     const buyers = v.game!.final!.filter((f) => f.bought.length > 0);
-    expect(list.filter((m) => m.id.includes(':buyer'))).toHaveLength(buyers.length);
-    const first = list.find((m) => m.id.endsWith(':buyer0'))!;
-    const n = Math.min(3, buyers[0]!.bought.length);
+    // Every drawing bought shows, in groups of two or three.
+    expect(times.groups.flatMap((g) => g.items).sort()).toEqual(
+      buyers.flatMap((f) => f.bought).sort(),
+    );
+    expect(list.filter((m) => m.id.includes(':group'))).toHaveLength(times.groups.length);
+    const first = list.find((m) => m.id.endsWith(':group0'))!;
+    const n = times.groups[0]!.items.length;
     expect(steps(first, 'end:0:0')[0]).toMatchObject({ track: `${endTrack(n, 0)}.Appear` });
-    expect(first.steps.find((s) => s.kind === 'count')).toMatchObject({ to: buyers[0]!.art });
+    // The total counts up from the buyer's cash.
+    expect(first.steps.find((s) => s.kind === 'count')).toMatchObject({
+      from: buyers[0]!.cash,
+      to: times.groups[0]!.to,
+    });
+    // The finale: lowest score before debt first, a second apart.
+    const totals = v.game!.final!.map((f) => f.score + f.debt);
+    expect(
+      times.finale.map(
+        (id) =>
+          v.game!.final!.find((f) => f.id === id)!.score +
+          v.game!.final!.find((f) => f.id === id)!.debt,
+      ),
+    ).toEqual([...totals].sort((a, b) => a - b));
     const winner = list.find((m) => m.id.endsWith(':winner'))!;
     expect(winner.steps.some((s) => s.kind === 'confetti')).toBe(true);
     for (const id of v.game!.winners) expect(steps(winner, `win:${id}`)).toHaveLength(1);
+  });
+
+  it('groups a buyer’s drawings in threes and twos, never one alone', () => {
+    const sizes = (n: number) =>
+      endGroups(Array.from({ length: n }, (_, i) => i)).map((g) => g.length);
+    expect(sizes(1)).toEqual([1]);
+    expect(sizes(3)).toEqual([3]);
+    expect(sizes(4)).toEqual([2, 2]);
+    expect(sizes(5)).toEqual([3, 2]);
+    expect(sizes(7)).toEqual([3, 2, 2]);
+    expect(sizes(14).reduce((a, b) => a + b, 0)).toBe(14);
   });
 
   it('keeps the winners on show whatever the view does after the end', () => {
@@ -251,7 +280,7 @@ describe('the paddles over many bids', () => {
         continue;
       }
       const by = can[rng.int(can.length)]!;
-      h.wait(400);
+      h.wait(BID_SETTLE_MS);
       h.act(by, { type: 'bid', amount, seq: a.seq });
       n++;
       sync();
