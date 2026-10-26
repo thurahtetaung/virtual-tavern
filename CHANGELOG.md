@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.4...v0.73.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** the auction follows the original's flow, with new rulings on screws, lot order, wish lists and tips ([#434](https://github.com/thurahtetaung/virtual-tavern/issues/434)) ([1ae8c73](https://github.com/thurahtetaung/virtual-tavern/commit/1ae8c7391da6446f3accbe63eef70e029fa8583b))
+
 ## [0.73.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.3...v0.73.4) (2026-10-26)
 
 
