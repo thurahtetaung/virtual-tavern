@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.65.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.64.0...v0.65.0) (2026-10-26)
+
+
+### Features
+
+* **going-once:** sound, the auctioneer's voice, a practice lot and art buyers with names ([#376](https://github.com/thurahtetaung/virtual-tavern/issues/376)) ([9e53e3e](https://github.com/thurahtetaung/virtual-tavern/commit/9e53e3edc6d0297380c90d478fc8828a832b8593))
+
 ## [0.64.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.63.1...v0.64.0) (2026-10-26)
 
 
