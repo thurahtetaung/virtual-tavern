@@ -131,7 +131,7 @@ export function Lobby({
         )}
       </LobbySettings>
       <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to Hoodwink? Read the guide
+        📖 New to {room.gameName ?? 'Hoodwink'}? Read the guide
       </Button>
     </div>
   );

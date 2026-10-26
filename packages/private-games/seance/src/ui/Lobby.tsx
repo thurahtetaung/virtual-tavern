@@ -138,7 +138,7 @@ export function Lobby({
         <p className="text-sm text-stone-600 dark:text-stone-400">
           {seated.length >= 3
             ? `${seated.length} players: one ghost and ${seated.length - 1} psychics.`
-            : 'Séance needs 3 to 7 players: one ghost and 2 to 6 psychics.'}
+            : `${room.gameName ?? 'Séance'} needs 3 to 7 players: one ghost and 2 to 6 psychics.`}
         </p>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (

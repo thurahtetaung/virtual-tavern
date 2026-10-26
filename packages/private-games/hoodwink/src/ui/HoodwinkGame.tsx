@@ -127,7 +127,7 @@ export function HoodwinkGame({
   setAbandon,
 }: HoodwinkUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const blocker = startBlocker(view);
+  const blocker = startBlocker(view, room.gameName ?? 'Hoodwink');
   const reveal = useReveal(view.phase === 'playing' ? view.round : null, room.clockOffset);
   // While the answers are turned over one by one, nothing gives away who scored.
   const revealing = reveal.progress !== null;

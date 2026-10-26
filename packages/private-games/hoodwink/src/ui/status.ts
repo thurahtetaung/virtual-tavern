@@ -28,10 +28,10 @@ export const chosenQuestionCount = (view: HoodwinkView) =>
     .reduce((n, d) => n + d.questionCount, 0);
 
 /** Why the game can't start yet, or null if it can. */
-export function startBlocker(view: HoodwinkView): string | null {
+export function startBlocker(view: HoodwinkView, title = 'Hoodwink'): string | null {
   const playing = view.seats.filter((s) => s.playing).length;
   if (playing < MIN_PLAYERS) {
-    return `Hoodwink needs at least ${MIN_PLAYERS} players (${playing} so far).`;
+    return `${title} needs at least ${MIN_PLAYERS} players (${playing} so far).`;
   }
   if (playing > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players can play.`;
   if (view.decks.length === 0) return 'No question decks yet. Ask an admin to add some.';

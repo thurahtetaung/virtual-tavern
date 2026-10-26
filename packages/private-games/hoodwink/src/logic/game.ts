@@ -509,7 +509,7 @@ function start(state: HoodwinkState, ctx: Ctx): Result {
   if (state.phase === 'playing') return new GameError('in-progress', 'A game is already running.');
   const players = playingIds(state);
   if (players.length < MIN_PLAYERS) {
-    return new GameError('too-few-players', `Hoodwink needs at least ${MIN_PLAYERS} players.`);
+    return new GameError('too-few-players', `This game needs at least ${MIN_PLAYERS} players.`);
   }
   if (players.length > MAX_PLAYERS) {
     return new GameError('too-many-players', `At most ${MAX_PLAYERS} players can play.`);

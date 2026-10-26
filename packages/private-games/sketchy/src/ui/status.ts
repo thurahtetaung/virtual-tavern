@@ -22,10 +22,10 @@ export interface StatusRoom {
 }
 
 /** Why the game can't start yet, or null if it can. */
-export function startBlocker(view: SketchyView): string | null {
+export function startBlocker(view: SketchyView, title = 'Sketchy'): string | null {
   const playing = view.seats.filter((s) => s.playing).length;
   if (playing < MIN_PLAYERS)
-    return `Sketchy needs at least ${MIN_PLAYERS} players (${playing} so far).`;
+    return `${title} needs at least ${MIN_PLAYERS} players (${playing} so far).`;
   if (playing > MAX_PLAYERS) return `At most ${MAX_PLAYERS} players can play.`;
   if (view.packs.length === 0) return 'No prompt packs yet. Ask an admin to add some.';
   if (view.settings.packIds.length === 0) return 'Pick at least one prompt pack.';

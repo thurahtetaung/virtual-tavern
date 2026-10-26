@@ -193,7 +193,8 @@ export function SketchyGame({
   setAbandon,
 }: SketchyUiProps) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const blocker = startBlocker(view);
+  const title = room.gameName ?? 'Sketchy';
+  const blocker = startBlocker(view, title);
   const turn =
     view.phase === 'playing' && view.game?.stage === 'reveal' ? (view.game.turn ?? null) : null;
   const reveal = useReveal(turn, room.clockOffset);

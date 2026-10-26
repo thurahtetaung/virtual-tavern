@@ -884,7 +884,7 @@ function start(state: S, ctx: Ctx): Result {
   if (e) return e;
   if (state.phase === 'playing') return err('in-progress', 'A game is already going.');
   const n = seated(state).length;
-  if (n < MIN_PLAYERS) return err('too-few', `Short Fuse needs at least ${MIN_PLAYERS} players.`);
+  if (n < MIN_PLAYERS) return err('too-few', `This game needs at least ${MIN_PLAYERS} players.`);
   return newGame(state, ctx);
 }
 
@@ -2137,7 +2137,7 @@ function reduce(state: S, action: ShortFuseAction, ctx: Ctx): Result {
       if (state.phase !== 'over') return err('not-over', 'The game isn’t over yet.');
       const n = seated(state).length;
       if (n < MIN_PLAYERS)
-        return err('too-few', `Short Fuse needs at least ${MIN_PLAYERS} players.`);
+        return err('too-few', `This game needs at least ${MIN_PLAYERS} players.`);
       return newGame(fillSeats(state), ctx);
     }
     case 'back-to-lobby': {
