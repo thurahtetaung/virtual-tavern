@@ -32,6 +32,9 @@ const CATCH_UP_GRACE_MS = 2_000;
 export const HOLD_MS = 5_000;
 /** How long the server has to answer a tap. */
 const ACK_MS = 8_000;
+/** A dropped connection that is back in the room within this long never says so: taps made
+ * meanwhile wait for the rejoin, and the page shows no "Connection lost". */
+export const QUIET_DROP_MS = 3_000;
 
 const offline: Ack = {
   ok: false,
@@ -158,6 +161,8 @@ export class RoomConnection {
   private catching = false;
   private catchUpTimer: ReturnType<typeof setTimeout> | undefined;
   private hiddenAt = 0;
+  /** Running while a drop is still quiet (see `QUIET_DROP_MS`). */
+  private quietTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly watch: JoinWatch;
 
   constructor(roomId: string, listener: RoomListener, url?: string) {
@@ -196,7 +201,11 @@ export class RoomConnection {
     on('disconnect', (reason) => {
       this.joined = false;
       this.watch.stop();
-      if (this.current === 'joined') this.setStatus('reconnecting');
+      if (this.current === 'joined' && this.quietTimer === undefined)
+        this.quietTimer = setTimeout(() => {
+          this.quietTimer = undefined;
+          if (this.current === 'joined' && !this.joined) this.setStatus('reconnecting');
+        }, QUIET_DROP_MS);
       // The server hung up on us (an older server did so when it restarted): socket.io never
       // retries that by itself, so try again, as after any drop.
       if (reason === 'io server disconnect') return void socket.connect();
@@ -206,7 +215,9 @@ export class RoomConnection {
     // The server can't be reached (down, or the phone is offline). socket.io keeps retrying, so
     // say so instead of sitting on "Opening the door…"; a successful join flips it back.
     on('connect_error', () => {
-      if (this.current === 'connecting' || this.current === 'joined')
+      if (this.current === 'connecting') this.setStatus('reconnecting');
+      // A drop still within its quiet time says so when that runs out.
+      else if (this.current === 'joined' && this.quietTimer === undefined)
         this.setStatus('reconnecting');
     });
     on('room:state', (s) => {
@@ -256,6 +267,8 @@ export class RoomConnection {
   }
 
   private setStatus(status: RoomStatus) {
+    clearTimeout(this.quietTimer);
+    this.quietTimer = undefined;
     this.current = status;
     this.listener.status(status);
   }
@@ -416,6 +429,7 @@ export class RoomConnection {
   dispose() {
     this.watch.stop();
     clearTimeout(this.catchUpTimer);
+    clearTimeout(this.quietTimer);
     this.release(false);
     for (const off of this.off) off();
     giveBack(this.socket, this.url);

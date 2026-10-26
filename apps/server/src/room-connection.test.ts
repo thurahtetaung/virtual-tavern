@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io-client';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CATCH_UP_AFTER_MS,
+  QUIET_DROP_MS,
   RoomConnection,
   type RoomListener,
   type RoomStatus,
@@ -74,7 +75,8 @@ describe('room connection', () => {
     sleepPastHeartbeat(conn);
     const res = await conn.call('room:rename', 'Bea');
     expect(res).toEqual({ ok: true });
-    expect(heard.statuses).toContain('reconnecting');
+    // Back within moments: no "Connection lost".
+    expect(heard.statuses).not.toContain('reconnecting');
     await until(() => heard.states.at(-1)?.players[0]?.name === 'Bea');
   });
 
@@ -93,7 +95,42 @@ describe('room connection', () => {
     expect(heard.catchingUp).toEqual([true]);
     await until(() => heard.catchingUp.at(-1) === false);
     expect(heard.states.length).toBeGreaterThan(states);
-    expect(heard.statuses.slice(-2)).toEqual(['reconnecting', 'joined']);
+    // The catching-up hint was the banner; the quick rejoin itself never said "reconnecting".
+    expect(heard.statuses).not.toContain('reconnecting');
+  });
+
+  it('a drop that heals at once never says so, and a tap made meanwhile goes through', async () => {
+    rt = await bareRealtime();
+    const roomId = rt.rooms.create('codenames', 'nobody');
+    const { conn, heard, until } = open(roomId);
+    conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await until(() => heard.statuses.at(-1) === 'joined');
+    const socket = (conn as unknown as { socket: Socket }).socket;
+    let dropped = false;
+    socket.once('disconnect', () => (dropped = true));
+
+    // The network drops the connection under the page (socket.io reconnects by itself).
+    socket.io.engine.close();
+    expect(dropped).toBe(true);
+    const res = await conn.call('room:rename', 'Bea');
+    expect(res).toEqual({ ok: true });
+    await until(() => heard.states.at(-1)?.players[0]?.name === 'Bea');
+    expect(heard.statuses).not.toContain('reconnecting');
+  });
+
+  it('says it is reconnecting once a drop outlasts its quiet time', async () => {
+    rt = await bareRealtime();
+    const roomId = rt.rooms.create('codenames', 'nobody');
+    const { conn, heard, until } = open(roomId);
+    conn.enable(() => ({ token: token(1), name: 'Ana' }));
+    await until(() => heard.statuses.at(-1) === 'joined');
+
+    const at = Date.now();
+    const down = rt;
+    rt = undefined;
+    await down.close();
+    await until(() => heard.statuses.at(-1) === 'reconnecting');
+    expect(Date.now() - at).toBeGreaterThanOrEqual(QUIET_DROP_MS - 50);
   });
 
   it('a short look away changes nothing', async () => {
