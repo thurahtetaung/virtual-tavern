@@ -359,7 +359,7 @@ function start(state: StampedeState, ctx: Ctx): Result {
   if (state.phase === 'playing') return new GameError('in-progress', 'A game is already running.');
   const players = playingIds(state);
   if (players.length < MIN_PLAYERS) {
-    return new GameError('too-few-players', `Stampede needs at least ${MIN_PLAYERS} players.`);
+    return new GameError('too-few-players', `This game needs at least ${MIN_PLAYERS} players.`);
   }
   if (state.settings.deckIds.length === 0) {
     return new GameError('no-decks', 'Pick at least one question deck.');

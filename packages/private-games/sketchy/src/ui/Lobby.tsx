@@ -204,7 +204,7 @@ export function Lobby({
         )}
       </LobbySettings>
       <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
-        📖 New to Sketchy? Read the guide
+        📖 New to {room.gameName ?? 'Sketchy'}? Read the guide
       </Button>
     </div>
   );

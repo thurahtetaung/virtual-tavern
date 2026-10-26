@@ -140,7 +140,8 @@ export function Lobby({
           </Button>
         </div>
         <p className="text-sm text-stone-600 dark:text-stone-400">
-          {rolesSummary(seated.length, view, content) || `Inquest needs 4 to ${max} players.`}
+          {rolesSummary(seated.length, view, content) ||
+            `${room.gameName ?? 'Inquest'} needs 4 to ${max} players.`}
         </p>
         <ul className="flex flex-wrap gap-2">
           {view.seats.map((p) => (

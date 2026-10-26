@@ -507,7 +507,7 @@ function start(state: SketchyState, ctx: Ctx): Result {
   if (state.phase === 'playing') return err('in-progress', 'A game is already running.');
   const players = playingIds(state);
   if (players.length < MIN_PLAYERS) {
-    return err('too-few-players', `Sketchy needs at least ${MIN_PLAYERS} players.`);
+    return err('too-few-players', `This game needs at least ${MIN_PLAYERS} players.`);
   }
   if (players.length > MAX_PLAYERS) {
     return err('too-many-players', `At most ${MAX_PLAYERS} players can play.`);
