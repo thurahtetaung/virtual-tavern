@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.1...v0.68.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mosaic:** exact spill and marker lines on the pick sheet, readable special-factory labels, dimmed empty factories ([#398](https://github.com/thurahtetaung/virtual-tavern/issues/398)) ([4c749a0](https://github.com/thurahtetaung/virtual-tavern/commit/4c749a00467f84673a17d7aecc984cc73a709fe5))
+
 ## [0.68.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.0...v0.68.1) (2026-10-26)
 
 
