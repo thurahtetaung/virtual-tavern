@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.1...v0.66.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **encore:** fit a turn on a phone, flip cards in place and tidy the round lines ([#381](https://github.com/thurahtetaung/virtual-tavern/issues/381)) ([0092c03](https://github.com/thurahtetaung/virtual-tavern/commit/0092c03cf70404893843ed256816acaec4835100))
+
 ## [0.66.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.0...v0.66.1) (2026-10-26)
 
 
