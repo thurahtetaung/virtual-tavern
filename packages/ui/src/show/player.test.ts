@@ -1,6 +1,6 @@
 import type { Moment, Rig } from '@vt/game-sdk/show';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ShowEnv, play } from './player.ts';
+import { type ShowEnv, play, settlePose } from './player.ts';
 
 // The player against stand-in elements: what it asks the browser to do, at which times.
 
@@ -268,5 +268,23 @@ describe('voice', () => {
       ['b', 0],
     ]);
     expect(els.subtitle!.textContent).toBe('Going twice');
+  });
+});
+
+describe('a finished animation’s end pose', () => {
+  it('stays when the browser refuses to commit it, so nothing flashes back to its start', () => {
+    const el = { style: { opacity: '0', transform: '' } as unknown as CSSStyleDeclaration };
+    const refuses = {
+      commitStyles: () => {
+        throw new Error('Target element is not rendered');
+      },
+    };
+    settlePose(el, refuses, [{ opacity: 0 }, { opacity: 1, transform: 'scale(2)' }]);
+    expect(el.style.opacity).toBe('1');
+    expect(el.style.transform).toBe('scale(2)');
+    // A commit that quietly doesn't take is caught the same way.
+    const el2 = { style: { opacity: '0' } as unknown as CSSStyleDeclaration };
+    settlePose(el2, { commitStyles: () => {} }, [{ opacity: 1 }]);
+    expect(el2.style.opacity).toBe('1');
   });
 });

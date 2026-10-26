@@ -9,6 +9,7 @@ import {
   cn,
   useSecondsLeft,
 } from '@vt/ui';
+import { LowEffectsNotice } from '@vt/ui/show';
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
@@ -214,7 +215,7 @@ export function BidPanel({
             )}
           </div>
           {!(quiet && g.stage === 'sold') && (
-            <BidLadder view={view} art={art} name={name} you={room.you} />
+            <BidLadder view={view} art={art} name={name} you={room.you} rows={quiet ? 2 : 3} />
           )}
           <CloseBar view={view} room={room} />
           {mine && !(quiet && g.stage === 'sold') && (
@@ -747,6 +748,7 @@ export function Auction({
               <p className="text-xs text-ink-muted dark:text-stone-400">
                 <span aria-hidden>👀 </span>Look up: the lot is on the table screen.
               </p>
+              <LowEffectsNotice compact />
             </div>
           </div>
         ) : (

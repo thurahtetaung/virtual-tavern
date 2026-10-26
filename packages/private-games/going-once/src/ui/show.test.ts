@@ -193,9 +193,20 @@ describe('moments', () => {
           v.game!.final!.find((f) => f.id === id)!.debt,
       ),
     ).toEqual([...totals].sort((a, b) => a - b));
+    // Names come up once their paddle has popped in (they never scale with it), and go with it.
+    const finale = list.find((m) => m.id.endsWith(':finale'))!;
+    times.finale.forEach((id, i) => {
+      const pop = steps(finale, `finale:${id}`)[0]!;
+      const name = steps(finale, `finale:${id}.name`)[0]!;
+      expect(name).toMatchObject({ kind: 'css', keyframes: [{ opacity: 1 }] });
+      expect(name.t).toBeGreaterThan(pop.t);
+      expect(pop.t).toBe(i * 1000);
+    });
     const winner = list.find((m) => m.id.endsWith(':winner'))!;
     expect(winner.steps.some((s) => s.kind === 'confetti')).toBe(true);
     for (const id of v.game!.winners) expect(steps(winner, `win:${id}`)).toHaveLength(1);
+    for (const id of times.finale)
+      expect(steps(winner, `finale:${id}.name`)[0]).toMatchObject({ keyframes: [{ opacity: 0 }] });
   });
 
   it('groups a buyer’s drawings in threes and twos, never one alone', () => {

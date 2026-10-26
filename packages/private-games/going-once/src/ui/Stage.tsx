@@ -11,6 +11,7 @@ import {
   Stamp,
   placeOf,
   useShow,
+  lowOf,
   useShowSettings,
   useShowTargets,
   useTarget,
@@ -145,6 +146,8 @@ const HOST_STRIP: CSSProperties = {
   transform: 'scale(1.4)',
   transformOrigin: '50% 0',
 };
+/** At the end, the host's words along the floor, clear of the title plates at the top. */
+const HOST_STRIP_END: CSSProperties = { ...HOST_STRIP, top: 650 };
 /**
  * During a lot, the host's words over the bidding column, clear of the painting, the LOT disc and
  * the strings they hang from.
@@ -224,7 +227,9 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
   const phase = phaseOf(view);
   const rig = useRig(GAME_ID, 'stage', phase, NEXT[phase]);
   const targets = useShowTargets();
-  const { reduced, low } = useShowSettings();
+  const { reduced, setting } = useShowSettings();
+  // The battery saver goes on here only when switched on (never by itself on a table screen).
+  const low = lowOf({ setting, auto: false }, true);
   const offset = room.clockOffset;
   const joined = useJoined(view, offset);
   const list = useMemo(
@@ -283,7 +288,13 @@ export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
               )}
               <div
                 className="absolute"
-                style={rowWhere(view) === 'lot' ? HOST_STRIP_LOT : HOST_STRIP}
+                style={
+                  rowWhere(view) === 'lot'
+                    ? HOST_STRIP_LOT
+                    : phase === 'end'
+                      ? HOST_STRIP_END
+                      : HOST_STRIP
+                }
               >
                 {view.game && <HostStrip view={view} art={art} name={name} clockOffset={offset} />}
               </div>
@@ -764,6 +775,9 @@ function RigPaddle({
   );
 }
 
+/** A finale name, where it stood in the paddle's settled pose (1.1 × the original's 130). */
+const FINALE_NAME_AT = [1, 0, 0, 1, 0, 163];
+
 /** A name under a paddle: dark on the light wall, big enough across a room. */
 const NAME: CSSProperties = { fontSize: 30, color: INK };
 
@@ -926,6 +940,8 @@ function EndScene({
           </Layer>
         </Layer>
       ))}
+      {/* The paddles pop in big (the original's), so the totals and names sit above them all
+          and the names never scale with them. */}
       <Layer>
         {final.map((f, i) => (
           <Layer key={f.id} m={row[i] === undefined ? undefined : seatAt(row[i], 420)}>
@@ -940,7 +956,15 @@ function EndScene({
                 who={name(f.id)}
                 stick={false}
               />
-              <Layer m={[1, 0, 0, 1, 0, 130]}>
+            </Layer>
+          </Layer>
+        ))}
+      </Layer>
+      <Layer>
+        {final.map((f, i) => (
+          <Layer key={f.id} m={row[i] === undefined ? undefined : seatAt(row[i], 420)}>
+            <Layer m={FINALE_NAME_AT}>
+              <Layer name={`finale:${f.id}.name`} style={HIDDEN}>
                 <Label style={NAME}>{name(f.id)}</Label>
               </Layer>
             </Layer>

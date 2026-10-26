@@ -39,6 +39,7 @@ import {
   enqueueLine,
   nextVoice,
   shiftLine,
+  callStart,
   clipSkip,
   keepsTime,
   voiceBusy,
@@ -492,12 +493,18 @@ describe('the voice queue', () => {
    * its time and skips its head) and each clip lasts its real length (`VOICE_MS`). `load` delays
    * a clip's start (its file is slow). Returns what was said, from when to when, and if it was cut.
    */
-  function run(arrivals: { at: number; clips: VoiceClip[] }[], load: Record<string, number> = {}) {
+  function run(
+    arrivals: { at: number; clips: VoiceClip[] }[],
+    load: Record<string, number> = {},
+    /** A start this much later than the device asked for, unseen by the queue (output latency). */
+    lag: Record<string, number> = {},
+  ) {
     const said: { id: string; key: string; start: number; end: number; cut: boolean }[] = [];
     let queue: VoiceClip[] = [];
     let saying: (typeof said)[number] | null = null;
     let sayingClip: VoiceClip | null = null;
     let free = 0;
+    let chantEnded: number | null = null;
     const from = arrivals[0]!.at;
     const to = arrivals.at(-1)!.at + 30_000;
     for (let t = from; t <= to; t += 10) {
@@ -512,6 +519,7 @@ describe('the voice queue', () => {
       }
       if (saying && t >= saying.end) {
         free = saying.end;
+        chantEnded = saying.key.startsWith('chant') ? saying.end : null;
         saying = null;
       }
       if (saying) continue;
@@ -520,11 +528,12 @@ describe('the voice queue', () => {
       if (!next.clip) continue;
       const clip = next.clip;
       const length = VOICE_MS[clip.key]![clip.pick]!;
-      const start = Math.max(t + (load[clip.key] ?? 0), clip.at);
+      const start = callStart(clip, Math.max(t + (load[clip.key] ?? 0), clip.at), chantEnded);
       const skip = clipSkip(clip, start, length);
       if (skip === null) continue;
       queue = shiftLine(queue, clip.line, start - clip.at);
-      saying = { id: clip.id, key: clip.key, start, end: start + length - skip, cut: false };
+      const real = start + (lag[clip.key] ?? 0);
+      saying = { id: clip.id, key: clip.key, start: real, end: real + length - skip, cut: false };
       sayingClip = clip;
       said.push(saying);
     }
@@ -572,6 +581,30 @@ describe('the voice queue', () => {
     expect(chant.cut).toBe(false);
     expect(chant.end).toBe(closeAt - CHANT_GAP_MS);
     expect(said.find((c) => c.id === once.clips[0]!.id)!.start).toBe(closeAt);
+  });
+
+  it('starts going once a second after the chant really ended, however late the device ran', () => {
+    const h = voiced();
+    bid(h, 'p2', 400);
+    const line = lineAt(h);
+    const closeAt = game(h).auction!.closeAt;
+    h.tick();
+    const once = lineAt(h);
+    expect(once.clips[0]!.key).toMatch(/^going-once/);
+    // The device starts the chant 600 ms after it asked (unseen latency), as the live check saw.
+    const chantKey = line.clips.at(-1)!.key;
+    const said = run([line, once], {}, { [chantKey]: 600 });
+    const chant = said.find((c) => c.key === chantKey)!;
+    const call = said.find((c) => c.id === once.clips[0]!.id)!;
+    expect(chant.cut).toBe(false);
+    expect(chant.end).toBe(closeAt - CHANT_GAP_MS + 600);
+    expect(call.start).toBe(chant.end + CHANT_GAP_MS);
+    // A new bid still cuts a chant at once.
+    const chantClip = line.clips.at(-1)!;
+    expect(
+      cutsOff(chantClip, { ...chantClip, id: 'host99:0', line: 'host99', key: 'chant-600' }),
+    ).toBe(true);
+    expect(cutsOff(chantClip, once.clips[0]!)).toBe(false);
   });
 
   it('chants after a screw too, ending a second before going once', () => {

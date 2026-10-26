@@ -483,11 +483,14 @@ export function BidLadder({
   art,
   name,
   you,
+  rows = 3,
 }: {
   view: GoingOnceView;
   art: Art;
   name: NameOf;
   you: string;
+  /** How many earlier bids to list (a quiet phone has room for two). */
+  rows?: number;
 }) {
   const a = view.game?.auction;
   const recent = a?.recent ?? [];
@@ -505,7 +508,7 @@ export function BidLadder({
         {recent
           .slice(0, -1)
           .reverse()
-          .slice(0, 3)
+          .slice(0, rows)
           .map((r, i) => (
             <li
               key={`${r.by}-${r.amount}`}
