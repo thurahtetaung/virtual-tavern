@@ -32,7 +32,8 @@ function draftView(a: Attempt): DraftView {
       turn = d.order[d.at % d.order.length] ?? null;
     else if (m === 'crew-wanted' && d.chosen.length < a.mission.wanted)
       turn = d.order[d.at] ?? null;
-    else if (m === 'captain-offers') turn = d.at < d.order.length ? d.order[d.at]! : a.captain;
+    else if (m === 'captain-offers' || m === 'decision' || m === 'distribution')
+      turn = d.at < d.order.length ? d.order[d.at]! : a.captain;
   }
   return {
     turn,
@@ -42,8 +43,17 @@ function draftView(a: Attempt): DraftView {
     chosen: d.chosen,
     ready: d.ready,
     given: d.given,
+    offer: d.offer,
+    roles: d.roles,
+    hidden: facedown(a),
   };
 }
+
+/** The commander's decision keeps the tasks face down until they are given. */
+const facedown = (a: Attempt) =>
+  a.mission.selection === 'decision' &&
+  !a.draft.given &&
+  (a.stage === 'draft' || a.stage === 'briefing');
 
 function attemptView(a: Attempt, viewer: PlayerId | null, playedCards: boolean): AttemptView {
   const over = a.stage === 'done';
@@ -55,6 +65,7 @@ function attemptView(a: Attempt, viewer: PlayerId | null, playedCards: boolean):
     const owns = t.owner !== null && viewer !== null && controller(a, t.owner) === viewer;
     return {
       index,
+      token: t.token,
       key: t.key,
       check: t.check,
       text: t.text,
@@ -105,7 +116,7 @@ function attemptView(a: Attempt, viewer: PlayerId | null, playedCards: boolean):
         ? { up: a.dummy.up, down: a.dummy.down.filter((c) => c !== null).length }
         : null,
     legal: turnSeat ? legalFor(a, turnSeat) : [],
-    tasks: briefing ? [] : tasks,
+    tasks: briefing ? [] : facedown(a) ? tasks.filter((t) => t.crew) : tasks,
     draft: draftView(a),
     terrain: a.terrain,
     comms: a.comms,
@@ -140,6 +151,12 @@ function attemptView(a: Attempt, viewer: PlayerId | null, playedCards: boolean):
     redeals: a.redeals,
     redraws: a.redraws,
     replay: over ? { hands: a.dealt, tricks: a.tricks } : null,
+    extras: {
+      ...a.extras,
+      drawn: Object.fromEntries(
+        Object.entries(a.extras.drawn).filter(([seat]) => over || mine.includes(seat)),
+      ),
+    },
   };
 }
 

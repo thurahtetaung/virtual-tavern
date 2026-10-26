@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@vt/ui';
+import { tokenLabel } from '../logic/onecard.ts';
 import { TokenIcon } from './Token.tsx';
 import type { Comms, Selection } from '../logic/content.ts';
 import {
@@ -27,6 +28,9 @@ const SELECTION: Record<Selection, string | null> = {
   'captain-offers': '🎁 {Captain} offers',
   'captain-skips': '⏭️ {Captain} skips',
   'hardest-first': '🏋️ Hardest first',
+  decision: '🎖️ {Captain}’s decision',
+  distribution: '🎁 {Captain} shares out',
+  roles: '🎭 Roles',
 };
 
 /** A mission's rule symbols as short tags. */
@@ -164,14 +168,18 @@ export function Logbook({
     const selected = picked === m.n;
     const body = (
       <>
-        <span className="w-8 shrink-0 text-right font-bold tabular-nums">{m.n}</span>
+        <span className="w-8 shrink-0 text-right font-bold tabular-nums">{m.label ?? m.n}</span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">
             {log?.done ? '✅ ' : log?.practised ? '🎯 ' : ''}
-            {title ?? missionLabel(m.n)}
+            {title ?? missionLabel(m.n, m.label)}
           </span>
           <span className="block text-xs text-ink-muted">
-            {m.difficulty !== null ? `Difficulty ${m.difficulty}` : 'No task cards'}
+            {m.cards
+              ? `${m.cards} ${m.cards === 1 ? 'task' : 'tasks'}${m.tokens.length ? ` · ${m.tokens.map(tokenLabel).join(' ')}` : ''}`
+              : m.difficulty !== null
+                ? `Difficulty ${m.difficulty}`
+                : 'No task cards'}
             {log?.done ? ` · ${day(log.done)} · ${log.crew.join(', ')}` : ''}
           </span>
           <MissionTags
@@ -215,8 +223,8 @@ export function Logbook({
       <DepthStrip voyage={voyage} campaign={campaign} />
       {picked !== next && (
         <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30">
-          🎯 {missionLabel(picked)} is out of order: it plays as practice and doesn’t change the
-          attempt counts.
+          🎯 {missionLabel(picked, voyage.missions.find((x) => x.n === picked)?.label)} is out of
+          order: it plays as practice and doesn’t change the attempt counts.
         </p>
       )}
       <ol className="max-h-56 space-y-0.5 overflow-y-auto pr-1 sm:max-h-[50vh]">

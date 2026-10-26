@@ -1,6 +1,8 @@
-import { Button, Panel, RefusalSlot } from '@vt/ui';
+import { Button, Panel, RefusalSlot, cn } from '@vt/ui';
 import { type AttemptView, DUMMY, type MissionControlAction } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
+import { CardBack } from './Card.tsx';
+import { RolesDraft } from './Steps.tsx';
 import { TaskChip } from './Tasks.tsx';
 
 type Act = (a: MissionControlAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -31,13 +33,15 @@ export function Draft({
   const allTaken = tasks.every((t) => t.owner !== null);
   const myTurn = d.turn !== null && a.controls.includes(d.turn);
   const roundRobin = sel === 'normal' || sel === 'captain-skips' || sel === 'hardest-first';
-  const asking =
-    (sel === 'crew-wanted' && !split) || (sel === 'captain-offers' && d.turn !== a.captain);
+  const offering = sel === 'captain-offers' || sel === 'decision' || sel === 'distribution';
+  const asking = (sel === 'crew-wanted' && !split) || (offering && d.turn !== a.captain);
+  const captainGives = offering && d.turn === a.captain && a.controls.includes(a.captain);
   const canHold = (seat: string, captainCannot: boolean) => !(captainCannot && seat === a.captain);
   const claimers = (free ? [me, ...(iControlDummy ? [DUMMY] : [])] : []).filter(
     (s) => !split || d.chosen.includes(s),
   );
 
+  if (sel === 'roles') return <RolesDraft a={a} me={me} act={act} name={name} />;
   return (
     <Panel className="space-y-3" data-testid="mc-draft">
       <p className="rounded-lg bg-special-soft px-3 py-2 text-center text-sm text-special-ink ring-1 ring-special-line dark:bg-violet-500/10 dark:text-violet-100 dark:ring-violet-500/30">
@@ -45,6 +49,18 @@ export function Draft({
           ? '🗣️ Open table: talk freely.'
           : '🗣️ Talk about the tasks, never about your cards.'}
       </p>
+      {d.hidden && (
+        <div className="space-y-2 text-center" data-testid="mc-facedown">
+          <p className="text-sm">
+            {art.say('The tasks stay face down until the {captain} gives them away.')}
+          </p>
+          <div className="flex justify-center gap-1">
+            {Array.from({ length: a.mission.rules.cards ?? 0 }, (_, i) => (
+              <CardBack key={i} size="sm" />
+            ))}
+          </div>
+        </div>
+      )}
       <ul className="space-y-1.5">
         {tasks.map((t) => {
           let action = null;
@@ -104,7 +120,14 @@ export function Draft({
             }
           }
           return (
-            <li key={t.index}>
+            <li
+              key={t.index}
+              className={cn(
+                sel === 'distribution' &&
+                  d.offer === t.index &&
+                  'rounded-xl ring-2 ring-accent dark:ring-amber-400',
+              )}
+            >
               <TaskChip task={t} name={name} showOwner you={me} action={action} />
             </li>
           );
@@ -146,7 +169,7 @@ export function Draft({
         </div>
       )}
 
-      {(sel === 'crew-wanted' || sel === 'captain-offers') && Object.keys(d.answers).length > 0 && (
+      {(sel === 'crew-wanted' || offering) && Object.keys(d.answers).length > 0 && (
         <p className="text-sm">
           {Object.entries(d.answers).map(([s, yes]) => (
             <span key={s} className="mr-3 inline-block">
@@ -169,7 +192,20 @@ export function Draft({
           </Button>
         </div>
       )}
-      {sel === 'captain-offers' && d.turn === a.captain && a.controls.includes(a.captain) && (
+      {captainGives && sel !== 'captain-offers' && (
+        <div className="grid gap-2 sm:grid-cols-2" data-testid="mc-give">
+          {a.crew
+            .map((c) => c.id)
+            .filter((s) => sel === 'distribution' || s !== a.captain)
+            .map((s) => (
+              <Button key={s} variant="secondary" onClick={() => send({ type: 'give', to: s })}>
+                {sel === 'decision' ? 'Give them all to ' : 'Give it to '}
+                {s === me ? 'me' : name(s)}
+              </Button>
+            ))}
+        </div>
+      )}
+      {captainGives && sel === 'captain-offers' && (
         <div className="grid gap-2 sm:grid-cols-2">
           <Button onClick={() => send({ type: 'give', to: a.captain })}>Keep every task</Button>
           {Object.entries(d.answers)

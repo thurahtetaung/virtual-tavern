@@ -18,7 +18,8 @@ import {
 } from '../logic/types.ts';
 import { ArtContext, artFor, useArt, useManifest } from './assets.tsx';
 import { Briefing, RuleBox } from './Briefing.tsx';
-import { CardChip } from './Card.tsx';
+import { CardChip, Rich } from './Card.tsx';
+import { AnnouncePanel, HandOverPanel, PickPanel, TokensPanel } from './Steps.tsx';
 import { Debrief } from './Debrief.tsx';
 import { Draft } from './Draft.tsx';
 import { Lobby, SEAT_CONTROL_ID } from './Lobby.tsx';
@@ -51,7 +52,7 @@ function Header({ view, clockOffset }: { view: MissionControlView; clockOffset: 
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-bold">
-          {missionLabel(m.n)}
+          {missionLabel(m.n, m.label)}
           {m.n === EPILOGUE ? ` · difficulty ${m.difficulty}` : ''}
         </span>
         <span className="text-ink-muted tabular-nums">
@@ -196,6 +197,28 @@ function Game({
             <Draft a={a} me={me} act={act} name={name} openTable={view.settings.openTable} />
           </>
         )}
+        {a.extras.notes.length > 0 && a.stage !== 'done' && (
+          <ul className="space-y-1 text-center text-sm" data-testid="mc-notes">
+            {a.extras.notes.map((n, i) => (
+              <li
+                key={i}
+                className="rounded-lg bg-info-soft px-3 py-1 text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+              >
+                <Rich text={n} name={name} />
+                {i === a.extras.notes.length - 1 && a.extras.drawn[me] ? (
+                  <>
+                    {' '}
+                    You drew <CardChip card={a.extras.drawn[me]} />.
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        {a.stage === 'announce' && <AnnouncePanel a={a} act={act} name={name} />}
+        {a.stage === 'pick' && <PickPanel a={a} me={me} act={act} name={name} />}
+        {a.stage === 'tokens' && <TokensPanel a={a} me={me} act={act} name={name} />}
+        {a.stage === 'handover' && <HandOverPanel a={a} me={me} act={act} name={name} />}
         {a.stage === 'distress' && <DistressPanel a={a} me={me} act={act} name={name} />}
         {a.stage === 'pass' && <PassPanel a={a} act={act} name={name} />}
         {a.stage === 'predict' && <PredictPanel a={a} act={act} name={name} />}
@@ -245,7 +268,8 @@ function HandPreview({ view }: { view: MissionControlView }) {
 
 export function MissionControlGame(props: MissionControlUiProps) {
   const manifest = useManifest();
-  const art = useMemo(() => artFor(manifest), [manifest]);
+  const voyage = props.view.settings.voyageKey;
+  const art = useMemo(() => artFor(manifest, voyage), [manifest, voyage]);
   return (
     <ArtContext.Provider value={art}>
       <Game {...props} />

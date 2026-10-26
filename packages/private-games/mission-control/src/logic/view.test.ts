@@ -71,6 +71,18 @@ function scrambled(
   }
   for (const seat of Object.keys(a.distress.passes))
     if (!mine.has(seat)) a.distress.passes[seat] = a.distress.passes[seat] === 'p1' ? 'p2' : 'p1';
+  // Face-down tasks (the commander's decision) and others' drawn cards stay hidden.
+  if (a.mission.selection === 'decision' && !a.draft.given && a.stage === 'draft') {
+    for (const t of a.tasks) {
+      if (t.crew) continue;
+      const c = t.key === 'card:y9' ? 'y8' : 'y9';
+      t.key = `card:${c}`;
+      t.text = `{c:${c}}`;
+      t.check = { kind: 'win-cards', cards: [c] };
+    }
+  }
+  for (const seat of Object.keys(a.extras.drawn))
+    if (!mine.has(seat)) a.extras.drawn[seat] = a.extras.drawn[seat] === 'p1' ? 'p2' : 'p1';
   for (const seat of Object.keys(a.distress.received))
     if (!mine.has(seat))
       a.distress.received[seat] = a.distress.received[seat] === 'b1' ? 'b2' : 'b1';
@@ -145,6 +157,7 @@ function fuzz(players: number, seed: number, attempts: number) {
   let now = NOW;
   let state = missionControl.create({ now, rng, content }, seats);
   const missions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0];
+  const cardMissions = Array.from({ length: 21 }, (_, i) => i + 1);
   let played = 0;
   let steps = 0;
   let lastStage: string | undefined;
@@ -162,7 +175,11 @@ function fuzz(players: number, seed: number, attempts: number) {
   while (played < attempts && steps < attempts * 400) {
     steps++;
     if (state.phase === 'lobby') {
-      apply('p1', { type: 'choose', mission: missions[(seed + played) % missions.length]! });
+      // Every other attempt on the one-card voyage.
+      const cardsNow = played % 2 === 1;
+      apply('p1', { type: 'update-settings', voyageKey: cardsNow ? 'test-cards' : 'test-voyage' });
+      const list = cardsNow ? cardMissions : missions;
+      apply('p1', { type: 'choose', mission: list[(seed + played) % list.length]! });
       apply('p1', { type: 'start' });
       continue;
     }

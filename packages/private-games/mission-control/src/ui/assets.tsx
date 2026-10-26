@@ -1,6 +1,9 @@
 import { loadManifest } from '@vt/ui';
+import { isCard } from '../logic/cards.ts';
+import type { OrderToken } from '../logic/content.ts';
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
+  type ArtRef,
   type LogbookEntry,
   type Manifest,
   type Names,
@@ -8,6 +11,7 @@ import {
   artOf,
   asManifest,
   cardKey,
+  clean,
   fillNames,
   namesOf,
   thumbOf,
@@ -54,15 +58,44 @@ export interface Art {
   task: (key: string) => string | null;
   taskThumb: (key: string) => string | null;
   token: (which: keyof typeof TOKEN_KEYS) => string | null;
+  /** An order token's art (small), or null for the drawn badge. */
+  orderToken: (t: OrderToken) => string | null;
+  /** A campaign's real title from the manifest, if any. */
+  voyageTitle: (key: string) => string | null;
   box: string | null;
   logbook: (n: number) => LogbookEntry | null;
 }
 
-export function artFor(m: Manifest | null): Art {
-  const names = namesOf(m);
-  const cards = m?.cards && typeof m.cards === 'object' ? m.cards : {};
-  const tasks = m?.tasks && typeof m.tasks === 'object' ? m.tasks : {};
-  const logbook = m?.logbook && typeof m.logbook === 'object' ? m.logbook : {};
+/** An order token's art key in the manifest. */
+const ORDER_KEYS: Record<OrderToken, string> = {
+  '1': 'task-1',
+  '2': 'task-2',
+  '3': 'task-3',
+  '4': 'task-4',
+  '5': 'task-5',
+  '>': 'task-arrow-1',
+  '>>': 'task-arrow-2',
+  '>>>': 'task-arrow-3',
+  '>>>>': 'task-arrow-4',
+  o: 'task-omega',
+};
+
+const obj = <T,>(v: T | undefined): T | Record<string, never> =>
+  v && typeof v === 'object' ? v : {};
+
+/** The art for the campaign being played: its own block first, then the top-level keys. */
+export function artFor(m: Manifest | null, voyage: string | null = null): Art {
+  const v = (voyage && m?.voyages?.[voyage]) || null;
+  const names = namesOf(m, voyage);
+  const cards = { ...obj(m?.cards), ...obj(v?.cards) } as Record<string, ArtRef>;
+  const tasks = { ...obj(m?.tasks), ...obj(v?.tasks) } as Record<string, ArtRef>;
+  const tokens = { ...obj(m?.tokens), ...obj(v?.tokens) } as Record<string, ArtRef>;
+  const logbook = { ...obj(m?.logbook), ...obj(v?.logbook) } as Record<string, LogbookEntry>;
+  // A task's art: by the task's own id, or (one-card tasks) by its card.
+  const taskRef = (key: string) => {
+    const id = key.split(':').at(-1)!;
+    return tasks[id] ?? (isCard(id) ? tasks[cardKey(id)] : undefined);
+  };
   return {
     names,
     say: (text) => fillNames(text, names),
@@ -71,18 +104,22 @@ export function artFor(m: Manifest | null): Art {
       const ref = cards[cardKey(id)] ?? cards[id];
       return path(thumbOf(ref) ?? artOf(ref));
     },
-    back: path(artOf(m?.back)),
-    // Task scans are keyed by the task's own id (the part after the pack id).
-    task: (key) => path(artOf(tasks[key.split(':').at(-1)!])),
+    back: path(artOf(v?.back ?? m?.back)),
+    task: (key) => path(artOf(taskRef(key))),
     taskThumb: (key) => {
-      const ref = tasks[key.split(':').at(-1)!];
+      const ref = taskRef(key);
       return path(thumbOf(ref) ?? artOf(ref));
     },
     token: (which) => {
-      const t = m?.tokens && typeof m.tokens === 'object' ? m.tokens : {};
-      return path(artOf(t[TOKEN_KEYS[which]] ?? t[which]));
+      const ref = tokens[TOKEN_KEYS[which]] ?? tokens[which];
+      return path(artOf(ref));
     },
-    box: path(artOf(m?.box)),
+    orderToken: (t) => {
+      const ref = tokens[ORDER_KEYS[t]];
+      return path(thumbOf(ref) ?? artOf(ref));
+    },
+    voyageTitle: (key) => clean(m?.voyages?.[key]?.title, 80) ?? null,
+    box: path(artOf(v?.box ?? m?.box)),
     logbook: (n) => {
       const e = logbook[n === 0 ? 'epilogue' : String(n)];
       return e && typeof e === 'object' ? e : null;

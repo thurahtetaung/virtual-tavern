@@ -121,6 +121,7 @@ export function Lobby({
             <div className="mt-1 flex flex-wrap gap-2">
               {view.voyages.map((v) => (
                 <button
+                  data-testid={`mc-voyage-${v.key}`}
                   key={v.key}
                   type="button"
                   disabled={!editable}
@@ -132,7 +133,7 @@ export function Lobby({
                       'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500',
                   )}
                 >
-                  {v.name}
+                  {art.voyageTitle(v.key) ?? v.name}
                 </button>
               ))}
             </div>
@@ -160,6 +161,16 @@ export function Lobby({
           help="For groups who talk freely: no silence banners."
           onChange={(openTable) => set({ openTable })}
         />
+        {view.voyage?.taskSet === 'cards' && (
+          <Switch
+            on={s.challenge}
+            editable={editable && seated.length === 3}
+            title="Challenge for Three"
+            help="Three players only: no green cards and no trump 1, so ten cards each."
+            onChange={(challenge) => set({ challenge })}
+            testId="mc-challenge"
+          />
+        )}
         {seated.length === 2 && (
           <fieldset>
             <legend className="text-sm font-semibold">{art.say('Where {dummy} sits')}</legend>
@@ -193,7 +204,8 @@ export function Lobby({
                 onClick={() => void act({ type: 'start' }, { anchor: ANCHOR })}
                 data-testid="mc-start"
               >
-                Start {missionLabel(picked)}
+                Start{' '}
+                {missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}
               </Button>
               {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>

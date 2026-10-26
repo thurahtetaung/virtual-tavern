@@ -137,14 +137,43 @@ export function missionControlBot(
           (sel === 'crew-wanted' && tasks2(a, d.chosen));
         return d.ready.includes(me) || waiting ? null : { type: 'ready' };
       }
+      if (sel === 'roles') {
+        const p = a.extras.pick;
+        const names = a.mission.rules.roleNames ?? [];
+        if (p.at < p.order.length) {
+          const asked = p.order[p.at]!;
+          if (!controls.includes(asked)) return null;
+          return { type: 'reply', reply: pickOne(ctx.rng, names) ?? '' };
+        }
+        // Bots share out the roles by seat: the first seat leads, the last closes.
+        const ids = a.crew.map((c) => c.id);
+        const want = (x: string) => (x === ids[0] ? 0 : x === ids.at(-1) ? 2 : 1);
+        for (const x of controls) {
+          if (d.roles[x] !== want(x))
+            return { type: 'role', role: want(x), ...(x === DUMMY && { for: DUMMY }) };
+        }
+        const settled = ids.every((x) => d.roles[x] === want(x));
+        return settled && !d.ready.includes(me) ? { type: 'ready' } : null;
+      }
       if (!d.turn || !controls.includes(d.turn)) return null;
-      if (
-        sel === 'crew-wanted' ||
-        (sel === 'captain-offers' && d.order.includes(d.turn) && !(d.turn in d.answers))
-      ) {
+      const asking = sel === 'captain-offers' || sel === 'decision' || sel === 'distribution';
+      if (sel === 'crew-wanted' || (asking && d.order.includes(d.turn) && !(d.turn in d.answers))) {
         const left = d.order.length - d.order.indexOf(d.turn);
         const must = sel === 'crew-wanted' && a.mission.wanted - d.chosen.length >= left;
         return { type: 'answer', yes: must || chance(ctx.rng, 0.5) };
+      }
+      if (sel === 'decision') {
+        const others = a.crew.map((c) => c.id).filter((x) => x !== a.captain);
+        return { type: 'give', to: pickOne(ctx.rng, others)! };
+      }
+      if (sel === 'distribution') {
+        const t = d.offer !== null ? a.tasks[d.offer] : undefined;
+        const count = (x: string) => a.tasks.filter((y) => !y.crew && y.owner === x).length;
+        const ok = a.crew
+          .map((c) => c.id)
+          .filter((x) => !(t?.captainCannot && x === a.captain))
+          .sort((x, y) => count(x) - count(y));
+        return ok[0] ? { type: 'give', to: ok[0] } : null;
       }
       if (sel === 'captain-offers') {
         const yes = Object.entries(d.answers).flatMap(([s, y]) => (y ? [s] : []));
@@ -169,6 +198,37 @@ export function missionControlBot(
         return { type: 'take', task: top.index };
       }
       return t ? { type: 'take', task: t.index } : d.canPass ? { type: 'pass' } : null;
+    }
+    case 'announce': {
+      const p = a.extras.pick;
+      const asked = p.order[p.at];
+      if (!asked || !controls.includes(asked)) return null;
+      return { type: 'announce', n: ctx.rng.int(Math.min(4, a.total) + 1) };
+    }
+    case 'pick': {
+      const p = a.extras.pick;
+      const r = a.mission.rules.pick;
+      if (p.at < p.order.length) {
+        const asked = p.order[p.at]!;
+        if (!controls.includes(asked)) return null;
+        return { type: 'reply', reply: pickOne(ctx.rng, r?.replies ?? ['Yes']) ?? 'Yes' };
+      }
+      if (me !== a.captain) return null;
+      const options = a.crew
+        .map((c) => c.id)
+        .filter((x) => (r?.self || x !== a.captain) && !(r?.role === 'mute' && x === DUMMY));
+      return { type: 'choose-member', seat: pickOne(ctx.rng, options)! };
+    }
+    case 'tokens': {
+      const e = a.extras.tokenEdit;
+      if (e.proposal) return e.accepted.includes(me) ? null : { type: 'token-answer', yes: true };
+      return e.ready.includes(me) ? null : { type: 'ready' };
+    }
+    case 'handover': {
+      const h = a.extras.handOver;
+      if (h.proposal)
+        return h.accepted.includes(me) ? null : { type: 'hand-over-answer', yes: true };
+      return h.ready.includes(me) ? null : { type: 'ready' };
     }
     case 'distress':
       if (a.distress.proposal)

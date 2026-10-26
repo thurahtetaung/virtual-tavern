@@ -45,8 +45,22 @@ export interface LogbookEntry {
   rule?: string;
 }
 
+/** One campaign's own art and names, read before the top-level keys. */
+export interface VoyageArt {
+  title?: string;
+  names?: Partial<Names>;
+  cards?: Record<string, ArtRef>;
+  back?: ArtRef;
+  tasks?: Record<string, ArtRef>;
+  tokens?: Record<string, ArtRef>;
+  box?: ArtRef;
+  logbook?: Record<string, LogbookEntry>;
+}
+
 export interface Manifest {
   title?: string;
+  /** Per campaign (by voyage key): art and names that differ from the top-level ones. */
+  voyages?: Record<string, VoyageArt>;
   names?: Partial<Names>;
   cards?: Record<string, ArtRef>;
   back?: ArtRef;
@@ -70,11 +84,13 @@ export const clean = (v: unknown, max = 200): string | undefined =>
 
 export const asManifest = (raw: unknown): Manifest => (raw && typeof raw === 'object' ? raw : {});
 
-/** The theme's names, each falling back to the plain word. */
-export function namesOf(m: Manifest | null | undefined): Names {
+/** The theme's names (a voyage's own first), each falling back to the plain word. */
+export function namesOf(m: Manifest | null | undefined, voyage?: string | null): Names {
   const out = { ...PLACEHOLDER_NAMES };
-  const given = m?.names && typeof m.names === 'object' ? m.names : {};
-  for (const k of Object.keys(out) as (keyof Names)[]) out[k] = clean(given[k], 40) ?? out[k];
+  const top = m?.names && typeof m.names === 'object' ? m.names : {};
+  const own = voyage ? (m?.voyages?.[voyage]?.names ?? {}) : {};
+  for (const k of Object.keys(out) as (keyof Names)[])
+    out[k] = clean(own[k], 40) ?? clean(top[k], 40) ?? out[k];
   return out;
 }
 

@@ -23,7 +23,8 @@ export function namer(view: MissionControlView, room: GameRoomInfo, names: Names
   };
 }
 
-export const missionLabel = (n: number) => (n === EPILOGUE ? 'Epilogue' : `Mission ${n}`);
+export const missionLabel = (n: number, label?: string | null) =>
+  label ? `Mission ${label}` : n === EPILOGUE ? 'Epilogue' : `Mission ${n}`;
 
 /** Why the host can't start yet, or null. */
 export function startBlocker(view: MissionControlView): string | null {
@@ -70,9 +71,95 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
       return a.ready.includes(me)
         ? { text: `Ready. ${waiting(people.filter((p) => !a.ready.includes(p)))}`, yourMove: false }
         : { text: 'Read the briefing together, then press Ready.', yourMove: true };
+    case 'announce': {
+      const p = a.extras.pick;
+      const asked = p.order[p.at];
+      if (!asked) return { text: 'Announcements done.', yourMove: false };
+      const target = a.crew[(a.crew.findIndex((c) => c.id === asked) + 1) % a.crew.length]!.id;
+      if (mine(asked))
+        return {
+          text: `How many tricks will ${name(target)} win? Announce it for everyone.`,
+          yourMove: true,
+        };
+      return { text: `${name(asked)} is announcing ${name(target)}’s tricks…`, yourMove: false };
+    }
+    case 'pick': {
+      const p = a.extras.pick;
+      if (p.at < p.order.length) {
+        const asked = p.order[p.at]!;
+        if (mine(asked))
+          return {
+            text: `${a.mission.rules.pick?.question ?? 'Answer'}${forDummy(asked)}`,
+            yourMove: true,
+          };
+        return { text: `Waiting for ${name(asked)} to answer…`, yourMove: false };
+      }
+      if (me === a.captain)
+        return { text: 'Choose the crew member for this mission’s role.', yourMove: true };
+      return { text: `${name(a.captain)} is choosing a crew member…`, yourMove: false };
+    }
+    case 'tokens': {
+      const e = a.extras.tokenEdit;
+      if (e.proposal && !e.accepted.includes(me))
+        return { text: `${name(e.proposal.by)} proposes a token change. Agree?`, yourMove: true };
+      if (e.ready.includes(me) || e.proposal)
+        return { text: 'Waiting for the others…', yourMove: false };
+      return {
+        text:
+          a.mission.rules.tokenEdit === 'swap'
+            ? 'You may swap two tokens (decide together, never mention your cards), or keep them.'
+            : 'You may move one token onto a task without one (decide together), or keep them.',
+        yourMove: true,
+      };
+    }
+    case 'handover': {
+      const h = a.extras.handOver;
+      if (h.proposal && !h.accepted.includes(me))
+        return {
+          text: `${name(h.proposal.by)} proposes handing a task over. Agree?`,
+          yourMove: true,
+        };
+      if (h.ready.includes(me) || h.proposal)
+        return { text: 'Waiting for the others…', yourMove: false };
+      return {
+        text: 'Five crew: one task may change hands once. Propose one, or carry on.',
+        yourMove: true,
+      };
+    }
     case 'draft': {
       const d = a.draft;
       const sel = a.mission.selection;
+      if (sel === 'roles') {
+        const p = a.extras.pick;
+        if (p.at < p.order.length) {
+          const asked = p.order[p.at]!;
+          return mine(asked)
+            ? { text: `Which role would you${forDummy(asked)} like?`, yourMove: true }
+            : { text: `Waiting for ${name(asked)} to answer…`, yourMove: false };
+        }
+        if (d.ready.includes(me)) return { text: 'Waiting for the others…', yourMove: false };
+        return {
+          text: 'Decide together who takes which role, claim yours, then press Ready.',
+          yourMove: true,
+        };
+      }
+      if (d.turn && mine(d.turn) && (sel === 'decision' || sel === 'distribution')) {
+        if (d.turn !== a.captain)
+          return {
+            text:
+              sel === 'decision'
+                ? `Can you${forDummy(d.turn)} take them all? Answer yes or no.`
+                : `Would you${forDummy(d.turn)} take this task? Answer yes or no.`,
+            yourMove: true,
+          };
+        return {
+          text:
+            sel === 'decision'
+              ? say('Give every task to one other crew member.')
+              : say('Give this task to someone (keep the split even).'),
+          yourMove: true,
+        };
+      }
       if (
         sel === 'free' ||
         sel === 'all-to-one' ||
@@ -186,7 +273,8 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
     }
     case 'done': {
       const r = a.result!;
-      if (r.success) return { text: `${missionLabel(a.mission.n)} complete!`, yourMove: false };
+      if (r.success)
+        return { text: `${missionLabel(a.mission.n, a.mission.label)} complete!`, yourMove: false };
       return {
         text: `Lost: ${plainText(r.why ?? 'a task could not be met.', name, names)}`,
         yourMove: false,

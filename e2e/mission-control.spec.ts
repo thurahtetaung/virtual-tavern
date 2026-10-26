@@ -1,6 +1,15 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { PHONE, brief, claim, dive, importPacks, play, table } from './mission-control-play.ts';
+import {
+  PHONE,
+  brief,
+  claim,
+  claimCard,
+  dive,
+  importPacks,
+  play,
+  table,
+} from './mission-control-play.ts';
 import { pageErrors } from './tavern-brawl-play.ts';
 
 // Mission Control on phones, on the test deal (`mission-control-play.ts`): Hana holds every pink
@@ -129,4 +138,59 @@ test('“Same crew, new game” takes the campaign to the new room', async ({ br
     await expect(p.getByTestId('depth-strip')).toContainText('1/2 missions done');
     await expect(p.getByTestId('depth-strip')).toContainText('Mission 2 next');
   }
+});
+
+/** The host picks the one-card campaign, starts mission 1 and Hana takes both tasks. */
+async function cardMission(pages: Page[]) {
+  const [hana] = pages as [Page];
+  await hana.getByTestId('mc-voyage-voyage-1').click();
+  await expect(hana.getByTestId('logbook')).toContainText('In order');
+  await brief(pages);
+  for (const p of pages) await expect(p.getByTestId('mc-token-badge')).toHaveCount(2);
+  await claimCard(hana, 'pink 3');
+  await claimCard(hana, 'pink 2');
+  await dive(pages);
+}
+
+test('the one-card campaign: order tokens met in order', async ({ browser }) => {
+  test.setTimeout(180_000);
+  cleanup.push(await importPacks(browser));
+  const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], PHONE)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  await cardMission([hana, ben, cleo]);
+  // Token 1 (the pink 3) first, then token 2 (the pink 2): Hana leads both, nobody else has pink.
+  await play(hana, 'p3');
+  await play(ben, 'b2');
+  await play(cleo, 'g6');
+  await play(hana, 'p2');
+  await play(ben, 'b3');
+  await play(cleo, 'g7');
+  for (const p of [hana, ben, cleo]) {
+    await expect(p.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'success');
+  }
+});
+
+test('the one-card campaign: a task met before its token’s turn fails the mission', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  cleanup.push(await importPacks(browser));
+  const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], PHONE)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  await cardMission([hana, ben, cleo]);
+  await play(hana, 'p2');
+  await play(ben, 'b2');
+  await play(cleo, 'g6');
+  for (const p of [hana, ben, cleo]) {
+    await expect(p.getByTestId('mc-debrief')).toHaveAttribute('data-result', 'failure');
+    await expect(p.getByTestId('mc-why')).toContainText('too early');
+  }
+  // One-card missions always deal new tasks on a retry.
+  await expect(hana.getByTestId('mc-retry-same')).toHaveCount(0);
 });
