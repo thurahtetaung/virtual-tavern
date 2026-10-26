@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.1...v0.72.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **conveyor:** a phone turn shows your hand without scrolling, and your own lines say Your ([#420](https://github.com/thurahtetaung/virtual-tavern/issues/420)) ([8e87257](https://github.com/thurahtetaung/virtual-tavern/commit/8e87257eb1f72b53f20d2b4f8ea3bd0f76d81734))
+
 ## [0.72.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.0...v0.72.1) (2026-10-26)
 
 
