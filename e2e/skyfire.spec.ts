@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { clue, dragCard, handOrder, myTurn, table, useCard } from './skyfire-play.ts';
+import { clue, dragCard, handOrder, localArt, myTurn, table, useCard } from './skyfire-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -133,17 +133,38 @@ test('dragging a card reorders your hand, with the mouse and with a finger', asy
 });
 
 test('5 players on phones: every turn fits the screen without scrolling', async ({ browser }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(200_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const names = ['Ana', 'Ben', 'Cy', 'Dee', 'Eve'];
-  const pages = await table(browser, names, { viewport: PHONE });
+  const pages = await table(browser, names, { viewport: PHONE, setup: localArt });
+  // A short reminder clock, so it runs out on the first turn.
+  await pages[0]!.getByLabel('Turn timer').selectOption('30');
   await pages[0]!.getByRole('button', { name: 'Start the show' }).click();
-  // The first-time tips are read once, then put away.
-  for (const p of pages) await p.getByRole('button', { name: 'Got it' }).click();
   const fits = async (p: Page) =>
     expect
       .poll(() => p.evaluate(() => document.documentElement.scrollHeight))
       .toBeLessThanOrEqual(PHONE.height);
+  // The first-time tips fit, and so does the clock running out on top of them.
+  await myTurn(pages[0]!);
+  for (const p of pages) await expect(p.getByTestId('sf-tips')).toBeVisible();
+  for (const p of pages) await fits(p);
+  await shot(pages[0]!, 'fit-tips-phone-light');
+  for (const p of pages)
+    await expect(p.getByRole('status').filter({ hasText: 'Time’s up' })).toBeVisible({
+      timeout: 40_000,
+    });
+  for (const p of pages) await fits(p);
+  await shot(pages[0]!, 'fit-expired-phone-light');
+  await shot(pages[1]!, 'fit-expired-other-phone-light');
+  // The tips open in a sheet, then are put away.
+  await pages[0]!
+    .getByTestId('sf-tips')
+    .getByRole('button', { name: /New here/ })
+    .click();
+  await expect(pages[0]!.getByRole('dialog')).toContainText('Drag your cards to reorder them.');
+  await pages[0]!.getByRole('dialog').getByRole('button', { name: 'Got it' }).click();
+  for (const p of pages.slice(1)) await p.getByRole('button', { name: 'Got it' }).click();
+  for (const p of pages) await expect(p.getByTestId('sf-tips')).toHaveCount(0);
   // Five clues round the table, then Ana (the host) on turn with a full "since" list.
   for (let turn = 0; turn <= names.length; turn++) {
     const p = pages[turn % names.length]!;

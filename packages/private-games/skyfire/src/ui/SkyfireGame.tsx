@@ -3,6 +3,7 @@ import {
   Button,
   Hint,
   LobbySettings,
+  Modal,
   Panel,
   PlayerTag,
   ProtectedImage,
@@ -14,6 +15,7 @@ import {
   cn,
   timersLine,
   useAbandonGame,
+  useSecondsLeft,
   useSpectatorPrompt,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
@@ -61,6 +63,10 @@ export function SkyfireGame({
     };
   }, [setYourMove, tabAlert]);
 
+  const clock = view.phase === 'playing' ? view.game?.clock : undefined;
+  const left = useSecondsLeft(clock?.deadline ?? null, room.clockOffset);
+  const timeUp = left === 0 && view.settings.timerMode !== 'strict';
+
   const inGame = !!view.game?.hands[room.you];
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
@@ -81,6 +87,18 @@ export function SkyfireGame({
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
             {status.text}
+            {timeUp && (
+              // Phones keep the clock to the strip's one line, so what a soft clock's end means is
+              // said here.
+              <span className="sm:hidden">
+                {' ⏱ '}
+                {view.game.current === room.you
+                  ? 'Time’s up: finish when you can.'
+                  : room.isHost
+                    ? `Time’s up: you can act for ${name(view.game.current)}.`
+                    : `Time’s up: the host can act for ${name(view.game.current)}.`}
+              </span>
+            )}
           </Hint>
           {view.phase === 'playing' && inGame && <Tips />}
           {view.phase === 'over' && <End view={view} room={room} act={act} art={art} name={name} />}
@@ -102,41 +120,58 @@ function SkyfireStyles() {
   );
 }
 
-/** First-time tips, until dismissed (per seat in a playtest). */
+/**
+ * First-time tips, until dismissed (per seat in a playtest): one line that opens them in a sheet,
+ * so a phone turn still fits the screen.
+ */
 function Tips() {
   const [seen, setSeen] = useState(tipsSeen);
+  const [open, setOpen] = useState(false);
   if (seen) return null;
+  const done = () => {
+    try {
+      localStorage.setItem(storageKey(TIPS_KEY), '1');
+    } catch {
+      // Storage blocked: the tips just close for now.
+    }
+    setOpen(false);
+    setSeen(true);
+  };
   return (
-    <aside className="flex flex-col gap-1.5 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
-      <p className="font-semibold">New here? Three things to know</p>
-      <ul className="list-disc space-y-1 pl-5">
-        <li>
-          You see everyone’s cards but your own. Yours show as backs with what clues told you.
-        </li>
-        <li>
-          On your turn, tap a teammate’s hand to give a clue (a colour or a number: you see which
-          cards it touches before sending), or tap one of your cards to play or discard it.
-        </li>
-        <li>
-          Drag your cards to reorder them. New cards arrive on the left, so your oldest is on the
-          right.
-        </li>
-      </ul>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => {
-          try {
-            localStorage.setItem(storageKey(TIPS_KEY), '1');
-          } catch {
-            // Storage blocked: the tips just close for now.
-          }
-          setSeen(true);
-        }}
+    <aside
+      className="flex items-center gap-2 rounded-full bg-info-soft pl-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      data-testid="sf-tips"
+    >
+      <button
+        type="button"
+        className="min-w-0 flex-1 truncate text-left font-semibold underline-offset-2 hover:underline"
+        onClick={() => setOpen(true)}
       >
+        💡 New here? Three things to know
+      </button>
+      <Button variant="ghost" size="sm" onClick={done}>
         Got it
       </Button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="New here? Three things to know"
+        footer={<Button onClick={done}>Got it</Button>}
+      >
+        <ul className="list-disc space-y-1.5 pl-5 text-sm">
+          <li>
+            You see everyone’s cards but your own. Yours show as backs with what clues told you.
+          </li>
+          <li>
+            On your turn, tap a teammate’s hand to give a clue (a colour or a number: you see which
+            cards it touches before sending), or tap one of your cards to play or discard it.
+          </li>
+          <li>
+            Drag your cards to reorder them. New cards arrive on the left, so your oldest is on the
+            right.
+          </li>
+        </ul>
+      </Modal>
     </aside>
   );
 }
