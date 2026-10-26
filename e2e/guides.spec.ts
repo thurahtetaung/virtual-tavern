@@ -38,6 +38,9 @@ test('a rules page teaches the game in steps, then holds the rules and a cheat s
     stepper.getByRole('heading', { name: '1. One guesser, a hidden word' }),
   ).toBeVisible();
   await expect(stepper.getByRole('button', { name: '← Back' })).toBeDisabled();
+  // One dot per step, as many as the counter says.
+  await expect(stepper.getByText('1 of 6')).toBeVisible();
+  await expect(stepper.getByTestId('guide-dots').locator('i')).toHaveCount(6);
   for (let i = 2; i <= 6; i++) {
     await stepper.getByRole('button', { name: 'Next →' }).click();
     await expect(stepper.getByRole('heading', { name: new RegExp(`^${i}\\. `) })).toBeVisible();

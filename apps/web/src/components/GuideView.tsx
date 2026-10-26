@@ -744,13 +744,18 @@ export function Stepper({
         >
           ← Back
         </Button>
-        <span className="flex gap-1.5" aria-hidden>
-          {[...steps, null].map((_, k) => (
+        {/* One dot per step, as the "1 of 6" counts them; the closing slide fills them all. */}
+        <span className="flex gap-1.5" aria-hidden data-testid="guide-dots">
+          {steps.map((_, k) => (
             <i
               key={k}
               className={cn(
                 'h-2 rounded-full transition-all',
-                k === i ? 'w-5 bg-accent' : 'w-2 bg-line dark:bg-stone-700',
+                k === i
+                  ? 'w-5 bg-accent'
+                  : i === last
+                    ? 'w-2 bg-accent'
+                    : 'w-2 bg-line dark:bg-stone-700',
               )}
             />
           ))}
