@@ -573,9 +573,11 @@ export function buildApp(opts: AppOptions) {
     });
   }
 
-  // Drop websockets first, or the HTTP server waits for them forever.
+  // Drop websockets first, or the HTTP server waits for them forever. Their clients are not told:
+  // socket.io never retries a connection the server said goodbye on, while one that just drops
+  // keeps trying until the server is back (what a restart needs).
   app.addHook('preClose', (done) => {
-    io.disconnectSockets(true);
+    for (const socket of io.of('/').sockets.values()) socket._onclose('server shutting down');
     io.engine.close();
     done();
   });

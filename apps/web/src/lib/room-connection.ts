@@ -195,10 +195,13 @@ export class RoomConnection {
       else this.join();
     });
     on('room:joined', (res) => this.answered(res));
-    on('disconnect', () => {
+    on('disconnect', (reason) => {
       this.joined = false;
       this.watch.stop();
       if (this.current === 'joined') this.setStatus('reconnecting');
+      // The server hung up on us (an older server did so when it restarted): socket.io never
+      // retries that by itself, so try again, as after any drop.
+      if (reason === 'io server disconnect') return void socket.connect();
       // Closed on purpose: no rejoin is coming for the taps still waiting.
       if (!socket.active) this.release(false);
     });
