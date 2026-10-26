@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.3...v0.66.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** no repeated buyer lines in a row, and the sound switch in the lobby ([#385](https://github.com/thurahtetaung/virtual-tavern/issues/385)) ([341a756](https://github.com/thurahtetaung/virtual-tavern/commit/341a756b172629202d94f08dd2d06ab0958824fb))
+
 ## [0.66.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.66.2...v0.66.3) (2026-10-26)
 
 
