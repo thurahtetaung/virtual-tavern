@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.5...v0.69.0) (2026-10-26)
+
+
+### Features
+
+* **ui:** the show layer, moments that play in step on every device for the table screen and quiet phones ([#408](https://github.com/thurahtetaung/virtual-tavern/issues/408)) ([b6bab66](https://github.com/thurahtetaung/virtual-tavern/commit/b6bab66c417a29b9cc53fade923e86cc15a65c85))
+
 ## [0.68.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.4...v0.68.5) (2026-10-26)
 
 
