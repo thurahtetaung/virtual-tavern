@@ -21,7 +21,7 @@ import {
   useAbandonGame,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import {
@@ -131,7 +131,7 @@ export function GoingOnceGame({
               onChange={(muted) => setDevice({ muted })}
             />
           </div>
-          <HostStrip view={view} />
+          <HostStrip view={view} art={art} name={name} clockOffset={room.clockOffset} />
           {g.stage === 'draw' && g.redraw && (
             <p className="rounded-xl bg-warn-soft px-4 py-2 text-center text-sm text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
               Nobody drew anything, so here are new titles. If nobody draws this time, the game
@@ -140,6 +140,8 @@ export function GoingOnceGame({
           )}
           <Alerts view={view} you={room.you} />
           <ScrewBanner view={view} name={name} you={room.you} />
+          {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
+          {g.stage === 'draw' && g.introSkipped && <IntroSkipped key={g.since} />}
           {g.stage === 'draw' && <Draw view={view} room={room} act={act} />}
           {g.stage === 'practice' && g.practice && (
             <Practice view={view} room={room} act={act} art={art} name={name} />
@@ -241,6 +243,8 @@ function Lobby({
   const me = view.me;
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
   const noContent = view.groupsAvailable < 2;
+  // With the auctioneer's voice on, his lines and chants time the auction instead of the pace.
+  const voiceSetsPace = view.settings.voice && view.settings.sound !== 'off';
   const blocker =
     seated.length < MIN_PLAYERS
       ? `${MIN_PLAYERS} players are needed (${seated.length} seated).`
@@ -316,7 +320,7 @@ function Lobby({
         editable={room.isHost}
         summary={[
           `${view.settings.drawSeconds} s to draw`,
-          `${PACE_NAME[view.settings.pace]} pace`,
+          voiceSetsPace ? 'the auctioneer’s pace' : `${PACE_NAME[view.settings.pace]} pace`,
           view.settings.sound === 'off'
             ? 'sound off'
             : `sound: ${SOUND_NAME[view.settings.sound].toLowerCase()}${view.settings.voice ? ', with the voice' : ''}`,
@@ -340,12 +344,16 @@ function Lobby({
             values={PACES}
             value={view.settings.pace}
             format={(v) => PACE_NAME[v]}
-            editable={room.isHost}
+            editable={room.isHost && !voiceSetsPace}
             onChange={(v) => void act({ type: 'update-settings', pace: v }, { anchor: 'go-lobby' })}
           />
-          <p className="text-xs text-ink-muted dark:text-stone-400">
-            {PACE_HELP[view.settings.pace]}
-            {!view.settings.paceChosen && ' Fast is the default at 3 players, Normal otherwise.'}
+          <p className="text-xs text-ink-muted dark:text-stone-400" data-testid="go-pace-help">
+            {voiceSetsPace
+              ? 'The auctioneer sets the pace: after each bid he says the amount and chants, about 10 to 15 seconds, then going once, going twice.'
+              : PACE_HELP[view.settings.pace]}
+            {!voiceSetsPace &&
+              !view.settings.paceChosen &&
+              ' Fast is the default at 3 players, Normal otherwise.'}
           </p>
         </div>
         <div className="flex flex-col gap-2" data-testid="go-sound-settings">
@@ -387,7 +395,7 @@ function Lobby({
               on={view.settings.voice}
               editable={room.isHost && view.settings.sound !== 'off'}
               title="Auctioneer voice"
-              help="Says the auctioneer’s lines out loud (never ones naming a player)."
+              help="The auctioneer speaks: a welcome the host can skip, every call, and players by their colour. His chants set the auction’s pace, as in the original."
               onChange={(v) =>
                 void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
               }
@@ -556,6 +564,62 @@ function SoldCard({
           Next lot ▸
         </Button>
       )}
+    </Panel>
+  );
+}
+
+/** "Skipping the introduction", for everyone, for the first few seconds of the drawing. */
+function IntroSkipped() {
+  const [shown, setShown] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setShown(false), 6000);
+    return () => clearTimeout(id);
+  }, []);
+  if (!shown) return null;
+  return (
+    <p
+      role="status"
+      data-testid="go-intro-skipped"
+      className="rounded-xl bg-panel px-4 py-2 text-center text-sm ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700"
+    >
+      ⏭ Skipping the introduction
+    </p>
+  );
+}
+
+/**
+ * The auctioneer's spoken welcome and tutorial (voiced games, a room's first game): the words show
+ * in the host strip above; the host can skip it for everyone.
+ */
+function Intro({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
+  return (
+    <Panel className="flex flex-col items-center gap-3 text-center" data-testid="go-intro">
+      <p className="text-4xl" aria-hidden>
+        🎙️
+      </p>
+      <h2 className="text-xl font-bold">Welcome to the auction</h2>
+      <p className="max-w-md text-sm">
+        The auctioneer explains how it works. The drawing starts as soon as he’s done.
+      </p>
+      <Countdown
+        deadline={view.game!.until}
+        clockOffset={room.clockOffset}
+        label="until the drawing"
+      />
+      {room.isHost ? (
+        <Button
+          variant="secondary"
+          onClick={() => void act({ type: 'skip-intro' }, { anchor: 'go-intro' })}
+          data-testid="go-skip-intro"
+        >
+          Skip the introduction ▸
+        </Button>
+      ) : (
+        <p className="text-xs text-ink-muted dark:text-stone-400">
+          {waitingForHost(room, 'skip it')}
+        </p>
+      )}
+      <RefusalSlot anchor="go-intro" />
     </Panel>
   );
 }

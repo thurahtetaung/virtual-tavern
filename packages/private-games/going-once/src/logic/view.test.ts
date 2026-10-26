@@ -14,7 +14,7 @@ import {
   pastIntro,
   started,
 } from './test-utils.ts';
-import type { GoingOnceAction, GoingOnceState } from './types.ts';
+import { GAME_COLORS, type GoingOnceAction, type GoingOnceState } from './types.ts';
 
 const OTHER = encodeDrawing([{ c: 2, w: 2, points: [700, 900, 50, 50] }]);
 const ALL_TITLES = GROUPS.flatMap((g) => g.titles);
@@ -193,7 +193,7 @@ describe('fuzz', () => {
     let now = NOW;
     let state = goingOnce.create(
       { now, rng, content },
-      ids(n).map((id) => ({ id, name: id.toUpperCase() })),
+      ids(n).map((id, i) => ({ id, name: id.toUpperCase(), color: GAME_COLORS[i] })),
     );
     const run = (by: string, action: GoingOnceAction) => {
       const r = goingOnce.reduce(state, action, { by, isHost: by === HOST, now, rng, content });
@@ -203,6 +203,8 @@ describe('fuzz', () => {
       type: 'update-settings',
       pace: (['relaxed', 'normal', 'fast'] as const)[seed % 3],
       practice: seed % 2 === 0,
+      // Some games voiced: the intro, clips said to players by colour, the voice's timing.
+      voice: seed % 5 < 2,
     });
     run(HOST, { type: 'start' });
     let stage = '';
@@ -220,6 +222,9 @@ describe('fuzz', () => {
       if (g.stage === 'draw') {
         const todo = view.mine!.prompts.find((p) => !p.sent);
         if (todo && roll < 0.9) run(id, { type: 'draw', item: todo.item, drawing: OTHER });
+      } else if (g.stage === 'intro' && roll < 0.3) {
+        run(HOST, { type: 'skip-intro' });
+        continue;
       } else if (g.stage === 'practice' && view.game!.practice) {
         const p = view.game!.practice;
         now += 350;

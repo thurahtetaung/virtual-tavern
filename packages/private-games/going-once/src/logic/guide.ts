@@ -110,6 +110,7 @@ const base: GameGuide = {
         'Before any bid the buttons offer $400, $500 and $600; after a bid of $B, $B+100, $B+200 and $B+300.',
         'You can’t raise your own top bid, and you can’t bid more cash than you have.',
         'The clock: about 8 seconds to open, then 4 seconds of quiet after each bid, then “Going once” and “Going twice” (2 seconds each; at the Normal pace 1.5 once the price passes $1,000), then Sold. Any bid restarts the quiet.',
+        'With the auctioneer’s voice on, he sets the pace instead, as in the original: after each bid he says the amount and chants (about 10 to 15 seconds), pauses a second, then going once, going twice, Sold. A new bid cuts the chant and he starts again from the new amount.',
         'If two bids arrive together, the first one the server gets wins; the other player sees the new price and why their bid didn’t count.',
         'No bid at all: the drawing goes unsold and its value is lost to everyone.',
       ],
@@ -189,7 +190,9 @@ const base: GameGuide = {
       level: 'edge',
       bullets: [
         'The host picks where the sound plays: Off, the host’s device only, or every device (the default), all in time with each other.',
-        'Music for each part of the game; effects for every beat, including each player’s own yelp when they bid; and the auctioneer’s voice, off unless the host turns it on. The voice never says a line that names a player.',
+        'Music for each part of the game; effects for every beat, including each player’s own yelp when they bid; and the auctioneer’s voice, off unless the host turns it on.',
+        'With the voice on, a room’s first game opens with his spoken welcome and a short tutorial, which the host can skip; later games go straight to the drawing. He also talks through the drawing, the wrap-up after each sale, half-time and the bank’s visits, and his timing replaces the auction pace.',
+        'He calls players by their colour (“You’re screwed, yellow!”), so every player is one of his seven colours: red, orange, yellow, green, blue, purple or grey. The words on screen show the player’s dot and name with the colour.',
         'A tip’s ring plays on its own player’s device even when only the host’s device plays the rest.',
         'Sound starts after your first tap. Any device can mute itself with 🔊.',
       ],

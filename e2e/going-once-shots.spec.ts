@@ -33,6 +33,19 @@ for (const [label, viewport, colorScheme] of [
     await hana
       .getByTestId('go-sound-settings')
       .screenshot({ path: `test-results/going-once-shots/${label}-01b-sound-settings.png` });
+    // The voice on: the auctioneer sets the pace (greyed); then off again for this game.
+    await hana.getByTestId('go-voice').click();
+    await expect(hana.getByTestId('go-pace-help')).toContainText('The auctioneer sets the pace');
+    await shot(hana, '01c-lobby-voice-on');
+    await hana.getByTestId('go-voice').click();
+    await expect(hana.getByTestId('go-pace-help')).not.toContainText('auctioneer');
+    // The colour picker offers the auctioneer's seven colours.
+    await ben.getByRole('button', { name: /^Players/ }).click();
+    const drawer = ben.getByRole('dialog', { name: 'Players' });
+    await drawer.getByRole('button', { name: 'Change name or colour' }).click();
+    await expect(drawer.getByRole('radiogroup', { name: 'Your colour' })).toBeVisible();
+    await shot(ben, '01d-colour-picker');
+    await ben.keyboard.press('Escape');
     await hana.getByTestId('go-start').click();
 
     for (const [seat, p] of pages.entries()) {

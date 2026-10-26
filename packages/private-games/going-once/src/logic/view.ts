@@ -145,10 +145,14 @@ function gameView(state: GoingOnceState, g: Game): GameView {
         })
       : null,
     winners: [...g.winners],
+    voiced: g.voiced === true,
+    introSkipped: g.introSkipped === true,
     host: g.host
       ? {
           id: g.host.id,
           lines: [...g.host.lines],
+          ...(g.host.clips && { clips: g.host.clips.map((c) => ({ ...c })) }),
+          ...(g.host.ms !== undefined && { ms: g.host.ms }),
           ...(g.host.moments && { moments: [...g.host.moments] }),
           ...(g.host.named && { named: [...g.host.named] }),
           ...(g.host.at !== undefined && { at: g.host.at }),

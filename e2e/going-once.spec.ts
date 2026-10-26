@@ -42,6 +42,22 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
   await expect(ben.getByTestId('go-voice')).toHaveAttribute('aria-checked', 'false');
   await hana.getByTestId('go-voice').click();
   await expect(ben.getByTestId('go-voice')).toHaveAttribute('aria-checked', 'true');
+  // With the voice on, the auctioneer sets the pace: the pace control is greyed with a note.
+  await expect(hana.getByTestId('go-pace-help')).toContainText('The auctioneer sets the pace');
+  await expect(hana.getByRole('radio', { name: 'Fast' })).toBeDisabled();
+  // This game plays without the voice (its chants would make every lot several times longer).
+  await hana.getByTestId('go-voice').click();
+  await expect(ben.getByTestId('go-voice')).toHaveAttribute('aria-checked', 'false');
+  await expect(hana.getByRole('radio', { name: 'Fast' })).toBeEnabled();
+  // The room offers only the auctioneer's seven colours.
+  await ben.getByRole('button', { name: /^Players/ }).click();
+  const drawer = ben.getByRole('dialog', { name: 'Players' });
+  await drawer.getByRole('button', { name: 'Change name or colour' }).click();
+  await expect(
+    drawer.getByRole('radiogroup', { name: 'Your colour' }).getByRole('radio'),
+  ).toHaveCount(7);
+  await ben.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
   await expect(ben.getByTestId('go-practice-setting')).toHaveAttribute('aria-checked', 'true');
   await hana.getByTestId('go-start').click();
 

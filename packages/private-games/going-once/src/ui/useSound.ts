@@ -4,6 +4,7 @@ import { type ManifestState, assetUrl } from './assets.ts';
 import {
   type AudioManifest,
   CROSSFADE_MS,
+  CUT_MS,
   type Cue,
   DEFAULT_VOLUME,
   DUCK_FADE_MS,
@@ -16,7 +17,6 @@ import {
   musicLevel,
   ownCues,
   ramp,
-  voiceClip,
   voiceCues,
 } from './audio.ts';
 
@@ -161,6 +161,22 @@ function playEffect(src: string, volume: number, maxMs?: number) {
   }
 }
 
+/** Fades a voice clip out over `CUT_MS`, stops it, then goes on with `then`. */
+function cutVoice(el: HTMLAudioElement, then: () => void) {
+  const from = el.volume;
+  const start = Date.now();
+  const id = setInterval(() => {
+    const t = Date.now() - start;
+    el.volume = Math.max(0, ramp(from, 0, t, CUT_MS));
+    if (t < CUT_MS) return;
+    clearInterval(id);
+    el.pause();
+    el.removeAttribute('src');
+    el.volume = from;
+    then();
+  }, 40);
+}
+
 /**
  * The room's sound on this device, as the host set it: music per phase, an effect on every beat
  * (and this player's own hint rings and actions), and the auctioneer's voice when it is on.
@@ -189,6 +205,7 @@ export function useSound({
   const played = useRef(new Set<string>());
   const voiceQueue = useRef<Cue[]>([]);
   const voiceEl = useRef<HTMLAudioElement | null>(null);
+  const voiceHost = useRef('');
   const [speaking, setSpeaking] = useState(false);
   const mixer = useRef<Mixer | null>(null);
   const prev = useRef<GoingOnceView | null>(null);
@@ -203,14 +220,6 @@ export function useSound({
     prev.current = view;
   }, [view, clockOffset]);
 
-  const lengthOf = useCallback(
-    (key: string) => {
-      const list = audio?.voice?.[key] ?? [];
-      return list.reduce((m, p) => Math.max(m, audio?.durations?.[p] ?? 0), 0);
-    },
-    [audio],
-  );
-
   // Effects and the voice: due cues play once, where this device plays them.
   useEffect(() => {
     if (!on) return;
@@ -223,13 +232,14 @@ export function useSound({
       const queue = voiceQueue.current.filter((c) => now <= (c.until ?? c.at));
       const next = queue.shift();
       voiceQueue.current = queue;
-      const src = next ? voiceClip(audio, next) : null;
+      const src = next ? clipOf(audio?.voice, next.key, next.pick ?? 0) : null;
       if (!next || !src) {
         setSpeaking(false);
         if (next) playVoice();
         return;
       }
       el.src = assetUrl(src);
+      voiceHost.current = next.id.split(':')[0]!;
       el.volume = Math.max(0, Math.min(1, device.volume));
       el.onended = () => playVoice();
       el.onerror = () => playVoice();
@@ -238,18 +248,21 @@ export function useSound({
     };
     const check = () => {
       const now = Date.now() + clockOffset;
-      const cues = [...effectCues(view, you), ...voiceCues(view, lengthOf), ...own.current];
+      const cues = [...effectCues(view, you), ...voiceCues(view), ...own.current];
       for (const cue of dueCues(cues, now, played.current)) {
         played.current.add(cue.id);
         if (!cuePlays(cue, opts)) continue;
         if (cue.kind === 'voice') {
           const host = cue.id.split(':')[0];
-          // Lines from an older host moment give way to the new one.
+          // Lines from an older host moment give way to the new one: a chant a new bid cuts off
+          // fades out quickly first.
           voiceQueue.current = [
             ...voiceQueue.current.filter((c) => c.id.split(':')[0] === host),
             cue,
           ];
-          playVoice();
+          const el = voiceEl.current;
+          if (el && !el.paused && voiceHost.current !== host) cutVoice(el, playVoice);
+          else playVoice();
         } else {
           const src = clipOf(audio?.sfx, cue.key, cue.pick ?? cue.at);
           if (src) playEffect(src, device.volume, cue.maxMs);
@@ -262,7 +275,7 @@ export function useSound({
     return () => {
       clearInterval(id);
     };
-  }, [on, view, you, clockOffset, audio, mode, isHost, effects, voice, device.volume, lengthOf]);
+  }, [on, view, you, clockOffset, audio, mode, isHost, effects, voice, device.volume]);
 
   // A device that goes quiet stops talking at once.
   useEffect(() => {

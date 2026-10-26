@@ -16,6 +16,8 @@ export function statusFor(view: GoingOnceView, you: string, name: NameOf, names:
   if (!g) return { text: '', yourMove: false };
   const lot = g.auction ? `Lot ${g.auction.lot + 1} of ${g.lotCount}` : '';
   switch (g.stage) {
+    case 'intro':
+      return { text: 'The auctioneer welcomes you…', yourMove: false };
     case 'draw': {
       if (!mine) return { text: 'Everyone is drawing.', yourMove: false };
       const todo = mine.prompts.findIndex((p) => !p.sent);

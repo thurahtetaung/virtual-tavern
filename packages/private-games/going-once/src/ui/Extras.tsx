@@ -1,4 +1,4 @@
-import { storageKey } from '@vt/game-sdk';
+import { PLAYER_COLOR_NAMES, type PlayerColor, storageKey } from '@vt/game-sdk';
 import { Button, PLAYER_DOT, PlayerTag, ProtectedImage, cn, usePlayerColor } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { money } from '../logic/lines.ts';
@@ -8,22 +8,40 @@ import {
   type Buyer,
   type FinalView,
   type GoingOnceView,
+  type HostClip,
   type Message,
   type Sender,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
-import { RACKUP_BEAT_MS } from './audio.ts';
+import { RACKUP_BEAT_MS, clipNow } from './audio.ts';
 import { type NameOf, SENDERS, whyLine } from './text.ts';
 
-/** What the host says now, as on-screen text (from the private host pack; nothing without it). */
-export function HostStrip({ view }: { view: GoingOnceView }) {
+/**
+ * What the host says now, as on-screen text: the text pack's lines, or in a voiced game the words
+ * of the clip being said (`clipNow`), with a player the clip names by colour shown as their dot,
+ * name and colour word ("You're screwed, ● Kim (yellow)!").
+ */
+export function HostStrip({
+  view,
+  art,
+  name,
+  clockOffset,
+}: {
+  view: GoingOnceView;
+  art: Art;
+  name: NameOf;
+  clockOffset: number;
+}) {
   const host = view.game?.host;
-  if (!host?.lines.length) return null;
+  const voicedLine = !!host?.clips?.length;
+  const now = useClock(clockOffset, voicedLine);
+  const clip = voicedLine ? clipNow(host, now, (c) => art.voiceWords(c.key, c.i) !== '') : null;
+  if (!host || (!voicedLine && !host.lines.length) || (voicedLine && !clip)) return null;
   const close = view.game?.stage === 'auction' ? view.game.auction?.close : null;
   const big = close === 'once' || close === 'twice';
   return (
     <p
-      key={host.id}
+      key={voicedLine ? `${host.id}:${clip!.key}:${clip!.i}` : host.id}
       aria-live="polite"
       data-testid="go-host"
       className={cn(
@@ -35,8 +53,51 @@ export function HostStrip({ view }: { view: GoingOnceView }) {
         🎙️
       </span>
       <span className="sr-only">The auctioneer: </span>
-      <span>{host.lines.join(' ')}</span>
+      <span>
+        {clip ? (
+          <Subtitle words={art.voiceWords(clip.key, clip.i)} clip={clip} name={name} />
+        ) : (
+          host.lines.join(' ')
+        )}
+      </span>
     </p>
+  );
+}
+
+/** Server time, ticking every 200 ms while `on`. */
+function useClock(clockOffset: number, on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [on]);
+  return now + clockOffset;
+}
+
+/** The colour word a colour-named clip says ("Gray" in the recordings is our grey). */
+const COLOR_WORD: Partial<Record<PlayerColor, string>> = { grey: 'gr[ae]y' };
+
+/**
+ * A clip's words, with the colour it says out loud shown as the player it names: their dot and
+ * name, then the colour word, so everyone links the spoken colour to the person.
+ */
+export function Subtitle({ words, clip, name }: { words: string; clip: HostClip; name: NameOf }) {
+  const color = clip.player ? (clip.key.split('-').at(-1) as PlayerColor) : null;
+  if (!clip.player || !color || !PLAYER_COLOR_NAMES[color]) return <>{words}</>;
+  const match = new RegExp(`\\b(${COLOR_WORD[color] ?? color})\\b`, 'i').exec(words);
+  const who = (
+    <span className="not-italic" data-testid="go-host-player">
+      <PlayerTag name={name(clip.player)} /> ({PLAYER_COLOR_NAMES[color]})
+    </span>
+  );
+  if (!match) return <>{words}</>;
+  return (
+    <>
+      {words.slice(0, match.index)}
+      {who}
+      {words.slice(match.index + match[0].length)}
+    </>
   );
 }
 

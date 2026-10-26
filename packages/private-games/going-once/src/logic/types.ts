@@ -305,7 +305,9 @@ export interface RecentBid {
 /** Bids kept in `Auction.recent`. */
 export const RECENT_BIDS = 4;
 
-export type Stage = 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
+/** `intro`: the auctioneer's spoken welcome and tutorial (voiced games only, the host can skip). */
+export type Stage =
+  'intro' | 'draw' | 'practice' | 'auction' | 'sold' | 'halftime' | 'bank' | 'done';
 
 /** The practice lot in play (none of it counts). */
 export interface Practice {
@@ -400,6 +402,12 @@ export interface Game {
   contacts?: Record<PlayerId, Buyer>;
   /** The practice lot, while it runs. */
   practice?: Practice | null;
+  /** The auctioneer's voice is on (the host's switch with sound on, at the start): it sets the pace. */
+  voiced?: boolean;
+  /** The voice has explained buying your own drawing once this game. */
+  ownArtTold?: boolean;
+  /** The host skipped the spoken introduction. */
+  introSkipped?: boolean;
 }
 
 /** A title group kept for a redraw. */
@@ -409,10 +417,22 @@ export interface TitleGroupRef {
   house: string[];
 }
 
+/** One voice clip the auctioneer says: a key and clip number into the manifest's `audio.voice`. */
+export interface HostClip {
+  key: string;
+  i: number;
+  ms: number;
+  /** The player a colour-named clip ("You're screwed, yellow!") is said to. */
+  player?: PlayerId;
+}
+
 export interface HostLine {
   id: number;
-  /** One to three short lines, in order. */
+  /** One to three short lines, in order (text games; voiced games say `clips`). */
   lines: string[];
+  /** Voiced games: the clips said from `at`, one after the other, `ms` in all. */
+  clips?: HostClip[];
+  ms?: number;
   /** The moment each line was said for (the voice plays the matching clip), and when. */
   moments?: string[];
   /** Lines that name a player: the voice never says those. */
@@ -486,6 +506,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     seq: z.number().int().min(0),
   }),
   z.object({ type: z.literal('skip-practice') }),
+  z.object({ type: z.literal('skip-intro') }),
   z.object({ type: z.literal('screw') }),
   z.object({ type: z.literal('screw-pick'), target: id }),
   z.object({ type: z.literal('call-bank') }),
@@ -642,6 +663,10 @@ export interface GameView {
   host: HostLine | null;
   /** The game ended because nobody drew anything, twice. */
   ended: 'no-drawings' | null;
+  /** The auctioneer's voice sets the pace this game. */
+  voiced: boolean;
+  /** The host skipped the spoken introduction (intro stage). */
+  introSkipped: boolean;
   /** This drawing round is the redraw. */
   redraw: boolean;
   /** Each player's paddle shape. */

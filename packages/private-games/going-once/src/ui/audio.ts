@@ -1,4 +1,5 @@
-import type { GoingOnceView, Sender, SoundMode } from '../logic/types.ts';
+import type { GoingOnceView, HostClip, HostLine, Sender, SoundMode } from '../logic/types.ts';
+import { CLIP_GAP_MS } from '../logic/voice.ts';
 
 // The pure half of the sound: which music plays, which clips play when, and how loud. The React
 // hook in `useSound.ts` only turns these decisions into audio elements, so everything here is
@@ -24,6 +25,8 @@ export const MUSIC_SHARE = 0.35;
 export const DUCK_RATIO = 0.3;
 export const CROSSFADE_MS = 1000;
 export const DUCK_FADE_MS = 250;
+/** A voice clip cut off by a newer line (a chant when a new bid lands) fades out this fast. */
+export const CUT_MS = 200;
 /** A cue seen more than this long after its moment is dropped. */
 export const STALE_MS = 1500;
 /** A hint's ring is cut short after this long (the clips are whole ringtones). */
@@ -61,6 +64,8 @@ export function musicFor(view: GoingOnceView): { key: string; pick: number } | n
   const g = view.game;
   if (view.phase === 'lobby' || !g) return { key: 'lobby', pick: 0 };
   switch (g.stage) {
+    case 'intro':
+      return { key: 'tutorial', pick: 0 };
     case 'draw':
       // Every device picks the same track from when the drawing began.
       return { key: 'draw', pick: Math.floor(g.since / 1000) };
@@ -91,53 +96,38 @@ export function clipOf(
   return list[((pick % list.length) + list.length) % list.length]!;
 }
 
-/** Words as the voice clips are matched: letters and digits only ("$2,000!" is "2000"). */
-export const wordsKey = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/^(redo|new version)\s+/i, '')
-    .replace(/[^a-z0-9]/g, '');
-
 /**
- * The voice clip for a line on screen: one of the key's clips saying exactly those words, else
- * one of the key's clips (the same moment in other words), picked the same way on every device.
+ * Where each clip of a voiced host line starts, on the server clock: one after the other from
+ * when it was said, as the server timed them (`CLIP_GAP_MS` apart).
  */
-export function voiceClip(audio: AudioManifest | undefined, cue: Cue): string | null {
-  const list = audio?.voice?.[cue.key]?.filter((p) => typeof p === 'string' && p) ?? [];
-  if (!list.length) return null;
-  const want = cue.text ? wordsKey(cue.text) : '';
-  const same = want ? list.filter((p) => wordsKey(audio?.text?.[p] ?? '') === want) : [];
-  const from = same.length ? same : list;
-  return from[(cue.pick ?? 0) % from.length]!;
+export function clipTimes(host: Pick<HostLine, 'at' | 'clips'>): number[] {
+  const out: number[] = [];
+  let t = host.at ?? 0;
+  for (const c of host.clips ?? []) {
+    out.push(t);
+    t += c.ms + CLIP_GAP_MS;
+  }
+  return out;
 }
 
-/** The voice key a host moment speaks with, or null for moments the voice never says. */
-export function voiceKeyFor(moment: string): string | null {
-  if (/^bid-(\d+|high)$/.test(moment)) return moment;
-  switch (moment) {
-    case 'opening':
-    case 'opening-first':
-      return 'opening';
-    case 'draw-seconds':
-      return 'seconds-left';
-    case 'going-once':
-    case 'going-once-fast':
-    case 'going-twice':
-    case 'going-twice-fast':
-    case 'sold':
-    case 'no-bids-1':
-    case 'no-bids-2':
-    case 'unsold':
-    case 'windfall':
-    case 'ouch':
-    case 'even':
-    case 'screw-fail':
-    case 'screw-lost':
-    case 'end-intro':
-      return moment;
-    default:
-      return null;
+/**
+ * The clip being said at `now` that has words (a chant has none, so the line before it stays on
+ * screen), or null before the first or once the last has ended.
+ */
+export function clipNow(
+  host: Pick<HostLine, 'at' | 'clips'> | null | undefined,
+  now: number,
+  hasWords: (c: HostClip) => boolean,
+): HostClip | null {
+  const clips = host?.clips ?? [];
+  const times = clipTimes(host ?? {});
+  let shown: HostClip | null = null;
+  for (let i = 0; i < clips.length; i++) {
+    if (times[i]! > now) break;
+    if (hasWords(clips[i]!)) shown = clips[i]!;
   }
+  const last = clips.length ? times.at(-1)! + clips.at(-1)!.ms + 2000 : 0;
+  return now <= last ? shown : null;
 }
 
 /** Each sender's ring (a list index into the manifest's `message` effects). */
@@ -203,6 +193,7 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
   switch (g.stage) {
     case 'draw': {
       const id = `draw:${g.since}`;
+      if (g.introSkipped) out.push(sfx(`${id}:skip`, g.since, 'skip'));
       out.push(sfx(`${id}:in`, g.since, 'timer-in'));
       for (let s = 10; s >= 1; s--) {
         const at = g.until - s * 1000 * scale;
@@ -295,9 +286,19 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
       out.push(sfx(`half:${g.since}:out`, g.since, 'screws-out'));
       out.push(sfx(`half:${g.since}:in`, g.since + 700, 'screws-in'));
       break;
-    case 'bank':
+    case 'bank': {
       out.push(sfx(`bank:${g.since}`, g.since, 'bank-ring'));
+      // Voiced: the loan people's bumper on their first visit, and their jingle once they've spoken.
+      const host = g.host;
+      if (g.voiced && host?.clips?.length && host.at !== undefined) {
+        if (host.clips[0]!.key === 'bank-first')
+          out.push(sfx(`bank:${g.since}:bumper`, host.at + host.clips[0]!.ms, 'bank-bumper'));
+        out.push(
+          sfx(`bank:${g.since}:tag`, host.at + (host.ms ?? 0) + 200, 'bank-tag', { pick: host.id }),
+        );
+      }
       break;
+    }
     case 'done': {
       if (g.ended || !g.final) break;
       const id = `end:${g.since}`;
@@ -319,40 +320,21 @@ export function effectCues(view: GoingOnceView, you: string | null): Cue[] {
 }
 
 /**
- * What the auctioneer says, as voice cues: each line on screen whose moment the voice has and
- * which names nobody, one after another from when it was said. A bid reaction (and a call) must
- * start before the close moves on, so a newer bid drops it.
+ * What the auctioneer says, as voice cues: each clip the server picked, at the moment it is due.
+ * A clip a device can't start in time is dropped (a newer line replaces the rest).
  */
-export function voiceCues(view: GoingOnceView, lengths: (key: string) => number): Cue[] {
-  const g = view.game;
-  const host = g?.host;
-  if (!g || !host?.moments || host.at === undefined) return [];
-  const live = g.stage === 'auction' ? g.auction : null;
-  const practice = g.stage === 'practice' ? g.practice : null;
-  const closeAt = live?.closeAt ?? (practice?.step === 'bid' ? practice.closeAt : null);
-  const out: Cue[] = [];
-  host.lines.forEach((line, i) => {
-    const moment = host.moments![i];
-    // The congratulations name the buyer, so the voice says the "Sold!" the card shows instead.
-    const sold = moment === 'congrats';
-    const key = sold ? 'sold' : moment ? voiceKeyFor(moment) : null;
-    if (!key || (host.named?.[i] && !sold)) return;
-    const text = sold ? 'Sold!' : line;
-    const timed = /^bid-|^going-/.test(moment!);
-    // A reaction that wouldn't finish before the close moves on is skipped.
-    const until =
-      timed && closeAt !== null ? closeAt - lengths(key) : host.at! + STALE_MS + i * 4000;
-    out.push({
-      id: `host${host.id}:${i}`,
-      at: host.at!,
-      kind: 'voice',
-      key,
-      text,
-      pick: host.id,
-      until,
-    });
-  });
-  return out;
+export function voiceCues(view: GoingOnceView): Cue[] {
+  const host = view.game?.host;
+  if (!host?.clips?.length || host.at === undefined) return [];
+  const times = clipTimes(host);
+  return host.clips.map((c, i) => ({
+    id: `host${host.id}:${i}`,
+    at: times[i]!,
+    kind: 'voice' as const,
+    key: c.key,
+    pick: c.i,
+    until: times[i]! + Math.min(STALE_MS, c.ms),
+  }));
 }
 
 /** Cues due now that haven't played: their moment has come and isn't too long gone. */

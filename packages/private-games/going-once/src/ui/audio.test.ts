@@ -7,13 +7,13 @@ import {
   bid,
   game,
   hammer,
+  harness,
   nextLot,
   packContent,
   started,
 } from '../logic/test-utils.ts';
 import { halfAt } from '../logic/setup.ts';
 import {
-  type AudioManifest,
   type Cue,
   DUCK_RATIO,
   MUSIC_SHARE,
@@ -25,13 +25,13 @@ import {
   dueCues,
   effectCues,
   musicFor,
+  clipNow,
+  clipTimes,
   musicLevel,
   ownCues,
-  voiceClip,
   voiceCues,
-  voiceKeyFor,
-  wordsKey,
 } from './audio.ts';
+import { CLIP_GAP_MS } from '../logic/voice.ts';
 
 const keys = (cues: Cue[]) => cues.map((c) => c.key);
 
@@ -199,62 +199,52 @@ describe('effects', () => {
 });
 
 describe('the auctioneer’s voice', () => {
-  const hostPack = {
-    'opening-first': ['First up.'],
-    'bid-400': ['We have $400.'],
-    congrats: ['Well done, {player}!'],
-    sold: ['Sold!'],
-    'going-once': ['Going once...'],
-  };
-
-  it('says only lines that name nobody, for moments it has, from when they were said', () => {
-    const h = started(3, 3, packContent(undefined, {}, hostPack));
+  /** A voiced game at its first lot (the intro skipped, everything drawn). */
+  function voiced() {
+    const h = harness(3, 5);
+    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: false, voice: true });
+    h.act(HOST, { type: 'start' });
+    h.act(HOST, { type: 'skip-intro' });
     const g = game(h);
     for (const id of g.order)
       for (const item of g.prompts[id]!) h.act(id, { type: 'draw', item, drawing: SQUIGGLE });
     h.tick();
+    return h;
+  }
+
+  it('plays each clip the server picked, one after the other, from when it was said', () => {
+    const h = voiced();
     bid(h, 'p2', 400);
     const v = goingOnce.view(h.state, 'p1');
-    const cues = voiceCues(v, () => 1500);
-    expect(cues).toHaveLength(1);
-    expect(cues[0]).toMatchObject({ key: 'bid-400', text: 'We have $400.', at: h.now });
-    // A reaction must finish before the quiet ends.
-    expect(cues[0]!.until).toBe(v.game!.auction!.closeAt - 1500);
-    hammer(h);
-    const sold = voiceCues(goingOnce.view(h.state, 'p1'), () => 1000);
-    // "Well done, P2!" names a player: the voice says the Sold card's "Sold!" instead.
-    expect(game(h).host!.lines[0]).toBe('Well done, P2!');
-    expect(sold.map((c) => [c.key, c.text])).toEqual([['sold', 'Sold!']]);
+    const host = v.game!.host!;
+    const cues = voiceCues(v);
+    expect(cues.map((c) => [c.key, c.pick])).toEqual(host.clips!.map((c) => [c.key, c.i]));
+    expect(cues[0]!.at).toBe(h.now);
+    expect(cues[1]!.at).toBe(h.now + host.clips![0]!.ms + CLIP_GAP_MS);
+    expect(clipTimes(host)).toEqual(cues.map((c) => c.at));
+    // A text game has no voice.
+    const quiet = started(3, 3, packContent(undefined, {}, { 'draw-start': ['Draw!'] }));
+    expect(voiceCues(goingOnce.view(quiet.state, 'p1'))).toEqual([]);
   });
 
-  it('maps moments to the clips’ keys and leaves out the ones never voiced', () => {
-    expect(voiceKeyFor('bid-1200')).toBe('bid-1200');
-    expect(voiceKeyFor('bid-high')).toBe('bid-high');
-    expect(voiceKeyFor('opening-first')).toBe('opening');
-    expect(voiceKeyFor('draw-seconds')).toBe('seconds-left');
-    expect(voiceKeyFor('congrats')).toBeNull();
-    expect(voiceKeyFor('bank-first')).toBeNull();
-    expect(voiceKeyFor('quiet')).toBeNull();
+  it('shows the words of the clip being said; a chant keeps the line before it on screen', () => {
+    const h = voiced();
+    bid(h, 'p2', 400);
+    const host = goingOnce.view(h.state, 'p1').game!.host!;
+    const words = (c: { key: string }) => !c.key.startsWith('chant');
+    const [line, chant] = host.clips!;
+    expect(clipNow(host, h.now - 1, words)).toBeNull();
+    expect(clipNow(host, h.now, words)).toEqual(line);
+    // During the chant the bid line stays.
+    expect(clipNow(host, h.now + line!.ms + CLIP_GAP_MS + 100, words)).toEqual(line);
+    expect(clipNow(host, h.now + line!.ms + chant!.ms + 60_000, words)).toBeNull();
   });
 
-  it('plays the clip saying the words on screen, else one of the moment’s, the same everywhere', () => {
-    const audio: AudioManifest = {
-      voice: { 'bid-900': ['a.ogg', 'b.ogg', 'c.ogg'] },
-      text: { 'a.ogg': 'REDO 900, I see 900', 'b.ogg': 'We have 900', 'c.ogg': '900' },
-    };
-    const cue = (text: string, pick: number): Cue => ({
-      id: 'x',
-      at: 0,
-      kind: 'voice',
-      key: 'bid-900',
-      text,
-      pick,
-    });
-    expect(wordsKey('$900, I see $900.')).toBe(wordsKey('REDO 900, I see 900'));
-    expect(voiceClip(audio, cue('We have $900.', 5))).toBe('b.ogg');
-    expect(voiceClip(audio, cue('$900!', 2))).toBe('c.ogg');
-    expect(voiceClip(audio, cue('Nine hundred, sir.', 4))).toBe('b.ogg');
-    expect(voiceClip(audio, { ...cue('x', 0), key: 'nothing' })).toBeNull();
+  it('plays the welcome’s music while the introduction runs', () => {
+    const h = harness(3, 5);
+    h.act(HOST, { type: 'update-settings', practice: false, voice: true });
+    h.act(HOST, { type: 'start' });
+    expect(musicFor(goingOnce.view(h.state, 'p1'))).toEqual({ key: 'tutorial', pick: 0 });
   });
 });
 
