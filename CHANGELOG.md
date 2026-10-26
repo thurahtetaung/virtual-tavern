@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.0...v0.62.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **back-room:** name games by their title in lobbies and start messages ([#364](https://github.com/thurahtetaung/virtual-tavern/issues/364)) ([bde9dca](https://github.com/thurahtetaung/virtual-tavern/commit/bde9dca2f5a169c4fd61701fc774f15742e57ecc))
+
 ## [0.62.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.61.0...v0.62.0) (2026-10-26)
 
 
