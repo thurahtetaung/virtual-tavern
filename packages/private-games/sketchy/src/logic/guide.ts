@@ -40,7 +40,7 @@ const base: GameGuide = {
   ],
   setup: [
     'Up to 8 players can play; anyone else in the room watches. Use “Sit out (watch)” to sit out, and “Take a seat” to play again.',
-    'The host picks the prompt packs, whether adult prompts are dealt, and the timers.',
+    'The host picks the prompt packs, friend mode (prompts about the players themselves, off by default), whether adult prompts are dealt, the timers and the sound.',
     'The host presses Start. You need at least 3 players.',
   ],
   sections: [
@@ -80,6 +80,14 @@ const base: GameGuide = {
       title: 'Timers',
       paragraphs: [
         'The timers are reminders by default: 130 seconds to draw, 40 to write a title and 30 to pick, and the game waits for everyone. Each stage ends once everyone is in. The host can change each timer, or make them strict: then when time runs out, whatever you’ve drawn is sent (a blank page means no drawing this round), picking starts without the fake titles still missing, and anyone who hasn’t picked scores nothing and loses their streak.',
+      ],
+    },
+    {
+      title: 'Table screen and sound',
+      bullets: [
+        'A TV or laptop paired as the room’s table screen shows the whole party: the pencils, each drawing coming up, the choices and the reveal. The phones then show only your own cues.',
+        'The host picks where the sound plays: the host’s device (the default), every device, the table screen, or nowhere. With a table screen paired, it plays there until the host picks otherwise. Each phone still makes its own little sounds.',
+        'Music and effects are on by default. The narrator is off unless the host switches it on; with it on, some prompts get a joke once they’re revealed.',
       ],
     },
     {

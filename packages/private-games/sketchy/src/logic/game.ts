@@ -22,6 +22,7 @@ import {
 } from './content.ts';
 import {
   ARTIST_POINTS,
+  DEFAULT_SOUND,
   DEFAULT_DRAW_SECONDS,
   DEFAULT_VOTE_SECONDS,
   DEFAULT_WRITE_SECONDS,
@@ -114,6 +115,10 @@ export const streakBonus = (streak: number) => STREAK_POINTS * Math.max(0, strea
 
 // ---- Helpers ----
 
+/** The packs a new room starts with: all but friend mode, which the host switches on. */
+const defaultPacks = (packs: readonly PackSummary[]) =>
+  packs.filter((p) => !p.friends).map((p) => p.id);
+
 function withGame(state: SketchyState, patch: Partial<Game>): SketchyState {
   return { ...state, game: { ...state.game!, ...patch } };
 }
@@ -175,6 +180,7 @@ function beginRound(state: SketchyState, round: number, now: number): SketchySta
       at: 0,
       turn: null,
       deadline: deadline(state.settings.drawSeconds, now),
+      since: now,
     },
   };
 }
@@ -223,6 +229,7 @@ function beginTurn(state: SketchyState, now: number): SketchyState {
     turn,
     decoyAt,
     deadline: deadline(state.settings.writeSeconds, now),
+    since: now,
   });
   // Nobody left to write (everyone else left): straight on.
   return writers.length === 0 ? maybeStartVoting(next, now, true) : next;
@@ -296,6 +303,7 @@ function maybeStartVoting(state: SketchyState, now: number, force = false): Sket
   return withGame(withTurn({ ...state, seed }, { options, voters }), {
     stage: 'vote',
     deadline: deadline(state.settings.voteSeconds, now),
+    since: now,
   });
 }
 
@@ -362,6 +370,7 @@ function reveal(state: SketchyState, now: number): SketchyState {
       stage: 'reveal',
       streaks,
       deadline: null,
+      since: now,
       turn: { ...turn, points, streakBonus: bonus, revealedAt: now },
     },
   };
@@ -459,6 +468,13 @@ function updateSettings(
   if (action.writeSeconds !== undefined) settings.writeSeconds = action.writeSeconds;
   if (action.voteSeconds !== undefined) settings.voteSeconds = action.voteSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
+  if (action.sound !== undefined) {
+    settings.sound = action.sound;
+    settings.soundChosen = true;
+  }
+  if (action.music !== undefined) settings.music = action.music;
+  if (action.effects !== undefined) settings.effects = action.effects;
+  if (action.voice !== undefined) settings.voice = action.voice;
   return { ...state, settings };
 }
 
@@ -757,7 +773,7 @@ function refreshPacks(state: SketchyState, content: ContentProvider): SketchySta
   const packs = promptPacks(content);
   const offered = new Set(packs.map((p) => p.id));
   const kept = state.settings.packIds.filter((id) => offered.has(id));
-  const packIds = kept.length ? kept : packs.map((p) => p.id);
+  const packIds = kept.length ? kept : defaultPacks(packs);
   const same =
     packIds.length === state.settings.packIds.length &&
     packIds.every((id, i) => id === state.settings.packIds[i]);
@@ -803,12 +819,13 @@ export function create(ctx: CreateCtx, players: readonly PlayerInfo[]): SketchyS
   return {
     phase: 'lobby',
     settings: {
-      packIds: packs.map((p) => p.id),
+      packIds: defaultPacks(packs),
       adult: false,
       drawSeconds: DEFAULT_DRAW_SECONDS,
       writeSeconds: DEFAULT_WRITE_SECONDS,
       voteSeconds: DEFAULT_VOTE_SECONDS,
       timerMode: 'soft',
+      ...DEFAULT_SOUND,
     },
     seats: Object.fromEntries(
       players.map((p, i) => [p.id, { name: p.name, playing: i < MAX_PLAYERS }]),

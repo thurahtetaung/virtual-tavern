@@ -1,15 +1,16 @@
 import type { PlayerId } from '@vt/game-sdk';
 import { canLike, missingPlayers } from './game.ts';
-import type {
-  Game,
-  GameView,
-  OptionView,
-  Role,
-  ScoreView,
-  SketchyState,
-  SketchyView,
-  Turn,
-  TurnView,
+import {
+  DEFAULT_SOUND,
+  type Game,
+  type GameView,
+  type OptionView,
+  type Role,
+  type ScoreView,
+  type SketchyState,
+  type SketchyView,
+  type Turn,
+  type TurnView,
 } from './types.ts';
 
 // What each viewer may see. This is the security boundary: the prompts, who drew what, who wrote
@@ -114,6 +115,7 @@ function gameView(state: SketchyState, g: Game, viewer: PlayerId | null): GameVi
     streaks: g.streaks,
     history: g.history,
     deadline: state.phase === 'playing' ? g.deadline : null,
+    since: g.since ?? 0,
   };
 }
 
@@ -131,7 +133,7 @@ export function view(state: SketchyState, viewer: PlayerId | null): SketchyView 
   const mySeat = viewer === null ? undefined : state.seats[viewer];
   return {
     phase: state.phase,
-    settings: state.settings,
+    settings: { ...DEFAULT_SOUND, ...state.settings },
     seats: Object.entries(state.seats).map(([id, s]) => ({ id, ...s })),
     me: mySeat && viewer !== null ? { id: viewer, ...mySeat } : null,
     role: roleOf(state, viewer),

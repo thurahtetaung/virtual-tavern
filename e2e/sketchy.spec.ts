@@ -5,6 +5,7 @@ import {
   drawAndSend,
   importPacks,
   like,
+  pairTableScreen,
   pick,
   results,
   scoreOf,
@@ -134,4 +135,49 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await cleo.getByText(/Every drawing \(6\)/).click();
   await expect(cleo.getByTestId('sketchy-history').getByRole('listitem')).toHaveCount(6);
   await expect(cleo.getByTestId('sketchy-history')).toContainText('drew “purple elephant”');
+});
+
+test('a table screen shows the drawing party while the phones go quiet', async ({ browser }) => {
+  test.setTimeout(180_000);
+  cleanup.push(await importPacks(browser));
+  const [hana, ben, cleo] = (await table(browser, ['Hana', 'Ben', 'Cleo'], PHONE)) as [
+    Page,
+    Page,
+    Page,
+  ];
+  const all = [hana, ben, cleo];
+  const tv = await pairTableScreen(browser, hana);
+  const stage = tv.getByTestId('sk-stage');
+  for (const name of ['Hana', 'Ben', 'Cleo']) await expect(stage.getByText(name)).toBeVisible();
+
+  // With a table screen paired, the sound goes to it until the host picks otherwise.
+  await expect(
+    hana.getByTestId('sketchy-sound-settings').getByRole('button', { name: 'Table screen' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await hana.getByRole('button', { name: 'Start game' }).click();
+  await expect(stage).toHaveAttribute('data-phase', 'draw');
+  await expect(stage.getByText('It’s drawing time!')).toBeVisible();
+  for (const p of all) await drawAndSend(p);
+
+  // Hana's drawing on the TV; the titles come in, then the choices.
+  await expect(stage).toHaveAttribute('data-phase', 'turn');
+  await expect(stage.getByTestId('sk-stage-drawing')).toBeVisible();
+  await writeLie(ben, 'grape monster');
+  await expect(stage.getByTestId('sk-stage-progress')).toHaveText('1 of 2 titles in');
+  await writeLie(cleo, 'violet hippo');
+  await expect(stage.getByText('violet hippo')).toBeVisible();
+  await pick(ben, 'violet hippo');
+  await pick(cleo, 'purple elephant');
+
+  // The reveal on the TV: Cleo's lie turns over first, then the truth.
+  const card = stage.getByTestId('sk-stage-card');
+  await expect(card).toHaveAttribute('data-face', 'lie', { timeout: 10_000 });
+  await expect(card).toHaveAttribute('data-face', 'truth', { timeout: 10_000 });
+  // Then the board waits for Next: the real title and the scores stay up.
+  await expect(stage.getByText('“purple elephant”')).toBeVisible({ timeout: 10_000 });
+  await expect(stage.getByText(/the real title · found by 1/)).toBeVisible();
+  // The phones stayed quiet: no reveal card of their own while the TV shows it.
+  for (const p of all) await expect(p.getByTestId('sketchy-phone-card')).toHaveCount(0);
+  await results(all, 'purple elephant');
 });

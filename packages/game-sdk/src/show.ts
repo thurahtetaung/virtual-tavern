@@ -331,3 +331,4 @@ export function profileFor(stage: StagePresence | null | undefined, isStage = fa
   if (isStage) return 'stage';
   return stage?.present ? 'phone-quiet' : 'phone-full';
 }
+export * from './reveal-show.ts';

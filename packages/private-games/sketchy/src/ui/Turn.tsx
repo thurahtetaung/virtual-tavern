@@ -13,6 +13,7 @@ import {
   type TurnView,
 } from '../logic/types.ts';
 import type { Act } from './act.ts';
+import { PhoneCard, usePhoneTarget } from './PhoneShow.tsx';
 import { Replay } from './Replay.tsx';
 import { nameOf, points } from './status.ts';
 
@@ -318,6 +319,9 @@ function RevealSequence({
   onSkip: () => void;
 }) {
   const { order, progress } = reveal;
+  const index = progress ? order[progress.step] : undefined;
+  // The answer in the spotlight pulses as it turns (a phone's own share of the reveal).
+  const pulse = usePhoneTarget(index === undefined ? undefined : `board:${index}`);
   if (!progress) return null;
   const name = (id: string) => (id === view.me?.id ? 'you' : nameOf(view, id));
   const shown = order.slice(0, progress.step).map((i) => turn.options[i]!);
@@ -341,8 +345,10 @@ function RevealSequence({
       <p className="text-center text-xs font-semibold tracking-wide text-ink-muted uppercase">
         {current.truth ? 'And the real title is…' : `Title ${progress.step + 1} of ${order.length}`}
       </p>
+      <PhoneCard />
       <div
         key={current.index}
+        ref={pulse}
         aria-live="polite"
         className={cn(
           'space-y-3 rounded-2xl px-4 py-5 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
@@ -451,11 +457,21 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
                   ? 'Nobody found it!'
                   : 'Nobody fell for it.'}
             </span>
-            {(o.likes ?? 0) > 0 && <span>👍 {o.likes}</span>}
+            {(o.likes ?? 0) > 0 && <Likes index={o.index} n={o.likes ?? 0} />}
           </p>
         </li>
       ))}
     </ul>
+  );
+}
+
+/** An answer's likes, popping as another comes in. */
+function Likes({ index, n }: { index: number; n: number }) {
+  const ref = usePhoneTarget(`like:${index}`);
+  return (
+    <span ref={ref} className="inline-block">
+      👍 {n}
+    </span>
   );
 }
 

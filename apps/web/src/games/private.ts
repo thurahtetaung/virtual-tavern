@@ -257,6 +257,9 @@ const games: ClientGame[] = [
     Component: lazyUi(() =>
       import('@vt/private-sketchy/ui').then((m) => ({ default: m.SketchyGame })),
     ),
+    stage: lazyUi(() =>
+      import('@vt/private-sketchy/stage').then((m) => ({ default: m.SketchyStage })),
+    ),
   },
   {
     id: 'mosaic',
