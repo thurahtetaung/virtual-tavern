@@ -3,13 +3,69 @@
 // Virtual Tavern through the admin API. The server checks the data against the game's own schema
 // (`contentPacks` on its definition; Going Once's is in
 // packages/private-games/going-once/src/logic/content.ts) and refuses anything that doesn't fit.
-// A pack with the same game, kind and name is skipped, so the script is safe to re-run. The admin
+// Markup in any string (tags, entities) is taken out before it is sent, keeping the words; the
+// server strips it again. A pack with the same game, kind and name is skipped, so the script is
+// safe to re-run, unless --replace is given: then that pack's data is replaced in place (same id,
+// so rooms' memory of the groups they used carries on). The admin
 // password comes from ADMIN_PASSWORD (never a flag, so it stays out of shell history). Packs are
 // private content and never committed; see CLAUDE.md and docs/deployment.md.
-// Usage: ADMIN_PASSWORD=... node scripts/import-content-pack.mjs <baseUrl> <gameId> <kind> <file.json> [--name <name>] [--disabled] [--dry-run]
+// Usage: ADMIN_PASSWORD=... node scripts/import-content-pack.mjs <baseUrl> <gameId> <kind> <file.json> [--name <name>] [--disabled] [--replace] [--dry-run]
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const ENTITIES = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  hellip: '…',
+  mdash: '—',
+  ndash: '–',
+  lsquo: '‘',
+  rsquo: '’',
+  ldquo: '“',
+  rdquo: '”',
+};
+
+/**
+ * Text with markup taken out: tags stripped (keeping their words), entities decoded, spaces
+ * collapsed. The server does the same to every pack string (`plainText` in
+ * packages/private-games/going-once/src/logic/content.ts); keep the two in step.
+ */
+export function plainText(text) {
+  return String(text)
+    .replace(/<\/?[a-zA-Z][^<>]*>/g, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code) => {
+      if (code[0] === '#') {
+        const n =
+          code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+        return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
+      }
+      return ENTITIES[code.toLowerCase()] ?? whole;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Every string in a pack's data with markup taken out, and how many changed. */
+export function cleanPack(data) {
+  let changed = 0;
+  const walk = (v) => {
+    if (typeof v === 'string') {
+      const clean = plainText(v);
+      if (clean !== v.trim()) changed++;
+      return clean;
+    }
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object')
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return { data: walk(data), changed };
+}
 
 /**
  * Host lines (Going Once's `host` kind) that aren't lines someone would say: recording labels,
@@ -41,12 +97,13 @@ export function hostLineProblems(data) {
 /** The command line as options, or an error message. */
 export function parseArgs(argv) {
   const positional = [];
-  const opts = { name: null, enabled: true, dryRun: false };
+  const opts = { name: null, enabled: true, dryRun: false, replace: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--name') opts.name = argv[++i] ?? '';
     else if (a === '--disabled') opts.enabled = false;
     else if (a === '--dry-run') opts.dryRun = true;
+    else if (a === '--replace') opts.replace = true;
     else if (a.startsWith('--')) return { error: `unknown option ${a}` };
     else positional.push(a);
   }
@@ -66,11 +123,13 @@ async function main() {
   if (args.error) {
     console.error(args.error);
     console.error(
-      'usage: ADMIN_PASSWORD=... node scripts/import-content-pack.mjs <baseUrl> <gameId> <kind> <file.json> [--name <name>] [--disabled] [--dry-run]',
+      'usage: ADMIN_PASSWORD=... node scripts/import-content-pack.mjs <baseUrl> <gameId> <kind> <file.json> [--name <name>] [--disabled] [--replace] [--dry-run]',
     );
     process.exit(1);
   }
-  const data = JSON.parse(readFileSync(args.file, 'utf8'));
+  const cleaned = cleanPack(JSON.parse(readFileSync(args.file, 'utf8')));
+  const data = cleaned.data;
+  if (cleaned.changed) console.log(`markup taken out of ${cleaned.changed} string(s)`);
   const entries = Array.isArray(data) ? data.length : Object.keys(data ?? {}).length;
   if (!entries) {
     console.error(`${args.file} holds no entries`);
@@ -85,7 +144,9 @@ async function main() {
     }
   }
   if (args.dryRun) {
-    console.log(`would import "${args.name}" (${args.gameId}/${args.kind}, ${entries} entries)`);
+    console.log(
+      `would ${args.replace ? 'import or replace' : 'import'} "${args.name}" (${args.gameId}/${args.kind}, ${entries} entries)`,
+    );
     return;
   }
   const password = process.env.ADMIN_PASSWORD;
@@ -118,10 +179,19 @@ async function main() {
   if (!cookie) throw new Error('login returned no session cookie');
   try {
     const existing = (await api('/api/admin/content-packs')).body;
-    if (
-      existing.some((p) => p.gameId === args.gameId && p.kind === args.kind && p.name === args.name)
-    ) {
-      console.log(`skip     "${args.name}" (already exists)`);
+    const same = existing.find(
+      (p) => p.gameId === args.gameId && p.kind === args.kind && p.name === args.name,
+    );
+    if (same && args.replace) {
+      const { body } = await api(`/api/admin/content-packs/${same.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ data }),
+      });
+      console.log(`replaced "${body.name}" (${body.entries} entries, id ${body.id})`);
+      return;
+    }
+    if (same) {
+      console.log(`skip     "${args.name}" (already exists; --replace to update it)`);
       return;
     }
     const { body } = await api('/api/admin/content-packs', {

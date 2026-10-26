@@ -5,12 +5,53 @@ import { HINT_KINDS, type HintKind } from './types.ts';
 // The private content: title groups and hint lines, imported as content packs (never in the repo).
 // Tests use small made-up packs.
 
+const ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  hellip: '…',
+  mdash: '—',
+  ndash: '–',
+  lsquo: '‘',
+  rsquo: '’',
+  ldquo: '“',
+  rdquo: '”',
+};
+
+/**
+ * Text with any markup taken out: tags stripped (keeping their words, so "The movie <i>Speed</i>"
+ * is "The movie Speed"), entities decoded, spaces collapsed. Every pack string goes through it,
+ * so markup in a source never reaches a screen. Keep in step with `plainText` in
+ * scripts/import-content-pack.mjs.
+ */
+export function plainText(text: string): string {
+  return text
+    .replace(/<\/?[a-zA-Z][^<>]*>/g, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
+      if (code[0] === '#') {
+        const n =
+          code[1] === 'x' || code[1] === 'X' ? parseInt(code.slice(2), 16) : Number(code.slice(1));
+        return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '';
+      }
+      return ENTITIES[code.toLowerCase()] ?? whole;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** A pack string: trimmed, markup out, then within `max` characters. */
+const packText = (min: number, max: number) =>
+  z.string().transform(plainText).pipe(z.string().min(min).max(max));
+
 /** Titles that draw alike: every game deals two groups, one title to each player from each. */
 export const groupsPack = z
   .array(
     z.object({
       id: z.union([z.string().min(1).max(40), z.number().int()]).transform(String),
-      titles: z.array(z.string().trim().min(1).max(60)).min(7).max(12),
+      titles: z.array(packText(1, 60)).min(7).max(12),
       /** The house picture for each title (manifest keys), in title order. */
       house: z.array(z.string().trim().min(1).max(120)).optional(),
     }),
@@ -25,7 +66,7 @@ export type GroupsPack = z.output<typeof groupsPack>;
  */
 export const linesPack = z.partialRecord(
   z.enum(HINT_KINDS),
-  z.array(z.string().trim().min(1).max(300)).min(1).max(300),
+  z.array(packText(1, 300)).min(1).max(300),
 );
 export type LinesPack = z.output<typeof linesPack>;
 
@@ -46,15 +87,10 @@ export function hostLineProblem(line: string): string | null {
   return null;
 }
 
-const hostLine = z
-  .string()
-  .trim()
-  .min(2)
-  .max(300)
-  .superRefine((line, ctx) => {
-    const problem = hostLineProblem(line);
-    if (problem) ctx.addIssue({ code: 'custom', message: `"${line}": ${problem}` });
-  });
+const hostLine = packText(2, 300).superRefine((line, ctx) => {
+  const problem = hostLineProblem(line);
+  if (problem) ctx.addIssue({ code: 'custom', message: `"${line}": ${problem}` });
+});
 
 export const hostPack = z
   .record(z.string().regex(/^[a-z][a-z0-9-]{0,40}$/), z.array(hostLine).min(1).max(200))

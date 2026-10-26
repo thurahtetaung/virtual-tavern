@@ -18,6 +18,9 @@ export type ContentPackBody = z.input<typeof contentPackBody>;
 /** Switches a pack on or off without resending its data. */
 export const contentPackEnabledBody = z.object({ enabled: z.boolean() });
 
+/** New data for an existing pack (same game, kind, name and id). */
+export const contentPackDataBody = z.object({ data: z.unknown() });
+
 /** A pack as the admin list shows it (no data). */
 export interface ContentPackSummary {
   id: string;

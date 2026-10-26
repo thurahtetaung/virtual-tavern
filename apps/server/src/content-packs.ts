@@ -110,6 +110,16 @@ export class ContentPackRepo {
     return detail(row);
   }
 
+  /** Replaces a pack's data (already through `check`), keeping its id, name and switch. */
+  replace(id: string, data: unknown): ContentPackDetail | null {
+    const changed = this.db
+      .update(contentPacks)
+      .set({ data, updatedAt: this.now() })
+      .where(eq(contentPacks.id, id))
+      .run().changes;
+    return changed ? this.get(id) : null;
+  }
+
   setEnabled(id: string, enabled: boolean): ContentPackSummary | null {
     const changed = this.db
       .update(contentPacks)

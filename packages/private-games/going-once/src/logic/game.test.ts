@@ -733,3 +733,40 @@ describe('host pack checks', () => {
       expect(hostPack.safeParse({ sold: [bad] }).success, bad).toBe(false);
   });
 });
+
+describe('markup in packs', () => {
+  it('strips tags and decodes entities, keeping the words', async () => {
+    const { plainText } = await import('./content.ts');
+    expect(plainText('The movie <i>Speed</i>')).toBe('The movie Speed');
+    expect(plainText('<b>Fish</b> &amp; <em>chips</em>&nbsp;&#8230; &#x2019;s')).toBe(
+      'Fish & chips … ’s',
+    );
+    expect(plainText('3 < 4 and 5 > 2')).toBe('3 < 4 and 5 > 2');
+    expect(plainText('Odd &unknown; thing<br/>here')).toBe('Odd &unknown; thinghere');
+  });
+
+  it('never lets markup from a pack reach the game, the lines or the host', async () => {
+    const { groupsPack, linesPack, hostPack, titleGroups } = await import('./content.ts');
+    const groups = [
+      {
+        id: 'g-m',
+        titles: ['The movie <i>Speed</i>', '<b>Bus</b>', 'Van', 'Car', 'Cab', 'Tram', 'Train'],
+      },
+      GROUPS[1],
+    ];
+    const h = started(3, 1, packContent(groups, { filler: ['Hello <i>there</i>.'] }, null));
+    const titles = Object.values(game(h).items).map((i) => i.title);
+    expect(titles.some((t) => /[<>]/.test(t))).toBe(false);
+    expect(titleGroups(packContent(groups))[0]!.titles.slice(0, 2)).toEqual([
+      'The movie Speed',
+      'Bus',
+    ]);
+    expect(groupsPack.parse(groups)[0]!.titles[0]).toBe('The movie Speed');
+    expect(linesPack.parse({ filler: ['Hi &amp; bye.'] }).filler).toEqual(['Hi & bye.']);
+    expect(hostPack.parse({ sold: ['<i>Sold!</i>'] }).sold).toEqual(['Sold!']);
+    // A line that is only markup has no words left: refused.
+    expect(
+      groupsPack.safeParse([{ id: 'x', titles: ['<i></i>', ...GROUPS[0]!.titles] }]).success,
+    ).toBe(false);
+  });
+});

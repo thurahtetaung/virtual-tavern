@@ -11,7 +11,11 @@ import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts
 
 export const GROUPS = [
   { id: 'e2e-fruit', titles: ['Apple', 'Pear', 'Quince', 'Green ball', 'Plum', 'Fig', 'Medlar'] },
-  { id: 'e2e-hats', titles: ['Top hat', 'Bowler', 'Fez', 'Stovepipe', 'Bucket', 'Drum', 'Cap'] },
+  // Markup in a pack never reaches a screen: this title shows as "Top hat".
+  {
+    id: 'e2e-hats',
+    titles: ['Top <i>hat</i>', 'Bowler', 'Fez', 'Stovepipe', 'Bucket', 'Drum', 'Cap'],
+  },
 ];
 
 /** Each seat's two titles under the rig, in seat order. */
