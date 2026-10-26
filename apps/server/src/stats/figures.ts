@@ -90,6 +90,10 @@ import type { GameFigure } from '@vt/protocol';
 //              auto; recap: authors, artist}, vote {foundTruth, house; recap: authors, artist,
 //              streak}, like {byArtist; recap: authors, round}, outcome {drawings, endReason;
 //              recap: ranking, scores, fooled, truths, likes}
+//   mosaic     take {source, toFloor, marker, dumped; recap: colour, count, line, penalty,
+//              leftover, auto}, tiling {placed, points, penalty, perfect; recap: round, best,
+//              floor}, outcome {players, rounds, how, tiebreak; recap: shared, ranking, scores,
+//              rows, columns, colours, bonus}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -1732,6 +1736,104 @@ function jewellerFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function mosaicCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 4) out.push([`f.n.${n}`, 1]);
+      const rounds = num(props.rounds);
+      if (rounds) out.push(['f.round_sum', rounds]);
+      if (props.tiebreak === true) out.push(['f.tiebreak', 1]);
+      const scores = Array.isArray(props.scores) ? props.scores : [];
+      const top = num(scores[0]);
+      if (top !== null) out.push(['f.top_sum', top], ['max.f.top', top]);
+      break;
+    }
+    case 'take':
+      out.push(['f.takes', 1]);
+      if (props.source === 'centre') out.push(['f.take_centre', 1]);
+      if ((num(props.toFloor) ?? 0) > 0) out.push(['f.take_floor', 1]);
+      if ((num(props.dumped) ?? 0) > 0) out.push(['f.take_dumped', 1]);
+      break;
+    case 'tiling': {
+      out.push(['f.tilings', 1]);
+      out.push(['f.tile_points', num(props.points) ?? 0], ['f.placed', num(props.placed) ?? 0]);
+      out.push(['f.penalty', -(num(props.penalty) ?? 0)]);
+      if (props.perfect === true) out.push(['f.perfect', 1]);
+      if ((num(props.penalty) ?? 0) <= -14) out.push(['f.full_floor', 1]);
+      break;
+    }
+  }
+  return out;
+}
+
+function mosaicFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'winning-score',
+      label: 'Winning score, on average',
+      kind: 'number',
+      value: avg(get('f.top_sum'), games),
+    },
+    { id: 'top-score', label: 'Highest winning score', kind: 'number', value: get('max.f.top') },
+    {
+      id: 'rounds-per-game',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.round_sum'), games),
+    },
+    {
+      id: 'points-per-tile',
+      label: 'Points per tile placed',
+      kind: 'number',
+      value: avg(get('f.tile_points'), get('f.placed')),
+    },
+    {
+      id: 'floor-per-round',
+      label: 'Floor points lost per player and round',
+      kind: 'number',
+      value: avg(get('f.penalty'), get('f.tilings')),
+    },
+    {
+      id: 'clean-rounds',
+      label: 'Rounds with a clean floor',
+      kind: 'percent',
+      value: pct(get('f.perfect'), get('f.tilings')),
+    },
+    {
+      id: 'takes',
+      label: 'Where tiles were taken',
+      kind: 'split',
+      parts: [
+        { label: 'A factory', value: get('f.takes') - get('f.take_centre') },
+        { label: 'The centre', value: get('f.take_centre') },
+      ],
+    },
+    {
+      id: 'dumped',
+      label: 'Takes thrown on the floor on purpose',
+      kind: 'percent',
+      value: pct(get('f.take_dumped'), get('f.takes')),
+    },
+    { id: 'full-floors', label: 'Full floors (−14)', kind: 'number', value: get('f.full_floor') },
+    {
+      id: 'player-count',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [2, 3, 4].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+    {
+      id: 'tiebreaks',
+      label: 'Ties broken by full rows',
+      kind: 'number',
+      value: get('f.tiebreak'),
+    },
+  ];
+}
+
 function goingOnceCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -1844,6 +1946,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'jeweller') return jewellerCounters(type, props);
   if (gameId === 'going-once') return goingOnceCounters(type, props);
   if (gameId === 'sketchy') return sketchyCounters(type, props);
+  if (gameId === 'mosaic') return mosaicCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2059,6 +2162,8 @@ export function buildFigures(
       return goingOnceFigures(get);
     case 'sketchy':
       return sketchyFigures(get);
+    case 'mosaic':
+      return mosaicFigures(get);
     case 'codenames':
       return [
         teams(false),

@@ -11,6 +11,7 @@ import { iconic, setTestWord } from '@vt/private-iconic/logic';
 import { EVENT_KINDS, type EventKind, inquest, setTestEventOrder } from '@vt/private-inquest/logic';
 import { jeweller, setTestDeck as setJewellerDeck } from '@vt/private-jeweller/logic';
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
+import { type Colour, mosaic, setTestBag } from '@vt/private-mosaic/logic';
 import { nightfall, setTestHold } from '@vt/private-nightfall/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
@@ -123,6 +124,32 @@ if (process.env.NODE_ENV !== 'production' && process.env.JEWELLER_TEST_DECK) {
   });
 }
 
+// Browser tests only: Mosaic tiles for the top of the bag when a game is dealt, as letters (b
+// blue, y yellow, r red, k black, a light blue; four fill each factory in turn), and tiles already
+// on the first seat's wall (`top:bbbbyyyy;wall0:yrka`: row 0 holds yellow, red, black and light
+// blue), with the first seat always starting, so a spec knows the deal and reaches the end in a
+// round. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.MOSAIC_TEST_BAG) {
+  const letters: Record<string, Colour> = {
+    b: 'blue',
+    y: 'yellow',
+    r: 'red',
+    k: 'black',
+    a: 'aqua',
+  };
+  const tiles = (s: string) => [...s].flatMap((ch) => (letters[ch] ? [letters[ch]] : []));
+  const wall: Record<number, Colour[]> = {};
+  let top: Colour[] = [];
+  for (const part of process.env.MOSAIC_TEST_BAG.split(';')) {
+    const [key, value] = part.split(':').map((x) => x.trim());
+    if (!key || !value) continue;
+    if (key === 'top') top = tiles(value);
+    const row = /^wall([0-4])$/.exec(key);
+    if (row) wall[Number(row[1])] = tiles(value);
+  }
+  setTestBag({ top, wall, firstSeat: true });
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -154,6 +181,7 @@ export function buildGames(): GameRegistry {
     jeweller,
     goingOnce,
     sketchy,
+    mosaic,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

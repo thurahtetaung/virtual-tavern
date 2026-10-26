@@ -33,6 +33,7 @@ export const SHARED_STATE = [
   /jeweller[\w-]*\.spec\.ts$/,
   /going-once[\w-]*\.spec\.ts$/,
   /sketchy[\w-]*\.spec\.ts$/,
+  /mosaic[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -62,6 +63,7 @@ const GAME_IDS = [
   'jeweller',
   'going-once',
   'sketchy',
+  'mosaic',
 ];
 
 /**
@@ -155,6 +157,9 @@ export default defineConfig({
       GOING_ONCE_TEST_RIG: '1',
       // Sketchy's spec knows each player's prompt: packs dealt in order, drawings in seat order.
       SKETCHY_TEST_RIG: '1',
+      // Mosaic's spec knows the deal: two blues, then a run of single colours, top the bag, and
+      // the first seat's top wall row lacks only its blue, so the first round ends the game.
+      MOSAIC_TEST_BAG: 'top:bbyyrrrrkkkkaaaayyyy;wall0:yrka',
     },
   },
 });
