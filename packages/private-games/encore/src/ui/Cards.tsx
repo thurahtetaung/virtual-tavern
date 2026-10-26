@@ -159,6 +159,8 @@ export interface HandProps {
   onGap?: (at: number) => void;
   /** The card count per row (wraps beyond). */
   columns?: number;
+  /** Each card plays its half-turn in place (the hand was just turned round). */
+  turning?: boolean;
   label?: string;
   className?: string;
 }
@@ -177,12 +179,15 @@ export function Hand({
   onCard,
   onGap,
   columns,
+  turning,
   label = 'Your hand',
   className,
 }: HandProps) {
   const segs = segments(cards);
   const segOf = (i: number) => segs.find((s) => s.from <= i && i <= s.to);
-  const cols = columns ?? Math.max(4, Math.min(cards.length, 12));
+  // One row up to 15 cards (a phone fits them all), then two even rows.
+  const cols =
+    columns ?? (cards.length <= 15 ? Math.max(4, cards.length) : Math.ceil(cards.length / 2));
   return (
     <ol
       aria-label={label}
@@ -205,7 +210,11 @@ export function Hand({
           />
         );
         return (
-          <li key={`${c.id}`} className="relative flex flex-col items-stretch gap-1">
+          <li
+            key={`${c.id}`}
+            className={cn('relative flex flex-col items-stretch gap-1', turning && 'en-turn')}
+            style={turning ? { animationDelay: `${Math.min(i * 20, 240)}ms` } : undefined}
+          >
             {onCard ? (
               <button
                 type="button"
@@ -281,13 +290,13 @@ export const CSS = `
 @keyframes en-big { 0% { transform: scale(.6) rotate(-4deg); opacity: 0 } 50% { transform: scale(1.18) rotate(2deg); opacity: 1 } 100% { transform: none } }
 @keyframes en-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.1); opacity: 1 } 100% { transform: none } }
 @keyframes en-rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
-@keyframes en-turn { from { transform: rotate(180deg) } to { transform: none } }
+@keyframes en-turn { from { transform: rotate(180deg) scale(.7) } to { transform: none } }
 @keyframes en-glow { 0%, 100% { opacity: .45 } 50% { opacity: 1 } }
 .en-show { animation: en-show .5s ease-out both }
 .en-big { animation: en-big .7s ease-out both }
 .en-pop { animation: en-pop .5s ease-out both }
 .en-rise { animation: en-rise .3s ease-out both }
-.en-turn { animation: en-turn .7s ease-in-out both }
+.en-turn { animation: en-turn .26s ease-in-out both }
 .en-gap { background: rgba(59, 130, 246, .6); box-shadow: 0 0 6px rgba(59, 130, 246, .8); animation: en-glow 1.4s ease-in-out infinite }
 .en-gap:hover, .en-gap:focus-visible { background: rgb(37, 99, 235); outline: none }
 @media (prefers-reduced-motion: reduce) {

@@ -100,4 +100,8 @@ test('2 players on phones: recruiting costs a chip and keeps the turn, and no ch
   await expect(ana.getByRole('table', { name: 'Round 1 scores' })).toContainText('+4');
   await readyAll(pages);
   await expect(ana.getByText('Round 2 of 2 · Ben starts')).toBeVisible();
+  // The last round names no round to come.
+  await keepAll(pages, 2, 2);
+  await expect(ana.getByText('Round 2 of 2', { exact: true })).toBeVisible();
+  await expect(ana.getByText(/waiting for round/)).toHaveCount(0);
 });
