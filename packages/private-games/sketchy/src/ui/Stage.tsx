@@ -979,13 +979,9 @@ function Reveal({
                     style={{ position: 'static', transform: 'none' }}
                   />
                 </span>
-                {/* The points beside the pill, clear of the title below it. */}
-                <Layer m={[1, 0, 0, 1, 250, 0]}>
-                  <Ink
-                    name="artist.points"
-                    size={56}
-                    style={{ color: '#15803d', transform: 'translate(0, -50%)' }}
-                  />
+                {/* The points under the pill (beside it they would leave the screen on the right). */}
+                <Layer m={[1, 0, 0, 1, 0, 64]}>
+                  <Ink name="artist.points" size={56} style={{ color: '#15803d' }} />
                 </Layer>
               </Layer>
             </Layer>

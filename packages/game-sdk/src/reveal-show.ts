@@ -111,8 +111,11 @@ export const REVEAL_BEATS = {
   mood: 600,
   /** The narrator's grunt (the original: 0.7 s after the flip). */
   grunt: 700,
-  /** The points rack up (the original: half a second after the grunt). */
-  rackUp: 900,
+  /**
+   * The points rack up with the mood (the original: half a second after the grunt, but its card
+   * then stays a second; in a 3 s step that left the points up for 0.3 s).
+   */
+  rackUp: 600,
   /** Chips turn into points this far apart at most (the original: 250 ms). */
   chipGap: 250,
   /** A lie's card flies off this long before the step ends. */
