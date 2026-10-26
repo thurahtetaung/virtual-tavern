@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.60.0...v0.61.0) (2026-10-26)
+
+
+### Features
+
+* **sketchy:** add Sketchy, a drawing and fake-title game, in the back room ([#360](https://github.com/thurahtetaung/virtual-tavern/issues/360)) ([4153d21](https://github.com/thurahtetaung/virtual-tavern/commit/4153d21697f24fb00f7dd27971706814a4f3c34d))
+
 ## [0.60.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.59.3...v0.60.0) (2026-10-25)
 
 
