@@ -4,8 +4,9 @@ import { bid, drawWithMouse, importPacks, localArt, lotIs, table } from './going
 import type { Look } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/going-once-shots.spec.ts
-// Phone and desktop, light and dark: the lobby, drawing, an auction going once, the screw picker,
-// the bank, the Sold card, half-time and the end gallery. With GOING_ONCE_ART and GOING_ONCE_PACKS
+// Phone and desktop, light and dark: the lobby (and its sound settings), drawing, the practice
+// lot's tip and bidding, a lot's intro with its tip bubble, an auction going once, the screw
+// picker, the bank, the Sold card, half-time and the end gallery. With GOING_ONCE_ART and GOING_ONCE_PACKS
 // (`going-once-play.ts`) it previews the real art and lines locally; without, placeholders.
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
 
@@ -29,6 +30,9 @@ for (const [label, viewport, colorScheme] of [
     const pages = (await table(browser, ['Hana', 'Ben', 'Cleo'], look)) as [Page, Page, Page];
     const [hana, ben, cleo] = pages;
     await shot(hana, '01-lobby');
+    await hana
+      .getByTestId('go-sound-settings')
+      .screenshot({ path: `test-results/going-once-shots/${label}-01b-sound-settings.png` });
     await hana.getByTestId('go-start').click();
 
     for (const [seat, p] of pages.entries()) {
@@ -42,6 +46,19 @@ for (const [label, viewport, colorScheme] of [
         await p.getByTestId('drawing-send').click();
       }
     }
+
+    // The practice lot: the tip, then its bidding; then Cleo skips the rest.
+    await expect(hana.getByTestId('go-practice')).toBeVisible();
+    await shot(hana, '02b-practice-tip');
+    await expect(
+      ben.getByTestId('go-practice').getByTestId('go-bid-400').filter({ visible: true }),
+    ).toBeEnabled({ timeout: 20_000 });
+    await shot(ben, '02c-practice-bid');
+    await cleo.getByTestId('go-skip-practice').click();
+
+    // Lot 1 opens with its number and each player's tip, before the picture.
+    await expect(hana.getByTestId('go-lot-intro')).toBeVisible();
+    await shot(hana, '02d-lot-intro-tip');
 
     // Lot 1: a bid, then "Going once" on screen.
     await lotIs(ben, 1);

@@ -33,6 +33,16 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     Page,
   ];
   const all = [hana, ben, cleo];
+  // Sound: every device by default, the auctioneer's voice off until the host turns it on; the
+  // practice lot is on for a room's first game. Guests see the host's choices.
+  await expect(hana.getByRole('radio', { name: 'Every device' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(ben.getByTestId('go-voice')).toHaveAttribute('aria-checked', 'false');
+  await hana.getByTestId('go-voice').click();
+  await expect(ben.getByTestId('go-voice')).toHaveAttribute('aria-checked', 'true');
+  await expect(ben.getByTestId('go-practice-setting')).toHaveAttribute('aria-checked', 'true');
   await hana.getByTestId('go-start').click();
 
   // Drawing: each player's titles, in seat order of the two families.
@@ -45,8 +55,18 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
     }
   }
 
+  // The room's first game opens with the practice lot, on every phone; anyone may skip it for all.
+  for (const p of all) await expect(p.getByTestId('go-practice')).toBeVisible();
+  await cleo.getByTestId('go-skip-practice').click();
+  for (const p of all) await expect(p.getByTestId('go-practice')).toHaveCount(0);
+
   // Lot 1 is Hana's "Apple" (worth $3,500): Ben and Cleo fight over it, Ben wins at $600.
   for (const p of all) await lotIs(p, 1);
+  // Each player's tip for the lot stays under the bidding, from their own art buyer.
+  for (const p of all)
+    await expect(p.getByTestId('go-psst').filter({ visible: true })).toContainText(
+      /The collector|The old lady|The socialite/,
+    );
   // The host's line, from the made-up host pack, on every phone.
   for (const p of all)
     await expect(p.getByTestId('go-host')).toContainText('E2E host: the first lot!');

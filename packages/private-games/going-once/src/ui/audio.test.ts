@@ -12,7 +12,6 @@ import {
   started,
 } from '../logic/test-utils.ts';
 import { halfAt } from '../logic/setup.ts';
-import type { GoingOnceView } from '../logic/types.ts';
 import {
   type AudioManifest,
   type Cue,
@@ -119,7 +118,7 @@ describe('effects', () => {
     const ring = cues.find((c) => c.key === 'message')!;
     expect(ring.local).toBe(true);
     expect(ring.pick).toBe(RING[view.mine!.messages.at(-1)!.from]);
-    expect(ring.at).toBeGreaterThan(a.since);
+    expect(ring.at).toBeGreaterThan(a.since!);
     // Someone watching gets no ring.
     expect(keys(effectCues(goingOnce.view(h.state, null), null))).toEqual(['lot-in']);
     h.tick();
