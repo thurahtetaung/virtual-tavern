@@ -37,6 +37,7 @@ export const SHARED_STATE = [
   /encore[\w-]*\.spec\.ts$/,
   /mission-control[\w-]*\.spec\.ts$/,
   /skyfire[\w-]*\.spec\.ts$/,
+  /conveyor[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -70,6 +71,7 @@ const GAME_IDS = [
   'encore',
   'mission-control',
   'skyfire',
+  'conveyor',
 ];
 
 /**
@@ -183,6 +185,10 @@ export default defineConfig({
       // Skyfire's spec knows the deal: these cards top the deck, dealt a hand at a time in seat
       // order (2 players: Ana y3 y4 w4 b4 g4, Ben r1 g5 b5 w5 y5), and the first seat starts.
       SKYFIRE_TEST_DECK: 'y3 y4 w4 b4 g4 r1 g5 b5 w5 y5 r2',
+      // Conveyor's spec knows both hands of a 2-player game, every round (see conveyor-play.ts).
+      CONVEYOR_TEST_DECK:
+        '2:miso onigiri-circle menu-7 tofu order uramaki-4 nigiri-egg uramaki-3 tofu onigiri-square ' +
+        'miso onigiri-triangle tofu nigiri-squid uramaki-4 nigiri-egg nigiri-salmon onigiri-rectangle tofu uramaki-5',
     },
   },
 });

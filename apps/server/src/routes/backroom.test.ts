@@ -156,6 +156,7 @@ describe('back room over HTTP', () => {
       'encore',
       'mission-control',
       'skyfire',
+      'conveyor',
     ]);
   });
 

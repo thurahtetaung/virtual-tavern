@@ -106,6 +106,12 @@ import type { GameFigure } from '@vt/protocol';
 //              {double, paid; recap: owner, round, auto}, round {how, players; recap: round,
 //              negative, ids, points, best, worst}, outcome {players, rounds; recap: shared,
 //              ranking, scores}
+//   conveyor   round {points, best, bestPoints, rolls, players; recap: round}, wasabi {points;
+//              recap: k, round}, steal {worth; recap: from, k, round}, spoon {hit; recap: from, k,
+//              round, auto}, copy {recap: k, round}, chop {recap: k, round, auto}, takeout
+//              {flipped; recap: round, auto}, uramaki {points, icons; recap: round}, miso {players;
+//              recap: round}, desserts {count, points}, outcome {players, golf, menu; recap:
+//              shared, ranking, scores}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -2046,6 +2052,119 @@ function mosaicFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function conveyorCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.games', 1]);
+      const n = num(props.players);
+      if (n !== null && n >= 2 && n <= 8) out.push([`f.n.${n}`, 1]);
+      if (props.golf === true) out.push(['f.golf', 1]);
+      break;
+    }
+    case 'round': {
+      out.push(['f.trays', 1]);
+      const points = num(props.points) ?? 0;
+      out.push(['f.tray_points', points]);
+      out.push(['max.f.best_tray', points]);
+      break;
+    }
+    case 'wasabi':
+      out.push(['f.wasabi', 1]);
+      out.push(['f.wasabi_points', num(props.points) ?? 0]);
+      break;
+    case 'steal':
+      out.push(['f.steals', 1]);
+      break;
+    case 'spoon':
+      out.push(['f.spoons', 1]);
+      if (props.hit === true) out.push(['f.spoon_hits', 1]);
+      break;
+    case 'chop':
+      out.push(['f.chops', 1]);
+      break;
+    case 'copy':
+      out.push(['f.copies', 1]);
+      break;
+    case 'takeout':
+      out.push(['f.takeouts', 1]);
+      out.push(['f.flipped', num(props.flipped) ?? 0]);
+      break;
+    case 'uramaki':
+      out.push(['f.uramaki', 1]);
+      break;
+    case 'miso':
+      out.push(['f.miso', 1]);
+      break;
+    case 'desserts':
+      out.push(['f.dessert_players', 1]);
+      out.push(['f.desserts', num(props.count) ?? 0]);
+      break;
+  }
+  return out;
+}
+
+function conveyorFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'players',
+      label: 'Games by table size',
+      kind: 'split',
+      parts: [2, 3, 4, 5, 6, 7, 8].map((n) => ({ label: `${n} players`, value: get(`f.n.${n}`) })),
+    },
+    {
+      id: 'tray-points',
+      label: 'Points per tray (a player’s round)',
+      kind: 'number',
+      value: avg(get('f.tray_points'), get('f.trays')),
+    },
+    { id: 'best-tray', label: 'Best tray', kind: 'number', value: get('max.f.best_tray') },
+    {
+      id: 'wasabi',
+      label: 'Nigiri on wasabi per game',
+      kind: 'number',
+      value: avg(get('f.wasabi'), games),
+    },
+    {
+      id: 'steals',
+      label: 'Cards taken that the passer needed, per game',
+      kind: 'number',
+      value: avg(get('f.steals'), games),
+    },
+    {
+      id: 'spoon-hits',
+      label: 'Spoons that found a card',
+      kind: 'percent',
+      value: pct(get('f.spoon_hits'), get('f.spoons')),
+    },
+    {
+      id: 'miso',
+      label: 'Miso clashes per game',
+      kind: 'number',
+      value: avg(get('f.miso'), games),
+    },
+    {
+      id: 'flipped',
+      label: 'Cards turned face down per takeout box',
+      kind: 'number',
+      value: avg(get('f.flipped'), get('f.takeouts')),
+    },
+    {
+      id: 'desserts',
+      label: 'Desserts kept per player',
+      kind: 'number',
+      value: avg(get('f.desserts'), get('f.dessert_players')),
+    },
+    {
+      id: 'golf',
+      label: 'Games played as golf',
+      kind: 'percent',
+      value: pct(get('f.golf'), games),
+    },
+  ];
+}
+
 function encoreCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2268,6 +2387,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'encore') return encoreCounters(type, props);
   if (gameId === 'mission-control') return missionControlCounters(type, props);
   if (gameId === 'skyfire') return skyfireCounters(type, props);
+  if (gameId === 'conveyor') return conveyorCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2491,6 +2611,8 @@ export function buildFigures(
       return missionControlFigures(get);
     case 'skyfire':
       return skyfireFigures(get);
+    case 'conveyor':
+      return conveyorFigures(get);
     case 'codenames':
       return [
         teams(false),

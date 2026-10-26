@@ -61,6 +61,7 @@ const LIGHT: ChartTokens = {
     '#7a4fb3',
     '#5b4636',
     '#b0607a',
+    '#1c8aa8',
   ],
   sequential: ['#b7d3f6', '#6da7ec', '#2a78d6', '#1c5cab', '#0d366b'],
   empty: '#f5f5f4',
@@ -103,6 +104,7 @@ const DARK: ChartTokens = {
     '#a98ad9',
     '#b89a80',
     '#e8a0b4',
+    '#62bfd8',
   ],
   // Brighter means more on a dark surface.
   sequential: ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4'],
@@ -133,8 +135,9 @@ export const tokensFor = (theme: ChartTheme): ChartTokens => (theme === 'dark' ?
  * blue before it), Mosaic a twenty-fourth (a brick, apart from the ochre before it and duller
  * than the red), Encore a twenty-fifth (a violet, apart from the brick before it), and Mission
  * Control a twenty-sixth (a dark brown; dark mode a sand, apart from the violet before it and
- * from the bronze), and Skyfire a twenty-seventh (a dusty rose; dark mode a light rose, apart from
- * the brown before it and paler than the raspberry).
+ * from the bronze), Skyfire a twenty-seventh (a dusty rose; dark mode a light rose, apart from
+ * the brown before it and paler than the raspberry), and Conveyor a twenty-eighth (a cyan, apart
+ * from the rose before it and bluer than the teal).
  * Every slot is now taken, so a game not listed here is drawn in the neutral "other" colour until
  * it is added.
  */
@@ -166,6 +169,7 @@ const FIXED_ORDER = [
   'encore',
   'mission-control',
   'skyfire',
+  'conveyor',
 ];
 
 /**
