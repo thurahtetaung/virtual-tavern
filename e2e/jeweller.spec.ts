@@ -141,6 +141,16 @@ test('Cities: meeting one finishes the round, and only those who meet one can wi
   // Cities instead of nobles.
   await expect(hana.getByRole('region', { name: 'Cities' }).locator('[data-city]')).toHaveCount(3);
   await expect(hana.getByRole('region', { name: 'Nobles' })).toHaveCount(0);
+  // The rules drawer greys the nobles, which the Cities replace.
+  await ana.getByRole('button', { name: 'Rules', exact: true }).click();
+  const drawer = ana.getByRole('dialog');
+  await drawer.getByRole('tab', { name: 'Rules' }).click();
+  const section = (title: string) =>
+    drawer.locator('details').filter({ has: ana.locator('summary', { hasText: title }) });
+  await expect(section('Nobles').getByText('Not in this game')).toBeVisible();
+  await expect(section('Cities').first().getByText('Not in this game')).toHaveCount(0);
+  await ana.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
   await take(hana, ['white', 'red', 'green']);
   await take(ana, ['white', 'blue', 'green']);
 
@@ -151,7 +161,7 @@ test('Cities: meeting one finishes the round, and only those who meet one can wi
   await expect(sheet(hana)).toHaveCount(0);
   await expect(
     hana.getByRole('region', { name: 'Cities' }).locator('[data-city="C3a"]'),
-  ).toHaveAttribute('aria-label', /you meet it$/);
+  ).toHaveAttribute('aria-label', /You meet it$/);
   await expect(ana.getByText(/Final round: Hana met a City\. Ana plays last\./)).toBeVisible();
 
   await take(ana, ['white', 'blue', 'black']);
@@ -209,7 +219,7 @@ test('Strongholds: a placement locks a card, and a Conquest buys it on top of th
   await expect(marketCard(ana, 'L1-35')).toHaveCount(0);
   await expect(
     ana.getByRole('button', {
-      name: /^Hana: 15 points, 1 piece, 0 reserved, 2 strongholds in supply/,
+      name: /^Hana: 15 points, 1 piece, 0 reserved, 2 (blue|red|green|orange) strongholds in supply/,
     }),
   ).toBeVisible();
   await expect(ana.locator('[data-hold]')).toHaveCount(1);

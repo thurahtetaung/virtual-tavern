@@ -32,6 +32,8 @@ const TARGET: GuideOption = { key: 'target', label: 'Higher target' };
 const SHOWN: GuideOption = { key: 'showReserved', label: 'Reserved cards shown' };
 const CITY: GuideOption = { key: 'cities', label: 'Cities' };
 const HOLD: GuideOption = { key: 'strongholds', label: 'Strongholds' };
+/** The nobles, which Cities replace. */
+const NO_CITY: GuideOption = { key: 'cities', label: 'Without Cities', off: true };
 
 /** "4 white, 3 blue + 4 of another colour" for a City side. */
 function cityNeeds(c: CityDef): string {
@@ -89,6 +91,7 @@ function base(art: GuideArt): GameGuide {
       text: 'Each noble wants cards (not gems) in certain colours. Own enough and the noble visits you at the end of your turn: 3 points, free.',
       meta: `${NOBLES.length} in the box · players + 1 on the table`,
       tone: 'good',
+      option: NO_CITY,
       ...(art.noble && { art: art.noble }),
     },
     {
@@ -206,6 +209,7 @@ function base(art: GuideArt): GameGuide {
       {
         title: 'Nobles',
         level: 'details',
+        option: NO_CITY,
         bullets: [
           'At the end of your turn, if your cards (not your gems) meet a noble’s needs, that noble visits you: 3 points. You can’t refuse.',
           'At most one noble visits per turn. If you qualify for more than one, you choose.',
@@ -452,7 +456,7 @@ export function nameGuide(manifest: unknown): GameGuide {
   if (box) art.box = box;
   const city = a(artOf(m?.cities?.[CITIES[0]!.id]));
   if (city) art.city = city;
-  const hold = a(strongholdArt(m, 0));
+  const hold = a(strongholdArt(m, 'blue'));
   if (hold) art.stronghold = hold;
   return makeGuide(art, footerOf(m));
 }

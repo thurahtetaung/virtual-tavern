@@ -14,7 +14,7 @@ import type { Level, Token } from './types.ts';
  *   nobles: { "N01": "nobles/N01.webp" | { art, name }, … },
  *   tokens: { white, blue, green, red, black, gold },              // piece faces
  *   cities: { "C1a": "cities/C1a.webp" | { art, thumb }, … },      // the 14 City sides
- *   strongholds: ["strongholds/blue.webp", …],                     // one per seat, in turn order
+ *   strongholds: ["strongholds/blue.webp", …],                     // one per colour (see below)
  *   box, logo,
  *   guide: { tagline },
  *   credit: "…" | { title, paragraphs: […], links: [{ label, href }] }
@@ -54,10 +54,41 @@ export const artOf = (ref: ArtRef | undefined): string | undefined =>
 export const thumbOf = (ref: ArtRef | undefined): string | undefined =>
   typeof ref === 'string' ? undefined : clean(ref?.thumb);
 
-/** The stronghold picture for the seat at `index` in turn order (they repeat past the list). */
-export function strongholdArt(m: Manifest | null | undefined, index: number): string | undefined {
-  const list = Array.isArray(m?.strongholds) ? m.strongholds : [];
-  return list.length ? clean(list[index % list.length]) : undefined;
+/** The stronghold colours, in the order seats get the ones no player's room colour claims. */
+export const STRONGHOLD_COLORS = ['blue', 'red', 'green', 'orange'] as const;
+export type StrongholdColor = (typeof STRONGHOLD_COLORS)[number];
+
+/**
+ * Each player's stronghold colour (display only): a player whose room colour is a stronghold
+ * colour gets that one, and the others get the colours left, in turn order.
+ */
+export function strongholdColors(
+  order: readonly string[],
+  roomColor: (id: string) => string | undefined,
+): Record<string, StrongholdColor> {
+  const out: Record<string, StrongholdColor> = {};
+  for (const id of order) {
+    const c = STRONGHOLD_COLORS.find((s) => s === roomColor(id));
+    if (c && !Object.values(out).includes(c)) out[id] = c;
+  }
+  const left = STRONGHOLD_COLORS.filter((c) => !Object.values(out).includes(c));
+  order.filter((id) => !out[id]).forEach((id, i) => (out[id] = left[i % left.length] ?? 'blue'));
+  return out;
+}
+
+/**
+ * The stronghold picture in a colour: the list's file named for it (`strongholds/red.webp`), else
+ * its place in `STRONGHOLD_COLORS` (repeating past the list).
+ */
+export function strongholdArt(
+  m: Manifest | null | undefined,
+  color: StrongholdColor,
+): string | undefined {
+  const list = (Array.isArray(m?.strongholds) ? m.strongholds : []).filter(
+    (p): p is string => typeof p === 'string',
+  );
+  const named = list.find((p) => p.replace(/^.*\//, '').replace(/\.\w+$/, '') === color);
+  return clean(named ?? list[STRONGHOLD_COLORS.indexOf(color) % list.length]);
 }
 
 /** A noble's name, when the manifest gives one. */

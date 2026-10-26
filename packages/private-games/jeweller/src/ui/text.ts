@@ -1,7 +1,9 @@
 import { cardOf } from '../logic/cards.ts';
+import { cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_EMOJI, TOKEN_NAME } from '../logic/gems.ts';
 import { totalOf } from '../logic/rules.ts';
 import {
+  GEMS,
   TOKENS,
   TOKEN_LIMIT,
   type JewellerView,
@@ -23,6 +25,22 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function cardLine(id: string): string {
   const c = cardOf(id);
   return `a level ${LEVEL_NAME[c.level]} ${TOKEN_NAME[c.bonus]} card${c.points ? ` (${c.points}★)` : ''}`;
+}
+
+/**
+ * A City side for screen readers: "City C5b: 14 points, plus cards: 4 Emerald and 4 of one other
+ * colour", or "City C1b: 17 points, no cards needed".
+ */
+export function cityLabel(id: string, met = false): string {
+  const city = cityOf(id);
+  const wants = GEMS.filter((g) => city.requires[g] > 0).map(
+    (g) => `${city.requires[g]} ${TOKEN_NAME[g]}`,
+  );
+  if (city.any) wants.push(`${city.any} of one ${wants.length ? 'other ' : ''}colour`);
+  const cards = wants.length
+    ? `plus cards: ${wants.length > 1 ? `${wants.slice(0, -1).join(', ')} and ${wants.at(-1)}` : wants[0]}`
+    : 'no cards needed';
+  return `City ${id}: ${city.points} points, ${cards}${met ? '. You meet it' : ''}`;
 }
 
 /** "2 🔴 1 ⚫" for a set of pieces. */

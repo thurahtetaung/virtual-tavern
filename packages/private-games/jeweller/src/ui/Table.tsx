@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
 import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
+import { type StrongholdColor, strongholdColors } from '../logic/manifest.ts';
 import {
   autoGold,
   canAfford,
@@ -52,6 +53,15 @@ import {
   TokenChip,
 } from './Pieces.tsx';
 import { type NameOf, cardLine, logLine } from './text.ts';
+
+/** A player's stronghold colour: their room colour where it is one, else one left in turn order. */
+function holdColor(view: JewellerView, room: GameRoomInfo, id: string): StrongholdColor {
+  const colors = strongholdColors(
+    view.game!.order,
+    (x) => room.players.find((p) => p.id === x)?.color,
+  );
+  return colors[id] ?? 'blue';
+}
 
 export type Act = (action: JewellerAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -195,11 +205,13 @@ function PlayerChip({
   p,
   view,
   room,
+  art,
   onOpen,
 }: {
   p: PlayerView;
   view: JewellerView;
   room: GameRoomInfo;
+  art: Art;
   onOpen: () => void;
 }) {
   const g = view.game!;
@@ -213,7 +225,7 @@ function PlayerChip({
         current && 'ring-2 ring-accent dark:ring-amber-500',
         p.left && 'opacity-60',
       )}
-      aria-label={`${p.name}: ${p.points} ${p.points === 1 ? 'point' : 'points'}, ${totalOf(p.tokens)} ${totalOf(p.tokens) === 1 ? 'piece' : 'pieces'}, ${p.reserved.length} reserved${view.settings.strongholds ? `, ${p.strongholds} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply` : ''}${p.cities.length ? ', meets a City' : ''}${current ? ', playing now' : ''}`}
+      aria-label={`${p.name}: ${p.points} ${p.points === 1 ? 'point' : 'points'}, ${totalOf(p.tokens)} ${totalOf(p.tokens) === 1 ? 'piece' : 'pieces'}, ${p.reserved.length} reserved${view.settings.strongholds ? `, ${p.strongholds} ${holdColor(view, room, p.id)} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply` : ''}${p.cities.length ? ', meets a City' : ''}${current ? ', playing now' : ''}`}
       data-player={p.id}
     >
       <PlayerTag
@@ -223,6 +235,12 @@ function PlayerChip({
         offline={room.players.find((x) => x.id === p.id)?.connected === false}
         className="max-w-24 truncate font-semibold"
       />
+      {view.settings.strongholds && (
+        <span className="flex items-center text-xs text-ink-muted tabular-nums dark:text-stone-400">
+          <StrongholdIcon art={art.stronghold(holdColor(view, room, p.id))} size={14} />
+          {p.strongholds}
+        </span>
+      )}
       <span className="font-black tabular-nums">{p.points}★</span>
       <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
         ◆{totalOf(p.tokens)}
@@ -231,11 +249,6 @@ function PlayerChip({
         <span className="text-xs text-ink-muted dark:text-stone-400">🂠{p.reserved.length}</span>
       )}
       {p.nobles.length > 0 && <span className="text-xs">👑{p.nobles.length}</span>}
-      {view.settings.strongholds && (
-        <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
-          🏰{p.strongholds}
-        </span>
-      )}
       {p.cities.length > 0 && <span className="text-xs">🏙✓</span>}
     </button>
   );
@@ -290,7 +303,7 @@ function PlayerPanel({
           </span>
         </span>
       </div>
-      {view.settings.strongholds && <Supply p={p} view={view} art={art} />}
+      {view.settings.strongholds && <Supply p={p} view={view} room={room} art={art} />}
       <Holdings p={p} art={art} compact />
       {(p.reserved.length > 0 || p.nobles.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -323,16 +336,26 @@ function PlayerPanel({
 }
 
 /** A player's strongholds still in their supply, as pieces. */
-function Supply({ p, view, art }: { p: PlayerView; view: JewellerView; art: Art }) {
-  const seat = view.game!.order.indexOf(p.id);
+function Supply({
+  p,
+  view,
+  room,
+  art,
+}: {
+  p: PlayerView;
+  view: JewellerView;
+  room: GameRoomInfo;
+  art: Art;
+}) {
+  const color = holdColor(view, room, p.id);
   return (
     <span
       className="flex items-center gap-1 text-xs text-ink-muted dark:text-stone-400"
       role="img"
-      aria-label={`${p.strongholds} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply`}
+      aria-label={`${p.strongholds} ${color} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply`}
     >
       {Array.from({ length: p.strongholds }, (_, i) => (
-        <StrongholdIcon key={i} art={art.stronghold(seat)} size={18} />
+        <StrongholdIcon key={i} art={art.stronghold(color)} size={18} />
       ))}
       {p.strongholds === 0 ? 'All strongholds out' : 'in supply'}
     </span>
@@ -355,7 +378,7 @@ function holdInfo(
     mine: h.by === room.you,
     owner: owner?.name ?? 'Someone',
     color: room.players.find((p) => p.id === h.by)?.color,
-    art: art.stronghold(g.order.indexOf(h.by)),
+    art: art.stronghold(holdColor(view, room, h.by)),
   };
 }
 
@@ -625,9 +648,11 @@ function CardSheet({
         {me && (mineReserved || inMarket) && (
           <div className="w-full rounded-xl bg-panel p-2.5 ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700">
             <p className="mb-1.5 text-sm font-semibold">
-              {short > 0
-                ? `You need ${short} more ${short === 1 ? 'piece' : 'pieces'} to buy it.`
-                : 'You pay (after your discounts):'}
+              {blocked
+                ? 'Its cost (after your discounts):'
+                : short > 0
+                  ? `You need ${short} more ${short === 1 ? 'piece' : 'pieces'} to buy it.`
+                  : 'You pay (after your discounts):'}
             </p>
             <ul className="flex flex-col gap-1 text-sm">
               {GEMS.filter((c) => card.cost[c] > 0).map((c) => (
@@ -636,7 +661,7 @@ function CardSheet({
                   <span className="w-28">
                     {card.cost[c]} − {me.bonuses[c]} cards = <b>{need[c]}</b>
                   </span>
-                  {need[c] > 0 && short === 0 && (
+                  {need[c] > 0 && short === 0 && !blocked && (
                     <span className="ml-auto flex items-center gap-1">
                       <span className="tabular-nums">{need[c] - gold[c]}</span>
                       <TokenChip token={c} art={art} size={18} />
@@ -757,19 +782,20 @@ function DeckSheet({
 /** The owed stronghold: where it comes from, then a tap on a highlighted card. */
 function HoldPicker({
   view,
+  room,
   me,
   art,
   mode,
   name,
 }: {
   view: JewellerView;
+  room: GameRoomInfo;
   me: PlayerView;
   art: Art;
   mode: ReturnType<typeof useHoldMode>;
   name: NameOf;
 }) {
   const g = view.game!;
-  const seat = g.order.indexOf(me.id);
   const mineOn = holdsOf(g.holds, me.id);
   const canEvict = mode.moves.some((m) => m.type === 'evict');
   const choice = (from: HoldFrom, label: string, key: string) => (
@@ -790,7 +816,7 @@ function HoldPicker({
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Place a stronghold">
       <p className="flex items-center gap-1.5 text-sm font-semibold">
-        <StrongholdIcon art={art.stronghold(seat)} size={22} />
+        <StrongholdIcon art={art.stronghold(holdColor(view, room, me.id))} size={22} />
         You bought a card: place a stronghold.
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -974,7 +1000,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           </span>
         </span>
       </div>
-      {view.settings.strongholds && <Supply p={me} view={view} art={art} />}
+      {view.settings.strongholds && <Supply p={me} view={view} room={room} art={art} />}
       <Holdings p={me} art={art} />
       {me.reserved.length > 0 && (
         <div className="flex items-center gap-1.5" role="group" aria-label="Your reserved cards">
@@ -1007,6 +1033,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             p={p}
             view={view}
             room={room}
+            art={art}
             onOpen={() => setSheet({ kind: 'player', id: p.id })}
           />
         ))}
@@ -1153,7 +1180,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
                 </div>
               </div>
             ) : g.stage === 'hold' ? (
-              <HoldPicker view={view} me={me} art={art} mode={holdMode} name={name} />
+              <HoldPicker view={view} room={room} me={me} art={art} mode={holdMode} name={name} />
             ) : g.stage === 'conquer' && conquest ? (
               <div className="flex flex-col items-center gap-2" role="group" aria-label="Conquest">
                 <p className="text-center text-sm font-semibold">
