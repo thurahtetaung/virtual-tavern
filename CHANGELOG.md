@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.0...v0.73.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **realtime:** a connection that drops and comes straight back no longer flashes Connection lost ([#426](https://github.com/thurahtetaung/virtual-tavern/issues/426)) ([a44afa6](https://github.com/thurahtetaung/virtual-tavern/commit/a44afa690f8f548ab015e7ea01e9bfc905b5001c))
+
 ## [0.73.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.72.3...v0.73.0) (2026-10-26)
 
 
