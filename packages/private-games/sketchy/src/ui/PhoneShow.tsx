@@ -8,6 +8,7 @@ import {
   type LoadedRig,
   RevealCard,
   RigArt,
+  placeOf,
   ShowTargetsProvider,
   useShow,
   useShowSettings,
@@ -117,10 +118,14 @@ export function PhoneShow({
   );
 }
 
-/** A personal line ("You fooled 2! +1,000") over the page for a moment, then gone. */
+/**
+ * A personal line ("You fooled 2! +1,000") over the page for a moment, then gone: the phone's
+ * `subtitle`, which the show fills and clears (and never replays to a late device).
+ */
 function Toast() {
-  const ref = useTarget('toast');
+  const ref = useTarget('subtitle');
   const el = useRef<HTMLParagraphElement | null>(null);
+  // Cleared by itself too: a moment that is settled early never gets to clear its line.
   useEffect(() => {
     const p = el.current;
     if (!p) return;
@@ -154,6 +159,10 @@ export const usePhoneProfile = () => useContext(Profiled);
 /** Registers a quiet phone's own element for a moment (`board:<index>`, `like:<index>`). */
 export const usePhoneTarget = useTarget;
 
+/** A lie's words turn white on the balloon, as the table screen's. */
+const PHONE_CARD_CSS =
+  '.vt-card[data-face=lie] .vt-card-text,.vt-card[data-face=house] .vt-card-text{color:#fff!important}';
+
 /** The balloon the original's card turns over: the answer is live text, the art scales to fit. */
 const PHONE_W = 360;
 
@@ -162,7 +171,7 @@ const PHONE_W = 360;
  * choosers' names and the author's, played by the same moments as the table screen, scaled to the
  * card's width. Nothing without the art (or with a table screen, or the battery saver on).
  */
-export function PhoneCard() {
+export function PhoneCard({ shown }: { shown: boolean }) {
   const rig = useContext(PhoneRig);
   const profile = useContext(Profiled);
   const box = useRef<HTMLDivElement>(null);
@@ -170,7 +179,7 @@ export function PhoneCard() {
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => setK(el.clientWidth / (PHONE_W + 40));
+    const fit = () => setK(el.clientWidth / (PHONE_W + 160));
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
@@ -183,47 +192,58 @@ export function PhoneCard() {
     <div
       ref={box}
       aria-hidden
-      className="relative h-40 w-full overflow-hidden"
+      hidden={!shown}
+      className="relative h-40 w-full overflow-hidden rounded-2xl bg-[#f6f2ea] ring-1 ring-line"
       data-testid="sketchy-phone-card"
     >
       <div
-        className="absolute left-1/2 top-12"
-        style={{ transform: `scale(${k})`, transformOrigin: '0 0' }}
+        className="absolute"
+        style={{ left: 120 * k, top: 40 * k, transform: `scale(${k})`, transformOrigin: '0 0' }}
       >
+        <style>{PHONE_CARD_CSS}</style>
         <RevealCard
           rig={rig}
+          className="vt-card"
           live={{
-            'card-bubble': (
-              <>
-                <Layer m={[1, 0, 0, 1, -180, -40]}>
-                  <RigArt rig={rig} symbol="balloon" />
-                </Layer>
+            'card-bubble': <RigArt rig={rig} symbol="balloon" />,
+            'card-titlename': (
+              <Layer m={[1, 0, 0, 1, 104, 48]}>
                 <Label
                   name="card.text"
+                  className="vt-card-text"
                   style={{
-                    color: '#fff',
-                    fontSize: 24,
+                    color: '#1c1917',
+                    fontSize: 34,
                     fontWeight: 800,
                     whiteSpace: 'normal',
-                    width: 320,
+                    width: 330,
                     textAlign: 'center',
+                    lineHeight: 1.05,
                   }}
-                />
-              </>
-            ),
-            'card-playersWhoChose': (
-              <Layer m={[1, 0, 0, 1, 0, 82]}>
-                <Choosers
-                  rig={rig}
-                  gap={95}
-                  nameStyle={{ fontSize: 16, fontWeight: 800 }}
-                  pointsStyle={{ fontSize: 18, fontWeight: 900, color: '#15803d' }}
                 />
               </Layer>
             ),
+            'card-playersWhoChose': (
+              <Choosers
+                rig={rig}
+                nameStyle={{ color: '#1c1917', fontSize: 46, fontWeight: 900 }}
+                pointsStyle={{ fontSize: 50, fontWeight: 900, color: '#15803d' }}
+              />
+            ),
             'card-author': (
-              <Layer m={[1, 0, 0, 1, 0, -64]}>
-                <Label name="author.name" style={{ fontSize: 18, fontWeight: 900 }} />
+              <Layer m={placeOf(rig, 'author.right')}>
+                <Label
+                  name="author.name"
+                  style={{
+                    color: '#1c1917',
+                    fontSize: 32,
+                    fontWeight: 900,
+                    background: '#fbf8f1',
+                    padding: '2px 14px',
+                    borderRadius: 999,
+                    boxShadow: '0 0 0 2px #1c1917',
+                  }}
+                />
               </Layer>
             ),
           }}

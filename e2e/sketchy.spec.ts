@@ -176,7 +176,9 @@ test('a table screen shows the drawing party while the phones go quiet', async (
   await expect(card).toHaveAttribute('data-face', 'truth', { timeout: 10_000 });
   // Then the board waits for Next: the real title and the scores stay up.
   await expect(stage.getByText('“purple elephant”')).toBeVisible({ timeout: 10_000 });
-  await expect(stage.getByText(/the real title · found by 1/)).toBeVisible();
+  // The scoreboard: Cleo found it and fooled Ben (1,500), Hana drew it (1,000).
+  await expect(stage.getByText('Cleo · 1,500')).toBeVisible();
+  await expect(stage.getByText('Hana · 1,000')).toBeVisible();
   // The phones stayed quiet: no reveal card of their own while the TV shows it.
   for (const p of all) await expect(p.getByTestId('sketchy-phone-card')).toHaveCount(0);
   await results(all, 'purple elephant');

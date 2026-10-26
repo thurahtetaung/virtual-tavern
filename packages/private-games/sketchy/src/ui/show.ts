@@ -27,7 +27,7 @@ import { voiceClip } from './audio.ts';
 //   clock · drawing · pencil:<k> · choice:<i> · tick:<k> · card…, chip:<k>…, author… (the reveal)
 //   artist/<part>, artist.name, artist.title, artist.points · streak · board · score:<id>/<part>
 //   thumb:<i>, like:<i> · likes, likes.name, crown, cup:<id>, cup:<id>/arm · final, final:<id>
-//   winners · fireworks · streak:<id> · toast
+//   winners · fireworks · streak:<id> · subtitle (a phone's personal line)
 // Moments only move things and set words; what lasts the views render.
 
 const STAGE: Profile[] = ['stage'];
@@ -68,6 +68,15 @@ const pop = (t: number, target: string, on: Profile[] = FULL, ms = 300): Step =>
   ms,
   easing: 'ease-out',
   on,
+});
+/** A quick swell, as a streak bumps a balloon (the original's StreakBump). */
+const bump = (t: number, target: string): Step => ({
+  t,
+  kind: 'css',
+  target,
+  keyframes: [{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }],
+  ms: 567,
+  on: STAGE,
 });
 const show = (
   t: number,
@@ -199,6 +208,9 @@ function drawing(view: SketchyView, ctx: ShowCtx): Moment[] {
             anim(0, `count/${p}`, `${p}.GameStartAppear`, { on: STAGE }),
           ),
           ...swapSteps(ctx, 'count-d3', 'GameStartAppear', 0, 'count/count-d3'),
+          ...['count-countdownBG', 'count-d3', 'count-device'].map((p) =>
+            anim(2633, `count/${p}`, `${p}.Disappear`, { on: STAGE }),
+          ),
           sfx(0, `lobby.countdown#${pick}`),
           // As the original's start: everybody's in, the count of players, "Let's go!".
           sfx(0, 'lobby.allIn'),
@@ -317,7 +329,6 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       at: g.since,
       steps: [
         ...intro,
-        anim(0, 'drawing', 'drawing-container.Appear', { on: FULL }),
         sfx(0, 'turn.whatIsIt'),
         sfx(0, 'timer.numbers'),
         ...ask,
@@ -446,11 +457,7 @@ function revealing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       slotOf: (id) => slotOf(view, id),
       artist: t.artist,
     });
-    steps[0]?.steps.push(
-      sfx(0, voiceClip('reveal.picks', pick)),
-      // The drawing steps aside for the cards (the original's RevealMove).
-      anim(0, 'drawing', 'drawing-container.RevealMove', { on: STAGE }),
-    );
+    steps[0]?.steps.push(sfx(0, voiceClip('reveal.picks', pick)));
     const last = steps.at(-1);
     if (last && t.artist) {
       // The truth's artist: their name and the real title, then their points.
@@ -469,12 +476,14 @@ function revealing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       if (ctx.you && t.artist === ctx.you && found.length)
         last.steps.push(
           { t: f, kind: 'flash', colour: 'success', for: ctx.you, on: PHONES },
-          text(
-            f,
-            'toast',
-            `${found.length} found your drawing! +${artistPoints.toLocaleString('en-US')}`,
-            { for: ctx.you, on: PHONES },
-          ),
+          {
+            t: f,
+            kind: 'subtitle',
+            text: `${found.length} found your drawing! +${artistPoints.toLocaleString('en-US')}`,
+            ms: 2600,
+            for: ctx.you,
+            on: PHONES,
+          },
         );
     }
     out.push(...steps);
@@ -493,6 +502,7 @@ function revealing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
   const b = said;
   const ids = view.scores.filter((s) => g.players.includes(s.id) || s.score > 0).map((s) => s.id);
   const streaks = found.filter((id) => (t.streakBonus?.[id] ?? 0) > 0);
+  const flip = streaks.length ? BOARD.reshuffle + 640 : BOARD.streak;
   out.push({
     id: `board:${key}`,
     at: end,
@@ -500,42 +510,34 @@ function revealing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       ...(joke ? [sfx(0, `joke:${joke.file}`)] : []),
       ...(line ? [sfx(0, voiceClip(line, pick))] : []),
       sfx(b, 'board.clear'),
-      anim(b, 'drawing', 'drawing-container.Move', { on: STAGE }),
-      pop(b, 'board', STAGE, 400),
       sfx(b, 'board.on'),
       sfx(b, 'board.slide'),
+      // Each player's blue balloon pops on (the score bar under it waits), their points pop up
+      // a second later, then the streaks, then the balloons flip round to the score bars.
       ...ids.flatMap((id, i) => [
-        anim(b + i * 60, `score:${id}/score-balloonBG`, 'score-balloonBG.Appear', { on: STAGE }),
-        anim(b + i * 60, `score:${id}/score-d14`, 'score-d14.Appear', { on: STAGE }),
+        show(0, `score:${id}/bar`, 0, STAGE, 1),
+        show(0, `score:${id}/pop`, 0, STAGE, 1),
+        pop(b + i * 60, `score:${id}/balloon`, STAGE, 300),
       ]),
       sfx(b + BOARD.points, 'board.points'),
-      ...ids.map((id) =>
-        anim(b + BOARD.points, `score:${id}/score-scorePop`, 'score-scorePop.AppearPoints', {
-          on: STAGE,
-        }),
-      ),
+      ...ids.map((id) => pop(b + BOARD.points, `score:${id}/pop`, STAGE, 400)),
       ...(streaks.length
         ? [
             sfx(b + BOARD.streak, voiceClip('reveal.streak', pick)),
             sfx(b + BOARD.streak + 500, 'reveal.streak'),
             ...streaks.flatMap((id) => [
               pop(b + BOARD.streak, `streak:${id}`, FULL, 450),
-              anim(b + BOARD.streak, `score:${id}/score-balloonBG`, 'score-balloonBG.StreakBump', {
-                on: STAGE,
-              }),
+              bump(b + BOARD.streak, `score:${id}/balloon`),
             ]),
           ]
         : []),
-      sfx(b + (streaks.length ? BOARD.reshuffle + 640 : BOARD.streak), 'board.reshuffle'),
-      sfx(b + (streaks.length ? BOARD.reshuffle + 640 : BOARD.streak), 'board.flip'),
-      ...ids.map((id) =>
-        anim(
-          b + (streaks.length ? BOARD.reshuffle + 640 : BOARD.streak),
-          `score:${id}/score-balloonBG`,
-          'score-balloonBG.AppearScore',
-          { on: STAGE },
-        ),
-      ),
+      sfx(b + flip, 'board.reshuffle'),
+      sfx(b + flip, 'board.flip'),
+      ...ids.flatMap((id) => [
+        show(b + flip, `score:${id}/balloon`, 0, STAGE, 200),
+        show(b + flip, `score:${id}/pop`, 0, STAGE, 200),
+        pop(b + flip + 150, `score:${id}/bar`, STAGE, 433),
+      ]),
     ],
   });
   for (const o of t.options) {

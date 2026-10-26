@@ -11,8 +11,8 @@ import type { Moment, Profile, Step } from './show.ts';
 //
 // Targets, which the game's page registers (`RevealCard` and `Choosers` in `@vt/ui/show` do):
 //   card/<part> · card.text · card.authors · chip:<k>/<part> · chip:<k>.name · chip:<k>.points
-//   author/<part> · author.name · author.points · artist/<part> · board:<index> (a quiet phone's
-//   own list) · toast
+//   author/<part> · author.name · author.points · artist/<part> · board.now (a quiet phone's own
+//   answer in the spotlight) · subtitle (a phone's personal line)
 // Names are `{p:id}` placeholders the page fills. Sound steps play on every profile (the game's
 // sound routing decides which device makes the room's sound) and name generic clips:
 //   reveal.drumroll · reveal.slide · reveal.hit · reveal.balloon#<i> · reveal.truth ·
@@ -80,6 +80,7 @@ export interface RevealInput {
 }
 
 const FULL: Profile[] = ['stage', 'phone-full'];
+const STAGE: Profile[] = ['stage'];
 const PHONES: Profile[] = ['phone-quiet', 'phone-full'];
 const QUIET: Profile[] = ['phone-quiet'];
 
@@ -149,8 +150,8 @@ export function revealMoments(input: RevealInput): Moment[] {
     track: `${part}.${label}`,
     on: FULL,
   });
-  const card = (t: number, label: string): Step[] =>
-    parts.card.map((part) => anim('card', part, t, label));
+  const card = (t: number, label: string, on: Profile[] = FULL): Step[] =>
+    parts.card.map((part) => ({ ...anim('card', part, t, label), on }));
   const block = (prefix: string, names: readonly string[], t: number, label: string): Step[] =>
     names.map((part) => anim(prefix, part, t, label));
   const text = (t: number, target: string, words: string, on: Profile[] = FULL): Step => ({
@@ -159,6 +160,15 @@ export function revealMoments(input: RevealInput): Moment[] {
     target,
     text: words,
     on,
+  });
+  /** A personal line on the player's own phone (its `subtitle`), gone after a moment. */
+  const toast = (t: number, words: string, id: string): Step => ({
+    t,
+    kind: 'subtitle',
+    text: words,
+    ms: 2600,
+    for: id,
+    on: PHONES,
   });
   const sfx = (t: number, clip: string, more: Partial<Step> = {}): Step =>
     ({ t, kind: 'sfx', clip, ...more }) as Step;
@@ -204,7 +214,8 @@ export function revealMoments(input: RevealInput): Moment[] {
       steps.push(
         ...block(`chip:${k}`, parts.chooser, t, REVEAL_LABELS.appear),
         sfx(t, 'reveal.hit'),
-        ...card(t, REVEAL_LABELS.hit),
+        // The card jolts with each name on the table screen (a phone keeps to the names).
+        ...card(t, REVEAL_LABELS.hit, STAGE),
       );
     });
     // 3. The flip.
@@ -224,7 +235,7 @@ export function revealMoments(input: RevealInput): Moment[] {
       {
         t: f,
         kind: 'css',
-        target: `board:${index}`,
+        target: 'board.now',
         keyframes: [
           { transform: 'scale(1)' },
           { transform: 'scale(1.06)' },
@@ -297,15 +308,7 @@ export function revealMoments(input: RevealInput): Moment[] {
       steps.push(
         { t: f, kind: 'flash', colour: a.truth ? 'success' : 'danger', for: id, on: PHONES },
         { t: f, kind: 'haptic', pattern: a.truth ? [20] : [40, 40, 40], for: id, on: PHONES },
-        {
-          ...text(
-            f,
-            'toast',
-            a.truth ? `You found it! ${plus(a.points[id] ?? 0)}` : 'You fell for it!',
-            PHONES,
-          ),
-          for: id,
-        },
+        toast(f, a.truth ? `You found it! ${plus(a.points[id] ?? 0)}` : 'You fell for it!', id),
         ...(a.truth ? [sfx(f, 'me:found', { for: id, on: PHONES })] : []),
       );
     }
@@ -316,15 +319,7 @@ export function revealMoments(input: RevealInput): Moment[] {
           { t: f, kind: 'flash', colour: 'success', for: id, on: PHONES },
           { t: f, kind: 'haptic', pattern: [15, 40, 15], for: id, on: PHONES },
           sfx(f, 'me:fooled', { for: id, on: PHONES }),
-          {
-            ...text(
-              f,
-              'toast',
-              `You fooled ${a.voters.length}! ${each > 0 ? plus(each) : ''}`.trim(),
-              PHONES,
-            ),
-            for: id,
-          },
+          toast(f, `You fooled ${a.voters.length}! ${each > 0 ? plus(each) : ''}`.trim(), id),
         );
       }
     }

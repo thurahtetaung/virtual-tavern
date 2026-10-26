@@ -86,24 +86,50 @@ for (const [label, viewport, colorScheme] of [
   });
 }
 
+/**
+ * With SOUND_LOG set, every sound the page's audio engine starts is logged (when, how long), so a
+ * run shows which device made which sound.
+ */
+async function logSound(page: Page) {
+  if (!process.env.SOUND_LOG) return;
+  await page.addInitScript(() => {
+    const w = window as unknown as { __plays: { at: number; s: number }[] };
+    w.__plays = [];
+    const proto = AudioBufferSourceNode.prototype;
+    const start = Object.getOwnPropertyDescriptor(proto, 'start')!.value as (
+      this: AudioBufferSourceNode,
+      ...args: number[]
+    ) => void;
+    proto.start = function (this: AudioBufferSourceNode, ...args: number[]) {
+      if (this.buffer && this.buffer.length > 1)
+        w.__plays.push({ at: Date.now(), s: Math.round(this.buffer.duration * 100) / 100 });
+      start.apply(this, args);
+    };
+  });
+}
+
 // The show: the table screen at every phase (1920 x 1080) with quiet phones, and full phones with no
 // table screen, light and dark. SKETCHY_ART=<private folder with manifest.json, show/, audio/>
-// serves the original's rigs; without it the plain rooms are shot.
+// serves the original's rigs; without it the plain rooms are shot. SHOTS_DIR=<folder> says where.
 for (const colorScheme of ['light', 'dark'] as const) {
   for (const withTv of [true, false]) {
     test(`sketchy show screenshots (${withTv ? 'table screen + quiet' : 'full'} phones, ${colorScheme})`, async ({
       browser,
     }) => {
       test.setTimeout(400_000);
-      const dir = `test-results/sketchy-show/${withTv ? 'quiet' : 'full'}-${colorScheme}`;
-      const look: Look = { viewport: { width: 390, height: 844 }, colorScheme, setup: localArt };
+      const dir = `${process.env.SHOTS_DIR ?? 'test-results/sketchy-show'}/${withTv ? 'quiet' : 'full'}-${colorScheme}`;
+      const setup = async (page: Page) => {
+        await localArt(page);
+        await logSound(page);
+      };
+      const look: Look = { viewport: { width: 390, height: 844 }, colorScheme, setup };
       cleanup.push(await importPacks(browser));
       const pages = (await table(browser, ['Hana', 'Ben', 'Cleo'], look)) as [Page, Page, Page];
       const [hana, ben, cleo] = pages;
       const tv = withTv
         ? await pairTableScreen(browser, hana, {
             viewport: { width: 1920, height: 1080 },
-            setup: localArt,
+            setup,
           })
         : null;
       const shot = async (name: string, phone: Page = cleo) => {
@@ -112,6 +138,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
       };
       await hana.waitForTimeout(1500);
       await shot('01-lobby', hana);
+      // The narrator too, when the sound is being logged.
+      if (process.env.SOUND_LOG) {
+        await hana.getByTestId('sketchy-voice').click();
+        await expect(hana.getByTestId('sketchy-voice')).toHaveAttribute('aria-checked', 'true');
+      }
       await hana.getByRole('button', { name: 'Start game' }).click();
       await hana.waitForTimeout(1200);
       await shot('02a-countdown', ben);
@@ -141,6 +172,21 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await shot('07c-reveal-fooler', cleo);
       await hana.waitForTimeout(2600);
       await shot('08-reveal-truth', cleo);
+      if (process.env.SOUND_LOG) {
+        const { writeFile } = await import('node:fs/promises');
+        const log: Record<string, unknown> = {};
+        for (const [who, p] of [
+          ['tv', tv],
+          ['hana', hana],
+          ['ben', ben],
+          ['cleo', cleo],
+        ] as const)
+          if (p)
+            log[who] = await p.evaluate(
+              () => (window as unknown as { __plays?: unknown }).__plays ?? [],
+            );
+        await writeFile(`${dir}/sound.json`, JSON.stringify(log, null, 1));
+      }
       await results(pages, 'purple elephant');
       await hana.waitForTimeout(1500);
       await shot('09-board', ben);

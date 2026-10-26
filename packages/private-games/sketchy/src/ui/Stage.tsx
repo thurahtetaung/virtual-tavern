@@ -602,7 +602,11 @@ function useRevealStep(turn: TurnView, offset: number): number | null {
     if (start === null || end === null || now >= end) return null;
     return Math.max(0, Math.floor((now - start) / REVEAL_STEP_MS));
   };
-  const [step, setStep] = useState(at);
+  const [state, setState] = useState(() => ({ start, step: at() }));
+  // A new reveal is picked up in the same render, so the card is there when its moments start.
+  if (state.start !== start) setState({ start, step: at() });
+  const step = state.start === start ? state.step : null;
+  const setStep = (v: number | null) => setState({ start, step: v });
   useEffect(() => {
     if (start === null || end === null) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -644,16 +648,22 @@ function TurnRoom({
   const order = revealOrder(turn.options);
   const T = rig?.tracks;
   const shown = new Set(stage === 'reveal' && step !== null ? order.slice(step) : []);
+  // Where the drawing rests: up for writing and picking, aside for the cards, then beside the
+  // scoreboard (the original's poses; a short slide between them).
+  const pose = stage !== 'reveal' ? 'Appear' : boardUp ? 'Move' : 'RevealMove';
+  const fade = (on: boolean): CSSProperties => ({
+    opacity: on ? 1 : 0,
+    transition: 'opacity 0.3s',
+  });
   return (
     <>
       <Layer
-        name="drawing"
-        moving
-        style={
-          T
-            ? restOf(T['drawing-container']?.Appear)
-            : { transform: 'matrix(1.458,0,0,1.458,464,132)' }
-        }
+        style={{
+          ...(T
+            ? restOf(T['drawing-container']?.[pose])
+            : { transform: 'matrix(1.458,0,0,1.458,464,132)' }),
+          transition: 'transform 0.5s ease-out',
+        }}
       >
         <div
           className="absolute overflow-hidden rounded-sm bg-white shadow-lg ring-1 ring-stone-800"
@@ -744,10 +754,24 @@ function TurnRoom({
             </Layer>
           </Layer>
         ))}
-      {stage === 'reveal' && step !== null && (
-        <Reveal turn={turn} rig={rig} step={step} order={order} paint={paint} />
+      {/* The card and the scoreboard stay in place for the whole reveal (each step's moments
+          find their parts there), shown by turns. */}
+      {stage === 'reveal' && (
+        <Layer style={fade(!boardUp)}>
+          <Reveal
+            turn={turn}
+            rig={rig}
+            step={step ?? Math.max(0, order.length - 1)}
+            order={order}
+            paint={paint}
+          />
+        </Layer>
       )}
-      {boardUp && <Board view={view} turn={turn} rig={rig} paint={paint} />}
+      {stage === 'reveal' && (
+        <Layer style={fade(boardUp)}>
+          <Board view={view} turn={turn} rig={rig} paint={paint} />
+        </Layer>
+      )}
       {(stage === 'write' || stage === 'vote') && (
         <NumberRow view={view} arm={arm} offset={offset} />
       )}
@@ -874,7 +898,7 @@ function Reveal({
                   <Chooser
                     rig={rig}
                     k={k}
-                    nameStyle={{ color: INK, fontSize: 30, fontWeight: 900 }}
+                    nameStyle={{ color: INK, fontSize: 46, fontWeight: 900 }}
                     pointsStyle={{ color: '#15803d', fontSize: 34, fontWeight: 900 }}
                   />
                 </Layer>
@@ -885,21 +909,30 @@ function Reveal({
             <Layer m={placeOf(rig, 'author.right')}>
               {(['author-tf', 'author-playerIcon'] as const).map((part) => (
                 <Layer key={part} name={`author/${part}`} moving style={HIDDEN}>
-                  {part === 'author-tf' ? (
+                  {part === 'author-playerIcon' && author ? (
                     <>
-                      <Label name="author.name" style={PILL} />
-                      <Layer m={[1, 0, 0, 1, 0, 44]}>
+                      <span
+                        className="absolute size-10 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-stone-900"
+                        style={{ background: paint(author) }}
+                      />
+                      <Layer m={[1, 0, 0, 1, 34, 0]}>
+                        <Label
+                          name="author.name"
+                          style={{ ...PILL, transform: 'translate(0, -50%)' }}
+                        />
+                      </Layer>
+                      <Layer m={[1, 0, 0, 1, 34, 48]}>
                         <Label
                           name="author.points"
-                          style={{ color: '#15803d', fontSize: 34, fontWeight: 900 }}
+                          style={{
+                            color: '#15803d',
+                            fontSize: 36,
+                            fontWeight: 900,
+                            transform: 'translate(0, -50%)',
+                          }}
                         />
                       </Layer>
                     </>
-                  ) : author ? (
-                    <span
-                      className="absolute size-10 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-stone-900"
-                      style={{ background: paint(author) }}
-                    />
                   ) : null}
                 </Layer>
               ))}
@@ -1001,12 +1034,24 @@ function Board({
           <Layer key={s.id} m={[m[0]!, 0, 0, m[3]!, at[4]! + m[4]!, at[5]! + m[5]!]}>
             {rig ? (
               <>
-                <Layer name={`score:${s.id}/score-balloonBG`} moving>
+                <Layer name={`score:${s.id}/bar`} moving>
                   <RigArt rig={rig} symbol="scoreRow.score" />
                 </Layer>
-                <Layer name={`score:${s.id}/score-d14`} moving style={HIDDEN}>
+                <Layer name={`score:${s.id}/balloon`} moving style={HIDDEN}>
                   <RigArt rig={rig} symbol="scoreRow.balloon" />
                 </Layer>
+                {(gained[s.id] ?? 0) > 0 && (
+                  <Layer m={[0.7, 0, 0, 0.7, 150, -20]}>
+                    <Layer name={`score:${s.id}/pop`} moving style={HIDDEN}>
+                      <RigArt rig={rig} symbol="score-scorePop" />
+                      <Layer m={[1, 0, 0, 1, 107, 30]}>
+                        <Label style={{ color: '#15803d', fontSize: 40, fontWeight: 900 }}>
+                          +{points(gained[s.id]!)}
+                        </Label>
+                      </Layer>
+                    </Layer>
+                  </Layer>
+                )}
               </>
             ) : null}
             <Layer m={[1, 0, 0, 1, 28, 82]}>
@@ -1024,9 +1069,6 @@ function Board({
                   style={{ background: paint(s.id) }}
                 />
                 {s.name} · {points(s.score)}
-                {(gained[s.id] ?? 0) > 0 && (
-                  <span className="ml-1 text-[22px]"> +{points(gained[s.id]!)}</span>
-                )}
               </span>
             </Layer>
             {likes > 0 && (
@@ -1094,10 +1136,7 @@ function EndRoom({
   const n = Math.min(8, Math.max(3, shown.length));
   const cols = (cup?.places[`cup.${n}Player`] as number[][] | undefined) ?? [];
   const cupAt = (cup && placeOf(cup, 'cup.at')) ?? [1, 0, 0, 1, 70, 47];
-  const topY = (cup && placeOf(cup, 'cup.top')?.[5]) ?? -151;
-  const bottomY = (cup && placeOf(cup, 'cup.bottom')?.[5]) ?? 331;
   const maxLikes = Math.max(1, ...shown.map((s) => s.likes));
-  const crownCol = shown.findIndex((s) => liked.includes(s.id));
   return (
     <>
       <Layer name="final" moving>
@@ -1145,49 +1184,42 @@ function EndRoom({
       {liked.length > 0 && rig && (
         <Layer name="likes" moving style={HIDDEN}>
           <div className="absolute bg-stone-100" style={ROOM} />
-          <Layer m={[1, 0, 0, 1, 640, 40]}>
-            <Ink size={40}>Most liked</Ink>
+          <Layer m={[1, 0, 0, 1, 640, 44]}>
+            <Ink size={44}>Most liked</Ink>
+          </Layer>
+          <Layer m={[1, 0, 0, 1, 640, 104]}>
+            <Ink name="likes.name" size={32} />
           </Layer>
           {shown.map((s, k) => {
-            const m = cols[k] ?? [1, 0, 0, 1, 140 * k, 227];
+            // The original's columns per player count; each arm's fist rises to its share of
+            // the likes (0 likes: just above the floor).
+            const m = cols[k];
+            const x = m ? cupAt[4]! + m[4]! + 70 : 140 + k * 150;
             const share = s.likes / maxLikes;
-            const y = bottomY - 140 - (bottomY - 140 - topY) * share;
+            const fist = 560 - 360 * share;
             const hand = k % 2 === 0 || !paw;
-            const armPlace = (cup && placeOf(cup, hand ? 'cup.thumb0' : 'cup.thumb1')) ?? [
-              0.8, 0, 0, 0.8, 18, 263,
-            ];
             return (
-              <Layer key={s.id} m={[1, 0, 0, 1, cupAt[4]! + m[4]!, cupAt[5]! + m[5]!]}>
-                <div
-                  className="absolute overflow-hidden"
-                  style={{ left: -40, top: topY - 120, width: 240, height: bottomY - topY + 120 }}
-                >
-                  <Layer m={[1, 0, 0, 1, 40, y - topY + 120]}>
-                    <Layer name={`cup:${s.id}`} moving>
-                      <Layer m={armPlace}>
-                        <Layer name={`cup:${s.id}/arm`} moving>
-                          <RigArt rig={hand ? rig : paw} symbol={hand ? 'thumb' : 'catThumb'} />
-                        </Layer>
-                      </Layer>
+              <Layer key={s.id} m={[1, 0, 0, 1, x, 0]}>
+                <Layer name={`cup:${s.id}`} moving>
+                  <Layer m={[0.7, 0, 0, 0.7, -60, fist - 34]}>
+                    <Layer name={`cup:${s.id}/arm`} moving>
+                      <RigArt rig={hand ? rig : paw} symbol={hand ? 'thumb' : 'catThumb'} />
                     </Layer>
                   </Layer>
-                </div>
-                <Layer m={[1, 0, 0, 1, 70, bottomY - 90]}>
-                  <Ink size={24}>{`${s.name}: ${s.likes}`}</Ink>
                 </Layer>
-                {k === crownCol && (
-                  <Layer m={[0.8, 0, 0, 0.8, 70, y - 30]}>
+                {liked.includes(s.id) && s.id === liked[0] && (
+                  <Layer m={[0.8, 0, 0, 0.8, 0, fist - 70]}>
                     <Layer name="crown" moving style={HIDDEN}>
                       <SwapArt rig={rig} part="crown" label="Glow" last />
                     </Layer>
                   </Layer>
                 )}
+                <Layer m={[1, 0, 0, 1, 0, 680]}>
+                  <Label style={{ ...PILL, fontSize: 24 }}>{`${s.name} · ${s.likes}`}</Label>
+                </Layer>
               </Layer>
             );
           })}
-          <Layer m={[1, 0, 0, 1, 640, 100]}>
-            <Ink name="likes.name" size={30} />
-          </Layer>
         </Layer>
       )}
       {owl && <Owl owl={owl} m={[0.45, 0, 0, 0.45, 1170, 600]} />}

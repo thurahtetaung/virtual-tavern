@@ -129,8 +129,8 @@ describe('revealMoments', () => {
       at(lie, 1400, 'phone-quiet', you)
         .filter((s) => s.step.for)
         .map((s) => s.step.kind);
-    expect(mine('ana')).toEqual(expect.arrayContaining(['flash', 'haptic', 'text']));
-    expect(mine('cy')).toEqual(expect.arrayContaining(['flash', 'haptic', 'sfx', 'text']));
+    expect(mine('ana')).toEqual(expect.arrayContaining(['flash', 'haptic', 'subtitle']));
+    expect(mine('cy')).toEqual(expect.arrayContaining(['flash', 'haptic', 'sfx', 'subtitle']));
     expect(mine('bo')).toEqual([]);
     expect(at(lie, 1400, 'stage', null).some((s) => s.step.for)).toBe(false);
   });
@@ -140,7 +140,7 @@ describe('revealMoments', () => {
     const quiet = at(lie, 0, 'phone-quiet', 'bo').map((s) => s.step);
     expect(quiet.some((s) => s.kind === 'anim')).toBe(false);
     expect(quiet.some((s) => s.kind === 'sfx' && s.clip === 'reveal.hit')).toBe(true);
-    expect(quiet.some((s) => s.kind === 'css' && s.target === 'board:1')).toBe(true);
+    expect(quiet.some((s) => s.kind === 'css' && s.target === 'board.now')).toBe(true);
   });
 
   it('makes nothing to animate without the rig parts', () => {
