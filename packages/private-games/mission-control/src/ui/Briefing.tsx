@@ -5,6 +5,7 @@ import { type AttemptView, DUMMY, EPILOGUE, type MissionPlay } from '../logic/ty
 import { useArt } from './assets.tsx';
 import { MissionTags } from './Logbook.tsx';
 import { missionLabel } from './status.ts';
+import { paragraphsOf } from './text.ts';
 
 /** Logbook text as printed: `**bold**` and `*italic*` only. */
 export function Printed({ text }: { text: string }) {
@@ -109,9 +110,13 @@ export function Briefing({
           <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold">
             Logbook entry
           </summary>
-          <p className="whitespace-pre-line text-sm leading-relaxed">
-            <Printed text={text.story} />
-          </p>
+          <div className="space-y-2 text-sm leading-relaxed" data-testid="mc-story">
+            {paragraphsOf(text.story).map((p, i) => (
+              <p key={i} className="whitespace-pre-line">
+                <Printed text={p} />
+              </p>
+            ))}
+          </div>
         </details>
       )}
       <RuleBox a={a} />

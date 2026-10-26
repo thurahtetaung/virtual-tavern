@@ -3,27 +3,30 @@
 // Virtual Tavern through the admin API. The server checks the data against the game's own schema
 // (`contentPacks` on its definition; Going Once's is in
 // packages/private-games/going-once/src/logic/content.ts) and refuses anything that doesn't fit.
-// Markup in any string (tags, entities) is taken out before it is sent, keeping the words; the
-// server strips it again. A pack with the same game, kind and name is skipped, so the script is
-// safe to re-run, unless --replace is given: then that pack's data is replaced in place (same id,
-// so rooms' memory of the groups they used carries on). The admin
-// password comes from ADMIN_PASSWORD (never a flag, so it stays out of shell history). Packs are
-// private content and never committed; see CLAUDE.md and docs/deployment.md.
+// Markup in any string (tags, entities) is taken out before it is sent, keeping the words and
+// line and paragraph breaks; the server strips it again. A pack with the same game, kind and
+// name is skipped, so the script is safe to re-run, unless --replace is given: then that pack's
+// data is replaced in place (same id, so rooms' memory of the groups they used carries on). The
+// admin password comes from ADMIN_PASSWORD (never a flag, so it stays out of shell history).
+// Packs are private content and never committed; see CLAUDE.md and docs/deployment.md.
 // Usage: ADMIN_PASSWORD=... node scripts/import-content-pack.mjs <baseUrl> <gameId> <kind> <file.json> [--name <name>] [--disabled] [--replace] [--dry-run]
 import { readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 // The games' own markup cleaner, so the script and the server clean text the same way.
-import { plainText } from '../packages/game-sdk/src/markup.mjs';
+import { plainLines, plainText } from '../packages/game-sdk/src/markup.mjs';
 
 export { plainText };
 
-/** Every string in a pack's data with markup taken out, and how many changed. */
+/**
+ * Every string in a pack's data with markup taken out, and how many changed. Line and paragraph
+ * breaks stay (a story keeps its paragraphs); a game whose schema wants one line cleans again.
+ */
 export function cleanPack(data) {
   let changed = 0;
   const walk = (v) => {
     if (typeof v === 'string') {
-      const clean = plainText(v);
+      const clean = plainLines(v);
       if (clean !== v.trim()) changed++;
       return clean;
     }
