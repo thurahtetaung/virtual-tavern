@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type Browser, type Page, expect } from '@playwright/test';
+import { type Browser, type Locator, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
 
 // Shared steps for Skyfire's specs: a room, clues, plays and discards.
@@ -41,17 +41,21 @@ export async function localArt(page: Page) {
   });
 }
 
-/** The host opens a Skyfire room; the others follow the link in one at a time (seat order). */
-export async function table(browser: Browser, names: string[], look: Look = {}) {
+/**
+ * The host opens a Skyfire room; the others follow the link in one at a time (seat order). A list
+ * of looks gives each seat its own.
+ */
+export async function table(browser: Browser, names: string[], look: Look | Look[] = {}) {
+  const lookOf = (i: number) => (Array.isArray(look) ? (look[i] ?? {}) : look);
   const [hostName, ...rest] = names;
-  const host = await visitor(browser, hostName!, look);
+  const host = await visitor(browser, hostName!, lookOf(0));
   await unlock(host);
   await host.getByRole('button', { name: 'Create a Skyfire room' }).click();
   await expect(host).toHaveURL(/\/r\//);
   const url = host.url();
   const pages = [host];
-  for (const n of rest) {
-    const p = await visitor(browser, n, look);
+  for (const [i, n] of rest.entries()) {
+    const p = await visitor(browser, n, lookOf(i + 1));
     await unlock(p, `/backroom?next=${encodeURIComponent(new URL(url).pathname)}`);
     await expect(p).toHaveURL(url);
     pages.push(p);
@@ -78,4 +82,44 @@ export async function useCard(p: Page, card: string, how: 'play' | 'discard') {
   await p.getByTestId('sf-my-hand').locator(`[data-card="${card}"]`).click();
   await p.getByTestId(`sf-${how}`).click();
   await expect(p.getByTestId(`sf-${how}`)).toHaveCount(0);
+}
+
+/** The ids of a hand's cards, left to right. */
+export const handOrder = (hand: Locator) =>
+  hand.locator('[data-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-card')));
+
+/**
+ * Drags one of your own cards onto another's place, with the mouse or (phones) a finger, calling
+ * `mid` while it is held.
+ */
+export async function dragCard(
+  p: Page,
+  from: string,
+  onto: string,
+  how: 'mouse' | 'touch',
+  mid?: () => Promise<void>,
+) {
+  const hand = p.getByTestId('sf-my-hand');
+  const a = (await hand.locator(`[data-card="${from}"]`).boundingBox())!;
+  const b = (await hand.locator(`[data-card="${onto}"]`).boundingBox())!;
+  const y = a.y + a.height / 2;
+  const x = (f: number) => a.x + a.width / 2 + (b.x - a.x) * f;
+  if (how === 'mouse') {
+    await p.mouse.move(x(0), y);
+    await p.mouse.down();
+    for (let i = 1; i <= 10; i++) await p.mouse.move(x(i / 10), y);
+    await mid?.();
+    await p.mouse.up();
+    return;
+  }
+  const cdp = await p.context().newCDPSession(p);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', f?: number) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: f === undefined ? [] : [{ x: x(f), y }],
+    });
+  await touch('touchStart', 0);
+  for (let i = 1; i <= 10; i++) await touch('touchMove', i / 10);
+  await mid?.();
+  await touch('touchEnd');
 }

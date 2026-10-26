@@ -57,6 +57,8 @@ for (const [label, viewport, colorScheme] of [
     // Phones show the discards in their own tab; desktop shows them beside the table.
     if (viewport.width < 1024) await ben.getByRole('tab', { name: /^Discards/ }).click();
     await shot(ben, '06-discards');
+    // The host's End the show sits under the log (its own tab on phones).
+    if (viewport.width < 1024) await ana.getByRole('tab', { name: 'Log' }).click();
     await ana.getByTestId('sf-end-game').click();
     await ana.getByRole('dialog').getByRole('button', { name: 'End the show' }).click();
     await expect(ana.getByTestId('sf-end')).toBeVisible();

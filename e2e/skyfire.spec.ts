@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { clue, myTurn, table, useCard } from './skyfire-play.ts';
+import { clue, dragCard, handOrder, myTurn, table, useCard } from './skyfire-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -78,4 +78,77 @@ test('2 players on phones: a clue, a play, a discard, a reorder, misfires to the
   await expect(ben.getByTestId('sf-replay-turn')).toHaveText('Ana told you: 1s, 1 card.');
   await ana.getByRole('button', { name: 'Play again' }).click();
   await expect(ben.getByTestId('sf-my-hand')).toBeVisible();
+});
+
+const DESKTOP = { width: 1440, height: 900 };
+const shot = async (p: Page, name: string) => {
+  if (process.env.SCREENSHOTS)
+    await p.screenshot({ path: `test-results/skyfire-shots/drag-${name}.png` });
+};
+
+test('dragging a card reorders your hand, with the mouse and with a finger', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(
+    browser,
+    ['Ana', 'Ben'],
+    [
+      { viewport: DESKTOP, colorScheme: 'dark' },
+      { viewport: PHONE, colorScheme: 'light' },
+    ],
+  )) as [Page, Page];
+  await ana.getByRole('button', { name: 'Start the show' }).click();
+  await myTurn(ana);
+  const anaMine = ana.getByTestId('sf-my-hand');
+  const benMine = ben.getByTestId('sf-my-hand');
+  const anaOnBen = ben.locator('[data-testid^="sf-hand-"]').first();
+  const benOnAna = ana.locator('[data-testid^="sf-hand-"]').first();
+  await expect.poll(() => handOrder(anaMine)).toEqual(['c1', 'c2', 'c3', 'c4', 'c5']);
+
+  // Ana drags her first card onto her fourth with the mouse; both screens show the new order.
+  await dragCard(ana, 'c1', 'c4', 'mouse', async () => {
+    await expect(anaMine.locator('[data-card="c1"]')).toHaveCSS('transform', /matrix/);
+    await shot(ana, 'mid-desktop-dark');
+  });
+  for (const hand of [anaMine, anaOnBen])
+    await expect.poll(() => handOrder(hand)).toEqual(['c2', 'c3', 'c4', 'c1', 'c5']);
+  await expect(ana.getByRole('dialog')).toHaveCount(0);
+  await shot(ana, 'after-desktop-dark');
+
+  // Ben drags his last card to the far left with a finger, while it isn't his turn.
+  await dragCard(ben, 'c10', 'c6', 'touch', async () => {
+    await expect(benMine.locator('[data-card="c10"]')).toHaveCSS('transform', /matrix/);
+    await shot(ben, 'mid-phone-light');
+  });
+  for (const hand of [benMine, benOnAna])
+    await expect.poll(() => handOrder(hand)).toEqual(['c10', 'c6', 'c7', 'c8', 'c9']);
+  await expect(ben.getByRole('dialog')).toHaveCount(0);
+  await shot(ben, 'after-phone-light');
+
+  // A tap still opens the card.
+  await anaMine.locator('[data-card="c2"]').click();
+  await expect(ana.getByTestId('sf-play')).toBeVisible();
+});
+
+test('5 players on phones: every turn fits the screen without scrolling', async ({ browser }) => {
+  test.setTimeout(150_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const names = ['Ana', 'Ben', 'Cy', 'Dee', 'Eve'];
+  const pages = await table(browser, names, { viewport: PHONE });
+  await pages[0]!.getByRole('button', { name: 'Start the show' }).click();
+  // The first-time tips are read once, then put away.
+  for (const p of pages) await p.getByRole('button', { name: 'Got it' }).click();
+  const fits = async (p: Page) =>
+    expect
+      .poll(() => p.evaluate(() => document.documentElement.scrollHeight))
+      .toBeLessThanOrEqual(PHONE.height);
+  // Five clues round the table, then Ana (the host) on turn with a full "since" list.
+  for (let turn = 0; turn <= names.length; turn++) {
+    const p = pages[turn % names.length]!;
+    await myTurn(p);
+    for (const q of pages) await fits(q);
+    if (turn < names.length) await clue(p, 1);
+  }
 });
