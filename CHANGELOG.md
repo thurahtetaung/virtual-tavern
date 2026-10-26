@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.63.0...v0.63.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **jeweller:** match stronghold colours to players, grey the nobles under Cities, and tidy the held-card sheet and City tiles ([#371](https://github.com/thurahtetaung/virtual-tavern/issues/371)) ([e6e35a5](https://github.com/thurahtetaung/virtual-tavern/commit/e6e35a53455f3e3f40671b915afda5969d4ab51f))
+
 ## [0.63.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.62.3...v0.63.0) (2026-10-26)
 
 
