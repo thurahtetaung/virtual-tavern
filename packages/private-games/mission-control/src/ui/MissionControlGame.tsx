@@ -19,7 +19,7 @@ import {
 import { ArtContext, artFor, useArt, useManifest } from './assets.tsx';
 import { Briefing, RuleBox } from './Briefing.tsx';
 import { CardChip, Rich } from './Card.tsx';
-import { HandOverPanel, PickPanel, TokensPanel } from './Steps.tsx';
+import { AnnouncePanel, HandOverPanel, PickPanel, TokensPanel } from './Steps.tsx';
 import { Debrief } from './Debrief.tsx';
 import { Draft } from './Draft.tsx';
 import { Lobby, SEAT_CONTROL_ID } from './Lobby.tsx';
@@ -52,7 +52,7 @@ function Header({ view, clockOffset }: { view: MissionControlView; clockOffset: 
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-bold">
-          {missionLabel(m.n)}
+          {missionLabel(m.n, m.label)}
           {m.n === EPILOGUE ? ` · difficulty ${m.difficulty}` : ''}
         </span>
         <span className="text-ink-muted tabular-nums">
@@ -215,6 +215,7 @@ function Game({
             ))}
           </ul>
         )}
+        {a.stage === 'announce' && <AnnouncePanel a={a} act={act} name={name} />}
         {a.stage === 'pick' && <PickPanel a={a} me={me} act={act} name={name} />}
         {a.stage === 'tokens' && <TokensPanel a={a} me={me} act={act} name={name} />}
         {a.stage === 'handover' && <HandOverPanel a={a} me={me} act={act} name={name} />}

@@ -207,6 +207,33 @@ export function orderFailure(tasks: readonly TaskInPlay[]): { i: number; why: st
   return null;
 }
 
+/**
+ * One task in each of consecutive tricks: the first break, or null. Two tasks in one trick, or a
+ * trick that goes by without one once the run has begun, fail it.
+ */
+export function rowFailure(
+  tasks: readonly TaskInPlay[],
+  played: number,
+): { i: number; why: string } | null {
+  const own = tasks.map((t, i) => ({ t, i })).filter((x) => !x.t.crew);
+  const done = own
+    .filter((x) => x.t.state === 'done')
+    .sort((a, b) => (a.t.at ?? 0) - (b.t.at ?? 0));
+  for (let k = 1; k < done.length; k++) {
+    if (done[k]!.t.at === done[k - 1]!.t.at)
+      return {
+        i: done[k]!.i,
+        why: `Two tasks were met in trick ${done[k]!.t.at}: one per trick was needed.`,
+      };
+  }
+  const open = own.find((x) => x.t.state !== 'done');
+  if (!done.length || !open) return null;
+  const last = done.at(-1)!.t.at ?? 0;
+  if (played > last)
+    return { i: open.i, why: `Trick ${last + 1} went by without a task, before all were met.` };
+  return null;
+}
+
 // ---- The draw after the first trick ----
 
 /**

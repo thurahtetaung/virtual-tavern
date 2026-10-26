@@ -358,3 +358,50 @@ export function RolesDraft({
     </Panel>
   );
 }
+
+/** Announcements: in turn, each says how many tricks the player on their left will win. */
+export function AnnouncePanel({
+  a,
+  act,
+  name,
+}: {
+  a: AttemptView;
+  act: Act;
+  name: (id: string) => string;
+}) {
+  const p = a.extras.pick;
+  const asked = p.order[p.at];
+  const left = (s: string) => a.crew[(a.crew.findIndex((c) => c.id === s) + 1) % a.crew.length]!.id;
+  return (
+    <Panel className="space-y-3" data-testid="mc-announce">
+      <ul className="space-y-1 text-sm">
+        {p.order
+          .filter((s) => s in p.answers)
+          .map((s) => (
+            <li key={s}>
+              <strong>{name(s)}</strong>: {name(left(s))} wins {p.answers[s]}
+            </li>
+          ))}
+      </ul>
+      {asked && a.controls.includes(asked) && (
+        <div className="space-y-2">
+          <p className="text-sm font-semibold">How many tricks will {name(left(asked))} win?</p>
+          <div className="flex flex-wrap gap-1">
+            {Array.from({ length: a.total + 1 }, (_, n) => (
+              <Button
+                key={n}
+                size="sm"
+                variant="secondary"
+                onClick={() => void act({ type: 'announce', n }, { anchor: ANCHOR })}
+                data-testid="mc-announce-n"
+              >
+                {n}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      <RefusalSlot anchor={ANCHOR} />
+    </Panel>
+  );
+}

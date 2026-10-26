@@ -78,6 +78,9 @@ export interface MissionSummary {
   fixed: boolean;
   /** One-card campaigns: tasks to draw and their order tokens. */
   cards: number | null;
+  /** A bonus mission: its own label, not needed to finish the campaign. */
+  label: string | null;
+  bonus: boolean;
   tokens: OrderToken[];
 }
 
@@ -111,6 +114,8 @@ export interface MissionPlay {
   seconds: number | null;
   /** Played out of campaign order. */
   practice: boolean;
+  /** A bonus mission's own label ("P1"). */
+  label: string | null;
   /** One-card tasks ("win this card") instead of task cards from the pack. */
   cardTasks: boolean;
   /** The one-card campaigns' mission rules (absent fields: not on this mission). */
@@ -130,6 +135,9 @@ export type MissionRules = Pick<
   | 'holderLeft'
   | 'captainTask'
   | 'roleNames'
+  | 'announce'
+  | 'oneEachInRow'
+  | 'fixedCards'
 >;
 
 export type TaskState = 'open' | 'done' | 'failed';
@@ -226,6 +234,7 @@ export interface Distress {
 }
 
 export type Stage =
+  | 'announce'
   | 'briefing'
   | 'pick'
   | 'tokens'
@@ -374,6 +383,8 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('next') }),
   /** The captain's pick: an answer to the question (in turn), then the captain chooses. */
   z.object({ type: z.literal('reply'), reply: z.string().max(60) }),
+  /** Announce how many tricks the player on your left will win. */
+  z.object({ type: z.literal('announce'), n: z.number().int().min(0).max(14) }),
   z.object({ type: z.literal('choose-member'), seat }),
   /** Token swap (or move onto an unmarked task, `b`), proposed and agreed. */
   z.object({

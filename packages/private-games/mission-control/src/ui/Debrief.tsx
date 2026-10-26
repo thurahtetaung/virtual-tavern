@@ -146,7 +146,9 @@ export function Debrief({
           <p className="text-3xl sm:text-5xl" aria-hidden>
             🏅
           </p>
-          <h2 className="text-2xl font-black">{missionLabel(a.mission.n)} accomplished!</h2>
+          <h2 className="text-2xl font-black">
+            {missionLabel(a.mission.n, a.mission.label)} accomplished!
+          </h2>
           <p
             className="inline-block -rotate-2 rounded-lg px-3 py-1 font-black uppercase tracking-wider text-success-ink ring-2 ring-success-line dark:text-emerald-200 dark:ring-emerald-500/50"
             data-testid="mc-stamp"

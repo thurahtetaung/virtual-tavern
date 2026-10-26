@@ -28,7 +28,7 @@ const cardHost =
 
 describe('bots on the one-card voyage', () => {
   for (const n of [2, 3, 4, 5]) {
-    for (let mission = 1; mission <= 18; mission++) {
+    for (let mission = 1; mission <= 21; mission++) {
       it(`play mission ${mission} with ${n} to the end`, () => {
         const r = playWithBots(missionControl, seats(n), {
           seed: n * 1000 + mission,

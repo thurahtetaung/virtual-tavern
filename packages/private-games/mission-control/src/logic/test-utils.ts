@@ -180,6 +180,9 @@ export const VOYAGE_CARDS = {
     },
     { n: 17, pick: { role: 'one-trick', question: 'Volunteer?', replies: ['Yes', 'No'] } },
     { n: 18, pick: { role: 'first-last', question: 'Ready?', replies: ['Yes', 'No'] } },
+    { n: 19, announce: true, bonus: true, label: 'P1' },
+    { n: 20, cards: 2, oneEachInRow: true, passing: false, bonus: true, label: 'P2' },
+    { n: 21, fixedCards: ['b1', 'b2', 'b3', 'b4'], passing: false, bonus: true, label: 'P3' },
   ],
 };
 

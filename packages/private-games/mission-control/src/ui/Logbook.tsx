@@ -168,11 +168,11 @@ export function Logbook({
     const selected = picked === m.n;
     const body = (
       <>
-        <span className="w-8 shrink-0 text-right font-bold tabular-nums">{m.n}</span>
+        <span className="w-8 shrink-0 text-right font-bold tabular-nums">{m.label ?? m.n}</span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">
             {log?.done ? '✅ ' : log?.practised ? '🎯 ' : ''}
-            {title ?? missionLabel(m.n)}
+            {title ?? missionLabel(m.n, m.label)}
           </span>
           <span className="block text-xs text-ink-muted">
             {m.cards
@@ -223,8 +223,8 @@ export function Logbook({
       <DepthStrip voyage={voyage} campaign={campaign} />
       {picked !== next && (
         <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30">
-          🎯 {missionLabel(picked)} is out of order: it plays as practice and doesn’t change the
-          attempt counts.
+          🎯 {missionLabel(picked, voyage.missions.find((x) => x.n === picked)?.label)} is out of
+          order: it plays as practice and doesn’t change the attempt counts.
         </p>
       )}
       <ol className="max-h-56 space-y-0.5 overflow-y-auto pr-1 sm:max-h-[50vh]">

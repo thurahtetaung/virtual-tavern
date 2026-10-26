@@ -199,6 +199,12 @@ export function missionControlBot(
       }
       return t ? { type: 'take', task: t.index } : d.canPass ? { type: 'pass' } : null;
     }
+    case 'announce': {
+      const p = a.extras.pick;
+      const asked = p.order[p.at];
+      if (!asked || !controls.includes(asked)) return null;
+      return { type: 'announce', n: ctx.rng.int(Math.min(4, a.total) + 1) };
+    }
     case 'pick': {
       const p = a.extras.pick;
       const r = a.mission.rules.pick;

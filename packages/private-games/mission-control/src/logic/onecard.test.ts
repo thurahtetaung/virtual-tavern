@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { type Table, evaluate } from './checks.ts';
 import { createRng } from '@vt/game-sdk';
-import { drawFromRight, orderFailure } from './onecard.ts';
+import { drawFromRight, orderFailure, rowFailure } from './onecard.ts';
 import { HOST, type Harness, att, dive, draftAll, harness, readyAll, rig } from './test-utils.ts';
 import { DUMMY, type TaskInPlay } from './types.ts';
 
@@ -72,6 +72,38 @@ describe('order tokens', () => {
   it('Ω is last; in the same trick as the others it still counts as last', () => {
     expect(orderFailure([done(1, 'o'), open(null)])?.why).toMatch(/last task/);
     expect(orderFailure([done(2, 'o'), done(2, null, 'z')])).toBeNull();
+  });
+});
+
+describe('the bonus missions', () => {
+  it('announcements: in turn from the captain, each for the player on their left, public', async () => {
+    const { missionControl } = await import('./definition.ts');
+    const h = cards(19);
+    expect(att(h).stage).toBe('announce');
+    expect(h.refuse('p2', { type: 'announce', n: 1 }).code).toBe('not-your-turn');
+    h.act('p1', { type: 'announce', n: 2 });
+    h.act('p2', { type: 'announce', n: 0 });
+    h.act('p3', { type: 'announce', n: 4 });
+    const p = (s: string) => att(h).tasks.find((t) => t.key === `announce:${s}`)!.prediction;
+    expect([p('p2'), p('p3'), p('p1')]).toEqual([2, 0, 4]);
+    expect(missionControl.view(h.state, 'p3').attempt!.tasks.map((t) => t.prediction)).toEqual([
+      4, 2, 0,
+    ]);
+    expect(att(h).stage).toBe('distress');
+  });
+
+  it('one task in each of consecutive tricks', () => {
+    expect(rowFailure([done(1, null, 'a'), done(2, null, 'b')], 2)).toBeNull();
+    expect(rowFailure([done(1, null, 'a'), done(1, null, 'b')], 1)?.why).toMatch(/one per trick/);
+    expect(rowFailure([done(1, null, 'a'), open(null)], 2)?.why).toMatch(/went by without a task/);
+    expect(rowFailure([open(null)], 3)).toBeNull();
+  });
+
+  it('fixed blue tasks, and bonus missions don’t count for the campaign’s next mission', () => {
+    const h = cards(21);
+    expect(att(h).tasks.map((t) => t.key)).toEqual(['card:b1', 'card:b2', 'card:b3', 'card:b4']);
+    const voyage = h.state.voyages.find((v) => v.key === 'test-cards')!;
+    expect(voyage.missions.find((m) => m.n === 19)).toMatchObject({ label: 'P1', bonus: true });
   });
 });
 

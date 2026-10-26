@@ -158,6 +158,9 @@ const base: GameGuide = {
         'When the {captain} picks a crew member after a question, they may pick anyone else whatever they answered.',
         'In the {captain}’s decision the tasks stay face down for everyone, the {captain} included, until given.',
         'The five-player hand-over happens once, before the first trick, if everyone agrees; it doesn’t count as an attempt.',
+        'Bonus missions come after the campaign (P1 to P3) and aren’t needed to finish it.',
+        'Announcing tricks: in turn from the {captain}, everyone announces how many tricks the player on their left will win, out loud and final; the {captain} announces for {dummy}. The {distress} can still be sent afterwards.',
+        'One task per trick in a row: each trick of the run meets exactly one task; two in one trick, or a trick without one once the run has begun, ends the attempt.',
       ],
     },
     {

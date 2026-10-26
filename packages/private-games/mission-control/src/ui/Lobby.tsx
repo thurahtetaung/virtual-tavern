@@ -204,7 +204,8 @@ export function Lobby({
                 onClick={() => void act({ type: 'start' }, { anchor: ANCHOR })}
                 data-testid="mc-start"
               >
-                Start {missionLabel(picked)}
+                Start{' '}
+                {missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}
               </Button>
               {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
             </div>

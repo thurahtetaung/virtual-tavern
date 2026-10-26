@@ -97,7 +97,7 @@ export function Briefing({
             {m.n === EPILOGUE ? ` · difficulty ${m.difficulty}` : ''}
           </p>
           <h2 className="text-2xl font-black">
-            {missionLabel(m.n)}
+            {missionLabel(m.n, m.label)}
             {text.title ? `: ${text.title}` : ''}
           </h2>
         </div>

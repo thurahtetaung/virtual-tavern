@@ -117,6 +117,15 @@ const missionSchema = z.object({
   holderLeft: z.object({ card: cardId, check: checkSchema, text: text(200) }).optional(),
   /** A condition the captain must meet. */
   captainTask: worded.optional(),
+  /** Each player announces how many tricks the player on their left will win (public, final). */
+  announce: z.boolean().optional(),
+  /** Every task is met in consecutive tricks, one task in each. */
+  oneEachInRow: z.boolean().optional(),
+  /** One-card tasks every attempt uses instead of drawn ones. */
+  fixedCards: z.array(cardId).max(10).optional(),
+  /** A bonus mission after the campaign: shown with its own label, not needed to finish. */
+  bonus: z.boolean().optional(),
+  label: text(8).optional(),
   /** Roles for `roles` selection: the replies to the preference question, in role order. */
   roleNames: z.array(text(60)).length(3).optional(),
   /** The rule box, story and what's new: publisher text, private. */

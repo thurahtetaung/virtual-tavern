@@ -23,7 +23,8 @@ export function namer(view: MissionControlView, room: GameRoomInfo, names: Names
   };
 }
 
-export const missionLabel = (n: number) => (n === EPILOGUE ? 'Epilogue' : `Mission ${n}`);
+export const missionLabel = (n: number, label?: string | null) =>
+  label ? `Mission ${label}` : n === EPILOGUE ? 'Epilogue' : `Mission ${n}`;
 
 /** Why the host can't start yet, or null. */
 export function startBlocker(view: MissionControlView): string | null {
@@ -70,6 +71,18 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
       return a.ready.includes(me)
         ? { text: `Ready. ${waiting(people.filter((p) => !a.ready.includes(p)))}`, yourMove: false }
         : { text: 'Read the briefing together, then press Ready.', yourMove: true };
+    case 'announce': {
+      const p = a.extras.pick;
+      const asked = p.order[p.at];
+      if (!asked) return { text: 'Announcements done.', yourMove: false };
+      const target = a.crew[(a.crew.findIndex((c) => c.id === asked) + 1) % a.crew.length]!.id;
+      if (mine(asked))
+        return {
+          text: `How many tricks will ${name(target)} win? Announce it for everyone.`,
+          yourMove: true,
+        };
+      return { text: `${name(asked)} is announcing ${name(target)}’s tricks…`, yourMove: false };
+    }
     case 'pick': {
       const p = a.extras.pick;
       if (p.at < p.order.length) {
@@ -260,7 +273,8 @@ export function statusFor(view: MissionControlView, room: GameRoomInfo, names: N
     }
     case 'done': {
       const r = a.result!;
-      if (r.success) return { text: `${missionLabel(a.mission.n)} complete!`, yourMove: false };
+      if (r.success)
+        return { text: `${missionLabel(a.mission.n, a.mission.label)} complete!`, yourMove: false };
       return {
         text: `Lost: ${plainText(r.why ?? 'a task could not be met.', name, names)}`,
         yourMove: false,

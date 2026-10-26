@@ -31,7 +31,9 @@ import {
   drawCardTasks,
   drawFromRight,
   heldTask,
+  cardTask,
   orderFailure,
+  rowFailure,
   pickTask,
   roleTasks,
   rolesComplete,
@@ -174,7 +176,7 @@ export function newCampaign(key: string, now: number, epilogue: number): Campaig
 
 /** The next mission in order: the first not yet done, else the epilogue. */
 export function nextMission(campaign: Campaign | undefined, voyage: VoyageSummary): number {
-  for (const m of voyage.missions) if (!campaign?.log[m.n]?.done) return m.n;
+  for (const m of voyage.missions) if (!m.bonus && !campaign?.log[m.n]?.done) return m.n;
   return voyage.epilogue ? EPILOGUE : voyage.missions.at(-1)!.n;
 }
 
@@ -191,8 +193,10 @@ function summarise(v: Voyage): VoyageSummary {
       comms: m.comms,
       selection: m.selection,
       timed: !!m.timer,
-      fixed: m.difficulty === null && !m.cards,
-      cards: m.cards ?? null,
+      fixed: m.difficulty === null && !m.cards && !m.fixedCards?.length,
+      cards: m.cards ?? m.fixedCards?.length ?? null,
+      label: m.label ?? null,
+      bonus: !!m.bonus,
       tokens: m.tokens ?? [],
     })),
     epilogue: v.epilogue
@@ -457,6 +461,7 @@ function missionPlay(
       practice: false,
       cardTasks: voyage.taskSet === 'cards',
       rules: {},
+      label: null,
     };
   }
   const def = missionDef(voyage, n);
@@ -489,7 +494,11 @@ function missionPlay(
       holderLeft: def.holderLeft,
       captainTask: def.captainTask,
       roleNames: def.roleNames,
+      announce: def.announce,
+      oneEachInRow: def.oneEachInRow,
+      fixedCards: def.fixedCards,
     },
+    label: def.label ?? null,
   };
 }
 
@@ -553,8 +562,9 @@ function begin(
     // One-card tasks: always new ones (this campaign never retries the same tasks).
     const r = mission.rules;
     const rig = testDeal?.tasks?.filter(isCard);
-    tasks =
-      (r.cards ?? 0) > 0
+    tasks = r.fixedCards?.length
+      ? r.fixedCards.map((c) => cardTask(c, null))
+      : (r.cards ?? 0) > 0
         ? drawCardTasks(
             r.cards!,
             r.tokens ?? [],
@@ -917,6 +927,29 @@ function lockable(a: Attempt): boolean {
 // ---- Distress, the pass and predictions ----
 
 function enterDistress(a: Attempt): Attempt {
+  // Announcements first: each announces the tricks of the player on their left, in turn.
+  if (a.mission.rules.announce && a.stage !== 'announce') {
+    const tasks = [
+      ...a.tasks,
+      ...a.crew.map((s) =>
+        heldTask(
+          `announce:${s}`,
+          { kind: 'predict', secret: false },
+          'Win exactly the announced number of tricks',
+          s,
+        ),
+      ),
+    ];
+    return {
+      ...a,
+      tasks,
+      stage: 'announce',
+      extras: {
+        ...a.extras,
+        pick: { answers: {}, order: rotate(a.crew, a.captain), at: 0, chosen: null },
+      },
+    };
+  }
   // Five players may hand one task over once, before the first trick.
   const people = a.crew.filter((s) => s !== DUMMY).length;
   if (a.mission.rules.handOver && people === 5 && a.stage !== 'handover')
@@ -1101,9 +1134,11 @@ function settle(a: Attempt): Attempt {
         : [];
     return { ...task, state: 'done' as const, progress, at, fedBy };
   });
-  // Order tokens: tasks must be met in their tokens' order.
+  // Order tokens: tasks must be met in their tokens' order (and one per trick in a row).
   if (!failed) {
-    const o = orderFailure(tasks);
+    const o =
+      orderFailure(tasks) ??
+      (a.mission.rules.oneEachInRow ? rowFailure(tasks, a.tricks.length) : null);
     if (o) {
       failed = o;
       tasks[o.i] = { ...tasks[o.i]!, state: 'failed', why: o.why, at: a.tricks.length || null };
@@ -1179,7 +1214,11 @@ function record(state: MissionControlState, now: number): MissionControlState {
     }
     campaign = { ...campaign, log: { ...c.log, [a.mission.n]: log } };
     const voyage = voyageOf(state);
-    if (voyage && !campaign.finished && voyage.missions.every((m) => campaign.log[m.n]?.done))
+    if (
+      voyage &&
+      !campaign.finished &&
+      voyage.missions.every((m) => m.bonus || campaign.log[m.n]?.done)
+    )
       campaign.finished = now;
   }
   return {
@@ -1436,6 +1475,27 @@ export function reduce(
         );
       }
       return err('not-now', 'Nothing to get ready for right now.');
+    }
+    case 'announce': {
+      if (a.stage !== 'announce') return err('not-now', 'Nobody is announcing now.');
+      const p = a.extras.pick;
+      const asked = p.order[p.at]!;
+      if (controller(a, asked) !== by)
+        return err('not-your-turn', 'Wait for your turn to announce.');
+      if (action.n > a.total) return err('too-many', `There are only ${a.total} tricks.`);
+      const target = nextSeat(a, asked);
+      const tasks = a.tasks.map((t) =>
+        t.key === `announce:${target}` ? { ...t, prediction: action.n } : t,
+      );
+      const next: Attempt = {
+        ...a,
+        tasks,
+        extras: {
+          ...a.extras,
+          pick: { ...p, answers: { ...p.answers, [asked]: String(action.n) }, at: p.at + 1 },
+        },
+      };
+      return withAttempt(state, p.at + 1 >= p.order.length ? enterDistress(next) : next);
     }
     case 'reply': {
       const p = a.extras.pick;

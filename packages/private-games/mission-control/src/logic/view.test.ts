@@ -157,7 +157,7 @@ function fuzz(players: number, seed: number, attempts: number) {
   let now = NOW;
   let state = missionControl.create({ now, rng, content }, seats);
   const missions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0];
-  const cardMissions = Array.from({ length: 18 }, (_, i) => i + 1);
+  const cardMissions = Array.from({ length: 21 }, (_, i) => i + 1);
   let played = 0;
   let steps = 0;
   let lastStage: string | undefined;
