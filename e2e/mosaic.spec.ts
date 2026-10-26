@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { YOUR_TURN, pick, place, sheet, table, take } from './mosaic-play.ts';
+import { YOUR_TURN, option, pick, place, sheet, table, take } from './mosaic-play.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
 // The e2e server's rig (playwright.config.ts): the first seat starts; the factories hold
@@ -59,4 +59,112 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
   });
   await hana.getByRole('button', { name: 'Play again' }).click();
   await expect(hana.getByText(YOUR_TURN)).toBeVisible();
+});
+
+// The wave 2 options, one game each on the same rig.
+
+test('the grey wall: full lines wait for their owner to pick a lit space', async ({ browser }) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
+  await option(hana, 'mo-grey');
+  await hana.getByRole('button', { name: 'Start the game' }).click();
+
+  await take(hana, 'blue', 1, 1);
+  await take(ana, 'red', 2, 2);
+  await take(hana, 'black', 3, 4);
+  await take(ana, 'light blue', 4, 5);
+  await take(hana, 'yellow', 5, 5);
+  await take(ana, 'yellow', 'centre', 3);
+
+  // Hana's blue has one space left in its row; her black line and Ana's red line have several.
+  for (const [p, row, col] of [
+    [hana, 3, 0],
+    [ana, 1, 4],
+  ] as const) {
+    const choice = p.getByTestId('mo-wall-choice');
+    await expect(choice).toContainText(`Line ${row + 1}`);
+    await choice.locator(`[data-cell="${row}:${col}"] button`).click();
+    await p.getByTestId('mo-wall-place').click();
+  }
+  await expect(hana.getByText('You win with 7 points!')).toBeVisible();
+  await expect(
+    ana.locator('[data-tiling]').getByRole('img', { name: 'red, row 2' }).first(),
+  ).toBeVisible();
+});
+
+test('jokers: a joker alone fills a line and goes to the wall in its place', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
+  await option(hana, 'mo-jokers');
+  await hana.getByRole('button', { name: 'Start the game' }).click();
+
+  // Picking the joker offers it alone or with the blue beside it.
+  await pick(hana, 'joker', 1);
+  const choices = sheet(hana).getByTestId('mo-jokers');
+  await expect(choices.getByRole('radio', { name: '1 joker alone' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(choices.getByRole('radio', { name: 'jokers + 1 blue' })).toBeVisible();
+  await place(hana, 1);
+  await expect(
+    hana.getByRole('img', { name: 'Line 1: 1 of 1 with 1 joker' }).first(),
+  ).toBeVisible();
+
+  await take(ana, 'red', 2, 4);
+  await take(hana, 'black', 3, 4);
+  await take(ana, 'light blue', 4, 5);
+  await take(hana, 'yellow', 5, 5);
+  await take(ana, 'yellow', 'centre', 3);
+  await take(hana, 'blue', 'centre', 2);
+
+  // The joker takes the row's last space: the row is full, but it is no colour.
+  await expect(hana.getByText('You win with 8 points!')).toBeVisible();
+  await expect(hana.getByRole('img', { name: 'joker, row 1' }).first()).toBeVisible();
+  await expect(hana.getByTestId('mo-bonus').first()).toContainText('Colours 0 × 10', {
+    timeout: 10_000,
+  });
+});
+
+test('special factories: leftovers sent to a neighbour, and a floor shield', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport: PHONE })) as [Page, Page];
+  await option(hana, 'mo-specials');
+  await hana.getByRole('button', { name: 'Start the game' }).click();
+
+  // Factory 1 sends its leftovers on: the yellows go right, to factory 2.
+  await pick(hana, 'blue', 1);
+  await expect(sheet(hana).getByTestId('mo-special-note')).toContainText('left and right');
+  await sheet(hana).getByTestId('mo-split').locator('[data-side="right"]').click();
+  await expect(sheet(hana).getByTestId('mo-leaves')).toContainText('Sends 2 yellow right.');
+  await place(hana, 1);
+  await expect(ana.locator('[data-factory="1"]')).toHaveAttribute('aria-label', /yellow, yellow/);
+
+  await take(ana, 'red', 2, 4);
+  // Factory 3 is the floor shield: Hana keeps it for the round.
+  await take(hana, 'black', 3, 4);
+  await expect(hana.getByRole('img', { name: 'Floor shield: empty' }).first()).toBeVisible();
+  await expect(ana.locator('[data-factory="2"]')).toHaveAttribute(
+    'aria-label',
+    /Hana’s floor shield/,
+  );
+  await take(ana, 'light blue', 4, 5);
+  await take(hana, 'yellow', 5, 'floor');
+  await expect(
+    hana.getByRole('img', { name: 'Floor shield: caught a tile, no cost' }).first(),
+  ).toBeVisible();
+  await take(ana, 'yellow', 'centre', 3);
+
+  await expect(hana.getByText('You win with 2 points!')).toBeVisible();
+  await expect(hana.getByTestId('mo-tiling-note').first()).toContainText(
+    'The shield caught a yellow: no cost.',
+    { timeout: 10_000 },
+  );
 });

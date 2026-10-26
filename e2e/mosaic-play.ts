@@ -95,3 +95,10 @@ export async function take(
   await place(p, target);
   await expect(p.getByText(YOUR_TURN)).toHaveCount(0);
 }
+
+/** The host turns a lobby option on (`mo-grey`, `mo-jokers`, `mo-specials`). */
+export async function option(host: Page, testId: string) {
+  const sw = host.getByTestId(testId);
+  await sw.click();
+  await expect(sw).toHaveAttribute('aria-checked', 'true');
+}

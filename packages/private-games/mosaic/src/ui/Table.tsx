@@ -1,22 +1,25 @@
 import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import { Button, Countdown, Modal, PlayerTag, ProtectedImage, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { closeTo } from '../logic/rules.ts';
+import { closeTo, countOf } from '../logic/rules.ts';
+import { SPECIAL_CHIP, SPECIAL_SHORT, SPECIAL_TEXT } from '../logic/specials.ts';
 import { COLOUR_NAME, SYMBOL } from '../logic/tiles.ts';
 import {
-  COLOURS,
-  type Colour,
-  type LogEntry,
+  type Move,
   type MosaicAction,
   type MosaicView,
   OUCH,
+  type LogEntry,
   type PlayerView,
-  type Source,
+  type Special,
+  TILES,
+  type Tile as TileKind,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 import { PLAY_ANCHOR, type Pick, PickSheet } from './PickSheet.tsx';
 import { BoardView, Marker, MiniWall, Tile, useMatch } from './Pieces.tsx';
 import { Tiling } from './Tiling.tsx';
+import { WallStage } from './Wall.tsx';
 import { type NameOf, logLine } from './text.ts';
 
 export type Act = (action: MosaicAction, options?: { anchor?: string }) => Promise<boolean>;
@@ -86,7 +89,7 @@ function useFlights(view: MosaicView, art: Art) {
   });
 }
 
-function fly(from: DOMRect, to: DOMRect, colour: Colour, count: number, art: Art) {
+function fly(from: DOMRect, to: DOMRect, colour: TileKind, count: number, art: Art) {
   const size = Math.min(28, from.width || 24);
   const src = art.tile(colour, true);
   for (let i = 0; i < Math.min(count, 8); i++) {
@@ -145,35 +148,85 @@ function Ouch({ view, name, you }: { view: MosaicView; name: NameOf; you: string
   );
 }
 
-/** A factory: a disc of up to 4 tiles; tap one to pick its colour. */
+/** A special factory's name in words: "+1 tile", "Gathers red". */
+export const specialName = (sp: Special) =>
+  sp.kind === 'sf2' && sp.colour ? `Gathers ${COLOUR_NAME[sp.colour]}` : SPECIAL_SHORT[sp.kind];
+
+/**
+ * A factory: a disc of up to 4 tiles (a few more on some special ones); tap one to pick its
+ * colour. A special factory shows its gold face (or a drawn placeholder) and its effect in words;
+ * one taken as a floor shield shows who has it.
+ */
 function Factory({
   index,
   tiles,
+  special,
   art,
+  name,
   onPick,
   hover,
   setHover,
+  onInfo,
 }: {
   index: number;
-  tiles: Colour[];
+  tiles: TileKind[];
+  special: Special | null;
   art: Art;
+  name: NameOf;
   onPick: ((p: Pick) => void) | null;
   hover: Pick | null;
   setHover: (p: Pick | null) => void;
+  onInfo: (sp: Special) => void;
 }) {
-  const bg = art.factory(true);
+  const face = special ? art.special(special, true) : null;
+  const bg = special ? face : art.factory(true);
+  if (special?.holder)
+    return (
+      <div
+        className="relative flex aspect-square flex-col items-center justify-center rounded-full bg-panel text-center text-[10px] leading-tight text-ink-muted ring-1 ring-line ring-dashed dark:bg-stone-900 dark:text-stone-400 dark:ring-stone-700"
+        role="group"
+        aria-label={`Factory ${index + 1}: ${name(special.holder)}’s floor shield this round`}
+        data-factory={index}
+      >
+        <span aria-hidden>🛡</span>
+        <span className="max-w-full truncate px-1">{name(special.holder)}</span>
+      </div>
+    );
+  const big = tiles.length > 4;
   return (
     <div
       className={cn(
         'relative flex aspect-square items-center justify-center rounded-full',
         !bg && 'bg-panel ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+        special && 'mo-gold',
       )}
       role="group"
-      aria-label={`Factory ${index + 1}: ${tiles.length ? tiles.map((t) => COLOUR_NAME[t]).join(', ') : 'empty'}`}
+      aria-label={`Factory ${index + 1}${special ? ` (special: ${specialName(special)})` : ''}: ${tiles.length ? tiles.map((t) => COLOUR_NAME[t]).join(', ') : 'empty'}`}
       data-factory={index}
+      data-special={special ? special.kind : undefined}
     >
       {bg && <ProtectedImage src={bg} alt="" className="absolute inset-0 size-full rounded-full" />}
-      <div className="relative grid grid-cols-2 gap-0.5">
+      {special?.kind === 'sf2' && special.colour && face && (
+        // The face shows another set's piece: our own tile sits over its centre square.
+        <Tile
+          colour={special.colour}
+          art={art}
+          size={14}
+          className="absolute! top-[39%] left-[39%] size-[22%]! opacity-90"
+        />
+      )}
+      {special && (
+        <button
+          type="button"
+          onClick={() => onInfo(special)}
+          className="absolute -top-1 left-1/2 z-10 max-w-[110%] -translate-x-1/2 truncate rounded-full bg-special-soft px-1.5 text-[9px] leading-4 font-bold text-special-ink ring-1 ring-special-line"
+          aria-label={`Special factory ${index + 1}: ${specialName(special)}. What does it do?`}
+          data-testid="mo-special"
+        >
+          ✦ {SPECIAL_CHIP[special.kind]}
+        </button>
+      )}
+      <div className={cn('relative grid gap-0.5', big ? 'grid-cols-3' : 'grid-cols-2')}>
         {tiles.map((t, i) => {
           const lit = hover?.source === index && hover.colour === t;
           const n = tiles.filter((x) => x === t).length;
@@ -191,11 +244,11 @@ function Factory({
               aria-label={`${n} ${COLOUR_NAME[t]} from factory ${index + 1}`}
               data-src={`${index}:${t}`}
             >
-              <Tile colour={t} art={art} size={24} />
+              <Tile colour={t} art={art} size={big ? 18 : 24} />
             </button>
           ) : (
             <span key={i} data-src={`${index}:${t}`}>
-              <Tile colour={t} art={art} size={24} />
+              <Tile colour={t} art={art} size={big ? 18 : 24} />
             </span>
           );
         })}
@@ -207,30 +260,46 @@ function Factory({
 function Market({
   view,
   art,
+  name,
   onPick,
 }: {
   view: MosaicView;
   art: Art;
+  name: NameOf;
   onPick: ((p: Pick) => void) | null;
 }) {
   const g = view.game!;
   const [hover, setHover] = useState<Pick | null>(null);
-  const centre = COLOURS.filter((c) => g.centre[c] > 0);
+  const [info, setInfo] = useState<Special | null>(null);
+  const centre = TILES.filter((c) => countOf(g.centre, c) > 0);
   return (
     <section aria-label="The table" className="flex flex-col gap-2" data-testid="mo-market">
-      <div className="grid grid-cols-5 gap-1.5">
+      <div className={cn('grid grid-cols-5 gap-1.5', g.specials && 'pt-1.5')}>
         {g.factories.map((f, i) => (
           <Factory
             key={i}
             index={i}
             tiles={f}
+            special={g.specials?.[i] ?? null}
             art={art}
+            name={name}
             onPick={f.length ? onPick : null}
             hover={hover}
             setHover={setHover}
+            onInfo={setInfo}
           />
         ))}
       </div>
+      {info && (
+        <Modal open onClose={() => setInfo(null)} title={`✦ ${specialName(info)}`}>
+          <p className="text-sm" data-testid="mo-special-info">
+            {SPECIAL_TEXT[info.kind]}
+            {info.kind === 'sf2' && info.colour
+              ? ` This one gathers ${COLOUR_NAME[info.colour]}.`
+              : ''}
+          </p>
+        </Modal>
+      )}
       <div
         className="flex min-h-12 flex-wrap items-center gap-2 rounded-2xl bg-panel/80 px-2.5 py-1.5 ring-1 ring-line dark:bg-stone-900/70 dark:ring-stone-800"
         role="group"
@@ -243,7 +312,7 @@ function Market({
           <span className="text-xs text-ink-muted dark:text-stone-500">empty</span>
         )}
         {centre.map((c) => {
-          const n = g.centre[c];
+          const n = countOf(g.centre, c);
           const body = (
             <>
               {Array.from({ length: Math.min(n, 4) }, (_, i) => (
@@ -352,7 +421,7 @@ function PlayerBoard({
           </span>
         </span>
       </div>
-      <BoardView board={p} art={art} size={size} owner={p.id} />
+      <BoardView board={p} art={art} size={size} owner={p.id} grey={!!view.settings.grey} />
     </section>
   );
 }
@@ -360,6 +429,7 @@ function PlayerBoard({
 /** Running scores, how close everyone is to the bonuses, the bag and the lid. */
 function Scores({ view, room, art }: { view: MosaicView; room: GameRoomInfo; art: Art }) {
   const g = view.game!;
+  const kinds = TILES.filter((t) => t !== 'joker' || view.settings.jokers);
   return (
     <section aria-label="Scores" className="flex flex-col gap-3 text-sm" data-testid="mo-scores">
       <table className="w-full text-left tabular-nums">
@@ -397,7 +467,7 @@ function Scores({ view, room, art }: { view: MosaicView; room: GameRoomInfo; art
         <thead className="text-xs text-ink-muted dark:text-stone-400">
           <tr>
             <th />
-            {COLOURS.map((c) => (
+            {kinds.map((c) => (
               <th key={c} className="font-medium">
                 <Tile colour={c} art={art} size={20} label={COLOUR_NAME[c]} />
               </th>
@@ -407,14 +477,14 @@ function Scores({ view, room, art }: { view: MosaicView; room: GameRoomInfo; art
         <tbody>
           <tr>
             <th className="text-left text-xs font-medium">In the bag</th>
-            {COLOURS.map((c) => (
-              <td key={c}>{g.bag[c]}</td>
+            {kinds.map((c) => (
+              <td key={c}>{countOf(g.bag, c)}</td>
             ))}
           </tr>
           <tr>
             <th className="text-left text-xs font-medium">In the lid</th>
-            {COLOURS.map((c) => (
-              <td key={c}>{g.lid[c]}</td>
+            {kinds.map((c) => (
+              <td key={c}>{countOf(g.lid, c)}</td>
             ))}
           </tr>
         </tbody>
@@ -465,7 +535,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     pick &&
     mine &&
     (pick.source === 'centre'
-      ? g.centre[pick.colour] > 0
+      ? countOf(g.centre, pick.colour) > 0
       : !!g.factories[pick.source]?.includes(pick.colour))
       ? pick
       : null;
@@ -478,8 +548,17 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     drafting &&
     (clock.reminded || offline(clock.who)) &&
     clock.who !== room.you;
-  const place = async (source: Source, colour: Colour, target: number | 'floor') => {
-    if (await act({ type: 'take', source, colour, target }, { anchor: PLAY_ANCHOR })) setPick(null);
+  // The wall stage: everyone still choosing, for the host's Act for.
+  const choosing =
+    playing && g.stage === 'wall'
+      ? Object.entries(g.walls ?? {}).flatMap(([id, w]) => (w.row === null ? [] : [id]))
+      : [];
+  const wallNudge =
+    room.isHost &&
+    clock &&
+    choosing.filter((id) => id !== room.you && (clock.reminded || offline(id)));
+  const place = async (move: Move) => {
+    if (await act({ type: 'take', ...move }, { anchor: PLAY_ANCHOR })) setPick(null);
   };
 
   const tabs = (
@@ -514,19 +593,25 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
     </div>
   );
 
-  const clockLine = drafting && clock && (
+  const clockLine = (drafting || choosing.length > 0) && clock && (
     <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span className="text-ink-muted dark:text-stone-400">
-        {waitingFor([clock.who], room.players, { you: room.you })}
+        {waitingFor(drafting ? [clock.who] : choosing, room.players, { you: room.you })}
       </span>
       {clock.deadline && (
         <Countdown
           deadline={clock.deadline}
           clockOffset={room.clockOffset}
-          label="for this turn"
+          label={drafting ? 'for this turn' : 'to choose'}
           soft={!strict}
           expiredHint={room.isHost ? 'You can act for them below.' : 'The host can act for them.'}
-          atZero={strict ? 'then the safe move is made for them' : undefined}
+          atZero={
+            strict
+              ? drafting
+                ? 'then the safe move is made for them'
+                : 'then the leftmost spaces are taken for them'
+              : undefined
+          }
         />
       )}
     </div>
@@ -575,14 +660,32 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           <RefusalSlot anchor="mo-host" />
         </div>
       )}
+      {wallNudge && wallNudge.length > 0 && (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {wallNudge.map((id) => (
+            <Button
+              key={id}
+              variant="secondary"
+              size="sm"
+              onClick={() => void act({ type: 'act-for', player: id }, { anchor: 'mo-host' })}
+            >
+              Act for {name(id)}
+            </Button>
+          ))}
+          <RefusalSlot anchor="mo-host" />
+        </div>
+      )}
     </>
   );
 
   const tiling = g.stage === 'tiling' && !!g.scoring;
+  const myRow = g.stage === 'wall' ? (g.walls?.[room.you]?.row ?? null) : null;
   const centrePiece = tiling ? (
     <Tiling view={view} room={room} act={act} art={art} />
+  ) : g.stage === 'wall' ? (
+    <WallStage view={view} room={room} act={act} art={art} name={name} />
   ) : (
-    <Market view={view} art={art} onPick={mine ? setPick : null} />
+    <Market view={view} art={art} name={name} onPick={mine ? setPick : null} />
   );
 
   const myBoard = me && (
@@ -590,7 +693,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
       aria-label="Your board"
       className={cn(
         'flex flex-col items-center gap-1 rounded-2xl bg-card/85 p-2 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800',
-        mine && 'ring-2 ring-accent dark:ring-amber-500',
+        (mine || myRow !== null) && 'ring-2 ring-accent dark:ring-amber-500',
+        myRow !== null && 'hidden',
       )}
       data-panel={me.id}
     >
@@ -603,7 +707,13 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           </span>
         </span>
       </div>
-      <BoardView board={me} art={art} size={wide ? 'lg' : 'md'} owner={me.id} />
+      <BoardView
+        board={me}
+        art={art}
+        size={wide ? 'lg' : 'md'}
+        owner={me.id}
+        grey={!!view.settings.grey}
+      />
     </section>
   );
 
@@ -678,12 +788,13 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
 
       {open && me && (
         <PickSheet
+          key={`${open.source}:${open.colour}`}
           pick={open}
           view={view}
           me={me}
           art={art}
           name={name}
-          onPlace={(t) => void place(open.source, open.colour, t)}
+          onPlace={(m) => void place(m)}
           onClose={() => setPick(null)}
         />
       )}

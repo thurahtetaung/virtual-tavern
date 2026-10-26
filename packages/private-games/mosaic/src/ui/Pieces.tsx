@@ -4,11 +4,11 @@ import { capacity, colourAt, floorPenalty } from '../logic/rules.ts';
 import { COLOUR_NAME, SYMBOL } from '../logic/tiles.ts';
 import {
   type Board,
-  type Colour,
   FLOOR,
   type FloorItem,
   type PlayerScore,
   SIZE,
+  type Tile as TileKind,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 
@@ -44,7 +44,7 @@ export function Tile({
   style,
   label,
 }: {
-  colour: Colour;
+  colour: TileKind;
   art: Art;
   size?: number;
   /** The faint guide on an empty wall space. */
@@ -122,12 +122,20 @@ export interface TilingFrame {
 
 /** A target the pick sheet highlights on the board. */
 export interface Highlight {
-  colour: Colour;
+  colour: TileKind;
   /** Lines the colour may go in. */
   lines: number[];
   /** The line chosen so far, or the floor. */
   chosen: number | 'floor' | null;
   onPick?: (target: number | 'floor') => void;
+}
+
+/** The wall spaces a waiting line's tile may take (the wall stage). */
+export interface SpacePick {
+  row: number;
+  cols: number[];
+  chosen: number | null;
+  onPick?: (col: number) => void;
 }
 
 /**
@@ -141,6 +149,8 @@ export function BoardView({
   size = 'md',
   frame,
   highlight,
+  spaces,
+  grey = false,
   owner,
   className,
 }: {
@@ -149,6 +159,9 @@ export function BoardView({
   size?: Size;
   frame?: TilingFrame | null;
   highlight?: Highlight | null;
+  spaces?: SpacePick | null;
+  /** The grey wall: no colours printed on the spaces. */
+  grey?: boolean;
   /** For tests and flights: whose board. */
   owner?: string;
   className?: string;
@@ -159,7 +172,11 @@ export function BoardView({
   const pending = frame ? frame.score.placed.slice(frame.shown) : [];
   const lines = board.lines.map((l, row) => {
     const p = pending.find((x) => x.row === row);
-    return p ? { colour: p.colour, count: capacity(row) } : l;
+    return p
+      ? p.colour === 'joker'
+        ? { colour: null, count: capacity(row), jokers: capacity(row) }
+        : { colour: p.colour, count: capacity(row) }
+      : l;
   });
   const hidden = new Set(pending.map((p) => `${p.row}:${p.col}`));
   const latest = frame && frame.shown > 0 ? frame.score.placed[frame.shown - 1] : undefined;
@@ -196,19 +213,22 @@ export function BoardView({
         <div className="flex flex-col" style={{ gap }} role="group" aria-label="Pattern lines">
           {lines.map((l, row) => {
             const can = highlight?.lines.includes(row);
-            const chosen = highlight?.chosen === row;
+            const chosen = highlight?.chosen === row || spaces?.row === row;
+            const jokers = l.jokers ?? 0;
+            // Lines fill right to left: the colour's tiles first, then the jokers.
             const body = Array.from({ length: SIZE }, (_, i) => {
               const slot = SIZE - 1 - i;
               if (slot >= capacity(row))
                 return <span key={i} style={{ width: cell, height: cell }} />;
-              const filled = slot < l.count;
-              return filled && l.colour ? (
-                <Tile key={i} colour={l.colour} art={art} size={cell} />
+              const tile: TileKind | null =
+                slot >= l.count ? null : slot < l.count - jokers ? l.colour : 'joker';
+              return tile ? (
+                <Tile key={i} colour={tile} art={art} size={cell} />
               ) : (
                 <span key={i} className="mo-slot" style={{ width: cell, height: cell }} />
               );
             });
-            const label = `Line ${row + 1}: ${l.count} of ${capacity(row)}${l.colour ? ` ${COLOUR_NAME[l.colour]}` : ''}`;
+            const label = `Line ${row + 1}: ${l.count} of ${capacity(row)}${l.colour ? ` ${COLOUR_NAME[l.colour]}` : ''}${jokers ? ` with ${jokers} ${jokers === 1 ? 'joker' : 'jokers'}` : ''}`;
             const cls = cn(
               'flex rounded-md',
               can && 'mo-can',
@@ -253,6 +273,12 @@ export function BoardView({
               const key = `${r}:${c}`;
               const show = t && !hidden.has(key);
               const isNew = latest && latest.row === r && latest.col === c;
+              const open = spaces?.row === r && spaces.cols.includes(c);
+              const empty = grey ? (
+                <span className="mo-slot mo-grey-slot" style={{ width: cell, height: cell }} />
+              ) : (
+                <Tile colour={colourAt(r, c)} art={art} size={cell} ghost />
+              );
               return (
                 <span
                   key={key}
@@ -268,8 +294,23 @@ export function BoardView({
                       className={cn(isNew && 'mo-pop')}
                       label={`${COLOUR_NAME[t]}, row ${r + 1}`}
                     />
+                  ) : open && spaces.onPick ? (
+                    <button
+                      type="button"
+                      className={cn(
+                        'mo-space rounded-[18%] focus-visible:outline-2 focus-visible:outline-accent',
+                        spaces.chosen === c && 'mo-chosen',
+                      )}
+                      style={{ width: cell, height: cell }}
+                      onClick={() => spaces.onPick!(c)}
+                      aria-label={`Row ${r + 1}, column ${c + 1}${grey ? '' : ` (the ${COLOUR_NAME[colourAt(r, c)]} space)`}`}
+                      aria-pressed={spaces.chosen === c}
+                      data-space={c}
+                    >
+                      {empty}
+                    </button>
                   ) : (
-                    <Tile colour={colourAt(r, c)} art={art} size={cell} ghost />
+                    empty
                   )}
                   {isNew && (
                     <span className="mo-plus" aria-hidden>
@@ -290,6 +331,7 @@ export function BoardView({
         cracked={!!frame?.floorDone && frame.score.floor.length > 0}
         crackedItems={frame?.score.floor}
         chosen={highlight?.chosen === 'floor'}
+        shield={frame ? (frame.floorDone ? undefined : board.shield) : board.shield}
         {...(pick && { onPick: () => pick('floor') })}
       />
     </div>
@@ -304,6 +346,7 @@ function FloorLine({
   cracked,
   crackedItems,
   chosen,
+  shield,
   onPick,
 }: {
   floor: FloorItem[];
@@ -313,6 +356,8 @@ function FloorLine({
   cracked: boolean;
   crackedItems?: FloorItem[] | undefined;
   chosen?: boolean;
+  /** The floor shield (a special factory), empty (null) or holding what it caught. */
+  shield?: FloorItem | null | undefined;
   onPick?: () => void;
 }) {
   const shown = cracked && crackedItems ? crackedItems : floor;
@@ -333,6 +378,24 @@ function FloorLine({
           )}
         </span>
       ))}
+      {shield !== undefined && (
+        <span
+          className="flex flex-col items-center"
+          style={{ width: cell }}
+          role="img"
+          aria-label={shield ? 'Floor shield: caught a tile, no cost' : 'Floor shield: empty'}
+          data-shield
+        >
+          {shield ? (
+            floorItem(shield, art, cell)
+          ) : (
+            <span className="mo-slot mo-shield-slot" style={{ width: cell, height: cell }} />
+          )}
+          {cell >= 14 && (
+            <span className="text-[10px] leading-tight text-ink-muted dark:text-stone-400">🛡</span>
+          )}
+        </span>
+      )}
       <span
         className={cn(
           'ml-1 self-center font-bold tabular-nums',
@@ -366,7 +429,7 @@ function FloorLine({
 }
 
 /** A 5 × 5 dot picture of a wall, for opponents' chips. */
-export function MiniWall({ wall }: { wall: (Colour | null)[][] }) {
+export function MiniWall({ wall }: { wall: (TileKind | null)[][] }) {
   return (
     <span
       aria-hidden
@@ -395,6 +458,11 @@ const CSS = `
 .mo-c-black { background: #26262a; color: #f5f5f4; }
 .mo-c-aqua { background: #8fd0dc; color: #0f3940; }
 .mo-first { background: #f4efe6; color: #1c1917; }
+.mo-gold { box-shadow: 0 0 0 2px #c8961e, 0 0 8px rgba(200,150,30,.45); }
+.mo-c-joker { background: #f6f1e7; color: #9a3412; }
+.mo-grey-slot { border-style: solid; background: rgba(120,113,108,.12); }
+.mo-shield-slot { border: 1px dashed rgba(180,130,20,.8); border-radius: 50%; background: rgba(234,179,8,.08); }
+.mo-space { display: inline-flex; outline: 2px dashed rgba(234,138,0,.8); outline-offset: 0; }
 .mo-sym { position: relative; pointer-events: none; }
 .mo-sym-corner { position: absolute; right: 1px; bottom: 0; padding: 0 2px; border-radius: 4px; background: rgba(255,255,255,.82); color: #1c1917; line-height: 1.15; }
 .mo-ghost { opacity: .22; box-shadow: none; }

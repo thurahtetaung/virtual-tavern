@@ -57,6 +57,15 @@ describe('awards', () => {
     ).toEqual([]);
   });
 
+  it('wild card: most jokers taken on purpose, at least 4', () => {
+    const g = fixtureGame(
+      [take('a', { jokers: 2 }), take('a', { jokers: 2 }), take('b', { jokers: 5, auto: true })],
+      players,
+    );
+    expect(rule('mo.wild-card').compute!(g)[0]).toMatchObject({ players: ['a'], value: 4 });
+    expect(rule('mo.wild-card').compute!(fixtureGame([take('a', {})], players))).toEqual([]);
+  });
+
   it('floor eater and first dibs', () => {
     const g = fixtureGame(
       [

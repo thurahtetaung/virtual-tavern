@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
-import { localArt, myTurn, pick, place, sheet, table, take } from './mosaic-play.ts';
+import { localArt, myTurn, option, pick, place, sheet, table, take } from './mosaic-play.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/mosaic-shots.spec.ts
@@ -69,5 +69,94 @@ for (const [label, viewport, colorScheme] of [
     await expect(hana.getByTestId('mo-tiling')).toBeVisible();
     await shot(hana, '09-tiling-mid', 900);
     await shot(hana, '10-tiling-done', 2500);
+  });
+}
+
+// The wave 2 options, one game each: the take and the round's end.
+for (const [label, viewport, colorScheme] of [
+  ['phone-light', { width: 390, height: 844 }, 'light'],
+  ['phone-dark', { width: 390, height: 844 }, 'dark'],
+  ['desktop-light', { width: 1440, height: 900 }, 'light'],
+  ['desktop-dark', { width: 1440, height: 900 }, 'dark'],
+] as const) {
+  test(`mosaic option screenshots (${label})`, async ({ browser }) => {
+    test.setTimeout(400_000);
+    const look: Look = { viewport, colorScheme, setup: localArt };
+    const shot = async (p: Page, name: string, wait = 500) => {
+      await p.waitForTimeout(wait);
+      await p.screenshot({ path: `test-results/mosaic-shots/${label}-opt-${name}.png` });
+    };
+    await openBackroom(await visitor(browser, 'Admin'));
+    const [hana, ana] = (await table(browser, ['Hana', 'Ana'], look)) as [Page, Page];
+
+    // The grey wall.
+    await option(hana, 'mo-grey');
+    await option(hana, 'mo-jokers');
+    await option(hana, 'mo-specials');
+    await shot(hana, '01-lobby-options');
+    await hana.getByTestId('mo-jokers').click();
+    await hana.getByTestId('mo-specials').click();
+    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await pick(hana, 'blue', 1);
+    await sheet(hana).locator('button[data-target="0"]').click();
+    await shot(hana, '02-grey-pick');
+    await sheet(hana).getByTestId('mo-place').click();
+    await take(ana, 'red', 2, 2);
+    await take(hana, 'black', 3, 4);
+    await take(ana, 'light blue', 4, 5);
+    await take(hana, 'yellow', 5, 5);
+    await take(ana, 'yellow', 'centre', 3);
+    await expect(hana.getByTestId('mo-wall-choice')).toBeVisible();
+    await hana.getByTestId('mo-wall-choice').locator('[data-cell="3:0"] button').click();
+    await shot(hana, '03-grey-wall-choice');
+    await hana.getByTestId('mo-wall-place').click();
+    await shot(hana, '04-grey-waiting');
+    await ana.getByTestId('mo-wall-choice').locator('[data-cell="1:4"] button').click();
+    await ana.getByTestId('mo-wall-place').click();
+    await expect(hana.getByText(/You win/)).toBeVisible();
+    await shot(hana, '05-grey-end', 4000);
+
+    // Jokers.
+    await hana.getByRole('button', { name: 'Change setup' }).click();
+    await hana.getByTestId('mo-grey').click();
+    await option(hana, 'mo-jokers');
+    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await pick(hana, 'joker', 1);
+    await sheet(hana).getByRole('radio', { name: 'jokers + 1 blue' }).click();
+    await sheet(hana).locator('button[data-target="1"]').click();
+    await shot(hana, '06-joker-pick');
+    await sheet(hana).getByRole('radio', { name: '1 joker alone' }).click();
+    await place(hana, 1);
+    await take(ana, 'red', 2, 4);
+    await take(hana, 'black', 3, 4);
+    await take(ana, 'light blue', 4, 5);
+    await take(hana, 'yellow', 5, 5);
+    await take(ana, 'yellow', 'centre', 3);
+    await take(hana, 'blue', 'centre', 2);
+    await expect(hana.getByText(/You win/)).toBeVisible();
+    await shot(hana, '07-joker-end', 4000);
+
+    // Special factories.
+    await hana.getByRole('button', { name: 'Change setup' }).click();
+    await hana.getByTestId('mo-jokers').click();
+    await option(hana, 'mo-specials');
+    await hana.getByRole('button', { name: 'Start the game' }).click();
+    await myTurn(hana);
+    await shot(hana, '08-specials-table');
+    await pick(hana, 'blue', 1);
+    await sheet(hana).locator('button[data-target="0"]').click();
+    await shot(hana, '09-specials-split');
+    await sheet(hana).getByTestId('mo-place').click();
+    await take(ana, 'red', 2, 4);
+    await take(hana, 'black', 3, 4);
+    await take(ana, 'light blue', 4, 5);
+    await pick(hana, 'yellow', 5);
+    await sheet(hana).locator('button[data-target="floor"]').click();
+    await shot(hana, '10-specials-shield-pick');
+    await sheet(hana).getByTestId('mo-place').click();
+    await shot(ana, '11-specials-opponent', 900);
+    await take(ana, 'yellow', 'centre', 3);
+    await expect(hana.getByText(/You win/)).toBeVisible();
+    await shot(hana, '12-specials-end', 4500);
   });
 }

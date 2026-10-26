@@ -164,6 +164,24 @@ const rules: AwardRule[] = [
     },
     compute: (g) => leaders(per(tilings(g), 'best', 'max'), { min: 7 }),
   },
+  {
+    id: 'mo.wild-card',
+    emoji: '🃏',
+    title: 'Wild Card',
+    valence: 'gentle',
+    weight: 2,
+    kind: 'award',
+    family: 'jokers',
+    copy: {
+      cheeky: ['{who} scooped up {n} jokers. Greedy', '{who} hoarded {n} jokers'],
+      wholesome: ['{who} put {n} jokers to work', '{who} made the most of {n} jokers'],
+    },
+    compute: (g) =>
+      leaders(
+        per(takes(g), 'jokers', 'sum', (e) => bool(e, 'auto') !== true),
+        { min: 4 },
+      ),
+  },
 ];
 
 const nuggets: NuggetRule[] = [

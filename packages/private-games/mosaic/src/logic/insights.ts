@@ -32,6 +32,9 @@ export function insights(
           marker: e.marker,
           dumped: e.dumped,
           leftover: e.leftover,
+          jokers: e.jokers ?? 0,
+          special: e.special ?? null,
+          shielded: !!e.shielded,
           auto,
         },
       });
@@ -49,6 +52,8 @@ export function insights(
             best: Math.max(0, ...s.placed.map((p) => p.points)),
             floor: s.floor.length,
             perfect: s.floor.length === 0 && s.placed.length > 0,
+            fell: s.fell?.length ?? 0,
+            jokers: s.placed.filter((p) => p.colour === 'joker').length,
           },
         });
       }

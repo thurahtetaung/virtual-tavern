@@ -1,7 +1,7 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { type Manifest, clean, tileOf } from '../logic/manifest.ts';
-import type { Colour } from '../logic/types.ts';
+import { type Manifest, clean, specialOf, specialThumbKey, tileOf } from '../logic/manifest.ts';
+import type { Special, Tile } from '../logic/types.ts';
 
 export const GAME_ID = 'mosaic';
 
@@ -31,8 +31,10 @@ export function useManifest(): ManifestState {
 
 export interface Art {
   /** A tile's face (the small copy when `small`), or null to draw it as a plain colour. */
-  tile: (c: Colour, small?: boolean) => string | null;
+  tile: (c: Tile, small?: boolean) => string | null;
   first: (small?: boolean) => string | null;
+  /** A special factory's gold face, or null for the drawn placeholder. */
+  special: (sp: Special, small?: boolean) => string | null;
   factory: (small?: boolean) => string | null;
   box: string | null;
 }
@@ -46,7 +48,12 @@ export function artFor(manifest: ManifestState): Art {
   const m = manifest && manifest !== 'unavailable' ? manifest : null;
   const thumbs = m?.thumbs && typeof m.thumbs === 'object' ? m.thumbs : {};
   return {
-    tile: (c, small) => (small ? path(tileOf(thumbs, c)) : null) ?? path(tileOf(m?.tiles, c)),
+    tile: (c, small) =>
+      (small ? path(tileOf(thumbs, c)) : null) ??
+      path(tileOf(m?.tiles, c)) ??
+      (c === 'joker' ? path(m?.jokers) : null),
+    special: (sp, small) =>
+      (small ? path(thumbs[specialThumbKey(sp)]) : null) ?? path(specialOf(m, sp)),
     first: (small) => (small ? path(thumbs.first) : null) ?? path(m?.first),
     factory: (small) => (small ? path(thumbs.factory) : null) ?? path(m?.factory),
     box: path(thumbs.box) ?? path(m?.box),

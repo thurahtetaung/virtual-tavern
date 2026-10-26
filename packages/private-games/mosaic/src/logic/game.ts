@@ -13,18 +13,24 @@ import { bestMove, mosaicBot } from './bot.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
+  addTo,
   bonusOf,
   columnOf,
+  countOf,
   countsOf,
   emptyBoard,
   fullRows,
   lineProblem,
+  lineTile,
   linesFor,
   noCounts,
   place,
-  tileWall,
+  runWall,
+  startScore,
+  wallSpaces,
   totalOf,
 } from './rules.ts';
+import { flipSpecials, gone, leftoverGroups, neighbours } from './specials.ts';
 import {
   type Auto,
   type Board,
@@ -35,6 +41,7 @@ import {
   FACTORY_SIZE,
   type Game,
   type GameView,
+  JOKERS_FOR,
   LEFT_BEAT_MS,
   type LogEntry,
   MAX_LOG,
@@ -42,15 +49,19 @@ import {
   MIN_PLAYERS,
   type MosaicAction,
   type MosaicState,
+  type Move,
   type MosaicView,
   type PlayerScore,
   type Seat,
   type SeatView,
   type Source,
+  type Special,
+  type Split,
+  TILES,
   TILES_EACH,
   TILING_BASE_MS,
   TILING_PER_PLAYER_MS,
-  type Target,
+  type Tile,
   actionSchema,
 } from './types.ts';
 
@@ -70,10 +81,14 @@ const newSeed = (rng: Rng) => rng.int(2 ** 32);
  * starting, so a spec knows the deal and reaches the end quickly.
  */
 export interface TestBag {
-  top?: Colour[];
+  top?: Tile[];
   /** Colours already on the first seat's wall, by row. */
   wall?: Record<number, Colour[]>;
   firstSeat?: boolean;
+  /** With jokers: the top of the bag instead of `top`. */
+  jokerTop?: Tile[];
+  /** With special factories: the faces of the first factories every round (null: plain). */
+  specials?: (Special | null)[];
 }
 let testBag: TestBag | null = null;
 export function setTestBag(rig: TestBag | null) {
@@ -98,6 +113,9 @@ function nextPlayer(g: Game, from: PlayerId): PlayerId {
   }
   return from;
 }
+
+/** The table's options as the game plays them. */
+const greyOf = (s: MosaicState) => !!s.settings.grey;
 
 /** Whether every factory and the centre are empty. */
 export const tableEmpty = (g: Pick<Game, 'factories' | 'centre'>) =>
@@ -125,19 +143,66 @@ const autoOf = (auto?: Auto) => (auto ? { auto } : {});
  * Fills every factory with 4 tiles from the bag. An empty bag takes the whole lid first
  * (shuffled); with both empty, the rest of the factories stay as they are.
  */
-function fillFactories(g: Game, rng: Rng) {
-  for (const f of g.factories) {
-    while (f.length < FACTORY_SIZE) {
-      if (!g.bag.length) {
-        const lid = COLOURS.flatMap((c) => Array<Colour>(g.lid[c]).fill(c));
-        if (!lid.length) return;
-        g.bag = rng.shuffle(lid);
-        g.lid = noCounts();
-      }
-      f.push(g.bag.shift()!);
-    }
-    f.sort((a, b) => COLOURS.indexOf(a) - COLOURS.indexOf(b));
+const byTile = (a: Tile, b: Tile) => TILES.indexOf(a) - TILES.indexOf(b);
+
+/** One tile from the bag; an empty bag takes the whole lid first (shuffled). Null: none left. */
+function draw(g: Game, rng: Rng): Tile | null {
+  if (!g.bag.length) {
+    const lid = TILES.flatMap((t) => Array<Tile>(countOf(g.lid, t)).fill(t));
+    if (!lid.length) return null;
+    g.bag = rng.shuffle(lid);
+    const jokers = g.lid.joker !== undefined;
+    g.lid = noCounts();
+    if (jokers) g.lid.joker = 0;
   }
+  return g.bag.shift()!;
+}
+
+/**
+ * Fills every factory with 4 tiles from the bag. An empty bag takes the whole lid first
+ * (shuffled); with both empty, the rest of the factories stay as they are. Then the special
+ * factories set up: every `sf1` takes one more tile, then every `sf2` (in table order) one tile of
+ * its colour from each neighbour.
+ */
+function fillFactories(g: Game, rng: Rng) {
+  let out = false;
+  for (const f of g.factories) {
+    while (!out && f.length < FACTORY_SIZE) {
+      const t = draw(g, rng);
+      if (t === null) out = true;
+      else f.push(t);
+    }
+  }
+  const sp = g.specials ?? [];
+  sp.forEach((x, i) => {
+    if (x?.kind !== 'sf1') return;
+    const t = draw(g, rng);
+    if (t !== null) g.factories[i]!.push(t);
+  });
+  sp.forEach((x, i) => {
+    if (x?.kind !== 'sf2' || !x.colour) return;
+    const { left, right } = neighbours(sp, g.factories.length, i);
+    for (const j of new Set([left, right])) {
+      if (j === null || j === i) continue;
+      const at = g.factories[j]!.indexOf(x.colour);
+      if (at < 0) continue;
+      g.factories[j]!.splice(at, 1);
+      g.factories[i]!.push(x.colour);
+    }
+  });
+  for (const f of g.factories) f.sort(byTile);
+}
+
+/** The special factories' faces for a new round, and a log line naming them. */
+function flip(s: MosaicState, g: Game, rng: Rng) {
+  if (!s.settings.specials) return;
+  const n = g.factories.length;
+  g.specials = testBag?.specials
+    ? Array.from({ length: n }, (_, i) =>
+        testBag?.specials?.[i] ? { ...testBag.specials[i] } : null,
+      )
+    : flipSpecials(n, g.order.length - g.removed.length, rng);
+  log(s, { kind: 'specials', faces: g.specials.filter((x): x is Special => !!x) });
 }
 
 // ---- Turn flow ----
@@ -146,11 +211,11 @@ function fillFactories(g: Game, rng: Rng) {
 function settle(s: MosaicState, now: number) {
   const g = s.game;
   if (!g) return;
-  if (s.phase !== 'playing' || g.stage !== 'draft') {
+  if (s.phase !== 'playing' || g.stage === 'tiling') {
     g.clock = null;
     return;
   }
-  const key = `${g.round}:${g.turns}`;
+  const key = g.stage === 'wall' ? `${g.round}:wall` : `${g.round}:${g.turns}`;
   if (g.clock?.key !== key) g.clock = { key, since: now, reminded: false };
 }
 
@@ -193,22 +258,86 @@ function finish(s: MosaicState, how?: 'empty' | 'alone') {
   log(s, { kind: 'end', winners: [...g.winners], ...(how && { how }) });
 }
 
-/** The round's wall-tiling for everyone at once; then the end, or a pause to watch it. */
+/**
+ * The round's wall-tiling for everyone at once, as far as it goes without a choice; players with
+ * a choice (the grey wall, a line of jokers) make it in the `wall` stage, top line first.
+ */
 function endRound(s: MosaicState, now: number) {
+  const g = s.game!;
+  g.walls = {};
+  for (const id of active(g)) {
+    const board = g.players[id]!;
+    const score = startScore(board);
+    const lid: Tile[] = [];
+    const row = runWall(board, score, 0, greyOf(s), lid, null);
+    for (const t of lid) addTo(g.lid, t);
+    g.walls[id] = { row, score };
+  }
+  if (Object.values(g.walls).some((w) => w.row !== null)) {
+    g.stage = 'wall';
+    g.ready = [];
+    // Players who left choose at once, as the table would.
+    return;
+  }
+  wallsDone(s, now);
+}
+
+/** Puts the waiting line's tile on a wall space and carries on down that player's lines. */
+function wallPlace(
+  s: MosaicState,
+  by: PlayerId,
+  row: number,
+  col: number | null,
+  now: number,
+  auto?: Auto,
+): GameError | null {
+  const g = s.game!;
+  const w = g.walls?.[by];
+  if (g.stage !== 'wall') return err('wrong-stage', 'That’s for the wall-tiling.');
+  if (!w || g.removed.includes(by)) return err('not-playing', 'You are not in this game.');
+  if (w.row === null) return err('done', 'Your wall is done for this round.');
+  if (w.row !== row) return err('wrong-row', `Line ${w.row + 1} goes first.`);
+  const board = g.players[by]!;
+  const lid: Tile[] = [];
+  let first = true;
+  const choose = (r: number, spaces: number[]) => {
+    // The safe choice (strict timer, Act for, a leaver): the leftmost space, line after line.
+    const c = col === null ? spaces[0]! : first ? col : null;
+    if (c === null) return null;
+    if (!spaces.includes(c)) return null;
+    first = false;
+    log(s, { kind: 'wall', by, row: r, col: c, tile: lineTile(board.lines[r]!), ...autoOf(auto) });
+    return c;
+  };
+  if (col !== null && !wallLegal(s, by, col))
+    return err('bad-space', 'That space can’t take this tile.');
+  w.row = runWall(board, w.score, row, greyOf(s), lid, choose);
+  for (const t of lid) addTo(g.lid, t);
+  if (Object.values(g.walls!).every((x) => x.row === null)) wallsDone(s, now);
+  return null;
+}
+
+/** Whether a space is one the waiting line's tile may take. */
+function wallLegal(s: MosaicState, by: PlayerId, col: number) {
+  const g = s.game!;
+  const w = g.walls?.[by];
+  if (!w || w.row === null) return false;
+  return wallSpacesFor(g.players[by]!, w.row, greyOf(s)).includes(col);
+}
+
+const wallSpacesFor = (board: Board, row: number, grey: boolean) =>
+  wallSpaces(board.wall, row, board.lines[row]!, grey);
+
+/** Every wall-tiling is done: the round's scores, then the end or a pause to watch it. */
+function wallsDone(s: MosaicState, now: number) {
   const g = s.game!;
   const ids = active(g);
   const scores: Record<PlayerId, PlayerScore> = {};
   for (const id of ids) {
-    const r = tileWall(g.players[id]!);
-    for (const t of r.lid) g.lid[t] += 1;
-    scores[id] = {
-      placed: r.placed,
-      floor: r.floor,
-      penalty: r.penalty,
-      before: r.before,
-      after: g.players[id]!.score,
-    };
+    const w = g.walls?.[id];
+    if (w) scores[id] = w.score;
   }
+  g.walls = null;
   g.scoring = { round: g.round, players: scores, last: false };
   log(s, { kind: 'round' });
   if (ids.some((id) => fullRows(g.players[id]!.wall) > 0)) {
@@ -236,65 +365,118 @@ function nextRound(s: MosaicState, rng: Rng) {
   g.ready = [];
   g.current = g.starter;
   g.centre = noCounts();
+  g.walls = null;
+  flip(s, g, rng);
   fillFactories(g, rng);
   if (tableEmpty(g)) finish(s, 'empty');
+}
+
+/** What a group taken from a place holds: the colour's tiles and, with it, the jokers. */
+export function groupAt(
+  g: Pick<Game, 'factories' | 'centre'>,
+  source: Source,
+  colour: Tile,
+  withJokers: boolean,
+): { count: number; jokers: number; rest: Tile[] } | null {
+  const tiles =
+    source === 'centre'
+      ? TILES.flatMap((t) => Array<Tile>(countOf(g.centre, t)).fill(t))
+      : g.factories[source];
+  if (!tiles) return null;
+  const count = tiles.filter((t) => t === colour).length;
+  const jokers = colour !== 'joker' && withJokers ? tiles.filter((t) => t === 'joker').length : 0;
+  const rest = tiles.filter((t) => t !== colour && !(jokers && t === 'joker'));
+  return { count, jokers, rest };
 }
 
 function take(
   s: MosaicState,
   by: PlayerId,
-  source: Source,
-  colour: Colour,
-  target: Target,
+  move: Move,
   now: number,
   auto?: Auto,
 ): GameError | null {
   const g = s.game!;
+  const { source, colour, target } = move;
   const board = g.players[by];
   if (!board || g.removed.includes(by)) return err('not-playing', 'You are not in this game.');
   if (g.stage !== 'draft') return err('wrong-stage', 'Wait for the next round.');
   if (g.current !== by) return err('not-your-turn', 'It’s not your turn.');
-  let count: number;
-  let leftover = 0;
-  if (source === 'centre') {
-    count = g.centre[colour];
-    if (!count) return err('not-there', 'There are no tiles of that colour in the centre.');
-  } else {
-    const f = g.factories[source];
-    if (!f) return err('no-factory', 'There is no such factory.');
-    count = f.filter((t) => t === colour).length;
-    if (!count) return err('not-there', 'That factory has no tiles of that colour.');
-    leftover = f.length - count;
-  }
+  if (source !== 'centre' && (!g.factories[source] || gone(g.specials, source)))
+    return err('no-factory', 'There is no such factory.');
+  const grp = groupAt(g, source, colour, !!move.jokers);
+  const where = source === 'centre' ? 'the centre has' : 'that factory has';
+  if (!grp?.count)
+    return err('not-there', `${where[0]!.toUpperCase()}${where.slice(1)} no tiles of that kind.`);
+  if (move.jokers && !grp.jokers) return err('no-jokers', `No jokers: ${where} none.`);
   if (target !== 'floor') {
-    const problem = lineProblem(board, target, colour);
+    const problem = lineProblem(board, target, colour, greyOf(s));
     if (problem) return err('bad-line', problem);
   }
+  const special = source === 'centre' ? null : (g.specials?.[source] ?? null);
+  // A special factory that sends its leftovers on needs to know where each colour goes.
+  const split: Split = {};
+  let sent: { left: number; right: number } | undefined;
+  if (special?.kind === 'sf4' && grp.rest.length) {
+    const { left, right } = neighbours(g.specials, g.factories.length, source as number);
+    sent = { left: 0, right: 0 };
+    for (const { tile, count } of leftoverGroups(grp.rest)) {
+      const side = move.split?.[tile] ?? (left === null ? 'right' : right === null ? 'left' : null);
+      if (!side) return err('split-needed', 'Say where each colour left behind goes.');
+      split[tile] = side;
+      sent[side] += count;
+    }
+  }
+  const total = grp.count + grp.jokers;
   const marker = source === 'centre' && g.marker === 'centre';
   // Tiles thrown on the floor that a line could have taken.
-  const dumped = target === 'floor' && linesFor(board, colour).length ? count : 0;
-  if (source === 'centre') g.centre[colour] = 0;
-  else {
-    for (const t of g.factories[source]!) if (t !== colour) g.centre[t] += 1;
+  const dumped = target === 'floor' && linesFor(board, colour, greyOf(s)).length ? total : 0;
+  if (source === 'centre') {
+    if (colour === 'joker' || grp.jokers) g.centre.joker = 0;
+    if (colour !== 'joker') g.centre[colour] = 0;
+  } else {
     g.factories[source] = [];
+    if (special?.kind === 'sf3') g.factories[source] = [...grp.rest];
+    else if (special?.kind === 'sf4' && sent) {
+      const { left, right } = neighbours(g.specials, g.factories.length, source);
+      for (const t of grp.rest) {
+        const to = split[t] === 'left' ? left : right;
+        g.factories[to!]!.push(t);
+      }
+      for (const f of g.factories) f.sort(byTile);
+    } else for (const t of grp.rest) addTo(g.centre, t);
+    if (special?.kind === 'sf5') {
+      special.holder = by;
+      board.shield = null;
+    }
   }
   if (marker) g.marker = by;
-  const r = place(board, colour, count, target, marker);
-  g.lid[colour] += r.toLid;
+  const r = place(board, colour, grp.count, target, marker, grp.jokers);
+  // What spilled past a full floor: the colour's tiles spill first, then the jokers.
+  const spilled: Tile[] = [
+    ...Array<Tile>(grp.count).fill(colour),
+    ...Array<Tile>(grp.jokers).fill('joker'),
+  ].slice(total - r.toLid);
+  for (const t of spilled) addTo(g.lid, t);
   g.turns += 1;
   log(s, {
     kind: 'take',
     by,
     source,
     colour,
-    count,
+    count: total,
+    ...(grp.jokers && { jokers: grp.jokers }),
+    ...(colour === 'joker' && { jokers: total }),
+    ...(special && { special: special.kind }),
+    ...(sent && { sent }),
+    ...(r.shielded && { shielded: true }),
     target,
     toLine: r.toLine,
     toFloor: r.toFloor,
     toLid: r.toLid,
     marker,
     penalty: r.penalty,
-    leftover,
+    leftover: grp.rest.length,
     dumped,
     ...autoOf(auto),
   });
@@ -314,11 +496,17 @@ function remove(s: MosaicState, player: PlayerId, now: number): GameError | null
   if (!b || g.left[player] === undefined)
     return err('not-left', 'Only a player who has left can be removed.');
   if (g.removed.includes(player)) return err('already-removed', 'They are already out.');
-  for (const l of b.lines) if (l.colour) g.lid[l.colour] += l.count;
-  for (const f of b.floor) if (f !== 'first') g.lid[f] += 1;
+  for (const l of b.lines) {
+    if (l.colour) g.lid[l.colour] += l.count - (l.jokers ?? 0);
+    if (l.jokers) addTo(g.lid, 'joker', l.jokers);
+  }
+  for (const f of b.floor) if (f !== 'first') addTo(g.lid, f);
+  if (b.shield && b.shield !== 'first') addTo(g.lid, b.shield);
+  delete b.shield;
   b.lines = emptyBoard().lines;
   b.floor = [];
   g.removed.push(player);
+  if (g.walls) delete g.walls[player];
   g.ready = g.ready.filter((id) => id !== player);
   log(s, { kind: 'removed', player });
   if (active(g).length <= 1) {
@@ -327,6 +515,8 @@ function remove(s: MosaicState, player: PlayerId, now: number): GameError | null
   }
   if (g.stage === 'draft' && g.current === player) g.current = nextPlayer(g, player);
   if (g.stage === 'tiling') maybeNextRound(s, now);
+  if (g.stage === 'wall' && Object.values(g.walls ?? {}).every((w) => w.row === null))
+    wallsDone(s, now);
   return null;
 }
 
@@ -342,10 +532,15 @@ function maybeNextRound(s: MosaicState, now: number) {
 /** The safe move for a player out of time, away, or acted for: the bot's pick, never random. */
 function autoTurn(s: MosaicState, who: PlayerId, why: Auto, now: number): boolean {
   const g = s.game!;
+  if (g.stage === 'wall') {
+    const row = g.walls?.[who]?.row;
+    if (row === null || row === undefined) return false;
+    return !wallPlace(s, who, row, null, now, why);
+  }
   if (g.stage !== 'draft' || g.current !== who) return false;
   const move = bestMove(view(s, who), who, null);
   if (!move) return false;
-  return !take(s, who, move.source, move.colour, move.target, now, why);
+  return !take(s, who, move, now, why);
 }
 
 // ---- Lobby ----
@@ -404,7 +599,13 @@ function deal(state: MosaicState, ctx: Ctx): Result {
       : rng.int(seated.length);
   const starter = seated[first]!;
   s.lastFirst = starter;
-  let bag = rng.shuffle(COLOURS.flatMap((c) => Array<Colour>(TILES_EACH).fill(c)));
+  // Jokers take the place of 2 tiles of each colour (1 each at 2 players).
+  const jokers = s.settings.jokers ? JOKERS_FOR[seated.length]! : 0;
+  const each = TILES_EACH - jokers / COLOURS.length;
+  let bag = rng.shuffle<Tile>([
+    ...COLOURS.flatMap((c) => Array<Colour>(each).fill(c)),
+    ...Array<Tile>(jokers).fill('joker'),
+  ]);
   const pl: Record<PlayerId, Board> = {};
   for (const id of seated) pl[id] = emptyBoard();
   // The rig: walls first (those tiles leave the bag), then the top of the bag.
@@ -415,8 +616,8 @@ function deal(state: MosaicState, ctx: Ctx): Result {
       bag.splice(at, 1);
       pl[starter]!.wall[Number(row)]![columnOf(Number(row), c)] = c;
     }
-  const top: Colour[] = [];
-  for (const c of testBag?.top ?? []) {
+  const top: Tile[] = [];
+  for (const c of (jokers ? testBag?.jokerTop : undefined) ?? testBag?.top ?? []) {
     const at = bag.indexOf(c);
     if (at < 0) continue;
     bag.splice(at, 1);
@@ -431,7 +632,7 @@ function deal(state: MosaicState, ctx: Ctx): Result {
     players: pl,
     names: Object.fromEntries(seated.map((id) => [id, s.seats[id]!.name])),
     bag,
-    lid: noCounts(),
+    lid: jokers ? { ...noCounts(), joker: 0 } : noCounts(),
     factories: Array.from({ length: FACTORIES_FOR[seated.length]! }, () => []),
     centre: noCounts(),
     marker: 'centre',
@@ -441,6 +642,7 @@ function deal(state: MosaicState, ctx: Ctx): Result {
     stage: 'draft',
     turns: 0,
     scoring: null,
+    walls: null,
     tilingUntil: null,
     ready: [],
     left: {},
@@ -448,8 +650,9 @@ function deal(state: MosaicState, ctx: Ctx): Result {
     clock: null,
     winners: [],
   };
-  fillFactories(s.game, rng);
   log(s, { kind: 'start', first: starter });
+  flip(s, s.game, rng);
+  fillFactories(s.game, rng);
   s.seed = newSeed(rng);
   settle(s, ctx.now);
   return s;
@@ -466,6 +669,8 @@ function updateSettings(
   const s = draft(state);
   if (action.seconds !== undefined) s.settings.seconds = action.seconds;
   if (action.timerMode !== undefined) s.settings.timerMode = action.timerMode;
+  for (const k of ['grey', 'jokers', 'specials'] as const)
+    if (action[k] !== undefined) s.settings[k] = action[k];
   return s;
 }
 
@@ -515,9 +720,9 @@ function reduce(state: MosaicState, action: MosaicAction, ctx: Ctx): Result {
     case 'back-to-lobby':
       return backToLobby(state, ctx);
     case 'take':
-      return inPlay(state, ctx, (s) =>
-        take(s, by, action.source, action.colour, action.target, ctx.now),
-      );
+      return inPlay(state, ctx, (s) => take(s, by, action, ctx.now));
+    case 'wall':
+      return inPlay(state, ctx, (s) => wallPlace(s, by, action.row, action.col, ctx.now));
     case 'ready':
       return inPlay(state, ctx, (s) => {
         const g = s.game!;
@@ -547,8 +752,11 @@ function reduce(state: MosaicState, action: MosaicAction, ctx: Ctx): Result {
       if (e) return e;
       return inPlay(state, ctx, (s) => {
         const g = s.game!;
-        if (g.stage !== 'draft' || g.current !== action.player)
-          return err('not-waiting', 'The table isn’t waiting on that player.');
+        const waiting =
+          g.stage === 'wall'
+            ? (g.walls?.[action.player]?.row ?? null) !== null
+            : g.stage === 'draft' && g.current === action.player;
+        if (!waiting) return err('not-waiting', 'The table isn’t waiting on that player.');
         return autoTurn(s, action.player, 'host', ctx.now)
           ? null
           : err('stuck', 'Nothing to do for them.');
@@ -620,7 +828,7 @@ function playerLeft(state: MosaicState, playerId: PlayerId, now: number): Mosaic
 
 // ---- Timers ----
 
-type Due = { at: number; why: 'left' | 'timer' | 'remind' | 'tiling' };
+type Due = { at: number; why: 'left' | 'timer' | 'remind' | 'tiling'; who?: PlayerId };
 
 function deadlines(state: MosaicState): Due[] {
   const g = state.game;
@@ -629,11 +837,18 @@ function deadlines(state: MosaicState): Due[] {
     return g.tilingUntil === null ? [] : [{ at: g.tilingUntil, why: 'tiling' }];
   if (!g.clock) return [];
   const out: Due[] = [];
-  const gone = g.left[g.current];
-  if (gone !== undefined)
-    out.push({ at: Math.max(g.clock.since, gone) + LEFT_BEAT_MS, why: 'left' });
+  // Who the table waits on: the player whose turn it is, or everyone still choosing wall spaces.
+  const waiting =
+    g.stage === 'wall'
+      ? Object.entries(g.walls ?? {}).flatMap(([id, w]) => (w.row === null ? [] : [id]))
+      : [g.current];
+  for (const who of waiting) {
+    const gone = g.left[who];
+    if (gone !== undefined)
+      out.push({ at: Math.max(g.clock.since, gone) + LEFT_BEAT_MS, why: 'left', who });
+  }
   const secs = state.settings.seconds;
-  if (secs !== null) {
+  if (secs !== null && waiting.length) {
     const at = g.clock.since + secs * 1000;
     if (state.settings.timerMode === 'strict') out.push({ at, why: 'timer' });
     else if (!g.clock.reminded) out.push({ at, why: 'remind' });
@@ -653,7 +868,13 @@ function onDeadline(state: MosaicState, now: number): MosaicState {
   const rng = hiddenRng(state, now);
   if (due.why === 'tiling') nextRound(s, rng);
   else if (due.why === 'remind') g.clock!.reminded = true;
-  else if (!autoTurn(s, g.current, due.why, now)) g.clock = null;
+  else if (g.stage === 'wall') {
+    // A leaver's wall, or (strict) every wall still waiting: the leftmost spaces.
+    const who = due.who
+      ? [due.who]
+      : Object.entries(g.walls ?? {}).flatMap(([id, w]) => (w.row === null ? [] : [id]));
+    for (const id of who) if (g.stage === 'wall') autoTurn(s, id, due.why, now);
+  } else if (!autoTurn(s, g.current, due.why, now)) g.clock = null;
   settle(s, now);
   s.seed = newSeed(rng);
   return s;
@@ -666,6 +887,7 @@ const boardCopy = (b: Board): Board => ({
   wall: b.wall.map((r) => [...r]),
   floor: [...b.floor],
   score: b.score,
+  ...(b.shield !== undefined && { shield: b.shield }),
 });
 
 /** Everything on the table is public; only the bag's order (and the hidden seed) is not. */
@@ -680,9 +902,10 @@ function gameView(state: MosaicState, g: Game): GameView {
       left: g.left[id] !== undefined || !state.seats[id],
       removed: g.removed.includes(id),
     })),
-    bag: countsOf(g.bag),
+    bag: countsOf(g.bag, g.lid.joker !== undefined),
     lid: { ...g.lid },
     factories: g.factories.map((f) => [...f]),
+    specials: g.specials ? g.specials.map((x) => (x ? { ...x } : null)) : null,
     centre: { ...g.centre },
     marker: g.marker,
     starter: g.starter,
@@ -691,10 +914,11 @@ function gameView(state: MosaicState, g: Game): GameView {
     stage: g.stage,
     turns: g.turns,
     scoring: g.scoring ? structuredClone(g.scoring) : null,
+    walls: g.walls ? structuredClone(g.walls) : null,
     tilingUntil: g.tilingUntil,
     ready: [...g.ready],
     clock:
-      g.clock && state.phase === 'playing' && g.stage === 'draft'
+      g.clock && state.phase === 'playing' && g.stage !== 'tiling'
         ? {
             who: g.current,
             since: g.clock.since,

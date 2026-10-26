@@ -9,6 +9,7 @@ import {
   type PlayerView,
   ROW_BONUS,
 } from '../logic/types.ts';
+import { COLOUR_NAME } from '../logic/tiles.ts';
 import type { Art } from './assets.ts';
 import { BoardView, type Size, useMatch } from './Pieces.tsx';
 import type { Act } from './Table.tsx';
@@ -82,6 +83,7 @@ export function Tiling({
       step={step}
       most={most}
       you={p.id === room.you}
+      grey={!!view.settings.grey}
     />
   );
   const big = enlarged ? players.find((p) => p.id === enlarged) : undefined;
@@ -180,6 +182,7 @@ function PlayerTiling({
   step,
   most,
   you,
+  grey,
 }: {
   p: PlayerView;
   score: PlayerScore;
@@ -188,6 +191,7 @@ function PlayerTiling({
   step: number;
   most: number;
   you: boolean;
+  grey: boolean;
 }) {
   const tiny = size === 'xs';
   const shown = Math.min(step, ps.placed.length);
@@ -228,7 +232,21 @@ function PlayerTiling({
         size={size}
         frame={{ score: ps, shown, floorDone }}
         owner={p.id}
+        grey={grey}
       />
+      {!tiny && floorDone && (ps.fell?.length || ps.shielded) ? (
+        <p
+          className="w-full text-xs text-ink-muted dark:text-stone-400"
+          data-testid="mo-tiling-note"
+        >
+          {ps.fell?.length
+            ? `${ps.fell.map((r) => `Line ${r + 1}`).join(' and ')} had no legal wall space: ${ps.fell.length === 1 ? 'its' : 'their'} tiles fell to the floor. `
+            : ''}
+          {ps.shielded
+            ? `The shield caught ${ps.shielded === 'first' ? 'the first-player marker' : `a ${COLOUR_NAME[ps.shielded]}`}: no cost.`
+            : ''}
+        </p>
+      ) : null}
       {b && bonusStep >= 0 && !tiny && (
         <p className="w-full text-xs tabular-nums" data-testid="mo-bonus">
           <span className="mo-rise">

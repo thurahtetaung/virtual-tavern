@@ -1,7 +1,7 @@
 import { type ContentProvider, GameError, createRng } from '@vt/game-sdk';
 import { mosaic } from './game.ts';
 import { columnOf, noCounts } from './rules.ts';
-import type { Board, Colour, Counts, MosaicAction, MosaicState } from './types.ts';
+import type { Board, Colour, Counts, MosaicAction, MosaicState, Tile } from './types.ts';
 
 export const NOW = 1_000_000;
 export const HOST = 'p1';
@@ -80,20 +80,18 @@ export const counts = (c: Partial<Counts>): Counts => ({ ...noCounts(), ...c });
  * Sets the table: the factories and the centre. The tiles that were there go back to the bag so
  * the set of 100 stays whole.
  */
-export function setTable(h: Harness, factories: Colour[][], centre: Partial<Counts> = {}) {
+export function setTable(h: Harness, factories: Tile[][], centre: Partial<Counts> = {}) {
   h.rig((s) => {
     const g = s.game!;
     const out = [
       ...g.factories.flat(),
-      ...(Object.entries(g.centre) as [Colour, number][]).flatMap(([c, n]) =>
-        Array<Colour>(n).fill(c),
-      ),
+      ...(Object.entries(g.centre) as [Tile, number][]).flatMap(([c, n]) => Array<Tile>(n).fill(c)),
     ];
     g.bag.push(...out);
     const want = [
       ...factories.flat(),
-      ...(Object.entries(centre) as [Colour, number][]).flatMap(([c, n]) =>
-        Array<Colour>(n ?? 0).fill(c),
+      ...(Object.entries(centre) as [Tile, number][]).flatMap(([c, n]) =>
+        Array<Tile>(n ?? 0).fill(c),
       ),
     ];
     for (const c of want) {
@@ -120,7 +118,7 @@ export function setBoard(
     const g = s.game!;
     const board = g.players[id]!;
     // The tiles come out of the bag, so the set of 100 stays whole.
-    const draw = (c: Colour) => {
+    const draw = (c: Tile) => {
       const at = g.bag.indexOf(c);
       if (at >= 0) g.bag.splice(at, 1);
     };
@@ -131,7 +129,8 @@ export function setBoard(
       }
     if (b.lines) {
       board.lines = structuredClone(b.lines);
-      for (const l of b.lines) for (let i = 0; i < l.count; i++) draw(l.colour!);
+      for (const l of b.lines)
+        for (let i = 0; i < l.count; i++) draw(i < (l.jokers ?? 0) ? 'joker' : l.colour!);
     }
     if (b.floor) {
       board.floor = [...b.floor];
@@ -141,10 +140,22 @@ export function setBoard(
   });
 }
 
+/** Puts tiles on a player's wall at given spaces (any wall side), drawn from the bag. */
+export function putWall(h: Harness, id: string, tiles: [row: number, col: number, tile: Tile][]) {
+  h.rig((s) => {
+    const g = s.game!;
+    for (const [r, c, t] of tiles) {
+      const at = g.bag.indexOf(t);
+      if (at >= 0) g.bag.splice(at, 1);
+      g.players[id]!.wall[r]![c] = t;
+    }
+  });
+}
+
 export const game = (h: Harness) => h.state.game!;
 export const board = (h: Harness, id: string) => h.state.game!.players[id]!;
 
-/** Every tile in the game: bag, lid, table, lines, floors and walls. Always 100. */
+/** Every tile in the game: bag, lid, table, lines, floors, shields and walls. Always 100. */
 export function tileCount(s: MosaicState): number {
   const g = s.game!;
   const sum = (c: Counts) => Object.values(c).reduce((a, b) => a + b, 0);
@@ -154,6 +165,7 @@ export function tileCount(s: MosaicState): number {
     n += b.lines.reduce((a, l) => a + l.count, 0);
     n += b.floor.filter((f) => f !== 'first').length;
     n += b.wall.flat().filter(Boolean).length;
+    if (b.shield && b.shield !== 'first') n += 1;
   }
   return n;
 }
