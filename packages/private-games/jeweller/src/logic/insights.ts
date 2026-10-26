@@ -6,7 +6,8 @@ import type { JewellerAction, JewellerState, LogEntry } from './types.ts';
 /**
  * Stats only, read from the log entries this change added. A blind reserve never names its card
  * (nobody else saw it): every take, reserve, purchase with what it cost and how much gold went
- * into it, pieces handed back, noble visits, the end trigger and the game's result.
+ * into it (and whether it was a Conquest), strongholds placed, moved and sent back, pieces handed
+ * back, noble visits, the end trigger (a City or the target) and the game's result.
  */
 export function insights(
   before: JewellerState,
@@ -53,11 +54,22 @@ export function insights(
             gold: e.paid.gold,
             free: paid === 0,
             fromReserve: e.fromReserve,
+            conquest: !!e.conquest,
             auto,
           },
         });
         break;
       }
+      case 'hold':
+        events.push({
+          type: 'hold',
+          playerId: e.by,
+          props: { moved: e.from !== null, auto },
+        });
+        break;
+      case 'evict':
+        events.push({ type: 'evict', playerId: e.by, props: { owner: e.owner, auto } });
+        break;
       case 'return':
         events.push({
           type: 'return',
@@ -69,7 +81,11 @@ export function insights(
         events.push({ type: 'noble', playerId: e.by, props: { turn: e.turn, auto } });
         break;
       case 'final':
-        events.push({ type: 'final', playerId: e.by, props: { points: e.points, turn: e.turn } });
+        events.push({
+          type: 'final',
+          playerId: e.by,
+          props: { points: e.points, turn: e.turn, city: !!e.city },
+        });
         break;
       default:
         break;
@@ -93,6 +109,8 @@ export function insights(
         players: g.order.length,
         rounds: Math.ceil(g.turns / g.order.length),
         target: after.settings.target,
+        cities: !!after.settings.cities,
+        strongholds: !!after.settings.strongholds,
         // The tie on points was broken by fewest cards.
         tiebreak: inGame.filter((id) => score(id) === top).length > g.winners.length,
         how:

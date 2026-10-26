@@ -76,10 +76,12 @@ import type { GameFigure } from '@vt/protocol';
 //              blanks, sizes, scorers, loners, raisedTo}, pink {recap: round, from, how},
 //              outcome {rounds, endReason; recap: target, pinkCow, ranking, cows};
 //              recap: answer {round, group, herd, alone, with}
-//   jeweller   outcome {players, rounds, tiebreak; recap: target, shared, ranking, scores, cards,
-//              nobles}, buy {level, paid, gold, free; recap: points, bonus, fromReserve, auto},
-//              reserve {blind; recap: level, gold, auto}, noble {recap: turn, auto},
-//              take {recap: count, double, auto}, return {recap: count, auto}, final {recap: points, turn}
+//   jeweller   outcome {players, rounds, tiebreak, cities, strongholds; recap: target, shared,
+//              ranking, scores, cards, nobles}, buy {level, paid, gold, free, conquest; recap:
+//              points, bonus, fromReserve, auto}, reserve {blind; recap: level, gold, auto}, noble
+//              {recap: turn, auto}, hold {moved; recap: auto}, evict {recap: owner, auto}, take
+//              {recap: count, double, auto}, return {recap: count, auto}, final {recap: points,
+//              turn, city}
 //   going-once outcome {players, lots; recap: ranking, scores, cash, art, debt}, sale {price,
 //              value, profit, own, house, screwedBy; recap: lot, artist, commission, players},
 //              unsold {value, house; recap: lot}, bid {amount}, screw {outcome; recap: target,
@@ -1619,10 +1621,19 @@ function jewellerCounters(type: string, props: Props): Counters {
       const rounds = num(props.rounds);
       if (rounds) out.push(['f.round_sum', rounds]);
       if (props.tiebreak === true) out.push(['f.tiebreak', 1]);
+      if (props.cities === true) out.push(['f.games_cities', 1]);
+      if (props.strongholds === true) out.push(['f.games_strongholds', 1]);
       break;
     }
+    case 'hold':
+      out.push([props.moved === true ? 'f.hold_moved' : 'f.hold_placed', 1]);
+      break;
+    case 'evict':
+      out.push(['f.hold_evicted', 1]);
+      break;
     case 'buy': {
       out.push(['f.buys', 1]);
+      if (props.conquest === true) out.push(['f.conquests', 1]);
       const level = num(props.level);
       if (level === 1 || level === 2 || level === 3) out.push([`f.buy.${level}`, 1]);
       if ((num(props.gold) ?? 0) > 0) out.push(['f.buy_gold', 1]);
@@ -1692,6 +1703,31 @@ function jewellerFigures(get: (metric: string) => number): GameFigure[] {
       label: 'Ties broken by fewer cards',
       kind: 'number',
       value: get('f.tiebreak'),
+    },
+    {
+      id: 'modules',
+      label: 'Games with each module',
+      kind: 'split',
+      parts: [
+        { label: 'Cities', value: get('f.games_cities') },
+        { label: 'Strongholds', value: get('f.games_strongholds') },
+      ],
+    },
+    {
+      id: 'stronghold-moves',
+      label: 'Stronghold moves',
+      kind: 'split',
+      parts: [
+        { label: 'Placed', value: get('f.hold_placed') },
+        { label: 'Moved', value: get('f.hold_moved') },
+        { label: 'Sent back', value: get('f.hold_evicted') },
+      ],
+    },
+    {
+      id: 'conquests-per-game',
+      label: 'Conquests per Strongholds game',
+      kind: 'number',
+      value: avg(get('f.conquests'), get('f.games_strongholds')),
     },
   ];
 }

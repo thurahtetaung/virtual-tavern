@@ -29,6 +29,8 @@ export const MIN_TIMER_SECONDS = 15;
 export const MAX_TIMER_SECONDS = 300;
 /** How long the table waits before playing the turn of a player who left. */
 export const LEFT_BEAT_MS = 3000;
+/** Strongholds each player has, with the Strongholds option. */
+export const STRONGHOLDS = 3;
 /** Public log entries kept (older ones drop off). */
 export const MAX_LOG = 80;
 
@@ -43,6 +45,10 @@ export interface Settings {
   seconds: number | null;
   /** Soft: a reminder, and the host may act for the player. Strict: a safe move is made. */
   timerMode: TimerMode;
+  /** The Cities module: Cities replace the nobles and the target. (Missing in rooms saved before.) */
+  cities?: boolean;
+  /** The Strongholds module. (Missing in rooms saved before.) */
+  strongholds?: boolean;
 }
 
 export interface Seat {
@@ -71,10 +77,18 @@ export interface PlayerState {
 }
 
 /**
- * `action`: the current player picks one of the four actions. `return`: they hold more than 10
- * pieces and hand some back. `noble`: more than one noble would visit, and they pick one.
+ * `action`: the current player picks one of the four actions. `hold`: after a purchase, they place
+ * or move a stronghold, or remove an opponent's. `conquer`: all three of their strongholds sit on
+ * a card they can afford, and they may buy it too. `return`: they hold more than 10 pieces and
+ * hand some back. `noble`: more than one noble would visit, and they pick one.
  */
-export type Stage = 'action' | 'return' | 'noble';
+export type Stage = 'action' | 'hold' | 'conquer' | 'return' | 'noble';
+
+/** Strongholds on a face-up card: always one player's, 1 to 3 of them. */
+export interface Hold {
+  by: PlayerId;
+  n: number;
+}
 
 /** Who made a move for whom: the strict timer, the host's Act for, or the table for a leaver. */
 export type Auto = 'timer' | 'host' | 'left';
@@ -95,8 +109,18 @@ export interface Game {
   decks: Record<Level, string[]>;
   /** Each level's four face-up cards; null for a space left empty by an empty deck. */
   market: Record<Level, (string | null)[]>;
-  /** Nobles still on the table. */
+  /** Nobles still on the table (none with Cities). */
   nobles: string[];
+  /** The City sides in play, with the Cities option. */
+  cities?: string[];
+  /** Strongholds on face-up cards, by card, with the Strongholds option. */
+  holds?: Record<string, Hold>;
+  /** Market spaces emptied by this turn's purchases, refilled once the purchases are done. */
+  gaps?: { level: Level; space: number }[];
+  /** A stronghold is owed for a purchase this turn. */
+  owed?: boolean;
+  /** This turn's Conquest was offered (or isn't possible any more). */
+  conquest?: boolean;
   bank: Pieces;
   current: PlayerId;
   stage: Stage;
@@ -104,7 +128,7 @@ export interface Game {
   turns: number;
   /** Nobles the current player may pick from (the `noble` stage). */
   nobleChoice: string[];
-  /** Who reached the target first: the round is finished, then the game ends. */
+  /** Who reached the target (or met a City) first: the round is finished, then the game ends. */
   finalBy: PlayerId | null;
   /** Players who left the room mid-game, with when: the table plays their turns. */
   left: Record<PlayerId, number>;
@@ -137,11 +161,19 @@ export type LogEntry = { id: number; turn: number; auto?: Auto } & (
       card: string;
       fromReserve: boolean;
       paid: Pieces;
+      /** Bought by Conquest, on top of the turn's action. */
+      conquest?: boolean;
     }
+  /** A stronghold placed (`from` null) or moved onto `card`. */
+  | { kind: 'hold'; by: PlayerId; card: string; from: string | null }
+  /** An opponent's lone stronghold sent back from `card`. */
+  | { kind: 'evict'; by: PlayerId; card: string; owner: PlayerId }
+  | { kind: 'conquest-pass'; by: PlayerId }
   | { kind: 'return'; by: PlayerId; tokens: Pieces }
   | { kind: 'noble'; by: PlayerId; noble: string }
   | { kind: 'pass'; by: PlayerId }
-  | { kind: 'final'; by: PlayerId; points: number }
+  /** The end is triggered: the target reached, or (`city`) a City met. */
+  | { kind: 'final'; by: PlayerId; points: number; city?: string }
   | { kind: 'left'; player: PlayerId }
   | { kind: 'back'; player: PlayerId }
   | { kind: 'removed'; player: PlayerId; tokens: Pieces }
@@ -194,6 +226,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     showReserved: z.boolean().optional(),
     seconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
+    cities: z.boolean().optional(),
+    strongholds: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
@@ -209,6 +243,12 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('return'), tokens: pieces }),
   z.object({ type: z.literal('noble'), noble: id }),
   z.object({ type: z.literal('pass') }),
+  /** Place a stronghold on a face-up card: from the supply, or moved from `from`. */
+  z.object({ type: z.literal('stronghold'), card: id, from: id.optional() }),
+  /** Send an opponent's lone stronghold on `card` back to them. */
+  z.object({ type: z.literal('evict'), card: id }),
+  /** Skip this turn's Conquest. */
+  z.object({ type: z.literal('no-conquest') }),
   z.object({ type: z.literal('act-for'), player: id }),
   /** The host takes a player who left out of the game. */
   z.object({ type: z.literal('remove'), player: id }),
@@ -248,6 +288,10 @@ export interface PlayerView {
   left: boolean;
   /** Removed by the host after leaving: out of the game. */
   removed: boolean;
+  /** Strongholds still in their supply (Strongholds option). */
+  strongholds: number;
+  /** City sides they meet now (Cities option). */
+  cities: string[];
 }
 
 export interface ClockView {
@@ -264,6 +308,8 @@ export interface GameView {
   decks: Record<Level, number>;
   market: Record<Level, (string | null)[]>;
   nobles: string[];
+  cities: string[];
+  holds: Record<string, Hold>;
   bank: Pieces;
   current: PlayerId;
   stage: Stage;

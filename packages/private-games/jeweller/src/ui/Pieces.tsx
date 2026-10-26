@@ -1,6 +1,8 @@
-import { ProtectedImage, cn } from '@vt/ui';
+import type { PlayerColor } from '@vt/game-sdk';
+import { PlayerDot, ProtectedImage, cn } from '@vt/ui';
 import { memo } from 'react';
 import { cardOf, nobleOf } from '../logic/cards.ts';
+import { anyColours, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
 import { costAfter } from '../logic/rules.ts';
 import { GEMS, type Gem, type Level, type Token } from '../logic/types.ts';
@@ -132,6 +134,55 @@ export interface CardHints {
 
 export type Afford = 'yes' | 'gold' | 'no' | null;
 
+/** Strongholds on a card, as the viewer sees them. */
+export interface HoldInfo {
+  n: number;
+  /** The viewer's own. */
+  mine: boolean;
+  owner: string;
+  color?: PlayerColor | undefined;
+  /** The owner's stronghold picture. */
+  art: string | null;
+}
+
+/** A stronghold piece: its picture, else a castle. */
+export function StrongholdIcon({ art, size = 18 }: { art: string | null; size?: number }) {
+  return art ? (
+    <ProtectedImage
+      src={art}
+      alt=""
+      className="shrink-0 object-contain"
+      style={{ width: size, height: size }}
+    />
+  ) : (
+    <span aria-hidden className="leading-none" style={{ fontSize: size * 0.85 }}>
+      🏰
+    </span>
+  );
+}
+
+/**
+ * The strongholds on a card, centred over its art so they read on a phone: the piece, how many,
+ * the owner's colour, and a lock when they aren't the viewer's (only the owner may take it).
+ */
+function HoldBadge({ hold, size }: { hold: HoldInfo; size: 'sm' | 'lg' }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute top-1/2 left-1/2 z-[1] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5 rounded-full bg-card/95 px-1 py-0.5 text-[11px] font-black text-ink shadow-md ring-2 dark:bg-stone-900/95 dark:text-stone-100',
+        hold.mine ? 'ring-accent dark:ring-amber-400' : 'ring-ink/60 dark:ring-stone-300/70',
+        size === 'lg' && 'gap-1 px-2 py-1 text-base',
+      )}
+      data-hold={hold.n}
+    >
+      <StrongholdIcon art={hold.art} size={size === 'lg' ? 28 : 16} />
+      <span className="tabular-nums">×{hold.n}</span>
+      {hold.color && <PlayerDot color={hold.color} label={false} />}
+      {!hold.mine && <span className="text-[10px]">🔒</span>}
+    </span>
+  );
+}
 /**
  * A development card drawn from its numbers: points and colour on the band, the cost as pips.
  * With `hints` (the viewer's discounts and pieces), each pip shows what the viewer still pays
@@ -146,6 +197,8 @@ export const CardTile = memo(function CardTile({
   className,
   size = 'sm',
   fresh,
+  hold,
+  target,
 }: {
   id: string;
   art: Art;
@@ -157,12 +210,16 @@ export const CardTile = memo(function CardTile({
   size?: 'sm' | 'lg';
   /** Just arrived: plays the deal. */
   fresh?: boolean;
+  /** Strongholds on it. */
+  hold?: HoldInfo | undefined;
+  /** A legal place for the stronghold being placed. */
+  target?: boolean;
 }) {
   const card = cardOf(id);
   const after = hints ? costAfter(card, hints.bonuses) : card.cost;
   const src = size === 'lg' ? art.card(id) : art.cardThumb(id);
   const pips = GEMS.filter((g) => card.cost[g] > 0);
-  const label = `Level ${LEVEL_NAME[card.level]} ${TOKEN_NAME[card.bonus]} card, ${card.points} ${card.points === 1 ? 'point' : 'points'}, costs ${pips.map((g) => `${card.cost[g]} ${TOKEN_NAME[g]}`).join(', ')}${afford === 'yes' ? ': you can buy it' : afford === 'gold' ? ': you can buy it with gold' : ''}`;
+  const label = `Level ${LEVEL_NAME[card.level]} ${TOKEN_NAME[card.bonus]} card, ${card.points} ${card.points === 1 ? 'point' : 'points'}, costs ${pips.map((g) => `${card.cost[g]} ${TOKEN_NAME[g]}`).join(', ')}${afford === 'yes' ? ': you can buy it' : afford === 'gold' ? ': you can buy it with gold' : ''}${hold ? `, ${hold.mine ? 'your' : `${hold.owner}’s`} ${hold.n === 1 ? 'stronghold' : `${hold.n} strongholds`} on it${hold.mine ? '' : ' (only they can buy or reserve it)'}` : ''}${target ? ': tap to put a stronghold here' : ''}`;
   const body = (
     <>
       {src && size === 'lg' ? (
@@ -203,6 +260,7 @@ export const CardTile = memo(function CardTile({
           </span>
         )
       )}
+      {hold && <HoldBadge hold={hold} size={size} />}
       {!(src && size === 'lg') && (
         <>
           <span
@@ -247,6 +305,7 @@ export const CardTile = memo(function CardTile({
     afford === 'yes' && 'ring-[3px] ring-success dark:ring-emerald-400',
     afford === 'gold' && 'ring-[3px] ring-warn dark:ring-amber-400',
     fresh && 'jw-deal',
+    target && 'outline-2 outline-offset-1 outline-accent outline-dashed dark:outline-amber-400',
     className,
   );
   return onClick ? (
@@ -259,6 +318,7 @@ export const CardTile = memo(function CardTile({
       onClick={onClick}
       aria-label={label}
       data-card={id}
+      {...(target && { 'data-target': true })}
     >
       {body}
     </button>
@@ -401,6 +461,125 @@ export const NobleTile = memo(function NobleTile({
     </button>
   ) : (
     <span role="img" aria-label={label} className={box} data-noble={id}>
+      {body}
+    </span>
+  );
+});
+
+/** A City's requirement pips, by tile size. */
+const PIP = {
+  sm: 'h-3.5 min-w-3.5 text-[9px] sm:h-4 sm:min-w-4 sm:text-[10px]',
+  lg: 'h-6 min-w-6 text-sm',
+} as const;
+
+/**
+ * A City side: its art (which prints the points and cards it needs), else drawn from its numbers:
+ * the points, each colour's cards, and "N =" for that many of one other colour. With `met`, a
+ * green ring says the viewer meets it now.
+ */
+export const CityTile = memo(function CityTile({
+  id,
+  art,
+  met,
+  size = 'sm',
+  onClick,
+  className,
+}: {
+  id: string;
+  art: Art;
+  met?: boolean;
+  size?: 'sm' | 'lg';
+  onClick?: () => void;
+  className?: string;
+}) {
+  const city = cityOf(id);
+  const src = size === 'lg' ? art.city(id) : art.cityThumb(id);
+  const wants = GEMS.filter((g) => city.requires[g] > 0);
+  const label = `City ${id}: ${city.points} points and ${[
+    ...wants.map((g) => `${city.requires[g]} ${TOKEN_NAME[g]}`),
+    ...(city.any ? [`${city.any} of one ${wants.length ? 'other ' : ''}colour`] : []),
+  ].join(', ')} cards${wants.length || city.any ? '' : ' (no cards)'}${met ? ': you meet it' : ''}`;
+  // The printed values are too small to read on a small tile, so they are drawn over the art's
+  // value column; the large tile (a sheet) shows the art as printed.
+  const drawn = !(src && size === 'lg');
+  const body = (
+    <>
+      {src ? (
+        <ProtectedImage src={src} alt="" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span aria-hidden className="absolute top-0.5 left-1 text-sm opacity-60">
+          🏙
+        </span>
+      )}
+      {drawn && (
+        <span
+          className={cn(
+            'relative ml-auto flex flex-col items-end justify-center gap-0.5 p-0.5 sm:p-1',
+            src && 'rounded-l-md bg-card/90 text-ink dark:bg-stone-900/90 dark:text-stone-100',
+          )}
+        >
+          <span
+            className={cn(
+              'font-black tabular-nums leading-none',
+              size === 'lg' ? 'text-3xl' : 'text-base sm:text-lg',
+            )}
+          >
+            {city.points}
+          </span>
+          <span className="flex max-w-16 flex-wrap justify-end gap-0.5">
+            {wants.map((g) => (
+              <span
+                key={g}
+                className={cn(
+                  'inline-flex items-center justify-center rounded px-0.5 font-black ring-1',
+                  PIP[size],
+                  TOKEN_FILL[g],
+                )}
+              >
+                {city.requires[g]}
+              </span>
+            ))}
+            {city.any > 0 && (
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center rounded bg-stone-400 px-0.5 font-black text-stone-950 ring-1 ring-stone-600',
+                  PIP[size],
+                )}
+                title={`${city.any} of one colour (${anyColours(city)
+                  .map((g) => TOKEN_NAME[g])
+                  .join(', ')})`}
+              >
+                {city.any}=
+              </span>
+            )}
+          </span>
+        </span>
+      )}
+      {met && (
+        <span className="absolute top-0.5 left-0.5 rounded-full bg-success-soft px-1 text-[10px] font-black text-success-ink ring-1 ring-success-line dark:bg-emerald-500 dark:text-stone-950 dark:ring-emerald-300">
+          ✓
+        </span>
+      )}
+    </>
+  );
+  const box = cn(
+    'relative flex aspect-[2/1] shrink-0 overflow-hidden rounded-lg bg-special-soft shadow-sm ring-1 ring-special-line dark:bg-violet-900/40 dark:ring-violet-500/40',
+    size === 'lg' ? 'w-80 max-w-full' : 'w-full',
+    met && 'ring-[3px] ring-success dark:ring-emerald-400',
+    className,
+  );
+  return onClick ? (
+    <button
+      type="button"
+      className={cn(box, 'focus-visible:outline-2 focus-visible:outline-accent')}
+      onClick={onClick}
+      aria-label={label}
+      data-city={id}
+    >
+      {body}
+    </button>
+  ) : (
+    <span role="img" aria-label={label} className={box} data-city={id}>
       {body}
     </span>
   );

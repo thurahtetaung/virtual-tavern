@@ -2,6 +2,7 @@ import { type GameRoomInfo, storageKey, waitingFor } from '@vt/game-sdk';
 import { Button, Countdown, Modal, PlayerTag, RefusalSlot, cn } from '@vt/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cardOf } from '../logic/cards.ts';
+import { anyColours, cityGap, cityOf } from '../logic/cities.ts';
 import { LEVEL_NAME, TOKEN_NAME } from '../logic/gems.ts';
 import {
   autoGold,
@@ -18,6 +19,14 @@ import {
   totalOf,
 } from '../logic/rules.ts';
 import {
+  type HoldMove,
+  conquestCard,
+  holdMoves,
+  holdsOf,
+  occupiedFor,
+  openMarket,
+} from '../logic/strongholds.ts';
+import {
   DOUBLE_MIN,
   GEMS,
   type Gem,
@@ -32,7 +41,16 @@ import {
   TOKEN_LIMIT,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
-import { type Afford, CardBack, CardTile, NobleTile, TokenChip } from './Pieces.tsx';
+import {
+  type Afford,
+  CardBack,
+  CardTile,
+  CityTile,
+  type HoldInfo,
+  NobleTile,
+  StrongholdIcon,
+  TokenChip,
+} from './Pieces.tsx';
 import { type NameOf, cardLine, logLine } from './text.ts';
 
 export type Act = (action: JewellerAction, options?: { anchor?: string }) => Promise<boolean>;
@@ -51,10 +69,13 @@ type Sheet =
   | { kind: 'deck'; level: Level }
   | { kind: 'player'; id: string }
   | { kind: 'noble'; id: string }
+  | { kind: 'city'; id: string }
   | null;
 
-const affordOf = (id: string, me: PlayerView | undefined): Afford => {
+const affordOf = (id: string, me: PlayerView | undefined, view?: JewellerView): Afford => {
   if (!me) return null;
+  // Another player's strongholds keep it off.
+  if (view && occupiedFor(view.game!.holds, id, me.id)) return null;
   const c = cardOf(id);
   if (totalOf(shortfall(c, me.bonuses, me.tokens)) === 0) return 'yes';
   return canAfford(c, me.bonuses, me.tokens) ? 'gold' : 'no';
@@ -192,7 +213,7 @@ function PlayerChip({
         current && 'ring-2 ring-accent dark:ring-amber-500',
         p.left && 'opacity-60',
       )}
-      aria-label={`${p.name}: ${p.points} ${p.points === 1 ? 'point' : 'points'}, ${totalOf(p.tokens)} ${totalOf(p.tokens) === 1 ? 'piece' : 'pieces'}, ${p.reserved.length} reserved${current ? ', playing now' : ''}`}
+      aria-label={`${p.name}: ${p.points} ${p.points === 1 ? 'point' : 'points'}, ${totalOf(p.tokens)} ${totalOf(p.tokens) === 1 ? 'piece' : 'pieces'}, ${p.reserved.length} reserved${view.settings.strongholds ? `, ${p.strongholds} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply` : ''}${p.cities.length ? ', meets a City' : ''}${current ? ', playing now' : ''}`}
       data-player={p.id}
     >
       <PlayerTag
@@ -210,6 +231,12 @@ function PlayerChip({
         <span className="text-xs text-ink-muted dark:text-stone-400">🂠{p.reserved.length}</span>
       )}
       {p.nobles.length > 0 && <span className="text-xs">👑{p.nobles.length}</span>}
+      {view.settings.strongholds && (
+        <span className="text-xs text-ink-muted tabular-nums dark:text-stone-400">
+          🏰{p.strongholds}
+        </span>
+      )}
+      {p.cities.length > 0 && <span className="text-xs">🏙✓</span>}
     </button>
   );
 }
@@ -253,11 +280,17 @@ function PlayerPanel({
               {p.removed ? 'removed' : 'away'}
             </span>
           )}
+          {p.cities.length > 0 && (
+            <span className="text-xs font-semibold text-success-ink dark:text-emerald-300">
+              🏙 City met
+            </span>
+          )}
           <span className="font-black tabular-nums" aria-label={`${p.points} points`}>
             {p.points}★
           </span>
         </span>
       </div>
+      {view.settings.strongholds && <Supply p={p} view={view} art={art} />}
       <Holdings p={p} art={art} compact />
       {(p.reserved.length > 0 || p.nobles.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -287,6 +320,79 @@ function PlayerPanel({
       )}
     </section>
   );
+}
+
+/** A player's strongholds still in their supply, as pieces. */
+function Supply({ p, view, art }: { p: PlayerView; view: JewellerView; art: Art }) {
+  const seat = view.game!.order.indexOf(p.id);
+  return (
+    <span
+      className="flex items-center gap-1 text-xs text-ink-muted dark:text-stone-400"
+      role="img"
+      aria-label={`${p.strongholds} ${p.strongholds === 1 ? 'stronghold' : 'strongholds'} in supply`}
+    >
+      {Array.from({ length: p.strongholds }, (_, i) => (
+        <StrongholdIcon key={i} art={art.stronghold(seat)} size={18} />
+      ))}
+      {p.strongholds === 0 ? 'All strongholds out' : 'in supply'}
+    </span>
+  );
+}
+
+/** Strongholds on a card, for its badge. */
+function holdInfo(
+  view: JewellerView,
+  room: GameRoomInfo,
+  art: Art,
+  card: string,
+): HoldInfo | undefined {
+  const g = view.game!;
+  const h = g.holds[card];
+  if (!h) return undefined;
+  const owner = g.players.find((p) => p.id === h.by);
+  return {
+    n: h.n,
+    mine: h.by === room.you,
+    owner: owner?.name ?? 'Someone',
+    color: room.players.find((p) => p.id === h.by)?.color,
+    art: art.stronghold(g.order.indexOf(h.by)),
+  };
+}
+
+/**
+ * Where the owed stronghold comes from: the supply (`from` null) or one of the player's cards, or
+ * `evict` to send an opponent's back.
+ */
+type HoldFrom = { from: string | null } | 'evict';
+
+const sameFrom = (a: HoldFrom, b: HoldFrom) =>
+  a === 'evict' || b === 'evict' ? a === b : a.from === b.from;
+
+/** The stronghold picker's mode, reset each time a new stronghold is owed. */
+function useHoldMode(view: JewellerView, you: string) {
+  const { stage, current, market, holds } = view.game!;
+  const moves = useMemo(
+    () => (stage === 'hold' && current === you ? holdMoves(market, holds, you) : []),
+    [stage, current, market, holds, you],
+  );
+  // From the supply while there is one, else moving one, else sending one back.
+  const place = moves.find((m) => m.type === 'stronghold' && m.from === undefined);
+  const move = moves.find((m) => m.type === 'stronghold');
+  const fallback: HoldFrom = place
+    ? { from: null }
+    : move?.type === 'stronghold'
+      ? { from: move.from ?? null }
+      : 'evict';
+  const key = `${view.game!.turns}:${view.log.at(-1)?.id ?? 0}`;
+  const [state, setState] = useState<{ key: string; from: HoldFrom }>({ key, from: fallback });
+  const from = state.key === key ? state.from : fallback;
+  const legal = (card: string): HoldMove | undefined =>
+    moves.find((m) =>
+      from === 'evict'
+        ? m.type === 'evict' && m.card === card
+        : m.type === 'stronghold' && m.card === card && (m.from ?? null) === from.from,
+    );
+  return { moves, from, setFrom: (f: HoldFrom) => setState({ key, from: f }), legal };
 }
 
 /** Pick-and-confirm for the gem piles: tap to stage, tap again for two of a colour. */
@@ -472,7 +578,12 @@ function CardSheet({
   const card = cardOf(id);
   const inMarket = LEVELS.some((l) => g.market[l].includes(id));
   const mineReserved = !!me?.reserved.some((r) => r.card === id);
-  const canMove = !!me && view.phase === 'playing' && g.current === me.id && g.stage === 'action';
+  const conquest = !!me && g.stage === 'conquer' && conquestCard(g.holds, me.id) === id;
+  const myTurn = !!me && view.phase === 'playing' && g.current === me.id;
+  const canMove = myTurn && (g.stage === 'action' || conquest);
+  const hold = g.holds[id];
+  const blocked = !!me && occupiedFor(g.holds, id, me.id);
+  const holder = hold && g.players.find((p) => p.id === hold.by);
   const [gold, setGold] = useState<Record<Gem, number>>(() =>
     me ? autoGold(card, me.bonuses, me.tokens) : noGems(),
   );
@@ -481,7 +592,7 @@ function CardSheet({
   const short = me
     ? Math.max(0, totalOf(shortfall(card, me.bonuses, me.tokens)) - me.tokens.gold)
     : 0;
-  const reserveOk = canMove && inMarket && (me?.reserved.length ?? 0) < MAX_RESERVED;
+  const reserveOk = canMove && !conquest && inMarket && (me?.reserved.length ?? 0) < MAX_RESERVED;
   const goldLeft = me ? me.tokens.gold - totalOf(gold) : 0;
   const run = async (action: JewellerAction) => {
     if (await act(action, { anchor: 'jw-sheet' })) onClose();
@@ -494,6 +605,23 @@ function CardSheet({
           Owning it gives a lasting {TOKEN_NAME[card.bonus]} discount
           {card.points ? ` and ${card.points} ${card.points === 1 ? 'point' : 'points'}` : ''}.
         </p>
+        {hold && inMarket && (
+          <p
+            className={cn(
+              'w-full rounded-xl px-3 py-1.5 text-center text-sm ring-1',
+              blocked
+                ? 'bg-warn-soft text-warn-ink ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40'
+                : 'bg-info-soft text-info-ink ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30',
+            )}
+          >
+            🏰{' '}
+            {blocked
+              ? `${holder?.name ?? 'Someone'}’s ${hold.n === 1 ? 'stronghold is' : `${hold.n} strongholds are`} on this card: only they can buy or reserve it.`
+              : conquest
+                ? 'Conquest: all three of your strongholds are here. Buy it on top of your action, or skip it.'
+                : `Your ${hold.n === 1 ? 'stronghold is' : `${hold.n} strongholds are`} here: nobody else can buy or reserve it. Buying or reserving it takes ${hold.n === 1 ? 'it' : 'them'} back.`}
+          </p>
+        )}
         {me && (mineReserved || inMarket) && (
           <div className="w-full rounded-xl bg-panel p-2.5 ring-1 ring-line dark:bg-stone-800/70 dark:ring-stone-700">
             <p className="mb-1.5 text-sm font-semibold">
@@ -542,7 +670,7 @@ function CardSheet({
             </ul>
           </div>
         )}
-        {canMove && (mineReserved || inMarket) && (
+        {canMove && !blocked && (mineReserved || inMarket) && (
           <div className="flex w-full flex-wrap gap-2">
             <Button
               className="flex-1"
@@ -556,7 +684,7 @@ function CardSheet({
                   ? 'Buy for free'
                   : `Buy for ${totalOf(paid)} ${totalOf(paid) === 1 ? 'piece' : 'pieces'}`}
             </Button>
-            {inMarket && (
+            {inMarket && !conquest && (
               <Button
                 variant="secondary"
                 className="flex-1"
@@ -626,6 +754,144 @@ function DeckSheet({
   );
 }
 
+/** The owed stronghold: where it comes from, then a tap on a highlighted card. */
+function HoldPicker({
+  view,
+  me,
+  art,
+  mode,
+  name,
+}: {
+  view: JewellerView;
+  me: PlayerView;
+  art: Art;
+  mode: ReturnType<typeof useHoldMode>;
+  name: NameOf;
+}) {
+  const g = view.game!;
+  const seat = g.order.indexOf(me.id);
+  const mineOn = holdsOf(g.holds, me.id);
+  const canEvict = mode.moves.some((m) => m.type === 'evict');
+  const choice = (from: HoldFrom, label: string, key: string) => (
+    <Button
+      key={key}
+      variant={sameFrom(mode.from, from) ? 'primary' : 'secondary'}
+      size="sm"
+      aria-pressed={sameFrom(mode.from, from)}
+      onClick={() => mode.setFrom(from)}
+    >
+      {label}
+    </Button>
+  );
+  const hint =
+    mode.from === 'evict'
+      ? 'Tap a card with a lone stronghold of another player’s to send it back.'
+      : 'Tap a highlighted card. Only you can buy or reserve a card you hold.';
+  return (
+    <div className="flex flex-col gap-2" role="group" aria-label="Place a stronghold">
+      <p className="flex items-center gap-1.5 text-sm font-semibold">
+        <StrongholdIcon art={art.stronghold(seat)} size={22} />
+        You bought a card: place a stronghold.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {me.strongholds > 0 &&
+          choice({ from: null }, `From your supply (${me.strongholds})`, 'supply')}
+        {mineOn.map((h) =>
+          choice(
+            { from: h.card },
+            `Move from ${cardLine(h.card)
+              .replace(/^a /, '')
+              .replace(/ \(.*\)$/, '')}${h.n > 1 ? ` (${h.n})` : ''}`,
+            h.card,
+          ),
+        )}
+        {canEvict && choice('evict', 'Send one back', 'evict')}
+      </div>
+      <p className="text-xs text-ink-muted dark:text-stone-400">{hint}</p>
+      {mode.from === 'evict' && (
+        <p className="sr-only">
+          {mode.moves
+            .filter((m) => m.type === 'evict')
+            .map((m) => `${name(g.holds[m.card]?.by)}: ${cardLine(m.card)}`)
+            .join('; ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** A City side, large, with what the viewer still needs. */
+function CitySheet({
+  id,
+  view,
+  me,
+  art,
+  onClose,
+}: {
+  id: string;
+  view: JewellerView;
+  me: PlayerView | undefined;
+  art: Art;
+  onClose: () => void;
+}) {
+  const city = cityOf(id);
+  const wants = GEMS.filter((g) => city.requires[g] > 0);
+  const met = !!me?.cities.includes(id);
+  const others = view.game!.players.filter((p) => p.id !== me?.id && p.cities.includes(id));
+  return (
+    <Modal open onClose={onClose} title={`A City: ${city.points} points`}>
+      <div className="flex flex-col items-center gap-3">
+        <CityTile id={id} art={art} size="lg" met={met} />
+        <p className="text-center text-sm text-ink-muted dark:text-stone-400">
+          Meet it at the end of your turn to finish the round: at least {city.points} points and
+          {wants.length || city.any ? ' these cards (not gems):' : ' no cards at all.'}
+        </p>
+        <ul className="flex flex-col gap-1 text-sm">
+          {wants.map((g) => (
+            <li key={g} className="flex items-center gap-2">
+              <TokenChip token={g} art={art} size={22} />
+              {city.requires[g]} {TOKEN_NAME[g]} {city.requires[g] === 1 ? 'card' : 'cards'}
+              {me && (
+                <span className="text-ink-muted dark:text-stone-400">
+                  (you have {me.bonuses[g]})
+                </span>
+              )}
+            </li>
+          ))}
+          {city.any > 0 && (
+            <li>
+              {city.any} cards of one {wants.length ? 'other ' : ''}colour (
+              {anyColours(city)
+                .map((g) => TOKEN_NAME[g])
+                .join(', ')}
+              )
+              {me && (
+                <span className="text-ink-muted dark:text-stone-400">
+                  {' '}
+                  (your most: {Math.max(...anyColours(city).map((g) => me.bonuses[g]))})
+                </span>
+              )}
+            </li>
+          )}
+        </ul>
+        {me && (
+          <p className="text-center text-sm font-semibold">
+            {met
+              ? 'You meet it now.'
+              : `You have ${me.points} ${me.points === 1 ? 'point' : 'points'}: ${cityGap(city, me.bonuses, me.points)} to go (points and cards).`}
+          </p>
+        )}
+        {others.length > 0 && (
+          <p className="text-center text-sm">Also met by {others.map((p) => p.name).join(', ')}.</p>
+        )}
+        <p className="text-center text-xs text-ink-muted dark:text-stone-400">
+          Only players who meet a City can win; among them, the most points wins.
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
 /** The whole table: opponents, nobles, the market, the gem piles, the viewer's own area. */
 export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const g = view.game!;
@@ -634,6 +900,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const mine = playing && !!me && g.current === me.id;
   const acting = mine && g.stage === 'action';
   const { staged, tap, clear } = useStaging(view, acting);
+  const holding = mine && g.stage === 'hold';
+  const holdMode = useHoldMode(view, room.you);
   const [sheet, setSheet] = useState<Sheet>(null);
   const others = g.players.filter((p) => p.id !== room.you);
   // Left the room and still in the game: the host may remove them.
@@ -645,14 +913,18 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
   const fresh = useFresh(marketIds);
   const freshNoble = useFresh(me?.nobles ?? []);
   const problem = takeProblem(g.bank, staged);
+  const open = me ? openMarket(g.market, g.holds, me.id) : g.market;
   const noMove =
     acting &&
     !!me &&
     !canTake(g.bank) &&
-    !canReserve(me.reserved.length, g.market, g.decks) &&
-    ![...marketIds, ...me.reserved.flatMap((r) => (r.card ? [r.card] : []))].some((id) =>
-      canAfford(cardOf(id), me.bonuses, me.tokens),
-    );
+    !canReserve(me.reserved.length, open, g.decks) &&
+    ![
+      ...LEVELS.flatMap((l) => open[l]).filter((c): c is string => c !== null),
+      ...me.reserved.flatMap((r) => (r.card ? [r.card] : [])),
+    ].some((id) => canAfford(cardOf(id), me.bonuses, me.tokens));
+  const conquest = mine && g.stage === 'conquer' ? conquestCard(g.holds, room.you) : null;
+  const cities = !!view.settings.cities;
   const clock = g.clock;
   const strict = view.settings.timerMode === 'strict';
   const offline = (id: string) => room.players.find((p) => p.id === id)?.connected === false;
@@ -702,6 +974,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
           </span>
         </span>
       </div>
+      {view.settings.strongholds && <Supply p={me} view={view} art={art} />}
       <Holdings p={me} art={art} />
       {me.reserved.length > 0 && (
         <div className="flex items-center gap-1.5" role="group" aria-label="Your reserved cards">
@@ -713,7 +986,7 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
                 id={r.card}
                 art={art}
                 hints={me}
-                afford={affordOf(r.card, me)}
+                afford={affordOf(r.card, me, view)}
                 className="!w-14"
                 onClick={() => setSheet({ kind: 'card', id: r.card! })}
               />
@@ -767,26 +1040,41 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         )}
         {playing && g.finalBy && (
           <p className="rounded-xl bg-warn-soft px-3 py-1 text-center text-sm font-semibold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40">
-            ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)} reached{' '}
-            {view.settings.target}. {name(g.order.at(-1))} plays last.
+            ⚑ Final round: {g.finalBy === room.you ? 'you' : name(g.finalBy)}{' '}
+            {cities ? 'met a City' : `reached ${view.settings.target}`}. {name(g.order.at(-1))}{' '}
+            plays last.
           </p>
         )}
         <Flash view={view} name={name} />
 
-        <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
-          {g.nobles.map((n) => (
-            <NobleTile
-              key={n}
-              id={n}
-              art={art}
-              {...(me && { bonuses: me.bonuses })}
-              onClick={() => setSheet({ kind: 'noble', id: n })}
-            />
-          ))}
-          {g.nobles.length === 0 && (
-            <span className="text-sm text-ink-muted dark:text-stone-400">No nobles left.</span>
-          )}
-        </section>
+        {cities ? (
+          <section aria-label="Cities" className="grid grid-cols-3 gap-1.5">
+            {g.cities.map((c) => (
+              <CityTile
+                key={c}
+                id={c}
+                art={art}
+                met={!!me?.cities.includes(c)}
+                onClick={() => setSheet({ kind: 'city', id: c })}
+              />
+            ))}
+          </section>
+        ) : (
+          <section aria-label="Nobles" className="flex items-center gap-1.5 overflow-x-auto">
+            {g.nobles.map((n) => (
+              <NobleTile
+                key={n}
+                id={n}
+                art={art}
+                {...(me && { bonuses: me.bonuses })}
+                onClick={() => setSheet({ kind: 'noble', id: n })}
+              />
+            ))}
+            {g.nobles.length === 0 && (
+              <span className="text-sm text-ink-muted dark:text-stone-400">No nobles left.</span>
+            )}
+          </section>
+        )}
 
         <section aria-label="Cards for sale" className="flex flex-col gap-1.5">
           {([3, 2, 1] as const).map((l) => (
@@ -801,25 +1089,34 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
                 className="h-full min-h-12"
                 onClick={() => setSheet({ kind: 'deck', level: l })}
               />
-              {g.market[l].map((id, i) =>
-                id ? (
+              {g.market[l].map((id, i) => {
+                if (!id)
+                  return (
+                    <span
+                      key={`empty-${i}`}
+                      className="rounded-lg border border-dashed border-line dark:border-stone-700"
+                      aria-label="Empty space"
+                    />
+                  );
+                const move = holding ? holdMode.legal(id) : undefined;
+                return (
                   <CardTile
                     key={id}
                     id={id}
                     art={art}
                     {...(me && { hints: me })}
-                    afford={me ? affordOf(id, me) : null}
+                    afford={me && !holding ? affordOf(id, me, view) : null}
                     fresh={fresh(id)}
-                    onClick={() => setSheet({ kind: 'card', id })}
+                    hold={holdInfo(view, room, art, id)}
+                    target={!!move}
+                    onClick={() =>
+                      move
+                        ? void act({ ...move }, { anchor: 'jw-play' })
+                        : setSheet({ kind: 'card', id })
+                    }
                   />
-                ) : (
-                  <span
-                    key={`empty-${i}`}
-                    className="rounded-lg border border-dashed border-line dark:border-stone-700"
-                    aria-label="Empty space"
-                  />
-                ),
-              )}
+                );
+              })}
             </div>
           ))}
         </section>
@@ -853,6 +1150,39 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
                       onClick={() => void act({ type: 'noble', noble: n }, { anchor: 'jw-play' })}
                     />
                   ))}
+                </div>
+              </div>
+            ) : g.stage === 'hold' ? (
+              <HoldPicker view={view} me={me} art={art} mode={holdMode} name={name} />
+            ) : g.stage === 'conquer' && conquest ? (
+              <div className="flex flex-col items-center gap-2" role="group" aria-label="Conquest">
+                <p className="text-center text-sm font-semibold">
+                  🏰 Conquest! All three of your strongholds hold this card. Buy it too?
+                </p>
+                <CardTile
+                  id={conquest}
+                  art={art}
+                  hints={me}
+                  afford={affordOf(conquest, me)}
+                  hold={holdInfo(view, room, art, conquest)}
+                  className="!w-20"
+                  onClick={() => setSheet({ kind: 'card', id: conquest })}
+                />
+                <div className="flex w-full gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={() => setSheet({ kind: 'card', id: conquest })}
+                    data-testid="jw-conquer"
+                  >
+                    Buy it…
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => void act({ type: 'no-conquest' }, { anchor: 'jw-play' })}
+                  >
+                    Not now
+                  </Button>
                 </div>
               </div>
             ) : noMove ? (
@@ -939,7 +1269,8 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
         )}
         <div className="lg:hidden">{log(false)}</div>
         <p className="text-center text-xs text-ink-muted dark:text-stone-500">
-          Round {g.round} · first to {view.settings.target} ·{' '}
+          Round {g.round} · {cities ? 'Cities' : `first to ${view.settings.target}`}
+          {view.settings.strongholds ? ' · Strongholds' : ''} ·{' '}
           <button type="button" className="underline" onClick={() => showGuide()}>
             rules
           </button>
@@ -978,6 +1309,9 @@ export function Table({ view, room, act, art, name, showGuide }: TableProps) {
             </p>
           </div>
         </Modal>
+      )}
+      {sheet?.kind === 'city' && (
+        <CitySheet id={sheet.id} view={view} me={me} art={art} onClose={() => setSheet(null)} />
       )}
       {sheet?.kind === 'player' &&
         (() => {

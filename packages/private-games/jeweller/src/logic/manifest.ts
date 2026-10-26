@@ -13,6 +13,8 @@ import type { Level, Token } from './types.ts';
  *   backThumbs: { "1" | "l1": …, … }, tokenThumbs: { white, … },    // small copies
  *   nobles: { "N01": "nobles/N01.webp" | { art, name }, … },
  *   tokens: { white, blue, green, red, black, gold },              // piece faces
+ *   cities: { "C1a": "cities/C1a.webp" | { art, thumb }, … },      // the 14 City sides
+ *   strongholds: ["strongholds/blue.webp", …],                     // one per seat, in turn order
  *   box, logo,
  *   guide: { tagline },
  *   credit: "…" | { title, paragraphs: […], links: [{ label, href }] }
@@ -28,6 +30,8 @@ export interface Manifest {
   tokenThumbs?: Partial<Record<Token, string>>;
   nobles?: Record<string, ArtRef>;
   tokens?: Partial<Record<Token, string>>;
+  cities?: Record<string, ArtRef>;
+  strongholds?: string[];
   box?: string;
   logo?: string;
   guide?: { tagline?: string };
@@ -49,6 +53,12 @@ export const artOf = (ref: ArtRef | undefined): string | undefined =>
 /** A small copy, when the entry has one. */
 export const thumbOf = (ref: ArtRef | undefined): string | undefined =>
   typeof ref === 'string' ? undefined : clean(ref?.thumb);
+
+/** The stronghold picture for the seat at `index` in turn order (they repeat past the list). */
+export function strongholdArt(m: Manifest | null | undefined, index: number): string | undefined {
+  const list = Array.isArray(m?.strongholds) ? m.strongholds : [];
+  return list.length ? clean(list[index % list.length]) : undefined;
+}
 
 /** A noble's name, when the manifest gives one. */
 export const nameOf = (ref: ArtRef | undefined): string | undefined =>
