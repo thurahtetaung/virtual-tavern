@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.2...v0.73.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **going-once:** the table screen and quiet phones from the first live games, and screws that always end in a fresh countdown ([#430](https://github.com/thurahtetaung/virtual-tavern/issues/430)) ([bfadc1f](https://github.com/thurahtetaung/virtual-tavern/commit/bfadc1f9686261f9965a6e801110ea07f22bf6b2))
+
 ## [0.73.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.1...v0.73.2) (2026-10-26)
 
 
