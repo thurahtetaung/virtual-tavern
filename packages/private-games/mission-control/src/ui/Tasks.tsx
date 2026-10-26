@@ -2,6 +2,7 @@ import { ProtectedImage, cn } from '@vt/ui';
 import type { ReactNode } from 'react';
 import { DUMMY, type TaskView } from '../logic/types.ts';
 import { useArt } from './assets.tsx';
+import { tokenLabel } from '../logic/onecard.ts';
 import { Rich } from './Card.tsx';
 
 export const STATE_ICON = { open: '○', done: '✓', failed: '✗' } as const;
@@ -55,9 +56,19 @@ export function TaskChip({
       <span aria-hidden className="mt-0.5 shrink-0 font-black">
         {task.crew ? '👥' : STATE_ICON[task.state]}
       </span>
+      {task.token && (
+        <span
+          role="img"
+          aria-label={`order token ${tokenLabel(task.token)}`}
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-panel text-xs font-black ring-1 ring-line-strong dark:bg-stone-700 dark:ring-stone-500"
+          data-testid="mc-token-badge"
+        >
+          {tokenLabel(task.token)}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">
-          {art.say(task.text)}
+          <Rich text={task.text} name={name} />
           {prediction}
         </span>
         <span className="block text-xs opacity-80">

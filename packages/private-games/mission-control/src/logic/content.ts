@@ -45,7 +45,19 @@ export const SELECTIONS = [
   'crew-wanted',
   'captain-skips',
   'hardest-first',
+  // One-card task campaigns:
+  'decision',
+  'distribution',
+  'roles',
 ] as const;
+
+/** Order tokens on one-card tasks: 1–5 (that place among all tasks), arrows (relative), Ω (last). */
+export const TOKENS = ['1', '2', '3', '4', '5', '>', '>>', '>>>', '>>>>', 'o'] as const;
+export type OrderToken = (typeof TOKENS)[number];
+
+/** What a crew member the captain picks must do (or may not do). */
+export const PICK_ROLES = ['sick', 'mute', 'one-trick', 'first-last'] as const;
+export type PickRole = (typeof PICK_ROLES)[number];
 export type Selection = (typeof SELECTIONS)[number];
 
 /** A condition of the mission itself, or a fixed task, with its wording. */
@@ -55,7 +67,7 @@ const missionSchema = z.object({
   n: z.number().int().min(1).max(99),
   title: text(80).optional(),
   /** The difficulty to draw tasks to; null for a mission without drawn tasks. */
-  difficulty: z.number().int().min(1).max(40).nullable(),
+  difficulty: z.number().int().min(1).max(40).nullable().default(null),
   comms: z.enum(COMMS).default('normal'),
   /** Signals open only before this trick (1-based) and later. */
   commsFrom: z.number().int().min(2).max(13).optional(),
@@ -78,6 +90,35 @@ const missionSchema = z.object({
   conditions: z.array(worded).max(4).optional(),
   /** Tasks every attempt uses instead of drawn ones. */
   fixedTasks: z.array(worded).max(8).optional(),
+  /** One-card tasks: how many to draw (instead of a difficulty), and their order tokens. */
+  cards: z.number().int().min(0).max(20).optional(),
+  tokens: z.array(z.enum(TOKENS)).max(10).optional(),
+  /** Players may pass in the draft when there are fewer tasks than players (default true). */
+  passing: z.boolean().optional(),
+  /** Before the draft, the crew may swap two tokens or move one onto an unmarked task. */
+  tokenEdit: z.enum(['swap', 'move']).optional(),
+  /** The captain picks a crew member for a role, after an optional question round. */
+  pick: z
+    .object({
+      role: z.enum(PICK_ROLES),
+      question: text(80).optional(),
+      replies: z.array(text(40)).min(2).max(4).optional(),
+      /** The captain may pick themself. */
+      self: z.boolean().default(false),
+    })
+    .optional(),
+  /** With five players, one task may change hands once before the first trick. */
+  handOver: z.boolean().optional(),
+  /** After the first trick everyone draws a random card from the player on their right. */
+  drawAfterFirst: z.boolean().optional(),
+  /** The Ω task must be won in the last trick. */
+  omegaLast: z.boolean().optional(),
+  /** A condition for the player after the holder of a card (who holds it is announced). */
+  holderLeft: z.object({ card: cardId, check: checkSchema, text: text(200) }).optional(),
+  /** A condition the captain must meet. */
+  captainTask: worded.optional(),
+  /** Roles for `roles` selection: the replies to the preference question, in role order. */
+  roleNames: z.array(text(60)).length(3).optional(),
   /** The rule box, story and what's new: publisher text, private. */
   rule: text(600).optional(),
   story: text(3000).optional(),
@@ -87,6 +128,8 @@ export type MissionDef = z.output<typeof missionSchema>;
 
 /** One campaign: its missions in order and the endless epilogue. */
 export const voyagePack = z.object({
+  /** `cards`: one-card tasks ("win this card"), dealt by the engine; `pack`: the tasks pack. */
+  taskSet: z.enum(['pack', 'cards']).default('pack'),
   /** A stable key the campaign is saved under (a re-import keeps it). */
   key: z.string().regex(/^[a-z0-9][a-z0-9-]{0,30}$/),
   name: text(60).optional(),

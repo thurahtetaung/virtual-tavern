@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@vt/ui';
+import { tokenLabel } from '../logic/onecard.ts';
 import { TokenIcon } from './Token.tsx';
 import type { Comms, Selection } from '../logic/content.ts';
 import {
@@ -27,6 +28,9 @@ const SELECTION: Record<Selection, string | null> = {
   'captain-offers': '🎁 {Captain} offers',
   'captain-skips': '⏭️ {Captain} skips',
   'hardest-first': '🏋️ Hardest first',
+  decision: '🎖️ {Captain}’s decision',
+  distribution: '🎁 {Captain} shares out',
+  roles: '🎭 Roles',
 };
 
 /** A mission's rule symbols as short tags. */
@@ -171,7 +175,11 @@ export function Logbook({
             {title ?? missionLabel(m.n)}
           </span>
           <span className="block text-xs text-ink-muted">
-            {m.difficulty !== null ? `Difficulty ${m.difficulty}` : 'No task cards'}
+            {m.cards
+              ? `${m.cards} ${m.cards === 1 ? 'task' : 'tasks'}${m.tokens.length ? ` · ${m.tokens.map(tokenLabel).join(' ')}` : ''}`
+              : m.difficulty !== null
+                ? `Difficulty ${m.difficulty}`
+                : 'No task cards'}
             {log?.done ? ` · ${day(log.done)} · ${log.crew.join(', ')}` : ''}
           </span>
           <MissionTags

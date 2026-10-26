@@ -16,6 +16,33 @@ const hostOf =
     return view.chosen === mission ? { type: 'start' } : { type: 'choose', mission };
   };
 
+/** The human host on the one-card voyage. */
+const cardHost =
+  (mission: number) =>
+  (view: MissionControlView, _me: PlayerId): MissionControlAction | null => {
+    if (view.phase !== 'lobby') return null;
+    if (view.settings.voyageKey !== 'test-cards')
+      return { type: 'update-settings', voyageKey: 'test-cards' };
+    return view.chosen === mission ? { type: 'start' } : { type: 'choose', mission };
+  };
+
+describe('bots on the one-card voyage', () => {
+  for (const n of [2, 3, 4, 5]) {
+    for (let mission = 1; mission <= 18; mission++) {
+      it(`play mission ${mission} with ${n} to the end`, () => {
+        const r = playWithBots(missionControl, seats(n), {
+          seed: n * 1000 + mission,
+          host: cardHost(mission),
+          content: packContent(),
+          maxSteps: 3000,
+        });
+        expect(r.refused).toEqual([]);
+        expect(r.over).toBe(true);
+      });
+    }
+  }
+});
+
 describe('bots', () => {
   for (const n of [2, 3, 4, 5]) {
     for (const mission of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0]) {

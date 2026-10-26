@@ -160,6 +160,16 @@ export function Lobby({
           help="For groups who talk freely: no silence banners."
           onChange={(openTable) => set({ openTable })}
         />
+        {view.voyage?.taskSet === 'cards' && (
+          <Switch
+            on={s.challenge}
+            editable={editable && seated.length === 3}
+            title="Challenge for Three"
+            help="Three players only: no green cards and no trump 1, so ten cards each."
+            onChange={(challenge) => set({ challenge })}
+            testId="mc-challenge"
+          />
+        )}
         {seated.length === 2 && (
           <fieldset>
             <legend className="text-sm font-semibold">{art.say('Where {dummy} sits')}</legend>

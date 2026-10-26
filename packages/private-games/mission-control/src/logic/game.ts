@@ -15,6 +15,7 @@ import {
   DECK,
   type Position,
   TOP_TRUMP,
+  TRUMP,
   isCard,
   isTrump,
   legalCards,
@@ -25,6 +26,16 @@ import {
 } from './cards.ts';
 import { type Check, type Table, captainCannot, evaluate, predictionOf } from './checks.ts';
 import { mustRedraw } from './conflicts.ts';
+import {
+  deckFor,
+  drawCardTasks,
+  drawFromRight,
+  heldTask,
+  orderFailure,
+  pickTask,
+  roleTasks,
+  rolesComplete,
+} from './onecard.ts';
 import {
   type AttemptComms,
   type MissionDef,
@@ -170,6 +181,7 @@ export function nextMission(campaign: Campaign | undefined, voyage: VoyageSummar
 function summarise(v: Voyage): VoyageSummary {
   return {
     key: v.key,
+    taskSet: v.taskSet,
     packId: v.packId,
     name: v.name ?? v.key,
     missions: v.missions.map((m): MissionSummary => ({
@@ -179,7 +191,9 @@ function summarise(v: Voyage): VoyageSummary {
       comms: m.comms,
       selection: m.selection,
       timed: !!m.timer,
-      fixed: m.difficulty === null,
+      fixed: m.difficulty === null && !m.cards,
+      cards: m.cards ?? null,
+      tokens: m.tokens ?? [],
     })),
     epilogue: v.epilogue
       ? { difficulty: v.epilogue.difficulty, title: v.epilogue.title ?? null }
@@ -245,6 +259,7 @@ export function create(ctx: CreateCtx, players: readonly PlayerInfo[]): MissionC
       realTime: true,
       openTable: false,
       dummyAfter: 1,
+      challenge: false,
     },
     seats: {},
     voyages: [],
@@ -313,6 +328,7 @@ const asTask = (c: TaskCard, size: 3 | 4 | 5): TaskInPlay => ({
   why: null,
   at: null,
   fedBy: [],
+  token: null,
 });
 
 /**
@@ -374,7 +390,7 @@ export function drawTasks(
 
 // ---- The deal ----
 
-function deal(crew: readonly string[], rng: Rng) {
+function deal(crew: readonly string[], rng: Rng, cards: readonly CardId[] = DECK) {
   const hands: Record<string, CardId[]> = Object.fromEntries(crew.map((s) => [s, []]));
   let dummy: Attempt['dummy'] = null;
   if (testDeal?.hands && testDeal.hands.length === crew.length) {
@@ -386,7 +402,7 @@ function deal(crew: readonly string[], rng: Rng) {
     return { hands, dummy };
   }
   if (crew.includes(DUMMY)) {
-    const rest = rng.shuffle(DECK.filter((c) => c !== TOP_TRUMP));
+    const rest = rng.shuffle(cards.filter((c) => c !== TOP_TRUMP));
     const down = rest.splice(0, 7);
     const up = rest.splice(0, 7);
     dummy = { down, up };
@@ -396,7 +412,7 @@ function deal(crew: readonly string[], rng: Rng) {
     deck.forEach((c, i) => hands[people[i % people.length]!]!.push(c));
     return { hands, dummy };
   }
-  rng.shuffle(DECK).forEach((c, i) => hands[crew[i % crew.length]!]!.push(c));
+  rng.shuffle(cards).forEach((c, i) => hands[crew[i % crew.length]!]!.push(c));
   return { hands, dummy };
 }
 
@@ -439,6 +455,8 @@ function missionPlay(
       wanted: 1,
       seconds: null,
       practice: false,
+      cardTasks: voyage.taskSet === 'cards',
+      rules: {},
     };
   }
   const def = missionDef(voyage, n);
@@ -458,6 +476,20 @@ function missionPlay(
     wanted: def.wanted ?? 1,
     seconds: timed ? def.timer!.seconds : null,
     practice,
+    cardTasks: voyage.taskSet === 'cards',
+    rules: {
+      cards: def.cards,
+      tokens: def.tokens,
+      passing: def.passing,
+      tokenEdit: def.tokenEdit,
+      pick: def.pick,
+      handOver: def.handOver,
+      drawAfterFirst: def.drawAfterFirst,
+      omegaLast: def.omegaLast,
+      holderLeft: def.holderLeft,
+      captainTask: def.captainTask,
+      roleNames: def.roleNames,
+    },
   };
 }
 
@@ -470,7 +502,22 @@ const emptyDraft = (): DraftState => ({
   chosen: [],
   ready: [],
   given: false,
+  offer: null,
+  roles: {},
 });
+
+const emptyExtras = (): Attempt['extras'] => ({
+  pick: { answers: {}, order: [], at: 0, chosen: null },
+  tokenEdit: { proposal: null, accepted: [], ready: [] },
+  handOver: { proposal: null, accepted: [], ready: [] },
+  mute: null,
+  drawn: {},
+  notes: [],
+});
+
+/** Challenge for Three: one-card campaigns, exactly three players, no dummy. */
+export const challengeOn = (state: MissionControlState, cardTasks: boolean) =>
+  state.settings.challenge && cardTasks && humans(state).length === 3;
 
 /**
  * Deals a new attempt at a mission: tasks (drawn, the mission's own, or the same as last time),
@@ -491,7 +538,9 @@ function begin(
     return err('too-few', `At least ${MIN_PLAYERS} players must sit down.`);
   const crew = crewOrder(players, state.settings.dummyAfter);
   const size = sizeOf(crew.length);
-  const total = tricksFor(crew.length);
+  const challenge = challengeOn(state, mission.cardTasks);
+  const cards = deckFor(challenge);
+  const total = Math.floor(cards.length / Math.max(3, crew.length));
   const rng = createRng(state.seed);
 
   // Tasks first: some decide whether the cards must be dealt again.
@@ -500,7 +549,30 @@ function begin(
   const def = n === EPILOGUE ? null : missionDef(voyage, n);
   const pool = taskCards(ctx.content);
   const reDeals: { reDeal?: CardId[][] }[] = [];
-  if (opts.same) {
+  if (mission.cardTasks) {
+    // One-card tasks: always new ones (this campaign never retries the same tasks).
+    const r = mission.rules;
+    const rig = testDeal?.tasks?.filter(isCard);
+    tasks =
+      (r.cards ?? 0) > 0
+        ? drawCardTasks(
+            r.cards!,
+            r.tokens ?? [],
+            challenge,
+            !!r.omegaLast,
+            rng,
+            rig?.length ? rig : undefined,
+          )
+        : [];
+    // The crew's conditions; the trump 1 sits out Challenge for Three.
+    for (const [i, f] of (def?.conditions ?? []).entries()) {
+      const check =
+        challenge && f.check.kind === 'each-wins'
+          ? { ...f.check, cards: f.check.cards.filter((c) => c !== `${TRUMP}1`) }
+          : f.check;
+      tasks.push(heldTask(`crew:${i}`, check, f.text, null));
+    }
+  } else if (opts.same) {
     tasks = opts.same.map((t) => ({
       ...t,
       owner: null,
@@ -567,13 +639,30 @@ function begin(
   }
 
   // The deal, again while a task's printed re-deal rule applies.
-  let dealt = deal(crew, rng);
+  let dealt = deal(crew, rng, cards);
   let redeals = 0;
   while (!testDeal?.hands && needsRedeal(dealt.hands, reDeals) && redeals < 50) {
-    dealt = deal(crew, rng);
+    dealt = deal(crew, rng, cards);
     redeals++;
   }
   const captain = captainOf(dealt.hands);
+  const notes: string[] = [];
+  if (mission.cardTasks) {
+    const r = mission.rules;
+    if (r.captainTask)
+      tasks.push(heldTask('captain', r.captainTask.check, r.captainTask.text, captain));
+    if (r.holderLeft) {
+      // The holder is announced; the next player round the table holds the condition.
+      const holder = Object.keys(dealt.hands).find((s) =>
+        dealt.hands[s]!.includes(r.holderLeft!.card),
+      );
+      if (holder) {
+        const owner = crew[(crew.indexOf(holder) + 1) % crew.length]!;
+        tasks.push(heldTask('holder-left', r.holderLeft.check, r.holderLeft.text, owner));
+        notes.push(`{p:${holder}} holds {c:${r.holderLeft.card}}.`);
+      }
+    }
+  }
   // A comparison with the captain can't stay where the mission may force every task (or the
   // hardest) onto the captain: it is replaced by one of the same difficulty, as the rulebook does
   // with tasks that can't be met.
@@ -660,6 +749,7 @@ function begin(
     result: null,
     redeals,
     redraws,
+    extras: { ...emptyExtras(), notes },
   };
   const usedTasks = [
     ...state.usedTasks.filter((k) => !tasks.some((t) => t.key === k)),
@@ -695,17 +785,62 @@ const toAssign = (a: Attempt) => a.tasks.filter((t) => !t.crew);
 const unassigned = (a: Attempt) =>
   a.tasks.flatMap((t, i) => (!t.crew && t.owner === null ? [i] : []));
 
+/** After the briefing: the captain's pick, the token edit, then the draft (as the mission says). */
 function enterDraft(a: Attempt): Attempt {
+  const r = a.mission.rules;
+  if (r.pick && a.extras.pick.chosen === null) {
+    const order = r.pick.question ? rotate(a.crew, a.captain).slice(1) : [];
+    return {
+      ...a,
+      stage: 'pick',
+      deadline: null,
+      extras: { ...a.extras, pick: { answers: {}, order, at: 0, chosen: null } },
+    };
+  }
+  if (r.tokenEdit && a.tasks.some((t) => t.token) && a.stage !== 'tokens')
+    return { ...a, stage: 'tokens', deadline: null };
+  return startDraft(a);
+}
+
+function startDraft(a: Attempt): Attempt {
   const draft = emptyDraft();
   const m = a.mission;
   if (m.selection === 'crew-wanted')
     draft.order = [...rotate(a.crew, a.captain).slice(1), a.captain];
-  else if (m.selection === 'captain-offers') draft.order = rotate(a.crew, a.captain).slice(1);
+  else if (
+    m.selection === 'captain-offers' ||
+    m.selection === 'decision' ||
+    m.selection === 'distribution'
+  )
+    draft.order = rotate(a.crew, a.captain).slice(1);
   else if (m.selection === 'captain-skips')
     draft.order = rotate(a.crew, a.captain).filter((s) => s !== a.captain);
   else draft.order = rotate(a.crew, a.captain);
-  const next: Attempt = { ...a, stage: 'draft', draft, deadline: null };
-  return toAssign(next).length === 0 ? enterDistress(next) : next;
+  if (m.selection === 'distribution') draft.offer = a.tasks.findIndex((t) => !t.crew);
+  let next: Attempt = { ...a, stage: 'draft', draft, deadline: null };
+  if (m.selection === 'roles') {
+    // Everyone says which role they'd like, in turn; then the crew claims roles together.
+    return {
+      ...next,
+      extras: {
+        ...a.extras,
+        pick: { answers: {}, order: rotate(a.crew, a.captain), at: 0, chosen: null },
+      },
+    };
+  }
+  if (toAssign(next).length === 0) next = enterDistress(next);
+  return next;
+}
+
+/** Commander's distribution: whether `to` may take one more task and keep the split even. */
+function evenAfter(a: Attempt, to: string): boolean {
+  const total = toAssign(a).length;
+  const n = a.crew.length;
+  const cap = Math.ceil(total / n);
+  const count = (s: string) => a.tasks.filter((t) => !t.crew && t.owner === s).length;
+  if (count(to) + 1 > cap) return false;
+  if (count(to) + 1 < cap || total % n === 0) return true;
+  return a.crew.filter((s) => count(s) === cap).length < total % n;
 }
 
 /** The normal draft: whose pick it is. */
@@ -718,6 +853,7 @@ export function canPass(a: Attempt): boolean {
   const left = unassigned(a);
   if (seat === a.captain && left.every((i) => captainCannot(a.tasks[i]!.check))) return true;
   const n = toAssign(a).length;
+  if (a.mission.rules.passing === false || a.mission.cardTasks) return false;
   if (n >= a.draft.order.length) return false;
   // One round only: the tasks left must still fit the pickers after this one.
   const after = a.draft.order.length - 1 - a.draft.at;
@@ -781,6 +917,14 @@ function lockable(a: Attempt): boolean {
 // ---- Distress, the pass and predictions ----
 
 function enterDistress(a: Attempt): Attempt {
+  // Five players may hand one task over once, before the first trick.
+  const people = a.crew.filter((s) => s !== DUMMY).length;
+  if (a.mission.rules.handOver && people === 5 && a.stage !== 'handover')
+    return {
+      ...a,
+      stage: 'handover',
+      extras: { ...a.extras, handOver: { proposal: null, accepted: [], ready: [] } },
+    };
   return {
     ...a,
     stage: 'distress',
@@ -857,6 +1001,7 @@ function enterPlay(a: Attempt, now: number): Attempt {
 export function signalBlock(a: Attempt, seat: string): string | null {
   if (a.stage !== 'play') return 'Signals open once the dive begins.';
   if (seat === DUMMY || !a.crew.includes(seat)) return 'Only crew members signal.';
+  if (a.extras.mute === seat) return 'You may not signal on this mission.';
   if (a.comms === 'none') return 'No signals on this mission.';
   if (a.current.length) return 'Not during a trick: signal before the next one starts.';
   if (a.mission.commsFrom && a.tricks.length + 1 < a.mission.commsFrom)
@@ -956,6 +1101,14 @@ function settle(a: Attempt): Attempt {
         : [];
     return { ...task, state: 'done' as const, progress, at, fedBy };
   });
+  // Order tokens: tasks must be met in their tokens' order.
+  if (!failed) {
+    const o = orderFailure(tasks);
+    if (o) {
+      failed = o;
+      tasks[o.i] = { ...tasks[o.i]!, state: 'failed', why: o.why, at: a.tricks.length || null };
+    }
+  }
   const next = { ...a, tasks };
   if (failed)
     return end(next, {
@@ -1080,6 +1233,12 @@ function playCard(
     current: [],
     turn: winner,
   };
+  if (a.mission.rules.drawAfterFirst && next.tricks.length === 1) {
+    // Everyone draws a random card from the player on their right.
+    const rng = createRng(state.seed);
+    next = drawFromRight(next, rng);
+    return { ...commit(state, settle(next), now), seed: rng.int(SEED_RANGE) };
+  }
   return commit(state, settle(next), now);
 }
 
@@ -1112,6 +1271,7 @@ export function reduce(
       if (action.realTime !== undefined) s.realTime = action.realTime;
       if (action.openTable !== undefined) s.openTable = action.openTable;
       if (action.dummyAfter !== undefined) s.dummyAfter = action.dummyAfter;
+      if (action.challenge !== undefined) s.challenge = action.challenge;
       return refresh(
         { ...state, settings: s, chosen: action.voyageKey !== undefined ? null : state.chosen },
         ctx.content,
@@ -1244,7 +1404,176 @@ export function reduce(
         if (people.every((p) => ready.includes(p))) return withAttempt(state, enterDistress(next));
         return withAttempt(state, next);
       }
+      if (a.stage === 'tokens') {
+        if (a.extras.tokenEdit.proposal) return err('pending', 'Answer the proposal first.');
+        const ready = [...new Set([...a.extras.tokenEdit.ready, by])];
+        const next = { ...a, extras: { ...a.extras, tokenEdit: { ...a.extras.tokenEdit, ready } } };
+        if (people.every((p) => ready.includes(p))) return withAttempt(state, startDraft(next));
+        return withAttempt(state, next);
+      }
+      if (a.stage === 'handover') {
+        if (a.extras.handOver.proposal) return err('pending', 'Answer the proposal first.');
+        const ready = [...new Set([...a.extras.handOver.ready, by])];
+        const next = { ...a, extras: { ...a.extras, handOver: { ...a.extras.handOver, ready } } };
+        if (people.every((p) => ready.includes(p))) return withAttempt(state, enterDistress(next));
+        return withAttempt(state, next);
+      }
+      if (a.stage === 'draft' && a.mission.selection === 'roles') {
+        if (a.extras.pick.at < a.extras.pick.order.length)
+          return err('not-yet', 'Everyone says which role they’d like first.');
+        if (!rolesComplete(a.draft.roles, a.crew))
+          return err(
+            'not-assigned',
+            'One crew member takes the first four tricks, one the last, and the rest the tricks between.',
+          );
+        const ready = [...new Set([...a.draft.ready, by])];
+        const next = { ...a, draft: { ...a.draft, ready } };
+        if (!people.every((p) => ready.includes(p))) return withAttempt(state, next);
+        const names = a.mission.rules.roleNames ?? [];
+        return withAttempt(
+          state,
+          enterDistress({ ...next, tasks: [...next.tasks, ...roleTasks(a.draft.roles, names)] }),
+        );
+      }
       return err('not-now', 'Nothing to get ready for right now.');
+    }
+    case 'reply': {
+      const p = a.extras.pick;
+      const roles = a.stage === 'draft' && a.mission.selection === 'roles';
+      if (a.stage !== 'pick' && !roles) return err('not-now', 'Nobody is asking right now.');
+      if (p.at >= p.order.length) return err('not-now', 'Everyone has answered.');
+      const asked = p.order[p.at]!;
+      if (controller(a, asked) !== by) return err('not-your-turn', 'Wait to be asked.');
+      const replies = roles
+        ? (a.mission.rules.roleNames ?? [])
+        : (a.mission.rules.pick?.replies ?? []);
+      if (replies.length && !replies.includes(action.reply))
+        return err('bad-reply', 'Pick one of the answers.');
+      const answers = { ...p.answers, [asked]: action.reply };
+      return withAttempt(state, {
+        ...a,
+        extras: { ...a.extras, pick: { ...p, answers, at: p.at + 1 } },
+      });
+    }
+    case 'choose-member': {
+      const r = a.mission.rules.pick;
+      if (a.stage !== 'pick' || !r) return err('not-now', 'Nobody is being chosen now.');
+      if (by !== a.captain) return err('not-captain', 'The captain chooses.');
+      const p = a.extras.pick;
+      if (p.at < p.order.length) return err('not-yet', 'Wait until everyone has answered.');
+      const seat = action.seat;
+      if (!a.crew.includes(seat)) return err('no-seat', 'Choose a crew member.');
+      if (seat === a.captain && !r.self) return err('not-self', 'Choose another crew member.');
+      const task = pickTask(r.role, seat);
+      const next: Attempt = {
+        ...a,
+        tasks: task ? [...a.tasks, task] : a.tasks,
+        extras: {
+          ...a.extras,
+          pick: { ...p, chosen: seat },
+          mute: r.role === 'mute' ? seat : a.extras.mute,
+        },
+      };
+      return withAttempt(state, enterDraft(next));
+    }
+    case 'token-edit': {
+      if (a.stage !== 'tokens') return err('not-now', 'Tokens change only before the draft.');
+      if (a.extras.tokenEdit.proposal) return err('pending', 'A change is already proposed.');
+      const ta = a.tasks[action.a];
+      const tb = a.tasks[action.b];
+      if (!ta || !tb || ta.crew || tb.crew || action.a === action.b)
+        return err('no-task', 'Pick two tasks.');
+      if (!ta.token) return err('no-token', 'Pick a task with a token first.');
+      if (a.mission.rules.tokenEdit === 'swap' ? !tb.token : tb.token)
+        return err(
+          'bad-target',
+          a.mission.rules.tokenEdit === 'swap'
+            ? 'Swap with another task that has a token.'
+            : 'Move it onto a task without a token.',
+        );
+      return withAttempt(state, {
+        ...a,
+        extras: {
+          ...a.extras,
+          tokenEdit: { proposal: { by, a: action.a, b: action.b }, accepted: [by], ready: [] },
+        },
+      });
+    }
+    case 'token-answer': {
+      const e = a.extras.tokenEdit;
+      if (a.stage !== 'tokens' || !e.proposal) return err('not-now', 'Nothing is proposed.');
+      if (!action.yes)
+        return withAttempt(state, {
+          ...a,
+          extras: { ...a.extras, tokenEdit: { ...e, proposal: null, accepted: [] } },
+        });
+      const accepted = [...new Set([...e.accepted, by])];
+      if (!people.every((p) => accepted.includes(p)))
+        return withAttempt(state, { ...a, extras: { ...a.extras, tokenEdit: { ...e, accepted } } });
+      const { a: i, b: j } = e.proposal;
+      const tasks = a.tasks.map((t, k) =>
+        k === i
+          ? { ...t, token: a.tasks[j]!.token }
+          : k === j
+            ? { ...t, token: a.tasks[i]!.token }
+            : t,
+      );
+      return withAttempt(
+        state,
+        startDraft({ ...a, tasks, extras: { ...a.extras, tokenEdit: { ...e, accepted } } }),
+      );
+    }
+    case 'hand-over': {
+      if (a.stage !== 'handover')
+        return err('not-now', 'Tasks change hands before the first trick.');
+      if (a.extras.handOver.proposal) return err('pending', 'A hand-over is already proposed.');
+      const t = a.tasks[action.task];
+      if (!t || t.crew || !t.owner) return err('no-task', 'Pick a task someone holds.');
+      if (!a.crew.includes(action.to) || action.to === t.owner)
+        return err('no-seat', 'Pick another crew member.');
+      if (action.to === a.captain && captainCannot(t.check))
+        return err('captain-cannot', 'The captain can’t take that task.');
+      return withAttempt(state, {
+        ...a,
+        extras: {
+          ...a.extras,
+          handOver: {
+            proposal: { by, task: action.task, to: action.to },
+            accepted: [by],
+            ready: [],
+          },
+        },
+      });
+    }
+    case 'hand-over-answer': {
+      const h = a.extras.handOver;
+      if (a.stage !== 'handover' || !h.proposal) return err('not-now', 'Nothing is proposed.');
+      if (!action.yes)
+        return withAttempt(state, {
+          ...a,
+          extras: { ...a.extras, handOver: { ...h, proposal: null, accepted: [] } },
+        });
+      const accepted = [...new Set([...h.accepted, by])];
+      if (!people.every((p) => accepted.includes(p)))
+        return withAttempt(state, { ...a, extras: { ...a.extras, handOver: { ...h, accepted } } });
+      const { task, to } = h.proposal;
+      const tasks = a.tasks.map((t, k) => (k === task ? { ...t, owner: to } : t));
+      return withAttempt(
+        state,
+        enterDistress({ ...a, tasks, extras: { ...a.extras, handOver: { ...h, accepted } } }),
+      );
+    }
+    case 'role': {
+      if (a.stage !== 'draft' || a.mission.selection !== 'roles')
+        return err('not-now', 'Not on this mission.');
+      if (a.extras.pick.at < a.extras.pick.order.length)
+        return err('not-yet', 'Everyone says which role they’d like first.');
+      const who = actor(action.for);
+      if (!who) return err('not-yours', 'Claim a role for yourself.');
+      return withAttempt(state, {
+        ...a,
+        draft: { ...a.draft, roles: { ...a.draft.roles, [who]: action.role }, ready: [] },
+      });
     }
     case 'take':
     case 'pass': {
@@ -1304,7 +1633,10 @@ export function reduce(
     }
     case 'answer': {
       const m = a.mission.selection;
-      if (a.stage !== 'draft' || (m !== 'crew-wanted' && m !== 'captain-offers'))
+      if (
+        a.stage !== 'draft' ||
+        (m !== 'crew-wanted' && m !== 'captain-offers' && m !== 'decision' && m !== 'distribution')
+      )
         return err('not-now', 'Nobody is asking right now.');
       const d = a.draft;
       if (d.at >= d.order.length || (m === 'crew-wanted' && d.chosen.length >= a.mission.wanted))
@@ -1331,12 +1663,46 @@ export function reduce(
       return withAttempt(state, next);
     }
     case 'give': {
-      if (a.stage !== 'draft' || a.mission.selection !== 'captain-offers')
+      const sel = a.mission.selection;
+      if (
+        a.stage !== 'draft' ||
+        (sel !== 'captain-offers' && sel !== 'decision' && sel !== 'distribution')
+      )
         return err('not-now', 'Not on this mission.');
       if (by !== a.captain) return err('not-captain', 'The captain decides.');
       if (a.draft.at < a.draft.order.length)
         return err('not-yet', 'Wait until everyone has answered.');
       const to = action.to;
+      if (!a.crew.includes(to)) return err('no-seat', 'Choose a crew member.');
+      if (sel === 'decision') {
+        // The commander's decision: every task to one other crew member, then they turn up.
+        if (to === a.captain)
+          return err('not-self', 'The captain gives the tasks to someone else.');
+        const next: Attempt = {
+          ...a,
+          tasks: a.tasks.map((t) => (t.crew ? t : { ...t, owner: to })),
+          draft: { ...a.draft, chosen: [to], given: true },
+        };
+        return withAttempt(state, enterDistress(next));
+      }
+      if (sel === 'distribution') {
+        const i = a.draft.offer;
+        if (i === null || i < 0) return err('not-now', 'No task is on offer.');
+        const bad = mayHold(a, to, i);
+        if (bad) return bad;
+        if (!evenAfter(a, to))
+          return err(
+            'uneven',
+            'The tasks must end up even: nobody may hold two more than another.',
+          );
+        const assigned = assign(a, i, to);
+        const offer = assigned.tasks.findIndex((t) => !t.crew && t.owner === null);
+        if (offer < 0) return withAttempt(state, enterDistress(assigned));
+        return withAttempt(state, {
+          ...assigned,
+          draft: { ...assigned.draft, offer, answers: {}, at: 0 },
+        });
+      }
       if (to !== a.captain && a.draft.answers[to] !== true)
         return err('not-willing', 'Give them to a crew member who said yes, or keep them.');
       if (to === a.captain) {

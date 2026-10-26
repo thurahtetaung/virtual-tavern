@@ -66,7 +66,18 @@ export type Check =
   // Crew conditions (missions without task cards): they belong to nobody.
   | { kind: 'balance'; value: number; gap: number }
   | { kind: 'leader' }
-  | { kind: 'last-card'; card: CardId };
+  | { kind: 'last-card'; card: CardId }
+  // One-card task campaigns' mission conditions:
+  /** At least `count` tricks won with a matching card (by the holder, or anyone for the crew). */
+  | { kind: 'won-with'; match: CardMatch; count: number }
+  /** Each card wins a trick (as the winning card); `ordered`: in the listed order. */
+  | { kind: 'each-wins'; cards: CardId[]; ordered?: boolean }
+  /** No trick is won with a matching card (by the holder, or anyone for the crew). */
+  | { kind: 'never-wins'; match: CardMatch }
+  /** Nobody ever has `gap` tricks more than another crew member. */
+  | { kind: 'trick-balance'; gap: number }
+  /** Tricks `from` to the `toFromEnd`-th from the end (0 = last) are all won by these seats. */
+  | { kind: 'span'; from: number; toFromEnd: number; seats: string[] };
 
 export const checkSchema: z.ZodType<Check> = z.lazy(() =>
   z.discriminatedUnion('kind', [
@@ -122,6 +133,24 @@ export const checkSchema: z.ZodType<Check> = z.lazy(() =>
     z.object({ kind: z.literal('balance'), value, gap: z.number().int().min(1).max(9) }),
     z.object({ kind: z.literal('leader') }),
     z.object({ kind: z.literal('last-card'), card: cardId }),
+    z.object({
+      kind: z.literal('won-with'),
+      match: cardMatchSchema,
+      count: z.number().int().min(1).max(14),
+    }),
+    z.object({
+      kind: z.literal('each-wins'),
+      cards: z.array(cardId).min(1).max(9),
+      ordered: z.boolean().optional(),
+    }),
+    z.object({ kind: z.literal('never-wins'), match: cardMatchSchema }),
+    z.object({ kind: z.literal('trick-balance'), gap: z.number().int().min(1).max(14) }),
+    z.object({
+      kind: z.literal('span'),
+      from: z.number().int().min(1).max(14),
+      toFromEnd: z.number().int().min(0).max(13),
+      seats: z.array(z.string().min(1).max(80)).max(5),
+    }),
   ]),
 );
 
@@ -553,6 +582,72 @@ export function evaluate(
       const rival = t.crew.find((s) => s !== lead && f.wins(s) >= mine);
       if (rival) return fail(`${P(rival)} caught up with ${P(lead)}.`);
       return t.final ? done() : open();
+    }
+    case 'won-with': {
+      const by = (tr: Trick) => owner === null || tr.winner === me;
+      const hits = t.tricks.filter((tr) => by(tr) && matches(check.match, winningCard(tr))).length;
+      const progress = `${hits}/${check.count}`;
+      if (hits >= check.count) return done(progress);
+      const left = owner === null ? f.pending(check.match) : f.pending(check.match, me);
+      if (hits + Math.min(left.length, f.left) < check.count)
+        return fail(
+          `Only ${hits} trick${hits === 1 ? ' was' : 's were'} won with ${what(check.match)}, and too few such cards are left.`,
+          progress,
+        );
+      return open(progress);
+    }
+    case 'each-wins': {
+      let wonSoFar = 0;
+      for (const [i, c] of check.cards.entries()) {
+        const tr = t.tricks.findIndex((x) => x.plays.some((p) => p.card === c));
+        const curr = t.current.some((p) => p.card === c);
+        if (tr < 0) {
+          if (t.final) return fail(`${C(c)} was never played.`);
+          if (check.ordered && !curr) {
+            // A later card that already won breaks the order.
+            const later = check.cards
+              .slice(i + 1)
+              .find((x) => t.tricks.some((y) => winningCard(y) === x));
+            if (later) return fail(`${C(later)} won a trick before ${C(c)} did.`);
+          }
+          continue;
+        }
+        if (winningCard(t.tricks[tr]!) !== c)
+          return fail(`${C(c)} was played but didn't win its trick.`);
+        wonSoFar++;
+        if (check.ordered && i > 0) {
+          const prev = check.cards[i - 1]!;
+          const at = t.tricks.findIndex((x) => winningCard(x) === prev);
+          if (at < 0 || at > tr) return fail(`${C(c)} won a trick before ${C(prev)} did.`);
+        }
+      }
+      const progress = `${wonSoFar}/${check.cards.length}`;
+      return wonSoFar === check.cards.length ? done(progress) : open(progress);
+    }
+    case 'never-wins': {
+      const bad = t.tricks.find(
+        (tr) => (owner === null || tr.winner === me) && matches(check.match, winningCard(tr)),
+      );
+      if (bad) return fail(`${P(bad.winner)} won a trick with ${C(winningCard(bad))}.`);
+      const risky = owner === null ? f.pending(check.match) : f.pending(check.match, me);
+      return t.final || risky.length === 0 ? done() : open();
+    }
+    case 'trick-balance': {
+      const counts = t.crew.map((x) => ({ x, n: f.wins(x) }));
+      const hi = counts.reduce((a, b) => (b.n > a.n ? b : a));
+      const lo = counts.reduce((a, b) => (b.n < a.n ? b : a));
+      if (hi.n - lo.n >= check.gap)
+        return fail(`${P(hi.x)} has won ${hi.n - lo.n} more tricks than ${P(lo.x)}.`);
+      return t.final ? done() : open();
+    }
+    case 'span': {
+      const last = t.total - check.toFromEnd;
+      for (const [i, tr] of t.tricks.entries()) {
+        const n = i + 1;
+        if (n >= check.from && n <= last && !check.seats.includes(tr.winner))
+          return fail(`${P(tr.winner)} won trick ${n}, which belonged to the others.`);
+      }
+      return t.tricks.length >= last ? done() : open();
     }
     case 'last-card': {
       const c = check.card;

@@ -205,20 +205,22 @@ export function Debrief({
             </Button>
           ) : (
             <>
-              <Button
-                size="lg"
-                onClick={() => send({ type: 'retry', same: true })}
-                data-testid="mc-retry-same"
-              >
-                🔁 Retry same tasks
-              </Button>
+              {!a.mission.cardTasks && (
+                <Button
+                  size="lg"
+                  onClick={() => send({ type: 'retry', same: true })}
+                  data-testid="mc-retry-same"
+                >
+                  🔁 Retry same tasks
+                </Button>
+              )}
               <Button
                 size="lg"
                 variant="secondary"
                 onClick={() => send({ type: 'retry', same: false })}
                 data-testid="mc-retry-new"
               >
-                🎲 New tasks
+                {a.mission.cardTasks ? '🔁 Try again (new tasks)' : '🎲 New tasks'}
               </Button>
             </>
           )}

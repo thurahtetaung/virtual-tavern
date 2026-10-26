@@ -2,7 +2,13 @@ import type { PlayerId } from '@vt/game-sdk';
 import { z } from 'zod';
 import type { CardId, Position } from './cards.ts';
 import type { Check, Play, Trick } from './checks.ts';
-import type { AttemptComms, Comms, Selection } from './content.ts';
+import type {
+  AttemptComms,
+  Comms,
+  MissionDef,
+  OrderToken,
+  Selection,
+} from './content.ts';
 
 export const MIN_PLAYERS = 2;
 export const MAX_SEATED = 5;
@@ -32,6 +38,8 @@ export interface Settings {
   openTable: boolean;
   /** Two players: the dummy sits after the first (0) or the second (1) player. */
   dummyAfter: 0 | 1;
+  /** One-card task campaigns at exactly three players: no green cards and no trump 1. */
+  challenge: boolean;
 }
 
 export interface Seat {
@@ -74,10 +82,15 @@ export interface MissionSummary {
   timed: boolean;
   /** Missions without drawn tasks (crew conditions or fixed tasks). */
   fixed: boolean;
+  /** One-card campaigns: tasks to draw and their order tokens. */
+  cards: number | null;
+  tokens: OrderToken[];
 }
 
 export interface VoyageSummary {
   key: string;
+  /** `cards`: one-card tasks; `pack`: task cards from the tasks pack. */
+  taskSet: 'pack' | 'cards';
   packId: string;
   name: string;
   missions: MissionSummary[];
@@ -104,7 +117,26 @@ export interface MissionPlay {
   seconds: number | null;
   /** Played out of campaign order. */
   practice: boolean;
+  /** One-card tasks ("win this card") instead of task cards from the pack. */
+  cardTasks: boolean;
+  /** The one-card campaigns' mission rules (absent fields: not on this mission). */
+  rules: MissionRules;
 }
+
+export type MissionRules = Pick<
+  MissionDef,
+  | 'cards'
+  | 'tokens'
+  | 'passing'
+  | 'tokenEdit'
+  | 'pick'
+  | 'handOver'
+  | 'drawAfterFirst'
+  | 'omegaLast'
+  | 'holderLeft'
+  | 'captainTask'
+  | 'roleNames'
+>;
 
 export type TaskState = 'open' | 'done' | 'failed';
 
@@ -126,6 +158,8 @@ export interface TaskInPlay {
   at: number | null;
   /** Teammates whose cards in the deciding trick fed it. */
   fedBy: string[];
+  /** An order token on a one-card task. */
+  token: OrderToken | null;
 }
 
 export interface DraftState {
@@ -144,6 +178,34 @@ export interface DraftState {
   ready: string[];
   /** The captain gave the tasks away: every signal must be made before the first trick. */
   given: boolean;
+  /** Commander's distribution: the task on offer now (an index), or null. */
+  offer: number | null;
+  /** Roles: each seat's claimed role (0, 1 or 2). */
+  roles: Record<string, number>;
+}
+
+/** Steps before the draft and after it (one-card campaigns). */
+export interface Extras {
+  /** The captain's pick: who answered what, and whom the captain chose. */
+  pick: { answers: Record<string, string>; order: string[]; at: number; chosen: string | null };
+  /** A proposed token swap or move, and who agreed; `ready`: who wants none. */
+  tokenEdit: {
+    proposal: { by: string; a: number; b: number } | null;
+    accepted: string[];
+    ready: string[];
+  };
+  /** The five-player hand-over: one task may change hands once. */
+  handOver: {
+    proposal: { by: string; task: number; to: string } | null;
+    accepted: string[];
+    ready: string[];
+  };
+  /** The crew member who may not signal this mission. */
+  mute: string | null;
+  /** After the first trick: who drew which card (each seat sees only its own). */
+  drawn: Record<string, CardId>;
+  /** Public notes for the table ("Ana holds the pink 9"). */
+  notes: string[];
 }
 
 export interface Signal {
@@ -169,7 +231,17 @@ export interface Distress {
   received: Record<string, CardId>;
 }
 
-export type Stage = 'briefing' | 'draft' | 'distress' | 'pass' | 'predict' | 'play' | 'done';
+export type Stage =
+  | 'briefing'
+  | 'pick'
+  | 'tokens'
+  | 'draft'
+  | 'handover'
+  | 'distress'
+  | 'pass'
+  | 'predict'
+  | 'play'
+  | 'done';
 
 export interface Result {
   success: boolean;
@@ -224,6 +296,7 @@ export interface Attempt {
   redeals: number;
   /** Tasks put back and replaced because they couldn't be met together. */
   redraws: number;
+  extras: Extras;
 }
 
 export interface Emote {
@@ -263,6 +336,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     realTime: z.boolean().optional(),
     openTable: z.boolean().optional(),
     dummyAfter: z.union([z.literal(0), z.literal(1)]).optional(),
+    challenge: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   /** Host: the mission to play next (null: the campaign's next); others are practice. */
@@ -304,6 +378,21 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('retry'), same: z.boolean() }),
   /** After a success: on to the next mission (or the next epilogue dive). */
   z.object({ type: z.literal('next') }),
+  /** The captain's pick: an answer to the question (in turn), then the captain chooses. */
+  z.object({ type: z.literal('reply'), reply: z.string().max(60) }),
+  z.object({ type: z.literal('choose-member'), seat }),
+  /** Token swap (or move onto an unmarked task, `b`), proposed and agreed. */
+  z.object({
+    type: z.literal('token-edit'),
+    a: z.number().int().min(0).max(40),
+    b: z.number().int().min(0).max(40),
+  }),
+  z.object({ type: z.literal('token-answer'), yes: z.boolean() }),
+  /** The five-player hand-over. */
+  z.object({ type: z.literal('hand-over'), task: z.number().int().min(0).max(40), to: seat }),
+  z.object({ type: z.literal('hand-over-answer'), yes: z.boolean() }),
+  /** Roles: claim a role (0, 1 or 2) for yourself or the dummy. */
+  z.object({ type: z.literal('role'), role: z.number().int().min(0).max(2), for: seat.optional() }),
 ]);
 
 export type MissionControlAction = z.infer<typeof actionSchema>;
@@ -314,6 +403,7 @@ export type Role = 'player' | 'waiting' | 'spectator';
 
 export interface TaskView {
   index: number;
+  token: OrderToken | null;
   key: string;
   /** The condition (public, like the task card). */
   check: Check;
@@ -353,6 +443,10 @@ export interface DraftView {
   chosen: string[];
   ready: string[];
   given: boolean;
+  offer: number | null;
+  roles: Record<string, number>;
+  /** Commander's decision: the tasks are still face down. */
+  hidden: boolean;
 }
 
 export interface AttemptView {
@@ -408,6 +502,8 @@ export interface AttemptView {
   redraws: number;
   /** At the end: every dealt hand and every trick, for the replay. */
   replay: { hands: Record<string, CardId[]>; tricks: Trick[] } | null;
+  /** One-card campaigns' steps; `drawn` holds only the viewer's own card. */
+  extras: Extras;
 }
 
 export interface CampaignView extends Campaign {

@@ -6,6 +6,7 @@ import { useArt } from './assets.tsx';
 import { MissionTags } from './Logbook.tsx';
 import { missionLabel } from './status.ts';
 import { paragraphsOf } from './text.ts';
+import { tokenLabel } from '../logic/onecard.ts';
 
 /** Logbook text as printed: `**bold**` and `*italic*` only. */
 export function Printed({ text }: { text: string }) {
@@ -57,9 +58,11 @@ export function RuleBox({ a }: { a: AttemptView }) {
         fixed={m.difficulty === null}
       />
       <p className="text-sm">
-        {m.difficulty !== null
-          ? `Tasks drawn to difficulty ${m.difficulty}.`
-          : 'No task cards: the crew condition below decides.'}
+        {m.cardTasks && m.rules.cards
+          ? `${m.rules.cards} one-card ${m.rules.cards === 1 ? 'task' : 'tasks'}${m.rules.tokens?.length ? `, tokens ${m.rules.tokens.map(tokenLabel).join(' ')}` : ''}.`
+          : m.difficulty !== null
+            ? `Tasks drawn to difficulty ${m.difficulty}.`
+            : 'No task cards: the mission’s own conditions decide.'}
         {m.seconds !== null &&
           ` A ${Math.floor(m.seconds / 60)}:${String(m.seconds % 60).padStart(2, '0')} clock starts once the tasks are shared.`}
       </p>

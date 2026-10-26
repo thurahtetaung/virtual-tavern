@@ -113,7 +113,81 @@ export const VOYAGE = {
   epilogue: { difficulty: 5, title: 'Endless' },
 };
 
-export function packContent(tasks: unknown = TASKS, voyage: unknown = VOYAGE): ContentProvider {
+/** A made-up one-card campaign touching every rule of that kind. */
+export const VOYAGE_CARDS = {
+  key: 'test-cards',
+  name: 'Card voyage',
+  taskSet: 'cards',
+  missions: [
+    { n: 1, cards: 2, tokens: ['1', '2'], passing: false },
+    { n: 2, cards: 3, tokens: ['>', '>>'], passing: false },
+    { n: 3, cards: 3, tokens: ['o'], omegaLast: true, passing: false },
+    {
+      n: 4,
+      pick: { role: 'sick', question: 'How do you feel?', replies: ['Good', 'Bad'], self: true },
+    },
+    { n: 5, cards: 2, pick: { role: 'mute', self: true }, passing: false },
+    { n: 6, cards: 2, selection: 'decision' },
+    { n: 7, cards: 4, selection: 'distribution' },
+    {
+      n: 8,
+      selection: 'roles',
+      roleNames: ['Only the first four tricks', 'All tricks in between', 'Only the last trick'],
+    },
+    { n: 9, cards: 3, tokens: ['1', '2'], tokenEdit: 'swap', passing: false },
+    { n: 10, cards: 2, drawAfterFirst: true, passing: false },
+    {
+      n: 11,
+      conditions: [
+        {
+          check: {
+            kind: 'won-with',
+            match: { values: [1], suits: ['p', 'b', 'g', 'y'] },
+            count: 1,
+          },
+          text: 'A 1 wins a trick',
+        },
+      ],
+    },
+    {
+      n: 12,
+      conditions: [
+        {
+          check: { kind: 'each-wins', cards: ['t1', 't2', 't3', 't4'], ordered: true },
+          text: 'Trumps win in order',
+        },
+      ],
+    },
+    {
+      n: 13,
+      conditions: [{ check: { kind: 'trick-balance', gap: 2 }, text: 'Stay level' }],
+      captainTask: { check: { kind: 'tricks', win: [1, 'last'] }, text: 'Captain: first and last' },
+    },
+    {
+      n: 14,
+      holderLeft: {
+        card: 'p9',
+        check: { kind: 'win-count', match: { suits: ['p'] }, op: 'atLeast', n: 9 },
+        text: 'Win every pink card',
+      },
+    },
+    { n: 15, cards: 3, handOver: true, passing: false },
+    {
+      n: 16,
+      conditions: [
+        { check: { kind: 'never-wins', match: { values: [9] } }, text: 'No trick won with a 9' },
+      ],
+    },
+    { n: 17, pick: { role: 'one-trick', question: 'Volunteer?', replies: ['Yes', 'No'] } },
+    { n: 18, pick: { role: 'first-last', question: 'Ready?', replies: ['Yes', 'No'] } },
+  ],
+};
+
+export function packContent(
+  tasks: unknown = TASKS,
+  voyage: unknown = VOYAGE,
+  more: unknown[] = [VOYAGE_CARDS],
+): ContentProvider {
   return {
     wordLists: () => [],
     words: () => [],
@@ -121,7 +195,10 @@ export function packContent(tasks: unknown = TASKS, voyage: unknown = VOYAGE): C
       kind === 'tasks'
         ? [{ id: 'tp', name: 'Test tasks', data: tasks }]
         : kind === 'voyage'
-          ? [{ id: 'vp', name: 'Test voyage', data: voyage }]
+          ? [
+              { id: 'vp', name: 'Test voyage', data: voyage },
+              ...more.map((data, i) => ({ id: `vp${i + 2}`, name: `Voyage ${i + 2}`, data })),
+            ]
           : [],
   };
 }

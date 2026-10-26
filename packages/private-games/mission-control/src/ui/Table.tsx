@@ -69,6 +69,15 @@ function Seat({
             <PlayerTag name={name(seat)} you={seat === me} offline={!online(seat)} />
           )}
         </span>
+        {a.extras.mute === seat && (
+          <span
+            className="shrink-0 text-xs"
+            title="may not signal this mission"
+            aria-label="may not signal"
+          >
+            🔇
+          </span>
+        )}
         {c.captain && (
           <span
             className="flex shrink-0 items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-1 pr-1.5 text-xs font-bold text-accent-text ring-1 ring-accent-line dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-500/40"
