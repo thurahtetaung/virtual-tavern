@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.4...v0.68.5) (2026-10-26)
+
+
+### Bug Fixes
+
+* **mission-control:** campaigns go by their real titles, trick counts read right, the sick crew member is named, and Mission 5 fits a phone ([#405](https://github.com/thurahtetaung/virtual-tavern/issues/405)) ([4bca1b3](https://github.com/thurahtetaung/virtual-tavern/commit/4bca1b3d8fca362e04fe24b9c7a78b1748335f35))
+
 ## [0.68.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.68.3...v0.68.4) (2026-10-26)
 
 
