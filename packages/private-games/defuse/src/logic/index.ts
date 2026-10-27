@@ -1,11 +1,14 @@
 export {
+  type CaseDial,
   DEFAULT_SETTINGS,
+  LIMITS,
   MAX_SEATED,
   MIN_PLAYERS,
   actionSchema,
   defuse,
   setTestSeed,
   setTestLights,
+  turnDial,
 } from './game.ts';
 export { defuseBot } from './bot.ts';
 export { guide, makeGuide, nameGuide } from './guide.ts';

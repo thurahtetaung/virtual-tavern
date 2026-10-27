@@ -207,6 +207,40 @@ test('on touch the finger selects what it is on, and the selection never sticks'
   await expect.poll(async () => (await call(ana, 'pose')).module).toBe(b);
 });
 
+test('on touch a drag that starts off the bomb looks around, and the view comes back', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana] = (await table(browser, ['Ana', 'Ben'], {
+    setup: localArt,
+    viewport: { width: 844, height: 390 },
+    touch: true,
+  })) as [Page, Page];
+  await ana.getByTestId('start').click();
+  await ready(ana);
+  await call(ana, 'pickUp');
+  await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
+  await ana.waitForTimeout(500);
+  const cdp = await ana.context().newCDPSession(ana);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
+    });
+  // From near the top left (clear of ‹ and the arrows), off the bomb, toward the right and down.
+  expect(await call(ana, 'pickAt', 100, 80)).toBeNull();
+  await touch('touchStart', 100, 80);
+  for (let i = 1; i <= 8; i++) await touch('touchMove', 100 + i * 40, 80 + i * 12);
+  await expect.poll(async () => (await call(ana, 'glance'))[0]).toBeGreaterThan(0.3);
+  expect((await call(ana, 'glance'))[1]).toBeGreaterThan(0);
+  // The bomb didn't turn: still held, nothing selected.
+  expect((await call(ana, 'pose')).pose).toBe('held');
+  await touch('touchEnd');
+  await expect.poll(() => call(ana, 'glance')).toEqual([0, 0]);
+  expect((await call(ana, 'pose')).pose).toBe('held');
+});
+
 test('a pinch zooms in on an edge, pans with the fingers, and steps back out', async ({
   browser,
 }) => {

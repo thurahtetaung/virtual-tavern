@@ -267,7 +267,13 @@ export function DefuseGame({
     return (
       <Bomb3D
         b={null}
-        briefcase={{ settings: v.settings, start: () => send({ type: 'start' }) }}
+        briefcase={{
+          settings: v.settings,
+          start: () => send({ type: 'start' }),
+          change: room.isHost
+            ? (settings) => send({ type: 'settings', settings }, 'defuse-settings')
+            : null,
+        }}
         leave={() => setLeftDesk(true)}
         art={art}
         offset={room.clockOffset}

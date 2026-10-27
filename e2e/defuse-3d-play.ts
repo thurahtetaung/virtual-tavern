@@ -35,6 +35,9 @@ export type Hooks = {
   config: () => string | null;
   configAt: (t: number) => string;
   room: () => boolean;
+  glance: () => [number, number];
+  pickAt: (x: number, y: number) => { kind: string; path: string | null } | null;
+  dial: (d: 'time-up' | 'time-down' | 'modules-up' | 'modules-down' | 'needy' | 'hardcore') => void;
 };
 
 /** Calls one of the 3D view's test hooks. */

@@ -144,7 +144,7 @@ function base(art: GuideArt): GameGuide {
         bullets: [
           'Sees the whole bomb: two faces with up to 11 modules and the timer, and four edges.',
           'The bomb is in 3D, full screen, on a desk in a dark room: pick it up, turn it in your hands to read the edges, and zoom in on a module to use it.',
-          'Before the bomb, the next defuser sits at the desk with the Free Play briefcase: it shows the host’s settings, and its START button starts the bomb (the host can start it from the lobby too).',
+          'Before the bomb, the next defuser sits at the desk with the Free Play briefcase: it shows the host’s settings (a host at the desk can change them on its keys and switches, as in the lobby), and its START button starts the bomb (the host can start it from the lobby too).',
           'Never sees the manual, and never shows the bomb to the experts.',
         ],
       },
@@ -152,9 +152,9 @@ function base(art: GuideArt): GameGuide {
         title: 'Controls',
         level: 'basics',
         bullets: [
-          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts. The phone buzzes as you touch things (switch it off under ?).',
-          'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk). Sideways is best; upright works too.',
-          'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms toward the cursor; right-click or Esc steps back.',
+          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts; drag outside the bomb to look around the room. The phone buzzes as you touch things (switch it off under ?).',
+          'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk).',
+          'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms toward the cursor; hold the button at the screen’s edge to look around the room; right-click or Esc steps back.',
           'Keyboard: arrows or WASD turn a quarter, F turns it over, Tab and Enter pick a module, 1–9 use its parts.',
           'The ? corner shows the controls and holds the sound volumes, the rules, lighter graphics for slow phones and the flat 2D view.',
           'Prefer the flat 2D bomb? Each player picks it for themselves in the lobby (“When you defuse”) or from the ? corner while defusing.',

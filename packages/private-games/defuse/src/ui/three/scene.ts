@@ -39,6 +39,16 @@ import {
   settleTouch,
   yawFor,
 } from './controls.ts';
+import {
+  type EdgeArrows,
+  cursorTarget,
+  dragGlances,
+  dragTarget,
+  edgeArrows,
+  glanceAxis,
+  glanceDegrees,
+  onEdge,
+} from './glance.ts';
 import { type BombLook, PREFAB, bombLook } from './look.ts';
 import {
   type ConfigName,
@@ -47,11 +57,14 @@ import {
   bombLight,
   cameraMatrix,
   caseButton,
+  pressCaseKey,
+  stepCase,
   poseMatrix,
   ROOM_SCALE,
   roomLook,
   setCase,
 } from './room.ts';
+import type { CaseDial } from '../../logic/game.ts';
 import type { Settings } from '../../logic/types.ts';
 import {
   type BindCtx,
@@ -104,13 +117,17 @@ export interface SceneOpts {
   /** The original's room around the bomb (its own pack), or null for the dark void. */
   room?: RoomPack | null;
   /**
-   * The briefcase instead of a bomb (the lobby): its displays show the host's settings, and its
-   * Start starts the bomb.
+   * The briefcase instead of a bomb (the lobby): its displays show the host's settings, its keys
+   * and switches change them (`turn`, the host's only), and its Start starts the bomb.
    */
-  briefcase?: { settings: Settings; start: () => void; setting: () => void } | null;
+  briefcase?: { settings: Settings; start: () => void; turn: (dial: CaseDial) => void } | null;
   /** The defuser presses the alarm clock's snooze button. */
   snooze?: () => void;
+  /** The edge arrows and bars for the cursor (a computer's glance). */
+  edges?: (a: EdgeArrows) => void;
 }
+
+const NO_EDGES: EdgeArrows = { left: 0, right: 0, top: 0, bottom: 0 };
 
 const SPIN_ORDER = 'YXZ';
 const FRONT_UP = new THREE.Euler(-Math.PI / 2, Math.PI, 0, 'YXZ');
@@ -324,6 +341,7 @@ export class BombScene {
   private gesture:
     | { kind: 'maybe'; hit: Picked | null; x: number; y: number }
     | { kind: 'turn' }
+    | { kind: 'glance'; x0: number; y0: number; mouse: boolean }
     | { kind: 'rturn'; t0: number; moved: number }
     | {
         kind: 'pinch';
@@ -1275,15 +1293,24 @@ export class BombScene {
     }
     if (this.caseRoot && this.pose === 'held') {
       if (!p) return this.back();
-      const what = caseButton(p.node);
-      if (what === 'start') {
+      const hit = caseButton(p.node);
+      if (!hit) return;
+      if (hit.what === 'start') {
         this.opts.sound('press-in');
         this.addPunch(p.point, 0.5, 'Interaction');
         this.opts.briefcase?.start();
-      } else if (what === 'setting') {
-        this.opts.sound('press-in', 0.6);
-        this.opts.briefcase?.setting();
+        return;
       }
+      // `KeypadButton.Interact` (down, press-in, then press-release as it comes up) and
+      // `ToggleSwitch.Toggle` (press-in): the switch itself turns when the settings come back.
+      const toggle = hit.what === 'needy' || hit.what === 'hardcore';
+      this.opts.sound('press-in');
+      this.addPunch(p.point, toggle ? 1 : 0.5, toggle ? 'ToggleSwitch' : 'KeypadButton');
+      if (!toggle) {
+        pressCaseKey(hit.node, performance.now());
+        setTimeout(() => this.opts.sound('press-release'), 250);
+      }
+      this.opts.briefcase?.turn(hit.what);
       return;
     }
     if (!p) return this.back(); // a tap off the bomb steps back
@@ -1350,6 +1377,17 @@ export class BombScene {
         return;
       }
       if (e.button !== 0) return;
+      // `HandleViewRotation`: a press on the screen's edge looks around while it is held.
+      if (e.pointerType === 'mouse' && this.canGlance()) {
+        const r = c.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        if (onEdge(x, y, r.width, r.height)) {
+          this.gesture = { kind: 'glance', x0: e.clientX, y0: e.clientY, mouse: true };
+          this.glanceTo = cursorTarget(x, y, r.width, r.height);
+          return;
+        }
+      }
       const p = this.pick(e.clientX, e.clientY);
       // `TouchControls.Select`: the finger selects what it is on (the tick, the scanline outline).
       if (e.pointerType !== 'mouse' && !this.ended) this.hover(p, true);
@@ -1366,6 +1404,14 @@ export class BombScene {
       if (!p) {
         if (e.pointerType !== 'mouse') return;
         this.mouse = { x: e.clientX, y: e.clientY };
+        {
+          const r = c.getBoundingClientRect();
+          this.opts.edges?.(
+            this.canGlance()
+              ? edgeArrows(e.clientX - r.left, e.clientY - r.top, r.width, r.height)
+              : NO_EDGES,
+          );
+        }
         // The outline follows the cursor; while the bomb or camera moves it waits.
         if (this.ended) this.unhover();
         else if (this.busy()) {
@@ -1380,6 +1426,13 @@ export class BombScene {
       p.y = e.clientY;
       const g = this.gesture;
       if (!g) return;
+      if (g.kind === 'glance') {
+        const r = c.getBoundingClientRect();
+        this.glanceTo = g.mouse
+          ? cursorTarget(e.clientX - r.left, e.clientY - r.top, r.width, r.height)
+          : dragTarget(e.clientX - g.x0, e.clientY - g.y0, r.width, r.height);
+        return;
+      }
       // The selection follows the finger, and goes once it turns or pinches the bomb.
       if (e.pointerType !== 'mouse') {
         if (g.kind === 'maybe' || g.kind === 'press')
@@ -1403,6 +1456,20 @@ export class BombScene {
       if (g.kind === 'rturn') {
         g.moved += Math.abs(dx) + Math.abs(dy);
         if (this.pose !== 'desk') this.addTurn(dx, dy);
+        return;
+      }
+      // Ours on touch: a drag that starts off the bomb looks around the room.
+      if (
+        g.kind === 'maybe' &&
+        e.pointerType !== 'mouse' &&
+        Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > DRAG_PX &&
+        this.canGlance() &&
+        dragGlances(!!g.hit, this.pose)
+      ) {
+        this.unhover();
+        this.gesture = { kind: 'glance', x0: p.x0, y0: p.y0, mouse: false };
+        const r = c.getBoundingClientRect();
+        this.glanceTo = dragTarget(e.clientX - p.x0, e.clientY - p.y0, r.width, r.height);
         return;
       }
       if (
@@ -1440,6 +1507,11 @@ export class BombScene {
         return;
       }
       this.gesture = null;
+      if (g.kind === 'glance') {
+        // Letting go eases the view back to the middle.
+        this.glanceTo = null;
+        return;
+      }
       const wasDragging = this.dragging;
       this.dragging = false;
       if (wasDragging) this.onDrag?.(false);
@@ -1489,6 +1561,7 @@ export class BombScene {
     c.addEventListener('pointercancel', up);
     const leave = () => {
       this.mouse = null;
+      this.opts.edges?.(NO_EDGES);
       this.rehover = false;
       this.unhover();
     };
@@ -1518,6 +1591,27 @@ export class BombScene {
       window.removeEventListener('keydown', key);
       window.removeEventListener('keyup', keyUp);
     };
+  }
+
+  /** Where the view is turned (−1…1 each way, right and down positive) and where it is going. */
+  private glance: [number, number] = [0, 0];
+  private glanceTo: [number, number] | null = null;
+
+  /** Looking around: at the desk and while holding the bomb or the briefcase, not at the clock. */
+  private canGlance() {
+    return !this.ended && !this.opts.readOnly && this.pose !== 'clock';
+  }
+
+  /** A key or switch of the briefcase as a tap on it would (browser tests: CI has no room pack). */
+  turnCase(dial: CaseDial) {
+    if (!this.caseRoot || this.pose !== 'held') return;
+    this.opts.sound('press-in');
+    this.opts.briefcase?.turn(dial);
+  }
+
+  /** The glance now (browser tests). */
+  glanceNow(): [number, number] {
+    return [...this.glance];
   }
 
   /** The rotate arrows fade out while a drag turns the bomb. */
@@ -1874,6 +1968,15 @@ export class BombScene {
     }
     this.camera.position.x = this.pan.x;
     this.camera.position.y = this.pan.y;
+    // The glance turns the camera where it stands (`FixedCameraRig.Rotate`: yaw, then pitch).
+    {
+      const [th, tv] = this.canGlance() ? (this.glanceTo ?? [0, 0]) : [0, 0];
+      this.glance = [glanceAxis(this.glance[0], th, dt), glanceAxis(this.glance[1], tv, dt)];
+      const { yaw, pitch } = glanceDegrees(this.glance[0], this.glance[1]);
+      this.camera.quaternion.setFromEuler(
+        new THREE.Euler(THREE.MathUtils.degToRad(-pitch), THREE.MathUtils.degToRad(-yaw), 0, 'YXZ'),
+      );
+    }
     // the interaction punch
     if (this.punch) {
       const x = (now - this.punch.t0) / PUNCH_MS;
@@ -1907,6 +2010,7 @@ export class BombScene {
     // in the last minute), the room's lightmaps and the bomb's own light from the lamp.
     this.stepCam(now);
     this.stepLid(now);
+    if (this.caseRoot) stepCase(this.caseRoot, now);
     const rl = roomLook(this.b, t);
     this.config = rl.config;
     const light = bombLight(this.room?.json ?? null, rl.config);

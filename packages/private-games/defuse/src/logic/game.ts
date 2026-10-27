@@ -43,6 +43,38 @@ export const DEFAULT_SETTINGS: Settings = {
   surprises: true,
 };
 
+/** The Free Play limits (`FreeplayDevice`: 30 s–10:00 in 30 s steps, 3–11 modules). */
+export const LIMITS = { time: { min: 30, max: 600, step: 30 }, modules: { min: 3, max: 11 } };
+
+/** A key or switch on the briefcase (`FreeplayDevice`'s +/− keys and its two toggles). */
+export type CaseDial =
+  'time-up' | 'time-down' | 'modules-up' | 'modules-down' | 'needy' | 'hardcore';
+
+/**
+ * What a key or switch does to the settings (`IncreaseTime`, `DecreaseModuleCount`,
+ * `ToggleNeedy`…), clamped as the original's; null when it is already at its end.
+ */
+export function turnDial(s: Settings, dial: CaseDial): Partial<Settings> | null {
+  const clamp = (n: number, l: { min: number; max: number }) => Math.min(l.max, Math.max(l.min, n));
+  const { time, modules } = LIMITS;
+  switch (dial) {
+    case 'time-up':
+    case 'time-down': {
+      const t = clamp(s.time + (dial === 'time-up' ? time.step : -time.step), time);
+      return t === s.time ? null : { time: t };
+    }
+    case 'modules-up':
+    case 'modules-down': {
+      const m = clamp(s.modules + (dial === 'modules-up' ? 1 : -1), modules);
+      return m === s.modules ? null : { modules: m };
+    }
+    case 'needy':
+      return { needy: !s.needy };
+    case 'hardcore':
+      return { hardcore: !s.hardcore };
+  }
+}
+
 const err = (code: string, message: string) => new GameError(code, message);
 const draft = (s: State): State => structuredClone(s);
 
@@ -82,8 +114,8 @@ function nextSeat(s: State, after: PlayerId | null): PlayerId | null {
 
 const settingsSchema = z
   .object({
-    time: z.number().int().min(30).max(600).multipleOf(30),
-    modules: z.number().int().min(3).max(11),
+    time: z.number().int().min(LIMITS.time.min).max(LIMITS.time.max).multipleOf(LIMITS.time.step),
+    modules: z.number().int().min(LIMITS.modules.min).max(LIMITS.modules.max),
     hardcore: z.boolean(),
     needy: z.boolean(),
     vetoes: z.array(z.enum(SOLVABLE)).max(3),

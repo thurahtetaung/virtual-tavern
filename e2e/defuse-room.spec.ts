@@ -39,6 +39,17 @@ test('a bomb started from the briefcase and defused in the room, then one that g
   await tapAt(ana, await call(ana, 'thing', 'case'));
   await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
   await expect(ana.getByTestId('case-hint')).toHaveText('Press START to begin');
+  // The host turns the briefcase's keys and switches: the room's settings change for everyone.
+  await call(ana, 'dial', 'time-up');
+  await call(ana, 'dial', 'time-up');
+  await call(ana, 'dial', 'time-down');
+  await call(ana, 'dial', 'needy');
+  await expect(ben.getByTestId('set-time')).toHaveValue('330');
+  await expect(ben.getByTestId('set-needy')).toHaveAttribute('aria-checked', 'true');
+  await call(ana, 'dial', 'needy');
+  await expect(ben.getByTestId('set-needy')).toHaveAttribute('aria-checked', 'false');
+  await call(ana, 'dial', 'time-down');
+  await expect(ben.getByTestId('set-time')).toHaveValue('300');
   await ana.waitForTimeout(400);
   await tapAt(ana, await call(ana, 'thing', 'start'));
 
@@ -113,6 +124,27 @@ test('a bomb started from the briefcase and defused in the room, then one that g
   await expect(ben.getByTestId('binder-retry')).toHaveCount(0);
   await ana.getByTestId('binder-retry').click();
   await expect(ben.getByTestId('status')).toContainText('Ana is defusing bomb 3');
+});
+
+test('anyone but the host who turns the briefcase’s keys is told so, and nothing changes', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], { setup: localArt })) as [Page, Page];
+  await ana.getByTestId('pick-Ben').click();
+  await expect(ben.getByTestId('bomb-3d')).toHaveAttribute('data-ready', /ready|failed/, {
+    timeout: 30_000,
+  });
+  await ben.waitForFunction(() => !!(window as unknown as { __defuse3d?: unknown }).__defuse3d);
+  await expect.poll(() => call(ben, 'thing', 'case')).not.toBeNull();
+  await tapAt(ben, await call(ben, 'thing', 'case'));
+  await expect.poll(async () => (await call(ben, 'pose')).pose).toBe('held');
+  await call(ben, 'dial', 'modules-up');
+  await expect(ben.getByTestId('case-hint')).toHaveText('Only the host can change the settings');
+  await expect(ana.getByTestId('set-modules')).toHaveValue('3');
+  // The note goes after a few seconds.
+  await expect(ben.getByTestId('case-hint')).toHaveText('Press START to begin', { timeout: 6000 });
 });
 
 test('the host can switch the room’s surprises off', async ({ browser }) => {

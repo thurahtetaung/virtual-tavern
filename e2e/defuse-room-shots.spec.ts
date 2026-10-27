@@ -43,7 +43,6 @@ for (const [label, viewport] of [
       timeout: 60_000,
     });
     await ana.waitForFunction(() => !!(window as unknown as { __defuse3d?: unknown }).__defuse3d);
-    if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
     await shot(ana, '01-desk-briefcase', 1500);
     await tapAt(ana, await call(ana, 'thing', 'case'));
     await shot(ana, '02-briefcase-held');
@@ -104,3 +103,54 @@ for (const [label, viewport] of [
     await shot(ana, '16-binder-exploded', 300);
   });
 }
+
+test('defuse briefcase shots (the host’s dials, the non-host’s note while looking around)', async ({
+  browser,
+}) => {
+  test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 300_000));
+  const look: Look = {
+    viewport: { width: 844, height: 390 },
+    colorScheme: 'dark',
+    setup: localArt,
+    touch: true,
+  };
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+  const holdCase = async (p: Page) => {
+    await expect(p.getByTestId('bomb-3d')).toHaveAttribute('data-ready', /ready|failed/, {
+      timeout: 60_000,
+    });
+    await p.waitForFunction(() => !!(window as unknown as { __defuse3d?: unknown }).__defuse3d);
+    await expect.poll(() => call(p, 'thing', 'case')).not.toBeNull();
+    await tapAt(p, await call(p, 'thing', 'case'));
+    await expect.poll(async () => (await call(p, 'pose')).pose).toBe('held');
+    await p.waitForTimeout(1200);
+  };
+  // The host at the desk turns the time up and the needy switch on.
+  await ana.getByTestId('pick-Ana').click();
+  await holdCase(ana);
+  await call(ana, 'dial', 'time-up');
+  await call(ana, 'dial', 'needy');
+  await expect(ben.getByTestId('set-time')).toHaveValue('330');
+  await ana.waitForTimeout(800);
+  await ana.screenshot({ path: `${DIR}/briefcase-host-dial.png` });
+  // Ben at the desk: his turn is refused with a note, while he drags off the case to look around.
+  await call(ana, 'back');
+  await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('desk');
+  await ana.getByTestId('desk-lobby').click();
+  await ana.getByTestId('pick-Ben').click();
+  await holdCase(ben);
+  const cdp = await ben.context().newCDPSession(ben);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
+    });
+  await touch('touchStart', 100, 80);
+  for (let i = 1; i <= 8; i++) await touch('touchMove', 100 + i * 45, 80 + i * 12);
+  await expect.poll(async () => (await call(ben, 'glance'))[0]).toBeGreaterThan(0.4);
+  await call(ben, 'dial', 'modules-up');
+  await expect(ben.getByTestId('case-hint')).toHaveText('Only the host can change the settings');
+  await ben.screenshot({ path: `${DIR}/briefcase-guest-note-glance.png` });
+  await touch('touchEnd');
+});

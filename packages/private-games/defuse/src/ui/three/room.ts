@@ -5,6 +5,7 @@
 // it the bomb sits in the dark as before.
 import * as THREE from 'three';
 import { ALARM_MS, LIGHTS_OUT } from '../../logic/bomb.ts';
+import type { CaseDial } from '../../logic/game.ts';
 import type { Settings } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
 import { type Pack, type PackJson, find, findAll, instantiate, isMesh, textPlane } from './rig.ts';
@@ -406,32 +407,106 @@ export function setCase(root: THREE.Object3D, s: Settings, fonts: { labels: stri
     0.01675,
     22,
   );
-  // `ToggleSwitch`: on −30°, off 30° about z.
+  // `ToggleSwitch`: on −30°, off 30° about z, turned in 0.1 s (`AnimationTime`) by `stepCase`.
   for (const [node, on] of [
     ['NeedySetting/NeedyMode_tgl', s.needy],
     ['HardcoreSetting/HardcoreMode_tgl', s.hardcore],
   ] as const) {
     const o = find(root, node);
-    if (o) {
-      o.userData.rest ??= o.quaternion.clone();
-      o.quaternion
-        .copy(o.userData.rest as THREE.Quaternion)
-        .multiply(
-          new THREE.Quaternion().setFromAxisAngle(
-            new THREE.Vector3(0, 0, 1),
-            THREE.MathUtils.degToRad(on ? 30 : -30),
-          ),
-        );
-    }
+    if (!o) continue;
+    const u = o.userData;
+    u.rest ??= o.quaternion.clone();
+    const want = on ? 30 : -30;
+    if (u.tglTo === want) continue;
+    u.tglFrom = u.tglTo === undefined ? want : tglAngle(o, performance.now());
+    u.tglTo = want;
+    u.tglT0 = performance.now();
+  }
+  stepCase(root, performance.now());
+}
+
+const TOGGLE_MS = 100;
+/** `KeypadButton`: down by half its height in 0.25 s, back in 0.25 s, easeOutQuint. */
+const CASE_KEY_MS = 250;
+
+function tglAngle(o: THREE.Object3D, now: number): number {
+  const u = o.userData as { tglFrom: number; tglTo: number; tglT0: number };
+  const x = Math.min(1, (now - u.tglT0) / TOGGLE_MS);
+  return u.tglFrom + (u.tglTo - u.tglFrom) * x;
+}
+
+/** Presses one of the briefcase's keys: it goes down and comes back up. */
+export function pressCaseKey(key: THREE.Object3D, now: number) {
+  const u = key.userData;
+  u.restY ??= key.position.y;
+  if (u.depth === undefined) {
+    // `ButtonHeightOverride` isn't in the pack: the key mesh's own height.
+    const mesh = isMesh(key) ? key : null;
+    mesh?.geometry.computeBoundingBox();
+    const h = mesh?.geometry.boundingBox?.getSize(new THREE.Vector3()).y ?? 0.01;
+    u.depth = Math.min(h, 0.02) * 0.5;
+  }
+  u.keyT0 = now;
+}
+
+/** The briefcase's moving parts at a moment: the switches turning, the keys going down and up. */
+export function stepCase(root: THREE.Object3D, now: number) {
+  for (const node of ['NeedySetting/NeedyMode_tgl', 'HardcoreSetting/HardcoreMode_tgl']) {
+    const o = find(root, node);
+    if (!o || o.userData.tglTo === undefined) continue;
+    o.quaternion
+      .copy(o.userData.rest as THREE.Quaternion)
+      .multiply(
+        new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(0, 0, 1),
+          THREE.MathUtils.degToRad(tglAngle(o, now)),
+        ),
+      );
+  }
+  for (const key of CASE_KEYS) {
+    const o = find(root, key);
+    const u = o?.userData;
+    if (!o || u?.keyT0 === undefined) continue;
+    const t = now - (u.keyT0 as number);
+    const k =
+      t < CASE_KEY_MS
+        ? easeOutQuint(t / CASE_KEY_MS)
+        : 1 - easeOutQuint(Math.min(1, (t - CASE_KEY_MS) / CASE_KEY_MS));
+    o.position.y = (u.restY as number) - k * (u.depth as number);
+    if (t >= 2 * CASE_KEY_MS) delete u.keyT0;
   }
 }
 
-/** What a tap on the briefcase touches. */
-export function caseButton(o: THREE.Object3D): 'start' | 'setting' | null {
+const easeOutQuint = (x: number) => 1 - (1 - x) ** 5;
+
+const CASE_KEYS = [
+  'TimeSetting/Time_INCR_btn',
+  'TimeSetting/Time_DECR_btn',
+  'ModuleCountSetting/Modules_INCR_btn',
+  'ModuleCountSetting/Modules_DECR_btn',
+];
+
+/** What a tap on the briefcase touches, and the node that moves (a key, a switch). */
+export function caseButton(
+  o: THREE.Object3D,
+): { what: 'start' | CaseDial; node: THREE.Object3D } | null {
   for (let x: THREE.Object3D | null = o; x; x = x.parent) {
     const p = (x.userData.path as string) ?? '';
-    if (/\/StartButton$/.test(p) || /\/Start_btn$/.test(p)) return 'start';
-    if (/_(DECR|INCR)_btn$|_tgl$|ModsOnlySetting\/Key$/.test(p)) return 'setting';
+    if (/\/StartButton$/.test(p) || /\/Start_btn$/.test(p)) return { what: 'start', node: x };
+    const dial: CaseDial | null = /\/Time_INCR_btn$/.test(p)
+      ? 'time-up'
+      : /\/Time_DECR_btn$/.test(p)
+        ? 'time-down'
+        : /\/Modules_INCR_btn$/.test(p)
+          ? 'modules-up'
+          : /\/Modules_DECR_btn$/.test(p)
+            ? 'modules-down'
+            : /\/NeedyMode_tgl$/.test(p)
+              ? 'needy'
+              : /\/HardcoreMode_tgl$/.test(p)
+                ? 'hardcore'
+                : null;
+    if (dial) return { what: dial, node: x };
   }
   return null;
 }
