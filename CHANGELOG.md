@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.80.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.79.0...v0.80.0) (2026-10-27)
+
+
+### Features
+
+* **defuse:** the host turns the briefcase's dials, and you can look around the room ([#483](https://github.com/thurahtetaung/virtual-tavern/issues/483)) ([1c868bc](https://github.com/thurahtetaung/virtual-tavern/commit/1c868bc85cdf80c0f5113b695311c3c8436d78e0))
+
 ## [0.79.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.78.0...v0.79.0) (2026-10-27)
 
 
