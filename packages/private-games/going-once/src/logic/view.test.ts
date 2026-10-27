@@ -13,7 +13,9 @@ import {
   packContent,
   pastIntro,
   started,
+  bid,
 } from './test-utils.ts';
+import { drewIt } from './view.ts';
 import { GAME_COLORS, type GoingOnceAction, type GoingOnceState } from './types.ts';
 
 const OTHER = encodeDrawing([{ c: 2, w: 2, points: [700, 900, 50, 50] }]);
@@ -262,4 +264,41 @@ describe('fuzz', () => {
     for (let seed = 1; seed <= games; seed++) if (play(seed).phase === 'over') over++;
     expect(over).toBe(games);
   }, 300_000);
+});
+
+describe('a title its player never drew', () => {
+  it('is a house picture with no artist: never "yours", no commission, no own-art remark', () => {
+    const h = started(3);
+    const g0 = h.state.game!;
+    const [sent, unsent] = g0.prompts.p2!;
+    h.act('p2', { type: 'draw', item: sent!, drawing: OTHER });
+    for (const id of ['p1', 'p3'])
+      for (const item of g0.prompts[id]!) h.act(id, { type: 'draw', item, drawing: OTHER });
+    // The drawing clock runs out on p2's second title.
+    for (let i = 0; i < 10 && h.state.game!.stage === 'draw'; i++) h.tick();
+    pastIntro(h);
+    const g = h.state.game!;
+    expect(g.items[unsent!]!.artist).toBeNull();
+    for (let i = 0; i < 20 && g.lots[h.state.game!.auction!.lot] !== unsent; i++) {
+      hammer(h);
+      nextLot(h);
+    }
+    expect(h.state.game!.lots[h.state.game!.auction!.lot]).toBe(unsent);
+    // p2's phone: their sent title is theirs, the unsent one isn't.
+    const mine = goingOnce.view(h.state, 'p2').mine;
+    expect(drewIt(mine, unsent!)).toBe(false);
+    expect(drewIt(mine, sent!)).toBe(true);
+    // Everyone sees a house picture.
+    expect(goingOnce.view(h.state, 'p1').game!.auction!.picture.house).not.toBeNull();
+    // p2 buys it: no commission, no own-art remark, and the results name no artist.
+    bid(h, 'p2', 400);
+    expect(h.state.game!.auction!.bid?.by).toBe('p2');
+    hammer(h);
+    const sold = h.state.game!;
+    expect(sold.items[unsent!]!.sale!.commission).toBe(0);
+    expect(JSON.stringify(sold.host ?? {})).not.toContain('own-art');
+    const r = goingOnce.view(h.state, 'p1').game!.results.find((x) => x.item === unsent)!;
+    expect(r.artistKnown).toBe(true);
+    expect(r.artist).toBeNull();
+  });
 });

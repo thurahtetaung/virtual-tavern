@@ -1,5 +1,6 @@
 import { type BotCtx, type BotInfo, type Rng, chance, encodeDrawing, pickOne } from '@vt/game-sdk';
 import { BID_SETTLE_MS, type GoingOnceAction, type GoingOnceView } from './types.ts';
+import { drewIt } from './view.ts';
 
 /**
  * A bot's drawing: a few wobbly lines built from its own random numbers (never an image), so a
@@ -63,7 +64,7 @@ export function goingOnceBot(view: GoingOnceView, ctx: BotCtx): GoingOnceAction 
   if (g.screwsOn && mine.screw && !a.screwed && a.bid && chance(rng, 0.12))
     return { type: 'screw' };
 
-  const own = mine.prompts.some((p) => p.item === a.picture.item);
+  const own = drewIt(mine, a.picture.item);
   const tip = mine.messages.at(-1);
   let guess = 1300 + rng.int(16) * 100;
   if (tip?.lot === a.lot && tip.kind === 'someoneKnows') guess += 600;
