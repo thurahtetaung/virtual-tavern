@@ -68,9 +68,9 @@ export function TopBar({
             style={{ background: i < b.strikes ? PAINT.red : '#292524' }}
           />
         ))}
-        {lamps === 0 && <span className="text-xs text-stone-400">Hardcore</span>}
+        {lamps === 0 && <span className="text-xs text-stone-300">Hardcore</span>}
       </span>
-      {b.rate > 1 && <span className="text-xs text-stone-400">×{b.rate}</span>}
+      {b.rate > 1 && <span className="text-xs text-stone-300">×{b.rate}</span>}
       <span className="ml-auto flex flex-wrap justify-end gap-1">
         {needy.map((m) => {
           const left = Math.max(0, Math.round(needyLeft(m, now) / 1000));
@@ -137,7 +137,7 @@ function WidgetChip({ w, art }: { w: Widget; art: Art }) {
             }}
           />
           {w.label}
-          <span className="font-sans text-[10px] font-normal text-stone-400">
+          <span className="font-sans text-[10px] font-normal text-stone-300">
             {w.lit ? 'lit' : 'unlit'}
           </span>
         </span>
@@ -225,7 +225,7 @@ function WidgetArt({ w, b, art }: { w: Widget; b: BombView; art: Art }) {
       {w.kind === 'serial' && (
         <span
           className="absolute inset-x-0 bottom-[14%] text-center font-mono font-bold tracking-wider text-stone-900"
-          style={{ fontSize: '17cqw' }}
+          style={{ fontSize: '21cqw' }}
         >
           {b.serial}
         </span>
@@ -577,9 +577,13 @@ export function BombScreen({
         )}
       </div>
       {/* Wide screens: both faces and the edges, with the open module beside them. */}
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div
+        className={cn(
+          'hidden gap-4 lg:grid',
+          !readOnly && 'lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]',
+        )}
+      >
         <div className="space-y-3">
-          <Edge b={b} side="top" art={art} />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-ink-muted">Front</p>
@@ -590,29 +594,36 @@ export function BombScreen({
               <FaceGrid b={b} face={1} art={art} now={now} onOpen={openModule} open={open} />
             </div>
           </div>
-          <Edge b={b} side="bottom" art={art} />
-          <div className="grid grid-cols-2 gap-3">
-            <Edge b={b} side="left" art={art} />
-            <Edge b={b} side="right" art={art} />
+          <div className={cn('grid gap-3', readOnly ? 'grid-cols-4' : 'grid-cols-2')}>
+            {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
+              <div key={side} className="space-y-1">
+                <p className="text-xs font-semibold text-ink-muted">{VIEW_NAME[side]}</p>
+                <div className={cn((side === 'left' || side === 'right') && 'mx-auto w-1/2')}>
+                  <Edge b={b} side={side} art={art} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          {open ? (
-            <Zoom
-              b={b}
-              id={open}
-              art={art}
-              now={now}
-              send={send(open)}
-              onMove={setOpen}
-              onClose={() => setOpen(null)}
-            />
-          ) : (
-            <p className="rounded-xl bg-card p-6 text-center text-ink-muted ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800">
-              Click a module to open it.
-            </p>
-          )}
-        </div>
+        {!readOnly && (
+          <div className="lg:sticky lg:top-4 lg:self-start">
+            {open ? (
+              <Zoom
+                b={b}
+                id={open}
+                art={art}
+                now={now}
+                send={send(open)}
+                onMove={setOpen}
+                onClose={() => setOpen(null)}
+              />
+            ) : (
+              <p className="rounded-xl bg-card p-6 text-center text-ink-muted ring-1 ring-line dark:bg-stone-900 dark:ring-stone-800">
+                Click a module to open it.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

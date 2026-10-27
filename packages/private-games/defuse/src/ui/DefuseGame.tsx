@@ -682,23 +682,17 @@ function Result({
       <Panel
         className={cn('space-y-2 text-center', defused ? 'bg-success-soft' : 'bg-danger-soft')}
       >
-        {stamp ? (
-          <ProtectedImage
-            src={stamp}
-            alt={defused ? 'Defused' : 'Exploded'}
-            className="mx-auto h-24 w-auto"
-          />
-        ) : (
-          <p
-            className={cn(
-              'text-3xl font-black uppercase tracking-widest',
-              defused ? 'text-success-ink' : 'text-danger-ink',
-            )}
-            data-testid="outcome"
-          >
-            {defused ? 'Defused' : 'Exploded'}
-          </p>
-        )}
+        {stamp && <ProtectedImage src={stamp} alt="" className="mx-auto h-24 w-auto" />}
+        <p
+          className={cn(
+            'text-3xl font-black uppercase tracking-widest',
+            stamp && 'sr-only',
+            defused ? 'text-success-ink' : 'text-danger-ink',
+          )}
+          data-testid="outcome"
+        >
+          {defused ? 'Defused' : 'Exploded'}
+        </p>
         <p className="text-sm" data-testid="outcome-line">
           {defused
             ? `${nameOf(last?.defuser ?? null)} defused bomb ${b.no} with ${timerText(end.left)} left.`

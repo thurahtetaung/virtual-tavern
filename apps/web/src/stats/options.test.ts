@@ -80,8 +80,8 @@ describe('chart colours', () => {
 
   it('falls back to the neutral colour past the last slot', () => {
     expect(slotColor(light, 0)).toBe(light.series[0]);
-    expect(slotColor(light, 27)).toBe(light.series[27]);
-    expect(slotColor(light, 28)).toBe(light.other);
+    expect(slotColor(light, 28)).toBe(light.series[28]);
+    expect(slotColor(light, 29)).toBe(light.other);
     expect(slotColor(dark, undefined)).toBe(dark.other);
     expect(dark.series).not.toEqual(light.series);
   });

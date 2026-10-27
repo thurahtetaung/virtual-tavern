@@ -27,7 +27,10 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   const defuser = v.seats.find((p) => p.id === v.defuser)?.name ?? 'Someone';
   if (v.stage === 'bomb' && v.bomb)
     return (
-      <div className="mx-auto max-w-7xl space-y-3 p-4" data-testid="stage-bomb">
+      <div
+        className="mx-auto max-w-[calc((100vh-10rem)*2.2)] space-y-3 p-4 text-stone-100"
+        data-testid="stage-bomb"
+      >
         <p className="text-center text-xl font-semibold">
           💣 {defuser} is defusing. Experts: don’t look at this screen.
         </p>
@@ -64,7 +67,10 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   }
   const last = v.history.at(-1);
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-8 text-center text-2xl" data-testid="stage-lobby">
+    <div
+      className="mx-auto max-w-4xl space-y-4 p-8 text-center text-2xl text-stone-100"
+      data-testid="stage-lobby"
+    >
       {v.stage === 'result' && last ? (
         <p className="text-4xl font-black uppercase tracking-widest">
           {last.how === 'defused' ? 'Defused' : 'Exploded'}

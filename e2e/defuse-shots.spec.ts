@@ -117,27 +117,41 @@ for (const [label, viewport, colorScheme] of [
   });
 }
 
-for (const [label, viewport, colorScheme] of [
-  ['phone-light', { width: 390, height: 844 }, 'light'],
-  ['desktop-dark', { width: 1440, height: 900 }, 'dark'],
+// With the test seed, 11 modules draw a capacitor, 9 (three kinds left out) a gas vent, 7 a knob.
+for (const [label, viewport, colorScheme, out, count] of [
+  ['phone-light', { width: 390, height: 844 }, 'light', [], 11],
+  ['desktop-dark', { width: 1440, height: 900 }, 'dark', [], 11],
+  ['phone-light', { width: 390, height: 844 }, 'light', ['Wires', 'Keypad', 'Password'], 9],
+  ['desktop-dark', { width: 1440, height: 900 }, 'dark', ['Wires', 'Keypad', 'Password'], 9],
+  ['phone-light', { width: 390, height: 844 }, 'light', [], 7],
 ] as const) {
-  test(`defuse every module (${label})`, async ({ browser }) => {
+  test(`defuse every module (${label}, ${count}${out.length ? ', more' : ''})`, async ({
+    browser,
+  }) => {
     test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 300_000));
     const look: Look = { viewport, colorScheme, setup: localArt };
     await openBackroom(await visitor(browser, 'Admin'));
     const [ana] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
-    await ana.getByTestId('set-modules').selectOption('11');
+    await ana.getByTestId('set-modules').selectOption(String(count));
     await ana.getByTestId('set-needy').click();
+    if (out.length) {
+      await ana.getByText(/^Leave out up to 3 kinds/).click();
+      for (const name of out) await ana.getByRole('button', { name, exact: true }).click();
+    }
     await ana.getByTestId('start').click();
     await lightsOn(ana);
     await ana.waitForTimeout(500);
-    await ana.screenshot({ path: `${DIR}/${label}-30-front-11.png` });
+    await ana.screenshot({
+      path: `${DIR}/${label}-30-front-11-${count}${out.length ? '-more' : ''}.png`,
+    });
     for (const k of KINDS) {
       const slot = ana.locator(`[data-testid^="slot-"]:has([data-kind="${k}"])`);
       if (!(await slot.count())) continue;
       await open(ana, k);
       await ana.waitForTimeout(400);
-      await ana.screenshot({ path: `${DIR}/${label}-31-${k}.png` });
+      await ana.screenshot({
+        path: `${DIR}/${label}-31-${k}-${count}${out.length ? '-more' : ''}.png`,
+      });
     }
   });
 }

@@ -103,8 +103,13 @@ export async function defuseAll(p: Page) {
   zoom = await open(p, 'password');
   for (const [c, letter] of [...'GREAT'].entries()) {
     const shown = zoom.getByTestId(`pw-letter-${c}`);
-    for (let i = 0; i < 6 && (await shown.textContent()) !== letter; i++)
+    for (let i = 0; i < 6; i++) {
+      const before = (await shown.textContent()) ?? '';
+      if (before === letter) break;
       await zoom.getByTestId(`pw-down-${c}`).click();
+      // Wait for the server's answer before reading the dial again.
+      await expect(shown).not.toHaveText(before);
+    }
     await expect(shown).toHaveText(letter);
   }
   await zoom.getByTestId('pw-submit').click();
