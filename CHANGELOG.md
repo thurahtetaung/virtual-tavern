@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.2...v0.75.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the table screen plays the bomb, every bomb ends with its sound and music, Wire Sequence wires take taps along their length, and the lobby, manual and results fit a phone ([#446](https://github.com/thurahtetaung/virtual-tavern/issues/446)) ([4686ee1](https://github.com/thurahtetaung/virtual-tavern/commit/4686ee1b7e8ad9f52ce5b5c5aa7dbe23d94500de))
+
 ## [0.75.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.1...v0.75.2) (2026-10-27)
 
 
