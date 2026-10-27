@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.3...v0.76.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lobby:** fit every lobby on a phone for first-time hosts too ([#467](https://github.com/thurahtetaung/virtual-tavern/issues/467)) ([4f50598](https://github.com/thurahtetaung/virtual-tavern/commit/4f505989d6061d7992a251fd1e2f484ce1a8b60a))
+
 ## [0.76.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.2...v0.76.3) (2026-10-27)
 
 
