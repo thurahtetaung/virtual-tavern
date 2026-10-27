@@ -1,5 +1,6 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, NameDot, Superlatives, cn } from '@vt/ui';
+import { Button, EndTabs, NameDot, Superlatives, cn } from '@vt/ui';
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { claimLied, presidentLies } from '../logic/claims.ts';
 import type { HydraAction, HydraView, Truth } from '../logic/types.ts';
@@ -166,18 +167,21 @@ export function End({
   room,
   c,
   act,
+  timeline,
 }: {
   view: HydraView;
   room: GameRoomInfo;
   c: Content;
   act: Act;
+  /** Phones: the timeline, as one of the end's tabs (wider screens show it beside the end). */
+  timeline?: ReactNode;
 }) {
   const g = view.game!;
   const end = g.end!;
   const leader = Object.entries(end.roles).find(([, r]) => r === 'leader')?.[0];
   const won = view.role ? view.role.team === end.winner : null;
   return (
-    <div className="space-y-4" role="region" aria-label="Game over">
+    <div className="space-y-4 max-lg:space-y-3" role="region" aria-label="Game over">
       <div
         className={cn('hy-pop rounded-2xl px-4 py-4 text-center ring-1', TEAM_SOFT[end.winner])}
         data-testid="winner"
@@ -194,8 +198,27 @@ export function End({
           <p className="mt-1 text-sm font-semibold">{c.copy(won ? 'end.won' : 'end.lost')}</p>
         )}
       </div>
-      <RoleReveal view={view} c={c} />
-      <Superlatives lines={room.superlatives} />
+      {timeline ? (
+        // Phones: the roles, the awards, the truth and the timeline one at a time, with Play
+        // again always below, so the end fits the screen.
+        <EndTabs
+          tabs={[
+            { id: 'roles', label: '🎭 Roles', content: <RoleReveal view={view} c={c} /> },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            { id: 'truth', label: '📜 The truth', content: <TruthLog view={view} c={c} /> },
+            { id: 'timeline', label: '🕰️ Timeline', content: timeline },
+          ]}
+        />
+      ) : (
+        <>
+          <RoleReveal view={view} c={c} />
+          <Superlatives lines={room.superlatives} />
+        </>
+      )}
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
@@ -209,7 +232,7 @@ export function End({
         <p className="text-center text-sm">{waitingForHost(room, 'start the next game')}</p>
       )}
       <p className="text-center text-xs text-ink-muted">{c.copy('end.playAgain')}</p>
-      <TruthLog view={view} c={c} />
+      {!timeline && <TruthLog view={view} c={c} />}
       <CreditBlock c={c} />
     </div>
   );

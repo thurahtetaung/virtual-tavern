@@ -246,11 +246,13 @@ function LikeButton({
   liked,
   disabled,
   onToggle,
+  dense = false,
 }: {
   option: OptionView;
   liked: boolean;
   disabled: boolean;
   onToggle: () => void;
+  dense?: boolean;
 }) {
   return (
     <button
@@ -261,6 +263,7 @@ function LikeButton({
       onClick={onToggle}
       className={cn(
         'grid size-12 shrink-0 place-items-center rounded-xl text-xl ring-1 transition',
+        dense && 'max-sm:size-11',
         liked
           ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/20 dark:ring-amber-500'
           : 'bg-white ring-stone-300 grayscale hover:grayscale-0 dark:bg-stone-800 dark:ring-stone-600',
@@ -284,11 +287,12 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
       { type: 'like', option: o.index, on: !turn.myLikes.includes(o.index) },
       { anchor: 'sketchy-vote' },
     );
+  const dense = turn.options.length > 6;
   return (
     <div className="space-y-2">
       <ul
         aria-label="Titles"
-        className="grid gap-1.5 sm:grid-cols-2 sm:gap-2"
+        className={cn('grid gap-1.5 sm:grid-cols-2 sm:gap-2', dense && 'max-sm:gap-1')}
         data-testid="sketchy-board"
       >
         {turn.options.map((o) => {
@@ -302,6 +306,8 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                 onClick={() => void pick(o.index)}
                 className={cn(
                   'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-[15px] leading-tight font-semibold ring-1 transition sm:text-lg sm:leading-snug',
+                  // Many titles on a phone: rows as tight as a finger allows.
+                  dense && 'max-sm:min-h-11 max-sm:py-1.5',
                   o.mine
                     ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
                     : chosen
@@ -319,6 +325,7 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                   liked={turn.myLikes.includes(o.index)}
                   disabled={false}
                   onToggle={() => like(o)}
+                  dense={dense}
                 />
               )}
             </li>

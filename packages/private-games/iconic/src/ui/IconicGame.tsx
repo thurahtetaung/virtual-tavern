@@ -23,6 +23,7 @@ import {
   useAbandonGame,
   useConfirm,
   useSpectatorPrompt,
+  EndTabs,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -1358,33 +1359,55 @@ function End({
   const g = view.game!;
   const scoring = view.settings.scoring;
   return (
-    <Panel className="ic-reveal flex flex-col gap-3">
-      <Standings
-        entries={g.players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          score: scoring ? p.score : p.guessed,
-          note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
-        }))}
-        you={room.you}
-        {...(!scoring && { scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}` })}
+    <Panel className="ic-reveal flex flex-col gap-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={g.players.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  score: scoring ? p.score : p.guessed,
+                  note: `guessed ${p.guessed} · ${p.given} of theirs guessed`,
+                }))}
+                you={room.you}
+                {...(!scoring && {
+                  scoreLabel: (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`,
+                })}
+              />
+            ),
+          },
+          {
+            id: 'words',
+            label: '💬 Every word',
+            content: (
+              <section aria-label="Every word" className="flex flex-col gap-1 text-sm">
+                <h3 className="font-semibold">Every word</h3>
+                <ol className="flex flex-col gap-0.5">
+                  {g.history.map((h) => (
+                    <li key={h.no} className="flex flex-wrap gap-x-2">
+                      <span className="font-semibold">“{h.word}”</span>
+                      <span className="text-ink-muted dark:text-stone-400">
+                        {h.outcome === 'guessed'
+                          ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
+                          : `dropped (clues by ${andList(h.givers.map(name))})`}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+        ]}
       />
-      <section aria-label="Every word" className="flex flex-col gap-1 text-sm">
-        <h3 className="font-semibold">Every word</h3>
-        <ol className="flex flex-col gap-0.5">
-          {g.history.map((h) => (
-            <li key={h.no} className="flex flex-wrap gap-x-2">
-              <span className="font-semibold">“{h.word}”</span>
-              <span className="text-ink-muted dark:text-stone-400">
-                {h.outcome === 'guessed'
-                  ? `${name(h.guesser)} guessed it, clues by ${andList(h.givers.map(name))}`
-                  : `dropped (clues by ${andList(h.givers.map(name))})`}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

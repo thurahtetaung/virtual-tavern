@@ -1,5 +1,13 @@
 import type { GameRoomInfo, GameUiProps } from '@vt/game-sdk';
-import { Button, Countdown, Hint, cn, useSpectatorPrompt, useAbandonGame } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  Hint,
+  cn,
+  useSpectatorPrompt,
+  useAbandonGame,
+  useWideScreen,
+} from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { RoundTableAction, RoundTableView, Stage } from '../logic/types.ts';
 import {
@@ -158,6 +166,7 @@ export function RoundTableGame({
   const target = picked.key === stageKey ? picked.id : null;
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
   const [known, setKnown] = useState(false);
+  const wide = useWideScreen();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -231,26 +240,31 @@ export function RoundTableGame({
     <Seats view={view} room={room} pick={pick} marks={marks} onMark={cycleMark} showKnown={known} />
   );
   const stage = view.stage;
+  const quests = (
+    <QuestTrack
+      view={view}
+      onPick={
+        stage === 'propose' && g.targeting && g.leader === me && view.role
+          ? (slot) => void act({ type: 'target', slot })
+          : undefined
+      }
+    />
+  );
+  // Phones: the quest track is one of the end's tabs, so the end fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
 
   return (
     <div className="space-y-3 pb-20 lg:pb-0">
       <TopBar view={view} room={room} yourMove={yourMove} onRole={() => setRoleOpen(true)} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className={cn('min-w-0 space-y-3', onTab('table'))}>
-          {stage !== 'reveal' && (
-            <QuestTrack
-              view={view}
-              onPick={
-                stage === 'propose' && g.targeting && g.leader === me && view.role
-                  ? (slot) => void act({ type: 'target', slot })
-                  : undefined
-              }
-            />
-          )}
+          {stage !== 'reveal' && !phoneEnd && quests}
           {view.phase === 'playing' && stage !== 'reveal' && <VoteTrack view={view} />}
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {tip && <Tip onDismiss={() => dismiss(tip[0])}>{tip[1]}</Tip>}
-          {view.phase === 'over' && <End view={view} room={room} act={act} />}
+          {view.phase === 'over' && (
+            <End view={view} room={room} act={act} quests={phoneEnd ? quests : null} />
+          )}
           {view.phase === 'playing' && (
             <>
               <LatestNews view={view} />

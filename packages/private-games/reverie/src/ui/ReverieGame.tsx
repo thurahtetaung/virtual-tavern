@@ -9,6 +9,7 @@ import {
   PlayerDot,
   PlayerTag,
   RefusalSlot,
+  EndTabs,
   Standings,
   StickyBar,
   Superlatives,
@@ -20,6 +21,7 @@ import {
   LobbySettings,
   NameDot,
   timersLine,
+  useWideScreen,
 } from '@vt/ui';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
@@ -444,6 +446,7 @@ function Play({
   } | null>(null);
   const [picked, setPicked] = useState<number[]>([]);
   const [confirm, confirmDialog] = useConfirm();
+  const wide = useWideScreen();
   const [clue, setClue] = useState('');
   const [storyPick, setStoryPick] = useState<number | null>(null);
   // The hand bar is fixed over the page, so the page pads by the bar's measured height and
@@ -547,6 +550,106 @@ function Play({
     return undefined;
   })();
 
+  // Phones: the scores, the awards and the last turn one at a time, so the end fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
+  const seats = (
+    <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
+  );
+  const clueLine = turn?.clue && (
+    <p className="text-center text-lg">
+      <span className="text-ink-muted">{nameOf(view, turn.storyteller)} says: </span>
+      <b className="font-serif text-2xl">“{turn.clue}”</b>
+    </p>
+  );
+  const tableSection = turn && turn.table.length > 0 && (
+    <section aria-label="Table">
+      <h3 className="mb-2 font-bold">On the table</h3>
+      <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+        {turn.table.map((t, i) => (
+          <li key={i} className="space-y-1">
+            <Card
+              card={t.card}
+              label={i + 1}
+              selected={turn.myVote === i}
+              dimmed={canVote && t.mine}
+              onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
+              className={cn(t.isStory && 'ring-4 ring-success dark:ring-emerald-400')}
+            />
+            {turn.phase === 'reveal' && (
+              <div className="text-center text-xs leading-snug">
+                {t.isStory && (
+                  <p className="font-bold text-emerald-700 dark:text-emerald-400">📖 Story card</p>
+                )}
+                {t.owner && (
+                  <p className="flex min-w-0 items-center justify-center gap-1 font-semibold">
+                    <span className="min-w-0 truncate">{nameOf(view, t.owner)}</span>
+                    <NameDot name={nameOf(view, t.owner)} className="order-first" />
+                    {t.mine && <span className="shrink-0">(you)</span>}
+                  </p>
+                )}
+                {turn.myVote === i && (
+                  <p className="font-semibold text-amber-700 dark:text-amber-400">✋ Your vote</p>
+                )}
+                <p className="text-ink-muted">
+                  {t.voters.length > 0 ? 'Votes: ' : 'No votes'}
+                  {t.voters.map((v, n) => (
+                    <span key={v}>
+                      {n > 0 && ' '}
+                      <span className="inline-flex max-w-full items-center gap-0.5 align-middle">
+                        <span className="min-w-0 truncate">{nameOf(view, v)}</span>
+                        <NameDot name={nameOf(view, v)} className="order-first" />
+                      </span>
+                    </span>
+                  ))}
+                </p>
+              </div>
+            )}
+            {turn.phase !== 'reveal' && t.mine && (
+              <p className="text-center text-xs text-ink-muted">yours</p>
+            )}
+            {turn.phase !== 'reveal' && turn.myVote === i && (
+              <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
+                ✋ your vote
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+  const results = turn?.phase === 'reveal' && turn.results && (
+    <Panel className="space-y-1 text-sm">
+      <p className="font-bold" data-testid="reveal-headline">
+        {revealHeadline(view)}
+      </p>
+      {missedVoteNote(view) && (
+        <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
+      )}
+      <ul className="grid gap-x-4 sm:grid-cols-2">
+        {view.seats
+          .filter((s) => s.playing && turn.results![s.id])
+          .map((s) => {
+            const r = turn.results![s.id]!;
+            return (
+              <li key={s.id} className="flex justify-between gap-2">
+                <span className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="min-w-0">
+                    {s.name}
+                    {s.id === turn.storyteller && ' (storyteller)'}
+                    <span className="text-ink-muted"> · {pointsBreakdown(view, s.id)}</span>
+                  </span>
+                  <NameDot name={s.name} className="order-first" />
+                </span>
+                <b className={cn('shrink-0', r.points > 0 ? 'text-emerald-600' : 'text-ink-muted')}>
+                  +{r.points}
+                </b>
+              </li>
+            );
+          })}
+      </ul>
+    </Panel>
+  );
+
   return (
     <div
       className={cn('space-y-3', showHand && 'pb-44')}
@@ -574,24 +677,46 @@ function Play({
         </div>
       )}
 
-      {turn?.clue && (
-        <p className="text-center text-lg">
-          <span className="text-ink-muted">{nameOf(view, turn.storyteller)} says: </span>
-          <b className="font-serif text-2xl">“{turn.clue}”</b>
-        </p>
-      )}
+      {!phoneEnd && clueLine}
 
       {view.phase === 'over' && (
-        <Panel className="space-y-3 text-center">
+        <Panel className="space-y-3 text-center max-lg:p-3">
           {/* The status line above already says who won; this is the podium and the standings. */}
-          <Standings
-            entries={view.seats
-              .filter((s) => s.playing || s.score > 0)
-              .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-            you={me?.id}
-            className="text-left"
+          <EndTabs
+            tabs={[
+              {
+                id: 'scores',
+                label: '🏆 Scores',
+                content: (
+                  <Standings
+                    entries={view.seats
+                      .filter((s) => s.playing || s.score > 0)
+                      .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                    you={me?.id}
+                    className="text-left"
+                  />
+                ),
+              },
+              !!room.superlatives?.length && {
+                id: 'awards',
+                label: '✨ Awards',
+                content: <Superlatives lines={room.superlatives} />,
+              },
+              phoneEnd &&
+                !!turn && {
+                  id: 'turn',
+                  label: '🃏 Turn',
+                  content: (
+                    <div className="space-y-3 text-left">
+                      {clueLine}
+                      {tableSection}
+                      {results}
+                    </div>
+                  ),
+                },
+              phoneEnd && { id: 'players', label: '👥 Players', content: seats },
+            ]}
           />
-          <Superlatives lines={room.superlatives} />
           {room.isHost ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Button
@@ -663,104 +788,9 @@ function Play({
         </Panel>
       )}
 
-      {turn && turn.table.length > 0 && (
-        <section aria-label="Table">
-          <h3 className="mb-2 font-bold">On the table</h3>
-          <ul className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
-            {turn.table.map((t, i) => (
-              <li key={i} className="space-y-1">
-                <Card
-                  card={t.card}
-                  label={i + 1}
-                  selected={turn.myVote === i}
-                  dimmed={canVote && t.mine}
-                  onClick={() => setViewing({ card: t.card, from: 'table', index: i })}
-                  className={cn(t.isStory && 'ring-4 ring-success dark:ring-emerald-400')}
-                />
-                {turn.phase === 'reveal' && (
-                  <div className="text-center text-xs leading-snug">
-                    {t.isStory && (
-                      <p className="font-bold text-emerald-700 dark:text-emerald-400">
-                        📖 Story card
-                      </p>
-                    )}
-                    {t.owner && (
-                      <p className="flex min-w-0 items-center justify-center gap-1 font-semibold">
-                        <span className="min-w-0 truncate">{nameOf(view, t.owner)}</span>
-                        <NameDot name={nameOf(view, t.owner)} className="order-first" />
-                        {t.mine && <span className="shrink-0">(you)</span>}
-                      </p>
-                    )}
-                    {turn.myVote === i && (
-                      <p className="font-semibold text-amber-700 dark:text-amber-400">
-                        ✋ Your vote
-                      </p>
-                    )}
-                    <p className="text-ink-muted">
-                      {t.voters.length > 0 ? 'Votes: ' : 'No votes'}
-                      {t.voters.map((v, n) => (
-                        <span key={v}>
-                          {n > 0 && ' '}
-                          <span className="inline-flex max-w-full items-center gap-0.5 align-middle">
-                            <span className="min-w-0 truncate">{nameOf(view, v)}</span>
-                            <NameDot name={nameOf(view, v)} className="order-first" />
-                          </span>
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                )}
-                {turn.phase !== 'reveal' && t.mine && (
-                  <p className="text-center text-xs text-ink-muted">yours</p>
-                )}
-                {turn.phase !== 'reveal' && turn.myVote === i && (
-                  <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-400">
-                    ✋ your vote
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {!phoneEnd && tableSection}
 
-      {turn?.phase === 'reveal' && turn.results && (
-        <Panel className="space-y-1 text-sm">
-          <p className="font-bold" data-testid="reveal-headline">
-            {revealHeadline(view)}
-          </p>
-          {missedVoteNote(view) && (
-            <p className="text-stone-600 dark:text-stone-400">{missedVoteNote(view)}</p>
-          )}
-          <ul className="grid gap-x-4 sm:grid-cols-2">
-            {view.seats
-              .filter((s) => s.playing && turn.results![s.id])
-              .map((s) => {
-                const r = turn.results![s.id]!;
-                return (
-                  <li key={s.id} className="flex justify-between gap-2">
-                    <span className="flex min-w-0 items-baseline gap-1.5">
-                      <span className="min-w-0">
-                        {s.name}
-                        {s.id === turn.storyteller && ' (storyteller)'}
-                        <span className="text-ink-muted"> · {pointsBreakdown(view, s.id)}</span>
-                      </span>
-                      <NameDot name={s.name} className="order-first" />
-                    </span>
-                    <b
-                      className={cn(
-                        'shrink-0',
-                        r.points > 0 ? 'text-emerald-600' : 'text-ink-muted',
-                      )}
-                    >
-                      +{r.points}
-                    </b>
-                  </li>
-                );
-              })}
-          </ul>
-        </Panel>
-      )}
+      {!phoneEnd && results}
 
       {showHand && (
         <section
@@ -835,7 +865,7 @@ function Play({
         </section>
       )}
 
-      <Seats view={view} online={online} act={act} hostId={room.hostId} pickColor={pickColor} />
+      {!phoneEnd && seats}
       <CardViewer
         card={viewing?.card ?? null}
         title={

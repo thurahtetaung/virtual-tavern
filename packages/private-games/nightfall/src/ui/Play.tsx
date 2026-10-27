@@ -7,9 +7,11 @@ import {
   NameDot,
   Panel,
   Peek,
+  EndTabs,
   Superlatives,
   cn,
   useSecondsLeft,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useId, useState, useSyncExternalStore } from 'react';
 import { explainResult } from '../logic/explain.ts';
@@ -1649,6 +1651,7 @@ export function Reveal({
   const seatedNow = view.seats.filter((s) => s.playing).length;
   const kinds = reveal.center.map((c) => c.kind);
   const [tab, setTab] = useState<'cards' | 'night'>('cards');
+  const wide = useWideScreen();
   // Where a time loop began (the plan grows by a whole night after the ripple).
   const base = buildNightPlan(view.settings.roles).length;
   const loopFrom = reveal.plan.length > base + 1 ? base : -1;
@@ -1658,280 +1661,292 @@ export function Reveal({
     def: stepDef(id),
     entries: reveal.timeline.filter((t) => t.step === i),
   }));
+  const resultPanel = (
+    <Panel className="space-y-1" data-testid="teams">
+      {teamLines(result).map((t) => (
+        <p key={t.team} className="text-sm" data-testid="team-line" data-won={t.won}>
+          <span
+            className={cn(
+              'font-bold',
+              t.won ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400',
+            )}
+          >
+            {t.won ? '🏆' : '✗'}{' '}
+            {t.sideWon && !t.won
+              ? `${TEAM_LABEL[t.team]}: nobody on this side wins`
+              : teamOutcome(t.team, t.won)}
+          </span>{' '}
+          <span className="text-stone-600 dark:text-stone-400">
+            ({t.players.map(nameOf).join(', ')})
+            {t.exceptions.length > 0 &&
+              (t.won
+                ? ` · not ${t.exceptions.map(nameOf).join(', ')}`
+                : ` · ${t.exceptions.map(nameOf).join(', ')} won anyway`)}
+            {t.team === 'nostradamus' &&
+              t.players
+                .filter((p) => foretoldInCentre(result.identities[p]!))
+                .map(
+                  (p) =>
+                    ` · ${t.players.length > 1 ? `${nameOf(p)}: ` : ''}on the side of ${nostraTeamWords(result.identities[p]!.foretold!.team, deck)}, whose card ended in the centre, so nobody could win it`,
+                )}
+          </span>
+        </p>
+      ))}
+      {result.epic && (
+        <p className="text-sm font-semibold" data-testid="epic">
+          ⚔️ An epic battle: the most voted player dies (with at least 2 votes), and so does
+          everyone tied for second; if several tie for the most votes, only they die.
+        </p>
+      )}
+      {explained.tally.length > 0 && (
+        <p className="text-sm" data-testid="tally">
+          🗳️ Votes: {explained.tally.map((t) => `${nameOf(t.player)} ${t.votes}`).join(' · ')}
+          {(result.appVotes ?? 0) > 0 && ` · the app ${result.appVotes}`}
+        </p>
+      )}
+      <Announcements list={view.announcements} view={view} deck={deck} title="Said out loud" />
+      {result.deaths.length === 0 && <p className="text-sm font-semibold">Nobody died.</p>}
+      <ul className="space-y-1" data-testid="reasons">
+        {explained.reasons.map(({ text, death: d }, i) =>
+          d ? (
+            <li
+              key={i}
+              className="flex items-center gap-1 text-sm"
+              data-testid="death"
+              data-cause={d.cause}
+              data-place={d.place ?? ''}
+            >
+              {d.cause === 'vote' ? (
+                <Token
+                  src={deck.token(d.place === 2 ? 'most-votes-2' : 'most-votes-1')}
+                  emblem={d.place === 2 ? '🥈' : '☠️'}
+                  label={d.place ? `Most votes #${d.place}` : 'Most votes'}
+                  className="size-7"
+                />
+              ) : d.cause === 'love' ? (
+                <span aria-hidden>💔</span>
+              ) : (
+                <span aria-hidden>🏹</span>
+              )}
+              <span>{text}</span>
+            </li>
+          ) : (
+            <li key={i} className="flex items-center gap-1 text-sm">
+              <span aria-hidden>•</span>
+              <span>{text}</span>
+            </li>
+          ),
+        )}
+      </ul>
+      {explained.why.map((line) => (
+        <p key={line} className="text-sm font-semibold" data-testid="why">
+          {line}
+        </p>
+      ))}
+      {explained.personal.map((line) => (
+        <p key={line} className="text-sm" data-testid="personal">
+          {line}
+        </p>
+      ))}
+      {wide && <Superlatives lines={room.superlatives} className="mt-2" />}
+    </Panel>
+  );
+  const cardsPanel = (
+    <Panel className="space-y-2">
+      <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="reveal-legend">
+        The picture is the card in front of each player at the end. The chips read{' '}
+        <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
+        decides their team.
+      </p>
+      <ul className="space-y-2" aria-label="Everyone’s cards">
+        {view.table!.map((p) => {
+          const card = reveal.cards[p.id]!;
+          const id = result.identities[p.id]!;
+          const pm = reveal.marks?.[p.id];
+          const dead = result.deaths.some((d) => d.player === p.id);
+          const won = result.winners.includes(p.id);
+          return (
+            <li
+              key={p.id}
+              data-testid="reveal-player"
+              data-player={p.name}
+              data-final={id.role}
+              data-team={id.team}
+              data-mark={pm?.id ?? ''}
+              data-won={won}
+              className="flex items-start gap-2 rounded-lg bg-stone-100 px-2 py-1.5 text-sm dark:bg-stone-800/60"
+            >
+              <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1 font-semibold">
+                    <span className="truncate">
+                      {dead && '☠️ '}
+                      {p.name}
+                      {won && ' 🏆'}
+                    </span>
+                    <NameDot name={p.name} className="order-first" />
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-muted">
+                    {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1">
+                  <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
+                  <span aria-hidden>→</span>
+                  <RoleChip role={id.role} deck={deck} />
+                  {pm && !history[p.id] && <MarkChip mark={pm.id} deck={deck} doppel={pm.doppel} />}
+                  {card.artifact && <ArtifactChip id={card.artifact} deck={deck} />}
+                  {card.shield && <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />}
+                  {id.converted && (
+                    <Badge>
+                      turned {TEAM_LABEL[id.team].toLowerCase()} by a{' '}
+                      {id.converted === 'werewolf' ? 'werewolf' : 'vampire'}’s vote
+                    </Badge>
+                  )}
+                  {id.team !== ROLES[id.role].team && !id.converted && (
+                    <Badge>
+                      {id.foretold && id.team === 'nostradamus'
+                        ? foretoldBadge(id, deck, nameOf)
+                        : TEAM_LABEL[id.team]}
+                    </Badge>
+                  )}
+                  {id.alien && <Badge data-testid="alien-badge">{ALIEN_BADGE[id.alien]}</Badge>}
+                  {id.oracle && id.oracle !== 'alien-card' && id.oracle !== 'aliens-win-only' && (
+                    <Badge>
+                      {id.oracle === 'werewolf-card' ? 'a werewolf card' : 'a vampire card'}
+                    </Badge>
+                  )}
+                  {numbersInPlay(view.settings.roles) && <Num view={view} id={p.id} deck={deck} />}
+                </div>
+                {history[p.id] && (
+                  <p
+                    className="flex flex-wrap items-center gap-1 text-xs"
+                    data-testid="mark-history"
+                  >
+                    Marks:
+                    {history[p.id]!.map((m, k) => (
+                      <span key={k} className="inline-flex items-center gap-1">
+                        {k > 0 && <span aria-hidden>→</span>}
+                        <MarkChip
+                          mark={m}
+                          deck={deck}
+                          doppel={k === history[p.id]!.length - 1 && pm?.doppel}
+                          className="text-xs"
+                        />
+                      </span>
+                    ))}
+                  </p>
+                )}
+                {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
+                  <p className="text-xs text-ink-muted">Card at the end: {deck.name(card.role)}</p>
+                )}
+                {card.artifact && (
+                  <p className="text-xs text-ink-muted" data-testid="artifact-effect">
+                    {deck.artifactName(card.artifact)}: {artifactEffect(card.artifact, deck)}.
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <CentreCards reveal={reveal} deck={deck} />
+    </Panel>
+  );
+  const nightPanel = (
+    <Panel>
+      <ol className="space-y-2" aria-label="The night, step by step">
+        {steps.map(({ id, i, def, entries }) => (
+          <li key={i} className="text-sm" data-testid="timeline-step" data-step={id}>
+            {i === loopFrom && (
+              <p className="mt-3 font-bold" data-testid="time-loop">
+                🔁 The time loop: the night again
+              </p>
+            )}
+            <p className="font-semibold">
+              {i + 1}.{' '}
+              {id === 'dusk' ? (
+                'Dusk: everyone looks at their Mark'
+              ) : id === 'lovers' ? (
+                'The lovers'
+              ) : id === 'ripple' ? (
+                'The ripple'
+              ) : (
+                <>
+                  {id === 'werewolves' && 'The werewolves: '}
+                  {id === 'vampires' && 'The vampires: '}
+                  {id === 'aliens' && 'The aliens: '}
+                  {id === 'groob-zerb' && 'Groob and Zerb: '}
+                  {def.repeat && 'Again (the ripple): '}
+                  <RoleChip role={def.role} deck={deck} />
+                  {id === 'groob-zerb' && <RoleChip role="zerb" deck={deck} className="ml-1" />}
+                  {def.doppel && ' (the Doppelgänger’s copy)'}
+                </>
+              )}
+            </p>
+            <ul className="ml-4 list-disc">
+              {entries.map((e, k) => (
+                <li key={k}>
+                  <WithChips
+                    text={describeEntry(e, nameOf, deck, kinds, numberedOf(view))}
+                    roles={[...rolesIn(e.note), ...(e.moved ?? []).map((m) => m.role)]}
+                    marks={[
+                      ...(e.note.kind === 'nobody' || e.note.kind === 'announced'
+                        ? []
+                        : marksIn(e.note)),
+                      ...(e.marks ?? []).flatMap((m) => (m.mark ? [m.mark] : [])),
+                    ]}
+                    deck={deck}
+                  />
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+    </Panel>
+  );
   return (
     <div className="mx-auto max-w-3xl space-y-3">
       <Hint>{status.text}</Hint>
-      <Panel className="space-y-1" data-testid="teams">
-        {teamLines(result).map((t) => (
-          <p key={t.team} className="text-sm" data-testid="team-line" data-won={t.won}>
-            <span
-              className={cn(
-                'font-bold',
-                t.won
-                  ? 'text-emerald-700 dark:text-emerald-400'
-                  : 'text-rose-700 dark:text-rose-400',
-              )}
-            >
-              {t.won ? '🏆' : '✗'}{' '}
-              {t.sideWon && !t.won
-                ? `${TEAM_LABEL[t.team]}: nobody on this side wins`
-                : teamOutcome(t.team, t.won)}
-            </span>{' '}
-            <span className="text-stone-600 dark:text-stone-400">
-              ({t.players.map(nameOf).join(', ')})
-              {t.exceptions.length > 0 &&
-                (t.won
-                  ? ` · not ${t.exceptions.map(nameOf).join(', ')}`
-                  : ` · ${t.exceptions.map(nameOf).join(', ')} won anyway`)}
-              {t.team === 'nostradamus' &&
-                t.players
-                  .filter((p) => foretoldInCentre(result.identities[p]!))
-                  .map(
-                    (p) =>
-                      ` · ${t.players.length > 1 ? `${nameOf(p)}: ` : ''}on the side of ${nostraTeamWords(result.identities[p]!.foretold!.team, deck)}, whose card ended in the centre, so nobody could win it`,
-                  )}
-            </span>
-          </p>
-        ))}
-        {result.epic && (
-          <p className="text-sm font-semibold" data-testid="epic">
-            ⚔️ An epic battle: the most voted player dies (with at least 2 votes), and so does
-            everyone tied for second; if several tie for the most votes, only they die.
-          </p>
-        )}
-        {explained.tally.length > 0 && (
-          <p className="text-sm" data-testid="tally">
-            🗳️ Votes: {explained.tally.map((t) => `${nameOf(t.player)} ${t.votes}`).join(' · ')}
-            {(result.appVotes ?? 0) > 0 && ` · the app ${result.appVotes}`}
-          </p>
-        )}
-        <Announcements list={view.announcements} view={view} deck={deck} title="Said out loud" />
-        {result.deaths.length === 0 && <p className="text-sm font-semibold">Nobody died.</p>}
-        <ul className="space-y-1" data-testid="reasons">
-          {explained.reasons.map(({ text, death: d }, i) =>
-            d ? (
-              <li
-                key={i}
-                className="flex items-center gap-1 text-sm"
-                data-testid="death"
-                data-cause={d.cause}
-                data-place={d.place ?? ''}
+      {wide ? (
+        <>
+          {resultPanel}
+          <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
+            {(['cards', 'night'] as const).map((t) => (
+              <button
+                key={t}
+                role="tab"
+                type="button"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  'h-9 flex-1 rounded-lg text-sm font-semibold',
+                  tab === t && 'bg-white shadow dark:bg-stone-950',
+                )}
               >
-                {d.cause === 'vote' ? (
-                  <Token
-                    src={deck.token(d.place === 2 ? 'most-votes-2' : 'most-votes-1')}
-                    emblem={d.place === 2 ? '🥈' : '☠️'}
-                    label={d.place ? `Most votes #${d.place}` : 'Most votes'}
-                    className="size-7"
-                  />
-                ) : d.cause === 'love' ? (
-                  <span aria-hidden>💔</span>
-                ) : (
-                  <span aria-hidden>🏹</span>
-                )}
-                <span>{text}</span>
-              </li>
-            ) : (
-              <li key={i} className="flex items-center gap-1 text-sm">
-                <span aria-hidden>•</span>
-                <span>{text}</span>
-              </li>
-            ),
-          )}
-        </ul>
-        {explained.why.map((line) => (
-          <p key={line} className="text-sm font-semibold" data-testid="why">
-            {line}
-          </p>
-        ))}
-        {explained.personal.map((line) => (
-          <p key={line} className="text-sm" data-testid="personal">
-            {line}
-          </p>
-        ))}
-        <Superlatives lines={room.superlatives} className="mt-2" />
-      </Panel>
-      <div role="tablist" className="flex gap-1 rounded-xl bg-stone-200 p-1 dark:bg-stone-800">
-        {(['cards', 'night'] as const).map((t) => (
-          <button
-            key={t}
-            role="tab"
-            type="button"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
-            className={cn(
-              'h-9 flex-1 rounded-lg text-sm font-semibold',
-              tab === t && 'bg-white shadow dark:bg-stone-950',
-            )}
-          >
-            {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
-          </button>
-        ))}
-      </div>
-      {tab === 'cards' ? (
-        <Panel className="space-y-2">
-          <p className="text-xs text-stone-600 dark:text-stone-400" data-testid="reveal-legend">
-            The picture is the card in front of each player at the end. The chips read{' '}
-            <strong>dealt → ended as</strong>: the second one, after swaps, copies and artifacts,
-            decides their team.
-          </p>
-          <ul className="space-y-2" aria-label="Everyone’s cards">
-            {view.table!.map((p) => {
-              const card = reveal.cards[p.id]!;
-              const id = result.identities[p.id]!;
-              const pm = reveal.marks?.[p.id];
-              const dead = result.deaths.some((d) => d.player === p.id);
-              const won = result.winners.includes(p.id);
-              return (
-                <li
-                  key={p.id}
-                  data-testid="reveal-player"
-                  data-player={p.name}
-                  data-final={id.role}
-                  data-team={id.team}
-                  data-mark={pm?.id ?? ''}
-                  data-won={won}
-                  className="flex items-start gap-2 rounded-lg bg-stone-100 px-2 py-1.5 text-sm dark:bg-stone-800/60"
-                >
-                  <CardFace role={card.role} deck={deck} size="sm" className="w-12" />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="flex min-w-0 items-center gap-1 font-semibold">
-                        <span className="truncate">
-                          {dead && '☠️ '}
-                          {p.name}
-                          {won && ' 🏆'}
-                        </span>
-                        <NameDot name={p.name} className="order-first" />
-                      </span>
-                      <span className="shrink-0 text-xs text-ink-muted">
-                        {voteWords(result.votes[p.id], result.votes2?.[p.id], nameOf)}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <RoleChip role={reveal.deal.players[p.id]!} deck={deck} muted />
-                      <span aria-hidden>→</span>
-                      <RoleChip role={id.role} deck={deck} />
-                      {pm && !history[p.id] && (
-                        <MarkChip mark={pm.id} deck={deck} doppel={pm.doppel} />
-                      )}
-                      {card.artifact && <ArtifactChip id={card.artifact} deck={deck} />}
-                      {card.shield && (
-                        <Token src={deck.token('shield')} emblem="🛡️" label="Shielded" />
-                      )}
-                      {id.converted && (
-                        <Badge>
-                          turned {TEAM_LABEL[id.team].toLowerCase()} by a{' '}
-                          {id.converted === 'werewolf' ? 'werewolf' : 'vampire'}’s vote
-                        </Badge>
-                      )}
-                      {id.team !== ROLES[id.role].team && !id.converted && (
-                        <Badge>
-                          {id.foretold && id.team === 'nostradamus'
-                            ? foretoldBadge(id, deck, nameOf)
-                            : TEAM_LABEL[id.team]}
-                        </Badge>
-                      )}
-                      {id.alien && <Badge data-testid="alien-badge">{ALIEN_BADGE[id.alien]}</Badge>}
-                      {id.oracle &&
-                        id.oracle !== 'alien-card' &&
-                        id.oracle !== 'aliens-win-only' && (
-                          <Badge>
-                            {id.oracle === 'werewolf-card' ? 'a werewolf card' : 'a vampire card'}
-                          </Badge>
-                        )}
-                      {numbersInPlay(view.settings.roles) && (
-                        <Num view={view} id={p.id} deck={deck} />
-                      )}
-                    </div>
-                    {history[p.id] && (
-                      <p
-                        className="flex flex-wrap items-center gap-1 text-xs"
-                        data-testid="mark-history"
-                      >
-                        Marks:
-                        {history[p.id]!.map((m, k) => (
-                          <span key={k} className="inline-flex items-center gap-1">
-                            {k > 0 && <span aria-hidden>→</span>}
-                            <MarkChip
-                              mark={m}
-                              deck={deck}
-                              doppel={k === history[p.id]!.length - 1 && pm?.doppel}
-                              className="text-xs"
-                            />
-                          </span>
-                        ))}
-                      </p>
-                    )}
-                    {card.role !== id.role && card.role !== reveal.deal.players[p.id] && (
-                      <p className="text-xs text-ink-muted">
-                        Card at the end: {deck.name(card.role)}
-                      </p>
-                    )}
-                    {card.artifact && (
-                      <p className="text-xs text-ink-muted" data-testid="artifact-effect">
-                        {deck.artifactName(card.artifact)}: {artifactEffect(card.artifact, deck)}.
-                      </p>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <CentreCards reveal={reveal} deck={deck} />
-        </Panel>
-      ) : (
-        <Panel>
-          <ol className="space-y-2" aria-label="The night, step by step">
-            {steps.map(({ id, i, def, entries }) => (
-              <li key={i} className="text-sm" data-testid="timeline-step" data-step={id}>
-                {i === loopFrom && (
-                  <p className="mt-3 font-bold" data-testid="time-loop">
-                    🔁 The time loop: the night again
-                  </p>
-                )}
-                <p className="font-semibold">
-                  {i + 1}.{' '}
-                  {id === 'dusk' ? (
-                    'Dusk: everyone looks at their Mark'
-                  ) : id === 'lovers' ? (
-                    'The lovers'
-                  ) : id === 'ripple' ? (
-                    'The ripple'
-                  ) : (
-                    <>
-                      {id === 'werewolves' && 'The werewolves: '}
-                      {id === 'vampires' && 'The vampires: '}
-                      {id === 'aliens' && 'The aliens: '}
-                      {id === 'groob-zerb' && 'Groob and Zerb: '}
-                      {def.repeat && 'Again (the ripple): '}
-                      <RoleChip role={def.role} deck={deck} />
-                      {id === 'groob-zerb' && <RoleChip role="zerb" deck={deck} className="ml-1" />}
-                      {def.doppel && ' (the Doppelgänger’s copy)'}
-                    </>
-                  )}
-                </p>
-                <ul className="ml-4 list-disc">
-                  {entries.map((e, k) => (
-                    <li key={k}>
-                      <WithChips
-                        text={describeEntry(e, nameOf, deck, kinds, numberedOf(view))}
-                        roles={[...rolesIn(e.note), ...(e.moved ?? []).map((m) => m.role)]}
-                        marks={[
-                          ...(e.note.kind === 'nobody' || e.note.kind === 'announced'
-                            ? []
-                            : marksIn(e.note)),
-                          ...(e.marks ?? []).flatMap((m) => (m.mark ? [m.mark] : [])),
-                        ]}
-                        deck={deck}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </li>
+                {t === 'cards' ? 'Everyone’s cards' : 'The night, step by step'}
+              </button>
             ))}
-          </ol>
-        </Panel>
+          </div>
+          {tab === 'cards' ? cardsPanel : nightPanel}
+        </>
+      ) : (
+        // Phones: the result, the awards, everyone's cards and the night one at a time, with Play
+        // again always below, so the end fits the screen.
+        <EndTabs
+          tabs={[
+            { id: 'result', label: '🏆 Result', content: resultPanel },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            { id: 'cards', label: '🃏 Cards', content: cardsPanel },
+            { id: 'night', label: '🌙 Night', content: nightPanel },
+          ]}
+        />
       )}
       {room.isHost && blocker && seatedNow >= 3 && (
         <p className="text-sm" data-testid="play-again-blocker">

@@ -70,7 +70,8 @@ test('2 players on phones: a clue, a play, a discard, a reorder, misfires to the
     await expect(p.getByTestId('sf-reached')).toHaveText('The fireworks reached 1.');
   }
 
-  // The replay shows every hand face up, Ben's own included.
+  // The replay shows every hand face up, Ben's own included (on phones, the end's Replay tab).
+  await ben.getByTestId('end-tabs-replay').click();
   await expect(
     ben.getByTestId('sf-replay').locator('[data-suit="red"][data-rank="1"]'),
   ).toBeVisible();

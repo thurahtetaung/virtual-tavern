@@ -1,6 +1,6 @@
 import { type ActOptions, type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, NameDot, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
-import { type FormEvent, useState } from 'react';
+import { Button, EndTabs, NameDot, Panel, RefusalSlot, Standings, Superlatives, cn } from '@vt/ui';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import { awards, lieProblem, tidyLie } from '../logic/game.ts';
 import {
   AUTO_FOOL_POINTS,
@@ -475,51 +475,76 @@ export function Stage({ view, act, isHost, reveal }: StageProps) {
  * superlatives replace the built-in Best liar / Truth seeker cards (they are award rules there);
  * with recaps off, the cards stay.
  */
-export function GameOver({ view, act, isHost, room }: Props & { room: GameRoomInfo }) {
+export function GameOver({
+  view,
+  act,
+  isHost,
+  room,
+  players,
+}: Props & {
+  room: GameRoomInfo;
+  /** Phones: the players, as a tab beside the scores and awards. */
+  players?: ReactNode;
+}) {
   const ranked = view.scores;
   const { bestLiar, truthSeeker } = awards(ranked);
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const stat = (id: string) => ranked.find((s) => s.id === id)!;
   const times = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   return (
-    <Panel className="space-y-4 text-center">
+    <Panel className="space-y-4 text-center max-lg:space-y-3 max-lg:p-3">
       {view.endReason === 'too-few' && (
         <p className="font-semibold">Too few players left: final scores so far.</p>
       )}
-      <Standings
-        entries={ranked.map((s) => ({
-          id: s.id,
-          name: s.left ? `${s.name} (left)` : s.name,
-          score: s.score,
-        }))}
-        you={view.me?.id}
-        scoreLabel={(n) => `${points(n)} pts`}
-        className="text-left"
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={ranked.map((s) => ({
+                  id: s.id,
+                  name: s.left ? `${s.name} (left)` : s.name,
+                  score: s.score,
+                }))}
+                you={view.me?.id}
+                scoreLabel={(n) => `${points(n)} pts`}
+                className="text-left"
+              />
+            ),
+          },
+          {
+            id: 'awards',
+            label: '✨ Awards',
+            content: room.superlatives?.length ? (
+              <Superlatives lines={room.superlatives} />
+            ) : (
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
+                  <dt className="font-semibold">🎭 Best liar</dt>
+                  <dd>
+                    {bestLiar.length > 0
+                      ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
+                      : 'Nobody fooled anyone!'}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-success-soft px-3 py-2 dark:bg-emerald-500/10">
+                  <dt className="font-semibold">🔎 Truth seeker</dt>
+                  <dd>
+                    {truthSeeker.length > 0
+                      ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
+                      : 'Nobody found the truth!'}
+                  </dd>
+                </div>
+              </dl>
+            ),
+          },
+          !!players && { id: 'players', label: '👥 Players', content: players },
+        ]}
       />
-      {room.superlatives?.length ? (
-        <Superlatives lines={room.superlatives} />
-      ) : (
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
-            <dt className="font-semibold">🎭 Best liar</dt>
-            <dd>
-              {bestLiar.length > 0
-                ? `${names(bestLiar)}: fooled ${times(stat(bestLiar[0]!).fooled, 'player', 'players')}`
-                : 'Nobody fooled anyone!'}
-            </dd>
-          </div>
-          <div className="rounded-xl bg-success-soft px-3 py-2 dark:bg-emerald-500/10">
-            <dt className="font-semibold">🔎 Truth seeker</dt>
-            <dd>
-              {truthSeeker.length > 0
-                ? `${names(truthSeeker)}: found it ${times(stat(truthSeeker[0]!).truths, 'time', 'times')}`
-                : 'Nobody found the truth!'}
-            </dd>
-          </div>
-        </dl>
-      )}
       {isHost ? (
-        <div className="grid gap-2 sm:flex sm:justify-center">
+        <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>

@@ -15,8 +15,10 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
+  EndTabs,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { discName, fillNames } from '../logic/names.ts';
 import { MAX_PLAYERS, MIN_PLAYERS, type ThornsAction, type ThornsView } from '../logic/types.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
@@ -56,6 +58,9 @@ export function ThornsGame({
   }, [setYourMove, tabAlert]);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const wide = useWideScreen();
+  const phoneEnd = view.phase === 'over' && !wide;
+  const table = <Table view={view} room={room} act={act} art={art} name={name} />;
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -78,8 +83,17 @@ export function ThornsGame({
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {view.phase === 'playing' && <Tips art={art} />}
-          {view.phase === 'over' && <End view={view} room={room} act={act} art={art} name={name} />}
-          <Table view={view} room={room} act={act} art={art} name={name} />
+          {view.phase === 'over' && (
+            <End
+              view={view}
+              room={room}
+              act={act}
+              art={art}
+              name={name}
+              table={phoneEnd ? table : null}
+            />
+          )}
+          {!phoneEnd && table}
         </>
       )}
     </div>
@@ -300,12 +314,15 @@ function End({
   act,
   art,
   name,
+  table,
 }: {
   view: ThornsView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   const reveal = new Map((view.reveal ?? []).map((r) => [r.id, r]));
@@ -316,49 +333,70 @@ function End({
       : 'lost nothing';
   };
   return (
-    <Panel className="th-rise flex flex-col gap-3">
-      <Standings
-        entries={g.players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          // Nobody but the winner can have two points, so the winner always tops the podium.
-          score: g.winners.includes(p.id) ? 2 : p.points,
-          note: `${p.points} ${p.points === 1 ? 'point' : 'points'} · ${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
-        }))}
-        you={room.you}
-        scoreLabel={(n) => (n === 2 ? 'winner' : `${n} ${n === 1 ? 'point' : 'points'}`)}
+    <Panel className="th-rise flex flex-col gap-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={g.players.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  // Nobody but the winner can have two points, so the winner always tops the podium.
+                  score: g.winners.includes(p.id) ? 2 : p.points,
+                  note: `${p.points} ${p.points === 1 ? 'point' : 'points'} · ${p.discs} ${p.discs === 1 ? 'disc' : 'discs'} left · ${lostLine(p.id)}`,
+                }))}
+                you={room.you}
+                scoreLabel={(n) => (n === 2 ? 'winner' : `${n} ${n === 1 ? 'point' : 'points'}`)}
+              />
+            ),
+          },
+          {
+            id: 'stacks',
+            label: '🌹 Stacks',
+            content: (
+              <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
+                <h3 className="font-semibold">What everyone had down</h3>
+                <ul className="flex flex-col gap-1">
+                  {g.players.map((p, seat) => {
+                    const stack = reveal.get(p.id)?.stack ?? [];
+                    return (
+                      <li key={p.id} className="flex items-center gap-2">
+                        <span className="w-24 truncate">{name(p.id)}</span>
+                        <span className="flex items-center">
+                          {stack.length === 0 ? (
+                            <span className="text-ink-muted dark:text-stone-400">—</span>
+                          ) : (
+                            stack.map((d, i) => (
+                              <DiscView
+                                key={i}
+                                face={d}
+                                seat={seat}
+                                color={room.players.find((x) => x.id === p.id)?.color}
+                                art={art}
+                                size={28}
+                                className={i > 0 ? '-ml-2' : undefined}
+                              />
+                            ))
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && { id: 'table', label: '🪑 Table', content: table },
+        ]}
       />
-      <section aria-label="Every stack" className="flex flex-col gap-1 text-sm">
-        <h3 className="font-semibold">What everyone had down</h3>
-        <ul className="flex flex-col gap-1">
-          {g.players.map((p, seat) => {
-            const stack = reveal.get(p.id)?.stack ?? [];
-            return (
-              <li key={p.id} className="flex items-center gap-2">
-                <span className="w-24 truncate">{name(p.id)}</span>
-                <span className="flex items-center">
-                  {stack.length === 0 ? (
-                    <span className="text-ink-muted dark:text-stone-400">—</span>
-                  ) : (
-                    stack.map((d, i) => (
-                      <DiscView
-                        key={i}
-                        face={d}
-                        seat={seat}
-                        color={room.players.find((x) => x.id === p.id)?.color}
-                        art={art}
-                        size={28}
-                        className={i > 0 ? '-ml-2' : undefined}
-                      />
-                    ))
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

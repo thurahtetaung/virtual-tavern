@@ -1,5 +1,5 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
-import { Button, Panel, Superlatives, cn } from '@vt/ui';
+import { Button, EndTabs, Panel, Superlatives, cn, useWideScreen } from '@vt/ui';
 import { useState } from 'react';
 import { PILLARS } from '../logic/cards.ts';
 import type { SeanceAction, SeanceView } from '../logic/types.ts';
@@ -161,11 +161,23 @@ export function EndScreen({
   const g = view.game!;
   const r = g.result!;
   const breaker = r.tieBreaker ? psychicByColor(g, r.tieBreaker) : null;
+  const wide = useWideScreen();
+  const shared = g.final && g.final.sharedCount > 0 && (
+    <Panel className="space-y-3 p-3">
+      <SharedRow g={g} content={content} tags />
+      <Lineup view={view} act={act} content={content} />
+    </Panel>
+  );
+  const meant = (
+    <Panel className="p-3">
+      <GhostMeant view={view} content={content} />
+    </Panel>
+  );
   return (
     <div className="mx-auto max-w-3xl space-y-3">
       <Panel
         className={cn(
-          'space-y-2 text-center',
+          'space-y-2 text-center max-lg:p-3',
           r.win
             ? 'bg-special-soft ring-special-line dark:ring-violet-300 dark:bg-violet-500/10'
             : 'bg-stone-100 dark:bg-stone-900',
@@ -183,7 +195,7 @@ export function EndScreen({
             The vote was tied: {breaker.name}, furthest along the track, decided it.
           </p>
         )}
-        <Superlatives lines={room.superlatives} />
+        {wide && <Superlatives lines={room.superlatives} />}
         {!room.isHost && (
           <p className="text-sm text-ink-muted">{waitingForHost(room, 'start another game')}</p>
         )}
@@ -202,15 +214,26 @@ export function EndScreen({
           </div>
         )}
       </Panel>
-      {g.final && g.final.sharedCount > 0 && (
-        <Panel className="space-y-3 p-3">
-          <SharedRow g={g} content={content} tags />
-          <Lineup view={view} act={act} content={content} />
-        </Panel>
+      {wide ? (
+        <>
+          {shared}
+          {meant}
+        </>
+      ) : (
+        // Phones: the awards, the final line-up and what the ghost meant one at a time, so the
+        // end fits the screen.
+        <EndTabs
+          tabs={[
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            !!shared && { id: 'final', label: '🗳️ The final', content: shared },
+            { id: 'meant', label: '👻 What it meant', content: meant },
+          ]}
+        />
       )}
-      <Panel className="p-3">
-        <GhostMeant view={view} content={content} />
-      </Panel>
     </div>
   );
 }

@@ -42,7 +42,8 @@ export function Seats({
     <section aria-label="Players" data-testid="seats">
       <ol
         ref={strip}
-        className="flex snap-x gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden"
+        // relative: the seats' screen-reader labels stay inside the strip, never widening the page.
+        className="relative flex snap-x gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
         {g.players.map((p, i) => {
           const online = room.players.find((r) => r.id === p.id)?.connected ?? false;

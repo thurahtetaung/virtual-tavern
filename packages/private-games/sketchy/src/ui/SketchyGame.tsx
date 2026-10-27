@@ -17,7 +17,15 @@ import { MAX_PLAYERS, type SketchyAction, type SketchyView } from '../logic/type
 import type { Act } from './act.ts';
 import { Draw } from './Draw.tsx';
 import { Lobby } from './Lobby.tsx';
-import { anyMissing, missingIds, nameOf, points, startBlocker, statusFor } from './status.ts';
+import {
+  anyMissing,
+  meMissing,
+  missingIds,
+  nameOf,
+  points,
+  startBlocker,
+  statusFor,
+} from './status.ts';
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 import { TurnStage, useReveal } from './Turn.tsx';
 import { useManifest } from './assets.ts';
@@ -94,6 +102,8 @@ function ContinueWithout({
   const left = useSecondsLeft(g?.deadline ?? null, room.clockOffset);
   if (!room.isHost || view.phase !== 'playing' || !g || g.stage === 'reveal' || !anyMissing(view))
     return null;
+  // The host who is still to draw, write or pick just does it: never a button to skip themself.
+  if (meMissing(view)) return null;
   const missing = missingIds(view);
   const timeUp = left === 0;
   if (!timeUp && !(missing.length > 0 && missing.every((id) => !online(id)))) return null;
@@ -102,13 +112,20 @@ function ContinueWithout({
       ? 'the players still missing'
       : listNames(missing.map((id) => nameOf(view, id)));
   return (
-    <Panel className="space-y-2 text-center" data-testid="continue-without">
-      <p className="text-sm">
+    <Panel
+      className="space-y-2 text-center max-lg:space-y-1.5 max-lg:p-3"
+      data-testid="continue-without"
+    >
+      <p className="text-sm max-lg:text-xs">
         {timeUp ? '⏰ Time’s up. ' : '📴 '}Still waiting for {names}. Continue, and the game moves
         on without them.
       </p>
-      <Button size="lg" className="w-full" onClick={() => void act({ type: 'continue-without' })}>
-        Continue without {names}
+      <Button
+        size="lg"
+        className="w-full max-lg:h-11"
+        onClick={() => void act({ type: 'continue-without' })}
+      >
+        <span className="truncate">Continue without {names}</span>
       </Button>
     </Panel>
   );

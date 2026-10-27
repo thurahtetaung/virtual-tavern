@@ -50,10 +50,15 @@ test('a 2-player game on phones: the pick sheet, the marker, an Ouch, the wall-t
   await place(ana, 2);
 
   // The round's wall-tiling ends the game: Hana's top row is full.
-  for (const p of [hana, ana]) await expect(p.getByTestId('mo-tiling')).toBeVisible();
   await expect(hana.getByText('You win with 2 points!')).toBeVisible();
   await expect(ana.getByText('Hana wins with 2 points!')).toBeVisible();
   await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+  // Phones show the end one part at a time (the walls are a tab), and all of it fits the screen.
+  await expect.poll(() => hana.evaluate(() => document.documentElement.scrollHeight)).toBe(844);
+  for (const p of [hana, ana]) {
+    await p.getByTestId('end-tabs-walls').click();
+    await expect(p.getByTestId('mo-tiling')).toBeVisible();
+  }
   await expect(hana.getByTestId('mo-bonus').first()).toContainText('Rows 1 × 2', {
     timeout: 10_000,
   });
@@ -91,6 +96,7 @@ test('the grey wall: full lines wait for their owner to pick a lit space, and a 
   await ana.getByTestId('mo-wall-place').click();
 
   // Hana's blacks fall: the tiling says why, and her floor costs the spilled blue and four blacks.
+  for (const p of [hana, ana]) await p.getByTestId('end-tabs-walls').click();
   await expect(hana.getByTestId('mo-tiling-note').first()).toContainText(
     'Line 4 had no legal wall space: its tiles fell to the floor.',
     { timeout: 10_000 },
@@ -139,6 +145,7 @@ test('jokers: a joker alone fills a line and goes to the wall in its place; real
 
   // The joker takes the row's last space: the row is full, but it is no colour; yellow is.
   await expect(hana.getByText('You win with 18 points!')).toBeVisible();
+  await hana.getByTestId('end-tabs-walls').click();
   await expect(hana.getByRole('img', { name: 'joker, row 1' }).first()).toBeVisible();
   await expect(hana.getByTestId('mo-bonus').first()).toContainText('Colours 1 × 10', {
     timeout: 10_000,
@@ -178,6 +185,7 @@ test('special factories: leftovers sent to a neighbour, and a floor shield', asy
   await take(ana, 'yellow', 'centre', 3);
 
   await expect(hana.getByText('You win with 2 points!')).toBeVisible();
+  await hana.getByTestId('end-tabs-walls').click();
   await expect(hana.getByTestId('mo-tiling-note').first()).toContainText(
     'The shield caught a yellow: no cost.',
     { timeout: 10_000 },

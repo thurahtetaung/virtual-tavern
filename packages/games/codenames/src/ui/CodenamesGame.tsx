@@ -2,6 +2,7 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndTabs,
   Hint,
   Panel,
   RefusalSlot,
@@ -15,6 +16,7 @@ import {
   LobbySettings,
   wordListsLine,
   timersLine,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useState } from 'react';
 import type { CodenamesAction, CodenamesView } from '../logic/types.ts';
@@ -187,6 +189,7 @@ function InGame({
   };
 
   const result = latestResult(view);
+  const wide = useWideScreen();
   // The banner also says when the timer, a forfeit or the host ended a turn.
 
   const guess = async () => {
@@ -195,6 +198,87 @@ function InGame({
     setSelected(null);
     await act({ type: 'guess', card, seen: view.log.length });
   };
+
+  const endButtons = room.isHost ? (
+    <div className="flex flex-wrap justify-center gap-2">
+      <Button size="lg" onClick={() => void act({ type: 'start' })}>
+        Play again
+      </Button>
+      <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+        Change setup
+      </Button>
+    </div>
+  ) : (
+    <p>{waitingForHost(room, 'start the next game')}</p>
+  );
+  const winner = view.winner && (
+    <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner])}>
+      🏆 {TEAM_LABEL[view.winner]} team wins!
+    </p>
+  );
+  const yourTeam = me?.team && (
+    <p className="font-semibold">
+      {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
+    </p>
+  );
+  const overPanel = (
+    <Panel className="space-y-3 text-center">
+      {winner}
+      <p>{winHow(view)}.</p>
+      {yourTeam}
+      <p className="text-sm text-ink-muted">The full key is shown on the board below.</p>
+      <Superlatives lines={room.superlatives} />
+      {endButtons}
+    </Panel>
+  );
+  // Phones: the result and Play again, then the board, awards, log and teams one at a time, so
+  // the end fits the screen.
+  const phoneEnd = (
+    <>
+      <Panel className="space-y-2 text-center max-lg:p-3">
+        {winner}
+        <p className="text-sm">
+          {winHow(view)}.{' '}
+          {me?.team && (me.team === view.winner ? 'Your team won!' : 'Your team lost this time.')}
+        </p>
+        {endButtons}
+      </Panel>
+      <EndTabs
+        tabs={[
+          {
+            id: 'board',
+            label: '🗝️ Key',
+            content: (
+              <Board view={view} selected={null} lastGuessed={result?.card ?? null} onPick={null} />
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          {
+            id: 'log',
+            label: '📜 Log',
+            content: (
+              <Panel className="max-h-[22rem] overflow-y-auto">
+                <GameLog view={view} />
+              </Panel>
+            ),
+          },
+          {
+            id: 'teams',
+            label: '👥 Teams',
+            content: (
+              <Panel className="max-h-[22rem] overflow-y-auto">
+                <Teams view={view} online={online} act={act} hostId={room.hostId} compact />
+              </Panel>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
@@ -272,43 +356,15 @@ function InGame({
         )}
 
         {/* Above the board, so the result and Play again need no scroll past the key. */}
-        {view.phase === 'over' && (
-          <Panel className="space-y-3 text-center">
-            <p className={cn('text-2xl font-bold', TEAM_TEXT[view.winner!])}>
-              🏆 {TEAM_LABEL[view.winner!]} team wins!
-            </p>
-            <p>{winHow(view)}.</p>
-            {me?.team && (
-              <p className="font-semibold">
-                {me.team === view.winner ? 'Your team won!' : 'Your team lost this time.'}
-              </p>
-            )}
-            <p className="text-sm text-ink-muted">The full key is shown on the board below.</p>
-            <Superlatives lines={room.superlatives} />
-            {room.isHost ? (
-              <div className="flex flex-wrap justify-center gap-2">
-                <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                  Play again
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={() => void act({ type: 'back-to-lobby' })}
-                >
-                  Change setup
-                </Button>
-              </div>
-            ) : (
-              <p>{waitingForHost(room, 'start the next game')}</p>
-            )}
-          </Panel>
+        {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
+        {(wide || view.phase !== 'over') && (
+          <Board
+            view={view}
+            selected={selected}
+            lastGuessed={result?.card ?? null}
+            onPick={canGuess ? pick : null}
+          />
         )}
-        <Board
-          view={view}
-          selected={selected}
-          lastGuessed={result?.card ?? null}
-          onPick={canGuess ? pick : null}
-        />
 
         {canClue && (
           <Panel>
@@ -342,7 +398,7 @@ function InGame({
         )}
       </div>
 
-      <aside className="space-y-4">
+      <aside className={cn('space-y-4', !wide && view.phase === 'over' && 'hidden')}>
         <Panel>
           <h3 className="mb-2 font-bold">Game log</h3>
           <GameLog view={view} />

@@ -130,6 +130,8 @@ test('2 players on phones: a miso clash, a menu, a special order and three round
     if (round < 3) await readyAll(pages);
   }
   await expect(ana.getByRole('heading', { name: 'Final standings' })).toBeVisible();
+  // Phones show the end one part at a time: the desserts are a tab.
+  await ben.getByTestId('end-tabs-desserts').click();
   await expect(ben.getByText('Desserts at the end')).toBeVisible();
   await ana.getByRole('button', { name: 'Play again' }).click();
   await pickTime(ben, 1, 1);

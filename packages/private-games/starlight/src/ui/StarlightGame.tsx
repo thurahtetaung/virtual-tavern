@@ -14,6 +14,7 @@ import {
   RefusalSlot,
   Standings,
   StickyBar,
+  EndTabs,
   Superlatives,
   TimerSettings,
   WordListPicker,
@@ -23,8 +24,9 @@ import {
   useConfirm,
   useSpectatorPrompt,
   wordListsLine,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   CARD_SETS,
   COLUMNS,
@@ -361,50 +363,12 @@ function Play({
   })();
 
   const tokens = useTokens();
+  const wide = useWideScreen();
   const stars = <StarBoard view={view} room={room} online={online} pickColor={pickColor} />;
-
-  return (
-    <div className="space-y-3">
-      {confirmDialog}
-      <header className="space-y-1">
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span className="flex items-center gap-1">
-            {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} ·{' '}
-            <Token tokens={tokens} src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />{' '}
-            First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
-          </span>
-          {view.phase === 'playing' && (
-            <Countdown
-              deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
-              clockOffset={room.clockOffset}
-              label={STEP_TIMER[r.stage]?.label}
-              soft={view.settings.timerMode !== 'strict'}
-              expiredHint="Just a reminder: the table waits."
-              atZero={STEP_TIMER[r.stage]?.atZero}
-            />
-          )}
-        </div>
-        <p className="text-center" data-testid="starlight-word">
-          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
-            The word
-          </span>
-          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
-        </p>
-      </header>
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-      {canMark && (
-        <Tip id="marking">
-          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
-        </Tip>
-      )}
-      {isScout && (
-        <Tip id="scouting">
-          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
-        </Tip>
-      )}
-
-      {view.phase === 'over' && <Final view={view} room={room} act={act} confirm={confirm} />}
-
+  // Phones: the board, the stars and the last round are a tab of the end, so it fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
+  const board = (
+    <>
       {last && r.stage !== 'mark' && (
         <p
           role="status"
@@ -508,6 +472,60 @@ function Play({
       </div>
 
       {r.stage === 'done' && r.results && <RoundResults view={view} room={room} act={act} />}
+    </>
+  );
+
+  return (
+    <div className="space-y-3">
+      {confirmDialog}
+      <header className="space-y-1">
+        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+          <span className="flex items-center gap-1">
+            {view.phase === 'over' ? 'Game over' : `Round ${roundName(r.no)} of ${ROUNDS}`} ·{' '}
+            <Token tokens={tokens} src={firstScoutArt(tokens)} emoji="🔭" alt="First Scout pawn" />{' '}
+            First Scout: {r.first === you ? 'you' : nameOf(view, r.first)}
+          </span>
+          {view.phase === 'playing' && (
+            <Countdown
+              deadline={r.stage === 'done' || (r.stage === 'mark' && locked) ? null : r.deadline}
+              clockOffset={room.clockOffset}
+              label={STEP_TIMER[r.stage]?.label}
+              soft={view.settings.timerMode !== 'strict'}
+              expiredHint="Just a reminder: the table waits."
+              atZero={STEP_TIMER[r.stage]?.atZero}
+            />
+          )}
+        </div>
+        <p className="text-center" data-testid="starlight-word">
+          <span className="block text-xs font-semibold tracking-wide text-ink-muted uppercase">
+            The word
+          </span>
+          <b className="font-serif text-3xl sm:text-4xl">{r.word}</b>
+        </p>
+      </header>
+      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+      {canMark && (
+        <Tip id="marking">
+          Tap a picture to mark it on your secret slate; tap again to unmark. 🔍 shows it full size.
+        </Tip>
+      )}
+      {isScout && (
+        <Tip id="scouting">
+          Your unshown marks glow. Tap one, then Show it. If nobody else marked it, you fall.
+        </Tip>
+      )}
+
+      {view.phase === 'over' && (
+        <Final
+          view={view}
+          room={room}
+          act={act}
+          confirm={confirm}
+          board={phoneEnd && <div className="space-y-3">{board}</div>}
+        />
+      )}
+
+      {!phoneEnd && board}
 
       <Modal
         open={viewing !== null}
@@ -876,24 +894,42 @@ function Final({
   room,
   act,
   confirm,
+  board,
 }: {
   view: StarlightView;
   room: Room;
   act: Act;
   confirm: ReturnType<typeof useConfirm>[0];
+  /** Phones: the board, the stars and the last round, as a tab of the end. */
+  board?: ReactNode;
 }) {
   const you = view.me?.id;
   return (
-    <Panel>
+    <Panel className="max-lg:p-3">
       <div className="space-y-3 text-center">
-        <Standings
-          entries={view.seats
-            .filter((s) => s.playing || s.score > 0)
-            .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
-          you={you}
-          className="text-left"
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={view.seats
+                    .filter((s) => s.playing || s.score > 0)
+                    .map((s) => ({ id: s.id, name: s.name, score: s.score }))}
+                  you={you}
+                  className="text-left"
+                />
+              ),
+            },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            !!board && { id: 'board', label: '🖼️ Last round', content: board },
+          ]}
         />
-        <Superlatives lines={room.superlatives} />
         {room.isHost ? (
           <div className="flex flex-wrap justify-center gap-2">
             <Button

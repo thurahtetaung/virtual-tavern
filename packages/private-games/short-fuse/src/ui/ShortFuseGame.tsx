@@ -11,6 +11,7 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  useWideScreen,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CARDS, type CardType, NAMEABLE, isCat } from '../logic/cards.ts';
@@ -482,6 +483,7 @@ export function ShortFuseGame({
   const pileVersion = g?.pile.version ?? 0;
   const lastKind = g?.log.at(-1)?.kind;
   const [shuffle, setShuffle] = useState({ v: pileVersion, on: false });
+  const wide = useWideScreen();
   if (shuffle.v !== pileVersion) setShuffle({ v: pileVersion, on: lastKind === 'shuffle' });
   const shuffling = shuffle.on;
   useEffect(() => {
@@ -850,6 +852,15 @@ export function ShortFuseGame({
     )
   );
 
+  const seats = (
+    <Seats
+      view={view}
+      room={room}
+      c={c}
+      targets={targets}
+      onPick={(id) => play(id, picking?.named)}
+    />
+  );
   return (
     <div className="space-y-2 pb-4" data-testid="short-fuse">
       <ShortFuseStyles />
@@ -873,16 +884,10 @@ export function ShortFuseGame({
         </button>
       </div>
 
-      <Seats
-        view={view}
-        room={room}
-        c={c}
-        targets={targets}
-        onPick={(id) => play(id, picking?.named)}
-      />
+      {!(over && !wide) && seats}
 
       {over ? (
-        <End view={view} room={room} c={c} act={act} />
+        <End view={view} room={room} c={c} act={act} seats={!wide && seats} />
       ) : (
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4">
           <div className="space-y-2">

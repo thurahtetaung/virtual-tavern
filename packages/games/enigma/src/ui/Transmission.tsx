@@ -446,9 +446,12 @@ function SkipOffline({
           key={id}
           size="sm"
           variant="secondary"
+          // One line however long the name: the name gives way.
+          className="max-w-full gap-0"
           onClick={() => void act({ type: 'skip-voter', team: tx.team, player: id })}
         >
-          Skip {nameOf(view, id)}'s vote (offline)
+          <span className="truncate">Skip {nameOf(view, id)}</span>
+          <span className="shrink-0">'s vote (offline)</span>
         </Button>
       ))}
     </div>

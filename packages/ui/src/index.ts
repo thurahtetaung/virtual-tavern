@@ -16,6 +16,7 @@ export * from './choice-picker.tsx';
 export * from './card-viewer.tsx';
 export * from './people.tsx';
 export * from './refusal.tsx';
+export * from './end-tabs.tsx';
 export * from './standings.tsx';
 export * from './sticky-bar.tsx';
 export * from './switch.tsx';

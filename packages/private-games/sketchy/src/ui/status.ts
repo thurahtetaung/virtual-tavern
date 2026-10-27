@@ -199,6 +199,17 @@ export function missingIds(view: SketchyView): string[] {
   return g.turn?.missing ?? [];
 }
 
+/** Whether the stage still waits for the viewer themself (their drawing, title or pick). */
+export function meMissing(view: SketchyView): boolean {
+  const g = view.game;
+  if (!g) return false;
+  if (g.stage === 'draw') return g.myPrompt !== null && g.myDrawing === null;
+  const t = g.turn;
+  if (!t?.writing) return false;
+  if (g.stage === 'write') return t.myLie === null;
+  return g.stage === 'vote' && t.myVote === null;
+}
+
 /** Whether anyone at all is still missing (counts, so it never names the artist). */
 export function anyMissing(view: SketchyView): boolean {
   const g = view.game;
