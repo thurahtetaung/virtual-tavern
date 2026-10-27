@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.1...v0.81.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the timer stays in view while the Button is looked at ([#489](https://github.com/thurahtetaung/virtual-tavern/issues/489)) ([d6d8245](https://github.com/thurahtetaung/virtual-tavern/commit/d6d8245c098022766c60d8f9ebbae30b58fbe96d))
+
 ## [0.81.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.0...v0.81.1) (2026-10-27)
 
 
