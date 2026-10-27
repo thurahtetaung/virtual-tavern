@@ -38,6 +38,7 @@ export const SHARED_STATE = [
   /mission-control[\w-]*\.spec\.ts$/,
   /skyfire[\w-]*\.spec\.ts$/,
   /conveyor[\w-]*\.spec\.ts$/,
+  /defuse[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
 ];
@@ -72,6 +73,7 @@ const GAME_IDS = [
   'mission-control',
   'skyfire',
   'conveyor',
+  'defuse',
 ];
 
 /**
@@ -189,6 +191,9 @@ export default defineConfig({
       CONVEYOR_TEST_DECK:
         '2:miso onigiri-circle menu-7 tofu order uramaki-4 nigiri-egg uramaki-3 tofu onigiri-square ' +
         'miso onigiri-triangle tofu nigiri-squid uramaki-4 nigiri-egg nigiri-salmon onigiri-rectangle tofu uramaki-5',
+      // Every Defuse bomb is built from this seed: with 3 modules, wires (cut the first),
+      // a keypad and a password (see defuse-play.ts).
+      DEFUSE_TEST_SEED: '418',
     },
   },
 });

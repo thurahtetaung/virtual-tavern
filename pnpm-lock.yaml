@@ -108,6 +108,9 @@ importers:
       '@vt/private-conveyor':
         specifier: workspace:*
         version: link:../../packages/private-games/conveyor
+      '@vt/private-defuse':
+        specifier: workspace:*
+        version: link:../../packages/private-games/defuse
       '@vt/private-encore':
         specifier: workspace:*
         version: link:../../packages/private-games/encore
@@ -213,6 +216,9 @@ importers:
       '@vt/private-conveyor':
         specifier: workspace:*
         version: link:../../packages/private-games/conveyor
+      '@vt/private-defuse':
+        specifier: workspace:*
+        version: link:../../packages/private-games/defuse
       '@vt/private-encore':
         specifier: workspace:*
         version: link:../../packages/private-games/encore
@@ -437,6 +443,25 @@ importers:
         version: 19.3.1(react@19.3.1)
 
   packages/private-games/conveyor:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+
+  packages/private-games/defuse:
     dependencies:
       '@vt/game-sdk':
         specifier: workspace:*

@@ -36,6 +36,7 @@ import {
 } from '@vt/private-mission-control/guide';
 import { guide as skyfireGuide, nameGuide as nameSkyfireGuide } from '@vt/private-skyfire/guide';
 import { guide as conveyorGuide, nameGuide as nameConveyorGuide } from '@vt/private-conveyor/guide';
+import { guide as defuseGuide, nameGuide as nameDefuseGuide } from '@vt/private-defuse/guide';
 import {
   inquestLabels,
   manifestGuide,
@@ -53,6 +54,7 @@ import {
   thornsLabels,
   iconicLabels,
   stampedeLabels,
+  defuseLabels,
 } from './private-labels.ts';
 import { lazyUi } from './lazy-ui.ts';
 import type { ClientGame } from './registry.ts';
@@ -309,6 +311,18 @@ const games: ClientGame[] = [
     icon: '🍣',
     Component: lazyUi(() =>
       import('@vt/private-conveyor/ui').then((m) => ({ default: m.ConveyorGame })),
+    ),
+  },
+  {
+    id: 'defuse',
+    name: 'Defuse',
+    guide: defuseGuide,
+    namedGuide: manifestGuide('defuse', nameDefuseGuide),
+    labels: defuseLabels,
+    icon: '⏲️',
+    Component: lazyUi(() => import('@vt/private-defuse/ui').then((m) => ({ default: m.DefuseGame }))),
+    stage: lazyUi(() =>
+      import('@vt/private-defuse/stage').then((m) => ({ default: m.DefuseStage })),
     ),
   },
 ];
