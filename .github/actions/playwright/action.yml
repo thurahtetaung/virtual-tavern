@@ -1,0 +1,78 @@
+name: Set up Playwright's browser
+description: >-
+  Installs the headless Chromium shell and its system packages, both cached between runs, so a
+  shard reaches neither the browser download nor the apt mirror when the caches are warm.
+runs:
+  using: composite
+  steps:
+    - id: keys
+      shell: bash
+      run: |
+        version=$(node -p "require('@playwright/test/package.json').version")
+        echo "browser=playwright-${RUNNER_OS}-${ImageOS}-${version}" >> "$GITHUB_OUTPUT"
+        echo "packages=playwright-apt-${ImageOS}-${version}" >> "$GITHUB_OUTPUT"
+
+    # The browser, keyed by the exact Playwright version (each version pins its own build).
+    - id: browser
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.keys.outputs.browser }}
+    - if: steps.browser.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm exec playwright install --only-shell chromium
+
+    # The runner image already has Chromium's libraries but not all of Playwright's fonts. Those
+    # come from the apt mirror, which can crawl, so their packages are cached as .deb files and
+    # installed with dpkg. A package the image already has is never reinstalled from the cache.
+    - id: packages
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/playwright-debs
+        key: ${{ steps.keys.outputs.packages }}
+    - id: deps
+      shell: bash
+      run: |
+        # Prints the packages Playwright wants that aren't installed (a newer version of one that
+        # is doesn't count), or "?" when apt can't say, which counts as missing.
+        missing() {
+          local out
+          out=$(pnpm exec playwright install-deps --dry-run chromium 2>&1) && return 0
+          if ! grep -q '^Missing system dependencies' <<< "$out"; then echo '?'; return 0; fi
+          sed -n 's/^  \(\S\+\)$/\1/p' <<< "$out" | while read -r name; do
+            dpkg-query -W -f '${Status}' "$name" 2>/dev/null | grep -q 'ok installed' || echo "$name"
+          done
+        }
+        if [ -z "$(missing)" ]; then
+          echo "Every system package is already installed."
+          exit 0
+        fi
+        debs=()
+        for deb in ~/playwright-debs/*.deb; do
+          [ -e "$deb" ] || continue
+          name=$(dpkg-deb -f "$deb" Package)
+          dpkg-query -W -f '${Status}' "$name" 2>/dev/null | grep -q 'ok installed' || debs+=("$deb")
+        done
+        if [ ${#debs[@]} -gt 0 ] && sudo dpkg -i "${debs[@]}" && [ -z "$(missing)" ]; then
+          echo "Installed ${#debs[@]} cached packages."
+          exit 0
+        fi
+        # A cache miss, or packages the cache doesn't cover: the mirror, keeping what it downloads.
+        # A stalled mirror is given up on and tried again, which picks a mirror afresh.
+        echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99keep-debs > /dev/null
+        # The timeout runs as root so that it reaches apt itself.
+        for attempt in 1 2 3; do
+          if sudo timeout -k 10 240 env "PATH=$PATH" node_modules/.bin/playwright install-deps chromium; then break; fi
+          if [ "$attempt" = 3 ]; then exit 1; fi
+          echo "::warning::Installing the browser's system packages timed out or failed (attempt ${attempt}); trying again."
+          sudo dpkg --configure -a
+        done
+        if ! compgen -G '/var/cache/apt/archives/*.deb' > /dev/null; then exit 0; fi
+        mkdir -p ~/playwright-debs
+        cp /var/cache/apt/archives/*.deb ~/playwright-debs/
+        echo "save=true" >> "$GITHUB_OUTPUT"
+    - if: steps.deps.outputs.save == 'true' && steps.packages.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/playwright-debs
+        key: ${{ steps.keys.outputs.packages }}

@@ -70,8 +70,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       - run: pnpm build
-      # Headless runs only need the headless shell, not the full browser.
-      - run: pnpm exec playwright install --with-deps --only-shell chromium
+      - uses: ./.github/actions/playwright
       - run: |
           # A separate assignment, so a failing split fails the step instead of running everything.
           list=$(node e2e/shards.ts "$SHARD" 4)
