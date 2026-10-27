@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.0...v0.75.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **going-once:** a bid on the opening line waits for it, the bank finishes his piece, quiet phones fit every lot, and the drawing clock shows when it starts ([#442](https://github.com/thurahtetaung/virtual-tavern/issues/442)) ([3226f98](https://github.com/thurahtetaung/virtual-tavern/commit/3226f98b532a9e5ee74659ece1b2cd0c6def63f5))
+
 ## [0.75.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.74.0...v0.75.0) (2026-10-27)
 
 
