@@ -11,6 +11,7 @@ import {
   useAbandonGame,
   useSecondsLeft,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { MAX_PLAYERS, type SketchyAction, type SketchyView } from '../logic/types.ts';
@@ -44,7 +45,16 @@ const AT_ZERO = {
 } as const;
 
 /** One line on every play screen: the round, the drawing, the viewer's score and the timer. */
-function Header({ view, clockOffset }: { view: SketchyView; clockOffset: number }) {
+function Header({
+  view,
+  clockOffset,
+  quiet = false,
+}: {
+  view: SketchyView;
+  clockOffset: number;
+  /** Phones: no reminder under a soft clock that ran out (the skip panel just below says it). */
+  quiet?: boolean;
+}) {
   const g = view.game!;
   const mine = view.scores.find((s) => s.id === view.me?.id);
   const stage = g.stage === 'reveal' ? null : g.stage;
@@ -75,7 +85,7 @@ function Header({ view, clockOffset }: { view: SketchyView; clockOffset: number 
           clockOffset={clockOffset}
           label={CLOCK_LABEL[stage]}
           soft={view.settings.timerMode !== 'strict'}
-          expiredHint="Just a reminder: the game waits for everyone."
+          expiredHint={quiet ? '' : 'Just a reminder: the game waits for everyone.'}
           atZero={`then ${AT_ZERO[stage]}`}
         />
       )}
@@ -86,18 +96,9 @@ function Header({ view, clockOffset }: { view: SketchyView; clockOffset: number 
 /**
  * The host's way out when the game waits on someone who isn't coming: once time is up (or straight
  * away when everyone named as missing is offline), the stage ends as a strict timeout would.
+ * Null while there is nothing to skip.
  */
-function ContinueWithout({
-  view,
-  room,
-  act,
-  online,
-}: {
-  view: SketchyView;
-  room: GameRoomInfo;
-  act: Act;
-  online: (id: string) => boolean;
-}) {
+function useSkip(view: SketchyView, room: GameRoomInfo, online: (id: string) => boolean) {
   const g = view.game;
   const left = useSecondsLeft(g?.deadline ?? null, room.clockOffset);
   if (!room.isHost || view.phase !== 'playing' || !g || g.stage === 'reveal' || !anyMissing(view))
@@ -111,18 +112,34 @@ function ContinueWithout({
     missing.length === 0 || missing.length > 3
       ? 'the players still missing'
       : listNames(missing.map((id) => nameOf(view, id)));
+  return { names, timeUp };
+}
+
+function ContinueWithout({
+  skip,
+  act,
+}: {
+  skip: { names: string; timeUp: boolean } | null;
+  act: Act;
+}) {
+  if (!skip) return null;
+  const { names, timeUp } = skip;
   return (
+    // Phones: one row (the clock's icon and the button); the sentence stays for screen readers.
     <Panel
-      className="space-y-2 text-center max-lg:space-y-1.5 max-lg:p-3"
+      className="space-y-2 text-center max-lg:flex max-lg:items-center max-lg:gap-2 max-lg:space-y-0 max-lg:p-2"
       data-testid="continue-without"
     >
-      <p className="text-sm max-lg:text-xs">
+      <span aria-hidden className="text-xl lg:hidden">
+        {timeUp ? '⏰' : '📴'}
+      </span>
+      <p className="text-sm max-lg:sr-only">
         {timeUp ? '⏰ Time’s up. ' : '📴 '}Still waiting for {names}. Continue, and the game moves
         on without them.
       </p>
       <Button
         size="lg"
-        className="w-full max-lg:h-11"
+        className="w-full max-lg:h-11 max-lg:min-w-0 max-lg:flex-1 max-lg:px-3 max-lg:text-base"
         onClick={() => void act({ type: 'continue-without' })}
       >
         <span className="truncate">Continue without {names}</span>
@@ -296,6 +313,8 @@ function SketchyPlay({
   const status = statusFor(view, room.isHost, blocker, room, revealing);
   // Phones show one screen at a time (the game, or the scores and players); desktop both.
   const [tab, setTab] = useState<'play' | 'scores'>('play');
+  const skip = useSkip(view, room, online);
+  const wide = useWideScreen();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -378,13 +397,22 @@ function SketchyPlay({
         {sound}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}>
-          {view.phase === 'playing' && g && <Header view={view} clockOffset={room.clockOffset} />}
+        <div
+          className={cn(
+            'min-w-0 space-y-3',
+            skip && 'max-sm:space-y-2',
+            tab !== 'play' && 'hidden lg:block',
+          )}
+        >
+          {view.phase === 'playing' && g && (
+            <Header view={view} clockOffset={room.clockOffset} quiet={!!skip && !wide} />
+          )}
           <div className="relative">
             {/* While drawing, the pad's own heading says it all: the room goes to the pad. */}
+            {/* Phones: one line while the skip panel shows (who is missing is on its button). */}
             {!drawingNow && (
               <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
-                {status.text}
+                <span className={cn(skip && !wide && 'line-clamp-1')}>{status.text}</span>
               </Hint>
             )}
             <Toast />
@@ -394,12 +422,12 @@ function SketchyPlay({
           ) : (
             g && (
               <>
-                <ContinueWithout view={view} room={room} act={act} online={online} />
+                <ContinueWithout skip={skip} act={act} />
                 {g.stage === 'draw' ? (
                   <Draw view={view} room={room} act={act} />
                 ) : (
                   g.turn && (
-                    <Panel>
+                    <Panel className="max-sm:p-3">
                       <TurnStage view={view} act={act} isHost={room.isHost} reveal={reveal} />
                     </Panel>
                   )

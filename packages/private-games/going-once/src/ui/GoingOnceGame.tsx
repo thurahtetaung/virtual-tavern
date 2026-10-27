@@ -20,6 +20,7 @@ import {
   cn,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
@@ -824,6 +825,33 @@ function End({
   const pages = Math.max(1, Math.ceil(g.results.length / END_PAGE));
   const first = Math.min(page, pages - 1) * END_PAGE;
   const onPage = (i: number) => i >= first && i < first + END_PAGE;
+  // Phones: Play again under whichever tab is open, outside the tabs (wider screens: in the scores).
+  const wide = useWideScreen();
+  const endButtons = (
+    <>
+      {room.isHost ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="lg"
+            className="flex-1"
+            onClick={() => void act({ type: 'play-again' }, { anchor: 'go-end' })}
+          >
+            Play again
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'go-end' })}
+          >
+            Change setup
+          </Button>
+        </div>
+      ) : (
+        <Hint>{waitingForHost(room, 'start the next game')}</Hint>
+      )}
+      <RefusalSlot anchor="go-end" />
+    </>
+  );
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:items-start">
       <div
@@ -878,27 +906,7 @@ function End({
           </RackUp>
         )}
         <Superlatives lines={room.superlatives} className="max-lg:hidden" />
-        {room.isHost ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="lg"
-              className="flex-1"
-              onClick={() => void act({ type: 'play-again' }, { anchor: 'go-end' })}
-            >
-              Play again
-            </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'go-end' })}
-            >
-              Change setup
-            </Button>
-          </div>
-        ) : (
-          <Hint>{waitingForHost(room, 'start the next game')}</Hint>
-        )}
-        <RefusalSlot anchor="go-end" />
+        {wide && endButtons}
       </Panel>
       {awards && tab === 'awards' && (
         <Panel className="lg:hidden" data-testid="go-end-awards">
@@ -961,8 +969,13 @@ function End({
                 <span className="text-xs">
                   {r.buyer ? (
                     <>
-                      <PlayerTag name={name(r.buyer)} you={r.buyer === room.you} /> paid{' '}
-                      {money(r.price)} · worth {money(r.value)}{' '}
+                      {/* Cut short in its column: a long name never runs past the card. */}
+                      <PlayerTag
+                        name={name(r.buyer)}
+                        you={r.buyer === room.you}
+                        className="max-w-full"
+                      />{' '}
+                      paid {money(r.price)} · worth {money(r.value)}{' '}
                       <b
                         className={
                           profit >= 0
@@ -994,6 +1007,7 @@ function End({
           })}
         </ul>
       </Panel>
+      {!wide && <div className="flex flex-col gap-2">{endButtons}</div>}
     </div>
   );
 }
