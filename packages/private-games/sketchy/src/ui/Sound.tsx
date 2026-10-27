@@ -11,7 +11,12 @@ import {
   useTableVolumes,
   whereLine,
 } from '@vt/ui/sound';
-import type { SketchyAction, SketchyView } from '../logic/types.ts';
+import {
+  type Announcer,
+  type SketchyAction,
+  type SketchyView,
+  announcerOf,
+} from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
 import { type AudioManifest, MUSIC_SHARE, previewClip, soundModeIn } from './audio.ts';
 import { TABLE_DEFAULTS, useSketchyVolumes } from './useSound.ts';
@@ -30,9 +35,10 @@ function channelsOf(
   kinds: readonly SoundKind[],
   audio: AudioManifest | undefined,
   personal: boolean,
+  announcer: Announcer,
 ): SoundChannel[] {
   return kinds.map((kind) => {
-    const src = previewClip(audio, kind, personal);
+    const src = previewClip(audio, kind, personal, announcer);
     return {
       kind,
       label:
@@ -78,6 +84,8 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
     TABLE_DEFAULTS,
   );
   const audio = manifestOf(manifest)?.audio;
+  // The narrator's ▶ plays a line of the announcer the host picked.
+  const announcer = announcerOf(view.settings);
   const mode = soundModeIn(view.settings, room.stage?.present === true);
   // Every phone makes its own little sounds, whoever plays the room's.
   const plan = soundPlan(mode, room.isHost, ['music', 'effects', 'voice'], ['effects']);
@@ -89,14 +97,14 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
         title: 'This phone',
         volumes,
         setVolume,
-        channels: channelsOf(plan.mine, audio, !roomHere),
+        channels: channelsOf(plan.mine, audio, !roomHere, announcer),
         testId: 'sketchy-sound-mine',
       },
       {
         title: 'Table screen',
         volumes: table,
         setVolume: setTable,
-        channels: channelsOf(plan.table, audio, false),
+        channels: channelsOf(plan.table, audio, false, announcer),
         testId: 'sketchy-sound-table',
       },
     ],

@@ -42,6 +42,26 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
     'aria-checked',
     'false',
   );
+
+  // The announcer: three to pick from, the adult one only with adult prompts on, and back to the
+  // classic one when they go off. Guests see the choice.
+  const announcer = hana.getByTestId('sketchy-announcer');
+  await expect(announcer.getByRole('button')).toHaveText(['Classic', 'First', 'Animated']);
+  await hana.getByTestId('sketchy-adult').click();
+  await expect(announcer.getByRole('button')).toHaveCount(4);
+  await announcer.getByRole('button', { name: 'After dark' }).click();
+  await expect(announcer.getByRole('button', { name: 'After dark' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(ben.getByTestId('sketchy-announcer')).toContainText('After dark');
+  await hana.getByTestId('sketchy-adult').click();
+  await expect(announcer.getByRole('button', { name: 'Classic' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await announcer.getByRole('button', { name: 'Animated' }).click();
+  await expect(ben.getByTestId('sketchy-announcer')).toContainText('Animated');
   await hana.getByRole('button', { name: 'Start game' }).click();
 
   // Round 1: secret prompts in seat order, lowercased. Ben swaps his once.

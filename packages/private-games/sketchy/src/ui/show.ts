@@ -48,6 +48,39 @@ export interface ShowCtx {
   swaps?: Record<string, Record<string, [number, string][]>>;
   /** The joke for a prompt (its file and length), when the voice has one. */
   jokeFor?: (prompt: string) => { file: string; ms: number } | null;
+  /**
+   * Whether the room's announcer has a line for a voice cue (the reactions after the truth wait
+   * only for one that will be said). Without it, only the classic announcer's reactions count.
+   */
+  hasLine?: (key: string) => boolean;
+}
+
+/** The classic announcer's reactions after the truth (the others have more, see `reactionOf`). */
+const CLASSIC_REACTIONS = new Set(['reveal.sameWay', 'reveal.allDecoy']);
+
+/**
+ * The announcer's reaction once the truth is shown, by how the picks went, most telling first:
+ * everyone fell for the same player's title or for a house title, everyone found it, nobody did,
+ * only one did, all but one did, a player's title fooled someone, or else a remark that the
+ * drawing is done with. Only cues the announcer has
+ * a line for count, so a reaction never waits on silence.
+ */
+export function reactionOf(t: TurnView, has: (key: string) => boolean): string | null {
+  const found = t.options.find((o) => o.truth)?.voters?.length ?? 0;
+  const voters = t.options.reduce((n, o) => n + (o.voters?.length ?? 0), 0);
+  const lies = t.options.filter((o) => !o.truth && (o.voters?.length ?? 0) > 0);
+  if (voters < 2) return null;
+  const cues = [
+    found === 0 && lies.length === 1 && !lies[0]!.house && 'reveal.sameWay',
+    found === 0 && lies.length === 1 && !!lies[0]!.house && 'reveal.allDecoy',
+    found === voters && 'reveal.allRight',
+    found === 0 && 'reveal.allWrong',
+    voters >= 3 && found === 1 && 'reveal.oneRight',
+    voters >= 3 && found === voters - 1 && 'reveal.oneWrong',
+    lies.some((o) => !o.house) && 'reveal.fooled',
+    'reveal.done',
+  ];
+  return cues.find((c): c is string => !!c && has(c)) ?? null;
 }
 
 const anim = (t: number, target: string, track: `${string}.${string}`, more: Partial<Step> = {}) =>
@@ -378,6 +411,10 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
   const pick = variantOf(`turn:${key}:${g.since}`, 64);
   const firstOfRound = t.number === 1;
   const missed = firstOfRound && t.of < g.players.length;
+  const has = ctx.hasLine ?? (() => false);
+  // Some announcers have lines for exactly one missing drawing and for the game's last drawing.
+  const missedLine = missed && t.of === g.players.length - 1 && has('turn.missedOne');
+  const lastLine = g.round >= g.rounds && t.number === t.of && has('turn.last');
   const intro: Step[] = firstOfRound
     ? [
         sfx(0, 'timer.off'),
@@ -387,7 +424,9 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
             t.of === 1 && g.players.length > 1
               ? 'turn.oneDrawing'
               : missed
-                ? 'turn.missed'
+                ? missedLine
+                  ? 'turn.missedOne'
+                  : 'turn.missed'
                 : 'turn.first',
             pick,
           ),
@@ -399,7 +438,10 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
   const ask =
     g.round === 1 && firstOfRound
       ? [sfx(1750, voiceClip('write.prompt', pick))]
-      : [sfx(1750, voiceClip('turn.next', pick)), sfx(1750, voiceClip('write.now', pick))];
+      : [
+          sfx(1750, voiceClip(lastLine ? 'turn.last' : 'turn.next', pick)),
+          sfx(1750, voiceClip('write.now', pick)),
+        ];
   const out: Moment[] = [
     {
       id: `turn:${key}`,
@@ -541,12 +583,8 @@ function revealing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
   // After the truth: the joke about the prompt or a reaction, then the scoreboard's beats while
   // the board waits for the host's Next (the original moves on by itself 3 s after the reshuffle).
   const end = revealEndOf(t) ?? g.since;
-  const voters = t.options.reduce((n, o) => n + (o.voters?.length ?? 0), 0);
-  const lies = t.options.filter((o) => !o.truth && (o.voters?.length ?? 0) > 0);
-  const sameWay = voters >= 2 && found.length === 0 && lies.length === 1 && !lies[0]!.house;
-  const allHouse = voters >= 2 && lies.length === 1 && !!lies[0]!.house && found.length === 0;
   const joke = t.prompt && ctx.jokeFor ? ctx.jokeFor(t.prompt) : null;
-  const line = joke ? null : sameWay ? 'reveal.sameWay' : allHouse ? 'reveal.allDecoy' : null;
+  const line = joke ? null : reactionOf(t, ctx.hasLine ?? ((k) => CLASSIC_REACTIONS.has(k)));
   // The scoreboard waits for what is said (the original's flowchart waits for the clip's end).
   const said = joke ? joke.ms + 250 : line ? 2500 : 250;
   const b = said;

@@ -87,7 +87,7 @@ const base: GameGuide = {
       bullets: [
         'A TV or laptop paired as the room’s table screen shows the whole party: the pencils, each drawing coming up, the choices and the reveal. The phones then show only your own cues.',
         'The host picks where the sound plays: the host’s device (the default), every device, the table screen, or nowhere. With a table screen paired, it plays there until the host picks otherwise. Each phone still makes its own little sounds.',
-        'Each player sets their own volume for the music, effects and narrator under Sound (in the lobby, and the 🔊 corner during play); the narrator starts at 0. With it turned up, some prompts get a joke once they’re revealed.',
+        'Each player sets their own volume for the music, effects and narrator under Sound (in the lobby, and the 🔊 corner during play); the narrator starts at 0. The host picks whose voice the narrator is from four announcers (one only with the adult prompts on; switching those off brings back the classic one). The classic announcer also jokes about some prompts once they’re revealed.',
       ],
     },
     {

@@ -9,7 +9,7 @@ import {
   useVolumes,
 } from '@vt/ui/sound';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { SketchyView } from '../logic/types.ts';
+import { type SketchyView, announcerOf } from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
 import {
   DEFAULT_VOLUME,
@@ -122,10 +122,11 @@ export function useSound({
     voice: gains.voice > 0,
   };
   const dev = useRef(d);
-  const latest = useRef({ audio, gains, clockOffset, onWords });
+  const announcer = announcerOf(s);
+  const latest = useRef({ audio, gains, clockOffset, onWords, announcer });
   useEffect(() => {
     dev.current = d;
-    latest.current = { audio, gains, clockOffset, onWords };
+    latest.current = { audio, gains, clockOffset, onWords, announcer };
   });
   const [speaking, setSpeaking] = useState(false);
   const queue = useRef<Line[]>([]);
@@ -162,7 +163,7 @@ export function useSound({
       play(clip, offsetMs, gain, ms) {
         const a = latest.current.audio;
         if (!plays(clip, dev.current)) return;
-        const file = fileOf(a, clip);
+        const file = fileOf(a, clip, latest.current.announcer);
         if (!file) return;
         if (clip.startsWith('voice:') || clip.startsWith('joke:')) {
           queue.current.push({ file, at: Date.now() - offsetMs, words: a?.text?.[file] ?? '' });

@@ -52,6 +52,21 @@ export type TimerMode = 'soft' | 'strict';
 export type SoundMode = 'off' | 'host' | 'all' | 'stage';
 export const SOUND_MODES: readonly SoundMode[] = ['off', 'host', 'all', 'stage'];
 
+/**
+ * Whose voice the narrator is: four hosts, each with their own lines (names from the manifest).
+ * `adult` is offered only while adult prompts are on.
+ */
+export type Announcer = 'classic' | 'first' | 'animate' | 'adult';
+export const ANNOUNCERS: readonly Announcer[] = ['classic', 'first', 'animate', 'adult'];
+
+/** The announcers a room may pick, given the adult switch. */
+export const announcersFor = (adult: boolean): Announcer[] =>
+  ANNOUNCERS.filter((a) => adult || a !== 'adult');
+
+/** The announcer that speaks: the room's choice, or the classic one where that isn't offered. */
+export const announcerOf = (s: { announcer?: Announcer; adult: boolean }): Announcer =>
+  s.announcer && announcersFor(s.adult).includes(s.announcer) ? s.announcer : 'classic';
+
 /** The sound settings, with their defaults for rooms saved before they existed. */
 export interface SoundSettings {
   sound: SoundMode;
@@ -61,6 +76,7 @@ export interface SoundSettings {
   effects: boolean;
   /** The narrator's voice (and the jokes about some prompts): off unless the host turns it on. */
   voice: boolean;
+  announcer: Announcer;
 }
 export const DEFAULT_SOUND: SoundSettings = {
   sound: 'host',
@@ -68,6 +84,7 @@ export const DEFAULT_SOUND: SoundSettings = {
   music: true,
   effects: true,
   voice: false,
+  announcer: 'classic',
 };
 
 export interface Settings {
@@ -86,6 +103,8 @@ export interface Settings {
   voice?: boolean;
   /** The table screen's volumes, from the host's sliders (the table has no input). */
   tableVolumes?: TableVolumes;
+  /** Missing in rooms saved before the announcers: `classic`. */
+  announcer?: Announcer;
 }
 
 export interface Seat {
@@ -228,6 +247,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     music: z.boolean().optional(),
     effects: z.boolean().optional(),
     voice: z.boolean().optional(),
+    announcer: z.enum(['classic', 'first', 'animate', 'adult']).optional(),
   }),
   tableVolumeAction,
   z.object({ type: z.literal('sit'), playing: z.boolean() }),

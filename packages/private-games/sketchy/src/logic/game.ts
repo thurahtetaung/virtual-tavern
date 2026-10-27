@@ -22,6 +22,8 @@ import {
 } from './content.ts';
 import {
   ARTIST_POINTS,
+  announcerOf,
+  announcersFor,
   DEFAULT_SOUND,
   DEFAULT_DRAW_SECONDS,
   DEFAULT_VOTE_SECONDS,
@@ -475,6 +477,13 @@ function updateSettings(
   if (action.music !== undefined) settings.music = action.music;
   if (action.effects !== undefined) settings.effects = action.effects;
   if (action.voice !== undefined) settings.voice = action.voice;
+  if (action.announcer !== undefined) {
+    if (!announcersFor(settings.adult).includes(action.announcer))
+      return err('adult-off', 'That narrator comes with the adult prompts: turn them on first.');
+    settings.announcer = action.announcer;
+  }
+  // Turning adult prompts off takes the adult narrator with them.
+  if (settings.announcer !== undefined) settings.announcer = announcerOf(settings);
   return { ...state, settings };
 }
 

@@ -13,11 +13,12 @@ import {
   truthIndex,
   writing,
 } from '../logic/test-utils.ts';
-import type { SketchyView } from '../logic/types.ts';
+import type { SketchyView, TurnView } from '../logic/types.ts';
 import {
   type ShowCtx,
   answersOf,
   moments,
+  reactionOf,
   phaseOf,
   revealEndOf,
   seenKeys,
@@ -175,6 +176,24 @@ describe('moments', () => {
     expect(sounds(r, lastPick, lastPick.replace('vote:', 'voted:'))).toEqual(['vote.tick']);
   });
 
+  it('names the game’s last drawing and a single missing one, with an announcer that can', () => {
+    const v = viewOf(writing(), null);
+    const g = v.game!;
+    const t = g.turn!;
+    const at = (game: typeof g, c: ShowCtx) =>
+      clips(moments({ ...v, game }, c)).filter((k) => k.startsWith('voice:turn.'));
+    // The last drawing of the last round.
+    const last = { ...g, round: g.rounds, turn: { ...t, number: t.of, of: t.of } };
+    if (t.of > 1) {
+      expect(at(last, ctx({ hasLine: () => true }))[0]).toMatch(/^voice:turn\.last#/);
+      expect(at(last, ctx({ hasLine: () => false }))[0]).toMatch(/^voice:turn\.next#/);
+    }
+    // One drawing short at the start of a round.
+    const short = { ...g, turn: { ...t, number: 1, of: g.players.length - 1 } };
+    expect(at(short, ctx({ hasLine: () => true }))[0]).toMatch(/^voice:turn\.missedOne#/);
+    expect(at(short, ctx({ hasLine: () => false }))[0]).toMatch(/^voice:turn\.missed#/);
+  });
+
   it('never tells the table screen what only the artist knows before the reveal', () => {
     const h = writing();
     const t = turn(h);
@@ -243,6 +262,59 @@ describe('moments', () => {
     );
     expect(clips(withJoke)).toContain('joke:audio/jokes/x.ogg');
     expect(clips(moments(v, ctx())).some((c) => c.startsWith('joke:'))).toBe(false);
+  });
+
+  it('has the announcer react to how the picks went, with a line it has', () => {
+    // Options as the reveal sees them: the truth, two players' titles and a house title.
+    const turnOf = (truth: string[], a: string[], b: string[], house: string[] = []) =>
+      ({
+        options: [
+          { index: 0, truth: true, voters: truth },
+          { index: 1, voters: a, authors: ['p8'] },
+          { index: 2, voters: b, authors: ['p9'] },
+          { index: 3, house: true, voters: house },
+        ],
+      }) as unknown as TurnView;
+    const all = () => true;
+    expect(reactionOf(turnOf([], ['p1', 'p2', 'p3'], []), all)).toBe('reveal.sameWay');
+    expect(reactionOf(turnOf([], [], [], ['p1', 'p2']), all)).toBe('reveal.allDecoy');
+    expect(reactionOf(turnOf(['p1', 'p2', 'p3'], [], []), all)).toBe('reveal.allRight');
+    expect(reactionOf(turnOf([], ['p1'], ['p2', 'p3']), all)).toBe('reveal.allWrong');
+    expect(reactionOf(turnOf(['p1'], ['p2'], ['p3']), all)).toBe('reveal.oneRight');
+    expect(reactionOf(turnOf(['p1', 'p2', 'p3'], ['p4'], []), all)).toBe('reveal.oneWrong');
+    expect(reactionOf(turnOf(['p1', 'p2'], ['p3', 'p4'], []), all)).toBe('reveal.fooled');
+    expect(reactionOf(turnOf(['p1', 'p2'], [], [], ['p3', 'p4']), all)).toBe('reveal.done');
+    // One picker is no crowd.
+    expect(reactionOf(turnOf([], ['p1'], []), all)).toBeNull();
+    // An announcer without the most telling line says the next one it has, or nothing.
+    const only =
+      (...keys: string[]) =>
+      (k: string) =>
+        keys.includes(k);
+    expect(reactionOf(turnOf([], ['p1', 'p2', 'p3'], []), only('reveal.allWrong'))).toBe(
+      'reveal.allWrong',
+    );
+    expect(reactionOf(turnOf(['p1', 'p2', 'p3'], [], []), only('reveal.sameWay'))).toBeNull();
+  });
+
+  it('waits on a reaction only when the announcer will say one', () => {
+    const h = revealed();
+    const v = viewOf(h, null);
+    const boardAt = (c: ShowCtx) => {
+      const board = moments(v, c).find((m) => m.id.startsWith('board:'))!;
+      return board.steps.find((s) => s.kind === 'sfx' && s.clip === 'board.on')!.t;
+    };
+    const quiet = boardAt(ctx({ hasLine: () => false }));
+    const talking = boardAt(ctx({ hasLine: () => true }));
+    expect(talking).toBeGreaterThan(quiet);
+    const reaction = (c: ShowCtx) =>
+      clips(moments(v, c)).filter((k) =>
+        /^voice:reveal\.(sameWay|allDecoy|allRight|allWrong|oneRight|oneWrong|fooled|done)#/.test(
+          k,
+        ),
+      );
+    expect(reaction(ctx({ hasLine: () => true }))).toHaveLength(1);
+    expect(reaction(ctx({ hasLine: () => false }))).toHaveLength(0);
   });
 
   it('lets a device arriving after the reveal land on the board, not replay the steps', () => {

@@ -6,12 +6,15 @@ import {
   type Device,
   deviceSounds,
   fileOf,
+  hasLine,
   jokeFor,
   jokeKey,
   musicFor,
   plays,
+  previewClip,
   soundModeIn,
 } from './audio.ts';
+import { announcerOf, announcersFor } from '../logic/types.ts';
 import { revealEndOf } from './show.ts';
 
 const device = (over: Partial<Device> = {}): Device => ({
@@ -78,6 +81,40 @@ describe('clip files', () => {
     expect(fileOf(audio, 'nothing')).toBeNull();
     expect(fileOf(undefined, 'yelp')).toBeNull();
   });
+
+  it('takes the narrator’s lines from the room’s announcer, silent where it has none', () => {
+    const many: AudioManifest = {
+      ...audio,
+      announcers: {
+        first: { voice: { 'turn.next': ['f1.ogg', 'f2.ogg'], 'reveal.allRight': ['r.ogg'] } },
+        adult: { voice: {} },
+      },
+    };
+    expect(fileOf(many, 'voice:turn.next#4')).toBe('n2.ogg');
+    expect(fileOf(many, 'voice:turn.next#4', 'classic')).toBe('n2.ogg');
+    expect(fileOf(many, 'voice:turn.next#3', 'first')).toBe('f2.ogg');
+    expect(fileOf(many, 'voice:reveal.allRight', 'first')).toBe('r.ogg');
+    // A cue the announcer lacks stays silent; it never borrows another announcer's line.
+    expect(fileOf(many, 'voice:reveal.allRight', 'classic')).toBeNull();
+    expect(fileOf(many, 'voice:turn.next', 'adult')).toBeNull();
+    expect(fileOf(many, 'voice:turn.next', 'animate')).toBeNull();
+    // Effects are the same whoever announces.
+    expect(fileOf(many, 'yelp#1', 'first')).toBe('y2.ogg');
+    expect(hasLine(many, 'first', 'reveal.allRight')).toBe(true);
+    expect(hasLine(many, 'classic', 'reveal.allRight')).toBe(false);
+    expect(hasLine(undefined, 'first', 'turn.next')).toBe(false);
+  });
+
+  it('previews the narrator in the voice of the room’s announcer', () => {
+    const many: AudioManifest = {
+      voice: { 'start.go': ['c.ogg'] },
+      announcers: { first: { voice: { 'draw.luck': ['f.ogg'] } }, animate: { voice: {} } },
+    };
+    expect(previewClip(many, 'voice')).toBe('c.ogg');
+    expect(previewClip(many, 'voice', false, 'first')).toBe('f.ogg');
+    // An announcer without lines has nothing to preview.
+    expect(previewClip(many, 'voice', false, 'animate')).toBeNull();
+  });
 });
 
 describe('jokes', () => {
@@ -88,6 +125,9 @@ describe('jokes', () => {
     expect(jokeFor(audio, jokes, 'kim dancing', ['Kim', 'Leo'])?.file).toBe('d.ogg');
     expect(jokeFor(audio, jokes, 'leo dancing', ['Kim'])).toBeNull();
     expect(jokeFor(audio, undefined, 'ghost cruise', [])).toBeNull();
+    // The jokes are the classic announcer's.
+    expect(jokeFor(audio, jokes, 'ghost cruise', [], 'classic')?.file).toBe('g.ogg');
+    expect(jokeFor(audio, jokes, 'ghost cruise', [], 'first')).toBeNull();
   });
 });
 
@@ -139,5 +179,46 @@ describe('sound settings', () => {
     for (const k of ['sound', 'soundChosen', 'music', 'effects', 'voice'] as const)
       delete old.settings[k];
     expect(sketchy.view(old, null).settings).toMatchObject({ sound: 'host', voice: false });
+    delete old.settings.announcer;
+    expect(sketchy.view(old, null).settings.announcer).toBe('classic');
+  });
+});
+
+describe('the announcer', () => {
+  it('starts as the classic one, and the host picks another', () => {
+    const h = harness();
+    expect(sketchy.view(h.state, null).settings.announcer).toBe('classic');
+    h.act(HOST, { type: 'update-settings', announcer: 'first' });
+    expect(sketchy.view(h.state, 'p2').settings.announcer).toBe('first');
+    expect(h.refuse('p2', { type: 'update-settings', announcer: 'animate' }).code).toBe('not-host');
+  });
+
+  it('offers the adult one only with adult prompts on', () => {
+    expect(announcersFor(false)).toEqual(['classic', 'first', 'animate']);
+    expect(announcersFor(true)).toEqual(['classic', 'first', 'animate', 'adult']);
+    const h = harness();
+    expect(h.refuse(HOST, { type: 'update-settings', announcer: 'adult' }).code).toBe('adult-off');
+    // Both at once is fine.
+    h.act(HOST, { type: 'update-settings', adult: true, announcer: 'adult' });
+    expect(sketchy.view(h.state, null).settings.announcer).toBe('adult');
+  });
+
+  it('falls back to the classic one when adult prompts go off', () => {
+    const h = harness();
+    h.act(HOST, { type: 'update-settings', adult: true });
+    h.act(HOST, { type: 'update-settings', announcer: 'adult' });
+    h.act(HOST, { type: 'update-settings', adult: false });
+    expect(sketchy.view(h.state, null).settings).toMatchObject({
+      adult: false,
+      announcer: 'classic',
+    });
+    // Another announcer stays when adult prompts go off.
+    h.act(HOST, { type: 'update-settings', adult: true });
+    h.act(HOST, { type: 'update-settings', announcer: 'animate' });
+    h.act(HOST, { type: 'update-settings', adult: false });
+    expect(sketchy.view(h.state, null).settings.announcer).toBe('animate');
+    // A stored adult announcer without adult prompts speaks as the classic one.
+    expect(announcerOf({ announcer: 'adult', adult: false })).toBe('classic');
+    expect(announcerOf({ adult: true })).toBe('classic');
   });
 });
