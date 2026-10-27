@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.6...v0.76.7) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** a buzz from the first touch on the bomb isn't lost, and the vibration switch says a phone on silent won't vibrate ([#473](https://github.com/thurahtetaung/virtual-tavern/issues/473)) ([c5d8f42](https://github.com/thurahtetaung/virtual-tavern/commit/c5d8f42c89f5eaf1a90adfa248623b3165d4f738))
+
 ## [0.76.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.5...v0.76.6) (2026-10-27)
 
 
