@@ -6,7 +6,8 @@
 //   node e2e/shards.ts --plan 4                 # the split and each shard's estimated seconds
 //   node e2e/shards.ts --check                  # fails when a spec has no time in timings.json
 //   node e2e/shards.ts --update r1.json r2.json # refresh timings.json from JSON reports (CI
-//                                               # uploads one per shard as e2e-timings-N)
+//                                               # uploads one per shard as e2e-timings-N;
+//                                               # several runs' reports are averaged)
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,7 +98,10 @@ export function shards(total: number): Shard[] {
   return out;
 }
 
-/** Sums each spec file's test durations (first attempt) from Playwright JSON reports. */
+/**
+ * Sums each spec file's test durations (first attempt) per Playwright JSON report, averaged over
+ * the reports that ran it, so the shards of several runs can be passed at once.
+ */
 function update(reportPaths: string[]): void {
   interface Suite {
     file: string;
@@ -105,6 +109,7 @@ function update(reportPaths: string[]): void {
     suites?: Suite[];
   }
   const totals: Record<string, number> = {};
+  const runs: Record<string, number> = {};
   const walk = (suite: Suite, file: string) => {
     for (const spec of suite.specs ?? [])
       for (const test of spec.tests)
@@ -114,12 +119,14 @@ function update(reportPaths: string[]): void {
   };
   for (const path of reportPaths) {
     const report = JSON.parse(readFileSync(path, 'utf8')) as { suites: Suite[] };
+    const files = new Set(report.suites.map((suite) => basename(suite.file)));
+    for (const file of files) runs[file] = (runs[file] ?? 0) + 1;
     for (const suite of report.suites) walk(suite, basename(suite.file));
   }
   const sorted = Object.fromEntries(
     Object.entries(totals)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([file, s]) => [file, Math.max(1, Math.round(s))]),
+      .map(([file, s]) => [file, Math.max(1, Math.round(s / runs[file]!))]),
   );
   writeFileSync(TIMINGS, `${JSON.stringify(sorted, null, 2)}\n`);
 }

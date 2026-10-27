@@ -1,0 +1,24 @@
+name: Caches
+
+# A cache saved by a PR's run is only visible to that PR, so each PR would start cold. This fills
+# the caches the e2e shards read (the pnpm store, the browser and its system packages) from main,
+# where every PR can restore them.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: caches
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/playwright
