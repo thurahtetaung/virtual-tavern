@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BOMB_MAX_ZOOM,
   HINTS,
+  MODULE_MAX_ZOOM,
+  anchorPan,
+  clampPan,
+  pinchRange,
+  pinchZoom,
+  zoomLimit,
   doneBy,
   emergencyOn,
   endOf,
@@ -94,5 +101,49 @@ describe('hints', () => {
     for (const s of doneBy('turned')) done.add(s);
     expect(hintFor('held', done)).toBe(null);
     expect(hintFor('module', done)).toBe('module');
+  });
+});
+
+describe('zoom', () => {
+  it('reaches at least the original MaxZoom, and on to 0.1 m from the surface looked at', () => {
+    // The held bomb's front, 0.555 m away: on to 0.1 m from it.
+    expect(zoomLimit('held', 0.555)).toBeCloseTo(0.455);
+    // An edge already close: never less than the original's 0.15 m.
+    expect(zoomLimit('held', 0.2)).toBe(BOMB_MAX_ZOOM);
+    expect(zoomLimit('module', 0.35)).toBe(MODULE_MAX_ZOOM);
+    expect(zoomLimit('module', 0.5)).toBeCloseTo(0.4);
+    expect(zoomLimit('desk', 1)).toBe(0);
+    // Upright the camera stands back by the fit: the limit is in the same units.
+    expect(zoomLimit('held', 0.555 * 2, 2)).toBeCloseTo(0.455);
+  });
+
+  it('lets a held pinch overshoot a little, never into the bomb', () => {
+    const [lo, hi] = pinchRange(0.455, 0.555);
+    expect(lo).toBeCloseTo(-0.091);
+    expect(hi).toBeCloseTo(0.495);
+    // Close to an edge the overshoot stops 6 cm from it.
+    expect(pinchRange(0.15, 0.2)[1]).toBeCloseTo(0.15);
+    expect(pinchZoom(0, 4000, 0.455, [lo, hi])).toBe(hi);
+    expect(pinchZoom(0.2, -4000, 0.455, [lo, hi])).toBe(lo);
+    expect(pinchZoom(0, 200, 0.455, [lo, hi])).toBeCloseTo(0.2275);
+  });
+
+  it('keeps the aimed point under the fingers', () => {
+    const p = anchorPan({ x: 0.1, y: -0.05 }, { x: 0.5, y: -0.5 }, 0.2, 60, 2);
+    const t = Math.tan(Math.PI / 6) * 0.2;
+    // Projected back: the point lands on the same screen spot.
+    expect((0.1 - p.x) / (t * 2)).toBeCloseTo(0.5);
+    expect((-0.05 - p.y) / t).toBeCloseTo(-0.5);
+  });
+
+  it('pans only as far as the zoom allows, and recentres at no zoom', () => {
+    const box = { minX: -0.3, maxX: 0.3, minY: -0.1, maxY: 0.1 };
+    expect(clampPan({ x: 1, y: 1 }, box, 0.4, 0.4)).toEqual({ x: 0.3, y: 0.1 });
+    expect(clampPan({ x: 1, y: -1 }, box, 0.2, 0.4)).toEqual({ x: 0.15, y: -0.05 });
+    expect(clampPan({ x: 1, y: 1 }, box, 0, 0.4)).toEqual({ x: 0, y: 0 });
+    // A box off to one side: still home at no zoom, its far edge at the limit.
+    const side = { minX: 0.05, maxX: 0.25, minY: -0.1, maxY: 0.1 };
+    expect(clampPan({ x: 0.03, y: 0 }, side, 0, 0.4)).toEqual({ x: 0, y: 0 });
+    expect(clampPan({ x: 1, y: 0 }, side, 0.4, 0.4)).toEqual({ x: 0.25, y: 0 });
   });
 });

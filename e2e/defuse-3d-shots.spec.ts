@@ -288,3 +288,94 @@ for (const [label, viewport] of [
           b.y + b.h <= hint!.y,
       ).toBe(true);
   });
+
+test('defuse 3D phone shots: the touch outline, an edge and a module zoomed in', async ({
+  browser,
+}) => {
+  test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 600_000));
+  const viewport = { width: 844, height: 390 };
+  const look: Look = { viewport, colorScheme: 'dark', setup: localArt, touch: true };
+  const out = `${DIR}/phone-zoom`;
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+  await settings(ana);
+  await ana.getByTestId('set-modules').selectOption('11');
+  await ana.getByTestId('start').click();
+  await ready(ana);
+  if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
+  await ana.waitForTimeout(6500);
+  const cdp = await ana.context().newCDPSession(ana);
+  type Pt = { x: number; y: number };
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', pts: Pt[] = []) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: pts.map((p, i) => ({ ...p, id: i + 1 })),
+    });
+  const shot = async (name: string, wait = 600) => {
+    await ana.waitForTimeout(wait);
+    await ana.screenshot({ path: `${out}/${name}.png` });
+  };
+  /** Two fingers spread apart round `at`, `by` px each. */
+  const pinch = async (at: Pt, by: number) => {
+    const pair = (s: number) => [
+      { x: at.x - 30 - s, y: at.y },
+      { x: at.x + 30 + s, y: at.y },
+    ];
+    await touch('touchStart', pair(0));
+    for (let i = 1; i <= 12; i++) await touch('touchMove', pair((by * i) / 12));
+    await touch('touchEnd');
+  };
+  const zoom = () =>
+    ana
+      .evaluate(() =>
+        (window as unknown as { __defuse3d: { zoom?: () => unknown } }).__defuse3d.zoom?.(),
+      )
+      .catch(() => null);
+  await call(ana, 'pickUp');
+  await ana.waitForTimeout(600);
+  const bomb = await call(ana, 'bomb');
+  const front = bomb.modules.filter((m) => m.kind !== 'timer');
+  // A module whose parts stay as they are when pressed (a cut wire changes its mesh).
+  const keyed =
+    bomb.modules.find((m) => m.kind === 'keypad') ??
+    bomb.modules.find((m) => m.kind === 'memory') ??
+    front[0]!;
+  // The outline on a whole module, finger held down.
+  const m = (await call(ana, 'where', front[0]!.id))!;
+  await touch('touchStart', [m]);
+  await shot('40-highlight-module', 900);
+  await touch('touchMove', [{ x: 4, y: 195 }]);
+  await touch('touchEnd');
+  // The outline on one part of a module looked at.
+  await call(ana, 'focus', keyed.id);
+  await ana.waitForTimeout(700);
+  const part = (await call(ana, 'where', keyed.id, 0))!;
+  await touch('touchStart', [part]);
+  // Parts act on touch-down, so this presses the key (maybe a strike): the shot is of the outline.
+  await shot('41-highlight-part', 900);
+  await touch('touchMove', [{ x: 4, y: 195 }]);
+  await touch('touchEnd');
+  console.log(JSON.stringify({ what: 'before-pinch', zoom: await zoom() }));
+  // The module zoomed in as far as it goes.
+  await pinch({ x: 422, y: 195 }, 300);
+  await shot('42-module-zoomed', 900);
+  console.log(JSON.stringify({ what: 'module-zoom', zoom: await zoom() }));
+  await call(ana, 'back');
+  await ana.waitForTimeout(500);
+  // The top edge, then a side, zoomed in on the edgework.
+  await call(ana, 'turn', 'up');
+  await shot('43-edge-top');
+  // Aimed at the left end of the edge, where the serial number usually sits with this seed.
+  await pinch({ x: 255, y: 140 }, 190);
+  await shot('44-edge-top-zoomed', 900);
+  console.log(JSON.stringify({ what: 'top-zoom', zoom: await zoom() }));
+  await call(ana, 'back');
+  await call(ana, 'pickUp');
+  await ana.waitForTimeout(500);
+  await call(ana, 'turn', 'left');
+  await shot('45-edge-side');
+  await pinch({ x: 422, y: 195 }, 300);
+  await shot('46-edge-side-zoomed', 900);
+  console.log(JSON.stringify({ what: 'side-zoom', zoom: await zoom() }));
+  await ben.close();
+});

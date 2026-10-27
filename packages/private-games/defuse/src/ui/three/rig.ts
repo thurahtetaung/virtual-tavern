@@ -106,7 +106,7 @@ export async function loadPack(
       names.map(async (n) => {
         const t = await ktx.loadAsync(`${base}tex/${n}.${quality}.ktx2`);
         t.colorSpace = THREE.SRGBColorSpace;
-        t.anisotropy = 4;
+        t.anisotropy = ANISOTROPY;
         tex.set(n, t);
       }),
     );
@@ -136,7 +136,7 @@ export async function loadPack(
           `${base}tex/${n}.${quality}.${json.textures[n]!.alpha ? 'png' : 'jpg'}`,
         );
         t.colorSpace = THREE.SRGBColorSpace;
-        t.anisotropy = 4;
+        t.anisotropy = ANISOTROPY;
         tex.set(n, t);
       }),
     );
@@ -323,6 +323,23 @@ export function part(
   return o;
 }
 
+/** Edges and small print are often seen at a slant: filter the pictures for that. */
+const ANISOTROPY = 8;
+
+/**
+ * Canvas text's resolution (px per metre): at the closest zoom (`NEAREST_M`, 0.1 m) a phone
+ * shows about 7,000 device px a metre, so the text stays sharp there; no canvas side goes past
+ * `TEXT_MAX_PX`.
+ */
+export const TEXT_PX_PER_M = 8000;
+export const TEXT_MAX_PX = 2048;
+
+/** A text plane's canvas size for a plane `w` × `h` metres. */
+export function textCanvasSize(w: number, h: number, px = TEXT_PX_PER_M): [number, number] {
+  const k = Math.min(px, TEXT_MAX_PX / Math.max(w, h, 1e-6));
+  return [Math.max(8, Math.round(w * k)), Math.max(8, Math.round(h * k))];
+}
+
 /** Text the original draws at run time (TextMeshPro), on a canvas plane in its own fonts. */
 export interface TextPlane extends THREE.Mesh {
   userData: { set: (text: string, colour?: string) => void; text: string };
@@ -336,14 +353,12 @@ export function textPlane(
     colour: '#111',
   },
 ): TextPlane {
-  const px = opts.px ?? 2400;
   const c = document.createElement('canvas');
-  c.width = Math.max(8, Math.round(w * px));
-  c.height = Math.max(8, Math.round(h * px));
+  [c.width, c.height] = textCanvasSize(w, h, opts.px);
   const ctx = c.getContext('2d')!;
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = ANISOTROPY;
   const mat = new THREE.MeshBasicMaterial({
     map: t,
     transparent: true,

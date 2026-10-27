@@ -6,6 +6,7 @@ import type { BombView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
 import { endCues, musicSection, stingerDue } from './music.ts';
 import { serverNow } from './time.ts';
+import { haptics } from './haptics.ts';
 
 /**
  * The bomb's sounds, as the original plays them, on the defuser's device and the table screen:
@@ -29,6 +30,7 @@ export type Effect =
   | 'needy-activated'
   | 'needy-warning'
   | 'capacitorpop'
+  | 'wiresequence'
   | 'bomb-defused'
   | 'gameover-fanfare'
   | 'explode';
@@ -182,6 +184,10 @@ const cutCount = (b: BombView) =>
   b.modules.reduce((n, m) => n + ('wires' in m ? m.wires.filter((w) => w.cut).length : 0), 0) +
   b.modules.reduce((n, m) => n + ('panels' in m ? m.panels.filter((w) => w.cut).length : 0), 0);
 
+/** When each Wire Sequence last turned its page, to hear it turn. */
+const pageTurns = (b: BombView) =>
+  b.modules.map((m) => ('turningUntil' in m ? m.turningUntil : '')).join(',');
+
 /** The end's sounds play only on a device that sees the end this soon after it. */
 const END_LATE_MS = 3000;
 
@@ -189,8 +195,19 @@ const END_LATE_MS = 3000;
  * Plays the bomb's sounds from the view on the server clock: pass the bomb while it is live and
  * at its result, on the devices that play it (the defuser's and the table screen).
  */
-export function useBombSound(b: BombView | null, art: Art, offset: number) {
-  const seen = useRef<{ no: number; log: number; cuts: number; end: boolean } | null>(null);
+export function useBombSound(
+  b: BombView | null,
+  art: Art,
+  offset: number,
+  { buzz = false }: { buzz?: boolean } = {},
+) {
+  const seen = useRef<{
+    no: number;
+    log: number;
+    cuts: number;
+    pages: string;
+    end: boolean;
+  } | null>(null);
   useEffect(() => {
     if (!b) {
       seen.current = null;
@@ -202,15 +219,22 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
       if (e.what === 'strike') {
         player.play(art.effect(e.kind === 'capacitor' ? 'capacitorpop' : 'strike'));
         if (e.kind === 'capacitor') player.play(art.effect('strike'));
+        if (buzz) haptics.buzz('Strike');
       }
       if (e.what === 'needy') player.play(art.effect('needy-activated'));
     }
     const cuts = cutCount(b);
     if (prev && cuts > prev.cuts) player.play(art.effect('snip'));
-    if (b.end && !prev?.end && serverNow(offset) - b.end.at < END_LATE_MS)
+    // `WireSequenceComponent.ChangePage`: the panel's whirr as it goes down and comes back.
+    const pages = pageTurns(b);
+    if (prev && pages !== prev.pages) player.play(art.effect('wiresequence'));
+    if (b.end && !prev?.end && serverNow(offset) - b.end.at < END_LATE_MS) {
       for (const e of endCues(b.end).effects) player.play(art.effect(e));
-    seen.current = { no: b.no, log: b.log.length, cuts, end: !!b.end };
-  }, [b, art, offset]);
+      // `Bomb.Detonate` → `AddExplosionVibration`.
+      if (buzz && b.end.how !== 'defused') haptics.buzz('Explosion');
+    }
+    seen.current = { no: b.no, log: b.log.length, cuts, pages, end: !!b.end };
+  }, [b, art, offset, buzz]);
 
   // The timer's beep on every second it shows, and the needy warnings.
   useEffect(() => {
@@ -239,13 +263,14 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
         if (left <= warn && left > 0 && !warned.has(key) && m.kind !== 'capacitor') {
           warned.add(key);
           player.play(art.effect('needy-warning'));
+          if (buzz) haptics.buzz('NeedyWarning');
         }
       }
     }, 50);
     return () => {
       clearInterval(id);
     };
-  }, [b, art, offset]);
+  }, [b, art, offset, buzz]);
 
   // Music (`GameplayMusicController`): one playlist a bomb, its sections queued one after another
   // as the time left falls, the stinger 7 s (bomb time) before the last 30 s, which cut straight

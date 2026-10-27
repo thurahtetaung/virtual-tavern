@@ -33,6 +33,7 @@ import { type Art, artFor, useManifest } from './assets.ts';
 import { BombScreen } from './Bomb.tsx';
 import { ClaimsSummary, Manual } from './Manual.tsx';
 import { ModuleFace } from './Modules.tsx';
+import { haptics, hapticOf } from './haptics.ts';
 import { player, useBombSound, useMute } from './sound.ts';
 import { clockText, serverNow, useServerNow } from './time.ts';
 import { Bomb3D, useViewMode } from './three/Bomb3D.tsx';
@@ -86,7 +87,7 @@ export function DefuseGame({
   const playsBomb =
     (v.stage === 'bomb' && v.role === 'defuser') ||
     (v.stage === 'result' && v.history.at(-1)?.defuser === you);
-  useBombSound(playsBomb ? v.bomb : null, art, room.clockOffset);
+  useBombSound(playsBomb ? v.bomb : null, art, room.clockOffset, { buzz: true });
   useEffect(() => {
     return () => {
       player.setMusic(null);
@@ -195,7 +196,11 @@ export function DefuseGame({
         art={art}
         offset={room.clockOffset}
         mute={mute}
-        act={actOn}
+        act={(module, op) => {
+          // The flat view buzzes as the 3D one does (a release gives none, as the original).
+          haptics.buzz(hapticOf(undefined, op, op.op === 'up'));
+          actOn(module, op);
+        }}
         showGuide={showGuide}
         viewSwitch={viewSwitch}
       />

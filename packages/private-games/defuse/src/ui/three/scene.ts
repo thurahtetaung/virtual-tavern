@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import type { ModuleOp, Widget } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
 import { AREAS } from '../../logic/edgework.ts';
+import { type HapticType, hapticOf } from '../haptics.ts';
 import {
   DRAG_PX,
   FOCUS_S,
@@ -20,6 +21,12 @@ import {
   TWO_FINGER_TAP_MS,
   BACK_CLICK_MS,
   HOLD_DISTANCE,
+  MODULE_MAX_ZOOM,
+  anchorPan,
+  clampPan,
+  pinchRange,
+  pinchZoom,
+  zoomLimit,
   type HintEvent,
   type Turn,
   clamp,
@@ -75,7 +82,8 @@ export interface SceneOpts {
   /** Local sounds: ticks, presses, the put-down, Simon's tones. */
   sound: (name: string, gain?: number) => void;
   tone: (i: number, ms: number) => void;
-  vibrate: (ms: number | number[]) => void;
+  /** The original's vibration for an interaction (`HapticType`, the punch's modifier). */
+  vibrate: (type: HapticType, modifier: number) => void;
   hint: (e: HintEvent) => void;
   onPose: (m: Mirror) => void;
   /** The touch hint's scanline down the screen (0 top … 1 past the bottom), null when done. */
@@ -89,9 +97,8 @@ const FRONT_UP = new THREE.Euler(-Math.PI / 2, Math.PI, 0, 'YXZ');
 const FOV = 60;
 /** `Selectable.DEFAULT_FOCUS_DISTANCE`. */
 const MODULE_DISTANCE = 0.52;
-/** `Selectable.DefaultZoom`/`MaxZoom` of the modules and `MaxZoom` of the bomb. */
-const MODULE_ZOOM = 0.3;
-const BOMB_ZOOM = 0.15;
+/** `Selectable.DefaultZoom` of the modules on touch. */
+const MODULE_ZOOM = MODULE_MAX_ZOOM;
 const LIGHT = { hemi: 1.6, key: 2.1, fill: 0.25 };
 
 interface Mod {
@@ -101,6 +108,32 @@ interface Mod {
   root: Root;
   bind: Binding | null;
   timer?: ReturnType<typeof bindTimer>;
+  /** Its box in its own frame (found once, for the zoom's limits). */
+  box?: THREE.Box3;
+}
+
+/**
+ * The outline's width on screen (CSS px): the touch one is wide enough to see at arm's length
+ * on a phone, round a whole module a little wider.
+ */
+const TOUCH_RIM_PX = 7;
+const MOUSE_RIM_PX = 3;
+
+/** `KeypadButton`: down by half the key's height in 0.25 s, back in 0.25 s, easeOutQuint. */
+const KEY_MS = 250;
+const easeOutQuint = (x: number) => 1 - (1 - x) ** 5;
+
+/**
+ * Half a key's height (`ButtonHeightOverride` × 0.5; the prefabs' overrides aren't in the pack,
+ * so the key's own height stands in), kept between 1.5 and 5 mm.
+ */
+function keyDepth(o: THREE.Object3D): number {
+  let h = 0.008;
+  if (isMesh(o)) {
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    h = o.geometry.boundingBox!.getSize(new THREE.Vector3()).y * Math.abs(o.scale.y);
+  }
+  return Math.min(0.005, Math.max(0.0015, h / 2));
 }
 
 const isShown = (o: THREE.Object3D) => {
@@ -108,13 +141,42 @@ const isShown = (o: THREE.Object3D) => {
   return true;
 };
 
+/**
+ * The outline is drawn over everything (the original's outline shaders are in the Overlay
+ * queue), only round the part: the part's own shape is first marked in the stencil (`MASK`),
+ * and the grown shell draws only outside it, so a thin wire or a module among others shows its
+ * whole rim.
+ */
+const OUTLINE_STENCIL = {
+  depthTest: false,
+  depthWrite: false,
+  transparent: true,
+  stencilWrite: true,
+  stencilRef: 1,
+  stencilFunc: THREE.NotEqualStencilFunc,
+  stencilFail: THREE.KeepStencilOp,
+  stencilZFail: THREE.KeepStencilOp,
+  stencilZPass: THREE.KeepStencilOp,
+} as const;
+
+const MASK = new THREE.MeshBasicMaterial({
+  colorWrite: false,
+  depthTest: false,
+  depthWrite: false,
+  transparent: true,
+  side: THREE.DoubleSide,
+  stencilWrite: true,
+  stencilRef: 1,
+  stencilFunc: THREE.AlwaysStencilFunc,
+  stencilZPass: THREE.ReplaceStencilOp,
+});
+
 /** `KT/Outline` with a mouse: solid yellow. */
 const MOUSE_OUTLINE = new THREE.MeshBasicMaterial({
   color: 0xffd21a,
-  side: THREE.BackSide,
-  depthWrite: false,
-  transparent: true,
+  side: THREE.DoubleSide,
   opacity: 0.95,
+  ...OUTLINE_STENCIL,
 });
 
 /**
@@ -123,8 +185,8 @@ const MOUSE_OUTLINE = new THREE.MeshBasicMaterial({
  * v = (y − 1 + offset × (H + 1)) / H with y the screen height (0 bottom) and H
  * `_ScanlineHeight` 0.33, so the brightest band trails just above the line as it sweeps down.
  * Selected (`HIGHLIGHT_ON`, `SELECTABLE`) it also pulses: max(falloff,
- * cos(2π × frac(t × 0.416667)) × 0.25 + 0.75). Colour (1, 0.890, 0), alpha-blended, culled
- * front faces, drawn over the scene.
+ * cos(2π × frac(t × 0.416667)) × 0.25 + 0.75). Colour (1, 0.890, 0), alpha-blended, drawn
+ * over the scene (see `OUTLINE_STENCIL`).
  */
 function scanlineMaterial(
   selected: boolean,
@@ -147,9 +209,8 @@ function scanlineMaterial(
         ${selected ? 'a = max(a, cos(fract(uTime * 0.416667) * 6.28319) * 0.25 + 0.75);' : 'a = max(a, 0.0);'}
         gl_FragColor = vec4(1.0, 0.890196, 0.0, a);
       }`,
-    side: THREE.BackSide,
-    depthWrite: false,
-    transparent: true,
+    side: THREE.DoubleSide,
+    ...OUTLINE_STENCIL,
   });
 }
 
@@ -193,6 +254,7 @@ export function sharedRenderer(dpr: number): THREE.WebGLRenderer {
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
+      stencil: true,
       powerPreference: 'high-performance',
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -238,6 +300,13 @@ export class BombScene {
   private zoom = 0;
   private zoomT = 0;
   private zoomTween = { from: 0, to: 0, t0: 0, ms: 0 };
+  /** Where the camera's centre has moved to (x, y), so a zoom stays on what it was aimed at. */
+  private pan = new THREE.Vector2();
+  private panT = new THREE.Vector2();
+  /** The pan the player asked for; `panT` is it held inside what the zoom allows, every frame. */
+  private panWant = new THREE.Vector2();
+  /** The bomb's box in the casing's frame, for the zoom's limits. */
+  private bombBox = new THREE.Box3();
   private punch: { axis: THREE.Vector3; amp: number; t0: number } | null = null;
   // input
   private pointers = new Map<
@@ -248,7 +317,15 @@ export class BombScene {
     | { kind: 'maybe'; hit: Picked | null; x: number; y: number }
     | { kind: 'turn' }
     | { kind: 'rturn'; t0: number; moved: number }
-    | { kind: 'pinch'; d0: number; z0: number; t0: number; moved: boolean }
+    | {
+        kind: 'pinch';
+        d0: number;
+        z0: number;
+        t0: number;
+        moved: boolean;
+        /** The point the pinch is aimed at, in the bomb's own frame. */
+        at: THREE.Vector3;
+      }
     | { kind: 'press'; hit: Picked }
     | null = null;
   private hovered: THREE.Object3D | null = null;
@@ -395,6 +472,24 @@ export class BombScene {
       }
     this.widgets(b);
     tint(casing);
+    this.bombBox = this.localBox(this.punchG);
+  }
+
+  /** A node's box (its shown, solid meshes) in its own frame. */
+  private localBox(node: THREE.Object3D): THREE.Box3 {
+    node.updateWorldMatrix(true, true);
+    const inv = new THREE.Matrix4().copy(node.matrixWorld).invert();
+    const box = new THREE.Box3();
+    node.traverse((o) => {
+      if (!isMesh(o) || !isShown(o) || o.userData.text || o.userData.highlight) return;
+      const mat = ([] as THREE.Material[]).concat(o.material)[0] as
+        THREE.MeshBasicMaterial | undefined;
+      if (mat?.blending === THREE.AdditiveBlending) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      box.union(o.geometry.boundingBox!.clone().applyMatrix4(m));
+    });
+    return box;
   }
 
   private widgets(b: BombView) {
@@ -581,10 +676,92 @@ export class BombScene {
     return MODULE_DISTANCE * this.fit();
   }
 
-  /** How far the camera may move in (`Selectable.MaxZoom`: the bomb 0.15 m, a module 0.3 m). */
-  private maxZoom() {
-    return this.pose === 'module' ? MODULE_ZOOM : this.pose === 'held' ? BOMB_ZOOM : 0;
+  /**
+   * What the player looks at, in the world: the focused module's box, or the held bomb's. The
+   * camera looks down −z from its zoom, so `max.z` is the nearest surface.
+   */
+  private viewBox(): THREE.Box3 {
+    const m = this.pose === 'module' ? this.focused : null;
+    const node = m ? m.root : this.punchG;
+    let local = this.bombBox;
+    if (m) {
+      m.box ??= this.localBox(m.root);
+      local = m.box;
+    }
+    node.updateWorldMatrix(true, false);
+    return local.isEmpty()
+      ? new THREE.Box3().setFromCenterAndSize(
+          new THREE.Vector3().setFromMatrixPosition(node.matrixWorld),
+          new THREE.Vector3(0.2, 0.2, 0.05),
+        )
+      : local.clone().applyMatrix4(node.matrixWorld);
   }
+
+  /** How far the nearest surface looked at is from the eye with no zoom. */
+  private surface() {
+    return Math.max(0.05, -this.viewBox().max.z);
+  }
+
+  /**
+   * How far the camera may move in: at least the original's `Selectable.MaxZoom` (the bomb
+   * 0.15 m, a module 0.3 m), and on to `NEAREST_M` from the surface looked at, whichever side
+   * of the bomb that is.
+   */
+  private maxZoom() {
+    return zoomLimit(this.pose, this.surface(), this.fit());
+  }
+
+  /** Zooms to `z`, keeping the point `at` (bomb frame) under the screen point (x, y). */
+  private zoomAt(z: number, at: THREE.Vector3 | null, x: number, y: number) {
+    this.zoomT = z;
+    this.zoom = z;
+    this.zoomTween = { from: z, to: z, t0: 0, ms: 0 };
+    if (!at) return;
+    const p = this.bomb.localToWorld(at.clone());
+    const ndc = this.ndc(x, y);
+    const camZ = -z * this.fit();
+    const pan = anchorPan(p, ndc, Math.max(0.01, camZ - p.z), FOV, this.camera.aspect);
+    this.panWant.set(pan.x, pan.y);
+    this.clampPanT();
+    this.panWant.copy(this.panT);
+    this.pan.copy(this.panT);
+  }
+
+  private clampPanT() {
+    // While the bomb flies to a pose, what it is held to is still moving.
+    if (this.tween) {
+      this.panT.copy(this.panWant);
+      return;
+    }
+    const b = this.viewBox();
+    const max = this.maxZoom();
+    const c = clampPan(
+      { x: this.panWant.x, y: this.panWant.y },
+      { minX: b.min.x, maxX: b.max.x, minY: b.min.y, maxY: b.max.y },
+      Math.max(0, this.zoomT),
+      max,
+    );
+    this.panT.set(c.x, c.y);
+  }
+
+  /** The point under a screen spot, in the bomb's frame (the bomb's middle depth if nothing). */
+  private aimAt(x: number, y: number): THREE.Vector3 {
+    this.camera.updateMatrixWorld();
+    this.ray.setFromCamera(this.ndc(x, y), this.camera);
+    const hit = this.ray
+      .intersectObject(this.bomb, true)
+      .find((h) => isShown(h.object) && !h.object.userData.text && !h.object.userData.highlight);
+    const p =
+      hit?.point ??
+      this.ray.ray.at(
+        Math.max(0.05, this.camera.position.z - this.viewBox().getCenter(new THREE.Vector3()).z),
+        new THREE.Vector3(),
+      );
+    return this.bomb.worldToLocal(p.clone());
+  }
+
+  /** Pointers dropped because their lift never came (tests). */
+  private stale = 0;
 
   private deskPose(): [THREE.Vector3, THREE.Quaternion] {
     const d = this.heldDistance() * 1.25;
@@ -670,6 +847,7 @@ export class BombScene {
     this.yaw = yaw;
     this.pitch = 0;
     this.zoomT = this.opts.ctx.touch ? MODULE_ZOOM : 0;
+    this.panWant.set(0, 0);
     this.opts.sound('selectiontick');
     this.setPose('module', m);
     this.opts.hint('module');
@@ -677,6 +855,7 @@ export class BombScene {
 
   back() {
     this.zoomT = 0;
+    this.panWant.set(0, 0);
     if (this.pose === 'module') {
       const [p, q] = this.heldPose();
       this.moveTo(p, q, FOCUS_S);
@@ -810,7 +989,8 @@ export class BombScene {
 
   // ---- Acting ----
 
-  private addPunch(point: THREE.Vector3, mod: number) {
+  private addPunch(point: THREE.Vector3, mod: number, haptic: HapticType) {
+    this.opts.vibrate(haptic, mod);
     const centre = new THREE.Vector3().setFromMatrixPosition(this.bomb.matrixWorld);
     const dir = point.clone().sub(centre).normalize();
     const axis = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 0, 1)).normalize();
@@ -820,30 +1000,43 @@ export class BombScene {
       amp: PUNCH_DEG * mod,
       t0: performance.now(),
     };
-    this.opts.vibrate(Math.max(1, Math.round(12 * Math.abs(mod))));
   }
 
   private press(p: Picked) {
     if (p.kind !== 'part' || !p.hit || !p.mod) return;
     const h = p.hit;
-    this.addPunch(p.point, h.punch);
+    if (h.punch) this.addPunch(p.point, h.punch, h.haptic ?? hapticOf(h.sound, h.op));
     if (h.sound === 'tone' && h.tone !== undefined) this.opts.tone(h.tone, 300);
     else if (h.sound && h.sound !== 'snip') this.opts.sound(h.sound);
     if (h.dip) {
-      h.dip.userData.dipT = performance.now();
+      h.dip.userData.down = true;
       h.dip.userData.pressedUntil = performance.now() + 350;
+      this.key = p;
     }
     this.opts.act(p.mod.id, h.op);
     this.opts.hint('acted');
     if (h.release) this.held = p;
   }
 
+  /** The key held down (`KeypadButton`): it comes back up when let go. */
+  private key: Picked | null = null;
+
   private release() {
+    const k = this.key;
+    this.key = null;
+    if (k?.hit?.dip) {
+      const node = k.hit.dip;
+      node.userData.down = false;
+      // `KeypadButton.InteractEnded`: press-release, unless it stays down (Simon has none).
+      if (!node.userData.stay && k.hit.sound === 'press-in') this.opts.sound('press-release');
+    }
     const p = this.held;
     this.held = null;
     if (!p?.hit?.release || !p.mod) return;
-    this.addPunch(p.point, -0.35);
-    this.opts.sound(p.hit.sound === 'bb-press-in' ? 'bb-press-release' : 'switch');
+    // Only the Button punches on letting go (`ButtonComponent`, −0.35).
+    if (p.hit.releasePunch)
+      this.addPunch(p.point, p.hit.releasePunch, hapticOf(p.hit.sound, p.hit.release, true));
+    this.opts.sound(p.hit.sound === 'bb-press-in' ? 'bb-press-release' : 'press-release');
     this.opts.act(p.mod.id, p.hit.release);
   }
 
@@ -866,6 +1059,15 @@ export class BombScene {
     const c = this.canvas;
     const touch = this.opts.ctx.touch;
     const down = (e: PointerEvent) => {
+      // The first finger of a new touch: any pointer still listed lost its lift (the page was
+      // switched away, a system gesture took it), and would pair with this one as a pinch.
+      if (e.isPrimary && this.pointers.size) {
+        this.stale += this.pointers.size;
+        this.pointers.clear();
+        if (this.gesture?.kind === 'press') this.release();
+        this.gesture = null;
+        this.dragging = false;
+      }
       c.focus();
       try {
         c.setPointerCapture(e.pointerId);
@@ -885,12 +1087,20 @@ export class BombScene {
       if (this.pointers.size === 2) {
         const [a, b] = [...this.pointers.values()];
         if (this.gesture?.kind === 'press') this.release();
+        if (this.gesture?.kind === 'turn') {
+          // The first finger had started a turn: it settles as the pinch takes over.
+          this.dragging = false;
+          this.onDrag?.(false);
+          this.turn = settleTouch(this.turn);
+          this.emitPose();
+        }
         this.gesture = {
           kind: 'pinch',
           d0: Math.hypot(a!.x - b!.x, a!.y - b!.y),
           z0: this.zoomT,
           t0: performance.now(),
           moved: false,
+          at: this.aimAt((a!.x + b!.x) / 2, (a!.y + b!.y) / 2),
         };
         return;
       }
@@ -940,10 +1150,14 @@ export class BombScene {
         const [a, b] = [...this.pointers.values()];
         const d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
         if (Math.abs(d - g.d0) > 12) g.moved = true;
-        // `TouchControls.HandleZoom`: the pinch moves the camera, a little past the limits while held.
+        if (this.pose === 'desk') return;
+        // `TouchControls.HandleZoom`: the pinch moves the camera, a little past the limits while
+        // held; ours aims it at the point between the fingers and pans with them.
         const max = this.maxZoom();
-        this.zoomT = clamp(g.z0 + ((d - g.d0) / 400) * Math.max(0.15, max), -max * 0.2, max * 1.2);
-        this.opts.hint('zoomed');
+        const range = pinchRange(max, this.surface(), this.fit());
+        const z = pinchZoom(g.z0, d - g.d0, max, range);
+        this.zoomAt(z, g.at, (a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
+        if (g.moved) this.opts.hint('zoomed');
         return;
       }
       if (g.kind === 'rturn') {
@@ -979,6 +1193,8 @@ export class BombScene {
       if (g.kind === 'pinch') {
         if (this.pointers.size === 0) {
           if (!g.moved && performance.now() - g.t0 < TWO_FINGER_TAP_MS) this.back();
+          // Ours: a module pinched out past its widest steps back to the whole bomb.
+          else if (this.pose === 'module' && this.zoomT < -0.5 * MODULE_ZOOM * 0.2) this.back();
           this.gesture = null;
         }
         return;
@@ -1015,13 +1231,16 @@ export class BombScene {
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
-      this.zoomT = clamp(this.zoomT - e.deltaY * 0.0004, 0, this.maxZoom());
+      if (this.pose === 'desk') return;
+      // The wheel zooms toward the cursor, as a pinch does toward the fingers.
+      const z = clamp(this.zoomT - e.deltaY * 0.0004, 0, this.maxZoom());
+      this.zoomAt(z, this.aimAt(e.clientX, e.clientY), e.clientX, e.clientY);
       this.opts.hint('zoomed');
     };
     const menu = (e: Event) => e.preventDefault();
     const key = (e: KeyboardEvent) => this.onKey(e);
     const keyUp = (e: KeyboardEvent) => {
-      if (this.held && (e.key === ' ' || e.key === 'Enter' || /^[1-9]$/.test(e.key)))
+      if ((this.held || this.key) && (e.key === ' ' || e.key === 'Enter' || /^[1-9]$/.test(e.key)))
         this.release();
     };
     c.addEventListener('pointerdown', down);
@@ -1109,6 +1328,7 @@ export class BombScene {
     }
     if (k === '+' || k === '=') this.zoomT = Math.min(this.maxZoom(), this.zoomT + 0.05);
     if (k === '-' || k === '_') this.zoomT = Math.max(0, this.zoomT - 0.05);
+    if (k === '+' || k === '=' || k === '-' || k === '_') this.opts.hint('zoomed');
     if (k === 'tab') {
       e.preventDefault();
       if (this.pose === 'desk') return;
@@ -1152,6 +1372,7 @@ export class BombScene {
       Math.abs(this.yaw - this.turn.yaw) > 0.5 ||
       Math.abs(this.pitch - this.turn.pitch) > 0.5 ||
       Math.abs(this.zoom - this.zoomT) > 0.002 ||
+      this.pan.distanceTo(this.panT) > 0.002 ||
       this.dragging
     );
   }
@@ -1198,12 +1419,27 @@ export class BombScene {
     this.outline.removeFromParent();
     this.outline.clear();
     if (!node) return;
-    this.shells(node, p?.kind !== 'part', touch ? this.scanSelected : MOUSE_OUTLINE, this.outline);
+    this.shells(
+      node,
+      p?.kind !== 'part',
+      touch ? this.scanSelected : MOUSE_OUTLINE,
+      this.outline,
+      touch ? TOUCH_RIM_PX : MOUSE_RIM_PX,
+    );
     node.add(this.outline);
-    if (!same) this.opts.sound('selectiontick', 0.35);
+    if (!same) {
+      this.opts.sound('selectiontick', 0.35);
+      if (touch) this.opts.vibrate('Selection', 1);
+    }
   }
 
-  private shells(node: THREE.Object3D, whole: boolean, mat: THREE.Material, group: THREE.Group) {
+  private shells(
+    node: THREE.Object3D,
+    whole: boolean,
+    mat: THREE.Material,
+    group: THREE.Group,
+    rimPx = TOUCH_RIM_PX,
+  ) {
     const meshes: THREE.Mesh[] = [];
     node.traverse((o) => {
       if (isMesh(o) && isShown(o) && !o.userData.text && !o.userData.highlight) {
@@ -1225,22 +1461,36 @@ export class BombScene {
     const targets = whole
       ? meshes.sort((a, b) => vol(b) - vol(a)).slice(0, 1)
       : meshes.slice(0, 40);
-    const grow = whole ? 0.003 : 0.0015;
+    // The rim is a few px wide on screen wherever the part is (the original's `_Outline` is a
+    // width on screen too): metres per CSS px at the node's depth.
+    const r = this.canvas.getBoundingClientRect();
+    this.camera.updateMatrixWorld();
+    const at = node.getWorldPosition(new THREE.Vector3());
+    const depth = Math.max(0.03, at.distanceTo(this.camera.position));
+    const mpp = (2 * depth * Math.tan(THREE.MathUtils.degToRad(FOV) / 2)) / Math.max(1, r.height);
+    const grow = Math.max(whole ? 0.003 : 0.0015, rimPx * mpp);
     for (const o of targets) {
       const bb = o.geometry.boundingBox!;
       const c = bb.getCenter(new THREE.Vector3());
       const z = bb.getSize(new THREE.Vector3()).multiply(o.getWorldScale(new THREE.Vector3()));
-      // Grown about the part's own middle, by the same few millimetres all round.
-      const k = (a: number) => Math.min(1.6, 1 + (2 * grow) / Math.max(1e-4, Math.abs(a)));
-      const m = new THREE.Matrix4()
-        .multiplyMatrices(inv, o.matrixWorld)
+      // Grown about the part's own middle, by the same width all round.
+      const k = (a: number) => Math.min(4, 1 + (2 * grow) / Math.max(1e-4, Math.abs(a)));
+      const own = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      const mask = new THREE.Mesh(o.geometry, MASK);
+      mask.matrixAutoUpdate = false;
+      mask.matrix.copy(own);
+      mask.renderOrder = 20;
+      mask.userData.text = true;
+      group.add(mask);
+      const m = own
+        .clone()
         .multiply(new THREE.Matrix4().makeTranslation(c.x, c.y, c.z))
         .multiply(new THREE.Matrix4().makeScale(k(z.x), k(z.y), k(z.z)))
         .multiply(new THREE.Matrix4().makeTranslation(-c.x, -c.y, -c.z));
       const shell = new THREE.Mesh(o.geometry, mat);
       shell.matrixAutoUpdate = false;
       shell.matrix.copy(m);
-      shell.renderOrder = -1;
+      shell.renderOrder = 21;
       shell.userData.text = true;
       group.add(shell);
     }
@@ -1368,6 +1618,13 @@ export class BombScene {
       this.zoom = z.from + (z.to - z.from) * e;
     }
     this.camera.position.z = -this.zoom * this.fit();
+    // The pan follows the zoom: it eases back toward the middle as the zoom goes out.
+    if (this.pointers.size < 2) {
+      this.clampPanT();
+      this.pan.lerp(this.panT, Math.min(1, dt * 14));
+    }
+    this.camera.position.x = this.pan.x;
+    this.camera.position.y = this.pan.y;
     // the interaction punch
     if (this.punch) {
       const x = (now - this.punch.t0) / PUNCH_MS;
@@ -1380,15 +1637,22 @@ export class BombScene {
           THREE.MathUtils.degToRad(this.punch.amp * punchCurve(x)),
         );
     }
-    // pressed parts dip and come back up
+    // Keys go down while pressed, or for good once right (`KeypadButton.SetAnimation`).
     for (const m of this.mods)
       for (const p of m.bind?.parts() ?? []) {
-        const d0 = p.userData.dipT as number | undefined;
-        if (d0 === undefined) continue;
-        p.userData.rest ??= p.position.y;
-        const x = (now - d0) / 220;
-        p.position.y = (p.userData.rest as number) - (x < 1 ? Math.sin(Math.PI * x) * 0.004 : 0);
-        if (x >= 1) delete p.userData.dipT;
+        const u = p.userData;
+        if (u.down === undefined && !u.stay && u.keyAt === undefined) continue;
+        const want = u.down || u.stay ? 1 : 0;
+        u.rest ??= p.position.y;
+        u.keyDepth ??= keyDepth(p);
+        if (u.keyWant !== want) {
+          u.keyFrom = (u.keyAt as number | undefined) ?? 0;
+          u.keyWant = want;
+          u.keyT0 = now;
+        }
+        const x = Math.min(1, (now - (u.keyT0 as number)) / KEY_MS);
+        u.keyAt = (u.keyFrom as number) + (want - (u.keyFrom as number)) * easeOutQuint(x);
+        p.position.y = (u.rest as number) - (u.keyAt as number) * (u.keyDepth as number);
       }
     // light: dark until the modules wake, the emergency light in the last minute
     const look = this.look;
@@ -1498,6 +1762,18 @@ export class BombScene {
     if (!m) return null;
     const v = this.middleOf(m).project(this.camera);
     return { x: (v.x + 1) / 2, y: (1 - v.y) / 2 };
+  }
+
+  /** The zoom, its limit here, the pan and how far the surface looked at is (tests). */
+  zoomState() {
+    return {
+      zoom: this.zoom,
+      max: this.maxZoom(),
+      pan: { x: this.pan.x, y: this.pan.y },
+      surface: this.surface(),
+      pointers: this.pointers.size,
+      stale: this.stale,
+    };
   }
 
   /** The face the player is turned to. */

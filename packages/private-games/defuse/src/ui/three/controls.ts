@@ -161,3 +161,72 @@ export function emergencyOn(leftMs: number, t: number): boolean {
   const period = 1 + 0.75 + (2 - 0.75) * clamp(leftMs / 60_000, 0, 1);
   return (t / 1000) % period < 1;
 }
+
+// ---- Zoom ----
+
+/** `Selectable.MaxZoom`: the held bomb 0.15 m, a module 0.3 m (its `DefaultZoom` on touch). */
+export const BOMB_MAX_ZOOM = 0.15;
+export const MODULE_MAX_ZOOM = 0.3;
+/**
+ * Ours: the eye may come this close to the surface it looks at (an edge, a face, a module), so
+ * the edgework and the modules' small print can be read on a phone. Never less than the
+ * original's `MaxZoom`.
+ */
+export const NEAREST_M = 0.1;
+/** A held pinch may go past the limits by a fifth of the range (`TouchControls.HandleZoom`)… */
+export const OVERSHOOT = 0.2;
+/** …but never closer to the surface than this. */
+export const NEAREST_HELD_M = 0.06;
+
+/**
+ * How far the camera may move in (m, before the portrait fit), given how far the nearest surface
+ * the player faces is (m, at no zoom) and the portrait fit.
+ */
+export function zoomLimit(pose: 'desk' | 'held' | 'module', surface: number, fit = 1): number {
+  if (pose === 'desk') return 0;
+  const original = pose === 'module' ? MODULE_MAX_ZOOM : BOMB_MAX_ZOOM;
+  return Math.max(original, (surface - NEAREST_M * fit) / fit);
+}
+
+/** The range a held pinch may reach, springing back inside `[0, max]` when let go. */
+export function pinchRange(max: number, surface: number, fit = 1): [number, number] {
+  const over = max * OVERSHOOT;
+  return [-over, Math.min(max + over, Math.max(max, (surface - NEAREST_HELD_M * fit) / fit))];
+}
+
+/** The pinch's zoom: the spread's change in px, a full range per 400 px. */
+export function pinchZoom(z0: number, spread: number, max: number, range: [number, number]) {
+  return clamp(z0 + (spread / 400) * Math.max(BOMB_MAX_ZOOM, max), range[0], range[1]);
+}
+
+/**
+ * Where the camera's centre goes (x, y) so that `point` stays under the screen spot `ndc`
+ * (−1…1) once the camera is `depth` in front of it.
+ */
+export function anchorPan(
+  point: { x: number; y: number },
+  ndc: { x: number; y: number },
+  depth: number,
+  fovDeg: number,
+  aspect: number,
+): { x: number; y: number } {
+  const t = Math.tan((fovDeg * Math.PI) / 360) * depth;
+  return { x: point.x - ndc.x * t * aspect, y: point.y - ndc.y * t };
+}
+
+/**
+ * The pan may reach the edges of what is looked at in step with the zoom: none at no zoom (the
+ * camera's home, so zooming out recentres), the whole box at the limit.
+ */
+export function clampPan(
+  pan: { x: number; y: number },
+  box: { minX: number; maxX: number; minY: number; maxY: number },
+  zoom: number,
+  max: number,
+): { x: number; y: number } {
+  const f = max > 0 ? clamp(zoom / max, 0, 1) : 0;
+  return {
+    x: clamp(pan.x, f * box.minX, f * box.maxX),
+    y: clamp(pan.y, f * box.minY, f * box.maxY),
+  };
+}
