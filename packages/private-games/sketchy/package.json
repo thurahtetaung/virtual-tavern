@@ -7,7 +7,8 @@
   "exports": {
     "./logic": "./src/logic/index.ts",
     "./guide": "./src/logic/guide.ts",
-    "./ui": "./src/ui/index.ts"
+    "./ui": "./src/ui/index.ts",
+    "./stage": "./src/ui/Stage.tsx"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -21,9 +21,12 @@ import { burst } from './confetti.ts';
 // flashes, and one animation frame loop for a count-up while it runs. Nothing is left running at
 // rest: a finished animation writes its end pose into the element's style and is dropped.
 
-/** Plays a sound `offsetMs` into the clip, so a late one still ends on time. */
+/**
+ * Plays a sound `offsetMs` into the clip, so a late one still ends on time; `ms` (the step's own
+ * length, when it has one) cuts it off there.
+ */
 export interface ShowAudio {
-  play: (clip: string, offsetMs: number, gain?: number) => void;
+  play: (clip: string, offsetMs: number, gain?: number, ms?: number) => void;
 }
 
 export interface ShowEnv {
@@ -177,7 +180,7 @@ export function play(m: Moment, env: ShowEnv): Playing {
       }
       case 'sfx':
         later(s.delay, () => {
-          if (fresh(step.t)) env.audio?.play(step.clip, s.offset, step.gain);
+          if (fresh(step.t)) env.audio?.play(step.clip, s.offset, step.gain, step.ms);
         });
         return;
       case 'voice': {

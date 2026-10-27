@@ -37,6 +37,11 @@ export interface PackSummary {
   count: number;
   /** Adult-only prompts. */
   adult: number;
+  /**
+   * Friend mode: every prompt is about another player (`{player}`), so the host switches it on
+   * rather than it being dealt by default.
+   */
+  friends: boolean;
 }
 
 /** A prompt as dealt: `id` is `<packId>:<index>`, stable while the pack is unchanged. */
@@ -65,6 +70,7 @@ export function promptPacks(content: ContentProvider): PackSummary[] {
     name: p.name,
     count: p.items.filter((i) => !i.adult).length,
     adult: p.items.filter((i) => i.adult).length,
+    friends: p.items.every((i) => i.prompt.includes(PLAYER_SLOT)),
   }));
 }
 

@@ -13,6 +13,7 @@ import {
   type TurnView,
 } from '../logic/types.ts';
 import type { Act } from './act.ts';
+import { PhoneCard, usePhoneTarget } from './PhoneShow.tsx';
 import { Replay } from './Replay.tsx';
 import { nameOf, points } from './status.ts';
 
@@ -318,6 +319,8 @@ function RevealSequence({
   onSkip: () => void;
 }) {
   const { order, progress } = reveal;
+  // The answer in the spotlight pulses as it turns (a quiet phone's own share of the reveal).
+  const pulse = usePhoneTarget('board.now');
   if (!progress) return null;
   const name = (id: string) => (id === view.me?.id ? 'you' : nameOf(view, id));
   const shown = order.slice(0, progress.step).map((i) => turn.options[i]!);
@@ -341,42 +344,44 @@ function RevealSequence({
       <p className="text-center text-xs font-semibold tracking-wide text-ink-muted uppercase">
         {current.truth ? 'And the real title is…' : `Title ${progress.step + 1} of ${order.length}`}
       </p>
-      <div
-        key={current.index}
-        aria-live="polite"
-        className={cn(
-          'space-y-3 rounded-2xl px-4 py-5 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
-          progress.flipped && current.truth
-            ? 'bg-success-soft ring-success dark:bg-emerald-500/15 dark:ring-emerald-500'
-            : progress.flipped
-              ? 'bg-danger-soft ring-danger-line dark:bg-rose-500/15 dark:ring-rose-500/50'
-              : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
-        )}
-      >
-        <p className="text-2xl font-bold text-balance break-words sm:text-3xl">{current.text}</p>
-        <p className="text-sm">
-          {voters.length > 0 ? (
-            <>
-              <span className="text-ink-muted">Picked by </span>
-              <span className="font-semibold">{listNames(voters.map(name))}</span>
-            </>
-          ) : (
-            <span className="text-ink-muted">Nobody picked it…</span>
+      <div ref={pulse}>
+        <div
+          key={current.index}
+          aria-live="polite"
+          className={cn(
+            'space-y-3 rounded-2xl px-4 py-5 text-center ring-2 motion-safe:transition motion-safe:duration-500 motion-safe:starting:scale-95 motion-safe:starting:opacity-0',
+            progress.flipped && current.truth
+              ? 'bg-success-soft ring-success dark:bg-emerald-500/15 dark:ring-emerald-500'
+              : progress.flipped
+                ? 'bg-danger-soft ring-danger-line dark:bg-rose-500/15 dark:ring-rose-500/50'
+                : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
           )}
-        </p>
-        {progress.flipped && (
-          <p
-            className={cn(
-              'text-xl font-extrabold motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
-              current.truth
-                ? 'text-emerald-800 dark:text-emerald-200'
-                : 'text-rose-800 dark:text-rose-200',
+        >
+          <p className="text-2xl font-bold text-balance break-words sm:text-3xl">{current.text}</p>
+          <p className="text-sm">
+            {voters.length > 0 ? (
+              <>
+                <span className="text-ink-muted">Picked by </span>
+                <span className="font-semibold">{listNames(voters.map(name))}</span>
+              </>
+            ) : (
+              <span className="text-ink-muted">Nobody picked it…</span>
             )}
-          >
-            {verdict(current, name)}
-            {current.truth && turn.artist && `, drawn by ${name(turn.artist)}`}
           </p>
-        )}
+          {progress.flipped && (
+            <p
+              className={cn(
+                'text-xl font-extrabold motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
+                current.truth
+                  ? 'text-emerald-800 dark:text-emerald-200'
+                  : 'text-rose-800 dark:text-rose-200',
+              )}
+            >
+              {verdict(current, name)}
+              {current.truth && turn.artist && `, drawn by ${name(turn.artist)}`}
+            </p>
+          )}
+        </div>
       </div>
       {isHost && (
         <Button variant="ghost" className="h-11 w-full" onClick={onSkip}>
@@ -451,11 +456,21 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
                   ? 'Nobody found it!'
                   : 'Nobody fell for it.'}
             </span>
-            {(o.likes ?? 0) > 0 && <span>👍 {o.likes}</span>}
+            {(o.likes ?? 0) > 0 && <Likes index={o.index} n={o.likes ?? 0} />}
           </p>
         </li>
       ))}
     </ul>
+  );
+}
+
+/** An answer's likes, popping as another comes in. */
+function Likes({ index, n }: { index: number; n: number }) {
+  const ref = usePhoneTarget(`like:${index}`);
+  return (
+    <span ref={ref} className="inline-block">
+      👍 {n}
+    </span>
   );
 }
 
@@ -552,6 +567,8 @@ export function TurnStage({
   if (reveal.progress) {
     return (
       <div className="space-y-4">
+        {/* Mounted for the whole reveal (each step's moments find its parts), shown while it runs. */}
+        <PhoneCard shown />
         {drawing}
         <RevealSequence
           view={view}
@@ -566,6 +583,7 @@ export function TurnStage({
   const last = turn.number >= turn.of && g.round >= g.rounds;
   return (
     <div className="space-y-4">
+      {g.stage === 'reveal' && <PhoneCard shown={false} />}
       {drawing}
       <ArtistMoment view={view} turn={turn} />
       <RevealBoard view={view} turn={turn} />

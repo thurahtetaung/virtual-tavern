@@ -19,6 +19,11 @@ import { Lobby } from './Lobby.tsx';
 import { anyMissing, missingIds, nameOf, points, startBlocker, statusFor } from './status.ts';
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 import { TurnStage, useReveal } from './Turn.tsx';
+import { useManifest } from './assets.ts';
+import { soundModeIn } from './audio.ts';
+import { ChipColours, paintsOf } from './paint.tsx';
+import { PhoneShow } from './PhoneShow.tsx';
+import { useDeviceSound } from './useSound.ts';
 
 export type SketchyUiProps = GameUiProps<SketchyView, SketchyAction>;
 
@@ -183,7 +188,65 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
   );
 }
 
-export function SketchyGame({
+/** This device's mute switch, shown while the room has sound on. */
+function SoundButton({
+  view,
+  stagePresent,
+  muted,
+  onChange,
+}: {
+  view: SketchyView;
+  stagePresent: boolean;
+  muted: boolean;
+  onChange: (muted: boolean) => void;
+}) {
+  if (soundModeIn(view.settings, stagePresent) === 'off') return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-pressed={!muted}
+      onClick={() => onChange(!muted)}
+      title={muted ? 'Sound is off on this device' : 'Sound is on on this device'}
+      data-testid="sketchy-sound"
+    >
+      <span aria-hidden>{muted ? '🔇' : '🔊'}</span>
+      <span className="sr-only">{muted ? 'Turn sound on here' : 'Mute this device'}</span>
+    </Button>
+  );
+}
+
+export function SketchyGame(props: SketchyUiProps) {
+  const { view, room, profile = 'phone-full' } = props;
+  const manifest = useManifest();
+  const [device, setDevice] = useDeviceSound();
+  const stagePresent = room.stage?.present === true;
+  return (
+    <PhoneShow
+      view={view}
+      you={room.you}
+      isHost={room.isHost}
+      clockOffset={room.clockOffset}
+      profile={profile}
+      stagePresent={stagePresent}
+      manifest={manifest}
+      device={device}
+    >
+      <ChipColours view={view} colours={paintsOf(room.players)} />
+      <div className="flex justify-end">
+        <SoundButton
+          view={view}
+          stagePresent={stagePresent}
+          muted={device.muted}
+          onChange={(muted) => setDevice({ muted })}
+        />
+      </div>
+      <SketchyPlay {...props} />
+    </PhoneShow>
+  );
+}
+
+function SketchyPlay({
   view,
   room,
   act,

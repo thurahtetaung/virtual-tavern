@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
 
@@ -130,3 +132,55 @@ export async function results(pages: Page[], prompt: string) {
 /** A player's score in the scores panel. */
 export const scoreOf = (page: Page, name: string) =>
   page.getByTestId('sketchy-scores').getByRole('listitem').filter({ hasText: name });
+
+const ART = process.env.SKETCHY_ART;
+const TYPES: Record<string, string> = {
+  json: 'application/json',
+  webp: 'image/webp',
+  ogg: 'audio/ogg',
+};
+
+/**
+ * With SKETCHY_ART=<folder holding manifest.json, show/ and audio/> pages get that manifest and
+ * its files (the private rigs and sound), for screenshots; without it nothing changes.
+ */
+export async function localArt(page: Page) {
+  if (!ART) return;
+  await page.route('**/api/backroom/manifest/sketchy*', async (route) =>
+    route.fulfill({
+      json: JSON.parse(await readFile(join(ART, 'manifest.json'), 'utf8')) as unknown,
+    }),
+  );
+  await page.route('**/api/backroom/assets/sketchy/**', async (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(
+      /^\/api\/backroom\/assets\/sketchy\//,
+      '',
+    );
+    try {
+      await route.fulfill({
+        body: await readFile(join(ART, path)),
+        contentType: TYPES[path.split('.').pop() ?? ''] ?? 'application/octet-stream',
+      });
+    } catch {
+      await route.fulfill({ status: 404 });
+    }
+  });
+}
+
+/** The host pairs a table screen from the Players drawer; returns the TV's page. */
+export async function pairTableScreen(browser: Browser, host: Page, look: Look = {}) {
+  await host.getByRole('button', { name: /^Players/ }).click();
+  const panel = host
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('region', { name: /Table screen/ });
+  await panel.getByRole('button', { name: 'Show a pairing code' }).click();
+  const code = (await panel.getByTestId('stage-code').textContent())!;
+  await host.keyboard.press('Escape');
+  const tv = await visitor(browser, 'TV', { viewport: { width: 1280, height: 720 }, ...look });
+  await tv.goto('/stage');
+  await tv.getByLabel('Pairing code').fill(code);
+  await tv.getByRole('button', { name: 'Pair this screen' }).click();
+  await tv.getByRole('button', { name: '▶ Start the show' }).click();
+  await expect(tv.getByTestId('sk-stage')).toHaveAttribute('data-phase', 'lobby');
+  return tv;
+}

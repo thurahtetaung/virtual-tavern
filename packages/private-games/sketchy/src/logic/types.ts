@@ -39,6 +39,31 @@ export const roundsFor = (players: number) => (players >= 8 ? 1 : 2);
 
 export type TimerMode = 'soft' | 'strict';
 
+/**
+ * Where the room's sound plays: nowhere, the host's device, every device, or the table screen
+ * (with one paired: music and voice there, phones keep their own cues).
+ */
+export type SoundMode = 'off' | 'host' | 'all' | 'stage';
+export const SOUND_MODES: readonly SoundMode[] = ['off', 'host', 'all', 'stage'];
+
+/** The sound settings, with their defaults for rooms saved before they existed. */
+export interface SoundSettings {
+  sound: SoundMode;
+  /** The host picked the sound: until then a paired table screen takes it. */
+  soundChosen: boolean;
+  music: boolean;
+  effects: boolean;
+  /** The narrator's voice (and the jokes about some prompts): off unless the host turns it on. */
+  voice: boolean;
+}
+export const DEFAULT_SOUND: SoundSettings = {
+  sound: 'host',
+  soundChosen: false,
+  music: true,
+  effects: true,
+  voice: false,
+};
+
 export interface Settings {
   packIds: string[];
   /** Adult-only prompts (and house titles) are dealt too. */
@@ -47,6 +72,12 @@ export interface Settings {
   writeSeconds: number | null;
   voteSeconds: number | null;
   timerMode: TimerMode;
+  /** Missing in rooms saved before the sound settings: `DEFAULT_SOUND` then. */
+  sound?: SoundMode;
+  soundChosen?: boolean;
+  music?: boolean;
+  effects?: boolean;
+  voice?: boolean;
 }
 
 export interface Seat {
@@ -139,6 +170,8 @@ export interface Game {
   history: PastTurn[];
   /** Epoch ms when the current stage times out, or null if untimed. */
   deadline: number | null;
+  /** Epoch ms when the current stage began (missing in rooms saved before it was kept). */
+  since?: number;
 }
 
 export interface Score {
@@ -183,6 +216,10 @@ export const actionSchema = z.discriminatedUnion('type', [
     writeSeconds: timerSeconds.optional(),
     voteSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
+    sound: z.enum(['off', 'host', 'all', 'stage']).optional(),
+    music: z.boolean().optional(),
+    effects: z.boolean().optional(),
+    voice: z.boolean().optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
@@ -280,6 +317,8 @@ export interface GameView {
   streaks: Record<PlayerId, number>;
   history: PastTurn[];
   deadline: number | null;
+  /** When the current stage began, on the server clock (0 when unknown). */
+  since: number;
 }
 
 export interface ScoreView extends Score {
@@ -290,7 +329,8 @@ export interface ScoreView extends Score {
 
 export interface SketchyView {
   phase: SketchyState['phase'];
-  settings: Settings;
+  /** The settings, the sound ones always filled in. */
+  settings: Settings & SoundSettings;
   seats: Array<Seat & { id: PlayerId }>;
   me: (Seat & { id: PlayerId }) | null;
   role: Role;
