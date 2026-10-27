@@ -639,6 +639,31 @@ function Room({
   }
 
   const Game = game.Component;
+  // The host's end-of-game buttons (a game's own end screen is above or below them).
+  const endActions = (canWrap || canSameCrew) && snapshot?.meta?.phase === 'over' && (
+    <>
+      {canWrap && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="min-h-11 max-sm:px-2 max-sm:text-[13px]"
+          onClick={() => void wrapUp()}
+        >
+          🍻 Wrap up the night
+        </Button>
+      )}
+      {canSameCrew && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="min-h-11 max-sm:px-2 max-sm:text-[13px]"
+          onClick={() => setSameCrewOpen(true)}
+        >
+          🎲 Same crew, new game
+        </Button>
+      )}
+    </>
+  );
   const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
 
   return (
@@ -716,6 +741,11 @@ function Room({
       )}
       {snapshot && <HostAway snapshot={snapshot} clockOffset={clockOffset} />}
       {snapshot && spectator && <SpectatorBanner prompt={spectator} />}
+      {endActions && (
+        // On phones one row above the game's end: under it, it pushed the end off the screen
+        // (and a game's fixed bottom tabs would cover it there).
+        <div className="mb-3 flex justify-center gap-1.5 sm:hidden">{endActions}</div>
+      )}
 
       {!snapshot ? (
         <LoadingStep label="Opening the door…" />
@@ -752,29 +782,10 @@ function Room({
         </Suspense>
       )}
 
-      {(canWrap || canSameCrew) && snapshot?.meta?.phase === 'over' && (
-        // Room below on phones, so a game's fixed bottom tabs never cover it; both on one row there.
-        <div className="mt-3 mb-20 flex scroll-mb-24 flex-wrap justify-center gap-2 max-sm:gap-1.5 lg:mb-0">
-          {canWrap && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="min-h-11 max-sm:px-2 max-sm:text-[13px]"
-              onClick={() => void wrapUp()}
-            >
-              🍻 Wrap up the night
-            </Button>
-          )}
-          {canSameCrew && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="min-h-11 max-sm:px-2 max-sm:text-[13px]"
-              onClick={() => setSameCrewOpen(true)}
-            >
-              🎲 Same crew, new game
-            </Button>
-          )}
+      {endActions && (
+        // Below the game from tablets up, with room for a game's fixed bottom tabs until desktop.
+        <div className="mt-3 mb-20 flex scroll-mb-24 flex-wrap justify-center gap-2 max-sm:hidden lg:mb-0">
+          {endActions}
         </div>
       )}
 

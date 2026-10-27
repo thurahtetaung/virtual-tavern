@@ -81,11 +81,15 @@ function turnStatus(
     const mine = t.points?.[me];
     const scored = mine === undefined ? '' : ` You scored ${points(mine)}.`;
     const what = 'move on';
+    // The host's Next button is right there.
     const tail = isHost
-      ? ' Press Next when everyone has had a look.'
+      ? mine === undefined
+        ? ' Press Next when everyone has had a look.'
+        : ''
       : ` ${room ? waitingForHost(room, what) : `Waiting for the host to ${what}…`}`;
+    // Who drew it is right below (the artist's line), so a phone's status stays short.
     return {
-      text: `That was ${t.mine ? 'your' : `${nameOf(view, t.artist)}’s`} drawing!${scored}${tail}`,
+      text: `${scored}${tail}`.trim(),
       yourMove: isHost,
     };
   }
@@ -165,7 +169,10 @@ export function statusFor(
           text: `Game over! ${names[0]} ${names[0] === 'You' ? 'win' : 'wins'} with ${top} points.`,
           yourMove: false,
         }
-      : { text: `Game over! A tie at ${top} points: ${listNames(names)}.`, yourMove: false };
+      : names.length > 2
+        ? // The podium just below names them all.
+          { text: `Game over! A ${names.length}-way tie at ${top} points.`, yourMove: false }
+        : { text: `Game over! A tie at ${top} points: ${listNames(names)}.`, yourMove: false };
   }
   const g = view.game;
   if (!g) return { text: 'Shuffling the prompts…', yourMove: false };

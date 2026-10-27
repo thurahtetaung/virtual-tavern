@@ -147,11 +147,15 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div className="rounded-xl bg-danger-soft px-3 py-2 dark:bg-rose-500/10">
             <dt className="font-semibold">🎭 Best liar</dt>
-            <dd>{liar ? `${names(liar.ids)}: fooled ${liar.best}` : 'Nobody fooled anyone!'}</dd>
+            <dd className="max-lg:line-clamp-2">
+              {liar ? `${names(liar.ids)}: fooled ${liar.best}` : 'Nobody fooled anyone!'}
+            </dd>
           </div>
           <div className="rounded-xl bg-special-soft px-3 py-2 dark:bg-violet-500/10">
             <dt className="font-semibold">👍 Most liked</dt>
-            <dd>{liked ? `${names(liked.ids)}: ${liked.best} likes` : 'No likes this game.'}</dd>
+            <dd className="max-lg:line-clamp-2">
+              {liked ? `${names(liked.ids)}: ${liked.best} likes` : 'No likes this game.'}
+            </dd>
           </div>
         </dl>
       )}

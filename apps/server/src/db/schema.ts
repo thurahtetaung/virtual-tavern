@@ -111,6 +111,11 @@ export const rooms = sqliteTable('rooms', {
    * paired. Pairing again or the host's removal replaces it, so older passes stop working.
    */
   stage: text('stage'),
+  /**
+   * Who opened the room, until they first join: whoever joins first hosts meanwhile, and the
+   * creator takes the role back on arrival unless the host has handed it on.
+   */
+  creator: text('creator'),
 });
 
 // ---- Stats (admin only) ----

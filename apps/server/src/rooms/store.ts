@@ -20,6 +20,8 @@ export interface RoomRecord {
   playtest?: PlaytestRecord | null;
   /** The current table-screen pass's nonce; null or missing when no table screen is paired. */
   stage?: string | null;
+  /** Who opened the room, until they first join or the host hands the role on; else null. */
+  creator?: string | null;
 }
 
 /** A playtest room's own settings, kept with the room. */

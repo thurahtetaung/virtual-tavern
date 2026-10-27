@@ -286,7 +286,11 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
     );
   return (
     <div className="space-y-2">
-      <ul aria-label="Titles" className="grid gap-2 sm:grid-cols-2" data-testid="sketchy-board">
+      <ul
+        aria-label="Titles"
+        className="grid gap-1.5 sm:grid-cols-2 sm:gap-2"
+        data-testid="sketchy-board"
+      >
         {turn.options.map((o) => {
           const chosen = turn.myVote === o.index;
           return (
@@ -297,7 +301,7 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                 aria-pressed={chosen}
                 onClick={() => void pick(o.index)}
                 className={cn(
-                  'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-base leading-snug font-semibold ring-1 transition sm:text-lg',
+                  'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-[15px] leading-tight font-semibold ring-1 transition sm:text-lg sm:leading-snug',
                   o.mine
                     ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
                     : chosen
@@ -334,6 +338,18 @@ function verdict(o: OptionView, name: (id: string) => string): string {
   return `🎭 Fake by ${listNames((o.authors ?? []).map(name))}`;
 }
 
+/**
+ * A title's verdict beside it: at most two fifths of the row, a long name cut short (the whole
+ * text stays for screen readers), so the title keeps the room and stays on one or two lines.
+ */
+function Verdict({ className, children }: { className?: string; children: string }) {
+  return (
+    <span title={children} className={cn('max-w-[40%] shrink-0 truncate text-xs', className)}>
+      {children}
+    </span>
+  );
+}
+
 function RevealSequence({
   view,
   turn,
@@ -364,8 +380,9 @@ function RevealSequence({
               key={o.index}
               className="flex items-baseline justify-between gap-2 rounded-lg bg-white px-3 py-1 text-sm ring-1 ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700"
             >
-              <span className="min-w-0 font-semibold break-words">{o.text}</span>
-              <span className="shrink-0 text-xs text-ink-muted">{verdict(o, name)}</span>
+              {/* One line each on a phone, so the drawing above keeps its room. */}
+              <span className="min-w-0 font-semibold break-words max-lg:truncate">{o.text}</span>
+              <Verdict className="text-ink-muted">{verdict(o, name)}</Verdict>
             </li>
           ))}
         </ul>
@@ -395,7 +412,14 @@ function RevealSequence({
                 : 'bg-white ring-stone-300 dark:bg-stone-800 dark:ring-stone-600',
           )}
         >
-          <p className="text-2xl font-bold text-balance break-words sm:text-3xl">{current.text}</p>
+          <p
+            className={cn(
+              'font-bold text-balance break-words sm:text-3xl',
+              current.text.length > 40 ? 'text-xl' : 'text-2xl',
+            )}
+          >
+            {current.text}
+          </p>
           <p className="text-sm">
             {voters.length > 0 ? (
               <>
@@ -409,7 +433,7 @@ function RevealSequence({
           {progress.flipped && (
             <p
               className={cn(
-                'text-xl font-extrabold text-balance break-words motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
+                'text-lg font-extrabold text-balance break-words sm:text-xl motion-safe:transition motion-safe:duration-300 motion-safe:starting:scale-150 motion-safe:starting:opacity-0',
                 current.truth
                   ? 'text-emerald-800 dark:text-emerald-200'
                   : 'text-rose-800 dark:text-rose-200',
@@ -466,7 +490,11 @@ function ArtistMoment({
       <p className="min-w-0 text-sm">
         <span className="inline-flex items-center gap-1 font-bold">
           <NameDot name={nameOf(view, turn.artist)} />
-          {artist} drew “{turn.prompt}”
+          {/* On a phone the real title is on the board just below. */}
+          <span className="lg:hidden">{artist === 'You' ? 'Your' : `${artist}’s`} drawing</span>
+          <span className="max-lg:hidden">
+            {artist} drew “{turn.prompt}”
+          </span>
         </span>
         <span className="block text-ink-muted">
           {found === 0
@@ -494,27 +522,34 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
         <li
           key={o.index}
           className={cn(
-            'space-y-1 rounded-xl px-4 py-1.5 ring-1 lg:py-2',
+            'min-w-0 space-y-1 rounded-xl px-4 py-1.5 ring-1 lg:py-2',
             o.truth
               ? 'bg-success-soft ring-2 ring-success sm:col-span-2 dark:bg-emerald-500/10 dark:ring-emerald-500'
               : 'bg-white ring-stone-200 dark:bg-stone-800/70 dark:ring-stone-700',
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 text-base leading-snug font-bold break-words sm:text-lg">
+            <span className="min-w-0 text-[15px] leading-tight font-bold break-words sm:text-lg sm:leading-snug">
               {o.text}
             </span>
-            <span className="shrink-0 text-xs font-semibold">{verdict(o, name)}</span>
+            <Verdict className="font-semibold max-lg:hidden">{verdict(o, name)}</Verdict>
           </p>
-          <p className="flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
-            <span>
+          {/* On a phone the verdict leads this line (one line, cut short), so the title above
+              has the row's whole width. */}
+          <p className="flex items-center gap-x-3 text-xs text-ink-muted lg:flex-wrap">
+            <span className="min-w-0 max-lg:truncate">
+              <span className="font-semibold text-ink lg:hidden">{verdict(o, name)} · </span>
               {(o.voters?.length ?? 0) > 0
                 ? `${o.truth ? 'Found by' : 'Fooled'} ${listNames((o.voters ?? []).map(name))}`
                 : o.truth
                   ? 'Nobody found it!'
                   : 'Nobody fell for it.'}
             </span>
-            {(o.likes ?? 0) > 0 && <Likes index={o.index} n={o.likes ?? 0} />}
+            {(o.likes ?? 0) > 0 && (
+              <span className="shrink-0">
+                <Likes index={o.index} n={o.likes ?? 0} />
+              </span>
+            )}
           </p>
         </li>
       ))}
@@ -641,7 +676,7 @@ export function TurnStage({
   if (g.stage === 'vote') {
     return (
       <div className="space-y-3 lg:space-y-4">
-        {drawing(80 + turn.options.length * 56)}
+        {drawing(80 + turn.options.length * 64)}
         {/* On a phone the status line just above says so already. */}
         {turn.mine && (
           <p className="text-center text-sm max-lg:hidden">
@@ -660,7 +695,7 @@ export function TurnStage({
         <PhoneCard shown />
         {/* A phone with the balloon card has no room for the drawing too (the card is the show). */}
         <div className={cn(cardShown && 'max-lg:hidden')}>
-          {drawing(36 * reveal.progress.step + 200, false)}
+          {drawing(36 * reveal.progress.step + 212, false)}
         </div>
         <RevealSequence
           view={view}

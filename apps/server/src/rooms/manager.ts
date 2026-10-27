@@ -221,6 +221,7 @@ export class RoomManager {
       id,
       gameId,
       hostId,
+      creator: hostId,
       players: [],
       state: game.create({ ...this.ctx(id, gameId, 0), ...this.carried(game, opts.carryFrom) }, []),
       version: 1,
@@ -287,9 +288,12 @@ export class RoomManager {
     const players = existing
       ? record.players.map((p) => (p.id === playerId ? { ...p, name } : p))
       : [...record.players, { id: playerId, name, color }];
-    // A room whose creator never joined has no host among its members: the first joiner takes over.
-    const hostId = players.some((p) => p.id === record.hostId) ? record.hostId : playerId;
-    const unchanged = existing?.name === name && hostId === record.hostId;
+    // Until its creator arrives, a room has no host among its members: the first joiner hosts
+    // meanwhile, and the creator takes the role back when they come (a slow page loses nothing).
+    const claims = !!record.creator && record.creator === playerId;
+    const hostId =
+      claims || !players.some((p) => p.id === record.hostId) ? playerId : record.hostId;
+    const unchanged = existing?.name === name && hostId === record.hostId && !claims;
     if (opts.connect) this.markConnected(room, playerId, hostId);
     if (unchanged) {
       if (opts.connect) this.deps.events.changed(roomId);
@@ -301,6 +305,7 @@ export class RoomManager {
         {
           players,
           hostId,
+          ...(claims && { creator: null }),
           // The latest state: connecting may just have changed it (`playerPresence`).
           state: room.game.playerJoined(room.record.state, { id: playerId, name, color }),
         },
@@ -387,7 +392,8 @@ export class RoomManager {
     if (!room.record.players.some((p) => p.id === target))
       return fail('bad-target', 'No such player.');
     if (botIds(room.record).has(target)) return fail('bad-target', 'A bot can’t host.');
-    this.commit(room, { hostId: target }, 0, { kind: 'host.changed', by: target });
+    // Handed on deliberately: a creator who has yet to arrive no longer takes it back.
+    this.commit(room, { hostId: target, creator: null }, 0, { kind: 'host.changed', by: target });
     return OK;
   }
 
@@ -902,7 +908,7 @@ export class RoomManager {
    */
   private commit(
     room: LiveRoom,
-    patch: Partial<Pick<RoomRecord, 'players' | 'state' | 'hostId'>>,
+    patch: Partial<Pick<RoomRecord, 'players' | 'state' | 'hostId' | 'creator'>>,
     rearm: number | null = 0,
     observed?: Observed,
   ) {
