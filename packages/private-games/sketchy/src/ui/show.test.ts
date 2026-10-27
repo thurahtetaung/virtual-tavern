@@ -94,6 +94,48 @@ describe('moments', () => {
     expect(steps.some((s) => s.step.kind === 'sfx' && s.step.clip.startsWith('me:'))).toBe(false);
   });
 
+  it('gives the last drawer and the last writer their own cues after the table moved on', () => {
+    const h = started();
+    const last = game(h).players.at(-1)!;
+    drawAll(h);
+    // Writing already: the last drawer's "sent" still sounds on their phone, first seen now.
+    const v = viewOf(h, last);
+    expect(v.game!.stage).toBe('write');
+    expect(seenKeys(v)).toContain('sent:1');
+    const at = 7_000_000;
+    const phone: Parameters<typeof schedule>[2] = {
+      profile: 'phone-quiet',
+      you: last,
+      reduced: false,
+      low: true,
+      tracks,
+    };
+    const sent = moments(
+      v,
+      ctx({ you: last, profile: 'phone-quiet', seen: { 'sent:1': at } }),
+    ).find((m) => m.id === 'sent:1')!;
+    expect(sent.at).toBe(at);
+    expect(schedule(sent, at, phone).map((s) => s.step.kind === 'sfx' && s.step.clip)).toContain(
+      'me:sent',
+    );
+    // Nobody else's view says they sent one.
+    expect(viewOf(h, null).game!.sentDrawing).toBe(false);
+    // The last title in starts the picking: the writer's break and yelp still sound there.
+    const writer = turn(h).writers.at(-1)!;
+    lieAll(h);
+    const w = viewOf(h, writer);
+    expect(w.game!.stage).toBe('vote');
+    const key = seenKeys(w).find((k) => k.startsWith('mylie:'))!;
+    const lie = moments(w, ctx({ you: writer, profile: 'phone-quiet', seen: { [key]: at } })).find(
+      (m) => m.id === key,
+    )!;
+    expect(clips([lie])).toEqual(['me:break', `me:yelp#${slotOf(w, writer)}`]);
+    // Both play on the battery saver too.
+    expect(
+      schedule(lie, at, { ...phone, you: writer }).filter((s) => s.step.kind === 'sfx'),
+    ).toHaveLength(2);
+  });
+
   it('never tells the table screen what only the artist knows before the reveal', () => {
     const h = writing();
     const t = turn(h);

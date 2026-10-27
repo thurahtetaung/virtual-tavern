@@ -133,6 +133,8 @@ export function seenKeys(view: SketchyView): string[] {
   if (!g) return [];
   const keys: string[] = [];
   if (g.stage === 'draw') for (const id of g.drawn) keys.push(`drawn:${g.round}:${id}`);
+  // The viewer's own cues live on into the next stage: the last one in moves the table on at once.
+  if (g.sentDrawing) keys.push(`sent:${g.round}`);
   const t = g.turn;
   if (t && (g.stage === 'write' || g.stage === 'vote')) {
     for (let k = 0; k < t.done; k++) keys.push(`${g.stage}:${turnKey(view)}:${k}`);
@@ -251,8 +253,41 @@ function drawing(view: SketchyView, ctx: ShowCtx): Moment[] {
         }),
         anim(400, `pencilBox:${id}/pencilBox-dot`, 'pencilBox-dot.Disappear', { on: STAGE }),
         pop(400, `drawn:${id}`, STAGE, 367),
-        sfx(0, 'me:sent', { for: id, on: PHONES }),
-        { t: 0, kind: 'haptic', pattern: [20], for: id, on: PHONES },
+      ],
+    });
+  }
+  return out;
+}
+
+/**
+ * The player's own cues for what they sent, in whichever stage the table is in by then: the last
+ * drawing or title in moves the table straight on, so these never wait on the stage they began in
+ * (the same id in the next stage, so nothing replays).
+ */
+function mine(view: SketchyView, ctx: ShowCtx): Moment[] {
+  const g = view.game!;
+  const you = ctx.you;
+  if (!you) return [];
+  const out: Moment[] = [];
+  if (g.sentDrawing)
+    out.push({
+      id: `sent:${g.round}`,
+      at: at(ctx, `sent:${g.round}`),
+      steps: [
+        sfx(0, 'me:sent', { for: you, on: PHONES }),
+        { t: 0, kind: 'haptic', pattern: [20], for: you, on: PHONES },
+      ],
+    });
+  const t = g.turn;
+  if (t && t.myLie !== null && (g.stage === 'write' || g.stage === 'vote')) {
+    const key = turnKey(view);
+    out.push({
+      id: `mylie:${key}`,
+      at: at(ctx, `mylie:${key}`),
+      steps: [
+        sfx(0, 'me:break', { for: you, on: PHONES }),
+        sfx(150, `me:yelp#${slotOf(view, you)}`, { for: you, on: PHONES }),
+        { t: 0, kind: 'haptic', pattern: [15], for: you, on: PHONES },
       ],
     });
   }
@@ -353,16 +388,6 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       ],
     });
   }
-  if (t.myLie !== null && ctx.you)
-    out.push({
-      id: `mylie:${key}`,
-      at: at(ctx, `mylie:${key}`),
-      steps: [
-        sfx(0, 'me:break', { for: ctx.you, on: PHONES }),
-        sfx(150, `me:yelp#${slotOf(view, ctx.you)}`, { for: ctx.you, on: PHONES }),
-        { t: 0, kind: 'haptic', pattern: [15], for: ctx.you, on: PHONES },
-      ],
-    });
   return out;
 }
 
@@ -674,6 +699,7 @@ export function moments(view: SketchyView, ctx: ShowCtx): Moment[] {
   if (t && g.stage === 'write') out.push(...writing(view, ctx, t));
   if (t && g.stage === 'vote') out.push(...voting(view, ctx, t));
   if (t && g.stage === 'reveal') out.push(...revealing(view, ctx, t));
+  out.push(...mine(view, ctx));
   out.push(...clock(view));
   return out;
 }

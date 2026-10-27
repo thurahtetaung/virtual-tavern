@@ -311,6 +311,11 @@ export interface GameView {
   myPrompt: string | null;
   /** Drawing stage: the viewer's sent drawing. */
   myDrawing: Drawing | null;
+  /**
+   * The viewer's drawing for this round is in (in every stage of the round): their own "sent" cue
+   * plays even when theirs was the last one and the table moved straight on to writing.
+   */
+  sentDrawing: boolean;
   canReroll: boolean;
   rerolled: boolean;
   turn: TurnView | null;

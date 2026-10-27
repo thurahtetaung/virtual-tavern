@@ -97,6 +97,9 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
           onSubmit={(drawing) => act({ type: 'draw', drawing }, { anchor: DRAW_ANCHOR })}
           submitLabel="Send drawing"
           footer={clock('to draw')}
+          // On a phone the sheet is as big as the screen allows with everything else in view
+          // (about 540 px of room, tabs, prompt, pens and Send around it), never too small to draw.
+          className="max-lg:[&>div:first-child]:max-w-[max(14rem,calc((100svh_-_540px)_*_0.8))]"
         />
         <RefusalSlot anchor={DRAW_ANCHOR} />
         <p className="text-xs text-ink-muted">

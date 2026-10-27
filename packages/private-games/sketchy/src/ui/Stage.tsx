@@ -37,6 +37,15 @@ import {
   revealEndOf,
 } from './show.ts';
 import { nameOf, points } from './status.ts';
+import {
+  LINE_W,
+  NAME_W,
+  REVEAL_POSE,
+  SUBTITLE_TOP,
+  choiceCentre,
+  drawRows,
+  pencilAt,
+} from './layout.ts';
 import { useDeviceSound, useSound } from './useSound.ts';
 import { useSeen } from './useSeen.ts';
 import { ChipColours, paintsOf } from './paint.tsx';
@@ -217,10 +226,12 @@ export function SketchyStage({ view, room }: SketchyUiProps) {
             )
           }
           overlay={
+            // The narrator's words have the band under everything (`SUBTITLE_TOP`): two lines at most.
             <p
               ref={targets.ref('subtitle')}
               aria-live="polite"
-              className="absolute bottom-3 left-1/2 max-w-[1000px] -translate-x-1/2 text-center text-2xl font-semibold text-stone-700"
+              className="absolute left-1/2 line-clamp-2 w-[1100px] -translate-x-1/2 text-center text-[22px] leading-snug font-semibold text-stone-700"
+              style={{ top: SUBTITLE_TOP }}
             />
           }
         >
@@ -435,7 +446,7 @@ function NumberRow({
   for (let s = TIMER_STEP_S; s <= total; s += TIMER_STEP_S) marks.push(s);
   const span = 780;
   return (
-    <Layer m={[1, 0, 0, 1, 0, 660]}>
+    <Layer m={[1, 0, 0, 1, 0, 624]}>
       {arm && (
         <Layer name="arm" moving style={restOf(arm.tracks.arm?.Appear)}>
           <Layer m={[0.5, 0, 0, 0.5, 1100, -30]}>
@@ -459,22 +470,6 @@ function NumberRow({
   );
 }
 
-/** Where drawing time's rows run, from the original's layouts: [y, from x, to x, scale]. */
-function drawRows(rig: LoadedRig | null, n: number): [number, number, number, number][] {
-  const list = (rig?.places[`drawIn.Players${Math.min(8, Math.max(3, n))}`] as number[][]) ?? [];
-  const at = (rig && placeOf(rig, 'drawIn.at')) ?? [1, 0, 0, 1, 0, 0];
-  if (!list.length)
-    return Array.from({ length: n }, (_, i) => [180 + i * (420 / Math.max(1, n - 1)), 1250, 40, 1]);
-  return list.slice(0, n).map((m) => {
-    const a = m[0]!;
-    const k = Math.abs(a);
-    // The pencil starts at 735 and ends at -24 in its row (its own units), mirrored rows the other way.
-    const x = (v: number) => at[4]! + m[4]! + a * v;
-    const clamp = (v: number) => Math.min(1220, Math.max(60, v));
-    return [at[5]! + m[5]! + k * 9, clamp(x(735)), clamp(x(-24)), Math.min(k, 1.4)];
-  });
-}
-
 function DrawRoom({
   view,
   rig,
@@ -487,7 +482,7 @@ function DrawRoom({
   offset: number;
 }) {
   const g = view.game!;
-  const rows = drawRows(rig, g.players.length);
+  const rows = drawRows(rig?.places, g.players.length);
   // The pencils inch across for the whole drawing time (one inch every 1/80 of it, as the original).
   const timed = g.deadline !== null;
   const now = useNow(offset, 400, timed);
@@ -524,12 +519,10 @@ function DrawRoom({
         </Layer>
       )}
       {g.players.map((id, i) => {
-        const [y, from, to, k] = rows[i] ?? [200 + i * 60, 1250, 40, 1];
+        const row = rows[i] ?? { y: 200 + i * 60, leftward: true, k: 1.4 };
+        const { y, leftward, k } = row;
         const done = g.drawn.includes(id);
-        const x = from + (to - from) * inch;
-        const left = to < from;
-        const lineFrom = left ? x : Math.min(from, to);
-        const lineTo = left ? Math.max(from, to) : x;
+        const { x, mid, lineFrom, lineTo } = pencilAt(row, inch);
         const name = view.seats.find((s) => s.id === id)?.name;
         return (
           <Layer key={id} m={[1, 0, 0, 1, 0, y]}>
@@ -543,16 +536,17 @@ function DrawRoom({
                   top: 0,
                   height: 20 * k,
                   opacity: 0.7,
+                  transition: 'left 0.4s linear, width 0.4s linear',
                 }}
               >
-                <Layer m={[k, 0, 0, k, left ? -lineFrom + Math.min(from, to) : 0, 0]}>
+                <Layer m={[1280 / LINE_W, 0, 0, k, -lineFrom, 0]}>
                   <RigArt rig={rig} symbol="drawLine" tint={paint(id)} />
                 </Layer>
               </div>
             ) : null}
             <Layer m={[1, 0, 0, 1, x, 0]} style={{ transition: 'transform 0.4s linear' }}>
               {rig && !done && (
-                <Layer m={[left ? k : -k, 0, 0, k, 0, -20 * k]}>
+                <Layer m={[leftward ? k : -k, 0, 0, k, 0, -20 * k]}>
                   <Layer
                     name={`pencilBox:${id}/pencilBox-container`}
                     moving
@@ -567,14 +561,21 @@ function DrawRoom({
                   </Layer>
                 </Layer>
               )}
+            </Layer>
+            {/* The player rides above their pencil (the original's self-portrait): their name,
+                and their colour dot once the drawing is in. */}
+            <Layer m={[1, 0, 0, 1, mid, 0]} style={{ transition: 'transform 0.4s linear' }}>
               <Layer name={`drawn:${id}`} moving style={done ? undefined : HIDDEN}>
                 <span
                   className="absolute size-14 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-stone-900"
                   style={{ background: paint(id) }}
                 />
               </Layer>
-              <Layer m={[1, 0, 0, 1, 0, 52]}>
-                <Ink size={24}>
+              <Layer m={[1, 0, 0, 1, 0, -50]}>
+                <Ink
+                  size={24}
+                  style={{ maxWidth: NAME_W, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
                   {done ? '✓ ' : ''}
                   {name}
                 </Ink>
@@ -584,7 +585,7 @@ function DrawRoom({
         );
       })}
       {!timed && (
-        <Layer m={[1, 0, 0, 1, 640, 690]}>
+        <Layer m={[1, 0, 0, 1, 640, 638]}>
           <Ink size={26} style={{ fontWeight: 600 }}>
             {g.drawn.length} of {g.players.length} drawings in
           </Ink>
@@ -676,9 +677,11 @@ function TurnRoom({
     <>
       <Layer
         style={{
-          ...(T
-            ? restOf(T['drawing-container']?.[pose])
-            : { transform: 'matrix(1.458,0,0,1.458,464,132)' }),
+          ...(pose === 'RevealMove'
+            ? { transform: REVEAL_POSE }
+            : T
+              ? restOf(T['drawing-container']?.[pose])
+              : { transform: 'matrix(1.458,0,0,1.458,464,132)' }),
           transition: 'transform 0.5s ease-out',
         }}
       >
@@ -865,7 +868,6 @@ function Reveal({
 }) {
   const index = order[step]!;
   const o = turn.options.find((x) => x.index === index)!;
-  const i = turn.options.indexOf(o);
   const author = o.authors?.[0];
   const chips = (rig?.places['chips.initial'] as number[][] | undefined) ?? [];
   const words = (
@@ -887,12 +889,12 @@ function Reveal({
   );
   if (!rig)
     return (
-      <Layer m={[1, 0, 0, 1, 860, 330]}>
+      <Layer m={[1, 0, 0, 1, 640, 190]}>
         <PlainCard />
       </Layer>
     );
   return (
-    <Layer m={choiceAt(rig, i, turn.options.length)}>
+    <Layer m={choiceCentre(rig?.places)}>
       <style>{CARD_CSS}</style>
       <RevealCard
         rig={rig}
@@ -964,27 +966,39 @@ function Reveal({
           // beside it; the original's placeholder avatar is left out.
           'card-artist': turn.artist ? (
             <Layer name="artist/artist-artistName" moving style={HIDDEN}>
-              {/* Under the title, clear of the choosers' names above it. */}
+              {/* Under the title, clear of the choosers' names above it; the points beside the
+                  pill (the card sits mid-screen, so there is room on the right). */}
               <Layer m={[1, 0, 0, 1, 90, 150]}>
                 <span
                   className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap"
-                  style={{ ...PILL, fontSize: 50, display: 'flex', alignItems: 'center', gap: 12 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 18 }}
                 >
                   <span
-                    className="inline-block size-9 rounded-full ring-4 ring-stone-900"
-                    style={{ background: paint(turn.artist) }}
-                  />
-                  drawn by{' '}
+                    style={{
+                      ...PILL,
+                      fontSize: 50,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <span
+                      className="inline-block size-9 rounded-full ring-4 ring-stone-900"
+                      style={{ background: paint(turn.artist) }}
+                    />
+                    drawn by{' '}
+                    <Ink
+                      name="artist.name"
+                      size={50}
+                      style={{ position: 'static', transform: 'none' }}
+                    />
+                  </span>
                   <Ink
-                    name="artist.name"
-                    size={50}
-                    style={{ position: 'static', transform: 'none' }}
+                    name="artist.points"
+                    size={56}
+                    style={{ position: 'static', transform: 'none', color: '#15803d' }}
                   />
                 </span>
-                {/* The points under the pill (beside it they would leave the screen on the right). */}
-                <Layer m={[1, 0, 0, 1, 40, 105]}>
-                  <Ink name="artist.points" size={56} style={{ color: '#15803d' }} />
-                </Layer>
               </Layer>
             </Layer>
           ) : null,
@@ -1149,7 +1163,7 @@ function Board({
           </Layer>
         );
       })}
-      <Layer m={[1, 0, 0, 1, 1000, 700]}>
+      <Layer m={[1, 0, 0, 1, 1000, 630]}>
         <Ink size={22} style={{ fontWeight: 600 }}>
           {turn.number >= turn.of && g.round >= g.rounds ? 'Last drawing! ' : ''}The host moves on
         </Ink>

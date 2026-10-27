@@ -100,6 +100,7 @@ function gameView(state: SketchyState, g: Game, viewer: PlayerId | null): GameVi
     drawn: drawing ? g.players.filter((id) => g.sketches[id]?.drawing) : [],
     myPrompt: drawing && inRound && own ? own.prompt.text : null,
     myDrawing: drawing && inRound && own ? own.drawing : null,
+    sentDrawing: state.phase === 'playing' && inRound && !!own?.drawing,
     canReroll:
       drawing &&
       inRound &&

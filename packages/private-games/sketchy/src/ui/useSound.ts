@@ -24,6 +24,12 @@ const engine = () => soundEngineFor(GAME_ID);
 const DEVICE_KEY = 'vt.sketchy.sound';
 /** A narrator line still waiting this long after its moment is dropped. */
 const VOICE_WAIT_MS = 2500;
+/**
+ * A phone starts music from silence only once the track has been wanted this long: the room's
+ * sound moves to a table screen being paired (or one coming back) within moments, and a phone
+ * must not fetch a track it will never play. Switching tracks while one plays is immediate.
+ */
+export const MUSIC_SETTLE_MS = 3000;
 /** Effects the show fires at a moment's notice, kept decoded once a game starts. */
 const INSTANT = ['reveal.hit', 'reveal.drumroll', 'write.break', 'vote.tick', 'likes.thumb'];
 
@@ -214,14 +220,15 @@ export function useSound({
     on && s.music && deviceSounds(mode, isHost, isStage) && key
       ? (audio?.music?.[key]?.[0] ?? null)
       : null;
+  const settled = useSettled(track, isStage ? 0 : MUSIC_SETTLE_MS);
   const level = device.volume * MUSIC_SHARE * (speaking ? DUCK_RATIO : 1);
   const levelNow = useRef(level);
   useEffect(() => {
     levelNow.current = level;
   });
   useEffect(() => {
-    engine().setMusic(track, levelNow.current);
-  }, [track, unlocked]);
+    engine().setMusic(settled, levelNow.current);
+  }, [settled, unlocked]);
   useEffect(() => {
     engine().setMusicLevel(level);
   }, [level]);
@@ -232,4 +239,24 @@ export function useSound({
     };
   }, []);
   return showAudio;
+}
+
+/**
+ * The track to play: a change to another track or to silence at once, a start from silence once
+ * it has been wanted for `wait` ms.
+ */
+function useSettled(track: string | null, wait: number): string | null {
+  const [settled, setSettled] = useState<string | null>(track && wait > 0 ? null : track);
+  const fromSilence = settled === null;
+  useEffect(() => {
+    if (!track || !fromSilence || wait <= 0) {
+      setSettled(track);
+      return;
+    }
+    const id = setTimeout(() => setSettled(track), wait);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [track, fromSilence, wait]);
+  return settled;
 }
