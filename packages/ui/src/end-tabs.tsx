@@ -25,7 +25,7 @@ export function useWideScreen(): boolean {
 }
 
 /** The least a part keeps when the page is short: it then scrolls inside. */
-const MIN_PART_PX = 150;
+const MIN_PART_PX = 120;
 
 /**
  * Keeps the page within the screen: when it is taller, the part gets the height that fits (no

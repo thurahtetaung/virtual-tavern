@@ -106,14 +106,21 @@ function ContinueWithout({
       ? `${missing.length} more players`
       : listNames(missing.map((id) => nameOf(view, id)));
   return (
-    <Panel className="space-y-2 text-center" data-testid="continue-without">
-      <p className="text-sm">
+    <Panel
+      className="space-y-2 text-center max-lg:space-y-1.5 max-lg:p-3"
+      data-testid="continue-without"
+    >
+      <p className="text-sm max-lg:text-xs">
         {timeUp ? '⏰ Time’s up. ' : '📴 '}
         {round.stage === 'write'
           ? `Still waiting for ${names}. Continue, and the game picks a lie for them if it can.`
           : `Still waiting for ${names}. Continue, and they simply don’t vote.`}
       </p>
-      <Button size="lg" className="w-full" onClick={() => void act({ type: 'continue-without' })}>
+      <Button
+        size="lg"
+        className="w-full max-lg:h-11"
+        onClick={() => void act({ type: 'continue-without' })}
+      >
         <span className="truncate">Continue without {names}</span>
       </Button>
     </Panel>

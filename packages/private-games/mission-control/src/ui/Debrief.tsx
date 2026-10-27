@@ -137,7 +137,8 @@ export function Debrief({
   const log = a.mission.n !== EPILOGUE ? campaign?.log[a.mission.n] : null;
   return (
     <Panel
-      className="mx-auto max-w-2xl space-y-4"
+      // Phones: tighter, with the buttons side by side, so the debrief fits the screen.
+      className="mx-auto max-w-2xl space-y-4 max-lg:space-y-3 max-lg:p-3"
       data-testid="mc-debrief"
       data-result={r.success ? 'success' : 'failure'}
     >
@@ -195,11 +196,11 @@ export function Debrief({
       )}
       {room.superlatives?.length ? <Superlatives lines={room.superlatives} /> : null}
       {decide && (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2 max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-12 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-base">
           {r.success ? (
             <Button
               size="lg"
-              className="sm:col-span-2"
+              className="col-span-2"
               onClick={() => send({ type: 'next' })}
               data-testid="mc-next"
             >
@@ -228,7 +229,7 @@ export function Debrief({
           )}
         </div>
       )}
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-2 max-lg:flex-nowrap max-lg:[&>*]:h-auto max-lg:[&>*]:min-h-11 max-lg:[&>*]:min-w-0 max-lg:[&>*]:flex-1 max-lg:[&>*]:px-2 max-lg:[&>*]:py-1 max-lg:[&>*]:text-sm">
         <Button variant="secondary" onClick={() => setReplay(!replay)} data-testid="mc-replay-open">
           {replay ? 'Hide the replay' : '🔍 Replay: every hand, trick by trick'}
         </Button>

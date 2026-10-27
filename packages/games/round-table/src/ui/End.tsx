@@ -33,14 +33,14 @@ export function End({
     <Panel role="region" aria-label="Game over" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
       <div
         className={cn(
-          'rounded-xl px-4 py-3 text-center ring-1',
+          'rounded-xl px-4 py-3 text-center ring-1 max-lg:py-2',
           good
             ? 'bg-team-b-soft ring-team-b-line dark:bg-blue-500/10 dark:ring-blue-500/30'
             : 'bg-team-a-soft ring-team-a-line dark:bg-red-500/10 dark:ring-red-500/30',
         )}
         data-testid="winner"
       >
-        <p className={cn('text-2xl font-bold', SIDE_TEXT[end.winner])}>
+        <p className={cn('text-2xl font-bold max-lg:text-xl', SIDE_TEXT[end.winner])}>
           {good ? '🛡️ Good wins' : '🗡️ Evil wins'}
         </p>
         <p className="text-sm">{END_LINE[end.reason]}</p>

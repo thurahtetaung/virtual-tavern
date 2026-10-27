@@ -37,19 +37,19 @@ export function End({
   // Who went when: phones show it with the awards, as the end's first tab.
   const outOrder = order.length > 0 && (
     <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 text-sm text-ink-muted">
-            {order.map((p, i) => (
-              <span key={p.id} className="inline-flex items-center gap-1.5">
-                {i > 0 && <span aria-hidden>·</span>}
-                <span className="inline-flex items-center gap-1">
-                  <span>
-                    {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
-                    {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
-                  </span>
-                  <NameDot name={p.name} className="order-first" />
-                </span>
-              </span>
-            ))}
-          </p>
+      {order.map((p, i) => (
+        <span key={p.id} className="inline-flex items-center gap-1.5">
+          {i > 0 && <span aria-hidden>·</span>}
+          <span className="inline-flex items-center gap-1">
+            <span>
+              {p.left ? '🚪' : p.ghost ? '👻' : '💥'} {p.name}
+              {p.deadTurn ? ` (turn ${p.deadTurn})` : ''}
+            </span>
+            <NameDot name={p.name} className="order-first" />
+          </span>
+        </span>
+      ))}
+    </p>
   );
   const pileBlock = (
     <Panel className="space-y-2">
