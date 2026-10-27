@@ -168,14 +168,14 @@ for (const look of LOOKS)
             .last()
             .click();
           await expect(page).toHaveURL(/\/r\//);
-          const intro = page.getByRole('region', { name: /^New to / });
+          const intro = page.getByRole('button', { name: 'New here? The game in 30 seconds' });
           await expect(intro).toBeVisible();
           await page.screenshot({ path: `${OUT}/${id}-${look.name}-${scheme}-lobby-intro.png` });
-          await intro.getByRole('button', { name: 'The game in 30 s' }).click();
-          await expect(intro.getByTestId('guide-stepper')).toBeVisible();
+          await intro.click();
+          const sheet = page.getByRole('dialog');
+          await expect(sheet.getByTestId('guide-stepper')).toBeVisible();
           await page.screenshot({ path: `${OUT}/${id}-${look.name}-${scheme}-lobby-steps.png` });
-          await page.keyboard.press('Escape');
-          await intro.getByRole('button', { name: 'Skip' }).click();
+          await sheet.getByRole('button', { name: 'Skip' }).click();
           await page.getByRole('button', { name: 'Rules', exact: true }).click();
           const drawer = page.getByRole('dialog');
           await expect(drawer.getByRole('tablist', { name: 'Guide' })).toBeVisible();
@@ -206,10 +206,8 @@ for (const scheme of ['light', 'dark'] as const)
       await p.goto(path);
     }
     await expect(host.getByText('Players (3/10)')).toBeVisible();
-    await host
-      .getByRole('region', { name: /^New to / })
-      .getByRole('button', { name: 'Skip' })
-      .click();
+    await host.getByRole('button', { name: 'New here? The game in 30 seconds' }).click();
+    await host.getByRole('dialog').getByRole('button', { name: 'Skip' }).click();
     await host.getByRole('button', { name: 'Deal the cards' }).click();
     await host.getByRole('button', { name: '👁️ Show your card' }).click();
     await host.getByRole('button', { name: 'Rules', exact: true }).click();
