@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.78.0...v0.79.0) (2026-10-27)
+
+
+### Features
+
+* **sketchy:** the host picks the narrator's announcer ([#481](https://github.com/thurahtetaung/virtual-tavern/issues/481)) ([bb878e8](https://github.com/thurahtetaung/virtual-tavern/commit/bb878e814800528203fecbd16d84b8a9497af20a))
+
 ## [0.78.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.77.0...v0.78.0) (2026-10-27)
 
 
