@@ -11,8 +11,9 @@ import {
   nextSolvableAt,
   tickSolvable,
 } from './modules.ts';
-import { KNOB } from './data.ts';
+import { missionById, type Pool } from './missions.ts';
 import { between, int, next, type Stream } from './rand.ts';
+import { rememberManual, rulesFor } from './rules.ts';
 import {
   type Bomb,
   type Surprise,
@@ -96,7 +97,7 @@ function weighted<K extends string>(kinds: readonly K[], weights: Map<K, number>
 }
 
 /** The Free Play pools (`FreeplayMissionGenerator.Generate`). */
-export function freePlayPools(s: Settings): { count: number; kinds: Kind[] }[] {
+export function freePlayPools(s: Settings): Pool[] {
   const needy = s.needy ? 1 : 0;
   const kinds = SOLVABLE.filter((k) => !s.vetoes.includes(k));
   return [
@@ -105,22 +106,64 @@ export function freePlayPools(s: Settings): { count: number; kinds: Kind[] }[] {
   ];
 }
 
-/** `BombGenerator.CreateBomb` on the one casing, then the widgets. */
-export function createBomb(no: number, seed: number, s: Settings, now: number): Bomb {
+/** What a bomb is made from (`GeneratorSetting`): a mission's, or Free Play's from the settings. */
+export interface Generator {
+  mission: string | null;
+  /** Seconds. */
+  time: number;
+  strikes: number;
+  front: boolean;
+  /** Seconds. */
+  needyAfter: number;
+  pacing: boolean;
+  pools: Pool[];
+}
+
+export function generatorOf(s: Settings): Generator {
+  const m = missionById(s.mission);
+  if (m)
+    return {
+      mission: m.id,
+      time: m.time,
+      strikes: m.strikes,
+      front: !!m.front,
+      needyAfter: m.needyAfter ?? NEEDY_AFTER / 1000,
+      pacing: !!m.pacing,
+      pools: m.pools,
+    };
+  return {
+    mission: null,
+    time: s.time,
+    strikes: s.hardcore ? 1 : 3,
+    front: false,
+    needyAfter: NEEDY_AFTER / 1000,
+    pacing: true,
+    pools: freePlayPools(s),
+  };
+}
+
+/**
+ * `BombGenerator.CreateBomb` on the one casing, then the widgets. `manual` is the different
+ * manual's seed (1: the printed manual).
+ */
+export function createBomb(no: number, seed: number, s: Settings, now: number, manual = 1): Bomb {
+  const g = generatorOf(s);
+  const rules = rulesFor(manual);
   const r: Stream = { r: seed >>> 0 };
-  const free: number[][] = [[...ANCHORS], [...ANCHORS]];
-  const faces: (0 | 1)[] = [0, 1];
+  const free: number[][] = [[...ANCHORS], g.front ? [] : [...ANCHORS]];
+  const faces: (0 | 1)[] = g.front ? [0] : [0, 1];
   const room = () => faces.filter((f) => free[f]!.length > 0);
   const take = (face: 0 | 1, anchors: number[]) => {
     const anchor = anchors[int(r, anchors.length)]!;
     free[face]!.splice(free[face]!.indexOf(anchor), 1);
     return anchor;
   };
-  const timerFace = faces[int(r, 2)]!;
+  // A front-only bomb has one face to choose from (`Next(0, 1)` draws nothing).
+  const timerFace = g.front ? 0 : faces[int(r, 2)]!;
   int(r, free[timerFace]!.length); // InstantiateComponent draws a spawn point before taking a timer one
   const timer = { face: timerFace, anchor: take(timerFace, TIMER_ANCHORS) };
   const picked: Kind[] = [];
-  for (const pool of freePlayPools(s)) {
+  for (const pool of g.pools) {
     const weights = new Map<Kind, number>();
     for (let i = 0; i < pool.count; i++) picked.push(weighted(pool.kinds, weights, r));
   }
@@ -134,15 +177,17 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
       kind === 'button' && free[timerFace]!.length ? timerFace : faceRoom[int(r, faceRoom.length)]!;
     const anchor = take(face, free[face]!);
     modules.push(
-      isNeedy(kind) ? createNeedy(kind, face, anchor) : createSolvable(kind, face, anchor, r),
+      isNeedy(kind)
+        ? createNeedy(kind, face, anchor)
+        : createSolvable(kind, face, anchor, r, rules),
     );
   }
   const { serial, widgets } = makeWidgets(r);
-  const strikeLimit = s.hardcore ? 1 : 3;
+  const strikeLimit = g.strikes;
   const startedAt = now;
   // The surprises draw from their own stream, so they never change the bomb's own draws.
   const pace =
-    s.surprises === false
+    s.surprises === false || !g.pacing
       ? null
       : { r: (seed ^ 0x5bd1e995) >>> 0, next: 0, left: ['lights', 'alarm'] as Surprise[] };
   if (pace) pace.next = startedAt + LIGHTS.clock + Math.round(between(pace, PACE.min, PACE.max));
@@ -152,8 +197,8 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
     startedAt,
     activeAt: startedAt + LIGHTS.active,
     clockAt: startedAt + LIGHTS.clock,
-    total: s.time * 1000,
-    leftAtAnchor: s.time * 1000,
+    total: g.time * 1000,
+    leftAtAnchor: g.time * 1000,
     anchorAt: startedAt + LIGHTS.clock,
     rate: 1,
     strikes: 0,
@@ -169,6 +214,9 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
     pace,
     lightsAt: null,
     alarm: null,
+    mission: g.mission,
+    needyAfter: g.needyAfter * 1000,
+    manual,
   };
 }
 
@@ -222,7 +270,11 @@ const infoOf = (b: Bomb): BombInfo => ({
   widgets: b.widgets,
   strikes: b.strikes,
   timerText: (t) => timerText(leftAt(b, t)),
+  rules: rulesFor(b.manual),
 });
+
+/** Bomb time (ms) before its needy modules wake by themselves. */
+const needyAfterOf = (b: Bomb) => b.needyAfter ?? NEEDY_AFTER;
 
 /** When the clock reaches `left` ms (it never runs backwards), or now if it already has. */
 function whenLeft(b: Bomb, left: number): number {
@@ -317,7 +369,7 @@ function run(b: Bomb, m: NeedyModule, t: number) {
     // Randomize: the backing turns to one of the five Direction values (None reads as up).
     const dirs: Dir[] = ['up', 'down', 'left', 'right', 'up'];
     m.label = dirs[int(b, 5)]!;
-    m.pattern = int(b, KNOB.length);
+    m.pattern = int(b, rulesFor(b.manual).knob.length);
   }
 }
 
@@ -352,7 +404,7 @@ function expire(b: Bomb, m: NeedyModule, t: number) {
     m.heldAt = null;
     cool(b, m, t);
   } else {
-    const right = m.pattern !== null && KNOB[m.pattern]!.pos === m.pos;
+    const right = m.pattern !== null && rulesFor(b.manual).knob[m.pattern]!.pos === m.pos;
     m.pattern = null;
     if (right) pass(b, m, t);
     else strike(b, m, t);
@@ -364,7 +416,7 @@ function nextNeedyAt(b: Bomb, m: NeedyModule): number | null {
   if (m.state === 'off') return null;
   const times: number[] = [];
   if (m.state === 'waiting') {
-    if (!m.started) times.push(whenLeft(b, b.total - NEEDY_AFTER));
+    if (!m.started) times.push(whenLeft(b, b.total - needyAfterOf(b)));
     if (m.changeAt !== null) times.push(m.changeAt);
   }
   if (m.state === 'cooldown') times.push(m.resumeAt);
@@ -395,7 +447,7 @@ function tickNeedy(b: Bomb, m: NeedyModule, t: number) {
     if (b.end) return;
   }
   if (m.state === 'waiting') {
-    if (!m.started && t >= whenLeft(b, b.total - NEEDY_AFTER) && t >= b.clockAt) {
+    if (!m.started && t >= whenLeft(b, b.total - needyAfterOf(b)) && t >= b.clockAt) {
       m.started = true;
       m.changeAt = null;
       run(b, m, t);
@@ -506,7 +558,8 @@ function nextEvent(b: Bomb): { at: number; run: () => void } | null {
   if (!b.activated) {
     offer(b.activeAt, () => {
       b.activated = true;
-      for (const m of b.modules) if (!isNeedy(m.kind)) activate(m as never, b.activeAt, b);
+      const rules = rulesFor(b.manual);
+      for (const m of b.modules) if (!isNeedy(m.kind)) activate(m as never, b.activeAt, b, rules);
     });
   }
   for (const m of b.modules) {
@@ -525,6 +578,7 @@ function nextEvent(b: Bomb): { at: number; run: () => void } | null {
 
 /** Plays every timed change up to `t`. */
 export function runTo(b: Bomb, t: number) {
+  rememberManual(b);
   for (let guard = 0; guard < 10_000; guard++) {
     const e = nextEvent(b);
     if (!e || e.at > t) break;
@@ -536,6 +590,7 @@ export function runTo(b: Bomb, t: number) {
 
 /** The bomb's next timed change, for the room's deadline. */
 export function nextAt(b: Bomb): number | null {
+  rememberManual(b);
   return nextEvent(b)?.at ?? null;
 }
 

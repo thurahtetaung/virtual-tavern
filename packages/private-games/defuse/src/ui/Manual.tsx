@@ -1,29 +1,13 @@
 import { Button, PlayerTag, ProtectedImage, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  BUTTON_RULES,
-  GLYPHS,
-  INDICATOR_LABELS,
-  KEYPAD_COLUMNS,
-  KNOB,
-  MAZES,
-  MEMORY_RULES,
-  MORSE,
-  MORSE_ALPHABET,
-  PASSWORDS,
-  RELEASE_DIGIT,
-  SEQUENCE,
-  SIMON_MAP,
-  VENN,
-  WIRE_RULES,
-  WOF_DISPLAYS,
-  WOF_LISTS,
-} from '../logic/data.ts';
-import type { ButtonCond, WireCond } from '../logic/data-types.ts';
+import { GLYPHS, INDICATOR_LABELS, MORSE_ALPHABET } from '../logic/data.ts';
+import type { ButtonCond, WireCond, WireRule } from '../logic/data-types.ts';
+import { PRINTED, type Rules } from '../logic/rules.ts';
 import { NEEDY, type PageId, SOLVABLE } from '../logic/types.ts';
 import type { DefuseView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
 import { PORT_NAME } from './Bomb.tsx';
+import { MazeTracer, VennLookup, WiresLookup } from './Helpers.tsx';
 
 export const PAGES: PageId[] = [...SOLVABLE, ...NEEDY, 'appendix'];
 
@@ -35,6 +19,7 @@ const POS = ['top left', 'top right', 'middle left', 'middle right', 'bottom lef
 
 function wireCond(c: WireCond): string {
   if ('serialOdd' in c) return 'the last digit of the serial number is odd';
+  if ('serialLetter' in c) return 'the serial number starts with a letter';
   if ('last' in c) return `the last wire is ${c.last}`;
   if ('is' in c)
     return c.is === 0 ? `there are no ${c.count} wires` : `there is exactly one ${c.count} wire`;
@@ -50,6 +35,16 @@ function buttonCond(c: ButtonCond): string {
 }
 
 const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+
+/** What a Wires rule says to cut. */
+export function wireCut(r: WireRule): string {
+  if (typeof r.cut === 'number') return `the ${ORD[r.cut]} wire`;
+  if (!r.of) return 'the last wire';
+  return r.cut === 'only' ? `the ${r.of} wire` : `the ${r.cut} ${r.of} wire`;
+}
+
+/** Pages whose printed image still holds with a different manual (their rules never change). */
+const SAME_IN_EVERY_MANUAL: PageId[] = ['password', 'venting-gas', 'capacitor', 'appendix'];
 
 function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
@@ -99,8 +94,8 @@ function Glyph({ n, art }: { n: number; art: Art }) {
 }
 
 /** A maze drawn from its walls (the page image takes over when the manifest has one). */
-function MazeGrid({ i }: { i: number }) {
-  const z = MAZES[i]!;
+export function MazeGrid({ i, rules }: { i: number; rules: Rules }) {
+  const z = rules.mazes[i]!;
   return (
     <div
       className="grid aspect-square w-full max-w-48 grid-cols-6 bg-card p-1 dark:bg-stone-900"
@@ -141,18 +136,32 @@ function MazeGrid({ i }: { i: number }) {
 }
 
 /** Each module's page, rebuilt from the manual's tables, in the manual's typewriter face when the manifest has it. */
-function PageBody({ page, art }: { page: PageId; art: Art }) {
+function PageBody({
+  page,
+  art,
+  rules = PRINTED,
+  helpers = false,
+}: {
+  page: PageId;
+  art: Art;
+  rules?: Rules;
+  /** The host's interactive helpers. */
+  helpers?: boolean;
+}) {
   return (
     <div
       style={art.fonts.manual ? { fontFamily: art.fonts.manual } : undefined}
       data-testid="manual-text"
     >
-      <PageContent page={page} art={art} />
+      <PageContent page={page} art={art} rules={rules} />
+      {helpers && page === 'maze' && <MazeTracer rules={rules} />}
+      {helpers && page === 'complicated-wires' && <VennLookup rules={rules} />}
+      {helpers && page === 'wires' && <WiresLookup rules={rules} />}
     </div>
   );
 }
 
-function PageContent({ page, art }: { page: PageId; art: Art }) {
+function PageContent({ page, art, rules }: { page: PageId; art: Art; rules: Rules }) {
   switch (page) {
     case 'wires':
       return (
@@ -164,13 +173,8 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
             <div key={n}>
               <h4 className="font-semibold">{n} wires</h4>
               <ul className="list-disc space-y-0.5 pl-5">
-                {WIRE_RULES[n].map((r, i) => {
-                  const what =
-                    r.cut === 'last'
-                      ? r.of
-                        ? `the last ${r.of} wire`
-                        : 'the last wire'
-                      : `the ${ORD[r.cut]} wire`;
+                {rules.wires[n].map((r, i) => {
+                  const what = wireCut(r);
                   return (
                     <li key={i}>
                       {r.when.length
@@ -189,7 +193,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
         <div className="space-y-3">
           <p>Use the first rule that applies.</p>
           <ol className="list-decimal space-y-0.5 pl-5">
-            {BUTTON_RULES.map((r, i) => (
+            {rules.button.map((r, i) => (
               <li key={i}>
                 {r.when.length ? `If ${r.when.map(buttonCond).join(' and ')}, ` : 'Otherwise, '}
                 {r.hold ? 'hold the button (see below).' : 'press and immediately release it.'}
@@ -202,7 +206,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           </p>
           <Table
             head={['Strip', 'Release on a']}
-            rows={Object.entries(RELEASE_DIGIT).map(([c, d]) => [
+            rows={Object.entries(rules.release).map(([c, d]) => [
               c === 'other' ? 'Any other colour' : cap(c),
               d,
             ])}
@@ -217,7 +221,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
             order, top to bottom.
           </p>
           <div className="grid grid-cols-6 gap-1 text-center">
-            {KEYPAD_COLUMNS.map((col, i) => (
+            {rules.keypad.map((col, i) => (
               <div key={i} className="space-y-1 rounded-md bg-panel p-1 dark:bg-stone-800">
                 {col.map((n) => (
                   <div key={n} className="flex h-10 items-center justify-center">
@@ -245,7 +249,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
                 head={['Strikes', 'Red →', 'Blue →', 'Green →', 'Yellow →']}
                 rows={(['0', '1', '2'] as const).map((s) => [
                   s === '2' ? '2 or more' : s,
-                  ...SIMON_MAP[k][s].map(cap),
+                  ...rules.simon[k][s].map(cap),
                 ])}
               />
             </div>
@@ -258,7 +262,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           <p>Step 1: the display’s word says which button to read.</p>
           <Table
             head={['Display', 'Read the button']}
-            rows={WOF_DISPLAYS.map(([w, p]) => [w ? w : <em key="e">(empty)</em>, POS[p]])}
+            rows={rules.wofDisplays.map(([w, p]) => [w ? w : <em key="e">(empty)</em>, POS[p]])}
           />
           <p>
             Step 2: find that button’s word below and press the first word in its list that is on a
@@ -266,7 +270,10 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           </p>
           <Table
             head={['Word', 'Press the first of']}
-            rows={Object.entries(WOF_LISTS).map(([k, v]) => [<b key="k">{k}</b>, v.join(', ')])}
+            rows={Object.entries(rules.wofLists).map(([k, v]) => [
+              <b key="k">{k}</b>,
+              v.join(', '),
+            ])}
           />
         </div>
       );
@@ -288,7 +295,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
             <div key={s}>
               <h4 className="font-semibold">Stage {s}</h4>
               <ul className="list-disc pl-5">
-                {MEMORY_RULES[s]!.map((r, i) => (
+                {rules.memory[s]!.map((r, i) => (
                   <li key={i}>
                     Display {i + 1}: press {say(r)}.
                   </li>
@@ -308,7 +315,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           </p>
           <Table
             head={['Word', 'Frequency']}
-            rows={MORSE.map(([f, w]) => [w, `${(f / 1000).toFixed(3)} MHz`])}
+            rows={rules.morse.map(([f, w]) => [w, `${(f / 1000).toFixed(3)} MHz`])}
           />
           <div
             className={cn(
@@ -340,7 +347,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           </p>
           <Table
             head={['Red', 'Blue', 'Star', 'Light', 'Then']}
-            rows={Object.entries(VENN).map(([k, v]) => [
+            rows={Object.entries(rules.venn).map(([k, v]) => [
               k.includes('r') ? '✓' : '',
               k.includes('b') ? '✓' : '',
               k.includes('s') ? '✓' : '',
@@ -363,7 +370,9 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
             rows={Array.from({ length: 9 }, (_, i) => [
               ORD[i] ?? `${i + 1}th`,
               ...(['red', 'blue', 'black'] as const).map((c) =>
-                SEQUENCE[c][i]!.map((t) => 'ABC'[t]).join(' or '),
+                rules.sequence[c][i]!.length
+                  ? rules.sequence[c][i]!.map((t) => 'ABC'[t]).join(' or ')
+                  : 'never',
               ),
             ]).map((r, i) => [i < 6 ? cap(r[0]!) : `${i + 1}th`, ...r.slice(1)])}
           />
@@ -377,8 +386,8 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
             without hitting a wall.
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {MAZES.map((_, i) => (
-              <MazeGrid key={i} i={i} />
+            {rules.mazes.map((_, i) => (
+              <MazeGrid key={i} i={i} rules={rules} />
             ))}
           </div>
         </div>
@@ -396,7 +405,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
               !art.fonts.manual && 'font-mono',
             )}
           >
-            {PASSWORDS.map((w) => (
+            {rules.passwords.map((w) => (
               <span key={w} className="block">
                 {w}
               </span>
@@ -432,7 +441,7 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
           </p>
           <Table
             head={['Top row', 'Bottom row', 'Turn to']}
-            rows={KNOB.map((k) => [
+            rows={rules.knob.map((k) => [
               <span key="t" className="font-mono">
                 {k.leds.slice(0, 6).replace(/X/g, '●').replace(/O/g, '○')}
               </span>,
@@ -457,14 +466,14 @@ function PageContent({ page, art }: { page: PageId; art: Art }) {
 }
 
 /** The page's words, for the search. */
-function pageText(page: PageId): string {
+function pageText(page: PageId, rules: Rules): string {
   switch (page) {
     case 'whos-on-first':
-      return [...WOF_DISPLAYS.map(([w]) => w), ...Object.keys(WOF_LISTS)].join(' ');
+      return [...rules.wofDisplays.map(([w]) => w), ...Object.keys(rules.wofLists)].join(' ');
     case 'password':
-      return PASSWORDS.join(' ');
+      return rules.passwords.join(' ');
     case 'morse':
-      return MORSE.map(([f, w]) => `${w} ${(f / 1000).toFixed(3)}`).join(' ');
+      return rules.morse.map(([f, w]) => `${w} ${(f / 1000).toFixed(3)}`).join(' ');
     case 'keypad':
       return Object.values(GLYPHS)
         .map((g) => g.name)
@@ -494,19 +503,26 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
   const [query, setQuery] = useState('');
   const [image, setImage] = useState(false);
   const q = query.trim().toLowerCase();
+  const rules = v.manual ?? PRINTED;
   const found = useMemo(
     () =>
       PAGES.filter(
         (p) =>
-          !q || pageName(art, p).toLowerCase().includes(q) || pageText(p).toLowerCase().includes(q),
+          !q ||
+          pageName(art, p).toLowerCase().includes(q) ||
+          pageText(p, rules).toLowerCase().includes(q),
       ),
-    [q, art],
+    [q, art, rules],
   );
   const claims = v.claims ?? {};
   const seated = v.seats.some((p) => p.id === you);
   if (page) {
     const mine = claims[page]?.includes(you) ?? false;
-    const pics = art.pagesOf(page).flatMap((n) => art.page(n) ?? []);
+    // A different manual's pages differ from the printed ones, so only unchanged pages keep their image.
+    const pics =
+      v.manual && !SAME_IN_EVERY_MANUAL.includes(page)
+        ? []
+        : art.pagesOf(page).flatMap((n) => art.page(n) ?? []);
     return (
       <div className="space-y-3" data-testid={`page-${page}`}>
         <div className="flex items-center gap-2">
@@ -543,7 +559,7 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
               ))}
             </div>
           ) : (
-            <PageBody page={page} art={art} />
+            <PageBody page={page} art={art} rules={rules} helpers={!!v.settings.helpers} />
           )}
         </div>
         {act && seated && <Notes page={page} text={v.notes?.[page] ?? ''} act={act} />}
@@ -552,6 +568,7 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
   }
   return (
     <div className="space-y-3" data-testid="manual-index">
+      <ManualCover v={v} />
       <input
         type="search"
         value={query}
@@ -589,6 +606,27 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/** The manual's cover line: which manual this is (never its seed). */
+export function ManualCover({ v }: { v: DefuseView }) {
+  const mode = v.settings.manual ?? 'printed';
+  if (!v.manual && mode === 'printed') return null;
+  return (
+    <p
+      className="flex items-center gap-2 rounded-lg bg-special-soft px-3 py-1.5 text-sm"
+      data-testid="manual-cover"
+    >
+      <span aria-hidden>✱</span>
+      {v.manual
+        ? mode === 'each'
+          ? 'A different manual: new with this bomb.'
+          : 'A different manual: the same all night.'
+        : mode === 'each'
+          ? 'Each bomb brings a new manual.'
+          : 'A different manual arrives with the first bomb.'}
+    </p>
   );
 }
 

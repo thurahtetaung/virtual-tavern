@@ -1,5 +1,6 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { type Manifest, PLAIN_NAMES, artOf, footerOf, namesOf } from './manifest.ts';
+import { missionById, missionNumber, moduleCount } from './missions.ts';
 import { type Kind, NEEDY, SOLVABLE } from './types.ts';
 import type { DefuseView } from './view.ts';
 
@@ -16,6 +17,9 @@ const NEEDY_ON: GuideOption = { key: 'needy', label: 'Needy modules' };
 const CLOCK: GuideOption = { key: 'experts-clock', label: 'Experts see the clock and strikes' };
 const TABLE_BOMB: GuideOption = { key: 'table-bomb', label: 'Table screen shows the bomb' };
 const SURPRISES: GuideOption = { key: 'surprises', label: 'Room surprises' };
+const MISSION: GuideOption = { key: 'mission', label: 'A bomb binder mission' };
+const MANUAL: GuideOption = { key: 'different-manual', label: 'A different manual' };
+const HELPERS: GuideOption = { key: 'helpers', label: 'Expert helpers' };
 
 /** What each module looks like and how you work it (never what the manual says to do). */
 const LOOKS: Record<Kind, string> = {
@@ -223,6 +227,37 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
+        title: 'Missions',
+        level: 'details',
+        option: MISSION,
+        bullets: [
+          'Instead of Free Play the host can pick any mission of the bomb binder, from the first bomb to the hardest ones; every mission is open from the start.',
+          'A mission fixes its own bomb: the time, how many strikes it allows, which modules can turn up (some missions only use the front face), when its needy modules wake and whether the room plays its surprises.',
+          'The results page names the mission. Free Play’s own settings come back when the host picks Free Play again.',
+        ],
+      },
+      {
+        title: 'A different manual',
+        level: 'details',
+        option: MANUAL,
+        bullets: [
+          'With this host option every module follows different rules: other wires to cut, other keypad columns, other mazes, other words and frequencies. The experts’ pages show the rules in play, so nobody can defuse from memory.',
+          '“New manual each bomb” brings a new one with every bomb; “Same manual all night” keeps one until the host changes the option.',
+          'The manual’s index says when it is a different manual. Pages whose rules never change (the password words, the needy gas and capacitor, the edges) look as printed.',
+        ],
+      },
+      {
+        title: 'Expert helpers',
+        level: 'details',
+        option: HELPERS,
+        bullets: [
+          'With this host option some pages get a helper under them, following whichever manual is in play.',
+          'Maze tracer: tap a circle cell to find the maze, then the white light and the red triangle; it draws the way and says each step.',
+          'Wire table lookup (Wires): set the wires from the top and the serial; it says which wire to cut.',
+          'Wire lookup (Complicated Wires): mark what one wire has; it says what to do and which question to ask.',
+        ],
+      },
+      {
         title: 'Experts see the clock',
         level: 'details',
         option: CLOCK,
@@ -321,6 +356,9 @@ const optionsOf = (s: DefuseView['settings']): string[] => [
   ...(s.expertsSeeClock ? [CLOCK.key] : []),
   ...(s.table === 'bomb' ? [TABLE_BOMB.key] : []),
   ...(s.surprises !== false ? [SURPRISES.key] : []),
+  ...(s.mission ? [MISSION.key] : []),
+  ...(s.manual && s.manual !== 'printed' ? [MANUAL.key] : []),
+  ...(s.helpers ? [HELPERS.key] : []),
 ];
 
 export function makeGuide(
@@ -333,7 +371,16 @@ export function makeGuide(
     if (!v?.settings) return undefined;
     const s = v.settings;
     const defuser = v.seats.find((p) => p.id === v.defuser)?.name;
-    const summary = `${s.modules} modules, ${Math.floor(s.time / 60)}:${String(s.time % 60).padStart(2, '0')} on the clock${s.hardcore ? ', Hardcore' : ''}${s.needy ? ', a needy module' : ''}.`;
+    const mission = missionById(s.mission);
+    const manual =
+      s.manual === 'each'
+        ? ' A new manual each bomb.'
+        : s.manual === 'night'
+          ? ' A different manual all night.'
+          : '';
+    const summary = mission
+      ? `Bomb binder mission ${missionNumber(mission)}: ${moduleCount(mission)} modules, ${Math.floor(mission.time / 60)}:${String(mission.time % 60).padStart(2, '0')} on the clock.${manual}`
+      : `${s.modules} modules, ${Math.floor(s.time / 60)}:${String(s.time % 60).padStart(2, '0')} on the clock${s.hardcore ? ', Hardcore' : ''}${s.needy ? ', a needy module' : ''}.${manual}`;
     return {
       summary,
       options: optionsOf(s),

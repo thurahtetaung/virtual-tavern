@@ -1,6 +1,6 @@
 import { ProtectedImage, cn } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
-import type { Settings } from '../logic/types.ts';
+import { type Settings, isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
 import { haptics } from './haptics.ts';
@@ -174,6 +174,22 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
     if (sound) haptics.buzz('Interaction');
   }, [stamped, skip, now, from, stampAt, sound, art]);
   const font = art.fonts.manual ?? 'ui-serif, Georgia, serif';
+  // A mission's page names the mission and reads its bomb; Free Play's reads the settings.
+  const config = b.mission
+    ? {
+        name: art.mission(b.mission).name,
+        time: Math.round(b.total / 1000),
+        modules: b.modules.length,
+        needy: b.modules.some((m) => isNeedy(m.kind)),
+        hardcore: b.strikeLimit === 1,
+      }
+    : {
+        name: 'Free Play',
+        time: settings.time,
+        modules: settings.modules,
+        needy: settings.needy,
+        hardcore: settings.hardcore,
+      };
   const page = art.results(how === 'defused' ? 'freeplay-defused' : 'freeplay-exploded');
   const stamp = art.stamp(how);
   const opacity = t < 0 ? 0 : Math.min(1, t / BINDER[how].fade);
@@ -211,21 +227,21 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
             {LABELS[i]}
           </span>
         ))}
-        <Text l={lay.mission} text="Free Play" font={font} />
+        <Text l={lay.mission} text={config.name} font={font} />
         <Text
           l={lay.time}
-          text={`${Math.floor(settings.time / 60)}:${String(settings.time % 60).padStart(2, '0')}`}
+          text={`${Math.floor(config.time / 60)}:${String(config.time % 60).padStart(2, '0')}`}
           font={font}
         />
         <Text
           l={lay.modules}
-          text={settings.modules === 1 ? '1 Module' : `${settings.modules} Modules`}
+          text={config.modules === 1 ? '1 Module' : `${config.modules} Modules`}
           font={font}
         />
-        <Text l={lay.needy} text={settings.needy ? 'Needy: ON' : 'Needy: OFF'} font={font} />
+        <Text l={lay.needy} text={config.needy ? 'Needy: ON' : 'Needy: OFF'} font={font} />
         <Text
           l={lay.hardcore}
-          text={settings.hardcore ? 'Hardcore: ON' : 'Hardcore: OFF'}
+          text={config.hardcore ? 'Hardcore: ON' : 'Hardcore: OFF'}
           font={font}
         />
         {typed.map(({ key, text, shown }) =>

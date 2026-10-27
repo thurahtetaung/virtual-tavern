@@ -854,7 +854,7 @@ function Morse(p: ModuleProps) {
         className="font-mono font-bold text-[#fbbf24]"
         testId="morse-freq"
       >
-        {(MORSE[m.dial]![0] / 1000).toFixed(3)} MHz
+        {(m.freq / 1000).toFixed(3)} MHz
       </Words>
       <Hit
         p={p}

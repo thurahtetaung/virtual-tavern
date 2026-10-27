@@ -11,7 +11,8 @@ import type { Kind } from './types.ts';
  *
  * {
  *   title, credit,
- *   names: { modules: { wires: "…", … }, game? },
+ *   names: { modules: { wires: "…", … }, game?,
+ *            missions?: { "s1-1": { name, description? }, … }, sections?: { "1": "…", … } },
  *   casing: { front, rear, top, bottom, left, right, blank },
  *   timer: { backing, size, parts: { "strike-1-on", … }, defaults },
  *   modules: { "<kind>": { base, size: [w, h], parts: { "<part>": { art, box? } }, defaults: { "<layer>": "<part>" },
@@ -54,7 +55,14 @@ export interface ModuleArt {
 
 export interface Manifest {
   title?: string;
-  names?: { modules?: Partial<Record<Kind, string>>; game?: string };
+  names?: {
+    modules?: Partial<Record<Kind, string>>;
+    game?: string;
+    /** The bomb binder's missions by our id (`s<section>-<place>`). */
+    missions?: Record<string, { name?: string; description?: string }>;
+    /** The binder's section names by number. */
+    sections?: Record<string, string>;
+  };
   casing?: Partial<
     Record<'front' | 'rear' | 'top' | 'bottom' | 'left' | 'right' | 'blank', ArtRef>
   >;
@@ -124,6 +132,22 @@ export function namesOf(m: Manifest | null | undefined): Record<Kind, string> {
       if (n) out[k] = n.slice(0, 40);
     }
   return out;
+}
+
+/** A mission's name and blurb: the manifest's, else its place in the binder. */
+export function missionNameOf(
+  m: Manifest | null | undefined,
+  id: string,
+): { name: string; description: string | null } {
+  const given = m?.names?.missions?.[id];
+  const name = clean(given?.name)?.slice(0, 60);
+  const description = clean(given?.description)?.slice(0, 400) ?? null;
+  return { name: name ?? `Mission ${id.slice(1).replace('-', '.')}`, description };
+}
+
+/** A binder section's name: the manifest's, else its number. */
+export function sectionNameOf(m: Manifest | null | undefined, n: number): string {
+  return clean(m?.names?.sections?.[String(n)])?.slice(0, 40) ?? `Section ${n}`;
 }
 
 /** The original game's credit, for the guide's footer (unlocked browsers only). */

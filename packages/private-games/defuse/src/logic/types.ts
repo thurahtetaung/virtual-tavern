@@ -270,6 +270,15 @@ export interface Bomb {
    * before the room).
    */
   pace?: { r: number; next: number | null; left: Surprise[] } | null;
+  /** The mission this bomb is (missing: Free Play). */
+  mission?: string | null;
+  /** Bomb time (ms) before needy modules wake by themselves (missing: 90 s). */
+  needyAfter?: number;
+  /**
+   * Hidden: the different manual's seed the bomb follows (missing or 1: the printed manual). It
+   * never reaches a player; experts get the rules it makes.
+   */
+  manual?: number;
   /** Lights out (`CeilingLight.CutTheLightsRoutine`): when it began. */
   lightsAt?: number | null;
   /** The alarm clock rings from `at` until `until` (cut short by a snooze). */
@@ -297,13 +306,26 @@ export interface Settings {
   table: 'manual' | 'bomb';
   /** Lights out and the alarm clock while the bomb is going well (missing in rooms saved before: on). */
   surprises?: boolean;
+  /** A bomb binder mission instead of Free Play (missing or null: Free Play). */
+  mission?: string | null;
+  /**
+   * The different manual: the printed one (missing), a new manual each bomb, or one kept all
+   * night.
+   */
+  manual?: ManualMode;
+  /** The experts' interactive helpers (maze tracer, wire lookups); missing: off. */
+  helpers?: boolean;
 }
+
+export type ManualMode = 'printed' | 'each' | 'night';
 
 /** A manual page: a module kind, or the appendix. */
 export type PageId = Kind | 'appendix';
 
 export interface BombResult {
   no: number;
+  /** The mission played (missing: Free Play). */
+  mission?: string | null;
   defuser: PlayerId;
   how: 'defused' | 'strikes' | 'time';
   left: number;
@@ -353,6 +375,8 @@ export interface State {
   tableVolumes?: TableVolumes;
   /** Hidden: seeds the next bomb. */
   seed: number;
+  /** Hidden: the seed of the manual kept all night ("Same manual all night"). */
+  nightManual?: number | null;
 }
 
 // ---- Actions ----

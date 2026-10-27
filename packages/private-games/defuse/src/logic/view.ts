@@ -1,5 +1,6 @@
 import type { TableVolumes } from '@vt/game-sdk';
-import { MAZES, MORSE, MORSE_ALPHABET, KNOB, WOF_DISPLAYS } from './data.ts';
+import { MORSE_ALPHABET, WOF_DISPLAYS } from './data.ts';
+import { PRINTED, PRINTED_SEED, type Rules, rulesFor } from './rules.ts';
 import type {
   Bomb,
   BombResult,
@@ -30,8 +31,12 @@ export type SimonView = Hide<SimonModule, 'sequence'> & { shown: SimonColour[] }
 export type WhosOnFirstView = Omit<WhosOnFirstModule, 'display'> & { display: string | null };
 /** `display`: the digit on show, or null while it is dark. */
 export type MemoryView = Hide<MemoryModule, 'digits'> & { display: number | null };
-/** `signal`: the light's letters as dots and dashes. */
-export type MorseView = Hide<MorseModule, 'word'> & { signal: string[] };
+/** `signal`: the light's letters as dots and dashes; `freq`: the dial's frequency (kHz). */
+export type MorseView = Hide<MorseModule, 'word'> & {
+  signal: string[];
+  freq: number;
+  freqs: number;
+};
 export type SequenceView = Hide<SequenceModule, 'entries'> & {
   panels: { colour: 'red' | 'blue' | 'black' | null; to: number; cut: boolean }[];
 };
@@ -67,7 +72,7 @@ export type ModuleView =
   | KnobView
   | CapacitorModule;
 
-export type BombView = Omit<Bomb, 'r' | 'pace' | 'modules'> & { modules: ModuleView[] };
+export type BombView = Omit<Bomb, 'r' | 'pace' | 'modules' | 'manual'> & { modules: ModuleView[] };
 
 export interface ClockView {
   anchorAt: number;
@@ -97,6 +102,12 @@ export interface DefuseView {
   clock: ClockView | null;
   /** When the live bomb's lights came on, for everyone (so expert screens know a bomb is on). */
   live: { startedAt: number; total: number } | null;
+  /**
+   * The different manual's rules, for whoever reads the manual (never the defuser of a live bomb):
+   * the live bomb's, else the last bomb's or the night's; null for the printed manual. The seed
+   * itself never leaves the server.
+   */
+  manual: Rules | null;
   /** Experts' page claims and notes (never the defuser's). */
   claims: State['claims'] | null;
   notes: State['notes'] | null;
@@ -112,7 +123,7 @@ export interface DefuseView {
 const morseSignal = (word: string) => [...word].map((c) => MORSE_ALPHABET[c] ?? '');
 
 /** A module as the bomb shows it; `reveal` adds what only the end may show. */
-export function moduleView(m: Module, reveal: boolean): ModuleView {
+export function moduleView(m: Module, reveal: boolean, rules: Rules = PRINTED): ModuleView {
   switch (m.kind) {
     case 'keypad': {
       const { column: _column, ...rest } = m;
@@ -132,8 +143,9 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
     }
     case 'morse': {
       const { word, ...rest } = m;
-      const signal = morseSignal(MORSE[word]![1]);
-      return reveal ? { ...m, signal } : { ...rest, signal };
+      const signal = morseSignal(rules.morse[word]![1]);
+      const extra = { signal, freq: rules.morse[m.dial]![0], freqs: rules.morse.length };
+      return reveal ? { ...m, ...extra } : { ...rest, ...extra };
     }
     case 'wire-sequence': {
       const { entries, ...rest } = m;
@@ -142,7 +154,7 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
     }
     case 'maze': {
       const { maze, ...rest } = m;
-      const circles = MAZES[maze]!.circles;
+      const circles = rules.mazes[maze]!.circles;
       return reveal ? { ...m, circles } : { ...rest, circles };
     }
     case 'password': {
@@ -155,7 +167,7 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
     }
     case 'knob': {
       const { pattern, ...rest } = m;
-      const leds = pattern === null ? null : KNOB[pattern]!.leds;
+      const leds = pattern === null ? null : rules.knob[pattern]!.leds;
       return reveal ? { ...m, leds } : { ...rest, leds };
     }
     default:
@@ -164,8 +176,23 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
 }
 
 export function bombView(b: Bomb, reveal: boolean): BombView {
-  const { r: _r, pace: _pace, modules, ...rest } = b;
-  return { ...rest, modules: modules.map((m) => moduleView(m, reveal)) };
+  const { r: _r, pace: _pace, manual, modules, ...rest } = b;
+  const rules = rulesFor(manual);
+  return { ...rest, modules: modules.map((m) => moduleView(m, reveal, rules)) };
+}
+
+/** The seed of the manual the readers hold now (null: the printed manual). */
+function manualSeed(state: State): number | null {
+  const b = state.bomb;
+  const seed =
+    state.stage !== 'lobby' && b
+      ? b.manual
+      : state.settings.manual === 'night'
+        ? state.nightManual
+        : state.settings.manual === 'each'
+          ? b?.manual
+          : null;
+  return seed === undefined || seed === null || seed === PRINTED_SEED ? null : seed;
 }
 
 export function view(state: State, viewer: string | null): DefuseView {
@@ -209,6 +236,7 @@ export function view(state: State, viewer: string | null): DefuseView {
     bomb,
     clock,
     live: live ? { startedAt: b.startedAt, total: b.total } : null,
+    manual: manual && manualSeed(state) !== null ? rulesFor(manualSeed(state)) : null,
     claims: manual ? state.claims : null,
     notes: manual ? state.notes : null,
     history: state.history,

@@ -18,9 +18,11 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { leftAt, timerText } from '../logic/bomb.ts';
 import { MIN_PLAYERS } from '../logic/game.ts';
+import { MISSIONS, SECTIONS, missionById, missionNumber, moduleCount } from '../logic/missions.ts';
 import {
   type Action,
   type DefuserMode,
+  type ManualMode,
   type ModuleOp,
   type PageId,
   SOLVABLE,
@@ -47,6 +49,12 @@ const DEFUSED_ROOM_MS = 9000;
 export type DefuseUiProps = GameUiProps<DefuseView, Action>;
 
 const INTRO_KEY = 'vt.defuse.talk-intro';
+
+const MANUAL_LABEL: Record<ManualMode, string> = {
+  printed: 'The printed manual',
+  each: 'New manual each bomb',
+  night: 'Same manual all night',
+};
 
 const MODE_LABEL: Record<DefuserMode, string> = {
   rotate: 'Host picks, then rotate',
@@ -502,8 +510,127 @@ function SettingsForm({
   const set = (settings: Partial<Settings>) =>
     send({ type: 'settings', settings }, 'defuse-settings');
   const vetoes = new Set(s.vetoes);
+  const mission = missionById(s.mission);
   return (
     <div className="space-y-4">
+      <label className="block space-y-1">
+        <span className="text-sm font-semibold">Bomb</span>
+        <select
+          disabled={!editable}
+          value={mission?.id ?? ''}
+          onChange={(e) => set({ mission: e.target.value || null })}
+          className="h-11 w-full rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+          data-testid="set-mission"
+        >
+          <option value="">Free Play (your own settings)</option>
+          {SECTIONS.map((n) => (
+            <optgroup key={n} label={`${n}. ${art.section(n)}`}>
+              {MISSIONS.filter((m) => m.section === n).map((m) => (
+                <option key={m.id} value={m.id}>
+                  {missionNumber(m)} {art.mission(m.id).name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      {mission ? (
+        <MissionCard id={mission.id} art={art} />
+      ) : (
+        <FreePlayForm s={s} editable={editable} set={set} />
+      )}
+      <ManualChoice s={s} editable={editable} set={set} />
+      <Switch
+        on={!!s.helpers}
+        editable={editable}
+        title="Expert helpers"
+        help="A maze tracer and wire lookups on the manual’s pages, following the manual in play."
+        onChange={(helpers) => set({ helpers })}
+        testId="set-helpers"
+      />
+      <SharedSettings
+        s={s}
+        editable={editable}
+        set={set}
+        art={art}
+        vetoes={vetoes}
+        mission={!!mission}
+      />
+      <RefusalSlot anchor="defuse-settings" />
+    </div>
+  );
+}
+
+/** A mission's card: its place, name, blurb and bomb. */
+function MissionCard({ id, art }: { id: string; art: Art }) {
+  const m = missionById(id)!;
+  const { name, description } = art.mission(id);
+  const needy = m.pools.some((p) => p.kinds.every(isNeedy));
+  return (
+    <div
+      className="space-y-1 rounded-xl bg-panel p-3 text-sm dark:bg-stone-800"
+      data-testid="mission-card"
+    >
+      <p className="font-semibold">
+        {missionNumber(m)} {name}
+      </p>
+      {description && <p className="whitespace-pre-line text-ink-muted">{description}</p>}
+      <p className="text-ink-muted">
+        {clockText(m.time * 1000)} · {moduleCount(m)} modules{needy ? ' (needy among them)' : ''} ·{' '}
+        {m.strikes === 1 ? 'one strike' : `${m.strikes} strikes`}
+        {m.front ? ' · front face only' : ''}
+      </p>
+    </div>
+  );
+}
+
+/** The different manual: printed, a new one each bomb, or one kept all night. */
+function ManualChoice({
+  s,
+  editable,
+  set,
+}: {
+  s: Settings;
+  editable: boolean;
+  set: (settings: Partial<Settings>) => void;
+}) {
+  const mode = s.manual ?? 'printed';
+  return (
+    <div className="space-y-1">
+      <span className="text-sm font-semibold">Manual</span>
+      <div className="grid gap-1 sm:grid-cols-3">
+        {(Object.keys(MANUAL_LABEL) as ManualMode[]).map((m) => (
+          <Button
+            key={m}
+            size="sm"
+            variant={mode === m ? 'primary' : 'secondary'}
+            disabled={!editable}
+            onClick={() => set({ manual: m })}
+            data-testid={`manual-${m}`}
+          >
+            {MANUAL_LABEL[m]}
+          </Button>
+        ))}
+      </div>
+      <p className="text-xs text-ink-muted">
+        A different manual changes every module’s rules, so nobody can play from memory. The
+        experts’ pages follow it.
+      </p>
+    </div>
+  );
+}
+
+function FreePlayForm({
+  s,
+  editable,
+  set,
+}: {
+  s: Settings;
+  editable: boolean;
+  set: (settings: Partial<Settings>) => void;
+}) {
+  return (
+    <>
       <div className="grid grid-cols-2 gap-3">
         <label className="space-y-1">
           <span className="text-sm font-semibold">Time</span>
@@ -554,6 +681,28 @@ function SettingsForm({
         onChange={(hardcore) => set({ hardcore })}
         testId="set-hardcore"
       />
+    </>
+  );
+}
+
+function SharedSettings({
+  s,
+  editable,
+  set,
+  art,
+  vetoes,
+  mission,
+}: {
+  s: Settings;
+  editable: boolean;
+  set: (settings: Partial<Settings>) => void;
+  art: Art;
+  vetoes: Set<SolvableKind>;
+  /** A mission picks its own modules, so the vetoes are Free Play's only. */
+  mission: boolean;
+}) {
+  return (
+    <>
       <div className="space-y-1">
         <span className="text-sm font-semibold">Who defuses</span>
         <div className="grid gap-1 sm:grid-cols-3">
@@ -604,31 +753,34 @@ function SettingsForm({
           ))}
         </div>
       </div>
-      <details data-testid="vetoes">
-        <summary className="cursor-pointer text-sm font-semibold">
-          Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
-        </summary>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {SOLVABLE.map((k: SolvableKind) => (
-            <Button
-              key={k}
-              size="sm"
-              variant={vetoes.has(k) ? 'danger' : 'secondary'}
-              disabled={!editable || (!vetoes.has(k) && vetoes.size >= 3)}
-              onClick={() =>
-                set({ vetoes: vetoes.has(k) ? s.vetoes.filter((x) => x !== k) : [...s.vetoes, k] })
-              }
-              aria-pressed={vetoes.has(k)}
-              data-testid={`veto-${k}`}
-            >
-              {vetoes.has(k) ? '✕ ' : ''}
-              {art.names[k]}
-            </Button>
-          ))}
-        </div>
-      </details>
-      <RefusalSlot anchor="defuse-settings" />
-    </div>
+      {!mission && (
+        <details data-testid="vetoes">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
+          </summary>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {SOLVABLE.map((k: SolvableKind) => (
+              <Button
+                key={k}
+                size="sm"
+                variant={vetoes.has(k) ? 'danger' : 'secondary'}
+                disabled={!editable || (!vetoes.has(k) && vetoes.size >= 3)}
+                onClick={() =>
+                  set({
+                    vetoes: vetoes.has(k) ? s.vetoes.filter((x) => x !== k) : [...s.vetoes, k],
+                  })
+                }
+                aria-pressed={vetoes.has(k)}
+                data-testid={`veto-${k}`}
+              >
+                {vetoes.has(k) ? '✕ ' : ''}
+                {art.names[k]}
+              </Button>
+            ))}
+          </div>
+        </details>
+      )}
+    </>
   );
 }
 
@@ -648,11 +800,17 @@ function SettingsPanel({
   art: Art;
 }) {
   const s = v.settings;
+  const mission = missionById(s.mission);
   const summary = [
-    `${s.modules} modules`,
-    clockText(s.time * 1000),
-    s.needy ? 'needy' : '',
-    s.hardcore ? 'Hardcore' : '',
+    ...(mission
+      ? [`${missionNumber(mission)} ${art.mission(mission.id).name}`]
+      : [
+          `${s.modules} modules`,
+          clockText(s.time * 1000),
+          s.needy ? 'needy' : '',
+          s.hardcore ? 'Hardcore' : '',
+        ]),
+    s.manual && s.manual !== 'printed' ? MANUAL_LABEL[s.manual] : '',
     MODE_LABEL[s.defuserMode],
   ];
   if (!isHost)
@@ -968,6 +1126,12 @@ function Result({
               ? `Time ran out on ${nameOf(last?.defuser ?? null)}.`
               : `Too many strikes: the bomb went off in ${nameOf(last?.defuser ?? null)}’s hands.`}
         </p>
+        {b.mission && (
+          <p className="text-sm font-semibold" data-testid="outcome-mission">
+            {missionNumber(missionById(b.mission) ?? { id: b.mission })}{' '}
+            {art.mission(b.mission).name}
+          </p>
+        )}
         <p className="text-xs text-ink-muted">
           {last?.solved ?? 0} of {last?.modules ?? 0} modules · {last?.strikes ?? 0} strike
           {last?.strikes === 1 ? '' : 's'} · {clockText(b.total - end.left)} used
@@ -1046,7 +1210,8 @@ function Result({
             <ul className="space-y-0.5 text-sm" data-testid="tonight">
               {[...v.history].reverse().map((h) => (
                 <li key={h.no}>
-                  Bomb {h.no}: {nameOf(h.defuser)} ·{' '}
+                  Bomb {h.no}
+                  {h.mission ? ` (${art.mission(h.mission).name})` : ''}: {nameOf(h.defuser)} ·{' '}
                   {h.how === 'defused'
                     ? `defused, ${timerText(h.left)} left`
                     : h.how === 'time'

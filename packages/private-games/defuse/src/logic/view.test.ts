@@ -5,6 +5,7 @@ import { setBotMistakes } from './bot.ts';
 import { defuse } from './game.ts';
 import { ANA, BEN, CHO, must, send, table, wait } from './test-utils.ts';
 import type { State } from './types.ts';
+import { MISSIONS } from './missions.ts';
 import { bombView } from './view.ts';
 
 /**
@@ -19,6 +20,8 @@ const WATCHER = 'zed';
 function hiddenChanged(s: State): State {
   const c = structuredClone(s);
   c.seed = (c.seed + 1) >>> 0;
+  // The night's manual seed: a live bomb's readers get its own bomb's rules, never this.
+  if (c.nightManual) c.nightManual += 1;
   const b = c.bomb!;
   b.r = (b.r + 12345) >>> 0;
   // The room's surprises: their stream, the next check and what is left never reach a view.
@@ -71,8 +74,12 @@ const NEEDLES = [
 ];
 
 function checkLive(s: State, defuser: string, experts: string[]) {
+  // The different manual's seed never reaches anyone, at any stage.
+  for (const who of [defuser, ...experts, WATCHER, null])
+    expect(looks(s, who)).not.toMatch(/"(manual|nightManual)":\d/);
   if (s.stage !== 'bomb') return;
   const dv = looks(s, defuser);
+  expect(defuse.view(s, defuser).manual).toBeNull();
   for (const n of NEEDLES) expect(dv, `defuser sees ${n}`).not.toContain(n);
   expect(looks(hiddenChanged(s), defuser)).toBe(dv);
   for (const e of [...experts, WATCHER]) {
@@ -138,6 +145,9 @@ describe('view boundary', () => {
         table: rng.next() < 0.5 ? 'manual' : 'bomb',
         expertsSeeClock: rng.next() < 0.5,
         time: 30 * (1 + rng.int(20)),
+        manual: (['printed', 'each', 'night'] as const)[rng.int(3)],
+        mission: rng.next() < 0.3 ? MISSIONS[rng.int(MISSIONS.length)]!.id : null,
+        helpers: rng.next() < 0.5,
       });
       must(t, ANA, { type: 'start' });
       wait(t, LIGHTS.clock);
