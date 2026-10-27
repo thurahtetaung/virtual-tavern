@@ -121,6 +121,14 @@ export const actionSchema: z.ZodType<Action> = z.union([
   z.object({ type: z.literal('claim'), page: pageSchema, on: z.boolean() }),
   z.object({ type: z.literal('note'), page: pageSchema, text: z.string().max(MAX_NOTE) }),
   z.object({ type: z.literal('hand-over'), player: z.string().max(100) }),
+  z.object({
+    type: z.literal('look'),
+    mode: z.enum(['3d', '2d']),
+    pose: z.enum(['desk', 'held', 'module']),
+    yaw: z.number().int().min(-36_000).max(36_000).multipleOf(90),
+    settle: z.number().int().min(-90).max(90),
+    module: z.string().max(8).nullable(),
+  }),
   z.object({ type: z.literal('next') }),
   z.object({ type: z.literal('lobby') }),
   z.object({ type: z.literal('ponder') }),
@@ -175,6 +183,7 @@ function startBomb(s: State, ctx: ActionCtx): State | GameError {
   s.volunteers = [];
   s.claims = {};
   s.notes = {};
+  s.look = null;
   s.stage = 'bomb';
   s.phase = 'playing';
   return s;
@@ -275,6 +284,14 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       finish(s);
       return s;
     }
+    case 'look': {
+      // Only what a table screen showing the bomb follows; nothing about the bomb changes.
+      if (state.stage !== 'bomb' || me !== state.defuser) return err('not-defuser', 'Not now.');
+      const { type: _t, ...look } = action;
+      const s = draft(state);
+      s.look = look;
+      return s;
+    }
     case 'claim': {
       if (!seated(state, me)) return err('not-seated', 'Take a seat to claim pages.');
       if (state.stage === 'bomb' && me === state.defuser)
@@ -307,6 +324,7 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       const s = draft(state);
       runTo(s.bomb!, ctx.now);
       s.defuser = action.player;
+      s.look = null;
       for (const k of Object.keys(s.claims) as PageId[]) {
         const list = s.claims[k]!.filter((p) => p !== action.player);
         if (list.length) s.claims[k] = list;
@@ -377,7 +395,8 @@ export const defuse: GameDefinition<State, Action, DefuseView> = {
   reduce,
   playerJoined,
   playerLeft,
-  view,
+  // Browser tests (the seed rig is on): the defuser's 3D view offers its test hooks.
+  view: (s, viewer) => (testSeed === null ? view(s, viewer) : { ...view(s, viewer), test: true }),
   nextDeadline,
   onDeadline,
   insights,

@@ -1,5 +1,5 @@
-import { type Browser, type Page, expect } from '@playwright/test';
-import { defuseAll, lightsOn, localArt, open, settings, table } from './defuse-play.ts';
+import { type Page, expect } from '@playwright/test';
+import { defuseAll, flat, lightsOn, localArt, open, settings, table, tv } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
@@ -26,26 +26,6 @@ const KINDS = [
   'knob',
 ];
 
-async function tv(browser: Browser, host: Page, look: Look, size = { width: 1280, height: 720 }) {
-  await host.getByRole('button', { name: /^Players/ }).click();
-  const panel = host
-    .getByRole('dialog', { name: 'Players' })
-    .getByRole('region', { name: /Table screen/ });
-  await panel.getByRole('button', { name: 'Show a pairing code' }).click();
-  const code = (await panel.getByTestId('stage-code').textContent())!;
-  await host.keyboard.press('Escape');
-  const page = await (
-    await browser.newContext({ viewport: size, colorScheme: look.colorScheme })
-  ).newPage();
-  await look.setup?.(page);
-  await page.goto('/stage');
-  await page.getByLabel('Pairing code').fill(code);
-  await page.getByRole('button', { name: 'Pair this screen' }).click();
-  await page.getByRole('button', { name: '▶ Start the show' }).click();
-  await page.evaluate(() => document.exitFullscreen().catch(() => {}));
-  return page;
-}
-
 for (const [label, viewport, colorScheme] of [
   ['phone-light', { width: 390, height: 844 }, 'light'],
   ['phone-dark', { width: 390, height: 844 }, 'dark'],
@@ -62,6 +42,7 @@ for (const [label, viewport, colorScheme] of [
     };
     await openBackroom(await visitor(browser, 'Admin'));
     const [ana, ben] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+    await flat([ana, ben]);
     await shot(ana, '00-lobby');
     const screen = phone ? null : await tv(browser, ana, look);
     await ana.getByTestId('start').click();
@@ -130,6 +111,7 @@ for (const [label, viewport, colorScheme, out, count] of [
     const look: Look = { viewport, colorScheme, setup: localArt };
     await openBackroom(await visitor(browser, 'Admin'));
     const [ana] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+    await flat([ana]);
     await settings(ana);
     await ana.getByTestId('set-modules').selectOption(String(count));
     await ana.getByTestId('set-needy').click();
@@ -166,6 +148,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     };
     await openBackroom(await visitor(browser, 'Admin'));
     const [ana, ben] = (await table(browser, ['Ana', 'Ben'], [desk, phone])) as [Page, Page];
+    await flat([ana, ben]);
     const screen = await tv(browser, ana, desk, { width: 1920, height: 1080 });
     await ana.getByTestId('start').click();
     await lightsOn(ana);

@@ -208,6 +208,28 @@ function needyMove(m: ModuleView, now: number): ModuleOp | null {
   return null;
 }
 
+/**
+ * The next right move from the defuser's view, needy modules first (browser tests drive the 3D
+ * view with it): a module and its action, `wait` while the module needs time, or null when
+ * nothing is left to do.
+ */
+export function nextMove(
+  b: BombView,
+  now: number,
+): { module: string; op: ModuleOp } | 'wait' | null {
+  for (const m of b.modules) {
+    if (!isNeedy(m.kind)) continue;
+    const op = needyMove(m, now);
+    if (op) return { module: m.id, op };
+  }
+  for (const m of b.modules) {
+    if (isNeedy(m.kind) || m.solved) continue;
+    const op = rightMove(m, b, now);
+    return op ? { module: m.id, op } : 'wait';
+  }
+  return null;
+}
+
 const KNOB_BY_LEDS = new Map(KNOB.map((k) => [k.leds, k.pos]));
 const WOF_INDEX = new Map(WOF_DISPLAYS.map(([w], i) => [w, i]));
 

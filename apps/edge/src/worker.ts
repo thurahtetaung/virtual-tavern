@@ -52,6 +52,8 @@ const TYPES_BY_EXTENSION: Record<string, string> = {
   woff2: 'font/woff2',
   woff: 'font/woff',
   webp: 'image/webp',
+  ktx2: 'image/ktx2',
+  wasm: 'application/wasm',
 };
 
 let known: { at: number; version: Promise<EdgeVersion | null> } | null = null;

@@ -2,6 +2,7 @@ import { MAZES, MORSE, MORSE_ALPHABET, KNOB, WOF_DISPLAYS } from './data.ts';
 import type {
   Bomb,
   BombResult,
+  Look,
   CapacitorModule,
   KeypadModule,
   KnobModule,
@@ -99,6 +100,10 @@ export interface DefuseView {
   claims: State['claims'] | null;
   notes: State['notes'] | null;
   history: BombResult[];
+  /** The defuser's view of the live bomb, for the defuser and a table screen showing the bomb. */
+  look: Look | null;
+  /** Browser tests only (never in production): the 3D view's test hooks are on. */
+  test?: true;
 }
 
 const morseSignal = (word: string) => [...word].map((c) => MORSE_ALPHABET[c] ?? '');
@@ -204,5 +209,6 @@ export function view(state: State, viewer: string | null): DefuseView {
     claims: manual ? state.claims : null,
     notes: manual ? state.notes : null,
     history: state.history,
+    look: live && seesBomb ? (state.look ?? null) : null,
   };
 }

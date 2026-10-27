@@ -32,6 +32,10 @@ const TYPES = {
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
   '.txt': 'text/plain; charset=utf-8',
+  '.ktx2': 'image/ktx2',
+  '.bin': 'application/octet-stream',
+  '.wasm': 'application/wasm',
+  '.js': 'text/javascript',
 };
 const files = (dir) =>
   readdirSync(dir).flatMap((f) =>

@@ -24,6 +24,8 @@ const TYPES_BY_EXTENSION: Record<string, string> = {
   woff2: 'font/woff2',
   woff: 'font/woff',
   webp: 'image/webp',
+  ktx2: 'image/ktx2',
+  wasm: 'application/wasm',
 };
 
 /** Headers from the browser that the bucket should see, so partial fetches work. */

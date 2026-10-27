@@ -60,7 +60,7 @@ class Player {
     }
   }
 
-  play(src: string | null) {
+  play(src: string | null, volume = 1) {
     if (!src || this.muted || !this.ctx) return;
     let a = this.cache.get(src);
     if (!a) {
@@ -70,6 +70,7 @@ class Player {
     }
     const clip = a.paused ? a : (a.cloneNode() as HTMLAudioElement);
     clip.currentTime = 0;
+    clip.volume = Math.max(0, Math.min(1, volume));
     void clip.play().catch(() => {});
   }
 

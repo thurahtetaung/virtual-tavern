@@ -14,7 +14,7 @@ import {
   cn,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { leftAt, timerText } from '../logic/bomb.ts';
 import { MIN_PLAYERS } from '../logic/game.ts';
 import {
@@ -34,6 +34,11 @@ import { ClaimsSummary, Manual } from './Manual.tsx';
 import { ModuleFace } from './Modules.tsx';
 import { player, useBombSound, useMute } from './sound.ts';
 import { clockText, serverNow, useServerNow } from './time.ts';
+import { Bomb3D, useViewMode } from './three/Bomb3D.tsx';
+import type { Mirror } from './three/scene.ts';
+
+/** After the bomb ends, the defuser's 3D view stays this long (the dark and the boom). */
+const SLAP_MS = 2500;
 
 export type DefuseUiProps = GameUiProps<DefuseView, Action>;
 
@@ -75,6 +80,7 @@ export function DefuseGame({
   const nameOf = (id: string | null) =>
     id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody';
   const [muted, setMuted] = useMute();
+  const [mode, setMode] = useViewMode();
   // The defuser's device plays the bomb, and its end once the defuser has become an expert again.
   const playsBomb =
     (v.stage === 'bomb' && v.role === 'defuser') ||
@@ -107,17 +113,95 @@ export function DefuseGame({
     </button>
   );
 
-  if (v.stage === 'bomb' && v.role === 'defuser' && v.bomb)
+  // A table screen showing the bomb follows how the defuser looks at it.
+  const tableFollows = v.stage === 'bomb' && v.role === 'defuser' && v.settings.table === 'bomb';
+  const sentLook = useRef('');
+  const sendLook = (m: Mirror | null) => {
+    if (!tableFollows) return;
+    const look = m
+      ? { mode: '3d' as const, ...m }
+      : { mode: '2d' as const, pose: 'held' as const, yaw: 0, settle: 0, module: null };
+    const key = JSON.stringify(look);
+    if (key === sentLook.current) return;
+    sentLook.current = key;
+    void act({ type: 'look', ...look });
+  };
+  useEffect(() => {
+    if (!tableFollows) {
+      sentLook.current = '';
+      return;
+    }
+    // The table screen starts from the bomb on the desk (or the flat view); turns follow.
+    sendLook(mode === '2d' ? null : { pose: 'desk', yaw: 0, settle: 0, module: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableFollows, mode, v.bombNo]);
+  // The end, as the original: the bomb gone and the room dark with the boom, then the results.
+  const last = v.history.at(-1);
+  const [, setTick] = useState(0);
+  const slapUntil =
+    v.stage === 'result' && v.bomb?.end && last?.defuser === you && mode === '3d'
+      ? v.bomb.end.at + SLAP_MS
+      : 0;
+  useEffect(() => {
+    const wait = slapUntil - serverNow(room.clockOffset);
+    if (wait <= 0) return;
+    const id = setTimeout(() => setTick((n) => n + 1), wait + 50);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [slapUntil, room.clockOffset]);
+  const viewSwitch = (
+    <button
+      type="button"
+      onClick={() => setMode(mode === '3d' ? '2d' : '3d')}
+      className="rounded-full bg-stone-800 px-3 py-2 text-sm text-stone-100"
+      data-testid="view-switch"
+    >
+      {mode === '3d' ? 'Flat 2D view' : '3D view'}
+    </button>
+  );
+  if (v.stage === 'bomb' && v.role === 'defuser' && v.bomb) {
+    const actOn = (module: string, op: ModuleOp) =>
+      send({ type: 'act', module, ...op, at: serverNow(room.clockOffset) });
+    if (mode === '3d')
+      return (
+        <Bomb3D
+          key={v.bomb.no}
+          b={v.bomb}
+          art={art}
+          offset={room.clockOffset}
+          act={actOn}
+          onPose={sendLook}
+          test={!!v.test}
+          corner={
+            <>
+              <span className="rounded-full bg-stone-800 px-1">{mute}</span>
+              <button
+                type="button"
+                className="rounded-full bg-stone-800 px-3 py-2 text-sm"
+                onClick={() => showGuide()}
+              >
+                Rules
+              </button>
+              {viewSwitch}
+            </>
+          }
+        />
+      );
     return (
       <Defuser
         b={v.bomb}
         art={art}
         offset={room.clockOffset}
         mute={mute}
-        act={(module, op) => send({ type: 'act', module, ...op, at: serverNow(room.clockOffset) })}
+        act={actOn}
         showGuide={showGuide}
+        viewSwitch={viewSwitch}
       />
     );
+  }
+  if (slapUntil > serverNow(room.clockOffset) && v.bomb)
+    return <Bomb3D key={v.bomb.no} b={v.bomb} art={art} offset={room.clockOffset} act={null} />;
   if (v.stage === 'bomb')
     return (
       <Expert
@@ -153,7 +237,29 @@ export function DefuseGame({
       send={send}
       showGuide={showGuide}
       art={art}
+      viewChoice={<ViewChoice mode={mode} setMode={setMode} />}
     />
+  );
+}
+
+/** Each player's own choice of how they see the bomb when they defuse (kept on this device). */
+function ViewChoice({ mode, setMode }: { mode: '3d' | '2d'; setMode: (m: '3d' | '2d') => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-2 text-sm" data-testid="view-choice">
+      <span className="font-semibold">When you defuse:</span>
+      {(['3d', '2d'] as const).map((m) => (
+        <Button
+          key={m}
+          size="sm"
+          variant={mode === m ? 'primary' : 'secondary'}
+          onClick={() => setMode(m)}
+          aria-pressed={mode === m}
+          data-testid={`view-${m}`}
+        >
+          {m === '3d' ? '3D bomb' : 'Flat 2D view'}
+        </Button>
+      ))}
+    </div>
   );
 }
 
@@ -166,6 +272,7 @@ function Defuser({
   act,
   mute,
   showGuide,
+  viewSwitch,
 }: {
   b: BombView;
   art: Art;
@@ -173,6 +280,7 @@ function Defuser({
   act: (module: string, op: ModuleOp) => void;
   mute: React.ReactNode;
   showGuide: (t?: unknown) => void;
+  viewSwitch: React.ReactNode;
 }) {
   const now = useServerNow(offset, 40);
   const [tip, setTip] = useState(() => !seen('vt.defuse.defuser-tip'));
@@ -205,6 +313,7 @@ function Defuser({
         <button type="button" className="underline" onClick={() => showGuide()}>
           Rules
         </button>
+        {viewSwitch}
       </div>
     </div>
   );
@@ -419,7 +528,7 @@ function SettingsForm({
           ))}
         </div>
       </div>
-      <details>
+      <details data-testid="vetoes">
         <summary className="cursor-pointer text-sm font-semibold">
           Leave out up to 3 kinds {s.vetoes.length ? `(${s.vetoes.length} out)` : ''}
         </summary>
@@ -433,6 +542,8 @@ function SettingsForm({
               onClick={() =>
                 set({ vetoes: vetoes.has(k) ? s.vetoes.filter((x) => x !== k) : [...s.vetoes, k] })
               }
+              aria-pressed={vetoes.has(k)}
+              data-testid={`veto-${k}`}
             >
               {vetoes.has(k) ? '✕ ' : ''}
               {art.names[k]}
@@ -624,6 +735,7 @@ function Lobby({
   send,
   showGuide,
   art,
+  viewChoice,
 }: {
   v: DefuseView;
   you: string;
@@ -632,6 +744,7 @@ function Lobby({
   send: (a: Action, anchor?: string) => void;
   showGuide: (t?: unknown) => void;
   art: Art;
+  viewChoice: React.ReactNode;
 }) {
   const [intro, setIntro] = useState(() => !seen(INTRO_KEY));
   const s = v.settings;
@@ -662,6 +775,7 @@ function Lobby({
           </p>
         )}
         <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
+        {viewChoice}
       </Panel>
       <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
       <StickyBar>
