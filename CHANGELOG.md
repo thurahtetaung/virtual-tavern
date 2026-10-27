@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.4...v0.76.5) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the 3D bomb buzzes, outlines what you touch clearly, zooms in on every side, and its keys and levers move like real ones ([#469](https://github.com/thurahtetaung/virtual-tavern/issues/469)) ([5b8dc49](https://github.com/thurahtetaung/virtual-tavern/commit/5b8dc4940f045b92154e425f8d6d6475c313a8fd))
+
 ## [0.76.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.3...v0.76.4) (2026-10-27)
 
 
