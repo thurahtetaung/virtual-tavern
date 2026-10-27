@@ -1,5 +1,14 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Button, Countdown, DrawingPad, DrawingView, Panel, RefusalSlot, useConfirm } from '@vt/ui';
+import {
+  Button,
+  Countdown,
+  DrawingPad,
+  DrawingView,
+  Panel,
+  RefusalSlot,
+  cn,
+  useConfirm,
+} from '@vt/ui';
 import { type CSSProperties, useLayoutEffect, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
@@ -7,15 +16,15 @@ import type { Act } from './act.ts';
 /** How long before a strict drawing clock ends the pad sends whatever is on it. */
 const SEND_EARLY_MS = 1200;
 const DRAW_ANCHOR = 'sketchy-draw';
-/** The prompt's heading on one line, in px: a longer prompt's extra lines come off the sheet. */
+/** The prompt's header (its label and a one-line prompt), in px, which the sheet's size allows for. */
 const ONE_LINE = 44;
 
-/** How much taller than one line the prompt's heading is (0 while it fits on one). */
+/** How much taller than that the header is (0 while it fits). */
 function useExtraLines() {
   const [el, setEl] = useState<HTMLElement | null>(null);
   const [extra, setExtra] = useState(0);
   // Measured before the first paint (so the sheet never shows at the one-line size), then again
-  // whenever the heading wraps differently.
+  // whenever the header wraps differently.
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => setExtra(Math.max(0, Math.round(el.offsetHeight - ONE_LINE)));
@@ -29,6 +38,9 @@ function useExtraLines() {
   }, [el]);
   return [setEl, extra] as const;
 }
+
+/** Prompts longer than this are set smaller, so even the longest takes two lines on a phone. */
+const LONG_PROMPT = 36;
 
 /** The drawing stage: your secret prompt and the pad, then your drawing while the others finish. */
 export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInfo; act: Act }) {
@@ -94,25 +106,31 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
     >
       {dialog}
       <Panel className="flex flex-col gap-2 p-3">
-        <div className="flex items-start justify-between gap-2">
-          <h2 ref={heading} className="min-w-0 text-lg leading-snug font-bold">
-            <span className="block text-sm font-medium text-ink-muted">
-              Draw this (only you see it):
-            </span>
-            <span data-testid="sketchy-prompt" className="break-words">
-              {g.myPrompt}
-            </span>
+        <div ref={heading} className="flex flex-col gap-1">
+          <div className="flex min-h-9 items-center justify-between gap-2">
+            <p className="text-sm font-medium text-ink-muted">Draw this (only you see it):</p>
+            {g.canReroll && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-9 shrink-0 px-3"
+                disabled={busy}
+                onClick={() => void reroll()}
+              >
+                🎲 New prompt
+              </Button>
+            )}
+          </div>
+          {/* The whole width, so a long prompt wraps as little as it can. */}
+          <h2
+            data-testid="sketchy-prompt"
+            className={cn(
+              'leading-snug font-bold break-words',
+              g.myPrompt.length > LONG_PROMPT ? 'text-base' : 'text-lg',
+            )}
+          >
+            {g.myPrompt}
           </h2>
-          {g.canReroll && (
-            <Button
-              variant="secondary"
-              className="h-11 shrink-0 px-3"
-              disabled={busy}
-              onClick={() => void reroll()}
-            >
-              🎲 New prompt
-            </Button>
-          )}
         </div>
         <DrawingPad
           key={draftKey}
@@ -126,7 +144,7 @@ export function Draw({ view, room, act }: { view: SketchyView; room: GameRoomInf
           // On a phone the sheet is as big as the screen allows with everything else in view
           // (about 540 px of room, tabs, a one-line prompt, pens and Send around it, plus the
           // prompt's extra lines), never too small to draw.
-          className="max-lg:[&>div:first-child]:max-w-[max(14rem,calc((100svh_-_540px_-_var(--extra))_*_0.8))]"
+          className="max-lg:[&>div:first-child]:max-w-[max(12rem,calc((100svh_-_540px_-_var(--extra))_*_0.8))]"
         />
         <RefusalSlot anchor={DRAW_ANCHOR} />
         <p className="text-xs text-ink-muted">

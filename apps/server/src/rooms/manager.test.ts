@@ -443,12 +443,37 @@ describe('RoomManager', () => {
       expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
     });
 
-    it('makes the first joiner host when the creator never joined', () => {
+    it('lets the first joiner host until the creator arrives, then gives it back', () => {
       const id = rooms.create('codenames', 'creator');
-      expect(rooms.join(id, 'a', 'A')).toEqual({ ok: true });
+      expect(rooms.join(id, 'a', 'A', { connect: true })).toEqual({ ok: true });
       expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
+      rooms.join(id, 'b', 'B', { connect: true });
+      expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
+      expect(rooms.join(id, 'creator', 'Late', { connect: true })).toEqual({ ok: true });
+      expect(rooms.snapshot(id, 'a')!.hostId).toBe('creator');
+      // Claimed once: after handing it on, coming back doesn't take it again.
+      rooms.makeHost(id, 'creator', 'a');
+      rooms.leave(id, 'creator');
       rooms.join(id, 'creator', 'Late');
       expect(rooms.snapshot(id, 'a')!.hostId).toBe('a');
+    });
+
+    it('keeps the creator’s claim across a restart', () => {
+      const id = rooms.create('codenames', 'creator');
+      rooms.join(id, 'a', 'A');
+      rooms.close();
+      rooms = manager();
+      rooms.join(id, 'creator', 'Late');
+      expect(rooms.snapshot(id, 'a')!.hostId).toBe('creator');
+    });
+
+    it('leaves the host alone when it was handed on before the creator arrived', () => {
+      const id = rooms.create('codenames', 'creator');
+      rooms.join(id, 'a', 'A');
+      rooms.join(id, 'b', 'B');
+      rooms.makeHost(id, 'a', 'b');
+      rooms.join(id, 'creator', 'Late');
+      expect(rooms.snapshot(id, 'a')!.hostId).toBe('b');
     });
 
     it('counts a joiner as present in the same change', () => {
