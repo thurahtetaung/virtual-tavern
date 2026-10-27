@@ -118,9 +118,13 @@ export function EndTabs({
             onClick={() => setChosen(t.id)}
             data-testid={`${testId}-${t.id}`}
             className={cn(
-              'truncate rounded-md px-1 py-1.5 font-semibold',
-              // Four or more parts share a phone's width: a smaller label keeps every word whole.
-              parts.length > 3 ? 'text-xs' : 'text-sm',
+              'truncate rounded-md py-1.5 font-semibold',
+              // More parts share a phone's width: smaller labels keep every word whole.
+              parts.length > 4
+                ? 'px-0.5 text-[11px]'
+                : parts.length > 3
+                  ? 'px-1 text-xs'
+                  : 'px-1 text-sm',
               t.id === current?.id
                 ? 'bg-card shadow-sm dark:bg-stone-700'
                 : 'text-ink-muted dark:text-stone-400',

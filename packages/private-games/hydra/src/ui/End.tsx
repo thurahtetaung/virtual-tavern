@@ -31,7 +31,8 @@ function RoleReveal({ view, c }: { view: HydraView; c: Content }) {
       {g.players.map((p, i) => {
         const role = end.roles[p.id]!;
         return (
-          <li key={p.id} className="flex flex-col items-center gap-1 text-center">
+          // min-w-0: a long role name wraps in its column instead of widening the grid.
+          <li key={p.id} className="flex min-w-0 flex-col items-center gap-1 text-center">
             <FlipCard
               up={i < up}
               back={<RoleBack c={c} />}
@@ -209,8 +210,9 @@ export function End({
               label: '✨ Awards',
               content: <Superlatives lines={room.superlatives} />,
             },
-            { id: 'truth', label: '📜 The truth', content: <TruthLog view={view} c={c} /> },
+            { id: 'truth', label: '📜 Truth', content: <TruthLog view={view} c={c} /> },
             { id: 'timeline', label: '🕰️ Timeline', content: timeline },
+            !!c.credit && { id: 'credits', label: '©️ Credits', content: <CreditBlock c={c} /> },
           ]}
         />
       ) : (
@@ -233,7 +235,7 @@ export function End({
       )}
       <p className="text-center text-xs text-ink-muted">{c.copy('end.playAgain')}</p>
       {!timeline && <TruthLog view={view} c={c} />}
-      <CreditBlock c={c} />
+      {!timeline && <CreditBlock c={c} />}
     </div>
   );
 }
