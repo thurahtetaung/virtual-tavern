@@ -1,6 +1,15 @@
 import { loadManifest } from '@vt/ui';
 import { useEffect, useState } from 'react';
-import { type ArtRef, type Manifest, artOf, clean, namesOf, thumbOf } from '../logic/manifest.ts';
+import {
+  type ArtRef,
+  type Manifest,
+  artOf,
+  clean,
+  missionNameOf,
+  namesOf,
+  sectionNameOf,
+  thumbOf,
+} from '../logic/manifest.ts';
 import type { Kind } from '../logic/types.ts';
 
 export const GAME_ID = 'defuse';
@@ -68,6 +77,9 @@ export type ArtKind = Kind | 'timer';
 /** Everything the screens read from the manifest, with nulls where it has nothing. */
 export interface Art {
   names: Record<Kind, string>;
+  /** A bomb binder mission's name and blurb ("Mission 3.2" without the manifest). */
+  mission: (id: string) => { name: string; description: string | null };
+  section: (n: number) => string;
   /** A module's base render and its canvas size, or null to draw it plainly. */
   module: (kind: ArtKind) => { base: string; size: [number, number] } | null;
   /** One part of a module (`wire-2-red`, `status-pass`…). */
@@ -136,6 +148,8 @@ export function artFor(manifest: ManifestState): Art {
   };
   return {
     names: namesOf(m),
+    mission: (id) => missionNameOf(m, id),
+    section: (n) => sectionNameOf(m, n),
     module: (kind) => {
       const a = of(kind);
       const base = pic(a?.base);

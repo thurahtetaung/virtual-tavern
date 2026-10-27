@@ -2,7 +2,6 @@
 // part's state out. Pure (no three.js), so the mapping is tested on its own; the scene only
 // applies it.
 import { NEEDY_TIME, leftAt, needyLeft, timerText } from '../../logic/bomb.ts';
-import { MORSE } from '../../logic/data.ts';
 import {
   HOLD_AFTER,
   PAGE_TURN,
@@ -230,7 +229,7 @@ export function moduleLook(m: ModuleView, b: BombView, now: number): Look {
         kind: 'morse',
         lit: 'signal' in m && b.activated && !m.solved && morseLit(m.signal, b.activeAt, now),
         dial: m.dial,
-        freq: (MORSE[m.dial]![0] / 1000).toFixed(3),
+        freq: (m.freq / 1000).toFixed(3),
       };
     case 'complicated-wires':
       return {

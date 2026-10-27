@@ -5,12 +5,16 @@ export type WireCond =
   | { count: WireColour; is: number }
   | { count: WireColour; over: number }
   | { last: WireColour }
-  | { serialOdd: true };
+  | { serialOdd: true }
+  | { serialLetter: true };
 
-/** Cut the wire at a position (0-based), the last wire, or the last wire of a colour. */
+/**
+ * Cut the wire at a position (0-based) or the last wire; with `of`, the first, last or only
+ * (`only`: "cut the red wire") wire of that colour.
+ */
 export interface WireRule {
   when: WireCond[];
-  cut: number | 'last';
+  cut: number | 'last' | 'first' | 'only';
   of?: WireColour;
 }
 

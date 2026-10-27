@@ -22,6 +22,7 @@ import {
   wiresAnswer,
   wofAnswer,
 } from './modules.ts';
+import { PRINTED } from './rules.ts';
 import { ANA, BEN, CHO, bomb, must, send, table, wait } from './test-utils.ts';
 import type { Bomb, Module, NeedyModule, Settings, State } from './types.ts';
 
@@ -56,6 +57,7 @@ const info = (b: Bomb) => ({
   widgets: b.widgets,
   strikes: b.strikes,
   timerText: (t: number) => timerText(leftAt(b, t)),
+  rules: PRINTED,
 });
 
 describe('the bomb', () => {

@@ -189,7 +189,7 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
             <Panel key={p} className="min-h-0 text-lg">
               <Fit>
                 <h3 className="mb-2 text-2xl font-semibold">{pageName(art, p)}</h3>
-                <PageBody page={p} art={art} />
+                <PageBody page={p} art={art} rules={v.manual ?? undefined} />
               </Fit>
             </Panel>
           ))}

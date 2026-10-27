@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { defuseAwards } from './awards.ts';
 import { act, createBomb, nextAt, pressAlarm, runTo, solvableCount, solvedCount } from './bomb.ts';
 import { defuseBot } from './bot.ts';
+import { MISSIONS } from './missions.ts';
+import { PRINTED_SEED } from './rules.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
@@ -41,6 +43,9 @@ export const DEFAULT_SETTINGS: Settings = {
   expertsSeeClock: false,
   table: 'manual',
   surprises: true,
+  mission: null,
+  manual: 'printed',
+  helpers: false,
 };
 
 /** The Free Play limits (`FreeplayDevice`: 30 s–10:00 in 30 s steps, 3–11 modules). */
@@ -123,6 +128,9 @@ const settingsSchema = z
     expertsSeeClock: z.boolean(),
     table: z.enum(['manual', 'bomb']),
     surprises: z.boolean(),
+    mission: z.enum(MISSIONS.map((m) => m.id) as [string, ...string[]]).nullable(),
+    manual: z.enum(['printed', 'each', 'night']),
+    helpers: z.boolean(),
   })
   .partial();
 
@@ -214,6 +222,21 @@ function chooseDefuser(s: State, ctx: ActionCtx): PlayerId | null {
   return s.defuser && seated(s, s.defuser) ? s.defuser : ctx.isHost ? ctx.by : nextSeat(s, null);
 }
 
+/** A different manual's seed: never the printed manual's. */
+const drawManual = (ctx: ActionCtx) =>
+  testSeed !== null && testSeed !== PRINTED_SEED ? testSeed : 2 + ctx.rng.int(2 ** 31 - 2);
+
+/** The manual the next bomb follows, by the host's choice. */
+function manualFor(s: State, ctx: ActionCtx): number {
+  const mode = s.settings.manual ?? 'printed';
+  if (mode === 'each') return drawManual(ctx);
+  if (mode === 'night') {
+    s.nightManual ??= drawManual(ctx);
+    return s.nightManual;
+  }
+  return PRINTED_SEED;
+}
+
 function startBomb(s: State, ctx: ActionCtx): State | GameError {
   if (s.seats.length < MIN_PLAYERS) return err('too-few', 'A bomb needs a defuser and an expert.');
   const defuser = chooseDefuser(s, ctx);
@@ -224,7 +247,7 @@ function startBomb(s: State, ctx: ActionCtx): State | GameError {
     );
   s.bombNo++;
   const seed = testSeed ?? ctx.rng.int(2 ** 32);
-  s.bomb = createBomb(s.bombNo, seed, s.settings, ctx.now);
+  s.bomb = createBomb(s.bombNo, seed, s.settings, ctx.now, manualFor(s, ctx));
   if (testLights !== null && s.bomb.pace) {
     s.bomb.pace = null;
     s.bomb.lightsAt = s.bomb.clockAt + testLights;
@@ -245,6 +268,7 @@ function finish(s: State) {
   if (!b?.end || s.stage !== 'bomb') return;
   s.history.push({
     no: b.no,
+    mission: b.mission ?? null,
     defuser: s.defuser ?? '',
     how: b.end.how,
     left: Math.round(b.end.left),
@@ -270,6 +294,9 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       s.settings = { ...s.settings, ...action.settings };
       if (s.settings.vetoes.length > 3)
         return err('vetoes', 'At most three kinds can be left out.');
+      // "Same manual all night" draws its manual once and keeps it until the host changes this.
+      if (action.settings.manual && action.settings.manual !== (state.settings.manual ?? 'printed'))
+        s.nightManual = s.settings.manual === 'night' ? drawManual(ctx) : null;
       if (
         action.settings.defuserMode &&
         action.settings.defuserMode !== state.settings.defuserMode

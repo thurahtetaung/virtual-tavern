@@ -3,30 +3,22 @@
 // getting about one in eight wrong; bot experts only claim a page.
 import type { BotCtx } from '@vt/game-sdk';
 import { NEEDY_TIME, leftAt, timerText } from './bomb.ts';
-import {
-  KEYPAD_COLUMNS,
-  KNOB,
-  MAZES,
-  MORSE,
-  MORSE_ALPHABET,
-  SEQUENCE,
-  WOF_DISPLAYS,
-} from './data.ts';
+import { MORSE_ALPHABET, WOF_DISPLAYS } from './data.ts';
+import { mazePath, mazesWithCircle, pathDirs } from './helpers.ts';
 import {
   type BombInfo,
   SIMON_COLOURS,
-  STEP,
   buttonHold,
   memoryAnswer,
   releaseDigit,
   simonPress,
   spellable,
   vennCut,
-  wallAt,
   wiresAnswer,
   wofAnswer,
 } from './modules.ts';
-import { type Action, type Dir, type ModuleOp, SOLVABLE, isNeedy } from './types.ts';
+import { rulesOfBomb } from './rules.ts';
+import { type Action, type ModuleOp, SOLVABLE, isNeedy } from './types.ts';
 import type { BombView, DefuseView, ModuleView } from './view.ts';
 
 let wrongRate = 1 / 8;
@@ -56,39 +48,8 @@ const infoOf = (b: BombView): BombInfo => ({
   widgets: b.widgets,
   strikes: b.strikes,
   timerText: (t) => timerText(leftAt(b, t)),
+  rules: rulesOfBomb(b),
 });
-
-/** Moves through the maze from `at` to `goal`, the first step of a shortest path. */
-function mazeStep(maze: number, at: [number, number], goal: [number, number]): Dir | null {
-  const key = (p: readonly number[]) => `${p[0]},${p[1]}`;
-  const seen = new Map<string, Dir | null>([[key(at), null]]);
-  const queue: [number, number][] = [at];
-  while (queue.length) {
-    const p = queue.shift()!;
-    if (p[0] === goal[0] && p[1] === goal[1]) {
-      let k = key(p);
-      let first: Dir | null = null;
-      // Walk back to the start, keeping the first step.
-      for (let cur = p; k !== key(at);) {
-        const d = seen.get(k)!;
-        first = d;
-        const [dx, dy] = STEP[d];
-        cur = [cur[0] - dx, cur[1] - dy];
-        k = key(cur);
-      }
-      return first;
-    }
-    for (const d of ['up', 'right', 'down', 'left'] as Dir[]) {
-      const [dx, dy] = STEP[d];
-      const n: [number, number] = [p[0] + dx, p[1] + dy];
-      if (n[0] < 0 || n[0] > 5 || n[1] < 0 || n[1] > 5 || seen.has(key(n))) continue;
-      if (wallAt(maze, p, d)) continue;
-      seen.set(key(n), d);
-      queue.push(n);
-    }
-  }
-  return null;
-}
 
 /** The right move on a solvable module now, or null when there is nothing to do yet. */
 function rightMove(m: ModuleView, b: BombView, now: number): ModuleOp | null {
@@ -101,10 +62,10 @@ function rightMove(m: ModuleView, b: BombView, now: number): ModuleOp | null {
       if (!hold) return { op: 'tap' };
       if (m.downAt === null) return { op: 'down' };
       if (now - m.downAt <= 600) return null;
-      return info.timerText(now).includes(releaseDigit(m.strip!)) ? { op: 'up' } : null;
+      return info.timerText(now).includes(releaseDigit(m.strip!, info.rules)) ? { op: 'up' } : null;
     }
     case 'keypad': {
-      const column = KEYPAD_COLUMNS.find((c) => m.symbols.every((s) => c.includes(s)))!;
+      const column = info.rules.keypad.find((c) => m.symbols.every((s) => c.includes(s)))!;
       const left = m.symbols.flatMap((s, i) => (m.down[i] ? [] : [{ i, at: column.indexOf(s) }]));
       left.sort((a, z) => a.at - z.at);
       return left.length ? { op: 'press', button: left[0]!.i } : null;
@@ -119,17 +80,17 @@ function rightMove(m: ModuleView, b: BombView, now: number): ModuleOp | null {
     case 'whos-on-first': {
       if (m.change || now < m.upAt || m.display === null) return null;
       const display = WOF_INDEX.get(m.display) ?? -1;
-      const i = wofAnswer(display, m.labels);
+      const i = wofAnswer(display, m.labels, info.rules);
       return i < 0 ? null : { op: 'press', button: i };
     }
     case 'memory': {
       if (m.change || !m.valid || !('display' in m) || m.display === null) return null;
-      const i = memoryAnswer({ ...m, digits: [] }, m.display);
+      const i = memoryAnswer({ ...m, digits: [] }, m.display, info.rules);
       return i < 0 ? null : { op: 'press', button: i };
     }
     case 'morse': {
       const signal = 'signal' in m ? m.signal.join(' ') : '';
-      const target = MORSE.findIndex(
+      const target = info.rules.morse.findIndex(
         ([, w]) => [...w].map((c) => MORSE_ALPHABET[c]).join(' ') === signal,
       );
       if (target < 0) return null;
@@ -148,16 +109,15 @@ function rightMove(m: ModuleView, b: BombView, now: number): ModuleOp | null {
         const e = m.panels[i]!;
         const n = e.colour ? counts[e.colour]++ : 0;
         if (Math.floor(i / 3) !== m.page || !e.colour || e.cut) continue;
-        if (SEQUENCE[e.colour][n]?.includes(e.to)) return { op: 'cut', wire: i % 3 };
+        if (info.rules.sequence[e.colour][n]?.includes(e.to)) return { op: 'cut', wire: i % 3 };
       }
       return { op: 'next' };
     }
     case 'maze': {
       if (!('circles' in m)) return null;
-      const maze = MAZES.findIndex((z) =>
-        z.circles.some((c) => c[0] === m.circles[0]![0] && c[1] === m.circles[0]![1]),
-      );
-      const d = mazeStep(maze, m.at, m.goal);
+      const maze = mazesWithCircle(info.rules, m.circles[0]!)[0];
+      const path = maze === undefined ? null : mazePath(maze, m.at, m.goal, info.rules);
+      const d = path && pathDirs(path)[0];
       return d ? { op: 'move', dir: d } : null;
     }
     case 'password': {
@@ -188,7 +148,7 @@ function wrongMove(m: ModuleView, right: ModuleOp, ctx: BotCtx): ModuleOp | null
 }
 
 /** What needs doing on a needy module, urgently. */
-function needyMove(m: ModuleView, now: number): ModuleOp | null {
+function needyMove(m: ModuleView, now: number, b: BombView): ModuleOp | null {
   if (m.kind === 'venting-gas') {
     if (m.state !== 'running' || m.reply || !m.question) return null;
     return { op: 'answer', yes: m.question === 'vent' };
@@ -202,7 +162,7 @@ function needyMove(m: ModuleView, now: number): ModuleOp | null {
   }
   if (m.kind === 'knob') {
     if (m.state !== 'running' || !('leds' in m) || !m.leds) return null;
-    const want = KNOB_BY_LEDS.get(m.leds);
+    const want = rulesOfBomb(b).knob.find((k) => k.leds === m.leds)?.pos;
     return want && want !== m.pos ? { op: 'turn' } : null;
   }
   return null;
@@ -219,7 +179,7 @@ export function nextMove(
 ): { module: string; op: ModuleOp } | 'wait' | null {
   for (const m of b.modules) {
     if (!isNeedy(m.kind)) continue;
-    const op = needyMove(m, now);
+    const op = needyMove(m, now, b);
     if (op) return { module: m.id, op };
   }
   for (const m of b.modules) {
@@ -230,7 +190,6 @@ export function nextMove(
   return null;
 }
 
-const KNOB_BY_LEDS = new Map(KNOB.map((k) => [k.leds, k.pos]));
 const WOF_INDEX = new Map(WOF_DISPLAYS.map(([w], i) => [w, i]));
 
 export function defuseBot(v: DefuseView, ctx: BotCtx): Action | null {
@@ -247,7 +206,7 @@ export function defuseBot(v: DefuseView, ctx: BotCtx): Action | null {
   const now = ctx.now;
   for (const m of b.modules) {
     if (!isNeedy(m.kind)) continue;
-    const op = needyMove(m, now);
+    const op = needyMove(m, now, b);
     if (op) return act(m.id, op, now);
   }
   const since = Math.max(b.activeAt, ...b.log.filter((e) => e.what !== 'needy').map((e) => e.at));
