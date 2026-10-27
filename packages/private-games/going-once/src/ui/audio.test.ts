@@ -308,7 +308,8 @@ describe('the auctioneer’s voice', () => {
     expect(cues[0]!.at).toBe(h.now);
     expect(cues[1]!.at).toBe(h.now + host.clips![0]!.ms + CLIP_GAP_MS);
     expect(clipTimes(host)).toEqual(cues.map((c) => c.at));
-    // A bid's chant waits for the paddle (a silence before it).
+    // A bid's chant waits for the paddle (a silence before it); on the opening's chant, at once.
+    h.wait(cues[1]!.at - h.now);
     bid(h, 'p2', 400);
     v = goingOnce.view(h.state, 'p1');
     expect(voiceCues(v)[0]!.at).toBe(h.now + BID_SETTLE_MS);

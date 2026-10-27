@@ -48,7 +48,7 @@ import {
   GoingOnceStyles,
   HostStrip,
   RackUp,
-  ScrewBanner,
+  useScrewBanner,
   SoundButton,
   useBeats,
 } from './Extras.tsx';
@@ -119,6 +119,12 @@ export function GoingOnceGame({
   const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
 
   const quiet = profile === 'phone-quiet';
+  const screwBanner = useScrewBanner({
+    view,
+    name,
+    you: room.you,
+    clockOffset: room.clockOffset,
+  });
   return (
     <PhoneShow view={view} you={room.you} clockOffset={room.clockOffset} profile={profile}>
       <div
@@ -134,10 +140,13 @@ export function GoingOnceGame({
             <GoingOnceStyles />
             <div className="flex items-start gap-1">
               <div className="min-w-0 flex-1">
-                {/* A quiet phone's Sold card says it all. */}
-                {!(quiet && g.stage === 'sold') && (
-                  <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-                )}
+                {/* A quiet phone's Sold card says it all, and a screw's banner takes the
+                    status line's place there, so the bidding still fits the screen. */}
+                {quiet && screwBanner
+                  ? screwBanner
+                  : !(quiet && g.stage === 'sold') && (
+                      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+                    )}
               </div>
               {sound}
             </div>
@@ -152,7 +161,7 @@ export function GoingOnceGame({
               </p>
             )}
             <Alerts view={view} you={room.you} />
-            <ScrewBanner view={view} name={name} you={room.you} clockOffset={room.clockOffset} />
+            {!quiet && screwBanner}
             {g.stage === 'intro' && <Intro view={view} room={room} act={act} />}
             {g.introSkipped &&
               (g.stage === 'practice' ||

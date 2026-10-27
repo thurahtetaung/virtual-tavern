@@ -710,6 +710,11 @@ export interface GameView {
   until: number;
   /** When this stage began (for the sound). */
   since: number;
+  /**
+   * While drawing: when its clock starts (after the voice's instructions, as the original lowers
+   * its timer only then); 0 otherwise.
+   */
+  drawFrom: number;
   practice: PracticeView | null;
   order: PlayerId[];
   players: PlayerView[];

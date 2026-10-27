@@ -587,8 +587,11 @@ export function Alerts({ view, you }: { view: GoingOnceView; you: string }) {
   );
 }
 
-/** "Ana screwed Ben: Ben bids $1,300" for everyone, for two seconds, with a buzz on Ben. */
-export function ScrewBanner({
+/**
+ * "Ana screwed Ben: Ben bids $1,300" for everyone while the screw plays out (at least two
+ * seconds), with a buzz on Ben; null while there is none.
+ */
+export function useScrewBanner({
   view,
   name,
   you,

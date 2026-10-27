@@ -157,6 +157,7 @@ export function BidPanel({
   art,
   name,
   quiet = false,
+  picking = false,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
@@ -165,6 +166,8 @@ export function BidPanel({
   name: NameOf;
   /** A table screen shows the lot: once it is sold, the bids that led there are the TV's. */
   quiet?: boolean;
+  /** This quiet phone is picking whom to screw: the picker takes the bid buttons' place. */
+  picking?: boolean;
 }) {
   const g = view.game!;
   const a = g.auction!;
@@ -214,11 +217,11 @@ export function BidPanel({
               </p>
             )}
           </div>
-          {!(quiet && g.stage === 'sold') && (
+          {!(quiet && g.stage === 'sold') && !picking && (
             <BidLadder view={view} art={art} name={name} you={room.you} rows={quiet ? 2 : 3} />
           )}
           <CloseBar view={view} room={room} />
-          {mine && !(quiet && g.stage === 'sold') && (
+          {mine && !(quiet && g.stage === 'sold') && !picking && (
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Bid">
               {a.steps.map((amount) => {
                 const can = affordable.includes(amount);
@@ -242,7 +245,7 @@ export function BidPanel({
           )}
         </div>
       </StickyBar>
-      {mine && (
+      {mine && !picking && (
         <>
           {affordable.length === 0 && !leading && live && (
             <p className="text-center text-sm text-ink-muted dark:text-stone-400">
@@ -255,7 +258,7 @@ export function BidPanel({
               {g.screwsOn && (
                 <Button
                   variant="secondary"
-                  className="flex-1"
+                  className="min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap"
                   disabled={screwBlocked}
                   onClick={() => void act({ type: 'screw' }, { anchor: 'go-tools' })}
                   data-testid="go-screw"
@@ -274,7 +277,7 @@ export function BidPanel({
                 <Button
                   variant="secondary"
                   className={cn(
-                    'flex-1',
+                    'min-w-0 flex-1 truncate px-2 text-sm whitespace-nowrap',
                     a.bankCalled &&
                       'ring-2 ring-accent motion-safe:animate-pulse dark:ring-amber-500',
                   )}
@@ -582,17 +585,38 @@ function SideTabs({
  * A lot's first moments: its number on the wooden disc and this player's tip arriving as a
  * "psst" bubble, before the picture goes up (in the picture's own space, so nothing jumps).
  */
-function LotIntro({ view, art, name }: { view: GoingOnceView; art: Art; name: NameOf }) {
+function LotIntro({
+  view,
+  art,
+  name,
+  quiet = false,
+}: {
+  view: GoingOnceView;
+  art: Art;
+  name: NameOf;
+  /** A quiet phone: the picture is on the table screen, so the disc sits beside the tip. */
+  quiet?: boolean;
+}) {
   const g = view.game!;
   const a = g.auction!;
   const latest = view.mine?.messages.at(-1);
   const disc = art.ui('lot');
   return (
     <div
-      className="relative mx-auto flex aspect-[4/5] w-full max-w-[min(100%,32vh)] flex-col items-center justify-center gap-4 rounded-lg bg-card p-4 shadow-md ring-1 ring-line lg:max-w-none dark:bg-stone-800 dark:ring-stone-700"
+      className={cn(
+        'relative flex items-center rounded-lg bg-card shadow-md ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+        quiet
+          ? 'gap-3 p-2'
+          : 'mx-auto aspect-[4/5] w-full max-w-[min(100%,32vh)] flex-col justify-center gap-4 p-4 lg:max-w-none',
+      )}
       data-testid="go-lot-intro"
     >
-      <span className="relative flex size-28 items-end justify-center pb-7 motion-safe:animate-[go-rise_0.3s_ease-out]">
+      <span
+        className={cn(
+          'relative flex shrink-0 items-end justify-center motion-safe:animate-[go-rise_0.3s_ease-out]',
+          quiet ? 'size-20 pb-5' : 'size-28 pb-7',
+        )}
+      >
         {disc ? (
           <ProtectedImage src={disc} alt="" className="absolute inset-0 size-full" />
         ) : (
@@ -616,8 +640,8 @@ function LotIntro({ view, art, name }: { view: GoingOnceView; art: Art; name: Na
         Lot {a.lot + 1} of {g.lotCount} is coming up.
       </span>
       {latest && latest.lot === a.lot ? (
-        <div className="w-full">
-          <PsstBubble message={latest} art={art} name={name} big />
+        <div className="min-w-0 flex-1">
+          <PsstBubble message={latest} art={art} name={name} big={!quiet} />
         </div>
       ) : (
         <p className="text-sm text-ink-muted dark:text-stone-400">The picture is coming up…</p>
@@ -665,6 +689,8 @@ export function Auction({
       <LotLog view={view} room={room} art={art} name={name} seen={seen} localHidden={localHidden} />
     );
   const latest = view.mine?.messages.at(-1);
+  // A quiet phone picking whom to screw shows the picker where the bid buttons were.
+  const picking = quiet && a.screw?.by === room.you;
   // The lot's number, whose drawing it is and the hide buttons (beside the thumbnail on a quiet
   // phone, so the bidding fits the screen).
   const header = (
@@ -726,9 +752,9 @@ export function Auction({
             className="pointer-events-none absolute inset-0 -z-10 hidden size-full rounded-2xl object-cover lg:block"
           />
         )}
-        {!(quiet && a.close !== 'intro') && header}
+        {!quiet && header}
         {a.close === 'intro' ? (
-          <LotIntro view={view} art={art} name={name} />
+          <LotIntro view={view} art={art} name={name} quiet={quiet} />
         ) : quiet ? (
           <div className="flex items-center gap-3" data-testid="go-thumb">
             <Picture
@@ -775,13 +801,22 @@ export function Auction({
       <section aria-label="Bidding" className="flex flex-col gap-3">
         <Panel className="flex flex-col gap-3 p-3">
           <Money view={view} art={art} />
-          <BidPanel view={view} room={room} act={act} art={art} name={name} quiet={quiet} />
+          <BidPanel
+            view={view}
+            room={room}
+            act={act}
+            art={art}
+            name={name}
+            quiet={quiet}
+            picking={picking}
+          />
         </Panel>
         <ScrewPicker view={view} room={room} act={act} name={name} />
         {/* Once sold, a quiet phone's tip has had its day (the Sold card needs the room). */}
         {latest &&
           latest.lot === a.lot &&
           a.close !== 'intro' &&
+          !picking &&
           !(quiet && g.stage === 'sold') && (
             <div className="lg:hidden">
               <PsstBubble message={latest} art={art} name={name} />

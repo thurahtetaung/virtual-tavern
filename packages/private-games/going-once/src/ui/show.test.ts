@@ -9,6 +9,7 @@ import {
   WINNERS_SETTLE_MS,
   endTrack,
   moments,
+  plateText,
   ROW_BOUNDS,
   raiseOf,
   rowOf,
@@ -35,6 +36,12 @@ describe('moments', () => {
     expect(draw.at).toBe(v.game!.since);
     expect(steps(draw, 'timer')[0]).toMatchObject({ kind: 'anim', track: 'timer.Appear' });
     expect(steps(draw, 'sign')[0]).toMatchObject({ on: ['stage'] });
+    // With the voice's instructions first, the hourglass comes as its clock starts.
+    const said = structuredClone(v);
+    said.game!.drawFrom = said.game!.since + 40_000;
+    const voicedDraw = stage(said).find((m) => m.id.startsWith('draw:'))!;
+    expect(steps(voicedDraw, 'timer')[0]).toMatchObject({ t: 40_000, track: 'timer.Appear' });
+    expect(steps(voicedDraw, 'sign')[0]).toMatchObject({ t: 300 });
   });
 
   it('brings a lot in, then its picture, with stable ids every view', () => {
@@ -334,5 +341,21 @@ describe('the table screen’s layout', () => {
         expect(xs.at(-1)!).toBeLessThanOrEqual(hi);
       }
     expect((rowOf(places, 3, 'room')[0]! + rowOf(places, 3, 'room')[2]!) / 2).toBe(640);
+  });
+});
+
+describe('a title on its plate at the end', () => {
+  it('keeps short titles at full size and shrinks or wraps long ones to fit the plate', () => {
+    expect(plateText('Apple')).toEqual({ fontSize: 26 });
+    // The live check's "Bunny with big white gloves" ran a few units past the plate at 26.
+    const bunny = plateText('Bunny with big white gloves');
+    expect(bunny.fontSize).toBeLessThan(26);
+    expect(bunny.fontSize).toBeGreaterThanOrEqual(18);
+    expect(bunny.fontSize * 0.47 * 27).toBeLessThanOrEqual(250);
+    // Too long for one readable line: two lines inside the plate.
+    expect(plateText('A very long title that goes on and on and on')).toMatchObject({
+      whiteSpace: 'normal',
+      width: 250,
+    });
   });
 });

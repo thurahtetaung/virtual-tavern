@@ -19,6 +19,8 @@ import {
   clipTimes,
   clipsFor,
   clipsMs,
+  doneTalking,
+  freeAt,
   leadIn,
   sayClips,
   speak,
@@ -288,6 +290,8 @@ function callOut(s: GoingOnceState, lot: number, rng: Rng): Say {
 
 function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead: Say = nothing()) {
   const g = s.game!;
+  // A line still being said (a skip's) is said to its end first, as every device does.
+  const from = voiced(s) ? doneTalking(g, now) : now;
   enter(g, 'auction', now);
   g.until = 0;
   // The lot number and the hints come first; the picture goes up and bidding opens after.
@@ -313,14 +317,14 @@ function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead:
   const ms = host(
     s,
     rng,
-    now,
+    from,
     {
       text: [...lead.text, ...out.text, index === 0 ? ['opening-first', 'opening'] : 'opening'],
       voice: [...lead.voice, ...(index === 0 ? ['opening-first'] : [])],
     },
     true,
   );
-  if (ms) g.auction.closeAt = Math.max(g.auction.closeAt, now + ms + CLIP_GAP_MS);
+  if (ms) g.auction.closeAt = Math.max(g.auction.closeAt, from + ms + CLIP_GAP_MS);
 }
 
 /**
@@ -328,10 +332,13 @@ function startLot(s: GoingOnceState, index: number, now: number, rng: Rng, lead:
  * and the chant for $400, then the pause.
  */
 function openingVoice(s: GoingOnceState, now: number, rng: Rng): number {
-  const a = s.game!.auction!;
+  const g = s.game!;
+  const a = g.auction!;
   const out = callOut(s, a.lot, rng);
-  const ms = speak(s, rng, now, [...out.voice, 'opening', chantKey(OPENING_BID, rng)]);
-  return ms + CHANT_GAP_MS;
+  // After anything still being said, as the original says one line after another.
+  const from = doneTalking(g, now);
+  const ms = speak(s, rng, from, [...out.voice, 'opening', chantKey(OPENING_BID, rng)]);
+  return from - now + ms + CHANT_GAP_MS;
 }
 
 function endGame(s: GoingOnceState, now: number) {
@@ -591,8 +598,9 @@ function openBank(s: GoingOnceState, now: number, rng: Rng) {
   g.bankOpened = true;
   g.bankDone = [];
   g.bankTook = [];
-  g.until = now + scaled(s, first ? BANK_FIRST_MS : BANK_LATER_MS);
-  host(
+  // The window, or as long as the bank's piece takes if that is longer: as the original, the next
+  // lot waits for his line.
+  const ms = host(
     s,
     rng,
     now,
@@ -612,6 +620,7 @@ function openBank(s: GoingOnceState, now: number, rng: Rng) {
       : { text: ['bank-called'], voice: [{ wait: BANK_RING_MS }, 'bank-called'] },
     true,
   );
+  g.until = now + Math.max(scaled(s, first ? BANK_FIRST_MS : BANK_LATER_MS), ms);
 }
 
 function closeBank(g: Game) {
@@ -717,9 +726,11 @@ function bid(s: GoingOnceState, by: PlayerId, amount: number, seq: number, now: 
   p.bids += 1;
   p.lastBidAt = now;
   g.lastBidLot[by] = a.lot;
-  // Voiced, the quiet stretch is the paddle going up, the chant for the next amount, the pause.
-  const ms = host(s, rng, now, { text: [bidMoment(amount)], voice: bidVoice(amount, rng) });
-  a.closeAt = now + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
+  // Voiced, the quiet stretch is the paddle going up, the chant for the next amount, the pause,
+  // from the end of the line being said (a bid lands on the opening line: it is said first).
+  const from = voiced(s) ? freeAt(g, now) : now;
+  const ms = host(s, rng, from, { text: [bidMoment(amount)], voice: bidVoice(amount, rng) });
+  a.closeAt = from + (ms ? ms + CHANT_GAP_MS : timing(s).quiet);
   return null;
 }
 
@@ -828,7 +839,12 @@ function loan(s: GoingOnceState, by: PlayerId, take: boolean, now: number, rng: 
     if (p.loans === MAX_LOANS) p.pending.push('thirdLoan');
   }
   g.bankDone.push(by);
-  if (loanWaiting(g).length === 0) advance(s, 'bank', now, rng);
+  if (loanWaiting(g).length === 0) {
+    // As the original, the bank says its piece in full before the next lot comes in.
+    const said = doneTalking(g, now);
+    if (said > now) g.until = said;
+    else advance(s, 'bank', now, rng);
+  }
   return null;
 }
 

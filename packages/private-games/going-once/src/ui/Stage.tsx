@@ -31,6 +31,7 @@ import {
   type RowWhere,
   endTrack,
   moments,
+  plateText,
   rowOf,
   shapeKey,
   winnersShownAt,
@@ -107,7 +108,7 @@ const AT = {
   /** The end's art layouts (their pictures slide in relative to this). */
   art: [1, 0, 0, 1, 640, 160],
   /** A buyer's total, where the values fly to. */
-  total: [1, 0, 0, 1, 640, 560],
+  total: [1, 0, 0, 1, 640, 500],
 };
 /** The seats: the original's row, a little smaller. */
 const SEAT_K = 0.8;
@@ -899,7 +900,7 @@ function EndScene({
                     <TitlePlate rig={rig} artist={r?.artist ? name(r.artist) : null} />
                     <Label
                       style={{
-                        fontSize: 26,
+                        ...plateText(r?.title ?? ''),
                         color: '#fff',
                         textShadow: '0 1px 3px rgba(0,0,0,.85)',
                       }}
