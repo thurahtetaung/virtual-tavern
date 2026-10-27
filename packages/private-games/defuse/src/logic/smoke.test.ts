@@ -15,7 +15,12 @@ describe('smoke', () => {
       wait(t, 9000);
       for (let i = 0; i < 4000 && t.state.stage === 'bomb'; i++) {
         const v = defuse.view(t.state, BEN);
-        const move = defuse.bot!(v, { me: BEN, now: t.now, rng: createRng(seed * 31 + i), words: () => [] });
+        const move = defuse.bot!(v, {
+          me: BEN,
+          now: t.now,
+          rng: createRng(seed * 31 + i),
+          words: () => [],
+        });
         if (move && move.type !== 'ponder') send(t, BEN, move);
         wait(t, 700);
       }

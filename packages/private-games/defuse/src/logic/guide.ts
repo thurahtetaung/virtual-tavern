@@ -19,17 +19,27 @@ const TABLE_BOMB: GuideOption = { key: 'table-bomb', label: 'Table screen shows 
 /** What each module looks like and how you work it (never what the manual says to do). */
 const LOOKS: Record<Kind, string> = {
   wires: 'Three to six coloured wires. Tap a wire to cut it. One of them is the right one.',
-  button: 'One big coloured button with a word on it. Tap to press and let go, or hold it: a coloured strip lights up beside it while you hold.',
-  keypad: 'Four keys, each with a strange symbol. Press them in the right order; a key that stays down was right.',
-  simon: 'Four coloured pads that flash a sequence. Press pads to answer it; each round the sequence grows by one flash.',
-  'whos-on-first': 'A display with a word and six word buttons. Three stages; the buttons change after each press.',
-  memory: 'A display with a number and four numbered buttons. Five stages, and what you pressed before matters.',
-  morse: 'A light that blinks a word in dots and dashes, a frequency dial with arrows, and a send button.',
-  'complicated-wires': 'Up to six wires, some striped, each with a light above and maybe a star below. Cut every wire that should be cut.',
-  'wire-sequence': 'Four panels of numbered wires running to A, B or C. Cut what should be cut, then go down to the next panel.',
+  button:
+    'One big coloured button with a word on it. Tap to press and let go, or hold it: a coloured strip lights up beside it while you hold.',
+  keypad:
+    'Four keys, each with a strange symbol. Press them in the right order; a key that stays down was right.',
+  simon:
+    'Four coloured pads that flash a sequence. Press pads to answer it; each round the sequence grows by one flash.',
+  'whos-on-first':
+    'A display with a word and six word buttons. Three stages; the buttons change after each press.',
+  memory:
+    'A display with a number and four numbered buttons. Five stages, and what you pressed before matters.',
+  morse:
+    'A light that blinks a word in dots and dashes, a frequency dial with arrows, and a send button.',
+  'complicated-wires':
+    'Up to six wires, some striped, each with a light above and maybe a star below. Cut every wire that should be cut.',
+  'wire-sequence':
+    'Four panels of numbered wires running to A, B or C. Cut what should be cut, then go down to the next panel.',
   maze: 'A six by six grid with a white light, a red triangle and two circle marks. Steer the light to the triangle through walls you can’t see.',
-  password: 'Five letter dials and a submit button. Turn the dials until they spell the one real word.',
-  'venting-gas': 'A small screen that asks a yes-or-no question, with a countdown. Answer before it reaches zero.',
+  password:
+    'Five letter dials and a submit button. Turn the dials until they spell the one real word.',
+  'venting-gas':
+    'A small screen that asks a yes-or-no question, with a countdown. Answer before it reaches zero.',
   capacitor: 'A lever and a countdown. Hold the lever down to push the countdown back up.',
   knob: 'A knob, an UP label and twelve lights. When the countdown hits zero, the knob must point the right way.',
 };
@@ -42,7 +52,9 @@ function base(art: GuideArt): GameGuide {
       id: kind,
       name: names[kind],
       text: LOOKS[kind],
-      meta: needy ? 'Needy module: it never needs solving, it keeps coming back' : 'Solve it to disarm it',
+      meta: needy
+        ? 'Needy module: it never needs solving, it keeps coming back'
+        : 'Solve it to disarm it',
       group: needy ? 'Needy modules' : 'Modules',
       tone: needy ? 'evil' : 'neutral',
       icon: needy ? '⚠️' : '🧩',
@@ -72,8 +84,7 @@ function base(art: GuideArt): GameGuide {
   ];
   return {
     tagline:
-      art.tagline ??
-      'One of you holds a ticking bomb, everyone else holds the manual. Talk fast.',
+      art.tagline ?? 'One of you holds a ticking bomb, everyone else holds the manual. Talk fast.',
     players: '2 to 12 (one defuser, the rest experts)',
     duration: '5 minutes a bomb',
     goal: 'Defuse the bomb before the clock runs out. Only the defuser sees the bomb; only the experts see the manual. You win by talking.',
@@ -181,7 +192,9 @@ function base(art: GuideArt): GameGuide {
         title: 'Experts see the clock',
         level: 'details',
         option: CLOCK,
-        bullets: ['With this host option the experts’ screens show the clock and the strikes, nothing else.'],
+        bullets: [
+          'With this host option the experts’ screens show the clock and the strikes, nothing else.',
+        ],
       },
       {
         title: 'The table screen',
@@ -255,9 +268,15 @@ function base(art: GuideArt): GameGuide {
     glossary: [
       { term: 'Defuser', meaning: 'The one player who sees and touches the bomb.' },
       { term: 'Expert', meaning: 'Everyone else: they read the manual.' },
-      { term: 'Module', meaning: 'One puzzle on the bomb; its light turns green when it is disarmed.' },
+      {
+        term: 'Module',
+        meaning: 'One puzzle on the bomb; its light turns green when it is disarmed.',
+      },
       { term: 'Strike', meaning: 'A mistake. It speeds up the clock; too many set the bomb off.' },
-      { term: 'Edgework', meaning: 'The serial number, batteries, indicators and ports round the sides.' },
+      {
+        term: 'Edgework',
+        meaning: 'The serial number, batteries, indicators and ports round the sides.',
+      },
     ],
   };
 }
@@ -269,7 +288,11 @@ const optionsOf = (s: DefuseView['settings']): string[] => [
   ...(s.table === 'bomb' ? [TABLE_BOMB.key] : []),
 ];
 
-export function makeGuide(art: GuideArt = {}, footer?: GuideFooter, names?: Record<Kind, string>): GameGuide {
+export function makeGuide(
+  art: GuideArt = {},
+  footer?: GuideFooter,
+  names?: Record<Kind, string>,
+): GameGuide {
   const room = (raw: unknown, you: string): GuideContext | undefined => {
     const v = raw as DefuseView;
     if (!v?.settings) return undefined;
@@ -282,7 +305,11 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter, names?: Reco
       ...(v.stage === 'bomb' && {
         you:
           v.defuser === you
-            ? { name: 'Defuser', text: 'You hold the bomb. Describe it; never look at the manual.', icon: '💣' }
+            ? {
+                name: 'Defuser',
+                text: 'You hold the bomb. Describe it; never look at the manual.',
+                icon: '💣',
+              }
             : {
                 name: 'Expert',
                 text: `${defuser ?? 'The defuser'} holds the bomb. Read the manual to them.`,
@@ -294,7 +321,9 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter, names?: Reco
   };
   const g = base(art);
   if (names && g.tiles)
-    g.tiles.items = g.tiles.items.map((t) => (t.id in names ? { ...t, name: names[t.id as Kind] } : t));
+    g.tiles.items = g.tiles.items.map((t) =>
+      t.id in names ? { ...t, name: names[t.id as Kind] } : t,
+    );
   return { ...g, ...(footer && { footer }), room };
 }
 

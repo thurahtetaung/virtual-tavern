@@ -12,7 +12,9 @@ test.afterEach(() => {
 
 const PHONE = { width: 390, height: 844 };
 
-test('a bomb defused on a phone while the expert reads, then one that goes off', async ({ browser }) => {
+test('a bomb defused on a phone while the expert reads, then one that goes off', async ({
+  browser,
+}) => {
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [ana, ben] = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];

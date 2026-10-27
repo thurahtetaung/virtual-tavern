@@ -80,7 +80,12 @@ const base = (kind: SolvableKind, face: 0 | 1, anchor: number) => ({
   strikes: 0,
 });
 
-export function createSolvable(kind: SolvableKind, face: 0 | 1, anchor: number, r: Stream): SolvableModule {
+export function createSolvable(
+  kind: SolvableKind,
+  face: 0 | 1,
+  anchor: number,
+  r: Stream,
+): SolvableModule {
   const b = base(kind, face, anchor);
   switch (kind) {
     case 'wires': {
@@ -117,7 +122,15 @@ export function createSolvable(kind: SolvableKind, face: 0 | 1, anchor: number, 
       return { ...b, kind, sequence, stage: 0, progress: 0, playAt: Number.MAX_SAFE_INTEGER };
     }
     case 'whos-on-first':
-      return { ...b, kind, stage: 0, display: -1, labels: [], upAt: Number.MAX_SAFE_INTEGER, change: null };
+      return {
+        ...b,
+        kind,
+        stage: 0,
+        display: -1,
+        labels: [],
+        upAt: Number.MAX_SAFE_INTEGER,
+        change: null,
+      };
     case 'memory':
       return {
         ...b,
@@ -237,7 +250,9 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** Which of the 35 words the columns can spell (`PasswordRuleSet.GetMatches`). */
 export function spellable(columns: readonly (readonly string[])[]): string[] {
-  return PASSWORDS.filter((w) => columns.every((col, i) => col.length === 1 || col.includes(w[i]!)));
+  return PASSWORDS.filter((w) =>
+    columns.every((col, i) => col.length === 1 || col.includes(w[i]!)),
+  );
 }
 
 /** `PasswordRuleSet.GetCharacterValues`: prune false matches, then cut each column to 6. */
@@ -300,7 +315,10 @@ export const releaseDigit = (strip: ButtonColour) => RELEASE_DIGIT[strip] ?? REL
 
 /** `SimonComponent.MapToSolution`, with the strikes at the moment of the press. */
 export function simonPress(flash: SimonColour, info: BombInfo): SimonColour {
-  const row = SIMON_MAP[serialVowel(info.serial) ? 'vowel' : 'none'][String(Math.min(2, info.strikes)) as '0' | '1' | '2'];
+  const row =
+    SIMON_MAP[serialVowel(info.serial) ? 'vowel' : 'none'][
+      String(Math.min(2, info.strikes)) as '0' | '1' | '2'
+    ];
   return row[SIMON_COLOURS.indexOf(flash)] as SimonColour;
 }
 
@@ -316,7 +334,10 @@ export function wofAnswer(display: number, labels: readonly string[]): number {
 }
 
 /** `MemoryRuleSet.ButtonPushed`: the right position (0–3) at this stage. */
-export function memoryAnswer(m: Pick<MemoryModule, 'stage' | 'digits' | 'labels' | 'pressedPos' | 'pressedLabel'>, digit = m.digits[m.stage]!): number {
+export function memoryAnswer(
+  m: Pick<MemoryModule, 'stage' | 'digits' | 'labels' | 'pressedPos' | 'pressedLabel'>,
+  digit = m.digits[m.stage]!,
+): number {
   const rule = MEMORY_RULES[m.stage + 1]![digit - 1]!;
   switch (rule.press) {
     case 'position':
@@ -354,7 +375,12 @@ export const sequenceCut = (e: SequenceEntry) =>
   !!e.colour && e.n < 9 && SEQUENCE[e.colour][e.n]!.includes(e.to);
 
 const WALL: Record<Dir, number> = { up: 1, right: 2, down: 4, left: 8 };
-export const STEP: Record<Dir, [number, number]> = { up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0] };
+export const STEP: Record<Dir, [number, number]> = {
+  up: [0, -1],
+  right: [1, 0],
+  down: [0, 1],
+  left: [-1, 0],
+};
 
 /** Whether a maze has a wall on that side of a cell. */
 export const wallAt = (maze: number, [x, y]: readonly [number, number], dir: Dir) =>

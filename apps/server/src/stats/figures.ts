@@ -2115,8 +2115,18 @@ function defuseFigures(get: (metric: string) => number): GameFigure[] {
       kind: 'number',
       value: avg(get('f.left_ms') / 1000, get('f.defused')),
     },
-    { id: 'strikes', label: 'Strikes per bomb', kind: 'number', value: avg(get('f.strikes'), bombs) },
-    { id: 'modules', label: 'Modules per bomb', kind: 'number', value: avg(get('f.modules'), bombs) },
+    {
+      id: 'strikes',
+      label: 'Strikes per bomb',
+      kind: 'number',
+      value: avg(get('f.strikes'), bombs),
+    },
+    {
+      id: 'modules',
+      label: 'Modules per bomb',
+      kind: 'number',
+      value: avg(get('f.modules'), bombs),
+    },
     {
       id: 'module-strikes',
       label: 'Strikes per module, by kind',

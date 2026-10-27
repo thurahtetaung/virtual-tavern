@@ -132,10 +132,7 @@ export function useMute(): [boolean, (on: boolean) => void] {
 
 const cutCount = (b: BombView) =>
   b.modules.reduce((n, m) => n + ('wires' in m ? m.wires.filter((w) => w.cut).length : 0), 0) +
-  b.modules.reduce(
-    (n, m) => n + ('panels' in m ? m.panels.filter((w) => w.cut).length : 0),
-    0,
-  );
+  b.modules.reduce((n, m) => n + ('panels' in m ? m.panels.filter((w) => w.cut).length : 0), 0);
 
 /** Plays the bomb's sounds from the view on the server clock. */
 export function useBombSound(b: BombView | null, art: Art, offset: number) {
@@ -156,7 +153,8 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
     }
     const cuts = cutCount(b);
     if (prev && cuts > prev.cuts) player.play(art.effect('snip'));
-    if (b.end && !prev?.end && prev) player.play(art.effect(b.end.how === 'defused' ? 'bomb-defused' : 'explode'));
+    if (b.end && !prev?.end && prev)
+      player.play(art.effect(b.end.how === 'defused' ? 'bomb-defused' : 'explode'));
     seen.current = { no: b.no, log: b.log.length, cuts, end: !!b.end };
   }, [b, art]);
 
@@ -170,12 +168,18 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
       if (now < b.clockAt) return;
       const sec = Math.floor(leftAt(b, now) / 1000);
       if (sec !== last) {
-        if (last >= 0) player.play(art.effect(b.rate > 1.25 ? 'singlebeep' : b.rate > 1 ? 'doublebeep-1-25' : 'doublebeep'));
+        if (last >= 0)
+          player.play(
+            art.effect(
+              b.rate > 1.25 ? 'singlebeep' : b.rate > 1 ? 'doublebeep-1-25' : 'doublebeep',
+            ),
+          );
         last = sec;
       }
       for (const m of b.modules) {
         if (!isNeedy(m.kind) || !('state' in m) || m.state !== 'running') continue;
-        const left = m.kind === 'capacitor' && m.heldAt !== null ? m.left : m.left - (now - m.leftAt);
+        const left =
+          m.kind === 'capacitor' && m.heldAt !== null ? m.left : m.left - (now - m.leftAt);
         const key = `${m.id}:${m.leftAt}`;
         const warn = m.kind === 'venting-gas' ? 3000 : 5000;
         if (left <= warn && left > 0 && !warned.has(key) && m.kind !== 'capacitor') {
@@ -196,16 +200,25 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
       player.setMusic(null);
       return;
     }
-    const lists = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((k) => art.music(`game-${k}`)).filter((l) => l.length);
+    const lists = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+      .map((k) => art.music(`game-${k}`))
+      .filter((l) => l.length);
     if (!lists.length || b.end) {
-      player.setMusic(b?.end ? (art.music(b.end.how === 'defused' ? 'gameover-win' : 'gameover-lose')[0] ?? null) : null);
+      player.setMusic(
+        b?.end
+          ? (art.music(b.end.how === 'defused' ? 'gameover-win' : 'gameover-lose')[0] ?? null)
+          : null,
+      );
       return;
     }
     const list = lists[(b.no - 1) % lists.length]!;
     const id = setInterval(() => {
       const now = serverNow(offset);
       const left = leftAt(b, now);
-      const i = left <= 30_000 ? list.length - 1 : Math.min(list.length - 2, Math.floor((1 - left / b.total) * (list.length - 1)));
+      const i =
+        left <= 30_000
+          ? list.length - 1
+          : Math.min(list.length - 2, Math.floor((1 - left / b.total) * (list.length - 1)));
       player.setMusic(list[Math.max(0, i)] ?? null);
     }, 500);
     return () => {

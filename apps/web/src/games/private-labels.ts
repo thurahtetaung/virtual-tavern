@@ -244,7 +244,8 @@ export async function iconicLabels(): Promise<Labeler> {
 /** Defuse's module names (`{card:wires}`), from its manifest, else plain words. */
 export async function defuseLabels(): Promise<Labeler> {
   const names = defuseNames(await manifest('defuse'));
-  return (kind, id) => (kind === 'card' && id in names ? names[id as keyof typeof names] : undefined);
+  return (kind, id) =>
+    kind === 'card' && id in names ? names[id as keyof typeof names] : undefined;
 }
 
 /** Stampede's Pink Cow (`{card:pink-cow}`), from its manifest, with its placeholder otherwise. */

@@ -33,8 +33,16 @@ export const LIGHTS = { timer: 2000, active: 6000, clock: 8000 };
 /** Seconds of bomb time before needy modules wake by themselves (`TimeBeforeNeedyActivation`). */
 export const NEEDY_AFTER = 90_000;
 /** `NeedyComponent`: countdowns, the cooldown between runs, the warning. */
-export const NEEDY_TIME: Record<NeedyKind, number> = { 'venting-gas': 40_000, capacitor: 45_000, knob: 40_000 };
-export const NEEDY_WARN: Record<NeedyKind, number> = { 'venting-gas': 3000, capacitor: 5000, knob: 5000 };
+export const NEEDY_TIME: Record<NeedyKind, number> = {
+  'venting-gas': 40_000,
+  capacitor: 45_000,
+  knob: 40_000,
+};
+export const NEEDY_WARN: Record<NeedyKind, number> = {
+  'venting-gas': 3000,
+  capacitor: 5000,
+  knob: 5000,
+};
 const RESET_MIN = 10_000;
 const RESET_MAX = 40_000;
 /** `PlayerChangedBomb`: the delay after a solve or a strike, and the first time's chance. */
@@ -113,7 +121,9 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
     const face =
       kind === 'button' && free[timerFace]!.length ? timerFace : faceRoom[int(r, faceRoom.length)]!;
     const anchor = take(face, free[face]!);
-    modules.push(isNeedy(kind) ? createNeedy(kind, face, anchor) : createSolvable(kind, face, anchor, r));
+    modules.push(
+      isNeedy(kind) ? createNeedy(kind, face, anchor) : createSolvable(kind, face, anchor, r),
+    );
   }
   const { serial, widgets } = makeWidgets(r);
   const strikeLimit = s.hardcore ? 1 : 3;
@@ -156,7 +166,8 @@ function createNeedy(kind: NeedyKind, face: 0 | 1, anchor: number): NeedyModule 
     changes: 0,
     started: false,
   };
-  if (kind === 'venting-gas') return { ...base, kind, question: 'vent', reply: null, warnedAt: null };
+  if (kind === 'venting-gas')
+    return { ...base, kind, question: 'vent', reply: null, warnedAt: null };
   if (kind === 'capacitor') return { ...base, kind, heldAt: null, exploded: false };
   return { ...base, kind, label: 'up', pattern: null, pos: 'up' };
 }
@@ -164,7 +175,10 @@ function createNeedy(kind: NeedyKind, face: 0 | 1, anchor: number): NeedyModule 
 // ---- The clock ----
 
 /** Bomb time left (ms) at server time `t`. */
-export function leftAt(b: Pick<Bomb, 'leftAtAnchor' | 'anchorAt' | 'rate' | 'end'>, t: number): number {
+export function leftAt(
+  b: Pick<Bomb, 'leftAtAnchor' | 'anchorAt' | 'rate' | 'end'>,
+  t: number,
+): number {
   if (b.end) return b.end.left;
   if (t <= b.anchorAt) return b.leftAtAnchor;
   return Math.max(0, b.leftAtAnchor - (t - b.anchorAt) * b.rate);
@@ -172,10 +186,12 @@ export function leftAt(b: Pick<Bomb, 'leftAtAnchor' | 'anchorAt' | 'rate' | 'end
 
 /** `TimerComponent.GetFormattedTime`: `MM:SS`, or `SS.cc` under a minute. */
 export function timerText(ms: number): string {
-  const time = Math.max(0, ms / 1000);
+  // The original's arithmetic is in 32-bit floats (`TimeRemaining` is a float).
+  const f = Math.fround;
+  const time = f(Math.max(0, ms / 1000));
   const min = Math.floor(Math.floor(time) / 60);
   const sec = Math.floor(time) % 60;
-  const cs = Math.floor((time - min * 60 - sec) * 100) % 100;
+  const cs = Math.floor(f(f(f(time - min * 60) - sec) * 100)) % 100;
   const two = (n: number) => String(n).padStart(2, '0');
   return min >= 1 ? `${two(min)}:${two(sec)}` : `${two(sec)}.${two(cs)}`;
 }
@@ -334,7 +350,8 @@ function nextNeedyAt(b: Bomb, m: NeedyModule): number | null {
       if (m.heldAt === null) times.push(m.leftAt + m.left);
     } else times.push(m.leftAt + m.left);
   }
-  if (m.kind === 'venting-gas' && m.reply) times.push(m.reply.counted ? m.reply.lockUntil : m.reply.doneAt);
+  if (m.kind === 'venting-gas' && m.reply)
+    times.push(m.reply.counted ? m.reply.lockUntil : m.reply.doneAt);
   return times.length ? Math.min(...times) : null;
 }
 
@@ -471,7 +488,8 @@ export function act(b: Bomb, id: string, a: ModuleOp, t: number): Outcome | 'ign
 }
 
 export const solvableCount = (b: Bomb) => b.modules.filter((m) => !isNeedy(m.kind)).length;
-export const solvedCount = (b: Bomb) => b.modules.filter((m) => !isNeedy(m.kind) && m.solved).length;
+export const solvedCount = (b: Bomb) =>
+  b.modules.filter((m) => !isNeedy(m.kind) && m.solved).length;
 export const kindsOf = (b: Bomb): SolvableKind[] =>
-  b.modules.flatMap((m) => (isNeedy(m.kind) ? [] : [m.kind as SolvableKind]));
+  b.modules.flatMap((m) => (isNeedy(m.kind) ? [] : [m.kind]));
 export { infoOf };

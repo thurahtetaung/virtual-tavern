@@ -14,11 +14,12 @@ export interface Table {
 
 export function table(players = [ANA, BEN], seed = 1, settings: Partial<Settings> = {}): Table {
   const rng = createRng(seed);
-  let state = defuse.create({ now: 0, rng, content: { wordLists: () => [], words: () => [] } }, players.map((id) => ({ id, name: id.toUpperCase() })));
+  const state = defuse.create(
+    { now: 0, rng, content: { wordLists: () => [], words: () => [] } },
+    players.map((id) => ({ id, name: id.toUpperCase() })),
+  );
   const t: Table = { state, now: 1000, seed };
-  if (Object.keys(settings).length) {
-    state = must(t, ANA, { type: 'settings', settings });
-  }
+  if (Object.keys(settings).length) must(t, ANA, { type: 'settings', settings });
   return t;
 }
 
@@ -34,7 +35,10 @@ export function ctx(t: Table, by: string, isHost = by === ANA): ActionCtx {
 
 export function send(t: Table, by: string, action: Action): State | GameError {
   const parsed = defuse.actionSchema.safeParse(action);
-  if (!parsed.success) throw new Error(`bad action ${JSON.stringify(action)} on ${JSON.stringify(t.state.bomb?.modules.find((m) => m.id === (action as { module?: string }).module))}`);
+  if (!parsed.success)
+    throw new Error(
+      `bad action ${JSON.stringify(action)} on ${JSON.stringify(t.state.bomb?.modules.find((m) => m.id === (action as { module?: string }).module))}`,
+    );
   const r = defuse.reduce(t.state, parsed.data, ctx(t, by));
   if (!(r instanceof GameError)) t.state = r;
   return r;
@@ -60,5 +64,15 @@ export function wait(t: Table, ms: number) {
 }
 
 export const bomb = (t: Table) => t.state.bomb!;
-export const mod = <K extends State['bomb'] extends null ? never : NonNullable<State['bomb']>['modules'][number]['kind']>(t: Table, kind: K) =>
-  bomb(t).modules.find((m) => m.kind === kind) as Extract<NonNullable<State['bomb']>['modules'][number], { kind: K }>;
+export const mod = <
+  K extends (State['bomb'] extends null
+    ? never
+    : NonNullable<State['bomb']>['modules'][number]['kind']),
+>(
+  t: Table,
+  kind: K,
+) =>
+  bomb(t).modules.find((m) => m.kind === kind) as Extract<
+    NonNullable<State['bomb']>['modules'][number],
+    { kind: K }
+  >;

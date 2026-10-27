@@ -64,12 +64,25 @@ function place(zones: Zone[], r: Stream): Zone | null {
   const num4 = int(r, num2 + 1);
   const num5 = num - num3;
   const num6 = num2 - num4;
-  const at: Zone = { area: zone.area, x: zone.x + num3, z: zone.z + num4, sx: zone.sx - num, sz: zone.sz - num2 };
+  const at: Zone = {
+    area: zone.area,
+    x: zone.x + num3,
+    z: zone.z + num4,
+    sx: zone.sx - num,
+    sz: zone.sz - num2,
+  };
   const rest: Zone[] = [];
   if (num3 > 0) rest.push({ area: zone.area, x: zone.x, z: zone.z, sx: num3, sz: zone.sz });
-  if (num4 > 0) rest.push({ area: zone.area, x: zone.x + num3, z: zone.z, sx: zone.sx - num, sz: num4 });
+  if (num4 > 0)
+    rest.push({ area: zone.area, x: zone.x + num3, z: zone.z, sx: zone.sx - num, sz: num4 });
   if (num5 > 0)
-    rest.push({ area: zone.area, x: zone.x + zone.sx - num + num3, z: zone.z, sx: num - num3, sz: zone.sz });
+    rest.push({
+      area: zone.area,
+      x: zone.x + zone.sx - num + num3,
+      z: zone.z,
+      sx: num - num3,
+      sz: zone.sz,
+    });
   if (num6 > 0)
     rest.push({
       area: zone.area,

@@ -3,7 +3,15 @@
 // getting about one in eight wrong; bot experts only claim a page.
 import type { BotCtx } from '@vt/game-sdk';
 import { NEEDY_TIME, leftAt, timerText } from './bomb.ts';
-import { KEYPAD_COLUMNS, KNOB, MAZES, MORSE, MORSE_ALPHABET, SEQUENCE, WOF_DISPLAYS } from './data.ts';
+import {
+  KEYPAD_COLUMNS,
+  KNOB,
+  MAZES,
+  MORSE,
+  MORSE_ALPHABET,
+  SEQUENCE,
+  WOF_DISPLAYS,
+} from './data.ts';
 import {
   type BombInfo,
   SIMON_COLOURS,
@@ -61,10 +69,10 @@ function mazeStep(maze: number, at: [number, number], goal: [number, number]): D
       let k = key(p);
       let first: Dir | null = null;
       // Walk back to the start, keeping the first step.
-      for (let cur = p; k !== key(at); ) {
+      for (let cur = p; k !== key(at);) {
         const d = seen.get(k)!;
         first = d;
-        const [dx, dy] = STEP[d!];
+        const [dx, dy] = STEP[d];
         cur = [cur[0] - dx, cur[1] - dy];
         k = key(cur);
       }

@@ -320,7 +320,9 @@ const games: ClientGame[] = [
     namedGuide: manifestGuide('defuse', nameDefuseGuide),
     labels: defuseLabels,
     icon: '⏲️',
-    Component: lazyUi(() => import('@vt/private-defuse/ui').then((m) => ({ default: m.DefuseGame }))),
+    Component: lazyUi(() =>
+      import('@vt/private-defuse/ui').then((m) => ({ default: m.DefuseGame })),
+    ),
     stage: lazyUi(() =>
       import('@vt/private-defuse/stage').then((m) => ({ default: m.DefuseStage })),
     ),

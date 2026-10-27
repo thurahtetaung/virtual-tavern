@@ -35,8 +35,14 @@ const rules: AwardRule[] = [
     kind: 'moment',
     family: 'clock',
     copy: {
-      cheeky: ['{who} defused it with under a second left. Show-off', '{who} stopped the clock a blink from zero'],
-      wholesome: ['{who} defused it with under a second to spare', '{who} kept calm right to the last blink'],
+      cheeky: [
+        '{who} defused it with under a second left. Show-off',
+        '{who} stopped the clock a blink from zero',
+      ],
+      wholesome: [
+        '{who} defused it with under a second to spare',
+        '{who} kept calm right to the last blink',
+      ],
     },
     compute: (g) => {
       const l = left(g);
@@ -52,8 +58,14 @@ const rules: AwardRule[] = [
     kind: 'award',
     family: 'clock',
     copy: {
-      cheeky: ['{who} defused it with seconds to spare. Nerves of steel', '{who} cut it fine and walked away'],
-      wholesome: ['{who} defused the bomb with seconds to spare', '{who} stayed calm as the clock ran down'],
+      cheeky: [
+        '{who} defused it with seconds to spare. Nerves of steel',
+        '{who} cut it fine and walked away',
+      ],
+      wholesome: [
+        '{who} defused the bomb with seconds to spare',
+        '{who} stayed calm as the clock ran down',
+      ],
     },
     compute: (g) => {
       const l = left(g);
@@ -69,8 +81,14 @@ const rules: AwardRule[] = [
     kind: 'team',
     family: 'result',
     copy: {
-      cheeky: ['{who} defused a bomb without a single strike. Smug', '{who}: no strikes, no sweat, no fun'],
-      wholesome: ['{who} defused a bomb without a single strike', '{who} worked it out with no strikes at all'],
+      cheeky: [
+        '{who} defused a bomb without a single strike. Smug',
+        '{who}: no strikes, no sweat, no fun',
+      ],
+      wholesome: [
+        '{who} defused a bomb without a single strike',
+        '{who} worked it out with no strikes at all',
+      ],
     },
     compute: (g) =>
       defused(g) && num(outcome(g), 'strikes') === 0 && g.players.length
@@ -87,7 +105,10 @@ const rules: AwardRule[] = [
     kind: 'award',
     family: 'strike',
     copy: {
-      cheeky: ['{who} cut the wrong wire {n|time}. Snip snip', '{who} and the wires: it is complicated'],
+      cheeky: [
+        '{who} cut the wrong wire {n|time}. Snip snip',
+        '{who} and the wires: it is complicated',
+      ],
       wholesome: ['{who} made a bold cut or two ({n})', '{who} was brave with the wire cutters'],
     },
     compute: (g) => {
@@ -108,9 +129,13 @@ const rules: AwardRule[] = [
     family: 'result',
     copy: {
       cheeky: ['{who} held the bomb when it went off', 'The bomb went off in the hands of {who}'],
-      wholesome: ['{who} gave a tough bomb a brave try', '{who} took on the bomb and nearly had it'],
+      wholesome: [
+        '{who} gave a tough bomb a brave try',
+        '{who} took on the bomb and nearly had it',
+      ],
     },
-    compute: (g) => (defused(g) || !outcome(g) ? [] : one(defuserOf(g), num(outcome(g), 'solved') ?? 0)),
+    compute: (g) =>
+      defused(g) || !outcome(g) ? [] : one(defuserOf(g), num(outcome(g), 'solved') ?? 0),
   },
   {
     id: 'df.scholar',
@@ -121,8 +146,14 @@ const rules: AwardRule[] = [
     kind: 'award',
     family: 'manual',
     copy: {
-      cheeky: ['{who} claimed {n} manual pages. Bookworm', '{who} read {n} pages aloud and never blinked'],
-      wholesome: ['{who} covered {n} pages of the manual', '{who} read {n} manual pages for the team'],
+      cheeky: [
+        '{who} claimed {n} manual pages. Bookworm',
+        '{who} read {n} pages aloud and never blinked',
+      ],
+      wholesome: [
+        '{who} covered {n} pages of the manual',
+        '{who} read {n} manual pages for the team',
+      ],
     },
     compute: (g) => {
       if (!defused(g)) return [];
@@ -140,15 +171,25 @@ const rules: AwardRule[] = [
     kind: 'award',
     family: 'speed',
     copy: {
-      cheeky: ['{who} solved a module in {s} seconds. Slow down', '{who} was done with a module in {s} seconds'],
-      wholesome: ['{who} solved a module in just {s} seconds', '{who} cleared a module in {s} seconds flat'],
+      cheeky: [
+        '{who} solved a module in {s} seconds. Slow down',
+        '{who} was done with a module in {s} seconds',
+      ],
+      wholesome: [
+        '{who} solved a module in just {s} seconds',
+        '{who} cleared a module in {s} seconds flat',
+      ],
     },
     compute: (g) => {
       const times = g
         .of('module')
-        .flatMap((e) => (bool(e, 'solved') && num(e, 'seconds') !== undefined ? [num(e, 'seconds')!] : []));
+        .flatMap((e) =>
+          bool(e, 'solved') && num(e, 'seconds') !== undefined ? [num(e, 'seconds')!] : [],
+        );
       const best = Math.min(...times);
-      return Number.isFinite(best) && best < 10 ? [{ players: [defuserOf(g)!].filter(Boolean), value: best, params: { s: best } }] : [];
+      return Number.isFinite(best) && best < 10
+        ? [{ players: [defuserOf(g)!].filter(Boolean), value: best, params: { s: best } }]
+        : [];
     },
   },
 ];

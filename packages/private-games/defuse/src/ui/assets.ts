@@ -19,7 +19,7 @@ export function useManifest(): ManifestState {
   useEffect(() => {
     let live = true;
     void loadManifest(GAME_ID).then((body) => {
-      if (live) setManifest((body as Manifest | null) ?? 'unavailable');
+      if (live) setManifest(body ?? 'unavailable');
     });
     return () => {
       live = false;
@@ -34,6 +34,22 @@ const path = (p: unknown) => {
 };
 const pic = (ref: ArtRef | undefined, small = false) =>
   (small ? path(thumbOf(ref)) : null) ?? path(artOf(ref));
+
+const loaded = new Set<string>();
+
+/** Adds one of the manifest's font files to the page (once) and names its family. */
+function loadFont(family: string, src: string | null): string | null {
+  if (!src || typeof FontFace === 'undefined' || typeof document === 'undefined') return null;
+  if (!loaded.has(family)) {
+    loaded.add(family);
+    const face = new FontFace(family, `url(${src})`);
+    void face.load().then(
+      (f) => document.fonts.add(f),
+      () => {},
+    );
+  }
+  return `${family}, ui-monospace, monospace`;
+}
 
 export type Box = [number, number, number, number];
 
@@ -73,10 +89,14 @@ export interface Art {
   effect: (name: string) => string | null;
   music: (name: string) => string[];
   digitsFont: string | null;
+  /** The original's fonts, as CSS families once loaded (null without the manifest's files). */
+  fonts: Record<'digits' | 'labels' | 'morse', string | null>;
 }
 
 const num2 = (v: unknown): [number, number] | null =>
-  Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number') ? [v[0] as number, v[1] as number] : null;
+  Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'number')
+    ? [v[0] as number, v[1] as number]
+    : null;
 const box4 = (v: unknown): Box | null =>
   Array.isArray(v) && v.length === 4 && v.every((x) => typeof x === 'number')
     ? [v[0] as number, v[1] as number, v[2] as number, v[3] as number]
@@ -85,10 +105,15 @@ const box4 = (v: unknown): Box | null =>
 export function artFor(manifest: ManifestState): Art {
   const m = manifest && manifest !== 'unavailable' ? manifest : null;
   const modules = m?.modules && typeof m.modules === 'object' ? m.modules : {};
-  const extras = ((m as { extras?: Record<string, unknown> } | null)?.extras ?? {}) as Record<string, unknown>;
+  const extras = (m as { extras?: Record<string, unknown> } | null)?.extras ?? {};
   const of = (kind: ArtKind) =>
     kind === 'timer'
-      ? { base: m?.timer?.backing, size: m?.timer?.size, parts: m?.timer?.parts, defaults: m?.timer?.defaults }
+      ? {
+          base: m?.timer?.backing,
+          size: m?.timer?.size,
+          parts: m?.timer?.parts,
+          defaults: m?.timer?.defaults,
+        }
       : modules[kind];
   const boxes = (key: string, face: string): Box[] | null => {
     const list = (extras[key] as Record<string, unknown> | undefined)?.[face];
@@ -150,5 +175,10 @@ export function artFor(manifest: ManifestState): Art {
       return (Array.isArray(v) ? v : v ? [v] : []).flatMap((p) => path(p) ?? []);
     },
     digitsFont: path(m?.fonts?.digits),
+    fonts: {
+      digits: loadFont('DefuseDigits', path(m?.fonts?.digits)),
+      labels: loadFont('DefuseLabels', path(m?.fonts?.labels)),
+      morse: loadFont('DefuseMorse', path(m?.fonts?.morse)),
+    },
   };
 }

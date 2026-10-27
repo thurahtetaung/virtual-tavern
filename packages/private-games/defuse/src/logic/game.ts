@@ -124,7 +124,7 @@ export const actionSchema: z.ZodType<Action> = z.union([
   z.object({ type: z.literal('next') }),
   z.object({ type: z.literal('lobby') }),
   z.object({ type: z.literal('ponder') }),
-]) as z.ZodType<Action>;
+]);
 
 // ---- Flow ----
 
@@ -209,8 +209,12 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       if (!between) return err('bomb-live', 'Settings change between bombs.');
       const s = draft(state);
       s.settings = { ...s.settings, ...action.settings };
-      if (s.settings.vetoes.length > 3) return err('vetoes', 'At most three kinds can be left out.');
-      if (action.settings.defuserMode && action.settings.defuserMode !== state.settings.defuserMode) {
+      if (s.settings.vetoes.length > 3)
+        return err('vetoes', 'At most three kinds can be left out.');
+      if (
+        action.settings.defuserMode &&
+        action.settings.defuserMode !== state.settings.defuserMode
+      ) {
         s.volunteers = [];
         if (s.settings.defuserMode !== 'rotate') s.defuser = null;
       }
@@ -236,8 +240,8 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       const s = draft(state);
       s.volunteers = s.volunteers.filter((v) => v !== me);
       if (action.on) s.volunteers.push(me);
-      if (s.defuser && !s.volunteers.includes(s.defuser)) s.defuser = null;
-      if (s.volunteers.length === 1) s.defuser = s.volunteers[0]!;
+      // One volunteer defuses; with several the host settles it.
+      s.defuser = s.volunteers.length === 1 ? s.volunteers[0]! : null;
       return s;
     }
     case 'start':
@@ -276,7 +280,7 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       if (state.stage === 'bomb' && me === state.defuser)
         return err('defuser', 'The defuser never sees the manual.');
       const s = draft(state);
-      const page = action.page as PageId;
+      const page = action.page;
       const list = (s.claims[page] ?? []).filter((p) => p !== me);
       if (action.on) list.push(me);
       if (list.length) s.claims[page] = list;
@@ -289,8 +293,8 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
         return err('defuser', 'The defuser never sees the manual.');
       const s = draft(state);
       const text = action.text.slice(0, MAX_NOTE);
-      if (text.trim()) s.notes[action.page as PageId] = text;
-      else delete s.notes[action.page as PageId];
+      if (text.trim()) s.notes[action.page] = text;
+      else delete s.notes[action.page];
       return s;
     }
     case 'ponder':
@@ -340,7 +344,8 @@ function playerLeft(state: State, id: PlayerId): State {
     else delete s.claims[k];
   }
   // A defuser who leaves mid-bomb keeps it: the clock runs on until the host hands it over.
-  if (!live && s.defuser === id) s.defuser = s.settings.defuserMode === 'rotate' ? nextSeat(s, null) : null;
+  if (!live && s.defuser === id)
+    s.defuser = s.settings.defuserMode === 'rotate' ? nextSeat(s, null) : null;
   fillSeats(s);
   return s;
 }

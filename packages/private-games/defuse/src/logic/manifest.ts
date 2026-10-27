@@ -52,14 +52,24 @@ export interface ModuleArt {
 export interface Manifest {
   title?: string;
   names?: { modules?: Partial<Record<Kind, string>>; game?: string };
-  casing?: Partial<Record<'front' | 'rear' | 'top' | 'bottom' | 'left' | 'right' | 'blank', ArtRef>>;
-  timer?: { backing?: ArtRef; size?: [number, number]; parts?: Record<string, Part>; defaults?: Record<string, string> };
+  casing?: Partial<
+    Record<'front' | 'rear' | 'top' | 'bottom' | 'left' | 'right' | 'blank', ArtRef>
+  >;
+  timer?: {
+    backing?: ArtRef;
+    size?: [number, number];
+    parts?: Record<string, Part>;
+    defaults?: Record<string, string>;
+  };
   modules?: Partial<Record<Kind, ModuleArt>>;
   widgets?: Record<string, ArtRef>;
   glyphs?: Record<string, ArtRef>;
-  manual?: { pages?: Record<string, ArtRef>; modulePages?: Partial<Record<Kind | 'appendix', number[]>> };
+  manual?: {
+    pages?: Record<string, ArtRef>;
+    modulePages?: Partial<Record<Kind | 'appendix', number[]>>;
+  };
   stamps?: Partial<Record<'defused' | 'exploded', ArtRef>>;
-  fonts?: Partial<Record<'digits' | 'manual', string>>;
+  fonts?: Partial<Record<'digits' | 'manual' | 'labels' | 'morse', string>>;
   audio?: {
     effects?: Record<string, string | string[]>;
     music?: Record<string, string | string[]>;

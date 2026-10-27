@@ -15,10 +15,7 @@ export interface WireRule {
 }
 
 export type ButtonCond =
-  | { colour: string }
-  | { label: string }
-  | { batteriesOver: number }
-  | { lit: string };
+  { colour: string } | { label: string } | { batteriesOver: number } | { lit: string };
 
 export interface ButtonRule {
   when: ButtonCond[];

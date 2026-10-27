@@ -28,17 +28,24 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   if (v.stage === 'bomb' && v.bomb)
     return (
       <div className="mx-auto max-w-7xl space-y-3 p-4" data-testid="stage-bomb">
-        <p className="text-center text-xl font-semibold">💣 {defuser} is defusing. Experts: don’t look at this screen.</p>
-        <BombScreen b={v.bomb} art={art} now={now} act={null} readOnly />
+        <p className="text-center text-xl font-semibold">
+          💣 {defuser} is defusing. Experts: don’t look at this screen.
+        </p>
+        <BombScreen key={v.bomb.no} b={v.bomb} art={art} now={now} act={null} readOnly />
       </div>
     );
   if (v.stage === 'bomb') {
     const claimed = PAGES.filter((p) => v.claims?.[p]?.length);
-    const pages: PageId[] = (claimed.length ? claimed : (['wires', 'button'] as PageId[])).slice(0, 4);
+    const pages: PageId[] = (claimed.length ? claimed : (['wires', 'button'] as PageId[])).slice(
+      0,
+      4,
+    );
     return (
       <div className="mx-auto max-w-7xl space-y-4 p-4" data-testid="stage-manual">
         <Panel className="flex flex-wrap items-center gap-4 text-xl">
-          <span className="flex-1 font-semibold">📖 Bomb {v.bombNo}: {defuser} is defusing</span>
+          <span className="flex-1 font-semibold">
+            📖 Bomb {v.bombNo}: {defuser} is defusing
+          </span>
           <ExpertClock v={v} offset={room.clockOffset} />
         </Panel>
         <Panel>
@@ -59,7 +66,9 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-8 text-center text-2xl" data-testid="stage-lobby">
       {v.stage === 'result' && last ? (
-        <p className="text-4xl font-black uppercase tracking-widest">{last.how === 'defused' ? 'Defused' : 'Exploded'}</p>
+        <p className="text-4xl font-black uppercase tracking-widest">
+          {last.how === 'defused' ? 'Defused' : 'Exploded'}
+        </p>
       ) : (
         <p className="font-semibold">💣 Waiting for the next bomb</p>
       )}

@@ -9,7 +9,6 @@ import type {
   MemoryModule,
   Module,
   MorseModule,
-  PageId,
   PasswordModule,
   Player,
   SequenceModule,
@@ -108,7 +107,7 @@ const morseSignal = (word: string) => [...word].map((c) => MORSE_ALPHABET[c] ?? 
 export function moduleView(m: Module, reveal: boolean): ModuleView {
   switch (m.kind) {
     case 'keypad': {
-      const { column, ...rest } = m;
+      const { column: _column, ...rest } = m;
       return reveal ? m : rest;
     }
     case 'simon': {
@@ -139,11 +138,11 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
       return reveal ? { ...m, circles } : { ...rest, circles };
     }
     case 'password': {
-      const { word, ...rest } = m;
+      const { word: _word, ...rest } = m;
       return reveal ? m : rest;
     }
     case 'venting-gas': {
-      const { question, ...rest } = m;
+      const { question: _question, ...rest } = m;
       return reveal || m.state === 'running' ? m : rest;
     }
     case 'knob': {
@@ -157,11 +156,9 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
 }
 
 export function bombView(b: Bomb, reveal: boolean): BombView {
-  const { r, modules, ...rest } = b;
+  const { r: _r, modules, ...rest } = b;
   return { ...rest, modules: modules.map((m) => moduleView(m, reveal)) };
 }
-
-const isPage = (_p: string): _p is PageId => true;
 
 export function view(state: State, viewer: string | null): DefuseView {
   const b = state.bomb;
@@ -209,5 +206,3 @@ export function view(state: State, viewer: string | null): DefuseView {
     history: state.history,
   };
 }
-
-export { isPage };

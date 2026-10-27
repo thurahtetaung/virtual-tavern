@@ -4,6 +4,8 @@
   "codenames.spec.ts": 21,
   "conveyor-shots.spec.ts": 1,
   "conveyor.spec.ts": 76,
+  "defuse-shots.spec.ts": 1,
+  "defuse.spec.ts": 25,
   "echo.spec.ts": 7,
   "encore-shots.spec.ts": 1,
   "encore.spec.ts": 30,

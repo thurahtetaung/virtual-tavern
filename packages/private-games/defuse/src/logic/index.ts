@@ -1,4 +1,11 @@
-export { DEFAULT_SETTINGS, MAX_SEATED, MIN_PLAYERS, actionSchema, defuse, setTestSeed } from './game.ts';
+export {
+  DEFAULT_SETTINGS,
+  MAX_SEATED,
+  MIN_PLAYERS,
+  actionSchema,
+  defuse,
+  setTestSeed,
+} from './game.ts';
 export { defuseBot } from './bot.ts';
 export { guide, makeGuide, nameGuide } from './guide.ts';
 export { insights } from './insights.ts';

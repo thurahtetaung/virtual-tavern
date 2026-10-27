@@ -60,12 +60,21 @@ const remember = (key: string) => {
   }
 };
 
-export function DefuseGame({ view: v, room, act, showGuide, setYourMove, setSpectator, profile }: DefuseUiProps) {
+export function DefuseGame({
+  view: v,
+  room,
+  act,
+  showGuide,
+  setYourMove,
+  setSpectator,
+  profile,
+}: DefuseUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
   const names = useMemo(() => new Map(room.players.map((p) => [p.id, p.name])), [room.players]);
   const you = room.you;
-  const nameOf = (id: string | null) => (id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody');
+  const nameOf = (id: string | null) =>
+    id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody';
   const [muted, setMuted] = useMute();
   const quiet = profile === 'phone-quiet' && v.role !== 'defuser';
   useBombSound(v.role === 'defuser' && !quiet ? v.bomb : null, art, room.clockOffset);
@@ -78,7 +87,10 @@ export function DefuseGame({ view: v, room, act, showGuide, setYourMove, setSpec
     setYourMove?.(v.role === 'defuser' && v.stage === 'bomb');
   }, [setYourMove, v.role, v.stage]);
   const watching = v.role === 'watcher';
-  useSpectatorPrompt(setSpectator, watching ? { text: 'The table is full: you see what the experts see.' } : null);
+  useSpectatorPrompt(
+    setSpectator,
+    watching ? { text: 'The table is full: you see what the experts see.' } : null,
+  );
   const send = (a: Action, anchor?: string) => {
     void act(a, anchor ? { anchor } : undefined);
   };
@@ -100,9 +112,7 @@ export function DefuseGame({ view: v, room, act, showGuide, setYourMove, setSpec
         art={art}
         offset={room.clockOffset}
         mute={mute}
-        act={(module, op) =>
-          send({ type: 'act', module, ...op, at: serverNow(room.clockOffset) } as Action)
-        }
+        act={(module, op) => send({ type: 'act', module, ...op, at: serverNow(room.clockOffset) })}
         showGuide={showGuide}
       />
     );
@@ -132,7 +142,17 @@ export function DefuseGame({ view: v, room, act, showGuide, setYourMove, setSpec
         send={send}
       />
     );
-  return <Lobby v={v} you={you} isHost={room.isHost} nameOf={nameOf} send={send} showGuide={showGuide} art={art} />;
+  return (
+    <Lobby
+      v={v}
+      you={you}
+      isHost={room.isHost}
+      nameOf={nameOf}
+      send={send}
+      showGuide={showGuide}
+      art={art}
+    />
+  );
 }
 
 // ---- The defuser ----
@@ -162,8 +182,8 @@ function Defuser({
       {tip && (
         <Hint>
           <span>
-            Tap a module to open it. Swipe or use the tabs to turn the bomb: the edges hold the serial number, batteries,
-            indicators and ports.{' '}
+            Tap a module to open it. Swipe or use the tabs to turn the bomb: the edges hold the
+            serial number, batteries, indicators and ports.{' '}
           </span>
           <button
             type="button"
@@ -177,7 +197,7 @@ function Defuser({
           </button>
         </Hint>
       )}
-      <BombScreen b={b} art={art} now={now} act={act} />
+      <BombScreen key={b.no} b={b} art={art} now={now} act={act} />
       <div className="flex items-center justify-center gap-2 text-sm text-ink-muted">
         {mute}
         <button type="button" className="underline" onClick={() => showGuide()}>
@@ -245,7 +265,11 @@ function Expert({
       )}
       {isHost && defuserHere && (
         <div className="text-right">
-          <button type="button" className="text-xs text-ink-muted underline" onClick={() => setHand(true)}>
+          <button
+            type="button"
+            className="text-xs text-ink-muted underline"
+            onClick={() => setHand(true)}
+          >
             Hand the bomb to another player
           </button>
         </div>
@@ -287,8 +311,19 @@ function Expert({
 
 // ---- Lobby and settings ----
 
-function SettingsForm({ s, editable, send, art }: { s: Settings; editable: boolean; send: (a: Action, anchor?: string) => void; art: Art }) {
-  const set = (settings: Partial<Settings>) => send({ type: 'settings', settings }, 'defuse-settings');
+function SettingsForm({
+  s,
+  editable,
+  send,
+  art,
+}: {
+  s: Settings;
+  editable: boolean;
+  send: (a: Action, anchor?: string) => void;
+  art: Art;
+}) {
+  const set = (settings: Partial<Settings>) =>
+    send({ type: 'settings', settings }, 'defuse-settings');
   const vetoes = new Set(s.vetoes);
   return (
     <div className="space-y-4">
@@ -326,8 +361,22 @@ function SettingsForm({ s, editable, send, art }: { s: Settings; editable: boole
           </select>
         </label>
       </div>
-      <Switch on={s.needy} editable={editable} title="Needy module" help="One of the modules is a needy one that keeps coming back." onChange={(needy) => set({ needy })} testId="set-needy" />
-      <Switch on={s.hardcore} editable={editable} title="Hardcore" help="One strike and the bomb goes off." onChange={(hardcore) => set({ hardcore })} testId="set-hardcore" />
+      <Switch
+        on={s.needy}
+        editable={editable}
+        title="Needy module"
+        help="One of the modules is a needy one that keeps coming back."
+        onChange={(needy) => set({ needy })}
+        testId="set-needy"
+      />
+      <Switch
+        on={s.hardcore}
+        editable={editable}
+        title="Hardcore"
+        help="One strike and the bomb goes off."
+        onChange={(hardcore) => set({ hardcore })}
+        testId="set-hardcore"
+      />
       <div className="space-y-1">
         <span className="text-sm font-semibold">Who defuses</span>
         <div className="grid gap-1 sm:grid-cols-3">
@@ -345,12 +394,26 @@ function SettingsForm({ s, editable, send, art }: { s: Settings; editable: boole
           ))}
         </div>
       </div>
-      <Switch on={s.expertsSeeClock} editable={editable} title="Experts see the clock and strikes" help="Off, as the original: the defuser calls them out." onChange={(expertsSeeClock) => set({ expertsSeeClock })} testId="set-clock" />
+      <Switch
+        on={s.expertsSeeClock}
+        editable={editable}
+        title="Experts see the clock and strikes"
+        help="Off, as the original: the defuser calls them out."
+        onChange={(expertsSeeClock) => set({ expertsSeeClock })}
+        testId="set-clock"
+      />
       <div className="space-y-1">
         <span className="text-sm font-semibold">Table screen shows</span>
         <div className="grid grid-cols-2 gap-1">
           {(['manual', 'bomb'] as const).map((t) => (
-            <Button key={t} size="sm" variant={s.table === t ? 'primary' : 'secondary'} disabled={!editable} onClick={() => set({ table: t })} data-testid={`table-${t}`}>
+            <Button
+              key={t}
+              size="sm"
+              variant={s.table === t ? 'primary' : 'secondary'}
+              disabled={!editable}
+              onClick={() => set({ table: t })}
+              data-testid={`table-${t}`}
+            >
               {t === 'manual' ? 'Manual' : 'Bomb'}
             </Button>
           ))}
@@ -367,7 +430,9 @@ function SettingsForm({ s, editable, send, art }: { s: Settings; editable: boole
               size="sm"
               variant={vetoes.has(k) ? 'danger' : 'secondary'}
               disabled={!editable || (!vetoes.has(k) && vetoes.size >= 3)}
-              onClick={() => set({ vetoes: vetoes.has(k) ? s.vetoes.filter((x) => x !== k) : [...s.vetoes, k] })}
+              onClick={() =>
+                set({ vetoes: vetoes.has(k) ? s.vetoes.filter((x) => x !== k) : [...s.vetoes, k] })
+              }
             >
               {vetoes.has(k) ? '✕ ' : ''}
               {art.names[k]}
@@ -396,7 +461,11 @@ function DefuserPicker({
   const mode = v.settings.defuserMode;
   const seated = v.seats.some((p) => p.id === you);
   if (mode === 'random')
-    return <p className="text-sm" data-testid="defuser-line">🎲 The defuser is drawn at random when the bomb starts.</p>;
+    return (
+      <p className="text-sm" data-testid="defuser-line">
+        🎲 The defuser is drawn at random when the bomb starts.
+      </p>
+    );
   if (mode === 'volunteer') {
     const mine = v.volunteers.includes(you);
     return (
@@ -409,14 +478,23 @@ function DefuserPicker({
               : `🙋 ${v.volunteers.length} volunteers: the host picks one.`}
         </p>
         {seated && (
-          <Button variant={mine ? 'secondary' : 'soft'} onClick={() => send({ type: 'volunteer', on: !mine }, 'defuse-pick')} data-testid="volunteer">
+          <Button
+            variant={mine ? 'secondary' : 'soft'}
+            onClick={() => send({ type: 'volunteer', on: !mine }, 'defuse-pick')}
+            data-testid="volunteer"
+          >
             {mine ? 'Not me after all' : 'I’ll defuse'}
           </Button>
         )}
         {isHost && v.volunteers.length > 1 && (
           <div className="flex flex-wrap gap-1">
             {v.volunteers.map((id) => (
-              <Button key={id} size="sm" variant={v.defuser === id ? 'primary' : 'secondary'} onClick={() => send({ type: 'set-defuser', player: id }, 'defuse-pick')}>
+              <Button
+                key={id}
+                size="sm"
+                variant={v.defuser === id ? 'primary' : 'secondary'}
+                onClick={() => send({ type: 'set-defuser', player: id }, 'defuse-pick')}
+              >
                 {nameOf(id)}
               </Button>
             ))}
@@ -429,12 +507,21 @@ function DefuserPicker({
   return (
     <div className="space-y-2">
       <p className="text-sm" data-testid="defuser-line">
-        💣 {v.defuser ? `${nameOf(v.defuser)} defuses next.` : 'The host defuses first unless they pick someone.'}
+        💣{' '}
+        {v.defuser
+          ? `${nameOf(v.defuser)} defuses next.`
+          : 'The host defuses first unless they pick someone.'}
       </p>
       {isHost && (
         <div className="flex flex-wrap gap-1">
           {v.seats.map((p) => (
-            <Button key={p.id} size="sm" variant={v.defuser === p.id ? 'primary' : 'secondary'} onClick={() => send({ type: 'set-defuser', player: p.id }, 'defuse-pick')} data-testid={`pick-${p.name}`}>
+            <Button
+              key={p.id}
+              size="sm"
+              variant={v.defuser === p.id ? 'primary' : 'secondary'}
+              onClick={() => send({ type: 'set-defuser', player: p.id }, 'defuse-pick')}
+              data-testid={`pick-${p.name}`}
+            >
               {p.name}
             </Button>
           ))}
@@ -450,10 +537,19 @@ function TalkIntro({ onDone }: { onDone: () => void }) {
     <Panel className="space-y-2" data-testid="talk-intro">
       <h3 className="font-semibold">How to talk a bomb down</h3>
       <ul className="list-disc space-y-1 pl-5 text-sm">
-        <li>The defuser sees the bomb and nothing else. Experts see the manual and nothing of the bomb.</li>
+        <li>
+          The defuser sees the bomb and nothing else. Experts see the manual and nothing of the
+          bomb.
+        </li>
         <li>Never look at each other’s screens. Everything goes through talking.</li>
-        <li>Defuser: start with the edges (serial number, batteries, indicators, ports), then name a module and describe it.</li>
-        <li>Experts: claim pages so you don’t all read the same one, and ask short yes-or-no questions.</li>
+        <li>
+          Defuser: start with the edges (serial number, batteries, indicators, ports), then name a
+          module and describe it.
+        </li>
+        <li>
+          Experts: claim pages so you don’t all read the same one, and ask short yes-or-no
+          questions.
+        </li>
       </ul>
       <Button size="sm" onClick={onDone}>
         Got it
@@ -502,7 +598,11 @@ function Lobby({
             </li>
           ))}
         </ul>
-        {v.watchers.length > 0 && <p className="text-xs text-ink-muted">Watching: {v.watchers.map((p) => p.name).join(', ')}</p>}
+        {v.watchers.length > 0 && (
+          <p className="text-xs text-ink-muted">
+            Watching: {v.watchers.map((p) => p.name).join(', ')}
+          </p>
+        )}
         <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
       </Panel>
       <LobbySettings
@@ -521,8 +621,18 @@ function Lobby({
       <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
           {isHost ? (
-            <Button size="lg" className="flex-1" disabled={!enough || !ready} onClick={() => send({ type: 'start' }, 'defuse-start')} data-testid="start">
-              {enough ? (ready ? 'Start the bomb' : 'Waiting for a defuser') : 'Waiting for an expert'}
+            <Button
+              size="lg"
+              className="flex-1"
+              disabled={!enough || !ready}
+              onClick={() => send({ type: 'start' }, 'defuse-start')}
+              data-testid="start"
+            >
+              {enough
+                ? ready
+                  ? 'Start the bomb'
+                  : 'Waiting for a defuser'
+                : 'Waiting for an expert'}
             </Button>
           ) : (
             <p className="flex-1 text-center text-sm text-ink-muted" data-testid="waiting">
@@ -569,11 +679,23 @@ function Result({
   const shown = b.modules.find((m) => m.id === peek);
   return (
     <div className="mx-auto max-w-3xl space-y-3" data-testid="result">
-      <Panel className={cn('space-y-2 text-center', defused ? 'bg-success-soft' : 'bg-danger-soft')}>
+      <Panel
+        className={cn('space-y-2 text-center', defused ? 'bg-success-soft' : 'bg-danger-soft')}
+      >
         {stamp ? (
-          <ProtectedImage src={stamp} alt={defused ? 'Defused' : 'Exploded'} className="mx-auto h-24 w-auto" />
+          <ProtectedImage
+            src={stamp}
+            alt={defused ? 'Defused' : 'Exploded'}
+            className="mx-auto h-24 w-auto"
+          />
         ) : (
-          <p className={cn('text-3xl font-black uppercase tracking-widest', defused ? 'text-success-ink' : 'text-danger-ink')} data-testid="outcome">
+          <p
+            className={cn(
+              'text-3xl font-black uppercase tracking-widest',
+              defused ? 'text-success-ink' : 'text-danger-ink',
+            )}
+            data-testid="outcome"
+          >
             {defused ? 'Defused' : 'Exploded'}
           </p>
         )}
@@ -585,7 +707,8 @@ function Result({
               : `Too many strikes: the bomb went off in ${nameOf(last?.defuser ?? null)}’s hands.`}
         </p>
         <p className="text-xs text-ink-muted">
-          {last?.solved ?? 0} of {last?.modules ?? 0} modules · {last?.strikes ?? 0} strike{last?.strikes === 1 ? '' : 's'} · {clockText(b.total - end.left)} used
+          {last?.solved ?? 0} of {last?.modules ?? 0} modules · {last?.strikes ?? 0} strike
+          {last?.strikes === 1 ? '' : 's'} · {clockText(b.total - end.left)} used
         </p>
       </Panel>
       {superlatives?.length ? <Superlatives lines={superlatives} /> : null}
@@ -596,7 +719,11 @@ function Result({
             const strikes = struck.filter((e) => e.module === m.id).length;
             return (
               <li key={m.id}>
-                <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-panel dark:hover:bg-stone-800" onClick={() => setPeek(m.id)}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-panel dark:hover:bg-stone-800"
+                  onClick={() => setPeek(m.id)}
+                >
                   <span aria-hidden>{isNeedy(m.kind) ? '⚠️' : m.solved ? '✅' : '⬜'}</span>
                   <span className="flex-1">{art.names[m.kind]}</span>
                   {strikes > 0 && <span className="text-danger-ink">{'✕'.repeat(strikes)}</span>}
@@ -605,18 +732,32 @@ function Result({
             );
           })}
         </ul>
-        {end.by && <p className="text-xs text-ink-muted">The last strike came from {art.names[b.modules.find((m) => m.id === end.by)?.kind ?? 'wires']}.</p>}
+        {end.by && (
+          <p className="text-xs text-ink-muted">
+            The last strike came from{' '}
+            {art.names[b.modules.find((m) => m.id === end.by)?.kind ?? 'wires']}.
+          </p>
+        )}
       </Panel>
       <Panel className="space-y-3">
         <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
-        <LobbySettings editable={isHost} summary={[`${v.settings.modules} modules`, clockText(v.settings.time * 1000)]} className="space-y-4">
+        <LobbySettings
+          editable={isHost}
+          summary={[`${v.settings.modules} modules`, clockText(v.settings.time * 1000)]}
+          className="space-y-4"
+        >
           <SettingsForm s={v.settings} editable={isHost} send={send} art={art} />
         </LobbySettings>
       </Panel>
       <StickyBar>
         {isHost ? (
           <div className="flex gap-2">
-            <Button size="lg" className="flex-1" onClick={() => send({ type: 'next' }, 'defuse-next')} data-testid="next-bomb">
+            <Button
+              size="lg"
+              className="flex-1"
+              onClick={() => send({ type: 'next' }, 'defuse-next')}
+              data-testid="next-bomb"
+            >
               Next bomb
             </Button>
             <Button variant="secondary" onClick={() => send({ type: 'lobby' })}>
@@ -624,7 +765,9 @@ function Result({
             </Button>
           </div>
         ) : (
-          <p className="text-center text-sm text-ink-muted">Waiting for the host to start the next bomb.</p>
+          <p className="text-center text-sm text-ink-muted">
+            Waiting for the host to start the next bomb.
+          </p>
         )}
         <RefusalSlot anchor="defuse-next" />
       </StickyBar>
@@ -634,13 +777,23 @@ function Result({
           <ul className="space-y-0.5 text-sm">
             {[...v.history].reverse().map((h) => (
               <li key={h.no}>
-                Bomb {h.no}: {nameOf(h.defuser)} · {h.how === 'defused' ? `defused, ${timerText(h.left)} left` : h.how === 'time' ? 'time ran out' : 'too many strikes'} · {h.solved}/{h.modules}
+                Bomb {h.no}: {nameOf(h.defuser)} ·{' '}
+                {h.how === 'defused'
+                  ? `defused, ${timerText(h.left)} left`
+                  : h.how === 'time'
+                    ? 'time ran out'
+                    : 'too many strikes'}{' '}
+                · {h.solved}/{h.modules}
               </li>
             ))}
           </ul>
         </Panel>
       )}
-      <Modal open={!!shown} onClose={() => setPeek(null)} title={shown ? art.names[shown.kind] : ''}>
+      <Modal
+        open={!!shown}
+        onClose={() => setPeek(null)}
+        title={shown ? art.names[shown.kind] : ''}
+      >
         {shown && (
           <div className="mx-auto max-w-80">
             <ModuleFace m={shown} b={b} art={art} now={end.at} send={null} />
