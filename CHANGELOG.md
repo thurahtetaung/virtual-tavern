@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.0...v0.81.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the Lobby button sits beside Back on phones, and looking around on touch is for the desk ([#486](https://github.com/thurahtetaung/virtual-tavern/issues/486)) ([fbfceb7](https://github.com/thurahtetaung/virtual-tavern/commit/fbfceb7c01b13e3c24322ba5a359535597748880))
+
 ## [0.81.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.80.0...v0.81.0) (2026-10-27)
 
 
