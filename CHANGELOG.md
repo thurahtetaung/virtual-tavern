@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.80.0...v0.81.0) (2026-10-27)
+
+
+### Features
+
+* **defuse:** missions from the bomb binder, a different manual, and helpers for the experts ([#485](https://github.com/thurahtetaung/virtual-tavern/issues/485)) ([2a6c629](https://github.com/thurahtetaung/virtual-tavern/commit/2a6c6299e2a5219eaf0e193a8ceae087799eace8))
+
 ## [0.80.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.79.0...v0.80.0) (2026-10-27)
 
 
