@@ -28,7 +28,7 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   if (v.stage === 'bomb' && v.bomb)
     return (
       <div
-        className="mx-auto max-w-[calc((100vh-10rem)*2.2)] space-y-3 p-4 text-stone-100"
+        className="mx-auto max-w-[calc((100vh-10rem)*2.05)] space-y-3 p-4 text-stone-100"
         data-testid="stage-bomb"
       >
         <p className="text-center text-xl font-semibold">
