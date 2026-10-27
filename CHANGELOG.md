@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.77.0...v0.78.0) (2026-10-27)
+
+
+### Features
+
+* **defuse:** the 3D bomb sits in its room, starts from the briefcase and ends in the binder ([#479](https://github.com/thurahtetaung/virtual-tavern/issues/479)) ([52f1d0f](https://github.com/thurahtetaung/virtual-tavern/commit/52f1d0feb0968dfaaf68815bf3a671b7421e8ce2))
+
 ## [0.77.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.8...v0.77.0) (2026-10-27)
 
 
