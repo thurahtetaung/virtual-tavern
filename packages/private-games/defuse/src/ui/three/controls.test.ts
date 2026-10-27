@@ -5,6 +5,8 @@ import {
   MODULE_MAX_ZOOM,
   anchorPan,
   clampPan,
+  defaultZoom,
+  frameAlso,
   pinchRange,
   pinchZoom,
   zoomLimit,
@@ -150,5 +152,45 @@ describe('zoom', () => {
     const side = { minX: 0.05, maxX: 0.25, minY: -0.1, maxY: 0.1 };
     expect(clampPan({ x: 0.03, y: 0 }, side, 0, 0.4)).toEqual({ x: 0, y: 0 });
     expect(clampPan({ x: 1, y: 0 }, side, 0.4, 0.4)).toEqual({ x: 0.25, y: 0 });
+  });
+});
+
+describe('the Button keeps the timer in view', () => {
+  const button = { x: 0, y: 0, hw: 0.1, hh: 0.1 };
+  const digits = (x: number, y: number) => ({ x, y, hw: 0.05, hh: 0.03 });
+
+  it('does not zoom in on touch, as every other module does', () => {
+    expect(defaultZoom('button')).toBe(0);
+    expect(defaultZoom('wires')).toBe(MODULE_MAX_ZOOM);
+    expect(defaultZoom(undefined)).toBe(MODULE_MAX_ZOOM);
+  });
+
+  it('stays centred when the digits are already in view', () => {
+    // A phone held sideways: 0.65 × 0.30 m half view at 0.52 m.
+    expect(frameAlso(button, digits(0.22, -0.2), { hw: 0.65, hh: 0.3 })).toEqual({
+      x: 0,
+      y: 0,
+    });
+  });
+
+  it('moves along the face just enough to bring the digits in', () => {
+    // A phone held upright: 0.347 × 0.75 m half view, the timer two slots away.
+    const view = { hw: 0.347, hh: 0.75 };
+    const off = frameAlso(button, digits(0.44, -0.02), view);
+    const half = view.hw * 0.88;
+    expect(off.y).toBe(0);
+    expect(off.x).toBeCloseTo(0.44 + 0.05 - half);
+    // Both stay inside the view.
+    expect(0.44 + 0.05 - off.x).toBeLessThanOrEqual(half + 1e-9);
+    expect(-0.1 - off.x).toBeGreaterThanOrEqual(-half - 1e-9);
+    // Mirrored to the other side.
+    expect(frameAlso(button, digits(-0.44, -0.02), view).x).toBeCloseTo(-off.x);
+  });
+
+  it('never loses the Button when both cannot fit', () => {
+    const view = { hw: 0.2, hh: 0.2 };
+    const off = frameAlso(button, digits(0.6, 0), view);
+    // As far toward the timer as keeps the Button's far edge on screen.
+    expect(off.x).toBeCloseTo(0.2 * 0.88 - 0.1);
   });
 });

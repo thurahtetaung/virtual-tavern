@@ -21,9 +21,13 @@ import {
   TWO_FINGER_TAP_MS,
   BACK_CLICK_MS,
   HOLD_DISTANCE,
+  DIGITS_HALF,
+  MODULE_HALF,
   MODULE_MAX_ZOOM,
   anchorPan,
   clampPan,
+  defaultZoom,
+  frameAlso,
   pinchRange,
   pinchZoom,
   zoomLimit,
@@ -148,12 +152,14 @@ const FRONT_UP = new THREE.Euler(-Math.PI / 2, Math.PI, 0, 'YXZ');
 const FOV = 60;
 /** `Selectable.DEFAULT_FOCUS_DISTANCE`. */
 const MODULE_DISTANCE = 0.52;
-/** `Selectable.DefaultZoom` of the modules on touch. */
+/** `Selectable.DefaultZoom` of most modules on touch (the Button's is 0, `defaultZoom`). */
 const MODULE_ZOOM = MODULE_MAX_ZOOM;
 const LIGHT = { hemi: 1.6, key: 2.1, fill: 0.25 };
 
 interface Mod {
   id: string;
+  /** The module's kind; none for the timer and the empty slots. */
+  kind?: string;
   face: 0 | 1;
   anchor: number;
   root: Root;
@@ -661,6 +667,7 @@ export class BombScene {
         slot.add(root);
         const mod: Mod = {
           id: isTimer ? 'timer' : (m?.id ?? `empty${face}${anchor}`),
+          ...(!isTimer && m ? { kind: m.kind } : {}),
           face,
           anchor,
           root,
@@ -1064,21 +1071,52 @@ export class BombScene {
       new THREE.Euler(0, THREE.MathUtils.degToRad(yaw), 0, SPIN_ORDER),
     );
     const inv = new THREE.Matrix4().copy(this.bomb.matrixWorld).invert();
+    const unspin = this.spin.quaternion.clone().invert();
     const local = this.middleOf(m).applyMatrix4(inv);
-    local.applyQuaternion(this.spin.quaternion.clone().invert()).applyQuaternion(spinQ);
+    local.applyQuaternion(unspin).applyQuaternion(spinQ);
     const d = this.moduleDistance(m);
+    const zoom = this.opts.ctx.touch ? defaultZoom(m.kind) : 0;
+    const off = this.frameTimer(m, inv, unspin, spinQ, local, d - zoom * this.fit());
     this.moveTo(
-      new THREE.Vector3(-local.x, -local.y, -d - local.z),
+      new THREE.Vector3(-local.x - off.x, -local.y - off.y, -d - local.z),
       new THREE.Quaternion(),
       FOCUS_S,
     );
     this.yaw = yaw;
     this.pitch = 0;
-    this.zoomT = this.opts.ctx.touch ? MODULE_ZOOM : 0;
+    this.zoomT = zoom;
     this.panWant.set(0, 0);
     this.opts.sound('selectiontick');
     this.setPose('module', m);
     this.opts.hint('module');
+  }
+
+  /**
+   * Ours: focusing the Button, the camera moves along its face just enough to keep the timer's
+   * digits in view when the timer is on the same face, so a release can wait for the right
+   * digit. `local` is the Button's middle and `depth` the eye's distance once focused, in the
+   * turned bomb's frame.
+   */
+  private frameTimer(
+    m: Mod,
+    inv: THREE.Matrix4,
+    unspin: THREE.Quaternion,
+    spinQ: THREE.Quaternion,
+    local: THREE.Vector3,
+    depth: number,
+  ): { x: number; y: number } {
+    const timer = this.mods.find((x) => x.id === 'timer');
+    if (m.kind !== 'button' || !timer || timer.face !== m.face) return { x: 0, y: 0 };
+    const digits = find(timer.root, 'TimerComponent/TimerText') ?? timer.root;
+    digits.updateWorldMatrix(true, false);
+    const at = new THREE.Vector3().setFromMatrixPosition(digits.matrixWorld).applyMatrix4(inv);
+    at.applyQuaternion(unspin).applyQuaternion(spinQ);
+    const hh = Math.tan(THREE.MathUtils.degToRad(FOV) / 2) * depth;
+    return frameAlso(
+      { x: local.x, y: local.y, hw: MODULE_HALF, hh: MODULE_HALF },
+      { x: at.x, y: at.y, ...DIGITS_HALF },
+      { hw: hh * this.camera.aspect, hh },
+    );
   }
 
   /** `FloatingHoldable` for the alarm clock: it comes up to the camera, which leans toward it. */
