@@ -174,6 +174,55 @@ export function emergencyOn(leftMs: number, t: number): boolean {
 export const BOMB_MAX_ZOOM = 0.15;
 export const MODULE_MAX_ZOOM = 0.3;
 /**
+ * `Selectable.DefaultZoom`, how far the camera moves in on touch once a module is focused: 0.3 m
+ * for every module but the Button, whose prefab keeps 0 (and `MaxZoom` 0.15), so the timer
+ * beside it stays in view while the button is held.
+ */
+export function defaultZoom(kind: string | undefined): number {
+  return kind === 'button' ? 0 : MODULE_MAX_ZOOM;
+}
+
+/** A rectangle on the focused face (m): its middle and half sizes. */
+export interface Rect {
+  x: number;
+  y: number;
+  hw: number;
+  hh: number;
+}
+/** A module's half size on its face (the casing's anchors are 0.22 m apart). */
+export const MODULE_HALF = 0.1;
+/** The timer's digits, with a little room round them. */
+export const DIGITS_HALF = { hw: 0.05, hh: 0.03 };
+/** The share of each half view left clear for the overlay's buttons. */
+export const FRAME_MARGIN = 0.12;
+
+/**
+ * Ours: where the camera's centre goes, as an offset from `target`'s middle, so `keep` (the
+ * timer's digits) is in view as well, moving as little as it can and never losing `target`.
+ * `view` is the half view at the module's distance. Zero when `keep` is already in view; when
+ * both can't fit, as far toward `keep` as `target` allows.
+ */
+export function frameAlso(
+  target: Rect,
+  keep: Rect,
+  view: { hw: number; hh: number },
+  margin = FRAME_MARGIN,
+): { x: number; y: number } {
+  const axis = (t: number, th: number, k: number, kh: number, v: number) => {
+    const half = v * (1 - margin);
+    const tLo = t + th - half;
+    const tHi = t - th + half;
+    const lo = Math.max(tLo, k + kh - half);
+    const hi = Math.min(tHi, k - kh + half);
+    const c = lo <= hi ? clamp(t, lo, hi) : tLo <= tHi ? clamp(k, tLo, tHi) : t;
+    return c - t;
+  };
+  return {
+    x: axis(target.x, target.hw, keep.x, keep.hw, view.hw),
+    y: axis(target.y, target.hh, keep.y, keep.hh, view.hh),
+  };
+}
+/**
  * Ours: the eye may come this close to the surface it looks at (an edge, a face, a module), so
  * the edgework and the modules' small print can be read on a phone. Never less than the
  * original's `MaxZoom`.

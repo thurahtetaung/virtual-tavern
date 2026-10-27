@@ -319,3 +319,51 @@ test('a pinch zooms in on an edge, pans with the fingers, and steps back out', a
   await expect.poll(async () => (await zoom()).zoom).toBeLessThan(0.001);
   await expect.poll(async () => Math.abs((await zoom()).pan.x)).toBeLessThan(0.001);
 });
+
+// Under the test seed this bomb holds the Button, which always sits on the timer's face.
+const SIZES = [
+  { name: 'phone-sideways', viewport: { width: 844, height: 390 }, touch: true },
+  { name: 'phone-upright', viewport: { width: 390, height: 844 }, touch: true },
+  { name: 'desktop', viewport: { width: 1280, height: 800 }, touch: false },
+];
+for (const size of SIZES)
+  test(`the timer stays in view while the Button is looked at: ${size.name}`, async ({
+    browser,
+  }) => {
+    test.setTimeout(120_000);
+    await openBackroom(await visitor(browser, 'Admin'));
+    const [ana] = (await table(browser, ['Ana', 'Ben'], {
+      setup: localArt,
+      viewport: size.viewport,
+      ...(size.touch ? { touch: true } : {}),
+    })) as [Page, Page];
+    await settings(ana);
+    await ana.getByTestId('set-modules').selectOption('11');
+    await ana.getByTestId('vetoes').locator('summary').click();
+    for (const k of ['simon', 'whos-on-first', 'memory']) {
+      await ana.getByTestId(`veto-${k}`).click();
+      await expect(ana.getByTestId(`veto-${k}`)).toHaveAttribute('aria-pressed', 'true');
+    }
+    await ana.getByTestId('start').click();
+    await ready(ana);
+    const button = (await call(ana, 'bomb')).modules.find((m) => m.kind === 'button');
+    expect(button, 'the seed deals the Button').toBeTruthy();
+    await look(ana, button!.id);
+    // The original's Button keeps its focus distance on touch: no zoom in.
+    expect((await call(ana, 'zoom')).zoom).toBe(0);
+    await ana.waitForTimeout(400);
+    const at = await call(ana, 'where', 'timer');
+    const where = await call(ana, 'where', button!.id);
+    expect(at).not.toBeNull();
+    const { width, height } = size.viewport;
+    for (const p of [at!, where!]) {
+      expect(p.x).toBeGreaterThan(0);
+      expect(p.x).toBeLessThan(width);
+      expect(p.y).toBeGreaterThan(0);
+      expect(p.y).toBeLessThan(height);
+    }
+    if (process.env.SCREENSHOTS)
+      await ana.screenshot({
+        path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/button-timer-${size.name}.png`,
+      });
+  });
