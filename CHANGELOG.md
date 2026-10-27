@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.3...v0.75.4) (2026-10-27)
+
+
+### Bug Fixes
+
+* **sketchy:** the real title stays on the table screen, every phone screen fits, and join notices clear the theme button ([#448](https://github.com/thurahtetaung/virtual-tavern/issues/448)) ([655d65f](https://github.com/thurahtetaung/virtual-tavern/commit/655d65f9b329835fc7ba908f9672358120e6bd97))
+
 ## [0.75.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.2...v0.75.3) (2026-10-27)
 
 
