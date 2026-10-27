@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.8...v0.76.0) (2026-10-27)
+
+
+### Features
+
+* **defuse:** the defuser holds the bomb in 3D, with a flat 2D view as a choice ([#459](https://github.com/thurahtetaung/virtual-tavern/issues/459)) ([c5c6f47](https://github.com/thurahtetaung/virtual-tavern/commit/c5c6f47282a9892d77ec077dba06cab2bced54e8))
+
 ## [0.75.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.7...v0.75.8) (2026-10-27)
 
 
