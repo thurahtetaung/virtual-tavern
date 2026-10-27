@@ -1,6 +1,13 @@
 import { cn } from '@vt/ui';
 import { Pic } from './Pic.tsx';
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type MouseEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { NEEDY_TIME, leftAt, needyLeft, timerText } from '../logic/bomb.ts';
 import { GLYPHS, MORSE } from '../logic/data.ts';
 import { HOLD_AFTER, SIMON_COLOURS, SIMON_NOTE, SIMON_REPLAY } from '../logic/modules.ts';
@@ -8,7 +15,7 @@ import type { Dir, ModuleOp, NeedyModule } from '../logic/types.ts';
 import type { BombView, ModuleView } from '../logic/view.ts';
 import type { Art, ArtKind, Box } from './assets.ts';
 import { SIMON_TONES, player } from './sound.ts';
-import { type Band, loadBand } from './wire-band.ts';
+import { type Band, loadBand, wireAt } from './wire-band.ts';
 
 // vt-palette: the module's own colours, part of what the defuser describes
 export const PAINT: Record<string, string> = {
@@ -109,7 +116,7 @@ function Hit({
   /** The most a hit area may span [w, h] about its centre (curvy wires' renders overlap). */
   clamp?: [number, number];
   label: string;
-  onPress?: () => void;
+  onPress?: (e: MouseEvent<HTMLButtonElement>) => void;
   onDown?: () => void;
   onUp?: () => void;
   disabled?: boolean;
@@ -139,7 +146,8 @@ function Hit({
       style={{ ...where, ...(plain && style), touchAction: 'none' }}
       className={cn(
         'flex select-none items-center justify-center',
-        live && 'active:scale-95',
+        // A wire's band doesn't shrink on press: the release must land on the same thin band.
+        live && !shaped && 'active:scale-95',
         plain && className,
         !live && 'pointer-events-none cursor-default',
       )}
@@ -969,11 +977,16 @@ function useBand(src: string | null): Band | null {
   return band && band.src === src ? band.band : null;
 }
 
-/** One of Wire Sequence's wires: its hit area follows the wire (crossing wires overlap). */
+/**
+ * One of Wire Sequence's wires: its hit area follows the wire. Where it overlaps another wire's,
+ * a tap goes to the wire drawn on top at that spot (`wireAt`), whichever button took it.
+ */
 function SeqWire({
   p,
   hit,
   r,
+  bands,
+  live,
   label,
   cut,
   colour,
@@ -982,12 +995,28 @@ function SeqWire({
   p: ModuleProps;
   hit: string;
   r: number;
+  /** The panel's three wires' bands, in drawing order. */
+  bands: (Band | null)[];
+  /** Which of the panel's wires can still be cut. */
+  live: boolean[];
   label: string;
   cut: boolean;
   colour: string;
   to: number;
 }) {
-  const band = useBand(p.drawn && p.send ? (p.art.part(p.m.kind, hit)?.src ?? null) : null);
+  const band = bands[r] ?? null;
+  const press = (e: MouseEvent<HTMLButtonElement>) => {
+    let wire = r;
+    // A pointer tap (not the keyboard's) goes to the wire the player sees at that spot.
+    if (band && e.detail > 0) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const [bx, by, bw, bh] = band.box;
+      const x = bx + ((e.clientX - rect.left) / rect.width) * bw;
+      const y = by + ((e.clientY - rect.top) / rect.height) * bh;
+      wire = wireAt(bands, x, y) ?? r;
+    }
+    if (live[wire]) p.send?.({ op: 'cut', wire });
+  };
   return (
     <Hit
       p={p}
@@ -997,7 +1026,7 @@ function SeqWire({
       band={band}
       label={label}
       disabled={cut}
-      onPress={() => p.send?.({ op: 'cut', wire: r })}
+      onPress={press}
       testId={`seq-${r}`}
     >
       <span className="flex w-full items-center gap-[3%]">
@@ -1013,12 +1042,28 @@ function SeqWire({
   );
 }
 
+/** The shown panel's wires, as drawn (cut ones too: their renders are on the module). */
+function seqRow(m: ModuleView, now: number) {
+  if (m.kind !== 'wire-sequence' || !('panels' in m)) return null;
+  if (now < m.turningUntil || m.page >= 4) return null;
+  return [0, 1, 2].map((r) => m.panels[m.page * 3 + r]!);
+}
+
 function Sequence(p: ModuleProps) {
   const { m, send, now } = p;
+  const row = seqRow(m, now);
+  const part = (r: number) => {
+    const e = row?.[r];
+    if (!e?.colour || !p.drawn || !send) return null;
+    const id = `wire-${r + 1}${'abc'[e.to]}-${e.colour}${e.cut ? '-cut' : ''}`;
+    return p.art.part(m.kind, id)?.src ?? null;
+  };
+  const bands = [useBand(part(0)), useBand(part(1)), useBand(part(2))];
   if (m.kind !== 'wire-sequence' || !('panels' in m)) return null;
   const turning = now < m.turningUntil;
   const page = Math.min(m.page, 3);
   const showing = turning || m.page >= 4 ? null : page;
+  const live = [0, 1, 2].map((r) => !!row?.[r]?.colour && !row[r].cut);
   return (
     <>
       {showing !== null &&
@@ -1037,6 +1082,8 @@ function Sequence(p: ModuleProps) {
                   p={p}
                   hit={`wire-${r + 1}${'abc'[e.to]}-${e.colour}`}
                   r={r}
+                  bands={bands}
+                  live={live}
                   label={`${e.colour} wire from ${showing * 3 + r + 1} to ${'ABC'[e.to]}${e.cut ? ', cut' : ''}`}
                   cut={e.cut}
                   colour={e.colour}

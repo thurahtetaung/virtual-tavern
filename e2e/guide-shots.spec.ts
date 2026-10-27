@@ -171,6 +171,10 @@ for (const look of LOOKS)
           const intro = page.getByRole('region', { name: /^New to / });
           await expect(intro).toBeVisible();
           await page.screenshot({ path: `${OUT}/${id}-${look.name}-${scheme}-lobby-intro.png` });
+          await intro.getByRole('button', { name: 'The game in 30 s' }).click();
+          await expect(intro.getByTestId('guide-stepper')).toBeVisible();
+          await page.screenshot({ path: `${OUT}/${id}-${look.name}-${scheme}-lobby-steps.png` });
+          await page.keyboard.press('Escape');
           await intro.getByRole('button', { name: 'Skip' }).click();
           await page.getByRole('button', { name: 'Rules', exact: true }).click();
           const drawer = page.getByRole('dialog');

@@ -113,6 +113,8 @@ test('a first-timer sees the game in steps in the lobby, once; the drawer knows 
   await expect(page).toHaveURL(/\/r\//);
 
   const intro = page.getByRole('region', { name: 'New to Round Table?' });
+  // On a phone it is one line, so the lobby still fits; its button opens the steps.
+  await intro.getByRole('button', { name: 'The game in 30 s' }).click();
   await expect(intro.getByRole('heading', { name: '1. Read your secret role' })).toBeVisible();
   for (let i = 0; i < 5; i++) await intro.getByRole('button', { name: 'Next →' }).click();
   await intro.getByRole('button', { name: 'Got it, let’s play' }).click();
