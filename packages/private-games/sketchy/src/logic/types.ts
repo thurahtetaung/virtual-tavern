@@ -1,4 +1,10 @@
-import { type Drawing, type PlayerId, drawingSchema } from '@vt/game-sdk';
+import {
+  type Drawing,
+  type PlayerId,
+  type TableVolumes,
+  drawingSchema,
+  tableVolumeAction,
+} from '@vt/game-sdk';
 import { z } from 'zod';
 import type { PackSummary, Prompt } from './content.ts';
 
@@ -78,6 +84,8 @@ export interface Settings {
   music?: boolean;
   effects?: boolean;
   voice?: boolean;
+  /** The table screen's volumes, from the host's sliders (the table has no input). */
+  tableVolumes?: TableVolumes;
 }
 
 export interface Seat {
@@ -221,6 +229,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     effects: z.boolean().optional(),
     voice: z.boolean().optional(),
   }),
+  tableVolumeAction,
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
   z.object({ type: z.literal('back-to-lobby') }),

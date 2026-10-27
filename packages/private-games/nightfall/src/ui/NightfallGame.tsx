@@ -6,9 +6,10 @@ import type { NightfallAction, NightfallView } from '../logic/types.ts';
 import { deckFor, useManifest } from './assets.ts';
 import { RoleDetailsProvider } from './Cards.tsx';
 import { Lobby } from './Lobby.tsx';
-import { Day, Night, Ready, Reveal, SoundControls } from './Play.tsx';
+import { Day, Night, Ready, Reveal } from './Play.tsx';
+import { NightfallSoundButton } from './Sound.tsx';
 import { statusFor } from './status.ts';
-import { useDeviceSound, useSound } from './useSound.ts';
+import { useNightfallVolumes, useSound } from './useSound.ts';
 import { useWakeAlert, useWakeLock } from './wake.ts';
 
 export type NightfallUiProps = GameUiProps<NightfallView, NightfallAction>;
@@ -29,13 +30,13 @@ export function NightfallGame({
     act({ type: 'back-to-lobby' }),
   );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
-  const [device, setDevice] = useDeviceSound();
+  const [volumes] = useNightfallVolumes();
   const { said: narration } = useSound({
     view,
     manifest: deck.manifest,
     isHost: room.isHost,
     clockOffset: room.clockOffset,
-    device,
+    volumes,
   });
 
   // Every wake buzzes (never a sound, which would give the player away), even for roles that only learn
@@ -69,15 +70,7 @@ export function NightfallGame({
       : null,
   );
 
-  const sound = (
-    <SoundControls
-      view={view}
-      room={room}
-      device={device}
-      setDevice={setDevice}
-      hasMusic={!!deck.manifest?.music}
-    />
-  );
+  const sound = <NightfallSoundButton view={view} room={room} manifest={deck.manifest} />;
   const props = { view, room, act, status, deck };
   return (
     <RoleDetailsProvider

@@ -34,7 +34,8 @@ import { BombScreen } from './Bomb.tsx';
 import { ClaimsSummary, Manual } from './Manual.tsx';
 import { ModuleFace } from './Modules.tsx';
 import { haptics, hapticOf } from './haptics.ts';
-import { player, useBombSound, useMute } from './sound.ts';
+import { DefuseLobbySound, DefuseSoundButton } from './Sound.tsx';
+import { player, useBombSound, useDefuseVolumes, usePlayerVolumes } from './sound.ts';
 import { clockText, serverNow, useServerNow } from './time.ts';
 import { Bomb3D, useViewMode } from './three/Bomb3D.tsx';
 import type { Mirror } from './three/scene.ts';
@@ -81,7 +82,8 @@ export function DefuseGame({
   const you = room.you;
   const nameOf = (id: string | null) =>
     id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody';
-  const [muted, setMuted] = useMute();
+  const [volumes] = useDefuseVolumes();
+  usePlayerVolumes(volumes);
   const [mode, setMode] = useViewMode();
   // The defuser's device plays the bomb, and its end once the defuser has become an expert again.
   const playsBomb =
@@ -104,16 +106,8 @@ export function DefuseGame({
   const send = (a: Action, anchor?: string) => {
     void act(a, anchor ? { anchor } : undefined);
   };
-  const mute = (
-    <button
-      type="button"
-      onClick={() => setMuted(!muted)}
-      aria-label={muted ? 'Sound off' : 'Sound on'}
-      className="rounded-full px-2 text-lg"
-    >
-      {muted ? '🔇' : '🔊'}
-    </button>
-  );
+  const soundProps = { v, room, art, send, playsBomb, nameOf };
+  const mute = <DefuseSoundButton {...soundProps} className="rounded-full px-2 text-lg" />;
 
   // A table screen showing the bomb follows how the defuser looks at it.
   const tableFollows = v.stage === 'bomb' && v.role === 'defuser' && v.settings.table === 'bomb';
@@ -244,6 +238,7 @@ export function DefuseGame({
       showGuide={showGuide}
       art={art}
       viewChoice={<ViewChoice mode={mode} setMode={setMode} />}
+      sound={<DefuseLobbySound {...soundProps} />}
     />
   );
 }
@@ -757,6 +752,7 @@ function Lobby({
   showGuide,
   art,
   viewChoice,
+  sound,
 }: {
   v: DefuseView;
   you: string;
@@ -766,6 +762,8 @@ function Lobby({
   showGuide: (t?: unknown) => void;
   art: Art;
   viewChoice: React.ReactNode;
+  /** Everyone's own Sound section. */
+  sound: React.ReactNode;
 }) {
   const [intro, setIntro] = useState(() => !seen(INTRO_KEY));
   const s = v.settings;
@@ -799,6 +797,7 @@ function Lobby({
         {viewChoice}
       </Panel>
       <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
+      {sound}
       <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
           {isHost ? (

@@ -226,32 +226,6 @@ export function PsstBubble({
   );
 }
 
-/** This device's own sound switch (the host sets the room's; any device can mute itself). */
-export function SoundButton({
-  view,
-  muted,
-  onChange,
-}: {
-  view: GoingOnceView;
-  muted: boolean;
-  onChange: (muted: boolean) => void;
-}) {
-  if (view.settings.sound === 'off') return null;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      aria-pressed={!muted}
-      onClick={() => onChange(!muted)}
-      title={muted ? 'Sound is off on this device' : 'Sound is on on this device'}
-      data-testid="go-sound"
-    >
-      <span aria-hidden>{muted ? '🔇' : '🔊'}</span>
-      <span className="sr-only">{muted ? 'Turn sound on here' : 'Mute this device'}</span>
-    </Button>
-  );
-}
-
 /** Who sent a hint: the buyer's or the bank's portrait from the manifest, else an emoji. */
 export function SenderIcon({
   from,

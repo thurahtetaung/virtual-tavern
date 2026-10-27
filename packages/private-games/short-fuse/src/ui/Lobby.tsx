@@ -1,3 +1,4 @@
+import { ShortFuseLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
@@ -250,6 +251,7 @@ export function Lobby({
           )}
         </p>
       </LobbySettings>
+      <ShortFuseLobbySound />
 
       <Panel className="space-y-2">
         <h3 className="font-bold text-ink">

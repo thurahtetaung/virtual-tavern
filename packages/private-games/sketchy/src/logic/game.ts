@@ -785,6 +785,13 @@ export function reduce(state: SketchyState, action: SketchyAction, ctx: Ctx): Re
   switch (action.type) {
     case 'update-settings':
       return updateSettings(current, action, ctx);
+    case 'table-volume': {
+      // The host's sliders for the table screen: any time, mid-game too.
+      const no = requireHost(ctx);
+      if (no) return no;
+      const tableVolumes = { ...current.settings.tableVolumes, ...action.volumes };
+      return { ...current, settings: { ...current.settings, tableVolumes } };
+    }
     case 'sit':
       return sit(current, action.playing, ctx);
     case 'start':

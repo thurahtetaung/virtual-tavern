@@ -1,5 +1,13 @@
 import type { ShowAudio } from '@vt/ui/show';
-import { soundEngineFor } from '@vt/ui/sound';
+import {
+  FULL_VOLUMES,
+  type Volumes,
+  gainOf,
+  legacyDevice,
+  soundEngineFor,
+  tableVolumes,
+  useVolumes,
+} from '@vt/ui/sound';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SketchyView } from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
@@ -33,44 +41,14 @@ export const MUSIC_SETTLE_MS = 3000;
 /** Effects the show fires at a moment's notice, kept decoded once a game starts. */
 const INSTANT = ['reveal.hit', 'reveal.drumroll', 'write.break', 'vote.tick', 'likes.thumb'];
 
-export interface DeviceSound {
-  muted: boolean;
-  volume: number;
-}
+/** Sketchy's sound types: everyone's own sliders, master 80 % and the narrator off out of the box. */
+export const VOLUME_DEFAULTS: Volumes = { ...FULL_VOLUMES, master: DEFAULT_VOLUME, voice: 0 };
+/** The table screen's out of the box: the narrator off too, until the host turns it up. */
+export const TABLE_DEFAULTS: Volumes = { ...FULL_VOLUMES, voice: 0 };
 
-function loadDevice(): DeviceSound {
-  try {
-    const raw = JSON.parse(
-      localStorage.getItem(DEVICE_KEY) ?? 'null',
-    ) as Partial<DeviceSound> | null;
-    return {
-      muted: raw?.muted === true,
-      volume:
-        typeof raw?.volume === 'number' && raw.volume >= 0 && raw.volume <= 1
-          ? raw.volume
-          : DEFAULT_VOLUME,
-    };
-  } catch {
-    return { muted: false, volume: DEFAULT_VOLUME };
-  }
-}
-
-/** This device's own mute and volume (a per-device convenience). */
-export function useDeviceSound(): [DeviceSound, (next: Partial<DeviceSound>) => void] {
-  const [sound, setSound] = useState(loadDevice);
-  const update = useCallback((next: Partial<DeviceSound>) => {
-    setSound((prev) => {
-      const merged = { ...prev, ...next };
-      try {
-        localStorage.setItem(DEVICE_KEY, JSON.stringify(merged));
-      } catch {
-        // Private mode: the choice lasts for this visit.
-      }
-      return merged;
-    });
-  }, []);
-  return [sound, update];
-}
+/** This player's volumes (a phone's own `{ muted, volume }` switch from before becomes the master). */
+export const useSketchyVolumes = () =>
+  useVolumes(GAME_ID, VOLUME_DEFAULTS, () => legacyDevice(DEVICE_KEY));
 
 /** The first tap or key press starts the audio (the table screen was started by a tap already). */
 function useUnlocked(auto: boolean): boolean {
@@ -107,7 +85,7 @@ export function useSound({
   isStage,
   stagePresent,
   clockOffset,
-  device,
+  volumes,
   slot,
   onWords,
 }: {
@@ -117,7 +95,8 @@ export function useSound({
   isStage: boolean;
   stagePresent: boolean;
   clockOffset: number;
-  device: DeviceSound;
+  /** This player's own volumes (the table screen plays at the host's table volumes instead). */
+  volumes: Volumes;
   /** This player's seat slot: a phone fetches only its own yelp. */
   slot?: number;
   onWords?: (words: string) => void;
@@ -126,13 +105,27 @@ export function useSound({
   const audio = manifestOf(manifest)?.audio;
   const s = view.settings;
   const mode = soundModeIn(s, stagePresent);
-  const on = unlocked && !device.muted && mode !== 'off' && !!audio;
-  const d: Device = { mode, isHost, isStage, music: s.music, effects: s.effects, voice: s.voice };
+  const on = unlocked && mode !== 'off' && !!audio;
+  // Each type plays at this device's volume for it (the table screen's: the host's); 0 is off.
+  const levels = isStage ? tableVolumes(s.tableVolumes, TABLE_DEFAULTS) : volumes;
+  const gains = {
+    music: gainOf(levels, 'music'),
+    effects: gainOf(levels, 'effects'),
+    voice: gainOf(levels, 'voice'),
+  };
+  const d: Device = {
+    mode,
+    isHost,
+    isStage,
+    music: gains.music > 0,
+    effects: gains.effects > 0,
+    voice: gains.voice > 0,
+  };
   const dev = useRef(d);
-  const latest = useRef({ audio, volume: device.volume, clockOffset, onWords });
+  const latest = useRef({ audio, gains, clockOffset, onWords });
   useEffect(() => {
     dev.current = d;
-    latest.current = { audio, volume: device.volume, clockOffset, onWords };
+    latest.current = { audio, gains, clockOffset, onWords };
   });
   const [speaking, setSpeaking] = useState(false);
   const queue = useRef<Line[]>([]);
@@ -159,7 +152,7 @@ export function useSound({
       .then((buffer) => {
         if (!buffer) return done();
         latest.current.onWords?.(line.words);
-        if (!engine().say(buffer, Date.now(), latest.current.volume, done)) done();
+        if (!engine().say(buffer, Date.now(), latest.current.gains.voice, done)) done();
       });
   }, []);
 
@@ -176,7 +169,7 @@ export function useSound({
           say();
           return;
         }
-        const volume = latest.current.volume * (gain ?? 1);
+        const volume = latest.current.gains.effects * (gain ?? 1);
         // Late by `offsetMs`: an effect is short, so it plays at once (or is cut at its end).
         const left = ms ? ms - offsetMs : undefined;
         if (left !== undefined && left <= 0) return;
@@ -199,8 +192,8 @@ export function useSound({
           : [fileOf(audio, `me:yelp#${slot}`) ?? '']
         : (audio.sfx![k] ?? []);
     engine().prefetch(keys.flatMap(own).filter(Boolean));
-    if (room && s.effects) engine().pin(INSTANT.flatMap((k) => audio.sfx![k] ?? []));
-  }, [on, playing, audio, mode, isHost, isStage, s.effects, slot]);
+    if (room && d.effects) engine().pin(INSTANT.flatMap((k) => audio.sfx![k] ?? []));
+  }, [on, playing, audio, mode, isHost, isStage, d.effects, slot]);
 
   // Music: the part of the game's track, crossfaded, ducked under the narrator.
   const turn = view.game?.turn ?? null;
@@ -217,11 +210,11 @@ export function useSound({
   }, [end, clockOffset]);
   const key = musicFor(view, clock + clockOffset, end);
   const track =
-    on && s.music && deviceSounds(mode, isHost, isStage) && key
+    on && d.music && deviceSounds(mode, isHost, isStage) && key
       ? (audio?.music?.[key]?.[0] ?? null)
       : null;
   const settled = useSettled(track, isStage ? 0 : MUSIC_SETTLE_MS);
-  const level = device.volume * MUSIC_SHARE * (speaking ? DUCK_RATIO : 1);
+  const level = gains.music * MUSIC_SHARE * (speaking ? DUCK_RATIO : 1);
   const levelNow = useRef(level);
   useEffect(() => {
     levelNow.current = level;

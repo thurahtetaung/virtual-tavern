@@ -5,6 +5,7 @@ import {
   GameError,
   type PlayerId,
   type PlayerInfo,
+  tableVolumeAction,
 } from '@vt/game-sdk';
 import { z } from 'zod';
 import { defuseAwards } from './awards.ts';
@@ -129,6 +130,7 @@ export const actionSchema: z.ZodType<Action> = z.union([
     settle: z.number().int().min(-90).max(90),
     module: z.string().max(8).nullable(),
   }),
+  tableVolumeAction,
   z.object({ type: z.literal('next') }),
   z.object({ type: z.literal('lobby') }),
   z.object({ type: z.literal('ponder') }),
@@ -290,6 +292,13 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       const { type: _t, ...look } = action;
       const s = draft(state);
       s.look = look;
+      return s;
+    }
+    case 'table-volume': {
+      // The host's sliders for the table screen's sound: any time, mid-bomb too.
+      if (!ctx.isHost) return err('not-host', 'Only the host sets the table screen’s volume.');
+      const s = draft(state);
+      s.tableVolumes = { ...s.tableVolumes, ...action.volumes };
       return s;
     }
     case 'claim': {

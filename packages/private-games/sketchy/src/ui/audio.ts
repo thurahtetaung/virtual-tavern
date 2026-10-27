@@ -128,3 +128,33 @@ export function jokeFor(
   const file = jokes[jokeKey(prompt, names)] ?? jokes[jokeKey(prompt)];
   return file ? { file, ms: audio?.durations?.[file] ?? JOKE_MS } : null;
 }
+
+/** The clips a settings preview tries for each type, first found first: real ones from the game. */
+const PREVIEW_KEYS = {
+  music: ['lobby', 'draw', 'vote'],
+  effects: ['reveal.hit', 'write.break', 'likes.thumb'],
+  personal: ['me.sent', 'me.break', 'me.fooled'],
+  voice: ['start.go', 'draw.luck', 'write.now'],
+} as const;
+
+/**
+ * The file a ▶ preview plays for a sound type: a few seconds of the lobby's tune, a typical effect
+ * (a phone that only makes its own little sounds hears one of those), a narrator line. Null when
+ * the manifest has none.
+ */
+export function previewClip(
+  audio: AudioManifest | undefined,
+  kind: 'music' | 'effects' | 'voice',
+  personal = false,
+): string | null {
+  const lists = kind === 'music' ? audio?.music : kind === 'voice' ? audio?.voice : audio?.sfx;
+  const keys = kind === 'effects' && personal ? PREVIEW_KEYS.personal : PREVIEW_KEYS[kind];
+  for (const key of keys) {
+    const src = lists?.[key]?.[0];
+    if (src) return src;
+  }
+  const any = Object.entries(lists ?? {}).find(
+    ([key, list]) => list.length && (kind !== 'effects' || key.startsWith('me.') === personal),
+  );
+  return any?.[1][0] ?? null;
+}

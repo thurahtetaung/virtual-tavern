@@ -154,7 +154,7 @@ function base(art: GuideArt): GameGuide {
           'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk). Sideways is best; upright works too.',
           'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms toward the cursor; right-click or Esc steps back.',
           'Keyboard: arrows or WASD turn a quarter, F turns it over, Tab and Enter pick a module, 1–9 use its parts.',
-          'The ? corner shows the controls and holds the sound switch, the rules, lighter graphics for slow phones and the flat 2D view.',
+          'The ? corner shows the controls and holds the sound volumes, the rules, lighter graphics for slow phones and the flat 2D view.',
           'Prefer the flat 2D bomb? Each player picks it for themselves in the lobby (“When you defuse”) or from the ? corner while defusing.',
         ],
       },

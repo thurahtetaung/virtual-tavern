@@ -1,4 +1,4 @@
-import type { PlayerId } from '@vt/game-sdk';
+import type { PlayerId, TableVolumes } from '@vt/game-sdk';
 import type { WireColour } from './data-types.ts';
 
 export type { WireColour } from './data-types.ts';
@@ -334,6 +334,8 @@ export interface State {
   history: BombResult[];
   /** The defuser's view of the live bomb (missing in rooms saved before, and between bombs). */
   look?: Look | null;
+  /** The table screen's volumes, from the host's sliders (missing in rooms saved before). */
+  tableVolumes?: TableVolumes;
   /** Hidden: seeds the next bomb. */
   seed: number;
 }
@@ -366,6 +368,7 @@ export type Action =
   | { type: 'note'; page: PageId; text: string }
   | { type: 'hand-over'; player: PlayerId }
   | ({ type: 'look' } & Look)
+  | { type: 'table-volume'; volumes: TableVolumes }
   | { type: 'next' }
   | { type: 'lobby' }
   /** Playtest bots only: "still thinking", always refused so the bot looks again shortly. */

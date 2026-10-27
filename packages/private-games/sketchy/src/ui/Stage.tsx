@@ -48,7 +48,8 @@ import {
   drawRows,
   pencilAt,
 } from './layout.ts';
-import { useDeviceSound, useSound } from './useSound.ts';
+import { FULL_VOLUMES } from '@vt/ui/sound';
+import { useSound } from './useSound.ts';
 import { useSeen } from './useSeen.ts';
 import { ChipColours, paintsOf } from './paint.tsx';
 
@@ -161,7 +162,6 @@ export function SketchyStage({ view, room }: SketchyUiProps) {
   const { reduced, low } = useShowSettings();
   const offset = room.clockOffset;
   const seen = useSeen(view, offset);
-  const [device] = useDeviceSound();
   const names = useMemo(() => view.seats.map((s) => s.name), [view.seats]);
   const audio = useSound({
     view,
@@ -170,7 +170,8 @@ export function SketchyStage({ view, room }: SketchyUiProps) {
     isStage: true,
     stagePresent: true,
     clockOffset: offset,
-    device,
+    // The table plays at the host's table volumes (`useSound` reads them from the view).
+    volumes: FULL_VOLUMES,
     onWords: (w) => {
       const el = targets.el('subtitle');
       if (el) el.textContent = w;

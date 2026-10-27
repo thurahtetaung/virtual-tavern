@@ -26,6 +26,7 @@ import { PolicyBack } from './Cards.tsx';
 import { Dock, TaskSheet, secretTask } from './Dock.tsx';
 import { End } from './End.tsx';
 import { playSfx, prefersReducedMotion, useBuzz } from './fx.ts';
+import { HydraSoundButton, useHydraSound } from './Sound.tsx';
 import { Lobby } from './Lobby.tsx';
 import { PlayerRecord, Timeline } from './Log.tsx';
 import { MeTab, useRoleReveal } from './Me.tsx';
@@ -36,7 +37,6 @@ import {
   useMomentsSetting,
   useNotes,
   usePlainHeadings,
-  useSoundSetting,
   useSuspicions,
   useTips,
 } from './storage.ts';
@@ -97,8 +97,6 @@ function HeaderStrip({
   view,
   room,
   c,
-  sound,
-  setSound,
   onRole,
   legend,
   onLegend,
@@ -106,8 +104,6 @@ function HeaderStrip({
   view: HydraView;
   room: GameRoomInfo;
   c: Content;
-  sound: boolean;
-  setSound: (on: boolean) => void;
   onRole: () => void;
   /** The scoreboard's legend is open. */
   legend: boolean;
@@ -156,18 +152,7 @@ function HeaderStrip({
             />
           </span>
         )}
-        <button
-          type="button"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm"
-          aria-label={sound ? 'Sound on (tap to mute)' : 'Sound off (tap to turn on)'}
-          aria-pressed={sound}
-          onClick={() => {
-            setSound(!sound);
-            if (!sound) playSfx('flip');
-          }}
-        >
-          {sound ? '🔊' : '🔇'}
-        </button>
+        <HydraSoundButton className="-my-1.5 shrink-0 rounded-full text-sm text-white hover:bg-white/10 dark:text-white" />
         {view.role && (
           <button
             type="button"
@@ -476,7 +461,7 @@ export function HydraGame({
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
-  const [sound, setSound] = useSoundSetting();
+  const { sound } = useHydraSound();
   const [marks, cycleMark] = useSuspicions(`${view.table}.${view.gamesPlayed}`);
   const [notes, setNote] = useNotes(`${view.table}.${view.gamesPlayed}`);
   const [fresh, dismissTip] = useTips();
@@ -678,8 +663,6 @@ export function HydraGame({
         view={view}
         room={room}
         c={c}
-        sound={sound}
-        setSound={setSound}
         onRole={() => setTab('me')}
         legend={legend}
         onLegend={() => {

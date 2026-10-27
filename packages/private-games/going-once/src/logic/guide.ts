@@ -197,7 +197,7 @@ const base: GameGuide = {
         'With the voice on, every game opens with his welcome while the drawing is already open; the drawing’s clock starts once he has explained it (regulars are spared the explanation). In a room’s first game his short tutorial follows the drawing, and anyone can skip it. He also talks through each lot, the wrap-up after each sale, half-time and the visits from {bank}, and his timing replaces the auction pace.',
         'He calls players by their colour (“You’re screwed, yellow!”), so every player is one of his seven colours: red, orange, yellow, green, blue, purple or grey. The words on screen show the player’s dot and name with the colour.',
         'A tip’s ring plays on its own player’s device even when only the host’s device plays the rest.',
-        'Sound starts after your first tap. Any device can mute itself with 🔊.',
+        'Sound starts after your first tap. Each player sets their own volume for the music, effects and voice under Sound (in the lobby, and the 🔊 corner during play).',
       ],
     },
     {

@@ -1,3 +1,4 @@
+import type { TableVolumes } from '@vt/game-sdk';
 import { MAZES, MORSE, MORSE_ALPHABET, KNOB, WOF_DISPLAYS } from './data.ts';
 import type {
   Bomb,
@@ -102,6 +103,8 @@ export interface DefuseView {
   history: BombResult[];
   /** The defuser's view of the live bomb, for the defuser and a table screen showing the bomb. */
   look: Look | null;
+  /** The table screen's volumes (the host's sliders). */
+  tableVolumes: TableVolumes;
   /** Browser tests only (never in production): the 3D view's test hooks are on. */
   test?: true;
 }
@@ -210,5 +213,6 @@ export function view(state: State, viewer: string | null): DefuseView {
     notes: manual ? state.notes : null,
     history: state.history,
     look: live && seesBomb ? (state.look ?? null) : null,
+    tableVolumes: state.tableVolumes ?? {},
   };
 }
