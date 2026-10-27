@@ -30,6 +30,7 @@ import {
 } from '../logic/types.ts';
 import type { BombView, DefuseView } from '../logic/view.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
+import { Binder } from './Binder.tsx';
 import { BombScreen } from './Bomb.tsx';
 import { ClaimsSummary, Manual } from './Manual.tsx';
 import { ModuleFace } from './Modules.tsx';
@@ -40,8 +41,8 @@ import { clockText, serverNow, useServerNow } from './time.ts';
 import { Bomb3D, useViewMode } from './three/Bomb3D.tsx';
 import type { Mirror } from './three/scene.ts';
 
-/** After the bomb ends, the defuser's 3D view stays this long (the dark and the boom). */
-const SLAP_MS = 2500;
+/** A defused bomb's room stays 6 s and fades out over 3 s before the binder (`BombDefused`). */
+const DEFUSED_ROOM_MS = 9000;
 
 export type DefuseUiProps = GameUiProps<DefuseView, Action>;
 
@@ -89,7 +90,10 @@ export function DefuseGame({
   const playsBomb =
     (v.stage === 'bomb' && v.role === 'defuser') ||
     (v.stage === 'result' && v.history.at(-1)?.defuser === you);
-  useBombSound(playsBomb ? v.bomb : null, art, room.clockOffset, { buzz: true });
+  useBombSound(playsBomb ? v.bomb : null, art, room.clockOffset, {
+    buzz: true,
+    room: mode === '3d',
+  });
   useEffect(() => {
     return () => {
       player.setMusic(null);
@@ -134,18 +138,22 @@ export function DefuseGame({
   // The end, as the original: the bomb gone and the room dark with the boom, then the results.
   const last = v.history.at(-1);
   const [, setTick] = useState(0);
+  const defusedAt = v.stage === 'result' && v.bomb?.end?.how === 'defused' ? v.bomb.end.at : null;
   const slapUntil =
-    v.stage === 'result' && v.bomb?.end && last?.defuser === you && mode === '3d'
-      ? v.bomb.end.at + SLAP_MS
-      : 0;
+    defusedAt !== null && last?.defuser === you && mode === '3d' ? defusedAt + DEFUSED_ROOM_MS : 0;
+  // The binder takes over at once (black first); a defuser's defused room fades out before it.
+  const binderFrom = slapUntil;
+  const [closed, setClosed] = useState(-1);
+  // The next defuser sits at the desk with the briefcase (3D), unless they went back to the lobby.
+  const [leftDesk, setLeftDesk] = useState(false);
   useEffect(() => {
-    const wait = slapUntil - serverNow(room.clockOffset);
+    const wait = Math.max(slapUntil, binderFrom) - serverNow(room.clockOffset);
     if (wait <= 0) return;
     const id = setTimeout(() => setTick((n) => n + 1), wait + 50);
     return () => {
       clearTimeout(id);
     };
-  }, [slapUntil, room.clockOffset]);
+  }, [slapUntil, binderFrom, room.clockOffset]);
   const viewSwitch = (
     <button
       type="button"
@@ -168,6 +176,7 @@ export function DefuseGame({
           offset={room.clockOffset}
           act={actOn}
           onPose={sendLook}
+          snooze={() => send({ type: 'alarm' })}
           test={!!v.test}
           corner={
             <>
@@ -215,6 +224,24 @@ export function DefuseGame({
         send={send}
       />
     );
+  if (
+    v.stage === 'result' &&
+    v.bomb?.end &&
+    closed !== v.bomb.no &&
+    serverNow(room.clockOffset) >= binderFrom
+  )
+    return (
+      <Binder
+        b={v.bomb}
+        settings={v.settings}
+        art={art}
+        offset={room.clockOffset}
+        sound={last?.defuser === you}
+        room={slapUntil > 0}
+        retry={room.isHost ? () => send({ type: 'next' }) : null}
+        close={() => setClosed(v.bomb!.no)}
+      />
+    );
   if (v.stage === 'result' && v.bomb)
     return (
       <Result
@@ -228,9 +255,43 @@ export function DefuseGame({
         send={send}
       />
     );
+  const seatedHere = v.seats.some((p) => p.id === you);
+  const deskable =
+    v.stage === 'lobby' &&
+    mode === '3d' &&
+    seatedHere &&
+    v.defuser === you &&
+    v.settings.defuserMode !== 'random' &&
+    v.seats.length >= MIN_PLAYERS;
+  if (deskable && !leftDesk)
+    return (
+      <Bomb3D
+        b={null}
+        briefcase={{ settings: v.settings, start: () => send({ type: 'start' }) }}
+        leave={() => setLeftDesk(true)}
+        art={art}
+        offset={room.clockOffset}
+        act={() => {}}
+        test={!!v.test}
+        corner={
+          <>
+            <span className="rounded-full bg-stone-800 px-1">{mute}</span>
+            <button
+              type="button"
+              className="rounded-full bg-stone-800 px-3 py-2 text-sm"
+              onClick={() => showGuide()}
+            >
+              Rules
+            </button>
+            {viewSwitch}
+          </>
+        }
+      />
+    );
   return (
     <Lobby
       v={v}
+      desk={deskable ? () => setLeftDesk(false) : null}
       you={you}
       isHost={room.isHost}
       nameOf={nameOf}
@@ -505,6 +566,14 @@ function SettingsForm({
         </div>
       </div>
       <Switch
+        on={s.surprises !== false}
+        editable={editable}
+        title="Room surprises"
+        help="While the bomb goes well the lights may go out, or the alarm clock may ring."
+        onChange={(surprises) => set({ surprises })}
+        testId="set-surprises"
+      />
+      <Switch
         on={s.expertsSeeClock}
         editable={editable}
         title="Experts see the clock and strikes"
@@ -745,6 +814,7 @@ function TalkIntro({ onDone }: { onDone: () => void }) {
 
 function Lobby({
   v,
+  desk,
   you,
   isHost,
   nameOf,
@@ -764,6 +834,8 @@ function Lobby({
   viewChoice: React.ReactNode;
   /** Everyone's own Sound section. */
   sound: React.ReactNode;
+  /** The next defuser goes to the desk and its briefcase. */
+  desk: (() => void) | null;
 }) {
   const [intro, setIntro] = useState(() => !seen(INTRO_KEY));
   const s = v.settings;
@@ -800,6 +872,11 @@ function Lobby({
       {sound}
       <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
+          {desk && (
+            <Button size="lg" variant="soft" onClick={desk} data-testid="to-desk">
+              🧳 To the desk
+            </Button>
+          )}
           {isHost ? (
             <Button
               size="lg"

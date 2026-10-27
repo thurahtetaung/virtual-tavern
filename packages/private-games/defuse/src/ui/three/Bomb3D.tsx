@@ -1,8 +1,8 @@
 import { storageKey } from '@vt/game-sdk';
 import { cn } from '@vt/ui';
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { nextMove } from '../../logic/bot.ts';
-import type { Look as DefuserLook, ModuleOp } from '../../logic/types.ts';
+import type { Look as DefuserLook, ModuleOp, Settings } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
 import type { Art } from '../assets.ts';
 import { haptics } from '../haptics.ts';
@@ -10,6 +10,7 @@ import { SIMON_TONES, player } from '../sound.ts';
 import { serverNow } from '../time.ts';
 import { type Device, HINTS, type HintStep, doneBy, hintFor } from './controls.ts';
 import { type Pack, type Quality, loadPack } from './rig.ts';
+import { type RoomPack, roomLook } from './room.ts';
 import { BombScene, type Mirror, type Pose, sharedRenderer } from './scene.ts';
 
 const HINTS_KEY = 'vt.defuse.hints-3d';
@@ -62,6 +63,27 @@ function packFor(
   return p;
 }
 
+const rooms = new Map<string, Promise<RoomPack | null>>();
+function roomFor(
+  base: string | null,
+  scene: string | null,
+  quality: Quality,
+  renderer: ReturnType<typeof sharedRenderer>,
+) {
+  const k = `${base}|${quality}`;
+  let p = rooms.get(k);
+  if (!p) {
+    p =
+      base && scene
+        ? (loadPack(base, renderer, quality, 'room', `${scene}basis/`) as Promise<RoomPack>).catch(
+            () => null,
+          )
+        : Promise.resolve(null);
+    rooms.set(k, p);
+  }
+  return p;
+}
+
 async function fontsReady(families: (string | null)[]) {
   if (typeof document === 'undefined' || !document.fonts) return;
   const wait = Promise.all(
@@ -76,7 +98,14 @@ const touchDevice = () =>
   typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
 export interface Bomb3DProps {
-  b: BombView;
+  /** The bomb, or null for the briefcase on the desk (the lobby). */
+  b: BombView | null;
+  /** The briefcase: the host's settings on its displays, and its Start. */
+  briefcase?: { settings: Settings; start: () => void } | null;
+  /** The defuser presses the alarm clock's snooze. */
+  snooze?: () => void;
+  /** Back to the lobby from the desk (the briefcase). */
+  leave?: () => void;
   art: Art;
   offset: number;
   /** null on a read-only screen (the table screen). */
@@ -96,6 +125,9 @@ export interface Bomb3DProps {
 /** The defuser's 3D bomb, full screen, with only the original's overlay. */
 export function Bomb3D({
   b,
+  briefcase,
+  snooze,
+  leave,
   art,
   offset,
   act,
@@ -135,10 +167,16 @@ export function Bomb3D({
   const bRef = useRef(b);
   const actRef = useRef(act);
   const onPoseRef = useRef(onPose);
+  const caseRef = useRef(briefcase);
+  const snoozeRef = useRef(snooze);
+  const [caseNote, setCaseNote] = useState(false);
+  const [starting, setStarting] = useState(false);
   useLayoutEffect(() => {
     bRef.current = b;
     actRef.current = act;
     onPoseRef.current = onPose;
+    caseRef.current = briefcase;
+    snoozeRef.current = snooze;
   });
 
   // One scene per mount, on the page's one renderer.
@@ -157,11 +195,25 @@ export function Bomb3D({
     ro.observe(el);
     void Promise.all([
       packFor(art.scene, light ? 'lo' : 'hi', renderer),
+      roomFor(art.room, art.scene, light ? 'lo' : 'hi', renderer),
       fontsReady([art.fonts.digits, art.fonts.labels, art.fonts.morse]),
-    ]).then(([pack]) => {
+    ]).then(([pack, room]) => {
       if (!live) return;
+      const brief = caseRef.current;
       scene = new BombScene(renderer, {
         pack,
+        room,
+        briefcase: brief
+          ? {
+              settings: brief.settings,
+              start: () => {
+                setStarting(true);
+                caseRef.current?.start();
+              },
+              setting: () => setCaseNote(true),
+            }
+          : null,
+        snooze: () => snoozeRef.current?.(),
         readOnly,
         ctx: {
           touch,
@@ -224,10 +276,16 @@ export function Bomb3D({
 
   useEffect(() => {
     const s = sceneRef.current;
-    if (!s) return;
+    if (!s || !b) return;
     s.setBomb(b);
     s.setEnded(!!b.end);
   }, [b, ready]);
+
+  const caseSettings = briefcase ? JSON.stringify(briefcase.settings) : '';
+  useEffect(() => {
+    if (briefcase) sceneRef.current?.setCase(briefcase.settings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caseSettings, ready]);
 
   useEffect(() => {
     if (mirror && mirror.mode === '3d') sceneRef.current?.setMirror(mirror);
@@ -257,6 +315,15 @@ export function Bomb3D({
       look: (id: string) => sceneRef.current?.lookOf(id) ?? null,
       partFor: (id: string, op: ModuleOp) => sceneRef.current?.partFor(id, op) ?? -1,
       next: () => (bRef.current ? nextMove(bRef.current, serverNow(offset)) : null),
+      thing: (name: 'case' | 'start' | 'clock' | 'snooze') =>
+        sceneRef.current?.whereThing(name) ?? null,
+      config: () => sceneRef.current?.configNow() ?? null,
+      configAt: (t: number) => roomLook(bRef.current, t).config,
+      pickAt: (x: number, y: number) => {
+        const p = sceneRef.current?.pick(x, y);
+        return p ? { kind: p.kind, path: (p.node.userData.path as string) ?? null } : null;
+      },
+      room: () => !!sceneRef.current?.room,
       bomb: () => bRef.current,
       haptics: () => haptics.log,
       zoom: () => sceneRef.current?.zoomState() ?? null,
@@ -266,9 +333,27 @@ export function Bomb3D({
     };
   }, [test, ready, offset]);
 
-  const step = readOnly || b.end ? null : hintFor(pose, done);
+  const step =
+    readOnly || b?.end || briefcase ? null : hintFor(pose === 'clock' ? 'desk' : pose, done);
   const scene = sceneRef.current;
-  const exploded = !!b.end && b.end.how !== 'defused';
+  const exploded = !!b?.end && b.end.how !== 'defused';
+  // `GameplayState.StartRound`: Start fades to black, then the dark room with the timer. Worked
+  // out once per bomb, so later renders never restart the fades.
+  const startedAt = b?.startedAt ?? null;
+  const fadeIn = useMemo(() => {
+    const now = serverNow(offset);
+    return startedAt !== null && now < startedAt + 1600 ? Math.max(0, startedAt + 500 - now) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startedAt]);
+  // Defused: the room stays 6 s, then fades to black over 3 s (`SceneManager.BombDefused`).
+  const defusedAt = b?.end?.how === 'defused' ? b.end.at : null;
+  const fadeOut = useMemo(() => {
+    const now = serverNow(offset);
+    return defusedAt !== null && now < defusedAt + 9000
+      ? { delay: defusedAt + 6000 - now, ms: 3000 }
+      : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defusedAt]);
   return (
     <div
       className={cn(
@@ -307,6 +392,51 @@ export function Bomb3D({
         </div>
       )}
       {exploded && <div className="absolute inset-0 bg-black" data-testid="explode-black" />}
+      <style>{`@keyframes vt-defuse-out{from{opacity:1}to{opacity:0}}@keyframes vt-defuse-in{from{opacity:0}to{opacity:1}}`}</style>
+      {fadeIn !== null && (
+        <div
+          className="pointer-events-none absolute inset-0 bg-black"
+          style={{ animation: `vt-defuse-out 1s ease ${fadeIn}ms forwards` }}
+          data-testid="start-fade"
+        />
+      )}
+      {(starting || fadeOut) && (
+        <div
+          className="pointer-events-none absolute inset-0 bg-black opacity-0"
+          style={{
+            animation: fadeOut
+              ? `vt-defuse-in ${fadeOut.ms}ms ease ${fadeOut.delay}ms forwards`
+              : 'vt-defuse-in 1.5s ease forwards',
+          }}
+          data-testid="end-fade"
+        />
+      )}
+      {briefcase && !starting && (
+        <>
+          {leave && (
+            <button
+              type="button"
+              onClick={leave}
+              className="absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] rounded-full bg-stone-900/70 px-4 py-2.5 text-sm"
+              data-testid="desk-lobby"
+            >
+              ‹ Lobby
+            </button>
+          )}
+          <p
+            className="pointer-events-none absolute inset-x-0 bottom-[max(10px,env(safe-area-inset-bottom))] truncate px-4 text-center text-[min(17px,3.8vw)] text-[#ffe066] [text-shadow:0_1px_3px_#000,0_0_8px_#000]"
+            data-testid="case-hint"
+          >
+            {caseNote
+              ? 'The host sets the bomb in the lobby. Press START when you’re ready.'
+              : pose === 'desk'
+                ? touch
+                  ? 'Tap the briefcase to pick it up'
+                  : 'Click the briefcase to pick it up'
+                : 'Press START to begin'}
+          </p>
+        </>
+      )}
       {!readOnly && (
         <>
           <button
@@ -315,7 +445,7 @@ export function Bomb3D({
             onClick={() => scene?.back()}
             className={cn(
               'absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] size-13 rounded-full bg-stone-900/55 text-3xl leading-none transition-opacity active:bg-stone-700/80',
-              touch && pose !== 'desk' && !b.end ? 'opacity-100' : 'pointer-events-none opacity-0',
+              touch && pose !== 'desk' && !b?.end ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
             data-testid="bomb-back"
           >
@@ -335,7 +465,7 @@ export function Bomb3D({
                 d === 'left' && 'left-[max(12px,env(safe-area-inset-left))] top-[calc(50%-26px)]',
                 d === 'right' &&
                   'right-[max(12px,env(safe-area-inset-right))] top-[calc(50%-26px)]',
-                touch && pose === 'held' && !dragging && !b.end
+                touch && pose === 'held' && !dragging && !b?.end && !briefcase
                   ? 'opacity-100'
                   : 'pointer-events-none opacity-0',
               )}
@@ -383,7 +513,7 @@ export function Bomb3D({
               {HINTS[device][step]}
             </p>
           )}
-          {touch && portrait && !sideways && !b.end && (
+          {touch && portrait && !sideways && !b?.end && (
             <button
               type="button"
               className="absolute inset-x-6 top-1/4 rounded-2xl bg-stone-900/90 p-4 text-center text-base ring-1 ring-stone-700"

@@ -264,7 +264,20 @@ export interface Bomb {
   at: number;
   log: LogEntry[];
   end: { how: 'defused' | 'strikes' | 'time'; at: number; left: number; by?: string } | null;
+  /**
+   * The room's surprises (`PaceMaker`), hidden: their own random stream, the next idle check and
+   * the idle actions not used yet. Null with the host's "Room surprises" off (and in bombs saved
+   * before the room).
+   */
+  pace?: { r: number; next: number | null; left: Surprise[] } | null;
+  /** Lights out (`CeilingLight.CutTheLightsRoutine`): when it began. */
+  lightsAt?: number | null;
+  /** The alarm clock rings from `at` until `until` (cut short by a snooze). */
+  alarm?: { at: number; until: number } | null;
 }
+
+/** The room's idle surprises, in the original's order (`FacilityRoom.PopulatePacingActions`). */
+export type Surprise = 'lights' | 'alarm';
 
 // ---- The room ----
 
@@ -282,6 +295,8 @@ export interface Settings {
   defuserMode: DefuserMode;
   expertsSeeClock: boolean;
   table: 'manual' | 'bomb';
+  /** Lights out and the alarm clock while the bomb is going well (missing in rooms saved before: on). */
+  surprises?: boolean;
 }
 
 /** A manual page: a module kind, or the appendix. */
@@ -369,6 +384,8 @@ export type Action =
   | { type: 'hand-over'; player: PlayerId }
   | ({ type: 'look' } & Look)
   | { type: 'table-volume'; volumes: TableVolumes }
+  /** The defuser presses the alarm clock's snooze button (`AlarmClock.ButtonDown`). */
+  | { type: 'alarm' }
   | { type: 'next' }
   | { type: 'lobby' }
   /** Playtest bots only: "still thinking", always refused so the bot looks again shortly. */

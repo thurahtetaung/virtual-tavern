@@ -15,6 +15,7 @@ import { KNOB } from './data.ts';
 import { between, int, next, type Stream } from './rand.ts';
 import {
   type Bomb,
+  type Surprise,
   type Dir,
   type Kind,
   type Module,
@@ -57,6 +58,17 @@ const VENT_AFTER = 500;
 const VENT_WARNING = 750 + 400 + 750 + 400 + 1000;
 /** `Bomb.OnStrike`: the clock's rate after each strike. */
 const RATES = [1, 1.25, 1.5, 1.75, 2];
+
+/**
+ * `PaceMaker`: an idle check every 20–60 s of real time from when the clock starts; one in ten is
+ * skipped, and an idle surprise only comes while the bomb is going well (rating over 0.5).
+ */
+export const PACE = { min: 20_000, max: 60_000, skip: 0.1, doingWell: 0.5 };
+/** `CeilingLight.CutTheLightsRoutine`: the buzz, the dark, the short buzz, then the lights. */
+export const LIGHTS_OUT = { buzz: 1570, dark: 10_000, buzzBack: 611 };
+export const LIGHTS_OUT_MS = LIGHTS_OUT.buzz + LIGHTS_OUT.dark + LIGHTS_OUT.buzzBack;
+/** `AlarmClock.MaxAlarmClockBuzzerTime`: it stops by itself after 20 s. */
+export const ALARM_MS = 20_000;
 
 const ANCHORS = [0, 1, 2, 3, 4, 5];
 /** The anchors that can hold the timer (`BombFace.TimerAnchors`), the same on both faces. */
@@ -128,6 +140,12 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
   const { serial, widgets } = makeWidgets(r);
   const strikeLimit = s.hardcore ? 1 : 3;
   const startedAt = now;
+  // The surprises draw from their own stream, so they never change the bomb's own draws.
+  const pace =
+    s.surprises === false
+      ? null
+      : { r: (seed ^ 0x5bd1e995) >>> 0, next: 0, left: ['lights', 'alarm'] as Surprise[] };
+  if (pace) pace.next = startedAt + LIGHTS.clock + Math.round(between(pace, PACE.min, PACE.max));
   return {
     no,
     r: r.r,
@@ -148,6 +166,9 @@ export function createBomb(no: number, seed: number, s: Settings, now: number): 
     log: [],
     end: null,
     activated: false,
+    pace,
+    lightsAt: null,
+    alarm: null,
   };
 }
 
@@ -213,6 +234,8 @@ function whenLeft(b: Bomb, left: number): number {
 
 function end(b: Bomb, how: 'defused' | 'strikes' | 'time', t: number, by?: string) {
   b.end = { how, at: t, left: leftAt(b, t), ...(by && { by }) };
+  // `FacilityRoom.OnRoundEnd`: the alarm clock stops.
+  if (b.alarm && t < b.alarm.until) b.alarm = { ...b.alarm, until: Math.max(b.alarm.at, t) };
   for (const m of b.modules) if (isNeedy(m.kind)) (m as NeedyModule).state = 'off';
 }
 
@@ -430,6 +453,47 @@ function actNeedy(b: Bomb, m: NeedyModule, a: ModuleOp, t: number): Outcome | 'i
   return null;
 }
 
+// ---- The room's surprises ----
+
+/** `PaceMaker.CalculatePlayerSuccessRating`: solved half, strikes 0.3, time 0.2. */
+export function successRating(b: Bomb, t: number): number {
+  const solvable = solvableCount(b);
+  const solved = solvedCount(b);
+  let solvedPart = 1;
+  if (solved < solvable && solvable > 1)
+    solvedPart = Math.min(1, Math.max(0, solved / (solvable - 1))) * 0.5;
+  let strikePart = 0;
+  if (b.strikes < b.strikeLimit && b.strikeLimit > 1)
+    strikePart = Math.min(1, Math.max(0, 1 - b.strikes / (b.strikeLimit - 1))) * 0.3;
+  let timePart = 0;
+  if (b.total > 60_000) timePart = Math.min(1, Math.max(0, leftAt(b, t) / b.total)) * 0.2;
+  return Math.min(1, solvedPart + strikePart + timePart);
+}
+
+/** `PaceMaker.ExecuteRandomIdleAction`, then the next check. */
+function idleCheck(b: Bomb, t: number) {
+  const pace = b.pace!;
+  if (next(pace) >= PACE.skip && successRating(b, t) > PACE.doingWell && pace.left.length) {
+    const what = pace.left.splice(int(pace, pace.left.length), 1)[0]!;
+    if (what === 'lights') b.lightsAt = t;
+    else ringAlarm(b, t);
+  }
+  pace.next = t + Math.round(between(pace, PACE.min, PACE.max));
+}
+
+const ringing = (b: Bomb, t: number) => !!b.alarm && t >= b.alarm.at && t < b.alarm.until;
+
+function ringAlarm(b: Bomb, t: number) {
+  if (!ringing(b, t)) b.alarm = { at: t, until: t + ALARM_MS };
+}
+
+/** `AlarmClock.ButtonDown`: snoozes it while it rings, and sets it ringing when it doesn't. */
+export function pressAlarm(b: Bomb, t: number) {
+  if (b.end) return;
+  if (ringing(b, t)) b.alarm = { ...b.alarm!, until: t };
+  else ringAlarm(b, t);
+}
+
 // ---- Running the bomb ----
 
 function nextEvent(b: Bomb): { at: number; run: () => void } | null {
@@ -454,6 +518,7 @@ function nextEvent(b: Bomb): { at: number; run: () => void } | null {
       offer(nextSolvableAt(s), () => tickSolvable(s, best!.at, b));
     }
   }
+  if (b.pace && b.pace.next !== null) offer(b.pace.next, () => idleCheck(b, best!.at));
   offer(whenLeft(b, 0), () => end(b, 'time', best!.at));
   return best;
 }

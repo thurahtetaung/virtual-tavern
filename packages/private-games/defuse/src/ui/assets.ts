@@ -95,6 +95,10 @@ export interface Art {
   digitsFont: string | null;
   /** The 3D bomb's folder URL (ending in `/`), or null without one. */
   scene: string | null;
+  /** The room's folder URL (ending in `/`), or null without one. */
+  room: string | null;
+  /** A results page of the binder (`freeplay-exploded`, `freeplay-defused`). */
+  results: (which: 'freeplay-exploded' | 'freeplay-defused') => string | null;
   /** The original's fonts, as CSS families once loaded (null without the manifest's files). */
   fonts: Record<'digits' | 'labels' | 'morse' | 'manual', string | null>;
 }
@@ -185,6 +189,15 @@ export function artFor(manifest: ManifestState): Art {
       const p = path(m?.scene);
       return p ? p.replace(/\/*$/, '/') : null;
     })(),
+    room: (() => {
+      const p = path(m?.room);
+      return p ? p.replace(/\/*$/, '/') : null;
+    })(),
+    results: (which) => {
+      const r = extras.results as Record<string, unknown> | undefined;
+      const v = r?.[which];
+      return typeof v === 'string' ? pic(v) : null;
+    },
     fonts: {
       digits: loadFont('DefuseDigits', path(m?.fonts?.digits)),
       labels: loadFont('DefuseLabels', path(m?.fonts?.labels)),

@@ -196,6 +196,8 @@ export default defineConfig({
       // Every Defuse bomb is built from this seed: with 3 modules, wires (cut the first),
       // a keypad and a password (see defuse-play.ts).
       DEFUSE_TEST_SEED: '418',
+      // Defuse's room specs reach lights out: 40 s after each bomb's clock starts.
+      DEFUSE_TEST_LIGHTS: '40000',
     },
   },
 });

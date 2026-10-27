@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { defuseAll, flat, lightsOn, open, settings, table } from './defuse-play.ts';
+import { defuseAll, flat, lightsOn, open, results, settings, table } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -45,7 +45,7 @@ test('a bomb defused on a phone while the expert reads, then one that goes off',
 
   await defuseAll(ana);
   for (const p of [ana, ben]) {
-    await expect(p.getByTestId('outcome')).toHaveText('Defused');
+    await results(p, 'Defused');
     await expect(p.getByTestId('outcome-line')).toContainText('Ana defused bomb 1');
   }
   // Rotation: Ben is next.
@@ -59,7 +59,7 @@ test('a bomb defused on a phone while the expert reads, then one that goes off',
   await expect(ana.getByTestId('status')).toContainText('Ben is defusing bomb 2');
   const zoom = await open(ben, 'wires');
   await zoom.getByTestId('wire-1').click();
-  for (const p of [ana, ben]) await expect(p.getByTestId('outcome')).toHaveText('Exploded');
+  for (const p of [ana, ben]) await results(p, 'Exploded');
   await expect(ana.getByTestId('outcome-line')).toContainText('Too many strikes');
   await expect(ana.getByTestId('result')).toContainText('✕');
 });

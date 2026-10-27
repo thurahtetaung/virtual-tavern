@@ -166,3 +166,16 @@ export async function tv(
   await page.evaluate(() => document.exitFullscreen().catch(() => {}));
   return page;
 }
+
+/**
+ * After a bomb ends every screen gets the binder's results page (black first; a defuser's
+ * defused room fades out before it): checks its stamp, shows it all at once and goes Back to the
+ * results, which then say `how` too.
+ */
+export async function results(p: Page, how: 'Defused' | 'Exploded') {
+  await expect(p.getByTestId('binder-outcome')).toHaveText(how, { timeout: 30_000 });
+  await p.getByTestId('binder').click();
+  await expect(p.getByTestId('binder')).toHaveAttribute('data-done', 'yes');
+  await p.getByTestId('binder-back').click();
+  await expect(p.getByTestId('outcome')).toHaveText(how);
+}

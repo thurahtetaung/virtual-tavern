@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { localArt, settings, table } from './defuse-play.ts';
+import { localArt, results, settings, table } from './defuse-play.ts';
 import { type Op, call, changed, ready, stamp } from './defuse-3d-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
@@ -172,6 +172,6 @@ for (const [n, vetoes, kinds] of BOMBS)
     await ready(ana);
     const seen = new Set<string>();
     await solveAll(ana, seen);
-    await expect(ana.getByTestId('outcome')).toHaveText('Defused', { timeout: 15_000 });
+    await results(ana, 'Defused');
     for (const k of kinds) expect(seen, k).toContain(k);
   });

@@ -1,5 +1,15 @@
 import { type Page, expect } from '@playwright/test';
-import { defuseAll, flat, lightsOn, localArt, open, settings, table, tv } from './defuse-play.ts';
+import {
+  defuseAll,
+  flat,
+  lightsOn,
+  localArt,
+  open,
+  results,
+  settings,
+  table,
+  tv,
+} from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
@@ -77,7 +87,7 @@ for (const [label, viewport, colorScheme] of [
     await expect(ana.getByTestId('strikes')).toHaveAttribute('data-strikes', '1');
     await shot(ana, '04-strike');
     await defuseAll(ana);
-    await expect(ana.getByTestId('outcome')).toHaveText('Defused');
+    await results(ana, 'Defused');
     await shot(ana, '05-defused');
     if (screen) await shot(screen, '21-table-result');
     // The table screen shows the bomb; Hardcore and a wrong cut set it off.
@@ -90,7 +100,7 @@ for (const [label, viewport, colorScheme] of [
     if (screen) await shot(screen, '22-table-bomb');
     const z2 = await open(ana, 'wires');
     await z2.getByTestId('wire-1').click();
-    await expect(ana.getByTestId('outcome')).toHaveText('Exploded');
+    await results(ana, 'Exploded');
     await shot(ana, '06-exploded');
     await shot(ben, '14-expert-result');
   });
@@ -161,7 +171,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await ben.getByRole('button', { name: 'Claim' }).click();
     await shot(screen, 'manual');
     await defuseAll(ana);
-    await expect(ana.getByTestId('outcome')).toHaveText('Defused');
+    await results(ana, 'Defused');
     await settings(ana);
     await ana.getByTestId('table-bomb').click();
     await ana.getByTestId('pick-Ana').click();

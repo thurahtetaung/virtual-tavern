@@ -6,6 +6,7 @@ import { isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
 import { endCues, musicSection, stingerDue } from './music.ts';
+import { roomCues } from './three/room.ts';
 import { serverNow } from './time.ts';
 import { haptics } from './haptics.ts';
 
@@ -34,7 +35,14 @@ export type Effect =
   | 'wiresequence'
   | 'bomb-defused'
   | 'gameover-fanfare'
-  | 'explode';
+  | 'explode'
+  | 'switch'
+  | 'light-buzz'
+  | 'light-buzz-short'
+  | 'alarm-clock-beep'
+  | 'alarm-clock-snooze'
+  | 'emergencyalarm'
+  | 'stamp';
 
 /** Simon's notes (`SimonComponent.tones`) and its tone generator's gain. */
 export const SIMON_TONES = [554.37, 659.25, 783.99, 987.77];
@@ -200,11 +208,12 @@ const END_LATE_MS = 3000;
  * Plays the bomb's sounds from the view on the server clock: pass the bomb while it is live and
  * at its result, on the devices that play it (the defuser's and the table screen).
  */
+/** `buzz`: the device vibrates with the bomb; `room`: it shows the 3D room, so its sounds play too. */
 export function useBombSound(
   b: BombView | null,
   art: Art,
   offset: number,
-  { buzz = false }: { buzz?: boolean } = {},
+  { buzz = false, room = false }: { buzz?: boolean; room?: boolean } = {},
 ) {
   const seen = useRef<{
     no: number;
@@ -246,8 +255,12 @@ export function useBombSound(
     if (!b || b.end) return;
     let last = -1;
     const warned = new Set<string>();
+    let heard = serverNow(offset);
     const id = setInterval(() => {
       const now = serverNow(offset);
+      // The room: the lights, lights out, the alarm clock, the emergency light.
+      if (room) for (const e of roomCues(b, heard, now)) player.play(art.effect(e));
+      heard = now;
       if (now < b.clockAt) return;
       const sec = Math.floor(leftAt(b, now) / 1000);
       if (sec !== last) {
@@ -275,7 +288,7 @@ export function useBombSound(
     return () => {
       clearInterval(id);
     };
-  }, [b, art, offset, buzz]);
+  }, [b, art, offset, buzz, room]);
 
   // Music (`GameplayMusicController`): one playlist a bomb, its sections queued one after another
   // as the time left falls, the stinger 7 s (bomb time) before the last 30 s, which cut straight

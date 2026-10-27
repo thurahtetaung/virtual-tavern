@@ -39,7 +39,11 @@ import {
   parseTestDeck as parseConveyorDeck,
   setTestDeck as setConveyorDeck,
 } from '@vt/private-conveyor/logic';
-import { defuse, setTestSeed as setDefuseSeed } from '@vt/private-defuse/logic';
+import {
+  defuse,
+  setTestLights as setDefuseLights,
+  setTestSeed as setDefuseSeed,
+} from '@vt/private-defuse/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -230,6 +234,7 @@ if (process.env.NODE_ENV !== 'production' && process.env.CONVEYOR_TEST_DECK) {
 // edgework. Never read in production.
 if (process.env.NODE_ENV !== 'production' && process.env.DEFUSE_TEST_SEED) {
   setDefuseSeed(Number(process.env.DEFUSE_TEST_SEED) >>> 0);
+  if (process.env.DEFUSE_TEST_LIGHTS) setDefuseLights(Number(process.env.DEFUSE_TEST_LIGHTS));
 }
 
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
