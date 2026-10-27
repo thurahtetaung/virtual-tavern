@@ -445,6 +445,11 @@ export function Bomb3D({
                       Vibration: {vibration ? 'on' : 'off'}
                     </button>
                   )}
+                  {haptics.supported && vibration && (
+                    <span className="basis-full text-xs text-stone-400">
+                      A phone on silent doesn’t vibrate.
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="rounded-full bg-stone-800 px-3 py-2 text-sm"
