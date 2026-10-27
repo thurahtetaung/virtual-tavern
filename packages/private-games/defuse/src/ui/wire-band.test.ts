@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BAND_HALF, type Band, bandOf, inBand } from './wire-band.ts';
+import { BAND_HALF, type Band, bandOf, inBand, shows, wireAt } from './wire-band.ts';
 
 const W = 160;
 const H = 160;
@@ -23,31 +23,55 @@ function wire(from: number, to: number): Uint8Array {
   return a;
 }
 
-/** The share of points along each wire (from 15 % to 85 % of its length) only it would take. */
-function reachable(bands: Band[], i: number) {
-  const { line } = bands[i]!;
-  let mine = 0;
-  let n = 0;
-  for (let k = Math.floor(line.length * 0.15); k < line.length * 0.85; k++) {
-    const [x, y] = line[k]!;
-    n++;
-    // Later wires are drawn on top, so a point a later band also covers goes to that wire.
-    if (inBand(bands[i]!, x, y) && !bands.slice(i + 1).some((b) => inBand(b, x, y))) mine++;
-  }
-  return mine / n;
+/** Every pixel of panel wire `i` the player sees: its render shows there and no later wire's does. */
+function visible(masks: Uint8Array[], i: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const k = y * W + x;
+      if (masks[i]![k]! >= 96 && !masks.slice(i + 1).some((m) => m[k]! >= 96))
+        out.push([(x + 0.5) / W, (y + 0.5) / H]);
+    }
+  return out;
 }
 
 describe('Wire Sequence hit areas', () => {
-  it('follow each wire, so crossing wires stay reachable', () => {
-    // Every panel the module can show: three wires, each from its own row to any letter.
+  it('give every tap on a wire the player sees to that wire, on all 27 panels', () => {
+    // Every panel the module can show: three wires, each from its own row to any letter, drawn in
+    // row order (the later on top where they cross).
     for (let a = 0; a < 3; a++)
       for (let b = 0; b < 3; b++)
         for (let c = 0; c < 3; c++) {
-          const bands = [wire(0, a), wire(1, b), wire(2, c)].map((m) => bandOf(m, W, H)!);
-          bands.forEach((_, i) => {
-            expect(reachable(bands, i), `panel ${a}${b}${c}, wire ${i + 1}`).toBeGreaterThan(0.5);
+          const masks = [wire(0, a), wire(1, b), wire(2, c)];
+          const bands = masks.map((m) => bandOf(m, W, H)!);
+          masks.forEach((_, i) => {
+            const seen = visible(masks, i);
+            expect(seen.length, `panel ${a}${b}${c}, wire ${i + 1}`).toBeGreaterThan(50);
+            const wrong = seen.filter(([x, y]) => wireAt(bands, x, y) !== i);
+            expect(wrong, `panel ${a}${b}${c}, wire ${i + 1}`).toEqual([]);
           });
         }
+  });
+
+  it('gives a crossing to the wire on top and a near miss to the nearest wire', () => {
+    // The live check's case: a straight wire 2 under a diagonal wire 3 crossing its midpoint.
+    const masks = [wire(0, 0), wire(1, 1), wire(2, 0)];
+    const bands = masks.map((m) => bandOf(m, W, H)!);
+    const [straight, diagonal] = [bands[1]!, bands[2]!];
+    const k = straight.line.findIndex(([x, y]) => shows(diagonal, x, y));
+    expect(k).toBeGreaterThan(0);
+    // On the crossing itself, wire 3 is drawn on top.
+    expect(wireAt(bands, ...straight.line[k]!)).toBe(2);
+    // Just along wire 2 from it, inside wire 3's band but on wire 2's own pixels: wire 2.
+    const [x, y] = straight.line.find(
+      ([lx, ly]) =>
+        lx < straight.line[k]![0] && inBand(diagonal, lx, ly) && !shows(diagonal, lx, ly),
+    )!;
+    expect(wireAt(bands, x, y)).toBe(1);
+    // Between the wires, off both: the nearer centre line.
+    expect(wireAt(bands, x, y + 0.004)).toBe(1);
+    // Nowhere near a wire: nobody.
+    expect(wireAt(bands, 0.05, 0.05)).toBeNull();
   });
 
   it('takes the wire’s midpoint unless another wire crosses right there', () => {
