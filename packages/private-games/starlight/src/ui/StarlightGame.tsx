@@ -166,21 +166,21 @@ export function StarlightGame({
             guessHelp="Time for each Scout to show a card."
             strictHelp="open slates lock as they are, and a slow Scout shows a random card of theirs"
           />
-          {room.isHost && (
-            <StickyBar>
-              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 dark:border-stone-800">
-                <Button
-                  size="lg"
-                  disabled={blocker !== null}
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Start game
-                </Button>
-                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-              </div>
-            </StickyBar>
-          )}
         </LobbySettings>
+        {room.isHost && (
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+            </div>
+          </StickyBar>
+        )}
         <p className="text-center text-sm text-ink-muted">
           New here?{' '}
           <button

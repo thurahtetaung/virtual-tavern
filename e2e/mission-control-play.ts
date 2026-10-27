@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Mission Control's specs: made-up task and voyage packs (the real ones are
 // private) and a table of phones. The server runs with the test deal (`MISSION_CONTROL_TEST_DEAL`
@@ -101,6 +102,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
     await expect(host.getByText(`The crew (${pages.length}/5)`)).toBeVisible();
   }
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return pages;
 }
 

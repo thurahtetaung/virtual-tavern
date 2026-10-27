@@ -218,24 +218,24 @@ export function Lobby({
           Tip: three careful clues take a while. Give Encryptors 2–3 minutes; under 1 minute is very
           tight, especially with Strict timers.
         </p>
-        {editable && (
-          <StickyBar>
-            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
-                🎲 Shuffle teams
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-            </div>
-          </StickyBar>
-        )}
       </LobbySettings>
+      {editable && (
+        <StickyBar>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="lg"
+              disabled={blocker !== null}
+              onClick={() => void act({ type: 'start' })}
+            >
+              Start game
+            </Button>
+            <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
+              🎲 Shuffle teams
+            </Button>
+            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+          </div>
+        </StickyBar>
+      )}
       <p className="text-center text-sm text-ink-muted">
         New to Enigma?{' '}
         <button

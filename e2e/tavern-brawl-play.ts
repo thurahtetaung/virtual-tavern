@@ -82,7 +82,15 @@ export const heroTile = (p: Page, hero: string) =>
 /** Picks a hero by its placeholder name or, with `byId`, its id (the tile toggles, so only when it isn't already ours). */
 export async function pickHero(p: Page, hero: string, byId = false) {
   const tile = byId ? p.locator(`[data-hero="${hero}"]`) : heroTile(p, hero);
-  if ((await tile.getAttribute('aria-pressed')) !== 'true') await tile.click();
+  if ((await tile.getAttribute('aria-pressed')) !== 'true') {
+    await tile.click();
+    // On a phone the tile opens the hero's sheet, and the pick is made there.
+    if ((p.viewportSize()?.width ?? 1280) < 640)
+      await p
+        .getByRole('dialog')
+        .getByRole('button', { name: /^Pick / })
+        .click();
+  }
   await expect(tile).toHaveAttribute('aria-pressed', 'true');
 }
 

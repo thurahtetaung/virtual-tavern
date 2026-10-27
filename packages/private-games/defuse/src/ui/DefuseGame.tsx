@@ -3,6 +3,7 @@ import {
   Button,
   Hint,
   LobbySettings,
+  PHONE,
   Modal,
   Panel,
   PlayerTag,
@@ -701,28 +702,43 @@ function DefuserPicker({
   );
 }
 
+/** On phones the tip is one line until opened, so the lobby fits the screen. */
+const wide = () => typeof window !== 'undefined' && !window.matchMedia(PHONE).matches;
+
 function TalkIntro({ onDone }: { onDone: () => void }) {
+  const [more, setMore] = useState(wide);
   return (
-    <Panel className="space-y-2" data-testid="talk-intro">
-      <h3 className="font-semibold">How to talk a bomb down</h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm">
-        <li>
-          The defuser sees the bomb and nothing else. Experts see the manual and nothing of the
-          bomb.
-        </li>
-        <li>Never look at each other’s screens. Everything goes through talking.</li>
-        <li>
-          Defuser: start with the edges (serial number, batteries, indicators, ports), then name a
-          module and describe it.
-        </li>
-        <li>
-          Experts: claim pages so you don’t all read the same one, and ask short yes-or-no
-          questions.
-        </li>
-      </ul>
-      <Button size="sm" onClick={onDone}>
-        Got it
-      </Button>
+    <Panel className="space-y-2 py-2" data-testid="talk-intro">
+      <div className="flex items-center gap-2">
+        <h3 className="min-w-0 flex-1 text-sm leading-tight font-semibold">
+          <span aria-hidden>🗣️ </span>How to talk a bomb down
+        </h3>
+        {!more && (
+          <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setMore(true)}>
+            Read
+          </Button>
+        )}
+        <Button size="sm" className="shrink-0" onClick={onDone}>
+          Got it
+        </Button>
+      </div>
+      {more && (
+        <ul className="list-disc space-y-1 pl-5 text-sm">
+          <li>
+            The defuser sees the bomb and nothing else. Experts see the manual and nothing of the
+            bomb.
+          </li>
+          <li>Never look at each other’s screens. Everything goes through talking.</li>
+          <li>
+            Defuser: start with the edges (serial number, batteries, indicators, ports), then name a
+            module and describe it.
+          </li>
+          <li>
+            Experts: claim pages so you don’t all read the same one, and ask short yes-or-no
+            questions.
+          </li>
+        </ul>
+      )}
     </Panel>
   );
 }

@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Stampede's specs: a made-up open-question deck, a room, answering and the
 // reveal. The questions are invented; real decks are private and never committed.
@@ -36,6 +37,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
   }
   await expect(host.getByText(`Players (${names.length}/20)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return pages;
 }
 

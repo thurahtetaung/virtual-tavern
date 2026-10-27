@@ -15,11 +15,12 @@ const html = (editable: boolean) =>
   );
 
 describe('LobbySettings', () => {
-  it('stays open for the host', () => {
+  it('folds for the host too where the screen is unknown (a phone), without the host-only note', () => {
     const page = html(true);
+    expect(page).toMatch(/<details data-testid="host-settings" class="[^"]*">/); // no `open`
+    expect(page).toMatch(/<summary[^>]*>.*Settings.*2 min turns · strict.*<\/summary>/);
     expect(page).toContain('FULL-SETTINGS');
-    expect(page).not.toContain('<details');
-    expect(page).not.toContain('2 min turns');
+    expect(page).not.toContain('Only the host can change these.');
   });
 
   it('gives guests a closed summary line that opens to the settings', () => {

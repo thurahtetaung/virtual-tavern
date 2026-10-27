@@ -307,6 +307,8 @@ test('a team can reopen an agreed code, and a mid-round end waits for the round'
   await ana!.getByRole('button', { name: 'Join Red' }).click();
   await ben!.getByRole('button', { name: 'Join Blue' }).click();
   await cy!.getByRole('button', { name: 'Join Blue' }).click();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   await host.getByRole('button', { name: /^Alternating/ }).click();
   await expect(host.getByRole('button', { name: /^Alternating/ })).toHaveAttribute(
     'aria-pressed',

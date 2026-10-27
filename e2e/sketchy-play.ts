@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Sketchy's specs: made-up prompt and house-title packs, a table of phones, and
 // drawing on the pad. The server runs with the test rig (`SKETCHY_TEST_RIG`): prompts are dealt
@@ -69,6 +70,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
     await expect(host.getByText(`Players (${pages.length}/8)`)).toBeVisible();
   }
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return pages;
 }
 

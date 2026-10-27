@@ -10,6 +10,7 @@ import {
   TimerSettings,
   cn,
   LobbySettings,
+  usePhone,
   timersLine,
 } from '@vt/ui';
 import { memo, useState } from 'react';
@@ -128,6 +129,13 @@ function SetFilter({
   );
 }
 
+/** The settings' summary of the random picks: every set, or the ones it picks from. */
+function setsLine(view: TavernBrawlView, art: Art): string {
+  const on = view.settings.sets ?? [...SET_IDS];
+  if (on.length === SET_IDS.length) return 'random from every hero';
+  return `random from ${on.map((id) => art.set(id) ?? SETS[id].label).join(', ')}`;
+}
+
 export function startBlocker(view: TavernBrawlView): string | null {
   const seated = view.seats.filter((s) => s.playing);
   if (seated.length < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed.`;
@@ -160,6 +168,9 @@ export function Lobby({
   const pick = (hero: HeroId | 'random' | null) =>
     void act({ type: 'pick-hero', hero }, { anchor: 'tb-heroes' });
   const [details, setDetails] = useState<HeroId | null>(null);
+  // Phones get small portrait tiles that open the hero's sheet (its powers, and Pick from there),
+  // so all twelve fit one screen with the rest of the lobby.
+  const phone = usePhone();
   const detailsTaker = details ? takenBy.get(details) : undefined;
 
   return (
@@ -183,14 +194,15 @@ export function Lobby({
           <h2 className="font-bold">
             Players ({seated.length}/{MAX_PLAYERS})
           </h2>
-          <Button variant="ghost" size="sm" onClick={showGuide}>
+          {/* Phones have the room bar's Rules button, and the lobby must fit the screen. */}
+          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={showGuide}>
             📖 Rules
           </Button>
         </div>
         <ul className="flex flex-col gap-1.5" aria-label="Seats">
           {seated.map((s) => (
             <li key={s.id} className="flex items-center gap-2" data-seat={s.id}>
-              <Portrait hero={s.hero} art={art} size={36} />
+              <Portrait hero={s.hero} art={art} size={phone ? 28 : 36} />
               <div className="min-w-0 flex-1">
                 <PlayerTag
                   name={s.name}
@@ -258,19 +270,49 @@ export function Lobby({
           )}
         </div>
         <RefusalSlot anchor="tb-heroes" />
-        <SetFilter view={view} room={room} act={act} art={art} />
         {seated.length >= ZONE_PLAYERS && (
           <p className="rounded-lg bg-info-soft px-3 py-2 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30">
             Five or more players: regular attacks only reach your neighbours, and knocked-out
             players come back as ghosts who attack once a turn.
           </p>
         )}
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="Heroes">
+        <ul
+          className={cn(
+            'grid gap-2 sm:grid-cols-3 lg:grid-cols-4',
+            phone ? 'grid-cols-4 gap-1' : 'grid-cols-2',
+          )}
+          aria-label="Heroes"
+        >
           {ENABLED_HEROES.map((h) => {
             const taker = takenBy.get(h);
             const mine = taker?.id === room.you;
             const free = !taker;
             const box = art.heroClass(h);
+            if (phone)
+              return (
+                <li key={h} style={heroVars(h)}>
+                  <button
+                    type="button"
+                    onClick={() => setDetails(h)}
+                    aria-pressed={mine}
+                    data-hero={h}
+                    aria-label={`${art.hero(h)}${taker ? `, taken by ${taker.name}` : ''}: mighty powers and deck`}
+                    className={cn(
+                      'flex w-full flex-col items-center gap-0.5 rounded-xl bg-card px-1 pt-1 pb-0.5 ring-1 ring-line dark:bg-stone-800 dark:ring-stone-700',
+                      mine && 'ring-4 ring-[var(--hero)] dark:ring-[var(--hero-dark)]',
+                      !free && !mine && 'opacity-55',
+                    )}
+                  >
+                    <Portrait hero={h} art={art} size={36} />
+                    <span className="w-full truncate text-center text-xs leading-tight font-semibold">
+                      {art.hero(h)}
+                    </span>
+                    <span className="w-full truncate text-center text-[11px] leading-tight text-ink-muted dark:text-stone-400">
+                      {mine ? '✓ You' : taker ? taker.name : '✦ Powers'}
+                    </span>
+                  </button>
+                </li>
+              );
             return (
               <li
                 key={h}
@@ -360,8 +402,8 @@ export function Lobby({
 
       <LobbySettings
         editable={room.isHost}
-        title="Timer"
         summary={[
+          setsLine(view, art),
           timersLine(
             {
               clueSeconds: view.settings.seconds,
@@ -372,8 +414,9 @@ export function Lobby({
           ),
         ]}
       >
-        {room.isHost && <h3 className="mb-2 font-bold">Timer</h3>}
-        <div>
+        <SetFilter view={view} room={room} act={act} art={art} />
+        {room.isHost && <h3 className="mt-3 mb-2 font-bold">Timer</h3>}
+        <div className={room.isHost ? undefined : 'mt-3'}>
           <TimerSettings
             values={{
               clueSeconds: view.settings.seconds,

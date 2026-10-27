@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Player, unlock, visitor } from './inquest-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Helpers to play Séance through the UI. Cards are found by their `data-card` hooks (`suspect-12`,
 // `vision-40`), so the helpers work with placeholders (no asset storage) and with real art alike.
@@ -33,6 +34,8 @@ export async function seanceTable(
 
 /** The host makes `ghost` the ghost and begins. */
 export async function begin(host: Page, ghost: string) {
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   await host.getByRole('button', { name: 'Host picks', exact: true }).click();
   await host.getByLabel('Pick the ghost').getByRole('button', { name: ghost, exact: true }).click();
   await host.getByRole('button', { name: 'Begin the séance' }).click();

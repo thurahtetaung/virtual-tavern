@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, pageErrors, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // The server runs with ICONIC_TEST_WORD (playwright.config.ts): every card's first word.
 const WORD = 'Paper Lantern';
@@ -183,7 +184,8 @@ test('one round on phones: choose, place, guess, judge, undo and reveal', async 
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = await table(browser, ['Hana', 'Ana', 'Ben'], { viewport: PHONE });
   const [hana] = pages as [Page, Page, Page];
-  // The built-in lists are picked by level.
+  // The built-in lists are picked by level (in the settings, folded on a phone).
+  await openSettings(hana);
   await expect(hana.getByText('Iconic: Easy').first()).toBeVisible();
   await shoot(pages[1]!, 'lobby');
   await hana.getByRole('button', { name: 'Start the game' }).click();

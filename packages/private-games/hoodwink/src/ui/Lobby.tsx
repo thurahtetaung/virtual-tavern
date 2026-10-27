@@ -115,21 +115,21 @@ export function Lobby({
             />
           </div>
         </details>
-        {editable && (
-          <StickyBar>
-            <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' })}
-              >
-                Start game
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-            </div>
-          </StickyBar>
-        )}
       </LobbySettings>
+      {editable && (
+        <StickyBar>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="lg"
+              disabled={blocker !== null}
+              onClick={() => void act({ type: 'start' })}
+            >
+              Start game
+            </Button>
+            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+          </div>
+        </StickyBar>
+      )}
       <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
         📖 New to {room.gameName ?? 'Hoodwink'}? Read the guide
       </Button>

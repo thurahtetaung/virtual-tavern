@@ -85,10 +85,14 @@ for (const [label, viewport] of [
     await openBackroom(await visitor(browser, 'Admin'));
     const [hana, ana] = (await table(browser, ['Hana', 'Ana'], { viewport })) as [Page, Page];
 
-    // The pick: each hero lists its powers; the sheet explains them and picks from there.
-    const slime = hana.getByRole('button', { name: 'Mighty powers and deck: Slime' });
-    await expect(slime).toContainText('Power: Through shields');
-    await slime.click();
+    // The pick: each hero lists its powers (on a phone the tile opens them); the sheet explains
+    // them and picks from there.
+    if (label === 'phone') await hana.locator('[data-hero="slime"]').click();
+    else {
+      const slime = hana.getByRole('button', { name: 'Mighty powers and deck: Slime' });
+      await expect(slime).toContainText('Power: Through shields');
+      await slime.click();
+    }
     const sheet = hana.getByTestId('tb-hero-sheet');
     await expect(sheet.getByRole('region', { name: 'Mighty powers' })).toContainText(
       'This turn your attack cards ignore shields, this one included, then deal 3 damage to one opponent, straight through shields.',

@@ -1,15 +1,21 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from './cn.ts';
-import { Panel } from './components.tsx';
+import { PHONE } from './phone.ts';
 import { HostOnlyNote } from './switch.tsx';
 import { fitSummary, summaryText, type SummaryPart } from './summary-fit.ts';
 
 const CLAMP = 'line-clamp-2 min-w-0 flex-1 text-ink-muted';
 
+/** Wider screens show the whole lobby; phones (and screens we can't measure) fold. */
+const startsOpen = () =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  !window.matchMedia(PHONE).matches;
+
 /**
- * A lobby's settings panel, as each player needs it: the host, who changes them, always sees them
- * open; everyone else gets a summary of at most two lines ("⚙️ Settings: 2 min turns · strict ·
- * narration on") that opens to the full, read-only settings. Keeps guests' lobbies short on a phone.
+ * A lobby's settings panel: a summary of at most two lines ("⚙️ Settings: 2 min turns · strict ·
+ * narration on") that opens to the full settings, so a lobby fits a phone. Everyone else sees them
+ * read-only; the host changes them, and sees them open from the start on wider screens.
  * `className` styles the settings' own box (`space-y-4`), in both forms.
  */
 export function LobbySettings({
@@ -19,10 +25,10 @@ export function LobbySettings({
   children,
   className,
 }: {
-  /** The host: settings stay open. */
+  /** The host: the settings can be changed (and start open on wider screens). */
   editable: boolean;
   /**
-   * The guests' summary as its parts, the choices that matter most first. Parts that don't fit two
+   * The summary as its parts, the choices that matter most first. Parts that don't fit two
    * lines on this screen are counted from the end ("+2 more", the full list one tap away), so the
    * summary never ends in an ellipsis.
    */
@@ -31,9 +37,16 @@ export function LobbySettings({
   children: ReactNode;
   className?: string;
 }) {
-  if (editable) return <Panel className={className}>{children}</Panel>;
+  const [open, setOpen] = useState(() => editable && startsOpen());
   return (
-    <details className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800">
+    <details
+      open={open}
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open);
+      }}
+      data-testid={editable ? 'host-settings' : undefined}
+      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+    >
       <summary className="relative flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden">
         <span className="shrink-0 font-semibold">
           <span aria-hidden>⚙️ </span>
@@ -48,7 +61,7 @@ export function LobbySettings({
         </span>
       </summary>
       <div className={cn('px-4 pb-4', className)}>
-        <HostOnlyNote />
+        {!editable && <HostOnlyNote />}
         {children}
       </div>
     </details>
