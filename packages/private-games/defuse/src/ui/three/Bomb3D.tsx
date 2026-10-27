@@ -364,15 +364,16 @@ export function Bomb3D({
           {step && (
             <p
               className={cn(
-                // The bottom band, under the bomb and clear of what is tapped. While the bomb is
-                // held on a phone the turn-down arrow sits at the bottom middle: upright there is
-                // room above it, sideways the line takes the band's left half.
-                'pointer-events-none absolute inset-x-0 text-[17px] text-[#ffe066] [text-shadow:0_1px_3px_#000,0_0_8px_#000]',
+                // One line in the bottom band, under the bomb and clear of what is tapped and of
+                // the corner buttons: centred, except while the bomb is held on a phone, when the
+                // turn-down arrow has the bottom middle. Upright the line sits just above that
+                // arrow; sideways (no room above it) it sits beside it, to its left.
+                'pointer-events-none absolute truncate whitespace-nowrap text-[min(17px,3.8vw)] text-[#ffe066] [text-shadow:0_1px_3px_#000,0_0_8px_#000]',
                 touch && pose === 'held' && portrait
-                  ? 'bottom-[max(78px,calc(env(safe-area-inset-bottom)+70px))] px-16 text-center'
+                  ? 'inset-x-0 bottom-[max(74px,calc(env(safe-area-inset-bottom)+66px))] px-4 text-center'
                   : touch && pose === 'held'
-                    ? 'bottom-[max(14px,env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] pr-[calc(50%+34px)] text-left'
-                    : 'bottom-[max(14px,env(safe-area-inset-bottom))] px-16 text-center',
+                    ? 'bottom-[max(28px,calc(env(safe-area-inset-bottom)+14px))] left-[max(12px,env(safe-area-inset-left))] right-[calc(50%+38px)] text-right text-[min(17px,1.9vw)]'
+                    : 'inset-x-0 bottom-[max(10px,env(safe-area-inset-bottom))] px-4 text-center',
               )}
               data-testid="bomb-hint"
             >

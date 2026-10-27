@@ -123,13 +123,13 @@ export type HintStep = 'desk' | 'held' | 'module';
 export const HINTS: Record<Device, Record<HintStep, string>> = {
   touch: {
     desk: 'Tap the bomb to pick it up.',
-    held: 'Drag to turn it. Pinch to zoom. Tap a module to look closer.',
-    module: 'Tap a part to use it. Tap ‹ (or tap off the bomb) to step back.',
+    held: 'Drag to turn it, pinch to zoom, tap a module.',
+    module: 'Tap a part to use it. ‹ steps back.',
   },
   mouse: {
     desk: 'Click the bomb to pick it up.',
-    held: 'Right-drag to turn it, the wheel zooms. Click a module to look closer.',
-    module: 'Click a part to use it. Right-click or Esc to step back.',
+    held: 'Right-drag to turn it, the wheel zooms, click a module.',
+    module: 'Click a part to use it. Right-click or Esc steps back.',
   },
 };
 
