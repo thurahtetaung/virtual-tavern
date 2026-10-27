@@ -96,7 +96,9 @@ for (const [label, viewport, colorScheme] of [
     await expect(hana.getByTestId('go-top-bid')).toContainText('🔩 by Cleo');
     await shot(hana, '08-screwed-bid');
 
-    await expect(hana.getByTestId('go-gallery')).toBeVisible({ timeout: 90_000 });
+    await expect(hana.getByTestId('go-end-tab-gallery')).toBeVisible({ timeout: 90_000 });
+    await hana.getByTestId('go-end-tab-gallery').click();
+    await expect(hana.getByTestId('go-gallery')).toBeVisible();
     await shot(hana, '09-end-gallery');
   });
 }

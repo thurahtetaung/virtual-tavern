@@ -14,7 +14,7 @@ import type { Art } from './assets.ts';
 import { BidPanel } from './Auction.tsx';
 import { PsstBubble, senderName } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
-import type { NameOf } from './text.ts';
+import { type NameOf, unquote } from './text.ts';
 
 const HOUSE_NAME = 'House bidder';
 
@@ -244,7 +244,7 @@ function PracticeSold({
       </p>
       {p.title && (
         <p className="text-lg">
-          “<span className="font-semibold">{p.title}</span>” · a house picture
+          “<span className="font-semibold">{unquote(p.title)}</span>” · a house picture
         </p>
       )}
       <p className="mt-1 max-w-md text-sm">
