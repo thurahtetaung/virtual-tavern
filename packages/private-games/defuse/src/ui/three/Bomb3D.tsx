@@ -671,7 +671,7 @@ const TOUCH_CONTROLS: [string, string][] = [
   ['Tap', 'pick up the bomb, look at a module, cut, press'],
   ['Drag', 'turn the bomb (it settles square when you let go)'],
   ['Pinch', 'zoom in and out, on any side; move both fingers to look around'],
-  ['Drag off the bomb', 'drag outside the bomb to look around the room'],
+  ['Drag off the bomb', 'drag outside the bomb on the desk to look around'],
   ['‹ or two-finger tap', 'step back: module → bomb → desk (or tap off the bomb)'],
   ['▴ ▾ ◂ ▸', 'a quarter turn, to read the edges'],
 ];

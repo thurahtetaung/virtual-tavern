@@ -156,7 +156,7 @@ function base(art: GuideArt): GameGuide {
         title: 'Controls',
         level: 'basics',
         bullets: [
-          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts; drag outside the bomb to look around the room. The phone buzzes as you touch things (switch it off under ?).',
+          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts; drag outside the bomb on the desk to look around the room. The phone buzzes as you touch things (switch it off under ?).',
           'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk).',
           'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms toward the cursor; hold the button at the screen’s edge to look around the room; right-click or Esc steps back.',
           'Keyboard: arrows or WASD turn a quarter, F turns it over, Tab and Enter pick a module, 1–9 use its parts.',

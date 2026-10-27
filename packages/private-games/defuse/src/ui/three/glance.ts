@@ -63,10 +63,11 @@ export function dragTarget(dx: number, dy: number, w: number, h: number): [numbe
 
 /**
  * Whether a one-finger touch drag looks around: only one that starts off the bomb (and off the
- * briefcase and the clock), in the poses where you sit at the desk or hold something.
+ * briefcase and the clock), while everything is on the desk. Held or zoomed in, a drag turns the
+ * bomb instead (a computer's edge glance still works there).
  */
 export function dragGlances(startedOnSomething: boolean, pose: string): boolean {
-  return !startedOnSomething && (pose === 'desk' || pose === 'held' || pose === 'module');
+  return !startedOnSomething && pose === 'desk';
 }
 
 /** The camera's turn for a glance, in degrees: right and down are positive. */

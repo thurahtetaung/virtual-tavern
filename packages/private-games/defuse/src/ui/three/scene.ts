@@ -1458,7 +1458,7 @@ export class BombScene {
         if (this.pose !== 'desk') this.addTurn(dx, dy);
         return;
       }
-      // Ours on touch: a drag that starts off the bomb looks around the room.
+      // Ours on touch: at the desk, a drag that starts off the bomb looks around the room.
       if (
         g.kind === 'maybe' &&
         e.pointerType !== 'mouse' &&
