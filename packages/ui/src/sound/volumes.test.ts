@@ -142,5 +142,6 @@ describe('which sliders a device gets', () => {
       '100 %, music off',
     );
     expect(volumeSummary({ ...FULL_VOLUMES, master: 0 }, ['effects'])).toBe('off');
+    expect(volumeSummary({ ...FULL_VOLUMES, effects: 0.4 }, ['effects'])).toBe('40 %');
   });
 });

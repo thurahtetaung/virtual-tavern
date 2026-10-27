@@ -178,7 +178,8 @@ test('sketchy: sliders follow the host’s choice of where sound plays, live', a
   await openSound(guest);
   await expect.poll(() => sliders(guest)).toEqual(['effects']);
   const settings = host.getByTestId('host-settings');
-  if ((await settings.getAttribute('open')) === null) await settings.locator('summary').click();
+  if ((await settings.getAttribute('open')) === null)
+    await settings.locator('summary').first().click();
   const choice = host.getByTestId('sketchy-sound-settings');
   await choice.getByRole('button', { name: 'Every device' }).click();
   await expect.poll(() => sliders(guest)).toEqual(['master', 'music', 'effects', 'voice']);

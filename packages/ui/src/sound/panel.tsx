@@ -31,6 +31,8 @@ const pct = (x: number) => `${Math.round(x * 100)} %`;
 /** A short summary of the volumes: "Off", "80 %", or "Music 0 % · Effects 80 %". */
 export function volumeSummary(v: Volumes, kinds: readonly SoundKind[]): string {
   if (v.master === 0 || kinds.every((k) => v[k] === 0)) return 'off';
+  // One slider (no master shown): its own level.
+  if (kinds.length === 1) return pct(gainOf(v, kinds[0]!));
   const off = kinds.filter((k) => v[k] === 0);
   return off.length ? `${pct(v.master)}, ${off.join(' and ')} off` : pct(v.master);
 }
@@ -129,7 +131,7 @@ export function SoundSliders({
                 }}
                 data-testid={`sound-preview-${key}`}
               >
-                <span aria-hidden>{playing === key ? '■' : '▶'}</span>
+                <span aria-hidden>{playing === key ? '■\uFE0E' : '▶\uFE0E'}</span>
               </Button>
             ) : (
               <span aria-hidden className="size-11 shrink-0" />
