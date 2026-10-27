@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.7...v0.76.8) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the 3D bomb's lid, button, lever, keys and Wire Sequence panel move the way they should, and ▴ shows the bottom edge ([#474](https://github.com/thurahtetaung/virtual-tavern/issues/474)) ([786938a](https://github.com/thurahtetaung/virtual-tavern/commit/786938a95bb8eba839579f3462a0d7d9b264338b))
+
 ## [0.76.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.6...v0.76.7) (2026-10-27)
 
 
