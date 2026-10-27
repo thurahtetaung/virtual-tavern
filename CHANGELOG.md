@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.5...v0.75.6) (2026-10-27)
+
+
+### Bug Fixes
+
+* **going-once:** phones fit the drawing and the end on one screen, and quoted titles show one pair of quotes ([#452](https://github.com/thurahtetaung/virtual-tavern/issues/452)) ([8b4a784](https://github.com/thurahtetaung/virtual-tavern/commit/8b4a78458ec19c6bdfed28f6c3c5ae798b0e211c))
+
 ## [0.75.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.4...v0.75.5) (2026-10-27)
 
 
