@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.2...v0.76.3) (2026-10-27)
+
+
+### Bug Fixes
+
+* every game's end screen fits a phone, and the host is never offered to skip themself ([#465](https://github.com/thurahtetaung/virtual-tavern/issues/465)) ([15be8f1](https://github.com/thurahtetaung/virtual-tavern/commit/15be8f188d43da887a72a6ebb38264c6cb4428ed))
+
 ## [0.76.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.1...v0.76.2) (2026-10-27)
 
 
