@@ -2,6 +2,7 @@ import { type GameUiProps, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
   Countdown,
+  EndTabs,
   Hint,
   Panel,
   Superlatives,
@@ -9,6 +10,7 @@ import {
   revealElement,
   useSpectatorPrompt,
   useAbandonGame,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import { tokenWords } from '../logic/outcome.ts';
@@ -201,6 +203,7 @@ export function EnigmaGame({
 }: EnigmaUiProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [seenChat, setSeenChat] = useState(0);
+  const wide = useWideScreen();
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const wordCount = room.wordLists
     .filter((l) => view.settings.wordListIds.includes(l.id))
@@ -278,6 +281,92 @@ export function EnigmaGame({
   const reason = endReason(view);
   const lastReveal = view.transmissions.filter((t) => t.revealed);
   const endWarnings = endOfRoundWarnings(view);
+  const winnerLine = (
+    <p
+      className={cn(
+        'text-2xl font-bold',
+        view.winner !== 'draw' && view.winner && TEAM_TEXT[view.winner],
+      )}
+    >
+      {view.winner === 'draw'
+        ? view.showdown
+          ? '🤝 A shared win!'
+          : '🤝 A draw!'
+        : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
+    </p>
+  );
+  const tokenLines = (
+    <ul className="space-y-0.5 text-sm">
+      {(['red', 'blue'] as const).map((team) => (
+        <li key={team}>
+          <b className={TEAM_TEXT[team]}>{TEAM_LABEL[team]}</b>:{' '}
+          {tokenWords(view.teams[team].intercepts, view.teams[team].misses)}
+        </li>
+      ))}
+    </ul>
+  );
+  const endButtons = room.isHost ? (
+    <div className="flex flex-wrap justify-center gap-2">
+      <Button size="lg" onClick={() => void act({ type: 'start' })}>
+        Play again
+      </Button>
+      <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+        Change setup
+      </Button>
+    </div>
+  ) : (
+    <p>{waitingForHost(room, 'start the next game')}</p>
+  );
+  const overPanel = (
+    <Panel className="space-y-3 text-center">
+      {winnerLine}
+      {/* Why, said once here: the hint above is hidden once the game is over. */}
+      {reason && <p className="font-semibold">{reason}</p>}
+      <ShowdownPanel view={view} act={act} />
+      {tokenLines}
+      <p className="text-sm text-ink-muted">Everyone's keywords are revealed under Clues.</p>
+      <Superlatives lines={room.superlatives} />
+      {endButtons}
+    </Panel>
+  );
+  // Phones: who won and Play again, then the tokens, the awards and each team's last code one at
+  // a time, so the end fits the screen.
+  const phoneEnd = (
+    <>
+      <Panel className="space-y-2 text-center max-lg:p-3">
+        {winnerLine}
+        {reason && <p className="font-semibold">{reason}</p>}
+        {endButtons}
+      </Panel>
+      <EndTabs
+        tabs={[
+          {
+            id: 'score',
+            label: '🏆 Score',
+            content: (
+              <Panel className="space-y-3 text-center">
+                <ShowdownPanel view={view} act={act} />
+                {tokenLines}
+                <p className="text-sm text-ink-muted">
+                  Everyone's keywords are revealed under Clues.
+                </p>
+              </Panel>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          ...lastReveal.map((tx) => ({
+            id: tx.team,
+            label: `${tx.team === 'red' ? '🔴' : '🔵'} ${TEAM_LABEL[tx.team]}`,
+            content: <TransmissionCard view={view} tx={tx} act={act} />,
+          })),
+        ]}
+      />
+    </>
+  );
 
   return (
     <div className="grid gap-4 pb-20 lg:grid-cols-[1fr_20rem] lg:pb-0">
@@ -301,54 +390,8 @@ export function EnigmaGame({
           {view.phase !== 'over' && (
             <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           )}
-          {view.phase === 'over' ? (
-            <Panel className="space-y-3 text-center">
-              <p
-                className={cn(
-                  'text-2xl font-bold',
-                  view.winner !== 'draw' && view.winner && TEAM_TEXT[view.winner],
-                )}
-              >
-                {view.winner === 'draw'
-                  ? view.showdown
-                    ? '🤝 A shared win!'
-                    : '🤝 A draw!'
-                  : `🏆 ${TEAM_LABEL[view.winner as Team]} team wins!`}
-              </p>
-              {/* Why, said once here: the hint above is hidden once the game is over. */}
-              {reason && <p className="font-semibold">{reason}</p>}
-              <ShowdownPanel view={view} act={act} />
-              <ul className="space-y-0.5 text-sm">
-                {(['red', 'blue'] as const).map((team) => (
-                  <li key={team}>
-                    <b className={TEAM_TEXT[team]}>{TEAM_LABEL[team]}</b>:{' '}
-                    {tokenWords(view.teams[team].intercepts, view.teams[team].misses)}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-sm text-ink-muted">
-                Everyone's keywords are revealed under Clues.
-              </p>
-              <Superlatives lines={room.superlatives} />
-              {room.isHost ? (
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button size="lg" onClick={() => void act({ type: 'start' })}>
-                    Play again
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    onClick={() => void act({ type: 'back-to-lobby' })}
-                  >
-                    Change setup
-                  </Button>
-                </div>
-              ) : (
-                <p>{waitingForHost(room, 'start the next game')}</p>
-              )}
-            </Panel>
-          ) : null}
-          {view.phase === 'over' && lastReveal.length > 0 && (
+          {view.phase === 'over' && (wide ? overPanel : phoneEnd)}
+          {view.phase === 'over' && wide && lastReveal.length > 0 && (
             <section aria-label="The last round" className="space-y-2">
               <h3 className="text-center text-sm font-semibold text-ink-muted">
                 Round {view.round}, the last round

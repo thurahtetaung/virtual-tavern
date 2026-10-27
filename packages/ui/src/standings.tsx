@@ -41,12 +41,17 @@ export function Standings({
   const onPlace = (place: number) => ranked.filter((r) => r.place === place);
   // Second, first, third: the classic podium shape (only the places that exist).
   const order = [places[1], places[0], places[2]].filter((p): p is number => p !== undefined);
+  // A big table on a phone: tighter rows and no podium (the table repeats it), so it fits.
+  const dense = entries.length > 6;
   const label = (r: Placed<StandingEntry>) =>
     `${r.tied ? 'joint ' : ''}${ordinal(r.place)}: ${r.entry.name}, ${scoreLabel(r.entry.score)}`;
   return (
     <section aria-label={title} className={cn('space-y-3', className)}>
       {entries.length > 1 && (
-        <ol aria-label="Podium" className="flex items-end justify-center gap-2">
+        <ol
+          aria-label="Podium"
+          className={cn('flex items-end justify-center gap-2', dense && 'max-lg:hidden')}
+        >
           {order.map((place) => {
             const step = places.indexOf(place);
             return (
@@ -94,6 +99,7 @@ export function Standings({
               key={r.entry.id}
               className={cn(
                 'flex items-center gap-3 px-3 py-2',
+                dense && 'max-lg:py-1 max-lg:text-sm',
                 r.entry.id === you && 'bg-accent-soft dark:bg-amber-500/10',
               )}
             >

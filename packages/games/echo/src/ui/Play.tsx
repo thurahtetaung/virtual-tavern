@@ -6,7 +6,7 @@ import {
   waitingForHost,
 } from '@vt/game-sdk';
 import { Button, NameDot, Panel, RefusalSlot, Superlatives, cn } from '@vt/ui';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, type ReactNode, useState } from 'react';
 import { clueProblem, rating } from '../logic/game.ts';
 import {
   type ClueView,
@@ -433,18 +433,23 @@ export function History({ history, open }: { history: ResolvedCard[]; open?: boo
   );
 }
 
-export function GameOver({ view, act, room }: Props) {
+/** `details`: on phones, the awards, cards and players as tabs, in place of the awards. */
+export function GameOver({ view, act, room, details }: Props & { details?: ReactNode }) {
   const deck = view.settings.deckSize;
   return (
-    <Panel className="space-y-3 text-center">
+    <Panel className="space-y-3 text-center max-lg:p-3">
       <p className="text-5xl font-black tabular-nums">
         {view.score}
         <span className="text-2xl text-ink-muted"> / {deck}</span>
       </p>
       <p className="text-2xl font-bold">{rating(view.score, deck)}</p>
-      <Superlatives lines={room.superlatives} />
+      {details ? (
+        <div className="space-y-3 text-left">{details}</div>
+      ) : (
+        <Superlatives lines={room.superlatives} />
+      )}
       {room.isHost ? (
-        <div className="grid gap-2 sm:flex sm:justify-center">
+        <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>

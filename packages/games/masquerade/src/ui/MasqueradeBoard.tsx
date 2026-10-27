@@ -7,6 +7,7 @@ import {
   Panel,
   Peek,
   ProtectedImage,
+  EndTabs,
   Standings,
   Superlatives,
   TimeoutNote,
@@ -14,6 +15,7 @@ import {
   useSecondsLeft,
   useSpectatorPrompt,
   useAbandonGame,
+  useWideScreen,
 } from '@vt/ui';
 import { type ReactNode, useEffect, useState } from 'react';
 import {
@@ -606,14 +608,39 @@ function Scores({ view }: { view: MasqueradeView }) {
 }
 
 /** The end screen: the shared podium and full standings (the winner line is the status above). */
-function Podium({ view, act, room }: { view: MasqueradeView; act: Act; room: GameRoomInfo }) {
+function Podium({
+  view,
+  act,
+  room,
+  details,
+}: {
+  view: MasqueradeView;
+  act: Act;
+  room: GameRoomInfo;
+  /** Phones: the last round and the players, as tabs beside the scores. */
+  details?: { round: ReactNode; players: ReactNode };
+}) {
   const entries = view.seats
     .filter((s) => s.playing || s.score > 0)
     .map((s) => ({ id: s.id, name: s.name, score: s.score }));
   return (
-    <Panel aria-label="Final scores" className="space-y-4">
-      <Standings entries={entries} you={view.me?.id} />
-      <Superlatives lines={room.superlatives} />
+    <Panel aria-label="Final scores" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: <Standings entries={entries} you={view.me?.id} />,
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!details?.round && { id: 'round', label: '🎭 Reveal', content: details.round },
+          !!details && { id: 'players', label: '👥 Players', content: details.players },
+        ]}
+      />
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
@@ -995,6 +1022,8 @@ export function MasqueradeBoard({
     view.me && !view.me.playing ? { text: 'The table is full, so you’re watching.' } : null,
   );
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
+  const wide = useWideScreen();
+  const phoneEnd = view.phase === 'over' && !wide;
 
   const tabAlert = view.phase === 'playing' && status.yourMove;
   useEffect(() => {
@@ -1034,8 +1063,28 @@ export function MasqueradeBoard({
               {round.redealtAfter} left while a spy, so the round was dealt again.
             </p>
           )}
-          {view.phase === 'over' && <Podium view={view} act={act} room={room} />}
-          {round && round.stage === 'reveal' && (
+          {view.phase === 'over' && (
+            <Podium
+              view={view}
+              act={act}
+              room={room}
+              details={
+                phoneEnd
+                  ? {
+                      round: round?.stage === 'reveal' && (
+                        <Reveal view={view} display={display} act={act} room={room} />
+                      ),
+                      players: (
+                        <Panel>
+                          <Players view={view} online={online} hostId={room.hostId} />
+                        </Panel>
+                      ),
+                    }
+                  : undefined
+              }
+            />
+          )}
+          {round && round.stage === 'reveal' && !phoneEnd && (
             <Reveal view={view} display={display} act={act} room={room} />
           )}
           {round && round.stage !== 'reveal' && view.phase === 'playing' && (
@@ -1054,10 +1103,14 @@ export function MasqueradeBoard({
               )}
             </>
           )}
-          <Scores view={view} />
-          <Panel>
-            <Players view={view} online={online} hostId={room.hostId} />
-          </Panel>
+          {!phoneEnd && (
+            <>
+              <Scores view={view} />
+              <Panel>
+                <Players view={view} online={online} hostId={room.hostId} />
+              </Panel>
+            </>
+          )}
         </div>
         <div className="min-w-0 space-y-4">
           <div className={onTab('locations')}>

@@ -8,6 +8,7 @@ import {
   Panel,
   PlayerTag,
   RefusalSlot,
+  EndTabs,
   Standings,
   StickyBar,
   Superlatives,
@@ -17,8 +18,9 @@ import {
   useAbandonGame,
   LobbySettings,
   NameDot,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   EDITIONS,
   EDITION_IDS,
@@ -617,50 +619,11 @@ function Table({
   const pile = round?.players.find((p) => p.id === pileOf) ?? null;
   const { read } = useCardReader();
 
-  return (
-    <div
-      className={cn('mx-auto max-w-4xl space-y-3', showHand && 'pb-48')}
-      style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
-    >
-      {round && (
-        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
-          <span className="flex flex-wrap items-center gap-x-2">
-            <span>
-              Round {round.number} · {view.target} to win
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <CardBack deck={deck} className="w-3.5 rounded-sm" />
-              <span>
-                <b className="tabular-nums">{round.deckCount}</b> left in the deck
-              </span>
-            </span>
-          </span>
-          {/* Kept on one line: a squeezed "Time's up!" badge would wrap. */}
-          <span className="shrink-0 whitespace-nowrap">
-            <Countdown
-              deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
-              clockOffset={room.clockOffset}
-              label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
-              soft={view.settings.timerMode !== 'strict'}
-              atZero={
-                round.stage === 'chancellor'
-                  ? 'then a card is kept at random'
-                  : 'then the lower card is played'
-              }
-              expiredHint="Just a reminder: the turn waits until a card is played."
-            />
-          </span>
-        </div>
-      )}
-
-      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-
-      {view.phase === 'over' ? (
-        <Podium view={view} deck={deck} act={act} room={room} />
-      ) : (
-        round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
-      )}
-
+  const wide = useWideScreen();
+  // Phones: the table, the log and the seats are tabs of the end, so it fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
+  const tableBlock = (
+    <>
       {round && (
         <ul aria-label="Players" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {round.players.map((p) => (
@@ -719,6 +682,60 @@ function Table({
             ))}
         </p>
       )}
+    </>
+  );
+
+  return (
+    <div
+      className={cn('mx-auto max-w-4xl space-y-3', showHand && 'pb-48')}
+      style={showHand && handHeight > 0 ? { paddingBottom: handHeight + 12 } : undefined}
+    >
+      {round && (
+        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted sm:text-sm">
+          <span className="flex flex-wrap items-center gap-x-2">
+            <span>
+              Round {round.number} · {view.target} to win
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CardBack deck={deck} className="w-3.5 rounded-sm" />
+              <span>
+                <b className="tabular-nums">{round.deckCount}</b> left in the deck
+              </span>
+            </span>
+          </span>
+          {/* Kept on one line: a squeezed "Time's up!" badge would wrap. */}
+          <span className="shrink-0 whitespace-nowrap">
+            <Countdown
+              deadline={round.stage !== 'over' && view.phase === 'playing' ? round.deadline : null}
+              clockOffset={room.clockOffset}
+              label={round.stage === 'chancellor' ? 'to keep a card' : 'to play a card'}
+              soft={view.settings.timerMode !== 'strict'}
+              atZero={
+                round.stage === 'chancellor'
+                  ? 'then a card is kept at random'
+                  : 'then the lower card is played'
+              }
+              expiredHint="Just a reminder: the turn waits until a card is played."
+            />
+          </span>
+        </div>
+      )}
+
+      <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
+
+      {view.phase === 'over' ? (
+        <Podium
+          view={view}
+          deck={deck}
+          act={act}
+          room={room}
+          table={phoneEnd ? tableBlock : null}
+        />
+      ) : (
+        round?.stage === 'over' && <RoundResult view={view} deck={deck} act={act} room={room} />
+      )}
+
+      {!phoneEnd && tableBlock}
 
       {showHand && (
         <section
@@ -1526,34 +1543,68 @@ function Podium({
   deck,
   act,
   room,
+  table,
 }: {
   view: RoyalPostView;
   deck: Deck;
   act: Act;
   room: GameRoomInfo;
+  /** Phones: the table and the log, as a tab of the end. */
+  table: ReactNode;
 }) {
   // Everyone who played (or scored before leaving); the status line above names the winner.
   const entries = view.seats
     .filter((s) => s.playing || s.tokens > 0)
     .map((s) => ({ id: s.id, name: s.name, score: s.tokens }));
   const last = view.log.findLast((e) => e.kind === 'round-end');
+  // Watchers and late joiners pick their seat for the next game right here.
+  const nextGame = (
+    <div className="text-left">
+      <Seats view={view} room={room} act={act} title="Next game" />
+    </div>
+  );
   return (
-    <Panel aria-label="Game result" className="space-y-4">
-      <Standings
-        entries={entries}
-        you={view.me?.id}
-        scoreLabel={(n) => `${n} token${n === 1 ? '' : 's'}`}
+    <Panel aria-label="Game result" className="space-y-4 max-lg:space-y-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={entries}
+                you={view.me?.id}
+                scoreLabel={(n) => `${n} token${n === 1 ? '' : 's'}`}
+              />
+            ),
+          },
+          !!last &&
+            !!view.round?.result && {
+              id: 'round',
+              label: '💌 Round',
+              content: (
+                <div className="space-y-2">
+                  <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
+                    Last round: <Rich line={describeLog(view, last)} />
+                  </p>
+                  <FinalHands view={view} deck={deck} />
+                  <RoundSecrets view={view} />
+                </div>
+              ),
+            },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && {
+            id: 'table',
+            label: '🪑 Table',
+            content: <div className="space-y-3">{table}</div>,
+          },
+          !!table && { id: 'seats', label: '👥 Seats', content: nextGame },
+        ]}
       />
-      {last && view.round?.result && (
-        <div className="space-y-2">
-          <p className="text-sm leading-7 text-stone-600 dark:text-stone-400">
-            Last round: <Rich line={describeLog(view, last)} />
-          </p>
-          <FinalHands view={view} deck={deck} />
-          <RoundSecrets view={view} />
-        </div>
-      )}
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button size="lg" onClick={() => void act({ type: 'start' })}>
@@ -1566,10 +1617,7 @@ function Podium({
       ) : (
         <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
       )}
-      {/* Watchers and late joiners pick their seat for the next game right here. */}
-      <div className="text-left">
-        <Seats view={view} room={room} act={act} title="Next game" />
-      </div>
+      {!table && nextGame}
     </Panel>
   );
 }

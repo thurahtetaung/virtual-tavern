@@ -5,11 +5,13 @@ import {
   NameDot,
   Panel,
   RefusalSlot,
+  EndTabs,
   Superlatives,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import type { TavernBrawlAction, TavernBrawlView } from '../logic/types.ts';
 import { type Art, artFor, heroVars, useManifest } from './assets.ts';
 import { Lobby, Portrait } from './Lobby.tsx';
@@ -45,6 +47,7 @@ export function TavernBrawlGame({
     };
   }, [setYourMove, tabAlert]);
 
+  const wide = useWideScreen();
   const seatedInGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !seatedInGame);
   useSpectatorPrompt(
@@ -62,12 +65,23 @@ export function TavernBrawlGame({
 
   if (view.phase === 'lobby' || !view.game)
     return <Lobby view={view} room={room} act={act} art={art} showGuide={showGuide} />;
+  // Phones: the table is one of the end's tabs, so the end fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
+  const table = <Table view={view} room={room} act={act} art={art} name={name} status={status} />;
   return (
     <div className="flex flex-col gap-3">
       {view.phase === 'over' && (
-        <End view={view} room={room} act={act} art={art} name={name} status={status} />
+        <End
+          view={view}
+          room={room}
+          act={act}
+          art={art}
+          name={name}
+          status={status}
+          table={phoneEnd ? table : null}
+        />
       )}
-      <Table view={view} room={room} act={act} art={art} name={name} status={status} />
+      {!phoneEnd && table}
     </div>
   );
 }
@@ -79,6 +93,7 @@ function End({
   art,
   name,
   status,
+  table,
 }: {
   view: TavernBrawlView;
   room: GameRoomInfo;
@@ -86,6 +101,8 @@ function End({
   art: Art;
   name: NameOf;
   status: Status;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   const winner = g.winners[0];
@@ -105,40 +122,59 @@ function End({
           )}
         </div>
       </div>
-      {kos.length > 0 && (
-        <section aria-label="Knockouts">
-          <h3 className="text-sm font-semibold">Knockouts</h3>
-          <ol className="text-sm">
-            {kos.map((k) => (
-              <li key={`${k.player}-${k.turn}`}>
-                💥 {name(k.player)}, turn {k.turn}
-                {k.removed
-                  ? ' (removed)'
-                  : k.by === k.player
-                    ? `: ${card(k.card) ?? 'their own card'} (their own)`
-                    : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-      <ul className="flex flex-wrap gap-2" aria-label="Final hit points">
-        {g.players.map((p) => (
-          <li
-            key={p.id}
-            className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
-          >
-            <HpDial hp={p.hp} size={30} out={p.out} />
-            <span className="inline-flex items-center gap-1 text-sm">
-              <span>
-                <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
-              </span>
-              <NameDot name={p.name} className="order-first" />
-            </span>
-          </li>
-        ))}
-      </ul>
-      <Superlatives lines={room.superlatives} />
+      <EndTabs
+        tabs={[
+          kos.length > 0 && {
+            id: 'knockouts',
+            label: '💥 KOs',
+            content: (
+              <section aria-label="Knockouts">
+                <h3 className="text-sm font-semibold">Knockouts</h3>
+                <ol className="text-sm">
+                  {kos.map((k) => (
+                    <li key={`${k.player}-${k.turn}`}>
+                      💥 {name(k.player)}, turn {k.turn}
+                      {k.removed
+                        ? ' (removed)'
+                        : k.by === k.player
+                          ? `: ${card(k.card) ?? 'their own card'} (their own)`
+                          : `: ${card(k.card) ?? 'a card'} by ${name(k.by)}`}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ),
+          },
+          {
+            id: 'players',
+            label: '❤️ Players',
+            content: (
+              <ul className="flex flex-wrap gap-2" aria-label="Final hit points">
+                {g.players.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center gap-1.5 rounded-xl bg-panel px-2 py-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+                  >
+                    <HpDial hp={p.hp} size={30} out={p.out} />
+                    <span className="inline-flex items-center gap-1 text-sm">
+                      <span>
+                        <span className="font-semibold">{name(p.id)}</span> · {art.hero(p.hero)}
+                      </span>
+                      <NameDot name={p.name} className="order-first" />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && { id: 'table', label: '🍺 Table', content: table },
+        ]}
+      />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

@@ -1,6 +1,7 @@
 import { type GameRoomInfo, type GameUiProps, storageKey, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  EndTabs,
   Hint,
   LobbySettings,
   Modal,
@@ -17,8 +18,9 @@ import {
   useAbandonGame,
   useSecondsLeft,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type MultiMode, RATING_LINE, maxScore, ratingOf } from '../logic/cards.ts';
 import {
   MAX_PLAYERS,
@@ -68,6 +70,12 @@ export function SkyfireGame({
   const timeUp = left === 0 && view.settings.timerMode !== 'strict';
 
   const inGame = !!view.game?.hands[room.you];
+  const wide = useWideScreen();
+  // Phones: the end says how it went, and the table is one of its tabs, so it fits the screen.
+  const phoneEnd = view.phase === 'over' && !wide;
+  const table = (
+    <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+  );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -101,8 +109,17 @@ export function SkyfireGame({
             )}
           </Hint>
           {view.phase === 'playing' && inGame && <Tips />}
-          {view.phase === 'over' && <End view={view} room={room} act={act} art={art} name={name} />}
-          <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+          {view.phase === 'over' && (
+            <End
+              view={view}
+              room={room}
+              act={act}
+              art={art}
+              name={name}
+              table={phoneEnd ? table : null}
+            />
+          )}
+          {!phoneEnd && table}
         </>
       )}
     </div>
@@ -454,12 +471,15 @@ function End({
   act,
   art,
   name,
+  table,
 }: {
   view: SkyfireView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   const r = g.result;
@@ -474,48 +494,69 @@ function End({
       : ratingOf(r.score, r.max);
   return (
     <Panel className="flex flex-col gap-3" data-testid="sf-end">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <p className="text-4xl font-black tabular-nums" data-testid="sf-final-score">
-          {r.score}{' '}
-          <span className="text-lg font-semibold text-ink-muted dark:text-stone-400">
-            / {r.max}
-          </span>
-        </p>
-        <p className="text-lg font-bold">
-          {r.win ? '🎆 ' : ''}
-          {rating}
-        </p>
-        <p className="text-sm text-ink-muted dark:text-stone-400">
-          {lost || r.how === 'ended' || view.settings.expert
-            ? endHowText(r.how)
-            : (RATING_LINE[rating] ?? '')}
-        </p>
-        {(r.score !== r.reached || lost) && (
-          <p className="text-sm" data-testid="sf-reached">
-            The fireworks reached {r.reached}.
-          </p>
-        )}
-        {r.how === 'lost-card' && r.card && (
-          <p className="flex items-center gap-2 text-sm">
-            Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
-          </p>
-        )}
-        {r.how === 'no-cards' && r.player && (
-          <p className="text-sm">{name(r.player)} had no cards left.</p>
-        )}
-      </div>
-      <Superlatives lines={room.superlatives} />
-      <details
-        className="rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
-        open
-      >
-        <summary className="cursor-pointer text-sm font-semibold">
-          Replay: every turn, every hand face up
-        </summary>
-        <div className="mt-2">
-          <Replay view={view} you={room.you} art={art} name={name} />
-        </div>
-      </details>
+      <EndTabs
+        tabs={[
+          {
+            id: 'score',
+            label: '🎆 Score',
+            content: (
+              <div className="flex flex-col items-center gap-1 text-center">
+                <p className="text-4xl font-black tabular-nums" data-testid="sf-final-score">
+                  {r.score}{' '}
+                  <span className="text-lg font-semibold text-ink-muted dark:text-stone-400">
+                    / {r.max}
+                  </span>
+                </p>
+                <p className="text-lg font-bold">
+                  {r.win ? '🎆 ' : ''}
+                  {rating}
+                </p>
+                <p className="text-sm text-ink-muted dark:text-stone-400">
+                  {lost || r.how === 'ended' || view.settings.expert
+                    ? endHowText(r.how)
+                    : (RATING_LINE[rating] ?? '')}
+                </p>
+                {(r.score !== r.reached || lost) && (
+                  <p className="text-sm" data-testid="sf-reached">
+                    The fireworks reached {r.reached}.
+                  </p>
+                )}
+                {r.how === 'lost-card' && r.card && (
+                  <p className="flex items-center gap-2 text-sm">
+                    Lost for good: <CardFace card={r.card} art={art} size="mini" className="w-6" />
+                  </p>
+                )}
+                {r.how === 'no-cards' && r.player && (
+                  <p className="text-sm">{name(r.player)} had no cards left.</p>
+                )}
+              </div>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          {
+            id: 'replay',
+            label: '⏪ Replay',
+            content: (
+              <details
+                className="rounded-xl bg-card p-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
+                open
+              >
+                <summary className="cursor-pointer text-sm font-semibold">
+                  Replay: every turn, every hand face up
+                </summary>
+                <div className="mt-2">
+                  <Replay view={view} you={room.you} art={art} name={name} />
+                </div>
+              </details>
+            ),
+          },
+          !!table && { id: 'table', label: '🎇 Table', content: table },
+        ]}
+      />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

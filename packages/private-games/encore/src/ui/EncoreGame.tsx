@@ -15,8 +15,10 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
+  EndTabs,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { type EncoreAction, type EncoreView, MAX_PLAYERS, MIN_PLAYERS } from '../logic/types.ts';
 import { wordsOf } from '../logic/names.ts';
 import { type Art, artFor, useManifest } from './assets.ts';
@@ -62,6 +64,19 @@ export function EncoreGame({
   }, [setYourMove, tabAlert]);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const wide = useWideScreen();
+  const phoneEnd = view.phase === 'over' && !wide;
+  const table = (
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={youName}
+      logName={name}
+      showGuide={showGuide}
+    />
+  );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -83,17 +98,16 @@ export function EncoreGame({
             <StatusLine text={status.text} yourMove={status.yourMove} />
             {view.phase === 'playing' && inGame && <Tips />}
             {view.phase === 'over' && (
-              <End view={view} room={room} act={act} art={art} name={youName} />
+              <End
+                view={view}
+                room={room}
+                act={act}
+                art={art}
+                name={youName}
+                table={phoneEnd ? table : null}
+              />
             )}
-            <Table
-              view={view}
-              room={room}
-              act={act}
-              art={art}
-              name={youName}
-              logName={name}
-              showGuide={showGuide}
-            />
+            {!phoneEnd && table}
           </>
         )}
       </div>
@@ -324,52 +338,82 @@ function End({
   act,
   art,
   name,
+  table,
 }: {
   view: EncoreView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   return (
-    <Panel className="en-rise flex flex-col gap-3">
-      <Standings
-        entries={g.players.map((p) => {
-          const ended = g.results.filter((r) => r.ender === p.id).length;
-          return {
-            id: p.id,
-            name: p.name,
-            score: p.total,
-            ...(ended > 0 && { note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}` }),
-          };
-        })}
-        you={room.you}
+    <Panel className="en-rise flex flex-col gap-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={g.players.map((p) => {
+                  const ended = g.results.filter((r) => r.ender === p.id).length;
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    score: p.total,
+                    ...(ended > 0 && {
+                      note: `ended ${ended} ${ended === 1 ? 'round' : 'rounds'}`,
+                    }),
+                  };
+                })}
+                you={room.you}
+              />
+            ),
+          },
+          {
+            id: 'rounds',
+            label: '📋 Rounds',
+            content: <ScoreTable g={g} name={name} you={room.you} />,
+          },
+          !!g.finalHands && {
+            id: 'hands',
+            label: '🃏 Hands',
+            content: (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-semibold">
+                  What everyone held at the end
+                </summary>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {g.players.map((p) => (
+                    <li key={p.id} className="flex flex-col gap-1">
+                      <span>{p.name}</span>
+                      {(g.finalHands![p.id] ?? []).length ? (
+                        <Hand
+                          cards={g.finalHands![p.id]!}
+                          art={art}
+                          columns={12}
+                          label={`${p.name}’s last hand`}
+                        />
+                      ) : (
+                        <span className="text-ink-muted dark:text-stone-400">No cards left</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && { id: 'table', label: '🎪 Table', content: table },
+        ]}
       />
-      <ScoreTable g={g} name={name} you={room.you} />
-      {g.finalHands && (
-        <details className="text-sm">
-          <summary className="cursor-pointer font-semibold">What everyone held at the end</summary>
-          <ul className="mt-2 flex flex-col gap-2">
-            {g.players.map((p) => (
-              <li key={p.id} className="flex flex-col gap-1">
-                <span>{p.name}</span>
-                {(g.finalHands![p.id] ?? []).length ? (
-                  <Hand
-                    cards={g.finalHands![p.id]!}
-                    art={art}
-                    columns={12}
-                    label={`${p.name}’s last hand`}
-                  />
-                ) : (
-                  <span className="text-ink-muted dark:text-stone-400">No cards left</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

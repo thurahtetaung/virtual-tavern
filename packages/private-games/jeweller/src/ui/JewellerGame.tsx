@@ -1,6 +1,7 @@
 import { type GameRoomInfo, type GameUiProps, storageKey, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  EndTabs,
   Hint,
   LobbySettings,
   Panel,
@@ -15,8 +16,9 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   DEFAULT_TARGET,
   type JewellerAction,
@@ -63,6 +65,10 @@ export function JewellerGame({
   }, [setYourMove, tabAlert]);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const wide = useWideScreen();
+  const table = (
+    <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+  );
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -85,8 +91,10 @@ export function JewellerGame({
         <>
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {view.phase === 'playing' && inGame && <Tips />}
-          {view.phase === 'over' && <End view={view} room={room} act={act} art={art} />}
-          <Table view={view} room={room} act={act} art={art} name={name} showGuide={showGuide} />
+          {view.phase === 'over' && (
+            <End view={view} room={room} act={act} art={art} table={wide ? null : table} />
+          )}
+          {(wide || view.phase !== 'over') && table}
         </>
       )}
     </div>
@@ -336,11 +344,14 @@ function End({
   room,
   act,
   art,
+  table,
 }: {
   view: JewellerView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   const cities = !!view.settings.cities;
@@ -353,48 +364,75 @@ function End({
     return tier * 10_000 + p.points * 100 + (g.winners.includes(id) ? 1 : 0);
   };
   return (
-    <Panel className="jw-rise flex flex-col gap-3">
-      <Standings
-        entries={g.players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          score: score(p.id),
-          note: p.removed
-            ? 'removed after leaving'
-            : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'}${cities ? (p.cities.length ? ' · 🏙 met a City' : ' · no City') : ` · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}`}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
-        }))}
-        you={room.you}
-        scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
+    <Panel className="jw-rise flex flex-col gap-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <>
+                <Standings
+                  entries={g.players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: score(p.id),
+                    note: p.removed
+                      ? 'removed after leaving'
+                      : `${p.cards.length} ${p.cards.length === 1 ? 'card' : 'cards'}${cities ? (p.cities.length ? ' · 🏙 met a City' : ' · no City') : ` · ${p.nobles.length} ${p.nobles.length === 1 ? 'noble' : 'nobles'}`}${p.reserved.length ? ` · ${p.reserved.length} reserved` : ''}`,
+                  }))}
+                  you={room.you}
+                  scoreLabel={(n) => `${Math.floor((n % 10_000) / 100)} points`}
+                  // Phones: the table alone (the podium repeats it), so the end fits the screen.
+                  className="max-lg:[&>ol:first-child]:hidden"
+                />
+              </>
+            ),
+          },
+          {
+            id: 'hands',
+            label: '🃏 Hands',
+            content: (
+              <>
+                <section aria-label="Every hand" className="flex flex-col gap-1 text-sm">
+                  <h3 className="font-semibold">What everyone had in hand</h3>
+                  <ul className="flex flex-col gap-1">
+                    {g.players.map((p) => (
+                      <li key={p.id} className="flex items-center gap-2">
+                        <span className="w-24 truncate">{p.name}</span>
+                        <span className="flex items-center gap-1">
+                          {p.reserved.length === 0 ? (
+                            <span className="text-ink-muted dark:text-stone-400">—</span>
+                          ) : (
+                            p.reserved.map((r, i) =>
+                              r.card ? (
+                                <CardTile key={i} id={r.card} art={art} className="!w-16" />
+                              ) : (
+                                <CardBack key={i} level={r.level} art={art} className="h-12 w-10" />
+                              ),
+                            )
+                          )}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          {p.nobles.map((n) => (
+                            <NobleTile key={n} id={n} art={art} className="!size-10" />
+                          ))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              </>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && { id: 'table', label: '💎 Table', content: table },
+        ]}
       />
-      <section aria-label="Every hand" className="flex flex-col gap-1 text-sm">
-        <h3 className="font-semibold">What everyone had in hand</h3>
-        <ul className="flex flex-col gap-1">
-          {g.players.map((p) => (
-            <li key={p.id} className="flex items-center gap-2">
-              <span className="w-24 truncate">{p.name}</span>
-              <span className="flex items-center gap-1">
-                {p.reserved.length === 0 ? (
-                  <span className="text-ink-muted dark:text-stone-400">—</span>
-                ) : (
-                  p.reserved.map((r, i) =>
-                    r.card ? (
-                      <CardTile key={i} id={r.card} art={art} className="!w-16" />
-                    ) : (
-                      <CardBack key={i} level={r.level} art={art} className="h-12 w-10" />
-                    ),
-                  )
-                )}
-              </span>
-              <span className="flex items-center gap-1">
-                {p.nobles.map((n) => (
-                  <NobleTile key={n} id={n} art={art} className="!size-10" />
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
         <div className="flex flex-wrap gap-2">
           <Button

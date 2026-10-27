@@ -787,7 +787,8 @@ function HostActFor({
   name: NameOf;
 }) {
   const offline = room.players.find((p) => p.id === g.current)?.connected === false;
-  if (!room.isHost || g.stage !== 'play' || (!g.clock?.reminded && !offline)) return null;
+  if (!room.isHost || g.stage !== 'play' || g.current === room.you) return null;
+  if (!g.clock?.reminded && !offline) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button

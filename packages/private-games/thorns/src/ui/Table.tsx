@@ -379,7 +379,7 @@ export function Table(props: TableProps) {
     clock &&
     room.isHost &&
     view.phase === 'playing' &&
-    clock.who.filter((id) => clock.reminded || offline(id));
+    clock.who.filter((id) => id !== room.you && (clock.reminded || offline(id)));
   const lines = view.log
     .map((e) => ({ id: e.id, text: logLine(e, name, art.names) }))
     .filter((l): l is { id: number; text: string } => l.text !== null)

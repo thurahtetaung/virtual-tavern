@@ -7,9 +7,11 @@ import {
   PlayerTag,
   ProtectedImage,
   RefusalSlot,
+  EndTabs,
   Superlatives,
   cn,
   Peek,
+  useWideScreen,
 } from '@vt/ui';
 import { useState } from 'react';
 import { type InquestAction, type InquestView, type RoleId, finalOf } from '../logic/types.ts';
@@ -655,6 +657,42 @@ export function OverScreen({
   const ranked = [...g.players].sort(
     (a, b) => order.indexOf(roles[a.id]!) - order.indexOf(roles[b.id]!),
   );
+  const wide = useWideScreen();
+  const whoWasWho = (
+    <Panel className="space-y-1">
+      <h3 className="text-sm font-bold">Who was who</h3>
+      <ul className="grid grid-cols-2 gap-1 text-sm">
+        {ranked.map((p) => (
+          <li key={p.id} className={cn('min-w-0', r.winners.includes(p.id) && 'font-semibold')}>
+            {/* Truncated in its column: a long name never pushes the page sideways. */}
+            <PlayerTag name={p.name} you={p.id === view.me?.id} className="max-w-full" /> ·{' '}
+            {content.roleName(roles[p.id]!)}
+            {p.formerFs || (p.isFs && roles[p.id] !== 'forensic') ? ' (took over as FS)' : ''}
+            {g.perfect.some((x) => x.switched && x.by === p.id) ? ' (switched sides)' : ''}
+            {r.winners.includes(p.id) ? ' 🏆' : ''}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+  const attempts = (
+    <>
+      <Attempts view={view} content={content} />
+      <AlliesReveal view={view} content={content} />
+      {g.final && (
+        <Panel className="space-y-1">
+          <h3 className="text-sm font-bold">Final accusations</h3>
+          <FinalList view={view} content={content} />
+        </Panel>
+      )}
+    </>
+  );
+  const bullets = (
+    <Panel className="space-y-1">
+      <h3 className="text-sm font-bold">How the bullets fell</h3>
+      <Timeline g={g} content={content} full />
+    </Panel>
+  );
   return (
     <div className="space-y-3">
       <Panel
@@ -669,10 +707,11 @@ export function OverScreen({
         <p className="font-semibold">{resultLine(view)}</p>
         {s && (
           <div className="mx-auto flex max-w-xs items-center justify-center gap-3">
-            <div className="w-28">
+            {/* Smaller on phones, so the end and Play again fit the screen. */}
+            <div className="w-28 max-lg:w-20">
               <ArtCard deck="clue" n={s.clue} content={content} key_ />
             </div>
-            <div className="w-28">
+            <div className="w-28 max-lg:w-20">
               <ArtCard deck="means" n={s.means} content={content} key_ />
             </div>
           </div>
@@ -683,38 +722,38 @@ export function OverScreen({
           </p>
         )}
       </Panel>
-      <Superlatives lines={room.superlatives} />
-      <Panel className="space-y-1">
-        <h3 className="text-sm font-bold">Who was who</h3>
-        <ul className="grid grid-cols-2 gap-1 text-sm">
-          {ranked.map((p) => (
-            <li key={p.id} className={cn(r.winners.includes(p.id) && 'font-semibold')}>
-              <PlayerTag name={p.name} you={p.id === view.me?.id} /> ·{' '}
-              {content.roleName(roles[p.id]!)}
-              {p.formerFs || (p.isFs && roles[p.id] !== 'forensic') ? ' (took over as FS)' : ''}
-              {g.perfect.some((x) => x.switched && x.by === p.id) ? ' (switched sides)' : ''}
-              {r.winners.includes(p.id) ? ' 🏆' : ''}
-            </li>
-          ))}
-        </ul>
-      </Panel>
-      <Attempts view={view} content={content} />
-      <AlliesReveal view={view} content={content} />
-      {g.final && (
-        <Panel className="space-y-1">
-          <h3 className="text-sm font-bold">Final accusations</h3>
-          <FinalList view={view} content={content} />
-        </Panel>
+      {wide ? (
+        <>
+          <Superlatives lines={room.superlatives} />
+          {whoWasWho}
+          {attempts}
+          {bullets}
+        </>
+      ) : (
+        // Phones: the roles, the awards, the attempts and the bullets one at a time, so the end
+        // and Play again fit the screen.
+        <EndTabs
+          tabs={[
+            { id: 'roles', label: '🎭 Roles', content: whoWasWho },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            {
+              id: 'attempts',
+              label: '⚖️ Attempts',
+              content: <div className="space-y-3">{attempts}</div>,
+            },
+            { id: 'bullets', label: '🩸 Bullets', content: bullets },
+          ]}
+        />
       )}
-      <Panel className="space-y-1">
-        <h3 className="text-sm font-bold">How the bullets fell</h3>
-        <Timeline g={g} content={content} full />
-      </Panel>
       {room.isHost ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className={cn('flex gap-2', wide ? 'flex-col sm:flex-row' : 'flex-row')}>
           <Button
             size="lg"
-            className="sm:flex-1"
+            className="flex-1"
             onClick={() => void act({ type: 'play-again' }, { anchor: 'inquest-again' })}
           >
             Play again

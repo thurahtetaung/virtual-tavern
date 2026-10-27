@@ -9,6 +9,7 @@ import {
   useSpectatorPrompt,
   useConfirm,
   useAbandonGame,
+  useWideScreen,
 } from '@vt/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COPY, type CopyKey } from '../logic/copy.ts';
@@ -465,6 +466,7 @@ export function HydraGame({
   const c = useMemo(() => contentFor(manifest, edition), [manifest, edition]);
   const [plain, setPlain] = usePlainHeadings();
   const [legend, setLegend] = useState(false);
+  const wide = useWideScreen();
   const seatsRef = useRef<HTMLElement>(null);
   const deskSeatsRef = useRef<HTMLElement>(null);
   // The server words its refusals with name tokens ("Only the {president} discards now.").
@@ -655,8 +657,14 @@ export function HydraGame({
       <ThemeRoot c={c} plain={plain} className="space-y-3 pb-4">
         <HydraStyles />
         <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <End view={view} room={room} c={c} act={act} />
-          <Timeline view={view} c={c} />
+          <End
+            view={view}
+            room={room}
+            c={c}
+            act={act}
+            timeline={!wide && <Timeline view={view} c={c} />}
+          />
+          {wide && <Timeline view={view} c={c} />}
         </div>
         <MomentView view={view} c={c} moment={moment} onSkip={skip} sound={sound} />
       </ThemeRoot>

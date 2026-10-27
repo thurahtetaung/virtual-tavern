@@ -11,6 +11,8 @@ import {
   cn,
   useConfirm,
   useSecondsLeft,
+  EndTabs,
+  useWideScreen,
 } from '@vt/ui';
 import { type FormEvent, useState } from 'react';
 import { answerProblem } from '../logic/game.ts';
@@ -170,7 +172,8 @@ function ContinueWithout({ view, room, act, online }: Omit<Props, 'names'>) {
   const left = useSecondsLeft(round?.deadline ?? null, room.clockOffset);
   if (!room.isHost || !round || round.stage !== 'answer') return null;
   const missing = missingIds(round);
-  if (missing.length === 0) return null;
+  // The host who is still to answer just does it: never a button to skip themself.
+  if (missing.length === 0 || missing.includes(room.you)) return null;
   const timeUp = left === 0;
   if (!timeUp && !missing.every((id) => !online(id))) return null;
   const list =
@@ -471,27 +474,48 @@ export function Stage(props: Props) {
 
 export function GameOver(props: Props) {
   const { view, room, act, names } = props;
+  const wide = useWideScreen();
   return (
     <div className="space-y-4">
-      <Panel className="space-y-4">
+      <Panel className="space-y-4 max-lg:space-y-3 max-lg:p-3">
         {view.endReason === 'too-few' && (
           <p className="text-center font-semibold">
             Too few players left: the game ended with no winner.
           </p>
         )}
-        <Standings
-          entries={view.scores.map((s) => ({
-            id: s.id,
-            name: s.left ? `${s.name} (left)` : s.name,
-            score: s.cows,
-            ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
-          }))}
-          you={view.me?.id}
-          scoreLabel={(n) => cowCount(names, n)}
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={view.scores.map((s) => ({
+                    id: s.id,
+                    name: s.left ? `${s.name} (left)` : s.name,
+                    score: s.cows,
+                    ...(view.pinkCow === s.id && { note: `🩷 ${names.pink}` }),
+                  }))}
+                  you={view.me?.id}
+                  scoreLabel={(n) => cowCount(names, n)}
+                />
+              ),
+            },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            !wide &&
+              !!view.round?.result && {
+                id: 'question',
+                label: '❓ Last question',
+                content: <Reveal {...props} final />,
+              },
+          ]}
         />
-        <Superlatives lines={room.superlatives} />
         {room.isHost ? (
-          <div className="grid gap-2 sm:flex sm:justify-center">
+          <div className="flex gap-2 [&>*]:whitespace-nowrap max-sm:[&>*]:flex-1 max-sm:[&>*]:px-3 sm:justify-center">
             <Button size="lg" onClick={() => void act({ type: 'start' })}>
               Play again
             </Button>
@@ -507,7 +531,7 @@ export function GameOver(props: Props) {
           <p className="text-center">{waitingForHost(room, 'start the next game')}</p>
         )}
       </Panel>
-      {view.round?.result && (
+      {wide && view.round?.result && (
         <Panel>
           <h3 className="mb-2 font-bold">The last question</h3>
           <Reveal {...props} final />

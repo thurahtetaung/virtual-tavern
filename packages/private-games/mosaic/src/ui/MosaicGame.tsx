@@ -1,6 +1,7 @@
 import { type GameRoomInfo, type GameUiProps, storageKey, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
+  EndTabs,
   Hint,
   LobbySettings,
   Panel,
@@ -15,6 +16,7 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { fullRows } from '../logic/rules.ts';
@@ -366,6 +368,7 @@ function End({
   art: Art;
 }) {
   const g = view.game!;
+  const wide = useWideScreen();
   const players = g.players.filter((p) => !p.removed);
   // Winners first among equal points (a tie goes to most full rows), so the podium matches.
   const score = (id: string) => {
@@ -374,24 +377,45 @@ function End({
   };
   return (
     <div className="flex flex-col gap-2 lg:mx-auto lg:max-w-4xl">
-      <Panel className="mo-rise flex flex-col gap-3">
-        <Standings
-          entries={players.map((p) => ({
-            id: p.id,
-            name: p.name,
-            score: score(p.id),
-            note: endNote(
-              p.wall,
-              g.scoring?.last ? g.scoring.players[p.id]?.bonus : undefined,
-              p.left,
-            ),
-          }))}
-          you={room.you}
-          scoreLabel={(n) =>
-            `${Math.ceil(n / 100)} ${Math.ceil(n / 100) === 1 ? 'point' : 'points'}`
-          }
+      <Panel className="mo-rise flex flex-col gap-3 max-lg:p-3">
+        <EndTabs
+          tabs={[
+            {
+              id: 'scores',
+              label: '🏆 Scores',
+              content: (
+                <Standings
+                  entries={players.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    score: score(p.id),
+                    note: endNote(
+                      p.wall,
+                      g.scoring?.last ? g.scoring.players[p.id]?.bonus : undefined,
+                      p.left,
+                    ),
+                  }))}
+                  you={room.you}
+                  scoreLabel={(n) =>
+                    `${Math.ceil(n / 100)} ${Math.ceil(n / 100) === 1 ? 'point' : 'points'}`
+                  }
+                  // Phones: the table alone (the podium repeats it), so the end fits the screen.
+                  className="max-lg:[&>ol:first-child]:hidden"
+                />
+              ),
+            },
+            !!room.superlatives?.length && {
+              id: 'awards',
+              label: '✨ Awards',
+              content: <Superlatives lines={room.superlatives} />,
+            },
+            !wide && {
+              id: 'walls',
+              label: '🧱 Walls',
+              content: <Tiling view={view} room={room} act={act} art={art} />,
+            },
+          ]}
         />
-        <Superlatives lines={room.superlatives} />
         {room.isHost ? (
           <div className="flex flex-wrap gap-2">
             <Button
@@ -414,7 +438,7 @@ function End({
         )}
         <RefusalSlot anchor="mo-end" />
       </Panel>
-      <Tiling view={view} room={room} act={act} art={art} />
+      {wide && <Tiling view={view} room={room} act={act} art={art} />}
     </div>
   );
 }

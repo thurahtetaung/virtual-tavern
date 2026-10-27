@@ -8,6 +8,8 @@ import {
   useSecondsLeft,
   useSpectatorPrompt,
   useAbandonGame,
+  cn,
+  useWideScreen,
 } from '@vt/ui';
 import { useEffect } from 'react';
 import { type HoodwinkAction, type HoodwinkView, MAX_PLAYERS } from '../logic/types.ts';
@@ -94,7 +96,8 @@ function ContinueWithout({
   const left = useSecondsLeft(round?.deadline ?? null, room.clockOffset);
   if (!room.isHost || view.phase !== 'playing' || !round || round.stage === 'reveal') return null;
   const missing = missingIds(round);
-  if (missing.length === 0) return null;
+  // The host who is still to write or vote just does it: never a button to skip themself.
+  if (missing.length === 0 || missing.includes(room.you)) return null;
   const timeUp = left === 0;
   if (!timeUp && !missing.every((id) => !online(id))) return null;
   // Plain names here: the panel already says they're away.
@@ -111,7 +114,7 @@ function ContinueWithout({
           : `Still waiting for ${names}. Continue, and they simply don’t vote.`}
       </p>
       <Button size="lg" className="w-full" onClick={() => void act({ type: 'continue-without' })}>
-        Continue without {names}
+        <span className="truncate">Continue without {names}</span>
       </Button>
     </Panel>
   );
@@ -131,6 +134,8 @@ export function HoodwinkGame({
   const reveal = useReveal(view.phase === 'playing' ? view.round : null, room.clockOffset);
   // While the answers are turned over one by one, nothing gives away who scored.
   const revealing = reveal.progress !== null;
+  const wide = useWideScreen();
+  const phoneEnd = view.phase === 'over' && !wide;
   const status = statusFor(view, room.isHost, blocker, room, revealing);
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
@@ -190,7 +195,15 @@ export function HoodwinkGame({
         )}
         <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
         {view.phase === 'over' ? (
-          <GameOver view={view} act={act} isHost={room.isHost} room={room} />
+          <GameOver
+            view={view}
+            act={act}
+            isHost={room.isHost}
+            room={room}
+            players={
+              phoneEnd && <Table view={view} online={online} act={act} hostId={room.hostId} />
+            }
+          />
         ) : (
           view.round && (
             <>
@@ -202,7 +215,7 @@ export function HoodwinkGame({
           )
         )}
       </div>
-      <aside className="space-y-3">
+      <aside className={cn('space-y-3', phoneEnd && 'hidden')}>
         <Panel className="space-y-3">
           <Scores view={view} revealing={revealing} />
           <Table view={view} online={online} act={act} hostId={room.hostId} />

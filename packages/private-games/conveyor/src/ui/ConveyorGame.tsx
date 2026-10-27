@@ -17,8 +17,10 @@ import {
   timersLine,
   useAbandonGame,
   useSpectatorPrompt,
+  EndTabs,
+  useWideScreen,
 } from '@vt/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
   GROUP_WORDS,
   type Group,
@@ -74,6 +76,7 @@ export function ConveyorGame({
   }, [setYourMove, tabAlert]);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
+  const wide = useWideScreen();
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
   useSpectatorPrompt(
     setSpectator,
@@ -84,6 +87,18 @@ export function ConveyorGame({
       : null,
   );
   const guide = (topic?: unknown) => showGuide(topic);
+  const phoneEnd = view.phase === 'over' && !wide;
+  const table = (
+    <Table
+      view={view}
+      room={room}
+      act={act}
+      art={art}
+      name={youName}
+      logName={name}
+      showGuide={guide}
+    />
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-2">
@@ -95,17 +110,16 @@ export function ConveyorGame({
           <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
           {view.phase === 'playing' && inGame && <Tips art={art} />}
           {view.phase === 'over' && (
-            <End view={view} room={room} act={act} art={art} name={youName} />
+            <End
+              view={view}
+              room={room}
+              act={act}
+              art={art}
+              name={youName}
+              table={phoneEnd ? table : null}
+            />
           )}
-          <Table
-            view={view}
-            room={room}
-            act={act}
-            art={art}
-            name={youName}
-            logName={name}
-            showGuide={guide}
-          />
+          {!phoneEnd && table}
         </>
       )}
     </div>
@@ -534,64 +548,92 @@ function End({
   act,
   art,
   name,
+  table,
 }: {
   view: ConveyorView;
   room: GameRoomInfo;
   act: Act;
   art: Art;
   name: NameOf;
+  /** Phones: the table, as one of the end's tabs. */
+  table: ReactNode;
 }) {
   const g = view.game!;
   return (
-    <Panel className="cv-rise flex flex-col gap-3">
-      <Standings
-        entries={g.players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          score: p.score,
-          note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
-        }))}
-        you={room.you}
-        lowerIsBetter={g.golf}
+    <Panel className="cv-rise flex flex-col gap-3 max-lg:p-3">
+      <EndTabs
+        tabs={[
+          {
+            id: 'scores',
+            label: '🏆 Scores',
+            content: (
+              <Standings
+                entries={g.players.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  score: p.score,
+                  note: `${p.desserts.length} ${art.names.type(g.menu.find((t) => TYPES[t].group === 'desserts')!)}`,
+                }))}
+                you={room.you}
+                lowerIsBetter={g.golf}
+              />
+            ),
+          },
+          !!g.dessertRows && {
+            id: 'desserts',
+            label: '🍮 Desserts',
+            content: (
+              <details className="text-sm" open>
+                <summary className="cursor-pointer font-semibold">Desserts at the end</summary>
+                <div className="mt-2">
+                  <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
+                </div>
+              </details>
+            ),
+          },
+          {
+            id: 'rounds',
+            label: '📋 Rounds',
+            content: (
+              <details className="text-sm">
+                <summary className="cursor-pointer font-semibold">Round by round</summary>
+                <table className="mt-2 w-full text-left tabular-nums">
+                  <thead>
+                    <tr>
+                      <th className="font-semibold">Player</th>
+                      {g.results.map((r) => (
+                        <th key={r.round}>R{r.round}</th>
+                      ))}
+                      <th>🍮</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.players.map((p) => (
+                      <tr key={p.id}>
+                        <td>{name(p.id)}</td>
+                        {g.results.map((r) => (
+                          <td key={r.round}>{r.rows.find((x) => x.id === p.id)?.points ?? 0}</td>
+                        ))}
+                        <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
+                        <td className="font-bold">{p.score}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            ),
+          },
+          !!room.superlatives?.length && {
+            id: 'awards',
+            label: '✨ Awards',
+            content: <Superlatives lines={room.superlatives} />,
+          },
+          !!table && { id: 'table', label: '🍣 Table', content: table },
+        ]}
       />
-      {g.dessertRows && (
-        <details className="text-sm" open>
-          <summary className="cursor-pointer font-semibold">Desserts at the end</summary>
-          <div className="mt-2">
-            <ScoreRows rows={g.dessertRows} art={art} name={name} you={room.you} />
-          </div>
-        </details>
-      )}
-      <details className="text-sm">
-        <summary className="cursor-pointer font-semibold">Round by round</summary>
-        <table className="mt-2 w-full text-left tabular-nums">
-          <thead>
-            <tr>
-              <th className="font-semibold">Player</th>
-              {g.results.map((r) => (
-                <th key={r.round}>R{r.round}</th>
-              ))}
-              <th>🍮</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {g.players.map((p) => (
-              <tr key={p.id}>
-                <td>{name(p.id)}</td>
-                {g.results.map((r) => (
-                  <td key={r.round}>{r.rows.find((x) => x.id === p.id)?.points ?? 0}</td>
-                ))}
-                <td>{g.dessertRows?.find((x) => x.id === p.id)?.points ?? 0}</td>
-                <td className="font-bold">{p.score}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-      <Superlatives lines={room.superlatives} />
       {room.isHost ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-wrap gap-2">
           <Button
             size="lg"
             className="flex-1"
