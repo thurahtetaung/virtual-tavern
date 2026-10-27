@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.4...v0.75.5) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** a tap on Wire Sequence goes to the wire drawn on top there, and the lobby's first-time intro is one line on phones ([#449](https://github.com/thurahtetaung/virtual-tavern/issues/449)) ([08f50ba](https://github.com/thurahtetaung/virtual-tavern/commit/08f50ba01afcdcecb678ca9374e99cf66e33c760))
+
 ## [0.75.4](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.3...v0.75.4) (2026-10-27)
 
 
