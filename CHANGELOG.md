@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.5...v0.76.6) (2026-10-27)
+
+
+### Bug Fixes
+
+* Sketchy's vote fits a phone with eight players, and the themed Hydra edition's and Going Once's ends fit a phone too ([#471](https://github.com/thurahtetaung/virtual-tavern/issues/471)) ([7d5c91d](https://github.com/thurahtetaung/virtual-tavern/commit/7d5c91d7b5bd073e84e4acf2dbb77010f486185d))
+
 ## [0.76.5](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.4...v0.76.5) (2026-10-27)
 
 
