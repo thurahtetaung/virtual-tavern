@@ -51,7 +51,7 @@ export type DefuseUiProps = GameUiProps<DefuseView, Action>;
 const INTRO_KEY = 'vt.defuse.talk-intro';
 
 const MANUAL_LABEL: Record<ManualMode, string> = {
-  printed: 'The printed manual',
+  printed: 'Standard manual',
   each: 'New manual each bomb',
   night: 'Same manual all night',
 };

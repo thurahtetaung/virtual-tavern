@@ -243,7 +243,7 @@ function base(art: GuideArt): GameGuide {
         bullets: [
           'With this host option every module follows different rules: other wires to cut, other keypad columns, other mazes, other words and frequencies. The experts’ pages show the rules in play, so nobody can defuse from memory.',
           '“New manual each bomb” brings a new one with every bomb; “Same manual all night” keeps one until the host changes the option.',
-          'The manual’s index says when it is a different manual. Pages whose rules never change (the password words, the needy gas and capacitor, the edges) look as printed.',
+          'The manual’s index says when it is a different manual. Pages whose rules never change (the password words, the needy gas and capacitor, the edges) keep the standard manual’s pictures.',
         ],
       },
       {
