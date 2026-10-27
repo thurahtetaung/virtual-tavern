@@ -107,4 +107,32 @@ describe('haptics', () => {
     haptics.buzz('WireSnip');
     expect(haptics.log.at(-1)).toMatchObject({ route: 'none', ok: false });
   });
+
+  it("plays a buzz refused before the first tap on that tap's lift, and logs the activation", () => {
+    const page = new EventTarget();
+    let active = false;
+    vi.stubGlobal('window', page);
+    vi.stubGlobal('navigator', {
+      userActivation: {
+        get hasBeenActive() {
+          return active;
+        },
+      },
+      vibrate: (p: number | number[]) => {
+        calls.push(p);
+        return active;
+      },
+    });
+    haptics.buzz('KeypadButton');
+    expect(haptics.log.at(-1)).toMatchObject({ ok: false, activated: false });
+    // The lift is what activates the page; then the buzz goes again.
+    active = true;
+    page.dispatchEvent(new Event('pointerup'));
+    expect(haptics.log.at(-1)).toMatchObject({ ok: true, activated: true, deferred: true });
+    expect(calls).toEqual([150, 150]);
+    // Once activated, nothing waits.
+    haptics.buzz('WireSnip');
+    page.dispatchEvent(new Event('pointerup'));
+    expect(calls).toEqual([150, 150, 150]);
+  });
 });

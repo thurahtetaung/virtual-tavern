@@ -5,6 +5,10 @@
 // controllers; ours ticks on touch (below), never for a mouse. A phone can't set a strength, so the strength scales the length.
 //
 // Only through the Vibration API, where the browser has it (Android browsers; not iOS Safari).
+// Chrome refuses a call while the page has never been tapped (no sticky user activation: a touch
+// only counts once lifted, so a buzz on the very first finger-down is refused); such a buzz is
+// played on that lift instead. Chrome on Android also drops every vibration while the phone's
+// ringer is on silent, though the call still returns true.
 // Strikes and the needy warnings are ours (the original doesn't buzz for them).
 import { storageKey } from '@vt/game-sdk';
 
@@ -70,6 +74,20 @@ export interface HapticCall {
   route: 'vibrate' | 'none' | 'off';
   /** What `navigator.vibrate` returned (false: the browser refused it). */
   ok: boolean;
+  /** Whether the page had been tapped before (Chrome's sticky user activation), if known. */
+  activated?: boolean;
+  /** Refused before the first tap, and played on its lift. */
+  deferred?: boolean;
+}
+
+/** The page has had a user activation, when the browser says (`navigator.userActivation`). */
+function activated(): boolean | undefined {
+  try {
+    return (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation
+      ?.hasBeenActive;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The device's vibration: on unless the player switched it off; every call is logged. */
@@ -111,16 +129,48 @@ class Haptics {
     if (type === 'Selection' && now - this.lastAt < SELECTION_GAP_MS) return;
     this.lastAt = now + (type === 'Selection' ? 0 : pattern.reduce((a, b) => a + b, 0));
     const route = !this.enabled ? 'off' : this.supported ? 'vibrate' : 'none';
+    const was = route === 'vibrate' ? activated() : undefined;
     let ok = false;
-    if (route === 'vibrate') {
-      try {
-        ok = navigator.vibrate(pattern.length === 1 ? pattern[0]! : pattern);
-      } catch {
-        ok = false;
-      }
+    if (route === 'vibrate') ok = this.send(pattern);
+    const call: HapticCall = { at: Date.now(), type, pattern, route, ok, activated: was };
+    this.record(call);
+    // Refused before the page's first tap: play it when that tap lifts (the lift is what
+    // activates the page), unless it's only a highlight tick.
+    if (route === 'vibrate' && !ok && was === false && type !== 'Selection') this.later(call);
+  }
+
+  private send(pattern: number[]): boolean {
+    try {
+      return navigator.vibrate(pattern.length === 1 ? pattern[0]! : pattern);
+    } catch {
+      return false;
     }
-    this.log.push({ at: Date.now(), type, pattern, route, ok });
+  }
+
+  private record(call: HapticCall) {
+    this.log.push(call);
     if (this.log.length > 200) this.log.shift();
+  }
+
+  private waiting: HapticCall | null = null;
+
+  private later(call: HapticCall) {
+    if (typeof window === 'undefined') return;
+    const first = !this.waiting;
+    this.waiting = call;
+    if (!first) return;
+    const lift = () => {
+      window.removeEventListener('pointerup', lift, true);
+      window.removeEventListener('touchend', lift, true);
+      const c = this.waiting;
+      this.waiting = null;
+      // Too late to belong to the tap that made it: dropped.
+      if (!c || Date.now() - c.at > 1500 || !this.enabled) return;
+      const ok = this.send(c.pattern);
+      this.record({ ...c, at: Date.now(), ok, activated: activated(), deferred: true });
+    };
+    window.addEventListener('pointerup', lift, true);
+    window.addEventListener('touchend', lift, true);
   }
 }
 
