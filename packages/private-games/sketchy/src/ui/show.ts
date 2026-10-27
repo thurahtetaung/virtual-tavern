@@ -132,14 +132,18 @@ export function seenKeys(view: SketchyView): string[] {
   if (view.phase === 'over') return ['over'];
   if (!g) return [];
   const keys: string[] = [];
-  if (g.stage === 'draw') for (const id of g.drawn) keys.push(`drawn:${g.round}:${id}`);
+  // What arrives lives on into the next stage: the last drawing, title or pick in moves the table
+  // on at once, and its pencil or tick still plays there (same ids, so nothing replays).
+  for (const id of g.drawn) keys.push(`drawn:${g.round}:${id}`);
   // The viewer's own cues live on into the next stage: the last one in moves the table on at once.
   if (g.sentDrawing) keys.push(`sent:${g.round}`);
   const t = g.turn;
   if (t && (g.stage === 'write' || g.stage === 'vote')) {
-    for (let k = 0; k < t.done; k++) keys.push(`${g.stage}:${turnKey(view)}:${k}`);
+    for (let k = 0; k < t.titles; k++) keys.push(`write:${turnKey(view)}:${k}`);
     if (t.myLie !== null) keys.push(`mylie:${turnKey(view)}`);
   }
+  if (t && (g.stage === 'vote' || g.stage === 'reveal'))
+    for (let k = 0; k < picksIn(t, g.stage); k++) keys.push(`vote:${turnKey(view)}:${k}`);
   if (t && g.stage === 'reveal')
     for (const o of t.options)
       if (o.likes) keys.push(`like:${turnKey(view)}:${o.index}:${o.likes}`);
@@ -147,6 +151,64 @@ export function seenKeys(view: SketchyView): string[] {
 }
 
 const at = (ctx: ShowCtx, key: string) => ctx.seen[key] ?? 0;
+
+/** Picks in: counted while picking, then read off the revealed board. */
+function picksIn(t: TurnView, stage: string): number {
+  if (stage === 'vote') return t.done;
+  return t.options.reduce((n, o) => n + (o.voters?.length ?? 0), 0);
+}
+
+/**
+ * Drawings, titles and picks arriving, in whichever stage the table is in by then (the last one
+ * in moves it on at once): each pencil finishes with its player's yelp, each writer's pencil
+ * breaks, each pick ticks.
+ */
+function arrivals(view: SketchyView, ctx: ShowCtx): Moment[] {
+  const g = view.game!;
+  const out: Moment[] = [];
+  for (const id of g.drawn) {
+    out.push({
+      id: `drawn:${g.round}:${id}`,
+      at: at(ctx, `drawn:${g.round}:${id}`),
+      steps: [
+        anim(0, `worm:${id}`, 'worm.Finished', { on: STAGE }),
+        anim(0, `fill:${id}`, 'wormFill.Finished', { on: STAGE }),
+        ...swapSteps(ctx, 'worm', 'Finished', 0, `worm:${id}`),
+        ...swapSteps(ctx, 'wormFill', 'Finished', 0, `fill:${id}`),
+        sfx(0, 'draw.break'),
+        // The yelp follows the break, as the original chains them.
+        sfx(150, `yelp#${slotOf(view, id)}`),
+        anim(400, `pencilBox:${id}/pencilBox-container`, 'pencilBox-container.Disappear', {
+          on: STAGE,
+        }),
+        anim(400, `pencilBox:${id}/pencilBox-dot`, 'pencilBox-dot.Disappear', { on: STAGE }),
+        pop(400, `drawn:${id}`, STAGE, 367),
+      ],
+    });
+  }
+  const t = g.turn;
+  if (!t) return out;
+  const key = turnKey(view);
+  if (g.stage === 'write' || g.stage === 'vote')
+    for (let k = 0; k < t.titles; k++)
+      out.push({
+        id: `write:${key}:${k}`,
+        at: at(ctx, `write:${key}:${k}`),
+        steps: [
+          anim(0, `pencil:${k}`, 'worm.Break', { on: STAGE }),
+          ...swapSteps(ctx, 'worm', 'Break', 0, `pencil:${k}`),
+          sfx(0, 'write.break'),
+        ],
+      });
+  if (g.stage === 'vote' || g.stage === 'reveal')
+    for (let k = 0; k < picksIn(t, g.stage); k++)
+      out.push({
+        id: `voted:${key}:${k}`,
+        at: at(ctx, `vote:${key}:${k}`),
+        steps: [pop(0, `voted:${k}`, STAGE, 250), sfx(0, 'vote.tick')],
+      });
+  return out;
+}
 
 // ---- 1 the lobby ----
 
@@ -235,28 +297,7 @@ function drawing(view: SketchyView, ctx: ShowCtx): Moment[] {
       }),
     ]),
   ];
-  const out: Moment[] = [{ id: `draw:${g.round}:${g.since}`, at: g.since, steps }];
-  for (const id of g.drawn) {
-    out.push({
-      id: `drawn:${g.round}:${id}`,
-      at: at(ctx, `drawn:${g.round}:${id}`),
-      steps: [
-        anim(0, `worm:${id}`, 'worm.Finished', { on: STAGE }),
-        anim(0, `fill:${id}`, 'wormFill.Finished', { on: STAGE }),
-        ...swapSteps(ctx, 'worm', 'Finished', 0, `worm:${id}`),
-        ...swapSteps(ctx, 'wormFill', 'Finished', 0, `fill:${id}`),
-        sfx(0, 'draw.break'),
-        // The yelp follows the break, as the original chains them.
-        sfx(150, `yelp#${slotOf(view, id)}`),
-        anim(400, `pencilBox:${id}/pencilBox-container`, 'pencilBox-container.Disappear', {
-          on: STAGE,
-        }),
-        anim(400, `pencilBox:${id}/pencilBox-dot`, 'pencilBox-dot.Disappear', { on: STAGE }),
-        pop(400, `drawn:${id}`, STAGE, 367),
-      ],
-    });
-  }
-  return out;
+  return [{ id: `draw:${g.round}:${g.since}`, at: g.since, steps }];
 }
 
 /**
@@ -377,17 +418,6 @@ function writing(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       ],
     },
   ];
-  for (let k = 0; k < t.done; k++) {
-    out.push({
-      id: `write:${key}:${k}`,
-      at: at(ctx, `write:${key}:${k}`),
-      steps: [
-        anim(0, `pencil:${k}`, 'worm.Break', { on: STAGE }),
-        ...swapSteps(ctx, 'worm', 'Break', 0, `pencil:${k}`),
-        sfx(0, 'write.break'),
-      ],
-    });
-  }
   return out;
 }
 
@@ -419,12 +449,6 @@ function voting(view: SketchyView, ctx: ShowCtx, t: TurnView): Moment[] {
       ],
     },
   ];
-  for (let k = 0; k < t.done; k++)
-    out.push({
-      id: `voted:${key}:${k}`,
-      at: at(ctx, `vote:${key}:${k}`),
-      steps: [pop(0, `voted:${k}`, STAGE, 250), sfx(0, 'vote.tick')],
-    });
   return out;
 }
 
@@ -699,6 +723,7 @@ export function moments(view: SketchyView, ctx: ShowCtx): Moment[] {
   if (t && g.stage === 'write') out.push(...writing(view, ctx, t));
   if (t && g.stage === 'vote') out.push(...voting(view, ctx, t));
   if (t && g.stage === 'reveal') out.push(...revealing(view, ctx, t));
+  out.push(...arrivals(view, ctx));
   out.push(...mine(view, ctx));
   out.push(...clock(view));
   return out;

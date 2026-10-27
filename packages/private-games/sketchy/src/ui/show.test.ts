@@ -136,6 +136,45 @@ describe('moments', () => {
     ).toHaveLength(2);
   });
 
+  it('finishes the last pencil, breaks the last title’s pencil and ticks the last pick on the table screen after the table moved on', () => {
+    const at = 9_000_000;
+    const stage: Parameters<typeof schedule>[2] = {
+      profile: 'stage',
+      you: null,
+      reduced: false,
+      low: false,
+      tracks,
+    };
+    const sounds = (v: SketchyView, key: string, id = key) => {
+      const m = moments(v, ctx({ seen: { [key]: at } })).find((x) => x.id === id);
+      expect(m?.at).toBe(at);
+      return schedule(m!, at, stage).flatMap((s) => (s.step.kind === 'sfx' ? [s.step.clip] : []));
+    };
+    const h = started();
+    const last = game(h).players.at(-1)!;
+    drawAll(h);
+    // Writing already, and the table screen first hears of the last drawing now.
+    const w = viewOf(h, null);
+    expect(w.game!.stage).toBe('write');
+    expect(seenKeys(w)).toContain(`drawn:1:${last}`);
+    expect(sounds(w, `drawn:1:${last}`)).toEqual(['draw.break', `yelp#${slotOf(w, last)}`]);
+    // Picking already: the last title's pencil still breaks.
+    lieAll(h);
+    const v = viewOf(h, null);
+    expect(v.game!.stage).toBe('vote');
+    const titles = v.game!.turn!.titles;
+    expect(titles).toBe(turn(h).writers.length);
+    const key = seenKeys(v).find((k) => k.startsWith('write:') && k.endsWith(`:${titles - 1}`))!;
+    expect(sounds(v, key)).toEqual(['write.break']);
+    // The reveal already: the last pick still ticks.
+    const r = viewOf(revealed(), null);
+    expect(r.game!.stage).toBe('reveal');
+    const picks = seenKeys(r).filter((k) => k.startsWith('vote:'));
+    expect(picks).toHaveLength(turn(h).voters.length);
+    const lastPick = picks.at(-1)!;
+    expect(sounds(r, lastPick, lastPick.replace('vote:', 'voted:'))).toEqual(['vote.tick']);
+  });
+
   it('never tells the table screen what only the artist knows before the reveal', () => {
     const h = writing();
     const t = turn(h);

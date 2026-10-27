@@ -73,6 +73,7 @@ function turnView(
       g.stage === 'write'
         ? turn.writers.filter((id) => turn.lies[id] !== undefined).length
         : turn.voters.filter((id) => turn.votes[id] !== undefined).length,
+    titles: turn.writers.filter((id) => turn.lies[id] !== undefined).length,
     myLie: writing ? (turn.lies[viewer] ?? null) : null,
     myLieShared: writing && lieShared(turn, viewer),
     options,
@@ -97,7 +98,7 @@ function gameView(state: SketchyState, g: Game, viewer: PlayerId | null): GameVi
     rounds: g.rounds,
     stage: g.stage,
     players: g.players,
-    drawn: drawing ? g.players.filter((id) => g.sketches[id]?.drawing) : [],
+    drawn: state.phase === 'playing' ? g.players.filter((id) => g.sketches[id]?.drawing) : [],
     myPrompt: drawing && inRound && own ? own.prompt.text : null,
     myDrawing: drawing && inRound && own ? own.drawing : null,
     sentDrawing: state.phase === 'playing' && inRound && !!own?.drawing,
