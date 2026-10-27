@@ -18,9 +18,15 @@ export async function playEscape(players: Page[], names: Map<Page, string>) {
   return dealt;
 }
 
-/** The end screen's superlatives show on every device. */
+/** Phones show the end one part at a time (`EndTabs`): the awards are a tab of their own. */
+export async function openAwards(p: Page) {
+  if ((p.viewportSize()?.width ?? 1280) < 1024) await p.getByTestId('end-tabs-awards').click();
+}
+
+/** The end screen's superlatives show on every device (on phones, under the Awards tab). */
 export async function expectStrips(players: Page[]) {
   for (const p of players) {
+    await openAwards(p);
     const strip = p.getByRole('region', { name: 'Superlatives' });
     await expect(strip).toBeVisible();
     await expect(strip.locator('dt').first()).toBeVisible();

@@ -21,7 +21,7 @@ import { readCards, readyUp, votes } from './masquerade-play.ts';
 import * as hy from './hydra-play.ts';
 import { MANIFEST as HOGWARTS, WORDS as HOGWARTS_WORDS } from './hogwarts-manifest.ts';
 import * as rt from './round-table-play.ts';
-import { confirmWrap } from './recap-play.ts';
+import { confirmWrap, openAwards } from './recap-play.ts';
 import {
   VAMPIRES,
   dayTab,
@@ -1238,6 +1238,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await board.getByRole('button', { name: `Pick ${wrong}`, exact: true }).click();
         await board.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
       }
+      await openAwards(host);
       await expect(host.getByRole('region', { name: 'Superlatives' })).toBeVisible();
     }
     const strip = host.getByRole('region', { name: 'Superlatives' });
@@ -1276,6 +1277,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const wrong = dealt.location === 'Bakery' ? 'Gym' : 'Bakery';
     await board.getByRole('button', { name: `Pick ${wrong}`, exact: true }).click();
     await board.getByRole('button', { name: `Guess ${wrong}`, exact: true }).click();
+    await openAwards(host);
     await expect(host.getByRole('region', { name: 'Superlatives' })).toBeVisible();
     await host.getByRole('button', { name: '🍻 Wrap up the night' }).first().click();
     await confirmWrap(host);
