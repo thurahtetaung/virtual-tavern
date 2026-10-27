@@ -15,6 +15,7 @@ import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import { closeMs } from '../logic/game.ts';
 import { BID_SETTLE_MS, type GoingOnceView, type LotResult, PAIR_TOTAL } from '../logic/types.ts';
+import { drewIt } from '../logic/view.ts';
 import { BidLadder, Paddle, PsstBubble, SenderIcon } from './Extras.tsx';
 import type { Act } from './act.ts';
 import type { Art } from './assets.ts';
@@ -679,7 +680,7 @@ export function Auction({
   const a = g.auction!;
   const pic = a.picture;
   const [localHidden, setLocalHidden] = useLocalHidden();
-  const own = view.mine?.prompts.some((p) => p.item === pic.item) ?? false;
+  const own = drewIt(view.mine, pic.item);
   const side = (tab: Tab) =>
     tab === 'wish' ? (
       <WishList view={view} />

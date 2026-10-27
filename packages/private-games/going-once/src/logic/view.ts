@@ -216,6 +216,13 @@ function mineView(state: GoingOnceState, g: Game, viewer: PlayerId): MineView | 
   };
 }
 
+/**
+ * Whether the viewer drew this lot: one of their titles that they sent. A title they never sent
+ * is a house picture with no artist, so it is never theirs (no "your drawing", no commission).
+ */
+export const drewIt = (mine: GoingOnceView['mine'], item: string) =>
+  mine?.prompts.some((p) => p.item === item && p.sent) ?? false;
+
 export function view(state: GoingOnceState, viewer: PlayerId | null): GoingOnceView {
   const seats: SeatView[] = Object.entries(state.seats).map(([id, s]) => ({
     id,
