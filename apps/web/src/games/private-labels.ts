@@ -1,3 +1,4 @@
+import { namesOf as defuseNames } from '@vt/private-defuse/logic';
 import type { GameGuide } from '@vt/game-sdk';
 import { loadManifest } from '@vt/ui';
 import {
@@ -238,6 +239,13 @@ export async function thornsLabels(): Promise<Labeler> {
 export async function iconicLabels(): Promise<Labeler> {
   const m = (await manifest('iconic')) as IconicManifest | null;
   return (kind, id) => (kind === 'card' && /^\d+$/.test(id) ? iconName(m, Number(id)) : undefined);
+}
+
+/** Defuse's module names (`{card:wires}`), from its manifest, else plain words. */
+export async function defuseLabels(): Promise<Labeler> {
+  const names = defuseNames(await manifest('defuse'));
+  return (kind, id) =>
+    kind === 'card' && id in names ? names[id as keyof typeof names] : undefined;
 }
 
 /** Stampede's Pink Cow (`{card:pink-cow}`), from its manifest, with its placeholder otherwise. */

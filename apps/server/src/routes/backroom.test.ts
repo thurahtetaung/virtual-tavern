@@ -157,6 +157,7 @@ describe('back room over HTTP', () => {
       'mission-control',
       'skyfire',
       'conveyor',
+      'defuse',
     ]);
   });
 

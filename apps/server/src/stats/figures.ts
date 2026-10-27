@@ -112,6 +112,8 @@ import type { GameFigure } from '@vt/protocol';
 //              {flipped; recap: round, auto}, uramaki {points, icons; recap: round}, miso {players;
 //              recap: round}, desserts {count, points}, outcome {players, golf, menu; recap:
 //              shared, ranking, scores}
+//   defuse     module {kind, needy, solved, strikes, seconds}, strike {kind}, expert {pages},
+//              outcome {how, defused, left, total, strikes, limit, modules, solved, players}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -2052,6 +2054,91 @@ function mosaicFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function defuseCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome': {
+      out.push(['f.bombs', 1]);
+      if (props.defused === true) {
+        out.push(['f.defused', 1]);
+        out.push(['f.left_ms', num(props.left) ?? 0]);
+        out.push(['max.f.most_left', num(props.left) ?? 0]);
+      }
+      if (props.how === 'strikes') out.push(['f.by_strikes', 1]);
+      if (props.how === 'time') out.push(['f.by_time', 1]);
+      out.push(['f.strikes', num(props.strikes) ?? 0]);
+      out.push(['f.modules', num(props.modules) ?? 0]);
+      break;
+    }
+    case 'module': {
+      if (props.needy === true) break;
+      const kind = typeof props.kind === 'string' ? props.kind : 'other';
+      out.push([`f.m.${kind}`, 1]);
+      if (props.solved === true) out.push([`f.m.${kind}_solved`, 1]);
+      out.push([`f.m.${kind}_strikes`, num(props.strikes) ?? 0]);
+      break;
+    }
+  }
+  return out;
+}
+
+const DEFUSE_KINDS = [
+  'wires',
+  'button',
+  'keypad',
+  'simon',
+  'whos-on-first',
+  'memory',
+  'morse',
+  'complicated-wires',
+  'wire-sequence',
+  'maze',
+  'password',
+];
+
+function defuseFigures(get: (metric: string) => number): GameFigure[] {
+  const bombs = get('f.bombs');
+  return [
+    { id: 'defused', label: 'Bombs defused', kind: 'percent', value: pct(get('f.defused'), bombs) },
+    {
+      id: 'ends',
+      label: 'How bombs went off',
+      kind: 'split',
+      parts: [
+        { label: 'Too many strikes', value: get('f.by_strikes') },
+        { label: 'Out of time', value: get('f.by_time') },
+      ],
+    },
+    {
+      id: 'left',
+      label: 'Seconds left on a defused bomb',
+      kind: 'number',
+      value: avg(get('f.left_ms') / 1000, get('f.defused')),
+    },
+    {
+      id: 'strikes',
+      label: 'Strikes per bomb',
+      kind: 'number',
+      value: avg(get('f.strikes'), bombs),
+    },
+    {
+      id: 'modules',
+      label: 'Modules per bomb',
+      kind: 'number',
+      value: avg(get('f.modules'), bombs),
+    },
+    {
+      id: 'module-strikes',
+      label: 'Strikes per module, by kind',
+      kind: 'split',
+      parts: DEFUSE_KINDS.map((k) => ({
+        label: `{card:${k}}`,
+        value: avg(get(`f.m.${k}_strikes`), get(`f.m.${k}`)),
+      })),
+    },
+  ];
+}
+
 function conveyorCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2388,6 +2475,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'mission-control') return missionControlCounters(type, props);
   if (gameId === 'skyfire') return skyfireCounters(type, props);
   if (gameId === 'conveyor') return conveyorCounters(type, props);
+  if (gameId === 'defuse') return defuseCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2613,6 +2701,8 @@ export function buildFigures(
       return skyfireFigures(get);
     case 'conveyor':
       return conveyorFigures(get);
+    case 'defuse':
+      return defuseFigures(get);
     case 'codenames':
       return [
         teams(false),

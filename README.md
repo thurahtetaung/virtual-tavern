@@ -71,6 +71,7 @@ packages/private-games/sketchy Sketchy (back room) rules, guide and UI; prompts 
 packages/private-games/mosaic  Mosaic (back room) rules, guide and UI; tile, marker and factory art come from private storage
 packages/private-games/encore Encore (back room) rules, guide and UI; card art comes from private storage
 packages/private-games/conveyor Conveyor (back room) rules, guide and UI; card art and names come from private storage
+packages/private-games/defuse   Defuse (back room) rules, guide and UI; renders, sounds and names come from private storage
 packages/private-games/mission-control Mission Control (back room) rules, guide and UI; task cards and the campaign come from private content packs, card art from private storage
 packages/private-games/skyfire Skyfire (back room) rules, guide and UI; card art comes from private storage
 e2e                           Playwright specs, run against the production build

@@ -39,6 +39,7 @@ import {
   parseTestDeck as parseConveyorDeck,
   setTestDeck as setConveyorDeck,
 } from '@vt/private-conveyor/logic';
+import { defuse, setTestSeed as setDefuseSeed } from '@vt/private-defuse/logic';
 
 // Browser tests only: Inquest events to put on top of the pile when they are shuffled in (a comma
 // list such as `ruled-out,countdown`), so a spec can reach them. Never read in production.
@@ -225,6 +226,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.CONVEYOR_TEST_DECK) {
   setConveyorDeck(parseConveyorDeck(process.env.CONVEYOR_TEST_DECK));
 }
 
+// Browser tests only: every Defuse bomb is built from this seed, so a spec knows its modules and
+// edgework. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.DEFUSE_TEST_SEED) {
+  setDefuseSeed(Number(process.env.DEFUSE_TEST_SEED) >>> 0);
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -261,6 +268,7 @@ export function buildGames(): GameRegistry {
     missionControl,
     skyfire,
     conveyor,
+    defuse,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }
