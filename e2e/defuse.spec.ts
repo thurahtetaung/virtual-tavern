@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { defuseAll, lightsOn, open, settings, table } from './defuse-play.ts';
+import { defuseAll, flat, lightsOn, open, settings, table } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -18,6 +18,7 @@ test('a bomb defused on a phone while the expert reads, then one that goes off',
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const [ana, ben] = (await table(browser, ['Ana', 'Ben'], { viewport: PHONE })) as [Page, Page];
+  await flat([ana, ben]);
   await expect(ana.getByTestId('defuser-line')).toContainText('The host defuses first');
   await ana.getByTestId('start').click();
 

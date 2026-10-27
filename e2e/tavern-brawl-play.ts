@@ -14,6 +14,8 @@ export interface Look {
   colorScheme?: 'light' | 'dark';
   /** Runs on each new page before it loads anything (routes for local art). */
   setup?: (page: Page) => Promise<void>;
+  /** A touch phone whatever its width (a phone held sideways). */
+  touch?: boolean;
 }
 
 let nextIp = 1;
@@ -23,8 +25,8 @@ export async function visitor(browser: Browser, name: string, look: Look = {}) {
     extraHTTPHeaders: { 'cf-connecting-ip': `10.31.${worker}.${(nextIp++ % 250) + 1}` },
     ...(look.viewport && {
       viewport: look.viewport,
-      isMobile: look.viewport.width < 500,
-      hasTouch: look.viewport.width < 500,
+      isMobile: look.touch ?? look.viewport.width < 500,
+      hasTouch: look.touch ?? look.viewport.width < 500,
     }),
     ...(look.colorScheme && { colorScheme: look.colorScheme }),
   });

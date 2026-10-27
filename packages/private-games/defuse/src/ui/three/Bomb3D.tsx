@@ -1,0 +1,482 @@
+import { storageKey } from '@vt/game-sdk';
+import { cn } from '@vt/ui';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { nextMove } from '../../logic/bot.ts';
+import type { Look as DefuserLook, ModuleOp } from '../../logic/types.ts';
+import type { BombView } from '../../logic/view.ts';
+import type { Art } from '../assets.ts';
+import { SIMON_TONES, player } from '../sound.ts';
+import { serverNow } from '../time.ts';
+import { type Device, HINTS, type HintStep, doneBy, hintFor } from './controls.ts';
+import { type Pack, type Quality, loadPack } from './rig.ts';
+import { BombScene, type Mirror, type Pose, sharedRenderer } from './scene.ts';
+
+const HINTS_KEY = 'vt.defuse.hints-3d';
+export const VIEW_KEY = 'vt.defuse.view';
+const LITE_KEY = 'vt.defuse.lite';
+const SIDEWAYS_KEY = 'vt.defuse.sideways';
+
+const read = (key: string) => {
+  try {
+    return localStorage.getItem(storageKey(key));
+  } catch {
+    return null;
+  }
+};
+const write = (key: string, value: string) => {
+  try {
+    localStorage.setItem(storageKey(key), value);
+  } catch {
+    // a private window: the choice lasts for this page
+  }
+};
+
+/** The player's own choice of defuser view: the 3D bomb (the default) or the flat one. */
+export function useViewMode(): ['3d' | '2d', (m: '3d' | '2d') => void] {
+  const [mode, setMode] = useState<'3d' | '2d'>(() => (read(VIEW_KEY) === '2d' ? '2d' : '3d'));
+  return [
+    mode,
+    (m) => {
+      write(VIEW_KEY, m);
+      setMode(m);
+    },
+  ];
+}
+
+/** The lighter setting: half the render scale and half-size textures, only when chosen. */
+const lite = () => read(LITE_KEY) === '1';
+
+const packs = new Map<string, Promise<Pack | null>>();
+function packFor(
+  base: string | null,
+  quality: Quality,
+  renderer: ReturnType<typeof sharedRenderer>,
+) {
+  const k = `${base}|${quality}`;
+  let p = packs.get(k);
+  if (!p) {
+    p = base ? loadPack(base, renderer, quality).catch(() => null) : Promise.resolve(null);
+    packs.set(k, p);
+  }
+  return p;
+}
+
+async function fontsReady(families: (string | null)[]) {
+  if (typeof document === 'undefined' || !document.fonts) return;
+  const wait = Promise.all(
+    families.flatMap((f) =>
+      f ? [document.fonts.load(`64px ${f.split(',')[0]}`).catch(() => [])] : [],
+    ),
+  );
+  await Promise.race([wait, new Promise((r) => setTimeout(r, 3000))]);
+}
+
+const touchDevice = () =>
+  typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+
+export interface Bomb3DProps {
+  b: BombView;
+  art: Art;
+  offset: number;
+  /** null on a read-only screen (the table screen). */
+  act: ((module: string, op: ModuleOp) => void) | null;
+  /** The table screen follows the defuser's pose. */
+  mirror?: DefuserLook | null;
+  /** The defuser's pose, for a table screen showing the bomb. */
+  onPose?: (m: Mirror) => void;
+  /** The corner controls: the sound switch, the rules, the view switch. */
+  corner?: ReactNode;
+  /** Browser tests: the scene's hooks on `window.__defuse3d`. */
+  test?: boolean;
+  /** The bomb has ended on this device (the slap: dark and the boom, or the defused bomb). */
+  fullScreen?: boolean;
+}
+
+/** The defuser's 3D bomb, full screen, with only the original's overlay. */
+export function Bomb3D({
+  b,
+  art,
+  offset,
+  act,
+  mirror,
+  onPose,
+  corner,
+  test,
+  fullScreen = true,
+}: Bomb3DProps) {
+  const box = useRef<HTMLDivElement>(null);
+  const band = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<BombScene | null>(null);
+  const [ready, setReady] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [pose, setPose] = useState<Pose>('desk');
+  const [dragging, setDragging] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [embedded, setEmbedded] = useState(false);
+  const [touch] = useState(touchDevice);
+  const device: Device = touch ? 'touch' : 'mouse';
+  const readOnly = !act;
+  const [done, setDone] = useState<Set<HintStep>>(() => {
+    try {
+      return new Set(JSON.parse(read(HINTS_KEY) ?? '[]') as HintStep[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const [sideways, setSideways] = useState(() => {
+    try {
+      return sessionStorage.getItem(SIDEWAYS_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [portrait, setPortrait] = useState(false);
+  const bRef = useRef(b);
+  const actRef = useRef(act);
+  const onPoseRef = useRef(onPose);
+  useLayoutEffect(() => {
+    bRef.current = b;
+    actRef.current = act;
+    onPoseRef.current = onPose;
+  });
+
+  // One scene per mount, on the page's one renderer.
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const light = lite();
+    const renderer = sharedRenderer(light ? 1 : 2);
+    el.prepend(renderer.domElement);
+    let live = true;
+    let scene: BombScene | null = null;
+    const ro = new ResizeObserver(() => {
+      scene?.resize();
+      setPortrait(el.clientHeight > el.clientWidth);
+    });
+    ro.observe(el);
+    void Promise.all([
+      packFor(art.scene, light ? 'lo' : 'hi', renderer),
+      fontsReady([art.fonts.digits, art.fonts.labels, art.fonts.morse]),
+    ]).then(([pack]) => {
+      if (!live) return;
+      scene = new BombScene(renderer, {
+        pack,
+        readOnly,
+        ctx: {
+          touch,
+          beep: (freq, ms, gain) => {
+            if (!readOnly) player.tone(freq, ms, gain);
+          },
+          glyph: (n) => art.glyph(n),
+          fonts: {
+            digits: art.fonts.digits ?? 'ui-monospace, monospace',
+            labels: art.fonts.labels ?? 'system-ui, sans-serif',
+            morse: art.fonts.morse ?? 'ui-monospace, monospace',
+          },
+        },
+        act: (module, op) => actRef.current?.(module, op),
+        sound: (name, gain) => {
+          if (!readOnly) player.play(art.effect(name), gain);
+        },
+        tone: (i, ms) => player.tone(SIMON_TONES[i]!, ms),
+        vibrate: (ms) => {
+          if (!readOnly && typeof navigator !== 'undefined' && navigator.vibrate)
+            navigator.vibrate(ms);
+        },
+        hint: (e) => {
+          const steps = doneBy(e);
+          if (!steps.length) return;
+          setDone((d) => {
+            if (steps.every((s) => d.has(s))) return d;
+            const next = new Set([...d, ...steps]);
+            write(HINTS_KEY, JSON.stringify([...next]));
+            return next;
+          });
+        },
+        scan: (offset) => {
+          // `Scanline.UpdatePosition`: the line's middle at y = 1 − offset × 1.33 from the bottom.
+          const el = band.current;
+          if (!el) return;
+          el.style.opacity = offset === null ? '0' : '1';
+          if (offset !== null) el.style.top = `${(offset * 1.33 * 100).toFixed(2)}%`;
+        },
+        onPose: (m) => {
+          setPose(m.pose);
+          onPoseRef.current?.(m);
+        },
+        now: () => serverNow(offset),
+      });
+      scene.onDrag = setDragging;
+      sceneRef.current = scene;
+      setReady(pack || !art.scene ? 'ready' : 'failed');
+      setPortrait(el.clientHeight > el.clientWidth);
+    });
+    return () => {
+      live = false;
+      ro.disconnect();
+      scene?.dispose();
+      sceneRef.current = null;
+      renderer.domElement.remove();
+    };
+    // The scene is built once per mount; the bomb and pose arrive through the effects below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [art.scene]);
+
+  useEffect(() => {
+    const s = sceneRef.current;
+    if (!s) return;
+    s.setBomb(b);
+    s.setEnded(!!b.end);
+  }, [b, ready]);
+
+  useEffect(() => {
+    if (mirror && mirror.mode === '3d') sceneRef.current?.setMirror(mirror);
+  }, [mirror, ready]);
+
+  // Test hooks (browser tests only, never in production: the server sends `test` then).
+  useEffect(() => {
+    if (!test || ready !== 'ready') return;
+    const w = window as unknown as { __defuse3d?: unknown };
+    w.__defuse3d = {
+      where: (id: string, i?: number) => sceneRef.current?.where(id, i) ?? null,
+      focus: (id: string) => sceneRef.current?.focusById(id),
+      press: (i: number) => sceneRef.current?.pressPart(i),
+      release: () => sceneRef.current?.releasePart(),
+      back: () => sceneRef.current?.back(),
+      pickUp: () => sceneRef.current?.pickUp(),
+      turn: (d: 'up' | 'down' | 'left' | 'right') => sceneRef.current?.turnBy(d),
+      edges: () => sceneRef.current?.edges() ?? [],
+      pose: () => ({
+        pose: sceneRef.current?.pose,
+        module: sceneRef.current?.focused?.id ?? null,
+        face: sceneRef.current?.face() ?? 0,
+      }),
+      info: () => sceneRef.current?.info(),
+      lit: () => sceneRef.current?.lit() ?? [],
+      middle: (id: string) => sceneRef.current?.middle(id) ?? null,
+      look: (id: string) => sceneRef.current?.lookOf(id) ?? null,
+      partFor: (id: string, op: ModuleOp) => sceneRef.current?.partFor(id, op) ?? -1,
+      next: () => (bRef.current ? nextMove(bRef.current, serverNow(offset)) : null),
+      bomb: () => bRef.current,
+    };
+    return () => {
+      delete w.__defuse3d;
+    };
+  }, [test, ready, offset]);
+
+  const step = readOnly || b.end ? null : hintFor(pose, done);
+  const scene = sceneRef.current;
+  const exploded = !!b.end && b.end.how !== 'defused';
+  return (
+    <div
+      className={cn(
+        'overflow-hidden bg-[#0b0b0d] text-stone-100 select-none',
+        fullScreen && !embedded
+          ? 'fixed inset-0 z-[60]'
+          : readOnly
+            ? 'relative size-full rounded-xl'
+            : 'relative h-[70vh] w-full rounded-xl',
+      )}
+      style={{ touchAction: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
+      data-testid="bomb-3d"
+      data-pose={pose}
+      data-ready={ready}
+    >
+      <div ref={box} className="absolute inset-0" />
+      {/* The touch hint's scanline (the original's sprite: white, at most 10 % opaque). */}
+      <div
+        ref={band}
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 h-[12%] -translate-y-1/2 opacity-0"
+        style={{
+          background:
+            'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.1) 50%, rgba(255,255,255,0))',
+        }}
+        data-testid="scanline"
+      />
+      {ready === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center text-lg text-stone-300">
+          Loading the bomb…
+        </div>
+      )}
+      {ready === 'failed' && (
+        <div className="absolute inset-x-0 top-1/3 text-center text-sm text-stone-300">
+          The bomb’s pictures didn’t load: it is shown plainly.
+        </div>
+      )}
+      {exploded && <div className="absolute inset-0 bg-black" data-testid="explode-black" />}
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => scene?.back()}
+            className={cn(
+              'absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] size-13 rounded-full bg-stone-900/55 text-3xl leading-none transition-opacity active:bg-stone-700/80',
+              touch && pose !== 'desk' && !b.end ? 'opacity-100' : 'pointer-events-none opacity-0',
+            )}
+            data-testid="bomb-back"
+          >
+            ‹
+          </button>
+          {(['up', 'down', 'left', 'right'] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-label={`Turn ${d}`}
+              onClick={() => scene?.turnBy(d)}
+              className={cn(
+                'absolute size-13 rounded-full bg-stone-900/55 text-2xl leading-none transition-opacity active:bg-stone-700/80',
+                d === 'up' && 'left-[calc(50%-26px)] top-[max(14px,env(safe-area-inset-top))]',
+                d === 'down' &&
+                  'bottom-[max(14px,env(safe-area-inset-bottom))] left-[calc(50%-26px)]',
+                d === 'left' && 'left-[max(12px,env(safe-area-inset-left))] top-[calc(50%-26px)]',
+                d === 'right' &&
+                  'right-[max(12px,env(safe-area-inset-right))] top-[calc(50%-26px)]',
+                touch && pose === 'held' && !dragging && !b.end
+                  ? 'opacity-100'
+                  : 'pointer-events-none opacity-0',
+              )}
+              data-testid={`turn-${d}`}
+            >
+              {{ up: '▴', down: '▾', left: '◂', right: '▸' }[d]}
+            </button>
+          ))}
+          <div className="absolute right-[max(12px,env(safe-area-inset-right))] top-[max(12px,env(safe-area-inset-top))] flex items-center gap-2">
+            {embedded && (
+              <button
+                type="button"
+                onClick={() => setEmbedded(false)}
+                className="rounded-full bg-stone-900/70 px-3 py-2 text-sm"
+              >
+                Full screen
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Controls and settings"
+              onClick={() => setSheet(true)}
+              className="size-11 rounded-full bg-stone-900/55 text-xl leading-none active:bg-stone-700/80"
+              data-testid="bomb-help"
+            >
+              ?
+            </button>
+          </div>
+          {step && (
+            <p
+              className={cn(
+                // The bottom band, under the bomb and clear of what is tapped. While the bomb is
+                // held on a phone the turn-down arrow sits at the bottom middle: upright there is
+                // room above it, sideways the line takes the band's left half.
+                'pointer-events-none absolute inset-x-0 text-[17px] text-[#ffe066] [text-shadow:0_1px_3px_#000,0_0_8px_#000]',
+                touch && pose === 'held' && portrait
+                  ? 'bottom-[max(78px,calc(env(safe-area-inset-bottom)+70px))] px-16 text-center'
+                  : touch && pose === 'held'
+                    ? 'bottom-[max(14px,env(safe-area-inset-bottom))] pl-[max(16px,env(safe-area-inset-left))] pr-[calc(50%+34px)] text-left'
+                    : 'bottom-[max(14px,env(safe-area-inset-bottom))] px-16 text-center',
+              )}
+              data-testid="bomb-hint"
+            >
+              {HINTS[device][step]}
+            </p>
+          )}
+          {touch && portrait && !sideways && !b.end && (
+            <button
+              type="button"
+              className="absolute inset-x-6 top-1/4 rounded-2xl bg-stone-900/90 p-4 text-center text-base ring-1 ring-stone-700"
+              onClick={() => {
+                setSideways(true);
+                try {
+                  sessionStorage.setItem(SIDEWAYS_KEY, '1');
+                } catch {
+                  // fine: it shows again next time
+                }
+              }}
+              data-testid="turn-phone"
+            >
+              <span className="block text-3xl" aria-hidden>
+                📱↻
+              </span>
+              Turn your phone sideways for the best view. Upright works too.
+              <span className="mt-2 block text-sm text-stone-300">Tap to carry on</span>
+            </button>
+          )}
+          {sheet && (
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black/70 p-4"
+              onClick={() => setSheet(false)}
+              data-testid="bomb-sheet"
+            >
+              <div
+                className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl bg-[#1c1b1a] p-5 text-[15px] leading-normal text-stone-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="mb-2 text-lg font-semibold">Controls</h2>
+                <table className="w-full">
+                  <tbody>
+                    {(touch ? TOUCH_CONTROLS : MOUSE_CONTROLS).map(([k, v]) => (
+                      <tr key={k}>
+                        <td className="whitespace-nowrap py-1 pr-3 align-top text-[#ffe066]">
+                          {k}
+                        </td>
+                        <td className="py-1 align-top">{v}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {corner}
+                  <button
+                    type="button"
+                    className="rounded-full bg-stone-800 px-3 py-2 text-sm"
+                    onClick={() => {
+                      write(LITE_KEY, lite() ? '0' : '1');
+                      location.reload();
+                    }}
+                    data-testid="bomb-lite"
+                  >
+                    {lite() ? 'Full graphics' : 'Lighter graphics'}
+                  </button>
+                  {fullScreen && (
+                    <button
+                      type="button"
+                      className="rounded-full bg-stone-800 px-3 py-2 text-sm"
+                      onClick={() => {
+                        setEmbedded(!embedded);
+                        setSheet(false);
+                      }}
+                    >
+                      {embedded ? 'Full screen' : 'Show the room'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ml-auto rounded-full bg-[#ffe066] px-4 py-2 text-sm font-semibold text-stone-950"
+                    onClick={() => setSheet(false)}
+                  >
+                    Back to the bomb
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const TOUCH_CONTROLS: [string, string][] = [
+  ['Tap', 'pick up the bomb, look at a module, cut, press'],
+  ['Drag', 'turn the bomb (it settles square when you let go)'],
+  ['Pinch', 'zoom in and out'],
+  ['‹ or two-finger tap', 'step back: module → bomb → desk (or tap off the bomb)'],
+  ['▴ ▾ ◂ ▸', 'a quarter turn, to read the edges'],
+];
+const MOUSE_CONTROLS: [string, string][] = [
+  ['Click', 'pick up, look at a module, cut, press (hold for the big button)'],
+  ['Right-drag', 'turn the bomb (Ctrl+drag on a one-button mouse); it settles square'],
+  ['Wheel, + −', 'zoom'],
+  ['Right-click, Esc', 'step back: module → bomb → desk'],
+  ['← → ↑ ↓, WASD', 'a quarter turn; F turns it over'],
+  ['Tab, Enter', 'next module, look at it; 1–9 use its parts in order'],
+];

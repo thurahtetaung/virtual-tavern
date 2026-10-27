@@ -16,6 +16,11 @@ const TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
   mp3: 'audio/mpeg',
   ttf: 'font/ttf',
+  woff2: 'font/woff2',
+  json: 'application/json',
+  ktx2: 'image/ktx2',
+  wasm: 'application/wasm',
+  js: 'text/javascript',
 };
 
 /**
@@ -68,6 +73,14 @@ export async function table(browser: Browser, names: string[], look: Look | Look
     if (await intro.count()) await intro.getByRole('button', { name: 'Got it' }).click();
   }
   return pages;
+}
+
+/** Each player picks the flat 2D view for when they defuse (3D is the default). */
+export async function flat(pages: Page[]) {
+  for (const p of pages) {
+    await p.getByTestId('view-2d').click();
+    await expect(p.getByTestId('view-2d')).toHaveAttribute('aria-pressed', 'true');
+  }
 }
 
 /**
@@ -126,4 +139,30 @@ export async function defuseAll(p: Page) {
     await expect(shown).toHaveText(letter);
   }
   await zoom.getByTestId('pw-submit').click();
+}
+
+/** Pairs a table screen to the host's room. */
+export async function tv(
+  browser: Browser,
+  host: Page,
+  look: Look,
+  size = { width: 1280, height: 720 },
+) {
+  await host.getByRole('button', { name: /^Players/ }).click();
+  const panel = host
+    .getByRole('dialog', { name: 'Players' })
+    .getByRole('region', { name: /Table screen/ });
+  await panel.getByRole('button', { name: 'Show a pairing code' }).click();
+  const code = (await panel.getByTestId('stage-code').textContent())!;
+  await host.keyboard.press('Escape');
+  const page = await (
+    await browser.newContext({ viewport: size, colorScheme: look.colorScheme })
+  ).newPage();
+  await look.setup?.(page);
+  await page.goto('/stage');
+  await page.getByLabel('Pairing code').fill(code);
+  await page.getByRole('button', { name: 'Pair this screen' }).click();
+  await page.getByRole('button', { name: '▶ Start the show' }).click();
+  await page.evaluate(() => document.exitFullscreen().catch(() => {}));
+  return page;
 }

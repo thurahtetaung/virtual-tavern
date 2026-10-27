@@ -302,6 +302,21 @@ export interface Player {
   name: string;
 }
 
+/**
+ * How the defuser is looking at the bomb, for a table screen showing it: their own choice of
+ * view (3D, the default, or the flat 2D one) and, in 3D, the pose (on the desk, held, zoomed to
+ * a module) and the quarter turn they settled on.
+ */
+export interface Look {
+  mode: '3d' | '2d';
+  pose: 'desk' | 'held' | 'module';
+  /** Degrees, a multiple of 90. */
+  yaw: number;
+  /** The settled tilt: 0 level, ±80/±90 to show the top or bottom edge. */
+  settle: number;
+  module: string | null;
+}
+
 export interface State {
   phase: 'lobby' | 'playing' | 'over';
   stage: 'lobby' | 'bomb' | 'result';
@@ -317,6 +332,8 @@ export interface State {
   claims: Partial<Record<PageId, PlayerId[]>>;
   notes: Partial<Record<PageId, string>>;
   history: BombResult[];
+  /** The defuser's view of the live bomb (missing in rooms saved before, and between bombs). */
+  look?: Look | null;
   /** Hidden: seeds the next bomb. */
   seed: number;
 }
@@ -348,6 +365,7 @@ export type Action =
   | { type: 'claim'; page: PageId; on: boolean }
   | { type: 'note'; page: PageId; text: string }
   | { type: 'hand-over'; player: PlayerId }
+  | ({ type: 'look' } & Look)
   | { type: 'next' }
   | { type: 'lobby' }
   /** Playtest bots only: "still thinking", always refused so the bot looks again shortly. */

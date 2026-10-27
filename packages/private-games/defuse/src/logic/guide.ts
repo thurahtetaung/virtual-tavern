@@ -142,8 +142,20 @@ function base(art: GuideArt): GameGuide {
         level: 'basics',
         bullets: [
           'Sees the whole bomb: two faces with up to 11 modules and the timer, and four edges.',
-          'Swipe or tap the arrows to turn the bomb; tap a module to open it big.',
+          'The bomb is in 3D, full screen: pick it up from the desk, turn it in your hands to read the edges, and zoom in on a module to use it.',
           'Never sees the manual, and never shows the bomb to the experts.',
+        ],
+      },
+      {
+        title: 'Controls',
+        level: 'basics',
+        bullets: [
+          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom; tap a module to look closer, then tap its parts.',
+          'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk). Sideways is best; upright works too.',
+          'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms; right-click or Esc steps back.',
+          'Keyboard: arrows or WASD turn a quarter, F turns it over, Tab and Enter pick a module, 1–9 use its parts.',
+          'The ? corner shows the controls and holds the sound switch, the rules, lighter graphics for slow phones and the flat 2D view.',
+          'Prefer the flat 2D bomb? Each player picks it for themselves in the lobby (“When you defuse”) or from the ? corner while defusing.',
         ],
       },
       {
@@ -201,7 +213,7 @@ function base(art: GuideArt): GameGuide {
         level: 'details',
         bullets: [
           'A paired table screen shows the manual for the experts by default.',
-          'With “Table screen shows: Bomb” it shows the defuser’s bomb instead: then the experts must not look.',
+          'With “Table screen shows: Bomb” it shows the defuser’s bomb instead, as the defuser sees it (3D, turning as they turn it, or flat): then the experts must not look.',
         ],
       },
       {

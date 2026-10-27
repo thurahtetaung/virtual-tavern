@@ -4,6 +4,7 @@ import { PAGES, PageBody, ClaimsSummary, pageName } from './Manual.tsx';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { timerText } from '../logic/bomb.ts';
 import { BombScreen } from './Bomb.tsx';
+import { Bomb3D } from './three/Bomb3D.tsx';
 import { ExpertClock, type DefuseUiProps } from './DefuseGame.tsx';
 import { player, useBombSound, useUnlock } from './sound.ts';
 import { useServerNow } from './time.ts';
@@ -102,13 +103,30 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   if (v.stage === 'bomb' && v.bomb)
     return (
       <div
-        className="mx-auto max-w-[calc((100vh-10rem)*2.05)] space-y-3 p-4 text-stone-100"
+        className={cn(
+          'mx-auto space-y-3 p-4 text-stone-100',
+          v.look?.mode === '2d' && 'max-w-[calc((100vh-10rem)*2.05)]',
+        )}
         data-testid="stage-bomb"
       >
         <p className="text-center text-xl font-semibold">
           💣 {defuser} is defusing. Experts: don’t look at this screen.
         </p>
-        <BombScreen key={v.bomb.no} b={v.bomb} art={art} now={now} act={null} readOnly />
+        {v.look?.mode === '2d' ? (
+          <BombScreen key={v.bomb.no} b={v.bomb} art={art} now={now} act={null} readOnly />
+        ) : (
+          <div className="h-[calc(100vh-8rem)] w-full">
+            <Bomb3D
+              key={v.bomb.no}
+              b={v.bomb}
+              art={art}
+              offset={room.clockOffset}
+              act={null}
+              mirror={v.look}
+              fullScreen={false}
+            />
+          </div>
+        )}
       </div>
     );
   if (v.stage === 'bomb') {

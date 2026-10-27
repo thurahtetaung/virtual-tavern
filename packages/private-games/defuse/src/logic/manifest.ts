@@ -22,6 +22,7 @@ import type { Kind } from './types.ts';
  *   manual: { pages: { "1": …, …, "23": … }, modulePages: { wires: [5], … } },
  *   stamps: { defused, exploded },
  *   fonts: { digits, manual },
+ *   scene: "3d/",   (the 3D bomb's pack: scene.json, scene.bin, tex/, basis/)
  *   audio: { effects: { "<name>": "audio/….ogg" }, music: { "<playlist>": ["…"], win, lose },
  *            durations: { "<path>": ms } }
  * }
@@ -70,6 +71,8 @@ export interface Manifest {
   };
   stamps?: Partial<Record<'defused' | 'exploded', ArtRef>>;
   fonts?: Partial<Record<'digits' | 'manual' | 'labels' | 'morse', string>>;
+  /** The 3D bomb's folder (scene graph, geometry, textures, the texture transcoder). */
+  scene?: string;
   audio?: {
     effects?: Record<string, string | string[]>;
     music?: Record<string, string | string[]>;

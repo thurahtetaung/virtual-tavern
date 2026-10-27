@@ -93,6 +93,8 @@ export interface Art {
   effect: (name: string) => string | null;
   music: (name: string) => string[];
   digitsFont: string | null;
+  /** The 3D bomb's folder URL (ending in `/`), or null without one. */
+  scene: string | null;
   /** The original's fonts, as CSS families once loaded (null without the manifest's files). */
   fonts: Record<'digits' | 'labels' | 'morse' | 'manual', string | null>;
 }
@@ -179,6 +181,10 @@ export function artFor(manifest: ManifestState): Art {
       return (Array.isArray(v) ? v : v ? [v] : []).flatMap((p) => path(p) ?? []);
     },
     digitsFont: path(m?.fonts?.digits),
+    scene: (() => {
+      const p = path(m?.scene);
+      return p ? p.replace(/\/*$/, '/') : null;
+    })(),
     fonts: {
       digits: loadFont('DefuseDigits', path(m?.fonts?.digits)),
       labels: loadFont('DefuseLabels', path(m?.fonts?.labels)),
