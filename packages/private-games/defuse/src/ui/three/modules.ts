@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { MORSE } from '../../logic/data.ts';
 import { SIMON_COLOURS } from '../../logic/modules.ts';
 import type { Dir, ModuleOp } from '../../logic/types.ts';
+import type { HapticType } from '../haptics.ts';
 import { type Look, SIMON_PLACE } from './look.ts';
 import {
   GLOWS,
@@ -26,12 +27,19 @@ export interface Hit {
   op: ModuleOp;
   /** Held parts (the Button, the capacitor's lever) send `release` when let go. */
   release?: ModuleOp;
-  /** The interaction punch's modifier (`AddInteractionPunch`). */
+  /** The interaction punch's modifier (`AddInteractionPunch`); 0: none (the needy knob). */
   punch: number;
+  /** The punch on letting go of a held part (only the Button's, −0.35). */
+  releasePunch?: number;
+  /** The part's `HapticType` when its sound doesn't say it. */
+  haptic?: HapticType;
   /** A sound to play on the device straight away (the server's answer may take a moment). */
-  sound?: 'press-in' | 'bb-press-in' | 'snip' | 'switch' | 'tone';
+  sound?: 'press-in' | 'bb-press-in' | 'snip' | 'tone';
   tone?: number;
-  /** A part that dips when pressed (keys, buttons). */
+  /**
+   * A key that goes down while pressed and comes back up when let go (`KeypadButton`): down by
+   * half its height in 0.25 s, up in 0.25 s, both `easeOutQuint`.
+   */
   dip?: THREE.Object3D;
 }
 
@@ -187,40 +195,33 @@ function stageBar(ctx: BindCtx, root: Root, n: number) {
     });
 }
 
-/** A cut wire's two halves spring a few millimetres apart (`SnippableWire`). */
-function part_(cut: THREE.Object3D) {
-  const [a, b] = cut.children;
-  if (!a || !b) return;
-  if (!cut.userData.apart) {
-    // Apart along the line between the halves' middles.
-    const mid = (o: THREE.Object3D) => {
-      const box = new THREE.Box3().setFromObject(o);
-      return box.isEmpty()
-        ? o.position.clone()
-        : cut.worldToLocal(box.getCenter(new THREE.Vector3()));
-    };
-    cut.updateWorldMatrix(true, true);
-    const dir = mid(b).sub(mid(a)).normalize();
-    cut.userData.apart = { dir, a: a.position.clone(), b: b.position.clone(), t: 0 };
-  }
-  const p = cut.userData.apart as {
-    dir: THREE.Vector3;
-    a: THREE.Vector3;
-    b: THREE.Vector3;
-    t: number;
-  };
-  p.t += (1 - p.t) * 0.25;
-  a.position.copy(p.a).addScaledVector(p.dir, -0.002 * p.t);
-  b.position.copy(p.b).addScaledVector(p.dir, 0.002 * p.t);
-}
-
-/** A key that sinks out of reach and rises again (Who's on First, Memory). */
+/**
+ * A key that sinks out of reach and rises again (Who's on First, Memory): `KeypadButton`'s Sink
+ * and Emerge, 1.1 × its height in 0.75 s, easeOutBounce.
+ */
 function sinker(o: THREE.Object3D, depth: number) {
   const rest = o.position.y;
-  return (up: boolean) => {
-    const want = up ? rest : rest - depth;
-    o.position.y += (want - o.position.y) * 0.25;
+  let up = true;
+  let t0 = -Infinity;
+  return (want: boolean) => {
+    const now = performance.now();
+    if (want !== up) {
+      up = want;
+      t0 = now;
+    }
+    const x = easeOutBounce(Math.min(1, (now - t0) / 750));
+    o.position.y = rest - depth * (up ? 1 - x : x);
   };
+}
+
+/** LeanTween's easeOutBounce. */
+function easeOutBounce(x: number): number {
+  const n = 7.5625;
+  const d = 2.75;
+  if (x < 1 / d) return n * x * x;
+  if (x < 2 / d) return n * (x -= 1.5 / d) * x + 0.75;
+  if (x < 2.5 / d) return n * (x -= 2.25 / d) * x + 0.9375;
+  return n * (x -= 2.625 / d) * x + 0.984375;
 }
 
 // ---- The modules ----
@@ -297,7 +298,6 @@ function wires(ctx: BindCtx, root: Root): Binding {
           v.whole.parent!.visible = on;
           v.whole.visible = on && !w.cut;
           v.cut.visible = on && w.cut;
-          if (on && w.cut) part_(v.cut);
           if (on && !w.cut) {
             const index = look.wires.indexOf(w);
             hitOn(v.whole, () => ({ op: { op: 'cut', wire: index }, punch: 1, sound: 'snip' }));
@@ -373,6 +373,7 @@ function button(ctx: BindCtx, root: Root): Binding {
     op: { op: 'down' },
     release: { op: 'up' },
     punch: 0.5,
+    releasePunch: -0.35,
     sound: 'bb-press-in',
   }));
   const base = find(root, 'Button/parts/base');
@@ -381,6 +382,7 @@ function button(ctx: BindCtx, root: Root): Binding {
       op: { op: 'down' },
       release: { op: 'up' },
       punch: 0.5,
+      releasePunch: -0.35,
       sound: 'bb-press-in',
     }));
   return {
@@ -480,6 +482,8 @@ function keypad(ctx: BindCtx, root: Root): Binding {
         k.leds.off.visible = s === 'off';
         k.leds.correct.visible = s === 'correct';
         k.leds.wrong.visible = s === 'wrong';
+        // `KeypadButton.IsStayingDown`: a right key stays pressed in.
+        k.key.userData.stay = s === 'correct';
         const g = look.symbols[i] ?? -1;
         if (g !== k.glyph) {
           k.glyph = g;
@@ -532,7 +536,7 @@ function simon(ctx: BindCtx, root: Root, tone: (i: number) => void): Binding {
     if (root.userData.plain && isMesh(node)) node.userData.plain = true;
     hitOn(node, () => ({
       op: { op: 'press', button: i },
-      punch: 0.6,
+      punch: 1,
       sound: 'tone',
       tone: i,
       dip: node,
@@ -741,8 +745,8 @@ function morse(ctx: BindCtx, root: Root): Binding {
     size: [0.06, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(left, () => ({ op: { op: 'dial', by: -1 }, punch: 0.5, sound: 'press-in', dip: left }));
-  hitOn(right, () => ({ op: { op: 'dial', by: 1 }, punch: 0.5, sound: 'press-in', dip: right }));
+  hitOn(left, () => ({ op: { op: 'dial', by: -1 }, punch: 1, sound: 'press-in', dip: left }));
+  hitOn(right, () => ({ op: { op: 'dial', by: 1 }, punch: 1, sound: 'press-in', dip: right }));
   hitOn(tx, () => ({ op: { op: 'tx' }, punch: 1, sound: 'press-in', dip: tx }));
   return {
     root,
@@ -847,7 +851,6 @@ function venn(ctx: BindCtx, root: Root): Binding {
           const on = !!w && w.colour === c;
           v.whole.visible = on && !w.cut;
           v.cut.visible = on && w.cut;
-          if (on && w.cut) part_(v.cut);
           if (on && !w.cut) {
             const index = look.wires.indexOf(w);
             hitOn(v.whole, () => ({ op: { op: 'cut', wire: index }, punch: 1, sound: 'snip' }));
@@ -903,8 +906,8 @@ function sequence(ctx: BindCtx, root: Root): Binding {
     size: [0.025, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(down, () => ({ op: { op: 'next' }, punch: 0.5, sound: 'press-in', dip: down }));
-  hitOn(up, () => ({ op: { op: 'back' }, punch: 0.5, sound: 'press-in', dip: up }));
+  hitOn(down, () => ({ op: { op: 'next' }, punch: 1, sound: 'press-in', dip: down }));
+  hitOn(up, () => ({ op: { op: 'back' }, punch: 1, sound: 'press-in', dip: up }));
   const numbers = ['OneText', 'TwoText', 'ThreeText'].map((n, r) => {
     const a = part(page, n, { at: [-0.05, 0.035 - r * 0.035, 0.004], size: [0, 0, 0], colour: 0 });
     const t = textPlane(0.016, 0.016, (px) => `${Math.round(px * 0.85)}px ${ctx.fonts.labels}`, {
@@ -1041,7 +1044,7 @@ function maze(ctx: BindCtx, root: Root): Binding {
       size: [0.02, 0.02, 0.01],
       colour: PLAIN.key,
     });
-    hitOn(b, () => ({ op: { op: 'move', dir }, punch: 0.5, sound: 'press-in', dip: b }));
+    hitOn(b, () => ({ op: { op: 'move', dir }, punch: 1, sound: 'press-in', dip: b }));
     return b;
   });
   // `InvisibleWallsComponent.InitCells`: 6 × 6 cells over 90 % of the screen, row 0 at the top.
@@ -1155,16 +1158,16 @@ function password(ctx: BindCtx, root: Root): Binding {
       size: [0.022, 0.012, 0.008],
       colour: PLAIN.key,
     });
-    // `CharSpinner`: up shows the previous letter.
+    // `CharSpinner`: up shows the previous letter; its keys' punch is 0.25.
     hitOn(up, () => ({
       op: { op: 'spin', column: c, by: -1 },
-      punch: 0.5,
+      punch: 0.25,
       sound: 'press-in',
       dip: up,
     }));
     hitOn(down, () => ({
       op: { op: 'spin', column: c, by: 1 },
-      punch: 0.5,
+      punch: 0.25,
       sound: 'press-in',
       dip: down,
     }));
@@ -1271,8 +1274,8 @@ function vent(ctx: BindCtx, root: Root): Binding {
     size: [0.03, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(yes, () => ({ op: { op: 'answer', yes: true }, punch: 0.5, sound: 'press-in', dip: yes }));
-  hitOn(no, () => ({ op: { op: 'answer', yes: false }, punch: 0.5, sound: 'press-in', dip: no }));
+  hitOn(yes, () => ({ op: { op: 'answer', yes: true }, punch: 1, sound: 'press-in', dip: yes }));
+  hitOn(no, () => ({ op: { op: 'answer', yes: false }, punch: 1, sound: 'press-in', dip: no }));
   for (const n of ['PreventsText', 'DetonateText', 'VentCompleteText'])
     find(root, n)?.children.forEach((c) => (c.visible = false));
   return {
@@ -1324,7 +1327,14 @@ function capacitor(ctx: BindCtx, root: Root): Binding {
     bulbGlow.material = m;
   }
   const restQ = handle.quaternion.clone();
-  hitOn(handle, () => ({ op: { op: 'down' }, release: { op: 'up' }, punch: 0.5, sound: 'switch' }));
+  // `SpringedSwitch`: punch 1, press-in and press-release.
+  hitOn(handle, () => ({
+    op: { op: 'down' },
+    release: { op: 'up' },
+    punch: 1,
+    sound: 'press-in',
+    haptic: 'SpringedSwitch',
+  }));
   // The charge bar (`DeathBar` on `DeathBarParent`), filling as the capacitor charges.
   const barAt = part(root, 'DeathBarParent', {
     at: [-0.04, -0.07, 0.012],
@@ -1341,6 +1351,10 @@ function capacitor(ctx: BindCtx, root: Root): Binding {
   const fillScale = fill.scale.clone();
   const fillPos = fill.position.clone();
   let toneAt = 0;
+  let leverHeld = false;
+  let leverAt = 0;
+  let leverFrom = 0;
+  let leverT0 = 0;
   return {
     root,
     fill: 0.72,
@@ -1357,12 +1371,22 @@ function capacitor(ctx: BindCtx, root: Root): Binding {
       if (bulbGlow) bulbGlow.visible = look.held;
       normal.visible = !look.exploded;
       blown.visible = look.exploded;
-      const want = restQ
-        .clone()
-        .multiply(
-          new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), look.held ? 0.5 : 0),
-        );
-      handle.quaternion.slerp(want, 0.35);
+      // `SpringedSwitch`: pushed in 0.75 s, back in 0.25 s, both easeOutQuint.
+      if (look.held !== leverHeld) {
+        leverHeld = look.held;
+        leverFrom = leverAt;
+        leverT0 = performance.now();
+      }
+      const ms = leverHeld ? 750 : 250;
+      const x = Math.min(1, (performance.now() - leverT0) / ms);
+      leverAt = leverFrom + ((leverHeld ? 1 : 0) - leverFrom) * (1 - (1 - x) ** 5);
+      handle.quaternion.copy(
+        restQ
+          .clone()
+          .multiply(
+            new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.5 * leverAt),
+          ),
+      );
       fill.scale.set(fillScale.x * Math.max(0.001, look.charge), fillScale.y, fillScale.z);
       fill.position.x = fillPos.x - ((1 - look.charge) * fillScale.x) / 2;
     },
@@ -1415,14 +1439,11 @@ function knob(ctx: BindCtx, root: Root): Binding {
     tint(on, 0x40ff60);
     return on;
   });
-  hitOn(dial, () => ({ op: { op: 'turn' }, punch: 0.5, sound: 'switch' }));
+  // `PointingKnob.Interact`: a quarter turn at once, with no punch and no sound of its own.
+  hitOn(dial, () => ({ op: { op: 'turn' }, punch: 0 }));
   const pointerQ = pointer.quaternion.clone();
   const turnY = (q: THREE.Quaternion, a: number) =>
     q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a));
-  const ease = (from: number, to: number) => {
-    const d = Math.atan2(Math.sin(to - from), Math.cos(to - from));
-    return from + d * 0.3;
-  };
   let dialA = 0;
   let knobA = 0;
   return {
@@ -1434,8 +1455,8 @@ function knob(ctx: BindCtx, root: Root): Binding {
       leds.forEach((l, i) => (l.visible = !!look.leds[i]));
       // The dial (with its UP label) sits where the label is; the knob turns on it, so it points
       // at the label's place plus its own position.
-      dialA = ease(dialA, ANGLE[look.label]);
-      knobA = ease(knobA, ANGLE[look.points] - ANGLE[look.label]);
+      dialA = ANGLE[look.label];
+      knobA = ANGLE[look.points] - ANGLE[look.label];
       dial.quaternion.copy(turnY(dialQ, dialA));
       pointer.quaternion.copy(turnY(pointerQ, knobA));
     },

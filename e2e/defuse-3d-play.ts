@@ -23,6 +23,14 @@ export type Hooks = {
   };
   edges: () => Record<string, unknown>[];
   lit: () => string[];
+  zoom: () => {
+    zoom: number;
+    max: number;
+    pan: { x: number; y: number };
+    surface: number;
+    pointers: number;
+  };
+  haptics: () => { type: string; pattern: number[]; route: string; ok: boolean }[];
 };
 
 /** Calls one of the 3D view's test hooks. */

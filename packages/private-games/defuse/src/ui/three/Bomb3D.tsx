@@ -5,6 +5,7 @@ import { nextMove } from '../../logic/bot.ts';
 import type { Look as DefuserLook, ModuleOp } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
 import type { Art } from '../assets.ts';
+import { haptics } from '../haptics.ts';
 import { SIMON_TONES, player } from '../sound.ts';
 import { serverNow } from '../time.ts';
 import { type Device, HINTS, type HintStep, doneBy, hintFor } from './controls.ts';
@@ -111,6 +112,7 @@ export function Bomb3D({
   const [pose, setPose] = useState<Pose>('desk');
   const [dragging, setDragging] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [vibration, setVibration] = useState(() => haptics.enabled);
   const [embedded, setEmbedded] = useState(false);
   const [touch] = useState(touchDevice);
   const device: Device = touch ? 'touch' : 'mouse';
@@ -178,9 +180,8 @@ export function Bomb3D({
           if (!readOnly) player.play(art.effect(name), gain);
         },
         tone: (i, ms) => player.tone(SIMON_TONES[i]!, ms),
-        vibrate: (ms) => {
-          if (!readOnly && typeof navigator !== 'undefined' && navigator.vibrate)
-            navigator.vibrate(ms);
+        vibrate: (type, modifier) => {
+          if (!readOnly) haptics.buzz(type, modifier);
         },
         hint: (e) => {
           const steps = doneBy(e);
@@ -257,6 +258,8 @@ export function Bomb3D({
       partFor: (id: string, op: ModuleOp) => sceneRef.current?.partFor(id, op) ?? -1,
       next: () => (bRef.current ? nextMove(bRef.current, serverNow(offset)) : null),
       bomb: () => bRef.current,
+      haptics: () => haptics.log,
+      zoom: () => sceneRef.current?.zoomState() ?? null,
     };
     return () => {
       delete w.__defuse3d;
@@ -426,6 +429,22 @@ export function Bomb3D({
                 </table>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {corner}
+                  {haptics.supported && (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={vibration}
+                      className="rounded-full bg-stone-800 px-3 py-2 text-sm"
+                      onClick={() => {
+                        haptics.enabled = !vibration;
+                        setVibration(!vibration);
+                        haptics.buzz('Interaction');
+                      }}
+                      data-testid="bomb-vibration"
+                    >
+                      Vibration: {vibration ? 'on' : 'off'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="rounded-full bg-stone-800 px-3 py-2 text-sm"
@@ -469,14 +488,14 @@ export function Bomb3D({
 const TOUCH_CONTROLS: [string, string][] = [
   ['Tap', 'pick up the bomb, look at a module, cut, press'],
   ['Drag', 'turn the bomb (it settles square when you let go)'],
-  ['Pinch', 'zoom in and out'],
+  ['Pinch', 'zoom in and out, on any side; move both fingers to look around'],
   ['‹ or two-finger tap', 'step back: module → bomb → desk (or tap off the bomb)'],
   ['▴ ▾ ◂ ▸', 'a quarter turn, to read the edges'],
 ];
 const MOUSE_CONTROLS: [string, string][] = [
   ['Click', 'pick up, look at a module, cut, press (hold for the big button)'],
   ['Right-drag', 'turn the bomb (Ctrl+drag on a one-button mouse); it settles square'],
-  ['Wheel, + −', 'zoom'],
+  ['Wheel, + −', 'zoom (the wheel toward the cursor)'],
   ['Right-click, Esc', 'step back: module → bomb → desk'],
   ['← → ↑ ↓, WASD', 'a quarter turn; F turns it over'],
   ['Tab, Enter', 'next module, look at it; 1–9 use its parts in order'],

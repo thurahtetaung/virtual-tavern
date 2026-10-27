@@ -135,6 +135,8 @@ test('the hover outline follows the cursor and clears when it leaves', async ({ 
   await hoverOn(b!);
   await expect.poll(async () => (await lit())[0]).not.toBe(litA);
   await expect.poll(lit).toHaveLength(1);
+  // The mouse's hover never buzzes.
+  expect((await call(ana, 'haptics')).filter((h) => h.type === 'Selection')).toEqual([]);
   // Off the bomb (the canvas's left edge): nothing lit.
   await ana.mouse.move(4, 360, { steps: 4 });
   await expect.poll(lit).toHaveLength(0);
@@ -190,6 +192,10 @@ test('on touch the finger selects what it is on, and the selection never sticks'
     await touch('touchMove', pa.x + ((pb.x - pa.x) * i) / 6, pa.y + ((pb.y - pa.y) * i) / 6);
   await expect.poll(async () => (await lit())[0]).not.toBe(litA);
   await expect.poll(lit).toHaveLength(1);
+  // Each module the finger reaches ticks (a light buzz), never the mouse's hover.
+  await expect
+    .poll(async () => (await call(ana, 'haptics')).filter((h) => h.type === 'Selection').length)
+    .toBeGreaterThanOrEqual(2);
   // Off the bomb: nothing selected; the lift leaves nothing either.
   await touch('touchMove', 4, 195);
   await expect.poll(lit).toHaveLength(0);
@@ -201,4 +207,53 @@ test('on touch the finger selects what it is on, and the selection never sticks'
   await touch('touchEnd');
   await expect.poll(lit).toHaveLength(0);
   await expect.poll(async () => (await call(ana, 'pose')).module).toBe(b);
+});
+
+test('a pinch zooms in on an edge, pans with the fingers, and steps back out', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana] = (await table(browser, ['Ana', 'Ben'], {
+    setup: localArt,
+    viewport: { width: 844, height: 390 },
+    touch: true,
+  })) as [Page, Page];
+  await ana.getByTestId('start').click();
+  await ready(ana);
+  await call(ana, 'pickUp');
+  await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
+  // The top edge, where the edgework is.
+  await call(ana, 'turn', 'up');
+  await ana.waitForTimeout(800);
+  const cdp = await ana.context().newCDPSession(ana);
+  const fingers = (type: 'touchStart' | 'touchMove' | 'touchEnd', spread = 0, dx = 0) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints:
+        type === 'touchEnd'
+          ? []
+          : [
+              { x: 422 - 40 - spread + dx, y: 195, id: 1 },
+              { x: 422 + 40 + spread + dx, y: 195, id: 2 },
+            ],
+    });
+  const zoom = () => call(ana, 'zoom');
+  const z0 = await zoom();
+  expect(z0.zoom).toBe(0);
+  // Beyond the original's 0.15 m, to 0.1 m from the edge looked at.
+  expect(z0.max).toBeGreaterThan(0.15);
+  await fingers('touchStart');
+  for (let i = 1; i <= 10; i++) await fingers('touchMove', i * 30);
+  // The fingers move together: the view goes with them.
+  for (let i = 1; i <= 5; i++) await fingers('touchMove', 300, -i * 20);
+  await fingers('touchEnd');
+  await expect.poll(async () => (await zoom()).zoom).toBeGreaterThan(0.15);
+  // Both fingers are gone once lifted.
+  expect((await zoom()).pointers).toBe(0);
+  expect(Math.abs((await zoom()).pan.x)).toBeGreaterThan(0.001);
+  // Back: the zoom and the pan go home.
+  await call(ana, 'back');
+  await expect.poll(async () => (await zoom()).zoom).toBeLessThan(0.001);
+  await expect.poll(async () => Math.abs((await zoom()).pan.x)).toBeLessThan(0.001);
 });
