@@ -247,6 +247,11 @@ test('on a touch phone toasts stay clear of the room header and tap bands stop a
   const toastBox = await toast.boundingBox();
   const inviteBox = await invite.boundingBox();
   expect(toastBox!.y + toastBox!.height).toBeLessThan(inviteBox!.y);
+  // Nor does it cover the title bar's buttons: the site title and the theme switch.
+  const themeBox = await page.getByRole('button', { name: /^Theme:/ }).boundingBox();
+  const titleBox = await page.getByRole('link', { name: /Virtual Tavern/ }).boundingBox();
+  expect(toastBox!.x + toastBox!.width).toBeLessThanOrEqual(themeBox!.x);
+  expect(toastBox!.x).toBeGreaterThanOrEqual(titleBox!.x + titleBox!.width);
 
   // The invisible touch band makes a small button 44 px tall, never more.
   const band = (el: Element) => {

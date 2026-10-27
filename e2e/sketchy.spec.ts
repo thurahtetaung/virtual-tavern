@@ -134,7 +134,8 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   // twice in round 2: +1,000 each.
   for (const p of all) {
     await expect(p.getByTestId('sketchy-over')).toBeVisible();
-    await expect(p.getByText('Final standings')).toBeVisible();
+    // The podium on a phone; the full list is the Scores tab.
+    await expect(p.getByRole('list', { name: 'Podium' })).toBeVisible();
   }
   await expect(hana.getByText('Game over! Ben wins with 5,600 points.')).toBeVisible();
   await hana.getByTestId('tab-scores').click();

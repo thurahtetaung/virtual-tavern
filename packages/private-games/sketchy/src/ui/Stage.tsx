@@ -38,10 +38,12 @@ import {
 } from './show.ts';
 import { nameOf, points } from './status.ts';
 import {
+  CAPTION_W,
   LINE_W,
   NAME_W,
   REVEAL_POSE,
   SUBTITLE_TOP,
+  captionSize,
   choiceCentre,
   drawRows,
   pencilAt,
@@ -716,16 +718,27 @@ function TurnRoom({
               : undefined) ?? [1, 0, 0, 1, 72, 494]
           }
         >
-          <Layer m={[1, 0, 0, 1, 160, 30]}>
-            <Ink size={30}>“{turn.prompt}”</Ink>
+          {/* Hung from its top just under the drawing and wrapped to a width that keeps it on
+              the screen, so a long title grows downwards, never over the drawing or off the edge. */}
+          <Layer m={[1, 0, 0, 1, 160, 52]}>
+            <Ink
+              size={captionSize(turn.prompt)}
+              style={{
+                transform: 'translateX(-50%)',
+                whiteSpace: 'normal',
+                width: CAPTION_W,
+                textAlign: 'center',
+                lineHeight: 1.1,
+              }}
+            >
+              <span data-testid="sk-stage-caption">“{turn.prompt}”</span>
+              {turn.artist && (
+                <span className="block" style={{ fontSize: 22, fontWeight: 600, marginTop: 8 }}>
+                  drawn by {nameOf(view, turn.artist)}
+                </span>
+              )}
+            </Ink>
           </Layer>
-          {turn.artist && (
-            <Layer m={[1, 0, 0, 1, 160, 74]}>
-              <Ink size={22} style={{ fontWeight: 600 }}>
-                drawn by {nameOf(view, turn.artist)}
-              </Ink>
-            </Layer>
-          )}
         </Layer>
       )}
       {stage === 'write' && <Writers turn={turn} rig={rig} />}

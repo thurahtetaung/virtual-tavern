@@ -101,7 +101,7 @@ function useLocalHide(drawing: Drawing | null): [boolean, (hide: boolean) => voi
  * Everything on a phone screen but the drawing, in px: the room's own bar and buttons, the tabs,
  * the round line, the status line and the panel's padding (`reserve` adds the stage's own).
  */
-const PHONE_CHROME = 350;
+const PHONE_CHROME = 372;
 
 /**
  * The drawing on the table, big, with the hide controls under it. On a phone it is as big as the
@@ -297,7 +297,7 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                 aria-pressed={chosen}
                 onClick={() => void pick(o.index)}
                 className={cn(
-                  'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-lg font-semibold ring-1 transition',
+                  'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-base leading-snug font-semibold ring-1 transition sm:text-lg',
                   o.mine
                     ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
                     : chosen
@@ -445,7 +445,7 @@ function ArtistMoment({
   return (
     <div
       data-testid="artist-moment"
-      className="flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-3 ring-1 ring-success-line dark:bg-emerald-500/10 dark:ring-emerald-500/40"
+      className="flex items-center gap-3 rounded-2xl bg-success-soft px-4 py-2 ring-1 lg:py-3 ring-success-line dark:bg-emerald-500/10 dark:ring-emerald-500/40"
     >
       {drawing && !mineHidden ? (
         <>
@@ -455,7 +455,7 @@ function ArtistMoment({
           <DrawingView
             drawing={drawing}
             label="The drawing"
-            className="w-16 shrink-0 shadow-sm ring-1 ring-line lg:hidden"
+            className="w-12 shrink-0 shadow-sm ring-1 ring-line lg:hidden"
           />
         </>
       ) : (
@@ -487,7 +487,7 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
   return (
     <ul
       aria-label="Titles revealed"
-      className="grid gap-2 sm:grid-cols-2"
+      className="grid gap-1.5 sm:grid-cols-2 sm:gap-2"
       data-testid="reveal-board"
     >
       {ordered.map((o) => (
@@ -501,7 +501,9 @@ function RevealBoard({ view, turn }: { view: SketchyView; turn: TurnView }) {
           )}
         >
           <p className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 text-lg font-bold break-words">{o.text}</span>
+            <span className="min-w-0 text-base leading-snug font-bold break-words sm:text-lg">
+              {o.text}
+            </span>
             <span className="shrink-0 text-xs font-semibold">{verdict(o, name)}</span>
           </p>
           <p className="flex flex-wrap items-center gap-x-3 text-xs text-ink-muted">
@@ -638,10 +640,13 @@ export function TurnStage({
   }
   if (g.stage === 'vote') {
     return (
-      <div className="space-y-4">
-        {drawing(80 + turn.options.length * 56 + (turn.mine ? 36 : 0))}
+      <div className="space-y-3 lg:space-y-4">
+        {drawing(80 + turn.options.length * 56)}
+        {/* On a phone the status line just above says so already. */}
         {turn.mine && (
-          <p className="text-center text-sm">Your drawing! Tap 👍 on the fakes you like.</p>
+          <p className="text-center text-sm max-lg:hidden">
+            Your drawing! Tap 👍 on the fakes you like.
+          </p>
         )}
         <Board view={view} turn={turn} act={act} />
         {progressLine('picked')}
