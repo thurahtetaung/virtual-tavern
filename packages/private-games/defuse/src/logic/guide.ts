@@ -15,6 +15,7 @@ const HARDCORE: GuideOption = { key: 'hardcore', label: 'Hardcore' };
 const NEEDY_ON: GuideOption = { key: 'needy', label: 'Needy modules' };
 const CLOCK: GuideOption = { key: 'experts-clock', label: 'Experts see the clock and strikes' };
 const TABLE_BOMB: GuideOption = { key: 'table-bomb', label: 'Table screen shows the bomb' };
+const SURPRISES: GuideOption = { key: 'surprises', label: 'Room surprises' };
 
 /** What each module looks like and how you work it (never what the manual says to do). */
 const LOOKS: Record<Kind, string> = {
@@ -142,7 +143,8 @@ function base(art: GuideArt): GameGuide {
         level: 'basics',
         bullets: [
           'Sees the whole bomb: two faces with up to 11 modules and the timer, and four edges.',
-          'The bomb is in 3D, full screen: pick it up from the desk, turn it in your hands to read the edges, and zoom in on a module to use it.',
+          'The bomb is in 3D, full screen, on a desk in a dark room: pick it up, turn it in your hands to read the edges, and zoom in on a module to use it.',
+          'Before the bomb, the next defuser sits at the desk with the Free Play briefcase: it shows the host’s settings, and its START button starts the bomb (the host can start it from the lobby too).',
           'Never sees the manual, and never shows the bomb to the experts.',
         ],
       },
@@ -197,7 +199,27 @@ function base(art: GuideArt): GameGuide {
         title: 'The lights',
         level: 'details',
         bullets: [
-          'A bomb starts in the dark: the timer lights after 2 seconds, the modules wake 4 seconds later and the clock starts 2 seconds after that.',
+          'A bomb starts in the dark: the timer lights after 2 seconds, the modules wake and the room’s light clunks on 4 seconds later, and the clock starts 2 seconds after that.',
+          'In the last minute the room’s red emergency light flashes.',
+        ],
+      },
+      {
+        title: 'Room surprises',
+        level: 'details',
+        option: SURPRISES,
+        bullets: [
+          'While the bomb is going well (modules solved, few strikes, time left), the room plays tricks, each at most once a bomb, checked every 20 to 60 seconds.',
+          'Lights out: the lamp buzzes and goes dark for 10 seconds. Only the timer and the lights on the bomb glow; keep talking.',
+          'The alarm clock on the desk rings for up to 20 seconds. Put the bomb down, pick up the clock and press its snooze button (pressing it while it is quiet sets it ringing).',
+          'The host can switch them off in the lobby (“Room surprises”). The flat 2D view has no room.',
+        ],
+      },
+      {
+        title: 'The end',
+        level: 'details',
+        bullets: [
+          'An explosion goes black on every screen, then the results page of the binder: EXPLODED, the time left and what set it off. A defused bomb stays in view a moment, then DEFUSED is stamped on the page.',
+          'Back (or Continue) shows the bomb’s results; the host’s Retry starts the next bomb with the same settings.',
         ],
       },
       {
@@ -298,6 +320,7 @@ const optionsOf = (s: DefuseView['settings']): string[] => [
   ...(s.needy ? [NEEDY_ON.key] : []),
   ...(s.expertsSeeClock ? [CLOCK.key] : []),
   ...(s.table === 'bomb' ? [TABLE_BOMB.key] : []),
+  ...(s.surprises !== false ? [SURPRISES.key] : []),
 ];
 
 export function makeGuide(

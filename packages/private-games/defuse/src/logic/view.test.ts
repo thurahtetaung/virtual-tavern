@@ -21,6 +21,10 @@ function hiddenChanged(s: State): State {
   c.seed = (c.seed + 1) >>> 0;
   const b = c.bomb!;
   b.r = (b.r + 12345) >>> 0;
+  // The room's surprises: their stream, the next check and what is left never reach a view.
+  b.pace = b.pace
+    ? { r: (b.pace.r + 99) >>> 0, next: (b.pace.next ?? 0) + 777, left: [...b.pace.left].reverse() }
+    : { r: 1, next: 2, left: ['alarm'] };
   for (const m of b.modules) {
     if (m.kind === 'keypad') m.column = (m.column + 1) % 6;
     if (m.kind === 'simon')
@@ -63,6 +67,7 @@ const NEEDLES = [
   '"pattern":',
   '"r":',
   '"seed":',
+  '"pace":',
 ];
 
 function checkLive(s: State, defuser: string, experts: string[]) {

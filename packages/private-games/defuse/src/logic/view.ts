@@ -67,7 +67,7 @@ export type ModuleView =
   | KnobView
   | CapacitorModule;
 
-export type BombView = Omit<Bomb, 'r' | 'modules'> & { modules: ModuleView[] };
+export type BombView = Omit<Bomb, 'r' | 'pace' | 'modules'> & { modules: ModuleView[] };
 
 export interface ClockView {
   anchorAt: number;
@@ -164,7 +164,7 @@ export function moduleView(m: Module, reveal: boolean): ModuleView {
 }
 
 export function bombView(b: Bomb, reveal: boolean): BombView {
-  const { r: _r, modules, ...rest } = b;
+  const { r: _r, pace: _pace, modules, ...rest } = b;
   return { ...rest, modules: modules.map((m) => moduleView(m, reveal)) };
 }
 

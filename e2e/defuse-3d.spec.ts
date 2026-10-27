@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { localArt, settings, table } from './defuse-play.ts';
+import { localArt, results, settings, table } from './defuse-play.ts';
 import { type Op, call, changed, ready, stamp } from './defuse-3d-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
@@ -92,8 +92,7 @@ test('a bomb defused through the 3D view, then one that goes off', async ({ brow
       await use(ana, id('password'), { op: 'spin', column: c, by: 1 });
     }
   await use(ana, id('password'), { op: 'submit' });
-  for (const p of [ana, ben])
-    await expect(p.getByTestId('outcome')).toHaveText('Defused', { timeout: 10_000 });
+  for (const p of [ana, ben]) await results(p, 'Defused');
 
   // Hardcore: one wrong cut and it goes off in Ben's hands; his screen goes dark first.
   await settings(ana);
@@ -103,9 +102,8 @@ test('a bomb defused through the 3D view, then one that goes off', async ({ brow
   const wires = (await call(ben, 'bomb')).modules.find((m) => m.kind === 'wires')!.id;
   await look(ben, wires);
   await tapAt(ben, await call(ben, 'where', wires, 1));
-  await expect(ben.getByTestId('explode-black')).toBeVisible();
-  for (const p of [ana, ben])
-    await expect(p.getByTestId('outcome')).toHaveText('Exploded', { timeout: 10_000 });
+  await expect(ben.getByTestId('binder')).toBeVisible();
+  for (const p of [ana, ben]) await results(p, 'Exploded');
 });
 
 test('the hover outline follows the cursor and clears when it leaves', async ({ browser }) => {

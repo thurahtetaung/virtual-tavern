@@ -32,7 +32,6 @@ import {
   clamp,
   dragTurn,
   easeInOutSine,
-  emergencyOn,
   faceAt,
   punchCurve,
   quarter,
@@ -41,6 +40,19 @@ import {
   yawFor,
 } from './controls.ts';
 import { type BombLook, PREFAB, bombLook } from './look.ts';
+import {
+  type ConfigName,
+  Room,
+  type RoomPack,
+  bombLight,
+  cameraMatrix,
+  caseButton,
+  poseMatrix,
+  ROOM_SCALE,
+  roomLook,
+  setCase,
+} from './room.ts';
+import type { Settings } from '../../logic/types.ts';
 import {
   type BindCtx,
   type Binding,
@@ -62,11 +74,11 @@ import {
   textPlane,
 } from './rig.ts';
 
-export type Pose = 'desk' | 'held' | 'module';
+export type Pose = 'desk' | 'held' | 'module' | 'clock';
 
 /** What a table screen needs to show the defuser's view. */
 export interface Mirror {
-  pose: Pose;
+  pose: Exclude<Pose, 'clock'>;
   yaw: number;
   settle: number;
   module: string | null;
@@ -89,6 +101,15 @@ export interface SceneOpts {
   /** The touch hint's scanline down the screen (0 top … 1 past the bottom), null when done. */
   scan?: (offset: number | null) => void;
   now: () => number;
+  /** The original's room around the bomb (its own pack), or null for the dark void. */
+  room?: RoomPack | null;
+  /**
+   * The briefcase instead of a bomb (the lobby): its displays show the host's settings, and its
+   * Start starts the bomb.
+   */
+  briefcase?: { settings: Settings; start: () => void; setting: () => void } | null;
+  /** The defuser presses the alarm clock's snooze button. */
+  snooze?: () => void;
 }
 
 const SPIN_ORDER = 'YXZ';
@@ -343,6 +364,26 @@ export class BombScene {
   stats = { frames: 0, t0: performance.now(), fps: 0, work: [] as number[] };
   private mirror: Mirror | null = null;
   private lastMirror = '';
+  // The room
+  readonly room: Room | null = null;
+  private caseRoot: THREE.Object3D | null = null;
+  /** The camera's pose in the room, eased between the rest pose and leaning in (the clips). */
+  private cam = { from: 'default', to: 'default', t0: 0, ms: 0 } as {
+    from: 'default' | 'bomb' | 'clock';
+    to: 'default' | 'bomb' | 'clock';
+    t0: number;
+    ms: number;
+  };
+  private camM = new THREE.Matrix4();
+  private clockHeld = { from: 0, to: 0, t0: 0 };
+  /** The briefcase's lid: open while it is held (`FreeplayDeviceController` Opening/Closing). */
+  private lid = { from: 0, to: 0, t0: 0, ms: 1 };
+  config: ConfigName = 'Normal';
+
+  /** The room's lighting config now (tests: read from the clock, not the last frame). */
+  configNow(): ConfigName {
+    return roomLook(this.b, this.opts.now()).config;
+  }
 
   /** `renderer` is the page's one renderer (`sharedRenderer`); its canvas is the scene's. */
   constructor(renderer: THREE.WebGLRenderer, opts: SceneOpts) {
@@ -365,6 +406,12 @@ export class BombScene {
     );
     this.renderer = renderer;
     this.scene.background = new THREE.Color(0x0b0b0d);
+    if (opts.room) {
+      this.room = new Room(opts.room, opts.ctx.fonts);
+      this.scene.add(this.room.group);
+      this.camM.copy(cameraMatrix(opts.room.json.room.camera.default));
+      this.applyCam();
+    }
     this.keyLight.position.set(-0.6, 1.6, 0.9);
     this.fill.position.set(0.8, -0.4, 0.6);
     this.scene.add(this.hemi, this.keyLight, this.fill);
@@ -378,7 +425,101 @@ export class BombScene {
     const [p, q] = this.deskPose();
     this.bomb.position.copy(p);
     this.bomb.quaternion.copy(q);
+    if (opts.briefcase) this.buildCase(opts.briefcase.settings);
     this.frameId = requestAnimationFrame(this.frame);
+  }
+
+  // ---- The room's camera ----
+
+  /** Where the camera stands in the room, pulled back on a tall screen so the desk fits. */
+  private camAt(which: 'default' | 'bomb' | 'clock'): THREE.Matrix4 {
+    const json = this.room!.json.camera;
+    const m = cameraMatrix(json[which]);
+    return m;
+  }
+
+  /**
+   * The camera's height of view at rest: the original's 60°, widened on an upright screen so the
+   * desk still shows the whole bomb (stepping back would put the camera in the wall).
+   */
+  private restFov() {
+    const half = Math.atan(0.5 / Math.min(1, this.camera.aspect));
+    return Math.max(FOV, THREE.MathUtils.radToDeg(2 * half));
+  }
+
+  private aimCam(to: 'default' | 'bomb' | 'clock') {
+    if (!this.room || this.cam.to === to) return;
+    const json = this.room.json.camera;
+    const s = to === 'default' ? json[this.cam.to === 'clock' ? 'clock' : 'bomb'].out : json[to].in;
+    this.cam = { from: this.cam.to, to, t0: performance.now(), ms: s * 1000 };
+  }
+
+  private applyCam() {
+    if (!this.room) return;
+    // The bomb keeps its size; the room (and the camera's place in it) grows by 1 / 0.74.
+    this.room.group.matrix
+      .copy(this.camM)
+      .invert()
+      .premultiply(new THREE.Matrix4().makeScale(ROOM_SCALE, ROOM_SCALE, ROOM_SCALE));
+    this.room.group.matrixWorldNeedsUpdate = true;
+  }
+
+  private stepCam(now: number) {
+    if (!this.room) return;
+    const { from, to, t0, ms } = this.cam;
+    const x = ms > 0 ? Math.min(1, (now - t0) / ms) : 1;
+    const e = easeInOutSine(x);
+    const a = new THREE.Vector3();
+    const qa = new THREE.Quaternion();
+    const b = new THREE.Vector3();
+    const qb = new THREE.Quaternion();
+    const sc = new THREE.Vector3();
+    this.camAt(from).decompose(a, qa, sc);
+    this.camAt(to).decompose(b, qb, sc);
+    this.camM.compose(a.lerp(b, e), qa.slerp(qb, e), new THREE.Vector3(1, 1, 1));
+    this.applyCam();
+    const fov = (w: string) => (w === 'default' ? this.restFov() : FOV);
+    const f = fov(from) + (fov(to) - fov(from)) * e;
+    if (Math.abs(this.camera.fov - f) > 1e-3) {
+      this.camera.fov = f;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  // ---- The briefcase ----
+
+  private buildCase(settings: Settings) {
+    const { pack } = this.opts;
+    const room = this.opts.room;
+    const root = room ? instantiate(room, 'FreeplayDevice') : instantiate(pack, 'FreeplayDevice');
+    if (root.userData.plain)
+      part(root, 'Model/Bot/StartButton', {
+        at: [0, 0, 0.02],
+        size: [0.12, 0.06, 0.03],
+        colour: 0x8a1c1c,
+      });
+    root.rotation.copy(FRONT_UP);
+    // The briefcase is the room's size (the bomb is the one the original shrinks).
+    if (room) root.scale.setScalar(ROOM_SCALE);
+    // The case's own origin is at its hinge: centre it in the hands and on the desk, closed and open.
+    const centre = (open: boolean) => {
+      const top = find(root, 'Model/Top');
+      const keep = top?.quaternion.clone();
+      if (top) top.quaternion.set(0, 0, open ? 0.0872 : 1, open ? 0.9962 : 0);
+      root.updateMatrixWorld(true);
+      const c = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+      if (top && keep) top.quaternion.copy(keep);
+      return c;
+    };
+    root.userData.centres = [centre(false), centre(true)];
+    this.punchG.add(root);
+    this.caseRoot = root;
+    this.casing = root;
+    this.setCase(settings);
+  }
+
+  setCase(settings: Settings) {
+    if (this.caseRoot) setCase(this.caseRoot, settings, this.opts.ctx.fonts);
   }
 
   dispose() {
@@ -695,7 +836,7 @@ export class BombScene {
    * of the bomb that is.
    */
   private maxZoom() {
-    return zoomLimit(this.pose, this.surface(), this.fit());
+    return this.pose === 'clock' ? 0 : zoomLimit(this.pose, this.surface(), this.fit());
   }
 
   /** Zooms to `z`, keeping the point `at` (bomb frame) under the screen point (x, y). */
@@ -750,7 +891,20 @@ export class BombScene {
   /** Pointers dropped because their lift never came (tests). */
   private stale = 0;
 
-  private deskPose(): [THREE.Vector3, THREE.Quaternion] {
+  private deskPose(cam?: THREE.Matrix4): [THREE.Vector3, THREE.Quaternion] {
+    if (this.room) {
+      // The bomb (or the briefcase) on the desk at the original's spawn point, front up, as
+      // seen from the camera at rest (or from where it stands now).
+      const m = (cam ? cam.clone() : this.camAt('default'))
+        .invert()
+        .premultiply(new THREE.Matrix4().makeScale(ROOM_SCALE, ROOM_SCALE, ROOM_SCALE))
+        .multiply(poseMatrix(this.room.json.spawn.bomb))
+        .multiply(new THREE.Matrix4().makeRotationFromEuler(FRONT_UP).invert());
+      const p = new THREE.Vector3();
+      const q = new THREE.Quaternion();
+      m.decompose(p, q, new THREE.Vector3());
+      return [p, q];
+    }
     const d = this.heldDistance() * 1.25;
     return [
       new THREE.Vector3(0, -0.16 * d, -d * 1.1),
@@ -759,7 +913,12 @@ export class BombScene {
   }
 
   private heldPose(): [THREE.Vector3, THREE.Quaternion] {
-    return [new THREE.Vector3(0, 0, -this.heldDistance()), new THREE.Quaternion()];
+    // The briefcase is held at its own focus distance, in the room's units.
+    const d =
+      this.caseRoot && this.room
+        ? this.room.json.focus.case * ROOM_SCALE * this.fit()
+        : this.heldDistance();
+    return [new THREE.Vector3(0, 0, -d), new THREE.Quaternion()];
   }
 
   private moveTo(p: THREE.Vector3, q: THREE.Quaternion, s: number) {
@@ -779,6 +938,7 @@ export class BombScene {
     if (this.focused && this.focused !== m) this.focused.bind?.focus?.(false);
     this.pose = p;
     this.focused = m;
+    this.aimCam(p === 'desk' ? 'default' : p === 'clock' ? 'clock' : 'bomb');
     if (m) m.bind?.focus?.(true);
     this.idleSince = performance.now();
     if (this.sweep !== null) this.stopHint();
@@ -787,7 +947,7 @@ export class BombScene {
 
   private emitPose() {
     const m: Mirror = {
-      pose: this.pose,
+      pose: this.pose === 'clock' ? 'desk' : this.pose,
       yaw: Math.round(this.turn.yaw / 90) * 90,
       settle: this.turn.settle,
       module: this.focused?.id ?? null,
@@ -840,7 +1000,56 @@ export class BombScene {
     this.opts.hint('module');
   }
 
+  /** `FloatingHoldable` for the alarm clock: it comes up to the camera, which leans toward it. */
+  pickClock() {
+    if (!this.room || this.pose !== 'desk') return;
+    this.clockHeld = { from: this.clockK(performance.now()), to: 1, t0: performance.now() };
+    this.opts.sound('selectiontick');
+    this.setPose('clock');
+  }
+
+  putClock() {
+    if (this.pose !== 'clock') return;
+    this.clockHeld = { from: this.clockK(performance.now()), to: 0, t0: performance.now() };
+    this.setPose('desk');
+    setTimeout(() => this.opts.sound('putdownfpd', 0.8), 280);
+  }
+
+  /** The lid and handle (`Model/Top`, `Model/Handle/Handle 1`): closed, then open. */
+  private stepLid(now: number) {
+    if (!this.caseRoot) return;
+    const want = this.pose === 'held' ? 1 : 0;
+    if (want !== this.lid.to) {
+      const cur = this.lidK(now);
+      this.lid = { from: cur, to: want, t0: now, ms: want ? 583 : 333 };
+      this.opts.sound(want ? 'briefcase-latch-open' : 'briefcase-latch-close', 0.8);
+    }
+    const k = this.lidK(now);
+    const [closed, open] = this.caseRoot.userData.centres as [THREE.Vector3, THREE.Vector3];
+    this.caseRoot.position.copy(closed).lerp(open, k).negate();
+    const set = (end: string, closed: number[], open: number[]) => {
+      const o = find(this.caseRoot!, end);
+      if (!o) return;
+      const a = new THREE.Quaternion(closed[0], closed[1], closed[2], closed[3]);
+      const b = new THREE.Quaternion(open[0], open[1], open[2], open[3]);
+      o.quaternion.copy(a.slerp(b, k));
+    };
+    set('Model/Top', [0, 0, 1, 0], [0, 0, 0.0872, 0.9962]);
+    set('Model/Handle/Handle 1', [0, 0, 0.2139, 0.9769], [0, 0, 0.6853, 0.7283]);
+  }
+
+  private lidK(now: number) {
+    const x = Math.min(1, (now - this.lid.t0) / this.lid.ms);
+    return this.lid.from + (this.lid.to - this.lid.from) * easeInOutSine(x);
+  }
+
+  private clockK(now: number) {
+    const x = Math.min(1, (now - this.clockHeld.t0) / (PICKUP_S * 1000));
+    return this.clockHeld.from + (this.clockHeld.to - this.clockHeld.from) * easeInOutSine(x);
+  }
+
   back() {
+    if (this.pose === 'clock') return this.putClock();
     this.zoomT = 0;
     this.panWant.set(0, 0);
     if (this.pose === 'module') {
@@ -852,7 +1061,7 @@ export class BombScene {
   }
 
   turnBy(dir: 'up' | 'down' | 'left' | 'right') {
-    if (this.pose === 'desk') return;
+    if (this.pose === 'desk' || this.pose === 'clock' || this.caseRoot) return;
     if (this.pose === 'module') this.back();
     this.turn = quarter(this.turn, dir);
     this.opts.sound('selectiontick', 0.6);
@@ -895,6 +1104,27 @@ export class BombScene {
   /** What is under a screen point: a part of the focused module, a module, the bomb, or nothing. */
   pick(x: number, y: number): Picked | null {
     this.ray.setFromCamera(this.ndc(x, y), this.camera);
+    // The alarm clock on the desk, and its snooze button once it is picked up.
+    if (this.room && (this.pose === 'desk' || this.pose === 'clock')) {
+      const near = this.ray.intersectObject(this.room.clock, true).find((h) => {
+        const m = ([] as THREE.Material[]).concat((h.object as THREE.Mesh).material)[0];
+        return isShown(h.object) && !(m && m.blending === THREE.AdditiveBlending);
+      });
+      const bombHit = this.ray.intersectObject(this.bomb, true)[0];
+      if (near && (!bombHit || near.distance < bombHit.distance || this.pose === 'clock')) {
+        // Held, the clock's one control is its snooze bar (the original selects it by default):
+        // a tap anywhere on the clock presses it.
+        const button = this.room.snoozeButton();
+        const snooze = this.pose === 'clock' && !!button;
+        return {
+          kind: snooze ? 'snooze' : 'clock',
+          mod: null,
+          node: snooze ? button : this.room.clock,
+          point: near.point,
+        };
+      }
+      if (this.pose === 'clock') return null;
+    }
     const hits = this.ray.intersectObject(this.bomb, true).filter((h) => {
       const o = h.object as THREE.Mesh;
       if (!o.visible || !isShown(o) || o.userData.highlight || o.userData.text) return false;
@@ -1030,8 +1260,30 @@ export class BombScene {
 
   private tap(p: Picked | null) {
     if (this.ended) return;
+    if (this.pose === 'clock') {
+      if (p?.kind === 'snooze') {
+        this.opts.sound('press-in');
+        this.opts.vibrate('KeypadButton', 0.1);
+        this.opts.snooze?.();
+      } else this.putClock();
+      return;
+    }
     if (this.pose === 'desk') {
-      if (p) this.pickUp();
+      if (p?.kind === 'clock') this.pickClock();
+      else if (p) this.pickUp();
+      return;
+    }
+    if (this.caseRoot && this.pose === 'held') {
+      if (!p) return this.back();
+      const what = caseButton(p.node);
+      if (what === 'start') {
+        this.opts.sound('press-in');
+        this.addPunch(p.point, 0.5, 'Interaction');
+        this.opts.briefcase?.start();
+      } else if (what === 'setting') {
+        this.opts.sound('press-in', 0.6);
+        this.opts.briefcase?.setting();
+      }
       return;
     }
     if (!p) return this.back(); // a tap off the bomb steps back
@@ -1272,6 +1524,8 @@ export class BombScene {
   onDrag: ((on: boolean) => void) | null = null;
 
   private addTurn(dx: number, dy: number) {
+    // The briefcase can't be turned (`FloatingHoldable.CanBeRotated` off).
+    if (this.caseRoot) return;
     const r = this.canvas.getBoundingClientRect();
     this.turn = dragTurn(this.turn, dx, dy, r.width, r.height);
     this.opts.hint('turned');
@@ -1383,6 +1637,7 @@ export class BombScene {
 
   /** The node a pick lights: a part, a whole module, or the bomb on the desk. */
   private litNode(p: Picked | null) {
+    if (p?.kind === 'clock' || p?.kind === 'snooze') return p.node;
     return p?.kind === 'part'
       ? p.node
       : p?.kind === 'module'
@@ -1525,7 +1780,7 @@ export class BombScene {
     this.renderer.setSize(w, h, false);
     this.renderer.getDrawingBufferSize(this.scanRes.value);
     this.camera.aspect = w / h;
-    this.camera.fov = FOV;
+    this.camera.fov = this.room && this.cam.to === 'default' ? this.restFov() : FOV;
     this.camera.updateProjectionMatrix();
     if (!this.tween && this.pose !== 'module') {
       const [p, q] = this.pose === 'desk' ? this.deskPose() : this.heldPose();
@@ -1552,6 +1807,12 @@ export class BombScene {
         const l = m.bind && this.look.modules.find((x) => x.id === m.id);
         if (m.bind && l) m.bind.apply(l, t);
       }
+    }
+    // On the desk the bomb stays put in the room while the camera leans toward the clock.
+    if (this.room && !this.tween && (this.pose === 'desk' || this.pose === 'clock')) {
+      const [p, q] = this.deskPose(this.camM);
+      this.bomb.position.copy(p);
+      this.bomb.quaternion.copy(q);
     }
     // pose tween
     if (this.tween) {
@@ -1642,22 +1903,41 @@ export class BombScene {
         p.position.y =
           (u.rest as number) - (u.keyAt as number) * ((u.keyDepth as number | undefined) ?? 0);
       }
-    // light: dark until the modules wake, the emergency light in the last minute
-    const look = this.look;
-    const awake = !look || look.awake;
-    const dim = awake ? 1 : 0.12;
-    if (look?.lastMinute && emergencyOn(look.left, t)) {
-      this.hemi.color.set(0xff4a3a);
-      this.hemi.intensity = 0.8;
-      this.keyLight.color.set(0xff5040);
-      this.keyLight.intensity = LIGHT.key;
-    } else {
-      this.hemi.color.set(0xfff1dc);
-      this.hemi.intensity = LIGHT.hemi * dim * (look?.lastMinute ? 0.7 : 1);
-      this.keyLight.color.set(0xffe2b8);
-      this.keyLight.intensity = LIGHT.key * dim;
+    // Light: the room's config (dark until the modules wake, lights out, the emergency light
+    // in the last minute), the room's lightmaps and the bomb's own light from the lamp.
+    this.stepCam(now);
+    this.stepLid(now);
+    const rl = roomLook(this.b, t);
+    this.config = rl.config;
+    const light = bombLight(this.room?.json ?? null, rl.config);
+    this.hemi.color.set(light.hemiColour);
+    this.hemi.intensity = light.hemi;
+    this.keyLight.color.set(light.keyColour);
+    this.keyLight.intensity = light.key;
+    this.fill.intensity = light.fill;
+    if (this.room) {
+      this.room.setConfig(rl.config);
+      this.room.setClock(rl, rl.config !== 'LightsOff');
+      this.room.group.updateMatrixWorld(true);
+      this.keyLight.position.copy(this.room.lampAt().applyMatrix4(this.room.group.matrix));
+      this.room.face(new THREE.Vector3());
+      // The alarm clock between the desk and the camera.
+      const k = this.clockK(now);
+      const desk = poseMatrix(this.room.json.spawn.clock);
+      const held = this.camM
+        .clone()
+        .multiply(new THREE.Matrix4().makeTranslation(0, -0.03, -this.room.json.focus.clock))
+        .multiply(new THREE.Matrix4().makeRotationY(Math.PI));
+      const a = new THREE.Vector3();
+      const qa = new THREE.Quaternion();
+      const b2 = new THREE.Vector3();
+      const qb = new THREE.Quaternion();
+      const sc = new THREE.Vector3();
+      desk.decompose(a, qa, sc);
+      held.decompose(b2, qb, sc);
+      this.room.clock.position.copy(a.lerp(b2, k));
+      this.room.clock.quaternion.copy(qa.slerp(qb, k));
     }
-    this.fill.intensity = LIGHT.fill * dim;
     // the idle hint (`InteractionHint`): touch only, a scanline down the screen
     if (
       this.opts.ctx.touch &&
@@ -1708,6 +1988,27 @@ export class BombScene {
       v = o.geometry.boundingBox!.getCenter(new THREE.Vector3()).applyMatrix4(o.matrixWorld);
     }
     v.project(this.camera);
+    const r = this.canvas.getBoundingClientRect();
+    return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }
+
+  /** Where the room's things show on screen (CSS px): the briefcase, its Start, the clock, its snooze. */
+  whereThing(name: 'case' | 'start' | 'clock' | 'snooze'): { x: number; y: number } | null {
+    const o =
+      name === 'case'
+        ? this.caseRoot
+        : name === 'start'
+          ? this.caseRoot &&
+            (find(this.caseRoot, 'StartButton/Start_btn') ?? find(this.caseRoot, 'StartButton'))
+          : name === 'clock'
+            ? this.room && (find(this.room.clock, 'AlarmClock/Shell') ?? this.room.clock)
+            : this.room?.snoozeButton();
+    if (!o) return null;
+    this.scene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(o, true);
+    const v = (
+      box.isEmpty() ? o.getWorldPosition(new THREE.Vector3()) : box.getCenter(new THREE.Vector3())
+    ).project(this.camera);
     const r = this.canvas.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   }
@@ -1815,7 +2116,7 @@ export class BombScene {
 }
 
 export interface Picked {
-  kind: 'part' | 'module' | 'bomb' | 'face';
+  kind: 'part' | 'module' | 'bomb' | 'face' | 'clock' | 'snooze';
   mod: Mod | null;
   node: THREE.Object3D;
   hit?: Hit;

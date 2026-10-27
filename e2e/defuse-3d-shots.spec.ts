@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { type Page, expect } from '@playwright/test';
 import { nextMove } from '../packages/private-games/defuse/src/logic/bot.ts';
-import { localArt, settings, table, tv } from './defuse-play.ts';
+import { localArt, results, settings, table, tv } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
@@ -205,9 +205,9 @@ test('defuse 3D screenshots: the last minute, explode and defuse', async ({ brow
     await call(ana, 'pickUp');
     for (let i = 0; i < 4; i++) await shot(ana, `40-last-minute-${i}`, 600);
     // Let the clock run out.
-    await expect(ana.getByTestId('explode-black')).toBeVisible({ timeout: 40_000 });
+    await expect(ana.getByTestId('binder')).toBeVisible({ timeout: 40_000 });
     await shot(ana, '41-exploded', 300);
-    await expect(ana.getByTestId('outcome')).toHaveText('Exploded', { timeout: 10_000 });
+    await results(ana, 'Exploded');
     await shot(ana, '42-result-exploded');
     // A defused bomb (the default three modules) in Ben's hands, by the solver through the scene.
     await settings(ana);
@@ -219,7 +219,7 @@ test('defuse 3D screenshots: the last minute, explode and defuse', async ({ brow
     await call(ben, 'pickUp');
     await solve(ben);
     await shot(ben, '43-defused', 300);
-    await expect(ben.getByTestId('outcome')).toHaveText('Defused', { timeout: 10_000 });
+    await results(ben, 'Defused');
     await shot(ben, '44-result-defused');
   }
 });

@@ -7,6 +7,8 @@
   "defuse-3d-modules.spec.ts": 275,
   "defuse-3d-shots.spec.ts": 1,
   "defuse-3d.spec.ts": 62,
+  "defuse-room-shots.spec.ts": 1,
+  "defuse-room.spec.ts": 120,
   "defuse-shots.spec.ts": 1,
   "defuse.spec.ts": 17,
   "echo.spec.ts": 7,

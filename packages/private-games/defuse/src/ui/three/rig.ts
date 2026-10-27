@@ -32,10 +32,13 @@ export interface PackJson {
     pos: number;
     nor: number;
     uv: number;
+    /** The lightmap's coordinates (room meshes), each renderer's tiling baked in. */
+    uv2?: number;
     u32: boolean;
     groups: { off: number; n: number }[];
   }[];
-  textures: Record<string, { alpha: boolean; w: number; h: number }>;
+  /** `raw`: sampled as stored (the room's lightmapped and lightmap textures, gamma-space maths). */
+  textures: Record<string, { alpha: boolean; w: number; h: number; raw?: boolean }>;
   /** The touch outline's falloff curve (`ScanlineFalloff`), 128 values from v = 0. */
   falloff?: number[];
 }
@@ -54,17 +57,19 @@ export interface Pack {
  * Loads the pack from `base` (a URL ending in `/`): KTX2 textures transcoded on the device (the
  * transcoder comes from `base` + `basis/`, never a CDN), or the JPEG/PNG set when KTX2 can't load.
  */
-export async function loadPack(
+export async function loadPack<J extends PackJson = PackJson>(
   base: string,
   renderer: THREE.WebGLRenderer,
   quality: Quality,
-): Promise<Pack> {
+  name = 'scene',
+  transcoder = `${base}basis/`,
+): Promise<Pack & { json: J }> {
   const [json, bin] = await Promise.all([
-    fetch(`${base}scene.json`, { credentials: 'same-origin' }).then((r) => {
+    fetch(`${base}${name}.json`, { credentials: 'same-origin' }).then((r) => {
       if (!r.ok) throw new Error(`scene ${r.status}`);
-      return r.json() as Promise<PackJson>;
+      return r.json() as Promise<J>;
     }),
-    fetch(`${base}scene.bin`, { credentials: 'same-origin' }).then((r) => {
+    fetch(`${base}${name}.bin`, { credentials: 'same-origin' }).then((r) => {
       if (!r.ok) throw new Error(`geometry ${r.status}`);
       return r.arrayBuffer();
     }),
@@ -80,6 +85,11 @@ export async function loadPack(
       new THREE.BufferAttribute(new Float32Array(bin, m.nor, m.count * 3), 3),
     );
     g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(bin, m.uv, m.count * 2), 2));
+    if (m.uv2 !== undefined)
+      g.setAttribute(
+        'uv1',
+        new THREE.BufferAttribute(new Float32Array(bin, m.uv2, m.count * 2), 2),
+      );
     const parts = m.groups.map((gr) =>
       m.u32 ? new Uint32Array(bin, gr.off, gr.n) : new Uint16Array(bin, gr.off, gr.n),
     );
@@ -101,11 +111,11 @@ export async function loadPack(
   const names = Object.keys(json.textures);
   let ktxOk = true;
   try {
-    const ktx = new KTX2Loader().setTranscoderPath(`${base}basis/`).detectSupport(renderer);
+    const ktx = new KTX2Loader().setTranscoderPath(transcoder).detectSupport(renderer);
     await Promise.all(
       names.map(async (n) => {
         const t = await ktx.loadAsync(`${base}tex/${n}.${quality}.ktx2`);
-        t.colorSpace = THREE.SRGBColorSpace;
+        t.colorSpace = json.textures[n]!.raw ? THREE.NoColorSpace : THREE.SRGBColorSpace;
         t.anisotropy = ANISOTROPY;
         tex.set(n, t);
       }),
@@ -135,7 +145,7 @@ export async function loadPack(
         const t = await loader.loadAsync(
           `${base}tex/${n}.${quality}.${json.textures[n]!.alpha ? 'png' : 'jpg'}`,
         );
-        t.colorSpace = THREE.SRGBColorSpace;
+        t.colorSpace = json.textures[n]!.raw ? THREE.NoColorSpace : THREE.SRGBColorSpace;
         t.anisotropy = ANISOTROPY;
         tex.set(n, t);
       }),
@@ -184,6 +194,14 @@ function material(pack: Pack, mat: PackMat): THREE.Material | null {
       return new THREE.MeshLambertMaterial({ map, transparent: true, depthWrite: false });
     case 'Unlit/Texture':
       return new THREE.MeshBasicMaterial({ map });
+    case 'KT/Unlit/TexturedLightmap': {
+      // The room (`room.ts` gives it its lightmap); its texture's tiling goes to the shader.
+      const ref = mat.tex._MainTex;
+      const m = new THREE.MeshBasicMaterial({ map: ref ? (pack.tex.get(ref.file) ?? null) : null });
+      m.userData.lightmapped = true;
+      m.userData.st = ref?.st ?? [1, 1, 0, 0];
+      return m;
+    }
     case 'KT/Unlit/TransparentVertexColorUnderlay30':
       return new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false });
     case 'KT/LightGlowUnderlay20':

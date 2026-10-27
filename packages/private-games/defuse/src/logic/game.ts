@@ -9,7 +9,7 @@ import {
 } from '@vt/game-sdk';
 import { z } from 'zod';
 import { defuseAwards } from './awards.ts';
-import { act, createBomb, nextAt, runTo, solvableCount, solvedCount } from './bomb.ts';
+import { act, createBomb, nextAt, pressAlarm, runTo, solvableCount, solvedCount } from './bomb.ts';
 import { defuseBot } from './bot.ts';
 import { guide } from './guide.ts';
 import { insights } from './insights.ts';
@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defuserMode: 'rotate',
   expertsSeeClock: false,
   table: 'manual',
+  surprises: true,
 };
 
 const err = (code: string, message: string) => new GameError(code, message);
@@ -51,6 +52,15 @@ const draft = (s: State): State => structuredClone(s);
 let testSeed: number | null = null;
 export function setTestSeed(seed: number | null) {
   testSeed = seed;
+}
+
+/**
+ * Browser tests only: instead of the random surprises, every bomb's lights go out this long
+ * after its clock starts (with "Room surprises" on), so a spec can reach lights out.
+ */
+let testLights: number | null = null;
+export function setTestLights(ms: number | null) {
+  testLights = ms;
 }
 
 // ---- Seats ----
@@ -80,6 +90,7 @@ const settingsSchema = z
     defuserMode: z.enum(['rotate', 'random', 'volunteer']),
     expertsSeeClock: z.boolean(),
     table: z.enum(['manual', 'bomb']),
+    surprises: z.boolean(),
   })
   .partial();
 
@@ -131,6 +142,7 @@ export const actionSchema: z.ZodType<Action> = z.union([
     module: z.string().max(8).nullable(),
   }),
   tableVolumeAction,
+  z.object({ type: z.literal('alarm') }),
   z.object({ type: z.literal('next') }),
   z.object({ type: z.literal('lobby') }),
   z.object({ type: z.literal('ponder') }),
@@ -181,6 +193,10 @@ function startBomb(s: State, ctx: ActionCtx): State | GameError {
   s.bombNo++;
   const seed = testSeed ?? ctx.rng.int(2 ** 32);
   s.bomb = createBomb(s.bombNo, seed, s.settings, ctx.now);
+  if (testLights !== null && s.bomb.pace) {
+    s.bomb.pace = null;
+    s.bomb.lightsAt = s.bomb.clockAt + testLights;
+  }
   s.defuser = defuser;
   s.volunteers = [];
   s.claims = {};
@@ -257,7 +273,15 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
     }
     case 'start':
     case 'next': {
-      if (!ctx.isHost) return err('not-host', 'Only the host starts a bomb.');
+      // The defuser may start their own bomb from the briefcase on the desk (`start`); the host
+      // starts any bomb.
+      const own =
+        action.type === 'start' &&
+        state.stage === 'lobby' &&
+        state.settings.defuserMode !== 'random' &&
+        state.defuser === me &&
+        seated(state, me);
+      if (!ctx.isHost && !own) return err('not-host', 'Only the host starts a bomb.');
       if (!between) return err('bomb-live', 'A bomb is already ticking.');
       return startBomb(draft(state), ctx);
     }
@@ -299,6 +323,15 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       if (!ctx.isHost) return err('not-host', 'Only the host sets the table screen’s volume.');
       const s = draft(state);
       s.tableVolumes = { ...s.tableVolumes, ...action.volumes };
+      return s;
+    }
+    case 'alarm': {
+      if (state.stage !== 'bomb' || !state.bomb) return err('no-bomb', 'No bomb is ticking.');
+      if (me !== state.defuser) return err('not-defuser', 'Only the defuser is in the room.');
+      const s = draft(state);
+      runTo(s.bomb!, ctx.now);
+      pressAlarm(s.bomb!, ctx.now);
+      finish(s);
       return s;
     }
     case 'claim': {

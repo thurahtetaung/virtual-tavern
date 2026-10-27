@@ -5,6 +5,7 @@ export {
   actionSchema,
   defuse,
   setTestSeed,
+  setTestLights,
 } from './game.ts';
 export { defuseBot } from './bot.ts';
 export { guide, makeGuide, nameGuide } from './guide.ts';

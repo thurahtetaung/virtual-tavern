@@ -1,8 +1,9 @@
 import { Panel, PlayerTag, ProtectedImage, cn } from '@vt/ui';
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PAGES, PageBody, ClaimsSummary, pageName } from './Manual.tsx';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { timerText } from '../logic/bomb.ts';
+import { Binder } from './Binder.tsx';
 import { BombScreen } from './Bomb.tsx';
 import { Bomb3D } from './three/Bomb3D.tsx';
 import { ExpertClock, type DefuseUiProps } from './DefuseGame.tsx';
@@ -95,6 +96,7 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
     (v.stage === 'bomb' && v.settings.table === 'bomb') || v.stage === 'result' ? v.bomb : null,
     art,
     room.clockOffset,
+    { room: v.settings.table === 'bomb' && v.look?.mode !== '2d' },
   );
   useEffect(() => {
     return () => {
@@ -102,6 +104,37 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
     };
   }, []);
   const defuser = v.seats.find((p) => p.id === v.defuser)?.name ?? 'Someone';
+  const [closed, setClosed] = useState(-1);
+  // Showing the bomb, the screen ends as the defuser's does: a defused room fades out over 9 s,
+  // then (and at once after an explosion) the binder's results page.
+  const end = v.stage === 'result' && v.settings.table === 'bomb' ? v.bomb?.end : null;
+  const roomUntil = end?.how === 'defused' && v.look?.mode !== '2d' ? end.at + 9000 : 0;
+  if (end && v.bomb && now < roomUntil)
+    return (
+      <div className="h-screen w-full p-4">
+        <Bomb3D
+          key={v.bomb.no}
+          b={v.bomb}
+          art={art}
+          offset={room.clockOffset}
+          act={null}
+          fullScreen={false}
+        />
+      </div>
+    );
+  if (end && v.bomb && closed !== v.bomb.no)
+    return (
+      <Binder
+        b={v.bomb}
+        settings={v.settings}
+        art={art}
+        offset={room.clockOffset}
+        sound
+        room={v.look?.mode !== '2d'}
+        retry={null}
+        close={() => setClosed(v.bomb!.no)}
+      />
+    );
   if (v.stage === 'bomb' && v.bomb)
     return (
       <div
