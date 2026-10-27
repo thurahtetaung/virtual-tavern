@@ -1,14 +1,23 @@
 // The original's gameplay room around the bomb (`FacilityRoom`): the dark concrete room, the desk
 // and the standing lamp, lit by the original's baked lightmaps, one per lighting config
 // (`LightmapRoom`: Normal, LightsOff, EmergencyRed, LightsOnBuzz), the alarm clock on the desk and
-// the Free Play briefcase. The room comes from its own pack (`3d/room/`, beside the bomb's); without
+// the Free Play briefcase, or the bomb binder at a mission's page. The room comes from its own pack (`3d/room/`, beside the bomb's); without
 // it the bomb sits in the dark as before.
 import * as THREE from 'three';
 import { ALARM_MS, LIGHTS_OUT } from '../../logic/bomb.ts';
 import type { CaseDial } from '../../logic/game.ts';
 import type { Settings } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
-import { type Pack, type PackJson, find, findAll, instantiate, isMesh, textPlane } from './rig.ts';
+import {
+  type Pack,
+  type PackJson,
+  find,
+  findAll,
+  instantiate,
+  isMesh,
+  textBlock,
+  textPlane,
+} from './rig.ts';
 
 export type ConfigName = 'Normal' | 'LightsOff' | 'EmergencyRed' | 'LightsOnBuzz';
 
@@ -43,8 +52,30 @@ export interface RoomJson {
     clock: PoseJson & { in: number; out: number };
   };
   spawn: { bomb: PoseJson; clock: PoseJson };
-  focus: { bomb: number; clock: number; case: number };
+  focus: { bomb: number; clock: number; case: number; binder?: number };
+  /** The bomb binder (packed after the room: missing in packs made before). */
+  binder?: BinderJson;
   emergency: { on: number; offFrom: number; offTo: number };
+}
+
+/** One of the binder page's TextMeshPro boxes: size and pivot in its node's units. */
+export interface BinderText {
+  node: string;
+  w: number;
+  h: number;
+  px: number;
+  py: number;
+  size: number;
+  min: number;
+  align: 'left' | 'center' | 'bottom' | 'top-left';
+  colour: string;
+  wrap: boolean;
+}
+
+export interface BinderJson {
+  /** `opening_binder` / `closing_binder`: the spine and the cover about y (degrees), linear. */
+  open: { ms: number; spine: [number, number]; front: [number, number] };
+  texts: BinderText[];
 }
 
 /** `Bomb.Scale`: the original shrinks its bomb to 0.74 in the room; here the room grows instead. */
@@ -507,6 +538,125 @@ export function caseButton(
                 ? 'hardcore'
                 : null;
     if (dial) return { what: dial, node: x };
+  }
+  return null;
+}
+
+// ---- The bomb binder (a mission) ----
+
+/** What a mission's page in the bomb binder shows (`MissionDetailPage.SetMission`). */
+export interface BinderPage {
+  name: string;
+  description: string;
+  /** Seconds. */
+  time: number;
+  modules: number;
+  strikes: number;
+}
+
+/** `BombBinder.FocusDistance` and the cover's clips, for packs made before they were read. */
+export const BINDER_FOCUS = 0.515;
+export const BINDER_OPEN: BinderJson['open'] = {
+  ms: 500,
+  spine: [-90.8, -3.5],
+  front: [-93.9, -4.68],
+};
+
+const BINDER = 'Model/BombBinder/';
+const PAGE = `${BINDER}Binder_back/MissionDetailPage/`;
+
+/** The page's lines, as `MissionDetailPage` fills them (the labels as printed). */
+export function binderTexts(page: BinderPage): Record<string, string> {
+  const min = Math.floor(page.time / 60);
+  return {
+    'Labels/1. Identifier': '1. Identifier',
+    'Labels/2. Description': '2. Description',
+    'Labels/3. Bomb Configuration': '3. Bomb Configuration',
+    'MissionIdentifier/txtSingleLine': page.name,
+    txtDescription: page.description,
+    txtTimeLimit: `${min}:${String(page.time % 60).padStart(2, '0')}`,
+    txtModuleCount: page.modules === 1 ? '1 Module' : `${page.modules} Modules`,
+    txtStrikeCount: page.strikes === 1 ? '1 Strike' : `${page.strikes} Strikes`,
+    'HorizontalGroup/StartButton/txtStart': 'START',
+    'HorizontalGroup/BackButton/txtBack': 'BACK',
+    CoverText: 'Bombs',
+  };
+}
+
+/** The binder's page: its texts from the mission (the page itself is shown open on the desk). */
+export function setBinder(
+  root: THREE.Object3D,
+  json: BinderJson | undefined,
+  page: BinderPage,
+  fonts: { labels: string; manual?: string | null },
+) {
+  const r = root as THREE.Object3D & {
+    userData: { texts?: Map<string, ReturnType<typeof textBlock>> };
+  };
+  r.userData.texts ??= new Map();
+  const detail = find(root, `${BINDER}Binder_back/MissionDetailPage`);
+  if (detail) detail.visible = true;
+  const lines = binderTexts(page);
+  const manual = fonts.manual ?? 'ui-serif, Georgia, serif';
+  for (const x of json?.texts ?? []) {
+    const key = Object.keys(lines).find((k) => x.node.endsWith(`/${k}`));
+    const at = key && find(root, x.node.slice(x.node.indexOf(BINDER)));
+    if (!key || !at) continue;
+    let t = r.userData.texts.get(x.node);
+    if (!t) {
+      const unit =
+        at.getWorldScale(new THREE.Vector3()).x / root.getWorldScale(new THREE.Vector3()).x;
+      const cover = key === 'CoverText';
+      t = textBlock(
+        x.w,
+        x.h,
+        unit,
+        (px) => (cover ? `bold ${px}px ${fonts.labels}` : `${px}px ${manual}`),
+        {
+          colour: x.colour,
+          max: x.size,
+          min: x.min,
+          wrap: x.wrap,
+          align: x.align === 'left' || x.align === 'top-left' ? 'left' : 'center',
+          valign: x.align === 'top-left' ? 'top' : x.align === 'bottom' ? 'bottom' : 'middle',
+        },
+      );
+      // The box hangs from its pivot; TextMeshPro's text faces −z in its node (right is −x).
+      t.position.set(-(0.5 - x.px) * x.w, (0.5 - x.py) * x.h, 0);
+      t.rotation.set(0, Math.PI, 0);
+      at.add(t);
+      r.userData.texts.set(x.node, t);
+    }
+    t.userData.set(lines[key]!, x.colour);
+  }
+}
+
+/** The cover's angles (degrees about y) at `k`, 0 closed … 1 open. */
+export function binderCover(open: BinderJson['open'], k: number) {
+  const at = ([closed, opened]: [number, number]) => closed + (opened - closed) * k;
+  return { spine: at(open.spine), front: at(open.front) };
+}
+
+/** Turns the binder's cover (`spine`, `spine/Binder_front`) to `k`. */
+export function stepBinder(root: THREE.Object3D, open: BinderJson['open'], k: number) {
+  const { spine, front } = binderCover(open, k);
+  // The packer turns Unity's left-handed axes right-handed: a turn about y changes sign.
+  find(root, `${BINDER}spine`)?.quaternion.setFromAxisAngle(Y, (-spine * Math.PI) / 180);
+  find(root, `${BINDER}spine/Binder_front`)?.quaternion.setFromAxisAngle(
+    Y,
+    (-front * Math.PI) / 180,
+  );
+}
+
+const Y = new THREE.Vector3(0, 1, 0);
+
+/** What a tap on the open binder touches: its Start, or its Back. */
+export function binderButton(o: THREE.Object3D): 'start' | 'back' | null {
+  for (let x: THREE.Object3D | null = o; x; x = x.parent) {
+    const p = (x.userData.path as string) ?? '';
+    if (p.endsWith(`${PAGE}HorizontalGroup/StartButton`) || p.endsWith('/BinderStart'))
+      return 'start';
+    if (p.endsWith(`${PAGE}HorizontalGroup/BackButton`)) return 'back';
   }
   return null;
 }

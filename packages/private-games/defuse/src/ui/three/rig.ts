@@ -412,6 +412,110 @@ export function textPlane(
 }
 
 /**
+ * TextMeshPro's word wrap and auto-size for one box: the largest size from `max` down to `min`
+ * (steps of a tenth) whose wrapped lines fit `w` × `h` (an em is `size / 10` of the box's units, a
+ * line 1.2 em), else `min` with what overflows cut. `measure(text, em)` is a line's width.
+ */
+export function fitLines(
+  text: string,
+  w: number,
+  h: number,
+  max: number,
+  min: number,
+  wrap: boolean,
+  measure: (text: string, em: number) => number,
+): { size: number; lines: string[] } {
+  const lay = (size: number) => {
+    const em = size / 10;
+    const lines: string[] = [];
+    for (const para of text.split('\n')) {
+      if (!wrap) {
+        lines.push(para);
+        continue;
+      }
+      let line = '';
+      for (const word of para.split(/\s+/).filter(Boolean)) {
+        const next = line ? `${line} ${word}` : word;
+        if (line && measure(next, em) > w) {
+          lines.push(line);
+          line = word;
+        } else line = next;
+      }
+      lines.push(line);
+    }
+    const fits =
+      lines.length * em * 1.2 <= h + 1e-9 && lines.every((l) => measure(l, em) <= w + 1e-9);
+    return { size, lines, fits };
+  };
+  for (let size = max; size >= min - 1e-9; size = Math.round((size - 0.1) * 10) / 10) {
+    const r = lay(size);
+    if (r.fits) return { size, lines: r.lines };
+  }
+  const r = lay(min);
+  return { size: min, lines: r.lines.slice(0, Math.max(1, Math.floor(h / ((min / 10) * 1.2)))) };
+}
+
+/**
+ * A TextMeshPro box on a canvas plane, `w` × `h` in its node's units (`unit` metres each): wrapped
+ * and sized down by `fitLines`, aligned as the original (`left`/`center` across, `top`/`middle`/
+ * `bottom` down).
+ */
+export function textBlock(
+  w: number,
+  h: number,
+  unit: number,
+  font: (px: number) => string,
+  opts: {
+    colour: string;
+    max: number;
+    min: number;
+    wrap: boolean;
+    align: 'left' | 'center';
+    valign: 'top' | 'middle' | 'bottom';
+  },
+): TextPlane {
+  const c = document.createElement('canvas');
+  [c.width, c.height] = textCanvasSize(w * unit, h * unit);
+  const ctx = c.getContext('2d')!;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = ANISOTROPY;
+  const mat = new THREE.MeshBasicMaterial({
+    map: t,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat) as unknown as TextPlane;
+  mesh.renderOrder = 5;
+  mesh.userData.text = '\u0000';
+  const k = c.height / h; // canvas px per unit
+  mesh.userData.set = (text: string, colour = opts.colour) => {
+    const key = `${text}|${colour}`;
+    if (mesh.userData.text === key) return;
+    mesh.userData.text = key;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const measure = (line: string, em: number) => {
+      ctx.font = font(em * k);
+      return ctx.measureText(line).width / k;
+    };
+    const { size, lines } = fitLines(text, w, h, opts.max, opts.min, opts.wrap, measure);
+    const em = size / 10;
+    ctx.font = font(em * k);
+    ctx.fillStyle = colour;
+    ctx.textAlign = opts.align;
+    ctx.textBaseline = 'middle';
+    const line = em * 1.2;
+    const block = lines.length * line;
+    const top = opts.valign === 'top' ? 0 : opts.valign === 'bottom' ? h - block : (h - block) / 2;
+    const x = opts.align === 'left' ? 0 : c.width / 2;
+    lines.forEach((l, i) => ctx.fillText(l, x, (top + line * (i + 0.5)) * k));
+    t.needsUpdate = true;
+  };
+  return mesh;
+}
+
+/**
  * Puts a text plane on a TextMeshPro anchor: the anchor's own scale is undone, and the plane is
  * turned to face out of the module (TextMeshPro text faces −z in its anchor).
  */

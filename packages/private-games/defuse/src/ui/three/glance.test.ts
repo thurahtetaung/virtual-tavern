@@ -42,11 +42,11 @@ describe('looking around', () => {
     expect(edgeArrows(990, 5, w, h)).toEqual({ left: 0, right: 1, top: 1, bottom: 0 });
   });
 
-  it('on touch only a drag that starts off the bomb looks around, at the desk or holding it', () => {
-    expect(dragGlances(false, 'held')).toBe(true);
+  it('on touch only a drag that starts off the bomb looks around, and only at the desk', () => {
     expect(dragGlances(false, 'desk')).toBe(true);
-    expect(dragGlances(false, 'module')).toBe(true);
-    expect(dragGlances(true, 'held')).toBe(false);
+    expect(dragGlances(true, 'desk')).toBe(false);
+    expect(dragGlances(false, 'held')).toBe(false);
+    expect(dragGlances(false, 'module')).toBe(false);
     expect(dragGlances(false, 'clock')).toBe(false);
   });
 });

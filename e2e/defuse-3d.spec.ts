@@ -207,7 +207,46 @@ test('on touch the finger selects what it is on, and the selection never sticks'
   await expect.poll(async () => (await call(ana, 'pose')).module).toBe(b);
 });
 
-test('on touch a drag that starts off the bomb looks around, and the view comes back', async ({
+/** A touch drag from (x, y) toward the right and down, with raw touch events. */
+async function touchDrag(p: Page, x: number, y: number) {
+  const cdp = await p.context().newCDPSession(p);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', tx = 0, ty = 0) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: type === 'touchEnd' ? [] : [{ x: tx, y: ty }],
+    });
+  await touch('touchStart', x, y);
+  for (let i = 1; i <= 8; i++) await touch('touchMove', x + i * 40, y + i * 12);
+  return () => touch('touchEnd');
+}
+
+test('on touch a drag that starts off the bomb on the desk looks around, and the view comes back', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana] = (await table(browser, ['Ana', 'Ben'], {
+    setup: localArt,
+    viewport: { width: 844, height: 390 },
+    touch: true,
+  })) as [Page, Page];
+  await ana.getByTestId('start').click();
+  await ready(ana);
+  expect((await call(ana, 'pose')).pose).toBe('desk');
+  await ana.waitForTimeout(500);
+  // From near the top left (clear of the overlay's buttons), off the bomb, toward the right and down.
+  expect(await call(ana, 'pickAt', 100, 80)).toBeNull();
+  const end = await touchDrag(ana, 100, 80);
+  await expect.poll(async () => (await call(ana, 'glance'))[0]).toBeGreaterThan(0.3);
+  expect((await call(ana, 'glance'))[1]).toBeGreaterThan(0);
+  // The bomb stayed on the desk.
+  expect((await call(ana, 'pose')).pose).toBe('desk');
+  await end();
+  await expect.poll(() => call(ana, 'glance')).toEqual([0, 0]);
+  expect((await call(ana, 'pose')).pose).toBe('desk');
+});
+
+test('on touch a held bomb never looks around: a drag off it turns the bomb', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -222,22 +261,13 @@ test('on touch a drag that starts off the bomb looks around, and the view comes 
   await call(ana, 'pickUp');
   await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
   await ana.waitForTimeout(500);
-  const cdp = await ana.context().newCDPSession(ana);
-  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
-    cdp.send('Input.dispatchTouchEvent', {
-      type,
-      touchPoints: type === 'touchEnd' ? [] : [{ x, y }],
-    });
-  // From near the top left (clear of ‹ and the arrows), off the bomb, toward the right and down.
   expect(await call(ana, 'pickAt', 100, 80)).toBeNull();
-  await touch('touchStart', 100, 80);
-  for (let i = 1; i <= 8; i++) await touch('touchMove', 100 + i * 40, 80 + i * 12);
-  await expect.poll(async () => (await call(ana, 'glance'))[0]).toBeGreaterThan(0.3);
-  expect((await call(ana, 'glance'))[1]).toBeGreaterThan(0);
-  // The bomb didn't turn: still held, nothing selected.
-  expect((await call(ana, 'pose')).pose).toBe('held');
-  await touch('touchEnd');
-  await expect.poll(() => call(ana, 'glance')).toEqual([0, 0]);
+  const end = await touchDrag(ana, 100, 80);
+  // Give a glance time to start, as it does at the desk: the view never turns.
+  await ana.waitForTimeout(600);
+  expect(await call(ana, 'glance')).toEqual([0, 0]);
+  await end();
+  expect(await call(ana, 'glance')).toEqual([0, 0]);
   expect((await call(ana, 'pose')).pose).toBe('held');
 });
 

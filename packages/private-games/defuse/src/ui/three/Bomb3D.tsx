@@ -12,7 +12,7 @@ import { serverNow } from '../time.ts';
 import { type Device, HINTS, type HintStep, doneBy, hintFor } from './controls.ts';
 import { type Pack, type Quality, loadPack } from './rig.ts';
 import type { EdgeArrows } from './glance.ts';
-import { type RoomPack, roomLook } from './room.ts';
+import { type BinderPage, type RoomPack, roomLook } from './room.ts';
 import { BombScene, type Mirror, type Pose, sharedRenderer } from './scene.ts';
 
 const HINTS_KEY = 'vt.defuse.hints-3d';
@@ -103,12 +103,14 @@ export interface Bomb3DProps {
   b: BombView | null;
   /**
    * The briefcase: the host's settings on its displays, its keys and switches (`change`, null
-   * for anyone but the host), and its Start.
+   * for anyone but the host), and its Start. Under a mission (`mission`) the desk holds the bomb
+   * binder open at that mission's page instead (remount to swap them).
    */
   briefcase?: {
     settings: Settings;
     start: () => void;
     change: ((settings: Partial<Settings>) => void) | null;
+    mission?: BinderPage | null;
   } | null;
   /** The defuser presses the alarm clock's snooze. */
   snooze?: () => void;
@@ -202,7 +204,7 @@ export function Bomb3D({
     void Promise.all([
       packFor(art.scene, light ? 'lo' : 'hi', renderer),
       roomFor(art.room, art.scene, light ? 'lo' : 'hi', renderer),
-      fontsReady([art.fonts.digits, art.fonts.labels, art.fonts.morse]),
+      fontsReady([art.fonts.digits, art.fonts.labels, art.fonts.morse, art.fonts.manual]),
     ]).then(([pack, room]) => {
       if (!live) return;
       const brief = caseRef.current;
@@ -212,6 +214,7 @@ export function Bomb3D({
         briefcase: brief
           ? {
               settings: brief.settings,
+              mission: brief.mission ?? null,
               start: () => {
                 setStarting(true);
                 caseRef.current?.start();
@@ -352,6 +355,7 @@ export function Bomb3D({
       look: (id: string) => sceneRef.current?.lookOf(id) ?? null,
       partFor: (id: string, op: ModuleOp) => sceneRef.current?.partFor(id, op) ?? -1,
       next: () => (bRef.current ? nextMove(bRef.current, serverNow(offset)) : null),
+      desk: () => sceneRef.current?.deskThing() ?? null,
       thing: (name: 'case' | 'start' | 'clock' | 'snooze') =>
         sceneRef.current?.whereThing(name) ?? null,
       config: () => sceneRef.current?.configNow() ?? null,
@@ -370,6 +374,8 @@ export function Bomb3D({
     };
   }, [test, ready, offset]);
 
+  // The round Back button, on touch away from the desk; the desk's Lobby button moves beside it.
+  const backShown = touch && pose !== 'desk' && !b?.end;
   const step =
     readOnly || b?.end || briefcase ? null : hintFor(pose === 'clock' ? 'desk' : pose, done);
   const scene = sceneRef.current;
@@ -477,7 +483,13 @@ export function Bomb3D({
             <button
               type="button"
               onClick={leave}
-              className="absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] rounded-full bg-stone-900/70 px-4 py-2.5 text-sm"
+              className={cn(
+                'absolute rounded-full bg-stone-900/70 px-4 py-2.5 text-sm',
+                // Beside the round Back button while it shows (the briefcase held on touch).
+                backShown
+                  ? 'left-[calc(max(12px,env(safe-area-inset-left))+60px)] top-[calc(max(12px,env(safe-area-inset-top))+6px)]'
+                  : 'left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))]',
+              )}
               data-testid="desk-lobby"
             >
               ‹ Lobby
@@ -490,9 +502,7 @@ export function Bomb3D({
             {caseNote
               ? 'Only the host can change the settings'
               : pose === 'desk'
-                ? touch
-                  ? 'Tap the briefcase to pick it up'
-                  : 'Click the briefcase to pick it up'
+                ? `${touch ? 'Tap' : 'Click'} the ${briefcase.mission ? 'binder' : 'briefcase'} to pick it up`
                 : 'Press START to begin'}
           </p>
         </>
@@ -505,7 +515,7 @@ export function Bomb3D({
             onClick={() => scene?.back()}
             className={cn(
               'absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] size-13 rounded-full bg-stone-900/55 text-3xl leading-none transition-opacity active:bg-stone-700/80',
-              touch && pose !== 'desk' && !b?.end ? 'opacity-100' : 'pointer-events-none opacity-0',
+              backShown ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
             data-testid="bomb-back"
           >
@@ -663,7 +673,7 @@ const TOUCH_CONTROLS: [string, string][] = [
   ['Tap', 'pick up the bomb, look at a module, cut, press'],
   ['Drag', 'turn the bomb (it settles square when you let go)'],
   ['Pinch', 'zoom in and out, on any side; move both fingers to look around'],
-  ['Drag off the bomb', 'drag outside the bomb to look around the room'],
+  ['Drag off the bomb', 'drag outside the bomb on the desk to look around'],
   ['‹ or two-finger tap', 'step back: module → bomb → desk (or tap off the bomb)'],
   ['▴ ▾ ◂ ▸', 'a quarter turn, to read the edges'],
 ];

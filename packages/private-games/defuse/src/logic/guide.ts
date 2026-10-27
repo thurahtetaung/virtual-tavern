@@ -149,6 +149,7 @@ function base(art: GuideArt): GameGuide {
           'Sees the whole bomb: two faces with up to 11 modules and the timer, and four edges.',
           'The bomb is in 3D, full screen, on a desk in a dark room: pick it up, turn it in your hands to read the edges, and zoom in on a module to use it.',
           'Before the bomb, the next defuser sits at the desk with the Free Play briefcase: it shows the host’s settings (a host at the desk can change them on its keys and switches, as in the lobby), and its START button starts the bomb (the host can start it from the lobby too).',
+          'Under a mission the desk holds the bomb binder instead, open at that mission’s page (its time, modules and strikes), and the page’s START starts it.',
           'Never sees the manual, and never shows the bomb to the experts.',
         ],
       },
@@ -156,7 +157,7 @@ function base(art: GuideArt): GameGuide {
         title: 'Controls',
         level: 'basics',
         bullets: [
-          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts; drag outside the bomb to look around the room. The phone buzzes as you touch things (switch it off under ?).',
+          'Phone: tap the bomb to pick it up; drag to turn it (it settles square when you let go) or use the ▴ ▾ ◂ ▸ arrows; pinch to zoom in on any side, the edges too (move both fingers to look around); tap a module to look closer, then tap its parts; drag outside the bomb on the desk to look around the room. The phone buzzes as you touch things (switch it off under ?).',
           'Phone: ‹, a two-finger tap or a tap off the bomb steps back (module, then bomb, then the desk).',
           'Computer: click to pick up, look closer and use parts (hold for the big button); right-drag or Ctrl+drag turns it; the wheel zooms toward the cursor; hold the button at the screen’s edge to look around the room; right-click or Esc steps back.',
           'Keyboard: arrows or WASD turn a quarter, F turns it over, Tab and Enter pick a module, 1–9 use its parts.',
@@ -243,7 +244,7 @@ function base(art: GuideArt): GameGuide {
         bullets: [
           'With this host option every module follows different rules: other wires to cut, other keypad columns, other mazes, other words and frequencies. The experts’ pages show the rules in play, so nobody can defuse from memory.',
           '“New manual each bomb” brings a new one with every bomb; “Same manual all night” keeps one until the host changes the option.',
-          'The manual’s index says when it is a different manual. Pages whose rules never change (the password words, the needy gas and capacitor, the edges) look as printed.',
+          'The manual’s index says when it is a different manual. Pages whose rules never change (the password words, the needy gas and capacitor, the edges) keep the standard manual’s pictures.',
         ],
       },
       {
