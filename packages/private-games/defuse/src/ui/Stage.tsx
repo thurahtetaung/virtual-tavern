@@ -6,7 +6,8 @@ import { timerText } from '../logic/bomb.ts';
 import { BombScreen } from './Bomb.tsx';
 import { Bomb3D } from './three/Bomb3D.tsx';
 import { ExpertClock, type DefuseUiProps } from './DefuseGame.tsx';
-import { player, useBombSound, useUnlock } from './sound.ts';
+import { tableVolumes } from '@vt/ui/sound';
+import { player, useBombSound, usePlayerVolumes } from './sound.ts';
 import { useServerNow } from './time.ts';
 import type { PageId } from '../logic/types.ts';
 
@@ -86,8 +87,9 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   const art = useMemo(() => artFor(manifest), [manifest]);
   const names = useMemo(() => new Map(room.players.map((p) => [p.id, p.name])), [room.players]);
   const now = useServerNow(room.clockOffset, 40, !!v.bomb);
-  // Paired with a tap on its pairing page, so it may play from the start, as Going Once's does.
-  useUnlock(true);
+  // Paired with a tap on its pairing page, so it may play from the start, as Going Once's does,
+  // at the host's volumes for the table screen.
+  usePlayerVolumes(tableVolumes(v.tableVolumes), true);
   // The bomb while it shows it, and every bomb's end.
   useBombSound(
     (v.stage === 'bomb' && v.settings.table === 'bomb') || v.stage === 'result' ? v.bomb : null,

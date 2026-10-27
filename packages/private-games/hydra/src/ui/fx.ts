@@ -19,9 +19,18 @@ export const prefersReducedMotion = () =>
 export type Sfx = 'flip' | 'stamp' | 'chaos' | 'turn' | 'card' | 'shot';
 
 let audio: AudioContext | null = null;
+/** This player's effects volume (their slider), 0 to 1: 0 plays nothing. */
+let level = 0;
+export function setSfxLevel(gain: number) {
+  level = Math.max(0, Math.min(1, gain));
+}
 
-/** A short synthesised effect (no assets). Silently does nothing where audio is unavailable. */
-export function playSfx(kind: Sfx) {
+/**
+ * A short synthesised effect (no assets), at the player's volume or `gain`. Silently does
+ * nothing where audio is unavailable.
+ */
+export function playSfx(kind: Sfx, gain = level) {
+  if (gain <= 0) return;
   try {
     const Ctx =
       window.AudioContext ??
@@ -45,7 +54,7 @@ export function playSfx(kind: Sfx) {
       o.frequency.setValueAtTime(freq, t + at);
       if (to) o.frequency.exponentialRampToValueAtTime(to, t + at + len);
       g.gain.setValueAtTime(0.0001, t + at);
-      g.gain.exponentialRampToValueAtTime(vol, t + at + 0.01);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol * gain), t + at + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + at + len);
       o.connect(g).connect(ctx.destination);
       o.start(t + at);

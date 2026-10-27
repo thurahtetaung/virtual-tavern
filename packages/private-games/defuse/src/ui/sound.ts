@@ -1,5 +1,6 @@
 import { storageKey } from '@vt/game-sdk';
-import { useEffect, useRef, useState } from 'react';
+import { FULL_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { useEffect, useRef } from 'react';
 import { leftAt } from '../logic/bomb.ts';
 import { isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
@@ -41,9 +42,13 @@ const GAIN = 0.2;
 
 const MUTE_KEY = 'vt.defuse.mute';
 
+/** The music element's own level under the music slider. */
+export const MUSIC_LEVEL = 0.5;
+
 class Player {
   ctx: AudioContext | null = null;
-  muted = false;
+  /** This device's volumes (the table screen's: the host's sliders), master included. */
+  gains = { music: 1, effects: 1 };
   private cache = new Map<string, HTMLAudioElement>();
   private music: HTMLAudioElement | null = null;
   private musicSrc = '';
@@ -63,7 +68,7 @@ class Player {
   }
 
   play(src: string | null, volume = 1) {
-    if (!src || this.muted || !this.ctx) return;
+    if (!src || !this.gains.effects || !this.ctx) return;
     let a = this.cache.get(src);
     if (!a) {
       a = new Audio(src);
@@ -72,18 +77,18 @@ class Player {
     }
     const clip = a.paused ? a : (a.cloneNode() as HTMLAudioElement);
     clip.currentTime = 0;
-    clip.volume = Math.max(0, Math.min(1, volume));
+    clip.volume = Math.max(0, Math.min(1, volume * this.gains.effects));
     void clip.play().catch(() => {});
   }
 
   tone(freq: number, ms: number, gain = GAIN) {
     const ctx = this.ctx;
-    if (!ctx || this.muted) return;
+    if (!ctx || !this.gains.effects) return;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.value = freq;
-    g.gain.value = gain;
+    g.gain.value = gain * this.gains.effects;
     g.gain.setTargetAtTime(0, ctx.currentTime + ms / 1000 - 0.05, 0.02);
     osc.connect(g).connect(ctx.destination);
     osc.start();
@@ -95,7 +100,7 @@ class Player {
    * play-through first (the original queues its sections); otherwise it cuts in at once.
    */
   setMusic(src: string | null, queue = false) {
-    if (this.muted || !this.ctx) src = null;
+    if (!this.gains.music || !this.ctx) src = null;
     const want = src ?? '';
     if (want === this.musicSrc) {
       this.pending = null;
@@ -127,9 +132,16 @@ class Player {
     if (!src) return;
     const a = new Audio(src);
     a.loop = true;
-    a.volume = 0.5;
+    a.volume = MUSIC_LEVEL * this.gains.music;
     this.music = a;
     void a.play().catch(() => {});
+  }
+
+  /** New volumes, applied at once to the music playing. */
+  setGains(gains: { music: number; effects: number }) {
+    this.gains = gains;
+    if (this.music) this.music.volume = MUSIC_LEVEL * gains.music;
+    if (!gains.music) this.setMusic(null);
   }
 }
 
@@ -153,31 +165,24 @@ export function useUnlock(auto: boolean) {
   }, [auto]);
 }
 
-/** The device's own mute switch, kept per seat. */
-export function useMute(): [boolean, (on: boolean) => void] {
-  const [muted, setMuted] = useState(() => {
+/** This player's volumes for the bomb (a mute from before, kept per seat, becomes the master at 0). */
+export const useDefuseVolumes = () =>
+  useVolumes('defuse', FULL_VOLUMES, () => {
     try {
-      return localStorage.getItem(storageKey(MUTE_KEY)) === '1';
+      return localStorage.getItem(storageKey(MUTE_KEY)) === '1' ? { master: 0 } : null;
     } catch {
-      return false;
+      return null;
     }
   });
+
+/** Plays the bomb at these volumes on this device (and starts the audio on a tap). */
+export function usePlayerVolumes(v: Volumes, auto = false) {
+  const music = gainOf(v, 'music');
+  const effects = gainOf(v, 'effects');
   useEffect(() => {
-    player.muted = muted;
-    if (muted) player.setMusic(null);
-  }, [muted]);
-  useUnlock(false);
-  return [
-    muted,
-    (on) => {
-      setMuted(on);
-      try {
-        localStorage.setItem(storageKey(MUTE_KEY), on ? '1' : '0');
-      } catch {
-        // private window: the switch still works for this page
-      }
-    },
-  ];
+    player.setGains({ music, effects });
+  }, [music, effects]);
+  useUnlock(auto);
 }
 
 const cutCount = (b: BombView) =>

@@ -31,7 +31,8 @@ import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
 import { jokeFor } from './audio.ts';
 import { moments, phaseOf, slotOf } from './show.ts';
 import { nameOf } from './status.ts';
-import { type DeviceSound, useSound } from './useSound.ts';
+import type { Volumes } from '@vt/ui/sound';
+import { useSound } from './useSound.ts';
 import { useSeen } from './useSeen.ts';
 
 // The phone's share of the show: its own tiny rig (the original's talk balloon and the reveal's
@@ -51,7 +52,7 @@ export function PhoneShow({
   profile,
   stagePresent,
   manifest,
-  device,
+  volumes,
   children,
 }: {
   view: SketchyView;
@@ -61,7 +62,7 @@ export function PhoneShow({
   profile: Profile;
   stagePresent: boolean;
   manifest: ManifestState;
-  device: DeviceSound;
+  volumes: Volumes;
   children: ReactNode;
 }) {
   const phase = phaseOf(view);
@@ -78,7 +79,7 @@ export function PhoneShow({
     isStage: false,
     stagePresent,
     clockOffset,
-    device,
+    volumes,
     slot: slotOf(view, you),
   });
   const list = useMemo(

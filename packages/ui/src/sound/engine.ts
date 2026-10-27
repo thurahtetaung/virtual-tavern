@@ -68,6 +68,9 @@ export class SoundEngine {
   private current: MusicPlayer | null = null;
   private track: string | null = null;
   private level = 0;
+  /** The player a settings preview plays through (primed with the others, so it needs no tap). */
+  private previewer: MusicPlayer | null = null;
+  private previewing: { stop: () => void } | null = null;
 
   /** Starts (or restarts) the audio; call it inside a tap or key press. */
   unlock() {
@@ -82,6 +85,7 @@ export class SoundEngine {
         return;
       }
       for (let i = 0; i < 2; i++) this.music.push(this.musicPlayer());
+      this.previewer = this.musicPlayer();
     }
     const ctx = this.ctx;
     if (ctx.state !== 'running') void ctx.resume().catch(() => {});
@@ -379,6 +383,78 @@ export class SoundEngine {
     this.level = level;
     if (this.current) this.ramp(this.current, level, DUCK_FADE_MS);
   }
+
+  /**
+   * Plays the first `ms` of a file at `volume` (a settings preview); the handle stops it or sets
+   * its volume. A new preview stops the one before. Null before the audio has started.
+   */
+  preview(src: string, volume: number, ms: number): PreviewHandle | null {
+    const p = this.previewer;
+    if (!this.ctx || !p) return null;
+    this.previewing?.stop();
+    const set = (v: number) => {
+      const level = Math.max(0, Math.min(1, v));
+      if (p.gain) p.gain.gain.value = level;
+      else p.el.volume = level;
+    };
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const handle: PreviewHandle = {
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        clearTimeout(timer);
+        p.el.pause();
+        if (p.url) URL.revokeObjectURL(p.url);
+        p.url = null;
+        if (this.previewing === handle) this.previewing = null;
+      },
+      volume: set,
+    };
+    this.previewing = handle;
+    void this.fileUrl(src).then((url) => {
+      if (stopped) {
+        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        return;
+      }
+      p.url = url.startsWith('blob:') ? url : null;
+      p.el.loop = false;
+      p.el.src = url;
+      set(volume);
+      void p.el.play().catch(() => {});
+      timer = setTimeout(handle.stop, ms);
+    });
+    return handle;
+  }
+}
+
+/** A settings preview playing: stop it, or change its volume as the slider moves. */
+export interface PreviewHandle {
+  stop: () => void;
+  volume: (level: number) => void;
+}
+
+/**
+ * A preview from a plain audio element (for games without the engine): call it inside the tap.
+ * It plays the first `ms` of `url` at `volume`.
+ */
+export function previewElement(url: string, volume: number, ms: number): PreviewHandle {
+  const el = new Audio(url);
+  el.volume = Math.max(0, Math.min(1, volume));
+  void el.play().catch(() => {});
+  const timer = setTimeout(() => {
+    el.pause();
+  }, ms);
+  return {
+    stop: () => {
+      clearTimeout(timer);
+      el.pause();
+      el.removeAttribute('src');
+    },
+    volume: (v) => {
+      el.volume = Math.max(0, Math.min(1, v));
+    },
+  };
 }
 
 const engines = new Map<string, SoundEngine>();

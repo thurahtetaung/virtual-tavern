@@ -1,3 +1,4 @@
+import { HydraLobbySound } from './Sound.tsx';
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
 import {
   Button,
@@ -277,6 +278,7 @@ export function Lobby({
           }
         />
       </LobbySettings>
+      <HydraLobbySound />
 
       {host && (
         <StickyBar>

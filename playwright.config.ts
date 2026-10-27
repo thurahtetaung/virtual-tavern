@@ -38,6 +38,7 @@ export const SHARED_STATE = [
   /mission-control[\w-]*\.spec\.ts$/,
   /skyfire[\w-]*\.spec\.ts$/,
   /conveyor[\w-]*\.spec\.ts$/,
+  /sound-panel\.spec\.ts$/,
   /defuse[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,

@@ -37,7 +37,8 @@ import {
   winnersShownAt,
 } from './show.ts';
 import { type NameOf, unquote } from './text.ts';
-import { useDeviceSound, useSound } from './useSound.ts';
+import { FULL_VOLUMES } from '@vt/ui/sound';
+import { useSound } from './useSound.ts';
 
 // The table screen: the whole auction house on a laptop or TV, from the spectator view. The room
 // is the original's vector parts (the rig, from the private manifest's `show` keys) on a
@@ -213,14 +214,14 @@ function useJoined(view: GoingOnceView, offset: number): Readonly<Record<string,
 export function GoingOnceStage({ view, room }: GoingOnceUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
-  const [device] = useDeviceSound();
   useSound({
     view,
     manifest,
     you: null,
     isHost: false,
     clockOffset: room.clockOffset,
-    device,
+    // The table plays at the host's table volumes (`useSound` reads them from the view).
+    volumes: FULL_VOLUMES,
     colours: room.players.flatMap((p) => (p.color ? [p.color] : [])),
     stagePresent: true,
     isStage: true,

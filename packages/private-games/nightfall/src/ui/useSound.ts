@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { FULL_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { useEffect, useRef, useState } from 'react';
 import type { NightfallView } from '../logic/types.ts';
 import { type Manifest, assetUrl } from './assets.ts';
 import {
@@ -30,47 +31,31 @@ import {
   trackFor,
 } from './audio.ts';
 
-// ---- This device's own music switch and volume (a per-device convenience) ----
+// ---- This player's own volumes (per device) ----
 
-const DEVICE_KEY = 'vt.nightfall.sound';
+/** The music plays at its slider × this share, as before the sliders. */
+export const MUSIC_SHARE = DEFAULT_MUSIC_VOLUME;
 
-export interface DeviceSound {
-  music: boolean;
-  volume: number;
-}
-
-function loadDevice(): DeviceSound {
-  try {
-    const raw = JSON.parse(
-      localStorage.getItem(DEVICE_KEY) ?? 'null',
-    ) as Partial<DeviceSound> | null;
-    return {
-      music: raw?.music !== false,
-      volume:
-        typeof raw?.volume === 'number' && raw.volume >= 0 && raw.volume <= 1
-          ? raw.volume
-          : DEFAULT_MUSIC_VOLUME,
-    };
-  } catch {
-    return { music: true, volume: DEFAULT_MUSIC_VOLUME };
-  }
-}
-
-export function useDeviceSound(): [DeviceSound, (next: Partial<DeviceSound>) => void] {
-  const [sound, setSound] = useState(loadDevice);
-  const update = useCallback((next: Partial<DeviceSound>) => {
-    setSound((prev) => {
-      const merged = { ...prev, ...next };
-      try {
-        localStorage.setItem(DEVICE_KEY, JSON.stringify(merged));
-      } catch {
-        // Private mode: the choice lasts for this visit only.
-      }
-      return merged;
-    });
-  }, []);
-  return [sound, update];
-}
+/**
+ * This player's volumes: master, music and narration. A phone's own `{ music, volume }` switch from
+ * before becomes the music slider (its volume was the music's, out of the 35 % share).
+ */
+export const useNightfallVolumes = () =>
+  useVolumes('nightfall', FULL_VOLUMES, () => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('vt.nightfall.sound') ?? 'null') as {
+        music?: unknown;
+        volume?: unknown;
+      } | null;
+      if (!raw) return null;
+      if (raw.music === false) return { music: 0 };
+      return typeof raw.volume === 'number'
+        ? { music: Math.max(0, Math.min(1, raw.volume / MUSIC_SHARE)) }
+        : null;
+    } catch {
+      return null;
+    }
+  });
 
 // ---- Audio unlock: nothing plays before the player has touched the page ----
 
@@ -192,16 +177,20 @@ export function useSound({
   manifest,
   isHost,
   clockOffset,
-  device,
+  volumes,
 }: {
   view: NightfallView;
   manifest: Manifest | null;
   isHost: boolean;
   clockOffset: number;
-  device: DeviceSound;
+  /** This player's own volumes. */
+  volumes: Volumes;
 }): { said: Shown | null } {
   const unlocked = useGesture();
-  const speaks = deviceSpeaks(view.settings.narration, isHost);
+  const voiceGain = gainOf(volumes, 'voice');
+  const musicGain = gainOf(volumes, 'music');
+  // A narration slider at 0 keeps the words on screen and the device quiet.
+  const speaks = deviceSpeaks(view.settings.narration, isHost) && voiceGain > 0;
   const narrated = view.settings.narration !== 'off';
   const [said, setSaid] = useState<Shown | null>(null);
   // Each cue's words on screen, timed by when it is said; and the cues with clips still to play.
@@ -212,6 +201,12 @@ export function useSound({
   const queue = useRef<QueuedClip[]>([]);
   const turns = useRef(0);
   const voice = useRef<HTMLAudioElement | null>(null);
+  // The narration's volume applies live to the clip being said.
+  const voiceLevel = useRef(voiceGain);
+  useEffect(() => {
+    voiceLevel.current = voiceGain;
+    if (voice.current) voice.current.volume = voiceGain;
+  });
   const mixer = useRef<Mixer | null>(null);
   const cues = cuesFor(view);
   const cueKey = JSON.stringify(cues);
@@ -247,6 +242,7 @@ export function useSound({
       }
       voice.current ??= new Audio();
       const el = voice.current;
+      el.volume = voiceLevel.current;
       el.src = assetUrl(clip.src);
       // The cue's next clip is due once this one has had its length (none if it never played).
       // Only the clip playing now moves the queue on: a replaced clip's play() rejects late.
@@ -325,11 +321,11 @@ export function useSound({
       mode: view.settings.narration,
       isHost,
       gameMusic: view.settings.music,
-      deviceMusic: device.music,
+      deviceMusic: musicGain > 0,
     })
       ? trackFor(manifest?.music, musicPhaseFor(view.phase), Math.max(1, view.gamesPlayed))
       : null;
-  const level = musicTarget(device.volume, narrating);
+  const level = musicTarget(musicGain * MUSIC_SHARE, narrating);
   // A track change starts at the current level; level changes alone go through the effect below.
   const levelNow = useRef(level);
   useEffect(() => {

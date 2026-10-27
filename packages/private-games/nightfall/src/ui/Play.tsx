@@ -89,7 +89,6 @@ import {
   teamLines,
   teamOutcome,
 } from './text.ts';
-import type { DeviceSound } from './useSound.ts';
 
 type Act = (a: NightfallAction, options?: ActOptions) => Promise<boolean>;
 
@@ -238,48 +237,6 @@ function MyMark({ view, deck }: { view: NightfallView; deck: Deck }) {
     <span className="inline-flex flex-wrap items-center gap-1 text-sm" data-testid="my-mark">
       Your Mark <MarkChip mark={seen.mark} deck={deck} doppel={seen.doppel} />
     </span>
-  );
-}
-
-export function SoundControls({
-  view,
-  room,
-  device,
-  setDevice,
-  hasMusic,
-}: {
-  view: NightfallView;
-  room: GameRoomInfo;
-  device: DeviceSound;
-  setDevice: (d: Partial<DeviceSound>) => void;
-  hasMusic: boolean;
-}) {
-  const mode = view.settings.narration;
-  const speaks = mode === 'all' || (mode === 'host' && room.isHost);
-  if (!speaks || !view.settings.music || !hasMusic) return null;
-  return (
-    <div className="flex items-center gap-2 text-sm" data-testid="sound-controls">
-      <button
-        type="button"
-        aria-pressed={device.music}
-        onClick={() => setDevice({ music: !device.music })}
-        className="rounded-lg px-2 py-1 font-semibold ring-1 ring-stone-300 dark:ring-stone-700"
-      >
-        {device.music ? '🎵 Music on' : '🔇 Music off'}
-      </button>
-      <label className="flex items-center gap-1">
-        <span className="sr-only">Music volume</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round(device.volume * 100)}
-          disabled={!device.music}
-          onChange={(e) => setDevice({ volume: Number(e.target.value) / 100 })}
-          className="w-24"
-        />
-      </label>
-    </div>
   );
 }
 

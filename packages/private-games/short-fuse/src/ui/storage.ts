@@ -39,17 +39,3 @@ export function useTips(): [(id: string) => boolean, (id: string) => void] {
   );
   return [fresh, dismiss];
 }
-
-/** The sound switch (off by default). */
-export function useSoundSetting(): [boolean, (on: boolean) => void] {
-  const key = keyOf('sound');
-  const [on, setOn] = useState(() => read<boolean>(key, false));
-  const set = useCallback(
-    (v: boolean) => {
-      setOn(v);
-      write(key, v);
-    },
-    [key],
-  );
-  return [on, set];
-}

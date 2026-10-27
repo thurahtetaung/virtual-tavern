@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { GameRoomInfo } from '@vt/game-sdk';
 import {
   Button,
@@ -61,7 +62,7 @@ const SOUND_HELP: Record<SoundMode, string> = {
 export function soundSummary(s: SoundSettings, stagePresent = false): string {
   const mode = soundModeIn(s, stagePresent);
   if (mode === 'off') return 'sound off';
-  return `sound: ${SOUND_NAME[mode].toLowerCase()}${s.voice ? ', with the narrator' : ''}`;
+  return `sound: ${SOUND_NAME[mode].toLowerCase()}`;
 }
 
 /** The guests' summary: the packs (or how many), friend mode, adult prompts, the timers, the sound. */
@@ -135,6 +136,7 @@ export function Lobby({
   blocker,
   online,
   showGuide,
+  sound,
 }: {
   view: SketchyView;
   room: GameRoomInfo;
@@ -143,6 +145,8 @@ export function Lobby({
   blocker: string | null;
   online: (id: string) => boolean;
   showGuide: () => void;
+  /** Everyone's own Sound section (the sliders). */
+  sound?: ReactNode;
 }) {
   const editable = room.isHost;
   const s = view.settings;
@@ -257,7 +261,6 @@ export function Lobby({
           </div>
         </details>
         <SoundSettingsPanel
-          view={view}
           editable={editable}
           stagePresent={stagePresent}
           soundNow={soundNow}
@@ -265,6 +268,7 @@ export function Lobby({
         />
         <RefusalSlot anchor={LOBBY_ANCHOR} />
       </LobbySettings>
+      {sound}
       {editable && (
         <StickyBar>
           <div className="flex flex-wrap items-center gap-2">
@@ -287,19 +291,16 @@ export function Lobby({
 }
 
 function SoundSettingsPanel({
-  view,
   editable,
   stagePresent,
   soundNow,
   set,
 }: {
-  view: SketchyView;
   editable: boolean;
   stagePresent: boolean;
   soundNow: SoundMode;
   set: (patch: Partial<Omit<Settings, 'soundChosen'>>) => void;
 }) {
-  const s = view.settings;
   // "Table screen" is offered once one is paired (or while it is the room's choice).
   const modes = SOUND_MODES.filter((m) => m !== 'stage' || stagePresent || soundNow === 'stage');
   return (
@@ -328,32 +329,9 @@ function SoundSettingsPanel({
         <p className="text-sm">{SOUND_NAME[soundNow]}</p>
       )}
       <p className="text-xs text-ink-muted">{SOUND_HELP[soundNow]}</p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Switch
-          on={s.music}
-          editable={editable && soundNow !== 'off'}
-          title="Music"
-          help="A tune for each part of the game."
-          onChange={(music) => set({ music })}
-          testId="sketchy-music"
-        />
-        <Switch
-          on={s.effects}
-          editable={editable && soundNow !== 'off'}
-          title="Effects"
-          help="Pencils, everyone’s own yelp, the drumroll and the reveal."
-          onChange={(effects) => set({ effects })}
-          testId="sketchy-effects"
-        />
-        <Switch
-          on={s.voice}
-          editable={editable && soundNow !== 'off'}
-          title="Narrator"
-          help="A voice hosts the game, with a joke about some prompts once they’re revealed. Off by default."
-          onChange={(voice) => set({ voice })}
-          testId="sketchy-voice"
-        />
-      </div>
+      <p className="text-xs text-ink-muted">
+        Each player sets their own volume for the music, effects and narrator under Sound.
+      </p>
     </fieldset>
   );
 }

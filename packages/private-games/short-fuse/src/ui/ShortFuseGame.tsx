@@ -47,7 +47,8 @@ import {
   cardHint,
   precious,
 } from './Sheets.tsx';
-import { useSoundSetting, useTips } from './storage.ts';
+import { ShortFuseSoundButton, useShortFuseSound } from './Sound.tsx';
+import { useTips } from './storage.ts';
 import { ShortFuseStyles } from './styles.tsx';
 import { amGhost, amIn, an, logLine, playNow, statusFor, who } from './text.ts';
 import { NopePanel } from './Window.tsx';
@@ -378,7 +379,7 @@ export function ShortFuseGame({
   const art = g?.art ?? view.settings.art;
   const c = useMemo(() => contentFor(manifest, art), [manifest, art]);
   const me = view.me?.id ?? '';
-  const [sound, setSound] = useSoundSetting();
+  const { sound } = useShortFuseSound();
   const [fresh, dismissTip] = useTips();
   const [now, setNow] = useState(() => Date.now() + room.clockOffset);
   useEffect(() => {
@@ -873,15 +874,7 @@ export function ShortFuseGame({
           {g.x4 && ` + ${c.names.sets.x4}`}
         </span>
         {g.art === 'adult' && <AdultBadge />}
-        <button
-          type="button"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-panel text-sm ring-1 ring-line"
-          aria-label={sound ? 'Sound on (tap to mute)' : 'Sound off (tap to turn on)'}
-          aria-pressed={sound}
-          onClick={() => setSound(!sound)}
-        >
-          {sound ? '🔊' : '🔇'}
-        </button>
+        <ShortFuseSoundButton className="shrink-0 rounded-full bg-panel text-sm ring-1 ring-line" />
       </div>
 
       {!(over && !wide) && seats}

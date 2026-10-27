@@ -140,8 +140,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await shot('01-lobby', hana);
       // The narrator too, when the sound is being logged.
       if (process.env.SOUND_LOG) {
-        await hana.getByTestId('sketchy-voice').click();
-        await expect(hana.getByTestId('sketchy-voice')).toHaveAttribute('aria-checked', 'true');
+        // Each device's own narrator slider (and the table screen's, which the host sets).
+        await hana.getByTestId('lobby-sound').locator('summary').click();
+        for (const slider of await hana.getByTestId('sound-slider-voice').all())
+          await slider.fill('100');
       }
       await hana.getByRole('button', { name: 'Start game' }).click();
       await hana.waitForTimeout(1200);

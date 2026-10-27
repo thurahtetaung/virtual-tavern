@@ -16,3 +16,4 @@ export * from './regex.ts';
 export * from './narration.ts';
 export * from './colors.ts';
 export * from './drawing.ts';
+export * from './volumes.ts';

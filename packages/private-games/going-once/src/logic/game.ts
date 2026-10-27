@@ -6,6 +6,7 @@ import {
   type PlayerId,
   type PlayerInfo,
   type Rng,
+  type TableVolumes,
   createRng,
   validateDrawing,
 } from '@vt/game-sdk';
@@ -1275,6 +1276,15 @@ function updateSettings(
   return s;
 }
 
+/** The host's sliders for the table screen's sound: any time, mid-game too. */
+function tableVolume(state: GoingOnceState, volumes: TableVolumes, ctx: Ctx): Result {
+  const e = requireHost(ctx);
+  if (e) return e;
+  const s = draft(state);
+  s.settings.tableVolumes = { ...s.settings.tableVolumes, ...volumes };
+  return s;
+}
+
 function backToLobby(state: GoingOnceState, ctx: Ctx): Result {
   const e = requireHost(ctx);
   if (e) return e;
@@ -1318,6 +1328,8 @@ export function reduce(state: GoingOnceState, action: GoingOnceAction, ctx: Ctx)
   switch (action.type) {
     case 'update-settings':
       return updateSettings(state, action, ctx);
+    case 'table-volume':
+      return tableVolume(state, action.volumes, ctx);
     case 'sit':
       return sit(state, action.playing, ctx);
     case 'refresh': {

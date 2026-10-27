@@ -36,49 +36,24 @@ import {
   voiceLine,
 } from './audio.ts';
 import { type Saying, soundEngine } from './engine.ts';
+import { GAME_ID } from './assets.ts';
+import {
+  FULL_VOLUMES,
+  type Volumes,
+  gainOf,
+  legacyDevice,
+  tableVolumes,
+  useVolumes,
+} from '@vt/ui/sound';
 
-// ---- This device's own switch and volume (a per-device convenience) ----
+// ---- This player's own volumes (per device) ----
 
-const DEVICE_KEY = 'vt.going-once.sound';
+/** Going Once's sound types: everyone's own sliders, master 80 % out of the box. */
+export const VOLUME_DEFAULTS: Volumes = { ...FULL_VOLUMES, master: DEFAULT_VOLUME };
 
-export interface DeviceSound {
-  /** Muted on this device, whatever the room's setting. */
-  muted: boolean;
-  volume: number;
-}
-
-function loadDevice(): DeviceSound {
-  try {
-    const raw = JSON.parse(
-      localStorage.getItem(DEVICE_KEY) ?? 'null',
-    ) as Partial<DeviceSound> | null;
-    return {
-      muted: raw?.muted === true,
-      volume:
-        typeof raw?.volume === 'number' && raw.volume >= 0 && raw.volume <= 1
-          ? raw.volume
-          : DEFAULT_VOLUME,
-    };
-  } catch {
-    return { muted: false, volume: DEFAULT_VOLUME };
-  }
-}
-
-export function useDeviceSound(): [DeviceSound, (next: Partial<DeviceSound>) => void] {
-  const [sound, setSound] = useState(loadDevice);
-  const update = useCallback((next: Partial<DeviceSound>) => {
-    setSound((prev) => {
-      const merged = { ...prev, ...next };
-      try {
-        localStorage.setItem(DEVICE_KEY, JSON.stringify(merged));
-      } catch {
-        // Private mode: the choice lasts for this visit only.
-      }
-      return merged;
-    });
-  }, []);
-  return [sound, update];
-}
+/** This player's volumes (a phone's own `{ muted, volume }` switch from before becomes the master). */
+export const useGoVolumes = () =>
+  useVolumes(GAME_ID, VOLUME_DEFAULTS, () => legacyDevice('vt.going-once.sound'));
 
 // ---- Nothing plays before the player has touched the page ----
 
@@ -122,7 +97,7 @@ export function useSound({
   you,
   isHost,
   clockOffset,
-  device,
+  volumes,
   colours,
   stagePresent = false,
   isStage = false,
@@ -132,7 +107,8 @@ export function useSound({
   you: string | null;
   isHost: boolean;
   clockOffset: number;
-  device: DeviceSound;
+  /** This player's own volumes (the table screen plays at the host's table volumes instead). */
+  volumes: Volumes;
   /** The room's player colours: lines said to a player are fetched only for these. */
   colours: readonly string[];
   /** A table screen is paired in the room. */
@@ -143,9 +119,19 @@ export function useSound({
   const unlocked = useGesture(isStage);
   const audio: AudioManifest | undefined =
     manifest && manifest !== 'unavailable' ? manifest.audio : undefined;
-  const { music, effects, voice } = view.settings;
+  // Each type plays at this device's volume for it; 0 is off. The host's voice switch also
+  // decides whether the auctioneer speaks at all (it sets the pace).
+  const levels = isStage ? tableVolumes(view.settings.tableVolumes) : volumes;
+  const gains = {
+    music: gainOf(levels, 'music'),
+    effects: gainOf(levels, 'effects'),
+    voice: gainOf(levels, 'voice'),
+  };
+  const music = gains.music > 0;
+  const effects = gains.effects > 0;
+  const voice = view.settings.voice && gains.voice > 0;
   const mode = soundModeIn(view.settings, stagePresent);
-  const on = unlocked && !device.muted && mode !== 'off' && !!audio;
+  const on = unlocked && mode !== 'off' && !!audio;
   const played = useRef(new Set<string>());
   const [speaking, setSpeaking] = useState(false);
   const prev = useRef<GoingOnceView | null>(null);
@@ -158,9 +144,9 @@ export function useSound({
   const chantEnded = useRef<number | null>(null);
   const lines = useRef(new Set<string>());
   // The latest of what the voice needs, for callbacks that run after a render.
-  const latest = useRef({ audio, clockOffset, volume: device.volume });
+  const latest = useRef({ audio, clockOffset, volume: gains.voice });
   useEffect(() => {
-    latest.current = { audio, clockOffset, volume: device.volume };
+    latest.current = { audio, clockOffset, volume: gains.voice };
   });
 
   // This player's own actions, from the change between views.
@@ -315,7 +301,7 @@ export function useSound({
           void engine.effect(
             src,
             cue.at - clockOffset,
-            device.volume,
+            gains.effects,
             cue.at - clockOffset + STALE_MS,
             cue.maxMs,
           );
@@ -340,7 +326,7 @@ export function useSound({
     isHost,
     effects,
     voice,
-    device.volume,
+    gains.effects,
     hear,
     pump,
     isStage,
@@ -369,7 +355,7 @@ export function useSound({
     on && music && deviceSounds(mode, isHost, isStage) && choice
       ? clipOf(audio?.music, choice.key, choice.pick)
       : null;
-  const level = musicLevel(device.volume, speaking);
+  const level = musicLevel(gains.music, speaking);
   const levelNow = useRef(level);
   useEffect(() => {
     levelNow.current = level;

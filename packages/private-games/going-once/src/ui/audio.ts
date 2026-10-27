@@ -790,3 +790,34 @@ export function prime(el: Primable, silent: string) {
     () => {},
   );
 }
+
+// ---- Settings previews ----
+
+/** The clips a settings preview tries for each type, first found first: real ones from the game. */
+const PREVIEW_KEYS = {
+  music: ['lobby', 'auction', 'draw'],
+  effects: ['going-once', 'bid', 'sold'],
+  voice: ['welcome', 'congrats', 'regulars'],
+} as const;
+
+/**
+ * The clip a ▶ preview plays for a sound type: a few seconds of the lobby's music, a typical
+ * effect (a phone that only rings hears its own buyer's ring), one of the auctioneer's lines.
+ * Null when the manifest has none.
+ */
+export function previewClip(
+  audio: AudioManifest | undefined,
+  kind: 'music' | 'effects' | 'voice',
+  { ringsOnly = false, contact }: { ringsOnly?: boolean; contact?: Sender } = {},
+): string | null {
+  if (kind === 'effects' && ringsOnly)
+    return clipOf(audio?.sfx, 'message', contact ? RING[contact] : 0);
+  const lists = kind === 'music' ? audio?.music : kind === 'effects' ? audio?.sfx : audio?.voice;
+  for (const key of PREVIEW_KEYS[kind]) {
+    const src = clipOf(lists, key);
+    if (src) return src;
+  }
+  // Any line not said to one player (those end in a colour).
+  const any = Object.entries(lists ?? {}).find(([key]) => colourOf(key) === null);
+  return any ? clipOf(lists, any[0]) : null;
+}

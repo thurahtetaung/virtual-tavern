@@ -22,7 +22,7 @@ import {
   useSpectatorPrompt,
   useWideScreen,
 } from '@vt/ui';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { money } from '../logic/lines.ts';
 import { fillNames } from '../logic/names.ts';
 import {
@@ -44,19 +44,12 @@ import { PhoneShow } from './PhoneShow.tsx';
 import { type Art, artFor, useManifest } from './assets.ts';
 import { Auction, useLocalHidden, useSeenDrawings } from './Auction.tsx';
 import { Draw } from './Draw.tsx';
-import {
-  Alerts,
-  GoingOnceStyles,
-  HostStrip,
-  RackUp,
-  useScrewBanner,
-  SoundButton,
-  useBeats,
-} from './Extras.tsx';
+import { Alerts, GoingOnceStyles, HostStrip, RackUp, useScrewBanner, useBeats } from './Extras.tsx';
 import { Picture } from './Picture.tsx';
 import { Practice } from './Practice.tsx';
 import { type NameOf, statusFor, unquote } from './text.ts';
-import { useDeviceSound, useSound } from './useSound.ts';
+import { GoLobbySound, GoSoundButton } from './Sound.tsx';
+import { useGoVolumes, useSound } from './useSound.ts';
 
 export type GoingOnceUiProps = GameUiProps<GoingOnceView, GoingOnceAction>;
 
@@ -78,7 +71,7 @@ export function GoingOnceGame({
     return (id) => (id ? (map.get(id) ?? 'Someone') : 'Someone');
   }, [names]);
   const status = statusFor(view, room.you, name, art.names);
-  const [device, setDevice] = useDeviceSound();
+  const [volumes] = useGoVolumes();
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -106,17 +99,15 @@ export function GoingOnceGame({
     you: inGame ? room.you : null,
     isHost: room.isHost,
     clockOffset: room.clockOffset,
-    device,
+    volumes,
     colours: room.players.flatMap((p) => (p.color ? [p.color] : [])),
     stagePresent: room.stage?.present === true,
   });
   // Seen here so the gallery keeps drawings from lots this tab watched.
   const seen = useSeenDrawings(view);
   const g = view.game;
-  // The lobby plays music too, so the same switch sits beside its hint.
-  const sound = (
-    <SoundButton view={view} muted={device.muted} onChange={(muted) => setDevice({ muted })} />
-  );
+  // During play the sliders open from a corner; the lobby has its own Sound section.
+  const sound = <GoSoundButton view={view} room={room} act={act} manifest={manifest} />;
   const wide = g && (g.stage === 'auction' || g.stage === 'sold' || g.stage === 'done');
 
   const quiet = profile === 'phone-quiet';
@@ -135,7 +126,7 @@ export function GoingOnceGame({
         )}
       >
         {view.phase === 'lobby' || !g ? (
-          <Lobby view={view} room={room} act={act} showGuide={showGuide} sound={sound} />
+          <Lobby view={view} room={room} act={act} showGuide={showGuide} manifest={manifest} />
         ) : (
           <>
             <GoingOnceStyles />
@@ -278,13 +269,13 @@ function Lobby({
   room,
   act,
   showGuide,
-  sound,
+  manifest,
 }: {
   view: GoingOnceView;
   room: GameRoomInfo;
   act: Act;
   showGuide: () => void;
-  sound: ReactNode;
+  manifest: ReturnType<typeof useManifest>;
 }) {
   const seated = view.seats.filter((s) => s.playing);
   const watching = view.seats.filter((s) => !s.playing);
@@ -320,7 +311,6 @@ function Lobby({
                     : waitingForHost(room)}
           </Hint>
         </div>
-        {sound}
       </div>
       <Panel className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -433,32 +423,12 @@ function Lobby({
             }
           />
           <p className="text-xs text-ink-muted dark:text-stone-400">{SOUND_HELP[soundNow]}</p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Switch
-              on={view.settings.music}
-              editable={room.isHost && view.settings.sound !== 'off'}
-              title="Music"
-              help="A track for each part of the game."
-              onChange={(v) =>
-                void act({ type: 'update-settings', music: v }, { anchor: 'go-lobby' })
-              }
-              testId="go-music"
-            />
-            <Switch
-              on={view.settings.effects}
-              editable={room.isHost && view.settings.sound !== 'off'}
-              title="Effects"
-              help="Paddles, everyone’s own bid yelp, going once, Sold, the bank’s ring."
-              onChange={(v) =>
-                void act({ type: 'update-settings', effects: v }, { anchor: 'go-lobby' })
-              }
-              testId="go-effects"
-            />
+          <div className="grid gap-2">
             <Switch
               on={view.settings.voice}
               editable={room.isHost && view.settings.sound !== 'off'}
-              title="Auctioneer voice"
-              help="The auctioneer speaks: a welcome, a short tutorial anyone can skip, every call, and players by their colour. His chants set the auction’s pace, as in the original."
+              title="The auctioneer speaks and sets the pace"
+              help="A welcome, a short tutorial anyone can skip, every call, and players by their colour. His chants set the auction’s pace. Each player sets their own volume under Sound."
               onChange={(v) =>
                 void act({ type: 'update-settings', voice: v }, { anchor: 'go-lobby' })
               }
@@ -482,6 +452,7 @@ function Lobby({
         />
         <RefusalSlot anchor="go-lobby" />
       </LobbySettings>
+      <GoLobbySound view={view} room={room} act={act} manifest={manifest} />
       {view.rigAllowed && room.isHost && <RigPanel view={view} act={act} />}
       {room.isHost && (
         <StickyBar>

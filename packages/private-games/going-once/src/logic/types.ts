@@ -1,4 +1,11 @@
-import { type Drawing, type PlayerColor, type PlayerId, drawingSchema } from '@vt/game-sdk';
+import {
+  type Drawing,
+  type PlayerColor,
+  type PlayerId,
+  type TableVolumes,
+  drawingSchema,
+  tableVolumeAction,
+} from '@vt/game-sdk';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 3;
@@ -225,9 +232,13 @@ export interface Settings {
   voice?: boolean;
   /** The practice lot in the room's first game. */
   practice?: boolean;
+  /** The table screen's volumes, from the host's sliders (the table has no input). */
+  tableVolumes?: TableVolumes;
 }
 
-export const DEFAULT_SETTINGS: Required<Omit<Settings, 'paceChosen' | 'soundChosen'>> = {
+export const DEFAULT_SETTINGS: Required<
+  Omit<Settings, 'paceChosen' | 'soundChosen' | 'tableVolumes'>
+> = {
   drawSeconds: 90,
   pace: 'normal',
   sound: 'all',
@@ -551,6 +562,7 @@ export const actionSchema = z.discriminatedUnion('type', [
     voice: z.boolean().optional(),
     practice: z.boolean().optional(),
   }),
+  tableVolumeAction,
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('refresh') }),
   z.object({ type: z.literal('start') }),

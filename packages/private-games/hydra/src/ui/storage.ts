@@ -110,16 +110,6 @@ export function useTips(): [(id: string) => boolean, (id: string) => void] {
   return [(id) => !seen.includes(id), dismiss];
 }
 
-/** Sound effects: off unless the viewer turns them on. */
-export function useSoundSetting(): [boolean, (on: boolean) => void] {
-  const [on, setOn] = useState(() => read<boolean>(keyOf('sound'), false) === true);
-  const set = useCallback((v: boolean) => {
-    setOn(v);
-    write(keyOf('sound'), v);
-  }, []);
-  return [on, set];
-}
-
 /** The big moments (vote reveals, enactments): on unless the viewer turns them off. */
 export function useMomentsSetting(): [boolean, (on: boolean) => void] {
   const [on, setOn] = useState(() => read<boolean>(keyOf('moments'), true) !== false);
