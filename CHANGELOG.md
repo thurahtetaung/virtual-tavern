@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.8...v0.77.0) (2026-10-27)
+
+
+### Features
+
+* sound volume sliders with a preview for each type, in every game with sound ([#477](https://github.com/thurahtetaung/virtual-tavern/issues/477)) ([33ecf77](https://github.com/thurahtetaung/virtual-tavern/commit/33ecf77adc7c1a4543caa1a644faf6cd1416103f))
+
 ## [0.76.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.7...v0.76.8) (2026-10-27)
 
 
