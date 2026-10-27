@@ -246,3 +246,45 @@ test('defuse 3D screenshots: the table screen follows the defuser', async ({ bro
   await screen.screenshot({ path: `${DIR}/table-screen/50-table-follows.png` });
   await ana.screenshot({ path: `${DIR}/table-screen/50-defuser.png` });
 });
+
+for (const [label, viewport] of [
+  ['phone-sideways', { width: 844, height: 390 }],
+  ['phone-upright', { width: 390, height: 844 }],
+] as const)
+  test(`defuse 3D screenshots: the hint line (${label})`, async ({ browser }) => {
+    test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 300_000));
+    const look: Look = { viewport, colorScheme: 'dark', setup: localArt, touch: true };
+    await openBackroom(await visitor(browser, 'Admin'));
+    const [ana] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+    await ana.getByTestId('start').click();
+    await ready(ana);
+    if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
+    await ana.waitForTimeout(6500);
+    await ana.screenshot({ path: `${DIR}/hint/${label}-1-desk.png` });
+    await call(ana, 'pickUp');
+    await ana.waitForTimeout(800);
+    await ana.screenshot({ path: `${DIR}/hint/${label}-2-held.png` });
+    // The line is one line, inside the screen, clear of every arrow and corner button.
+    const hint = await ana.getByTestId('bomb-hint').boundingBox();
+    const text = await ana.getByTestId('bomb-hint').evaluate((e) => e.scrollWidth <= e.clientWidth);
+    const buttons = await ana
+      .locator('[data-testid^="turn-"], [data-testid="bomb-back"], [data-testid="bomb-help"]')
+      .evaluateAll((els) =>
+        els
+          .filter((e) => getComputedStyle(e).opacity !== '0')
+          .map((e) => {
+            const r = e.getBoundingClientRect();
+            return { x: r.x, y: r.y, w: r.width, h: r.height };
+          }),
+      );
+    console.log(JSON.stringify({ label, hint, fits: text, buttons: buttons.length }));
+    expect(hint!.height).toBeLessThan(30);
+    expect(text).toBe(true);
+    for (const b of buttons)
+      expect(
+        hint!.x + hint!.width <= b.x ||
+          b.x + b.w <= hint!.x ||
+          hint!.y + hint!.height <= b.y ||
+          b.y + b.h <= hint!.y,
+      ).toBe(true);
+  });

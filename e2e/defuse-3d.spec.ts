@@ -74,7 +74,7 @@ test('a bomb defused through the 3D view, then one that goes off', async ({ brow
   const id = (kind: string) => bomb.modules.find((m) => m.kind === kind)!.id;
   await look(ana, id('wires'));
   await expect(ana.getByTestId('bomb-hint')).toHaveText(
-    'Click a part to use it. Right-click or Esc to step back.',
+    'Click a part to use it. Right-click or Esc steps back.',
   );
   await use(ana, id('wires'), { op: 'cut', wire: 0 });
   await expect.poll(async () => (await call(ana, 'look', id('wires')))?.led).toBe('pass');
