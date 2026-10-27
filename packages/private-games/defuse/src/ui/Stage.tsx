@@ -1,5 +1,5 @@
-import { Panel, PlayerTag } from '@vt/ui';
-import { useEffect, useMemo } from 'react';
+import { Panel, PlayerTag, cn } from '@vt/ui';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { PAGES, PageBody, ClaimsSummary, pageName } from './Manual.tsx';
 import { artFor, useManifest } from './assets.ts';
 import { BombScreen } from './Bomb.tsx';
@@ -7,6 +7,33 @@ import { ExpertClock, type DefuseUiProps } from './DefuseGame.tsx';
 import { player, useBombSound } from './sound.ts';
 import { useServerNow } from './time.ts';
 import type { PageId } from '../logic/types.ts';
+
+/** Shrinks its content to the height it is given: a table screen can't scroll. */
+function Fit({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const b = box.current;
+      const i = inner.current;
+      if (!b || !i) return;
+      i.style.zoom = '1';
+      const scale = Math.min(1, b.clientHeight / Math.max(1, i.scrollHeight));
+      i.style.zoom = String(Math.max(0.4, scale));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (box.current) ro.observe(box.current);
+    return () => {
+      ro.disconnect();
+    };
+  });
+  return (
+    <div ref={box} className="h-full min-h-0 overflow-hidden">
+      <div ref={inner}>{children}</div>
+    </div>
+  );
+}
 
 /**
  * The table screen (`role: 'stage'`). With "Table screen shows: Manual" (the default) it is the
@@ -44,7 +71,10 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
       4,
     );
     return (
-      <div className="mx-auto max-w-7xl space-y-4 p-4" data-testid="stage-manual">
+      <div
+        className="mx-auto flex h-screen max-w-7xl flex-col gap-4 p-4"
+        data-testid="stage-manual"
+      >
         <Panel className="flex flex-wrap items-center gap-4 text-xl">
           <span className="flex-1 font-semibold">
             📖 Bomb {v.bombNo}: {defuser} is defusing
@@ -54,11 +84,13 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
         <Panel>
           <ClaimsSummary v={v} names={names} art={art} />
         </Panel>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {pages.map((p) => (
-            <Panel key={p} className="space-y-2 text-lg">
-              <h3 className="text-2xl font-semibold">{pageName(art, p)}</h3>
-              <PageBody page={p} art={art} />
+        <div className={cn('grid min-h-0 flex-1 gap-4', pages.length > 1 && 'grid-cols-2')}>
+          {pages.slice(0, 2).map((p) => (
+            <Panel key={p} className="min-h-0 text-lg">
+              <Fit>
+                <h3 className="mb-2 text-2xl font-semibold">{pageName(art, p)}</h3>
+                <PageBody page={p} art={art} />
+              </Fit>
             </Panel>
           ))}
         </div>

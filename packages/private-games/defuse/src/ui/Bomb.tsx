@@ -598,7 +598,12 @@ export function BombScreen({
             {(['top', 'bottom', 'left', 'right'] as const).map((side) => (
               <div key={side} className="space-y-1">
                 <p className="text-xs font-semibold text-ink-muted">{VIEW_NAME[side]}</p>
-                <div className={cn((side === 'left' || side === 'right') && 'mx-auto w-1/2')}>
+                <div
+                  className={cn(
+                    (side === 'left' || side === 'right') &&
+                      (readOnly ? 'mx-auto w-1/4' : 'mx-auto w-1/2'),
+                  )}
+                >
                   <Edge b={b} side={side} art={art} />
                 </div>
               </div>

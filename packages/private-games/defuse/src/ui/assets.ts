@@ -38,7 +38,11 @@ const pic = (ref: ArtRef | undefined, small = false) =>
 const loaded = new Set<string>();
 
 /** Adds one of the manifest's font files to the page (once) and names its family. */
-function loadFont(family: string, src: string | null): string | null {
+function loadFont(
+  family: string,
+  src: string | null,
+  fallback = 'ui-monospace, monospace',
+): string | null {
   if (!src || typeof FontFace === 'undefined' || typeof document === 'undefined') return null;
   if (!loaded.has(family)) {
     loaded.add(family);
@@ -48,7 +52,7 @@ function loadFont(family: string, src: string | null): string | null {
       () => {},
     );
   }
-  return `${family}, ui-monospace, monospace`;
+  return `${family}, ${fallback}`;
 }
 
 export type Box = [number, number, number, number];
@@ -90,7 +94,7 @@ export interface Art {
   music: (name: string) => string[];
   digitsFont: string | null;
   /** The original's fonts, as CSS families once loaded (null without the manifest's files). */
-  fonts: Record<'digits' | 'labels' | 'morse', string | null>;
+  fonts: Record<'digits' | 'labels' | 'morse' | 'manual', string | null>;
 }
 
 const num2 = (v: unknown): [number, number] | null =>
@@ -179,6 +183,7 @@ export function artFor(manifest: ManifestState): Art {
       digits: loadFont('DefuseDigits', path(m?.fonts?.digits)),
       labels: loadFont('DefuseLabels', path(m?.fonts?.labels)),
       morse: loadFont('DefuseMorse', path(m?.fonts?.morse)),
+      manual: loadFont('DefuseManual', path(m?.fonts?.manual), 'ui-serif, Georgia, serif'),
     },
   };
 }

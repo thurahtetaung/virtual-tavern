@@ -140,8 +140,19 @@ function MazeGrid({ i }: { i: number }) {
   );
 }
 
-/** Each module's page, rebuilt from the manual's tables. */
+/** Each module's page, rebuilt from the manual's tables, in the manual's typewriter face when the manifest has it. */
 function PageBody({ page, art }: { page: PageId; art: Art }) {
+  return (
+    <div
+      style={art.fonts.manual ? { fontFamily: art.fonts.manual } : undefined}
+      data-testid="manual-text"
+    >
+      <PageContent page={page} art={art} />
+    </div>
+  );
+}
+
+function PageContent({ page, art }: { page: PageId; art: Art }) {
   switch (page) {
     case 'wires':
       return (
@@ -299,7 +310,12 @@ function PageBody({ page, art }: { page: PageId; art: Art }) {
             head={['Word', 'Frequency']}
             rows={MORSE.map(([f, w]) => [w, `${(f / 1000).toFixed(3)} MHz`])}
           />
-          <div className="grid grid-cols-3 gap-x-3 font-mono text-sm sm:grid-cols-4">
+          <div
+            className={cn(
+              'grid grid-cols-3 gap-x-3 text-sm sm:grid-cols-4',
+              !art.fonts.manual && 'font-mono',
+            )}
+          >
             {Object.entries(MORSE_ALPHABET).map(([c, s]) => (
               <span key={c}>
                 <b>{c.toUpperCase()}</b> {s}
@@ -374,7 +390,12 @@ function PageBody({ page, art }: { page: PageId; art: Art }) {
             Only one of these words can be spelled with the letters on the dials. Spell it and
             submit.
           </p>
-          <p className="columns-3 font-mono text-sm uppercase sm:columns-5">
+          <p
+            className={cn(
+              'columns-3 text-sm uppercase sm:columns-5',
+              !art.fonts.manual && 'font-mono',
+            )}
+          >
             {PASSWORDS.map((w) => (
               <span key={w} className="block">
                 {w}

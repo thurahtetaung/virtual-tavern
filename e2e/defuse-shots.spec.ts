@@ -26,7 +26,7 @@ const KINDS = [
   'knob',
 ];
 
-async function tv(browser: Browser, host: Page, look: Look) {
+async function tv(browser: Browser, host: Page, look: Look, size = { width: 1280, height: 720 }) {
   await host.getByRole('button', { name: /^Players/ }).click();
   const panel = host
     .getByRole('dialog', { name: 'Players' })
@@ -35,10 +35,7 @@ async function tv(browser: Browser, host: Page, look: Look) {
   const code = (await panel.getByTestId('stage-code').textContent())!;
   await host.keyboard.press('Escape');
   const page = await (
-    await browser.newContext({
-      viewport: { width: 1280, height: 720 },
-      colorScheme: look.colorScheme,
-    })
+    await browser.newContext({ viewport: size, colorScheme: look.colorScheme })
   ).newPage();
   await look.setup?.(page);
   await page.goto('/stage');
@@ -153,5 +150,38 @@ for (const [label, viewport, colorScheme, out, count] of [
         path: `${DIR}/${label}-31-${k}-${count}${out.length ? '-more' : ''}.png`,
       });
     }
+  });
+}
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`defuse table screen and manual font (${colorScheme})`, async ({ browser }) => {
+    test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 300_000));
+    const desk: Look = { viewport: { width: 1440, height: 900 }, colorScheme, setup: localArt };
+    const phone: Look = { viewport: { width: 390, height: 844 }, colorScheme, setup: localArt };
+    const shot = async (p: Page, name: string) => {
+      await p.waitForTimeout(800);
+      await p.screenshot({ path: `${DIR}/tv-${colorScheme}-${name}.png` });
+    };
+    await openBackroom(await visitor(browser, 'Admin'));
+    const [ana, ben] = (await table(browser, ['Ana', 'Ben'], [desk, phone])) as [Page, Page];
+    const screen = await tv(browser, ana, desk, { width: 1920, height: 1080 });
+    await ana.getByTestId('start').click();
+    await lightsOn(ana);
+    await ben.getByTestId('index-password').click();
+    await ben.getByRole('button', { name: 'Claim' }).click();
+    await expect(ben.getByTestId('manual-text')).toHaveCSS('font-family', /DefuseManual/);
+    await shot(ben, 'expert-page');
+    await ben.getByRole('button', { name: '◂ Index' }).click();
+    await ben.getByTestId('index-wires').click();
+    await ben.getByRole('button', { name: 'Claim' }).click();
+    await shot(screen, 'manual');
+    await defuseAll(ana);
+    await expect(ana.getByTestId('outcome')).toHaveText('Defused');
+    await ana.getByTestId('table-bomb').click();
+    await ana.getByTestId('pick-Ana').click();
+    await ana.getByTestId('next-bomb').click();
+    await lightsOn(ana);
+    await expect(screen.getByTestId('stage-bomb')).toBeVisible();
+    await shot(screen, 'bomb');
   });
 }
