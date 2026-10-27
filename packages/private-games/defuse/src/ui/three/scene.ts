@@ -119,22 +119,9 @@ interface Mod {
 const TOUCH_RIM_PX = 7;
 const MOUSE_RIM_PX = 3;
 
-/** `KeypadButton`: down by half the key's height in 0.25 s, back in 0.25 s, easeOutQuint. */
+/** `KeypadButton`: down by half its `ButtonHeightOverride` in 0.25 s, back in 0.25 s, easeOutQuint. */
 const KEY_MS = 250;
 const easeOutQuint = (x: number) => 1 - (1 - x) ** 5;
-
-/**
- * Half a key's height (`ButtonHeightOverride` × 0.5; the prefabs' overrides aren't in the pack,
- * so the key's own height stands in), kept between 1.5 and 5 mm.
- */
-function keyDepth(o: THREE.Object3D): number {
-  let h = 0.008;
-  if (isMesh(o)) {
-    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-    h = o.geometry.boundingBox!.getSize(new THREE.Vector3()).y * Math.abs(o.scale.y);
-  }
-  return Math.min(0.005, Math.max(0.0015, h / 2));
-}
 
 const isShown = (o: THREE.Object3D) => {
   for (let x: THREE.Object3D | null = o; x; x = x.parent) if (!x.visible) return false;
@@ -1010,6 +997,7 @@ export class BombScene {
     else if (h.sound && h.sound !== 'snip') this.opts.sound(h.sound);
     if (h.dip) {
       h.dip.userData.down = true;
+      h.dip.userData.keyDepth = h.depth ?? 0;
       h.dip.userData.pressedUntil = performance.now() + 350;
       this.key = p;
     }
@@ -1644,7 +1632,6 @@ export class BombScene {
         if (u.down === undefined && !u.stay && u.keyAt === undefined) continue;
         const want = u.down || u.stay ? 1 : 0;
         u.rest ??= p.position.y;
-        u.keyDepth ??= keyDepth(p);
         if (u.keyWant !== want) {
           u.keyFrom = (u.keyAt as number | undefined) ?? 0;
           u.keyWant = want;
@@ -1652,7 +1639,8 @@ export class BombScene {
         }
         const x = Math.min(1, (now - (u.keyT0 as number)) / KEY_MS);
         u.keyAt = (u.keyFrom as number) + (want - (u.keyFrom as number)) * easeOutQuint(x);
-        p.position.y = (u.rest as number) - (u.keyAt as number) * (u.keyDepth as number);
+        p.position.y =
+          (u.rest as number) - (u.keyAt as number) * ((u.keyDepth as number | undefined) ?? 0);
       }
     // light: dark until the modules wake, the emergency light in the last minute
     const look = this.look;

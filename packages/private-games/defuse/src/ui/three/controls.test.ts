@@ -31,8 +31,10 @@ describe('turning the held bomb', () => {
     expect(settleTouch({ yaw: 75, pitch: 0, settle: 0 }).yaw).toBe(90);
     expect(settleTouch({ yaw: 150, pitch: 0, settle: 0 }).yaw).toBe(180);
     expect(settleTouch({ yaw: -80, pitch: 0, settle: 0 }).yaw).toBe(-90);
+    // The top edge settles at 80°, the bottom at 70° (the original's settle angles).
     expect(settleTouch({ yaw: 0, pitch: 70, settle: 0 }).settle).toBe(80);
-    expect(settleTouch({ yaw: 0, pitch: -64, settle: 0 }).settle).toBe(-80);
+    expect(settleTouch({ yaw: 0, pitch: -64, settle: 0 }).settle).toBe(-70);
+    expect(settleTouch({ yaw: 180, pitch: -64, settle: 0 }).settle).toBe(-70);
   });
 
   it('springs the mouse pitch back level and snaps the yaw to a quarter', () => {
@@ -51,8 +53,11 @@ describe('turning the held bomb', () => {
 
   it('quarter turns step the yaw and the tilt', () => {
     expect(quarter({ yaw: 10, pitch: 0, settle: 0 }, 'right').yaw).toBe(90);
-    expect(quarter({ yaw: 0, pitch: 0, settle: 0 }, 'up').settle).toBe(90);
-    expect(quarter({ yaw: 0, pitch: 0, settle: 90 }, 'up').settle).toBe(90);
+    // ▴ rolls the bomb up: the bottom edge (negative pitch); ▾ the top.
+    expect(quarter({ yaw: 0, pitch: 0, settle: 0 }, 'up').settle).toBe(-90);
+    expect(quarter({ yaw: 0, pitch: 0, settle: -90 }, 'up').settle).toBe(-90);
+    expect(quarter({ yaw: 0, pitch: 0, settle: 0 }, 'down').settle).toBe(90);
+    expect(quarter({ yaw: 180, pitch: 0, settle: 0 }, 'up').settle).toBe(-90);
   });
 
   it('knows which face a yaw shows and the nearest yaw for a face', () => {

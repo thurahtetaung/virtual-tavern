@@ -3,7 +3,13 @@
 // applies it.
 import { NEEDY_TIME, leftAt, needyLeft, timerText } from '../../logic/bomb.ts';
 import { MORSE } from '../../logic/data.ts';
-import { HOLD_AFTER, SIMON_COLOURS, SIMON_NOTE, SIMON_REPLAY } from '../../logic/modules.ts';
+import {
+  HOLD_AFTER,
+  PAGE_TURN,
+  SIMON_COLOURS,
+  SIMON_NOTE,
+  SIMON_REPLAY,
+} from '../../logic/modules.ts';
 import {
   type ButtonColour,
   type Dir,
@@ -72,13 +78,6 @@ export function morseLit(signal: readonly string[], since: number, now: number):
   return false;
 }
 
-/** The three wires of the Wire Sequence panel on show, or null while it turns or is done. */
-export function seqRow(m: ModuleView, now: number) {
-  if (m.kind !== 'wire-sequence' || !('panels' in m)) return null;
-  if (now < m.turningUntil || m.page >= 4) return null;
-  return [0, 1, 2].map((r) => m.panels[m.page * 3 + r]!);
-}
-
 /** The needy display: two digits while it runs, dark otherwise; `warn` in its last seconds. */
 export function needyClock(
   m: Pick<NeedyModule, 'state' | 'kind' | 'left' | 'leftAt'> & { heldAt?: number | null },
@@ -124,10 +123,15 @@ export type ModuleLook =
     }
   | {
       kind: 'wire-sequence';
-      /** The panel on show (null while the doors are closed or it is finished). */
+      /**
+       * The current panel's wires (the last one once finished: `ChangePage` never runs past it,
+       * so it stays up); null only without them.
+       */
       row: { colour: 'red' | 'blue' | 'black' | null; to: number; cut: boolean }[] | null;
       page: number;
       turning: boolean;
+      /** When the page turn began (server time). */
+      turnAt: number;
       done: boolean;
     }
   | {
@@ -236,13 +240,18 @@ export function moduleLook(m: ModuleView, b: BombView, now: number): Look {
       };
     case 'wire-sequence': {
       const turning = now < m.turningUntil;
-      const row = seqRow(m, now);
+      const page = Math.min(m.page, 3);
+      const row = 'panels' in m ? [0, 1, 2].map((r) => m.panels[page * 3 + r]) : null;
       return {
         ...base,
         kind: 'wire-sequence',
-        row: row && row.map((e) => ({ colour: e.colour, to: e.to, cut: e.cut })),
-        page: Math.min(m.page, 3),
+        row:
+          row && row.every(Boolean)
+            ? row.map((e) => ({ colour: e!.colour, to: e!.to, cut: e!.cut }))
+            : null,
+        page,
         turning,
+        turnAt: m.turningUntil - PAGE_TURN,
         done: m.page >= 4,
       };
     }
