@@ -21,6 +21,7 @@ import {
   cn,
   useConfirm,
   useRefusals,
+  usePhone,
   useSecondsLeft,
 } from '@vt/ui';
 import { useShowProfile } from '@vt/ui/show';
@@ -28,7 +29,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Link, useNavigate, useParams } from 'react-router';
 import { ColorChoice } from '../components/ColorChoice.tsx';
 import { Drawer } from '../components/Drawer.tsx';
-import { GuideIntro } from '../components/GuideIntro.tsx';
+import { GuideIntro, IntroButton, useGuideIntro } from '../components/GuideIntro.tsx';
 import { GameGuideView, type GuideFocus } from '../components/GuideView.tsx';
 import { Layout, LoadingStep, PageLoading } from '../components/Layout.tsx';
 import { NameForm } from '../components/NameForm.tsx';
@@ -312,17 +313,24 @@ function Room({
   // The game under way, as the host may abandon it (the game says when there is one).
   const [abandon, setAbandon] = useState<AbandonGame | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
-  // The lobby's intro already shows the Learn stepper: the drawer then opens on Rules.
-  const [introShown, setIntroShown] = useState(false);
+  const intro = useGuideIntro(game.id);
+  const phone = usePhone();
   const [guideFocus, setGuideFocus] = useState<GuideFocus>();
+  // "Read the rules" from the intro opens the drawer past the Learn steps just seen.
+  const [rulesFirst, setRulesFirst] = useState(false);
   // Each opening starts afresh on Learn (or at the card a game asked for).
   const [guideOpens, setGuideOpens] = useState(0);
   // A game may name a role to open at (a click handler passes its event, which isn't one).
   const showGuide = useCallback((topic?: unknown) => {
     setGuideFocus(typeof topic === 'string' ? { topic, n: Date.now() } : undefined);
+    setRulesFirst(false);
     setGuideOpens((n) => n + 1);
     setGuideOpen(true);
   }, []);
+  const readRules = useCallback(() => {
+    showGuide();
+    setRulesFirst(true);
+  }, [showGuide]);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const night = useRecap({ call, snapshot, game, wraps, pushed: recapPush });
@@ -664,6 +672,8 @@ function Room({
       )}
     </>
   );
+  // A first-timer's lobby intro (on wider screens its Learn steps show, so the drawer opens on Rules).
+  const introOn = intro.open && snapshot?.meta?.phase === 'lobby' && !playtest;
   const online = snapshot ? snapshot.players.filter((p) => p.connected).length : 0;
 
   return (
@@ -707,16 +717,26 @@ function Room({
               <span className={HEADER_LABEL}>Night</span>
             </Button>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            className={HEADER_BUTTON}
-            aria-label="Rules"
-            onClick={() => showGuide()}
-          >
-            <span aria-hidden>❓</span>
-            <span className={HEADER_LABEL}>Rules</span>
-          </Button>
+          {phone && introOn ? (
+            <IntroButton
+              game={game}
+              onRules={readRules}
+              onClose={intro.close}
+              className={HEADER_BUTTON}
+              labelClassName={HEADER_LABEL}
+            />
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              className={HEADER_BUTTON}
+              aria-label="Rules"
+              onClick={() => showGuide()}
+            >
+              <span aria-hidden>❓</span>
+              <span className={HEADER_LABEL}>Rules</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -759,8 +779,8 @@ function Room({
             />
           }
         >
-          {snapshot.meta?.phase === 'lobby' && !playtest && (
-            <GuideIntro game={game} onRules={() => showGuide()} onShown={setIntroShown} />
+          {introOn && !phone && (
+            <GuideIntro game={game} onRules={readRules} onClose={intro.close} />
           )}
           <BotNames.Provider value={botNames}>
             <PlayerColors.Provider value={playerColors}>
@@ -824,7 +844,7 @@ function Room({
             compact
             {...(snapshot && { room: { view: snapshot.game, you: snapshot.you } })}
             {...(guideFocus && { focus: guideFocus })}
-            {...(introShown && snapshot?.meta?.phase === 'lobby' && { start: 'rules' as const })}
+            {...((rulesFirst || (introOn && !phone)) && { start: 'rules' as const })}
             done={
               <Button size="sm" className="min-h-11" onClick={() => setGuideOpen(false)}>
                 Back to the game

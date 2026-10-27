@@ -41,10 +41,11 @@ export const SHARED_STATE = [
   /defuse[\w-]*\.spec\.ts$/,
   /games-admin\.spec\.ts$/,
   /guide-shots\.spec\.ts$/,
+  /lobby-fit\.spec\.ts$/,
 ];
 
 /** Every game, for `introsSeen`. */
-const GAME_IDS = [
+export const GAME_IDS = [
   'codenames',
   'enigma',
   'echo',

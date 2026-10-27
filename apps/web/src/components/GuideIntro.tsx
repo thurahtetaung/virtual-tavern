@@ -1,6 +1,6 @@
 import { storageKey } from '@vt/game-sdk';
-import { Button, Modal, usePhone } from '@vt/ui';
-import { useEffect, useState } from 'react';
+import { Button, Modal } from '@vt/ui';
+import { useCallback, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import { Stepper, useGameGuide } from './GuideView.tsx';
 
@@ -15,94 +15,124 @@ function seen(gameId: string): boolean {
   }
 }
 
+/** Whether this browser still gets the game's intro, and how to put it away for good. */
+export function useGuideIntro(gameId: string) {
+  const [open, setOpen] = useState(() => !seen(gameId));
+  const close = useCallback(() => {
+    setOpen(false);
+    try {
+      localStorage.setItem(key(gameId), '1');
+    } catch {
+      // Storage blocked: it'll show again next time.
+    }
+  }, [gameId]);
+  return { open, close };
+}
+
+const skipButton = (onClose: () => void) => (
+  <Button variant="ghost" size="sm" className="min-h-11 shrink-0" onClick={onClose}>
+    Skip
+  </Button>
+);
+
 /**
  * The 30-second "how a game goes" stepper, shown once in the lobby to players new to the game
- * (a first-time tip like the games' own). Skip or finish it and it stays away. On phones it is one
- * line whose button opens the steps in a sheet.
+ * (a first-time tip like the games' own). Skip or finish it and it stays away. Phones get it as
+ * `IntroButton` in the room's header instead, so it takes no room in the lobby.
  */
 export function GuideIntro({
   game,
   onRules,
-  onShown,
+  onClose,
 }: {
   game: ClientGame;
+  /** Open the rules (the intro is put away first). */
   onRules: () => void;
-  /** Whether the intro is on screen (the rules drawer then opens past its Learn tab). */
-  onShown?: (shown: boolean) => void;
+  onClose: () => void;
 }) {
   const guide = useGameGuide(game);
-  const [open, setOpen] = useState(() => !seen(game.id));
-  const phone = usePhone();
-  const [sheet, setSheet] = useState(false);
-  useEffect(() => {
-    onShown?.(open);
-    return () => {
-      onShown?.(false);
-    };
-  }, [open, onShown]);
-  if (!open) return null;
-  const close = () => {
-    setSheet(false);
-    setOpen(false);
-    try {
-      localStorage.setItem(key(game.id), '1');
-    } catch {
-      // Storage blocked: it'll show again next time.
-    }
-  };
-  const stepper = (
-    <Stepper
-      guide={guide}
-      compact
-      onFinish={close}
-      done={
-        <Button
-          variant="secondary"
-          size="sm"
-          className="min-h-11"
-          onClick={() => {
-            close();
-            onRules();
-          }}
-        >
-          Read the rules
-        </Button>
-      }
-    />
-  );
-  const skip = (
-    <Button variant="ghost" size="sm" className="min-h-11 shrink-0" onClick={close}>
-      Skip
-    </Button>
-  );
-  if (phone)
-    return (
-      <section
-        aria-label={`New to ${game.name}?`}
-        className="mb-4 flex items-center gap-2 rounded-2xl bg-card py-1 pr-1 pl-3 shadow-sm ring-1 ring-line"
-      >
-        {/* The room's header names the game, so a long title never wraps this row. */}
-        <p className="min-w-0 flex-1 truncate text-sm leading-tight font-bold">
-          <span aria-hidden>👋 </span>New here?
-        </p>
-        <Button size="sm" className="min-h-11 shrink-0" onClick={() => setSheet(true)}>
-          The game in 30 s
-        </Button>
-        {skip}
-        <Modal open={sheet} onClose={() => setSheet(false)} title={`${game.name} in 30 seconds`}>
-          {sheet && stepper}
-        </Modal>
-      </section>
-    );
   return (
     <section aria-label={`New to ${game.name}?`} className="mx-auto mb-4 max-w-xl">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="font-bold">
           <span aria-hidden>👋 </span>New to {game.name}? Here’s the game in 30 seconds.
         </p>
-        {skip}
+        {skipButton(onClose)}
       </div>
-      {stepper}
+      <Stepper
+        guide={guide}
+        compact
+        onFinish={onClose}
+        done={
+          <Button
+            variant="secondary"
+            size="sm"
+            className="min-h-11"
+            onClick={() => {
+              onClose();
+              onRules();
+            }}
+          >
+            Read the rules
+          </Button>
+        }
+      />
     </section>
+  );
+}
+
+/**
+ * The intro on a phone: an accent "New?" button in the Rules button's place in the room's header
+ * (a lobby row of its own pushed tall lobbies past the screen). It opens the steps in a sheet with
+ * Skip and the full rules; once put away, the header shows Rules again.
+ */
+export function IntroButton({
+  game,
+  onRules,
+  onClose,
+  className,
+  labelClassName,
+}: {
+  game: ClientGame;
+  onRules: () => void;
+  onClose: () => void;
+  className?: string;
+  labelClassName?: string;
+}) {
+  const guide = useGameGuide(game);
+  const [sheet, setSheet] = useState(false);
+  const close = () => {
+    setSheet(false);
+    onClose();
+  };
+  const rules = () => {
+    close();
+    onRules();
+  };
+  return (
+    <>
+      <Button
+        size="sm"
+        className={className}
+        aria-label="New here? The game in 30 seconds"
+        onClick={() => setSheet(true)}
+      >
+        <span aria-hidden>👋</span>
+        <span className={labelClassName}>New?</span>
+      </Button>
+      <Modal open={sheet} onClose={() => setSheet(false)} title={`${game.name} in 30 seconds`}>
+        {sheet && (
+          <>
+            <Stepper guide={guide} compact onFinish={close} />
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <Button variant="secondary" size="sm" className="min-h-11" onClick={rules}>
+                Read the rules
+              </Button>
+              {skipButton(close)}
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
   );
 }
