@@ -141,28 +141,34 @@ test('three players play Going Once on phones: drawings, a contested lot, a loan
 
   // The rest go unsold (each opens with its 2 s intro), then the end: standings and the gallery on
   // every phone.
-  for (const p of all) await expect(p.getByTestId('go-gallery')).toBeVisible({ timeout: 120_000 });
+  // Phones show the scores first, the gallery a tab away.
   for (const p of all) {
     // The rack-up counts the money first.
-    await expect(p.getByText('Final standings')).toBeVisible({ timeout: 15_000 });
-    await expect(p.getByTestId('go-gallery').getByText('Apple')).toBeVisible();
-    await expect(p.getByTestId('go-gallery').getByText('Fez')).toBeVisible();
+    await expect(p.getByText('Final standings')).toBeVisible({ timeout: 135_000 });
+    await expect(await galleryLot(p, 'Apple')).toBeVisible();
+    await expect(await galleryLot(p, 'Fez')).toBeVisible();
+    expect(await p.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
   }
   // The gallery keeps every lot's result: the contested one, the forced buy and the unsold ones.
-  const gallery = cleo.getByTestId('go-gallery');
-  await expect(gallery.getByRole('listitem').filter({ hasText: 'Apple' })).toContainText(
-    'Ben paid $600',
-  );
-  await expect(gallery.getByRole('listitem').filter({ hasText: 'Top hat' })).toContainText(
-    'Ben paid $400',
-  );
+  await expect(await galleryLot(cleo, 'Apple')).toContainText('Ben paid $600');
+  await expect(await galleryLot(cleo, 'Top hat')).toContainText('Ben paid $400');
   for (const title of ['Pear', 'Quince', 'Green ball'])
-    await expect(gallery.getByRole('listitem').filter({ hasText: title })).toContainText(
-      'Unsold · worth',
-    );
+    await expect(await galleryLot(cleo, title)).toContainText('Unsold · worth');
   // Ben: $1,800 − $400 = $1,400 cash, two drawings worth $3,500 + $1,000, $1,500 debt.
+  await ben.getByTestId('go-end-tab-scores').click();
   await expect(ben.getByText('cash $1,400 + art $4,500 − debt $1,500')).toBeVisible();
 });
+
+/** A lot in the end's gallery on a phone: its tab, paged to the lot (two lots a page). */
+async function galleryLot(p: Page, title: string) {
+  await p.getByTestId('go-end-tab-gallery').click();
+  const earlier = p.getByRole('button', { name: 'Earlier lots' });
+  while (await earlier.isEnabled()) await earlier.click();
+  const lot = p.getByTestId('go-gallery').getByRole('listitem').filter({ hasText: title });
+  const later = p.getByRole('button', { name: 'Later lots' });
+  while (!(await lot.isVisible()) && (await later.isEnabled())) await later.click();
+  return lot;
+}
 
 test('a table screen shows the auction while the phones go quiet', async ({ browser }) => {
   test.setTimeout(180_000);

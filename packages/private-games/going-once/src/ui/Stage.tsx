@@ -36,7 +36,7 @@ import {
   shapeKey,
   winnersShownAt,
 } from './show.ts';
-import type { NameOf } from './text.ts';
+import { type NameOf, unquote } from './text.ts';
 import { useDeviceSound, useSound } from './useSound.ts';
 
 // The table screen: the whole auction house on a laptop or TV, from the spectator view. The room
@@ -1100,7 +1100,7 @@ function SoldTitle({ title, artist }: { title: string; artist: string | null }) 
   const by = useTarget('title.by');
   return (
     <p className="absolute font-black" style={TITLE} data-testid="go-stage-title">
-      <span className="line-clamp-3">“{title}”</span>
+      <span className="line-clamp-3">“{unquote(title)}”</span>
       {artist && (
         <span ref={by} className="block text-2xl font-bold" style={HIDDEN}>
           by {artist}

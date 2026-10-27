@@ -4,6 +4,21 @@ import { fillNames, type Names } from '../logic/names.ts';
 
 export type NameOf = (id: string | null | undefined) => string;
 
+/** Quote marks a title may carry itself: straight, curly and low-9, single or double. */
+const MARKS = '"\'“”‘’„‚«»';
+
+/**
+ * A title without the quote marks round it that it brings itself (some house titles are quotes),
+ * so the screens that put a title in quotes show one pair. Only marks at both ends go, so a
+ * trailing apostrophe stays.
+ */
+export function unquote(title: string): string {
+  let bare = title.trim();
+  while (bare.length > 1 && MARKS.includes(bare[0]!) && MARKS.includes(bare.at(-1)!))
+    bare = bare.slice(1, -1).trim();
+  return bare || title;
+}
+
 export interface Status {
   text: string;
   yourMove: boolean;
@@ -23,7 +38,7 @@ export function statusFor(view: GoingOnceView, you: string, name: NameOf, names:
       const todo = mine.prompts.findIndex((p) => !p.sent);
       if (todo >= 0)
         return {
-          text: `Draw “${mine.prompts[todo]!.title}” (${todo + 1} of ${mine.prompts.length}).`,
+          text: `Draw “${unquote(mine.prompts[todo]!.title)}” (${todo + 1} of ${mine.prompts.length}).`,
           yourMove: true,
         };
       const waiting = g.players.filter((p) => !p.drawn && !p.left).map((p) => name(p.id));

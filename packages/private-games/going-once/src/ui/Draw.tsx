@@ -9,7 +9,25 @@ import { PadFrame, RigIcon } from './PhoneShow.tsx';
 const SEND_EARLY_MS = 1200;
 
 /** The drawing stage: your titles one at a time, then who is still drawing. */
-export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomInfo; act: Act }) {
+/**
+ * Room on a phone for everything but the sheet (the site's bar, the status line, the title, the
+ * pens and Send; the auctioneer's words too unless a table screen shows them), so the sheet is as
+ * big as the screen allows with all of it in view, never too small to draw on.
+ */
+const AROUND_PX = { quiet: 480, full: 575 };
+
+export function Draw({
+  view,
+  room,
+  act,
+  quiet = false,
+}: {
+  view: GoingOnceView;
+  room: GameRoomInfo;
+  act: Act;
+  /** A table screen shows the auctioneer's words. */
+  quiet?: boolean;
+}) {
   const g = view.game!;
   const mine = view.mine;
   const deadline = g.until;
@@ -30,7 +48,8 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
     <div className="mx-auto flex w-full max-w-md flex-col gap-3">
       {todo ? (
         <Panel className="flex flex-col gap-2 p-3">
-          <div className="flex items-baseline justify-between gap-2">
+          {/* Phones: the status line above says what to draw and which of the two it is. */}
+          <div className="flex items-baseline justify-between gap-2 max-lg:sr-only">
             <h2 className="min-w-0 text-lg font-bold">
               <span className="text-sm font-medium text-ink-muted dark:text-stone-400">Draw: </span>
               <span data-testid="go-title">{todo.title}</span>
@@ -39,32 +58,40 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
               {index + 1} of {mine.prompts.length}
             </span>
           </div>
-          <PadFrame>
-            <DrawingPad
-              key={todo.item}
-              draftKey={`go.draft.${todo.item}`}
-              sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
-              onSubmit={(drawing) =>
-                act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
-              }
-              submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
-              footer={
-                clock && (
-                  <span className="flex items-center gap-1.5">
-                    <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
-                    <Countdown
-                      deadline={deadline}
-                      clockOffset={room.clockOffset}
-                      label="for both"
-                      atZero="whatever is drawn is sent"
-                    />
-                  </span>
-                )
-              }
-            />
-          </PadFrame>
+          <div
+            style={{
+              ['--sheet' as string]: `max(13rem, calc((100svh - ${quiet ? AROUND_PX.quiet : AROUND_PX.full}px) * 0.8))`,
+            }}
+          >
+            <PadFrame>
+              <DrawingPad
+                key={todo.item}
+                className="max-lg:[&>div:first-child]:max-w-(--sheet)"
+                draftKey={`go.draft.${todo.item}`}
+                sendBy={deadline - room.clockOffset - SEND_EARLY_MS}
+                onSubmit={(drawing) =>
+                  act({ type: 'draw', item: todo.item, drawing }, { anchor: 'go-draw' })
+                }
+                submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
+                footer={
+                  clock && (
+                    <span className="flex items-center gap-1.5">
+                      <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
+                      <Countdown
+                        deadline={deadline}
+                        clockOffset={room.clockOffset}
+                        label="for both"
+                        atZero="whatever is drawn is sent"
+                      />
+                    </span>
+                  )
+                }
+              />
+            </PadFrame>
+          </div>
           <p className="text-xs text-ink-muted dark:text-stone-400">
-            Others drew lookalike titles: keep it simple. Nobody sees your title until it sells.
+            Keep it simple: others drew lookalike titles.
+            <span className="max-lg:hidden"> Nobody sees your title until it sells.</span>
           </p>
         </Panel>
       ) : (
