@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.8](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.7...v0.75.8) (2026-10-27)
+
+
+### Bug Fixes
+
+* **going-once:** a title its player never drew is not shown as theirs ([#455](https://github.com/thurahtetaung/virtual-tavern/issues/455)) ([4f6b768](https://github.com/thurahtetaung/virtual-tavern/commit/4f6b768281956464b41f25772d49ee2b9340ad08))
+
 ## [0.75.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.6...v0.75.7) (2026-10-27)
 
 
