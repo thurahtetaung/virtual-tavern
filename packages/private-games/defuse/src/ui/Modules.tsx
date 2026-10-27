@@ -1,6 +1,6 @@
 import { cn } from '@vt/ui';
 import { Pic } from './Pic.tsx';
-import { type CSSProperties, type ReactNode, useEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { NEEDY_TIME, leftAt, needyLeft, timerText } from '../logic/bomb.ts';
 import { GLYPHS, MORSE } from '../logic/data.ts';
 import { HOLD_AFTER, SIMON_COLOURS, SIMON_NOTE, SIMON_REPLAY } from '../logic/modules.ts';
@@ -8,6 +8,7 @@ import type { Dir, ModuleOp, NeedyModule } from '../logic/types.ts';
 import type { BombView, ModuleView } from '../logic/view.ts';
 import type { Art, ArtKind, Box } from './assets.ts';
 import { SIMON_TONES, player } from './sound.ts';
+import { type Band, loadBand } from './wire-band.ts';
 
 // vt-palette: the module's own colours, part of what the defuser describes
 export const PAINT: Record<string, string> = {
@@ -98,10 +99,13 @@ function Hit({
   text,
   testId,
   clamp,
+  band,
 }: {
   p: ModuleProps;
   hit?: string;
   box: Box;
+  /** A wire's own shape, when its render has been read: the hit area follows the wire. */
+  band?: Band | null;
   /** The most a hit area may span [w, h] about its centre (curvy wires' renders overlap). */
   clamp?: [number, number];
   label: string;
@@ -115,9 +119,10 @@ function Hit({
   text?: ReactNode;
   testId?: string;
 }) {
-  const where = at(
-    clampBox((p.drawn && hit ? p.art.part(p.m.kind, hit)?.box : null) ?? box, clamp),
-  );
+  const shaped = p.drawn && band ? band : null;
+  const where = shaped
+    ? { ...at(shaped.box), clipPath: shaped.clip }
+    : at(clampBox((p.drawn && hit ? p.art.part(p.m.kind, hit)?.box : null) ?? box, clamp));
   const holding = useRef(false);
   const plain = !p.drawn;
   const live = !disabled && !!p.send && (onPress || onDown);
@@ -948,6 +953,66 @@ function Venn(p: ModuleProps) {
   );
 }
 
+/** A render's band, once it has been read (null before, and without renders). */
+function useBand(src: string | null): Band | null {
+  const [band, setBand] = useState<{ src: string; band: Band | null } | null>(null);
+  useEffect(() => {
+    if (!src) return;
+    let live = true;
+    void loadBand(src).then((b) => {
+      if (live) setBand({ src, band: b });
+    });
+    return () => {
+      live = false;
+    };
+  }, [src]);
+  return band && band.src === src ? band.band : null;
+}
+
+/** One of Wire Sequence's wires: its hit area follows the wire (crossing wires overlap). */
+function SeqWire({
+  p,
+  hit,
+  r,
+  label,
+  cut,
+  colour,
+  to,
+}: {
+  p: ModuleProps;
+  hit: string;
+  r: number;
+  label: string;
+  cut: boolean;
+  colour: string;
+  to: number;
+}) {
+  const band = useBand(p.drawn && p.send ? (p.art.part(p.m.kind, hit)?.src ?? null) : null);
+  return (
+    <Hit
+      p={p}
+      hit={hit}
+      box={[0.18, 0.14 + r * 0.22, 0.6, 0.14]}
+      clamp={[1, 0.12]}
+      band={band}
+      label={label}
+      disabled={cut}
+      onPress={() => p.send?.({ op: 'cut', wire: r })}
+      testId={`seq-${r}`}
+    >
+      <span className="flex w-full items-center gap-[3%]">
+        <span
+          className={cn('h-[0.6em] flex-1 rounded-full', cut && 'opacity-30')}
+          style={{ background: PAINT[colour] }}
+        />
+        <span style={TEXT(5)} className="font-mono font-bold">
+          {colour} → {'ABC'[to]}
+        </span>
+      </span>
+    </Hit>
+  );
+}
+
 function Sequence(p: ModuleProps) {
   const { m, send, now } = p;
   if (m.kind !== 'wire-sequence' || !('panels' in m)) return null;
@@ -968,26 +1033,15 @@ function Sequence(p: ModuleProps) {
                 {showing * 3 + r + 1}
               </span>
               {e.colour && (
-                <Hit
+                <SeqWire
                   p={p}
                   hit={`wire-${r + 1}${'abc'[e.to]}-${e.colour}`}
-                  box={[0.18, 0.14 + r * 0.22, 0.6, 0.14]}
-                  clamp={[1, 0.12]}
+                  r={r}
                   label={`${e.colour} wire from ${showing * 3 + r + 1} to ${'ABC'[e.to]}${e.cut ? ', cut' : ''}`}
-                  disabled={e.cut}
-                  onPress={() => send?.({ op: 'cut', wire: r })}
-                  testId={`seq-${r}`}
-                >
-                  <span className="flex w-full items-center gap-[3%]">
-                    <span
-                      className={cn('h-[0.6em] flex-1 rounded-full', e.cut && 'opacity-30')}
-                      style={{ background: PAINT[e.colour] }}
-                    />
-                    <span style={TEXT(5)} className="font-mono font-bold">
-                      {e.colour} → {'ABC'[e.to]}
-                    </span>
-                  </span>
-                </Hit>
+                  cut={e.cut}
+                  colour={e.colour}
+                  to={e.to}
+                />
               )}
             </div>
           );

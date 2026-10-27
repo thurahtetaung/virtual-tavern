@@ -70,6 +70,19 @@ export async function table(browser: Browser, names: string[], look: Look | Look
   return pages;
 }
 
+/**
+ * Shows the host's settings (folded away so the lobby fits a phone; on a phone's result screen,
+ * under the Next bomb tab).
+ */
+export async function settings(p: Page) {
+  const tab = p.getByTestId('result-tab-next');
+  if (await tab.isVisible()) await tab.click();
+  const panel = p.getByTestId('settings');
+  await expect(panel).toBeVisible();
+  if ((await panel.getAttribute('open')) === null) await p.getByTestId('settings-toggle').click();
+  await expect(panel).toHaveAttribute('open', '');
+}
+
 /** Waits for the lights, so the modules take input. */
 export async function lightsOn(p: Page) {
   await expect(p.getByTestId('defuser')).toBeVisible();

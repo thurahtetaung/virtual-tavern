@@ -561,24 +561,24 @@ export function Manual({ v, art, you, names, act }: ManualProps) {
         aria-label="Search the manual"
         data-testid="manual-search"
       />
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 sm:gap-2">
         {found.map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setPage(p)}
             className={cn(
-              'flex min-h-14 flex-col items-start justify-center rounded-xl bg-card px-3 py-2 text-left ring-1 ring-line hover:bg-panel dark:bg-stone-900 dark:ring-stone-800',
+              'flex min-h-11 flex-col items-start justify-center rounded-xl bg-card px-3 py-1 text-left leading-tight ring-1 ring-line hover:bg-panel sm:min-h-14 sm:py-2 dark:bg-stone-900 dark:ring-stone-800',
               claims[p]?.includes(you) && 'ring-2 ring-accent',
             )}
             data-testid={`index-${p}`}
           >
-            <span className="font-semibold">
+            <span className="text-sm font-semibold sm:text-base">
               {(NEEDY as readonly string[]).includes(p) && <span aria-hidden>⚠ </span>}
               {pageName(art, p)}
             </span>
             {claims[p]?.length ? (
-              <span className="text-xs text-ink-muted">
+              <span className="max-w-full truncate text-xs text-ink-muted">
                 {claims[p].map((id) => (id === you ? 'you' : (names.get(id) ?? '?'))).join(', ')}
               </span>
             ) : null}
