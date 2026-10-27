@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.1...v0.76.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **defuse:** the 3D view's hint is one line under the bomb, clear of the arrows ([#462](https://github.com/thurahtetaung/virtual-tavern/issues/462)) ([b2a3111](https://github.com/thurahtetaung/virtual-tavern/commit/b2a3111f3adc486157419a3e5ef33151629d7cd0))
+
 ## [0.76.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.0...v0.76.1) (2026-10-27)
 
 
