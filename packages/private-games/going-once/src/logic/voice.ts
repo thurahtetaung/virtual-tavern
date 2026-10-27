@@ -117,6 +117,27 @@ export function sayClips(s: GoingOnceState, now: number, clips: HostClip[], clea
   return ms;
 }
 
+/**
+ * When a new line can start: once the clips being said or still to come at `now` before the line's
+ * next chant are said, as every device lets them finish, unless the next is a chant, which a new
+ * line cuts (`cutsOff` in `ui/audio.ts`). So does the original: a bid during the opening line is
+ * taken once the line is said, and its chant comes after, so "going once" still follows that
+ * chant by a second.
+ */
+export function freeAt(g: Game, now: number): number {
+  const h = g.host;
+  if (!h?.clips?.length || h.at === undefined) return now;
+  const times = clipTimes(h);
+  let free = now;
+  for (const [i, c] of h.clips.entries()) {
+    const end = times[i]! + c.ms;
+    if (end <= now) continue;
+    if (c.key.startsWith('chant')) break;
+    free = end;
+  }
+  return free;
+}
+
 /** A player's colour lead-in ("Yellow…"), for a remark said to them. */
 export const leadIn = (player: PlayerId): VoicePart => ({ key: 'lead', player });
 

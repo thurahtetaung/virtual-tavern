@@ -483,7 +483,12 @@ function drawing(view: GoingOnceView): Moment[] {
     {
       id: `draw:${g.since}`,
       at: g.since,
-      steps: [anim(0, 'timer', 'timer.Appear'), anim(300, 'sign', 'sign.Appear', { on: STAGE })],
+      // The sign comes with the stage; the hourglass once its clock starts, after the
+      // instructions (as the original lowers its timer).
+      steps: [
+        anim(Math.max(0, g.drawFrom - g.since), 'timer', 'timer.Appear'),
+        anim(300, 'sign', 'sign.Appear', { on: STAGE }),
+      ],
     },
   ];
 }
@@ -733,4 +738,35 @@ export function rowOf(places: Rig['places'], n: number, where: RowWhere): number
   const k = span ? Math.min(ROW_SPREAD, (hi - lo) / span) : 0;
   const mid = (xs[0]! + xs.at(-1)!) / 2;
   return xs.map((x) => (lo + hi) / 2 + (x - mid) * k);
+}
+
+/** A title's text style on its plate at the end of the table screen (`plateText`). */
+export interface PlateText {
+  fontSize: number;
+  lineHeight?: number;
+  width?: number;
+  whiteSpace?: 'normal';
+  textAlign?: 'center';
+}
+
+/** The room for a title on its plate at the end (the plate is about 272 stage units wide). */
+const PLATE_TEXT_W = 250;
+/** A bold glyph's width, roughly, in ems (a little over the average, to be safe). */
+const GLYPH_EM = 0.47;
+
+/**
+ * A title's text on its plate: 26 units, smaller for a long title so it stays on one line inside
+ * the plate, and in two smaller lines when even that would be too small to read.
+ */
+export function plateText(title: string): PlateText {
+  const fits = PLATE_TEXT_W / (Math.max(1, title.length) * GLYPH_EM);
+  if (fits >= 26) return { fontSize: 26 };
+  if (fits >= 18) return { fontSize: Math.floor(fits) };
+  return {
+    fontSize: 17,
+    lineHeight: 1.05,
+    width: PLATE_TEXT_W,
+    whiteSpace: 'normal',
+    textAlign: 'center',
+  };
 }

@@ -54,6 +54,10 @@ describe('the spoken introduction, in the original’s order', () => {
     const said = clipsMs(g.host!.clips!);
     expect(g.drawStart).toBe(h.now + said);
     expect(g.until).toBe(h.now + said + 90_000 + 2500);
+    // Devices show the clock only from then, at its full 90 s, as the original lowers its timer.
+    const v = goingOnce.view(h.state, 'p1').game!;
+    expect(v.drawFrom).toBe(h.now + said);
+    expect(v.until - v.drawFrom).toBe(90_000);
     // Drawing is open from the start.
     h.act('p1', { type: 'draw', item: g.prompts.p1![0]!, drawing: SQUIGGLE });
   });
@@ -141,6 +145,8 @@ describe('the voiced auction', () => {
 
   it('runs a bid’s quiet stretch as the paddle going up, the chant asking for the next and 1 s', () => {
     const h = voicedAuction();
+    // Into the opening's chant, which a bid cuts.
+    h.wait(clipTimes(game(h).host!)[1]! - h.now + 200);
     bid(h, 'p2', 600);
     const clips = game(h).host!.clips!;
     // No "We have $600" (the original says the amount only after a forced bid): a second for
@@ -150,6 +156,57 @@ describe('the voiced auction', () => {
     expect(clips[0]!.wait).toBe(BID_SETTLE_MS);
     expect(clips[0]!.ms).toBe(VOICE_MS[clips[0]!.key]![clips[0]!.i]);
     expect(game(h).auction!.closeAt).toBe(h.now + BID_SETTLE_MS + clips[0]!.ms + CHANT_GAP_MS);
+  });
+
+  it('says a skip’s line to its end before the lot’s own lines, and a bid waits for the opening', () => {
+    const h = harness(3, 5);
+    for (let i = 0; i < 3; i++)
+      h.state = goingOnce.playerJoined(h.state, {
+        id: `p${i + 1}`,
+        name: `P${i + 1}`,
+        color: COLORS[i]!,
+      });
+    h.act(HOST, { type: 'update-settings', pace: 'normal', practice: true, voice: true });
+    h.act(HOST, { type: 'start' });
+    drawEverything(h);
+    // The tutorial skipped, then the practice lot at once: "skipped" is still being said.
+    h.act(HOST, { type: 'skip-intro' });
+    expect(game(h).stage).toBe('practice');
+    const skipped = game(h).host!;
+    expect(skipped.clips![0]!.key).toBe('skipped');
+    const said = skipped.at! + skipped.ms!;
+    h.wait(500);
+    h.act(HOST, { type: 'skip-practice' });
+    expect(game(h).stage).toBe('auction');
+    // "The first item up for bid" waits for it, and so does the opening.
+    expect(game(h).host!.at).toBe(said);
+    h.tick();
+    const opening = game(h).host!;
+    expect(opening.clips!.map((c) => c.key)).toContain('opening');
+    const openingSaid = clipTimes(opening)[opening.clips!.findIndex((c) => c.key === 'opening')]!;
+    expect(openingSaid).toBeGreaterThanOrEqual(said);
+    // A bid as the picture goes up, before the opening is said, waits for it.
+    bid(h, 'p2', 400);
+    const ms = opening.clips!.find((c) => c.key === 'opening')!.ms;
+    expect(game(h).host!.at).toBe(openingSaid + ms);
+  });
+
+  it('takes a bid made during the opening line once the line is said, as the original', () => {
+    const h = voicedAuction();
+    const opening = game(h).host!;
+    const saidAt = clipTimes(opening)[0]! + opening.clips![0]!.ms;
+    h.wait(500);
+    bid(h, 'p2', 400);
+    const host = game(h).host!;
+    // Every device lets "opening" finish; the bid's line starts there, its chant a second
+    // later, and going once a second after the chant ends.
+    expect(host.at).toBe(saidAt);
+    expect(clipTimes(host)[0]).toBe(saidAt + BID_SETTLE_MS);
+    expect(game(h).auction!.closeAt).toBe(saidAt + clipsMs(host.clips!) + CHANT_GAP_MS);
+    // A bid on a chant cuts it at once.
+    h.wait(saidAt + BID_SETTLE_MS + 500 - h.now);
+    bid(h, 'p3', 500);
+    expect(game(h).host!.at).toBe(h.now);
   });
 
   it('chants for the next ask by its amount, and the high chant above the recordings', () => {
@@ -378,6 +435,28 @@ describe('the voiced wrap-up of a lot', () => {
     const first = game(h).host!.clips![0]!;
     expect(first.key).toBe('bank-first');
     expect(first.wait).toBe(2200);
+    // Everyone answers at once: the bank still says its piece, then the next lot comes in.
+    const host = game(h).host!;
+    const said = host.at! + host.ms!;
+    expect(game(h).until).toBeGreaterThanOrEqual(said);
+    for (const id of ['p1', 'p2', 'p3']) h.act(id, { type: 'loan', take: false });
+    expect(game(h).stage).toBe('bank');
+    expect(goingOnce.nextDeadline!(h.state)).toBe(said);
+    h.tick();
+    expect(game(h).stage).toBe('auction');
+  });
+
+  it('keeps the bank open until its piece is said, however short its window', () => {
+    const h = voicedAuction(3, 7);
+    const s = structuredClone(h.state);
+    for (const id of ['p2', 'p3']) s.game!.players[id]!.cash = 500;
+    // A quick clock (the browser tests' rig) makes the window shorter than the bank's piece.
+    s.rig = { scale: 0.1, fixed: false };
+    h.state = s;
+    bid(h, 'p1', 400);
+    for (let i = 0; i < 20 && game(h).stage !== 'bank'; i++) h.tick();
+    const host = game(h).host!;
+    expect(game(h).until).toBe(host.at! + host.ms!);
   });
 
   it('calls out a quiet bidder with their colour first', () => {

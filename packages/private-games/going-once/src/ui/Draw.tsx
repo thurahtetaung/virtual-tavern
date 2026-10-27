@@ -1,5 +1,5 @@
 import type { GameRoomInfo } from '@vt/game-sdk';
-import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag } from '@vt/ui';
+import { Countdown, DrawingPad, DrawingView, Panel, PlayerTag, useSecondsLeft } from '@vt/ui';
 import type { GoingOnceView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { HowTo } from './Extras.tsx';
@@ -13,11 +13,15 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
   const g = view.game!;
   const mine = view.mine;
   const deadline = g.until;
+  // As the original, the clock shows only once it starts (after the voice's instructions), at
+  // its full length; drawing is open meanwhile.
+  const startsIn = useSecondsLeft(g.drawFrom, room.clockOffset);
+  const clock = (startsIn ?? 0) <= 0;
   if (!mine)
     return (
       <Panel className="flex flex-col items-center gap-2 text-center">
         <p>Everyone is drawing.</p>
-        <Countdown deadline={deadline} clockOffset={room.clockOffset} label="to draw" />
+        {clock && <Countdown deadline={deadline} clockOffset={room.clockOffset} label="to draw" />}
       </Panel>
     );
   const index = mine.prompts.findIndex((p) => !p.sent);
@@ -45,15 +49,17 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
               }
               submitLabel={index + 1 < mine.prompts.length ? 'Send, next title' : 'Send'}
               footer={
-                <span className="flex items-center gap-1.5">
-                  <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
-                  <Countdown
-                    deadline={deadline}
-                    clockOffset={room.clockOffset}
-                    label="for both"
-                    atZero="whatever is drawn is sent"
-                  />
-                </span>
+                clock && (
+                  <span className="flex items-center gap-1.5">
+                    <RigIcon symbol="hourglass" className="h-9 w-7 shrink-0" />
+                    <Countdown
+                      deadline={deadline}
+                      clockOffset={room.clockOffset}
+                      label="for both"
+                      atZero="whatever is drawn is sent"
+                    />
+                  </span>
+                )
               }
             />
           </PadFrame>
@@ -86,7 +92,9 @@ export function Draw({ view, room, act }: { view: GoingOnceView; room: GameRoomI
                 />
               ))}
           </div>
-          <Countdown deadline={deadline} clockOffset={room.clockOffset} label="left to draw" />
+          {clock && (
+            <Countdown deadline={deadline} clockOffset={room.clockOffset} label="left to draw" />
+          )}
         </Panel>
       )}
     </div>
