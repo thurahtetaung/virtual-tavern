@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.74.0...v0.75.0) (2026-10-27)
+
+
+### Features
+
+* **defuse:** add Defuse, a bomb-defusal talking game in the back room ([#440](https://github.com/thurahtetaung/virtual-tavern/issues/440)) ([02c4b06](https://github.com/thurahtetaung/virtual-tavern/commit/02c4b06b82ff32d24b6ac5ef82c0cad8c917f7fb))
+
 ## [0.74.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.6...v0.74.0) (2026-10-27)
 
 
