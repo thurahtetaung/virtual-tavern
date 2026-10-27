@@ -99,7 +99,6 @@ for (const [label, viewport, colorScheme] of [
     await shot(ana, '01-desk-dark', 300);
     if (touch) {
       await shot(ana, '01b-turn-your-phone', 0);
-      if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
     }
     await ana.waitForTimeout(6500);
     await shot(ana, '02-desk');
@@ -200,7 +199,6 @@ test('defuse 3D screenshots: the last minute, explode and defuse', async ({ brow
     await ana.getByTestId('set-time').selectOption('30');
     await ana.getByTestId('start').click();
     await ready(ana);
-    if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
     await ana.waitForTimeout(8500);
     await call(ana, 'pickUp');
     for (let i = 0; i < 4; i++) await shot(ana, `40-last-minute-${i}`, 600);
@@ -214,7 +212,6 @@ test('defuse 3D screenshots: the last minute, explode and defuse', async ({ brow
     await ana.getByTestId('set-time').selectOption('300');
     await ana.getByTestId('next-bomb').click();
     await ready(ben);
-    if (await ben.getByTestId('turn-phone').count()) await ben.getByTestId('turn-phone').click();
     await ben.waitForTimeout(8500);
     await call(ben, 'pickUp');
     await solve(ben);
@@ -261,7 +258,6 @@ for (const [label, viewport] of [
     const [ana] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
     await ana.getByTestId('start').click();
     await ready(ana);
-    if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
     await ana.waitForTimeout(6500);
     await ana.screenshot({ path: `${DIR}/hint/${label}-1-desk.png` });
     await call(ana, 'pickUp');
@@ -305,7 +301,6 @@ test('defuse 3D phone shots: the touch outline, an edge and a module zoomed in',
   await ana.getByTestId('set-modules').selectOption('11');
   await ana.getByTestId('start').click();
   await ready(ana);
-  if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
   await ana.waitForTimeout(6500);
   const cdp = await ana.context().newCDPSession(ana);
   type Pt = { x: number; y: number };
@@ -405,7 +400,6 @@ test('defuse 3D parity shots: the lid, the cap, a page turn, the lever, the edge
   await ana.getByTestId('set-needy').click();
   await ana.getByTestId('start').click();
   await ready(ana);
-  if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
   await ana.waitForTimeout(6500);
   const shot = async (name: string, wait = 0) => {
     if (wait) await ana.waitForTimeout(wait);

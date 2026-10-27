@@ -2,6 +2,7 @@ import { storageKey } from '@vt/game-sdk';
 import { cn } from '@vt/ui';
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { nextMove } from '../../logic/bot.ts';
+import { type CaseDial, turnDial } from '../../logic/game.ts';
 import type { Look as DefuserLook, ModuleOp, Settings } from '../../logic/types.ts';
 import type { BombView } from '../../logic/view.ts';
 import type { Art } from '../assets.ts';
@@ -10,13 +11,13 @@ import { SIMON_TONES, player } from '../sound.ts';
 import { serverNow } from '../time.ts';
 import { type Device, HINTS, type HintStep, doneBy, hintFor } from './controls.ts';
 import { type Pack, type Quality, loadPack } from './rig.ts';
+import type { EdgeArrows } from './glance.ts';
 import { type RoomPack, roomLook } from './room.ts';
 import { BombScene, type Mirror, type Pose, sharedRenderer } from './scene.ts';
 
 const HINTS_KEY = 'vt.defuse.hints-3d';
 export const VIEW_KEY = 'vt.defuse.view';
 const LITE_KEY = 'vt.defuse.lite';
-const SIDEWAYS_KEY = 'vt.defuse.sideways';
 
 const read = (key: string) => {
   try {
@@ -100,8 +101,15 @@ const touchDevice = () =>
 export interface Bomb3DProps {
   /** The bomb, or null for the briefcase on the desk (the lobby). */
   b: BombView | null;
-  /** The briefcase: the host's settings on its displays, and its Start. */
-  briefcase?: { settings: Settings; start: () => void } | null;
+  /**
+   * The briefcase: the host's settings on its displays, its keys and switches (`change`, null
+   * for anyone but the host), and its Start.
+   */
+  briefcase?: {
+    settings: Settings;
+    start: () => void;
+    change: ((settings: Partial<Settings>) => void) | null;
+  } | null;
   /** The defuser presses the alarm clock's snooze. */
   snooze?: () => void;
   /** Back to the lobby from the desk (the briefcase). */
@@ -156,20 +164,18 @@ export function Bomb3D({
       return new Set();
     }
   });
-  const [sideways, setSideways] = useState(() => {
-    try {
-      return sessionStorage.getItem(SIDEWAYS_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
   const [portrait, setPortrait] = useState(false);
   const bRef = useRef(b);
   const actRef = useRef(act);
   const onPoseRef = useRef(onPose);
   const caseRef = useRef(briefcase);
   const snoozeRef = useRef(snooze);
-  const [caseNote, setCaseNote] = useState(false);
+  /** The briefcase's line: null, or a key and when it was set (the non-host's note). */
+  const [caseNote, setCaseNote] = useState<string | null>(null);
+  /** The edge arrows and bars for the cursor (`NonVRHUD`): 0, ½ or full strength. */
+  const [edges, setEdges] = useState<EdgeArrows>({ left: 0, right: 0, top: 0, bottom: 0 });
+  /** The settings the host's briefcase shows while their turns are on the way. */
+  const caseNow = useRef<Settings | null>(null);
   const [starting, setStarting] = useState(false);
   useLayoutEffect(() => {
     bRef.current = b;
@@ -210,10 +216,29 @@ export function Bomb3D({
                 setStarting(true);
                 caseRef.current?.start();
               },
-              setting: () => setCaseNote(true),
+              turn: (dial) => {
+                const c = caseRef.current;
+                if (!c?.change) {
+                  setCaseNote(`only-host:${Date.now()}`);
+                  return;
+                }
+                // The host's own displays move at once; the room's settings follow.
+                const now = caseNow.current ?? c.settings;
+                const step = turnDial(now, dial);
+                if (!step) return;
+                caseNow.current = { ...now, ...step };
+                sceneRef.current?.setCase(caseNow.current);
+                c.change(step);
+              },
             }
           : null,
         snooze: () => snoozeRef.current?.(),
+        edges: (a) =>
+          setEdges((e) =>
+            e.left === a.left && e.right === a.right && e.top === a.top && e.bottom === a.bottom
+              ? e
+              : a,
+          ),
         readOnly,
         ctx: {
           touch,
@@ -281,8 +306,18 @@ export function Bomb3D({
     s.setEnded(!!b.end);
   }, [b, ready]);
 
+  // The non-host's note stays a few seconds.
+  useEffect(() => {
+    if (!caseNote) return;
+    const t = setTimeout(() => setCaseNote(null), 3000);
+    return () => {
+      clearTimeout(t);
+    };
+  }, [caseNote]);
+
   const caseSettings = briefcase ? JSON.stringify(briefcase.settings) : '';
   useEffect(() => {
+    caseNow.current = null;
     if (briefcase) sceneRef.current?.setCase(briefcase.settings);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseSettings, ready]);
@@ -302,6 +337,8 @@ export function Bomb3D({
       release: () => sceneRef.current?.releasePart(),
       back: () => sceneRef.current?.back(),
       pickUp: () => sceneRef.current?.pickUp(),
+      glance: () => sceneRef.current?.glanceNow() ?? [0, 0],
+      dial: (d: CaseDial) => sceneRef.current?.turnCase(d),
       turn: (d: 'up' | 'down' | 'left' | 'right') => sceneRef.current?.turnBy(d),
       edges: () => sceneRef.current?.edges() ?? [],
       pose: () => ({
@@ -411,6 +448,29 @@ export function Bomb3D({
           data-testid="end-fade"
         />
       )}
+      {!readOnly && !touch && (
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden
+          data-testid="glance-edges"
+        >
+          {(['left', 'right', 'top', 'bottom'] as const).map((d) => (
+            <div
+              key={d}
+              className={cn(
+                'absolute flex items-center justify-center text-2xl text-white transition-opacity duration-150',
+                d === 'left' && 'inset-y-0 left-0 w-8 bg-gradient-to-r from-white/25',
+                d === 'right' && 'inset-y-0 right-0 w-8 bg-gradient-to-l from-white/25',
+                d === 'top' && 'inset-x-0 top-0 h-8 bg-gradient-to-b from-white/25',
+                d === 'bottom' && 'inset-x-0 bottom-0 h-8 bg-gradient-to-t from-white/25',
+              )}
+              style={{ opacity: edges[d] }}
+            >
+              {{ left: '‹', right: '›', top: '︿', bottom: '﹀' }[d]}
+            </div>
+          ))}
+        </div>
+      )}
       {briefcase && !starting && (
         <>
           {leave && (
@@ -428,7 +488,7 @@ export function Bomb3D({
             data-testid="case-hint"
           >
             {caseNote
-              ? 'The host sets the bomb in the lobby. Press START when you’re ready.'
+              ? 'Only the host can change the settings'
               : pose === 'desk'
                 ? touch
                   ? 'Tap the briefcase to pick it up'
@@ -512,27 +572,6 @@ export function Bomb3D({
             >
               {HINTS[device][step]}
             </p>
-          )}
-          {touch && portrait && !sideways && !b?.end && (
-            <button
-              type="button"
-              className="absolute inset-x-6 top-1/4 rounded-2xl bg-stone-900/90 p-4 text-center text-base ring-1 ring-stone-700"
-              onClick={() => {
-                setSideways(true);
-                try {
-                  sessionStorage.setItem(SIDEWAYS_KEY, '1');
-                } catch {
-                  // fine: it shows again next time
-                }
-              }}
-              data-testid="turn-phone"
-            >
-              <span className="block text-3xl" aria-hidden>
-                📱↻
-              </span>
-              Turn your phone sideways for the best view. Upright works too.
-              <span className="mt-2 block text-sm text-stone-300">Tap to carry on</span>
-            </button>
           )}
           {sheet && (
             <div
@@ -624,6 +663,7 @@ const TOUCH_CONTROLS: [string, string][] = [
   ['Tap', 'pick up the bomb, look at a module, cut, press'],
   ['Drag', 'turn the bomb (it settles square when you let go)'],
   ['Pinch', 'zoom in and out, on any side; move both fingers to look around'],
+  ['Drag off the bomb', 'drag outside the bomb to look around the room'],
   ['‹ or two-finger tap', 'step back: module → bomb → desk (or tap off the bomb)'],
   ['▴ ▾ ◂ ▸', 'a quarter turn, to read the edges'],
 ];
@@ -631,6 +671,7 @@ const MOUSE_CONTROLS: [string, string][] = [
   ['Click', 'pick up, look at a module, cut, press (hold for the big button)'],
   ['Right-drag', 'turn the bomb (Ctrl+drag on a one-button mouse); it settles square'],
   ['Wheel, + −', 'zoom (the wheel toward the cursor)'],
+  ['Screen edge', 'move to the screen edge and hold the button to look around'],
   ['Right-click, Esc', 'step back: module → bomb → desk'],
   ['← → ↑ ↓, WASD', 'a quarter turn; F turns it over'],
   ['Tab, Enter', 'next module, look at it; 1–9 use its parts in order'],
