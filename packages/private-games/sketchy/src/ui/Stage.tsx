@@ -22,10 +22,10 @@ import {
 import { loadManifest } from '@vt/ui';
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { revealOrder } from '../logic/reveal.ts';
-import { REVEAL_STEP_MS } from '../logic/types.ts';
+import { REVEAL_STEP_MS, announcerOf } from '../logic/types.ts';
 import type { SketchyView, TurnView } from '../logic/types.ts';
 import { GAME_ID, manifestOf, useManifest } from './assets.ts';
-import { jokeFor } from './audio.ts';
+import { hasLine, jokeFor } from './audio.ts';
 import type { SketchyUiProps } from './SketchyGame.tsx';
 import {
   TIMER_STEP_S,
@@ -190,7 +190,8 @@ export function SketchyStage({ view, room }: SketchyUiProps) {
         seen,
         parts: rig ? revealParts(rig.tracks) : { card: [], chooser: [], author: [] },
         swaps,
-        jokeFor: (prompt) => jokeFor(m?.audio, m?.jokes, prompt, names),
+        jokeFor: (prompt) => jokeFor(m?.audio, m?.jokes, prompt, names, announcerOf(view.settings)),
+        hasLine: (key) => hasLine(m?.audio, announcerOf(view.settings), key),
       }),
     [view, seen, rig, swaps, m, names],
   );

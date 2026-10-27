@@ -13,13 +13,17 @@ import {
   cn,
 } from '@vt/ui';
 import {
+  type Announcer,
   SOUND_MODES,
   type Settings,
   type SketchyView,
   type SoundMode,
   type SoundSettings,
+  announcerOf,
+  announcersFor,
 } from '../logic/types.ts';
 import type { Act } from './act.ts';
+import { type SketchyManifest, announcerName } from './assets.ts';
 import { soundModeIn } from './audio.ts';
 import type { Status } from './status.ts';
 import { Table } from './Table.tsx';
@@ -58,17 +62,22 @@ const SOUND_HELP: Record<SoundMode, string> = {
     'The table screen plays the music, the narrator and the effects; each phone makes only its own little sounds.',
 };
 
-/** The sound in one line: where it plays and whether the narrator speaks. */
-export function soundSummary(s: SoundSettings, stagePresent = false): string {
+/** The sound in one line: where it plays and which narrator speaks, if one does. */
+export function soundSummary(
+  s: SoundSettings & { adult: boolean },
+  stagePresent = false,
+  manifest: SketchyManifest | null = null,
+): string {
   const mode = soundModeIn(s, stagePresent);
   if (mode === 'off') return 'sound off';
-  return `sound: ${SOUND_NAME[mode].toLowerCase()}`;
+  return `sound: ${SOUND_NAME[mode].toLowerCase()}, announcer: ${announcerName(manifest, announcerOf(s))}`;
 }
 
 /** The guests' summary: the packs (or how many), friend mode, adult prompts, the timers, the sound. */
 export function settingsSummary(
   view: Pick<SketchyView, 'packs' | 'settings'>,
   stagePresent = false,
+  manifest: SketchyManifest | null = null,
 ): string[] {
   const chosen = view.packs.filter((p) => view.settings.packIds.includes(p.id));
   const names = chosen.filter((p) => !p.friends).map((p) => p.name);
@@ -77,7 +86,7 @@ export function settingsSummary(
     ...(chosen.some((p) => p.friends) ? ['friend mode'] : []),
     ...(view.settings.adult ? ['adult prompts'] : []),
     timerSummary(view.settings),
-    soundSummary(view.settings, stagePresent),
+    soundSummary(view.settings, stagePresent, manifest),
   ];
 }
 
@@ -137,6 +146,7 @@ export function Lobby({
   online,
   showGuide,
   sound,
+  manifest = null,
 }: {
   view: SketchyView;
   room: GameRoomInfo;
@@ -147,6 +157,8 @@ export function Lobby({
   showGuide: () => void;
   /** Everyone's own Sound section (the sliders). */
   sound?: ReactNode;
+  /** The private manifest, for the announcers' names. */
+  manifest?: SketchyManifest | null;
 }) {
   const editable = room.isHost;
   const s = view.settings;
@@ -165,7 +177,7 @@ export function Lobby({
       </Panel>
       <LobbySettings
         editable={editable}
-        summary={settingsSummary(view, stagePresent)}
+        summary={settingsSummary(view, stagePresent, manifest)}
         className="space-y-4"
       >
         {editable && <h3 className="text-lg font-bold">Game settings</h3>}
@@ -261,10 +273,12 @@ export function Lobby({
           </div>
         </details>
         <SoundSettingsPanel
+          view={view}
           editable={editable}
           stagePresent={stagePresent}
           soundNow={soundNow}
           set={set}
+          manifest={manifest}
         />
         <RefusalSlot anchor={LOBBY_ANCHOR} />
       </LobbySettings>
@@ -291,16 +305,21 @@ export function Lobby({
 }
 
 function SoundSettingsPanel({
+  view,
   editable,
   stagePresent,
   soundNow,
   set,
+  manifest,
 }: {
+  view: SketchyView;
   editable: boolean;
   stagePresent: boolean;
   soundNow: SoundMode;
   set: (patch: Partial<Omit<Settings, 'soundChosen'>>) => void;
+  manifest: SketchyManifest | null;
 }) {
+  const s = view.settings;
   // "Table screen" is offered once one is paired (or while it is the room's choice).
   const modes = SOUND_MODES.filter((m) => m !== 'stage' || stagePresent || soundNow === 'stage');
   return (
@@ -331,6 +350,61 @@ function SoundSettingsPanel({
       <p className="text-xs text-ink-muted">{SOUND_HELP[soundNow]}</p>
       <p className="text-xs text-ink-muted">
         Each player sets their own volume for the music, effects and narrator under Sound.
+      </p>
+      <AnnouncerPicker
+        value={announcerOf(s)}
+        choices={announcersFor(s.adult)}
+        editable={editable}
+        manifest={manifest}
+        onChange={(announcer) => set({ announcer })}
+      />
+    </fieldset>
+  );
+}
+
+/** Whose voice hosts the game: one of four announcers, the adult one only with adult prompts on. */
+function AnnouncerPicker({
+  value,
+  choices,
+  editable,
+  manifest,
+  onChange,
+}: {
+  value: Announcer;
+  choices: readonly Announcer[];
+  editable: boolean;
+  manifest: SketchyManifest | null;
+  onChange: (a: Announcer) => void;
+}) {
+  return (
+    <fieldset data-testid="sketchy-announcer">
+      <legend className="text-sm font-semibold">Announcer</legend>
+      {editable ? (
+        <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {choices.map((a) => (
+            <button
+              key={a}
+              type="button"
+              aria-pressed={value === a}
+              onClick={() => onChange(a)}
+              className={cn(
+                'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1 transition',
+                value === a
+                  ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500'
+                  : 'ring-line hover:bg-panel dark:ring-stone-700 dark:hover:bg-stone-800',
+              )}
+            >
+              {announcerName(manifest, a)}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm">{announcerName(manifest, value)}</p>
+      )}
+      <p className="mt-1 text-xs text-ink-muted">
+        {editable && !choices.includes('adult')
+          ? 'Whose voice hosts the game. One more comes with the adult prompts.'
+          : 'Whose voice hosts the game.'}
       </p>
     </fieldset>
   );

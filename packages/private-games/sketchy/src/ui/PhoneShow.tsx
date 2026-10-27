@@ -26,9 +26,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { SketchyView } from '../logic/types.ts';
+import { type SketchyView, announcerOf } from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
-import { jokeFor } from './audio.ts';
+import { hasLine, jokeFor } from './audio.ts';
 import { moments, phaseOf, slotOf } from './show.ts';
 import { nameOf } from './status.ts';
 import type { Volumes } from '@vt/ui/sound';
@@ -90,7 +90,8 @@ export function PhoneShow({
         seen,
         parts: rig ? revealParts(rig.tracks) : { card: [], chooser: [], author: [] },
         swaps: rig?.swaps,
-        jokeFor: (prompt) => jokeFor(m?.audio, m?.jokes, prompt, names),
+        jokeFor: (prompt) => jokeFor(m?.audio, m?.jokes, prompt, names, announcerOf(view.settings)),
+        hasLine: (key) => hasLine(m?.audio, announcerOf(view.settings), key),
       }),
     [view, you, profile, seen, rig, m, names],
   );

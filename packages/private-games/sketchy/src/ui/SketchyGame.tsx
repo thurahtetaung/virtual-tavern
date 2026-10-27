@@ -29,7 +29,7 @@ import {
 } from './status.ts';
 import { SEAT_CONTROL_ID, Scores, Table } from './Table.tsx';
 import { TurnStage, useReveal } from './Turn.tsx';
-import { useManifest } from './assets.ts';
+import { type SketchyManifest, manifestOf, useManifest } from './assets.ts';
 import { ChipColours, paintsOf } from './paint.tsx';
 import { PhoneShow, Toast } from './PhoneShow.tsx';
 import { SketchyLobbySound, SketchySoundButton } from './Sound.tsx';
@@ -252,6 +252,7 @@ export function SketchyGame(props: SketchyUiProps) {
       <ChipColours view={view} colours={paintsOf(room.players)} />
       <SketchyPlay
         {...props}
+        manifest={manifestOf(manifest)}
         sound={<SketchySoundButton view={view} room={room} act={props.act} manifest={manifest} />}
         lobbySound={
           <SketchyLobbySound view={view} room={room} act={props.act} manifest={manifest} />
@@ -271,7 +272,12 @@ function SketchyPlay({
   setAbandon,
   sound,
   lobbySound,
-}: SketchyUiProps & { sound: ReactNode; lobbySound: ReactNode }) {
+  manifest,
+}: SketchyUiProps & {
+  sound: ReactNode;
+  lobbySound: ReactNode;
+  manifest: SketchyManifest | null;
+}) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const title = room.gameName ?? 'Sketchy';
   const blocker = startBlocker(view, title);
@@ -327,6 +333,7 @@ function SketchyPlay({
           online={online}
           showGuide={showGuide}
           sound={lobbySound}
+          manifest={manifest}
         />
       </>
     );
