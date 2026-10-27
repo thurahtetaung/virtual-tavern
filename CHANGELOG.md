@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.1...v0.75.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **sketchy:** phones fit the screen, the table screen keeps everything on it and clear of subtitles, and every sound plays, the last one in included ([#444](https://github.com/thurahtetaung/virtual-tavern/issues/444)) ([4d38e11](https://github.com/thurahtetaung/virtual-tavern/commit/4d38e1193f6afa1e40b02a2654d93872f79ca45f))
+
 ## [0.75.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.0...v0.75.1) (2026-10-27)
 
 
