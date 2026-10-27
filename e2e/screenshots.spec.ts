@@ -35,6 +35,7 @@ import { type Exercised, type Shot, playUntil } from './royal-post-play.ts';
 import { seanceScreenshots } from './seance-play.ts';
 import { mockStatsApi, openStatsAsAdmin } from './stats-mock.ts';
 import { openAdminSection } from './admin-sections.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm e2e screenshots
 test.skip(!process.env.SCREENSHOTS, 'set SCREENSHOTS=1 to capture');
@@ -85,6 +86,8 @@ for (const [label, viewport] of [
     await others[2]!.getByRole('button', { name: 'Join Blue as Operative' }).click();
     await expect(host.getByText('Everyone is seated')).toBeVisible();
     await host.screenshot({ path: `test-results/shots/${label}-lobby.png`, fullPage: true });
+    // On a phone the host's settings start folded.
+    await openSettings(host);
     await host.getByRole('button', { name: 'Change word lists' }).click();
     await expect(host.getByRole('dialog')).toBeVisible();
     await host.screenshot({ path: `test-results/shots/${label}-word-lists.png` });
@@ -374,6 +377,8 @@ for (const [label, viewport, colorScheme] of [
     const others = await Promise.all(['Ana', 'Ben'].map(make));
     await Promise.all(others.map((p) => p.goto(url)));
     const players = [host, ...others];
+    // On a phone the host's settings start folded.
+    await openSettings(host);
     await host.getByRole('button', { name: /^2019 edition/ }).click();
     await expect(host.getByText('Players (3/6)')).toBeVisible();
     await shot(host, 'lobby');
@@ -450,6 +455,8 @@ for (const [label, viewport] of [
     await Promise.all(others.map((p) => p.goto(host.url())));
     const all = [host, ...others];
     await expect(host.getByText('Everyone is in')).toBeVisible();
+    // On a phone the host's settings start folded.
+    await openSettings(host);
     await host.getByRole('button', { name: '8 cards' }).click();
     await shot(host, 'lobby');
     await host.getByRole('button', { name: 'Start game' }).click();
@@ -601,6 +608,8 @@ for (const [label, viewport, colorScheme] of [
       await expect(host).toHaveURL(/\/r\//);
       const others = await Promise.all(['Ana', 'Ben', 'Cy'].map(make));
       await Promise.all(others.map((p) => p.goto(host.url())));
+      // On a phone the host's settings start folded.
+      await openSettings(host);
       // The made-up deck has five questions, so pick five rounds before the game can start.
       await host.getByRole('button', { name: '5 rounds' }).click();
       await expect(host.getByRole('button', { name: '5 rounds' })).toHaveAttribute(
@@ -1095,6 +1104,8 @@ for (const [label, viewport] of [
       .getByRole('button', { name: '8 s', exact: true })
       .click();
     // The Alien options: each alien looks at a card; the night ends with a ripple for all.
+    // The Alien options appear with the alien cards, folded on a phone.
+    await openSettings(host);
     const only = async (table: string, entry: string) => {
       const panel = host.getByTestId(`weights-${table}`);
       if (!(await panel.getAttribute('open'))) await panel.locator('summary').click();
@@ -1204,6 +1215,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
     const players = [host, ...others];
     const names = new Map(players.map((p, i) => [p, ['Hana', 'Ana', 'Ben', 'Cy'][i]!]));
     await expect(host.getByText('Players (4/12)')).toBeVisible();
+    // On a phone the host's settings start folded.
+    await openSettings(host);
     await host.getByLabel('Rounds').selectOption('1');
     for (let game = 1; game <= 2; game++) {
       if (game === 2) await host.getByRole('button', { name: 'Play again' }).click();

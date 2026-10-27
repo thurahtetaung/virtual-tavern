@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { escapeRegExp } from '../packages/game-sdk/src/regex.ts';
 import { unlock, visitor } from './inquest-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Helpers to play Short Fuse through the UI. Without asset storage the cards use their neutral
 // placeholder names (Bomb, Defuse, Nope, Cat A…); the hand's buttons carry `data-card` with the
@@ -75,6 +76,8 @@ export async function sfTable(
     await expect(host.getByText(`Players (${i + 2}/10)`)).toBeVisible();
     rest.push(p);
   }
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return [host, ...rest].map((page, i) => ({ name: names[i]!, page }));
 }
 

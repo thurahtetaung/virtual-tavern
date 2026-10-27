@@ -2,6 +2,7 @@ import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { openBackroom, unlock } from './inquest-play.ts';
 import { draw, play, riggedStart, select, settle, sfTable, sfVisitor } from './short-fuse-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Opt-in visual check: SCREENSHOTS=1 pnpm exec playwright test e2e/short-fuse-shots.spec.ts
 // (SHORT_FUSE_ART=<private art folder> previews the real art). Shots land in test-results/shots.
@@ -126,6 +127,8 @@ test('Short Fuse screenshots: ten seats on a phone', async ({ browser }) => {
       await unlock(p, `/backroom?next=${encodeURIComponent(path)}`);
     }
     await expect(host.getByText('Players (10/10)')).toBeVisible();
+    // On a phone the host's settings start folded.
+    await openSettings(host);
     await host.getByTestId('preset-party').click();
     await expect(host.getByTestId('readout')).toContainText('10 players');
     await host.getByTestId('start').click();

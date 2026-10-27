@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Browser, type BrowserContext, type Page, expect } from '@playwright/test';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Helpers to play Inquest through the UI. Tiles are found by their `data-` hooks, so the helpers
 // work with placeholders (no asset storage) and with the real names alike.
@@ -110,6 +111,8 @@ export async function table(
   );
   const players = [host, ...rest].map((page, i) => ({ name: names[i]!, page }));
   await expect(host.getByText(`(${names.length}/12)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return players;
 }
 

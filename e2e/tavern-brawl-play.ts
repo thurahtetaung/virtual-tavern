@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a
 // room, and a "play whatever is asked" loop that finishes a game from the players' screens.
@@ -73,6 +74,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     }),
   );
   await expect(host.getByText(`Players (${names.length}/6)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return [host, ...others];
 }
 
