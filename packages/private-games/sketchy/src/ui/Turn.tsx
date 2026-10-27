@@ -114,6 +114,8 @@ export function TableDrawing({
   act,
   reserve = 0,
   caption = true,
+  least = '6rem',
+  side = false,
 }: {
   view: SketchyView;
   turn: TurnView;
@@ -121,17 +123,25 @@ export function TableDrawing({
   act: Act;
   reserve?: number;
   caption?: boolean;
+  /** The smallest the drawing gets on a crowded phone screen. */
+  least?: string;
+  /** Phones: the hide controls beside the drawing instead of under it, for a crowded board. */
+  side?: boolean;
 }) {
   const [mineHidden, hideMine] = useLocalHide(turn.drawing);
   const artist = turn.artist ? nameOf(view, turn.artist) : null;
   const veiled = turn.hidden || mineHidden;
-  const room = PHONE_CHROME + reserve + (caption ? 44 : 0);
+  const room = PHONE_CHROME + reserve + (caption && !side ? 44 : 0);
   return (
     <figure
-      className="space-y-1"
+      className={cn(
+        'space-y-1',
+        side &&
+          'max-sm:flex max-sm:items-center max-sm:justify-center max-sm:gap-3 max-sm:space-y-0',
+      )}
       style={
         {
-          '--fit': `min(16rem, max(6rem, calc((100svh - ${room}px) * 0.8)))`,
+          '--fit': `min(16rem, max(${least}, calc((100svh - ${room}px) * 0.8)))`,
         } as CSSProperties
       }
     >
@@ -142,6 +152,7 @@ export function TableDrawing({
         label={artist ? `${artist}’s drawing` : 'The drawing on the table'}
         className={cn(
           'mx-auto w-full max-w-(--fit) shadow-md ring-1 ring-line',
+          side && 'max-sm:mx-0 max-sm:w-(--fit) max-sm:shrink-0',
           // Big while titles are written; smaller once the board needs the room.
           view.game?.stage === 'write' ? 'sm:max-w-md' : 'sm:max-w-sm',
         )}
@@ -154,7 +165,10 @@ export function TableDrawing({
       </Replay>
       <figcaption
         hidden={!caption}
-        className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-ink-muted"
+        className={cn(
+          'flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-ink-muted',
+          side && 'max-sm:flex-col max-sm:items-start max-sm:gap-y-0',
+        )}
       >
         {turn.mine && <span className="font-semibold text-ink">🎨 Your drawing</span>}
         {!turn.hidden && turn.drawing && (
@@ -292,13 +306,17 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
     <div className="space-y-2">
       <ul
         aria-label="Titles"
-        className={cn('grid gap-1.5 sm:grid-cols-2 sm:gap-2', dense && 'max-sm:gap-1')}
+        // Many titles on a phone: two columns, so the whole board fits the screen.
+        className={cn(
+          'grid gap-1.5 sm:grid-cols-2 sm:gap-2',
+          dense && 'max-sm:grid-cols-2 max-sm:gap-1',
+        )}
         data-testid="sketchy-board"
       >
         {turn.options.map((o) => {
           const chosen = turn.myVote === o.index;
           return (
-            <li key={o.index} className="flex items-stretch gap-2">
+            <li key={o.index} className={cn('flex items-stretch gap-2', dense && 'max-sm:gap-1')}>
               <button
                 type="button"
                 disabled={!canPick || busy || o.mine}
@@ -306,8 +324,9 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                 onClick={() => void pick(o.index)}
                 className={cn(
                   'flex min-h-12 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl px-4 py-2 text-left text-[15px] leading-tight font-semibold ring-1 transition sm:text-lg sm:leading-snug',
-                  // Many titles on a phone: rows as tight as a finger allows.
-                  dense && 'max-sm:min-h-11 max-sm:py-1.5',
+                  // Many titles on a phone: half-width cells, as tight as a finger allows.
+                  dense &&
+                    'max-sm:min-h-11 max-sm:gap-1 max-sm:px-2 max-sm:py-1.5 max-sm:text-[13px]',
                   o.mine
                     ? 'cursor-not-allowed bg-stone-100 text-ink-muted ring-stone-200 dark:bg-stone-800/60 dark:text-stone-400 dark:ring-stone-700'
                     : chosen
@@ -315,7 +334,7 @@ function Board({ view, turn, act }: { view: SketchyView; turn: TurnView; act: Ac
                       : 'bg-white ring-stone-300 enabled:hover:bg-accent-soft dark:bg-stone-800 dark:ring-stone-600 dark:enabled:hover:bg-stone-700',
                 )}
               >
-                <span className="min-w-0 break-words">{o.text}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">{o.text}</span>
                 {o.mine && <span className="shrink-0 text-xs font-medium">Yours</span>}
                 {chosen && !o.mine && <span aria-hidden>✓</span>}
               </button>
@@ -656,7 +675,7 @@ export function TurnStage({
       {turn.done} of {turn.writerCount} {verb}
     </p>
   );
-  const drawing = (reserve: number, caption = true) => (
+  const drawing = (reserve: number, caption = true, least?: string, side = false) => (
     <TableDrawing
       view={view}
       turn={turn}
@@ -664,6 +683,8 @@ export function TurnStage({
       act={act}
       reserve={reserve}
       caption={caption}
+      {...(least && { least })}
+      side={side}
     />
   );
   if (g.stage === 'write') {
@@ -682,8 +703,11 @@ export function TurnStage({
   }
   if (g.stage === 'vote') {
     return (
-      <div className="space-y-3 lg:space-y-4">
-        {drawing(80 + turn.options.length * 64)}
+      <div className="space-y-3 max-sm:space-y-2 lg:space-y-4">
+        {/* More than six titles: the board takes the room, so the drawing may get smaller. */}
+        {turn.options.length > 6
+          ? drawing(80 + turn.options.length * 64, true, '4rem', true)
+          : drawing(80 + turn.options.length * 64)}
         {/* On a phone the status line just above says so already. */}
         {turn.mine && (
           <p className="text-center text-sm max-lg:hidden">
