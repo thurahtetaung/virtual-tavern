@@ -66,10 +66,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* On phones only the newest shows, at most two lines tall, at the right of the site's title
-          bar: there it stays clear of both the site title and the room's Invite / Players / Rules
-          row (y 81), which a second toast or a third line would cover. */}
-      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:items-end max-sm:pl-48 max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
+      {/* On phones only the newest shows, at most three tight lines tall, in the site's title bar
+          between the site title and the theme button: there it covers neither of them nor the
+          room's Invite / Players / Rules row (y 81), which a second toast or a fourth line would. */}
+      <div className="pointer-events-none fixed inset-x-0 top-1.5 z-50 flex flex-col items-center gap-2 px-4 max-sm:items-end max-sm:pr-16 max-sm:pl-48 max-sm:[&>*:not(:last-child)]:hidden sm:top-3">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -84,7 +84,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 : 'bg-stone-800 text-white dark:bg-stone-100 dark:text-stone-900')
             }
           >
-            <span className="max-sm:line-clamp-2 max-sm:text-xs">
+            <span className="max-sm:line-clamp-3 max-sm:text-xs max-sm:leading-[14px]">
               {t.text}
               {t.count > 1 && <span className="ml-2 opacity-75">×{t.count}</span>}
             </span>

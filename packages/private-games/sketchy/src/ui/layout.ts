@@ -17,6 +17,15 @@ export const SUBTITLE_TOP = 656;
  */
 export const REVEAL_POSE = 'matrix(0.95,0,0,0.95,514,330)';
 
+/**
+ * The real title under the drawing on the scoreboard: wrapped to this width (centred about 190
+ * units from the paper's left edge, so it never runs off it) and hung from its top under the
+ * drawing, a long title in smaller words.
+ */
+export const CAPTION_W = 340;
+export const captionSize = (title: string) =>
+  title.length > 48 ? 22 : title.length > 30 ? 26 : 30;
+
 /** How many rows run right to left per player count (the original's: the rest run left to right). */
 const LEFTWARD: Record<number, number> = { 3: 3, 4: 4, 5: 3, 6: 3, 7: 4, 8: 4 };
 /** The pencil's art across its own units (eraser to tip), and where the tip draws. */

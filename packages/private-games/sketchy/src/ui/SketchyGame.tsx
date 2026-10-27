@@ -126,7 +126,7 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
   const names = (ids: string[]) => listNames(ids.map((id) => nameOf(view, id)));
   const history = view.game?.history ?? [];
   return (
-    <Panel className="space-y-4 text-center" data-testid="sketchy-over">
+    <Panel className="space-y-2 text-center max-lg:p-3 lg:space-y-4" data-testid="sketchy-over">
       {view.endReason === 'too-few' && (
         <p className="font-semibold">Too few players left: final scores so far.</p>
       )}
@@ -138,7 +138,8 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         }))}
         you={view.me?.id}
         scoreLabel={(n) => `${points(n)} pts`}
-        className="text-left"
+        // On a phone the podium alone: the full list is the Scores tab, a tap away.
+        className="text-left max-lg:[&>:not(:first-child)]:hidden"
       />
       {room.superlatives?.length ? (
         <Superlatives lines={room.superlatives} />
@@ -174,11 +175,16 @@ function GameOver({ view, room, act }: { view: SketchyView; room: GameRoomInfo; 
         </details>
       )}
       {room.isHost ? (
-        <div className="grid gap-2 sm:flex sm:justify-center">
-          <Button size="lg" onClick={() => void act({ type: 'start' })}>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center">
+          <Button size="lg" className="max-lg:px-3" onClick={() => void act({ type: 'start' })}>
             Play again
           </Button>
-          <Button variant="secondary" size="lg" onClick={() => void act({ type: 'back-to-lobby' })}>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="whitespace-nowrap max-lg:px-3"
+            onClick={() => void act({ type: 'back-to-lobby' })}
+          >
             Change setup
           </Button>
         </div>

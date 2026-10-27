@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CAPTION_W,
   NAME_W,
   PAPER_W,
   REVEAL_POSE,
   ROWS_BOTTOM,
   ROWS_TOP,
   SUBTITLE_TOP,
+  captionSize,
   choiceCentre,
   drawRows,
   pencilAt,
@@ -86,5 +88,15 @@ describe('the reveal on the table screen', () => {
     const [, , , , x, y] = choiceCentre(PLACES);
     expect([x, y]).toEqual([470, 157]);
     expect(choiceCentre(undefined)).toHaveLength(6);
+  });
+});
+
+describe('the scoreboard on the table screen', () => {
+  it('keeps the real title on the paper, smaller as it gets longer', () => {
+    // Centred 160 units into the board's caption place, which sits about 30 units in.
+    expect(30 + 160 - CAPTION_W / 2).toBeGreaterThanOrEqual(0);
+    expect(captionSize('purple elephant')).toBe(30);
+    expect(captionSize('tire swinging from the intl space station')).toBeLessThan(30);
+    expect(captionSize('x'.repeat(80))).toBeLessThan(captionSize('x'.repeat(40)));
   });
 });
