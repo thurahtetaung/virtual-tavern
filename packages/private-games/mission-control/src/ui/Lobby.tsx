@@ -194,24 +194,23 @@ export function Lobby({
             </div>
           </fieldset>
         )}
-        <RefusalSlot anchor={ANCHOR} />
-        {editable && (
-          <StickyBar>
-            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4 dark:border-stone-800">
-              <Button
-                size="lg"
-                disabled={blocker !== null}
-                onClick={() => void act({ type: 'start' }, { anchor: ANCHOR })}
-                data-testid="mc-start"
-              >
-                Start{' '}
-                {missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}
-              </Button>
-              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-            </div>
-          </StickyBar>
-        )}
       </LobbySettings>
+      <RefusalSlot anchor={ANCHOR} />
+      {editable && (
+        <StickyBar>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="lg"
+              disabled={blocker !== null}
+              onClick={() => void act({ type: 'start' }, { anchor: ANCHOR })}
+              data-testid="mc-start"
+            >
+              Start {missionLabel(picked, view.voyage?.missions.find((x) => x.n === picked)?.label)}
+            </Button>
+            {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+          </div>
+        </StickyBar>
+      )}
       <Button variant="secondary" size="lg" className="w-full" onClick={showGuide}>
         📖 New here? Read the guide
       </Button>

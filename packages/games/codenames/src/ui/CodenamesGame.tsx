@@ -100,27 +100,32 @@ export function CodenamesGame({
             editable={room.isHost}
             act={act}
           />
-          {room.isHost && (
-            <StickyBar>
-              <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-                <Button
-                  size="lg"
-                  disabled={blocker !== null}
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Start game
-                </Button>
-                <Button variant="secondary" onClick={() => void act({ type: 'randomize-teams' })}>
-                  🎲 Shuffle teams
-                </Button>
-                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-                <span className="basis-full text-xs text-ink-muted">
-                  Shuffling keeps anyone who chose to be a Spymaster.
-                </span>
-              </div>
-            </StickyBar>
-          )}
         </LobbySettings>
+        {room.isHost && (
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              <Button
+                variant="secondary"
+                title="Shuffling keeps anyone who chose to be a Spymaster."
+                onClick={() => void act({ type: 'randomize-teams' })}
+              >
+                🎲 Shuffle teams
+              </Button>
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+              {/* Phones keep it as the button's tooltip, so the lobby fits the screen. */}
+              <span className="hidden basis-full text-xs text-ink-muted sm:block">
+                Shuffling keeps anyone who chose to be a Spymaster.
+              </span>
+            </div>
+          </StickyBar>
+        )}
         <p className="text-center text-sm text-ink-muted">
           First time playing?{' '}
           <button

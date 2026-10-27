@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Thorns' specs: a room, putting discs down, bidding and turning discs over.
 
@@ -49,6 +50,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     }),
   );
   await expect(host.getByText(`Players (${names.length}/6)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return [host, ...others];
 }
 

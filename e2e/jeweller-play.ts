@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Jeweller's specs: a room, taking gems, buying and reserving.
 
@@ -77,6 +78,8 @@ export const sheet = (p: Page) => p.getByRole('dialog');
 
 /** The host switches lobby options on (`jw-cities`, `jw-strongholds`) and waits for each. */
 export async function options(host: Page, ids: string[]) {
+  // On a phone the settings start folded.
+  await openSettings(host);
   for (const id of ids) {
     const sw = host.getByTestId(id);
     await sw.click();

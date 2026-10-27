@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Mosaic's specs: a room, and a take through the pick sheet.
 
@@ -98,6 +99,8 @@ export async function take(
 
 /** The host turns a lobby option on (`mo-grey`, `mo-jokers`, `mo-specials`). */
 export async function option(host: Page, testId: string) {
+  // On a phone the settings start folded.
+  await openSettings(host);
   const sw = host.getByTestId(testId);
   await sw.click();
   await expect(sw).toHaveAttribute('aria-checked', 'true');

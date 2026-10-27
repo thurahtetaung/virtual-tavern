@@ -1,6 +1,6 @@
 import { storageKey } from '@vt/game-sdk';
-import { Button, Modal } from '@vt/ui';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Button, Modal, usePhone } from '@vt/ui';
+import { useEffect, useState } from 'react';
 import type { ClientGame } from '../games/registry.ts';
 import { Stepper, useGameGuide } from './GuideView.tsx';
 
@@ -14,24 +14,6 @@ function seen(gameId: string): boolean {
     return false;
   }
 }
-
-/** Phones get the intro as one line that opens the steps, so the lobby still fits the screen. */
-const PHONE = '(max-width: 639px)';
-
-function subscribe(change: () => void) {
-  const q = window.matchMedia(PHONE);
-  q.addEventListener('change', change);
-  return () => {
-    q.removeEventListener('change', change);
-  };
-}
-
-const usePhone = () =>
-  useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(PHONE).matches,
-    () => false,
-  );
 
 /**
  * The 30-second "how a game goes" stepper, shown once in the lobby to players new to the game
@@ -99,8 +81,9 @@ export function GuideIntro({
         aria-label={`New to ${game.name}?`}
         className="mb-4 flex items-center gap-2 rounded-2xl bg-card py-1 pr-1 pl-3 shadow-sm ring-1 ring-line"
       >
-        <p className="min-w-0 flex-1 text-sm leading-tight font-bold">
-          <span aria-hidden>👋 </span>New to {game.name}?
+        {/* The room's header names the game, so a long title never wraps this row. */}
+        <p className="min-w-0 flex-1 truncate text-sm leading-tight font-bold">
+          <span aria-hidden>👋 </span>New here?
         </p>
         <Button size="sm" className="min-h-11 shrink-0" onClick={() => setSheet(true)}>
           The game in 30 s

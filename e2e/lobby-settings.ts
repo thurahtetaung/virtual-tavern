@@ -1,6 +1,9 @@
 import { type Page, expect } from '@playwright/test';
 
-/** A guest's lobby settings start as one summary line each (⚙️): opens them all to read them. */
+/**
+ * Lobby settings start as one summary line each (⚙️) for guests, and for the host on a phone:
+ * opens them all to read or change them.
+ */
 export async function openSettings(page: Page) {
   const closed = page.locator('details:not([open]) > summary', { hasText: '⚙️' });
   for (let n = await closed.count(); n > 0; n--) await closed.first().click();

@@ -1,4 +1,5 @@
 import { type Browser, type Page, expect } from '@playwright/test';
+import { openSettings } from './lobby-settings.ts';
 
 export const pageErrors: string[] = [];
 
@@ -39,6 +40,8 @@ export async function openTable(
   const others = await Promise.all(names.slice(1).map((n) => seat(browser, n, url, options)));
   const players = [host, ...others];
   await expect(host.getByText(`Players (${names.length}/10)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return {
     host,
     players,

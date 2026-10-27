@@ -1,5 +1,6 @@
 import { type Browser, type Page, expect } from '@playwright/test';
 import { unlock, visitor } from './inquest-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Helpers to play Hydra (or one of its editions) through the UI. Without asset storage in tests
 // Hydra uses its neutral placeholder names (Loyalist, Conspirator, the Usurper, Yes and No); an
@@ -100,6 +101,8 @@ export async function hydraTable(
   );
   const players: Player[] = [host, ...rest].map((page, i) => ({ name: names[i]!, page, w }));
   await expect(host.getByText(`Players (${names.length}/10)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   // Seat order is join order, which the parallel joins scramble: read it from the lobby.
   const seated = await host.getByTestId('seat-order').getByRole('listitem').allTextContents();
   const order = (p: Player) => seated.findIndex((t) => t.includes(p.name));

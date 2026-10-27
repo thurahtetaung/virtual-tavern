@@ -1,4 +1,5 @@
 import { type Locator, type Page, expect } from '@playwright/test';
+import { openSettings } from './lobby-settings.ts';
 
 /**
  * Opens a section of the day. On a phone it's a tab; from `lg` up every section shows at once,
@@ -31,6 +32,8 @@ export interface NightLog {
 
 /** The host builds the card list with the +/- buttons, from whatever is selected now. */
 export async function setRoles(host: Page, want: Record<string, number>) {
+  // On a phone the host's settings start folded too.
+  await openSettings(host);
   // Sets with no card in yet start folded: open them all.
   const closed = host.locator('details:not([open]) > summary');
   for (let i = 0; i < 12 && (await closed.count()) > 0; i++) await closed.first().click();

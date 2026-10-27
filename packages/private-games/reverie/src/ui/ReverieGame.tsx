@@ -167,21 +167,21 @@ export function ReverieGame({
             guessHelp="Time to give a card, and again to vote."
             strictHelp="a slow storyteller is skipped, late cards are played for you and late votes are lost"
           />
-          {room.isHost && (
-            <StickyBar>
-              <div className="flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 dark:border-stone-800">
-                <Button
-                  size="lg"
-                  disabled={blocker !== null}
-                  onClick={() => void act({ type: 'start' })}
-                >
-                  Start game
-                </Button>
-                {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
-              </div>
-            </StickyBar>
-          )}
         </LobbySettings>
+        {room.isHost && (
+          <StickyBar>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="lg"
+                disabled={blocker !== null}
+                onClick={() => void act({ type: 'start' })}
+              >
+                Start game
+              </Button>
+              {blocker && <span className="text-sm text-ink-muted">{blocker}</span>}
+            </div>
+          </StickyBar>
+        )}
         <p className="text-center text-sm text-ink-muted">
           New here?{' '}
           <button

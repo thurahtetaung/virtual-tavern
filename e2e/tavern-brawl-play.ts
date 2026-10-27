@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import { TEST_ADMIN_PASSWORD, TEST_BACKROOM_WORD, ownLoginLimit } from './credentials.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Tavern Brawl's specs: browsers with their own addresses, the back room, a
 // room, and a "play whatever is asked" loop that finishes a game from the players' screens.
@@ -73,6 +74,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     }),
   );
   await expect(host.getByText(`Players (${names.length}/6)`)).toBeVisible();
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return [host, ...others];
 }
 
@@ -82,7 +85,15 @@ export const heroTile = (p: Page, hero: string) =>
 /** Picks a hero by its placeholder name or, with `byId`, its id (the tile toggles, so only when it isn't already ours). */
 export async function pickHero(p: Page, hero: string, byId = false) {
   const tile = byId ? p.locator(`[data-hero="${hero}"]`) : heroTile(p, hero);
-  if ((await tile.getAttribute('aria-pressed')) !== 'true') await tile.click();
+  if ((await tile.getAttribute('aria-pressed')) !== 'true') {
+    await tile.click();
+    // On a phone the tile opens the hero's sheet, and the pick is made there.
+    if ((p.viewportSize()?.width ?? 1280) < 640)
+      await p
+        .getByRole('dialog')
+        .getByRole('button', { name: /^Pick / })
+        .click();
+  }
   await expect(tile).toHaveAttribute('aria-pressed', 'true');
 }
 

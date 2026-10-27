@@ -126,7 +126,7 @@ export function Teams(props: Props) {
   const canSpectate = me?.team != null && props.view.phase !== 'playing';
   return (
     <div className="space-y-3">
-      <div className={cn('grid gap-3', props.compact ? 'grid-cols-1' : 'sm:grid-cols-2')}>
+      <div className={cn('grid gap-3', props.compact ? 'grid-cols-1' : 'grid-cols-2')}>
         <TeamColumn {...props} team="red" />
         <TeamColumn {...props} team="blue" />
       </div>

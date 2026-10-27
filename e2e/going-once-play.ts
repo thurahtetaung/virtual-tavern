@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Page, expect } from '@playwright/test';
 import { type Look, openBackroom, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Going Once's specs: made-up title groups, a rigged table, drawing on the pad
 // and bidding. The server allows the test rig (`GOING_ONCE_TEST_RIG`), which fixes the deal
@@ -107,7 +108,9 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
     await expect(host.getByText(`Bidders (${pages.length}/6)`)).toBeVisible();
   }
-  // Three players default to the Fast pace; the specs time their clicks for Normal.
+  // Three players default to the Fast pace; the specs time their clicks for Normal. On a phone
+  // the host's settings start folded.
+  await openSettings(host);
   await host.getByRole('radio', { name: 'Normal' }).click();
   await expect(host.getByRole('radio', { name: 'Normal' })).toHaveAttribute('aria-checked', 'true');
   await host.getByRole('button', { name: 'Rig next game' }).click();

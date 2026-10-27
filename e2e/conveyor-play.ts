@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { type Browser, type Locator, type Page, expect } from '@playwright/test';
 import { type Look, unlock, visitor } from './tavern-brawl-play.ts';
+import { openSettings } from './lobby-settings.ts';
 
 // Shared steps for Conveyor's specs: a room, picks, the menu and the special order.
 //
@@ -55,6 +56,8 @@ export async function table(browser: Browser, names: string[], look: Look = {}) 
     pages.push(p);
     await expect(host.getByText(`Players (${pages.length}/8)`)).toBeVisible();
   }
+  // On a phone the host's settings start folded.
+  await openSettings(host);
   return pages;
 }
 
