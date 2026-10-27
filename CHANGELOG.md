@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.76.0...v0.76.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **lobby:** every game's lobby fits a phone without scrolling ([#458](https://github.com/thurahtetaung/virtual-tavern/issues/458)) ([ba3aa5a](https://github.com/thurahtetaung/virtual-tavern/commit/ba3aa5ace3bad77b1ba0618f034182162a06fb8d))
+
 ## [0.76.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.8...v0.76.0) (2026-10-27)
 
 
