@@ -4,6 +4,7 @@ import { leftAt } from '../logic/bomb.ts';
 import { isNeedy } from '../logic/types.ts';
 import type { BombView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
+import { endCues, musicSection, stingerDue } from './music.ts';
 import { serverNow } from './time.ts';
 
 /**
@@ -29,6 +30,7 @@ export type Effect =
   | 'needy-warning'
   | 'capacitorpop'
   | 'bomb-defused'
+  | 'gameover-fanfare'
   | 'explode';
 
 /** Simon's notes (`SimonComponent.tones`) and its tone generator's gain. */
@@ -43,9 +45,14 @@ class Player {
   private cache = new Map<string, HTMLAudioElement>();
   private music: HTMLAudioElement | null = null;
   private musicSrc = '';
+  private pending: string | null = null;
 
   unlock() {
-    if (this.ctx || typeof AudioContext === 'undefined') return;
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
+      return;
+    }
+    if (typeof AudioContext === 'undefined') return;
     try {
       this.ctx = new AudioContext();
     } catch {
@@ -80,12 +87,40 @@ class Player {
     osc.stop(ctx.currentTime + ms / 1000);
   }
 
-  setMusic(src: string | null) {
+  /**
+   * Plays `src` as the music, looping. `queue` lets the clip that is playing finish its
+   * play-through first (the original queues its sections); otherwise it cuts in at once.
+   */
+  setMusic(src: string | null, queue = false) {
     if (this.muted || !this.ctx) src = null;
-    if ((src ?? '') === this.musicSrc) return;
-    this.music?.pause();
+    const want = src ?? '';
+    if (want === this.musicSrc) {
+      this.pending = null;
+      if (this.music) this.music.loop = true;
+      return;
+    }
+    if (queue && want && this.music && !this.music.paused) {
+      if (this.pending === want) return;
+      this.pending = want;
+      this.music.loop = false;
+      this.music.onended = () => {
+        const next = this.pending;
+        this.pending = null;
+        if (next) this.start(next);
+      };
+      return;
+    }
+    this.start(want);
+  }
+
+  private start(src: string) {
+    this.pending = null;
+    if (this.music) {
+      this.music.onended = null;
+      this.music.pause();
+    }
     this.music = null;
-    this.musicSrc = src ?? '';
+    this.musicSrc = src;
     if (!src) return;
     const a = new Audio(src);
     a.loop = true;
@@ -96,6 +131,24 @@ class Player {
 }
 
 export const player = new Player();
+
+const GESTURES = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'];
+
+/**
+ * Starts the audio on a tap or key press (inside the event, as phones require), and again if the
+ * device suspended it. `auto`: the table screen, which was started with a tap on its pairing page,
+ * may play from the start.
+ */
+export function useUnlock(auto: boolean) {
+  useEffect(() => {
+    if (auto) player.unlock();
+    const on = () => player.unlock();
+    for (const e of GESTURES) window.addEventListener(e, on, { capture: true });
+    return () => {
+      for (const e of GESTURES) window.removeEventListener(e, on, { capture: true });
+    };
+  }, [auto]);
+}
 
 /** The device's own mute switch, kept per seat. */
 export function useMute(): [boolean, (on: boolean) => void] {
@@ -110,13 +163,7 @@ export function useMute(): [boolean, (on: boolean) => void] {
     player.muted = muted;
     if (muted) player.setMusic(null);
   }, [muted]);
-  useEffect(() => {
-    const unlock = () => player.unlock();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', unlock);
-    };
-  }, []);
+  useUnlock(false);
   return [
     muted,
     (on) => {
@@ -134,7 +181,13 @@ const cutCount = (b: BombView) =>
   b.modules.reduce((n, m) => n + ('wires' in m ? m.wires.filter((w) => w.cut).length : 0), 0) +
   b.modules.reduce((n, m) => n + ('panels' in m ? m.panels.filter((w) => w.cut).length : 0), 0);
 
-/** Plays the bomb's sounds from the view on the server clock. */
+/** The end's sounds play only on a device that sees the end this soon after it. */
+const END_LATE_MS = 3000;
+
+/**
+ * Plays the bomb's sounds from the view on the server clock: pass the bomb while it is live and
+ * at its result, on the devices that play it (the defuser's and the table screen).
+ */
 export function useBombSound(b: BombView | null, art: Art, offset: number) {
   const seen = useRef<{ no: number; log: number; cuts: number; end: boolean } | null>(null);
   useEffect(() => {
@@ -143,7 +196,7 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
       return;
     }
     const prev = seen.current?.no === b.no ? seen.current : null;
-    const fresh = b.log.slice(prev?.log ?? b.log.length);
+    const fresh = b.end && !prev ? [] : b.log.slice(prev?.log ?? b.log.length);
     for (const e of fresh) {
       if (e.what === 'strike') {
         player.play(art.effect(e.kind === 'capacitor' ? 'capacitorpop' : 'strike'));
@@ -153,10 +206,10 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
     }
     const cuts = cutCount(b);
     if (prev && cuts > prev.cuts) player.play(art.effect('snip'));
-    if (b.end && !prev?.end && prev)
-      player.play(art.effect(b.end.how === 'defused' ? 'bomb-defused' : 'explode'));
+    if (b.end && !prev?.end && serverNow(offset) - b.end.at < END_LATE_MS)
+      for (const e of endCues(b.end).effects) player.play(art.effect(e));
     seen.current = { no: b.no, log: b.log.length, cuts, end: !!b.end };
-  }, [b, art]);
+  }, [b, art, offset]);
 
   // The timer's beep on every second it shows, and the needy warnings.
   useEffect(() => {
@@ -193,34 +246,59 @@ export function useBombSound(b: BombView | null, art: Art, offset: number) {
     };
   }, [b, art, offset]);
 
-  // Music: one playlist a bomb; its section rises as time runs out, the last for the final 30 s
-  // (`GameplayMusicController`).
+  // Music (`GameplayMusicController`): one playlist a bomb, its sections queued one after another
+  // as the time left falls, the stinger 7 s (bomb time) before the last 30 s, which cut straight
+  // to the last section. At the end the music stops for the bomb's own sound, then the win or
+  // lose music starts after the original's fades.
+  const stung = useRef<number | null>(null);
+  const opened = useRef<number | null>(null);
   useEffect(() => {
     if (!b) {
       player.setMusic(null);
       return;
     }
+    if (b.end) {
+      const cue = endCues(b.end);
+      const start = () => {
+        player.setMusic(art.music(cue.music)[0] ?? null);
+      };
+      const wait = cue.musicAt - serverNow(offset);
+      if (wait <= 0) {
+        start();
+        return;
+      }
+      player.setMusic(null);
+      const id = setTimeout(start, wait);
+      return () => {
+        clearTimeout(id);
+      };
+    }
     const lists = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
       .map((k) => art.music(`game-${k}`))
       .filter((l) => l.length);
-    if (!lists.length || b.end) {
-      player.setMusic(
-        b?.end
-          ? (art.music(b.end.how === 'defused' ? 'gameover-win' : 'gameover-lose')[0] ?? null)
-          : null,
-      );
+    if (!lists.length) {
+      player.setMusic(null);
       return;
     }
     const list = lists[(b.no - 1) % lists.length]!;
-    const id = setInterval(() => {
+    const tick = () => {
       const now = serverNow(offset);
+      if (now < b.clockAt) return;
       const left = leftAt(b, now);
-      const i =
-        left <= 30_000
-          ? list.length - 1
-          : Math.min(list.length - 2, Math.floor((1 - left / b.total) * (list.length - 1)));
-      player.setMusic(list[Math.max(0, i)] ?? null);
-    }, 500);
+      const section = musicSection(left, b.total, list.length);
+      // The playlist starts from its first clip; the section the clock asks for queues behind it.
+      if (opened.current !== b.no) {
+        opened.current = b.no;
+        player.setMusic(list[0] ?? null);
+      }
+      player.setMusic(list[section.index] ?? null, !section.now);
+      if (stung.current !== b.no && stingerDue(left, b.rate)) {
+        stung.current = b.no;
+        player.play(art.music('stinger')[0] ?? null);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 250);
     return () => {
       clearInterval(id);
     };

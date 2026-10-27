@@ -1,5 +1,5 @@
 import { type Browser, type Page, expect } from '@playwright/test';
-import { defuseAll, lightsOn, localArt, open, table } from './defuse-play.ts';
+import { defuseAll, lightsOn, localArt, open, settings, table } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
 
@@ -100,6 +100,7 @@ for (const [label, viewport, colorScheme] of [
     await shot(ana, '05-defused');
     if (screen) await shot(screen, '21-table-result');
     // The table screen shows the bomb; Hardcore and a wrong cut set it off.
+    await settings(ana);
     await ana.getByTestId('set-hardcore').click();
     if (screen) await ana.getByTestId('table-bomb').click();
     await ana.getByTestId('pick-Ana').click();
@@ -129,6 +130,7 @@ for (const [label, viewport, colorScheme, out, count] of [
     const look: Look = { viewport, colorScheme, setup: localArt };
     await openBackroom(await visitor(browser, 'Admin'));
     const [ana] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+    await settings(ana);
     await ana.getByTestId('set-modules').selectOption(String(count));
     await ana.getByTestId('set-needy').click();
     if (out.length) {
@@ -177,6 +179,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await shot(screen, 'manual');
     await defuseAll(ana);
     await expect(ana.getByTestId('outcome')).toHaveText('Defused');
+    await settings(ana);
     await ana.getByTestId('table-bomb').click();
     await ana.getByTestId('pick-Ana').click();
     await ana.getByTestId('next-bomb').click();

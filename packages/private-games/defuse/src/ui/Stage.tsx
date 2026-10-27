@@ -1,10 +1,11 @@
-import { Panel, PlayerTag, cn } from '@vt/ui';
+import { Panel, PlayerTag, ProtectedImage, cn } from '@vt/ui';
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { PAGES, PageBody, ClaimsSummary, pageName } from './Manual.tsx';
-import { artFor, useManifest } from './assets.ts';
+import { type Art, artFor, useManifest } from './assets.ts';
+import { timerText } from '../logic/bomb.ts';
 import { BombScreen } from './Bomb.tsx';
 import { ExpertClock, type DefuseUiProps } from './DefuseGame.tsx';
-import { player, useBombSound } from './sound.ts';
+import { player, useBombSound, useUnlock } from './sound.ts';
 import { useServerNow } from './time.ts';
 import type { PageId } from '../logic/types.ts';
 
@@ -35,6 +36,45 @@ function Fit({ children }: { children: ReactNode }) {
   );
 }
 
+/** The bomb's end on the table screen: the same stamp the phones show, large. */
+function StageResult({
+  last,
+  art,
+  defuser,
+}: {
+  last: DefuseUiProps['view']['history'][number];
+  art: Art;
+  defuser: string;
+}) {
+  const defused = last.how === 'defused';
+  const stamp = art.stamp(defused ? 'defused' : 'exploded');
+  return (
+    <div className="space-y-3" data-testid="stage-result">
+      {stamp && <ProtectedImage src={stamp} alt="" className="mx-auto h-56 w-auto" />}
+      <p
+        className={cn(
+          'text-5xl font-black uppercase tracking-widest',
+          stamp && 'sr-only',
+          defused ? 'text-success-ink' : 'text-danger-ink',
+        )}
+      >
+        {defused ? 'Defused' : 'Exploded'}
+      </p>
+      <p>
+        {defused
+          ? `${defuser} defused bomb ${last.no} with ${timerText(last.left)} left.`
+          : last.how === 'time'
+            ? `Time ran out on ${defuser}.`
+            : `Too many strikes: bomb ${last.no} went off in ${defuser}’s hands.`}
+      </p>
+      <p className="text-lg text-stone-300">
+        {last.solved} of {last.modules} modules · {last.strikes} strike
+        {last.strikes === 1 ? '' : 's'}
+      </p>
+    </div>
+  );
+}
+
 /**
  * The table screen (`role: 'stage'`). With "Table screen shows: Manual" (the default) it is the
  * experts' shared manual: the claims and the claimed pages, large. With "Bomb" it shows the
@@ -45,7 +85,14 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
   const art = useMemo(() => artFor(manifest), [manifest]);
   const names = useMemo(() => new Map(room.players.map((p) => [p.id, p.name])), [room.players]);
   const now = useServerNow(room.clockOffset, 40, !!v.bomb);
-  useBombSound(v.stage === 'bomb' ? v.bomb : null, art, room.clockOffset);
+  // Paired with a tap on its pairing page, so it may play from the start, as Going Once's does.
+  useUnlock(true);
+  // The bomb while it shows it, and every bomb's end.
+  useBombSound(
+    (v.stage === 'bomb' && v.settings.table === 'bomb') || v.stage === 'result' ? v.bomb : null,
+    art,
+    room.clockOffset,
+  );
   useEffect(() => {
     return () => {
       player.setMusic(null);
@@ -104,9 +151,13 @@ export function DefuseStage({ view: v, room }: DefuseUiProps) {
       data-testid="stage-lobby"
     >
       {v.stage === 'result' && last ? (
-        <p className="text-4xl font-black uppercase tracking-widest">
-          {last.how === 'defused' ? 'Defused' : 'Exploded'}
-        </p>
+        <StageResult
+          last={last}
+          art={art}
+          defuser={
+            names.get(last.defuser) ?? v.seats.find((p) => p.id === last.defuser)?.name ?? 'Someone'
+          }
+        />
       ) : (
         <p className="font-semibold">💣 Waiting for the next bomb</p>
       )}

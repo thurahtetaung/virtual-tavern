@@ -1,5 +1,5 @@
 import { type Page, expect } from '@playwright/test';
-import { defuseAll, lightsOn, open, table } from './defuse-play.ts';
+import { defuseAll, lightsOn, open, settings, table } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { openBackroom, pageErrors, visitor } from './tavern-brawl-play.ts';
 
@@ -51,6 +51,7 @@ test('a bomb defused on a phone while the expert reads, then one that goes off',
   await expect(ana.getByTestId('defuser-line')).toContainText('Ben defuses next');
 
   // Hardcore: one wrong cut and it goes off in Ben's hands.
+  await settings(ana);
   await ana.getByTestId('set-hardcore').click();
   await ana.getByTestId('next-bomb').click();
   await lightsOn(ben);

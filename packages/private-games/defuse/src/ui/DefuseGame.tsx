@@ -67,7 +67,6 @@ export function DefuseGame({
   showGuide,
   setYourMove,
   setSpectator,
-  profile,
 }: DefuseUiProps) {
   const manifest = useManifest();
   const art = useMemo(() => artFor(manifest), [manifest]);
@@ -76,8 +75,11 @@ export function DefuseGame({
   const nameOf = (id: string | null) =>
     id ? (names.get(id) ?? v.seats.find((p) => p.id === id)?.name ?? 'Someone') : 'Nobody';
   const [muted, setMuted] = useMute();
-  const quiet = profile === 'phone-quiet' && v.role !== 'defuser';
-  useBombSound(v.role === 'defuser' && !quiet ? v.bomb : null, art, room.clockOffset);
+  // The defuser's device plays the bomb, and its end once the defuser has become an expert again.
+  const playsBomb =
+    (v.stage === 'bomb' && v.role === 'defuser') ||
+    (v.stage === 'result' && v.history.at(-1)?.defuser === you);
+  useBombSound(playsBomb ? v.bomb : null, art, room.clockOffset);
   useEffect(() => {
     return () => {
       player.setMusic(null);
@@ -247,11 +249,20 @@ function Expert({
   const defuserHere = v.seats.some((p) => p.id === v.defuser);
   return (
     <div className="mx-auto max-w-3xl space-y-3" data-testid="expert">
-      <Panel className="flex flex-wrap items-center gap-2 py-2">
+      <Panel className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2">
         <span className="min-w-0 flex-1 text-sm font-semibold" data-testid="status">
           📖 {defuser} is defusing bomb {v.bombNo}: read them the manual.
         </span>
         <ExpertClock v={v} offset={offset} />
+        {isHost && defuserHere && (
+          <button
+            type="button"
+            className="text-xs text-ink-muted underline"
+            onClick={() => setHand(true)}
+          >
+            Hand the bomb over
+          </button>
+        )}
       </Panel>
       {!defuserHere && (
         <Hint>
@@ -262,17 +273,6 @@ function Expert({
             </Button>
           )}
         </Hint>
-      )}
-      {isHost && defuserHere && (
-        <div className="text-right">
-          <button
-            type="button"
-            className="text-xs text-ink-muted underline"
-            onClick={() => setHand(true)}
-          >
-            Hand the bomb to another player
-          </button>
-        </div>
       )}
       <Manual
         v={v}
@@ -445,6 +445,64 @@ function SettingsForm({
   );
 }
 
+/**
+ * The settings: folded under a one-line summary for everyone, the host included, so the lobby and
+ * the result fit a phone; the host unfolds them to change something.
+ */
+function SettingsPanel({
+  v,
+  isHost,
+  send,
+  art,
+}: {
+  v: DefuseView;
+  isHost: boolean;
+  send: (a: Action, anchor?: string) => void;
+  art: Art;
+}) {
+  const s = v.settings;
+  const summary = [
+    `${s.modules} modules`,
+    clockText(s.time * 1000),
+    s.needy ? 'needy' : '',
+    s.hardcore ? 'Hardcore' : '',
+    MODE_LABEL[s.defuserMode],
+  ];
+  if (!isHost)
+    return (
+      <LobbySettings editable={false} summary={summary} className="space-y-4">
+        <SettingsForm s={s} editable={false} send={send} art={art} />
+      </LobbySettings>
+    );
+  return (
+    <details
+      className="group rounded-2xl bg-card/85 shadow-sm ring-1 ring-line dark:bg-stone-900/80 dark:ring-stone-800"
+      data-testid="settings"
+    >
+      <summary
+        className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm [&::-webkit-details-marker]:hidden"
+        data-testid="settings-toggle"
+      >
+        <span className="shrink-0 font-semibold">
+          <span aria-hidden>⚙️ </span>Settings
+        </span>
+        <span className="min-w-0 flex-1 truncate text-ink-muted">
+          {summary.filter(Boolean).join(' · ')}
+        </span>
+        <span
+          aria-hidden
+          className="shrink-0 text-ink-muted transition-transform group-open:rotate-180"
+        >
+          ▾
+        </span>
+      </summary>
+      <div className="px-4 pb-4">
+        <SettingsForm s={s} editable send={send} art={art} />
+      </div>
+    </details>
+  );
+}
+
 function DefuserPicker({
   v,
   you,
@@ -605,19 +663,7 @@ function Lobby({
         )}
         <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
       </Panel>
-      <LobbySettings
-        editable={isHost}
-        summary={[
-          `${s.modules} modules`,
-          clockText(s.time * 1000),
-          s.needy ? 'needy' : '',
-          s.hardcore ? 'Hardcore' : '',
-          MODE_LABEL[s.defuserMode],
-        ]}
-        className="space-y-4"
-      >
-        <SettingsForm s={s} editable={isHost} send={send} art={art} />
-      </LobbySettings>
+      <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
       <StickyBar>
         <div className="flex flex-wrap items-center gap-2">
           {isHost ? (
@@ -677,12 +723,17 @@ function Result({
   const struck = b.log.filter((e) => e.what === 'strike');
   const [peek, setPeek] = useState<string | null>(null);
   const shown = b.modules.find((m) => m.id === peek);
+  // Tonight: the awards and the night's bombs, once there is something to show.
+  const tonight = v.history.length > 1 || !!superlatives?.length;
+  const [tab, setTab] = useState<'bomb' | 'next' | 'tonight'>('bomb');
+  // Phones see one part at a time; wide screens all of them.
+  const part = (t: typeof tab) => cn(tab !== t && 'hidden', 'lg:block');
   return (
     <div className="mx-auto max-w-3xl space-y-3" data-testid="result">
       <Panel
-        className={cn('space-y-2 text-center', defused ? 'bg-success-soft' : 'bg-danger-soft')}
+        className={cn('space-y-1 py-3 text-center', defused ? 'bg-success-soft' : 'bg-danger-soft')}
       >
-        {stamp && <ProtectedImage src={stamp} alt="" className="mx-auto h-24 w-auto" />}
+        {stamp && <ProtectedImage src={stamp} alt="" className="mx-auto h-16 w-auto sm:h-24" />}
         <p
           className={cn(
             'text-3xl font-black uppercase tracking-widest',
@@ -705,44 +756,92 @@ function Result({
           {last?.strikes === 1 ? '' : 's'} · {clockText(b.total - end.left)} used
         </p>
       </Panel>
-      {superlatives?.length ? <Superlatives lines={superlatives} /> : null}
-      <Panel className="space-y-2">
-        <h3 className="font-semibold">The bomb</h3>
-        <ul className="grid gap-1 text-sm sm:grid-cols-2">
-          {b.modules.map((m) => {
-            const strikes = struck.filter((e) => e.module === m.id).length;
-            return (
-              <li key={m.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-panel dark:hover:bg-stone-800"
-                  onClick={() => setPeek(m.id)}
-                >
-                  <span aria-hidden>{isNeedy(m.kind) ? '⚠️' : m.solved ? '✅' : '⬜'}</span>
-                  <span className="flex-1">{art.names[m.kind]}</span>
-                  {strikes > 0 && <span className="text-danger-ink">{'✕'.repeat(strikes)}</span>}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {end.by && (
-          <p className="text-xs text-ink-muted">
-            The last strike came from{' '}
-            {art.names[b.modules.find((m) => m.id === end.by)?.kind ?? 'wires']}.
-          </p>
+      <div
+        role="tablist"
+        aria-label="Result"
+        className={cn('grid gap-1 lg:hidden', tonight ? 'grid-cols-3' : 'grid-cols-2')}
+      >
+        {(
+          [
+            ['bomb', 'The bomb'],
+            ['next', 'Next bomb'],
+            ...(tonight ? [['tonight', 'Tonight']] : []),
+          ] as [typeof tab, string][]
+        ).map(([t, label]) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={cn(
+              'min-h-11 rounded-lg px-2 text-sm font-semibold ring-1',
+              tab === t
+                ? 'bg-accent text-accent-fg ring-accent dark:bg-amber-500 dark:text-stone-950'
+                : 'bg-card ring-line dark:bg-stone-800 dark:ring-stone-700',
+            )}
+            data-testid={`result-tab-${t}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className={cn('space-y-3', part('bomb'))}>
+        <Panel className="space-y-2">
+          <h3 className="font-semibold">The bomb</h3>
+          <ul className="grid grid-cols-2 gap-1 text-sm">
+            {b.modules.map((m) => {
+              const strikes = struck.filter((e) => e.module === m.id).length;
+              return (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    className="flex min-h-9 w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left leading-tight hover:bg-panel dark:hover:bg-stone-800"
+                    onClick={() => setPeek(m.id)}
+                  >
+                    <span aria-hidden>{isNeedy(m.kind) ? '⚠️' : m.solved ? '✅' : '⬜'}</span>
+                    <span className="min-w-0 flex-1">{art.names[m.kind]}</span>
+                    {strikes > 0 && <span className="text-danger-ink">{'✕'.repeat(strikes)}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {end.by && (
+            <p className="text-xs text-ink-muted">
+              The last strike came from{' '}
+              {art.names[b.modules.find((m) => m.id === end.by)?.kind ?? 'wires']}.
+            </p>
+          )}
+        </Panel>
+      </div>
+      <div className={cn('space-y-3', part('next'))}>
+        <Panel>
+          <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
+        </Panel>
+        <SettingsPanel v={v} isHost={isHost} send={send} art={art} />
+      </div>
+      <div className={cn('space-y-3', part('tonight'))}>
+        {superlatives?.length ? <Superlatives lines={superlatives} /> : null}
+        {v.history.length > 1 && (
+          <Panel>
+            <h3 className="mb-1 font-semibold">Tonight’s bombs</h3>
+            <ul className="space-y-0.5 text-sm" data-testid="tonight">
+              {[...v.history].reverse().map((h) => (
+                <li key={h.no}>
+                  Bomb {h.no}: {nameOf(h.defuser)} ·{' '}
+                  {h.how === 'defused'
+                    ? `defused, ${timerText(h.left)} left`
+                    : h.how === 'time'
+                      ? 'time ran out'
+                      : 'too many strikes'}{' '}
+                  · {h.solved}/{h.modules}
+                </li>
+              ))}
+            </ul>
+          </Panel>
         )}
-      </Panel>
-      <Panel className="space-y-3">
-        <DefuserPicker v={v} you={you} isHost={isHost} nameOf={nameOf} send={send} />
-        <LobbySettings
-          editable={isHost}
-          summary={[`${v.settings.modules} modules`, clockText(v.settings.time * 1000)]}
-          className="space-y-4"
-        >
-          <SettingsForm s={v.settings} editable={isHost} send={send} art={art} />
-        </LobbySettings>
-      </Panel>
+      </div>
       <StickyBar>
         {isHost ? (
           <div className="flex gap-2">
@@ -765,24 +864,6 @@ function Result({
         )}
         <RefusalSlot anchor="defuse-next" />
       </StickyBar>
-      {v.history.length > 1 && (
-        <Panel>
-          <h3 className="mb-1 font-semibold">Tonight’s bombs</h3>
-          <ul className="space-y-0.5 text-sm">
-            {[...v.history].reverse().map((h) => (
-              <li key={h.no}>
-                Bomb {h.no}: {nameOf(h.defuser)} ·{' '}
-                {h.how === 'defused'
-                  ? `defused, ${timerText(h.left)} left`
-                  : h.how === 'time'
-                    ? 'time ran out'
-                    : 'too many strikes'}{' '}
-                · {h.solved}/{h.modules}
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
       <Modal
         open={!!shown}
         onClose={() => setPeek(null)}
