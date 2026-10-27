@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.7](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.6...v0.75.7) (2026-10-27)
+
+
+### Bug Fixes
+
+* the room's creator gets the host role back, Sketchy fits a phone with long names, and the host's end buttons sit above the end on phones ([#454](https://github.com/thurahtetaung/virtual-tavern/issues/454)) ([29e2f59](https://github.com/thurahtetaung/virtual-tavern/commit/29e2f59a8d67f072c1cab67269f6c9744d6f0c07))
+
 ## [0.75.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.75.5...v0.75.6) (2026-10-27)
 
 
