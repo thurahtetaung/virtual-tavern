@@ -20,6 +20,7 @@ export type Hooks = {
     modules: { id: string; kind: string; solved: boolean; face: 0 | 1; state?: string }[];
     log: { at: number; module: string; kind: string; what: string }[];
     end: unknown;
+    mission?: string | null;
   };
   edges: () => Record<string, unknown>[];
   lit: () => string[];
@@ -31,6 +32,7 @@ export type Hooks = {
     pointers: number;
   };
   haptics: () => { type: string; pattern: number[]; route: string; ok: boolean }[];
+  desk: () => 'case' | 'binder' | null;
   thing: (name: 'case' | 'start' | 'clock' | 'snooze') => { x: number; y: number } | null;
   config: () => string | null;
   configAt: (t: number) => string;

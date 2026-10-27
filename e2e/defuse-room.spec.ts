@@ -147,6 +147,37 @@ test('anyone but the host who turns the briefcase’s keys is told so, and nothi
   await expect(ben.getByTestId('case-hint')).toHaveText('Press START to begin', { timeout: 6000 });
 });
 
+test('under a mission the desk holds the bomb binder at its page, and its START starts it', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], { setup: localArt })) as [Page, Page];
+  await settings(ana);
+  await ana.getByTestId('set-mission').selectOption('s1-1');
+  await ana.getByTestId('pick-Ana').click();
+  await expect(ana.getByTestId('bomb-3d')).toHaveAttribute('data-ready', /ready|failed/, {
+    timeout: 30_000,
+  });
+  await ana.waitForFunction(() => !!(window as unknown as { __defuse3d?: unknown }).__defuse3d);
+  // No Free Play briefcase: the binder, as the original starts a mission.
+  expect(await call(ana, 'desk')).toBe('binder');
+  await expect(ana.getByTestId('case-hint')).toHaveText('Click the binder to pick it up');
+  await expect.poll(() => call(ana, 'thing', 'case')).not.toBeNull();
+  await tapAt(ana, await call(ana, 'thing', 'case'));
+  await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
+  await expect(ana.getByTestId('case-hint')).toHaveText('Press START to begin');
+  // The briefcase's dials aren't there to turn.
+  await call(ana, 'dial', 'modules-up');
+  await ana.waitForTimeout(600);
+  await expect(ana.getByTestId('case-hint')).toHaveText('Press START to begin');
+  await expect(ben.getByTestId('lobby')).toContainText('Mission 1.1');
+  await tapAt(ana, await call(ana, 'thing', 'start'));
+  await expect(ben.getByTestId('status')).toContainText('Ana is defusing bomb 1');
+  await ana.waitForFunction(() => !!(window as unknown as { __defuse3d?: unknown }).__defuse3d);
+  await expect.poll(async () => (await call(ana, 'bomb'))?.mission).toBe('s1-1');
+});
+
 test('the host can switch the room’s surprises off', async ({ browser }) => {
   await openBackroom(await visitor(browser, 'Admin'));
   const [ana] = (await table(browser, ['Ana', 'Ben'], { setup: localArt })) as [Page, Page];

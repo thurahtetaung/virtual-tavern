@@ -61,8 +61,14 @@ import {
   stepCase,
   poseMatrix,
   ROOM_SCALE,
+  BINDER_FOCUS,
+  BINDER_OPEN,
+  type BinderPage,
+  binderButton,
   roomLook,
+  setBinder,
   setCase,
+  stepBinder,
 } from './room.ts';
 import type { CaseDial } from '../../logic/game.ts';
 import type { Settings } from '../../logic/types.ts';
@@ -118,9 +124,16 @@ export interface SceneOpts {
   room?: RoomPack | null;
   /**
    * The briefcase instead of a bomb (the lobby): its displays show the host's settings, its keys
-   * and switches change them (`turn`, the host's only), and its Start starts the bomb.
+   * and switches change them (`turn`, the host's only), and its Start starts the bomb. Under a
+   * mission (`mission`) the desk holds the bomb binder open at the mission's page instead, as the
+   * original starts a mission from the binder, never from the Free Play briefcase.
    */
-  briefcase?: { settings: Settings; start: () => void; turn: (dial: CaseDial) => void } | null;
+  briefcase?: {
+    settings: Settings;
+    start: () => void;
+    turn: (dial: CaseDial) => void;
+    mission?: BinderPage | null;
+  } | null;
   /** The defuser presses the alarm clock's snooze button. */
   snooze?: () => void;
   /** The edge arrows and bars for the cursor (a computer's glance). */
@@ -384,7 +397,9 @@ export class BombScene {
   private lastMirror = '';
   // The room
   readonly room: Room | null = null;
+  /** The briefcase, or the bomb binder (`binder`) under a mission. */
   private caseRoot: THREE.Object3D | null = null;
+  private binder = false;
   /** The camera's pose in the room, eased between the rest pose and leaning in (the clips). */
   private cam = { from: 'default', to: 'default', t0: 0, ms: 0 } as {
     from: 'default' | 'bomb' | 'clock';
@@ -443,7 +458,8 @@ export class BombScene {
     const [p, q] = this.deskPose();
     this.bomb.position.copy(p);
     this.bomb.quaternion.copy(q);
-    if (opts.briefcase) this.buildCase(opts.briefcase.settings);
+    if (opts.briefcase?.mission) this.buildBinder(opts.briefcase.mission);
+    else if (opts.briefcase) this.buildCase(opts.briefcase.settings);
     this.frameId = requestAnimationFrame(this.frame);
   }
 
@@ -537,7 +553,52 @@ export class BombScene {
   }
 
   setCase(settings: Settings) {
-    if (this.caseRoot) setCase(this.caseRoot, settings, this.opts.ctx.fonts);
+    if (this.caseRoot && !this.binder) setCase(this.caseRoot, settings, this.opts.ctx.fonts);
+  }
+
+  // ---- The bomb binder (a mission) ----
+
+  private buildBinder(page: BinderPage) {
+    const room = this.opts.room;
+    const root = instantiate(room ?? null, 'BombBinder');
+    if (root.userData.plain) {
+      // Without the room pack: a plain binder with its Start.
+      part(root, 'Model/BombBinder/Binder_back', {
+        at: [0, 0, 0],
+        size: [0.2, 0.27, 0.02],
+        colour: 0x3b4a5a,
+      });
+      part(root, 'BinderStart', {
+        at: [0, -0.1, 0.02],
+        size: [0.09, 0.03, 0.01],
+        colour: 0x8a1c1c,
+      });
+    }
+    // As the briefcase: the open page faces the camera when held and up on the desk.
+    root.rotation.copy(FRONT_UP);
+    if (room) root.scale.setScalar(ROOM_SCALE);
+    // Centred in the hands and on the desk, closed and open.
+    const centre = (k: number) => {
+      stepBinder(root, this.binderOpen(), k);
+      root.updateMatrixWorld(true);
+      return new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+    };
+    root.userData.centres = [centre(0), centre(1)];
+    stepBinder(root, this.binderOpen(), 0);
+    this.punchG.add(root);
+    this.caseRoot = root;
+    this.binder = true;
+    this.casing = root;
+    this.setBinder(page);
+  }
+
+  private binderOpen() {
+    return this.opts.room?.json.room.binder?.open ?? BINDER_OPEN;
+  }
+
+  setBinder(page: BinderPage) {
+    if (this.caseRoot && this.binder)
+      setBinder(this.caseRoot, this.opts.room?.json.room.binder, page, this.opts.ctx.fonts);
   }
 
   dispose() {
@@ -932,10 +993,11 @@ export class BombScene {
 
   private heldPose(): [THREE.Vector3, THREE.Quaternion] {
     // The briefcase is held at its own focus distance, in the room's units.
+    const focus = this.binder
+      ? (this.room?.json.focus.binder ?? BINDER_FOCUS)
+      : this.room?.json.focus.case;
     const d =
-      this.caseRoot && this.room
-        ? this.room.json.focus.case * ROOM_SCALE * this.fit()
-        : this.heldDistance();
+      this.caseRoot && this.room && focus ? focus * ROOM_SCALE * this.fit() : this.heldDistance();
     return [new THREE.Vector3(0, 0, -d), new THREE.Quaternion()];
   }
 
@@ -990,7 +1052,8 @@ export class BombScene {
     this.moveTo(p, q, PUTDOWN_S);
     this.turn = { yaw: Math.round(this.turn.yaw / 180) * 180, pitch: 0, settle: 0 };
     this.setPose('desk');
-    setTimeout(() => this.opts.sound('putdownbomb', 0.8), 280);
+    // `FloatingHoldable.LetGoSound`.
+    setTimeout(() => this.opts.sound(this.binder ? 'putdownbinder' : 'putdownbomb', 0.8), 280);
   }
 
   focus(m: Mod) {
@@ -1039,12 +1102,23 @@ export class BombScene {
     const want = this.pose === 'held' ? 1 : 0;
     if (want !== this.lid.to) {
       const cur = this.lidK(now);
-      this.lid = { from: cur, to: want, t0: now, ms: want ? 583 : 333 };
-      this.opts.sound(want ? 'briefcase-latch-open' : 'briefcase-latch-close', 0.8);
+      if (this.binder) {
+        // `BombBinder.OpenCover`/`CloseCover`: the `opening_binder`/`closing_binder` clips, and
+        // the page turning to the mission (`ShowMissionDetail`).
+        this.lid = { from: cur, to: want, t0: now, ms: this.binderOpen().ms };
+        if (want) this.opts.sound('pageturnbinder', 0.8);
+      } else {
+        this.lid = { from: cur, to: want, t0: now, ms: want ? 583 : 333 };
+        this.opts.sound(want ? 'briefcase-latch-open' : 'briefcase-latch-close', 0.8);
+      }
     }
     const k = this.lidK(now);
     const [closed, open] = this.caseRoot.userData.centres as [THREE.Vector3, THREE.Vector3];
     this.caseRoot.position.copy(closed).lerp(open, k).negate();
+    if (this.binder) {
+      stepBinder(this.caseRoot, this.binderOpen(), k);
+      return;
+    }
     const set = (end: string, closed: number[], open: number[]) => {
       const o = find(this.caseRoot!, end);
       if (!o) return;
@@ -1058,7 +1132,8 @@ export class BombScene {
 
   private lidK(now: number) {
     const x = Math.min(1, (now - this.lid.t0) / this.lid.ms);
-    return this.lid.from + (this.lid.to - this.lid.from) * easeInOutSine(x);
+    // The binder's clips are linear.
+    return this.lid.from + (this.lid.to - this.lid.from) * (this.binder ? x : easeInOutSine(x));
   }
 
   private clockK(now: number) {
@@ -1289,6 +1364,17 @@ export class BombScene {
     if (this.pose === 'desk') {
       if (p?.kind === 'clock') this.pickClock();
       else if (p) this.pickUp();
+      return;
+    }
+    if (this.binder && this.caseRoot && this.pose === 'held') {
+      if (!p) return this.back();
+      const hit = binderButton(p.node);
+      if (!hit) return;
+      // `MissionDetailPage.StartMission` and the page's Back: "menubuttonpressed" and the punch.
+      this.opts.sound('menubuttonpressed');
+      this.addPunch(p.point, 0.5, 'Interaction');
+      if (hit === 'start') this.opts.briefcase?.start();
+      else this.back();
       return;
     }
     if (this.caseRoot && this.pose === 'held') {
@@ -1604,7 +1690,7 @@ export class BombScene {
 
   /** A key or switch of the briefcase as a tap on it would (browser tests: CI has no room pack). */
   turnCase(dial: CaseDial) {
-    if (!this.caseRoot || this.pose !== 'held') return;
+    if (!this.caseRoot || this.binder || this.pose !== 'held') return;
     this.opts.sound('press-in');
     this.opts.briefcase?.turn(dial);
   }
@@ -2010,7 +2096,7 @@ export class BombScene {
     // in the last minute), the room's lightmaps and the bomb's own light from the lamp.
     this.stepCam(now);
     this.stepLid(now);
-    if (this.caseRoot) stepCase(this.caseRoot, now);
+    if (this.caseRoot && !this.binder) stepCase(this.caseRoot, now);
     const rl = roomLook(this.b, t);
     this.config = rl.config;
     const light = bombLight(this.room?.json ?? null, rl.config);
@@ -2096,14 +2182,21 @@ export class BombScene {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   }
 
-  /** Where the room's things show on screen (CSS px): the briefcase, its Start, the clock, its snooze. */
+  /** What sits on the desk instead of a bomb (browser tests). */
+  deskThing(): 'case' | 'binder' | null {
+    return this.caseRoot ? (this.binder ? 'binder' : 'case') : null;
+  }
+
+  /** Where the room's things show on screen (CSS px): the briefcase (or the binder), its Start, the clock, its snooze. */
   whereThing(name: 'case' | 'start' | 'clock' | 'snooze'): { x: number; y: number } | null {
     const o =
       name === 'case'
         ? this.caseRoot
         : name === 'start'
           ? this.caseRoot &&
-            (find(this.caseRoot, 'StartButton/Start_btn') ?? find(this.caseRoot, 'StartButton'))
+            (find(this.caseRoot, 'StartButton/Start_btn') ??
+              find(this.caseRoot, 'StartButton') ??
+              find(this.caseRoot, 'BinderStart'))
           : name === 'clock'
             ? this.room && (find(this.room.clock, 'AlarmClock/Shell') ?? this.room.clock)
             : this.room?.snoozeButton();

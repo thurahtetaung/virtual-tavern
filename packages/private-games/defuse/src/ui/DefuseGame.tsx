@@ -271,15 +271,27 @@ export function DefuseGame({
     v.defuser === you &&
     v.settings.defuserMode !== 'random' &&
     v.seats.length >= MIN_PLAYERS;
+  // A mission starts from the bomb binder's page on the desk, Free Play from the briefcase.
+  const deskMission = missionById(v.settings.mission);
   if (deskable && !leftDesk)
     return (
       <Bomb3D
+        key={deskMission?.id ?? 'free-play'}
         b={null}
         briefcase={{
           settings: v.settings,
           start: () => send({ type: 'start' }),
           change: room.isHost
             ? (settings) => send({ type: 'settings', settings }, 'defuse-settings')
+            : null,
+          mission: deskMission
+            ? {
+                name: art.mission(deskMission.id).name,
+                description: art.mission(deskMission.id).description ?? '',
+                time: deskMission.time,
+                modules: moduleCount(deskMission),
+                strikes: deskMission.strikes,
+              }
             : null,
         }}
         leave={() => setLeftDesk(true)}

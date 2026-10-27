@@ -149,6 +149,7 @@ function base(art: GuideArt): GameGuide {
           'Sees the whole bomb: two faces with up to 11 modules and the timer, and four edges.',
           'The bomb is in 3D, full screen, on a desk in a dark room: pick it up, turn it in your hands to read the edges, and zoom in on a module to use it.',
           'Before the bomb, the next defuser sits at the desk with the Free Play briefcase: it shows the host’s settings (a host at the desk can change them on its keys and switches, as in the lobby), and its START button starts the bomb (the host can start it from the lobby too).',
+          'Under a mission the desk holds the bomb binder instead, open at that mission’s page (its time, modules and strikes), and the page’s START starts it.',
           'Never sees the manual, and never shows the bomb to the experts.',
         ],
       },
