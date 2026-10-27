@@ -370,6 +370,8 @@ export function Bomb3D({
     };
   }, [test, ready, offset]);
 
+  // The round Back button, on touch away from the desk; the desk's Lobby button moves beside it.
+  const backShown = touch && pose !== 'desk' && !b?.end;
   const step =
     readOnly || b?.end || briefcase ? null : hintFor(pose === 'clock' ? 'desk' : pose, done);
   const scene = sceneRef.current;
@@ -477,7 +479,13 @@ export function Bomb3D({
             <button
               type="button"
               onClick={leave}
-              className="absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] rounded-full bg-stone-900/70 px-4 py-2.5 text-sm"
+              className={cn(
+                'absolute rounded-full bg-stone-900/70 px-4 py-2.5 text-sm',
+                // Beside the round Back button while it shows (the briefcase held on touch).
+                backShown
+                  ? 'left-[calc(max(12px,env(safe-area-inset-left))+60px)] top-[calc(max(12px,env(safe-area-inset-top))+6px)]'
+                  : 'left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))]',
+              )}
               data-testid="desk-lobby"
             >
               ‹ Lobby
@@ -505,7 +513,7 @@ export function Bomb3D({
             onClick={() => scene?.back()}
             className={cn(
               'absolute left-[max(12px,env(safe-area-inset-left))] top-[max(12px,env(safe-area-inset-top))] size-13 rounded-full bg-stone-900/55 text-3xl leading-none transition-opacity active:bg-stone-700/80',
-              touch && pose !== 'desk' && !b?.end ? 'opacity-100' : 'pointer-events-none opacity-0',
+              backShown ? 'opacity-100' : 'pointer-events-none opacity-0',
             )}
             data-testid="bomb-back"
           >
