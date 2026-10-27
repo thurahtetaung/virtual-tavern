@@ -290,7 +290,7 @@ export function Binder({ b, settings, art, offset, sound, room, retry, close }: 
             ))}
       </div>
       {done && !retry && how === 'exploded' && (
-        <p className="pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] text-center text-xs text-stone-400">
+        <p className="pointer-events-none absolute inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] text-center text-xs text-stone-300">
           The host starts the next bomb.
         </p>
       )}
