@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.6...v0.74.0) (2026-10-27)
+
+
+### Features
+
+* **sketchy:** the drawing party on a table screen, with sound, a narrator and friend mode ([#438](https://github.com/thurahtetaung/virtual-tavern/issues/438)) ([52a0432](https://github.com/thurahtetaung/virtual-tavern/commit/52a043271f40bb5ff860d9b5c210e1d4ab12843f))
+
 ## [0.73.6](https://github.com/thurahtetaung/virtual-tavern/compare/v0.73.5...v0.73.6) (2026-10-26)
 
 
