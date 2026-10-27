@@ -71,9 +71,11 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await expect(
     ben.getByTestId('reveal-board').getByRole('listitem').filter({ hasText: 'violet hippo' }),
   ).toContainText('👍 1');
-  // Ben 1,000 + 500, Hana 1,000 as the artist.
+  // Ben 1,000 + 500, Hana 1,000 as the artist (a phone shows the scores on their own tab).
+  await cleo.getByTestId('tab-scores').click();
   await expect(scoreOf(cleo, 'Ben')).toContainText('1,500');
   await expect(scoreOf(cleo, 'Hana')).toContainText('1,000');
+  await cleo.getByTestId('tab-play').click();
   await hana.getByTestId('sketchy-next').click();
 
   // Drawing 2 is Ben's: Hana and Cleo write their own titles (there is nothing ready-made to
@@ -86,7 +88,9 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await pick(cleo, 'happy cloud');
   await results(all, 'happy cloud');
   // Ben 1,500 + 2,000 as the artist.
+  await hana.getByTestId('tab-scores').click();
   await expect(scoreOf(hana, 'Ben')).toContainText('3,500');
+  await hana.getByTestId('tab-play').click();
   await hana.getByTestId('sketchy-next').click();
 
   // Drawing 3 is Cleo's: Hana and Ben both find it, on a streak of two (+100 each).
@@ -96,10 +100,14 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
   await pick(hana, 'sad robot');
   await pick(ben, 'sad robot');
   await results(all, 'sad robot');
+  // The points are folded away on a phone.
+  await hana.getByText('Points for this drawing').click();
   await expect(hana.getByText(/found it \(1,000 \+ 100 streak\)/).first()).toBeVisible();
+  await cleo.getByTestId('tab-scores').click();
   await expect(scoreOf(cleo, 'Hana')).toContainText('3,100');
   await expect(scoreOf(cleo, 'Ben')).toContainText('4,600');
   await expect(scoreOf(cleo, 'Cleo')).toContainText('3,000');
+  await cleo.getByTestId('tab-play').click();
   await hana.getByTestId('sketchy-next').click();
 
   // Round 2: the next prompts in order. Every writer falls for the other writer's title.
@@ -128,10 +136,12 @@ test('three players play Sketchy on phones: drawings, fake titles, likes, scores
     await expect(p.getByTestId('sketchy-over')).toBeVisible();
     await expect(p.getByText('Final standings')).toBeVisible();
   }
+  await expect(hana.getByText('Game over! Ben wins with 5,600 points.')).toBeVisible();
+  await hana.getByTestId('tab-scores').click();
   await expect(scoreOf(hana, 'Ben')).toContainText('5,600');
   await expect(scoreOf(hana, 'Hana')).toContainText('4,100');
   await expect(scoreOf(hana, 'Cleo')).toContainText('4,000');
-  await expect(hana.getByText('Game over! Ben wins with 5,600 points.')).toBeVisible();
+  await hana.getByTestId('tab-play').click();
   await cleo.getByText(/Every drawing \(6\)/).click();
   await expect(cleo.getByTestId('sketchy-history').getByRole('listitem')).toHaveCount(6);
   await expect(cleo.getByTestId('sketchy-history')).toContainText('drew “purple elephant”');

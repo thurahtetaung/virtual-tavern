@@ -7,11 +7,12 @@ import {
   Standings,
   Superlatives,
   revealElement,
+  cn,
   useAbandonGame,
   useSecondsLeft,
   useSpectatorPrompt,
 } from '@vt/ui';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { MAX_PLAYERS, type SketchyAction, type SketchyView } from '../logic/types.ts';
 import type { Act } from './act.ts';
 import { Draw } from './Draw.tsx';
@@ -22,7 +23,7 @@ import { TurnStage, useReveal } from './Turn.tsx';
 import { useManifest } from './assets.ts';
 import { soundModeIn } from './audio.ts';
 import { ChipColours, paintsOf } from './paint.tsx';
-import { PhoneShow } from './PhoneShow.tsx';
+import { PhoneShow, Toast } from './PhoneShow.tsx';
 import { useDeviceSound } from './useSound.ts';
 
 export type SketchyUiProps = GameUiProps<SketchyView, SketchyAction>;
@@ -233,15 +234,17 @@ export function SketchyGame(props: SketchyUiProps) {
       device={device}
     >
       <ChipColours view={view} colours={paintsOf(room.players)} />
-      <div className="flex justify-end">
-        <SoundButton
-          view={view}
-          stagePresent={stagePresent}
-          muted={device.muted}
-          onChange={(muted) => setDevice({ muted })}
-        />
-      </div>
-      <SketchyPlay {...props} />
+      <SketchyPlay
+        {...props}
+        sound={
+          <SoundButton
+            view={view}
+            stagePresent={stagePresent}
+            muted={device.muted}
+            onChange={(muted) => setDevice({ muted })}
+          />
+        }
+      />
     </PhoneShow>
   );
 }
@@ -254,7 +257,8 @@ function SketchyPlay({
   setYourMove,
   setSpectator,
   setAbandon,
-}: SketchyUiProps) {
+  sound,
+}: SketchyUiProps & { sound: ReactNode }) {
   const online = (id: string) => room.players.find((p) => p.id === id)?.connected ?? false;
   const title = room.gameName ?? 'Sketchy';
   const blocker = startBlocker(view, title);
@@ -263,6 +267,8 @@ function SketchyPlay({
   const reveal = useReveal(turn, room.clockOffset);
   const revealing = reveal.progress !== null;
   const status = statusFor(view, room.isHost, blocker, room, revealing);
+  // Phones show one screen at a time (the game, or the scores and players); desktop both.
+  const [tab, setTab] = useState<'play' | 'scores'>('play');
   useAbandonGame(setAbandon, room.isHost && view.phase === 'playing', () =>
     act({ type: 'back-to-lobby' }),
   );
@@ -277,7 +283,10 @@ function SketchyPlay({
               view.phase === 'playing'
                 ? 'Take a seat to play from the next round.'
                 : 'Take a seat to play.',
-            action: () => revealElement(SEAT_CONTROL_ID),
+            action: () => {
+              setTab('scores');
+              revealElement(SEAT_CONTROL_ID);
+            },
           }
         : { text: 'The table is full for now.' }
       : null,
@@ -293,48 +302,92 @@ function SketchyPlay({
 
   if (view.phase === 'lobby') {
     return (
-      <Lobby
-        view={view}
-        room={room}
-        act={act}
-        status={status}
-        blocker={blocker}
-        online={online}
-        showGuide={showGuide}
-      />
+      <>
+        <div className="flex justify-end">{sound}</div>
+        <Lobby
+          view={view}
+          room={room}
+          act={act}
+          status={status}
+          blocker={blocker}
+          online={online}
+          showGuide={showGuide}
+        />
+      </>
     );
   }
   const g = view.game;
+  const mine = view.scores.find((s) => s.id === view.me?.id);
+  const drawingNow =
+    view.phase === 'playing' && g?.stage === 'draw' && g.myPrompt !== null && !g.myDrawing;
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-      <div className="min-w-0 space-y-3">
-        {view.phase === 'playing' && g && <Header view={view} clockOffset={room.clockOffset} />}
-        <Hint tone={status.yourMove ? 'action' : 'neutral'}>{status.text}</Hint>
-        {view.phase === 'over' ? (
-          <GameOver view={view} room={room} act={act} />
-        ) : (
-          g && (
-            <>
-              <ContinueWithout view={view} room={room} act={act} online={online} />
-              {g.stage === 'draw' ? (
-                <Draw view={view} room={room} act={act} />
-              ) : (
-                g.turn && (
-                  <Panel>
-                    <TurnStage view={view} act={act} isHost={room.isHost} reveal={reveal} />
-                  </Panel>
-                )
+    <div className="space-y-3">
+      <div className="hidden justify-end lg:flex">{sound}</div>
+      <div className="flex items-center gap-1 lg:hidden">
+        <div
+          role="tablist"
+          aria-label="Show"
+          className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-card p-1 ring-1 ring-line dark:bg-stone-800 dark:ring-0"
+        >
+          {(['play', 'scores'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              data-testid={`tab-${t}`}
+              onClick={() => setTab(t)}
+              className={cn(
+                'h-10 rounded-lg text-sm font-semibold',
+                tab === t ? 'bg-panel shadow-sm dark:bg-stone-900' : 'text-ink-muted',
               )}
-            </>
-          )
-        )}
+            >
+              {t === 'play'
+                ? 'Play'
+                : `Scores${mine && !revealing ? ` · ⭐ ${points(mine.score)}` : ''}`}
+            </button>
+          ))}
+        </div>
+        {sound}
       </div>
-      <aside className="space-y-3">
-        <Panel className="space-y-3">
-          <Scores view={view} revealing={revealing} />
-          <Table view={view} online={online} act={act} hostId={room.hostId} />
-        </Panel>
-      </aside>
+      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
+        <div className={cn('min-w-0 space-y-3', tab !== 'play' && 'hidden lg:block')}>
+          {view.phase === 'playing' && g && <Header view={view} clockOffset={room.clockOffset} />}
+          <div className="relative">
+            {/* While drawing, the pad's own heading says it all: the room goes to the pad. */}
+            {!drawingNow && (
+              <Hint dense tone={status.yourMove ? 'action' : 'neutral'}>
+                {status.text}
+              </Hint>
+            )}
+            <Toast />
+          </div>
+          {view.phase === 'over' ? (
+            <GameOver view={view} room={room} act={act} />
+          ) : (
+            g && (
+              <>
+                <ContinueWithout view={view} room={room} act={act} online={online} />
+                {g.stage === 'draw' ? (
+                  <Draw view={view} room={room} act={act} />
+                ) : (
+                  g.turn && (
+                    <Panel>
+                      <TurnStage view={view} act={act} isHost={room.isHost} reveal={reveal} />
+                    </Panel>
+                  )
+                )}
+              </>
+            )
+          )}
+        </div>
+        <aside className={cn('space-y-3', tab !== 'scores' && 'hidden lg:block')}>
+          <Panel className="space-y-3">
+            <Scores view={view} revealing={revealing} />
+            <Table view={view} online={online} act={act} hostId={room.hostId} />
+          </Panel>
+        </aside>
+      </div>
     </div>
   );
 }

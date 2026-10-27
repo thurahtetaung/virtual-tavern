@@ -111,7 +111,6 @@ export function PhoneShow({
         <PhoneRig.Provider value={low ? null : rig}>
           {children}
           <EdgeFlash />
-          <Toast />
         </PhoneRig.Provider>
       </Profiled.Provider>
     </ShowTargetsProvider>
@@ -119,10 +118,11 @@ export function PhoneShow({
 }
 
 /**
- * A personal line ("You fooled 2! +1,000") over the page for a moment, then gone: the phone's
- * `subtitle`, which the show fills and clears (and never replays to a late device).
+ * A personal line ("You fooled 2! +1,000") for a moment, then gone: the phone's `subtitle`, which
+ * the show fills and clears (and never replays to a late device). It lies over the status line
+ * (put it in a `relative` box with it), so it never covers a card or a button.
  */
-function Toast() {
+export function Toast() {
   const ref = useTarget('subtitle');
   const el = useRef<HTMLParagraphElement | null>(null);
   // Cleared by itself too: a moment that is settled early never gets to clear its line.
@@ -148,9 +148,16 @@ function Toast() {
       }}
       role="status"
       data-testid="sketchy-toast"
-      className="pointer-events-none fixed inset-x-4 bottom-24 z-50 mx-auto max-w-sm rounded-full bg-stone-900/90 px-4 py-2 text-center text-base font-bold text-white shadow-lg empty:hidden dark:bg-stone-100/95 dark:text-stone-900"
+      className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-stone-900 px-4 text-center text-base font-bold text-white shadow-lg empty:hidden dark:bg-stone-100 dark:text-stone-900"
     />
   );
+}
+
+/** Whether this phone shows the reveal's balloon card (no table screen, the art, no saver). */
+export function useCardShown(): boolean {
+  const rig = useContext(PhoneRig);
+  const profile = useContext(Profiled);
+  return rig !== null && profile === 'phone-full';
 }
 
 /** The phone's profile, for overlays that differ with a table screen in the room. */

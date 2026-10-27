@@ -284,6 +284,11 @@ export interface TurnView {
   missing: PlayerId[] | null;
   /** Lies in (or votes cast). */
   done: number;
+  /**
+   * Titles in so far (while writing, then for the rest of the drawing): the table screen's last
+   * pencil still breaks after the last title has moved the table on to picking.
+   */
+  titles: number;
   myLie: string | null;
   myLieShared: boolean;
   /** The board: empty while lies are being written. */
@@ -305,12 +310,20 @@ export interface GameView {
   rounds: number;
   stage: Stage;
   players: PlayerId[];
-  /** Drawing stage: who has sent their drawing. */
+  /**
+   * Who has sent their drawing this round (from the drawing stage to the round's end, so the last
+   * one in still finishes its pencil on the table screen once the table has moved on).
+   */
   drawn: PlayerId[];
   /** Drawing stage: the viewer's own prompt, or null. */
   myPrompt: string | null;
   /** Drawing stage: the viewer's sent drawing. */
   myDrawing: Drawing | null;
+  /**
+   * The viewer's drawing for this round is in (in every stage of the round): their own "sent" cue
+   * plays even when theirs was the last one and the table moved straight on to writing.
+   */
+  sentDrawing: boolean;
   canReroll: boolean;
   rerolled: boolean;
   turn: TurnView | null;
