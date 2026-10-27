@@ -1,4 +1,6 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { type Page, expect } from '@playwright/test';
+import { nextMove } from '../packages/private-games/defuse/src/logic/bot.ts';
 import { localArt, settings, table, tv } from './defuse-play.ts';
 import { test } from './fixtures.ts';
 import { type Look, openBackroom, visitor } from './tavern-brawl-play.ts';
@@ -26,6 +28,7 @@ interface Hooks {
   bomb: () => { modules: { id: string; kind: string; solved: boolean }[]; end: unknown };
   info: () => Record<string, number | boolean>;
   middle: (id: string) => { x: number; y: number } | null;
+  pose: () => { pose: string; module: string | null; face: 0 | 1 };
 }
 
 const call = <K extends keyof Hooks>(p: Page, name: K, ...args: Parameters<Hooks[K]>) =>
@@ -362,8 +365,8 @@ test('defuse 3D phone shots: the touch outline, an edge and a module zoomed in',
   console.log(JSON.stringify({ what: 'module-zoom', zoom: await zoom() }));
   await call(ana, 'back');
   await ana.waitForTimeout(500);
-  // The top edge, then a side, zoomed in on the edgework.
-  await call(ana, 'turn', 'up');
+  // The top edge (▾), then a side, zoomed in on the edgework.
+  await call(ana, 'turn', 'down');
   await shot('43-edge-top');
   // Aimed at the left end of the edge, where the serial number usually sits with this seed.
   await pinch({ x: 255, y: 140 }, 190);
@@ -377,5 +380,146 @@ test('defuse 3D phone shots: the touch outline, an edge and a module zoomed in',
   await pinch({ x: 422, y: 195 }, 300);
   await shot('46-edge-side-zoomed', 900);
   console.log(JSON.stringify({ what: 'side-zoom', zoom: await zoom() }));
+  await ben.close();
+});
+
+test('defuse 3D parity shots: the lid, the cap, a page turn, the lever, the edges', async ({
+  browser,
+}) => {
+  test.setTimeout(Number(process.env.SHOT_TIMEOUT ?? 600_000));
+  const look: Look = {
+    viewport: { width: 844, height: 390 },
+    colorScheme: 'dark',
+    setup: localArt,
+    touch: true,
+  };
+  const out = `${DIR}/parity`;
+  await openBackroom(await visitor(browser, 'Admin'));
+  const [ana, ben] = (await table(browser, ['Ana', 'Ben'], look)) as [Page, Page];
+  ana.on('pageerror', (e) => console.log(JSON.stringify({ pageerror: String(e) })));
+  ana.on('console', (m) => {
+    if (m.type() === 'error') console.log(JSON.stringify({ console: m.text() }));
+  });
+  await settings(ana);
+  await ana.getByTestId('set-modules').selectOption('11');
+  await ana.getByTestId('set-needy').click();
+  await ana.getByTestId('start').click();
+  await ready(ana);
+  if (await ana.getByTestId('turn-phone').count()) await ana.getByTestId('turn-phone').click();
+  await ana.waitForTimeout(6500);
+  const shot = async (name: string, wait = 0) => {
+    if (wait) await ana.waitForTimeout(wait);
+    await ana.screenshot({ path: `${out}/${name}.png` });
+    const b = await call(ana, 'bomb');
+    console.log(JSON.stringify({ shot: name, end: b?.end ?? null, info: await call(ana, 'info') }));
+  };
+  const kinds = (await call(ana, 'bomb')).modules;
+  const of = (kind: string, face?: number) =>
+    kinds.find(
+      (m) => m.kind === kind && (face === undefined || (m as { face?: number }).face === face),
+    );
+  await call(ana, 'pickUp');
+  await ana.waitForTimeout(600);
+  // The Button: the lid opening as it is looked at, then the cap held down.
+  const button = of('button');
+  if (button) {
+    await call(ana, 'focus', button.id);
+    await shot('50-lid-opening', 150);
+    await shot('51-lid-open', 600);
+    await call(ana, 'press', await call(ana, 'partFor', button.id, { op: 'down' }));
+    await shot('52-cap-held', 200);
+    await call(ana, 'release');
+    await shot('53-cap-released', 300);
+    await call(ana, 'back');
+    await ana.waitForTimeout(400);
+  }
+  // A Wire Sequence page turn: the solver's cuts, then the down key, shot as the page goes.
+  const seq = of('wire-sequence', 0);
+  if (seq) {
+    await call(ana, 'focus', seq.id);
+    await ana.waitForTimeout(500);
+    await shot('60-sequence-page');
+    for (let i = 0; i < 6; i++) {
+      // The solver on this module alone.
+      const b = (await call(ana, 'bomb')) as unknown as { modules: { id: string }[] };
+      const now = await ana.evaluate(() => Date.now());
+      const mv = nextMove(
+        { ...b, modules: b.modules.filter((m) => m.id === seq.id) } as never,
+        now,
+      ) as { module: string; op: Op } | 'wait' | null;
+      if (!mv || mv === 'wait' || mv.module !== seq.id) break;
+      if (mv.op.op !== 'next') {
+        await call(ana, 'press', await call(ana, 'partFor', seq.id, mv.op));
+        await call(ana, 'release');
+      } else {
+        // The browser's own frames (a screenshot each is slower than the 1.4 s turn).
+        const cdp = await ana.context().newCDPSession(ana);
+        const frames: { t: number; data: string }[] = [];
+        cdp.on(
+          'Page.screencastFrame',
+          (f: { data: string; sessionId: number; metadata: { timestamp?: number } }) => {
+            frames.push({ t: f.metadata.timestamp ?? 0, data: f.data });
+            void cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId });
+          },
+        );
+        await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80 });
+        await ana.waitForTimeout(300);
+        await call(ana, 'press', await call(ana, 'partFor', seq.id, mv.op));
+        await call(ana, 'release');
+        await ana.waitForTimeout(2500);
+        await cdp.send('Page.stopScreencast');
+        const t0 = frames[0]?.t ?? 0;
+        mkdirSync(`${out}/turn`, { recursive: true });
+        frames.forEach((f, i) =>
+          writeFileSync(
+            `${out}/turn/${String(i).padStart(3, '0')}-${Math.round((f.t - t0) * 1000)}ms.jpg`,
+            Buffer.from(f.data, 'base64'),
+          ),
+        );
+        console.log(JSON.stringify({ turnFrames: frames.length }));
+        break;
+      }
+      await ana.waitForTimeout(400);
+    }
+    await call(ana, 'back');
+    await ana.waitForTimeout(400);
+  }
+  // The capacitor's lever at rest and held.
+  const cap = of('capacitor');
+  if (cap) {
+    const face = (cap as { face?: number }).face ?? 0;
+    if (face === 1) {
+      await call(ana, 'turn', 'right');
+      await call(ana, 'turn', 'right');
+      await ana.waitForTimeout(800);
+    }
+    await call(ana, 'focus', cap.id);
+    await shot('70-lever-rest', 600);
+    await call(ana, 'press', await call(ana, 'partFor', cap.id, { op: 'down' }));
+    await shot('71-lever-held', 900);
+    await call(ana, 'release');
+    await shot('72-lever-back', 400);
+    await call(ana, 'back');
+    await call(ana, 'back');
+    await call(ana, 'pickUp');
+    await ana.waitForTimeout(600);
+  }
+  // The edges: ▴ from the front shows the bottom; ▾ the top, from the front and from the back.
+  if ((await call(ana, 'pose'))?.face === 1) {
+    await call(ana, 'turn', 'right');
+    await call(ana, 'turn', 'right');
+    await ana.waitForTimeout(800);
+  }
+  await call(ana, 'turn', 'up');
+  await shot('80-front-up-arrow-bottom', 900);
+  await call(ana, 'turn', 'down');
+  await call(ana, 'turn', 'down');
+  await shot('81-front-down-arrow-top', 900);
+  await call(ana, 'turn', 'up');
+  await call(ana, 'turn', 'right');
+  await call(ana, 'turn', 'right');
+  await ana.waitForTimeout(800);
+  await call(ana, 'turn', 'down');
+  await shot('82-back-down-arrow-top', 900);
   await ben.close();
 });

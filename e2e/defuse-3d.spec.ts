@@ -223,8 +223,8 @@ test('a pinch zooms in on an edge, pans with the fingers, and steps back out', a
   await ready(ana);
   await call(ana, 'pickUp');
   await expect.poll(async () => (await call(ana, 'pose')).pose).toBe('held');
-  // The top edge, where the edgework is.
-  await call(ana, 'turn', 'up');
+  // The top edge, where the edgework is (▾ brings it toward you).
+  await call(ana, 'turn', 'down');
   await ana.waitForTimeout(800);
   const cdp = await ana.context().newCDPSession(ana);
   const fingers = (type: 'touchStart' | 'touchMove' | 'touchEnd', spread = 0, dx = 0) =>

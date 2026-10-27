@@ -41,6 +41,8 @@ export interface Hit {
    * half its height in 0.25 s, up in 0.25 s, both `easeOutQuint`.
    */
   dip?: THREE.Object3D;
+  /** Half the key's `ButtonHeightOverride` (m): how far `dip` goes down (0: it stays put). */
+  depth?: number;
 }
 
 export interface Fonts {
@@ -224,6 +226,66 @@ function easeOutBounce(x: number): number {
   return n * (x -= 2.625 / d) * x + 0.984375;
 }
 
+// ---- The original's animation clips (sampled from their curves) ----
+
+/** Linear between samples `step` seconds apart; held at the ends (a finished clip stays put). */
+export function sampled(values: readonly number[], step: number, t: number): number {
+  const x = Math.min(values.length - 1, Math.max(0, t / step));
+  const i = Math.min(values.length - 1, Math.floor(x));
+  const j = Math.min(values.length - 1, i + 1);
+  return values[i]! + (values[j]! - values[i]!) * (x - i);
+}
+
+/** `ButtonPressed` / `ButtonReleased` on `ButtonTop`: 14.18 mm down in 0.067 s, linear. */
+const BUTTON_TRAVEL = 0.01418;
+const BUTTON_MS = 66.7;
+
+/** `LidOpen` / `LidClosed` on `Opening_LID/buttonLid`: degrees about its x, every 1/60 s. */
+const LID_OPEN = [
+  -1.1, -5.7, -10.4, -15.1, -19.8, -24.5, -29.1, -33.8, -38.6, -43.5, -48.6, -54.0, -59.6, -65.5,
+  -71.6, -77.9, -84.3, -90.8, -97.3, -103.5, -109.5,
+];
+const LID_CLOSE = [
+  -109.5, -110.7, -109.5, -106.2, -101.0, -94.2, -86.2, -77.1, -67.4, -57.3, -47.0, -36.9, -27.2,
+  -18.2, -10.3, -3.6, 1.4, 4.6, 5.6, 4.2, 0.0,
+];
+/** The pack's turns about x read as the original's. */
+const LID_SIGN = 1;
+
+/**
+ * `PageLower` / `PageRaise` (`WireSequenceComponent.ChangePage`: lower, 0.7 s, raise), every
+ * 25 ms: the page anchor's height and the doors' height (mm from their prefab places), and the
+ * doors' turn (degrees; Door_L +, Door_R −). On show: the page up, the doors down inside, turned.
+ */
+const PAGE_LOWER = {
+  page: [
+    0.0, -4.56, -9.38, -14.38, -19.48, -24.6, -29.63, -34.5, -39.12, -43.4, -47.26, -50.62, -53.37,
+    -54.14,
+  ],
+  door: [
+    -53.12, -49.38, -45.45, -41.37, -37.2, -32.98, -28.76, -24.6, -20.55, -16.66, -12.97, -9.54,
+    -6.42, -3.66, -1.31, 0.0,
+  ],
+  turn: [90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 78.8, 67.5, 56.2, 45.0, 33.8, 22.5, 11.2, 0],
+};
+const PAGE_RAISE = {
+  page: [
+    -54.14, -54.14, -54.14, -54.14, -54.14, -54.14, -53.21, -51.28, -48.79, -45.8, -42.38, -38.59,
+    -34.52, -30.24, -25.8, -21.29, -16.76, -12.3, -7.98, -3.85, 0.0,
+  ],
+  door: [
+    0.0, 0.0, 0.0, 0.0, -1.05, -2.96, -5.23, -7.81, -10.67, -13.77, -17.07, -20.55, -24.15, -27.84,
+    -31.59, -35.36, -39.1, -42.79, -46.38, -49.83, -53.12,
+  ],
+  turn: [0, 9.1, 18.2, 27.4, 36.5, 45.7, 54.8, 63.8, 72.7, 81.5, 90],
+};
+/** When the raise starts after the lower began (`ChangePage`'s first wait, 0.7 s). */
+const PAGE_RAISE_AT = 0.7;
+
+/** `SpringedSwitch` on the capacitor's handle: `RotationIdle` −60°, `RotationPushed` +60° (x). */
+const LEVER_IDLE = -60;
+const LEVER_PUSHED = 60;
+
 // ---- The modules ----
 
 function wires(ctx: BindCtx, root: Root): Binding {
@@ -363,12 +425,15 @@ function button(ctx: BindCtx, root: Root): Binding {
   });
   onAnchor(label, text);
   if (root.userData.plain) flat(text);
-  const lid = find(root, 'Button/Opening_LID');
-  const lidClosed = lid?.quaternion.clone();
+  const lid = find(root, 'Opening_LID/buttonLid') ?? find(root, 'Button/Opening_LID');
+  const lidRest = lid?.quaternion.clone();
   let lidOpen = false;
-  let lidT = 1;
+  let lidT0 = -Infinity;
   const rest = top.position.y;
   let down = false;
+  let capAt = 0;
+  let capFrom = 0;
+  let capT0 = -Infinity;
   hitOn(top, () => ({
     op: { op: 'down' },
     release: { op: 'up' },
@@ -396,21 +461,32 @@ function button(ctx: BindCtx, root: Root): Binding {
         o.visible = look.strip ? c.toLowerCase() === look.strip : c === 'Off';
       const dark = look.colour === 'white' || look.colour === 'yellow';
       text.userData.set(look.label, dark ? '#1c1917' : '#f4f2ee');
-      down = look.down;
-      top.position.y += (rest - (down ? 0.008 : 0) - top.position.y) * 0.4;
-      if (lid && lidClosed && lidT < 1) {
-        lidT = Math.min(1, lidT + 1 / 18);
-        const open = lidClosed
-          .clone()
-          .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 1.9));
-        const [a, b] = lidOpen ? [lidClosed, open] : [open, lidClosed];
-        lid.quaternion.slerpQuaternions(a, b, -(Math.cos(Math.PI * lidT) - 1) / 2);
+      const now = performance.now();
+      if (look.down !== down) {
+        down = look.down;
+        capFrom = capAt;
+        capT0 = now;
+      }
+      const x = Math.min(1, (now - capT0) / BUTTON_MS);
+      capAt = capFrom + ((down ? 1 : 0) - capFrom) * x;
+      top.position.y = rest - BUTTON_TRAVEL * capAt;
+      if (lid && lidRest) {
+        const t = (now - lidT0) / 1000;
+        const deg = sampled(lidOpen ? LID_OPEN : LID_CLOSE, 1 / 60, t);
+        lid.quaternion
+          .copy(lidRest)
+          .multiply(
+            new THREE.Quaternion().setFromAxisAngle(
+              new THREE.Vector3(1, 0, 0),
+              LID_SIGN * THREE.MathUtils.degToRad(deg),
+            ),
+          );
       }
     },
     focus: (on) => {
       if (on === lidOpen) return;
       lidOpen = on;
-      lidT = 0;
+      lidT0 = performance.now();
     },
     parts: () => [top],
     thin: () => [],
@@ -468,6 +544,7 @@ function keypad(ctx: BindCtx, root: Root): Binding {
       symbol.position.set(0, 0.0065, 0.004);
       key.add(symbol);
     }
+    // `KeypadComponent/Model/Button*`: height 0, so the keys stay put (the right one too).
     hitOn(key, () => ({ op: { op: 'press', button: i }, punch: 1, sound: 'press-in', dip: key }));
     return { key, leds, symbol, glyph: -1 };
   });
@@ -603,8 +680,15 @@ function whosOnFirst(ctx: BindCtx, root: Root): Binding {
     });
     onAnchor(anchor, text);
     if (root.userData.plain) flat(text);
-    hitOn(key, () => ({ op: { op: 'press', button: i }, punch: 1, sound: 'press-in', dip: key }));
-    return { off, key, text, sink: sinker(off, 0.012) };
+    // `Component_Whose/button*`: height 14 mm (half of it on a press, 1.1 × to sink).
+    hitOn(key, () => ({
+      op: { op: 'press', button: i },
+      punch: 1,
+      sound: 'press-in',
+      dip: key,
+      depth: 0.007,
+    }));
+    return { off, key, text, sink: sinker(off, 0.0154) };
   });
   return {
     root,
@@ -665,8 +749,15 @@ function memory(ctx: BindCtx, root: Root): Binding {
     });
     onAnchor(anchor, text);
     if (root.userData.plain) flat(text);
-    hitOn(key, () => ({ op: { op: 'press', button: i }, punch: 1, sound: 'press-in', dip: key }));
-    return { key, text, sink: sinker(holder, 0.012) };
+    // `MemoryComponent/button*`: height 12 mm.
+    hitOn(key, () => ({
+      op: { op: 'press', button: i },
+      punch: 1,
+      sound: 'press-in',
+      dip: key,
+      depth: 0.006,
+    }));
+    return { key, text, sink: sinker(holder, 0.0132) };
   });
   return {
     root,
@@ -745,9 +836,22 @@ function morse(ctx: BindCtx, root: Root): Binding {
     size: [0.06, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(left, () => ({ op: { op: 'dial', by: -1 }, punch: 1, sound: 'press-in', dip: left }));
-  hitOn(right, () => ({ op: { op: 'dial', by: 1 }, punch: 1, sound: 'press-in', dip: right }));
-  hitOn(tx, () => ({ op: { op: 'tx' }, punch: 1, sound: 'press-in', dip: tx }));
+  // `Component_Morse/Button_LEFT|RIGHT`: height 7 mm, punch 0.25; `button_transmit`: 12 mm, 1.
+  hitOn(left, () => ({
+    op: { op: 'dial', by: -1 },
+    punch: 0.25,
+    sound: 'press-in',
+    dip: left,
+    depth: 0.0035,
+  }));
+  hitOn(right, () => ({
+    op: { op: 'dial', by: 1 },
+    punch: 0.25,
+    sound: 'press-in',
+    dip: right,
+    depth: 0.0035,
+  }));
+  hitOn(tx, () => ({ op: { op: 'tx' }, punch: 1, sound: 'press-in', dip: tx, depth: 0.006 }));
   return {
     root,
     fill: 0.72,
@@ -896,6 +1000,9 @@ function sequence(ctx: BindCtx, root: Root): Binding {
   });
   const restL = doorL.position.clone();
   const restR = doorR.position.clone();
+  const restLQ = doorL.quaternion.clone();
+  const restRQ = doorR.quaternion.clone();
+  const restPage = anchor.position.clone();
   const down = part(root, 'Component_WireSequence/ButtonDown', {
     at: [0.075, -0.05, 0.012],
     size: [0.025, 0.02, 0.01],
@@ -906,8 +1013,9 @@ function sequence(ctx: BindCtx, root: Root): Binding {
     size: [0.025, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(down, () => ({ op: { op: 'next' }, punch: 1, sound: 'press-in', dip: down }));
-  hitOn(up, () => ({ op: { op: 'back' }, punch: 1, sound: 'press-in', dip: up }));
+  // `ButtonUp`/`ButtonDown` are plain `InteractiveObject`s: no punch, no sound, no travel.
+  hitOn(down, () => ({ op: { op: 'next' }, punch: 0 }));
+  hitOn(up, () => ({ op: { op: 'back' }, punch: 0 }));
   const numbers = ['OneText', 'TwoText', 'ThreeText'].map((n, r) => {
     const a = part(page, n, { at: [-0.05, 0.035 - r * 0.035, 0.004], size: [0, 0, 0], colour: 0 });
     const t = textPlane(0.016, 0.016, (px) => `${Math.round(px * 0.85)}px ${ctx.fonts.labels}`, {
@@ -971,37 +1079,64 @@ function sequence(ctx: BindCtx, root: Root): Binding {
       });
     });
   const thin: THREE.Object3D[] = [];
-  let open = 0;
+  // The page on show: the old one until the raise, then the new one.
+  let shown: { row: Extract<Look, { kind: 'wire-sequence' }>['row']; page: number } | null = null;
+  const door = (
+    d: THREE.Object3D,
+    p: THREE.Vector3,
+    q: THREE.Quaternion,
+    mm: number,
+    deg: number,
+  ) => {
+    d.position.copy(p).add(new THREE.Vector3(0, mm / 1000, 0));
+    d.quaternion
+      .copy(q)
+      .multiply(
+        new THREE.Quaternion().setFromAxisAngle(
+          new THREE.Vector3(1, 0, 0),
+          THREE.MathUtils.degToRad(deg),
+        ),
+      );
+  };
   return {
     root,
     fill: 0.72,
-    apply: (look) => {
+    apply: (look, now) => {
       if (look.kind !== 'wire-sequence') return;
       led(look.led);
       bar(look.done ? 4 : look.page);
       thin.length = 0;
-      page.visible = !!look.row;
-      numbers.forEach((t, r) => t.userData.set(String(look.page * 3 + r + 1)));
+      // `ChangePage`: the page lowers and the doors close over it (`PageLower`), the new page
+      // goes in at 0.7 s and rises as the doors open (`PageRaise`).
+      const t = look.turning ? (now - look.turnAt) / 1000 : Infinity;
+      const raising = t >= PAGE_RAISE_AT;
+      if (!look.turning || raising || !shown) shown = { row: look.row, page: look.page };
+      const clip = raising ? PAGE_RAISE : PAGE_LOWER;
+      const at = raising ? t - PAGE_RAISE_AT : t;
+      const pageMm = sampled(clip.page, 0.025, at);
+      const doorMm = sampled(clip.door, 0.025, at);
+      const turn = sampled(clip.turn, 0.025, at);
+      anchor.position.copy(restPage).add(new THREE.Vector3(0, pageMm / 1000, 0));
+      door(doorL, restL, restLQ, doorMm, turn);
+      door(doorR, restR, restRQ, doorMm, -turn);
+      page.visible = !!shown.row;
+      const view = shown;
+      numbers.forEach((n, r) => n.userData.set(String(view.page * 3 + r + 1)));
       wires.forEach((row, r) =>
         row.forEach((w, to) => {
-          const e = look.row?.[r];
+          const e = view.row?.[r];
           const on = !!e && !!e.colour && e.to === to;
           w.g.visible = on;
           if (!on || !e?.colour) return;
           paint(w.g, SEQ_RGB[e.colour]);
           w.whole.visible = !e.cut;
           w.cut.visible = e.cut;
-          if (!e.cut) {
+          if (!e.cut && !look.turning && !look.done) {
             hitOn(w.whole, () => ({ op: { op: 'cut', wire: r }, punch: 1, sound: 'snip' }));
             thin.push(w.whole);
-          }
+          } else delete w.whole.userData.hit;
         }),
       );
-      // The doors slide shut while the panel changes and once it is finished.
-      const want = look.row ? 1 : 0;
-      open += (want - open) * 0.2;
-      doorL.position.copy(restL).add(new THREE.Vector3(-0.055 * open, 0, 0));
-      doorR.position.copy(restR).add(new THREE.Vector3(0.055 * open, 0, 0));
     },
     parts: () => [...thin, up, down],
     thin: () => thin,
@@ -1044,7 +1179,14 @@ function maze(ctx: BindCtx, root: Root): Binding {
       size: [0.02, 0.02, 0.01],
       colour: PLAIN.key,
     });
-    hitOn(b, () => ({ op: { op: 'move', dir }, punch: 1, sound: 'press-in', dip: b }));
+    // `Component_Maze/Layout_*/Button_*`: height 3 mm, punch 0.05.
+    hitOn(b, () => ({
+      op: { op: 'move', dir },
+      punch: 0.05,
+      sound: 'press-in',
+      dip: b,
+      depth: 0.0015,
+    }));
     return b;
   });
   // `InvisibleWallsComponent.InitCells`: 6 × 6 cells over 90 % of the screen, row 0 at the top.
@@ -1124,6 +1266,8 @@ function maze(ctx: BindCtx, root: Root): Binding {
 function password(ctx: BindCtx, root: Root): Binding {
   const led = statusLight(ctx, root);
   const layout = ctx.touch ? 'Layout_TOUCH' : 'Layout_DEFAULT';
+  // The spinner keys' height: 9.2 mm in the touch layout, 0 in the default one.
+  const spinDepth = ctx.touch ? 0.0046 : 0;
   const other = find(
     root,
     ctx.touch ? 'PasswordComponent/Layout_DEFAULT' : 'PasswordComponent/Layout_TOUCH',
@@ -1164,12 +1308,14 @@ function password(ctx: BindCtx, root: Root): Binding {
       punch: 0.25,
       sound: 'press-in',
       dip: up,
+      depth: spinDepth,
     }));
     hitOn(down, () => ({
       op: { op: 'spin', column: c, by: 1 },
       punch: 0.25,
       sound: 'press-in',
       dip: down,
+      depth: spinDepth,
     }));
     return { text, up, down };
   });
@@ -1178,7 +1324,14 @@ function password(ctx: BindCtx, root: Root): Binding {
     size: [0.08, 0.02, 0.01],
     colour: PLAIN.key,
   });
-  hitOn(submit, () => ({ op: { op: 'submit' }, punch: 1, sound: 'press-in', dip: submit }));
+  // `Submit_Button`: height 9.72 mm.
+  hitOn(submit, () => ({
+    op: { op: 'submit' },
+    punch: 1,
+    sound: 'press-in',
+    dip: submit,
+    depth: 0.00486,
+  }));
   return {
     root,
     fill: 0.72,
@@ -1384,7 +1537,10 @@ function capacitor(ctx: BindCtx, root: Root): Binding {
         restQ
           .clone()
           .multiply(
-            new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.5 * leverAt),
+            new THREE.Quaternion().setFromAxisAngle(
+              new THREE.Vector3(1, 0, 0),
+              THREE.MathUtils.degToRad(LEVER_IDLE + (LEVER_PUSHED - LEVER_IDLE) * leverAt),
+            ),
           ),
       );
       fill.scale.set(fillScale.x * Math.max(0.001, look.charge), fillScale.y, fillScale.z);

@@ -74,13 +74,15 @@ export function dragTurn(t: Turn, dx: number, dy: number, w: number, h: number):
 
 /**
  * `TouchRotation.SettleTouchRotation`: yaw to the nearer face, or a side when more than 70° off;
- * pitch level under 63°, else 80° up or down (the top or bottom edge).
+ * pitch level under 63°, else the top edge at 80° or the bottom edge at 70° (the original's −80
+ * and 70, which face they show worked out from `FloatingHoldable.Focus`; a positive pitch here
+ * brings the top toward the eye).
  */
 export function settleTouch(t: Turn): Turn {
   const n = Math.round(t.yaw / 180) * 180;
   const f = t.yaw - n;
   const yaw = n + (Math.abs(f) < 70 ? 0 : 90 * Math.sign(f));
-  const settle = Math.abs(t.pitch) < 63 ? 0 : 80 * Math.sign(t.pitch);
+  const settle = Math.abs(t.pitch) < 63 ? 0 : t.pitch > 0 ? 80 : -70;
   return { yaw, pitch: t.pitch, settle };
 }
 
@@ -89,11 +91,15 @@ export function settleMouse(t: Turn): Turn {
   return { yaw: Math.round(t.yaw / 90) * 90, pitch: t.pitch, settle: 0 };
 }
 
-/** A quarter turn from the rotate arrows or the keys; pitch steps between level and the edges. */
+/**
+ * A quarter turn from the rotate arrows or the keys; pitch steps between level and the edges.
+ * `TouchControls.HandleRotateUpPressed` rolls the bomb up, front face rising, so ▴ shows the
+ * bottom edge and ▾ the top (on either face), as a drag upward does.
+ */
 export function quarter(t: Turn, dir: 'up' | 'down' | 'left' | 'right'): Turn {
   if (dir === 'left') return { ...t, yaw: Math.round(t.yaw / 90) * 90 - 90 };
   if (dir === 'right') return { ...t, yaw: Math.round(t.yaw / 90) * 90 + 90 };
-  const settle = clamp(t.settle + (dir === 'up' ? 90 : -90), -90, 90);
+  const settle = clamp(t.settle + (dir === 'up' ? -90 : 90), -90, 90);
   return { ...t, settle };
 }
 
