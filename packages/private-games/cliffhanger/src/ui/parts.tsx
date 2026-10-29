@@ -192,7 +192,7 @@ export function Tape({
       {got && (
         <span
           aria-hidden
-          className="cl-pop absolute right-1 bottom-1 grid h-[22%] max-h-10 min-h-5 place-items-center rounded-full bg-success px-1.5 text-[min(4cqh,1.5rem)] font-black text-white shadow dark:bg-emerald-600"
+          className="cl-pop absolute right-1 bottom-1 grid h-[22%] max-h-10 min-h-5 place-items-center rounded-full bg-success px-1.5 text-[min(4cqh,1.5rem)] font-black text-white shadow dark:bg-emerald-700"
           style={{ aspectRatio: '1' }}
         >
           ✓

@@ -352,7 +352,7 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
           <div className="text-center">
             <p className="text-3xl font-black">{room.gameName ?? art.names.title}</p>
             {view.round && view.phase === 'playing' && (
-              <p className="text-xl text-stone-400">Round {view.round.number}</p>
+              <p className="text-xl text-stone-300">Round {view.round.number}</p>
             )}
             {point.length > 0 && (
               <p
@@ -368,9 +368,7 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
         </header>
         <main className="min-h-0">
           {view.phase === 'lobby' ? (
-            <Message sub={`${goalLine(goal)} first to win.`}>
-              Join a team on your phone
-            </Message>
+            <Message sub={`${goalLine(goal)} first to win.`}>Join a team on your phone</Message>
           ) : view.phase === 'over' ? (
             <Finale view={view} />
           ) : view.round ? (

@@ -2307,7 +2307,12 @@ function cliffhangerFigures(get: (metric: string) => number): GameFigure[] {
       kind: 'number',
       value: avg(get('f.answers'), get('f.faceoffs')),
     },
-    { id: 'longest-rally', label: 'Longest face-off (answers)', kind: 'number', value: get('max.f.rally') },
+    {
+      id: 'longest-rally',
+      label: 'Longest face-off (answers)',
+      kind: 'number',
+      value: get('max.f.rally'),
+    },
     {
       id: 'faceoff-time',
       label: 'Face-offs lost on the clock',

@@ -106,12 +106,14 @@ export function End({ view, room, act }: { view: CliffhangerView; room: GameRoom
       {room.isHost ? (
         <div className="flex flex-wrap justify-center gap-2">
           <Button
+            size="lg"
             data-testid="play-again"
             onClick={() => void act({ type: 'start' }, { anchor: 'cl-end' })}
           >
             Play again
           </Button>
           <Button
+            size="lg"
             variant="secondary"
             onClick={() => void act({ type: 'back-to-lobby' }, { anchor: 'cl-end' })}
           >
