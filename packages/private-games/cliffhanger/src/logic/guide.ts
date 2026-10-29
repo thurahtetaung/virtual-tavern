@@ -31,13 +31,12 @@ function text(names: Names): GameGuide {
     duration: '30–45 minutes',
     goal: 'Be the first team to collect a film of every genre: eight by default. Each round starts with a face-off between one player from each team, then both teams get 30 seconds to describe their films.',
     quickStart: [
-      'Split into two teams. Each round, one player from each team goes head to head.',
-      'Face-off: a category turns over. Take turns naming a film that fits and pressing your button. Each press gives your opponent 15 seconds.',
+      'Split into two teams. The first team to collect a film of every chosen genre wins.',
+      'Face-off: one player per team takes turns naming a film that fits the category, then pressing their button. Each press gives the other 15 seconds.',
       'Whoever runs out of time loses. The winner gets six films, keeps the easiest three and hands the hardest three to the loser.',
       'Each of you puts your three films on your team’s squares: One Word, Quote It and Act It.',
       'Your team gets 30 seconds. Describe each film the way its square says; tap Got it when your team names it.',
       'Got your three with time left? Steal the other team’s films the same way.',
-      'Collect one film of every genre to win.',
     ],
     setup: [
       'Everyone joins a team; the host can shuffle them. Teams can be uneven, but each needs at least 2 players. Up to 16 play; anyone else watches.',

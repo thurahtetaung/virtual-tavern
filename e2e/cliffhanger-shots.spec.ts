@@ -104,7 +104,7 @@ for (const [label, viewport, colorScheme] of [
 }
 
 test('cliffhanger table screen (tv-dark)', async ({ browser }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(420_000);
   const phone: Look = { viewport: { width: 390, height: 844 }, colorScheme: 'dark' };
   const tvLook: Look = { viewport: { width: 1920, height: 1080 }, colorScheme: 'dark' };
   const shot = async (p: Page, name: string) => {
@@ -141,12 +141,21 @@ test('cliffhanger table screen (tv-dark)', async ({ browser }) => {
   await shot(tv, '07-tape-in');
   await faceOff([ana, ben, cleo, dev], cleo);
   await lockIn(cleo);
-  // Seven of eight: one genre from the win.
+  // One title, then Cleo's clock runs out: seven of eight, one genre from the win.
   await describeCards(cleo, 1);
-  await expect(tv.getByTestId('stage-match-point')).toBeVisible({ timeout: 15_000 });
+  await expect(tv.getByTestId('stage-match-point')).toBeVisible({ timeout: 60_000 });
+  await tv.waitForTimeout(3500);
   await shot(tv, '08-match-point');
-  await describeCards(cleo, 5);
-  await expect(tv.getByTestId('stage-finale')).toBeVisible({ timeout: 15_000 });
+  // Nachos' clock runs out too; Ana takes round three and describes until the last genre is in.
+  await expect(ana.getByTestId('said-it')).toBeVisible({ timeout: 60_000 });
+  await faceOff([ana, ben, cleo, dev], ana);
+  await lockIn(ana);
+  const finale = tv.getByTestId('stage-finale');
+  for (let i = 0; i < 6 && !(await finale.isVisible()); i++) {
+    await describeCards(ana, 1);
+    await tv.waitForTimeout(500);
+  }
+  await expect(finale).toBeVisible({ timeout: 60_000 });
   await tv.waitForTimeout(1500);
   await shot(tv, '09-finale');
 });

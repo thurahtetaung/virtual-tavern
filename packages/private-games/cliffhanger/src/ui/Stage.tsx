@@ -259,7 +259,7 @@ function RoundScreen({ view, clockOffset }: { view: CliffhangerView; clockOffset
     case 'recap': {
       const last = r.results.at(-1);
       return (
-        <Message sub={last ? `${last.got.length} of 3 got` : undefined}>
+        <Message sub={last ? recapLine(last.got) : undefined}>
           {last ? `${TEAM_EMOJI[last.team]} ${teamName(last.team)}’s turn is over` : 'Turn over'}
         </Message>
       );
@@ -393,3 +393,9 @@ export function CliffhangerStage(props: CliffhangerUiProps) {
 }
 
 export default CliffhangerStage;
+
+function recapLine(got: readonly { steal: boolean }[]): string {
+  const own = got.filter((g) => !g.steal).length;
+  const stolen = got.length - own;
+  return stolen ? `${own} of 3 got, ${stolen} stolen` : `${own} of 3 got`;
+}
