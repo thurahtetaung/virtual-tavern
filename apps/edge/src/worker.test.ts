@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { BACKROOM_SESSION_MS } from '@vt/protocol/edge';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assetKey as serverAssetKey } from '../../server/src/r2.ts';
 import { readPass, resetSigned, verifyPass } from './pass.ts';
 import { assetKey, targetOf } from './paths.ts';
@@ -179,6 +179,9 @@ describe('handle', () => {
     resetVersion();
     resetSigned();
   });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   const unlocked = { cookie: `vt_edge=${passFor(1, NOW)}` };
 
   it('serves code from origin once, then from the edge cache, keyed by URL alone', async () => {
@@ -317,12 +320,47 @@ describe('handle', () => {
     );
   });
 
-  it('fails open when anything throws', async () => {
+  it('fails open when anything throws, and logs only the path and the error', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { get, art } = setup();
     art.get = () => Promise.reject(new Error('bucket down'));
     const res = await get('/api/backroom/assets/reverie/cards/001.jpg', unlocked);
     expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('private, no-store');
     expect(await res.text()).toBe('origin');
+    expect(logged.mock.calls).toEqual([
+      [
+        'vt-edge: fell back to origin for /api/backroom/assets/reverie/cards/001.jpg: Error: bucket down',
+      ],
+    ]);
+    expect(JSON.stringify(logged.mock.calls)).not.toContain(passFor(1, NOW));
+  });
+
+  it('marks what origin sent without a cache header as never to be kept, and leaves the rest', async () => {
+    const { get, deps } = setup();
+    for (const [path, headers] of [
+      ['/api/backroom/assets/reverie/manifest.json', unlocked],
+      ['/api/backroom/assets/reverie/cards/001.jpg', {}],
+      ['/api/backroom/assets/reverie/cards/999.jpg', unlocked],
+      ['/backroom-assets/gone.js', unlocked],
+      ['/backroom-assets/private-abc.js', {}],
+    ] as const) {
+      const res = await get(path, headers);
+      expect(res.headers.get('x-vt-edge'), path).toBe('pass');
+      expect(res.headers.get('cache-control'), path).toBe(
+        path === '/backroom-assets/private-abc.js'
+          ? 'private, max-age=31536000, immutable'
+          : 'private, no-store',
+      );
+    }
+    // Origin's own header is never overridden, on a pass or after a failure.
+    deps.fetch = () =>
+      Promise.resolve(
+        new Response('no', { status: 404, headers: { 'cache-control': 'no-cache' } }),
+      );
+    expect((await get('/api/backroom/manifest/reverie')).headers.get('cache-control')).toBe(
+      'no-cache',
+    );
   });
 
   it('passes everything when it has no secret', async () => {

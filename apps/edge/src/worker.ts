@@ -89,10 +89,19 @@ function currentVersion(request: Request, deps: Deps): Promise<EdgeVersion | nul
   return version;
 }
 
+/**
+ * What origin sent without saying how to cache it is kept by no cache: a shared cache keyed by URL
+ * alone (in front of this Worker or behind it) must never hand a locked browser's refusal to
+ * someone else. A header origin set is never overridden.
+ */
+const UNCACHED = 'private, no-store';
+
 function labelled(response: Response, edge: 'hit' | 'miss' | 'pass', cacheControl?: string) {
   const out = new Response(response.body, response);
   out.headers.set('x-vt-edge', edge);
   if (cacheControl) out.headers.set('cache-control', cacheControl);
+  else if (edge === 'pass' && !out.headers.has('cache-control'))
+    out.headers.set('cache-control', UNCACHED);
   return out;
 }
 
@@ -182,9 +191,17 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     if (fresh.status !== 200) return labelled(fresh, 'pass');
     store(deps, key, fresh.clone());
     return labelled(fresh, 'miss', BROWSER_CACHE);
-  } catch {
-    // Fail open: whatever went wrong, origin answers as if the Worker weren't there.
-    return deps.fetch(request);
+  } catch (err) {
+    // Fail open: whatever went wrong, origin answers as if the Worker weren't there. Only the path
+    // and the error are logged, never cookies, the pass or headers.
+    console.error(
+      `vt-edge: fell back to origin for ${new URL(request.url).pathname}: ${String(err)}`,
+    );
+    const res = await deps.fetch(request);
+    if (res.headers.has('cache-control')) return res;
+    const out = new Response(res.body, res);
+    out.headers.set('cache-control', UNCACHED);
+    return out;
   }
 }
 

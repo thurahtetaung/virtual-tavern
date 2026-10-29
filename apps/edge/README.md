@@ -4,6 +4,8 @@ A Cloudflare Worker that serves the back room's code (`/backroom-assets/*`) and 
 (`/api/backroom/assets/*`) from Cloudflare's cache to browsers whose `vt_edge` pass it can verify.
 It never refuses anyone: without a pass it can prove, or on any error, it hands the request to
 origin unchanged. The routes run fail open.
+Keep the Worker's own Workers Caching setting off: it runs before the pass check and keys by URL
+alone.
 
 - `src/pass.ts`: reads and verifies the pass (HMAC-SHA256 with `EDGE_SECRET`, the unlock's
   lifetime, the current password version).
