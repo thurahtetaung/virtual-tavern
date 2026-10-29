@@ -851,7 +851,10 @@ function KeepWaiting({ view }: PlayProps) {
         <p className="text-lg font-black">
           {nameOf(view, fr.winner)} wins the face-off
           {fr.answers > 0 && (
-            <span className="font-normal text-ink-muted"> after {fr.answers} answers</span>
+            <span className="font-normal text-ink-muted">
+              {' '}
+              after {fr.answers} {fr.answers === 1 ? 'answer' : 'answers'}
+            </span>
           )}
         </p>
       )}

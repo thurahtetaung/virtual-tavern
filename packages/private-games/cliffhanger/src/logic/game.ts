@@ -328,7 +328,7 @@ function decideFaceOff(
       faceoff: { ...fo, on: null, deadline: null, paused: null },
       order: [winTeam, other(winTeam)],
     }),
-    `${nameOf(state, winner)} won the face-off${fo.answers ? ` after ${fo.answers} answers` : ''}.`,
+    `${nameOf(state, winner)} won the face-off${fo.answers ? ` after ${fo.answers} ${fo.answers === 1 ? 'answer' : 'answers'}` : ''}.`,
   );
   if (round.suddenDeath) return endGame(s, 'sudden-death', winTeam);
   const noAdvantage = s.settings.noAdvantage;

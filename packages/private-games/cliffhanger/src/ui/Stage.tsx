@@ -2,7 +2,7 @@ import { ProtectedImage, cn } from '@vt/ui';
 import { FULL_VOLUMES } from '@vt/ui/sound';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { Card } from '../logic/content.ts';
-import { nounOf } from '../logic/genres.ts';
+import { goalLine, nounOf } from '../logic/genres.ts';
 import { OPENING_MS, type CliffhangerView, TEAMS, type TeamId } from '../logic/types.ts';
 import { ArtContext, useArt, useLoadedArt } from './assets.ts';
 import type { CliffhangerUiProps } from './CliffhangerGame.tsx';
@@ -348,7 +348,7 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
       )}
       <div className="relative grid h-full grid-rows-[auto_1fr] gap-6">
         <header className="grid grid-cols-[1fr_auto_1fr] items-start gap-6">
-          <GenreRace view={view} team="a" className="text-2xl" />
+          <GenreRace view={view} team="a" className="w-full max-w-md justify-self-start text-2xl" />
           <div className="text-center">
             <p className="text-3xl font-black">{room.gameName ?? art.names.title}</p>
             {view.round && view.phase === 'playing' && (
@@ -364,11 +364,11 @@ function StageScreen({ view, room }: CliffhangerUiProps) {
               </p>
             )}
           </div>
-          <GenreRace view={view} team="b" className="text-2xl" />
+          <GenreRace view={view} team="b" className="w-full max-w-md justify-self-end text-2xl" />
         </header>
         <main className="min-h-0">
           {view.phase === 'lobby' ? (
-            <Message sub={`Fill ${goal.genres.length * goal.each} genres first to win.`}>
+            <Message sub={`${goalLine(goal)} first to win.`}>
               Join a team on your phone
             </Message>
           ) : view.phase === 'over' ? (

@@ -141,9 +141,11 @@ test('cliffhanger table screen (tv-dark)', async ({ browser }) => {
   await shot(tv, '07-tape-in');
   await faceOff([ana, ben, cleo, dev], cleo);
   await lockIn(cleo);
+  // Seven of eight: one genre from the win.
+  await describeCards(cleo, 1);
   await expect(tv.getByTestId('stage-match-point')).toBeVisible({ timeout: 15_000 });
   await shot(tv, '08-match-point');
-  await describeCards(cleo, 6);
+  await describeCards(cleo, 5);
   await expect(tv.getByTestId('stage-finale')).toBeVisible({ timeout: 15_000 });
   await tv.waitForTimeout(1500);
   await shot(tv, '09-finale');

@@ -234,7 +234,7 @@ function history(g: GameEvents): string[] {
     const turns = g.of('turn').filter((t) => num(t, 'round') === n);
     const got = turns.map((t) => `${teamName(str(t, 'team'))} ${num(t, 'got') ?? 0}`).join(', ');
     const face = e.playerId
-      ? `${ph.p(e.playerId)} won the face-off${answers ? ` (${answers} answers)` : ''}`
+      ? `${ph.p(e.playerId)} won the face-off${answers ? ` (${answers} ${answers === 1 ? 'answer' : 'answers'})` : ''}`
       : 'Face-off';
     return `Round ${n}: ${face}${got ? `; got ${got}` : ''}`;
   });
