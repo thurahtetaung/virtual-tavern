@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.81.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.2...v0.81.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* **edge:** back-room art refusals are never cached, and the edge Worker logs its fallbacks ([#491](https://github.com/thurahtetaung/virtual-tavern/issues/491)) ([666cce3](https://github.com/thurahtetaung/virtual-tavern/commit/666cce39fcec24b45b7e7cf82bccfdb710120a58))
+
 ## [0.81.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.1...v0.81.2) (2026-10-27)
 
 
