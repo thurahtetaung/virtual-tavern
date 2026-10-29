@@ -1,5 +1,5 @@
 import { PlayerTag, ProtectedImage, cn, useSecondsLeft } from '@vt/ui';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, useState } from 'react';
 import type { Card } from '../logic/content.ts';
 import { type DeckKind, STYLES, type StyleId, genreInfo, progress } from '../logic/genres.ts';
 import { genreName } from '../logic/manifest.ts';
@@ -271,6 +271,43 @@ export function GenreRace({
 }
 
 /**
+ * The bar's fill. It reads where the clock is once, when it mounts (keyed per deadline), and lets
+ * the CSS animation drain from there: moving the start on every re-render would jump it ahead.
+ */
+function Drain({
+  deadline,
+  total,
+  clockOffset,
+  left,
+  className,
+}: {
+  deadline: number | null;
+  total: number;
+  clockOffset: number;
+  /** Shown frozen when there is no deadline. */
+  left: number;
+  className: string;
+}) {
+  const [elapsed] = useState(() =>
+    deadline === null ? 0 : Math.max(0, total - Math.max(0, deadline - (Date.now() + clockOffset))),
+  );
+  return (
+    <div
+      data-testid="clock-fill"
+      className={cn('h-full rounded-full', deadline !== null && 'cl-drain', className)}
+      style={
+        deadline === null
+          ? {
+              transform: `scaleX(${total ? Math.min(1, left / total) : 0})`,
+              transformOrigin: 'left',
+            }
+          : { animationDuration: `${total}ms`, animationDelay: `-${elapsed}ms` }
+      }
+    />
+  );
+}
+
+/**
  * The clock as a full-width bar draining to the deadline, with the seconds; red in the last 5 s.
  * `total` is the clock's full length (the bar starts where it would be now).
  */
@@ -293,9 +330,6 @@ export function ClockBar({
   const left = useSecondsLeft(deadline, clockOffset);
   const frozen = paused !== undefined && paused !== null;
   const seconds = frozen ? Math.ceil(paused / 1000) : (left ?? 0);
-  const remaining =
-    // eslint-disable-next-line react-hooks/purity -- the bar's starting point, read once per deadline
-    deadline === null ? (paused ?? 0) : Math.max(0, deadline - (Date.now() + clockOffset));
   const urgent = !frozen && deadline !== null && seconds <= 5;
   return (
     <div className="space-y-1">
@@ -319,24 +353,13 @@ export function ClockBar({
           big ? 'h-4' : 'h-2.5',
         )}
       >
-        <div
+        <Drain
           key={`${deadline}:${paused}`}
-          className={cn(
-            'h-full rounded-full',
-            !frozen && deadline !== null && 'cl-drain',
-            urgent ? 'bg-danger dark:bg-rose-500' : 'bg-accent dark:bg-amber-500',
-          )}
-          style={
-            frozen || deadline === null
-              ? {
-                  transform: `scaleX(${total ? Math.min(1, (paused ?? 0) / total) : 0})`,
-                  transformOrigin: 'left',
-                }
-              : {
-                  animationDuration: `${total}ms`,
-                  animationDelay: `-${Math.max(0, total - remaining)}ms`,
-                }
-          }
+          deadline={frozen ? null : deadline}
+          total={total}
+          clockOffset={clockOffset}
+          left={paused ?? 0}
+          className={urgent ? 'bg-danger dark:bg-rose-500' : 'bg-accent dark:bg-amber-500'}
         />
       </div>
     </div>

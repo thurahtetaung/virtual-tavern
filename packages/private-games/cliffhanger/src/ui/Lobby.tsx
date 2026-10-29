@@ -413,7 +413,7 @@ export function Lobby({
           testId="setting-deck"
         />
         <Pills
-          label="Where you play"
+          label="How are you playing?"
           value={s.mode}
           editable={editable}
           onPick={(mode) => set({ mode })}

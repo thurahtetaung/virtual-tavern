@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cliffhanger } from './definition.ts';
-import { DECK_CAP, goalNow, progressOf, stealGenres } from './game.ts';
+import { DECK_CAP, goalNow, nextDeadline, progressOf, stealGenres } from './game.ts';
 import {
   BASE_GENRES,
   FILM_GENRE_IDS,
@@ -159,6 +159,15 @@ describe('choosing the genres', () => {
     g.act(HOST, { type: 'start' });
     expect(g.state.phase).toBe('playing');
     expect(cliffhanger.view(g.state, HOST)).toMatchObject({ genreCounts: null });
+  });
+
+  it('names the thin genres when the chosen packs hold titles but none in the goal', () => {
+    // A pack of only the four extra genres, with the first eight picked.
+    const extra = FILM_GENRE_IDS.filter((g) => !BASE_GENRES.includes(g));
+    const h = harness(4, { packs: { films: films(12, extra) } });
+    expect(() => h.act(HOST, { type: 'start' })).toThrow(
+      /too-few-titles: Too few films in Action, .*Fantasy/,
+    );
   });
 
   it('a big pack still deals every genre’s titles into the capped deck', () => {
@@ -417,6 +426,66 @@ describe('three for one and winning', () => {
     while (h.state.phase === 'playing' && h.state.round!.turn?.team === 'a') h.tick();
     expect(h.state.phase).toBe('over');
     expect(h.state.winner).toBe('a');
+  });
+
+  it('a whole game always moves on: steals, a skipped turn, discards, the 3-for-1, a win', () => {
+    // Popcorn wins every face-off. On odd rounds its describer clears its three and steals all of
+    // the other side's, so the other turn has nothing left; on even rounds it stops after its own
+    // three and the other side gets one, missing the rest. Popcorn starts with three action
+    // films and Nachos with one, so the 3-for-1 comes at the first round's end.
+    const h = started(4, { settings: { comebackPick: true } });
+    const own = (genre: string, n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `x:${genre}${i}`,
+        title: `T ${genre}${i}`,
+        genre,
+      }));
+    h.state = { ...h.state, collections: { a: own('action', 3), b: own('drama', 1) } };
+    const seen = new Set<string>();
+    for (let i = 0; i < 500 && h.state.phase === 'playing'; i++) {
+      const r = h.state.round!;
+      seen.add(r.stage);
+      if (r.stage === 'pick-category') {
+        h.act(r.pick!.by, { type: 'pick-category', id: r.pick!.options[0]!.id });
+      } else if (r.stage === 'faceoff' && r.faceoff!.answers === 0) {
+        // Waiting for the first answer with no clock (the opening clock is off): a press moves on.
+        expect(nextDeadline(h.state)).toBeNull();
+        winFaceOff(h, r.pair.a);
+      } else if (r.stage === 'keep') {
+        keepAndPlace(h);
+      } else if (r.stage === 'turn') {
+        const turn = r.turn!;
+        const cards = gettable(h);
+        if (turn.team === 'b') {
+          if (cards.length === 3) h.act(turn.describer, { type: 'got', card: cards[0]! });
+          h.tick();
+        } else if (turn.stealOpen && r.number % 2 === 0) {
+          h.tick();
+        } else {
+          if (turn.stealOpen) seen.add('stolen');
+          h.act(turn.describer, { type: 'got', card: cards[0]! });
+        }
+      } else if (r.stage === 'steal') {
+        const team = r.steal!.queue[0]!;
+        const theirs = h.state.collections[team === 'a' ? 'b' : 'a'];
+        const genre = stealGenres(h.state, team)[0]!;
+        h.act(r.pair[team], { type: 'steal', genre, card: theirs[0]!.id });
+        seen.add('traded');
+      } else {
+        const left = [...(r.board.a ?? []), ...(r.board.b ?? [])].filter((x) => !x.got);
+        if (r.stage === 'countdown' && r.turnNo === 1 && left.length === 0) seen.add('skipped');
+        h.tick();
+      }
+    }
+    expect(h.state.phase).toBe('over');
+    expect(h.state.winner).toBe('a');
+    expect(h.state.round!.number).toBeGreaterThan(2);
+    expect(h.state.discard.length).toBeGreaterThan(0);
+    for (const step of ['pick-category', 'faceoff', 'keep', 'turn', 'recap', 'stolen', 'skipped']) {
+      expect(seen, step).toContain(step);
+    }
+    expect(seen, 'traded').toContain('traded');
+    expect(h.state.collections.b.map((c) => c.id)).not.toContain('x:drama0');
   });
 
   it('a team down to one player ends the game with no winner', () => {
