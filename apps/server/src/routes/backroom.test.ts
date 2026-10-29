@@ -244,6 +244,52 @@ describe('back room over HTTP', () => {
     bucket.close();
   });
 
+  it('never lets a cache keep an art refusal, whatever the reason', async () => {
+    const bucket = await fakeBucket();
+    const app = make({ r2: { ...R2, endpoint: bucket.endpoint } });
+    await open(app);
+    const { cookie } = await unlock(app);
+    const refusals: [string, string, number][] = [
+      ['locked', '/api/backroom/assets/reverie/manifest.json', 404],
+      ['locked manifest', '/api/backroom/manifest/reverie', 404],
+      ['unknown game', '/api/backroom/assets/nope/x.png', 404],
+      ['public game', '/api/backroom/assets/codenames/x.png', 404],
+      ['missing file', '/api/backroom/assets/reverie/cards/999.jpg', 404],
+      ['bad path', '/api/backroom/assets/reverie/..%2F..%2Fx', 400],
+      ['no route', '/api/backroom/assets/reverie', 404],
+    ];
+    for (const [why, url, status] of refusals) {
+      const res = await app.inject({
+        method: 'GET',
+        url,
+        headers: why.startsWith('locked') ? {} : { cookie },
+      });
+      expect(res.statusCode, why).toBe(status);
+      expect(res.headers['cache-control'], why).toBe('private, no-store');
+    }
+    bucket.close();
+
+    // Without asset storage, and when the bucket fails.
+    const bare = make({ r2: null });
+    await open(bare);
+    const res = await bare.inject({
+      method: 'GET',
+      url: '/api/backroom/assets/reverie/cards/001.jpg',
+      headers: { cookie: (await unlock(bare)).cookie },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    const broken = make({ r2: { ...R2, endpoint: 'http://127.0.0.1:1' } });
+    await open(broken);
+    const failed = await broken.inject({
+      method: 'GET',
+      url: '/api/backroom/assets/reverie/cards/001.jpg',
+      headers: { cookie: (await unlock(broken)).cookie },
+    });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.headers['cache-control']).toBe('private, no-store');
+  });
+
   it('gives up on a bucket that never answers, without saying why', async () => {
     const stalled = createServer(() => {
       /* never replies */

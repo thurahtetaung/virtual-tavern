@@ -448,6 +448,14 @@ export function buildApp(opts: AppOptions) {
     return reply.code(status).send({ error: { code, message: text } });
   });
 
+  // A back-room refusal (locked, unknown game, missing file, any error) must never be kept by a
+  // cache keyed by URL alone, or an unlocked player could be handed a locked browser's 404.
+  app.addHook('onSend', (req, reply, payload, done) => {
+    if (req.url.startsWith('/api/backroom/') && reply.statusCode >= 400)
+      void reply.header('cache-control', 'private, no-store');
+    done(null, payload);
+  });
+
   // Browsers unlocked before the edge pass existed (or whose pass is for an older unlock) get one
   // on their next API call.
   if (edge) {
