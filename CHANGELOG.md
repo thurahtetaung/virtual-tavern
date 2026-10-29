@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.0...v0.82.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **cliffhanger:** turn clock drains in step, Start names thin genres, lobby wording ([#496](https://github.com/thurahtetaung/virtual-tavern/issues/496)) ([f34895d](https://github.com/thurahtetaung/virtual-tavern/commit/f34895d851ee686ac0c006ce874d584f8800cbcf))
+
 ## [0.82.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.3...v0.82.0) (2026-10-29)
 
 
