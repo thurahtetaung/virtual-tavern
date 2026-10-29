@@ -1,3 +1,11 @@
+import { type ContentProvider, playWithBots } from '@vt/game-sdk';
+import {
+  BASE_GENRES,
+  type CliffhangerState,
+  cliffhanger,
+  hostMove,
+  insights,
+} from '@vt/private-cliffhanger/logic';
 import { describe, expect, it } from 'vitest';
 import { buildFigures, figureCounters } from './figures.ts';
 
@@ -235,5 +243,55 @@ describe('Mosaic figures', () => {
         { label: 'The centre', value: 1 },
       ],
     });
+  });
+});
+
+describe('Cliffhanger figures', () => {
+  it('read what a whole bot game reports', () => {
+    const films = Array.from({ length: 12 }, (_, i) =>
+      BASE_GENRES.map((genre) => ({ title: `Pretend ${genre} ${i}`, genre })),
+    ).flat();
+    const packs: Record<string, { id: string; name: string; data: unknown }[]> = {
+      films: [{ id: 'f', name: 'Films', data: { films } }],
+      categories: [
+        {
+          id: 'c',
+          name: 'Categories',
+          data: { categories: Array.from({ length: 20 }, (_, i) => `Made-up category ${i}`) },
+        },
+      ],
+    };
+    const content: ContentProvider = {
+      wordLists: () => [],
+      words: () => [],
+      contentPacks: (kind) => packs[kind] ?? [],
+    };
+    const m = new Map<string, number>();
+    let last: CliffhangerState | null = null;
+    const result = playWithBots(
+      cliffhanger,
+      ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => ({ id, name: id })),
+      {
+        seed: 4,
+        content,
+        maxSteps: 4000,
+        host: hostMove,
+        onChange: (state) => {
+          if (last)
+            for (const e of insights(last, state, null, null))
+              for (const [k, v] of figureCounters('cliffhanger', e.type, e.props ?? {}))
+                m.set(k, k.startsWith('max.') ? Math.max(m.get(k) ?? 0, v) : (m.get(k) ?? 0) + v);
+          last = state;
+        },
+      },
+    );
+    expect(result.over).toBe(true);
+    const figs = buildFigures('cliffhanger', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('rounds')).toMatchObject({ kind: 'number', value: result.state.round!.number });
+    expect((by('turn-got') as { value: number }).value).toBeGreaterThan(0);
+    const styles = (by('styles') as { parts: { value: number }[] }).parts;
+    expect(styles.reduce((n, p) => n + p.value, 0)).toBe(m.get('f.got'));
+    expect(m.get('f.faceoffs')).toBe(result.state.round!.number);
   });
 });

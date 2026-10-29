@@ -174,6 +174,7 @@ const FIXED_ORDER = [
   'skyfire',
   'conveyor',
   'defuse',
+  'cliffhanger',
 ];
 
 /**

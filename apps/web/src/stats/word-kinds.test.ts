@@ -31,6 +31,7 @@ describe('word kinds per game', () => {
     expect(knownWordKinds('skyfire')).toEqual([]);
     expect(knownWordKinds('conveyor')).toEqual([]);
     expect(knownWordKinds('defuse')).toEqual([]);
+    expect(knownWordKinds('cliffhanger')).toEqual(['guess', 'clue']);
     expect(wordKindLabel('nightfall', 'guess')).toBe('Roles that died');
     expect(knownWordKinds('mystery')).toBeNull();
   });

@@ -34,6 +34,7 @@ import {
   setTestDeck as setSkyfireDeck,
   skyfire,
 } from '@vt/private-skyfire/logic';
+import { cliffhanger, setTestDeck as setCliffhangerDeck } from '@vt/private-cliffhanger/logic';
 import {
   conveyor,
   parseTestDeck as parseConveyorDeck,
@@ -237,6 +238,12 @@ if (process.env.NODE_ENV !== 'production' && process.env.DEFUSE_TEST_SEED) {
   if (process.env.DEFUSE_TEST_LIGHTS) setDefuseLights(Number(process.env.DEFUSE_TEST_LIGHTS));
 }
 
+// Browser tests only: Cliffhanger deals its titles and categories in the packs' own order, so a
+// spec knows every hand. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.CLIFFHANGER_TEST_DECK === '1') {
+  setCliffhangerDeck();
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -274,6 +281,7 @@ export function buildGames(): GameRegistry {
     skyfire,
     conveyor,
     defuse,
+    cliffhanger,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

@@ -72,6 +72,7 @@ describe('chart colours', () => {
     expect(slots.get('skyfire')).toBe(26);
     expect(slots.get('conveyor')).toBe(27);
     expect(slots.get('defuse')).toBe(28);
+    expect(slots.get('cliffhanger')).toBe(29);
     // With every slot taken, other games get the neutral colour.
     for (const id of ['zeta', 'alpha']) expect(slotColor(light, slotFor(id))).toBe(light.other);
     // A filter that hides a game never repaints the others.

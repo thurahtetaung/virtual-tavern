@@ -16,6 +16,7 @@
     "@vt/game-masquerade": "workspace:*",
     "@vt/game-round-table": "workspace:*",
     "@vt/game-sdk": "workspace:*",
+    "@vt/private-cliffhanger": "workspace:*",
     "@vt/private-conveyor": "workspace:*",
     "@vt/private-defuse": "workspace:*",
     "@vt/private-encore": "workspace:*",

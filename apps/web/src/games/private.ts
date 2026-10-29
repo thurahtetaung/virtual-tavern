@@ -38,6 +38,10 @@ import { guide as skyfireGuide, nameGuide as nameSkyfireGuide } from '@vt/privat
 import { guide as conveyorGuide, nameGuide as nameConveyorGuide } from '@vt/private-conveyor/guide';
 import { guide as defuseGuide, nameGuide as nameDefuseGuide } from '@vt/private-defuse/guide';
 import {
+  guide as cliffhangerGuide,
+  nameGuide as nameCliffhangerGuide,
+} from '@vt/private-cliffhanger/guide';
+import {
   inquestLabels,
   manifestGuide,
   manifestTitle,
@@ -325,6 +329,19 @@ const games: ClientGame[] = [
     ),
     stage: lazyUi(() =>
       import('@vt/private-defuse/stage').then((m) => ({ default: m.DefuseStage })),
+    ),
+  },
+  {
+    id: 'cliffhanger',
+    name: 'Cliffhanger',
+    guide: cliffhangerGuide,
+    namedGuide: manifestGuide('cliffhanger', nameCliffhangerGuide),
+    icon: '📼',
+    Component: lazyUi(() =>
+      import('@vt/private-cliffhanger/ui').then((m) => ({ default: m.CliffhangerGame })),
+    ),
+    stage: lazyUi(() =>
+      import('@vt/private-cliffhanger/stage').then((m) => ({ default: m.CliffhangerStage })),
     ),
   },
 ];

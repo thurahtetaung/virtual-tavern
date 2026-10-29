@@ -158,6 +158,7 @@ describe('back room over HTTP', () => {
       'skyfire',
       'conveyor',
       'defuse',
+      'cliffhanger',
     ]);
   });
 
