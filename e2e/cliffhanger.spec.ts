@@ -74,6 +74,19 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
   // Round 2: Cleo against Dev (Ben and Dev's team is behind and picks the category).
   await faceOff(all, cleo);
   await lockIn(cleo);
+  // The turn's clock bar drains in step with the seconds shown: checked well into the turn.
+  const clock = ana.getByTestId('turn-guesser');
+  await expect(clock.getByRole('timer')).toHaveAccessibleName(/^(1\d|2[0-2]) seconds left/, {
+    timeout: 30_000,
+  });
+  const seconds = Number.parseInt(
+    (await clock.getByRole('timer').getAttribute('aria-label')) ?? '',
+  );
+  const scale = await clock
+    .getByTestId('clock-fill')
+    .evaluate((fill) => new DOMMatrix(getComputedStyle(fill).transform).a);
+  const lag = Math.abs(scale - seconds / 30);
+  expect(lag).toBeLessThan(0.1);
   const second = await describeCards(cleo, 2);
   expect(second).toEqual(['Pretend animation 1', 'Pretend scifi 1']);
   // One left of hers, then Dev's three to steal: the turn goes on.

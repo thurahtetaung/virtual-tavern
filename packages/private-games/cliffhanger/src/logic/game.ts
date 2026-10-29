@@ -704,10 +704,12 @@ function start(state: CliffhangerState, ctx: ActionCtx): Result {
   if (goal.genres.length < MIN_GENRES) {
     return err('too-few-genres', `Pick at least ${MIN_GENRES} genres to collect.`);
   }
-  const cards = cardsFrom(ctx.content, settings.deck, settings.packIds, goal.genres);
-  if (cards.length === 0) {
+  // No titles at all means no pack is picked; titles only outside the goal's genres are too few.
+  const allGenres = genresOf(settings.deck).map((g) => g.id);
+  if (cardsFrom(ctx.content, settings.deck, settings.packIds, allGenres).length === 0) {
     return err('no-cards', `Pick at least one pack of ${noun} first.`);
   }
+  const cards = cardsFrom(ctx.content, settings.deck, settings.packIds, goal.genres);
   const counts: Record<string, number> = {};
   for (const c of cards) counts[c.genre] = (counts[c.genre] ?? 0) + 1;
   const short = shortGenres(goal, counts);
