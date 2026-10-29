@@ -105,6 +105,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-cliffhanger':
+        specifier: workspace:*
+        version: link:../../packages/private-games/cliffhanger
       '@vt/private-conveyor':
         specifier: workspace:*
         version: link:../../packages/private-games/conveyor
@@ -213,6 +216,9 @@ importers:
       '@vt/game-sdk':
         specifier: workspace:*
         version: link:../../packages/game-sdk
+      '@vt/private-cliffhanger':
+        specifier: workspace:*
+        version: link:../../packages/private-games/cliffhanger
       '@vt/private-conveyor':
         specifier: workspace:*
         version: link:../../packages/private-games/conveyor
@@ -441,6 +447,25 @@ importers:
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
+
+  packages/private-games/cliffhanger:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/private-games/conveyor:
     dependencies:

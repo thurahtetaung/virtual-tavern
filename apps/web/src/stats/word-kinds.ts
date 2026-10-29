@@ -56,6 +56,8 @@ const KINDS_BY_GAME: Readonly<Record<string, readonly WordKind[]>> = {
   conveyor: [],
   // Bombs and modules, not words: no Words card.
   defuse: [],
+  // Titles guessed, and the face-off categories.
+  cliffhanger: ['guess', 'clue'],
 };
 
 const LABELS: Record<WordKind, string> = {

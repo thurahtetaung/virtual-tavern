@@ -28,6 +28,7 @@ export const SHARED_STATE = [
   /short-fuse(-\w+)?\.spec\.ts$/,
   /starlight\.spec\.ts$/,
   /thorns[\w-]*\.spec\.ts$/,
+  /cliffhanger[\w-]*\.spec\.ts$/,
   /iconic\.spec\.ts$/,
   /stampede[\w-]*\.spec\.ts$/,
   /jeweller[\w-]*\.spec\.ts$/,
@@ -76,6 +77,7 @@ export const GAME_IDS = [
   'skyfire',
   'conveyor',
   'defuse',
+  'cliffhanger',
 ];
 
 /**
@@ -196,6 +198,8 @@ export default defineConfig({
       // Every Defuse bomb is built from this seed: with 3 modules, wires (cut the first),
       // a keypad and a password (see defuse-play.ts).
       DEFUSE_TEST_SEED: '418',
+      // Cliffhanger's spec knows every hand: titles and categories dealt in the packs' own order.
+      CLIFFHANGER_TEST_DECK: '1',
       // Defuse's room specs reach lights out: 40 s after each bomb's clock starts.
       DEFUSE_TEST_LIGHTS: '40000',
     },

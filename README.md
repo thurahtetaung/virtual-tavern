@@ -73,6 +73,7 @@ packages/private-games/encore Encore (back room) rules, guide and UI; card art c
 packages/private-games/conveyor Conveyor (back room) rules, guide and UI; card art and names come from private storage
 packages/private-games/defuse   Defuse (back room) rules, guide and UI; renders, sounds and names come from private storage
 packages/private-games/mission-control Mission Control (back room) rules, guide and UI; task cards and the campaign come from private content packs, card art from private storage
+packages/private-games/cliffhanger Cliffhanger (back room) rules, guide and UI; titles and categories come from private content packs, tape art and sound from private storage
 packages/private-games/skyfire Skyfire (back room) rules, guide and UI; card art comes from private storage
 e2e                           Playwright specs, run against the production build
 scripts                       deploy.sh (server-side release), r2-upload.mjs (private assets), import-question-decks.mjs (private question decks), import-content-pack.mjs (private content packs), set-game-title.mjs (back-room titles) and set-game-categories.mjs (game categories)

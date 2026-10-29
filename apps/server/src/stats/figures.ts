@@ -114,6 +114,10 @@ import type { GameFigure } from '@vt/protocol';
 //              shared, ranking, scores}
 //   defuse     module {kind, needy, solved, strikes, seconds}, strike {kind}, expert {pages},
 //              outcome {how, defused, left, total, strikes, limit, modules, solved, players}
+//   cliffhanger faceoff {answers, ms, how, suddenDeath; recap: round, loser}, got {style, steal,
+//              ms; recap: round, team, genre}, turn {got, own, steals, missed, clean; recap: round,
+//              team}, steal3 {recap: round, team, gave, took}, genre {recap: round, team, genre},
+//              outcome {rounds, endReason, comeback; recap: winner, goal, behind, collectedA/B}
 
 type Props = Record<string, unknown>;
 type Counters = [metric: string, value: number][];
@@ -2252,6 +2256,114 @@ function conveyorFigures(get: (metric: string) => number): GameFigure[] {
   ];
 }
 
+function cliffhangerCounters(type: string, props: Props): Counters {
+  const out: Counters = [];
+  switch (type) {
+    case 'outcome':
+      out.push(['f.games', 1]);
+      out.push(['f.rounds', num(props.rounds) ?? 0]);
+      if (props.endReason === 'sudden-death') out.push(['f.sudden', 1]);
+      if (props.comeback === true) out.push(['f.comebacks', 1]);
+      break;
+    case 'faceoff': {
+      out.push(['f.faceoffs', 1]);
+      const answers = num(props.answers) ?? 0;
+      out.push(['f.answers', answers]);
+      out.push(['max.f.rally', answers]);
+      if (props.how === 'time') out.push(['f.fo_time', 1]);
+      break;
+    }
+    case 'got': {
+      out.push(['f.got', 1]);
+      if (props.steal === true) out.push(['f.stolen', 1]);
+      const style = str(props.style);
+      if (style) out.push([`f.style.${style}`, 1]);
+      break;
+    }
+    case 'turn':
+      out.push(['f.turns', 1]);
+      out.push(['f.turn_got', num(props.got) ?? 0]);
+      if (props.clean === true) out.push(['f.clean', 1]);
+      break;
+    case 'steal3':
+      out.push(['f.trades', 1]);
+      break;
+  }
+  return out;
+}
+
+function cliffhangerFigures(get: (metric: string) => number): GameFigure[] {
+  const games = get('f.games');
+  return [
+    {
+      id: 'rounds',
+      label: 'Rounds per game',
+      kind: 'number',
+      value: avg(get('f.rounds'), games),
+    },
+    {
+      id: 'rally',
+      label: 'Answers per face-off',
+      kind: 'number',
+      value: avg(get('f.answers'), get('f.faceoffs')),
+    },
+    { id: 'longest-rally', label: 'Longest face-off (answers)', kind: 'number', value: get('max.f.rally') },
+    {
+      id: 'faceoff-time',
+      label: 'Face-offs lost on the clock',
+      kind: 'percent',
+      value: pct(get('f.fo_time'), get('f.faceoffs')),
+    },
+    {
+      id: 'turn-got',
+      label: 'Titles got per turn',
+      kind: 'number',
+      value: avg(get('f.turn_got'), get('f.turns')),
+    },
+    {
+      id: 'clean',
+      label: 'Turns with all three got',
+      kind: 'percent',
+      value: pct(get('f.clean'), get('f.turns')),
+    },
+    {
+      id: 'styles',
+      label: 'Titles got by style',
+      kind: 'split',
+      parts: [
+        { label: 'One word', value: get('f.style.one-word') },
+        { label: 'Quote it', value: get('f.style.quote') },
+        { label: 'Act it', value: get('f.style.act') },
+        { label: 'Describe it badly', value: get('f.style.describe-badly') },
+      ],
+    },
+    {
+      id: 'stolen',
+      label: 'Titles stolen per game',
+      kind: 'number',
+      value: avg(get('f.stolen'), games),
+    },
+    {
+      id: 'trades',
+      label: 'Three-for-one trades per game',
+      kind: 'number',
+      value: avg(get('f.trades'), games),
+    },
+    {
+      id: 'comebacks',
+      label: 'Wins from two genres behind',
+      kind: 'percent',
+      value: pct(get('f.comebacks'), games),
+    },
+    {
+      id: 'sudden',
+      label: 'Games decided in sudden death',
+      kind: 'percent',
+      value: pct(get('f.sudden'), games),
+    },
+  ];
+}
+
 function encoreCounters(type: string, props: Props): Counters {
   const out: Counters = [];
   switch (type) {
@@ -2476,6 +2588,7 @@ export function figureCounters(gameId: string, type: string, props: Props): Coun
   if (gameId === 'skyfire') return skyfireCounters(type, props);
   if (gameId === 'conveyor') return conveyorCounters(type, props);
   if (gameId === 'defuse') return defuseCounters(type, props);
+  if (gameId === 'cliffhanger') return cliffhangerCounters(type, props);
   const out: Counters = [];
   const flag = (metric: string, v: unknown) => {
     out.push([`f.${metric}`, 1]);
@@ -2701,6 +2814,8 @@ export function buildFigures(
       return skyfireFigures(get);
     case 'conveyor':
       return conveyorFigures(get);
+    case 'cliffhanger':
+      return cliffhangerFigures(get);
     case 'defuse':
       return defuseFigures(get);
     case 'codenames':
