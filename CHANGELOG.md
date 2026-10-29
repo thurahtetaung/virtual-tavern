@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.3...v0.82.0) (2026-10-29)
+
+
+### Features
+
+* **cliffhanger:** add Cliffhanger, a film face-off and describing party game in the back room ([#494](https://github.com/thurahtetaung/virtual-tavern/issues/494)) ([5259ea1](https://github.com/thurahtetaung/virtual-tavern/commit/5259ea195fcba984f7a92b0b4745d5b778e281d8))
+
 ## [0.81.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.81.2...v0.81.3) (2026-10-29)
 
 
