@@ -171,10 +171,11 @@ export function Tape({
       {genreBox && (
         <div
           aria-hidden
-          className="cl-upright absolute flex items-center justify-center overflow-hidden font-black tracking-wide text-white uppercase"
+          className="cl-upright absolute flex items-center justify-center overflow-hidden font-black tracking-wide whitespace-nowrap text-white uppercase"
           style={{
             ...boxStyle(genreBox),
-            fontSize: 'clamp(6px, 9cqh, 40px)',
+            // One line along the band: long names get smaller.
+            fontSize: `clamp(5px, ${Math.min(9, (genreBox[3] * 100) / (0.75 * genre.length)).toFixed(2)}cqh, 40px)`,
             textShadow: '0 1px 2px rgb(0 0 0 / .6)',
           }}
         >

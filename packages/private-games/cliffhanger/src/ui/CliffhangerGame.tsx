@@ -218,7 +218,8 @@ function Game(props: CliffhangerUiProps) {
           <Hint tone={status.yourMove ? 'action' : 'neutral'} dense>
             {status.text}
           </Hint>
-          {view.phase === 'playing' && <Tips view={view} />}
+          {/* Never between a player on the clock and their buttons. */}
+          {view.phase === 'playing' && !status.yourMove && <Tips view={view} />}
           {view.phase === 'over' ? (
             <Panel>
               <End view={view} room={room} act={act} />

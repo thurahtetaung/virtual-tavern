@@ -127,6 +127,9 @@ function FaceOff({ view, room, act }: PlayProps) {
   const paused = fo.paused;
   const doubter = paused?.by;
   const isLast = me === fo.last;
+  // Without the card's art the category reads better as plain text alone.
+  const { faceoff } = useArt();
+  const card = !!(faceoff.thumb && faceoff.textBox);
   const press = () => {
     buzz(30);
     void act({ type: 'said' }, { anchor: 'cl-fo' });
@@ -144,7 +147,7 @@ function FaceOff({ view, room, act }: PlayProps) {
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <CategoryCard text={r.category?.text ?? ''} className="h-40 max-sm:h-32" />
+        {card && <CategoryCard text={r.category?.text ?? ''} className="h-40 max-sm:h-32" />}
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
             Name a {nounOf(view.settings.deck)}
