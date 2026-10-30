@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.1...v0.82.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **cliffhanger:** drop Doubt it and Foul, only the describer sees the cards ([#498](https://github.com/thurahtetaung/virtual-tavern/issues/498)) ([2927ea9](https://github.com/thurahtetaung/virtual-tavern/commit/2927ea9a56e31f2b136bc8001855fbfde79d51ca))
+
 ## [0.82.1](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.0...v0.82.1) (2026-10-29)
 
 
