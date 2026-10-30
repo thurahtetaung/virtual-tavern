@@ -14,8 +14,8 @@ import type {
 /**
  * Who may see the card on one of `owner`'s squares. A card that was got is public, and so is
  * everything once the round's turns are over. Otherwise its describer; its own team once its turn
- * is over; the other team while it is being described; and the other describer once stealing
- * opens. Never a team while it may still be guessing it, never a watcher or the table screen.
+ * is over; and the other describer once stealing opens. Never the other team while it is being
+ * described, a team while it may still be guessing it, a watcher or the table screen.
  */
 function canSee(
   state: CliffhangerState,
@@ -34,8 +34,8 @@ function canSee(
   if (team === owner && round.order.indexOf(owner) < round.turnNo) return true;
   const turn = round.turn;
   if (round.stage !== 'turn' || !turn) return false;
-  // While a team describes its own cards, the other team watches them.
-  if (turn.team === owner) return team !== owner;
+  // A team's own cards, mid-turn, are its describer's alone (above).
+  if (turn.team === owner) return false;
   // Its describer sees the other side's cards once its own three are got.
   return turn.describer === viewer && turn.stealOpen;
 }

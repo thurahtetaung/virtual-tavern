@@ -50,14 +50,27 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
   ).toBeVisible();
   await ana.getByTestId('genre-heart').click();
   await expect(ana.getByTestId('genre-short')).toHaveCount(0);
+  // The two text-only extra rules get reminders where they apply.
+  await ana.getByText('Clocks and extra rules').click();
+  await ana.getByTestId('setting-no-sequels').click();
+  await ana.getByTestId('setting-new-words').click();
+  await expect(ana.getByTestId('setting-new-words')).toHaveAttribute('aria-checked', 'true');
   await ana.getByTestId('start').click();
 
   // Round 1: Ana against Ben. Ana answers; Ben's clock runs out.
   await expect(ana.getByTestId('said-it')).toBeVisible({ timeout: 15_000 });
   await expect(ben.getByTestId('faceoff')).toBeVisible();
+  for (const p of [ana, ben, cleo]) await expect(p.getByTestId('rule-no-sequels')).toBeVisible();
   await faceOff(all, ana);
   await expect(ana.getByTestId('hand-card')).toHaveCount(6);
   await lockIn(ana);
+
+  // Only Ana sees the card she describes; the One Word square carries its reminder.
+  await expect(ana.getByTestId('now-title')).toHaveText('Pretend action 1', { timeout: 15_000 });
+  await expect(ana.getByTestId('rule-new-words')).toBeVisible();
+  await expect(dev.getByTestId('turn-rival')).toBeVisible();
+  await expect(dev.getByTestId('turn-rival')).toContainText('Only Ana sees their cards');
+  for (const p of [ben, cleo, dev]) await expect(p.getByText('Pretend action 1')).toHaveCount(0);
 
   // Ana describes her three, then steals Ben's three.
   const first = await describeCards(ana, 6);

@@ -17,7 +17,18 @@ import {
   other,
 } from '../logic/types.ts';
 import { useArt } from './assets.ts';
-import { ClockBar, GenreRace, StyleName, Tape, TeamChip, nameOf, teamName } from './parts.tsx';
+import {
+  ClockBar,
+  GenreRace,
+  RuleNote,
+  SideArt,
+  StyleName,
+  Tape,
+  TeamChip,
+  nameOf,
+  teamName,
+  turnBox,
+} from './parts.tsx';
 import { buzz } from './useSound.ts';
 
 type Act = (a: CliffhangerAction, o?: { anchor?: string }) => Promise<boolean>;
@@ -30,7 +41,7 @@ export interface PlayProps {
   cue?: (key: string) => void;
 }
 
-/** The face-off's category: the card's art with the words on it, or a plain card. */
+/** The face-off's category: the card's art on its side with the words on it, or a plain card. */
 export function CategoryCard({
   text,
   big = false,
@@ -43,27 +54,26 @@ export function CategoryCard({
   const { faceoff } = useArt();
   const src = big ? faceoff.card : faceoff.thumb;
   if (src && faceoff.textBox) {
-    const [x, y, w, h] = faceoff.textBox;
+    const [x, y, w, h] = turnBox(faceoff.textBox);
     return (
       <div
         role="img"
         aria-label={`Category: ${text}`}
-        className={cn('relative aspect-[536/740] shrink-0 [container-type:size]', className)}
+        className={cn(
+          'relative aspect-[740/536] shrink-0 overflow-hidden rounded-md shadow-lg [container-type:size]',
+          className,
+        )}
       >
-        <ProtectedImage
-          src={src}
-          alt=""
-          className="absolute inset-0 h-full w-full rounded-md object-fill shadow-lg"
-        />
+        <SideArt src={src} />
         <div
           aria-hidden
-          className="cl-upright absolute flex items-center justify-center p-[3%] text-center leading-tight font-black text-stone-900"
+          className="absolute flex items-center justify-center p-[3%] text-center leading-tight font-black break-words text-stone-900"
           style={{
             left: `${x * 100}%`,
             top: `${y * 100}%`,
             width: `${w * 100}%`,
             height: `${h * 100}%`,
-            fontSize: `clamp(8px, ${text.length > 30 ? 6 : 8}cqh, 72px)`,
+            fontSize: `clamp(8px, ${text.length > 30 ? 7 : 9}cqh, 72px)`,
           }}
         >
           {text}
@@ -124,9 +134,6 @@ function FaceOff({ view, room, act }: PlayProps) {
     fo.answers === 0 && view.settings.openingClock
       ? OPENING_MS
       : view.settings.answerSeconds * 1000;
-  const paused = fo.paused;
-  const doubter = paused?.by;
-  const isLast = me === fo.last;
   // Without the card's art the category reads better as plain text alone.
   const { faceoff } = useArt();
   const card = !!(faceoff.thumb && faceoff.textBox);
@@ -147,10 +154,11 @@ function FaceOff({ view, room, act }: PlayProps) {
         </span>
       </div>
       <div className="flex items-center gap-3">
-        {card && <CategoryCard text={r.category?.text ?? ''} className="h-40 max-sm:h-32" />}
+        {card && <CategoryCard text={r.category?.text ?? ''} className="h-24 sm:h-36" />}
         <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-xs font-bold tracking-wide text-ink-muted uppercase">
+          <p className="flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase">
             Name a {nounOf(view.settings.deck)}
+            {view.settings.noSequels && <RuleNote testId="rule-no-sequels">No sequels</RuleNote>}
           </p>
           <p className="text-xl font-black leading-tight sm:text-2xl" data-testid="category">
             {r.category?.text}
@@ -161,66 +169,23 @@ function FaceOff({ view, room, act }: PlayProps) {
         </div>
       </div>
       <ClockBar
-        deadline={paused ? null : fo.deadline}
-        paused={paused ? paused.left : fo.deadline === null ? total : null}
+        deadline={fo.deadline}
+        paused={fo.deadline === null ? total : null}
         total={total}
         clockOffset={room.clockOffset}
         big
         label={
-          paused
-            ? `Paused by ${nameOf(view, doubter)}`
-            : fo.on
-              ? fo.on === me
-                ? 'You’re on the clock'
-                : `${nameOf(view, fo.on)} is on the clock`
-              : 'First to answer'
+          fo.on
+            ? fo.on === me
+              ? 'You’re on the clock'
+              : `${nameOf(view, fo.on)} is on the clock`
+            : 'First to answer'
         }
       />
-      {paused ? (
-        <div className="space-y-2 rounded-xl bg-warn-soft p-3 ring-1 ring-warn-line dark:bg-amber-500/10 dark:ring-amber-500/30">
-          <p className="text-sm font-semibold">
-            Is {isLast ? 'your' : `${nameOf(view, fo.last)}’s`} answer right? Talk it out.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {isLast && (
-              <Button
-                variant="secondary"
-                onClick={() => void act({ type: 'concede' }, { anchor: 'cl-fo' })}
-              >
-                Give it up
-              </Button>
-            )}
-            {inPair && !isLast && (
-              <Button onClick={() => void act({ type: 'stands' }, { anchor: 'cl-fo' })}>
-                Let it stand
-              </Button>
-            )}
-            {room.isHost && (
-              <>
-                <Button
-                  variant="secondary"
-                  data-testid="rule-stands"
-                  onClick={() => void act({ type: 'rule', stands: true }, { anchor: 'cl-fo' })}
-                >
-                  Host: it stands
-                </Button>
-                <Button
-                  variant="secondary"
-                  data-testid="rule-strike"
-                  onClick={() => void act({ type: 'rule', stands: false }, { anchor: 'cl-fo' })}
-                >
-                  Host: doesn’t count
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      ) : onMe ? (
+      {onMe ? (
         <SaidIt onPress={press} />
       ) : inPair ? (
-        <p className="py-6 text-center text-lg font-semibold">
-          {nameOf(view, fo.on)} must answer. Wrong one? Doubt it.
-        </p>
+        <p className="py-6 text-center text-lg font-semibold">{nameOf(view, fo.on)} must answer.</p>
       ) : null}
       <div className="flex flex-wrap justify-center gap-2">
         {inPair && fo.answers === 0 && (
@@ -230,15 +195,6 @@ function FaceOff({ view, room, act }: PlayProps) {
             onClick={() => void act({ type: 'new-category' }, { anchor: 'cl-fo' })}
           >
             🔄 New category
-          </Button>
-        )}
-        {!paused && fo.answers > 0 && (inPair ? !onMe : room.isHost) && (
-          <Button
-            variant="secondary"
-            data-testid="doubt"
-            onClick={() => void act({ type: 'pause' }, { anchor: 'cl-fo' })}
-          >
-            ⏸ Doubt it
           </Button>
         )}
       </div>
@@ -328,9 +284,9 @@ function KeepSheet({ view, room, act }: PlayProps) {
               >
                 <StyleName style={squares[i]?.plays ?? style} className="truncate text-[11px]" />
                 {card ? (
-                  <Tape card={card} deck={deck} className="h-24" />
+                  <Tape card={card} deck={deck} className="w-full" />
                 ) : (
-                  <span className="grid h-24 w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-600">
+                  <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-600">
                     empty
                   </span>
                 )}
@@ -360,7 +316,7 @@ function KeepSheet({ view, room, act }: PlayProps) {
                   at >= 0 ? 'opacity-40' : 'hover:-translate-y-0.5',
                 )}
               >
-                <Tape card={c} deck={deck} className="h-28" />
+                <Tape card={c} deck={deck} className="h-[4.5rem]" />
                 {c.tier === 'easy' && (
                   <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
                     easy
@@ -390,7 +346,7 @@ export function Bays({
   view,
   team,
   focus,
-  size = 'h-24',
+  size = 'w-full',
   onTap,
 }: {
   view: CliffhangerView;
@@ -474,17 +430,6 @@ function Describer({ view, room, act, cue }: PlayProps) {
       buzz(120);
     }
   }, [left]);
-  const lastFoul = turn.fouls.at(-1);
-  const [, rerender] = useState(0);
-  useEffect(() => {
-    if (!lastFoul) return;
-    const id = setTimeout(() => rerender((n) => n + 1), 2600);
-    return () => {
-      clearTimeout(id);
-    };
-  }, [lastFoul]);
-  // eslint-disable-next-line react-hooks/purity -- a fresh foul flashes for a moment
-  const fouled = lastFoul && Date.now() + room.clockOffset - lastFoul.at < 2500;
   const lastSlot = last
     ? (['a', 'b'] as const).flatMap((t) => r.board[t] ?? []).find((s) => s.card?.id === last)
     : undefined;
@@ -494,20 +439,15 @@ function Describer({ view, room, act, cue }: PlayProps) {
   };
   return (
     <div className="space-y-3" data-testid="describer">
-      {fouled && (
-        <p
-          role="alert"
-          className="cl-shake rounded-xl bg-danger-soft px-3 py-2 text-center font-bold text-danger-ink ring-1 ring-danger-line dark:bg-rose-500/15 dark:text-rose-100 dark:ring-rose-500/40"
-        >
-          🚩 {nameOf(view, lastFoul.by)} called a foul!
-        </p>
-      )}
       {now?.card ? (
         <div className="flex items-center gap-3">
-          <Tape card={now.card} deck={deck} full className="h-48 max-sm:h-40" />
+          <Tape card={now.card} deck={deck} full className="h-32 sm:h-44" />
           <div className="min-w-0 flex-1 space-y-2">
             <StyleName style={now.plays} className="text-lg" />
             <p className="text-xs text-ink-muted">{STYLES[now.plays].how}</p>
+            {view.settings.newWordsOnly && (now.plays === 'one-word' || now.plays === 'quote') && (
+              <RuleNote testId="rule-new-words">No words from the title</RuleNote>
+            )}
             <p
               className="text-2xl leading-tight font-black break-words sm:text-3xl"
               data-testid="now-title"
@@ -591,7 +531,7 @@ function UndoButton({ card, title, act }: { card: string; title: string; act: Ac
 
 /** The describing turn, as each viewer sees it. */
 function Turn(props: PlayProps) {
-  const { view, room, act } = props;
+  const { view, room } = props;
   const r = view.round!;
   const turn = r.turn!;
   const me = view.me?.id;
@@ -628,35 +568,26 @@ function Turn(props: PlayProps) {
           {turn.stealOpen && (
             <>
               <p className="text-center text-sm font-semibold">All three! Now steal theirs:</p>
-              <Bays view={view} team={other(turn.team)} size="h-20" />
+              <Bays view={view} team={other(turn.team)} size="w-3/4" />
             </>
           )}
         </>
       )}
       {role === 'rival' && (
         <>
-          <Bays view={view} team={turn.team} focus={turn.focus} />
+          <Bays view={view} team={turn.team} />
           {turn.stealOpen && (
             <>
               <p className="text-center text-sm font-semibold text-danger">
                 They’re stealing yours now!
               </p>
-              <Bays view={view} team={other(turn.team)} focus={turn.focus} size="h-20" />
+              <Bays view={view} team={other(turn.team)} size="w-3/4" />
             </>
           )}
           <p className="text-center text-xs text-ink-muted">
-            You can see their cards. Did they break the style’s rule?
+            Only {nameOf(view, turn.describer)} sees their cards. Slip-ups are for the table to
+            settle out loud.
           </p>
-          <Button
-            variant="secondary"
-            size="lg"
-            className="w-full"
-            data-testid="foul"
-            onClick={() => void act({ type: 'foul' }, { anchor: 'cl-foul' })}
-          >
-            🚩 Foul!
-          </Button>
-          <RefusalSlot anchor="cl-foul" />
         </>
       )}
       {role === 'watcher' && <Bays view={view} team={turn.team} />}
@@ -679,13 +610,13 @@ function Recap({ view }: PlayProps) {
       <ul className="flex flex-wrap justify-center gap-2">
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
-            <Tape card={g.card} deck={deck} className="h-28" got={result.team} />
+            <Tape card={g.card} deck={deck} className="h-20" got={result.team} />
             {g.steal && <span className="text-[11px] font-bold text-danger">stolen</span>}
           </li>
         ))}
         {result.missed.map((c) => (
           <li key={c.id} className="flex flex-col items-center gap-1 opacity-60">
-            <Tape card={c} deck={deck} className="h-28" />
+            <Tape card={c} deck={deck} className="h-20" />
             <span className="text-[11px] text-ink-muted">missed</span>
           </li>
         ))}
@@ -759,7 +690,7 @@ function Steal({ view, room, act }: PlayProps) {
                     genre && void act({ type: 'steal', genre, card: c.id }, { anchor: 'cl-steal' })
                   }
                 >
-                  <Tape card={c} deck={deck} className="h-24" />
+                  <Tape card={c} deck={deck} className="h-20" />
                   {need.includes(c.genre) && (
                     <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
                       needed
@@ -814,7 +745,7 @@ function CountdownNote({ view }: PlayProps) {
           {nameOf(view, r.pair[next])} describes to {teamName(next)}
         </p>
       )}
-      {next && <Bays view={view} team={next} size="h-20" />}
+      {next && <Bays view={view} team={next} size="w-3/4" />}
     </div>
   );
 }

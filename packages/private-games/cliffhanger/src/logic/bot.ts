@@ -8,7 +8,7 @@ import { type CliffhangerAction, type CliffhangerView, type TeamId, other } from
  * the rally runs, so face-offs end), keeps and places its easiest cards, taps Got it on a card it
  * can see now and then (or switches card), steals when its own three are done, makes a
  * three-for-one for a genre its team still needs and picks a comeback category at random. It never
- * pauses, concedes or calls a foul, and never hosts (`hostMove` is the tests' host).
+ * hosts (`hostMove` is the tests' host).
  */
 export function cliffhangerBot(view: CliffhangerView, ctx: BotCtx): CliffhangerAction | null {
   const { me, rng } = ctx;
@@ -34,7 +34,7 @@ export function cliffhangerBot(view: CliffhangerView, ctx: BotCtx): CliffhangerA
     }
     case 'faceoff': {
       const fo = r.faceoff;
-      if (!fo || fo.paused || (r.pair.a !== me && r.pair.b !== me)) return null;
+      if (!fo || (r.pair.a !== me && r.pair.b !== me)) return null;
       if (fo.on === null) return r.pair.a === me || chance(rng, 0.3) ? { type: 'said' } : null;
       if (fo.on !== me) return null;
       // A bot that doesn't answer runs out of time: the face-off ends.

@@ -12,7 +12,6 @@ import type { CliffhangerView } from './types.ts';
 export { type Manifest, footerOf, namesOf } from './manifest.ts';
 
 const NO_SEQUELS: GuideOption = { key: 'noSequels', label: 'No Sequels' };
-const CHALLENGE: GuideOption = { key: 'challenge', label: 'Challenge' };
 const NEW_WORDS: GuideOption = { key: 'newWordsOnly', label: 'New Words Only' };
 const NO_ADVANTAGE: GuideOption = { key: 'noAdvantage', label: 'No advantage' };
 const COMEBACK: GuideOption = { key: 'comebackPick', label: 'Comeback category' };
@@ -52,7 +51,7 @@ function text(names: Names): GameGuide {
           'Keep trading films until one of you runs out of time. That player loses the face-off.',
           'It’s one on one: teammates can’t speak, but they can mime clues, as big as they like.',
           'Before anyone has answered, either player can ask for a new category.',
-          'Nobody checks the answers but you. Doubt one? Press Pause: the player who gave it can concede (and lose), or you let it stand and the clock goes on. If you can’t agree, the host decides.',
+          'Nobody checks the answers but you: the table decides out loud whether an answer counts, and the clock never stops.',
         ],
       },
       {
@@ -70,7 +69,7 @@ function text(names: Names): GameGuide {
           'After a 3-2-1, your team has 30 seconds (or the host’s 45 or 60). The face-off player describes; teammates shout guesses.',
           'Describe each film the way its square says. Switch between your three as often as you like; a skipped one waits for you.',
           'When a teammate names the film, tap Got it. Wrong guesses cost nothing.',
-          'The other team sees your films and can flash a Foul note if you slip, but the table settles it, not the app.',
+          'Only you see the films you are describing. Slip up? The table settles it out loud, not the app.',
           'Got all three with time left? The other team’s films open up: steal them by describing them the same way. The face-off winner’s team plays first, then the other team.',
           'Films you got go into your team’s collection. Films nobody got are thrown away at the end of the round.',
         ],
@@ -126,20 +125,16 @@ function text(names: Names): GameGuide {
         option: NO_SEQUELS,
         bullets: [
           'In the face-off, once a film from a series is said, every other film of that series is off the table.',
-        ],
-      },
-      {
-        title: 'Extra rule: Challenge',
-        option: CHALLENGE,
-        bullets: [
-          'A doubted face-off answer ends the face-off. If the answer was wrong, the doubter wins; if it was right, the answerer wins.',
-          'Without this rule, a doubted answer the host strikes doesn’t count: the clock goes back to the player who gave it, with the time they had left.',
+          'A “No sequels” reminder shows next to the category; the table enforces it.',
         ],
       },
       {
         title: 'Extra rule: New Words Only',
         option: NEW_WORDS,
-        bullets: ['In One Word and Quote It, you can’t say any word from the title.'],
+        bullets: [
+          'In One Word and Quote It, you can’t say any word from the title.',
+          'The describer’s card shows a reminder on those squares; the table enforces it.',
+        ],
       },
       {
         title: 'House rule: no advantage',
@@ -235,7 +230,6 @@ function base(names: Names): GameGuide {
       'How are you playing?': 'details',
       'TV shows': 'details',
       'Extra rule: No Sequels': 'details',
-      'Extra rule: Challenge': 'details',
       'Extra rule: New Words Only': 'details',
       'House rule: no advantage': 'edge',
       'House rule: comeback category': 'edge',
@@ -310,7 +304,6 @@ export function makeGuide(names: Names = namesOf(null), footer?: GuideFooter): G
     const options = [
       ...(s.deck === 'tv' ? [TV.key] : []),
       ...(s.noSequels ? [NO_SEQUELS.key] : []),
-      ...(s.challenge ? [CHALLENGE.key] : []),
       ...(s.newWordsOnly ? [NEW_WORDS.key] : []),
       ...(s.noAdvantage ? [NO_ADVANTAGE.key] : []),
       ...(s.comebackPick ? [COMEBACK.key] : []),

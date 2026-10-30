@@ -65,7 +65,7 @@ export function clockCues(view: CliffhangerView, from: number, to: number): Cue[
     }
   }
   const fo = r.faceoff;
-  if (r.stage === 'faceoff' && fo && !fo.paused && fo.deadline !== null) {
+  if (r.stage === 'faceoff' && fo && fo.deadline !== null) {
     const total =
       fo.answers === 0 && view.settings.openingClock
         ? OPENING_MS

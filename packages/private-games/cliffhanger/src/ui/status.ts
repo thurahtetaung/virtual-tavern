@@ -82,23 +82,6 @@ function roundStatus(view: CliffhangerView, r: RoundView, room: StatusRoom): Sta
       return turnSoon(view, r, me);
     case 'faceoff': {
       const fo = r.faceoff!;
-      if (fo.paused) {
-        const doubter = nameOf(view, fo.paused.by);
-        if (me === fo.last)
-          return {
-            text: `${doubter} doubts your answer. Let it stand or give it up.`,
-            yourMove: true,
-          };
-        if (inPair && me !== fo.last)
-          return {
-            text: `Paused. Let ${nameOf(view, fo.last)}’s answer stand, or talk it out.`,
-            yourMove: true,
-          };
-        return {
-          text: `Paused: is ${nameOf(view, fo.last)}’s answer right? ${room.isHost ? 'You can settle it.' : 'The table decides.'}`,
-          yourMove: room.isHost,
-        };
-      }
       if (fo.on === me || (fo.on === null && inPair)) {
         return {
           text: `Name a ${noun} that fits, out loud, then press Said it!`,
@@ -107,7 +90,7 @@ function roundStatus(view: CliffhangerView, r: RoundView, room: StatusRoom): Sta
       }
       if (inPair)
         return {
-          text: `${nameOf(view, fo.on)} is on the clock. Listen for a wrong one.`,
+          text: `${nameOf(view, fo.on)} is on the clock. You’re next.`,
           yourMove: false,
         };
       return {
@@ -149,7 +132,7 @@ function roundStatus(view: CliffhangerView, r: RoundView, room: StatusRoom): Sta
         };
       if (mine)
         return {
-          text: `${nameOf(view, t.describer)} describes to ${TEAM_NAMES[t.team]}. Watch for fouls.`,
+          text: `${nameOf(view, t.describer)} describes to ${TEAM_NAMES[t.team]}. Only they see the ${nouns}.`,
           yourMove: false,
         };
       return {

@@ -38,7 +38,8 @@ export interface TapeArt {
  *   names: { genres: { <id>: name }, tvGenres: { <id>: name }, styles: { one-word, quote-it, act-it, … } }
  * }
  *
- * Tapes are portrait: the title (and a blanked genre band's name) is printed turned 90° clockwise.
+ * Tape and face-off art is portrait, boxes in its portrait coordinates; the game shows it turned onto
+ * its side so the title (and a blanked genre band's name) reads left to right.
  */
 export interface Manifest {
   title?: string;

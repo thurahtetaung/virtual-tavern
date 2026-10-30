@@ -38,11 +38,9 @@ import {
   type CliffhangerState,
   COUNTDOWN_MS,
   DECIDE_MS,
-  FOUL_GAP_MS,
   type FaceOff,
   type FaceOffResult,
   type Hand,
-  MAX_FOULS,
   MAX_LOG,
   MAX_PLAYERS,
   MAX_USED,
@@ -297,9 +295,7 @@ function flip(state: CliffhangerState, now: number): CliffhangerState {
     deadline: s.settings.openingClock ? now + OPENING_MS : null,
     answers: 0,
     last: null,
-    before: null,
     firstAt: null,
-    paused: null,
     swaps: 0,
   };
   return withRound(s, { stage: 'faceoff', stageEnds: null, after: null, category, faceoff });
@@ -325,7 +321,7 @@ function decideFaceOff(
   let s = log(
     withRound(state, {
       faceoffResult: result,
-      faceoff: { ...fo, on: null, deadline: null, paused: null },
+      faceoff: { ...fo, on: null, deadline: null },
       order: [winTeam, other(winTeam)],
     }),
     `${nameOf(state, winner)} won the face-off${fo.answers ? ` after ${fo.answers} ${fo.answers === 1 ? 'answer' : 'answers'}` : ''}.`,
@@ -440,7 +436,6 @@ function beginTurn(state: CliffhangerState, now: number): CliffhangerState {
       focus: own[0]?.card.id ?? null,
       stealOpen: own.length === 0,
       gots: [],
-      fouls: [],
     },
   });
   const left = available(s);
@@ -594,7 +589,6 @@ function updateSettings(
     'turnSeconds',
     'noSequels',
     'newWordsOnly',
-    'challenge',
     'noAdvantage',
     'comebackPick',
     'suddenDeath',
@@ -799,7 +793,21 @@ function chooseCategory(
 function faceOffOf(state: CliffhangerState): FaceOff | GameError {
   const round = requireStage(state, 'faceoff');
   if (round instanceof GameError) return round;
-  return round.faceoff!;
+  return withoutPause(round.faceoff!);
+}
+
+/** A face-off saved while paused (rooms from before Doubt it was removed). */
+type SavedFaceOff = FaceOff & { paused?: { left: number } | null };
+
+/** The time a saved paused face-off had left, or null. */
+function savedPause(round: Round): number | null {
+  const fo: SavedFaceOff | null = round.faceoff;
+  return round.stage === 'faceoff' && fo?.paused ? fo.paused.left : null;
+}
+
+function withoutPause(fo: FaceOff): FaceOff {
+  const { paused: _paused, ...rest } = fo as SavedFaceOff;
+  return rest;
 }
 
 const inPair = (round: Round, id: PlayerId) => round.pair.a === id || round.pair.b === id;
@@ -810,7 +818,6 @@ function said(state: CliffhangerState, ctx: ActionCtx): Result {
   if (fo instanceof GameError) return fo;
   const round = state.round!;
   if (!inPair(round, ctx.by)) return err('not-in-faceoff', 'Only the two face-off players answer.');
-  if (fo.paused) return err('paused', 'The face-off is paused.');
   if (fo.on !== null && fo.on !== ctx.by)
     return err('not-your-turn', 'It’s the other player’s go.');
   return withRound(state, {
@@ -819,7 +826,6 @@ function said(state: CliffhangerState, ctx: ActionCtx): Result {
       on: partner(round, ctx.by),
       deadline: ctx.now + state.settings.answerSeconds * 1000,
       answers: fo.answers + 1,
-      before: fo.last,
       last: ctx.by,
       firstAt: fo.firstAt ?? ctx.now,
     },
@@ -849,77 +855,6 @@ function swapCategory(state: CliffhangerState, now: number): CliffhangerState {
       swaps: fo.swaps + 1,
     },
   });
-}
-
-function pause(state: CliffhangerState, ctx: ActionCtx): Result {
-  const fo = faceOffOf(state);
-  if (fo instanceof GameError) return fo;
-  if (!inPair(state.round!, ctx.by) && !ctx.isHost) {
-    return err('not-in-faceoff', 'Only the face-off players or the host can pause.');
-  }
-  if (fo.paused) return err('paused', 'The face-off is already paused.');
-  if (fo.answers === 0 || fo.deadline === null)
-    return err('nothing-to-doubt', 'Nobody has answered yet.');
-  return withRound(state, {
-    faceoff: {
-      ...fo,
-      paused: { by: ctx.by, left: Math.max(1000, fo.deadline - ctx.now) },
-      deadline: null,
-    },
-  });
-}
-
-function resume(state: CliffhangerState, fo: FaceOff, now: number): CliffhangerState {
-  return withRound(state, {
-    faceoff: { ...fo, paused: null, deadline: now + fo.paused!.left },
-  });
-}
-
-function concede(state: CliffhangerState, ctx: ActionCtx): Result {
-  const fo = faceOffOf(state);
-  if (fo instanceof GameError) return fo;
-  if (!fo.paused) return err('not-paused', 'Pause the face-off first.');
-  if (ctx.by !== fo.last)
-    return err('not-answerer', 'Only the player who gave that answer can concede.');
-  return decideFaceOff(state, partner(state.round!, fo.last), 'concede', ctx.now);
-}
-
-function stands(state: CliffhangerState, ctx: ActionCtx): Result {
-  const fo = faceOffOf(state);
-  if (fo instanceof GameError) return fo;
-  if (!fo.paused) return err('not-paused', 'The face-off isn’t paused.');
-  const doubter = ctx.by === fo.paused.by || (inPair(state.round!, ctx.by) && ctx.by !== fo.last);
-  if (!doubter) return err('not-doubter', 'Only whoever doubted the answer can let it stand.');
-  if (state.settings.challenge) return decideFaceOff(state, fo.last!, 'challenge', ctx.now);
-  return resume(state, fo, ctx.now);
-}
-
-function rule(state: CliffhangerState, standsUp: boolean, ctx: ActionCtx): Result {
-  const no = requireHost(ctx);
-  if (no) return no;
-  const fo = faceOffOf(state);
-  if (fo instanceof GameError) return fo;
-  if (!fo.paused) return err('not-paused', 'The face-off isn’t paused.');
-  const last = fo.last!;
-  if (state.settings.challenge) {
-    return decideFaceOff(state, standsUp ? last : partner(state.round!, last), 'ruled', ctx.now);
-  }
-  if (standsUp) return resume(state, fo, ctx.now);
-  // Struck: the answerer is back on the clock with the time that was left.
-  return log(
-    withRound(state, {
-      faceoff: {
-        ...fo,
-        on: last,
-        last: fo.before,
-        before: null,
-        answers: fo.answers - 1,
-        paused: null,
-        deadline: ctx.now + fo.paused.left,
-      },
-    }),
-    `The host struck ${nameOf(state, last)}’s answer.`,
-  );
 }
 
 function arrange(
@@ -1024,20 +959,6 @@ function undo(state: CliffhangerState, card: string, ctx: ActionCtx): Result {
       focus: card,
       stealOpen: stolen || (turn.stealOpen && stolen),
     },
-  });
-}
-
-function foul(state: CliffhangerState, ctx: ActionCtx): Result {
-  const round = requireStage(state, 'turn');
-  if (round instanceof GameError) return round;
-  const turn = round.turn!;
-  const mine = teamOf(state, ctx.by);
-  if (!mine || mine === turn.team)
-    return err('not-other-team', 'Only the other team can call a foul.');
-  const last = turn.fouls.findLast((f) => f.by === ctx.by);
-  if (last && ctx.now - last.at < FOUL_GAP_MS) return err('foul-too-soon', 'Give it a moment.');
-  return withRound(state, {
-    turn: { ...turn, fouls: [...turn.fouls, { by: ctx.by, at: ctx.now }].slice(-MAX_FOULS) },
   });
 }
 
@@ -1161,14 +1082,6 @@ export function reduce(state: CliffhangerState, action: CliffhangerAction, ctx: 
       return newCategory(s, ctx);
     case 'said':
       return said(s, ctx);
-    case 'pause':
-      return pause(s, ctx);
-    case 'concede':
-      return concede(s, ctx);
-    case 'stands':
-      return stands(s, ctx);
-    case 'rule':
-      return rule(s, action.stands, ctx);
     case 'arrange':
       return arrange(s, action.slots, false, ctx);
     case 'lock':
@@ -1184,8 +1097,6 @@ export function reduce(state: CliffhangerState, action: CliffhangerAction, ctx: 
       return got(s, action.card, ctx);
     case 'undo':
       return undo(s, action.card, ctx);
-    case 'foul':
-      return foul(s, ctx);
     case 'steal':
       return steal3(s, action.genre, action.card, ctx);
     case 'pass':
@@ -1209,7 +1120,6 @@ export function defaultSettings(packs: readonly PackSummary[]): Settings {
     turnSeconds: 30,
     noSequels: false,
     newWordsOnly: false,
-    challenge: false,
     noAdvantage: false,
     comebackPick: false,
     suddenDeath: false,
@@ -1294,8 +1204,6 @@ function replaceIn(round: Round, from: PlayerId, to: PlayerId): Round {
       ...fo,
       on: swap(fo.on),
       last: swap(fo.last),
-      before: swap(fo.before),
-      paused: fo.paused && { ...fo.paused, by: swap(fo.paused.by)! },
     },
     faceoffResult: round.faceoffResult && {
       ...round.faceoffResult,
@@ -1347,6 +1255,8 @@ export function nextDeadline(state: CliffhangerState): number | null {
   const times: number[] = Object.values(round.hands).map((h) => h!.deadline);
   if (round.stageEnds !== null) times.push(round.stageEnds);
   if (round.stage === 'faceoff' && round.faceoff?.deadline) times.push(round.faceoff.deadline);
+  // A face-off saved while paused resumes at once.
+  if (savedPause(round) !== null) times.push(round.faceoff!.flippedAt);
   if (round.stage === 'turn' && round.turn) times.push(round.turn.endsAt);
   const strict = state.settings.timerMode === 'strict';
   if (strict && round.stage === 'pick-category' && round.pick) times.push(round.pick.deadline);
@@ -1369,6 +1279,10 @@ function step(state: CliffhangerState, now: number): CliffhangerState {
   const round = state.round!;
   const late = Object.entries(round.hands).find(([, h]) => h!.deadline <= now);
   if (late) return lockHand(state, late[0], now);
+  const left = savedPause(round);
+  if (left !== null) {
+    return withRound(state, { faceoff: { ...withoutPause(round.faceoff!), deadline: now + left } });
+  }
   if (round.stageEnds !== null && round.stageEnds <= now) {
     if (round.stage === 'countdown') {
       return round.after === 'turn' ? beginTurn(state, now) : flip(state, now);
