@@ -17,7 +17,6 @@ const CSS = `
 .cl-drain { transform-origin: left; animation-name: cl-drain; animation-timing-function: linear; animation-fill-mode: both }
 .cl-slide { animation: cl-slide .6s cubic-bezier(.2,.8,.3,1.1) both }
 .cl-glow { animation: cl-glow 1s ease-in-out 3 }
-.cl-upright { writing-mode: vertical-rl; text-orientation: mixed }
 @media (prefers-reduced-motion: reduce) {
   .cl-rise, .cl-pop, .cl-slide, .cl-glow { animation: none }
 }
@@ -122,14 +121,41 @@ const boxStyle = ([x, y, w, h]: [number, number, number, number]): CSSProperties
   height: pct(h),
 });
 
-/** The fallback tape's label and band, where the art's would be. */
+/**
+ * A box on the portrait art, moved to where it lands once the art is turned 90° anticlockwise
+ * onto its side (the printed words then read left to right).
+ */
+export const turnBox = ([x, y, w, h]: [number, number, number, number]): [
+  number,
+  number,
+  number,
+  number,
+] => [y, 1 - x - w, h, w];
+
+/** Portrait art drawn turned onto its side, filling a landscape box (a size container). */
+export function SideArt({ src, className }: { src: string; className?: string }) {
+  return (
+    <ProtectedImage
+      src={src}
+      alt=""
+      className={cn('absolute top-1/2 left-1/2 max-w-none object-fill', className)}
+      style={{
+        width: '100cqh',
+        height: '100cqw',
+        transform: 'translate(-50%, -50%) rotate(-90deg)',
+      }}
+    />
+  );
+}
+
+/** The fallback tape's label and band, where the art's would be (portrait, as the art's). */
 const PLAIN_LABEL: [number, number, number, number] = [0.25, 0.19, 0.5, 0.6];
 const PLAIN_BAND: [number, number, number, number] = [0.03, 0.05, 0.14, 0.9];
 
 /**
- * A card as a tape, portrait: the genre's original tape with the title printed on its label,
- * turned 90° clockwise as on the real cards (and our genre name on a blanked band), or a plain
- * tape in the genre's colour without art. `card` null is a hidden card: a dark tape with a "?".
+ * A card as a tape lying on its side: the genre's original (portrait) tape turned so the title on
+ * its label reads left to right (and our genre name on a blanked band), or a plain tape in the
+ * genre's colour without art. `card` null is a hidden card: a dark tape with a "?".
  */
 export function Tape({
   card,
@@ -141,7 +167,7 @@ export function Tape({
 }: {
   card: Card | null;
   deck: DeckKind;
-  /** Size: give it a height (`h-40`); the width follows the tape's shape. */
+  /** Size: give it a height (`h-20`) or a width (`w-full`); the other follows the tape's shape. */
   className?: string;
   /** Load the full picture (a big tape), not the small copy. */
   full?: boolean;
@@ -152,7 +178,7 @@ export function Tape({
 }) {
   const { tape, names } = useArt();
   const base =
-    'relative aspect-[538/740] shrink-0 overflow-hidden rounded-md shadow-md select-none [container-type:size]';
+    'relative aspect-[740/538] shrink-0 overflow-hidden rounded-md shadow-md select-none [container-type:size]';
   if (!card) {
     return (
       <div
@@ -173,8 +199,9 @@ export function Tape({
   const info = genreInfo(card.genre, deck);
   const art = tape(card.genre, deck);
   const src = art ? (full ? artOf(art.tape) : thumbOf(art.tape, art.thumb)) : null;
-  const labelBox = boxOf(art?.labelBox) ?? PLAIN_LABEL;
-  const genreBox = src ? boxOf(art?.genreBox) : PLAIN_BAND;
+  const labelBox = turnBox(boxOf(art?.labelBox) ?? PLAIN_LABEL);
+  const band = src ? boxOf(art?.genreBox) : PLAIN_BAND;
+  const genreBox = band && turnBox(band);
   const genre = genreName(names, card.genre, deck);
   return (
     <div
@@ -183,20 +210,18 @@ export function Tape({
       className={cn(base, !src && 'ring-1 ring-black/20', className)}
       style={src ? undefined : { backgroundColor: info.colour }}
     >
-      {src && (
-        <ProtectedImage src={src} alt="" className="absolute inset-0 h-full w-full object-fill" />
-      )}
+      {src && <SideArt src={src} />}
       {!src && (
         <div className="absolute rounded-sm bg-white/95" style={boxStyle(labelBox)} aria-hidden />
       )}
       {genreBox && (
         <div
           aria-hidden
-          className="cl-upright absolute flex items-center justify-center overflow-hidden font-black tracking-wide whitespace-nowrap text-white uppercase"
+          className="absolute flex items-center justify-center overflow-hidden font-black tracking-wide whitespace-nowrap text-white uppercase"
           style={{
             ...boxStyle(genreBox),
-            // One line along the band: long names get smaller.
-            fontSize: `clamp(5px, ${Math.min(9, (genreBox[3] * 100) / (0.75 * genre.length)).toFixed(2)}cqh, 40px)`,
+            // One line along the band: long names get smaller (the tape is 740 wide to 538 high).
+            fontSize: `clamp(5px, ${Math.min(genreBox[3] * 70, (genreBox[2] * 137.5) / (0.75 * genre.length)).toFixed(2)}cqh, 40px)`,
             textShadow: '0 1px 2px rgb(0 0 0 / .6)',
           }}
         >
@@ -205,10 +230,10 @@ export function Tape({
       )}
       <div
         aria-hidden
-        className="cl-upright absolute flex items-center justify-center overflow-hidden p-[4%] text-center leading-tight font-black text-stone-900"
+        className="absolute flex items-center justify-center overflow-hidden p-[3%] text-center leading-tight font-black break-words text-stone-900"
         style={{ ...boxStyle(labelBox), fontSize: titleSize(card.title) }}
       >
-        <span className="line-clamp-3">{card.title}</span>
+        <span className="line-clamp-4 min-w-0">{card.title}</span>
       </div>
       {got && (
         <span
@@ -226,7 +251,7 @@ export function Tape({
 /** The title's size on the label, in container units: long titles smaller. */
 function titleSize(title: string): string {
   const n = title.length;
-  const h = n <= 10 ? 9 : n <= 18 ? 7.5 : n <= 28 ? 6 : 5;
+  const h = n <= 10 ? 13 : n <= 18 ? 11 : n <= 28 ? 9 : 7.5;
   return `clamp(7px, ${h}cqh, 64px)`;
 }
 

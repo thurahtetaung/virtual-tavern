@@ -21,11 +21,13 @@ import {
   ClockBar,
   GenreRace,
   RuleNote,
+  SideArt,
   StyleName,
   Tape,
   TeamChip,
   nameOf,
   teamName,
+  turnBox,
 } from './parts.tsx';
 import { buzz } from './useSound.ts';
 
@@ -39,7 +41,7 @@ export interface PlayProps {
   cue?: (key: string) => void;
 }
 
-/** The face-off's category: the card's art with the words on it, or a plain card. */
+/** The face-off's category: the card's art on its side with the words on it, or a plain card. */
 export function CategoryCard({
   text,
   big = false,
@@ -52,27 +54,26 @@ export function CategoryCard({
   const { faceoff } = useArt();
   const src = big ? faceoff.card : faceoff.thumb;
   if (src && faceoff.textBox) {
-    const [x, y, w, h] = faceoff.textBox;
+    const [x, y, w, h] = turnBox(faceoff.textBox);
     return (
       <div
         role="img"
         aria-label={`Category: ${text}`}
-        className={cn('relative aspect-[536/740] shrink-0 [container-type:size]', className)}
+        className={cn(
+          'relative aspect-[740/536] shrink-0 overflow-hidden rounded-md shadow-lg [container-type:size]',
+          className,
+        )}
       >
-        <ProtectedImage
-          src={src}
-          alt=""
-          className="absolute inset-0 h-full w-full rounded-md object-fill shadow-lg"
-        />
+        <SideArt src={src} />
         <div
           aria-hidden
-          className="cl-upright absolute flex items-center justify-center p-[3%] text-center leading-tight font-black text-stone-900"
+          className="absolute flex items-center justify-center p-[3%] text-center leading-tight font-black break-words text-stone-900"
           style={{
             left: `${x * 100}%`,
             top: `${y * 100}%`,
             width: `${w * 100}%`,
             height: `${h * 100}%`,
-            fontSize: `clamp(8px, ${text.length > 30 ? 6 : 8}cqh, 72px)`,
+            fontSize: `clamp(8px, ${text.length > 30 ? 7 : 9}cqh, 72px)`,
           }}
         >
           {text}
@@ -153,7 +154,7 @@ function FaceOff({ view, room, act }: PlayProps) {
         </span>
       </div>
       <div className="flex items-center gap-3">
-        {card && <CategoryCard text={r.category?.text ?? ''} className="h-40 max-sm:h-32" />}
+        {card && <CategoryCard text={r.category?.text ?? ''} className="h-24 sm:h-36" />}
         <div className="min-w-0 flex-1 space-y-1">
           <p className="flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide text-ink-muted uppercase">
             Name a {nounOf(view.settings.deck)}
@@ -283,9 +284,9 @@ function KeepSheet({ view, room, act }: PlayProps) {
               >
                 <StyleName style={squares[i]?.plays ?? style} className="truncate text-[11px]" />
                 {card ? (
-                  <Tape card={card} deck={deck} className="h-24" />
+                  <Tape card={card} deck={deck} className="w-full" />
                 ) : (
-                  <span className="grid h-24 w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-600">
+                  <span className="grid aspect-[740/538] w-full place-items-center rounded-md border-2 border-dashed border-line text-xs text-ink-muted dark:border-stone-600">
                     empty
                   </span>
                 )}
@@ -315,7 +316,7 @@ function KeepSheet({ view, room, act }: PlayProps) {
                   at >= 0 ? 'opacity-40' : 'hover:-translate-y-0.5',
                 )}
               >
-                <Tape card={c} deck={deck} className="h-28" />
+                <Tape card={c} deck={deck} className="h-[4.5rem]" />
                 {c.tier === 'easy' && (
                   <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
                     easy
@@ -345,7 +346,7 @@ export function Bays({
   view,
   team,
   focus,
-  size = 'h-24',
+  size = 'w-full',
   onTap,
 }: {
   view: CliffhangerView;
@@ -440,7 +441,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
     <div className="space-y-3" data-testid="describer">
       {now?.card ? (
         <div className="flex items-center gap-3">
-          <Tape card={now.card} deck={deck} full className="h-48 max-sm:h-40" />
+          <Tape card={now.card} deck={deck} full className="h-32 sm:h-44" />
           <div className="min-w-0 flex-1 space-y-2">
             <StyleName style={now.plays} className="text-lg" />
             <p className="text-xs text-ink-muted">{STYLES[now.plays].how}</p>
@@ -567,7 +568,7 @@ function Turn(props: PlayProps) {
           {turn.stealOpen && (
             <>
               <p className="text-center text-sm font-semibold">All three! Now steal theirs:</p>
-              <Bays view={view} team={other(turn.team)} size="h-20" />
+              <Bays view={view} team={other(turn.team)} size="w-3/4" />
             </>
           )}
         </>
@@ -580,7 +581,7 @@ function Turn(props: PlayProps) {
               <p className="text-center text-sm font-semibold text-danger">
                 They’re stealing yours now!
               </p>
-              <Bays view={view} team={other(turn.team)} size="h-20" />
+              <Bays view={view} team={other(turn.team)} size="w-3/4" />
             </>
           )}
           <p className="text-center text-xs text-ink-muted">
@@ -609,13 +610,13 @@ function Recap({ view }: PlayProps) {
       <ul className="flex flex-wrap justify-center gap-2">
         {result.got.map((g) => (
           <li key={g.card.id} className="flex flex-col items-center gap-1">
-            <Tape card={g.card} deck={deck} className="h-28" got={result.team} />
+            <Tape card={g.card} deck={deck} className="h-20" got={result.team} />
             {g.steal && <span className="text-[11px] font-bold text-danger">stolen</span>}
           </li>
         ))}
         {result.missed.map((c) => (
           <li key={c.id} className="flex flex-col items-center gap-1 opacity-60">
-            <Tape card={c} deck={deck} className="h-28" />
+            <Tape card={c} deck={deck} className="h-20" />
             <span className="text-[11px] text-ink-muted">missed</span>
           </li>
         ))}
@@ -689,7 +690,7 @@ function Steal({ view, room, act }: PlayProps) {
                     genre && void act({ type: 'steal', genre, card: c.id }, { anchor: 'cl-steal' })
                   }
                 >
-                  <Tape card={c} deck={deck} className="h-24" />
+                  <Tape card={c} deck={deck} className="h-20" />
                   {need.includes(c.genre) && (
                     <span className="absolute -top-1 -right-1 rounded-full bg-success-soft px-1.5 text-[10px] font-bold text-success-ink ring-1 ring-success-line dark:bg-emerald-500/20 dark:text-emerald-100 dark:ring-emerald-500/40">
                       needed
@@ -744,7 +745,7 @@ function CountdownNote({ view }: PlayProps) {
           {nameOf(view, r.pair[next])} describes to {teamName(next)}
         </p>
       )}
-      {next && <Bays view={view} team={next} size="h-20" />}
+      {next && <Bays view={view} team={next} size="w-3/4" />}
     </div>
   );
 }

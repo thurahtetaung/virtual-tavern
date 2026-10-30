@@ -26,7 +26,7 @@ function Collection({ view, team }: { view: CliffhangerView; team: TeamId }) {
         <ul className="flex flex-wrap gap-1.5">
           {cards.map((c) => (
             <li key={c.id} title={`${c.title} · ${genreName(names, c.genre, view.settings.deck)}`}>
-              <Tape card={c} deck={view.settings.deck} className="h-28 sm:h-32" />
+              <Tape card={c} deck={view.settings.deck} className="h-20 sm:h-24" />
             </li>
           ))}
         </ul>

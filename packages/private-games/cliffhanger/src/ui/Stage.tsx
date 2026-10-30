@@ -119,7 +119,7 @@ function FaceOffScreen({ view, clockOffset }: { view: CliffhangerView; clockOffs
     <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center gap-8">
       <Seat view={view} id={r.pair.a} on={fo.on === r.pair.a || fo.on === null} team="a" />
       <div className="flex flex-col items-center gap-4">
-        {r.category && <CategoryCard text={r.category.text} big className="h-[52vh]" />}
+        {r.category && <CategoryCard text={r.category.text} big className="h-[40vh]" />}
         {view.settings.noSequels && (
           <RuleNote className="px-4 py-1 text-2xl" testId="rule-no-sequels">
             No sequels
@@ -176,7 +176,7 @@ function TurnScreen({ view, clockOffset }: { view: CliffhangerView; clockOffset:
         <Bays
           view={view}
           team={t.stealOpen ? (t.team === 'a' ? 'b' : 'a') : t.team}
-          size="h-[34vh]"
+          size="w-full"
         />
         {styles.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-2xl">
@@ -229,7 +229,7 @@ function RoundScreen({ view, clockOffset }: { view: CliffhangerView; clockOffset
             <p className="text-4xl">
               {TEAM_EMOJI.a} {nameOf(view, r.pair.a)} vs {nameOf(view, r.pair.b)} {TEAM_EMOJI.b}
             </p>
-            {r.category && <CategoryCard text={r.category.text} big className="h-[36vh]" />}
+            {r.category && <CategoryCard text={r.category.text} big className="h-[32vh]" />}
           </div>
         );
       }
@@ -284,7 +284,7 @@ function Finale({ view }: { view: CliffhangerView }) {
         <ul className="cl-rise flex max-w-[90vw] flex-wrap justify-center gap-2">
           {view.collections[w].map((c) => (
             <li key={c.id}>
-              <Tape card={c} deck={view.settings.deck} className="h-[22vh]" full />
+              <Tape card={c} deck={view.settings.deck} className="h-[16vh]" full />
             </li>
           ))}
         </ul>
@@ -300,7 +300,7 @@ function NewsBanner({ news, view }: { news: News; view: CliffhangerView }) {
       className="cl-slide pointer-events-none fixed right-8 bottom-8 z-30 flex items-center gap-4 rounded-3xl bg-card p-4 shadow-2xl ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
       data-testid="stage-news"
     >
-      <Tape card={news.card} deck={view.settings.deck} className="h-40" got={news.team} />
+      <Tape card={news.card} deck={view.settings.deck} className="h-32" got={news.team} />
       <div>
         <p className="text-2xl font-black">
           {TEAM_EMOJI[news.team]} {teamName(news.team)}
