@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from 'react';
 import { KINDS, type PackKind } from '../logic/content.ts';
 import {
+  ACT_ALTS,
   FILM_PRESETS,
   type FilmGoal,
   MIN_GENRES,
@@ -24,6 +25,7 @@ import {
   type StyleId,
   genresOf,
   goalLine,
+  modeBlurb,
   nounOf,
   presetOf,
   titlesNeeded,
@@ -57,6 +59,7 @@ export function settingsSummary(view: CliffhangerView): string[] {
   return [
     s.deck === 'tv' ? 'TV shows' : 'Films',
     MODES[s.mode].name,
+    ...(s.actAlt === 'cast' ? ['Name the Cast instead of Act It'] : []),
     goalLine(view.target).toLowerCase(),
     `${s.answerSeconds} s face-off, ${s.turnSeconds} s turns`,
     ...(s.noAdvantage ? ['no advantage'] : []),
@@ -251,6 +254,7 @@ export function Teams({
   act: Act;
   online: (id: string) => boolean;
 }) {
+  const { names } = useArt();
   const lobby = view.phase !== 'playing';
   const seated = view.seats.filter((s) => s.team).length;
   const watching = view.seats.filter((s) => !s.team);
@@ -324,7 +328,7 @@ export function Teams({
           on={view.me.onCall}
           editable
           title="I’m on a call"
-          help="Can’t be seen? Your Act It squares become Describe It Badly."
+          help={`Can’t be seen? Your Act It squares become ${names.styles[view.settings.actAlt ?? 'describe-badly']}.`}
           onChange={(v) => void act({ type: 'on-call', onCall: v })}
           testId="on-call"
         />
@@ -416,9 +420,31 @@ export function Lobby({
           value={s.mode}
           editable={editable}
           onPick={(mode) => set({ mode })}
-          options={MODE_IDS.map((id) => ({ id, name: MODES[id].name, help: MODES[id].blurb }))}
+          options={MODE_IDS.map((id) => ({
+            id,
+            name: MODES[id].name,
+            help: modeBlurb(id, s.actAlt),
+          }))}
           testId="setting-mode"
         />
+        {(s.mode !== 'mix' || s.mixStyles.includes('act')) && (
+          <Pills
+            label={
+              s.mode === 'voice'
+                ? 'Instead of Act It (the third square)'
+                : 'Instead of Act It, for anyone on a call'
+            }
+            value={s.actAlt ?? 'describe-badly'}
+            editable={editable}
+            onPick={(actAlt) => set({ actAlt })}
+            options={ACT_ALTS.map((id) => ({
+              id,
+              name: `${STYLES[id].emoji} ${names.styles[id]}`,
+              help: id === 'cast' ? 'Name actors who are in it' : 'A terrible but true plot',
+            }))}
+            testId="setting-act-alt"
+          />
+        )}
         {s.mode === 'mix' && (
           <fieldset>
             <legend className="text-sm font-semibold">Styles in the mix</legend>

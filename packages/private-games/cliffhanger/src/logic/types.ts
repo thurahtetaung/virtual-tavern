@@ -1,7 +1,7 @@
 import { type PlayerId, type TableVolumes, tableVolumeAction } from '@vt/game-sdk';
 import { z } from 'zod';
 import type { Card, Category, PackSummary } from './content.ts';
-import type { DeckKind, Each, FilmGoal, Goal, GoalId, ModeId, StyleId } from './genres.ts';
+import type { ActAlt, DeckKind, Each, FilmGoal, Goal, GoalId, ModeId, StyleId } from './genres.ts';
 
 export const MIN_PLAYERS = 4;
 export const MAX_PLAYERS = 16;
@@ -56,6 +56,8 @@ export interface Settings {
   /** Mix: the styles the host ticked (3, or 3–4 dealt fresh each round). */
   mixStyles: StyleId[];
   mixFresh: boolean;
+  /** Instead of Act It on a voice call (Voice call squares, players on a call); unset: Describe It Badly. */
+  actAlt?: ActAlt;
   /** Chosen packs of every kind. */
   packIds: string[];
   answerSeconds: AnswerSeconds;
@@ -97,7 +99,7 @@ export interface Seat {
   name: string;
   /** null = watching. */
   team: TeamId | null;
-  /** On a voice call: Act It squares become Describe It Badly on this player's turn. */
+  /** On a voice call: Act It squares become the room's alternative (`actAlt`) on this player's turn. */
   onCall: boolean;
 }
 
@@ -241,10 +243,11 @@ export const actionSchema = z.discriminatedUnion('type', [
     each: z.union([z.literal(1), z.literal(2)]).optional(),
     mode: z.enum(['room', 'video', 'voice', 'mix']).optional(),
     mixStyles: z
-      .array(z.enum(['one-word', 'quote', 'act', 'describe-badly']))
-      .max(4)
+      .array(z.enum(['one-word', 'quote', 'act', 'describe-badly', 'cast']))
+      .max(5)
       .optional(),
     mixFresh: z.boolean().optional(),
+    actAlt: z.enum(['describe-badly', 'cast']).optional(),
     packIds: z.array(z.string().min(1).max(200)).max(100).optional(),
     answerSeconds: z.union([z.literal(10), z.literal(15), z.literal(20)]).optional(),
     turnSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]).optional(),
@@ -288,7 +291,7 @@ export type CliffhangerAction = z.infer<typeof actionSchema>;
 /** A card on a square as a viewer sees it: the card itself only where they may see it. */
 export interface SlotView {
   style: StyleId;
-  /** The style the describer uses (Act It moves to Describe It Badly for a player on a call). */
+  /** The style the describer uses (Act It moves to the room's alternative for a player on a call). */
   plays: StyleId;
   card: Card | null;
   got: TeamId | null;

@@ -81,10 +81,18 @@ export function Who({
 }
 
 /** A style's name (the manifest's words), with its emoji. */
-export function StyleName({ style, className }: { style: StyleId; className?: string }) {
+export function StyleName({
+  style,
+  className,
+  testId,
+}: {
+  style: StyleId;
+  className?: string;
+  testId?: string;
+}) {
   const { names } = useArt();
   return (
-    <span className={cn('font-black tracking-wide uppercase', className)}>
+    <span className={cn('font-black tracking-wide uppercase', className)} data-testid={testId}>
       <span aria-hidden>{STYLES[style].emoji}</span> {names.styles[style]}
     </span>
   );

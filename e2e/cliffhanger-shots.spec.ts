@@ -71,6 +71,13 @@ for (const [label, viewport, colorScheme] of [
     await shot(cleo, '02c-lobby-genres-guest');
     await ana.getByTestId('genre-heart').click();
     await expect(ana.getByTestId('genre-short')).toHaveCount(0);
+    // Ana is on a call with Name the Cast instead of Act It, for the describer's Name the Cast card.
+    await ana
+      .getByTestId('setting-act-alt')
+      .getByRole('button', { name: /Name the Cast/ })
+      .click();
+    await ana.getByTestId('on-call').click();
+    await expect(ana.getByTestId('on-call')).toHaveAttribute('aria-checked', 'true');
     await ana.getByTestId('start').click();
     await expect(ana.getByTestId('said-it')).toBeVisible({ timeout: 15_000 });
     await ana.waitForTimeout(1500);
@@ -85,9 +92,19 @@ for (const [label, viewport, colorScheme] of [
     await faceOff([ana, ben, cleo, dev], ana);
     await shot(ana, '05-keep');
     await lockIn(ana);
+    // The loser places during the other team's countdown: their move, no first-time tips.
+    await expect(ben.getByTestId('keep')).toBeVisible();
+    await shot(ben, '05b-placing-countdown');
     await expect(ana.getByTestId('describer')).toBeVisible({ timeout: 15_000 });
     await ana.waitForTimeout(1200);
     await shot(ana, '06-describer');
+    // Pass twice to the third square, Act It played as Name the Cast, then once more back round.
+    await ana.getByTestId('pass').click();
+    await ana.getByTestId('pass').click();
+    await expect(ana.getByTestId('now-style')).toHaveText(/Name the Cast/);
+    await shot(ana, '06c-describer-cast');
+    await ana.getByTestId('pass').click();
+    await expect(ana.getByTestId('now-style')).not.toHaveText(/Name the Cast/);
     await shot(cleo, '07-guesser');
     await shot(ben, '08-other-team-placing');
     await describeCards(ana, 1);

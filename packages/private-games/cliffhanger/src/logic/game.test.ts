@@ -9,7 +9,7 @@ import {
   TV_GENRE_IDS,
   goalFor,
 } from './genres.ts';
-import { soundModeIn } from './types.ts';
+import { type Settings, soundModeIn } from './types.ts';
 import {
   CATEGORIES,
   HOST,
@@ -76,6 +76,46 @@ describe('lobby', () => {
     expect(h.state.goal).toBe('tv');
     expect(h.state.deck.every((c) => c.id.startsWith('s1:'))).toBe(true);
     expect(progressOf(h.state, 'a').need).toBe(8);
+  });
+});
+
+describe('Name the Cast', () => {
+  it('is a style the host can tick in Mix', () => {
+    const h = harness(4, { settings: { mode: 'mix', mixStyles: ['one-word', 'cast', 'quote'] } });
+    h.act(HOST, { type: 'start' });
+    expect(h.state.round!.styles).toEqual(['one-word', 'quote', 'cast']);
+  });
+
+  it('replaces Describe It Badly on Voice call squares when the host picks it', () => {
+    expect(started(4, { settings: { mode: 'voice' } }).state.round!.styles).toEqual([
+      'one-word',
+      'quote',
+      'describe-badly',
+    ]);
+    const h = started(4, { settings: { mode: 'voice', actAlt: 'cast' } });
+    expect(h.state.round!.styles).toEqual(['one-word', 'quote', 'cast']);
+  });
+
+  /** The squares as the describer sees them, everyone on a call. */
+  function onCallSquares(settings: Partial<Settings>, unset = false) {
+    const h = harness(4, { settings });
+    for (const id of ['p1', 'p2', 'p3', 'p4']) h.act(id, { type: 'on-call', onCall: true });
+    // A room saved before the choice existed has no actAlt at all.
+    if (unset) delete h.state.settings.actAlt;
+    h.act(HOST, { type: 'start' });
+    if (h.state.round?.stage === 'countdown') h.tick();
+    const [a] = pair(h);
+    winFaceOff(h, a);
+    keepAndPlace(h);
+    const team = h.state.round!.turn!.team;
+    const describer = h.state.round!.pair[team];
+    return cliffhanger.view(h.state, describer).round!.board[team]!.map((x) => [x.style, x.plays]);
+  }
+
+  it('is what Act It becomes for a player on a call when picked; saved rooms keep Describe It Badly', () => {
+    expect(onCallSquares({ actAlt: 'cast' })).toContainEqual(['act', 'cast']);
+    expect(onCallSquares({ actAlt: 'cast' }, true)).toContainEqual(['act', 'describe-badly']);
+    expect(onCallSquares({})).toContainEqual(['act', 'describe-badly']);
   });
 });
 

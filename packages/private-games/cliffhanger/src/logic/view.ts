@@ -50,7 +50,7 @@ function roundView(state: CliffhangerState, round: Round, viewer: PlayerId | nul
     const onCall = state.seats[describer]?.onCall ?? false;
     board[owner] = slots.map((slot): SlotView => ({
       style: slot.style,
-      plays: styleFor(slot.style, onCall),
+      plays: styleFor(slot.style, onCall, state.settings.actAlt),
       card: canSee(state, round, owner, slot, viewer) ? slot.card : null,
       got: slot.got,
     }));

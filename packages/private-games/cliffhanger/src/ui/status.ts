@@ -61,6 +61,17 @@ function roundStatus(view: CliffhangerView, r: RoundView, room: StatusRoom): Sta
   const noun = nounOf(view.settings.deck);
   const nouns = nounOf(view.settings.deck, true);
   const inPair = r.pair.a === me || r.pair.b === me;
+  // Placing is your move whatever else runs meanwhile (the other team's countdown and turn).
+  if (r.myHand) {
+    return {
+      text: r.myHand.choose
+        ? `Keep 3 ${nouns} and put each on a square, then lock in.`
+        : r.stage === 'keep'
+          ? `Put your 3 ${nouns} on the squares, then lock in.`
+          : `Place your 3 ${nouns} while they describe, then lock in.`,
+      yourMove: true,
+    };
+  }
   switch (r.stage) {
     case 'pick-category': {
       if (r.pick?.by === me)
@@ -102,21 +113,11 @@ function roundStatus(view: CliffhangerView, r: RoundView, room: StatusRoom): Sta
       };
     }
     case 'keep': {
-      if (r.myHand) {
-        return {
-          text: r.myHand.choose
-            ? `Keep 3 ${nouns} and put each on a square, then lock in.`
-            : `Put your 3 ${nouns} on the squares, then lock in.`,
-          yourMove: true,
-        };
-      }
       const still = waitingFor(r.placing, room.players, { you: me });
       return { text: `${still || 'Someone'} is choosing ${nouns}…`, yourMove: false };
     }
     case 'turn': {
       const t = r.turn!;
-      if (r.myHand)
-        return { text: `Place your 3 ${nouns} while they describe, then lock in.`, yourMove: true };
       if (t.describer === me) {
         return {
           text: t.stealOpen

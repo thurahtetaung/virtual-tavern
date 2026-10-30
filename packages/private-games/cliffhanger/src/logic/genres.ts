@@ -138,8 +138,12 @@ export function missing(genres: readonly string[], goal: Goal): string[] {
 
 // ---- Styles and modes ----
 
-export type StyleId = 'one-word' | 'quote' | 'act' | 'describe-badly';
-export const STYLE_IDS: readonly StyleId[] = ['one-word', 'quote', 'act', 'describe-badly'];
+export type StyleId = 'one-word' | 'quote' | 'act' | 'describe-badly' | 'cast';
+export const STYLE_IDS: readonly StyleId[] = ['one-word', 'quote', 'act', 'describe-badly', 'cast'];
+
+/** What a voice call plays instead of Act It: on Voice call squares and for a player on a call. */
+export type ActAlt = 'describe-badly' | 'cast';
+export const ACT_ALTS: readonly ActAlt[] = ['describe-badly', 'cast'];
 
 export interface StyleInfo {
   id: StyleId;
@@ -180,6 +184,13 @@ export const STYLES: Record<StyleId, StyleInfo> = {
     how: 'Describe the plot in a deliberately terrible but true way: Titanic is “a rich girl lets a poor guy freeze to death”.',
     voiceSafe: true,
   },
+  cast: {
+    id: 'cast',
+    name: 'Name the Cast',
+    emoji: '🌟',
+    how: 'Name actors who are in it (for a show, characters work too). No words from the title.',
+    voiceSafe: true,
+  },
 };
 
 export type ModeId = 'room' | 'video' | 'voice' | 'mix';
@@ -204,9 +215,20 @@ export const MODES: Record<ModeId, { name: string; blurb: string; styles: StyleI
   mix: { name: 'Mix', blurb: 'The host picks the styles', styles: ['one-word', 'quote', 'act'] },
 };
 
-/** The style a describer uses on a square: Act It moves to Describe It Badly for a player on a call. */
-export const styleFor = (style: StyleId, onCall: boolean): StyleId =>
-  onCall && !STYLES[style].voiceSafe ? 'describe-badly' : style;
+/** The style a describer uses on a square: Act It moves to the room's alternative for a player on a call. */
+export const styleFor = (
+  style: StyleId,
+  onCall: boolean,
+  alt: ActAlt = 'describe-badly',
+): StyleId => (onCall && !STYLES[style].voiceSafe ? alt : style);
+
+/** A mode's squares, with Voice call's third one the room's alternative to Act It. */
+export const modeStyles = (mode: ModeId, alt: ActAlt = 'describe-badly'): StyleId[] =>
+  mode === 'voice' ? ['one-word', 'quote', alt] : [...MODES[mode].styles];
+
+/** A mode's line of styles, naming the room's alternative to Act It on a voice call. */
+export const modeBlurb = (mode: ModeId, alt: ActAlt = 'describe-badly'): string =>
+  mode === 'voice' ? `One Word · Quote It · ${STYLES[alt].name}` : MODES[mode].blurb;
 
 /** "film" or "show", for player-facing copy. */
 export const nounOf = (deck: DeckKind, plural = false) =>

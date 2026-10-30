@@ -22,13 +22,13 @@ import {
   type Goal,
   type GoalId,
   MIN_GENRES,
-  MODES,
   STYLE_IDS,
   type StyleId,
   complete,
   genreInfo,
   genresOf,
   goalFor,
+  modeStyles,
   nounOf,
   progress,
   titlesNeeded,
@@ -133,7 +133,7 @@ export function peekPair(state: CliffhangerState): Record<TeamId, PlayerId> | nu
 
 /** The styles of this game's squares (Mix with fresh styles deals them each round). */
 function roundStyles(settings: Settings, rng: Rng): StyleId[] {
-  if (settings.mode !== 'mix') return [...MODES[settings.mode].styles];
+  if (settings.mode !== 'mix') return modeStyles(settings.mode, settings.actAlt);
   if (settings.mixFresh) return rng.shuffle(settings.mixStyles).slice(0, 3);
   return settings.mixStyles.slice(0, 3);
 }
@@ -585,6 +585,7 @@ function updateSettings(
   for (const key of [
     'mode',
     'mixFresh',
+    'actAlt',
     'answerSeconds',
     'turnSeconds',
     'noSequels',
