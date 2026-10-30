@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.82.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.2...v0.82.3) (2026-10-30)
+
+
+### Bug Fixes
+
+* **cliffhanger:** a Pass button, Name the cast and a place screen that fits ([#500](https://github.com/thurahtetaung/virtual-tavern/issues/500)) ([f4270d9](https://github.com/thurahtetaung/virtual-tavern/commit/f4270d988fa0d4a4299ab9c346cf398d2fdcbcd8))
+
 ## [0.82.2](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.1...v0.82.2) (2026-10-30)
 
 
