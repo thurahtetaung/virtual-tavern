@@ -12,6 +12,7 @@ import {
   ClockBar,
   CliffhangerStyles,
   GenreRace,
+  RuleNote,
   StyleName,
   TEAM_EMOJI,
   Tape,
@@ -116,14 +117,14 @@ function FaceOffScreen({ view, clockOffset }: { view: CliffhangerView; clockOffs
   const press = art.app('pressReset');
   return (
     <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center gap-8">
-      <Seat
-        view={view}
-        id={r.pair.a}
-        on={fo.on === r.pair.a || (fo.on === null && !fo.paused)}
-        team="a"
-      />
+      <Seat view={view} id={r.pair.a} on={fo.on === r.pair.a || fo.on === null} team="a" />
       <div className="flex flex-col items-center gap-4">
         {r.category && <CategoryCard text={r.category.text} big className="h-[52vh]" />}
+        {view.settings.noSequels && (
+          <RuleNote className="px-4 py-1 text-2xl" testId="rule-no-sequels">
+            No sequels
+          </RuleNote>
+        )}
         {fo.answers > 0 && fo.last && (
           <div
             key={`${fo.answers}:${fo.last}`}
@@ -137,20 +138,13 @@ function FaceOffScreen({ view, clockOffset }: { view: CliffhangerView; clockOffs
             </span>
           </div>
         )}
-        {fo.paused && <p className="text-3xl font-bold">⏸ Is that one right? The table decides.</p>}
       </div>
-      <Seat
-        view={view}
-        id={r.pair.b}
-        on={fo.on === r.pair.b || (fo.on === null && !fo.paused)}
-        team="b"
-      />
+      <Seat view={view} id={r.pair.b} on={fo.on === r.pair.b || fo.on === null} team="b" />
       <div className="col-span-3">
         <ClockBar
-          deadline={fo.paused ? null : fo.deadline}
+          deadline={fo.deadline}
           total={total}
           clockOffset={clockOffset}
-          paused={fo.paused ? fo.paused.left : undefined}
           big
           label={
             <span className="text-2xl">{fo.answers === 0 ? 'Opening clock' : 'Answer clock'}</span>

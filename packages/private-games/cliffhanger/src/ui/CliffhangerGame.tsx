@@ -46,7 +46,7 @@ function Tips({ view }: { view: CliffhangerView }) {
         <li>
           Describing: each square says how (one word, a quote, acting). Your team shouts guesses.
         </li>
-        <li>The app never judges: you all decide what counts, and the other team calls fouls.</li>
+        <li>The app never judges: you all decide out loud what counts, slips included.</li>
       </ul>
       <p className="text-xs">Fill every genre with {nouns} before the other team to win.</p>
       <Button
@@ -71,7 +71,7 @@ function Tips({ view }: { view: CliffhangerView }) {
 /** A small buzz when this player is newly on the face-off clock. */
 function useOnTheClock(view: CliffhangerView) {
   const fo = view.round?.stage === 'faceoff' ? view.round.faceoff : null;
-  const mine = !!fo && fo.on === view.me?.id && !fo.paused;
+  const mine = !!fo && fo.on === view.me?.id;
   const was = useRef(mine);
   useEffect(() => {
     if (mine && !was.current) buzz(40);

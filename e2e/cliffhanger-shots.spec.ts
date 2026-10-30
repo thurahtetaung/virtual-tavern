@@ -76,6 +76,12 @@ for (const [label, viewport, colorScheme] of [
     await ana.waitForTimeout(1500);
     await shot(ana, '03-faceoff-player');
     await shot(cleo, '04-faceoff-watching');
+    // Ana answers and waits on Ben; Ben answers back, so Ana is on the clock again.
+    await ana.getByTestId('said-it').click();
+    await expect(ana.getByText('Ben must answer.')).toBeVisible();
+    await shot(ana, '04b-faceoff-waiting');
+    await ben.getByTestId('said-it').click();
+    await expect(ana.getByTestId('said-it')).toBeVisible();
     await faceOff([ana, ben, cleo, dev], ana);
     await shot(ana, '05-keep');
     await lockIn(ana);

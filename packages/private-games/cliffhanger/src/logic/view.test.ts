@@ -32,7 +32,6 @@ function secretsFor(state: CliffhangerState, viewer: string | null): string[] {
       const visible =
         round.pair[owner] === viewer ||
         (team === owner && played) ||
-        (team !== null && turn?.team === owner && team !== owner) ||
         (turn !== null && turn?.team !== owner && turn?.describer === viewer && turn.stealOpen);
       const hidden = !visible;
       if (hidden) out.push(slot.card.title);
@@ -56,7 +55,8 @@ function checkViews(state: CliffhangerState): void {
 }
 
 describe('view', () => {
-  it('a describing team’s guessers never see their own cards; the other team does', () => {
+  // `view()` never knows who hosts, so a host on the other team sees no more than its teammates.
+  it('only the describer sees the cards being described: not their team, the other team or the table', () => {
     const h = started(6);
     const [a] = pair(h);
     winFaceOff(h, a);
@@ -69,7 +69,7 @@ describe('view', () => {
     for (const t of mine) {
       expect(JSON.stringify(guesser)).not.toContain(t);
       expect(JSON.stringify(table)).not.toContain(t);
-      expect(JSON.stringify(rival)).toContain(t);
+      expect(JSON.stringify(rival)).not.toContain(t);
       expect(JSON.stringify(describer)).toContain(t);
     }
     checkViews(h.state);

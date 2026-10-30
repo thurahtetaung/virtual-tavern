@@ -40,6 +40,6 @@ export const cliffhanger: GameDefinition<CliffhangerState, CliffhangerAction, Cl
   awards: cliffhangerAwards,
   bot: cliffhangerBot,
   botInfo: {
-    note: 'Bots answer face-offs, describe by tapping Got it now and then, and steal; they never pause or call a foul.',
+    note: 'Bots answer face-offs, describe by tapping Got it now and then, and steal.',
   },
 };

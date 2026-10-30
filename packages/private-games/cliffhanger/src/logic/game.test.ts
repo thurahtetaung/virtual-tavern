@@ -59,7 +59,7 @@ describe('lobby', () => {
 
   it('only the host changes settings; Mix needs exactly three styles unless dealt fresh', () => {
     const h = harness(4);
-    expect(h.refuse('p2', { type: 'update-settings', challenge: true })).toBe('not-host');
+    expect(h.refuse('p2', { type: 'update-settings', noAdvantage: true })).toBe('not-host');
     h.act(HOST, { type: 'update-settings', mode: 'mix', mixStyles: ['one-word', 'quote'] });
     expect(h.refuse(HOST, { type: 'start' })).toBe('mix-styles');
     h.act(HOST, {
@@ -229,54 +229,43 @@ describe('the face-off', () => {
     expect(pair(h)).toEqual(players);
   });
 
-  it('a doubted answer: conceding loses, letting it stand resumes with the time left', () => {
+  it('the face-off is a straight rally: nobody pauses it, every press gives the other full time', () => {
     const h = started();
     const [a, b] = pair(h);
     h.act(a, { type: 'said' });
     h.wait(5000);
-    h.act(b, { type: 'pause' });
-    expect(h.state.round!.faceoff!.paused).toMatchObject({ by: b, left: 10_000 });
-    h.wait(60_000);
-    h.act(b, { type: 'stands' });
-    expect(h.state.round!.faceoff!.deadline).toBe(h.now + 10_000);
+    for (const type of ['pause', 'concede', 'stands']) {
+      expect(cliffhanger.actionSchema.safeParse({ type }).success).toBe(false);
+    }
+    expect(cliffhanger.actionSchema.safeParse({ type: 'rule', stands: false }).success).toBe(false);
     h.act(b, { type: 'said' });
-    h.act(a, { type: 'pause' });
-    h.act(b, { type: 'concede' });
-    expect(h.state.round!.faceoffResult).toMatchObject({ winner: a, how: 'concede' });
+    expect(h.state.round!.faceoff!.deadline).toBe(h.now + 15_000);
+    h.tick();
+    expect(h.state.round!.faceoffResult).toMatchObject({ winner: b, loser: a, how: 'time' });
   });
 
-  it('without Challenge, the host striking an answer puts its player back on the clock', () => {
+  it('a room saved with Challenge on and a paused face-off loads and plays on', () => {
     const h = started();
     const [a, b] = pair(h);
     h.act(a, { type: 'said' });
-    h.act(b, { type: 'said' });
-    h.wait(4000);
-    h.act(a, { type: 'pause' });
-    // p1 is the host and in the pair: give hosting to someone outside it for this check.
-    h.host = 'p3';
-    expect(h.refuse(b, { type: 'rule', stands: false })).toBe('not-host');
-    h.act('p3', { type: 'rule', stands: false });
+    const r = h.state.round!;
+    // As an older release saved it: paused with 7 s left, and the old Challenge setting.
+    h.state = {
+      ...h.state,
+      settings: { ...h.state.settings, challenge: true } as typeof h.state.settings,
+      round: {
+        ...r,
+        faceoff: { ...r.faceoff!, deadline: null, before: null, paused: { by: b, left: 7000 } },
+      } as typeof r,
+    };
+    h.wait(60_000);
+    h.tick();
     const fo = h.state.round!.faceoff!;
-    expect(fo).toMatchObject({ on: b, last: a, answers: 1, paused: null });
-    expect(fo.deadline).toBe(h.now + 11_000);
-    expect(h.state.round!.faceoffResult).toBeNull();
-  });
-
-  it('with Challenge, the doubt decides the face-off', () => {
-    const h = started(4, { settings: { challenge: true } });
-    const [a, b] = pair(h);
-    h.act(a, { type: 'said' });
-    h.act(b, { type: 'pause' });
-    h.act(b, { type: 'stands' });
-    expect(h.state.round!.faceoffResult).toMatchObject({ winner: a, how: 'challenge' });
-
-    const g = started(4, { settings: { challenge: true } });
-    const [x, y] = pair(g);
-    g.act(x, { type: 'said' });
-    g.act(y, { type: 'pause' });
-    g.host = 'p3';
-    g.act('p3', { type: 'rule', stands: false });
-    expect(g.state.round!.faceoffResult).toMatchObject({ winner: y, how: 'ruled' });
+    expect(fo).toMatchObject({ on: b, answers: 1, deadline: h.now + 7000 });
+    expect('paused' in fo).toBe(false);
+    h.act(b, { type: 'said' });
+    h.tick();
+    expect(h.state.round!.faceoffResult).toMatchObject({ winner: b, how: 'time' });
   });
 });
 
@@ -352,15 +341,20 @@ describe('cards and turns', () => {
     expect(h.refuse(a, { type: 'undo', card: card! })).toBe('too-late');
   });
 
-  it('only the other team calls a foul', () => {
+  it('a turn saved with fouls loads and plays on; Foul is gone', () => {
     const h = started();
     const [a, b] = pair(h);
     winFaceOff(h, a);
     keepAndPlace(h);
-    expect(h.refuse('p3', { type: 'foul' })).toBe('not-other-team');
-    h.act(b, { type: 'foul' });
-    expect(h.refuse(b, { type: 'foul' })).toBe('foul-too-soon');
-    expect(h.state.round!.turn!.fouls).toHaveLength(1);
+    const r = h.state.round!;
+    h.state = {
+      ...h.state,
+      round: { ...r, turn: { ...r.turn!, fouls: [{ by: b, at: h.now }] } } as typeof r,
+    };
+    expect(cliffhanger.actionSchema.safeParse({ type: 'foul' }).success).toBe(false);
+    const [card] = gettable(h);
+    h.act(a, { type: 'got', card: card! });
+    expect(h.state.round!.turn!.gots).toEqual([card]);
   });
 
   it('pairs rotate through each team', () => {

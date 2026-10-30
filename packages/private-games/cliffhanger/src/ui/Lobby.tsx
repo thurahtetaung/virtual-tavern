@@ -59,7 +59,6 @@ export function settingsSummary(view: CliffhangerView): string[] {
     MODES[s.mode].name,
     goalLine(view.target).toLowerCase(),
     `${s.answerSeconds} s face-off, ${s.turnSeconds} s turns`,
-    ...(s.challenge ? ['challenge'] : []),
     ...(s.noAdvantage ? ['no advantage'] : []),
     ...(s.comebackPick ? ['comeback pick'] : []),
     ...(s.suddenDeath ? ['sudden death'] : []),
@@ -490,6 +489,7 @@ export function Lobby({
               tag="extra rule"
               tagTone="special"
               onChange={(v) => set({ noSequels: v })}
+              testId="setting-no-sequels"
             />
             <Switch
               on={s.newWordsOnly}
@@ -499,16 +499,7 @@ export function Lobby({
               tag="extra rule"
               tagTone="special"
               onChange={(v) => set({ newWordsOnly: v })}
-            />
-            <Switch
-              on={s.challenge}
-              editable={editable}
-              title="Challenge"
-              help="A doubted face-off answer ends the face-off: wrong, the doubter wins; right, the answerer wins."
-              tag="extra rule"
-              tagTone="special"
-              onChange={(v) => set({ challenge: v })}
-              testId="setting-challenge"
+              testId="setting-new-words"
             />
             <Switch
               on={s.noAdvantage}

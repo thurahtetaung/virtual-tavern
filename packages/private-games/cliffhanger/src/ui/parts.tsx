@@ -12,16 +12,14 @@ const CSS = `
 @keyframes cl-drain { from { transform: scaleX(1) } to { transform: scaleX(0) } }
 @keyframes cl-slide { from { opacity: 0; transform: translateY(-60px) rotate(-8deg) } to { opacity: 1; transform: none } }
 @keyframes cl-glow { 0%,100% { box-shadow: 0 0 0 0 rgb(250 204 21 / 0) } 50% { box-shadow: 0 0 0 6px rgb(250 204 21 / .55) } }
-@keyframes cl-shake { 0%,100% { transform: none } 25% { transform: rotate(-3deg) } 75% { transform: rotate(3deg) } }
 .cl-rise { animation: cl-rise .35s ease-out both }
 .cl-pop { animation: cl-pop .45s cubic-bezier(.2,.8,.3,1.2) both }
 .cl-drain { transform-origin: left; animation-name: cl-drain; animation-timing-function: linear; animation-fill-mode: both }
 .cl-slide { animation: cl-slide .6s cubic-bezier(.2,.8,.3,1.1) both }
 .cl-glow { animation: cl-glow 1s ease-in-out 3 }
-.cl-shake { animation: cl-shake .3s ease-in-out 2 }
 .cl-upright { writing-mode: vertical-rl; text-orientation: mixed }
 @media (prefers-reduced-motion: reduce) {
-  .cl-rise, .cl-pop, .cl-slide, .cl-glow, .cl-shake { animation: none }
+  .cl-rise, .cl-pop, .cl-slide, .cl-glow { animation: none }
 }
 `;
 
@@ -89,6 +87,29 @@ export function StyleName({ style, className }: { style: StyleId; className?: st
   return (
     <span className={cn('font-black tracking-wide uppercase', className)}>
       <span aria-hidden>{STYLES[style].emoji}</span> {names.styles[style]}
+    </span>
+  );
+}
+
+/** A short reminder of an extra rule the table enforces, where it applies. */
+export function RuleNote({
+  children,
+  className,
+  testId,
+}: {
+  children: ReactNode;
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        'inline-block rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink ring-1 ring-warn-line dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-500/40',
+        className,
+      )}
+      data-testid={testId}
+    >
+      {children}
     </span>
   );
 }

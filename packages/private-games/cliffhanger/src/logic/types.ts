@@ -24,9 +24,6 @@ export const RECAP_MS = 3_000;
 export const DECIDE_MS = 15_000;
 /** A Got it can be taken back this soon after. */
 export const UNDO_MS = 3_000;
-/** A player may call Foul at most once in this long. */
-export const FOUL_GAP_MS = 2_000;
-export const MAX_FOULS = 6;
 /** Cards and categories remembered per room, so the packs are used up before anything repeats. */
 export const MAX_USED = 1500;
 export const MAX_LOG = 40;
@@ -66,8 +63,6 @@ export interface Settings {
   /** Extra rules: shown as text, the table enforces them. */
   noSequels: boolean;
   newWordsOnly: boolean;
-  /** Challenge: a doubted face-off answer decides the face-off. */
-  challenge: boolean;
   /** Each face-off player picks 3 of 5 instead of the winner keeping the easy three. */
   noAdvantage: boolean;
   /** The trailing team's face-off player picks the category from two. */
@@ -111,15 +106,12 @@ export interface FaceOff {
   flippedAt: number;
   /** Who must answer next (null: before the first answer, either may). */
   on: PlayerId | null;
-  /** The answer clock (or the opening clock), null while paused or untimed. */
+  /** The answer clock (or the opening clock), null when untimed. */
   deadline: number | null;
   answers: number;
   /** Who gave the latest answer. */
   last: PlayerId | null;
-  /** Who answered before that (back on the clock if the latest is struck). */
-  before: PlayerId | null;
   firstAt: number | null;
-  paused: { by: PlayerId; left: number } | null;
   /** Categories swapped before the first answer. */
   swaps: number;
 }
@@ -152,7 +144,6 @@ export interface Turn {
   stealOpen: boolean;
   /** Card ids got this turn, in order. */
   gots: string[];
-  fouls: { by: PlayerId; at: number }[];
 }
 
 export type RoundStage =
@@ -161,7 +152,7 @@ export type RoundStage =
 export interface FaceOffResult {
   winner: PlayerId;
   loser: PlayerId;
-  how: 'time' | 'concede' | 'challenge' | 'ruled';
+  how: 'time';
   answers: number;
   /** From the first answer to the end. */
   ms: number;
@@ -259,7 +250,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     turnSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]).optional(),
     noSequels: z.boolean().optional(),
     newWordsOnly: z.boolean().optional(),
-    challenge: z.boolean().optional(),
     noAdvantage: z.boolean().optional(),
     comebackPick: z.boolean().optional(),
     suddenDeath: z.boolean().optional(),
@@ -276,19 +266,11 @@ export const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('pick-category'), id: z.string().min(1).max(200) }),
   z.object({ type: z.literal('new-category') }),
   z.object({ type: z.literal('said') }),
-  z.object({ type: z.literal('pause') }),
-  /** The latest answerer gives it up: they lose the face-off. */
-  z.object({ type: z.literal('concede') }),
-  /** The doubter lets it stand. */
-  z.object({ type: z.literal('stands') }),
-  /** The host settles a stalemate. */
-  z.object({ type: z.literal('rule'), stands: z.boolean() }),
   z.object({ type: z.literal('arrange'), slots: slotIds }),
   z.object({ type: z.literal('lock'), slots: slotIds.optional() }),
   z.object({ type: z.literal('focus'), card: z.string().min(1).max(200) }),
   z.object({ type: z.literal('got'), card: z.string().min(1).max(200) }),
   z.object({ type: z.literal('undo'), card: z.string().min(1).max(200) }),
-  z.object({ type: z.literal('foul') }),
   z.object({
     type: z.literal('steal'),
     genre: z.string().min(1).max(40),
