@@ -1,4 +1,4 @@
-import type { GameRoomInfo } from '@vt/game-sdk';
+import { type GameRoomInfo, storageKey } from '@vt/game-sdk';
 import { Button, ProtectedImage, RefusalSlot, cn, useSecondsLeft } from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import type { Card } from '../logic/content.ts';
@@ -17,6 +17,7 @@ import {
   other,
 } from '../logic/types.ts';
 import { useArt } from './assets.ts';
+import { passTarget } from './pass.ts';
 import {
   ClockBar,
   GenreRace,
@@ -408,7 +409,29 @@ export function Bays({
   );
 }
 
-/** The describer: the card now, big, with Got it; the others to switch to. */
+const PASS_TIP_KEY = 'cliffhanger.pass-tip.v1';
+
+/** A one-line first-time tip for describers, until dismissed or Pass is pressed. */
+function usePassTip(): [boolean, () => void] {
+  const [seen, setSeen] = useState(() => {
+    try {
+      return localStorage.getItem(storageKey(PASS_TIP_KEY)) === '1';
+    } catch {
+      return true;
+    }
+  });
+  const dismiss = () => {
+    try {
+      localStorage.setItem(storageKey(PASS_TIP_KEY), '1');
+    } catch {
+      // Storage blocked: the tip just closes for now.
+    }
+    setSeen(true);
+  };
+  return [!seen, dismiss];
+}
+
+/** The describer: the card now, big, with Got it and Pass; the others to switch to. */
 function Describer({ view, room, act, cue }: PlayProps) {
   const r = view.round!;
   const turn = r.turn!;
@@ -420,6 +443,8 @@ function Describer({ view, room, act, cue }: PlayProps) {
   const theirs = turn.stealOpen ? open(other(team)) : [];
   const cards = mine.length ? mine : theirs;
   const now = cards.find((s) => s.card!.id === turn.focus) ?? cards[0];
+  const next = passTarget(cards, now);
+  const [tip, dismissTip] = usePassTip();
   const last = turn.gots.at(-1);
   const left = useSecondsLeft(turn.endsAt, room.clockOffset);
   // A short buzz at five seconds left.
@@ -443,7 +468,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
         <div className="flex items-center gap-3">
           <Tape card={now.card} deck={deck} full className="h-32 sm:h-44" />
           <div className="min-w-0 flex-1 space-y-2">
-            <StyleName style={now.plays} className="text-lg" />
+            <StyleName style={now.plays} className="text-lg" testId="now-style" />
             <p className="text-xs text-ink-muted">{STYLES[now.plays].how}</p>
             {view.settings.newWordsOnly && (now.plays === 'one-word' || now.plays === 'quote') && (
               <RuleNote testId="rule-new-words">No words from the title</RuleNote>
@@ -464,22 +489,62 @@ function Describer({ view, room, act, cue }: PlayProps) {
         <p className="py-6 text-center text-lg font-semibold">Every card is got! 🎉</p>
       )}
       {now?.card && (
-        <Button
-          size="lg"
-          className="h-16 w-full text-2xl"
-          data-testid="got-it"
-          onClick={() => {
-            buzz(30);
-            void act({ type: 'got', card: now.card!.id }, { anchor: 'cl-turn' });
-          }}
-        >
-          ✓ Got it
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="lg"
+            className="h-16 min-w-0 flex-[2] text-2xl"
+            data-testid="got-it"
+            onClick={() => {
+              buzz(30);
+              void act({ type: 'got', card: now.card!.id }, { anchor: 'cl-turn' });
+            }}
+          >
+            ✓ Got it
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="h-16 min-w-0 flex-1 flex-col gap-0 text-xl leading-tight"
+            data-testid="pass"
+            disabled={!next}
+            onClick={() => {
+              if (!next) return;
+              dismissTip();
+              switchTo(next.card!);
+            }}
+          >
+            ⏭ Pass
+            {!next && <span className="text-[11px] font-normal">Last card</span>}
+          </Button>
+        </div>
       )}
-      {cards.length > 1 && (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-ink-muted">Stuck? Switch card:</p>
-          <div className="flex flex-wrap gap-2">
+      {tip && now?.card && next && (
+        <p
+          className="flex items-center gap-2 rounded-lg bg-info-soft px-3 py-1.5 text-xs text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+          data-testid="pass-tip"
+        >
+          <span className="flex-1">
+            Stuck? Pass to your next {nounOf(deck)} and come back to it later.
+          </span>
+          <button
+            type="button"
+            className="font-semibold underline"
+            aria-label="Dismiss tip"
+            onClick={dismissTip}
+          >
+            OK
+          </button>
+        </p>
+      )}
+      {cards.length > 2 && (
+        <details className="group" data-testid="pick-card">
+          <summary className="flex h-8 cursor-pointer list-none items-center gap-1 text-xs font-semibold text-ink-muted [&::-webkit-details-marker]:hidden">
+            <span className="transition group-open:rotate-90" aria-hidden>
+              ▸
+            </span>
+            Or pick a card
+          </summary>
+          <div className="flex flex-wrap gap-2 pt-1">
             {cards
               .filter((s) => s !== now)
               .map((s) => (
@@ -494,7 +559,7 @@ function Describer({ view, room, act, cue }: PlayProps) {
                 </Button>
               ))}
           </div>
-        </div>
+        </details>
       )}
       {last && lastSlot?.card && (
         <UndoButton key={last} card={last} title={lastSlot.card.title} act={act} />

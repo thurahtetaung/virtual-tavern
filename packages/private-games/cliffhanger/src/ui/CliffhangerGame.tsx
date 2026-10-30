@@ -1,5 +1,14 @@
 import { type GameUiProps, storageKey } from '@vt/game-sdk';
-import { Button, Hint, Panel, cn, revealElement, useAbandonGame, useSpectatorPrompt } from '@vt/ui';
+import {
+  Button,
+  Hint,
+  Modal,
+  Panel,
+  cn,
+  revealElement,
+  useAbandonGame,
+  useSpectatorPrompt,
+} from '@vt/ui';
 import { useEffect, useRef, useState } from 'react';
 import { nounOf } from '../logic/genres.ts';
 import {
@@ -22,7 +31,7 @@ export type CliffhangerUiProps = GameUiProps<CliffhangerView, CliffhangerAction>
 
 const TIPS_KEY = 'cliffhanger.tips.v1';
 
-/** First-time tips, until dismissed (per seat in a playtest). */
+/** First-time tips, until dismissed (per seat in a playtest): one line on phones, the list in a sheet. */
 function Tips({ view }: { view: CliffhangerView }) {
   const [seen, setSeen] = useState(() => {
     try {
@@ -31,14 +40,20 @@ function Tips({ view }: { view: CliffhangerView }) {
       return true;
     }
   });
+  const [open, setOpen] = useState(false);
   if (seen) return null;
+  const dismiss = () => {
+    try {
+      localStorage.setItem(storageKey(TIPS_KEY), '1');
+    } catch {
+      // Storage blocked: the tips just close for now.
+    }
+    setSeen(true);
+    setOpen(false);
+  };
   const nouns = nounOf(view.settings.deck, true);
-  return (
-    <aside
-      data-testid="tips"
-      className="cl-rise flex flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
-    >
-      <p className="font-semibold">New here? Three things to know</p>
+  const list = (
+    <>
       <ul className="list-disc space-y-1 pl-5">
         <li>
           Face-off: name one that fits out loud, then press Said it! Whoever runs out of time loses.
@@ -49,22 +64,39 @@ function Tips({ view }: { view: CliffhangerView }) {
         <li>The app never judges: you all decide out loud what counts, slips included.</li>
       </ul>
       <p className="text-xs">Fill every genre with {nouns} before the other team to win.</p>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="self-end"
-        onClick={() => {
-          try {
-            localStorage.setItem(storageKey(TIPS_KEY), '1');
-          } catch {
-            // Storage blocked: the tips just close for now.
-          }
-          setSeen(true);
-        }}
+    </>
+  );
+  return (
+    <>
+      <aside
+        data-testid="tips"
+        className="cl-rise hidden flex-col gap-2 rounded-2xl bg-info-soft px-4 py-3 text-sm text-info-ink ring-1 ring-info-line sm:flex dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
       >
-        Got it
-      </Button>
-    </aside>
+        <p className="font-semibold">New here? Three things to know</p>
+        {list}
+        <Button variant="ghost" size="sm" className="self-end" onClick={dismiss}>
+          Got it
+        </Button>
+      </aside>
+      <aside
+        data-testid="tips-line"
+        className="flex items-center gap-1 rounded-xl bg-info-soft py-0.5 pr-1 pl-3 text-sm text-info-ink ring-1 ring-info-line sm:hidden dark:bg-sky-500/10 dark:text-sky-100 dark:ring-sky-500/30"
+      >
+        <span className="min-w-0 flex-1 truncate">New here? The app never judges: you do.</span>
+        <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+          Tips
+        </Button>
+        <Button variant="ghost" size="sm" aria-label="Hide the tips" onClick={dismiss}>
+          ✕
+        </Button>
+      </aside>
+      <Modal open={open} onClose={() => setOpen(false)} title="New here? Three things to know">
+        <div className="flex flex-col gap-3 text-sm">
+          {list}
+          <Button onClick={dismiss}>Got it</Button>
+        </div>
+      </Modal>
+    </>
   );
 }
 

@@ -5,7 +5,16 @@ import {
   type GuideOption,
   shapeGuide,
 } from '@vt/game-sdk';
-import { FILM_GENRES, GOALS, MODES, STYLES, STYLE_IDS, TV_GENRES, goalFor } from './genres.ts';
+import {
+  FILM_GENRES,
+  GOALS,
+  MODES,
+  STYLES,
+  STYLE_IDS,
+  TV_GENRES,
+  goalFor,
+  modeStyles,
+} from './genres.ts';
 import { type Manifest, type Names, footerOf, namesOf } from './manifest.ts';
 import type { CliffhangerView } from './types.ts';
 
@@ -21,6 +30,7 @@ const STRICT: GuideOption = { key: 'strict', label: 'Strict timers' };
 const TV: GuideOption = { key: 'tv', label: 'TV shows' };
 const GENRES: GuideOption = { key: 'genres', label: 'Chosen genres' };
 const TWO_EACH: GuideOption = { key: 'twoEach', label: 'Two of each' };
+const CAST: GuideOption = { key: 'cast', label: 'Name the Cast' };
 
 function text(names: Names): GameGuide {
   return {
@@ -33,8 +43,8 @@ function text(names: Names): GameGuide {
       'Split into two teams. The first team to collect a film of every chosen genre wins.',
       'Face-off: one player per team takes turns naming a film that fits the category, then pressing their button. Each press gives the other 15 seconds.',
       'Whoever runs out of time loses. The winner gets six films, keeps the easiest three and hands the hardest three to the loser.',
-      'Each of you puts your three films on your team’s squares: One Word, Quote It and Act It.',
-      'Your team gets 30 seconds. Describe each film the way its square says; tap Got it when your team names it.',
+      'Each of you puts your three films on your team’s squares: One Word, Quote It and Act It (on a call, Describe It Badly or Name the Cast instead).',
+      'Your team gets 30 seconds. Describe each film the way its square says; tap Got it when your team names it, or Pass to your next one and come back later.',
       'Got your three with time left? Steal the other team’s films the same way.',
     ],
     setup: [
@@ -67,7 +77,7 @@ function text(names: Names): GameGuide {
         title: 'Your team’s turn',
         bullets: [
           'After a 3-2-1, your team has 30 seconds (or the host’s 45 or 60). The face-off player describes; teammates shout guesses.',
-          'Describe each film the way its square says. Switch between your three as often as you like; a skipped one waits for you.',
+          'Describe each film the way its square says. Stuck? Tap Pass to move to your next film, or pick one; switch as often as you like, and a passed one waits for you.',
           'When a teammate names the film, tap Got it. Wrong guesses cost nothing.',
           'Only you see the films you are describing. Slip up? The table settles it out loud, not the app.',
           'Got all three with time left? The other team’s films open up: steal them by describing them the same way. The face-off winner’s team plays first, then the other team.',
@@ -92,9 +102,10 @@ function text(names: Names): GameGuide {
         bullets: [
           `${MODES.room.name}: ${MODES.room.blurb}.`,
           `${MODES.video.name}: ${MODES.video.blurb}.`,
-          `${MODES.voice.name}: ${MODES.voice.blurb}. Nothing needs a camera.`,
+          `${MODES.voice.name}: ${MODES.voice.blurb}, or Name the Cast if the host picks it. Nothing needs a camera.`,
           `${MODES.mix.name}: the host ticks three styles, or ticks more and has three dealt fresh every round.`,
-          'On a call while the others are together? Switch on “I’m on a call”: on your turn, Act It becomes Describe It Badly.',
+          'On a call while the others are together? Switch on “I’m on a call”: on your turn, Act It becomes Describe It Badly (or Name the Cast).',
+          'The host chooses what replaces Act It on a call: Describe It Badly (the default) or Name the Cast.',
         ],
       },
       {
@@ -119,6 +130,14 @@ function text(names: Names): GameGuide {
         title: 'Two of each',
         option: TWO_EACH,
         bullets: ['The host can ask for two of each genre instead of one: a longer game.'],
+      },
+      {
+        title: 'Instead of Act It: Name the Cast',
+        option: CAST,
+        bullets: [
+          'The host can play Name the Cast instead of Describe It Badly on Voice call squares and for anyone on a call. In Mix it is one of the styles to tick.',
+          'Name actors who are in it; for a show, characters work too. No words from the title.',
+        ],
       },
       {
         title: 'Extra rule: No Sequels',
@@ -184,7 +203,8 @@ function text(names: Names): GameGuide {
     tips: [
       'Keep the films you know best: the loser gets the hard ones.',
       'Put the film you can mime on Act It, and the one with a famous line on Quote It.',
-      'Stuck on one? Switch to another and come back.',
+      'Stuck on one? Tap Pass and come back to it later.',
+      'Name the Cast: start with the most famous name, then go down the credits.',
       'Mime for your face-off player: you can’t speak, but you can help.',
     ],
     glossary: [
@@ -195,6 +215,10 @@ function text(names: Names): GameGuide {
       {
         term: 'Square',
         meaning: 'One of your team’s three spots, each with a way to describe its film.',
+      },
+      {
+        term: 'Pass',
+        meaning: 'Move on to your next film in the turn; the one you passed waits for you.',
       },
       {
         term: 'Steal',
@@ -229,6 +253,7 @@ function base(names: Names): GameGuide {
       Winning: 'basics',
       'How are you playing?': 'details',
       'TV shows': 'details',
+      'Instead of Act It: Name the Cast': 'details',
       'Extra rule: No Sequels': 'details',
       'Extra rule: New Words Only': 'details',
       'House rule: no advantage': 'edge',
@@ -316,8 +341,14 @@ export function makeGuide(names: Names = namesOf(null), footer?: GuideFooter): G
     if (goal.genres.length !== usual.length || goal.genres.some((g) => !usual.includes(g)))
       options.push(GENRES.key);
     if (goal.each > 1) options.push(TWO_EACH.key);
-    const styles =
-      v.round?.styles ?? (s.mode === 'mix' ? s.mixStyles.slice(0, 3) : MODES[s.mode].styles);
+    const alt = s.actAlt ?? 'describe-badly';
+    const styles: string[] = [
+      ...(v.round?.styles ??
+        (s.mode === 'mix' ? s.mixStyles.slice(0, 3) : modeStyles(s.mode, alt))),
+    ];
+    // A player on a call plays the alternative instead of Act It.
+    if (styles.includes('act') && v.seats?.some((x) => x.onCall)) styles.push(alt);
+    if (styles.includes('cast')) options.push(CAST.key);
     const inGame: Record<string, number> = {};
     for (const id of styles) inGame[id] = 1;
     for (const g of goal.genres) inGame[s.deck === 'tv' ? `tv-${g}` : g] = goal.each;

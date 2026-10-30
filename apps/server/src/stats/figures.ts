@@ -2340,6 +2340,7 @@ function cliffhangerFigures(get: (metric: string) => number): GameFigure[] {
         { label: 'Quote it', value: get('f.style.quote') },
         { label: 'Act it', value: get('f.style.act') },
         { label: 'Describe it badly', value: get('f.style.describe-badly') },
+        { label: 'Name the cast', value: get('f.style.cast') },
       ],
     },
     {

@@ -55,6 +55,16 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
   await ana.getByTestId('setting-no-sequels').click();
   await ana.getByTestId('setting-new-words').click();
   await expect(ana.getByTestId('setting-new-words')).toHaveAttribute('aria-checked', 'true');
+  // Ana is on a call and the host picks Name the Cast instead of Act It.
+  await ana
+    .getByTestId('setting-act-alt')
+    .getByRole('button', { name: /Name the Cast/ })
+    .click();
+  await expect(
+    ana.getByTestId('setting-act-alt').getByRole('button', { name: /Name the Cast/ }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await ana.getByTestId('on-call').click();
+  await expect(ana.getByTestId('on-call')).toHaveAttribute('aria-checked', 'true');
   await ana.getByTestId('start').click();
 
   // Round 1: Ana against Ben. Ana answers; Ben's clock runs out.
@@ -71,6 +81,18 @@ test('four players play Cliffhanger on phones: face-offs, describing, a steal an
   await expect(dev.getByTestId('turn-rival')).toBeVisible();
   await expect(dev.getByTestId('turn-rival')).toContainText('Only Ana sees their cards');
   for (const p of [ben, cleo, dev]) await expect(p.getByText('Pretend action 1')).toHaveCount(0);
+
+  // Pass moves to her next card in square order and wraps round to the first.
+  await expect(ana.getByTestId('pass-tip')).toBeVisible();
+  await ana.getByTestId('pass').click();
+  await expect(ana.getByTestId('now-title')).toHaveText('Pretend classics 1');
+  await expect(ana.getByTestId('pass-tip')).toHaveCount(0);
+  await ana.getByTestId('pass').click();
+  await expect(ana.getByTestId('now-title')).toHaveText('Pretend drama 1');
+  // Her Act It square plays as Name the Cast: she is on a call.
+  await expect(ana.getByTestId('now-style')).toHaveText(/Name the Cast/);
+  await ana.getByTestId('pass').click();
+  await expect(ana.getByTestId('now-title')).toHaveText('Pretend action 1');
 
   // Ana describes her three, then steals Ben's three.
   const first = await describeCards(ana, 6);
