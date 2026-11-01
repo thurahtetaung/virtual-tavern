@@ -11,6 +11,9 @@ updates:
       # Node types track the runtime (Volta pin, currently Node 24 LTS); bump with the runtime.
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
+      # three.js is pinned for the 3D bomb and moves only on purpose.
+      - dependency-name: 'three'
+      - dependency-name: '@types/three'
     commit-message:
       prefix: chore(deps)
   - package-ecosystem: github-actions
