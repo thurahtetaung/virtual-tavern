@@ -8,7 +8,7 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
-  withHostVolume,
+  hostVolumeChange,
 } from '@vt/game-sdk';
 import { hydraAwards } from './awards.ts';
 import { COPY, type CopyKey, fillVars } from './copy.ts';
@@ -1040,19 +1040,17 @@ function reduce(state: HydraState, action: HydraAction, ctx: Ctx): Result {
 function reduceOne(state: HydraState, action: HydraAction, ctx: Ctx): Result {
   switch (action.type) {
     case 'host-volume': {
-      // The host's own sliders set everyone's: any time, mid-game too.
+      // The host's sliders set their own volume or everyone's, as the
+      // host chooses: any time, mid-game too.
       const no = requireHost(ctx);
       if (no) return no;
+      const next = hostVolumeChange(state.settings, action, ctx.now);
+      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
       return {
         ...state,
         settings: {
           ...state.settings,
-          hostVolumes: withHostVolume(
-            state.settings.hostVolumes,
-            action.which,
-            action.level,
-            ctx.now,
-          ),
+          hostVolumes: next.hostVolumes,
         },
       };
     }

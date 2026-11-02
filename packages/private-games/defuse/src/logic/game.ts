@@ -7,8 +7,7 @@ import {
   type PlayerInfo,
   hostVolumeAction,
   tableVolumeAction,
-  tableWithHostVolume,
-  withHostVolume,
+  hostVolumeChange,
 } from '@vt/game-sdk';
 import { z } from 'zod';
 import { defuseAwards } from './awards.ts';
@@ -389,11 +388,14 @@ function reduce(state: State, action: Action, ctx: ActionCtx): State | GameError
       return s;
     }
     case 'host-volume': {
-      // The host's own sliders set everyone's (and the table screen's): any time, mid-bomb too.
-      if (!ctx.isHost) return err('not-host', 'Only the host sets everyone’s volume.');
+      // The host's sliders set their own volume or everyone's (and the table screen's), as the host
+      // chooses: any time, mid-bomb too.
+      if (!ctx.isHost) return err('not-host', 'Only the host can do that.');
+      const next = hostVolumeChange(state, action, ctx.now);
+      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
       const s = draft(state);
-      s.hostVolumes = withHostVolume(s.hostVolumes, action.which, action.level, ctx.now);
-      s.tableVolumes = tableWithHostVolume(s.tableVolumes, action.which, action.level);
+      s.hostVolumes = next.hostVolumes;
+      s.tableVolumes = next.tableVolumes;
       return s;
     }
     case 'alarm': {

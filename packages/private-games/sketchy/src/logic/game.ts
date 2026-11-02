@@ -10,8 +10,7 @@ import {
   createRng,
   validateDrawing,
   wordKey,
-  tableWithHostVolume,
-  withHostVolume,
+  hostVolumeChange,
 } from '@vt/game-sdk';
 import {
   PLAYER_SLOT,
@@ -795,24 +794,18 @@ export function reduce(state: SketchyState, action: SketchyAction, ctx: Ctx): Re
   const current = refreshPacks(state, ctx.content);
   switch (action.type) {
     case 'host-volume': {
-      // The host's own sliders set everyone's (and the table screen's): any time, mid-game too.
+      // The host's sliders set their own volume or everyone's (and the table screen’s), as the
+      // host chooses: any time, mid-game too.
       const no = requireHost(ctx);
       if (no) return no;
+      const next = hostVolumeChange(current.settings, action, ctx.now);
+      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
       return {
         ...current,
         settings: {
           ...current.settings,
-          hostVolumes: withHostVolume(
-            current.settings.hostVolumes,
-            action.which,
-            action.level,
-            ctx.now,
-          ),
-          tableVolumes: tableWithHostVolume(
-            current.settings.tableVolumes,
-            action.which,
-            action.level,
-          ),
+          hostVolumes: next.hostVolumes,
+          tableVolumes: next.tableVolumes,
         },
       };
     }

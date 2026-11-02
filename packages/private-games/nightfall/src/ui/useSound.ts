@@ -1,4 +1,4 @@
-import { FULL_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { DEFAULT_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
 import { useEffect, useRef, useState } from 'react';
 import type { NightfallView } from '../logic/types.ts';
 import { type Manifest, assetUrl } from './assets.ts';
@@ -41,7 +41,7 @@ export const MUSIC_SHARE = DEFAULT_MUSIC_VOLUME;
  * before becomes the music slider (its volume was the music's, out of the 35 % share).
  */
 export const useNightfallVolumes = () =>
-  useVolumes('nightfall', FULL_VOLUMES, () => {
+  useVolumes('nightfall', DEFAULT_VOLUMES, () => {
     try {
       const raw = JSON.parse(localStorage.getItem('vt.nightfall.sound') ?? 'null') as {
         music?: unknown;

@@ -65,7 +65,10 @@ interface Props {
 
 function useCliffhangerSound({ view, room, act, manifest }: Props) {
   const [volumes, setVolume] = useCliffhangerVolumes();
-  const shared = useVolumeShare(volumeShare(GAME_ID, room.isHost, act, true), setVolume);
+  const shared = useVolumeShare(
+    volumeShare(GAME_ID, room.isHost, act, view.settings.hostVolumes, true),
+    setVolume,
+  );
   const [table, setTable] = useTableVolumes(
     view.settings.tableVolumes,
     (v) => {
@@ -85,6 +88,7 @@ function useCliffhangerSound({ view, room, act, manifest }: Props) {
       setVolume: shared.setVolume,
       hostSet: shared.hostSet,
       caption: shared.caption,
+      hostMode: shared.hostMode,
       channels: plan.mine.length ? channelsOf(audio, !roomHere) : [],
       testId: 'cliffhanger-sound-mine',
     },

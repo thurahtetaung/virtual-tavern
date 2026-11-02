@@ -1,6 +1,6 @@
 import type { ShowAudio } from '@vt/ui/show';
 import {
-  FULL_VOLUMES,
+  DEFAULT_VOLUMES,
   type Volumes,
   gainOf,
   legacyDevice,
@@ -12,7 +12,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type SketchyView, announcerOf } from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
 import {
-  DEFAULT_VOLUME,
   DUCK_RATIO,
   type Device,
   MUSIC_SHARE,
@@ -41,10 +40,10 @@ export const MUSIC_SETTLE_MS = 3000;
 /** Effects the show fires at a moment's notice, kept decoded once a game starts. */
 const INSTANT = ['reveal.hit', 'reveal.drumroll', 'write.break', 'vote.tick', 'likes.thumb'];
 
-/** Sketchy's sound types: everyone's own sliders, master 80 % and the narrator off out of the box. */
-export const VOLUME_DEFAULTS: Volumes = { ...FULL_VOLUMES, master: DEFAULT_VOLUME, voice: 0 };
-/** The table screen's out of the box: the narrator off too, until the host turns it up. */
-export const TABLE_DEFAULTS: Volumes = { ...FULL_VOLUMES, voice: 0 };
+/** Sketchy's sound types: everyone's own sliders, every one at 50 % out of the box. */
+export const VOLUME_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
+/** The table screen's out of the box: 50 % too, until the host moves them. */
+export const TABLE_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
 
 /** This player's volumes (a phone's own `{ muted, volume }` switch from before becomes the master). */
 export const useSketchyVolumes = () =>

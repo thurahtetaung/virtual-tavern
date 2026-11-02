@@ -54,7 +54,10 @@ function useDefuseSound({ v, room, art, send, playsBomb, nameOf }: Props): {
   note: string;
 } {
   const [volumes, setVolume] = useDefuseVolumes();
-  const shared = useVolumeShare(volumeShare('defuse', room.isHost, send, true), setVolume);
+  const shared = useVolumeShare(
+    volumeShare('defuse', room.isHost, send, v.hostVolumes, true),
+    setVolume,
+  );
   const [table, setTable] = useTableVolumes(v.tableVolumes, (t) => {
     send({ type: 'table-volume', volumes: t });
   });
@@ -77,6 +80,7 @@ function useDefuseSound({ v, room, art, send, playsBomb, nameOf }: Props): {
         setVolume: shared.setVolume,
         hostSet: shared.hostSet,
         caption: shared.caption,
+        hostMode: shared.hostMode,
         channels: channelsOf(mine, art),
         testId: 'defuse-sound-mine',
       },

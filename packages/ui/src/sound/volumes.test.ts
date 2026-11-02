@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setStorageSeat } from '@vt/game-sdk';
 import { volumeSummary } from './panel.tsx';
 import {
+  DEFAULT_VOLUMES,
   FULL_VOLUMES,
+  VOLUMES_RESET,
   audible,
   gainOf,
   legacyDevice,
@@ -10,6 +12,7 @@ import {
   resetVolumeCache,
   soundPlan,
   tableVolumes,
+  readVolumes,
   volumesKey,
   whereLine,
   writeVolume,
@@ -44,14 +47,14 @@ describe('stored volumes', () => {
   });
 
   it('keeps each stored volume and fixes broken ones', () => {
-    const raw = JSON.stringify({ master: 0.5, music: 2, effects: -1, voice: 'loud' });
+    const raw = JSON.stringify({ master: 0.5, music: 2, effects: -1, voice: 'loud', reset: 1 });
     expect(parseVolumes(raw, DEFAULTS)).toEqual({ master: 0.5, music: 1, effects: 0, voice: 1 });
     expect(parseVolumes('{not json', DEFAULTS)).toEqual(DEFAULTS);
   });
 
   it('takes an older switch only when nothing is stored', () => {
     expect(parseVolumes(null, DEFAULTS, { master: 0 })).toEqual({ ...DEFAULTS, master: 0 });
-    expect(parseVolumes('{"master":0.3}', DEFAULTS, { master: 0 }).master).toBe(0.3);
+    expect(parseVolumes('{"master":0.3,"reset":1}', DEFAULTS, { master: 0 }).master).toBe(0.3);
   });
 
   it('reads an older { muted, volume } switch as the master', () => {
@@ -66,7 +69,32 @@ describe('stored volumes', () => {
     const key = volumesKey('going-once');
     writeVolume(key, DEFAULTS, 'music', 0.25);
     writeVolume(key, DEFAULTS, 'voice', 3);
-    expect(JSON.parse(storage.items.get(key)!)).toEqual({ ...DEFAULTS, music: 0.25, voice: 1 });
+    expect(JSON.parse(storage.items.get(key)!)).toEqual({
+      ...DEFAULTS,
+      music: 0.25,
+      voice: 1,
+      reset: VOLUMES_RESET,
+    });
+  });
+
+  it('starts every slider at 50 %', () => {
+    expect(DEFAULT_VOLUMES).toEqual({ master: 0.5, music: 0.5, effects: 0.5, voice: 0.5 });
+    expect(readVolumes(volumesKey('nightfall'), DEFAULT_VOLUMES)).toEqual(DEFAULT_VOLUMES);
+  });
+
+  it('resets volumes stored before the 50 % defaults once, then keeps the player’s', () => {
+    const key = volumesKey('sketchy');
+    storage.setItem(key, JSON.stringify({ master: 1, music: 0.2, effects: 1, voice: 0 }));
+    expect(parseVolumes(storage.getItem(key), DEFAULT_VOLUMES)).toEqual(DEFAULT_VOLUMES);
+    expect(readVolumes(key, DEFAULT_VOLUMES)).toEqual(DEFAULT_VOLUMES);
+    // The reset is stored at once, marked, so it happens only once.
+    expect(JSON.parse(storage.items.get(key)!)).toEqual({
+      ...DEFAULT_VOLUMES,
+      reset: VOLUMES_RESET,
+    });
+    writeVolume(key, DEFAULT_VOLUMES, 'music', 0.9);
+    resetVolumeCache();
+    expect(readVolumes(key, DEFAULT_VOLUMES)).toEqual({ ...DEFAULT_VOLUMES, music: 0.9 });
   });
 
   it('is kept per game', () => {
@@ -95,9 +123,9 @@ describe('gain mapping', () => {
     expect(gainOf({ master: 1, music: 1, effects: -1, voice: 1 }, 'effects')).toBe(0);
   });
 
-  it('the table screen plays at full volume until the host moves a slider', () => {
-    expect(tableVolumes(undefined)).toEqual(FULL_VOLUMES);
-    expect(tableVolumes({ music: 0.3 })).toEqual({ ...FULL_VOLUMES, music: 0.3 });
+  it('the table screen plays at 50 % until the host moves a slider', () => {
+    expect(tableVolumes(undefined)).toEqual(DEFAULT_VOLUMES);
+    expect(tableVolumes({ music: 0.3 })).toEqual({ ...DEFAULT_VOLUMES, music: 0.3 });
     expect(tableVolumes({ voice: 9 }, { ...FULL_VOLUMES, voice: 0 }).voice).toBe(1);
     expect(tableVolumes({}, { ...FULL_VOLUMES, voice: 0 }).voice).toBe(0);
   });

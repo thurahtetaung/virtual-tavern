@@ -1,5 +1,5 @@
 import {
-  FULL_VOLUMES,
+  DEFAULT_VOLUMES,
   type Volumes,
   gainOf,
   soundEngineFor,
@@ -32,8 +32,8 @@ const AHEAD_MS = 400;
 /** A sting seen this long after it was due isn't worth playing. */
 const LATE_MS = 1500;
 
-export const VOLUME_DEFAULTS: Volumes = { ...FULL_VOLUMES };
-export const TABLE_DEFAULTS: Volumes = { ...FULL_VOLUMES };
+export const VOLUME_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
+export const TABLE_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
 
 export const useCliffhangerVolumes = () => useVolumes(GAME_ID, VOLUME_DEFAULTS);
 

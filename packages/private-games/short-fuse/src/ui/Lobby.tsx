@@ -252,7 +252,7 @@ export function Lobby({
           )}
         </p>
       </LobbySettings>
-      <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act)} />
+      <ShortFuseLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
 
       <Panel className="space-y-2">
         <h3 className="font-bold text-ink">

@@ -279,7 +279,7 @@ export function Lobby({
           }
         />
       </LobbySettings>
-      <HydraLobbySound share={volumeShare(SOUND_GAME, room.isHost, act)} />
+      <HydraLobbySound share={volumeShare(SOUND_GAME, room.isHost, act, s.hostVolumes)} />
 
       {host && (
         <StickyBar>

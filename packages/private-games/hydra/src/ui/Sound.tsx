@@ -1,5 +1,5 @@
 import {
-  FULL_VOLUMES,
+  DEFAULT_VOLUMES,
   LobbySound,
   type SoundSection,
   type VolumeKey,
@@ -13,12 +13,12 @@ import { storageKey } from '@vt/game-sdk';
 import { useEffect } from 'react';
 import { playSfx, setSfxLevel } from './fx.ts';
 
-// The sound panel: one Effects slider (the effects are made on the phone, nothing is fetched), off
-// out of the box as before. The ▶ plays one of the game's own effects at the slider's level.
+// The sound panel: one Effects slider (the effects are made on the phone, nothing is fetched), at
+// 50 % out of the box. The ▶ plays one of the game's own effects at the slider's level.
 
 const KEY = 'vt.hydra.sound';
-/** Off out of the box, as the switch was. */
-const DEFAULTS = { ...FULL_VOLUMES, effects: 0 };
+/** Every slider at 50 % out of the box. */
+const DEFAULTS = { ...DEFAULT_VOLUMES };
 /** The volumes key, and the game the host's volumes are shared for. */
 export const GAME = 'hydra';
 const NOTE = 'Effects play only on your own phone.';
@@ -52,6 +52,7 @@ export function useHydraSound(share: VolumeShare): {
         setVolume: shared.setVolume,
         hostSet: shared.hostSet,
         caption: shared.caption,
+        hostMode: shared.hostMode,
         testId: 'hydra-sound-mine',
         channels: [
           {

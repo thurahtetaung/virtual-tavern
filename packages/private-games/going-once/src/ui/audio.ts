@@ -31,8 +31,7 @@ export interface AudioManifest {
   text?: Record<string, string>;
 }
 
-/** Volume out of the box, as a share of full volume; the music plays at a share of that. */
-export const DEFAULT_VOLUME = 0.8;
+/** The music plays at this share of the device's music volume. */
 export const MUSIC_SHARE = 0.35;
 /** Music drops to this share of its volume while the auctioneer speaks. */
 export const DUCK_RATIO = 0.3;

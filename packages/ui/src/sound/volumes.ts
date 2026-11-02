@@ -1,4 +1,10 @@
-import { type HostVolumeAction, type HostVolumes, storageKey } from '@vt/game-sdk';
+import {
+  type HostVolumeAction,
+  type HostVolumeMode,
+  type HostVolumes,
+  hostVolumeMode,
+  storageKey,
+} from '@vt/game-sdk';
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 // Each player's own volumes for a game's sound, kept on this device (per seat in a playtest): a
@@ -11,6 +17,15 @@ export type Volumes = Record<VolumeKey, number>;
 
 export const VOLUME_KEYS: readonly VolumeKey[] = ['master', 'music', 'effects', 'voice'];
 export const FULL_VOLUMES: Volumes = { master: 1, music: 1, effects: 1, voice: 1 };
+/** Every slider out of the box, the table screen's too: half way. */
+export const DEFAULT_VOLUMES: Volumes = { master: 0.5, music: 0.5, effects: 0.5, voice: 0.5 };
+
+/**
+ * The mark a device's stored volumes carry once they have been reset to the defaults: volumes
+ * stored without it (before every slider started at 50 %) read as the defaults, once, and the
+ * player's changes after that stick.
+ */
+export const VOLUMES_RESET = 1;
 
 const clamp = (x: number) => Math.max(0, Math.min(1, x));
 const isLevel = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
@@ -20,7 +35,8 @@ export const volumesKey = (game: string) => `vt.${game}.volumes`;
 
 /**
  * The volumes in `raw` (stored JSON, or null), each one checked: anything missing or broken is
- * the default. Nothing stored at all takes `legacy` (what an older switch kept) over the defaults.
+ * the default. Nothing stored at all takes `legacy` (what an older switch kept) over the defaults;
+ * volumes stored before the reset (without `reset: VOLUMES_RESET`) read as the defaults.
  */
 export function parseVolumes(
   raw: string | null,
@@ -33,7 +49,9 @@ export function parseVolumes(
   } catch {
     stored = null;
   }
-  const from = stored && typeof stored === 'object' ? stored : (legacy ?? {});
+  const kept = stored && typeof stored === 'object' ? stored : null;
+  if (kept && (kept as { reset?: unknown }).reset !== VOLUMES_RESET) return { ...defaults };
+  const from = kept ?? legacy ?? {};
   const out = { ...defaults };
   for (const k of VOLUME_KEYS) {
     const v = from[k];
@@ -52,7 +70,15 @@ export const audible = (v: Volumes, kind: SoundKind) => gainOf(v, kind) > 0;
 const cache = new Map<string, Volumes>();
 const listeners = new Map<string, Set<() => void>>();
 
-function read(key: string, defaults: Volumes, legacy?: () => Partial<Volumes> | null): Volumes {
+/**
+ * A device's volumes under `key` (the shared copy once read): stored ones from before the reset are
+ * reset to the defaults, and the reset stored at once, so it happens only once.
+ */
+export function readVolumes(
+  key: string,
+  defaults: Volumes,
+  legacy?: () => Partial<Volumes> | null,
+): Volumes {
   const known = cache.get(key);
   if (known) return known;
   let raw: string | null;
@@ -63,18 +89,31 @@ function read(key: string, defaults: Volumes, legacy?: () => Partial<Volumes> | 
   }
   const v = parseVolumes(raw, defaults, raw ? null : legacy?.());
   cache.set(key, v);
+  if (raw && !isReset(raw)) store(key, v);
   return v;
+}
+
+function isReset(raw: string): boolean {
+  try {
+    return (JSON.parse(raw) as { reset?: unknown } | null)?.reset === VOLUMES_RESET;
+  } catch {
+    return false;
+  }
+}
+
+function store(key: string, v: Volumes) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...v, reset: VOLUMES_RESET }));
+  } catch {
+    // Private mode: the volumes last for this visit.
+  }
 }
 
 /** Sets one volume and tells every reader (the stored copy lasts while the browser keeps it). */
 export function writeVolume(key: string, defaults: Volumes, which: VolumeKey, level: number) {
-  const next = { ...read(key, defaults), [which]: clamp(level) };
+  const next = { ...readVolumes(key, defaults), [which]: clamp(level) };
   cache.set(key, next);
-  try {
-    localStorage.setItem(key, JSON.stringify(next));
-  } catch {
-    // Private mode: the volumes last for this visit.
-  }
+  store(key, next);
   for (const l of listeners.get(key) ?? []) l();
 }
 
@@ -89,7 +128,7 @@ export function resetVolumeCache() {
  */
 export function useVolumes(
   game: string,
-  defaults: Volumes = FULL_VOLUMES,
+  defaults: Volumes = DEFAULT_VOLUMES,
   legacy?: () => Partial<Volumes> | null,
 ): [Volumes, (which: VolumeKey, level: number) => void] {
   const key = storageKey(volumesKey(game));
@@ -104,7 +143,7 @@ export function useVolumes(
     },
     [key],
   );
-  const get = () => read(key, defaults, legacy);
+  const get = () => readVolumes(key, defaults, legacy);
   const volumes = useSyncExternalStore(subscribe, get, get);
   const set = useCallback(
     (which: VolumeKey, level: number) => {
@@ -131,10 +170,10 @@ export function legacyDevice(key: string): Partial<Volumes> | null {
   }
 }
 
-/** The table screen's volumes as a room keeps them (set by the host), full where unset. */
+/** The table screen's volumes as a room keeps them (set by the host), the defaults where unset. */
 export function tableVolumes(
   stored: Partial<Record<VolumeKey, unknown>> | null | undefined,
-  defaults: Volumes = FULL_VOLUMES,
+  defaults: Volumes = DEFAULT_VOLUMES,
 ): Volumes {
   const out = { ...defaults };
   for (const k of VOLUME_KEYS) {
@@ -188,9 +227,11 @@ export function whereLine(mode: WhereMode, host: string, isHost: boolean): strin
   }
 }
 
-// The host's volumes for everyone (`host-volume` in `@vt/game-sdk`): each device takes the host's
-// latest change of a slider into its own volumes once, remembering the version it took, so a
-// player's own change afterwards sticks until the host moves that slider again.
+// The host's volumes for everyone (`host-volume` in `@vt/game-sdk`): with "Everyone", each device
+// takes the host's latest change of a slider into its own volumes once, remembering the version it
+// took, so a player's own change afterwards sticks until the host moves that slider again. With
+// "Just me" the host's sliders are their own; a device only records what the room holds, so
+// switching to "Everyone" pushes nothing until the host's next move.
 
 /** The base key of the host's versions a device has taken in (`storageKey` adds the seat). */
 export const hostAppliedKey = (game: string) => `vt.${game}.volumes.host`;
@@ -216,7 +257,7 @@ export function hostChanges(
 
 /**
  * What this device does with the room's host volumes: the versions it has now taken in, and the
- * sliders to set (none on the host's own device, where they came from).
+ * sliders to set (none on the host's own device, where they came from, and none with "Just me").
  */
 export function takeHostChanges(
   host: HostVolumes | null | undefined,
@@ -228,7 +269,10 @@ export function takeHostChanges(
   for (const c of changes) next[c.which] = c.v;
   return {
     applied: next,
-    set: isHost ? [] : changes.map(({ which, level }) => ({ which, level })),
+    set:
+      isHost || hostVolumeMode(host) !== 'all'
+        ? []
+        : changes.map(({ which, level }) => ({ which, level })),
   };
 }
 
@@ -322,12 +366,12 @@ export function useHostVolumes({
 export const HOST_SEND_MS = 250;
 
 /**
- * The host's own setter: moves the slider here at once and, once the drag settles, sets that
- * slider for everyone (`send`). Anyone else's setter is their own, untouched.
+ * The host's own setter: moves the slider here at once and, with "Everyone" (`shares`), once the
+ * drag settles, sets that slider for everyone (`send`). Anyone else's setter is their own.
  */
 export function useHostSetter(
   setVolume: (which: VolumeKey, level: number) => void,
-  isHost: boolean,
+  shares: boolean,
   send: (which: VolumeKey, level: number) => void,
 ): (which: VolumeKey, level: number) => void {
   const timers = useRef(new Map<VolumeKey, ReturnType<typeof setTimeout>>());
@@ -344,7 +388,7 @@ export function useHostSetter(
   return useCallback(
     (which: VolumeKey, level: number) => {
       setVolume(which, level);
-      if (!isHost) return;
+      if (!shares) return;
       clearTimeout(timers.current.get(which));
       timers.current.set(
         which,
@@ -354,29 +398,45 @@ export function useHostSetter(
         }, HOST_SEND_MS),
       );
     },
-    [setVolume, isHost],
+    [setVolume, shares],
   );
 }
 
-/** The line under the host's own sliders (`table`: the game's table screen follows them too). */
-export const hostLine = (table: boolean) =>
-  `Your sliders set everyone’s volume${table ? ' (and the table screen’s)' : ''}; players can change theirs after.`;
+/**
+ * The line under the host's own sliders, saying whose volume they set (`table`: the game's table
+ * screen follows them too with "Everyone").
+ */
+export const hostLine = (mode: HostVolumeMode, table: boolean) =>
+  mode === 'all'
+    ? `Your sliders set everyone’s volume${table ? ' (and the table screen’s)' : ''}; players can change theirs after.`
+    : 'Your sliders set only your own volume, like everyone else’s.';
 
 /** What a game's sound panel needs to share the host's sliders. */
 export interface VolumeShare {
   /** The game's volumes key (`useVolumes`'s first argument). */
   game: string;
   isHost: boolean;
-  /** Sends the game's `host-volume` action. */
+  /** Whose volume the host's sliders set (the room's choice). */
+  mode: HostVolumeMode;
+  /** Sends the game's `host-volume` action with a slider's level. */
   send: (which: VolumeKey, level: number) => void;
+  /** Sends the game's `host-volume` action with the host's choice. */
+  setMode: (mode: HostVolumeMode) => void;
   /** The game's table screen plays sound and follows the host's sliders too. */
   table?: boolean;
 }
 
+/** The host's choice of whose volume their sliders set, for the panel's switch. */
+export interface HostModeControl {
+  mode: HostVolumeMode;
+  set: (mode: HostVolumeMode) => void;
+}
+
 /**
  * The panel's side of the host's volumes (the game's root takes the changes in with
- * `useHostVolumes`): the host's setter also sets everyone's, other players see "Set by the host"
- * for a moment, and the host gets a line saying their sliders set everyone's.
+ * `useHostVolumes`): the host gets the "Just me / Everyone" switch and a line saying which is on;
+ * with "Everyone" the host's setter also sets everyone's, and other players see "Set by the host"
+ * for a moment.
  */
 export function useVolumeShare(
   share: VolumeShare,
@@ -385,29 +445,43 @@ export function useVolumeShare(
   setVolume: (which: VolumeKey, level: number) => void;
   hostSet: VolumeKey[];
   caption?: string;
+  hostMode?: HostModeControl;
 } {
-  const set = useHostSetter(setVolume, share.isHost, share.send);
+  const set = useHostSetter(setVolume, share.isHost && share.mode === 'all', share.send);
   const hostSet = useHostNotes(share.game);
   return {
     setVolume: set,
     hostSet,
-    ...(share.isHost ? { caption: hostLine(share.table === true) } : {}),
+    ...(share.isHost
+      ? {
+          caption: hostLine(share.mode, share.table === true),
+          hostMode: { mode: share.mode, set: share.setMode },
+        }
+      : {}),
   };
 }
 
-/** A game's `VolumeShare`: the host's sliders go out as the game's `host-volume` action. */
+/**
+ * A game's `VolumeShare`: the host's sliders and choice go out as the game's `host-volume` action;
+ * `host` is the room's host volumes (where the choice is kept).
+ */
 export function volumeShare(
   game: string,
   isHost: boolean,
   act: (action: HostVolumeAction) => unknown,
+  host: HostVolumes | null | undefined,
   table = false,
 ): VolumeShare {
   return {
     game,
     isHost,
     table,
+    mode: hostVolumeMode(host),
     send: (which, level) => {
       void act({ type: 'host-volume', which, level });
+    },
+    setMode: (mode) => {
+      void act({ type: 'host-volume', mode });
     },
   };
 }
