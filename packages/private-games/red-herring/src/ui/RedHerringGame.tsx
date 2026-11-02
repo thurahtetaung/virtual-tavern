@@ -17,6 +17,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import type { RedHerringAction, RedHerringView } from '../logic/types.ts';
 import { type Art, useArt } from './assets.ts';
+import { DrawPile } from './Card.tsx';
 import { Lobby } from './Lobby.tsx';
 import { RedHerringSoundButton, useCues } from './Sound.tsx';
 import { Tips } from './Tips.tsx';
@@ -131,6 +132,7 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           {view.settings.topic && <> · Topic: {view.settings.topic}</>}
         </span>
         <span className="ml-auto flex items-center gap-1">
+          <DrawPile art={art} count={g.deck} className="mr-1" />
           <Countdown
             deadline={r.deadline}
             clockOffset={room.clockOffset}

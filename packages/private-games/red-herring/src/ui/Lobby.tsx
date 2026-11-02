@@ -27,6 +27,7 @@ import {
   type Scoring,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
+import { DrawPile } from './Card.tsx';
 import { RedHerringLobbySound } from './Sound.tsx';
 
 type Act = (action: RedHerringAction, options?: { anchor?: string }) => Promise<boolean>;
@@ -79,6 +80,7 @@ export function Lobby({
     void act({ type: 'update-settings', ...patch }, { anchor: 'rh-lobby' });
   const n = Math.max(seated.length, 4);
   const rounds = roundsFor(n, s.twice);
+  const deckSize = DECK_IDS.filter((d) => s.decks[d]).reduce((n, d) => n + DECK_CARDS[d].length, 0);
   const deckLine = DECK_IDS.filter((d) => s.decks[d])
     .map((d) => art.decks[d])
     .join(' + ');
@@ -153,10 +155,13 @@ export function Lobby({
                 Take a seat
               </Button>
             )}
-            <p className="text-sm text-ink-muted">
-              Everyone gets the secret word but one. Play pictures that fit it, explain them, and
-              find the player bluffing blind.
-            </p>
+            <div className="flex items-start gap-3">
+              <DrawPile art={art} count={deckSize} className="flex-col gap-1 pt-1" />
+              <p className="text-sm text-ink-muted">
+                Everyone gets the secret word but one. Play pictures that fit it, explain them, and
+                find the player bluffing blind.
+              </p>
+            </div>
           </div>
         </div>
       </Panel>

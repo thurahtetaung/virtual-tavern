@@ -305,7 +305,7 @@ export function Table({
                       className={cn(p.auto && 'opacity-90')}
                     />
                   ) : (
-                    <EmptySlot key={lap} lap={lap} />
+                    <EmptySlot key={lap} lap={lap} art={art} />
                   );
                 })}
               </div>

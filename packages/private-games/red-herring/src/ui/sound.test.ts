@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { redHerring } from '../logic/game.ts';
 import { FOUR, HOST, harness } from '../logic/test-utils.ts';
-import { cuesOf } from './Sound.tsx';
+import { cuesOf } from './cues.ts';
 
 describe('the lobby', () => {
   it('is silent: no cue plays before a game starts', () => {

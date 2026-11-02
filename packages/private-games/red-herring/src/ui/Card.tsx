@@ -1,5 +1,5 @@
 import { ProtectedImage, cn } from '@vt/ui';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { oursCard } from '../logic/types.ts';
 import { type Art, cardLabel, cardUrl } from './assets.ts';
 
@@ -95,8 +95,19 @@ export function Card({
   );
 }
 
-/** A card's back (the game's own for every card), or a plain one without art. */
-export function CardBack({ art, className }: { art: Art; className?: string }) {
+/**
+ * A card's back: the game's own for every deck (our picture cards included), or a plain one
+ * without art. `children` sit on top of it (a slot's lap).
+ */
+export function CardBack({
+  art,
+  className,
+  children,
+}: {
+  art: Art;
+  className?: string;
+  children?: ReactNode;
+}) {
   return (
     <div
       className={cn(
@@ -104,29 +115,69 @@ export function CardBack({ art, className }: { art: Art; className?: string }) {
         className,
       )}
       aria-hidden
+      data-testid="rh-back"
     >
       {art.back ? (
         <ProtectedImage src={art.back} alt="" className="absolute inset-0 size-full object-cover" />
       ) : (
-        <span className="absolute inset-0 flex items-center justify-center text-2xl opacity-60">
-          ?
-        </span>
+        !children && (
+          <span className="absolute inset-0 flex items-center justify-center text-2xl opacity-60">
+            ?
+          </span>
+        )
       )}
+      {children}
     </div>
   );
 }
 
-/** An empty slot on the table: the card to come. */
-export function EmptySlot({ lap, className }: { lap: 1 | 2; className?: string }) {
+/** An empty slot on the table: the card to come, face down until it lands. */
+export function EmptySlot({ lap, art }: { lap: 1 | 2; art: Art }) {
   return (
-    <div
-      className={cn(
-        'flex aspect-[366/512] w-full items-center justify-center rounded-lg border-2 border-dashed border-line text-sm font-bold text-ink-muted dark:border-stone-700 dark:text-stone-500',
-        className,
-      )}
-      aria-hidden
+    <CardBack art={art} className="opacity-55 shadow-none dark:opacity-45">
+      <span
+        className="absolute inset-0 flex items-center justify-center"
+        data-testid="rh-empty-slot"
+      >
+        <span className="rounded-full bg-card/90 px-2 py-0.5 text-sm font-bold text-ink dark:bg-stone-900/90 dark:text-stone-200">
+          {lap === 1 ? 'I' : 'II'}
+        </span>
+      </span>
+    </CardBack>
+  );
+}
+
+/** The draw pile: a small face-down stack with how many cards are left in it. */
+export function DrawPile({
+  art,
+  count,
+  className,
+}: {
+  art: Art;
+  count: number;
+  className?: string;
+}) {
+  const label = `${count} ${count === 1 ? 'card' : 'cards'} in the deck`;
+  return (
+    <span
+      className={cn('inline-flex shrink-0 items-center gap-1.5', className)}
+      title={label}
+      data-testid="rh-pile"
     >
-      {lap === 1 ? 'I' : 'II'}
-    </div>
+      <span className="relative w-6 shrink-0" aria-hidden>
+        {count > 1 && (
+          <span className="absolute inset-0 translate-x-0.5 translate-y-0.5 rounded-md bg-line ring-1 ring-line dark:bg-stone-700 dark:ring-stone-600" />
+        )}
+        {count > 0 ? (
+          <CardBack art={art} className="rounded-md" />
+        ) : (
+          <span className="block aspect-[366/512] w-full rounded-md border border-dashed border-line dark:border-stone-700" />
+        )}
+      </span>
+      <span className="text-sm tabular-nums">
+        <span aria-hidden>{count}</span>
+        <span className="sr-only">{label}</span>
+      </span>
+    </span>
   );
 }
