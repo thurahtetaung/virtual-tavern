@@ -150,6 +150,9 @@ importers:
       '@vt/private-nightfall':
         specifier: workspace:*
         version: link:../../packages/private-games/nightfall
+      '@vt/private-red-herring':
+        specifier: workspace:*
+        version: link:../../packages/private-games/red-herring
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -261,6 +264,9 @@ importers:
       '@vt/private-nightfall':
         specifier: workspace:*
         version: link:../../packages/private-games/nightfall
+      '@vt/private-red-herring':
+        specifier: workspace:*
+        version: link:../../packages/private-games/red-herring
       '@vt/private-reverie':
         specifier: workspace:*
         version: link:../../packages/private-games/reverie
@@ -756,6 +762,28 @@ importers:
       react-dom:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
+
+  packages/private-games/red-herring:
+    dependencies:
+      '@vt/game-sdk':
+        specifier: workspace:*
+        version: link:../../game-sdk
+      '@vt/private-reverie':
+        specifier: workspace:*
+        version: link:../reverie
+      '@vt/ui':
+        specifier: workspace:*
+        version: link:../../ui
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/private-games/reverie:
     dependencies:

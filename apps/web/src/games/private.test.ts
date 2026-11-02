@@ -233,6 +233,17 @@ describe('named guides use only the manifest’s words', () => {
     expect(text).not.toMatch(/\{\w+\}/);
   });
 
+  it('Red Herring: the back, notebook, pencil and point art and the credit', async () => {
+    const text = await named('red-herring', {
+      back: 'back.jpg',
+      components: { notebookCover: 'components/cover.jpg', pencil: 'components/pencil.png' },
+      credit: '«credit»',
+    });
+    for (const path of ['back.jpg', 'components/cover.jpg', 'components/pencil.png'])
+      expect(text).toContain(`/api/backroom/assets/red-herring/${path}`);
+    expect(text).toContain('«credit»');
+  });
+
   it('Sketchy: the credit', async () => {
     const text = await named('sketchy', { credit: { text: 'After an old favourite.' } });
     expect(text).toContain('After an old favourite.');

@@ -13,6 +13,7 @@ import { jeweller, setTestDeck as setJewellerDeck } from '@vt/private-jeweller/l
 import { masqueradeOriginals } from '@vt/private-masquerade-originals/logic';
 import { type Colour, type Special, type Tile, mosaic, setTestBag } from '@vt/private-mosaic/logic';
 import { nightfall, setTestHold } from '@vt/private-nightfall/logic';
+import { redHerring, setTestDeal as setRedHerringDeal } from '@vt/private-red-herring/logic';
 import { reverie } from '@vt/private-reverie/logic';
 import { royalPost } from '@vt/private-royal-post/logic';
 import { seance } from '@vt/private-seance/logic';
@@ -244,6 +245,13 @@ if (process.env.NODE_ENV !== 'production' && process.env.CLIFFHANGER_TEST_DECK =
   setCliffhangerDeck();
 }
 
+// Browser tests only: Red Herring deals in card-number order with the first seat picking the
+// first word, and the Conspirator this many seats after the word-picker, so a spec knows every
+// hand and role. Never read in production.
+if (process.env.NODE_ENV !== 'production' && process.env.RED_HERRING_TEST_DEAL) {
+  setRedHerringDeal(Number(process.env.RED_HERRING_TEST_DEAL) || null);
+}
+
 export type GameRegistry = ReadonlyMap<string, AnyGameDefinition>;
 
 /**
@@ -282,6 +290,7 @@ export function buildGames(): GameRegistry {
     conveyor,
     defuse,
     cliffhanger,
+    redHerring,
   ];
   return new Map(list.map((g) => [g.id, g]));
 }

@@ -6,6 +6,13 @@ import {
   hostMove,
   insights,
 } from '@vt/private-cliffhanger/logic';
+import {
+  type RedHerringAction,
+  type RedHerringState,
+  type RedHerringView,
+  insights as redHerringInsights,
+  redHerring,
+} from '@vt/private-red-herring/logic';
 import { describe, expect, it } from 'vitest';
 import { buildFigures, figureCounters } from './figures.ts';
 
@@ -293,5 +300,48 @@ describe('Cliffhanger figures', () => {
     const styles = (by('styles') as { parts: { value: number }[] }).parts;
     expect(styles.reduce((n, p) => n + p.value, 0)).toBe(m.get('f.got'));
     expect(m.get('f.faceoffs')).toBe(result.state.round!.number);
+  });
+});
+
+describe('Red Herring figures', () => {
+  it('read what a whole bot game reports', () => {
+    const m = new Map<string, number>();
+    let last: RedHerringState | null = null;
+    const host = (v: RedHerringView): RedHerringAction | null =>
+      v.phase === 'lobby'
+        ? { type: 'start' }
+        : v.game?.round.stage === 'discuss'
+          ? { type: 'end-discussion' }
+          : v.game?.round.stage === 'reveal' && v.phase === 'playing'
+            ? { type: 'next-round' }
+            : null;
+    const result = playWithBots(
+      redHerring,
+      ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, name: id })),
+      {
+        seed: 3,
+        maxSteps: 4000,
+        host,
+        onChange: (state) => {
+          if (last)
+            for (const e of redHerringInsights(last, state, null, null))
+              for (const [k, v] of figureCounters('red-herring', e.type, e.props ?? {}))
+                m.set(k, (m.get(k) ?? 0) + v);
+          last = state;
+        },
+      },
+    );
+    expect(result.over).toBe(true);
+    const figs = buildFigures('red-herring', (k) => m.get(k) ?? 0, m.keys());
+    const by = (id: string) => figs.find((f) => f.id === id)!;
+    expect(by('rounds')).toMatchObject({ kind: 'number', value: 5 });
+    expect(m.get('f.rounds_played')).toBe(5);
+    const caught = result.state.game!.history.filter((h) => h.caught).length;
+    expect(by('caught')).toMatchObject({
+      kind: 'percent',
+      value: Math.round((caught / 5) * 1000) / 10,
+    });
+    // Every Detective voted each round: four voters, one of them the Conspirator.
+    expect(m.get('f.detective_votes')).toBe(15);
   });
 });
