@@ -88,16 +88,26 @@ export async function writeWord(p: Page, word: string) {
 /** What `p`'s notebook says (opened with Show, closed again). */
 export async function notebook(p: Page): Promise<string> {
   await p.getByRole('button', { name: 'Show your notebook' }).click();
-  const word = (await p.getByTestId('rh-word').textContent()) ?? '';
+  const page = p.getByTestId('rh-notebook-page');
+  await expect(page.getByTestId('rh-word').or(page.getByTestId('rh-conspirator'))).toBeVisible();
+  // The Conspirator's page has no word.
+  const word = (await page.getByTestId('rh-word').count())
+    ? ((await page.getByTestId('rh-word').textContent()) ?? '')
+    : '';
   await p.getByRole('button', { name: 'Hide your notebook' }).click();
   return word.trim();
 }
 
-/** `order[i]` explains, everyone in turn, then the host starts the vote. */
-export async function explainAll(order: Page[], host: Page) {
-  for (const p of order) {
-    await expect(p.getByTestId('rh-spotlight')).toContainText('You explain');
-    await p.getByRole('button', { name: 'Done', exact: true }).click();
+/** The talk step: everyone sees the word and the instructions, then the host starts the vote. */
+export async function talk(pages: Page[], host: Page, word?: string) {
+  for (const p of pages) {
+    const panel = p.getByTestId('rh-discuss');
+    await expect(panel).toContainText('Each player says why they played their two cards.');
+    if (word) await expect(panel).toContainText(`The word: ${word}`);
+    // The talk's shared countdown (3 minutes by default, a reminder).
+    await expect(p.getByLabel(/seconds left to talk/)).toBeVisible();
+    if (p !== host)
+      await expect(panel.getByRole('button', { name: 'Start the vote' })).toHaveCount(0);
   }
   await host.getByRole('button', { name: 'Start the vote' }).click();
 }

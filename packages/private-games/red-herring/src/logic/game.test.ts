@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { redHerring, roundsFor, scoreRound, setTestDeal, startProblem } from './game.ts';
+import { CARD_SETS } from '@vt/private-reverie/cards';
+import {
+  cardsNeeded,
+  poolOf,
+  redHerring,
+  roundsFor,
+  scoreRound,
+  setTestDeal,
+  startProblem,
+  waitingOn,
+} from './game.ts';
 import {
   FOUR,
   HOST,
@@ -17,7 +27,7 @@ import {
   talkAll,
   voteAll,
 } from './test-utils.ts';
-import { HAND_SIZE, LEFT_BEAT_MS, OURS_BASE } from './types.ts';
+import { HAND_SIZE, LEFT_BEAT_MS, OURS_BASE, OURS_SET_IDS, chosenSets, setById } from './types.ts';
 
 const ten = Array.from({ length: 10 }, (_, i) => (i ? `p${i}` : HOST));
 
@@ -60,33 +70,98 @@ describe('setting up', () => {
     expect(harness(FOUR.slice(0, 3)).reject({ type: 'start' })).toBe('cannot-start');
     expect(startProblem(harness(ten).state)).toBeNull();
     // 10 players need 200 cards: the Classic deck alone has 168.
-    const small = harness(ten, 3, { decks: { base: true, noir: false, ours: false } });
+    const small = harness(ten, 3, { sets: ['base'] });
     expect(startProblem(small.state)).toMatch(/200 cards.*168.*add the Noir deck/);
     expect(small.reject({ type: 'start' })).toBe('cannot-start');
     // Twice around at 8 needs 256: more than both decks.
     const eight = harness(ten.slice(0, 8), 3, { twice: true });
-    expect(startProblem(eight.state)).toMatch(/256 cards.*252.*add our picture cards/);
+    expect(startProblem(eight.state)).toMatch(/256 cards.*252.*add another picture set/);
     expect(
       harness(FOUR).reject({
         type: 'update-settings',
-        decks: { base: false, noir: false, ours: false },
+        sets: [],
       }),
     ).toBe('no-deck');
+    expect(harness(FOUR).reject({ type: 'update-settings', sets: ['base', 'ours-nope'] })).toBe(
+      'unknown-set',
+    );
+    // A small selection: one picture set (84 cards) is enough for 5 players once around (50).
+    const five = harness(ten.slice(0, 5), 3, { sets: ['ours-set-2'] });
+    expect(cardsNeeded(5, false)).toBe(50);
+    expect(startProblem(five.state)).toBeNull();
+    const twice = harness(ten.slice(0, 5), 3, { sets: ['ours-set-2'], twice: true });
+    expect(startProblem(twice.state)).toMatch(
+      /100 cards.*84.*add the Classic deck or play once around/,
+    );
+  });
+
+  it('starts with the Classic and Noir decks and every picture set off', () => {
+    const h = harness(FOUR);
+    expect(h.state.settings.sets).toEqual(['base', 'noir']);
+    expect(redHerring.view(h.state, HOST).settings.sets).toEqual(['base', 'noir']);
+  });
+
+  it('reads a room saved with the old deck switches as the matching sets', () => {
+    expect(chosenSets({ decks: { base: true, noir: false, ours: false } })).toEqual(['base']);
+    expect(chosenSets({ decks: { base: false, noir: true, ours: true } })).toEqual([
+      'noir',
+      ...OURS_SET_IDS,
+    ]);
+    expect(OURS_SET_IDS).toEqual(CARD_SETS.map((s) => `ours-${s.id}`));
+    const h = harness(FOUR);
+    const { sets: _s, ...old } = h.state.settings;
+    const saved = {
+      ...h.state,
+      settings: { ...old, decks: { base: false, noir: true, ours: true } },
+    };
+    const v = redHerring.view(saved as typeof h.state, HOST);
+    expect(v.settings.sets).toEqual(['noir', ...OURS_SET_IDS]);
+    expect('decks' in v.settings).toBe(false);
+    expect(poolOf(saved.settings as typeof h.state.settings)).toHaveLength(84 + 951);
+    // Changing the sets drops the old switches.
+    h.state = saved as typeof h.state;
+    h.act({ type: 'update-settings', sets: ['base'] });
+    expect(h.state.settings).toMatchObject({ sets: ['base'] });
+    expect(h.state.settings.decks).toBeUndefined();
+  });
+
+  it('deals only the chosen sets’ cards', () => {
+    const h = startedGame(FOUR, 3, { sets: ['noir', 'ours-stellar'] });
+    const all = [...game(h).deck, ...Object.values(game(h).hands).flat()];
+    const allowed = new Set([...setById('noir')!.cards, ...setById('ours-stellar')!.cards]);
+    expect(all).toHaveLength(84 + 84);
+    expect(all.every((c) => allowed.has(c))).toBe(true);
+    expect(all.filter((c) => c >= OURS_BASE).every((c) => c >= OURS_BASE + 878)).toBe(true);
   });
 
   it('plays our picture cards when asked, numbered after the game’s own', () => {
-    const h = startedGame(FOUR, 3, { decks: { base: false, noir: false, ours: true } });
+    const h = startedGame(FOUR, 3, { sets: [...OURS_SET_IDS] });
     const all = [...game(h).deck, ...Object.values(game(h).hands).flat()];
     expect(all.every((c) => c >= OURS_BASE)).toBe(true);
     expect(all).toHaveLength(951);
   });
 
-  it('only the host changes settings, and only between games (the sound at any time)', () => {
+  it('only the host changes settings, and only between games', () => {
     const h = startedGame(FOUR);
     expect(h.reject({ type: 'update-settings', twice: true }, 'ana')).toBe('not-host');
     expect(h.reject({ type: 'update-settings', twice: true })).toBe('in-progress');
-    h.act({ type: 'update-settings', sound: 'host' });
-    expect(h.state.settings.sound).toBe('host');
+  });
+
+  it('has no sound: a room saved with sound settings loads, and they never reach a view', () => {
+    const h = harness(FOUR);
+    const saved = {
+      ...h.state,
+      settings: { ...h.state.settings, sound: 'host', hostVolumes: { mode: 'all' } },
+    } as typeof h.state;
+    const v = redHerring.view(saved, HOST);
+    expect('sound' in v.settings).toBe(false);
+    expect('hostVolumes' in v.settings).toBe(false);
+    expect(redHerring.actionSchema.safeParse({ type: 'host-volume', mode: 'all' }).success).toBe(
+      false,
+    );
+    h.state = saved;
+    h.act({ type: 'start' });
+    expect(h.state.phase).toBe('playing');
   });
 });
 
@@ -131,26 +206,52 @@ describe('a round', () => {
     expect(round(h).plays.map((p) => p.by)).toEqual([...order, ...order]);
     expect(round(h).plays.map((p) => p.lap)).toEqual([1, 1, 1, 1, 2, 2, 2, 2]);
     for (const id of FOUR) expect(game(h).hands[id]).toHaveLength(HAND_SIZE);
-    expect(round(h).stage).toBe('explain');
-    expect(round(h).turn).toBe(round(h).picker);
+    expect(round(h).stage).toBe('discuss');
+    expect(round(h).turn).toBeNull();
   });
 
-  it('explanations in order, then a discussion the host ends', () => {
+  it('one talk step after the cards: nobody is waited on, and only the host starts the vote', () => {
     const h = startedGame(FOUR);
     setWord(h);
     playAll(h);
-    const order = round(h).order;
-    expect(h.reject({ type: 'done' }, order[1])).toBe('not-your-turn');
-    h.act({ type: 'done' }, order[0]);
-    expect(round(h).turn).toBe(order[1]);
-    // The host may end someone's explanation.
-    const hostIsNext = order[1] === HOST;
-    h.act({ type: 'done' }, HOST);
-    expect(round(h).skipped).toEqual(hostIsNext ? [] : [order[1]]);
-    h.act({ type: 'done' }, order[2]);
-    h.act({ type: 'done' }, order[3]);
     expect(round(h).stage).toBe('discuss');
+    expect(waitingOn(round(h))).toEqual([]);
+    // Everyone sees the word now, the Conspirator too.
+    for (const id of FOUR) expect(redHerring.view(h.state, id).game!.round.word).toBe('Lighthouse');
     expect(h.reject({ type: 'end-discussion' }, 'ana')).toBe('not-host');
+    expect(h.reject({ type: 'act-for', player: 'ana' })).toBe('not-waiting');
+    h.act({ type: 'end-discussion' });
+    expect(round(h).stage).toBe('vote');
+    expect(h.reject({ type: 'end-discussion' })).toBe('wrong-stage');
+  });
+
+  it('reads a round saved while players explained one at a time as the talk step', () => {
+    const h = startedGame(FOUR, 3, { discussSeconds: 60, timerMode: 'strict' });
+    setWord(h);
+    playAll(h);
+    const g = game(h);
+    const saved = {
+      ...h.state,
+      settings: { ...h.state.settings, talkSeconds: 30 },
+      game: {
+        ...g,
+        round: {
+          ...g.round,
+          stage: 'explain',
+          turn: g.round.order[1],
+          explained: [g.round.order[0]],
+          skipped: [],
+        },
+      },
+    } as unknown as typeof h.state;
+    const v = redHerring.view(saved, FOUR[1]!);
+    expect(v.game!.round.stage).toBe('discuss');
+    expect(v.game!.round.turn).toBeNull();
+    expect(v.game!.round.word).toBe('Lighthouse');
+    expect('talkSeconds' in v.settings).toBe(false);
+    // The talk's own timer, never the old explaining one.
+    expect(redHerring.nextDeadline!(saved)).toBe(round(h).since + 60_000);
+    h.state = saved;
     h.act({ type: 'end-discussion' });
     expect(round(h).stage).toBe('vote');
   });
@@ -266,12 +367,11 @@ describe('balanced deal', () => {
 });
 
 describe('timers', () => {
-  it('soft timers never act; strict ones play a card, end explanations and the discussion, and vote', () => {
+  it('soft timers never act; strict ones play a card, end the talk, and vote', () => {
     const soft = startedGame(FOUR, 3, { turnSeconds: 30 });
     expect(redHerring.nextDeadline!(soft.state)).toBeNull();
     const h = startedGame(FOUR, 3, {
       turnSeconds: 30,
-      talkSeconds: 30,
       discussSeconds: 60,
       timerMode: 'strict',
     });
@@ -283,9 +383,6 @@ describe('timers', () => {
     expect(redHerring.nextDeadline!(h.state)).toBeNull();
     h.act({ type: 'word', word: 'Fog' }, round(h).picker);
     for (let i = 0; i < 7; i++) h.tick(30_000);
-    expect(round(h).stage).toBe('explain');
-    for (let i = 0; i < 4; i++) h.tick(30_000);
-    expect(round(h).skipped).toHaveLength(4);
     expect(round(h).stage).toBe('discuss');
     h.tick(60_000);
     expect(round(h).stage).toBe('vote');

@@ -1,6 +1,6 @@
 import type { GameGuide, GuideContext, GuideFooter, GuideOption, GuideTile } from '@vt/game-sdk';
 import { type Manifest, asManifest, assetUrl, clean, footerOf } from './manifest.ts';
-import type { RedHerringView } from './types.ts';
+import { OURS_PREFIX, type RedHerringView, chosenSets } from './types.ts';
 
 export { type Manifest, deckNames, footerOf } from './manifest.ts';
 
@@ -23,7 +23,7 @@ const CAUGHT: GuideOption = { key: 'caught', label: 'Score only a catch' };
 const FUN: GuideOption = { key: 'fun', label: 'Just for fun' };
 const BALANCED: GuideOption = { key: 'balanced', label: 'Balanced deal' };
 const TOPIC: GuideOption = { key: 'topic', label: 'Thematic Game' };
-const OURS: GuideOption = { key: 'ours', label: 'Our picture cards' };
+const OURS: GuideOption = { key: 'ours', label: 'A picture set from our other games' };
 
 function base(art: GuideArt): GameGuide {
   const tiles: GuideTile[] = [
@@ -50,7 +50,7 @@ function base(art: GuideArt): GameGuide {
       id: 'conspirator',
       name: 'Conspirator',
       icon: '🐟',
-      text: 'Gets a blank notebook: no word. Watches the cards already played, guesses what they share, and plays along as if they knew.',
+      text: 'Their notebook says they’re the Conspirator, with no word. Watches the cards already played, guesses what they share, and plays along as if they knew.',
       meta: 'One a round, at random',
       tone: 'evil',
       win: 'Scores 5 when fewer than 2 players find them.',
@@ -59,7 +59,7 @@ function base(art: GuideArt): GameGuide {
       id: 'notebook',
       name: 'Notebook',
       icon: '📓',
-      text: 'Hold it to read it. Everyone’s works the same way; the Conspirator’s page is simply blank. Nobody can tell from your screen which you have.',
+      text: 'Hold it to read it: a Detective’s shows the word, the Conspirator’s says they’re the Conspirator. Everyone’s looks and works the same way, so nobody can tell from your screen which you have.',
       meta: 'One each but the word-picker',
       tone: 'neutral',
       ...(art.notebook && { art: art.notebook }),
@@ -82,9 +82,9 @@ function base(art: GuideArt): GameGuide {
     goal: 'Score the most points: as a Detective by finding the Conspirator, as the Conspirator by blending in, and as the word-picker by helping them get away.',
     quickStart: [
       'Each round one player is the word-picker: they play a picture card, then write a secret word.',
-      'Everyone else gets a notebook with the word, except one random player, the Conspirator, whose page is blank.',
+      'Everyone else gets a notebook with the word, except one random player, the Conspirator, whose notebook has no word.',
       'Taking turns, everyone plays two cards face up that fit the word. The Conspirator plays along.',
-      'The word is said out loud and everyone explains their two cards, the word-picker first.',
+      'The word is shown to everyone. The table talks: each player says why they played their cards, then the host starts the vote.',
       'Everyone but the word-picker votes for who they think the Conspirator is.',
       'Fewer than 2 votes on the Conspirator: they score 5 and the word-picker 4. Each finder scores 3.',
     ],
@@ -97,7 +97,7 @@ function base(art: GuideArt): GameGuide {
       },
       {
         title: 'One player plays blind',
-        text: 'Everyone else gets a notebook with the word, except one: the Conspirator, chosen at random, gets a blank page. Nobody knows who, not even the word-picker.',
+        text: 'Everyone else gets a notebook with the word, except one: the Conspirator, chosen at random, whose notebook has no word. Nobody knows who, not even the word-picker.',
         icon: '📓',
         ...(art.notebook && { art: art.notebook }),
       },
@@ -108,8 +108,8 @@ function base(art: GuideArt): GameGuide {
         ...(art.back && { art: art.back }),
       },
       {
-        title: 'Explain yourself',
-        text: 'The word is said out loud. The word-picker explains their two cards, then everyone else in turn. Then talk it over.',
+        title: 'Talk it over',
+        text: 'The word is shown to everyone. Each player says why they played their two cards, the table talks it over, and the host starts the vote.',
         icon: '🗣️',
       },
       {
@@ -135,19 +135,19 @@ function base(art: GuideArt): GameGuide {
         level: 'basics',
         bullets: [
           'The word-picker plays one card face up, then writes the word: it should fit that card and at least one more in their hand.',
-          'Everyone else gets a notebook. Hold it to read it: the word, or a blank page for the one Conspirator.',
+          'Everyone else gets a notebook. Hold it to read it: a Detective’s shows the word, and the one Conspirator’s says they’re the Conspirator, with no word.',
           'From the word-picker’s left, everyone plays a card face up. Then the word-picker plays their second card, and everyone else a second, in the same order.',
           'You see whose turn it is, never who is thinking.',
         ],
       },
       {
-        title: 'Explaining and talking',
+        title: 'Talking it over',
         level: 'basics',
         option: TALK,
         bullets: [
           'Once everyone has two cards out, the word is shown to the whole table and said out loud.',
-          'The word-picker explains why their two cards fit it, then everyone else in turn from their left. The explainer’s cards show large; they tap Done.',
-          'Then the table talks it over. The host ends the discussion when everyone is ready to vote.',
+          'Each player says why they played their two cards (the rulebook starts with the word-picker and goes round from their left), then the table talks it over.',
+          'The app doesn’t run turns here: it shows the cards and a few lines on what to do, and the host presses Start the vote when the table is ready.',
           'You may never show the cards still in your hand.',
         ],
       },
@@ -202,7 +202,7 @@ function base(art: GuideArt): GameGuide {
         title: 'The reveal and the end',
         level: 'details',
         bullets: [
-          'The votes are shown, then the Conspirator’s blank notebook, then the round’s points.',
+          'The votes are shown, then who the Conspirator was, then the round’s points.',
           'The host moves on to the next round; the word-picker’s turn passes to the left.',
           'The game ends after everyone has picked the word once with 5 or more players, or twice with 4.',
           'Most points wins. On a tie, the player who scored in more rounds wins; if that ties too, they share the win.',
@@ -226,7 +226,7 @@ function base(art: GuideArt): GameGuide {
         level: 'edge',
         option: NO_TALK,
         bullets: [
-          'A printed variant: the vote comes straight after the cards. The word isn’t said out loud and nobody explains.',
+          'A printed variant: the vote comes straight after the cards. The word isn’t said out loud and nobody talks it over.',
         ],
       },
       {
@@ -246,28 +246,28 @@ function base(art: GuideArt): GameGuide {
         ],
       },
       {
-        title: 'Decks',
+        title: 'Card sets',
         level: 'edge',
         bullets: [
-          'The host picks the decks: the Classic deck and the Noir deck are both in by default.',
-          'There must be a card for every play of the game: with many players (or twice around) the host may need to add a deck before starting.',
+          'The host picks the card sets under Picture cards: the Classic deck and the Noir deck are both in by default.',
+          'There must be a card for every play of the game: with many players (or twice around) the host may need to add a set before starting.',
           'Once the deck runs out, played cards simply aren’t replaced.',
         ],
       },
       {
-        title: 'Our picture cards',
+        title: 'Picture sets from our other games',
         level: 'edge',
         option: OURS,
         bullets: [
-          'Off by default: the host can shuffle in the picture cards from our other games. Every card shows this game’s back.',
+          'Off by default: the host can add any of the picture sets from our other games, each on its own. Every card shows this game’s back.',
         ],
       },
       {
         title: 'Timers',
         level: 'edge',
         bullets: [
-          'The host can time each turn (the word, each card, the vote), each explanation and the discussion. By default the timers are reminders, and the host may Act for a slow player.',
-          'In Strict mode, when time runs out a random card is played, an explanation ends, the discussion ends, or a random vote is cast. The word is never written for anyone: its timer stays a reminder.',
+          'The host can time each turn (the word, each card, the vote) and the talk. By default the timers are reminders, and the host may Act for a slow player.',
+          'In Strict mode, when time runs out a random card is played, the talk ends and the vote starts, or a random vote is cast. The word is never written for anyone: its timer stays a reminder.',
           'Moves made for someone are marked ⏱.',
         ],
       },
@@ -291,6 +291,17 @@ function base(art: GuideArt): GameGuide {
       items: tiles,
     },
     reference: [
+      {
+        title: 'A round',
+        head: ['Step', 'Who'],
+        rows: [
+          ['A card, then the secret word', 'The word-picker'],
+          ['Two laps of cards', 'Everyone, from the word-picker’s left'],
+          ['Talk: why you played your cards', 'The whole table; the host starts the vote'],
+          ['The vote', 'Everyone but the word-picker'],
+        ],
+        note: 'No Discussion: straight from the cards to the vote.',
+      },
       {
         title: 'Scoring',
         head: ['Votes on the Conspirator', 'Each finder', 'Conspirator', 'Word-picker'],
@@ -340,7 +351,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
       s.scoring === 'fun' && FUN.key,
       s.balanced && BALANCED.key,
       !!s.topic && TOPIC.key,
-      s.decks.ours && OURS.key,
+      chosenSets(s).some((id) => id.startsWith(OURS_PREFIX)) && OURS.key,
     ].filter((k): k is string => !!k);
     const ctx: GuideContext = {
       summary: [
@@ -382,7 +393,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         ? {
             name: 'Conspirator',
             icon: '🐟',
-            text: 'Your notebook is blank: play along with the cards on the table.',
+            text: 'Your notebook has no word: blend in with the cards on the table.',
             tile: 'conspirator',
           }
         : {
@@ -400,7 +411,7 @@ export function makeGuide(art: GuideArt = {}, footer?: GuideFooter): GameGuide {
         id: 'standard',
         label: 'The usual game',
         context: {
-          summary: 'Secret vote, rulebook scoring, explanations and a discussion.',
+          summary: 'Secret vote, rulebook scoring, and a talk before the vote.',
           options: [RULEBOOK.key],
         },
       },

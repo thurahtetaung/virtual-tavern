@@ -1,6 +1,9 @@
 import { type GameRoomInfo, waitingForHost } from '@vt/game-sdk';
+import { cardSetChoices, useManifest as useReverieManifest } from '@vt/private-reverie/card';
 import {
   Button,
+  type Choice,
+  ChoicePicker,
   Hint,
   LobbySettings,
   Panel,
@@ -13,22 +16,21 @@ import {
   cn,
   timersLine,
 } from '@vt/ui';
-import { useState } from 'react';
-import { roundsFor, startProblem } from '../logic/game.ts';
+import { type ReactNode, useMemo, useState } from 'react';
+import { cardsNeeded, poolOf, roundsFor, startProblem } from '../logic/game.ts';
 import {
-  DECK_CARDS,
-  DECK_IDS,
-  type DeckId,
   MAX_PLAYERS,
   MAX_TOPIC,
   type RedHerringAction,
   type RedHerringView,
+  OURS_PREFIX,
   SCORINGS,
   type Scoring,
+  chosenSets,
+  setById,
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 import { DrawPile } from './Card.tsx';
-import { RedHerringLobbySound } from './Sound.tsx';
 
 type Act = (action: RedHerringAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -44,14 +46,6 @@ const SCORING_HELP: Record<Scoring, string> = {
     'As the rulebook, but Detectives score only when the Conspirator is caught (2 or more votes).',
   fun: 'No points: just the bluffing and the reveal.',
 };
-
-const DISCUSS_OPTIONS: { label: string; value: number | null }[] = [
-  { label: 'No timer', value: null },
-  { label: '1 minute', value: 60 },
-  { label: '2 minutes', value: 120 },
-  { label: '3 minutes', value: 180 },
-  { label: '5 minutes', value: 300 },
-];
 
 export function Lobby({
   view,
@@ -80,13 +74,17 @@ export function Lobby({
     void act({ type: 'update-settings', ...patch }, { anchor: 'rh-lobby' });
   const n = Math.max(seated.length, 4);
   const rounds = roundsFor(n, s.twice);
-  const deckSize = DECK_IDS.filter((d) => s.decks[d]).reduce((n, d) => n + DECK_CARDS[d].length, 0);
-  const deckLine = DECK_IDS.filter((d) => s.decks[d])
-    .map((d) => art.decks[d])
-    .join(' + ');
+  const reverie = useReverieManifest();
+  const choices = useMemo(() => setChoices(art, reverie), [art, reverie]);
+  const sets = chosenSets(s);
+  const chosen = choices.filter((c) => sets.includes(c.id));
+  const deckLine =
+    chosen.length <= 2
+      ? chosen.map((c) => c.name).join(' + ')
+      : `${chosen.length} card sets (${chosen.reduce((t, c) => t + c.count, 0)} cards)`;
   const timers = {
     clueSeconds: s.turnSeconds,
-    guessSeconds: s.talkSeconds,
+    guessSeconds: s.discussSeconds,
     timerMode: s.timerMode,
   };
   return (
@@ -156,7 +154,7 @@ export function Lobby({
               </Button>
             )}
             <div className="flex items-start gap-3">
-              <DrawPile art={art} count={deckSize} className="flex-col gap-1 pt-1" />
+              <DrawPile art={art} count={poolOf(s).length} className="flex-col gap-1 pt-1" />
               <p className="text-sm text-ink-muted">
                 Everyone gets the secret word but one. Play pictures that fit it, explain them, and
                 find the player bluffing blind.
@@ -175,137 +173,123 @@ export function Lobby({
           s.noDiscussion && 'no discussion',
           s.balanced && 'balanced deal',
           s.topic && `topic: ${s.topic}`,
-          timersLine(timers, { clue: 'turns', guess: 'explaining' }),
+          timersLine(timers, { clue: 'turns', guess: 'talk' }),
         ].filter((x): x is string => !!x)}
         className="space-y-4"
       >
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-semibold">Decks</legend>
-          {DECK_IDS.map((d: DeckId) => (
-            <Switch
-              key={d}
-              on={s.decks[d]}
+        {host && <h3 className="text-lg font-bold">Game settings</h3>}
+        <Group title="Cards" testId="rh-group-cards">
+          <div data-testid="rh-sets">
+            <ChoicePicker
+              selectedIds={sets}
+              choices={choices}
               editable={host}
-              title={`${art.decks[d]} (${DECK_CARDS[d].length})`}
-              help={
-                d === 'ours'
-                  ? 'The picture cards from our other games, shuffled in. Every card shows this game’s back.'
-                  : d === 'noir'
-                    ? 'Darker, modern pictures that mix in well.'
-                    : 'The original pictures.'
-              }
-              onChange={(on) => {
-                set({ decks: { ...s.decks, [d]: on } });
+              onSave={(ids) => act({ type: 'update-settings', sets: ids }, { anchor: 'rh-lobby' })}
+              labels={{
+                title: 'Picture cards',
+                unit: 'cards',
+                noun: 'set',
+                change: 'Change card sets',
+                summary: (picked, total) =>
+                  `Playing with ${picked.length === 1 ? 'this set' : 'these sets'} (${total} cards; ${n} players need ${cardsNeeded(n, s.twice)}).`,
               }}
-              testId={`rh-deck-${d}`}
             />
-          ))}
-        </fieldset>
-        <Switch
-          on={s.twice}
-          editable={host}
-          title="Twice around"
-          help={`Everyone picks the word twice (always so with 4 players). This table: ${rounds} rounds.`}
-          onChange={(v) => {
-            set({ twice: v });
-          }}
-          testId="rh-twice"
-        />
-        <Switch
-          on={s.openVote}
-          editable={host}
-          title="Open vote in turn"
-          help="The printed way: one at a time from the word-picker’s left, each vote shown as it is cast. Off: everyone votes in secret at once."
-          onChange={(v) => {
-            set({ openVote: v });
-          }}
-          testId="rh-open-vote"
-        />
-        <Switch
-          on={s.noDiscussion}
-          editable={host}
-          title="No Discussion"
-          help="Straight from the cards to the vote: the word isn’t said and nobody explains."
-          onChange={(v) => {
-            set({ noDiscussion: v });
-          }}
-          testId="rh-no-discussion"
-        />
-        <fieldset className="space-y-1">
-          <legend className="text-sm font-semibold">Scoring</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {SCORINGS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={s.scoring === k}
-                disabled={!host}
-                onClick={() => {
-                  set({ scoring: k });
-                }}
-                className={cn(
-                  'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
-                  s.scoring === k
-                    ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
-                    : 'ring-line hover:bg-panel disabled:hover:bg-transparent dark:ring-stone-700',
-                )}
-              >
-                <span className="block text-sm font-semibold">{SCORING_NAME[k]}</span>
-                <span className="block text-xs text-ink-muted">{SCORING_HELP[k]}</span>
-              </button>
-            ))}
           </div>
-        </fieldset>
-        <Switch
-          on={s.balanced}
-          editable={host}
-          title="Balanced deal"
-          help="The Conspirator is still secret and random, but everyone gets the role about equally."
-          onChange={(v) => {
-            set({ balanced: v });
-          }}
-          testId="rh-balanced"
-        />
-        <TopicField topic={s.topic} editable={host} onSave={(topic) => set({ topic })} />
-        <TimerSettings
-          values={timers}
-          editable={host}
-          clueLabel="Turn timer"
-          clueHelp="Time for the word, each card and the vote."
-          guessLabel="Explaining timer"
-          guessHelp="Time for each player’s explanation."
-          strictHelp="a random card is played, the explanation ends or a random vote is cast (the word is never written for anyone)"
-          onChange={(patch) => {
-            set({
-              ...(patch.clueSeconds !== undefined && { turnSeconds: patch.clueSeconds }),
-              ...(patch.guessSeconds !== undefined && { talkSeconds: patch.guessSeconds }),
-              ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
-            });
-          }}
-        />
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-semibold">Discussion timer</span>
-          <span className="text-xs text-ink-muted">
-            The host ends the discussion; this is a reminder (strict: the vote starts).
-          </span>
-          <select
-            value={s.discussSeconds ?? ''}
-            disabled={!host}
-            onChange={(e) => {
-              set({ discussSeconds: e.target.value === '' ? null : Number(e.target.value) });
+        </Group>
+        <Group title="Rounds" testId="rh-group-rounds">
+          <Switch
+            on={s.twice}
+            editable={host}
+            title="Twice around"
+            help={`Everyone picks the word twice (always so with 4 players). This table: ${rounds} rounds.`}
+            onChange={(v) => {
+              set({ twice: v });
             }}
-            className="min-h-11 rounded-lg bg-card px-2 ring-1 ring-line dark:bg-stone-900 dark:ring-stone-700"
-          >
-            {DISCUSS_OPTIONS.map((o) => (
-              <option key={o.label} value={o.value ?? ''}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            testId="rh-twice"
+          />
+        </Group>
+        <Group title="Talk and vote" testId="rh-group-vote">
+          <Switch
+            on={s.noDiscussion}
+            editable={host}
+            title="No Discussion"
+            help="Straight from the cards to the vote: the word isn’t said and nobody talks it over."
+            onChange={(v) => {
+              set({ noDiscussion: v });
+            }}
+            testId="rh-no-discussion"
+          />
+          <Switch
+            on={s.openVote}
+            editable={host}
+            title="Open vote in turn"
+            help="The printed way: one at a time from the word-picker’s left, each vote shown as it is cast. Off: everyone votes in secret at once."
+            onChange={(v) => {
+              set({ openVote: v });
+            }}
+            testId="rh-open-vote"
+          />
+          <fieldset className="space-y-1">
+            <legend className="text-sm font-semibold">Scoring</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {SCORINGS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={s.scoring === k}
+                  disabled={!host}
+                  onClick={() => {
+                    set({ scoring: k });
+                  }}
+                  className={cn(
+                    'rounded-lg px-3 py-2 text-left ring-1 transition disabled:cursor-default',
+                    s.scoring === k
+                      ? 'bg-accent-soft ring-2 ring-accent dark:bg-amber-500/10 dark:ring-amber-500' // vt-palette
+                      : 'ring-line hover:bg-panel disabled:hover:bg-transparent dark:ring-stone-700',
+                  )}
+                >
+                  <span className="block text-sm font-semibold">{SCORING_NAME[k]}</span>
+                  <span className="block text-xs text-ink-muted">{SCORING_HELP[k]}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </Group>
+        <Group title="The Conspirator" testId="rh-group-conspirator">
+          <Switch
+            on={s.balanced}
+            editable={host}
+            title="Balanced deal"
+            help="The Conspirator is still secret and random, but everyone gets the role about equally."
+            onChange={(v) => {
+              set({ balanced: v });
+            }}
+            testId="rh-balanced"
+          />
+        </Group>
+        <Group title="Topic" testId="rh-group-topic">
+          <TopicField topic={s.topic} editable={host} onSave={(topic) => set({ topic })} />
+        </Group>
+        <Group title="Timers" testId="rh-group-timers">
+          <TimerSettings
+            values={timers}
+            editable={host}
+            clueLabel="Turn timer"
+            clueHelp="Time for the word, each card and the vote."
+            guessLabel="Talk timer"
+            guessHelp="Time to talk it over before the vote. The host starts the vote."
+            strictHelp="a random card is played, the talk ends and the vote starts, or a random vote is cast (the word is never written for anyone)"
+            onChange={(patch) => {
+              set({
+                ...(patch.clueSeconds !== undefined && { turnSeconds: patch.clueSeconds }),
+                ...(patch.guessSeconds !== undefined && { discussSeconds: patch.guessSeconds }),
+                ...(patch.timerMode !== undefined && { timerMode: patch.timerMode }),
+              });
+            }}
+          />
+        </Group>
         <RefusalSlot anchor="rh-lobby" />
       </LobbySettings>
-      <RedHerringLobbySound view={view} room={room} act={act} art={art} />
       {host && (
         <StickyBar>
           <Button
@@ -324,6 +308,26 @@ export function Lobby({
 }
 
 /** The Thematic Game's topic: typed by the host, saved on Enter or leaving the field. */
+/** One group of lobby settings under its own heading. */
+function Group({
+  title,
+  testId,
+  children,
+}: {
+  title: string;
+  testId: string;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-label={title} data-testid={testId} className="space-y-3">
+      <h4 className="flex items-center gap-2 text-xs font-bold tracking-wide text-ink-muted uppercase after:h-px after:flex-1 after:bg-line">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
 function TopicField({
   topic,
   editable,
@@ -366,4 +370,27 @@ function TopicField({
       />
     </label>
   );
+}
+
+/** Every card set as a picker choice: the game's own decks, then each of our picture sets. */
+function setChoices(art: Art, reverie: Parameters<typeof cardSetChoices>[0]): Choice[] {
+  return [
+    {
+      id: 'base',
+      name: art.decks.base,
+      description: 'The original pictures.',
+      count: setById('base')!.cards.length,
+    },
+    {
+      id: 'noir',
+      name: art.decks.noir,
+      description: 'Darker, modern pictures that mix in well.',
+      count: setById('noir')!.cards.length,
+    },
+    ...cardSetChoices(reverie).map((c) => ({
+      ...c,
+      id: OURS_PREFIX + c.id,
+      description: c.description ?? 'Picture cards from our other games, with this game’s back.',
+    })),
+  ];
 }

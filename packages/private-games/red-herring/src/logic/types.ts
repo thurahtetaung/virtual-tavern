@@ -1,11 +1,5 @@
-import {
-  type HostVolumes,
-  PLAYER_COLORS,
-  type PlayerColor,
-  type PlayerId,
-  hostVolumeAction,
-} from '@vt/game-sdk';
-import { ALL_CARDS } from '@vt/private-reverie/cards';
+import { PLAYER_COLORS, type PlayerColor, type PlayerId } from '@vt/game-sdk';
+import { CARD_SETS } from '@vt/private-reverie/cards';
 import { z } from 'zod';
 
 export const MIN_PLAYERS = 4;
@@ -26,7 +20,7 @@ export const MAX_TOPIC = 40;
 export const LEFT_BEAT_MS = 3000;
 export const MIN_TIMER_SECONDS = 10;
 export const MAX_TIMER_SECONDS = 600;
-/** The discussion's reminder by default. */
+/** The talk step's reminder by default. */
 export const DEFAULT_DISCUSS_SECONDS = 180;
 
 // ---- Cards ----
@@ -39,41 +33,70 @@ export const DECKS = {
 export type OwnDeck = keyof typeof DECKS;
 
 /**
- * "Our picture cards" are Reverie's (Starlight's set included), numbered here from `OURS_BASE`
- * on: card `OURS_BASE + n` is Reverie's card `n`.
+ * Our picture cards are Reverie's sets (Starlight's included), numbered here from `OURS_BASE` on:
+ * card `OURS_BASE + n` is Reverie's card `n`. Each set is chosen on its own as `ours-<set id>`.
  */
 export const OURS_BASE = 1000;
-export const OURS_CARDS: readonly number[] = ALL_CARDS.map((n) => OURS_BASE + n);
+export const OURS_PREFIX = 'ours-';
 
 const range = ({ from, to }: { from: number; to: number }) =>
   Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
-export const DECK_CARDS: Record<DeckId, readonly number[]> = {
-  base: range(DECKS.base),
-  noir: range(DECKS.noir),
-  ours: OURS_CARDS,
-};
+/** A card set the host can pick: the game's own decks first, then Reverie's sets. */
+export interface CardSetDef {
+  id: string;
+  cards: readonly number[];
+  /** Reverie's set id, for our picture cards. */
+  reverie?: string;
+}
 
-export type DeckId = OwnDeck | 'ours';
-export const DECK_IDS: readonly DeckId[] = ['base', 'noir', 'ours'];
+export const SETS: readonly CardSetDef[] = [
+  { id: 'base', cards: range(DECKS.base) },
+  { id: 'noir', cards: range(DECKS.noir) },
+  ...CARD_SETS.map((s) => ({
+    id: OURS_PREFIX + s.id,
+    cards: s.cards.map((n) => OURS_BASE + n),
+    reverie: s.id,
+  })),
+];
+export const SET_IDS: readonly string[] = SETS.map((s) => s.id);
+const SET_BY_ID = new Map(SETS.map((s) => [s.id, s]));
+export const setById = (id: string): CardSetDef | undefined => SET_BY_ID.get(id);
+/** Every one of our picture cards' set ids. */
+export const OURS_SET_IDS: readonly string[] = SETS.filter((s) => s.reverie).map((s) => s.id);
 
 /** Reverie's card number for one of our picture cards, or null for the game's own. */
 export const oursCard = (card: number): number | null =>
   card >= OURS_BASE ? card - OURS_BASE : null;
 
-export const deckOf = (card: number): DeckId =>
-  card >= OURS_BASE ? 'ours' : card >= DECKS.noir.from ? 'noir' : 'base';
+/** How a room saved before the per-set picker kept its decks. */
+export interface LegacyDecks {
+  base: boolean;
+  noir: boolean;
+  ours: boolean;
+}
+
+/**
+ * The chosen sets, in picker order. A room saved with the old `decks` switches reads as the
+ * matching list (`ours` was every picture set at once).
+ */
+export function chosenSets(s: { sets?: readonly string[]; decks?: LegacyDecks }): string[] {
+  if (s.sets) return SET_IDS.filter((id) => s.sets!.includes(id));
+  const d = s.decks ?? { base: true, noir: true, ours: false };
+  return SET_IDS.filter((id) => (setById(id)!.reverie ? d.ours : d[id as OwnDeck]));
+}
 
 // ---- Settings ----
 
 export type TimerMode = 'soft' | 'strict';
 export type Scoring = 'rulebook' | 'caught' | 'fun';
 export const SCORINGS: readonly Scoring[] = ['rulebook', 'caught', 'fun'];
-export type SoundMode = 'off' | 'host' | 'all';
-export const SOUND_MODES: readonly SoundMode[] = ['off', 'host', 'all'];
 
 export interface Settings {
-  decks: Record<DeckId, boolean>;
+  /** The chosen card sets (`base`, `noir`, `ours-<Reverie set id>`); read through `chosenSets`. */
+  sets: string[];
+  /** Before the per-set picker; saved rooms may still have it (and no `sets`). */
+  decks?: LegacyDecks;
   /** Everyone picks the word twice, at any table size (under 5 players it's always twice). */
   twice: boolean;
   /** The printed vote: one at a time, clockwise from the word-picker's left, in the open. */
@@ -87,19 +110,13 @@ export interface Settings {
   topic: string;
   /** Seconds for the word, each card play and the vote; null: no timer. */
   turnSeconds: number | null;
-  /** Seconds for each explanation; null: no timer. */
-  talkSeconds: number | null;
-  /** Seconds for the discussion; null: no timer. */
+  /** Seconds for the talk step (a reminder; strict: the vote starts); null: no timer. */
   discussSeconds: number | null;
   timerMode: TimerMode;
-  /** Where the two sound cues play. */
-  sound: SoundMode;
-  /** Whose volume the host's sliders set, and their levels with "Everyone" (`host-volume`). */
-  hostVolumes?: HostVolumes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  decks: { base: true, noir: true, ours: false },
+  sets: ['base', 'noir'],
   twice: false,
   openVote: false,
   noDiscussion: false,
@@ -107,10 +124,8 @@ export const DEFAULT_SETTINGS: Settings = {
   balanced: false,
   topic: '',
   turnSeconds: null,
-  talkSeconds: null,
   discussSeconds: DEFAULT_DISCUSS_SECONDS,
   timerMode: 'soft',
-  sound: 'all',
 };
 
 // ---- State ----
@@ -135,7 +150,8 @@ export interface Play {
   auto?: boolean;
 }
 
-export type Stage = 'card' | 'word' | 'play' | 'explain' | 'discuss' | 'vote' | 'reveal';
+/** `discuss` is the talk step: the word is said, everyone talks, and the host starts the vote. */
+export type Stage = 'card' | 'word' | 'play' | 'discuss' | 'vote' | 'reveal';
 
 export interface RoundResult {
   conspirator: PlayerId;
@@ -159,15 +175,12 @@ export interface Round {
   /** Secret until the reveal: never in a view before it. */
   conspirator: PlayerId | null;
   plays: Play[];
-  /** Whose card play, explanation or (open vote) vote it is. */
+  /** Whose card play or (open vote) vote it is. */
   turn: PlayerId | null;
-  explained: PlayerId[];
   /** Secret votes: voter → accused (only "voted" in views until the reveal). */
   votes: Record<PlayerId, PlayerId>;
   /** Votes made for players (strict timer, Act for, left). */
   autoVotes: PlayerId[];
-  /** Explanations the timer or the host ended. */
-  skipped: PlayerId[];
   /** When the current step began, for its timer. */
   since: number;
   result: RoundResult | null;
@@ -226,10 +239,13 @@ const card = z
   .max(OURS_BASE + 2000);
 
 export const actionSchema = z.discriminatedUnion('type', [
-  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
-    decks: z.object({ base: z.boolean(), noir: z.boolean(), ours: z.boolean() }).optional(),
+    sets: z
+      .array(z.string().min(1).max(40))
+      .max(SETS.length)
+      .refine((ids) => new Set(ids).size === ids.length, 'Card sets must be unique.')
+      .optional(),
     twice: z.boolean().optional(),
     openVote: z.boolean().optional(),
     noDiscussion: z.boolean().optional(),
@@ -237,10 +253,8 @@ export const actionSchema = z.discriminatedUnion('type', [
     balanced: z.boolean().optional(),
     topic: z.string().max(200).optional(),
     turnSeconds: timerSeconds.optional(),
-    talkSeconds: timerSeconds.optional(),
     discussSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
-    sound: z.enum(['off', 'host', 'all']).optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),
@@ -249,8 +263,6 @@ export const actionSchema = z.discriminatedUnion('type', [
   /** A card from your hand onto the table (the word-picker's first card, or your turn's). */
   z.object({ type: z.literal('play'), card }),
   z.object({ type: z.literal('word'), word: z.string().max(200) }),
-  /** The explainer is done (the host may end anyone's explanation). */
-  z.object({ type: z.literal('done') }),
   z.object({ type: z.literal('end-discussion') }),
   z.object({ type: z.literal('vote'), player: id }),
   z.object({ type: z.literal('next-round') }),
@@ -295,14 +307,12 @@ export interface RoundView {
    */
   word: string | null;
   /**
-   * Your notebook (everyone but the word-picker, once the word is written): the word, or a blank
-   * page for the Conspirator. Same shape for every role.
+   * Your notebook (everyone but the word-picker, once the word is written): the word, or `null`
+   * for the Conspirator. Same shape for every role.
    */
   notebook: { word: string | null } | null;
   plays: Play[];
   turn: PlayerId | null;
-  explained: PlayerId[];
-  skipped: PlayerId[];
   /** Who has voted (secret votes stay secret until the reveal). */
   voted: PlayerId[];
   myVote: PlayerId | null;

@@ -19,8 +19,8 @@ export const BOT_WORDS = [
 
 /**
  * A playtest bot, from its own seat's view only. It sits down in the lobby; plays a random card
- * when it's its turn; as word-picker writes a word from a short list; ends its explanation at
- * once (it can't talk); and votes for a random player it may accuse.
+ * when it's its turn; as word-picker writes a word from a short list; and votes for a random
+ * player it may accuse. The talk step is the host's to end.
  */
 export function redHerringBot(view: RedHerringView, ctx: BotCtx): RedHerringAction | null {
   const { me } = ctx;
@@ -39,8 +39,6 @@ export function redHerringBot(view: RedHerringView, ctx: BotCtx): RedHerringActi
     }
     case 'word':
       return r.picker === me ? { type: 'word', word: pickOne(ctx.rng, BOT_WORDS)! } : null;
-    case 'explain':
-      return r.turn === me ? { type: 'done' } : null;
     case 'vote': {
       if (me === r.picker || r.myVote !== null) return null;
       if (view.settings.openVote && r.turn !== me) return null;

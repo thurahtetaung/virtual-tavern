@@ -17,7 +17,6 @@ export function waitingIds(view: RedHerringView): PlayerId[] {
     case 'card':
     case 'word':
     case 'play':
-    case 'explain':
       return r.turn ? [r.turn] : [];
     case 'vote':
       return r.turn ? [r.turn] : r.order.slice(1).filter((id) => !r.voted.includes(id));
@@ -81,17 +80,10 @@ export function statusFor(view: RedHerringView, you: PlayerId, name: NameOf): St
         yourMove: false,
       };
     }
-    case 'explain':
-      return r.turn === you
-        ? {
-            text: 'Your turn to explain: say why your two cards fit the word, then tap Done.',
-            yourMove: true,
-          }
-        : { text: `${name(r.turn)} is explaining their cards.`, yourMove: false };
     case 'discuss':
       return {
         text: inGame
-          ? 'Talk it over: who seems to be bluffing? The host starts the vote.'
+          ? 'Talk it over: say why you played your cards, then who seems to be bluffing. The host starts the vote.'
           : 'The table is talking it over.',
         yourMove: false,
       };

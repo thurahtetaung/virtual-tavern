@@ -13,7 +13,6 @@ import type { GuideFooter } from '@vt/game-sdk';
  *     vp: { "3", "4", "5", back },                       // the point tokens
  *     markers: { blue, green, red, orange, white, yellow, purple, brown }   // player boards
  *   },
- *   sound: { newWord: "sound/new-word.mp3", winner: "sound/winner.mp3" },
  *   guide: { tagline },
  *   credit: "…" | { title, paragraphs: […], links: [{ label, href }] }
  * }
@@ -43,7 +42,6 @@ export interface Manifest {
     vp?: Partial<Record<'3' | '4' | '5' | 'back', string>>;
     markers?: Partial<Record<MarkerColor, string>>;
   };
-  sound?: { newWord?: string; winner?: string };
   guide?: { tagline?: string };
   credit?:
     string | { title?: string; paragraphs?: string[]; links?: { label?: string; href?: string }[] };
@@ -61,13 +59,10 @@ export const assetUrl = (path: string) =>
   `/api/backroom/assets/${GAME_ID}/${path.replace(/^\/+/, '')}`;
 
 /** The decks' names: the manifest's, else plain ones. */
-export function deckNames(
-  m: Manifest | null | undefined,
-): Record<'base' | 'noir' | 'ours', string> {
+export function deckNames(m: Manifest | null | undefined): Record<'base' | 'noir', string> {
   return {
     base: clean(m?.sets?.base?.name) ?? 'Classic deck',
     noir: clean(m?.sets?.noir?.name) ?? 'Noir deck',
-    ours: 'Our picture cards',
   };
 }
 

@@ -67,7 +67,6 @@ export interface Art {
   vp: Partial<Record<'3' | '4' | '5' | 'back', string>>;
   marker: (color: PlayerColor | undefined) => string | null;
   decks: ReturnType<typeof deckNames>;
-  sound: { newWord: string | null; winner: string | null };
 }
 
 const url = (p: unknown) => {
@@ -94,7 +93,6 @@ export function artFor(state: ManifestState): Art {
     vp,
     marker: (color) => (color ? url(c?.markers?.[MARKER_OF[color]]) : null),
     decks: deckNames(m),
-    sound: { newWord: clean(m?.sound?.newWord) ?? null, winner: clean(m?.sound?.winner) ?? null },
   };
 }
 

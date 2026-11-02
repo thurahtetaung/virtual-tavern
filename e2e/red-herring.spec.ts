@@ -2,9 +2,9 @@ import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import {
   accuse,
-  explainAll,
   notebook,
   playLaps,
+  talk,
   roundOrder,
   table,
   writeWord,
@@ -80,12 +80,13 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
     const conspirator = pages[(k + 2) % 4]!;
     await expect(ana.getByTestId('rh-round')).toHaveText(`Round ${k + 1} of 8`);
     await writeWord(picker, `Clue${k + 1}`);
-    // Everyone but the Conspirator reads the word; the Conspirator's page is blank.
+    // Everyone but the Conspirator reads the word; the Conspirator's page has no word.
     if (k < 2)
       for (const p of order.slice(1))
         expect(await notebook(p)).toBe(p === conspirator ? '' : `Clue${k + 1}`);
     await playLaps(order);
-    await explainAll(order, ana);
+    // The talk step: the word for everyone, the Conspirator too, until the host starts the vote.
+    await talk(pages, ana, `Clue${k + 1}`);
     for (const v of order.slice(1)) {
       const i = pages.indexOf(v);
       await accuse(v, NAMES[target(i, k)]!);
@@ -123,25 +124,31 @@ test('4 players: a whole game with the secret vote and the rulebook scoring', as
   await expect(pages[1].getByTestId('rh-rounds').getByRole('listitem')).toHaveCount(8);
 });
 
-test('one round with the options: our picture cards, No Discussion and the open vote', async ({
+test('one round with the options: one picture set, No Discussion and the open vote', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
   await openBackroom(await visitor(browser, 'Admin'));
   const pages = (await table(browser, NAMES)) as [Page, Page, Page, Page];
   const [ana, ben, cy, dee] = pages;
-  // Ours on first: the host can never switch every deck off.
-  await ana.getByTestId('rh-deck-ours').click();
-  await expect(ana.getByTestId('rh-deck-ours')).toHaveAttribute('aria-checked', 'true');
-  await ana.getByTestId('rh-deck-base').click();
-  await expect(ana.getByTestId('rh-deck-base')).toHaveAttribute('aria-checked', 'false');
-  await ana.getByTestId('rh-deck-noir').click();
-  await expect(ana.getByTestId('rh-deck-noir')).toHaveAttribute('aria-checked', 'false');
+  // One of our picture sets on its own: Reverie's first set, without the game's own decks.
+  await ana.getByRole('button', { name: 'Change card sets' }).click();
+  const picker = ana.getByRole('dialog');
+  await picker.getByRole('checkbox', { name: /Classic deck/ }).uncheck();
+  await picker.getByRole('checkbox', { name: /Noir deck/ }).uncheck();
+  await picker.getByRole('checkbox', { name: /^Base set/ }).check();
+  await expect(picker).toContainText('1 set · 84 cards');
+  await picker.getByRole('button', { name: 'Save' }).click();
+  await expect(picker).toBeHidden();
+  const sets = ana.getByTestId('rh-sets');
+  await expect(sets.getByRole('listitem')).toHaveCount(1);
+  await expect(sets).toContainText('Playing with this set (84 cards; 4 players need 64).');
+  await expect(ben.getByTestId('rh-sets')).toContainText('Base set');
   await ana.getByTestId('rh-no-discussion').click();
   await ana.getByTestId('rh-open-vote').click();
   await expect(ana.getByTestId('rh-open-vote')).toHaveAttribute('aria-checked', 'true');
   await ana.getByRole('button', { name: 'Start the game' }).click();
-  // Our picture cards only: Ana's hand starts at the first of them.
+  // That set only: Ana's hand starts at its first card (Reverie's card 0).
   await expect(ana.getByTestId('rh-hand').locator('[data-card="1000"]')).toHaveCount(1);
 
   await writeWord(ana, 'Harbour');

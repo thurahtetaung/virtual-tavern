@@ -2,11 +2,11 @@ import { type Page, expect } from '@playwright/test';
 import { test } from './fixtures.ts';
 import {
   accuse,
-  explainAll,
   localArt,
   playCard,
   playLaps,
   roundOrder,
+  talk,
   table,
   writeWord,
 } from './red-herring-play.ts';
@@ -76,17 +76,12 @@ test('red herring screenshots', async ({ browser }) => {
       await shot(ana, '07-zoom');
       await ana.keyboard.press('Escape');
       for (const p of [...order.slice(3), ...order]) await playCard(p);
-      await expect(ana.getByTestId('rh-spotlight')).toBeVisible();
-      await all('08-explain');
+      await expect(ana.getByTestId('rh-discuss')).toBeVisible();
+      await all('08-talk');
     } else await playLaps(order);
     if (k === 0) {
-      for (const p of order) {
-        await p.getByRole('button', { name: 'Done', exact: true }).click();
-        await expect(p.getByRole('button', { name: 'Done', exact: true })).toHaveCount(0);
-      }
-      await all('09-discuss');
       await ana.getByRole('button', { name: 'Start the vote' }).click();
-    } else await explainAll(order, ana);
+    } else await talk(pages, ana);
     const voters = order.slice(1);
     const conspirator = NAMES[(k + 2) % 4]!;
     for (const [i, v] of voters.entries()) {

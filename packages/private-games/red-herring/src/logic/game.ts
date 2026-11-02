@@ -7,7 +7,6 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
-  hostVolumeChange,
 } from '@vt/game-sdk';
 import { redHerringAwards } from './awards.ts';
 import { redHerringBot } from './bot.ts';
@@ -15,10 +14,7 @@ import { guide } from './guide.ts';
 import { insights } from './insights.ts';
 import {
   CATCH_VOTES,
-  DECK_CARDS,
-  DECK_IDS,
   DEFAULT_SETTINGS,
-  type DeckId,
   type Game,
   HAND_SIZE,
   LEFT_BEAT_MS,
@@ -35,10 +31,13 @@ import {
   type RoundResult,
   type RoundView,
   SEAT_COLORS,
+  SETS,
   type Seat,
   type SeatView,
   type Settings,
   actionSchema,
+  chosenSets,
+  setById,
 } from './types.ts';
 
 type Ctx = ActionCtx;
@@ -59,6 +58,13 @@ export function setTestDeal(offset: number | null) {
 
 // ---- Helpers ----
 
+/**
+ * The round's step. A round saved while players explained one at a time (`explain`, before the
+ * single talk step) reads as the talk.
+ */
+export const stageOf = (r: { stage: Round['stage'] }): Round['stage'] =>
+  (r.stage as string) === 'explain' ? 'discuss' : r.stage;
+
 export function players(state: RedHerringState): PlayerId[] {
   return Object.entries(state.seats).flatMap(([id, s]) => (s.playing ? [id] : []));
 }
@@ -66,9 +72,9 @@ export function players(state: RedHerringState): PlayerId[] {
 /** Rounds in a game: everyone picks the word once, or twice under 5 players or "twice around". */
 export const roundsFor = (n: number, twice: boolean) => n * (twice || n < 5 ? 2 : 1);
 
-/** Every card of the chosen decks. */
-export const poolOf = (decks: Settings['decks']) =>
-  DECK_IDS.filter((d) => decks[d]).flatMap((d) => DECK_CARDS[d]);
+/** Every card of the chosen sets. */
+export const poolOf = (settings: Pick<Settings, 'sets' | 'decks'>) =>
+  chosenSets(settings).flatMap((id) => setById(id)!.cards);
 
 /** Cards a game needs: one for every play, so nobody's hand runs dry once draws stop. */
 export const cardsNeeded = (n: number, twice: boolean) => PLAYS_EACH * n * roundsFor(n, twice);
@@ -83,7 +89,7 @@ function draft(s: RedHerringState): RedHerringState {
   const g = s.game;
   return {
     ...s,
-    settings: { ...s.settings, decks: { ...s.settings.decks } },
+    settings: { ...s.settings, sets: [...chosenSets(s.settings)] },
     seats: { ...s.seats },
     winners: [...s.winners],
     game: g && {
@@ -99,12 +105,11 @@ function draft(s: RedHerringState): RedHerringState {
       history: [...g.history],
       round: {
         ...g.round,
+        ...(g.round.stage !== stageOf(g.round) && { stage: stageOf(g.round), turn: null }),
         order: [...g.round.order],
         plays: [...g.round.plays],
-        explained: [...g.round.explained],
         votes: { ...g.round.votes },
         autoVotes: [...g.round.autoVotes],
-        skipped: [...g.round.skipped],
       },
     },
   };
@@ -130,14 +135,12 @@ export const candidatesFor = (r: Pick<Round, 'order'>, voter: PlayerId) =>
   r.order.slice(1).filter((id) => id !== voter);
 
 function secondsFor(settings: Settings, stage: Round['stage']): number | null {
-  switch (stage) {
+  switch (stageOf({ stage })) {
     case 'card':
     case 'word':
     case 'play':
     case 'vote':
       return settings.turnSeconds;
-    case 'explain':
-      return settings.talkSeconds;
     case 'discuss':
       return settings.discussSeconds;
     case 'reveal':
@@ -165,15 +168,14 @@ function updateSettings(
   const e = requireHost(ctx);
   if (e) return e;
   const settings: Settings = { ...state.settings };
-  // The sound may change at any time; everything else between games.
-  const { type: _t, sound, ...rest } = action;
-  if (sound !== undefined) settings.sound = sound;
-  if (Object.values(rest).some((v) => v !== undefined) && state.phase === 'playing')
+  if (state.phase === 'playing')
     return err('in-progress', 'Settings can only change between games.');
-  if (action.decks) {
-    if (!DECK_IDS.some((d) => action.decks![d]))
-      return err('no-deck', 'Pick at least one deck of cards.');
-    settings.decks = { ...action.decks };
+  if (action.sets) {
+    if (action.sets.some((id) => !setById(id)))
+      return err('unknown-set', 'That card set does not exist.');
+    if (!action.sets.length) return err('no-deck', 'Pick at least one set of cards.');
+    settings.sets = chosenSets({ sets: action.sets });
+    delete settings.decks;
   }
   if (action.twice !== undefined) settings.twice = action.twice;
   if (action.openVote !== undefined) settings.openVote = action.openVote;
@@ -187,7 +189,6 @@ function updateSettings(
     settings.topic = topic;
   }
   if (action.turnSeconds !== undefined) settings.turnSeconds = action.turnSeconds;
-  if (action.talkSeconds !== undefined) settings.talkSeconds = action.talkSeconds;
   if (action.discussSeconds !== undefined) settings.discussSeconds = action.discussSeconds;
   if (action.timerMode !== undefined) settings.timerMode = action.timerMode;
   return { ...state, settings };
@@ -204,25 +205,37 @@ function sit(state: RedHerringState, playing: boolean, ctx: Ctx): Result {
   return { ...state, seats: { ...state.seats, [ctx.by]: { ...seat, playing } } };
 }
 
-const DECK_NAMES: Record<DeckId, string> = {
-  base: 'the Classic deck',
-  noir: 'the Noir deck',
-  ours: 'our picture cards',
-};
+const OWN_NAMES: Record<string, string> = { base: 'the Classic deck', noir: 'the Noir deck' };
+
+/**
+ * Settings as sent: the chosen sets as a list, never the old switches, the old explaining timer
+ * or the sound settings of a room saved before the game went silent.
+ */
+function withSets(settings: Settings): Settings {
+  const {
+    decks: _d,
+    talkSeconds: _t,
+    sound: _s,
+    hostVolumes: _h,
+    ...rest
+  } = settings as Settings & { talkSeconds?: unknown; sound?: unknown; hostVolumes?: unknown };
+  return { ...rest, sets: chosenSets(settings) };
+}
 
 /** Why the host can't start yet, or null. */
 export function startProblem(state: Pick<RedHerringState, 'seats' | 'settings'>): string | null {
   const n = Object.values(state.seats).filter((s) => s.playing).length;
   if (n < MIN_PLAYERS) return `${MIN_PLAYERS} players are needed.`;
   if (n > MAX_PLAYERS) return `At most ${MAX_PLAYERS} can play.`;
-  const { decks, twice } = state.settings;
-  if (!DECK_IDS.some((d) => decks[d])) return 'Pick at least one deck of cards.';
+  const { twice } = state.settings;
+  const sets = chosenSets(state.settings);
+  if (!sets.length) return 'Pick at least one set of cards.';
   const need = cardsNeeded(n, twice);
-  const have = poolOf(decks).length;
+  const have = poolOf(state.settings).length;
   if (have < need) {
-    const add = DECK_IDS.filter((d) => !decks[d]).find((d) => have + DECK_CARDS[d].length >= need);
-    return `${n} players need ${need} cards and the chosen decks have ${have}: ${
-      add ? `add ${DECK_NAMES[add]}` : 'add more decks'
+    const add = SETS.filter((d) => !sets.includes(d.id)).find((d) => have + d.cards.length >= need);
+    return `${n} players need ${need} cards and the chosen sets have ${have}: ${
+      add ? `add ${OWN_NAMES[add.id] ?? 'another picture set'}` : 'add more sets'
     }${twice ? ' or play once around' : ''}.`;
   }
   return null;
@@ -235,7 +248,7 @@ function start(state: RedHerringState, ctx: Ctx): Result {
   const problem = startProblem(state);
   if (problem) return err('cannot-start', problem);
   const seated = players(state);
-  const pool = poolOf(state.settings.decks);
+  const pool = poolOf(state.settings);
   const deck = testDeal ? [...pool] : ctx.rng.shuffle(pool);
   const hands: Record<PlayerId, number[]> = {};
   for (const id of seated) hands[id] = deck.splice(0, HAND_SIZE);
@@ -286,10 +299,8 @@ function newRound(seated: readonly PlayerId[], picker: PlayerId, no: number, now
     conspirator: null,
     plays: [],
     turn: picker,
-    explained: [],
     votes: {},
     autoVotes: [],
-    skipped: [],
     since: now,
     result: null,
   };
@@ -328,8 +339,10 @@ function playCard(s: RedHerringState, g: Game, by: PlayerId, card: number, auto:
   // Everyone has two cards out.
   if (s.settings.noDiscussion) startVote(s, r);
   else {
-    r.stage = 'explain';
-    r.turn = r.order[0]!;
+    // The talk: the word is said, everyone says why they played their cards, the table talks it
+    // over, and the host starts the vote.
+    r.stage = 'discuss';
+    r.turn = null;
   }
 }
 
@@ -388,30 +401,6 @@ function writeWord(s: RedHerringState, by: PlayerId, raw: string, ctx: Ctx): Gam
   r.stage = 'play';
   r.turn = r.order[1]!;
   r.since = ctx.now;
-  return null;
-}
-
-/** The explainer is done (or the host, a timer or their leaving ends it). */
-function finishExplaining(r: Round, skipped: boolean, now: number) {
-  const who = r.turn!;
-  r.explained.push(who);
-  if (skipped) r.skipped.push(who);
-  const next = r.order[r.explained.length];
-  r.since = now;
-  if (next !== undefined) {
-    r.turn = next;
-    return;
-  }
-  r.stage = 'discuss';
-  r.turn = null;
-}
-
-function done(s: RedHerringState, ctx: Ctx): GameError | null {
-  const r = s.game!.round;
-  if (r.stage !== 'explain') return err('wrong-stage', 'Nobody is explaining now.');
-  if (r.turn !== ctx.by && !ctx.isHost)
-    return err('not-your-turn', 'It isn’t your turn to explain.');
-  finishExplaining(r, r.turn !== ctx.by, ctx.now);
   return null;
 }
 
@@ -547,10 +536,6 @@ function autoMove(s: RedHerringState, id: PlayerId, rng: Rng, now: number): bool
       r.since = now;
       return true;
     }
-    case 'explain':
-      if (r.turn !== id) return false;
-      finishExplaining(r, true, now);
-      return true;
     case 'vote': {
       if (r.votes[id] !== undefined || !votersOf(r).includes(id)) return false;
       if (s.settings.openVote && r.turn !== id) return false;
@@ -618,15 +603,6 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
   switch (action.type) {
     case 'update-settings':
       return updateSettings(state, action, ctx);
-    case 'host-volume': {
-      // The host's sliders set their own volume or everyone's, as the host chooses: any time,
-      // mid-game too.
-      const no = requireHost(ctx);
-      if (no) return no;
-      const next = hostVolumeChange(state.settings, action, ctx.now);
-      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
-      return { ...state, settings: { ...state.settings, hostVolumes: next.hostVolumes } };
-    }
     case 'sit':
       return sit(state, action.playing, ctx);
     case 'start':
@@ -643,14 +619,12 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
       });
     case 'word':
       return inPlay(state, ctx, (s) => writeWord(s, ctx.by, action.word, ctx));
-    case 'done':
-      return inPlay(state, ctx, (s) => done(s, ctx));
     case 'end-discussion':
       return inPlay(state, ctx, (s) => {
         const e = requireHost(ctx);
         if (e) return e;
-        if (s.game!.round.stage !== 'discuss')
-          return err('wrong-stage', 'Nobody is discussing now.');
+        if (stageOf(s.game!.round) !== 'discuss')
+          return err('wrong-stage', 'The table isn’t talking now.');
         endDiscussion(s, ctx.now);
         return null;
       });
@@ -731,11 +705,10 @@ type Due = { at: number; why: 'left' | 'timer'; who: PlayerId | null };
 
 /** Who the table is waiting on now. */
 export function waitingOn(r: Pick<Round, 'stage' | 'turn' | 'order' | 'votes'>): PlayerId[] {
-  switch (r.stage) {
+  switch (stageOf(r)) {
     case 'card':
     case 'word':
     case 'play':
-    case 'explain':
       return r.turn ? [r.turn] : [];
     case 'vote':
       return r.turn ? [r.turn] : votersOf(r).filter((v) => r.votes[v] === undefined);
@@ -778,7 +751,7 @@ function onDeadline(state: RedHerringState, now: number): RedHerringState {
   const r = g.round;
   const rng = hiddenRng(state, now);
   if (due.who) autoMove(s, due.who, rng, now);
-  else if (r.stage === 'discuss') endDiscussion(s, now);
+  else if (stageOf(r) === 'discuss') endDiscussion(s, now);
   else if (r.stage === 'vote' && !s.settings.openVote) {
     for (const id of waitingOn(r)) if (g.round.stage === 'vote') autoMove(s, id, rng, now);
   } else {
@@ -793,8 +766,7 @@ function onDeadline(state: RedHerringState, now: number): RedHerringState {
 
 /** Whether the word has been said out loud to the whole table. */
 const wordIsOut = (r: Round, settings: Settings) =>
-  r.stage === 'explain' ||
-  r.stage === 'discuss' ||
+  stageOf(r) === 'discuss' ||
   r.stage === 'reveal' ||
   (r.stage === 'vote' && !settings.noDiscussion);
 
@@ -816,16 +788,14 @@ function roundView(state: RedHerringState, g: Game, viewer: PlayerId | null): Ro
     no: r.no,
     picker: r.picker,
     order: [...r.order],
-    stage: r.stage,
+    stage: stageOf(r),
     word: sees ? r.word : null,
     notebook:
       atTable && viewer !== r.picker && r.word !== null
         ? { word: viewer === r.conspirator ? null : r.word }
         : null,
     plays: r.plays.map((p) => ({ ...p })),
-    turn: r.turn,
-    explained: [...r.explained],
-    skipped: [...r.skipped],
+    turn: stageOf(r) === 'discuss' ? null : r.turn,
     voted: votersOf(r).filter((v) => r.votes[v] !== undefined),
     myVote: viewer === null ? null : (r.votes[viewer] ?? null),
     votes: open ? { ...r.votes } : null,
@@ -846,7 +816,7 @@ function view(state: RedHerringState, viewer: PlayerId | null): RedHerringView {
   const g = state.game;
   return {
     phase: state.phase,
-    settings: { ...state.settings, decks: { ...state.settings.decks } },
+    settings: withSets(state.settings),
     seats,
     me: viewer === null ? null : (seats.find((s) => s.id === viewer) ?? null),
     game: g
