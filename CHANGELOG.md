@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.83.0](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.3...v0.83.0) (2026-11-02)
+
+
+### Features
+
+* **sound:** the host can set everyone's volume, and no music in the lobby ([#507](https://github.com/thurahtetaung/virtual-tavern/issues/507)) ([ca2e753](https://github.com/thurahtetaung/virtual-tavern/commit/ca2e75339f016ef699ae32f17f2a4852cce9295a))
+
 ## [0.82.3](https://github.com/thurahtetaung/virtual-tavern/compare/v0.82.2...v0.82.3) (2026-10-30)
 
 
