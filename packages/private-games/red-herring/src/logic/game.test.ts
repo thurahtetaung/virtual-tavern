@@ -141,12 +141,27 @@ describe('setting up', () => {
     expect(all).toHaveLength(951);
   });
 
-  it('only the host changes settings, and only between games (the sound at any time)', () => {
+  it('only the host changes settings, and only between games', () => {
     const h = startedGame(FOUR);
     expect(h.reject({ type: 'update-settings', twice: true }, 'ana')).toBe('not-host');
     expect(h.reject({ type: 'update-settings', twice: true })).toBe('in-progress');
-    h.act({ type: 'update-settings', sound: 'host' });
-    expect(h.state.settings.sound).toBe('host');
+  });
+
+  it('has no sound: a room saved with sound settings loads, and they never reach a view', () => {
+    const h = harness(FOUR);
+    const saved = {
+      ...h.state,
+      settings: { ...h.state.settings, sound: 'host', hostVolumes: { mode: 'all' } },
+    } as typeof h.state;
+    const v = redHerring.view(saved, HOST);
+    expect('sound' in v.settings).toBe(false);
+    expect('hostVolumes' in v.settings).toBe(false);
+    expect(redHerring.actionSchema.safeParse({ type: 'host-volume', mode: 'all' }).success).toBe(
+      false,
+    );
+    h.state = saved;
+    h.act({ type: 'start' });
+    expect(h.state.phase).toBe('playing');
   });
 });
 

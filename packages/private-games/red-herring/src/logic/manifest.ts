@@ -13,7 +13,6 @@ import type { GuideFooter } from '@vt/game-sdk';
  *     vp: { "3", "4", "5", back },                       // the point tokens
  *     markers: { blue, green, red, orange, white, yellow, purple, brown }   // player boards
  *   },
- *   sound: { newWord: "sound/new-word.mp3", winner: "sound/winner.mp3" },
  *   guide: { tagline },
  *   credit: "…" | { title, paragraphs: […], links: [{ label, href }] }
  * }
@@ -43,7 +42,6 @@ export interface Manifest {
     vp?: Partial<Record<'3' | '4' | '5' | 'back', string>>;
     markers?: Partial<Record<MarkerColor, string>>;
   };
-  sound?: { newWord?: string; winner?: string };
   guide?: { tagline?: string };
   credit?:
     string | { title?: string; paragraphs?: string[]; links?: { label?: string; href?: string }[] };

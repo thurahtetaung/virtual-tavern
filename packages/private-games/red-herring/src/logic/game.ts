@@ -7,7 +7,6 @@ import {
   type PlayerInfo,
   type Rng,
   createRng,
-  hostVolumeChange,
 } from '@vt/game-sdk';
 import { redHerringAwards } from './awards.ts';
 import { redHerringBot } from './bot.ts';
@@ -169,10 +168,7 @@ function updateSettings(
   const e = requireHost(ctx);
   if (e) return e;
   const settings: Settings = { ...state.settings };
-  // The sound may change at any time; everything else between games.
-  const { type: _t, sound, ...rest } = action;
-  if (sound !== undefined) settings.sound = sound;
-  if (Object.values(rest).some((v) => v !== undefined) && state.phase === 'playing')
+  if (state.phase === 'playing')
     return err('in-progress', 'Settings can only change between games.');
   if (action.sets) {
     if (action.sets.some((id) => !setById(id)))
@@ -211,9 +207,18 @@ function sit(state: RedHerringState, playing: boolean, ctx: Ctx): Result {
 
 const OWN_NAMES: Record<string, string> = { base: 'the Classic deck', noir: 'the Noir deck' };
 
-/** Settings as sent: the chosen sets as a list, never the old switches or explaining timer. */
+/**
+ * Settings as sent: the chosen sets as a list, never the old switches, the old explaining timer
+ * or the sound settings of a room saved before the game went silent.
+ */
 function withSets(settings: Settings): Settings {
-  const { decks: _d, talkSeconds: _t, ...rest } = settings as Settings & { talkSeconds?: unknown };
+  const {
+    decks: _d,
+    talkSeconds: _t,
+    sound: _s,
+    hostVolumes: _h,
+    ...rest
+  } = settings as Settings & { talkSeconds?: unknown; sound?: unknown; hostVolumes?: unknown };
   return { ...rest, sets: chosenSets(settings) };
 }
 
@@ -598,15 +603,6 @@ function reduce(state: RedHerringState, action: RedHerringAction, ctx: Ctx): Res
   switch (action.type) {
     case 'update-settings':
       return updateSettings(state, action, ctx);
-    case 'host-volume': {
-      // The host's sliders set their own volume or everyone's, as the host chooses: any time,
-      // mid-game too.
-      const no = requireHost(ctx);
-      if (no) return no;
-      const next = hostVolumeChange(state.settings, action, ctx.now);
-      if (!next) return err('bad-action', 'Choose a slider or whose volume it sets.');
-      return { ...state, settings: { ...state.settings, hostVolumes: next.hostVolumes } };
-    }
     case 'sit':
       return sit(state, action.playing, ctx);
     case 'start':

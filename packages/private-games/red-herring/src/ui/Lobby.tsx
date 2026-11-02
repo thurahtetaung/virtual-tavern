@@ -31,7 +31,6 @@ import {
 } from '../logic/types.ts';
 import type { Art } from './assets.ts';
 import { DrawPile } from './Card.tsx';
-import { RedHerringLobbySound } from './Sound.tsx';
 
 type Act = (action: RedHerringAction, options?: { anchor?: string }) => Promise<boolean>;
 
@@ -291,7 +290,6 @@ export function Lobby({
         </Group>
         <RefusalSlot anchor="rh-lobby" />
       </LobbySettings>
-      <RedHerringLobbySound view={view} room={room} act={act} art={art} />
       {host && (
         <StickyBar>
           <Button

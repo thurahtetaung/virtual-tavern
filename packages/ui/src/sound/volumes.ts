@@ -73,14 +73,13 @@ export const heardVolumes = (v: Volumes, kinds: readonly SoundKind[]): Volumes =
 
 /**
  * How loud a sound type plays on a device where `kinds` play (the sliders it shows): master × its
- * own volume, 0 to 1, with the master at 100 % where only one type plays. Always pass `kinds`:
- * without it the master always counts, as before this rule.
+ * own volume, 0 to 1, with the master at 100 % where only one type plays.
  */
-export const gainOf = (v: Volumes, kind: SoundKind, kinds?: readonly SoundKind[]) =>
-  clamp(kinds ? heardVolumes(v, kinds).master : v.master) * clamp(v[kind]);
+export const gainOf = (v: Volumes, kind: SoundKind, kinds: readonly SoundKind[]) =>
+  clamp(heardVolumes(v, kinds).master) * clamp(v[kind]);
 
 /** Whether a sound type plays at all on a device where `kinds` play. */
-export const audible = (v: Volumes, kind: SoundKind, kinds?: readonly SoundKind[]) =>
+export const audible = (v: Volumes, kind: SoundKind, kinds: readonly SoundKind[]) =>
   gainOf(v, kind, kinds) > 0;
 
 // One shared copy per key, so the lobby's panel, the in-play sheet and the sound hook move together.

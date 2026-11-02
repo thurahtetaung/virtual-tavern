@@ -1,10 +1,4 @@
-import {
-  type HostVolumes,
-  PLAYER_COLORS,
-  type PlayerColor,
-  type PlayerId,
-  hostVolumeAction,
-} from '@vt/game-sdk';
+import { PLAYER_COLORS, type PlayerColor, type PlayerId } from '@vt/game-sdk';
 import { CARD_SETS } from '@vt/private-reverie/cards';
 import { z } from 'zod';
 
@@ -97,8 +91,6 @@ export function chosenSets(s: { sets?: readonly string[]; decks?: LegacyDecks })
 export type TimerMode = 'soft' | 'strict';
 export type Scoring = 'rulebook' | 'caught' | 'fun';
 export const SCORINGS: readonly Scoring[] = ['rulebook', 'caught', 'fun'];
-export type SoundMode = 'off' | 'host' | 'all';
-export const SOUND_MODES: readonly SoundMode[] = ['off', 'host', 'all'];
 
 export interface Settings {
   /** The chosen card sets (`base`, `noir`, `ours-<Reverie set id>`); read through `chosenSets`. */
@@ -121,10 +113,6 @@ export interface Settings {
   /** Seconds for the talk step (a reminder; strict: the vote starts); null: no timer. */
   discussSeconds: number | null;
   timerMode: TimerMode;
-  /** Where the two sound cues play. */
-  sound: SoundMode;
-  /** Whose volume the host's sliders set, and their levels with "Everyone" (`host-volume`). */
-  hostVolumes?: HostVolumes;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -138,7 +126,6 @@ export const DEFAULT_SETTINGS: Settings = {
   turnSeconds: null,
   discussSeconds: DEFAULT_DISCUSS_SECONDS,
   timerMode: 'soft',
-  sound: 'all',
 };
 
 // ---- State ----
@@ -252,7 +239,6 @@ const card = z
   .max(OURS_BASE + 2000);
 
 export const actionSchema = z.discriminatedUnion('type', [
-  hostVolumeAction,
   z.object({
     type: z.literal('update-settings'),
     sets: z
@@ -269,7 +255,6 @@ export const actionSchema = z.discriminatedUnion('type', [
     turnSeconds: timerSeconds.optional(),
     discussSeconds: timerSeconds.optional(),
     timerMode: z.enum(['soft', 'strict']).optional(),
-    sound: z.enum(['off', 'host', 'all']).optional(),
   }),
   z.object({ type: z.literal('sit'), playing: z.boolean() }),
   z.object({ type: z.literal('start') }),

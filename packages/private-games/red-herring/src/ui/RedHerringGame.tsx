@@ -19,7 +19,7 @@ import type { RedHerringAction, RedHerringView } from '../logic/types.ts';
 import { type Art, useArt } from './assets.ts';
 import { DrawPile } from './Card.tsx';
 import { Lobby } from './Lobby.tsx';
-import { RedHerringSoundButton, useCues } from './Sound.tsx';
+import { useTurnBuzz } from './buzz.ts';
 import { Tips } from './Tips.tsx';
 import { Ballot, HandStrip, Notebook, Reveal, Table, WordForm } from './parts.tsx';
 import { type NameOf, statusFor, waitingIds } from './status.ts';
@@ -53,7 +53,7 @@ export function RedHerringGame({
       setYourMove?.(false);
     };
   }, [setYourMove, tabAlert]);
-  useCues(view, art, room.isHost, tabAlert);
+  useTurnBuzz(tabAlert);
 
   const inGame = !!view.game?.players.some((p) => p.id === room.you);
   const watching = !!view.me && (view.phase === 'lobby' ? !view.me.playing : !inGame);
@@ -165,7 +165,6 @@ function Play({ view, room, act, art, name, showGuide }: PartProps & { showGuide
           <Button variant="ghost" size="sm" className="min-h-11" onClick={() => showGuide()}>
             📖<span className="sr-only">Rules</span>
           </Button>
-          <RedHerringSoundButton view={view} room={room} act={act} art={art} />
         </span>
       </div>
       <HostTools view={view} room={room} act={act} art={art} name={name} />
