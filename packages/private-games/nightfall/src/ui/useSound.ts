@@ -1,4 +1,4 @@
-import { DEFAULT_VOLUMES, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
+import { DEFAULT_VOLUMES, type SoundKind, type Volumes, gainOf, useVolumes } from '@vt/ui/sound';
 import { useEffect, useRef, useState } from 'react';
 import type { NightfallView } from '../logic/types.ts';
 import { type Manifest, assetUrl } from './assets.ts';
@@ -56,6 +56,16 @@ export const useNightfallVolumes = () =>
       return null;
     }
   });
+
+/**
+ * The sound types the room plays: music (when the host has it on and there is music) and the
+ * narration. A device that plays the room's sound shows these sliders; with only the narration,
+ * no master shows and the narration slider is the whole volume.
+ */
+export const nightfallKinds = (view: NightfallView, manifest: Manifest | null): SoundKind[] => [
+  ...(view.settings.music && manifest?.music ? ['music' as const] : []),
+  'voice',
+];
 
 // ---- Audio unlock: nothing plays before the player has touched the page ----
 
@@ -187,8 +197,9 @@ export function useSound({
   volumes: Volumes;
 }): { said: Shown | null } {
   const unlocked = useGesture();
-  const voiceGain = gainOf(volumes, 'voice');
-  const musicGain = gainOf(volumes, 'music');
+  const kinds = nightfallKinds(view, manifest);
+  const voiceGain = gainOf(volumes, 'voice', kinds);
+  const musicGain = gainOf(volumes, 'music', kinds);
   // A narration slider at 0 keeps the words on screen and the device quiet.
   const speaks = deviceSpeaks(view.settings.narration, isHost) && voiceGain > 0;
   const narrated = view.settings.narration !== 'off';

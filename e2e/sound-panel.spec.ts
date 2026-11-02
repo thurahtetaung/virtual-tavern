@@ -162,10 +162,18 @@ for (const g of GAMES)
     await expect(hostPanel.getByTestId('sound-host-line')).toContainText('only your own volume');
     await expect(guestPanel.getByTestId('sound-host-mode')).toHaveCount(0);
 
+    // The summary is what the sliders say: the master where it shows, else the one slider (a
+    // hidden master counts as 100 %, so 50 % there is 50 %, not a quarter).
+    const summary = host.getByTestId('lobby-sound-summary');
+    await expect(summary).toHaveText('Your volume: 50 %');
+
     // A volume is the player's own and stays on this device.
     const last = g.host.at(-1)!;
     await host.getByTestId(`sound-slider-${last}`).fill('40');
     await expect(host.getByTestId(`sound-row-${last}`)).toContainText('40 %');
+    await expect(summary).toHaveText(
+      g.host.includes('master') ? 'Your volume: 50 %' : 'Your volume: 40 %',
+    );
     if (process.env.SCREENSHOTS)
       await host.screenshot({ path: test.info().outputPath('panel.png') });
     // Nightfall's guest has no slider to share, so its lobby shot is the host's own section.

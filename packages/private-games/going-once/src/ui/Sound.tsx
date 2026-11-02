@@ -17,7 +17,7 @@ import type { Act } from './act.ts';
 import { GAME_ID, type ManifestState } from './assets.ts';
 import { type AudioManifest, musicLevel, previewClip, soundModeIn } from './audio.ts';
 import { soundEngine } from './engine.ts';
-import { useGoVolumes } from './useSound.ts';
+import { roomKinds, useGoVolumes } from './useSound.ts';
 
 // Going Once's sound panel: the sliders for the sound that plays on this device (the room's music,
 // effects and voice where the host's choice puts them, a player's own tip rings everywhere sound
@@ -83,13 +83,8 @@ export function useGoSound({
   });
   const audio = manifest && manifest !== 'unavailable' ? manifest.audio : undefined;
   const mode = soundModeIn(view.settings, room.stage?.present === true);
-  const roomKinds: SoundKind[] = [
-    'music',
-    'effects',
-    ...(view.settings.voice ? ['voice' as const] : []),
-  ];
   // A phone that doesn't play the room's sound still rings for its own tips.
-  const plan = soundPlan(mode, room.isHost, roomKinds, ['effects']);
+  const plan = soundPlan(mode, room.isHost, roomKinds(view.settings), ['effects']);
   const roomHere = plan.mine.includes('music');
   const contact = view.mine?.contact;
   const host = room.players.find((p) => p.id === room.hostId)?.name ?? 'the host';

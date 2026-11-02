@@ -14,7 +14,7 @@ import {
 import type { Action } from '../logic/types.ts';
 import type { DefuseView } from '../logic/view.ts';
 import type { Art } from './assets.ts';
-import { MUSIC_LEVEL, useDefuseVolumes } from './sound.ts';
+import { BOMB_KINDS, MUSIC_LEVEL, useDefuseVolumes } from './sound.ts';
 
 // Defuse's sound panel: the bomb's music and effects play on the defuser's phone (and a table
 // screen showing it), so those are the phones with sliders; the host sets the table screen's.
@@ -61,7 +61,7 @@ function useDefuseSound({ v, room, art, send, playsBomb, nameOf }: Props): {
   const [table, setTable] = useTableVolumes(v.tableVolumes, (t) => {
     send({ type: 'table-volume', volumes: t });
   });
-  const both: SoundKind[] = ['music', 'effects'];
+  const both = BOMB_KINDS;
   // Between bombs anyone may defuse next, so everyone can set their own.
   const mine = v.stage === 'lobby' || playsBomb ? both : [];
   const stage = room.stage?.present === true;

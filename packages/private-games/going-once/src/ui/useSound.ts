@@ -38,14 +38,37 @@ import { type Saying, soundEngine } from './engine.ts';
 import { GAME_ID } from './assets.ts';
 import {
   DEFAULT_VOLUMES,
+  type SoundKind,
   type Volumes,
+  type WhereMode,
   gainOf,
   legacyDevice,
+  soundPlan,
   tableVolumes,
   useVolumes,
 } from '@vt/ui/sound';
 
 // ---- This player's own volumes (per device) ----
+
+/** The room's sound types: music, effects, and the auctioneer's voice when the host has it on. */
+export const roomKinds = (settings: { voice: boolean }): SoundKind[] => [
+  'music',
+  'effects',
+  ...(settings.voice ? ['voice' as const] : []),
+];
+
+/**
+ * The sound types that play on this device, which are the sliders it shows: the room's where the
+ * room's sound plays (the table screen's are the host's Table screen sliders), else only a
+ * player's own tip rings (effects), where no master shows and that slider is the whole volume.
+ */
+export const deviceKinds = (
+  settings: { voice: boolean },
+  mode: WhereMode,
+  isHost: boolean,
+  isStage = false,
+): SoundKind[] =>
+  isStage ? roomKinds(settings) : soundPlan(mode, isHost, roomKinds(settings), ['effects']).mine;
 
 /** Going Once's sound types: everyone's own sliders, every one at 50 % out of the box. */
 export const VOLUME_DEFAULTS: Volumes = { ...DEFAULT_VOLUMES };
@@ -120,16 +143,17 @@ export function useSound({
     manifest && manifest !== 'unavailable' ? manifest.audio : undefined;
   // Each type plays at this device's volume for it; 0 is off. The host's voice switch also
   // decides whether the auctioneer speaks at all (it sets the pace).
+  const mode = soundModeIn(view.settings, stagePresent);
   const levels = isStage ? tableVolumes(view.settings.tableVolumes) : volumes;
+  const kinds = deviceKinds(view.settings, mode, isHost, isStage);
   const gains = {
-    music: gainOf(levels, 'music'),
-    effects: gainOf(levels, 'effects'),
-    voice: gainOf(levels, 'voice'),
+    music: gainOf(levels, 'music', kinds),
+    effects: gainOf(levels, 'effects', kinds),
+    voice: gainOf(levels, 'voice', kinds),
   };
   const music = gains.music > 0;
   const effects = gains.effects > 0;
   const voice = view.settings.voice && gains.voice > 0;
-  const mode = soundModeIn(view.settings, stagePresent);
   const on = unlocked && mode !== 'off' && !!audio;
   const played = useRef(new Set<string>());
   const [speaking, setSpeaking] = useState(false);

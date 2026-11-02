@@ -16,7 +16,7 @@ import { FRAME_LINES } from '../logic/plan.ts';
 import type { NightfallAction, NightfallView } from '../logic/types.ts';
 import { type Manifest, assetUrl } from './assets.ts';
 import { trackFor } from './audio.ts';
-import { MUSIC_SHARE, useNightfallVolumes } from './useSound.ts';
+import { MUSIC_SHARE, nightfallKinds, useNightfallVolumes } from './useSound.ts';
 
 /** The volumes key, and the game the host's volumes are shared for. */
 export const GAME = 'nightfall';
@@ -50,11 +50,7 @@ function useNightfallSound({
     setVolume,
   );
   const mode = view.settings.narration;
-  const kinds: SoundKind[] = [
-    ...(view.settings.music && manifest?.music ? ['music' as const] : []),
-    'voice',
-  ];
-  const plan = soundPlan(mode, room.isHost, kinds);
+  const plan = soundPlan(mode, room.isHost, nightfallKinds(view, manifest));
   const channels: SoundChannel[] = plan.mine.map((kind) => {
     const src = previewClip(manifest, kind);
     return {

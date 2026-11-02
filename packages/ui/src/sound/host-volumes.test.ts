@@ -6,6 +6,7 @@ import {
   gainOf,
   hostChanges,
   hostLine,
+  tableVolumes,
   takeHostChanges,
 } from './volumes.ts';
 
@@ -119,7 +120,22 @@ describe('a device takes the host’s volumes', () => {
     d.see(room);
     expect(d.volumes.music).toBe(0.6);
     // Sound plays at the device's own master (50 %) × type, now the host's.
-    expect(gainOf(d.volumes, 'music')).toBeCloseTo(0.3);
+    expect(gainOf(d.volumes, 'music', ['music', 'voice'])).toBeCloseTo(0.3);
+  });
+
+  it('in a one-slider game the host’s level is what the player hears', () => {
+    const d = device();
+    // A master from a game that shows one (or the host's) doesn't quieten the only slider.
+    d.see(everyone(['master', 0.2, 1], ['effects', 0.6, 2]));
+    expect(d.volumes.effects).toBe(0.6);
+    expect(gainOf(d.volumes, 'effects', ['effects'])).toBe(0.6);
+    // The table screen follows the host's slider too, and plays at it.
+    const moved = hostVolumeChange(
+      { hostVolumes: { mode: 'all' } },
+      { type: 'host-volume', which: 'effects', level: 0.6 },
+      5_000,
+    )!;
+    expect(gainOf(tableVolumes(moved.tableVolumes), 'effects', ['effects'])).toBe(0.6);
   });
 
   it('a late joiner takes the host’s latest level of each slider', () => {

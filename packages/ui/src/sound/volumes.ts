@@ -9,7 +9,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 // Each player's own volumes for a game's sound, kept on this device (per seat in a playtest): a
 // master and one per sound type, each 0 to 1. A sound plays at master × its type's volume, and 0
-// is off. The host's settings decide where the room's sound plays; these only how loud it is here.
+// is off. The master slider shows only where more than one type plays on a device; where it
+// doesn't, it counts as 100 %, so the one slider a player sees is the real volume. The host's settings decide where the room's sound plays; these only how loud it is here.
 
 export type SoundKind = 'music' | 'effects' | 'voice';
 export type VolumeKey = 'master' | SoundKind;
@@ -60,11 +61,27 @@ export function parseVolumes(
   return out;
 }
 
-/** How loud a sound type plays: master × its own volume, 0 to 1. */
-export const gainOf = (v: Volumes, kind: SoundKind) => clamp(v.master) * clamp(v[kind]);
+/** Whether the master ("All sound") slider shows: only with more than one sound type here. */
+export const masterShown = (kinds: readonly SoundKind[]) => kinds.length > 1;
 
-/** Whether a sound type plays at all on this device. */
-export const audible = (v: Volumes, kind: SoundKind) => gainOf(v, kind) > 0;
+/**
+ * The volumes as they are heard where `kinds` play: a master whose slider isn't shown counts as
+ * 100 %, whatever was stored for it (an older default, a mute from before, or the host's).
+ */
+export const heardVolumes = (v: Volumes, kinds: readonly SoundKind[]): Volumes =>
+  masterShown(kinds) ? v : { ...v, master: 1 };
+
+/**
+ * How loud a sound type plays on a device where `kinds` play (the sliders it shows): master × its
+ * own volume, 0 to 1, with the master at 100 % where only one type plays. Always pass `kinds`:
+ * without it the master always counts, as before this rule.
+ */
+export const gainOf = (v: Volumes, kind: SoundKind, kinds?: readonly SoundKind[]) =>
+  clamp(kinds ? heardVolumes(v, kinds).master : v.master) * clamp(v[kind]);
+
+/** Whether a sound type plays at all on a device where `kinds` play. */
+export const audible = (v: Volumes, kind: SoundKind, kinds?: readonly SoundKind[]) =>
+  gainOf(v, kind, kinds) > 0;
 
 // One shared copy per key, so the lobby's panel, the in-play sheet and the sound hook move together.
 const cache = new Map<string, Volumes>();

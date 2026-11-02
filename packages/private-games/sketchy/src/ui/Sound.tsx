@@ -21,7 +21,7 @@ import {
 } from '../logic/types.ts';
 import { GAME_ID, type ManifestState, manifestOf } from './assets.ts';
 import { type AudioManifest, MUSIC_SHARE, previewClip, soundModeIn } from './audio.ts';
-import { TABLE_DEFAULTS, useSketchyVolumes } from './useSound.ts';
+import { ROOM_KINDS, TABLE_DEFAULTS, useSketchyVolumes } from './useSound.ts';
 
 // Sketchy's sound panel: the sliders for the sound that plays on this device (the room's music,
 // effects and narrator where the host's choice puts them, a phone's own little sounds everywhere
@@ -94,7 +94,7 @@ export function useSketchySound({ view, room, act, manifest }: Props): {
   const announcer = announcerOf(view.settings);
   const mode = soundModeIn(view.settings, room.stage?.present === true);
   // Every phone makes its own little sounds, whoever plays the room's.
-  const plan = soundPlan(mode, room.isHost, ['music', 'effects', 'voice'], ['effects']);
+  const plan = soundPlan(mode, room.isHost, ROOM_KINDS, ['effects']);
   const roomHere = plan.mine.includes('music');
   const host = room.players.find((p) => p.id === room.hostId)?.name ?? 'the host';
   return {
