@@ -13,6 +13,7 @@ merge the Release PR ─▶ tag vX.Y.Z + GitHub Release
                       ─▶ multi-arch image pushed to ghcr.io/thurahtetaung/virtual-tavern
                       ─▶ deploy waits for your approval ─▶ Tailscale + SSH ─▶ scripts/deploy.sh
                       ─▶ DB backup, health check, automatic rollback if the new version is unhealthy
+                      ─▶ old images removed, keeping the newest 5 versions
 ```
 
 ## One-time setup
@@ -173,7 +174,7 @@ All recipes run in `~/virtual-tavern` on the server unless they say otherwise.
 - **Rotate `SESSION_SECRET`:** set a new value in `.env` (`openssl rand -hex 32`), then `docker compose up -d app`. It signs both the admin and the back-room cookies, so everyone signs in and unlocks again.
 - **Change the back-room password, or sign everyone out of it:** open `/tavern-keeper` → **Back room**. Either action invalidates every unlock at once; no restart needed.
 - **Rotate the R2 tokens:** the server's _read_ token lives in `.env` (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`); replace it and `docker compose up -d app`. The _read & write_ upload token lives only on the dev machine in `~/.config/virtual-tavern/r2-upload.env`; replace it there. Revoke the old tokens in the Cloudflare dashboard afterwards.
-- **Deploy or roll back by hand:** `bash deploy.sh X.Y.Z` (the script is copied into the deploy directory). It backs up the database, pulls the image, waits for the health check and rolls back to the previous version if that fails. `DEPLOY_SKIP_PULL=1 bash deploy.sh X.Y.Z` runs a locally built image without pulling.
+- **Deploy or roll back by hand:** `bash deploy.sh X.Y.Z` (the script is copied into the deploy directory). It backs up the database, pulls the image, waits for the health check and rolls back to the previous version if that fails. After a healthy deploy it removes old images, keeping only the newest 5 release versions (and the one it replaced); a rollback prunes nothing. Rolling back to an older version pulls its image again, so it needs the registry to be reachable. `DEPLOY_SKIP_PULL=1 bash deploy.sh X.Y.Z` runs a locally built image without pulling.
 - **List or restore backups:** `docker compose exec app ls -l /data/backups`, then the restore recipe above.
 - **Import question decks** (private trivia and open-question content, never in the repository). From the dev machine, copy the script and the deck folder (`manifest.json` plus one `<slug>.json` per deck, the layout the admin page's question-deck **Download all** writes) to the host, run it there against the app's local port, then delete the copy:
 

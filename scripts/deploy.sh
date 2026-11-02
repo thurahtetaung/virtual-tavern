@@ -14,6 +14,30 @@ set_tag() {
 }
 up() { docker compose up -d --no-deps --wait --wait-timeout 90 app; }
 
+# Release images kept on the server after a successful deploy; older ones are removed (a rollback
+# to one of them pulls it again).
+KEEP_IMAGES="${KEEP_IMAGES:-5}"
+
+# Reads image tags on stdin and prints the release tags (X.Y.Z) to remove: all but the newest
+# $1 by version, never any of the tags named after it.
+stale_tags() {
+  local keep="$1"; shift
+  grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -uV | head -n "-$keep" | grep -vxF -f <(printf '%s\n' "$@") || true
+}
+
+# Removes the app's old release images, keeping the newest $KEEP_IMAGES and the tags given.
+# Other repositories' images are left alone, and a failed removal never fails the deploy.
+prune_images() {
+  local repo tag
+  repo="$(docker compose config --images app 2>/dev/null | head -n 1)"
+  repo="${repo%:*}"
+  [ -n "$repo" ] || return 0
+  docker image ls "$repo" --format '{{.Tag}}' 2>/dev/null | stale_tags "$KEEP_IMAGES" "$@" |
+    while read -r tag; do
+      docker image rm "$repo:$tag" >/dev/null 2>&1 && echo "==> Removed old image $tag" || true
+    done
+}
+
 previous="$(current)"
 echo "==> Deploying $version (currently ${previous:-none})"
 
@@ -40,6 +64,7 @@ set_tag "$version"
 
 if up; then
   echo "==> $version is healthy"
+  prune_images "$version" "$previous" || true
   docker image prune -f >/dev/null
   exit 0
 fi
